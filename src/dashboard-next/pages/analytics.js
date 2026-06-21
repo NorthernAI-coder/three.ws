@@ -6,7 +6,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, esc, relTime, formatUsdc, ApiError } from '../api.js';
-import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { errorStateHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 const RANGES = [
 	{ key: '7d',  days: 7,   label: '7 days',   granularity: 'day' },
@@ -449,7 +449,16 @@ function renderAgentTable(agents, widgets, widgetStats) {
 	panel.className = 'dn-panel';
 
 	if (!agents.length) {
-		panel.innerHTML = `<div class="dn-panel-title">Agent Performance</div><div class="ana-chart-empty">No agents yet. <a href="/dashboard/agents">Create one</a></div>`;
+		panel.innerHTML = `<div class="dn-panel-title">Agent Performance</div>${emptyStateHTML({
+			icon: '🤖',
+			title: 'No agents yet',
+			body: 'Per-agent views, chats, and conversion rates show up here once you have an agent live. Create one to start tracking how it performs.',
+			actions: [
+				{ label: '+ Create your first agent', href: '/dashboard/agents', id: 'create-agent', primary: true },
+				{ label: "What's an agent?", href: '/docs/agents-vs-avatars', id: 'learn-agents' },
+			],
+			compact: true,
+		})}`;
 		return panel;
 	}
 

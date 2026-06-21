@@ -3,6 +3,35 @@
 	"entries": [
 		{
 			"date": "2026-06-21",
+			"title": "Empty pages now guide you instead of going blank",
+			"summary": "Across the dashboard and marketplace, anywhere a list can be empty now explains what belongs there, why it's useful, and the next step — instead of a bare 'No data' line. Your Agents, Avatars, Analytics, Brain, embed policies, the marketplace, and My Agents each greet a fresh account with a short plain-language intro and a clear button to create your first one (plus a 'What's an agent?' link). Filtered searches that return nothing now say so and offer to clear the filter. It's the same designed component everywhere, so the whole platform feels consistent and never abandoned.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/dashboard"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Profiles you can edit — and follow",
+			"summary": "Your three.ws profile at three.ws/u/<your-username> is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.",
+			"tags": [
+				"feature"
+			],
+			"link": "/feed"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Payment hardening and a steadier holder leaderboard",
+			"summary": "Two behind-the-scenes reliability and safety fixes. Agent payment invoices now verify that the wallet paying is actually linked to your account before an invoice is created, closing a gap that let bogus payment requests be generated against any agent. And the $THREE holder leaderboard, its share card, and the token stats panel no longer each kick off a full on-chain holder scan during a traffic spike — one scan now serves everyone and refreshes the shared snapshot, so the leaderboard stays fast and responsive under load. Nothing to do on your end.",
+			"tags": [
+				"security",
+				"fix",
+				"infra"
+			],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-06-21",
 			"title": "Every Forge quality tier now runs on free engines",
 			"summary": "Forge's quality tiers — Draft, Standard, and High — all generate on zero-cost engines now: Draft and Standard on the fast free NVIDIA lane, and High on the higher-fidelity, fully textured free HuggingFace engine. Higher tiers buy you genuinely better geometry and textures, not a different bill behind the scenes. Photo-to-3D at any tier routes straight to a free engine too, so a generation never quietly falls back to a paid lane. The High tier stays a $THREE holder perk (or a one-off pay-per-use) — that's the price of premium quality, not a cost we're passing through.",
 			"tags": [
@@ -5489,6 +5518,15 @@
 				"fix"
 			],
 			"link": "/club"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Clearer empty state on the $THREE live-trades feed",
+			"summary": "Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/three-token"
 		}
 	]
 }

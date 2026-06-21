@@ -1783,6 +1783,70 @@ CREATE TABLE IF NOT EXISTS x_scheduled_posts (
 CREATE INDEX IF NOT EXISTS x_scheduled_posts_pending
     ON x_scheduled_posts(scheduled_at) WHERE published_at IS NULL;
 
+-- ── walk metrics / events / achievements ────────────────────────────────────
+-- See api/_lib/migrations/20260621140000_walk_metrics.sql for the full rationale.
+-- Mirrored here so a clean schema.sql apply provisions the walk leaderboard +
+-- per-creator analytics pipeline. Ingest: POST /api/walk/metrics. Reads:
+-- GET /api/walk/leaderboard and GET /api/walk/analytics.
+create table if not exists walk_metrics (
+    id              bigserial primary key,
+    user_id         uuid references users(id) on delete cascade,
+    anon_id         text,
+    avatar_id       uuid references avatars(id) on delete set null,
+    day             date not null,
+    env_id          text,
+    embed_origin    text,
+    site_hostname   text,
+    distance_meters double precision not null default 0,
+    duration_sec    double precision not null default 0,
+    sessions        integer not null default 0,
+    updated_at      timestamptz not null default now(),
+    created_at      timestamptz not null default now(),
+    constraint walk_metrics_walker_present check (user_id is not null or anon_id is not null)
+);
+create unique index if not exists walk_metrics_rollup_uniq
+    on walk_metrics (
+        coalesce(user_id::text, ''),
+        coalesce(anon_id, ''),
+        day,
+        coalesce(env_id, ''),
+        coalesce(embed_origin, ''),
+        coalesce(avatar_id::text, '')
+    );
+create index if not exists walk_metrics_user_day on walk_metrics (user_id, day) where user_id is not null;
+create index if not exists walk_metrics_anon_day on walk_metrics (anon_id, day) where anon_id is not null;
+create index if not exists walk_metrics_avatar_day on walk_metrics (avatar_id, day) where avatar_id is not null;
+create index if not exists walk_metrics_origin on walk_metrics (avatar_id, embed_origin) where avatar_id is not null;
+
+create table if not exists walk_events (
+    id              bigserial primary key,
+    user_id         uuid references users(id) on delete set null,
+    anon_id         text,
+    avatar_id       uuid references avatars(id) on delete set null,
+    event_name      text not null,
+    value           double precision,
+    embed_origin    text,
+    created_at      timestamptz not null default now()
+);
+create index if not exists walk_events_avatar_time on walk_events (avatar_id, created_at desc) where avatar_id is not null;
+create index if not exists walk_events_avatar_name on walk_events (avatar_id, event_name) where avatar_id is not null;
+
+create table if not exists walk_achievements (
+    id              bigserial primary key,
+    user_id         uuid references users(id) on delete cascade,
+    anon_id         text,
+    code            text not null,
+    unlocked_at     timestamptz not null default now(),
+    constraint walk_achievements_walker_present check (user_id is not null or anon_id is not null)
+);
+create unique index if not exists walk_achievements_uniq
+    on walk_achievements (
+        coalesce(user_id::text, ''),
+        coalesce(anon_id, ''),
+        code
+    );
+create index if not exists walk_achievements_user on walk_achievements (user_id) where user_id is not null;
+
 CREATE TABLE IF NOT EXISTS x_pending_reviews (
     id           uuid        NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id      uuid        NOT NULL REFERENCES users(id) ON DELETE CASCADE,

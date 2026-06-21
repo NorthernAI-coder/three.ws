@@ -144,9 +144,7 @@ export default wrap(async (req, res) => {
 			    where a.user_id = ${user.id} and a.is_public = true and a.deleted_at is null
 			      and m.is_public = true and (m.expires_at is null or m.expires_at > now())) as memories_count,
 			  (select coalesce(sum(view_count), 0)::bigint from widgets
-			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views,
-			  (select count(*)::int from user_follows where following_id = ${user.id}) as followers_count,
-			  (select count(*)::int from user_follows where follower_id = ${user.id}) as following_count
+			    where user_id = ${user.id} and is_public = true and deleted_at is null) as total_widget_views
 		`,
 	]);
 
@@ -256,6 +254,15 @@ export default wrap(async (req, res) => {
 		social[row.provider] = row.username;
 	}
 
+	// Follower/following counts live in their own query so a deploy that lands
+	// before the user_follows migration degrades to zeros rather than 500ing
+	// every public profile (migrate-then-deploy; see api/_lib/bounty-likes.js).
+	const [followCounts] = await sql`
+		select
+			(select count(*)::int from user_follows where following_id = ${user.id}) as followers,
+			(select count(*)::int from user_follows where follower_id = ${user.id}) as following
+	`.catch(() => [{ followers: 0, following: 0 }]);
+
 	const stats = {
 		avatars: statsRow?.avatars_count ?? 0,
 		agents: statsRow?.agents_count ?? 0,
@@ -265,8 +272,8 @@ export default wrap(async (req, res) => {
 		coins: statsRow?.coins_count ?? 0,
 		memories: statsRow?.memories_count ?? 0,
 		widget_views: Number(statsRow?.total_widget_views ?? 0),
-		followers: statsRow?.followers_count ?? 0,
-		following: statsRow?.following_count ?? 0,
+		followers: followCounts?.followers ?? 0,
+		following: followCounts?.following ?? 0,
 	};
 
 	res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');

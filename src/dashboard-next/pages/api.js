@@ -20,7 +20,7 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, del, put, esc, relTime, ApiError } from '../api.js';
-import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
+import { errorStateHTML, emptyStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
 
 // Scopes accepted by /api/keys — match api/keys/index.js ALLOWED_SCOPES exactly.
 const SCOPES = [
@@ -1048,7 +1048,16 @@ function renderPolicy(host, state) {
 					</div>
 					${agents.map((a, i) => renderPolicyRow(a, i)).join('')}
 				</div>`
-				: `<div class="dn-empty"><h3>No agents yet</h3><p>Create an agent before locking down where it can be embedded.</p></div>`}
+				: emptyStateHTML({
+					icon: '🤖',
+					title: 'No agents yet',
+					body: 'Embed policies let you restrict which sites each agent can run on. Create an agent first, then come back to lock down where it can be embedded.',
+					actions: [
+						{ label: '+ Create your first agent', href: '/dashboard/agents', id: 'create-agent', primary: true },
+						{ label: "What's an agent?", href: '/docs/agents-vs-avatars', id: 'learn-agents' },
+					],
+					compact: true,
+				})}
 		</div>
 	`;
 

@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<title>Walk Leaderboard · three.ws</title>
+		<meta name="description" content="The three.ws walk leaderboard — walkers ranked by distance walked, sites visited, and time spent walking, daily, this week, and all-time. Lace up and climb." />
+		<link rel="canonical" href="https://three.ws/walk-leaderboard" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/walk-leaderboard" />
+		<meta property="og:title" content="Walk Leaderboard · three.ws" />
+		<meta property="og:description" content="Walkers ranked by distance walked, sites visited, and time spent walking — daily, weekly, all-time." />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Walk Leaderboard · three.ws" />
+		<meta name="twitter:description" content="Walkers ranked by distance, sites, and time — daily, weekly, all-time." />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<style>
+			.wlb-shell { max-width: 980px; margin: 0 auto; padding: var(--space-lg) var(--space-md) var(--space-2xl); }
+
+			.wlb-hero { padding: var(--space-xl) 0 var(--space-md); }
+			.wlb-kicker {
+				display: inline-flex; align-items: center; gap: var(--space-xs);
+				font: var(--weight-semibold) var(--text-2xs)/1.2 var(--font-mono);
+				letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-text-dim);
+				margin: 0 0 var(--space-sm);
+			}
+			.wlb-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-success); box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 60%, transparent); animation: wlb-pulse 1.8s ease infinite; }
+			@keyframes wlb-pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 55%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } }
+			.wlb-title { font: var(--weight-bold) var(--text-2xl)/1.05 var(--font-display); color: var(--color-text-bright); margin: 0 0 var(--space-sm); letter-spacing: -0.02em; }
+			.wlb-sub { font: var(--weight-regular) var(--text-base)/var(--leading-normal) var(--font-body); color: var(--color-text-dim); margin: 0; max-width: 60ch; }
+
+			.wlb-controls { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; margin: var(--space-lg) 0 var(--space-md); }
+			.wlb-seg { display: inline-flex; gap: var(--space-3xs); padding: var(--space-3xs); background: var(--surface-1); border: 1px solid var(--color-border); border-radius: var(--radius-pill); }
+			.wlb-seg-btn {
+				appearance: none; border: 0; background: transparent; cursor: pointer;
+				padding: var(--space-xs) var(--space-md); border-radius: var(--radius-pill);
+				font: var(--weight-medium) var(--text-md)/1 var(--font-body); color: var(--color-text-dim);
+				transition: color var(--duration-fast) var(--ease-standard), background var(--duration-fast) var(--ease-standard);
+			}
+			.wlb-seg-btn:hover { color: var(--color-text); }
+			.wlb-seg-btn.is-active { background: var(--surface-3); color: var(--color-text-bright); }
+			.wlb-seg-btn:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
+
+			.wlb-board { border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--surface-1); overflow: hidden; }
+			.wlb-head, .wlb-row {
+				display: grid;
+				grid-template-columns: 56px 1fr 120px 110px;
+				align-items: center; gap: var(--space-sm);
+				padding: var(--space-sm) var(--space-md);
+			}
+			.wlb-head { background: var(--surface-2); border-bottom: 1px solid var(--color-border); font: var(--weight-semibold) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-faint); }
+			.wlb-col-num { text-align: right; }
+			.wlb-row { border-bottom: 1px solid var(--color-border); transition: background var(--duration-fast) var(--ease-standard); }
+			.wlb-row:last-child { border-bottom: 0; }
+			.wlb-row:hover { background: var(--surface-2); }
+			.wlb-rank { font: var(--weight-bold) var(--text-md)/1 var(--font-mono); color: var(--color-text-dim); }
+			.wlb-rank.is-top { color: var(--color-text-bright); }
+			.wlb-medal { font-size: 16px; }
+			.wlb-walker { display: flex; align-items: center; gap: var(--space-sm); min-width: 0; }
+			.wlb-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: var(--surface-3); flex: none; border: 1px solid var(--color-border); }
+			.wlb-avatar-fallback { display: flex; align-items: center; justify-content: center; font: var(--weight-semibold) var(--text-sm)/1 var(--font-body); color: var(--color-text-dim); }
+			.wlb-handle { font: var(--weight-medium) var(--text-md)/1.2 var(--font-body); color: var(--color-text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			a.wlb-handle:hover { color: var(--color-text-bright); text-decoration: underline; }
+			.wlb-value { font: var(--weight-semibold) var(--text-md)/1 var(--font-mono); color: var(--color-text-bright); text-align: right; }
+			.wlb-delta { text-align: right; font: var(--weight-medium) var(--text-sm)/1 var(--font-mono); }
+			.wlb-delta.up { color: var(--color-success); }
+			.wlb-delta.down { color: var(--color-danger); }
+			.wlb-delta.flat { color: var(--color-text-faint); }
+
+			.wlb-me { position: sticky; bottom: 0; z-index: 5; margin-top: var(--space-md); border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--color-border)); border-radius: var(--radius-lg); background: var(--surface-3); backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md)); box-shadow: var(--shadow-2); }
+			.wlb-me .wlb-row { border-bottom: 0; }
+			.wlb-me-tag { font: var(--weight-semibold) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-faint); padding: var(--space-xs) var(--space-md) 0; }
+
+			.wlb-loadmore { display: block; margin: var(--space-md) auto 0; appearance: none; cursor: pointer; padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--surface-1); color: var(--color-text); font: var(--weight-medium) var(--text-md)/1 var(--font-body); transition: background var(--duration-fast) var(--ease-standard); }
+			.wlb-loadmore:hover { background: var(--surface-2); }
+			.wlb-loadmore:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
+			.wlb-loadmore[disabled] { opacity: var(--disabled-opacity); cursor: var(--disabled-cursor); }
+
+			/* States */
+			.wlb-state { padding: var(--space-2xl) var(--space-md); text-align: center; }
+			.wlb-state-title { font: var(--weight-semibold) var(--text-lg)/1.2 var(--font-display); color: var(--color-text-bright); margin: 0 0 var(--space-xs); }
+			.wlb-state-msg { font: var(--weight-regular) var(--text-md)/var(--leading-normal) var(--font-body); color: var(--color-text-dim); margin: 0 auto var(--space-md); max-width: 46ch; }
+			.wlb-state .wlb-cta { display: inline-flex; align-items: center; gap: var(--space-xs); padding: var(--space-sm) var(--space-lg); border-radius: var(--radius-md); background: var(--accent); color: #0a0a0a; font: var(--weight-semibold) var(--text-md)/1 var(--font-body); text-decoration: none; transition: opacity var(--duration-fast) var(--ease-standard); }
+			.wlb-state .wlb-cta:hover { opacity: 0.85; }
+
+			.wlb-skel-row { display: grid; grid-template-columns: 56px 1fr 120px 110px; gap: var(--space-sm); align-items: center; padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-border); }
+			.wlb-skel { height: 14px; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: wlb-shimmer 1.4s ease infinite; }
+			.wlb-skel.circle { width: 34px; height: 34px; border-radius: 50%; }
+			@keyframes wlb-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+			@media (prefers-reduced-motion: reduce) { .wlb-skel, .wlb-live-dot { animation: none; } }
+
+			@media (max-width: 640px) {
+				.wlb-head, .wlb-row, .wlb-skel-row { grid-template-columns: 40px 1fr 84px; }
+				.wlb-delta, .wlb-col-delta { display: none; }
+				.wlb-title { font-size: var(--text-xl); }
+			}
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="wlb-shell" aria-labelledby="wlb-title">
+			<section class="wlb-hero">
+				<p class="wlb-kicker"><span class="wlb-live-dot" aria-hidden="true"></span> Gamified · updates live</p>
+				<h1 id="wlb-title" class="wlb-title">Walk Leaderboard</h1>
+				<p class="wlb-sub">Every step your avatar takes on three.ws counts. Ranked by distance walked, sites visited, and time on your feet — today, this week, and all-time.</p>
+			</section>
+
+			<section class="wlb-controls" aria-label="Leaderboard filters">
+				<div class="wlb-seg" role="tablist" aria-label="Time window" id="wlb-period">
+					<button class="wlb-seg-btn" data-period="daily" role="tab" aria-selected="false">Today</button>
+					<button class="wlb-seg-btn is-active" data-period="weekly" role="tab" aria-selected="true">This Week</button>
+					<button class="wlb-seg-btn" data-period="all-time" role="tab" aria-selected="false">All Time</button>
+				</div>
+				<div class="wlb-seg" role="tablist" aria-label="Metric" id="wlb-metric">
+					<button class="wlb-seg-btn is-active" data-metric="distance" role="tab" aria-selected="true">Distance</button>
+					<button class="wlb-seg-btn" data-metric="sites" role="tab" aria-selected="false">Sites</button>
+					<button class="wlb-seg-btn" data-metric="time" role="tab" aria-selected="false">Time</button>
+				</div>
+			</section>
+
+			<section class="wlb-board" aria-label="Ranked walkers" aria-busy="true">
+				<div class="wlb-head" role="row" aria-hidden="true">
+					<span>#</span>
+					<span>Walker</span>
+					<span class="wlb-col-num" id="wlb-metric-label">Distance</span>
+					<span class="wlb-col-num wlb-col-delta">vs. yesterday</span>
+				</div>
+				<div id="wlb-rows" aria-live="polite"></div>
+			</section>
+
+			<button type="button" id="wlb-loadmore" class="wlb-loadmore" hidden>Show more</button>
+
+			<div id="wlb-me-wrap" class="wlb-me" hidden>
+				<div class="wlb-me-tag">Your rank</div>
+				<div id="wlb-me-row"></div>
+			</div>
+		</main>
+
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+
+		<script type="module">
+			const rowsEl = document.getElementById('wlb-rows');
+			const boardEl = rowsEl.closest('.wlb-board');
+			const metricLabelEl = document.getElementById('wlb-metric-label');
+			const loadMoreEl = document.getElementById('wlb-loadmore');
+			const meWrap = document.getElementById('wlb-me-wrap');
+			const meRow = document.getElementById('wlb-me-row');
+			const periodSeg = document.getElementById('wlb-period');
+			const metricSeg = document.getElementById('wlb-metric');
+
+			const METRIC_HEAD = { distance: 'Distance', sites: 'Sites', time: 'Time' };
+			const PAGE = 50;
+			let state = { period: 'weekly', metric: 'distance', offset: 0, total: 0, loading: false };
+
+			const esc = (s) => String(s).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[c]));
+
+			// Stable anon id mirrors src/walk.js so an anonymous walker sees their own
+			// pinned rank here too.
+			function anonId() {
+				try {
+					let id = localStorage.getItem('twx_walk_anon');
+					return id || null;
+				} catch { return null; }
+			}
+
+			function fmtValue(metric, v) {
+				if (metric === 'distance') {
+					return v >= 1000 ? (v / 1000).toFixed(2) + ' km' : Math.round(v) + ' m';
+				}
+				if (metric === 'time') {
+					const s = Math.round(v);
+					if (s >= 3600) return (s / 3600).toFixed(1) + ' h';
+					if (s >= 60) return Math.round(s / 60) + ' min';
+					return s + ' s';
+				}
+				return String(Math.round(v)); // sites
+			}
+
+			function fmtDelta(metric, d) {
+				if (!d) return '<span class="wlb-delta flat">—</span>';
+				const cls = d > 0 ? 'up' : 'down';
+				const sign = d > 0 ? '+' : '−';
+				const abs = Math.abs(d);
+				let body;
+				if (metric === 'distance') body = abs >= 1000 ? (abs / 1000).toFixed(1) + ' km' : Math.round(abs) + ' m';
+				else if (metric === 'time') body = abs >= 60 ? Math.round(abs / 60) + ' min' : Math.round(abs) + ' s';
+				else body = String(Math.round(abs));
+				return `<span class="wlb-delta ${cls}">${sign}${body}</span>`;
+			}
+
+			function medal(rank) {
+				if (rank === 1) return '<span class="wlb-medal" aria-hidden="true">🥇</span>';
+				if (rank === 2) return '<span class="wlb-medal" aria-hidden="true">🥈</span>';
+				if (rank === 3) return '<span class="wlb-medal" aria-hidden="true">🥉</span>';
+				return '';
+			}
+
+			function avatarCell(r) {
+				if (r.avatar) return `<img class="wlb-avatar" src="${esc(r.avatar)}" alt="" loading="lazy" />`;
+				const ch = esc((r.handle || '?').replace(/^@/, '')[0] || '?').toUpperCase();
+				return `<span class="wlb-avatar wlb-avatar-fallback" aria-hidden="true">${ch}</span>`;
+			}
+
+			function rowHtml(r, metric, isMe) {
+				const handle = r.profileUrl
+					? `<a class="wlb-handle" href="${esc(r.profileUrl)}">${esc(r.handle)}</a>`
+					: `<span class="wlb-handle">${esc(r.handle)}${isMe ? ' (you)' : ''}</span>`;
+				const rankCls = r.rank && r.rank <= 3 ? 'wlb-rank is-top' : 'wlb-rank';
+				const rankText = r.rank == null ? '—' : (medal(r.rank) || '#' + r.rank);
+				return `
+					<div class="wlb-row" role="row">
+						<span class="${rankCls}">${rankText}</span>
+						<span class="wlb-walker">${avatarCell(r)} ${handle}</span>
+						<span class="wlb-value">${fmtValue(metric, r.value)}</span>
+						<span class="wlb-col-delta">${fmtDelta(metric, r.deltaFromYesterday)}</span>
+					</div>`;
+			}
+
+			function skeleton() {
+				let h = '';
+				for (let i = 0; i < 8; i++) {
+					h += `<div class="wlb-skel-row"><span class="wlb-skel" style="width:24px"></span><span style="display:flex;align-items:center;gap:10px"><span class="wlb-skel circle"></span><span class="wlb-skel" style="width:120px"></span></span><span class="wlb-skel" style="width:70px;justify-self:end"></span><span class="wlb-skel wlb-col-delta" style="width:50px;justify-self:end"></span></div>`;
+				}
+				rowsEl.innerHTML = h;
+			}
+
+			function showState(title, msg, cta) {
+				rowsEl.innerHTML = `<div class="wlb-state"><p class="wlb-state-title">${esc(title)}</p><p class="wlb-state-msg">${esc(msg)}</p>${cta ? `<a class="wlb-cta" href="${esc(cta.href)}">${esc(cta.label)}</a>` : ''}</div>`;
+			}
+
+			function renderMe(me, metric) {
+				if (!me) { meWrap.hidden = true; return; }
+				meWrap.hidden = false;
+				meRow.innerHTML = rowHtml(me, metric, true);
+			}
+
+			async function load({ reset = true } = {}) {
+				if (state.loading) return;
+				state.loading = true;
+				if (reset) { state.offset = 0; skeleton(); meWrap.hidden = true; }
+				boardEl.setAttribute('aria-busy', 'true');
+				loadMoreEl.disabled = true;
+				const params = new URLSearchParams({ period: state.period, metric: state.metric, limit: String(PAGE), offset: String(state.offset) });
+				const aid = anonId();
+				if (aid) params.set('anonId', aid);
+				try {
+					const res = await fetch('/api/walk/leaderboard?' + params.toString(), { credentials: 'include' });
+					if (!res.ok) throw new Error('HTTP ' + res.status);
+					const data = await res.json();
+					state.total = data.total || 0;
+					const metric = data.metric || state.metric;
+					metricLabelEl.textContent = METRIC_HEAD[metric] || 'Value';
+
+					if (reset && (!data.rows || !data.rows.length)) {
+						showState(
+							'No walkers ranked yet',
+							'Be the first on the board. Take your avatar for a walk and your distance, sites, and time will show up here.',
+							{ href: '/walk', label: 'Start walking →' },
+						);
+						renderMe(data.me && data.me.value > 0 ? data.me : null, metric);
+						return;
+					}
+
+					const html = (data.rows || []).map((r) => rowHtml(r, metric, data.me && r.key === data.me.key)).join('');
+					if (reset) rowsEl.innerHTML = html; else rowsEl.insertAdjacentHTML('beforeend', html);
+
+					state.offset += (data.rows || []).length;
+					loadMoreEl.hidden = !data.hasMore;
+					renderMe(data.me, metric);
+				} catch (err) {
+					if (reset) {
+						const wrap = document.createElement('div');
+						wrap.className = 'wlb-state';
+						wrap.innerHTML = `<p class="wlb-state-title">Couldn't load the leaderboard</p><p class="wlb-state-msg">${esc(err.message || 'Something went wrong.')}</p>`;
+						const btn = document.createElement('button');
+						btn.className = 'wlb-cta';
+						btn.type = 'button';
+						btn.textContent = 'Retry';
+						btn.addEventListener('click', () => load({ reset: true }));
+						wrap.appendChild(btn);
+						rowsEl.replaceChildren(wrap);
+					}
+				} finally {
+					state.loading = false;
+					boardEl.setAttribute('aria-busy', 'false');
+					loadMoreEl.disabled = false;
+				}
+			}
+
+			function bindSeg(seg, key, onChange) {
+				seg.addEventListener('click', (e) => {
+					const btn = e.target.closest('.wlb-seg-btn');
+					if (!btn || btn.classList.contains('is-active')) return;
+					seg.querySelectorAll('.wlb-seg-btn').forEach((b) => { b.classList.remove('is-active'); b.setAttribute('aria-selected', 'false'); });
+					btn.classList.add('is-active');
+					btn.setAttribute('aria-selected', 'true');
+					state[key] = btn.dataset[key];
+					onChange();
+				});
+				// Keyboard: left/right move between tabs.
+				seg.addEventListener('keydown', (e) => {
+					if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+					const btns = [...seg.querySelectorAll('.wlb-seg-btn')];
+					const i = btns.findIndex((b) => b.classList.contains('is-active'));
+					const next = btns[(i + (e.key === 'ArrowRight' ? 1 : btns.length - 1)) % btns.length];
+					next.focus(); next.click();
+					e.preventDefault();
+				});
+			}
+
+			bindSeg(periodSeg, 'period', () => load({ reset: true }));
+			bindSeg(metricSeg, 'metric', () => load({ reset: true }));
+			loadMoreEl.addEventListener('click', () => load({ reset: false }));
+
+			load({ reset: true });
+		</script>
+	</body>
+</html>

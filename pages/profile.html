@@ -707,6 +707,219 @@
 					font-size: 1.1rem;
 				}
 			}
+
+			/* ── Social: banner, bio, actions, edit + follow modals ─────────────── */
+			.up-banner {
+				width: 100%;
+				height: 180px;
+				border-radius: 16px;
+				margin-bottom: -56px;
+				background-size: cover;
+				background-position: center;
+				border: 1px solid rgba(255, 255, 255, 0.08);
+			}
+			.up-banner-pad { padding-top: 64px; }
+
+			.up-pfp {
+				width: 88px;
+				height: 88px;
+				border-radius: 50%;
+				object-fit: cover;
+				border: 3px solid var(--bg-0, #000);
+				background: #0a0a0a;
+				flex-shrink: 0;
+			}
+
+			.up-bio {
+				color: rgba(255, 255, 255, 0.78);
+				font-size: 0.95rem;
+				line-height: 1.55;
+				margin: 0.7rem 0 0;
+				max-width: 52ch;
+				white-space: pre-wrap;
+			}
+			.up-bio-meta {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.4rem 1rem;
+				margin-top: 0.6rem;
+				font-size: 0.82rem;
+				color: rgba(255, 255, 255, 0.45);
+			}
+			.up-bio-meta a { color: #69b7ff; text-decoration: none; }
+			.up-bio-meta a:hover { text-decoration: underline; }
+			.up-bio-meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+
+			.up-actions {
+				display: flex;
+				gap: 0.5rem;
+				margin-top: 0.9rem;
+				flex-wrap: wrap;
+			}
+			.up-action-btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				font-family: inherit;
+				font-size: 0.85rem;
+				font-weight: 500;
+				padding: 0.5rem 1.1rem;
+				border-radius: 999px;
+				cursor: pointer;
+				border: 1px solid rgba(255, 255, 255, 0.18);
+				background: transparent;
+				color: rgba(255, 255, 255, 0.9);
+				transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+			}
+			.up-action-btn:hover { border-color: rgba(255, 255, 255, 0.4); }
+			.up-action-btn--primary {
+				background: #fff;
+				color: #000;
+				border-color: #fff;
+			}
+			.up-action-btn--primary:hover { opacity: 0.85; }
+			.up-action-btn--following {
+				background: transparent;
+				color: rgba(255, 255, 255, 0.9);
+			}
+			.up-action-btn--following:hover {
+				border-color: #ff6b6b;
+				color: #ff6b6b;
+			}
+			.up-action-btn--following:hover .up-follow-label::after { content: 'Unfollow'; }
+			.up-action-btn--following:hover .up-follow-label { font-size: 0; }
+			.up-action-btn--following:hover .up-follow-label::after { font-size: 0.85rem; }
+			.up-action-btn[disabled] { opacity: 0.5; cursor: default; }
+
+			.up-stat--link { cursor: pointer; background: none; border: 0; font-family: inherit; }
+			.up-stat--link:hover .up-stat-num { color: #fff; }
+
+			/* Modals (edit + follow lists) */
+			.up-modal-backdrop {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.7);
+				backdrop-filter: blur(6px);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				z-index: 9999;
+				padding: 1rem;
+			}
+			.up-modal {
+				background: var(--bg-0, #0a0a0a);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 16px;
+				width: 100%;
+				max-width: 460px;
+				max-height: 85vh;
+				overflow-y: auto;
+				color: rgba(255, 255, 255, 0.95);
+				animation: up-modal-in 0.2s ease both;
+			}
+			@keyframes up-modal-in {
+				from { opacity: 0; transform: translateY(10px) scale(0.98); }
+				to { opacity: 1; transform: none; }
+			}
+			.up-modal-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 1.2rem 1.4rem;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+				position: sticky;
+				top: 0;
+				background: var(--bg-0, #0a0a0a);
+			}
+			.up-modal-head h3 { margin: 0; font-weight: 500; font-size: 1.05rem; }
+			.up-modal-close {
+				background: transparent;
+				border: 0;
+				color: rgba(255, 255, 255, 0.5);
+				font-size: 1.5rem;
+				line-height: 1;
+				cursor: pointer;
+			}
+			.up-modal-close:hover { color: #fff; }
+			.up-modal-body { padding: 1.4rem; }
+
+			.up-field { margin-bottom: 1.1rem; }
+			.up-field label {
+				display: block;
+				font-size: 0.8rem;
+				color: rgba(255, 255, 255, 0.55);
+				margin-bottom: 0.4rem;
+			}
+			.up-field input,
+			.up-field textarea {
+				width: 100%;
+				background: #000;
+				color: #fff;
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 9px;
+				padding: 0.65rem 0.85rem;
+				font-size: 0.92rem;
+				font-family: inherit;
+				box-sizing: border-box;
+				transition: border-color 0.15s ease;
+			}
+			.up-field input:focus,
+			.up-field textarea:focus {
+				outline: none;
+				border-color: rgba(255, 255, 255, 0.4);
+			}
+			.up-field textarea { resize: vertical; min-height: 80px; }
+			.up-field-count { float: right; font-size: 0.72rem; color: rgba(255, 255, 255, 0.35); }
+			.up-modal-error {
+				color: #ff7a7a;
+				font-size: 0.82rem;
+				min-height: 1.2em;
+				margin-bottom: 0.6rem;
+			}
+			.up-modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; }
+
+			.up-follow-row {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				padding: 0.7rem 0;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+			}
+			.up-follow-row:last-child { border-bottom: 0; }
+			.up-follow-pfp {
+				width: 40px;
+				height: 40px;
+				border-radius: 50%;
+				object-fit: cover;
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: rgba(255, 255, 255, 0.4);
+				text-decoration: none;
+				flex-shrink: 0;
+				overflow: hidden;
+			}
+			.up-follow-pfp img { width: 100%; height: 100%; object-fit: cover; }
+			.up-follow-info { flex: 1; min-width: 0; }
+			.up-follow-name { color: #fff; text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+			.up-follow-name:hover { text-decoration: underline; }
+			.up-follow-handle { color: rgba(255, 255, 255, 0.4); font-size: 0.8rem; }
+			.up-follow-mini {
+				font-family: inherit;
+				font-size: 0.78rem;
+				font-weight: 500;
+				padding: 0.35rem 0.85rem;
+				border-radius: 999px;
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				background: transparent;
+				color: #fff;
+				cursor: pointer;
+				flex-shrink: 0;
+			}
+			.up-follow-mini[data-following="true"] { color: rgba(255, 255, 255, 0.55); }
+			.up-follow-mini:hover { border-color: rgba(255, 255, 255, 0.45); }
 		</style>
 		<link rel="stylesheet" href="/nav.css" />
 		<link rel="stylesheet" href="/mobile.css" />
@@ -885,6 +1098,7 @@
 		<script type="module">
 			import { mountUserProfile } from '/src/erc8004/user-profile.js';
 			import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
+			import { apiFetch } from '/src/api.js';
 
 			const esc = (s) =>
 				String(s ?? '').replace(
@@ -955,6 +1169,25 @@
 					memories = [],
 				} = data;
 
+				// Who's viewing? Drives the owner-only Edit button vs the Follow button.
+				const viewer = await fetch('/api/auth/me', { credentials: 'include' })
+					.then((r) => (r.ok ? r.json() : null))
+					.then((j) => j?.user || null)
+					.catch(() => null);
+				const isOwner = Boolean(viewer && user.id && viewer.id === user.id);
+
+				// Follow state (only meaningful for a signed-in non-owner viewer).
+				let followState = { following: false, followed_by: false };
+				if (viewer && !isOwner) {
+					followState = await fetch(
+						`/api/users/${encodeURIComponent(user.username)}/follow`,
+						{ credentials: 'include' },
+					)
+						.then((r) => (r.ok ? r.json() : null))
+						.then((j) => j || followState)
+						.catch(() => followState);
+				}
+
 				// Update page meta
 				const display = user.display_name || user.username;
 				const title = `@${user.username} — three.ws`;
@@ -1000,8 +1233,22 @@
 						? `<img src="${attr(heroAvatar.thumbnail_url)}" alt="${attr(heroAvatar?.name || display)}">`
 						: `<div class="up-hero-3d-empty">◎</div>`;
 
-				// Meta line: joined date + social
+				// Meta line: location + website + joined date + social
 				const metaBits = [];
+				if (user.location) {
+					metaBits.push(`<span>
+						<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5m0 7a2 2 0 1 1 0-4 2 2 0 0 1 0 4"/></svg>
+						${esc(user.location)}
+					</span>`);
+				}
+				if (user.website) {
+					let host = user.website;
+					try { host = new URL(user.website).host.replace(/^www\./, ''); } catch {}
+					metaBits.push(`<a href="${attr(user.website)}" target="_blank" rel="noopener nofollow">
+						<svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M6.9 11.1 5.5 9.7a1 1 0 0 0-.3.2l-1 1a2 2 0 1 1-2.8-2.8l1-1a2 2 0 0 1 2.8 0 1 1 0 0 0 1.4-1.4 4 4 0 0 0-5.6 0l-1 1a4 4 0 0 0 5.6 5.6l1-1a1 1 0 0 0 .3-.8zm7.7-9.7a4 4 0 0 0-5.6 0l-1 1a1 1 0 0 0 1.4 1.4l1-1a2 2 0 0 1 2.8 2.8l-1 1a2 2 0 0 1-2.8 0 1 1 0 0 0-1.4 1.4 4 4 0 0 0 5.6 0l1-1a4 4 0 0 0 0-5.6z"/></svg>
+						${esc(host)}
+					</a>`);
+				}
 				if (user.created_at) {
 					const joined = new Date(user.created_at);
 					metaBits.push(
@@ -1035,14 +1282,9 @@
 				const snsPillSlot = `<span id="up-sns-pill"></span><span id="up-pay-slot"></span>`;
 				(async () => {
 					try {
-						const [snsRes, meRes] = await Promise.all([
-							fetch(
-								`/api/threews/subdomain?label=${encodeURIComponent(user.username)}`,
-							),
-							fetch('/api/auth/me', { credentials: 'include' }).catch(() => null),
-						]);
-						const viewerId = meRes?.ok ? (await meRes.json())?.user?.id : null;
-						const isOwner = viewerId && user.id && viewerId === user.id;
+						const snsRes = await fetch(
+							`/api/threews/subdomain?label=${encodeURIComponent(user.username)}`,
+						);
 
 						if (snsRes.ok) {
 							const j = await snsRes.json();
@@ -1168,7 +1410,22 @@
 					});
 				}
 
-				// Stats strip
+				// Stats strip. Followers/Following lead and are clickable (open the
+				// social list modal); the rest are static creation counts.
+				const followStats = [
+					['followers', 'Followers'],
+					['following', 'Following'],
+				]
+					.map(
+						([key, label]) => `
+					<button class="up-stat up-stat--link" type="button" data-follows="${key}">
+						<span class="up-stat-num">${formatStat(stats[key] || 0)}</span>
+						<span class="up-stat-label">${label}</span>
+					</button>
+				`,
+					)
+					.join('');
+
 				const statDefs = [
 					['avatars', 'Avatars'],
 					['agents', 'Agents'],
@@ -1179,16 +1436,19 @@
 					['memories', 'Memories'],
 				];
 				if (stats.widget_views > 0) statDefs.push(['widget_views', 'Widget Views']);
-				const statsHtml = statDefs
-					.map(
-						([key, label]) => `
+				const statsHtml =
+					followStats +
+					statDefs
+						.filter(([key]) => stats[key] > 0)
+						.map(
+							([key, label]) => `
 					<div class="up-stat">
 						<span class="up-stat-num">${formatStat(stats[key] || 0)}</span>
 						<span class="up-stat-label">${label}</span>
 					</div>
 				`,
-					)
-					.join('');
+						)
+						.join('');
 
 				// Tabs: only show those with content; default to first non-empty
 				const tabs = [
@@ -1219,14 +1479,48 @@
 					</div>`
 						: '';
 
+				// Banner + profile picture + bio + actions
+				const bannerHtml = user.banner_url
+					? `<div class="up-banner" style="background-image:url('${attr(user.banner_url)}')"></div>`
+					: '';
+				const pfpHtml = user.avatar_url
+					? `<img class="up-pfp" src="${attr(user.avatar_url)}" alt="${attr(display)}" referrerpolicy="no-referrer">`
+					: '';
+				const bioHtml = user.bio ? `<p class="up-bio">${esc(user.bio)}</p>` : '';
+
+				const followLabel = followState.following
+					? 'Following'
+					: followState.followed_by
+						? 'Follow back'
+						: 'Follow';
+				let actionsHtml = '';
+				if (isOwner) {
+					actionsHtml = `
+						<button class="up-action-btn" id="up-edit-btn" type="button">
+							<svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M11.5 1.5a2.1 2.1 0 0 1 3 3L6 13l-4 1 1-4z"/></svg>
+							Edit profile
+						</button>
+						<a class="up-action-btn" href="/feed">Your feed</a>`;
+				} else if (viewer) {
+					actionsHtml = `<button class="up-action-btn ${followState.following ? 'up-action-btn--following' : 'up-action-btn--primary'}" id="up-follow-btn" type="button" data-following="${followState.following}">
+						<span class="up-follow-label">${esc(followLabel)}</span>
+					</button>`;
+				} else {
+					actionsHtml = `<a class="up-action-btn up-action-btn--primary" href="/login?return=${encodeURIComponent('/u/' + user.username)}">Follow</a>`;
+				}
+
 				rootEl.innerHTML = `
-					<div class="up-hero-rich">
+					${bannerHtml}
+					<div class="up-hero-rich${user.banner_url ? ' up-banner-pad' : ''}">
 						<div class="up-hero-3d">${heroMedia}</div>
 						<div class="up-hero-info">
+							${pfpHtml}
 							<h1 class="up-display-name">${esc(display)}</h1>
 							<p class="up-handle">@${esc(user.username)}</p>
-							${metaBits.length ? `<div class="up-meta-line">${metaBits.join('')}</div>` : ''}
-							<div class="up-pill-row" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+							${bioHtml}
+							${metaBits.length ? `<div class="up-bio-meta">${metaBits.join('')}</div>` : ''}
+							<div class="up-actions">${actionsHtml}</div>
+							<div class="up-pill-row" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-top:.6rem">
 								${walletPill}
 								${snsPillSlot}
 							</div>
@@ -1271,6 +1565,229 @@
 						});
 					});
 				});
+
+				// Follow / unfollow
+				const followBtn = rootEl.querySelector('#up-follow-btn');
+				if (followBtn) {
+					followBtn.addEventListener('click', async () => {
+						const wasFollowing = followBtn.dataset.following === 'true';
+						followBtn.disabled = true;
+						try {
+							const r = await apiFetch(
+								`/api/users/${encodeURIComponent(user.username)}/follow`,
+								{ method: wasFollowing ? 'DELETE' : 'POST', credentials: 'include' },
+							);
+							if (!r.ok) throw new Error('follow failed');
+							const j = await r.json();
+							const nowFollowing = Boolean(j.following);
+							followBtn.dataset.following = String(nowFollowing);
+							followBtn.classList.toggle('up-action-btn--following', nowFollowing);
+							followBtn.classList.toggle('up-action-btn--primary', !nowFollowing);
+							followBtn.querySelector('.up-follow-label').textContent = nowFollowing
+								? 'Following'
+								: j.followed_by
+									? 'Follow back'
+									: 'Follow';
+							// Reflect the new follower count on the strip.
+							const fc = rootEl.querySelector('[data-follows="followers"] .up-stat-num');
+							if (fc && typeof j.followers_count === 'number') {
+								fc.textContent = formatStat(j.followers_count);
+							}
+						} catch {
+							/* leave button as-is; user can retry */
+						} finally {
+							followBtn.disabled = false;
+						}
+					});
+				}
+
+				// Edit profile (owner only)
+				const editBtn = rootEl.querySelector('#up-edit-btn');
+				if (editBtn) editBtn.addEventListener('click', () => openEditModal(user));
+
+				// Followers / following lists
+				rootEl.querySelectorAll('[data-follows]').forEach((btn) => {
+					btn.addEventListener('click', () =>
+						openFollowsModal(user.username, btn.dataset.follows, viewer),
+					);
+				});
+			}
+
+			// ── Edit profile modal ──────────────────────────────────────────────
+			function openEditModal(user) {
+				const fields = [
+					{ key: 'display_name', label: 'Display name', value: user.display_name || '', max: 80 },
+					{ key: 'bio', label: 'Bio', value: user.bio || '', max: 280, textarea: true },
+					{ key: 'location', label: 'Location', value: user.location || '', max: 80, placeholder: 'Where you are' },
+					{ key: 'website', label: 'Website', value: user.website || '', max: 500, placeholder: 'https://…' },
+					{ key: 'avatar_url', label: 'Profile picture URL', value: user.avatar_url || '', max: 500, placeholder: 'https://…' },
+					{ key: 'banner_url', label: 'Banner image URL', value: user.banner_url || '', max: 500, placeholder: 'https://…' },
+				];
+				const body = fields
+					.map((f) => {
+						const counter = f.max
+							? `<span class="up-field-count" data-count-for="${f.key}">${(f.value || '').length}/${f.max}</span>`
+							: '';
+						const input = f.textarea
+							? `<textarea name="${f.key}" maxlength="${f.max}" placeholder="${attr(f.placeholder || '')}">${esc(f.value)}</textarea>`
+							: `<input name="${f.key}" type="text" maxlength="${f.max}" value="${attr(f.value)}" placeholder="${attr(f.placeholder || '')}">`;
+						return `<div class="up-field"><label>${esc(f.label)}${counter}</label>${input}</div>`;
+					})
+					.join('');
+
+				const modal = buildModal('Edit profile', `
+					<div class="up-modal-error" id="up-edit-error"></div>
+					<form id="up-edit-form">
+						${body}
+						<div class="up-modal-actions">
+							<button type="button" class="up-action-btn" data-close>Cancel</button>
+							<button type="submit" class="up-action-btn up-action-btn--primary" id="up-edit-save">Save</button>
+						</div>
+					</form>
+				`);
+
+				// Live char counters
+				modal.querySelectorAll('input[maxlength], textarea[maxlength]').forEach((el) => {
+					el.addEventListener('input', () => {
+						const c = modal.querySelector(`[data-count-for="${el.name}"]`);
+						if (c) c.textContent = `${el.value.length}/${el.getAttribute('maxlength')}`;
+					});
+				});
+
+				const form = modal.querySelector('#up-edit-form');
+				const errEl = modal.querySelector('#up-edit-error');
+				const saveBtn = modal.querySelector('#up-edit-save');
+				form.addEventListener('submit', async (e) => {
+					e.preventDefault();
+					errEl.textContent = '';
+					saveBtn.disabled = true;
+					saveBtn.textContent = 'Saving…';
+					const payload = {};
+					for (const f of fields) {
+						payload[f.key] = (form.elements[f.key].value || '').trim();
+					}
+					try {
+						const r = await apiFetch('/api/auth/profile', {
+							method: 'PATCH',
+							credentials: 'include',
+							headers: { 'content-type': 'application/json' },
+							body: JSON.stringify(payload),
+						});
+						const j = await r.json().catch(() => ({}));
+						if (!r.ok) {
+							errEl.textContent =
+								j.error_description || j.issues?.[0]?.message || 'Could not save changes.';
+							saveBtn.disabled = false;
+							saveBtn.textContent = 'Save';
+							return;
+						}
+						// Reload to reflect the saved profile cleanly.
+						location.reload();
+					} catch {
+						errEl.textContent = 'Network error — try again.';
+						saveBtn.disabled = false;
+						saveBtn.textContent = 'Save';
+					}
+				});
+			}
+
+			// ── Followers / following modal ─────────────────────────────────────
+			async function openFollowsModal(username, type, viewer) {
+				const titles = { followers: 'Followers', following: 'Following' };
+				const modal = buildModal(
+					titles[type] || 'People',
+					`<div id="up-follows-list"><p class="up-empty" style="padding:1rem 0">Loading…</p></div>`,
+				);
+				const listEl = modal.querySelector('#up-follows-list');
+				try {
+					const r = await fetch(
+						`/api/users/${encodeURIComponent(username)}/follows?type=${type}&limit=100`,
+						{ credentials: 'include' },
+					);
+					const j = await r.json();
+					const users = j.users || [];
+					if (!users.length) {
+						listEl.innerHTML = `<p class="up-empty" style="padding:1.5rem 0;text-align:center">${
+							type === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'
+						}</p>`;
+						return;
+					}
+					listEl.innerHTML = users
+						.map((u) => {
+							const pfp = u.avatar_url
+								? `<img src="${attr(u.avatar_url)}" alt="" referrerpolicy="no-referrer">`
+								: '◎';
+							const btn =
+								viewer && !u.is_self
+									? `<button class="up-follow-mini" data-username="${attr(u.username)}" data-following="${u.is_following}">${u.is_following ? 'Following' : 'Follow'}</button>`
+									: '';
+							return `
+								<div class="up-follow-row">
+									<a class="up-follow-pfp" href="/u/${attr(u.username)}">${pfp}</a>
+									<div class="up-follow-info">
+										<a class="up-follow-name" href="/u/${attr(u.username)}">${esc(u.display_name)}</a>
+										<div class="up-follow-handle">@${esc(u.username)}</div>
+									</div>
+									${btn}
+								</div>`;
+						})
+						.join('');
+
+					// In-modal follow toggles
+					listEl.querySelectorAll('.up-follow-mini').forEach((b) => {
+						b.addEventListener('click', async () => {
+							const uname = b.dataset.username;
+							const following = b.dataset.following === 'true';
+							b.disabled = true;
+							try {
+								const rr = await apiFetch(
+									`/api/users/${encodeURIComponent(uname)}/follow`,
+									{ method: following ? 'DELETE' : 'POST', credentials: 'include' },
+								);
+								if (!rr.ok) throw new Error();
+								const jj = await rr.json();
+								b.dataset.following = String(jj.following);
+								b.textContent = jj.following ? 'Following' : 'Follow';
+							} catch {
+								/* retry on next click */
+							} finally {
+								b.disabled = false;
+							}
+						});
+					});
+				} catch {
+					listEl.innerHTML = `<p class="up-empty" style="padding:1.5rem 0;text-align:center">Could not load list.</p>`;
+				}
+			}
+
+			// Shared modal scaffold. Returns the modal element (already in the DOM).
+			function buildModal(title, innerHtml) {
+				document.getElementById('up-modal-backdrop')?.remove();
+				const backdrop = document.createElement('div');
+				backdrop.className = 'up-modal-backdrop';
+				backdrop.id = 'up-modal-backdrop';
+				backdrop.setAttribute('role', 'dialog');
+				backdrop.setAttribute('aria-modal', 'true');
+				backdrop.innerHTML = `
+					<div class="up-modal">
+						<div class="up-modal-head">
+							<h3>${esc(title)}</h3>
+							<button class="up-modal-close" aria-label="Close" data-close>×</button>
+						</div>
+						<div class="up-modal-body">${innerHtml}</div>
+					</div>`;
+				document.body.appendChild(backdrop);
+				const close = () => backdrop.remove();
+				backdrop.addEventListener('click', (e) => {
+					if (e.target === backdrop || e.target.closest('[data-close]')) close();
+				});
+				document.addEventListener('keydown', function onKey(e) {
+					if (e.key === 'Escape') {
+						close();
+						document.removeEventListener('keydown', onKey);
+					}
+				});
+				return backdrop;
 			}
 
 			function formatStat(n) {

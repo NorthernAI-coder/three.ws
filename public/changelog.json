@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T06:17:17.544Z",
+	"generated_at": "2026-06-21T06:29:17.048Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -50,12 +50,32 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Clearer empty state on the $THREE live-trades feed",
+			"summary": "Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.",
+			"link": "/three-token",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Discover and character feeds load faster under heavy traffic",
 			"summary": "The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.",
 			"link": "/discover",
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Empty pages now guide you instead of going blank",
+			"summary": "Across the dashboard and marketplace, anywhere a list can be empty now explains what belongs there, why it's useful, and the next step — instead of a bare 'No data' line. Your Agents, Avatars, Analytics, Brain, embed policies, the marketplace, and My Agents each greet a fresh account with a short plain-language intro and a clear button to create your first one (plus a 'What's an agent?' link). Filtered searches that return nothing now say so and offer to clear the filter. It's the same designed component everywhere, so the whole platform feels consistent and never abandoned.",
+			"link": "/dashboard",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -162,6 +182,18 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Payment hardening and a steadier holder leaderboard",
+			"summary": "Two behind-the-scenes reliability and safety fixes. Agent payment invoices now verify that the wallet paying is actually linked to your account before an invoice is created, closing a gap that let bogus payment requests be generated against any agent. And the $THREE holder leaderboard, its share card, and the token stats panel no longer each kick off a full on-chain holder scan during a traffic spike — one scan now serves everyone and refreshes the shared snapshot, so the leaderboard stays fast and responsive under load. Nothing to do on your end.",
+			"link": "/leaderboard",
+			"tags": [
+				"security",
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Platform-wide hardening: payment integrity, security, and scale",
 			"summary": "A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.",
 			"link": null,
@@ -169,6 +201,16 @@
 				"security",
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Profiles you can edit — and follow",
+			"summary": "Your three.ws profile at three.ws/u/<your-username> is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.",
+			"link": "/feed",
+			"tags": [
+				"feature"
 			]
 		},
 		{

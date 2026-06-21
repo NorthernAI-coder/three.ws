@@ -90,6 +90,7 @@
 		"test:mcp": "node scripts/test-mcp-all.mjs",
 		"audit:pages": "node scripts/audit-page-index.mjs",
 		"audit:handlers": "node scripts/audit-empty-handlers.mjs",
+		"check:images": "node scripts/audit-image-loading.mjs --strict",
 		"audit:web": "node scripts/page-audit.mjs",
 		"snapshot": "node scripts/page-snapshot.mjs",
 		"build:news": "node scripts/build-news.mjs",

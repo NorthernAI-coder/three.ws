@@ -406,8 +406,17 @@ curl "${location.origin}/api/avatar/render" | jq .`,
 		});
 	}
 
-	avatarInput.addEventListener('input', updateUrl);
-	sizeInput.addEventListener('input', updateUrl);
+	// updateUrl() regenerates every code example (HTML, React, Vue, …) from
+	// scratch, so firing it on each keystroke rebuilds all of them per character
+	// and spams the URL preview. Debounce the free-text inputs; the format select
+	// is a discrete change and stays immediate.
+	let _updateTimer;
+	const debouncedUpdate = () => {
+		clearTimeout(_updateTimer);
+		_updateTimer = setTimeout(updateUrl, 150);
+	};
+	avatarInput.addEventListener('input', debouncedUpdate);
+	sizeInput.addEventListener('input', debouncedUpdate);
 	formatSelect.addEventListener('change', updateUrl);
 
 	sceneGrid.addEventListener('click', (e) => {

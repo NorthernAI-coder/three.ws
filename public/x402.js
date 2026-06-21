@@ -667,6 +667,38 @@ const STYLES = `
 	font-size: 11px; color: #5a6378; text-align: center;
 	margin-top: 8px; line-height: 1.4;
 }
+
+.x402-insuff-title { font-size: 16px; font-weight: 700; color: #0f0f0f; letter-spacing: -0.01em; }
+.x402-insuff-sub { font-size: 13px; color: #5a6378; margin-top: 4px; line-height: 1.45; }
+.x402-insuff-actions { display: flex; gap: 8px; margin-top: 12px; }
+.x402-insuff-actions > * { flex: 1; }
+.x402-mini-btn {
+	padding: 9px 12px; background: #ffffff; color: #0f0f0f;
+	border: 1.5px solid #e2e5ec; border-radius: 10px;
+	font-size: 13px; font-weight: 600; font-family: inherit;
+	cursor: pointer; text-align: center; text-decoration: none;
+	display: inline-flex; align-items: center; justify-content: center;
+	transition: border-color 0.12s, background 0.12s;
+}
+.x402-mini-btn:hover { border-color: #0a84ff; background: #f7faff; text-decoration: none; }
+.x402-mini-btn:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+
+.x402-payee { font-size: 12px; color: #8a90a8; text-align: center; margin: 0 0 10px; }
+.x402-payee-addr { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #0a84ff; text-decoration: none; border-bottom: 1px dotted rgba(10,132,255,0.4); }
+.x402-payee-addr:hover { border-bottom-style: solid; text-decoration: none; }
+.x402-payee-addr:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; border-radius: 2px; }
+.x402-trust { font-size: 11px; color: #8a90a8; text-align: center; margin-top: 12px; line-height: 1.45; }
+
+/* Keyboard focus indicator on every interactive control in the money modal. */
+.x402-overlay button:focus-visible,
+.x402-overlay a:focus-visible,
+.x402-overlay input:focus-visible,
+.x402-overlay [tabindex]:focus-visible {
+	outline: 2px solid #0a84ff;
+	outline-offset: 2px;
+	border-radius: 8px;
+}
+.x402-modal:focus { outline: none; }
 .x402-siwx-fallback {
 	font-size: 12px; color: #b45309; line-height: 1.45;
 	padding: 8px 10px; border-radius: 8px;
@@ -825,45 +857,115 @@ class CheckoutModal {
 		const overlay = document.createElement('div');
 		overlay.className = 'x402-overlay';
 		overlay.innerHTML = `
-			<div class="x402-modal" role="dialog" aria-modal="true" aria-label="x402 payment">
+			<div class="x402-modal" role="dialog" aria-modal="true" aria-label="x402 payment" tabindex="-1">
 				<div class="x402-head">
 					<div class="x402-merchant">
 						<div class="x402-name" data-merchant>${escapeHtml(this.opts.merchant || 'Payment')}</div>
 						<div class="x402-action" data-action>${escapeHtml(this.opts.action || 'Pay-per-call')}</div>
 					</div>
-					<button class="x402-close" data-close aria-label="Close">✕</button>
+					<button class="x402-close" data-close aria-label="Close payment">✕</button>
 				</div>
 				<div class="x402-price-row">
 					<div class="x402-price" data-price>—<span class="x402-currency"> USDC</span></div>
 					<div class="x402-network" data-network>resolving…</div>
 				</div>
-				<div class="x402-body" data-body></div>
+				<div class="x402-body" data-body role="status" aria-live="polite"></div>
 				<div class="x402-foot">
 					<span class="x402-secure">x402 · onchain settled</span>
 					<a href="https://three.ws" target="_blank" rel="noopener">Powered by three.ws</a>
 				</div>
 			</div>
 		`;
+		// Remember what to restore focus to when the modal closes.
+		this.previouslyFocused =
+			typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+				? document.activeElement
+				: null;
 		document.body.appendChild(overlay);
 		this.overlay = overlay;
+		this.modalEl = overlay.querySelector('.x402-modal');
 		this.bodyEl = overlay.querySelector('[data-body]');
 		this.priceEl = overlay.querySelector('[data-price]');
 		this.networkEl = overlay.querySelector('[data-network]');
+		// Make the rest of the page inert to AT + tab order while the money modal is
+		// open, so focus can't wander behind it mid-payment. Restored in close().
+		this._inerted = [];
+		for (const child of Array.from(document.body.children)) {
+			if (child !== overlay && !child.hasAttribute('inert')) {
+				child.setAttribute('inert', '');
+				child.setAttribute('aria-hidden', 'true');
+				this._inerted.push(child);
+			}
+		}
 		overlay.querySelector('[data-close]').addEventListener('click', () => this.close('cancelled'));
 		overlay.addEventListener('click', (e) => { if (e.target === overlay) this.close('cancelled'); });
-		this.onKey = (e) => { if (e.key === 'Escape') this.close('cancelled'); };
+		this.onKey = (e) => {
+			if (e.key === 'Escape') { this.close('cancelled'); return; }
+			if (e.key === 'Tab') this._trapTab(e);
+		};
 		document.addEventListener('keydown', this.onKey);
-		requestAnimationFrame(() => overlay.classList.add('x402-open'));
+		requestAnimationFrame(() => {
+			overlay.classList.add('x402-open');
+			this._focusFirst();
+		});
 		return new Promise((resolve, reject) => {
 			this.resolve = resolve;
 			this.reject = reject;
 		});
 	}
 
+	// All tabbable elements currently visible inside the modal.
+	_focusable() {
+		if (!this.modalEl) return [];
+		return Array.from(
+			this.modalEl.querySelectorAll(
+				'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+			),
+		).filter((el) => el.offsetParent !== null || el === document.activeElement);
+	}
+
+	// On open (and after re-renders the caller cares about) land focus on the
+	// primary action — wallet/retry/pay button — rather than the ✕, so keyboard
+	// users reach the thing they came to do first.
+	_focusFirst() {
+		if (!this.modalEl) return;
+		const primary = this.modalEl.querySelector(
+			'[data-wallet]:not([disabled]), [data-retry], .x402-pay-btn:not([disabled])',
+		);
+		(primary || this._focusable()[0] || this.modalEl).focus();
+	}
+
+	// Cycle Tab / Shift+Tab within the modal; pull stray focus back inside.
+	_trapTab(e) {
+		const f = this._focusable();
+		if (!f.length) { e.preventDefault(); this.modalEl.focus(); return; }
+		const first = f[0];
+		const last = f[f.length - 1];
+		const active = document.activeElement;
+		const inside = this.modalEl.contains(active);
+		if (e.shiftKey) {
+			if (active === first || !inside) { e.preventDefault(); last.focus(); }
+		} else if (active === last || !inside) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+
 	close(reason) {
 		if (this.disposed) return;
 		this.disposed = true;
 		document.removeEventListener('keydown', this.onKey);
+		// Un-inert the rest of the page and restore focus to the trigger.
+		if (this._inerted) {
+			for (const el of this._inerted) {
+				el.removeAttribute('inert');
+				el.removeAttribute('aria-hidden');
+			}
+			this._inerted = null;
+		}
+		if (this.previouslyFocused && typeof this.previouslyFocused.focus === 'function') {
+			try { this.previouslyFocused.focus(); } catch (_) { /* element gone — ignore */ }
+		}
 		this.overlay.classList.remove('x402-open');
 		setTimeout(() => this.overlay.remove(), 180);
 		if (reason === 'cancelled' && this.reject) {
@@ -988,11 +1090,26 @@ class CheckoutModal {
 			: '';
 		const givingBox = this.solanaGiving ? this.renderGivingBox(this.solanaGiving) : '';
 		this.givingShown = !!this.solanaGiving;
+		// Trust signal: show WHO the buyer is paying (on-chain recipient) before they
+		// pick a wallet. The primary accept's payTo; link to the address explorer.
+		const payeeAccept = this.accept || solanaAccept || evmAccept;
+		const payTo = payeeAccept?.payTo;
+		const payeeUrl = payTo ? addressExplorerUrl(payeeAccept.network, payTo) : null;
+		const payeeShort = payTo ? `${payTo.slice(0, 6)}…${payTo.slice(-4)}` : '';
+		const payeeBox = payTo
+			? `<div class="x402-payee">Pays to ${
+					payeeUrl
+						? `<a class="x402-payee-addr" href="${payeeUrl}" target="_blank" rel="noopener" title="${escapeHtml(payTo)}">${escapeHtml(payeeShort)} ↗</a>`
+						: `<span class="x402-payee-addr">${escapeHtml(payeeShort)}</span>`
+				}</div>`
+			: '';
 		this.bodyEl.innerHTML = `
 			${this.renderSteps('connect', { discover: 'done' })}
+			${payeeBox}
 			${fallbackBox}
 			${givingBox}
 			<div class="x402-wallet-buttons">${buttons.join('')}</div>
+			<div class="x402-trust">You approve the payment in your own wallet — funds move only when the service runs, settled on-chain.</div>
 		`;
 		const giveEl = this.bodyEl.querySelector('[data-giving]');
 		if (giveEl) giveEl.addEventListener('change', (e) => { this.includeDonation = !!e.target.checked; });
@@ -1057,6 +1174,53 @@ class CheckoutModal {
 			<div class="x402-error-box"><strong>${escapeHtml(stepId)}:</strong> ${escapeHtml(message)}</div>
 			<button class="x402-pay-btn" data-retry>Try again</button>
 		`;
+		this.bodyEl.querySelector('[data-retry]').addEventListener('click', () => this.start());
+	}
+
+	// Dedicated, actionable state for the most common payment failure: the wallet
+	// can't cover the price. Shows needed / balance / shortfall, the connected
+	// wallet (copy + explorer), and a retry that re-runs once the buyer tops up.
+	renderInsufficientFunds(info) {
+		const addr = info.owner || '';
+		const addrShort = addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '—';
+		const viewUrl = addressExplorerUrl(info.network, addr);
+		const netLabel = networkLabel(info.network);
+		const sym = escapeHtml(info.symbol);
+		this.bodyEl.innerHTML = `
+			${this.renderSteps('authorize', {
+				discover: 'done',
+				connect: 'done',
+				authorize: 'error',
+				authorize_meta: 'insufficient funds',
+			})}
+			<div class="x402-insuff-title">Not enough ${sym}</div>
+			<div class="x402-insuff-sub">Add ${sym} to your wallet on ${escapeHtml(netLabel)}, then try again — nothing was charged.</div>
+			<div class="x402-receipt" style="margin-top:12px">
+				<div class="x402-receipt-row"><span class="x402-k">needed</span><span class="x402-v">${escapeHtml(info.required)} ${sym}</span></div>
+				<div class="x402-receipt-row"><span class="x402-k">your balance</span><span class="x402-v">${escapeHtml(info.balance)} ${sym}</span></div>
+				<div class="x402-receipt-row"><span class="x402-k">short by</span><span class="x402-v" style="color:#e5484d;font-weight:700">${escapeHtml(info.shortfall)} ${sym}</span></div>
+				<div class="x402-receipt-row"><span class="x402-k">wallet</span><span class="x402-v">${escapeHtml(addrShort)}</span></div>
+			</div>
+			<div class="x402-insuff-actions">
+				<button class="x402-mini-btn" data-copy type="button" aria-label="Copy wallet address">Copy address</button>
+				${viewUrl ? `<a class="x402-mini-btn" href="${viewUrl}" target="_blank" rel="noopener">View wallet ↗</a>` : ''}
+			</div>
+			<button class="x402-pay-btn" data-retry style="margin-top:10px">I've added funds — try again</button>
+		`;
+		const copyBtn = this.bodyEl.querySelector('[data-copy]');
+		if (copyBtn) {
+			copyBtn.addEventListener('click', async () => {
+				try {
+					await navigator.clipboard.writeText(addr);
+					copyBtn.textContent = 'Copied ✓';
+					setTimeout(() => {
+						copyBtn.textContent = 'Copy address';
+					}, 1500);
+				} catch (_) {
+					/* clipboard blocked — non-fatal */
+				}
+			});
+		}
 		this.bodyEl.querySelector('[data-retry]').addEventListener('click', () => this.start());
 	}
 
@@ -1201,6 +1365,10 @@ class CheckoutModal {
 				browserRollbackReservation(this.spendReservation);
 				this.spendReservation = null;
 			}
+			if (err?.code === 'insufficient_funds') {
+				this.renderInsufficientFunds(err.insufficient);
+				return;
+			}
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
 	}
@@ -1241,6 +1409,8 @@ class CheckoutModal {
 				}
 			}
 
+			this.renderProgress('authorize', { text: 'Checking your balance…' });
+			await assertBalance({ accept, owner: payerAddress, provider: eth });
 			this.renderProgress('authorize', { text: `Authorize ${formatAmount(accept.amount)} USDC…` });
 
 			// EIP-3009 transferWithAuthorization typed-data signature.
@@ -1314,6 +1484,10 @@ class CheckoutModal {
 			if (this.spendReservation) {
 				browserRollbackReservation(this.spendReservation);
 				this.spendReservation = null;
+			}
+			if (err?.code === 'insufficient_funds') {
+				this.renderInsufficientFunds(err.insufficient);
+				return;
 			}
 			this.renderError(this.payerAddress ? 'authorize' : 'connect', friendlyError(err));
 		}
@@ -1734,6 +1908,7 @@ function readOptsFrom(el) {
 }
 
 export function init() {
+	if (typeof document === 'undefined') return;
 	document.querySelectorAll('[data-x402-endpoint]').forEach(bindElement);
 }
 

@@ -392,6 +392,7 @@ function isEligibleLink(e) {
 
 let _clickHandler = null;
 let _getAvatarEl = null;
+let _onNavStart = null;
 
 function onClickCapture(e) {
 	if (!transitionsEnabled()) return; // honour the toggle; native nav proceeds
@@ -400,7 +401,16 @@ function onClickCapture(e) {
 	const url = isEligibleLink(e);
 	if (!url) return;
 	// Take ownership of the navigation so we can play the themed cover first.
+	// Because we run in the capture phase *and* preventDefault, the SDK
+	// companion's own _onLinkClick (task 32: wave + greet flag) would otherwise
+	// bail on `e.defaultPrevented`. So we drive that behaviour explicitly via the
+	// onNavStart hook — exactly once, no double-trigger.
 	e.preventDefault();
+	try {
+		_onNavStart?.(url);
+	} catch {
+		/* greeting is a nicety — never let it block navigation */
+	}
 	runTransition(url, { x: e.clientX, y: e.clientY }, _getAvatarEl);
 }
 
@@ -449,11 +459,15 @@ function syncToggleVisual(btn) {
  *        element used by the camera-zoom-into-avatar preset.
  * @param {() => (HTMLElement|null)} [opts.getHostEl]  returns the companion host
  *        for injecting the settings toggle (defaults to getAvatarEl).
+ * @param {(destUrl: URL) => void} [opts.onNavStart]  called once when a themed
+ *        navigation begins, so the caller can reproduce the task-32 wave + greet
+ *        flag the SDK's own link handler would have run.
  * @returns {() => void} uninstall function.
  */
-export function installTransitions({ getAvatarEl, getHostEl } = {}) {
+export function installTransitions({ getAvatarEl, getHostEl, onNavStart } = {}) {
 	if (typeof document === 'undefined') return () => {};
 	_getAvatarEl = typeof getAvatarEl === 'function' ? getAvatarEl : () => null;
+	_onNavStart = typeof onNavStart === 'function' ? onNavStart : null;
 
 	// Idempotent: a re-mount (playground return) shouldn't double-bind.
 	if (!_clickHandler) {

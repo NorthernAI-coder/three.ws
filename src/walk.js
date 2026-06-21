@@ -2148,6 +2148,11 @@ function tick() {
 	// 6. Update minimap
 	updateMinimapFrame();
 
+	// 7. Accumulate walk metrics (distance + session time) for the leaderboard
+	//    and per-creator analytics. Reads the resolved horizontal displacement
+	//    this frame; flushes on a timer + pagehide (see the walk-metrics block).
+	accumulateWalkMetrics(dt);
+
 	renderer.render(scene, camera);
 	requestAnimationFrame(tick);
 }
@@ -2157,6 +2162,290 @@ function lerpAngle(a, b, t) {
 	let diff = ((b - a + Math.PI) % (Math.PI * 2)) - Math.PI;
 	if (diff < -Math.PI) diff += Math.PI * 2;
 	return a + diff * t;
+}
+
+// ── Walk metrics (leaderboard + per-creator analytics) ─────────────────────
+//
+// Accumulates the two signals the leaderboard (task 39) and embed analytics
+// (task 40) rank/aggregate on — horizontal distance travelled and time spent
+// actually walking — straight from the controller's resolved per-frame
+// displacement, and flushes a compact batch to POST /api/walk/metrics every
+// ~60s plus once on pagehide (sendBeacon, so it survives the unload). The same
+// batch carries any achievement thresholds crossed this session so the server
+// awards each badge exactly once.
+//
+// Attribution: a signed-in session is resolved server-side from the request
+// cookie; anonymous walkers are attributed by a stable, locally-persisted
+// anonymous id so they still appear on the leaderboard. The avatar in use and
+// the current environment ride along so a creator's analytics attribute walks
+// to the right avatar and the "all environments" badge can be detected.
+const WALK_METRICS_ENDPOINT = '/api/walk/metrics';
+const WALK_ANON_KEY = 'twx_walk_anon';
+const WALK_ACHIEVED_KEY = 'twx_walk_achieved';
+const WALK_FLUSH_INTERVAL_MS = 60_000;
+
+// Stable anonymous walker id — generated once and persisted, so an unauthenticated
+// walker accrues a continuous track record across sessions/visits.
+function getWalkAnonId() {
+	try {
+		let id = localStorage.getItem(WALK_ANON_KEY);
+		if (!id) {
+			id =
+				typeof crypto !== 'undefined' && crypto.randomUUID
+					? `anon_${crypto.randomUUID()}`
+					: `anon_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+			localStorage.setItem(WALK_ANON_KEY, id);
+		}
+		return id;
+	} catch {
+		// Private mode / storage disabled — fall back to a per-page id so the batch
+		// is still attributable (just not continuous across reloads).
+		if (!getWalkAnonId._mem) {
+			getWalkAnonId._mem = `anon_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+		}
+		return getWalkAnonId._mem;
+	}
+}
+
+// The avatar whose walks we attribute. Seeded from ?avatar and kept in sync when
+// the in-page picker swaps avatars (see the picker block, which calls
+// setWalkMetricsAvatarId). Only forwarded when it is a real UUID — the default
+// avatar has no id.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let walkMetricsAvatarId = (() => {
+	const id = new URLSearchParams(location.search).get('avatar');
+	return id && UUID_RE.test(id) ? id : null;
+})();
+function setWalkMetricsAvatarId(id) {
+	walkMetricsAvatarId = id && UUID_RE.test(id) ? id : null;
+}
+
+// Per-session accumulators. `pending*` hold metrics earned since the last flush;
+// `session*` hold lifetime-of-session totals used for achievement thresholds and
+// the distinct-environment set.
+const walkMetrics = {
+	pendingDistance: 0, // metres since last flush
+	pendingDuration: 0, // seconds of walking since last flush
+	sessionDistance: 0, // metres this session (for the 1 km / 5 km badges)
+	sessionEnvs: new Set(), // distinct environments walked in this session
+	prevX: null,
+	prevZ: null,
+	counted: false, // whether this session has produced any metric yet (session count)
+	sessionFlushed: false, // the single session count has been sent
+};
+
+// Locally-remembered unlocked achievements so a toast fires only on the crossing,
+// not on every subsequent flush. The server is the source of truth for awarding;
+// this just gates the UI + avoids re-sending.
+function loadAchievedSet() {
+	try {
+		const raw = localStorage.getItem(WALK_ACHIEVED_KEY);
+		return new Set(raw ? JSON.parse(raw) : []);
+	} catch {
+		return new Set();
+	}
+}
+function persistAchievedSet(set) {
+	try {
+		localStorage.setItem(WALK_ACHIEVED_KEY, JSON.stringify([...set]));
+	} catch {
+		/* storage disabled — toasts still fire from the in-memory set */
+	}
+}
+const walkAchieved = loadAchievedSet();
+// Achievements crossed this session but not yet flushed to the server.
+const walkPendingAchievements = new Set();
+
+const WALK_ACHIEVEMENTS = [
+	{ code: 'distance_1km', label: '1 km walked', test: () => walkMetrics.sessionDistance >= 1000 },
+	{ code: 'distance_5km', label: '5 km walked', test: () => walkMetrics.sessionDistance >= 5000 },
+	{
+		code: 'all_environments',
+		label: 'Walked in all 6 environments',
+		test: () => walkMetrics.sessionEnvs.size >= 6,
+	},
+];
+
+function checkWalkAchievements() {
+	for (const a of WALK_ACHIEVEMENTS) {
+		if (walkAchieved.has(a.code)) continue;
+		if (!a.test()) continue;
+		walkAchieved.add(a.code);
+		walkPendingAchievements.add(a.code);
+		persistAchievedSet(walkAchieved);
+		showAchievementToast(a.label);
+	}
+}
+
+// Lightweight, self-contained achievement toast. Uses design-token colours via
+// inline custom-property reads so it stays on-brand without a dedicated stylesheet
+// (the walk page is canvas-first and ships no toast component).
+let walkToastHost = null;
+function showAchievementToast(label) {
+	try {
+		if (!walkToastHost) {
+			walkToastHost = document.createElement('div');
+			walkToastHost.className = 'walk-toast-host';
+			walkToastHost.setAttribute('aria-live', 'polite');
+			walkToastHost.style.cssText =
+				'position:fixed;left:50%;top:calc(env(safe-area-inset-top,0) + 18px);transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+			document.body.appendChild(walkToastHost);
+		}
+		const el = document.createElement('div');
+		el.className = 'walk-toast';
+		el.setAttribute('role', 'status');
+		el.style.cssText =
+			'display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:999px;' +
+			'background:rgba(17,17,17,0.92);border:1px solid rgba(255,215,0,0.45);' +
+			'color:#fafafa;font:600 13px/1.2 var(--font-body,Inter,system-ui,sans-serif);' +
+			'box-shadow:0 8px 32px rgba(0,0,0,0.5);backdrop-filter:blur(16px);' +
+			'-webkit-backdrop-filter:blur(16px);opacity:0;transform:translateY(-8px);' +
+			'transition:opacity .22s ease,transform .22s ease;';
+		el.innerHTML = `<span aria-hidden="true" style="font-size:16px;line-height:1">🏆</span><span>Achievement unlocked · ${esc(label)}</span>`;
+		walkToastHost.appendChild(el);
+		requestAnimationFrame(() => {
+			el.style.opacity = '1';
+			el.style.transform = 'translateY(0)';
+		});
+		setTimeout(() => {
+			el.style.opacity = '0';
+			el.style.transform = 'translateY(-8px)';
+			el.addEventListener('transitionend', () => el.remove(), { once: true });
+		}, 4200);
+	} catch {
+		/* DOM unavailable — non-fatal; the unlock is still flushed to the server */
+	}
+}
+
+// Called once per frame from the render loop. Integrates horizontal displacement
+// into distance and accumulates walking time whenever the avatar is moving.
+function accumulateWalkMetrics(dt) {
+	if (!avatar) return;
+	const x = avatarRig.position.x;
+	const z = avatarRig.position.z;
+	if (walkMetrics.prevX === null) {
+		walkMetrics.prevX = x;
+		walkMetrics.prevZ = z;
+		return;
+	}
+	const dx = x - walkMetrics.prevX;
+	const dz = z - walkMetrics.prevZ;
+	walkMetrics.prevX = x;
+	walkMetrics.prevZ = z;
+	const stepped = Math.hypot(dx, dz);
+	// Ignore teleports/world-swaps (a single frame moving > 5 m is not a walk) and
+	// sub-millimetre jitter so a standing avatar accrues no phantom distance.
+	const moving = currentMotion === 'walk' || currentMotion === 'run';
+	if (stepped > 0.001 && stepped < 5 && moving) {
+		walkMetrics.pendingDistance += stepped;
+		walkMetrics.sessionDistance += stepped;
+		walkMetrics.pendingDuration += dt;
+		if (!walkMetrics.counted) walkMetrics.counted = true;
+		if (currentEnvName) walkMetrics.sessionEnvs.add(currentEnvName);
+		checkWalkAchievements();
+	}
+}
+
+// Build the flush payload (or null if there's nothing to send). `final` marks the
+// pagehide flush, which counts the session exactly once.
+function buildWalkMetricsBatch({ final = false } = {}) {
+	const distance = walkMetrics.pendingDistance;
+	const duration = walkMetrics.pendingDuration;
+	const achievements = [...walkPendingAchievements];
+	// Count the session once, on the first flush that carries real movement.
+	const session = walkMetrics.counted && !walkMetrics.sessionFlushed ? 1 : 0;
+	if (distance <= 0 && duration <= 0 && !achievements.length && session === 0) return null;
+	return {
+		distanceMeters: Math.round(distance * 100) / 100,
+		durationSec: Math.round(duration * 10) / 10,
+		sessions: session,
+		envId: currentEnvName || null,
+		avatarId: walkMetricsAvatarId || undefined,
+		anonId: getWalkAnonId(),
+		achievements,
+		_final: final,
+	};
+}
+
+// Flush via fetch (keepalive) on the interval; via sendBeacon on pagehide so the
+// last batch survives the unload. Resets the pending accumulators on dispatch.
+function flushWalkMetrics({ beacon = false } = {}) {
+	const batch = buildWalkMetricsBatch({ final: beacon });
+	if (!batch) return;
+	const final = batch._final;
+	delete batch._final;
+	const body = JSON.stringify(batch);
+
+	let sent = false;
+	if (beacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+		try {
+			sent = navigator.sendBeacon(
+				WALK_METRICS_ENDPOINT,
+				new Blob([body], { type: 'application/json' }),
+			);
+		} catch {
+			sent = false;
+		}
+	}
+	if (!sent) {
+		fetch(WALK_METRICS_ENDPOINT, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body,
+			credentials: 'include',
+			keepalive: true,
+		}).catch(() => {
+			/* metrics are best-effort; never surface a flush failure to the walker */
+		});
+	}
+
+	// Reset pending counters now that the batch is dispatched. The session is
+	// marked flushed once its single count has been sent.
+	walkMetrics.pendingDistance = 0;
+	walkMetrics.pendingDuration = 0;
+	if (batch.sessions > 0) walkMetrics.sessionFlushed = true;
+	walkPendingAchievements.clear();
+}
+
+// Fire a creator-defined conversion event for the embed analytics dashboard.
+// Posts immediately (events are sparse, unlike the batched metric flush) and is
+// attributed server-side to the current avatar + walker the same way metrics are.
+//   window.ThreeWalkAvatar.track('subscribe', { value: 9 })
+function trackWalkEvent(eventName, opts = {}) {
+	const name = typeof eventName === 'string' ? eventName.trim().slice(0, 64) : '';
+	if (!name) return;
+	const value = typeof opts.value === 'number' && Number.isFinite(opts.value) ? opts.value : undefined;
+	const body = JSON.stringify({
+		eventName: name,
+		value,
+		avatarId: walkMetricsAvatarId || undefined,
+		anonId: getWalkAnonId(),
+	});
+	fetch(WALK_METRICS_ENDPOINT, {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body,
+		credentials: 'include',
+		keepalive: true,
+	}).catch(() => {
+		/* event tracking is best-effort */
+	});
+}
+
+function startWalkMetrics() {
+	// Expose the embed SDK tracking API. Idempotent — merges onto any existing
+	// global so a host page that defined a stub before load keeps working.
+	window.ThreeWalkAvatar = Object.assign(window.ThreeWalkAvatar || {}, {
+		track: trackWalkEvent,
+	});
+	setInterval(() => flushWalkMetrics({ beacon: false }), WALK_FLUSH_INTERVAL_MS);
+	// pagehide is the reliable unload signal on mobile Safari + modern browsers;
+	// visibilitychange→hidden covers tab-switch/app-background where pagehide may
+	// not fire. Both route through the beacon path.
+	window.addEventListener('pagehide', () => flushWalkMetrics({ beacon: true }));
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') flushWalkMetrics({ beacon: true });
+	});
 }
 
 // ── Multiplayer ───────────────────────────────────────────────────────────
@@ -3629,6 +3918,9 @@ loadAvatar()
 	.then(async () => {
 		requestAnimationFrame(tick);
 		startNet();
+		// Begin the leaderboard / analytics metrics pipeline: per-frame distance +
+		// time accumulate in the tick loop; this starts the 60s + pagehide flush.
+		startWalkMetrics();
 		// Stage the world: manifest → ?env / saved / default scene (terrain set
 		// synchronously, scenery + HDR streamed in). Degrades to the default
 		// ground/lighting if the manifest can't be reached.
@@ -3750,6 +4042,7 @@ if (import.meta.env?.DEV) {
 				.forEach((b) => b.classList.remove('is-active'));
 			btn.classList.add('is-active');
 			currentAvatarId = btn.dataset.avatarId || null;
+			setWalkMetricsAvatarId(currentAvatarId);
 
 			setStatus('Switching avatar...');
 			try {

@@ -311,7 +311,7 @@ function startElapsed() {
 			if (els.genProgress) els.genProgress.dataset.over = String(over);
 			els.genMeta.innerHTML = over
 				? `Elapsed <strong>${s}s</strong> · longer than usual, still working`
-				: `Elapsed <strong>${s}s</strong> · ~${typical}s typical`;
+				: `Elapsed <strong>${s}s</strong> · ~${Math.max(1, typical - s)}s left`;
 		} else {
 			// Unknown duration — the bar travels (indeterminate) and we report only
 			// the honest elapsed count.
@@ -1349,6 +1349,17 @@ async function startJob({ prompt, imageUrls, skipValidation, payment }) {
 		e.gate = data;
 		throw e;
 	}
+	// Free lane shed this request at the fleet concurrency cap — an influx of
+	// demand, not the user's quota. Recoverable with a short auto-retry, framed as
+	// "high demand" rather than a failure the user caused. (provider_busy comes
+	// from an explicit free-engine pick at capacity; free_lane_unavailable from the
+	// Spaces chain being briefly all-down.)
+	if (data.error === 'provider_busy' || data.error === 'free_lane_unavailable') {
+		const e = new Error(data.message || 'The free 3D engines are at capacity right now.');
+		e.kind = 'busy';
+		e.retryAfter = Number(data.retry_after) > 0 ? Math.ceil(Number(data.retry_after)) : 15;
+		throw e;
+	}
 	if (!res.ok) {
 		throw new Error(data.message || `The generator returned ${res.status}.`);
 	}
@@ -1809,7 +1820,7 @@ function stopRateLimitCountdown() {
 	}
 }
 
-function showRateLimited({ retryAfter = 10, unavailable = false }) {
+function showRateLimited({ retryAfter = 10, unavailable = false, busy = false }) {
 	stopElapsed();
 	stopRateLimitCountdown();
 	if (els.generateAnyway) els.generateAnyway.classList.add('is-hidden');
@@ -1821,9 +1832,11 @@ function showRateLimited({ retryAfter = 10, unavailable = false }) {
 	if (els.refineLocally) els.refineLocally.classList.toggle('is-hidden', !canRefineLocally);
 
 	let remaining = Math.max(1, Math.ceil(retryAfter));
-	const base = unavailable
-		? 'The generator is temporarily unavailable.'
-		: 'You’ve hit the generation limit.';
+	const base = busy
+		? 'High demand — the free 3D engines are all busy right now.'
+		: unavailable
+			? 'The generator is temporarily unavailable.'
+			: 'You’ve hit the generation limit.';
 	const tail = canRefineLocally ? ' Or refine your current model now — instant and unlimited.' : '';
 
 	const render = () => {
@@ -1993,6 +2006,13 @@ async function run(cfg) {
 		// recoverable state with a live countdown + the local-refine escape hatch.
 		if (err.kind === 'rate_limited') {
 			showRateLimited({ retryAfter: err.retryAfter, unavailable: err.unavailable });
+			return;
+		}
+		// Free lane at capacity under load — same recoverable countdown UI, framed as
+		// high demand. Auto-retry lands the user in line as slots free up, and the
+		// local-refine escape hatch still applies when a model is already on screen.
+		if (err.kind === 'busy') {
+			showRateLimited({ retryAfter: err.retryAfter, busy: true });
 			return;
 		}
 		// High-tier $THREE gate: open the designed upsell (Get $THREE / what you hold

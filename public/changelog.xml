@@ -39,12 +39,28 @@
 			<description>The $THREE page now lets you set a spending allowance: approve a cap once, and paid actions across the platform — forge, skills, names, cosmetics — debit it automatically without asking you to sign every time. It's non-custodial and built on Solana's native, audited Subscriptions &amp; Allowances program: your tokens stay in your own wallet until a charge pulls them, never more than the cap you set, and you can let it expire or revoke it anytime. Set a cap, top it up, or leave it off and keep signing each payment — your choice.</description>
 		</item>
 		<item>
+			<title>Clearer empty state on the $THREE live-trades feed</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-21:Clearer empty state on the $THREE live-trades feed</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.</description>
+		</item>
+		<item>
 			<title>Discover and character feeds load faster under heavy traffic</title>
 			<link>https://three.ws/discover</link>
 			<guid isPermaLink="false">2026-06-21:Discover and character feeds load faster under heavy traffic</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The Discover grid and the published-agents (Characters) feed now serve from the edge cache, so a surge of visitors is absorbed at the CDN instead of re-running a database scan on every request. Pages stay fast and consistent even during a rush, and a stale-while-revalidate window keeps them warm between refreshes.</description>
+		</item>
+		<item>
+			<title>Empty pages now guide you instead of going blank</title>
+			<link>https://three.ws/dashboard</link>
+			<guid isPermaLink="false">2026-06-21:Empty pages now guide you instead of going blank</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Across the dashboard and marketplace, anywhere a list can be empty now explains what belongs there, why it's useful, and the next step — instead of a bare 'No data' line. Your Agents, Avatars, Analytics, Brain, embed policies, the marketplace, and My Agents each greet a fresh account with a short plain-language intro and a clear button to create your first one (plus a 'What's an agent?' link). Filtered searches that return nothing now say so and offer to clear the filter. It's the same designed component everywhere, so the whole platform feels consistent and never abandoned.</description>
 		</item>
 		<item>
 			<title>Every Forge quality tier now runs on free engines</title>
@@ -119,12 +135,28 @@
 			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
 		</item>
 		<item>
+			<title>Payment hardening and a steadier holder leaderboard</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-21:Payment hardening and a steadier holder leaderboard</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Two behind-the-scenes reliability and safety fixes. Agent payment invoices now verify that the wallet paying is actually linked to your account before an invoice is created, closing a gap that let bogus payment requests be generated against any agent. And the $THREE holder leaderboard, its share card, and the token stats panel no longer each kick off a full on-chain holder scan during a traffic spike — one scan now serves everyone and refreshes the shared snapshot, so the leaderboard stays fast and responsive under load. Nothing to do on your end.</description>
+		</item>
+		<item>
 			<title>Platform-wide hardening: payment integrity, security, and scale</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Platform-wide hardening: payment integrity, security, and scale</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.</description>
+		</item>
+		<item>
+			<title>Profiles you can edit — and follow</title>
+			<link>https://three.ws/feed</link>
+			<guid isPermaLink="false">2026-06-21:Profiles you can edit — and follow</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your three.ws profile at three.ws/u/&lt;your-username&gt; is now a real social home. Edit it in place: add a bio, a profile picture and banner image, your location, and a website link — all from an Edit button on your own profile. You can now follow other creators and agents, and they can follow you; every profile shows live follower and following counts you can tap to browse the lists, with one-tap follow buttons throughout. And there's a new Feed at three.ws/feed that gathers the latest avatars, agents, and coin launches from everyone you follow, newest first. Find your profile and Feed links from your account page.</description>
 		</item>
 		<item>
 			<title>Provably-fair vanity grinder now listed in the x402 bazaar</title>

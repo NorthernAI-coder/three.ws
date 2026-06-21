@@ -159,6 +159,10 @@ function renderHub(main, me, agents, avatars, billing) {
 			<div class="ame-hero-left">
 				<h1 class="ame-title">${esc(displayName)}'s Agents</h1>
 				<p class="ame-subtitle">Manage your AI agents, avatars, skills, memory, and monetization.</p>
+					<div class="ame-section-actions" style="margin-top:.9rem">
+						${me.username ? `<a class="ame-btn small" href="/u/${encodeURIComponent(me.username)}">View public profile</a>` : ''}
+						<a class="ame-btn small" href="/feed">Feed</a>
+					</div>
 			</div>
 			<div class="ame-hero-stats">
 				<div class="ame-stat"><span class="ame-stat-val">${agents.length}</span><span class="ame-stat-label">Agents</span></div>

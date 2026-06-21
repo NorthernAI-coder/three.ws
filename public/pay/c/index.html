@@ -229,8 +229,10 @@
 			$('description').style.display = '';
 		}
 		const payBtn = $('payBtn');
-		payBtn.textContent = `Pay · ${sku.action_name}`;
-		payBtn.disabled = false;
+		// Stay disabled until loadPrice() confirms a real price + ≥1 payable network.
+		// Never let a buyer click Pay before they can see what they'd be charged.
+		payBtn.textContent = 'Loading price…';
+		payBtn.disabled = true;
 		payBtn.addEventListener('click', () => runCheckout(sku));
 	}
 
@@ -250,7 +252,17 @@
 			}
 			const challenge = await res.json();
 			const accepts = challenge?.accepts || [];
+			if (!accepts.length) {
+				// A payable 402 with no accepts[] is a payable state with no price —
+				// keep Pay disabled rather than charge against an unknown amount.
+				renderMeta(`<div class="error">This checkout link has no payment options available right now.</div>`);
+				return;
+			}
 			renderMeta(metaHtml(accepts));
+			// Price is now on screen — enable Pay.
+			const payBtn = $('payBtn');
+			payBtn.textContent = `Pay · ${sku.action_name}`;
+			payBtn.disabled = false;
 		} catch (err) {
 			renderMeta(`<div class="error">Couldn't reach the endpoint: ${escapeHtml(err.message)}</div>`);
 		}

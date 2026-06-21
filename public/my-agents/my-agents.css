@@ -673,29 +673,94 @@ a:hover {
 }
 
 /* ── State panels ────────────────────────────────────────────────────── */
-.my-agents-state {
+/* ── Shared state-kit empty-state shell (mirrors src/shared/state-kit.js) ──
+   This page is served as a static document with an inline script, so it can't
+   ES-import the component. These rules reproduce the tws-es-* shell so the
+   empty/zero-results states render identically to the rest of the platform. */
+.tws-es {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 	text-align: center;
-	padding: 64px 20px;
-	border: 1px dashed var(--d-border);
-	border-radius: 14px;
-	color: #888;
+	gap: 10px;
+	padding: 56px 24px 48px;
+	grid-column: 1 / -1;
 }
-
-.my-agents-state__icon {
-	font-size: 40px;
-	margin-bottom: 12px;
+.tws-es-icon {
+	font-size: 36px;
+	line-height: 1;
+	margin-bottom: 4px;
+	color: var(--ink-dim, #888);
+	opacity: 0.7;
 }
-
-.my-agents-state__title {
-	font-size: 17px;
+.tws-es-title {
+	margin: 0;
+	font-size: 15px;
 	font-weight: 600;
-	color: #ddd;
-	margin: 0 0 6px;
+	color: var(--ink, #e8e8e8);
+	letter-spacing: -0.01em;
 }
-
-.my-agents-state__msg {
+.tws-es-body {
+	margin: 0;
+	font-size: 13.5px;
+	line-height: 1.55;
+	color: var(--ink-dim, #888);
+	max-width: 340px;
+}
+.tws-es-actions {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	justify-content: center;
+	margin-top: 8px;
+}
+.tws-es--compact {
+	padding: 22px 16px 20px;
+	gap: 7px;
+}
+.tws-es--compact .tws-es-icon {
+	font-size: 26px;
+	margin-bottom: 2px;
+}
+.tws-es--compact .tws-es-title {
 	font-size: 14px;
-	margin: 0 0 18px;
+}
+.tws-es--compact .tws-es-body {
+	font-size: 12.5px;
+	line-height: 1.5;
+}
+.tws-es-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0.618rem 1rem;
+	border-radius: var(--radius-control, 10px);
+	font: 600 13px/1 var(--font-body, system-ui, sans-serif);
+	cursor: pointer;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.08);
+	color: var(--ink, #e8e8e8);
+	text-decoration: none;
+	transition:
+		background 0.15s ease,
+		border-color 0.15s ease,
+		transform 0.12s ease;
+}
+.tws-es-btn:hover {
+	background: rgba(255, 255, 255, 0.12);
+	border-color: rgba(255, 255, 255, 0.18);
+}
+.tws-es-btn:active {
+	transform: translateY(1px);
+}
+.tws-es-btn--primary {
+	background: rgba(255, 255, 255, 0.9);
+	color: #0a0a0f;
+	border-color: transparent;
+}
+.tws-es-btn--primary:hover {
+	background: rgba(255, 255, 255, 0.88);
 }
 
 .my-agents-secondary {
@@ -733,7 +798,3 @@ a:hover {
 	font-size: 14px;
 }
 
-/* ── Inline search empty-state variant ───────────────────────────────── */
-.my-agents-state--inline {
-	padding: 48px 20px;
-}
