@@ -219,7 +219,10 @@ export function paidEndpoint(spec) {
 		route,
 		method = 'GET',
 		priceAtomics = env.X402_MAX_AMOUNT_REQUIRED,
-		networks = ['base', 'solana'],
+		// Solana-first platform default: the live 402 challenge lists Solana
+		// before Base so first-accept clients/modals settle on Solana unless a
+		// route explicitly overrides the network order.
+		networks = ['solana', 'base'],
 		description,
 		mimeType = 'application/json',
 		bazaar,

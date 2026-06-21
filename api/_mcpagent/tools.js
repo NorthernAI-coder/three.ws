@@ -457,7 +457,7 @@ export const toolDefs = [
 					type: 'object',
 					description: 'Optional JSON Schema for the request body.',
 				},
-				network: { type: 'string', enum: ['base', 'solana'], default: 'base' },
+				network: { type: 'string', enum: ['solana', 'base'], default: 'solana' },
 			},
 			required: ['agent_id', 'name', 'description', 'price_usdc', 'target_url'],
 			additionalProperties: false,

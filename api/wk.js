@@ -294,21 +294,8 @@ function extensionsForAccepts(accepts, bazaar) {
 function acceptsForPrice(amountAtomics, resourceUrl) {
 	const out = [];
 	const price = RAW_AMOUNT_TO_USDC(amountAtomics);
-	if (env.X402_PAY_TO_BASE) {
-		pushAcceptWithPermit2Sibling(out, {
-			scheme: 'exact',
-			network: NETWORK_BASE_MAINNET,
-			network_label: 'base-mainnet',
-			amount: String(amountAtomics),
-			price,
-			payTo: env.X402_PAY_TO_BASE,
-			asset: env.X402_ASSET_ADDRESS_BASE,
-			asset_symbol: 'USDC',
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USD Coin', version: '2', decimals: 6 },
-		});
-	}
+	// Solana-first platform default — the Solana accept leads so first-accept
+	// clients and marketplaces treat it as the primary rail; Base follows.
 	if (env.X402_PAY_TO_SOLANA) {
 		out.push({
 			scheme: 'exact',
@@ -322,6 +309,21 @@ function acceptsForPrice(amountAtomics, resourceUrl) {
 			maxTimeoutSeconds: 60,
 			resource: resourceUrl,
 			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+		});
+	}
+	if (env.X402_PAY_TO_BASE) {
+		pushAcceptWithPermit2Sibling(out, {
+			scheme: 'exact',
+			network: NETWORK_BASE_MAINNET,
+			network_label: 'base-mainnet',
+			amount: String(amountAtomics),
+			price,
+			payTo: env.X402_PAY_TO_BASE,
+			asset: env.X402_ASSET_ADDRESS_BASE,
+			asset_symbol: 'USDC',
+			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
+			extra: { name: 'USD Coin', version: '2', decimals: 6 },
 		});
 	}
 	return out;
@@ -489,21 +491,7 @@ async function handleX402Discovery(req, res) {
 	// resource it gates without walking back to the parent resource[] entry.
 	function buildMcpAccepts(resourceUrl) {
 		const out = [];
-		if (env.X402_PAY_TO_BASE) {
-			pushAcceptWithPermit2Sibling(out, {
-				scheme: 'exact',
-				network: NETWORK_BASE_MAINNET,
-				network_label: 'base-mainnet',
-				amount: env.X402_MAX_AMOUNT_REQUIRED,
-				price,
-				payTo: env.X402_PAY_TO_BASE,
-				asset: env.X402_ASSET_ADDRESS_BASE,
-				asset_symbol: 'USDC',
-				maxTimeoutSeconds: 60,
-				resource: resourceUrl,
-				extra: { name: 'USDC', version: '2', decimals: 6 },
-			});
-		}
+		// Solana-first platform default — Solana leads, Base follows.
 		if (env.X402_PAY_TO_SOLANA) {
 			out.push({
 				scheme: 'exact',
@@ -519,6 +507,21 @@ async function handleX402Discovery(req, res) {
 				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 			});
 		}
+		if (env.X402_PAY_TO_BASE) {
+			pushAcceptWithPermit2Sibling(out, {
+				scheme: 'exact',
+				network: NETWORK_BASE_MAINNET,
+				network_label: 'base-mainnet',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_BASE,
+				asset: env.X402_ASSET_ADDRESS_BASE,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', version: '2', decimals: 6 },
+			});
+		}
 		return out;
 	}
 
@@ -530,6 +533,24 @@ async function handleX402Discovery(req, res) {
 	const ARB_USDC = env.X402_ASSET_ADDRESS_ARBITRUM;
 	function buildBazaarAccepts(resourceUrl) {
 		const out = [];
+		// Solana-first platform default — Solana leads the catalog entry. The
+		// Base + Arbitrum accepts still follow so CDP keeps processing an EVM
+		// verify+settle for agentic.market cataloging.
+		if (env.X402_PAY_TO_SOLANA) {
+			out.push({
+				scheme: 'exact',
+				network: NETWORK_SOLANA_MAINNET,
+				network_label: 'solana-mainnet',
+				amount: env.X402_MAX_AMOUNT_REQUIRED,
+				price,
+				payTo: env.X402_PAY_TO_SOLANA,
+				asset: env.X402_ASSET_MINT_SOLANA,
+				asset_symbol: 'USDC',
+				maxTimeoutSeconds: 60,
+				resource: resourceUrl,
+				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+			});
+		}
 		if (env.X402_PAY_TO_BASE) {
 			pushAcceptWithPermit2Sibling(out, {
 				scheme: 'exact',
@@ -558,21 +579,6 @@ async function handleX402Discovery(req, res) {
 				maxTimeoutSeconds: 60,
 				resource: resourceUrl,
 				extra: { name: 'USDC', version: '2', decimals: 6 },
-			});
-		}
-		if (env.X402_PAY_TO_SOLANA) {
-			out.push({
-				scheme: 'exact',
-				network: NETWORK_SOLANA_MAINNET,
-				network_label: 'solana-mainnet',
-				amount: env.X402_MAX_AMOUNT_REQUIRED,
-				price,
-				payTo: env.X402_PAY_TO_SOLANA,
-				asset: env.X402_ASSET_MINT_SOLANA,
-				asset_symbol: 'USDC',
-				maxTimeoutSeconds: 60,
-				resource: resourceUrl,
-				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 			});
 		}
 		return out;

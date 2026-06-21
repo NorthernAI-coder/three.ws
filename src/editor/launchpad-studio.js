@@ -36,7 +36,7 @@ const TEMPLATES = [
 		label: 'Paid Concierge',
 		tagline: '3D avatar that answers questions for x402 USDC',
 		hint: 'A hosted agent page that charges a per-question fee via x402. Replies stream from the configured agent skill.',
-		monetize: { kind: 'x402-call', defaultPrice: 0.01, currency: 'USDC', chain: 'base' },
+		monetize: { kind: 'x402-call', defaultPrice: 0.01, currency: 'USDC', chain: 'solana' },
 		defaultCta: 'Ask the concierge',
 		defaultTagline: 'Get an answer from the team in 5 seconds — paid in USDC.',
 	},
@@ -45,7 +45,7 @@ const TEMPLATES = [
 		label: 'Gated 3D Showroom',
 		tagline: 'Pay-to-enter glTF gallery with avatar greeter',
 		hint: 'Visitors pay a small USDC fee to unlock a private 3D scene. Use for product reveals, premium models, or NFT preview rooms.',
-		monetize: { kind: 'x402-unlock', defaultPrice: 0.05, currency: 'USDC', chain: 'base' },
+		monetize: { kind: 'x402-unlock', defaultPrice: 0.05, currency: 'USDC', chain: 'solana' },
 		defaultCta: 'Unlock the room',
 		defaultTagline: 'Step inside a private 3D space — one-time USDC pass.',
 	},
@@ -975,7 +975,7 @@ export function mountLaunchpadStudio(root, options = {}) {
 			return;
 		}
 		if (action === 'add-skill') {
-			state.agentSkills.push({ name: '', price: 0.001, currency: 'USDC', chain: 'base', description: '' });
+			state.agentSkills.push({ name: '', price: 0.001, currency: 'USDC', chain: 'solana', description: '' });
 			render();
 			return;
 		}
