@@ -17,6 +17,10 @@ const AUDIO_BASE = '/club/audio';
 // Try .ogg first (smaller, mono-q4); fall back to .mp3 on Safari/older
 // browsers that lack Vorbis support.
 const FORMATS = ['ogg', 'mp3'];
+// A few full-length tracks ship as mp3 only (no Vorbis encode) — probing for
+// their non-existent .ogg just burns a guaranteed 404 on every club visit.
+// List them so loadBuffer goes straight to mp3.
+const MP3_ONLY = new Set(['club', 'entrance', 'im-in-love-wit-a-stripper-fast']);
 
 const AMBIENCE_GAIN = 0.35;
 const STYLE_GAIN = 0.75;
@@ -191,9 +195,10 @@ export class ClubAudio {
 		if (this._buffers.has(name)) return this._buffers.get(name);
 		if (this._loading.has(name)) return this._loading.get(name);
 
+		const formats = MP3_ONLY.has(name) ? ['mp3'] : FORMATS;
 		const p = (async () => {
 			let lastErr = null;
-			for (const ext of FORMATS) {
+			for (const ext of formats) {
 				const url = `${AUDIO_BASE}/${name}.${ext}`;
 				try {
 					const res = await fetch(url, { cache: 'force-cache' });

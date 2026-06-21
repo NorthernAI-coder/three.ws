@@ -111,6 +111,14 @@
 			<description>Autonomous agent-to-agent payments already run under a signed Intent Mandate (your standing authorization with budget and per-call caps). They now also issue a Cart Mandate for each transaction — a tamper-evident, signed record of the exact endpoint paid, the amount, currency, network, and line items, bound to the authorizing mandate. It comes back with every paid call and can be checked by anyone via a new verification endpoint, so a paid service has cryptographic proof of what its caller agreed to. This completes our alignment with Google's Agent Payments Protocol (AP2), layered cleanly on top of x402 settlement.</description>
 		</item>
 		<item>
+			<title>Agent Studio: fixed an invisible overlay that blocked the Brain tab</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-21:Agent Studio: fixed an invisible overlay that blocked the Brain tab</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Brain tab of Agent Studio could become unclickable — a full-screen dialog layer that's meant to stay hidden until you open Templates or the behavior view was rendering invisibly on top of the whole studio, swallowing every click. It now stays properly hidden until you actually open it, so the Brain tab is usable again.</description>
+		</item>
+		<item>
 			<title>Arm your agent gets its own setup page</title>
 			<link>https://three.ws/oracle/arm</link>
 			<guid isPermaLink="false">2026-06-21:Arm your agent gets its own setup page</guid>
@@ -149,6 +157,22 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Before the next trade lands, the live-trades panel on the $THREE token page now reads in plain language — 'Live trades will appear here' — with a short note on what it shows, and the technical detail tucked behind an info tooltip. Screen readers announce new trades as they stream in.</description>
+		</item>
+		<item>
+			<title>Club: silenced a spurious audio error on every visit</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-21:Club: silenced a spurious audio error on every visit</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The club's walk-in anthem only ships as an MP3, but the audio mixer always probed for an Ogg version first — so every visit logged a failed file request in the browser console before falling back to the MP3 that was there all along. The mixer now knows which tracks are MP3-only and loads them directly, so the anthem still plays and the console stays clean.</description>
+		</item>
+		<item>
+			<title>Club: walk-in can no longer trap you on a frozen loading screen</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-21:Club: walk-in can no longer trap you on a frozen loading screen</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The club's alley walk-in lays a full-screen loading screen and 3D canvas over the stage, and a single script was responsible for clearing them once you arrive. If that script failed to load or a venue asset stalled, the loading screen stayed up and swallowed every click — the club looked frozen and nothing was clickable. A new independent watchdog now watches the load: if the walk-in stalls with no progress, it clears the overlays and opens the cover-charge card so you can always pay in and reach the stage.</description>
 		</item>
 		<item>
 			<title>Coin pages stay fast when pump.fun is having a moment</title>
@@ -325,6 +349,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Giving an agent a custom wallet address used to run on our servers, so it was capped at short patterns and would time out and error on anything harder. Now the agent's Wallet → Vanity tab grinds the address in your own browser, exactly like the standalone /vanity-wallet tool: choose how many CPU cores to spend, match case-insensitively for a faster find, watch the live tries-per-second and ETA, and pause or resume anytime. Longer, rarer patterns are now possible with no timeouts. When a match is found, any SOL or tokens in the old wallet are still automatically swept to the new address before the key is swapped — funds are never stranded — and the server verifies the new address truly matches your pattern before storing it.</description>
+		</item>
+		<item>
+			<title>Guided Tour: no longer stops dead on full-screen pages</title>
+			<link>https://three.ws/tour</link>
+			<guid isPermaLink="false">2026-06-21:Guided Tour: no longer stops dead on full-screen pages</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The 3D guide that walks you through the platform would vanish the moment the tour stepped onto one of the immersive, full-screen pages — Selfie to Avatar, Scan, the Club and others — because those pages skip the shared top nav that used to start the tour. The tour's start logic now loads on every page, so the guide keeps walking, pointing, and narrating across the whole site without ever stranding you mid-tour.</description>
 		</item>
 		<item>
 			<title>Hardened on-chain confirmations and faster profile loads</title>
