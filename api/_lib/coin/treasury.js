@@ -71,11 +71,22 @@ export async function loadCoinCreatorFromCoin(coin) {
 	}
 
 	// Legacy: a plaintext base64 secret was stored before at-rest encryption.
-	// Honor it so existing launches keep working, but make the exposure visible.
+	// Honor it so existing launches keep working, but make the exposure LOUD —
+	// page ops (deduped) until `scripts/reencrypt-creator-keys.mjs --apply` runs.
 	console.warn(
 		`[coin/treasury] mint ${coin.mint}: creator_secret_b64 is stored UNENCRYPTED. ` +
-			'Re-store it through the launcher (it now encrypts at rest) to remove the plaintext key.',
+			'Run scripts/reencrypt-creator-keys.mjs --apply to remove the plaintext key.',
 	);
+	import('../alerts.js')
+		.then(({ sendOpsAlert }) =>
+			sendOpsAlert(
+				'Unencrypted pump.fun creator key in use',
+				'A coin_launches row still holds a plaintext creator_secret_b64. ' +
+					'Run scripts/reencrypt-creator-keys.mjs --apply to encrypt it at rest.',
+				{ signature: 'plaintext-creator-key' },
+			),
+		)
+		.catch(() => {});
 	return decodeB64Keypair(dbValue, 'coin.metadata.creator_secret_b64 (legacy plaintext)');
 }
 
