@@ -375,6 +375,7 @@ const appConfig = {
 				'launch-week': resolve(__dirname, 'pages/three-ws-launch-week.html'),
 				community: resolve(__dirname, 'pages/community.html'),
 				profile: resolve(__dirname, 'pages/profile.html'),
+				feed: resolve(__dirname, 'pages/feed.html'),
 				'threews-claim': resolve(__dirname, 'pages/threews-claim.html'),
 				'events-build-3d-agents-live': resolve(__dirname, 'pages/events/build-3d-agents-live.html'),
 				'avatar-page': resolve(__dirname, 'pages/avatar-page.html'),
@@ -397,6 +398,9 @@ const appConfig = {
 				communities: resolve(__dirname, 'pages/communities.html'),
 				clash: resolve(__dirname, 'pages/clash.html'),
 				'walk-embed': resolve(__dirname, 'pages/walk-embed.html'),
+				'walk-landing': resolve(__dirname, 'pages/walk-landing.html'),
+				'walk-leaderboard': resolve(__dirname, 'pages/walk-leaderboard.html'),
+				'walk-analytics': resolve(__dirname, 'pages/walk-analytics.html'),
 				city: resolve(__dirname, 'pages/city.html'),
 				play: resolve(__dirname, 'pages/play.html'),
 				'play-agent-wallet': resolve(__dirname, 'pages/play/agent-wallet.html'),
@@ -805,6 +809,14 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/smart-money/': resolve(root, 'pages/smart-money.html'),
 					'/walk-embed': resolve(root, 'pages/walk-embed.html'),
 					'/walk-embed/': resolve(root, 'pages/walk-embed.html'),
+					'/walk': resolve(root, 'pages/walk-landing.html'),
+					'/walk/': resolve(root, 'pages/walk-landing.html'),
+					'/walk/app': resolve(root, 'pages/walk-embed.html'),
+					'/walk/app/': resolve(root, 'pages/walk-embed.html'),
+					'/walk-leaderboard': resolve(root, 'pages/walk-leaderboard.html'),
+					'/walk-leaderboard/': resolve(root, 'pages/walk-leaderboard.html'),
+					'/walk-analytics': resolve(root, 'pages/walk-analytics.html'),
+					'/walk-analytics/': resolve(root, 'pages/walk-analytics.html'),
 					'/demo': resolve(root, 'pages/demo-economy.html'),
 					'/demo/': resolve(root, 'pages/demo-economy.html'),
 					'/live': resolve(root, 'pages/live.html'),
@@ -1147,6 +1159,11 @@ support: resolve(__dirname, 'pages/support.html'),
 					// /@<handle>  → public live profile page
 					else if (!filePath && /^\/@[a-z0-9_-]{3,30}\/?$/i.test(path))
 						filePath = resolve(root, 'pages/handle.html');
+						else if (
+							!filePath &&
+							/^\/u\/(?:0x[0-9a-fA-F]{40}|[a-z0-9_-]{3,30})\/?$/i.test(path)
+						)
+							filePath = resolve(root, 'pages/profile.html');
 					// /a/<chainId>/<agentId>  or  /a/<chainId>/<registry>/<agentId>
 					else if (!filePath && /^\/a\/[^/]+(?:\/[^/]+){1,2}\/?$/.test(path))
 						filePath = resolve(root, 'pages/app.html');

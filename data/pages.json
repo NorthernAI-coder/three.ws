@@ -141,6 +141,14 @@
 					"priority": 0.7,
 					"changefreq": "monthly",
 					"added": "2026-06-20"
+				},
+				{
+					"path": "/walk",
+					"title": "Walk",
+					"description": "Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-21"
 				}
 			]
 		},
@@ -465,6 +473,14 @@
 					"priority": 0.8,
 					"changefreq": "weekly",
 					"added": "2026-06-05"
+				},
+				{
+					"path": "/walk-leaderboard",
+					"title": "Walk Leaderboard",
+					"description": "Global leaderboard for the walking avatar — distance walked, sites visited, and time, ranked daily, weekly, and all-time.",
+					"priority": 0.6,
+					"changefreq": "daily",
+					"added": "2026-06-21"
 				}
 			]
 		},

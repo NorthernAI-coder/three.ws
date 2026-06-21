@@ -845,6 +845,22 @@
 			"dest": "/walk-embed.html"
 		},
 		{
+			"src": "/walk/app/?",
+			"dest": "/walk-embed.html"
+		},
+		{
+			"src": "/walk/?",
+			"dest": "/walk-landing.html"
+		},
+		{
+			"src": "/walk-leaderboard/?",
+			"dest": "/walk-leaderboard.html"
+		},
+		{
+			"src": "/walk-analytics/?",
+			"dest": "/walk-analytics.html"
+		},
+		{
 			"src": "/pose/?",
 			"dest": "/pose.html"
 		},
@@ -2443,6 +2459,10 @@
 			"dest": "/profile.html"
 		},
 		{
+			"src": "/feed",
+			"dest": "/feed.html"
+		},
+		{
 			"src": "/avatars/([^/]+\\.glb)",
 			"headers": {
 				"cache-control": "public, max-age=604800, stale-while-revalidate=2592000",
@@ -2525,8 +2545,20 @@
 			"dest": "/threews-claim.html"
 		},
 		{
+			"src": "/api/users/me/feed",
+			"dest": "/api/users/me/feed"
+		},
+		{
 			"src": "/api/users/([^/]+)/avatar",
 			"dest": "/api/users/[username]/avatar?username=$1"
+		},
+		{
+			"src": "/api/users/([^/]+)/follow",
+			"dest": "/api/users/[username]/follow?username=$1"
+		},
+		{
+			"src": "/api/users/([^/]+)/follows",
+			"dest": "/api/users/[username]/follows?username=$1"
 		},
 		{
 			"src": "/api/users/([^/]+)",

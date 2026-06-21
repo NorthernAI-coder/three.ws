@@ -239,13 +239,19 @@ function showState(icon, title, msg, cta = null, secondary = null) {
 	toolbarEl.hidden = true;
 	newTopBtn.hidden = true;
 	grid.setAttribute('aria-busy', 'false');
+	// Mirrors the shared state-kit empty-state shell (src/shared/state-kit.js
+	// → emptyStateHTML): same tws-es-* class names so it renders identically.
+	// my-agents-secondary is retained on the learn-more link for the page's
+	// own styling.
+	const actions = [];
+	if (cta) actions.push(`<a class="tws-es-btn tws-es-btn--primary" href="${escapeHtml(cta.href)}">${escapeHtml(cta.label)}</a>`);
+	if (secondary) actions.push(`<a class="tws-es-btn my-agents-secondary" href="${escapeHtml(secondary.href)}">${escapeHtml(secondary.label)}</a>`);
 	grid.innerHTML = `
-		<div class="my-agents-state" style="grid-column: 1 / -1" role="status">
-			<div class="my-agents-state__icon" aria-hidden="true">${icon}</div>
-			<p class="my-agents-state__title">${escapeHtml(title)}</p>
-			<p class="my-agents-state__msg">${escapeHtml(msg)}</p>
-			${cta ? `<a class="my-agents-btn" style="display:inline-block;width:auto;padding:9px 22px" href="${escapeHtml(cta.href)}">${escapeHtml(cta.label)}</a>` : ''}
-			${secondary ? `<div><a class="my-agents-secondary" href="${escapeHtml(secondary.href)}">${escapeHtml(secondary.label)}</a></div>` : ''}
+		<div class="tws-es" style="grid-column: 1 / -1" role="status">
+			<div class="tws-es-icon" aria-hidden="true">${icon}</div>
+			<h3 class="tws-es-title">${escapeHtml(title)}</h3>
+			<p class="tws-es-body">${escapeHtml(msg)}</p>
+			${actions.length ? `<div class="tws-es-actions">${actions.join('')}</div>` : ''}
 		</div>`;
 }
 
@@ -502,11 +508,13 @@ function renderGrid() {
 	const onchain = unimportedOnchain.filter(matchesQuery);
 
 	if (searchQuery && native.length === 0 && onchain.length === 0) {
+		// Filtered-empty: keep it short — the truly-empty state (showState)
+		// carries the rich "what is an agent" explainer.
 		grid.innerHTML = `
-			<div class="my-agents-state my-agents-state--inline" style="grid-column: 1 / -1" role="status">
-				<div class="my-agents-state__icon" aria-hidden="true">🔍</div>
-				<p class="my-agents-state__title">No agents match “${escapeHtml(searchQuery)}”</p>
-				<p class="my-agents-state__msg">Try a different name or clear the search.</p>
+			<div class="tws-es tws-es--compact" style="grid-column: 1 / -1" aria-live="polite">
+				<div class="tws-es-icon" aria-hidden="true">🔍</div>
+				<h3 class="tws-es-title">No agents match “${escapeHtml(searchQuery)}”</h3>
+				<p class="tws-es-body">Try a different name, or clear the search to see all your agents.</p>
 			</div>`;
 		return;
 	}
@@ -550,7 +558,7 @@ async function loadAgents() {
 			showState(
 				'🤖',
 				'No agents yet',
-				'Create your first agent to get started.',
+				'Agents are AI characters with their own wallet, attachable skills, and an on-chain identity. Create your first one, or browse what the community has shipped.',
 				{ label: 'Create an agent', href: '/create' },
 				{ label: 'Or browse community agents →', href: '/discover' },
 			);

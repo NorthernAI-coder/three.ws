@@ -24,6 +24,10 @@ import {
 	friendlyError,
 	isMobileBrowser,
 	walletDeeplink,
+	formatTokenAmount,
+	insufficientFundsError,
+	erc20BalanceOfCalldata,
+	assertSufficientBalance,
 } from '../../public/x402-pay-core.js';
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
@@ -262,5 +266,61 @@ describe('walletDeeplink', () => {
 	it('returns null for WalletConnect (its own modal handles mobile) and missing urls', () => {
 		expect(walletDeeplink('walletconnect', page)).toBe(null);
 		expect(walletDeeplink('phantom', '')).toBe(null);
+	});
+});
+
+describe('pre-flight balance guard', () => {
+	const sol = {
+		scheme: 'exact',
+		network: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+		asset: THREE_MINT,
+		amount: '10000', // 0.01 at 6 decimals
+		payTo: THREE_MINT,
+		extra: { name: 'USDC', decimals: 6 },
+	};
+
+	it('formats atomic amounts BigInt-safely', () => {
+		expect(formatTokenAmount('1000', 6)).toBe('0.001');
+		expect(formatTokenAmount('10000', 6)).toBe('0.01');
+		expect(formatTokenAmount('1500000', 6)).toBe('1.5');
+		expect(formatTokenAmount('0', 6)).toBe('0');
+		// Beyond Number.MAX_SAFE_INTEGER — must not lose precision.
+		expect(formatTokenAmount('123456789012345678', 6)).toBe('123456789012.345678');
+	});
+
+	it('builds a structured insufficient-funds error with a shortfall', () => {
+		const err = insufficientFundsError({ required: '10000', balance: '2500', accept: sol });
+		expect(err.code).toBe('insufficient_funds');
+		expect(err.insufficient.requiredFormatted).toBe('0.01');
+		expect(err.insufficient.balanceFormatted).toBe('0.0025');
+		expect(err.insufficient.shortfallFormatted).toBe('0.0075');
+		expect(err.insufficient.symbol).toBe('USDC');
+	});
+
+	it('encodes ERC-20 balanceOf calldata (selector + padded address)', () => {
+		const data = erc20BalanceOfCalldata('0x00000000000000000000000000000000000000Ab');
+		expect(data.startsWith('0x70a08231')).toBe(true);
+		expect(data).toHaveLength(10 + 64);
+		expect(data.endsWith('ab')).toBe(true);
+	});
+
+	it('never blocks when the balance read is inconclusive (fail-open)', async () => {
+		// Solana reader hits the network; force it to return null via an unreachable RPC.
+		await expect(
+			assertSufficientBalance({ accept: sol, owner: THREE_MINT, rpcUrl: 'http://127.0.0.1:0' }),
+		).resolves.toBeNull();
+	});
+
+	it('throws on a positively-read EVM shortfall, passes when covered', async () => {
+		const evm = { ...sol, network: 'eip155:8453', asset: SYNTH_EVM };
+		const providerWith = (atomicHex) => ({ request: async () => atomicHex });
+		// balance 0x0 (= 0) < required 10000 → throws
+		await expect(
+			assertSufficientBalance({ accept: evm, owner: SYNTH_EVM, provider: providerWith('0x0') }),
+		).rejects.toMatchObject({ code: 'insufficient_funds' });
+		// balance 0x4e20 (= 20000) >= required 10000 → ok
+		await expect(
+			assertSufficientBalance({ accept: evm, owner: SYNTH_EVM, provider: providerWith('0x4e20') }),
+		).resolves.not.toThrow?.();
 	});
 });

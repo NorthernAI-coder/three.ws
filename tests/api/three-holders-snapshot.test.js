@@ -71,4 +71,24 @@ describe('threeHolderBalances', () => {
 		expect(map.get('walletLive')).toBe(7n);
 		expect(fetchHolderBalances).toHaveBeenCalledTimes(1);
 	});
+
+	it('coalesces concurrent cold reads into ONE scan (stampede guard)', async () => {
+		// Every sql call returns a null/cold snapshot so both callers miss cache.
+		h.sql.mockResolvedValue([{ snapshot_at: null, holder_count: 0 }]);
+		let resolveScan;
+		fetchHolderBalances.mockImplementationOnce(
+			() => new Promise((r) => { resolveScan = r; }),
+		);
+		// Fire two concurrent reads against the cold snapshot.
+		const p1 = threeHolderBalances();
+		const p2 = threeHolderBalances();
+		// Let both reach the in-process single-flight before the scan resolves.
+		await new Promise((r) => setTimeout(r, 10));
+		resolveScan(new Map([['walletLive', 9n]]));
+		const [m1, m2] = await Promise.all([p1, p2]);
+		expect(m1.get('walletLive')).toBe(9n);
+		expect(m2.get('walletLive')).toBe(9n);
+		// The whole point: a burst of cold reads fires the expensive scan once.
+		expect(fetchHolderBalances).toHaveBeenCalledTimes(1);
+	});
 });

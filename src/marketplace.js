@@ -22,7 +22,7 @@ import { safeUrl } from './safe-url.js';
 import { walletChipHTML, walletChipEl, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { coinChipHTML } from './shared/agent-coin.js';
-import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
+import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { log } from './shared/log.js';
 import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
 ensureStateKitStyles();
@@ -4239,12 +4239,16 @@ function renderMineGrid() {
 			: '';
 	}
 	if (!mineState.items.length) {
-		grid.innerHTML = `<div class="market-empty-cta">
-				<h3>No agents yet</h3>
-				<p>Create your first agent — it'll appear here as draft, then publish when you're ready.</p>
-				<button id="mine-empty-new">+ New Agent</button>
-			</div>`;
-		$('mine-empty-new')?.addEventListener('click', () => {
+		grid.innerHTML = emptyStateHTML({
+			icon: '🤖',
+			title: 'No agents yet',
+			body: "Agents you create show up here as drafts first, then go live once you publish. Each gets an on-chain identity, its own wallet, and attachable skills.",
+			actions: [
+				{ label: '+ New Agent', id: 'mine-empty-new', primary: true },
+				{ label: "What's an agent?", href: '/docs/agents-vs-avatars' },
+			],
+		});
+		grid.querySelector('[data-sk-action="mine-empty-new"]')?.addEventListener('click', () => {
 			location.href = '/agent/new';
 		});
 		return;

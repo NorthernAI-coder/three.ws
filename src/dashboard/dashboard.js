@@ -4,6 +4,7 @@
 import { mountAgentSolanaWalletCard } from '/src/agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from '/src/agent-vanity-grinder.js';
 import { onchainBadgeHTML } from '/src/shared/onchain-badge.js';
+import { emptyStateHTML } from '/src/shared/state-kit.js';
 import { renderError as renderAsyncError } from '/src/shared/async-state.js';
 import { log } from '../shared/log.js';
 import { safeUrl } from '../safe-url.js';
@@ -338,19 +339,16 @@ async function renderAgents(root) {
 }
 
 function renderAgentsEmpty(list, createHost) {
-	list.innerHTML = `
-		<div class="empty" style="grid-column:1/-1; padding:48px 28px; text-align:center;">
-			<div style="font-size:48px; line-height:1; margin-bottom:14px;" aria-hidden="true">🤖</div>
-			<h2 style="margin:0 0 8px; font-size:20px; color:#eee;">No agents yet</h2>
-			<p style="margin:0 0 22px; color:#888; max-width:460px; margin-left:auto; margin-right:auto;">
-				Create your first three.ws agent — it gets a wallet, a set of skills, and can be deployed on-chain as an ERC-8004 identity.
-			</p>
-			<div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-				<button class="btn-primary" id="agents-empty-new">Create agent</button>
-				<a href="/my-agents" class="btn-primary" style="background:#222230; color:#ddd;">Import from wallet</a>
-			</div>
-		</div>`;
-	list.querySelector('#agents-empty-new').addEventListener('click', () =>
+	list.innerHTML = emptyStateHTML({
+		icon: '🤖',
+		title: 'No agents yet',
+		body: 'Agents are AI characters you create here — each gets its own wallet, a set of attachable skills, and can be deployed on-chain as an ERC-8004 identity. Create one, or import an agent already in your wallet.',
+		actions: [
+			{ label: 'Create agent', id: 'agents-empty-new', primary: true },
+			{ label: 'Import from wallet', href: '/my-agents' },
+		],
+	});
+	list.querySelector('[data-sk-action="agents-empty-new"]').addEventListener('click', () =>
 		openCreateForm(createHost, list),
 	);
 }

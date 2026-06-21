@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Walk — your avatar walks anywhere on the web · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="author" content="nirholas" />
+		<meta
+			name="description"
+			content="Your 3D avatar walks anywhere on the web. Drive it with WASD or a touch joystick, drop it on any site with one tag, and let it stroll across real pages with the Chrome extension. No app install."
+		/>
+		<meta name="theme-color" content="#000000" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/walk" />
+		<meta property="og:title" content="Walk — your avatar walks anywhere on the web · three.ws" />
+		<meta
+			property="og:description"
+			content="Drive your 3D avatar with WASD or a joystick, embed it on any site with one tag, and let it walk across real web pages. No app install."
+		/>
+		<meta property="og:image" content="https://three.ws/api/walk-og" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="A 3D avatar walking in the three.ws Walk experience" />
+		<meta property="og:locale" content="en_US" />
+
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Walk — your avatar walks anywhere on the web · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Drive your 3D avatar with WASD or a joystick, embed it on any site with one tag, and let it walk across real web pages."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/walk-og" />
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+
+		<link rel="canonical" href="https://three.ws/walk" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+
+		<link rel="preconnect" href="https://three.ws" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<script defer src="/footer-newsletter.js"></script>
+
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "WebApplication",
+				"name": "three.ws Walk",
+				"url": "https://three.ws/walk",
+				"applicationCategory": "MultimediaApplication",
+				"operatingSystem": "Any (web browser)",
+				"browserRequirements": "Requires a WebGL-capable browser",
+				"description": "Drive a 3D avatar around the browser with WASD or a touch joystick, embed it on any website with one tag, and walk it across real web pages with the Chrome extension.",
+				"offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+
+		<style>
+			/* ────────────────────────────────────────────────────────────────
+			   Walk landing — page-scoped styles. Token vars only; no hardcoded
+			   colour / radius / type / spacing literals. Mirrors the marketing
+			   rhythm of /features (eyebrow → display headline → sub → CTAs).
+			   ──────────────────────────────────────────────────────────────── */
+			.wl-main {
+				max-width: 1180px;
+				margin: 0 auto;
+				padding: 0 var(--space-md);
+			}
+
+			.wl-eyebrow {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-2);
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--color-text-dim);
+				margin: 0 0 var(--space-4);
+			}
+			.wl-eyebrow::before {
+				content: "";
+				width: var(--space-5);
+				height: 1px;
+				background: var(--color-border-strong);
+			}
+
+			.wl-section {
+				padding: var(--space-2xl) 0;
+				border-top: 1px solid var(--color-hairline);
+			}
+			.wl-section-head {
+				max-width: 44rem;
+				margin: 0 auto var(--space-xl);
+				text-align: center;
+			}
+			.wl-section-title {
+				font-family: var(--font-display);
+				font-weight: var(--weight-bold);
+				font-size: var(--text-xl);
+				line-height: var(--leading-tight);
+				color: var(--color-text-bright);
+				margin: 0 0 var(--space-3);
+				letter-spacing: -0.01em;
+			}
+			.wl-section-sub {
+				font-size: var(--text-base);
+				line-height: var(--leading-normal);
+				color: var(--color-text-dim);
+				margin: 0;
+			}
+
+			/* ── Hero ───────────────────────────────────────────────────── */
+			.wl-hero {
+				display: grid;
+				grid-template-columns: 1.05fr 0.95fr;
+				gap: var(--space-xl);
+				align-items: center;
+				padding: var(--space-2xl) 0 var(--space-xl);
+			}
+			.wl-hero-title {
+				font-family: var(--font-display);
+				font-weight: var(--weight-bold);
+				font-size: var(--text-2xl);
+				line-height: 1.04;
+				letter-spacing: -0.02em;
+				color: var(--color-text-bright);
+				margin: 0 0 var(--space-4);
+			}
+			.wl-hero-sub {
+				font-size: var(--text-lg);
+				line-height: var(--leading-normal);
+				color: var(--color-text-dim);
+				margin: 0 0 var(--space-6);
+				max-width: 34rem;
+			}
+			.wl-cta-row {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-3);
+				align-items: center;
+			}
+			.wl-hero-meta {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-5);
+				margin-top: var(--space-7);
+				font-size: var(--text-sm);
+				color: var(--color-text-faint);
+			}
+			.wl-hero-meta span {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-2);
+			}
+			.wl-hero-meta svg {
+				width: 1rem;
+				height: 1rem;
+				color: var(--color-text-dim);
+			}
+
+			/* ── Live embed frame (reusable card) ───────────────────────── */
+			.wl-frame {
+				position: relative;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				background:
+					radial-gradient(120% 90% at 50% 0%, var(--surface-2), transparent 70%),
+					var(--color-bg);
+				box-shadow: var(--shadow-2);
+			}
+			.wl-frame--hero {
+				aspect-ratio: 4 / 5;
+				box-shadow: var(--shadow-3);
+			}
+			.wl-frame iframe {
+				display: block;
+				width: 100%;
+				height: 100%;
+				border: 0;
+				background: transparent;
+			}
+			.wl-frame-chrome {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-bottom: 1px solid var(--color-hairline);
+				background: var(--surface-1);
+			}
+			.wl-frame-dot {
+				width: 9px;
+				height: 9px;
+				border-radius: var(--radius-pill);
+				background: var(--surface-3);
+			}
+			.wl-frame-label {
+				margin-left: var(--space-2);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-text-faint);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.wl-frame-stage {
+				position: relative;
+			}
+			.wl-frame--hero .wl-frame-stage {
+				height: 100%;
+			}
+			.wl-frame-hint {
+				position: absolute;
+				left: 50%;
+				bottom: var(--space-3);
+				transform: translateX(-50%);
+				padding: var(--space-1) var(--space-3);
+				border-radius: var(--radius-pill);
+				background: var(--surface-glass);
+				border: 1px solid var(--color-border);
+				backdrop-filter: blur(var(--blur-sm));
+				-webkit-backdrop-filter: blur(var(--blur-sm));
+				font-size: var(--text-xs);
+				color: var(--color-text-dim);
+				pointer-events: none;
+				z-index: 2;
+			}
+
+			/* ── Demo strip ─────────────────────────────────────────────── */
+			.wl-demos {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: var(--space-4);
+			}
+			.wl-demo .wl-frame-stage {
+				aspect-ratio: 3 / 4;
+			}
+			.wl-demo-caption {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: var(--space-3);
+				margin-top: var(--space-3);
+			}
+			.wl-demo-name {
+				font-weight: var(--weight-semibold);
+				color: var(--color-text-bright);
+				font-size: var(--text-ui);
+			}
+			.wl-demo-desc {
+				font-size: var(--text-sm);
+				color: var(--color-text-faint);
+			}
+
+			/* ── How it works ───────────────────────────────────────────── */
+			.wl-steps {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: var(--space-5);
+			}
+			.wl-step {
+				display: flex;
+				flex-direction: column;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				background: var(--surface-1);
+				overflow: hidden;
+				transition: border-color var(--dur-fast) var(--ease-standard),
+					transform var(--dur-fast) var(--ease-standard);
+			}
+			.wl-step:hover {
+				border-color: var(--color-border-strong);
+				transform: translateY(-2px);
+			}
+			.wl-step .wl-frame-stage {
+				aspect-ratio: 16 / 11;
+				border-bottom: 1px solid var(--color-hairline);
+			}
+			.wl-step-body {
+				padding: var(--space-5);
+			}
+			.wl-step-num {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 1.9rem;
+				height: 1.9rem;
+				border-radius: var(--radius-pill);
+				border: 1px solid var(--color-border-strong);
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				color: var(--color-text-bright);
+				margin-bottom: var(--space-3);
+			}
+			.wl-step-title {
+				font-size: var(--text-lg);
+				font-weight: var(--weight-semibold);
+				color: var(--color-text-bright);
+				margin: 0 0 var(--space-2);
+			}
+			.wl-step-desc {
+				font-size: var(--text-md);
+				line-height: var(--leading-normal);
+				color: var(--color-text-dim);
+				margin: 0;
+			}
+
+			/* ── Extension card ─────────────────────────────────────────── */
+			.wl-ext {
+				display: grid;
+				grid-template-columns: 1.05fr 0.95fr;
+				gap: var(--space-xl);
+				align-items: center;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				background:
+					radial-gradient(90% 140% at 100% 0%, var(--surface-2), transparent 60%),
+					var(--surface-1);
+				padding: var(--space-xl);
+			}
+			.wl-ext-icon {
+				width: 3.5rem;
+				height: 3.5rem;
+				border-radius: var(--radius-md);
+				border: 1px solid var(--color-border-strong);
+				background: var(--surface-2);
+				display: grid;
+				place-items: center;
+				margin-bottom: var(--space-4);
+			}
+			.wl-ext-icon img {
+				width: 2rem;
+				height: 2rem;
+			}
+			.wl-ext-title {
+				font-family: var(--font-display);
+				font-weight: var(--weight-bold);
+				font-size: var(--text-xl);
+				color: var(--color-text-bright);
+				margin: 0 0 var(--space-3);
+				letter-spacing: -0.01em;
+			}
+			.wl-ext-list {
+				list-style: none;
+				margin: 0 0 var(--space-6);
+				padding: 0;
+				display: grid;
+				gap: var(--space-3);
+			}
+			.wl-ext-list li {
+				display: flex;
+				align-items: flex-start;
+				gap: var(--space-3);
+				font-size: var(--text-md);
+				color: var(--color-text-dim);
+				line-height: var(--leading-normal);
+			}
+			.wl-ext-list svg {
+				flex: none;
+				width: 1.15rem;
+				height: 1.15rem;
+				margin-top: 0.15rem;
+				color: var(--color-success);
+			}
+			/* Browser-window mock showing the avatar walking on a real page */
+			.wl-ext-mock {
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				background: var(--color-bg);
+				box-shadow: var(--shadow-2);
+			}
+			.wl-ext-mock-bar {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-bottom: 1px solid var(--color-hairline);
+				background: var(--surface-1);
+			}
+			.wl-ext-mock-url {
+				margin-left: var(--space-2);
+				flex: 1;
+				padding: var(--space-1) var(--space-3);
+				border-radius: var(--radius-pill);
+				background: var(--surface-2);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-text-faint);
+			}
+			.wl-ext-mock-stage {
+				position: relative;
+				aspect-ratio: 16 / 10;
+			}
+			.wl-ext-mock-page {
+				position: absolute;
+				inset: 0;
+				padding: var(--space-5);
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-3);
+			}
+			.wl-ext-mock-line {
+				height: 0.55rem;
+				border-radius: var(--radius-sm);
+				background: var(--surface-2);
+			}
+			.wl-ext-mock-line.is-head { height: 0.95rem; width: 55%; background: var(--surface-3); }
+			.wl-ext-mock-line.is-short { width: 70%; }
+			.wl-ext-mock-line.is-mid { width: 88%; }
+			.wl-ext-mock-frame {
+				position: absolute;
+				right: var(--space-4);
+				bottom: 0;
+				width: 42%;
+				height: 78%;
+			}
+			.wl-ext-mock-frame iframe {
+				display: block;
+				width: 100%;
+				height: 100%;
+				border: 0;
+				background: transparent;
+			}
+
+			/* ── Developer embed ────────────────────────────────────────── */
+			.wl-dev {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: var(--space-5);
+				align-items: stretch;
+			}
+			.wl-code {
+				display: flex;
+				flex-direction: column;
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				background: var(--color-bg);
+			}
+			.wl-code-bar {
+				display: flex;
+				align-items: center;
+				gap: var(--space-2);
+				padding: var(--space-2) var(--space-3);
+				border-bottom: 1px solid var(--color-hairline);
+				background: var(--surface-1);
+			}
+			.wl-code-label {
+				flex: 1;
+				margin-left: var(--space-2);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-text-faint);
+			}
+			.wl-copy-btn {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-text-dim);
+				background: var(--surface-2);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-sm);
+				padding: var(--space-1) var(--space-3);
+				cursor: pointer;
+				transition: background var(--dur-fast) var(--ease-standard),
+					color var(--dur-fast) var(--ease-standard);
+			}
+			.wl-copy-btn:hover { background: var(--surface-3); color: var(--color-text-bright); }
+			.wl-copy-btn.is-copied { color: var(--color-success); border-color: var(--color-success); }
+			.wl-code pre {
+				margin: 0;
+				padding: var(--space-4);
+				overflow-x: auto;
+				font-family: var(--font-mono);
+				font-size: var(--text-md);
+				line-height: var(--leading-normal);
+				color: var(--color-text);
+				flex: 1;
+			}
+			.wl-tok-tag { color: #7dd3fc; }
+			.wl-tok-attr { color: #c4b5fd; }
+			.wl-tok-val { color: var(--color-success); }
+			.wl-tok-com { color: var(--color-text-faint); font-style: italic; }
+			.wl-dev-preview .wl-frame-stage { aspect-ratio: 1 / 1; height: auto; }
+
+			/* ── Leaderboard ────────────────────────────────────────────── */
+			.wl-board {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: var(--space-4);
+				min-height: 7rem;
+			}
+			.wl-rank {
+				display: flex;
+				align-items: center;
+				gap: var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				background: var(--surface-1);
+				padding: var(--space-4) var(--space-5);
+			}
+			.wl-rank--1 { border-color: var(--color-border-strong); background: var(--surface-2); }
+			.wl-rank-medal {
+				font-family: var(--font-display);
+				font-weight: var(--weight-bold);
+				font-size: var(--text-lg);
+				color: var(--color-text-bright);
+				width: 2rem;
+				flex: none;
+				text-align: center;
+			}
+			.wl-rank-av {
+				width: 2.75rem;
+				height: 2.75rem;
+				border-radius: var(--radius-pill);
+				object-fit: cover;
+				background: var(--surface-3);
+				border: 1px solid var(--color-border);
+				flex: none;
+			}
+			.wl-rank-meta { min-width: 0; }
+			.wl-rank-name {
+				font-weight: var(--weight-semibold);
+				color: var(--color-text-bright);
+				font-size: var(--text-ui);
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.wl-rank-dist {
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				color: var(--color-text-dim);
+			}
+			.wl-skeleton {
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				background: linear-gradient(100deg, var(--surface-1) 30%, var(--surface-2) 50%, var(--surface-1) 70%);
+				background-size: 200% 100%;
+				animation: wl-shimmer 1.4s linear infinite;
+				height: 5.4rem;
+			}
+			@keyframes wl-shimmer { to { background-position: -200% 0; } }
+			.wl-state {
+				grid-column: 1 / -1;
+				text-align: center;
+				padding: var(--space-xl);
+				border: 1px dashed var(--color-border-strong);
+				border-radius: var(--radius-lg);
+				color: var(--color-text-dim);
+			}
+			.wl-state strong { display: block; color: var(--color-text-bright); margin-bottom: var(--space-2); font-size: var(--text-base); }
+			.wl-state .btn { margin-top: var(--space-4); }
+
+			/* ── Social proof ───────────────────────────────────────────── */
+			.wl-social {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: var(--space-4);
+				min-height: 6rem;
+			}
+			.wl-quote {
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-4);
+				border: 1px solid var(--color-border);
+				border-radius: var(--radius-lg);
+				background: var(--surface-1);
+				padding: var(--space-5);
+				text-decoration: none;
+				transition: border-color var(--dur-fast) var(--ease-standard),
+					transform var(--dur-fast) var(--ease-standard);
+			}
+			.wl-quote:hover { border-color: var(--color-border-strong); transform: translateY(-2px); }
+			.wl-quote-text {
+				font-size: var(--text-md);
+				line-height: var(--leading-normal);
+				color: var(--color-text);
+				margin: 0;
+				flex: 1;
+			}
+			.wl-quote-author {
+				display: flex;
+				align-items: center;
+				gap: var(--space-3);
+			}
+			.wl-quote-av {
+				width: 2.25rem;
+				height: 2.25rem;
+				border-radius: var(--radius-pill);
+				object-fit: contain;
+				background: var(--surface-2);
+				border: 1px solid var(--color-border);
+				padding: var(--space-1);
+			}
+			.wl-quote-name { font-weight: var(--weight-semibold); color: var(--color-text-bright); font-size: var(--text-sm); }
+			.wl-quote-handle { font-size: var(--text-xs); color: var(--color-text-faint); }
+
+			/* ── Footer CTA ─────────────────────────────────────────────── */
+			.wl-final {
+				text-align: center;
+				padding: var(--space-2xl) var(--space-md);
+				border-top: 1px solid var(--color-hairline);
+			}
+			.wl-final h2 {
+				font-family: var(--font-display);
+				font-weight: var(--weight-bold);
+				font-size: var(--text-2xl);
+				letter-spacing: -0.02em;
+				color: var(--color-text-bright);
+				margin: 0 0 var(--space-3);
+			}
+			.wl-final p { color: var(--color-text-dim); font-size: var(--text-base); margin: 0 0 var(--space-6); }
+			.wl-final .wl-cta-row { justify-content: center; }
+
+			/* ── Reveal ─────────────────────────────────────────────────── */
+			.wl-reveal { opacity: 0; transform: translateY(16px); transition: opacity var(--duration-slow) var(--ease-emphasized), transform var(--duration-slow) var(--ease-emphasized); }
+			.wl-reveal.is-in { opacity: 1; transform: none; }
+
+			.btn-arrow { transition: transform var(--dur-fast) var(--ease-standard); }
+			.btn:hover .btn-arrow { transform: translateX(2px); }
+
+			/* ── Responsive ─────────────────────────────────────────────── */
+			@media (max-width: 980px) {
+				.wl-hero, .wl-ext, .wl-dev { grid-template-columns: 1fr; }
+				.wl-frame--hero { aspect-ratio: 16 / 11; }
+				.wl-demos, .wl-steps, .wl-board, .wl-social { grid-template-columns: 1fr; }
+				.wl-demos { grid-template-columns: repeat(2, 1fr); }
+			}
+			@media (max-width: 560px) {
+				.wl-demos { grid-template-columns: 1fr; }
+				.wl-section { padding: var(--space-xl) 0; }
+				.wl-hero { padding: var(--space-xl) 0; }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.wl-reveal { opacity: 1; transform: none; transition: none; }
+				.wl-skeleton { animation: none; }
+				.wl-step:hover, .wl-quote:hover { transform: none; }
+			}
+		</style>
+	</head>
+	<body class="walk-landing-page">
+		<a href="#main-content" class="skip-link">Skip to main content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main id="main-content" class="wl-main">
+			<!-- ── 1. HERO ── -->
+			<section class="wl-hero" aria-labelledby="wl-hero-title">
+				<div class="wl-reveal">
+					<p class="wl-eyebrow">three.ws Walk</p>
+					<h1 class="wl-hero-title" id="wl-hero-title">Your avatar walks anywhere on the web.</h1>
+					<p class="wl-hero-sub">
+						Drive a fully-rigged 3D avatar with WASD or a touch joystick. Drop it on any
+						site with a single tag, or install the extension and let it stroll across real
+						pages — reading them aloud as it goes. No app install. It just runs in the browser.
+					</p>
+					<div class="wl-cta-row">
+						<a class="btn btn--primary btn--lg" href="/walk/app">
+							Try it now <span class="btn-arrow" aria-hidden="true">→</span>
+						</a>
+						<a class="btn btn--ghost btn--lg" href="/extension">
+							Get the extension <span class="btn-arrow" aria-hidden="true">→</span>
+						</a>
+					</div>
+					<div class="wl-hero-meta">
+						<span>
+							<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							Runs in any WebGL browser
+						</span>
+						<span>
+							<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							Works on desktop &amp; mobile
+						</span>
+						<span>
+							<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							Embed with one tag
+						</span>
+					</div>
+				</div>
+
+				<div class="wl-reveal wl-frame wl-frame--hero">
+					<div class="wl-frame-chrome" aria-hidden="true">
+						<span class="wl-frame-dot"></span>
+						<span class="wl-frame-dot"></span>
+						<span class="wl-frame-dot"></span>
+						<span class="wl-frame-label">three.ws/walk-embed</span>
+					</div>
+					<div class="wl-frame-stage">
+						<iframe
+							src="/walk-embed?env=void&autoplay=true&controls=none&orbit=false"
+							title="Live demo — a 3D avatar walking in the void environment"
+							allow="accelerometer; gyroscope"
+						></iframe>
+						<span class="wl-frame-hint">Live · walking now</span>
+					</div>
+				</div>
+			</section>
+
+			<!-- ── 2. DEMO STRIP ── -->
+			<section class="wl-section" aria-labelledby="wl-demos-title">
+				<div class="wl-section-head wl-reveal">
+					<h2 class="wl-section-title" id="wl-demos-title">Choose your world.</h2>
+					<p class="wl-section-sub">Six built-in environments, no HDRIs to download. Grab the joystick or use WASD — these are live, not videos.</p>
+				</div>
+				<div class="wl-demos">
+					<article class="wl-demo wl-reveal">
+						<div class="wl-frame">
+							<div class="wl-frame-stage">
+								<iframe
+									src="/walk-embed?env=beach&controls=joystick&autoplay=true"
+									title="Interactive demo — walk the avatar on a sunlit beach"
+									loading="lazy"
+									allow="accelerometer; gyroscope"
+								></iframe>
+							</div>
+						</div>
+						<div class="wl-demo-caption">
+							<span class="wl-demo-name">Beach</span>
+							<span class="wl-demo-desc">Sun, sand, soft fog</span>
+						</div>
+					</article>
+					<article class="wl-demo wl-reveal">
+						<div class="wl-frame">
+							<div class="wl-frame-stage">
+								<iframe
+									src="/walk-embed?env=night&controls=joystick&autoplay=true"
+									title="Interactive demo — walk the avatar through a night scene"
+									loading="lazy"
+									allow="accelerometer; gyroscope"
+								></iframe>
+							</div>
+						</div>
+						<div class="wl-demo-caption">
+							<span class="wl-demo-name">Night</span>
+							<span class="wl-demo-desc">Moonlit, deep blue</span>
+						</div>
+					</article>
+					<article class="wl-demo wl-reveal">
+						<div class="wl-frame">
+							<div class="wl-frame-stage">
+								<iframe
+									src="/walk-embed?env=grid&controls=joystick&autoplay=true"
+									title="Interactive demo — walk the avatar on a holographic grid"
+									loading="lazy"
+									allow="accelerometer; gyroscope"
+								></iframe>
+							</div>
+						</div>
+						<div class="wl-demo-caption">
+							<span class="wl-demo-name">Grid</span>
+							<span class="wl-demo-desc">Clean studio grid</span>
+						</div>
+					</article>
+				</div>
+			</section>
+
+			<!-- ── 3. HOW IT WORKS ── -->
+			<section class="wl-section" aria-labelledby="wl-steps-title">
+				<div class="wl-section-head wl-reveal">
+					<h2 class="wl-section-title" id="wl-steps-title">How it works</h2>
+					<p class="wl-section-sub">From a blank page to a walking avatar in three steps.</p>
+				</div>
+				<ol class="wl-steps" style="list-style:none;padding:0;margin:0">
+					<li class="wl-step wl-reveal">
+						<div class="wl-frame-stage">
+							<iframe
+								src="/walk-embed?env=studio&autoplay=true&controls=none&orbit=false"
+								title="Step preview — a generated avatar idling in the studio"
+								loading="lazy"
+							></iframe>
+						</div>
+						<div class="wl-step-body">
+							<span class="wl-step-num">1</span>
+							<h3 class="wl-step-title">Create your avatar</h3>
+							<p class="wl-step-desc">Generate one from a selfie or a text prompt in Forge — or use any humanoid GLB. It comes back fully rigged and animation-ready.</p>
+						</div>
+					</li>
+					<li class="wl-step wl-reveal">
+						<div class="wl-frame-stage">
+							<iframe
+								src="/walk-embed?env=sunset&autoplay=true&controls=none&orbit=false"
+								title="Step preview — an avatar walking at sunset"
+								loading="lazy"
+							></iframe>
+						</div>
+						<div class="wl-step-body">
+							<span class="wl-step-num">2</span>
+							<h3 class="wl-step-title">Walk on three.ws</h3>
+							<p class="wl-step-desc">Open the Walk app and drive your avatar with WASD or a touch joystick. Drag to orbit the camera, sprint to run — real locomotion, not a turntable.</p>
+						</div>
+					</li>
+					<li class="wl-step wl-reveal">
+						<div class="wl-frame-stage">
+							<iframe
+								src="/walk-embed?env=void&autoplay=true&controls=none&orbit=false"
+								title="Step preview — an avatar walking, ready to embed"
+								loading="lazy"
+							></iframe>
+						</div>
+						<div class="wl-step-body">
+							<span class="wl-step-num">3</span>
+							<h3 class="wl-step-title">Embed it anywhere</h3>
+							<p class="wl-step-desc">Copy one iframe tag onto any site, or install the Chrome extension so your avatar follows you across the entire web.</p>
+						</div>
+					</li>
+				</ol>
+			</section>
+
+			<!-- ── 4. CHROME EXTENSION ── -->
+			<section class="wl-section" aria-labelledby="wl-ext-title">
+				<div class="wl-ext wl-reveal">
+					<div>
+						<div class="wl-ext-icon" aria-hidden="true">
+							<img src="/three.svg" alt="" />
+						</div>
+						<h2 class="wl-ext-title" id="wl-ext-title">Walk the entire web.</h2>
+						<ul class="wl-ext-list">
+							<li>
+								<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Your avatar walks over any page you visit — articles, docs, social feeds.
+							</li>
+							<li>
+								<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								It reads pages aloud as it strolls — a living browsing companion.
+							</li>
+							<li>
+								<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Pick any of your three.ws avatars from the popup. Switch in one click.
+							</li>
+							<li>
+								<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Minimal permissions, no tracking. Privacy details on the extension page.
+							</li>
+						</ul>
+						<div class="wl-cta-row">
+							<a class="btn btn--primary btn--lg" href="/extension">
+								Add to Chrome <span class="btn-arrow" aria-hidden="true">→</span>
+							</a>
+							<a class="btn btn--ghost" href="/extension/privacy">Privacy &amp; permissions</a>
+						</div>
+					</div>
+
+					<div class="wl-ext-mock" role="img" aria-label="A three.ws avatar walking on top of a real web page, driven by the Chrome extension">
+						<div class="wl-ext-mock-bar" aria-hidden="true">
+							<span class="wl-frame-dot"></span>
+							<span class="wl-frame-dot"></span>
+							<span class="wl-frame-dot"></span>
+							<span class="wl-ext-mock-url">a page on the web</span>
+						</div>
+						<div class="wl-ext-mock-stage">
+							<div class="wl-ext-mock-page" aria-hidden="true">
+								<span class="wl-ext-mock-line is-head"></span>
+								<span class="wl-ext-mock-line is-mid"></span>
+								<span class="wl-ext-mock-line"></span>
+								<span class="wl-ext-mock-line is-short"></span>
+								<span class="wl-ext-mock-line is-mid"></span>
+								<span class="wl-ext-mock-line is-short"></span>
+							</div>
+							<div class="wl-ext-mock-frame">
+								<iframe
+									src="/walk-embed?autoplay=true&controls=none&orbit=false&ground=false"
+									title="A walking avatar overlaid on a web page"
+									loading="lazy"
+								></iframe>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- ── 5. EMBED FOR DEVELOPERS ── -->
+			<section class="wl-section" aria-labelledby="wl-dev-title">
+				<div class="wl-section-head wl-reveal">
+					<h2 class="wl-section-title" id="wl-dev-title">One tag. Any site.</h2>
+					<p class="wl-section-sub">No SDK, no build step. Paste the iframe, set the avatar and world with query params, and you have a live walking avatar.</p>
+				</div>
+				<div class="wl-dev">
+					<div class="wl-code wl-reveal">
+						<div class="wl-code-bar">
+							<span class="wl-frame-dot"></span>
+							<span class="wl-frame-dot"></span>
+							<span class="wl-frame-dot"></span>
+							<span class="wl-code-label">your-site.html</span>
+							<button class="wl-copy-btn" id="wl-copy" type="button" aria-label="Copy embed snippet to clipboard">Copy</button>
+						</div>
+<pre id="wl-snippet"><code><span class="wl-tok-com">&lt;!-- three.ws Walk — drop in anywhere --&gt;</span>
+<span class="wl-tok-tag">&lt;iframe</span>
+  <span class="wl-tok-attr">src</span>=<span class="wl-tok-val">"https://three.ws/walk-embed?env=void&amp;autoplay=true"</span>
+  <span class="wl-tok-attr">width</span>=<span class="wl-tok-val">"360"</span> <span class="wl-tok-attr">height</span>=<span class="wl-tok-val">"480"</span>
+  <span class="wl-tok-attr">style</span>=<span class="wl-tok-val">"border:0;background:transparent"</span>
+  <span class="wl-tok-attr">title</span>=<span class="wl-tok-val">"three.ws walking avatar"</span><span class="wl-tok-tag">&gt;&lt;/iframe&gt;</span></code></pre>
+					</div>
+					<div class="wl-dev-preview wl-reveal">
+						<div class="wl-frame">
+							<div class="wl-frame-chrome" aria-hidden="true">
+								<span class="wl-frame-dot"></span>
+								<span class="wl-frame-dot"></span>
+								<span class="wl-frame-dot"></span>
+								<span class="wl-frame-label">live preview</span>
+							</div>
+							<div class="wl-frame-stage">
+								<iframe
+									src="/walk-embed?env=void&autoplay=true&controls=joystick"
+									title="Live preview of the embed snippet — an interactive walking avatar"
+									loading="lazy"
+									allow="accelerometer; gyroscope"
+								></iframe>
+							</div>
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<!-- ── 6. LEADERBOARD TEASER ── -->
+			<section class="wl-section" aria-labelledby="wl-board-title">
+				<div class="wl-section-head wl-reveal">
+					<h2 class="wl-section-title" id="wl-board-title">Top walkers</h2>
+					<p class="wl-section-sub">The longest strolls on three.ws, all-time. Lace up and climb the board.</p>
+				</div>
+				<div class="wl-board wl-reveal" id="wl-board" aria-live="polite" aria-busy="true">
+					<div class="wl-skeleton"></div>
+					<div class="wl-skeleton"></div>
+					<div class="wl-skeleton"></div>
+				</div>
+				<div style="text-align:center;margin-top:var(--space-6)" class="wl-reveal">
+					<a class="btn btn--ghost" href="/walk-leaderboard">See the full leaderboard <span class="btn-arrow" aria-hidden="true">→</span></a>
+				</div>
+			</section>
+
+			<!-- ── 7. SOCIAL PROOF ── -->
+			<section class="wl-section" aria-labelledby="wl-social-title">
+				<div class="wl-section-head wl-reveal">
+					<h2 class="wl-section-title" id="wl-social-title">From the team</h2>
+					<p class="wl-section-sub">What three.ws is shipping with Walk.</p>
+				</div>
+				<div class="wl-social wl-reveal" id="wl-social" aria-live="polite"></div>
+			</section>
+
+			<!-- ── 8. FOOTER CTA ── -->
+			<section class="wl-final wl-reveal" aria-labelledby="wl-final-title">
+				<h2 id="wl-final-title">Start walking now.</h2>
+				<p>Free to try — bring any avatar and a browser.</p>
+				<div class="wl-cta-row">
+					<a class="btn btn--primary btn--lg" href="/walk/app">
+						Start walking <span class="btn-arrow" aria-hidden="true">→</span>
+					</a>
+					<a class="btn btn--ghost btn--lg" href="/extension">Get the extension</a>
+				</div>
+			</section>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+
+		<script type="module">
+			// ── Copy button ──────────────────────────────────────────────
+			// Copies the literal embed snippet (not the syntax-highlighted DOM).
+			const copyBtn = document.getElementById('wl-copy');
+			if (copyBtn) {
+				const SNIPPET =
+					'<!-- three.ws Walk — drop in anywhere -->\n' +
+					'<iframe\n' +
+					'  src="https://three.ws/walk-embed?env=void&autoplay=true"\n' +
+					'  width="360" height="480"\n' +
+					'  style="border:0;background:transparent"\n' +
+					'  title="three.ws walking avatar"></iframe>';
+				copyBtn.addEventListener('click', async () => {
+					try {
+						await navigator.clipboard.writeText(SNIPPET);
+					} catch {
+						// Clipboard API unavailable (insecure context / denied) —
+						// fall back to a selection-based copy so the button still works.
+						const ta = document.createElement('textarea');
+						ta.value = SNIPPET;
+						ta.style.position = 'fixed';
+						ta.style.opacity = '0';
+						document.body.appendChild(ta);
+						ta.select();
+						try { document.execCommand('copy'); } catch {}
+						ta.remove();
+					}
+					copyBtn.textContent = 'Copied';
+					copyBtn.classList.add('is-copied');
+					copyBtn.addEventListener('animationend', () => {}, { once: true });
+					window.clearTimeout(copyBtn._t);
+					copyBtn._t = window.setTimeout(() => {
+						copyBtn.textContent = 'Copy';
+						copyBtn.classList.remove('is-copied');
+					}, 1800);
+				});
+			}
+
+			// ── Scroll reveal ────────────────────────────────────────────
+			const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+			const reveals = document.querySelectorAll('.wl-reveal');
+			if (reduceMotion || !('IntersectionObserver' in window)) {
+				reveals.forEach((el) => el.classList.add('is-in'));
+			} else {
+				const io = new IntersectionObserver(
+					(entries) => {
+						for (const e of entries) {
+							if (e.isIntersecting) {
+								e.target.classList.add('is-in');
+								io.unobserve(e.target);
+							}
+						}
+					},
+					{ threshold: 0.12, rootMargin: '0px 0px -60px 0px' },
+				);
+				reveals.forEach((el) => io.observe(el));
+			}
+
+			// ── Leaderboard (real fetch, graceful states) ────────────────
+			const board = document.getElementById('wl-board');
+			const MEDALS = ['1', '2', '3'];
+
+			function escapeHtml(s) {
+				return String(s).replace(/[&<>"']/g, (c) => ({
+					'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+				})[c]);
+			}
+
+			function formatDistance(meters) {
+				const m = Number(meters);
+				if (!Number.isFinite(m) || m <= 0) return '—';
+				if (m >= 1000) return (m / 1000).toFixed(m >= 10000 ? 0 : 1) + ' km';
+				return Math.round(m) + ' m';
+			}
+
+			function renderBoard(rows) {
+				board.setAttribute('aria-busy', 'false');
+				if (!rows.length) {
+					board.innerHTML =
+						'<div class="wl-state"><strong>No walks logged yet.</strong>' +
+						'Be the first to put down some distance.' +
+						'<div><a class="btn btn--primary" href="/walk/app">Start walking →</a></div></div>';
+					return;
+				}
+				board.innerHTML = rows.slice(0, 3).map((r, i) => {
+					const name = escapeHtml(r.name || r.handle || r.wallet_short || ('Walker #' + (i + 1)));
+					const dist = escapeHtml(formatDistance(r.distance ?? r.value ?? r.meters));
+					const img = r.image_url || r.avatar || r.image;
+					const av = img
+						? '<img class="wl-rank-av" src="' + escapeHtml(img) + '" alt="" loading="lazy" />'
+						: '<span class="wl-rank-av" aria-hidden="true"></span>';
+					const href = r.url || r.profile_url || r.walk_url;
+					const inner =
+						'<span class="wl-rank-medal" aria-hidden="true">' + MEDALS[i] + '</span>' +
+						av +
+						'<span class="wl-rank-meta"><span class="wl-rank-name">' + name + '</span>' +
+						'<span class="wl-rank-dist">' + dist + ' walked</span></span>';
+					return href
+						? '<a class="wl-rank wl-rank--' + (i + 1) + '" href="' + escapeHtml(href) + '">' + inner + '</a>'
+						: '<div class="wl-rank wl-rank--' + (i + 1) + '">' + inner + '</div>';
+				}).join('');
+			}
+
+			function renderBoardError() {
+				board.setAttribute('aria-busy', 'false');
+				board.innerHTML =
+					'<div class="wl-state"><strong>The leaderboard is taking a breather.</strong>' +
+					'We could not load the top walkers just now.' +
+					'<div><button class="btn btn--ghost" type="button" id="wl-board-retry">Try again</button></div></div>';
+				const retry = document.getElementById('wl-board-retry');
+				if (retry) retry.addEventListener('click', loadBoard);
+			}
+
+			async function loadBoard() {
+				board.setAttribute('aria-busy', 'true');
+				board.innerHTML = '<div class="wl-skeleton"></div><div class="wl-skeleton"></div><div class="wl-skeleton"></div>';
+				try {
+					const res = await fetch('/api/walk/leaderboard?period=all-time&metric=distance', {
+						headers: { accept: 'application/json' },
+					});
+					if (!res.ok) throw new Error('HTTP ' + res.status);
+					const data = await res.json();
+					// Accept a few reasonable shapes the parallel endpoint may ship:
+					// { leaders: [...] } | { walkers: [...] } | { entries: [...] } | [...]
+					const rows = Array.isArray(data)
+						? data
+						: data.leaders || data.walkers || data.entries || data.results || data.data || [];
+					renderBoard(Array.isArray(rows) ? rows : []);
+				} catch {
+					renderBoardError();
+				}
+			}
+			loadBoard();
+
+			// ── Social proof (curated, platform-owned only) ──────────────
+			const social = document.getElementById('wl-social');
+			function renderSocialEmpty() {
+				social.innerHTML =
+					'<div class="wl-state"><strong>Nothing here yet.</strong>' +
+					'Share your walk and tag <a href="https://x.com/trythreews" rel="noopener" style="color:var(--color-text-bright)">@trythreews</a>.</div>';
+			}
+			// The curated entries live in data/walk-social.json (source). The build
+			// copies it to a root-served path; try the public root first, then the
+			// raw data/ path, so the section populates regardless of how it's wired.
+			async function fetchSocial() {
+				for (const url of ['/walk-social.json', '/data/walk-social.json']) {
+					try {
+						const res = await fetch(url, { headers: { accept: 'application/json' } });
+						if (res.ok) return res.json();
+					} catch { /* try next */ }
+				}
+				throw new Error('walk-social.json unavailable');
+			}
+			async function loadSocial() {
+				try {
+					const items = await fetchSocial();
+					if (!Array.isArray(items) || !items.length) { renderSocialEmpty(); return; }
+					social.innerHTML = items.slice(0, 6).map((it) => {
+						const quote = escapeHtml(it.quote || '');
+						const author = escapeHtml(it.author || '');
+						const handle = escapeHtml(it.handle || '');
+						const url = it.url ? escapeHtml(it.url) : null;
+						const av = it.avatar
+							? '<img class="wl-quote-av" src="' + escapeHtml(it.avatar) + '" alt="" loading="lazy" />'
+							: '<span class="wl-quote-av" aria-hidden="true"></span>';
+						const body =
+							'<p class="wl-quote-text">' + quote + '</p>' +
+							'<span class="wl-quote-author">' + av +
+							'<span><span class="wl-quote-name">' + author + '</span><br />' +
+							'<span class="wl-quote-handle">' + handle + '</span></span></span>';
+						return url
+							? '<a class="wl-quote" href="' + url + '" target="_blank" rel="noopener noreferrer">' + body + '</a>'
+							: '<div class="wl-quote">' + body + '</div>';
+					}).join('');
+				} catch {
+					renderSocialEmpty();
+				}
+			}
+			loadSocial();
+		</script>
+	</body>
+</html>

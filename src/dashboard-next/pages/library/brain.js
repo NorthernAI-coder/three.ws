@@ -3,6 +3,8 @@
 // and live-test the brain against streaming responses — all from the dashboard.
 
 import { get, put, esc } from '../../api.js';
+import { emptyStateHTML, ensureStateKitStyles } from '../../../shared/state-kit.js';
+ensureStateKitStyles();
 
 // ── Model registry ─────────────────────────────────────────────────────────────
 // Mirrors the MODELS table in api/llm/anthropic.js.
@@ -350,12 +352,15 @@ export async function renderBrain(host) {
 
 	if (!agents.length) {
 		agentSel.innerHTML = '<option value="">No agents yet</option>';
-		contentEl.innerHTML = `
-			<div class="dn-empty">
-				<h3>No agents yet</h3>
-				<p>Create an agent first, then configure its brain here.</p>
-				<div style="margin-top:12px"><a class="dn-btn primary" href="/create">Create an agent</a></div>
-			</div>`;
+		contentEl.innerHTML = emptyStateHTML({
+			icon: '🤖',
+			title: 'No agents yet',
+			body: 'The brain is where you pick an agent\'s LLM, write its system prompt, and live-test how it responds. Create an agent first, then tune its brain here.',
+			actions: [
+				{ label: '+ Create your first agent', href: '/dashboard/agents', id: 'create-agent', primary: true },
+				{ label: "What's an agent?", href: '/docs/agents-vs-avatars', id: 'learn-agents' },
+			],
+		});
 		return;
 	}
 

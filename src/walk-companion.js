@@ -34,6 +34,29 @@ window.__walkCompanion = walk;
 // settings pill into the companion's existing control cluster. We read it lazily
 // off the live instance so this survives avatar swaps and playground round-trips.
 const companionHost = () => walk.instance?.host || null;
-installTransitions({ getAvatarEl: companionHost, getHostEl: companionHost });
+
+// When a themed transition takes over a link click it preventDefaults, which
+// would suppress the SDK companion's own _onLinkClick (task 32: wave goodbye +
+// set the sessionStorage greet flag the destination reads to wave hello). We
+// reproduce that single behaviour here so it still fires exactly once.
+const GREET_KEY = walk.config?.keys?.greet || 'walk:companion:greet';
+function onTransitionNavStart() {
+	try {
+		walk.instance?.controller?.playWave();
+	} catch {
+		/* controller may not be ready — non-fatal */
+	}
+	try {
+		sessionStorage.setItem(GREET_KEY, '1');
+	} catch {
+		/* private mode / disabled storage — non-fatal */
+	}
+}
+
+installTransitions({
+	getAvatarEl: companionHost,
+	getHostEl: companionHost,
+	onNavStart: onTransitionNavStart,
+});
 
 walk.bootstrap();

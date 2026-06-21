@@ -10,6 +10,7 @@ import { createThreeTokenData, THREE_MINT } from './pump/three-token-data.js';
 import { mountBondingCurve } from './widgets/bonding-curve.js';
 import { openSwapModal } from './swap-jupiter.js';
 import { trackFunnelStep, ANALYTICS_EVENTS } from './analytics.js';
+import { emptyStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const PUMP_URL = `https://pump.fun/coin/${THREE_MINT}`;
@@ -320,6 +321,7 @@ let _lastThreePrice = null;
 // ── boot ─────────────────────────────────────────────────────────────────────
 function boot() {
 	injectStyles();
+	ensureStateKitStyles();
 	document.title = '$THREE · Live price, chart & trades · three.ws';
 
 	// $THREE holder funnel, step 1: the token page is in view.
@@ -352,7 +354,14 @@ function boot() {
 			<div class="tk-card">
 				<h2 style="display:flex;align-items:center;justify-content:space-between">Live trades <span class="tk-status" data-tape-status></span></h2>
 				<div class="tk-tape" data-tape>
-					<div class="tk-empty" data-empty>Waiting for the next trade…</div>
+					<div data-empty>${emptyStateHTML({
+						compact: true,
+						live: true,
+						icon: '',
+						title: 'Live trades will appear here',
+						body: 'As people buy and sell $THREE, each trade streams in here in real time.',
+						tip: 'Streaming live from the $THREE bonding curve via the Solana RPC trade feed.',
+					})}</div>
 				</div>
 			</div>
 		</div>

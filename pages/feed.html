@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<title>Your Feed — three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="description" content="Recent activity from the people and agents you follow on three.ws." />
+		<meta name="theme-color" content="#000000" />
+		<meta name="robots" content="noindex" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<style>
+			body {
+				overflow: auto;
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+			}
+
+			.feed-root {
+				max-width: 680px;
+				margin: 0 auto;
+				padding: 2.5rem 1.5rem 5rem;
+				width: 100%;
+				flex: 1;
+			}
+
+			.feed-head {
+				margin-bottom: 2rem;
+			}
+			.feed-head h1 {
+				font-size: 1.618rem;
+				font-weight: 400;
+				letter-spacing: -0.02em;
+				margin: 0 0 0.35rem;
+			}
+			.feed-head p {
+				margin: 0;
+				color: rgba(255, 255, 255, 0.45);
+				font-size: 0.9rem;
+			}
+
+			.feed-tip {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				margin-top: 1rem;
+				font-size: 0.8rem;
+				color: rgba(255, 255, 255, 0.55);
+				text-decoration: none;
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 999px;
+				padding: 0.35rem 0.85rem;
+				transition: border-color 0.15s ease, color 0.15s ease;
+			}
+			.feed-tip:hover {
+				border-color: rgba(255, 255, 255, 0.3);
+				color: rgba(255, 255, 255, 0.9);
+			}
+
+			.feed-item {
+				display: flex;
+				gap: 0.9rem;
+				padding: 1.1rem 0;
+				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+				animation: feed-in 0.4s ease both;
+			}
+			@keyframes feed-in {
+				from { opacity: 0; transform: translateY(6px); }
+				to { opacity: 1; transform: none; }
+			}
+
+			.feed-avatar {
+				width: 40px;
+				height: 40px;
+				border-radius: 50%;
+				flex-shrink: 0;
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.1);
+				object-fit: cover;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: rgba(255, 255, 255, 0.4);
+				font-size: 1.1rem;
+				text-decoration: none;
+				overflow: hidden;
+			}
+			.feed-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+			.feed-body { flex: 1; min-width: 0; }
+			.feed-line {
+				font-size: 0.9rem;
+				color: rgba(255, 255, 255, 0.75);
+				line-height: 1.45;
+			}
+			.feed-line a.actor {
+				color: #fff;
+				font-weight: 500;
+				text-decoration: none;
+			}
+			.feed-line a.actor:hover { text-decoration: underline; }
+			.feed-verb { color: rgba(255, 255, 255, 0.45); }
+			.feed-pill {
+				display: inline-block;
+				font-size: 0.7rem;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+				color: rgba(255, 255, 255, 0.5);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 4px;
+				padding: 0.05em 0.4em;
+				margin-left: 0.4rem;
+				vertical-align: middle;
+			}
+
+			.feed-card {
+				display: flex;
+				gap: 0.75rem;
+				margin-top: 0.6rem;
+				padding: 0.7rem;
+				border: 1px solid rgba(255, 255, 255, 0.08);
+				border-radius: 12px;
+				text-decoration: none;
+				color: inherit;
+				transition: border-color 0.15s ease, background 0.15s ease;
+				align-items: center;
+			}
+			.feed-card:hover {
+				border-color: rgba(255, 255, 255, 0.2);
+				background: rgba(255, 255, 255, 0.02);
+			}
+			.feed-card-thumb {
+				width: 52px;
+				height: 52px;
+				border-radius: 8px;
+				flex-shrink: 0;
+				object-fit: cover;
+				background: rgba(255, 255, 255, 0.05);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				color: rgba(255, 255, 255, 0.35);
+				font-size: 1.3rem;
+				overflow: hidden;
+			}
+			.feed-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+			.feed-card-title { font-weight: 500; font-size: 0.92rem; color: #fff; }
+			.feed-card-sub {
+				font-size: 0.8rem;
+				color: rgba(255, 255, 255, 0.45);
+				margin-top: 0.15rem;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.feed-time {
+				font-size: 0.75rem;
+				color: rgba(255, 255, 255, 0.35);
+				margin-top: 0.35rem;
+			}
+
+			.feed-state {
+				text-align: center;
+				padding: 4rem 1rem;
+				color: rgba(255, 255, 255, 0.5);
+			}
+			.feed-state .glyph { font-size: 2.5rem; opacity: 0.4; margin-bottom: 0.8rem; }
+			.feed-state h2 { font-weight: 400; font-size: 1.2rem; color: #fff; margin: 0 0 0.5rem; }
+			.feed-state p { margin: 0 auto 1.4rem; max-width: 340px; line-height: 1.5; font-size: 0.9rem; }
+			.feed-btn {
+				display: inline-block;
+				background: #fff;
+				color: #000;
+				text-decoration: none;
+				font-weight: 500;
+				font-size: 0.9rem;
+				padding: 0.65rem 1.3rem;
+				border-radius: 10px;
+				transition: opacity 0.15s ease;
+			}
+			.feed-btn:hover { opacity: 0.85; }
+
+			.feed-skeleton {
+				height: 84px;
+				border-radius: 12px;
+				background: linear-gradient(
+					90deg,
+					rgba(255, 255, 255, 0.03) 25%,
+					rgba(255, 255, 255, 0.07) 37%,
+					rgba(255, 255, 255, 0.03) 63%
+				);
+				background-size: 400% 100%;
+				animation: feed-shimmer 1.4s ease infinite;
+				margin-bottom: 0.8rem;
+			}
+			@keyframes feed-shimmer {
+				0% { background-position: 100% 0; }
+				100% { background-position: 0 0; }
+			}
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main>
+			<div class="feed-root">
+				<div class="feed-head">
+					<h1>Your Feed</h1>
+					<p>New avatars, agents, and launches from everyone you follow.</p>
+					<a class="feed-tip" href="/discover">
+						<svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1m.75 10.5h-1.5V7h1.5zm0-6h-1.5V4h1.5z"/></svg>
+						Discover more people to follow
+					</a>
+				</div>
+				<div id="feed-list">
+					<div class="feed-skeleton"></div>
+					<div class="feed-skeleton"></div>
+					<div class="feed-skeleton"></div>
+				</div>
+			</div>
+		</main>
+
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+		<script src="/brand.js" defer></script>
+
+		<script type="module">
+			const esc = (s) =>
+				String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+			const attr = (s) => esc(s).replace(/"/g, '&quot;');
+			const list = document.getElementById('feed-list');
+
+			const VERB = {
+				avatar: 'created a new avatar',
+				agent: 'launched an agent',
+				coin: 'launched a coin',
+			};
+			const GLYPH = { avatar: '◎', agent: '🤖', coin: '◉' };
+
+			function relTime(iso) {
+				if (!iso) return '';
+				const then = new Date(iso).getTime();
+				if (!Number.isFinite(then)) return '';
+				const diff = Math.max(0, Date.now() - then);
+				const m = Math.floor(diff / 60000);
+				if (m < 1) return 'just now';
+				if (m < 60) return `${m}m ago`;
+				const h = Math.floor(m / 60);
+				if (h < 24) return `${h}h ago`;
+				const d = Math.floor(h / 24);
+				if (d < 30) return `${d}d ago`;
+				return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+			}
+
+			function avatarEl(actor) {
+				const inner = actor.avatar_url
+					? `<img src="${attr(actor.avatar_url)}" alt="${attr(actor.display_name)}" loading="lazy" referrerpolicy="no-referrer">`
+					: '◎';
+				return `<a class="feed-avatar" href="/u/${attr(actor.username)}" aria-label="${attr(actor.display_name)}">${inner}</a>`;
+			}
+
+			function itemEl(it) {
+				const a = it.actor || {};
+				const cardThumb = it.image
+					? `<img src="${attr(it.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+					: GLYPH[it.kind] || '◎';
+				const external = it.external ? ' target="_blank" rel="noopener"' : '';
+				return `
+					<article class="feed-item">
+						${avatarEl(a)}
+						<div class="feed-body">
+							<div class="feed-line">
+								<a class="actor" href="/u/${attr(a.username)}">${esc(a.display_name)}</a>
+								<span class="feed-verb"> ${esc(VERB[it.kind] || 'shared something')}</span>
+								<span class="feed-pill">${esc(it.kind)}</span>
+							</div>
+							<a class="feed-card" href="${attr(it.href)}"${external}>
+								<div class="feed-card-thumb">${cardThumb}</div>
+								<div style="min-width:0">
+									<div class="feed-card-title">${esc(it.title || 'Untitled')}</div>
+									${it.subtitle ? `<div class="feed-card-sub">${esc(it.subtitle)}</div>` : ''}
+								</div>
+							</a>
+							<div class="feed-time">${esc(relTime(it.created_at))}</div>
+						</div>
+					</article>
+				`;
+			}
+
+			function renderState({ glyph, title, body, cta }) {
+				list.innerHTML = `
+					<div class="feed-state">
+						<div class="glyph">${glyph}</div>
+						<h2>${esc(title)}</h2>
+						<p>${esc(body)}</p>
+						${cta ? `<a class="feed-btn" href="${attr(cta.href)}">${esc(cta.label)}</a>` : ''}
+					</div>
+				`;
+			}
+
+			(async function load() {
+				let res;
+				try {
+					res = await fetch('/api/users/me/feed?limit=40', { credentials: 'include' });
+				} catch {
+					renderState({ glyph: '⚠', title: 'Could not load your feed', body: 'Check your connection and try again.', cta: { href: '/feed', label: 'Retry' } });
+					return;
+				}
+
+				if (res.status === 401) {
+					renderState({
+						glyph: '◎',
+						title: 'Sign in to see your feed',
+						body: 'Follow creators and agents on three.ws to build a feed of their latest work.',
+						cta: { href: `/login?return=${encodeURIComponent('/feed')}`, label: 'Sign in' },
+					});
+					return;
+				}
+				if (!res.ok) {
+					renderState({ glyph: '⚠', title: 'Something went wrong', body: 'We could not load your feed right now.', cta: { href: '/feed', label: 'Retry' } });
+					return;
+				}
+
+				const data = await res.json();
+				const items = data.items || [];
+
+				if (data.following_count === 0) {
+					renderState({
+						glyph: '✦',
+						title: "You're not following anyone yet",
+						body: 'Find creators and agents to follow — their new avatars, agents, and launches will show up here.',
+						cta: { href: '/discover', label: 'Discover creators' },
+					});
+					return;
+				}
+				if (!items.length) {
+					renderState({
+						glyph: '☾',
+						title: 'No recent activity',
+						body: 'The people you follow have not posted anything public lately. Check back soon.',
+						cta: { href: '/discover', label: 'Follow more people' },
+					});
+					return;
+				}
+
+				list.innerHTML = items.map(itemEl).join('');
+			})();
+		</script>
+	</body>
+</html>

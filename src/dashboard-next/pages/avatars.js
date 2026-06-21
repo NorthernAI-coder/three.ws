@@ -13,6 +13,8 @@ import { createFromTemplate } from '../../shared/template-picker.js';
 import { onchainBadgeHTML, ensureOnchainBadgeStyles } from '../../shared/onchain-badge.js';
 import { walletChipHTML, wireWalletChips } from '../../shared/agent-wallet-chip.js';
 import { rigBadgeHTML, matchesRigFilter, RIG_FILTERS } from '../../shared/rig-status.js';
+import { emptyStateEl, ensureStateKitStyles } from '../../shared/state-kit.js';
+ensureStateKitStyles();
 
 const PAGE_SIZE = 24;
 const VISIBILITIES = ['public', 'unlisted', 'private'];
@@ -1173,20 +1175,18 @@ function renderSkeletons(grid, n) {
 }
 
 function emptyBlock() {
-	const wrap = document.createElement('div');
-	wrap.className = 'dn-empty';
-	wrap.style.gridColumn = '1 / -1';
-	wrap.innerHTML = `
-		<h3>No avatars yet.</h3>
-		<p>Build your first 3D agent — describe it in a sentence and watch it generate, start from a ready-made template, sculpt one from scratch, or drop a selfie.</p>
-		<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-			<a class="dn-btn primary" href="/create/prompt">Describe it · prompt → 3D</a>
-			<button type="button" class="dn-btn" data-empty-template>Start from a template</button>
-			<a class="dn-btn" href="/create/studio">Build from scratch</a>
-			<a class="dn-btn" href="/create/selfie">Create from selfie</a>
-		</div>
-	`;
-	wrap.querySelector('[data-empty-template]')?.addEventListener('click', () => createFromTemplate());
+	const wrap = emptyStateEl({
+		icon: '🎭',
+		title: 'No avatars yet',
+		body: 'Avatars are the 3D bodies your agents wear — embeddable, animated characters you own. Make your first one: describe it in a sentence and watch it generate, start from a ready-made template, sculpt one from scratch, or drop a selfie.',
+		actions: [
+			{ label: 'Describe it · prompt → 3D', href: '/create/prompt', id: 'create-prompt', primary: true },
+			{ label: 'Start from a template', id: 'create-template' },
+			{ label: 'Build from scratch', href: '/create/studio', id: 'create-studio' },
+			{ label: 'Create from selfie', href: '/create/selfie', id: 'create-selfie' },
+		],
+	});
+	wrap.querySelector('[data-sk-action="create-template"]')?.addEventListener('click', () => createFromTemplate());
 	return wrap;
 }
 
