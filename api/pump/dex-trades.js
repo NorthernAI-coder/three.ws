@@ -21,13 +21,36 @@ const GT_NETWORK = 'solana';
 const MAX_TRADES = 50;
 const POOL_TTL_MS = 5 * 60_000;
 const FETCH_TIMEOUT_MS = 6_000;
+// How long to keep serving the last good trades frame for a mint after upstream
+// starts failing. A graduated coin's tape is far better stale-by-a-minute than
+// blank, and it lets a crowd of pollers ride the cache through a rate-limit blip.
+const TRADES_STALE_MS = 90_000;
+// GeckoTerminal's keyless tier is ~30 req/min shared across the whole function.
+// When we trip a 429, hammering it again immediately just extends the throttle,
+// so we open a short circuit-breaker: until it elapses, skip the upstream call
+// entirely and serve cached trades. Kept under the stale window so a real
+// recovery is picked up on the first poll after the cooldown.
+const RATELIMIT_COOLDOWN_MS = 20_000;
 
 // mint → { pool, at } — the top pool changes rarely, so caching it keeps the
 // per-poll cost at a single GeckoTerminal call against a tight keyless limit.
 const _poolCache = new Map();
+// mint → { trades, pool, at } — last successful trade frame, served stale when
+// upstream is unavailable so the live tape never blanks mid-session.
+const _tradesCache = new Map();
+// Process-wide circuit breaker: epoch ms until which we treat GeckoTerminal as
+// rate-limited and skip calls. Shared across mints because the 429 is per-IP.
+let _cooldownUntil = 0;
 
 function isPlausibleMint(s) {
 	return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
+}
+
+class RateLimitError extends Error {
+	constructor() {
+		super('GeckoTerminal 429');
+		this.code = 'rate_limited';
+	}
 }
 
 async function gtFetch(path) {
@@ -38,6 +61,11 @@ async function gtFetch(path) {
 			signal: ctrl.signal,
 			headers: { accept: 'application/json', 'user-agent': 'three.ws-dex-trades/1' },
 		});
+		if (r.status === 429) {
+			// Open the breaker so sibling invocations stop piling onto the throttle.
+			_cooldownUntil = Date.now() + RATELIMIT_COOLDOWN_MS;
+			throw new RateLimitError();
+		}
 		if (!r.ok) throw new Error(`GeckoTerminal ${r.status}`);
 		return await r.json();
 	} finally {
@@ -116,6 +144,31 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'bad_mint', 'mint query param must be a base58 Solana address');
 	}
 
+	// Serve the last good frame for this mint, capped/sorted to the request shape.
+	// `stale` flags that the data is from cache rather than a fresh upstream read.
+	const serveCached = (stale) => {
+		const hit = _tradesCache.get(mint);
+		if (!hit) return null;
+		return {
+			mint,
+			pool: hit.pool,
+			trades: hit.trades.slice(0, limit),
+			...(stale ? { stale: true } : {}),
+		};
+	};
+
+	// Circuit-breaker open: GeckoTerminal recently 429'd us. Don't add to the
+	// throttle — ride the cache. Empty (but 200) if we have nothing cached yet.
+	if (Date.now() < _cooldownUntil) {
+		const cached = serveCached(true);
+		return json(
+			res,
+			200,
+			cached || { mint, pool: null, trades: [], stale: true, error: 'rate_limited' },
+			{ 'cache-control': 'public, s-maxage=10' },
+		);
+	}
+
 	try {
 		const pool = await topPool(mint);
 		if (!pool) {
@@ -132,21 +185,33 @@ export default wrap(async (req, res) => {
 			.map((t) => normalizeGtTrade(t, mint))
 			.filter((t) => t.signature && t.timestamp)
 			.sort((a, b) => b.timestamp - a.timestamp)
-			.slice(0, limit);
+			.slice(0, MAX_TRADES);
+		_tradesCache.set(mint, { trades, pool, at: Date.now() });
 		return json(
 			res,
 			200,
-			{ mint, pool, trades },
+			{ mint, pool, trades: trades.slice(0, limit) },
 			{ 'cache-control': 'public, s-maxage=8, stale-while-revalidate=30' },
 		);
 	} catch (err) {
-		// Never error a public tape: return empty so the client keeps its last good
-		// frame and retries on the next poll.
-		console.error('[pump/dex-trades]', err?.message || err);
+		// Never error a public tape. Prefer the last good frame (within the stale
+		// window) over a blank one so the tape survives a rate-limit/timeout blip;
+		// fall back to empty only when we have nothing cached.
+		const isRateLimit = err?.code === 'rate_limited';
+		if (!isRateLimit) console.error('[pump/dex-trades]', err?.message || err);
+		const hit = _tradesCache.get(mint);
+		if (hit && Date.now() - hit.at < TRADES_STALE_MS) {
+			return json(
+				res,
+				200,
+				{ mint, pool: hit.pool, trades: hit.trades.slice(0, limit), stale: true },
+				{ 'cache-control': 'public, s-maxage=10' },
+			);
+		}
 		return json(
 			res,
 			200,
-			{ mint, pool: null, trades: [], error: 'upstream_unavailable' },
+			{ mint, pool: null, trades: [], error: isRateLimit ? 'rate_limited' : 'upstream_unavailable' },
 			{ 'cache-control': 'public, s-maxage=10' },
 		);
 	}

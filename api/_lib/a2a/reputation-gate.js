@@ -3,13 +3,11 @@
 //
 // Trust is the missing half of autonomous payments: budget caps stop an agent
 // overspending, but they don't stop it paying a scammer. ERC-8004's Reputation
-// Registry is the standard trust signal; this module reads it server-side and
-// enforces a minimum average score and/or minimum review count before a
-// mandate-authorized payment is allowed to proceed. It is the throwing wrapper
-// around the shared open-network bouncer (../trust/agent-bouncer.js) — same
-// canonical, correctly-decoded read the public /api/x402/agent-bouncer endpoint
-// uses, so the autonomous-payment door and the public door can never drift on
-// who is trustworthy.
+// Registry is the standard EVM trust signal; this module reads it server-side
+// and enforces a minimum average score and/or minimum review count before a
+// mandate-authorized payment is allowed to proceed. (Its Solana counterpart —
+// vetting a three.ws agent by its on-chain Solana track record — is
+// ../trust/solana-bouncer.js, exposed publicly at /api/x402/agent-bouncer.)
 //
 // The read goes through the curated multi-RPC failover in api/_lib/evm/rpc.js
 // (honoring A2A_REPUTATION_RPC_URL as the pinned primary when set), so the gate
