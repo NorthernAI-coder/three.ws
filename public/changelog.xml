@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Pitch Deck</title>
+			<link>https://three.ws/pitch</link>
+			<guid isPermaLink="false">2026-06-22:Pitch Deck</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.</description>
+		</item>
+		<item>
 			<title>Chat embeds now load on any site</title>
 			<link>https://three.ws/embed</link>
 			<guid isPermaLink="false">2026-06-22:Chat embeds now load on any site</guid>

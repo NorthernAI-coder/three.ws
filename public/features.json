@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T03:47:58.640Z",
+	"generated_at": "2026-06-22T03:50:43.911Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -160,6 +160,16 @@
 					"title": "What is three.ws?",
 					"description": "Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.",
 					"added": "2026-06-05",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/pitch",
+					"title": "Pitch Deck",
+					"description": "The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.",
+					"added": "2026-06-22",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
