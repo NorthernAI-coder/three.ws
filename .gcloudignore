@@ -15,6 +15,7 @@
 !/package-lock.json
 !/.npmrc
 !/.gcloudignore
+!/.dockerignore
 # Re-exclude heavy/derived paths even inside the re-included directories.
 **/node_modules/
 .git/
