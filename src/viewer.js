@@ -1327,8 +1327,10 @@ export class Viewer {
 		} else {
 			this.scene.background = this.backgroundColor;
 			this.renderer.setClearColor(0x000000, 1);
-			this.updateEnvironment();
 		}
+		// Always apply IBL — updateEnvironment() sets scene.background to null for
+		// transparent mode so the canvas stays clear while still lighting materials.
+		this.updateEnvironment();
 		this.invalidate();
 	}
 

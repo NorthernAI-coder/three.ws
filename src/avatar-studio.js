@@ -1286,7 +1286,7 @@ async function saveAvatar() {
 	resetBtn.disabled = true;
 
 	// For edit mode, nudge the user if nothing changed
-	if (editAvatarId && !collapseAppearance(workingAppearance) &&
+	if (editAvatarId &&
 	    JSON.stringify(collapseAppearance(workingAppearance)) === JSON.stringify(collapseAppearance(savedAppearance))) {
 		setStatus('', 'No changes to save.');
 		saveBtn.disabled = false;

@@ -3732,6 +3732,23 @@
 		},
 		{
 			"src": "/a/(.*)",
+			"has": [
+				{
+					"type": "query",
+					"key": "embed",
+					"value": "1"
+				}
+			],
+			"headers": {
+				"content-security-policy": "frame-ancestors *; base-uri 'self'; object-src 'none'; report-uri /api/client-errors",
+				"x-content-type-options": "nosniff",
+				"referrer-policy": "strict-origin-when-cross-origin",
+				"permissions-policy": "microphone=(self), camera=(self), autoplay=(self), xr-spatial-tracking=*"
+			},
+			"dest": "/app-next.html"
+		},
+		{
+			"src": "/a/(.*)",
 			"dest": "/app-next.html"
 		},
 		{

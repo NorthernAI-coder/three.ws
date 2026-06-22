@@ -27,7 +27,11 @@ const wallet = {
 
 function makeConnection(ataExists: boolean) {
   const getAccountInfo = jest.fn<(pubkey: PublicKey) => Promise<AccountInfo<Buffer> | null>>();
-  getAccountInfo.mockResolvedValue(ataExists ? (FAKE_ACCOUNT as unknown as AccountInfo<Buffer>) : null);
+  getAccountInfo.mockImplementation(async (pubkey) => {
+    // resolveTokenProgramId reads the mint account's owner — always present.
+    if (pubkey.equals(MINT_PUBKEY)) return FAKE_ACCOUNT as unknown as AccountInfo<Buffer>;
+    return ataExists ? (FAKE_ACCOUNT as unknown as AccountInfo<Buffer>) : null;
+  });
   return { getAccountInfo } as unknown as Connection;
 }
 

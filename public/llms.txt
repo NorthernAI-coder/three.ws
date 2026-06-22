@@ -64,6 +64,7 @@ Create and customize an agent.
 - [Claim threews.sol Subdomain](https://three.ws/threews/claim): Claim your own <name>.threews.sol subdomain and get a Brave-resolvable personal showcase page.
 - [Voice Lab](https://three.ws/voice): Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.
 - [3D Scanner — Scan Yourself into 3D](https://three.ws/scan): Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.
+- [Make Dad a 3D Avatar](https://three.ws/dad): Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.
 
 ## Labs
 

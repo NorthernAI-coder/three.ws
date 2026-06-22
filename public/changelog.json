@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-21T20:51:46.382Z",
+	"generated_at": "2026-06-22T00:53:47.071Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Chat embeds now load on any site",
+			"summary": "The embed editor's Chat mode produced a snippet that worked in the live preview but stayed blank once pasted onto an external site. The agent chat page was served with a frame-ancestors policy that only allowed three.ws itself, so every other domain's browser blocked the iframe. Chat embeds now ship the same open framing policy as the avatar embed modes, and the embedded chat page can use the microphone for voice input. Paste the snippet anywhere and it just works.",
+			"link": "/embed",
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-06-21",
 			"type": "launch",
@@ -52,6 +62,16 @@
 			"title": "Hero Stage",
 			"summary": "A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.",
 			"link": "/hero-demo",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "launch",
+			"title": "Make Dad a 3D Avatar",
+			"summary": "Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.",
+			"link": "/dad",
 			"tags": [
 				"launch"
 			]
@@ -582,6 +602,16 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Membership tiers and referral codes",
+			"summary": "Every member now wears a mode on their card: User, Beta, Pro, Holder, or Three Dimensional. The tier panel on your referrals page shows every badge you hold, what each one unlocks, and the next mode to aim for — with a live $THREE holder check across all your linked wallets. Referral codes now default to your name and you can customize them at any time from your membership card.",
+			"link": "/dashboard/referrals",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Membership tiers: see your mode on your member card",
 			"summary": "Your dashboard membership card now shows your tier — User, Beta, Pro, Holder, or Three Dimensional. A new panel on the Referrals page lays out the full ladder: which modes you already hold, and exactly what unlocks the rest. Holder is detected live from the $THREE you hold across any linked Solana wallet (hold more to climb the Bronze→Genesis ladder), Pro comes with a paid plan, and Beta and Three Dimensional are granted by the team. Everyone starts as a User with full free-forever access.",
 			"link": "/dashboard/referrals",
@@ -717,6 +747,17 @@
 		{
 			"date": "2026-06-21",
 			"type": "update",
+			"title": "Platform-wide code audit: 15 bugs found and fixed",
+			"summary": "A full read-the-code audit across 60+ source files and all API handlers found and fixed 15 real bugs: XSS in the x402 trade demo and payment chip (server-controlled SSE fields and skill names now escaped before being set as innerHTML); face-mocap looped playback froze after one cycle (RAF never re-armed on loop restart); a JavaScript temporal dead zone crash in the trader card renderer (pumpUrl referenced before declaration); the BYOK API key error handler was unreachable due to ordering (generic 401/402 caught first); the Jupiter swap confirm button was always disabled even with a valid amount (contradictory double-assignment); the agent-exchange result fallback used the whole SSE envelope instead of the nested result object; the game-ready wireframe WebGL renderer and RAF loop kept running indefinitely when hidden (now skipped when not visible, torn down on pagehide); body mocap bone lookup only handled Mixamo rigs and missed Blender, Rigify, VRM, and others (now delegates to the shared canonicalizer); the click-to-walk tryInject poll timer was never cancelled on uninstall; the club swapAvatar path skipped auto-camera release and audio fade when interrupting a paid performance; the wallet.js connectWallet export used by ThreeGate was missing (connect button silently fell back to a DOM click that often found nothing); the API agent-actions cursor parameter returned a 500 on non-numeric input instead of a 400; and several low-severity dead code and UI guard fixes.",
+			"link": null,
+			"tags": [
+				"fix",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
 			"title": "Platform-wide hardening: payment integrity, security, and scale",
 			"summary": "A broad reliability pass across the parts of three.ws that move real money and serve heavy traffic. On the money side: bundle purchases and agent payments are now verified on-chain before anything unlocks, each payment is credited exactly once, withdrawals can't be processed twice, and recurring subscriptions can't be double-billed. On the security side: a set of input-handling and link-safety fixes across pages, stronger protection for custodial keys at rest, and tighter checks on outbound agent payments so funds only ever move in the expected asset. On the scale side: the busiest directory, profile, and feed pages now ride a short cache and run far fewer database queries, so they stay fast as the community grows. Most of this is invisible by design — it's the plumbing that keeps the platform correct and quick under load.",
 			"link": null,
@@ -806,6 +847,17 @@
 			"tags": [
 				"fix",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "Security hardening across payments, subscriptions, and the agent sniper",
+			"summary": "A code audit turned up and fixed several real vulnerabilities: Solana subscriptions now reject devnet USDC (previously accepted, letting anyone subscribe for free with faucet tokens). Payment intent confirmation now uses an atomic DB transaction so a crash mid-grant can't leave a user paid but unsubscribed. An expired intent could be incorrectly promoted to confirmed in a race — the status gate is now strict. The Solana mint check no longer silently accepts any SPL token in legacy transfer instructions. The agent sniper's coin classifier now truncates and delimits metadata fields to block prompt injection via crafted coin names. The oracle worker's on-chain confirm step now times out after 60 s instead of hanging forever. Routine steps already rejected by the animation engine's fallen-pose guard no longer pass the pre-play filter and cause dancers to freeze.",
+			"link": null,
+			"tags": [
+				"security",
+				"fix"
 			]
 		},
 		{
@@ -963,6 +1015,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-21",
+			"type": "update",
+			"title": "User profiles: wallets, NFTs, accessories, shop listings, fork agents and avatars",
+			"summary": "The /u/ profile pages now surface the full picture of what a user owns and builds. A wallets row shows every linked Solana and EVM address with one-click copy and a link to the chain explorer. On-chain collectibles load in a lazy background pass — 3D NFTs display as interactive model-viewer tiles; image NFTs sit in a grid. Any premium accessories purchased through the x402 cosmetics rail appear in their own tab with rarity badges. Published avatars and agents carry a Fork button so visitors can clone the item directly into their own account. Items actively listed for sale land in a For sale tab with direct buy links. All counts surface in the stat strip.",
+			"link": "/u",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
