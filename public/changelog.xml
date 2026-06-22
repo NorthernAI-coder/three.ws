@@ -39,6 +39,22 @@
 			<description>A round of Forge fixes. The engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), on From photos 'builds from your reference photos', and a credit figure now only appears on metered lanes so a free build never reads 'Free · ~N credits'. The Describe it / From photos / From a sketch tabs are now fully keyboard-navigable with the arrow keys and announce correctly to screen readers. And opening a remix link keeps your whole prompt — long prompts are no longer clipped to 300 characters.</description>
 		</item>
 		<item>
+			<title>Free Forge on the IBM demo stays reliable while the GPU warms up</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-22:Free Forge on the IBM demo stays reliable while the GPU warms up</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The free, no-wallet 'forge a 3D model' widget on the IBM partnership page no longer shows a false 'briefly unreachable' error when the free GPU is cold. It used to fire up to six generation requests behind a single click, which spent the free lane's hourly limit about six times faster — a few tries could lock you out — and a slow cold start would surface as an error even though the model was still on its way. Now it makes one request per click (the server already falls back across NVIDIA, TRELLIS, and Hugging Face on its own), shows honest progress while a cold start warms up (which can take up to a minute), and, if the free lane is genuinely at its hourly limit, says exactly that and when to try again — pointing you to the instant paid Forge above. A model reliably comes back to orbit and download.</description>
+		</item>
+		<item>
+			<title>IBM x402 demo works when embedded in IBM's CMS</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-22:IBM x402 demo works when embedded in IBM's CMS</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The five live demos on the IBM partnership page — Forge, x402 micropayments, the 3D agent, Play, and IRL — now run correctly when the page is embedded inside IBM's content platform, not only when opened directly. IBM serves the embed from a Seismic gateway address, and the browser was silently blocking it: the free 3D generator reported 'briefly unreachable' and the wallet payment couldn't reach the Solana network, because three.ws didn't yet recognize that gateway as an allowed origin. three.ws now trusts IBM's Seismic-served origins for both data calls and embedding, so the free Forge, the on-chain payment flow, and the inline Play/IRL worlds all work on the embedded page.</description>
+		</item>
+		<item>
 			<title>Live webinar stage on the IBM x402 demo page</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-22:Live webinar stage on the IBM x402 demo page</guid>
