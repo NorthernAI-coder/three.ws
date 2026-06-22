@@ -120,16 +120,12 @@
 		if (!raw || typeof raw !== 'object') return null;
 		if (raw.type === 'unhandledrejection') {
 			const reason = raw.reason;
-			const isError = reason instanceof Error;
+			const described = describeReason(reason);
 			return {
 				type: 'unhandledrejection',
-				name: isError ? reason.name : undefined,
-				message: isError
-					? reason.message
-					: typeof reason === 'string'
-						? reason
-						: safeStringify(reason),
-				stack: isError ? reason.stack : undefined,
+				name: described.name,
+				message: described.message,
+				stack: described.stack,
 			};
 		}
 		if (raw.type === 'error') {
@@ -169,10 +165,47 @@
 
 	function safeStringify(value) {
 		try {
-			return JSON.stringify(value) ?? String(value);
+			const json = JSON.stringify(value);
+			// A real Error (or any object whose useful fields are non-enumerable)
+			// serializes to "{}" — a content-free report that tells us nothing. Fall
+			// back to the value's own string form so we capture at least the class.
+			if (json == null || json === '{}' || json === 'null') return String(value);
+			return json;
 		} catch {
 			return String(value);
 		}
+	}
+
+	// Extract a useful { name, message, stack } from a rejection reason of ANY
+	// shape. A promise can reject with a real Error, an Error thrown across a
+	// module/realm boundary (whose `instanceof Error` is false but which still
+	// carries `message`/`stack`), a plain object, a DOMException, or a primitive.
+	// The old code only special-cased `instanceof Error` and JSON-stringified the
+	// rest — so a cross-realm Error or a bare `{}` produced `message: "{}"`, a
+	// report with no diagnostic value. Dig out the message before stringifying.
+	function describeReason(reason) {
+		if (reason instanceof Error) {
+			return { name: reason.name, message: reason.message, stack: reason.stack };
+		}
+		if (typeof reason === 'string') {
+			return { name: undefined, message: reason, stack: undefined };
+		}
+		if (reason && typeof reason === 'object') {
+			// Duck-typed / cross-realm errors and common wrapper shapes.
+			const message =
+				(typeof reason.message === 'string' && reason.message) ||
+				(typeof reason.reason === 'string' && reason.reason) ||
+				(reason.error && typeof reason.error.message === 'string' && reason.error.message) ||
+				safeStringify(reason);
+			const name =
+				(typeof reason.name === 'string' && reason.name) ||
+				(reason.constructor && reason.constructor.name) ||
+				undefined;
+			const stack = typeof reason.stack === 'string' ? reason.stack : undefined;
+			return { name, message, stack };
+		}
+		// Primitive (number, boolean, null, undefined, symbol, bigint).
+		return { name: undefined, message: String(reason), stack: undefined };
 	}
 
 	function shouldIgnore(report) {
@@ -379,12 +412,12 @@
 	// Manual reporting hook for app code: window.reportClientError(err, { ...context })
 	win.reportClientError = (err, context) => {
 		try {
-			const isError = err instanceof Error;
+			const described = describeReason(err);
 			enqueue({
 				type: 'manual',
-				name: isError ? err.name : undefined,
-				message: isError ? err.message : typeof err === 'string' ? err : safeStringify(err),
-				stack: isError ? err.stack : undefined,
+				name: described.name,
+				message: described.message,
+				stack: described.stack,
 				source: context && typeof context === 'object' ? safeStringify(context) : undefined,
 			});
 		} catch {

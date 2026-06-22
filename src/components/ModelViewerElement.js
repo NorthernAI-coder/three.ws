@@ -19,6 +19,7 @@ function injectStylesOnce() {
 		mv-viewer .mv-viewer__stage { position: absolute; inset: 0; }
 		mv-viewer .mv-viewer__poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .3s ease; cursor: pointer; }
 		mv-viewer .mv-viewer__poster[data-hidden] { opacity: 0; pointer-events: none; }
+		mv-viewer .mv-viewer__webgl-unavailable { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1rem; text-align: center; color: rgba(255,255,255,.55); font: 500 0.8125rem/1.4 'Inter','Segoe UI',system-ui,sans-serif; letter-spacing: .02em; }
 	`;
 	document.head.appendChild(style);
 }
@@ -78,7 +79,18 @@ export class ModelViewerElement extends HTMLElement {
 			// everything else flows through state and methods after construction.
 		};
 
-		this._viewer = new Viewer(this._stageEl, options);
+		// A device/browser that can't grant a WebGL context (GPU blocklist, context
+		// budget exhausted, headless) makes the Viewer constructor throw "Error
+		// creating WebGL context". connectedCallback runs synchronously, so an
+		// unguarded throw escapes as an uncaught error. Degrade to the poster (if
+		// the embedder supplied one) or a designed message instead of crashing.
+		try {
+			this._viewer = new Viewer(this._stageEl, options);
+		} catch (err) {
+			this._viewer = null;
+			this._showWebglUnavailable();
+			return;
+		}
 		this._viewer.state.environment = envName;
 
 		// Initial attribute sync (before first load, invalidate for the env + lighting updates).
@@ -113,6 +125,20 @@ export class ModelViewerElement extends HTMLElement {
 				this._loadSrc(src);
 			}
 		}
+	}
+
+	// Designed fallback when the device can't give us a WebGL context. A supplied
+	// poster already renders the model's still, so we keep it and just stop; with
+	// no poster we show a small, on-brand message so the embed is never a blank box.
+	_showWebglUnavailable() {
+		if (this._posterEl) return; // poster is already visible — that's the fallback
+		if (!this._stageEl) return;
+		const note = document.createElement('div');
+		note.className = 'mv-viewer__webgl-unavailable';
+		note.setAttribute('role', 'img');
+		note.setAttribute('aria-label', "3D view unavailable — this browser or device couldn't start WebGL");
+		note.textContent = '3D view unavailable on this device';
+		this._stageEl.appendChild(note);
 	}
 
 	disconnectedCallback() {

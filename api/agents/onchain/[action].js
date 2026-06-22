@@ -218,6 +218,15 @@ function isRpcRateLimited(err) {
 	return msg.includes('429') || /max usage reached|-32429|rate.?limit|too many requests|endpoints (failed|exhausted)/i.test(msg);
 }
 
+// A node that returns a malformed/empty 200 (truncated body, proxy error page,
+// wrong-cluster response) makes web3.js's superstruct decode throw a `StructError`
+// out of getLatestBlockhash/getAccountInfo. That's a transient upstream fault, not
+// a client error — surface it as a retryable 503 instead of an unhandled 500.
+function isRpcMalformed(err) {
+	const msg = err?.message || '';
+	return /StructError|failed to get recent blockhash|failed to get info about account|Unexpected (token|end of JSON)|invalid json response/i.test(msg);
+}
+
 async function prepSolana({ cluster, metadataUri, walletAddress, name, attributes }) {
 	const configuredRpc =
 		cluster === 'devnet'
@@ -269,6 +278,14 @@ async function prepSolana({ cluster, metadataUri, walletAddress, name, attribute
 					'HELIUS_API_KEY / ALCHEMY_API_KEY — to a working keyed endpoint.',
 			);
 			e.code = 'rpc_auth_failed';
+			throw e;
+		}
+		if (isRpcMalformed(err)) {
+			const e = new Error(
+				'Solana RPC returned a malformed response across every endpoint — the network ' +
+					'is likely congested. Wait a moment and retry; the mint transaction was not built.',
+			);
+			e.code = 'rpc_unavailable';
 			throw e;
 		}
 		throw err;
@@ -358,6 +375,11 @@ async function handlePrep(req, res) {
 		}
 		if (e.code === 'rpc_auth_failed') {
 			console.error('[agents/onchain] rpc auth failed', e?.message);
+			return serverError(res, 503, 'rpc_unavailable', e);
+		}
+		if (e.code === 'rpc_unavailable') {
+			res.setHeader('Retry-After', '10');
+			console.error('[agents/onchain] rpc malformed response', e?.message);
 			return serverError(res, 503, 'rpc_unavailable', e);
 		}
 		if (e.code === 'authority_unconfigured') {

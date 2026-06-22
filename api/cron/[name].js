@@ -456,12 +456,21 @@ const PUBLIC_RPCS = {
 	],
 	421614: [
 		'https://sepolia-rollup.arbitrum.io/rpc',
-		'https://arbitrum-sepolia.publicnode.com',
+		// PublicNode serves testnets at the `<chain>-rpc` subdomain (cf. the working
+		// base-/ethereum-sepolia entries above). The bare `arbitrum-sepolia.publicnode.com`
+		// host has no RPC service and answered every request with a hard 403 — fixed
+		// to the canonical `-rpc` form so failover lands on a live node.
+		'https://arbitrum-sepolia-rpc.publicnode.com',
+		// Tenderly's keyless public gateway — an independent provider so a single
+		// node's outage/throttle doesn't blank the rotation.
+		'https://arbitrum-sepolia.gateway.tenderly.co',
 		'https://rpc.ankr.com/arbitrum_sepolia',
 	],
 	11155420: [
 		'https://sepolia.optimism.io',
-		'https://optimism-sepolia.publicnode.com',
+		// Same PublicNode testnet `-rpc` correction as Arbitrum Sepolia above.
+		'https://optimism-sepolia-rpc.publicnode.com',
+		'https://optimism-sepolia.gateway.tenderly.co',
 		'https://rpc.ankr.com/optimism_sepolia',
 	],
 };

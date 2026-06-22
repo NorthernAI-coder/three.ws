@@ -717,6 +717,10 @@ canvas.addEventListener('pointerup', e => {
 		// reliability on a phone. Front agent wins a cluster tie (see helper).
 		if (!pin) pin = _nearestLabelWithinSlop(e.clientX, e.clientY);
 		if (pin) openPinSheet(pin);
+		// A clean tap on empty space hits no agent — the canonical immersive
+		// gesture: toggle the chrome so you can clear the view (or bring it back)
+		// without hunting for the eye button.
+		else toggleImmersive();
 	}
 });
 
@@ -4445,26 +4449,144 @@ syncGhostToggle();
 document.getElementById('irl-cue-mute')?.addEventListener('click', () => setCueMuted(!_cueMuted));
 syncCueMuteButton();
 
-// Immersive toggle — collapse every chrome layer (topbar, bottom panel, radar,
-// room badge, aim HUD, hints) so the live AR view is unobstructed. The joystick
-// and drag-to-orbit stay live underneath, so you can still look around and move
-// the avatar; the toggle itself is the one control left, to bring it all back.
-const immersiveBtn = document.getElementById('irl-immersive-toggle');
+// ── Immersive mode ────────────────────────────────────────────────────────
+// Collapse every chrome layer (topbar, bottom panel, radar, room badge, aim
+// HUD, hints) so the live AR view is unobstructed. The joystick and
+// drag-to-orbit stay live underneath, so you can still look around and move the
+// avatar while hidden. Two ways in/out, tuned per device:
+//   • Touch  — chrome auto-hides after idle (once the camera is live); tap empty
+//     space (or the eye button) to bring it back. Joystick/drag never reveal it,
+//     so you can move freely with nothing in the way.
+//   • Desktop — a focus/cinematic mode: controls behave like a video player
+//     (move the mouse to reveal, idle to hide), with H to toggle, F for
+//     fullscreen, Esc to restore.
+const immersiveBtn   = document.getElementById('irl-immersive-toggle');
+const immersiveHint  = document.getElementById('irl-immersive-hint');
+const FINE_POINTER   = typeof matchMedia === 'function'
+	&& matchMedia('(hover: hover) and (pointer: fine)').matches;
+const IMMERSIVE_IDLE_MS = FINE_POINTER ? 4500 : 5000;
+let _idleTimer = 0;
+let _hintShown = false;
+let _engaged   = false;   // never auto-hide until the user has actually interacted
+
+const chromeHidden = () => document.body.classList.contains('irl-immersive');
+
 function setImmersive(on) {
 	document.body.classList.toggle('irl-immersive', on);
-	if (!immersiveBtn) return;
-	immersiveBtn.setAttribute('aria-pressed', String(on));
-	const label = on ? 'Show controls' : 'Hide controls';
-	immersiveBtn.setAttribute('aria-label', label);
-	immersiveBtn.title = label;
+	if (immersiveBtn) {
+		immersiveBtn.setAttribute('aria-pressed', String(on));
+		const label = on ? 'Show controls' : 'Hide controls';
+		const hotkey = FINE_POINTER ? ' (H)' : '';
+		immersiveBtn.setAttribute('aria-label', label);
+		immersiveBtn.title = label + hotkey;
+	}
 }
-immersiveBtn?.addEventListener('click', () => {
-	setImmersive(!document.body.classList.contains('irl-immersive'));
-});
-// Esc restores the chrome on desktop, matching the convention for immersive views.
+
+// Auto-hide is appropriate only when there's a live scene to enjoy and nothing
+// modal is competing for the screen: on touch that means the camera is on; on
+// desktop the 3D walk view always qualifies. A focused input or open sheet
+// (movementKeysCaptured) always blocks it, and so does an active room-placement.
+function _canAutoHide() {
+	if (!_engaged || chromeHidden() || movementKeysCaptured()) return false;
+	const aimHud = document.getElementById('irl-aim-hud');
+	if (aimHud && aimHud.classList.contains('is-open')) return false;
+	if (!FINE_POINTER && !document.body.classList.contains('is-ar')) return false;
+	return true;
+}
+function _armIdle() {
+	clearTimeout(_idleTimer);
+	if (!_canAutoHide()) return;
+	_idleTimer = setTimeout(() => {
+		if (!_canAutoHide()) return;
+		setImmersive(true);
+		_flashImmersiveHint();
+	}, IMMERSIVE_IDLE_MS);
+}
+
+// One-time coachmark the first time the chrome disappears, so the reveal gesture
+// is discoverable. The eye button stays on screen regardless, so this only ever
+// shows once per device.
+function _flashImmersiveHint() {
+	if (!immersiveHint || _hintShown) return;
+	try { if (localStorage.getItem('irl_immersive_hinted')) { _hintShown = true; return; } } catch {}
+	_hintShown = true;
+	try { localStorage.setItem('irl_immersive_hinted', '1'); } catch {}
+	immersiveHint.textContent = FINE_POINTER
+		? 'Move the mouse or press H to show controls'
+		: 'Tap anywhere to show controls';
+	immersiveHint.classList.add('is-visible');
+	clearTimeout(_flashImmersiveHint._t);
+	_flashImmersiveHint._t = setTimeout(() => immersiveHint.classList.remove('is-visible'), 2800);
+}
+
+// Deliberate toggle (eye button, H key, tap on empty scene). Showing re-arms the
+// idle timer; hiding cancels it and is sticky until the user asks for chrome again.
+function toggleImmersive() {
+	if (chromeHidden()) {
+		setImmersive(false);
+		immersiveHint?.classList.remove('is-visible');
+		_armIdle();
+	} else {
+		setImmersive(true);
+		clearTimeout(_idleTimer);
+		_flashImmersiveHint();
+	}
+}
+// Reveal without toggling (desktop pointer motion / any explicit "show"): restore
+// chrome if hidden, then re-arm so it fades again after the next idle stretch.
+function revealChrome() {
+	if (chromeHidden()) { setImmersive(false); immersiveHint?.classList.remove('is-visible'); }
+	_armIdle();
+}
+
+immersiveBtn?.addEventListener('click', toggleImmersive);
+
 window.addEventListener('keydown', (e) => {
-	if (e.key === 'Escape' && document.body.classList.contains('irl-immersive')) setImmersive(false);
+	if (movementKeysCaptured() && e.key !== 'Escape') return;
+	if (e.key === 'Escape') {
+		if (chromeHidden()) { setImmersive(false); _armIdle(); }
+		return;
+	}
+	if (e.key === 'h' || e.key === 'H') { toggleImmersive(); }
+	else if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); }
+	else { _engaged = true; _armIdle(); }   // any other walk key resets the idle countdown
 });
+
+// Real fullscreen (desktop focus mode). iOS Safari has no element Fullscreen API,
+// so this no-ops there — the optional-chaining guards make that graceful.
+function toggleFullscreen() {
+	const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+	if (fsEl) {
+		(document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+	} else {
+		const el = document.documentElement;
+		(el.requestFullscreen || el.webkitRequestFullscreen)?.call(el);
+	}
+}
+
+// Activity wiring. Touch: world interaction only re-arms the hide timer (it must
+// NOT reveal, so the user can move/look with the chrome gone). Desktop: pointer
+// motion reveals like a video player. Joystick + canvas taps are the world.
+const _noteWorldActivity = () => { _engaged = true; _armIdle(); };
+if (FINE_POINTER) {
+	let _moveThrottle = 0;
+	window.addEventListener('pointermove', (e) => {
+		if (e.pointerType === 'touch') return;
+		const now = e.timeStamp || 0;
+		if (now - _moveThrottle < 200) return;
+		_moveThrottle = now;
+		if (movementKeysCaptured()) return;
+		_engaged = true;
+		revealChrome();
+	}, { passive: true });
+}
+canvas.addEventListener('pointerdown', _noteWorldActivity, { passive: true });
+joystickEl?.addEventListener('pointerdown', _noteWorldActivity, { passive: true });
+// Once the camera goes live, start the idle countdown (the body gains .is-ar in
+// enableAR); a class-watch keeps this independent of that code path's internals.
+new MutationObserver(() => {
+	if (document.body.classList.contains('is-ar')) { _engaged = true; _armIdle(); }
+}).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
 // L3 — Location & privacy center: honest disclosure + discovery precision +
 // presence opt-in + a jump into pin management, all in one designed surface.
