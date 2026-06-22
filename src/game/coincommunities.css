@@ -2543,7 +2543,7 @@ select.npc-svc-input { cursor: pointer; appearance: none; -webkit-appearance: no
 /* Per-category clip panels — shown as a scrollable grid below the ring */
 .cc-ew-clips {
 	position: absolute; bottom: -12px; left: 50%;
-	transform: translateX(-50%); translateY(100%);
+	transform: translateX(-50%);
 	width: min(480px, 92vw);
 	background: var(--cc-panel); border: 1px solid var(--cc-edge);
 	border-radius: var(--cc-radius); padding: 10px 10px 12px;
@@ -2551,7 +2551,6 @@ select.npc-svc-input { cursor: pointer; appearance: none; -webkit-appearance: no
 	display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;
 	z-index: 3; max-height: 200px; overflow-y: auto;
 	animation: cc-ew-clips-in 0.16s ease;
-	transform: translateX(-50%);
 }
 .cc-ew-clips:not([hidden]) { display: flex; }
 .cc-ew-clips[hidden] { display: none !important; }
