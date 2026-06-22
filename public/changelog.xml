@@ -31,6 +31,14 @@
 			<description>The manual 'verify by signature' option on the Credits page now spells out how deposit verification actually works: we check on-chain that the transaction was signed by a wallet linked to your account, so only you can claim your deposit and pasting someone else's signature can never credit your balance. The old wording ('Sent from another wallet?') made the safe, server-verified flow look like anyone could claim any transfer — it never could. If you send from a wallet that isn't linked yet, the page now tells you to sign in with it or link it first.</description>
 		</item>
 		<item>
+			<title>Embedded avatars never show a blank frame</title>
+			<link>https://three.ws/embed</link>
+			<guid isPermaLink="false">2026-06-22:Embedded avatars never show a blank frame</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A walking-avatar embed whose avatar can't load — a deleted or mistyped ID, a private avatar a public page can't read, or a dropped connection — now shows the default avatar walking with a short 'couldn't load that avatar — showing the default' note, instead of leaving an empty, all-dark frame on the host page. The embed always renders a body. Owners can also now load their own private avatar's 3D file when signed in, which previously failed even for the avatar's owner.</description>
+		</item>
+		<item>
 			<title>Forge: engine picker no longer overflows, clearer text-to-3D wording</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-22:Forge: engine picker no longer overflows, clearer text-to-3D wording</guid>

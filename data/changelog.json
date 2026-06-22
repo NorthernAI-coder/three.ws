@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-22",
+			"title": "Embedded avatars never show a blank frame",
+			"summary": "A walking-avatar embed whose avatar can't load — a deleted or mistyped ID, a private avatar a public page can't read, or a dropped connection — now shows the default avatar walking with a short 'couldn't load that avatar — showing the default' note, instead of leaving an empty, all-dark frame on the host page. The embed always renders a body. Owners can also now load their own private avatar's 3D file when signed in, which previously failed even for the avatar's owner.",
+			"tags": ["fix"],
+			"link": "/embed"
+		},
+		{
+			"date": "2026-06-22",
 			"title": "Forge: engine picker no longer overflows, clearer text-to-3D wording",
 			"summary": "The Forge engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is also honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), and on From photos it reads 'builds from your reference photos'.",
 			"tags": ["fix", "improvement"],
