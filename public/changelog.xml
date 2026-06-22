@@ -87,6 +87,14 @@
 			<description>The step that proves you're physically where you say you are — so the 'agents near me' view only reveals pins around your real location, never somewhere you point at from afar — could fail and return an error on every attempt. That same failure meant the privacy check it powers wasn't being enforced. It now works reliably with or without a configured signing secret: locally and in preview it stays open so testing isn't blocked, and in production each nearby read is bound to a genuine, freshly-signed location fix that expires in a few minutes and can't be forged or replayed from a distance. Nothing changes in how you use IRL — your location is still read only to mint the short-lived proof, never stored or logged.</description>
 		</item>
 		<item>
+			<title>Fix: agent reputation scores now read correctly</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-22:Fix: agent reputation scores now read correctly</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two places that read an agent's ERC-8004 reputation were decoding it wrong. The on-chain registry returns the average rating already worked out (and signed, so it can go negative); both the paid reputation MCP tool and the trust check that guards autonomous agent-to-agent payments were dividing that value a second time — understating every score, and turning a negative reputation into a meaninglessly large positive one. The MCP tool was also listening for the wrong on-chain event, so it always reported zero past vouches even when an agent had many. Both now report the true average, handle negative reputations correctly, and surface real review history — so a 'pay only above this score' rule actually does what it says.</description>
+		</item>
+		<item>
 			<title>Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-22:Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>docs</category>
 			<description>A new guide explains agent reputation end to end — why an autonomous agent needs a verifiable, on-chain track record before it trusts (or pays) another agent, how the three ERC-8004 registries (identity, reputation, validation) fit together, and how reputation and x402 payments interlock. It comes with a hands-on tutorial that reads any registered agent's score five ways — from the Reputation Explorer, one REST call, the paid MCP tool, the SDK, or straight off the contract — including a copy-paste trust gate that refuses to transact below a bar. The existing Reputation System and Validation Attestation references are now reachable from the docs sidebar, and the glossary gained plain-language entries for reputation registry, identity registry, attestation, vouch, stake, and Sybil attack.</description>
+		</item>
+		<item>
+			<title>New: an Agent Bouncer that vets any agent before you pay it</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-22:New: an Agent Bouncer that vets any agent before you pay it</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>There's now a single call that answers the question every autonomous payment really hinges on: should I trust this agent? Point it at a three.ws agent and it reads that agent's whole Solana track record — how many on-chain payments it has actually accepted, from how many distinct wallets, how often those payments failed, whether it followed through on its distribute/buyback obligations, the signed on-chain vouches left about it, and the Pole Club's own ban and door-history list — then returns a plain verdict: admitted or refused, a reason, and a door tier (newcomer, regular, trusted, or vip). It's the Club's velvet-rope bouncer generalized to the whole platform: instead of only knowing what a wallet did at our door, it judges an agent on everything it has done on Solana. You set the bar (minimum payments, distinct payers, a failure-rate ceiling, required attestations, whether to admit newcomers) and it enforces it — so an agent, with no human in the loop, can screen a counterparty before paying, hiring, or delegating. The raw reputation snapshot stays available too; this adds the decision on top.</description>
 		</item>
 		<item>
 			<title>Safer, clearer credit deposits</title>
