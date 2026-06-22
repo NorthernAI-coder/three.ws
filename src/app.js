@@ -851,7 +851,8 @@ class App {
 		const btn = document.getElementById('save-to-account-btn');
 		if (btn) {
 			btn.setAttribute('disabled', '');
-			btn.querySelector('span')?.textContent = 'Preparing…';
+			const label = btn.querySelector('span');
+			if (label) label.textContent = 'Preparing…';
 		}
 
 		const stash = {
@@ -894,7 +895,8 @@ class App {
 		const btn = document.getElementById('save-to-account-btn');
 		if (btn) {
 			btn.setAttribute('disabled', '');
-			btn.querySelector('span')?.textContent = 'Saving…';
+			const label = btn.querySelector('span');
+			if (label) label.textContent = 'Saving…';
 		}
 		try {
 			let avatarId;
@@ -903,7 +905,8 @@ class App {
 				// Nothing to save — reset UI and bail
 				if (btn) {
 					btn.removeAttribute('disabled');
-					btn.querySelector('span')?.textContent = 'Save to account';
+					const label = btn.querySelector('span');
+					if (label) label.textContent = 'Save to account';
 				}
 				return;
 			}
@@ -962,7 +965,8 @@ class App {
 					this._flashSaved({ name: 'your account' });
 					if (btn) {
 						btn.removeAttribute('disabled');
-						btn.querySelector('span')?.textContent = 'Save to account';
+						const label = btn.querySelector('span');
+						if (label) label.textContent = 'Save to account';
 					}
 				}
 			}
@@ -970,7 +974,8 @@ class App {
 			log.warn('[3d-agent] save failed:', err.message);
 			if (btn) {
 				btn.removeAttribute('disabled');
-				btn.querySelector('span')?.textContent = 'Save to account';
+				const label = btn.querySelector('span');
+				if (label) label.textContent = 'Save to account';
 			}
 		}
 	}
