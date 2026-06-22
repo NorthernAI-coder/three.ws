@@ -886,6 +886,12 @@ URL: https://three.ws/docs/validation
 
 Record and read on-chain attestations that an agent's 3D model passes glTF validation.
 
+### Docs · Agent Reputation on Solana
+
+URL: https://three.ws/docs/solana-reputation
+
+How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.
+
 ### Docs · Embedding
 
 URL: https://three.ws/docs/embedding
@@ -969,6 +975,12 @@ Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, bat
 URL: https://three.ws/tutorials/agent-reputation
 
 Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.
+
+### Tutorial · Read a Solana agent's reputation
+
+URL: https://three.ws/tutorials/solana-agent-reputation
+
+Read a Solana agent's A–D trust grade and the attestations behind it, then leave your own on-chain vouch.
 
 ### Status
 

@@ -2,7 +2,7 @@
 
 **Why autonomous agents need verifiable trust — and how three.ws delivers it on-chain.**
 
-This page is the *why*. For the practical how-to, see [Reputation System](./reputation.md) (leaving and reading reviews) and [ERC-8004](./erc8004.md) (the identity standard underneath). To read a real agent's score five different ways, follow the [Read an agent's reputation](/tutorials/agent-reputation) tutorial.
+This page is the *why*. For the practical how-to, see [Reputation System](./reputation.md) (leaving and reading reviews) and [ERC-8004](./erc8004.md) (the identity standard underneath). To read a real agent's score five different ways, follow the [Read an agent's reputation](/tutorials/agent-reputation) tutorial. For the Solana side of the same idea — memo attestations, the AgenC coordination program, and the identity bridge — see [Agent Reputation on Solana](./solana-reputation.md).
 
 ---
 
@@ -155,4 +155,4 @@ The only difference is **reach**. The Club's reputation dies the moment a wallet
 
 That portability is what lets a three.ws agent be trusted by an agent that has never heard of three.ws. It's the foundation the agent economy is built on — and the reason reputation, not payments, is the harder and more important half of the stack.
 
-**Next:** [Read an agent's reputation](/tutorials/agent-reputation) · [Leave a vouch](./reputation.md) · [ERC-8004 identity](./erc8004.md) · [x402 payments](./x402.md)
+**Next:** [Read an agent's reputation](/tutorials/agent-reputation) · [Reputation on Solana](./solana-reputation.md) · [Leave a vouch](./reputation.md) · [ERC-8004 identity](./erc8004.md) · [x402 payments](./x402.md)

@@ -415,6 +415,16 @@
 			ctaPrimary: { label: 'Open Reputation Explorer', href: '/reputation' },
 		},
 		{
+			slug: 'solana-agent-reputation',
+			tier: 'advanced',
+			title: "Read a Solana agent's reputation (the Passport)",
+			blurb: 'Read a Solana agent\'s A–D trust grade and the attestations behind it, then leave your own on-chain vouch — backed by SOL stake if you want it to count for more.',
+			builds: 'A full read of a Solana agent\'s trust record, plus your own on-chain attestation',
+			time: '30 min',
+			previewModel: '/animations/robotexpressive.glb',
+			ctaPrimary: { label: 'Open the Agent Passport', href: '/agent-passport.html' },
+		},
+		{
 			slug: 'mine-vanity-address',
 			tier: 'advanced',
 			title: 'Mine a Solana vanity address',

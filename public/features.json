@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T23:09:36.798Z",
+	"generated_at": "2026-06-22T23:19:27.201Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1448,6 +1448,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/docs/solana-reputation",
+					"title": "Docs · Agent Reputation on Solana",
+					"description": "How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.",
+					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/docs/embedding",
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
@@ -1581,6 +1591,16 @@
 					"path": "/tutorials/agent-reputation",
 					"title": "Tutorial · Read an agent's reputation",
 					"description": "Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.",
+					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tutorials/solana-agent-reputation",
+					"title": "Tutorial · Read a Solana agent's reputation",
+					"description": "Read a Solana agent's A–D trust grade and the attestations behind it, then leave your own on-chain vouch.",
 					"added": "2026-06-22",
 					"auth": null,
 					"indexable": true,

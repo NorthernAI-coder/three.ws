@@ -17,7 +17,11 @@
 // (`read` option) so tests run without RPC. The gate is a no-op when no
 // threshold is set; when a threshold IS set and the read fails, it fails closed.
 
-import { readAgentReputation } from '../trust/agent-bouncer.js';
+import { Contract } from 'ethers';
+
+import { env } from '../env.js';
+import { evmFallbackProvider } from '../evm/rpc.js';
+import { REGISTRY_DEPLOYMENTS, REPUTATION_REGISTRY_ABI } from '../../../src/erc8004/abi.js';
 
 export class ReputationError extends Error {
 	constructor(code, message, status = 403) {
@@ -29,11 +33,11 @@ export class ReputationError extends Error {
 }
 
 /**
- * Read aggregated ERC-8004 reputation for an agent. Delegates to the shared
- * bouncer read, which decodes getReputation's (int256 avgX100, uint256 count)
- * correctly — average = avgX100 / 100, sign-preserving. (The earlier local read
- * here divided the already-averaged value by count again, understating every
- * score by a factor of count and mis-decoding negatives as huge positives.)
+ * Read aggregated ERC-8004 reputation for an agent. getReputation returns
+ * (int256 avgX100, uint256 count): the average ALREADY multiplied by 100, signed
+ * so reputation can be negative. average = avgX100 / 100 — never divided by count
+ * again (the prior bug here divided the already-averaged value, understating
+ * every score by a factor of count and mis-decoding negatives as huge positives).
  *
  * @param {object} opts
  * @param {number|bigint|string} opts.agentId
@@ -42,8 +46,21 @@ export class ReputationError extends Error {
  * @returns {Promise<{ average: number, count: number }>}
  */
 export async function readReputationOnchain({ agentId, chainId, rpcUrl }) {
-	const rep = await readAgentReputation({ agentId, chainId, rpcUrl });
-	return { average: rep.average, count: rep.count };
+	const deployment = REGISTRY_DEPLOYMENTS[chainId];
+	if (!deployment?.reputationRegistry) {
+		throw new ReputationError(
+			'reputation_registry_missing',
+			`no Reputation Registry deployed on chain ${chainId}`,
+			500,
+		);
+	}
+	const provider = await evmFallbackProvider(chainId, {
+		primaryUrl: rpcUrl || env.A2A_REPUTATION_RPC_URL || null,
+	});
+	const contract = new Contract(deployment.reputationRegistry, REPUTATION_REGISTRY_ABI, provider);
+	const [avgX100, count] = await contract.getReputation(agentId);
+	const n = Number(count);
+	return { average: n === 0 ? 0 : Number(avgX100) / 100, count: n };
 }
 
 /**
