@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T11:28:56.212Z",
+	"generated_at": "2026-06-22T23:00:25.302Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1418,6 +1418,36 @@
 					"showcase": false
 				},
 				{
+					"path": "/docs/agent-reputation",
+					"title": "Docs · Agent Reputation",
+					"description": "Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.",
+					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/reputation",
+					"title": "Docs · Reputation System",
+					"description": "Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.",
+					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/validation",
+					"title": "Docs · Validation Attestations",
+					"description": "Record and read on-chain attestations that an agent's 3D model passes glTF validation.",
+					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/docs/embedding",
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
@@ -1542,6 +1572,16 @@
 					"title": "Tutorial · Generate 3D Models from Code",
 					"description": "Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.",
 					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/tutorials/agent-reputation",
+					"title": "Tutorial · Read an agent's reputation",
+					"description": "Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.",
+					"added": "2026-06-22",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

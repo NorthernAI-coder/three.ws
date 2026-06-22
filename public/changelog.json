@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T11:28:56.226Z",
+	"generated_at": "2026-06-22T23:00:25.318Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -9,9 +9,49 @@
 		{
 			"date": "2026-06-22",
 			"type": "launch",
+			"title": "Docs · Agent Reputation",
+			"summary": "Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.",
+			"link": "/docs/agent-reputation",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Docs · Reputation System",
+			"summary": "Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.",
+			"link": "/docs/reputation",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Docs · Validation Attestations",
+			"summary": "Record and read on-chain attestations that an agent's 3D model passes glTF validation.",
+			"link": "/docs/validation",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
 			"title": "Pitch Deck",
 			"summary": "The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.",
 			"link": "/pitch",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Tutorial · Read an agent's reputation",
+			"summary": "Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.",
+			"link": "/tutorials/agent-reputation",
 			"tags": [
 				"launch"
 			]
@@ -85,6 +125,16 @@
 			"title": "New doc: every NVIDIA model three.ws runs for free",
 			"summary": "A new docs page maps the entire free NVIDIA inference layer the platform runs on — one free key unlocks all of it. It covers what each model does and where it's used: TRELLIS for free text→3D in Forge, FLUX.1-schnell for text→image, the Llama 3.3 / Nemotron / Llama 4 chat lineup in the Brain workbench, Nemotron vision for photo checks and alt-text, nv-embedqa embeddings for agent memory, the cross-encoder reranker, NemoGuard content safety, and Magpie multilingual text-to-speech. Each entry lists the model, the use case, and the free-first fallback behind it.",
 			"link": "/docs/nvidia-models",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "New docs: how agent reputation works, and how to read it",
+			"summary": "A new guide explains agent reputation end to end — why an autonomous agent needs a verifiable, on-chain track record before it trusts (or pays) another agent, how the three ERC-8004 registries (identity, reputation, validation) fit together, and how reputation and x402 payments interlock. It comes with a hands-on tutorial that reads any registered agent's score five ways — from the Reputation Explorer, one REST call, the paid MCP tool, the SDK, or straight off the contract — including a copy-paste trust gate that refuses to transact below a bar. The existing Reputation System and Validation Attestation references are now reachable from the docs sidebar, and the glossary gained plain-language entries for reputation registry, identity registry, attestation, vouch, stake, and Sybil attack.",
+			"link": "/docs/agent-reputation",
 			"tags": [
 				"docs"
 			]

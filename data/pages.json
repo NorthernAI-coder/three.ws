@@ -1161,6 +1161,24 @@
 					"added": "2026-04-27"
 				},
 				{
+					"path": "/docs/agent-reputation",
+					"title": "Docs · Agent Reputation",
+					"description": "Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.",
+					"added": "2026-06-22"
+				},
+				{
+					"path": "/docs/reputation",
+					"title": "Docs · Reputation System",
+					"description": "Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.",
+					"added": "2026-06-22"
+				},
+				{
+					"path": "/docs/validation",
+					"title": "Docs · Validation Attestations",
+					"description": "Record and read on-chain attestations that an agent's 3D model passes glTF validation.",
+					"added": "2026-06-22"
+				},
+				{
 					"path": "/docs/embedding",
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
@@ -1247,6 +1265,12 @@
 					"priority": 0.8,
 					"changefreq": "monthly",
 					"added": "2026-06-12"
+				},
+				{
+					"path": "/tutorials/agent-reputation",
+					"title": "Tutorial · Read an agent's reputation",
+					"description": "Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.",
+					"added": "2026-06-22"
 				},
 				{
 					"path": "/status",
