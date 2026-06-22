@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-22",
+			"title": "Fix the location-proof behind IRL 'agents near me'",
+			"summary": "The step that proves you're physically where you say you are — so the 'agents near me' view only reveals pins around your real location, never somewhere you point at from afar — could fail and return an error on every attempt. That same failure meant the privacy check it powers wasn't being enforced. It now works reliably with or without a configured signing secret: locally and in preview it stays open so testing isn't blocked, and in production each nearby read is bound to a genuine, freshly-signed location fix that expires in a few minutes and can't be forged or replayed from a distance. Nothing changes in how you use IRL — your location is still read only to mint the short-lived proof, never stored or logged.",
+			"tags": ["fix", "security"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-22",
+			"title": "Hide the controls in IRL for an unobstructed AR view",
+			"summary": "On a phone, the IRL controls (the top bar, the bottom row of buttons, the room badges, the compass and on-screen hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. There's now a one-tap hide button on the right edge: tap it and all of that chrome slides away, leaving just the live AR scene — the on-screen joystick and drag-to-look still work, so you can walk around and look about with nothing in the way. Tap the same button (it stays put and glows green) to bring everything back; on a keyboard, Esc restores it too.",
+			"tags": ["feature", "improvement"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-22",
 			"title": "New docs: how agent reputation works, and how to read it",
 			"summary": "A new guide explains agent reputation end to end — why an autonomous agent needs a verifiable, on-chain track record before it trusts (or pays) another agent, how the three ERC-8004 registries (identity, reputation, validation) fit together, and how reputation and x402 payments interlock. It comes with a hands-on tutorial that reads any registered agent's score five ways — from the Reputation Explorer, one REST call, the paid MCP tool, the SDK, or straight off the contract — including a copy-paste trust gate that refuses to transact below a bar. The existing Reputation System and Validation Attestation references are now reachable from the docs sidebar, and the glossary gained plain-language entries for reputation registry, identity registry, attestation, vouch, stake, and Sybil attack.",
 			"tags": ["docs"],

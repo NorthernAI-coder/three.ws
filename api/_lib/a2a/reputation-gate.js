@@ -3,20 +3,21 @@
 //
 // Trust is the missing half of autonomous payments: budget caps stop an agent
 // overspending, but they don't stop it paying a scammer. ERC-8004's Reputation
-// Registry (getReputation(agentId) → (totalScore, count)) is the standard
-// trust signal; this module reads it server-side and enforces a minimum average
-// score and/or minimum review count before a mandate-authorized payment is
-// allowed to proceed.
+// Registry is the standard trust signal; this module reads it server-side and
+// enforces a minimum average score and/or minimum review count before a
+// mandate-authorized payment is allowed to proceed. It is the throwing wrapper
+// around the shared open-network bouncer (../trust/agent-bouncer.js) — same
+// canonical, correctly-decoded read the public /api/x402/agent-bouncer endpoint
+// uses, so the autonomous-payment door and the public door can never drift on
+// who is trustworthy.
 //
-// The on-chain read is injectable (`read` option) so tests run without RPC and
-// callers can swap in an indexer. When reputation gating is requested but no
-// RPC URL is configured AND no threshold is set, the gate is a no-op; if a
-// threshold IS set without a usable reader, it fails closed.
+// The read goes through the curated multi-RPC failover in api/_lib/evm/rpc.js
+// (honoring A2A_REPUTATION_RPC_URL as the pinned primary when set), so the gate
+// works out of the box without per-deploy RPC config. The reader is injectable
+// (`read` option) so tests run without RPC. The gate is a no-op when no
+// threshold is set; when a threshold IS set and the read fails, it fails closed.
 
-import { Contract, JsonRpcProvider } from 'ethers';
-
-import { env } from '../env.js';
-import { REGISTRY_DEPLOYMENTS, REPUTATION_REGISTRY_ABI } from '../../../src/erc8004/abi.js';
+import { readAgentReputation } from '../trust/agent-bouncer.js';
 
 export class ReputationError extends Error {
 	constructor(code, message, status = 403) {
@@ -28,30 +29,21 @@ export class ReputationError extends Error {
 }
 
 /**
- * Read aggregated ERC-8004 reputation for an agent.
+ * Read aggregated ERC-8004 reputation for an agent. Delegates to the shared
+ * bouncer read, which decodes getReputation's (int256 avgX100, uint256 count)
+ * correctly — average = avgX100 / 100, sign-preserving. (The earlier local read
+ * here divided the already-averaged value by count again, understating every
+ * score by a factor of count and mis-decoding negatives as huge positives.)
+ *
  * @param {object} opts
  * @param {number|bigint|string} opts.agentId
  * @param {number} opts.chainId
- * @param {string} [opts.rpcUrl]   Defaults to env.A2A_REPUTATION_RPC_URL.
- * @returns {Promise<{ average: number, count: number, total: number }>}
+ * @param {string} [opts.rpcUrl]   Pinned first; otherwise env + curated public failover.
+ * @returns {Promise<{ average: number, count: number }>}
  */
 export async function readReputationOnchain({ agentId, chainId, rpcUrl }) {
-	const url = rpcUrl || env.A2A_REPUTATION_RPC_URL;
-	if (!url) throw new ReputationError('reputation_rpc_unconfigured', 'no RPC URL for reputation reads', 500);
-	const deployment = REGISTRY_DEPLOYMENTS[chainId];
-	if (!deployment?.reputationRegistry) {
-		throw new ReputationError(
-			'reputation_registry_missing',
-			`no Reputation Registry deployed on chain ${chainId}`,
-			500,
-		);
-	}
-	const provider = new JsonRpcProvider(url);
-	const contract = new Contract(deployment.reputationRegistry, REPUTATION_REGISTRY_ABI, provider);
-	const [totalScore, count] = await contract.getReputation(agentId);
-	const n = Number(count);
-	const t = Number(totalScore);
-	return { total: t, count: n, average: n === 0 ? 0 : t / n };
+	const rep = await readAgentReputation({ agentId, chainId, rpcUrl });
+	return { average: rep.average, count: rep.count };
 }
 
 /**

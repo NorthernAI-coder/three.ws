@@ -59,9 +59,17 @@ export function constantTimeEquals(a, b) {
 }
 
 export async function hmacSha256(secret, message) {
+	const keyBytes = new TextEncoder().encode(secret == null ? '' : String(secret));
+	// Web Crypto rejects a zero-length HMAC key with an opaque
+	// `DataError: Zero-length key is not supported`, thrown deep inside importKey.
+	// Surface the real cause — a signing secret that is unset/empty — so the failure
+	// is diagnosable from one log line instead of a cryptic crypto stack trace.
+	if (keyBytes.length === 0) {
+		throw new Error('hmacSha256: empty signing key — a required secret is unset (check environment configuration)');
+	}
 	const key = await subtle.importKey(
 		'raw',
-		new TextEncoder().encode(secret),
+		keyBytes,
 		{ name: 'HMAC', hash: 'SHA-256' },
 		false,
 		['sign'],

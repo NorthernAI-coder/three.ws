@@ -36,16 +36,31 @@ export const FIX_CELL_PRECISION = 7;   // ~153 m geocell, the client's re-mint t
 
 const SECRET_ENV = 'IRL_FIX_SECRET';
 
-// Whether proof-of-presence is enforced. Unset secret ⇒ dev/preview bypass: the
-// read works unchanged so local/sandbox testing isn't gated. Production MUST set
-// IRL_FIX_SECRET. Callers log the active mode once at cold start.
+// A stable, deliberately non-secret signing key used ONLY when IRL_FIX_SECRET is
+// unset or too weak (local dev / preview). It keeps the mint + verify pair fully
+// functional and self-consistent without a configured secret — a token minted in
+// this mode verifies in this mode — so the endpoint never crashes and local testing
+// isn't blocked. It is NOT a security boundary: `fixEnforced()` stays false in this
+// mode, so the nearby read does not gate on the token at all. Production sets a real
+// secret (≥16 chars), which both flips enforcement on AND replaces this key, so a
+// token minted in bypass mode is rejected (forged) the moment enforcement is live.
+const DEV_FALLBACK_SECRET = 'irl-fix:dev+preview-unsecured-key:not-for-production';
+
+// Whether proof-of-presence is enforced. A strong configured secret (≥16 chars) ⇒
+// enforced. Unset or too-weak secret ⇒ dev/preview bypass: the read works unchanged
+// so local/sandbox testing isn't gated. Production MUST set IRL_FIX_SECRET. Callers
+// log the active mode once at cold start.
 export function fixEnforced() {
 	const s = process.env[SECRET_ENV];
 	return typeof s === 'string' && s.length >= 16;
 }
 
-function secret() {
-	return process.env[SECRET_ENV] || '';
+// The key the HMAC is actually computed with. Mirrors fixEnforced(): the configured
+// secret when it's strong enough, otherwise the stable dev fallback. NEVER returns an
+// empty string — a zero-length HMAC key throws "Zero-length key is not supported"
+// inside Web Crypto, which is exactly the production crash this guards against.
+function effectiveSecret() {
+	return fixEnforced() ? process.env[SECRET_ENV] : DEV_FALLBACK_SECRET;
 }
 
 function b64urlEncode(str) {
@@ -87,7 +102,7 @@ export async function mintFixToken(lat, lng, nowSec = Math.floor(Date.now() / 10
 		iat: nowSec,
 	};
 	const json = JSON.stringify(payload);
-	const sig = await hmacSha256(secret(), json);
+	const sig = await hmacSha256(effectiveSecret(), json);
 	return {
 		token: `${b64urlEncode(json)}.${sig}`,
 		expires_in: FIX_TTL_SEC,
@@ -115,7 +130,7 @@ export async function verifyFixToken(token, claimLat, claimLng, nowSec = Math.fl
 
 	// Recompute the signature over the EXACT decoded JSON and compare in constant
 	// time — a forged or tampered payload won't reproduce the HMAC.
-	const expected = await hmacSha256(secret(), json);
+	const expected = await hmacSha256(effectiveSecret(), json);
 	if (!constantTimeEquals(sig, expected)) return { ok: false, reason: 'forged' };
 
 	let payload;

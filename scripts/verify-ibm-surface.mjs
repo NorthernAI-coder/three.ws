@@ -59,18 +59,31 @@ function hasViteInput(pagePath) {
 }
 
 function hasDevRoute(route) {
-	// dev fileMap key, e.g. '/ibm/galaxy': resolve(root, 'pages/ibm/galaxy.html')
-	return new RegExp(`['"]${route.replace(/[/]/g, '\\/')}['"]\\s*:`).test(viteConfig);
+	const q = route.replace(/[/]/g, '\\/');
+	// Either a dev fileMap key — '/ibm/galaxy': resolve(root, 'pages/ibm/galaxy.html') —
+	// or a configureServer middleware that compares the path: path === '/ibm/x402-demo'
+	// (x402-demo is served verbatim by a custom middleware, not the standard fileMap).
+	return new RegExp(`['"]${q}['"]\\s*:`).test(viteConfig)
+		|| new RegExp(`===?\\s*['"]${q}['"]`).test(viteConfig);
 }
 
 function hasVercelRoute(route) {
-	const hit = (src) =>
+	const dest = (src) =>
 		vercelRoutes.some(
 			(x) => x.src === src && typeof x.dest === 'string' && x.dest.includes('/ibm/'),
 		);
+	// A trailing-slash variant may instead 30x-redirect to the canonical clean URL —
+	// the correct shape for a page with RELATIVE assets (./fonts/, ./vendor/), which
+	// breaks if the same HTML is served under /<name>/ (the base path shifts).
+	const redirectTo = (src, target) =>
+		vercelRoutes.some(
+			(x) => x.src === src && Number(x.status) >= 300 && Number(x.status) < 400
+				&& x.headers && x.headers.Location === target,
+		);
 	// index maps via /ibm → /ibm/index.html; sub-pages via /ibm/<name> (+ trailing slash).
 	if (route === '/ibm') return vercelRoutes.some((x) => x.src === '/ibm');
-	return hit(route) && hit(`${route}/`);
+	const slash = `${route}/`;
+	return dest(route) && (dest(slash) || redirectTo(slash, route));
 }
 
 const pageDir = 'pages/ibm';

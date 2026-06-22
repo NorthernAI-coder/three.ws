@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T23:00:25.318Z",
+	"generated_at": "2026-06-22T23:09:36.846Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -79,6 +79,17 @@
 		{
 			"date": "2026-06-22",
 			"type": "update",
+			"title": "Fix the location-proof behind IRL 'agents near me'",
+			"summary": "The step that proves you're physically where you say you are — so the 'agents near me' view only reveals pins around your real location, never somewhere you point at from afar — could fail and return an error on every attempt. That same failure meant the privacy check it powers wasn't being enforced. It now works reliably with or without a configured signing secret: locally and in preview it stays open so testing isn't blocked, and in production each nearby read is bound to a genuine, freshly-signed location fix that expires in a few minutes and can't be forged or replayed from a distance. Nothing changes in how you use IRL — your location is still read only to mint the short-lived proof, never stored or logged.",
+			"link": "/irl",
+			"tags": [
+				"fix",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
 			"title": "Forge polish: engine picker, honest wording, keyboard tabs, full-length remix",
 			"summary": "A round of Forge fixes. The engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), on From photos 'builds from your reference photos', and a credit figure now only appears on metered lanes so a free build never reads 'Free · ~N credits'. The Describe it / From photos / From a sketch tabs are now fully keyboard-navigable with the arrow keys and announce correctly to screen readers. And opening a remix link keeps your whole prompt — long prompts are no longer clipped to 300 characters.",
 			"link": "/forge",
@@ -95,6 +106,17 @@
 			"link": "/ibm/x402-demo",
 			"tags": [
 				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Hide the controls in IRL for an unobstructed AR view",
+			"summary": "On a phone, the IRL controls (the top bar, the bottom row of buttons, the room badges, the compass and on-screen hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. There's now a one-tap hide button on the right edge: tap it and all of that chrome slides away, leaving just the live AR scene — the on-screen joystick and drag-to-look still work, so you can walk around and look about with nothing in the way. Tap the same button (it stays put and glows green) to bring everything back; on a keyboard, Esc restores it too.",
+			"link": "/irl",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
