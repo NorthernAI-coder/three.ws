@@ -57,6 +57,7 @@ import { AnimationManager } from './animation-manager.js';
 import { ClubCrowd } from './club-crowd.js';
 import { detectProfile, PROFILES, createFrameWatchdog } from './club-perf.js';
 import { log } from './shared/log.js';
+import { isExpressEntry } from './shared/club-express.js';
 
 const TOUR_URL = '/club/venue/tour.glb';
 const ALLEYWAY_URL = '/club/venue/alleyway.glb';
@@ -156,7 +157,7 @@ function hideLoader() {
 	el.classList.add('is-done');
 }
 
-if (canvas && door && !hasValidPass()) {
+if (canvas && door && !hasValidPass() && !isExpressEntry()) {
 	start(canvas).catch((err) => {
 		log.warn('[club-entrance] scene failed', err);
 		// Scene is dead — let the player into the cover flow directly so they're
@@ -166,7 +167,8 @@ if (canvas && door && !hasValidPass()) {
 		window.dispatchEvent(new CustomEvent('club:enter-door'));
 	});
 } else {
-	// Paid already (or no canvas) — nothing to walk; clear the intro overlay.
+	// Paid already, express/demo entry, or no canvas — nothing to walk; clear
+	// the intro overlay. (Express entry drops the cover rope in src/club-gate.js.)
 	hideLoader();
 	canvas?.remove();
 }

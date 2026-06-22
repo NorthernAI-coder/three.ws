@@ -13,6 +13,7 @@
 // with a SIWX free-re-entry grant for the same wallet).
 
 import { log } from './shared/log.js';
+import { isExpressEntry } from './shared/club-express.js';
 
 const COVER_ENDPOINT = '/api/x402/club-cover';
 const PASS_KEY = 'club:pass:v1';
@@ -52,6 +53,16 @@ function initDoor(root) {
 	const cached = readPass();
 	if (cached) {
 		openDoor(root, { silent: true });
+		return;
+	}
+
+	// Express/demo entry (/club?demo): skip the cover charge and drop the rope
+	// straight onto the pole stage so the dance-tip flow is reachable for a
+	// recording or QA without paying cover first. Deferred one frame so club.js
+	// has registered its `club:admitted` listener before openDoor dispatches it.
+	if (isExpressEntry()) {
+		log.info('[club-gate] express entry — cover skipped (demo flag)');
+		requestAnimationFrame(() => openDoor(root, { silent: true }));
 		return;
 	}
 
