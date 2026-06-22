@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<title>three.ws — Investor Deck · Give your AI a body</title>
+		<meta
+			name="description"
+			content="The three.ws pitch deck: one platform that turns any AI into a real-time 3D character — a face, a voice, and motion — embeddable on any website in one line of code."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://three.ws/pitch" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="three.ws — Give your AI a body" />
+		<meta
+			property="og:description"
+			content="One platform that turns any AI into a real-time 3D character you can embed anywhere in one line. The three.ws investor deck."
+		/>
+		<meta property="og:url" content="https://three.ws/pitch" />
+		<meta property="og:image" content="https://three.ws/api/page-og?s=main&amp;t=Give+your+AI+a+body&amp;d=The+platform+for+3D+AI+agents+%E2%80%94+a+face%2C+a+voice%2C+and+motion%2C+embeddable+anywhere.&amp;p=%2Fpitch" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="three.ws investor deck — Give your AI a body" />
+		<meta property="og:locale" content="en_US" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="three.ws — Give your AI a body" />
+		<meta
+			name="twitter:description"
+			content="One platform that turns any AI into a real-time 3D character you can embed anywhere in one line."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=main&amp;t=Give+your+AI+a+body&amp;d=The+platform+for+3D+AI+agents+%E2%80%94+a+face%2C+a+voice%2C+and+motion%2C+embeddable+anywhere.&amp;p=%2Fpitch" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/pitch.css" />
+
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
+
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "PresentationDigitalDocument",
+				"name": "three.ws — Investor Deck",
+				"about": "A platform that turns any AI into a real-time 3D character embeddable anywhere.",
+				"url": "https://three.ws/pitch",
+				"publisher": { "@type": "Organization", "name": "three.ws", "url": "https://three.ws" }
+			}
+		</script>
+	</head>
+	<body>
+		<div class="deck" id="deck">
+			<div class="deck-bg" aria-hidden="true"></div>
+			<div class="deck-grid" aria-hidden="true"></div>
+			<div class="deck-progress" id="progress" aria-hidden="true"></div>
+
+			<!-- Top chrome -->
+			<div class="deck-top">
+				<a class="deck-wordmark" href="/" aria-label="three.ws home">
+					<span class="deck-mark" aria-hidden="true">3</span>
+					three.ws
+					<span class="deck-top-tag">· deck</span>
+				</a>
+				<div class="deck-tools">
+					<button class="deck-tool" id="btn-theme" type="button" aria-label="Toggle light or dark theme">
+						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6 6 4.5 4.5M19.5 19.5 18 18M18 6l1.5-1.5M4.5 19.5 6 18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="3.4" stroke="currentColor" stroke-width="1.6"/></svg>
+						<span class="deck-tool-label">Theme</span>
+					</button>
+					<button class="deck-tool" id="btn-print" type="button" aria-label="Export the deck as a PDF">
+						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v5h-2M8 14h8v7H8z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						<span class="deck-tool-label">Export PDF</span>
+					</button>
+					<button class="deck-tool" id="btn-full" type="button" aria-label="Present full screen">
+						<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+						<span class="deck-tool-label">Present</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Stage -->
+			<main class="deck-stage" id="stage" aria-label="three.ws pitch deck slides">
+
+				<!-- 1 · Title -->
+				<section class="slide" data-title="Title" aria-roledescription="slide" aria-label="Title">
+					<div class="slide-inner">
+						<div class="title-grid">
+							<div>
+								<p class="eyebrow" data-rise="1">three.ws · Investor overview</p>
+								<h1 data-rise="2">Give your<br /><span class="grad-text">AI a body.</span></h1>
+								<p class="lede" data-rise="3">
+									three.ws turns any AI into a real-time 3D character — a face, a
+									voice, and motion — that you can embed on any website in
+									<strong>one line of code</strong>.
+								</p>
+								<div class="hero-actions" data-rise="4">
+									<a class="btn btn-primary" href="/create">Try it live →</a>
+									<button class="btn btn-ghost" type="button" data-go="next">See the deck</button>
+								</div>
+								<div class="byline" data-rise="5">
+									<span><b>three.ws</b> · the embodiment layer for AI</span>
+									<span>2026</span>
+								</div>
+							</div>
+							<div class="title-stage" aria-label="Live 3D avatar">
+								<model-viewer
+									src="/animations/soldier.glb"
+									alt="A live, rigged 3D character rendered in the browser"
+									autoplay
+									auto-rotate
+									auto-rotate-delay="400"
+									rotation-per-second="14deg"
+									camera-controls
+									interaction-prompt="none"
+									shadow-intensity="0.6"
+									exposure="1.05"
+									environment-image="neutral"
+									camera-orbit="0deg 88deg 2.4m"
+								></model-viewer>
+								<span class="stage-label"><span class="live-dot"></span>Live · drag to orbit</span>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 2 · Problem -->
+				<section class="slide" data-title="Problem" aria-roledescription="slide" aria-label="The problem">
+					<div class="slide-inner">
+						<div class="split lead-narrow">
+							<div>
+								<p class="eyebrow is-num" data-rise="1"><span class="ey-n">01</span> · The problem</p>
+								<h2 data-rise="2">AI got smart.<br />It's still invisible.</h2>
+								<p class="lede dim" data-rise="3">
+									Every product now ships an AI. Almost all of them are a text box.
+									The moment you want that intelligence to feel like a
+									<em>presence</em> — a greeter, a host, a character, a teammate —
+									you hit a wall.
+								</p>
+							</div>
+							<div data-rise="4">
+								<p class="muted" style="margin:0 0 .2rem; font-size:var(--text-sm)">Building a real-time 3D avatar today means assembling all of this:</p>
+								<ul class="wall">
+									<li><span class="x">✕</span> A 3D artist to model and texture a character</li>
+									<li><span class="x">✕</span> A rigging pipeline so it can actually move</li>
+									<li><span class="x">✕</span> An animation system for idle, gesture, and lip-sync</li>
+									<li><span class="x">✕</span> A game engine and real-time render stack</li>
+									<li><span class="x">✕</span> An ML layer to connect a brain to the face</li>
+								</ul>
+								<p class="muted" style="margin:.9rem 0 0; font-size:var(--text-md)">
+									Months of specialist work. Embodiment is locked behind expertise
+									almost no team has.
+								</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 3 · Why now -->
+				<section class="slide" data-title="Why now" aria-roledescription="slide" aria-label="Why now">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">02</span> · Why now</p>
+						<h2 data-rise="2">Three curves just crossed.</h2>
+						<div class="split" style="margin-top:1.4rem; align-items:start">
+							<div class="curves">
+								<div class="curve" data-rise="3">
+									<span class="k">1</span>
+									<div>
+										<h3>Conversational AI went mainstream</h3>
+										<p>Every product wants a face for the assistant it already shipped. Demand exists — the supply of embodiment doesn't.</p>
+									</div>
+								</div>
+								<div class="curve" data-rise="4">
+									<span class="k">2</span>
+									<div>
+										<h3>Real-time 3D runs in every browser</h3>
+										<p>WebGL and WebGPU put console-grade rendering on a plain web page. No install, no app store, no plugin.</p>
+									</div>
+								</div>
+								<div class="curve" data-rise="5">
+									<span class="k">3</span>
+									<div>
+										<h3>Generative 3D crossed the quality bar</h3>
+										<p>A photo or a single sentence now becomes a rigged, animatable character — in minutes, not weeks.</p>
+									</div>
+								</div>
+							</div>
+							<div data-rise="5" style="align-self:center">
+								<p class="lede" style="font-size:clamp(1.3rem,2.6vw,1.9rem); line-height:1.35">
+									What's missing is the layer that <span class="grad-text">connects them</span> — and turns a model plus a personality into an embodied agent you can drop anywhere.
+								</p>
+								<p class="muted" style="font-size:var(--text-ui); margin:.6rem 0 0">That layer is three.ws.</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 4 · Solution -->
+				<section class="slide" data-title="Solution" aria-roledescription="slide" aria-label="The solution">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">03</span> · The solution</p>
+						<h2 data-rise="2">One platform. Idea&nbsp;→&nbsp;embodied&nbsp;agent in&nbsp;minutes.</h2>
+						<p class="lede dim" data-rise="3" style="margin-bottom:1.4rem">
+							three.ws is the connective tissue between an AI model and a body the
+							world can see and talk to. Four steps, no specialists.
+						</p>
+						<div class="pipeline">
+							<div class="step" data-rise="3">
+								<div class="ico" aria-hidden="true">◎</div>
+								<span class="kt">Create</span>
+								<h3>A character, fast</h3>
+								<p>A selfie, a photo, or a text prompt becomes a rigged 3D avatar.</p>
+								<span class="arrow" aria-hidden="true">→</span>
+							</div>
+							<div class="step" data-rise="4">
+								<div class="ico" aria-hidden="true">◍</div>
+								<span class="kt">Think</span>
+								<h3>Plug in a brain</h3>
+								<p>Pick the model — Claude, GPT, Granite — and give it knowledge and a personality.</p>
+								<span class="arrow" aria-hidden="true">→</span>
+							</div>
+							<div class="step" data-rise="4">
+								<div class="ico" aria-hidden="true">◐</div>
+								<span class="kt">Move</span>
+								<h3>Make it alive</h3>
+								<p>Lip-sync to its voice, emotes, full-body motion capture, idle presence.</p>
+								<span class="arrow" aria-hidden="true">→</span>
+							</div>
+							<div class="step" data-rise="5">
+								<div class="ico" aria-hidden="true">▦</div>
+								<span class="kt">Embed</span>
+								<h3>Ship anywhere</h3>
+								<p>Two lines of HTML drop the agent onto any website, stream, or app.</p>
+								<span class="arrow" aria-hidden="true">→</span>
+							</div>
+						</div>
+						<p class="muted" data-rise="5" style="margin-top:1.2rem; font-size:var(--text-ui)">
+							No 3D modelling. No game engine. No pipeline to maintain.
+						</p>
+					</div>
+				</section>
+
+				<!-- 5 · The one line -->
+				<section class="slide" data-title="One line" aria-roledescription="slide" aria-label="The one-line embed">
+					<div class="slide-inner">
+						<div class="split">
+							<div>
+								<p class="eyebrow is-num" data-rise="1"><span class="ey-n">04</span> · The product, in a sentence</p>
+								<h2 data-rise="2">Everything ships behind <span class="grad-text">one&nbsp;line</span>.</h2>
+								<p class="lede dim" data-rise="3">
+									The avatar, the brain, the voice, and the motion all travel inside
+									a single embeddable element. Paste it, and a living agent appears.
+								</p>
+								<div class="stat-row" data-rise="4">
+									<div class="stat"><span class="n grad-text">&lt; 2</span><span class="l">lines of HTML to embed a full agent</span></div>
+									<div class="stat"><span class="n grad-text">0</span><span class="l">installs, plugins, or app-store steps</span></div>
+									<div class="stat"><span class="n grad-text">glTF</span><span class="l">open 3D standard — portable everywhere</span></div>
+								</div>
+							</div>
+							<div data-rise="4">
+								<div class="title-stage" style="aspect-ratio:auto; padding:1.1rem 1.2rem; box-shadow:var(--shadow-2)">
+									<pre style="margin:0; font-family:var(--font-mono); font-size:clamp(.7rem,1.4vw,.85rem); line-height:1.7; color:var(--ink); white-space:pre-wrap; word-break:break-word"><span style="color:var(--ink-faint)">&lt;!-- drop a 3D AI agent on any page --&gt;</span>
+<span style="color:#7c8bff">&lt;script</span> <span style="color:#38e0c8">type</span>=<span style="color:#ff7ac6">"module"</span>
+  <span style="color:#38e0c8">src</span>=<span style="color:#ff7ac6">"https://three.ws/agent-3d/latest/agent-3d.js"</span><span style="color:#7c8bff">&gt;&lt;/script&gt;</span>
+
+<span style="color:#7c8bff">&lt;agent-3d</span>
+  <span style="color:#38e0c8">avatar</span>=<span style="color:#ff7ac6">"your-character"</span>
+  <span style="color:#38e0c8">brain</span>=<span style="color:#ff7ac6">"claude"</span>
+  <span style="color:#38e0c8">voice</span>=<span style="color:#ff7ac6">"on"</span>
+<span style="color:#7c8bff">&gt;&lt;/agent-3d&gt;</span></pre>
+								</div>
+								<p class="muted" style="margin:.7rem 0 0; font-size:var(--text-sm)">That snippet is the whole integration. The hard parts live on our side.</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 6 · Live demo -->
+				<section class="slide" data-title="Live demo" aria-roledescription="slide" aria-label="Live demo">
+					<div class="slide-inner">
+						<div class="split">
+							<div>
+								<p class="eyebrow is-num" data-rise="1"><span class="ey-n">05</span> · Live demo</p>
+								<h2 data-rise="2">This is live.<br />Right now. In this slide.</h2>
+								<p class="lede dim" data-rise="3">
+									The character beside this text is rendering in your browser from a
+									standard 3D file — the exact same thing that ships inside the
+									one-line embed. Drag it. Spin it. It's real.
+								</p>
+								<ul class="checks" data-rise="4" style="margin-top:.8rem">
+									<li><span class="ck">✓</span> <span>Rendered client-side — no video stream, no server round-trip</span></li>
+									<li><span class="ck">✓</span> <span>Rigged and animated, ready for lip-sync and gesture</span></li>
+									<li><span class="ck">✓</span> <span>Portable glTF — works in any modern browser and engine</span></li>
+								</ul>
+							</div>
+							<div class="title-stage demo-stage" data-rise="3" style="aspect-ratio:1/1; max-height:64vh">
+								<model-viewer
+									src="/animations/soldier.glb"
+									alt="A live, interactive 3D character you can orbit with the mouse"
+									autoplay
+									camera-controls
+									auto-rotate
+									auto-rotate-delay="2500"
+									rotation-per-second="10deg"
+									interaction-prompt="auto"
+									shadow-intensity="0.7"
+									exposure="1.1"
+									environment-image="neutral"
+									camera-orbit="-18deg 86deg 2.6m"
+								></model-viewer>
+								<span class="stage-label"><span class="live-dot"></span>Live in-browser render · drag to orbit</span>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 7 · Product surface -->
+				<section class="slide" data-title="Product" aria-roledescription="slide" aria-label="What we have built">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">06</span> · The product</p>
+						<h2 data-rise="2">Not a demo. A shipped platform.</h2>
+						<p class="lede dim" data-rise="3" style="margin-bottom:1.2rem">
+							Every block below is built, wired, and in production today — and they
+							all connect to the same agent you create.
+						</p>
+						<div class="grid-cards">
+							<div class="card" data-rise="3"><div class="ico" aria-hidden="true">◎</div><h3>Avatar Creator</h3><p>Selfie, photo, sculpt, or text prompt → a rigged, animation-ready 3D character.</p></div>
+							<div class="card" data-rise="3"><div class="ico" aria-hidden="true">◐</div><h3>Animation Studio</h3><p>Idle, emotes, lip-sync, and full-body motion capture from a webcam.</p></div>
+							<div class="card" data-rise="4"><div class="ico" aria-hidden="true">▦</div><h3>Embeddable Widget</h3><p>The one-line element that drops a talking agent onto any website.</p></div>
+							<div class="card" data-rise="4"><div class="ico" aria-hidden="true">◇</div><h3>3D Worlds</h3><p>A space your agent and your audience can walk into and share.</p></div>
+							<div class="card" data-rise="5"><div class="ico" aria-hidden="true">⌘</div><h3>Scene Studio</h3><p>A browser 3D editor to compose, light, and export full scenes.</p></div>
+							<div class="card" data-rise="5"><div class="ico" aria-hidden="true">⟢</div><h3>Developer SDKs &amp; Tools<span class="tag">live on npm</span></h3><p>Open packages and an agent tool server so any product can build on the stack.</p></div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 8 · Market -->
+				<section class="slide" data-title="Market" aria-roledescription="slide" aria-label="Market">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">07</span> · The market</p>
+						<h2 data-rise="2">We sit where three large markets converge.</h2>
+						<p class="lede dim" data-rise="3" style="margin-bottom:1rem">
+							Embodiment isn't a niche — it's the missing interface layer across
+							three of software's fastest-growing categories.
+						</p>
+						<div class="pillars">
+							<div class="pillar" data-rise="3">
+								<div class="big grad-text">Conversational&nbsp;AI</div>
+								<h3>The brains, multiplying</h3>
+								<p>Every app is adding an assistant. None of them have a face. We are the body for all of them.</p>
+							</div>
+							<div class="pillar" data-rise="4">
+								<div class="big grad-text">3D &amp; avatars</div>
+								<h3>Content, democratized</h3>
+								<p>Avatars, virtual production, and digital humans — once studio-only, now a prompt away.</p>
+							</div>
+							<div class="pillar" data-rise="5">
+								<div class="big grad-text">Creators &amp; CX</div>
+								<h3>Presence, monetized</h3>
+								<p>Streamers, brands, and support teams all want a recognizable character that's always on.</p>
+							</div>
+						</div>
+						<div class="converge" data-rise="5">
+							Each category is measured in tens of billions and growing double digits.
+							<strong>The embodiment layer is the connective tissue across all three</strong> — and it's currently unowned.
+						</div>
+					</div>
+				</section>
+
+				<!-- 9 · Who it's for -->
+				<section class="slide" data-title="Customers" aria-roledescription="slide" aria-label="Who it is for">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">08</span> · Who it's for</p>
+						<h2 data-rise="2">Same platform. Very different jobs.</h2>
+						<p class="lede dim" data-rise="3" style="margin-bottom:1.1rem">
+							One creation flow feeds four distinct, paying audiences — each already
+							reachable through a working product surface today.
+						</p>
+						<div class="who-grid">
+							<div class="who" data-rise="3"><span class="for">Businesses</span><h3>Support avatars</h3><p>A branded 3D greeter that answers customers 24/7 — a friendlier face than a chat bubble.</p></div>
+							<div class="who" data-rise="4"><span class="for">Creators</span><h3>Stream characters</h3><p>A lip-syncing on-camera avatar for video and live, without a pro VTuber rig.</p></div>
+							<div class="who" data-rise="4"><span class="for">Communities</span><h3>Mascots &amp; worlds</h3><p>A character that represents a community — and a 3D space for it to gather in.</p></div>
+							<div class="who" data-rise="5"><span class="for">Builders</span><h3>Personal agents</h3><p>An assistant you can look at and talk to — and call from the API in your own product.</p></div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 10 · Business model -->
+				<section class="slide" data-title="Model" aria-roledescription="slide" aria-label="Business model">
+					<div class="slide-inner">
+						<div class="split lead-narrow">
+							<div>
+								<p class="eyebrow is-num" data-rise="1"><span class="ey-n">09</span> · Business model</p>
+								<h2 data-rise="2">Free to start.<br />Revenue scales with use.</h2>
+								<p class="lede dim" data-rise="3">
+									Creation and embedding are free — that's the top of a self-serve
+									funnel. Money follows the moment an agent does real work.
+								</p>
+							</div>
+							<div class="flow-rows" data-rise="4">
+								<div class="flow-row">
+									<span class="step-n">1</span>
+									<div class="body"><strong>Create &amp; embed — free</strong><span>Turns every user and every embed into distribution.</span></div>
+									<span class="rev">Top of funnel</span>
+								</div>
+								<div class="flow-row">
+									<span class="step-n">2</span>
+									<div class="body"><strong>Premium generation</strong><span>Higher-fidelity avatars, faster pipelines, more capacity.</span></div>
+									<span class="rev">Usage-based</span>
+								</div>
+								<div class="flow-row">
+									<span class="step-n">3</span>
+									<div class="body"><strong>Developer plans</strong><span>SDK and API access, higher limits, and analytics.</span></div>
+									<span class="rev">Subscription</span>
+								</div>
+								<div class="flow-row">
+									<span class="step-n">4</span>
+									<div class="body"><strong>Team &amp; enterprise</strong><span>Branded embedding, support, and custom characters at scale.</span></div>
+									<span class="rev">Contract</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 11 · Distribution & moat -->
+				<section class="slide" data-title="Moat" aria-roledescription="slide" aria-label="Distribution and moat">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">10</span> · Distribution &amp; moat</p>
+						<h2 data-rise="2">Built to spread.</h2>
+						<p class="lede dim" data-rise="3" style="margin-bottom:1.1rem">
+							The product is the marketing. Every integration is a billboard, and
+							every developer who builds on us deepens the lock-in.
+						</p>
+						<div class="grid-cards">
+							<div class="card" data-rise="3"><div class="ico" aria-hidden="true">⟢</div><h3>Open SDKs on npm</h3><p>Published packages mean developers adopt us inside their own products — and stay.</p></div>
+							<div class="card" data-rise="4"><div class="ico" aria-hidden="true">◍</div><h3>Agent-native tools</h3><p>Our capabilities are exposed as tools other AI agents can call — distribution where AI already lives.</p></div>
+							<div class="card" data-rise="4"><div class="ico" aria-hidden="true">▦</div><h3>One-line embed = reach</h3><p>Every site that adds an agent becomes a live, branded demo seen by its whole audience.</p></div>
+							<div class="card" data-rise="5"><div class="ico" aria-hidden="true">◎</div><h3>Compounding asset library</h3><p>Every avatar, animation, and world created makes the next creation faster and richer.</p></div>
+							<div class="card" data-rise="5"><div class="ico" aria-hidden="true">◐</div><h3>The full stack, integrated</h3><p>Rivals ship a piece; we ship create-think-move-embed as one path no one else has end to end.</p></div>
+							<div class="card" data-rise="5"><div class="ico" aria-hidden="true">◇</div><h3>Standards-based</h3><p>Open glTF output means no walled garden — which is exactly why teams trust building on it.</p></div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 12 · Traction -->
+				<section class="slide" data-title="Traction" aria-roledescription="slide" aria-label="Traction">
+					<div class="slide-inner">
+						<div class="split">
+							<div>
+								<p class="eyebrow is-num" data-rise="1"><span class="ey-n">11</span> · Traction</p>
+								<h2 data-rise="2">What's already shipped.</h2>
+								<p class="lede dim" data-rise="3">
+									While the category is still being named, we've shipped the whole
+									path — in production, in the browser, today.
+								</p>
+								<div class="stat-row" data-rise="4">
+									<div class="stat"><span class="n grad-text">End&#8209;to&#8209;end</span><span class="l">selfie → talking, embedded agent works now</span></div>
+									<div class="stat"><span class="n grad-text">In&#8209;browser</span><span class="l">runs on every modern device, no install</span></div>
+								</div>
+							</div>
+							<div data-rise="4">
+								<ul class="checks">
+									<li><span class="ck">✓</span> <span><strong>Dozens of product surfaces</strong> live in production — creator, studio, worlds, widget, and more.</span></li>
+									<li><span class="ck">✓</span> <span><strong>Developer SDKs published</strong> on npm for outside teams to build on.</span></li>
+									<li><span class="ck">✓</span> <span><strong>Agent tools live</strong> on a public model-context registry — callable by other AI.</span></li>
+									<li><span class="ck">✓</span> <span><strong>One-line embed</strong> proven across real third-party sites.</span></li>
+									<li><span class="ck">✓</span> <span><strong>Open glTF pipeline</strong> — created characters export and run anywhere.</span></li>
+								</ul>
+								<p class="muted" style="margin:.9rem 0 0; font-size:var(--text-sm)">We didn't write a roadmap to embodiment. We shipped it, then started compounding.</p>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 13 · Roadmap -->
+				<section class="slide" data-title="Roadmap" aria-roledescription="slide" aria-label="Roadmap">
+					<div class="slide-inner">
+						<p class="eyebrow is-num" data-rise="1"><span class="ey-n">12</span> · Roadmap</p>
+						<h2 data-rise="2">From shipped to inevitable.</h2>
+						<div class="road">
+							<div class="road-col" data-rise="3">
+								<div class="when">Now</div>
+								<ul>
+									<li>Harden create → embed for every browser and device</li>
+									<li>Deepen real-time lip-sync and expression quality</li>
+									<li>Grow the SDK and developer surface</li>
+								</ul>
+							</div>
+							<div class="road-col" data-rise="4">
+								<div class="when">Next</div>
+								<ul>
+									<li>Live voice + video conversation in the embed</li>
+									<li>A marketplace of characters, animations, and worlds</li>
+									<li>Team workspaces and branded enterprise embedding</li>
+								</ul>
+							</div>
+							<div class="road-col" data-rise="5">
+								<div class="when">Later</div>
+								<ul>
+									<li>Mobile and AR placement of agents in real space</li>
+									<li>Multi-agent worlds and shared social presence</li>
+									<li>The default way any AI gets a body</li>
+								</ul>
+							</div>
+						</div>
+					</div>
+				</section>
+
+				<!-- 14 · Closing / ask -->
+				<section class="slide" data-title="The ask" aria-roledescription="slide" aria-label="Closing">
+					<div class="slide-inner closing">
+						<p class="eyebrow is-num" data-rise="1" style="justify-content:center"><span class="ey-n">13</span> · The ask</p>
+						<h1 data-rise="2">Give your AI <span class="grad-text">a body.</span></h1>
+						<p class="lede" data-rise="3">
+							The brains are everywhere. The bodies aren't built yet. We're the team
+							that already shipped the layer that gives them one — and we're raising
+							to make it the default.
+						</p>
+						<div class="hero-actions" data-rise="4">
+							<a class="btn btn-primary" href="/create">Try it live →</a>
+							<a class="btn btn-ghost" href="/what-is">See the platform</a>
+						</div>
+						<div class="closing-meta" data-rise="5">
+							<span><b style="color:var(--ink)">three.ws</b></span>
+							<a href="https://three.ws">three.ws</a>
+							<a href="https://x.com/trythreews">@trythreews</a>
+							<span>Let's talk.</span>
+						</div>
+					</div>
+				</section>
+
+			</main>
+
+			<!-- Bottom controls -->
+			<div class="deck-controls">
+				<button class="nav-btn" id="prev" type="button" aria-label="Previous slide">
+					<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+				<div class="dots" id="dots" role="tablist" aria-label="Slides"></div>
+				<button class="nav-btn" id="next" type="button" aria-label="Next slide">
+					<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+				</button>
+				<span class="deck-counter" id="counter" aria-live="polite"><b>1</b> / 14</span>
+			</div>
+
+			<div class="kbd-hint" aria-hidden="true">
+				<span class="kbd">←</span><span class="kbd">→</span> navigate
+				<span class="kbd">F</span> present
+				<span class="kbd">P</span> PDF
+			</div>
+		</div>
+
+		<script>
+			(function () {
+				const stage = document.getElementById('stage');
+				const slides = Array.from(stage.querySelectorAll('.slide'));
+				const total = slides.length;
+				const progress = document.getElementById('progress');
+				const counter = document.getElementById('counter');
+				const dotsWrap = document.getElementById('dots');
+				const prevBtn = document.getElementById('prev');
+				const nextBtn = document.getElementById('next');
+
+				// Build dot nav
+				const dots = slides.map((s, i) => {
+					const b = document.createElement('button');
+					b.className = 'dot';
+					b.type = 'button';
+					b.setAttribute('role', 'tab');
+					b.setAttribute('aria-label', (i + 1) + '. ' + (s.dataset.title || 'Slide'));
+					b.addEventListener('click', () => go(i));
+					dotsWrap.appendChild(b);
+					return b;
+				});
+
+				let index = 0;
+				let prevIndex = 0;
+
+				function clamp(n) { return Math.max(0, Math.min(total - 1, n)); }
+
+				function render() {
+					slides.forEach((s, i) => {
+						s.classList.toggle('is-active', i === index);
+						s.classList.toggle('is-prev', i < index);
+						s.setAttribute('aria-hidden', i === index ? 'false' : 'true');
+					});
+					dots.forEach((d, i) => {
+						d.classList.toggle('is-active', i === index);
+						d.setAttribute('aria-selected', i === index ? 'true' : 'false');
+						d.tabIndex = i === index ? 0 : -1;
+					});
+					progress.style.width = ((index) / (total - 1)) * 100 + '%';
+					counter.innerHTML = '<b>' + (index + 1) + '</b> / ' + total;
+					prevBtn.disabled = index === 0;
+					nextBtn.disabled = index === total - 1;
+				}
+
+				function go(n, opts) {
+					const target = clamp(n);
+					if (target === index) return;
+					prevIndex = index;
+					index = target;
+					render();
+					const hash = '#' + (index + 1);
+					if (location.hash !== hash) {
+						history.replaceState(null, '', hash);
+					}
+					// Reset scroll position inside the newly active slide.
+					slides[index].scrollTop = 0;
+				}
+
+				function next() { go(index + 1); }
+				function prev() { go(index - 1); }
+
+				prevBtn.addEventListener('click', prev);
+				nextBtn.addEventListener('click', next);
+
+				// Buttons / links marked data-go
+				document.querySelectorAll('[data-go="next"]').forEach((el) =>
+					el.addEventListener('click', next),
+				);
+
+				// Keyboard
+				window.addEventListener('keydown', (e) => {
+					if (e.metaKey || e.ctrlKey || e.altKey) return;
+					const tag = (e.target && e.target.tagName) || '';
+					if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+					switch (e.key) {
+						case 'ArrowRight':
+						case 'PageDown':
+						case ' ':
+							e.preventDefault(); next(); break;
+						case 'ArrowLeft':
+						case 'PageUp':
+							e.preventDefault(); prev(); break;
+						case 'Home':
+							e.preventDefault(); go(0); break;
+						case 'End':
+							e.preventDefault(); go(total - 1); break;
+						case 'f': case 'F':
+							e.preventDefault(); toggleFull(); break;
+						case 'p': case 'P':
+							e.preventDefault(); window.print(); break;
+						default:
+							if (/^[0-9]$/.test(e.key)) {
+								const n = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+								if (n < total) { e.preventDefault(); go(n); }
+							}
+					}
+				});
+
+				// Touch swipe
+				let tsX = 0, tsY = 0, tracking = false;
+				stage.addEventListener('touchstart', (e) => {
+					if (e.touches.length !== 1) return;
+					tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; tracking = true;
+				}, { passive: true });
+				stage.addEventListener('touchend', (e) => {
+					if (!tracking) return;
+					tracking = false;
+					const dx = e.changedTouches[0].clientX - tsX;
+					const dy = e.changedTouches[0].clientY - tsY;
+					if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+						dx < 0 ? next() : prev();
+					}
+				}, { passive: true });
+
+				// Fullscreen
+				function toggleFull() {
+					const el = document.documentElement;
+					if (!document.fullscreenElement) {
+						(el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
+					} else {
+						(document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+					}
+				}
+				document.getElementById('btn-full').addEventListener('click', toggleFull);
+				document.getElementById('btn-print').addEventListener('click', () => window.print());
+
+				// Theme toggle (writes the same key the boot script reads)
+				document.getElementById('btn-theme').addEventListener('click', () => {
+					const root = document.documentElement;
+					const isLight = root.getAttribute('data-theme') === 'light';
+					const nextTheme = isLight ? 'dark' : 'light';
+					root.setAttribute('data-theme', nextTheme);
+					try { localStorage.setItem('twx_theme', nextTheme); } catch (e) {}
+				});
+
+				// Deep-link: open on the hash slide, keep in sync on back/forward.
+				function fromHash() {
+					const n = parseInt((location.hash || '').replace('#', ''), 10);
+					return Number.isFinite(n) ? clamp(n - 1) : 0;
+				}
+				index = fromHash();
+				window.addEventListener('hashchange', () => {
+					const n = fromHash();
+					if (n !== index) { prevIndex = index; index = n; render(); }
+				});
+
+				render();
+			})();
+		</script>
+	</body>
+</html>
