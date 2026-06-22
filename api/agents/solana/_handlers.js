@@ -967,7 +967,12 @@ export const handleEdit = wrap(async (req, res) => {
 
 	let umi;
 	try {
-		umi = createUmi(rpc).use(mplCore());
+		// Failover Connection rather than the bare `rpc` URL: every on-chain read
+		// (fetchAsset/fetchCollection) and write (sendAndConfirm → getLatestBlockhash)
+		// below rotates across the endpoint chain, so a single node's malformed/empty
+		// 200 body fails over to a healthy provider instead of throwing
+		// `StructError: … but received:` and failing the whole edit.
+		umi = createUmi(solanaConnection({ url: rpc, network })).use(mplCore());
 		umi.use(signerIdentity(collectionAuthoritySigner(umi)));
 	} catch (e) {
 		console.error('[agents/solana] authority/umi init failed', e?.message);
@@ -1237,7 +1242,10 @@ export const handleRegistrationCard = wrap(async (req, res) => {
 	// ── Step 1: on-chain identity PDA ────────────────────────────────────────
 	let pdaUri = null;
 	try {
-		const umi = createUmi(rpcUrl).use(mplCore()).use(mplAgentIdentity());
+		// Failover Connection so the best-effort on-chain PDA read rotates across the
+		// endpoint chain rather than silently failing (→ DB fallback) every time the
+		// single configured node returns a malformed/empty body.
+		const umi = createUmi(solanaConnection({ url: rpcUrl, network })).use(mplCore()).use(mplAgentIdentity());
 		const assetPk = umiPublicKey(asset);
 		const [pdaAddr] = findAgentIdentityV1Pda(umi, { asset: assetPk });
 		const acct = await umi.rpc.getAccount(pdaAddr).catch(() => null);

@@ -32,9 +32,12 @@ export default wrap(async (req, res) => {
 	const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 30));
 	const perKind = limit; // pull `limit` of each kind, then merge + trim to `limit`
 
+	// Follow graph lives in user_follows. A deploy that lands before the
+	// user_follows migration must degrade to an empty feed rather than 500 every
+	// home feed (migrate-then-deploy; mirrors api/users/[username].js).
 	const [{ following_count }] = await sql`
 		select count(*)::int as following_count from user_follows where follower_id = ${viewer.id}
-	`;
+	`.catch(() => [{ following_count: 0 }]);
 
 	if (following_count === 0) {
 		return json(res, 200, { items: [], following_count: 0 });

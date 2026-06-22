@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-22",
+			"title": "Fix: token art loads reliably and 3D embeds never blank out",
+			"summary": "Hardened two things that could fail quietly on the platform. Token artwork is fetched through our own image proxy so it loads cross-origin without errors; a slow or dead image host could previously hang that proxy until it was killed, leaving art stuck loading — it now bounds every lookup and falls back to a clean on-brand placeholder fast, so art always resolves. And every embedded 3D view (agent stages, model viewers, profile avatars) now degrades to a tasteful 'not available on this device' state instead of throwing when a browser or GPU refuses a WebGL context — so a low-end or locked-down device sees a graceful fallback rather than a broken page.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-22",
 			"title": "New: an Agent Bouncer that vets any agent before you pay it",
 			"summary": "There's now a single call that answers the question every autonomous payment really hinges on: should I trust this agent? Point it at a three.ws agent and it reads that agent's whole Solana track record — how many on-chain payments it has actually accepted, from how many distinct wallets, how often those payments failed, whether it followed through on its distribute/buyback obligations, the signed on-chain vouches left about it, and the Pole Club's own ban and door-history list — then returns a plain verdict: admitted or refused, a reason, and a door tier (newcomer, regular, trusted, or vip). It's the Club's velvet-rope bouncer generalized to the whole platform: instead of only knowing what a wallet did at our door, it judges an agent on everything it has done on Solana. You set the bar (minimum payments, distinct payers, a failure-rate ceiling, required attestations, whether to admit newcomers) and it enforces it — so an agent, with no human in the loop, can screen a counterparty before paying, hiring, or delegating. The raw reputation snapshot stays available too; this adds the decision on top.",
 			"tags": ["feature"]

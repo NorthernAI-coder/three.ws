@@ -90,7 +90,19 @@ class AgentStageElement extends HTMLElement {
 
 	_initViewer() {
 		if (this._initialized) return;
-		this._viewer = new Viewer(this._canvasBox, { kiosk: true });
+		// A device/browser that can't grant a WebGL context (GPU blocklist, context
+		// budget exhausted, headless) makes the Viewer constructor throw "Error
+		// creating WebGL context". connectedCallback runs this synchronously, so an
+		// unguarded throw escapes as an uncaught error and blanks the host page.
+		// Degrade instead: leave _viewer null (registerAgent/unregisterAgent already
+		// null-check it) so child agents simply don't render rather than crash.
+		try {
+			this._viewer = new Viewer(this._canvasBox, { kiosk: true });
+		} catch (err) {
+			this._viewer = null;
+			this._initialized = true;
+			return;
+		}
 		// Default framing for a human-scale stage.
 		this._viewer.defaultCamera.position.set(0, 1.55, 3.4);
 		this._viewer.defaultCamera.lookAt(0, 1.2, 0);

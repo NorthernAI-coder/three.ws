@@ -95,6 +95,14 @@
 			<description>Two places that read an agent's ERC-8004 reputation were decoding it wrong. The on-chain registry returns the average rating already worked out (and signed, so it can go negative); both the paid reputation MCP tool and the trust check that guards autonomous agent-to-agent payments were dividing that value a second time — understating every score, and turning a negative reputation into a meaninglessly large positive one. The MCP tool was also listening for the wrong on-chain event, so it always reported zero past vouches even when an agent had many. Both now report the true average, handle negative reputations correctly, and surface real review history — so a 'pay only above this score' rule actually does what it says.</description>
 		</item>
 		<item>
+			<title>Fix: token art loads reliably and 3D embeds never blank out</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-22:Fix: token art loads reliably and 3D embeds never blank out</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Hardened two things that could fail quietly on the platform. Token artwork is fetched through our own image proxy so it loads cross-origin without errors; a slow or dead image host could previously hang that proxy until it was killed, leaving art stuck loading — it now bounds every lookup and falls back to a clean on-brand placeholder fast, so art always resolves. And every embedded 3D view (agent stages, model viewers, profile avatars) now degrades to a tasteful 'not available on this device' state instead of throwing when a browser or GPU refuses a WebGL context — so a low-end or locked-down device sees a graceful fallback rather than a broken page.</description>
+		</item>
+		<item>
 			<title>Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-22:Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</guid>
