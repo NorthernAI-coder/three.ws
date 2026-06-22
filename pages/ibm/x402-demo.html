@@ -556,7 +556,7 @@ agent-3d:defined ~ .agent-skel{display:none}
       <div class="wb-fill wb-holding" id="wbHolding" hidden>
         <div class="wb-spinner" aria-hidden="true"></div>
         <h3 class="wb-stage-title">We're about to begin</h3>
-        <p class="wb-soon">The stream goes live here any moment — this page refreshes itself, no need to reload.</p>
+        <p class="wb-soon">The stream will appear here the moment it starts.</p>
       </div>
 
       <!-- LIVE / REPLAY · player mounts here -->
@@ -762,8 +762,10 @@ agent-3d:defined ~ .agent-skel{display:none}
     });
   }
 
+  // Assign the interval BEFORE the first render() so an at/after-start load that
+  // clears it on the opening tick doesn't hit `timer` in its temporal dead zone.
+  let timer = setInterval(render, 1000);
   render();
-  const timer = setInterval(render, 1000);
 })();
 </script>
 

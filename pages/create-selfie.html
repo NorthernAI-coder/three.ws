@@ -1971,6 +1971,67 @@
 			await import('/src/selfie-capture.js');
 			const pipeline = await import('/src/selfie-pipeline.js');
 
+			// ── Photo quality feedback ────────────────────────────────────────────
+			// Assess each frontal photo the moment it's added so the user can swap a
+			// drawing / blurry / no-face shot BEFORE waiting out a full build.
+			const { assessPhoto } = await import('/src/selfie-refine.js');
+			const qNotice = document.getElementById('quality-notice');
+			let _qSeq = 0;
+
+			function showQuality(kind, text) {
+				if (!qNotice) return;
+				if (!text) {
+					qNotice.hidden = true;
+					return;
+				}
+				qNotice.classList.remove('warn', 'good');
+				if (kind) qNotice.classList.add(kind);
+				qNotice.querySelector('.qn-text').textContent = text;
+				qNotice.hidden = false;
+			}
+
+			async function bitmapFromFile(file) {
+				if (typeof createImageBitmap === 'function') {
+					try {
+						return await createImageBitmap(file);
+					} catch (_) {}
+				}
+				return await new Promise((resolve, reject) => {
+					const img = new Image();
+					img.onload = () => resolve(img);
+					img.onerror = () => reject(new Error('decode failed'));
+					img.src = URL.createObjectURL(file);
+				});
+			}
+
+			document.addEventListener('selfie:photo-added', async (e) => {
+				const { slot, file } = e.detail || {};
+				if (slot !== 'frontal' || !file) return;
+				const seq = ++_qSeq;
+				showQuality(null, 'Checking your photo…');
+				try {
+					const bmp = await bitmapFromFile(file);
+					const a = await assessPhoto(bmp);
+					try {
+						bmp.close?.();
+					} catch (_) {}
+					if (seq !== _qSeq) return; // a newer photo superseded this check
+					if (a.verdict === 'good') showQuality('good', 'Looks great — clear face, good framing.');
+					else showQuality('warn', a.message);
+				} catch (_) {
+					if (seq === _qSeq) showQuality(null, '');
+				}
+			});
+
+			// Re-surface warnings discovered during the (higher-res) submit pass.
+			document.addEventListener('selfie:quality', (e) => {
+				const warnings = e.detail?.warnings || [];
+				const frontal = warnings.find((w) => w.slot === 'frontal') || warnings[0];
+				if (frontal) showQuality('warn', frontal.message);
+			});
+
+			document.addEventListener('selfie:reset', () => showQuality(null, ''));
+
 			// ── BYOK key entry form wiring ────────────────────────────────────────
 			let _selectedProvider = 'meshy';
 

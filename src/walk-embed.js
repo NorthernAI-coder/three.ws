@@ -486,9 +486,30 @@ function getAvatarLoader() {
 async function loadAvatar() {
 	setStatus('loading avatar…', { sticky: true });
 
-	const avatarUrl = await resolveAvatarUrl();
+	const requestedUrl = await resolveAvatarUrl();
 	const loader = await getAvatarLoader();
-	const gltf = await loader.loadAsync(avatarUrl);
+
+	// Honor the contract that the embed ALWAYS renders a walking body: if the
+	// requested avatar can't be fetched (deleted/expired id, a private avatar an
+	// anonymous host can't read, a typo'd id → 404, or a transient network
+	// failure) we fall back to the default avatar instead of leaving the host
+	// with an empty, all-black stage. The failure is still reported to the host
+	// over the typed bridge, and a legible status tells the viewer what happened.
+	let gltf;
+	let usedFallback = false;
+	try {
+		gltf = await loader.loadAsync(requestedUrl);
+	} catch (err) {
+		if (requestedUrl === AVATAR_URL_DEFAULT) throw err; // default itself failed — let boot's catch surface it
+		log.warn('[walk-embed] avatar load failed, falling back to default:', err?.message || err);
+		emit(OUTBOUND.ERROR, {
+			code: 'avatar_load_failed',
+			message: String(err?.message || err),
+			fallback: true,
+		});
+		usedFallback = true;
+		gltf = await loader.loadAsync(AVATAR_URL_DEFAULT);
+	}
 	avatar = gltf.scene;
 	avatar.traverse((n) => {
 		if (n.isMesh) {
@@ -533,9 +554,13 @@ async function loadAvatar() {
 		input.autoplay.t = 0;
 	}
 
-	setStatus('walk it');
+	if (usedFallback) {
+		setStatus("couldn't load that avatar — showing the default", { sticky: true });
+	} else {
+		setStatus('walk it');
+	}
 	isReady = true;
-	emit(OUTBOUND.READY, { avatarId: currentAvatarId, env: currentEnv });
+	emit(OUTBOUND.READY, { avatarId: currentAvatarId, env: currentEnv, fallback: usedFallback });
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────

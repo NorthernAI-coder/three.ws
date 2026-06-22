@@ -623,11 +623,16 @@ async function handleGlb(req, res) {
 	const id = req.query?.id || new URL(req.url, 'http://x').pathname.split('/').filter(Boolean)[2];
 	if (!id) return error(res, 400, 'invalid_request', 'avatar id required');
 
-	const avatar = await getAvatar({ id, requesterId: null });
+	// Resolve the caller BEFORE the lookup: getAvatar() drops private avatars for
+	// non-owners (returns null), so passing requesterId: null here made the
+	// private branch below dead code — an owner could never fetch their own
+	// private GLB with a valid session/bearer. Thread the authenticated id in so
+	// the documented "private: owner only" contract actually holds.
+	const auth = await resolveVersionsAuth(req);
+	const avatar = await getAvatar({ id, requesterId: auth?.userId ?? null });
 	if (!avatar) return error(res, 404, 'not_found', 'avatar not found');
 
 	if (avatar.visibility === 'private') {
-		const auth = await resolveVersionsAuth(req);
 		if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
 		if (auth.userId !== avatar.owner_id) return error(res, 403, 'forbidden', 'not your avatar');
 	}
