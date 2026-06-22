@@ -95,6 +95,14 @@
 			<description>Two places that read an agent's ERC-8004 reputation were decoding it wrong. The on-chain registry returns the average rating already worked out (and signed, so it can go negative); both the paid reputation MCP tool and the trust check that guards autonomous agent-to-agent payments were dividing that value a second time — understating every score, and turning a negative reputation into a meaninglessly large positive one. The MCP tool was also listening for the wrong on-chain event, so it always reported zero past vouches even when an agent had many. Both now report the true average, handle negative reputations correctly, and surface real review history — so a 'pay only above this score' rule actually does what it says.</description>
 		</item>
 		<item>
+			<title>Fix: live trade tape, 3D generation, and agent minting hold up under pressure</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-22:Fix: live trade tape, 3D generation, and agent minting hold up under pressure</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Tightened three backend paths that could fail loudly under load or flaky upstreams. The live DEX trade tape on graduated coins (including $THREE) used to blank out whenever its market-data source got rate-limited; it now keeps showing the last good trades and quietly backs off the source instead of hammering it, so the tape stays populated through a rate-limit blip. Forge 3D generations are now pulled into our own storage with automatic retries, so a momentary network hiccup while saving a freshly generated model no longer loses the result. And minting an agent on-chain now returns a clear 'network busy, try again' message when every Solana RPC is congested, instead of a generic error — the same graceful handling the rest of checkout already had. Your home feed also stays up during database upgrades rather than erroring.</description>
+		</item>
+		<item>
 			<title>Fix: token art loads reliably and 3D embeds never blank out</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-22:Fix: token art loads reliably and 3D embeds never blank out</guid>
@@ -119,20 +127,20 @@
 			<description>The free, no-wallet 'forge a 3D model' widget on the IBM partnership page no longer shows a false 'briefly unreachable' error when the free GPU is cold. It used to fire up to six generation requests behind a single click, which spent the free lane's hourly limit about six times faster — a few tries could lock you out — and a slow cold start would surface as an error even though the model was still on its way. Now it makes one request per click (the server already falls back across NVIDIA, TRELLIS, and Hugging Face on its own), shows honest progress while a cold start warms up (which can take up to a minute), and, if the free lane is genuinely at its hourly limit, says exactly that and when to try again — pointing you to the instant paid Forge above. A model reliably comes back to orbit and download.</description>
 		</item>
 		<item>
-			<title>Hide the controls in IRL for an unobstructed AR view</title>
-			<link>https://three.ws/irl</link>
-			<guid isPermaLink="false">2026-06-22:Hide the controls in IRL for an unobstructed AR view</guid>
-			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
-			<category>feature</category>
-			<description>On a phone, the IRL controls (the top bar, the bottom row of buttons, the room badges, the compass and on-screen hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. There's now a one-tap hide button on the right edge: tap it and all of that chrome slides away, leaving just the live AR scene — the on-screen joystick and drag-to-look still work, so you can walk around and look about with nothing in the way. Tap the same button (it stays put and glows green) to bring everything back; on a keyboard, Esc restores it too.</description>
-		</item>
-		<item>
 			<title>IBM x402 demo works when embedded in IBM's CMS</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-22:IBM x402 demo works when embedded in IBM's CMS</guid>
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The five live demos on the IBM partnership page — Forge, x402 micropayments, the 3D agent, Play, and IRL — now run correctly when the page is embedded inside IBM's content platform, not only when opened directly. IBM serves the embed from a Seismic gateway address, and the browser was silently blocking it: the free 3D generator reported 'briefly unreachable' and the wallet payment couldn't reach the Solana network, because three.ws didn't yet recognize that gateway as an allowed origin. three.ws now trusts IBM's Seismic-served origins for both data calls and embedding, so the free Forge, the on-chain payment flow, and the inline Play/IRL worlds all work on the embedded page.</description>
+		</item>
+		<item>
+			<title>IRL gets a clean, get-out-of-the-way immersive mode</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-22:IRL gets a clean, get-out-of-the-way immersive mode</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On a phone, the IRL controls (top bar, the row of buttons, room badges, compass and hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. Now the controls get out of your way on their own: once the camera is live they fade after a few idle seconds, leaving just the AR scene — the joystick and drag-to-look keep working, so you can walk around and look about with nothing in the way. Tap anywhere on the empty view (or the eye button on the right edge) to bring them back, and they fade again when you go quiet. On desktop it's a focus/cinematic mode that works like a video player — move the mouse to reveal the controls, leave it still to hide them — plus real keyboard shortcuts: H to hide or show the interface, F for true fullscreen, Esc to restore. A one-time hint shows you how the first time the controls disappear, and the whole thing respects reduced-motion settings.</description>
 		</item>
 		<item>
 			<title>Live webinar stage on the IBM x402 demo page</title>

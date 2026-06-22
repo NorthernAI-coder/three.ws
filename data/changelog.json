@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-22",
+			"title": "Fix: live trade tape, 3D generation, and agent minting hold up under pressure",
+			"summary": "Tightened three backend paths that could fail loudly under load or flaky upstreams. The live DEX trade tape on graduated coins (including $THREE) used to blank out whenever its market-data source got rate-limited; it now keeps showing the last good trades and quietly backs off the source instead of hammering it, so the tape stays populated through a rate-limit blip. Forge 3D generations are now pulled into our own storage with automatic retries, so a momentary network hiccup while saving a freshly generated model no longer loses the result. And minting an agent on-chain now returns a clear 'network busy, try again' message when every Solana RPC is congested, instead of a generic error — the same graceful handling the rest of checkout already had. Your home feed also stays up during database upgrades rather than erroring.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-22",
 			"title": "Fix: token art loads reliably and 3D embeds never blank out",
 			"summary": "Hardened two things that could fail quietly on the platform. Token artwork is fetched through our own image proxy so it loads cross-origin without errors; a slow or dead image host could previously hang that proxy until it was killed, leaving art stuck loading — it now bounds every lookup and falls back to a clean on-brand placeholder fast, so art always resolves. And every embedded 3D view (agent stages, model viewers, profile avatars) now degrades to a tasteful 'not available on this device' state instead of throwing when a browser or GPU refuses a WebGL context — so a low-end or locked-down device sees a graceful fallback rather than a broken page.",
 			"tags": ["fix", "infra"]
@@ -35,8 +41,8 @@
 		},
 		{
 			"date": "2026-06-22",
-			"title": "Hide the controls in IRL for an unobstructed AR view",
-			"summary": "On a phone, the IRL controls (the top bar, the bottom row of buttons, the room badges, the compass and on-screen hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. There's now a one-tap hide button on the right edge: tap it and all of that chrome slides away, leaving just the live AR scene — the on-screen joystick and drag-to-look still work, so you can walk around and look about with nothing in the way. Tap the same button (it stays put and glows green) to bring everything back; on a keyboard, Esc restores it too.",
+			"title": "IRL gets a clean, get-out-of-the-way immersive mode",
+			"summary": "On a phone, the IRL controls (top bar, the row of buttons, room badges, compass and hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. Now the controls get out of your way on their own: once the camera is live they fade after a few idle seconds, leaving just the AR scene — the joystick and drag-to-look keep working, so you can walk around and look about with nothing in the way. Tap anywhere on the empty view (or the eye button on the right edge) to bring them back, and they fade again when you go quiet. On desktop it's a focus/cinematic mode that works like a video player — move the mouse to reveal the controls, leave it still to hide them — plus real keyboard shortcuts: H to hide or show the interface, F for true fullscreen, Esc to restore. A one-time hint shows you how the first time the controls disappear, and the whole thing respects reduced-motion settings.",
 			"tags": ["feature", "improvement"],
 			"link": "/irl"
 		},
