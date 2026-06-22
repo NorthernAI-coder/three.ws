@@ -2106,23 +2106,43 @@ agent-3d:defined ~ .agent-skel{display:none}
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
-  // Fallback ladder — first rung that yields a GLB wins. The free NVIDIA NIM lane
-  // degrades internally too, but walking distinct backends + a second pass makes
-  // a transient outage on any one engine invisible to the user.
-  var LADDER = [
-    { aspect_ratio: '1:1', path: 'image', tier: 'draft', backend: 'nvidia' },
-    { aspect_ratio: '1:1', path: 'image', tier: 'draft', backend: 'trellis' },
-    { aspect_ratio: '1:1', path: 'image', tier: 'standard', backend: 'trellis' }
+  // Attempt plan. /api/forge already runs its OWN internal fallback ladder
+  // (NVIDIA NIM → TRELLIS → Hugging Face → Replicate) inside a single request and
+  // always hands back a job that polls to a finished GLB — so the client must NOT
+  // re-walk backends. The old 3-rung × 2-pass ladder fired up to six POSTs per
+  // click, which (a) spent the free lane's hourly budget ~6× faster — a few clicks
+  // self-inflicted a 429 — and (b) turned a slow NVCF cold-start into a multi-minute
+  // cascade that surfaced as a hard error even though the backend was fine. We make
+  // one primary request and, only on a HARD failure (network / 5xx / timeout — never
+  // a rate-limit), retry once nudging the reliable reconstruct lane. A 429 is its own
+  // "busy" state (see setBusy), not a wasted retry.
+  var ATTEMPTS = [
+    { tier: 'draft' },                     // server picks the fast NVIDIA lane (warm ≈ 15s; cold ≈ up to a minute, then it degrades internally)
+    { tier: 'draft', backend: 'trellis' }  // hard-failure retry only: force the reliable reconstruct lane
   ];
 
+  // POST a generation. A cold NVCF lane can hold the request ~a minute before the
+  // server degrades, so the abort budget is generous; a genuinely hung/cut socket
+  // still aborts and is retried rather than spinning forever. 429 and other non-2xx
+  // become typed errors the caller can branch on (busy vs hard failure).
   async function startJob(body) {
-    var res = await fetch(API, {
-      method: 'POST',
-      headers: Object.assign({ 'content-type': 'application/json' }, HEADERS),
-      body: JSON.stringify(body)
-    });
+    var ctrl = new AbortController();
+    var to = setTimeout(function () { ctrl.abort(); }, 95000);
+    var res;
+    try {
+      res = await fetch(API, {
+        method: 'POST',
+        headers: Object.assign({ 'content-type': 'application/json' }, HEADERS),
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+    } finally { clearTimeout(to); }
     var data = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error(data.message || data.error || ('HTTP ' + res.status));
+    if (res.status === 429) {
+      var ra = Number(data.retry_after) || Number(res.headers.get('retry-after')) || 20;
+      throw Object.assign(new Error(data.message || 'The free lane is busy.'), { code: 429, retryAfter: ra });
+    }
+    if (!res.ok) throw Object.assign(new Error(data.message || data.error || ('HTTP ' + res.status)), { code: res.status });
     return data;
   }
 
@@ -2131,8 +2151,15 @@ agent-3d:defined ~ .agent-skel{display:none}
     while (seq === runSeq && Date.now() < deadline) {
       await sleep(2500);
       if (seq !== runSeq) return null;
-      var res = await fetch(API + '?job=' + encodeURIComponent(jobId), { headers: HEADERS });
-      var data = await res.json().catch(function () { return {}; });
+      var data = {};
+      try {
+        var ctrl = new AbortController();
+        var to = setTimeout(function () { ctrl.abort(); }, 20000);
+        var res;
+        try { res = await fetch(API + '?job=' + encodeURIComponent(jobId), { headers: HEADERS, signal: ctrl.signal }); }
+        finally { clearTimeout(to); }
+        data = await res.json().catch(function () { return {}; });
+      } catch (_) { data = {}; } // a transient poll blip is not fatal — keep polling
       if (data.status === 'done' && data.glb_url) return data;
       if (data.status === 'failed') throw new Error(data.error || 'generation failed');
     }
@@ -2142,22 +2169,23 @@ agent-3d:defined ~ .agent-skel{display:none}
 
   async function generate(prompt, seq) {
     var lastErr = null;
-    for (var pass = 0; pass < 2; pass++) {
-      for (var i = 0; i < LADDER.length; i++) {
+    for (var i = 0; i < ATTEMPTS.length; i++) {
+      if (seq !== runSeq) return null;
+      try {
+        var job = await startJob(Object.assign({ prompt: prompt, aspect_ratio: '1:1', path: 'image' }, ATTEMPTS[i]));
+        if (job.status === 'done' && job.glb_url) return job; // synchronous (NVIDIA warm)
+        if (job.job_id) {
+          var done = await pollJob(job.job_id, seq);
+          if (done) return done;
+          if (seq !== runSeq) return null;
+        }
+        lastErr = new Error('no model returned');
+      } catch (e) {
+        if (e && e.code === 429) throw e; // rate-limited — surface "busy", don't burn another attempt
+        lastErr = e;
         if (seq !== runSeq) return null;
-        try {
-          var job = await startJob(Object.assign({ prompt: prompt }, LADDER[i]));
-          if (job.status === 'done' && job.glb_url) return job; // synchronous (NVIDIA sync)
-          if (job.job_id) {
-            var done = await pollJob(job.job_id, seq);
-            if (done) return done;
-            if (seq !== runSeq) return null;
-          }
-          lastErr = new Error('no model returned');
-        } catch (e) { lastErr = e; }
-        if (seq !== runSeq) return null;
+        await sleep(1800); // brief backoff before the reliable-lane retry
       }
-      await sleep(1500);
     }
     throw lastErr || new Error('generation unavailable');
   }
@@ -2165,6 +2193,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   function setLoading() {
     var msgs = [
       'Reading your prompt…',
+      'Warming up the free GPU — a cold start can take up to a minute…',
       'Generating geometry on NVIDIA NIM…',
       'Texturing the mesh…',
       'Finalizing the GLB…'
@@ -2192,6 +2221,21 @@ agent-3d:defined ~ .agent-skel{display:none}
     var rb = $('g3dRetry');
     if (rb) rb.addEventListener('click', run);
     statusEl.textContent = 'Generation failed. Press try again.';
+  }
+
+  // Distinct from a hard failure: the free lane has an hourly cap so it stays free
+  // for everyone. Tell the visitor exactly when to retry and point at the instant
+  // paid lane above, instead of the misleading "unreachable" copy.
+  function setBusy(retryAfter) {
+    clearInterval(loadTimer);
+    var secs = Math.max(5, Math.round(Number(retryAfter) || 20));
+    result.className = 'g3d-result is-error';
+    result.innerHTML =
+      '<div class="g3d-err"><p>The free lane is busy — it has an hourly limit so it stays free for everyone. Try again in about ' + secs + ' seconds, or use the paid Forge above for an instant generation.</p>' +
+      '<button type="button" class="g3d-retry" id="g3dRetry">Try again</button></div>';
+    var rb = $('g3dRetry');
+    if (rb) rb.addEventListener('click', run);
+    statusEl.textContent = 'The free lane is busy. Try again in about ' + secs + ' seconds.';
   }
 
   function engineLabel(backend) {
@@ -2236,7 +2280,8 @@ agent-3d:defined ~ .agent-skel{display:none}
       await renderModel(job, prompt);
     } catch (e) {
       if (seq !== runSeq) return;
-      setError();
+      if (e && e.code === 429) setBusy(e.retryAfter);
+      else setError();
     } finally {
       if (seq === runSeq) {
         inFlight = false;

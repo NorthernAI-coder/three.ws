@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T05:41:52.630Z",
+	"generated_at": "2026-06-22T11:28:56.226Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -45,6 +45,28 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Free Forge on the IBM demo stays reliable while the GPU warms up",
+			"summary": "The free, no-wallet 'forge a 3D model' widget on the IBM partnership page no longer shows a false 'briefly unreachable' error when the free GPU is cold. It used to fire up to six generation requests behind a single click, which spent the free lane's hourly limit about six times faster — a few tries could lock you out — and a slow cold start would surface as an error even though the model was still on its way. Now it makes one request per click (the server already falls back across NVIDIA, TRELLIS, and Hugging Face on its own), shows honest progress while a cold start warms up (which can take up to a minute), and, if the free lane is genuinely at its hourly limit, says exactly that and when to try again — pointing you to the instant paid Forge above. A model reliably comes back to orbit and download.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "IBM x402 demo works when embedded in IBM's CMS",
+			"summary": "The five live demos on the IBM partnership page — Forge, x402 micropayments, the 3D agent, Play, and IRL — now run correctly when the page is embedded inside IBM's content platform, not only when opened directly. IBM serves the embed from a Seismic gateway address, and the browser was silently blocking it: the free 3D generator reported 'briefly unreachable' and the wallet payment couldn't reach the Solana network, because three.ws didn't yet recognize that gateway as an allowed origin. three.ws now trusts IBM's Seismic-served origins for both data calls and embedding, so the free Forge, the on-chain payment flow, and the inline Play/IRL worlds all work on the embedded page.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

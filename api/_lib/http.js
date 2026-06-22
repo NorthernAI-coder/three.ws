@@ -233,6 +233,17 @@ export function readBody(req, limit) {
 // allowlist so the IBM partnership embeds reach the shared three.ws APIs.
 const IBM_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*ibm\.com$/i;
 
+// IBM publishes the partnership page through its Seismic CMS (live.ibm.com /
+// ibm.seismic.com), and Seismic *executes* embedded HTML from its content
+// gateway origin — e.g. https://gateway-prod-ibm-us-east-otter.seismic.com —
+// NOT from *.ibm.com. So the real embedding origin for the IBM x402 demo is a
+// *.seismic.com host, and IBM_ORIGIN alone never matches it. Allow Seismic-served
+// origins (any depth) over https too, so the free Forge (/api/forge), the Solana
+// RPC proxy (/api/solana-rpc) and other default-allowlist endpoints work when the
+// page runs inside Seismic. Anchored to the exact host so look-alikes like
+// seismic.com.evil.example can't match.
+const SEISMIC_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*seismic\.com$/i;
+
 export function cors(
 	req,
 	res,
@@ -249,7 +260,7 @@ export function cors(
 	res.setHeader('access-control-allow-methods', methods);
 	res.setHeader(
 		'access-control-allow-headers',
-		'authorization, content-type, mcp-session-id, mcp-protocol-version, x-payment, payment-signature, idempotency-key, x-irl-device, x-irl-fix',
+		'authorization, content-type, mcp-session-id, mcp-protocol-version, x-payment, payment-signature, idempotency-key, x-irl-device, x-irl-fix, x-forge-client, x-forge-seed',
 	);
 	// x402: clients (drop-in modal, x402-fetch) must read these to drive the
 	// 402-pay-retry flow and surface settlement receipts. Without `expose`,
@@ -278,6 +289,8 @@ function isAllowedOrigin(origin, allowed) {
 		// (forge, etc.) work when served from *.ibm.com. Anchored to the exact
 		// host so look-alikes like ibm.com.evil.example or notibm.com don't match.
 		if (IBM_ORIGIN.test(origin)) return true;
+		// …and from the Seismic CMS gateway IBM actually embeds it through.
+		if (SEISMIC_ORIGIN.test(origin)) return true;
 		if (
 			process.env.NODE_ENV !== 'production' &&
 			/^https?:\/\/localhost(:\d+)?$/.test(origin)
