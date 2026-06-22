@@ -3569,6 +3569,14 @@
 			"dest": "/what-is.html"
 		},
 		{
+			"src": "/pitch",
+			"dest": "/pitch.html"
+		},
+		{
+			"src": "/pitch/",
+			"dest": "/pitch.html"
+		},
+		{
 			"src": "/tour",
 			"dest": "/tour.html"
 		},

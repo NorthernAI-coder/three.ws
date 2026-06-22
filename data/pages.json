@@ -135,6 +135,14 @@
 					"added": "2026-06-05"
 				},
 				{
+					"path": "/pitch",
+					"title": "Pitch Deck",
+					"description": "The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.",
+					"priority": 0.6,
+					"changefreq": "monthly",
+					"added": "2026-06-22"
+				},
+				{
 					"path": "/tour",
 					"title": "Guided Tour",
 					"description": "A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.",

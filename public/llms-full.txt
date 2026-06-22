@@ -103,6 +103,12 @@ URL: https://three.ws/what-is
 
 Plain-English introduction to three.ws — what a 3D AI agent is, real use-cases, and where to begin.
 
+### Pitch Deck
+
+URL: https://three.ws/pitch
+
+The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.
+
 ### Guided Tour
 
 URL: https://three.ws/tour

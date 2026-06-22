@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-22T03:47:58.653Z",
+	"generated_at": "2026-06-22T03:50:43.925Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Pitch Deck",
+			"summary": "The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.",
+			"link": "/pitch",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-22",
 			"type": "update",
