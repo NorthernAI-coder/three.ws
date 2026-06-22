@@ -20,7 +20,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { isUuid } from '../_lib/validate.js';
 import { resolveAvatarUrl } from '../_lib/avatars.js';
 import { publicUrl as r2PublicUrl } from '../_lib/r2.js';
-import { solanaRpcEndpoints } from '../_lib/solana/connection.js';
+import { solanaConnection } from '../_lib/solana/connection.js';
 
 // Solana base58 pubkey — excludes 0/O/I/l, length 32–44. A UUID contains
 // hyphens so it can never match; we still check isUuid() first for clarity.
@@ -30,7 +30,10 @@ const PUBKEY_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 // pure program-derived address math (no network), so it works for either.
 const _umi = {};
 function readUmi(network) {
-	if (!_umi[network]) _umi[network] = createUmi(solanaRpcEndpoints(network)[0]).use(mplCore());
+	// A multi-endpoint failover Connection (not a bare URL): fetchAssetV1's RPC read
+	// rotates across the endpoint chain, so a single node returning a malformed/empty
+	// 200 body fails over instead of throwing the `StructError: … but received:` crash.
+	if (!_umi[network]) _umi[network] = createUmi(solanaConnection({ network })).use(mplCore());
 	return _umi[network];
 }
 

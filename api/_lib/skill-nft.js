@@ -37,6 +37,7 @@ import bs58 from 'bs58';
 import { sql } from './db.js';
 import { env } from './env.js';
 import { collectionAuthoritySigner } from './solana-collection.js';
+import { solanaConnection } from './solana/connection.js';
 import { skillCollectionSymbol } from './three-brand.js';
 
 /** Skill-NFT networks we support. Mainnet is the default (live purchases). */
@@ -85,7 +86,10 @@ function explorerUrl(mint, network) {
  * the fee payer and signer for collection creation and every mint-into-collection.
  */
 function authorityUmi(network) {
-	const umi = createUmi(rpcForNetwork(network)).use(mplCore());
+	// Failover Connection rather than a bare URL: collection creation and every
+	// mint-into-collection rotate across the endpoint chain, so a single node's
+	// malformed/empty 200 body fails over instead of throwing the StructError crash.
+	const umi = createUmi(solanaConnection({ url: rpcForNetwork(network), network })).use(mplCore());
 	const authority = collectionAuthoritySigner(umi);
 	umi.use(signerIdentity(authority));
 	return { umi, authority };

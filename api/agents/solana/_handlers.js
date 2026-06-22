@@ -630,7 +630,11 @@ export const handleRegisterPrep = wrap(async (req, res) => {
 	}
 
 	const buildTx = async (rpc) => {
-		const umi = createUmi(rpc).use(mplCore());
+		// Failover Connection rather than the bare `rpc` URL: buildAndSign's
+		// getLatestBlockhash rotates across the endpoint chain, so a single node's
+		// malformed/empty 200 body fails over to a healthy provider instead of
+		// throwing `StructError: … but received:` and failing the whole registration.
+		const umi = createUmi(solanaConnection({ url: rpc, network })).use(mplCore());
 		const ownerPubkey = umiPublicKey(wallet_address);
 		umi.use(signerIdentity(createNoopSigner(ownerPubkey)));
 		const createArgs = { asset: assetSigner, owner: ownerPubkey, name, uri: metadataUri, plugins };

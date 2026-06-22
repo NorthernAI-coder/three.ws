@@ -34,7 +34,7 @@ import {
 } from './three-brand.js';
 import { registerAgentIdentity, MPL_AGENT_IDENTITY_PROGRAM_ID } from './agent-registry.js';
 import { getAgentCollection } from './solana-collection.js';
-import { solanaRpcEndpoints } from './solana/connection.js';
+import { solanaConnection } from './solana/connection.js';
 import { generateSolanaAgentWallet } from './agent-wallet.js';
 import { publishFeedEvent } from './feed.js';
 import { pinToIPFS } from './ipfs-pin.js';
@@ -73,7 +73,12 @@ export function buildAuthorityUmi(network, secret = authoritySecret()) {
 	} catch {
 		throw new Error('authority/funder secret is not a valid base58 keypair');
 	}
-	const umi = createUmi(solanaRpcEndpoints(network)[0]).use(mplCore());
+	// Route umi through the multi-endpoint failover Connection (not a bare URL) so
+	// every RPC the build needs — chiefly getLatestBlockhash — rotates across the
+	// endpoint chain. A bare URL gives umi a single node whose malformed/empty 200
+	// body surfaces as the `StructError: … but received:` crash instead of failing
+	// over to a healthy provider.
+	const umi = createUmi(solanaConnection({ network })).use(mplCore());
 	const authoritySigner = createSignerFromKeypair(
 		umi,
 		umi.eddsa.createKeypairFromSecretKey(authorityKeypair.secretKey),
