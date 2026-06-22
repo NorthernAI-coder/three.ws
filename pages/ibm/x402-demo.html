@@ -472,6 +472,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and 3D AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
     <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, pay-per-call micropayments over <span class="mono">x402</span>, an autonomous 3D agent that buys its own data, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the two paid demos (Forge and the x402 call) settle real USDC from your own wallet.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
+      <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
       <a href="#demo"><span class="n">02</span>x402 payments</a>
       <a href="#agent"><span class="n">03</span>3D agent</a>
@@ -482,6 +483,290 @@ agent-3d:defined ~ .agent-skel{display:none}
 </header>
 
 <main>
+<!-- ══ WEBINAR · live stage (countdown → synced premiere / live OBS) ══ -->
+<style id="wb-styles">
+.webinar{padding:34px 0 40px;border-bottom:1px solid var(--ibm-border)}
+.wb-head{margin-bottom:18px}
+.wb-stage{position:relative;aspect-ratio:16/9;width:100%;background:
+  radial-gradient(120% 120% at 80% -10%,rgba(15,98,254,.28),transparent 55%),
+  radial-gradient(90% 90% at 0% 110%,rgba(120,169,255,.16),transparent 55%),#0b0b0d;
+  border:1px solid var(--ibm-divider);overflow:hidden;border-radius:2px}
+.wb-fill{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;color:#fff}
+.wb-fill[hidden]{display:none}
+.wb-kicker{font-family:var(--font-mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#a6c8ff;margin-bottom:6px}
+.wb-stage-title{font-size:clamp(18px,3.4vw,28px);font-weight:300;line-height:1.15;max-width:560px;margin:0 0 22px;color:#fff}
+.wb-stage-title strong{font-weight:600}
+.wb-countdown{display:flex;align-items:flex-start;gap:clamp(8px,2.4vw,22px);font-variant-numeric:tabular-nums}
+.wb-cell{display:flex;flex-direction:column;align-items:center;min-width:54px}
+.wb-num{font-size:clamp(34px,7.2vw,66px);font-weight:200;line-height:1;color:#fff}
+.wb-lbl{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.62);margin-top:8px}
+.wb-colon{font-size:clamp(28px,6vw,54px);font-weight:200;color:rgba(255,255,255,.35);line-height:1;padding-top:2px}
+.wb-soon{margin-top:20px;font-size:13px;color:rgba(255,255,255,.7);max-width:440px;line-height:1.55}
+.wb-spinner{width:34px;height:34px;border:3px solid rgba(255,255,255,.25);border-top-color:#78a9ff;border-radius:50%;animation:wbspin .9s linear infinite;margin-bottom:14px}
+@keyframes wbspin{to{transform:rotate(360deg)}}
+.wb-player{position:absolute;inset:0;background:#000}
+.wb-player[hidden]{display:none}
+.wb-player>video,.wb-player>iframe{width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}
+.wb-badge{position:absolute;top:12px;left:12px;z-index:3;display:inline-flex;align-items:center;gap:7px;background:rgba(218,30,40,.95);color:#fff;font-family:var(--font-sans);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:5px 10px;border-radius:2px}
+.wb-badge[hidden]{display:none}
+.wb-badge .d{width:7px;height:7px;border-radius:50%;background:#fff;animation:wbpulse 1.4s var(--ease) infinite}
+@keyframes wbpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.wb-unmute{position:absolute;bottom:14px;right:14px;z-index:3;display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.94);color:#161616;border:none;cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;padding:9px 14px;border-radius:2px;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.wb-unmute[hidden]{display:none}
+.wb-unmute:hover{background:#fff}
+.wb-unmute:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+.wb-meta{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;margin-top:16px}
+.wb-when{font-size:14px;color:var(--ibm-muted);font-weight:300}
+.wb-when b{color:var(--ibm-ink);font-weight:500}
+.wb-actions{display:flex;flex-wrap:wrap;gap:10px}
+.wb-cal{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--ibm-link);border:1px solid var(--ibm-divider);cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:500;padding:8px 14px;border-radius:2px;text-decoration:none;transition:border-color .12s,background .12s}
+.wb-cal:hover{border-color:var(--ibm-blue);background:var(--ibm-field)}
+.wb-cal:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+.wb-cal svg{width:15px;height:15px;flex:0 0 auto}
+.demo-nav a.nav-live .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ibm-red);margin-right:7px;vertical-align:middle;animation:wbpulse 1.4s var(--ease) infinite}
+</style>
+<section class="section webinar" id="webinar" aria-labelledby="wb-h">
+  <div class="inner">
+    <div class="wb-head">
+      <div class="section-tag">Live · IBM community webinar</div>
+      <h2 id="wb-h">Watch the <strong>live walkthrough</strong></h2>
+      <p class="section-lead">A guided tour of x402 micropayments and 3D AI agents — with every demo on this page running in real time. Can't make it live? The recording stays right here afterward.</p>
+    </div>
+
+    <div class="wb-stage" id="wbStage" role="region" aria-label="Webinar player">
+      <span class="wb-badge" id="wbBadge" hidden><span class="d" aria-hidden="true"></span>Live now</span>
+
+      <!-- PRE-EVENT · countdown -->
+      <div class="wb-fill wb-pre" id="wbPre">
+        <div class="wb-kicker" id="wbKicker">Starts in</div>
+        <h3 class="wb-stage-title" id="wbStageTitle">three.ws × <strong>IBM</strong> — agentic commerce, live</h3>
+        <div class="wb-countdown" id="wbCountdown" role="timer" aria-live="off" aria-label="Time until the webinar begins">
+          <div class="wb-cell"><span class="wb-num" id="wbD">00</span><span class="wb-lbl">Days</span></div>
+          <span class="wb-colon" aria-hidden="true">:</span>
+          <div class="wb-cell"><span class="wb-num" id="wbH">00</span><span class="wb-lbl">Hours</span></div>
+          <span class="wb-colon" aria-hidden="true">:</span>
+          <div class="wb-cell"><span class="wb-num" id="wbM">00</span><span class="wb-lbl">Minutes</span></div>
+          <span class="wb-colon" aria-hidden="true">:</span>
+          <div class="wb-cell"><span class="wb-num" id="wbS">00</span><span class="wb-lbl">Seconds</span></div>
+        </div>
+        <p class="wb-soon" id="wbSoon">Add it to your calendar so you don't miss it.</p>
+      </div>
+
+      <!-- LIVE · stream not yet attached (graceful holding state) -->
+      <div class="wb-fill wb-holding" id="wbHolding" hidden>
+        <div class="wb-spinner" aria-hidden="true"></div>
+        <h3 class="wb-stage-title">We're about to begin</h3>
+        <p class="wb-soon">The stream goes live here any moment — this page refreshes itself, no need to reload.</p>
+      </div>
+
+      <!-- LIVE / REPLAY · player mounts here -->
+      <div class="wb-player" id="wbPlayer" hidden></div>
+      <button class="wb-unmute" id="wbUnmute" type="button" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 00-2.5-4v8a4.5 4.5 0 002.5-4z"/></svg>
+        Tap to unmute
+      </button>
+    </div>
+
+    <div class="wb-meta">
+      <div class="wb-when" id="wbWhen">Loading the schedule…</div>
+      <div class="wb-actions">
+        <a class="wb-cal" id="wbGcal" href="#" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          Google Calendar
+        </a>
+        <button class="wb-cal" id="wbIcs" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Add to calendar (.ics)
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+/* Webinar stage — countdown → wall-clock-synced premiere or live OBS feed.
+   Self-contained, no platform API dependency, so it runs verbatim on live.ibm.com.
+
+   ─────────────────────────────────────────────────────────────────────────────
+   TO GO LIVE: edit the WEBINAR config below. Today only `startTime` matters —
+   the stage shows a countdown to it. When the recording or stream is ready,
+   paste ONE source (vodHls / mp4 / liveHls / youTubeId) and the stage becomes
+   the player automatically. Recommended host: Cloudflare Stream (one product
+   does both the uploaded recording's HLS and an OBS RTMP/SRT live ingest);
+   a plain MP4 on R2 is the zero-setup fallback for a pre-recorded talk.
+   ───────────────────────────────────────────────────────────────────────────── */
+(function () {
+  const WEBINAR = {
+    // ⚠️  SET THE REAL START TIME — ISO 8601 with timezone offset (Z = UTC).
+    //     Default below is 11:00 AM US Eastern on Jun 23, 2026 (EDT = UTC−4).
+    startTime: '2026-06-23T15:00:00Z',
+    durationMin: 60,                 // talk length → when the stage flips to "replay"
+    title: 'three.ws × IBM — agentic commerce, live',
+    details: 'A live walkthrough of x402 micropayments and 3D AI agents on three.ws. Demos run in real time at https://three.ws/ibm/x402-demo',
+    location: 'https://three.ws/ibm/x402-demo',
+
+    // ── Video source — leave ALL blank for countdown-only. Fill exactly ONE
+    //    when ready. Resolution priority: liveHls → vodHls → mp4 → youTubeId.
+    liveHls: '',     // OBS → ingest → HLS (.m3u8) live feed
+    vodHls: '',      // Cloudflare Stream / Mux HLS (.m3u8) of the recording (synced premiere)
+    mp4: '',         // plain MP4 on R2 (synced premiere)
+    youTubeId: '',   // YouTube video / live id → iframe (its own premiere/live)
+    mode: 'auto',    // 'auto' | 'premiere' | 'live'
+  };
+
+  const startMs = Date.parse(WEBINAR.startTime);
+  if (!Number.isFinite(startMs)) { console.warn('[webinar] invalid startTime'); return; }
+  const endMs = startMs + WEBINAR.durationMin * 60_000;
+
+  const $ = (id) => document.getElementById(id);
+  const stage = $('wbStage'), pre = $('wbPre'), holding = $('wbHolding'),
+        player = $('wbPlayer'), badge = $('wbBadge'), unmute = $('wbUnmute');
+
+  const hasSource = !!(WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4 || WEBINAR.youTubeId);
+  const isLiveSource = WEBINAR.mode === 'live' || (WEBINAR.mode === 'auto' && !!WEBINAR.liveHls && !WEBINAR.vodHls && !WEBINAR.mp4);
+
+  // ── Schedule label + calendar links ──────────────────────────────────────
+  const startDate = new Date(startMs);
+  const whenStr = startDate.toLocaleString(undefined, {
+    weekday: 'long', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  });
+  $('wbWhen').innerHTML = '<b>' + whenStr + '</b> · ' + WEBINAR.durationMin + ' min';
+
+  const icsStamp = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const gcal = new URL('https://calendar.google.com/calendar/render');
+  gcal.searchParams.set('action', 'TEMPLATE');
+  gcal.searchParams.set('text', WEBINAR.title);
+  gcal.searchParams.set('dates', icsStamp(startMs) + '/' + icsStamp(endMs));
+  gcal.searchParams.set('details', WEBINAR.details);
+  gcal.searchParams.set('location', WEBINAR.location);
+  $('wbGcal').href = gcal.toString();
+
+  $('wbIcs').addEventListener('click', () => {
+    const ics = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//three.ws//webinar//EN',
+      'BEGIN:VEVENT', 'UID:' + icsStamp(startMs) + '@three.ws',
+      'DTSTAMP:' + icsStamp(Date.now()), 'DTSTART:' + icsStamp(startMs), 'DTEND:' + icsStamp(endMs),
+      'SUMMARY:' + WEBINAR.title,
+      'DESCRIPTION:' + WEBINAR.details.replace(/,/g, '\\,'),
+      'LOCATION:' + WEBINAR.location, 'END:VEVENT', 'END:VCALENDAR',
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'three-ws-ibm-webinar.ics';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  // ── Countdown ─────────────────────────────────────────────────────────────
+  const pad = (n) => String(n).padStart(2, '0');
+  let phase = '';
+  function render() {
+    const now = Date.now();
+    const next = now < startMs ? 'pre' : (now < endMs ? 'live' : 'ended');
+    if (now < startMs) {
+      let s = Math.floor((startMs - now) / 1000);
+      const d = Math.floor(s / 86400); s -= d * 86400;
+      const h = Math.floor(s / 3600); s -= h * 3600;
+      const m = Math.floor(s / 60); s -= m * 60;
+      $('wbD').textContent = pad(d); $('wbH').textContent = pad(h);
+      $('wbM').textContent = pad(m); $('wbS').textContent = pad(s);
+    }
+    if (next !== phase) { phase = next; applyPhase(); }
+  }
+
+  function applyPhase() {
+    if (phase === 'pre') return; // countdown already visible
+    pre.hidden = true;
+    if (phase === 'ended' && !hasSource) {
+      // Past the slot, no recording posted yet.
+      holding.hidden = false;
+      holding.querySelector('.wb-stage-title').textContent = 'Thanks for joining';
+      holding.querySelector('.wb-soon').textContent = 'The recording will be posted here shortly.';
+      holding.querySelector('.wb-spinner').style.display = 'none';
+      clearInterval(timer);
+      return;
+    }
+    if (!hasSource) { holding.hidden = false; return; } // live window, awaiting source
+    mountPlayer();
+    clearInterval(timer);
+  }
+
+  // ── Player ──────────────────────────────────────────────────────────────
+  function loadHls() {
+    return new Promise((res, rej) => {
+      if (window.Hls) return res(window.Hls);
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+      s.onload = () => res(window.Hls); s.onerror = () => rej(new Error('hls.js load failed'));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function mountPlayer() {
+    holding.hidden = true; player.hidden = false;
+    badge.hidden = !isLiveSource || phase !== 'live';
+
+    if (WEBINAR.youTubeId) {
+      const offset = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      const p = new URLSearchParams({ autoplay: '1', mute: '1', modestbranding: '1', rel: '0', playsinline: '1' });
+      if (!isLiveSource && phase === 'live') p.set('start', String(offset));
+      const f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/' + WEBINAR.youTubeId + '?' + p.toString();
+      f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+      f.allowFullscreen = true; f.title = WEBINAR.title;
+      player.appendChild(f);
+      return;
+    }
+
+    const video = document.createElement('video');
+    video.playsInline = true; video.controls = true; video.muted = true;
+    video.setAttribute('controlslist', 'nodownload');
+    player.appendChild(video);
+
+    const src = WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4;
+    const isHls = /\.m3u8(\?|$)/i.test(src);
+    try {
+      if (isHls && !video.canPlayType('application/vnd.apple.mpegurl')) {
+        const Hls = await loadHls();
+        if (Hls.isSupported()) {
+          const hls = new Hls({ lowLatencyMode: isLiveSource });
+          hls.loadSource(src); hls.attachMedia(video);
+        } else { video.src = src; }
+      } else {
+        video.src = src; // native HLS (Safari) or MP4
+      }
+    } catch (e) { video.src = src; }
+
+    // Premiere sync: a finished recording behaves like a broadcast — join at the
+    // point the talk is actually at, and (during the live window) can't skip ahead.
+    const isPremiere = !isLiveSource;
+    video.addEventListener('loadedmetadata', () => {
+      if (isPremiere && phase === 'live') {
+        const offset = (Date.now() - startMs) / 1000;
+        if (offset > 0 && offset < (video.duration || Infinity)) video.currentTime = offset;
+      }
+    }, { once: true });
+    if (isPremiere && phase === 'live') {
+      video.addEventListener('seeking', () => {
+        const edge = (Date.now() - startMs) / 1000 + 1.5;
+        if (video.currentTime > edge) video.currentTime = Math.max(0, edge - 1.5);
+      });
+    }
+
+    video.play().then(() => {
+      if (video.muted) unmute.hidden = false; // autoplay needs muted; offer one-tap unmute
+    }).catch(() => { unmute.hidden = false; });
+
+    unmute.addEventListener('click', () => {
+      video.muted = false; unmute.hidden = true; video.play().catch(() => {});
+    });
+  }
+
+  render();
+  const timer = setInterval(render, 1000);
+})();
+</script>
+
 <!-- ══ DEMO 01 · FORGE (paid x402 prompt→3D) ══ -->
 <section class="section" id="forge" aria-labelledby="forge-h">
   <div class="inner">

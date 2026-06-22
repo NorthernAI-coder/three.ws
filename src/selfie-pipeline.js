@@ -15,8 +15,12 @@
  *         { message, slot? } where slot is the photo that likely caused the failure
  */
 
-import { detectFaceIdentity } from './avatar-face-capture.js';
+import { assessPhoto, refineSelfie, warmRefiner } from './selfie-refine.js';
 import { log } from './shared/log.js';
+
+// Prefetch the detection + segmentation models so the refine step is instant by
+// the time the user has framed and submitted their photo. Fire-and-forget.
+warmRefiner();
 
 const SUBMIT_ENDPOINT = '/api/avatars/reconstruct';
 const STATUS_ENDPOINT = '/api/avatars/regenerate-status';
@@ -153,29 +157,62 @@ async function run(detail) {
 	const slots = /** @type {const} */ (['frontal', 'left', 'right']);
 	_lastSlotsSent = [];
 	const photos = [];
+	const warnings = [];
 	for (const slot of slots) {
 		const file = detail.files[slot];
 		if (!file) continue;
-		const dataUrl = await fileToDataUrl(file);
-		if (!dataUrl || dataUrl.length < 500) {
-			throw withMessage(new Error('invalid image data'), 'One of your photos could not be processed. Try a different file.', slot);
+
+		const bitmap = await loadBitmap(file);
+		try {
+			// Gate the input. The frontal must contain a face — that's the only hard
+			// stop. Everything else (soft/blurry/illustration/far) is a non-fatal
+			// warning the user sees but can proceed past.
+			setStatus(slot === 'frontal' ? 'Checking your photo...' : `Checking ${slot} angle...`);
+			const assessment = await assessPhoto(bitmap);
+			if (slot === 'frontal' && assessment.verdict === 'block') {
+				throw withMessage(
+					new Error(`quality block: ${assessment.primary}`),
+					assessment.message,
+					'frontal',
+				);
+			}
+			if (assessment.primary && assessment.primary !== 'multiple-faces') {
+				warnings.push({ slot, primary: assessment.primary, message: assessment.message });
+			}
+
+			// Isolate the subject from its background and reframe to a clean
+			// head-and-shoulders square — the composition the reconstruction lane
+			// handles best. This is the fix for the "whole photo on a card" failure.
+			setStatus('Isolating subject...');
+			let dataUrl;
+			try {
+				const refined = await refineSelfie(bitmap, {
+					faceBox: assessment.faceBox,
+					onStep: (label) => setStatus(label),
+				});
+				dataUrl = refined.dataUrl;
+			} catch (refineErr) {
+				// Refinement is an enhancement, never a gate: fall back to a plain
+				// downscale so a model/canvas hiccup can't block avatar creation.
+				log.warn('[selfie-pipeline] refine failed, using raw photo:', refineErr);
+				dataUrl = await fileToDataUrl(file);
+			}
+
+			if (!dataUrl || dataUrl.length < 500) {
+				throw withMessage(new Error('invalid image data'), 'One of your photos could not be processed. Try a different file.', slot);
+			}
+			photos.push(dataUrl);
+			_lastSlotsSent.push(slot);
+		} finally {
+			try { bitmap.close?.(); } catch (_) {}
 		}
-		photos.push(dataUrl);
-		_lastSlotsSent.push(slot);
 	}
 
-	setStatus('Checking face...');
-	const failedSlot = await checkFacesLocal(detail.files);
-	if (failedSlot) {
-		throw withMessage(
-			new Error('client face check failed'),
-			failedSlot === 'frontal'
-				? "We couldn't detect a face in your photo. Make sure your face is clearly visible, well-lit, and not obscured by sunglasses or a mask."
-				: `We couldn't detect a face in your ${failedSlot} angle photo. Try a clearer shot or remove it.`,
-			failedSlot,
-		);
+	if (warnings.length) {
+		document.dispatchEvent(new CustomEvent('selfie:quality', { detail: { warnings } }));
 	}
 
+	// Preview the refined frontal — the user sees exactly what the engine sees.
 	document.dispatchEvent(new CustomEvent('selfie:preview', {
 		detail: { dataUrl: photos[0] },
 	}));
@@ -232,41 +269,6 @@ async function run(detail) {
 	document.dispatchEvent(new CustomEvent('selfie:done', {
 		detail: { avatarId: finalJob.resultAvatarId },
 	}));
-}
-
-/**
- * Check all submitted photos for faces. Returns the first failing slot name,
- * or null if all pass. Frontal is required; sides are optional.
- * @param {Record<string, File | null>} files
- * @returns {Promise<string | null>}
- */
-async function checkFacesLocal(files) {
-	const slots = ['frontal', 'left', 'right'];
-	for (const slot of slots) {
-		const file = files[slot];
-		if (!file) continue;
-		const ok = await checkFaceLocal(file);
-		if (!ok) return slot;
-	}
-	return null;
-}
-
-/**
- * Quick client-side face check via MediaPipe. Returns true if a face is
- * found, false otherwise. Never blocks submission on load failure -- if
- * MediaPipe can't load, we skip and let the server decide.
- * @param {File} file
- * @returns {Promise<boolean>}
- */
-async function checkFaceLocal(file) {
-	try {
-		const img = await loadBitmap(file);
-		const result = await detectFaceIdentity(img);
-		if (img.close) img.close();
-		return result !== null;
-	} catch (_) {
-		return true;
-	}
 }
 
 /**
