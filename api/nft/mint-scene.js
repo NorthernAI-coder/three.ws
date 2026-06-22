@@ -4,6 +4,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { createUmi } from '@metaplex-foundation/umi-bundle-defaults';
 import { mplCore, createV1 } from '@metaplex-foundation/mpl-core';
+import { solanaConnection } from '../_lib/solana/connection.js';
 import {
 	generateSigner,
 	publicKey as umiPublicKey,
@@ -98,8 +99,11 @@ export default wrap(async (req, res) => {
 		return respondError(res, e.status || 502, e.code || 'upstream_error', e);
 	}
 
+	// Failover Connection rather than a bare URL: the mint's getLatestBlockhash and
+	// account reads rotate across the endpoint chain, so a single node's
+	// malformed/empty 200 body fails over instead of throwing the StructError crash.
 	const rpcUrl = env.SOLANA_RPC_URL;
-	const umi = createUmi(rpcUrl).use(mplCore());
+	const umi = createUmi(solanaConnection({ url: rpcUrl })).use(mplCore());
 
 	let ownerPk;
 	try {
