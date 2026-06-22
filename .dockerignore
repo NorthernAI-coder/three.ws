@@ -1,0 +1,17 @@
+# Docker build context excludes. The worker Dockerfiles build from the repo root
+# and install their own deps inside the image, so the host's node_modules (multi-GB)
+# must never be uploaded to the daemon. Secrets and local-only artifacts are
+# excluded too — they must never enter a build context.
+**/node_modules
+.git
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+.vercel
+coverage
+playwright-report
+test-results
+*.local

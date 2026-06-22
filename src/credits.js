@@ -301,7 +301,15 @@ async function doDeposit() {
 	}
 }
 
-async function verifyAndApply(txSignature, asset) {
+// Solana finalization (rooting) lands a few seconds after confirmation. The
+// server credits only finalized deposits, returning a `pending` result until
+// then; we poll the same endpoint on a real interval (not a fake progress bar)
+// so credits apply automatically without the user re-submitting.
+const FINALIZE_POLL_MS = 3000;
+const FINALIZE_MAX_TRIES = 12; // ~36s — covers finalization with margin
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function verifyAndApply(txSignature, asset, attempt = 0) {
 	const r = await fetch('/api/credits/deposit', {
 		method: 'POST',
 		credentials: 'include',
@@ -313,6 +321,18 @@ async function verifyAndApply(txSignature, asset) {
 		throw Object.assign(new Error(data.error_description || 'Deposit could not be verified.'), {
 			data,
 		});
+	}
+	if (data.pending) {
+		if (attempt >= FINALIZE_MAX_TRIES) {
+			setStatus(
+				'Your deposit is confirmed and credits the moment it finalizes on-chain — leave this page open, it updates automatically.',
+				'work',
+			);
+			return;
+		}
+		setStatus('Confirmed — finalizing on-chain…');
+		await sleep(FINALIZE_POLL_MS);
+		return verifyAndApply(txSignature, asset, attempt + 1);
 	}
 	if (data.replay) {
 		setStatus(`Already credited — balance ${fmtUsd(data.balance_usd)}.`, 'ok');

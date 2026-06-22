@@ -10,8 +10,12 @@
 //      balances (lamport delta for SOL, token-balance delta for $THREE), robust to
 //      a destination ATA created within the same transaction and to which transfer
 //      variant was used.
-//   4. The credit is idempotent on the tx signature (UNIQUE idempotency_key), so
-//      the same deposit can never be credited twice.
+//   4. The credit is idempotent per (tx signature, asset) via a UNIQUE
+//      idempotency_key, so the same deposit can never be credited twice — while a
+//      single tx carrying both SOL and $THREE still credits each asset once.
+//   5. Credits settle only once the tx is FINALIZED (rooted); a confirmed-but-not
+//      -finalized tx returns a retryable `pending` result so a reorg can never
+//      credit a deposit that later disappears.
 //
 // Deposited funds land in the treasury / x402 receive wallet — the platform's
 // prepaid float. Spending credits is internal ledger accounting; the treasury →
@@ -122,25 +126,52 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 	}
 
 	const connection = solanaConnection({ url: rpcUrl(network), commitment: 'confirmed' });
+
+	// Credits settle only on a FINALIZED (rooted) transaction. A merely
+	// "confirmed" tx can still be dropped by a chain reorg, which would credit a
+	// deposit that later vanishes. getParsedTransaction at finalized commitment
+	// returns the tx only once it is rooted; until then we report a retryable
+	// `pending` result so the client polls instead of seeing a spurious error.
 	let tx;
 	try {
 		tx = await connection.getParsedTransaction(txSignature, {
 			maxSupportedTransactionVersion: 0,
-			commitment: 'confirmed',
+			commitment: 'finalized',
 		});
 	} catch {
+		tx = null;
+	}
+	if (!tx) {
+		// Not finalized yet, or genuinely unknown. Check the signature status to
+		// tell "confirmed, still finalizing" (keep polling) apart from "failed"
+		// and "not found" (stop).
+		let status = null;
+		try {
+			const { value } = await connection.getSignatureStatuses([txSignature], {
+				searchTransactionHistory: true,
+			});
+			status = value?.[0] || null;
+		} catch {
+			status = null;
+		}
+		if (status?.err) throw depositError('transaction failed on-chain', 422, 'tx_failed');
+		if (status && status.confirmationStatus !== 'finalized') {
+			return {
+				ok: false,
+				pending: true,
+				status: 'awaiting_finalization',
+				confirmation_status: status.confirmationStatus || 'processed',
+				tx_signature: txSignature,
+				message:
+					'Confirmed on-chain — finalizing. This takes a few seconds, then your credits land automatically.',
+			};
+		}
 		throw depositError(
 			'transaction not found — it may need more confirmations',
 			422,
 			'tx_not_found',
 		);
 	}
-	if (!tx)
-		throw depositError(
-			'transaction not found — it may need more confirmations',
-			422,
-			'tx_not_found',
-		);
 	if (tx.meta?.err) throw depositError('transaction failed on-chain', 422, 'tx_failed');
 
 	// Bind the deposit to the authenticated user: a signer must be one of their
@@ -202,6 +233,17 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 			'amount_too_small',
 		);
 
+	// Idempotency is per (signature, asset): one transaction can carry both SOL
+	// and $THREE to the deposit wallet, and each asset is credited once. Legacy
+	// deposits were keyed on the signature alone (`deposit:<sig>`), so if such a
+	// row already exists we reuse that key — re-verifying an old deposit resolves
+	// to a replay instead of double-crediting under the new per-asset key.
+	const legacyKey = `deposit:${txSignature}`;
+	const [priorLegacy] = await sql`
+		select 1 from credit_ledger where idempotency_key = ${legacyKey} limit 1
+	`;
+	const idempotencyKey = priorLegacy ? legacyKey : `deposit:${assetU}:${txSignature}`;
+
 	const res = await creditAccount({
 		userId: user.id,
 		amountUsd: usd,
@@ -212,7 +254,7 @@ export async function verifyAndCreditDeposit({ user, asset, txSignature, network
 		asset: assetU,
 		assetAmount,
 		priceUsd,
-		idempotencyKey: `deposit:${txSignature}`,
+		idempotencyKey,
 		meta: { slot: tx.slot ?? null, signer: matched, amount, network },
 	});
 
