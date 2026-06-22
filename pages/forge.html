@@ -548,6 +548,14 @@
 				row-gap: 2px;
 				justify-content: flex-start;
 			}
+			/* Shown by buildEngineButtons() when no lane can serve the active tab —
+			   keeps the pill from collapsing to an empty box. */
+			.engine-empty {
+				padding: 0.32rem 0.55rem;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
 			/* forge.js hides the #aspect control itself when the mode makes it
 			   irrelevant — collapse the labeled row with it, no orphan label. */
 			/* High is a $THREE holder perk — a small lock pill on the button makes
@@ -2684,21 +2692,21 @@
 						aria-label="Generation mode"
 						id="mode-switch"
 					>
-						<button type="button" role="tab" data-mode="text" aria-selected="true">
+						<button type="button" role="tab" id="tab-text" data-mode="text" aria-selected="true" aria-controls="text-pane" tabindex="0">
 							Describe it
 						</button>
-						<button type="button" role="tab" data-mode="image" aria-selected="false">
+						<button type="button" role="tab" id="tab-image" data-mode="image" aria-selected="false" aria-controls="image-pane" tabindex="-1">
 							From photos
 						</button>
 						<!-- Hidden until the catalog reports a live sketch engine (TripoSG
 						     self-host) — no dead tab on deployments without the worker. -->
-						<button type="button" role="tab" data-mode="sketch" aria-selected="false" hidden>
+						<button type="button" role="tab" id="tab-sketch" data-mode="sketch" aria-selected="false" aria-controls="sketch-pane" tabindex="-1" hidden>
 							From a sketch
 						</button>
 					</div>
 				</div>
 				<!-- Text → 3D -->
-				<div id="text-pane">
+				<div id="text-pane" role="tabpanel" aria-labelledby="tab-text">
 					<label for="prompt" class="is-hidden">Describe the object to generate</label>
 					<textarea
 						id="prompt"
@@ -2724,7 +2732,7 @@
 				</div>
 
 				<!-- Image / multi-view → 3D -->
-				<div id="image-pane" class="image-pane is-hidden">
+				<div id="image-pane" class="image-pane is-hidden" role="tabpanel" aria-labelledby="tab-image">
 					<div
 						class="views-grid"
 						id="views-grid"
@@ -2761,7 +2769,7 @@
 				</div>
 
 				<!-- Sketch → 3D (TripoSG-scribble) -->
-				<div id="sketch-pane" class="image-pane is-hidden">
+				<div id="sketch-pane" class="image-pane is-hidden" role="tabpanel" aria-labelledby="tab-sketch">
 					<div
 						class="views-grid sketch-grid"
 						id="sketch-grid"

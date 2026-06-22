@@ -504,6 +504,10 @@ agent-3d:defined ~ .agent-skel{display:none}
 .wb-soon{margin-top:20px;font-size:13px;color:rgba(255,255,255,.7);max-width:440px;line-height:1.55}
 .wb-spinner{width:34px;height:34px;border:3px solid rgba(255,255,255,.25);border-top-color:#78a9ff;border-radius:50%;animation:wbspin .9s linear infinite;margin-bottom:14px}
 @keyframes wbspin{to{transform:rotate(360deg)}}
+.wb-retry{margin-top:18px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.4);cursor:pointer;font-family:var(--font-sans);font-size:13px;font-weight:600;padding:9px 16px;border-radius:2px;transition:background .12s}
+.wb-retry[hidden]{display:none}
+.wb-retry:hover{background:rgba(255,255,255,.22)}
+.wb-retry:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .wb-player{position:absolute;inset:0;background:#000}
 .wb-player[hidden]{display:none}
 .wb-player>video,.wb-player>iframe{width:100%;height:100%;display:block;border:0;background:#000;object-fit:contain}
@@ -552,11 +556,12 @@ agent-3d:defined ~ .agent-skel{display:none}
         <p class="wb-soon" id="wbSoon">Add it to your calendar so you don't miss it.</p>
       </div>
 
-      <!-- LIVE · stream not yet attached (graceful holding state) -->
+      <!-- LIVE · stream not yet attached, or a designed error state (graceful) -->
       <div class="wb-fill wb-holding" id="wbHolding" hidden>
-        <div class="wb-spinner" aria-hidden="true"></div>
-        <h3 class="wb-stage-title">We're about to begin</h3>
-        <p class="wb-soon">The stream will appear here the moment it starts.</p>
+        <div class="wb-spinner" id="wbSpinner" aria-hidden="true"></div>
+        <h3 class="wb-stage-title" id="wbHoldTitle">We're about to begin</h3>
+        <p class="wb-soon" id="wbHoldMsg">The stream will appear here the moment it starts.</p>
+        <button class="wb-retry" id="wbRetry" type="button" hidden>Reload the player</button>
       </div>
 
       <!-- LIVE / REPLAY · player mounts here -->
@@ -624,6 +629,13 @@ agent-3d:defined ~ .agent-skel{display:none}
   const hasSource = !!(WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4 || WEBINAR.youTubeId);
   const isLiveSource = WEBINAR.mode === 'live' || (WEBINAR.mode === 'auto' && !!WEBINAR.liveHls && !WEBINAR.vodHls && !WEBINAR.mp4);
 
+  // QA preview: ?wb=live | premiere | ended | countdown forces a phase, so the
+  // player and the live path can be verified before the event without waiting on
+  // the clock. Harmless in production — only takes effect when the param is set.
+  const qaParam = (new URLSearchParams(location.search).get('wb') || '').toLowerCase();
+  const QA_PHASE = { live: 'live', premiere: 'live', preview: 'live', ended: 'ended', countdown: 'pre' }[qaParam] || null;
+  $('wbRetry').addEventListener('click', () => location.reload());
+
   // ── Schedule label + calendar links ──────────────────────────────────────
   const startDate = new Date(startMs);
   const whenStr = startDate.toLocaleString(undefined, {
@@ -662,7 +674,8 @@ agent-3d:defined ~ .agent-skel{display:none}
   let phase = '';
   function render() {
     const now = Date.now();
-    const next = now < startMs ? 'pre' : (now < endMs ? 'live' : 'ended');
+    let next = now < startMs ? 'pre' : (now < endMs ? 'live' : 'ended');
+    if (QA_PHASE) next = QA_PHASE;
     if (now < startMs) {
       let s = Math.floor((startMs - now) / 1000);
       const d = Math.floor(s / 86400); s -= d * 86400;
@@ -680,9 +693,9 @@ agent-3d:defined ~ .agent-skel{display:none}
     if (phase === 'ended' && !hasSource) {
       // Past the slot, no recording posted yet.
       holding.hidden = false;
-      holding.querySelector('.wb-stage-title').textContent = 'Thanks for joining';
-      holding.querySelector('.wb-soon').textContent = 'The recording will be posted here shortly.';
-      holding.querySelector('.wb-spinner').style.display = 'none';
+      $('wbSpinner').style.display = 'none';
+      $('wbHoldTitle').textContent = 'Thanks for joining';
+      $('wbHoldMsg').textContent = 'The recording will be posted here shortly.';
       clearInterval(timer);
       return;
     }
@@ -700,6 +713,17 @@ agent-3d:defined ~ .agent-skel{display:none}
       s.onload = () => res(window.Hls); s.onerror = () => rej(new Error('hls.js load failed'));
       document.head.appendChild(s);
     });
+  }
+
+  // Designed, actionable error state — reuse the holding card with a retry.
+  function showError(msg) {
+    if (player) { player.hidden = true; player.innerHTML = ''; }
+    badge.hidden = true; unmute.hidden = true;
+    holding.hidden = false;
+    $('wbSpinner').style.display = 'none';
+    $('wbHoldTitle').textContent = 'Playback hit a snag';
+    $('wbHoldMsg').textContent = msg || 'The stream is temporarily unavailable.';
+    $('wbRetry').hidden = false;
   }
 
   async function mountPlayer() {
@@ -725,17 +749,32 @@ agent-3d:defined ~ .agent-skel{display:none}
 
     const src = WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4;
     const isHls = /\.m3u8(\?|$)/i.test(src);
+    let usingHls = false;
     try {
       if (isHls && !video.canPlayType('application/vnd.apple.mpegurl')) {
         const Hls = await loadHls();
         if (Hls.isSupported()) {
+          usingHls = true;
           const hls = new Hls({ lowLatencyMode: isLiveSource });
+          // Fatal-error recovery: retry network/media a few times, then surface a
+          // clean error rather than leaving a black frame.
+          let recover = 0;
+          hls.on(Hls.Events.ERROR, (_evt, data) => {
+            if (!data || !data.fatal) return;
+            if (data.type === Hls.ErrorTypes.NETWORK_ERROR && recover < 3) { recover++; hls.startLoad(); }
+            else if (data.type === Hls.ErrorTypes.MEDIA_ERROR && recover < 3) { recover++; hls.recoverMediaError(); }
+            else { hls.destroy(); showError('The stream is temporarily unavailable — it may not have started yet.'); }
+          });
           hls.loadSource(src); hls.attachMedia(video);
         } else { video.src = src; }
       } else {
         video.src = src; // native HLS (Safari) or MP4
       }
-    } catch (e) { video.src = src; }
+    } catch (e) { showError('We couldn’t start the player. Reload to try again.'); return; }
+
+    // Native media error (MP4 / Safari HLS). The hls.js path reports through its
+    // own ERROR event above, so skip this listener when hls.js owns the element.
+    video.addEventListener('error', () => { if (!usingHls) showError('We couldn’t load the video — it may not be available yet.'); });
 
     // Premiere sync: a finished recording behaves like a broadcast — join at the
     // point the talk is actually at, and (during the live window) can't skip ahead.

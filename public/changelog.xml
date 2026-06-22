@@ -23,28 +23,20 @@
 			<description>The embed editor's Chat mode produced a snippet that worked in the live preview but stayed blank once pasted onto an external site. The agent chat page was served with a frame-ancestors policy that only allowed three.ws itself, so every other domain's browser blocked the iframe. Chat embeds now ship the same open framing policy as the avatar embed modes, and the embedded chat page can use the microphone for voice input. Paste the snippet anywhere and it just works.</description>
 		</item>
 		<item>
-			<title>Credits deposits: clearer 'verify by signature' copy</title>
-			<link>https://three.ws/credits</link>
-			<guid isPermaLink="false">2026-06-22:Credits deposits: clearer 'verify by signature' copy</guid>
-			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
-			<category>improvement</category>
-			<description>The manual 'verify by signature' option on the Credits page now spells out how deposit verification actually works: we check on-chain that the transaction was signed by a wallet linked to your account, so only you can claim your deposit and pasting someone else's signature can never credit your balance. The old wording ('Sent from another wallet?') made the safe, server-verified flow look like anyone could claim any transfer — it never could. If you send from a wallet that isn't linked yet, the page now tells you to sign in with it or link it first.</description>
-		</item>
-		<item>
 			<title>Embedded avatars never show a blank frame</title>
 			<link>https://three.ws/embed</link>
 			<guid isPermaLink="false">2026-06-22:Embedded avatars never show a blank frame</guid>
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
-			<description>A walking-avatar embed whose avatar can't load — a deleted or mistyped ID, a private avatar a public page can't read, or a dropped connection — now shows the default avatar walking with a short 'couldn't load that avatar — showing the default' note, instead of leaving an empty, all-dark frame on the host page. The embed always renders a body. Owners can also now load their own private avatar's 3D file when signed in, which previously failed even for the avatar's owner.</description>
+			<description>A walking-avatar embed whose avatar can't load — a deleted or mistyped ID, a private avatar a public page can't read, or a dropped connection — now shows the default avatar walking with a short 'couldn't load that avatar — showing the default' note, instead of leaving an empty, all-dark frame on the host page. The embed always renders a body. The embed editor now flags an avatar ID it can't find with a clear 'not found' marker and tells you to pick a public or unlisted avatar, rather than silently keeping a dead ID. And owners can now load their own private avatar's 3D file when signed in, which previously failed even for the avatar's owner.</description>
 		</item>
 		<item>
-			<title>Forge: engine picker no longer overflows, clearer text-to-3D wording</title>
+			<title>Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</title>
 			<link>https://three.ws/forge</link>
-			<guid isPermaLink="false">2026-06-22:Forge: engine picker no longer overflows, clearer text-to-3D wording</guid>
+			<guid isPermaLink="false">2026-06-22:Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</guid>
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
-			<description>The Forge engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is also honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), and on From photos it reads 'builds from your reference photos'.</description>
+			<description>A round of Forge fixes. The engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), on From photos 'builds from your reference photos', and a credit figure now only appears on metered lanes so a free build never reads 'Free · ~N credits'. The Describe it / From photos / From a sketch tabs are now fully keyboard-navigable with the arrow keys and announce correctly to screen readers. And opening a remix link keeps your whole prompt — long prompts are no longer clipped to 300 characters.</description>
 		</item>
 		<item>
 			<title>Live webinar stage on the IBM x402 demo page</title>
@@ -61,6 +53,14 @@
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>docs</category>
 			<description>A new docs page maps the entire free NVIDIA inference layer the platform runs on — one free key unlocks all of it. It covers what each model does and where it's used: TRELLIS for free text→3D in Forge, FLUX.1-schnell for text→image, the Llama 3.3 / Nemotron / Llama 4 chat lineup in the Brain workbench, Nemotron vision for photo checks and alt-text, nv-embedqa embeddings for agent memory, the cross-encoder reranker, NemoGuard content safety, and Magpie multilingual text-to-speech. Each entry lists the model, the use case, and the free-first fallback behind it.</description>
+		</item>
+		<item>
+			<title>Safer, clearer credit deposits</title>
+			<link>https://three.ws/credits</link>
+			<guid isPermaLink="false">2026-06-22:Safer, clearer credit deposits</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Three improvements to depositing SOL or $THREE for credits. (1) Clearer copy: the manual 'verify by signature' option now spells out that we check on-chain that the transaction was signed by a wallet linked to your account — so only you can claim your deposit and pasting someone else's signature can never credit your balance. The old wording ('Sent from another wallet?') made the safe, server-verified flow look like anyone could claim any transfer; it never could. (2) Reorg-safe crediting: credits now apply only once your deposit is finalized on-chain, not just confirmed, so a rare chain reorg can never credit a deposit that later disappears. The page shows a brief 'finalizing on-chain' status and credits you automatically — no resubmitting. (3) A single transaction that sends both SOL and $THREE to the deposit wallet now credits both assets instead of just the first.</description>
 		</item>
 		<item>
 			<title>Sharper selfie → avatar: your subject, isolated and reframed</title>

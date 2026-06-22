@@ -140,6 +140,7 @@ function mountEmbedEditor(root, opts = {}) {
 	avatarInput.addEventListener('input', () => {
 		cfg.avatar = avatarInput.value.trim();
 		cfg.avatarMeta = null;
+		cfg.avatarMissing = false;
 		renderTrigger();
 		sync();
 		if (cfg.avatar) resolveAvatarMeta(cfg.avatar);
@@ -151,23 +152,27 @@ function mountEmbedEditor(root, opts = {}) {
 		avatarTrigger.innerHTML = '';
 		if (cfg.avatar) {
 			const meta = cfg.avatarMeta;
+			const missing = cfg.avatarMissing && !isModelUrl(cfg.avatar);
 			const thumb = meta?.thumbnail_url
 				? el('img', { className: 'ee-picker-thumb', src: meta.thumbnail_url, alt: '', loading: 'lazy', decoding: 'async' })
 				: el('span', { className: 'ee-picker-thumb ee-picker-thumb--ph' });
 			avatarTrigger.append(
 				thumb,
 				el('span', { className: 'ee-picker-name', textContent: meta?.name || cfg.avatar }),
-				el('span', { className: 'ee-picker-action', textContent: 'Change' }),
+				el('span', { className: 'ee-picker-action', textContent: missing ? 'Not found' : 'Change' }),
 			);
 			avatarTrigger.classList.add('is-selected');
-			avatarTrigger.setAttribute('aria-label', `Selected avatar: ${meta?.name || cfg.avatar}. Click to change.`);
+			avatarTrigger.classList.toggle('is-missing', missing);
+			avatarTrigger.setAttribute('aria-label', missing
+				? `Avatar "${cfg.avatar}" not found. Click to choose a different one.`
+				: `Selected avatar: ${meta?.name || cfg.avatar}. Click to change.`);
 		} else {
 			avatarTrigger.append(
 				el('span', { className: 'ee-picker-icon', innerHTML: GALLERY_SVG }),
 				el('span', { className: 'ee-picker-name', textContent: cfg.mode === 'chat' ? 'Browse agents' : 'Browse avatars' }),
 				el('span', { className: 'ee-picker-action', textContent: 'Open' }),
 			);
-			avatarTrigger.classList.remove('is-selected');
+			avatarTrigger.classList.remove('is-selected', 'is-missing');
 			avatarTrigger.setAttribute('aria-label', 'Browse avatars');
 		}
 	}
@@ -183,6 +188,7 @@ function mountEmbedEditor(root, opts = {}) {
 		if (!avatar) return;
 		cfg.avatar = avatar.id;
 		cfg.avatarMeta = { name: avatar.name, thumbnail_url: avatar.thumbnail_url };
+		cfg.avatarMissing = false; // gallery picks are always real, embeddable records
 		avatarInput.value = avatar.id;
 		renderTrigger();
 		sync();
@@ -199,6 +205,7 @@ function mountEmbedEditor(root, opts = {}) {
 		// the file itself so the deep-linked handoff reads as the user's model.
 		if (isModelUrl(id)) {
 			cfg.avatarMeta = { name: modelUrlName(id), thumbnail_url: null };
+			cfg.avatarMissing = false;
 			renderTrigger();
 			return;
 		}
@@ -208,24 +215,38 @@ function mountEmbedEditor(root, opts = {}) {
 				const { avatar } = await res.json();
 				if (token !== _metaToken || cfg.avatar !== id || !avatar) return;
 				cfg.avatarMeta = { name: avatar.name, thumbnail_url: avatar.thumbnail_url };
+				cfg.avatarMissing = false;
 				renderTrigger();
+				renderWarning();
 				return;
 			}
 		} catch { /* fall through to agent lookup */ }
 		// Avatar lookup failed — try resolving as an agent identity
 		try {
 			const res = await fetch(`/api/marketplace/agents/${encodeURIComponent(id)}`, { credentials: 'include' });
-			if (!res.ok) return;
-			const { agent } = await res.json();
-			if (token !== _metaToken || cfg.avatar !== id || !agent) return;
-			cfg.avatarMeta = { name: agent.name, thumbnail_url: agent.avatar_thumbnail_url || null };
-			// Agent IDs default to chat mode if no mode was pre-set
-			if (!opts.mode && cfg.mode !== 'chat') {
-				cfg.mode = 'chat';
-				sync(); // updates mode buttons, snippet, and preview
+			if (res.ok) {
+				const { agent } = await res.json();
+				if (token !== _metaToken || cfg.avatar !== id || !agent) return;
+				cfg.avatarMeta = { name: agent.name, thumbnail_url: agent.avatar_thumbnail_url || null };
+				cfg.avatarMissing = false;
+				// Agent IDs default to chat mode if no mode was pre-set
+				if (!opts.mode && cfg.mode !== 'chat') {
+					cfg.mode = 'chat';
+					sync(); // updates mode buttons, snippet, and preview
+				}
+				renderTrigger();
+				renderWarning();
+				return;
 			}
-			renderTrigger();
-		} catch { /* Non-fatal: chip falls back to the raw ID */ }
+		} catch { /* fall through to the not-found state */ }
+		// Neither an avatar nor an agent resolved for this id. Surface an
+		// actionable not-found state instead of silently keeping a dead id —
+		// the live preview still renders the default body (the runtime falls
+		// back), but the editor now tells the user why and what to do.
+		if (token !== _metaToken || cfg.avatar !== id) return;
+		cfg.avatarMissing = true;
+		renderTrigger();
+		renderWarning();
 	}
 
 	// Controls (walking only)
@@ -307,6 +328,9 @@ function mountEmbedEditor(root, opts = {}) {
 	]);
 	const previewFrame = el('div', { className: 'ee-stage' });
 	const previewEmpty = el('div', { className: 'ee-empty' });
+	// Surfaced when a pasted/deep-linked id resolves to neither an avatar nor an
+	// agent. Hidden by default (the hidden-guard style makes [hidden] authoritative).
+	const previewWarn = el('div', { className: 'ee-warn', role: 'status', hidden: true });
 
 	// Snippet variant tabs
 	const variantRow = el('div', { className: 'ee-segment ee-segment-sm ee-variant' });
@@ -378,7 +402,7 @@ function mountEmbedEditor(root, opts = {}) {
 	platformBtns.get('html').classList.add('is-active');
 
 	const platformSection = el('div', { className: 'ee-platform-section' }, [platformBar, platformTabs, platformNote]);
-	previewWrap.append(previewBar, previewFrame, snippetBar, snippetBox, copyBtn, platformSection);
+	previewWrap.append(previewBar, previewWarn, previewFrame, snippetBar, snippetBox, copyBtn, platformSection);
 
 	root.append(panel, previewWrap);
 
@@ -412,8 +436,20 @@ function mountEmbedEditor(root, opts = {}) {
 		reflectUrl();
 
 		renderTrigger();
+		renderWarning();
 		snippetBox.value = buildSnippet(cfg);
 		renderPreview();
+	}
+
+	// Actionable not-found banner. Only meaningful for bare ids (a model URL has
+	// no record to resolve, and chat needs a real agent id either way).
+	function renderWarning() {
+		const missing = !!(cfg.avatarMissing && cfg.avatar && !isModelUrl(cfg.avatar));
+		previewWarn.hidden = !missing;
+		if (!missing) return;
+		previewWarn.textContent = cfg.mode === 'chat'
+			? "That agent ID couldn't be found. Chat embeds need a public agent — pick one from the gallery above."
+			: "That avatar ID couldn't be found, or it isn't public. The preview falls back to the default avatar; pick a public or unlisted avatar from the gallery above to embed your own.";
 	}
 
 	function renderPreview() {
@@ -645,6 +681,9 @@ function injectStyles() {
 		.ee-host { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
 		.ee-iframe { border:0; background:transparent; }
 		.ee-empty { color:#52525b; font-size:13px; text-align:center; max-width:240px; line-height:1.5; }
+		.ee-picker.is-missing { border-color:rgba(239,68,68,0.5); background:rgba(239,68,68,0.06); }
+		.ee-picker.is-missing .ee-picker-action { color:#fca5a5; background:rgba(239,68,68,0.16); }
+		.ee-warn { font-size:12.5px; line-height:1.5; color:#fca5a5; background:rgba(239,68,68,0.09); border:1px solid rgba(239,68,68,0.34); border-radius:9px; padding:9px 13px; margin:0; }
 		.ee-snippet {
 			width:100%; background:#0d0f12; border:1px solid #1c2026; border-radius:10px;
 			color:#d4d4d8; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;

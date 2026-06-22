@@ -1,3 +1,20 @@
+# Cloud Build upload allowlist (gitignore syntax; last match wins).
+#
+# The agent-sniper image (deploy/sniper/cloudbuild.yaml) builds from the REPO
+# ROOT and its Dockerfile copies the root package manifests, api/, and the
+# agent-payments-sdk/ workspace — NOT just workers/. The previous allowlist
+# uploaded only workers/, so the sniper Cloud Build context was missing those
+# paths and `COPY package.json` / `COPY api` failed. Re-include exactly what the
+# worker images need, and keep multi-GB node_modules + .git out of the upload.
 /*
 !/workers/
+!/api/
+!/src/
+!/agent-payments-sdk/
+!/package.json
+!/package-lock.json
+!/.npmrc
 !/.gcloudignore
+# Re-exclude heavy/derived paths even inside the re-included directories.
+**/node_modules/
+.git/

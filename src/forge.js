@@ -362,7 +362,12 @@ function setMode(next) {
 	els.sketchPane?.classList.toggle('is-hidden', mode !== 'sketch');
 	els.examples.classList.toggle('is-hidden', mode !== 'text');
 	for (const b of els.modeSwitch.querySelectorAll('button')) {
-		b.setAttribute('aria-selected', String(b.dataset.mode === mode));
+		const sel = b.dataset.mode === mode;
+		b.setAttribute('aria-selected', String(sel));
+		// Roving tabindex: only the active tab is in the tab order; the rest are
+		// reached with the arrow keys (see the keydown handler), per the ARIA
+		// tabs pattern.
+		b.tabIndex = sel ? 0 : -1;
 	}
 	// Sketch serves through its own engine set (TripoSG) — rebuild the selector
 	// so each mode only offers engines that can actually take its input.
@@ -476,6 +481,16 @@ function buildEngineButtons() {
 		btn.setAttribute('aria-label', `${b.label}${freeNote}${keyNote}`);
 		btn.setAttribute('aria-pressed', String(b.id === selectedEngine.backend));
 		els.engine.appendChild(btn);
+	}
+	// Catalog loaded but no lane can serve this mode (every backend unconfigured,
+	// non-BYOK, or sketch-only in a text/photo tab) — say so rather than leave a
+	// blank pill. The catalog-missing case is handled separately in loadCatalog().
+	if (!els.engine.childElementCount) {
+		const note = document.createElement('span');
+		note.className = 'engine-empty';
+		note.setAttribute('role', 'status');
+		note.textContent = 'No engine available for this input yet — try another tab or refresh.';
+		els.engine.appendChild(note);
 	}
 	// If the previously-selected engine isn't usable, fall back to the first.
 	if (!usable.some((b) => b.id === selectedEngine.backend)) {
@@ -816,7 +831,11 @@ function updateEstimate() {
 	// the user supplied no image. Only the photos tab builds from a real reference.
 	const parts = [`<strong>${tierMeta.label}</strong>`, costSegment(backend, tierMeta)];
 	if (est?.eta_seconds) parts.push(`usually ~${est.eta_seconds}s`);
-	if (est && est.credits != null) parts.push(`~${est.credits} credits`);
+	// Credits are a real charge only on metered lanes (BYOK or the paid High tier).
+	// Never tack a credit figure onto a "Free" line — "Free · ~3 credits" reads as
+	// a contradiction. costSegment() owns the cost word; this stays consistent with it.
+	if (est?.credits != null && (backend.byok || tierMeta.id === 'high'))
+		parts.push(`~${est.credits} credits`);
 	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polygons`);
 	if (selectedEngine.path === 'geometry') parts.push('shapes geometry straight from the prompt');
 	else if (selectedEngine.path === 'sketch') parts.push('untextured geometry from your sketch');
@@ -2206,6 +2225,27 @@ els.modeSwitch.addEventListener('click', (e) => {
 	if (btn) setMode(btn.dataset.mode);
 });
 
+// Arrow-key navigation across the tablist (ARIA tabs pattern). Moves focus and
+// activates as it goes, wrapping at the ends and skipping the hidden sketch tab
+// when its engine isn't deployed.
+els.modeSwitch.addEventListener('keydown', (e) => {
+	if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+	const tabs = [...els.modeSwitch.querySelectorAll('button[data-mode]')].filter(
+		(b) => !b.hidden,
+	);
+	const i = tabs.indexOf(document.activeElement);
+	if (i < 0) return;
+	e.preventDefault();
+	const next =
+		e.key === 'Home'
+			? tabs[0]
+			: e.key === 'End'
+				? tabs[tabs.length - 1]
+				: tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+	next.focus();
+	setMode(next.dataset.mode);
+});
+
 els.fileInput.addEventListener('change', () => {
 	handleFiles(pickerTarget, els.fileInput.files);
 	pickerTarget = null;
@@ -2468,8 +2508,11 @@ if (els.forgeShareBtn) {
 	const shareParam = params.get('share');
 	if (promptParam && els.prompt) {
 		setMode('text');
-		els.prompt.value = decodeURIComponent(promptParam).slice(0, 300);
+		// Match the textarea's own maxlength (1000) — a remix link must not silently
+		// drop the tail of a long prompt the user is trying to carry over.
+		els.prompt.value = decodeURIComponent(promptParam).slice(0, 1000);
 		els.prompt.focus();
+		els.prompt.dispatchEvent(new Event('input', { bubbles: true }));
 	}
 	if (shareParam) {
 		window.__forgeShareId = shareParam;

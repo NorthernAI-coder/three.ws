@@ -13,18 +13,29 @@ FROM node:24-slim
 
 WORKDIR /app
 
-# Install deps first for layer caching. postinstall builds the agent-payments
-# SDK (dist/) that the trade client imports.
-COPY package.json package-lock.json* ./
+# Install deps first for layer caching.
+#   .npmrc carries legacy-peer-deps=true — the Solana peer-dep graph
+#   (@bonfida/spl-name-service vs @solana/spl-token) does NOT resolve under
+#   strict npm, so without it the install dies ERESOLVE and the image never builds.
+#   devDeps are installed on purpose: the agent-payments SDK ships only its built
+#   dist/ (gitignored, and every export resolves into it), and its build tool
+#   (tsup) is a devDependency — omitting dev here would break `npm run build` below.
+COPY .npmrc package.json package-lock.json* ./
 COPY agent-payments-sdk/package.json ./agent-payments-sdk/
-RUN npm ci --omit=dev --ignore-scripts || npm install --omit=dev --ignore-scripts
+RUN npm ci --ignore-scripts || npm install --ignore-scripts
 
-# Bring in source needed at runtime, then build the SDK explicitly (ignore-scripts
-# skipped the postinstall build above).
+# Bring in source needed at runtime, then build the SDK's dist/ explicitly
+# (ignore-scripts skipped the postinstall build above). src/ is required too: the
+# worker's first-claim path imports api/_lib/pump-claims.js → src/pump/first-claims.js.
 COPY agent-payments-sdk ./agent-payments-sdk
 COPY api ./api
+COPY src ./src
 COPY workers/agent-sniper ./workers/agent-sniper
 RUN npm run build --prefix agent-payments-sdk
+
+# dist/ is built — drop devDeps for a leaner runtime image. Best-effort: a prune
+# hiccup in the partial-workspace tree must never fail the build.
+RUN npm prune --omit=dev --ignore-scripts || true
 
 ENV NODE_ENV=production \
     SNIPER_MODE=simulate
