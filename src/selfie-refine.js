@@ -509,7 +509,12 @@ export async function refineSelfie(bitmap, opts = {}) {
 		onStep('Isolating subject…');
 		const segmenter = await loadSegmenter();
 		if (segmenter) {
-			const result = segmenter.segment(frame);
+			// Segment the original source, not the OffscreenCanvas working frame:
+			// MediaPipe accepts ImageBitmap/HTMLImageElement everywhere, whereas
+			// OffscreenCanvas input isn't supported across all builds. The mask
+			// covers the same aspect ratio either way, so the work-space sampling
+			// below is unaffected.
+			const result = segmenter.segment(bitmap);
 			const conf = result?.confidenceMasks?.[0];
 			if (conf) {
 				const maskW = conf.width;
