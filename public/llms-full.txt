@@ -320,6 +320,12 @@ URL: https://three.ws/scan
 
 Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.
 
+### Make Dad a 3D Avatar
+
+URL: https://three.ws/dad
+
+Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.
+
 ## Labs
 
 Experimental features actively shipping. Expect fast iteration.

@@ -12,7 +12,7 @@
 // names play on standard three.ws avatars.
 
 import { Bone, Quaternion, Vector3, Euler, MathUtils } from 'three';
-import { normalizeBoneName } from './avatar-export.js';
+import { canonicalizeBoneName as normalizeBoneName } from './glb-canonicalize.js';
 import { Mannequin } from './pose-mannequin.js';
 
 // ── Canonical skeleton ──────────────────────────────────────────────────────

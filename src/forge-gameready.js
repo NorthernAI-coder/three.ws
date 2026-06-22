@@ -582,6 +582,7 @@ if (resultPanel && viewer && triggerBtn) {
 			wire.ro.observe(wireOverlay);
 			const tick = () => {
 				wire.raf = requestAnimationFrame(tick);
+				if (!wireOverlay.classList.contains('is-shown')) return;
 				wire.controls.update();
 				wire.renderer.render(wire.scene, wire.camera);
 			};
@@ -658,6 +659,15 @@ if (resultPanel && viewer && triggerBtn) {
 		wireOverlay.classList.remove('is-shown');
 		wireBtn.setAttribute('aria-pressed', 'false');
 	}
+	function disposeWireEngine() {
+		if (wire.raf) { cancelAnimationFrame(wire.raf); wire.raf = 0; }
+		wire.ro?.disconnect(); wire.ro = null;
+		clearWireGroup();
+		wire.controls?.dispose(); wire.controls = null;
+		wire.renderer?.dispose(); wire.renderer?.domElement?.remove(); wire.renderer = null;
+		wire.ready = false; wire.loading = false; wire.loadedUrl = null;
+	}
+	window.addEventListener('pagehide', disposeWireEngine, { once: true });
 	function resetWireframe() {
 		// A new export invalidates the previously loaded wireframe model.
 		wire.loadedUrl = null;

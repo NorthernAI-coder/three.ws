@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Chat embeds now load on any site</title>
+			<link>https://three.ws/embed</link>
+			<guid isPermaLink="false">2026-06-22:Chat embeds now load on any site</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The embed editor's Chat mode produced a snippet that worked in the live preview but stayed blank once pasted onto an external site. The agent chat page was served with a frame-ancestors policy that only allowed three.ws itself, so every other domain's browser blocked the iframe. Chat embeds now ship the same open framing policy as the avatar embed modes, and the embedded chat page can use the microphone for voice input. Paste the snippet anywhere and it just works.</description>
+		</item>
+		<item>
 			<title>Arm your agent — automate Oracle conviction</title>
 			<link>https://three.ws/oracle/arm</link>
 			<guid isPermaLink="false">2026-06-21:Arm your agent — automate Oracle conviction</guid>
@@ -45,6 +53,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>A cinematic 3D hero stage for three.ws agents — a lit avatar centered in deep space over concentric glowing rings, a drifting starfield, and soft bloom, with pointer parallax and a live avatar switcher. Motion-safe.</description>
+		</item>
+		<item>
+			<title>Make Dad a 3D Avatar</title>
+			<link>https://three.ws/dad</link>
+			<guid isPermaLink="false">2026-06-21:Make Dad a 3D Avatar</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.</description>
 		</item>
 		<item>
 			<title>Studio — Object + Avatar from text</title>
@@ -447,6 +463,14 @@
 			<description>The trending-tokens feed that powers the home card, communities, the token constellation, and the 3D visualizer is now resilient to upstream outages. If a market data provider goes down or rate-limits us, we transparently fall back to a second source; if both are briefly unavailable, the surfaces keep showing the last good data (clearly marked as a moment stale) instead of going blank. We also added a fast-fail circuit breaker so a slow provider can't drag the feed down during a traffic spike. Net effect: the live market views stay populated and snappy even when a data provider hiccups.</description>
 		</item>
 		<item>
+			<title>Membership tiers and referral codes</title>
+			<link>https://three.ws/dashboard/referrals</link>
+			<guid isPermaLink="false">2026-06-21:Membership tiers and referral codes</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every member now wears a mode on their card: User, Beta, Pro, Holder, or Three Dimensional. The tier panel on your referrals page shows every badge you hold, what each one unlocks, and the next mode to aim for — with a live $THREE holder check across all your linked wallets. Referral codes now default to your name and you can customize them at any time from your membership card.</description>
+		</item>
+		<item>
 			<title>Membership tiers: see your mode on your member card</title>
 			<link>https://three.ws/dashboard/referrals</link>
 			<guid isPermaLink="false">2026-06-21:Membership tiers: see your mode on your member card</guid>
@@ -551,6 +575,14 @@
 			<description>The 3D guide who walks you through the product tour now starts as Ava, our photoreal full-body character — and you can swap her for anyone in the cast. Open the tour menu and use the new Guide picker to choose any avatar (your own custom ones included); the tour switches on the spot and remembers your pick. In free roam you can now steer the guide with WASD or the arrow keys (hold Shift to run) and walk her across the whole page, just like steering your character on the Walk pages — clicking and dragging still work too. She also obeys gravity now: she drops in and plants her feet on the ground instead of hovering.</description>
 		</item>
 		<item>
+			<title>Platform-wide code audit: 15 bugs found and fixed</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Platform-wide code audit: 15 bugs found and fixed</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A full read-the-code audit across 60+ source files and all API handlers found and fixed 15 real bugs: XSS in the x402 trade demo and payment chip (server-controlled SSE fields and skill names now escaped before being set as innerHTML); face-mocap looped playback froze after one cycle (RAF never re-armed on loop restart); a JavaScript temporal dead zone crash in the trader card renderer (pumpUrl referenced before declaration); the BYOK API key error handler was unreachable due to ordering (generic 401/402 caught first); the Jupiter swap confirm button was always disabled even with a valid amount (contradictory double-assignment); the agent-exchange result fallback used the whole SSE envelope instead of the nested result object; the game-ready wireframe WebGL renderer and RAF loop kept running indefinitely when hidden (now skipped when not visible, torn down on pagehide); body mocap bone lookup only handled Mixamo rigs and missed Blender, Rigify, VRM, and others (now delegates to the shared canonicalizer); the click-to-walk tryInject poll timer was never cancelled on uninstall; the club swapAvatar path skipped auto-camera release and audio fade when interrupting a paid performance; the wallet.js connectWallet export used by ThreeGate was missing (connect button silently fell back to a DOM click that often found nothing); the API agent-actions cursor parameter returned a 500 on non-numeric input instead of a 400; and several low-severity dead code and UI guard fixes.</description>
+		</item>
+		<item>
 			<title>Platform-wide hardening: payment integrity, security, and scale</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-21:Platform-wide hardening: payment integrity, security, and scale</guid>
@@ -621,6 +653,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The compact &quot;Vanity address&quot; card on an agent's page used to replace a wallet by deleting the old one and creating the new one separately — so if the old wallet held SOL or tokens, they could be left behind. It now uses the same money-safe path as the rest of the platform: any balance is automatically swept to the new vanity address first, and the switch only completes once the funds have moved (and only after the server confirms the new address really matches your pattern). Same one-click experience, but your funds follow the wallet.</description>
+		</item>
+		<item>
+			<title>Security hardening across payments, subscriptions, and the agent sniper</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-21:Security hardening across payments, subscriptions, and the agent sniper</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>A code audit turned up and fixed several real vulnerabilities: Solana subscriptions now reject devnet USDC (previously accepted, letting anyone subscribe for free with faucet tokens). Payment intent confirmation now uses an atomic DB transaction so a crash mid-grant can't leave a user paid but unsubscribed. An expired intent could be incorrectly promoted to confirmed in a race — the status gate is now strict. The Solana mint check no longer silently accepts any SPL token in legacy transfer instructions. The agent sniper's coin classifier now truncates and delimits metadata fields to block prompt injection via crafted coin names. The oracle worker's on-chain confirm step now times out after 60 s instead of hanging forever. Routine steps already rejected by the animation engine's fallen-pose guard no longer pass the pre-play filter and cause dancers to freeze.</description>
 		</item>
 		<item>
 			<title>Smoother landing page on hover</title>
@@ -741,6 +781,14 @@
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Paying with USDC at a door (like the Pole Club cover charge) could occasionally fail with an &quot;internal error&quot; right after you connected your wallet, if our Solana RPC briefly returned a malformed reply while building your payment. The checkout now shrugs that off and builds the transaction anyway, so a flaky node no longer turns you away at the door. Nothing was ever charged when this happened.</description>
+		</item>
+		<item>
+			<title>User profiles: wallets, NFTs, accessories, shop listings, fork agents and avatars</title>
+			<link>https://three.ws/u</link>
+			<guid isPermaLink="false">2026-06-21:User profiles: wallets, NFTs, accessories, shop listings, fork agents and avatars</guid>
+			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /u/ profile pages now surface the full picture of what a user owns and builds. A wallets row shows every linked Solana and EVM address with one-click copy and a link to the chain explorer. On-chain collectibles load in a lazy background pass — 3D NFTs display as interactive model-viewer tiles; image NFTs sit in a grid. Any premium accessories purchased through the x402 cosmetics rail appear in their own tab with rarity badges. Published avatars and agents carry a Fork button so visitors can clone the item directly into their own account. Items actively listed for sale land in a For sale tab with direct buy links. All counts surface in the stat strip.</description>
 		</item>
 		<item>
 			<title>Walk picks up where you left off, plus click-to-walk</title>

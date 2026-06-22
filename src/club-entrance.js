@@ -890,13 +890,17 @@ async function start(canvasEl) {
 						// A place failed to load — don't strand the visitor; reveal
 						// the stage rather than hang on a black frame.
 						setPhase('arriving');
+					} else {
+						// Still downloading — canvas is now invisible. Drop pointer
+						// capture so stage tip buttons stay clickable during the stall.
+						canvasEl.style.pointerEvents = 'none';
 					}
-					// else: still downloading — hold the fade until it resolves.
 				}
 				break;
 			}
 			case 'swapIn': {
 				const k = Math.min(1, elapsed / 0.5);
+				canvasEl.style.pointerEvents = '';
 				canvasEl.style.opacity = String(k);
 				if (k >= 1) {
 					setPhase('walk');

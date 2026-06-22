@@ -2,6 +2,25 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-22",
+			"title": "Chat embeds now load on any site",
+			"summary": "The embed editor's Chat mode produced a snippet that worked in the live preview but stayed blank once pasted onto an external site. The agent chat page was served with a frame-ancestors policy that only allowed three.ws itself, so every other domain's browser blocked the iframe. Chat embeds now ship the same open framing policy as the avatar embed modes, and the embedded chat page can use the microphone for voice input. Paste the snippet anywhere and it just works.",
+			"tags": ["fix"],
+			"link": "/embed"
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Platform-wide code audit: 15 bugs found and fixed",
+			"summary": "A full read-the-code audit across 60+ source files and all API handlers found and fixed 15 real bugs: XSS in the x402 trade demo and payment chip (server-controlled SSE fields and skill names now escaped before being set as innerHTML); face-mocap looped playback froze after one cycle (RAF never re-armed on loop restart); a JavaScript temporal dead zone crash in the trader card renderer (pumpUrl referenced before declaration); the BYOK API key error handler was unreachable due to ordering (generic 401/402 caught first); the Jupiter swap confirm button was always disabled even with a valid amount (contradictory double-assignment); the agent-exchange result fallback used the whole SSE envelope instead of the nested result object; the game-ready wireframe WebGL renderer and RAF loop kept running indefinitely when hidden (now skipped when not visible, torn down on pagehide); body mocap bone lookup only handled Mixamo rigs and missed Blender, Rigify, VRM, and others (now delegates to the shared canonicalizer); the click-to-walk tryInject poll timer was never cancelled on uninstall; the club swapAvatar path skipped auto-camera release and audio fade when interrupting a paid performance; the wallet.js connectWallet export used by ThreeGate was missing (connect button silently fell back to a DOM click that often found nothing); the API agent-actions cursor parameter returned a 500 on non-numeric input instead of a 400; and several low-severity dead code and UI guard fixes.",
+			"tags": ["fix", "security"]
+		},
+		{
+			"date": "2026-06-21",
+			"title": "Security hardening across payments, subscriptions, and the agent sniper",
+			"summary": "A code audit turned up and fixed several real vulnerabilities: Solana subscriptions now reject devnet USDC (previously accepted, letting anyone subscribe for free with faucet tokens). Payment intent confirmation now uses an atomic DB transaction so a crash mid-grant can't leave a user paid but unsubscribed. An expired intent could be incorrectly promoted to confirmed in a race — the status gate is now strict. The Solana mint check no longer silently accepts any SPL token in legacy transfer instructions. The agent sniper's coin classifier now truncates and delimits metadata fields to block prompt injection via crafted coin names. The oracle worker's on-chain confirm step now times out after 60 s instead of hanging forever. Routine steps already rejected by the animation engine's fallen-pose guard no longer pass the pre-play filter and cause dancers to freeze.",
+			"tags": ["security", "fix"]
+		},
+		{
 			"date": "2026-06-21",
 			"title": "Membership tiers and referral codes",
 			"summary": "Every member now wears a mode on their card: User, Beta, Pro, Holder, or Three Dimensional. The tier panel on your referrals page shows every badge you hold, what each one unlocks, and the next mode to aim for — with a live $THREE holder check across all your linked wallets. Referral codes now default to your name and you can customize them at any time from your membership card.",

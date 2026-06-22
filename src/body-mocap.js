@@ -19,6 +19,7 @@
 import { PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import { Quaternion } from 'three';
 import { solvePose } from './runtime/pose-solve.js';
+import { canonicalizeBoneName } from './glb-canonicalize.js';
 
 const WASM_URL  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task';
@@ -29,13 +30,11 @@ const DRIVEN_BONES = Object.freeze([
 	'Spine', 'LeftUpLeg', 'LeftLeg', 'RightUpLeg', 'RightLeg',
 ]);
 
-// Same canonicalization the rest of the app uses to match retargeted rigs
-// (mixamorig:, Armature_, snake_case … → bare lowercase name).
+// Delegate to the shared canonicalizer so all rig conventions (Mixamo,
+// Blender .L/.R, Rigify DEF-/ORG-, VRM, CharacterStudio CH_, Daz, etc.)
+// are handled consistently with the rest of the app.
 function canonicalKey(name) {
-	return name
-		.replace(/^mixamorig:?/i, '')
-		.replace(/^[A-Za-z0-9]+[_:]/, '')
-		.toLowerCase();
+	return (canonicalizeBoneName(name) || '').toLowerCase();
 }
 
 export class BodyMocap {

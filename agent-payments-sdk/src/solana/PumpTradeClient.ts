@@ -172,9 +172,11 @@ export class PumpTradeClient {
       global, feeConfig, mintSupply, bondingCurve, amount: expectedBaseTokens, quoteMint,
     });
 
-    const maxQuoteCost = new BN(
-      Math.ceil(preciseQuoteAmount.toNumber() * (1 + slippage / 100)),
-    );
+    // Slippage applied in integer BN math: toNumber() on a lamport BN throws
+    // above 2^53 (~9M SOL) and loses precision on money below it. bps = slippage%
+    // × 100; ceil via (x·(10000+bps) + 9999) / 10000.
+    const buyBps = Math.max(0, Math.round(slippage * 100));
+    const maxQuoteCost = preciseQuoteAmount.muln(10_000 + buyBps).addn(9_999).divn(10_000);
 
     const marketCap = bondingCurveMarketCap({
       mintSupply,
@@ -218,9 +220,10 @@ export class PumpTradeClient {
       global, feeConfig, mintSupply, bondingCurve, amount: baseAmount,
     });
 
-    const minQuoteOut = new BN(
-      Math.max(0, Math.floor(expectedQuoteOut.toNumber() * (1 - slippage / 100))),
-    );
+    // Integer BN math (see quoteForBuy): floor via x·(10000−bps) / 10000, with
+    // the multiplier clamped at 0 so slippage > 100% floors the bound to zero.
+    const sellBps = Math.max(0, Math.round(slippage * 100));
+    const minQuoteOut = expectedQuoteOut.muln(Math.max(0, 10_000 - sellBps)).divn(10_000);
 
     const marketCap = bondingCurveMarketCap({
       mintSupply,

@@ -246,10 +246,16 @@ function nodeLocalMatrix(node) {
 function worldMatricesFor(json, indices, parentOf) {
 	const local = json.nodes.map(nodeLocalMatrix);
 	const cache = new Map();
+	const visiting = new Set();
 	const world = (idx) => {
 		if (cache.has(idx)) return cache.get(idx);
+		// Guard against cyclic parentage in malformed GLBs — treat the cycle root
+		// as a top-level node (identity parent) rather than blowing the call stack.
+		if (visiting.has(idx)) return local[idx].clone();
+		visiting.add(idx);
 		const p = parentOf.get(idx);
 		const m = p == null ? local[idx].clone() : world(p).clone().multiply(local[idx]);
+		visiting.delete(idx);
 		cache.set(idx, m);
 		return m;
 	};

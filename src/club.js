@@ -857,7 +857,7 @@ class PoleStation {
 		// the audio mixer — _endPerformance() won't run because walkPhase is
 		// now 'idle', so we duplicate its cam+audio cleanup here.
 		if (wasPerforming) {
-			if (this._autoCammed && (clubCam.getMode() === 'auto' || clubCam.getMode() === 'vip')) {
+			if (this._autoCammed && clubCam.getMode() === 'auto') {
 				clubCam.setFree();
 			}
 			this._autoCammed = false;
@@ -1768,8 +1768,7 @@ function updatePoleCardStatus(poleId, status) {
 			btnEl.textContent = 'Performing...';
 		} else {
 			btnEl.disabled = false;
-			const meta = DANCER_META[parseInt(poleId, 10) - 1] || DANCER_META[0];
-			btnEl.textContent = `Tip $0.001`;
+			btnEl.textContent = 'Tip $0.001';
 		}
 	}
 	if (progressEl) {

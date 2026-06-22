@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-21T20:51:46.367Z",
+	"generated_at": "2026-06-22T00:53:47.001Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -517,6 +517,16 @@
 					"title": "3D Scanner — Scan Yourself into 3D",
 					"description": "Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.",
 					"added": "2026-05-29",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/dad",
+					"title": "Make Dad a 3D Avatar",
+					"description": "Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.",
+					"added": "2026-06-21",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
