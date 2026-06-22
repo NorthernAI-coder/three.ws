@@ -822,6 +822,13 @@
 			"dest": "/irl-privacy.html"
 		},
 		{
+			"src": "/ibm/x402-demo/",
+			"status": 308,
+			"headers": {
+				"Location": "/ibm/x402-demo"
+			}
+		},
+		{
 			"src": "/ibm/x402-demo",
 			"dest": "/ibm/x402-demo.html"
 		},

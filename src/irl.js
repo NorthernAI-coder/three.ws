@@ -4445,6 +4445,27 @@ syncGhostToggle();
 document.getElementById('irl-cue-mute')?.addEventListener('click', () => setCueMuted(!_cueMuted));
 syncCueMuteButton();
 
+// Immersive toggle — collapse every chrome layer (topbar, bottom panel, radar,
+// room badge, aim HUD, hints) so the live AR view is unobstructed. The joystick
+// and drag-to-orbit stay live underneath, so you can still look around and move
+// the avatar; the toggle itself is the one control left, to bring it all back.
+const immersiveBtn = document.getElementById('irl-immersive-toggle');
+function setImmersive(on) {
+	document.body.classList.toggle('irl-immersive', on);
+	if (!immersiveBtn) return;
+	immersiveBtn.setAttribute('aria-pressed', String(on));
+	const label = on ? 'Show controls' : 'Hide controls';
+	immersiveBtn.setAttribute('aria-label', label);
+	immersiveBtn.title = label;
+}
+immersiveBtn?.addEventListener('click', () => {
+	setImmersive(!document.body.classList.contains('irl-immersive'));
+});
+// Esc restores the chrome on desktop, matching the convention for immersive views.
+window.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && document.body.classList.contains('irl-immersive')) setImmersive(false);
+});
+
 // L3 — Location & privacy center: honest disclosure + discovery precision +
 // presence opt-in + a jump into pin management, all in one designed surface.
 document.getElementById('irl-privacy-btn')?.addEventListener('click', () => {

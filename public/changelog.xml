@@ -63,6 +63,14 @@
 			<description>A walking-avatar embed whose avatar can't load — a deleted or mistyped ID, a private avatar a public page can't read, or a dropped connection — now shows the default avatar walking with a short 'couldn't load that avatar — showing the default' note, instead of leaving an empty, all-dark frame on the host page. The embed always renders a body. The embed editor now flags an avatar ID it can't find with a clear 'not found' marker and tells you to pick a public or unlisted avatar, rather than silently keeping a dead ID. And owners can now load their own private avatar's 3D file when signed in, which previously failed even for the avatar's owner.</description>
 		</item>
 		<item>
+			<title>Fix the location-proof behind IRL 'agents near me'</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-22:Fix the location-proof behind IRL 'agents near me'</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The step that proves you're physically where you say you are — so the 'agents near me' view only reveals pins around your real location, never somewhere you point at from afar — could fail and return an error on every attempt. That same failure meant the privacy check it powers wasn't being enforced. It now works reliably with or without a configured signing secret: locally and in preview it stays open so testing isn't blocked, and in production each nearby read is bound to a genuine, freshly-signed location fix that expires in a few minutes and can't be forged or replayed from a distance. Nothing changes in how you use IRL — your location is still read only to mint the short-lived proof, never stored or logged.</description>
+		</item>
+		<item>
 			<title>Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</title>
 			<link>https://three.ws/forge</link>
 			<guid isPermaLink="false">2026-06-22:Forge polish: engine picker, honest wording, keyboard tabs, full-length remix</guid>
@@ -77,6 +85,14 @@
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The free, no-wallet 'forge a 3D model' widget on the IBM partnership page no longer shows a false 'briefly unreachable' error when the free GPU is cold. It used to fire up to six generation requests behind a single click, which spent the free lane's hourly limit about six times faster — a few tries could lock you out — and a slow cold start would surface as an error even though the model was still on its way. Now it makes one request per click (the server already falls back across NVIDIA, TRELLIS, and Hugging Face on its own), shows honest progress while a cold start warms up (which can take up to a minute), and, if the free lane is genuinely at its hourly limit, says exactly that and when to try again — pointing you to the instant paid Forge above. A model reliably comes back to orbit and download.</description>
+		</item>
+		<item>
+			<title>Hide the controls in IRL for an unobstructed AR view</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-22:Hide the controls in IRL for an unobstructed AR view</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On a phone, the IRL controls (the top bar, the bottom row of buttons, the room badges, the compass and on-screen hints) could cover so much of the screen that you couldn't see the camera view or move your avatar past them. There's now a one-tap hide button on the right edge: tap it and all of that chrome slides away, leaving just the live AR scene — the on-screen joystick and drag-to-look still work, so you can walk around and look about with nothing in the way. Tap the same button (it stays put and glows green) to bring everything back; on a keyboard, Esc restores it too.</description>
 		</item>
 		<item>
 			<title>IBM x402 demo works when embedded in IBM's CMS</title>

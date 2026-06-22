@@ -620,6 +620,10 @@ async function handleX402Discovery(req, res) {
 			serviceName: 'three.ws Agent Reputation',
 			tags: ['reputation', 'agent', 'solana', 'attestation', 'trust'],
 		}),
+		agentBouncer: withService({
+			serviceName: 'three.ws Agent Bouncer',
+			tags: ['reputation', 'erc8004', 'trust', 'gate', 'agent'],
+		}),
 		onchainIdentity: withService({
 			serviceName: 'three.ws Identity Verify',
 			tags: ['identity', 'verification', 'agent', 'trust', 'onchain'],
@@ -920,6 +924,39 @@ async function handleX402Discovery(req, res) {
 								type: 'object',
 								required: ['agent_id'],
 								properties: { agent_id: { type: 'string', format: 'uuid' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/agent-bouncer`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/agent-bouncer',
+						url,
+						method: 'GET',
+						description:
+							'Agent Bouncer — the Pole Club door check, opened to the open agent internet. Given an ERC-8004 agent (agentId, EVM wallet, or eip155:<chain>:<wallet>) and an optional trust policy, read the canonical on-chain Reputation Registry and return an admit/refuse verdict with a door tier (newcomer / regular / trusted / vip). The denylist is the chain’s own negative scores — no private table. Vet a counterparty before paying, hiring, or delegating.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.agentBouncer.serviceName,
+						tags: routeMeta.agentBouncer.tags,
+						iconUrl: routeMeta.agentBouncer.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { agent: '1', chain: 'base', min_average: 4, min_count: 3 },
+							inputSchema: {
+								type: 'object',
+								required: ['agent'],
+								properties: {
+									agent: { type: 'string' },
+									chain: { type: 'string' },
+									min_average: { type: 'number' },
+									min_count: { type: 'integer' },
+									min_stake_eth: { type: 'number' },
+									allow_newcomers: { type: 'boolean' },
+								},
 							},
 						}),
 					};

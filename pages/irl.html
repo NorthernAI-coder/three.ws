@@ -229,6 +229,66 @@
 		.irl-glasses-btn { padding: 6px; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; }
 		.irl-glasses-btn.is-connected { color: #7aa2ff; border-color: rgba(122,162,255,0.45); background: rgba(79,124,255,0.12); }
 
+		/* ── Immersive mode ──────────────────────────────────────────
+		   One tap collapses every chrome layer (topbar, bottom panel,
+		   radar, room badge, aim HUD, hints) so the live AR view is
+		   unobstructed and you can look around / drive the avatar. The
+		   joystick + drag-to-orbit stay live underneath. The toggle is
+		   the lone control left on screen, so it survives the collapse. */
+		.irl-immersive-toggle {
+			position: fixed;
+			top: 50%;
+			right: 10px;
+			transform: translateY(-50%);
+			z-index: 12;
+			width: 44px;
+			height: 44px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 50%;
+			border: 1px solid rgba(255,255,255,0.2);
+			background: rgba(0,0,0,0.5);
+			backdrop-filter: blur(10px);
+			-webkit-backdrop-filter: blur(10px);
+			color: var(--text-2);
+			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
+			transition: color 0.15s, border-color 0.15s, background 0.15s, transform 0.12s;
+		}
+		.irl-immersive-toggle:hover { color: var(--text); border-color: var(--text-3); }
+		.irl-immersive-toggle:active { transform: translateY(-50%) scale(0.92); }
+		.irl-immersive-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+		.irl-immersive-toggle .irl-eye-show { display: none; }
+		body.irl-immersive .irl-immersive-toggle .irl-eye-hide { display: none; }
+		body.irl-immersive .irl-immersive-toggle .irl-eye-show { display: inline; }
+		/* Immersive: the lone control glows green so it stays findable over the scene */
+		body.irl-immersive .irl-immersive-toggle {
+			color: var(--green);
+			border-color: rgba(74,222,128,0.5);
+			background: rgba(0,0,0,0.34);
+		}
+
+		/* Panels slide off-screen; floating chrome fades. */
+		.irl-topbar, .irl-bottom {
+			transition: transform 0.32s cubic-bezier(0.22,1,0.36,1), opacity 0.26s ease;
+		}
+		#irl-radar, #irl-dx-help, #irl-keys, #irl-discovery-empty,
+		.irl-room-badge, #irl-aim-hud {
+			transition: opacity 0.26s ease;
+		}
+		body.irl-immersive .irl-topbar { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+		body.irl-immersive .irl-bottom { transform: translateY(100%); opacity: 0; pointer-events: none; }
+		body.irl-immersive #irl-radar,
+		body.irl-immersive #irl-dx-help,
+		body.irl-immersive #irl-keys,
+		body.irl-immersive #irl-discovery-empty,
+		body.irl-immersive .irl-room-badge,
+		body.irl-immersive #irl-aim-hud {
+			opacity: 0;
+			pointer-events: none;
+		}
+
 		/* ── Joystick ────────────────────────────────────────────── */
 		#irl-joystick {
 			position: fixed;
@@ -1876,6 +1936,14 @@
 	</button>
 	<button class="irl-share-btn" id="irl-share-btn" type="button" aria-label="Share">Share</button>
 </header>
+
+<!-- Immersive toggle — collapses all chrome so the AR view is unobstructed.
+     Lives outside the topbar so it survives the collapse and remains the one
+     control on screen to bring everything back. -->
+<button class="irl-immersive-toggle" id="irl-immersive-toggle" type="button" aria-pressed="false" aria-label="Hide controls" title="Hide controls">
+	<svg class="irl-eye-hide" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+	<svg class="irl-eye-show" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+</button>
 
 <!-- Proximity-arrival cue (task 03): a transient "look around" banner when a new
      agent enters your ~40 m bubble. aria-live polite so a screen reader announces

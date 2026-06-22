@@ -10,9 +10,12 @@
 // or pass a numeric chainId.
 //
 // The result includes:
-//   - aggregate reputation (totalScore + count + average) via getReputation
+//   - aggregate reputation (average + count) via getReputation. The contract
+//     returns (int256 avgX100, uint256 count): the average ALREADY ×100, signed
+//     so reputation can be negative. We divide by 100 — never by count — and
+//     preserve the sign.
 //   - total ETH staked on the agent's vouches via getTotalStake
-//   - recent ReputationSubmitted + ReputationStaked events (latest 25)
+//   - recent FeedbackSubmitted + ReputationStaked events (latest 25)
 //   - the agent's URI + wallet (Identity Registry) when resolvable
 //
 // All numeric responses are returned both as decimal strings (for safe
@@ -38,10 +41,17 @@ const IDENTITY_REGISTRY_ABI = [
 	'function totalSupply() external view returns (uint256)',
 ];
 
+// Mirrors the deployed ReputationRegistry exactly (contracts/src/
+// ReputationRegistry.sol, canonical in src/erc8004/abi.js):
+//   getReputation → (int256 avgX100, uint256 count)  — average ×100, signed
+//   FeedbackSubmitted(agentId, from, int8 score, string uri)  — NOT
+//     "ReputationSubmitted(...uint8 score, string comment)", which is a
+//     different event topic the registry never emits (so the old filter always
+//     returned zero vouches).
 const REPUTATION_REGISTRY_ABI = [
-	'function getReputation(uint256 agentId) external view returns (uint256 totalScore, uint256 count)',
+	'function getReputation(uint256 agentId) external view returns (int256 avgX100, uint256 count)',
 	'function getTotalStake(uint256 agentId) external view returns (uint256)',
-	'event ReputationSubmitted(uint256 indexed agentId, address indexed submitter, uint8 score, string comment)',
+	'event FeedbackSubmitted(uint256 indexed agentId, address indexed from, int8 score, string uri)',
 	'event ReputationStaked(uint256 indexed agentId, address indexed staker, uint8 score, uint256 value)',
 ];
 
@@ -131,13 +141,15 @@ async function readReputationAggregate(provider, agentId) {
 		rep.getReputation(agentId),
 		rep.getTotalStake(agentId),
 	]);
-	const [totalScore, count] = agg;
-	const totalScoreNum = Number(totalScore);
+	const [avgX100, count] = agg;
 	const countNum = Number(count);
+	// getReputation returns the average already multiplied by 100 (signed).
+	// average = avgX100 / 100. Dividing by count again is the bug this avoids;
+	// Number() on a possibly-negative BigInt preserves the sign.
 	return {
-		totalScore: totalScore.toString(),
+		averageX100: avgX100.toString(),
+		average: countNum > 0 ? Number(avgX100) / 100 : null,
 		count: count.toString(),
-		average: countNum > 0 ? totalScoreNum / countNum : null,
 		totalStakeWei: totalStake.toString(),
 	};
 }
@@ -152,16 +164,16 @@ async function readRecentEvents(provider, agentId) {
 	const latest = await provider.getBlockNumber();
 	const from = Math.max(0, latest - LOG_WINDOW_BLOCKS);
 	const [submitted, staked] = await Promise.all([
-		rep.queryFilter(rep.filters.ReputationSubmitted(agentId), from, latest),
+		rep.queryFilter(rep.filters.FeedbackSubmitted(agentId), from, latest),
 		rep.queryFilter(rep.filters.ReputationStaked(agentId), from, latest),
 	]);
 	const submittedDecoded = submitted.map((e) => ({
 		kind: 'submitted',
 		blockNumber: e.blockNumber,
 		txHash: e.transactionHash,
-		submitter: e.args?.submitter,
+		submitter: e.args?.from,
 		score: Number(e.args?.score),
-		comment: e.args?.comment || '',
+		comment: e.args?.uri || '',
 	}));
 	const stakedDecoded = staked.map((e) => ({
 		kind: 'staked',
@@ -212,7 +224,7 @@ export async function buildAgentReputationTool() {
 				chain: 'base',
 				agentId: '1',
 				identity: { owner: '0x...', agentWallet: '0x...', uri: 'ipfs://...' },
-				reputation: { totalScore: '42', count: '6', average: 7, totalStakeWei: '0' },
+				reputation: { averageX100: '420', average: 4.2, count: '6', totalStakeWei: '0' },
 				events: [{ kind: 'submitted', score: 5, submitter: '0x...', comment: '' }],
 			},
 		},
