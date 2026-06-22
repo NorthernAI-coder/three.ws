@@ -231,6 +231,9 @@ function setSlot(slot, file) {
 	state.files[slot] = file;
 	renderSlot(slot);
 	updateSubmit();
+	// Let the page assess the freshly-added photo and warn early (before the
+	// minute-long build) if it's a drawing, blurry, or has no face.
+	document.dispatchEvent(new CustomEvent('selfie:photo-added', { detail: { slot, file } }));
 }
 
 /** @param {string} slot */

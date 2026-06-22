@@ -368,6 +368,10 @@ function setMode(next) {
 	// so each mode only offers engines that can actually take its input.
 	if (catalog) buildEngineButtons();
 	updateAspectVisibility();
+	// The estimate caption is tab-aware (text → "renders a preview"; photos →
+	// "builds from your reference photos"), so refresh it when the tab changes
+	// even if the selected engine stays put.
+	updateEstimate();
 	if (mode === 'text') els.prompt.focus();
 	if (mode === 'sketch' && sketch.state === 'empty') sketchSlotEl()?.focus();
 }
@@ -806,15 +810,18 @@ function updateEstimate() {
 		(e) => e.tier === selectedTier,
 	);
 	// Holder-readable, not pipeline-internal: say how long it usually takes and
-	// what the engine does, in plain words. The mechanism ("builds from a
-	// reference image") replaces jargon like "image-intermediate · fast path".
+	// what the engine does, in plain words — and stay honest to the active tab.
+	// On the "Describe it" (text) tab the image-path engines synthesize a preview
+	// from the prompt first, so "builds from a reference image" would be wrong —
+	// the user supplied no image. Only the photos tab builds from a real reference.
 	const parts = [`<strong>${tierMeta.label}</strong>`, costSegment(backend, tierMeta)];
 	if (est?.eta_seconds) parts.push(`usually ~${est.eta_seconds}s`);
 	if (est && est.credits != null) parts.push(`~${est.credits} credits`);
 	if (backend.poly_control) parts.push(`up to ${tierMeta.polycount.toLocaleString()} polygons`);
 	if (selectedEngine.path === 'geometry') parts.push('shapes geometry straight from the prompt');
 	else if (selectedEngine.path === 'sketch') parts.push('untextured geometry from your sketch');
-	else parts.push('builds from a reference image');
+	else if (mode === 'image') parts.push('builds from your reference photos');
+	else parts.push('renders a preview image, then builds 3D');
 	els.estimate.innerHTML = parts.join(' · ');
 }
 

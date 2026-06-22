@@ -27,7 +27,6 @@
  * and never throws into the capture flow.
  */
 
-import { detectFaceBox } from './avatar-face-capture.js';
 import { log } from './shared/log.js';
 
 // MediaPipe tasks-vision — same pinned build the face stack uses, so the WASM
@@ -40,6 +39,10 @@ const WASM_ROOT =
 // mask: per-pixel probability the pixel belongs to the person.
 const SELFIE_MODEL_URL =
 	'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite';
+// BlazeFace short-range detector (Apache-2.0): bounding boxes + count. Cheaper
+// than the 478-point landmarker and the right tool for "where/how many faces".
+const FACE_DETECTOR_MODEL_URL =
+	'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite';
 
 // Working resolution: cap the longest edge so the matte + reframe stay fast on
 // phones. The output square is rendered at OUTPUT_SIZE regardless.
@@ -337,8 +340,69 @@ async function loadSegmenter() {
 	return _segmenterPromise;
 }
 
-/** Pre-warm the segmentation model (overlap with camera/permission UI). */
+let _detectorPromise = null;
+
+/** Lazy-load the BlazeFace detector. Resolves null (never throws) on failure. */
+async function loadFaceDetector() {
+	if (_detectorPromise) return _detectorPromise;
+	_detectorPromise = (async () => {
+		const mod = await import(/* @vite-ignore */ TASKS_VISION_URL);
+		const { FilesetResolver, FaceDetector } = mod;
+		const vision = await FilesetResolver.forVisionTasks(WASM_ROOT);
+		return FaceDetector.createFromOptions(vision, {
+			baseOptions: { modelAssetPath: FACE_DETECTOR_MODEL_URL, delegate: 'GPU' },
+			runningMode: 'IMAGE',
+		});
+	})().catch((err) => {
+		_detectorPromise = null;
+		log.warn('[selfie-refine] face detector load failed:', err);
+		return null;
+	});
+	return _detectorPromise;
+}
+
+/**
+ * Detect faces and return the largest as a normalised box plus the total count.
+ * Coordinates are fractions of the image (0..1) so the box is resolution
+ * independent. Returns null when no face is found or the detector is
+ * unavailable.
+ *
+ * @param {ImageBitmap|HTMLImageElement|HTMLCanvasElement} bitmap
+ * @returns {Promise<{ x:number, y:number, w:number, h:number, count:number } | null>}
+ */
+export async function detectFaceBox(bitmap) {
+	const detector = await loadFaceDetector();
+	if (!detector) return null;
+	const { w, h } = dimsOf(bitmap);
+	if (!w || !h) return null;
+	const res = detector.detect(bitmap);
+	const dets = res?.detections || [];
+	if (!dets.length) return null;
+	// Largest by area — the subject, not a bystander in the background.
+	let best = null;
+	let bestArea = -1;
+	for (const d of dets) {
+		const b = d.boundingBox;
+		if (!b) continue;
+		const area = b.width * b.height;
+		if (area > bestArea) {
+			bestArea = area;
+			best = b;
+		}
+	}
+	if (!best) return null;
+	return {
+		x: best.originX / w,
+		y: best.originY / h,
+		w: best.width / w,
+		h: best.height / h,
+		count: dets.length,
+	};
+}
+
+/** Pre-warm the detection + segmentation models (overlap with camera UI). */
 export function warmRefiner() {
+	loadFaceDetector().catch(() => {});
 	loadSegmenter().catch(() => {});
 }
 
@@ -496,7 +560,28 @@ export async function refineSelfie(bitmap, opts = {}) {
 		0, 0, OUTPUT_SIZE, OUTPUT_SIZE,
 	);
 
-	return { dataUrl: out.toDataURL('image/jpeg', JPEG_QUALITY), isolated };
+	const dataUrl = await canvasToDataUrl(out, JPEG_QUALITY);
+	return { dataUrl, isolated };
+}
+
+/**
+ * Data URL from either a DOM canvas (toDataURL) or an OffscreenCanvas
+ * (convertToBlob → FileReader), so the working canvas can be either.
+ * @param {HTMLCanvasElement|OffscreenCanvas} canvas
+ * @param {number} quality
+ * @returns {Promise<string>}
+ */
+async function canvasToDataUrl(canvas, quality) {
+	if (typeof canvas.toDataURL === 'function') {
+		return canvas.toDataURL('image/jpeg', quality);
+	}
+	const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+	return await new Promise((resolve, reject) => {
+		const fr = new FileReader();
+		fr.onload = () => resolve(/** @type {string} */ (fr.result));
+		fr.onerror = () => reject(fr.error || new Error('blob read failed'));
+		fr.readAsDataURL(blob);
+	});
 }
 
 /** Largest centred square within (w,h). */

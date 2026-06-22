@@ -531,6 +531,23 @@
 				color: var(--ink-dim);
 				min-width: 4.2rem;
 			}
+			/* The engine picker carries far more lanes (8) than the other segmented
+			   controls (Quality 3, Aspect 4), so it can't sit on one line — it grows
+			   to the form column and wraps to multiple rows inside its pill instead
+			   of overflowing. The label tops the block so it lines up with the first
+			   row of buttons rather than floating centered against a tall pill. */
+			.fq-row--engine {
+				align-items: flex-start;
+			}
+			.fq-row--engine .fq-label {
+				padding-top: 0.34rem;
+			}
+			.engine-pill {
+				flex: 1 1 auto;
+				flex-wrap: wrap;
+				row-gap: 2px;
+				justify-content: flex-start;
+			}
 			/* forge.js hides the #aspect control itself when the mode makes it
 			   irrelevant — collapse the labeled row with it, no orphan label. */
 			/* High is a $THREE holder perk — a small lock pill on the button makes
@@ -2804,10 +2821,10 @@
 						<span class="fq-holder-ico" aria-hidden="true">◆</span> High quality is a
 						<a href="/three-token">$THREE holder</a> feature — hold to unlock, or pay per generation.
 					</p>
-					<div class="fq-row">
+					<div class="fq-row fq-row--engine">
 						<span class="fq-label" id="engine-label">Engine</span>
 						<div
-							class="aspect"
+							class="aspect engine-pill"
 							role="group"
 							aria-labelledby="engine-label"
 							id="engine"
