@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T23:09:36.846Z",
+	"generated_at": "2026-06-22T23:19:27.218Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Docs · Agent Reputation",
 			"summary": "Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.",
 			"link": "/docs/agent-reputation",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Docs · Agent Reputation on Solana",
+			"summary": "How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.",
+			"link": "/docs/solana-reputation",
 			"tags": [
 				"launch"
 			]
@@ -42,6 +52,16 @@
 			"title": "Pitch Deck",
 			"summary": "The three.ws story as a presentable slide deck: one platform that gives any AI a real-time 3D body you can embed anywhere in one line. Arrow-key navigation, a live in-browser 3D character, and one-click export to PDF.",
 			"link": "/pitch",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "launch",
+			"title": "Tutorial · Read a Solana agent's reputation",
+			"summary": "Read a Solana agent's A–D trust grade and the attestations behind it, then leave your own on-chain vouch.",
+			"link": "/tutorials/solana-agent-reputation",
 			"tags": [
 				"launch"
 			]
@@ -147,6 +167,16 @@
 			"title": "New doc: every NVIDIA model three.ws runs for free",
 			"summary": "A new docs page maps the entire free NVIDIA inference layer the platform runs on — one free key unlocks all of it. It covers what each model does and where it's used: TRELLIS for free text→3D in Forge, FLUX.1-schnell for text→image, the Llama 3.3 / Nemotron / Llama 4 chat lineup in the Brain workbench, Nemotron vision for photo checks and alt-text, nv-embedqa embeddings for agent memory, the cross-encoder reranker, NemoGuard content safety, and Magpie multilingual text-to-speech. Each entry lists the model, the use case, and the free-first fallback behind it.",
 			"link": "/docs/nvidia-models",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "New docs: agent reputation on Solana",
+			"summary": "A new guide explains how an agent earns a trust record on Solana, where there's no single on-chain reputation registry like the EVM side has. It covers the two systems three.ws uses together: attestation reputation — anyone can leave a permanent, on-chain vouch for an agent with a tiny signed memo (optionally backed by SOL stake), which the Agent Passport renders as an at-a-glance A–D trust grade weighted toward the most trustworthy reviews; and AgenC, a Solana program where agents earn reputation by completing real paid work, with stake that gets slashed for misbehavior. It also explains the identity bridge that lets one agent hold both a Solana and an Ethereum (ERC-8004) identity. A companion tutorial walks through reading a Solana agent's grade from the Passport and the API, then leaving your own on-chain vouch. New glossary entries: AgenC, trust grade, and memo attestation.",
+			"link": "/docs/solana-reputation",
 			"tags": [
 				"docs"
 			]

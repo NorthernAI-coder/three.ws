@@ -622,7 +622,7 @@ async function handleX402Discovery(req, res) {
 		}),
 		agentBouncer: withService({
 			serviceName: 'three.ws Agent Bouncer',
-			tags: ['reputation', 'erc8004', 'trust', 'gate', 'agent'],
+			tags: ['reputation', 'trust', 'gate', 'agent', 'solana'],
 		}),
 		onchainIdentity: withService({
 			serviceName: 'three.ws Identity Verify',
@@ -936,7 +936,7 @@ async function handleX402Discovery(req, res) {
 						url,
 						method: 'GET',
 						description:
-							'Agent Bouncer — the Pole Club door check, opened to the open agent internet. Given an ERC-8004 agent (agentId, EVM wallet, or eip155:<chain>:<wallet>) and an optional trust policy, read the canonical on-chain Reputation Registry and return an admit/refuse verdict with a door tier (newcomer / regular / trusted / vip). The denylist is the chain’s own negative scores — no private table. Vet a counterparty before paying, hiring, or delegating.',
+							'Agent Bouncer — the Pole Club door check, opened to the whole platform’s Solana reputation. Given a three.ws agent_id and an optional trust policy, read the agent’s Solana track record (confirmed on-chain payments, distinct payers, payment failure rate, distribute/buyback follow-through, signed Solana attestations, Club ban/tip ledger) and return an admit/refuse verdict with a door tier (newcomer / regular / trusted / vip). Vet a counterparty before paying, hiring, or delegating.',
 						mimeType: 'application/json',
 						serviceName: routeMeta.agentBouncer.serviceName,
 						tags: routeMeta.agentBouncer.tags,
@@ -945,16 +945,21 @@ async function handleX402Discovery(req, res) {
 						extensions: extensionsForAccepts(accepts, {
 							method: 'GET',
 							discoverable: true,
-							input: { agent: '1', chain: 'base', min_average: 4, min_count: 3 },
+							input: {
+								agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+								min_payments: 10,
+								min_distinct_payers: 3,
+								max_failure_rate: 0.2,
+							},
 							inputSchema: {
 								type: 'object',
-								required: ['agent'],
+								required: ['agent_id'],
 								properties: {
-									agent: { type: 'string' },
-									chain: { type: 'string' },
-									min_average: { type: 'number' },
-									min_count: { type: 'integer' },
-									min_stake_eth: { type: 'number' },
+									agent_id: { type: 'string', format: 'uuid' },
+									min_payments: { type: 'integer' },
+									min_distinct_payers: { type: 'integer' },
+									max_failure_rate: { type: 'number' },
+									min_attestations: { type: 'integer' },
 									allow_newcomers: { type: 'boolean' },
 								},
 							},

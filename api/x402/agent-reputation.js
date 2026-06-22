@@ -16,9 +16,11 @@ import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
-import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { isUuid } from '../_lib/validate.js';
+// Shared with /api/x402/agent-bouncer so the raw reputation snapshot and the
+// admit/refuse verdict are computed from one source of truth.
+import { loadAgentReputation } from '../_lib/trust/solana-bouncer.js';
 
 const ROUTE = '/api/x402/agent-reputation';
 
@@ -154,137 +156,6 @@ const BAZAAR = {
 	}),
 };
 
-async function loadReputation(agentId) {
-	// Resolve the agent's Metaplex Core asset pubkey (the column attestations
-	// are indexed by). Canonical write path is meta.onchain.sol_asset; legacy
-	// rows wrote meta.sol_mint_address. Without this, the attestation counts
-	// would silently return 0 for any agent whose asset pubkey isn't equal to
-	// their wallet — which is the typical case.
-	const [agentRow] = await sql`
-		select
-			id,
-			name,
-			wallet_address,
-			coalesce(meta->'onchain'->>'sol_asset', meta->>'sol_mint_address') as agent_asset
-		  from agent_identities
-		 where id = ${agentId} and deleted_at is null
-		 limit 1
-	`;
-	if (!agentRow) {
-		const err = new Error('agent_id not found');
-		err.status = 404;
-		err.code = 'agent_not_found';
-		throw err;
-	}
-
-	const mints = await sql`
-		select id, mint, network, symbol
-		  from pump_agent_mints
-		 where agent_id = ${agentId}
-		 order by created_at asc
-	`;
-	const mintIds = mints.map((m) => m.id);
-
-	if (mintIds.length === 0) {
-		return {
-			agent_id: agentId,
-			name: agentRow.name,
-			wallet_address: agentRow.wallet_address || null,
-			deployed_mints: 0,
-			mints: [],
-			payments: {
-				confirmed_count: 0,
-				confirmed_amount_atomics: '0',
-				distinct_payers: 0,
-				failed_count: 0,
-				failure_rate: 0,
-			},
-			distributions: { confirmed: 0, failed: 0, success_rate: 0 },
-			buybacks: { confirmed: 0, failed: 0, total_burn_atomics: '0' },
-			attestations: { feedback_count: 0, validation_count: 0, latest_attested_at: null },
-			indexed_at: new Date().toISOString(),
-		};
-	}
-
-	const [payRow] = await sql`
-		select
-			coalesce(sum(case when status = 'confirmed' then amount_atomics else 0 end), 0)::text
-				as confirmed_amount,
-			count(*) filter (where status = 'confirmed')::int as confirmed_count,
-			count(*) filter (where status = 'failed')::int    as failed_count,
-			count(distinct case when status = 'confirmed' then payer_wallet end)::int
-				as distinct_payers
-		  from pump_agent_payments
-		 where mint_id = any(${mintIds})
-	`;
-
-	const [distRow] = await sql`
-		select
-			count(*) filter (where status = 'confirmed')::int as confirmed,
-			count(*) filter (where status = 'failed')::int    as failed
-		  from pump_distribute_runs
-		 where mint_id = any(${mintIds})
-	`;
-
-	const [buyRow] = await sql`
-		select
-			count(*) filter (where status = 'confirmed')::int as confirmed,
-			count(*) filter (where status = 'failed')::int    as failed,
-			coalesce(sum(case when status = 'confirmed' then burn_amount else 0 end), 0)::text
-				as total_burn
-		  from pump_buyback_runs
-		 where mint_id = any(${mintIds})
-	`;
-
-	const [attRow] = agentRow.agent_asset
-		? await sql`
-			select
-				count(*) filter (where kind like 'threews.feedback%')::int   as feedback_count,
-				count(*) filter (where kind like 'threews.validation%')::int as validation_count,
-				max(block_time)                                              as latest_attested_at
-			  from solana_attestations
-			 where agent_asset = ${agentRow.agent_asset}
-			   and revoked = false
-		`
-		: [{ feedback_count: 0, validation_count: 0, latest_attested_at: null }];
-
-	const totalPayments = payRow.confirmed_count + payRow.failed_count;
-	const totalDistribs = distRow.confirmed + distRow.failed;
-
-	return {
-		agent_id: agentId,
-		name: agentRow.name,
-		wallet_address: agentRow.wallet_address || null,
-		deployed_mints: mints.length,
-		mints: mints.map((m) => ({ mint: m.mint, network: m.network, symbol: m.symbol })),
-		payments: {
-			confirmed_count: payRow.confirmed_count,
-			confirmed_amount_atomics: payRow.confirmed_amount,
-			distinct_payers: payRow.distinct_payers,
-			failed_count: payRow.failed_count,
-			failure_rate: totalPayments ? payRow.failed_count / totalPayments : 0,
-		},
-		distributions: {
-			confirmed: distRow.confirmed,
-			failed: distRow.failed,
-			success_rate: totalDistribs ? distRow.confirmed / totalDistribs : 0,
-		},
-		buybacks: {
-			confirmed: buyRow.confirmed,
-			failed: buyRow.failed,
-			total_burn_atomics: buyRow.total_burn,
-		},
-		attestations: {
-			feedback_count: attRow.feedback_count,
-			validation_count: attRow.validation_count,
-			latest_attested_at: attRow.latest_attested_at
-				? new Date(attRow.latest_attested_at).toISOString()
-				: null,
-		},
-		indexed_at: new Date().toISOString(),
-	};
-}
-
 export default paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
@@ -320,6 +191,6 @@ export default paidEndpoint({
 			err.code = 'invalid_agent_id';
 			throw err;
 		}
-		return loadReputation(agentId);
+		return loadAgentReputation(agentId);
 	},
 });

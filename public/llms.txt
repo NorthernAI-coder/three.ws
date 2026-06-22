@@ -172,6 +172,7 @@ Docs, tutorials, and reference.
 - [Docs · Agent Reputation](https://three.ws/docs/agent-reputation): Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.
 - [Docs · Reputation System](https://three.ws/docs/reputation): Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.
 - [Docs · Validation Attestations](https://three.ws/docs/validation): Record and read on-chain attestations that an agent's 3D model passes glTF validation.
+- [Docs · Agent Reputation on Solana](https://three.ws/docs/solana-reputation): How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.
 - [Docs · Embedding](https://three.ws/docs/embedding): Embed an agent via iframe, oEmbed, or the <agent-3d> web component.
 - [Docs · <agent-3d>](https://three.ws/docs/web-component): Reference for the <agent-3d> custom element.
 - [Docs · MCP](https://three.ws/docs/mcp): Expose your agent as an MCP server for Claude, ChatGPT, and other clients.
@@ -186,6 +187,7 @@ Docs, tutorials, and reference.
 - [Tutorial · Prompt Recipes for 3D Generation](https://three.ws/tutorials/prompts-for-3d): A copy-paste prompt cookbook for 3D generation: game props, furniture, characters, vehicles, food — and the four rules behind every good prompt.
 - [Tutorial · Generate 3D Models from Code](https://three.ws/tutorials/generate-3d-api): Use the Forge as a plain HTTP API: submit prompts, poll jobs, download GLBs, batch asset packs, and pay per call with x402.
 - [Tutorial · Read an agent's reputation](https://three.ws/tutorials/agent-reputation): Read any registered agent's ERC-8004 reputation from the UI, the REST API, the MCP tool, the SDK, or the contract.
+- [Tutorial · Read a Solana agent's reputation](https://three.ws/tutorials/solana-agent-reputation): Read a Solana agent's A–D trust grade and the attestations behind it, then leave your own on-chain vouch.
 - [Status](https://three.ws/status): Live operational status and 90-day uptime history for the platform, API, and x402 surfaces — probed every 5 minutes.
 - [Glossary](https://three.ws/glossary): Plain-English definitions for the crypto and agent terms used across three.ws — no jargon required to get started.
 - [Support](https://three.ws/support): Get help with three.ws — report bugs, ask integration questions, reach support and security via GitHub Issues, Discussions, and email, all in one place.

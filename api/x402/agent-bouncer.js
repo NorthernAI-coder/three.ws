@@ -1,79 +1,83 @@
-// GET /api/x402/agent-bouncer?agent=<id|wallet|caip10>&chain=base&min_average=&min_count=
+// GET /api/x402/agent-bouncer?agent_id=<uuid>&min_payments=&min_distinct_payers=&max_failure_rate=
 //
-// The Pole Club's door bouncer, opened up to the whole agent internet.
+// The Pole Club's door bouncer, opened up to the whole platform's Solana
+// reputation.
 //
-// The Club's bouncer (/api/x402/club-cover) decides admission from a Postgres
-// table only three.ws can see — so a VIP at our door is a stranger everywhere
-// else. This endpoint answers the SAME question — "should I engage this agent?"
-// — from the open, portable signal instead: ERC-8004 on-chain reputation,
-// readable at one address on 12 chains. The denylist is the chain's own
-// negative scores; the door tier (newcomer/regular/trusted/vip) is earned
-// across every platform that writes the same registries. A verdict here is
-// useful to an agent that has never heard of three.ws.
+// The Club's door (/api/x402/club-cover) decides admission from a wallet's club
+// history alone — so it only knows what happened at our venue. This endpoint
+// answers the SAME question — "should I engage this agent?" — from every Solana
+// signal three.ws indexes about a three.ws agent: confirmed on-chain payments
+// and distinct payers (pump_agent_payments), distribute/buyback follow-through,
+// signed Solana memo attestations (solana_attestations), and the Club's own
+// ban/tip ledger. It returns an admit/refuse verdict with a door tier
+// (newcomer / regular / trusted / vip).
 //
-// This is the DECISION, not the data: /api/x402/agent-reputation and the
-// agent_reputation MCP tool return the raw reputation; this returns an
-// admit/refuse verdict + tier against a caller-supplied policy. "x402 handles
-// how agents pay; ERC-8004 handles whether they should" — this is the second
-// half, as a service any agent can call before paying a counterparty.
+// This is the DECISION, not the data: /api/x402/agent-reputation returns the raw
+// snapshot; this returns a policy verdict over it. "x402 handles how agents pay;
+// reputation handles whether they should" — this is the second half, as a
+// service any agent can call before paying, hiring, or delegating to a peer.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
-import { isAddress } from 'ethers';
-import { vetAgent, chainNameFor, DEFAULT_CHAIN_ID } from '../_lib/trust/agent-bouncer.js';
+import { isUuid } from '../_lib/validate.js';
+import { vetSolanaAgent } from '../_lib/trust/solana-bouncer.js';
 
 const ROUTE = '/api/x402/agent-bouncer';
 
 const DESCRIPTION =
-	'three.ws Agent Bouncer — the open-network door check. Given an ERC-8004 ' +
-	'agent (agentId, EVM wallet, or eip155:<chain>:<wallet> CAIP-10) and an ' +
-	'optional trust policy, read the canonical on-chain Reputation Registry and ' +
-	'return an admit/refuse verdict with a door tier (newcomer / regular / ' +
-	'trusted / vip). The denylist is the chain’s own negative scores — no ' +
-	'private table. Use it to vet a counterparty before paying, hiring, or ' +
-	'delegating to it. Pay-per-call in USDC on Base or Solana mainnet.';
+	'three.ws Agent Bouncer — the platform door check. Given a three.ws agent_id ' +
+	'and an optional trust policy, read the agent’s whole Solana track record ' +
+	'(confirmed on-chain payments, distinct payers, payment failure rate, ' +
+	'distribute/buyback follow-through, signed Solana attestations, and the Club ' +
+	'ban/tip ledger) and return an admit/refuse verdict with a door tier ' +
+	'(newcomer / regular / trusted / vip). Behavioral reputation from real ' +
+	'settled Solana actions — not a star rating. Use it to vet a counterparty ' +
+	'before paying, hiring, or delegating. Pay-per-call in USDC on Solana or Base.';
 
-// Friendly chain names → chainId. Mirrors the agent_reputation MCP tool so an
-// agent can pass the same `chain` either place. CAIP-10 input overrides this.
-const CHAIN_IDS = {
-	base: 8453,
-	ethereum: 1,
-	arbitrum: 42161,
-	optimism: 10,
-	polygon: 137,
-	bsc: 56,
-	avalanche: 43114,
-	celo: 42220,
-	linea: 59144,
-	scroll: 534352,
+const INPUT_EXAMPLE = {
+	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+	min_payments: 10,
+	min_distinct_payers: 3,
+	max_failure_rate: 0.2,
 };
-
-const INPUT_EXAMPLE = { agent: '1', chain: 'base', min_average: 4, min_count: 3 };
 
 const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['agent'],
+	required: ['agent_id'],
 	properties: {
-		agent: {
+		agent_id: {
 			type: 'string',
-			description:
-				'ERC-8004 agentId (uint), EVM wallet (0x…), or CAIP-10 "eip155:<chainId>:<wallet>".',
+			format: 'uuid',
+			description: 'three.ws agent_id (UUID). Returned by /api/agents and /api/agent-page.',
 		},
-		chain: {
-			type: 'string',
-			description:
-				'Chain to read (default base). Name (base, ethereum, arbitrum, optimism, polygon, bsc, avalanche, celo, linea, scroll) or numeric chainId. Overridden by a CAIP-10 agent value.',
+		min_payments: {
+			type: 'integer',
+			minimum: 0,
+			description: 'Required confirmed on-chain payments to admit (default 0).',
 		},
-		min_average: { type: 'number', description: 'Required average score to admit (default 0 = no minimum).' },
-		min_count: { type: 'integer', minimum: 0, description: 'Required number of on-chain reviews (default 0).' },
-		min_stake_eth: { type: 'number', minimum: 0, description: 'Required total ETH staked on vouches (default 0).' },
+		min_distinct_payers: {
+			type: 'integer',
+			minimum: 0,
+			description: 'Required distinct paying wallets (default 0).',
+		},
+		max_failure_rate: {
+			type: 'number',
+			minimum: 0,
+			maximum: 1,
+			description: 'Maximum tolerated payment failure rate, 0–1 (default 1 = no cap).',
+		},
+		min_attestations: {
+			type: 'integer',
+			minimum: 0,
+			description: 'Required signed Solana attestations (feedback + validation; default 0).',
+		},
 		allow_newcomers: {
 			type: 'boolean',
-			description: 'Admit agents with zero on-chain history (default true).',
+			description: 'Admit agents with no Solana track record (default true).',
 		},
 	},
 };
@@ -84,47 +88,55 @@ const OUTPUT_EXAMPLE = {
 	banned: false,
 	tier: 'trusted',
 	reason: null,
-	registered: true,
-	agentId: '1',
-	wallet: null,
-	chain: 'Base',
-	chainId: 8453,
-	registry: 'eip155:8453:0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
-	reputation: { average: 4.6, count: 7, totalStakeWei: '2000000000000000', totalStakeEth: 0.002 },
-	policy: { minAverage: 4, minCount: 3, minStakeWei: '0', allowNewcomers: true, banNegative: true },
+	newcomer: false,
+	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+	name: 'Helios',
+	wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+	visits: 4,
+	reputation: {
+		deployed_mints: 2,
+		payments: {
+			confirmed_count: 142,
+			confirmed_amount_atomics: '142000000',
+			distinct_payers: 87,
+			failed_count: 3,
+			failure_rate: 0.021,
+		},
+		distributions: { confirmed: 12, failed: 1, success_rate: 0.923 },
+		buybacks: { confirmed: 5, failed: 0, total_burn_atomics: '500000000' },
+		attestations: { feedback_count: 14, validation_count: 8, latest_attested_at: '2026-05-12T08:21:00Z' },
+	},
+	policy: {
+		minPayments: 10,
+		minDistinctPayers: 3,
+		maxFailureRate: 0.2,
+		minAttestations: 0,
+		allowNewcomers: true,
+	},
 	fetchedAt: '2026-06-22T17:00:00.000Z',
 };
 
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['ok', 'admitted', 'banned', 'tier', 'reputation', 'chainId'],
+	required: ['ok', 'admitted', 'banned', 'tier', 'agent_id', 'reputation'],
 	properties: {
 		ok: { type: 'boolean', const: true },
 		admitted: { type: 'boolean', description: 'true when the agent clears the policy and is not banned.' },
-		banned: { type: 'boolean', description: 'true when on a denylist or net-negative on-chain.' },
+		banned: { type: 'boolean', description: 'true when the agent’s wallet is on the Club ban list.' },
 		tier: {
 			type: 'string',
 			enum: ['newcomer', 'regular', 'trusted', 'vip', 'banned'],
-			description: 'Door tier earned from open-network reputation.',
+			description: 'Door tier earned from the agent’s Solana track record.',
 		},
 		reason: { type: ['string', 'null'], description: 'Primary reason when refused; null when admitted.' },
 		reasons: { type: 'array', items: { type: 'string' } },
-		registered: { type: 'boolean', description: 'false when the wallet has no ERC-8004 identity (a newcomer).' },
-		agentId: { type: ['string', 'null'] },
-		wallet: { type: ['string', 'null'] },
-		chain: { type: 'string' },
-		chainId: { type: 'integer' },
-		registry: { type: ['string', 'null'], description: 'CAIP-10 id of the Reputation Registry read.' },
-		reputation: {
-			type: 'object',
-			properties: {
-				average: { type: 'number' },
-				count: { type: 'integer', minimum: 0 },
-				totalStakeWei: { type: 'string' },
-				totalStakeEth: { type: 'number' },
-			},
-		},
+		newcomer: { type: 'boolean', description: 'true when the agent has no Solana history yet.' },
+		agent_id: { type: 'string', format: 'uuid' },
+		name: { type: ['string', 'null'] },
+		wallet_address: { type: ['string', 'null'] },
+		visits: { type: 'integer', minimum: 0, description: 'Prior settled club tips by this agent’s wallet.' },
+		reputation: { type: 'object' },
 		policy: { type: 'object' },
 		fetchedAt: { type: 'string', format: 'date-time' },
 	},
@@ -152,39 +164,19 @@ function badRequest(message, code) {
 	return err;
 }
 
-function resolveChainId(input) {
-	if (input === undefined || input === null || input === '') return DEFAULT_CHAIN_ID;
-	const key = String(input).trim().toLowerCase();
-	if (CHAIN_IDS[key]) return CHAIN_IDS[key];
-	const id = Number(key);
-	if (Number.isInteger(id) && id > 0) return id;
-	throw badRequest(`unsupported chain "${input}"`, 'invalid_chain');
-}
-
-// Parse the `agent` param into { agentId|wallet, chainId }. A CAIP-10 value
-// carries its own chain and overrides the `chain` param.
-function parseAgent(raw, defaultChainId) {
-	const value = String(raw || '').trim();
-	if (!value) throw badRequest('query param "agent" is required', 'missing_agent');
-	if (/^\d+$/.test(value)) return { agentId: value, chainId: defaultChainId };
-	if (value.toLowerCase().startsWith('eip155:')) {
-		const parts = value.split(':');
-		if (parts.length !== 3) throw badRequest(`invalid CAIP-10 id "${value}"`, 'invalid_caip10');
-		const chainId = resolveChainId(parts[1]);
-		if (!isAddress(parts[2])) throw badRequest(`invalid wallet in "${value}"`, 'invalid_wallet');
-		return { wallet: parts[2], chainId };
+function parseRate(raw, field) {
+	if (raw === undefined || raw === null || raw === '') return null;
+	const n = Number(raw);
+	if (!Number.isFinite(n) || n < 0 || n > 1) {
+		throw badRequest(`${field} must be a number between 0 and 1`, 'invalid_policy');
 	}
-	if (isAddress(value)) return { wallet: value, chainId: defaultChainId };
-	throw badRequest(
-		`could not parse "${value}" — expected an agentId, 0x wallet, or eip155:<chain>:<wallet>`,
-		'invalid_agent',
-	);
+	return n;
 }
 
-function parseNonNegativeNumber(raw, field) {
+function parseCount(raw, field) {
 	if (raw === undefined || raw === null || raw === '') return 0;
 	const n = Number(raw);
-	if (!Number.isFinite(n) || n < 0) throw badRequest(`${field} must be a non-negative number`, 'invalid_policy');
+	if (!Number.isInteger(n) || n < 0) throw badRequest(`${field} must be a non-negative integer`, 'invalid_policy');
 	return n;
 }
 
@@ -197,7 +189,7 @@ export default paidEndpoint({
 	bazaar: BAZAAR,
 	service: withService({
 		serviceName: 'three.ws Agent Bouncer',
-		tags: ['reputation', 'erc8004', 'trust', 'gate', 'agent'],
+		tags: ['reputation', 'trust', 'gate', 'agent', 'solana'],
 	}),
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
@@ -209,34 +201,20 @@ export default paidEndpoint({
 	},
 	async handler({ req }) {
 		const q = req.query || {};
-		const defaultChainId = resolveChainId(q.chain);
-		const { agentId, wallet, chainId } = parseAgent(q.agent, defaultChainId);
+		const agentId = String(q.agent_id || '').trim().toLowerCase();
+		if (!agentId) throw badRequest('query param "agent_id" is required', 'missing_agent_id');
+		if (!isUuid(agentId)) throw badRequest('agent_id must be a UUID', 'invalid_agent_id');
 
-		const minAverage = parseNonNegativeNumber(q.min_average, 'min_average');
-		const minCount = Math.floor(parseNonNegativeNumber(q.min_count, 'min_count'));
-		const minStakeEth = parseNonNegativeNumber(q.min_stake_eth, 'min_stake_eth');
-		const minStakeWei = BigInt(Math.round(minStakeEth * 1e9)) * 1_000_000_000n; // eth → wei, 9-digit precision
-		const allowNewcomers = q.allow_newcomers === undefined ? true : q.allow_newcomers !== 'false';
-
+		const maxFailureRate = parseRate(q.max_failure_rate, 'max_failure_rate');
 		const policy = {
-			minAverage,
-			minCount,
-			minStakeWei,
-			allowNewcomers,
-			banNegative: true,
+			minPayments: parseCount(q.min_payments, 'min_payments'),
+			minDistinctPayers: parseCount(q.min_distinct_payers, 'min_distinct_payers'),
+			maxFailureRate: maxFailureRate === null ? 1 : maxFailureRate,
+			minAttestations: parseCount(q.min_attestations, 'min_attestations'),
+			allowNewcomers: q.allow_newcomers === undefined ? true : q.allow_newcomers !== 'false',
 		};
 
-		let verdict;
-		try {
-			verdict = await vetAgent({ agentId, wallet, chainId, policy });
-		} catch (err) {
-			// An on-chain read failure must not masquerade as "refused" — surface it
-			// as an upstream error so the caller knows the verdict is unknown, not no.
-			const e = new Error(`reputation read failed: ${err.message}`);
-			e.status = 502;
-			e.code = 'reputation_unavailable';
-			throw e;
-		}
+		const verdict = await vetSolanaAgent({ agentId, policy });
 
 		return {
 			ok: true,
@@ -245,20 +223,13 @@ export default paidEndpoint({
 			tier: verdict.tier,
 			reason: verdict.reason,
 			reasons: verdict.reasons,
-			registered: verdict.registered,
-			agentId: verdict.agentId,
-			wallet: verdict.wallet,
-			chain: chainNameFor(chainId),
-			chainId,
-			registry: verdict.registry,
+			newcomer: verdict.newcomer,
+			agent_id: verdict.agent_id,
+			name: verdict.name,
+			wallet_address: verdict.wallet_address,
+			visits: verdict.visits,
 			reputation: verdict.reputation,
-			policy: {
-				minAverage,
-				minCount,
-				minStakeWei: minStakeWei.toString(),
-				allowNewcomers,
-				banNegative: true,
-			},
+			policy,
 			fetchedAt: new Date().toISOString(),
 		};
 	},
