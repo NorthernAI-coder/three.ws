@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T23:19:27.218Z",
+	"generated_at": "2026-06-22T23:21:05.966Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -110,6 +110,16 @@
 		{
 			"date": "2026-06-22",
 			"type": "update",
+			"title": "Fix: agent reputation scores now read correctly",
+			"summary": "Two places that read an agent's ERC-8004 reputation were decoding it wrong. The on-chain registry returns the average rating already worked out (and signed, so it can go negative); both the paid reputation MCP tool and the trust check that guards autonomous agent-to-agent payments were dividing that value a second time — understating every score, and turning a negative reputation into a meaninglessly large positive one. The MCP tool was also listening for the wrong on-chain event, so it always reported zero past vouches even when an agent had many. Both now report the true average, handle negative reputations correctly, and surface real review history — so a 'pay only above this score' rule actually does what it says.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
 			"title": "Forge polish: engine picker, honest wording, keyboard tabs, full-length remix",
 			"summary": "A round of Forge fixes. The engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), on From photos 'builds from your reference photos', and a credit figure now only appears on metered lanes so a free build never reads 'Free · ~N credits'. The Describe it / From photos / From a sketch tabs are now fully keyboard-navigable with the arrow keys and announce correctly to screen readers. And opening a remix link keeps your whole prompt — long prompts are no longer clipped to 300 characters.",
 			"link": "/forge",
@@ -189,6 +199,16 @@
 			"link": "/docs/agent-reputation",
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "New: an Agent Bouncer that vets any agent before you pay it",
+			"summary": "There's now a single call that answers the question every autonomous payment really hinges on: should I trust this agent? Point it at a three.ws agent and it reads that agent's whole Solana track record — how many on-chain payments it has actually accepted, from how many distinct wallets, how often those payments failed, whether it followed through on its distribute/buyback obligations, the signed on-chain vouches left about it, and the Pole Club's own ban and door-history list — then returns a plain verdict: admitted or refused, a reason, and a door tier (newcomer, regular, trusted, or vip). It's the Club's velvet-rope bouncer generalized to the whole platform: instead of only knowing what a wallet did at our door, it judges an agent on everything it has done on Solana. You set the bar (minimum payments, distinct payers, a failure-rate ceiling, required attestations, whether to admit newcomers) and it enforces it — so an agent, with no human in the loop, can screen a counterparty before paying, hiring, or delegating. The raw reputation snapshot stays available too; this adds the decision on top.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
