@@ -26,6 +26,15 @@ function applyCacheControl(res, headers) {
 }
 
 export function json(res, status, body, headers = {}) {
+	// Once the response is committed (a handler already streamed/wrote a head, or
+	// an error path fires after a success path), setting headers again throws
+	// ERR_HTTP_HEADERS_SENT and crashes the invocation. The first response stands;
+	// a second send is always a bug whose only safe outcome is a no-op. Guard here
+	// so this can never escalate a benign double-send into an unhandled 500.
+	if (res.headersSent || res.writableEnded) {
+		if (!res.writableEnded) res.end();
+		return;
+	}
 	res.statusCode = status;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	applyCacheControl(res, headers);

@@ -257,8 +257,13 @@ export default wrap(async (req, res) => {
 	// ── STATUS (public, read-only) ────────────────────────────────────────
 	if (req.method === 'GET' && url.searchParams.get('status') === '1') {
 		try {
+			// Resolve the async payload BEFORE committing headers — writing the head
+			// first and awaiting inside res.end() means a rejected walletStatus() lands
+			// in the catch with headers already sent, turning a clean 503 into an
+			// ERR_HTTP_HEADERS_SENT crash.
+			const status = await walletStatus();
 			res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
-			res.end(JSON.stringify(await walletStatus()));
+			res.end(JSON.stringify(status));
 		} catch (err) {
 			error(res, 503, 'wallet_unavailable', err.message);
 		}

@@ -31,27 +31,42 @@ import { fetchModel } from './_lib/fetch-model.js';
 import { safeFetchJson } from './_lib/ssrf.js';
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — generous for token art, bounded for abuse
-const TIMEOUT_MS = 10_000;
+// Per-gateway attempt cap. Each candidate fetch (DNS + connect + body) is bounded
+// by this via the SSRF fetcher's own AbortController. Because the candidates are
+// raced CONCURRENTLY (below), the whole resolution finishes in roughly one
+// attempt's time — not the sum — so one stalled gateway never stacks toward the
+// function's 30s kill, which is what produced the mass-504 storm.
+const TIMEOUT_MS = 9_000;
 // Token launch metadata (pump.fun et al.) is a small JSON doc whose `image`
 // field is the real art. Resolving it server-side lets the browser load token
 // images same-origin without the per-host CORS failures that a client-side
 // `fetch(metadataUri)` hits. Kept short — the JSON is tiny.
 const META_TIMEOUT_MS = 5_000;
-// Overall budget for ALL gateway attempts combined. The function's Vercel
-// maxDuration is 30s; trying 4 IPFS gateways at 10s each can reach 40s and get
-// the invocation killed BEFORE the placeholder redirect below ever runs —
-// defeating the "always hand back a valid 200" contract. Cap the total spend so
-// we always have time left to redirect to the placeholder.
-const TOTAL_BUDGET_MS = 24_000;
+// Overall budget for ALL upstream work combined — metadata resolution AND every
+// gateway attempt. The function's Vercel maxDuration is 30s; trying 4 IPFS
+// gateways at 10s each can reach 40s, and a slow metadata fetch (5s) layered on
+// top of a 24s gateway budget reaches 29s + teardown and gets the invocation
+// killed BEFORE the placeholder redirect below ever runs — defeating the
+// "always hand back a valid 200" contract. A single deadline anchored at handler
+// start, capped well under 30s, keeps meta + gateways + the placeholder response
+// inside the hard kill no matter how the time is split between the two phases.
+const TOTAL_BUDGET_MS = 25_000;
+// Headroom reserved below the deadline so there is always time to compose and
+// flush the placeholder SVG (or the real image) after the last upstream attempt.
+const RESPONSE_HEADROOM_MS = 1_000;
 
-// Public IPFS gateways tried in order. ipfs.io is the canonical resolver the
-// rest of the platform pins to (api/_lib/onchain.js), but it is also the one
-// most likely to ORB-block or stall, so we fan out to mirrors on failure.
+// Public IPFS gateways. ipfs.io is the canonical resolver the rest of the platform
+// pins to (api/_lib/onchain.js) but is also the one most likely to ORB-block or
+// stall, so we fan out across healthy mirrors and race them — the first to return a
+// valid image wins. cloudflare-ipfs.com is intentionally absent: Cloudflare sunset
+// its public IPFS gateway, so every request to it is a guaranteed failure that only
+// wastes a connection.
 const IPFS_GATEWAYS = [
 	'https://ipfs.io/ipfs/',
-	'https://cloudflare-ipfs.com/ipfs/',
-	'https://gateway.pinata.cloud/ipfs/',
 	'https://dweb.link/ipfs/',
+	'https://gateway.pinata.cloud/ipfs/',
+	'https://w3s.link/ipfs/',
+	'https://4everland.io/ipfs/',
 ];
 
 // Pull the `<cid>/<path?>` portion out of any recognised IPFS URL form so we can
@@ -68,6 +83,41 @@ function candidates(rawUrl) {
 	if (path) return IPFS_GATEWAYS.map((g) => g + path);
 	// Non-IPFS: a single source (already an https CDN / arweave / data: link).
 	return [rawUrl.startsWith('ipfs://') ? IPFS_GATEWAYS[0] + rawUrl.slice(7) : rawUrl];
+}
+
+// Race every candidate gateway concurrently and resolve with the FIRST one that
+// returns a real image. Resolves to null when all candidates fail, OR when the
+// shared `budgetMs` elapses — whichever comes first — so a stalled gateway can
+// never pin the invocation toward the 30s wall. The losing fetches are each
+// independently time-boxed by `perAttemptMs` (the SSRF fetcher aborts them), so
+// they cannot outlive the request in any meaningful way. This concurrency is the
+// fix for the sequential ipfs.io stall storm: total wall time is now ~one attempt,
+// not the sum of all four.
+function raceImageCandidates(urls, perAttemptMs, budgetMs) {
+	if (!urls.length || budgetMs < 250) return Promise.resolve(null);
+	return new Promise((resolve) => {
+		let settled = false;
+		let pending = urls.length;
+		const finish = (img) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			resolve(img);
+		};
+		const timer = setTimeout(() => finish(null), budgetMs);
+		for (const url of urls) {
+			fetchModel(url, { maxBytes: MAX_BYTES, timeoutMs: Math.min(perAttemptMs, budgetMs) })
+				.then((result) => {
+					if (result?.contentType?.startsWith('image/')) finish(result);
+					else if (--pending === 0) finish(null); // valid response but not an image
+				})
+				.catch(() => {
+					// SSRF refusal, timeout, gateway 5xx — this candidate is out. Only
+					// give up once every candidate has settled.
+					if (--pending === 0) finish(null);
+				});
+		}
+	});
 }
 
 // Deterministic, dependency-free placeholder art. The same seed always renders
@@ -139,9 +189,9 @@ function placeholderSvg(seed) {
 // (b) accept only an http(s) image URL — data: images are rejected so we never
 // serve attacker-supplied inline content from our own origin, and (c) return
 // null on any failure so the caller falls through to the on-brand placeholder.
-async function resolveImageFromMeta(metaUri) {
+async function resolveImageFromMeta(metaUri, timeoutMs = META_TIMEOUT_MS) {
 	try {
-		const { ok, data } = await safeFetchJson(metaUri, { timeoutMs: META_TIMEOUT_MS });
+		const { ok, data } = await safeFetchJson(metaUri, { timeoutMs });
 		if (!ok || !data || typeof data !== 'object') return null;
 		const candidate = data.image || data.image_url || data.imageUrl || data.imageUri || null;
 		if (typeof candidate !== 'string') return null;
@@ -184,34 +234,30 @@ export default wrap(async function handler(req, res) {
 		);
 	}
 
+	// One hard deadline for ALL upstream work — metadata resolution and every
+	// gateway attempt draw from the same budget so their combined spend can never
+	// exceed it and trip the function's 30s kill before we serve the placeholder.
+	const deadline = Date.now() + TOTAL_BUDGET_MS - RESPONSE_HEADROOM_MS;
+
 	// Resolve the artwork URL: an explicit ?url wins; otherwise read it from the
 	// token metadata document server-side. A null result simply falls through to
-	// the placeholder below — the loader always receives a valid image.
+	// the placeholder below — the loader always receives a valid image. The meta
+	// fetch is capped at whatever is left of the shared budget (never more than
+	// META_TIMEOUT_MS) so a hung metadata host can't consume the gateway budget.
 	let target = directUrl;
 	if (!target && metaUri) {
-		target = await resolveImageFromMeta(metaUri);
+		const metaBudget = Math.min(META_TIMEOUT_MS, deadline - Date.now());
+		if (metaBudget > 250) target = await resolveImageFromMeta(metaUri, metaBudget);
 	}
 
-	let image = null;
-	const deadline = Date.now() + TOTAL_BUDGET_MS;
-	for (const candidate of target ? candidates(target) : []) {
-		// Shrink each attempt's timeout to fit the remaining overall budget so the
-		// loop never overruns into the function's hard kill. Once too little time
-		// is left to bother, stop and fall through to the placeholder.
-		const remaining = deadline - Date.now();
-		if (remaining < 1_000) break;
-		try {
-			const result = await fetchModel(candidate, {
-				maxBytes: MAX_BYTES,
-				timeoutMs: Math.min(TIMEOUT_MS, remaining),
-			});
-			if (!result.contentType.startsWith('image/')) continue; // HTML error page etc. — try next
-			image = result;
-			break;
-		} catch {
-			// SSRF refusal, timeout, gateway 5xx — fall through to the next candidate.
-		}
-	}
+	// Race all candidate gateways concurrently inside whatever is left of the shared
+	// budget. The first valid image wins; if every gateway fails (or the budget
+	// runs out) we fall through to the placeholder below — always within the 30s wall.
+	const image = await raceImageCandidates(
+		target ? candidates(target) : [],
+		TIMEOUT_MS,
+		deadline - Date.now(),
+	);
 
 	if (!image) {
 		// Every source failed. Hand back a valid, CORS-clean placeholder inline so

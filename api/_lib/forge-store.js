@@ -128,14 +128,45 @@ export async function findByJob({ replicateJobId, clientKey }) {
 	}
 }
 
+// Provider asset URLs are frequently short-lived (HuggingFace Spaces serve the
+// mesh from an ephemeral gradio /tmp path; CDNs hiccup). Pull the bytes with a
+// few quick retries so a transient network error or 5xx/429 — the dominant cause
+// of "materializeCreation failed: 404/5xx" in the logs — doesn't permanently lose
+// a generation. A hard 404/410 means the file is already gone, so retrying is
+// pointless: fail fast on those and let the caller fall back to the provider URL.
+const COPY_MAX_ATTEMPTS = 3;
+const COPY_RETRY_BASE_MS = 400;
+
 async function copyToBucket({ sourceUrl, key, fallbackContentType, maxBytes }) {
-	const resp = await fetch(sourceUrl);
-	if (!resp.ok) throw new Error(`fetch ${sourceUrl}: ${resp.status}`);
-	const buf = Buffer.from(await resp.arrayBuffer());
-	if (buf.length > maxBytes) throw new Error(`asset too large: ${buf.length} bytes`);
-	const contentType = resp.headers.get('content-type') || fallbackContentType;
-	await putObject({ key, body: buf, contentType, metadata: { source: 'forge' } });
-	return { bytes: buf.length, publicUrl: publicUrl(key) };
+	let lastErr;
+	for (let attempt = 1; attempt <= COPY_MAX_ATTEMPTS; attempt++) {
+		try {
+			const resp = await fetch(sourceUrl);
+			if (!resp.ok) {
+				const err = new Error(`fetch ${sourceUrl}: ${resp.status}`);
+				err.status = resp.status;
+				// 404/410 = the ephemeral asset has already expired; no retry can recover it.
+				if (resp.status === 404 || resp.status === 410) throw err;
+				// 408/425/429/5xx are transient — retry within the loop.
+				if (attempt < COPY_MAX_ATTEMPTS) { lastErr = err; }
+				else throw err;
+			} else {
+				const buf = Buffer.from(await resp.arrayBuffer());
+				if (buf.length > maxBytes) throw new Error(`asset too large: ${buf.length} bytes`);
+				const contentType = resp.headers.get('content-type') || fallbackContentType;
+				await putObject({ key, body: buf, contentType, metadata: { source: 'forge' } });
+				return { bytes: buf.length, publicUrl: publicUrl(key) };
+			}
+		} catch (err) {
+			// Permanent (404/410) or too-large: surface immediately. Network errors
+			// (fetch throw) are transient and retried until attempts are exhausted.
+			if (err?.status === 404 || err?.status === 410 || /asset too large/.test(err?.message || '')) throw err;
+			lastErr = err;
+			if (attempt >= COPY_MAX_ATTEMPTS) throw err;
+		}
+		await new Promise((r) => setTimeout(r, COPY_RETRY_BASE_MS * attempt));
+	}
+	throw lastErr;
 }
 
 function imageExtFor(url) {
@@ -213,7 +244,14 @@ export async function materializeCreation({ replicateJobId, clientKey, glbUrl })
 		});
 		return { id: existing.id, glbUrl: glb.publicUrl, previewImageUrl: preview.url };
 	} catch (err) {
-		console.error('[forge-store] materializeCreation failed:', err?.message);
+		// A 404/410 means the provider's ephemeral asset (e.g. a HuggingFace Space's
+		// gradio /tmp mesh) expired before we could copy it — expected and fully
+		// handled here by returning null so the caller falls back to the provider
+		// URL. Log it at WARN so it doesn't flood the actionable-error view; genuine
+		// failures (storage write, oversize, 5xx after retries) stay at ERROR.
+		const recoverable = err?.status === 404 || err?.status === 410;
+		const log = recoverable ? console.warn : console.error;
+		log('[forge-store] materializeCreation failed:', err?.message);
 		return null;
 	}
 }

@@ -70,15 +70,36 @@ export function isPrivateAddress(address, family) {
 	return true; // unknown family → unsafe
 }
 
+// node:dns/promises `lookup` accepts no AbortSignal and no timeout, so a stalled
+// system resolver (a dead host whose DNS hangs rather than NXDOMAINs) blocks
+// forever — and because the lookup is not tied to any fetch AbortController, the
+// caller's request timeout never fires either, pinning the whole serverless
+// invocation to its hard kill (the root cause of mass /api/img 30s timeouts).
+// Bound every resolution with our own timer so a hung resolver fails fast and
+// the caller can fall through to its next candidate or placeholder.
+const DNS_TIMEOUT_MS = 4_000;
+
 // Resolve `host` once, reject if ANY resolved address is private, and return the
 // validated address list to pin the connection to.
-export async function resolvePublicHost(host) {
+export async function resolvePublicHost(host, { dnsTimeoutMs = DNS_TIMEOUT_MS } = {}) {
 	if (!host) throw new SsrfError('missing host', 'invalid_url');
 	let resolved;
+	let timer;
 	try {
-		resolved = await lookup(host, { all: true });
-	} catch {
+		resolved = await Promise.race([
+			lookup(host, { all: true }),
+			new Promise((_, reject) => {
+				timer = setTimeout(
+					() => reject(new SsrfError(`DNS lookup timed out for ${host}`, 'dns_timeout')),
+					dnsTimeoutMs,
+				);
+			}),
+		]);
+	} catch (err) {
+		if (err instanceof SsrfError) throw err;
 		throw new SsrfError(`DNS lookup failed for ${host}`, 'dns_failed');
+	} finally {
+		clearTimeout(timer);
 	}
 	const addrs = Array.isArray(resolved) ? resolved : [resolved];
 	if (!addrs.length) throw new SsrfError(`DNS lookup failed for ${host}`, 'dns_failed');
