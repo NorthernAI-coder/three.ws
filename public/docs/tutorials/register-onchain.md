@@ -220,7 +220,7 @@ Your agent's page at `https://three.ws/a/8453/42` has a **Reputation** section. 
 1. Send them your agent URL
 2. They scroll to the Reputation section
 3. They connect their wallet and click **Leave a review**
-4. They pick a score (0–255, where 255 is the max) and optionally add a comment
+4. They pick a score (1–5 stars, stored on-chain as a signed −100..+100 value) and optionally add a comment
 5. They confirm the transaction (~$0.05 gas)
 
 **Read your reputation programmatically:**

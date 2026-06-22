@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-22",
+			"title": "New docs: how agent reputation works, and how to read it",
+			"summary": "A new guide explains agent reputation end to end — why an autonomous agent needs a verifiable, on-chain track record before it trusts (or pays) another agent, how the three ERC-8004 registries (identity, reputation, validation) fit together, and how reputation and x402 payments interlock. It comes with a hands-on tutorial that reads any registered agent's score five ways — from the Reputation Explorer, one REST call, the paid MCP tool, the SDK, or straight off the contract — including a copy-paste trust gate that refuses to transact below a bar. The existing Reputation System and Validation Attestation references are now reachable from the docs sidebar, and the glossary gained plain-language entries for reputation registry, identity registry, attestation, vouch, stake, and Sybil attack.",
+			"tags": ["docs"],
+			"link": "/docs/agent-reputation"
+		},
+		{
+			"date": "2026-06-22",
 			"title": "Free Forge on the IBM demo stays reliable while the GPU warms up",
 			"summary": "The free, no-wallet 'forge a 3D model' widget on the IBM partnership page no longer shows a false 'briefly unreachable' error when the free GPU is cold. It used to fire up to six generation requests behind a single click, which spent the free lane's hourly limit about six times faster — a few tries could lock you out — and a slow cold start would surface as an error even though the model was still on its way. Now it makes one request per click (the server already falls back across NVIDIA, TRELLIS, and Hugging Face on its own), shows honest progress while a cold start warms up (which can take up to a minute), and, if the free lane is genuinely at its hourly limit, says exactly that and when to try again — pointing you to the instant paid Forge above. A model reliably comes back to orbit and download.",
 			"tags": ["fix", "improvement"],
