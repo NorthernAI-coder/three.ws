@@ -23,12 +23,44 @@
 			<description>The embed editor's Chat mode produced a snippet that worked in the live preview but stayed blank once pasted onto an external site. The agent chat page was served with a frame-ancestors policy that only allowed three.ws itself, so every other domain's browser blocked the iframe. Chat embeds now ship the same open framing policy as the avatar embed modes, and the embedded chat page can use the microphone for voice input. Paste the snippet anywhere and it just works.</description>
 		</item>
 		<item>
+			<title>Credits deposits: clearer 'verify by signature' copy</title>
+			<link>https://three.ws/credits</link>
+			<guid isPermaLink="false">2026-06-22:Credits deposits: clearer 'verify by signature' copy</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The manual 'verify by signature' option on the Credits page now spells out how deposit verification actually works: we check on-chain that the transaction was signed by a wallet linked to your account, so only you can claim your deposit and pasting someone else's signature can never credit your balance. The old wording ('Sent from another wallet?') made the safe, server-verified flow look like anyone could claim any transfer — it never could. If you send from a wallet that isn't linked yet, the page now tells you to sign in with it or link it first.</description>
+		</item>
+		<item>
+			<title>Forge: engine picker no longer overflows, clearer text-to-3D wording</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-22:Forge: engine picker no longer overflows, clearer text-to-3D wording</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Forge engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is also honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), and on From photos it reads 'builds from your reference photos'.</description>
+		</item>
+		<item>
+			<title>Live webinar stage on the IBM x402 demo page</title>
+			<link>https://three.ws/ibm/x402-demo</link>
+			<guid isPermaLink="false">2026-06-22:Live webinar stage on the IBM x402 demo page</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The IBM × three.ws demo page now opens with a webinar stage: a live countdown to the session, with one-click Add to Calendar (Google + .ics). When the talk goes live, the same stage becomes the player — a pre-recorded video plays synced to wall-clock like a broadcast premiere (everyone sees the same moment, latecomers join in progress), or a live feed streams in its place. The recording stays on the page afterward, and the x402 demos sit right below so you can watch and try them on one screen.</description>
+		</item>
+		<item>
 			<title>New doc: every NVIDIA model three.ws runs for free</title>
 			<link>https://three.ws/docs/nvidia-models</link>
 			<guid isPermaLink="false">2026-06-22:New doc: every NVIDIA model three.ws runs for free</guid>
 			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
 			<category>docs</category>
 			<description>A new docs page maps the entire free NVIDIA inference layer the platform runs on — one free key unlocks all of it. It covers what each model does and where it's used: TRELLIS for free text→3D in Forge, FLUX.1-schnell for text→image, the Llama 3.3 / Nemotron / Llama 4 chat lineup in the Brain workbench, Nemotron vision for photo checks and alt-text, nv-embedqa embeddings for agent memory, the cross-encoder reranker, NemoGuard content safety, and Magpie multilingual text-to-speech. Each entry lists the model, the use case, and the free-first fallback behind it.</description>
+		</item>
+		<item>
+			<title>Sharper selfie → avatar: your subject, isolated and reframed</title>
+			<link>https://three.ws/create/selfie</link>
+			<guid isPermaLink="false">2026-06-22:Sharper selfie → avatar: your subject, isolated and reframed</guid>
+			<pubDate>Mon, 22 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Selfie to Avatar now cleans up your photo before building. The moment you add a shot it checks for a clear face and warns you on the spot if it's a drawing, blurry, or too far away — so you can swap it before waiting on a build instead of after. Then it cuts you out from the background, drops you onto a neutral studio backdrop, and reframes to a centred head-and-shoulders crop. That's the composition the 3D engine reconstructs best, so results come back as a real, rounded avatar instead of the flat 'photo on a card' that busy backgrounds and tight face crops used to produce. It all runs in your browser — your raw photo isn't uploaded as-is.</description>
 		</item>
 		<item>
 			<title>Arm your agent — automate Oracle conviction</title>

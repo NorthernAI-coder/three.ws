@@ -487,9 +487,10 @@
 						<div class="status" id="status" role="status" aria-live="polite"></div>
 
 						<details class="manual">
-							<summary>Sent from another wallet? Verify by signature</summary>
+							<summary>Already sent it yourself? Verify by signature</summary>
 							<p class="muted" style="font-size: 0.82rem; margin: 0.6rem 0 0.3rem">
-								Send to this three.ws deposit wallet:
+								Send from a wallet linked to your account to this three.ws
+								deposit address, then paste the signature:
 							</p>
 							<div class="addr" id="deposit-addr">—</div>
 							<input
@@ -505,6 +506,12 @@
 							>
 								Verify deposit
 							</button>
+							<p class="muted" style="font-size: 0.76rem; margin: 0.5rem 0 0">
+								We verify on-chain that the transaction was signed by your
+								linked wallet, so only you can claim your deposit — pasting
+								someone else's signature won't credit your balance. Sent from a
+								wallet that isn't linked yet? Sign in with it or link it first.
+							</p>
 						</details>
 					</section>
 				</div>

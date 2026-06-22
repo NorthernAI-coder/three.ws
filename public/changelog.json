@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-22T03:50:43.925Z",
+	"generated_at": "2026-06-22T04:19:07.101Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -29,11 +29,53 @@
 		{
 			"date": "2026-06-22",
 			"type": "update",
+			"title": "Credits deposits: clearer 'verify by signature' copy",
+			"summary": "The manual 'verify by signature' option on the Credits page now spells out how deposit verification actually works: we check on-chain that the transaction was signed by a wallet linked to your account, so only you can claim your deposit and pasting someone else's signature can never credit your balance. The old wording ('Sent from another wallet?') made the safe, server-verified flow look like anyone could claim any transfer — it never could. If you send from a wallet that isn't linked yet, the page now tells you to sign in with it or link it first.",
+			"link": "/credits",
+			"tags": [
+				"improvement",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Forge: engine picker no longer overflows, clearer text-to-3D wording",
+			"summary": "The Forge engine picker now wraps all eight lanes — NVIDIA, Hunyuan3D, Fast, Meshy, Tripo, Rodin, Stability, Replicate — cleanly inside its selector instead of spilling past the panel edge, so every engine stays readable at a glance. The build estimate is also honest to the tab you're on: on Describe it it reads 'renders a preview image, then builds 3D' (it never asked you for an image), and on From photos it reads 'builds from your reference photos'.",
+			"link": "/forge",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Live webinar stage on the IBM x402 demo page",
+			"summary": "The IBM × three.ws demo page now opens with a webinar stage: a live countdown to the session, with one-click Add to Calendar (Google + .ics). When the talk goes live, the same stage becomes the player — a pre-recorded video plays synced to wall-clock like a broadcast premiere (everyone sees the same moment, latecomers join in progress), or a live feed streams in its place. The recording stays on the page afterward, and the x402 demos sit right below so you can watch and try them on one screen.",
+			"link": "/ibm/x402-demo",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
 			"title": "New doc: every NVIDIA model three.ws runs for free",
 			"summary": "A new docs page maps the entire free NVIDIA inference layer the platform runs on — one free key unlocks all of it. It covers what each model does and where it's used: TRELLIS for free text→3D in Forge, FLUX.1-schnell for text→image, the Llama 3.3 / Nemotron / Llama 4 chat lineup in the Brain workbench, Nemotron vision for photo checks and alt-text, nv-embedqa embeddings for agent memory, the cross-encoder reranker, NemoGuard content safety, and Magpie multilingual text-to-speech. Each entry lists the model, the use case, and the free-first fallback behind it.",
 			"link": "/docs/nvidia-models",
 			"tags": [
 				"docs"
+			]
+		},
+		{
+			"date": "2026-06-22",
+			"type": "update",
+			"title": "Sharper selfie → avatar: your subject, isolated and reframed",
+			"summary": "Selfie to Avatar now cleans up your photo before building. The moment you add a shot it checks for a clear face and warns you on the spot if it's a drawing, blurry, or too far away — so you can swap it before waiting on a build instead of after. Then it cuts you out from the background, drops you onto a neutral studio backdrop, and reframes to a centred head-and-shoulders crop. That's the composition the 3D engine reconstructs best, so results come back as a real, rounded avatar instead of the flat 'photo on a card' that busy backgrounds and tight face crops used to produce. It all runs in your browser — your raw photo isn't uploaded as-is.",
+			"link": "/create/selfie",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
