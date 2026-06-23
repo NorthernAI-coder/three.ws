@@ -38,7 +38,7 @@ import {
 	createDrop, confirmFunding, getDropRow, nearbyDrops, myDrops, myClaims,
 	reserveClaim, failClaim, confirmClaim, releaseFromEscrow,
 	markRefunding, sweepRefund, recordRefundTx, toPublicDrop,
-	hasChatSignal, verifyQuiz, haversineM, amountToAtomics, atomicsToAmount,
+	hasChatSignal, verifyQuiz, haversineM, atomicsToAmount,
 	BASE58_RE,
 } from '../_lib/irl-drops.js';
 

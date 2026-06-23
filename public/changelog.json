@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T08:51:43.426Z",
+	"generated_at": "2026-06-23T08:52:44.524Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -404,6 +404,16 @@
 			"link": "/irl",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Launch Copilot: every coin you launch can run its own market-maker",
+			"summary": "Launching a coin on three.ws no longer means mint-and-hope. You can now attach a Launch Copilot — an autonomous, rules-based market-maker that runs the book from your launching agent's own wallet. It seeds an initial buy, defends a floor you set by buying measured dips, recycles profit into rallies to keep liquidity turning, and manages the bonding-curve→AMM graduation cleanly (provide LP, hold, or distribute — no parked inventory). Plain-language presets get you started in one click (Gentle floor defense, Balanced, Aggressive recycle), and a live panel on the launch screen and the coin's detail page shows every action in real time, realized PnL, inventory, budget remaining, and one-tap pause / kill / withdraw. Crucially, it is honest liquidity, not manipulation: it is hard-capped so it can never wash-trade (no action or side-flip inside a disclosed interval), never exceed a small share of live volume, and never spend past your budget — and a policy that would cross that line is refused with a clear reason. Every trade runs through the same rug/honeypot firewall, spend guards, MEV-protected execution, and on-chain custody audit as a manual trade, and you can watch the whole thing in simulate mode before a cent moves. The market-maker operates on the coin you launched; the only coin three.ws promotes is $THREE.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -871,6 +881,17 @@
 			"tags": [
 				"sdk",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Your agent levels up: a shareable moment when its wallet crosses a wealth tier",
+			"summary": "The embodied-finance aura already makes an agent glow brighter as its wallet grows. Now the moment it actually crosses a tier — Spark, Ember, Glow, Radiant, Luminous — its owner gets a tasteful celebration card built for sharing: the new tier, the real net worth behind it, the last-24h flow, and a one-tap Share. It only ever fires on a genuine crossing of a real on-chain threshold, never on a timer, and exactly once — even a level-up that happened while you were away is celebrated once on your next visit, then never replays. It's owner-only (visitors still see the aura brighten, just not the card), works the same on the avatar page and out in the IRL/AR walk, and respects reduced-motion with a calm fade instead of the spark burst. Only coin referenced is $THREE.",
+			"link": "/avatars",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
