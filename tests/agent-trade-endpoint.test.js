@@ -426,7 +426,14 @@ describe('POST /api/agents/:id/trade — execution', () => {
 		const res = await execTrade({ side: 'buy', mint: MINT, amount: 0.1, idempotency_key: 'live-1' });
 		expect(res.statusCode).toBe(200);
 		expect(res.json.data.replayed).toBe(false);
-		expect(res.json.data.signature).toBe('SIG_LIVE_123');
+		// The protected execution engine derives the signature from the signed v0 tx
+		// (bs58 of its first signature), not from sendRawTransaction's return — so it is
+		// a real base58 signature echoed consistently into the explorer link (the same
+		// value the custody row records), rather than the RPC mock's stand-in return.
+		const sig = res.json.data.signature;
+		expect(typeof sig).toBe('string');
+		expect(sig).toMatch(/^[1-9A-HJ-NP-Za-km-z]{64,}$/);
+		expect(res.json.data.explorer).toContain(sig);
 		expect(res.json.data.tokens_received).toBe('1000000');
 		expect(res.json.data.side).toBe('buy');
 		// The decrypted secret must never surface in the response.

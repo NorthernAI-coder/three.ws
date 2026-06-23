@@ -16,7 +16,11 @@ vi.mock('../src/agent-solana-wallet.js', () => ({
 	fetchAgentSolanaActivity: (...a) => fetchAgentSolanaActivity(...a),
 }));
 
-const { buildSolanaPayUri } = await import('../src/agent-wallet-hub/tabs/deposit.js');
+// The Deposit tab renders its QR from the shared Solana-Pay builder, which is the
+// one canonical source every surface (deposit tab, IRL/AR, portable embed) shares.
+const { buildSolanaPayUri } = await import('../src/shared/solana-pay.js');
+// Importing the deposit tab module still registers it for the tab-registry assertions.
+await import('../src/agent-wallet-hub/tabs/deposit.js');
 const { getRegisteredTabs } = await import('../src/agent-wallet-hub/registry.js');
 const depositTab = getRegisteredTabs().find((t) => t.id === 'deposit');
 

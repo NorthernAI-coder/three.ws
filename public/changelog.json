@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:18:04.424Z",
+	"generated_at": "2026-06-23T05:30:50.227Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -45,6 +45,16 @@
 			"link": "/mirror",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Creating an agent never dead-ends on wallet setup",
+			"summary": "Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -361,6 +371,16 @@
 			"type": "update",
 			"title": "Talk to your avatar — a new free speech-to-text lane closes the voice loop",
 			"summary": "Your avatar could already speak for free; now it can listen for free too. A new /api/asr endpoint turns spoken audio into text using NVIDIA's hosted Riva recognition on the same free key that already powers avatar voices, 3D generation, and chat — so voice-in costs nothing extra. Until now, talking to an avatar relied on the browser's built-in recognizer, which only exists in Chrome and Edge and quietly sends your microphone to Google; the new lane is server-side and works the same everywhere. It's purely additive: when the lane isn't switched on, voice keeps working exactly as before — nothing changes for anyone. Send a short WAV, PCM, FLAC, or Ogg clip and get back the transcript, the language detected, and optional word-level timestamps, all metered fairly so it can't be abused.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Talk to your avatar out loud — in any browser",
+			"summary": "Your avatar could already think and speak; now it can listen. Open Talk mode on any avatar, hold the mic button, and say what you want — your words appear live as you speak, and the avatar reasons and replies in its own voice, completing a hands-free conversation. Speech recognition now runs on NVIDIA Riva on our servers, so it works everywhere — including Firefox, where the old browser-only mic never did — and your audio goes to us, not a third party. Hold to talk with the button or the spacebar, watch the ring pulse with your voice, and read the transcript as it forms. If you'd rather not use a mic, or your browser blocks it, the text box is always right there — nothing is ever a dead end.",
 			"link": null,
 			"tags": [
 				"feature"

@@ -3,6 +3,22 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Creating an agent never dead-ends on wallet setup",
+			"summary": "Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Talk to your avatar out loud — in any browser",
+			"summary": "Your avatar could already think and speak; now it can listen. Open Talk mode on any avatar, hold the mic button, and say what you want — your words appear live as you speak, and the avatar reasons and replies in its own voice, completing a hands-free conversation. Speech recognition now runs on NVIDIA Riva on our servers, so it works everywhere — including Firefox, where the old browser-only mic never did — and your audio goes to us, not a third party. Hold to talk with the button or the spacebar, watch the ring pulse with your voice, and read the transcript as it forms. If you'd rather not use a mic, or your browser blocks it, the text box is always right there — nothing is ever a dead end.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "IRL: pinned agents now hold their exact spot indoors instead of drifting",
 			"summary": "When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.",
 			"tags": [

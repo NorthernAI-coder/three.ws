@@ -186,6 +186,42 @@ async function handleList(req, res) {
 	return json(res, 200, { agents: rows.map((row) => decorate(row)) });
 }
 
+// Mint the agent's custodial EVM + Solana wallets for the initial INSERT.
+//
+// Minting can fail when the at-rest encryption key is unavailable — in
+// production secret-box.js fails CLOSED rather than encrypt custodial secrets
+// under the JWT_SECRET fallback (see api/_lib/secret-box.js). That must never
+// brick the core product action of creating an agent. The platform already mints
+// wallets lazily and idempotently on first use (ensureAgentWallet /
+// getOrCreateAgentEvmWallet), so a walletless identity self-heals the next time
+// it touches a wallet once the key is configured — exactly how the avatar-agent
+// path degrades. On failure we create the agent with a null wallet_address and
+// no encrypted keys, and log a warning (never the secret-box internals as an
+// unhandled 500). Returns { walletAddress, meta } for the INSERT.
+async function mintAgentWalletMeta() {
+	try {
+		const [wallet, sol] = await Promise.all([
+			generateAgentWallet(),
+			generateSolanaAgentWallet(),
+		]);
+		return {
+			walletAddress: wallet.address,
+			meta: {
+				encrypted_wallet_key: wallet.encrypted_key,
+				solana_address: sol.address,
+				encrypted_solana_secret: sol.encrypted_secret,
+			},
+		};
+	} catch (err) {
+		console.warn(
+			'[agents] wallet provisioning deferred — minting failed at create time, ' +
+				'agent will be provisioned lazily on first wallet use:',
+			err?.message,
+		);
+		return { walletAddress: null, meta: {} };
+	}
+}
+
 // ── Get-or-create default agent ───────────────────────────────────────────
 
 async function handleGetOrCreateMe(req, res, auth) {
@@ -204,20 +240,15 @@ async function handleGetOrCreateMe(req, res, auth) {
 		`;
 
 		if (!agent) {
-			const wallet = await generateAgentWallet();
-			const sol = await generateSolanaAgentWallet();
+			const { walletAddress, meta } = await mintAgentWalletMeta();
 			await sql`
 				INSERT INTO agent_identities (user_id, name, skills, wallet_address, meta)
 				SELECT
 					${auth.userId},
 					${'Agent'},
 					${['greet', 'present-model', 'validate-model', 'remember', 'think']},
-					${wallet.address},
-					${JSON.stringify({
-						encrypted_wallet_key: wallet.encrypted_key,
-						solana_address: sol.address,
-						encrypted_solana_secret: sol.encrypted_secret,
-					})}::jsonb
+					${walletAddress},
+					${JSON.stringify(meta)}::jsonb
 				WHERE NOT EXISTS (
 					SELECT 1 FROM agent_identities
 					WHERE user_id = ${auth.userId} AND deleted_at IS NULL
@@ -311,13 +342,10 @@ async function handleCreate(req, res) {
 		integrity = null;
 	}
 
-	const wallet = await generateAgentWallet();
-	const sol = await generateSolanaAgentWallet();
+	const { walletAddress, meta: walletMeta } = await mintAgentWalletMeta();
 	const meta = {
 		...(body.meta || {}),
-		encrypted_wallet_key: wallet.encrypted_key,
-		solana_address: sol.address,
-		encrypted_solana_secret: sol.encrypted_secret,
+		...walletMeta,
 	};
 	// Stamp the integrity verdict onto the identity so the profile/editor can show
 	// a "distinct identity" signal and reviewers can see what was checked at birth.
@@ -340,7 +368,7 @@ async function handleCreate(req, res) {
 			${name},
 			${body.description ? String(body.description).slice(0, 500) : null},
 			${body.skills || ['greet', 'present-model', 'validate-model', 'remember', 'think']},
-			${wallet.address},
+			${walletAddress},
 			${JSON.stringify(meta)}::jsonb,
 			${avatarId}
 		)
