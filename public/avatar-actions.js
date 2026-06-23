@@ -90,6 +90,32 @@ button.primary:hover { filter: brightness(1.08); background: var(--aa-acc); }
 @keyframes aa-spin { to { transform: rotate(360deg); } }
 .hidden { display: none !important; }
 .muted { color: var(--aa-dim); font-size: 12px; }
+.rty-sig { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600;
+  padding:2px 8px; border-radius:999px; border:1px solid rgba(139,92,246,.4); color:#c4b5fd;
+  background:rgba(139,92,246,.1); white-space:nowrap; cursor:pointer; }
+.rty-sig.earn { border-color:rgba(95,208,138,.4); color:#86efac; background:rgba(95,208,138,.08); }
+.rty-sig:hover { filter:brightness(1.15); }
+.rty-overlay { position:absolute; inset:0; z-index:5; display:flex; align-items:center; justify-content:center;
+  padding:10px; background:rgba(8,8,12,.74); backdrop-filter:blur(3px); border-radius:12px; }
+.rty-box { width:100%; max-width:380px; max-height:100%; overflow:auto; background:#0c0c10;
+  border:1px solid rgba(139,92,246,.3); border-radius:12px; padding:14px; box-shadow:0 18px 60px rgba(0,0,0,.6); }
+.rty-box h3 { margin:0 0 8px; font-size:14px; }
+.rty-box p { margin:0 0 10px; font-size:12px; line-height:1.5; color:var(--aa-dim); }
+.rty-box p b, .rty-terms b { color:var(--aa-fg); }
+.rty-bar { display:flex; height:26px; border-radius:7px; overflow:hidden; border:1px solid var(--aa-line); margin:8px 0; }
+.rty-keep { background:linear-gradient(180deg,rgba(95,208,138,.32),rgba(95,208,138,.18)); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:600; white-space:nowrap; padding:0 4px; min-width:0; }
+.rty-up { background:linear-gradient(180deg,rgba(196,181,253,calc(.5 - var(--i,0)*.08)),rgba(139,92,246,.34));
+  border-left:1px solid rgba(10,10,10,.5); min-width:5px; }
+.rty-list { display:flex; flex-direction:column; gap:3px; margin:6px 0; }
+.rty-cr { display:flex; align-items:center; gap:8px; font-size:11px; padding:4px 7px; border-radius:6px; background:rgba(255,255,255,.04); }
+.rty-gen { font-size:9px; font-weight:700; color:var(--aa-dim); text-transform:uppercase; }
+.rty-nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rty-w { font-family:ui-monospace,monospace; color:var(--aa-dim); font-size:10px; }
+.rty-bp { font-family:ui-monospace,monospace; font-weight:600; color:#c4b5fd; }
+.rty-terms { margin:8px 0; padding-left:16px; font-size:11px; line-height:1.55; color:var(--aa-dim); }
+.rty-acts { display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+.rty-cancel { background:transparent; }
 `;
 
 class AvatarActions extends HTMLElement {
@@ -144,6 +170,13 @@ class AvatarActions extends HTMLElement {
 				credentials: 'include',
 			});
 			if (ar.ok) this._agent = (await ar.json()).agents?.[0] || null;
+			// Royalty trust signals (earns-from / shares-upstream). Best-effort.
+			if (this._agent?.id) {
+				try {
+					const rr = await fetch(`${API}/api/agents/${this._agent.id}/solana/royalty`, { credentials: 'include' });
+					if (rr.ok) this._royalty = (await rr.json()).data || null;
+				} catch { /* signals are decoration */ }
+			}
 		} catch {
 			/* render whatever we have */
 		}
@@ -178,6 +211,7 @@ class AvatarActions extends HTMLElement {
 			a.fork_count > 0
 				? `<span class="forks">⑂ ${a.fork_count} ${a.fork_count === 1 ? 'fork' : 'forks'}</span>`
 				: '';
+		const royaltySignals = this._royaltySignals();
 
 		// mode: "full" (default) shows wallet to owners + fork to others;
 		// "wallet" shows only the wallet panel; "fork" shows only the save/fork
@@ -332,14 +366,36 @@ class AvatarActions extends HTMLElement {
 	async _fork() {
 		if (this._busy) return;
 		const btn = this.shadowRoot.querySelector('[data-act="fork"]');
-		this._setBusy(btn, 'Saving…');
 		this._msg('', '');
+
+		// Consent gate: if this avatar's lineage carries a fork royalty, show the
+		// EXACT terms and require explicit acceptance before creating the fork. The
+		// forker mints their own wallet and keeps the clear majority; a defined slice
+		// of new SOL income streams upstream. Reject → no fork is created.
+		let acceptRoyalty = false;
+		try {
+			const tr = await fetch(`${API}/api/avatars/fork?of=${encodeURIComponent(this.avatarId)}&royalty=1`, {
+				credentials: 'include',
+			});
+			if (tr.ok) {
+				const { royalty } = await tr.json();
+				if (royalty?.has_royalty) {
+					const accepted = await this._confirmRoyalty(royalty);
+					if (!accepted) return; // user declined — nothing happens
+					acceptRoyalty = true;
+				}
+			}
+		} catch {
+			/* terms preview unavailable — server still gates the POST, so proceed */
+		}
+
+		this._setBusy(btn, 'Saving…');
 		try {
 			const r = await fetch(`${API}/api/avatars/fork`, {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ source_avatar_id: this.avatarId }),
+				body: JSON.stringify({ source_avatar_id: this.avatarId, accept_royalty: acceptRoyalty }),
 			});
 			const d = await r.json().catch(() => ({}));
 			if (!r.ok) throw new Error(d.message || d.error || `fork failed (${r.status})`);
@@ -356,6 +412,44 @@ class AvatarActions extends HTMLElement {
 		} finally {
 			this._clearBusy(btn);
 		}
+	}
+
+	// Inline royalty-consent dialog (self-contained — no cross-bundle import).
+	// Resolves true only on explicit accept. The fork is created by the caller.
+	_confirmRoyalty(royalty) {
+		return new Promise((resolve) => {
+			const keepPct = (royalty.keep_pct ?? (royalty.keep_bps / 100)).toLocaleString(undefined, { maximumFractionDigits: 2 });
+			const rows = (royalty.creators || [])
+				.map((c) => `<div class="rty-cr"><span class="rty-gen">gen ${c.depth}</span>
+					<span class="rty-nm">${escapeHtml(c.owner_name || 'creator')}</span>
+					<span class="rty-w">${c.wallet ? short(c.wallet) : '—'}</span>
+					<span class="rty-bp">${(c.pct ?? c.bps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%</span></div>`)
+				.join('');
+			const bar = `<div class="rty-bar"><div class="rty-keep" style="flex:${royalty.keep_bps}">you keep ${keepPct}%</div>${(royalty.creators || []).map((c, i) => `<div class="rty-up" style="flex:${c.bps};--i:${i}"></div>`).join('')}</div>`;
+			const overlay = document.createElement('div');
+			overlay.className = 'rty-overlay';
+			overlay.innerHTML = `<div class="rty-box" role="dialog" aria-modal="true" aria-label="Fork royalty terms">
+				<h3>Fork royalty</h3>
+				<p>Forking mints <b>your own wallet</b> — you alone own it and its funds. As thanks to the creators it descends from, a small slice of <b>new SOL income your fork earns</b> streams upstream, on-chain.</p>
+				${bar}
+				<div class="rty-list">${rows}</div>
+				<ul class="rty-terms">
+					<li>Applies only to <b>SOL tips & stream income</b> your fork earns — never your existing balance.</li>
+					<li>You keep the <b>clear majority</b> (${keepPct}%); upstream is capped and decays with distance.</li>
+					<li>Terms are <b>frozen now</b> — later rate changes never affect your fork.</li>
+				</ul>
+				<div class="rty-acts">
+					<button class="rty-cancel">Cancel</button>
+					<button class="rty-accept primary">Accept & fork — keep ${keepPct}%</button>
+				</div>
+			</div>`;
+			this.shadowRoot.appendChild(overlay);
+			const done = (val) => { overlay.remove(); resolve(val); };
+			overlay.addEventListener('click', (e) => { if (e.target === overlay) done(false); });
+			overlay.querySelector('.rty-cancel').addEventListener('click', () => done(false));
+			overlay.querySelector('.rty-accept').addEventListener('click', () => done(true));
+			overlay.querySelector('.rty-accept').focus();
+		});
 	}
 
 	async _createWallet() {

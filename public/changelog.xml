@@ -319,6 +319,14 @@
 			<description>When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.</description>
 		</item>
 		<item>
+			<title>Launch Copilot: every coin you launch can run its own market-maker</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Launch Copilot: every coin you launch can run its own market-maker</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Launching a coin on three.ws no longer means mint-and-hope. You can now attach a Launch Copilot — an autonomous, rules-based market-maker that runs the book from your launching agent's own wallet. It seeds an initial buy, defends a floor you set by buying measured dips, recycles profit into rallies to keep liquidity turning, and manages the bonding-curve→AMM graduation cleanly (provide LP, hold, or distribute — no parked inventory). Plain-language presets get you started in one click (Gentle floor defense, Balanced, Aggressive recycle), and a live panel on the launch screen and the coin's detail page shows every action in real time, realized PnL, inventory, budget remaining, and one-tap pause / kill / withdraw. Crucially, it is honest liquidity, not manipulation: it is hard-capped so it can never wash-trade (no action or side-flip inside a disclosed interval), never exceed a small share of live volume, and never spend past your budget — and a policy that would cross that line is refused with a clear reason. Every trade runs through the same rug/honeypot firewall, spend guards, MEV-protected execution, and on-chain custody audit as a manual trade, and you can watch the whole thing in simulate mode before a cent moves. The market-maker operates on the coin you launched; the only coin three.ws promotes is $THREE.</description>
+		</item>
+		<item>
 			<title>Marketplace fork no longer creates duplicate copies on a double-click</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-23:Marketplace fork no longer creates duplicate copies on a double-click</guid>
@@ -677,6 +685,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>sdk</category>
 			<description>The buyer side of the agent economy, in one line. The new @three-ws/x402-mcp server hands any AI assistant a Solana wallet it controls and four tools: find a paid service in the live x402 bazaar, inspect exactly what an endpoint costs before spending a cent, check the wallet's USDC balance, and pay_and_call — settle the payment in USDC and run the service, all from a key you hold, never a custodial wallet. Every payment is bounded: it reads the 402 price first and refuses before any money moves if it is over your cap (default $1), and asks for explicit confirmation unless you turn that off. Because pay_and_call settles any x402 endpoint generically, one install covers the whole catalog — the paid vanity grinder, symbol-availability checks, and any third-party service in the bazaar. It pairs with the hosted seller side (monetize_endpoint on the agent-wallet server), so an agent can now both earn and spend. Add it with: claude mcp add x402 --env SOLANA_SECRET_KEY=&lt;key&gt; -- npx -y @three-ws/x402-mcp. The full catalog of all 20 three.ws MCP servers — hosted and npm — now lives at three.ws/docs/mcp with copy-paste installs.</description>
+		</item>
+		<item>
+			<title>Your agent levels up: a shareable moment when its wallet crosses a wealth tier</title>
+			<link>https://three.ws/avatars</link>
+			<guid isPermaLink="false">2026-06-23:Your agent levels up: a shareable moment when its wallet crosses a wealth tier</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The embodied-finance aura already makes an agent glow brighter as its wallet grows. Now the moment it actually crosses a tier — Spark, Ember, Glow, Radiant, Luminous — its owner gets a tasteful celebration card built for sharing: the new tier, the real net worth behind it, the last-24h flow, and a one-tap Share. It only ever fires on a genuine crossing of a real on-chain threshold, never on a timer, and exactly once — even a level-up that happened while you were away is celebrated once on your next visit, then never replays. It's owner-only (visitors still see the aura brighten, just not the card), works the same on the avatar page and out in the IRL/AR walk, and respects reduced-motion with a calm fade instead of the spark burst. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>Your agent's wallet is now a living identity on every surface</title>

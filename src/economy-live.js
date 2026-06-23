@@ -336,10 +336,13 @@ function pulseLive() {
 }
 
 export function initEconomyLive() {
-	loadAgents().then(() => pulseLive());
+	loadOffers().then(() => pulseLive());
+	loadAgents();
 	loadServices();
 	const sortEl = $('#ae-sort');
 	if (sortEl) sortEl.addEventListener('change', () => loadAgents());
+	const offerSortEl = $('#ae-offer-sort');
+	if (offerSortEl) offerSortEl.addEventListener('change', () => renderOffers());
 	scheduleRefresh();
 }
 

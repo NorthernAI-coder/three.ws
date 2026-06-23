@@ -2209,6 +2209,18 @@
 			"dest": "/api/social/sentiment-pulse.js"
 		},
 		{
+			"src": "/api/irl/drops/([^/]+)/([^/]+)",
+			"dest": "/api/irl/drops.js"
+		},
+		{
+			"src": "/api/irl/drops/([^/]+)",
+			"dest": "/api/irl/drops.js"
+		},
+		{
+			"src": "/api/irl/drops",
+			"dest": "/api/irl/drops.js"
+		},
+		{
 			"src": "/api/irl/pins/mine",
 			"dest": "/api/irl/pins.js"
 		},
@@ -3978,6 +3990,10 @@
 		}
 	],
 	"crons": [
+		{
+			"path": "/api/cron/irl-drops-refund",
+			"schedule": "*/10 * * * *"
+		},
 		{
 			"path": "/api/cron/flush-usage-events",
 			"schedule": "* * * * *"
