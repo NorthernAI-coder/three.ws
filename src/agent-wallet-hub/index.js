@@ -40,6 +40,7 @@ import './tabs/policy.js';
 import './tabs/withdraw.js';
 import './tabs/give.js';
 import './tabs/recovery.js';
+import './tabs/guard.js';
 import './tabs/proof.js';
 
 import { escapeHtml, shortAddress, copyToClipboard, toast } from './util.js';

@@ -196,6 +196,17 @@ export class AgentAvatar {
 		this._errorStreak = 0;
 		this._firstEncounter = true;
 
+		// Sustained mood layer (Living Agents · Task 07). Unlike the transient
+		// emotion blend above — which spikes on an event and decays to neutral —
+		// this is the agent's *resting* emotional state (valence × arousal). It is
+		// driven by the mood engine via setMood() and applied every frame as a
+		// continuous bias on top of the transient morphs, so the body keeps
+		// reflecting how the agent feels even when nothing is happening. Inactive
+		// until the first setMood() call, so avatars with no mood source behave
+		// exactly as before.
+		this._mood = { valence: 0.12, arousal: 0.32, active: false, reduced: false };
+		this._moodApplied = { valence: 0.12, arousal: 0.32 };
+
 		// Morph target current values (lerped each frame)
 		this._morphCurrent = {};
 		this._morphTarget = {};
@@ -347,6 +358,25 @@ export class AgentAvatar {
 	/** Play a named gesture animation */
 	playGesture(name) {
 		this._triggerOneShot(name);
+	}
+
+	/**
+	 * Set the sustained mood (Living Agents · Task 07). The body continuously
+	 * reflects this resting emotional state — a gentle smile and open posture when
+	 * valence is high, a worried brow and lowered gaze when it's low; alert wide
+	 * eyes and a forward lean at high arousal, heavy-lidded stillness when calm.
+	 * Composited on top of, and lerped under, the transient emotion blend so it
+	 * never snaps. `reducedMotion` keeps the facial cue but drops postural motion.
+	 *
+	 * @param {number} valence  -1..1 (pleasantness)
+	 * @param {number} arousal  0..1 (activation)
+	 * @param {{reducedMotion?: boolean}} [opts]
+	 */
+	setMood(valence, arousal, opts = {}) {
+		this._mood.valence = Math.max(-1, Math.min(1, Number(valence) || 0));
+		this._mood.arousal = Math.max(0, Math.min(1, Number.isFinite(arousal) ? arousal : 0.32));
+		this._mood.reduced = Boolean(opts.reducedMotion);
+		this._mood.active = true;
 	}
 
 	/**
@@ -808,6 +838,12 @@ export class AgentAvatar {
 		this._setMorphTarget('cheekPuff', w.celebration * 0.2);
 		this._setMorphTarget('noseSneerLeft', w.concern * 0.15);
 		this._setMorphTarget('noseSneerRight', w.concern * 0.15);
+
+		// ── Sustained mood layer ─────────────────────────────────────────
+		// The resting expression. Added on top of the transient targets above so
+		// a calm-positive agent keeps a soft smile between events, an agitated one
+		// a worried brow. Lerped slowly so mood shifts read as drifts, not cuts.
+		if (this._mood.active) this._applyMoodLayer(dt);
 
 		// ── Lerp morph influences to targets ─────────────────────────────
 		const lerpSpeed = dt * 4.0; // smooth interpolation, not snapping

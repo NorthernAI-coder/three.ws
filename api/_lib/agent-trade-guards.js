@@ -684,8 +684,17 @@ export async function setPolicyRules(agentId, userId, rules, { english = null, r
 // wallet has require_capabilities on and no covering grant exists, the spend is
 // DENIED (fail safe). Returns the resolved capability, or null when none applies
 // and none is required (unchanged behavior for wallets not using capabilities).
-async function resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, now }) {
+async function resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, ownerInitiated, now }) {
 	if (category === 'withdraw') return null;
+	// Owner-present actions (e.g. the hub's discretionary Trade tab) are not delegated
+	// capabilities — the owner is the authority, exactly like withdraw. We still honor
+	// an explicitly-presented capability, but never auto-resolve or require one here.
+	if (ownerInitiated) {
+		if (!capability) return null;
+		const s = evaluateCapabilityScope({ cap: capability, action: category, target, usdValue, now });
+		if (s) throw capabilityError(s.reason, s.detail);
+		return capability;
+	}
 	let cap = capability || null;
 	if (!cap && (lim.require_capabilities || capabilityHolderRef)) {
 		cap = await resolveCapabilityForSpend({ agentId, action: category, holderRef: capabilityHolderRef ?? null, target, usdValue, now });
@@ -713,6 +722,7 @@ export async function enforceSpendLimit({
 	capability,
 	capabilityHolderRef,
 	target,
+	ownerInitiated,
 	now,
 	network = 'mainnet',
 }) {
@@ -784,7 +794,7 @@ export async function enforceSpendLimit({
 	// per-use) + a non-atomic aggregate read-check, mirroring how this enforce path
 	// already treats the daily cap non-atomically. The atomic aggregate reserve lives
 	// in reserveSpendUsd → reserveCapabilitySpend.
-	const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, now });
+	const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, ownerInitiated, now });
 	const capabilityId = _cap?.id || null;
 	if (_cap && _cap.aggregate_usd != null && hasUsd) {
 		const _spent = await capabilitySpentUsd(_cap.id);
@@ -822,6 +832,7 @@ export async function reserveSpendUsd({
 	capability,
 	capabilityHolderRef,
 	target,
+	ownerInitiated,
 	now,
 	network = 'mainnet',
 	asset = 'USDC',
@@ -872,7 +883,7 @@ export async function reserveSpendUsd({
 	// ceiling AND the wallet daily cap under advisory locks and tags the pending row
 	// with capability_id. Return early so we never double-insert.
 	if (category !== 'withdraw') {
-		const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target: target ?? destination, capability, capabilityHolderRef, now });
+		const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target: target ?? destination, capability, capabilityHolderRef, ownerInitiated, now });
 		if (_cap) {
 			const _r = await reserveCapabilitySpend({
 				capabilityId: _cap.id, agentId, userId, action: category,

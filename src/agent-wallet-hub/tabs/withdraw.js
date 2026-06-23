@@ -628,19 +628,35 @@ registerWalletTab({
 				limit_change: { ic: '⚙', label: 'Limits updated' },
 			};
 			const CAT = { trade: 'Trade', snipe: 'Snipe', x402: 'x402 payment', withdraw: 'Withdrawal' };
-			const title = (e) => (e.event_type === 'spend' ? (CAT[e.category] || 'Spend') : (META[e.event_type]?.label || e.event_type));
-			const icon = (e) => (e.event_type === 'spend' ? (e.category === 'withdraw' ? '↑' : '💸') : (META[e.event_type]?.ic || '•'));
+			// A spend row marked failed by a policy rule (reason policy_*) is a payment
+			// the natural-language policy STOPPED — surfaced inline so the owner sees
+			// exactly which rule fired. A limit_change with a policy reason is a
+			// policy edit / auto-freeze.
+			const isPolicyBlock = (e) => e.event_type === 'spend' && typeof e.reason === 'string' && e.reason.startsWith('policy_');
+			const isPolicyChange = (e) => e.event_type === 'limit_change' && (e.reason === 'policy_updated' || e.reason === 'policy_freeze');
+			const ruleText = (e) => (e.meta && typeof e.meta === 'object' ? (e.meta.rule || null) : null);
+			const title = (e) => {
+				if (isPolicyBlock(e)) return e.reason === 'policy_freeze' ? 'Frozen by your rule' : e.reason === 'policy_step_up' ? 'Needs your approval' : 'Blocked by your rule';
+				if (isPolicyChange(e)) return e.reason === 'policy_freeze' ? 'Auto-frozen by policy' : 'Spend policy updated';
+				return e.event_type === 'spend' ? (CAT[e.category] || 'Spend') : (META[e.event_type]?.label || e.event_type);
+			};
+			const icon = (e) => {
+				if (isPolicyBlock(e) || isPolicyChange(e)) return '🛡';
+				return e.event_type === 'spend' ? (e.category === 'withdraw' ? '↑' : '💸') : (META[e.event_type]?.ic || '•');
+			};
 
 			function renderEvent(e) {
 				let amt = '';
 				if (e.asset === 'SOL' && e.amount_lamports != null) amt = `${fmtAmount(Number(e.amount_lamports) / 1e9, 6)} SOL`;
 				else if (e.usd != null) amt = formatUsd(e.usd) || '';
 				else if (e.asset && e.asset !== 'SOL') amt = shortAddress(e.asset, 4, 4);
+				const policyNote = (isPolicyBlock(e) || isPolicyChange(e)) ? ruleText(e) : null;
 				const when = e.created_at ? new Date(e.created_at).toLocaleString() : '';
 				const sub = [
 					e.destination ? `→ ${shortAddress(e.destination, 4, 4)}` : '',
+					policyNote ? `“${esc(policyNote)}”` : '',
 					e.event_type === 'key_recover' && e.reason ? esc(e.reason) : '',
-					e.status && e.status !== 'ok' && e.status !== 'confirmed' ? `[${esc(e.status)}]` : '',
+					e.status && e.status !== 'ok' && e.status !== 'confirmed' && !isPolicyBlock(e) ? `[${esc(e.status)}]` : '',
 					esc(when),
 				].filter(Boolean).join(' · ');
 				return `<li class="awh-ev"><span class="ic">${icon(e)}</span><span class="m"><span class="ttl">${esc(title(e))}</span><span class="sb">${sub}${e.explorer ? ` · <a href="${esc(e.explorer)}" target="_blank" rel="noopener">tx ↗</a>` : ''}</span></span><span class="amt">${esc(amt)}</span></li>`;
