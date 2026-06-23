@@ -517,9 +517,12 @@ function updateEngineAvailability() {
 		// Live health beats the catalog's env-presence flag: a lane whose
 		// upstream auth/billing probe failed is disabled with the real reason.
 		const lane = health?.backends?.[btn.dataset.backend];
-		const laneDown = lane && (lane.status === 'down' || lane.status === 'unconfigured');
+		const laneDown = Boolean(lane && (lane.status === 'down' || lane.status === 'unconfigured'));
 		const laneBusy = lane && lane.status === 'degraded';
-		const blocked = (textOnly && hasPhotos) || laneDown;
+		// Boolean-coerce: before health loads, `lane` is undefined and a raw
+		// `(false) || undefined` would write aria-disabled="undefined" — an
+		// invalid ARIA token value (axe aria-valid-attr-value, WCAG 4.1.2).
+		const blocked = Boolean((textOnly && hasPhotos) || laneDown);
 		btn.disabled = blocked;
 		btn.setAttribute('aria-disabled', String(blocked));
 		btn.dataset.health = lane ? lane.status : '';

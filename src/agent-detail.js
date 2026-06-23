@@ -585,6 +585,17 @@ function render(agent) {
 		fork.style.display = 'block';
 	}
 
+	// Register the shared royalty panel so the avatar-actions royalty chips open
+	// the rich in-page ledger (rather than navigating away), and honor a
+	// /agent/:id#royalties deep link by opening it directly.
+	import('./shared/agent-fork-royalty.js')
+		.then((rty) => {
+			if (location.hash === '#royalties' && agent.id) {
+				rty.openRoyaltyPanel(agent.id, { name: agent.name || 'this agent' });
+			}
+		})
+		.catch(() => {});
+
 	// "See in 3D" drops this agent's avatar into the live $three world. Every
 	// agent has one — its own GLB if attached, the base mannequin otherwise — so
 	// the button is always live. Marketplace enrichment upgrades the href to a

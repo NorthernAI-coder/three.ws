@@ -2307,6 +2307,10 @@ export default async function handler(req, res, id, action) {
 	if (action === 'withdraw') return handleWithdraw(req, res, id);
 	if (action === 'vanity') return handleVanity(req, res, id);
 	if (action === 'holdings') return handleHoldings(req, res, id);
+	if (action === 'reserves') {
+		const mod = await import('./_id/reserves.js');
+		return mod.handleReserves(req, res, id);
+	}
 	if (action === 'networth') return handleNetWorth(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);

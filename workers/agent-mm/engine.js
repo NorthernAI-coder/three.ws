@@ -340,11 +340,19 @@ async function runGraduation({ cfg, policy, agent, price, inventoryWhole, invent
 	return 'graduation_distribute';
 }
 
-// Record a non-firing decision (gated / dust / etc.) to the transparent ledger.
+// Record a non-firing decision. Routine pacing/budget/dust gates fire on EVERY
+// sweep, so persisting each one would flood the ledger — those update the
+// heartbeat (last_eval_at + last_error) instead, which the UI shows as a "what
+// it's doing right now" note. Only NOTABLE events — an anti-wash block or a
+// failure — earn a permanent ledger row.
 async function skip({ policy, intent, price, status, detail, reason }) {
-	await recordActionAndAdvance({
-		policy,
-		action: { kind: intent.kind, side: intent.side, triggerReason: intent.reason, priceSol: price, status, detail, meta: { reason } },
-	});
+	if (status === 'blocked' || status === 'failed') {
+		await recordActionAndAdvance({
+			policy,
+			action: { kind: intent.kind, side: intent.side, triggerReason: intent.reason, priceSol: price, status, detail, meta: { reason } },
+		});
+	} else {
+		await markEvaluated(policy.id, { error: `holding: ${detail}`.slice(0, 200) });
+	}
 	return reason;
 }

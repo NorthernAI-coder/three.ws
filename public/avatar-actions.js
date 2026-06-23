@@ -232,7 +232,7 @@ class AvatarActions extends HTMLElement {
 
 		// Nothing to show for this viewer/mode combo — stay invisible rather than
 		// render an empty card.
-		if (!body && !lineage && !forks) {
+		if (!body && !lineage && !forks && !royaltySignals) {
 			this.shadowRoot.innerHTML = '';
 			return;
 		}
@@ -240,10 +240,29 @@ class AvatarActions extends HTMLElement {
 		this.shadowRoot.innerHTML = `${css}
 			<div class="card">
 				${lineage || forks ? `<div class="row spread">${lineage}${forks}</div>` : ''}
+				${royaltySignals ? `<div class="row">${royaltySignals}</div>` : ''}
 				<div class="body">${body}</div>
 				<div class="msg-slot"></div>
 			</div>`;
 		this._wire();
+	}
+
+	// Royalty trust chips: "earns from N forks" (ancestor) / "shares N% upstream"
+	// (descendant). Click opens the full transparent ledger. '' when nothing to say.
+	_royaltySignals() {
+		const d = this._royalty;
+		if (!d) return '';
+		const out = [];
+		const anc = d.ancestor;
+		const desc = d.descendant;
+		if (anc?.earns_royalties && anc.fork_count > 0) {
+			out.push(`<span class="rty-sig earn" data-royalty title="Earns a royalty when forks of this avatar earn">↑ earns from ${anc.fork_count} ${anc.fork_count === 1 ? 'fork' : 'forks'}</span>`);
+		}
+		if (desc?.shares_upstream && desc.total_bps > 0) {
+			const p = (desc.total_bps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 });
+			out.push(`<span class="rty-sig" data-royalty title="Shares a slice of new income with the creators it descends from">⑂ shares ${p}% upstream</span>`);
+		}
+		return out.join('');
 	}
 
 	_walletBlock() {
@@ -305,6 +324,8 @@ class AvatarActions extends HTMLElement {
 			}),
 		);
 		root.querySelector('[data-act="fork"]')?.addEventListener('click', () => this._fork());
+		root.querySelectorAll('[data-royalty]').forEach((s) =>
+			s.addEventListener('click', () => this._openRoyalty()));
 		root
 			.querySelector('[data-act="create-wallet"]')
 			?.addEventListener('click', () => this._createWallet());
@@ -412,6 +433,17 @@ class AvatarActions extends HTMLElement {
 		} finally {
 			this._clearBusy(btn);
 		}
+	}
+
+	// Open the transparent royalty ledger. Pages that load the app bundle expose
+	// the rich shared panel on window; everywhere else, route to the agent page
+	// where it is always available.
+	_openRoyalty() {
+		const agentId = this._agent?.id;
+		if (!agentId) return;
+		const panel = (typeof window !== 'undefined') && window.twsForkRoyalty?.openRoyaltyPanel;
+		if (panel) panel(agentId, { name: this._avatar?.name || 'this agent' });
+		else window.location.href = `/agent/${agentId}#royalties`;
 	}
 
 	// Inline royalty-consent dialog (self-contained — no cross-bundle import).
