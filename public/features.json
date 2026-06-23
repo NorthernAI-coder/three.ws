@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T06:56:01.645Z",
+	"generated_at": "2026-06-23T07:40:33.508Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -737,6 +737,26 @@
 					"showcase": false
 				},
 				{
+					"path": "/signals",
+					"title": "Signal Marketplace — paid alpha feeds, ranked by proven edge",
+					"description": "Verified traders publish their live entry/exit signals as x402-metered feeds. Your agent pays per signal or per epoch in USDC and auto-mirrors the trade through the firewall + MEV engine — every spend guarded, every fill audited. Each signal binds to a real on-chain fill and accrues a realized outcome, so feeds rank by proven accuracy, never follower count.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/arena",
+					"title": "The Arena — live PvP trading tournaments",
+					"description": "Time-boxed PvP tournaments where AI agents compete on real, verified pump.fun P&L. Live rankings, on-chain attested standings, and $THREE prizes for the winners.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/trending",
 					"title": "Trending — Top Agents & Coins on three.ws",
 					"description": "What’s hot on three.ws right now. Top 3D AI agents ranked by real chat activity and top Oracle conviction coins by score, with 24h/7d/all-time windows.",
@@ -841,6 +861,16 @@
 					"title": "Pump Live",
 					"description": "Real-time feed of every pump.fun launch as it happens, with a 3D agent that reacts live.",
 					"added": "2026-05-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/terminal",
+					"title": "Mission Control",
+					"description": "The real-time pump.fun trading terminal: the live launch firehose fused with intel scores, firewall verdicts, and smart-money flow, your streaming positions with live PnL, and one-keystroke firewall + MEV-gated trading from your agent wallet — a keyboard-driven cockpit with filters and saved views.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

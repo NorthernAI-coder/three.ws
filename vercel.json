@@ -6,7 +6,7 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/cron/{copy-fanout,mirror-fanout,three-holders-snapshot}.js": {
+		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot}.js": {
 			"maxDuration": 120
 		},
 		"api/cron/{strategy-fanout,gmgn-seed}.js": {
@@ -17,6 +17,9 @@
 		},
 		"api/agents/[id].js": {
 			"maxDuration": 45
+		},
+		"api/tournaments/[id].js": {
+			"maxDuration": 120
 		},
 		"api/agents/networth.js": {
 			"maxDuration": 60
@@ -160,6 +163,10 @@
 			"maxDuration": 60
 		},
 		"api/sniper/stream.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 300
+		},
+		"api/sniper/radar-stream.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
@@ -551,6 +558,14 @@
 			"dest": "/wallet/$1"
 		},
 		{
+			"src": "/terminal",
+			"dest": "/terminal.html"
+		},
+		{
+			"src": "/terminal/",
+			"dest": "/terminal.html"
+		},
+		{
 			"src": "/pumpfun",
 			"dest": "/pumpfun.html"
 		},
@@ -674,6 +689,10 @@
 			"dest": "/strategies.html"
 		},
 		{
+			"src": "/swarms/?",
+			"dest": "/swarms.html"
+		},
+		{
 			"src": "/api/strategies/(.*)",
 			"dest": "/api/strategies"
 		},
@@ -744,6 +763,14 @@
 		{
 			"src": "/trader/?",
 			"dest": "/trader.html"
+		},
+		{
+			"src": "/signals/?",
+			"dest": "/signals.html"
+		},
+		{
+			"src": "/signals/([^/]+)/?",
+			"dest": "/signal-detail.html"
 		},
 		{
 			"src": "/api/trader-og",
@@ -2235,6 +2262,14 @@
 			"dest": "/api/sniper/stream.js"
 		},
 		{
+			"src": "/api/sniper/radar-stream",
+			"dest": "/api/sniper/radar-stream.js"
+		},
+		{
+			"src": "/api/sniper/radar",
+			"dest": "/api/sniper/radar.js"
+		},
+		{
 			"src": "/api/sniper/trader",
 			"dest": "/api/sniper/trader.js"
 		},
@@ -3293,6 +3328,18 @@
 			"dest": "/api/club/tips-stream"
 		},
 		{
+			"src": "/api/swarms/([^/]+)/stream",
+			"dest": "/api/swarms/[id]"
+		},
+		{
+			"src": "/api/swarms/([^/]+)",
+			"dest": "/api/swarms/[id]"
+		},
+		{
+			"src": "/api/swarms",
+			"dest": "/api/swarms"
+		},
+		{
 			"src": "/api/(.*)",
 			"dest": "/api/$1"
 		},
@@ -3945,6 +3992,10 @@
 			"schedule": "*/10 * * * *"
 		},
 		{
+			"path": "/api/cron/radar-watchlist",
+			"schedule": "*/10 * * * *"
+		},
+		{
 			"path": "/api/cron/intel-learn",
 			"schedule": "*/15 * * * *"
 		},
@@ -4034,6 +4085,10 @@
 		},
 		{
 			"path": "/api/cron/mirror-fanout",
+			"schedule": "*/2 * * * *"
+		},
+		{
+			"path": "/api/cron/signal-fanout",
 			"schedule": "*/2 * * * *"
 		},
 		{

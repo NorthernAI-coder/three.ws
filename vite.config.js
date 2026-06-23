@@ -344,7 +344,11 @@ const appConfig = {
 				leaderboard: resolve(__dirname, 'pages/leaderboard.html'),
 				mirror: resolve(__dirname, 'pages/mirror.html'),
 				strategies: resolve(__dirname, 'pages/strategies.html'),
+				swarms: resolve(__dirname, 'pages/swarms.html'),
+				terminal: resolve(__dirname, 'pages/terminal.html'),
 				trader: resolve(__dirname, 'pages/trader.html'),
+				signals: resolve(__dirname, 'pages/signals.html'),
+				'signal-detail': resolve(__dirname, 'pages/signal-detail.html'),
 				trades: resolve(__dirname, 'pages/trades.html'),
 				'claim-wallet': resolve(__dirname, 'pages/claim-wallet.html'),
 				'avatar-embed': resolve(__dirname, 'pages/avatar-embed.html'),
@@ -419,6 +423,7 @@ const appConfig = {
 				play: resolve(__dirname, 'pages/play.html'),
 				'play-agent-wallet': resolve(__dirname, 'pages/play/agent-wallet.html'),
 				'play-arena': resolve(__dirname, 'pages/play/arena.html'),
+				arena: resolve(__dirname, 'pages/arena.html'),
 				'smart-money': resolve(__dirname, 'pages/smart-money.html'),
 				pose: resolve(__dirname, 'pages/pose.html'),
 				animations: resolve(__dirname, 'pages/animations.html'),
@@ -774,14 +779,22 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/watchlist/': resolve(root, 'pages/watchlist.html'),
 					'/leaderboard': resolve(root, 'pages/leaderboard.html'),
 					'/leaderboard/': resolve(root, 'pages/leaderboard.html'),
+					'/arena': resolve(root, 'pages/arena.html'),
+					'/arena/': resolve(root, 'pages/arena.html'),
 					'/mirror': resolve(root, 'pages/mirror.html'),
 					'/mirror/': resolve(root, 'pages/mirror.html'),
 					'/strategies': resolve(root, 'pages/strategies.html'),
 					'/strategies/': resolve(root, 'pages/strategies.html'),
+					'/swarms': resolve(root, 'pages/swarms.html'),
+					'/swarms/': resolve(root, 'pages/swarms.html'),
 					'/trader': resolve(root, 'pages/trader.html'),
 					'/trader/': resolve(root, 'pages/trader.html'),
+					'/signals': resolve(root, 'pages/signals.html'),
+					'/signals/': resolve(root, 'pages/signals.html'),
 					'/trades': resolve(root, 'pages/trades.html'),
 					'/trades/': resolve(root, 'pages/trades.html'),
+					'/terminal': resolve(root, 'pages/terminal.html'),
+					'/terminal/': resolve(root, 'pages/terminal.html'),
 					'/claim-wallet': resolve(root, 'pages/claim-wallet.html'),
 					'/claim-wallet/': resolve(root, 'pages/claim-wallet.html'),
 					'/pump-live': resolve(root, 'pages/pump-live.html'),
@@ -1125,6 +1138,9 @@ support: resolve(__dirname, 'pages/support.html'),
 					// /agents/:id  → rich detail page (UUID expected, validated client-side)
 					else if (!filePath && /^\/bounty\/[^/]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/bounty.html');
+					// /signals/<slug>  → signal feed detail page (hydrates from /api/signals/feed)
+					else if (!filePath && /^\/signals\/[^/.]+\/?$/.test(path))
+						filePath = resolve(root, 'pages/signal-detail.html');
 					// `[^/.]+` (no dot) mirrors vercel.json's `/agents/([^/.]+)` so
 					// static assets like /agents/boot.js fall through to public/
 					// instead of being served the agent-detail HTML shell.

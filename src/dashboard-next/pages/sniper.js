@@ -303,7 +303,7 @@ function stratCard(s) {
 	const wins = s.summary?.wins || 0;
 	const wr = closed > 0 ? Math.round((wins / closed) * 100) : null;
 	const img = s.image || '/favicon.ico';
-	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : s.trigger === 'intel_confirmed' ? 'Intel-confirmed trigger' : 'New mint trigger';
+	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : s.trigger === 'intel_confirmed' ? 'Intel-confirmed trigger' : s.trigger === 'prelaunch_radar' ? 'Pre-launch radar trigger' : 'New mint trigger';
 
 	const walletBal = s.wallet_sol != null ? s.wallet_sol : null;
 	const walletWarn = walletBal != null && walletBal < lamportsToSol(s.per_trade_lamports || '0') + 0.003;
@@ -376,7 +376,9 @@ function stratForm(s) {
 				<option value="new_mint" ${s.trigger === 'new_mint' || (!s.trigger || (s.trigger !== 'first_claim' && s.trigger !== 'intel_confirmed')) ? 'selected' : ''}>New mint — snipe every launch</option>
 				<option value="first_claim" ${s.trigger === 'first_claim' ? 'selected' : ''}>First claim — creator claims for first time</option>
 				<option value="intel_confirmed" ${s.trigger === 'intel_confirmed' ? 'selected' : ''}>Intel confirmed — buy after Coin Intelligence verdict</option>
+				<option value="prelaunch_radar" ${s.trigger === 'prelaunch_radar' ? 'selected' : ''}>Pre-launch radar — pre-arm on a proven creator's launch precursor</option>
 			</select>
+			<span class="sn-hint">Pre-launch radar watches proven creator + smart-money wallets on-chain and pre-arms the snipe the instant one funds a fresh deploy wallet or submits a pump.fun create — at block-0, on signal not luck.</span>
 			<span class="sn-hint">Intel confirmed waits for the observation window (~60s) and only buys if the coin passes bundle detection and quality analysis.</span>
 			<span class="sn-hint">When the agent enters a position.</span>
 		</div>
@@ -487,6 +489,7 @@ function stratForm(s) {
 
 		${s.trigger === 'first_claim' ? firstClaimFields(s) : ''}
 		${s.trigger === 'intel_confirmed' ? intelFields(s) : ''}
+		${s.trigger === 'prelaunch_radar' ? radarFields(s) : ''}
 
 		<div class="sn-section-head">Notifications</div>
 		<div class="sn-field sn-field-full">
@@ -500,6 +503,29 @@ function stratForm(s) {
 			<span class="sn-save-msg" data-msg="${esc(s.agent_id)}"></span>
 		</div>
 	</form>`;
+}
+
+function radarFields(s) {
+	return `
+		<div class="sn-section-head">Pre-Launch Radar Gates</div>
+		<div class="sn-field">
+			<label>Min creator graduated</label>
+			<input name="min_creator_graduated_radar" type="number" min="0" max="100000" value="${s.min_creator_graduated_radar != null ? s.min_creator_graduated_radar : ''}" placeholder="worker default (2)" aria-label="Min creator graduated coins for the radar" />
+			<span class="sn-hint">Only pre-arm when the triggering creator has graduated at least this many coins. Blank uses the worker default.</span>
+		</div>
+		<div class="sn-field">
+			<label>Max precursor age (ms)</label>
+			<input name="radar_max_age_ms" type="number" min="1000" max="3600000" value="${s.radar_max_age_ms != null ? s.radar_max_age_ms : ''}" placeholder="120000" aria-label="Max precursor age in milliseconds" />
+			<span class="sn-hint">Skip a precursor first seen older than this — never chase a launch the floor already moved past.</span>
+		</div>
+		<div class="sn-field">
+			<label>Require smart-money funder</label>
+			<select name="require_smart_money_funder" aria-label="Require a proven smart-money funder">
+				<option value="false" ${!s.require_smart_money_funder ? 'selected' : ''}>No — any proven creator</option>
+				<option value="true" ${s.require_smart_money_funder ? 'selected' : ''}>Yes — funder must be proven smart money</option>
+			</select>
+			<span class="sn-hint">Demand the triggering wallet (or the funder of the fresh deploy wallet) be a proven smart-money address before pre-arming.</span>
+		</div>`;
 }
 
 function firstClaimFields(s) {
@@ -1015,6 +1041,11 @@ async function saveForm(form, root) {
 			body.max_concentration_top1 = fd.max_concentration_top1 !== '' ? Number(fd.max_concentration_top1) : null;
 			body.avoid_dev_dump = fd.avoid_dev_dump !== 'false';
 			body.allowed_categories = fd.allowed_categories ? fd.allowed_categories.split(',').map((c) => c.trim()).filter(Boolean) : null;
+		}
+		if (fd.trigger === 'prelaunch_radar') {
+			body.min_creator_graduated_radar = fd.min_creator_graduated_radar !== '' ? Number(fd.min_creator_graduated_radar) : null;
+			body.radar_max_age_ms = fd.radar_max_age_ms !== '' ? Number(fd.radar_max_age_ms) : null;
+			body.require_smart_money_funder = fd.require_smart_money_funder === 'true';
 		}
 
 		await post('/api/sniper/strategy', body);

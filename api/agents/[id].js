@@ -72,6 +72,16 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'copilot') {
+		const mod = await import('./copilot.js');
+		return mod.default(req, res, id, action);
+	}
+
+	if (sub === 'portfolio') {
+		const mod = await import('./portfolio.js');
+		return mod.default(req, res, id, action);
+	}
+
 	if (sub === 'autopilot') {
 		const mod = await import('./autopilot.js');
 		return mod.default(req, res, id, action);
@@ -89,6 +99,11 @@ export default wrap(async function handler(req, res) {
 
 	if (sub === 'strategies') {
 		const mod = await import('./agent-strategy-objects.js');
+		return mod.default(req, res, id, action);
+	}
+
+	if (sub === 'orders') {
+		const mod = await import('./orders.js');
 		return mod.default(req, res, id, action);
 	}
 

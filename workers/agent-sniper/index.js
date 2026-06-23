@@ -17,7 +17,9 @@ import { scoreMint, scoreIntel } from './scorer.js';
 import { executeBuy } from './executor.js';
 import { oracleGate } from './oracle-gate.js';
 import { runPositionSweep } from './positions.js';
+import { runSwarmConsensus, runSwarmSettlement } from './swarm.js';
 import { startFirstClaimWatch } from './first-claim-watch.js';
+import { startPrelaunchRadar } from './prelaunch-radar.js';
 import { startIntelWatcher } from './intel/watcher.js';
 import { getLearnedWeights } from './intel/store.js';
 import { getSmartMoneyForMint } from '../../api/_lib/smart-money.js';
@@ -180,6 +182,18 @@ async function main() {
 		cfg, queue, throttle, isHalted: () => draining || cfg.globalKill,
 	});
 
+	// Pre-launch creator-wallet radar: watches proven creator + smart-money wallets
+	// on-chain, detects launch precursors (funding a fresh deploy wallet / a pump
+	// create) at block-0, and pre-arms a snipe through the SAME executor as the feed
+	// path. Honestly reports paused when no RPC endpoint is available. Shares the
+	// buy queue + throttle and halts new buys on drain/kill.
+	let radar = { stop() {}, getState: () => ({ active: false, paused: true, reason: 'disabled' }) };
+	if (cfg.radar) {
+		radar = startPrelaunchRadar({
+			cfg, queue, throttle, isHalted: () => draining || cfg.globalKill,
+		});
+	}
+
 	// Strategy cache refresh.
 	const strategyTimer = setInterval(() => {
 		refreshStrategies(cfg.network, cfg.strategyRefreshMs)
@@ -202,6 +216,25 @@ async function main() {
 			errors.tick(); // re-arm the spike alert once the window drains
 		}
 	}, cfg.pollMs);
+
+	// Trading-swarm consensus + settlement — overlap-guarded so a slow pass can't
+	// stack. Consensus pools members' live positions into a reputation-weighted vote
+	// and fires firewall-gated treasury buys; settlement distributes realized profit
+	// pro-rata. Both reuse the same guards/execution as solo snipes.
+	let swarmBusy = false;
+	const swarmTimer = setInterval(async () => {
+		if (swarmBusy || draining || cfg.globalKill) return;
+		swarmBusy = true;
+		try {
+			await runSwarmConsensus(cfg, { throttle });
+			await runSwarmSettlement(cfg);
+		} catch (err) {
+			log.error('swarm loop failed', { err: err?.message });
+			noteError('swarm', err?.message);
+		} finally {
+			swarmBusy = false;
+		}
+	}, Math.max(cfg.pollMs, 8000));
 
 	// Feed watchdog: connectPumpFunFeed stops after 5 drops; if the feed goes
 	// quiet past the threshold, tear down and re-subscribe so the brain never
@@ -240,6 +273,7 @@ async function main() {
 			lastError: errors.lastError,
 			intel: cfg.intel,
 			inFlightBuys: queue.inFlight,
+			radar: cfg.radar ? radar.getState() : { active: false, paused: true, reason: 'disabled' },
 			bootAt: BOOT_AT,
 		}),
 	});
@@ -251,9 +285,11 @@ async function main() {
 		if (cfg.announceLifecycle) alertShutdown({ signal, inFlight: queue.inFlight });
 		clearInterval(strategyTimer);
 		clearInterval(positionTimer);
+		clearInterval(swarmTimer);
 		clearInterval(watchdogTimer);
 		try { stopHeartbeat?.(); } catch {}
 		try { stopClaimWatch?.(); } catch {}
+		try { radar?.stop?.(); } catch {}
 		try { stopFeed?.(); } catch {}
 		try { stopIntel?.(); } catch {}
 		abort.abort();

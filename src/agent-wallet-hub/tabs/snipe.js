@@ -64,6 +64,9 @@ registerWalletTab({
 					<a class="awh-btn awh-btn--primary awh-snipe-cta" href="${escapeHtml(dashUrl)}">
 						Open the Sniper dashboard
 					</a>
+					<a class="awh-btn awh-snipe-cta" href="/terminal" style="margin-top:6px">
+						Trade live in Mission Control
+					</a>
 				</div>
 			</div>
 		`;
