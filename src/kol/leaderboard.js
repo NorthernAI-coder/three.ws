@@ -1,46 +1,33 @@
-// KOL leaderboard — static seed scoring.
+// KOL leaderboard — live, kolscan-backed.
 //
-// Data source: src/kol/seed.json — a curated static snapshot of top-trader
-// stats derived from kol-quest (https://github.com/nirholas/kol-quest)
-// leaderboard methodology (pnlUsd, winRate, trades per window). A live
-// implementation would replace this with an indexer query (e.g. GMGN or
-// KolScan API) but the scoring shape is identical.
+// Source of truth: the real kolscan.io leaderboard of top Solana traders, fetched
+// and parsed by ./kolscan-live.js (one HTML GET yields the 24h / 7d / 30d boards,
+// priced SOL→USD from the live feed). The scoring shape is the address-keyed
+// { wallet, pnlUsd, winRate, trades, rank } the KOL surfaces and the public
+// /api/kol/leaderboard endpoint already speak.
+//
+// Honest degradation: if the live source is unreachable (network, bot-challenge,
+// layout change, price-feed outage), the board returns empty rather than stale or
+// fabricated rows — callers render an honest empty state. The live fetcher is
+// injectable so tests exercise the real parse/scoring path deterministically.
 
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-// Resolve seed.json in a bundle-safe way. scripts/bundle-api.mjs inlines this
-// module into api/kol/[action].js with esbuild, which rewrites import.meta.url
-// to the OUTPUT file's location — so an import.meta-relative `./seed.json`
-// resolves to a bogus /var/task/api/kol/seed.json and ENOENTs at load.
-// process.cwd() is /var/task on Vercel (the file ships via vercel.json
-// includeFiles) and the repo root in dev; the import.meta path stays as a
-// fallback for unbundled callers.
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SEED_CANDIDATES = [
-	join(process.cwd(), 'src', 'kol', 'seed.json'),
-	join(__dirname, 'seed.json'),
-];
-const seed = (() => {
-	let lastErr;
-	for (const candidate of SEED_CANDIDATES) {
-		try {
-			return JSON.parse(readFileSync(candidate, 'utf8'));
-		} catch (err) {
-			lastErr = err;
-		}
-	}
-	throw lastErr;
-})();
+import { fetchKolscanLeaderboard } from './kolscan-live.js';
 
 const VALID_WINDOWS = new Set(['24h', '7d', '30d']);
 
 /**
- * @param {{ window?: '24h'|'7d'|'30d', limit?: number }} opts
+ * @param {object} opts
+ * @param {'24h'|'7d'|'30d'} [opts.window]
+ * @param {number} [opts.limit]
+ * @param {() => Promise<null | Record<string, Array>>} [opts.fetchLive]
+ *   Live source override (tests inject a fixture). Defaults to kolscan.
  * @returns {Promise<Array<{ wallet: string, pnlUsd: number, winRate: number, trades: number, rank: number }>>}
  */
-export async function getLeaderboard({ window = '7d', limit = 25 } = {}) {
+export async function getLeaderboard({
+	window = '7d',
+	limit = 25,
+	fetchLive = fetchKolscanLeaderboard,
+} = {}) {
 	if (!VALID_WINDOWS.has(window)) {
 		const err = new Error(`invalid window "${window}": must be 24h, 7d, or 30d`);
 		err.status = 400;
@@ -50,18 +37,18 @@ export async function getLeaderboard({ window = '7d', limit = 25 } = {}) {
 
 	const cap = Math.min(Math.max(1, Math.floor(Number(limit) || 25)), 100);
 
-	return seed
-		.map((entry) => {
-			const stats = entry.windows?.[window];
-			if (!stats) return null;
-			return {
-				wallet: entry.wallet,
-				pnlUsd: stats.pnlUsd,
-				winRate: stats.winRate,
-				trades: stats.trades,
-			};
-		})
-		.filter(Boolean)
+	const board = await fetchLive().catch(() => null);
+	const rows = board?.[window];
+	if (!Array.isArray(rows)) return [];
+
+	return rows
+		.filter((r) => r && typeof r.wallet === 'string' && Number.isFinite(r.pnlUsd))
+		.map((r) => ({
+			wallet: r.wallet,
+			pnlUsd: r.pnlUsd,
+			winRate: Number(r.winRate) || 0,
+			trades: Number(r.trades) || 0,
+		}))
 		.sort((a, b) => b.pnlUsd - a.pnlUsd)
 		.slice(0, cap)
 		.map((item, i) => ({ ...item, rank: i + 1 }));

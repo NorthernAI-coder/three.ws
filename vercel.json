@@ -15,9 +15,6 @@
 		"api/strategies.js": {
 			"maxDuration": 30
 		},
-		"api/kol/[action].js": {
-			"includeFiles": "src/kol/seed.json"
-		},
 		"api/agents/[id].js": {
 			"maxDuration": 45
 		},
