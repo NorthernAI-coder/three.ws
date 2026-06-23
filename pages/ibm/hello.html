@@ -1804,24 +1804,37 @@ agent-3d:defined ~ .agent-skel{display:none}
   })();
   var HEADERS = { 'x-forge-client': CID };
 
+  // Load model-viewer, resilient to a transient script failure, and resolve to
+  // whether the element is genuinely defined so the caller never mounts an inert
+  // tag. Absolute, not './vendor/…': this page is built to be embedded. On any
+  // host where a relative path doesn't resolve (a preview tool, a partner site,
+  // file://) the element would never upgrade and would sit as a blank box — which
+  // is exactly why the free generator looked broken while <agent-3d> (loaded from
+  // an absolute URL) worked. The canonical copy on three.ws is self-contained and
+  // served with `Access-Control-Allow-Origin: *`, so it upgrades from any origin.
+  var MV_SRC = 'https://three.ws/ibm/vendor/model-viewer.min.js';
   var _mv = null;
   function ensureModelViewer() {
     if (_mv) return _mv;
     _mv = new Promise(function (resolve) {
-      if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
-      var s = document.createElement('script');
-      s.type = 'module';
-      // Absolute, not './vendor/…': this page is built to be embedded. On any host
-      // where the relative path doesn't resolve (a preview tool, a partner site,
-      // file://) the element would never upgrade and sit as a blank box — exactly
-      // why the free generator looked broken while <agent-3d> (loaded from an
-      // absolute URL) worked. The canonical copy on three.ws is served with
-      // `Access-Control-Allow-Origin: *`, so it loads cross-origin anywhere.
-      s.src = 'https://three.ws/ibm/vendor/model-viewer.min.js';
-      s.addEventListener('error', resolve);
-      document.head.appendChild(s);
-      if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
-      else resolve();
+      function defined() { return !!(window.customElements && customElements.get('model-viewer')); }
+      if (defined()) { resolve(true); return; }
+      if (!window.customElements) { resolve(false); return; }
+      var settled = false;
+      function done(v) { if (settled) return; settled = true; resolve(v); }
+      customElements.whenDefined('model-viewer').then(function () { done(true); });
+      function inject(attempt) {
+        var s = document.createElement('script');
+        s.type = 'module';
+        s.src = attempt > 1 ? (MV_SRC + '?r=' + attempt) : MV_SRC;
+        s.addEventListener('error', function () {
+          if (attempt < 3) setTimeout(function () { inject(attempt + 1); }, 600 * attempt);
+          else done(defined());
+        });
+        document.head.appendChild(s);
+      }
+      inject(1);
+      setTimeout(function () { done(defined()); }, 15000); // never hang — report real state
     });
     return _mv;
   }
@@ -1987,28 +2000,58 @@ agent-3d:defined ~ .agent-skel{display:none}
     return 'three.ws Forge';
   }
 
+  function viewerMarkup(glb) {
+    return '<div class="mv-wrap"><model-viewer src="' + esc(glb) + '" alt="3D model generated from your prompt" ' +
+      'camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" ' +
+      'shadow-intensity="0.7" shadow-softness="0.8" environment-image="neutral" exposure="1" ' +
+      'camera-orbit="0deg 80deg auto" loading="eager"></model-viewer></div>';
+  }
+
   async function renderModel(job, prompt) {
     clearInterval(loadTimer);
-    await ensureModelViewer();
+    var ready = await ensureModelViewer();
     var glb = cdnGlb(job.glb_url);
     var scene = 'https://three.ws/scene?model=' + encodeURIComponent(glb) +
       '&name=' + encodeURIComponent(prompt.slice(0, 80));
-    result.className = 'g3d-result is-done';
-    result.innerHTML =
-      '<div class="mv-wrap"><model-viewer src="' + esc(glb) + '" alt="3D model generated from your prompt" ' +
-      'camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" ' +
-      'shadow-intensity="0.7" shadow-softness="0.8" environment-image="neutral" exposure="1" ' +
-      'camera-orbit="0deg 80deg auto" loading="eager"></model-viewer></div>' +
+    var actions =
       '<div class="g3d-actions">' +
       '<a class="g3d-act primary" href="' + esc(glb) + '" download>Download GLB</a>' +
       '<a class="g3d-act" href="' + esc(scene) + '" target="_blank" rel="noopener">Open in 3D scene ↗</a>' +
       '<span class="g3d-engine">Generated free · ' + esc(engineLabel(job.backend)) + '</span>' +
       '</div>';
-    // If the viewer fails to load the GLB, don't leave a blank box — surface the
-    // designed error so the visitor can retry rather than stare at an empty stage.
-    var mv = result.querySelector('model-viewer');
-    if (mv) mv.addEventListener('error', function () { setError(); }, { once: true });
+    result.className = 'g3d-result is-done';
+    result.innerHTML = viewerMarkup(glb) + actions;
     statusEl.textContent = 'Your 3D model is ready. Orbit it, or download the GLB.';
+
+    // Make the orbit view a certainty, not a hope. Confirm the GLB actually paints
+    // (model-viewer's 'load'); if it errors or never paints, remount the viewer
+    // once — that clears a one-off decode/WebGL-context blip — before falling back
+    // to the designed retry. The visitor either orbits their model or gets a clear
+    // way to recover; never a silent black box.
+    if (!ready) { setError(); return; }
+    var attempted = 0;
+    function mountViewer() {
+      attempted++;
+      var wrap = result.querySelector('.mv-wrap');
+      var mv = wrap && wrap.querySelector('model-viewer');
+      if (!mv) { setError(); return; }
+      var settled = false;
+      var watchdog = setTimeout(function () {
+        // 'load' should fire within seconds of a reachable GLB; if neither load nor
+        // error arrives, treat it as a stall and remount/recover.
+        if (settled) return;
+        if (mv.loaded) { settled = true; return; } // painted, event just missed
+        onProblem();
+      }, 12000);
+      function onProblem() {
+        if (settled) return; settled = true; clearTimeout(watchdog);
+        if (attempted < 2) { result.innerHTML = viewerMarkup(glb) + actions; mountViewer(); }
+        else setError();
+      }
+      mv.addEventListener('load', function () { settled = true; clearTimeout(watchdog); }, { once: true });
+      mv.addEventListener('error', onProblem, { once: true });
+    }
+    mountViewer();
   }
 
   async function run() {
