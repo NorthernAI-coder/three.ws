@@ -17,6 +17,10 @@ import { installTransitions } from './walk-companion-transitions.js';
 import { createWalkTrails2D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 import { installClickToWalk } from './walk-companion-click-to-walk.js';
 import { installNarrator } from './walk-companion-narrator.js';
+// The companion is the site-wide "your agent" body. Booting the mood embodiment
+// here makes it reflect the agent's live emotional state (aura + breathing) on
+// every page the companion runs — and starts the mood engine for the session.
+import './agents/mood-embodiment.js';
 
 const walk = createWalkCompanion({
 	// Static GLBs and the animation manifest are served from this origin.

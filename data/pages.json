@@ -564,6 +564,14 @@
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
 				{
+					"path": "/agi",
+					"title": "The AGI — narrow by design",
+					"description": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",
+					"priority": 0.95,
+					"changefreq": "realtime",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/oracle",
 					"title": "Oracle — AI Conviction Engine",
 					"description": "A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.",

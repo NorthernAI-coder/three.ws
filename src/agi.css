@@ -1,0 +1,253 @@
+/* The AGI — flagship surface for the platform's narrow-domain trading agent.
+ * Monochrome on near-black, φ-spaced (tokens.css). The one chromatic license is
+ * the mood aura around the embodied body, whose hue is set at runtime from the
+ * live cognition vector (--agi-aura). Semantic green/red only ever mark P&L. */
+
+.agi-shell {
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+	color: var(--ink);
+	font-family: var(--font-body);
+}
+
+/* ── shared atoms ─────────────────────────────────────────────────────────── */
+.agi-card {
+	background: var(--surface-1);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-lg);
+	padding: var(--space-lg);
+}
+.agi-eyebrow {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--ink-dim);
+}
+.agi-mono { font-family: var(--font-mono); }
+.agi-pos { color: var(--success); }
+.agi-neg { color: var(--danger); }
+.agi-muted { color: var(--ink-dim); }
+
+/* ── hero ─────────────────────────────────────────────────────────────────── */
+.agi-hero {
+	display: grid;
+	grid-template-columns: 1.15fr 0.85fr;
+	gap: var(--space-xl);
+	align-items: stretch;
+	margin-bottom: var(--space-xl);
+}
+.agi-hero-copy { display: flex; flex-direction: column; justify-content: center; gap: var(--space-md); }
+.agi-title {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: clamp(2.2rem, 5vw, var(--text-3xl));
+	line-height: 1.02;
+	letter-spacing: -0.02em;
+	margin: 0;
+}
+.agi-title .agi-em {
+	background: linear-gradient(100deg, var(--ink-bright), var(--ink-dim));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+.agi-lede { font-size: var(--text-lg); line-height: 1.5; color: var(--ink); max-width: 46ch; margin: 0; }
+.agi-thesis { font-size: var(--text-md); line-height: 1.6; color: var(--ink-dim); max-width: 52ch; margin: 0; }
+
+.agi-domain-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-sm);
+	align-self: flex-start;
+	padding: var(--space-2xs) var(--space-sm);
+	border: 1px solid var(--stroke-strong);
+	border-radius: var(--radius-pill);
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	letter-spacing: 0.06em;
+	color: var(--ink);
+	background: var(--surface-2);
+}
+.agi-domain-tag .agi-dot {
+	width: 7px; height: 7px; border-radius: 50%;
+	background: var(--success);
+	box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.6);
+	animation: agi-pulse 2.4s ease-out infinite;
+}
+@keyframes agi-pulse {
+	0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.5); }
+	70% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+.agi-hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-2xs); }
+.agi-btn {
+	display: inline-flex; align-items: center; gap: var(--space-xs);
+	padding: var(--space-sm) var(--space-md);
+	border-radius: var(--radius-md);
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	text-decoration: none;
+	border: 1px solid var(--stroke-strong);
+	color: var(--ink);
+	background: var(--surface-2);
+	transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+.agi-btn:hover { border-color: var(--ink-dim); background: var(--surface-3); }
+.agi-btn:active { transform: translateY(1px); }
+.agi-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.agi-btn-primary { background: var(--ink-bright); color: var(--bg-0); border-color: var(--ink-bright); }
+.agi-btn-primary:hover { background: var(--ink); }
+
+/* ── embodiment stage ─────────────────────────────────────────────────────── */
+.agi-stage {
+	position: relative;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-lg);
+	background:
+		radial-gradient(120% 90% at 50% 8%, rgba(255, 255, 255, 0.05), transparent 60%),
+		var(--bg-0);
+	overflow: hidden;
+	min-height: 420px;
+	display: flex;
+	flex-direction: column;
+}
+.agi-stage::before {
+	/* mood aura — hue/intensity set at runtime via --agi-aura / --agi-aura-strength */
+	content: '';
+	position: absolute; inset: 0;
+	background: radial-gradient(60% 55% at 50% 62%, var(--agi-aura, rgba(124, 147, 179, 0.28)), transparent 70%);
+	opacity: var(--agi-aura-strength, 0.5);
+	transition: background 1.2s ease, opacity 1.2s ease;
+	pointer-events: none;
+}
+.agi-stage agent-3d {
+	position: relative;
+	z-index: 1;
+	flex: 1;
+	width: 100%;
+	opacity: 0;
+	transition: opacity 0.6s ease;
+}
+.agi-stage agent-3d.agi-loaded { opacity: 1; }
+.agi-stage-floor {
+	position: absolute; bottom: 0; left: 0; right: 0;
+	display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-md);
+	background: linear-gradient(0deg, var(--bg-0), transparent);
+	z-index: 2;
+}
+.agi-state-pill {
+	display: inline-flex; align-items: center; gap: var(--space-xs);
+	font-family: var(--font-mono); font-size: var(--text-2xs);
+	letter-spacing: 0.08em; text-transform: uppercase;
+	color: var(--ink);
+}
+.agi-state-pill .agi-spark { width: 6px; height: 6px; border-radius: 50%; background: var(--agi-aura-solid, var(--ink-dim)); transition: background 1s ease; }
+.agi-conviction { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink-dim); }
+.agi-stage-boot {
+	position: absolute; inset: 0; z-index: 3;
+	display: flex; align-items: center; justify-content: center;
+	font-family: var(--font-mono); font-size: var(--text-sm); color: var(--ink-dim);
+	letter-spacing: 0.1em;
+}
+
+/* ── section grid ─────────────────────────────────────────────────────────── */
+.agi-grid {
+	display: grid;
+	grid-template-columns: 1.25fr 1fr;
+	gap: var(--space-lg);
+}
+.agi-section-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-md); }
+.agi-section-head h2 { font-family: var(--font-display); font-size: var(--text-xl); font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.agi-section-sub { font-size: var(--text-sm); color: var(--ink-dim); }
+
+/* ── live mind (decision stream) ──────────────────────────────────────────── */
+.agi-mind { min-height: 360px; }
+.agi-stream { display: flex; flex-direction: column; gap: var(--space-sm); }
+.agi-thought {
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	padding: var(--space-sm) var(--space-md);
+	background: var(--surface-1);
+	animation: agi-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.agi-thought.agi-fresh { border-color: var(--stroke-strong); }
+@keyframes agi-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.agi-thought-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-2xs); }
+.agi-thought-kind {
+	font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.08em; text-transform: uppercase;
+	color: var(--ink-dim); display: inline-flex; align-items: center; gap: var(--space-xs);
+}
+.agi-thought-mint a { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink); text-decoration: none; border-bottom: 1px dotted var(--stroke-strong); }
+.agi-thought-mint a:hover { color: var(--ink-bright); }
+.agi-thought-time { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink-faint); white-space: nowrap; }
+.agi-thought-body { font-size: var(--text-md); line-height: 1.5; color: var(--ink); margin: var(--space-2xs) 0; }
+.agi-thought-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; font-family: var(--font-mono); font-size: var(--text-2xs); }
+.agi-conf-bar { position: relative; height: 4px; width: 64px; border-radius: 2px; background: var(--surface-3); overflow: hidden; }
+.agi-conf-bar > span { position: absolute; inset: 0 auto 0 0; background: var(--ink); border-radius: 2px; }
+.agi-verdict { padding: 1px var(--space-xs); border-radius: var(--radius-pill); border: 1px solid var(--stroke-strong); }
+.agi-verdict.win { color: var(--success); border-color: rgba(74, 222, 128, 0.4); }
+.agi-verdict.loss { color: var(--danger); border-color: rgba(248, 113, 113, 0.4); }
+.agi-verdict.pending { color: var(--warn); border-color: rgba(251, 191, 36, 0.35); }
+
+/* ── track record ─────────────────────────────────────────────────────────── */
+.agi-rep { display: flex; align-items: center; gap: var(--space-lg); margin-bottom: var(--space-lg); }
+.agi-ring { position: relative; width: 92px; height: 92px; flex: none; }
+.agi-ring svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+.agi-ring .agi-ring-track { stroke: var(--surface-3); }
+.agi-ring .agi-ring-val { stroke: var(--ink-bright); stroke-linecap: round; transition: stroke-dashoffset 0.9s cubic-bezier(0.16,1,0.3,1); }
+.agi-ring-num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.agi-ring-num b { font-family: var(--font-display); font-size: var(--text-xl); line-height: 1; }
+.agi-ring-num small { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink-dim); }
+.agi-rep-side { font-size: var(--text-sm); color: var(--ink-dim); line-height: 1.5; }
+.agi-rep-side b { color: var(--ink); }
+
+.agi-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-sm); margin-bottom: var(--space-lg); }
+.agi-stat { border: 1px solid var(--stroke); border-radius: var(--radius-md); padding: var(--space-sm) var(--space-md); }
+.agi-stat .k { font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-dim); }
+.agi-stat .v { font-family: var(--font-display); font-size: var(--text-lg); margin-top: 2px; }
+
+.agi-positions { display: flex; flex-direction: column; gap: var(--space-2xs); }
+.agi-position { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--stroke); font-family: var(--font-mono); font-size: var(--text-sm); }
+.agi-position:last-child { border-bottom: none; }
+.agi-position a { color: var(--ink); text-decoration: none; }
+.agi-position a:hover { color: var(--ink-bright); }
+
+.agi-honesty { margin-top: var(--space-md); font-size: var(--text-sm); color: var(--ink-dim); line-height: 1.5; }
+.agi-honesty a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── doctrine ─────────────────────────────────────────────────────────────── */
+.agi-doctrine { margin-top: var(--space-xl); }
+.agi-doctrine-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+.agi-claim h3, .agi-refuse h3 { font-family: var(--font-display); font-size: var(--text-md); margin: 0 0 var(--space-sm); font-weight: 600; }
+.agi-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-sm); }
+.agi-list li { display: flex; gap: var(--space-sm); font-size: var(--text-md); line-height: 1.45; color: var(--ink); }
+.agi-list li .agi-mark { flex: none; font-family: var(--font-mono); color: var(--ink-dim); }
+.agi-refuse .agi-mark { color: var(--danger); }
+.agi-claim .agi-mark { color: var(--success); }
+
+/* ── skeleton / states ────────────────────────────────────────────────────── */
+.agi-skel { background: linear-gradient(90deg, var(--surface-1) 25%, var(--surface-2) 37%, var(--surface-1) 63%); background-size: 400% 100%; animation: agi-shimmer 1.4s ease infinite; border-radius: var(--radius-md); }
+@keyframes agi-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.agi-empty, .agi-error { text-align: center; padding: var(--space-xl); color: var(--ink-dim); }
+.agi-empty h2 { font-family: var(--font-display); color: var(--ink); margin: 0 0 var(--space-sm); }
+.agi-error { border: 1px solid rgba(248, 113, 113, 0.3); border-radius: var(--radius-lg); background: var(--surface-1); }
+
+/* ── responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+	.agi-hero { grid-template-columns: 1fr; }
+	.agi-grid { grid-template-columns: 1fr; }
+	.agi-doctrine-grid { grid-template-columns: 1fr; }
+	.agi-stage { min-height: 360px; }
+}
+@media (max-width: 480px) {
+	.agi-shell { padding: var(--space-lg) var(--space-md) var(--space-xl); }
+	.agi-stats { grid-template-columns: 1fr 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.agi-thought, .agi-domain-tag .agi-dot, .agi-skel { animation: none; }
+	.agi-stage::before, .agi-stage agent-3d, .agi-ring .agi-ring-val { transition: none; }
+}

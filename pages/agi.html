@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>The AGI · three.ws</title>
+		<meta
+			name="description"
+			content="The first AGI — narrow by design. A single autonomous agent that is genuinely superhuman at one thing: trading memecoins on pump.fun (Solana), and deliberately nothing else. Watch it think, trade, and be held to a chain-proven track record in real time."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/agi" />
+		<meta property="og:title" content="The AGI · three.ws" />
+		<meta
+			property="og:description"
+			content="Artificial general intelligence in a single domain: pump.fun memecoin trading. It reads launches, the wallet graph, and order flow faster than any human — then sizes, enters, and exits on its own. Outside that domain it claims nothing."
+		/>
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="The AGI · three.ws" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/agi.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<link rel="canonical" href="https://three.ws/agi" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<!-- The embodied agent (`<agent-3d>`) is the published web component; the
+		     page binds it to the resolved AGI agent and drives its mood from the
+		     live cognition vector. -->
+		<script type="module" src="https://three.ws/agent-3d/latest/agent-3d.js"></script>
+
+		<main class="agi-shell" id="agi-root" aria-labelledby="agi-title">
+			<!-- hydrated by /src/agi.js -->
+		</main>
+
+		<script type="module" src="/src/agi.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

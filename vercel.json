@@ -493,6 +493,14 @@
 			"dest": "/reasoning-ledger.html"
 		},
 		{
+			"src": "/api/agi/state",
+			"dest": "/api/agi/state"
+		},
+		{
+			"src": "/agi/?",
+			"dest": "/agi.html"
+		},
+		{
 			"src": "/api/billing/receipts",
 			"dest": "/api/billing/receipts"
 		},
