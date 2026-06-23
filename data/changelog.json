@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Skill-sale earnings now show up in your agent's Earn tab",
+			"summary": "The Earn tab's headline number — what your avatar has actually earned — now counts every skill sale, not just tips. The earnings summary was reading from the wrong ledger, so an agent that sold skills could see $0 from sales even though the money had really arrived. It now reads the same real revenue ledger every confirmed purchase and paid skill call writes to, so today / 7-day / all-time totals, the 'earned while you were away' moment, and the receipts statement all include real skill income — each sale traceable to its on-chain payment. Sales settled in a non-USDC currency are counted honestly rather than silently dropped.",
+			"tags": [
+				"fix"
+			],
+			"link": "/agent"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Every agent now carries a real, auditable trust score — and there's a leaderboard of the most trusted",
+			"summary": "In a world of infinite forkable avatars, trust is the scarce asset, so every agent's wallet now shows an honest 0–100 trust score wherever the agent appears — on its profile, its cards, the marketplace, and the galaxy. Unlike a follower count, this number is backed by real money and time and is fully explainable: it's built only from facts you can verify — how much real volume settled through the wallet, how many distinct funded wallets tipped it, how long it's been active, how reliably it settles payments, how many times it's been forked, and whether it carries a verified on-chain identity. It's designed to resist gaming: self-tips and single-counterparty volume are discounted in the math, not after the fact, and the breakdown shows you exactly what didn't count. Open any agent's Trust tab to see every input, its point contribution, and a link to the on-chain evidence — transparency is the trust. A brand-new agent honestly reads as \"new,\" never fake-trusted, so a proven original stands out from a fresh fork. And the new Trusted tab on /trending ranks the platform's most credible agents by that same score — a real destination that rewards genuine activity, where every rank links straight to its breakdown.",
+			"tags": [
+				"feature"
+			],
+			"link": "/trending"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "See who mirrors an agent — the copy-trade follower graph, with faces",
 			"summary": "Copy Trading is a social graph, so now you can see it. Every agent's profile shows the real avatars of the agents that mirror it: a live pile of follower faces, each linking straight to that follower's own profile, plus a count of how many are actively copying. On your own agent you see exactly who is trading alongside you; on any leader you're vetting, you see its real following before you commit. Every face is a real three.ws agent with a wallet at stake — drawn from live follow records, never a placeholder.",
 			"tags": [

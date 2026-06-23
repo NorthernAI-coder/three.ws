@@ -4,7 +4,7 @@
 // tab: every dollar the agent has earned (skill sales + tips) and every dollar
 // it has spent paying other services over x402, plus the live spend policy that
 // keeps autonomous spending safe, and a unified receipts statement. Every number
-// traces to a real ledger row — agent_custody_events, skill_payment_earnings,
+// traces to a real ledger row — agent_custody_events, agent_revenue_events,
 // skill_purchases — never a mock.
 //
 // Owner-only: these are the agent owner's private financials. Ownership is
@@ -73,15 +73,18 @@ export default wrap(async (req, res) => {
 			spentTodayUsd,
 		] = await Promise.all([
 			// Skill sales (creator net), windowed. USDC atomic → USD (1:1, 6dp).
+			// agent_revenue_events is the real, written-on-confirm revenue ledger
+			// (marketplace purchases + x402 skill invocations both land here); the
+			// non-USDC tail is counted, never silently dropped.
 			sql`
 				SELECT
-					COALESCE(SUM(net_amount) FILTER (WHERE created_at >= date_trunc('day', now())), 0)::text AS today,
-					COALESCE(SUM(net_amount) FILTER (WHERE created_at >= now() - interval '7 days'), 0)::text AS week,
-					COALESCE(SUM(net_amount), 0)::text AS lifetime,
-					COUNT(*)::int AS count,
+					COALESCE(SUM(net_amount) FILTER (WHERE currency_mint = ${USDC_MINT} AND created_at >= date_trunc('day', now())), 0)::text AS today,
+					COALESCE(SUM(net_amount) FILTER (WHERE currency_mint = ${USDC_MINT} AND created_at >= now() - interval '7 days'), 0)::text AS week,
+					COALESCE(SUM(net_amount) FILTER (WHERE currency_mint = ${USDC_MINT}), 0)::text AS lifetime,
+					COUNT(*) FILTER (WHERE currency_mint = ${USDC_MINT})::int AS count,
 					COUNT(*) FILTER (WHERE currency_mint <> ${USDC_MINT})::int AS non_usdc_count
-				FROM skill_payment_earnings
-				WHERE agent_id = ${id} AND currency_mint = ${USDC_MINT}
+				FROM agent_revenue_events
+				WHERE agent_id = ${id}
 			`,
 			// Tips received (already USD-priced on the custody row).
 			sql`
@@ -122,12 +125,16 @@ export default wrap(async (req, res) => {
 				ORDER BY created_at DESC
 				LIMIT ${RECEIPTS_LIMIT}
 			`,
-			// Inbound receipts — skill sales (join the purchase for skill + buyer + tx).
+			// Inbound receipts — skill sales. agent_revenue_events carries the
+			// skill + net itself; we LEFT JOIN the originating marketplace purchase
+			// (intent_id is `sp_<purchase_id>`) for the buyer + on-chain tx when the
+			// sale came through the marketplace. x402 skill invocations have no
+			// purchase row and simply show without a buyer/tx — still a real receipt.
 			sql`
 				SELECT e.id, e.net_amount, e.gross_amount, e.currency_mint, e.created_at,
-				       sp.skill, sp.tx_signature, sp.user_id AS buyer_user_id
-				FROM skill_payment_earnings e
-				JOIN skill_purchases sp ON sp.id = e.payment_id
+				       e.skill, sp.tx_signature, sp.user_id AS buyer_user_id
+				FROM agent_revenue_events e
+				LEFT JOIN skill_purchases sp ON ('sp_' || sp.id::text) = e.intent_id
 				WHERE e.agent_id = ${id}
 				ORDER BY e.created_at DESC
 				LIMIT ${RECEIPTS_LIMIT}
