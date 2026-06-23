@@ -68,6 +68,14 @@ export function decorateMemory(row, extra = {}) {
 		updatedAt: row.updated_at ? new Date(row.updated_at).getTime() : createdMs,
 		lastAccessedAt: row.last_accessed_at ? new Date(row.last_accessed_at).getTime() : null,
 		expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
+		// Portable & Verifiable Brain — authorship + storage provenance. Present
+		// on rows selected with the brain columns; absent (undefined) otherwise.
+		contentHash: row.content_hash ?? undefined,
+		signature: row.signature ?? undefined,
+		signerAddress: row.signer_address ?? undefined,
+		signedAt: row.signed_at ? new Date(row.signed_at).getTime() : (row.signed_at === null ? null : undefined),
+		storageMode: row.storage_mode ?? undefined,
+		ipfsCid: row.ipfs_cid ?? undefined,
 		...extra,
 	};
 }

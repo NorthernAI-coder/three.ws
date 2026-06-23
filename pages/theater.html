@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<title>Live Trading Theater · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="author" content="nirholas" />
+		<meta
+			name="description"
+			content="Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs and a real receipt rises with an explorer link."
+		/>
+		<meta name="theme-color" content="#05050a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:title" content="Live Trading Theater · three.ws" />
+		<meta
+			property="og:description"
+			content="Trading as spectator sport. Real agents, real wallets, real on-chain fills — performed in a shared 3D stage."
+		/>
+		<meta property="og:url" content="https://three.ws/theater" />
+
+		<!-- tokens.css = design variables only; buttons.css targets .btn — neither
+		     touches the theater's own .th-* UI. theater.css owns the layout. -->
+		<link rel="stylesheet" href="/tokens.css" />
+		<link rel="stylesheet" href="/src/theater.css" />
+	</head>
+	<body>
+		<div id="th-root" class="th-root">
+			<header class="th-topbar">
+				<a class="th-back" href="/" aria-label="Back to three.ws">
+					<span aria-hidden="true">←</span> three.ws
+				</a>
+				<div class="th-title-wrap">
+					<h1 class="th-title">Live Trading Theater</h1>
+					<p class="th-room-hint" id="th-room-hint"></p>
+				</div>
+				<div class="th-status th-dot-amber" id="th-status" role="status" aria-live="polite">
+					<span class="th-status-dot" aria-hidden="true"></span>
+					<span class="th-status-label">Connecting</span>
+				</div>
+			</header>
+
+			<nav class="th-rooms" id="th-rooms" role="tablist" aria-label="Theater rooms"></nav>
+
+			<div class="th-layout">
+				<section class="th-stage" id="th-stage" aria-label="3D trading stage">
+					<canvas id="th-canvas" class="th-canvas"></canvas>
+					<div id="th-overlay" class="th-overlay" aria-hidden="true"></div>
+
+					<!-- loading -->
+					<div class="th-state th-loading" id="th-loading">
+						<div class="th-spinner" aria-hidden="true"></div>
+						<p>Assembling the cast…</p>
+					</div>
+
+					<!-- quiet market -->
+					<div class="th-state th-quiet" id="th-quiet" hidden>
+						<h2>The market's quiet right now</h2>
+						<p class="th-muted">No agent is moving this second. Here's the most recent real activity — the stage lights up the instant the next on-chain buy fills.</p>
+						<div class="th-highlights" data-highlights></div>
+					</div>
+
+					<!-- error -->
+					<div class="th-state th-error" id="th-error" hidden>
+						<h2>Couldn't load the stage</h2>
+						<p class="th-muted">The roster feed didn't respond. Your connection or our edge may be hiccuping.</p>
+						<button class="th-btn th-btn-primary" data-retry>Try again</button>
+					</div>
+
+					<!-- read-only HUD -->
+					<aside class="th-panel" id="th-panel" aria-label="Agent details"></aside>
+				</section>
+
+				<aside class="th-rail" aria-label="Live activity and replay">
+					<section class="th-rail-block">
+						<h2 class="th-rail-h">
+							<span class="th-status-dot th-rail-dot" aria-hidden="true"></span> Live tape
+						</h2>
+						<ul class="th-ticker" id="th-ticker" aria-live="polite"></ul>
+					</section>
+
+					<section class="th-rail-block th-replay" id="th-replay">
+						<div class="th-replay-head">
+							<h2 class="th-rail-h">Replay</h2>
+							<button class="th-btn th-btn-sm" data-play-all>▶ Play session</button>
+						</div>
+						<p class="th-muted th-replay-empty" data-empty>Every real move this session lands here. Tap a marker to replay it on stage.</p>
+						<div class="th-replay-rail" data-rail aria-label="Captured moves"></div>
+					</section>
+				</aside>
+			</div>
+		</div>
+
+		<script type="module" src="/src/theater.js"></script>
+	</body>
+</html>

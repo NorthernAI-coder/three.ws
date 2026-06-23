@@ -981,6 +981,10 @@
 			"dest": "/club.html"
 		},
 		{
+			"src": "/theater/?",
+			"dest": "/theater.html"
+		},
+		{
 			"src": "/stage/?",
 			"dest": "/stage.html"
 		},
@@ -1982,6 +1986,10 @@
 		},
 		{
 			"src": "/api/agents/([^/]+)/persona(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/brain(/.*)?",
 			"dest": "/api/agents/[id]"
 		},
 		{

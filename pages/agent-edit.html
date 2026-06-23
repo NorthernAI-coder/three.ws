@@ -1042,6 +1042,9 @@
 			.dream-card-status { font-size: 0.72rem; margin-top: 0.5rem; min-height: 1em; }
 			.dream-card-status.err { color: #fca5a5; }
 			.dream-card-status.ok { color: #86efac; }
+			.link-btn { background: none; border: none; color: #a78bfa; cursor: pointer; font-family: inherit; font-size: inherit; text-decoration: underline; padding: 0; }
+			.link-btn:hover { color: #c4b5fd; }
+			.link-btn:focus-visible { outline: 2px solid rgba(167,139,250,0.6); outline-offset: 2px; }
 
 			.dreams-empty { text-align: center; padding: 2.5rem 1rem; color: rgba(255,255,255,0.5); }
 			.dreams-empty .moon { font-size: 2rem; display: block; margin-bottom: 0.6rem; }
@@ -1197,6 +1200,7 @@
 				</div>
 				<div class="edit-sidebar-group">
 					<div class="edit-sidebar-group-title">Brain</div>
+					<button class="edit-tab" data-tab="brain" role="tab" aria-selected="false" aria-controls="panel-brain" id="tab-brain">Brain Studio</button>
 					<button class="edit-tab" data-tab="knowledge" role="tab" aria-selected="false" aria-controls="panel-knowledge" id="tab-knowledge">Knowledge</button>
 					<button class="edit-tab" data-tab="dreams" role="tab" aria-selected="false" aria-controls="panel-dreams" id="tab-dreams">Dreams<span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></button>
 					<button class="edit-tab" data-tab="skills" role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills">Skills</button>
@@ -1249,6 +1253,19 @@
 						role="status"
 						aria-live="polite"
 					></span>
+				</div>
+			</section>
+
+			<!-- Brain Studio tab -->
+			<section
+				class="edit-panel persona-panel"
+				id="panel-brain"
+				role="tabpanel"
+				aria-labelledby="tab-brain"
+				hidden
+			>
+				<div id="brain-studio-host">
+					<div class="loading-msg" role="status" aria-live="polite">Loading the Brain Studio…</div>
 				</div>
 			</section>
 

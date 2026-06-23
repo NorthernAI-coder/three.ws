@@ -198,6 +198,11 @@ export default wrap(async function handler(req, res) {
 		return mod.handlePersona(req, res, id, action);
 	}
 
+	if (sub === 'brain') {
+		const mod = await import('./_id/brain.js');
+		return mod.handleBrain(req, res, id, action);
+	}
+
 	if (sub === 'payments') {
 		const mod = await import('./_id/payments.js');
 		return mod.handlePayments(req, res, id);

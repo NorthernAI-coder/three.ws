@@ -1,0 +1,474 @@
+/**
+ * Alpha Co-pilot — client mount.
+ *
+ * The intelligence + voice layer on top of the wallet program's trade rails:
+ * an agent reads a REAL pump.fun launch in character (POST /api/agents/:id/alpha/read),
+ * its 3D avatar speaks the verdict aloud (TTS + talk animation), and the owner
+ * can act on the call through the SAME guarded path the conversational copilot
+ * uses (executeAgentTrade → POST /solana/trade) — clamped to the agent's spend
+ * limits and fully audited. The narrator never moves funds.
+ *
+ * Every number shown comes from the server's grounded `signals` bundle; a
+ * fabricated figure is rejected server-side and never reaches the avatar's mouth.
+ */
+
+import { agentAvatarGlb } from './shared/agent-3d.js';
+import { previewAgentTrade, executeAgentTrade, TradeError } from './agent-solana-wallet.js';
+
+const NETWORK = 'mainnet';
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const LS_KEY = 'ac_last_agent';
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ── formatting ──────────────────────────────────────────────────────────────
+const num = (v) => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
+function fmtUsd(v) {
+	const n = num(v);
+	if (n == null) return '—';
+	if (n >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
+	if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+	if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+	return '$' + n.toFixed(0);
+}
+function fmtSol(v) { const n = num(v); return n == null ? '—' : '◎' + n.toLocaleString(undefined, { maximumFractionDigits: 4 }); }
+function fmtPct(v) { const n = num(v); return n == null ? '—' : n.toFixed(n >= 10 ? 0 : 1) + '%'; }
+function fmtScore(v) { const n = num(v); return n == null ? '—' : Math.round(n) + ''; }
+function ageLabel(seconds) {
+	const s = num(seconds);
+	if (s == null) return '—';
+	if (s < 90) return Math.round(s) + 's';
+	const m = Math.round(s / 60);
+	if (m < 90) return m + 'm';
+	const h = Math.round(m / 60);
+	if (h < 48) return h + 'h';
+	return Math.round(h / 24) + 'd';
+}
+function short(s, h = 4, t = 4) { return !s || s.length <= h + t + 1 ? s || '' : `${s.slice(0, h)}…${s.slice(-t)}`; }
+function explorerTxUrl(sig) { return `https://solscan.io/tx/${sig}`; }
+
+// ── state ──────────────────────────────────────────────────────────────────
+const state = {
+	agent: null,        // full GET /api/agents/:id object
+	avatarEl: null,     // <agent-3d>
+	candidates: [],
+	read: null,         // last /alpha/read response
+	lastSpoken: '',
+	speaking: false,
+	loadingRead: false,
+};
+
+// ── DOM refs ────────────────────────────────────────────────────────────────
+const dom = {};
+function cacheDom() {
+	dom.agentInput = $('#ac-agent-input');
+	dom.agentLoad = $('#ac-agent-load');
+	dom.avatarHost = $('#ac-avatar-host');
+	dom.avatarPlaceholder = $('#ac-avatar-placeholder');
+	dom.agentName = $('#ac-agent-name');
+	dom.agentRole = $('#ac-agent-role');
+	dom.speak = $('#ac-speak');
+	dom.speakLine = $('#ac-speak-line');
+	dom.replay = $('#ac-replay');
+	dom.readEmpty = $('#ac-read-empty');
+	dom.readBody = $('#ac-read-body');
+	dom.launchesList = $('#ac-launches-list');
+	dom.refresh = $('#ac-refresh');
+	dom.actDrawer = $('#ac-act-drawer');
+	dom.actBody = $('#ac-act-body');
+}
+
+// ── agent loading ───────────────────────────────────────────────────────────
+function parseAgentId(raw) {
+	if (!raw) return null;
+	const m = String(raw).match(UUID_RE);
+	return m ? m[0] : null;
+}
+
+async function loadAgent(id) {
+	dom.agentName.textContent = 'Loading…';
+	dom.agentRole.textContent = 'Alpha co-pilot';
+	let agent;
+	try {
+		const r = await fetch(`/api/agents/${encodeURIComponent(id)}`, { credentials: 'include' });
+		const j = await r.json().catch(() => ({}));
+		if (!r.ok) throw new Error(j?.error?.message || `Could not load agent (${r.status})`);
+		agent = j.agent || j;
+	} catch (e) {
+		dom.agentName.textContent = 'Not found';
+		dom.agentRole.textContent = e.message || 'Could not load that agent';
+		state.agent = null;
+		return;
+	}
+	state.agent = agent;
+	try { localStorage.setItem(LS_KEY, agent.id); } catch { /* ignore */ }
+	dom.agentName.textContent = agent.name || 'Agent';
+	dom.agentRole.textContent = agent.is_owner ? 'Your alpha co-pilot' : 'Alpha co-pilot · public read';
+	mountAvatar(agent);
+	resetRead();
+	loadCandidates();
+}
+
+async function mountAvatar(agent) {
+	const glb = agentAvatarGlb(agent);
+	try { await import('./element.js'); } catch { /* element may already be registered */ }
+	// Rebuild the avatar element each load so a new agent shows its own body.
+	if (state.avatarEl) { try { state.avatarEl.remove(); } catch { /* ignore */ } state.avatarEl = null; }
+	if (dom.avatarPlaceholder) dom.avatarPlaceholder.hidden = true;
+	const el = document.createElement('agent-3d');
+	el.setAttribute('body', glb);
+	el.setAttribute('width', '100%');
+	el.setAttribute('height', '100%');
+	el.setAttribute('autorotate', '');
+	el.className = 'ac-avatar';
+	dom.avatarHost.appendChild(el);
+	state.avatarEl = el;
+}
+
+// ── candidate launches ──────────────────────────────────────────────────────
+async function loadCandidates() {
+	if (!state.agent) return;
+	dom.launchesList.innerHTML = skeletonLaunches(4);
+	let items = [];
+	try {
+		const r = await fetch(`/api/agents/${encodeURIComponent(state.agent.id)}/alpha/candidates?network=${NETWORK}`, { credentials: 'include' });
+		const j = await r.json().catch(() => ({}));
+		if (!r.ok) throw new Error(j?.error?.message || 'feed unavailable');
+		items = Array.isArray(j.items) ? j.items : [];
+	} catch (e) {
+		dom.launchesList.innerHTML = `<div class="ac-state ac-state-error"><p>Live feed hiccup — ${esc(e.message || 'try again')}.</p><button type="button" class="ac-btn ac-btn-ghost" id="ac-retry-feed">Retry</button></div>`;
+		$('#ac-retry-feed')?.addEventListener('click', loadCandidates);
+		return;
+	}
+	state.candidates = items;
+	if (!items.length) {
+		dom.launchesList.innerHTML = `<div class="ac-state"><p>No live launches on the feed this second. New pump.fun mints appear here the moment they land — hit Refresh.</p></div>`;
+		return;
+	}
+	dom.launchesList.innerHTML = '';
+	for (const c of items) dom.launchesList.appendChild(launchCard(c));
+}
+
+function launchCard(c) {
+	const node = document.createElement('article');
+	node.className = 'ac-launch';
+	const label = c.symbol ? `$${esc(c.symbol)}` : short(c.mint, 4, 4);
+	const sm = num(c.smart_money_score);
+	const q = num(c.quality_score);
+	node.innerHTML = `
+		<div class="ac-launch-head">
+			<div class="ac-launch-id">
+				<span class="ac-launch-sym">${label}</span>
+				${c.name ? `<span class="ac-launch-name">${esc(c.name)}</span>` : ''}
+			</div>
+			<span class="ac-launch-age" title="Age">${ageLabel(c.age_seconds)}</span>
+		</div>
+		<div class="ac-launch-stats">
+			<span title="Market cap">${fmtUsd(c.market_cap_usd)}</span>
+			<span title="Smart-money score" class="${sm != null && sm >= 60 ? 'is-good' : ''}">SM ${fmtScore(sm)}</span>
+			<span title="Quality score" class="${q != null && q >= 60 ? 'is-good' : ''}">Q ${fmtScore(q)}</span>
+			${c.sybil_flag ? '<span class="ac-flag" title="One funder cluster dominates">sybil</span>' : ''}
+		</div>
+		<button type="button" class="ac-btn ac-btn-read" data-mint="${esc(c.mint)}">Ask for a read</button>`;
+	node.querySelector('.ac-btn-read').addEventListener('click', () => requestRead(c.mint, label));
+	return node;
+}
+
+// ── the read ────────────────────────────────────────────────────────────────
+function resetRead() {
+	state.read = null;
+	dom.readEmpty.hidden = false;
+	dom.readBody.hidden = true;
+	dom.readBody.innerHTML = '';
+	dom.speak.hidden = true;
+	dom.speakLine.textContent = '';
+}
+
+async function requestRead(mint, label) {
+	if (!state.agent || state.loadingRead) return;
+	state.loadingRead = true;
+	dom.readEmpty.hidden = true;
+	dom.readBody.hidden = false;
+	dom.readBody.innerHTML = `<div class="ac-read-loading"><div class="ac-thinking"><span></span><span></span><span></span></div><p>${esc(state.agent.name || 'The agent')} is reading ${esc(label || 'this launch')}…</p></div>`;
+	setSpeaking(false);
+
+	let data;
+	try {
+		const r = await fetch(`/api/agents/${encodeURIComponent(state.agent.id)}/alpha/read`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ mint, network: NETWORK }),
+		});
+		data = await r.json().catch(() => ({}));
+		if (!r.ok) throw new Error(data?.error_description || (typeof data?.error === 'object' ? data.error?.message : null) || `Read failed (${r.status})`);
+	} catch (e) {
+		dom.readBody.innerHTML = `<div class="ac-state ac-state-error"><p>${esc(e.message || 'The read failed.')}</p><button type="button" class="ac-btn ac-btn-ghost" id="ac-read-retry">Try again</button></div>`;
+		$('#ac-read-retry')?.addEventListener('click', () => requestRead(mint, label));
+		state.loadingRead = false;
+		return;
+	}
+	state.read = data;
+	state.loadingRead = false;
+	renderRead(data);
+	speakAloud(data.agent, data.read?.spoken_line || '');
+}
+
+function verdictMeta(v) {
+	if (v === 'snipe') return { label: 'Snipe', cls: 'is-snipe' };
+	if (v === 'pass') return { label: 'Pass', cls: 'is-pass' };
+	return { label: 'Watch', cls: 'is-watch' };
+}
+
+function renderRead(data) {
+	const read = data.read || {};
+	const sig = data.signals || {};
+	const vm = verdictMeta(read.verdict);
+	const conviction = num(read.conviction) ?? 0;
+	const sym = sig.symbol ? `$${esc(sig.symbol)}` : short(data.mint, 4, 4);
+
+	const signalRows = [
+		['Liquidity', fmtSol(sig.liquidity_sol)],
+		['Market cap', fmtUsd(sig.market_cap_usd)],
+		['Age', sig.age_minutes != null ? `${sig.age_minutes}m` : '—'],
+		['Buy impact (◎0.1)', fmtPct(sig.reference_buy_price_impact_pct)],
+		['Curve filled', sig.bonding_curve_progress_pct != null ? `${sig.bonding_curve_progress_pct}%` : '—'],
+		['Quality', fmtScore(sig.quality_score)],
+		['Smart money', sig.smart_money_score != null ? `${fmtScore(sig.smart_money_score)} · ${sig.smart_money_wallets ?? 0} wallet${sig.smart_money_wallets === 1 ? '' : 's'}` : '—'],
+		['Organic', fmtScore(sig.organic_score)],
+	].filter(([, v]) => v !== '—' || true);
+
+	const ownerWallet = data.owner && sig.wallet_balance_sol != null
+		? `<div class="ac-read-wallet">Wallet ${fmtSol(sig.wallet_balance_sol)} · per-trade ${sig.per_trade_limit_sol != null ? fmtSol(sig.per_trade_limit_sol) : '∞'} · daily ${sig.daily_budget_sol != null ? fmtSol(sig.daily_budget_sol) : '∞'}${sig.trading_paused ? ' · <span class="ac-flag">paused</span>' : ''}</div>`
+		: '';
+
+	const guard = read.hallucination_guard || {};
+	const guardNote = guard.line_replaced
+		? `<p class="ac-guard"><span class="ac-guard-dot"></span> A figure in the draft didn't match the live data, so the co-pilot spoke a grounded line instead. The signals below are the ground truth.</p>`
+		: '';
+
+	dom.readBody.innerHTML = `
+		<div class="ac-read-top">
+			<div class="ac-verdict ${vm.cls}">${vm.label}</div>
+			<div class="ac-conviction" title="Conviction">
+				<div class="ac-conviction-bar"><span style="width:${Math.max(2, conviction)}%"></span></div>
+				<span class="ac-conviction-val">${conviction}<small>/100</small></span>
+			</div>
+		</div>
+		<div class="ac-read-target">${sym}${sig.name ? ` · <span class="ac-read-coinname">${esc(sig.name)}</span>` : ''}</div>
+		${guardNote}
+		${read.risks?.length ? `<ul class="ac-risks">${read.risks.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+		<div class="ac-read-signals">
+			<div class="ac-read-signals-head">Signals it used <span>(live, on-chain)</span></div>
+			<dl>${signalRows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>
+		</div>
+		${ownerWallet}
+		<div class="ac-action" id="ac-action"></div>`;
+
+	renderAction(data);
+}
+
+function renderAction(data) {
+	const host = $('#ac-action');
+	if (!host) return;
+	const gate = data.gate || {};
+	if (gate.can_act) {
+		host.innerHTML = `<button type="button" class="ac-btn ac-btn-act" id="ac-act-go">Act — buy ${fmtSol(gate.size_sol)} SOL</button>
+			<p class="ac-action-note">${esc(gate.message || '')}</p>`;
+		$('#ac-act-go')?.addEventListener('click', () => openActDrawer(data));
+	} else {
+		const cls = data.owner ? 'ac-action-blocked' : 'ac-action-public';
+		host.innerHTML = `<p class="${cls}">${esc(gate.message || 'No action available.')}</p>`;
+	}
+}
+
+// ── voice ───────────────────────────────────────────────────────────────────
+let currentAudio = null;
+function setSpeaking(on) {
+	state.speaking = on;
+	dom.speak?.classList.toggle('is-speaking', on);
+	$('.ac-stage')?.classList.toggle('is-speaking', on);
+}
+
+async function fetchTtsBlob(agent, text) {
+	const provider = agent?.voice_provider || 'browser';
+	const body = JSON.stringify({ text: text.slice(0, 800), voice: agent?.voice_id || 'nova' });
+	const headers = { 'content-type': 'application/json' };
+	try {
+		if (provider === 'elevenlabs' && agent?.voice_id) {
+			const r = await fetch('/api/tts/eleven', { method: 'POST', credentials: 'include', headers, body: JSON.stringify({ voiceId: agent.voice_id, text: text.slice(0, 500) }) });
+			if (r.ok) return await r.blob();
+		}
+		// Default + cloned-but-non-eleven providers: the server's free TTS lane.
+		const r = await fetch('/api/tts/speak', { method: 'POST', credentials: 'include', headers, body });
+		if (r.ok) return await r.blob();
+	} catch { /* fall through to browser TTS */ }
+	return null;
+}
+
+function playBlob(blob) {
+	return new Promise((resolve) => {
+		try {
+			if (currentAudio) { try { currentAudio.pause(); } catch { /* ignore */ } }
+			const url = URL.createObjectURL(blob);
+			const audio = new Audio(url);
+			currentAudio = audio;
+			audio.addEventListener('ended', () => { URL.revokeObjectURL(url); resolve(true); }, { once: true });
+			audio.addEventListener('error', () => { URL.revokeObjectURL(url); resolve(false); }, { once: true });
+			audio.play().catch(() => resolve(false));
+		} catch { resolve(false); }
+	});
+}
+
+function browserSpeak(text) {
+	return new Promise((resolve) => {
+		if (typeof speechSynthesis === 'undefined' || !window.SpeechSynthesisUtterance) return resolve(false);
+		try {
+			speechSynthesis.cancel();
+			const u = new SpeechSynthesisUtterance(text);
+			u.rate = 1.02; u.pitch = 1;
+			u.onend = () => resolve(true);
+			u.onerror = () => resolve(false);
+			speechSynthesis.speak(u);
+		} catch { resolve(false); }
+	});
+}
+
+async function speakAloud(agent, text) {
+	const line = (text || '').trim();
+	if (!line) return;
+	state.lastSpoken = line;
+	dom.speak.hidden = false;
+	dom.speakLine.textContent = line;
+	setSpeaking(true);
+	// Gesture: the avatar plays a talk animation for the line's length.
+	try { state.avatarEl?.speak?.(line); } catch { /* avatar still mounting */ }
+	let played = false;
+	const blob = await fetchTtsBlob(agent, line);
+	if (blob) played = await playBlob(blob);
+	if (!played) played = await browserSpeak(line);
+	setSpeaking(false);
+}
+
+// ── act (owner) ─────────────────────────────────────────────────────────────
+function openActDrawer(data) {
+	const gate = data.gate || {};
+	const sig = data.signals || {};
+	const sym = sig.symbol ? `$${esc(sig.symbol)}` : short(data.mint, 4, 4);
+	dom.actBody.innerHTML = `
+		<p class="ac-act-lead">${esc(state.agent?.name || 'Your agent')} wants to buy <strong>${fmtSol(gate.size_sol)} SOL</strong> of ${sym}.</p>
+		<div class="ac-act-quote" id="ac-act-quote">Fetching a fresh live quote…</div>
+		<div class="ac-act-controls">
+			<button type="button" class="ac-btn ac-btn-act" id="ac-act-confirm" disabled>Confirm buy</button>
+			<button type="button" class="ac-btn ac-btn-ghost" data-close>Cancel</button>
+		</div>
+		<p class="ac-act-fine">Executes through the agent's guarded wallet — re-checked against the firewall and your spend limits at submit, and written to the custody audit.</p>`;
+	showDrawer(true);
+
+	const confirmBtn = $('#ac-act-confirm');
+	const quoteHost = $('#ac-act-quote');
+	let quote = null;
+	previewAgentTrade({ agentId: state.agent.id, side: 'buy', mint: data.mint, solAmount: gate.size_sol, slippageBps: 300, network: NETWORK })
+		.then((q) => {
+			quote = q;
+			const impact = num(q?.price_impact_pct ?? q?.priceImpactPct);
+			const expected = q?.expected_out ?? q?.out?.amount ?? q?.outUi;
+			const warn = q?.warning || q?.blocked_reason;
+			quoteHost.innerHTML = `
+				<div class="ac-act-qrow"><span>You pay</span><strong>${fmtSol(gate.size_sol)} SOL</strong></div>
+				${expected != null ? `<div class="ac-act-qrow"><span>Expected</span><strong>${Number(expected).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${esc(sig.symbol || 'tokens')}</strong></div>` : ''}
+				<div class="ac-act-qrow"><span>Price impact</span><strong>${fmtPct(impact)}</strong></div>
+				${warn ? `<p class="ac-act-warn">${esc(warn)}</p>` : ''}`;
+			confirmBtn.disabled = false;
+		})
+		.catch((e) => {
+			quoteHost.innerHTML = `<p class="ac-act-warn">Couldn't fetch a live quote: ${esc(e.message || 'try again')}.</p>`;
+		});
+
+	confirmBtn?.addEventListener('click', async () => {
+		confirmBtn.disabled = true;
+		confirmBtn.textContent = 'Submitting…';
+		try {
+			const res = await executeAgentTrade({
+				agentId: state.agent.id, side: 'buy', mint: data.mint,
+				solAmount: gate.size_sol, slippageBps: 300, network: NETWORK,
+				idempotencyKey: (crypto?.randomUUID?.() || `ac-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+			});
+			const sig2 = res?.signature;
+			const spent = res?.sol_spent ?? gate.size_sol;
+			dom.actBody.innerHTML = `
+				<div class="ac-act-done">
+					<div class="ac-act-done-mark">✓</div>
+					<p>Bought into ${sym} for ${fmtSol(spent)} SOL.</p>
+					${sig2 ? `<a class="ac-btn ac-btn-ghost" href="${esc(res.explorer || explorerTxUrl(sig2))}" target="_blank" rel="noopener">View transaction</a>` : ''}
+					${res?.new_balance_sol != null ? `<p class="ac-act-fine">Wallet now ${fmtSol(res.new_balance_sol)}.</p>` : ''}
+					<a class="ac-act-audit" href="/agent/${esc(state.agent.id)}" target="_blank" rel="noopener">See it in the custody trail →</a>
+				</div>`;
+		} catch (e) {
+			const msg = e instanceof TradeError ? e.message : (e?.message || 'Trade failed.');
+			dom.actBody.querySelector('.ac-act-controls')?.insertAdjacentHTML('beforebegin', `<p class="ac-act-warn">${esc(msg)}</p>`);
+			confirmBtn.disabled = false;
+			confirmBtn.textContent = 'Confirm buy';
+		}
+	});
+}
+
+function showDrawer(open) {
+	dom.actDrawer.hidden = !open;
+	document.body.style.overflow = open ? 'hidden' : '';
+}
+function wireDrawer() {
+	dom.actDrawer.addEventListener('click', (e) => {
+		if (e.target.matches('[data-close]')) showDrawer(false);
+	});
+	document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dom.actDrawer.hidden) showDrawer(false); });
+}
+
+// ── skeletons ───────────────────────────────────────────────────────────────
+function skeletonLaunches(n) {
+	return Array.from({ length: n }, () => `<div class="ac-launch ac-skel"><div class="ac-skel-line w60"></div><div class="ac-skel-line w40"></div><div class="ac-skel-line w80"></div></div>`).join('');
+}
+
+// ── boot ────────────────────────────────────────────────────────────────────
+async function resolveInitialAgent() {
+	const url = new URL(location.href);
+	const fromUrl = parseAgentId(url.searchParams.get('agent'));
+	if (fromUrl) return fromUrl;
+	const stored = (() => { try { return localStorage.getItem(LS_KEY); } catch { return null; } })();
+	if (stored && UUID_RE.test(stored)) return stored;
+	// Logged-in default: the caller's own agent.
+	try {
+		const r = await fetch('/api/agents/me', { credentials: 'include' });
+		if (r.ok) { const j = await r.json().catch(() => ({})); const a = j.agent || j; if (a?.id) return a.id; }
+	} catch { /* logged out — prompt for an id */ }
+	return null;
+}
+
+async function init() {
+	cacheDom();
+	wireDrawer();
+	dom.agentLoad.addEventListener('click', () => {
+		const id = parseAgentId(dom.agentInput.value);
+		if (id) loadAgent(id);
+		else { dom.agentInput.focus(); dom.agentInput.classList.add('is-invalid'); setTimeout(() => dom.agentInput.classList.remove('is-invalid'), 1200); }
+	});
+	dom.agentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') dom.agentLoad.click(); });
+	dom.refresh.addEventListener('click', loadCandidates);
+	dom.replay.addEventListener('click', () => { if (state.lastSpoken) speakAloud(state.read?.agent || state.agent, state.lastSpoken); });
+	const mintFromUrl = new URL(location.href).searchParams.get('mint');
+
+	const id = await resolveInitialAgent();
+	if (id) {
+		await loadAgent(id);
+		dom.agentInput.value = id;
+		if (mintFromUrl && UUID_RE.test(id)) requestRead(mintFromUrl, null);
+	} else {
+		dom.avatarPlaceholder.textContent = 'Enter an agent id (or paste a profile URL) to begin.';
+		dom.agentName.textContent = 'No agent';
+		dom.agentRole.textContent = 'Pick an agent to hear its read';
+	}
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();

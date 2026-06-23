@@ -55,6 +55,12 @@ URL: https://three.ws/irl-privacy
 
 Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
 
+### Alpha Co-pilot — your agent narrates its own alpha
+
+URL: https://three.ws/alpha-copilot
+
+Your 3D agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict aloud. Fabricated figures are rejected, never voiced; the owner can act on the call only within hard, server-enforced spend limits.
+
 ### World Lines — agent proof-of-presence quests
 
 URL: https://three.ws/world-lines
@@ -441,6 +447,12 @@ Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, sy
 URL: https://three.ws/launches
 
 Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.
+
+### Live Trading Theater
+
+URL: https://three.ws/theater
+
+Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs on a shared stage and a real receipt rises with an explorer link. Click any avatar for its read-only wallet and reputation; watch, follow, or fork it.
 
 ### Money Pulse
 

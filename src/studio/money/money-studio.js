@@ -20,6 +20,7 @@
 
 import { apiFetch } from '../../api.js';
 import { isSellable, skillMeta } from '../skills/skills-catalog.js';
+import { mountTradingBrain } from './trading-brain.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
 	({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -62,7 +63,10 @@ class MoneyStudio {
 			wallet: null, // { solana_address, solana_balance, usdc_balance, ... }
 			prices: {}, // skill → { amount, currency_mint, chain }
 			payments: null, // received payments array
+			holdings: null, // { sol, tokens[] } real SPL holdings
+			activity: null, // recent on-chain signatures
 			provisioning: false,
+			withdrawing: false,
 		};
 		this._render();
 		this._load();
@@ -89,6 +93,12 @@ class MoneyStudio {
 			this.state.prices = prices;
 			this.state.payments = payments;
 			this.state.error = null;
+			// Holdings + activity are real on-chain reads — fetch after the wallet so
+			// we know there's an address; a transient RPC miss never blocks the panel.
+			if (wallet?.solana_address) {
+				this._fetchHoldings().then((h) => { this.state.holdings = h; this._renderHoldings(); });
+				this._fetchActivity().then((a) => { this.state.activity = a; this._renderActivity(); });
+			}
 		} catch (err) {
 			this.state.error = err?.message || 'Could not load the money studio.';
 		} finally {
@@ -124,7 +134,22 @@ class MoneyStudio {
 			const wallet = await this._fetchWallet();
 			this.state.wallet = wallet;
 			this._renderWalletBalances();
+			this._fetchHoldings().then((h) => { this.state.holdings = h; this._renderHoldings(); }).catch(() => {});
 		} catch { /* transient RPC hiccup — keep the last balances */ }
+	}
+
+	async _fetchHoldings() {
+		const res = await apiFetch(`/api/agents/${this.agentId}/solana/holdings`);
+		if (!res.ok) return null;
+		const { data } = await res.json();
+		return data;
+	}
+
+	async _fetchActivity() {
+		const res = await apiFetch(`/api/agents/${this.agentId}/solana/activity`);
+		if (!res.ok) return null;
+		const { data } = await res.json();
+		return data?.signatures || [];
 	}
 
 	// ── Shell ─────────────────────────────────────────────────────────────────
@@ -137,8 +162,20 @@ class MoneyStudio {
 		const host = this._q('[data-root]');
 		if (this.state.loading) { host.innerHTML = this._skeleton(); return; }
 		if (this.state.error) { host.innerHTML = this._errorState(this.state.error); this._bindError(); return; }
-		host.innerHTML = `${this._walletSection()}${this._pricingSection()}${this._earningsSection()}`;
+		host.innerHTML = `${this._walletSection()}${this._tradingSection()}${this._pricingSection()}${this._earningsSection()}`;
 		this._bind();
+		this._mountTrading();
+	}
+
+	_tradingSection() {
+		return `<section class="mny-section mny-section-trading"><div data-trading-brain></div></section>`;
+	}
+
+	_mountTrading() {
+		const host = this._q('[data-trading-brain]');
+		if (host && !host.dataset.tbMounted) {
+			this._tradingBrain = mountTradingBrain(host, { studio: this.studio });
+		}
 	}
 
 	_skeleton() {
@@ -191,9 +228,97 @@ class MoneyStudio {
 					<div class="mny-wallet-tools">
 						<a class="studio-btn studio-btn-primary studio-action" href="/agent/${encodeURIComponent(this.agentId)}/wallet#deposit">Add funds</a>
 						<button class="studio-btn studio-btn-ghost studio-action" data-action="refresh">Refresh balance</button>
+						<button class="studio-btn studio-btn-ghost studio-action" data-action="toggle-withdraw">Withdraw</button>
 					</div>
+					<div class="mny-withdraw" data-withdraw hidden>${this._withdrawForm()}</div>
+					<div class="mny-holdings" data-holdings>${this._holdingsHtml()}</div>
+					<div class="mny-activity" data-activity>${this._activityHtml()}</div>
 				</div>
 			</section>`;
+	}
+
+	_holdingsHtml() {
+		const h = this.state.holdings;
+		if (h == null) return `<div class="mny-sub-head">Holdings</div><div class="mny-skel-line"></div>`;
+		const tokens = (h.tokens || []).filter((t) => !t.is_usdc);
+		if (!tokens.length) return `<div class="mny-sub-head">Holdings</div><p class="mny-faint">No token holdings yet — buys made by the Trading Brain appear here.</p>`;
+		return `<div class="mny-sub-head">Holdings <span class="mny-count">${tokens.length}</span></div>
+			<ul class="mny-hold-list">${tokens.slice(0, 8).map((t) => `
+				<li class="mny-hold-row">
+					<a class="mny-hold-mint" href="https://solscan.io/token/${esc(t.mint)}" target="_blank" rel="noopener" title="${esc(t.mint)}">${esc(short(t.mint))} ↗</a>
+					<span class="mny-hold-amt">${Number(t.ui_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+				</li>`).join('')}</ul>`;
+	}
+
+	_activityHtml() {
+		const a = this.state.activity;
+		if (a == null) return '';
+		if (!a.length) return '';
+		return `<div class="mny-sub-head">Recent activity</div>
+			<ul class="mny-act-list">${a.slice(0, 6).map((s) => `
+				<li class="mny-act-row ${s.success ? '' : 'is-fail'}">
+					<span class="mny-act-sum">${esc(s.summary || (s.success ? 'transaction' : 'failed tx'))}</span>
+					<span class="mny-act-delta ${s.sol_delta == null ? '' : s.sol_delta >= 0 ? 'pos' : 'neg'}">${s.sol_delta == null ? '' : `${s.sol_delta >= 0 ? '+' : ''}${Number(s.sol_delta).toFixed(4)} SOL`}</span>
+					<a class="mny-act-tx" href="https://solscan.io/tx/${esc(s.signature)}" target="_blank" rel="noopener" title="View transaction">↗</a>
+				</li>`).join('')}</ul>`;
+	}
+
+	_withdrawForm() {
+		return `
+			<div class="mny-withdraw-head">Withdraw SOL</div>
+			<div class="mny-withdraw-row">
+				<input type="text" data-wd="destination" placeholder="Destination address" aria-label="Destination Solana address" />
+				<input type="number" min="0" step="any" data-wd="amount" placeholder="Amount" aria-label="Amount in SOL" />
+				<button class="studio-btn studio-btn-ghost" data-action="wd-max" title="Withdraw everything (keeps a little for fees)">Max</button>
+				<button class="studio-btn studio-btn-primary" data-action="do-withdraw" ${this.state.withdrawing ? 'disabled' : ''}>${this.state.withdrawing ? 'Sending…' : 'Withdraw'}</button>
+			</div>
+			<p class="mny-faint">Real on-chain transfer from the agent's custodial wallet. Double-check the address — Solana transfers are irreversible.</p>
+			<div class="mny-withdraw-result" data-wd-result hidden></div>`;
+	}
+
+	_renderHoldings() {
+		const host = this._q('[data-holdings]');
+		if (host) host.innerHTML = this._holdingsHtml();
+	}
+
+	_renderActivity() {
+		const host = this._q('[data-activity]');
+		if (host) host.innerHTML = this._activityHtml();
+	}
+
+	async _withdraw(useMax = false) {
+		if (this.state.withdrawing) return;
+		const wrap = this._q('[data-withdraw]');
+		const dest = wrap?.querySelector('[data-wd="destination"]')?.value.trim();
+		const amtRaw = wrap?.querySelector('[data-wd="amount"]')?.value.trim();
+		if (!dest) return this._toast('Enter a destination address', true);
+		const amount = useMax ? 'max' : Number(amtRaw);
+		if (!useMax && (!Number.isFinite(amount) || amount <= 0)) return this._toast('Enter a valid amount', true);
+		this.state.withdrawing = true;
+		const btn = wrap?.querySelector('[data-action="do-withdraw"]');
+		if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+		try {
+			const res = await apiFetch(`/api/agents/${this.agentId}/wallet/withdraw`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ destination: dest, amount, asset: 'SOL', network: 'mainnet' }),
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(payload?.error?.message || 'Withdrawal failed.');
+			const d = payload.data || {};
+			const result = wrap?.querySelector('[data-wd-result]');
+			if (result) {
+				result.hidden = false;
+				result.innerHTML = `✓ Sent. <a href="https://solscan.io/tx/${esc(d.signature)}" target="_blank" rel="noopener">View transaction ↗</a>`;
+			}
+			this._toast('Withdrawal sent');
+			this._refreshWallet();
+		} catch (err) {
+			this._toast(err.message || 'Withdrawal failed', true);
+		} finally {
+			this.state.withdrawing = false;
+			if (btn) { btn.disabled = false; btn.textContent = 'Withdraw'; }
+		}
 	}
 
 	_balancesHtml() {
@@ -306,6 +431,9 @@ class MoneyStudio {
 			if (a === 'refresh') return this._refreshWallet();
 			if (a === 'copy') return this._copy(btn.dataset.copy);
 			if (a === 'save-price') return this._savePrice(btn.dataset.skill);
+			if (a === 'toggle-withdraw') { const w = this._q('[data-withdraw]'); if (w) w.hidden = !w.hidden; return; }
+			if (a === 'do-withdraw') return this._withdraw(false);
+			if (a === 'wd-max') return this._withdraw(true);
 			if (a === 'go-skills') return document.dispatchEvent(new CustomEvent('studio:navigate', { detail: { tab: 'skills' } }));
 		});
 		this.el.querySelectorAll('[data-price-input]').forEach((inp) =>
@@ -392,5 +520,6 @@ class MoneyStudio {
 	destroy() {
 		clearInterval(this._poll);
 		clearTimeout(this._toastTimer);
+		try { this._tradingBrain?.destroy(); } catch { /* noop */ }
 	}
 }

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:03:26.611Z",
+	"generated_at": "2026-06-23T12:13:30.167Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,6 +49,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "launch",
+			"title": "Alpha Co-pilot — your agent narrates its own alpha",
+			"summary": "Your 3D agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict aloud. Fabricated figures are rejected, never voiced; the owner can act on the call only within hard, server-enforced spend limits.",
+			"link": "/alpha-copilot",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
 			"title": "Cosmos — Living Worlds",
 			"summary": "Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.",
 			"link": "/cosmos",
@@ -62,6 +72,16 @@
 			"title": "Guardian console — recover & inherit agent wallets",
 			"summary": "The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.",
 			"link": "/guardian",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Live Trading Theater",
+			"summary": "Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs on a shared stage and a real receipt rises with an explorer link. Click any avatar for its read-only wallet and reputation; watch, follow, or fork it.",
+			"link": "/theater",
 			"tags": [
 				"launch"
 			]
@@ -166,6 +186,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Alpha Co-pilot: your agent reads a real launch in character and speaks its verdict aloud",
+			"summary": "Trading bots are silent black boxes — your agent isn't. Open the new Alpha Co-pilot, pick a live pump.fun launch, and your agent reads it in character: it pulls the real liquidity, holder concentration, smart-money, age, and price-impact signals, forms a verdict (snipe / watch / pass) with a conviction score, and its 3D avatar speaks the rationale out loud. A cautious persona and an aggressive one genuinely reach different calls on the same coin. Every number it voices is checked against the live data shown beside it — a fabricated figure is rejected and a grounded line spoken instead, never an invented price. If you own the agent, you can act on the call in one tap, but only within your hard spend limits: the buy runs through the same guarded wallet path as the rest of the platform — re-checked against the rug/honeypot firewall and your per-trade and daily caps at submit, and written to the custody audit. Logged-out visitors can hear the public read but can't act.",
+			"link": "/alpha-copilot",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -5,6 +5,7 @@ import { openAvatarPicker } from './avatar-gallery-picker.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
+import { agentBus } from './agents/agent-bus.js';
 
 const API_BASE = '/api';
 const params = new URLSearchParams(location.search);
@@ -2681,10 +2682,354 @@ $('danger-delete-btn').addEventListener('click', async () => {
 // Tab switching
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Dreams tab — reflection review (memory consolidation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let dreamsTabMounted = false;
+let dreamsReflecting = false;
+let dreamsJournalLoaded = false;
+
+const KIND_LABEL = { insight: 'Insight', belief: 'Belief', question: 'Question', prune: 'Prune' };
+
+function setDreamsBadge(n) {
+  const b = $('dreams-tab-badge');
+  if (!b) return;
+  const count = Number(n) || 0;
+  if (count > 0) {
+    b.textContent = String(count);
+    b.hidden = false;
+    b.setAttribute('aria-hidden', 'false');
+  } else {
+    b.hidden = true;
+    b.setAttribute('aria-hidden', 'true');
+  }
+}
+
+async function ensureDreamsTab() {
+  if (!dreamsTabMounted) {
+    dreamsTabMounted = true;
+    $('dreams-reflect-btn').addEventListener('click', () => reflectNow());
+    $('dreams-journal-toggle').addEventListener('click', toggleDreamJournal);
+  }
+  await loadDreams();
+  // Opening the review surface kicks a debounced background reflection so a user
+  // returning after time away finds fresh dreams — the server debounce makes
+  // repeated opens cheap (it simply reports it reflected recently).
+  backgroundReflect();
+}
+
+async function loadDreams() {
+  const list = $('dreams-list');
+  try {
+    const r = await apiFetch(`${API_BASE}/agent/dreams?agentId=${agentId}&status=pending`, { credentials: 'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    renderDreams(j.dreams || []);
+    setDreamsBadge(j.pending ?? (j.dreams || []).length);
+    renderDreamsMeta(j.lastRun);
+    $('dreams-journal').hidden = false;
+    if (dreamsJournalLoaded) loadDreamJournal();
+  } catch (err) {
+    list.innerHTML = `<div class="dream-card-status err">Could not load dreams: ${escapeHtml(err.message)}. <button class="link-btn" id="dreams-retry">Retry</button></div>`;
+    const retry = $('dreams-retry');
+    if (retry) retry.addEventListener('click', loadDreams);
+  }
+}
+
+function renderDreamsMeta(lastRun) {
+  const meta = $('dreams-meta');
+  if (!meta) return;
+  if (!lastRun) {
+    meta.textContent = 'Your agent has not reflected yet.';
+    return;
+  }
+  const when = timeAgo(lastRun.at);
+  if (lastRun.status === 'ok' && lastRun.dreamsCreated > 0) {
+    meta.innerHTML = `<span class="dot">●</span> Last reflected ${escapeHtml(when)} — ${lastRun.dreamsCreated} new dream${lastRun.dreamsCreated === 1 ? '' : 's'}.`;
+  } else if (lastRun.status === 'skipped') {
+    meta.innerHTML = `<span class="dot">●</span> Last checked ${escapeHtml(when)} — ${escapeHtml(lastRun.reason || 'nothing new to consolidate')}.`;
+  } else if (lastRun.status === 'error') {
+    meta.innerHTML = `<span class="dot">●</span> Last attempt ${escapeHtml(when)} hit an error (${escapeHtml(lastRun.reason || 'unknown')}).`;
+  } else {
+    meta.innerHTML = `<span class="dot">●</span> Last reflected ${escapeHtml(when)} — no new insights that pass.`;
+  }
+}
+
+function timeAgo(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 'recently';
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return 'just now';
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
+
+function renderDreams(dreams) {
+  const list = $('dreams-list');
+  if (!dreams.length) {
+    list.innerHTML = `
+      <div class="dreams-empty">
+        <span class="moon" aria-hidden="true">🌙</span>
+        <div class="lead">No new reflections yet.</div>
+        <div>Your agent consolidates its memories on its own while you're away. Give it some memories and conversations to think about — or reflect now.</div>
+      </div>`;
+    return;
+  }
+  list.innerHTML = dreams.map(dreamCardHTML).join('');
+  dreams.forEach((d) => wireDreamCard(d));
+}
+
+function dreamCardHTML(d) {
+  const conf = Math.round((Number(d.confidence) || 0) * 100);
+  const kindClass = d.kind === 'question' ? ' kind-question' : '';
+  const propType = d.proposedType ? `<span class="pill">→ ${escapeHtml(d.proposedType)} memory</span>` : '';
+  const propSal = `<span class="pill">salience ${Number(d.proposedSalience).toFixed(2)}</span>`;
+  const propAction = d.proposedAction
+    ? `<span class="pill" title="${escapeHtml(JSON.stringify(d.proposedAction))}">⚡ proposes an automation</span>`
+    : '';
+  const sources = (d.sources || []).map((s) => {
+    if (s.forgotten) {
+      return `<div class="dream-src forgotten" aria-disabled="true">source memory was forgotten</div>`;
+    }
+    return `<button type="button" class="dream-src" data-src-id="${escapeHtml(s.id)}" data-full="${escapeHtml(s.content)}" title="Click to view full memory">
+      <span class="src-type">${escapeHtml(s.type)}</span>${escapeHtml(truncateText(s.content, 140))}
+    </button>`;
+  }).join('');
+
+  const isQuestion = d.kind === 'question' && d.question;
+  const questionUI = isQuestion
+    ? `<div class="dream-answer">
+         <input class="form-input" type="text" id="dream-ans-${escapeHtml(d.id)}" placeholder="Your answer…" maxlength="2000" aria-label="Answer the agent's question" />
+         <button class="dream-answer-send" data-answer="${escapeHtml(d.id)}">Answer &amp; save</button>
+       </div>`
+    : '';
+
+  const acceptLabel = isQuestion ? 'Accept as-is' : 'Accept';
+
+  return `
+  <article class="dream-card entering" data-dream="${escapeHtml(d.id)}">
+    <span class="dream-kind${kindClass}">${escapeHtml(KIND_LABEL[d.kind] || d.kind)}</span>
+    <p class="dream-statement">${escapeHtml(d.statement)}</p>
+    ${isQuestion ? `<p class="dream-rationale">${escapeHtml(d.question)}</p>` : (d.rationale ? `<p class="dream-rationale">${escapeHtml(d.rationale)}</p>` : '')}
+    <div class="dream-conf" title="How confident the agent is in this synthesis">
+      confidence ${conf}%
+      <span class="dream-conf-bar"><span class="dream-conf-fill" style="width:${conf}%"></span></span>
+    </div>
+    <div class="dream-prop">${propType}${propSal}${propAction}</div>
+    ${sources ? `<div class="dream-sources"><div class="dream-sources-label">Drawn from ${(d.sources || []).length} ${(d.sources || []).length === 1 ? 'memory' : 'memories'} — its evidence</div>${sources}</div>` : ''}
+    ${questionUI}
+    <div class="dream-actions">
+      <button class="dream-accept" data-accept="${escapeHtml(d.id)}">${acceptLabel}</button>
+      <button class="dream-reject" data-reject="${escapeHtml(d.id)}">Reject</button>
+    </div>
+    <div class="dream-card-status" data-status="${escapeHtml(d.id)}" role="status" aria-live="polite"></div>
+  </article>`;
+}
+
+function wireDreamCard(d) {
+  const card = document.querySelector(`.dream-card[data-dream="${cssEscape(d.id)}"]`);
+  if (!card) return;
+  card.querySelectorAll('.dream-src[data-src-id]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const expanded = btn.classList.toggle('expanded');
+      const full = btn.dataset.full || '';
+      const type = btn.querySelector('.src-type')?.outerHTML || '';
+      btn.innerHTML = `${type}${escapeHtml(expanded ? full : truncateText(full, 140))}`;
+    });
+  });
+  card.querySelector('[data-accept]')?.addEventListener('click', () => reviewDream(d, 'accept'));
+  card.querySelector('[data-reject]')?.addEventListener('click', () => reviewDream(d, 'reject'));
+  const ans = card.querySelector('[data-answer]');
+  if (ans) ans.addEventListener('click', () => reviewDream(d, 'answer'));
+}
+
+function cssEscape(s) {
+  return String(s).replace(/["\\\]]/g, '\\$&');
+}
+
+function truncateText(s, n) {
+  const str = String(s ?? '');
+  return str.length > n ? str.slice(0, n - 1) + '…' : str;
+}
+
+async function reviewDream(d, decision) {
+  const card = document.querySelector(`.dream-card[data-dream="${cssEscape(d.id)}"]`);
+  const statusEl = card?.querySelector(`[data-status]`);
+  const buttons = card?.querySelectorAll('button') || [];
+  let answer = null;
+  if (decision === 'answer') {
+    const input = $(`dream-ans-${d.id}`);
+    answer = (input?.value || '').trim();
+    if (!answer) {
+      if (statusEl) { statusEl.textContent = 'Type an answer first.'; statusEl.className = 'dream-card-status err'; }
+      input?.focus();
+      return;
+    }
+  }
+  buttons.forEach((b) => (b.disabled = true));
+  if (statusEl) {
+    statusEl.textContent = decision === 'reject' ? 'Letting it go…' : 'Saving…';
+    statusEl.className = 'dream-card-status';
+  }
+  try {
+    const r = await apiFetch(`${API_BASE}/agent/dreams`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ agentId, dreamId: d.id, decision, answer }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error_description || j.error || `HTTP ${r.status}`);
+
+    if (j.memory) {
+      // A real, higher-salience memory now exists — tell the rest of the app.
+      agentBus.emit('memory:added', {
+        agentId,
+        memoryId: j.memory.id,
+        type: j.memory.type,
+        salience: j.memory.salience,
+        source: 'reflection',
+        ts: j.memory.createdAt,
+      });
+      // Refresh the Knowledge tab if the user has it open so the new memory shows.
+      if (knowledgeTabMounted) loadMemories();
+    }
+
+    // Animate the card out, then refresh counts + journal.
+    if (card) {
+      card.classList.add('leaving');
+      setTimeout(() => {
+        card.remove();
+        const remaining = document.querySelectorAll('.dream-card').length;
+        setDreamsBadge(remaining);
+        if (remaining === 0) renderDreams([]);
+      }, 250);
+    }
+    dreamsJournalLoaded = false; // journal is now stale
+  } catch (err) {
+    buttons.forEach((b) => (b.disabled = false));
+    if (statusEl) {
+      statusEl.textContent = `Could not ${decision}: ${err.message}`;
+      statusEl.className = 'dream-card-status err';
+    }
+  }
+}
+
+async function runReflectPass({ force }) {
+  if (dreamsReflecting) return;
+  dreamsReflecting = true;
+  const btn = $('dreams-reflect-btn');
+  if (force && btn) {
+    btn.disabled = true;
+    btn.classList.add('is-dreaming');
+    btn.querySelector('.dreams-reflect-label').textContent = 'Reflecting';
+  } else if (btn) {
+    btn.classList.add('is-dreaming');
+  }
+  try {
+    const r = await apiFetch(`${API_BASE}/agent/reflect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ agentId, force: !!force }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && j.status === 'ok' && Array.isArray(j.created) && j.created.length) {
+      for (const dream of j.created) {
+        agentBus.emit('dream:created', {
+          agentId,
+          dreamId: dream.id,
+          kind: dream.kind,
+          statement: dream.statement,
+          ts: dream.createdAt,
+        });
+      }
+      await loadDreams();
+    } else if (force) {
+      // Force run that produced nothing — refresh so the meta line explains why.
+      await loadDreams();
+    }
+  } catch {
+    // Background reflection failures are non-fatal; the meta line + list already
+    // reflect the last known state. A forced run surfaces the error via meta.
+    if (force) await loadDreams();
+  } finally {
+    dreamsReflecting = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('is-dreaming');
+      btn.querySelector('.dreams-reflect-label').textContent = 'Reflect now';
+    }
+  }
+}
+
+function reflectNow() {
+  runReflectPass({ force: true });
+}
+
+function backgroundReflect() {
+  runReflectPass({ force: false });
+}
+
+function toggleDreamJournal() {
+  const toggle = $('dreams-journal-toggle');
+  const listEl = $('dreams-journal-list');
+  const open = toggle.getAttribute('aria-expanded') === 'true';
+  const next = !open;
+  toggle.setAttribute('aria-expanded', String(next));
+  listEl.hidden = !next;
+  if (next && !dreamsJournalLoaded) loadDreamJournal();
+}
+
+async function loadDreamJournal() {
+  const listEl = $('dreams-journal-list');
+  const countEl = $('dreams-journal-count');
+  try {
+    const r = await apiFetch(`${API_BASE}/agent/dreams?agentId=${agentId}&limit=100`, { credentials: 'include' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    dreamsJournalLoaded = true;
+    const reviewed = (j.dreams || []).filter((d) => d.status === 'accepted' || d.status === 'rejected');
+    if (countEl) countEl.textContent = reviewed.length ? `(${reviewed.length})` : '';
+    if (!reviewed.length) {
+      listEl.innerHTML = '<div class="muted" style="font-size:0.78rem">Accepted and rejected dreams will appear here as your agent grows.</div>';
+      return;
+    }
+    listEl.innerHTML = reviewed.map((d) => `
+      <div class="journal-item">
+        <span class="jstatus ${escapeHtml(d.status)}">${d.status === 'accepted' ? '✓ kept' : '✕ let go'}</span>
+        <span class="jtext">${escapeHtml(d.statement)}${d.answer ? ` — <em>${escapeHtml(d.answer)}</em>` : ''}</span>
+      </div>`).join('');
+  } catch (err) {
+    listEl.innerHTML = `<div class="dream-card-status err">Could not load journal: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+let brainTabMounted = false;
+async function ensureBrainTab() {
+  if (brainTabMounted) return;
+  brainTabMounted = true;
+  const host = $('brain-studio-host');
+  try {
+    const { mountBrainStudio } = await import('./brain-studio.js');
+    await mountBrainStudio(host, { agentId, agent: agentData });
+  } catch (err) {
+    brainTabMounted = false;
+    host.innerHTML = `<div class="error-msg" style="padding:1rem">Could not load the Brain Studio: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 const TAB_LOADERS = {
+  brain: ensureBrainTab,
   outfit: ensureOutfitTab,
   voice: ensureVoiceTab,
   knowledge: ensureKnowledgeTab,
+  dreams: ensureDreamsTab,
   skills: ensureSkillsTab,
   wallet: ensureWalletTab,
   social: ensureSocialTab,
@@ -2729,6 +3074,21 @@ async function init() {
   const initialTab = params.get('tab');
   if (initialTab && document.getElementById(`panel-${initialTab}`)) {
     activateTab(initialTab);
+  }
+  // Surface the pending-dreams count on the tab badge without forcing the user
+  // to open the tab — so a returning user sees "their agent has been thinking".
+  primeDreamsBadge();
+}
+
+async function primeDreamsBadge() {
+  if (!agentId) return;
+  try {
+    const r = await apiFetch(`${API_BASE}/agent/dreams?agentId=${agentId}&status=pending&limit=1`, { credentials: 'include' });
+    if (!r.ok) return;
+    const j = await r.json();
+    setDreamsBadge(j.pending || 0);
+  } catch {
+    // Non-fatal — the badge simply stays hidden until the tab is opened.
   }
 }
 

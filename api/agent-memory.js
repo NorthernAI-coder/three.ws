@@ -14,6 +14,7 @@ import { sql } from './_lib/db.js';
 import { cors, json, method, readJson, wrap, error } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { decorateMemory, defaultTier, MEMORY_TIERS } from './_lib/memory-store.js';
+import { signMemoryWithAgent } from './_lib/brain-sign.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
@@ -59,6 +60,7 @@ async function handleList(req, res) {
 		? await sql`
 			SELECT id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
 			       (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+			       content_hash, signature, signer_address, signed_at, storage_mode, ipfs_cid,
 			       created_at, updated_at, last_accessed_at, expires_at
 			FROM agent_memories
 			WHERE agent_id = ${agentId}
@@ -71,6 +73,7 @@ async function handleList(req, res) {
 		: await sql`
 			SELECT id, agent_id, type, content, tags, context, salience, tier, pinned, embedder,
 			       (embedding IS NOT NULL) AS has_embedding, access_count, is_public,
+			       content_hash, signature, signer_address, signed_at, storage_mode, ipfs_cid,
 			       created_at, updated_at, last_accessed_at, expires_at
 			FROM agent_memories
 			WHERE agent_id = ${agentId}
@@ -179,7 +182,28 @@ async function handleUpsert(req, res) {
 	// client generates a new ID instead of silently losing the write.
 	if (!row) return error(res, 409, 'id_conflict', 'memory id already in use');
 
-	return json(res, 201, { entry: decorateMemory(row) });
+	// Sign the committed memory with the agent's wallet (ERC-191) so its
+	// authorship + integrity are publicly verifiable. Best-effort: an agent
+	// without a provisioned wallet stores the memory unsigned (with its
+	// content_hash) rather than failing the write — verification reports that
+	// honestly. The signature must cover the *final* row (real id + created_at),
+	// so we sign after the insert and fold the result into the row we return.
+	let signed = { content_hash: undefined, signature: undefined, signer_address: undefined, signed_at: undefined };
+	try {
+		signed = await signMemoryWithAgent(row);
+	} catch (err) {
+		console.error('[agent-memory] signing failed', row.id, err?.message);
+	}
+
+	return json(res, 201, {
+		entry: decorateMemory({
+			...row,
+			content_hash: signed.content_hash ?? row.content_hash,
+			signature: signed.signature ?? row.signature ?? null,
+			signer_address: signed.signer_address ?? row.signer_address ?? null,
+			signed_at: signed.signed_at ?? row.signed_at ?? null,
+		}),
+	});
 }
 
 // ── Delete ────────────────────────────────────────────────────────────────

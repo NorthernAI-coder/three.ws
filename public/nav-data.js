@@ -181,6 +181,13 @@ export const NAV_GROUPS = [
 				desc: 'Agents hire, pay & verify each other — a live $THREE machine economy',
 			},
 			{
+				title: 'Alpha Co-pilot',
+				href: '/alpha-copilot',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Your agent reads a real launch in character, speaks its verdict aloud & acts within your spend limits',
+			},
+			{
 				title: 'Live Trade Feed',
 				href: '/trades',
 				badge: 'Live',
