@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T04:14:50.082Z",
+	"generated_at": "2026-06-23T04:28:30.224Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -103,6 +103,16 @@
 			"title": "Fix: the bounty board and live token feeds stay up when a third party is slow",
 			"summary": "Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed.",
 			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Forge Standard quality generates reliably again",
+			"summary": "Forging on the Standard quality setting could stall or silently route to a slower paid path while Draft worked instantly — so Standard often felt broken. The free NVIDIA generator only returns fast at a lower detail-sampling setting; Standard was asking it for more steps than the hosted preview can finish in time, so the request timed out and fell back. Standard now uses the same proven-fast budget as Draft on the free lane, so it completes quickly and dependably. We also made the generator fail over to a backup engine immediately on a timeout instead of waiting through a second dead attempt, cutting the worst-case wait roughly in half when the free engine is busy.",
+			"link": "/forge",
 			"tags": [
 				"fix"
 			]

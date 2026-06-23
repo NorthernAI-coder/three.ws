@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Forge Standard quality generates reliably again",
+			"summary": "Forging on the Standard quality setting could stall or silently route to a slower paid path while Draft worked instantly — so Standard often felt broken. The free NVIDIA generator only returns fast at a lower detail-sampling setting; Standard was asking it for more steps than the hosted preview can finish in time, so the request timed out and fell back. Standard now uses the same proven-fast budget as Draft on the free lane, so it completes quickly and dependably. We also made the generator fail over to a backup engine immediately on a timeout instead of waiting through a second dead attempt, cutting the worst-case wait roughly in half when the free engine is busy.",
+			"tags": [
+				"fix"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Forged 3D models now render wherever the demo is embedded",
 			"summary": "On the IBM partnership page, forging a model — paid Forge, the free no-wallet generator, or the avatar forge — could finish successfully yet show only a blank, dark viewer. The finished GLB was served from a storage domain that only permits a short list of host sites, so whenever the page ran somewhere else (a preview tool, an embed, a file opened locally) the browser silently blocked the 3D file and the viewer had nothing to draw. Models are now streamed through our own first-party delivery proxy, which any site can load, so the model appears no matter where the page is running. And if a model ever does fail to load, the viewer now shows a clear retry/download card instead of an unexplained empty stage.",
 			"tags": [

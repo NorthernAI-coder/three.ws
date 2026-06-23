@@ -87,6 +87,14 @@
 			<description>Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed.</description>
 		</item>
 		<item>
+			<title>Forge Standard quality generates reliably again</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-23:Forge Standard quality generates reliably again</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Forging on the Standard quality setting could stall or silently route to a slower paid path while Draft worked instantly — so Standard often felt broken. The free NVIDIA generator only returns fast at a lower detail-sampling setting; Standard was asking it for more steps than the hosted preview can finish in time, so the request timed out and fell back. Standard now uses the same proven-fast budget as Draft on the free lane, so it completes quickly and dependably. We also made the generator fail over to a backup engine immediately on a timeout instead of waiting through a second dead attempt, cutting the worst-case wait roughly in half when the free engine is busy.</description>
+		</item>
+		<item>
 			<title>Forged 3D models now render wherever the demo is embedded</title>
 			<link>https://three.ws/ibm/x402-demo</link>
 			<guid isPermaLink="false">2026-06-23:Forged 3D models now render wherever the demo is embedded</guid>
