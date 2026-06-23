@@ -121,6 +121,35 @@ describe('llmComplete — free platform providers', () => {
 		const nvidiaCall = calls.find((c) => c.url.includes(NVIDIA_HOST));
 		expect(nvidiaCall.headers.authorization).toBe('Bearer nvapi-x');
 	});
+
+	it('preferNvidia leads with the Nemotron NIM before Groq', async () => {
+		process.env.GROQ_API_KEY = 'g';
+		process.env.NVIDIA_API_KEY = 'nvapi-x';
+		const calls = installFetch({
+			[NVIDIA_HOST]: openaiShape('from nemotron'),
+			[GROQ_HOST]: openaiShape('from groq'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u', preferNvidia: true });
+		expect(out.provider).toBe('nvidia');
+		expect(out.text).toBe('from nemotron');
+		expect(out.model).toBe('nvidia/nvidia-nemotron-nano-9b-v2');
+		// NVIDIA was hit first; Groq never needed.
+		expect(calls[0].url).toContain(NVIDIA_HOST);
+		expect(calls.some((c) => c.url.includes(GROQ_HOST))).toBe(false);
+	});
+
+	it('preferNvidia still falls back to Groq when the NIM lane errors', async () => {
+		process.env.GROQ_API_KEY = 'g';
+		process.env.NVIDIA_API_KEY = 'nvapi-x';
+		const calls = installFetch({
+			[NVIDIA_HOST]: errResp(503),
+			[GROQ_HOST]: openaiShape('from groq'),
+		});
+		const out = await llm.llmComplete({ system: 's', user: 'u', preferNvidia: true });
+		expect(out.provider).toBe('groq');
+		expect(out.text).toBe('from groq');
+		expect(calls[0].url).toContain(NVIDIA_HOST);
+	});
 });
 
 describe('llmComplete — multiple OpenRouter keys', () => {

@@ -58,12 +58,18 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'prompt_too_short', 'Describe the object in a few words first.');
 	}
 
+	// Opt-in: route the refine through NVIDIA's Nemotron NIM (the /forge-spark
+	// pipeline asks for this). It still falls back to the rest of the free chain
+	// when the NIM lane is down, so enhancement stays a boost, never a gate.
+	const preferNvidia = body?.engine === 'nemotron';
+
 	let result;
 	try {
 		result = await llmComplete({
 			system: SYSTEM,
 			user: raw.slice(0, MAX_IN),
 			maxTokens: 160,
+			preferNvidia,
 			track: { tool: 'forge-enhance', clientId: clientIp(req) },
 		});
 	} catch (err) {
@@ -81,5 +87,5 @@ export default wrap(async (req, res) => {
 	// rather than hand back something useless.
 	if (prompt.length < 3) prompt = raw;
 
-	return json(res, 200, { prompt, original: raw, provider: result.provider });
+	return json(res, 200, { prompt, original: raw, provider: result.provider, model: result.model });
 });

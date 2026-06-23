@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T16:04:11.070Z",
+	"generated_at": "2026-06-23T20:22:03.035Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -326,6 +326,16 @@
 					"path": "/forge-nim",
 					"title": "Forge · NIM — Self-Hosted Image to 3D",
 					"description": "Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/forge-spark",
+					"title": "Text → 3D — Nemotron → FLUX → TRELLIS",
+					"description": "Describe an object and watch it become a textured 3D mesh: Nemotron sharpens the prompt, FLUX paints a clean reference, and TRELLIS reconstructs the model — served on NVIDIA NIM, quiet and always on.",
 					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
