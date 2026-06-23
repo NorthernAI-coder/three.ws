@@ -29,6 +29,7 @@
 
 import { getConnectedWallet, getConnectedWalletAddress } from './wallet.js';
 import { safeUrl } from './safe-url.js';
+import { track, trackFunnelStep, ANALYTICS_EVENTS } from './analytics.js';
 
 const ACCESS_TTL_MS = 30_000;
 // The matrix cache is keyed by identity (the connected wallet, or null for the
@@ -357,6 +358,19 @@ export function showThreeGate(gate, opts = {}) {
 	const heldUsd = Number(held.usd) || 0;
 	const reason = gate.reason || (held.level > 0 ? 'insufficient_tier' : '');
 
+	// Conversion telemetry — the gate IS the contextual upgrade moment, so this is
+	// the one place every call site's upsell impression + click is measured. Props
+	// carry only tier ids/labels and the offered price (no wallet/PII). track() is a
+	// no-op when analytics isn't loaded and never throws, so it can't break the modal.
+	const gateProps = {
+		feature: gate.feature || undefined,
+		required_tier: required.id || required.label || undefined,
+		held_tier: held.id || held.label || undefined,
+		reason: reason || undefined,
+		has_pay_per_use: Boolean(gate.pay_per_use),
+		pay_per_use_usd: gate.pay_per_use ? Number(gate.pay_per_use.usd) || undefined : undefined,
+	};
+
 	const sub =
 		reason === 'sign_in'
 			? 'Sign in and link a Solana wallet to check your tier.'
@@ -395,9 +409,29 @@ export function showThreeGate(gate, opts = {}) {
 		if (e.target === overlay) close();
 	});
 	overlay.querySelector('#tg-close').addEventListener('click', close);
+	// Impression — step 1 of the upgrade funnel. Persist the intent so the eventual
+	// conversion attributes even across a navigation to the token page and back.
+	markUpgradeIntent(gateProps.feature);
+	trackFunnelStep('upgrade', ANALYTICS_EVENTS.UPGRADE_GATE_SHOWN, gateProps);
+	// "Get $THREE" — the hold path (step 2). Fire on click before the anchor navigates.
+	const getEl = overlay.querySelector('#tg-get');
+	if (getEl) {
+		getEl.addEventListener('click', () => {
+			trackFunnelStep('upgrade', ANALYTICS_EVENTS.UPGRADE_GET_THREE_CLICKED, {
+				feature: gateProps.feature,
+				required_tier: gateProps.required_tier,
+			});
+		});
+	}
 	const payEl = overlay.querySelector('#tg-pay');
 	if (payEl) {
 		payEl.addEventListener('click', () => {
+			// The alternate "pay per use" branch — tracked as its own catalog event.
+			track(ANALYTICS_EVENTS.UPGRADE_PAY_PER_USE_CLICKED, {
+				feature: gateProps.feature,
+				action: gate.pay_per_use?.action || undefined,
+				pay_per_use_usd: gateProps.pay_per_use_usd,
+			});
 			close();
 			opts.onPayPerUse(gate.pay_per_use);
 		});
@@ -435,6 +469,54 @@ export function closeThreeGate() {
  */
 export function onGate(payload, opts) {
 	return showThreeGate(payload, opts);
+}
+
+// ── Upgrade conversion tracking ────────────────────────────────────────────────
+// A gate impression is the top of the upgrade funnel; the conversion is the gated
+// action finally succeeding — which can happen after the user leaves to acquire
+// $THREE and returns (the hold path) or pays inline (pay-per-use). We persist a
+// short-lived "intent" in sessionStorage when the gate is shown so the conversion
+// can be attributed even across the navigation to the token page and back.
+const UPGRADE_INTENT_KEY = 'three:upgrade_intent';
+const UPGRADE_INTENT_TTL_MS = 30 * 60_000; // 30 min — long enough for a swap round-trip
+
+function markUpgradeIntent(feature) {
+	try {
+		sessionStorage.setItem(
+			UPGRADE_INTENT_KEY,
+			JSON.stringify({ feature: feature || null, at: Date.now() }),
+		);
+	} catch {
+		/* storage unavailable (private mode / embed) — conversion just won't attribute */
+	}
+}
+
+/**
+ * Close the upgrade funnel when a previously-gated action completes. No-op (returns
+ * false) unless a gate was shown within the TTL, so it's safe to call on every
+ * success of a gateable action — it fires UPGRADE_CONVERTED at most once per gate.
+ * @param {{ feature?: string, path?: 'hold'|'pay_per_use', usd?: number }} [info]
+ * @returns {boolean} whether the conversion event was emitted.
+ */
+export function trackUpgradeConverted({ feature, path, usd } = {}) {
+	let intent = null;
+	try {
+		const raw = sessionStorage.getItem(UPGRADE_INTENT_KEY);
+		if (raw) intent = JSON.parse(raw);
+	} catch {
+		return false;
+	}
+	if (!intent || !(Date.now() - Number(intent.at) < UPGRADE_INTENT_TTL_MS)) return false;
+	try {
+		sessionStorage.removeItem(UPGRADE_INTENT_KEY); // consume — one conversion per gate
+	} catch {
+		/* best-effort */
+	}
+	return trackFunnelStep('upgrade', ANALYTICS_EVENTS.UPGRADE_CONVERTED, {
+		feature: feature || intent.feature || undefined,
+		path: path || undefined,
+		usd: Number(usd) > 0 ? Number(usd) : undefined,
+	});
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────

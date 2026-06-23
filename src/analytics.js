@@ -53,6 +53,19 @@ export const ANALYTICS_EVENTS = Object.freeze({
 	/** Swap settled successfully. props: { amount_usd?, tx_short? } */
 	TOKEN_SWAP_SUCCEEDED: 'token_swap_succeeded',
 
+	// ── Upgrade / paywall funnel (ordered — see FUNNELS.upgrade) ─────────────
+	/** A holder-gate / paywall upsell was shown at a free-lane limit. props:
+	 *  { feature?, required_tier?, held_tier?, reason?, has_pay_per_use?, pay_per_use_usd? } */
+	UPGRADE_GATE_SHOWN: 'upgrade_gate_shown',
+	/** User chose the "Get $THREE" path from the gate. props: { feature?, required_tier? } */
+	UPGRADE_GET_THREE_CLICKED: 'upgrade_get_three_clicked',
+	/** User chose the contextual "Pay per use" path from the gate. props:
+	 *  { feature?, action?, pay_per_use_usd? } */
+	UPGRADE_PAY_PER_USE_CLICKED: 'upgrade_pay_per_use_clicked',
+	/** The gated action completed after a gate was shown — the conversion. props:
+	 *  { feature?, path: 'hold'|'pay_per_use', usd? } */
+	UPGRADE_CONVERTED: 'upgrade_converted',
+
 	// ── Engagement ───────────────────────────────────────────────────────────
 	/** Marketplace search/filter used. props: { query_len?, filters? } */
 	MARKETPLACE_SEARCHED: 'marketplace_searched',
@@ -62,6 +75,16 @@ export const ANALYTICS_EVENTS = Object.freeze({
 	 *  surfaces as `category:name` (e.g. 'dashboard:monetize', 'visualizer:galaxy')
 	 *  so insights group cleanly across surfaces. */
 	SURFACE_OPENED: 'surface_opened',
+
+	// ── Creator monetization funnel (ordered — see FUNNELS.creator) ──────────
+	/** Creator dashboard opened / "become a creator" intent. props: { agent_count?, has_prices? } */
+	CREATOR_ONBOARDING_STARTED: 'creator_onboarding_started',
+	/** A skill price (or pricing rule) was saved. props: { agent_id?, skill?, price_usdc?, gate_type?, is_first? } */
+	CREATOR_PRICE_SET: 'creator_price_set',
+	/** A payout wallet was configured for an agent. props: { agent_id?, network? } */
+	CREATOR_PAYOUT_CONFIGURED: 'creator_payout_configured',
+	/** The creator's first observed sale surfaced in the dashboard. props: { agent_id?, revenue_usd? } */
+	CREATOR_FIRST_SALE: 'creator_first_sale',
 
 	// ── Share (this module's own instrumentation surface) ────────────────────
 	/** Share card flow opened. props: { kind: string, entity_id? } */
@@ -94,6 +117,25 @@ export const FUNNELS = Object.freeze({
 		ANALYTICS_EVENTS.TOKEN_QUOTE_SHOWN,
 		ANALYTICS_EVENTS.TOKEN_SWAP_CONFIRMED,
 		ANALYTICS_EVENTS.TOKEN_SWAP_SUCCEEDED,
+	],
+	// Supply-side proof: a creator lands on the dashboard, sets a price, wires a
+	// payout wallet, and earns. Each step is the lever that turns a viewer into a
+	// paid creator — the flywheel three.ws optimizes for.
+	creator: [
+		ANALYTICS_EVENTS.CREATOR_ONBOARDING_STARTED,
+		ANALYTICS_EVENTS.CREATOR_PRICE_SET,
+		ANALYTICS_EVENTS.CREATOR_PAYOUT_CONFIGURED,
+		ANALYTICS_EVENTS.CREATOR_FIRST_SALE,
+	],
+	// Contextual upgrade moment at a free-lane limit → conversion. This array is
+	// the primary "hold" path (acquire $THREE, whose acquisition tail is the
+	// `three` funnel). The alternate "pay per use" branch is its own catalog event
+	// (UPGRADE_PAY_PER_USE_CLICKED) — both branches terminate at UPGRADE_CONVERTED
+	// when the gated action finally completes, so conversion is measurable for each.
+	upgrade: [
+		ANALYTICS_EVENTS.UPGRADE_GATE_SHOWN,
+		ANALYTICS_EVENTS.UPGRADE_GET_THREE_CLICKED,
+		ANALYTICS_EVENTS.UPGRADE_CONVERTED,
 	],
 });
 

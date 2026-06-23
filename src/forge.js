@@ -2,7 +2,14 @@
 import { skeletonHTML, errorStateHTML, ensureStateKitStyles } from './shared/state-kit.js';
 import { showSharePanel } from './shared/share.js';
 import { stampGlbAttribution } from './shared/glb-attribution.js';
-import { primeTierPass, attachTierPass, getTierPass, getAccess, onGate } from './three-access.js';
+import {
+	primeTierPass,
+	attachTierPass,
+	getTierPass,
+	getAccess,
+	onGate,
+	trackUpgradeConverted,
+} from './three-access.js';
 import { renderLock, lockStateFromAccess } from './three-lock.js';
 import { payForHighGeneration } from './forge-pay.js';
 import { initWalletButton, getConnectedWalletAddress } from './wallet.js';
@@ -1894,6 +1901,9 @@ function showRateLimited({ retryAfter = 10, unavailable = false, busy = false })
 // Run a job (text or image/multi-view). `cfg` = { prompt, imageUrls }.
 async function run(cfg) {
 	stopRateLimitCountdown();
+	// Capture before the single-use payment proof is stripped below — it tells the
+	// upgrade-funnel conversion which path (pay-per-use vs. hold) closed the loop.
+	const wasPaidGeneration = !!cfg.payment;
 	lastJob = cfg;
 	pollAbort = false;
 	currentCreationId = null;
@@ -2007,6 +2017,16 @@ async function run(cfg) {
 		// finished mesh itself as the creation's card visual.
 		if (!(done.preview_image_url ?? job.preview_image_url)) {
 			capturePoster(currentCreationId);
+		}
+		// Conversion: if this run followed an upgrade gate, the gated High lane just
+		// produced a model — close the upgrade funnel. No-op unless a gate was shown
+		// recently, and fires once per gate. Only the High tier is gated.
+		if ((done.tier ?? job.tier) === 'high') {
+			trackUpgradeConverted({
+				feature: 'forge_high',
+				path: wasPaidGeneration ? 'pay_per_use' : 'hold',
+				usd: wasPaidGeneration ? Number(_highAccess?.pay_per_use?.usd) || undefined : undefined,
+			});
 		}
 	} catch (err) {
 		if (pollAbort) return;

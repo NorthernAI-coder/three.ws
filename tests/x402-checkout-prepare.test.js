@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PublicKey } from '@solana/web3.js';
 
-import { acceptSchema, prepareSchema, ataExists, getRecentBlockhash } from '../api/x402-checkout.js';
+import { acceptSchema, prepareSchema, ataExists, getRecentBlockhash, validateTip } from '../api/x402-checkout.js';
 
 // The 402 challenge's `accept` is built from operator env (X402_PAY_TO_SOLANA /
 // X402_FEE_PAYER_SOLANA). Those values are pasted into dashboards and routinely
@@ -63,6 +63,72 @@ describe('x402-checkout prepareSchema', () => {
 			tips: [{ to: `${USDC}\n`, amount: '1000' }],
 		});
 		expect(parsed.tips[0].to).toBe(USDC);
+	});
+});
+
+describe('x402-checkout validateTip — donation safety caps (moves real USDC)', () => {
+	const payTo = new PublicKey(PAY_TO);
+	// A distinct, valid charity recipient (≠ payTo) for the happy-path cases.
+	const CHARITY = FEE_PAYER;
+
+	it('accepts a well-formed donation under the caps, returning typed to/amount', () => {
+		const v = validateTip({ to: CHARITY, amount: '1000' }, { payTo, paymentAmount: 10_000n });
+		expect(v.ok).toBe(true);
+		expect(v.to).toBeInstanceOf(PublicKey);
+		expect(v.to.toBase58()).toBe(CHARITY);
+		expect(v.amount).toBe(1000n);
+	});
+
+	it('skips a zero-amount donation (nothing to send) without erroring', () => {
+		const v = validateTip({ to: CHARITY, amount: '0' }, { payTo, paymentAmount: 10_000n });
+		expect(v).toEqual({ skip: true });
+	});
+
+	it('rejects a donation above the absolute 100-token cap', () => {
+		// 100.000001 USDC: over the abs cap, but well under 50× a large payment so
+		// the abs cap is the binding rule being exercised here.
+		const v = validateTip({ to: CHARITY, amount: '100000001' }, { payTo, paymentAmount: 1_000_000_000n });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('tip_too_large');
+	});
+
+	it('rejects a donation above 50× the payment even when under the abs cap', () => {
+		// 60k atomics > 50 × 1000 = 50k, and far below the 100-token abs cap.
+		const v = validateTip({ to: CHARITY, amount: '60000' }, { payTo, paymentAmount: 1_000n });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('tip_too_large');
+	});
+
+	it('rejects a donation routed back to the merchant payout (silent inflation)', () => {
+		const v = validateTip({ to: PAY_TO, amount: '1000' }, { payTo, paymentAmount: 10_000n });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('invalid_tip');
+	});
+
+	it('rejects a malformed recipient address', () => {
+		const v = validateTip({ to: 'not-a-valid-base58-address!!', amount: '1000' }, { payTo, paymentAmount: 10_000n });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('invalid_tip');
+	});
+
+	it('rejects a non-numeric donation amount', () => {
+		const v = validateTip({ to: CHARITY, amount: 'abc' }, { payTo, paymentAmount: 10_000n });
+		expect(v.ok).toBe(false);
+		expect(v.code).toBe('invalid_tip');
+	});
+
+	it('caps the donation array at 2 entries in prepareSchema', () => {
+		expect(() =>
+			prepareSchema.parse({
+				accept: challengeAccept(),
+				buyer: BUYER,
+				tips: [
+					{ to: USDC, amount: '1' },
+					{ to: USDC, amount: '2' },
+					{ to: USDC, amount: '3' },
+				],
+			}),
+		).toThrow();
 	});
 });
 
