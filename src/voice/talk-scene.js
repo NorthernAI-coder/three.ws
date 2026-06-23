@@ -54,6 +54,12 @@ export class TalkScene {
 		this._mouthTarget = null;
 		this._cameraPreset = 'full';
 		this._emotes = null;
+		// Optional render throttle. 0 = uncapped (rAF native, ~60fps). A positive
+		// cap (e.g. 30) skips render frames that arrive sooner than the budget so
+		// an embedded preview doesn't monopolise the main thread — the elapsed dt
+		// still accumulates across skipped frames, so motion stays time-correct.
+		this._minFrameMs = 0;
+		this._lastFrameAt = 0;
 		// External per-frame subscribers (idle animation, custom drivers).
 		// Receive dt in seconds. Use addOnTick() to register, call the returned
 		// dispose function to unsubscribe.
@@ -321,11 +327,30 @@ export class TalkScene {
 		this._resizeObserver.observe(this.container);
 	}
 
+	/**
+	 * Cap the render loop to `fps` frames per second (0 disables the cap). Used by
+	 * the editor's walk preview to hold the canvas at 30fps so sculpt sliders and
+	 * the rest of the UI stay responsive while a full locomotion loop runs.
+	 * @param {number} fps
+	 */
+	setFpsCap(fps) {
+		this._minFrameMs = fps && fps > 0 ? 1000 / fps : 0;
+		this._lastFrameAt = 0;
+	}
+
 	_start() {
 		if (this._running) return;
 		this._running = true;
-		const tick = () => {
+		const tick = (now) => {
 			if (!this._running) return;
+			this._rafId = requestAnimationFrame(tick);
+			// Honour an optional fps cap: bail before any work (and before the
+			// clock ticks) so the accumulated dt lands on the frame we do render.
+			if (this._minFrameMs) {
+				const t = now || 0;
+				if (this._lastFrameAt && t - this._lastFrameAt < this._minFrameMs) return;
+				this._lastFrameAt = t;
+			}
 			this._clock.update();
 			const dt = this._clock.getDelta();
 			this.controls?.update();
@@ -333,7 +358,6 @@ export class TalkScene {
 			this._emotes?.update(dt);
 			for (const fn of this._onTickFns) fn(dt);
 			this.renderer?.render(this.scene, this.camera);
-			this._rafId = requestAnimationFrame(tick);
 		};
 		this._rafId = requestAnimationFrame(tick);
 	}
