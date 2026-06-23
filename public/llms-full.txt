@@ -478,6 +478,20 @@ URL: https://three.ws/leaderboard
 
 Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.
 
+### Custody Integrity
+
+URL: https://three.ws/integrity
+
+Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.
+
+### Verify Custody
+
+URL: https://three.ws/proof
+Auth: required (sign-in)
+Indexable: no (excluded from sitemap)
+
+Verify your own three.ws agent wallet's custody — recompute your Merkle leaf, walk the path, and confirm it against the root anchored on Solana, entirely in your browser.
+
 ### Agent Labor Market
 
 URL: https://three.ws/labor-market
