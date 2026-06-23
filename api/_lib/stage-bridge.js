@@ -55,14 +55,20 @@ export async function notifyStageRoom(stageId, event, payload = {}) {
 // same bytes the server signed. Returns true iff the signature + freshness check
 // pass. Mirrors signStageRequest in multiplayer/src/presence-token.js.
 export async function verifyStageRequest(req, body) {
-	const sig = req.headers['x-stage-sig'] || req.headers['X-Stage-Sig'];
-	const ts = req.headers['x-stage-ts'] || req.headers['X-Stage-Ts'];
-	if (typeof sig !== 'string' || !sig) return false;
-	const tsNum = Number(ts);
-	if (!Number.isFinite(tsNum)) return false;
-	const nowS = Math.floor(Date.now() / 1000);
-	if (Math.abs(nowS - tsNum) > STAGE_MAX_AGE_S) return false;
-	const payloadHash = await sha256Base64Url(JSON.stringify(body ?? {}));
-	const expected = await hmacSha256(env.MULTIPLAYER_SHARED_SECRET, `stage-req:${tsNum}:${payloadHash}`);
-	return constantTimeEquals(sig, expected);
+	try {
+		const sig = req.headers['x-stage-sig'] || req.headers['X-Stage-Sig'];
+		const ts = req.headers['x-stage-ts'] || req.headers['X-Stage-Ts'];
+		if (typeof sig !== 'string' || !sig) return false;
+		const tsNum = Number(ts);
+		if (!Number.isFinite(tsNum)) return false;
+		const nowS = Math.floor(Date.now() / 1000);
+		if (Math.abs(nowS - tsNum) > STAGE_MAX_AGE_S) return false;
+		const payloadHash = await sha256Base64Url(JSON.stringify(body ?? {}));
+		const expected = await hmacSha256(env.MULTIPLAYER_SHARED_SECRET, `stage-req:${tsNum}:${payloadHash}`);
+		return constantTimeEquals(sig, expected);
+	} catch {
+		// A missing/empty shared secret (hmac throws) or any verification error is a
+		// hard "no" — never let it surface as a 500 on a forged request.
+		return false;
+	}
 }
