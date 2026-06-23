@@ -1066,6 +1066,15 @@ function boot() {
 	// keyframes and plays the result; export bakes a THREE.AnimationClip.
 	timeline = setupTimeline();
 
+	// ── Crash recovery & unsaved-work guard ──────────────────────────────────
+	// Posing and keyframing never touch the account until the user explicitly
+	// Saves, so a refresh or accidental tab close would lose in-progress work.
+	// We snapshot the timeline document to localStorage on a light interval and
+	// warn before unload while the current state differs from the last point it
+	// was persisted (an account save, or opening a saved clip). On the next boot
+	// the draft is offered back — unless an explicit deep-link (?anim=) wins.
+	const autosave = setupAutosave();
+
 	// ── Animation preset library ─────────────────────────────────────────────
 	// A curated gallery of ready-to-apply motion clips. Picking one retargets it
 	// onto the loaded rig and plays it live in this same viewport, then offers an
@@ -1603,10 +1612,108 @@ function boot() {
 		};
 	}
 
+	// Local crash-recovery for in-progress timeline work. Returns null when the
+	// page has no timeline (the studio markup is absent) so callers no-op safely.
+	function setupAutosave() {
+		if (!timeline) return null;
+		const DRAFT_KEY = 'pose-studio:draft:v2';
+		// savedBaseline = the document JSON at the last persisted point (account
+		// save or open). lastDraftJson tracks what we last wrote to localStorage so
+		// the interval skips redundant writes.
+		let savedBaseline = JSON.stringify(timeline.getDocument());
+		let lastDraftJson = null;
+
+		const currentJson = () => JSON.stringify(timeline.getDocument());
+
+		const readDraft = () => {
+			try {
+				return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+			} catch {
+				return null;
+			}
+		};
+		const clearDraft = () => {
+			try {
+				localStorage.removeItem(DRAFT_KEY);
+			} catch {
+				/* storage blocked — nothing to clear */
+			}
+		};
+
+		function hasUnsavedWork() {
+			const doc = timeline.getDocument();
+			return doc.keyframes.length > 0 && currentJson() !== savedBaseline;
+		}
+
+		function persistDraft() {
+			const cur = currentJson();
+			if (cur === lastDraftJson) return;
+			lastDraftJson = cur;
+			const doc = timeline.getDocument();
+			// Only stash genuine, not-yet-saved work — never an empty doc or a
+			// document that already matches the persisted baseline.
+			if (!doc.keyframes.length || cur === savedBaseline) {
+				clearDraft();
+				return;
+			}
+			try {
+				localStorage.setItem(
+					DRAFT_KEY,
+					JSON.stringify({ doc, savedAt: Date.now(), avatarId: state.avatar?.id || null }),
+				);
+			} catch {
+				/* quota / private mode — recovery simply unavailable this session */
+			}
+		}
+
+		// Called when the document reaches a persisted state (saved to the account
+		// or freshly opened from it): reset the baseline and drop the local draft.
+		function markSaved() {
+			savedBaseline = currentJson();
+			lastDraftJson = null;
+			clearDraft();
+		}
+
+		// Offer the previous session's unsaved draft back. Restored work stays
+		// "unsaved" (it isn't in the account yet), so the unload guard keeps
+		// protecting it until the user Saves.
+		function tryRestore() {
+			const saved = readDraft();
+			const count = saved?.doc?.keyframes?.length || 0;
+			if (!count) return false;
+			timeline.loadDocument(saved.doc);
+			lastDraftJson = currentJson();
+			const when = saved.savedAt ? new Date(saved.savedAt).toLocaleTimeString() : 'a previous session';
+			setStatus(
+				`Recovered your unsaved animation — ${count} keyframe${count === 1 ? '' : 's'} from ${when}. Save it to keep it.`,
+			);
+			return true;
+		}
+
+		const interval = setInterval(persistDraft, 1500);
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) persistDraft();
+		});
+		window.addEventListener('beforeunload', (ev) => {
+			persistDraft();
+			if (hasUnsavedWork()) {
+				ev.preventDefault();
+				ev.returnValue = '';
+			}
+		});
+		window.addEventListener('pagehide', () => clearInterval(interval));
+
+		return { markSaved, tryRestore, hasUnsavedWork };
+	}
+
 	// ── Account: save + "My animations" library ──────────────────────────────
 	const library = new PoseLibrary({
 		getDocument: () => timeline.getDocument(),
-		loadDocument: (d) => timeline.loadDocument(d),
+		loadDocument: (d) => {
+			timeline.loadDocument(d);
+			autosave?.markSaved();
+		},
+		onSaved: () => autosave?.markSaved(),
 		serializeClip: () => timeline.serialize(),
 		bakeArtifact: () => timeline.bakeArtifact(),
 		captureThumbnail: () => timeline.captureThumbnail(),
@@ -1625,6 +1732,10 @@ function boot() {
 	const requestedAvatar = _params.get('avatar');
 	const requestedAnim = _params.get('anim');
 
+	// An explicit ?anim= deep-link opens a specific saved clip and wins over any
+	// recovered draft; otherwise we offer back last session's unsaved work.
+	const recovered = !requestedAnim && autosave?.tryRestore();
+
 	if (requestedAvatar) {
 		loadAvatarById(requestedAvatar).catch((err) => {
 			setStatus(`${err.message} Showing the mannequin instead.`, 'error');
@@ -1637,7 +1748,7 @@ function boot() {
 			}
 		});
 	} else {
-		setStatus('Ready. Click a body part to pose, or load an avatar.');
+		if (!recovered) setStatus('Ready. Click a body part to pose, or load an avatar.');
 		if (requestedAnim) {
 			library.openById(requestedAnim).catch((err) => {
 				setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');

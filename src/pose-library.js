@@ -194,6 +194,7 @@ export class PoseLibrary {
 					avatar_id: avatarId || undefined,
 				};
 				const saved = await this._persist(meta, { asCopy });
+				this.api.onSaved?.();
 				overlay.remove();
 				this.api.setStatus(`Saved “${saved.name}” to your account.`);
 			} catch (err) {

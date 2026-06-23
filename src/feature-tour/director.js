@@ -67,6 +67,7 @@ export class TourDirector {
 	// button / ?tour=start). `track` chooses Quick vs Full; voice/speed default to
 	// the visitor's remembered preferences. Navigates to stop 0's page if needed.
 	async start(track) {
+		this._showLoading();
 		await this._ensureCurriculum();
 		const prefs = readResume();
 		this.track = track || 'full';
@@ -100,6 +101,7 @@ export class TourDirector {
 	async resume() {
 		const state = readState();
 		if (!state.active) return;
+		this._showLoading();
 		await this._ensureCurriculum();
 		this.paused = state.paused;
 		this.muted = state.muted;
@@ -193,6 +195,7 @@ export class TourDirector {
 		this.panel.setSpeed(this.speed);
 		this.panel.setVoice(this.voice);
 		document.addEventListener('keydown', this._onKey);
+		this._hideLoading();
 	}
 
 	// ── Running a stop ────────────────────────────────────────────────────────
@@ -568,6 +571,36 @@ export class TourDirector {
 		this._doneCard = card;
 	}
 
+	// A lightweight, honest loading state shown while the curriculum manifest and
+	// the guide GLB stream in — no fake progress bar, just a live "preparing" cue
+	// that clears the moment the real assets are mounted (or the load gives up).
+	_showLoading() {
+		if (this._loadingEl) return;
+		ensureLoadingStyles();
+		const el = document.createElement('div');
+		el.className = 'tws-tour-loading';
+		el.setAttribute('role', 'status');
+		el.setAttribute('aria-live', 'polite');
+		el.innerHTML = `
+			<div class="tws-tour-loading__inner">
+				<div class="tws-tour-loading__orb" aria-hidden="true"></div>
+				<div class="tws-tour-loading__label">Waking your guide…</div>
+			</div>`;
+		document.body.appendChild(el);
+		requestAnimationFrame(() => el.classList.add('is-in'));
+		this._loadingEl = el;
+	}
+
+	_hideLoading() {
+		const el = this._loadingEl;
+		if (!el) return;
+		this._loadingEl = null;
+		el.classList.remove('is-in');
+		const drop = () => el.remove();
+		el.addEventListener('transitionend', drop, { once: true });
+		this._loadingDrop = setTimeout(drop, 600); // fallback if transitionend never fires
+	}
+
 	// ── Teardown ──────────────────────────────────────────────────────────────
 	exit() {
 		this._runToken++;
@@ -586,6 +619,9 @@ export class TourDirector {
 		this.controls?.dispose();
 		this.panel?.dispose();
 		this._doneCard?.remove();
+		clearTimeout(this._loadingDrop);
+		this._loadingEl?.remove();
+		this._loadingEl = null;
 		this._restoreCompanion();
 		this.mounted = false;
 	}
@@ -755,6 +791,23 @@ function ensureDoneStyles() {
 .tws-tour-done__btn:hover{background:rgba(255,255,255,.1)}
 .tws-tour-done__btn--primary{background:linear-gradient(90deg,#7aa2ff,#9d7bff);color:#0b0e16;border-color:transparent}
 .tws-tour-done__btn--primary:hover{filter:brightness(1.06)}
+`;
+	document.head.appendChild(style);
+}
+
+let _loadingStyles = false;
+function ensureLoadingStyles() {
+	if (_loadingStyles) return;
+	_loadingStyles = true;
+	const style = document.createElement('style');
+	style.textContent = `
+.tws-tour-loading{position:fixed;inset:0;z-index:2147483400;display:grid;place-items:center;background:rgba(6,8,12,.55);backdrop-filter:blur(5px);opacity:0;transition:opacity .3s ease;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}
+.tws-tour-loading.is-in{opacity:1}
+.tws-tour-loading__inner{display:flex;flex-direction:column;align-items:center;gap:16px}
+.tws-tour-loading__orb{width:54px;height:54px;border-radius:50%;background:conic-gradient(from 0deg,#7aa2ff,#9d7bff,#7aa2ff);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 6px),#000 0);animation:tws-tour-spin 1s linear infinite}
+.tws-tour-loading__label{color:#cdd5e6;font-size:14px;font-weight:600;letter-spacing:.01em}
+@keyframes tws-tour-spin{to{transform:rotate(1turn)}}
+@media (prefers-reduced-motion:reduce){.tws-tour-loading{transition:none}.tws-tour-loading__orb{animation-duration:2.4s}}
 `;
 	document.head.appendChild(style);
 }

@@ -148,7 +148,8 @@ const subtitleEl  = $('irl-subtitle');
 // three states so a brand-new user is never left guessing what to tap next.
 const SUBTITLE = {
 	cameraOff: 'Turn on Camera AR, then tap Pin here to anchor your agent in real space.',
-	aiming:    'Aim at the spot you want, then tap Pin here to anchor your agent.',
+	aiming:    'Tap Move here to set your agent on the floor, then Pin here to anchor it.',
+	placing:   'Aim the ring at the floor and tap to set your agent down — then Pin here.',
 	pinned:    'Your agent is anchored here. Tap Pin here again to release it.',
 };
 function setSubtitle(text) { if (subtitleEl) subtitleEl.textContent = text; }
@@ -162,6 +163,7 @@ const clearBtn       = $('irl-clear-btn');
 const pickerEl       = $('irl-picker');
 const avatarBtn      = $('irl-avatar-btn');
 const lockBtn        = $('irl-lock-btn');
+const carryBtn       = $('irl-carry-btn');      // "Move here" — carry the agent and set it on the floor
 const anchorBtn      = $('irl-anchor-btn');     // WebXR "Place on floor" — revealed only when supported
 const xrOverlay      = $('irl-xr-overlay');     // WebXR dom-overlay root (in-session hint + exit + error)
 const xrBarEl        = $('irl-xr-bar');         // hint+exit pill; .is-anchored reveals the ✓ confirm
@@ -278,6 +280,30 @@ const rayPlane = new Mesh(
 rayPlane.rotation.x = -Math.PI / 2;
 rayPlane.position.y = 0.005;
 scene.add(rayPlane);
+
+// Carry-and-place reticle — a soft teal ground ring that tracks where the screen
+// centre meets the floor while "Move here" is armed, so you can aim a real spot in
+// the room and set your agent down there (the gesture the fixed camera-offset never
+// allowed). Hidden until carry mode reveals it; pulses on a successful drop.
+const carryReticle = new Group();
+{
+	const ring = new Mesh(
+		new TorusGeometry(0.28, 0.022, 10, 44),
+		new MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.9, depthTest: false }),
+	);
+	ring.rotation.x = -Math.PI / 2;
+	ring.renderOrder = 10;
+	const dot = new Mesh(
+		new CircleGeometry(0.05, 24),
+		new MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.55, depthTest: false }),
+	);
+	dot.rotation.x = -Math.PI / 2;
+	dot.renderOrder = 10;
+	carryReticle.add(ring, dot);
+}
+carryReticle.position.y = 0.012;
+carryReticle.visible = false;
+scene.add(carryReticle);
 
 // ── Camera ────────────────────────────────────────────────────────────────
 // near = 0.02 m: held one-handed, a virtual agent brought close to inspect can put
@@ -470,6 +496,8 @@ function disableAR() {
 	arFrozenCamPos  = null;
 	arFrozenCamLook = null;
 	gyroLockCamPos  = null;
+	if (carryModeActive) setCarryMode(false); // carry only makes sense with the camera on
+	_carryActive = false;
 	arTrackW = 0;
 	arTrackH = 0;
 	setStatus('Camera off');
@@ -498,6 +526,12 @@ if (!navigator.mediaDevices?.getUserMedia) {
 // ── Placed objects ────────────────────────────────────────────────────────
 let placeModeActive = false;
 let selectedType    = 'orb';
+// Carry-and-place: while armed, a floor tap sets the agent down at that world
+// point and it eases there (no teleport). _carryTarget/_carryActive drive the glide
+// in tick(); the gyro world-lock then holds the agent at the chosen spot.
+let carryModeActive = false;
+let _carryActive    = false;
+const _carryTarget  = new Vector3();
 const placedObjects = []; // { mesh, spawnT, type }
 
 // ── Session persistence (localStorage) ───────────────────────────────────
@@ -639,6 +673,7 @@ document.querySelector('.irl-obj-btn[data-type="orb"]')?.classList.add('active')
 
 placeBtn.addEventListener('click', () => {
 	placeModeActive = !placeModeActive;
+	if (placeModeActive) setCarryMode(false); // the two floor-tap modes are exclusive
 	placeBtn.setAttribute('aria-pressed', String(placeModeActive));
 	placeBtn.classList.toggle('is-active', placeModeActive);
 	pickerEl.hidden = !placeModeActive;
@@ -650,6 +685,53 @@ placeBtn.addEventListener('click', () => {
 		setStatus(null);
 	}
 });
+
+// ── Carry-and-place ("Move here") ─────────────────────────────────────────────
+// Arm a floor-aim reticle; a tap sets the agent down at that real-world spot. This
+// is what makes "carry my agent across the room and put it on the couch" possible —
+// before this the agent was frozen 3.6 m in front of the camera (CAM_OFFSET).
+function setCarryMode(on) {
+	carryModeActive = on && arActive;
+	carryBtn?.setAttribute('aria-pressed', String(carryModeActive));
+	carryBtn?.classList.toggle('is-active', carryModeActive);
+	canvas.style.cursor = carryModeActive ? 'crosshair' : '';
+	if (carryModeActive) {
+		if (placeModeActive) placeBtn.click(); // exclusive with the object-drop mode
+		setSubtitle(SUBTITLE.placing);
+		setStatus('Aim the ring at the floor, then tap to set your agent down');
+	} else {
+		carryReticle.visible = false;
+		setSubtitle(avatarLocked ? SUBTITLE.pinned : SUBTITLE.aiming);
+		if (!placeModeActive) setStatus(null);
+	}
+}
+
+// Set the agent down at a chosen floor point and turn it to face the viewer, so a
+// freshly placed agent looks at you rather than away. The glide + final snap run in
+// tick() via _carryActive; the gyro world-lock holds the spot once you Pin here.
+function placeAvatarAt(point) {
+	_carryTarget.set(point.x, 0, point.z);
+	_carryActive = true;
+	const dx = camera.position.x - point.x, dz = camera.position.z - point.z;
+	if (dx * dx + dz * dz > 1e-4) avatarYaw = Math.atan2(dx, dz);
+	carryReticle.scale.setScalar(1.4); // confirm pulse — eased back to rest in tick()
+	setStatus('Agent set down — tap Pin here to anchor it in the room');
+	_saveSession();
+}
+
+if (carryBtn) {
+	carryBtn.addEventListener('click', async () => {
+		if (!arActive) {
+			setStatus('Turn on Camera AR first, then move your agent into the room.', { warn: true });
+			return;
+		}
+		// Arming carry requires the world-lock: only the locked/gyro camera tracks the
+		// room as you pan, so the floor reticle lands on the real floor and the agent
+		// stays put where you set it. Engage it first if you haven't pinned yet.
+		if (!carryModeActive && !avatarLocked) await setLocked(true);
+		setCarryMode(!carryModeActive);
+	});
+}
 
 clearBtn.addEventListener('click', () => {
 	for (const obj of placedObjects) scene.remove(obj.mesh);
@@ -687,6 +769,14 @@ canvas.addEventListener('pointerup', e => {
 		-(e.clientY / window.innerHeight) * 2 + 1,
 	);
 	raycaster.setFromCamera(pointerNDC, camera);
+
+	if (carryModeActive) {
+		// ── Carry mode: set the agent down on the floor where you tapped ──
+		const hits = raycaster.intersectObject(rayPlane);
+		if (!hits.length) return;
+		placeAvatarAt(hits[0].point);
+		return;
+	}
 
 	if (placeModeActive) {
 		// ── Place mode: drop an object on the ground ─────────────────────
@@ -6094,6 +6184,40 @@ function tick() {
 		: currentMotion === 'walk' ? LEAN_WALK_RAD * mag : 0;
 	avatarLean += (targetLean - avatarLean) * LEAN_LERP;
 	if (avatar) avatar.rotation.x = avatarLean;
+
+	// Carry glide — ease a set-down agent to its chosen floor spot (works locked or
+	// not). Any joystick/keys input cancels it so manual control always wins.
+	if (_carryActive) {
+		if (mag > 0.01) {
+			_carryActive = false;
+		} else {
+			avatarRig.position.x += (_carryTarget.x - avatarRig.position.x) * 0.18;
+			avatarRig.position.z += (_carryTarget.z - avatarRig.position.z) * 0.18;
+			avatarRig.quaternion.setFromAxisAngle(upY, avatarYaw);
+			if (Math.hypot(_carryTarget.x - avatarRig.position.x, _carryTarget.z - avatarRig.position.z) < 0.01) {
+				avatarRig.position.x = _carryTarget.x;
+				avatarRig.position.z = _carryTarget.z;
+				_carryActive = false;
+			}
+		}
+	}
+
+	// Carry reticle — track the floor point under the screen centre while armed, so
+	// you can aim a real spot before tapping. Eases its confirm pulse back to rest.
+	if (carryModeActive) {
+		pointerNDC.set(0, 0);
+		raycaster.setFromCamera(pointerNDC, camera);
+		const rHits = raycaster.intersectObject(rayPlane);
+		if (rHits.length) {
+			carryReticle.position.set(rHits[0].point.x, 0.012, rHits[0].point.z);
+			carryReticle.visible = true;
+		} else {
+			carryReticle.visible = false;
+		}
+		carryReticle.scale.setScalar(carryReticle.scale.x + (1 - carryReticle.scale.x) * 0.15);
+	} else if (carryReticle.visible) {
+		carryReticle.visible = false;
+	}
 
 	// Camera ─────────────────────────────────────────────────────────────────
 	if (gpsModeActive && avatarLocked && arActive) {

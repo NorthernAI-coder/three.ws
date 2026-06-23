@@ -1729,6 +1729,10 @@
 			"dest": "/api/agents/by-wallet"
 		},
 		{
+			"src": "/api/agents/balances",
+			"dest": "/api/agents/balances"
+		},
+		{
 			"src": "/api/agents/by-address/([^/]+)",
 			"dest": "/api/agents/by-address/[addr]?addr=$1"
 		},
