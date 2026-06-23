@@ -263,3 +263,10 @@ three.ws-log-export-*.json
 
 # Local prompt working set (not shared)
 prompts/nvidia/
+
+# Embodiment / digital-human work — kept local, never shared to the mirrors
+api/_lib/embodiment.js
+api/embodiment/
+src/embodiment/
+src/embody.js
+pages/embody.html
