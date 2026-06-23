@@ -125,6 +125,8 @@ const EXTRA_ALIASES = (() => {
 		['abdomen', 'Spine'], ['abdomenLower', 'Spine'], ['abdomenUpper', 'Spine1'],
 		['hip', 'Hips'],
 		['lowerNeck', 'Neck'], ['upperNeck', 'Neck'], ['neckLower', 'Neck'], ['neckUpper', 'Neck'],
+		// Reallusion CC3/CC4 splits the neck into twist joints; either drives the head chain.
+		['neckTwist01', 'Neck'], ['neckTwist02', 'Neck'],
 	]) put(v, c);
 
 	// Side-paired limb bones, given as the LEFT spelling + its canonical; the
@@ -135,11 +137,15 @@ const EXTRA_ALIASES = (() => {
 		['leftUpperArm', 'LeftArm'], ['lUpperArm', 'LeftArm'], ['shoulderL', 'LeftArm'], ['lShldr', 'LeftArm'], ['lShldrBend', 'LeftArm'],
 		['leftLowerArm', 'LeftForeArm'], ['lLowerArm', 'LeftForeArm'], ['elbowL', 'LeftForeArm'], ['lForeArm', 'LeftForeArm'], ['lForearmBend', 'LeftForeArm'],
 		['wristL', 'LeftHand'], ['lHand', 'LeftHand'],
-		['lCollar', 'LeftShoulder'], ['collarL', 'LeftShoulder'],
+		['lCollar', 'LeftShoulder'], ['collarL', 'LeftShoulder'], ['lClavicle', 'LeftShoulder'],
 		['leftUpperLeg', 'LeftUpLeg'], ['lUpperLeg', 'LeftUpLeg'], ['hipL', 'LeftUpLeg'], ['lThigh', 'LeftUpLeg'], ['lThighBend', 'LeftUpLeg'],
-		['leftLowerLeg', 'LeftLeg'], ['lLowerLeg', 'LeftLeg'], ['kneeL', 'LeftLeg'], ['shinL', 'LeftLeg'], ['lShin', 'LeftLeg'],
+		['leftLowerLeg', 'LeftLeg'], ['lLowerLeg', 'LeftLeg'], ['kneeL', 'LeftLeg'], ['shinL', 'LeftLeg'], ['lShin', 'LeftLeg'], ['lCalf', 'LeftLeg'],
 		['ankleL', 'LeftFoot'], ['lFoot', 'LeftFoot'],
-		['leftToes', 'LeftToeBase'], ['toeL', 'LeftToeBase'], ['lToe', 'LeftToeBase'],
+		['leftToes', 'LeftToeBase'], ['toeL', 'LeftToeBase'], ['lToe', 'LeftToeBase'], ['lToeBase', 'LeftToeBase'],
+		// Generic side-prefix auto-riggers (some Meshy/Tripo + simple rigs) emit the
+		// canonical short bone name behind a bare `L_`/`R_` side token: `L_Arm`,
+		// `L_Leg`, `L_UpLeg`, `L_Shoulder`. The right twin is derived by the l→r rule.
+		['lArm', 'LeftArm'], ['lShoulder', 'LeftShoulder'], ['lLeg', 'LeftLeg'], ['lUpLeg', 'LeftUpLeg'],
 	];
 	for (const [lv, lc] of SIDED) {
 		put(lv, lc);
@@ -189,6 +195,17 @@ function _lookupBone(name) {
 	// CharacterStudio exports prefix every joint `CH_` (`CH_Hips`, `CH_LeftUpLeg`),
 	// whose stems are otherwise canonical — strip it like any other vendor prefix.
 	s = s.replace(/^CH[_:]/i, '');
+	// Reallusion Character Creator 3/4 prefixes every joint `CC_Base_`
+	// (`CC_Base_Hip`, `CC_Base_L_Upperarm`, `CC_Base_L_Calf`, `CC_Base_NeckTwist01`);
+	// once the prefix is gone the stems resolve through the sided/centre alias
+	// tables below. Without this an entire CC export maps zero bones and lands in
+	// a bind-pose T-pose.
+	s = s.replace(/^CC_Base_/i, '');
+	// 3ds Max Biped names joints `Bip01 Pelvis`, `Bip001 L UpperArm`, … with a
+	// space- or underscore-separated `Bip<NN>` prefix (the digits identify the
+	// character). Strip it so `Pelvis`/`Spine`/`L UpperArm`/`L Thigh`/`L Calf`
+	// reach the canonical + sided tables instead of T-posing.
+	s = s.replace(/^Bip\d+[\s_]?/i, '');
 	// Collapse separators so `Left_Arm`, `left-arm`, `left arm`, `LeftArm`,
 	// `upperarm.L` all reach the same lookup key (`.` covers Blender/MakeHuman).
 	const key = s.replace(/[-_.\s]+/g, '').toLowerCase();

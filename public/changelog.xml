@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Money Pulse</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-06-23:Money Pulse</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.</description>
+		</item>
+		<item>
 			<title>Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-23:Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live</guid>

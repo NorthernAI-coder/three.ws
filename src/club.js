@@ -32,7 +32,6 @@ import {
 	SpotLight,
 	SRGBColorSpace,
 	Vector3,
-	WebGLRenderer,
 	NoToneMapping,
 } from 'three';
 import {
@@ -57,6 +56,7 @@ import { playSequence, ticketSteps } from './club-sequence.js';
 import { detectProfile, PROFILES, createFrameWatchdog, isMobileLayout } from './club-perf.js';
 import { log } from './shared/log.js';
 import { emptyStateHTML } from './shared/state-kit.js';
+import { createRenderer } from './webgl-support.js';
 
 const AVATAR_URL = '/avatars/default.glb';
 const MANIFEST_URL = '/animations/manifest.json';
@@ -389,7 +389,15 @@ let activeProfile = PROFILES[detectProfile()];
 if (typeof window !== 'undefined') window.__clubProfile = activeProfile;
 
 // ── Renderer / scene ──────────────────────────────────────────────────────
-const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false });
+// Guarded construction: on a device that can't grant a WebGL context (no GPU,
+// blocklisted driver, headless UA, or an exhausted mobile-Safari context budget)
+// this mounts an on-brand "3D unavailable" panel over the canvas and throws a
+// typed WebGLUnavailableError. The throw halts the rest of this module's
+// top-level boot cleanly — no cascade of "renderer is undefined" follow-on
+// errors — and the error reporter recognises the typed signal as a benign
+// capability limit and suppresses it. Replaces the bare `new WebGLRenderer`
+// that surfaced "Error creating WebGL context." as an uncaught crash on /club.
+const renderer = createRenderer({ canvas, antialias: false, alpha: false }, { fallback: canvas });
 renderer.setPixelRatio(activeProfile.pixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.outputColorSpace = SRGBColorSpace;

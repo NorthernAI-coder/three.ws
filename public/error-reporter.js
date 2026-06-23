@@ -60,6 +60,10 @@
 		'ResizeObserver loop limit exceeded',
 		'ResizeObserver loop completed with undelivered notifications.',
 	];
+	// WebGL-context failures — the typed signal our guarded renderer factory throws
+	// (`webgl_unavailable`) and three.js's raw constructor throw. Either way the
+	// device simply can't do WebGL; the surface shows a fallback, so it's noise.
+	const IGNORED_WEBGL = /\bwebgl_unavailable\b|Error creating WebGL context/i;
 	// Analytics/telemetry endpoints that privacy extensions (uBlock, Brave,
 	// Ghostery…) routinely block. A blocked tracker is the client's choice, not
 	// a site fault — the underlying SDKs degrade silently, so the only artifact
@@ -215,6 +219,20 @@
 			return true;
 		}
 		if (report.message && IGNORED_MESSAGES.includes(report.message)) return true;
+		// WebGL could not start on this device — no GPU, a blocklisted driver, a
+		// headless/automation UA, or (mobile Safari) the per-tab live-context budget
+		// already spent. It is a device/browser capability limit, not a site fault:
+		// the surface mounts its on-brand "3D unavailable" panel (see
+		// src/webgl-support.js) and degrades gracefully. Match both the typed
+		// `WebGLUnavailableError` signal the guarded factory throws AND three's raw
+		// `Error creating WebGL context.` from any surface still on the bare
+		// constructor, so neither floods the logs.
+		if (
+			IGNORED_WEBGL.test(report.message || '') ||
+			report.name === 'WebGLUnavailableError'
+		) {
+			return true;
+		}
 		// Cross-origin "Script error." — the browser strips stack/file/line from an
 		// exception thrown by a script served without CORS headers, so there is
 		// nothing actionable in it. (Same-origin faults always carry a real message.)

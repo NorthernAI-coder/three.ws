@@ -147,7 +147,11 @@ function wantsHtmlNavigation(req) {
 // this URL too, since it ends up in the address bar and any referrer log.
 function serverErrorPageLocation(ref, req) {
 	const from = redactUrl(req?.url || '/').slice(0, 512);
-	return `/500?ref=${encodeURIComponent(ref)}&from=${encodeURIComponent(from)}`;
+	// Target the static file directly (public/500.html → /500.html is always
+	// served by Vercel) so the error page never depends on a rewrite rule. The
+	// `/500` clean URL also works for direct links, but the redirect can't rely
+	// on it being configured.
+	return `/500.html?ref=${encodeURIComponent(ref)}&from=${encodeURIComponent(from)}`;
 }
 
 // Short, URL-safe correlation id for tying a sanitized 5xx response back to the

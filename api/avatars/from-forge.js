@@ -95,7 +95,8 @@ export default wrap(async (req, res) => {
 		if (err instanceof SsrfBlockedError) {
 			return error(res, 400, 'invalid_url', 'glb_url must be a public https URL');
 		}
-		return error(res, 502, 'fetch_failed', `could not fetch glb_url: ${err?.message || 'network error'}`);
+		console.warn('[from-forge] glb fetch failed:', err?.message);
+		return error(res, 502, 'fetch_failed', 'Could not fetch that GLB URL — check the link and try again.');
 	}
 	if (!resp.ok) {
 		return error(res, 502, 'fetch_failed', `glb_url returned ${resp.status}`);
@@ -140,7 +141,10 @@ export default wrap(async (req, res) => {
 				source_glb_url: glbUrl,
 				source_prompt: sourcePrompt,
 				generator: 'chat-forge-avatar',
-				is_rigged: rigged || info.isRigged || null,
+				// Prefer the inspected skeleton truth (definite true/false) over the
+				// untrusted client `rigged` provenance flag; fall back to the flag,
+				// then to null (unknown) when inspection couldn't decide.
+				is_rigged: typeof info.isRigged === 'boolean' ? info.isRigged : (rigged || null),
 				mesh_count: info.meshCount ?? null,
 				animation_count: info.animationCount ?? null,
 			},

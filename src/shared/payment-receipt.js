@@ -38,16 +38,21 @@ function safeExplorerHref(url) {
 
 /**
  * Format USDC atomic units (1e6) or a decimal value to a USD-style string.
- * Automatically detects: values >= 1000 are treated as atomic (micro-USDC),
- * smaller values are treated as already-decimal.
+ *
+ * When `isAtomic` is passed it is honoured exactly. When it is omitted the
+ * magnitude heuristic applies: any payable micro-USDC amount is >= 1000 atomic,
+ * so values >= 1000 are treated as atomic and smaller values as already-decimal.
+ * Passing `false` explicitly forces decimal interpretation so a real dollar
+ * amount like 1234.56 is not mistaken for atomic and shrunk to "$0.0012".
  *
  * @param {number} amount
- * @param {boolean} [isAtomic] force atomic interpretation
+ * @param {boolean} [isAtomic] force (true) or forbid (false) atomic interpretation; omit to auto-detect
  * @returns {string}  e.g. "$0.01"
  */
-export function formatUsdcAmount(amount, isAtomic = false) {
+export function formatUsdcAmount(amount, isAtomic) {
 	const n = Number(amount) || 0;
-	const decimal = isAtomic || n >= 1000 ? n / 1e6 : n;
+	const atomic = isAtomic === undefined ? n >= 1000 : isAtomic;
+	const decimal = atomic ? n / 1e6 : n;
 	if (decimal < 0.01) return `$${decimal.toFixed(4)}`;
 	if (decimal < 1) return `$${decimal.toFixed(3).replace(/0+$/, '').replace(/\.$/, '.00')}`;
 	if (decimal < 100) return `$${decimal.toFixed(2)}`;

@@ -8,6 +8,7 @@
  */
 
 import { glbBlobToUsdzBlob } from './usdz-pipeline.js';
+import { glbBlobToAnimatedUsdzBlob, DEFAULT_AR_ANIMATION } from './usdz-animated.js';
 import { log } from './shared/log.js';
 import { mountViewSwitcher } from './view-switcher.js';
 
@@ -99,6 +100,23 @@ function setStatus(msg) {
 	el.hidden = false;
 }
 
+// Prefer a living, animated avatar in AR; fall back to the proven static bake
+// if the avatar can't be animated (no rig, clip won't retarget, fetch fails).
+// Either way the user gets a correct avatar — animation is upside, never a gate.
+async function buildArUsdz(glbBlob) {
+	try {
+		setStatus('Bringing your avatar to life…');
+		const animResp = await fetch(DEFAULT_AR_ANIMATION);
+		if (!animResp.ok) throw new Error(`animation fetch ${animResp.status}`);
+		const animationGlbBlob = await animResp.blob();
+		return await glbBlobToAnimatedUsdzBlob(glbBlob, { animationGlbBlob });
+	} catch (err) {
+		log.warn('[ar-page] animated USDZ unavailable, using static:', err?.message);
+		setStatus('Generating AR preview…');
+		return glbBlobToUsdzBlob(glbBlob);
+	}
+}
+
 async function generateUsdz(glbUrl) {
 	const btn = $('ar-launch-btn');
 	setStatus('Preparing AR preview…');
@@ -111,8 +129,7 @@ async function generateUsdz(glbUrl) {
 		if (!r.ok) throw new Error(`GLB fetch ${r.status}`);
 		const glbBlob = await r.blob();
 
-		setStatus('Generating AR preview…');
-		const usdzBlob = await glbBlobToUsdzBlob(glbBlob);
+		const usdzBlob = await buildArUsdz(glbBlob);
 
 		if (usdzObjectUrl) URL.revokeObjectURL(usdzObjectUrl);
 		usdzObjectUrl = URL.createObjectURL(usdzBlob);

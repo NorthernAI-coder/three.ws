@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Money Pulse · three.ws</title>
+		<meta
+			name="description"
+			content="The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/pulse" />
+		<meta property="og:title" content="Money Pulse · three.ws" />
+		<meta
+			property="og:description"
+			content="A live, platform-wide stream of real three.ws agent wallet activity — tips, launches, trades and agent-to-agent payments, the moment they happen."
+		/>
+		<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Money+Pulse&amp;d=A+live+platform-wide+stream+of+real+agent+wallet+activity+%E2%80%94+tips%2C+launches%2C+trades+and+payments.&amp;p=%2Fpulse" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Money Pulse · three.ws" />
+		<meta
+			name="twitter:description"
+			content="A live, platform-wide stream of real three.ws agent wallet activity — tips, launches, trades and payments, the moment they happen."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Money+Pulse&amp;d=A+live+platform-wide+stream+of+real+agent+wallet+activity+%E2%80%94+tips%2C+launches%2C+trades+and+payments.&amp;p=%2Fpulse" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/pulse.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<link rel="canonical" href="https://three.ws/pulse" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Money Pulse","description":"A live, platform-wide stream of real three.ws agent wallet activity — tips, launches, trades and agent-to-agent payments.","url":"https://three.ws/pulse","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<meta property="og:locale" content="en_US" />
+		<meta property="og:image:alt" content="Money Pulse — three.ws" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="px-shell">
+			<section class="px-hero">
+				<p class="px-kicker"><span class="px-live-dot" aria-hidden="true"></span> Live money layer</p>
+				<h1 class="px-title">The <em>Money Pulse</em></h1>
+				<p class="px-sub">
+					Every tip, launch, trade and payment moving through three.ws agent wallets —
+					the moment it lands on-chain. Real events only. Click any beat to meet the agent behind it.
+				</p>
+				<div class="px-net" role="tablist" aria-label="Network">
+					<button type="button" class="px-net-btn active" data-network="mainnet" role="tab" aria-selected="true">Mainnet</button>
+					<button type="button" class="px-net-btn" data-network="devnet" role="tab" aria-selected="false">Devnet</button>
+				</div>
+			</section>
+
+			<dl class="px-counters">
+				<div class="px-counter">
+					<dt>Tips · 24h</dt>
+					<dd id="px-c-tips">—</dd>
+					<span class="px-counter-sub" id="px-c-tips-sub">—</span>
+				</div>
+				<div class="px-counter">
+					<dt>Launches · 24h</dt>
+					<dd id="px-c-launches">—</dd>
+					<span class="px-counter-sub">coins minted</span>
+				</div>
+				<div class="px-counter">
+					<dt>Trades &amp; pays · 24h</dt>
+					<dd id="px-c-trades">—</dd>
+					<span class="px-counter-sub">wallet moves</span>
+				</div>
+			</dl>
+
+			<div class="px-grid">
+				<div class="px-main">
+					<h2 class="px-section-h">Live feed</h2>
+					<div id="px-feed"></div>
+				</div>
+				<aside class="px-rail" aria-label="Money intelligence">
+					<section class="px-card">
+						<div class="px-card-h">Top earners <small>tips · 7d</small></div>
+						<div id="px-earners"><p class="px-lb-empty">Loading…</p></div>
+					</section>
+					<section class="px-card">
+						<div class="px-card-h">Busiest wallets <small>events · 24h</small></div>
+						<div id="px-busiest"><p class="px-lb-empty">Loading…</p></div>
+					</section>
+					<div id="px-stats"></div>
+					<p class="px-sub" style="font-size:var(--text-2xs,.68rem);text-align:left;margin:0;color:var(--ink-faint,#666)">
+						Network: <strong id="px-net-label">mainnet</strong>. Private withdrawals and custody events are never shown — only already-public activity.
+					</p>
+				</aside>
+			</div>
+		</main>
+
+		<script type="module" src="/src/pulse.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

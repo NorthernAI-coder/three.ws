@@ -57,6 +57,10 @@ import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat, roomPlacementFromHit, roomRelFromGeo } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
+import { initMarkerMode } from './irl/marker-mode.js';
+import { isMarkerRoomId, markerWorldPos, markerRelFromWorld, markerYawFromEdge, markerRoomBlock } from './irl/marker-anchor.js';
+import { markerPoseCamera } from './irl/marker-pose.js';
+import { cornerCenter, cornerRightMid } from './irl/qr-detect.js';
 import { createRoomGhost } from './irl/room-ghost.js';
 import { isFiniteReading, isCompassFresh, shouldUseAbsoluteYaw, resolveLockYaw, clampPitch, screenPitchDeg } from './irl/sensor-fusion.js';
 import { deriveVerticalFovDeg, DEFAULT_DIAG_FOV_DEG } from './irl/camera-fov.js';
@@ -1571,7 +1575,64 @@ function pinRoom(pin) {
 // through their shared origin (exact relative layout); legacy standalone pins
 // fall back to their own absolute GPS. Returns {x,y,z}. Requires a GPS fix —
 // callers already gate on gpsState.ready before placing/reprojecting.
+// ── Marker frame (Epic M — indoor visual colocalization) ─────────────────────
+// A marker pin is anchored to a QR both phones can see, NOT to GPS. The live
+// observation of that marker (its world pose in THIS session, refreshed each frame
+// the camera sees it) is the origin its agents render against — see
+// src/irl/marker-anchor.js for why this colocalizes indoors where GPS+compass
+// can't. `liveMarker` holds the current observation; null when no marker is in
+// view, in which case marker pins hide (there is no odometry to coast on).
+let liveMarker = null;          // { roomId, markerWorld:{x,z}, markerY, markerYawDeg }
+let _markerPinsPresent = false; // cheap gate so the per-frame pass is free when unused
+function setLiveMarker(roomId, obs) {
+	liveMarker = (roomId && obs) ? { roomId, ...obs } : null;
+}
+
+// Per-frame placement + visibility for marker pins. When their marker is in view,
+// each renders at its exact offset from the live marker pose, facing a marker-
+// relative heading (so "facing me" holds for every viewer, cross-session). When
+// the marker isn't currently observed, they hide rather than freeze at a stale
+// spot. Drives only marker pins; GPS/room pins are world-fixed and untouched here.
+function updateMarkerPins() {
+	const DEG = Math.PI / 180;
+	for (const pin of nearbyPins) {
+		if (!isMarkerRoomId(pin.room_id) || !pin.group) continue;
+		const localized = liveMarker && liveMarker.roomId === pin.room_id;
+		pin.group.visible = !!localized;
+		if (!localized) continue;
+		const wp = markerWorldPos({
+			markerWorld: liveMarker.markerWorld,
+			markerYawDeg: liveMarker.markerYawDeg,
+			relEast: Number(pin.rel_east_m) || 0,
+			relNorth: Number(pin.rel_north_m) || 0,
+			heightM: pinHeightM(pin),
+		});
+		pin.group.position.set(wp.x, wp.y, wp.z);
+		// Facing is stored marker-relative (anchor_yaw_deg) and composed with the live
+		// marker azimuth, so the avatar turns with the marker frame, not absolute north.
+		const relYaw = Number(pin.anchor_yaw_deg) || 0;
+		pin.group.rotation.y = -(((liveMarker.markerYawDeg + relYaw) % 360) * DEG);
+		if ('baseYaw' in pin) pin.baseYaw = pin.group.rotation.y;
+	}
+}
+
 function pinWorldPos(pin) {
+	// Marker pins resolve FIRST: they carry a coarse origin_lat/lng too (a GPS index
+	// only), so falling through to pinRoom would wrongly place them at that index.
+	if (isMarkerRoomId(pin.room_id)) {
+		if (liveMarker && liveMarker.roomId === pin.room_id) {
+			return markerWorldPos({
+				markerWorld: liveMarker.markerWorld,
+				markerYawDeg: liveMarker.markerYawDeg,
+				relEast: Number(pin.rel_east_m) || 0,
+				relNorth: Number(pin.rel_north_m) || 0,
+				heightM: pinHeightM(pin),
+			});
+		}
+		// Not localized this frame — a harmless in-band placeholder at the viewer;
+		// updateMarkerPins() hides the group until the marker is seen again.
+		return { x: 0, y: pinHeightM(pin), z: 0 };
+	}
 	const room = pinRoom(pin);
 	if (room) {
 		const originWorld = roomOriginWorld(gpsState.lat, gpsState.lng, room.originLat, room.originLng);
@@ -2109,7 +2170,7 @@ async function placeRoomAgent(body) {
 // WebXR placement persists with centimetre precision while a gyro one degrades
 // honestly. On success we spawn locally so the agent is world-locked at once via
 // the shared frame (pinWorldPos), and bump the room badge through the room-mode API.
-async function postRoomPin({ lat, lng, heading, room, anchor }) {
+async function postRoomPin({ lat, lng, heading, room, anchor, vps = null }) {
 	try {
 		if (!room || !room.id) return { ok: false, message: 'Could not anchor the room — try again.' };
 		const h = ((Math.round(heading) % 360) + 360) % 360;
@@ -2133,6 +2194,10 @@ async function postRoomPin({ lat, lng, heading, room, anchor }) {
 					altitudeM: anchor?.altitudeM ?? gpsState.altitude,
 					source: anchor?.source || 'gyro-gps',
 				},
+				// Visual-positioning identity (Epic M) — present only on a marker
+				// placement; the server persists it to vps_provider/vps_id and ignores it
+				// for every other source.
+				vps: vps && vps.id ? { provider: vps.provider || 'qr', id: vps.id } : undefined,
 				room: {
 					id: room.id,
 					originLat: room.originLat, originLng: room.originLng,
@@ -2159,6 +2224,7 @@ async function postRoomPin({ lat, lng, heading, room, anchor }) {
 			anchor_height_m: anchor?.heightM ?? 0,
 			anchor_quat: quat,
 			anchor_source: anchor?.source || 'gyro-gps',
+			vps_provider: vps?.id ? (vps.provider || 'qr') : null, vps_id: vps?.id || null,
 			room_id: room.id, rel_east_m: room.relEast, rel_north_m: room.relNorth,
 			origin_lat: room.originLat, origin_lng: room.originLng, origin_yaw_deg: room.originYawDeg || 0,
 			avatar_url: resolveAvatarUrl(_currentAvatarId), avatar_name: nameEl.textContent,
@@ -2524,6 +2590,9 @@ let xrSession = null;
 // one) and to bump the room badge — so on-device precision and the gyro slider flow
 // always share one room. Assigned at init; only referenced after a user gesture.
 let roomModeApi = null;
+// The marker-authoring API (src/irl/marker-mode.js), captured from initMarkerMode
+// below — the indoor visual-colocalization path. Assigned at init.
+let markerModeApi = null;
 // The room pin currently being sharpened by a WebXR "Refine on floor" session, or
 // null for a normal placement. onFloorAnchored routes the tap to refine when set;
 // enterFloorPlacement clears it so a plain "Place on floor" never re-targets a stale
@@ -2642,6 +2711,9 @@ async function enterFloorAnchor() {
 	// Remember whether the user was in camera-AR so we can put them back there on
 	// exit — returning to a black/gradient view would feel like a crash.
 	const resumeAR = arActive;
+	// The immersive WebXR session takes sole ownership of the camera — stop the marker
+	// scan loop (which reads getUserMedia frames) so the two never contend for it.
+	markerModeApi?.exit?.();
 	if (arActive) disableAR();
 
 	clearXrError();
@@ -3598,6 +3670,11 @@ async function loadNearbyPins() {
 		//    is animated (despawnNearbyPin); disposal frees every GPU resource it held.
 		const survivors = [];
 		for (const p of nearbyPins) {
+			// Marker pins are discovered through the marker mode's ?room= read, never the
+			// GPS proximity feed, so they are absent from `incoming` every poll — exempt
+			// them from band eviction or they'd drop after DROP_POLLS. The marker mode
+			// owns their lifecycle (hidden when the marker leaves view, gone on exit).
+			if (isMarkerRoomId(p.room_id)) { survivors.push(p); continue; }
 			const row = incomingById.get(p.id);
 			if (row) refreshKnownPin(p, row);
 			const action = pinBandAction({
@@ -6289,6 +6366,11 @@ function tick() {
 
 	animMgr.update(dt);
 
+	// Marker-anchored agents track the live marker frame every frame (the marker
+	// observation refreshes as the camera moves) and hide when the marker isn't in
+	// view — there's no odometry to coast on without it. Free when no marker pins exist.
+	if (liveMarker || _markerPinsPresent) updateMarkerPins();
+
 	// Animate placed-object spawn (scale 0 → 1, cubic ease-out)
 	for (const obj of placedObjects) {
 		if (obj.spawnT < SPAWN_DURATION) {
@@ -7075,6 +7157,93 @@ roomModeApi = initRoomMode({
 	},
 	placeRoomAgent,
 	previewAim: (s) => roomGhost.preview(s),
+	status: (m, o) => setStatus(m, o),
+});
+
+// ── Marker authoring/finding mode (Epic M) — indoor visual colocalization ────
+// Place an agent against a QR marker both phones can see, so a second viewer who
+// scans the same marker finds it standing in the same physical spot — GPS-free,
+// the one thing the room frame can't do indoors. Self-contained UI in
+// src/irl/marker-mode.js; here we supply the camera→world observation (the only
+// part that needs the live Three.js camera) and the network/scene calls, mirroring
+// the room-mode contract. Marker pins ride the existing nearby-pin pipeline (LOD,
+// load queue, labels) but are exempt from GPS-feed eviction and are positioned each
+// frame by updateMarkerPins() from the live marker observation.
+markerModeApi = initMarkerMode({
+	controlRow: document.querySelector('.irl-secondary-row'),
+	ensureReady: async () => {
+		try {
+			if (!arActive) await enableAR();
+			initGPS();
+			ensurePermission('location').catch(() => {});
+		} catch { /* honest disabled states in the HUD cover a denied permission */ }
+		return arActive;
+	},
+	getVideo: () => videoEl,
+	getFix: () => ({ lat: gpsState.lat, lng: gpsState.lng, ready: gpsState.ready, accuracy: gpsState.accuracy }),
+	// Resolve the detected QR's world pose from THIS session's live camera: monocular
+	// pose (known marker size + camera FOV) → camera space → world via the real camera.
+	observeMarker: (picked) => {
+		try {
+			const frame = picked.frame;
+			const pose = markerPoseCamera({
+				center: cornerCenter(picked.cornerPoints),
+				rightMid: cornerRightMid(picked.cornerPoints),
+				spanPx: picked.spanPx,
+				frame,
+				vfovDeg: camera.fov, // Three.js PerspectiveCamera.fov is the vertical FOV in degrees
+			});
+			if (!pose.ok) return null;
+			camera.updateMatrixWorld();
+			const wc = camera.localToWorld(new Vector3(pose.center.x, pose.center.y, pose.center.z));
+			const wr = camera.localToWorld(new Vector3(pose.right.x, pose.right.y, pose.right.z));
+			const markerYawDeg = markerYawFromEdge({ x: wc.x, z: wc.z }, { x: wr.x, z: wr.z });
+			if (markerYawDeg == null) return null;
+			return { markerWorld: { x: wc.x, z: wc.z }, markerY: wc.y, markerYawDeg, distanceM: pose.distanceM };
+		} catch { return null; }
+	},
+	setLiveMarker,
+	// In gyro/AR mode the viewer stands at the world origin (camera at eye height);
+	// their feet — where "Place here" drops the agent — are that XZ on the floor (y=0).
+	getViewerWorld: () => ({ x: camera.position.x, z: camera.position.z, y: 0 }),
+	placeMarkerAgent: async ({ roomId, token, marker, viewer, fix }) => {
+		if (!fix || !fix.ready) {
+			return { ok: false, message: 'Turn location on once — the marker needs a coarse index to save your placement.' };
+		}
+		const rel = markerRelFromWorld({
+			markerWorld: marker.markerWorld, markerYawDeg: marker.markerYawDeg,
+			x: viewer.x, z: viewer.z,
+		});
+		const room = markerRoomBlock({ roomId, indexLat: fix.lat, indexLng: fix.lng, relEast: rel.relEast, relNorth: rel.relNorth });
+		// 180° marker-relative facing: the agent turns back toward the marker, so a
+		// viewer who walks up from the marker meets its face. updateMarkerPins composes
+		// this with the live marker azimuth per viewer.
+		const result = await postRoomPin({
+			lat: fix.lat, lng: fix.lng, heading: 180,
+			room,
+			anchor: { heightM: 0, yawDeg: 180, source: 'marker' },
+			vps: { provider: 'qr', id: token },
+		});
+		if (result.ok) _markerPinsPresent = true;
+		return result;
+	},
+	loadMarkerRoom: async (roomId) => {
+		try {
+			const r = await fetch(`/api/irl/pins?room=${encodeURIComponent(roomId)}`, { headers: deviceHeaders() });
+			if (!r.ok) return { count: 0 };
+			const { pins } = await r.json();
+			let count = 0;
+			for (const p of (pins || [])) {
+				if (nearbyPins.some(n => n.id === p.id)) continue; // already spawned (e.g. our own placement)
+				const entry = { ...p, group: null, labelEl: null, glbLoaded: false, _oobPolls: 0 };
+				nearbyPins.push(entry);
+				spawnNearbyPin(entry);
+				count++;
+			}
+			if (count) _markerPinsPresent = true;
+			return { count };
+		} catch { return { count: 0 }; }
+	},
 	status: (m, o) => setStatus(m, o),
 });
 
