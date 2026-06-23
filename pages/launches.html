@@ -98,6 +98,14 @@
 				<div class="lx-ticker-track" id="lx-ticker-track"></div>
 			</div>
 
+			<!-- Live money layer: the platform-wide Money Pulse, compact. Self-hides
+			     when nothing is happening; links to the full /pulse feed. -->
+			<div class="lx-pulse-strip">
+				<a class="lx-pulse-label" href="/pulse">◎ Money Pulse →</a>
+				<div class="lx-pulse-ticker" data-money-pulse-ticker data-network="mainnet" aria-label="Live wallet activity across three.ws"></div>
+			</div>
+			<script type="module" src="/src/pulse-ticker-embed.js"></script>
+
 			<section class="lx-toolbar" aria-label="Feed filters">
 				<div class="lx-net-toggle" role="tablist" aria-label="Network">
 					<button

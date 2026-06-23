@@ -93,6 +93,12 @@ export const NAV_GROUPS = [
 				href: '/three-token',
 				desc: 'Live price, bonding-curve chart, streaming trades & one-click buy',
 			},
+			{
+				title: 'Money Pulse',
+				href: '/pulse',
+				badge: 'New',
+				desc: 'Live, platform-wide feed of real agent wallet activity — tips, launches, trades & payments',
+			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },

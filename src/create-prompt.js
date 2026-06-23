@@ -36,6 +36,9 @@ const elapsedEl = $('#elapsed');
 let _submitting = false;
 let _startedAt = 0;
 let _elapsedTimer = 0;
+let _aborter = /** @type {AbortController | null} */ (null);
+let _cancelled = false;
+let _stallNoted = false;
 
 function showStep(step) {
 	for (const el of document.querySelectorAll('.step')) {
@@ -106,12 +109,19 @@ async function start() {
 	}
 
 	_submitting = true;
+	_cancelled = false;
+	_stallNoted = false;
+	_aborter = new AbortController();
 	generateBtn.disabled = true;
 	setError(composeError, '');
 
 	buildPrompt.textContent = `“${prompt}”`;
 	setError(buildError, '');
-	setProgress(8, 'Rendering a reference image…');
+	// Seed the first progress band so the bar creeps from the very first second.
+	_phaseFloor = PHASE.queued.floor;
+	_phaseCeil = PHASE.queued.ceil;
+	_phaseStartedAt = Date.now();
+	setProgress(PHASE.queued.floor, 'Rendering a reference image…');
 	startElapsed();
 	showStep('building');
 
@@ -122,6 +132,7 @@ async function start() {
 			credentials: 'include',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ name: nameFromPrompt(prompt), prompt, visibility: 'private' }),
+			signal: _aborter.signal,
 		});
 		if (res.status === 401) {
 			window.location.assign(`/login?next=${encodeURIComponent('/create/prompt')}`);
@@ -133,6 +144,7 @@ async function start() {
 		}
 		jobId = data.jobId;
 	} catch (err) {
+		if (_cancelled || err?.name === 'AbortError') return;
 		failBuild(err);
 		return;
 	}
@@ -141,8 +153,20 @@ async function start() {
 		const final = await pollUntilDone(jobId);
 		await renderDone(final.resultAvatarId);
 	} catch (err) {
+		if (_cancelled || err?.name === 'AbortError') return;
 		failBuild(err);
 	}
+}
+
+// Cancel an in-flight build: abort the network, stop the clock, and return to
+// the compose step. The job may still finish server-side (and will appear on the
+// dashboard) — we just stop watching it, so the user is never trapped on a
+// spinner.
+function cancelBuild() {
+	if (!_submitting) return;
+	_cancelled = true;
+	try { _aborter?.abort(); } catch (_) {}
+	resetToCompose();
 }
 
 class ApiError extends Error {}
@@ -187,11 +211,17 @@ function mapSubmitError(status, data) {
 async function pollUntilDone(jobId) {
 	const deadline = Date.now() + POLL_TIMEOUT_MS;
 	while (Date.now() < deadline) {
+		if (_cancelled) {
+			const e = new Error('cancelled');
+			e.name = 'AbortError';
+			throw e;
+		}
 		await sleep(POLL_INTERVAL_MS);
 		let data;
 		try {
 			const res = await fetch(`${STATUS_ENDPOINT}?jobId=${encodeURIComponent(jobId)}`, {
 				credentials: 'include',
+				signal: _aborter?.signal,
 			});
 			if (res.status === 401) {
 				window.location.assign(`/login?next=${encodeURIComponent('/create/prompt')}`);
@@ -200,6 +230,7 @@ async function pollUntilDone(jobId) {
 			data = await res.json().catch(() => ({}));
 			if (!res.ok) throw new ApiError(data?.error_description || `status ${res.status}`);
 		} catch (err) {
+			if (err?.name === 'AbortError') throw err;
 			if (err instanceof ApiError) throw err;
 			// Transient network blip — keep polling until the deadline.
 			log.warn('[create-prompt] poll blip', err);
@@ -215,24 +246,65 @@ async function pollUntilDone(jobId) {
 		if (data.status === 'failed') {
 			throw new ApiError(friendlyJobError(data.error));
 		}
+
+		// Soft stall note: if it's still running well past the typical minute,
+		// reassure rather than fail — the hard deadline below still hands off to
+		// the dashboard, and Cancel is always available.
+		if (!_stallNoted && Date.now() - _startedAt > 5 * 60 * 1000) {
+			_stallNoted = true;
+			buildStatus.textContent = 'Still working — this one is taking a little longer than usual…';
+		}
 	}
 	throw new ApiError('This is taking longer than expected. Your avatar may still finish — check your dashboard in a minute.');
 }
 
-// Map backend job states to human progress. The bar creeps within each phase so
-// it always feels alive, then jumps on real state transitions.
+// Map backend job states to human progress. Each state owns a [floor, ceil]
+// band; the bar eases toward the band's ceil from REAL elapsed-in-phase time
+// (never reaching it), so it advances every second instead of freezing for the
+// minutes a phase takes — yet a true state transition still produces a visible
+// forward jump to the next band's floor. Honest on both axes: motion is tied to
+// the wall clock, jumps are tied to real backend state.
 const PHASE = {
-	queued: { pct: 18, label: 'Rendering a reference image…' },
-	running: { pct: 55, label: 'Reconstructing it into 3D…' },
-	rigging: { pct: 85, label: 'Adding a skeleton so it can move…' },
+	queued: { floor: 8, ceil: 18, label: 'Rendering a reference image…' },
+	running: { floor: 18, ceil: 55, label: 'Reconstructing it into 3D…' },
+	rigging: { floor: 55, ceil: 85, label: 'Adding a skeleton so it can move…' },
 };
+const CREEP_TAU_MS = 40_000; // ~63% of the band consumed by 40s in-phase.
+let _phaseFloor = 8;
+let _phaseCeil = 18;
+let _phaseStartedAt = 0;
+
 function advanceProgress(status) {
 	const phase = PHASE[status];
-	if (phase) setProgress(phase.pct, phase.label);
+	if (!phase) return;
+	// Reset the band only on a real forward transition, so the creep doesn't
+	// restart every poll while the status is unchanged.
+	if (phase.floor !== _phaseFloor || phase.ceil !== _phaseCeil) {
+		_phaseFloor = phase.floor;
+		_phaseCeil = phase.ceil;
+		_phaseStartedAt = Date.now();
+	}
+	buildStatus.textContent = phase.label;
+	tickProgress();
 }
+
+// Drive the within-phase creep from elapsed-in-phase time. Called every second
+// by the elapsed clock and once on each transition.
+function tickProgress() {
+	if (!_phaseStartedAt) return;
+	const t = (Date.now() - _phaseStartedAt) / CREEP_TAU_MS;
+	setProgressWidth(_phaseFloor + (_phaseCeil - _phaseFloor) * (1 - Math.exp(-t)));
+}
+
 function setProgress(pct, label) {
-	progressFill.style.width = `${pct}%`;
+	setProgressWidth(pct);
 	if (label) buildStatus.textContent = label;
+}
+function setProgressWidth(pct) {
+	const clamped = Math.min(100, Math.max(0, pct));
+	progressFill.style.width = `${clamped.toFixed(1)}%`;
+	const track = document.getElementById('progress-track');
+	if (track) track.setAttribute('aria-valuenow', String(Math.round(clamped)));
 }
 
 // ── Done ─────────────────────────────────────────────────────────────────────
@@ -258,6 +330,8 @@ async function renderDone(avatarId) {
 	const modelUrl = avatar?.model_url || avatar?.url || avatar?.modelUrl;
 	const viewer = /** @type {any} */ ($('#done-model'));
 	if (modelUrl && viewer) viewer.setAttribute('src', modelUrl);
+	// Honour reduced-motion: stop the preview from auto-spinning.
+	if (viewer && prefersReducedMotion()) viewer.removeAttribute('auto-rotate');
 
 	const rigged = avatar?.source_meta?.is_rigged ?? avatar?.tags?.includes?.('rigged');
 	const tagsEl = $('#done-tags');
@@ -314,7 +388,7 @@ function failBuild(err) {
 	log.error('[create-prompt]', err);
 	const message =
 		err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
-	setError(buildError, `${message} <button id="build-retry" class="example" style="margin-left:8px">Back</button>`);
+	setError(buildError, `<span>${message}</span> <button type="button" id="build-retry" class="cancel-build" style="margin-left:10px">Edit prompt</button>`);
 	const retry = document.getElementById('build-retry');
 	if (retry) retry.addEventListener('click', resetToCompose);
 }
@@ -327,6 +401,7 @@ function startElapsed() {
 	_elapsedTimer = window.setInterval(() => {
 		const s = Math.floor((Date.now() - _startedAt) / 1000);
 		elapsedEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+		tickProgress();
 	}, 1000);
 }
 function stopElapsed() {
@@ -334,6 +409,21 @@ function stopElapsed() {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function prefersReducedMotion() {
+	try {
+		return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+	} catch (_) {
+		return false;
+	}
+}
+
+// Cancel button on the building screen — and Escape as a keyboard equivalent.
+const cancelBtn = document.getElementById('cancel-build');
+cancelBtn?.addEventListener('click', cancelBuild);
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && _submitting) cancelBuild();
+});
 
 updateCounter();
 promptEl.focus();

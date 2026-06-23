@@ -20,6 +20,23 @@ import { getWalletStatus } from './agent-wallet-chip.js';
 
 const STYLE_ID = 'tws-tip-modal-styles';
 
+// Notify the server of a confirmed P2P tip so it can verify the signature
+// on-chain and surface the tip in the Money Pulse + the agent's wallet story.
+// Fire-and-forget: the tip is already final on-chain, so this never blocks the
+// success UI and a failure (e.g. no agent id, tx still finalizing) is silent.
+function recordTip(agentId, signature, token, network) {
+	if (!agentId || !signature) return;
+	try {
+		fetch(`/api/agents/${encodeURIComponent(agentId)}/solana/tip`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ signature, asset: token || 'SOL', network: network || 'mainnet' }),
+			keepalive: true,
+		}).catch(() => {});
+	} catch { /* never throws into the success path */ }
+}
+
 function esc(s) {
 	return String(s == null ? '' : s).replace(
 		/[&<>"']/g,
@@ -259,6 +276,11 @@ export function openTipModal(agent, opts = {}) {
 			state.done = { amount: state.amount, explorerUrl: res.explorerUrl, signature: res.signature };
 			state.sending = false;
 			render();
+			// Record the confirmed tip so it enters the public Money Pulse + the
+			// agent's wallet story. The server INDEPENDENTLY re-verifies the signature
+			// on-chain before writing a row, so this is only a hint — a failure here
+			// never affects the (already-final) on-chain tip.
+			recordTip(status.agentId || agent?.id, res.signature, state.token, network);
 			try { opts.onSent?.(res); } catch { /* listener best-effort */ }
 		} catch (e) {
 			state.sending = false;

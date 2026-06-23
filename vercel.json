@@ -319,6 +319,14 @@
 			"dest": "/support.html"
 		},
 		{
+			"src": "/500",
+			"dest": "/500.html"
+		},
+		{
+			"src": "/500/",
+			"dest": "/500.html"
+		},
+		{
 			"src": "/rss/announcements\\.xml",
 			"dest": "/api/rss/announcements"
 		},
@@ -656,6 +664,10 @@
 		{
 			"src": "/launches/?",
 			"dest": "/launches.html"
+		},
+		{
+			"src": "/pulse/?",
+			"dest": "/pulse.html"
 		},
 		{
 			"src": "/watchlist/?",
@@ -2197,6 +2209,10 @@
 		{
 			"src": "/api/trending",
 			"dest": "/api/trending.js"
+		},
+		{
+			"src": "/api/pulse",
+			"dest": "/api/pulse.js"
 		},
 		{
 			"src": "/api/trades/feed",

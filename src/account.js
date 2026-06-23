@@ -298,7 +298,20 @@ export async function generateAndSaveCompanions(avatarId, glbBlob) {
 	(async () => {
 		let usdzBlob;
 		try {
-			usdzBlob = await glbBlobToUsdzBlob(glbBlob);
+			// Pre-bake the animated USDZ so the avatar idles in AR straight from
+			// storage; degrade to the static bake if it can't be animated.
+			try {
+				const { glbBlobToAnimatedUsdzBlob, DEFAULT_AR_ANIMATION } = await import(
+					'./usdz-animated.js'
+				);
+				const animResp = await fetch(DEFAULT_AR_ANIMATION);
+				if (!animResp.ok) throw new Error(`animation fetch ${animResp.status}`);
+				const animationGlbBlob = await animResp.blob();
+				usdzBlob = await glbBlobToAnimatedUsdzBlob(glbBlob, { animationGlbBlob });
+			} catch (animErr) {
+				log.warn('[account] animated usdz unavailable, using static:', animErr?.message);
+				usdzBlob = await glbBlobToUsdzBlob(glbBlob);
+			}
 		} catch (err) {
 			log.warn('[account] usdz export failed:', err?.message);
 			return;

@@ -14,7 +14,22 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { generateAltText } from '../_lib/avatar-alt-text.js';
 
 const MAX_PNG_BYTES = 1_500_000; // 1.5 MB max — generous for 1024² posters.
+const MIN_PNG_BYTES = 512; // a real poster is KBs; a 1×1 PNG is ~70 bytes.
+const MIN_THUMB_DIM = 64; // reject 1px / degenerate posters — the gallery needs a real image.
 const PNG_HEADER = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+// Read width/height from a PNG's IHDR chunk, which the spec fixes immediately
+// after the 8-byte signature: [4-byte length][\"IHDR\"][4-byte width][4-byte
+// height]. Returns null if the buffer is too short or isn't an IHDR-led PNG.
+export function readPngSize(buf) {
+	if (!Buffer.isBuffer(buf) || buf.length < 24) return null;
+	if (!buf.subarray(0, 8).equals(PNG_HEADER)) return null;
+	if (buf.subarray(12, 16).toString('ascii') !== 'IHDR') return null;
+	const width = buf.readUInt32BE(16);
+	const height = buf.readUInt32BE(20);
+	if (!width || !height) return null;
+	return { width, height };
+}
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -45,11 +60,17 @@ export default wrap(async (req, res) => {
 	} catch {
 		return error(res, 400, 'invalid_request', 'png_base64 not valid base64');
 	}
-	if (buf.length === 0 || buf.length > MAX_PNG_BYTES) {
-		return error(res, 413, 'too_large', `png must be 1..${MAX_PNG_BYTES} bytes`);
+	if (buf.length < MIN_PNG_BYTES || buf.length > MAX_PNG_BYTES) {
+		return error(res, 413, 'too_large', `png must be ${MIN_PNG_BYTES}..${MAX_PNG_BYTES} bytes`);
 	}
 	if (!buf.subarray(0, 8).equals(PNG_HEADER)) {
 		return error(res, 400, 'invalid_request', 'body is not a PNG');
+	}
+	// Reject 1px / degenerate posters: a blank or 1×1 PNG passes the header check
+	// but would publish an empty thumbnail to the gallery. Require a real image.
+	const dims = readPngSize(buf);
+	if (!dims || dims.width < MIN_THUMB_DIM || dims.height < MIN_THUMB_DIM) {
+		return error(res, 422, 'thumbnail_too_small', `thumbnail must be at least ${MIN_THUMB_DIM}×${MIN_THUMB_DIM}px`);
 	}
 
 	// Look up the avatar; permit owner OR admin (admins are needed to backfill

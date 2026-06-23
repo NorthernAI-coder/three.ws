@@ -10,6 +10,7 @@
 
 import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
+import { mountMoneyPulse } from './shared/money-pulse.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
@@ -28,6 +29,9 @@ import { consumeCsrfToken } from './api.js';
 // rows). Tracked so a re-render (e.g. avatar refresh) tears down their refresh
 // timers before remounting, rather than leaking intervals.
 const coinStatusHandles = [];
+// The per-agent Money Pulse handle (live feed). Torn down on re-render so its
+// polling interval + observers don't leak.
+let _pulseHandle = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
@@ -731,6 +735,35 @@ function render(agent) {
 		}
 	}
 	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
+
+	// Wallet story — this agent's public Money Pulse (tips, launches, trades,
+	// payments) scoped to it: the same real-data component as /pulse. Shown only
+	// when the agent has a custodial wallet; the component renders its own honest
+	// empty/loading/error states.
+	{
+		const pulseCard = $('ad-pulse-card');
+		const pulseFeed = $('ad-pulse-feed');
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (_pulseHandle) { try { _pulseHandle.destroy(); } catch { /* idempotent */ } _pulseHandle = null; }
+		if (pulseCard && pulseFeed && wMeta.solana_address) {
+			pulseCard.hidden = false;
+			pulseFeed.replaceChildren();
+			_pulseHandle = mountMoneyPulse({
+				mount: pulseFeed,
+				variant: 'agent',
+				agentId: agent.id,
+				network: 'mainnet',
+				controls: false,
+				live: true,
+				pageSize: 12,
+				emptyHint: agent.isOwner
+					? 'No public activity yet — launch a coin or get tipped and it appears here.'
+					: 'No public wallet activity yet. Be the first to tip this agent.',
+			});
+		} else if (pulseCard) {
+			pulseCard.hidden = true;
+		}
+	}
 
 	// A re-render (avatar refresh) clears the token body below; tear down any
 	// coin-status widgets first so their refresh timers don't leak.

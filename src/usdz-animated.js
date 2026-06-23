@@ -36,7 +36,7 @@ const DEFAULTS = {
 	targetFps: 15, // sampling density; Quick Look interpolates between samples
 	maxFrames: 30, // hard cap so a long clip can't balloon the .usdz over cellular
 	minFrames: 2,
-	precision: 5, // ASCII float digits — 5 keeps idle silhouettes crisp at ~⅓ the bytes of 7
+	precision: 5, // ASCII float digits — 5 keeps idle silhouettes crisp at roughly a third the bytes of 7
 };
 
 /* ────────────────────────────────────────────────────────────────────────── *
@@ -114,7 +114,7 @@ export function _injectStageTiming(modelUsda, { frameCount, durationSeconds }) {
 
 /**
  * Re-pack a USDZ from a {filename: Uint8Array} map, mirroring three's
- * USDZExporter exactly: model.usda first, stored (level 0), each每 entry padded so
+ * USDZExporter exactly: model.usda first, stored (level 0), each entry padded so
  * its payload starts on a 64-byte boundary (required for mmap'd USD reads).
  */
 export function _packUsdz(files) {

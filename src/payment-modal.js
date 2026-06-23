@@ -38,6 +38,11 @@ const STYLE = `
 	background: rgba(255,255,255,.04);
 	border: 1px solid rgba(255,255,255,.11);
 	border-radius: 12px; padding: 12px 14px; margin: 2px 0;
+	animation: pay-chip-in .24s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes pay-chip-in {
+	from { opacity: 0; transform: translateY(6px) scale(.985); }
+	to   { opacity: 1; transform: none; }
 }
 .pay-chip-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .pay-chip-label { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.55); text-transform: uppercase; letter-spacing: .06em; }
@@ -60,15 +65,23 @@ const STYLE = `
 .pay-chip-status.ok  { color: #34d399; }
 .skill-pay-overlay {
 	position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+	-webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
 	display: flex; align-items: center; justify-content: center;
 	z-index: 9999; font-family: system-ui, sans-serif;
+	padding: 16px; box-sizing: border-box;
+	opacity: 0; transition: opacity .18s ease;
 }
 .skill-pay-overlay[hidden] { display: none; }
+.skill-pay-overlay.is-open { opacity: 1; }
 .skill-pay-box {
 	background: #1a1a2e; border: 1px solid rgba(255,255,255,.12);
-	border-radius: 16px; padding: 28px 24px; max-width: 380px; width: 90%;
+	border-radius: 16px; padding: 28px 24px; max-width: 380px; width: 100%;
+	max-height: calc(100vh - 32px); overflow-y: auto;
 	color: #f0f0f0; box-shadow: 0 24px 64px rgba(0,0,0,.6);
+	transform: translateY(10px) scale(.97); opacity: 0;
+	transition: transform .22s cubic-bezier(.16,1,.3,1), opacity .22s ease;
 }
+.skill-pay-overlay.is-open .skill-pay-box { transform: none; opacity: 1; }
 .skill-pay-head {
 	display: flex; align-items: center; justify-content: space-between;
 	margin-bottom: 20px;
@@ -121,6 +134,31 @@ const STYLE = `
 	font-size: 12px; color: rgba(255,255,255,.4); text-decoration: none;
 }
 .skill-pay-open-link:hover { color: rgba(255,255,255,.7); text-decoration: underline; }
+.skill-pay-add-funds, .pay-chip-add-funds {
+	margin-left: 6px; padding: 3px 9px; border-radius: 7px; cursor: pointer;
+	font: inherit; font-size: 12px; font-weight: 600;
+	background: rgba(52,211,153,.14); color: #34d399;
+	border: 1px solid rgba(52,211,153,.4); transition: background .15s;
+}
+.skill-pay-add-funds:hover, .pay-chip-add-funds:hover { background: rgba(52,211,153,.24); }
+.usd-eq.is-loading {
+	display: inline-block; width: 46px; height: 11px; border-radius: 4px;
+	vertical-align: middle; color: transparent;
+	background: linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.14) 37%, rgba(255,255,255,.06) 63%);
+	background-size: 320% 100%; animation: skill-pay-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes skill-pay-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+.skill-pay-btn:focus-visible, .skill-pay-confirm:focus-visible,
+.skill-pay-close:focus-visible, .skill-pay-open-link:focus-visible,
+.skill-pay-add-funds:focus-visible, .pay-chip-btn:focus-visible,
+.pay-chip-add-funds:focus-visible {
+	outline: 2px solid #34d399; outline-offset: 2px; border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.skill-pay-overlay, .skill-pay-box, .pay-chip { transition: none; animation: none; }
+	.skill-pay-box { transform: none; opacity: 1; }
+	.usd-eq.is-loading { animation: none; }
+}
 `;
 
 export class SkillPaymentModal {
@@ -136,6 +174,8 @@ export class SkillPaymentModal {
 		this._connection = null;
 		this._activePurchase = null;
 		this._el = null;
+		this._lastFocus = null;
+		this._hideTimer = null;
 		this._init();
 	}
 
@@ -177,6 +217,58 @@ export class SkillPaymentModal {
 		el.addEventListener('click', (e) => { if (e.target === el) this._cancel(); });
 		el.querySelector('#skill-pay-connect').addEventListener('click', () => this._connectWallet());
 		el.querySelector('.skill-pay-confirm').addEventListener('click', () => this._purchase());
+		// Keyboard: Escape dismisses, Tab is trapped inside the dialog so focus
+		// can't wander to the host page behind the modal.
+		el.addEventListener('keydown', (e) => this._onKeydown(e));
+	}
+
+	_onKeydown(e) {
+		if (!this._el || this._el.hasAttribute('hidden')) return;
+		if (e.key === 'Escape') { e.preventDefault(); this._cancel(); return; }
+		if (e.key !== 'Tab') return;
+		const focusable = this._focusables();
+		if (!focusable.length) return;
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const active = this._activeElement();
+		if (e.shiftKey && (active === first || !focusable.includes(active))) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && active === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	}
+
+	// Visible, enabled, focusable controls inside the dialog box, in DOM order.
+	_focusables() {
+		const box = this._el?.querySelector('.skill-pay-box');
+		if (!box) return [];
+		const sel = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+		return Array.from(box.querySelectorAll(sel)).filter(
+			(n) => n.offsetParent !== null || n.getClientRects().length > 0,
+		);
+	}
+
+	// activeElement resolves through the shadow boundary the modal lives in.
+	_activeElement() {
+		return this._root.activeElement || document.activeElement || null;
+	}
+
+	_prefersReducedMotion() {
+		try {
+			return !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+		} catch {
+			return false;
+		}
+	}
+
+	_restoreFocus() {
+		const target = this._lastFocus;
+		this._lastFocus = null;
+		if (target && typeof target.focus === 'function') {
+			try { target.focus(); } catch { /* element may be gone */ }
+		}
 	}
 
 	/**
@@ -197,23 +289,62 @@ export class SkillPaymentModal {
 			const amountEl = this._el.querySelector('.skill-pay-amount');
 			const usdEqEl  = this._el.querySelector('.skill-pay-price .usd-eq');
 			amountEl.textContent = `${amountUsdc} ${currency}`;
+			// Show a shimmer placeholder while the USD equivalent resolves so the
+			// price row doesn't shift when it arrives.
 			usdEqEl.textContent = '';
-			usdEqEl.hidden = true;
+			usdEqEl.hidden = false;
+			usdEqEl.classList.add('is-loading');
 			const humanAmount = Number(price.amount || 0) / 10 ** USDC_DECIMALS;
 			const eqPromise = currency === 'USDC' ? Promise.resolve(formatUsdcEq(humanAmount)) : formatSolEq(humanAmount);
-			eqPromise.then((eq) => { if (eq) { usdEqEl.textContent = eq; usdEqEl.hidden = false; } });
+			eqPromise.then((eq) => {
+				usdEqEl.classList.remove('is-loading');
+				if (eq) { usdEqEl.textContent = eq; usdEqEl.hidden = false; }
+				else { usdEqEl.hidden = true; }
+			});
 			this._el.querySelector('.skill-pay-open-link').href =
 				`/marketplace/agents/${this._agentId}?buy=${encodeURIComponent(skill)}`;
 
 			this._setStatus('');
 			this._el.querySelector('.skill-pay-confirm').disabled = true;
 			this._updateWalletArea();
+
+			// Remember what had focus so we can hand it back on close, then open
+			// with a fade/scale entrance and move focus to the primary action.
+			this._lastFocus = this._activeElement();
+			if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
 			this._el.removeAttribute('hidden');
+			const reveal = () => {
+				this._el.classList.add('is-open');
+				const primary =
+					this._el.querySelector('#skill-pay-connect') ||
+					this._el.querySelector('.skill-pay-confirm:not([disabled])') ||
+					this._el.querySelector('.skill-pay-close');
+				primary?.focus();
+			};
+			if (this._prefersReducedMotion()) reveal();
+			else requestAnimationFrame(reveal);
 		});
 	}
 
 	hide() {
-		this._el.setAttribute('hidden', '');
+		const el = this._el;
+		if (!el) return;
+		el.classList.remove('is-open');
+		this._restoreFocus();
+		if (this._prefersReducedMotion()) {
+			el.setAttribute('hidden', '');
+			return;
+		}
+		// Defer the display:none until the fade-out transition finishes (with a
+		// timeout fallback in case transitionend never fires).
+		const finish = () => {
+			if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
+			el.removeEventListener('transitionend', onEnd);
+			if (!el.classList.contains('is-open')) el.setAttribute('hidden', '');
+		};
+		const onEnd = (e) => { if (e.target === el) finish(); };
+		el.addEventListener('transitionend', onEnd);
+		this._hideTimer = setTimeout(finish, 280);
 	}
 
 	_cancel() {
@@ -475,6 +606,7 @@ export class SkillPaymentModal {
 	}
 
 	destroy() {
+		if (this._hideTimer) { clearTimeout(this._hideTimer); this._hideTimer = null; }
 		this._el?.remove();
 		this._el = null;
 	}

@@ -465,6 +465,14 @@
 	gap: 5px;
 }
 .gx-chip code { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); }
+/* Net-worth chip — wallet-violet, marks a funded agent (real balances). */
+.gx-chip-wealth {
+	color: var(--wallet-accent, #c4b5fd);
+	background: var(--wallet-accent-fill, rgba(139, 92, 246, 0.15));
+	border-color: var(--wallet-stroke, rgba(139, 92, 246, 0.3));
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
 .gx-card-actions { display: flex; gap: 9px; }
 
 /* ── Buttons ────────────────────────────────────────────────────────────── */

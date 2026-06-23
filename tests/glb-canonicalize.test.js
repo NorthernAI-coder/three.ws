@@ -233,6 +233,63 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName(input)).toBe(expected);
 	});
 
+	// Reallusion Character Creator 3/4 — every joint carries a `CC_Base_` prefix
+	// and the limb stems use one-word spellings (`Upperarm`, `Calf`, `ToeBase`,
+	// `NeckTwist01`) behind an `L_`/`R_` side token. Without the prefix strip +
+	// sided aliases an entire CC export maps zero bones and ships a T-pose.
+	it.each([
+		['CC_Base_Hip',         'Hips'],
+		['CC_Base_Pelvis',      'Hips'],
+		['CC_Base_Head',        'Head'],
+		['CC_Base_NeckTwist01', 'Neck'],
+		['CC_Base_L_Clavicle',  'LeftShoulder'],
+		['CC_Base_L_Upperarm',  'LeftArm'],
+		['CC_Base_R_Upperarm',  'RightArm'],
+		['CC_Base_L_Forearm',   'LeftForeArm'],
+		['CC_Base_L_Hand',      'LeftHand'],
+		['CC_Base_L_Thigh',     'LeftUpLeg'],
+		['CC_Base_R_Thigh',     'RightUpLeg'],
+		['CC_Base_L_Calf',      'LeftLeg'],
+		['CC_Base_L_Foot',      'LeftFoot'],
+		['CC_Base_L_ToeBase',   'LeftToeBase'],
+	])('maps Character Creator 3/4 bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// 3ds Max Biped — `Bip01 <bone>` / `Bip001 <bone>` with a space-separated side
+	// token. Stripping the `Bip<NN>` prefix lets the residual canonical/sided
+	// spellings resolve so the whole biped rig animates instead of T-posing.
+	it.each([
+		['Bip01 Pelvis',     'Hips'],
+		['Bip01 Spine',      'Spine'],
+		['Bip01 Spine1',     'Spine1'],
+		['Bip01 Neck',       'Neck'],
+		['Bip01 Head',       'Head'],
+		['Bip01 L UpperArm', 'LeftArm'],
+		['Bip01 L Forearm',  'LeftForeArm'],
+		['Bip01 L Hand',     'LeftHand'],
+		['Bip01 L Thigh',    'LeftUpLeg'],
+		['Bip01 L Calf',     'LeftLeg'],
+		['Bip01 L Foot',     'LeftFoot'],
+		['Bip001 R UpperArm','RightArm'],
+		['Bip001 R Thigh',   'RightUpLeg'],
+	])('maps 3ds Max Biped bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// Generic bare side-prefix auto-riggers (some Meshy/Tripo + simple rigs) emit
+	// the canonical short bone name behind an `L_`/`R_` token.
+	it.each([
+		['L_Arm',      'LeftArm'],
+		['R_Arm',      'RightArm'],
+		['L_Shoulder', 'LeftShoulder'],
+		['L_Leg',      'LeftLeg'],
+		['R_Leg',      'RightLeg'],
+		['L_UpLeg',    'LeftUpLeg'],
+	])('maps generic L_/R_ side-prefix bones: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
 	// VRM 1.0 normalized humanoid names (camelCase, no vendor prefix).
 	it.each([
 		['leftUpperArm',  'LeftArm'],

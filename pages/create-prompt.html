@@ -391,6 +391,31 @@
 				margin-top: 14px;
 				font-variant-numeric: tabular-nums;
 			}
+				.cancel-build {
+					margin-top: 18px;
+					padding: 8px 18px;
+					border-radius: 999px;
+					border: 1px solid var(--border-strong);
+					background: transparent;
+					color: var(--muted);
+					font-size: 13px;
+					font-weight: 500;
+					cursor: pointer;
+					transition: color 0.18s, border-color 0.18s, background 0.18s;
+				}
+				.cancel-build:hover {
+					color: var(--text);
+					border-color: var(--muted);
+					background: rgba(255, 255, 255, 0.04);
+				}
+				.cancel-build:focus-visible {
+					outline: 2px solid var(--accent);
+					outline-offset: 2px;
+				}
+				@media (prefers-reduced-motion: reduce) {
+					.orb::after { animation: none; }
+					.progress-fill { transition: none; }
+				}
 
 			/* ── Done ──────────────────────────────────────────────────────────── */
 			.done-wrap {
@@ -628,15 +653,23 @@
 				class="step build-wrap"
 				data-step="building"
 				aria-label="Building your avatar"
-				aria-live="polite"
 			>
 				<div class="orb" aria-hidden="true"></div>
 				<p class="build-prompt" id="build-prompt"></p>
-				<div class="progress-track" aria-hidden="true">
+				<div
+					class="progress-track"
+					id="progress-track"
+					role="progressbar"
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow="0"
+					aria-label="Avatar build progress"
+				>
 					<div class="progress-fill" id="progress-fill"></div>
 				</div>
-				<p class="build-status" id="build-status">Rendering a reference image…</p>
-				<p class="elapsed" id="elapsed">0:00</p>
+				<p class="build-status" id="build-status" aria-live="polite">Rendering a reference image…</p>
+				<p class="elapsed" id="elapsed" aria-hidden="true">0:00</p>
+				<button type="button" id="cancel-build" class="cancel-build">Cancel</button>
 				<div class="error-box" id="build-error" role="alert"></div>
 			</section>
 

@@ -21,6 +21,64 @@ import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
 import { textToImage } from '../_mcp3d/text-to-image.js';
 
+// ── provider error masking ──────────────────────────────────────────────────────
+// The regen adapters (Replicate, GCP, and the BYOK Meshy/Tripo) attach a stable
+// .code/.status to every thrown error, but err.message can name the vendor, its
+// billing state ("Meshy account is out of credits."), or echo a raw upstream
+// body. None of that may reach the browser. These two helpers translate by code
+// into neutral, actionable copy and keep the raw detail in server logs only.
+
+// Classify a provider submit/resolve failure into a vendor-free { status, code,
+// message } envelope. The error CODE is preserved (the clients already branch on
+// invalid_key / missing_key / insufficient_credits / rate_limited) — only the
+// leaky MESSAGE is replaced, so the BYOK key-entry UX keeps working while no
+// vendor name or billing state ever ships. Pure + exported for direct testing.
+export function classifyProviderError(err) {
+	const code = err?.code;
+	const status = Number(err?.status) || 0;
+	if (code === 'insufficient_credits' || status === 402) {
+		return { status: 402, code: 'insufficient_credits', message: 'The 3D engine key is out of credits — top it up and try again.' };
+	}
+	if (code === 'invalid_key' || code === 'missing_key' || status === 401) {
+		return { status: 401, code: code === 'missing_key' ? 'missing_key' : 'invalid_key', message: 'The 3D engine key was rejected — check it and try again.' };
+	}
+	if (code === 'rate_limited' || status === 429) {
+		return { status: 429, code: 'rate_limited', message: 'The 3D engine is busy right now — wait a moment and try again.', retryAfter: 15 };
+	}
+	if (code === 'invalid_request' || status === 400) {
+		return { status: 400, code: 'invalid_request', message: 'That request could not be processed — check your photo and try again.' };
+	}
+	if (code === 'mode_unconfigured' || code === 'regen_provider_unknown' || status === 501) {
+		return { status: 501, code: 'regen_unconfigured', message: 'The 3D engine is not available for this request right now.' };
+	}
+	// provider_unreachable, provider_error, and anything else → generic retry.
+	return { status: 502, code: 'regen_provider_error', message: 'The 3D engine could not start this job — please try again shortly.' };
+}
+
+// Send the masked classification to the client, logging the raw detail for ops.
+function maskSubmitError(res, err) {
+	const c = classifyProviderError(err);
+	console.warn('[avatars] provider error:', err?.code || err?.status || 'unknown', '—', err?.message);
+	if (c.retryAfter) res.setHeader('retry-after', String(c.retryAfter));
+	return error(res, c.status, c.code, c.message, c.retryAfter ? { retry_after: c.retryAfter } : {});
+}
+
+// Collapse a raw job/provider error string into neutral copy before it leaves the
+// API. The DB keeps the raw value for operators; only this masked form is
+// returned to any client (browser or bearer-token API consumer). Returns null for
+// empty input so the caller can omit the field entirely.
+export function sanitizeJobError(raw) {
+	if (!raw) return null;
+	const s = String(raw).toLowerCase();
+	if (s.includes('nsfw') || s.includes('safety')) return 'Your photo was flagged by content safety — try a different shot.';
+	if (s.includes('no face') || (s.includes('face') && s.includes('detect'))) return 'We could not find a clear face — try a brighter, front-facing photo.';
+	if (s.includes('oom') || s.includes('out of memory') || s.includes('memory')) return 'The engine ran out of resources — try again with a simpler photo.';
+	if (s.includes('timeout') || s.includes('timed out')) return 'The engine took too long — please try again.';
+	if (s.includes('credit') || s.includes('billing') || s.includes('quota')) return 'The 3D engine is temporarily unavailable — please try again later.';
+	if (s.includes('rate') && s.includes('limit')) return 'The 3D engine is busy right now — wait a moment and try again.';
+	return 'Avatar generation hit a snag — please try again.';
+}
+
 // ── presign ───────────────────────────────────────────────────────────────────
 
 async function resolvePresignUser(req, requiredScope) {
@@ -226,7 +284,8 @@ async function fetchRemoteGlb(rawUrl, maxBytes) {
 	} catch (err) {
 		if (err.code && err.status) throw err;
 		if (err.name === 'AbortError') throw fetchError(504, 'fetch_timeout', 'source URL timed out');
-		throw fetchError(502, 'fetch_failed', err.message || 'failed to fetch source URL');
+		console.warn('[avatar-upload] remote fetch failed:', err?.message);
+		throw fetchError(502, 'fetch_failed', 'could not fetch the source URL');
 	} finally {
 		clearTimeout(timer);
 	}
@@ -379,7 +438,7 @@ const handleRegenerate = wrap(async (req, res) => {
 	try {
 		provider = await getRegenProvider();
 	} catch (err) {
-		return error(res, err.status || 501, err.code || 'regen_provider_error', err.message);
+		return maskSubmitError(res, err);
 	}
 
 	if (provider.name === 'none') {
@@ -387,7 +446,7 @@ const handleRegenerate = wrap(async (req, res) => {
 			res,
 			501,
 			'regen_unconfigured',
-			'Avatar regeneration requires a configured backend. Set AVATAR_REGEN_PROVIDER and the matching API token (REPLICATE_API_TOKEN, HF_TOKEN, or GCP_RECONSTRUCTION_URL).',
+			'Avatar regeneration is not available on this deployment yet.',
 		);
 	}
 
@@ -404,12 +463,7 @@ const handleRegenerate = wrap(async (req, res) => {
 			sourceStorageKey: rows[0].storage_key,
 		});
 	} catch (err) {
-		return error(
-			res,
-			err.status || 502,
-			err.code || 'regen_provider_error',
-			err.message || 'provider rejected submission',
-		);
+		return maskSubmitError(res, err);
 	}
 
 	const jobId = `${provider.name}-${randomUUID()}`;
@@ -545,7 +599,11 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 	const response = { ok: true, jobId: job.job_id, status: job.status };
 	if (job.result_avatar_id) response.resultAvatarId = job.result_avatar_id;
 	if (job.result_glb_url) response.resultGlbUrl = job.result_glb_url;
-	if (job.error) response.error = job.error;
+	// Never return the raw provider/job error — it can carry a vendor name, task
+	// id, or upstream status. The DB row keeps the raw value for operators; the
+	// wire gets the masked form only (safe for both the web UI and API consumers).
+	const maskedError = sanitizeJobError(job.error);
+	if (maskedError) response.error = maskedError;
 	if (job.provider) response.provider = job.provider;
 	return json(res, 200, response);
 });
@@ -920,7 +978,7 @@ const handleReconstruct = wrap(async (req, res) => {
 	try {
 		provider = await getRegenProvider();
 	} catch (err) {
-		return error(res, err.status || 501, err.code || 'regen_provider_error', err.message);
+		return maskSubmitError(res, err);
 	}
 
 	// Platform provider not configured — try BYOK fallback.
@@ -930,7 +988,7 @@ const handleReconstruct = wrap(async (req, res) => {
 			try {
 				provider = getRegenProviderByName(body.provider_name, body.provider_key);
 			} catch (err) {
-				return error(res, err.status || 400, err.code || 'invalid_key', err.message);
+				return maskSubmitError(res, err);
 			}
 		}
 
@@ -981,7 +1039,7 @@ const handleReconstruct = wrap(async (req, res) => {
 			// 'provider_unreachable' (network), or a raw providerStatus (e.g. 402
 			// billing). Anything else is a genuine upstream 5xx.
 			if (err?.code === 'unconfigured') {
-				return error(res, 501, 'txt2img_unconfigured', err.message);
+				return error(res, 501, 'txt2img_unconfigured', 'The avatar generator is not available on this deployment yet.');
 			}
 			if (err?.code === 'rate_limited') {
 				const retryAfter = Number(err.retryAfter) || 10;
@@ -995,7 +1053,7 @@ const handleReconstruct = wrap(async (req, res) => {
 				);
 			}
 			if (err?.code === 'provider_unreachable') {
-				return error(res, 503, 'txt2img_unreachable', err.message);
+				return error(res, 503, 'txt2img_unreachable', 'Could not reach the image engine — please try again shortly.');
 			}
 			if (err?.code === 'billing' || err?.providerStatus === 402) {
 				// Never relay the provider's raw "purchase credit at …/billing"
@@ -1013,7 +1071,7 @@ const handleReconstruct = wrap(async (req, res) => {
 				res,
 				502,
 				'txt2img_error',
-				err?.message || 'could not generate a reference image from your prompt',
+				'Could not generate a reference image from your prompt — try rewording it.',
 			);
 		}
 	}
@@ -1027,12 +1085,7 @@ const handleReconstruct = wrap(async (req, res) => {
 			sourceUrl: photos[0],
 		});
 	} catch (err) {
-		return error(
-			res,
-			err.status || 502,
-			err.code || 'regen_provider_error',
-			err.message || 'provider rejected submission',
-		);
+		return maskSubmitError(res, err);
 	}
 
 	const jobId = `${provider.name}-${randomUUID()}`;

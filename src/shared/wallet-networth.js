@@ -204,10 +204,14 @@ export async function fetchWalletState(agent, opts = {}) {
 // Asset-mix hue rotations (degrees) layered over the violet wallet accent. These
 // are generic, coin-agnostic tints derived purely from real USD proportion; the
 // only coin named anywhere is $THREE, which earns the warm brand-gold shift.
+// Targets are blended into the violet base by a small factor (shortest path on
+// the wheel), so in practice each asset only nudges the accent within a coherent
+// blue-violet→magenta band: SOL/USDC tilt toward blue-violet, $THREE toward
+// magenta-violet, generic SPL stays neutral. No asset ever escapes the family.
 const MIX_HUES = {
-	sol: 170,   // teal — native SOL
-	usdc: 150,  // mint-green — the dollar rail
-	three: 45,  // gold — $THREE, the one coin we feature
+	sol: 170,   // teal target → resolves to blue-violet
+	usdc: 150,  // mint target → resolves to blue-violet
+	three: 45,  // warm target → resolves to magenta-violet ($THREE, the one coin)
 	other: 250, // violet-neutral — generic SPL
 };
 

@@ -39,7 +39,7 @@ function ensureStyles() {
 	--wa-accent:var(--wallet-accent,#c4b5fd);--wa-glow:var(--wallet-glow,rgba(139,92,246,.45));--wa-i:0;}
 .wa-layer[data-ready="true"]{opacity:1;}
 /* A halo bloom AROUND the avatar — a transparent core means the figure is never
-   washed out; `screen` blend adds light only, so the body reads as emitting it.
+   washed out; the screen blend adds light only, so the body reads as emitting it.
    Intensity scales with real net worth. */
 .wa-bloom{position:absolute;inset:-12%;border-radius:50%;mix-blend-mode:screen;
 	background:radial-gradient(circle at 50% 60%,transparent 26%,var(--wa-glow) 48%,transparent 74%);

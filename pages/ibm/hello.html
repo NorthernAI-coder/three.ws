@@ -470,11 +470,11 @@ agent-3d:defined ~ .agent-skel{display:none}
     </div>
     <h1>A live showcase of agentic commerce, built with <strong>IBM</strong></h1>
     <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and 3D AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
-    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, pay-per-call micropayments over <span class="mono">x402</span>, an autonomous 3D agent that buys its own data, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the two paid demos (Forge and the x402 call) settle real USDC from your own wallet.</p>
+    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, forge a rigged, animated avatar from a sentence for free, an autonomous 3D agent that buys its own data over <span class="mono">x402</span>, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the paid Forge demo settles real USDC from your own wallet; the rest are free, no wallet needed.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
       <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
-      <a href="#demo"><span class="n">02</span>x402 payments</a>
+      <a href="#demo"><span class="n">02</span>Avatars</a>
       <a href="#agent"><span class="n">03</span>3D agent</a>
       <a href="#play"><span class="n">04</span>Play</a>
       <a href="#irl"><span class="n">05</span>IRL</a>
@@ -1035,7 +1035,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   <div class="inner">
     <div class="section-tag">Demo 03 · Embodiment</div>
     <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
-    <p class="section-lead">Everything you just did by hand — read the price, sign, settle — an autonomous agent can do on its own. This is one of them: a 3D agent from three.ws, rendered live in your browser. It watches the call above and reacts the moment your payment settles.</p>
+    <p class="section-lead">The agentic-commerce loop the Forge demo runs by hand — read a price, sign, settle a real USDC micropayment — an autonomous agent can run on its own. This is one of them: a 3D agent from three.ws, driven by the very engine that just animated your avatar, rendered live in your browser. Forge a character above and watch it react.</p>
 
     <div class="agent-grid">
       <div class="agent-stage">
@@ -1053,8 +1053,8 @@ agent-3d:defined ~ .agent-skel{display:none}
       </div>
 
       <div class="agent-copy">
-        <h3>It reacts to the payment above — in real time</h3>
-        <p>Run the $0.001 call and watch: the agent celebrates the moment the transaction settles. The same primitives that power the demo button power it — it signs, pays, and reads results exactly the way you just did, only autonomously.</p>
+        <h3>It reacts to your avatar — in real time</h3>
+        <p>Forge a character above and watch: this agent celebrates the moment your avatar comes to life. It runs the agentic-commerce loop too — reading a price, signing, and settling a USDC micropayment on its own, exactly the way the Forge demo does, only autonomously.</p>
         <p>Rendered live in the browser with WebGL — no video, no pre-recording.</p>
       </div>
     </div>
@@ -1110,7 +1110,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   <div class="inner">
     <div class="section-tag">For developers</div>
     <h2 id="embed-h">Add a paywall in <strong>eight lines</strong></h2>
-    <p class="section-lead">The button above is powered by one drop-in script. Any element with a <span class="mono">data-x402-endpoint</span> opens the wallet flow on click — no framework, no build step, no SDK.</p>
+    <p class="section-lead">The paid Forge demo above is powered by one drop-in script. Any element with a <span class="mono">data-x402-endpoint</span> opens the wallet flow on click — no framework, no build step, no SDK.</p>
     <div class="embed-block" id="embedCode"><span class="c-com">&lt;!-- one script tag, served from three.ws --&gt;</span>
 <span class="c-tag">&lt;script</span> <span class="c-attr">type</span>=<span class="c-str">"module"</span> <span class="c-attr">src</span>=<span class="c-str">"https://three.ws/x402.js"</span><span class="c-tag">&gt;&lt;/script&gt;</span>
 
@@ -1281,293 +1281,6 @@ agent-3d:defined ~ .agent-skel{display:none}
     }
   }
 
-  // ── 1. live 402 challenge preview ─────────────────────────────────────────
-  function loadChallengePreview() {
-    var ticker = sanitizeTicker($('ticker').value) || 'GRANITE';
-    var preview = document.querySelector('.preview');
-    if (preview) preview.setAttribute('aria-busy', 'true');
-    fetch(ENDPOINT + '?ticker=' + encodeURIComponent(ticker), { method: 'GET' })
-      .then(function (res) {
-        if (res.status !== 402 && res.status !== 401) throw new Error('expected 402, got ' + res.status);
-        return res.json().catch(function () { return null; });
-      })
-      .then(function (body) {
-        var accepts = (body && body.accepts) || [];
-        if (!accepts.length) throw new Error('no payment terms in challenge');
-        renderChallengePreview(accepts);
-      })
-      .catch(function (err) {
-        var label = $('pvLabel'); label.className = 'preview-label err';
-        $('pvLabelText').textContent = navigator.onLine
-          ? "Couldn't read the live price just now — the payment button still works."
-          : "You're offline — the live price will load when you reconnect.";
-        var detail = escapeHtml(String((err && err.message) || 'request failed')).slice(0, 120);
-        $('pvRows').innerHTML =
-          '<div class="preview-row"><span class="v" style="color:var(--ibm-subtle)">' + detail + '</span></div>' +
-          '<button class="pv-retry" type="button" id="pvRetry">Retry</button>';
-        var r = $('pvRetry'); if (r) r.addEventListener('click', loadChallengePreview);
-      })
-      .then(function () { if (preview) preview.setAttribute('aria-busy', 'false'); });
-  }
-
-  function renderChallengePreview(accepts) {
-    var byNet = {};
-    accepts.forEach(function (a) { if (a && a.network && !byNet[a.network]) byNet[a.network] = a; });
-    var nets = Object.keys(byNet).map(function (k) { return byNet[k]; });
-    var first = nets[0];
-    var decimals = (first.extra && first.extra.decimals) || 6;
-    quotedNetworks = nets.map(function (a) { return networkLabel(a.network); }).join(' or ');
-
-    var priceHtml = first.amount === '1000'
-      ? '$<strong>0.001</strong>'
-      : escapeHtml(fmtUsd(first.amount, decimals)).replace(/^\$/, '$<strong>') + '</strong>';
-    var amtEl = $('priceAmt');
-    if (amtEl.innerHTML !== priceHtml) {
-      amtEl.innerHTML = priceHtml;
-      flashPrice(amtEl);
-    }
-    var priceText = escapeHtml(fmtUsd(first.amount, decimals));
-    var srEl = $('priceSr'); if (srEl) srEl.textContent = 'Price: ' + priceText + ' USDC per call.';
-
-    var label = $('pvLabel'); label.className = 'preview-label ok fresh';
-    $('pvLabelText').innerHTML = '<span class="mono">HTTP 402 Payment Required</span> — the server is quoting these terms right now';
-
-    var rows = '';
-    rows += '<div class="preview-row"><span class="k">price</span><span class="v">' + escapeHtml(fmtUsd(first.amount, decimals)) + ' USDC</span></div>';
-    var badges = nets.map(function (a) { return '<span class="badge">' + escapeHtml(networkLabel(a.network)) + '</span>'; }).join('');
-    rows += '<div class="preview-row"><span class="k">networks</span><span class="v">' + badges + '</span></div>';
-    nets.forEach(function (a) {
-      rows += '<div class="preview-row"><span class="k">pay&nbsp;to</span><span class="v">' + escapeHtml(shortAddr(a.payTo)) + ' <span style="color:var(--ibm-subtle)">(' + escapeHtml(networkLabel(a.network)) + ')</span></span></div>';
-    });
-    rows += '<div class="preview-row"><span class="k">scheme</span><span class="v">' + escapeHtml(first.scheme || 'exact') + ' · gasless authorization</span></div>';
-    $('pvRows').innerHTML = rows;
-  }
-
-  // ── 2. result states ──────────────────────────────────────────────────────
-  // Concise spoken update to the off-screen live region. Clearing first guarantees
-  // the change is detected even when the same text repeats.
-  function announce(msg) {
-    var a = $('announcer'); if (!a) return;
-    a.textContent = '';
-    // microtask defer so screen readers register the text change as new
-    window.requestAnimationFrame(function () { a.textContent = msg || ''; });
-  }
-  function setResultEmpty() {
-    var el = $('result'); el.className = 'result is-empty';
-    el.innerHTML = 'Run the call to see live, on-chain-paid data appear here.';
-    announce('');
-  }
-  function setResultLoading(msg) {
-    var el = $('result'); el.className = 'result is-loading';
-    el.innerHTML = '<div class="r-status"><span class="spin" aria-hidden="true"></span><span>' + escapeHtml(msg || 'Waiting for your wallet…') + '</span></div>';
-    announce(msg || 'Waiting for your wallet.');
-    agentOnWaiting();
-  }
-  // Turn a (sometimes cryptic) wallet/facilitator/network message into one line
-  // of plain-language next-step guidance. Empty string when the message already
-  // speaks for itself.
-  function payGuidance(msg) {
-    var m = String(msg || '').toLowerCase();
-    if (/insufficient|not enough|exceeds balance|transfer amount exceeds|enough usdc|enough funds|low balance/.test(m)) {
-      return 'Top up USDC on ' + (quotedNetworks || 'your wallet network') + ', then try again.';
-    }
-    if (/offline|failed to fetch|networkerror|connection|timeout|timed out|could not reach/.test(m)) {
-      return 'Check your connection, then try again.';
-    }
-    return '';
-  }
-  function setResultError(msg) {
-    var text = msg || 'Something went wrong.';
-    var tip = payGuidance(text);
-    var el = $('result'); el.className = 'result is-error';
-    el.innerHTML = '<div class="r-status err"><span aria-hidden="true">✕</span> <span>' + escapeHtml(text) + '</span></div>' +
-      (tip ? '<p class="r-tip">' + escapeHtml(tip) + '</p>' : '') +
-      '<button class="retry" type="button" id="retryBtn">Try again</button>';
-    var rb = $('retryBtn'); if (rb) rb.addEventListener('click', runPayment);
-    announce('Error: ' + text + (tip ? ' ' + tip : ''));
-    agentOnError();
-  }
-  function recoPill(result) {
-    if (result.exact_collision) return '<span class="pill bad">taken</span>';
-    var sim = result.similar && result.similar[0];
-    if (sim && Number(sim.similarity) >= 0.8) return '<span class="pill warn">close match</span>';
-    return '<span class="pill ok">available</span>';
-  }
-  function setResultDone(out) {
-    var result = out.result || {};
-    var payment = out.payment || {};
-    var el = $('result'); el.className = 'result is-done';
-    agentOnSettled(out);
-
-    var html = '';
-    html += '<div class="r-status ok"><span class="r-check" aria-hidden="true">✓</span><span>Payment settled — response delivered</span></div>';
-    if (result.ticker) html += '<div class="r-headline">Ticker <strong>$' + escapeHtml(result.ticker) + '</strong></div>';
-    if (result.recommendation) html += '<div class="r-reco">' + recoPill(result) + '<span>' + escapeHtml(result.recommendation) + '</span></div>';
-
-    // Concise spoken summary — never the raw-JSON wall below.
-    var spoken = 'Payment settled.';
-    if (result.ticker) spoken += ' Ticker $' + result.ticker + '.';
-    if (result.recommendation) spoken += ' ' + result.recommendation;
-    announce(spoken);
-
-    var exact = Array.isArray(result.exact_matches) ? result.exact_matches : [];
-    var similar = Array.isArray(result.similar) ? result.similar : [];
-    if (exact.length || similar.length) {
-      html += '<div class="matches">';
-      if (exact.length) {
-        html += '<h4>Exact matches</h4>';
-        exact.forEach(function (m) {
-          html += '<div class="match"><span class="m-name"><b>' + escapeHtml(m.ticker) + '</b> · ' + escapeHtml(m.name || '') + '</span><span class="m-sim">' + escapeHtml(shortAddr(m.mint)) + '</span></div>';
-        });
-      }
-      if (similar.length) {
-        html += '<h4' + (exact.length ? ' style="margin-top:12px"' : '') + '>Look-alike symbols</h4>';
-        similar.forEach(function (m) {
-          html += '<div class="match"><span class="m-name"><b>' + escapeHtml(m.ticker) + '</b> · ' + escapeHtml(m.name || '') + '</span><span class="m-sim">sim ' + escapeHtml(m.similarity == null ? '—' : String(m.similarity)) + '</span></div>';
-        });
-      }
-      html += '</div>';
-    }
-
-    var explorer = explorerUrl(payment.network, payment.transaction);
-    html += '<dl class="receipt">';
-    html += '<div class="receipt-pair"><dt class="rk">Network</dt><dd class="rv">' + escapeHtml(networkLabel(payment.network)) + '</dd></div>';
-    html += '<div class="receipt-pair"><dt class="rk">Payer</dt><dd class="rv">' + escapeHtml(shortAddr(payment.payer)) + '</dd></div>';
-    html += '<div class="receipt-pair"><dt class="rk">Transaction</dt><dd class="rv">' +
-      (payment.transaction
-        ? (explorer ? '<a href="' + explorer + '" target="_blank" rel="noopener">' + escapeHtml(shortAddr(payment.transaction)) + ' <span aria-hidden="true">↗</span><span class="sr-only"> (opens block explorer in a new tab)</span></a>' : escapeHtml(shortAddr(payment.transaction)))
-        : '—') + '</dd></div>';
-    html += '</dl>';
-
-    html += '<details class="raw"><summary>View raw response &amp; settlement</summary><pre>' +
-      escapeHtml(JSON.stringify({ response: result, payment: payment }, null, 2)).slice(0, 6000) + '</pre></details>';
-
-    el.innerHTML = html;
-  }
-
-  // ── 3. payment ────────────────────────────────────────────────────────────
-  function setBusy(b) {
-    inFlight = b;
-    var btn = $('payBtn');
-    btn.disabled = b || !navigator.onLine;
-    btn.classList.toggle('loading', b);
-    btn.querySelector('.label').textContent = b ? 'Waiting for wallet…' : 'Pay $0.001 & run';
-  }
-  function setTickerError(msg) {
-    var f = $('ticker'); var h = $('tickerHint');
-    if (msg) { f.setAttribute('aria-invalid', 'true'); h.className = 'field-hint err'; h.textContent = msg; }
-    else { f.removeAttribute('aria-invalid'); h.className = 'field-hint'; h.textContent = 'A–Z and 0–9, up to 32 characters.'; }
-  }
-
-  function runPayment() {
-    if (inFlight) return; // double-click guard
-    if (!navigator.onLine) { setResultError('You appear to be offline. Reconnect and try again.'); return; }
-
-    var ticker = sanitizeTicker($('ticker').value);
-    if (!ticker) { setTickerError('Enter a ticker (A–Z, 0–9) to check.'); $('ticker').focus(); return; }
-    setTickerError(null);
-    $('ticker').value = ticker;
-
-    if (!window.X402 || typeof window.X402.pay !== 'function') {
-      setResultError('Payment widget is still loading — give it a second and try again.');
-      return;
-    }
-
-    var trigger = document.activeElement; // restore focus here when the modal closes
-    setBusy(true);
-    setResultLoading('Waiting for your wallet… approve the $0.001 USDC payment to continue.');
-
-    window.X402.pay({
-      endpoint: ENDPOINT + '?ticker=' + encodeURIComponent(ticker),
-      method: 'GET',
-      merchant: 'three.ws',
-      action: 'Check $' + ticker + ' availability',
-      caps: { maxPerCall: MAX_PER_CALL_MICRO_USD }
-    }).then(function (out) {
-      if (out && out.ok) setResultDone(out);
-      else setResultError('The call did not complete. Please try again.');
-    }).catch(function (err) {
-      if (err && err.code === 'cancelled') { setResultEmpty(); return; }
-      setResultError((err && err.message) || 'Payment failed. Please try again.');
-    }).then(function () {
-      setBusy(false);
-      // Return focus to the trigger; if it was re-rendered out of the DOM
-      // (e.g. the retry button), fall back to the pay button so focus is never
-      // dropped to <body>.
-      var t = (trigger && trigger.focus && document.body.contains(trigger)) ? trigger : $('payBtn');
-      try { t.focus(); } catch (_) { try { $('payBtn').focus(); } catch (_2) {} }
-    });
-  }
-
-  // ── wallet detection ────────────────────────────────────────────────────────
-  // On phones, window.ethereum / window.solana only exist inside a wallet's in-app
-  // browser, not in mobile Safari/Chrome. Reflect that reality in the hint so the
-  // next step is obvious. The 402 preview stays fully functional regardless.
-  function hasInjectedWallet() {
-    return !!(window.ethereum || (window.solana && window.solana.isPhantom) || window.phantom);
-  }
-  function isCoarsePointer() {
-    return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-  }
-  function syncWalletHint() {
-    var hint = $('walletHint'); var btn = $('payBtn');
-    if (!navigator.onLine) {
-      hint.classList.remove('detected'); hint.classList.add('offline');
-      hint.innerHTML = 'You are offline. Reconnect to read the live price and pay.';
-      btn.disabled = true;
-      return;
-    }
-    hint.classList.remove('offline');
-    if (!inFlight) btn.disabled = false;
-    if (hasInjectedWallet()) {
-      hint.classList.add('detected');
-      hint.innerHTML = '<b>Wallet detected.</b> You can pay this call directly.';
-    } else if (isCoarsePointer()) {
-      hint.classList.remove('detected');
-      hint.innerHTML = 'No wallet in this browser. On a phone, open this page inside your <b>MetaMask</b> or <b>Phantom</b> (Solana) in-app browser to pay. You can still read the live 402 challenge above.';
-    } else {
-      hint.classList.remove('detected');
-      hint.innerHTML = 'No wallet detected. Install <b>MetaMask</b> or <b>Phantom</b> (Solana) to pay — or just read the live 402 challenge above.';
-    }
-  }
-  // Wallet extensions inject asynchronously; re-check briefly after load.
-  // Two detection paths run in parallel and either one ends the wait:
-  //   1. A short backoff poll for the injected globals (Phantom/legacy MetaMask).
-  //   2. The EIP-6963 announce protocol — registered UP FRONT (below), before the
-  //      first poll, and kicked with a requestProvider so compliant wallets reply
-  //      immediately rather than only after our first 350ms tick.
-  var walletPolls = 0;
-  var walletPollTimer = null;
-  function pollForWallet() {
-    syncWalletHint();
-    // Resolve immediately the instant a wallet appears — don't keep polling.
-    if (hasInjectedWallet()) { walletPolls = 8; return; }
-    if (walletPolls < 8) { walletPolls++; walletPollTimer = setTimeout(pollForWallet, 350); }
-  }
-  function onWalletDetected() {
-    // A wallet announced or injected mid-poll: reflect it and stop the backoff.
-    if (walletPollTimer) { clearTimeout(walletPollTimer); walletPollTimer = null; }
-    walletPolls = 8;
-    syncWalletHint();
-  }
-  window.addEventListener('online', function () { syncWalletHint(); loadChallengePreview(); });
-  window.addEventListener('offline', syncWalletHint);
-  // EIP-6963 announce + Phantom late-inject both surface via this event in practice.
-  // Registered before polling starts so an early announcement is never missed, and
-  // we proactively request announcements so wallets reply without waiting for a tick.
-  window.addEventListener('eip6963:announceProvider', onWalletDetected);
-  try { window.dispatchEvent(new Event('eip6963:requestProvider')); } catch (_) {}
-
-  // ── wiring ──────────────────────────────────────────────────────────────────
-  $('payBtn').addEventListener('click', runPayment);
-  $('ticker').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); runPayment(); } });
-  var pvTimer;
-  $('ticker').addEventListener('input', function () {
-    setTickerError(null);
-    clearTimeout(pvTimer);
-    pvTimer = setTimeout(loadChallengePreview, 400);
-  });
-
   $('copyBtn').addEventListener('click', function () {
     var snippet =
       '<script type="module" src="https://three.ws/x402.js"><\/script>\n\n' +
@@ -1587,8 +1300,6 @@ agent-3d:defined ~ .agent-skel{display:none}
 
   wireAgent();
   wireLiveEmbeds();
-  pollForWallet();
-  loadChallengePreview();
 })();
 </script>
 
@@ -2274,6 +1985,301 @@ agent-3d:defined ~ .agent-skel{display:none}
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); if (!inFlight) run(); }
   });
+  if (suggest) {
+    suggest.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-p]');
+      if (!b) return;
+      input.value = b.getAttribute('data-p');
+      if (!inFlight) run();
+    });
+  }
+})();
+</script>
+
+<!-- Demo 02 · Avatar Forge — free text → textured mesh → auto-rigged → animated.
+     Two-stage /api/forge pipeline: POST (reconstruct) → POST ?action=rig, then the
+     rigged GLB is mounted into <agent-3d> so the universal retarget animates it. If
+     that web component can't boot (no WebGL / script blocked) it falls back to an
+     orbiting <model-viewer> so the visitor always sees their avatar. No wallet, no
+     key. Drives the guide agent (Demo 03) via window 'avatar:*' events. -->
+<script type="module">
+(function () {
+  'use strict';
+  var API = 'https://three.ws/api/forge';
+  var $ = function (id) { return document.getElementById(id); };
+  var btn = $('avBtn');
+  if (!btn) return; // panel not present — nothing to wire
+
+  var input = $('avPrompt');
+  var result = $('avResult');
+  var statusEl = $('avStatus');
+  var suggest = $('avSuggest');
+  var steps = $('avSteps');
+
+  var inFlight = false;
+  var runSeq = 0;
+  var loadTimer = null;
+  var bootTimer = null;
+
+  // Shared free-lane client id (same key the object forge uses) so the hourly
+  // budget is accounted per visitor, not per widget.
+  var CID = (function () {
+    var fresh = function () { return 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); };
+    try {
+      var KEY = 'forge:cid';
+      var v = localStorage.getItem(KEY);
+      if (!v) { v = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : fresh(); localStorage.setItem(KEY, v); }
+      return v;
+    } catch (e) { return fresh(); }
+  })();
+  var HEADERS = { 'x-forge-client': CID };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function emit(name) { try { window.dispatchEvent(new Event(name)); } catch (_) {} }
+
+  // ── pipeline step indicator (mesh → rig → animate) ──────────────────────────
+  var STEP_ORDER = ['mesh', 'rig', 'animate'];
+  function setStep(active) {
+    if (!steps) return;
+    steps.setAttribute('aria-hidden', 'false');
+    var ai = STEP_ORDER.indexOf(active);
+    Array.prototype.forEach.call(steps.querySelectorAll('li'), function (li) {
+      var i = STEP_ORDER.indexOf(li.getAttribute('data-step'));
+      li.classList.toggle('active', i === ai);
+      li.classList.toggle('done', ai >= 0 && i < ai);
+    });
+  }
+  function clearSteps() {
+    if (!steps) return;
+    steps.setAttribute('aria-hidden', 'true');
+    Array.prototype.forEach.call(steps.querySelectorAll('li'), function (li) { li.classList.remove('active', 'done'); });
+  }
+
+  // ── /api/forge job helpers — same contract as the free object forge ─────────
+  // A POST returns either a synchronous { glb_url } (warm lane) or a { job_id }
+  // we poll. ?action=rig surfaces the rigged GLB through the identical envelope.
+  async function startJob(body, action) {
+    var ctrl = new AbortController();
+    var to = setTimeout(function () { ctrl.abort(); }, 95000);
+    var res;
+    try {
+      res = await fetch(API + (action ? '?action=' + action : ''), {
+        method: 'POST',
+        headers: Object.assign({ 'content-type': 'application/json' }, HEADERS),
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+    } finally { clearTimeout(to); }
+    var data = await res.json().catch(function () { return {}; });
+    if (res.status === 429) {
+      var ra = Number(data.retry_after) || Number(res.headers.get('retry-after')) || 20;
+      throw Object.assign(new Error(data.message || 'The free lane is busy.'), { code: 429, retryAfter: ra });
+    }
+    if (!res.ok) throw Object.assign(new Error(data.message || data.error || ('HTTP ' + res.status)), { code: res.status });
+    return data;
+  }
+  async function pollJob(jobId, seq) {
+    var deadline = Date.now() + 240000;
+    while (seq === runSeq && Date.now() < deadline) {
+      await sleep(2500);
+      if (seq !== runSeq) return null;
+      var data = {};
+      try {
+        var ctrl = new AbortController();
+        var to = setTimeout(function () { ctrl.abort(); }, 20000);
+        var res;
+        try { res = await fetch(API + '?job=' + encodeURIComponent(jobId), { headers: HEADERS, signal: ctrl.signal }); }
+        finally { clearTimeout(to); }
+        data = await res.json().catch(function () { return {}; });
+      } catch (_) { data = {}; } // a transient poll blip is not fatal — keep polling
+      if (data.status === 'done' && data.glb_url) return data;
+      if (data.status === 'failed') throw new Error(data.error || 'generation failed');
+    }
+    if (seq !== runSeq) return null;
+    throw new Error('timed out');
+  }
+  async function jobToGlb(body, action, seq) {
+    var job = await startJob(body, action);
+    if (job && job.glb_url) return job;           // synchronous result
+    if (job && job.job_id) {
+      var done = await pollJob(job.job_id, seq);
+      if (done) return done;
+      if (seq !== runSeq) return null;
+    }
+    throw new Error('no model returned');
+  }
+
+  // Stage 1 — text → textured mesh. One primary request, then a single
+  // hard-failure retry forcing the reliable reconstruct lane (never on a 429),
+  // mirroring the object forge so we don't burn the shared hourly budget.
+  async function generateMesh(prompt, seq) {
+    var hint = prompt + ', full body, standing, humanoid character';
+    var attempts = [{ tier: 'draft' }, { tier: 'draft', backend: 'trellis' }];
+    var lastErr = null;
+    for (var i = 0; i < attempts.length; i++) {
+      if (seq !== runSeq) return null;
+      try {
+        var job = await jobToGlb(Object.assign({ prompt: hint, aspect_ratio: '1:1', path: 'image' }, attempts[i]), null, seq);
+        if (job && job.glb_url) return job;
+        lastErr = new Error('no mesh');
+      } catch (e) {
+        if (e && e.code === 429) throw e; // rate-limited — surface "busy", don't burn the retry
+        lastErr = e;
+        if (seq !== runSeq) return null;
+        await sleep(1800);
+      }
+    }
+    throw lastErr || new Error('generation unavailable');
+  }
+  // Stage 2 — auto-rig the mesh into an animation-ready skeleton.
+  function rigMesh(glbUrl, seq) { return jobToGlb({ glb_url: glbUrl }, 'rig', seq); }
+
+  // ── states ──────────────────────────────────────────────────────────────────
+  function setLoading(stage) {
+    var copy = stage === 'rig'
+      ? ['Mesh ready — building the skeleton…', 'Mapping bones to the canonical rig…', 'Binding skin weights…', 'Retargeting the animation library…']
+      : ['Reading your prompt…', 'Warming the free GPU — a cold start can take up to a minute…', 'Generating geometry on NVIDIA NIM…', 'Texturing the mesh…'];
+    result.className = 'av-result is-loading';
+    result.innerHTML = '<div class="av-load"><span class="av-bar"><span></span></span><span class="av-loadmsg" id="avLoadMsg">' + esc(copy[0]) + '</span></div>';
+    statusEl.textContent = stage === 'rig' ? 'Rigging your avatar.' : 'Generating your avatar.';
+    clearInterval(loadTimer);
+    var i = 0;
+    loadTimer = setInterval(function () { i = (i + 1) % copy.length; var el = $('avLoadMsg'); if (el) el.textContent = copy[i]; }, 4000);
+  }
+  function setError() {
+    clearInterval(loadTimer); clearSteps(); emit('avatar:error');
+    result.className = 'av-result is-error';
+    result.innerHTML =
+      '<div class="av-err"><p>The free generator is briefly unreachable. It auto-retries across NVIDIA NIM and TRELLIS — give it another try.</p>' +
+      '<button type="button" class="av-retry" id="avRetry">Try again</button></div>';
+    var rb = $('avRetry'); if (rb) rb.addEventListener('click', run);
+    statusEl.textContent = 'Generation failed. Press try again.';
+  }
+  // The free lane has an hourly cap so it stays free for everyone — tell the
+  // visitor exactly when to retry rather than the misleading "unreachable" copy.
+  function setBusy(retryAfter) {
+    clearInterval(loadTimer); clearSteps(); emit('avatar:error');
+    var secs = Math.max(5, Math.round(Number(retryAfter) || 20));
+    result.className = 'av-result is-error';
+    result.innerHTML =
+      '<div class="av-err"><p>The free lane is busy — it has an hourly limit so it stays free for everyone. Try again in about ' + secs + ' seconds, or open the full Forge for an instant generation.</p>' +
+      '<button type="button" class="av-retry" id="avRetry">Try again</button></div>';
+    var rb = $('avRetry'); if (rb) rb.addEventListener('click', run);
+    statusEl.textContent = 'The free lane is busy. Try again in about ' + secs + ' seconds.';
+  }
+
+  // ── result rendering ──────────────────────────────────────────────────────
+  var _mv = null;
+  function ensureModelViewer() {
+    if (_mv) return _mv;
+    _mv = new Promise(function (resolve) {
+      if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
+      var s = document.createElement('script');
+      s.type = 'module';
+      s.src = './vendor/model-viewer.min.js';
+      s.addEventListener('error', resolve);
+      document.head.appendChild(s);
+      if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
+      else resolve();
+    });
+    return _mv;
+  }
+  function actionsHtml(glb, prompt, live) {
+    var scene = 'https://three.ws/scene?model=' + encodeURIComponent(glb) + '&name=' + encodeURIComponent(prompt.slice(0, 80));
+    return '<div class="av-actions">' +
+      '<a class="av-act primary" href="' + esc(glb) + '" download>Download rigged GLB</a>' +
+      '<a class="av-act" href="' + esc(scene) + '" target="_blank" rel="noopener">Open in 3D scene ↗</a>' +
+      '<span class="av-engine">Rigged free · ' + (live ? 'live avatar engine' : 'orbit preview') + '</span></div>';
+  }
+  async function renderFallback(glb, prompt) {
+    clearInterval(loadTimer); clearSteps();
+    await ensureModelViewer();
+    result.className = 'av-result is-done';
+    result.innerHTML =
+      '<div class="av-stage"><model-viewer src="' + esc(glb) + '" alt="Rigged 3D avatar generated from your prompt" ' +
+      'camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" ' +
+      'shadow-intensity="0.8" shadow-softness="0.8" environment-image="neutral" exposure="1" ' +
+      'camera-orbit="0deg 85deg auto" loading="eager"></model-viewer></div>' + actionsHtml(glb, prompt, false);
+    statusEl.textContent = 'Your rigged avatar is ready. Orbit it, or download the GLB.';
+    emit('avatar:done');
+  }
+  function renderAvatar(glb, prompt) {
+    clearInterval(loadTimer);
+    setStep('animate');
+    result.className = 'av-result is-done';
+    result.innerHTML = '<div class="av-stage" id="avStageBox"></div>' + actionsHtml(glb, prompt, true);
+    var box = $('avStageBox');
+    var el = document.createElement('agent-3d');
+    el.setAttribute('body', glb);
+    el.setAttribute('background', 'transparent');
+    el.setAttribute('width', '100%');
+    el.setAttribute('height', '460px');
+    var settled = false;
+    el.addEventListener('agent:ready', function () {
+      if (settled) return; settled = true;
+      clearTimeout(bootTimer); clearSteps();
+      try { if (el.playEmote) el.playEmote('wave'); } catch (_) {}
+      statusEl.textContent = 'Your avatar is live — it stands, breathes, and waves. Download it, or open it in a scene.';
+      emit('avatar:done');
+    });
+    el.addEventListener('error', function () {
+      if (settled) return; settled = true;
+      clearTimeout(bootTimer); renderFallback(glb, prompt);
+    });
+    box.appendChild(el);
+    // If the component never upgrades/boots, show the orbit fallback so the
+    // visitor still gets their avatar; if it upgraded but is slow to signal
+    // ready, accept it as live rather than tearing down a working render.
+    bootTimer = setTimeout(function () {
+      if (settled) return;
+      var upgraded = window.customElements && customElements.get('agent-3d');
+      if (!upgraded) { settled = true; renderFallback(glb, prompt); }
+      else { settled = true; clearSteps(); statusEl.textContent = 'Your avatar is live. Download it, or open it in a scene.'; emit('avatar:done'); }
+    }, 14000);
+  }
+
+  async function run() {
+    var prompt = (input.value || '').trim();
+    if (!prompt) { try { input.focus(); } catch (_) {} return; }
+    var seq = ++runSeq;
+    inFlight = true;
+    btn.classList.add('loading'); btn.disabled = true;
+    emit('avatar:generating');
+    setStep('mesh'); setLoading('mesh');
+    try {
+      var mesh = await generateMesh(prompt, seq);
+      if (seq !== runSeq) return;
+      if (!mesh || !mesh.glb_url) throw new Error('no mesh');
+
+      // Stage 2 is best-effort: a rig hiccup still yields a viewable textured mesh.
+      var glb = mesh.glb_url;
+      setStep('rig'); setLoading('rig');
+      try {
+        var rigged = await rigMesh(mesh.glb_url, seq);
+        if (seq !== runSeq) return;
+        if (rigged && rigged.glb_url) glb = rigged.glb_url;
+      } catch (rigErr) {
+        if (rigErr && rigErr.code === 429) throw rigErr; // free lane busy — surface it
+        if (seq !== runSeq) return;
+        // otherwise fall through with the unrigged mesh
+      }
+      renderAvatar(glb, prompt);
+    } catch (e) {
+      if (seq !== runSeq) return;
+      if (e && e.code === 429) setBusy(e.retryAfter);
+      else setError();
+    } finally {
+      if (seq === runSeq) { inFlight = false; btn.classList.remove('loading'); btn.disabled = false; }
+    }
+  }
+
+  btn.addEventListener('click', function () { if (!inFlight) run(); });
+  input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (!inFlight) run(); } });
   if (suggest) {
     suggest.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-p]');

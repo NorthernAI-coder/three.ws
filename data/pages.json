@@ -562,6 +562,14 @@
 					"added": "2026-06-12"
 				},
 				{
+					"path": "/pulse",
+					"title": "Money Pulse",
+					"description": "The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.",
+					"priority": 0.8,
+					"changefreq": "always",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/clash",
 					"title": "Coin Clash",
 					"description": "Token-gated community warfare. Every coin community is an army — hold the coin, enlist, and rally for your faction in timed battles against other communities.",
