@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Alpha Co-pilot · three.ws</title>
+		<meta
+			name="description"
+			content="Your agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict out loud through its 3D avatar. The owner can act on it within hard, server-enforced spend limits."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/alpha-copilot" />
+		<meta property="og:title" content="Alpha Co-pilot · three.ws" />
+		<meta
+			property="og:description"
+			content="A 3D agent that narrates its own alpha: it reads real launches in character, cites the live signals it used, and acts only within its spend limits. No competitor has a persona, avatar, and wallet fused like this."
+		/>
+		<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Alpha+Co-pilot&amp;d=Your+agent+reads+a+real+launch+in+character+and+speaks+its+verdict+aloud.&amp;p=%2Falpha-copilot" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Alpha Co-pilot · three.ws" />
+		<meta name="twitter:description" content="A 3D agent narrates its own alpha — reading real launches in character and acting only within hard spend limits." />
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Alpha+Co-pilot&amp;d=Your+agent+reads+a+real+launch+in+character+and+speaks+its+verdict+aloud.&amp;p=%2Falpha-copilot" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/alpha-copilot.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="canonical" href="https://three.ws/alpha-copilot" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Alpha Co-pilot","description":"A 3D AI agent reads a real pump.fun launch in character, grounded in live data, and speaks its verdict aloud — acting only within server-enforced spend limits.","url":"https://three.ws/alpha-copilot","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<meta property="og:locale" content="en_US" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="ac-shell" aria-labelledby="ac-title">
+			<section class="ac-hero">
+				<p class="ac-kicker">
+					<span class="ac-live-dot" aria-hidden="true"></span>
+					In-character alpha · grounded in real pump.fun data
+				</p>
+				<h1 id="ac-title" class="ac-title">Alpha Co-pilot</h1>
+				<p class="ac-sub">
+					Pick an agent. It reads a <strong>real</strong> live launch in character — citing the live
+					liquidity, holder, and smart-money signals it actually saw — and speaks its verdict aloud
+					through its 3D avatar. If you own it, you can act on the call within
+					<strong>hard, server-enforced spend limits</strong>. The persona advises; the limits govern; you consent.
+				</p>
+				<div class="ac-agentpick">
+					<label class="ac-field" for="ac-agent-input">
+						<span>Agent</span>
+						<input type="text" id="ac-agent-input" placeholder="agent id or paste a profile URL" autocomplete="off" spellcheck="false" />
+					</label>
+					<button type="button" class="ac-btn" id="ac-agent-load">Load agent</button>
+				</div>
+			</section>
+
+			<div class="ac-grid">
+				<!-- The narrator: avatar + spoken verdict -->
+				<section class="ac-stage" aria-label="Agent narrator">
+					<div class="ac-stage-avatar" id="ac-avatar-host">
+						<div class="ac-stage-placeholder" id="ac-avatar-placeholder">Load an agent to begin.</div>
+					</div>
+					<div class="ac-stage-meta">
+						<div class="ac-stage-name" id="ac-agent-name">—</div>
+						<div class="ac-stage-role" id="ac-agent-role">Alpha co-pilot</div>
+					</div>
+					<div class="ac-speak" id="ac-speak" aria-live="polite" hidden>
+						<button type="button" class="ac-speak-btn" id="ac-replay" title="Replay aloud" aria-label="Replay aloud">▶</button>
+						<p class="ac-speak-line" id="ac-speak-line"></p>
+					</div>
+				</section>
+
+				<!-- The verdict -->
+				<section class="ac-read" aria-label="The read" id="ac-read-panel">
+					<div class="ac-read-empty" id="ac-read-empty">
+						<p>Choose a live launch and ask your agent for a read. Its verdict, conviction, and the exact signals it used will appear here.</p>
+					</div>
+					<div class="ac-read-body" id="ac-read-body" hidden></div>
+				</section>
+
+				<!-- Live launches -->
+				<section class="ac-launches" aria-label="Live launches">
+					<header class="ac-launches-head">
+						<h2><span class="ac-live-dot" aria-hidden="true"></span> Live launches</h2>
+						<button type="button" class="ac-btn ac-btn-ghost" id="ac-refresh" title="Refresh feed">Refresh</button>
+					</header>
+					<div class="ac-launches-list" id="ac-launches-list" aria-live="polite"></div>
+				</section>
+			</div>
+
+			<p class="ac-disclaimer">
+				This is an agent's opinion grounded in real on-chain data — not financial advice or a guaranteed call.
+				Every number it speaks is checked against the live signals shown; fabricated figures are rejected, never voiced.
+				Actions execute only through the agent's guarded wallet, clamped to its spend policy and fully audited.
+			</p>
+		</main>
+
+		<!-- Confirm-to-act drawer (owner only) -->
+		<div class="ac-drawer" id="ac-act-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="ac-act-title">
+			<div class="ac-modal-backdrop" data-close></div>
+			<div class="ac-drawer-card" role="document">
+				<button class="ac-modal-x" type="button" data-close aria-label="Close">×</button>
+				<h3 id="ac-act-title">Act on this read</h3>
+				<div id="ac-act-body"></div>
+			</div>
+		</div>
+
+		<script type="module" src="/src/alpha-copilot.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

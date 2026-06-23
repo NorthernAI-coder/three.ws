@@ -77,6 +77,11 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'alpha') {
+		const mod = await import('./alpha.js');
+		return mod.default(req, res, id, action);
+	}
+
 	if (sub === 'portfolio') {
 		const mod = await import('./portfolio.js');
 		return mod.default(req, res, id, action);
