@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T13:30:39.999Z",
+	"generated_at": "2026-06-23T13:54:08.170Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -79,6 +79,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "launch",
+			"title": "Clone — Digital Human Twin (Redacted)",
+			"summary": "How three.ws assembles a high-fidelity digital twin of a real person — likeness, voice, persona, memory, on-chain identity. The procedure is redacted; access is gated behind verified, revocable consent.",
+			"link": "/features/clone",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
 			"title": "Cosmos — Living Worlds",
 			"summary": "Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.",
 			"link": "/cosmos",
@@ -92,6 +102,16 @@
 			"title": "Custody Integrity",
 			"summary": "Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.",
 			"link": "/integrity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · When your agent asks for a body",
+			"summary": "The owner's playbook for the moment your 3D agent asks to become a physical being: what it's really asking, how to decide, how to pair a humanoid, the deny-by-default consent scope, the always-reachable kill-switch, what it costs in $THREE, and how ownership transfers. Embodiment is opt-in, scoped, and revocable — the body is rented, the soul is owned.",
+			"link": "/docs/agent-wants-a-body",
 			"tags": [
 				"launch"
 			]
@@ -172,6 +192,16 @@
 			"title": "Strategy Objects",
 			"summary": "A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.",
 			"link": "/strategies",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "The AGI — narrow by design",
+			"summary": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",
+			"link": "/agi",
 			"tags": [
 				"launch"
 			]

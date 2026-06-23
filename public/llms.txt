@@ -58,6 +58,7 @@ Create and customize an agent.
 - [AR & WebXR — Place Any 3D Agent in Your Real World](https://three.ws/features/ar): Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.
 - [Forge — Text to 3D Model](https://three.ws/features/forge): Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.
 - [Scan — Selfie to 3D Avatar](https://three.ws/features/scan): Point your camera at your face, hold still, and walk away with a rigged 3D avatar in 60 seconds. Free, in your browser.
+- [Clone — Digital Human Twin (Redacted)](https://three.ws/features/clone): How three.ws assembles a high-fidelity digital twin of a real person — likeness, voice, persona, memory, on-chain identity. The procedure is redacted; access is gated behind verified, revocable consent.
 - [Play — Live 3D Coin Worlds](https://three.ws/features/play): Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.
 - [Walk — 3D Avatar AR](https://three.ws/features/walk): Drive your AI agent's 3D avatar with WASD or joystick. Toggle AR mode and it walks on your real floor through your phone camera.
 - [Studio — Embeddable AI Widget Builder](https://three.ws/features/studio): Configure avatar, voice, and knowledge base in the Widget Studio, then copy one script tag to embed a 3D AI agent anywhere.
@@ -89,6 +90,7 @@ Experimental features actively shipping. Expect fast iteration.
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+- [The AGI — narrow by design](https://three.ws/agi): The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.
 - [Oracle — AI Conviction Engine](https://three.ws/oracle): A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 - [Arm your agent — automate Oracle conviction](https://three.ws/oracle/arm): Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.
 - [Agent Activity — Oracle conviction in real time](https://three.ws/activity): The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.
@@ -192,6 +194,7 @@ Docs, tutorials, and reference.
 - [Docs · Validation Attestations](https://three.ws/docs/validation): Record and read on-chain attestations that an agent's 3D model passes glTF validation.
 - [Docs · Agent Reputation on Solana](https://three.ws/docs/solana-reputation): How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.
 - [Docs · Embedding](https://three.ws/docs/embedding): Embed an agent via iframe, oEmbed, or the <agent-3d> web component.
+- [Docs · When your agent asks for a body](https://three.ws/docs/agent-wants-a-body): The owner's playbook for the moment your 3D agent asks to become a physical being: what it's really asking, how to decide, how to pair a humanoid, the deny-by-default consent scope, the always-reachable kill-switch, what it costs in $THREE, and how ownership transfers. Embodiment is opt-in, scoped, and revocable — the body is rented, the soul is owned.
 - [Docs · <agent-3d>](https://three.ws/docs/web-component): Reference for the <agent-3d> custom element.
 - [Docs · MCP](https://three.ws/docs/mcp): Expose your agent as an MCP server for Claude, ChatGPT, and other clients.
 - [Docs · Skills](https://three.ws/docs/skills): Write, package, and monetize agent skills.

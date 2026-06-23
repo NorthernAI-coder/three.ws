@@ -249,7 +249,7 @@ function renderRecord(d) {
 				${stat('Closed trades', String(p.closed_count ?? 0))}
 				${stat('Coins traded', String(p.unique_coins ?? 0))}
 			</div>
-			${positions ? `<div class="agi-section-head" style="margin-bottom:var(--space-sm)"><h2 style="font-size:var(--text-md)">Open now</h2><span class="agi-section-sub">${pnlClass(p.unrealized_pnl_sol) === 'agi-neg' ? '' : ''}<span class="${pnlClass(p.unrealized_pnl_sol)}">${fmtSol(p.unrealized_pnl_sol)} SOL unrealized</span></span></div><div class="agi-positions">${positions}</div>` : ''}
+			${positions ? `<div class="agi-section-head" style="margin-bottom:var(--space-sm)"><h2 style="font-size:var(--text-md)">Open now</h2><span class="agi-section-sub"><span class="${pnlClass(p.unrealized_pnl_sol)}">${fmtSol(p.unrealized_pnl_sol)} SOL unrealized</span></span></div><div class="agi-positions">${positions}</div>` : ''}
 			<p class="agi-honesty">Being wrong is visible — that's the point. Every loss above is counted, never hidden. <a href="${ledgerHref}">Interrogate the full ledger →</a></p>
 		</section>`;
 }
