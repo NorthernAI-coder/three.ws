@@ -87,6 +87,54 @@
 			<description>Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.</description>
 		</item>
 		<item>
+			<title>Docs · Intel MCP</title>
+			<link>https://three.ws/docs/mcp-intel</link>
+			<guid isPermaLink="false">2026-06-23:Docs · Intel MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.</description>
+		</item>
+		<item>
+			<title>Docs · Marketplace MCP</title>
+			<link>https://three.ws/docs/mcp-marketplace</link>
+			<guid isPermaLink="false">2026-06-23:Docs · Marketplace MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Browse the public three.ws agent marketplace and skills catalog over MCP.</description>
+		</item>
+		<item>
+			<title>Docs · Naming MCP</title>
+			<link>https://three.ws/docs/mcp-naming</link>
+			<guid isPermaLink="false">2026-06-23:Docs · Naming MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.</description>
+		</item>
+		<item>
+			<title>Docs · Scenes MCP</title>
+			<link>https://three.ws/docs/mcp-scenes</link>
+			<guid isPermaLink="false">2026-06-23:Docs · Scenes MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Speak a placed 3D diorama into being from one sentence, then browse the gallery.</description>
+		</item>
+		<item>
+			<title>Docs · Vanity MCP</title>
+			<link>https://three.ws/docs/mcp-vanity</link>
+			<guid isPermaLink="false">2026-06-23:Docs · Vanity MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.</description>
+		</item>
+		<item>
+			<title>Docs · x402 Wallet MCP</title>
+			<link>https://three.ws/docs/mcp-x402</link>
+			<guid isPermaLink="false">2026-06-23:Docs · x402 Wallet MCP</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.</description>
+		</item>
+		<item>
 			<title>Forge · NIM — Self-Hosted Image to 3D</title>
 			<link>https://three.ws/forge-nim</link>
 			<guid isPermaLink="false">2026-06-23:Forge · NIM — Self-Hosted Image to 3D</guid>

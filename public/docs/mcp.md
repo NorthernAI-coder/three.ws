@@ -109,6 +109,17 @@ npx -y @three-ws/ibm-watsonx-mcp     # IBM watsonx.ai on your own account
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace, so you can install by registry name in any compatible client.
 
+### Per-server guides
+
+Deep dives — every tool, argument, env var, and example for the install-and-run servers:
+
+- [Scenes](/docs/mcp-scenes) — `compose_scene`, `get_scene`, `list_scenes`
+- [x402 Wallet](/docs/mcp-x402) — `find_services`, `inspect_endpoint`, `pay_and_call` (moves real USDC)
+- [Intel](/docs/mcp-intel) — `smart_money_coin`, `wallet_intel`, `signal_feed`, KOL + copy-trade tools
+- [Vanity](/docs/mcp-vanity) — quote, appraise, board, queue, stats, leaderboard, gallery
+- [Naming](/docs/mcp-naming) — `sns_resolve`, `sns_reverse`, `threews_availability`
+- [Marketplace](/docs/mcp-marketplace) — browse agents + skills, categories, agent detail
+
 ### Buying vs. selling
 
 The economy has two sides, and three.ws ships both:

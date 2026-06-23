@@ -86,6 +86,13 @@ npx -y @three-ws/ibm-watsonx-mcp  # IBM watsonx.ai on your own account
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.
 
+### Per-server guides
+
+Deep dives — every tool, argument, env var, and example:
+
+- **Install-and-run:** [Scenes](https://three.ws/docs/mcp-scenes) · [x402 Wallet](https://three.ws/docs/mcp-x402) · [Intel](https://three.ws/docs/mcp-intel) · [Vanity](https://three.ws/docs/mcp-vanity) · [Naming](https://three.ws/docs/mcp-naming) · [Marketplace](https://three.ws/docs/mcp-marketplace)
+- **Hosted remote:** [3D Studio](./mcp-3d-studio.md) · [Agent wallet](./mcp-agent.md) · [x402 Bazaar](./mcp-x402-bazaar.md) · [IBM x402](./ibm-x402-mcp.md)
+
 ---
 
 ## Authentication

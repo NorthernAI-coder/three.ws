@@ -1718,6 +1718,8 @@ Fifteen packages ship from this repo, all published to npm under the **`@three-w
 | [`@three-ws/marketplace-mcp`](packages/marketplace-mcp/) | `npx -y @three-ws/marketplace-mcp` | Browse the public three.ws agent marketplace + skills catalog (read-only) |
 | [`@three-ws/naming-mcp`](packages/naming-mcp/) | `npx -y @three-ws/naming-mcp` | On-chain identity for agents — resolve .sol names, reverse-lookup wallets, check handles |
 
+Per-server deep dives (every tool, argument, env var, and example): [Scenes](https://three.ws/docs/mcp-scenes) · [x402 Wallet](https://three.ws/docs/mcp-x402) · [Intel](https://three.ws/docs/mcp-intel) · [Vanity](https://three.ws/docs/mcp-vanity) · [Naming](https://three.ws/docs/mcp-naming) · [Marketplace](https://three.ws/docs/mcp-marketplace). Full catalog: [docs/mcp.md](docs/mcp.md).
+
 **`@three-ws/sdk` quickstart:**
 
 ```js

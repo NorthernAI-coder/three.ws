@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T15:23:51.918Z",
+	"generated_at": "2026-06-23T15:26:38.759Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1702,6 +1702,66 @@
 					"title": "Docs · MCP",
 					"description": "Expose your agent as an MCP server for Claude, ChatGPT, and other clients.",
 					"added": "2026-04-27",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-scenes",
+					"title": "Docs · Scenes MCP",
+					"description": "Speak a placed 3D diorama into being from one sentence, then browse the gallery.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-x402",
+					"title": "Docs · x402 Wallet MCP",
+					"description": "Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-intel",
+					"title": "Docs · Intel MCP",
+					"description": "Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-vanity",
+					"title": "Docs · Vanity MCP",
+					"description": "Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-naming",
+					"title": "Docs · Naming MCP",
+					"description": "On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/mcp-marketplace",
+					"title": "Docs · Marketplace MCP",
+					"description": "Browse the public three.ws agent marketplace and skills catalog over MCP.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
