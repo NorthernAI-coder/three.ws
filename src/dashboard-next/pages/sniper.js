@@ -128,6 +128,11 @@ const STYLE = `<style>
 .sn-pos-pnl { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .sn-pos-link { font-size: 12px; color: var(--nxt-accent); text-decoration: none; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--nxt-accent) 35%, transparent); border-radius: var(--nxt-radius-sm); white-space: nowrap; transition: background .12s; }
 .sn-pos-link:hover { background: color-mix(in srgb, var(--nxt-accent) 12%, transparent); }
+.sn-pos-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.sn-pos-sell { font-size: 12px; font-family: inherit; padding: 4px 12px; border-radius: var(--nxt-radius-sm); white-space: nowrap; cursor: pointer; color: var(--nxt-danger, #f87171); border: 1px solid color-mix(in srgb, var(--nxt-danger, #f87171) 45%, transparent); background: color-mix(in srgb, var(--nxt-danger, #f87171) 8%, transparent); transition: background .12s, transform .12s; }
+.sn-pos-sell:hover { background: color-mix(in srgb, var(--nxt-danger, #f87171) 16%, transparent); transform: translateY(-1px); }
+.sn-pos-sell:focus-visible { outline: 2px solid var(--nxt-danger, #f87171); outline-offset: 2px; }
+.sn-pos-sell:disabled { opacity: .5; cursor: progress; transform: none; }
 .sn-pos-oracle { display: inline-flex; }
 .sn-ob { display: inline-flex; align-items: center; gap: 3px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 3px 7px; text-decoration: none; transition: border-color .12s; }
 .sn-ob:hover { border-color: rgba(255,255,255,0.22); }
@@ -592,6 +597,13 @@ function posRow(p) {
 	const link = p.buy_url
 		? `<a class="sn-pos-link" href="${esc(p.buy_url)}" target="_blank" rel="noopener">Solscan ↗</a>`
 		: p.mint ? `<a class="sn-pos-link" href="${pumpUrl(p.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>` : '';
+	const sym = p.symbol || p.mint?.slice(0, 8) || 'this position';
+	// One-tap manual exit: sell the agent's full holding of this mint now, at a
+	// real price, via /api/sniper/close (the same executeSell the worker uses).
+	// Only a fully-open position with a known id can be force-closed.
+	const sellBtn = (p.id && p.status === 'open')
+		? `<button class="sn-pos-sell" data-action="sell-now" data-pos="${esc(p.id)}" data-agent="${esc(p.agent_id || '')}" data-mint="${esc(p.mint || '')}" data-net="${esc(p.network || 'mainnet')}" data-sym="${esc(sym)}" title="Sell this position now from the agent wallet">Sell now</button>`
+		: '';
 	const mintAttr = p.mint ? ` data-oracle-mint="${esc(p.mint)}"` : '';
 	return `<div class="sn-pos-row"${mintAttr}>
 		<div class="sn-pos-info">
@@ -601,7 +613,7 @@ function posRow(p) {
 		</div>
 		<div class="sn-pos-pnl">${pnlStr}</div>
 		<span class="sn-pos-oracle"></span>
-		${link}
+		<div class="sn-pos-actions">${sellBtn}${link}</div>
 	</div>`;
 }
 
@@ -867,6 +879,10 @@ function wireEvents(root) {
 		const toggleKill = e.target.closest('[data-action="toggle-kill"]');
 		if (toggleKill) { toggleKill_(toggleKill, root); return; }
 
+		// One-tap manual sell of an open position
+		const sellBtn = e.target.closest('[data-action="sell-now"]');
+		if (sellBtn) { sellNow(sellBtn, root); return; }
+
 		// Arm btn
 		if (e.target.id === 'sn-arm-btn') { openArmModal(root); return; }
 	});
@@ -1088,6 +1104,7 @@ function normPos(p) {
 		id: p.id,
 		agent_id: p.agent_id,
 		agent_name: p.agent_name,
+		network: p.network || 'mainnet',
 		mint: p.mint,
 		symbol: p.symbol || p.name,
 		status: p.status || 'open',

@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, basename } from 'node:path';
 import { Blob } from 'node:buffer';
+import { liftHipsUpright } from './upright-hips.mjs';
 
 // three's loaders + exporter touch a handful of DOM globals; stub them out for node.
 globalThis.self = globalThis;
@@ -272,6 +273,18 @@ async function main() {
 			clip.name = def.name;
 			if (def.trim) trimClip(clip, def.trim);
 			const json = await serializeClip(clip);
+			// Sources whose up-axis conversion rides on the animated Hips (three.js
+			// Soldier/Michelle GLBs) bake a ~90° parent-frame bias the retargeter
+			// can't see — re-stand them upright so the runtime fallen-pose guard
+			// doesn't reject the clip. Opt-in per source; a no-op on healthy clips.
+			if (def.uprightFix) {
+				const lift = liftHipsUpright(json);
+				if (lift.changed) {
+					console.log(
+						`[animations] upright ${def.name.padEnd(12)} ${lift.tiltBefore.toFixed(0)}° → ${lift.tiltAfter.toFixed(0)}°`,
+					);
+				}
+			}
 			const text = JSON.stringify(json);
 			writeFileSync(outPath, text);
 			hashCache[def.name] = cacheKey;
