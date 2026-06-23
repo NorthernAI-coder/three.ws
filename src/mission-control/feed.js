@@ -59,7 +59,8 @@ export function createFeedPane({ store, bus, enrich, mount }) {
 	let source = store.getFilters().source || 'live';
 	let sse = null;
 	let signalsTimer = null;
-	let radarState = null; // null | 'loading' | 'degraded' | 'ok'
+	let radarTimer = null;
+	let radarState = null; // null | 'loading' | 'empty' | 'down' | 'ok'
 	let connState = 'reconnecting'; // mirror of conn:feed so the body can show an honest down-state
 	let rafToken = 0;
 	const rowEls = new Map(); // mint -> element (in current window)
@@ -143,6 +144,7 @@ export function createFeedPane({ store, bus, enrich, mount }) {
 	function stopStreams() {
 		if (sse) { sse.stop(); sse = null; }
 		if (signalsTimer) { clearInterval(signalsTimer); signalsTimer = null; }
+		if (radarTimer) { clearInterval(radarTimer); radarTimer = null; }
 		radarState = null;
 		setConn('reconnecting');
 	}
@@ -230,37 +232,43 @@ export function createFeedPane({ store, bus, enrich, mount }) {
 		signalsTimer = setInterval(tick, SIGNALS_REFRESH_MS);
 	}
 
-	// Radar — pre-launch precursors (epic task 04). Honest degraded state when absent.
+	// Radar — pre-launch precursors (epic task 04, GET /api/sniper/radar). The
+	// precursor stream records `events`, some of which already carry a minted
+	// `mint` — those are the tradeable rows. Polled (the endpoint is cached ~5s).
+	// Honest states: down (unreachable), empty (watching, nothing minted yet), ok.
 	async function startRadar() {
-		radarState = 'loading';
-		setConn('reconnecting');
-		scheduleRender();
-		try {
-			const r = await fetch(`/api/sniper/radar?network=${store.getNetwork()}`, {
-				headers: { accept: 'application/json' },
-			});
-			if (!r.ok) throw new Error(`HTTP ${r.status}`);
-			const data = await r.json();
-			const items = data?.precursors || data?.radar || data?.items || [];
-			if (!Array.isArray(items) || !items.length) {
-				radarState = 'degraded';
+		if (radarState == null) radarState = 'loading';
+		const tick = async () => {
+			try {
+				const r = await fetch(`/api/sniper/radar?network=${store.getNetwork()}`, { headers: { accept: 'application/json' } });
+				if (!r.ok) throw new Error(`HTTP ${r.status}`);
+				const data = await r.json();
+				const events = (Array.isArray(data?.events) ? data.events : []).filter((e) => e?.mint);
+				if (data?.ok === false) { radarState = 'down'; setConn('down'); return; }
+				if (!events.length) {
+					radarState = 'empty';
+					setConn('live'); // the source IS reachable; it just has no minted precursor yet
+					return;
+				}
+				radarState = 'ok';
+				setConn('live');
+				for (const e of events) {
+					const created = e.observed_ts || e.created_at;
+					store.upsertRow({
+						mint: e.mint,
+						created_at: created ? Math.floor(new Date(created).getTime() / 1000) : Math.floor(Date.now() / 1000),
+						radar: { reason: e.watch_reason || e.kind, confidence: e.confidence, score: e.watch_score, fired: e.fired },
+						source: 'radar',
+					});
+				}
+			} catch {
+				// Unreachable (404 / network) — degrade honestly, no fabricated rows.
+				radarState = 'down';
 				setConn('down');
-				scheduleRender();
-				return;
 			}
-			radarState = 'ok';
-			setConn('live');
-			for (const it of items) {
-				if (!it?.mint) continue;
-				store.upsertRow({ ...it, source: 'radar' });
-			}
-			scheduleRender();
-		} catch {
-			// Source not live (404 / network) — degrade honestly, no fabricated rows.
-			radarState = 'degraded';
-			setConn('down');
-			scheduleRender();
-		}
+		};
+		await tick();
+		radarTimer = setInterval(tick, SIGNALS_REFRESH_MS);
 	}
 
 	// ── virtualized render ─────────────────────────────────────────────────────
@@ -346,10 +354,18 @@ export function createFeedPane({ store, bus, enrich, mount }) {
 			<span class="mc-row-age mc-num">${age}</span>
 			<span class="mc-row-meta">
 				<span class="mc-row-mc mc-num">MC <b>${mc}</b></span>
+				${radarChip(row)}
 				${intelChip(row)}
 				${safetyChip(row)}
 				${smartChip(row)}
 			</span>`;
+	}
+
+	function radarChip(row) {
+		if (!row.radar) return '';
+		const conf = row.radar.confidence != null ? ` ${Math.round(Number(row.radar.confidence) * 100)}%` : '';
+		const reason = row.radar.reason ? String(row.radar.reason).replace(/_/g, ' ') : 'precursor';
+		return `<span class="mc-chip mc-chip--smart" title="Pre-launch radar signal">◬ ${escapeHtml(reason)}${conf}</span>`;
 	}
 
 	function intelChip(row) {
@@ -373,13 +389,21 @@ export function createFeedPane({ store, bus, enrich, mount }) {
 
 	// ── state panels (loading / empty / degraded) ──────────────────────────────
 	function pickStatePanel(rows) {
-		if (source === 'radar' && radarState === 'degraded') {
-			return {
-				html: stateHtml('◎', 'Pre-launch radar is offline', 'The radar precursor stream isn’t live in this environment yet. Switch to <b>Live</b> for the new-launch firehose or <b>Signals</b> for scored launches.', 'Switch to Live'),
-				wire: (host) => host.querySelector('button')?.addEventListener('click', () => switchSource('live')),
-			};
+		if (source === 'radar') {
+			if (radarState === 'loading') return { html: skeletonHtml() };
+			if (radarState === 'down') {
+				return {
+					html: stateHtml('⚠', 'Pre-launch radar is unreachable', 'We can’t reach the radar precursor stream right now and we’re retrying. Switch to <b>Live</b> for the new-launch firehose or <b>Signals</b> for scored launches.', 'Switch to Live'),
+					wire: (host) => host.querySelector('button')?.addEventListener('click', () => switchSource('live')),
+				};
+			}
+			if (radarState === 'empty' && !rows.length) {
+				return {
+					html: stateHtml('◎', 'Radar armed — watching', 'The pre-launch radar is tracking smart-money wallets, but none have minted a coin yet. New precursors that mint will appear here the moment they do.', 'See Live launches'),
+					wire: (host) => host.querySelector('button')?.addEventListener('click', () => switchSource('live')),
+				};
+			}
 		}
-		if (source === 'radar' && radarState === 'loading') return { html: skeletonHtml() };
 		if (!rows.length) {
 			if (store.allRowsCount() === 0) {
 				// Source unreachable with nothing received yet — show an honest,

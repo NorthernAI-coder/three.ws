@@ -155,7 +155,9 @@ export function computeStandings(tournament, pairs, { solUsd = null, now = Date.
 		return {
 			agent_id: entry.agent_id,
 			agent_name: entry.agent_name || null,
-			image: entry.profile_image_url || entry.avatar_url || null,
+			// Row thumbnails render as <img>, so only use a flat profile image here; the
+			// glb (avatar_url) drives the 3D spotlight separately and isn't an image.
+			image: entry.profile_image_url || null,
 			glb_url: entry.avatar_url || null,
 			wallet: entry.wallet || null,
 			joined_at: entry.joined_at,

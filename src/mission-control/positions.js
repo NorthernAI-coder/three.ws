@@ -50,6 +50,7 @@ export function createPositionsPane({ store, bus, mount }) {
 	let holdingsTimer = null;
 	let rafToken = 0;
 	let agentId = store.getAgent()?.id || null;
+	let connState = 'reconnecting';
 	let summaryTween = { from: 0, to: 0, t0: 0, raf: 0 };
 
 	const keyOf = (p) => (p.source === 'spot' ? `spot:${p.mint}` : `snipe:${p.id}`);
@@ -155,7 +156,7 @@ export function createPositionsPane({ store, bus, mount }) {
 	function startStream() {
 		sse = createSseClient({
 			url: `/api/sniper/stream?network=${store.getNetwork()}`,
-			onState: (s) => bus.emit('conn:positions', s),
+			onState: (s) => { connState = s; bus.emit('conn:positions', s); scheduleRender(); },
 			events: {
 				open: () => {},
 				buy: (d) => { if (d?.agent_id === agentId) { ingestSniper(d, 'open'); flash(d.mint, d.pnl_pct); scheduleRender(); } },
@@ -226,6 +227,10 @@ export function createPositionsPane({ store, bus, mount }) {
 			return;
 		}
 		if (!open.length && !closed.length) {
+			if (connState === 'down') {
+				body.innerHTML = stateHtml('⚠', 'Position stream unreachable', 'We can’t reach the live position stream right now and we’re retrying. Nothing stale is shown.');
+				return;
+			}
 			body.innerHTML = stateHtml('▦', 'No open positions', 'Buy a coin from the feed to open your first position — its live PnL streams here.');
 			return;
 		}

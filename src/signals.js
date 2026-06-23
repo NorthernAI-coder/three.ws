@@ -121,7 +121,7 @@ function card(f) {
 			</div>
 			<div class="sm-card-foot">
 				<div class="sm-price">${priceBlock(f.pricing)}</div>
-				${thin || `<span class="sm-view">${s.subscribers} sub${s.subscribers === 1 ? '' : 's'} · View →</span>`}
+				<div style="display:flex;align-items:center;gap:8px">${thin}<span class="sm-view">${s.subscribers} sub${s.subscribers === 1 ? '' : 's'} · View →</span></div>
 			</div>
 		</a>`;
 }
