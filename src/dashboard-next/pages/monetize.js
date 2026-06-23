@@ -265,7 +265,7 @@ function renderHero({ available, revenue, creatorPlans, subscribedTo, pendingRoy
 	wrap.appendChild(
 		heroCard({
 			title: 'Subscription income',
-			value: subIncomeUsd > 0 ? `$${subIncomeUsd.toFixed(2)}` : '$0.00',
+			value: formatUsd(subIncomeUsd),
 			sub: activeSubs > 0
 				? `${activeSubs} active subscriber${activeSubs === 1 ? '' : 's'} · paid directly to your wallet (last 30 days)`
 				: 'Recurring plan revenue, paid directly to your wallet.',
@@ -849,6 +849,15 @@ function formatNetUsdc(amount) {
 	if (!Number.isFinite(n) || n <= 0) return '$0.00';
 	const decimals = n < 0.01 ? 6 : n < 1 ? 4 : 2;
 	return `$${n.toFixed(decimals)}`;
+}
+
+// Format a USD-denominated amount (already in dollars, not atomics) with thousands
+// separators — e.g. 1234.5 → "$1,234.56". Matches formatUsdc's output so subscription
+// income and plan prices read consistently with the rest of the dashboard.
+function formatUsd(amount) {
+	const n = Number(amount);
+	if (!Number.isFinite(n)) return '$0.00';
+	return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 function humanizeSkill(skill) {
@@ -1596,7 +1605,7 @@ async function loadCosmeticEarnings(body, wallet) {
 	}
 
 	const t = data?.totals || {};
-	const usd = (n) => '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	const usd = formatUsd;
 
 	if (!t.sales) {
 		body.innerHTML = `
@@ -1800,7 +1809,7 @@ function renderSubscriptionPlans({ creatorPlans, me }) {
 										${p.description ? `<div style="font-size:12px;color:var(--nxt-ink-dim)">${esc(p.description.slice(0, 80))}</div>` : ''}
 									</td>
 									<td style="text-align:right;font-variant-numeric:tabular-nums">
-										$${esc(Number(p.price_usd || 0).toFixed(2))}
+										${esc(formatUsd(p.price_usd))}
 									</td>
 									<td style="color:var(--nxt-ink-dim)">${esc(p.interval || 'monthly')}</td>
 									<td>

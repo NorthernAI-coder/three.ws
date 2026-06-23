@@ -1288,7 +1288,7 @@ export default wrap(async (req, res) => {
 		// must carry a fuzz radius (clamped to the sane band); a missing/invalid
 		// placement (or an old client that sends neither) defaults to 'precise' with
 		// no radius, so behaviour is unchanged for every existing caller.
-		const rawKind        = String(body.placementKind ?? body.placement_kind ?? '').toLowerCase();
+		const rawKind        = String(body.placement ?? body.placementKind ?? body.placement_kind ?? '').toLowerCase();
 		const placementKind  = PLACEMENT_KINDS.has(rawKind) ? rawKind : 'precise';
 		const rawFuzz        = Number(body.fuzzRadiusM ?? body.fuzz_radius_m);
 		const fuzzRadiusM    = placementKind === 'approximate' && Number.isFinite(rawFuzz)
