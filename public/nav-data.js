@@ -72,6 +72,12 @@ export const NAV_GROUPS = [
 				badge: 'New',
 				desc: 'Pose with IK, keyframe a timeline → animated GLB you can sell',
 			},
+			{
+				title: 'CA → x402',
+				href: '/ca2x402',
+				badge: 'New',
+				desc: 'Paste any token contract address → a live, agent-payable x402 endpoint for its market intel',
+			},
 		],
 	},
 	{
