@@ -12,6 +12,7 @@ import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountMoneyPulse } from './shared/money-pulse.js';
 import { mountMirrorPanel } from './shared/agent-mirror-panel.js';
+import { mountStrategyPanel } from './shared/agent-strategy-panel.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
@@ -35,6 +36,7 @@ const coinStatusHandles = [];
 // polling interval + observers don't leak.
 let _pulseHandle = null;
 let _mirrorHandle = null;
+let _strategyHandle = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
@@ -794,6 +796,20 @@ function render(agent) {
 		const wMeta = agent.rawMetadata?.meta || {};
 		if (mirrorPanel && wMeta.solana_address) {
 			_mirrorHandle = mountMirrorPanel({ mount: mirrorPanel, agent, isOwner: !!agent.isOwner });
+		}
+	}
+
+	// Strategy Objects — equip a real, rule-based plan and the agent trades it for
+	// real within the spend policy (owner), or equip a strategy this creator
+	// publishes with your own agent (visitor). Sibling primitive to mirroring; the
+	// panel reveals its own card (#ad-strategy-objects-card) only when there's
+	// something to show.
+	{
+		const strategyPanel = $('ad-strategy-panel');
+		if (_strategyHandle) { try { _strategyHandle.destroy(); } catch { /* idempotent */ } _strategyHandle = null; }
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (strategyPanel && wMeta.solana_address) {
+			_strategyHandle = mountStrategyPanel({ mount: strategyPanel, agent, isOwner: !!agent.isOwner });
 		}
 	}
 

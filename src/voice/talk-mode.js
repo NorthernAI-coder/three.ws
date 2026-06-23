@@ -56,6 +56,7 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	const holdBtn = overlay.querySelector('.tws-talk-hold');
 	const statusEl = overlay.querySelector('.tws-talk-status');
 	const transcriptEl = overlay.querySelector('.tws-talk-transcript');
+	const partialEl = overlay.querySelector('.tws-talk-partial');
 	const errEl = overlay.querySelector('.tws-talk-error');
 	const nameEl = overlay.querySelector('.tws-talk-name');
 	const cloneBtn = overlay.querySelector('.tws-talk-clone');
@@ -108,13 +109,65 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 			showError(errEl, `Could not load avatar: ${err.message}`);
 		});
 
+	// Live mic-level meter — drives the hold button's ring from real captured audio
+	// (Riva path). rAF runs only while listening so it costs nothing at rest.
+	let levelRaf = null;
+	const stopLevelMeter = () => {
+		if (levelRaf) cancelAnimationFrame(levelRaf);
+		levelRaf = null;
+		holdBtn.style.setProperty('--tws-mic-level', '0');
+	};
+	const startLevelMeter = () => {
+		stopLevelMeter();
+		const tick = () => {
+			holdBtn.style.setProperty('--tws-mic-level', controller.micLevel.toFixed(3));
+			levelRaf = requestAnimationFrame(tick);
+		};
+		levelRaf = requestAnimationFrame(tick);
+	};
+
 	controller = new TalkController({
 		avatar,
 		systemPromptFn,
 		mouthTarget,
 		onMessage: (m) => appendTranscript(transcriptEl, m),
-		onStateChange: (s) => setStatus(statusEl, s),
-		onError: (e) => showError(errEl, e.message),
+		onInterim: (t) => setPartial(partialEl, t),
+		onStateChange: (s) => {
+			setStatus(statusEl, s);
+			if (s === 'listening') startLevelMeter();
+			else stopLevelMeter();
+			// The interim line belongs to an in-flight utterance; clear it once the
+			// turn has moved on to the model or back to rest.
+			if (s === 'thinking' || s === 'idle') setPartial(partialEl, '');
+		},
+		onError: (e) => handleTalkError(e),
+	});
+
+	// Route recognition failures: a denied mic or an environment with no recognizer
+	// at all degrades to the always-present text input rather than a dead end.
+	function handleTalkError(e) {
+		showError(errEl, e.message);
+		if (e?.code === 'permission-denied' || e?.code === 'no-mic') {
+			textInput?.focus();
+		} else if (e?.code === 'stt-unavailable') {
+			holdBtn.classList.add('tws-talk-hold-disabled');
+			holdBtn.setAttribute('aria-disabled', 'true');
+			textInput?.focus();
+		}
+	}
+
+	// Resolve the speech-to-text path up front (probes the free Riva lane). When no
+	// recognizer exists at all, retire the mic button and lead with text input.
+	controller.prepare().then((mode) => {
+		if (mode === 'none') {
+			holdBtn.hidden = true;
+			textInput?.focus();
+		} else {
+			holdBtn.title =
+				mode === 'riva'
+					? 'Hold to talk — powered by NVIDIA Riva speech-to-text'
+					: 'Hold to talk';
+		}
 	});
 
 	// ── Conversational Wallet (owner-only) ──────────────────────────────
@@ -178,6 +231,7 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	// ── Hold-to-talk ───────────────────────────────────────────────────
 	const startHold = (ev) => {
 		ev.preventDefault();
+		if (holdBtn.classList.contains('tws-talk-hold-disabled')) return;
 		if (controller.state !== 'idle' && controller.state !== 'speaking') return;
 		controller.stop(); // truncate any in-flight speech so the user can interrupt
 		controller.startListening();
@@ -194,6 +248,20 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	holdBtn.addEventListener('touchstart', startHold, { passive: false });
 	holdBtn.addEventListener('touchend', endHold);
 	holdBtn.addEventListener('touchcancel', endHold);
+	// Keyboard: when the mic button is focused, Space/Enter is press-and-hold
+	// (down = listen, up = send). preventDefault suppresses the synthetic click a
+	// button would otherwise fire so a single keypress isn't a start+stop in one.
+	holdBtn.addEventListener('keydown', (e) => {
+		if (e.key !== ' ' && e.key !== 'Enter') return;
+		e.preventDefault();
+		if (e.repeat) return;
+		startHold(e);
+	});
+	holdBtn.addEventListener('keyup', (e) => {
+		if (e.key !== ' ' && e.key !== 'Enter') return;
+		e.preventDefault();
+		endHold(e);
+	});
 
 	// Keyboard: Space = hold-to-talk while overlay is open.
 	const onKey = (e) => {
@@ -285,6 +353,7 @@ const TEMPLATE = `
 	<div class="tws-talk-lipsync-notice" hidden role="status"></div>
 	<div class="tws-talk-emotes" hidden role="toolbar" aria-label="Emote shortcuts"></div>
 	<div class="tws-talk-transcript" aria-live="polite"></div>
+	<div class="tws-talk-partial" aria-live="polite" hidden></div>
 	<div class="tws-talk-controls">
 		<button class="tws-talk-wallet-hint" type="button" hidden></button>
 		<button class="tws-talk-hold" type="button" aria-label="Hold to talk">
@@ -304,6 +373,7 @@ const TEMPLATE = `
 const STATUS_LABEL = {
 	idle: 'Ready',
 	listening: 'Listening…',
+	transcribing: 'Transcribing…',
 	thinking: 'Thinking…',
 	speaking: 'Speaking',
 };
@@ -350,6 +420,21 @@ function renderEmoteBar(barEl, emotes, errEl) {
 			if (!ok && errEl) showError(errEl, `Emote "${btn.dataset.name}" could not play.`);
 		});
 	});
+}
+
+// Live (non-final) transcript shown while the user is still speaking. Hidden when
+// empty; cleared once the utterance is finalized into a real transcript row.
+function setPartial(el, text) {
+	if (!el) return;
+	const t = String(text || '').trim();
+	if (!t) {
+		el.hidden = true;
+		el.textContent = '';
+		return;
+	}
+	el.textContent = t;
+	el.hidden = false;
+	el.scrollIntoView?.({ block: 'nearest' });
 }
 
 function appendTranscript(el, msg) {
@@ -546,6 +631,9 @@ const TALK_CSS = `
 	transition: transform 0.1s, box-shadow 0.15s;
 }
 .tws-talk-hold:hover { transform: translateY(-1px); }
+.tws-talk-hold:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.tws-talk-hold-disabled { opacity: 0.4; cursor: not-allowed; }
+.tws-talk-hold-disabled:hover { transform: none; }
 .tws-talk-hold-dot {
 	display: inline-block; width: 10px; height: 10px; border-radius: 999px;
 	background: #ef4444;
@@ -553,7 +641,8 @@ const TALK_CSS = `
 }
 .tws-talk-hold-active {
 	background: #ef4444; color: #fff;
-	box-shadow: 0 0 0 6px rgba(239,68,68,0.18);
+	/* Ring expands with the live captured mic level (--tws-mic-level, 0..1). */
+	box-shadow: 0 0 0 calc(5px + var(--tws-mic-level, 0) * 18px) rgba(239,68,68,0.18);
 }
 .tws-talk-hold-active .tws-talk-hold-dot {
 	background: #fff;
@@ -603,9 +692,18 @@ const TALK_CSS = `
 	color: #71717a;
 	transition: color 0.2s;
 }
-.tws-talk-status[data-state="listening"] { color: #f43f5e; }
-.tws-talk-status[data-state="thinking"]  { color: #ffffff; }
-.tws-talk-status[data-state="speaking"]  { color: #34d399; }
+.tws-talk-status[data-state="listening"]    { color: #f43f5e; }
+.tws-talk-status[data-state="transcribing"] { color: #7dd3fc; }
+.tws-talk-status[data-state="thinking"]     { color: #ffffff; }
+.tws-talk-status[data-state="speaking"]     { color: #34d399; }
+.tws-talk-partial {
+	padding: 2px 24px 6px;
+	font-size: 14px; line-height: 1.45;
+	color: #cbd5e1; font-style: italic;
+	text-align: right;
+	overflow-wrap: anywhere;
+	animation: tws-notice-in 160ms ease-out;
+}
 .tws-talk-error {
 	position: absolute; left: 50%; bottom: 100px;
 	transform: translateX(-50%);
@@ -652,6 +750,7 @@ const TALK_CSS = `
 	.tws-talk-header { padding: 12px 16px 0; }
 	.tws-talk-lipsync-notice { margin: 0 16px; padding: 8px 12px; font-size: 12px; }
 	.tws-talk-transcript { padding: 8px 16px; max-height: 120px; }
+	.tws-talk-partial { padding: 2px 16px 6px; }
 	.tws-talk-controls { padding: 12px 16px 20px; }
 	.tws-talk-hold { padding: 12px 22px; font-size: 14px; }
 }

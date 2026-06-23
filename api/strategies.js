@@ -128,15 +128,22 @@ async function handleList(req, res, auth) {
 		return json(res, 200, { data: { scope, strategies: rows.map((r) => publicStrategy(r, perf.get(r.id), names.get(r.owner_id))) } });
 	}
 
-	// Published marketplace (public). An optional `author` filters to one creator's
-	// published strategies — the agent-profile "strategies this creator publishes".
+	// Published marketplace (public). Optional filters: `author` (a user id) or
+	// `agent` (resolve that agent's creator server-side, so the agent-profile panel
+	// can show "strategies this creator publishes" without exposing the owner id).
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
-	const author = p.get('author');
+	let author = isUuid(p.get('author')) ? p.get('author') : null;
+	const agentParam = p.get('agent');
+	if (!author && isUuid(agentParam)) {
+		const [a] = await sql`SELECT user_id FROM agent_identities WHERE id = ${agentParam} AND deleted_at IS NULL`.catch(() => [null]);
+		author = a?.user_id || null;
+		if (!author) return json(res, 200, { data: { scope, sort, strategies: [] } });
+	}
 	const rows = await sql`
 		SELECT * FROM agent_strategies
 		WHERE published = true AND deleted_at IS NULL
-		${isUuid(author) ? sql`AND owner_id = ${author}` : sql``}
+		${author ? sql`AND owner_id = ${author}` : sql``}
 		${q ? sql`AND (name ILIKE ${'%' + q + '%'} OR description ILIKE ${'%' + q + '%'})` : sql``}
 		ORDER BY ${sort === 'forks' ? sql`forks_count DESC` : sort === 'equips' ? sql`equips_count DESC` : sql`published_at DESC`}
 		LIMIT ${limit}

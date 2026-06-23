@@ -1998,13 +1998,6 @@ function anchorGpsPin() {
 	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
 	const pinLat = gpsState.lat + (-avatarRig.position.z / mLat);
 	const pinLng = gpsState.lng + ( avatarRig.position.x / mLng);
-	// Close-range placement (a spot on a table, a chair) needs sub-metre anchoring,
-	// which GPS never delivers. Only hand rendering to the viewer-centric GPS frame
-	// when the fix is accurate enough not to make things worse — outdoors with a
-	// clear sky. Indoors the fix is far too coarse (tens of metres), so keep the
-	// rock-solid local gyro lock that holds the avatar exactly where it was dropped;
-	// the pin still persists below for nearby discovery, and onGPSPosition() upgrades
-	// to the GPS frame the moment a fix lands under GPS_RENDER_MAX_ACC_M.
 	// Local→GPS upgrade: glide the camera from the gyro pivot to the viewer origin
 	// instead of snapping. The avatar holds its world spot (its placed position is the
 	// pin's round-trip), so easing the only thing that moves — the camera — keeps it
