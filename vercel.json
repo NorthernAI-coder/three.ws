@@ -677,6 +677,10 @@
 			"dest": "/leaderboard.html"
 		},
 		{
+			"src": "/mirror/?",
+			"dest": "/mirror.html"
+		},
+		{
 			"src": "/mint-success/?",
 			"dest": "/mint-success.html"
 		},
