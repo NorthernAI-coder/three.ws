@@ -256,7 +256,10 @@ function rowEl(ev) {
 					solana_vanity_suffix: ev.agent.solana_vanity_suffix,
 				},
 			},
-			{ link: false, tip: false, showPending: false },
+			// Lean inline chip — just the vanity-aware address. No live-balance
+			// hydration or popover per row (one feed can show dozens of chips; we
+			// never want a balance request storm here).
+			{ link: false, tip: false, showPending: false, balance: false, popover: false },
 		);
 		if (chip) {
 			const slot = document.createElement('span');
@@ -460,15 +463,15 @@ export function mountMoneyPulse({
 		listEl.setAttribute('role', 'feed');
 		listEl.setAttribute('aria-busy', 'true');
 		mount.appendChild(listEl);
-		if (variant !== 'agent' || true) {
-			moreBtn = document.createElement('button');
-			moreBtn.type = 'button';
-			moreBtn.className = 'mp-more';
-			moreBtn.textContent = 'Load more';
-			moreBtn.hidden = true;
-			moreBtn.addEventListener('click', loadMore);
-			mount.appendChild(moreBtn);
-		}
+		// Load-more works for both full and agent variants (a wallet's story can be
+		// long); it stays hidden until the API reports another page.
+		moreBtn = document.createElement('button');
+		moreBtn.type = 'button';
+		moreBtn.className = 'mp-more';
+		moreBtn.textContent = 'Load more';
+		moreBtn.hidden = true;
+		moreBtn.addEventListener('click', loadMore);
+		mount.appendChild(moreBtn);
 	}
 
 	function setLiveState(s) {
