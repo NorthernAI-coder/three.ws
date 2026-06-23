@@ -453,10 +453,20 @@ class App {
 		const model = options.model || '/avatars/cz.glb';
 		const resolvedModel = resolveModelUrl(model);
 		const isDefaultCz = !options.model;
-		const loadPromise = this.view(resolvedModel, '', new Map());
-		if (isDefaultCz) {
-			loadPromise?.then?.(() => this._playDefaultLandingClip('taunt'));
-		}
+		const loadModel = () => this.view(resolvedModel, '', new Map());
+		// Always terminate the load promise. The widget/kiosk path passes a remote
+		// model URL (e.g. an R2 draft GLB) that can 404 or fail the network fetch —
+		// without a .catch the rejection escaped as an "unhandledrejection: Load
+		// failed", reported through [client-error] but leaving the viewer on a blank
+		// frame. Show the same designed error/retry state the agent paths use.
+		Promise.resolve(loadModel())
+			.then(() => {
+				if (isDefaultCz) this._playDefaultLandingClip('taunt');
+			})
+			.catch((err) => {
+				log.warn('[3d-agent] model load failed', err);
+				this._showViewerError("Couldn't load this model.", () => loadModel());
+			});
 	}
 
 	/**
