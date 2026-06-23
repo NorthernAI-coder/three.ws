@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Strategy Objects: equip an ownable, forkable trading strategy on your agent",
+			"summary": "A trading strategy is now a real thing you own — not a buried setting. A Strategy Object encodes a rule-based plan (snipe launches under N minutes old with the liquidity and market-cap you want, size each buy, take profit at 2×, stop out at −40%, cap concurrent positions, cool down between entries) as a named, versioned, ownable object. Equip it on your agent and it trades the rules for real, on-chain — every entry triggered by a real pump.fun launch, every exit by a real on-chain re-quote, and every order routed through the exact same spend-policy guardrails, rug/honeypot firewall, and custody audit trail as your manual trades. It can never exceed your leash: a strategy buy is gated by your per-trade cap, daily budget, and price-impact breaker, labeled strategy:<name> in the custody trail, and one global kill switch halts all your strategies at once. Publish your strategy to the new marketplace at /strategies, fork anyone else's into your library (you copy the rules with full credit to the author — never any wallet access; you run them under your own spend policy), and watch the leaderboard rank strategies by verified live ROI from real closed positions. Strategies with no closed trades are honestly labeled \"Unproven\" — there are no fabricated backtest curves. Manage equipped strategies, their live positions, and the kill switch right on your agent's profile, next to copy-trading. Owner-only to configure; find it at /strategies or on any agent's profile.",
+			"tags": [
+				"feature"
+			],
+			"link": "/strategies"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Wallet Intents: tell your agent's wallet what to do — in plain language",
 			"summary": "Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — \"tip back anyone who tips me more than 0.1 SOL, half of what they sent\", \"when my balance is under 0.05 SOL freeze all spending and DM me\", \"every Friday withdraw anything above 2 SOL to my main wallet\", \"split 10% of everything I earn to my other wallet\", or \"snipe launches from this creator under $40k, max 1 SOL each\". The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (\"on a 0.2 SOL tip, this sends back 0.1 SOL\") before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet \"how am I doing?\" and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.",
 			"tags": [

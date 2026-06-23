@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:55:20.442Z",
+	"generated_at": "2026-06-23T06:03:28.559Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -451,6 +451,16 @@
 			"type": "update",
 			"title": "Strategy Objects: equip an ownable, forkable trade strategy on your agent",
 			"summary": "A trading strategy is now a first-class thing you can own, share, and equip — not a buried setting. Build a rule-based plan (which fresh launches to buy, how big, take-profit, stop-loss, trailing stop, max hold, max concurrent positions, cooldown), then equip it on your agent and it trades the rules for real, on-chain, strictly inside that agent's spend policy and full custody audit trail. Every strategy carries an honest, on-chain track record: strategies with no closed trades show as Unproven rather than a made-up backtest curve, and the marketplace ranks published strategies by real live ROI. Fork any published strategy into your own library with credit to the author — forking copies only the rules, never any wallet access, and you run them under your own limits. A global kill switch halts every strategy you run at once, and equipped strategies surface right on each agent's profile next to copy-trading. Browse and manage everything at /strategies.",
+			"link": "/strategies",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Strategy Objects: equip an ownable, forkable trading strategy on your agent",
+			"summary": "A trading strategy is now a real thing you own — not a buried setting. A Strategy Object encodes a rule-based plan (snipe launches under N minutes old with the liquidity and market-cap you want, size each buy, take profit at 2×, stop out at −40%, cap concurrent positions, cool down between entries) as a named, versioned, ownable object. Equip it on your agent and it trades the rules for real, on-chain — every entry triggered by a real pump.fun launch, every exit by a real on-chain re-quote, and every order routed through the exact same spend-policy guardrails, rug/honeypot firewall, and custody audit trail as your manual trades. It can never exceed your leash: a strategy buy is gated by your per-trade cap, daily budget, and price-impact breaker, labeled strategy:<name> in the custody trail, and one global kill switch halts all your strategies at once. Publish your strategy to the new marketplace at /strategies, fork anyone else's into your library (you copy the rules with full credit to the author — never any wallet access; you run them under your own spend policy), and watch the leaderboard rank strategies by verified live ROI from real closed positions. Strategies with no closed trades are honestly labeled \"Unproven\" — there are no fabricated backtest curves. Manage equipped strategies, their live positions, and the kill switch right on your agent's profile, next to copy-trading. Owner-only to configure; find it at /strategies or on any agent's profile.",
 			"link": "/strategies",
 			"tags": [
 				"feature"

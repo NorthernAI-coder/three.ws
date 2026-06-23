@@ -34,6 +34,7 @@ const IGNORE = new Set([
 	'/verify-email',
 	'/oauth/consent',
 	'/oauth/authorize',
+	'/500', // server-error page, served on failure — not a discovery page
 	'/changelog', // meta-page about the index itself
 	'/news', // long-tail, generated dynamically by build-news.mjs
 	'/home-v2', // A/B alias of /
