@@ -211,6 +211,13 @@ export const limits = {
 	authIp: (ip) => getLimiter('auth:ip', { limit: 30, window: '10 m', critical: true }).limit(ip),
 	registerIp: (ip) =>
 		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true }).limit(ip),
+	// NL→strategy compile (api/sniper/compile.js) runs a real LLM call per request,
+	// so it gets a dedicated, tighter-than-trading bucket: enough to iterate on a
+	// strategy a few times, bounded so it can't be turned into a free LLM relay.
+	sniperCompileIp: (ip) => getLimiter('sniper:compile:ip', { limit: 20, window: '10 m' }).limit(ip),
+	// Strategy backtest (api/sniper/backtest.js) is a read-only replay over captured
+	// history; cached by strategy hash, so this only gates cache-miss origin work.
+	sniperBacktestIp: (ip) => getLimiter('sniper:backtest:ip', { limit: 40, window: '5 m' }).limit(ip),
 	// pump.fun coin metadata upload (name/symbol/image → R2 JSON). Cheap and
 	// idempotent, so it gets its own bucket instead of draining the strict
 	// `authIp` budget shared by on-chain buy/sell/launch actions. Iterating in

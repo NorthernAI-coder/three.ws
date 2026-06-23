@@ -1,0 +1,28 @@
+{
+  "name": "@three-ws/guardian",
+  "version": "0.1.0",
+  "description": "Content safety + governance for AI agents in one import. IBM Granite Guardian risk classification, NVIDIA NemoGuard content moderation, autonomous-send caps, and a tamper-evident audit ledger — over the three.ws Trust Layer.",
+  "keywords": [
+    "ai-safety",
+    "content-moderation",
+    "guardrails",
+    "granite-guardian",
+    "jailbreak-detection",
+    "prompt-injection",
+    "agent-governance",
+    "watsonx",
+    "trust-layer",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}

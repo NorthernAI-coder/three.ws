@@ -1,0 +1,28 @@
+{
+  "name": "@three-ws/strategies",
+  "version": "0.1.0",
+  "description": "Automated on-chain trading strategies for agents — DCA, copy-trading, and mirror execution, in one import. Rule-based Strategy Objects that run inside the agent's spend leash.",
+  "keywords": [
+    "trading",
+    "strategy",
+    "dca",
+    "copy-trading",
+    "mirror-trading",
+    "solana",
+    "agents",
+    "on-chain",
+    "automation",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}
