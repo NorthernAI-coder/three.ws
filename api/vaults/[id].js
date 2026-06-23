@@ -86,7 +86,7 @@ async function handleGet(req, res, id) {
 			roi_bps: roiBps(nav.navAtomics, totalShares),
 			total_shares: String(totalShares),
 			priced: nav.priced,
-			peak_nav_atomics: String(vault.peak_nav_atomics),
+			peak_share_price_e6: String(vault.peak_share_price_e6),
 		},
 		positions: nav.positions.map((p) => ({ mint: p.mint, amount_raw: p.amount_raw, mark_atomics: p.mark_atomics })),
 		backer_count: backers.length,

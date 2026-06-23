@@ -209,6 +209,38 @@ describe('peak roll + roi + conversions', () => {
 	});
 });
 
+describe('drawdown breaker tracks SHARE PRICE, not raw NAV', () => {
+	// The breaker must measure NAV-per-share so capital flows (deposits/redemptions)
+	// never falsely trip it — only real trading losses do.
+	it('a deposit moves NAV but not share price → no false drawdown', () => {
+		let total = sharesForDeposit(100n * USDC, 0n, 0n); // 100 shares @ par
+		const priceBefore = sharePriceE6(100n * USDC, total);
+		// Second backer deposits 100 at the same price.
+		const minted = sharesForDeposit(100n * USDC, 100n * USDC, total);
+		total += minted;
+		const priceAfter = sharePriceE6(200n * USDC, total);
+		expect(priceAfter).toBe(priceBefore); // price unchanged by the deposit
+		const peak = nextPeak(priceBefore, priceAfter);
+		expect(isDrawdownBreached(peak, priceAfter, 2500)).toBe(false);
+	});
+
+	it('a redemption moves NAV but not share price → no false drawdown', () => {
+		const total = sharesForDeposit(200n * USDC, 0n, 0n); // 200 shares @ par
+		const peak = sharePriceE6(200n * USDC, total);
+		// A backer redeems half: 100 shares burned, 100 USDC leaves → NAV 100, shares 100.
+		const priceAfter = sharePriceE6(100n * USDC, total - 100n * USDC);
+		expect(priceAfter).toBe(peak); // still par — no loss
+		expect(isDrawdownBreached(peak, priceAfter, 2500)).toBe(false);
+	});
+
+	it('a losing trade DOES drop share price and trips the breaker', () => {
+		const total = 100n * USDC;
+		const peak = sharePriceE6(100n * USDC, total); // par
+		const priceAfterLoss = sharePriceE6(70n * USDC, total); // 30% trading loss
+		expect(isDrawdownBreached(peak, priceAfterLoss, 2500)).toBe(true);
+	});
+});
+
 describe('end-to-end lifecycle conservation', () => {
 	it('deposit → gain → two redemptions never overpays the vault', () => {
 		let totalShares = 0n;
