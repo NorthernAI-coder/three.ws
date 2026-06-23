@@ -44,6 +44,7 @@ Create and customize an agent.
 - [Viewer](https://three.ws/app): Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.
 - [Describe it to 3D](https://three.ws/create/prompt): Type a description. About a minute later: a rigged 3D avatar you can animate and download.
 - [Forge — Text to 3D](https://three.ws/forge): Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
+- [Forge · NIM — Self-Hosted Image to 3D](https://three.ws/forge-nim): Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.
 - [Studio — Object + Avatar from text](https://three.ws/forge-studio): One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.
 - [Cosmos — Living Worlds](https://three.ws/cosmos): Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.
 - [Scene Studio](https://three.ws/scene): Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.

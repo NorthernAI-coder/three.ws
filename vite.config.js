@@ -315,6 +315,7 @@ const appConfig = {
 				create: resolve(__dirname, 'pages/create.html'),
 				'create-agent': resolve(__dirname, 'pages/create-agent.html'),
 				forge: resolve(__dirname, 'pages/forge.html'),
+				'nim-forge': resolve(__dirname, 'pages/nim-forge.html'),
 				dad: resolve(__dirname, 'pages/dad.html'),
 				'forge-studio': resolve(__dirname, 'pages/forge-studio.html'),
 				'forge-embed': resolve(__dirname, 'pages/forge-embed.html'),

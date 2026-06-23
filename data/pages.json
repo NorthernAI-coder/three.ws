@@ -266,6 +266,14 @@
 					"added": "2026-06-04"
 				},
 				{
+					"path": "/forge-nim",
+					"title": "Forge · NIM — Self-Hosted Image to 3D",
+					"description": "Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/forge-studio",
 					"title": "Studio — Object + Avatar from text",
 					"description": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",

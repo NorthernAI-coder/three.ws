@@ -200,6 +200,12 @@ URL: https://three.ws/forge
 
 Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 
+### Forge · NIM — Self-Hosted Image to 3D
+
+URL: https://three.ws/forge-nim
+
+Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.
+
 ### Studio — Object + Avatar from text
 
 URL: https://three.ws/forge-studio
