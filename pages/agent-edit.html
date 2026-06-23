@@ -1203,6 +1203,7 @@
 					<div class="edit-sidebar-group-title">Brain</div>
 					<button class="edit-tab" data-tab="brain" role="tab" aria-selected="false" aria-controls="panel-brain" id="tab-brain">Brain Studio</button>
 					<button class="edit-tab" data-tab="knowledge" role="tab" aria-selected="false" aria-controls="panel-knowledge" id="tab-knowledge">Knowledge</button>
+					<button class="edit-tab" data-tab="mind" role="tab" aria-selected="false" aria-controls="panel-mind" id="tab-mind">Mind Palace</button>
 					<button class="edit-tab" data-tab="ownership" role="tab" aria-selected="false" aria-controls="panel-ownership" id="tab-ownership">Ownership</button>
 					<button class="edit-tab" data-tab="dreams" role="tab" aria-selected="false" aria-controls="panel-dreams" id="tab-dreams">Dreams<span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></button>
 					<button class="edit-tab" data-tab="skills" role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills">Skills</button>
@@ -1610,6 +1611,14 @@
 					<label class="form-label">Existing memories</label>
 					<div id="mem-list" class="mem-list"><div class="muted">Loading…</div></div>
 				</div>
+			</section>
+
+			<!-- Mind Palace tab -->
+			<section class="edit-panel" id="panel-mind" role="tabpanel" aria-labelledby="tab-mind" hidden>
+				<div class="mind-tab-intro">
+					<p class="hint" style="margin:0 0 .75rem">Walk through your agent's mind. Every memory is an object you can see, search, and shape — drag one to the centre to pin it, flick it into the well to forget. <a href="#" id="mind-fullscreen-link" target="_blank" rel="noopener" style="color:#9ad0ff">Open full-screen ↗</a></p>
+				</div>
+				<div id="mind-palace-host" style="position:relative;width:100%;height:min(640px,72vh);min-height:440px"></div>
 			</section>
 
 			<!-- Dreams tab -->

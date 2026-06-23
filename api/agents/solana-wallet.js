@@ -30,7 +30,14 @@ import {
 	validateSolanaAddress, enforceSpendLimit, SpendLimitError, lamportsToUsd,
 	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent, recordCustodyEvent,
 	getDailySpendUsd, getTradeLimits, setTradeLimits, getDailySpendLamports,
+	setPolicyRules, getPolicyRules,
 } from '../_lib/agent-trade-guards.js';
+// Natural-language spend policies — owner authors rules in English (compiler),
+// code enforces them deterministically (rules engine). Owner-only Policy surface.
+import {
+	describePolicyRules, backtestPolicy, syntheticProbes, normalizePolicyRules, MAX_RULES,
+} from '../_lib/spend-policy-rules.js';
+import { compilePolicyFromText } from '../_lib/spend-policy-compiler.js';
 import { getBalances, walletUsdTotal } from '../_lib/balances.js';
 import {
 	THREE_MINT, computeLook, computeMarks, normalizePrefs,
@@ -959,6 +966,29 @@ async function handleCustody(req, res, id) {
 	return json(res, 200, { data: { items, next_cursor: nextCursor } });
 }
 
+// ── proof of custody ──────────────────────────────────────────────────────────
+// GET /api/agents/:id/solana/proof — owner-only inclusion proof for this wallet's
+// custody attestation. Returns the leaf's public fields, the Merkle path to the
+// anchored root, the on-chain anchor reference, and a movement reconciliation
+// against the custody ledger. The browser verifier (src/proof-of-custody) then
+// recomputes the leaf, walks the path, fetches the on-chain root, and confirms it
+// matches — never trusting this server's word for the verification.
+async function handleCustodyProof(req, res, id) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth } = owned;
+
+	const rl = await limits.auditLogRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const { getInclusionProof } = await import('../_lib/custody-proof.js');
+	const proof = await getInclusionProof(id);
+	return json(res, 200, { data: proof });
+}
+
 // ── spend limits ────────────────────────────────────────────────────────────
 // GET/PUT /api/agents/:id/solana/limits — owner-only read + edit of the shared
 // per-agent spend policy. Includes today's spend so the hub can show headroom.
@@ -1017,6 +1047,129 @@ async function handleLimits(req, res, id) {
 	const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
 	const spentLamports = await getDailySpendLamports(id, network).catch(() => 0n);
 	return json(res, 200, { data: { limits: limitsOut, trade_limits: getTradeLimits(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
+}
+
+// ── natural-language spend policy ─────────────────────────────────────────────
+// Owner-only. The owner writes safety rules in plain English; a real Claude call
+// COMPILES them to a deterministic rule document (api/_lib/spend-policy-rules.js)
+// that the shared guards enforce on every spend. The LLM only authors + explains —
+// it never decides a spend. All endpoints are ownership-gated via loadOwnedWallet.
+//
+//   GET  /policy            current compiled policy + numbered plain-English readback
+//   POST /policy {op:compile, text}  compile English → rules + readback + live backtest
+//   POST /policy {op:backtest, rules} replay a rule set against real custody history
+//   PUT  /policy {rules, english}    save a validated policy (CSRF-gated, audited)
+async function handlePolicy(req, res, id) {
+	if (cors(req, res, { methods: 'GET,POST,PUT,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'POST', 'PUT'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, meta } = owned;
+
+	const rl = await limits.walletRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const url = new URL(req.url, 'http://x');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const spendLimits = getSpendLimits(meta);
+	const allowlist = Array.isArray(spendLimits.withdraw_allowlist) ? spendLimits.withdraw_allowlist : [];
+
+	// Real spend history for the backtest — the last 60 days of spend rows, capped.
+	// The same deterministic evaluator that runs in production scores these, so the
+	// preview is honest, not an approximation.
+	async function loadHistory() {
+		return sql`
+			SELECT id, event_type, category, network, asset, usd, destination, created_at, meta
+			FROM agent_custody_events
+			WHERE agent_id = ${id} AND network = ${network} AND event_type = 'spend'
+			  AND created_at > now() - interval '60 days'
+			ORDER BY created_at DESC
+			LIMIT 1000
+		`;
+	}
+
+	if (req.method === 'GET') {
+		const policy = getPolicyRules(meta);
+		return json(res, 200, {
+			data: { policy, readback: describePolicyRules(policy), source_text: policy.source_text, numeric_limits: spendLimits },
+		});
+	}
+
+	if (req.method === 'POST') {
+		// compile + backtest are read-only previews (no mutation) — owner-gated above.
+		let body;
+		try {
+			body = await readJson(req);
+		} catch (e) {
+			return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+		}
+		const op = body?.op === 'backtest' ? 'backtest' : 'compile';
+
+		if (op === 'compile') {
+			const text = typeof body?.text === 'string' ? body.text : '';
+			const result = await compilePolicyFromText(text, { allowlist, track: { userId: auth.userId, agentId: id } });
+			if (!result.ok) {
+				return json(res, 200, { data: { ok: false, error: result.error, refusal: result.refusal || null, message: result.message, via: result.via || null } });
+			}
+			let backtest = null;
+			try {
+				backtest = backtestPolicy(result.policy, await loadHistory(), { allowlist });
+			} catch (e) {
+				console.warn('[policy] backtest failed', e?.message);
+			}
+			return json(res, 200, {
+				data: {
+					ok: true, via: result.via, policy: result.policy, readback: result.readback,
+					assumptions: result.assumptions, source_text: result.source_text,
+					backtest, synthetic: syntheticProbes(result.policy),
+				},
+			});
+		}
+
+		// backtest a supplied (or current) rule set against real history.
+		const policy = normalizePolicyRules({ rules: body?.rules, source_text: body?.english });
+		let backtest = null;
+		try {
+			backtest = backtestPolicy(policy, await loadHistory(), { allowlist });
+		} catch (e) {
+			console.warn('[policy] backtest failed', e?.message);
+		}
+		return json(res, 200, { data: { ok: true, policy, readback: describePolicyRules(policy), backtest, synthetic: syntheticProbes(policy) } });
+	}
+
+	// PUT — save a validated policy. Changing the wallet's safety rules requires CSRF.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+	let body;
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+	}
+	const rules = Array.isArray(body?.rules) ? body.rules : Array.isArray(body?.policy?.rules) ? body.policy.rules : [];
+	if (rules.length > MAX_RULES) {
+		return error(res, 422, 'too_many_rules', `A policy can have at most ${MAX_RULES} rules. Simplify it and try again.`);
+	}
+	const english = typeof body?.english === 'string' ? body.english : typeof body?.source_text === 'string' ? body.source_text : null;
+	let saved;
+	try {
+		saved = await setPolicyRules(id, auth.userId, rules, { english, req });
+	} catch (e) {
+		if (e?.status) return error(res, e.status, e.code || 'error', e.message);
+		throw e;
+	}
+	// The caller sent rules but none survived validation — refuse loudly rather than
+	// silently saving an empty (unprotective) policy.
+	if (!saved.rules.length && rules.length) {
+		return error(res, 422, 'invalid_policy', 'None of those rules could be validated as enforceable, so nothing was saved.');
+	}
+	let backtest = null;
+	try {
+		backtest = backtestPolicy(saved, await loadHistory(), { allowlist });
+	} catch (e) {
+		console.warn('[policy] post-save backtest failed', e?.message);
+	}
+	return json(res, 200, { data: { policy: saved, readback: describePolicyRules(saved), backtest } });
 }
 
 // ── vanity grind + custodial swap ──────────────────────────────────────────────
@@ -2313,7 +2466,13 @@ export default async function handler(req, res, id, action) {
 	}
 	if (action === 'networth') return handleNetWorth(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
+	if (action === 'proof') return handleCustodyProof(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
+	if (action === 'guard') {
+		const mod = await import('./solana-guard.js');
+		return mod.handleGuard(req, res, id);
+	}
+	if (action === 'policy') return handlePolicy(req, res, id);
 	if (action === 'tip') return handleTip(req, res, id);
 	if (action === 'royalty') return handleRoyalty(req, res, id);
 	if (action === 'stream') return handleStream(req, res, id);

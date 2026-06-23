@@ -332,6 +332,7 @@ const appConfig = {
 				'marketplace-analytics': resolve(__dirname, 'pages/marketplace-analytics.html'),
 				collection: resolve(__dirname, 'pages/collection.html'),
 				'agent-edit': resolve(__dirname, 'pages/agent-edit.html'),
+				'agent-mind': resolve(__dirname, 'pages/agent-mind.html'),
 				'avatar-edit': resolve(__dirname, 'pages/avatar-edit.html'),
 				'create-video': resolve(__dirname, 'pages/create/video.html'),
 				'extension-privacy': resolve(__dirname, 'pages/extension-privacy.html'),
@@ -1186,6 +1187,8 @@ support: resolve(__dirname, 'pages/support.html'),
 						filePath = resolve(root, 'pages/agent-wallet.html');
 					else if (!filePath && /^\/agents\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/agent-detail.html');
+					else if (!filePath && /^\/agent\/[^/]+\/mind\/?$/.test(path))
+						filePath = resolve(root, 'pages/agent-mind.html');
 					else if (!filePath && /^\/agent\/[^/]+\/edit$/.test(path))
 						filePath = resolve(root, 'pages/agent-edit.html');
 					else if (!filePath && /^\/agent\/[^/]+\/embed$/.test(path))

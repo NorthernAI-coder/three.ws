@@ -15,6 +15,8 @@
  *   description string  (optional)
  *   shareUrl    string  — canonical URL that has OG meta
  *   remixUrl    string  — deep-link back into the create flow
+ *   previewImage string — optional OG/card image URL shown at the top of the panel
+ *                         so the user sees exactly what their link will unfurl as
  */
 
 import { Modal } from './modal.js';
@@ -26,7 +28,7 @@ const X_INTENT = 'https://x.com/intent/tweet';
 export function showSharePanel(entity, triggerEl = null) {
 	ensureShareStyles();
 
-	const { title = '', description = '', shareUrl, remixUrl } = entity;
+	const { title = '', description = '', shareUrl, remixUrl, previewImage } = entity;
 
 	const xText = encodeURIComponent(`${title} on three.ws\n`);
 	const xUrl = encodeURIComponent(shareUrl || location.href);
@@ -40,6 +42,15 @@ export function showSharePanel(entity, triggerEl = null) {
 		? `<p class="tws-sp-desc">${esc(description)}</p>`
 		: '';
 
+	// Live preview of exactly what the link unfurls as — the real OG/card image.
+	// Lazy + graceful: if the image fails to load it simply removes itself.
+	const previewHtml = previewImage
+		? `<div class="tws-sp-preview">
+				<img src="${esc(previewImage)}" alt="${esc(title)} card preview" loading="lazy" decoding="async"
+					onerror="this.closest('.tws-sp-preview')?.remove()" />
+			</div>`
+		: '';
+
 	const remixHtml = remixUrl
 		? `<a class="tws-sp-btn tws-sp-remix" href="${esc(remixUrl)}">
 				${sparkleIcon()}
@@ -49,6 +60,7 @@ export function showSharePanel(entity, triggerEl = null) {
 
 	const body = `
 		<div class="tws-sp">
+			${previewHtml}
 			${descHtml}
 			<button class="tws-sp-btn tws-sp-copy" type="button" data-share-copy="${esc(shareUrl || '')}">
 				${linkIcon()}
@@ -166,6 +178,22 @@ const SHARE_CSS = `
 	font-size: 13px;
 	color: var(--ink-dim, #888);
 	line-height: 1.5;
+}
+
+/* OG/card preview — what the shared link unfurls as */
+.tws-sp-preview {
+	margin: 0 0 10px;
+	border-radius: var(--radius-control, 10px);
+	overflow: hidden;
+	border: 1px solid var(--stroke, rgba(255,255,255,0.08));
+	background: var(--surface-2, rgba(255,255,255,0.03));
+	aspect-ratio: 1200 / 630;
+}
+.tws-sp-preview img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
 }
 
 .tws-sp-btn {

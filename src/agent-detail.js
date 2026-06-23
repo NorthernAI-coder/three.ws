@@ -25,6 +25,7 @@ import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
 import { showSharePanel } from './shared/share.js';
+import { mountWalletCard } from './shared/wallet-card.js';
 import { enrichAgentDetail, renderEmbed as renderAgentEmbed } from './agent-detail-market.js';
 import { log } from './shared/log.js';
 import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
@@ -42,6 +43,7 @@ let _pulseHandle = null;
 let _mirrorHandle = null;
 let _streamHandle = null;
 let _strategyHandle = null;
+let _cardHandle = null;
 let _patronageHandle = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
@@ -876,6 +878,50 @@ function render(agent) {
 		}
 	}
 	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
+
+	// Wallet trading card — the agent's living, screenshot-worthy identity object:
+	// avatar, vanity address, live net worth, holdings, P&L, reputation tier, and a
+	// tip/fork/share CTA. Rendered only when the agent has a custodial wallet, from
+	// the same public, server-authoritative reads every wallet surface uses. The
+	// card's image twin (api/og/agent.js) is what a shared link unfurls as.
+	{
+		const cardSection = $('ad-trading-card-section');
+		const cardMount = $('ad-trading-card-mount');
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (_cardHandle) { try { _cardHandle.destroy(); } catch { /* idempotent */ } _cardHandle = null; }
+		if (cardSection && cardMount && wMeta.solana_address) {
+			cardSection.hidden = false;
+			_cardHandle = mountWalletCard(cardMount, {
+				id: agent.id,
+				name: agent.name,
+				solana_address: wMeta.solana_address,
+				avatar_thumbnail_url: agent.avatar || '',
+				solana_vanity_prefix: wMeta.solana_vanity_prefix || null,
+				solana_vanity_suffix: wMeta.solana_vanity_suffix || null,
+				meta: wMeta,
+			}, { isOwner: !!agent.isOwner, network: 'mainnet' });
+
+			const shareTrigger = $('ad-trading-card-share');
+			if (shareTrigger && !shareTrigger._wired) {
+				shareTrigger._wired = true;
+				const openShare = () => showSharePanel({
+					kind: 'agent',
+					id: agent.id,
+					title: agent.name || 'Agent',
+					description: agent.description || '',
+					shareUrl: `${location.origin}/agent/${agent.id}/share`,
+					remixUrl: `${location.origin}/agents/${agent.id}`,
+					previewImage: `${location.origin}/api/og/agent?id=${encodeURIComponent(agent.id)}`,
+				}, shareTrigger);
+				shareTrigger.addEventListener('click', openShare);
+				shareTrigger.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openShare(); }
+				});
+			}
+		} else if (cardSection) {
+			cardSection.hidden = true;
+		}
+	}
 
 	// Money Stream — pay-per-second income. A visitor gets the live meter (set a
 	// rate, sign a cap, watch the agent earn while they're here); the owner gets the
