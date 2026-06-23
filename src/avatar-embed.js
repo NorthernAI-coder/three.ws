@@ -210,6 +210,19 @@ async function main() {
 	const a2fPlayer = new A2FPlayer();
 	a2fPlayer.attach(root);
 	let a2fAudio = null; // the <audio> element currently driven by an A2F track
+	// One-time capability probe so we never do the (non-trivial) decode→resample
+	// work on deployments where the A2F lane is unconfigured — there it stays pure
+	// amplitude lipsync with zero added cost.
+	let a2fProbe = null;
+	const a2fAvailable = () => {
+		if (!a2fProbe) {
+			a2fProbe = fetch('/api/a2f', { method: 'GET' })
+				.then((r) => (r.ok ? r.json() : null))
+				.then((c) => !!(c && c.configured))
+				.catch(() => false);
+		}
+		return a2fProbe;
+	};
 	// Per-frame: sample the track at the playing audio's time. Registered with the
 	// viewer's hook array (created below by the idle loop if absent).
 	if (!viewer._afterAnimateHooks) viewer._afterAnimateHooks = [];
@@ -369,22 +382,90 @@ async function main() {
 		});
 	};
 
+	// Decode any audio URL (mp3/wav/opus) to 16 kHz mono 16-bit PCM, base64'd —
+	// the format Audio2Face-3D expects. Done in-browser via the Web Audio decoder
+	// the page already uses for playback, so the embed's A2F path is codec-agnostic
+	// and we never round-trip the bytes through a server transcode.
+	const fetchA2FTrack = async (url) => {
+		const resp = await fetch(url);
+		if (!resp.ok) return null;
+		const encoded = await resp.arrayBuffer();
+		const decodeCtx = ensureAudio();
+		const decoded = await decodeCtx.decodeAudioData(encoded.slice(0));
+		// Downmix to mono.
+		const chs = decoded.numberOfChannels;
+		const mono = new Float32Array(decoded.length);
+		for (let c = 0; c < chs; c++) {
+			const data = decoded.getChannelData(c);
+			for (let i = 0; i < data.length; i++) mono[i] += data[i] / chs;
+		}
+		// Resample to 16 kHz and convert to s16 little-endian.
+		const ratio = 16000 / decoded.sampleRate;
+		const outLen = Math.max(1, Math.floor(mono.length * ratio));
+		const pcm = new Int16Array(outLen);
+		for (let i = 0; i < outLen; i++) {
+			const src = i / ratio;
+			const i0 = Math.floor(src);
+			const i1 = Math.min(i0 + 1, mono.length - 1);
+			const s = mono[i0] + (mono[i1] - mono[i0]) * (src - i0);
+			pcm[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+		}
+		const bytes = new Uint8Array(pcm.buffer);
+		let bin = '';
+		for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+		const r = await fetch('/api/a2f', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ audio: btoa(bin), format: 'pcm', sampleRate: 16000 }),
+		});
+		if (!r.ok) return null;
+		const data = await r.json();
+		return data?.animation?.frames?.length ? data.animation : null;
+	};
+
 	const playAudio = async (url) => {
 		const ctx = ensureAudio();
 		const audio = new Audio();
 		audio.crossOrigin = 'anonymous';
 		audio.src = url;
+
+		// Kick off the A2F request in parallel with playback. Amplitude lipsync
+		// starts immediately (zero latency); if a real blendshape track comes back
+		// before the clip ends and the rig can show it, we upgrade seamlessly.
+		let a2fUpgraded = false;
+		const a2fPromise = a2fEnabled
+			? a2fAvailable()
+					.then((ok) => (ok ? fetchA2FTrack(url) : null))
+					.then((track) => {
+						if (!track || audio.ended) return;
+						a2fPlayer.setTrack(track);
+						if (!a2fPlayer.hasCoverage()) return;
+						// Hand the face over from amplitude → A2F track.
+						activeLipsync?.stop();
+						activeLipsync = null;
+						a2fAudio = audio;
+						a2fUpgraded = true;
+						postToParent({ type: 'v1.avatar.speak:a2f', frames: track.frameCount, fps: track.fps });
+					})
+					.catch(() => {})
+			: Promise.resolve();
+
 		await audio.play();
-		const { analyser } = tapAudioElement(audio, ctx);
-		activeLipsync = new LipsyncDriver({ analyser, target: mouthTarget });
-		activeLipsync.start();
+		// Only run amplitude lipsync until/unless A2F takes over.
+		if (!a2fUpgraded) {
+			const { analyser } = tapAudioElement(audio, ctx);
+			activeLipsync = new LipsyncDriver({ analyser, target: mouthTarget });
+			activeLipsync.start();
+		}
 		postToParent({ type: 'v1.avatar.speak:start', source: 'audio' });
 		await new Promise((resolve) => {
 			audio.onended = resolve;
 			audio.onerror = resolve;
 		});
-		activeLipsync.stop();
+		await a2fPromise;
+		activeLipsync?.stop();
 		activeLipsync = null;
+		if (a2fAudio === audio) { a2fAudio = null; a2fPlayer.reset(); }
 		postToParent({ type: 'v1.avatar.speak:end' });
 	};
 

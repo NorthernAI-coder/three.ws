@@ -431,6 +431,14 @@
 			<description>An agent's portfolio value now formats identically wherever it appears — the tiny wallet chip on a card, the inline net-worth on a profile, the presence panel — so the same wallet never shows &quot;$1k&quot; in one place and &quot;$1.2K&quot; in another. Addresses shorten the same way across surfaces too, and the wallet's violet accent now flows from one design token instead of scattered colors, so the whole wallet layer reads as a single, coherent system. We also added an automated test that proves the platform's core promise on every fork: saving someone else's avatar always mints a brand-new wallet with its own distinct Solana and EVM addresses, never copies a secret, and leaves the original's wallet untouched.</description>
 		</item>
 		<item>
+			<title>Wallet Intents: tell your agent's wallet what to do — in plain language</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Wallet Intents: tell your agent's wallet what to do — in plain language</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — &quot;tip back anyone who tips me more than 0.1 SOL, half of what they sent&quot;, &quot;when my balance is under 0.05 SOL freeze all spending and DM me&quot;, &quot;every Friday withdraw anything above 2 SOL to my main wallet&quot;, &quot;split 10% of everything I earn to my other wallet&quot;, or &quot;snipe launches from this creator under $40k, max 1 SOL each&quot;. The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (&quot;on a 0.2 SOL tip, this sends back 0.1 SOL&quot;) before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet &quot;how am I doing?&quot; and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.</description>
+		</item>
+		<item>
 			<title>Your agent's wallet is now a living identity on every surface</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-23:Your agent's wallet is now a living identity on every surface</guid>

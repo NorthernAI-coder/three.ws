@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Wallet Intents: tell your agent's wallet what to do — in plain language",
+			"summary": "Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — \"tip back anyone who tips me more than 0.1 SOL, half of what they sent\", \"when my balance is under 0.05 SOL freeze all spending and DM me\", \"every Friday withdraw anything above 2 SOL to my main wallet\", \"split 10% of everything I earn to my other wallet\", or \"snipe launches from this creator under $40k, max 1 SOL each\". The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (\"on a 0.2 SOL tip, this sends back 0.1 SOL\") before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet \"how am I doing?\" and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Cosmos Living Worlds: type a world, watch your avatar live in it",
 			"summary": "Your avatar no longer has to stand in an empty void. The new Cosmos page turns a few words into a living, photoreal world that plays as a cinematic backdrop behind your 3D avatar — describe a neon Tokyo street in the rain, an alpine lake at sunrise, or a bioluminescent forest at midnight, and NVIDIA's Cosmos world model renders a short animated scene around your character. Pick any avatar (your own creations included), tap a prompt idea or write your own, and watch real progress as the clip renders; when it's done you can download the MP4 or copy a shareable link that reopens the exact world and avatar. It runs free on the NVIDIA NIM tier, and if the lane is ever unavailable your avatar still shines on a living animated backdrop instead of a blank screen. Find it on the Create page or at /cosmos.",
 			"tags": [

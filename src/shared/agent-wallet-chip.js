@@ -42,6 +42,7 @@
 
 import { computeRarity } from '../solana/vanity/rarity.js';
 import { formatWalletUsd, shortAddress } from './wallet-format.js';
+import { tierForUsd, computeWalletVisual } from './wallet-networth.js';
 
 const STYLE_ID = 'tws-agent-wallet-chip-styles';
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -244,6 +245,9 @@ export function ensureWalletChipStyles() {
 	padding:1px 5px;border-radius:999px;line-height:1.4;}
 .twc-bal{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono,ui-monospace,Menlo,monospace);
 	font-weight:700;font-size:11px;color:var(--ink-bright,#fff);border-left:1px solid var(--wallet-stroke,rgba(139,92,246,.3));padding-left:7px;}
+.twc-tierdot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--twc-tier,var(--wallet-accent,#c4b5fd));
+	box-shadow:0 0 5px var(--twc-tier,var(--wallet-glow,rgba(139,92,246,.45)));}
+@media (prefers-reduced-motion: reduce){.twc-tierdot{box-shadow:none;}}
 .twc-bal-sk{display:inline-block;width:30px;height:9px;border-radius:3px;
 	background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.16),rgba(255,255,255,.06));
 	background-size:200% 100%;animation:twc-sk 1.1s ease-in-out infinite;}
@@ -689,7 +693,16 @@ function applyHydration(agentId, entry) {
 			const pct = entry.pnl?.changePct;
 			const dir = pct == null ? null : pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : 'flat';
 			const chg = dir ? `<span class="twc-chg" data-dir="${dir}">${esc(formatPct(pct))}</span>` : '';
-			slot.innerHTML = `<span class="twc-usd">${esc(usdLabel)}</span>${chg}`;
+			// Embodied finance in 2D: a tier dot so the chip reads at the SAME wealth
+			// tier as the agent's 3D aura everywhere. Derived for free from the USD the
+			// chip already fetched (pure tierForUsd) — no extra request. Dormant ($0)
+			// shows no dot, so an empty wallet stays clean, never a fake mark.
+			const tier = tierForUsd(entry.usd);
+			const dot = tier.level > 0
+				? `<span class="twc-tierdot" style="--twc-tier:${esc(computeWalletVisual({ usdTotal: entry.usd, mix: { sol: 1 }, hasThree: false }).accent)}" title="${esc(tier.label)} tier"></span>`
+				: '';
+			node.dataset.tier = tier.key;
+			slot.innerHTML = `${dot}<span class="twc-usd">${esc(usdLabel)}</span>${chg}`;
 			slot.setAttribute('aria-label', `Wallet value ${usdLabel}${pct != null ? `, ${formatPct(pct)} over ${entry.pnl?.windowHours || 24} hours` : ''}`);
 		}
 		if (increased) pulseChip(node, entry.usd - prev);

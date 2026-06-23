@@ -232,10 +232,10 @@ async function generate() {
 		);
 	}
 
-	if (res.status === 503 || data?.error === 'unconfigured') {
+	if (res.status === 503 || res.status === 404 || data?.error === 'unconfigured') {
 		setBadge(false, 'Cosmos offline');
 		return failGeneration(
-			'NVIDIA Cosmos isn’t configured on this deployment yet. Your avatar still shines on the living backdrop above — check back soon for generated worlds.',
+			'NVIDIA Cosmos isn’t available on this environment yet. Your avatar still shines on the living backdrop above — check back soon for generated worlds.',
 			{ unconfigured: true },
 		);
 	}
