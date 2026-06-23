@@ -335,10 +335,13 @@ function describeClause(c) {
 			if (c.op === 'in') return `the asset is one of ${c.value.join(', ')}`;
 			if (c.op === 'not_in') return `the asset is not ${c.value.join(', ')}`;
 			return `the asset is ${c.op === 'neq' ? 'not ' : ''}${c.value}`;
-		case 'category':
-			if (c.op === 'in') return `it is a ${c.value.join(' or ')}`;
-			if (c.op === 'not_in') return `it is not a ${c.value.join(' or ')}`;
-			return `it is ${c.op === 'neq' ? 'not ' : ''}a ${c.value}`;
+		case 'category': {
+			const noun = { trade: 'trade', snipe: 'snipe', x402: 'x402 payment', withdraw: 'withdrawal' };
+			const phrase = (v) => `${/^[aeiou]/i.test(noun[v] || v) ? 'an' : 'a'} ${noun[v] || v}`;
+			if (c.op === 'in') return `it is ${c.value.map(phrase).join(' or ')}`;
+			if (c.op === 'not_in') return `it is not ${c.value.map(phrase).join(' or ')}`;
+			return `it is ${c.op === 'neq' ? 'not ' : ''}${phrase(c.value)}`;
+		}
 		case 'counterparty':
 			if (c.op === 'in') return `the recipient is a known address`;
 			if (c.op === 'not_in') return `the recipient is not an approved address`;

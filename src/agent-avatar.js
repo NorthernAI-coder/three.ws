@@ -863,10 +863,15 @@ export class AgentAvatar {
 			this._targetTilt = -0.06; // look slightly down when thinking / waiting
 		}
 
+		// Sustained mood nudges the gaze (elated lifts it, subdued lowers it).
+		if (this._mood.active) this._targetTilt += this._moodTilt || 0;
+
 		this._currentTilt = _lerp(this._currentTilt, this._targetTilt, dt * 3.0);
 
 		// ── Forward lean (curiosity leans in, patience leans back) ────────
 		this._targetLean = w.curiosity * 0.03 - w.patience * 0.02;
+		// Sustained mood leans the body in when up-and-alert, back when subdued.
+		if (this._mood.active) this._targetLean += this._moodLean || 0;
 		const _followMode = this.viewer.state?.followMode;
 		if (_followMode === 'mouse') {
 			// Mouse Y: -1 = top of canvas (look up), +1 = bottom (look down)
@@ -897,6 +902,53 @@ export class AgentAvatar {
 	_setMorphTarget(name, targetWeight) {
 		this._morphTarget[name] = Math.max(0, Math.min(1, targetWeight));
 		if (!(name in this._morphCurrent)) this._morphCurrent[name] = 0;
+	}
+
+	/** Add to an already-set morph target (used to layer mood over emotion). */
+	_addMorph(name, delta) {
+		if (!delta) return;
+		this._setMorphTarget(name, (this._morphTarget[name] || 0) + delta);
+	}
+
+	/**
+	 * Apply the sustained mood as a continuous facial bias. Lerps the applied
+	 * mood toward the target so a mood change drifts in over ~1s rather than
+	 * snapping. Arousal is read relative to the calm baseline (~0.4): above it
+	 * the eyes widen and brows lift (alert); below it the lids grow heavy
+	 * (relaxed). Valence sets the mouth: a soft smile when positive, a frown +
+	 * inner-brow worry when negative.
+	 */
+	_applyMoodLayer(dt) {
+		const m = this._moodApplied;
+		const k = Math.min(1, dt * 1.2);
+		m.valence += (this._mood.valence - m.valence) * k;
+		m.arousal += (this._mood.arousal - m.arousal) * k;
+
+		const pos = Math.max(0, m.valence);
+		const neg = Math.max(0, -m.valence);
+		const act = Math.max(0, m.arousal - 0.4); // alertness above baseline
+		const rest = Math.max(0, 0.4 - m.arousal); // drowsiness below baseline
+
+		this._addMorph('mouthSmile', pos * 0.4);
+		this._addMorph('cheekSquintLeft', pos * 0.18);
+		this._addMorph('cheekSquintRight', pos * 0.18);
+		this._addMorph('mouthFrown', neg * 0.4);
+		this._addMorph('browInnerUp', neg * 0.4);
+		this._addMorph('eyeWideLeft', act * 0.5);
+		this._addMorph('eyeWideRight', act * 0.5);
+		this._addMorph('browOuterUpLeft', act * 0.28);
+		this._addMorph('browOuterUpRight', act * 0.28);
+		this._addMorph('eyesClosed', rest * 0.3);
+
+		// Posture: mood leans the body in/out and lifts/drops the gaze. Dropped
+		// under prefers-reduced-motion — the facial cue above still carries it.
+		if (!this._mood.reduced) {
+			this._moodTilt = pos * act * 0.04 - neg * rest * 0.06;
+			this._moodLean = pos * act * 0.03 - neg * rest * 0.02;
+		} else {
+			this._moodTilt = 0;
+			this._moodLean = 0;
+		}
 	}
 
 	/**

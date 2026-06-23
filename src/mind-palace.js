@@ -1068,6 +1068,20 @@ class MindPalace {
 		this.removeCardFor(node);
 		this.rebuildRoster();
 	}
+
+	// Permanently drop a node (hard delete / bus forget): remove it from the model
+	// and rebuild so its instance slot + edges are reclaimed. Soft-forget does NOT
+	// call this — that path keeps the node so undo can restore it.
+	dropNode(node) {
+		const i = this.nodes.indexOf(node);
+		if (i >= 0) this.nodes.splice(i, 1);
+		this.byId.delete(node.mem.id);
+		this.computeEdges();
+		if (this.mode === '3d' && this.scene) this.rebuildInstances();
+		this.rebuild2D();
+		this.rebuildRoster();
+		this.updateStat();
+	}
 	restoreNodeToScene(node) {
 		node.bornAt = this._reduce ? 0 : now();
 		node._colorDirty = true;
