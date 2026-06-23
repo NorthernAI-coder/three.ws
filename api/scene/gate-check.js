@@ -147,6 +147,7 @@ async function querySolanaBalance(gate, walletAddress) {
 		const resp = await fetch(rpcUrl, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
+			signal: AbortSignal.timeout(8000),
 			body: JSON.stringify({
 				jsonrpc: '2.0', id: 1,
 				method: 'getTokenAccountsByOwner',
@@ -164,6 +165,7 @@ async function querySolanaBalance(gate, walletAddress) {
 	const resp = await fetch(rpcUrl, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
+		signal: AbortSignal.timeout(8000),
 		body: JSON.stringify({
 			jsonrpc: '2.0', id: 1,
 			method: 'getAssetsByOwner',
@@ -198,6 +200,7 @@ async function queryEvmBalance(gate, walletAddress) {
 	const resp = await fetch(rpcUrl, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
+		signal: AbortSignal.timeout(8000),
 		body: JSON.stringify({
 			jsonrpc: '2.0', id: 1,
 			method: 'eth_call',
@@ -218,6 +221,7 @@ async function queryEvmBalance(gate, walletAddress) {
 	const decResp = await fetch(rpcUrl, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
+		signal: AbortSignal.timeout(8000),
 		body: JSON.stringify({
 			jsonrpc: '2.0', id: 2,
 			method: 'eth_call',

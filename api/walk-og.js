@@ -28,7 +28,7 @@ export default wrap(async (req, res) => {
 		try {
 			const avatar = await getAvatar({ id });
 			if (avatar?.thumbnail_url) {
-				const r = await fetch(avatar.thumbnail_url);
+				const r = await fetch(avatar.thumbnail_url, { signal: AbortSignal.timeout(6000) });
 				if (r.ok) {
 					const buf = await r.arrayBuffer();
 					const ct  = r.headers.get('content-type') || 'image/jpeg';

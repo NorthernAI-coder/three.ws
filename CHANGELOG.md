@@ -4,6 +4,10 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-06-23
+
+- **Fix: the bounty board and live token feeds stay up when a third party is slow** — Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed. `[fix]`
+
 ## 2026-06-22
 
 - **Docs · Agent Reputation** (`/docs/agent-reputation`) — Why autonomous agents need verifiable trust, and how three.ws delivers portable on-chain reputation.
