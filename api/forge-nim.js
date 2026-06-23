@@ -251,8 +251,11 @@ async function infer(req, res) {
 
 	let payload;
 	if (mode === 'text') {
-		const prompt = shapePrompt(body?.prompt);
-		if (!prompt) return error(res, 400, 'no_prompt', 'Describe the object in a few words first.');
+		const rawPrompt = typeof body?.prompt === 'string' ? body.prompt.trim() : '';
+		if (rawPrompt.length < 2) {
+			return error(res, 400, 'no_prompt', 'Describe the object in a few words first.');
+		}
+		const prompt = shapePrompt(rawPrompt);
 		payload = {
 			mode: 'text',
 			prompt,
