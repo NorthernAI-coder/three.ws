@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Image-to-3D is live on NVIDIA: upload a photo, get a textured 3D model — free",
+			"summary": "The photo path in the Forge is now switched on for everyone. Upload a photo and our self-hosted Microsoft TRELLIS engine, running live on NVIDIA GPUs, reconstructs a textured 3D model straight from your image in a single hop — no in-between step, no per-call vendor cost, and it's free. It takes real user photos (the free text engine only takes prompts), so it's now the preferred free engine for image-to-3D, with clean fallback to the other free lanes if it ever goes offline. Just drop in a photo and the Forge routes you there, or pick TRELLIS (self-host) explicitly. The text-to-3D path and every other engine are unchanged.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Two new tutorials: generate 3D models free on NVIDIA — and run TRELLIS on your own GPU",
 			"summary": "The Forge's free text-to-3D has always run on NVIDIA NIM with Microsoft TRELLIS — now there are two step-by-step guides for it. The first is no-code: what the free lane actually does, how to get clean models out of it, the prompt rules that matter, and a live demo that shows TRELLIS rebuild a mesh in real time. The second is for builders: stand up your own TRELLIS NIM container on an NVIDIA GPU, point three.ws at it with two environment variables, and reconstruct a textured 3D model from a prompt or a photo in a single synchronous call — photo-to-3D included, which the hosted preview can't do. Every request and response is the real contract, copy-pasteable end to end.",
 			"tags": [
