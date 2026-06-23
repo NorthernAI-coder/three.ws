@@ -4458,6 +4458,19 @@ function renderAvatarCard(a, spotlight = false) {
 	</div>`;
 }
 
+// Rare-pedigree badge — marks a bred agent by its lineage tier. Uncommon and up
+// only, so the badge stays a genuine signal of scarcity (deep pedigree, emergent
+// skills) rather than noise on every card. Links into the agent's lineage.
+function pedigreeBadgeHTML(a) {
+	const g = a.genome;
+	if (!g || !g.bred || !g.pedigree_tier) return '';
+	const tier = String(g.pedigree_tier);
+	if (tier === 'common') return '';
+	const glyph = g.emergent > 0 ? '⚡' : '◈';
+	const title = `Generation ${g.generation} · ${tier} pedigree${g.emergent > 0 ? ` · ${g.emergent} emergent skill${g.emergent > 1 ? 's' : ''}` : ''}`;
+	return `<a class="stat-pill pedigree-badge" data-tier="${escapeHtml(tier)}" href="/genome?a=${escapeHtml(a.id)}" title="${escapeHtml(title)}" onclick="event.stopPropagation()">${glyph} gen ${g.generation}</a>`;
+}
+
 function renderCard(a) {
 	const published = a.published_at || a.published || a.created_at;
 	const date = published ? formatDate(published) : '';
@@ -4513,6 +4526,7 @@ function renderCard(a) {
 		<div class="desc">${escapeHtml(a.description || '')}</div>
 		<div class="stats">
 			${onchainBadge}
+			${pedigreeBadge}
 			${coinChipHTML(a)}
 			<span class="stat-pill">⊙ ${fmtNumber(views)}</span>
 			<span class="stat-pill">⑂ ${fmtNumber(forks)}</span>

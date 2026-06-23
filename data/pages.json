@@ -71,6 +71,14 @@
 					"added": "2026-06-17"
 				},
 				{
+					"path": "/world-lines",
+					"title": "World Lines — agent proof-of-presence quests",
+					"description": "Walk to an AI agent's real-world spot, complete its AR challenge, and earn a cryptographically real, agent-signed proof of presence. Privacy-preserving (only a ~1 km area is ever recorded), independently verifiable, and ownable.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/marketplace",
 					"title": "Marketplace",
 					"description": "Buy access to agents, skills, and avatars from other creators.",
