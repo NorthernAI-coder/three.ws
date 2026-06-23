@@ -12,6 +12,9 @@
 		"api/agents/[id].js": {
 			"maxDuration": 45
 		},
+		"api/agents/networth.js": {
+			"maxDuration": 60
+		},
 		"api/club/tips-stream.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -2168,6 +2171,10 @@
 			"dest": "/api/sniper/strategy.js"
 		},
 		{
+			"src": "/api/sniper/close",
+			"dest": "/api/sniper/close.js"
+		},
+		{
 			"src": "/api/sniper/stream",
 			"dest": "/api/sniper/stream.js"
 		},
@@ -2428,6 +2435,10 @@
 		{
 			"src": "/api/agents/endpoint-shopper-run",
 			"dest": "/api/agents/endpoint-shopper-run"
+		},
+		{
+			"src": "/api/agents/networth",
+			"dest": "/api/agents/networth"
 		},
 		{
 			"src": "/api/agents/([^/]+)",

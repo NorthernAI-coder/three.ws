@@ -40,27 +40,30 @@ const TABS = [
 	{ key: 'skills', label: 'Skills', hint: 'Capabilities the agent can perform and sell.' },
 ];
 
+// Fallback copy shown only if a sub-studio bundle fails to load (each mount
+// removes this and renders its own designed loading/empty/error states). The
+// copy is real and actionable — never a "mounts here" placeholder.
 const EMPTY_COPY = {
 	brain: {
-		title: 'Wire up a brain',
-		body: 'Pick a model and shape how your agent thinks. The Brain studio mounts here.',
+		title: 'Loading the Brain studio…',
+		body: "Pick a model and shape how your agent thinks. If this doesn't load, refresh the page.",
 	},
 	memory: {
-		title: 'Give it a memory',
-		body: 'Decide what your agent recalls across conversations. The Memory studio mounts here.',
+		title: 'Loading the Memory studio…',
+		body: "Decide what your agent recalls across conversations. If this doesn't load, refresh the page.",
 	},
 	body: {
-		title: 'Choose a body',
-		body: 'Attach a 3D avatar, dress it, and set its animations. The Body studio mounts here.',
+		title: 'Loading the Body studio…',
+		body: 'Choose a 3D avatar, customize its outfit, and set how it moves. If this stalls, refresh the page.',
 		cta: { label: 'Create an avatar →', href: '/create' },
 	},
 	money: {
-		title: 'Set up money',
-		body: "Fund the agent's wallet and price its skills. The Money studio mounts here.",
+		title: 'Loading the Money studio…',
+		body: "Fund the agent's wallet and price its skills. If this stalls, refresh the page.",
 	},
 	skills: {
-		title: 'Add skills',
-		body: 'Turn on capabilities your agent can perform and monetize. The Skills studio mounts here.',
+		title: 'Loading the Skills studio…',
+		body: "Turn on capabilities your agent can perform and monetize. If this stalls, refresh the page.",
 	},
 };
 
