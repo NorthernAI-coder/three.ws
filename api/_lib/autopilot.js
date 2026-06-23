@@ -813,7 +813,7 @@ export async function undoProposal({ proposal, agentId, userId }) {
 }
 
 /** Dismiss a pending proposal; records a light feedback signal. */
-export async function dismissProposal({ proposal, agentId, userId }) {
+export async function dismissProposal({ proposal, agentId }) {
 	if (proposal.status !== 'pending') throw new AutopilotError('Only a pending proposal can be dismissed.', { code: 'not_pending', status: 409 });
 	await sql`
 		UPDATE agent_autopilot_proposals

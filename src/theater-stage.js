@@ -237,8 +237,34 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		})();
 		if (drivable && !reducedMotion) anim.play('idle');
 
-		const rec = { agent, group, model, pad, anim, drivable, slot, busy: false };
+		const rec = { agent, group, model, pad, anim, drivable, slot, busy: false, plate: null };
+		rec.plate = makePlate(rec, index);
 		performers.set(agent.id, rec);
+	}
+
+	// A projected DOM nameplate over each performer: shows who's on stage (the
+	// bodies are otherwise anonymous), and IS the primary hit target — a real
+	// keyboard-focusable button, far more reliable to click than a posed skinned
+	// mesh, and accessible on touch. The body raycast stays as a secondary path.
+	function makePlate(rec, index) {
+		const btn = document.createElement('button');
+		btn.className = 'th-plate';
+		btn.type = 'button';
+		btn.tabIndex = 0;
+		btn.setAttribute('aria-label', `${rec.agent.name || 'Agent'} — open details`);
+		const name = document.createElement('span');
+		name.className = 'th-plate-name';
+		name.textContent = rec.agent.name || 'Agent';
+		btn.appendChild(name);
+		if (Number.isFinite(rec.agent.score)) {
+			const pip = document.createElement('span');
+			pip.className = 'th-plate-score';
+			pip.textContent = String(Math.round(rec.agent.score));
+			btn.appendChild(pip);
+		}
+		btn.addEventListener('click', (e) => { e.stopPropagation(); onSelect?.(rec.agent.id); });
+		overlay.appendChild(btn);
+		return btn;
 	}
 
 	/**
@@ -262,6 +288,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 	function removePerformer(id, rec) {
 		performers.delete(id);
 		try { rec.anim?.dispose?.(); } catch {}
+		rec.plate?.remove();
 		rec.group?.parent?.remove(rec.group);
 		rec.pad?.parent?.remove(rec.pad);
 		rec.group?.traverse?.((n) => {
