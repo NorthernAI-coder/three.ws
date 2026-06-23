@@ -18,7 +18,7 @@ import { evmFallbackProvider } from '../_lib/evm/rpc.js';
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from '../_lib/auth.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
+import { cors, json, method, readJson, wrap, error, rateLimited, reportServerError } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse } from '../_lib/validate.js';
@@ -1188,17 +1188,19 @@ async function handleVerify(req, res) {
 	try {
 		disabled = await verifyWithTimeout(verifyCheckDisabled(hash, chainId), 5000);
 	} catch (err) {
-		console.error('[verify] rpc error', err);
+		// Route through the boundary: ref + Sentry capture + deduped ops alert.
+		// The internal RPC error string stays server-side; the client sees only a
+		// stable code plus the ref it can quote to support.
+		const ref = reportServerError(err, { code: 'rpc_error', status: 502, context: { check: 'verifyCheckDisabled' } });
 		res.statusCode = 502;
 		res.setHeader('content-type', 'application/json; charset=utf-8');
 		res.setHeader('cache-control', 'no-store');
-		// Don't leak the upstream error string to the client — log it (above) and
-		// return a stable code. The internal message goes to server logs only.
 		res.end(
 			JSON.stringify({
 				ok: false,
 				error: 'rpc_error',
 				error_description: 'on-chain verification failed',
+				ref,
 			}),
 		);
 		return;

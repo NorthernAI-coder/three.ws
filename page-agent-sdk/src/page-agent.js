@@ -83,6 +83,9 @@ export class PageAgent {
 		this._muted = !!config.muted;
 		this._collapsed = !!config.collapsed;
 		this._root.dataset.state = this._stateBase();
+		// Reflect the starting mute state onto the button (icon + aria-pressed),
+		// so a `muted: true` config doesn't render an out-of-sync "unmuted" control.
+		this.mute(this._muted);
 
 		this.setAgent(startId).then(() => {
 			this._emit('ready', this._agent);
@@ -183,6 +186,12 @@ export class PageAgent {
 			window.removeEventListener('pointerup', up);
 		};
 		handle.addEventListener('pointerdown', down);
+		// Let dispose() unbind the handle and any drag still in flight.
+		this._teardownDrag = () => {
+			handle.removeEventListener('pointerdown', down);
+			window.removeEventListener('pointermove', move);
+			window.removeEventListener('pointerup', up);
+		};
 	}
 
 	// ── Agent lifecycle ────────────────────────────────────────────────────────
@@ -330,6 +339,7 @@ export class PageAgent {
 
 	dispose() {
 		this.stop();
+		this._teardownDrag?.();
 		this.narrator?.dispose();
 		this.stage?.dispose();
 		this.picker?.dispose();

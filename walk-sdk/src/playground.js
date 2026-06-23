@@ -292,10 +292,13 @@ class StrollPlayground {
 		this.mounted = false;
 		this._reduced = prefersReducedMotion();
 		this._raf = 0;
+		this._diveTimer = 0;
+		this._hintTimer = 0;
 		this._tick = this._tick.bind(this);
 		this._onKeyDown = this._onKeyDown.bind(this);
 		this._onKeyUp = this._onKeyUp.bind(this);
 		this._onResize = this._onResize.bind(this);
+		this._onVisibility = this._onVisibility.bind(this);
 		this.char = { x: 0, y: 0, vx: 0, vy: 0, facing: 0 };
 		this._yaw = 0;
 		this.input = { up: false, down: false, left: false, right: false, dive: false };
@@ -343,12 +346,25 @@ class StrollPlayground {
 		this.mounted = false;
 		cancelAnimationFrame(this._raf);
 		this._raf = 0;
+		clearTimeout(this._diveTimer);
+		clearTimeout(this._hintTimer);
 		window.removeEventListener('keydown', this._onKeyDown, true);
 		window.removeEventListener('keyup', this._onKeyUp, true);
 		window.removeEventListener('resize', this._onResize);
+		document.removeEventListener('visibilitychange', this._onVisibility);
 		this._clearArm();
 		destroyPicker(this);
 		this._teardown();
+	}
+
+	// Stop the render loop when the tab is backgrounded; resume on return.
+	_onVisibility() {
+		if (document.hidden) {
+			cancelAnimationFrame(this._raf);
+			this._raf = 0;
+		} else if (this.mounted && !this._raf) {
+			this._raf = requestAnimationFrame(this._tick);
+		}
 	}
 
 	currentScreenPos() {
@@ -505,6 +521,7 @@ class StrollPlayground {
 		window.addEventListener('keydown', this._onKeyDown, true);
 		window.addEventListener('keyup', this._onKeyUp, true);
 		window.addEventListener('resize', this._onResize);
+		document.addEventListener('visibilitychange', this._onVisibility);
 	}
 
 	_onKeyDown(e) {
@@ -611,7 +628,7 @@ class StrollPlayground {
 		}
 		this.char.vx = 0;
 		this.char.vy = 0;
-		setTimeout(go, 560);
+		this._diveTimer = setTimeout(go, 560);
 	}
 
 	_tick() {
@@ -750,10 +767,13 @@ class PlatformerPlayground {
 		this.mounted = false;
 		this._reduced = prefersReducedMotion();
 		this._raf = 0;
+		this._diveTimer = 0;
+		this._hintTimer = 0;
 		this._tick = this._tick.bind(this);
 		this._onKeyDown = this._onKeyDown.bind(this);
 		this._onKeyUp = this._onKeyUp.bind(this);
 		this._onResize = this._onResize.bind(this);
+		this._onVisibility = this._onVisibility.bind(this);
 		this._scheduleRescan = this._scheduleRescan.bind(this);
 		this.char = { x: 0, y: 0, vx: 0, vy: 0, grounded: false, facing: 1 };
 		this.platform = null;
@@ -804,13 +824,26 @@ class PlatformerPlayground {
 		this.mounted = false;
 		cancelAnimationFrame(this._raf);
 		this._raf = 0;
+		clearTimeout(this._diveTimer);
+		clearTimeout(this._hintTimer);
 		window.removeEventListener('keydown', this._onKeyDown, true);
 		window.removeEventListener('keyup', this._onKeyUp, true);
 		window.removeEventListener('resize', this._onResize);
 		window.removeEventListener('scroll', this._scheduleRescan, true);
+		document.removeEventListener('visibilitychange', this._onVisibility);
 		this._clearArm();
 		destroyPicker(this);
 		this._teardown();
+	}
+
+	// Stop the render loop when the tab is backgrounded; resume on return.
+	_onVisibility() {
+		if (document.hidden) {
+			cancelAnimationFrame(this._raf);
+			this._raf = 0;
+		} else if (this.mounted && !this._raf) {
+			this._raf = requestAnimationFrame(this._tick);
+		}
 	}
 
 	currentScreenPos() {
@@ -1000,6 +1033,7 @@ class PlatformerPlayground {
 		window.addEventListener('keyup', this._onKeyUp, true);
 		window.addEventListener('resize', this._onResize);
 		window.addEventListener('scroll', this._scheduleRescan, true);
+		document.addEventListener('visibilitychange', this._onVisibility);
 	}
 
 	_onKeyDown(e) {
@@ -1111,7 +1145,7 @@ class PlatformerPlayground {
 		this.char.vx = 0;
 		this.char.vy = TERMINAL;
 		this.char.grounded = false;
-		setTimeout(go, 620);
+		this._diveTimer = setTimeout(go, 620);
 	}
 
 	_tick() {

@@ -92,11 +92,23 @@ async function listPending() {
 
 async function applyOne({ fname, body, hash }) {
 	process.stdout.write(`→ applying ${fname} … `);
-	// neon HTTP driver requires statements run individually rather than as a
-	// single multi-statement string. We fall back to splitting on bare ';' at
-	// line ends; the migrations in this repo are written to be split-safe
-	// (no procedural blocks, no embedded semicolons in literals).
-	// Use websocket Pool for multi-statement execution (HTTP driver is single-stmt only).
+	// Run the whole file in one round trip via the websocket `Pool`. The Neon HTTP
+	// driver is single-statement only, but `pg`'s simple-query protocol (what
+	// Pool.query uses for a text-only call) executes a multi-statement string —
+	// and, crucially, parses `DO $$ … $$` / dollar-quoted bodies correctly, so
+	// migrations may contain procedural blocks and embedded semicolons without any
+	// client-side `;` splitting.
+	//
+	// Transaction semantics (Postgres simple query): a string with two or more
+	// commands and no explicit BEGIN/COMMIT runs in one implicit transaction —
+	// any failure rolls the whole file back, so a half-applied file can't poison
+	// the schema_migrations ledger below. A single-command file autocommits. A
+	// file with its own BEGIN/COMMIT manages its own transaction.
+	//
+	// Footgun for migration authors: CREATE INDEX CONCURRENTLY cannot run inside
+	// a transaction, so it must be the *only* command in its file (then it
+	// autocommits). Pairing it with any other statement wraps it in the implicit
+	// transaction and Postgres rejects it.
 	await pool.query(body);
 	await sql`
 		insert into schema_migrations (filename, sha256)

@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { sql } from '../_lib/db.js';
 import { env } from '../_lib/env.js';
+import { reportServerError, redactUrl } from '../_lib/http.js';
 
 const ORIGIN = env.APP_ORIGIN;
 const MAX_URLS = 45_000;
@@ -193,9 +194,10 @@ export default async function handler(req, res) {
 		const entries = await builder();
 		return send(res, urlsetXml(entries));
 	} catch (err) {
-		console.error('[sitemap]', raw, err?.message);
+		const ref = reportServerError(err, { code: 'sitemap_failed', context: { url: redactUrl(req.url), type: raw } });
 		res.statusCode = 500;
 		res.setHeader('content-type', 'text/plain');
-		res.end('sitemap failed');
+		res.setHeader('cache-control', 'no-store');
+		res.end(`sitemap failed — quote ref ${ref} to support`);
 	}
 }

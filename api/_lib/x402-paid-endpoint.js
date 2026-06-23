@@ -32,6 +32,7 @@ import { cors, error, respondError, rateLimited, wrap } from './http.js';
 import { env } from './env.js';
 import { clientIp, limits } from './rate-limit.js';
 import { logPaymentEvent } from './x402/audit-log.js';
+import { recordPaymentMetric } from './axiom.js';
 import { PAYMENT_EVENT_TOPIC as BSC_PAYMENT_EVENT_TOPIC } from './x402-bsc-direct.js';
 import {
 	BUILDER_CODE,
@@ -83,6 +84,15 @@ const NETWORK_ALIASES = {
 
 function resolveNetwork(name) {
 	return NETWORK_ALIASES[name] || name;
+}
+
+// USDC is 6-decimal; the x402 requirement carries the price as an atomic string.
+// Returns undefined for an absent/unparseable amount so the metric simply omits
+// the field rather than reporting a misleading 0.
+function atomicsToUsd(atomics) {
+	if (atomics == null) return undefined;
+	const n = Number(atomics);
+	return Number.isFinite(n) ? n / 1e6 : undefined;
 }
 
 function buildAccept(network, priceAtomics, resourceUrl, payToOverride) {
@@ -781,6 +791,15 @@ export function paidEndpoint(spec) {
 		try {
 			verified = await verifyPayment({ paymentHeader, requirements, builderCode });
 		} catch (err) {
+			// Verify is a payment outcome too — record it so the invalid/rejected-
+			// payment rate is visible alongside settlements. A 402 here is a rejected
+			// proof (insufficient/invalid), distinct from an upstream verify fault.
+			recordPaymentMetric({
+				kind: 'x402',
+				status: 'failed',
+				latencyMs: Date.now() - requestStartTime,
+				reason: err.code || (err.status === 402 ? 'verify_rejected' : 'verify_failed'),
+			});
 			if (ownsReservation) await releaseSlot({ route, paymentId });
 			if (err.status === 402) return send402(res, { ...challenge, error: err.message });
 			return respondError(res, err.status || 502, err.code || 'verify_failed', err);
@@ -828,6 +847,14 @@ export function paidEndpoint(spec) {
 				ipAddress: clientIp(req),
 				userAgent: req.headers?.['user-agent']?.slice(0, 512) || null,
 				metadata: { error: err.message, code: err.code },
+			});
+			recordPaymentMetric({
+				kind: 'x402',
+				status: 'failed',
+				network: verified.requirement?.network,
+				amountUsd: atomicsToUsd(verified.requirement?.amount),
+				latencyMs: Date.now() - requestStartTime,
+				reason: err.code || 'settle_failed',
 			});
 			if (ownsReservation) await releaseSlot({ route, paymentId });
 			return respondError(res, err.status || 502, err.code || 'settle_failed', err);
@@ -905,6 +932,17 @@ export function paidEndpoint(spec) {
 			durationMs: Date.now() - requestStartTime,
 			ipAddress: clientIp(req),
 			userAgent: req.headers?.['user-agent']?.slice(0, 512) || null,
+		});
+		// Axiom payment metric — success rate + per-network latency the audit DB
+		// can't aggregate live. Fire-and-forget no-op until AXIOM_* is set; carries
+		// only on-chain identifiers (route, network, tx signature), never PII.
+		recordPaymentMetric({
+			kind: 'x402',
+			status: 'ok',
+			network: settled.network || verified.requirement?.network,
+			amountUsd: atomicsToUsd(verified.requirement?.amount),
+			latencyMs: Date.now() - requestStartTime,
+			signature: settled.transaction || undefined,
 		});
 
 		if (paymentId) {

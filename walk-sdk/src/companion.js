@@ -132,6 +132,7 @@ class WalkCompanion {
 			return;
 		}
 
+		this.host?.classList.remove('is-loading');
 		this._restoreState();
 		this._bindEvents();
 		this._greetForRoute();
@@ -148,6 +149,9 @@ class WalkCompanion {
 		document.removeEventListener('click', this._onLinkClick, true);
 		document.removeEventListener('visibilitychange', this._onVisibility);
 		window.removeEventListener('pagehide', this._onPageHide);
+		clearTimeout(this._inviteTimer);
+		clearTimeout(this._orientTimer);
+		clearTimeout(this._bubbleTimer);
 		this._picker?.destroy();
 		this._picker = null;
 		this._teardownScene();
@@ -159,7 +163,7 @@ class WalkCompanion {
 	_buildDom() {
 		ensureStyles();
 		const host = document.createElement('div');
-		host.className = 'walk-companion';
+		host.className = 'walk-companion is-loading';
 		host.setAttribute('role', 'complementary');
 		host.setAttribute('aria-label', 'Walk companion');
 		const pickerBtn = this.config.enablePicker
@@ -168,6 +172,7 @@ class WalkCompanion {
 		host.innerHTML = `
 			<button type="button" class="walk-companion-close" aria-label="Dismiss walk companion" title="Dismiss">×</button>
 			${pickerBtn}
+			<div class="walk-companion__skel" aria-hidden="true"></div>
 			<div class="walk-companion-bubble" hidden></div>
 			<canvas class="walk-companion-canvas" width="${CANVAS_W}" height="${CANVAS_H}"></canvas>
 		`;
@@ -530,6 +535,10 @@ function ensureStyles() {
 .walk-companion{position:fixed;right:16px;bottom:16px;width:${CANVAS_W}px;height:${CANVAS_H}px;z-index:2147483000;pointer-events:none;opacity:0;transform:translateY(12px);transition:opacity .35s ease,transform .35s ease;-webkit-user-select:none;user-select:none}
 .walk-companion.is-in{opacity:1;transform:translateY(0)}
 .walk-companion-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:auto;cursor:pointer;filter:drop-shadow(0 18px 22px rgba(0,0,0,.32))}
+.walk-companion__skel{position:absolute;left:50%;bottom:8%;z-index:0;width:46%;height:70%;transform:translateX(-50%);border-radius:46% 46% 40% 40%/55% 55% 45% 45%;overflow:hidden;opacity:0;transition:opacity .25s ease;pointer-events:none;background:linear-gradient(180deg,rgba(122,162,255,.18),rgba(18,20,28,.10))}
+.walk-companion.is-loading .walk-companion__skel{opacity:1}
+.walk-companion.is-loading .walk-companion-canvas{opacity:0}
+.walk-companion__skel::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 18%,rgba(255,255,255,.22) 46%,transparent 72%);transform:translateX(-120%);animation:walk-companion-shimmer 1.2s ease-in-out infinite}
 .walk-companion-close,.walk-companion-swap{position:absolute;top:2px;z-index:3;width:22px;height:22px;border:none;border-radius:50%;background:rgba(12,14,20,.55);color:#fff;font-size:14px;line-height:1;cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .2s ease,background .2s ease;display:grid;place-items:center;padding:0}
 .walk-companion-close{right:2px;font-size:15px}
 .walk-companion-swap{right:28px}
@@ -542,7 +551,8 @@ function ensureStyles() {
 .walk-companion-bubble::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:rgba(18,20,28,.94)}
 @media (max-width:520px){.walk-companion{width:148px;height:208px;right:10px;bottom:10px}.walk-companion-bubble{font-size:11.5px;max-width:170px}}
 @media (pointer:coarse){.walk-companion-close,.walk-companion-swap{opacity:1;width:26px;height:26px}.walk-companion-swap{right:32px}}
-@media (prefers-reduced-motion:reduce){.walk-companion,.walk-companion-bubble{transition:none}}
+@keyframes walk-companion-shimmer{to{transform:translateX(120%)}}
+@media (prefers-reduced-motion:reduce){.walk-companion,.walk-companion-bubble{transition:none}.walk-companion__skel::after{animation:none;opacity:.5}}
 `;
 	document.head.appendChild(style);
 }

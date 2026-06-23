@@ -69,15 +69,33 @@ export function error(res, status, code, message, extra = {}) {
 	return json(res, status, { error: code, error_description: message, ...extra }, { 'cache-control': 'no-store' });
 }
 
-// Query params that can carry a user's real-world position or a bearer-style
-// device credential. These must never reach a log line, Sentry event, or ops
-// alert — all off-box sinks — so they are stripped from any request URL we log.
-// Matched on the lower-cased key so camelCase / snake_case variants are covered.
+// Query params that can carry a credential, a wallet secret, an email, or a
+// user's real-world position. These must never reach a log line, Sentry event,
+// or ops alert — all off-box sinks — so they are stripped from any request URL
+// we log. Keys are compared after normalizing away case and `_`/`-` separators
+// (see isSensitiveQueryKey), so `api-key`, `api_key`, and `apiKey` all collapse
+// to one entry here and a new casing variant can't slip a secret through.
 const SENSITIVE_QUERY_KEYS = new Set([
+	// precise geolocation
 	'lat', 'lng', 'latitude', 'longitude', 'll', 'coords', 'coord',
-	'originlat', 'originlng', 'origin_lat', 'origin_lng',
-	'devicetoken', 'device_token', 'token',
+	'originlat', 'originlng', 'geo', 'location', 'position',
+	// bearer / session credentials
+	'token', 'devicetoken', 'accesstoken', 'refreshtoken', 'idtoken',
+	'authorization', 'auth', 'bearer', 'session', 'sessionid', 'sid',
+	'password', 'passwd', 'pwd', 'pin', 'otp',
+	// API keys / signing secrets
+	'apikey', 'key', 'accesskey', 'secret', 'clientsecret', 'signature', 'sig',
+	// wallet secrets
+	'privatekey', 'secretkey', 'mnemonic', 'seed', 'seedphrase', 'keypair',
+	// PII
+	'email',
 ]);
+
+// Normalize a query key to its case/separator-insensitive form before matching,
+// so `deviceToken`, `device_token`, and `device-token` are one key.
+function isSensitiveQueryKey(key) {
+	return SENSITIVE_QUERY_KEYS.has(key.toLowerCase().replace(/[_-]/g, ''));
+}
 
 // Reduce a request URL to a log-safe form: keep the path and any benign params,
 // but redact values that reveal a location or a credential. A geolocated read
@@ -98,7 +116,7 @@ export function redactUrl(rawUrl) {
 	}
 	let touched = false;
 	for (const key of [...params.keys()]) {
-		if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+		if (isSensitiveQueryKey(key)) {
 			params.set(key, 'REDACTED');
 			touched = true;
 		}
@@ -116,16 +134,21 @@ function correlationId() {
 	return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
-// Emit a 5xx WITHOUT leaking internal error detail to the client. The real
-// message (which may carry RPC URLs, wallet addresses, or stack-derived text)
-// is logged + captured server-side under a correlation id the caller can quote
-// to support; the client only sees a generic description + the ref.
-export function serverError(res, status, code, err, extra = {}) {
+// Log + capture + alert a server fault under a fresh correlation id WITHOUT
+// writing a response, and return the ref. The body-writing helpers below build
+// on this, but it's also the seam for handlers that must answer in a non-JSON
+// content type (RSS/XML, sitemap text, JSON-RPC, MCP) and so can't call
+// serverError(): they catch internally, call this to land the same log line +
+// Sentry event + deduped ops alert, then echo `ref` in their own envelope. That
+// keeps acceptance criterion #1 — every 5xx gets a ref/capture/alert — true for
+// boundaries that never reach wrap(). `context` is merged into the Sentry extra
+// (callers redact URLs via redactUrl() before passing them here).
+export function reportServerError(err, { code = 'internal_error', status = 500, context = {} } = {}) {
 	const ref = correlationId();
 	const detail = err?.message || String(err ?? 'unknown error');
 	console.error(`[server-error ${ref}] ${code} (${status}): ${detail}`);
 	try {
-		captureException(err instanceof Error ? err : new Error(detail), { ref, code, status });
+		captureException(err instanceof Error ? err : new Error(detail), { ref, code, status, ...context });
 		// Fire-and-forget like captureException; deduped per error class+message
 		// (ref excluded from the signature so each occurrence doesn't re-alert).
 		sendOpsAlert(`${status} ${code}`, `${detail}\nref ${ref}`, {
@@ -134,6 +157,15 @@ export function serverError(res, status, code, err, extra = {}) {
 	} catch {
 		/* sentry/alerts best-effort; never mask the original failure */
 	}
+	return ref;
+}
+
+// Emit a 5xx WITHOUT leaking internal error detail to the client. The real
+// message (which may carry RPC URLs, wallet addresses, or stack-derived text)
+// is logged + captured server-side under a correlation id the caller can quote
+// to support; the client only sees a generic description + the ref.
+export function serverError(res, status, code, err, extra = {}) {
+	const ref = reportServerError(err, { code, status });
 	return json(res, status, {
 		error: code,
 		error_description: `internal error — quote ref ${ref} to support`,

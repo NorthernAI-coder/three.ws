@@ -3,6 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Improvement: Base USDC payments confirm even when an RPC provider is flaky",
+			"summary": "When you pay for a skill or asset in USDC on Base, the platform double-checks your payment landed on-chain before unlocking it. That check used to read from a single blockchain provider — so if that one provider was briefly slow or rate-limited, a payment that had genuinely gone through could look stuck as 'pending' until you retried. It now reads through the same multi-provider failover the rest of the platform already uses: if one provider is down it automatically tries the next, and a momentary outage degrades to a safe, retryable state instead of stranding a confirmed payment. Your funds were never at risk either way; this makes the confirmation itself resilient.",
+			"tags": ["improvement", "infra"]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Fix: prompt-to-avatar shows your finished avatar instead of jumping to the editor",
+			"summary": "When you described an avatar in words at Create → From a prompt, the 'done' screen was meant to show a live, spinnable preview of the character you just made — the payoff moment. For private avatars (the default), that preview was being skipped and you were dropped straight into the editor with no look at the result. The preview now renders for private avatars too, using the same owner-only secure link the selfie flow already used, so every prompt-built avatar greets you with a real 3D preview you can rotate before opening the editor or making another.",
+			"tags": ["fix"],
+			"link": "/create/prompt"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Fix: avatars look right in iOS AR, not collapsed and distorted",
 			"summary": "Viewing an avatar in AR on iPhone or iPad (the 'Place in your space' / Quick Look flow) could show a mangled figure — limbs balled up at the hips and accessories like glasses floating at giant scale — instead of the avatar you saw on the page. The cause: the AR file format Apple uses doesn't carry an animation skeleton, so the standard exporter shipped the avatar in its raw, un-posed rig. We now freeze each avatar into its proper standing pose before generating the AR file, so what you place in your room matches what you see in the viewer, accessories included.",
 			"tags": ["fix"]

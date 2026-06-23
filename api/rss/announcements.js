@@ -2,7 +2,7 @@
 // Default source: data/rss/items.json (curated, hand-edited).
 // Mirror modes: ?source=trythreews | ?source=nichxbt | ?source=archive  (X scrape).
 
-import { cors, method } from '../_lib/http.js';
+import { cors, method, reportServerError, redactUrl } from '../_lib/http.js';
 import { loadCuratedItems, loadAnnouncementItems, buildRssXml } from '../_lib/rss-feed.js';
 
 const ARCHIVE_SOURCES = new Set(['archive', 'trythreews', 'nichxbt']);
@@ -33,9 +33,10 @@ export default async function handler(req, res) {
 		res.setHeader('cache-control', 'public, max-age=600, s-maxage=600, stale-while-revalidate=86400');
 		res.end(xml);
 	} catch (err) {
-		console.error('[rss/announcements] failed', err);
+		const ref = reportServerError(err, { code: 'rss_feed_failed', context: { url: redactUrl(req.url) } });
 		res.statusCode = 500;
 		res.setHeader('content-type', 'text/plain; charset=utf-8');
-		res.end('feed unavailable');
+		res.setHeader('cache-control', 'no-store');
+		res.end(`feed unavailable — quote ref ${ref} to support`);
 	}
 }

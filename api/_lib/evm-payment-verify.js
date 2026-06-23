@@ -7,9 +7,10 @@
 // the expected amount. This mirrors the strictness of `validateTransfer` on the
 // Solana side. Coin-agnostic settlement plumbing: USDC is the settlement asset.
 
-import { createPublicClient, http, getAddress, decodeEventLog, parseAbiItem } from 'viem';
+import { createPublicClient, getAddress, decodeEventLog, parseAbiItem } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { env } from './env.js';
+import { evmTransport } from './evm/rpc.js';
 import { EVM_USDC } from '../payments/_config.js';
 
 // Map our stored `chain` string to an EVM chain id. Only Base is wired today;
@@ -40,8 +41,15 @@ const _clients = new Map();
 function clientFor(chainId) {
 	if (_clients.has(chainId)) return _clients.get(chainId);
 	const chain = chainId === 84532 ? baseSepolia : base;
-	const rpcUrl = env.BASE_RPC_URL || (chainId === 84532 ? 'https://sepolia.base.org' : 'https://mainnet.base.org');
-	const client = createPublicClient({ chain, transport: http(rpcUrl) });
+	// Multi-endpoint failover (explicit override → Alchemy → public), identical to
+	// every other EVM read path (evm-transfer, club payouts, ERC-8004 reads). The
+	// settlement-verify path must never be the one place a single flaky Base RPC
+	// strands a payment: viem's fallback transport rotates to the next endpoint on
+	// a transport fault, while a genuine "not mined yet" still surfaces as the soft,
+	// retryable `pending` the callers already handle. BASE_RPC_URL is pinned first
+	// so an operator's private node keeps buyer addresses off the public lanes.
+	const transport = evmTransport(chainId, { primaryUrl: env.BASE_RPC_URL });
+	const client = createPublicClient({ chain, transport });
 	_clients.set(chainId, client);
 	return client;
 }
