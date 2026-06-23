@@ -301,6 +301,13 @@ export function openPrivacyCenter({ getGhost, setGhost, onManagePins, onChanged 
 			try { onManagePins && onManagePins(); } catch {}
 		});
 
+		// Privacy & my data → close then open the full H5 data-control surface
+		// (summary, per-pin unpublish/delete, export, remove-all, forget device).
+		sheet.querySelector('[data-mydata]')?.addEventListener('click', () => {
+			close();
+			openMyDataPanel({ onChanged });
+		});
+
 		setTimeout(() => sheet.querySelector('[data-close]')?.focus(), 60);
 	});
 }
