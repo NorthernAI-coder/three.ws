@@ -271,6 +271,16 @@ export const env = {
 		return opt('NVIDIA_API_KEY');
 	},
 
+	// NVCF function id for the hosted Riva ASR model (Parakeet/Canary) used by the
+	// free speech-to-text lane (api/_lib/asr-nvidia.js, api/asr.js). Unlike the
+	// pinned Magpie TTS id, the ASR model/version a deployment wants varies, so
+	// the id is configuration — discover the live id for your account with
+	// `node scripts/verify-nvidia-asr.mjs --list`. When unset the ASR lane reports
+	// itself unconfigured and callers fall back to the browser SpeechRecognition.
+	get NVIDIA_ASR_FUNCTION_ID() {
+		return opt('NVIDIA_ASR_FUNCTION_ID');
+	},
+
 	// IBM watsonx.ai (Granite foundation models) — selectable brain in
 	// /api/chat and /api/brain/chat. Requires the API key AND a project (or
 	// space) id; the shared client in _lib/watsonx.js exchanges the key for an

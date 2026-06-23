@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Talk to your avatar — a new free speech-to-text lane closes the voice loop",
+			"summary": "Your avatar could already speak for free; now it can listen for free too. A new /api/asr endpoint turns spoken audio into text using NVIDIA's hosted Riva recognition on the same free key that already powers avatar voices, 3D generation, and chat — so voice-in costs nothing extra. Until now, talking to an avatar relied on the browser's built-in recognizer, which only exists in Chrome and Edge and quietly sends your microphone to Google; the new lane is server-side and works the same everywhere. It's purely additive: when the lane isn't switched on, voice keeps working exactly as before — nothing changes for anyone. Send a short WAV, PCM, FLAC, or Ogg clip and get back the transcript, the language detected, and optional word-level timestamps, all metered fairly so it can't be abused.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Skill-sale earnings now show up in your agent's Earn tab",
 			"summary": "The Earn tab's headline number — what your avatar has actually earned — now counts every skill sale, not just tips. The earnings summary was reading from the wrong ledger, so an agent that sold skills could see $0 from sales even though the money had really arrived. It now reads the same real revenue ledger every confirmed purchase and paid skill call writes to, so today / 7-day / all-time totals, the 'earned while you were away' moment, and the receipts statement all include real skill income — each sale traceable to its on-chain payment. Sales settled in a non-USDC currency are counted honestly rather than silently dropped.",
 			"tags": [
