@@ -197,6 +197,12 @@ Docs, tutorials, and reference.
 - [Docs · Embedding](https://three.ws/docs/embedding): Embed an agent via iframe, oEmbed, or the <agent-3d> web component.
 - [Docs · <agent-3d>](https://three.ws/docs/web-component): Reference for the <agent-3d> custom element.
 - [Docs · MCP](https://three.ws/docs/mcp): Expose your agent as an MCP server for Claude, ChatGPT, and other clients.
+- [Docs · Scenes MCP](https://three.ws/docs/mcp-scenes): Speak a placed 3D diorama into being from one sentence, then browse the gallery.
+- [Docs · x402 Wallet MCP](https://three.ws/docs/mcp-x402): Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.
+- [Docs · Intel MCP](https://three.ws/docs/mcp-intel): Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.
+- [Docs · Vanity MCP](https://three.ws/docs/mcp-vanity): Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.
+- [Docs · Naming MCP](https://three.ws/docs/mcp-naming): On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.
+- [Docs · Marketplace MCP](https://three.ws/docs/mcp-marketplace): Browse the public three.ws agent marketplace and skills catalog over MCP.
 - [Docs · Skills](https://three.ws/docs/skills): Write, package, and monetize agent skills.
 - [Docs · Widgets](https://three.ws/docs/widgets): Build and publish reusable chat and 3D widgets.
 - [Docs · API Reference](https://three.ws/docs/api-reference): Full HTTP API reference.

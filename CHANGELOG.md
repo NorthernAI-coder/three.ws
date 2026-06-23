@@ -19,6 +19,12 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 - **CA → x402** (`/ca2x402`) — Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.
 - **Cosmos — Living Worlds** (`/cosmos`) — Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.
 - **Custody Integrity** (`/integrity`) — Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.
+- **Docs · Intel MCP** (`/docs/mcp-intel`) — Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.
+- **Docs · Marketplace MCP** (`/docs/mcp-marketplace`) — Browse the public three.ws agent marketplace and skills catalog over MCP.
+- **Docs · Naming MCP** (`/docs/mcp-naming`) — On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.
+- **Docs · Scenes MCP** (`/docs/mcp-scenes`) — Speak a placed 3D diorama into being from one sentence, then browse the gallery.
+- **Docs · Vanity MCP** (`/docs/mcp-vanity`) — Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.
+- **Docs · x402 Wallet MCP** (`/docs/mcp-x402`) — Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.
 - **Forge · NIM — Self-Hosted Image to 3D** (`/forge-nim`) — Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.
 - **Guardian console — recover & inherit agent wallets** (`/guardian`) — The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.
 - **Instant Agent Genesis** (`/genesis`) — A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.

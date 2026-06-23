@@ -1045,6 +1045,42 @@ URL: https://three.ws/docs/mcp
 
 Expose your agent as an MCP server for Claude, ChatGPT, and other clients.
 
+### Docs · Scenes MCP
+
+URL: https://three.ws/docs/mcp-scenes
+
+Speak a placed 3D diorama into being from one sentence, then browse the gallery.
+
+### Docs · x402 Wallet MCP
+
+URL: https://three.ws/docs/mcp-x402
+
+Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.
+
+### Docs · Intel MCP
+
+URL: https://three.ws/docs/mcp-intel
+
+Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.
+
+### Docs · Vanity MCP
+
+URL: https://three.ws/docs/mcp-vanity
+
+Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.
+
+### Docs · Naming MCP
+
+URL: https://three.ws/docs/mcp-naming
+
+On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.
+
+### Docs · Marketplace MCP
+
+URL: https://three.ws/docs/mcp-marketplace
+
+Browse the public three.ws agent marketplace and skills catalog over MCP.
+
 ### Docs · Skills
 
 URL: https://three.ws/docs/skills

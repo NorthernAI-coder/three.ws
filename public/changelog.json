@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T15:23:51.936Z",
+	"generated_at": "2026-06-23T15:26:38.772Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -102,6 +102,66 @@
 			"title": "Custody Integrity",
 			"summary": "Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.",
 			"link": "/integrity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · Intel MCP",
+			"summary": "Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards over MCP.",
+			"link": "/docs/mcp-intel",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · Marketplace MCP",
+			"summary": "Browse the public three.ws agent marketplace and skills catalog over MCP.",
+			"link": "/docs/mcp-marketplace",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · Naming MCP",
+			"summary": "On-chain identity for agents: resolve .sol names, reverse-lookup wallets, check handles.",
+			"link": "/docs/mcp-naming",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · Scenes MCP",
+			"summary": "Speak a placed 3D diorama into being from one sentence, then browse the gallery.",
+			"link": "/docs/mcp-scenes",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · Vanity MCP",
+			"summary": "Read the Solana vanity-address grind-bounty market and proof-of-grind gallery.",
+			"link": "/docs/mcp-vanity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Docs · x402 Wallet MCP",
+			"summary": "Give an AI agent a self-custodial Solana wallet that finds, inspects, and pays any x402 service in USDC.",
+			"link": "/docs/mcp-x402",
 			"tags": [
 				"launch"
 			]
