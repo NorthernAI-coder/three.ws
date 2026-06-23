@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T16:04:11.083Z",
+	"generated_at": "2026-06-23T20:22:03.052Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -252,6 +252,16 @@
 			"title": "Strategy Objects",
 			"summary": "A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.",
 			"link": "/strategies",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Text → 3D — Nemotron → FLUX → TRELLIS",
+			"summary": "Describe an object and watch it become a textured 3D mesh: Nemotron sharpens the prompt, FLUX paints a clean reference, and TRELLIS reconstructs the model — served on NVIDIA NIM, quiet and always on.",
+			"link": "/forge-spark",
 			"tags": [
 				"launch"
 			]

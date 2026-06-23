@@ -33,6 +33,11 @@ const OPENROUTER_MODEL = 'meta-llama/llama-3.3-70b-instruct';
 // key, OpenAI-compatible, so the chain degrades across providers without
 // changing model behavior.
 const NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct';
+// Compact, reasoning-tuned Nemotron a caller can opt into when it wants the
+// NVIDIA-native model to lead (see `preferNvidia`/`nvidiaModel` below). Fast
+// enough for a single prompt-refine turn; the rest of the free chain still
+// backs it up if the NIM lane is down.
+const NVIDIA_NEMOTRON_MODEL = 'nvidia/nvidia-nemotron-nano-9b-v2';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 // Paid last-resort tail (see policy above). Mini keeps the backstop cheap; the
 // repo-wide OpenAI default (api/_lib/chat-models.js) uses the same model.
@@ -137,8 +142,22 @@ function openaiCompatProvider({ name, key, url, model, extraHeaders = {} }) {
 // free provider: the prod paid keys are routinely invalid or out of quota, so
 // platform spend never leads and nothing depends on it — but when a key does
 // work, a request that exhausted the free tier still succeeds.
-function providerChain({ anthropicKey, anthropicModel } = {}) {
+function providerChain({ anthropicKey, anthropicModel, preferNvidia = false, nvidiaModel = null } = {}) {
 	const chain = [];
+	// Opt-in: lead with the NVIDIA NIM lane on a chosen Nemotron model. Used by
+	// features that want the NVIDIA-native model to actually produce the result
+	// (not just sit at the tail of the free chain). The remaining free providers
+	// are still appended below as fallback, so the feature degrades gracefully
+	// when the NIM lane is unreachable. NVIDIA is free, so this respects the
+	// free-first policy — it just reorders which free provider leads.
+	if (preferNvidia && env.NVIDIA_API_KEY) {
+		chain.push(openaiCompatProvider({
+			name: 'nvidia',
+			key: env.NVIDIA_API_KEY,
+			url: 'https://integrate.api.nvidia.com/v1/chat/completions',
+			model: nvidiaModel || NVIDIA_NEMOTRON_MODEL,
+		}));
+	}
 	if (anthropicKey) chain.push(anthropicProvider(anthropicKey, anthropicModel));
 	if (env.GROQ_API_KEY) {
 		chain.push(openaiCompatProvider({
@@ -213,8 +232,8 @@ export function llmConfigured(opts = {}) {
 // { userId, agentId, avatarId, clientId, apiKeyId, tool } — are all optional;
 // pass whatever the call site knows. Recording is fire-and-forget (see
 // recordEvent), so it never delays or fails the completion.
-export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, timeoutMs = 30_000, track = null }) {
-	const chain = providerChain({ anthropicKey, anthropicModel });
+export async function llmComplete({ system, user, maxTokens = 1024, anthropicKey = null, anthropicModel = null, preferNvidia = false, nvidiaModel = null, timeoutMs = 30_000, track = null }) {
+	const chain = providerChain({ anthropicKey, anthropicModel, preferNvidia, nvidiaModel });
 	if (!chain.length) throw new LlmUnavailableError();
 
 	// Per-user daily spend cap on platform-paid keys. Only runs when a userId is

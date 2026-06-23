@@ -207,6 +207,14 @@
 			<description>A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.</description>
 		</item>
 		<item>
+			<title>Text → 3D — Nemotron → FLUX → TRELLIS</title>
+			<link>https://three.ws/forge-spark</link>
+			<guid isPermaLink="false">2026-06-23:Text → 3D — Nemotron → FLUX → TRELLIS</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Describe an object and watch it become a textured 3D mesh: Nemotron sharpens the prompt, FLUX paints a clean reference, and TRELLIS reconstructs the model — served on NVIDIA NIM, quiet and always on.</description>
+		</item>
+		<item>
 			<title>The AGI — narrow by design</title>
 			<link>https://three.ws/agi</link>
 			<guid isPermaLink="false">2026-06-23:The AGI — narrow by design</guid>
