@@ -643,6 +643,15 @@ export const limits = {
 		getLimiter('tts:speak:user', { limit: 40, window: '1 h', critical: true }).limit(userId),
 	ttsSpeakIp: (ip) =>
 		getLimiter('tts:speak:ip', { limit: 10, window: '1 h', critical: true }).limit(ip),
+	// NVIDIA Riva ASR (api/asr) — free upstream but credit-metered, and each call
+	// streams an audio clip the server holds in memory, so meter per principal.
+	// Authenticated users get a generous bucket; anonymous callers (keyed by IP) a
+	// tighter one. Critical so a missing Redis in prod fails closed rather than
+	// leaving an open transcription drain.
+	asrUser: (userId) =>
+		getLimiter('asr:user', { limit: 60, window: '1 h', critical: true }).limit(userId),
+	asrIp: (ip) =>
+		getLimiter('asr:ip', { limit: 15, window: '1 h', critical: true }).limit(ip),
 	// /brain multi-LLM proxy. Paid flagship models (Claude/GPT-4o) run on the
 	// server keys, so meter per principal: authenticated users get a generous
 	// per-user bucket, anonymous callers a tighter per-IP one. Both critical so a

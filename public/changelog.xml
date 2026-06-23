@@ -263,6 +263,14 @@
 			<description>Your avatar's wallet now takes voice and text commands. Tell your agent &quot;tip 0.1 SOL to vault.sol&quot;, &quot;snipe that mint with half a SOL&quot;, &quot;sell half my $THREE&quot;, or &quot;withdraw 2 SOL to my Phantom&quot; — it parses your intent with Claude, shows you exactly what it will do next to your own words (real quote, USD value, fees, network), and waits for an explicit &quot;yes&quot; or a tap before anything moves. Confirmed trades come back with a real on-chain signature and explorer link, and the avatar celebrates the moment it lands. Every action runs the same owner-only, spend-limit-gated, audited path as the rest of the wallet — visitors can chat but can never move funds, by any phrasing. A wrong hearing is caught at the read-back, &quot;cancel&quot; is always one word away, and there's a full keyboard path with no mic required.</description>
 		</item>
 		<item>
+			<title>Talk to your avatar — a new free speech-to-text lane closes the voice loop</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Talk to your avatar — a new free speech-to-text lane closes the voice loop</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar could already speak for free; now it can listen for free too. A new /api/asr endpoint turns spoken audio into text using NVIDIA's hosted Riva recognition on the same free key that already powers avatar voices, 3D generation, and chat — so voice-in costs nothing extra. Until now, talking to an avatar relied on the browser's built-in recognizer, which only exists in Chrome and Edge and quietly sends your microphone to Google; the new lane is server-side and works the same everywhere. It's purely additive: when the lane isn't switched on, voice keeps working exactly as before — nothing changes for anyone. Send a short WAV, PCM, FLAC, or Ogg clip and get back the transcript, the language detected, and optional word-level timestamps, all metered fairly so it can't be abused.</description>
+		</item>
+		<item>
 			<title>The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-23:The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time</guid>

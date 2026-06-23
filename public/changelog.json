@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:03:23.255Z",
+	"generated_at": "2026-06-23T05:06:30.997Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -331,6 +331,16 @@
 			"type": "update",
 			"title": "Talk to your agent and it trades — the Conversational Wallet",
 			"summary": "Your avatar's wallet now takes voice and text commands. Tell your agent \"tip 0.1 SOL to vault.sol\", \"snipe that mint with half a SOL\", \"sell half my $THREE\", or \"withdraw 2 SOL to my Phantom\" — it parses your intent with Claude, shows you exactly what it will do next to your own words (real quote, USD value, fees, network), and waits for an explicit \"yes\" or a tap before anything moves. Confirmed trades come back with a real on-chain signature and explorer link, and the avatar celebrates the moment it lands. Every action runs the same owner-only, spend-limit-gated, audited path as the rest of the wallet — visitors can chat but can never move funds, by any phrasing. A wrong hearing is caught at the read-back, \"cancel\" is always one word away, and there's a full keyboard path with no mic required.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Talk to your avatar — a new free speech-to-text lane closes the voice loop",
+			"summary": "Your avatar could already speak for free; now it can listen for free too. A new /api/asr endpoint turns spoken audio into text using NVIDIA's hosted Riva recognition on the same free key that already powers avatar voices, 3D generation, and chat — so voice-in costs nothing extra. Until now, talking to an avatar relied on the browser's built-in recognizer, which only exists in Chrome and Edge and quietly sends your microphone to Google; the new lane is server-side and works the same everywhere. It's purely additive: when the lane isn't switched on, voice keeps working exactly as before — nothing changes for anyone. Send a short WAV, PCM, FLAC, or Ogg clip and get back the transcript, the language detected, and optional word-level timestamps, all metered fairly so it can't be abused.",
 			"link": null,
 			"tags": [
 				"feature"
