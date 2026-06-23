@@ -19,6 +19,7 @@
 
 import { registerWalletTab } from '../registry.js';
 import { reputationPanelEl, ensureReputationStyles } from '../../shared/agent-reputation.js';
+import { proofOfReservesPanelEl, ensureProofOfReservesStyles } from '../../shared/agent-proof-of-reserves.js';
 
 registerWalletTab({
 	id: 'reputation',
@@ -27,22 +28,39 @@ registerWalletTab({
 	ownerOnly: false,
 	mount({ panel, ctx }) {
 		ensureReputationStyles();
+		ensureProofOfReservesStyles();
 		panel.innerHTML = '';
 		const wrap = document.createElement('div');
 		wrap.className = 'awh-rep-tab';
-		const intro = document.createElement('p');
-		intro.className = 'awh-rep-intro';
-		intro.textContent =
-			'A real, non-gameable credibility score derived entirely from this wallet’s on-chain and ledger history. Backed by money and time — and fully explainable below.';
-		wrap.appendChild(intro);
-		wrap.appendChild(reputationPanelEl(ctx.agentId, {}));
+
+		// "Open the books" — Proof-of-Reserves first (live, verifiable reserves +
+		// lifetime flows + obligations), then the explainable financial-reputation
+		// score it feeds. Both are public; the owner additionally sees guidance.
+		const reservesHead = document.createElement('div');
+		reservesHead.className = 'awh-rep-block';
+		reservesHead.innerHTML =
+			'<h3 class="awh-rep-h">Proof-of-Reserves</h3>' +
+			'<p class="awh-rep-intro">Live, independently verifiable holdings, lifetime flows, and what this wallet still owes — every figure traceable on-chain.</p>';
+		reservesHead.appendChild(proofOfReservesPanelEl(ctx.agentId, { network: ctx.network }));
+		wrap.appendChild(reservesHead);
+
+		const repHead = document.createElement('div');
+		repHead.className = 'awh-rep-block';
+		repHead.innerHTML =
+			'<h3 class="awh-rep-h">Financial reputation</h3>' +
+			'<p class="awh-rep-intro">A real, non-gameable 0–100 credibility score from this wallet’s settlement reliability, generosity, longevity, trading conduct, and solvency. Fully explainable below.</p>';
+		repHead.appendChild(reputationPanelEl(ctx.agentId, {}));
+		wrap.appendChild(repHead);
+
 		panel.appendChild(wrap);
 
 		if (typeof document !== 'undefined' && !document.getElementById('awh-rep-style')) {
 			const tag = document.createElement('style');
 			tag.id = 'awh-rep-style';
 			tag.textContent = `
-.awh-rep-tab{display:flex;flex-direction:column;gap:var(--space-4,16px)}
+.awh-rep-tab{display:flex;flex-direction:column;gap:var(--space-6,28px)}
+.awh-rep-block{display:flex;flex-direction:column;gap:var(--space-3,12px)}
+.awh-rep-h{margin:0;font-family:var(--font-display,Space Grotesk,sans-serif);font-size:var(--text-lg,1.0625rem);font-weight:700;color:var(--ink-bright,#fff)}
 .awh-rep-intro{margin:0;font-size:var(--text-sm,.8125rem);line-height:1.5;color:var(--ink-dim,#9ca3af)}
 `;
 			document.head.appendChild(tag);

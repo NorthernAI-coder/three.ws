@@ -16,10 +16,22 @@ const NEW_AGENT = {
 	tipCount: 0,
 	distinctTippers: 0,
 	selfTipCount: 0,
+	washTipCount: 0,
+	washTipUsd: 0,
 	confirmedPayments: 0,
 	failedPayments: 0,
 	distinctPayers: 0,
 	distributionSuccess: 0,
+	tipsGivenUsd: 0,
+	tipsGivenCount: 0,
+	reciprocalPairs: 0,
+	closedTrades: 0,
+	winningTrades: 0,
+	realizedPnlSol: 0,
+	dumpEvents: 0,
+	reserveUsd: 0,
+	obligationsUsd: 0,
+	reservesKnown: false,
 	forkCount: 0,
 	hasOnchainIdentity: false,
 	registryAverage: 0,
@@ -140,6 +152,84 @@ describe('costly signals dominate', () => {
 		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, confirmedPayments: 2, failedPayments: 0 });
 		const rel = r.pillars.find((p) => p.key === 'reliability');
 		expect(rel.points).toBe(0);
+	});
+});
+
+describe('generosity factor', () => {
+	it('rewards tips given to other agents (wash-excluded upstream)', () => {
+		const generous = computeReputation({ ...NEW_AGENT, ageDays: 100, tipsGivenUsd: 800, tipsGivenCount: 12 });
+		const stingy = computeReputation({ ...NEW_AGENT, ageDays: 100 });
+		const gp = generous.pillars.find((p) => p.key === 'generosity');
+		expect(gp.points).toBeGreaterThan(0);
+		expect(generous.score).toBeGreaterThan(stingy.score);
+	});
+
+	it('a two-way relationship adds reciprocity points', () => {
+		const oneWay = computeReputation({ ...NEW_AGENT, ageDays: 100, tipsGivenUsd: 500, tipsGivenCount: 5, externalTipUsd: 0 });
+		const twoWay = computeReputation({
+			...NEW_AGENT,
+			ageDays: 100,
+			tipsGivenUsd: 500,
+			tipsGivenCount: 5,
+			externalTipUsd: 500,
+			distinctTippers: 4,
+			tipCount: 5,
+			reciprocalPairs: 2,
+		});
+		const a = oneWay.pillars.find((p) => p.key === 'generosity').points;
+		const b = twoWay.pillars.find((p) => p.key === 'generosity').points;
+		expect(b).toBeGreaterThan(a);
+	});
+});
+
+describe('trading conduct factor', () => {
+	it('is unproven (0) until at least 3 closed trades', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, closedTrades: 2, winningTrades: 2, realizedPnlSol: 5 });
+		expect(r.pillars.find((p) => p.key === 'conduct').points).toBe(0);
+	});
+
+	it('rewards a profitable, high-win-rate record', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, closedTrades: 20, winningTrades: 16, realizedPnlSol: 30 });
+		expect(r.pillars.find((p) => p.key === 'conduct').points).toBeGreaterThan(5);
+	});
+
+	it('penalises dumping on supporters and surfaces it as discounted', () => {
+		const clean = computeReputation({ ...NEW_AGENT, ageDays: 100, closedTrades: 20, winningTrades: 16, realizedPnlSol: 30 });
+		const dumper = computeReputation({
+			...NEW_AGENT,
+			ageDays: 100,
+			closedTrades: 20,
+			winningTrades: 16,
+			realizedPnlSol: 30,
+			dumpEvents: 3,
+		});
+		expect(dumper.pillars.find((p) => p.key === 'conduct').points).toBeLessThan(
+			clean.pillars.find((p) => p.key === 'conduct').points,
+		);
+		expect(dumper.discounted.some((d) => d.kind === 'dump')).toBe(true);
+	});
+});
+
+describe('solvency factor', () => {
+	it('is 0 / unknown when reserves were not measured', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, reserveUsd: 5000, obligationsUsd: 100, reservesKnown: false });
+		expect(r.pillars.find((p) => p.key === 'solvency').points).toBe(0);
+	});
+
+	it('scores full coverage above partial coverage', () => {
+		const covered = computeReputation({ ...NEW_AGENT, ageDays: 100, reserveUsd: 1000, obligationsUsd: 500, reservesKnown: true });
+		const thin = computeReputation({ ...NEW_AGENT, ageDays: 100, reserveUsd: 100, obligationsUsd: 500, reservesKnown: true });
+		const a = covered.pillars.find((p) => p.key === 'solvency').points;
+		const b = thin.pillars.find((p) => p.key === 'solvency').points;
+		expect(a).toBeGreaterThan(b);
+		expect(a).toBeGreaterThan(0);
+	});
+});
+
+describe('anti-gaming — cross-agent wash tips', () => {
+	it('surfaces wash-tips as discounted', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, washTipCount: 6, washTipUsd: 300 });
+		expect(r.discounted.some((d) => d.kind === 'wash_tips')).toBe(true);
 	});
 });
 
