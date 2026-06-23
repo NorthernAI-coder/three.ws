@@ -116,6 +116,19 @@ describe('nvidia provider — text→3D submit', () => {
 		expect(calls[0].body).not.toHaveProperty('seed');
 	});
 
+	it('pins standard to the hosted preview\'s reliable 15-step budget (not 25)', async () => {
+		// 25 steps overruns the hosted gateway's synchronous window — it neither
+		// finishes inline nor returns a pollable id before our submit timeout, so the
+		// free lane aborts and silently degrades to the paid fallback. Standard must
+		// share draft's proven fast budget so it completes on the free lane.
+		const calls = stubAccept();
+		const provider = createNvidiaProvider();
+		await provider.textTo3d({ prompt: 'a small red teapot', tier: 'standard' });
+
+		expect(calls[0].body.ss_sampling_steps).toBe(15);
+		expect(calls[0].body.slat_sampling_steps).toBe(15);
+	});
+
 	it('errors cleanly when NVCF accepts the job but omits the NVCF-REQID', async () => {
 		globalThis.fetch = vi.fn(async () => jsonResponse({}, 202)); // no nvcf-reqid header
 		const provider = createNvidiaProvider();
