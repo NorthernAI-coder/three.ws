@@ -1063,6 +1063,11 @@ async function startJob(req, res) {
 					// creates its own provider. We deliberately do NOT build a Replicate
 					// client here: creating one would 503 on a deployment that has no
 					// REPLICATE_API_TOKEN, breaking an explicitly-chosen free engine.
+				} else if (backendId === 'trellis_selfhost') {
+					// Driven by the dedicated self-host TRELLIS lane below, which builds
+					// its own GCP provider. Same reasoning as huggingface — never build a
+					// Replicate client here, or a deployment without REPLICATE_API_TOKEN
+					// would 503 on an explicitly-chosen free self-hosted engine.
 				} else {
 					provider = createRegenProvider();
 				}
@@ -1132,6 +1137,84 @@ async function startJob(req, res) {
 		// fall through to a paid lane: that would spend credits the user
 		// deliberately opted out of. So we run the free Spaces and, if every one is
 		// busy/down, return a designed error the UI can act on (retry / switch engine).
+		//
+		// Self-hosted TRELLIS image-to-3D lane (platform-keyed; native single-hop).
+		// Our own Microsoft TRELLIS worker (workers/model-trellis) reconstructs a
+		// textured mesh DIRECTLY from the primary reference view -- the user's photo,
+		// or the FLUX-synthesized view for a text prompt -- with no vendor cost. This
+		// is the native single-hop image-to-3D NVIDIA's hosted preview can't do (it
+		// rejects user images); a self-deployed NIM accepts them. Async like the
+		// sketch lane: returns a poll token that routes back through the gcp provider's
+		// status(). Reached on an explicit pick OR as the preferred free image lane
+		// (FREE_FALLBACK_FOR_PATH) when MODEL_TRELLIS_URL is configured.
+		if (backendId === 'trellis_selfhost') {
+			let gcp;
+			try {
+				gcp = createGcpProvider();
+			} catch {
+				return json(res, 501, {
+					error: 'backend_unconfigured',
+					backend: 'trellis_selfhost',
+					message: 'Self-hosted TRELLIS is not configured on this deployment.',
+				});
+			}
+
+			let job;
+			try {
+				job = await gcp.submit({
+					mode: 'trellis',
+					sourceUrl: referenceImageUrl,
+					params: { images: views },
+				});
+			} catch (err) {
+				if (err?.code === 'mode_unconfigured') {
+					return json(res, 501, {
+						error: 'backend_unconfigured',
+						backend: 'trellis_selfhost',
+						message:
+							'Self-hosted TRELLIS is not configured on this deployment (MODEL_TRELLIS_URL is not set).',
+					});
+				}
+				throw err;
+			}
+
+			// Wrap the gcp job envelope in a forge token so polling routes back to the
+			// gcp provider -- same idiom as the sketch and Hunyuan3D lanes.
+			const token = encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId });
+			const clientKey = clientKeyFrom(req);
+			const creationId = await createCreation({
+				clientKey,
+				ipHash: hashIp(ip),
+				prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+				aspect: isImageMode ? null : aspect,
+				previewImageUrl: referenceImageUrl,
+				replicateJobId: job.extJobId,
+				textToImageModel: isImageMode ? null : textToImageModel,
+				viewsRequested: views.length,
+				viewsUsed: job.viewsUsed ?? views.length,
+				multiview: views.length > 1,
+				backend: backendId,
+				tier: tier.id,
+				path,
+			});
+
+			return json(res, 200, {
+				job_id: token,
+				creation_id: creationId,
+				status: 'queued',
+				mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+				path,
+				tier: tier.id,
+				backend: backendId,
+				prompt: prompt || null,
+				preview_image_url: referenceImageUrl,
+				reference_image_urls: isImageMode ? [imageUrls[0]] : [referenceImageUrl],
+				text_to_image_model: isImageMode ? null : textToImageModel,
+				eta_seconds: estimateEtaSeconds({ backendId, tier }),
+				estimated_credits: estimateCredits({ backendId, path, tier }),
+			});
+		}
+
 		if (backendId === 'huggingface') {
 			if (
 				await runHfImageLane({
