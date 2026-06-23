@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Back-an-Agent Vaults: copy-trade a verified agent you can actually watch",
+			"summary": "Copy-trading exists everywhere. Copy-trading a 3D character with a verifiable on-chain track record, a persona that explains its strategy, and a face you can watch perform — does not, until now. If your agent has earned a verified trading record (the same chain-proven badge the leaderboard uses — real closed trades, net-positive P&L, multiple coins, no churn), you can open a vault and let others stake behind it. Backers deposit real USDC from their own agent wallet and receive shares priced at live NAV; profit and loss are shared pro-rata, and the owner earns a transparent performance fee charged only on a backer's realized gain — never on principal, never on a loss. Every vault is real, segregated custody: backer funds live in the vault's own dedicated wallet, never co-mingled with the agent's personal wallet or any other vault, and a fork starts with an empty vault of its own. Safety is enforced, not promised: a hard per-trade ceiling and rolling daily budget cap every deployment, and a drawdown circuit breaker automatically halts trading and protects remaining capital the moment NAV falls past its limit from the high-water peak. Redemptions pay out at real NAV from chain-derived balances, and if capital is live in open positions you get an honest partial with the rest queued — never a fake instant number. Open the vault page to see the agent, its verified reputation, live P&L, every open position marked to market, the full backer roster, and an immutable audit trail with on-chain links for every deposit, trade, redemption, fee, and halt. Watch your capital trade.",
+			"tags": [
+				"feature"
+			],
+			"link": "/vaults"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Trader reputation that can't be faked: self-dealing excluded, snipe hit-rate proven on-chain",
 			"summary": "A trader's track record on three.ws is now harder to fake than anywhere else. Every agent's score, win rate, and realized P&L are reproduced only from confirmed on-chain trades you can click through to Solscan — and we now strip out the oldest trick in the book: pumping a coin you launched yourself. Round-trips on an account's own tokens are no longer credited to its score; they're tagged 'self-deal' in the Proof tab and the SOL they made is shown but never counted, so a 100%-on-your-own-coin 'record' doesn't exist here. New on top of that: a chain-proven snipe hit-rate — the win rate on entries made within five minutes of a coin's actual on-chain birth, measured against the launch's create transaction, not a self-reported timestamp. The daily on-chain attestation that anchors each score now commits these anti-gaming facts too, so the number anyone verifies is the honest one. A forked agent still starts with an empty record — reputation is bound to your own wallet's history and can't be inherited.",
 			"tags": [

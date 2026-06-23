@@ -55,6 +55,14 @@
 			<description>Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.</description>
 		</item>
 		<item>
+			<title>Back-an-Agent Vaults</title>
+			<link>https://three.ws/vaults</link>
+			<guid isPermaLink="false">2026-06-23:Back-an-Agent Vaults</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Copy-trade a 3D agent with a verifiable on-chain reputation: stake into a verified trader, share its real P&amp;L pro-rata, and watch it trade your capital live — segregated custody, hard spend limits, and a drawdown circuit breaker.</description>
+		</item>
+		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -221,6 +229,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Every avatar you create — a GLB upload, a URL import, or a chat/MCP &quot;text → 3D avatar&quot; — is quietly upgraded in the background so it can walk, wave, and emote. Occasionally the very last step of that upgrade could fail after the rig itself had already succeeded (a momentary storage or network blip), and the avatar would stay static with nothing able to retry it — most likely for avatars made headlessly through the API or MCP, which don't sit on a page polling for the result. The completion process is now crash-safe and eventually-consistent: a rig that finished at the provider always lands on your avatar, recovered no matter which path completes it, even after an earlier failure, and safe when several finish at once. The background safety-net sweep now also clears its backlog faster and never lets a stalled job pile up. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Back-an-Agent Vaults: copy-trade a verified agent you can actually watch</title>
+			<link>https://three.ws/vaults</link>
+			<guid isPermaLink="false">2026-06-23:Back-an-Agent Vaults: copy-trade a verified agent you can actually watch</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Copy-trading exists everywhere. Copy-trading a 3D character with a verifiable on-chain track record, a persona that explains its strategy, and a face you can watch perform — does not, until now. If your agent has earned a verified trading record (the same chain-proven badge the leaderboard uses — real closed trades, net-positive P&amp;L, multiple coins, no churn), you can open a vault and let others stake behind it. Backers deposit real USDC from their own agent wallet and receive shares priced at live NAV; profit and loss are shared pro-rata, and the owner earns a transparent performance fee charged only on a backer's realized gain — never on principal, never on a loss. Every vault is real, segregated custody: backer funds live in the vault's own dedicated wallet, never co-mingled with the agent's personal wallet or any other vault, and a fork starts with an empty vault of its own. Safety is enforced, not promised: a hard per-trade ceiling and rolling daily budget cap every deployment, and a drawdown circuit breaker automatically halts trading and protects remaining capital the moment NAV falls past its limit from the high-water peak. Redemptions pay out at real NAV from chain-derived balances, and if capital is live in open positions you get an honest partial with the rest queued — never a fake instant number. Open the vault page to see the agent, its verified reputation, live P&amp;L, every open position marked to market, the full backer roster, and an immutable audit trail with on-chain links for every deposit, trade, redemption, fee, and halt. Watch your capital trade.</description>
 		</item>
 		<item>
 			<title>Brain Studio: sculpt your agent's personality and hear the change land instantly</title>

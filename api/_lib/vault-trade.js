@@ -29,8 +29,6 @@ import {
 	tradeExceedsPerTrade, tradeExceedsDailyBudget,
 } from './vault-accounting.js';
 
-const CONFIRM_TIMEOUT_MS = 45_000;
-
 function netOf(network) {
 	return network === 'devnet' ? 'devnet' : 'mainnet';
 }

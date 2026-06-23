@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:29:17.137Z",
+	"generated_at": "2026-06-23T12:32:22.082Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -62,6 +62,16 @@
 			"title": "Autopilot Activity",
 			"summary": "Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.",
 			"link": "/autopilot-activity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Back-an-Agent Vaults",
+			"summary": "Copy-trade a 3D agent with a verifiable on-chain reputation: stake into a verified trader, share its real P&L pro-rata, and watch it trade your capital live — segregated custody, hard spend limits, and a drawdown circuit breaker.",
+			"link": "/vaults",
 			"tags": [
 				"launch"
 			]
@@ -279,6 +289,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Back-an-Agent Vaults: copy-trade a verified agent you can actually watch",
+			"summary": "Copy-trading exists everywhere. Copy-trading a 3D character with a verifiable on-chain track record, a persona that explains its strategy, and a face you can watch perform — does not, until now. If your agent has earned a verified trading record (the same chain-proven badge the leaderboard uses — real closed trades, net-positive P&L, multiple coins, no churn), you can open a vault and let others stake behind it. Backers deposit real USDC from their own agent wallet and receive shares priced at live NAV; profit and loss are shared pro-rata, and the owner earns a transparent performance fee charged only on a backer's realized gain — never on principal, never on a loss. Every vault is real, segregated custody: backer funds live in the vault's own dedicated wallet, never co-mingled with the agent's personal wallet or any other vault, and a fork starts with an empty vault of its own. Safety is enforced, not promised: a hard per-trade ceiling and rolling daily budget cap every deployment, and a drawdown circuit breaker automatically halts trading and protects remaining capital the moment NAV falls past its limit from the high-water peak. Redemptions pay out at real NAV from chain-derived balances, and if capital is live in open positions you get an honest partial with the rest queued — never a fake instant number. Open the vault page to see the agent, its verified reputation, live P&L, every open position marked to market, the full backer roster, and an immutable audit trail with on-chain links for every deposit, trade, redemption, fee, and halt. Watch your capital trade.",
+			"link": "/vaults",
+			"tags": [
+				"feature"
 			]
 		},
 		{
