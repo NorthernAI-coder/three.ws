@@ -195,14 +195,14 @@ const TIER_PROP = {
 	enum: TIER_IDS,
 	default: DEFAULT_TIER,
 	description:
-		'Quality tier: draft (~12k poly, fast), standard (~30k, balanced), high (~200k + PBR, slower). Honoured by poly-aware backends (Meshy/Tripo/Hunyuan3D); the TRELLIS default records it as provenance.',
+		'Quality tier: draft (~12k poly, fast), standard (~30k, balanced), high (~200k + PBR, slower). Honoured by the poly-aware engines (the geometry, sculpt, and detail engines); the default image engine records it as provenance.',
 };
 const PATH_PROP = {
 	type: 'string',
 	enum: PATHS,
 	default: DEFAULT_PATH,
 	description:
-		'Generation path: "image" (FLUX→TRELLIS reference-image reconstruction, the platform-keyed default) or "geometry" (native text/image→mesh via Meshy/Tripo/Rodin — cleaner topology, but BYOK: needs your own provider key).',
+		'Generation path: "image" (reference-image reconstruction on the platform-keyed image engine, the default) or "geometry" (native text/image→mesh on a geometry engine — cleaner topology, but bring-your-own-key: needs your own provider key).',
 };
 const MCP_UNSELECTABLE_BACKENDS = new Set([
 	// replicate_byok runs on the platform reconstruction path with the caller's
@@ -217,12 +217,65 @@ const MCP_UNSELECTABLE_BACKENDS = new Set([
 	// the separate forge_free tool, which targets the NVIDIA lane via /api/forge.
 	'huggingface',
 ]);
+
+// ── White-labeled engine taxonomy ────────────────────────────────────────────
+// The MCP wire speaks only in three.ws-branded engine names; the underlying
+// generation vendors never surface in a tool schema, response, or artifact. Each
+// public engine maps to one internal forge backend. Legacy vendor ids are still
+// ACCEPTED on input as hidden back-compat aliases (resolveEngineArg), but only
+// the branded names are advertised. The default is "auto" — the platform picks
+// the best engine for the chosen path and tier.
+const ENGINES = Object.freeze({
+	'three-image': Object.freeze({ internal: 'trellis', label: 'three.ws Image engine' }),
+	'three-geometry': Object.freeze({ internal: 'meshy', label: 'three.ws Geometry engine' }),
+	'three-geometry-pro': Object.freeze({ internal: 'tripo', label: 'three.ws Geometry Pro engine' }),
+	'three-sculpt': Object.freeze({ internal: 'rodin', label: 'three.ws Sculpt engine' }),
+	'three-detail': Object.freeze({ internal: 'hunyuan3d', label: 'three.ws Detail engine' }),
+	'three-instant': Object.freeze({ internal: 'stability', label: 'three.ws Instant engine' }),
+	'three-sketch': Object.freeze({ internal: 'triposg', label: 'three.ws Sketch engine' }),
+});
+// Internal backend id → branded engine id, for shaping responses. Every platform
+// image lane (the hosted, self-hosted, and free reconstruction backends) presents
+// as the single "three.ws Image engine" — the caller never learns which one ran.
+const INTERNAL_TO_ENGINE = Object.freeze({
+	trellis: 'three-image',
+	nvidia: 'three-image',
+	trellis_selfhost: 'three-image',
+	huggingface: 'three-image',
+	replicate_byok: 'three-image',
+	meshy: 'three-geometry',
+	tripo: 'three-geometry-pro',
+	rodin: 'three-sculpt',
+	hunyuan3d: 'three-detail',
+	stability: 'three-instant',
+	triposg: 'three-sketch',
+});
+function engineIdFor(internalId) {
+	return INTERNAL_TO_ENGINE[internalId] || 'three-image';
+}
+function engineLabelFor(internalId) {
+	return ENGINES[engineIdFor(internalId)]?.label || 'three.ws engine';
+}
+// Map a caller's engine argument to an internal backend id. Accepts a branded
+// engine id (preferred), "auto"/empty (→ undefined, the platform picks), or a
+// legacy vendor id (hidden back-compat, excluding the never-selectable lanes).
+// Anything unrecognised falls through to undefined so resolveBackendId applies
+// the platform default — forgiving at the boundary, never a hard 422.
+function resolveEngineArg(args) {
+	const raw = typeof args?.backend === 'string' ? args.backend.trim() : '';
+	if (!raw || raw === 'auto') return undefined;
+	if (ENGINES[raw]) return ENGINES[raw].internal;
+	if (BACKENDS[raw] && !MCP_UNSELECTABLE_BACKENDS.has(raw)) return raw;
+	return undefined;
+}
 const BACKEND_PROP = {
+	// Intentionally no `enum`: branded names are the advertised vocabulary (below),
+	// but legacy vendor ids are still accepted silently for back-compat, which a
+	// strict enum would reject. resolveEngineArg validates and normalizes instead.
 	type: 'string',
-	// Every other backend is selectable here.
-	enum: Object.keys(BACKENDS).filter((id) => !MCP_UNSELECTABLE_BACKENDS.has(id)),
+	default: 'auto',
 	description:
-		'Force a specific backend (trellis, meshy, tripo, rodin, stability, hunyuan3d). Defaults to the best one for the chosen path. Backends outside the path are ignored.',
+		'three.ws generation engine. "auto" (default) lets the platform pick the best engine for the chosen path and tier. Override with: three-image (image-reconstruction), three-geometry or three-geometry-pro (native text/image→mesh, clean quad topology), three-sculpt (high-poly detail), three-instant (fast single-image), three-sketch (sketch→mesh). An engine that does not serve the chosen path is ignored.',
 };
 
 // "needs a BYOK key" — a designed, branchable result (mirrors /api/forge's
@@ -230,20 +283,24 @@ const BACKEND_PROP = {
 // so a caller without one is told exactly how to enable the path.
 function needsKeyResult(backendId) {
 	const meta = BACKENDS[backendId];
+	// The bring-your-own-key path is the one place a credential provider name must
+	// be disclosed — the caller has to know which key to supply. The engine itself
+	// is still presented under its three.ws brand.
+	const provider = meta?.byok || backendId;
 	return {
 		content: [
 			{
 				type: 'text',
 				text:
-					`${meta?.label || backendId} needs your own API key. ` +
-					`Send it as the "x-forge-provider-key" request header (or store a ${meta?.byok || backendId} key on your three.ws account) and retry, ` +
+					`The ${engineLabelFor(backendId)} runs on a bring-your-own-key provider. ` +
+					`Send your ${provider} key as the "x-forge-provider-key" request header (or store a ${provider} key on your three.ws account) and retry, ` +
 					'or use the default image path (omit "path", or set path="image").',
 			},
 		],
 		structuredContent: {
 			status: 'needs_key',
-			backend: backendId,
-			provider: meta?.byok || backendId,
+			engine: engineIdFor(backendId),
+			provider,
 		},
 		isError: true,
 	};
