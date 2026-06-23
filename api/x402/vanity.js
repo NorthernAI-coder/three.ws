@@ -265,6 +265,16 @@ const DISCOVERY_OUTPUT_SCHEMA = {
 		},
 		network: { type: 'string' },
 		explorerUrl: { type: 'string', format: 'uri' },
+		certificate: {
+			type: 'object',
+			description:
+				'Proof-of-grind certificate (three-pog/v1): a public, signed attestation of the ' +
+				'pattern, address, difficulty, rarity, and a freshness nonce — verifiable offline ' +
+				'with verifyProofOfGrind() or at /vanity/verify. Contains no secret. The attestation ' +
+				'public key is published at /.well-known/three-vanity.json.',
+		},
+		verifyUrl: { type: 'string', format: 'uri', description: 'Public verifier page for the certificate.' },
+		serviceKeyUrl: { type: 'string', format: 'uri', description: 'Published attestation key (.well-known).' },
 	},
 };
 
@@ -416,6 +426,60 @@ async function sealSecret(result, sealTo) {
 	};
 }
 
+const PUBLIC_ORIGIN = env.APP_ORIGIN || 'https://three.ws';
+
+// Attach a public, offline-verifiable proof-of-grind certificate to a grind
+// result. The certificate attests the pattern, address, difficulty, rarity,
+// freshness nonce, and (when sealed) the delivery envelope — signed by the
+// long-lived three.ws attestation key. It contains NO secret, so it is safe in
+// the response, the idempotency cache, and at rest. The certificate is also
+// registered (first-write-wins) so a buyer/marketplace can later confirm this is
+// the single canonical "freshly ground" proof for the address. Registry/signing
+// failures must never break delivery — the buyer paid for a key, and the
+// certificate is additive — so issuance degrades gracefully on error.
+async function attachCertificate(result, pattern) {
+	let identity;
+	try {
+		identity = await getServiceIdentity();
+	} catch (err) {
+		console.error('[vanity/cert] attestation key unavailable; delivering without certificate', err?.message || err);
+		return result;
+	}
+	const delivery = result.sealed
+		? { sealed: true, sealedScheme: result.sealedScheme || SEALED_ENVELOPE_SCHEME, sealedRecipient: result.sealedSecret?.recipient || null }
+		: { sealed: false };
+	let certificate;
+	try {
+		const core = buildCertificateCore({
+			address: result.address,
+			pattern: { prefix: pattern.prefix || null, suffix: pattern.suffix || null, ignoreCase: !!pattern.ignoreCase },
+			format: result.format,
+			attempts: result.attempts,
+			delivery,
+			network: 'solana',
+			keyId: identity.keyId,
+		});
+		certificate = signCertificate({ core, signingSeed: identity.seed, keyId: identity.keyId });
+	} catch (err) {
+		console.error('[vanity/cert] failed to sign certificate; delivering without it', err?.message || err);
+		return result;
+	}
+	try {
+		await registerCert(certificate);
+	} catch (err) {
+		// A registry outage degrades to "offline-verifiable only" — the certificate
+		// still verifies cryptographically; only the single-issuance check is skipped.
+		console.warn('[vanity/cert] registry unavailable; certificate is offline-verifiable only', err?.message || err);
+	}
+	return {
+		...result,
+		certificate,
+		verifyUrl: `${PUBLIC_ORIGIN}/vanity/verify`,
+		certVerifyUrl: `${PUBLIC_ORIGIN}/vanity/verify?cert=${encodeURIComponent(certificate.certId)}`,
+		serviceKeyUrl: `${PUBLIC_ORIGIN}/.well-known/three-vanity.json`,
+	};
+}
+
 async function grindAndShape({ prefix, suffix, ignoreCase, format, strength, sealTo }) {
 	let shaped;
 	if (format === FORMAT_MNEMONIC) {
@@ -469,7 +533,8 @@ async function grindAndShape({ prefix, suffix, ignoreCase, format, strength, sea
 		};
 	}
 
-	return sealTo ? sealSecret(shaped, sealTo) : shaped;
+	const delivered = sealTo ? await sealSecret(shaped, sealTo) : shaped;
+	return attachCertificate(delivered, { prefix, suffix, ignoreCase });
 }
 
 export default wrap(async (req, res) => {

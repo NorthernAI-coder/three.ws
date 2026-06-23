@@ -2234,25 +2234,44 @@ async function handleThreeVanity(req, res) {
 		200,
 		{
 			protocol: 'three-vanity/v1',
+			protocols: ['three-vanity/v1', 'three-pog/v1'],
 			description:
-				'Provably-fair Solana vanity grinding. Each key is ground under a commit–reveal ' +
-				'seed-mixing protocol and delivered with a receipt signed by the service key below. ' +
-				'Verify a receipt entirely client-side — nothing here is trusted, everything is recomputed.',
+				'Provably-fair Solana vanity grinding. Keys are ground under a commit–reveal ' +
+				'seed-mixing protocol (three-vanity/v1) and/or attested with a proof-of-grind ' +
+				'certificate (three-pog/v1). Both are signed by the attestation key below and ' +
+				'verified entirely client-side — nothing here is trusted, everything is recomputed.',
 			serviceKey: {
 				curve: 'ed25519',
+				keyId: identity.keyId,
 				publicKeyBase58: identity.publicKeyBase58,
 				publicKeyHex: identity.publicKeyHex,
-				use: 'receipt-signing',
+				use: 'receipt-signing, proof-of-grind-attestation',
 			},
+			// Rotation-aware verifier keyring: the set of attestation keys a verifier
+			// should accept. On rotation, the retiring key stays here (with a
+			// `retired` flag/date) until all in-flight certs age out, so historical
+			// proofs keep verifying. Today there is one active key.
+			keyring: [
+				{
+					keyId: identity.keyId,
+					curve: 'ed25519',
+					publicKeyBase58: identity.publicKeyBase58,
+					status: 'active',
+				},
+			],
 			schemes: {
 				commitment: 'sha256(domain‖serverSeed)',
 				seedMix: 'hkdf-sha256(serverSeed‖clientSeed‖requestNonce)',
 				candidate: 'hmac-sha256(masterSeed, domain‖uint64_be(index)) → ed25519 seed',
 				signature: 'ed25519',
 				sealedEnvelope: 'x25519-hkdf-sha256-aes256gcm/v1',
+				proofOfGrind: 'ed25519 over canonical(three-pog/cert/v1 ‖ sorted-json(core))',
+				splitKeyNonCustody: 'P1 + a2·B == address (recomputed from public points)',
 			},
 			endpoints: {
-				grind: `${origin}/api/x402/vanity-verifiable`,
+				grind: `${origin}/api/x402/vanity`,
+				verifiableGrind: `${origin}/api/x402/vanity-verifiable`,
+				certRegistry: `${origin}/api/vanity/cert`,
 				verifyPage: `${origin}/vanity/verify`,
 			},
 			documentation: `${origin}/vanity/verify`,

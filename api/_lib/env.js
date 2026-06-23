@@ -173,6 +173,17 @@ export const env = {
 		return opt('WALLET_ENCRYPTION_KEY');
 	},
 
+	// HMAC key that makes scoped session-key (capability) grants tamper-evident
+	// (api/_lib/wallet-capabilities.js). Each capability stores an HMAC over its
+	// immutable scope keyed by this secret; the spend path re-verifies on every
+	// use, so a DB-write attacker who forges or edits a grant produces one that no
+	// longer verifies and is rejected (fail safe). Decoupled from the encryption
+	// key by preference; falls back to WALLET_ENCRYPTION_KEY then JWT_SECRET so the
+	// feature works in every environment. NEVER log this value.
+	get WALLET_CAPABILITY_SECRET() {
+		return opt('WALLET_CAPABILITY_SECRET') || opt('WALLET_ENCRYPTION_KEY') || this.JWT_SECRET;
+	},
+
 	// Long-lived Ed25519 signing seed for the provably-fair vanity grinder
 	// (api/_lib/vanity-service-key.js). Stored as a secret-box ciphertext (v2:…)
 	// or a raw 32-byte seed in hex/Base58. Signs every verifiable-grind receipt;
