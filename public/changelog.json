@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:30:50.227Z",
+	"generated_at": "2026-06-23T05:35:52.601Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -233,6 +233,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Mocap Studio: saving a face-capture clip just works",
+			"summary": "Record your face on any avatar in Mocap Studio and hit Save — it now saves reliably for everyone. Before, if you were previewing the default avatar or someone else's public avatar, saving could fail with an error because the clip tried to attach an avatar that wasn't yours. Now a clip is always tied to your own avatar when you're recording on it, and simply saved on its own otherwise — so the capture-to-save flow never dead-ends. Your saved clips show up in the library to replay, share, or download.",
+			"link": "/mocap-studio",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "More uploaded avatars animate out of the box — no more accidental T-poses",
 			"summary": "Avatars exported from Reallusion Character Creator 3/4 and 3ds Max (Biped) used to import frozen in a stiff T-pose because the platform didn't recognize their skeleton naming. Both are now mapped to the universal rig, so a CC or Biped avatar walks, idles, and emotes like any other — legs included — the moment you bring it in. A batch of generic side-labelled rigs from auto-riggers now animate too. No setup, no allowlist; it just moves.",
 			"link": null,
@@ -312,6 +322,16 @@
 			"link": null,
 			"tags": [
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "See the agent economy move, live, on the home page",
+			"summary": "The home page now carries a live readout of real value moving between agents — every tip, payment, trade, and token launch as it happens on-chain. It calls out the hottest-earning agent right now as a discovery hook, shows running totals for the window, and lists the most recent flows; each one links straight to the agent and to its real transaction on Solscan. Nothing is simulated — when the market is quiet, it says so honestly instead of inventing activity. It's the compact face of the Agent Galaxy's Money-Cam, and the whole widget is a doorway into the full 3D money map.",
+			"link": "/galaxy",
+			"tags": [
+				"feature"
 			]
 		},
 		{

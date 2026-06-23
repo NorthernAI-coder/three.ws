@@ -919,8 +919,10 @@ function renderPopoverBody(el, entry, meta) {
 	acts.push(`<button type="button" class="twc-btn twc-btn-primary" data-twc-open-hud title="Open the full wallet">${WALLET_SVG}<span>Open wallet</span></button>`);
 	if (owned) {
 		if (!meta.isVanity && meta.hubUrl) acts.push(`<a class="twc-btn" href="${esc(meta.hubUrl)}#vanity">✦ Vanity</a>`);
+		acts.push(`<button type="button" class="twc-btn" data-twc-stream-earn title="See ${esc(meta.name || 'this agent')}'s streaming income">◎ Earnings</button>`);
 		acts.push(`<button type="button" class="twc-btn" data-twc-share>↗ Share</button>`);
 	} else {
+		acts.push(`<button type="button" class="twc-btn twc-stream" data-twc-stream title="Stream ${esc(meta.name || 'this agent')} by the second">◎ Stream</button>`);
 		acts.push(`<button type="button" class="twc-btn twc-tip" ${tipAttrs({ meta: { payments: { accepted_tokens: meta.accepted || [] } } }, { address: meta.address, name: meta.name, avatarUrl: meta.avatar })} title="Tip ${esc(meta.name || 'this agent')}">◎ Tip</button>`);
 		acts.push(`<button type="button" class="twc-btn" data-twc-fork>⑂ Fork to own</button>`);
 	}
@@ -964,6 +966,27 @@ function wirePopoverActions(el, meta) {
 			const { openTipModal } = await import('./agent-tip-modal.js');
 			openTipModal({ solana_address: meta.address, name: meta.name, avatar_thumbnail_url: meta.avatar || '', meta: { payments: { accepted_tokens: meta.accepted || [] } } });
 		} catch { /* address still copyable */ }
+	});
+	// Money Stream — pay-per-second (visitor) or live earnings (owner). Both open
+	// the shared panel; the panel renders the role-appropriate view.
+	const streamAgent = () => ({
+		id: meta.agentId, solana_address: meta.address, name: meta.name,
+		avatar_thumbnail_url: meta.avatar || '', isOwner: meta.isOwner,
+		meta: { payments: { accepted_tokens: meta.accepted || [] } },
+	});
+	const stream = el.querySelector('[data-twc-stream]');
+	if (stream) stream.addEventListener('click', async () => {
+		try {
+			const { openStreamPanel } = await import('./agent-money-stream.js');
+			openStreamPanel(streamAgent(), { network: meta.network || 'mainnet', mode: 'stream' });
+		} catch { /* address still copyable */ }
+	});
+	const streamEarn = el.querySelector('[data-twc-stream-earn]');
+	if (streamEarn) streamEarn.addEventListener('click', async () => {
+		try {
+			const { openStreamPanel } = await import('./agent-money-stream.js');
+			openStreamPanel(streamAgent(), { network: meta.network || 'mainnet', mode: 'earnings' });
+		} catch { /* noop */ }
 	});
 	const fork = el.querySelector('[data-twc-fork]');
 	if (fork) fork.addEventListener('click', async () => {
