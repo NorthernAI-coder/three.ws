@@ -45,6 +45,7 @@ import { computeRarity } from '../solana/vanity/rarity.js';
 const STYLE_ID = 'tws-agent-wallet-chip-styles';
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const EVM_RE = /^0x[0-9a-fA-F]{40}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function esc(s) {
 	return String(s == null ? '' : s).replace(
@@ -347,8 +348,10 @@ function tipAttrs(agent, status) {
 	const name = agent?.name || agent?.display_name || status.name || '';
 	const avatar = status.avatarUrl || '';
 	const accepted = (agent?.meta?.payments?.accepted_tokens || agent?.payments?.accepted_tokens || []).join(',');
+	const agentId = status.agentId || agent?.id || agent?.agent_id || '';
 	return (
 		`data-twc-tip="${esc(status.address)}"` +
+		(agentId ? ` data-twc-id="${esc(agentId)}"` : '') +
 		(name ? ` data-twc-name="${esc(name)}"` : '') +
 		(avatar ? ` data-twc-av="${esc(avatar)}"` : '') +
 		(accepted ? ` data-twc-pay="${esc(accepted)}"` : '')
@@ -385,6 +388,14 @@ export function walletChipHTML(agent, opts = {}) {
 		return `<span class="twc twc-pending" title="Wallet provisioning">${WALLET_SVG}<span>Wallet pending</span></span>`;
 	}
 
+	// Live balance + rich popover only make sense when the chip is backed by a real
+	// agent_identities row. Some surfaces (KOL/trader leaderboards) pass non-agent
+	// rows that still carry an address+vanity — those render the static chip but
+	// skip hydration so they never show a stuck skeleton or a dead popover action.
+	const isRealAgent = !!(status.agentId && UUID_RE.test(String(status.agentId)));
+	const wantBalance = balance && isRealAgent;
+	const wantPopover = popover && isRealAgent;
+
 	// A matched vanity address advertises its honest rarity tier (tinted); when the
 	// chip is interactive it links to the address's appraisal in the proof-of-grind
 	// gallery, otherwise (link:false, used inside card anchors) it stays a plain
@@ -406,10 +417,9 @@ export function walletChipHTML(agent, opts = {}) {
 	// Live balance slot — renders a skeleton, then hydrates to "$1.2K +2.3%" on
 	// viewport-enter via POST /api/agents/balances. Read-only display, safe inside
 	// card anchors (it's a <span>, no nested <a>).
-	const balanceSlot =
-		balance && status.agentId
-			? `<span class="twc-bal" data-twc-bal aria-label="Wallet value loading"><span class="twc-bal-sk"></span></span>`
-			: '';
+	const balanceSlot = wantBalance
+		? `<span class="twc-bal" data-twc-bal aria-label="Wallet value loading"><span class="twc-bal-sk"></span></span>`
+		: '';
 
 	const copyBtn = link
 		? `<button type="button" class="twc-act" data-twc-copy="${esc(status.address)}" title="Copy address" aria-label="Copy wallet address">${COPY_SVG}</button>`
@@ -431,7 +441,7 @@ export function walletChipHTML(agent, opts = {}) {
 
 	// Stash everything the popover needs as JSON so wiring can build it without
 	// re-normalizing. Kept off the visible chip; only public data.
-	const popData = popover
+	const popData = wantPopover
 		? esc(JSON.stringify({
 				agentId: status.agentId, address: status.address, evm: status.evmAddress,
 				name: status.name, avatar: status.avatarUrl, isVanity: status.isVanity,
@@ -444,13 +454,15 @@ export function walletChipHTML(agent, opts = {}) {
 			}))
 		: '';
 
-	const triggerAttrs = popover
-		? ` data-twc-trigger tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false" data-twc-pop="${popData}"`
+	// `link:false` means the chip lives inside a clickable card; mark it embedded
+	// so the popover stays a hover/focus enhancement there and never hijacks the
+	// card's own tap/navigation.
+	const triggerAttrs = wantPopover
+		? ` data-twc-trigger tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false"${link ? '' : ' data-twc-embedded="1"'} data-twc-pop="${popData}"`
 		: '';
-	const hydrateAttrs =
-		balance && status.agentId
-			? ` data-twc-aid="${esc(status.agentId)}" data-twc-net="${esc(network)}"${isOwner ? ' data-twc-isowner="1"' : ''}`
-			: '';
+	const hydrateAttrs = wantBalance
+		? ` data-twc-aid="${esc(status.agentId)}" data-twc-net="${esc(network)}"${isOwner ? ' data-twc-isowner="1"' : ''}`
+		: '';
 
 	const title = `Agent wallet ${status.address}${status.isVanity ? ' (vanity)' : ''}`;
 	return (
@@ -510,6 +522,7 @@ function wireWalletChip(node) {
 			e.preventDefault();
 			e.stopPropagation();
 			const agent = {
+				id: tipBtn.getAttribute('data-twc-id') || undefined,
 				solana_address: tipBtn.getAttribute('data-twc-tip'),
 				name: tipBtn.getAttribute('data-twc-name') || 'this agent',
 				avatar_thumbnail_url: tipBtn.getAttribute('data-twc-av') || '',
@@ -749,12 +762,14 @@ function wirePopoverTrigger(node) {
 		if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _openPopover?.trigger === node ? closePopover(node) : open(); }
 		else if (e.key === 'Escape') closePopover(node);
 	});
-	// Touch: a chip NOT inside a card link toggles the popover; inside a card we
-	// leave the tap to the card navigation and rely on the profile's own HUD.
-	if (!node.closest('a')) {
+	// Touch: a standalone chip (not embedded in a clickable card, not inside an
+	// anchor) toggles the popover. Embedded/card chips leave the tap to the card's
+	// own navigation — the popover stays a hover/focus enhancement there.
+	if (!node.closest('a') && !node.hasAttribute('data-twc-embedded')) {
 		node.addEventListener('click', (e) => {
 			if (e.target.closest('[data-twc-stop],[data-twc-copy],[data-twc-tip]')) return;
 			e.preventDefault();
+			e.stopPropagation();
 			_openPopover?.trigger === node ? closePopover(node) : open();
 		});
 	}
@@ -942,18 +957,30 @@ function wirePopoverActions(el, meta) {
 	});
 	const fork = el.querySelector('[data-twc-fork]');
 	if (fork) fork.addEventListener('click', async () => {
+		const dest = `/agent/${meta.agentId}`;
 		const loggedIn = await probeLoggedIn();
-		if (!loggedIn) { window.location.href = `/login?next=${encodeURIComponent(meta.hubUrl || '/')}`; return; }
-		// Forking mints the caller their own wallet — route to the agent where the
-		// existing fork action lives.
-		window.location.href = meta.forkedFrom?.agent_id ? `/agent/${meta.agentId}?fork=1` : `/agent/${meta.agentId}?fork=1`;
+		// Forking mints the caller their own wallet (POST /api/avatars/fork). The
+		// fork-to-own CTA + its auth/CSRF handling already live on the agent's own
+		// page — route there rather than re-implementing the fork here. Anonymous
+		// visitors go through sign-in first and land back on that page.
+		window.location.href = loggedIn ? dest : `/login?next=${encodeURIComponent(dest)}`;
 	});
 	const share = el.querySelector('[data-twc-share]');
 	if (share) share.addEventListener('click', async () => {
 		const shareUrl = `${location.origin}/agent/${meta.agentId}`;
 		try {
 			const mod = await import('./share.js');
-			if (mod.showSharePanel) { mod.showSharePanel({ url: shareUrl, title: meta.name || 'Agent wallet', image: `/api/agent-share?id=${encodeURIComponent(meta.agentId)}` }, share); return; }
+			if (mod.showSharePanel) {
+				// share.js entity contract: { kind, id, title, description, shareUrl }.
+				mod.showSharePanel({
+					kind: 'agent',
+					id: meta.agentId,
+					title: meta.name || 'Agent wallet',
+					description: `${meta.name || 'This agent'}'s wallet on three.ws`,
+					shareUrl,
+				}, share);
+				return;
+			}
 		} catch { /* fall through to clipboard */ }
 		copyToClipboard(shareUrl, share);
 	});

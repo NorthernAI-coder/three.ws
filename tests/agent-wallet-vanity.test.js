@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { grindMintKeypair, estimateAttempts, isValidVanityPrefix, BASE58_ALPHABET } from '../api/_lib/pump-vanity.js';
-import { getWalletStatus, hasWallet, walletChipHTML } from '../src/shared/agent-wallet-chip.js';
+import { getWalletStatus, getWalletIdentity, hasWallet, walletChipHTML, formatWalletUsd } from '../src/shared/agent-wallet-chip.js';
 
 describe('grindMintKeypair', () => {
 	it('finds an address with the requested prefix', async () => {
@@ -92,5 +92,60 @@ describe('getWalletStatus / wallet chip', () => {
 		const ro = walletChipHTML({ id: 'a', solana_address: PLAIN }, { link: false });
 		expect(ro).not.toContain('data-twc-copy');
 		expect(ro).not.toContain('<a');
+	});
+});
+
+describe('wallet identity descriptor (multi-chain + ownership)', () => {
+	const PLAIN = '4Nd1mDQkSp9Xb6hT2pXc8QwJ5kR7yZ3aB9cD1eF2gH3';
+	const EVM = '0x1234567890abcdef1234567890ABCDEF12345678';
+	const UUID = '11111111-2222-4333-8444-555555555555';
+
+	it('exposes the EVM side of the identity, never confusing it with Solana', () => {
+		const s = getWalletStatus({ id: UUID, solana_address: PLAIN, wallet_address: EVM });
+		expect(s.address).toBe(PLAIN);
+		expect(s.evmAddress).toBe(EVM);
+		expect(s.evmExplorerUrl).toContain(EVM);
+		// A base58 in `wallet` must not leak into evmAddress and vice-versa.
+		expect(getWalletStatus({ id: UUID, wallet: PLAIN }).evmAddress).toBeNull();
+		expect(getWalletStatus({ id: UUID, solana_address: PLAIN, wallet: EVM }).evmAddress).toBe(EVM);
+	});
+
+	it('reads ownership attribution for the visitor "by @creator" view', () => {
+		const s = getWalletStatus({ id: UUID, solana_address: PLAIN, owner_name: 'satoshi', user_id: 'u1' });
+		expect(s.ownerName).toBe('satoshi');
+		expect(s.ownerId).toBe('u1');
+		const forked = getWalletStatus({ id: UUID, solana_address: PLAIN, meta: { forked_from: { owner_name: 'alice', agent_id: 'a9' } } });
+		expect(forked.forkedFrom.owner_name).toBe('alice');
+	});
+
+	it('getWalletIdentity is the same normalizer as getWalletStatus', () => {
+		expect(getWalletIdentity({ id: UUID, solana_address: PLAIN }).address).toBe(PLAIN);
+	});
+
+	it('only hydrates live balance for real (uuid) agents', () => {
+		// Real agent → balance slot + hydration attributes present.
+		const real = walletChipHTML({ id: UUID, solana_address: PLAIN }, { isOwner: false });
+		expect(real).toContain('twc-bal');
+		expect(real).toContain(`data-twc-aid="${UUID}"`);
+		expect(real).toContain('data-twc-trigger'); // rich popover enabled
+		// Non-agent row (KOL leaderboard) → static chip, no stuck skeleton / dead popover.
+		const kol = walletChipHTML({ id: 'kol-7', wallet: PLAIN }, { isOwner: false, link: false });
+		expect(kol).not.toContain('data-twc-aid');
+		expect(kol).not.toContain('twc-bal-sk');
+	});
+
+	it('marks the owner chip with a "Yours" badge', () => {
+		expect(walletChipHTML({ id: UUID, solana_address: PLAIN }, { isOwner: true })).toContain('twc-own');
+		expect(walletChipHTML({ id: UUID, solana_address: PLAIN }, { isOwner: false })).not.toContain('twc-own');
+	});
+
+	it('formats USD compactly', () => {
+		expect(formatWalletUsd(0)).toBe('$0');
+		expect(formatWalletUsd(0.004)).toBe('<$0.01');
+		expect(formatWalletUsd(9.4)).toBe('$9.40');
+		expect(formatWalletUsd(950)).toBe('$950');
+		expect(formatWalletUsd(1234)).toBe('$1.2K');
+		expect(formatWalletUsd(3_400_000)).toBe('$3.4M');
+		expect(formatWalletUsd(null)).toBeNull();
 	});
 });
