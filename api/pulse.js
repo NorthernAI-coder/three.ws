@@ -119,13 +119,13 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 	const kinds = TYPE_KINDS[type] || TYPE_KINDS.all;
 	const limit = Math.min(MAX_LIMIT, Math.max(1, Number(new URL(req.url, 'http://x').searchParams.get('limit')) || 30));
 
-	// Global feed: gate by is_public + the per-agent opt-out. Agent-scoped feed
-	// (a specific wallet's public "story"): the events are all already public
-	// on-chain, so we show them regardless of the global-feed opt-out — that
-	// toggle governs inclusion in the aggregated discovery feed, not whether an
-	// agent's own page may show its public history. Deleted agents are always out.
+	// Privacy gate. A private agent never appears — in the global feed OR scoped to
+	// its own id (err toward privacy; its owner still has the full private custody
+	// trail elsewhere). The per-agent `pulse_opt_out` toggle additionally suppresses
+	// an agent from the GLOBAL discovery feed only — its own profile/HUD still shows
+	// its already-public on-chain history. Deleted agents are always out.
 	const visGate = agentId
-		? sql`ai.deleted_at IS NULL`
+		? sql`ai.deleted_at IS NULL AND ai.is_public = true`
 		: sql`ai.deleted_at IS NULL AND ai.is_public = true AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false`;
 
 	const agentFilterCe = agentId ? sql`AND ce.agent_id = ${agentId}` : sql``;
@@ -351,9 +351,10 @@ async function handleStats(network) {
 // ── per-agent lifetime summary ─────────────────────────────────────────────────
 async function handleAgentSummary(network, agentId) {
 	const [agent] = await sql`
-		SELECT id, name, deleted_at FROM agent_identities WHERE id = ${agentId}
+		SELECT id, name, deleted_at, is_public FROM agent_identities WHERE id = ${agentId}
 	`;
-	if (!agent || agent.deleted_at) return null;
+	// Private/deleted agents expose no public summary — matches the feed gate.
+	if (!agent || agent.deleted_at || agent.is_public === false) return null;
 
 	const [tips] = await sql`
 		SELECT COUNT(*)::int AS count,

@@ -39,7 +39,7 @@ function agentCardHTML(a, metricHTML) {
 		? `<img class="px-lb-av" src="${esc(a.avatar_thumbnail_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />`
 		: `<span class="px-lb-av px-lb-av--mono" aria-hidden="true">${esc((a.name || '?').charAt(0).toUpperCase())}</span>`;
 	const chip = a.solana_address
-		? walletChipHTML({ name: a.name, meta: { solana_address: a.solana_address } }, { link: false, tip: false, showPending: false })
+		? walletChipHTML({ name: a.name, meta: { solana_address: a.solana_address } }, { link: false, tip: false, showPending: false, balance: false, popover: false })
 		: '';
 	return (
 		`<a class="px-lb-row" href="${esc(a.url)}">` +
