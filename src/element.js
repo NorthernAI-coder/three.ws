@@ -1765,6 +1765,14 @@ class Agent3DElement extends HTMLElement {
 				this._avatar = new AgentAvatar(this._viewer, protocol, _identity);
 				this._avatar.attach();
 
+				// Apply any mood set before the empathy layer existed so the avatar
+				// boots straight into its current resting expression.
+				if (this._pendingMood) {
+					this._avatar.setMood(this._pendingMood.valence, this._pendingMood.arousal, {
+						reducedMotion: this._pendingMood.reducedMotion,
+					});
+				}
+
 				if (this._runtime.tts) {
 					const tts    = this._runtime.tts;
 					const avatar = this._avatar;
@@ -3187,6 +3195,20 @@ class Agent3DElement extends HTMLElement {
 			weight: Math.max(0, Math.min(1, Number(weight) || 0)),
 			agentId: this._manifest?.id?.agentId,
 		});
+		return true;
+	}
+
+	/**
+	 * Set the avatar's sustained mood (Living Agents · Task 07). Drives the
+	 * resting facial expression + posture continuously through the empathy layer.
+	 * Stored so it still lands if the empathy layer attaches after this call.
+	 * @param {number} valence -1..1
+	 * @param {number} arousal 0..1
+	 * @param {{reducedMotion?: boolean}} [opts]
+	 */
+	setMood(valence, arousal, opts = {}) {
+		this._pendingMood = { valence, arousal, reducedMotion: Boolean(opts.reducedMotion) };
+		this._avatar?.setMood(valence, arousal, { reducedMotion: this._pendingMood.reducedMotion });
 		return true;
 	}
 
