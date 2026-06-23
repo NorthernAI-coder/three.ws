@@ -73,6 +73,36 @@ our manifest format).
 Runtime SDKs and apps live at the top level for historical compatibility with
 the deploy pipeline and existing import paths.
 
+## Docs-stage SDK packages
+
+These wrap already-live platform capabilities (real `api/` endpoints + MCP
+tools) into single-import `@three-ws/*` SDKs. Each ships its production README
+and `package.json` first (`"private": true`, no `main`/`exports`); the package
+is promoted into [npm workspaces](#npm-workspaces) and flipped public when its
+thin client wrapper lands. They are **not** workspaces yet — `npm install` does
+not resolve them.
+
+| Package | Location | Wraps | What it does |
+|---|---|---|---|
+| `@three-ws/forge` | [packages/forge/](packages/forge) | `api/forge*.js`, `api/mcp-3d.js` | Text/image/sketch → textured, rig-ready GLB; free TRELLIS lane + paid tiers + auto-rig |
+| `@three-ws/names` | [packages/names/](packages/names) | `api/sns*.js`, `api/x402/pay-by-name.js` | ENS + SNS resolution, `*.threews.sol` minting, pay-by-name |
+| `@three-ws/intel` | [packages/intel/](packages/intel) | `api/sentiment.js`, `api/aixbt/`, `pump_snapshot` | Token sentiment, narrative intel, momentum scans, token snapshots |
+| `@three-ws/vanity` | [packages/vanity/](packages/vanity) | `api/vanity/`, `src/solana/vanity/` (WASM) | WASM-accelerated Solana vanity address mining |
+| `@three-ws/reputation` | [packages/reputation/](packages/reputation) | `api/reputation/`, `api/erc8004/` | ERC-8004 agent reputation read + attest |
+| `@three-ws/voice` | [packages/voice/](packages/voice) | `api/asr.js`, `api/tts/`, `api/a2f.js` | ASR + TTS + audio2face lipsync visemes |
+| `@three-ws/x402-server` | [packages/x402-server/](packages/x402-server) | `api/x402-merchant.js`, `api/x402-pay.js` | Merchant/seller side of x402 — turn any endpoint paid |
+| `@three-ws/agent-memory` | [packages/agent-memory/](packages/agent-memory) | `api/agent-memory.js`, `api/memory/` | Embeddings-backed persistent agent memory + entity graph |
+| `@three-ws/agenc` | [packages/agenc/](packages/agenc) | `api/agenc/` | AgenC coordination protocol — task discovery, status, registry |
+| `@three-ws/guardian` | [packages/guardian/](packages/guardian) | `api/guardian/`, Granite Guardian | Content safety / moderation for agents |
+| `@three-ws/glb-tools` | [packages/glb-tools/](packages/glb-tools) | `_lib/glb-inspect.js`, `glb-themer.js`, `bake.js` | Inspect, re-theme, and bake GLBs from CLI/CI |
+| `@three-ws/agent-guards` | [packages/agent-guards/](packages/agent-guards) | `_lib/agent-spend-policy.js`, `agent-trade-guards.js` | Spend + trade guardrails for autonomous agents |
+| `@three-ws/skill-license` | [packages/skill-license/](packages/skill-license) | `contracts/skill-license/`, `api/skills/` | On-chain skill licenses (SPL NFT + PDA) mint/verify |
+| `@three-ws/mocap` | [packages/mocap/](packages/mocap) | `api/mocap/` | Motion-capture clips → avatar animation |
+| `@three-ws/strategies` | [packages/strategies/](packages/strategies) | `api/strategies.js`, `dca-strategies.js`, copy/mirror engines | Automated trading strategies (DCA, copy, mirror) |
+| `@three-ws/pumpfun-skills` | [packages/pumpfun-skills/](packages/pumpfun-skills) | [pump-fun-skills/](pump-fun-skills) | pump.fun create-coin / swap / fees skills (runtime mint) |
+| `@three-ws/irl` | [packages/irl/](packages/irl) | `api/irl/`, `_lib/geohash.js` | Geofenced real-world presence + nearby discovery |
+| `@three-ws/pose` | [packages/pose/](packages/pose) | `get_pose_seed`, `api/mcp-3d.js` | Pose-seed generation for rigged avatars |
+
 ## Where things actually live
 
 - **3D viewer & creator** — [avatar-sdk/](avatar-sdk), [character-studio/](character-studio)
