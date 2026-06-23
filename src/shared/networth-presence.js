@@ -113,18 +113,22 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 			: 100;
 		const provisioning = data.provisioning;
 
+		const prefs = normalizePrefs(data.prefs);
+
 		const marks = (data.marks || []).map((m) => {
 			const inner = `${esc(m.label)}${m.value != null && m.value !== '' ? ` <b>${esc(m.value)}</b>` : ''}`;
 			return m.href
 				? `<a class="nwp-mark" href="${esc(m.href)}" title="${esc(m.detail || m.label)}">${inner}</a>`
 				: `<span class="nwp-mark" title="${esc(m.detail || m.label)}">${inner}</span>`;
 		}).join('');
+		// The owner can hide the regalia entirely (signals.reputation off). The row
+		// stays in the DOM so toggling it back on is instant — just visually hidden.
+		const repHidden = prefs.signals.reputation === false;
 
 		const subline = provisioning
 			? 'Wallet provisioning — presence wakes once it is funded.'
 			: `Portfolio <strong>${esc(fmtUsd(usd))}</strong>${hub ? ` · <a href="${esc(hub)}">wallet</a>` : ''}`;
 
-		const prefs = normalizePrefs(data.prefs);
 		const controls = isOwner ? renderControls(prefs) : '';
 
 		el.innerHTML = `
@@ -136,7 +140,7 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 				</div>
 			</div>
 			${next && next.usd_to_next > 0 ? `<div class="nwp-next" title="${esc(fmtUsd(next.usd_to_next))} to ${esc(next.label)}"><i style="width:${nextPct}%"></i></div>` : ''}
-			${marks ? `<div class="nwp-marks">${marks}</div>` : ''}
+			${marks ? `<div class="nwp-marks" data-marks${repHidden ? ' hidden' : ''}>${marks}</div>` : ''}
 			${controls}
 			<div class="nwp-foot">◎ Driven by this agent's real on-chain wallet</div>
 		`;
@@ -205,6 +209,9 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 				c.disabled = off;
 				c.closest('.nwp-sig')?.classList.toggle('is-disabled', off);
 			}
+			// Honour the reputation opt-out instantly: hide/show the regalia row in place.
+			const marksRow = el.querySelector('[data-marks]');
+			if (marksRow) marksRow.hidden = prefs.signals.reputation === false;
 		}
 
 		for (const b of el.querySelectorAll('[data-rx]')) {

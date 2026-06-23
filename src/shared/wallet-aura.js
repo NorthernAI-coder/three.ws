@@ -24,6 +24,7 @@
 import {
 	fetchWalletState, computeWalletVisual, formatNetWorth,
 } from './wallet-networth.js';
+import { fetchNetWorth } from './agent-networth.js';
 
 const STYLE_ID = 'tws-wallet-aura-styles';
 const REDUCED_MOTION =
@@ -413,6 +414,15 @@ export async function hydrateAvatarWallet(container, agent, opts = {}) {
 	// An owner reactivity pref known up front (e.g. passed by the page) gates the
 	// look before the first paint so a muted agent never flashes a full aura first.
 	if (opts.prefs) controller.setPrefs(opts.prefs);
+	// Otherwise fetch the owner's saved reactivity prefs so EVERY surface — not just
+	// the ones that mount the presence panel — honours how the owner configured the
+	// agent. Surfaces that already mount the panel pass `fetchPrefs:false` to avoid a
+	// duplicate read (the panel pushes prefs in via setPrefs itself).
+	else if (opts.fetchPrefs !== false && agentId) {
+		fetchNetWorth(agentId)
+			.then((nw) => { if (nw?.prefs) controller.setPrefs(nw.prefs); })
+			.catch(() => { /* read failed — aura stays at its real, un-muted look */ });
+	}
 	try {
 		await controller.update(agent);
 		if (opts.live !== false && agentId) {

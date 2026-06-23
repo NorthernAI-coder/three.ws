@@ -576,7 +576,7 @@ function mountNetWorthAura() {
 	const agentId = avatar?.agent_id;
 	if (!stage || !agentId || netWorthAura) return;
 
-	hydrateAvatarWallet(stage, avatar, { lod: 'full', live: true, network: 'mainnet' })
+	hydrateAvatarWallet(stage, avatar, { lod: 'full', live: true, network: 'mainnet', fetchPrefs: false })
 		.then((controller) => {
 			if (!controller) return;
 			netWorthAura = controller;
