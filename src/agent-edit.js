@@ -3041,6 +3041,28 @@ async function ensureOwnershipTab() {
   }
 }
 
+// Mind Palace — the agent's memory as a navigable spatial scene with the live
+// avatar at its core. Mounts the same module the standalone /agent/:id/mind
+// route uses; the empty state can ask the editor to jump to the Knowledge tab.
+let mindMounted = false;
+let mindController = null;
+async function ensureMindTab() {
+  const link = $('mind-fullscreen-link');
+  if (link && agentId) link.href = `/agent/${agentId}/mind`;
+  if (mindMounted || !agentId) return;
+  mindMounted = true;
+  const host = $('mind-palace-host');
+  if (!host) return;
+  host.addEventListener('mind:add-memory', () => activateTab('knowledge'));
+  try {
+    const { mountMindPalace } = await import('./mind-palace.js');
+    mindController = mountMindPalace(host, { agentId, agent: agentData, embedded: true });
+  } catch (err) {
+    mindMounted = false;
+    host.innerHTML = `<div class="error-msg" style="padding:1rem">Could not load the Mind Palace: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 // Memory-grounded Autopilot — explainable autonomy. The strategy textarea above
 // stays; this mounts the scopes / proposals / trust / signed-receipts surface.
 let autopilotMounted = false;
@@ -3057,6 +3079,7 @@ const TAB_LOADERS = {
   outfit: ensureOutfitTab,
   voice: ensureVoiceTab,
   knowledge: ensureKnowledgeTab,
+  mind: ensureMindTab,
   ownership: ensureOwnershipTab,
   dreams: ensureDreamsTab,
   autopilot: ensureAutopilotTab,

@@ -87,6 +87,7 @@ const TYPE_CATEGORY = {
 	asset_payment_mismatch: 'account',
 	skill_payment_mismatch: 'account',
 	security_alert: 'account',
+	wallet_anomaly_frozen: 'account',
 };
 
 export function categoryForType(type) {

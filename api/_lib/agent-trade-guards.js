@@ -27,6 +27,26 @@ import { PublicKey } from '@solana/web3.js';
 import { sql } from './db.js';
 import { solUsdPrice } from './avatar-wallet.js';
 import { logAudit } from './audit.js';
+// The wallet's behavioral immune system — an additive anomaly predicate layered on
+// top of the static caps in this file. See api/_lib/anomaly-events.js +
+// api/_lib/wallet-anomaly.js. Only referenced inside function bodies, so the
+// mutual import with that module resolves fine at call time.
+import { guardOutboundAnomaly } from './anomaly-events.js';
+// Natural-language spend policies: the LLM authors the rule document, this pure,
+// total evaluator enforces it. Layered ON TOP of the numeric caps below — never
+// weakening them. See api/_lib/spend-policy-rules.js.
+import {
+	getPolicyRules, normalizePolicyRules, evaluatePolicy, isDenied,
+	referencedFields, describePolicyRules, diffPolicies,
+} from './spend-policy-rules.js';
+// Scoped session keys (least-privilege capabilities). Imported for the additive
+// capability gate composed into enforceSpendLimit / reserveSpendUsd below. The
+// import is circular (wallet-capabilities imports recordCustodyEvent from here);
+// safe because both sides only touch the bindings at runtime, never at module eval.
+import {
+	evaluateCapabilityScope, capabilityError, capabilitySpentUsd, checkAggregate,
+	resolveCapabilityForSpend, reserveCapabilitySpend,
+} from './wallet-capabilities.js';
 
 // Base58 alphabet, 32–44 chars covers every ed25519 pubkey. A cheap pre-filter
 // before the (heavier) PublicKey parse + curve check.
@@ -50,6 +70,15 @@ export const SPEND_LIMIT_DEFAULTS = Object.freeze({
 	// safe direction (sweeping out) stays open so a freeze can be used to lock down
 	// a misbehaving agent while still evacuating its balance.
 	frozen: false,
+	// Least-privilege enforcement. When true, every AUTONOMOUS outbound path
+	// (trade, snipe, x402) must present a valid, unexpired, unrevoked scoped
+	// capability that covers the action — no covering capability ⇒ deny (fail
+	// safe). When false (default), capabilities still STRICTLY NARROW any spend
+	// that presents one, but an autonomous spend without a capability is governed
+	// by the wallet-wide policy alone (preserves existing automated flows). See
+	// api/_lib/wallet-capabilities.js. Owner withdraw is never a delegated
+	// capability and is unaffected by this flag.
+	require_capabilities: false,
 });
 
 // Per-agent discretionary-trade policy (lamports-denominated), stored at
@@ -146,6 +175,7 @@ export function normalizeSpendLimits(raw) {
 		per_tx_usd: numOrNull(r.per_tx_usd),
 		withdraw_allowlist: deduped,
 		frozen: r.frozen === true,
+		require_capabilities: r.require_capabilities === true,
 		updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
 	};
 }
@@ -175,6 +205,8 @@ export async function setSpendLimits(agentId, userId, patch, { req = null } = {}
 		withdraw_allowlist:
 			'withdraw_allowlist' in patch ? patch.withdraw_allowlist : prev.withdraw_allowlist,
 		frozen: 'frozen' in patch ? patch.frozen === true : prev.frozen,
+		require_capabilities:
+			'require_capabilities' in patch ? patch.require_capabilities === true : prev.require_capabilities,
 	});
 	next.updated_at = new Date().toISOString();
 
@@ -428,27 +460,249 @@ export async function getDailySpendUsd(agentId, network = 'mainnet', windowHours
 	return Number(row?.usd || 0);
 }
 
+// ── natural-language policy enforcement ───────────────────────────────────────
+// The owner-authored, code-enforced policy (meta.policy_rules) layered on top of
+// the numeric caps. A block here returns the HUMAN rule that caught the spend.
+
+/** Count how many times this agent has previously paid a given destination. Backs
+ *  the `counterparty_seen_before` signal ("only pay services you've used before").
+ *  Best-effort: any error reports "not seen", and the rule itself decides what that
+ *  means (a `is false` rule then fires — fail-safe-to-block for that intent). */
+async function countPriorSpendsTo(agentId, destination, network = 'mainnet') {
+	if (!destination) return 0;
+	const [row] = await sql`
+		SELECT COUNT(*)::int AS n
+		FROM agent_custody_events
+		WHERE agent_id = ${agentId}
+		  AND network = ${network}
+		  AND event_type = 'spend'
+		  AND destination = ${destination}
+		  AND status IN ('ok', 'pending', 'confirmed')
+	`;
+	return Number(row?.n || 0);
+}
+
+/** Lazily load an agent's policy document from the DB (only when a caller passes
+ *  pre-resolved `limits` without `meta`, so enforcement is universal regardless of
+ *  how the call site resolved its caps). */
+async function loadPolicyRulesById(agentId) {
+	try {
+		const [row] = await sql`SELECT meta->'policy_rules' AS policy_rules FROM agent_identities WHERE id = ${agentId}`;
+		return normalizePolicyRules(row?.policy_rules);
+	} catch (e) {
+		console.warn('[policy] load rules failed', e?.message);
+		return normalizePolicyRules(null);
+	}
+}
+
+/** Trip the wallet freeze switch from a `freeze` policy rule. Idempotent, audited,
+ *  and never throws — a logging/DB hiccup must not turn the (correct) block into a
+ *  pass. Owner withdraw stays open exactly as a manual freeze. */
+async function freezeWalletFromPolicy(agentId, userId, rule, network) {
+	try {
+		await sql`
+			UPDATE agent_identities
+			SET meta = jsonb_set(
+				jsonb_set(coalesce(meta, '{}'::jsonb), '{spend_limits}', coalesce(meta->'spend_limits', '{}'::jsonb)),
+				'{spend_limits,frozen}', 'true'::jsonb
+			)
+			WHERE id = ${agentId} AND coalesce((meta->'spend_limits'->>'frozen')::boolean, false) = false
+		`;
+		await recordCustodyEvent({
+			agentId, userId: userId ?? null, eventType: 'limit_change', network,
+			reason: 'policy_freeze',
+			meta: { trigger: 'policy_rule', rule_id: rule?.id || null, rule: rule?.label || null },
+		});
+		logAudit({ userId: userId ?? null, action: 'custody.policy_freeze', resourceId: agentId, meta: { rule_id: rule?.id || null } });
+	} catch (e) {
+		console.warn('[policy] auto-freeze failed', e?.message);
+	}
+}
+
+/**
+ * Evaluate the natural-language policy for one outbound spend and throw the human
+ * rule that catches it. Total: any internal failure on an AUTONOMOUS path fails
+ * safe to a block; the owner's own withdraw is never trapped by an internal error.
+ *
+ * @param {object} o
+ * @param {string} o.agentId
+ * @param {object} o.policy            normalized policy document
+ * @param {string} o.category
+ * @param {number|null} o.usdValue
+ * @param {string} [o.asset]
+ * @param {string} [o.destination]
+ * @param {object} [o.limits]          resolved numeric limits (for destination_allowlisted)
+ * @param {object} [o.policyContext]   extra live signals: token_age_hours, trade_pnl_pct, sol_reserve_after
+ * @param {number} [o.userId]
+ * @param {string} [o.network]
+ * @throws {SpendLimitError} when the policy denies the spend
+ */
+async function enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits, policyContext = {}, userId, network = 'mainnet' }) {
+	if (!policy || !Array.isArray(policy.rules) || !policy.rules.length) return;
+	const autonomous = category !== 'withdraw';
+
+	let ctx;
+	try {
+		const refs = referencedFields(policy);
+		const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;
+		const dest = typeof destination === 'string' ? destination.trim() : '';
+		const allow = Array.isArray(limits?.withdraw_allowlist) ? limits.withdraw_allowlist : [];
+
+		ctx = {
+			category,
+			asset: asset || undefined,
+			counterparty: dest || undefined,
+			amount_usd: hasUsd ? usdValue : undefined,
+			time_of_day_utc: new Date().getUTCHours(),
+			destination_allowlisted: dest ? allow.includes(dest) : undefined,
+			// Live signals the trade/snipe paths can supply (token age, P&L, reserve).
+			...sanitizePolicyContext(policyContext),
+		};
+
+		// Async signals — only fetched when a live rule references them.
+		if ((refs.has('daily_spent_usd') || refs.has('daily_total_usd')) && hasUsd) {
+			const spent = await getDailySpendUsd(agentId, network);
+			ctx.daily_spent_usd = spent;
+			ctx.daily_total_usd = spent + usdValue;
+		}
+		if (refs.has('counterparty_seen_before') && dest) {
+			ctx.counterparty_seen_before = (await countPriorSpendsTo(agentId, dest, network)) > 0;
+		}
+	} catch (e) {
+		// Building the context failed (DB outage, etc.). Fail safe: block an
+		// autonomous spend; never trap the owner's withdraw.
+		console.warn('[policy] context build failed', e?.message);
+		if (!autonomous) return;
+		throw new SpendLimitError('policy_unavailable', 'Couldn’t verify this spend against your safety rules right now. The spend was blocked to stay safe — try again in a moment.', { category });
+	}
+
+	const verdict = evaluatePolicy(policy, ctx);
+	if (!isDenied(verdict.decision)) return;
+
+	// A `freeze` rule also trips the wallet kill-switch so everything else stops.
+	if (verdict.decision === 'freeze') {
+		await freezeWalletFromPolicy(agentId, userId, verdict.matched, network);
+		throw new SpendLimitError(
+			'policy_freeze',
+			`Wallet frozen by your rule: ${verdict.message} All autonomous spending is now paused; unfreeze it under Limits & Safety.`,
+			{ rule_id: verdict.matched?.id || null, rule: verdict.message, rule_index: verdict.ruleIndex, decision: 'freeze' },
+		);
+	}
+
+	const code = verdict.decision === 'step_up' ? 'policy_step_up' : 'policy_blocked';
+	const prefix = verdict.decision === 'step_up' ? 'This spend needs your approval' : 'Blocked by your rule';
+	throw new SpendLimitError(
+		code,
+		`${prefix}: ${verdict.message}`,
+		{ rule_id: verdict.matched?.id || null, rule: verdict.message, rule_index: verdict.ruleIndex, decision: verdict.decision },
+	);
+}
+
+/** Keep only the numeric live signals the evaluator understands, coerced + finite. */
+function sanitizePolicyContext(extra) {
+	const out = {};
+	if (!extra || typeof extra !== 'object') return out;
+	for (const k of ['token_age_hours', 'trade_pnl_pct', 'sol_reserve_after']) {
+		const n = Number(extra[k]);
+		if (extra[k] != null && Number.isFinite(n)) out[k] = n;
+	}
+	return out;
+}
+
+/**
+ * Persist a natural-language policy onto the agent (owner-only). The caller passes
+ * the validated rule array (from the compiler) plus the original English. The
+ * document is re-normalized here so the stored policy is always enforceable, a
+ * `limit_change` custody event records the English + a diff vs the prior policy, and
+ * a platform audit row is written. Returns the new normalized document.
+ */
+export async function setPolicyRules(agentId, userId, rules, { english = null, req = null } = {}) {
+	const [row] = await sql`
+		SELECT id, user_id, meta FROM agent_identities
+		WHERE id = ${agentId} AND deleted_at IS NULL
+	`;
+	if (!row) throw Object.assign(new Error('agent not found'), { status: 404, code: 'not_found' });
+	if (row.user_id !== userId) throw Object.assign(new Error('not your agent'), { status: 403, code: 'forbidden' });
+
+	const prev = getPolicyRules(row.meta);
+	const next = normalizePolicyRules({ rules, source_text: typeof english === 'string' ? english : prev.source_text });
+	next.updated_at = new Date().toISOString();
+	const diff = diffPolicies(prev, next);
+
+	const meta = { ...(row.meta || {}), policy_rules: next };
+	await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${agentId}`;
+
+	await recordCustodyEvent({
+		agentId,
+		userId,
+		eventType: 'limit_change',
+		reason: 'policy_updated',
+		meta: { english: next.source_text, prev_rules: prev.rules, next_rules: next.rules, readback: describePolicyRules(next), diff },
+	}).catch((e) => console.warn('[custody] policy limit_change record failed', e?.message));
+	logAudit({ userId, action: 'custody.policy_change', resourceId: agentId, meta: { diff, rule_count: next.rules.length }, req });
+
+	return next;
+}
+
 /**
  * Enforce the per-agent spend policy for one outbound movement.
  *
  * @param {object} o
  * @param {string} o.agentId
- * @param {object} [o.meta]            agent meta (limits read from here if `limits` absent)
+ * @param {object} [o.meta]            agent meta (limits + policy read from here if absent)
  * @param {object} [o.limits]          pre-resolved limits (skips the meta read)
+ * @param {object} [o.policyRules]     pre-resolved NL policy document (skips the meta/DB read)
  * @param {'trade'|'snipe'|'x402'|'withdraw'} o.category
  * @param {number|null} o.usdValue     USD-equivalent of this tx (null = unpriceable)
+ * @param {string} [o.asset]           'SOL' | 'USDC' | mint — for asset-scoped policy rules
  * @param {string} [o.destination]     base58 recipient (required for allowlist on withdraw)
+ * @param {object} [o.policyContext]   live signals for policy rules (token_age_hours, trade_pnl_pct, sol_reserve_after)
+ * @param {number} [o.userId]          actor (for policy-freeze audit)
  * @param {string} [o.network]
  * @returns {Promise<{ ok: true, limits: object, dailySpentUsd: number|null }>}
  * @throws {SpendLimitError} on any breach (always 4xx)
  */
+// ── capability gate (scoped session keys) ──────────────────────────────────
+// Resolve + scope-check the capability that authorizes an autonomous spend, if any.
+// Composed additively into both shared guards. A capability STRICTLY NARROWS: the
+// wallet-wide checks must pass AND this gate must pass. Autonomous categories only
+// (trade/snipe/x402); an owner-initiated withdraw is never a delegated capability.
+//
+// A caller may pass a pre-resolved `capability`, or a `capabilityHolderRef`
+// (skill/strategy/integration id) we resolve to the tightest live grant. When the
+// wallet has require_capabilities on and no covering grant exists, the spend is
+// DENIED (fail safe). Returns the resolved capability, or null when none applies
+// and none is required (unchanged behavior for wallets not using capabilities).
+async function resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, now }) {
+	if (category === 'withdraw') return null;
+	let cap = capability || null;
+	if (!cap && (lim.require_capabilities || capabilityHolderRef)) {
+		cap = await resolveCapabilityForSpend({ agentId, action: category, holderRef: capabilityHolderRef ?? null, target, usdValue, now });
+	}
+	if (!cap) {
+		if (lim.require_capabilities) throw capabilityError('capability_required', { category });
+		return null;
+	}
+	const scope = evaluateCapabilityScope({ cap, action: category, target, usdValue, now });
+	if (scope) throw capabilityError(scope.reason, scope.detail);
+	return cap;
+}
+
 export async function enforceSpendLimit({
 	agentId,
 	meta,
 	limits,
+	policyRules,
 	category,
 	usdValue,
+	asset,
 	destination,
+	policyContext,
+	userId,
+	capability,
+	capabilityHolderRef,
+	target,
+	now,
 	network = 'mainnet',
 }) {
 	const lim = limits || getSpendLimits(meta);
@@ -474,9 +728,15 @@ export async function enforceSpendLimit({
 		}
 	}
 
+	// 2. Natural-language policy — the owner's English rules, deterministically
+	// enforced. Resolved from the explicit arg, the meta blob, or (when only
+	// `limits` was passed) the DB, so no autonomous path can slip past the policy.
+	const policy = policyRules || (meta ? getPolicyRules(meta) : await loadPolicyRulesById(agentId));
+	await enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits: lim, policyContext, userId, network });
+
 	const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;
 
-	// 2. Per-transaction ceiling.
+	// 3. Per-transaction ceiling.
 	if (lim.per_tx_usd != null && hasUsd && usdValue > lim.per_tx_usd + 1e-9) {
 		throw new SpendLimitError(
 			'per_tx_exceeded',
@@ -485,7 +745,7 @@ export async function enforceSpendLimit({
 		);
 	}
 
-	// 3. Rolling daily ceiling.
+	// 4. Rolling daily ceiling.
 	let dailySpentUsd = null;
 	if (lim.daily_usd != null && hasUsd) {
 		dailySpentUsd = await getDailySpendUsd(agentId, network);
@@ -498,7 +758,30 @@ export async function enforceSpendLimit({
 		}
 	}
 
-	return { ok: true, limits: lim, dailySpentUsd };
+	// 5. Behavioral anomaly guard (the wallet's immune system). Scores this action
+	// against the agent's learned normal; on a freeze verdict it has already frozen
+	// the wallet + notified the owner, and we surface a SpendLimitError so the
+	// triggering action is held. Self-contained fail-safe — never fails open here.
+	const anomaly = await guardOutboundAnomaly({
+		agentId, userId, meta, category, usdValue, destination, asset, network,
+	});
+	if (anomaly.decision === 'freeze') {
+		throw new SpendLimitError('wallet_anomaly_frozen', anomaly.message, anomaly.detail || {});
+	}
+
+	// 4b. Capability gate (least-privilege). Scope (action/target/expiry/revoked/
+	// per-use) + a non-atomic aggregate read-check, mirroring how this enforce path
+	// already treats the daily cap non-atomically. The atomic aggregate reserve lives
+	// in reserveSpendUsd → reserveCapabilitySpend.
+	const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target, capability, capabilityHolderRef, now });
+	const capabilityId = _cap?.id || null;
+	if (_cap && _cap.aggregate_usd != null && hasUsd) {
+		const _spent = await capabilitySpentUsd(_cap.id);
+		const _agg = checkAggregate(_spent, usdValue, _cap);
+		if (_agg) throw capabilityError(_agg.reason, _agg.detail);
+	}
+
+	return { ok: true, limits: lim, dailySpentUsd, capabilityId, anomaly: anomaly.verdict || null };
 }
 
 /**
@@ -520,9 +803,15 @@ export async function reserveSpendUsd({
 	userId,
 	meta,
 	limits,
+	policyRules,
 	category,
 	usdValue,
 	destination,
+	policyContext,
+	capability,
+	capabilityHolderRef,
+	target,
+	now,
 	network = 'mainnet',
 	asset = 'USDC',
 	rowMeta = {},
@@ -550,6 +839,11 @@ export async function reserveSpendUsd({
 		}
 	}
 
+	// Natural-language policy — same deterministic evaluator as enforceSpendLimit,
+	// run BEFORE the row is reserved so a policy block never claims daily headroom.
+	const policy = policyRules || (meta ? getPolicyRules(meta) : await loadPolicyRulesById(agentId));
+	await enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits: lim, policyContext, userId, network });
+
 	const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;
 
 	// Per-transaction ceiling (no lock needed — a single value vs a constant).
@@ -561,7 +855,40 @@ export async function reserveSpendUsd({
 		);
 	}
 
+	// Capability gate (least-privilege). When a capability is in play (presented,
+	// resolvable, or required for this wallet), delegate the reserve to
+	// reserveCapabilitySpend: it atomically meters BOTH the capability aggregate
+	// ceiling AND the wallet daily cap under advisory locks and tags the pending row
+	// with capability_id. Return early so we never double-insert.
+	if (category !== 'withdraw') {
+		const _cap = await resolveSpendCapability({ agentId, lim, category, usdValue, target: target ?? destination, capability, capabilityHolderRef, now });
+		if (_cap) {
+			const _r = await reserveCapabilitySpend({
+				capabilityId: _cap.id, agentId, userId, action: category,
+				target: target ?? destination, usdValue, dailyUsd: lim.daily_usd,
+				network, asset, destination, rowMeta, now,
+			});
+			return { ok: true, reservationId: _r.reservationId, dailySpentUsd: _r.spentBefore, capabilityId: _cap.id };
+		}
+	}
+
 	const metaJson = JSON.stringify(rowMeta ?? {});
+
+	// Behavioral anomaly guard for a just-reserved spend. The pending row already
+	// exists (selfCounted: live velocity counts include it), so on a freeze verdict
+	// we RELEASE the reservation — it must not hold daily headroom — before surfacing
+	// the SpendLimitError. guardOutboundAnomaly has already frozen + notified.
+	const runAnomaly = async (reservationId, dailySpentUsd) => {
+		const anomaly = await guardOutboundAnomaly({
+			agentId, userId, meta, category, usdValue, destination, asset, network,
+			custodyEventId: reservationId, selfCounted: true,
+		});
+		if (anomaly.decision === 'freeze') {
+			await releaseSpendReservation(reservationId, 'anomaly_frozen');
+			throw new SpendLimitError('wallet_anomaly_frozen', anomaly.message, anomaly.detail || {});
+		}
+		return { ok: true, reservationId, dailySpentUsd, anomaly: anomaly.verdict || null };
+	};
 
 	// No daily ceiling, or an unpriceable spend: just reserve a pending row (it
 	// can't gate a cap it has no number for) so the ledger still reflects it.
@@ -570,7 +897,7 @@ export async function reserveSpendUsd({
 			agentId, userId, eventType: 'spend', category, network, asset,
 			usd: hasUsd ? usdValue : null, destination, status: 'pending', meta: rowMeta,
 		});
-		return { ok: true, reservationId, dailySpentUsd: null };
+		return runAnomaly(reservationId, null);
 	}
 
 	// Atomic daily-cap reserve: the advisory xact lock serializes concurrent spends
@@ -610,7 +937,7 @@ export async function reserveSpendUsd({
 		);
 	}
 
-	return { ok: true, reservationId: rows[0].id, dailySpentUsd: Number(rows[0].spent_before || 0) };
+	return runAnomaly(rows[0].id, Number(rows[0].spent_before || 0));
 }
 
 /**
@@ -630,19 +957,22 @@ export async function releaseSpendReservation(reservationId, reason = 'spend_abo
 const CUSTODY_COLUMNS = [
 	'agent_id', 'user_id', 'event_type', 'category', 'network', 'asset',
 	'amount_lamports', 'amount_raw', 'usd', 'destination', 'signature',
-	'reason', 'status', 'idempotency_key', 'meta',
+	'reason', 'status', 'idempotency_key', 'capability_id', 'meta',
 ];
 
 /**
  * Write a row into the custody audit trail / spend ledger.
  * Returns the new row id. Callers in fire-and-forget contexts should `.catch()`.
+ * `capabilityId` (optional) tags the row with the scoped session key that
+ * authorized the spend, so the per-capability aggregate ceiling and the owner
+ * Access UI read from the same ledger as the wallet daily cap.
  */
 export async function recordCustodyEvent(e) {
 	const [row] = await sql`
 		INSERT INTO agent_custody_events
 			(agent_id, user_id, event_type, category, network, asset,
 			 amount_lamports, amount_raw, usd, destination, signature,
-			 reason, status, idempotency_key, meta)
+			 reason, status, idempotency_key, capability_id, meta)
 		VALUES (
 			${e.agentId},
 			${e.userId ?? null},
@@ -658,6 +988,7 @@ export async function recordCustodyEvent(e) {
 			${e.reason ?? null},
 			${e.status ?? 'ok'},
 			${e.idempotencyKey ?? null},
+			${e.capabilityId ?? null},
 			${JSON.stringify(e.meta ?? {})}::jsonb
 		)
 		RETURNING id

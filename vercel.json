@@ -2802,6 +2802,10 @@
 			"dest": "/api/og/three-token-badge.js"
 		},
 		{
+			"src": "/agent/([^/]+)/mind/?",
+			"dest": "/agent-mind.html"
+		},
+		{
 			"src": "/agent/([^/]+)/edit",
 			"dest": "/agent-edit.html"
 		},
@@ -4206,6 +4210,10 @@
 		{
 			"path": "/api/cron/three-holders-snapshot",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/custody-attest",
+			"schedule": "17 */6 * * *"
 		},
 		{
 			"path": "/api/cron/pumpfun-monitor",

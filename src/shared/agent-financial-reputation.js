@@ -37,30 +37,39 @@
 // ── The factors and their maxima (sum to 100) ────────────────────────────────
 //
 //   tenure       12  wallet/agent age (log-scaled) + recent activity cadence
-//   volume       18  real settled USD that flowed through the wallet
+//   volume       13  real settled USD that flowed through the wallet
 //   tips         12  count of DISTINCT external funded wallets that tipped it
 //   reliability  12  on-chain settlement success rate (only once there's volume)
 //   generosity    8  tips/streams GIVEN to others (reciprocity), wash-excluded
 //   conduct      12  trading conduct: realized P&L + win rate − dumping penalty
+//   conviction   10  $THREE held (log-scaled value) + continuous holding duration
 //   solvency      6  live reserves vs outstanding obligations (full mode only)
 //   lineage       6  how many times the avatar was forked (others valued it)
-//   identity     14  verified ERC-8004 identity + registry feedback + attestations
+//   identity      9  verified ERC-8004 identity + registry feedback + attestations
+//
+// v3 introduced the `conviction` pillar — holding the platform's only coin,
+// $THREE, through time is a costly, fully on-chain commitment to three.ws. Its 10
+// points were carved out of `volume` (18→13) and `identity` (14→9) rather than
+// inflating the scale: on this platform, conviction in the native coin is at least
+// as strong a trust signal as an external registry, and the score still sums to
+// exactly 100 so the tier thresholds and every persisted history stay comparable.
 //
 // loadReputationInputs / getAgentReputation (server) do the real I/O.
 
-export const REPUTATION_VERSION = 2;
+export const REPUTATION_VERSION = 3;
 
 // Factor definitions — label + max points. Order is the display order.
 export const PILLARS = [
 	{ key: 'tenure', label: 'Tenure & consistency', max: 12 },
-	{ key: 'volume', label: 'Earnings & volume', max: 18 },
+	{ key: 'volume', label: 'Earnings & volume', max: 13 },
 	{ key: 'tips', label: 'Tips from distinct wallets', max: 12 },
 	{ key: 'reliability', label: 'Settlement reliability', max: 12 },
 	{ key: 'generosity', label: 'Generosity & reciprocity', max: 8 },
 	{ key: 'conduct', label: 'Trading conduct', max: 12 },
+	{ key: 'conviction', label: '$THREE conviction', max: 10 },
 	{ key: 'solvency', label: 'Solvency (reserves vs owed)', max: 6 },
 	{ key: 'lineage', label: 'Fork lineage', max: 6 },
-	{ key: 'identity', label: 'On-chain identity', max: 14 },
+	{ key: 'identity', label: 'On-chain identity', max: 9 },
 ];
 
 export const MAX_SCORE = PILLARS.reduce((s, p) => s + p.max, 0); // 100
@@ -106,6 +115,9 @@ const log2 = (n) => Math.log(n) / Math.LN2;
  * @param {number} inputs.winningTrades      closed positions with positive realized P&L
  * @param {number} inputs.realizedPnlSol     net realized P&L in SOL across closed positions
  * @param {number} inputs.dumpEvents         detected dumps on its own coin's supporters
+ * @param {number} inputs.threeUsd           live USD value of $THREE held by the wallet
+ * @param {number} inputs.threeTokens        whole-token $THREE balance (price-independent gate)
+ * @param {number} inputs.threeHoldDays      continuous days holding $THREE (resets on full exit)
  * @param {number} inputs.reserveUsd         live reserves USD (full mode only; 0 = unknown)
  * @param {number} inputs.obligationsUsd     outstanding obligations USD (active streams + pending)
  * @param {boolean} inputs.reservesKnown     whether live reserves were actually read
@@ -146,7 +158,7 @@ export function computeReputation(inputs = {}) {
 	// ── Earnings & volume (max 18) ─────────────────────────────────────────────
 	// Real USD that flowed through the wallet. Money moved is costly to fake.
 	const rawVolume = i.settledUsd + i.externalTipUsd;
-	const volumePtsRaw = clamp(5.2 * Math.log10(rawVolume + 1), 0, 18);
+	const volumePtsRaw = clamp(4.4 * Math.log10(rawVolume + 1), 0, 13);
 	const volumePts = volumePtsRaw * diversityMultiplier;
 	pushPillar(pillars, 'volume', volumePts, {
 		detail:
@@ -235,6 +247,31 @@ export function computeReputation(inputs = {}) {
 		},
 	});
 
+	// ── $THREE conviction (max 10) ─────────────────────────────────────────────
+	// Holding the platform's ONLY coin — and holding it through time — is a costly,
+	// fully on-chain commitment to three.ws that no follower count can fake. Value
+	// is log-scaled so a whale can't buy the whole pillar in one transfer; duration
+	// rewards genuine long-term holders and resets honestly the instant a wallet
+	// fully exits its $THREE (the holder snapshot drops it, so held_since restarts).
+	// A flash-hold — buy, snapshot, sell — earns near-zero duration and only the
+	// log-scaled value of whatever was briefly held.
+	const holdsThree = i.threeTokens > 0;
+	const threeValuePts = clamp(2.4 * Math.log10(i.threeUsd + 1), 0, 6);
+	const threeDurationPts = holdsThree ? clamp((i.threeHoldDays / 120) * 4, 0, 4) : 0;
+	const convictionPts = clamp(threeValuePts + threeDurationPts, 0, 10);
+	pushPillar(pillars, 'conviction', convictionPts, {
+		detail: !holdsThree
+			? 'Holds no $THREE yet — holding the platform coin builds long-term conviction.'
+			: `Holds $${fmtUsd(i.threeUsd)} of $THREE${
+					i.threeHoldDays >= 1 ? ` continuously for ${fmtAge(i.threeHoldDays)}` : ' (just started)'
+			  }.`,
+		facts: {
+			three_usd: round1(i.threeUsd),
+			three_hold_days: Math.round(i.threeHoldDays),
+			three_tokens: Math.round(i.threeTokens),
+		},
+	});
+
 	// ── Solvency (max 6) ───────────────────────────────────────────────────────
 	// Can it cover what it owes? Live reserves measured against outstanding
 	// obligations (active streams still committed + pending spends). Only computes
@@ -272,30 +309,30 @@ export function computeReputation(inputs = {}) {
 		facts: { fork_count: i.forkCount },
 	});
 
-	// ── On-chain identity & verification (max 14) ──────────────────────────────
+	// ── On-chain identity & verification (max 9) ───────────────────────────────
 	let identityPts = 0;
 	const idBits = [];
 	if (i.hasOnchainIdentity) {
-		identityPts += 6;
+		identityPts += 4;
 		idBits.push('verified ERC-8004 identity');
 	}
 	if (i.registryCount > 0) {
 		// Registry average may arrive on a 0–5 star scale or a 0–100 scale.
 		const norm = i.registryAverage > 5 ? i.registryAverage / 100 : i.registryAverage / 5;
-		const regPts = clamp(norm * 3 + clamp(log2(i.registryCount + 1), 0, 1.5), 0, 5);
+		const regPts = clamp(norm * 2 + clamp(log2(i.registryCount + 1), 0, 1.5), 0, 3.5);
 		identityPts += regPts;
 		idBits.push(`${i.registryCount} on-chain review${i.registryCount === 1 ? '' : 's'}`);
 	}
-	const attPts = clamp(i.validationCount * 1.5 + i.feedbackCount * 0.4, 0, 2.5);
+	const attPts = clamp(i.validationCount * 1 + i.feedbackCount * 0.3, 0, 1.5);
 	if (attPts > 0) {
 		identityPts += attPts;
 		idBits.push(`${i.validationCount + i.feedbackCount} signed attestation${i.validationCount + i.feedbackCount === 1 ? '' : 's'}`);
 	}
 	if (i.hasSkillCollection) {
-		identityPts += 1;
+		identityPts += 0.5;
 		idBits.push('on-chain skill licenses');
 	}
-	identityPts = clamp(identityPts, 0, 14);
+	identityPts = clamp(identityPts, 0, 9);
 	pushPillar(pillars, 'identity', identityPts, {
 		detail: idBits.length ? `Carries ${idBits.join(', ')}.` : 'No on-chain identity or attestations yet.',
 		facts: { verified: i.hasOnchainIdentity, registry_count: i.registryCount, attestations: i.validationCount + i.feedbackCount },
@@ -348,6 +385,7 @@ export function computeReputation(inputs = {}) {
 		i.feedbackCount +
 		i.registryCount +
 		(i.hasOnchainIdentity ? 1 : 0) +
+		(holdsThree ? 1 : 0) +
 		(rawVolume > 0 ? 1 : 0);
 	const isNew = realActivity === 0;
 
@@ -372,6 +410,11 @@ export function computeReputation(inputs = {}) {
 			reserve_usd: i.reservesKnown ? round1(i.reserveUsd) : null,
 			fork_count: i.forkCount,
 			verified: i.hasOnchainIdentity,
+			// $THREE conviction — surfaced in totals so the access layer (unlocks) and
+			// the client can read holdings/duration without re-deriving them.
+			three_usd: round1(i.threeUsd),
+			three_hold_days: Math.round(i.threeHoldDays),
+			holds_three: holdsThree,
 		},
 	};
 }
@@ -425,6 +468,9 @@ function normalizeInputs(raw) {
 		winningTrades: Math.max(0, num(raw.winningTrades)),
 		realizedPnlSol: num(raw.realizedPnlSol),
 		dumpEvents: Math.max(0, num(raw.dumpEvents)),
+		threeUsd: Math.max(0, num(raw.threeUsd)),
+		threeTokens: Math.max(0, num(raw.threeTokens)),
+		threeHoldDays: Math.max(0, num(raw.threeHoldDays)),
 		reserveUsd: Math.max(0, num(raw.reserveUsd)),
 		obligationsUsd: Math.max(0, num(raw.obligationsUsd)),
 		reservesKnown: Boolean(raw.reservesKnown),

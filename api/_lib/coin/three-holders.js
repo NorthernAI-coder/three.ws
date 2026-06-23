@@ -35,9 +35,18 @@ function ensureTables() {
 			create table if not exists three_holder_snapshot (
 				wallet      text primary key,
 				balance     bigint not null,
-				updated_at  timestamptz not null default now()
+				updated_at  timestamptz not null default now(),
+				-- When this wallet's CONTINUOUS hold of $THREE began. Set on first
+				-- insert and preserved across refreshes; a wallet that fully exits is
+				-- hard-deleted, so re-entry honestly restarts the clock. Powers the
+				-- holding-duration component of the agent reputation score.
+				held_since  timestamptz not null default now()
 			)
 		`;
+		// Existing deployments: add the column and backfill conservatively to "now"
+		// — we never fabricate a holding history we can't prove from real snapshots.
+		await sql`alter table three_holder_snapshot add column if not exists held_since timestamptz`;
+		await sql`update three_holder_snapshot set held_since = coalesce(held_since, updated_at, now()) where held_since is null`;
 		await sql`
 			create index if not exists three_holder_snapshot_balance_idx
 				on three_holder_snapshot (balance desc)
@@ -89,12 +98,16 @@ export async function persistThreeHolderSnapshot(balances) {
 		const chunk = wallets.slice(i, i + UPSERT_CHUNK);
 		const balanceStrs = chunk.map((w) => balances.get(w).toString());
 		await sql`
-			insert into three_holder_snapshot (wallet, balance, updated_at)
-			select u.wallet, u.balance, ${now}
+			insert into three_holder_snapshot (wallet, balance, updated_at, held_since)
+			select u.wallet, u.balance, ${now}, ${now}
 			from unnest(${chunk}::text[], ${balanceStrs}::bigint[]) as u(wallet, balance)
 			on conflict (wallet) do update set
 				balance = excluded.balance,
 				updated_at = excluded.updated_at
+				-- held_since is intentionally NOT touched on update: it marks the start
+				-- of the wallet's UNBROKEN hold, so a continuing holder keeps accruing
+				-- duration while a wallet that exited (deleted below) and returned starts
+				-- fresh on its re-insert above.
 		`;
 	}
 
@@ -202,6 +215,35 @@ export async function threeHolderBalances() {
 	if (_inflightColdScan) return _inflightColdScan;
 	_inflightColdScan = coldFallbackScan().finally(() => { _inflightColdScan = null; });
 	return _inflightColdScan;
+}
+
+/**
+ * $THREE holding for a SINGLE wallet, straight from the cached snapshot — one
+ * indexed primary-key lookup, no Helius walk. Used by the agent reputation engine
+ * to score the $THREE-conviction pillar (balance held + continuous duration)
+ * without adding an RPC read per agent. Returns zero/null for a wallet that holds
+ * no $THREE (absent from the snapshot) so callers degrade honestly.
+ *
+ * @param {string} wallet base58 Solana address
+ * @returns {Promise<{ balance: bigint, heldSince: Date|null }>}
+ */
+export async function threeHoldingFor(wallet) {
+	if (!wallet) return { balance: 0n, heldSince: null };
+	let row;
+	try {
+		[row] = await sql`
+			select balance, held_since from three_holder_snapshot where wallet = ${wallet} limit 1
+		`;
+	} catch {
+		// Snapshot table not migrated yet / DB blip — treat as "unknown, holds none"
+		// rather than erroring the score computation.
+		return { balance: 0n, heldSince: null };
+	}
+	if (!row) return { balance: 0n, heldSince: null };
+	return {
+		balance: BigInt(row.balance),
+		heldSince: row.held_since ? new Date(row.held_since) : null,
+	};
 }
 
 async function coldFallbackScan() {
