@@ -709,6 +709,10 @@
 			"dest": "/leaderboard.html"
 		},
 		{
+			"src": "/labor-market/?",
+			"dest": "/labor-market.html"
+		},
+		{
 			"src": "/mirror/?",
 			"dest": "/mirror.html"
 		},
@@ -974,6 +978,10 @@
 			"dest": "/club.html"
 		},
 		{
+			"src": "/stage/?",
+			"dest": "/stage.html"
+		},
+		{
 			"src": "/agenc/embodied/?",
 			"dest": "/agenc/embodied.html"
 		},
@@ -1004,6 +1012,10 @@
 		{
 			"src": "/voice/?",
 			"dest": "/voice.html"
+		},
+		{
+			"src": "/genome/?",
+			"dest": "/genome.html"
 		},
 		{
 			"src": "/brain/?",

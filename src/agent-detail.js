@@ -18,6 +18,7 @@ import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
+import { mountStagePanel } from './shared/stage-link.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -62,6 +63,12 @@ function mountAgentDetailAura(agent) {
 				mountPresence({ agentId: agent.id, container: main, aura: c, position: 'prepend' })
 					.then((panel) => { adNetWorthPanel = panel || null; })
 					.catch(() => { /* read failed — aura still shows the look */ });
+			}
+			// Living Stages cross-link: a "live now / next show" badge for visitors,
+			// and one-tap stage controls (create / go live / end show) for the owner.
+			if (main) {
+				mountStagePanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
+					.catch(() => { /* stage is an enhancement; never block the profile */ });
 			}
 		})
 		.catch(() => { /* dormant baseline already shown */ });

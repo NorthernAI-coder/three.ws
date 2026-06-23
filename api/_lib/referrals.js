@@ -468,6 +468,18 @@ export async function getMembershipCard(userId) {
   const earningsAtomics = Math.max(0, Math.round(Number(user.referral_earnings_total || 0)));
   const earningsUsd = earningsAtomics / 1_000_000;
   const referrals = Number(referralCount || 0);
+
+  // Activation-reward credits: the two-sided "first win" bonus, paid as platform
+  // credits (api/_lib/referral-rewards.js). Summed live from the credit ledger so
+  // the card reflects the full referral payoff — purchase commission AND the
+  // activation credits both sides earn.
+  const [rewardRow] = await sql`
+    SELECT COALESCE(SUM(amount_usd), 0)::float AS reward_usd, COUNT(*)::int AS reward_count
+    FROM credit_ledger
+    WHERE user_id = ${userId} AND ref_type = 'referral_activation' AND kind = 'grant'
+  `;
+  const rewardCreditsUsd = Math.max(0, Number(rewardRow?.reward_usd || 0));
+
   const score = referrals * POINTS_PER_REFERRAL + Math.floor(earningsUsd) * POINTS_PER_USD;
 
   return {
@@ -475,6 +487,8 @@ export async function getMembershipCard(userId) {
     referred_users_count: referrals,
     referral_earnings_total: earningsAtomics,
     referral_earnings_usd: earningsUsd,
+    reward_credits_usd: rewardCreditsUsd,
+    reward_credits_count: Number(rewardRow?.reward_count || 0),
     position,
     total_members: Number(total || 0),
     score,

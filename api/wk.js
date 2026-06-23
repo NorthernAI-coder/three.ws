@@ -818,6 +818,23 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		network: 'solana',
 		amountAtomics: '10000',
 	},
+	// Only advertised when CDP creds are present (its sole accept is a Permit2
+	// sibling), so it never appears in the public non-CDP catalog — but include
+	// its example so the catalog stays green in CDP-credentialed environments.
+	'/api/x402/permit2-paid-demo': {
+		ok: true,
+		demo: 'permit2-eip2612-gas-sponsoring',
+		method: 'permit2',
+		supportsEip2612: true,
+		payer: '0x1111111111111111111111111111111111111111',
+		network: 'eip155:8453',
+		asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+		amountAtomics: '1000',
+		transaction: '0x9c0a7e5ad5c9c0bb6f04f6ad9c52f4f44bb6c5d9c0a7e5ad5c9c0bb6f04f6ad9',
+		explorer:
+			'https://basescan.org/tx/0x9c0a7e5ad5c9c0bb6f04f6ad9c52f4f44bb6c5d9c0a7e5ad5c9c0bb6f04f6ad9',
+		settledAt: '2026-06-15T18:42:09.000Z',
+	},
 });
 
 // MCP tool result examples, keyed by toolName. Wrapped in the same JSON-RPC 2.0

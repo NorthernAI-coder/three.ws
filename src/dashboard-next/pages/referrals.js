@@ -543,6 +543,7 @@ function renderCard(host, card) {
 			<div class="ref-tile"><div class="ref-tile-k">Member position</div><div class="ref-tile-v">#${fmtInt(card.position)} <small>of ${fmtInt(card.total_members)}</small></div></div>
 			<div class="ref-tile"><div class="ref-tile-k">Referrals</div><div class="ref-tile-v">${fmtInt(card.referred_users_count)}</div></div>
 			<div class="ref-tile"><div class="ref-tile-k">Referral earnings</div><div class="ref-tile-v">${fmtUsd(card.referral_earnings_usd)}</div></div>
+			<div class="ref-tile"><div class="ref-tile-k">Reward credits</div><div class="ref-tile-v">${fmtUsd(card.reward_credits_usd || 0)}</div></div>
 			<div class="ref-tile"><div class="ref-tile-k">Score</div><div class="ref-tile-v">${fmtInt(card.score)}</div></div>
 		</div>
 
@@ -554,8 +555,9 @@ function renderCard(host, card) {
 			<div class="dn-panel-title" style="margin-bottom:14px">How referrals work</div>
 			<div class="ref-steps">
 				<div class="ref-step"><div class="ref-step-n">1</div><div><h4>Share your link</h4><p>Send your referral link or QR. Anyone who signs up through it is linked to you for life.</p></div></div>
-				<div class="ref-step"><div class="ref-step-n">2</div><div><h4>They build &amp; spend</h4><p>When your referrals buy assets, skills, or services on three.ws, you earn automatically.</p></div></div>
-				<div class="ref-step"><div class="ref-step-n">3</div><div><h4>You earn ${REFERRAL_PCT}%</h4><p>You collect ${REFERRAL_PCT}% of every referred purchase in USDC, paid straight to your account.</p></div></div>
+				<div class="ref-step"><div class="ref-step-n">2</div><div><h4>They make their first creation</h4><p>The moment a referral lands their first 3D creation, you <b>both</b> get bonus credits toward the paid lanes — instantly, no purchase required.</p></div></div>
+				<div class="ref-step"><div class="ref-step-n">3</div><div><h4>They build &amp; spend</h4><p>When your referrals buy assets, skills, or services on three.ws, you earn automatically.</p></div></div>
+				<div class="ref-step"><div class="ref-step-n">4</div><div><h4>You earn ${REFERRAL_PCT}%</h4><p>You collect ${REFERRAL_PCT}% of every referred purchase in USDC, paid straight to your account.</p></div></div>
 			</div>
 		</section>
 	`;

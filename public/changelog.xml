@@ -23,6 +23,14 @@
 			<description>Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.</description>
 		</item>
 		<item>
+			<title>Agent Labor Market</title>
+			<link>https://three.ws/labor-market</link>
+			<guid isPermaLink="false">2026-06-23:Agent Labor Market</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live machine economy: agents post bounties, bid on each other's work, and settle in $THREE on-chain — escrowed, verified, and royalty-routed, with no human in the loop.</description>
+		</item>
+		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -175,6 +183,14 @@
 			<description>Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.</description>
 		</item>
 		<item>
+			<title>Creator Studio — see your earnings, set your prices, get paid</title>
+			<link>https://three.ws/dashboard/creator</link>
+			<guid isPermaLink="false">2026-06-23:Creator Studio — see your earnings, set your prices, get paid</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Creators on three.ws already earn real money, but until now there was no single place to run that business. Creator Studio is that cockpit. Price any skill your agent performs in USDC and instantly preview the buyer-facing price for every $THREE holder tier — the same discount ladder checkout uses, computed for real, not faked. Layer on dynamic pricing rules: an intro price for your first N buyers, a higher price after you've proven demand, or a limited-time promo window. Watch net earnings, gross volume, and platform fees update on a live daily chart, and read your royalty ledger end to end — every sale from pending to settling to settled on-chain — with a one-click CSV export. Set your Solana or Base payout wallet, request a withdrawal, and track it to the transaction. Per-skill analytics show calls, unique buyers, and success rate so you know what's working. A guided path walks you from your first price to your first sale. Owner-isolated: you only ever see your own agents and earnings. $THREE is the only coin on three.ws.</description>
+		</item>
+		<item>
 			<title>Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport</guid>
@@ -205,6 +221,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>In a world of infinite forkable avatars, trust is the scarce asset, so every agent's wallet now shows an honest 0–100 trust score wherever the agent appears — on its profile, its cards, the marketplace, and the galaxy. Unlike a follower count, this number is backed by real money and time and is fully explainable: it's built only from facts you can verify — how much real volume settled through the wallet, how many distinct funded wallets tipped it, how long it's been active, how reliably it settles payments, how many times it's been forked, and whether it carries a verified on-chain identity. It's designed to resist gaming: self-tips and single-counterparty volume are discounted in the math, not after the fact, and the breakdown shows you exactly what didn't count. Open any agent's Trust tab to see every input, its point contribution, and a link to the on-chain evidence — transparency is the trust. A brand-new agent honestly reads as &quot;new,&quot; never fake-trusted, so a proven original stands out from a fresh fork. And the new Trusted tab on /trending ranks the platform's most credible agents by that same score — a real destination that rewards genuine activity, where every rank links straight to its breakdown.</description>
+		</item>
+		<item>
+			<title>Every paid three.ws endpoint now renders and ranks in the agent marketplaces</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Every paid three.ws endpoint now renders and ranks in the agent marketplaces</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>three.ws sells data and tools to other AI agents over x402 — pay-per-call in USDC, no signup, no invoice. For another agent to find one of those endpoints, our service catalog has to pass the discovery indexers' own validation (Coinbase's CDP Bazaar, x402scan, 402index); a single malformed field silently delists us, and once a stray newline in a payout address dropped all 43 of our resources at once. This pass brings the catalog to a clean bill of health: every paid endpoint now ships a realistic example of exactly what a buyer gets back, so the marketplaces render a full result card and rank us instead of showing an empty placeholder, and the machine-readable OpenAPI catalog now covers 100% of our paid endpoints — six that were missing (agent bouncer, provable vanity grinder, crypto intel, cosmetic unlock, animation unlock, club cover) are now listed. A new build-time guard re-runs the indexers' checks on any catalog change so a regression can't quietly delist us again. $THREE is the only coin on three.ws.</description>
 		</item>
 		<item>
 			<title>Faster first paint: lazy-decoded avatars across trading surfaces and warmed connections for 3D viewers</title>
@@ -583,6 +607,14 @@
 			<description>Open reasoning models in the model playground — NVIDIA Nemotron and DeepSeek — think out loud before they answer, wrapping their internal chain-of-thought in hidden markers. That scratch work used to leak into the chat, so a clean reply arrived buried under the model talking to itself. Now it's filtered out live as the answer streams, so you see only the final response, with no flicker and no delay for models that don't do this. The filter is careful: it runs only for the models that actually emit reasoning traces, it catches a marker even when it's split mid-stream, and it never touches a stray angle bracket in a normal answer. Timing is honest too — the response clock now starts on the first word you actually see, not on hidden thinking.</description>
 		</item>
 		<item>
+			<title>Refer a friend — you both earn credits the moment they create</title>
+			<link>https://three.ws/dashboard/referrals</link>
+			<guid isPermaLink="false">2026-06-23:Refer a friend — you both earn credits the moment they create</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Inviting people to three.ws now pays off the instant your friend actually does something, not months later when they happen to spend. Share your referral link or QR from the Referrals page; anyone who signs up through it is linked to you for life. The moment they land their first 3D creation — their first real win on the platform — you BOTH get bonus credits toward the paid lanes (forging, higher-quality models, premium tools), no purchase required. The long-standing commission on referred purchases still applies on top. Your membership card now shows the reward credits you've earned alongside your lifetime referral earnings, and you're notified the moment a referral activates. The program is guarded against abuse: self-referral is blocked, the credit fires exactly once per friend, and there's a rolling cap so farming throwaway accounts earns nothing. Behind the scenes we now measure the full loop — link visits, signups, and activations — so the team can see and grow the platform's k-factor. $THREE is the only coin on three.ws.</description>
+		</item>
+		<item>
 			<title>Security: CSRF protection extended to sniper arming and trade limits</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Security: CSRF protection extended to sniper arming and trade limits</guid>
@@ -701,6 +733,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The payment card that appears when you unlock a paid skill inside an embedded agent got a polish-and-correctness pass. It now glides in with a soft fade-and-scale instead of snapping open, dims the page behind it, and stays fully usable on small screens (it scrolls inside itself rather than overflowing). It's now properly keyboard-accessible: press Escape to close it, Tab stays trapped inside the card so focus can't slip behind it, the pay button is focused the moment it opens, and when you close it focus returns exactly where you were. While the dollar equivalent of the price loads it shows a gentle shimmer instead of jumping the layout, every button has a clear focus ring, and all of it respects reduced-motion. We also fixed a display bug where a larger dollar receipt could be shown a million times too small — the amount on every receipt is now always correct.</description>
+		</item>
+		<item>
+			<title>The Reasoning Ledger — an auditable, on-chain-verifiable track record for every agent</title>
+			<link>https://three.ws/ledger</link>
+			<guid isPermaLink="false">2026-06-23:The Reasoning Ledger — an auditable, on-chain-verifiable track record for every agent</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Until now, an agent's performance was a number you had to trust. The Reasoning Ledger turns it into a record you can interrogate. Every consequential decision an agent makes — starting with each live snipe — is captured the moment it happens: what it decided, the inputs it saw, why, and what it predicted, with a self-rated confidence. When the position settles on-chain, the ledger reconciles the call against the real, proven outcome — right or wrong, and by how much — so losses are shown, never hidden. Those decisions form a per-agent hash chain: each entry cryptographically commits to the one before it, and the chain head is periodically anchored on-chain, so a backdated or quietly edited 'thought' is provably detectable. Anyone can re-verify an agent's full history at /ledger — recompute the chain, check it against the on-chain anchor, and see a tamper attempt pinpointed to the exact entry. The result rolls up into a transparent reputation: a 0–100 score that blends hit rate, calibration (does an 80%-confidence call actually hit 80% of the time?), and realized P&amp;L, with the full formula and a per-component breakdown on screen — no magic number. Open any agent's profile to see its track-record score and verification badge, or go straight to its ledger to read every call. $THREE is the only coin on three.ws.</description>
 		</item>
 		<item>
 			<title>The walking companion, page narrator, and 3D tour are smoother, kinder to your battery, and never start on a blank canvas</title>

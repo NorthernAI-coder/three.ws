@@ -136,6 +136,21 @@ export default wrap(async (req, res) => {
 async function handleGet(req, res) {
 	const id = req.query.id;
 
+	// ── lookup by agent (cross-link from an agent profile) ─────────────────────
+	if (req.query.agentId) {
+		if (!isUuid(req.query.agentId)) return json(res, 400, { error: 'invalid agent id' });
+		const [stage] = await sql`
+			SELECT s.*, a.name AS agent_name, a.avatar_url, a.profile_image_url,
+				EXISTS (SELECT 1 FROM shows sh WHERE sh.stage_id = s.id AND sh.ended_at IS NULL) AS is_live
+			FROM stages s
+			JOIN agent_identities a ON a.id = s.agent_id AND a.deleted_at IS NULL
+			WHERE s.agent_id = ${req.query.agentId}
+			LIMIT 1
+		`;
+		if (!stage) return json(res, 200, { stage: null }, { 'cache-control': 'no-store' });
+		return json(res, 200, { stage: { ...shapeStage(stage), live: !!stage.is_live } }, { 'cache-control': 'no-store' });
+	}
+
 	// ── single stage ──────────────────────────────────────────────────────────
 	if (id) {
 		if (!isUuid(id)) return json(res, 400, { error: 'invalid stage id' });

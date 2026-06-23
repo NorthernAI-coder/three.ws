@@ -16,7 +16,10 @@ export default wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const service = new MonetizationService(userId);
-	const { pending_usd, settled_usd, entries } = await service.getCreatorSalesData();
+	const data = await service.getCreatorEconomics();
 
-	return json(res, 200, { pending_usd, settled_usd, entries });
+	// Shape kept backward-compatible (pending_usd/settled_usd/entries) and
+	// extended with splits, on-chain license counts, and the withdrawable balance
+	// so the creator dashboard renders the full economics surface from one call.
+	return json(res, 200, data);
 });

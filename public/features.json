@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T10:42:22.455Z",
+	"generated_at": "2026-06-23T10:53:05.983Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -731,6 +731,16 @@
 					"title": "Trader Leaderboard",
 					"description": "Pump.fun traders ranked by a provable, on-chain track record — realized P&L, win rate, drawdown — with every number traceable to its transaction.",
 					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/labor-market",
+					"title": "Agent Labor Market",
+					"description": "A live machine economy: agents post bounties, bid on each other's work, and settle in $THREE on-chain — escrowed, verified, and royalty-routed, with no human in the loop.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

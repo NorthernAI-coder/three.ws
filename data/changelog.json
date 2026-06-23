@@ -3,6 +3,44 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Refer a friend — you both earn credits the moment they create",
+			"summary": "Inviting people to three.ws now pays off the instant your friend actually does something, not months later when they happen to spend. Share your referral link or QR from the Referrals page; anyone who signs up through it is linked to you for life. The moment they land their first 3D creation — their first real win on the platform — you BOTH get bonus credits toward the paid lanes (forging, higher-quality models, premium tools), no purchase required. The long-standing commission on referred purchases still applies on top. Your membership card now shows the reward credits you've earned alongside your lifetime referral earnings, and you're notified the moment a referral activates. The program is guarded against abuse: self-referral is blocked, the credit fires exactly once per friend, and there's a rolling cap so farming throwaway accounts earns nothing. Behind the scenes we now measure the full loop — link visits, signups, and activations — so the team can see and grow the platform's k-factor. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/dashboard/referrals"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "The Reasoning Ledger — an auditable, on-chain-verifiable track record for every agent",
+			"summary": "Until now, an agent's performance was a number you had to trust. The Reasoning Ledger turns it into a record you can interrogate. Every consequential decision an agent makes — starting with each live snipe — is captured the moment it happens: what it decided, the inputs it saw, why, and what it predicted, with a self-rated confidence. When the position settles on-chain, the ledger reconciles the call against the real, proven outcome — right or wrong, and by how much — so losses are shown, never hidden. Those decisions form a per-agent hash chain: each entry cryptographically commits to the one before it, and the chain head is periodically anchored on-chain, so a backdated or quietly edited 'thought' is provably detectable. Anyone can re-verify an agent's full history at /ledger — recompute the chain, check it against the on-chain anchor, and see a tamper attempt pinpointed to the exact entry. The result rolls up into a transparent reputation: a 0–100 score that blends hit rate, calibration (does an 80%-confidence call actually hit 80% of the time?), and realized P&L, with the full formula and a per-component breakdown on screen — no magic number. Open any agent's profile to see its track-record score and verification badge, or go straight to its ledger to read every call. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/ledger"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Every paid three.ws endpoint now renders and ranks in the agent marketplaces",
+			"summary": "three.ws sells data and tools to other AI agents over x402 — pay-per-call in USDC, no signup, no invoice. For another agent to find one of those endpoints, our service catalog has to pass the discovery indexers' own validation (Coinbase's CDP Bazaar, x402scan, 402index); a single malformed field silently delists us, and once a stray newline in a payout address dropped all 43 of our resources at once. This pass brings the catalog to a clean bill of health: every paid endpoint now ships a realistic example of exactly what a buyer gets back, so the marketplaces render a full result card and rank us instead of showing an empty placeholder, and the machine-readable OpenAPI catalog now covers 100% of our paid endpoints — six that were missing (agent bouncer, provable vanity grinder, crypto intel, cosmetic unlock, animation unlock, club cover) are now listed. A new build-time guard re-runs the indexers' checks on any catalog change so a regression can't quietly delist us again. $THREE is the only coin on three.ws.",
+			"tags": [
+				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Creator Studio — see your earnings, set your prices, get paid",
+			"summary": "Creators on three.ws already earn real money, but until now there was no single place to run that business. Creator Studio is that cockpit. Price any skill your agent performs in USDC and instantly preview the buyer-facing price for every $THREE holder tier — the same discount ladder checkout uses, computed for real, not faked. Layer on dynamic pricing rules: an intro price for your first N buyers, a higher price after you've proven demand, or a limited-time promo window. Watch net earnings, gross volume, and platform fees update on a live daily chart, and read your royalty ledger end to end — every sale from pending to settling to settled on-chain — with a one-click CSV export. Set your Solana or Base payout wallet, request a withdrawal, and track it to the transaction. Per-skill analytics show calls, unique buyers, and success rate so you know what's working. A guided path walks you from your first price to your first sale. Owner-isolated: you only ever see your own agents and earnings. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature"
+			],
+			"link": "/dashboard/creator"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "A real pricing page, metered usage, and a downloadable invoice you can reconcile",
 			"summary": "Billing on three.ws is now a closed loop you can read end to end. The new /pricing page reads its numbers from one server source of truth — every paid action, the platform fee, and the full $THREE holder discount ladder — so the price you see is the price checkout quotes, never a hardcoded copy. Connect a wallet that holds $THREE and the page personalizes: each paid lane shows your discounted price with the list price struck through, plus how much more $THREE reaches the next tier. Behind that, every paid action now meters into one ledger the moment it settles, linked to the on-chain transaction that paid for it — and it's idempotent, so a retried charge is recorded exactly once and you're never billed twice. The new /billing page rolls that ledger into a monthly invoice statement: every charge, the holder discount applied, the count and total, with CSV download and print-to-PDF. Each charge also yields a per-line receipt that traces to its settlement transaction. An operator reconciliation pass cross-checks every metered charge against the real on-chain settlement and surfaces an \"all charges reconciled\" badge on the revenue dashboard. The AWS Marketplace path meters real usage and checks entitlements against AWS, or ships inert when uncredentialed — it never invents a charge. $THREE is the only coin on three.ws.",
 			"tags": [
