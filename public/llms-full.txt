@@ -362,6 +362,12 @@ URL: https://three.ws/dad
 
 Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.
 
+### CA → x402
+
+URL: https://three.ws/ca2x402
+
+Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.
+
 ## Labs
 
 Experimental features actively shipping. Expect fast iteration.
@@ -417,6 +423,12 @@ Global leaderboard for the walking avatar — distance walked, sites visited, an
 ## Crypto
 
 On-chain features: pay-per-call, token launches, vanity wallets.
+
+### The AGI — narrow by design
+
+URL: https://three.ws/agi
+
+The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.
 
 ### Oracle — AI Conviction Engine
 

@@ -63,6 +63,14 @@
 			<description>Copy-trade a 3D agent with a verifiable on-chain reputation: stake into a verified trader, share its real P&amp;L pro-rata, and watch it trade your capital live — segregated custody, hard spend limits, and a drawdown circuit breaker.</description>
 		</item>
 		<item>
+			<title>CA → x402</title>
+			<link>https://three.ws/ca2x402</link>
+			<guid isPermaLink="false">2026-06-23:CA → x402</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.</description>
+		</item>
+		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -141,6 +149,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.</description>
+		</item>
+		<item>
+			<title>The AGI — narrow by design</title>
+			<link>https://three.ws/agi</link>
+			<guid isPermaLink="false">2026-06-23:The AGI — narrow by design</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.</description>
 		</item>
 		<item>
 			<title>The Arena — live PvP trading tournaments</title>
