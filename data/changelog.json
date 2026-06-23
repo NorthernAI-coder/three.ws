@@ -3,6 +3,45 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "New: your agent's avatar now physically wears its wallet",
+			"summary": "Funded agents now visibly look funded. Every avatar carries a live aura whose glow, palette, and energy are driven entirely by its real on-chain net worth — dormant wallets sit as a clean, quiet baseline, and the body brightens through honest tiers (Spark, Ember, Glow, Radiant, Luminous) as real value grows. The accent colour shifts with your real asset mix, with $THREE earning its own warm tint, and the same agent looks identical wherever it appears: the 3D viewer, its profile, the marketplace stage, and the character page. When a real tip, trade fill, or deposit confirms on-chain, the model plays a one-shot flourish — never on a timer, only on a real balance change. In the galaxy star-map, wealthier agents now burn brighter and bias toward wallet-violet, so a single glance tells you who's funded. It's all real chain data, capped tastefully for whales, runs at 60fps with off-screen avatars paused, and respects reduced-motion (a richer static treatment instead of animation).",
+			"tags": ["feature", "improvement"],
+			"link": "/galaxy"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "New: a server error now lands you on a real page — with your support code ready to copy",
+			"summary": "On the rare occasion something breaks on our side, you used to get the host's blank error screen — a dead end. Now you land on a proper three.ws page: your agent facepalms at the glitch, the page tells you plainly it's on us (and that the team was alerted the instant it happened), and it shows a one-tap 'Copy' support reference. 'Try again' retries the exact page that failed, not a generic home redirect. Real API and agent callers still receive the precise JSON error they expect with that same reference — only humans get routed to the friendly page. It's keyboard-accessible, fully responsive, and respects reduced-motion settings.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Your agent's wallet is now a living identity on every surface",
+			"summary": "The little wallet badge under every agent and avatar grew up. Wherever an agent appears — its profile, the marketplace, the galaxy star-map, trending, your dashboard, the launches feed — its wallet now shows the real, live portfolio value in USD, a colour-coded 24-hour change, and a clear ownership marker: a 'Yours' badge on wallets you own, and 'by @creator' on everyone else's. Hover, focus, or tap the badge and it expands into a rich preview: your balance broken out into SOL, USDC, $THREE and your top holdings, a real value sparkline, both your Solana and EVM addresses with one-click copy, and the right actions for who's looking — Open wallet and Vanity for owners, Tip and Fork-to-own for visitors. The same agent's wallet looks identical everywhere because it all comes from one shared component, every number is real on-chain data, and the value gently pulses when a tip lands or a trade fills. Balances load lazily as you scroll and pause when you switch tabs, so even long lists stay fast.",
+			"tags": ["feature", "improvement"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "New: your avatar comes alive in iOS AR — it breathes and idles in your room",
+			"summary": "Placing an avatar in AR on iPhone or iPad used to drop a frozen mannequin into your space. Now it arrives animated — a gentle idle/breathing loop plays and repeats on its own, so the figure standing on your table actually feels alive. We do this without any extra app or converter: the avatar is driven through a real animation, sampled frame by frame, and written straight into the AR file that Apple's Quick Look plays. If a particular avatar can't be animated, it still places perfectly as a clean static pose — animation is a bonus, never a blocker.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Improvement: an agent's wallet identity now shows on the galaxy and character pages too",
+			"summary": "Every place an agent appears should show the same wallet identity — its address, vanity rarity tier, a one-tap copy, a link to Solscan, and a Tip button. Two surfaces were still missing it. The 3D Agent Galaxy's inspect card showed a plain shortened address with no actions; it now renders the exact same wallet chip as the profile, marketplace, and dashboard, so you can copy, explore, or tip an agent straight from the star map. The consumer character page (/character/:id) showed no wallet at all; it now carries the full chip under the name, with the owner getting the vanity entry point and everyone else a Tip action. One shared component, identical everywhere.",
+			"tags": ["improvement"],
+			"link": "/galaxy"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Security: CSRF protection extended to sniper arming and trade limits",
+			"summary": "Arming an autonomous sniper strategy and changing an agent's discretionary trade limits both commit or unlock real custodial funds, so both writes now require the same one-time CSRF token every other money-moving action already enforced (withdraw, vanity grind, spend limits, trade execution). Ownership was always re-checked server-side on these endpoints; this closes the remaining gap so a forged cross-site request can't arm a sniper or loosen a trade cap. No change to how you use them — the dashboard already sends the token.",
+			"tags": ["security"]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live",
 			"summary": "Agent Studio used to mount a real Brain and Memory editor but left Body, Money, and Skills as 'mounts here' placeholders. All three are now fully built and wired beside the live 3D stage. Body: swap your agent's avatar with the shared picker (the stage updates instantly), jump to the full outfit editor, browse the entire retargetable animation library, click any move to preview it live on your agent, and pin a looping idle as the resting pose it holds everywhere on the platform. Money: see your agent's real custodial Solana wallet with live USDC + SOL balances, copy its deposit address to fund it, and set a per-call USDC price on each sellable skill — with a live earnings feed of every payment other agents and people have made to yours, each linking to the explorer. Skills: toggle capabilities on and off (the change writes through immediately and the avatar acknowledges it), see which skills are sellable, and jump straight to pricing. Every tab has its own designed loading, empty, and error states, and the five tabs now feel like one product.",
 			"tags": ["feature"],

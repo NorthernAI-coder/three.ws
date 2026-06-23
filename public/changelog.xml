@@ -55,6 +55,14 @@
 			<description>Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed.</description>
 		</item>
 		<item>
+			<title>Improvement: an agent's wallet identity now shows on the galaxy and character pages too</title>
+			<link>https://three.ws/galaxy</link>
+			<guid isPermaLink="false">2026-06-23:Improvement: an agent's wallet identity now shows on the galaxy and character pages too</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every place an agent appears should show the same wallet identity — its address, vanity rarity tier, a one-tap copy, a link to Solscan, and a Tip button. Two surfaces were still missing it. The 3D Agent Galaxy's inspect card showed a plain shortened address with no actions; it now renders the exact same wallet chip as the profile, marketplace, and dashboard, so you can copy, explore, or tip an agent straight from the star map. The consumer character page (/character/:id) showed no wallet at all; it now carries the full chip under the name, with the owner getting the vanity entry point and everyone else a Tip action. One shared component, identical everywhere.</description>
+		</item>
+		<item>
 			<title>Improvement: Animation Studio recovers your unsaved animation after a refresh or closed tab</title>
 			<link>https://three.ws/pose</link>
 			<guid isPermaLink="false">2026-06-23:Improvement: Animation Studio recovers your unsaved animation after a refresh or closed tab</guid>
@@ -77,6 +85,46 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>When something fails on our side, the response no longer just says 'something went wrong' — it now carries a short reference code (e.g. 'quote ref a1b2c3d4 to support'). That same code is attached to the exact server log line, our error tracker, and the ops alert that pages the team, so one code maps to one incident. This was already true for most API responses; we extended it to the remaining surfaces that previously failed silently — the RSS announcements feed, sitemaps, the MCP payment flow, on-chain permission checks, and the Solana RPC proxy — so any failure you hit is traceable. Nothing changes when things work; this only makes the rare error far faster to diagnose.</description>
+		</item>
+		<item>
+			<title>New: a server error now lands you on a real page — with your support code ready to copy</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:New: a server error now lands you on a real page — with your support code ready to copy</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>On the rare occasion something breaks on our side, you used to get the host's blank error screen — a dead end. Now you land on a proper three.ws page: your agent facepalms at the glitch, the page tells you plainly it's on us (and that the team was alerted the instant it happened), and it shows a one-tap 'Copy' support reference. 'Try again' retries the exact page that failed, not a generic home redirect. Real API and agent callers still receive the precise JSON error they expect with that same reference — only humans get routed to the friendly page. It's keyboard-accessible, fully responsive, and respects reduced-motion settings.</description>
+		</item>
+		<item>
+			<title>New: your agent's avatar now physically wears its wallet</title>
+			<link>https://three.ws/galaxy</link>
+			<guid isPermaLink="false">2026-06-23:New: your agent's avatar now physically wears its wallet</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Funded agents now visibly look funded. Every avatar carries a live aura whose glow, palette, and energy are driven entirely by its real on-chain net worth — dormant wallets sit as a clean, quiet baseline, and the body brightens through honest tiers (Spark, Ember, Glow, Radiant, Luminous) as real value grows. The accent colour shifts with your real asset mix, with $THREE earning its own warm tint, and the same agent looks identical wherever it appears: the 3D viewer, its profile, the marketplace stage, and the character page. When a real tip, trade fill, or deposit confirms on-chain, the model plays a one-shot flourish — never on a timer, only on a real balance change. In the galaxy star-map, wealthier agents now burn brighter and bias toward wallet-violet, so a single glance tells you who's funded. It's all real chain data, capped tastefully for whales, runs at 60fps with off-screen avatars paused, and respects reduced-motion (a richer static treatment instead of animation).</description>
+		</item>
+		<item>
+			<title>New: your avatar comes alive in iOS AR — it breathes and idles in your room</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:New: your avatar comes alive in iOS AR — it breathes and idles in your room</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Placing an avatar in AR on iPhone or iPad used to drop a frozen mannequin into your space. Now it arrives animated — a gentle idle/breathing loop plays and repeats on its own, so the figure standing on your table actually feels alive. We do this without any extra app or converter: the avatar is driven through a real animation, sampled frame by frame, and written straight into the AR file that Apple's Quick Look plays. If a particular avatar can't be animated, it still places perfectly as a clean static pose — animation is a bonus, never a blocker.</description>
+		</item>
+		<item>
+			<title>Security: CSRF protection extended to sniper arming and trade limits</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Security: CSRF protection extended to sniper arming and trade limits</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Arming an autonomous sniper strategy and changing an agent's discretionary trade limits both commit or unlock real custodial funds, so both writes now require the same one-time CSRF token every other money-moving action already enforced (withdraw, vanity grind, spend limits, trade execution). Ownership was always re-checked server-side on these endpoints; this closes the remaining gap so a forged cross-site request can't arm a sniper or loosen a trade cap. No change to how you use them — the dashboard already sends the token.</description>
+		</item>
+		<item>
+			<title>Your agent's wallet is now a living identity on every surface</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-23:Your agent's wallet is now a living identity on every surface</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The little wallet badge under every agent and avatar grew up. Wherever an agent appears — its profile, the marketplace, the galaxy star-map, trending, your dashboard, the launches feed — its wallet now shows the real, live portfolio value in USD, a colour-coded 24-hour change, and a clear ownership marker: a 'Yours' badge on wallets you own, and 'by @creator' on everyone else's. Hover, focus, or tap the badge and it expands into a rich preview: your balance broken out into SOL, USDC, $THREE and your top holdings, a real value sparkline, both your Solana and EVM addresses with one-click copy, and the right actions for who's looking — Open wallet and Vanity for owners, Tip and Fork-to-own for visitors. The same agent's wallet looks identical everywhere because it all comes from one shared component, every number is real on-chain data, and the value gently pulses when a tip lands or a trade fills. Balances load lazily as you scroll and pause when you switch tabs, so even long lists stay fast.</description>
 		</item>
 		<item>
 			<title>Docs · Agent Reputation</title>
