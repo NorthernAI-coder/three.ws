@@ -1207,6 +1207,74 @@
 		#irl-caption-cancel { width: 44px; height: 44px; padding: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: #9ca3af; font: 600 18px inherit; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
 		#irl-caption-cancel:hover { background: rgba(255,255,255,0.12); color: #e5e7eb; }
 
+		/* Placement chip (H4) — how this pin will be stored; taps re-open the consent sheet */
+		.irl-caption-placement {
+			display: flex; align-items: center; justify-content: space-between; gap: 10px;
+			width: 100%; margin: 0 0 12px; padding: 9px 12px;
+			background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+			border-radius: 11px; color: #cbd5e1; font: 600 13px inherit; cursor: pointer;
+			transition: border-color 0.15s, background 0.15s;
+		}
+		.irl-caption-placement:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.2); }
+		.irl-caption-placement:focus-visible { outline: 2px solid rgba(96,165,250,0.6); outline-offset: 2px; }
+		.irl-caption-placement.is-approx { border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.1); color: #93c5fd; }
+		.irl-caption-place-badge { font-variant-numeric: tabular-nums; }
+		.irl-caption-place-i { font-size: 12px; color: #8a94a6; white-space: nowrap; }
+		.irl-caption-placement.is-approx .irl-caption-place-i { color: #93c5fd; }
+
+		/* Placement consent sheet (H4) — equal-weight choice + safer "approximate" default */
+		#irl-consent-sheet {
+			position: fixed; bottom: 0; left: 0; right: 0; z-index: 23;
+			background: rgba(12,14,20,0.97);
+			border-top: 1px solid rgba(255,255,255,0.12);
+			border-radius: 18px 18px 0 0;
+			padding: 20px 22px 32px;
+			backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+			transform: translateY(100%);
+			transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+			pointer-events: none;
+			max-height: 90vh; overflow-y: auto;
+		}
+		#irl-consent-sheet.is-open { transform: translateY(0); pointer-events: all; }
+		#irl-consent-sheet .irl-sheet-handle { margin-bottom: 14px; }
+		#irl-consent-sheet h3 { font-size: 16px; font-weight: 700; color: #e5e7eb; margin: 0 0 8px; }
+		#irl-consent-body { font-size: 13.5px; line-height: 1.55; color: var(--text-2, #9ca3af); margin: 0 0 16px; }
+		.irl-consent-radius { border: 0; padding: 0; margin: 0 0 14px; }
+		.irl-consent-radius legend { font-size: 12px; color: #8a94a6; padding: 0; margin: 0 0 8px; }
+		.irl-consent-seg { display: flex; gap: 8px; }
+		.irl-consent-seg button {
+			flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+			padding: 9px 6px; border-radius: 11px;
+			border: 1px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.04);
+			color: #cbd5e1; font: 600 13px inherit; cursor: pointer;
+			transition: border-color 0.15s, background 0.15s, color 0.15s;
+		}
+		.irl-consent-seg button small { font-size: 10.5px; font-weight: 500; color: #8a94a6; }
+		.irl-consent-seg button:hover { background: rgba(255,255,255,0.07); }
+		.irl-consent-seg button.on { border-color: rgba(96,165,250,0.5); background: rgba(96,165,250,0.16); color: #93c5fd; }
+		.irl-consent-seg button.on small { color: #93c5fd; }
+		.irl-consent-seg button:focus-visible { outline: 2px solid rgba(96,165,250,0.6); outline-offset: 2px; }
+		.irl-consent-actions { display: flex; gap: 10px; margin-bottom: 14px; }
+		.irl-consent-btn {
+			flex: 1; padding: 13px 14px; border-radius: 12px; cursor: pointer;
+			font: 600 14px inherit; transition: background 0.15s, border-color 0.15s;
+			border: 1px solid rgba(52,211,153,0.4); background: rgba(52,211,153,0.16); color: #34d399;
+		}
+		.irl-consent-btn:hover { background: rgba(52,211,153,0.26); }
+		.irl-consent-btn:active { transform: scale(0.98); }
+		.irl-consent-btn:focus-visible { outline: 2px solid rgba(52,211,153,0.6); outline-offset: 2px; }
+		/* "Approximately" is styled identically to "exactly" — equal weight, no dark pattern */
+		#irl-consent-approx { border-color: rgba(96,165,250,0.4); background: rgba(96,165,250,0.16); color: #93c5fd; }
+		#irl-consent-approx:hover { background: rgba(96,165,250,0.26); }
+		.irl-consent-dontshow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #9ca3af; cursor: pointer; margin-bottom: 14px; }
+		.irl-consent-dontshow input { width: 16px; height: 16px; accent-color: #60a5fa; cursor: pointer; }
+		.irl-consent-cancel {
+			display: block; width: 100%; padding: 11px; border-radius: 12px;
+			border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05);
+			color: #9ca3af; font: 600 13.5px inherit; cursor: pointer; transition: background 0.15s;
+		}
+		.irl-consent-cancel:hover { background: rgba(255,255,255,0.1); color: #e5e7eb; }
+
 		/* Designed guidance sheet — motion permission, GPS-not-ready, etc. (A4) */
 		#irl-error-sheet {
 			position: fixed;
@@ -2172,11 +2240,40 @@
 <div id="irl-caption-panel" role="dialog" aria-modal="true" aria-labelledby="irl-caption-title">
 	<div class="irl-sheet-handle" aria-hidden="true"></div>
 	<h3 id="irl-caption-title">Pin your agent here</h3>
+	<!-- Placement chip (H4) — shows how this pin will be stored (exact vs approximate)
+	     and re-opens the consent sheet to change it. -->
+	<button id="irl-caption-placement" class="irl-caption-placement" type="button">
+		<span class="irl-caption-place-badge">📍 Exact</span>
+		<span class="irl-caption-place-i" aria-hidden="true">Change ⓘ</span>
+	</button>
 	<textarea id="irl-caption-input" rows="3" placeholder="Add a caption… e.g. 'P2P trades here — DM me on Telegram' (optional)"></textarea>
 	<div class="irl-caption-row">
 		<button id="irl-caption-confirm" type="button">Pin it</button>
 		<button id="irl-caption-cancel" type="button" aria-label="Cancel">×</button>
 	</div>
+</div>
+
+<!-- Placement consent sheet (H4) — disclose what placing means + offer approximate.
+     Both choices are equally weighted; "don't show every time" suppresses the sheet
+     on later placements while keeping the remembered choice. -->
+<div id="irl-consent-sheet" role="dialog" aria-modal="true" aria-labelledby="irl-consent-title" aria-describedby="irl-consent-body">
+	<div class="irl-sheet-handle" aria-hidden="true"></div>
+	<h3 id="irl-consent-title">Heads up — this is a real-world spot</h3>
+	<p id="irl-consent-body">Your agent will be visible to anyone who physically walks within ~40&nbsp;m of here. We never show a list or map of locations, and we never reveal who placed it — but the spot itself is public. Want to place it exactly here, or approximately?</p>
+	<fieldset class="irl-consent-radius">
+		<legend>If approximate, blur within</legend>
+		<div class="irl-consent-seg" role="group" aria-label="Approximate blur radius">
+			<button type="button" data-fuzz="30" aria-pressed="false">~30 m<small>same block</small></button>
+			<button type="button" data-fuzz="100" class="on" aria-pressed="true">~100 m<small>this street</small></button>
+			<button type="button" data-fuzz="250" aria-pressed="false">~250 m<small>nearby</small></button>
+		</div>
+	</fieldset>
+	<div class="irl-consent-actions">
+		<button id="irl-consent-exact" type="button" class="irl-consent-btn">Place exactly here</button>
+		<button id="irl-consent-approx" type="button" class="irl-consent-btn">Place approximately</button>
+	</div>
+	<label class="irl-consent-dontshow"><input type="checkbox" id="irl-consent-dontshow" /> Don’t show this every time</label>
+	<button id="irl-consent-cancel" type="button" class="irl-consent-cancel">Cancel</button>
 </div>
 
 <!-- Designed guidance sheet — recoverable motion/GPS permission states (A4) -->
@@ -2241,6 +2338,8 @@
 	</div>
 	<!-- Honest GPS-accuracy line (A3) — never imply a centimetre-perfect pinpoint -->
 	<p id="irl-sheet-accuracy" class="irl-sheet-accuracy" hidden></p>
+	<!-- Placement exposure badge (H4) — owner-only: exact spot vs deliberately blurred -->
+	<p id="irl-sheet-placement" class="irl-sheet-placement" hidden></p>
 	<div class="irl-sheet-actions">
 		<button id="irl-sheet-pay" class="irl-sheet-btn irl-sheet-btn-primary" type="button" hidden>Pay via x402</button>
 		<button id="irl-sheet-calibrate" class="irl-sheet-btn" type="button" hidden>Calibrate position</button>
@@ -2342,6 +2441,9 @@
 	/* Honest accuracy line inside the inspect sheet (A3). */
 	.irl-sheet-accuracy { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #8a94a6; }
 	.irl-sheet-accuracy.is-low { color: #fbbf73; }
+	/* Placement exposure badge (H4) — owner-only line in the inspect sheet */
+	.irl-sheet-placement { margin: 0 0 12px; font-size: 12px; line-height: 1.5; color: #6ee7b7; }
+	.irl-sheet-placement.is-approx { color: #93c5fd; }
 	/* Room align (R2) reuses the calibrate panel; a whole-room slide/twist has no
 	   per-agent floor-height step, so hide it and show the room-scale hint instead. */
 	body.is-room-cal #irl-calibrate-panel .irl-cal-height { display: none; }
