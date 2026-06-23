@@ -155,14 +155,16 @@ export function renderDetailModelStage(a) {
 			clearTimeout(loadTimeout);
 			progressEl.remove();
 			mv.style.opacity = '1';
-			// Net-Worth-Reactive Avatar: the model now wears its real wallet here
-			// exactly as on its profile and in the galaxy.
-			hydrateAvatarWallet(stage, a, { lod: 'full', live: true, network: 'mainnet' })
-				.then((c) => { detailStageAura = c; })
-				.catch(() => { /* dormant baseline already shown */ });
 		},
 		{ once: true },
 	);
+
+	// Net-Worth-Reactive Avatar: the model wears its real wallet here exactly as on
+	// its profile and in the galaxy. Mounted as an independent sibling layer right
+	// away (not gated on the GLB load) so it's robust to a slow or failed model.
+	hydrateAvatarWallet(stage, a, { lod: 'full', live: true, network: 'mainnet' })
+		.then((c) => { detailStageAura = c; })
+		.catch(() => { /* dormant baseline already shown */ });
 	mv.addEventListener(
 		'error',
 		() => {

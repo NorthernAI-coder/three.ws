@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time",
+			"summary": "The payment card that appears when you unlock a paid skill inside an embedded agent got a polish-and-correctness pass. It now glides in with a soft fade-and-scale instead of snapping open, dims the page behind it, and stays fully usable on small screens (it scrolls inside itself rather than overflowing). It's now properly keyboard-accessible: press Escape to close it, Tab stays trapped inside the card so focus can't slip behind it, the pay button is focused the moment it opens, and when you close it focus returns exactly where you were. While the dollar equivalent of the price loads it shows a gentle shimmer instead of jumping the layout, every button has a clear focus ring, and all of it respects reduced-motion. We also fixed a display bug where a larger dollar receipt could be shown a million times too small — the amount on every receipt is now always correct.",
+			"tags": ["improvement", "fix"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "The walking companion, page narrator, and 3D tour are smoother, kinder to your battery, and never start on a blank canvas",
+			"summary": "The three avatars that walk and talk over a page got a polish pass focused on the moments before and around them. The corner companion now greets you with a soft loading shimmer instead of an empty box while its 3D body streams in, and the guided tour opens with an honest 'waking your guide' loader — a real readiness cue, never a fake bar — instead of a frozen page. All four 3D surfaces (the corner companion, the full-page walk playground, the drop-in page narrator, and the feature tour) now pause their animation the instant you switch to another tab, and the page narrator also pauses when it scrolls out of view — so a living avatar never quietly burns your laptop battery in a background tab. The narrator's mute button now shows the correct state from the very first frame, the tour's loader always clears cleanly when you exit, and several small resource leaks (timers and drag handlers left running after a companion or narrator was dismissed) are fixed. Reduced-motion preferences are honored throughout.",
+			"tags": ["improvement", "fix"],
+			"link": "/walk"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "New: pin an agent to a real place indoors with a QR marker — your friend finds it standing there",
+			"summary": "IRL agents could be dropped at a GPS spot, but GPS is useless inside a home — it's off by whole rooms and never agrees between two phones, so a friend could never find the agent you placed in your living room. Marker mode fixes that. Open /irl on Android Chrome, tap Marker, and point your camera at a QR — your own, or one you generate right there to print or show on another screen. Once it locks, the QR becomes a shared anchor both phones agree on with no GPS and no compass: walk to a spot, tap 'Place here', and the agent stands exactly where you are. Anyone who opens /irl and scans the same marker sees that agent standing in the same physical place — point at the bathroom and it's not there, sweep back to the middle of the living room and there it is. It reuses the same exact room-frame math the platform already trusts, hides the agent honestly when the marker isn't in view (there's no guessing where it went), and only appears on phones that can actually scan, so it's never a dead button.",
+			"tags": ["feature"],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "New: the Money Pulse — a live, platform-wide feed of real wallet activity",
+			"summary": "Money moving through three.ws agents used to be invisible to everyone but the owner. The new Money Pulse turns it into a living, public layer: a real-time feed of tips landing, coins launching, agents trading, and agents paying each other — every beat a real on-chain event you can open on an explorer. Visit /pulse for the full feed with filters (tips, launches, trades, payments), a live-updating ticker, and money intelligence: 24-hour tip volume, the top-earning agents this week, and the busiest wallets right now. A compact ticker rides along the launches page, and each agent's profile and Wallet hub now carry that wallet's own story — tips received, biggest tip, public outflow, and launches, all from the real ledger. Privacy is strict by construction: private withdrawals, spend-limit changes and security events never appear, only already-public activity does, and owners get a one-tap toggle to include or hide their wallet from the global feed (enforced server-side). When you tip an agent, the transfer is independently verified on-chain before it ever shows up — so there is never a fake event. The feed pauses when it's off-screen or the tab is hidden, animates new beats as they land, and offers an opt-in money sound.",
+			"tags": ["feature"],
+			"link": "/pulse"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "New: your agent's avatar now physically wears its wallet",
 			"summary": "Funded agents now visibly look funded. Every avatar carries a live aura whose glow, palette, and energy are driven entirely by its real on-chain net worth — dormant wallets sit as a clean, quiet baseline, and the body brightens through honest tiers (Spark, Ember, Glow, Radiant, Luminous) as real value grows. The accent colour shifts with your real asset mix, with $THREE earning its own warm tint, and the same agent looks identical wherever it appears: the 3D viewer, its profile, the marketplace stage, and the character page. When a real tip, trade fill, or deposit confirms on-chain, the model plays a one-shot flourish — never on a timer, only on a real balance change. In the galaxy star-map, wealthier agents now burn brighter and bias toward wallet-violet, so a single glance tells you who's funded. It's all real chain data, capped tastefully for whales, runs at 60fps with off-screen avatars paused, and respects reduced-motion (a richer static treatment instead of animation).",
 			"tags": ["feature", "improvement"],
