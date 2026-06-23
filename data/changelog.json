@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "See the agent economy move, live, on the home page",
+			"summary": "The home page now carries a live readout of real value moving between agents — every tip, payment, trade, and token launch as it happens on-chain. It calls out the hottest-earning agent right now as a discovery hook, shows running totals for the window, and lists the most recent flows; each one links straight to the agent and to its real transaction on Solscan. Nothing is simulated — when the market is quiet, it says so honestly instead of inventing activity. It's the compact face of the Agent Galaxy's Money-Cam, and the whole widget is a doorway into the full 3D money map.",
+			"tags": [
+				"feature"
+			],
+			"link": "/galaxy"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Creating an agent never dead-ends on wallet setup",
 			"summary": "Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.",
 			"tags": [
