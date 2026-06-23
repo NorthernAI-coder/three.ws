@@ -1040,6 +1040,12 @@ URL: https://three.ws/blog
 
 Editorial index of three.ws launches and long-form posts.
 
+### The Stripe of x402: How three.ws Turned Agent Payments Into One Line of Code
+
+URL: https://three.ws/blog/x402-stripe-for-agent-payments
+
+HTTP 402 sat unused for thirty years. Agents revived it. three.ws built the drop in payment modal that makes x402 a one liner, on top of a full stack of agent wallets, wallet intents, on-chain reputation, sniping, and $THREE.
+
 ### See Your 3D Avatar in the Real World — AR Lands on three.ws
 
 URL: https://three.ws/blog/see-your-3d-in-ar

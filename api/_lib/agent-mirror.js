@@ -104,7 +104,9 @@ async function readTokenBalance(conn, ownerPk, mintPk) {
 }
 
 // ── follower agent loader ─────────────────────────────────────────────────────
-async function loadFollower(followerId) {
+// Exported so other guarded auto-trade surfaces (the signal marketplace) reuse
+// the exact same follower shape + kill-switch read rather than re-deriving it.
+export async function loadFollower(followerId) {
 	const [row] = await sql`
 		SELECT id, user_id, name, meta FROM agent_identities WHERE id = ${followerId} AND deleted_at IS NULL
 	`;
@@ -125,7 +127,11 @@ async function loadFollower(followerId) {
 // The SAME guard sequence as handleTrade (api/agents/solana-trade.js), composed
 // for a server-initiated mirror. Returns a structured result — never throws past
 // the boundary. `leaderRef` labels the custody trail + audit ("mirrored from X").
-async function runFollowerTrade({
+//
+// Exported so the signal marketplace (api/_lib/signal-engine.js) auto-mirrors a
+// paid emission through this identical firewall + MEV + spend-guard + custody
+// pipeline — the gate is shared, never reimplemented.
+export async function runFollowerTrade({
 	follower, side, mint, network, solAmount, tokenAmountRaw, slippageBps, idempotencyKey, leaderRef,
 }) {
 	const { id, ownerId, meta, address, encryptedSecret } = follower;

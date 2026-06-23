@@ -27,6 +27,9 @@ character-studio/public/loot-assets
 # Local env files
 .env.xspace
 
+# Scratch draft
+tester.md
+
 # Demo/scratch scripts (contain credentials)
 xspace-agent/demo-join.ts
 xspace-agent/join-space.js

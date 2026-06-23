@@ -98,5 +98,34 @@ export function loadConfig() {
 		// Refine classification with the LLM (free-first). Off by default: the
 		// deterministic heuristic is instant and free; LLM adds ~1 call per coin.
 		intelLlm: bool('SNIPER_INTEL_LLM', false),
+		// ── pre-launch creator-wallet radar (task 04) ───────────────────────────
+		// Watch proven creator + smart-money wallets on-chain and detect launch
+		// precursors (funding a fresh deploy wallet / a pump create) at block-0 to
+		// pre-arm a snipe on signal rather than luck. On by default — it's the
+		// platform's earliest edge. SNIPER_RADAR=0 disables it (degrades to the
+		// normal feed-based snipe, reported honestly as paused).
+		radar: bool('SNIPER_RADAR', true),
+		// How often each watched wallet's recent signatures are polled.
+		radarPollMs: Math.max(5_000, num('SNIPER_RADAR_POLL_MS', 15_000)),
+		// Watched wallets scanned per tick (bounds RPC pressure; the set is covered
+		// round-robin across ticks).
+		radarWalletsPerTick: Math.max(5, num('SNIPER_RADAR_WALLETS_PER_TICK', 60)),
+		// How often the watchlist is auto-recurated from the graph.
+		radarWatchlistRefreshMs: Math.max(60_000, num('SNIPER_RADAR_WATCHLIST_REFRESH_MS', 300_000)),
+		// Creator pedigree floor for auto-inclusion (graduated coins).
+		radarMinCreatorGraduated: Math.max(1, num('SNIPER_RADAR_MIN_GRADUATED', 2)),
+		// Reputation floor for smart-money auto-inclusion (0..100).
+		radarSmartMoneyMinScore: Math.max(0, Math.min(100, num('SNIPER_RADAR_SM_MIN_SCORE', 70))),
+		// Hard cap on the monitored set (stale low-signal wallets are evicted).
+		radarMaxWatch: Math.max(20, num('SNIPER_RADAR_MAX_WATCH', 500)),
+		// Default freshness gate for a precursor before it can pre-arm (ms). A
+		// per-strategy radar_max_age_ms overrides it.
+		radarMaxAgeMs: Math.max(10_000, num('SNIPER_RADAR_MAX_AGE_MS', 120_000)),
+		// A SOL outflow at least this large to a fresh wallet counts as deploy
+		// funding (rent + first buy). Below it is ignored as noise.
+		radarMinFundingLamports: Math.max(0, num('SNIPER_RADAR_MIN_FUNDING_LAMPORTS', 30_000_000)),
+		// How long a freshly-funded wallet stays under correlation watch for its
+		// create instruction before it's dropped (ms).
+		radarDeployWatchTtlMs: Math.max(30_000, num('SNIPER_RADAR_DEPLOY_WATCH_TTL_MS', 180_000)),
 	};
 }

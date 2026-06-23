@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T06:11:22.825Z",
+	"generated_at": "2026-06-23T06:56:01.661Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -215,6 +215,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "IBM partnership page: a live Agent Galaxy replaces the old guide-agent demo",
+			"summary": "The third demo on the IBM Business Partner page is now the Agent Galaxy — fly through a 3D constellation of every public AI agent on three.ws, with each one placed in space by what it means, not by name or date. The coordinates come from real IBM Granite embeddings on watsonx.ai, so agents that do similar work sit in the same neighbourhood, Granite groups them into named constellations, and searching by meaning lights up the matching stars. It runs full-size and live, right on the page. It replaces a placeholder 3D character that only played a scripted celebration when you forged an avatar above — this is a real, standalone IBM Granite × three.ws experience instead.",
+			"link": "/galaxy",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
