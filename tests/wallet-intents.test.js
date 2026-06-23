@@ -82,6 +82,11 @@ describe('normalizeIntent — tip-back (the flagship rule)', () => {
 		expect(r.intent.trigger).toMatchObject({ type: 'on_tip_received', min_sol: 0.1 });
 		expect(r.intent.action).toMatchObject({ type: 'tip', pct: 50, of: 'tip' });
 	});
+	it('accepts a tip-back with no destination as "to the tipper" (filled at fire time)', () => {
+		const r = normalizeIntent({ trigger_type: 'on_tip_received', action_type: 'tip', action_config: { pct: 50, of: 'tip' }, readback: 'Tip back half.' });
+		expect(r.ok).toBe(true);
+		expect(r.intent.action.to_tipper).toBe(true);
+	});
 	it('clamps a percentage over 100', () => {
 		const r = normalizeIntent({ trigger_type: 'on_income', action_type: 'split_income', action_config: { pct: 250, destination: ADDR } });
 		expect(r.ok).toBe(true);

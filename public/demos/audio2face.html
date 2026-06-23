@@ -119,10 +119,10 @@
 						<div class="field">
 							<label for="avatar">Avatar rig</label>
 							<select id="avatar">
-								<option value="/avatars/default.glb" data-conv="Oculus visemes">Default (visemes)</option>
-								<option value="/avatars/realistic-female.glb" data-conv="ARKit">Realistic female (ARKit)</option>
-								<option value="/avatars/realistic-male.glb" data-conv="ARKit">Realistic male (ARKit)</option>
-								<option value="/avatars/selfie-girl.glb" data-conv="ARKit">Selfie girl</option>
+								<option value="/avatars/default.glb">Default</option>
+								<option value="/avatars/realistic-female.glb">Realistic female</option>
+								<option value="/avatars/realistic-male.glb">Realistic male</option>
+								<option value="/avatars/selfie-girl.glb">Selfie girl</option>
 							</select>
 						</div>
 						<div class="field">
@@ -173,6 +173,7 @@
 			import * as THREE from 'three';
 			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+			import { getDecoders } from '/src/viewer/internal.js';
 			import { A2FPlayer } from '/src/voice/a2f-player.js';
 			import { LipsyncDriver, tapAudioElement } from '/src/voice/lipsync-driver.js';
 			import { AvatarMouthTarget } from '/src/voice/avatar-morph-target.js';
@@ -245,7 +246,14 @@
 				camera.updateProjectionMatrix();
 			});
 
+			// Avatars baked through the three.ws pipeline are EXT_meshopt_compression
+			// (and some carry Draco/KTX2), so wire the shared decoder set before load.
 			const loader = new GLTFLoader();
+			const decodersReady = getDecoders().then(({ dracoLoader, ktx2Loader, meshoptDecoder }) => {
+				loader.setDRACOLoader(dracoLoader)
+					.setKTX2Loader(ktx2Loader.detectSupport(renderer))
+					.setMeshoptDecoder(meshoptDecoder);
+			});
 			const player = new A2FPlayer();          // A2F track-driven path
 			const mouthTarget = new AvatarMouthTarget(); // amplitude fallback target
 			let currentModel = null;
@@ -257,6 +265,7 @@
 				loadingText.textContent = 'Loading avatar…';
 				badgeEl.textContent = '—';
 				try {
+					await decodersReady;
 					const gltf = await loader.loadAsync(url);
 					if (currentModel) { scene.remove(currentModel); disposeModel(currentModel); }
 					currentModel = gltf.scene;
@@ -271,13 +280,16 @@
 					avatarReady = true;
 					loadingEl.hidden = true;
 
-					const conv = $('avatar').selectedOptions[0]?.dataset.conv || '';
+					// Report the convention we actually DETECTED on the rig, not a guess.
 					const cov = player.describe();
-					const drivers = cov.direct.length ? `${cov.direct.length} ARKit morphs` :
+					const conv = cov.direct.length ? 'ARKit / RPM' :
+						cov.expression.length ? 'VRM / viseme' :
+						mouthTarget.hasMouthMorphs() ? 'generic morphs' :
+						mouthTarget.hasJawBone() ? 'jaw bone' : 'head fallback';
+					const drivers = cov.direct.length ? `${cov.direct.length} ARKit morphs (direct)` :
 						cov.expression.length ? `${cov.expression.length} viseme morphs (derived)` :
-						mouthTarget.hasMouthMorphs() ? 'mouth morphs' :
-						mouthTarget.hasJawBone() ? 'jaw bone' : 'head nod (fallback)';
-					badgeEl.innerHTML = `<b>${conv || 'rig'}</b> · ${drivers}`;
+						'amplitude only';
+					badgeEl.innerHTML = `<b>${conv}</b> · ${drivers}`;
 				} catch (err) {
 					loadingText.textContent = `Avatar load failed: ${err.message}`;
 				}

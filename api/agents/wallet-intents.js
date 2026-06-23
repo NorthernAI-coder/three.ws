@@ -23,7 +23,7 @@ import { limits } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { sql } from '../_lib/db.js';
 import { loadUserProviderKeys } from '../_lib/provider-keys.js';
-import { getSpendLimits, getTradeLimits, lamportsToUsd } from '../_lib/agent-trade-guards.js';
+import { getSpendLimits, getTradeLimits } from '../_lib/agent-trade-guards.js';
 import { getSolanaAddressBalances } from '../_lib/agent-wallet.js';
 import { solUsdPrice } from '../_lib/avatar-wallet.js';
 import {

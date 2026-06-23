@@ -186,6 +186,9 @@ export function normalizeIntent(raw, { threeMint = THREE_MINT } = {}) {
 		action.of = ['tip', 'income', 'balance'].includes(acfg.of) ? acfg.of : (pct != null ? (actionType === 'split_income' ? 'income' : 'tip') : null);
 		action.destination = str(acfg.destination, 64).trim();
 		action.destination_label = str(acfg.destination_label, 80) || null;
+		// A tip back to whoever just tipped has no static destination — the engine
+		// fills the tipper in at fire time. Recognize that here so the rule validates.
+		action.to_tipper = acfg.to_tipper === true || (actionType === 'tip' && triggerType === 'on_tip_received' && !action.destination);
 
 		if (actionType === 'split_income') {
 			if (action.pct == null) return { ok: false, error: 'needs_pct', message: 'split needs a percentage of income' };
@@ -201,7 +204,7 @@ export function normalizeIntent(raw, { threeMint = THREE_MINT } = {}) {
 				return { ok: false, error: 'needs_amount', message: 'a withdraw needs an amount, a "profit above N SOL" threshold, or a percentage' };
 			}
 		}
-		if (!action.destination) {
+		if (!action.destination && !action.to_tipper) {
 			return { ok: false, error: 'needs_destination', message: `${actionType} needs a destination address or .sol name` };
 		}
 	}
