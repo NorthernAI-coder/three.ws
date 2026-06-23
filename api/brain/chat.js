@@ -20,6 +20,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { watsonxConfig, watsonxChatRequest } from '../_lib/watsonx.js';
 import { DEFAULT_FREE_MODEL } from '../_lib/chat-models.js';
+import { createReasoningStripper } from '../_lib/strip-reasoning.js';
 
 // Providers an anonymous (signed-out) caller may use: only the genuinely free
 // tiers — the OpenRouter-routed open-weight default and the free NVIDIA NIM
@@ -197,6 +198,7 @@ const PROVIDERS = {
 		tier: 'flagship',
 		maxOutput: 16384,
 		description: 'NVIDIA’s flagship Nemotron MoE. Strong agentic reasoning, free on NIM.',
+		reasoningTrace: true,
 		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/nemotron-3-super-120b-a12b') : null),
 	},
 	'nvidia-nemotron-super-49b': {
@@ -205,6 +207,7 @@ const PROVIDERS = {
 		tier: 'reasoning',
 		maxOutput: 16384,
 		description: 'Nemotron reasoning model tuned on Llama 3.3. Math, code, planning.',
+		reasoningTrace: true,
 		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/llama-3.3-nemotron-super-49b-v1.5') : null),
 	},
 	'nvidia-nemotron-nano': {
@@ -213,6 +216,7 @@ const PROVIDERS = {
 		tier: 'balanced',
 		maxOutput: 8192,
 		description: 'Compact Nemotron with built-in reasoning. Strong quality per token.',
+		reasoningTrace: true,
 		native: () => (env.NVIDIA_API_KEY ? nvidia('nvidia/nvidia-nemotron-nano-9b-v2') : null),
 	},
 	'nvidia-deepseek-v4': {
@@ -221,6 +225,7 @@ const PROVIDERS = {
 		tier: 'reasoning',
 		maxOutput: 16384,
 		description: 'DeepSeek V4 Pro hosted on NVIDIA NIM. Deep reasoning, free tier.',
+		reasoningTrace: true,
 		native: () => (env.NVIDIA_API_KEY ? nvidia('deepseek-ai/deepseek-v4-pro') : null),
 	},
 	'nvidia-kimi-k2': {
@@ -556,13 +561,32 @@ export default wrap(async function handler(req, res) {
 			},
 		});
 
-		for await (const delta of result.textStream) {
+		// Reasoning-tuned models (Nemotron, DeepSeek) emit their chain-of-thought
+		// inline in <think>…</think> before the answer. Strip it from the visible
+		// stream so the chat never shows scratch work. Enabled only for specs that
+		// actually emit traces (spec.reasoningTrace) — a no-op for every other model
+		// — and the filter is streaming-safe, so a tag split across deltas is still
+		// caught. Fallback routes are non-reasoning, so the same stripper is a no-op
+		// there too.
+		const stripper = spec.reasoningTrace ? createReasoningStripper() : null;
+		// Emit one visible text fragment, marking first-token timing on the first
+		// fragment the client actually sees (not on suppressed reasoning) — so the
+		// retry/fallback chain stays free to switch routes until real output streams.
+		const emit = (text) => {
+			if (!text) return;
 			if (firstTokenMs === null) {
 				firstTokenMs = Date.now() - t0;
 				res.write(`event: first\ndata: ${JSON.stringify({ firstTokenMs })}\n\n`);
 			}
-			res.write(`data: ${JSON.stringify(delta)}\n\n`);
+			res.write(`data: ${JSON.stringify(text)}\n\n`);
+		};
+
+		for await (const delta of result.textStream) {
+			emit(stripper ? stripper.push(delta) : delta);
 		}
+		// Flush any text the filter held at the boundary (a trailing partial tag that
+		// turned out to be real); an unterminated trace is dropped.
+		if (stripper) emit(stripper.flush());
 
 		// Failure before any token streamed → hand to the retry/fallback logic.
 		// A failure *after* partial output isn't retryable, so we finish cleanly

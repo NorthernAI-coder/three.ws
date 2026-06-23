@@ -311,6 +311,14 @@
 			<description>Building an avatar from a text prompt now shows a progress bar that actually moves second-to-second (tied to real elapsed time) instead of sitting frozen between stages, a real elapsed clock, and a Cancel button (or Escape) so you're never stuck watching a spinner. Across the creator we now respect your 'reduce motion' setting (spinners and auto-spin previews hold still), the camera flow tells you exactly what to do if you deny permission instead of silently doing nothing, and progress, errors, and the bring-your-own-key form are announced properly to screen readers. Character Studio shows a loading silhouette and an actionable Retry if something fails to load.</description>
 		</item>
 		<item>
+			<title>Reasoning models now show just the answer, not their scratch work</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Reasoning models now show just the answer, not their scratch work</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Open reasoning models in the model playground — NVIDIA Nemotron and DeepSeek — think out loud before they answer, wrapping their internal chain-of-thought in hidden markers. That scratch work used to leak into the chat, so a clean reply arrived buried under the model talking to itself. Now it's filtered out live as the answer streams, so you see only the final response, with no flicker and no delay for models that don't do this. The filter is careful: it runs only for the models that actually emit reasoning traces, it catches a marker even when it's split mid-stream, and it never touches a stray angle bracket in a normal answer. Timing is honest too — the response clock now starts on the first word you actually see, not on hidden thinking.</description>
+		</item>
+		<item>
 			<title>Security: CSRF protection extended to sniper arming and trade limits</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Security: CSRF protection extended to sniper arming and trade limits</guid>
