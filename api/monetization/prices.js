@@ -14,16 +14,32 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 
 const SKILL_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/;
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 // USDC has 6 decimals. 0.000001 USDC = 1 atomic unit.
 const MIN_PRICE_ATOMIC = 1;
 
-const putBody = z.object({
-	agent_id: z.string().uuid(),
-	skill_name: z.string().trim().min(1).max(64).regex(SKILL_RE, 'skill_name must be alphanumeric with hyphens/underscores, max 64 chars'),
-	price_usdc: z.number().positive(),
-	currency_mint: z.string().trim().min(1).max(100).default('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
-	chain: z.enum(['solana', 'base', 'evm']).default('solana'),
-});
+const putBody = z
+	.object({
+		agent_id: z.string().uuid(),
+		skill_name: z.string().trim().min(1).max(64).regex(SKILL_RE, 'skill_name must be alphanumeric with hyphens/underscores, max 64 chars'),
+		// Required for a price gate; ignored for an NFT gate (access is the holding,
+		// not a payment), so optional here and refined below.
+		price_usdc: z.number().positive().optional(),
+		currency_mint: z.string().trim().min(1).max(100).default('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+		chain: z.enum(['solana', 'base', 'evm']).default('solana'),
+		// Access gate: 'price' (default) sells the skill; 'nft' restricts it to
+		// holders of an NFT from `nft_collection_mint`.
+		gate_type: z.enum(['price', 'nft']).default('price'),
+		nft_collection_mint: z.string().trim().regex(SOLANA_ADDRESS_RE, 'nft_collection_mint must be a base58 Solana address').nullable().optional(),
+	})
+	.refine((b) => b.gate_type === 'nft' || typeof b.price_usdc === 'number', {
+		message: 'price_usdc is required for a priced skill',
+		path: ['price_usdc'],
+	})
+	.refine((b) => b.gate_type !== 'nft' || !!b.nft_collection_mint, {
+		message: 'nft_collection_mint is required for an NFT gate',
+		path: ['nft_collection_mint'],
+	});
 
 const deleteBody = z.object({
 	agent_id: z.string().uuid(),
@@ -70,7 +86,8 @@ export default wrap(async (req, res) => {
 		if (!agent) return error(res, 404, 'not_found', 'Agent not found');
 
 		const prices = await sql`
-			SELECT id, skill, currency_mint, chain, amount, is_active, created_at, updated_at
+			SELECT id, skill, currency_mint, chain, amount, is_active,
+			       gate_type, nft_collection_mint, created_at, updated_at
 			FROM agent_skill_prices
 			WHERE agent_id = ${agentId} AND is_active = true
 			ORDER BY skill
@@ -96,13 +113,17 @@ export default wrap(async (req, res) => {
 		const body = parse(putBody, await readJson(req));
 		// API field is `skill_name`; the DB column is `skill`. Bind to a local
 		// named `skill` so the SQL reads `${skill}` against the real column.
-		const { agent_id, skill_name: skill, price_usdc, currency_mint, chain } = body;
+		const { agent_id, skill_name: skill, price_usdc, currency_mint, chain, gate_type } = body;
+		const isNft = gate_type === 'nft';
 
-		// Convert price_usdc (float like 0.001) to atomic units (bigint-safe integer)
-		const amountAtomic = Math.round(price_usdc * 1_000_000);
-		if (amountAtomic < MIN_PRICE_ATOMIC) {
+		// For a price gate, convert price_usdc (float like 0.001) to atomic units.
+		// For an NFT gate there is no price — amount is stored as 0 so the row stays
+		// a valid (premium, not free) entry while access is driven by the holding.
+		const amountAtomic = isNft ? 0 : Math.round(price_usdc * 1_000_000);
+		if (!isNft && amountAtomic < MIN_PRICE_ATOMIC) {
 			return error(res, 400, 'validation_error', 'price_usdc must be at least 0.000001');
 		}
+		const nftCollectionMint = isNft ? body.nft_collection_mint : null;
 
 		const ownership = await verifyAgentOwnership(agent_id, userId);
 		if (ownership.error) {
@@ -114,21 +135,29 @@ export default wrap(async (req, res) => {
 			SELECT id FROM agent_skill_prices WHERE agent_id = ${agent_id} AND skill = ${skill}
 		`;
 
+		// Switching a row's gate type must also reset the columns the CHECK
+		// constraint pairs with it (an 'nft' row may not carry trial/time-pass/pwyw
+		// price machinery; a 'price' row may not carry a collection mint).
 		await sql`
 			INSERT INTO agent_skill_prices
-				(agent_id, skill, amount, currency_mint, chain, is_active, updated_at)
+				(agent_id, skill, amount, currency_mint, chain, is_active,
+				 gate_type, nft_collection_mint, updated_at)
 			VALUES
-				(${agent_id}, ${skill}, ${amountAtomic}, ${currency_mint}, ${chain}, true, now())
+				(${agent_id}, ${skill}, ${amountAtomic}, ${currency_mint}, ${chain}, true,
+				 ${isNft ? 'nft' : 'price'}, ${nftCollectionMint}, now())
 			ON CONFLICT (agent_id, skill) DO UPDATE SET
-				amount        = EXCLUDED.amount,
-				currency_mint = EXCLUDED.currency_mint,
-				chain         = EXCLUDED.chain,
-				is_active     = true,
-				updated_at    = now()
+				amount              = EXCLUDED.amount,
+				currency_mint       = EXCLUDED.currency_mint,
+				chain               = EXCLUDED.chain,
+				is_active           = true,
+				gate_type           = EXCLUDED.gate_type,
+				nft_collection_mint = EXCLUDED.nft_collection_mint,
+				updated_at          = now()
 		`;
 
 		const [row] = await sql`
-			SELECT id, skill, currency_mint, chain, amount, is_active, created_at, updated_at
+			SELECT id, skill, currency_mint, chain, amount, is_active,
+			       gate_type, nft_collection_mint, created_at, updated_at
 			FROM agent_skill_prices
 			WHERE agent_id = ${agent_id} AND skill = ${skill}
 		`;
@@ -167,6 +196,7 @@ export default wrap(async (req, res) => {
 });
 
 function formatPrice(row) {
+	const gateType = row.gate_type === 'nft' ? 'nft' : 'price';
 	return {
 		id: row.id,
 		skill_name: row.skill,
@@ -175,6 +205,8 @@ function formatPrice(row) {
 		currency_mint: row.currency_mint,
 		chain: row.chain,
 		is_active: row.is_active,
+		gate_type: gateType,
+		nft_collection_mint: gateType === 'nft' ? row.nft_collection_mint ?? null : null,
 		created_at: row.created_at,
 		updated_at: row.updated_at,
 	};

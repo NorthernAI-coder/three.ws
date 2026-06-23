@@ -111,6 +111,14 @@
 			<description>Every avatar you create — a GLB upload, a URL import, or a chat/MCP &quot;text → 3D avatar&quot; — is quietly upgraded in the background so it can walk, wave, and emote. Occasionally the very last step of that upgrade could fail after the rig itself had already succeeded (a momentary storage or network blip), and the avatar would stay static with nothing able to retry it — most likely for avatars made headlessly through the API or MCP, which don't sit on a page polling for the result. The completion process is now crash-safe and eventually-consistent: a rig that finished at the provider always lands on your avatar, recovered no matter which path completes it, even after an earlier failure, and safe when several finish at once. The background safety-net sweep now also clears its backlog faster and never lets a stalled job pile up. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
+			<title>Consistent currency formatting across the earnings dashboard</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Consistent currency formatting across the earnings dashboard</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Subscription income and plan prices on the Monetize dashboard now display with thousands separators (e.g. $1,234.56), matching how the rest of your earnings are shown. Large numbers are easier to read at a glance and every dollar figure on the page now reads the same way.</description>
+		</item>
+		<item>
 			<title>Copy-trading page now shows each of your agents' wallet identity</title>
 			<link>https://three.ws/mirror</link>
 			<guid isPermaLink="false">2026-06-23:Copy-trading page now shows each of your agents' wallet identity</guid>
