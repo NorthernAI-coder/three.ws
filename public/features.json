@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:20:54.280Z",
+	"generated_at": "2026-06-23T12:29:17.117Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1252,6 +1252,16 @@
 					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",
 					"added": "2026-06-03",
 					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/autopilot-activity",
+					"title": "Autopilot Activity",
+					"description": "Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.",
+					"added": "2026-06-23",
+					"auth": "required",
 					"indexable": true,
 					"tags": [],
 					"showcase": false

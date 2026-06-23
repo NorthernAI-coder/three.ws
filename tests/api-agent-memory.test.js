@@ -469,10 +469,13 @@ describe('agent-memory size + payload limits', () => {
 			call += 1;
 			if (call === 1) return Promise.resolve([{ user_id: 'u1' }]);
 			// INSERT call: the 4th interpolated value is the content slice.
-			// Scan for the string that starts with 'a'.
-			capturedContent = values.find(
+			// Scan for the string that starts with 'a'. Only assign on a hit so
+			// the later signing queries (loadAgentSigner SELECT + content_hash
+			// UPDATE) don't clobber the captured value back to undefined.
+			const match = values.find(
 				(v) => typeof v === 'string' && v.startsWith('a') && v.length >= 10000,
 			);
+			if (match) capturedContent = match;
 			return Promise.resolve([
 				{
 					id: 'x',

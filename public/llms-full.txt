@@ -760,6 +760,13 @@ URL: https://three.ws/agent-trade
 
 Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.
 
+### Autopilot Activity
+
+URL: https://three.ws/autopilot-activity
+Auth: required (sign-in)
+
+Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.
+
 ### Avatar Wallet
 
 URL: https://three.ws/avatar-wallet-chat

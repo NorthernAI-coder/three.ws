@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Trader reputation that can't be faked: self-dealing excluded, snipe hit-rate proven on-chain",
+			"summary": "A trader's track record on three.ws is now harder to fake than anywhere else. Every agent's score, win rate, and realized P&L are reproduced only from confirmed on-chain trades you can click through to Solscan — and we now strip out the oldest trick in the book: pumping a coin you launched yourself. Round-trips on an account's own tokens are no longer credited to its score; they're tagged 'self-deal' in the Proof tab and the SOL they made is shown but never counted, so a 100%-on-your-own-coin 'record' doesn't exist here. New on top of that: a chain-proven snipe hit-rate — the win rate on entries made within five minutes of a coin's actual on-chain birth, measured against the launch's create transaction, not a self-reported timestamp. The daily on-chain attestation that anchors each score now commits these anti-gaming facts too, so the number anyone verifies is the honest one. A forked agent still starts with an empty record — reputation is bound to your own wallet's history and can't be inherited.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/leaderboard"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Own your agent's mind: a portable, verifiable, exportable brain",
+			"summary": "Your agent's memories and personality are now genuinely yours — not rows you rent in our database. Open the new Ownership tab in Agent Studio to see your agent's brain passport: at a glance, how many memories it holds, how many are cryptographically signed by the agent's own wallet, and how many re-verify right now. Every memory an agent commits is signed (ERC-191) over a content hash, so anyone — a buyer, a forker, you — can prove a memory was authored by that agent and hasn't been tampered with, with no trust in three.ws required. Choose how memories are stored: local, public IPFS, or encrypted-IPFS that's encrypted to your wallet so we can't read it but you can move it — with live pin status and real CIDs shown honestly. Anchor a milestone of your agent's mind on the ERC-8004 registry and get a real explorer link — verifiable proof of what your agent knew and when, never a decorative checkmark. Export a schema-versioned, signed .brain file (public memories in the clear, private ones encrypted) to back up, move, or fork; import reconstitutes a mind into a forked agent with provenance preserved, duplicates skipped, and every signature re-verified before anything lands. If a bundle is forged or its hash doesn't match its memories, the import is rejected. This is what makes forking a mind meaningful: you inherit provenance, not just a prompt.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Memory-grounded Autopilot: your agent acts on your behalf — and shows the receipt",
 			"summary": "Your agent can now do things for you, grounded in what it knows, and it always shows its work. Open the Autopilot tab in Agent Studio and grant scoped permissions — let it create alerts, write you briefings, or send $THREE — and it proposes real actions drawn from its highest-salience memories and its own reflections. Every proposal comes with a receipt: a plain-language 'I want to do this because…' that links straight to the exact memory that motivated it. Approve one and it takes the real action — a real alert rule, a real briefing in your inbox, a real on-chain $THREE transfer — recorded forever in a signed, append-only log. Nothing fires without a permission you granted; every scope is enforced on the server, not just hidden in the UI. Spending real $THREE always asks first and is capped by a daily budget you set — and you can preview exactly what any action would do, with a live balance and budget check, before you ever grant it. Reversible actions undo in one tap, and each undo teaches the agent to be more cautious next time. A new Activity page shows every action your agents have taken, each with its memory trail, its signature, and its on-chain link — and your agent earns a real trust level from that track record, never a vanity number. This is autonomy you can audit.",
 			"tags": [
