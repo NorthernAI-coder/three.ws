@@ -49,7 +49,7 @@ export const BREED_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
 // have its GLB storage key + appearance for body synthesis.
 export async function loadBreedingAgent(agentId) {
 	const [row] = await sql`
-		select i.id, i.user_id, i.name, i.meta, i.skills, i.is_public,
+		select i.id, i.user_id, i.name, i.meta, i.skills, i.is_public, i.wallet_address,
 		       i.persona_prompt, i.persona_tone_tags,
 		       i.voice_provider, i.voice_id, i.voice_model, i.voice_settings,
 		       i.avatar_id,

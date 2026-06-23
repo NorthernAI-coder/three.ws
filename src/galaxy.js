@@ -227,6 +227,7 @@ function renderGalaxy(data) {
 	buildClusterLabels(data.clusters);
 	buildLegend(data.clusters);
 	loadNetWorth(data.agents);
+	loadLineageEdges();
 
 	// Stats
 	els.gxStatAgents.innerHTML = `<strong>${n.toLocaleString()}</strong> agents`;
@@ -871,6 +872,62 @@ function disposePoints() {
 		geom?.dispose();
 		mat?.dispose();
 		points = geom = mat = null;
+	}
+	if (lineageLines) {
+		scene.remove(lineageLines);
+		lineageLines.geometry?.dispose();
+		lineageLines.material?.dispose();
+		lineageLines = null;
+	}
+}
+
+// ── Lineage lines — descent edges between bred agents (Agent Genome) ──────────
+// Draws a faint violet segment from each parent to its child using the live node
+// positions, so a deep pedigree reads as a visible family thread in the star-map.
+// Additive + best-effort: any failure (no edges, missing nodes) leaves the galaxy
+// untouched. Edges to off-map agents (private/unmapped) are skipped.
+let lineageLines = null;
+async function loadLineageEdges() {
+	try {
+		const res = await fetch('/api/genome/edges?limit=3000');
+		if (!res.ok) return;
+		const { edges } = await res.json();
+		if (!Array.isArray(edges) || !edges.length || !geom) return;
+		const pos = geom.getAttribute('position');
+		if (!pos) return;
+
+		const verts = [];
+		const at = (id) => {
+			const idx = state.idToIndex.get(id);
+			if (idx == null) return null;
+			return [pos.getX(idx), pos.getY(idx), pos.getZ(idx)];
+		};
+		for (const e of edges) {
+			const c = at(e.child);
+			if (!c) continue;
+			for (const pid of [e.a, e.b]) {
+				const p = at(pid);
+				if (!p) continue;
+				verts.push(p[0], p[1], p[2], c[0], c[1], c[2]);
+			}
+		}
+		if (!verts.length) return;
+
+		const lg = new THREE.BufferGeometry();
+		lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+		const lm = new THREE.LineBasicMaterial({
+			color: 0xa78bfa,
+			transparent: true,
+			opacity: 0.28,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+		});
+		lineageLines = new THREE.LineSegments(lg, lm);
+		lineageLines.frustumCulled = false;
+		scene.add(lineageLines);
+		dbg.lineageEdges = verts.length / 6;
+	} catch {
+		/* lineage overlay is supplementary — never break the galaxy */
 	}
 }
 function dispose() {

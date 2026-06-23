@@ -178,7 +178,7 @@ export default wrap(async (req, res) => {
 	// both parents'. provisionAgentWallets generates new random keys, but assert it
 	// rather than trust it — a collision here would be a critical breach.
 	const parentSolanas = [rowA.meta?.solana_address, rowB.meta?.solana_address].filter(Boolean);
-	const parentEvms = [rowA.meta?.wallet_address || rowA.wallet_address, rowB.meta?.wallet_address].filter(Boolean);
+	const parentEvms = [rowA.wallet_address, rowB.wallet_address, rowA.meta?.wallet_address, rowB.meta?.wallet_address].filter(Boolean);
 	if (parentSolanas.includes(wallets.solana) || parentEvms.includes(wallets.evm)) {
 		return error(res, 500, 'ownership_invariant_violation', 'child wallet collided with a parent — breeding aborted');
 	}
