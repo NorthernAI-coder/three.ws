@@ -25,6 +25,7 @@ async function pinViaPinata(buf, filename) {
 		method: 'POST',
 		headers: { Authorization: `Bearer ${process.env.PINATA_JWT}` },
 		body: form,
+		signal: AbortSignal.timeout(25000),
 	});
 	if (!resp.ok) {
 		const detail = await resp.text().catch(() => '');
@@ -42,6 +43,7 @@ async function pinViaWeb3Storage(buf, filename) {
 			'X-NAME': filename,
 		},
 		body: buf,
+		signal: AbortSignal.timeout(25000),
 	});
 	if (!resp.ok) {
 		const detail = await resp.text().catch(() => '');
@@ -128,13 +130,13 @@ export default wrap(async (req, res) => {
 					'sourceUrl must be an owned R2 URL or a data: URL',
 				);
 			}
-			const head = await fetch(sourceUrl, { method: 'HEAD' });
+			const head = await fetch(sourceUrl, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
 			if (!head.ok) return error(res, 400, 'validation_error', 'source URL is not accessible');
 			const contentLength = parseInt(head.headers.get('content-length') || '0', 10);
 			if (contentLength > MAX_R2_BYTES) {
 				return error(res, 413, 'payload_too_large', 'source exceeds 50 MB limit');
 			}
-			const fetched = await fetch(sourceUrl);
+			const fetched = await fetch(sourceUrl, { signal: AbortSignal.timeout(20000) });
 			if (!fetched.ok) return error(res, 502, 'fetch_failed', 'failed to fetch source URL');
 			buf = Buffer.from(await fetched.arrayBuffer());
 			const urlPath = new URL(sourceUrl).pathname;

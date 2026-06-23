@@ -3521,12 +3521,35 @@ async function handleTrending(req, res) {
 	upstream.searchParams.set('sort', 'market_cap');
 	upstream.searchParams.set('order', 'DESC');
 	upstream.searchParams.set('includeNsfw', 'false');
-	const resp = await fetch(upstream, {
-		headers: { accept: 'application/json' },
-		signal: AbortSignal.timeout(8000),
-	});
+	let resp;
+	try {
+		resp = await fetch(upstream, {
+			headers: { accept: 'application/json' },
+			signal: AbortSignal.timeout(8000),
+		});
+	} catch {
+		// Upstream timeout/network blip: serve the last good list if we have one
+		// rather than 500-ing the trending feed.
+		if (TRENDING_CACHE.body) {
+			res.setHeader('cache-control', 'public, max-age=15');
+			return json(res, 200, TRENDING_CACHE.body);
+		}
+		return error(res, 504, 'upstream_timeout', 'pump.fun did not respond');
+	}
 	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
-	const body = await resp.json();
+	// pump.fun can answer 200 with an empty/truncated body; resp.json() then throws
+	// "Unexpected end of JSON input" → an unhandled 500. Fall back to the last good
+	// list (or an empty feed) instead of crashing.
+	let body;
+	try {
+		body = await resp.json();
+	} catch {
+		if (TRENDING_CACHE.body) {
+			res.setHeader('cache-control', 'public, max-age=15');
+			return json(res, 200, TRENDING_CACHE.body);
+		}
+		body = [];
+	}
 	const arr = repairCoinImages(
 		Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : [],
 	);
@@ -3688,12 +3711,25 @@ async function handleSearch(req, res) {
 	upstream.searchParams.set('sort', 'market_cap');
 	upstream.searchParams.set('order', 'DESC');
 	upstream.searchParams.set('includeNsfw', 'false');
-	const resp = await fetch(upstream, {
-		headers: { accept: 'application/json' },
-		signal: AbortSignal.timeout(8000),
-	});
+	let resp;
+	try {
+		resp = await fetch(upstream, {
+			headers: { accept: 'application/json' },
+			signal: AbortSignal.timeout(8000),
+		});
+	} catch {
+		// Upstream timeout/network blip — an empty result set beats a 500 on search.
+		return json(res, 200, []);
+	}
 	if (!resp.ok) return error(res, 502, 'upstream_failed', `pump.fun returned ${resp.status}`);
-	const body = await resp.json();
+	// A 200 with an empty/truncated body makes resp.json() throw; degrade to "no
+	// results" rather than an unhandled 500.
+	let body;
+	try {
+		body = await resp.json();
+	} catch {
+		body = [];
+	}
 	const arr = repairCoinImages(
 		Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : [],
 	);
@@ -4881,6 +4917,7 @@ async function handleGithubResolve(req, res) {
 		if (process.env.GITHUB_TOKEN) headers.authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
 		const gh = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`, {
 			headers,
+			signal: AbortSignal.timeout(8000),
 		});
 		if (gh.status === 404)
 			return error(res, 404, 'github_user_not_found', `@${handle} not found on GitHub`);

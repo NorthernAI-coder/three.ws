@@ -415,11 +415,35 @@ export default wrap(async (req, res) => {
 				? JSON.stringify({ ...body, model: usedModel })
 				: JSON.stringify(anthropicBodyToOpenAI({ ...body, model: usedModel }));
 
-		upstream = await fetch(upstreamUrl, {
-			method: 'POST',
-			headers: upstreamHeaders,
-			body: upstreamBody,
-		});
+		const ttfbCtrl = new AbortController();
+		// Bound connect / time-to-first-byte so a lane that accepts the socket but
+		// never responds can't burn the whole invocation and starve the rest of the
+		// fallback chain. Cleared the moment headers arrive (finally), so the SSE
+		// body below still streams for as long as the model needs — never truncated.
+		const ttfbTimer = setTimeout(() => ttfbCtrl.abort(), 20000);
+		try {
+			upstream = await fetch(upstreamUrl, {
+				method: 'POST',
+				headers: upstreamHeaders,
+				body: upstreamBody,
+				signal: ttfbCtrl.signal,
+			});
+		} catch (err) {
+			// A thrown fetch (DNS/connection blip, or the TTFB abort above) is never
+			// terminal — degrade to the next lane exactly as an HTTP error does below.
+			// Without this catch a connection-level throw escaped the loop and 500'd
+			// instead of failing over, and the post-loop guard 503s if every lane fails.
+			log.warn('upstream_fetch_failed', {
+				agentId,
+				model: usedModel,
+				provider: route.provider || 'anthropic',
+				error: err?.message || String(err),
+			});
+			upstream = null;
+			continue;
+		} finally {
+			clearTimeout(ttfbTimer);
+		}
 
 		if (!upstream.ok) {
 			// Any upstream failure degrades to the next lane. Account-level

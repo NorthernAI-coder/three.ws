@@ -192,11 +192,19 @@ async function fetchChat(userMessage, systemOverride) {
 		? [{ role: 'system', content: systemOverride }, { role: 'user', content: userMessage }]
 		: [{ role: 'user', content: userMessage }];
 
-	const res = await fetch(`${baseUrl}/api/chat`, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ message: userMessage, history: messages.slice(0, -1) }),
-	});
+	let res;
+	try {
+		res = await fetch(`${baseUrl}/api/chat`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ message: userMessage, history: messages.slice(0, -1) }),
+			// Bound a hung internal /api/chat under the function's kill so a stalled
+			// model lane returns the same null the caller already handles, not a 504.
+			signal: AbortSignal.timeout(25000),
+		});
+	} catch {
+		return null;
+	}
 
 	if (!res.ok) return null;
 

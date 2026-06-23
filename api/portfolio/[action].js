@@ -426,7 +426,7 @@ async function handleSend(req, res) {
 // the price chart; the holding is read directly from the live balances).
 
 async function cgFetch(url) {
-	const r = await fetch(url, { headers: { accept: 'application/json' } });
+	const r = await fetch(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
 	if (!r.ok) {
 		const text = await r.text().catch(() => '');
 		throw Object.assign(new Error(`coingecko ${r.status}: ${text.slice(0, 200)}`), { status: 502 });

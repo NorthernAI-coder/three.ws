@@ -16,7 +16,7 @@ async function fetchWithCache(url, options, ttlMs = 60_000) {
 	const hit = _birdeyeCache.get(key);
 	if (hit && hit.expires > now) return hit.value;
 
-	const resp = await fetch(url, options);
+	const resp = await fetch(url, { ...options, signal: options?.signal ?? AbortSignal.timeout(8000) });
 	if (!resp.ok) {
 		const text = await resp.text();
 		throw new Error(`API error (${resp.status}): ${text.slice(0, 200)}`);

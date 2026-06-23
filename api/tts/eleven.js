@@ -165,6 +165,11 @@ export default wrap(async (req, res) => {
 					model_id: modelId,
 					voice_settings: settings,
 				}),
+				// Bound a hung connection (ElevenLabs accepting but never responding)
+				// under Vercel's 30s kill, so a stall returns a clean 502 + char refund
+				// instead of a 504 with characters charged but no audio delivered. Set
+				// well above a real clip's synth+stream time so it never cuts valid audio.
+				signal: AbortSignal.timeout(28000),
 			},
 		);
 	} catch (fetchErr) {
