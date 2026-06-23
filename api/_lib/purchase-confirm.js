@@ -22,10 +22,12 @@ import BigNumber from 'bignumber.js';
 
 import { sql } from './db.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
-import { insertNotification } from './notify.js';
+import { insertNotification, emailAllowedForType } from './notify.js';
 import { verifyEvmUsdcPayment, evmChainId } from './evm-payment-verify.js';
 import { sendPurchaseReceiptEmail, sendSaleNotificationEmail } from './email.js';
 import { creditReferralCommission } from './referrals.js';
+import { resolveListingSplit, recordSplitDistribution } from './splits.js';
+import { recordOnchainLicenseForPurchase } from './skill-license-issue.js';
 
 const APP_ORIGIN = process.env.APP_ORIGIN || 'https://three.ws';
 
@@ -251,16 +253,27 @@ export async function confirmSkillPurchase(pur, opts = {}) {
 		return { status: 'expired' };
 	}
 
-	const payoutAddress = await resolvePayoutAddress(pur.agent_id, pur.chain);
+	let payoutAddress = await resolvePayoutAddress(pur.agent_id, pur.chain);
+
+	// Multi-collaborator routing: when this listing has an on-chain (0xSplits)
+	// split, the creator's net must flow INTO the split contract so 0xSplits
+	// distributes to each collaborator trustlessly. For EVM listings we verify
+	// the payment reached the split address instead of the owner's wallet. Solana
+	// splits stay ledger-mode (0xSplits is EVM-only) and pay the owner wallet,
+	// with each collaborator's exact share recorded in split_distributions.
+	const split = await resolveListingSplit(sql, pur.agent_id, pur.skill).catch(() => null);
+	if (split?.split_mode === 'onchain' && split.split_address && evmChainId(pur.chain)) {
+		payoutAddress = split.split_address;
+	}
 	if (!payoutAddress) throw new Error('payout wallet not configured');
 
-	if (pur.chain === 'solana') return confirmSolanaSkill(pur, payoutAddress);
-	if (evmChainId(pur.chain)) return confirmEvmSkill(pur, payoutAddress, opts.txHash);
+	if (pur.chain === 'solana') return confirmSolanaSkill(pur, payoutAddress, split);
+	if (evmChainId(pur.chain)) return confirmEvmSkill(pur, payoutAddress, opts.txHash, split);
 	throw new Error(`chain '${pur.chain}' not supported`);
 }
 
 // Solana path: locate the tx via Solana-Pay reference, then validateTransfer.
-async function confirmSolanaSkill(pur, payoutAddress) {
+async function confirmSolanaSkill(pur, payoutAddress, split = null) {
 	const refKey = new PublicKey(pur.reference);
 	const recipient = new PublicKey(payoutAddress);
 	const splToken = new PublicKey(pur.currency_mint);
@@ -340,12 +353,12 @@ async function confirmSolanaSkill(pur, payoutAddress) {
 		return markSkillMismatch(pur, txSignature, reason);
 	}
 
-	return finalizeSkillConfirmation(pur, txSignature, payoutAddress, matched.feeTaken.toFixed(0));
+	return finalizeSkillConfirmation(pur, txSignature, payoutAddress, matched.feeTaken.toFixed(0), split);
 }
 
 // EVM path: the buyer submits the settlement tx hash; verify a USDC transfer of
 // at least the price reached the seller's payout wallet on Base.
-async function confirmEvmSkill(pur, payoutAddress, txHash) {
+async function confirmEvmSkill(pur, payoutAddress, txHash, split = null) {
 	if (!txHash) return { status: 'pending' }; // buyer hasn't broadcast / submitted yet
 
 	// Idempotency pre-check: one settlement tx can confirm at most one purchase.
@@ -446,7 +459,7 @@ async function confirmEvmSkill(pur, payoutAddress, txHash) {
 		}
 		return markSkillMismatch(pur, txHash, result.message || 'no matching transfer');
 	}
-	return finalizeSkillConfirmation(pur, txHash, payoutAddress);
+	return finalizeSkillConfirmation(pur, txHash, payoutAddress, '0', split);
 }
 
 // Seller received some funds against this purchase, but not the exact expected
@@ -494,7 +507,7 @@ async function markSkillMismatch(pur, txSignature, reason) {
 // Atomic confirm + ledger writes. Identical for Solana and EVM once a valid
 // payment is proven, so both chains converge here. `txSignature` is the Solana
 // signature or the EVM tx hash.
-async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platformFeeAtomics = '0') {
+async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platformFeeAtomics = '0', split = null) {
 	const intentId = `sp_${pur.id}`;
 	const updated = await sql`
 		UPDATE skill_purchases
@@ -565,6 +578,41 @@ async function finalizeSkillConfirmation(pur, txSignature, payoutAddress, platfo
 				 ${netAmt.toString()}, ${pur.currency_mint}, ${pur.chain}, ${payoutAddress})
 			ON CONFLICT (intent_id) DO NOTHING
 		`;
+
+		// 3a-bis. Multi-collaborator split: apportion the creator's net across the
+		// listing's recipients and record each one's exact share. Idempotent per
+		// (purchase, address). In on-chain mode the net already flowed into the
+		// 0xSplits contract (rows are informational/settled); in ledger mode each
+		// recipient withdraws their accrued share. Never blocks the confirmed
+		// payment — a split ledger failure degrades to the seller-net record above.
+		if (split?.recipients?.length) {
+			try {
+				await recordSplitDistribution(sql, {
+					purchaseId: pur.id,
+					split,
+					netAtomics: netAmt,
+					currencyMint: pur.currency_mint,
+					chain: pur.chain,
+				});
+				await logEvent(pur.id, 'split_recorded', {
+					split_id: split.id,
+					mode: split.split_mode,
+					recipients: split.recipients.length,
+					net: netAmt.toString(),
+				});
+			} catch (e) {
+				console.error('[purchase-confirm] split distribution failed', e?.message);
+			}
+		}
+
+		// 3a-ter. Mint the trustless on-chain skill license to the beneficiary so
+		// entitlement can be verified against Solana, not just our DB. Best-effort:
+		// degrades cleanly when the minter key is unset or the program is undeployed
+		// (recordOnchainLicenseForPurchase never throws into the confirm path).
+		recordOnchainLicenseForPurchase(sql, pur).catch((e) =>
+			console.error('[purchase-confirm] license mint failed', e?.message),
+		);
+
 		if (pur.referrer_user_id && referralAmt > 0n) {
 			// Credit the referrer's accrued earnings AND fire the commission email.
 			// Real payout happens via the existing withdrawal flow keyed off the
@@ -790,9 +838,10 @@ async function sendPurchaseEmails({ pur, txSignature, sellerId, grossAmt, netAmt
 	const agentUrl = pur.agent_id ? `${APP_ORIGIN}/agents/${encodeURIComponent(pur.agent_id)}` : null;
 
 	// Buyer receipt → the payer (the recipient of a gift didn't pay, so the
-	// receipt always goes to whoever was charged).
+	// receipt always goes to whoever was charged). Gated by the buyer's email
+	// preference for the 'purchases' category — honours the off switch.
 	const buyerEmail = await getUserEmail(pur.user_id);
-	if (buyerEmail) {
+	if (buyerEmail && (await emailAllowedForType(pur.user_id, 'skill_purchase_confirmed'))) {
 		await sendPurchaseReceiptEmail({
 			to: buyerEmail,
 			skillName: pur.skill,
@@ -810,7 +859,8 @@ async function sendPurchaseEmails({ pur, txSignature, sellerId, grossAmt, netAmt
 	// referral) earnings and the buyer's public handle (never their email).
 	if (sellerId && sellerId !== pur.user_id) {
 		const sellerEmail = await getUserEmail(sellerId);
-		if (sellerEmail) {
+		// Gated by the seller's email preference for the 'sales' category.
+		if (sellerEmail && (await emailAllowedForType(sellerId, 'skill_purchased'))) {
 			const buyerHandle = await getUserDisplay(pur.user_id);
 			await sendSaleNotificationEmail({
 				to: sellerEmail,

@@ -74,3 +74,44 @@ export function verifyNotifySignature(to, type, payload, ts, sig) {
 		.digest('base64url');
 	return timingSafeEqualStr(sig, expected);
 }
+
+// ── Living Stages internal bridge ────────────────────────────────────────────
+// The Vercel API and this server can't share code (separate packages), so the
+// stage tip/event webhook reuses the same HMAC discipline as /internal/notify:
+// the signature binds the exact body + a fresh timestamp to the shared secret, so
+// a captured tuple can't be replayed with attacker-chosen content or after the
+// freshness window. Keep byte-compatible with signStageEvent in
+// api/_lib/stage-bridge.js.
+const STAGE_MAX_AGE_S = 120;
+
+export function verifyStageSignature(payload, ts, sig) {
+	if (typeof sig !== 'string' || !sig) return false;
+	const tsNum = Number(ts);
+	if (!Number.isFinite(tsNum)) return false;
+	const nowS = Math.floor(Date.now() / 1000);
+	if (Math.abs(nowS - tsNum) > STAGE_MAX_AGE_S) return false;
+	const payloadHash = crypto
+		.createHash('sha256')
+		.update(JSON.stringify(payload ?? {}))
+		.digest('base64url');
+	const expected = crypto
+		.createHmac('sha256', secret())
+		.update(`stage:${tsNum}:${payloadHash}`)
+		.digest('base64url');
+	return timingSafeEqualStr(sig, expected);
+}
+
+// Sign an outbound room → API request (the host loop fetching the next beat from
+// /api/stage/host). Mirrored by verifyStageRequest in api/_lib/stage-bridge.js.
+export function signStageRequest(payload) {
+	const ts = Math.floor(Date.now() / 1000);
+	const payloadHash = crypto
+		.createHash('sha256')
+		.update(JSON.stringify(payload ?? {}))
+		.digest('base64url');
+	const sig = crypto
+		.createHmac('sha256', secret())
+		.update(`stage-req:${ts}:${payloadHash}`)
+		.digest('base64url');
+	return { ts, sig };
+}

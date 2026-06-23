@@ -231,11 +231,25 @@ export const limits = {
 	//   · irlInteractIp — log a tap/view/message (lighter; legit viewing fans out)
 	irlPinIp: (ip) => getLimiter('irl:pin:ip', { limit: 20, window: '10 m' }).limit(ip),
 	irlInteractIp: (ip) => getLimiter('irl:interact:ip', { limit: 60, window: '1 m' }).limit(ip),
+	// Living Stages tip recording (api/stage/tip.js). Each call carries a real
+	// on-chain settlement signature and is deduped per signature, so the limiter
+	// only blunts a forger spamming distinct fake signatures at the recorder — a
+	// generous ceiling for a lively crowd that still caps that abuse surface.
+	stageTipIp: (ip) => getLimiter('stage:tip:ip', { limit: 60, window: '1 m' }).limit(ip),
 	// IRL proof-of-presence mint (H3) — a walking viewer re-mints a fix token only
 	// when their coarse cell changes (every ~150 m of travel), so a generous 30/min
 	// covers a brisk walk + a few re-tries while a token-banking sweep (mint many
 	// distinct cells to scrape) trips fast. Keyed per IP.
 	irlFixIp: (ip) => getLimiter('irl:fix:ip', { limit: 30, window: '1 m' }).limit(ip),
+	// IRL World Lines (proof-of-presence AR quests). Three write buckets, per IP:
+	//   · create    — placing a quest is heavier + accountable (auth-gated), the tightest.
+	//   · challenge — issuing a single-use completion nonce; a co-located visitor may
+	//                 re-issue a few times (expiry, retries) while walking the spot.
+	//   · complete  — settling the agent-signed proof. A real visitor completes once, so
+	//                 this only absorbs retries; a low ceiling blunts grinding the mint path.
+	worldLineCreateIp: (ip) => getLimiter('wl:create:ip', { limit: 15, window: '10 m' }).limit(ip),
+	worldLineChallengeIp: (ip) => getLimiter('wl:challenge:ip', { limit: 30, window: '5 m' }).limit(ip),
+	worldLineCompleteIp: (ip) => getLimiter('wl:complete:ip', { limit: 20, window: '5 m' }).limit(ip),
 	// IRL placement token bucket (D4) — keyed per (device_token + IP), tighter than
 	// the coarse per-IP `irlPinIp` so one device can't script a rapid placement flood
 	// even from a rotating IP. Two windows: a 5/min burst guard and a 30/hour ceiling.
@@ -295,6 +309,11 @@ export const limits = {
 	// login/auth budget and lock out shared-IP users (offices, shared NAT).
 	referralCodeCheckIp: (ip) =>
 		getLimiter('referral:code:check:ip', { limit: 120, window: '5 m' }).limit(ip),
+	// Referral-link visit beacons (public, unauthenticated). Generous — a real
+	// visitor fires once per link per page-load — but bounded so the funnel
+	// table can't be flooded from one IP.
+	referralVisitIp: (ip) =>
+		getLimiter('referral:visit:ip', { limit: 60, window: '5 m' }).limit(ip),
 	vanityGalleryPublishIp: (ip) =>
 		getLimiter('vanity:gallery:publish:ip', { limit: 12, window: '10 m' }).limit(ip),
 	vanityGalleryReadIp: (ip) =>

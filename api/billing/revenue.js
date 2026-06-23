@@ -5,6 +5,7 @@ import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { isUuid } from '../_lib/validate.js';
+import { reconciliationStatus } from '../_lib/metering.js';
 
 const VALID_GRANULARITY = new Set(['day', 'week', 'month']);
 
@@ -162,6 +163,16 @@ export default wrap(async (req, res) => {
 		tsParams,
 	);
 
+	// Reconciliation status — does every metered charge map to a real settlement?
+	// Surfaced on the dashboard so an operator sees "all charges reconciled" vs
+	// "N unreconciled" without leaving the revenue view. Never fails the read.
+	let reconciliation = null;
+	try {
+		reconciliation = await reconciliationStatus({ userId: user.id });
+	} catch {
+		reconciliation = null;
+	}
+
 	return json(res, 200, {
 		summary: {
 			gross_total: Number(summaryRow.gross_total),
@@ -194,5 +205,7 @@ export default wrap(async (req, res) => {
 			income_usd: Number(r.income_usd),
 			count: r.count,
 		})),
+		// Operator trust signal: usage charges reconciled against on-chain settlements.
+		reconciliation,
 	});
 });

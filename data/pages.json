@@ -869,6 +869,15 @@
 					"added": "2026-05-25"
 				},
 				{
+					"path": "/three",
+					"title": "$THREE Tiers · Hold-to-Access",
+					"description": "Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-23",
+					"showcase": true
+				},
+				{
 					"path": "/three-live",
 					"title": "$THREE Live · Protocol Pulse",
 					"description": "The $THREE protocol as a living 3D organism. Real on-chain trades pulse through it in real time — each transaction emits a particle burst, whales send shockwaves, with a live trade feed and a HUD of price, market cap, holders, and volume.",

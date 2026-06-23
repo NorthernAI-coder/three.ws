@@ -1101,8 +1101,8 @@ async function loadExtraSections(agentId, rec, isOwner) {
 		renderOwnerEmptyCard('ad-actions-card', 'ad-actions-list', {
 			icon: '⚡',
 			title: 'No signed actions yet',
-			body: 'Every trade, launch, and skill invocation this agent makes is logged here with a verifiable signature. Give it a strategy or chat with it to get started.',
-			ctaHref: `/agents/${encodeURIComponent(agentId)}/studio`,
+			body: 'Every trade, launch, and skill invocation this agent makes is logged here with a verifiable signature. Turn on capabilities in the studio to get it working.',
+			ctaHref: `/agent-studio?id=${encodeURIComponent(agentId)}#skills`,
 			ctaText: 'Open agent studio →',
 		});
 	if (memory?.entries?.length) renderMemory(memory.entries);
@@ -1110,9 +1110,9 @@ async function loadExtraSections(agentId, rec, isOwner) {
 		renderOwnerEmptyCard('ad-memory-card', 'ad-memory-list', {
 			icon: '🧠',
 			title: 'No memories yet',
-			body: 'This agent builds long-term memory as it works and converses. Start a conversation to seed what it remembers.',
-			ctaHref: `/agents/${encodeURIComponent(agentId)}/talk`,
-			ctaText: 'Chat with this agent →',
+			body: 'This agent builds long-term memory as it works and converses. Seed what it remembers from the memory studio.',
+			ctaHref: `/agent-studio?id=${encodeURIComponent(agentId)}#memory`,
+			ctaText: 'Open memory studio →',
 		});
 	if (strategy?.data?.strategy != null) renderStrategy(strategy.data.strategy);
 	else if (isOwner)
@@ -1120,7 +1120,7 @@ async function loadExtraSections(agentId, rec, isOwner) {
 			icon: '🎯',
 			title: 'No strategy set',
 			body: 'Define how this agent trades, allocates, and acts on its own. A strategy turns the wallet above into an autonomous operator.',
-			ctaHref: `/agents/${encodeURIComponent(agentId)}/studio`,
+			ctaHref: `/agent-studio?id=${encodeURIComponent(agentId)}#brain`,
 			ctaText: 'Set a strategy →',
 		});
 	if (reputation && (reputation.count > 0 || reputation.average > 0))

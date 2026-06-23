@@ -22,11 +22,13 @@ import { monitor } from '@colyseus/monitor';
 import { WalkRoom } from './rooms/WalkRoom.js';
 import { IrlRoom } from './rooms/IrlRoom.js';
 import { ClashRoom } from './rooms/ClashRoom.js';
+import { StageRoom } from './rooms/StageRoom.js';
+import { getStageRoom } from './stage-registry.js';
 import { blockStore } from './block-store.js';
 import { worldPersistence } from './persistence.js';
 import { flushAllPlayers } from './playerStore.js';
 import { socialHub } from './social-hub.js';
-import { verifyNotifySignature } from './presence-token.js';
+import { verifyNotifySignature, verifyStageSignature } from './presence-token.js';
 
 const PORT = Number(process.env.PORT || 2567);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -91,6 +93,40 @@ app.post('/internal/notify', express.json({ limit: '16kb' }), (req, res) => {
 	}
 	const delivered = socialHub.deliver(to, type, payload || {});
 	res.json({ delivered });
+});
+
+// Living Stages tip/event bridge (Moonshot 04). The three.ws API calls this the
+// instant a real $THREE tip settles on-chain (after it has verified the
+// settlement signature + mint and deduped per signature) so the live StageRoom
+// can react within ~1s — broadcast the tip ticker, update the leaderboard, and
+// pre-empt the host's next beat with a shoutout. HMAC-signed with the shared
+// secret bound to the exact body + a fresh timestamp, so only the API can inject
+// a tip; an unsigned or stale request is rejected before it reaches a room. The
+// money already settled to the host wallet on-chain — this only drives the live
+// reaction, so a `not_found` (room not hosted on this instance) loses nothing but
+// the in-room flourish.
+app.post('/internal/stage', express.json({ limit: '16kb' }), (req, res) => {
+	const { stageId, event, tip } = req.body || {};
+	const sig = req.headers['x-stage-signature'];
+	const ts = req.headers['x-stage-timestamp'];
+	if (typeof stageId !== 'string' || !stageId) {
+		return res.status(400).json({ error: 'bad_request' });
+	}
+	if (!verifyStageSignature(req.body || {}, ts, sig)) {
+		return res.status(401).json({ error: 'bad_signature' });
+	}
+	const room = getStageRoom(stageId);
+	if (!room) return res.json({ ok: true, delivered: false, reason: 'not_found' });
+	try {
+		if (event === 'tip' && tip) {
+			const result = room.injectTip(tip);
+			return res.json({ ok: true, delivered: !!result?.ok });
+		}
+		return res.status(400).json({ error: 'unknown_event' });
+	} catch (err) {
+		console.error('[multiplayer] /internal/stage error:', err?.message || err);
+		return res.status(500).json({ error: 'inject_failed' });
+	}
 });
 
 // The IRL world (irl_world) is a presence + reaction room only — it is NOT a pin
@@ -207,12 +243,18 @@ gameServer.define('irl_world', IrlRoom).filterBy(['geocell']);
 // room. A fighter must hold the coin they fight for (ClashRoom.onAuth verifies a
 // holder pass for their declared faction). See rooms/ClashRoom.js + clash.js.
 gameServer.define('clash_arena', ClashRoom).filterBy(['matchKey']);
+// Living Stages (Moonshot 04). One room instance per stageId, so every audience
+// member who joins a given stage lands in the same live show — the host, the
+// crowd, the tip ticker, and the leaderboard all live in that one room. The room
+// loads its host/title/format from /api/stage and reacts to real $THREE tips the
+// API injects over /internal/stage. See rooms/StageRoom.js + src/stage.js.
+gameServer.define('stage_world', StageRoom).filterBy(['stageId']);
 
 gameServer
 	.listen(PORT, HOST)
 	.then(() => {
 		console.log(`[multiplayer] listening on ws://${HOST}:${PORT}`);
-		console.log(`[multiplayer] rooms: walk_world, irl_world`);
+		console.log(`[multiplayer] rooms: walk_world, irl_world, clash_arena, stage_world`);
 		console.log(`[multiplayer] allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 	})
 	.catch((err) => {

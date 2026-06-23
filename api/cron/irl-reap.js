@@ -50,7 +50,8 @@ export const REAP_SPIKE_THRESHOLD = 1000;
 // Pure: is this run's deletion volume anomalous? Sums the three sweep counts and
 // compares to the threshold. Exported for unit testing — no I/O, no clock.
 export function reapTotal(counts) {
-	return (counts?.pins || 0) + (counts?.reports || 0) + (counts?.interactions || 0);
+	return (counts?.pins || 0) + (counts?.reports || 0) + (counts?.interactions || 0) +
+		(counts?.worldLines || 0) + (counts?.proofs || 0);
 }
 export function isReapSpike(counts, threshold = REAP_SPIKE_THRESHOLD) {
 	return reapTotal(counts) >= threshold;
@@ -81,11 +82,13 @@ export default wrap(async (req, res) => {
 	// they may not exist yet. A reaper that hard-depended on them would throw
 	// `relation does not exist` and 500 the hourly cron. Probe with to_regclass
 	// and treat a missing table as "nothing to reap" rather than an error.
-	const [{ pins, reports, interactions }] = await sql`
+	const [{ pins, reports, interactions, worldlines, proofs }] = await sql`
 		SELECT
-			to_regclass('public.irl_pins')         AS pins,
-			to_regclass('public.irl_pin_reports')  AS reports,
-			to_regclass('public.irl_interactions') AS interactions
+			to_regclass('public.irl_pins')             AS pins,
+			to_regclass('public.irl_pin_reports')      AS reports,
+			to_regclass('public.irl_interactions')     AS interactions,
+			to_regclass('public.irl_world_lines')      AS worldlines,
+			to_regclass('public.irl_presence_proofs')  AS proofs
 	`;
 
 	// Expired anon pins, ≥ 1 day past expiry. expires_at IS NULL ⇒ permanent ⇒ kept.
@@ -137,10 +140,39 @@ export default wrap(async (req, res) => {
 		reapedInteractions = [...orphaned, ...aged];
 	}
 
+	// World Lines (proof-of-presence AR quests) + their presence proofs. A World Line
+	// always carries an expiry (creator-bounded, ≤ 90 days), so it's reaped one day past
+	// it — the same grace as anon pins. A presence proof is the visitor's ownable, coarse
+	// "I was there" collectible: it carries only a ~1.1 km cell + a salted completer hash
+	// (never a coordinate, never a raw device token), so it is NOT a precise location
+	// trail to age out — instead it lives as long as its quest and is cascade-deleted the
+	// moment the quest is gone, plus an orphan sweep for any proof whose quest vanished.
+	// Both are existence-guarded so a fresh DB never 500s.
+	let reapedWorldLines = [];
+	if (worldlines) {
+		reapedWorldLines = await sql`
+			DELETE FROM irl_world_lines
+			WHERE expires_at IS NOT NULL AND expires_at < NOW() - INTERVAL '1 day'
+			RETURNING id
+		`;
+	}
+	let reapedProofs = [];
+	if (proofs) {
+		reapedProofs = worldlines
+			? await sql`
+				DELETE FROM irl_presence_proofs pr
+				WHERE NOT EXISTS (SELECT 1 FROM irl_world_lines w WHERE w.id = pr.world_line_id)
+				RETURNING pr.id
+			`
+			: await sql`DELETE FROM irl_presence_proofs RETURNING id`;
+	}
+
 	const counts = {
 		pins: reapedPins.length,
 		reports: reapedReports.length,
 		interactions: reapedInteractions.length,
+		worldLines: reapedWorldLines.length,
+		proofs: reapedProofs.length,
 	};
 	const total = reapTotal(counts);
 
@@ -156,7 +188,7 @@ export default wrap(async (req, res) => {
 	if (isReapSpike(counts)) {
 		sendOpsAlert(
 			'IRL reaper spike',
-			`The IRL reaper deleted ${total} rows in one run (pins ${counts.pins}, reports ${counts.reports}, interactions ${counts.interactions}) — above the ${REAP_SPIKE_THRESHOLD} anomaly threshold. Possible mass-expiry, backfill, or delete bug.`,
+			`The IRL reaper deleted ${total} rows in one run (pins ${counts.pins}, reports ${counts.reports}, interactions ${counts.interactions}, worldLines ${counts.worldLines}, proofs ${counts.proofs}) — above the ${REAP_SPIKE_THRESHOLD} anomaly threshold. Possible mass-expiry, backfill, or delete bug.`,
 			{ signature: `irl-reap:spike:${Math.floor(Date.now() / 3_600_000)}` },
 		);
 	}
@@ -166,6 +198,8 @@ export default wrap(async (req, res) => {
 		reapedPins: counts.pins,
 		reapedReports: counts.reports,
 		reapedInteractions: counts.interactions,
+		reapedWorldLines: counts.worldLines,
+		reapedProofs: counts.proofs,
 		ts: Date.now(),
 	});
 });

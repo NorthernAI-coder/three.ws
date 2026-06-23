@@ -477,6 +477,405 @@ async function buildAgentServiceItems(origin) {
 	return items;
 }
 
+// ── output.example backfill ──────────────────────────────────────────────────
+// Indexers (agentic.market / x402scan) render and rank a resource by its
+// response example. A resource with no `bazaar.info.output.example` still
+// catalogs, but ranks poorly and shows an empty result card — the verifier
+// (`scripts/verify-x402-discovery.mjs`) flags every one as a warning. These maps
+// are the single source of a realistic, schema-shaped success example for each
+// paid endpoint so the catalog renders fully everywhere it's indexed.
+//
+// Every value here is SYNTHETIC: $THREE (the only coin) or an obviously-fake
+// placeholder address — never a real third-party mint/creator/holder. Examples
+// mirror the actual 200-response keys each handler emits (post-settlement).
+const REST_OUTPUT_EXAMPLES = Object.freeze({
+	'/api/x402/model-check': {
+		url: 'https://three.ws/avatar/character-studio/sample.glb',
+		fetchedBytes: 1572864,
+		model: {
+			container: 'glb',
+			generator: 'three.ws CharacterStudio v1.5',
+			version: '2.0',
+			extensionsUsed: ['KHR_materials_unlit'],
+			extensionsRequired: [],
+			counts: {
+				scenes: 1,
+				nodes: 18,
+				meshes: 6,
+				materials: 4,
+				textures: 3,
+				animations: 1,
+				skins: 1,
+				totalVertices: 12480,
+				totalTriangles: 24812,
+			},
+		},
+		suggestions: [
+			{
+				id: 'texture_size',
+				severity: 'info',
+				message: 'All textures are within 1024x1024 — good for mobile.',
+			},
+		],
+	},
+	'/api/x402/mint-to-mesh': {
+		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+		theme: { name: 'three', symbol: 'THREE', color: [0.92, 0.45, 0.18], hasImage: false },
+		glb: { mimeType: 'model/gltf-binary', bytes: 50768, base64: 'Z2xURgIAAADQxAAA...' },
+	},
+	'/api/insights/revenue-vision': {
+		power_mode: 'revenue-vision',
+		insight:
+			'Builder teams of 10–50 convert 2.4× better than enterprise prospects on the current funnel.',
+		recommended_move:
+			'Shift 30% of paid acquisition to builder-focused onboarding this sprint.',
+		confidence: 'high',
+	},
+	'/api/x402/agent-reputation': {
+		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+		name: 'Helios',
+		wallet_address: 'AgEntWa11etExamp1eDoNotUse111111111111111111',
+		deployed_mints: 2,
+		payments: {
+			confirmed_count: 142,
+			confirmed_amount_atomics: '142000000',
+			distinct_payers: 87,
+			failed_count: 3,
+			failure_rate: 0.021,
+		},
+		distributions: { confirmed: 12, failed: 1, success_rate: 0.923 },
+		buybacks: { confirmed: 5, failed: 0, total_burn_atomics: '500000000' },
+		attestations: { feedback_count: 14, validation_count: 8 },
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/agent-bouncer': {
+		ok: true,
+		admitted: true,
+		banned: false,
+		tier: 'trusted',
+		reason: null,
+		reasons: [],
+		newcomer: false,
+		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+		name: 'Helios',
+		visits: 4,
+		reputation: {
+			deployed_mints: 2,
+			payments: { confirmed_count: 142, distinct_payers: 87, failure_rate: 0.021 },
+			distributions: { confirmed: 12, failed: 1, success_rate: 0.923 },
+		},
+		policy: {
+			minPayments: 10,
+			minDistinctPayers: 3,
+			maxFailureRate: 0.2,
+			allowNewcomers: true,
+		},
+		fetchedAt: '2026-06-22T17:00:00.000Z',
+	},
+	'/api/x402/onchain-identity-verify': {
+		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+		chain: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp',
+		contract_or_mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+		verified: true,
+		evidence: {
+			family: 'solana',
+			tx_hash: '4kHTPp9ExampleSignatureDoNotUse...',
+			wallet: 'AgEntWa11etExamp1eDoNotUse111111111111111111',
+			confirmed_at: '2026-04-30T14:08:22Z',
+		},
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/pump-agent-audit': {
+		mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+		network: 'mainnet',
+		name: 'Helios',
+		symbol: 'HELIO',
+		payments: {
+			total_in_atomics: '142000000',
+			confirmed_count: 142,
+			failed_count: 3,
+			distinct_payers: 87,
+			latest_payment_at: '2026-05-14T16:45:00Z',
+		},
+		distributions: { confirmed: 12, failed: 1, latest_status: 'confirmed', latest_error: null },
+		buybacks: { confirmed: 5, failed: 0, total_burn_atomics: '500000000' },
+		risk_flags: [],
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/pump-launch': {
+		mint: 'HEL1oXyzABCDEFGHJKLMNopqrstuvwxyZ12345abcdef',
+		signature: '5xYExampleTxSignatureDoNotUse...',
+		creator: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
+		name: 'Helios',
+		symbol: 'HELIO',
+		metadataUri: 'https://ipfs.io/ipfs/QmExampleMetadataCid',
+		network: 'mainnet',
+		pumpfun_url: 'https://pump.fun/coin/HEL1oXyzABCDEFGHJKLMNopqrstuvwxyZ12345abcdef',
+		vanity_prefix: 'HEL',
+		vanity_iterations: 4821,
+	},
+	'/api/x402/forge': {
+		job_id: 'f1.eyJwIjoiZXhhbXBsZSJ9.sig',
+		status: 'queued',
+		poll_url: '/api/forge?job=f1.eyJwIjoiZXhhbXBsZSJ9.sig',
+		mode: 'text_to_3d',
+		tier: 'standard',
+		eta_seconds: 22,
+		price_usdc: '0.15',
+	},
+	'/api/x402/skill-marketplace': {
+		skill_filter: 'inspect_model',
+		count: 1,
+		cheapest: {
+			agent_name: 'Helios',
+			skill: 'inspect_model',
+			amount_atomics: '10000',
+			chain: 'solana',
+		},
+		listings: [
+			{
+				agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+				agent_name: 'Helios',
+				skill: 'inspect_model',
+				amount_atomics: '10000',
+				mint_decimals: 6,
+				chain: 'solana',
+				trial_uses: 1,
+				time_pass_hours: 24,
+			},
+		],
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/symbol-availability': {
+		ticker: 'HELIO',
+		network: 'mainnet',
+		exact_collision: false,
+		exact_matches: [],
+		similar: [
+			{
+				ticker: 'HELIOS',
+				mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+				name: 'Helios',
+				similarity: 0.71,
+			},
+		],
+		recommendation: 'available — one near-match exists at similarity 0.71',
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/vanity': {
+		address: 'SoEXAMPLEdoNotUse1111111111111111111111111111',
+		prefix: 'So',
+		suffix: null,
+		ignoreCase: false,
+		format: 'keypair',
+		secretKeyBase58: 'Hy5pQqgExampleSecretDoNotUse...',
+		attempts: 160,
+		durationMs: 6,
+		expectedAttempts: 58,
+		network: 'solana',
+		explorerUrl: 'https://solscan.io/account/SoEXAMPLEdoNotUse1111111111111111111111111111',
+	},
+	'/api/x402/vanity-verifiable': {
+		protocol: 'three-vanity/v1',
+		receiptType: 'grind-receipt',
+		address: 'SoEXAMPLEdoNotUse1111111111111111111111111111',
+		pattern: { prefix: 'So', suffix: null, ignoreCase: false },
+		commitment: 'sha256:0000000000000000000000000000000000000000000000000000000000000000',
+		winningIndex: 3041,
+		attempts: 3042,
+		sealed: false,
+		servicePublicKey: '3WzwpVSmSExamplePublicKeyDoNotUse',
+		signature: 'ed25519:abcdef1234567890...',
+		network: 'solana',
+		verifyUrl: 'https://three.ws/vanity/verify',
+		serviceKeyUrl: 'https://three.ws/.well-known/three-vanity.json',
+	},
+	'/api/x402/mint-to-mesh-batch': {
+		count: 2,
+		results: [
+			{
+				ok: true,
+				mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
+				theme: { name: 'Helios', symbol: 'HELIO', hasImage: true },
+				glb: { mimeType: 'model/gltf-binary', bytes: 18000, base64: 'Z2xUR...' },
+			},
+			{ ok: false, mint: 'F7kXZExampleMintDoNotUse...', error: 'meta_fetch_failed' },
+		],
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	'/api/x402/dance-tip': {
+		ok: true,
+		ticketId: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
+		dancer: '1',
+		dance: 'rumba',
+		clip: 'rumba',
+		durationSec: 10,
+		startsAt: '2026-05-21T18:42:09.000Z',
+		endsAt: '2026-05-21T18:42:19.000Z',
+		network: 'solana',
+		amountAtomics: '1000',
+	},
+	'/api/x402/asset-download': {
+		ok: true,
+		slug: 'pole-dancer-rumba',
+		title: 'Pole Dancer (Rumba)',
+		mimeType: 'model/gltf-binary',
+		sizeBytes: 6492840,
+		expiresAt: '2026-05-21T18:48:09.000Z',
+		downloadUrl: 'https://three-ws-public.r2.dev/assets/pole-dancer-rumba.glb?X-Amz-Algorithm=...',
+	},
+	'/api/x402/skill-call': {
+		ok: true,
+		skill: { slug: 'wallet-balance', name: 'Wallet Balance', category: 'crypto' },
+		tools: [{ type: 'function', function: { name: 'get_balance', description: 'Fetch balances.' } }],
+		content: '# Wallet Balance\n\nUse get_balance to fetch token balances...',
+		calledAt: '2026-05-31T18:48:09.000Z',
+	},
+	'/api/x402/fact-check': {
+		verdict: 'supported',
+		confidence: 0.91,
+		claim: 'The Eiffel Tower is in Paris.',
+		strictness: 'medium',
+		sources: [
+			{
+				url: 'https://en.wikipedia.org/wiki/Eiffel_Tower',
+				title: 'Eiffel Tower - Wikipedia',
+				stance: 'supports',
+				weight: 0.7,
+			},
+		],
+		costBreakdown: { searchCalls: 3, llmTokens: 1420, totalUsdc: '0.100355' },
+		attestation: 'sha256:abcdef1234567890...',
+	},
+	'/api/x402/tutor': {
+		sessionId: '8f1c0c2e-2a4d-4b6e-9b1a-3c5d7e9f0a1b',
+		answer:
+			'The sky is blue because air scatters short-wavelength blue light from the sun more than other colors (Rayleigh scattering).',
+		keyPoints: ['Sunlight contains all colors.', 'Air scatters blue more than red.'],
+		example: 'At sunset light travels farther, so more blue scatters away and the sky reddens.',
+		followUp: 'Why are sunsets red rather than blue?',
+		level: 'intermediate',
+		costThisChargeUsd: '0.010000',
+		sessionTotalUsd: '0.030000',
+		questionCount: 3,
+		attestation: 'sha256:abcd1234...',
+	},
+	'/api/x402/crypto-intel': {
+		topic: 'sol',
+		headline: 'SOL up +7.2% in 24 h — momentum building',
+		signal: 'bullish',
+		price_usd: 148.32,
+		change_24h: 7.18,
+		rationale: 'SOL gained 7.18% in 24 h. Strong momentum suggests continued upside.',
+		confidence: 0.86,
+		ts: '2026-06-03T10:00:00Z',
+	},
+	'/api/x402/three-intel': {
+		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+		symbol: 'THREE',
+		price_usd: 0.003685,
+		change_24h: 12.4,
+		market_cap_usd: 3685000,
+		liquidity_usd: 412000,
+		volume_24h_usd: 1268079,
+		signal: 'bullish',
+		headline: 'THREE climbs +12.40% — moderate upside',
+		rationale: 'THREE gained +12.40% over 24 h at $0.003685; volume is healthy against liquidity.',
+		confidence: 0.86,
+		ts: '2026-06-12T10:00:00Z',
+	},
+	'/api/x402/cosmetic-purchase': {
+		ok: true,
+		id: 'skin-midnight',
+		name: 'Midnight',
+		slot: 'skin',
+		rarity: 'legendary',
+		account: 'g_5f3c9a21b8',
+		owned: true,
+		newlyOwned: true,
+		network: 'solana',
+		amountAtomics: '3000000',
+	},
+	'/api/x402/animation-download': {
+		ok: true,
+		id: '00000000-0000-0000-0000-000000000000',
+		slug: 'spin-kick-combo',
+		name: 'Spin Kick Combo',
+		mimeType: 'model/gltf-binary',
+		sizeBytes: 248400,
+		expiresAt: '2026-06-15T18:48:09.000Z',
+		downloadUrl: 'https://three.ws/cdn/u/spin-kick-combo.glb?X-Amz-Algorithm=...',
+	},
+	'/api/x402/club-cover': {
+		ok: true,
+		admitted: true,
+		banned: false,
+		tier: 'regular',
+		visits: 4,
+		passId: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
+		issuedAt: '2026-06-15T18:42:09.000Z',
+		expiresAt: '2026-06-16T00:42:09.000Z',
+		network: 'solana',
+		amountAtomics: '10000',
+	},
+});
+
+// MCP tool result examples, keyed by toolName. Wrapped in the same JSON-RPC 2.0
+// CallToolResult envelope the live /api/mcp + /api/mcp-3d transports return, so
+// the example mirrors exactly what a buyer's MCP client receives.
+const MCP_TOOL_OUTPUT_SUMMARIES = Object.freeze({
+	render_avatar: { ok: true, scene: 'avatar', format: 'glb', url: 'https://three.ws/cdn/avatar-preview.glb' },
+	validate_model: { ok: true, warnings: [], errors: [], meta: { vertices: 12480, triangles: 24812 } },
+	inspect_model: { container: 'glb', meshes: 6, materials: 4, animations: 1, vertices: 12480 },
+	optimize_model: { ok: true, before: { bytes: 1572864 }, after: { bytes: 640000 }, savedPct: 59 },
+	apply_animation: { ok: true, clip: 'walk', format: 'glb', url: 'https://three.ws/cdn/animated.glb' },
+	text_to_3d: { job_id: 'f1.eyJwIjoiZXhhbXBsZSJ9.sig', status: 'queued', poll_url: '/api/forge?job=f1.eyJwIjoiZXhhbXBsZSJ9.sig' },
+	image_to_3d: { job_id: 'f1.eyJpIjoiZXhhbXBsZSJ9.sig', status: 'queued', poll_url: '/api/forge?job=f1.eyJpIjoiZXhhbXBsZSJ9.sig' },
+	remove_background: { ok: true, image_url: 'https://three.ws/cdn/cutout.png' },
+	remesh_model: { ok: true, glb_url: 'https://three.ws/cdn/remeshed.glb', triangles: 20000 },
+	stylize_model: { ok: true, glb_url: 'https://three.ws/cdn/stylized.glb', style: 'voxel' },
+	segment_model: { ok: true, parts: ['head', 'torso', 'legs'], glb_url: 'https://three.ws/cdn/segmented.glb' },
+	retexture_model: { ok: true, glb_url: 'https://three.ws/cdn/retextured.glb' },
+	retexture_region: { ok: true, glb_url: 'https://three.ws/cdn/retextured-region.glb', region: 'face' },
+	auto_rig_model: { ok: true, glb_url: 'https://three.ws/cdn/rigged.glb', bones: 52 },
+	pose_model: { ok: true, glb_url: 'https://three.ws/cdn/posed.glb', pose: 't-pose' },
+	direct_prompt: { job_id: 'f1.eyJkIjoiZXhhbXBsZSJ9.sig', status: 'queued', poll_url: '/api/forge?job=f1.eyJkIjoiZXhhbXBsZSJ9.sig' },
+	generate_material: { ok: true, material_url: 'https://three.ws/cdn/material.glb' },
+});
+
+// Wrap a tool result summary in the JSON-RPC CallToolResult envelope.
+function mcpResultExample(summary) {
+	return {
+		jsonrpc: '2.0',
+		id: 1,
+		result: { content: [{ type: 'text', text: JSON.stringify(summary) }] },
+	};
+}
+
+// Backfill bazaar.info.output.example on one resource that lacks it, from the
+// maps above. Mutates the already-built bazaar extension in place (the root info
+// schema permits the extra `output` field — verified against both the REST and
+// MCP meta-schemas) and returns the resource so it composes as an array .map().
+// Resources that already carry an output example (the /api/mcp + /api/mcp-3d
+// transport rows) are left untouched. Agent-published dynamic listings get a
+// generic settled-result example so they catalog fully too.
+function addOutputExample(r) {
+	const info = r?.extensions?.bazaar?.info;
+	if (!info || info.output?.example !== undefined) return r;
+	let example;
+	if (r.toolName && MCP_TOOL_OUTPUT_SUMMARIES[r.toolName]) {
+		example = mcpResultExample(MCP_TOOL_OUTPUT_SUMMARIES[r.toolName]);
+	} else if (REST_OUTPUT_EXAMPLES[r.path]) {
+		example = REST_OUTPUT_EXAMPLES[r.path];
+	} else if (typeof r.path === 'string' && r.path.startsWith('/api/x402/service/')) {
+		// Agent-published listing: the response shape is the agent's own, so
+		// advertise a generic settled envelope rather than a fabricated body.
+		example = { ok: true, paid: true, result: {} };
+	}
+	if (example !== undefined) info.output = { type: 'json', example };
+	return r;
+}
+
 async function handleX402Discovery(req, res) {
 	const origin = env.APP_ORIGIN;
 	const mcpUrl = `${origin}/api/mcp`;
@@ -774,7 +1173,9 @@ async function handleX402Discovery(req, res) {
 			// `.filter(Boolean)` drops any resource whose IIFE returned null —
 			// e.g. permit2-paid-demo is omitted when CDP creds are missing,
 			// matching the runtime 402 behavior so we don't catalog a route that
-			// would fail at first paid call.
+			// would fail at first paid call. The trailing .map(addOutputExample)
+			// backfills a realistic response example onto every entry so indexers
+			// render and rank each one (no empty result cards, no verifier warnings).
 			resources: [
 				{
 					path: '/api/x402/model-check',
@@ -1739,7 +2140,9 @@ async function handleX402Discovery(req, res) {
 				// Agent-published paid endpoints (monetize_endpoint). Dynamic —
 				// one entry per active agent_paid_services listing.
 				...agentServiceItems,
-			].filter(Boolean),
+			]
+				.filter(Boolean)
+				.map(addOutputExample),
 		},
 		{ 'cache-control': 'public, max-age=300' },
 	);

@@ -40,7 +40,12 @@ let _tierPass = null; // { pass, tier, exp(ms), wallet } — wallet is the ident
 let _tierPassInFlight = null; // de-dupe concurrent mints onto one network/signature round-trip
 let _stylesInjected = false;
 
-const ECONOMY_URL = '/three-token';
+// The canonical holder-value surface every locked state routes to: the full tier
+// ladder + the "Hold more $THREE" upgrade action (src/three-tier-page.js → /three).
+const ECONOMY_URL = '/three';
+// The coin's price/chart/one-click-buy page — the secondary "see the market"
+// link, distinct from the upgrade surface above.
+const PRICE_URL = '/three-token';
 
 // The connected Solana wallet address (Phantom on web, the Seeker TWA wallet on
 // mobile), or null when none is connected — in which case every read falls back to
@@ -397,7 +402,7 @@ export function showThreeGate(gate, opts = {}) {
 			<div class="tg-actions">
 				<a class="tg-btn tg-btn--primary" id="tg-get" href="${escapeHtml(safeUrl(getUrl))}">Get $THREE</a>
 				${payBtn}
-				<a class="tg-btn tg-btn--ghost" href="${ECONOMY_URL}">$THREE price &amp; chart</a>
+				<a class="tg-btn tg-btn--ghost" href="${PRICE_URL}">$THREE price &amp; chart</a>
 			</div>
 			<p class="tg-foot">$THREE is the only coin on three.ws. Draft &amp; Standard generation stay free, forever.</p>
 		</div>`;

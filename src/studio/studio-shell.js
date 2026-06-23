@@ -92,10 +92,17 @@ class StudioShell {
 		}
 		if (!user) return this._renderAuthGate();
 
-		// Load (auto-creates) the caller's agent through the shared store.
+		// Load the caller's agent through the shared store. An explicit `?id=`
+		// targets a specific owned agent (deep links from the agent profile);
+		// without it we auto-create/load the caller's default agent.
+		const targetId = new URLSearchParams(location.search).get('id');
 		try {
-			const agent = await studio.load();
+			const agent = await studio.load(targetId ? { agentId: targetId } : undefined);
 			if (!agent || !agent.id) return this._renderEmptyAgent();
+			// A targeted `?id=` can name an agent the caller doesn't own. The studio
+			// is an owner console — every save is owner-gated server-side — so don't
+			// render edit controls for someone else's agent; send them to its profile.
+			if (targetId && agent.isOwner === false) return this._renderNotOwner(agent.id);
 			this._renderShell(agent);
 			this._bind();
 			document.dispatchEvent(
@@ -157,6 +164,18 @@ class StudioShell {
 				</div>
 			</div>`;
 		this.root.querySelector('#studio-retry')?.addEventListener('click', onRetry);
+	}
+
+	_renderNotOwner(agentId) {
+		this.root.innerHTML = `
+			<div class="studio-gate" role="alert">
+				<div class="studio-gate-inner">
+					<div class="studio-gate-glyph" aria-hidden="true">🔒</div>
+					<h1>This isn’t your agent</h1>
+					<p>The studio is where an owner configures their own agent. You can still view this one’s public profile.</p>
+					<a class="studio-btn studio-btn-primary" href="/agents/${encodeURIComponent(agentId)}">View profile</a>
+				</div>
+			</div>`;
 	}
 
 	// ── Shell ────────────────────────────────────────────────────────────────

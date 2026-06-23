@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "One $THREE tier page, and every locked perk now routes to it",
+			"summary": "Holding $THREE unlocks perks across three.ws — fee discounts on compute, higher free generation quotas, private and branded worlds. Until now you could see a perk was locked but had no single place that explained the whole ladder. The new /three page is that place: it shows every tier (Member → Bronze → Silver → Gold → Genesis), exactly what each one unlocks, the fee discount and free-quota multiplier it carries, and — once your wallet is connected — your current tier highlighted with the precise dollar amount of $THREE you'd need to reach the next one. Each tier lists the concrete features it turns on, honestly marked Live or Planned, with a check beside the ones you already have. Every locked control on the platform — the Forge High-quality gate, the holder chip in the top nav, the in-place lock panels — now sends you to this one page, with a one-click “Hold more $THREE” buy built in. The same tiers, the same upgrade path, everywhere. Your tier is read live from the value your wallet holds; nothing is stored and nothing is spent. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/three"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Agent profiles: a guided first run for brand-new agents, and one-click into the right studio",
+			"summary": "A freshly created agent used to show blank space where its Recent Actions, Memory, and Strategy panels live — nothing to tell its owner what those panels are for or how to fill them. Now, when you own an agent that hasn't done anything yet, each of those panels shows a clear, friendly empty state instead: what the panel tracks, why it matters, and a button that takes you straight to the exact place to act. “No signed actions yet” sends you to the Skills studio to switch on capabilities; “No memories yet” opens the Memory studio to seed what it remembers; “No strategy set” drops you into the Brain studio to define how it trades and acts on its own. Those buttons now deep-link to the specific agent you were viewing — the studio opens that agent on the right tab, instead of defaulting to your first one — so the path from profile to configured agent is a single click. Visitors who don't own the agent see none of this; the panels stay owner-only. Only coin referenced is $THREE.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Avatar editor: a Walk tab to see your avatar in motion while you customize",
 			"summary": "The avatar customizer now has a Walk preview. Switch to the new Walk tab and your avatar stops standing still — it strides a slow circle around the stage with a real walk cycle and a third-person follow camera, so you can judge how an outfit, hat, or face edit actually reads in motion instead of frozen in an A-pose. Take the controls any time with W/A/S/D or the arrow keys to drive it around, and pick a backdrop from a small Environment dropdown (the clean void grid by default, or any of the walk-world scenes). Every change you make elsewhere in the editor — a sculpted smile, a new jacket, a pair of glasses — shows up on the walking avatar instantly, no reload. When the look is right, “Open in Walk page” drops your in-progress draft into the full Walk experience in a new tab. The preview holds a steady 30fps so the rest of the editor stays snappy. Only coin referenced is $THREE.",
 			"tags": [

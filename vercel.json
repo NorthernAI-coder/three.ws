@@ -501,8 +501,32 @@
 			"dest": "/api/agents/[id]/tiers?id=$1"
 		},
 		{
+			"src": "/api/ledger/verify/([^/]+)",
+			"dest": "/api/ledger/verify/[agentId]?agentId=$1"
+		},
+		{
+			"src": "/api/ledger/([^/]+)",
+			"dest": "/api/ledger/[agentId]?agentId=$1"
+		},
+		{
+			"src": "/ledger/([^/]+)/?",
+			"dest": "/reasoning-ledger.html"
+		},
+		{
+			"src": "/ledger/?",
+			"dest": "/reasoning-ledger.html"
+		},
+		{
 			"src": "/api/billing/receipts",
 			"dest": "/api/billing/receipts"
+		},
+		{
+			"src": "/api/billing/invoices",
+			"dest": "/api/billing/invoices"
+		},
+		{
+			"src": "/api/pricing",
+			"dest": "/api/pricing"
 		},
 		{
 			"src": "/api/newsletter/subscribe",
@@ -642,10 +666,7 @@
 		},
 		{
 			"src": "/three/?",
-			"status": 308,
-			"headers": {
-				"Location": "/three-token"
-			}
+			"dest": "/three.html"
 		},
 		{
 			"src": "/go/?",
@@ -1190,6 +1211,10 @@
 		{
 			"src": "/pricing/?",
 			"dest": "/pricing.html"
+		},
+		{
+			"src": "/billing/?",
+			"dest": "/billing.html"
 		},
 		{
 			"src": "/credits/?",
@@ -2223,6 +2248,18 @@
 		{
 			"src": "/api/irl/drops",
 			"dest": "/api/irl/drops.js"
+		},
+		{
+			"src": "/api/irl/world-lines/verify/([^/]+)",
+			"dest": "/api/irl/world-lines.js"
+		},
+		{
+			"src": "/api/irl/world-lines/([^/]+)",
+			"dest": "/api/irl/world-lines.js"
+		},
+		{
+			"src": "/api/irl/world-lines",
+			"dest": "/api/irl/world-lines.js"
 		},
 		{
 			"src": "/api/irl/pins/mine",
@@ -4004,6 +4041,10 @@
 		},
 		{
 			"path": "/api/cron/wallet-intents",
+			"schedule": "*/10 * * * *"
+		},
+		{
+			"path": "/api/cron/reconcile-decisions",
 			"schedule": "*/10 * * * *"
 		},
 		{

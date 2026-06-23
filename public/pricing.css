@@ -1002,6 +1002,70 @@
 	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
+/* ── Holder discount banner + personalized "your price" ──────────────────── */
+.payg-holder {
+	margin: 0 0 18px;
+}
+.payg-holder-card {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	padding: 14px 18px;
+	border-radius: 14px;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(14, 14, 14, 0.92);
+	font-size: 13.5px;
+	color: rgba(255, 255, 255, 0.78);
+}
+.payg-holder-card.is-active {
+	border-color: color-mix(in srgb, var(--accent, #7c5cff) 55%, transparent);
+	background: color-mix(in srgb, var(--accent, #7c5cff) 12%, rgba(14, 14, 14, 0.92));
+}
+.payg-holder-badge {
+	flex: 0 0 auto;
+	font-family: var(--font-mono, 'SF Mono', monospace);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 4px 10px;
+	border-radius: 999px;
+	color: #fff;
+	background: var(--accent, #7c5cff);
+}
+.payg-holder-msg {
+	flex: 1 1 240px;
+	line-height: 1.45;
+}
+.payg-holder-msg strong {
+	color: rgba(255, 255, 255, 0.95);
+}
+.payg-holder-cta {
+	flex: 0 0 auto;
+	font-weight: 600;
+	font-size: 13px;
+	color: var(--accent, #7c5cff);
+	text-decoration: none;
+	transition: opacity 0.15s;
+}
+.payg-holder-cta:hover {
+	opacity: 0.8;
+}
+.payg-card.is-yourprice {
+	border-color: color-mix(in srgb, var(--accent, #7c5cff) 45%, rgba(255, 255, 255, 0.08));
+}
+.payg-badge.is-discount {
+	color: #fff;
+	background: var(--accent, #7c5cff);
+}
+.payg-was {
+	color: rgba(255, 255, 255, 0.4);
+	font-weight: 400;
+	margin-right: 6px;
+	text-decoration-thickness: 1px;
+}
+
 .payg-card-top {
 	display: flex;
 	align-items: center;

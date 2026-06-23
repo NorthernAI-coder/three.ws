@@ -31,10 +31,45 @@
 		}
 	}
 
+	// Fire a one-per-session visit beacon so the growth funnel can measure
+	// share→visit→signup and the loop's k-factor. Best-effort and privacy-safe:
+	// the server stores only a hash of (ip + ua + code), never raw identifiers.
+	function beaconVisit(code) {
+		try {
+			var seenKey = 'tw:ref:visited';
+			var seen = sessionStorage.getItem(seenKey);
+			if (seen === code) return; // already counted this code this session
+			sessionStorage.setItem(seenKey, code);
+		} catch {
+			// No sessionStorage (private mode) — still send once per page load.
+		}
+		var url = '/api/referral/visit';
+		var payload = JSON.stringify({ code: code });
+		try {
+			if (navigator && typeof navigator.sendBeacon === 'function') {
+				var blob = new Blob([payload], { type: 'application/json' });
+				if (navigator.sendBeacon(url, blob)) return;
+			}
+		} catch {
+			/* fall through to fetch */
+		}
+		try {
+			fetch(url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: payload,
+				keepalive: true,
+			}).catch(function () {});
+		} catch {
+			/* visit tracking is best-effort */
+		}
+	}
+
 	try {
 		var code = readParam();
 		if (code) {
 			localStorage.setItem(KEY, JSON.stringify({ code: code, ts: Date.now() }));
+			beaconVisit(code);
 		} else {
 			// Expire a stale capture so it never attributes a much later signup.
 			var existing = localStorage.getItem(KEY);

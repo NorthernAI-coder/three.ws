@@ -17,6 +17,7 @@ import { parse, loginBody, registerBody, usernameRegisterBody, username as usern
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
 import { referralCodeCandidates, normalizeReferralCode } from '../_lib/referrals.js';
 import { seedDefaultAgent } from '../_lib/seed-default-agent.js';
+import { recordEvent } from '../_lib/usage.js';
 import { logAudit } from '../_lib/audit.js';
 import { z } from 'zod';
 
@@ -165,6 +166,16 @@ async function handleRegister(req, res) {
 	} catch (err) {
 		if (err?.status === 409) return error(res, 409, err.code || 'conflict', err.message);
 		throw err;
+	}
+	// Funnel: record the referred signup so visit→signup is measurable. The
+	// wallet auth paths (Privy/SIWS/SIWE) attribute later via referral-claim.js,
+	// which emits the mirror event.
+	if (referred_by_id) {
+		recordEvent({
+			userId: referred_by_id,
+			kind: 'referral_signup',
+			meta: { referred_user_id: String(user.id), source: 'signup' },
+		});
 	}
 	// Fire-and-forget: every new account gets a starter draft agent so the
 	// marketplace's "My Agents" tab and onboarding flow have something to show.

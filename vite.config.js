@@ -343,6 +343,7 @@ const appConfig = {
 				'launch-detail': resolve(__dirname, 'pages/launch-detail.html'),
 				watchlist: resolve(__dirname, 'pages/watchlist.html'),
 				leaderboard: resolve(__dirname, 'pages/leaderboard.html'),
+				'reasoning-ledger': resolve(__dirname, 'pages/reasoning-ledger.html'),
 				mirror: resolve(__dirname, 'pages/mirror.html'),
 				strategies: resolve(__dirname, 'pages/strategies.html'),
 				swarms: resolve(__dirname, 'pages/swarms.html'),
@@ -386,6 +387,7 @@ const appConfig = {
 				'pump-dashboard': resolve(__dirname, 'pages/pump-dashboard.html'),
 				autopilot: resolve(__dirname, 'pages/autopilot.html'),
 				'pump-visualizer': resolve(__dirname, 'pages/pump-visualizer.html'),
+				three: resolve(__dirname, 'pages/three.html'),
 				'three-live': resolve(__dirname, 'pages/three-live.html'),
 				'three-token': resolve(__dirname, 'pages/three-token.html'),
 				'avatar-artifact': resolve(__dirname, 'pages/avatar-artifact.html'),
@@ -405,6 +407,7 @@ const appConfig = {
 				'ar-page': resolve(__dirname, 'pages/ar.html'),
 				creating: resolve(__dirname, 'pages/creating.html'),
 				pricing: resolve(__dirname, 'pages/pricing.html'),
+				billing: resolve(__dirname, 'pages/billing.html'),
 				credits: resolve(__dirname, 'pages/credits.html'),
 				'x-pricing': resolve(__dirname, 'pages/x-pricing.html'),
 				'avatar-studio-demo': resolve(__dirname, 'pages/avatar-studio-demo.html'),
@@ -828,7 +831,9 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/autopilot/': resolve(root, 'pages/autopilot.html'),
 					'/pump-visualizer': resolve(root, 'pages/pump-visualizer.html'),
 					'/pump-visualizer/': resolve(root, 'pages/pump-visualizer.html'),
-					'/three-live': resolve(root, 'pages/three-live.html'),
+					'/three': resolve(root, 'pages/three.html'),
+						'/three/': resolve(root, 'pages/three.html'),
+						'/three-live': resolve(root, 'pages/three-live.html'),
 					'/three-live/': resolve(root, 'pages/three-live.html'),
 					'/three-token': resolve(root, 'pages/three-token.html'),
 					'/three-token/': resolve(root, 'pages/three-token.html'),
@@ -1144,6 +1149,9 @@ support: resolve(__dirname, 'pages/support.html'),
 					// /signals/<slug>  → signal feed detail page (hydrates from /api/signals/feed)
 					else if (!filePath && /^\/signals\/[^/.]+\/?$/.test(path))
 						filePath = resolve(root, 'pages/signal-detail.html');
+					// /ledger and /ledger/:agentId → the Reasoning Ledger surface
+					else if (!filePath && /^\/ledger(\/[^/.]+)?\/?$/.test(path))
+						filePath = resolve(root, 'pages/reasoning-ledger.html');
 					// `[^/.]+` (no dot) mirrors vercel.json's `/agents/([^/.]+)` so
 					// static assets like /agents/boot.js fall through to public/
 					// instead of being served the agent-detail HTML shell.
@@ -2025,6 +2033,10 @@ support: resolve(__dirname, 'pages/support.html'),
 			},
 			workbox: {
 				maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+				// Pull in the Web Push handlers (push + notificationclick). Kept in
+				// public/push-sw.js as a classic script so the generated Workbox SW
+				// importScripts it without switching to an injectManifest build.
+				importScripts: ['/push-sw.js'],
 				// MPA: every route is a separate HTML file served by the server.
 				// No navigation fallback — uncached navigations go to the network.
 				// HTML is intentionally excluded from globPatterns so it is never
