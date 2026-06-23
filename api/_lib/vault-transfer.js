@@ -130,7 +130,10 @@ export async function depositToVault({ vault, backerAgent, userId, usdcAtomics, 
 		vaultId: vault.id, userId, backerAgentId: backerAgent.id,
 		sharesDelta: minted, basisDelta: amount, depositedDelta: amount,
 	});
-	const updated = await applyVaultShareDelta(vault.id, minted, nextPeak(vault.peak_nav_atomics, nav.navAtomics));
+	// Ratchet the share-price peak (a deposit mints at the current price, so this
+	// is a no-op on price — it just seeds the peak on the very first deposit).
+	const priceAfter = sharePriceE6(nav.navAtomics, toBig(vault.total_shares) + minted);
+	const updated = await applyVaultShareDelta(vault.id, minted, nextPeak(vault.peak_share_price_e6, priceAfter));
 
 	logAudit({ userId, action: 'vault.deposit', resourceId: vault.id, meta: { agent_id: vault.agent_id, usdc_atomics: String(amount), shares: String(minted), signature } });
 
