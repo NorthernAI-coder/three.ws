@@ -138,6 +138,10 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 			: `Portfolio <strong>${esc(fmtUsd(usd))}</strong>${hub ? ` · <a href="${esc(hub)}">wallet</a>` : ''}`;
 
 		const controls = isOwner ? renderControls(prefs) : '';
+		// The live "why": the real 24h flow behind the glow. Visitors see the honest
+		// trend qualitatively (earning / cooling) + public stream/tip signals; the
+		// owner additionally sees the exact dollar momentum and in/out breakdown.
+		const flowRow = renderFlow(data.flow, isOwner);
 
 		el.innerHTML = `
 			<div class="nwp-head">
@@ -148,6 +152,7 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 				</div>
 			</div>
 			${next && next.usd_to_next > 0 ? `<div class="nwp-next" title="${esc(fmtUsd(next.usd_to_next))} to ${esc(next.label)}"><i style="width:${nextPct}%"></i></div>` : ''}
+			${flowRow}
 			${marks ? `<div class="nwp-marks" data-marks${repHidden ? ' hidden' : ''}>${marks}</div>` : ''}
 			${controls}
 			<div class="nwp-foot">◎ Driven by this agent's real on-chain wallet</div>

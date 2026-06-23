@@ -50,7 +50,10 @@ const state = {
 	rafId: 0,
 	playback: null,
 	signedIn: false,
+	username: null, // signed-in user's handle (lowercased) — used to gate avatar_id on save
 };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // ── Bring up the Three.js scene ────────────────────────────────────────────
 const viewer = new Viewer(stage, { kiosk: true });
@@ -63,9 +66,10 @@ handleInput.value = '';
 nameInput.value = '';
 
 // ── Auth state ────────────────────────────────────────────────────────────
-detectAuth().then((ok) => {
-	state.signedIn = ok;
-	authWarning.classList.toggle('visible', !ok);
+fetchMe().then((user) => {
+	state.signedIn = !!user;
+	state.username = user?.username ? String(user.username).toLowerCase() : null;
+	authWarning.classList.toggle('visible', !user);
 });
 
 // ── Boot: try to load user's primary public avatar ────────────────────────
@@ -119,8 +123,17 @@ async function fetchMe() {
 	}
 }
 
-async function detectAuth() {
-	return !!(await fetchMe());
+// True only when the loaded avatar is one the signed-in user owns — i.e. it was
+// resolved from their own handle and carries a real UUID. The save endpoint
+// rejects an avatar_id the caller doesn't own (404) and the non-UUID 'default'
+// sentinel (400 uuid-validation), so attaching the id in any other case would
+// make "Save clip" fail. When false we simply omit avatar_id: the clip still
+// saves, just without an avatar association.
+function ownsLoadedAvatar() {
+	const a = state.avatar;
+	if (!a || !a.id || !UUID_RE.test(a.id)) return false;
+	if (!state.username || !a.handle) return false;
+	return String(a.handle).toLowerCase() === state.username;
 }
 
 async function bootAvatar() {
@@ -328,7 +341,7 @@ async function saveClip() {
 		description: (descInput.value || '').trim() || undefined,
 		tags,
 		visibility: visibilityInput.value,
-		avatar_id: state.avatar?.id,
+		avatar_id: ownsLoadedAvatar() ? state.avatar.id : undefined,
 		clip: state.lastClip,
 	};
 	saveBtn.disabled = true;
