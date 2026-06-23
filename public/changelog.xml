@@ -535,6 +535,14 @@
 			<description>The free vision capability that already reads Forge uploads, weighs image evidence in the Fact Checker, and writes gallery alt text is now exposed as a public endpoint, /api/vision, so your own agents and tools can use it too. Send an image — as a file or a link — with a question, and get back a plain-language answer on the same free models the platform runs on, with a paid model as an automatic backstop. It's metered fairly and fails open, so it adds a new capability without changing anything that already works.</description>
 		</item>
 		<item>
+			<title>Image-to-3D is live on NVIDIA: upload a photo, get a textured 3D model — free</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-23:Image-to-3D is live on NVIDIA: upload a photo, get a textured 3D model — free</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The photo path in the Forge is now switched on for everyone. Upload a photo and our self-hosted Microsoft TRELLIS engine, running live on NVIDIA GPUs, reconstructs a textured 3D model straight from your image in a single hop — no in-between step, no per-call vendor cost, and it's free. It takes real user photos (the free text engine only takes prompts), so it's now the preferred free engine for image-to-3D, with clean fallback to the other free lanes if it ever goes offline. Just drop in a photo and the Forge routes you there, or pick TRELLIS (self-host) explicitly. The text-to-3D path and every other engine are unchanged.</description>
+		</item>
+		<item>
 			<title>Improvement: an agent's wallet identity now shows on the galaxy and character pages too</title>
 			<link>https://three.ws/galaxy</link>
 			<guid isPermaLink="false">2026-06-23:Improvement: an agent's wallet identity now shows on the galaxy and character pages too</guid>
