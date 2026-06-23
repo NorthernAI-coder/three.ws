@@ -51,6 +51,16 @@
 			ctaPrimary: { label: 'Open the Forge', href: '/forge' },
 		},
 		{
+			slug: 'nvidia-3d-free',
+			tier: 'easy',
+			title: 'Generate 3D models free, powered by NVIDIA',
+			blurb: "The Forge's free text-to-3D runs on NVIDIA NIM with Microsoft TRELLIS — no key, no cost. Learn what the free lane does, when it kicks in, and how to watch TRELLIS rebuild a mesh live.",
+			builds: 'A 3D model generated free on the NVIDIA NIM lane, downloaded as a GLB',
+			time: '8 min',
+			previewModel: '/animations/robotexpressive.glb',
+			ctaPrimary: { label: 'Open the NIM demo', href: '/forge-nim' },
+		},
+		{
 			slug: 'embed-in-30-seconds',
 			tier: 'easy',
 			title: 'Embed in 30 seconds',
@@ -343,6 +353,16 @@
 			time: '75 min',
 			previewModel: '/avatars/cz.glb',
 			ctaPrimary: { label: 'See paid calls', href: '/pay/calls' },
+		},
+		{
+			slug: 'nvidia-nim-self-host',
+			tier: 'advanced',
+			title: 'Run Microsoft TRELLIS on your own NVIDIA NIM',
+			blurb: 'Self-host the TRELLIS NIM container on an NVIDIA GPU, point three.ws at it, and reconstruct a textured GLB from a prompt or a photo in one synchronous /v1/infer call.',
+			builds: 'Your own NVIDIA NIM serving text- and image-to-3D, wired into three.ws',
+			time: '60 min',
+			previewModel: '/animations/soldier.glb',
+			ctaPrimary: { label: 'Open the NIM demo', href: '/forge-nim' },
 		},
 		{
 			slug: 'self-host-agent-backend',
