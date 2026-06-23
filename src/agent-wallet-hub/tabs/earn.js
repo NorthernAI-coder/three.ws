@@ -2,7 +2,8 @@
  * Agent Wallet hub — Earn tab (fully built). Owner-only.
  *
  * "Your avatar has a job." This is the economy home: what the agent has earned
- * (skill sales + tips), the prices that make it money, the bounded allowance +
+ * (skill sales + hires from other agents + tips), who its top customers are, the
+ * prices that make it money, the bounded allowance +
  * kill switch that lets it pay other agents safely, and a clean receipts
  * statement of every dollar in and out. Every number is real — it traces to
  * agent_custody_events / skill_payment_earnings via GET /api/agents/:id/economy.
@@ -97,6 +98,15 @@ const STYLE = `
 .awh-rcpt-amt.out { color: var(--ink-dim,#888); }
 .awh-rcpt-amt.pending { color: var(--warn,#fbbf24); }
 
+.awh-cust { margin: 0 0 var(--space-3,12px); }
+.awh-cust-h { font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-dim,#888); margin: 0 0 6px; }
+.awh-cust-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.awh-cust-row { display: flex; align-items: baseline; gap: var(--space-2,8px); padding: 5px 0; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.05)); }
+.awh-cust-row:last-child { border-bottom: none; }
+.awh-cust-name { flex: 1 1 auto; min-width: 0; color: var(--ink,#e8e8e8); text-decoration: none; font-size: var(--text-sm,.764rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dotted transparent; }
+.awh-cust-name:hover { color: var(--ink-bright,#fff); border-bottom-color: currentColor; }
+.awh-cust-meta { flex: none; color: var(--ink-dim,#888); font-size: var(--text-2xs,.6875rem); }
+.awh-cust-usd { flex: none; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-sm,.764rem); color: var(--success,#4ade80); font-variant-numeric: tabular-nums; }
 .awh-earn-disc { display: flex; gap: var(--space-2,8px); flex-wrap: wrap; }
 .awh-earn-skel span { display: block; height: 16px; border-radius: var(--radius-sm,6px); background: var(--surface-2, rgba(255,255,255,.05)); animation: awh-skel 1.4s ease-in-out infinite; margin-bottom: 10px; }
 .awh-earn-skel span:nth-child(2){ width: 60%; } .awh-earn-skel span:nth-child(3){ width: 80%; }
@@ -125,6 +135,20 @@ function money(n) {
 function unixSec(iso) {
 	const t = Date.parse(iso);
 	return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
+}
+
+// Lifetime earnings breakdown across the three real income streams. Only streams
+// that actually earned are named, so the sentence reads true for every agent:
+// just sales, just hires, or all three. money() output is numeric — safe HTML.
+function earnSplit(e) {
+	const parts = [];
+	if ((e.skill_sales?.lifetime || 0) > 0) parts.push(`<b>${money(e.skill_sales.lifetime)}</b> in skill sales`);
+	if ((e.hires?.lifetime || 0) > 0) parts.push(`<b>${money(e.hires.lifetime)}</b> from agents hiring it`);
+	if ((e.tips?.lifetime || 0) > 0) parts.push(`<b>${money(e.tips.lifetime)}</b> in tips`);
+	if (!parts.length) return `Every dollar in and out shows up below as a real, signed receipt.`;
+	if (parts.length === 1) return `From ${parts[0]}.`;
+	const last = parts.pop();
+	return `From ${parts.join(', ')} and ${last}.`;
 }
 
 registerWalletTab({
@@ -217,7 +241,7 @@ registerWalletTab({
 						<div class="awh-earn-chip"><b>${escapeHtml(money(e.total.week))}</b><span>7 days</span></div>
 						<div class="awh-earn-chip"><b>${escapeHtml(money(e.total.lifetime))}</b><span>All time</span></div>
 					</div>
-					<p class="awh-earn-split">From <b>${escapeHtml(money(e.skill_sales.lifetime))}</b> in skill sales${e.tips.lifetime > 0 ? ` and <b>${escapeHtml(money(e.tips.lifetime))}</b> in tips` : ''}.</p>
+					<p class="awh-earn-split">${earnSplit(e)}</p>
 				</div>`;
 			animateCount();
 		}
@@ -471,7 +495,7 @@ registerWalletTab({
 			const rows = state.econ.receipts || [];
 			if (!rows.length) {
 				h.innerHTML = `<h2 class="awh-card-h">Receipts</h2>
-					<div class="awh-earn-empty">No money has moved yet. Every payment in and out — skill sales, tips, services your agent pays for — shows up here as a receipt with its on-chain signature.</div>`;
+					<div class="awh-earn-empty">No money has moved yet. Every payment in and out — skill sales, hires from other agents, tips, and services your agent pays for — shows up here as a receipt with its on-chain signature.</div>`;
 				return;
 			}
 			const net = ctx.getNetwork?.() || 'mainnet';
@@ -479,11 +503,17 @@ registerWalletTab({
 				const inbound = r.direction === 'in';
 				const amt = r.usd != null ? money(r.usd) : (r.sol != null ? `${r.sol.toFixed(4)} SOL` : '—');
 				const pending = r.status && r.status !== 'confirmed' && r.status !== 'ok';
-				const cp = r.counterparty
-					? (looksLikeAddress(r.counterparty)
-						? `<a href="${escapeHtml(explorerAddressUrl(r.counterparty, net))}" target="_blank" rel="noopener">${escapeHtml(shortAddress(r.counterparty, 4, 4))} ↗</a>`
-						: escapeHtml(shortAddress(r.counterparty, 4, 4)))
-					: '';
+				// An agent counterparty (e.g. another agent that hired this one) links to
+				// its real profile by name; an on-chain address links to the explorer; a
+				// bare id falls back to a short label.
+				let cp = '';
+				if (r.counterparty_agent_id) {
+					cp = `<a href="/agent/${escapeHtml(r.counterparty_agent_id)}">${escapeHtml(clampName(r.counterparty || 'Agent'))}</a>`;
+				} else if (r.counterparty && looksLikeAddress(r.counterparty)) {
+					cp = `<a href="${escapeHtml(explorerAddressUrl(r.counterparty, net))}" target="_blank" rel="noopener">${escapeHtml(shortAddress(r.counterparty, 4, 4))} ↗</a>`;
+				} else if (r.counterparty) {
+					cp = escapeHtml(shortAddress(r.counterparty, 4, 4));
+				}
 				const when = r.created_at ? timeAgo(unixSec(r.created_at)) : '';
 				const sig = r.signature
 					? ` · <a href="${escapeHtml(explorerTxUrl(r.signature, net))}" target="_blank" rel="noopener">tx ↗</a>`
@@ -504,12 +534,30 @@ registerWalletTab({
 		function renderDiscover() {
 			const h = host('discover');
 			if (!h) return;
+			const customers = state.econ?.customers || [];
 			const peers = state.econ?.peers || [];
 			const net = ctx.getNetwork?.() || 'mainnet';
+
+			// The income edge: agents that have hired this one, ranked by spend. Each
+			// links to a real agent profile. This is the owner's "who's my best
+			// customer?" — the signal for which skills to price up or promote.
+			const customerBlock = customers.length
+				? `<div class="awh-cust">
+						<p class="awh-cust-h">Top customers</p>
+						<ul class="awh-cust-list">${customers.slice(0, 5).map((c) => `
+							<li class="awh-cust-row">
+								<a class="awh-cust-name" href="/agent/${escapeHtml(c.agent_id)}" title="${escapeHtml(c.name)}">${escapeHtml(clampName(c.name))}</a>
+								<span class="awh-cust-meta">${c.count} hire${c.count === 1 ? '' : 's'}</span>
+								<span class="awh-cust-usd">${escapeHtml(money(c.usd))}</span>
+							</li>`).join('')}</ul>
+					</div>`
+				: '';
+
 			const peerLine = peers.length
 				? `<p class="awh-earn-split" style="margin-top:0">Your agent has paid ${peers.length} counterpart${peers.length === 1 ? 'y' : 'ies'}: ${peers.slice(0, 4).map((p) => `<a class="awh-earn-link" href="${escapeHtml(explorerAddressUrl(p.address, net))}" target="_blank" rel="noopener">${escapeHtml(shortAddress(p.address, 4, 4))}</a>`).join(', ')}.</p>`
 				: `<p class="awh-earn-split" style="margin-top:0">Discover agents and x402 services your avatar can hire — the network where agents pay agents.</p>`;
 			h.innerHTML = `<h2 class="awh-card-h">The agent economy</h2>
+				${customerBlock}
 				${peerLine}
 				<div class="awh-earn-disc">
 					<a class="awh-btn awh-btn--primary" href="/economy">Services directory →</a>
@@ -627,4 +675,10 @@ registerWalletTab({
 
 function looksLikeAddress(s) {
 	return typeof s === 'string' && /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(s);
+}
+
+// Keep a display name to a sane length so a long agent name can't break the row.
+function clampName(s, max = 28) {
+	const v = String(s ?? '').trim();
+	return v.length > max ? `${v.slice(0, max - 1)}…` : v;
 }

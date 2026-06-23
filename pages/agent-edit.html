@@ -1105,6 +1105,7 @@
 				<div class="edit-sidebar-group">
 					<div class="edit-sidebar-group-title">Brain</div>
 					<button class="edit-tab" data-tab="knowledge" role="tab" aria-selected="false" aria-controls="panel-knowledge" id="tab-knowledge">Knowledge</button>
+					<button class="edit-tab" data-tab="dreams" role="tab" aria-selected="false" aria-controls="panel-dreams" id="tab-dreams">Dreams<span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></button>
 					<button class="edit-tab" data-tab="skills" role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills">Skills</button>
 					<button class="edit-tab" data-tab="autopilot" role="tab" aria-selected="false" aria-controls="panel-autopilot" id="tab-autopilot">Autopilot</button>
 				</div>
@@ -1478,6 +1479,28 @@
 				<div class="form-group" style="margin-top:1.5rem">
 					<label class="form-label">Existing memories</label>
 					<div id="mem-list" class="mem-list"><div class="muted">Loading…</div></div>
+				</div>
+			</section>
+
+			<!-- Dreams tab -->
+			<section class="edit-panel persona-panel" id="panel-dreams" role="tabpanel" aria-labelledby="tab-dreams" hidden>
+				<div class="dreams-head">
+					<div>
+						<p class="hint" style="margin:0">While you're away, your agent <strong>reflects</strong> — it reads its own memories and actions and consolidates them into higher-order insights. Review each below: accept one and it becomes a real, higher-salience memory; reject it and your agent learns the synthesis was wrong.</p>
+						<div class="dreams-meta" id="dreams-meta" aria-live="polite"></div>
+					</div>
+					<button class="btn-ghost dreams-reflect-btn" id="dreams-reflect-btn" title="Run a reflection pass now">
+						<span class="dreams-reflect-label">Reflect now</span>
+					</button>
+				</div>
+
+				<div id="dreams-list" class="dreams-list" aria-live="polite"><div class="muted">Loading…</div></div>
+
+				<div class="dreams-journal" id="dreams-journal" hidden>
+					<button class="dreams-journal-toggle" id="dreams-journal-toggle" aria-expanded="false" aria-controls="dreams-journal-list">
+						<span class="dreams-journal-caret" aria-hidden="true">▸</span> Dream journal <span class="muted" id="dreams-journal-count"></span>
+					</button>
+					<div id="dreams-journal-list" class="dreams-journal-list" hidden></div>
 				</div>
 			</section>
 

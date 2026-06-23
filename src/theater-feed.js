@@ -1,0 +1,128 @@
+// Live Trading Theater — the real event spine.
+//
+// Every confirmed action on three.ws (a coin buy, an agent going on-chain, an
+// x402 payment, a new agent) is published to the capped Redis list `feed:events`
+// (api/_lib/feed.js) and tailed by GET /api/feed-stream (SSE). This module owns
+// that connection: a fast snapshot from GET /api/feed for first paint, then the
+// live stream, normalised into one shape the theater can route to a performer.
+//
+// Nothing here invents activity. If the stream is quiet, the theater shows its
+// quiet-market state from the real recent snapshot — never a fabricated bot.
+
+const SOL_EXPLORER = 'https://solscan.io';
+
+function solscanToken(mint, network) {
+	const base = `${SOL_EXPLORER}/token/${encodeURIComponent(mint)}`;
+	return network === 'devnet' ? `${base}?cluster=devnet` : base;
+}
+
+function fmtSol(n) {
+	const v = Number(n);
+	if (!Number.isFinite(v)) return null;
+	return `${v >= 100 ? Math.round(v) : v.toFixed(v < 1 ? 3 : 2)} SOL`;
+}
+function fmtUsdc(atomic) {
+	const v = Number(atomic) / 1e6;
+	if (!Number.isFinite(v)) return null;
+	return `$${v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(2)}`;
+}
+function shortMint(m) {
+	return typeof m === 'string' && m.length > 10 ? `${m.slice(0, 4)}…${m.slice(-4)}` : m || '';
+}
+
+/**
+ * Normalise a raw feed event into the theater's routing shape, or null for an
+ * event type the stage doesn't visualise (it still reaches the ticker raw).
+ *
+ *   { id, ts, type, kind, actor, agentId, mint, title, sub, href }
+ *   kind ∈ buy | launch | verify | pay | win | loss | misc
+ */
+export function normalizeEvent(e) {
+	if (!e || !e.type) return null;
+	const base = {
+		id: e.id || `${e.ts || Date.now()}-${Math.abs((e.type || '').length)}`,
+		ts: Number(e.ts) || Date.now(),
+		type: e.type,
+		actor: typeof e.actor === 'string' ? e.actor : '',
+		agentId: null,
+		mint: null,
+		href: null,
+	};
+	switch (e.type) {
+		case 'coin-buy':
+			return { ...base, kind: 'buy', mint: e.mint || null, title: 'Buy filled', sub: fmtSol(e.sol) || shortMint(e.mint), href: e.mint ? solscanToken(e.mint, e.network) : null };
+		case 'agent-deploy':
+			return { ...base, kind: 'launch', agentId: e.agentId || null, title: 'New agent', sub: e.name || base.actor, href: e.agentId ? `/agent/${e.agentId}` : null };
+		case 'agent-onchain':
+			return { ...base, kind: 'verify', agentId: e.agentId || null, title: 'Verified on-chain', sub: e.name || base.actor, href: e.agentId ? `/agent/${e.agentId}` : null };
+		case 'payment':
+			return { ...base, kind: 'pay', title: 'Payment', sub: fmtUsdc(e.usdcAtomic) || e.recipientLabel || base.actor, href: e.explorerUrl || null };
+		case 'jackpot':
+			return { ...base, kind: 'win', title: 'Jackpot', sub: e.reward ? `${e.reward}` : base.actor, href: null };
+		default:
+			return { ...base, kind: 'misc', title: e.type.replace(/-/g, ' '), sub: base.actor, href: null };
+	}
+}
+
+/**
+ * Fetch the recent feed snapshot for first paint (quiet-market highlights and
+ * the replay seed). Returns normalised events newest-first.
+ */
+export async function loadSnapshot(limit = 40) {
+	try {
+		const r = await fetch(`/api/feed?limit=${limit}`, { headers: { accept: 'application/json' } });
+		if (!r.ok) return [];
+		const body = await r.json();
+		const events = Array.isArray(body.events) ? body.events : [];
+		return events.map(normalizeEvent).filter(Boolean);
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Open the live SSE stream. Calls onEvent(normalized) for each fresh event and
+ * onStatus('connecting'|'live'|'reconnecting'|'offline') on connection changes.
+ * EventSource reconnects automatically; we surface that as 'reconnecting' so the
+ * UI never shows stale data as live. Returns { close }.
+ */
+export function connectFeed({ onEvent, onStatus }) {
+	if (typeof EventSource === 'undefined') {
+		onStatus?.('offline');
+		return { close() {} };
+	}
+	let es = null;
+	let closed = false;
+	let firstOpen = true;
+
+	const open = () => {
+		if (closed) return;
+		onStatus?.(firstOpen ? 'connecting' : 'reconnecting');
+		es = new EventSource('/api/feed-stream');
+		es.addEventListener('hello', () => { firstOpen = false; onStatus?.('live'); });
+		es.addEventListener('open', () => { onStatus?.('live'); });
+		es.addEventListener('event', (ev) => {
+			let raw;
+			try { raw = JSON.parse(ev.data); } catch { return; }
+			const n = normalizeEvent(raw);
+			if (n) onEvent?.(n);
+		});
+		es.onerror = () => {
+			// EventSource transitions to CLOSED only on fatal errors; for transient
+			// drops it retries on its own. Surface 'reconnecting' either way.
+			onStatus?.('reconnecting');
+			if (es && es.readyState === EventSource.CLOSED && !closed) {
+				try { es.close(); } catch {}
+				setTimeout(open, 2500);
+			}
+		};
+	};
+	open();
+
+	return {
+		close() {
+			closed = true;
+			try { es?.close(); } catch {}
+		},
+	};
+}

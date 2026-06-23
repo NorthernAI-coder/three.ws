@@ -1,8 +1,9 @@
 // GET /api/agents/:id/economy — the owner-facing economy summary for one agent.
 //
 // "Your avatar has a job." This is the single read behind the wallet hub's Earn
-// tab: every dollar the agent has earned (skill sales + tips) and every dollar
-// it has spent paying other services over x402, plus the live spend policy that
+// tab: every dollar the agent has earned (skill sales + hires from other agents
+// + tips) and every dollar it has spent paying other services over x402, plus
+// the live spend policy that
 // keeps autonomous spending safe, and a unified receipts statement. Every number
 // traces to a real ledger row — agent_custody_events, agent_revenue_events,
 // skill_purchases — never a mock.
@@ -12,16 +13,23 @@
 // (agent_identities.user_id === auth.userId). A public "earned $X" brag uses the
 // public pulse agent-summary instead; this endpoint never leaks to a visitor.
 //
-//   earnings : skill sales + tips, windowed today / 7d / lifetime (USD)
-//   spending : x402 agent-to-agent payments, windowed (USD)
-//   policy   : daily/per-tx caps, allowlist size, frozen, today's spend
-//   receipts : recent in + out movements as a clean statement
-//   peers    : top counterparties the agent has paid (the A2A network edge)
+//   earnings  : skill sales + hires + tips, windowed today / 7d / lifetime (USD)
+//   spending  : x402 agent-to-agent payments, windowed (USD)
+//   policy    : daily/per-tx caps, allowlist size, frozen, today's spend
+//   receipts  : recent in + out movements as a clean statement
+//   customers : top agents that have hired this one (the income edge)
+//   peers     : top counterparties the agent has paid (the outlay edge)
+//
+// "Hires" are the headline of the agent economy: another agent autonomously paid
+// this one for a skill over the real x402 rails (api/agents/a2a-hire.js). That
+// income is the authoritative agent_hires ledger — surfaced as its own earnings
+// bucket and receipts, never silently lumped into tips.
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { cors, json, method, wrap, error } from '../../_lib/http.js';
 import { sql } from '../../_lib/db.js';
 import { getSpendLimits, getDailySpendUsd } from '../../_lib/agent-trade-guards.js';
+import { composeEarnings } from '../../_lib/economy-shape.js';
 import { env } from '../../_lib/env.js';
 
 // Skill prices are denominated in USDC (6 decimals) across the platform — the
@@ -86,7 +94,10 @@ export default wrap(async (req, res) => {
 				FROM agent_revenue_events
 				WHERE agent_id = ${id}
 			`,
-			// Tips received (already USD-priced on the custody row).
+			// Tips received (already USD-priced on the custody row). A2A hire income
+			// is also written as a 'tip' custody row for the live money pulse, but it
+			// is the agent_hires ledger's job to surface it as earned-by-hire — exclude
+			// it here so it is counted once, in its own bucket, not mislabeled as a tip.
 			sql`
 				SELECT
 					COALESCE(SUM(usd) FILTER (WHERE created_at >= date_trunc('day', now())), 0)::float8 AS today,
@@ -96,6 +107,7 @@ export default wrap(async (req, res) => {
 				FROM agent_custody_events
 				WHERE agent_id = ${id} AND network = ${network}
 				  AND event_type = 'tip' AND status IN ('ok', 'confirmed')
+				  AND (meta->>'source') IS DISTINCT FROM 'a2a_hire'
 			`,
 			// Outbound agent-to-agent payments over x402 (USD-priced).
 			sql`
@@ -116,12 +128,14 @@ export default wrap(async (req, res) => {
 				WHERE agent_id = ${id} AND is_active = true
 				ORDER BY amount DESC
 			`,
-			// Inbound receipts — tips.
+			// Inbound receipts — tips (a2a hire 'tip' rows excluded; hires get their
+			// own receipts from the agent_hires ledger below).
 			sql`
 				SELECT id, usd, amount_lamports, signature, created_at, meta
 				FROM agent_custody_events
 				WHERE agent_id = ${id} AND network = ${network}
 				  AND event_type = 'tip' AND status IN ('ok', 'confirmed')
+				  AND (meta->>'source') IS DISTINCT FROM 'a2a_hire'
 				ORDER BY created_at DESC
 				LIMIT ${RECEIPTS_LIMIT}
 			`,
@@ -165,12 +179,55 @@ export default wrap(async (req, res) => {
 			getDailySpendUsd(id, network).catch(() => null),
 		]);
 
+		// A2A hire income lives on the real, mainnet-settled agent_hires ledger (USDC
+		// over x402). It is the authoritative record of "another agent paid mine for a
+		// skill" — surfaced as its own earnings bucket, its own receipts, and the
+		// top-customers edge. Scoped to the mainnet view (the only place real hires
+		// settle); a devnet view shows none, matching the rest of this endpoint.
+		const [hireEarn, hireReceipts, customers] = network === 'mainnet'
+			? await Promise.all([
+				sql`
+					SELECT
+						COALESCE(SUM(usd) FILTER (WHERE COALESCE(completed_at, created_at) >= date_trunc('day', now())), 0)::float8 AS today,
+						COALESCE(SUM(usd) FILTER (WHERE COALESCE(completed_at, created_at) >= now() - interval '7 days'), 0)::float8 AS week,
+						COALESCE(SUM(usd), 0)::float8 AS lifetime,
+						COUNT(*)::int AS count
+					FROM agent_hires
+					WHERE provider_agent_id = ${id} AND status = 'completed'
+				`,
+				sql`
+					SELECT h.id, h.usd, h.skill_name, h.payment_signature, h.invocation_signature,
+					       h.hirer_agent_id, hr.name AS hirer_name,
+					       COALESCE(h.completed_at, h.created_at) AS at
+					FROM agent_hires h
+					LEFT JOIN agent_identities hr ON hr.id = h.hirer_agent_id
+					WHERE h.provider_agent_id = ${id} AND h.status = 'completed'
+					ORDER BY COALESCE(h.completed_at, h.created_at) DESC
+					LIMIT ${RECEIPTS_LIMIT}
+				`,
+				sql`
+					SELECT h.hirer_agent_id, hr.name AS hirer_name, hr.is_public AS hirer_public,
+					       COUNT(*)::int AS count,
+					       COALESCE(SUM(h.usd), 0)::float8 AS usd,
+					       MAX(COALESCE(h.completed_at, h.created_at)) AS last_at
+					FROM agent_hires h
+					LEFT JOIN agent_identities hr ON hr.id = h.hirer_agent_id
+					WHERE h.provider_agent_id = ${id} AND h.status = 'completed'
+					  AND h.hirer_agent_id IS NOT NULL
+					GROUP BY h.hirer_agent_id, hr.name, hr.is_public
+					ORDER BY usd DESC, count DESC
+					LIMIT ${PEERS_LIMIT}
+				`,
+			])
+			: [[{}], [], []];
+
 		const usdc = (atomic) => Number(BigInt(atomic || '0')) / 1e6;
 		const se = skillEarn[0] || {};
 		const tp = tips[0] || {};
 		const sp = spend[0] || {};
+		const he = hireEarn[0] || {};
 
-		const earnings = {
+		const earnings = composeEarnings({
 			skill_sales: {
 				today: usdc(se.today),
 				week: usdc(se.week),
@@ -178,19 +235,20 @@ export default wrap(async (req, res) => {
 				count: Number(se.count || 0),
 				non_usdc_count: Number(se.non_usdc_count || 0),
 			},
+			// Agents hiring this agent — paid, on-chain, over the x402 rails.
+			hires: {
+				today: Number(he.today || 0),
+				week: Number(he.week || 0),
+				lifetime: Number(he.lifetime || 0),
+				count: Number(he.count || 0),
+			},
 			tips: {
 				today: Number(tp.today || 0),
 				week: Number(tp.week || 0),
 				lifetime: Number(tp.lifetime || 0),
 				count: Number(tp.count || 0),
 			},
-		};
-		earnings.total = {
-			today: earnings.skill_sales.today + earnings.tips.today,
-			week: earnings.skill_sales.week + earnings.tips.week,
-			lifetime: earnings.skill_sales.lifetime + earnings.tips.lifetime,
-			count: earnings.skill_sales.count + earnings.tips.count,
-		};
+		});
 
 		const spending = {
 			x402: {
@@ -240,6 +298,22 @@ export default wrap(async (req, res) => {
 				created_at: r.created_at,
 			});
 		}
+		for (const r of hireReceipts) {
+			receipts.push({
+				id: `hire-${r.id}`,
+				direction: 'in',
+				kind: 'hire',
+				usd: r.usd != null ? Number(r.usd) : null,
+				counterparty: r.hirer_name || r.hirer_agent_id || null,
+				counterparty_agent_id: r.hirer_agent_id || null,
+				label: r.skill_name ? `Hired · ${r.skill_name}` : 'Agent hire',
+				skill: r.skill_name || null,
+				signature: r.payment_signature || null,
+				invocation_signature: r.invocation_signature || null,
+				status: 'confirmed',
+				created_at: r.at,
+			});
+		}
 		for (const r of spendReceipts) {
 			receipts.push({
 				id: `pay-${r.id}`,
@@ -273,6 +347,16 @@ export default wrap(async (req, res) => {
 					pricing_type: p.pricing_type,
 				})),
 				receipts: receipts.slice(0, RECEIPTS_LIMIT),
+				// Top agents that have hired this one — the income edge of the mesh.
+				// Each links to a real agent profile (public ones are navigable).
+				customers: customers.map((c) => ({
+					agent_id: c.hirer_agent_id,
+					name: c.hirer_name || 'Agent',
+					is_public: c.hirer_public !== false,
+					count: Number(c.count || 0),
+					usd: Number(c.usd || 0),
+					last_at: c.last_at,
+				})),
 				peers: peers.map((p) => ({
 					address: p.destination,
 					count: Number(p.count || 0),

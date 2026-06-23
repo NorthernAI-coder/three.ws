@@ -488,6 +488,13 @@ alter table agent_identities add column if not exists persona_prompt_hash   text
 alter table agent_identities add column if not exists persona_prompt_sig    text;
 alter table agent_identities add column if not exists persona_tone_tags     jsonb not null default '[]'::jsonb;
 alter table agent_identities add column if not exists persona_extracted_at  timestamptz;
+-- Brain Studio: structured, editable personality. `persona_traits` is the source
+-- of truth for the slider dimensions + vocabulary + base persona; it compiles
+-- (src/agents/persona-compile.js) into the signed `persona_prompt` above.
+-- `persona_updated_at` tracks the last Brain Studio save (distinct from the
+-- one-time extraction interview in `persona_extracted_at`).
+alter table agent_identities add column if not exists persona_traits        jsonb not null default '{}'::jsonb;
+alter table agent_identities add column if not exists persona_updated_at    timestamptz;
 -- is_public arrived via inline CREATE on fresh DBs but never as an additive
 -- migration, so pre-existing deployments are missing the column entirely —
 -- that 500s /api/avatars/:id/agents. Add it and backfill to the new default.
@@ -562,6 +569,93 @@ do $$ begin
     create trigger agent_memories_set_updated_at before update on agent_memories
         for each row execute function set_updated_at();
 exception when duplicate_object then null; end $$;
+
+-- ── agent_reflections / _reflection_runs — Reflection & Dreams (Living Agents) ─
+-- The agent consolidates raw memories + actions into higher-order "dreams" the
+-- owner reviews. agent_reflections holds the candidate insights (provenance via
+-- source_memory_ids is mandatory); agent_reflection_runs logs every pass — even
+-- skipped ones — so the per-agent daily cap + debounce never silently truncate.
+-- See migrations/20260623210000_agent_reflections.sql.
+create table if not exists agent_reflections (
+    id                 uuid primary key default gen_random_uuid(),
+    agent_id           uuid not null references agent_identities(id) on delete cascade,
+    status             text not null default 'pending'
+                           check (status in ('pending', 'accepted', 'rejected')),
+    kind               text not null default 'insight'
+                           check (kind in ('insight', 'belief', 'question', 'prune')),
+    statement          text not null,
+    rationale          text,
+    confidence         real not null default 0.5 check (confidence >= 0 and confidence <= 1),
+    source_memory_ids  uuid[] not null default '{}',
+    proposed_type      text check (proposed_type in ('user', 'feedback', 'project', 'reference')),
+    proposed_salience  real not null default 0.7 check (proposed_salience >= 0 and proposed_salience <= 1),
+    proposed_action    jsonb,
+    question           text,
+    answer             text,
+    run_id             uuid,
+    accepted_memory_id uuid,
+    created_at         timestamptz not null default now(),
+    reviewed_at        timestamptz
+);
+create index if not exists agent_reflections_agent_status
+    on agent_reflections(agent_id, status, created_at desc);
+create index if not exists agent_reflections_run
+    on agent_reflections(run_id)
+    where run_id is not null;
+
+create table if not exists agent_reflection_runs (
+    id             uuid primary key default gen_random_uuid(),
+    agent_id       uuid not null references agent_identities(id) on delete cascade,
+    trigger        text not null check (trigger in ('cron', 'on-demand', 'manual')),
+    status         text not null check (status in ('ok', 'skipped', 'error')),
+    reason         text,
+    dreams_created integer not null default 0,
+    candidates     integer not null default 0,
+    model          text,
+    input_tokens   integer,
+    output_tokens  integer,
+    created_at     timestamptz not null default now()
+);
+create index if not exists agent_reflection_runs_agent_time
+    on agent_reflection_runs(agent_id, created_at desc);
+
+-- ── agent_autopilot_proposals — Memory-grounded Autopilot (Living Agents) ─────
+-- Explainable autonomy: the agent proposes and (within owner-granted scope) takes
+-- REAL actions, each traceable to the memory/reflection that motivated it. Scope
+-- lives on agent_identities.meta.autopilot; this is the proposal queue. Execution
+-- records a signed agent_actions row linked via executed_action_id. Provenance
+-- (source_memory_ids and/or source_reflection_id) is mandatory.
+-- See migrations/20260623230000_autopilot_proposals.sql.
+create table if not exists agent_autopilot_proposals (
+    id                    uuid primary key default gen_random_uuid(),
+    agent_id              uuid not null references agent_identities(id) on delete cascade,
+    user_id               uuid not null references users(id) on delete cascade,
+    kind                  text not null
+                              check (kind in ('create_alert', 'briefing', 'wallet_transfer')),
+    title                 text not null,
+    rationale             text not null,
+    params                jsonb not null default '{}'::jsonb,
+    source_memory_ids     uuid[] not null default '{}',
+    source_reflection_id  uuid references agent_reflections(id) on delete set null,
+    confidence            real not null default 0.6 check (confidence >= 0 and confidence <= 1),
+    requires_confirmation boolean not null default true,
+    status                text not null default 'pending'
+                              check (status in ('pending', 'executed', 'dismissed', 'undone', 'failed')),
+    executed_action_id    bigint,
+    result                jsonb not null default '{}'::jsonb,
+    created_at            timestamptz not null default now(),
+    decided_at            timestamptz,
+    executed_at           timestamptz,
+    constraint agent_autopilot_proposals_has_source
+        check (array_length(source_memory_ids, 1) > 0 or source_reflection_id is not null)
+);
+create index if not exists agent_autopilot_proposals_agent_status
+    on agent_autopilot_proposals(agent_id, status, created_at desc);
+create index if not exists agent_autopilot_proposals_user
+    on agent_autopilot_proposals(user_id, created_at desc);
+create unique index if not exists agent_autopilot_proposals_reflection_pending
+    on agent_autopilot_proposals(source_reflection_id)
+    where source_reflection_id is not null and status = 'pending';
 
 -- ── agent_memory_entities / _entity_links — temporal knowledge graph (P2) ────
 -- Nodes are the entities (mints, tickers, wallets, people, strategies, topics)
