@@ -227,7 +227,7 @@ function modal(buildInner, { extraClass = '' } = {}) {
 }
 
 // ── The Location & privacy sheet ────────────────────────────────────────────
-export function openPrivacyCenter({ getGhost, setGhost, onManagePins } = {}) {
+export function openPrivacyCenter({ getGhost, setGhost, onManagePins, onChanged } = {}) {
 	modal((sheet, close) => {
 		const precision = getDiscoveryPrecision();
 		const ghostOn = !!(getGhost && getGhost());
@@ -259,9 +259,12 @@ export function openPrivacyCenter({ getGhost, setGhost, onManagePins } = {}) {
 				</div>
 			</div>
 			<div class="irlpc-sec">
-				<h4>Your placements</h4>
+				<h4>Your placements &amp; data</h4>
 				<button class="irlpc-manage" type="button" data-manage>
 					<span>Manage &amp; remove agents you’ve placed</span><span class="ar">→</span>
+				</button>
+				<button class="irlpc-manage" type="button" data-mydata style="margin-top:8px">
+					<span>Privacy &amp; my data — see, export &amp; erase everything</span><span class="ar">→</span>
 				</button>
 			</div>
 			<div class="irlpc-foot">
