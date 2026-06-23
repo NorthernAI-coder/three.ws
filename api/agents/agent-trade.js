@@ -315,8 +315,9 @@ async function countOpenTrades(agentId, network) {
 }
 
 // Parse + validate the trade request body into a normalized shape, or throw a
-// boundary() error. Shared by execute + preview.
-function parseTradeInput(body, tradeLimits) {
+// boundary() error. Shared by execute + preview + the strategy runtime (which
+// builds a synthetic body { side, mint, amount, slippageBps, network }).
+export function parseTradeInput(body, tradeLimits) {
 	const side = body.side === 'sell' ? 'sell' : body.side === 'buy' ? 'buy' : null;
 	if (!side) throw boundary(400, 'invalid_side', 'side must be "buy" or "sell"');
 
@@ -379,22 +380,60 @@ async function handleExecute(req, res, id) {
 	} catch (e) {
 		return boundaryError(res, e);
 	}
-	const { side, network, simulate, slippagePct } = input;
-	const idempotencyKey = input.idempotencyKey || randomUUID();
 
 	// CSRF on the real, fund-moving path only — `simulate` is a dry run that never
 	// signs or records. Bearer/API-key callers (the primary consumers of this flat
 	// trade endpoint) are exempt inside requireCsrf.
-	if (!simulate && !(await requireCsrf(req, res, auth.userId))) return;
+	if (!input.simulate && !(await requireCsrf(req, res, auth.userId))) return;
+
+	let result;
+	try {
+		result = await executeAgentTrade({ id, userId: auth.userId, meta, input, req, source: 'discretionary' });
+	} catch (e) {
+		console.error('[agents/agent-trade] execute crashed', e?.message);
+		return error(res, 500, 'internal_error', 'unexpected error executing the trade');
+	}
+	if (!result.ok) {
+		return error(res, result.status || 500, result.code || 'error', result.message || 'trade failed', result.detail ? { detail: result.detail } : {});
+	}
+	return json(res, result.status || 200, { data: result.data });
+}
+
+/**
+ * Programmatic trade execution core — the shared engine behind BOTH the HTTP
+ * trade endpoint and the autonomous strategy runtime (task 10). The caller has
+ * already loaded the owned agent (`meta`), parsed + bounded the request into
+ * `input`, and — for the HTTP path — verified CSRF. This runs the SAME
+ * quote → guard → build → custody-claim → sign → confirm pipeline for every
+ * caller, so an autonomous strategy is held to the exact same spend policy,
+ * rug/honeypot firewall, daily budget, kill switch, and custody audit trail as a
+ * manual trade. A strategy can NEVER exceed the spend leash — the guards below do
+ * not know or care who called them.
+ *
+ * `source` labels the custody ledger: 'discretionary' for the HTTP endpoint, or
+ * 'strategy:<slug>' for a strategy-initiated trade (with `sourceMeta` carrying
+ * { strategy, strategy_id, equip_id } stamped into the ledger row's meta).
+ *
+ * @returns {Promise<{ ok:true, status:number, data:object }
+ *                  | { ok:false, status:number, code:string, message:string, detail?:object }>}
+ */
+export async function executeAgentTrade({ id, userId, meta, input, req = null, source = 'discretionary', sourceMeta = null }) {
+	const { side, network, simulate, slippagePct } = input;
+	const idempotencyKey = input.idempotencyKey || randomUUID();
+	const tradeLimits = getTradeLimits(meta);
+	const isStrategy = typeof source === 'string' && source.startsWith('strategy:');
+	const custodyReason = isStrategy ? source.slice(0, 80) : `trade_${side}`;
+
+	const fail = (status, code, message, detail = null) => ({ ok: false, status, code, message, detail });
 
 	// Guarantee the wallet exists (lazy provision) so a funded-but-unprovisioned
 	// agent can trade. ensureAgentWallet audits the provision and never returns
 	// the secret.
 	let address;
 	try {
-		address = (await ensureAgentWallet(id, auth.userId, { reason: 'trade' })).address;
+		address = (await ensureAgentWallet(id, userId, { reason: custodyReason })).address;
 	} catch (e) {
-		return error(res, 500, 'wallet_unavailable', 'could not prepare the agent wallet — try again');
+		return fail(500, 'wallet_unavailable', 'could not prepare the agent wallet — try again');
 	}
 	const ownerPk = new PublicKey(address);
 
@@ -406,12 +445,12 @@ async function handleExecute(req, res, id) {
 		`;
 		if (existing) {
 			if (existing.status === 'confirmed') {
-				return json(res, 200, { data: { replayed: true, signature: existing.signature, explorer: explorerTxUrl(existing.signature, network), network, ...(existing.meta || {}) } });
+				return { ok: true, status: 200, data: { replayed: true, signature: existing.signature, explorer: explorerTxUrl(existing.signature, network), network, ...(existing.meta || {}) } };
 			}
 			if (existing.status === 'pending') {
-				return error(res, 409, 'trade_in_progress', 'a trade with this id is already in flight — check the audit log before retrying', { signature: existing.signature || null });
+				return fail(409, 'trade_in_progress', 'a trade with this id is already in flight — check the audit log before retrying', { signature: existing.signature || null });
 			}
-			return error(res, 409, 'trade_failed', 'this trade id already failed — retry with a fresh idempotency key', { signature: existing.signature || null });
+			return fail(409, 'trade_failed', 'this trade id already failed — retry with a fresh idempotency key', { signature: existing.signature || null });
 		}
 	}
 
@@ -419,7 +458,7 @@ async function handleExecute(req, res, id) {
 	try {
 		ctx = await getPumpTradeClient({ network });
 	} catch (e) {
-		return error(res, 502, 'rpc_error', 'could not connect to the trade RPC — try again');
+		return fail(502, 'rpc_error', 'could not connect to the trade RPC — try again');
 	}
 	const conn = ctx.connection;
 
@@ -427,7 +466,7 @@ async function handleExecute(req, res, id) {
 	try {
 		walletLamports = BigInt(await conn.getBalance(ownerPk, 'confirmed'));
 	} catch {
-		return error(res, 502, 'rpc_error', 'could not read the wallet balance — try again');
+		return fail(502, 'rpc_error', 'could not read the wallet balance — try again');
 	}
 
 	// Price the trade.
@@ -435,20 +474,21 @@ async function handleExecute(req, res, id) {
 	try {
 		prep = await quoteTrade({ ctx, side, mintPk: input.mintPk, amount: input.amount, isMax: input.isMax, slippagePct, network, ownerPk });
 	} catch (e) {
-		return boundaryError(res, e);
+		if (e?.isBoundary) return fail(e.status, e.code, e.message, e.detail && Object.keys(e.detail).length ? e.detail : null);
+		return fail(500, 'internal_error', 'unexpected error preparing the trade');
 	}
 	if (side === 'buy' && prep.lamports != null) {
 		try { prep.usdValue = await lamportsToUsd(prep.lamports); } catch { prep.usdValue = null; }
 	}
 
-	// Run the shared guardrails.
+	// Run the shared guardrails — identical for manual + strategy trades.
 	let blocked;
 	try {
-		blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta, mintPk: input.mintPk, ownerPk, userId: auth.userId });
+		blocked = await runGuards({ id, side, tradeLimits, prep, walletLamports, network, meta, mintPk: input.mintPk, ownerPk, userId });
 	} catch (e) {
-		return error(res, 502, 'guard_check_failed', 'could not verify the trade guardrails — try again');
+		return fail(502, 'guard_check_failed', 'could not verify the trade guardrails — try again');
 	}
-	if (blocked) return error(res, blocked.status, blocked.code, blocked.message, { detail: blocked.detail });
+	if (blocked) return fail(blocked.status, blocked.code, blocked.message, blocked.detail);
 
 	// Build the on-chain instructions (also the real graduation check for buys).
 	let built;
@@ -456,10 +496,10 @@ async function handleExecute(req, res, id) {
 		built = await buildTradeInstructions({ ctx, side, venue: prep.venue, mintPk: input.mintPk, ownerPk, lamports: prep.lamports, baseAmount: prep.baseAmount, slippagePct, network });
 	} catch (e) {
 		if (isGraduatedErr(e)) {
-			return error(res, 409, 'graduated', 'This coin graduated mid-trade — refresh the quote and retry.');
+			return fail(409, 'graduated', 'This coin graduated mid-trade — refresh the quote and retry.');
 		}
 		console.error('[agents/agent-trade] build failed', e?.message);
-		return error(res, 502, 'build_failed', 'could not build the trade — try again');
+		return fail(502, 'build_failed', 'could not build the trade — try again');
 	}
 
 	const ledgerMeta = {
@@ -468,6 +508,7 @@ async function handleExecute(req, res, id) {
 		expected_out: prep.expectedOutRaw.toString(),
 		min_out: prep.minOutRaw.toString(),
 		...(side === 'sell' ? { base_amount: prep.baseAmount.toString(), token_decimals: prep.decimals } : {}),
+		...(isStrategy ? { source: 'strategy', strategy: sourceMeta?.strategy ?? null, strategy_id: sourceMeta?.strategy_id ?? null, equip_id: sourceMeta?.equip_id ?? null } : {}),
 	};
 
 	// Paper mode: simulate the real instructions, never sign, never record.
@@ -479,9 +520,11 @@ async function handleExecute(req, res, id) {
 			sim = await conn.simulateTransaction(vtx, { sigVerify: false, replaceRecentBlockhash: true });
 		} catch (e) {
 			console.error('[agents/agent-trade] simulation failed', e?.message);
-			return serverError(res, 502, 'simulation_failed', e);
+			return fail(502, 'simulation_failed', e?.message || 'simulation failed');
 		}
-		return json(res, 200, {
+		return {
+			ok: true,
+			status: 200,
 			data: {
 				simulated: true, side, mint: input.mint, network, venue: prep.venue,
 				expected_out: prep.expectedOutRaw.toString(),
@@ -490,30 +533,33 @@ async function handleExecute(req, res, id) {
 				err: sim.value?.err ?? null,
 				units_consumed: sim.value?.unitsConsumed ?? null,
 			},
-		});
+		};
 	}
 
 	// Claim the idempotency slot — this row is also the ledger/audit entry. Buys
 	// count toward the SOL + USD budgets (amount_lamports + usd set); sells move
 	// SOL inward, so they record for audit with null amounts (don't consume budget).
+	// `reason` is the human-facing custody-trail label: 'strategy:<slug>' for a
+	// strategy fill, 'trade_buy'/'trade_sell' for a manual one. Budget queries key
+	// on event_type/amount/usd (never reason), so relabeling is safe.
 	const claim = await sql`
 		INSERT INTO agent_custody_events
 			(agent_id, user_id, event_type, category, network, asset,
 			 amount_lamports, amount_raw, usd, status, idempotency_key, reason, meta)
 		VALUES (
-			${id}, ${auth.userId}, 'spend', 'trade', ${network},
+			${id}, ${userId}, 'spend', 'trade', ${network},
 			${side === 'buy' ? 'SOL' : input.mint},
 			${side === 'buy' ? String(prep.lamports) : null},
 			${side === 'sell' ? String(prep.baseAmount) : null},
 			${side === 'buy' ? (prep.usdValue ?? null) : null},
-			'pending', ${idempotencyKey}, ${`trade_${side}`},
+			'pending', ${idempotencyKey}, ${custodyReason},
 			${JSON.stringify(ledgerMeta)}::jsonb
 		)
 		ON CONFLICT (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 		RETURNING id
 	`;
 	if (!claim.length) {
-		return error(res, 409, 'trade_in_progress', 'a trade with this id is already in flight — check the audit log before retrying');
+		return fail(409, 'trade_in_progress', 'a trade with this id is already in flight — check the audit log before retrying');
 	}
 	const claimId = claim[0].id;
 
@@ -521,12 +567,12 @@ async function handleExecute(req, res, id) {
 	let keypair;
 	try {
 		keypair = await recoverSolanaAgentKeypair(meta.encrypted_solana_secret, {
-			agentId: id, userId: auth.userId, reason: `trade_${side}`,
-			meta: { mint: input.mint, network, venue: prep.venue, custody_event_id: claimId },
+			agentId: id, userId, reason: custodyReason,
+			meta: { mint: input.mint, network, venue: prep.venue, custody_event_id: claimId, ...(isStrategy ? { strategy_id: sourceMeta?.strategy_id ?? null, equip_id: sourceMeta?.equip_id ?? null } : {}) },
 		});
 	} catch (e) {
 		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'key_recover_failed' } }).catch(() => {});
-		return error(res, 500, 'key_recover_failed', 'could not access the agent wallet key — no funds were moved');
+		return fail(500, 'key_recover_failed', 'could not access the agent wallet key — no funds were moved');
 	}
 
 	// Submit + confirm through the protected execution engine.
@@ -535,43 +581,76 @@ async function handleExecute(req, res, id) {
 		result = await signSendConfirm(conn, keypair, built.instructions, network);
 	} catch (e) {
 		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: e?.code || 'send_failed', message: e?.message?.slice(0, 200) } }).catch(() => {});
-		logAudit({ userId: auth.userId, action: 'custody.trade_failed', resourceId: id, meta: { side, mint: input.mint, reason: e?.code || 'send_failed', network }, req });
-		return error(res, 502, 'send_failed', 'the trade could not be submitted and no funds were moved — try again');
+		logAudit({ userId, action: isStrategy ? 'custody.trade_strategy_failed' : 'custody.trade_failed', resourceId: id, meta: { side, mint: input.mint, reason: e?.code || 'send_failed', network, source }, req });
+		return fail(502, 'send_failed', 'the trade could not be submitted and no funds were moved — try again');
 	}
 
 	if (!result.confirmed) {
 		await updateCustodyEvent(claimId, { signature: result.signature, meta: { confirm: 'unconfirmed' } }).catch(() => {});
-		logAudit({ userId: auth.userId, action: 'custody.trade_unconfirmed', resourceId: id, meta: { side, mint: input.mint, signature: result.signature, network }, req });
-		return error(res, 202, 'trade_unconfirmed', 'the trade was submitted but not yet confirmed — check the explorer link before retrying', { signature: result.signature, explorer: explorerTxUrl(result.signature, network) });
+		logAudit({ userId, action: 'custody.trade_unconfirmed', resourceId: id, meta: { side, mint: input.mint, signature: result.signature, network, source }, req });
+		return fail(202, 'trade_unconfirmed', 'the trade was submitted but not yet confirmed — check the explorer link before retrying', { signature: result.signature, explorer: explorerTxUrl(result.signature, network) });
 	}
 
 	await updateCustodyEvent(claimId, { status: 'confirmed', signature: result.signature, meta: result.exec ? { exec: result.exec } : undefined }).catch(() => {});
-	logAudit({ userId: auth.userId, action: 'custody.trade', resourceId: id, meta: { side, mint: input.mint, venue: prep.venue, network, signature: result.signature, usd: prep.usdValue, exec_route: result.exec?.route }, req });
+	logAudit({ userId, action: isStrategy ? 'custody.trade_strategy' : 'custody.trade', resourceId: id, meta: { side, mint: input.mint, venue: prep.venue, network, signature: result.signature, usd: prep.usdValue, exec_route: result.exec?.route, source }, req });
 
 	// Re-read the SOL balance for the response.
 	let newSol = null;
 	try { newSol = (await conn.getBalance(ownerPk, 'confirmed')) / 1e9; } catch { /* best-effort */ }
 
-	return json(res, 200, {
+	return {
+		ok: true,
+		status: 200,
 		data: {
 			replayed: false,
+			custody_event_id: claimId,
 			signature: result.signature,
 			explorer: explorerTxUrl(result.signature, network),
 			side, mint: input.mint, network, venue: prep.venue,
 			slippage_bps: input.slippageBps,
 			price_impact_pct: prep.priceImpactPct,
 			...(side === 'buy'
-				? { sol_spent: lamportsToSol(prep.lamports), tokens_received: prep.expectedOutRaw.toString() }
-				: { tokens_sold: prep.baseAmount.toString(), sol_received: lamportsToSol(prep.expectedOutRaw) }),
+				? { sol_spent: lamportsToSol(prep.lamports), tokens_received: prep.expectedOutRaw.toString(), expected_out_raw: prep.expectedOutRaw.toString() }
+				: { tokens_sold: prep.baseAmount.toString(), sol_received: lamportsToSol(prep.expectedOutRaw), expected_out_raw: prep.expectedOutRaw.toString() }),
 			min_out: prep.minOutRaw.toString(),
 			new_balance_sol: newSol,
 			execution: result.exec || null,
 		},
-	});
+	};
 }
 
 async function safeBlockhash(conn) {
 	try { return await conn.getLatestBlockhash('confirmed'); } catch { return null; }
+}
+
+/**
+ * Live SOL value (lamports) of selling `baseAmountRaw` base units of `mint` right
+ * now — a zero-slippage quote used by the strategy runtime to mark open positions
+ * to market for take-profit / stop-loss / trailing-stop decisions. Reuses the
+ * exact bonding-curve + AMM quote path the real sell uses, so the valuation and
+ * the eventual fill are priced the same way. Returns null if it can't be priced
+ * (caller treats that as "skip this position this sweep", never as a loss).
+ */
+export async function quoteSellValueLamports({ network, mint, baseAmountRaw }) {
+	const base = BigInt(baseAmountRaw || 0n);
+	if (base <= 0n) return null;
+	const net = normNetwork(network);
+	let ctx;
+	try { ctx = await getPumpTradeClient({ network: net }); } catch { return null; }
+	const mintPk = new PublicKey(mint);
+	const baseBn = new ctx.BN(base.toString());
+	try {
+		const q = await ctx.client.quoteForSell({ mint: mintPk, baseAmount: baseBn, slippagePct: 0 });
+		return BigInt(q.expectedQuoteOut.toString());
+	} catch (err) {
+		if (!isGraduatedErr(err)) return null;
+		try {
+			const a = await quoteAmmSell({ network: net, mint, baseAmount: baseBn, slippagePct: 0 });
+			return BigInt(a.expectedQuoteOut);
+		} catch {
+			return null;
+		}
+	}
 }
 
 // Broadcast + confirm through the MEV-aware execution engine: dynamic compute

@@ -82,6 +82,8 @@ import { openGlassesConnect } from './irl/glasses/connect-ui.js';
 import { loadLeaflet } from './shared/leaflet-loader.js';
 import { initDiscovery } from './irl/discovery.js';
 import { walletChipEl, hasWallet } from './shared/agent-wallet-chip.js';
+import { buildSolanaPayUri } from './shared/solana-pay.js';
+import { renderQRToSVG } from './erc8004/qr.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 const ANIMATIONS_MANIFEST_URL = '/animations/manifest.json';
@@ -4881,6 +4883,54 @@ function _cardSkeletonHTML() {
 	return `${skeletonHTML(1, 'text')}${skeletonHTML(3, 'row')}`;
 }
 
+const _TAPTIP_B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// Build the IRL "tap to tip" block: a Solana Pay QR + a one-tap deep link to the
+// agent's real public address. This is the moment that only exists when you meet
+// an autonomous agent in physical space — scan the QR with a phone wallet, or tap
+// "Open in wallet" to launch Phantom/Solflare pre-filled. Public data only (the
+// agent's solana_address); no secret is ever involved. Returns null when the
+// agent has no valid address so the card simply omits the block.
+function _buildTapToTip(agent) {
+	const address = agent?.solana_address;
+	if (!address || !_TAPTIP_B58.test(String(address))) return null;
+	const label = (agent.name || 'three.ws agent').slice(0, 32);
+	const uri = buildSolanaPayUri(address, { label });
+	if (!uri) return null;
+
+	const wrap = document.createElement('div');
+	wrap.className = 'irl-taptip';
+	wrap.innerHTML =
+		`<button type="button" class="irl-taptip-toggle" aria-expanded="false">` +
+		`<span>◎ Tap to tip in person</span><span class="irl-taptip-caret">▾</span></button>` +
+		`<div class="irl-taptip-panel" hidden>` +
+		`<div class="irl-taptip-qr" aria-hidden="true"></div>` +
+		`<div class="irl-taptip-meta">` +
+		`<div class="irl-taptip-cap">Scan with Phantom · Solflare · Backpack</div>` +
+		`<a class="irl-taptip-open" href="${uri}">Open in wallet ↗</a>` +
+		`</div></div>`;
+
+	const toggle = wrap.querySelector('.irl-taptip-toggle');
+	const panel = wrap.querySelector('.irl-taptip-panel');
+	const qrSlot = wrap.querySelector('.irl-taptip-qr');
+	toggle.addEventListener('click', () => {
+		const open = panel.hidden;
+		panel.hidden = !open;
+		toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+		if (open && !qrSlot.dataset.done) {
+			try {
+				qrSlot.innerHTML = renderQRToSVG(uri, { scale: 4, margin: 1 });
+				qrSlot.dataset.done = '1';
+			} catch {
+				// QR generation can overflow on a very long label — fall back to the
+				// deep link alone, never a broken slot.
+				qrSlot.remove();
+			}
+		}
+	});
+	return wrap;
+}
+
 // Render the resolved card into the open sheet.
 function _applyCard(card, pin) {
 	const agent = card.agent || {};
@@ -4925,6 +4975,14 @@ function _applyCard(card, pin) {
 				chip.style.marginTop = '10px';
 				body.appendChild(chip);
 			}
+			// Tap-to-tip in the real world — the moment unique to IRL/AR. You meet
+			// the agent in physical space and pay it on the spot: scan the Solana
+			// Pay QR with a phone wallet, or tap "Open in wallet" on this device to
+			// launch Phantom/Solflare pre-filled with the agent's real address. The
+			// chip above already covers the connected-browser-wallet tip; this is
+			// the in-person, no-extension path.
+			const tap = _buildTapToTip(agent);
+			if (tap) body.appendChild(tap);
 		}
 	}
 

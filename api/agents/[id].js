@@ -62,8 +62,23 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'recovery') {
+		const mod = await import('./recovery.js');
+		return mod.default(req, res, id, action, parts);
+	}
+
 	if (sub === 'trade') {
 		const mod = await import('./agent-trade.js');
+		return mod.default(req, res, id, action);
+	}
+
+	if (sub === 'autopilot') {
+		const mod = await import('./autopilot.js');
+		return mod.default(req, res, id, action);
+	}
+
+	if (sub === 'mirror') {
+		const mod = await import('./agent-mirror.js');
 		return mod.default(req, res, id, action);
 	}
 

@@ -123,14 +123,32 @@ export async function resolveUserAgentWallet(userId) {
 		LIMIT 1
 	`;
 	if (!row) return null;
-	const address = row.meta?.solana_address || null;
+	return shapeWallet(row);
+}
+
+function shapeWallet(row) {
+	if (!row) return null;
 	return {
 		agentId: row.id,
 		name: row.name || null,
-		address,
+		address: row.meta?.solana_address || null,
 		hasSecret: !!row.meta?.encrypted_solana_secret,
 		encryptedSecret: row.meta?.encrypted_solana_secret || null,
 	};
+}
+
+// A SPECIFIC agent's wallet, but only if the caller owns it. Used by the
+// agent-to-agent economy so the hiring agent the owner chose is the one that
+// pays — not just their first-created agent. Returns null when the agent does not
+// exist or is not owned by `userId`, so the caller fails closed.
+export async function resolveAgentWalletById(agentId, userId) {
+	if (!agentId || !userId) return null;
+	const [row] = await sql`
+		SELECT id, name, meta FROM agent_identities
+		WHERE id = ${agentId} AND user_id = ${userId} AND deleted_at IS NULL
+		LIMIT 1
+	`;
+	return shapeWallet(row);
 }
 
 // Build a paying axios instance bound to the user's Solana keypair, with the
@@ -265,7 +283,7 @@ export async function getUserWalletStatus(userId) {
 
 // Pay an external x402 endpoint from the user's wallet. Throws an Error with a
 // `.code` for the boundary (the MCP handler) to translate into a clean result.
-export async function payExternalX402({ userId, url, method = 'GET', body, maxUsd }) {
+export async function payExternalX402({ userId, agentId, url, method = 'GET', body, maxUsd }) {
 	if (!resolveSpendEnabled()) {
 		throw Object.assign(new Error('autonomous spending is disabled on this server'), {
 			code: 'spend_disabled',
@@ -276,7 +294,12 @@ export async function payExternalX402({ userId, url, method = 'GET', body, maxUs
 			code: 'auth_required',
 		});
 	}
-	const wallet = await resolveUserAgentWallet(userId);
+	// When the caller names a specific agent (the agent-to-agent economy), that
+	// agent — owned by this user — is the payer. Otherwise fall back to the user's
+	// primary agent wallet (the original pay_and_call behavior).
+	const wallet = agentId
+		? await resolveAgentWalletById(agentId, userId)
+		: await resolveUserAgentWallet(userId);
 	if (!wallet) {
 		throw Object.assign(new Error('no agent wallet found for this account'), {
 			code: 'no_wallet',

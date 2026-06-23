@@ -825,3 +825,93 @@ export async function confirmInheritance({ agentId, requestId, actorId, req = nu
 	const [fresh] = await sql`SELECT * FROM agent_recovery_requests WHERE id = ${requestId}`;
 	return decorateRequest(fresh, agentId);
 }
+
+// ── cron sweep: dead-man evaluation + completion + expiry ───────────────────────
+
+const DEAD_MAN_REMINDER_WINDOW_MS = 7 * DAY_MS; // warn 7 days before the switch arms
+
+/**
+ * Mark any request that never reached its approval threshold within the TTL as
+ * expired, and lift the freeze we applied. Keeps a stalled impostor attempt from
+ * freezing a wallet forever.
+ */
+export async function expireStaleRequests() {
+	const cutoff = new Date(Date.now() - RECOVERY_REQUEST_TTL_MS).toISOString();
+	const stale = await sql`
+		SELECT id, agent_id FROM agent_recovery_requests
+		WHERE status = 'pending_approvals' AND created_at < ${cutoff}
+	`;
+	for (const r of stale) {
+		await sql`UPDATE agent_recovery_requests SET status = 'expired', updated_at = now(), completed_at = now() WHERE id = ${r.id} AND status = 'pending_approvals'`;
+		await unfreezeForRequest(r.agent_id, r.id, null);
+		await recordCustodyEvent({ agentId: r.agent_id, userId: null, eventType: 'recovery_cancel', reason: 'expired', meta: { request_id: r.id } }).catch(() => {});
+		await notifyParties(r.agent_id, 'recovery_expired', { request_id: r.id }).catch(() => {});
+	}
+	return stale.length;
+}
+
+/**
+ * One full dead-man's-switch sweep, safe to run on a cron:
+ *   1. expire stalled requests,
+ *   2. arm inheritance for agents whose owner crossed the inactivity threshold,
+ *   3. send an early "tap I'm here" reminder to owners approaching the threshold,
+ *   4. complete inheritance requests whose grace window elapsed with confirmation.
+ * Returns a summary of what it did. Each agent is isolated — one failure never
+ * stops the sweep.
+ */
+export async function runDeadManSweep({ now = Date.now() } = {}) {
+	const summary = { expired: 0, armed: 0, reminded: 0, completed: 0, errors: 0 };
+
+	summary.expired = await expireStaleRequests().catch(() => 0);
+
+	// Agents with the switch enabled.
+	const agents = await sql`
+		SELECT id, user_id, name, meta FROM agent_identities
+		WHERE deleted_at IS NULL AND (meta->'recovery'->'dead_man'->>'enabled') = 'true'
+	`;
+	for (const agent of agents) {
+		try {
+			const cfg = getRecoveryConfig(agent.meta);
+			if (!cfg.dead_man.enabled) continue;
+			const active = await getActiveRequest(agent.id);
+			const { lastActiveAt } = await getOwnerActivity(agent.id, agent.user_id, agent.meta);
+			const dm = deadManStatus(cfg, lastActiveAt, now);
+
+			if (dm.eligible_to_arm && !active) {
+				const armed = await armInheritance({ agentId: agent.id, actorId: null });
+				if (armed) summary.armed++;
+			} else if (!active && dm.ms_until_arm > 0 && dm.ms_until_arm <= DEAD_MAN_REMINDER_WINDOW_MS) {
+				// Approaching — remind the owner at most once per window.
+				const lastReminder = agent.meta?.recovery?.dead_man?.last_reminder_at;
+				const remindedRecently = lastReminder && now - new Date(lastReminder).getTime() < DEAD_MAN_REMINDER_WINDOW_MS;
+				if (!remindedRecently) {
+					insertNotification(agent.user_id, 'dead_man_reminder', { agent_id: agent.id, agent_name: agent.name, arm_at: dm.arm_at, days_left: Math.ceil(dm.ms_until_arm / DAY_MS) });
+					const meta = { ...(agent.meta || {}) };
+					const baseCfg = getRecoveryConfig(meta);
+					meta.recovery = { ...baseCfg, dead_man: { ...baseCfg.dead_man, last_reminder_at: new Date(now).toISOString() } };
+					await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${agent.id}`.catch(() => {});
+					summary.reminded++;
+				}
+			}
+		} catch (e) {
+			summary.errors++;
+			console.error('[dead-man] sweep failed for agent', agent.id, e?.message);
+		}
+	}
+
+	// Complete inheritance requests whose grace elapsed with confirmation.
+	const ready = await sql`
+		SELECT id, agent_id FROM agent_recovery_requests
+		WHERE kind = 'inheritance' AND status IN ('time_locked', 'ready')
+	`;
+	for (const r of ready) {
+		try {
+			const out = await completeIfReady({ agentId: r.agent_id, requestId: r.id, actorId: null });
+			if (out?.transferred) summary.completed++;
+		} catch {
+			// not_ready / awaiting_beneficiary — expected for requests still in grace.
+		}
+	}
+
+	return summary;
+}

@@ -75,6 +75,29 @@ export default wrap(async (req, res) => {
 	const desc  = trunc(row.description || '3D AI Agent on three.ws', 80);
 	const isOnchain = Boolean(row.erc8004_agent_id) || Boolean(row.meta?.onchain);
 
+	// Wallet identity for the share card — the agent's real custodial address
+	// (vanity-aware) plus lifetime tips, so a shared wallet link previews with a
+	// stat worth screenshotting and a clear "pay me / fork me" hook. Public data
+	// only; never a secret. Tolerates a tip-ledger read failure (omits the stat).
+	const solAddress = typeof row.meta?.solana_address === 'string' ? row.meta.solana_address : null;
+	const vanPrefix = row.meta?.solana_vanity_prefix || null;
+	const vanSuffix = row.meta?.solana_vanity_suffix || null;
+	let tipsCount = 0;
+	if (solAddress) {
+		try {
+			const [agg] = await sql`
+				SELECT COUNT(*)::int AS n
+				FROM agent_custody_events
+				WHERE agent_id = ${id} AND event_type = 'tip' AND status = 'confirmed'
+			`;
+			tipsCount = agg?.n ?? 0;
+		} catch { /* omit the tips stat, keep the card */ }
+	}
+	const addrShort = solAddress
+		? `${vanPrefix && solAddress.startsWith(vanPrefix) ? vanPrefix : solAddress.slice(0, 4)}…${vanSuffix && solAddress.endsWith(vanSuffix) ? vanSuffix : solAddress.slice(-4)}`
+		: null;
+	const isVanity = Boolean((vanPrefix && solAddress?.startsWith(vanPrefix)) || (vanSuffix && solAddress?.endsWith(vanSuffix)));
+
 	const [c1, c2] = gradientForName(row.name);
 	const initial = (row.name || 'A')[0].toUpperCase();
 
@@ -167,10 +190,21 @@ export default wrap(async (req, res) => {
 	<!-- skills / description panels -->
 	<line x1="440" y1="260" x2="1176" y2="260" stroke="#1f2937" stroke-width="1"/>
 
+	<!-- wallet identity strip (vanity address + lifetime tips) -->
+	${addrShort ? `
+	<text x="440" y="296" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600"
+		letter-spacing=".1em" fill="#7c6bb0">${isVanity ? '✦ VANITY WALLET' : 'AGENT WALLET'}</text>
+	<text x="440" y="330" font-family="ui-monospace,'JetBrains Mono',Menlo,monospace" font-size="26" font-weight="700"
+		fill="#c4b5fd">${x(addrShort)}</text>
+	${tipsCount > 0 ? `
+	<rect x="440" y="350" width="${88 + String(tipsCount).length * 14}" height="32" rx="16" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.4)" stroke-width="1"/>
+	<text x="458" y="371" font-family="Inter,system-ui,sans-serif" font-size="14" font-weight="700" fill="#c4b5fd">◎ ${tipsCount} tip${tipsCount === 1 ? '' : 's'} received</text>`
+		: `<text x="440" y="372" font-family="Inter,system-ui,sans-serif" font-size="14" fill="#6b7280">Tip it · fork it · own its wallet on three.ws</text>`}
+	` : `
 	<!-- proof tagline -->
 	<text x="440" y="300" font-family="Inter,system-ui,sans-serif" font-size="15" fill="#374151">
 		Build · Deploy · Trade · three.ws
-	</text>
+	</text>`}
 
 	<!-- footer -->
 	<rect x="0" y="594" width="1200" height="36" fill="#030305"/>

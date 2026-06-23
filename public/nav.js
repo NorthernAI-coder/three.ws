@@ -279,6 +279,7 @@ function renderDrawer(navData) {
 	html += `<div class="dr-h">More</div>`;
 	html += navData.NAV_LINKS.filter((l) => !l.highlight).map(renderTopLink).join('');
 	html += `<a href="/dashboard" id="home-nav-drawer-dashboard" data-auth="in" hidden>Dashboard</a>`;
+	html += `<a href="/guardian" id="home-nav-drawer-guardian" data-auth="in" hidden>Guardian console</a>`;
 	html += `<div class="sep"></div>`;
 	html += `<a href="/login" id="home-nav-drawer-cta" data-auth="out">Sign in</a>`;
 	html += `<a class="btn primary btn--primary" href="/dashboard">Console →</a>`;

@@ -309,7 +309,7 @@ export class WalletIntentController {
 		const verb = intent.action === 'tip' ? 'Tip' : 'Withdraw';
 		const destShown = intent.destination_label ? `${intent.destination_label} (${shortMint(dest)})` : shortMint(dest);
 		const rows = [
-			['Send', `${isSol ? '◎' : ''}${fmt(human, isSol ? 4 : 4)} ${symbol}`],
+			['Send', `${isSol ? '◎' : ''}${fmt(human, 4)} ${symbol}`],
 			['To', destShown],
 		];
 		if (sim.usd != null) rows.push(['Value', `≈ $${fmt(sim.usd, 2)}`]);
@@ -409,7 +409,11 @@ export class WalletIntentController {
 			this.onFlourish();
 		} catch (err) {
 			this._clearCard();
-			const extra = err.explorer ? ` You can check it here: ${err.explorer}` : '';
+			// A submitted-but-unconfirmed trade/withdraw still carries a signature the
+			// owner can verify — surface its explorer link rather than implying nothing
+			// happened. Trade errors stash it under `detail`; withdraw on the error.
+			const explorer = err.explorer || err.detail?.explorer || null;
+			const extra = explorer ? ` You can check it here: ${explorer}` : '';
 			await this._fail(`${err.message}${extra}`);
 		}
 	}

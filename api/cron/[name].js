@@ -113,6 +113,7 @@ const HANDLERS = {
 	'siwx-gc': handleSiwxGc,
 	'unstoppable-tick': handleUnstoppableTick,
 	'cosmetic-splits-sweep': handleCosmeticSplitsSweep,
+	'treasury-autopilot': handleTreasuryAutopilot,
 };
 
 export default wrap(async (req, res) => {
@@ -4088,4 +4089,53 @@ async function handleCosmeticSplitsSweep(req, res) {
 		return json(res, 200, { ok: false, swept: 0, error: err?.message || 'sweep failed' });
 	}
 	return json(res, 200, { ok: true, ...result });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// treasury-autopilot — run every armed agent's treasury policy on a cadence.
+//
+// Each armed, non-killed agent gets one autopilot cycle: self-fund compute,
+// maintain the buffer, DCA income into $THREE, compound coin fees into buybacks,
+// and sweep profit — every action real, idempotent, spend-policy-gated, audited.
+// Per-agent failures are isolated; one bad agent never aborts the sweep.
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function handleTreasuryAutopilot(req, res) {
+	if (!requireCron(req, res)) return;
+	const { runAutopilotCycle } = await import('../_lib/treasury-autopilot.js');
+
+	let agents;
+	try {
+		agents = await sql`
+			SELECT id
+			FROM agent_identities
+			WHERE deleted_at IS NULL
+			  AND (meta->'autopilot'->>'armed')::boolean = true
+			  AND COALESCE((meta->'autopilot'->>'kill_switch')::boolean, false) = false
+			  AND meta->>'solana_address' IS NOT NULL
+			ORDER BY (meta->'autopilot'->>'updated_at') ASC NULLS FIRST
+			LIMIT 200
+		`;
+	} catch (err) {
+		console.error('[treasury-autopilot] fetch armed agents failed:', err?.message || err);
+		return json(res, 200, { ok: false, error: 'fetch_failed' });
+	}
+
+	let ran = 0;
+	let actions = 0;
+	const summary = [];
+	for (const a of agents) {
+		try {
+			const result = await runAutopilotCycle({ agentId: a.id, userId: null, network: 'mainnet', trigger: 'cron' });
+			if (result?.ran) {
+				ran += 1;
+				const did = (result.results || []).filter((r) => r.last_status === 'ok').length;
+				actions += did;
+				summary.push({ agent: a.id, actions: did, reasons: (result.results || []).map((r) => `${r.kind}:${r.last_status}`) });
+			}
+		} catch (err) {
+			console.error('[treasury-autopilot] agent cycle failed:', a.id, err?.message || err);
+		}
+	}
+	return json(res, 200, { ok: true, agents: agents.length, ran, actions, summary });
 }

@@ -74,6 +74,15 @@
 					<button class="gx-search-clear" id="gxSearchClear" type="button" aria-label="Clear search" hidden>&times;</button>
 					<button class="gx-search-go" id="gxSearchGo" type="submit">Search</button>
 				</form>
+
+				<!-- Money-Cam entry — enabled once the galaxy has rendered -->
+				<button class="gx-moneycam-toggle" id="gxMoneyToggle" type="button" aria-pressed="false" disabled>
+					<span class="gx-mc-orb" aria-hidden="true"></span>
+					<span class="gx-mc-toggle-text">
+						<span class="gx-mc-toggle-label">Money-Cam</span>
+						<span class="gx-mc-toggle-sub">watch real value move · <kbd>M</kbd></span>
+					</span>
+				</button>
 			</div>
 
 			<!-- Constellation legend -->
@@ -113,6 +122,64 @@
 					<button class="gx-results-close" id="gxResultsClose" type="button" aria-label="Clear results">&times;</button>
 				</div>
 				<div class="gx-results-list" id="gxResultsList"></div>
+			</div>
+
+			<!-- Money-Cam panel — the live economy controls -->
+			<section class="gx-moneycam" id="gxMoneyCam" hidden aria-label="Money-Cam — the live economy">
+				<header class="gx-mc-head">
+					<div class="gx-mc-title">
+						<span class="gx-mc-live-dot" id="gxMcLiveDot" aria-hidden="true"></span>
+						<span>Money-Cam</span>
+					</div>
+					<button class="gx-mc-close" id="gxMcClose" type="button" aria-label="Close Money-Cam">&times;</button>
+				</header>
+
+				<div class="gx-mc-modes" role="tablist" aria-label="Money-Cam mode">
+					<button class="gx-mc-mode gx-active" id="gxMcModeLive" type="button" role="tab" aria-selected="true">Live</button>
+					<button class="gx-mc-mode" id="gxMcModeReplay" type="button" role="tab" aria-selected="false">Replay</button>
+				</div>
+
+				<div class="gx-mc-stats" id="gxMcStats" aria-live="polite"></div>
+
+				<div class="gx-mc-replay" id="gxMcReplay" hidden>
+					<button class="gx-mc-play" id="gxMcPlay" type="button" aria-label="Play / pause replay">▶</button>
+					<input
+						class="gx-mc-scrub"
+						id="gxMcScrub"
+						type="range"
+						min="0"
+						max="1000"
+						value="1000"
+						aria-label="Scrub through real flow history"
+					/>
+					<button class="gx-mc-speed" id="gxMcSpeed" type="button" aria-label="Cycle playback speed">1×</button>
+					<div class="gx-mc-time" id="gxMcTime"></div>
+				</div>
+
+				<div class="gx-mc-filters" id="gxMcFilters" role="group" aria-label="Filter flows by type">
+					<button class="gx-mc-filter gx-active" data-type="all" type="button">All</button>
+					<button class="gx-mc-filter" data-type="tips" type="button">Tips</button>
+					<button class="gx-mc-filter" data-type="trades" type="button">Trades</button>
+					<button class="gx-mc-filter" data-type="payments" type="button">Pay</button>
+					<button class="gx-mc-filter" data-type="launches" type="button">Launches</button>
+				</div>
+
+				<div class="gx-mc-ticker" id="gxMcTicker" aria-live="polite"></div>
+
+				<div class="gx-mc-note" id="gxMcNote" hidden></div>
+
+				<div class="gx-mc-legend" aria-hidden="true">
+					<span class="gx-mc-leg" data-k="tip"><i></i>Tip</span>
+					<span class="gx-mc-leg" data-k="trade"><i></i>Trade</span>
+					<span class="gx-mc-leg" data-k="payment"><i></i>Pay</span>
+					<span class="gx-mc-leg" data-k="launch"><i></i>Launch</span>
+				</div>
+			</section>
+
+			<!-- Flow inspector — a single real transfer, click-through to its signature -->
+			<div class="gx-flow" id="gxFlow" hidden role="dialog" aria-label="Flow details">
+				<button class="gx-flow-close" id="gxFlowClose" type="button" aria-label="Close flow details">&times;</button>
+				<div class="gx-flow-body" id="gxFlowBody"></div>
 			</div>
 
 			<!-- Loading overlay -->

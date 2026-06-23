@@ -69,19 +69,35 @@ export default wrap(async (req, res) => {
 	const thumbPublic = thumbVis === 'public' || thumbVis === 'unlisted';
 	const thumbUrl  = thumbKey && thumbPublic ? `${CDN_BASE}/${thumbKey}` : null;
 
-	const ogImage  = `${origin}/api/og/agent?id=${encodeURIComponent(id)}`;
-	const pageUrl  = `${origin}/agent/${encodeURIComponent(id)}/share`;
-	const deepUrl  = `${origin}/agent/${encodeURIComponent(id)}`;
+	// "Share my wallet" variant (?wallet=1) — the OG image becomes the SVG card
+	// (which renders the vanity address + lifetime tips), the deep link lands on
+	// the wallet view, and the social copy invites a tip/fork. This is the growth
+	// loop: a wallet worth screenshotting that links back to pay or fork it.
+	const walletShare = url.searchParams.get('wallet') === '1';
 
-	const title = isOnchain
-		? `${name} · 3D AI Agent on ${chainLabel} · three.ws`
-		: `${name} · 3D AI Agent · three.ws`;
-	const desc  = buildDesc({ description, isOnchain, chainLabel });
+	const ogImage  = `${origin}/api/og/agent?id=${encodeURIComponent(id)}`;
+	const pageUrl  = `${origin}/agent/${encodeURIComponent(id)}/share${walletShare ? '?wallet=1' : ''}`;
+	const deepUrl  = walletShare
+		? `${origin}/agent/${encodeURIComponent(id)}/wallet`
+		: `${origin}/agent/${encodeURIComponent(id)}`;
+
+	const title = walletShare
+		? `Tip ${name}'s wallet · 3D AI Agent · three.ws`
+		: isOnchain
+			? `${name} · 3D AI Agent on ${chainLabel} · three.ws`
+			: `${name} · 3D AI Agent · three.ws`;
+	const desc  = walletShare
+		? `${name} is a self-custodial 3D AI agent on three.ws. Tip it, or fork it to mint your own wallet.`
+		: buildDesc({ description, isOnchain, chainLabel });
+
+	// For a wallet share, always use the SVG card (it carries the wallet identity);
+	// otherwise prefer the richer raw thumbnail when the avatar is public.
+	const forcedOgImage = walletShare ? ogImage : null;
 
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/html; charset=utf-8');
 	res.setHeader('cache-control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=3600');
-	res.end(renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, name, origin }));
+	res.end(renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin }));
 });
 
 function redirect(res, to) {
@@ -104,11 +120,12 @@ function esc(s) {
 	);
 }
 
-function renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, name, origin }) {
+function renderHtml({ title, desc, pageUrl, deepUrl, ogImage, thumbUrl, forcedOgImage, name, origin }) {
 	const t = esc(title);
 	const d = esc(desc);
-	// Use the actual thumbnail as OG image when available — richer than the SVG card
-	const finalOgImage = thumbUrl || ogImage;
+	// A wallet share forces the SVG card (it carries the wallet identity); otherwise
+	// use the actual thumbnail when available — richer than the SVG card.
+	const finalOgImage = forcedOgImage || thumbUrl || ogImage;
 	return `<!doctype html>
 <html lang="en">
 <head>

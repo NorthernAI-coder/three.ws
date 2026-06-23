@@ -622,22 +622,45 @@ function showReputationPanel(card, rep) {
 		existing.remove();
 		return;
 	}
-	const score = rep?.score ?? rep?.rating ?? null;
-	const count = rep?.reviews_count ?? rep?.count ?? 0;
+	// Unified wallet-trust score (0–100) from /api/agents/:id/reputation.
+	const isNew = rep?.isNew === true;
+	const score = typeof rep?.score === 'number' ? rep.score : null;
+	const tier = rep?.tierLabel || rep?.tier || null;
+	const accent = rep?.accent || 'var(--nxt-accent, #c4b5fd)';
+	const totals = rep?.totals || {};
 	const panel = document.createElement('div');
 	panel.setAttribute('data-reputation-panel', 'true');
 	panel.style.cssText = 'margin-top:14px;padding-top:14px;border-top:1px solid var(--nxt-stroke)';
+	const pillars = Array.isArray(rep?.pillars) ? rep.pillars : [];
 	panel.innerHTML = `
-		<div style="font-size:12.5px;font-weight:600;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Reputation</div>
+		<div style="font-size:12.5px;font-weight:600;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px">Wallet trust</div>
 		${
-			score !== null
-				? `<div style="display:flex;align-items:baseline;gap:8px">
-				<span style="font-size:32px;font-weight:700;color:var(--nxt-ink)">${Number(score).toFixed(1)}</span>
-				<span style="font-size:13px;color:var(--nxt-ink-dim)">/ 5.0 · ${count} review${count === 1 ? '' : 's'}</span>
-			</div>`
-				: `<div style="color:var(--nxt-ink-dim);font-size:13px">No reviews yet.</div>`
+			isNew
+				? `<div style="color:var(--nxt-ink-dim);font-size:13px">New agent — no track record yet. Trust is earned through real activity.</div>`
+				: score !== null
+					? `<div style="display:flex;align-items:baseline;gap:8px">
+					<span style="font-size:32px;font-weight:700;color:var(--nxt-ink)">${Math.round(score)}</span>
+					<span style="font-size:13px;color:var(--nxt-ink-dim)">/ 100 · <span style="color:${esc(accent)};font-weight:600">${esc(tier || '')}</span></span>
+				</div>
+				<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+					${[`$${fmtNum(totals.settled_usd)} volume`, `${totals.distinct_tippers || 0} tippers`, `${totals.confirmed_payments || 0} payments`, `${totals.fork_count || 0} forks`, totals.verified ? '✓ verified' : '']
+						.filter(Boolean)
+						.map((t) => `<span class="dn-tag">${esc(t)}</span>`)
+						.join('')}
+				</div>
+				${
+					pillars.length
+						? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:7px">${pillars
+								.map(
+									(p) =>
+										`<div><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--nxt-ink-dim);margin-bottom:3px"><span>${esc(p.label)}</span><span>${p.points}/${p.max}</span></div><div style="height:4px;border-radius:2px;background:var(--nxt-stroke);overflow:hidden"><div style="height:100%;width:${Math.round((p.points / (p.max || 25)) * 100)}%;background:${esc(accent)}"></div></div></div>`,
+								)
+								.join('')}</div>`
+						: ''
+				}
+				<a href="/agent/${encodeURIComponent(rep.agent_id || '')}/wallet#reputation" style="display:inline-block;margin-top:12px;font-size:12.5px;color:${esc(accent)};text-decoration:none">View full breakdown →</a>`
+					: `<div style="color:var(--nxt-ink-dim);font-size:13px">Trust score unavailable right now.</div>`
 		}
-		${rep?.tags?.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">${rep.tags.map((t) => `<span class="dn-tag">${esc(t)}</span>`).join('')}</div>` : ''}
 	`;
 	card.appendChild(panel);
 }

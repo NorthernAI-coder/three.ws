@@ -9,6 +9,9 @@
 		"api/cron/copy-fanout.js": {
 			"maxDuration": 120
 		},
+		"api/cron/mirror-fanout.js": {
+			"maxDuration": 120
+		},
 		"api/agents/[id].js": {
 			"maxDuration": 45
 		},
@@ -732,6 +735,10 @@
 		{
 			"src": "/activity/?",
 			"dest": "/activity.html"
+		},
+		{
+			"src": "/guardian/?",
+			"dest": "/guardian.html"
 		},
 		{
 			"src": "/trader/([^/]+)/share/?",
@@ -1780,6 +1787,22 @@
 			"dest": "/api/agents/[id]"
 		},
 		{
+			"src": "/api/agents/([^/]+)/recovery/requests/([^/]+)/([^/]+)",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/recovery/([^/]+)/([^/]+)",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/recovery/([^/]+)",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/recovery",
+			"dest": "/api/agents/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/pumpfun/([^/]+)",
 			"dest": "/api/agents/pumpfun/[action]?id=$1&action=$2"
 		},
@@ -1853,6 +1876,10 @@
 		{
 			"src": "/api/agents/reputation-batch",
 			"dest": "/api/agents/reputation-batch"
+		},
+		{
+			"src": "/api/reputation/leaderboard",
+			"dest": "/api/reputation/leaderboard"
 		},
 		{
 			"src": "/api/agents/([^/]+)/reputation",
@@ -3893,6 +3920,10 @@
 			"schedule": "* * * * *"
 		},
 		{
+			"path": "/api/cron/dead-man-switch",
+			"schedule": "0 5 * * *"
+		},
+		{
 			"path": "/api/cron/auto-rig-sweep",
 			"schedule": "*/5 * * * *"
 		},
@@ -3969,6 +4000,10 @@
 			"schedule": "17 * * * *"
 		},
 		{
+			"path": "/api/cron/treasury-autopilot",
+			"schedule": "23 * * * *"
+		},
+		{
 			"path": "/api/cron/process-withdrawals",
 			"schedule": "0 * * * *"
 		},
@@ -3986,6 +4021,10 @@
 		},
 		{
 			"path": "/api/cron/copy-fanout",
+			"schedule": "*/2 * * * *"
+		},
+		{
+			"path": "/api/cron/mirror-fanout",
 			"schedule": "*/2 * * * *"
 		},
 		{

@@ -372,7 +372,7 @@ export function walletChipHTML(agent, opts = {}) {
 	ensureWalletChipStyles();
 	const {
 		isOwner = false, showPending = true, link = true, tip = true,
-		balance = true, popover = true, network = 'mainnet',
+		balance = true, popover = true, network = 'mainnet', reputation = true,
 	} = opts;
 	const status = getWalletStatus(agent);
 
@@ -406,6 +406,14 @@ export function walletChipHTML(agent, opts = {}) {
 	// Owner gets a compact "Yours" badge; a visitor's attribution ("by @creator")
 	// lives in the popover to keep dense list rows tidy.
 	const ownerBadge = isOwner ? '<span class="twc-own" title="You own this wallet">Yours</span>' : '';
+
+	// Wallet-trust badge — the wallet as a credibility signal. A self-hydrating
+	// placeholder that fills (or honestly removes itself for a brand-new agent)
+	// from the real reputation score. Only meaningful for a real agent row.
+	const repSlot =
+		reputation && isRealAgent
+			? `<span class="rep-badge-slot" data-rep-aid="${esc(status.agentId)}"${link ? '' : ' data-rep-embedded="1"'} data-twc-rep aria-label="Wallet trust score loading"></span>`
+			: '';
 
 	// Live balance slot — renders a skeleton, then hydrates to "$1.2K +2.3%" on
 	// viewport-enter via POST /api/agents/balances. Read-only display, safe inside
@@ -463,6 +471,7 @@ export function walletChipHTML(agent, opts = {}) {
 		WALLET_SVG +
 		addressLabelHTML(status) +
 		ownerBadge +
+		repSlot +
 		vanityTag +
 		balanceSlot +
 		copyBtn +
@@ -497,7 +506,7 @@ export function walletChipEl(agent, opts = {}) {
 export function wireWalletChips(root) {
 	if (!root || typeof root.querySelectorAll !== 'function') return;
 	const chips = new Set();
-	for (const el of root.querySelectorAll('.twc[data-twc-aid],.twc[data-twc-trigger],[data-twc-copy],[data-twc-stop],[data-twc-tip]')) {
+	for (const el of root.querySelectorAll('.twc[data-twc-aid],.twc[data-twc-trigger],[data-twc-rep],[data-twc-copy],[data-twc-stop],[data-twc-tip]')) {
 		chips.add(el.classList?.contains('twc') ? el : el.closest('.twc'));
 	}
 	for (const chip of chips) if (chip) wireWalletChip(chip);
@@ -536,6 +545,14 @@ function wireWalletChip(node) {
 	if (node.hasAttribute?.('data-twc-aid')) registerForHydration(node);
 	// Rich preview popover.
 	if (node.hasAttribute?.('data-twc-trigger')) wirePopoverTrigger(node);
+	// Wallet-trust badge: lazily hydrate the placeholder from the real score.
+	const repSlot = node.querySelector?.('[data-twc-rep]');
+	if (repSlot && !repSlot.__repObserved) {
+		repSlot.__repObserved = true;
+		import('./agent-reputation.js')
+			.then((m) => m.observeReputationBadge(repSlot))
+			.catch(() => {});
+	}
 }
 
 async function copyToClipboard(addr, btn) {

@@ -624,6 +624,7 @@ class Agent3DElement extends HTMLElement {
 			'chat',
 			'clip',
 			'framing',
+			'wallet',
 		];
 	}
 
@@ -756,6 +757,11 @@ class Agent3DElement extends HTMLElement {
 	disconnectedCallback() {
 		this._teardown();
 		this._cleanupReducedMotion();
+		if (this._walletMount) {
+			try { this._walletMount.destroy(); } catch { /* already gone */ }
+			this._walletMount = null;
+			this._walletAgentId = null;
+		}
 	}
 
 	// prefers-reduced-motion lives at the element level (survives budget-driven
@@ -1017,6 +1023,56 @@ class Agent3DElement extends HTMLElement {
 			// Suggestion chips visible while the chat is empty.
 			this._renderSuggestions();
 		}
+
+		// The agent's portable wallet — works in every mode, not just chat. Opt-in
+		// via the `wallet` attribute so a non-wallet embed pays zero cost. Mounts as
+		// soon as we know the agent id (now if `agent-id` is set, else after boot
+		// resolves the manifest).
+		this._mountWalletAffordance();
+	}
+
+	// Mount (or re-mount) the self-contained wallet chip into the shadow root. The
+	// embed is the VISITOR view by construction: the portable wallet only ever
+	// renders Tip + "open on three.ws" — never an owner control, which only a real
+	// three.ws session can unlock. Re-entrant: safe to call repeatedly; it no-ops
+	// once mounted for the current agent and re-mounts if the agent id changes.
+	_mountWalletAffordance() {
+		if (!this.hasAttribute('wallet') || !this.shadowRoot) return;
+		const agentId = this.getAttribute('agent-id') || this._manifest?.id?.agentId || '';
+		const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agentId);
+		if (!isUuid) return; // wait for a real id; boot will call us again
+		if (this._walletAgentId === agentId && this._walletMount) return;
+		if (this._walletMount) {
+			try { this._walletMount.destroy(); } catch { /* already gone */ }
+			this._walletMount = null;
+			this._walletHostEl?.remove();
+		}
+
+		const host = document.createElement('div');
+		host.className = 'wallet-affordance';
+		host.part = 'wallet-affordance';
+		Object.assign(host.style, {
+			position: 'absolute', left: '10px', bottom: '10px', zIndex: '14',
+			maxWidth: 'calc(100% - 20px)',
+		});
+		this.shadowRoot.appendChild(host);
+		this._walletHostEl = host;
+		this._walletAgentId = agentId;
+
+		const origin = this.getAttribute('api-base') || _scriptOrigin || window.location.origin;
+		const mode = (this.getAttribute('wallet') || '').trim().toLowerCase();
+		import('./shared/portable-wallet.js')
+			.then(({ mountPortableWallet }) => {
+				if (!host.isConnected || this._walletAgentId !== agentId) return;
+				this._walletMount = mountPortableWallet(host, {
+					agentId,
+					origin,
+					variant: mode === 'card' ? 'card' : 'chip',
+					tip: mode !== 'identity', // `wallet="identity"` = read-only chip, no tip flow
+					name: this._manifest?.name || this.getAttribute('name') || null,
+				});
+			})
+			.catch(() => { /* optional affordance — never break the viewer */ });
 	}
 
 	_renderSuggestions() {
@@ -1479,6 +1535,9 @@ class Agent3DElement extends HTMLElement {
 					? a
 					: null;
 			})();
+			// Now that the manifest resolved the real agent id, the wallet affordance
+			// (if opted in via the `wallet` attribute) can hydrate against it.
+			this._mountWalletAffordance();
 			if (_backendId) {
 				try {
 					const _policyBase = _scriptOrigin || window.location.origin;

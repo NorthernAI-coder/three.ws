@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T03:38:53.303Z",
+	"generated_at": "2026-06-23T03:51:53.868Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -661,6 +661,16 @@
 					"title": "Agent Activity — Oracle conviction in real time",
 					"description": "The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.",
 					"added": "2026-06-16",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/guardian",
+					"title": "Guardian console — recover & inherit agent wallets",
+					"description": "The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -406,6 +406,12 @@ URL: https://three.ws/activity
 
 The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.
 
+### Guardian console — recover & inherit agent wallets
+
+URL: https://three.ws/guardian
+
+The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.
+
 ### Launch a Coin
 
 URL: https://three.ws/launch
