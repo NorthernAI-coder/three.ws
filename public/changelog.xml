@@ -1047,6 +1047,14 @@
 			<description>The Forge can already build a 3D model from a text prompt or a photo. Now there's a new free engine behind the photo path: our own self-hosted Microsoft TRELLIS, running on platform GPUs. It reconstructs a textured mesh directly from your image in one hop — your photo straight to a GLB, with no in-between step and no per-call vendor cost. It accepts real user photos (the free text engine can't — it only takes prompts), so when it's switched on it becomes the preferred free engine for image-to-3D, and falls back cleanly to the other free lanes if it's ever offline. Pick it explicitly as TRELLIS (self-host), or just upload a photo and let the Forge route you there. The native text-to-3D path and every other engine are unchanged.</description>
 		</item>
 		<item>
+			<title>Two new tutorials: generate 3D models free on NVIDIA — and run TRELLIS on your own GPU</title>
+			<link>https://three.ws/tutorials/nvidia-3d-free</link>
+			<guid isPermaLink="false">2026-06-23:Two new tutorials: generate 3D models free on NVIDIA — and run TRELLIS on your own GPU</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>The Forge's free text-to-3D has always run on NVIDIA NIM with Microsoft TRELLIS — now there are two step-by-step guides for it. The first is no-code: what the free lane actually does, how to get clean models out of it, the prompt rules that matter, and a live demo that shows TRELLIS rebuild a mesh in real time. The second is for builders: stand up your own TRELLIS NIM container on an NVIDIA GPU, point three.ws at it with two environment variables, and reconstruct a textured 3D model from a prompt or a photo in a single synchronous call — photo-to-3D included, which the hosted preview can't do. Every request and response is the real contract, copy-pasteable end to end.</description>
+		</item>
+		<item>
 			<title>Wallet figures read the same everywhere — one money and address style across the app</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Wallet figures read the same everywhere — one money and address style across the app</guid>
