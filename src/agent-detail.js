@@ -11,6 +11,7 @@
 import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountMoneyPulse } from './shared/money-pulse.js';
+import { mountMirrorPanel } from './shared/agent-mirror-panel.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
@@ -33,6 +34,7 @@ const coinStatusHandles = [];
 // The per-agent Money Pulse handle (live feed). Torn down on re-render so its
 // polling interval + observers don't leak.
 let _pulseHandle = null;
+let _mirrorHandle = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
@@ -45,7 +47,7 @@ function mountAgentDetailAura(agent) {
 	adNetWorthAura = null;
 	adNetWorthPanel?.destroy?.();
 	adNetWorthPanel = null;
-	hydrateAvatarWallet(wrap, agent, { lod: 'full', live: true, network: 'mainnet' })
+	hydrateAvatarWallet(wrap, agent, { lod: 'full', live: true, network: 'mainnet', fetchPrefs: false })
 		.then((c) => {
 			adNetWorthAura = c;
 			// Mount the presence panel (tier + reputation regalia + owner reactivity
@@ -779,6 +781,19 @@ function render(agent) {
 			});
 		} else if (pulseCard) {
 			pulseCard.hidden = true;
+		}
+	}
+
+	// Copy Trading (mirror) — manage who this agent mirrors (owner), or its honest
+	// track record + a "Mirror this agent" CTA (visitor). The panel reveals its own
+	// card (#ad-mirror-card) only when there's something to show, and renders every
+	// state itself. The leash (kill switch + caps) is surfaced prominently.
+	{
+		const mirrorPanel = $('ad-mirror-panel');
+		if (_mirrorHandle) { try { _mirrorHandle.destroy(); } catch { /* idempotent */ } _mirrorHandle = null; }
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (mirrorPanel && wMeta.solana_address) {
+			_mirrorHandle = mountMirrorPanel({ mount: mirrorPanel, agent, isOwner: !!agent.isOwner });
 		}
 	}
 
