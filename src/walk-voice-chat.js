@@ -398,7 +398,7 @@ export class WalkVoiceChat {
 			}
 			await audio.play();
 			lip?.start();
-		} catch (err) {
+		} catch {
 			// MediaElementSource / autoplay can fail; fall back to a bare element so
 			// the user still hears the reply.
 			tap?.disconnect();
@@ -407,7 +407,7 @@ export class WalkVoiceChat {
 			try {
 				await audio.play();
 			} catch (playErr) {
-				throw new Error(playErr?.message || 'audio playback blocked');
+				throw new Error(playErr?.message || 'audio playback blocked', { cause: playErr });
 			}
 		}
 
@@ -602,7 +602,7 @@ export class WalkVoiceChat {
 
 // Build a system prompt for avatars that have no linked agent identity, so even
 // a plain GLB answers in character instead of as a generic assistant.
-function buildPersonaPrompt(persona) {
+export function buildPersonaPrompt(persona) {
 	const name = (persona?.name || '').trim();
 	const desc = (persona?.description || '').trim();
 	if (!name && !desc) {
