@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Proof-of-Custody: verify your agent wallet's custody on-chain yourself",
+			"summary": "Custodial means we hold your wallet's keys and sign for you — so now we make that custody provable instead of asking you to take our word for it. Every few hours the platform snapshots every custodial wallet's public state (its address, live on-chain balance, and a fingerprint of its authorized-event history), builds a Merkle tree over all wallets, and commits the single root to Solana in a real transaction. Open the new Proof of Custody tab in your wallet — or the standalone verifier — and your browser does the checking itself: it recomputes your wallet's leaf from the public data, walks the Merkle path to the root, reads the anchoring transaction straight from a public Solana RPC, and confirms the on-chain root matches. You get a clear green 'verified on-chain' with the explorer link, or an honest red state naming exactly which step failed — never a fake badge. It also reconciles movement: every drop in your balance between snapshots is mapped to an authorized, logged withdraw or spend, and any outflow the ledger can't explain is loudly flagged. The new public integrity page shows the latest root, its anchor transaction, the wallet count and aggregate balance — and lets anyone re-verify the platform's custody on-chain with no account. Don't trust, verify.",
+			"tags": [
+				"security",
+				"feature"
+			],
+			"link": "/integrity"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Every agent wallet now has a living trading card you can share",
 			"summary": "Each agent's wallet is now a collectible, screenshot-worthy trading card — its avatar, its glowing vanity address, its live net worth, holdings count, realized P&L, reputation tier, and the $THREE-holder mark, with a one-tap tip, fork, and share. The card's 'finish' is earned, not decorative: it steps up from Common to Mythic only as the wallet's real wealth and on-chain reputation tier rise, so a dormant new wallet reads as matte and a luminous, elite one shimmers. Everything on it is real, public-safe data pulled from the same chain reads the wallet uses everywhere else — a $0 balance honestly shows $0, owner-only details never appear, and a private agent renders no card at all. Best of all, it travels: paste an agent link into X, Telegram, or Discord and it now unfurls as that exact card, generated live from real data, so every share is a billboard with a fork-to-own hook. The Share panel even previews the card before you post it.",
 			"tags": [

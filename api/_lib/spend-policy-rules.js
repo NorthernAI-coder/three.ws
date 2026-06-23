@@ -337,7 +337,10 @@ function describeClause(c) {
 			return `the asset is ${c.op === 'neq' ? 'not ' : ''}${c.value}`;
 		case 'category': {
 			const noun = { trade: 'trade', snipe: 'snipe', x402: 'x402 payment', withdraw: 'withdrawal' };
-			const phrase = (v) => `${/^[aeiou]/i.test(noun[v] || v) ? 'an' : 'a'} ${noun[v] || v}`;
+			// "an x402" — the leading letter is sounded (ex-four-oh-two), so treat an
+			// initial vowel OR an x-followed-by-digit as taking "an".
+			const article = (w) => (/^[aeiou]/i.test(w) || /^x\d/i.test(w) ? 'an' : 'a');
+			const phrase = (v) => `${article(noun[v] || v)} ${noun[v] || v}`;
 			if (c.op === 'in') return `it is ${c.value.map(phrase).join(' or ')}`;
 			if (c.op === 'not_in') return `it is not ${c.value.map(phrase).join(' or ')}`;
 			return `it is ${c.op === 'neq' ? 'not ' : ''}${phrase(c.value)}`;

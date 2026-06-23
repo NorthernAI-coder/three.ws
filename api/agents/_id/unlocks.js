@@ -61,7 +61,7 @@ export const handleUnlocks = wrap(async (req, res, agentId, action) => {
 		if (!session) return error(res, 401, 'unauthenticated', 'sign in to claim unlocks');
 		if (!(await requireCsrf(req, res, session.id))) return;
 
-		const rl = await limits.user(session.id);
+		const rl = await limits.unlockClaim(session.id);
 		if (!rl.success) return rateLimited(res, rl);
 
 		const body = await readJson(req).catch(() => ({}));

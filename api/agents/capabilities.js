@@ -172,22 +172,21 @@ async function handleRevokeAll(req, res, id, userId) {
 export default async function handler(req, res, id, action, parts = []) {
 	if (cors(req, res, { methods: 'GET,POST,PUT,OPTIONS', credentials: true })) return;
 
-	// Rate-limit reads + writes per IP (shared bucket with other agent endpoints).
-	const ip = clientIp(req);
-	const rl = await limits.api(ip);
-	if (!rl.success) return rateLimited(res, rl);
-
 	// GET list — owner-gated, no CSRF.
 	if (req.method === 'GET' && !action) {
 		const owned = await loadOwner(req, res, id);
 		if (!owned) return;
+		const rl = await limits.walletRead(owned.auth.userId);
+		if (!rl.success) return rateLimited(res, rl);
 		try { return await handleList(req, res, id); } catch (e) { return sendErr(res, e); }
 	}
 
-	// All mutations: owner-gated + CSRF.
+	// All mutations: owner-gated + CSRF + a per-IP critical-action limit.
 	if (req.method === 'POST' || req.method === 'PUT') {
 		const owned = await loadOwner(req, res, id);
 		if (!owned) return;
+		const rl = await limits.authIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl);
 		if (!(await requireCsrf(req, res, owned.auth.userId))) return;
 		const userId = owned.auth.userId;
 		try {
