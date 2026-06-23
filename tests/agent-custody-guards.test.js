@@ -24,6 +24,13 @@ vi.mock('../api/_lib/avatar-wallet.js', () => ({
 
 vi.mock('../api/_lib/audit.js', () => ({ logAudit: vi.fn() }));
 
+// The behavioral anomaly guard is an additive layer composed into enforceSpendLimit
+// / reserveSpendUsd; it has its own dedicated tests (wallet-anomaly*.test.js). Stub
+// it here so these USD-ceiling unit tests stay isolated from its async DB calls.
+vi.mock('../api/_lib/anomaly-events.js', () => ({
+	guardOutboundAnomaly: vi.fn(async () => ({ decision: 'allow', verdict: null, anomalyId: null, froze: false })),
+}));
+
 const guards = await import('../api/_lib/agent-trade-guards.js');
 const {
 	validateSolanaAddress, normalizeSpendLimits, enforceSpendLimit, SpendLimitError,

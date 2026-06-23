@@ -11,6 +11,7 @@ import { loadAgentKeypair } from './keys.js';
 import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
 import { notifyBuy, notifySell } from '../../api/_lib/sniper/notify.js';
+import { getPolicyRules } from '../../api/_lib/spend-policy-rules.js';
 import {
 	getSpendLimits, enforceSpendLimit, SpendLimitError, recordSpend, lamportsToUsd,
 	checkConcurrency, checkDailyBudgetLamports, checkSolHeadroom, checkPriceImpact,
@@ -108,11 +109,11 @@ async function enforceSharedSpendPolicy(agentId, network, perTradeLamports, { ho
 	try {
 		const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL`;
 		const limits = getSpendLimits(row?.meta);
-		// Gate when there's something to enforce: a USD ceiling, or least-privilege
-		// mode (require_capabilities) which makes a covering scoped session key
-		// mandatory for every autonomous spend. Otherwise skip — keep the hot path
-		// price-call- and query-free.
-		const needGate = limits.require_capabilities || limits.daily_usd != null || limits.per_tx_usd != null;
+		const policy = getPolicyRules(row?.meta);
+		// Gate when there's something to enforce: a USD ceiling, least-privilege mode
+		// (require_capabilities), or any natural-language policy rule. Otherwise skip —
+		// keep the hot path price-call- and query-free.
+		const needGate = limits.require_capabilities || limits.daily_usd != null || limits.per_tx_usd != null || policy.rules.length > 0;
 		if (!needGate) return { blocked: false };
 		let usdValue = null;
 		try {
@@ -127,7 +128,7 @@ async function enforceSharedSpendPolicy(agentId, network, perTradeLamports, { ho
 		// Pass the strategy as the capability holder + the mint as the spend target so
 		// a strategy-scoped, mint-restricted session key is resolved + enforced here.
 		const res = await enforceSpendLimit({
-			agentId, limits, category: 'snipe', usdValue, network,
+			agentId, limits, policyRules: policy, category: 'snipe', usdValue, asset: 'SOL', network,
 			capabilityHolderRef: holderRef, target,
 		});
 		return { blocked: false, capabilityId: res?.capabilityId || null };
@@ -180,9 +181,11 @@ function makeTipGuard({ strat, network, alreadyCommittedLamports, dailySpentLamp
 			throw Object.assign(new Error('strategy kill switch is on'), { code: 'spend_guard' });
 		}
 		let limits;
+		let policyDoc = null;
 		try {
 			const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${strat.agent_id} AND deleted_at IS NULL`;
 			limits = getSpendLimits(row?.meta);
+			policyDoc = getPolicyRules(row?.meta);
 		} catch {
 			limits = null;
 		}
@@ -202,7 +205,7 @@ function makeTipGuard({ strat, network, alreadyCommittedLamports, dailySpentLamp
 		let usd = null;
 		try {
 			usd = await lamportsToUsd(tip);
-			await enforceSpendLimit({ agentId: strat.agent_id, limits, category: 'snipe', usdValue: usd, network });
+			await enforceSpendLimit({ agentId: strat.agent_id, limits, policyRules: policyDoc, category: 'snipe', usdValue: usd, asset: 'SOL', network });
 		} catch (err) {
 			if (err instanceof SpendLimitError) {
 				throw Object.assign(new Error(err.message), { code: 'spend_guard' });

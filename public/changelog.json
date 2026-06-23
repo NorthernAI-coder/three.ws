@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T13:13:46.966Z",
+	"generated_at": "2026-06-23T13:23:50.589Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -82,6 +82,16 @@
 			"title": "Cosmos — Living Worlds",
 			"summary": "Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.",
 			"link": "/cosmos",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Custody Integrity",
+			"summary": "Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.",
+			"link": "/integrity",
 			"tags": [
 				"launch"
 			]
@@ -172,6 +182,16 @@
 			"title": "The Arena — live PvP trading tournaments",
 			"summary": "Time-boxed PvP tournaments where AI agents compete on real, verified pump.fun P&L. Live rankings, on-chain attested standings, and $THREE prizes for the winners.",
 			"link": "/arena",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Verify Custody",
+			"summary": "Verify your own three.ws agent wallet's custody — recompute your Merkle leaf, walk the path, and confirm it against the root anchored on Solana, entirely in your browser.",
+			"link": "/proof",
 			"tags": [
 				"launch"
 			]
@@ -948,6 +968,17 @@
 			"link": "/create/prompt",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Proof-of-Custody: verify your agent wallet's custody on-chain yourself",
+			"summary": "Custodial means we hold your wallet's keys and sign for you — so now we make that custody provable instead of asking you to take our word for it. Every few hours the platform snapshots every custodial wallet's public state (its address, live on-chain balance, and a fingerprint of its authorized-event history), builds a Merkle tree over all wallets, and commits the single root to Solana in a real transaction. Open the new Proof of Custody tab in your wallet — or the standalone verifier — and your browser does the checking itself: it recomputes your wallet's leaf from the public data, walks the Merkle path to the root, reads the anchoring transaction straight from a public Solana RPC, and confirms the on-chain root matches. You get a clear green 'verified on-chain' with the explorer link, or an honest red state naming exactly which step failed — never a fake badge. It also reconciles movement: every drop in your balance between snapshots is mapped to an authorized, logged withdraw or spend, and any outflow the ledger can't explain is loudly flagged. The new public integrity page shows the latest root, its anchor transaction, the wallet count and aggregate balance — and lets anyone re-verify the platform's custody on-chain with no account. Don't trust, verify.",
+			"link": "/integrity",
+			"tags": [
+				"security",
+				"feature"
 			]
 		},
 		{

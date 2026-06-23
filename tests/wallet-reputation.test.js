@@ -6,7 +6,7 @@
 // are discounted, and the tier ladder requires real counterparty diversity.
 
 import { describe, it, expect } from 'vitest';
-import { computeReputation, tierFor, MAX_SCORE, PILLARS } from '../api/_lib/trust/wallet-reputation.js';
+import { computeReputation, tierFor, MAX_SCORE, PILLARS, REPUTATION_VERSION } from '../api/_lib/trust/wallet-reputation.js';
 
 const NEW_AGENT = {
 	ageDays: 0,
@@ -79,9 +79,17 @@ describe('computeReputation — pillar maxima', () => {
 			registryAverage: 100,
 			registryCount: 1e6,
 			validationCount: 1e6,
+			threeUsd: 1e12,
+			threeTokens: 1e12,
+			threeHoldDays: 1e6,
 		});
 		for (const p of r.pillars) expect(p.points).toBeLessThanOrEqual(p.max);
 		expect(r.score).toBeLessThanOrEqual(100);
+	});
+
+	it('exposes the current reputation version', () => {
+		expect(REPUTATION_VERSION).toBe(3);
+		expect(PILLARS.some((p) => p.key === 'conviction')).toBe(true);
 	});
 });
 
@@ -230,6 +238,40 @@ describe('anti-gaming — cross-agent wash tips', () => {
 	it('surfaces wash-tips as discounted', () => {
 		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, washTipCount: 6, washTipUsd: 300 });
 		expect(r.discounted.some((d) => d.kind === 'wash_tips')).toBe(true);
+	});
+});
+
+describe('$THREE conviction factor', () => {
+	const conv = (r) => r.pillars.find((p) => p.key === 'conviction').points;
+
+	it('is 0 when the wallet holds no $THREE', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100 });
+		expect(conv(r)).toBe(0);
+	});
+
+	it('rewards holding $THREE, and longer holding more', () => {
+		const short = computeReputation({ ...NEW_AGENT, ageDays: 100, threeUsd: 500, threeTokens: 1000, threeHoldDays: 2 });
+		const long = computeReputation({ ...NEW_AGENT, ageDays: 100, threeUsd: 500, threeTokens: 1000, threeHoldDays: 120 });
+		expect(conv(short)).toBeGreaterThan(0);
+		expect(conv(long)).toBeGreaterThan(conv(short));
+		expect(long.score).toBeGreaterThan(short.score);
+	});
+
+	it("a whale's value alone can't buy the whole pillar (log-scaled, capped)", () => {
+		const whaleFlash = computeReputation({ ...NEW_AGENT, ageDays: 100, threeUsd: 1e9, threeTokens: 1e9, threeHoldDays: 0 });
+		// No duration → value sub-cap (6) is the ceiling, never the full 10.
+		expect(conv(whaleFlash)).toBeLessThanOrEqual(6.0001);
+	});
+
+	it('duration is price-independent — it still counts if the price feed is down', () => {
+		const r = computeReputation({ ...NEW_AGENT, ageDays: 100, threeUsd: 0, threeTokens: 5000, threeHoldDays: 120 });
+		expect(conv(r)).toBeGreaterThan(0);
+	});
+
+	it('holding $THREE is real activity — the agent is no longer "new"', () => {
+		const r = computeReputation({ ...NEW_AGENT, threeUsd: 50, threeTokens: 100, threeHoldDays: 10 });
+		expect(r.isNew).toBe(false);
+		expect(r.totals.holds_three).toBe(true);
 	});
 });
 

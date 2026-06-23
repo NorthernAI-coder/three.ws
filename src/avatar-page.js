@@ -22,6 +22,7 @@ import { mountRoyaltySetting } from './shared/agent-fork-royalty.js';
 import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { emitRecallFromChat } from './agents/memory-client.js';
+import { moodEngine } from './agents/mood-engine.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -1791,6 +1792,10 @@ async function sendChatMessage(text) {
 	chatHistory.push({ role: 'user', content: text });
 	appendChatMessage('user', text);
 
+	// Real conversation sentiment moves the agent's mood (deterministic lexicon,
+	// never random). Scoped to this agent inside the engine.
+	moodEngine.observeChat(avatar?.id || avatarId, text, 'user');
+
 	const assistantNode = appendChatMessage('assistant', '');
 	const cursor = document.createElement('span');
 	cursor.className = 'av-chat-cursor';
@@ -1847,6 +1852,8 @@ async function sendChatMessage(text) {
 					// reply's context — turn that into a `memory:recalled` bus event so
 					// the HUD, Mind Palace, and any other surface can react live.
 					emitRecallFromChat(isUuid ? agentIdMaybe : null, evt, text);
+					// Let the agent's own words colour its mood too.
+					moodEngine.observeChat(isUuid ? agentIdMaybe : null, evt.reply || acc, 'assistant');
 				} else if (evt.type === 'error') {
 					throw new Error(evt.message || evt.error || 'Stream error');
 				}
