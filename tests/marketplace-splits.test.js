@@ -10,7 +10,7 @@
  * Pure functions only — no DB, no chain — so they run fast and deterministically.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import {
 	validateShares,
 	allocateAtomics,
@@ -227,5 +227,72 @@ describe('describeSplit', () => {
 		expect(d.label).toBe('70 / 30');
 		expect(d.recipients[0].percent).toBe(70);
 		expect(d.recipients[1].label).toBe('Art');
+	});
+});
+
+describe('recordSplitDistribution — persisted allocations', () => {
+	const split = {
+		id: 'split-1',
+		split_mode: 'ledger',
+		recipients: [
+			{ address: EVM_A, share_bps: 6000, recipient_user_id: 'u-a' },
+			{ address: EVM_B, share_bps: 4000, recipient_user_id: 'u-b' },
+		],
+	};
+
+	it('writes one row per recipient whose amounts sum to the creator net', async () => {
+		const sql = fakeSql([]);
+		const out = await recordSplitDistribution(sql, {
+			purchaseId: 'p-1',
+			split,
+			netAtomics: 9_500_001n, // odd amount → forces a remainder
+			currencyMint: 'usdc',
+			chain: 'base',
+		});
+		expect(out).toHaveLength(2);
+		const total = out.reduce((s, r) => s + BigInt(r.amount), 0n);
+		expect(total).toBe(9_500_001n); // exact — nothing lost
+		// 60/40 of 9_500_001 → 5_700_001 / 3_800_000 (remainder to the larger share).
+		expect(out.find((r) => r.address === EVM_A).amount).toBe('5700001');
+		expect(out.find((r) => r.address === EVM_B).amount).toBe('3800000');
+	});
+
+	it('marks ledger-mode rows accrued and onchain-mode rows settled', async () => {
+		const ledger = await recordSplitDistribution(fakeSql([]), {
+			purchaseId: 'p-2', split, netAtomics: 1000n, currencyMint: 'usdc', chain: 'base',
+		});
+		expect(ledger.every((r) => r.mode === 'ledger' && r.status === 'accrued')).toBe(true);
+
+		const onchain = await recordSplitDistribution(fakeSql([]), {
+			purchaseId: 'p-3',
+			split: { ...split, split_mode: 'onchain' },
+			netAtomics: 1000n, currencyMint: 'usdc', chain: 'base',
+		});
+		expect(onchain.every((r) => r.mode === 'onchain' && r.status === 'settled')).toBe(true);
+	});
+});
+
+describe('enforceOnchainLicense — fail-open gate', () => {
+	const prev = process.env.SKILL_LICENSE_ENFORCE;
+	afterEach(() => {
+		if (prev === undefined) delete process.env.SKILL_LICENSE_ENFORCE;
+		else process.env.SKILL_LICENSE_ENFORCE = prev;
+	});
+
+	it('never touches the chain when enforcement is off', async () => {
+		delete process.env.SKILL_LICENSE_ENFORCE;
+		expect(licenseEnforcementEnabled()).toBe(false);
+		const sql = fakeSql([]);
+		const r = await enforceOnchainLicense({ sql, userId: 'u', agentId: 'a', skill: 's' });
+		expect(r.blocked).toBe(false);
+		expect(sql.calls).toHaveLength(0); // no DB read, no RPC
+	});
+
+	it('does not block a paid user with no minted license on record', async () => {
+		process.env.SKILL_LICENSE_ENFORCE = '1';
+		expect(licenseEnforcementEnabled()).toBe(true);
+		// sql returns no skill_license_mints row → nothing to enforce → allow.
+		const r = await enforceOnchainLicense({ sql: fakeSql([]), userId: 'u', agentId: 'a', skill: 's' });
+		expect(r.blocked).toBe(false);
 	});
 });
