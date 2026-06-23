@@ -167,6 +167,10 @@ export async function loadReputationInputs(agentId, opts = {}) {
 	);
 
 	// Trading conduct: realized P&L over CLOSED positions (a real settlement).
+	// Anti-gaming — round-trips on the trader's OWN launched coins are excluded, so
+	// conduct can't be farmed by pumping a token you minted. This matches the
+	// verifiable trader profile (api/_lib/trader-stats.js) exactly, so the wallet
+	// chip's reputation and the trader page can never disagree.
 	const [trades] = await soft(
 		sql`
 			select
@@ -175,6 +179,14 @@ export async function loadReputationInputs(agentId, opts = {}) {
 				coalesce(sum(realized_pnl_lamports) filter (where status = 'closed'), 0)::float8 as pnl_lamports
 			from agent_sniper_positions
 			where agent_id = ${agentId} and realized_pnl_lamports is not null
+			  and mint not in (
+				select mint from pump_agent_mints
+				where user_id = (select user_id from agent_identities where id = ${agentId})
+				union
+				select meta->'token'->>'mint' from agent_identities
+				where user_id = (select user_id from agent_identities where id = ${agentId})
+				  and meta->'token'->>'mint' is not null
+			  )
 		`,
 		[{ closed: 0, wins: 0, pnl_lamports: 0 }],
 	);

@@ -20,7 +20,6 @@ import {
 	describeTrait,
 	compilePersona,
 	registerSummary,
-	bandIndex,
 } from './agents/persona-compile.js';
 import { agentBus, EVENTS } from './agents/agent-bus.js';
 

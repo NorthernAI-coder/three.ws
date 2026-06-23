@@ -133,10 +133,12 @@ class TradingBrain {
 	}
 
 	async _fetchLimits() {
+		// Canonical, wallet-independent trade-limits endpoint: returns data.limits as
+		// the agent's trade guardrails (works even before a signing wallet exists).
 		const res = await apiFetch(`/api/agents/${this.agentId}/trade/limits`);
 		if (!res.ok) return { trade_limits: null, spent_today_sol: null };
 		const { data } = await res.json();
-		return { trade_limits: data.trade_limits, spent_today_sol: data.spent_today_sol };
+		return { trade_limits: data.limits, spent_today_sol: null };
 	}
 
 	async _fetchAudit() {
@@ -319,11 +321,11 @@ class TradingBrain {
 			const res = await apiFetch(`/api/agents/${this.agentId}/trade/limits`, {
 				method: 'PUT',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ trade_limits: patch }),
+				body: JSON.stringify(patch),
 			});
 			if (!res.ok) throw new Error('Could not save guardrails.');
 			const { data } = await res.json();
-			this.state.tradeLimits = data.trade_limits;
+			this.state.tradeLimits = data.limits;
 			this._toast('Guardrails saved — enforced server-side on every trade');
 		} catch (err) {
 			this._toast(err.message || 'Save failed', true);
@@ -746,11 +748,9 @@ class TradingBrain {
 			return;
 		}
 		const open = pos.filter((p) => p.status === 'open' || p.status === 'closing');
-		const closed = pos.filter((p) => p.status === 'closed');
 		host.innerHTML = `
 			<div class="tb-card-head"><h4>Positions <span class="tb-badge">${open.length} open</span></h4></div>
 			<ul class="tb-pos">${pos.slice(0, 20).map((p) => this._posRow(p)).join('')}</ul>`;
-		void closed;
 	}
 
 	_posRow(p) {
@@ -802,6 +802,10 @@ class TradingBrain {
 		this.el.addEventListener('click', (e) => {
 			const btn = e.target.closest('[data-action]');
 			if (!btn) return;
+			// This studio is mounted inside the Money panel, which has its own click
+			// delegate on a parent node. Stop handled clicks here so a shared action
+			// name (e.g. "retry") never double-fires across both delegates.
+			e.stopPropagation();
 			const a = btn.dataset.action;
 			if (a === 'retry') return this._load();
 			if (a === 'mode') return this._setMode(btn.dataset.mode);

@@ -113,6 +113,15 @@ function metricsGrid(m) {
 	const pf = m.profit_factor == null ? '∞' : m.profit_factor.toFixed(2);
 	const unreal = m.open_count
 		? `<span class="${pnlClass(m.unrealized_pnl_sol)}">${fmtSol(m.unrealized_pnl_sol)}</span>` : '<span class="lb-muted">—</span>';
+	// Snipe hit-rate only renders when we can prove at least one entry against a
+	// coin's on-chain birth — never a fabricated zero.
+	const snipe = m.snipe_hit_rate != null
+		? metric(
+				'Snipe hit-rate',
+				`<span class="${m.snipe_hit_rate >= 0.5 ? 'lb-pos' : 'lb-neg'}">${fmtPct(m.snipe_hit_rate * 100)}</span>`,
+				`${m.snipe_wins}/${m.snipe_count} fresh-launch wins`,
+		  )
+		: '';
 	return `
 		${metric('Realized P&L', pnl, pnlSub)}
 		${metric('Win rate', fmtPct(m.win_rate * 100), `${m.wins}W · ${m.losses}L`)}
@@ -121,6 +130,7 @@ function metricsGrid(m) {
 		${metric('Max drawdown', `<span class="${m.max_drawdown_pct > 0 ? 'lb-neg' : 'lb-muted'}">${m.max_drawdown_pct > 0 ? '−' : ''}${m.max_drawdown_pct.toFixed(1)}%</span>`, fmtSol(m.max_drawdown_sol, { sign: false }))}
 		${metric('Avg hold', holdTime(m.avg_hold_seconds), `median ${holdTime(m.median_hold_seconds)}`)}
 		${metric('Coins traded', String(m.unique_coins), `${m.closed_count} closed trades`)}
+		${snipe}
 		${metric('Open exposure', m.open_count ? fmtSol(m.open_exposure_sol, { sign: false }) : '<span class="lb-muted">none</span>', m.open_count ? `${m.open_count} open · ${unreal}` : 'flat')}
 	`;
 }
@@ -213,8 +223,16 @@ function closedRows(closed) {
 			t.buy_url ? `<a class="tp-proof-link" href="${escapeHtml(t.buy_url)}" target="_blank" rel="noopener">buy ↗</a>` : '',
 			t.sell_url ? `<a class="tp-proof-link" href="${escapeHtml(t.sell_url)}" target="_blank" rel="noopener">sell ↗</a>` : '',
 		].filter(Boolean).join(' ');
-		return `<tr>
-			<td><div class="tp-coin"><span class="tp-coin-sym">${escapeHtml(t.symbol || t.name || '—')}</span><span class="tp-coin-mint">${escapeHtml(shortAddr(t.mint, 4, 4))}</span></div></td>
+		const tags = [
+			t.snipe
+				? `<span class="tp-tag tp-tag-snipe" title="Entered ${t.seconds_after_launch != null ? `${t.seconds_after_launch}s` : 'within minutes'} after this coin's on-chain launch">⚡ snipe</span>`
+				: '',
+			t.self_dealing
+				? '<span class="tp-tag tp-tag-self" title="Trade on a coin this account launched — excluded from the credited score">self-deal</span>'
+				: '',
+		].filter(Boolean).join('');
+		return `<tr${t.self_dealing ? ' class="tp-row-muted"' : ''}>
+			<td><div class="tp-coin"><span class="tp-coin-sym">${escapeHtml(t.symbol || t.name || '—')}</span><span class="tp-coin-mint">${escapeHtml(shortAddr(t.mint, 4, 4))}</span>${tags}</div></td>
 			<td>${pnl}<div class="tp-metric-sub">${pct}</div></td>
 			<td><span class="tp-reason">${escapeHtml(t.exit_reason || '—')}</span></td>
 			<td>${held}</td>
@@ -326,10 +344,23 @@ function render(data) {
 		<div class="tp-panel" data-panel="proof">
 			<div class="tp-proof-note">
 				${SHIELD}
+				<div class="tp-proof-text">
 				<p><strong>This track record is verifiable, not trusted.</strong> Every closed trade above links to its
 				on-chain buy and sell transaction on Solscan — the numbers are computed from those, nothing else. The
 				headline score is additionally committed on-chain daily as a signed attestation against this trader's
 				wallet${a.wallet ? ` (<a class="tp-proof-link" href="${solscanAddr(a.wallet)}" target="_blank" rel="noopener">${escapeHtml(shortAddr(a.wallet))} ↗</a>)` : ''}, so it can't be quietly edited after the fact.</p>
+				${m.self_dealing_count > 0
+					? `<p><strong>${m.self_dealing_count} self-dealing round-trip${m.self_dealing_count === 1 ? '' : 's'} excluded.</strong>
+						Trades on coins this account launched (${fmtSol(m.self_dealing_excluded_pnl_sol, { sign: false })} of realized P&L) are
+						not credited to the score — you can't pump a token you minted and call it a track record. They're tagged
+						<span class="tp-tag tp-tag-self">self-deal</span> above for full transparency.</p>`
+					: ''}
+				${m.snipe_hit_rate != null
+					? `<p><strong>Snipe hit-rate is chain-proven.</strong> ${m.snipe_count} of ${m.snipe_sample} entries with a verifiable
+						launch slot landed within 5 minutes of the coin's on-chain birth; ${m.snipe_wins} were profitable. Launch times
+						come from observed on-chain create transactions, not self-reported timestamps.</p>`
+					: ''}
+				</div>
 			</div>
 			<table class="tp-table"><thead><tr>
 				<th>Coin</th><th>P&L</th><th>Exit</th><th>Held</th><th>When</th><th>On-chain</th>

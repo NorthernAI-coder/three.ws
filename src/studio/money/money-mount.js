@@ -10,6 +10,9 @@
 
 import { studio } from '../agent-studio-store.js';
 import { mountMoneyStudio } from './money-studio.js';
+// Side-effect import: registers the P1 brain `market` node runner so the brain
+// graph can reason with this agent's real, live trading state (P4 ↔ P1 seam).
+import './trading-runner.js';
 
 const SELECTOR = '[data-studio-mount="money"]';
 

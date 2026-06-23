@@ -79,7 +79,7 @@ async function fetchLeaderboard(limit) {
 	}));
 }
 async function fetchNewLaunches(limit) {
-	const r = await fetch(`/api/agents/public?sort=newest&onchain=1&limit=${limit}`, { headers: { accept: 'application/json' } });
+	const r = await fetch(`/api/agents/public?sort=newest&limit=${limit}`, { headers: { accept: 'application/json' } });
 	if (!r.ok) throw new Error(`public ${r.status}`);
 	const body = await r.json();
 	return (body.agents || []).map((a) => ({
@@ -209,8 +209,6 @@ export function initTheater(root) {
 		try {
 			const limit = rosterBudget();
 			const rows = state.room.id === 'launches' ? await fetchNewLaunches(limit) : await fetchLeaderboard(limit);
-			if (!rows.length) { showState('quiet'); }
-			else { showState('stage'); }
 
 			await pool(rows, 5, resolveBody);
 			state.roster = rows;
@@ -225,17 +223,25 @@ export function initTheater(root) {
 
 			// Re-apply any watched highlight that belongs to this room.
 			for (const id of state.watch) if (state.byId.has(id)) stage.highlight(id);
+
+			showState('stage');
+			maybeShowQuiet();
 		} catch (err) {
 			log.warn('[theater] room load failed', err?.message);
 			showState('error');
 		}
 	}
 
+	// loading & error are mutually-exclusive center cards over the live canvas.
+	// The quiet-market card is independent: it rides at the foot of the stage and
+	// only shows while no live event has arrived (the cast still stands on stage).
 	function showState(which) {
 		refs.loading.hidden = which !== 'loading';
 		refs.error.hidden = which !== 'error';
-		refs.quiet.hidden = which !== 'quiet';
-		// stage canvas always visible behind overlays
+		if (which !== 'stage') refs.quiet.hidden = true;
+	}
+	function maybeShowQuiet() {
+		refs.quiet.hidden = !(state.liveCount === 0 && refs.loading.hidden && refs.error.hidden);
 	}
 
 	refs.error.querySelector('[data-retry]')?.addEventListener('click', loadRoom);
@@ -352,7 +358,8 @@ export function initTheater(root) {
 		const rep = state.reputation[id] || (agent.score != null ? { score: agent.score, tier: agent.tier, tierLabel: agent.tierLabel, totals: agent.totals } : null);
 		const bal = state.balances[id];
 		const me = await whoami();
-		const isOwner = agent.is_owner || (me && rep && false);
+		const isOwner = !!agent.is_owner;
+		const signedIn = !!me;
 		const watching = state.watch.has(id);
 		const totals = rep?.totals || {};
 
@@ -395,11 +402,16 @@ export function initTheater(root) {
 			]),
 			isOwner
 				? el('p', { class: 'th-panel-foot th-muted', text: 'This agent is yours — act from its profile.' })
-				: el('p', { class: 'th-panel-foot th-muted' }, [
-					'Fork to own a copy, or follow its alpha from ',
-					el('a', { href: `/agent/${id}`, text: 'its profile' }),
-					'.',
-				]),
+				: signedIn
+					? el('p', { class: 'th-panel-foot th-muted' }, [
+						'Fork to own a copy with its own wallet, or follow its alpha from ',
+						el('a', { href: `/agent/${id}`, text: 'its profile' }),
+						'.',
+					])
+					: el('p', { class: 'th-panel-foot th-muted' }, [
+						el('a', { href: `/login?next=${encodeURIComponent(`/agent/${id}`)}`, text: 'Sign in' }),
+						' to fork this agent to your own wallet or follow its alpha. Watching is always free.',
+					]),
 			recentForAgent(id),
 		);
 	}
@@ -418,8 +430,15 @@ export function initTheater(root) {
 	}
 
 	function toggleWatch(id) {
-		if (state.watch.has(id)) { state.watch.delete(id); stage.highlight(null); }
-		else { state.watch.add(id); stage.highlight(id); }
+		if (state.watch.has(id)) {
+			state.watch.delete(id);
+			// re-focus another watched agent in this room, if any
+			const next = [...state.watch].find((w) => state.byId.has(w));
+			stage.highlight(next || null);
+		} else {
+			state.watch.add(id);
+			stage.highlight(id);
+		}
 		saveWatch([...state.watch]);
 		if (state.selected === id) renderPanel(id);
 	}
@@ -443,6 +462,7 @@ export function initTheater(root) {
 				]),
 			),
 		);
+		maybeShowQuiet();
 	});
 
 	// keep ticker timestamps fresh

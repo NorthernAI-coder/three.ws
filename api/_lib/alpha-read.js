@@ -105,7 +105,9 @@ export function parseReadJson(text) {
 export function extractNumbers(text) {
 	if (typeof text !== 'string') return [];
 	const out = [];
-	const re = /(\d[\d,]*\.?\d*)\s*([kmb])?/gi;
+	// The k/m/b suffix only counts as a unit when it's standalone — a negative
+	// lookahead stops "1,234 mcap" from reading the "m" of "mcap" as millions.
+	const re = /(\d[\d,]*\.?\d*)\s*([kmb])?(?![a-z])/gi;
 	let m;
 	while ((m = re.exec(text))) {
 		let n = parseFloat(m[1].replace(/,/g, ''));

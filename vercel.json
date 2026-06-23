@@ -27,11 +27,7 @@
 		"{api/agents/networth,api/avatars/from-forge}.js": {
 			"maxDuration": 60
 		},
-		"api/club/tips-stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
-		"api/feed-stream.js": {
+		"{api/club/tips-stream,api/feed-stream,api/pump/trades-stream,api/oracle/stream,api/oracle/action-stream,api/sniper/stream,api/sniper/radar-stream}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
@@ -132,21 +128,9 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
-		"api/pump/trades-stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
 		"api/pump/launch-og.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 15
-		},
-		"api/oracle/stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
-		"api/oracle/action-stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
 		},
 		"api/oracle/trades.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
@@ -167,14 +151,6 @@
 		"api/copy/settle-fee.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
-		},
-		"api/sniper/stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
-		"api/sniper/radar-stream.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
 		},
 		"api/sniper/history.js": {
 			"maxDuration": 20
@@ -3679,6 +3655,14 @@
 		{
 			"src": "/create/prompt/",
 			"dest": "/create-prompt.html"
+		},
+		{
+			"src": "/genesis",
+			"dest": "/genesis.html"
+		},
+		{
+			"src": "/genesis/",
+			"dest": "/genesis.html"
 		},
 		{
 			"src": "/scan",

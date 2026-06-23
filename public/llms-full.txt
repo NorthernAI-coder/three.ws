@@ -162,6 +162,12 @@ URL: https://three.ws/genome
 
 Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.
 
+### Instant Agent Genesis
+
+URL: https://three.ws/genesis
+
+A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.
+
 ### Create an Agent
 
 URL: https://three.ws/create-agent

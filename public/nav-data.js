@@ -25,6 +25,12 @@ export const NAV_GROUPS = [
 		label: 'Build',
 		items: [
 			{
+				title: 'Instant Agent Genesis',
+				href: '/genesis',
+				badge: 'New',
+				desc: 'Selfie or prompt → 3D agent + funded wallet + on-chain identity in 60s',
+			},
+			{
 				title: 'Text to 3D',
 				href: '/forge',
 				badge: 'Live',

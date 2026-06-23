@@ -10,7 +10,10 @@
 import { agentBus, AGENT_EVENTS } from './agent-bus.js';
 
 const MAX_ROWS = 200;
-let mounted = false;
+const PANEL_ID = 'agentbus-debug';
+// The wildcard subscription from the live panel, so a re-mount (after an SPA
+// route swap wiped the body) can drop the stale one instead of leaking it.
+let offWild = null;
 
 // A stable, readable colour per event family so the stream is scannable.
 const COLORS = {
@@ -56,10 +59,15 @@ function summarize(type, payload) {
 	}
 }
 
-/** Mount the overlay (idempotent). Safe to call repeatedly. */
+/** Mount the overlay (idempotent). Safe to call repeatedly; re-mounts if the
+ * panel was removed (e.g. a client-side route swap wiped the body). */
 export function mountAgentBusDebug() {
-	if (mounted || typeof document === 'undefined') return;
-	mounted = true;
+	if (typeof document === 'undefined') return;
+	if (document.getElementById(PANEL_ID)) return; // already live
+	if (offWild) {
+		offWild(); // drop the subscriber from a panel that got wiped
+		offWild = null;
+	}
 
 	const style = document.createElement('style');
 	style.textContent = `
@@ -123,7 +131,7 @@ export function mountAgentBusDebug() {
 		e.currentTarget.setAttribute('aria-label', collapsed ? 'Expand log' : 'Collapse log');
 	});
 
-	agentBus.on('*', (payload, type) => {
+	offWild = agentBus.on('*', (payload, type) => {
 		empty.style.display = 'none';
 		const row = document.createElement('div');
 		row.className = 'row';

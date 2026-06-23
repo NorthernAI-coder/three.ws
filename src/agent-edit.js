@@ -6,6 +6,7 @@ import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
 import { agentBus } from './agents/agent-bus.js';
+import { mountAutopilotMind } from './autopilot-mind.js';
 
 const API_BASE = '/api';
 const params = new URLSearchParams(location.search);
@@ -3024,12 +3025,24 @@ async function ensureBrainTab() {
   }
 }
 
+// Memory-grounded Autopilot — explainable autonomy. The strategy textarea above
+// stays; this mounts the scopes / proposals / trust / signed-receipts surface.
+let autopilotMounted = false;
+function ensureAutopilotTab() {
+  if (autopilotMounted || !agentId) return;
+  const host = $('autopilot-mind');
+  if (!host) return;
+  autopilotMounted = true;
+  mountAutopilotMind(host, { agentId });
+}
+
 const TAB_LOADERS = {
   brain: ensureBrainTab,
   outfit: ensureOutfitTab,
   voice: ensureVoiceTab,
   knowledge: ensureKnowledgeTab,
   dreams: ensureDreamsTab,
+  autopilot: ensureAutopilotTab,
   skills: ensureSkillsTab,
   wallet: ensureWalletTab,
   social: ensureSocialTab,
