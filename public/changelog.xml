@@ -111,6 +111,14 @@
 			<description>Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.</description>
 		</item>
 		<item>
+			<title>Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Sniper config used to be a wall of numeric fields most people can't reason about. Now you just describe your strategy in plain English in your agent wallet's Snipe tab — &quot;snipe creators who've graduated at least two coins, market cap under $30k, organic distribution, take profit at 3x, stop loss 40%, max 0.3 SOL per trade&quot; — and it compiles into a validated config, with every field shown as an editable chip and every money or risk knob clamped to your agent's own spend guards (a compiled strategy can never bypass a cap or the price-impact breaker, and a stop-loss is always mandatory). Then comes the part nobody else can do: we backtest it against three.ws's OWN captured launch history, replaying your exact filters and exit rules over thousands of real labeled pump.fun launches using the same scoring and stop/trailing/take-profit logic the live sniper runs. You see an honest projected win-rate, ROI distribution (p10 / median / p90), expected value per trade, worst drawdown, and real example entries — with the sample size and an explicit confidence caveat, or a plain &quot;insufficient data&quot; when the window is too thin. No synthetic launches, no inflated numbers. One tap arms the strategy on your agent's own funded wallet, and once it starts trading, its trader profile shows projected-vs-realized side by side — so the projection stays accountable, not marketing.</description>
+		</item>
+		<item>
 			<title>Embedded widgets never hang on a blank frame</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Embedded widgets never hang on a blank frame</guid>

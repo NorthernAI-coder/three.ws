@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T08:03:05.273Z",
+	"generated_at": "2026-06-23T08:06:46.961Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -135,6 +135,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport",
+			"summary": "Sniper config used to be a wall of numeric fields most people can't reason about. Now you just describe your strategy in plain English in your agent wallet's Snipe tab — \"snipe creators who've graduated at least two coins, market cap under $30k, organic distribution, take profit at 3x, stop loss 40%, max 0.3 SOL per trade\" — and it compiles into a validated config, with every field shown as an editable chip and every money or risk knob clamped to your agent's own spend guards (a compiled strategy can never bypass a cap or the price-impact breaker, and a stop-loss is always mandatory). Then comes the part nobody else can do: we backtest it against three.ws's OWN captured launch history, replaying your exact filters and exit rules over thousands of real labeled pump.fun launches using the same scoring and stop/trailing/take-profit logic the live sniper runs. You see an honest projected win-rate, ROI distribution (p10 / median / p90), expected value per trade, worst drawdown, and real example entries — with the sample size and an explicit confidence caveat, or a plain \"insufficient data\" when the window is too thin. No synthetic launches, no inflated numbers. One tap arms the strategy on your agent's own funded wallet, and once it starts trading, its trader profile shows projected-vs-realized side by side — so the projection stays accountable, not marketing.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
