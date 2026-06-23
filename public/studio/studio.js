@@ -63,7 +63,32 @@ const WIDGET_TYPES = {
 		status: 'ready',
 		icon: '◭',
 	},
+	'walking-avatar': {
+		label: 'Walking Avatar',
+		desc: 'A roaming 3D avatar visitors can walk around your page — joystick or keyboard.',
+		status: 'ready',
+		icon: '🚶',
+	},
 };
+
+// Mirrors WALK_SIZE_PRESETS in src/widget-types.js — inlined because /public is
+// served verbatim (no build transform), same as WIDGET_TYPES above.
+const WALK_SIZE_PRESETS = {
+	S: { width: 360, height: 320 },
+	M: { width: 480, height: 420 },
+	L: { width: 720, height: 560 },
+};
+
+// Environments the /walk-embed runtime can actually render (mirrors ENV_IDS in
+// src/walk-embed-events.js). The picker only offers what the embed understands.
+const WALK_ENVIRONMENTS = [
+	['studio', 'Studio'],
+	['void', 'Void'],
+	['beach', 'Beach'],
+	['sunset', 'Sunset'],
+	['night', 'Night'],
+	['grid', 'Grid'],
+];
 
 const DEMO_AVATAR = Object.freeze({
 	id: '__demo__',
@@ -86,6 +111,7 @@ const DEMO_WIDGET_IDS = Object.freeze({
 	'kol-trades': 'wdgt_demo_koltrad',
 	'live-trades-canvas': 'wdgt_demo_ltcnvs',
 	'bonding-curve': 'wdgt_demo_bondcrv',
+	'walking-avatar': 'wdgt_demo_walkavt',
 });
 
 const BRAND_DEFAULTS = Object.freeze({
@@ -139,6 +165,18 @@ const TYPE_DEFAULTS = {
 	'kol-trades': { mint: '', limit: 20, refreshMs: 30000 },
 	'live-trades-canvas': { mint: '', chain: 'solana', bg: '#0a0a0a', minUsd: 0 },
 	'bonding-curve': { mint: '', network: 'mainnet', refreshMs: 15000, showUsd: true },
+	'walking-avatar': {
+		controls: 'joystick',
+		environment: 'studio',
+		autoplay: false,
+		walkSpeed: 1.0,
+		bg: 'transparent',
+		size: 'M',
+		width: 480,
+		height: 420,
+		position: 'inline',
+		enableNarration: false,
+	},
 };
 
 function defaultConfig(type) {
@@ -553,6 +591,10 @@ function renderTypeGrid() {
 function renderTypeFields() {
 	const wrap = $('#type-fields');
 	wrap.innerHTML = '';
+	// The walking avatar has its own self-contained visual model (own background,
+	// environment, controls) and renders in /walk-embed, not the turntable viewer
+	// — so the generic 3D brand fields don't apply. Hide them for this type.
+	toggleBrandFields(state.type !== 'walking-avatar');
 	const t = WIDGET_TYPES[state.type];
 	if (t.status === 'pending') {
 		const banner = document.createElement('div');
@@ -674,6 +716,111 @@ function renderTypeFields() {
 			boolField('showUsd', 'Show USD values (Jupiter price)', state.config.showUsd !== false),
 		);
 	}
+	if (state.type === 'walking-avatar') {
+		mountWalkingAvatarExtras(wrap);
+	}
+}
+
+// Show/hide the generic 3D brand fields (background, accent, caption, controls,
+// auto-rotate, environment) that only apply to turntable-viewer widget types.
+// Name + Public toggle always stay visible. No HTML edit needed — we toggle by
+// the field's input name.
+function toggleBrandFields(show) {
+	for (const name of ['background', 'accent', 'caption', 'showControls', 'autoRotate', 'envPreset']) {
+		const field = formEl.querySelector(`[name="${name}"]`)?.closest('.field');
+		if (field) field.hidden = !show;
+	}
+}
+
+function mountWalkingAvatarExtras(wrap) {
+	wrap.appendChild(
+		selectField('environment', 'Environment', state.config.environment || 'studio', WALK_ENVIRONMENTS),
+	);
+	wrap.appendChild(
+		selectField('controls', 'Controls', state.config.controls || 'joystick', [
+			['joystick', 'On-screen joystick (touch)'],
+			['keyboard', 'Keyboard (WASD / arrows)'],
+			['none', 'None (look only)'],
+		]),
+	);
+	wrap.appendChild(
+		rangeField('walkSpeed', 'Walk speed', state.config.walkSpeed ?? 1.0, {
+			min: 0.5,
+			max: 2.0,
+			step: 0.1,
+			format: (v) => `${v.toFixed(1)}×`,
+		}),
+	);
+	wrap.appendChild(
+		boolField('autoplay', 'Autoplay — avatar strolls on its own', state.config.autoplay === true),
+	);
+	wrap.appendChild(walkBgField('bg', 'Background', state.config.bg || 'transparent'));
+
+	// Size preset + custom W/H. W/H inputs only show when "Custom" is picked.
+	const sizeWrap = document.createElement('div');
+	sizeWrap.className = 'field-group';
+	const sizeTitle = document.createElement('div');
+	sizeTitle.className = 'field-group-title';
+	sizeTitle.textContent = 'Embed size';
+	sizeWrap.appendChild(sizeTitle);
+	sizeWrap.appendChild(
+		selectField('size', 'Size preset', state.config.size || 'M', [
+			['S', `Small (${WALK_SIZE_PRESETS.S.width}×${WALK_SIZE_PRESETS.S.height})`],
+			['M', `Medium (${WALK_SIZE_PRESETS.M.width}×${WALK_SIZE_PRESETS.M.height})`],
+			['L', `Large (${WALK_SIZE_PRESETS.L.width}×${WALK_SIZE_PRESETS.L.height})`],
+			['custom', 'Custom'],
+		]),
+	);
+	const customWrap = document.createElement('div');
+	customWrap.className = 'walk-size-custom';
+	customWrap.style.display = state.config.size === 'custom' ? '' : 'none';
+	customWrap.appendChild(
+		numberField('width', 'Width (px)', state.config.width ?? 480, { min: 100, max: 3000, step: 10 }),
+	);
+	customWrap.appendChild(
+		numberField('height', 'Height (px)', state.config.height ?? 420, { min: 100, max: 3000, step: 10 }),
+	);
+	sizeWrap.appendChild(customWrap);
+	wrap.appendChild(sizeWrap);
+
+	// React to size preset changes: apply preset dims + toggle the custom inputs.
+	const sizeSelect = sizeWrap.querySelector('select[name="size"]');
+	sizeSelect.addEventListener('change', () => {
+		const preset = WALK_SIZE_PRESETS[state.config.size];
+		if (preset) {
+			state.config.width = preset.width;
+			state.config.height = preset.height;
+		}
+		customWrap.style.display = state.config.size === 'custom' ? '' : 'none';
+		const wIn = customWrap.querySelector('input[name="width"]');
+		const hIn = customWrap.querySelector('input[name="height"]');
+		if (wIn) wIn.value = state.config.width;
+		if (hIn) hIn.value = state.config.height;
+		schedulePreview();
+	});
+
+	wrap.appendChild(
+		selectField('position', 'Embed position', state.config.position || 'inline', [
+			['inline', 'Inline (in page flow)'],
+			['br', 'Floating — bottom right'],
+			['bl', 'Floating — bottom left'],
+			['tr', 'Floating — top right'],
+			['tl', 'Floating — top left'],
+		]),
+	);
+
+	wrap.appendChild(
+		boolField(
+			'enableNarration',
+			'Narrate page sections aloud (JS-SDK embeds only)',
+			state.config.enableNarration === true,
+		),
+	);
+	const narrNote = document.createElement('p');
+	narrNote.className = 'note';
+	narrNote.textContent =
+		'When on, the script-tag (JS SDK) embed reads each page section the visitor scrolls to via the avatar — using the narrator from the walk SDK. Plain iframe embeds stay silent.';
+	wrap.appendChild(narrNote);
 }
 
 function mountTalkingAgentExtras(wrap) {
@@ -1097,6 +1244,74 @@ function numberField(name, label, value, { min, max, step }) {
 	return f;
 }
 
+function rangeField(name, label, value, { min, max, step, format } = {}) {
+	const f = document.createElement('label');
+	f.className = 'field field--range';
+	const fmt = format || ((v) => String(v));
+	f.innerHTML = `<span class="field--range-label">${escapeHtml(label)}<span class="range-value">${escapeHtml(fmt(Number(value)))}</span></span>
+		<input type="range" name="${attr(name)}" value="${attr(String(value))}" min="${min}" max="${max}" step="${step}">`;
+	const out = f.querySelector('.range-value');
+	f.querySelector('input').addEventListener('input', (e) => {
+		const v = parseFloat(e.target.value);
+		if (!isNaN(v)) {
+			state.config[name] = v;
+			out.textContent = fmt(v);
+			schedulePreview();
+		}
+	});
+	return f;
+}
+
+// Color field that also supports a "Transparent" choice (for the walk embed,
+// whose default lets the host page show through). A checkbox flips between
+// transparent and a concrete color; the color picker stays usable underneath.
+function walkBgField(name, label, value) {
+	const isTransparent = !value || value === 'transparent';
+	const lastColor = isTransparent ? '#0a0a0a' : value;
+	const f = document.createElement('div');
+	f.className = 'field field--color-row';
+	f.innerHTML = `<span>${escapeHtml(label)}</span>
+		<label class="walk-bg-transparent">
+			<input type="checkbox" class="walk-bg-toggle"${isTransparent ? ' checked' : ''}>
+			<span>Transparent (show page through)</span>
+		</label>
+		<div class="color-row" style="${isTransparent ? 'opacity:0.4;pointer-events:none' : ''}">
+			<input type="color" class="walk-bg-color" value="${attr(lastColor)}">
+			<input type="text" class="color-hex" maxlength="7" value="${attr(lastColor)}" placeholder="#000000">
+		</div>`;
+	const toggle = f.querySelector('.walk-bg-toggle');
+	const colorRow = f.querySelector('.color-row');
+	const colorIn = f.querySelector('.walk-bg-color');
+	const hexIn = f.querySelector('.color-hex');
+	const setColorRowEnabled = (enabled) => {
+		colorRow.style.opacity = enabled ? '' : '0.4';
+		colorRow.style.pointerEvents = enabled ? '' : 'none';
+	};
+	toggle.addEventListener('change', () => {
+		if (toggle.checked) {
+			state.config[name] = 'transparent';
+			setColorRowEnabled(false);
+		} else {
+			state.config[name] = colorIn.value;
+			setColorRowEnabled(true);
+		}
+		schedulePreview();
+	});
+	colorIn.addEventListener('input', () => {
+		hexIn.value = colorIn.value;
+		state.config[name] = colorIn.value;
+		schedulePreview();
+	});
+	hexIn.addEventListener('input', () => {
+		if (/^#[0-9a-fA-F]{6}$/.test(hexIn.value)) {
+			colorIn.value = hexIn.value;
+			state.config[name] = hexIn.value;
+			schedulePreview();
+		}
+	});
+	return f;
+}
+
 // ── interaction ──────────────────────────────────────────────────────────────
 function selectAvatar(id) {
 	state.avatarId = id;
@@ -1428,7 +1643,81 @@ previewIfr.addEventListener('load', () => {
 	}
 });
 
+// Build the /walk-embed query string from the current config + a resolved avatar
+// param (avatar id for saved avatars — resolved cross-origin via the GLB proxy —
+// or a model URL for the demo / preview-only models).
+function walkEmbedQuery(avatarParam) {
+	const c = state.config;
+	const p = new URLSearchParams();
+	if (avatarParam) p.set('avatar', avatarParam);
+	p.set('env', c.environment || 'studio');
+	p.set('controls', c.controls || 'joystick');
+	if (c.autoplay) p.set('autoplay', '1');
+	if (c.bg) p.set('bg', c.bg);
+	if (typeof c.walkSpeed === 'number') p.set('speed', String(c.walkSpeed));
+	if (c.enableNarration) p.set('narration', '1');
+	return p;
+}
+
+function walkAvatarParam() {
+	const avatar = findAvatar(state.avatarId);
+	const modelUrl = avatar?.model_url || state.preselectedModel || null;
+	// Real saved avatars load by id (the embed's GLB proxy serves them with
+	// permissive CORS). The demo / preview-only models load by URL.
+	if (avatar && !avatar.is_demo && avatar.id && avatar.id !== DEMO_AVATAR.id) return avatar.id;
+	return modelUrl;
+}
+
+function updateWalkPreview(forceReload) {
+	const avatarParam = walkAvatarParam();
+	if (!avatarParam) {
+		previewSt.className = 'muted';
+		previewSt.textContent = state.avatarId
+			? 'Avatar has no public URL — make it public/unlisted to preview'
+			: 'Pick an avatar to preview';
+		return;
+	}
+	// The walk embed has no orbit camera to capture.
+	captureBtn.disabled = true;
+	const query = walkEmbedQuery(avatarParam).toString();
+	// Only the avatar and autoplay flag require a full reload; environment,
+	// controls, background and speed all update live via the walk:* protocol.
+	const key = `walk|${avatarParam}|${state.config.autoplay ? 1 : 0}`;
+	if (forceReload || key !== previewSrcKey) {
+		previewSrcKey = key;
+		previewSt.className = 'muted';
+		previewSt.textContent = 'Loading preview…';
+		previewFrameEl?.classList.add('is-loading');
+		previewIfr.src = `/walk-embed?${query}&_=${Date.now()}`;
+	} else {
+		previewSt.className = state.avatarId ? 'preview-status-live' : 'muted';
+		previewSt.textContent = state.avatarId
+			? 'Live preview'
+			: 'Preview only — pick an avatar from your library to save';
+		postWalkConfigToPreview();
+	}
+}
+
+function postWalkConfigToPreview() {
+	const w = previewIfr.contentWindow;
+	if (!w) return;
+	const send = (type, payload) => {
+		try {
+			w.postMessage({ channel: 'three-walk', v: 1, type, ...payload }, location.origin);
+		} catch {
+			/* iframe may not be ready — reload path covers it */
+		}
+	};
+	send('walk:config', {
+		speed: state.config.walkSpeed ?? 1.0,
+		bg: state.config.bg || 'transparent',
+		controls: state.config.controls || 'joystick',
+	});
+	send('walk:env', { env: state.config.environment || 'studio' });
+}
+
 function updatePreview(forceReload) {
+	if (state.type === 'walking-avatar') return updateWalkPreview(forceReload);
 	if (!state.avatarId && !state.preselectedModel) {
 		previewSt.className = 'muted';
 		previewSt.textContent = 'Pick an avatar to preview';
@@ -1476,6 +1765,7 @@ function updatePreview(forceReload) {
 
 function postConfigToPreview() {
 	if (!previewIfr.contentWindow) return;
+	if (state.type === 'walking-avatar') return postWalkConfigToPreview();
 	try {
 		previewIfr.contentWindow.postMessage(
 			{ type: 'widget:config', config: { ...state.config } },

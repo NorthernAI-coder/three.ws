@@ -163,6 +163,18 @@ const TYPE_DEFAULTS = {
 		refreshMs: 15_000,
 		showUsd: true,
 	},
+	'walking-avatar': {
+		controls: 'joystick',
+		environment: 'studio',
+		autoplay: false,
+		walkSpeed: 1.0,
+		bg: 'transparent',
+		size: 'M',
+		width: 480,
+		height: 420,
+		position: 'inline',
+		enableNarration: false,
+	},
 };
 
 const hexColor = z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'must be a hex color');
@@ -295,6 +307,26 @@ const TYPE_SCHEMAS = {
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 		refreshMs: z.number().int().min(5_000).max(300_000).default(15_000),
 		showUsd: z.boolean().default(true),
+	}),
+	// The walking avatar runs in its own chrome-less iframe (/walk-embed), not the
+	// turntable viewer, so it does NOT inherit brandSchema — it has a self-contained
+	// visual model (own background, environment, controls). Every field maps to a
+	// /walk-embed query param or an embed-layout knob.
+	'walking-avatar': z.object({
+		controls: z.enum(['joystick', 'keyboard', 'none']).default('joystick'),
+		environment: z.enum(['studio', 'void', 'beach', 'sunset', 'night', 'grid']).default('studio'),
+		autoplay: z.boolean().default(false),
+		walkSpeed: z.number().min(0.5).max(2).default(1),
+		// 'transparent' lets the host page show through; a hex paints a solid color.
+		bg: z
+			.string()
+			.regex(/^(transparent|#[0-9a-fA-F]{3,8})$/, 'must be "transparent" or a hex color')
+			.default('transparent'),
+		size: z.enum(['S', 'M', 'L', 'custom']).default('M'),
+		width: z.number().int().min(100).max(3000).default(480),
+		height: z.number().int().min(100).max(3000).default(420),
+		position: z.enum(['tl', 'tr', 'bl', 'br', 'inline']).default('inline'),
+		enableNarration: z.boolean().default(false),
 	}),
 };
 

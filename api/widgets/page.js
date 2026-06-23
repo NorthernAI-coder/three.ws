@@ -22,6 +22,11 @@ const TYPE_LABEL = {
 	'talking-agent': 'Talking Agent',
 	passport: 'ERC-8004 Passport',
 	'hotspot-tour': 'Hotspot Tour',
+	'pumpfun-feed': 'Pump.fun Live Feed',
+	'kol-trades': 'Smart Money Feed',
+	'live-trades-canvas': 'Live Trades Canvas',
+	'bonding-curve': 'Bonding Curve',
+	'walking-avatar': 'Walking Avatar',
 };
 
 export default wrap(async (req, res) => {

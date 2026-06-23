@@ -223,6 +223,25 @@ export const DEMO_WIDGETS = {
 			showUsd: true,
 		},
 	}),
+
+	wdgt_demo_walkavt: fixture({
+		id: 'wdgt_demo_walkavt',
+		type: 'walking-avatar',
+		name: 'Walking Avatar',
+		modelUrl: CZ,
+		config: {
+			controls: 'joystick',
+			environment: 'studio',
+			autoplay: true,
+			walkSpeed: 1.0,
+			bg: 'transparent',
+			size: 'M',
+			width: 480,
+			height: 420,
+			position: 'inline',
+			enableNarration: false,
+		},
+	}),
 };
 
 export function isDemoWidgetId(id) {

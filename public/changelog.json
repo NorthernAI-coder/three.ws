@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T09:50:45.387Z",
+	"generated_at": "2026-06-23T09:51:57.351Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -127,6 +127,16 @@
 			"tags": [
 				"fix",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Avatar editor: a Walk tab to see your avatar in motion while you customize",
+			"summary": "The avatar customizer now has a Walk preview. Switch to the new Walk tab and your avatar stops standing still — it strides a slow circle around the stage with a real walk cycle and a third-person follow camera, so you can judge how an outfit, hat, or face edit actually reads in motion instead of frozen in an A-pose. Take the controls any time with W/A/S/D or the arrow keys to drive it around, and pick a backdrop from a small Environment dropdown (the clean void grid by default, or any of the walk-world scenes). Every change you make elsewhere in the editor — a sculpted smile, a new jacket, a pair of glasses — shows up on the walking avatar instantly, no reload. When the look is right, “Open in Walk page” drops your in-progress draft into the full Walk experience in a new tab. The preview holds a steady 30fps so the rest of the editor stays snappy. Only coin referenced is $THREE.",
+			"link": "/avatars",
+			"tags": [
+				"feature"
 			]
 		},
 		{

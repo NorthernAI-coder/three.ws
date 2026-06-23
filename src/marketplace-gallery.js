@@ -34,7 +34,6 @@ import {
 	TextureLoader,
 	SRGBColorSpace,
 	DoubleSide,
-	Color,
 	MathUtils,
 } from 'three';
 
@@ -539,7 +538,6 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 
 	// ── Treadmill + recycling ───────────────────────────────────────────────────
 	let anchored = false;
-	let beltBaseZ = 0; // accumulated forward travel folded out of belt.position for precision
 
 	function recycleAndFill() {
 		// A plinth that has slid behind the player leaps to the front of the hall.
@@ -606,7 +604,6 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		if (belt.position.z > REBASE_AT) {
 			const k = belt.position.z;
 			belt.position.z = 0;
-			beltBaseZ += k;
 			for (const s of slots) s.group.position.z += k;
 		}
 

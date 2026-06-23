@@ -71,6 +71,25 @@ import { log } from './shared/log.js';
 window.THREE = THREE;
 window.VIEWER = {};
 
+// Build the /walk-embed URL for a saved walking-avatar widget from its config +
+// avatar. The avatar is passed by id when we have one (the embed resolves it via
+// the same-origin GLB proxy, which works cross-origin) and falls back to the
+// public model URL for demo fixtures. Mirrors the studio's snippet builder.
+function walkEmbedUrlForWidget(widget) {
+	const cfg = widget.config || {};
+	const av = widget.avatar || {};
+	const avatarParam = av.id || av.model_url || '';
+	const u = new URL('/walk-embed', location.origin);
+	if (avatarParam) u.searchParams.set('avatar', avatarParam);
+	u.searchParams.set('env', cfg.environment || 'studio');
+	u.searchParams.set('controls', cfg.controls || 'joystick');
+	if (cfg.autoplay) u.searchParams.set('autoplay', '1');
+	if (cfg.bg) u.searchParams.set('bg', cfg.bg);
+	if (typeof cfg.walkSpeed === 'number') u.searchParams.set('speed', String(cfg.walkSpeed));
+	if (cfg.enableNarration) u.searchParams.set('narration', '1');
+	return u.pathname + u.search;
+}
+
 function _blobToBase64(blob) {
 	return new Promise((resolve, reject) => {
 		const reader = new FileReader();
@@ -1282,6 +1301,16 @@ class App {
 			}
 		} catch {
 			/* best-effort */
+		}
+
+		// The walking avatar isn't a turntable-viewer widget — it lives in the
+		// chrome-less /walk-embed iframe with its own scene + controls. The slim
+		// /widget shell (and the /w/:id share page that hands off to it) redirect
+		// here so a saved walking-avatar widget renders its real runtime instead
+		// of an empty viewer. The view beacon above has already fired.
+		if (widget.type === 'walking-avatar') {
+			location.replace(walkEmbedUrlForWidget(widget));
+			return;
 		}
 
 		const cfg = { ...(widget.config || {}) };

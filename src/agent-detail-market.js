@@ -544,6 +544,18 @@ function renderPricing(a) {
 			let badge;
 			if (purchasedSkills.has(name)) {
 				badge = `<span class="ad-price-badge owned">✓ Owned</span>`;
+			} else if (price && price.gate_type === 'nft') {
+				// NFT-gated: access is holding the collection, not a purchase. The
+				// viewer-owned case is already handled above (the API folds held
+				// gates into purchased_skills); here they don't (yet) hold it.
+				const mint = String(price.nft_collection_mint || '');
+				const shortMint = mint.length > 14 ? `${mint.slice(0, 6)}…${mint.slice(-6)}` : mint;
+				const collectionUrl = mint ? `https://solscan.io/token/${encodeURIComponent(mint)}` : '';
+				badge =
+					`<span class="ad-price-badge gated" title="Hold an NFT from this collection to unlock">🔒 Token Gated</span>` +
+					(collectionUrl
+						? `<a class="ad-skill-btn gated-collection" href="${escapeHtml(collectionUrl)}" target="_blank" rel="noopener noreferrer">Collection ${escapeHtml(shortMint)}</a>`
+						: '');
 			} else if (price && Number(price.amount) > 0) {
 				const isPwyw = price.pricing_type === 'pwyw';
 				const trialUses = price.trial_uses || 0;
@@ -578,9 +590,9 @@ function renderPricing(a) {
 			} else {
 				badge = `<span class="ad-price-badge free">Free</span>`;
 			}
-			// Per-skill ratings & reviews — paid skills only (a review must anchor to
-			// a real purchase). The surface mounts lazily on first expand.
-			const isPaid = !!(price && Number(price.amount) > 0);
+			// Per-skill ratings & reviews — premium skills only (a review must anchor
+			// to real access: a purchase or a held NFT gate). Mounts lazily on expand.
+			const isPaid = !!(price && (Number(price.amount) > 0 || price.gate_type === 'nft'));
 			let reviewsBlock = '';
 			if (isPaid) {
 				const safeName = escapeHtml(name);

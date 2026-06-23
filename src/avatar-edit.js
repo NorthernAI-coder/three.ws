@@ -509,23 +509,16 @@ function renderWalkPanel(panel) {
 
 	// Backfill the real environment list once the manifest resolves.
 	const preview = getWalkPreview();
-	if (preview) {
-		Promise.resolve(preview.envManifest || preview._applyEnvironment(preview.envName))
-			.then(() => populateEnvOptions(envSel, preview))
-			.catch(() => {});
-	}
-}
-
-function populateEnvOptions(sel, preview) {
-	if (!sel || !preview) return;
-	const envs = preview.availableEnvironments();
-	if (envs.length <= 1) return;
-	const current = preview.envName || 'void';
-	sel.innerHTML = envs
-		.map(
-			(e) => `<option value="${esc(e.name)}"${e.name === current ? ' selected' : ''}>${esc(e.label)}</option>`,
-		)
-		.join('');
+	preview?.listEnvironments().then((envs) => {
+		if (!envs || envs.length <= 1) return;
+		const current = preview.envName || 'void';
+		envSel.innerHTML = envs
+			.map(
+				(e) =>
+					`<option value="${esc(e.name)}"${e.name === current ? ' selected' : ''}>${esc(e.label)}</option>`,
+			)
+			.join('');
+	});
 }
 
 function enterWalkMode() {

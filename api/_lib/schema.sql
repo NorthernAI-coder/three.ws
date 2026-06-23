@@ -636,7 +636,7 @@ create table if not exists widgets (
     id              text primary key,                -- 'wdgt_' + 12 base64url chars
     user_id         uuid not null references users(id) on delete cascade,
     avatar_id       uuid references avatars(id) on delete set null,
-    type            text not null check (type in ('turntable','animation-gallery','talking-agent','passport','hotspot-tour','pumpfun-feed','kol-trades','live-trades-canvas')),
+    type            text not null check (type in ('turntable','animation-gallery','talking-agent','passport','hotspot-tour','pumpfun-feed','kol-trades','live-trades-canvas','bonding-curve','walking-avatar')),
     name            text not null,
     config          jsonb not null default '{}'::jsonb,
     is_public       boolean not null default true,

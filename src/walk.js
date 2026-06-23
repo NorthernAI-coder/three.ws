@@ -44,6 +44,7 @@ import nipplejs from 'nipplejs';
 import { AnimationManager } from './animation-manager.js';
 import { AccessoryManager } from './agent-accessories.js';
 import { WalkGestures, GESTURE_ORDER } from './walk-gestures.js';
+import { WalkVoiceChat } from './walk-voice-chat.js';
 import { WalkNet } from './walk-net.js';
 import { applyLoadout } from './game/cosmetics-loadout.js';
 import { getPlayCosmetics } from './game/play-handoff.js';
@@ -67,6 +68,11 @@ import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './wa
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 import { createWalkNpcs } from './walk-npcs.js';
 import { createWalkWalletProximity } from './walk-wallet.js';
+import { createMarketplaceGallery } from './marketplace-gallery.js';
+
+// Walk-Browse: on /marketplace-walk the page boots with ?gallery=marketplace and
+// the engine becomes a strollable 3D marketplace hall. See marketplace-gallery.js.
+const GALLERY_MODE = new URLSearchParams(location.search).get('gallery') === 'marketplace';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -1149,8 +1155,11 @@ window.addEventListener('keydown', (e) => {
 			gestures?.wheelKeyDown(e.repeat);
 			break;
 		case 'KeyT':
+			// Push-to-talk: hold T to speak to the avatar. Ignore the auto-repeat
+			// the OS fires while held — recording starts on the first press and
+			// ends on keyup. (Enter still opens the text chat box.)
 			e.preventDefault();
-			focusChat();
+			if (!e.repeat) voiceChat?.startListening();
 			break;
 		case 'KeyV':
 			e.preventDefault();
@@ -1265,6 +1274,10 @@ window.addEventListener('keyup', (e) => {
 			break;
 		case 'KeyG':
 			gestures?.wheelKeyUp();
+			break;
+		case 'KeyT':
+			// Release push-to-talk → transcribe + reply.
+			voiceChat?.stopListening();
 			break;
 	}
 });
@@ -1556,6 +1569,8 @@ async function applyAvatarSwap(url, id) {
 let _fullManifest = null;
 /** @type {WalkGestures|null} */
 let gestures = null;
+/** @type {import('./walk-voice-chat.js').WalkVoiceChat|null} */
+let voiceChat = null;
 
 function setupGestures() {
 	if (gestures || !emoteTrayEl) return;
@@ -1602,6 +1617,8 @@ function setupGestures() {
 	window.walk.setTalking = (on) => gestures?.setTalking(!!on);
 	window.walk.gestures = () => [...GESTURE_ORDER];
 
+	setupVoiceChat();
+
 	// Let an embedding host trigger gestures: `postMessage({ type:'walk:gesture', gesture })`.
 	window.addEventListener('message', (e) => {
 		const d = e.data;
@@ -1614,6 +1631,40 @@ function setupGestures() {
 			gestures?.play(d.gesture);
 		}
 	});
+}
+
+// Two-way voice chat (push-to-talk). Wires the WalkVoiceChat controller to the
+// page's avatar, persona, speech bubble, chat log, talking overlay, and the
+// multiplayer chat channel — then exposes walk.say(text, { voice, gesture }) so
+// the narrator / scripts can make the avatar speak with real TTS + lipsync.
+function setupVoiceChat() {
+	if (voiceChat) return;
+	const root = document.getElementById('walk-voice');
+	if (!root) return;
+	voiceChat = new WalkVoiceChat({
+		root,
+		getAvatar: () => avatar,
+		getPersona: () => ({
+			agentId: avatarMeta?.agent_id || null,
+			name: avatarMeta?.name || nameInput?.value?.trim() || null,
+			description: avatarMeta?.description || null,
+			env: currentEnvName || null,
+		}),
+		getUserName: () => nameInput?.value?.trim() || 'you',
+		showBubble: (text) => showSpeechBubbleFor('local', text),
+		setTalking: (on) => gestures?.setTalking(!!on),
+		addChatLog: (name, text, opts = {}) =>
+			window._walkChat?.addChatMessage(name, text, opts),
+		// Mirror the avatar's spoken line to the room so other players see it too.
+		broadcast: (text) => net?.sendChat(text),
+	});
+	voiceChat.mount();
+
+	window.walk = window.walk || {};
+	// Speak a line aloud with TTS + lipsync + the talking gesture. Returns the
+	// playback promise so callers can await the avatar finishing.
+	window.walk.say = (text, opts) => voiceChat?.speak(text, opts);
+	window.walk.voiceChat = voiceChat;
 }
 
 // Play the looping `talking` overlay for roughly as long as a chat/TTS line is
@@ -2109,7 +2160,9 @@ function tick() {
 	// When the Rapier solver is up (and we're not in AR), the kinematic
 	// character controller owns position, collision, and gravity. Otherwise the
 	// legacy direct-mutation path keeps the scene fully playable.
-	const usePhysics = physicsReady && !!character && !arActive;
+	// Gallery mode uses the freely-writable legacy movement path so the treadmill
+	// can re-anchor the avatar each frame without fighting the physics character.
+	const usePhysics = physicsReady && !!character && !arActive && !GALLERY_MODE;
 
 	// Legacy jump — simple parabola in Y, lands back at GROUND_Y. The physics
 	// path integrates verticalVel against real ground contact instead.
@@ -2265,6 +2318,10 @@ function tick() {
 				: 0;
 	avatarLean += (targetLean - avatarLean) * LEAN_LERP;
 	if (avatar) avatar.rotation.x = avatarLean;
+
+	// 1·9 Walk-Browse: scroll the marketplace hall and re-anchor the avatar before
+	//      the camera reads its position, so the treadmill stays seamless.
+	if (marketplaceGallery) marketplaceGallery.update(dt);
 
 	// 2. Update camera — frozen in AR mode, camera-mode system otherwise.
 	if (arFrozenCamPos && arFrozenCamLook) {
@@ -2830,6 +2887,12 @@ const walletProximity = createWalkWalletProximity({
 	remotePlayers,
 });
 
+// Walk-Browse marketplace hall — only on /marketplace-walk; a no-op otherwise.
+// Builds a recycling belt of listing plinths and treadmills it past the avatar.
+const marketplaceGallery = GALLERY_MODE
+	? createMarketplaceGallery({ scene, getLocalPosition: () => avatarRig.position })
+	: null;
+
 let net = null;
 let netConnected = false;
 let coinTotem = null; // CoinTotem instance when in a coin community world
@@ -3343,12 +3406,6 @@ function startNet() {
 // ── Gestures: see setupGestures() and src/walk-gestures.js. The radial
 // gesture wheel (hold G / long-press), the 1–8 quick keys, and the side
 // tray are all owned by the WalkGestures controller built in setupGestures().
-
-// ── Chat focus helper ────────────────────────────────────────────────────
-function focusChat() {
-	const chatInput = document.getElementById('walk-chat-input');
-	if (chatInput) chatInput.focus();
-}
 
 // ── Speech bubbles (3D→2D projected CSS overlays) ────────────────────────
 // Floating text above the local avatar and remote players. Messages appear
