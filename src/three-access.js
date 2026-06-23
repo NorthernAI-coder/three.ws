@@ -342,6 +342,92 @@ export function renderInlineLock(target, access) {
 		` · <a href="${ECONOMY_URL}">Get $THREE →</a></span>`;
 }
 
+// ── High-level holder-value API (the documented one-import surface) ────────────
+// renderTierBadge / requireTier / gateAffordance are the named, stable entry
+// points other surfaces import. They are thin wrappers over the data + UI helpers
+// above so there is exactly ONE client holder gate — these add ergonomics, not a
+// second implementation. The canonical upgrade destination is ECONOMY_URL (/three).
+
+/**
+ * Render a tier chip for an ALREADY-resolved tier object (synchronous) — the
+ * companion to {@link mountTierBadge}, which fetches the tier itself. Hides the
+ * chip for non-holders (Member / level 0) so it never reads as a false signal.
+ * @param {Element|string} target
+ * @param {{ id?:string, label?:string, level?:number, held_usd?:number }|null} tier
+ */
+export function renderTierBadge(target, tier) {
+	const el = typeof target === 'string' ? document.querySelector(target) : target;
+	if (!el) return;
+	injectStyles();
+	if (!tier || (Number(tier.level) || 0) < 1) {
+		el.hidden = true;
+		el.innerHTML = '';
+		return;
+	}
+	el.hidden = false;
+	const held =
+		Number(tier.held_usd) > 0
+			? ` · $${Number(tier.held_usd).toLocaleString('en-US', { maximumFractionDigits: 0 })} held`
+			: '';
+	el.innerHTML =
+		`<a class="tg-badge tg-tier-${escapeHtml(tier.id || 'member')}" href="${ECONOMY_URL}" ` +
+		`aria-label="Your $THREE tier: ${escapeHtml(tier.label || 'Holder')}" ` +
+		`title="Your $THREE holder tier — what it unlocks${held}">` +
+		`<span class="tg-tier-mark" aria-hidden="true">◆</span>` +
+		`<span class="tg-tier-label">${escapeHtml(tier.label || 'Holder')}</span></a>`;
+}
+
+/**
+ * Resolve whether the caller may use a gated feature. The single eligibility read
+ * a surface calls before exposing an affordance.
+ * @param {string} featureId  a key of GATED_FEATURES (server: three-access.js)
+ * @returns {Promise<{ allowed:boolean, tier:object|null, access:object|null, upgradeUrl:string }>}
+ *   `allowed` is false on a clean "insufficient tier" AND on a network failure
+ *   (caller renders the locked state; the server stays the only authority on the
+ *   actual action). `upgradeUrl` is the canonical /three tier surface.
+ */
+export async function requireTier(featureId) {
+	const data = await getAccess(featureId);
+	const access = data?.access || null;
+	return {
+		allowed: Boolean(access?.eligible),
+		tier: data?.tier || null,
+		access,
+		upgradeUrl: ECONOMY_URL,
+	};
+}
+
+/**
+ * Wire a gated affordance to the shared holder gate: read the feature's access,
+ * reflect locked/unlocked on the control, and (when eligible) run `onUnlock`.
+ * A locked control is marked disabled + `aria-disabled` and, when `lockEl` is
+ * given, gets the inline lock chip beside it (routing to /three). When access
+ * can't be read (network failure) the control is LEFT enabled — the server
+ * remains the authority and answers with a 402 the caller can route to onGate().
+ * @param {Element|string} target
+ * @param {{ featureId:string, onUnlock?:(access)=>void, lockEl?:Element|string }} opts
+ * @returns {Promise<{ allowed:boolean, access:object|null, tier:object|null, upgradeUrl:string }>}
+ */
+export async function gateAffordance(target, { featureId, onUnlock, lockEl } = {}) {
+	const el = typeof target === 'string' ? document.querySelector(target) : target;
+	if (!el || !featureId) return { allowed: false, access: null, tier: null, upgradeUrl: ECONOMY_URL };
+	const data = await getAccess(featureId);
+	const access = data?.access || null;
+	// No access payload → couldn't check; don't hard-block (fail-open), the server
+	// gate is authoritative. A real payload drives the locked/unlocked affordance.
+	const allowed = access ? Boolean(access.eligible) : true;
+
+	el.classList.toggle('three-locked', !allowed);
+	if ('disabled' in el) el.disabled = !allowed;
+	el.setAttribute('aria-disabled', String(!allowed));
+
+	const chip = lockEl ? (typeof lockEl === 'string' ? document.querySelector(lockEl) : lockEl) : null;
+	if (chip) renderInlineLock(chip, access);
+
+	if (allowed && typeof onUnlock === 'function') onUnlock(access);
+	return { allowed, access, tier: data?.tier || null, upgradeUrl: ECONOMY_URL };
+}
+
 // ── Upsell modal (402 three_hold_required) ────────────────────────────────────
 
 /**

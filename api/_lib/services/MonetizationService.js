@@ -24,6 +24,7 @@ import { sql as defaultSql } from '../db.js';
 import { hasSkillAccess } from '../skill-access.js';
 import { getAvailableBalance } from '../monetization.js';
 import { resolveMarketplaceFee } from '../marketplace-platform-fee.js';
+import { resolveListingSplit, describeSplit } from '../splits.js';
 import { invalidateSkillPriceCache } from '../skill-price-cache.js';
 import {
 	confirmSkillPurchase,
@@ -193,7 +194,16 @@ export class MonetizationService {
 
 		const isPwyw = price.pricing_type === 'pwyw';
 
-		const payoutAddress = await resolvePayoutAddress(agentId, price.chain);
+		let payoutAddress = await resolvePayoutAddress(agentId, price.chain);
+
+		// Proceeds split: a multi-collaborator listing shows the buyer where money
+		// goes ("proceeds split: 70/30"). For an on-chain (0xSplits, EVM) split the
+		// creator's net is routed INTO the split contract, so the recipient the
+		// buyer pays becomes the split address — confirm verifies against the same.
+		const listingSplit = await resolveListingSplit(this.sql, agentId, skillName).catch(() => null);
+		if (listingSplit?.split_mode === 'onchain' && listingSplit.split_address && price.chain !== 'solana') {
+			payoutAddress = listingSplit.split_address;
+		}
 		if (!payoutAddress) {
 			throw svcError(412, 'creator_wallet_missing', 'agent owner has not configured a payout wallet');
 		}
@@ -343,6 +353,18 @@ export class MonetizationService {
 				}
 			: {};
 
+		// Buyer-facing split disclosure: who shares the creator's net, and how.
+		const splitBlock = listingSplit?.recipients?.length
+			? {
+					split: {
+						mode: listingSplit.split_mode,
+						address: listingSplit.split_address,
+						creator_net: creatorAmount,
+						...describeSplit(listingSplit.recipients),
+					},
+				}
+			: {};
+
 		return {
 			already_owned: false,
 			reference: row.reference,
@@ -358,6 +380,7 @@ export class MonetizationService {
 			label,
 			message,
 			...feeBlock,
+			...splitBlock,
 			...(isGift ? { is_gift: true, gift_recipient_id: recipientUserId } : {}),
 			...(isTimePass ? { duration_hours: effectiveDurationHours } : {}),
 			...(price.time_pass_hours && !isPwyw

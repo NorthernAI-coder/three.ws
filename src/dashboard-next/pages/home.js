@@ -902,6 +902,7 @@ function renderQuickActions(host, { avatars = [], agents = [] } = {}) {
 	defaults.push(
 		{ href: '/gallery-picker', title: 'Browse avatar gallery', sub: 'Explore public 3D avatars', iconKey: '/gallery-picker', cat: 'Create & Build' },
 		{ href: '/dashboard/widgets', title: 'Embed an agent', sub: 'Drop-in chat widget for any site', iconKey: '/dashboard/widgets', cat: 'Distribute & Embed' },
+		{ href: '/dashboard/creator', title: 'Creator Studio', sub: 'Price skills, track earnings, get paid', iconKey: '/dashboard/creator', cat: 'Monetize & Earn' },
 		{ href: '/voice', title: 'Voice Lab', sub: 'Clone your voice for avatars', iconKey: '/voice', cat: 'Create & Build' },
 		{ href: repHref, title: 'Reputation', sub: 'On-chain reviews and attestations', iconKey: '/reputation', cat: 'Agents & Identity' },
 		{ href: '/dashboard/api', title: 'API keys', sub: 'REST + MCP for your agents', iconKey: '/dashboard/api', cat: 'Distribute & Embed' },

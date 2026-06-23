@@ -285,6 +285,34 @@
 .notif-signin-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.28); }
 .notif-signin-btn:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }
 
+/* Value-moment push prompt — shown inside the inbox panel, never on load. */
+.notif-push-banner {
+	display: flex; flex-direction: column; gap: 10px;
+	margin: 8px; padding: 12px 14px; border-radius: 12px;
+	background: linear-gradient(135deg, rgba(106,92,255,0.16), rgba(255,92,168,0.12));
+	border: 1px solid rgba(106,92,255,0.32);
+}
+.notif-push-copy { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-sm); color: rgba(255,255,255,0.86); line-height: 1.45; }
+.notif-push-icon { flex: none; }
+.notif-push-actions { display: flex; gap: 8px; }
+.notif-push-enable {
+	flex: 1; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+	font-size: var(--text-sm); font-weight: 600; color: #fff;
+	background: linear-gradient(135deg, #6a5cff, #ff5ca8); border: none;
+	transition: filter 0.12s, transform 0.06s;
+}
+.notif-push-enable:hover:not(:disabled) { filter: brightness(1.08); }
+.notif-push-enable:active:not(:disabled) { transform: translateY(1px); }
+.notif-push-enable:disabled { opacity: 0.65; cursor: default; }
+.notif-push-dismiss {
+	padding: 7px 12px; border-radius: 8px; cursor: pointer;
+	font-size: var(--text-sm); color: rgba(255,255,255,0.6);
+	background: transparent; border: 1px solid rgba(255,255,255,0.16);
+	transition: color 0.12s, border-color 0.12s;
+}
+.notif-push-dismiss:hover { color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.3); }
+.notif-push-enable:focus-visible, .notif-push-dismiss:focus-visible { outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px; }
+
 @media (max-width: 480px) {
 	.notif-panel { width: calc(100vw - 16px); }
 }
