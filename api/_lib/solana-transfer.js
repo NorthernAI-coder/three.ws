@@ -1,4 +1,4 @@
-import { PublicKey, Keypair } from '@solana/web3.js';
+import { PublicKey, Keypair, SystemProgram } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 import { submitProtected } from './execution-engine.js';
 import {
@@ -43,6 +43,43 @@ export async function transferSolanaUSDC({ fromWallet, toAddress, amount, mint }
 		network: 'mainnet',
 		connection,
 		payer: kp,
+		instructions,
+	});
+	return signature;
+}
+
+/**
+ * Transfer native SOL from a signing keypair to a recipient address. Used by the
+ * trading-swarm treasury to pay pro-rata profit distributions and exit
+ * redemptions on-chain. Same protected-send path as the SPL transfer above:
+ * data-driven priority fee + CU, rebroadcast with blockhash refresh until it
+ * lands, and a hard throw on an on-chain revert.
+ *
+ * @param {object} opts
+ * @param {import('@solana/web3.js').Keypair} opts.fromKeypair  the funded sender (treasury)
+ * @param {string}  opts.toAddress   recipient Solana address
+ * @param {bigint|number} opts.lamports  amount in lamports (must be > 0)
+ * @param {'mainnet'|'devnet'} [opts.network='mainnet']
+ * @returns {Promise<string>}  transaction signature
+ */
+export async function transferNativeSol({ fromKeypair, toAddress, lamports, network = 'mainnet' }) {
+	const amount = BigInt(lamports);
+	if (amount <= 0n) throw new Error('transferNativeSol: lamports must be > 0');
+	const recipient = new PublicKey(toAddress);
+	const connection = solanaConnection({ network, commitment: 'confirmed' });
+
+	const instructions = [
+		SystemProgram.transfer({
+			fromPubkey: fromKeypair.publicKey,
+			toPubkey: recipient,
+			lamports: amount,
+		}),
+	];
+
+	const { signature } = await submitProtected({
+		network,
+		connection,
+		payer: fromKeypair,
 		instructions,
 	});
 	return signature;

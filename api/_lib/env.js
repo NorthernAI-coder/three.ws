@@ -960,6 +960,16 @@ export const env = {
 	get THREE_REWARDS_WALLET() {
 		return opt('THREE_REWARDS_WALLET');
 	},
+	// Solana prize wallet for the Social Trading Arena (api/tournaments/*). Holds the
+	// $THREE used to pay tournament winners; the settlement module pays each winning
+	// entry a real on-chain SPL transfer from this wallet. Never logged, never
+	// returned. Accepts a Base58 64-byte secret (or base64); the settlement module
+	// also accepts the base64 CLUB_SOLANA_TREASURY_SECRET_KEY_B64 as a fallback. When
+	// unset, prizes settle as BLOCKED(payout_unconfigured) — the tournament still runs
+	// and ranks, it just can't pay until this is configured.
+	get THREE_PRIZE_PAYOUT_KEY() {
+		return opt('THREE_PRIZE_PAYOUT_KEY');
+	},
 	// Burn address — defaults to the Solana incinerator, whose associated token
 	// account is unspendable (no key exists), so tokens transferred there are
 	// permanently removed from circulation. Verifiable as a plain destination.

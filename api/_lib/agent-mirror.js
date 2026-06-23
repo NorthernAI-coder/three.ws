@@ -133,6 +133,7 @@ export async function loadFollower(followerId) {
 // pipeline — the gate is shared, never reimplemented.
 export async function runFollowerTrade({
 	follower, side, mint, network, solAmount, tokenAmountRaw, slippageBps, idempotencyKey, leaderRef,
+	firewallLevel = 'block',
 }) {
 	const { id, ownerId, meta, address, encryptedSecret } = follower;
 	if (!address || !encryptedSecret) return { status: 'failed', code: 'wallet_preparing' };
@@ -195,13 +196,17 @@ export async function runFollowerTrade({
 			quoteAmount: BigInt(quote.inAtomics), priceImpactPct: quote.priceImpactPct,
 		}).catch(() => null);
 		if (assessment) {
+			// Honour the caller's firewall level: 'block' refuses a block-verdict
+			// trade (the safe default every mirror uses); 'warn' records the verdict
+			// but lets the trade through. A down firewall degrades to allow, never stalls.
+			const enforced = firewallLevel === 'block' && assessment.verdict === 'block';
 			recordFirewallDecision({
 				mint, network, side: 'buy', verdict: assessment.verdict, score: assessment.score,
 				simulated: assessment.simulated, checks: assessment.checks, reasons: assessment.reasons,
 				source: 'mirror', agentId: id, userId: ownerId,
-				quoteLamports: BigInt(quote.inAtomics), enforced: assessment.verdict === 'block',
+				quoteLamports: BigInt(quote.inAtomics), enforced,
 			}).catch(() => {});
-			if (assessment.verdict === 'block') return { status: 'skipped', code: 'firewall_blocked' };
+			if (enforced) return { status: 'skipped', code: 'firewall_blocked' };
 		}
 	}
 

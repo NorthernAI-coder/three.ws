@@ -22,14 +22,18 @@ import { getVisibleTabs } from './registry.js';
 // Tab modules — importing each one runs its registerWalletTab() side effect.
 // To add a tab later: drop a file in ./tabs/ and add one import line here.
 import './tabs/balance.js';
+import './tabs/portfolio.js';
 import './tabs/pulse.js';
 import './tabs/reputation.js';
 import './tabs/deposit.js';
 import './tabs/trade.js';
+import './tabs/copilot.js';
 import './tabs/snipe.js';
+import './tabs/orders.js';
 import './tabs/earn.js';
 import './tabs/autopilot.js';
 import './tabs/intents.js';
+import './tabs/signals.js';
 import './tabs/pay.js';
 import './tabs/vanity.js';
 import './tabs/withdraw.js';

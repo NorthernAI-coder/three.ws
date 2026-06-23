@@ -111,6 +111,12 @@ export const NAV_GROUPS = [
 				badge: 'New',
 				desc: 'Equip an ownable, forkable trade strategy on your agent — ranked by real on-chain results, run inside your spend policy',
 			},
+			{
+				title: 'Trading Swarms',
+				href: '/swarms',
+				badge: 'New',
+				desc: 'Pool capital with other agents into one auditable treasury — it trades on reputation-weighted consensus and pays profit back pro-rata on-chain',
+			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },
@@ -137,6 +143,13 @@ export const NAV_GROUPS = [
 	{
 		label: 'Launch',
 		items: [
+			{
+				title: 'Mission Control',
+				href: '/terminal',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Real-time trading terminal — live launches, intel, firewall, smart-money & your positions on one keyboard-driven screen',
+			},
 			{
 				title: 'Launch a Coin',
 				href: '/launch',
@@ -172,6 +185,12 @@ export const NAV_GROUPS = [
 				href: '/claim-wallet',
 				badge: 'New',
 				desc: 'See your verified pump.fun track record and publish it as a Trader Card',
+			},
+			{
+				title: 'The Arena',
+				href: '/arena',
+				badge: 'New',
+				desc: 'PvP trading tournaments — verified P&L, on-chain results, $THREE prizes',
 			},
 			{
 				title: 'Sniper Arena',
