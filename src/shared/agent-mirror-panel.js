@@ -143,6 +143,18 @@ function ensureStyles() {
 .mir-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm, 10px); }
 .mir-h { font-size: var(--text-2xs, .64rem); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-dim, #9a9a9a); margin: var(--space-xs, 8px) 0 2px; }
 
+/* Follower graph — the avatars of who mirrors this leader (the social weld). */
+.mir-graph { display: flex; align-items: center; gap: var(--space-sm, 10px); padding: var(--space-sm, 9px) var(--space-md, 12px); border: 1px solid var(--stroke, rgba(255,255,255,.07)); border-radius: var(--radius-md, 10px); background: var(--surface-1, rgba(255,255,255,.025)); }
+.mir-pile { display: flex; flex: 0 0 auto; }
+.mir-pile a, .mir-pile span { display: block; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--bg-1, #141414); margin-left: -8px; background: var(--surface-2, rgba(255,255,255,.06)); overflow: hidden; transition: transform var(--duration-fast, .18s) var(--ease-standard, ease); }
+.mir-pile > :first-child { margin-left: 0; }
+.mir-pile a:hover { transform: translateY(-3px); z-index: 2; }
+.mir-pile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mir-pile .mir-more { display: flex; align-items: center; justify-content: center; font-family: var(--font-mono, monospace); font-size: var(--text-2xs, .6rem); color: var(--ink-dim, #b8b8b8); background: var(--surface-3, rgba(255,255,255,.1)); }
+.mir-graph-txt { flex: 1 1 auto; min-width: 0; font-size: var(--text-xs, .72rem); color: var(--ink-dim, #b8b8b8); line-height: 1.35; }
+.mir-graph-txt b { color: var(--ink-bright, #fff); }
+.mir-graph-txt small { display: block; color: var(--ink-faint, #777); font-size: var(--text-2xs, .62rem); margin-top: 1px; }
+
 .mir-modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.66); backdrop-filter: blur(var(--blur-sm, 4px)); z-index: 9998; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .mir-modal { width: min(440px, 96vw); max-height: 90vh; overflow: auto; background: var(--bg-1, #141414); border: 1px solid var(--wallet-stroke, rgba(139,92,246,.3)); border-radius: var(--radius-lg, 14px); padding: var(--space-lg, 22px); box-shadow: var(--shadow-3, 0 24px 64px rgba(0,0,0,.6)); }
 .mir-modal h3 { margin: 0 0 4px; font-family: var(--font-display, inherit); font-size: var(--text-lg, 1.05rem); color: var(--ink-bright, #fff); }
@@ -317,6 +329,36 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 		return `<div class="mir-stat"><div class="mir-stat-v ${cls}">${v}</div><div class="mir-stat-l">${label}</div></div>`;
 	}
 
+	// The follower graph — render the real avatars of who mirrors this agent into
+	// `container`. The faces ARE the social-financial graph (spec #5): each links to
+	// that follower's own profile, so the network is walkable avatar→avatar.
+	// `verb` toggles copy for the owner ("you") vs visitor ("this agent").
+	async function loadFollowerGraph(container, verb) {
+		if (!container) return;
+		let data;
+		try {
+			const res = await apiFetch(`/api/agents/${agentId}/mirror/followers`, { allowAnonymous: true });
+			if (!res.ok) { container.remove(); return; }
+			data = (await res.json()).data;
+		} catch { container.remove(); return; }
+		if (!alive) { return; }
+		const followers = data?.followers || [];
+		if (!followers.length) { container.remove(); return; }
+		const shown = followers.slice(0, 7);
+		const overflow = data.count - shown.length;
+		const pile = shown.map((fl) => {
+			const inner = fl.avatar ? `<img src="${esc(fl.avatar)}" alt="">` : '';
+			return `<a href="/agent/${esc(fl.agent_id)}" title="${esc(fl.name || shortAddr(fl.agent_id))}${fl.enabled ? '' : ' (paused)'}" style="${fl.enabled ? '' : 'opacity:.5'}">${inner}</a>`;
+		}).join('');
+		const more = overflow > 0 ? `<span class="mir-more">+${overflow}</span>` : '';
+		const names = shown.map((f) => f.name || shortAddr(f.agent_id)).filter(Boolean);
+		const lead = names.slice(0, 2).join(', ');
+		const rest = data.count - Math.min(2, names.length);
+		container.className = 'mir-graph';
+		container.innerHTML = `<div class="mir-pile">${pile}${more}</div>
+			<div class="mir-graph-txt"><b>${data.count}</b> ${data.count === 1 ? 'agent mirrors' : 'agents mirror'} ${verb}${lead ? `<small>${esc(lead)}${rest > 0 ? ` +${rest} more` : ''}${data.active < data.count ? ` · ${data.active} active` : ''}</small>` : ''}</div>`;
+	}
+
 	// Render the owner management view from /mirror.
 	function renderOwner(d) {
 		const followsHtml = d.following.length
@@ -353,8 +395,10 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 			</div>
 			<div id="mir-follows">${followsHtml}</div>
 			<div style="text-align:center"><button class="mir-btn mir-btn-primary" data-act="add" style="margin-top:4px">+ Mirror an agent</button></div>
+			${d.followers_count ? '<div id="mir-fgraph"></div>' : ''}
 			${recentHtml}`;
 		wireOwner(d);
+		if (d.followers_count) loadFollowerGraph(root.querySelector('#mir-fgraph'), 'you');
 	}
 
 	function fillRow(f) {
@@ -494,10 +538,11 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 			? `<button class="mir-btn mir-btn-primary" data-act="mirror-this" style="width:100%">⚡ Mirror this agent with your agent</button>`
 			: `<a class="mir-btn mir-btn-primary" href="/login?next=${encodeURIComponent(location.pathname)}" style="width:100%;display:block;text-align:center;text-decoration:none">Sign in to mirror this agent</a>`;
 
-		root.innerHTML = `${statsHtml}<div style="margin-top:var(--space-sm,10px)">${cta}</div>
+		root.innerHTML = `${statsHtml}<div id="mir-fgraph"></div><div style="margin-top:var(--space-sm,10px)">${cta}</div>
 			<div style="font-size:var(--text-2xs,.62rem);color:var(--ink-dim,#9a9a9a);text-align:center;margin-top:6px">Your agent copies its trades inside <b style="color:${VIOLET}">your</b> spend limits. Stop anytime.</div>`;
 
 		root.querySelector('[data-act="mirror-this"]')?.addEventListener('click', () => pickFollowerForLeader(agentMeta));
+		loadFollowerGraph(root.querySelector('#mir-fgraph'), 'this agent');
 	}
 
 	// Visitor flow: choose which of MY agents should mirror the viewed leader.

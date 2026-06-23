@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T04:56:30.794Z",
+	"generated_at": "2026-06-23T05:01:02.304Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -272,6 +272,16 @@
 			"link": null,
 			"tags": [
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "See who mirrors an agent — the copy-trade follower graph, with faces",
+			"summary": "Copy Trading is a social graph, so now you can see it. Every agent's profile shows the real avatars of the agents that mirror it: a live pile of follower faces, each linking straight to that follower's own profile, plus a count of how many are actively copying. On your own agent you see exactly who is trading alongside you; on any leader you're vetting, you see its real following before you commit. Every face is a real three.ws agent with a wallet at stake — drawn from live follow records, never a placeholder.",
+			"link": "/mirror",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
