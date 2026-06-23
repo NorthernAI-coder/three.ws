@@ -692,6 +692,12 @@ async function handleLimits(req, res, id) {
 		return json(res, 200, { data: { limits: getTradeLimits(meta), defaults: TRADE_LIMIT_DEFAULTS } });
 	}
 
+	// Relaxing the trade guard rails (per-trade cap, daily budget, kill-switch)
+	// is a state-changing owner action — match the same CSRF gate the withdraw
+	// and spend-limit writes use. Bearer (machine) callers are exempt inside
+	// requireCsrf, like every other write path.
+	if (!(await requireCsrf(req, res, auth.userId))) return;
+
 	const rl = await limits.tradePerUser(auth.userId);
 	if (!rl.success) return rateLimited(res, rl);
 

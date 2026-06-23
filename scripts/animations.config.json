@@ -677,28 +677,32 @@
     "source": "soldier-idle.glb",
     "label": "Idle",
     "icon": "🧍",
-    "loop": true
+    "loop": true,
+    "uprightFix": true
   },
   {
     "name": "soldier-run",
     "source": "soldier-run.glb",
     "label": "Run",
     "icon": "🏃",
-    "loop": true
+    "loop": true,
+    "uprightFix": true
   },
   {
     "name": "soldier-walk",
     "source": "soldier-walk.glb",
     "label": "Walk",
     "icon": "🚶",
-    "loop": true
+    "loop": true,
+    "uprightFix": true
   },
   {
     "name": "michelle-samba-dance",
     "source": "michelle-samba-dance.glb",
     "label": "Samba Dance",
     "icon": "💃",
-    "loop": true
+    "loop": true,
+    "uprightFix": true
   },
   {
     "name": "xbot-agree",

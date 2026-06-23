@@ -59,7 +59,7 @@ registerWalletTab({
 						<li>Budget &amp; sizing: daily cap, per-trade cap, max concurrent positions.</li>
 						<li>Entry filters: market cap, creator history, socials, SOL-quote only.</li>
 						<li>Exits: take-profit, stop-loss, trailing stop, max hold — auto-executed.</li>
-						<li>Live positions &amp; realized PnL stream as trades fill.</li>
+						<li>Live positions &amp; realized PnL stream as trades fill — with one-tap manual sell on any open position.</li>
 					</ul>
 					<a class="awh-btn awh-btn--primary awh-snipe-cta" href="${escapeHtml(dashUrl)}">
 						Open the Sniper dashboard

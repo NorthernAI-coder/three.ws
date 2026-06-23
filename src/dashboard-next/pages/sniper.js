@@ -928,6 +928,47 @@ async function toggleKill_(btn, root) {
 	}
 }
 
+async function sellNow(btn, root) {
+	const posId = btn.dataset.pos || null;
+	const agentId = btn.dataset.agent || null;
+	const mint = btn.dataset.mint || null;
+	const network = btn.dataset.net || 'mainnet';
+	const sym = btn.dataset.sym || 'this position';
+	if (!agentId || (!posId && !mint)) return;
+	if (!confirm(`Sell ${sym} now?\n\nThe agent will market-sell its full holding of this coin from its own wallet at the current price. This can't be undone.`)) return;
+
+	btn.disabled = true;
+	const orig = btn.textContent;
+	btn.textContent = 'Selling…';
+	try {
+		const body = { agent_id: agentId, network };
+		if (posId) body.position_id = posId; else body.mint = mint;
+		const res = await post('/api/sniper/close', body);
+		const d = (res && res.data) || {};
+		const pnlStr = d.pnl_sol != null ? ` · ${d.pnl_sol >= 0 ? '+' : ''}${fmtSol(d.pnl_sol).trim()}` : '';
+		toast(`${sym} sold${d.simulated ? ' (paper)' : ''}${pnlStr}`);
+		// Optimistically drop it from the live map so it disappears immediately,
+		// then refresh so KPIs, the strategy summary, and trade history reconcile.
+		if (posId) _positionsMap.delete(posId);
+		renderOwnedPositions();
+		const sn_root = root || document.getElementById('sn-root');
+		if (sn_root) await refresh(sn_root);
+	} catch (err) {
+		const code = err && err.code;
+		// 409s mean the worker (or another tab) is already closing/closed it — refresh
+		// to show the truth rather than leaving a stale "Sell now" button.
+		if (code === 'position_busy' || code === 'already_closed') {
+			toast(err.message || 'This position is already closing');
+			const sn_root = root || document.getElementById('sn-root');
+			if (sn_root) await refresh(sn_root);
+			return;
+		}
+		toast((err && err.message) || 'Sell failed — the position is still open');
+		btn.disabled = false;
+		btn.textContent = orig;
+	}
+}
+
 async function saveForm(form, root) {
 	const agentId = form.dataset.stratForm;
 	const strat = _strategies.find((s) => s.agent_id === agentId);

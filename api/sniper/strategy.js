@@ -16,6 +16,7 @@
 
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
+import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
@@ -236,6 +237,12 @@ async function listStrategies(req, res, userId) {
 // ── POST — upsert/arm strategy ───────────────────────────────────────────────
 
 async function upsertStrategy(req, res, userId) {
+	// Arming a sniper commits the agent's real custodial funds to autonomous
+	// trading, so this state-changing write gets the same CSRF gate as withdraw
+	// and the spend-limit endpoints. Machine (bearer) callers are exempt inside
+	// requireCsrf, which is why the client already sends the token.
+	if (!(await requireCsrf(req, res, userId))) return;
+
 	const body = await readJson(req);
 	const parsed = STRATEGY_SCHEMA.safeParse(body);
 	if (!parsed.success) {

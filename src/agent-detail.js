@@ -12,6 +12,7 @@ import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
+import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -27,6 +28,22 @@ import { consumeCsrfToken } from './api.js';
 // rows). Tracked so a re-render (e.g. avatar refresh) tears down their refresh
 // timers before remounting, rather than leaking intervals.
 const coinStatusHandles = [];
+
+// The hero's wallet aura controller — torn down on re-render/unload so its live
+// poll + rAF never leak.
+let adNetWorthAura = null;
+function mountAgentDetailAura(agent) {
+	const wrap = document.getElementById('ad-avatar-wrap');
+	if (!wrap || !agent?.id) return;
+	adNetWorthAura?.destroy?.();
+	adNetWorthAura = null;
+	hydrateAvatarWallet(wrap, agent, { lod: 'full', live: true, network: 'mainnet' })
+		.then((c) => { adNetWorthAura = c; })
+		.catch(() => { /* dormant baseline already shown */ });
+}
+if (typeof window !== 'undefined') {
+	window.addEventListener('pagehide', () => { adNetWorthAura?.destroy?.(); adNetWorthAura = null; }, { once: true });
+}
 
 function destroyCoinStatus() {
 	while (coinStatusHandles.length) {
@@ -590,6 +607,9 @@ function render(agent) {
 		const [c1] = GRADIENTS[(agent.name?.charCodeAt(0) || 0) % GRADIENTS.length];
 		glowEl.style.background = `radial-gradient(ellipse 60% 55% at 50% 40%, ${c1}22 0%, transparent 70%)`;
 	}
+	// Net-Worth-Reactive Avatar: weld the agent's real wallet to its hero body so
+	// its funded-ness is legible here exactly as on the viewer and in the galaxy.
+	mountAgentDetailAura(agent);
 	// Fullscreen modal
 	const mvModal = document.getElementById('ad-avatar-modal-3d');
 	if (mvModal) mvModal.setAttribute('src', glbUrl);
