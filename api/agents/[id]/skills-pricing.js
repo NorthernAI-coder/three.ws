@@ -4,10 +4,14 @@ import { requireCsrf } from '../../_lib/csrf.js';
 import { MonetizationService } from '../../_lib/services/MonetizationService.js';
 import { z } from 'zod';
 
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
 const priceSchema = z
 	.object({
 		skill: z.string().trim().min(1).max(100),
-		amount: z.number().int().min(1),
+		// Amount is required for a price gate, ignored (and stored as 0) for an NFT
+		// gate, so it is optional here and refined below per gate_type.
+		amount: z.number().int().min(1).optional(),
 		currency_mint: z.string().trim().min(1).max(100),
 		chain: z.string().trim().min(1).max(20),
 		trial_uses: z.number().int().min(0).max(10).default(0),
@@ -17,11 +21,23 @@ const priceSchema = z
 		// name an amount at or above `minimum_amount` (atomic units, 0 = no floor).
 		pricing_type: z.enum(['fixed', 'pwyw']).default('fixed'),
 		minimum_amount: z.number().int().min(0).nullable().optional(),
+		// Access gate: 'price' (default) sells the skill; 'nft' restricts it to
+		// holders of `nft_collection_mint`.
+		gate_type: z.enum(['price', 'nft']).default('price'),
+		nft_collection_mint: z.string().trim().regex(SOLANA_ADDRESS_RE).nullable().optional(),
 	})
-	.refine((p) => p.pricing_type !== 'pwyw' || (p.minimum_amount ?? 0) <= p.amount, {
-		message: 'minimum cannot exceed the suggested amount',
-		path: ['minimum_amount'],
-	});
+	.refine((p) => p.gate_type === 'nft' || (p.amount ?? 0) >= 1, {
+		message: 'amount is required for a priced skill',
+		path: ['amount'],
+	})
+	.refine((p) => p.gate_type !== 'nft' || !!p.nft_collection_mint, {
+		message: 'nft_collection_mint is required for an NFT gate',
+		path: ['nft_collection_mint'],
+	})
+	.refine(
+		(p) => p.gate_type === 'nft' || p.pricing_type !== 'pwyw' || (p.minimum_amount ?? 0) <= (p.amount ?? 0),
+		{ message: 'minimum cannot exceed the suggested amount', path: ['minimum_amount'] },
+	);
 
 const pricingUpdateSchema = z.object({
 	prices: z.array(priceSchema),

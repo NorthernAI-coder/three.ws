@@ -137,7 +137,9 @@ async function handleConnect(req, res) {
 	authUrl.searchParams.set('response_type', 'code');
 	authUrl.searchParams.set('client_id', env.X_OAUTH_CLIENT_ID);
 	authUrl.searchParams.set('redirect_uri', `${env.APP_ORIGIN}/api/auth/x/callback`);
-	authUrl.searchParams.set('scope', 'tweet.read tweet.write users.read offline.access');
+	// media.write lets a connected account upload screenshots / walk clips via the
+	// v2 media-upload endpoint (see api/share/x.js) before attaching them to a tweet.
+	authUrl.searchParams.set('scope', 'tweet.read tweet.write users.read media.write offline.access');
 	authUrl.searchParams.set('state', state);
 	authUrl.searchParams.set('code_challenge', codeChallenge);
 	authUrl.searchParams.set('code_challenge_method', 'S256');

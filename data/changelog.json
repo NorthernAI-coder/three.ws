@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Consistent currency formatting across the earnings dashboard",
+			"summary": "Subscription income and plan prices on the Monetize dashboard now display with thousands separators (e.g. $1,234.56), matching how the rest of your earnings are shown. Large numbers are easier to read at a glance and every dollar figure on the page now reads the same way.",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Top-trader leaderboard loads again",
 			"summary": "The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.",
 			"tags": [

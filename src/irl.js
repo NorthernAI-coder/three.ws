@@ -1771,8 +1771,14 @@ function discoveryOrigin() {
 // so the exact standing spot is never recorded. The first-placement consent sheet
 // (maybeConfirmPlacement) sets it; the choice is remembered across sessions.
 const PLACEMENT_KIND_KEY = 'irl_placement_kind';
+const PLACEMENT_FUZZ_KEY = 'irl_placement_fuzz_m';
 const PLACEMENT_CONSENT_KEY = 'irl_placement_consented_v1';
-const PLACEMENT_FUZZ_RADIUS_M = 30;
+// The blur radii the consent sheet offers, and the default. ~30 m drops the agent
+// on the same block, ~100 m anywhere on the street, ~250 m somewhere in the
+// neighbourhood — all comfortably above GPS error and below the point it stops
+// meaning "near here". These mirror the server's FUZZ_MIN_M / FUZZ_MAX_M band.
+const PLACEMENT_FUZZ_OPTIONS = [30, 100, 250];
+const PLACEMENT_FUZZ_DEFAULT = 100;
 
 function getPlacementKind() {
 	try { return localStorage.getItem(PLACEMENT_KIND_KEY) === 'approximate' ? 'approximate' : 'precise'; }
@@ -1781,11 +1787,32 @@ function getPlacementKind() {
 function setPlacementKind(v) {
 	try { localStorage.setItem(PLACEMENT_KIND_KEY, v === 'approximate' ? 'approximate' : 'precise'); } catch {}
 }
+function getPlacementFuzzRadius() {
+	try {
+		const v = Number(localStorage.getItem(PLACEMENT_FUZZ_KEY));
+		return PLACEMENT_FUZZ_OPTIONS.includes(v) ? v : PLACEMENT_FUZZ_DEFAULT;
+	} catch { return PLACEMENT_FUZZ_DEFAULT; }
+}
+function setPlacementFuzzRadius(v) {
+	const r = PLACEMENT_FUZZ_OPTIONS.includes(Number(v)) ? Number(v) : PLACEMENT_FUZZ_DEFAULT;
+	try { localStorage.setItem(PLACEMENT_FUZZ_KEY, String(r)); } catch {}
+}
 function hasPlacementConsent() {
 	try { return localStorage.getItem(PLACEMENT_CONSENT_KEY) === '1'; } catch { return false; }
 }
 function markPlacementConsented() {
 	try { localStorage.setItem(PLACEMENT_CONSENT_KEY, '1'); } catch {}
+}
+
+// Human-readable badge for a placement choice — shared by the caption chip, the
+// My-pins rows, and the inspect sheet so the wording never drifts. An approximate
+// pin shows its blur radius; a precise (or legacy/unknown) pin shows the exact pin.
+function placementBadgeText(kind, radiusM) {
+	if (kind === 'approximate') {
+		const r = Number.isFinite(radiusM) ? Math.round(radiusM) : getPlacementFuzzRadius();
+		return `≈ Approximate · ~${r} m`;
+	}
+	return '📍 Exact';
 }
 
 // Offset a coordinate by a uniformly-distributed random point inside a disc of
@@ -1809,8 +1836,9 @@ function applyPlacementKind(lat, lng) {
 	if (getPlacementKind() !== 'approximate') {
 		return { lat, lng, placementKind: 'precise', fuzzRadiusM: 0 };
 	}
-	const fuzzed = fuzzCoord(lat, lng, PLACEMENT_FUZZ_RADIUS_M);
-	return { lat: fuzzed.lat, lng: fuzzed.lng, placementKind: 'approximate', fuzzRadiusM: PLACEMENT_FUZZ_RADIUS_M };
+	const radiusM = getPlacementFuzzRadius();
+	const fuzzed = fuzzCoord(lat, lng, radiusM);
+	return { lat: fuzzed.lat, lng: fuzzed.lng, placementKind: 'approximate', fuzzRadiusM: radiusM };
 }
 
 // H3 — Proof-of-presence. The nearby read is bound to a genuine fix: we mint a
@@ -2437,12 +2465,104 @@ function focusCaptionWhenOpen() {
 	const safety = setTimeout(focusNow, 360);
 }
 
-function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
+// ── Placement consent sheet (H4) ──────────────────────────────────────────
+// The single most consequential moment in /irl is placement: the chosen spot IS
+// a real-world location that persists and that anyone nearby can read. Before the
+// first placement we make that legible and offer a safer default — drop the agent
+// "approximately" (a deliberately fuzzed point) instead of at the exact spot. The
+// two choices are equally weighted (no dark pattern); "don't show every time"
+// suppresses the sheet on later placements (the remembered kind still applies),
+// and the caption-panel "ⓘ" chip re-opens it so the choice is always changeable.
+const consentSheet = document.getElementById('irl-consent-sheet');
+
+// Paint the radius segmented control + the heading to reflect the stored choice.
+function syncConsentRadius() {
+	if (!consentSheet) return;
+	const radius = getPlacementFuzzRadius();
+	consentSheet.querySelectorAll('[data-fuzz]').forEach((b) => {
+		const on = Number(b.dataset.fuzz) === radius;
+		b.classList.toggle('on', on);
+		b.setAttribute('aria-pressed', String(on));
+	});
+}
+
+// Open the consent sheet. Resolves true if the user picked a placement kind
+// (exact or approximate) — both persist the choice — or false if they cancelled.
+// When the markup is missing (degraded DOM) we fail safe to 'precise' and proceed,
+// never dead-ending a placement (Rule 9).
+function showPlacementConsentSheet() {
+	return new Promise((resolve) => {
+		if (!consentSheet) { setPlacementKind('precise'); resolve(true); return; }
+		const exactBtn  = document.getElementById('irl-consent-exact');
+		const approxBtn = document.getElementById('irl-consent-approx');
+		const cancelBtn = document.getElementById('irl-consent-cancel');
+		const dontShow  = document.getElementById('irl-consent-dontshow');
+		if (dontShow) dontShow.checked = false;
+		syncConsentRadius();
+
+		let settled = false;
+		const finish = (proceed) => {
+			if (settled) return;
+			settled = true;
+			consentSheet.classList.remove('is-open');
+			releaseSheet(consentSheet);
+			resolve(proceed);
+		};
+		const choose = (kind) => {
+			setPlacementKind(kind);
+			if (dontShow?.checked) markPlacementConsented();
+			refreshCaptionPlacementChip();
+			finish(true);
+		};
+
+		consentSheet.querySelectorAll('[data-fuzz]').forEach((b) => {
+			b.onclick = () => { setPlacementFuzzRadius(Number(b.dataset.fuzz)); syncConsentRadius(); };
+		});
+		if (exactBtn)  exactBtn.onclick  = () => choose('precise');
+		if (approxBtn) approxBtn.onclick = () => choose('approximate');
+		if (cancelBtn) cancelBtn.onclick = () => finish(false);
+
+		consentSheet.classList.add('is-open');
+		trapSheet(consentSheet, () => finish(false));
+	});
+}
+
+// Gate a placement on consent. After the user has ticked "don't show every time"
+// the sheet is skipped and the remembered kind is used; otherwise it appears and
+// the user makes the choice explicitly per placement. Returns whether to proceed.
+async function maybeConfirmPlacement() {
+	if (hasPlacementConsent()) return true;
+	return showPlacementConsentSheet();
+}
+
+// The caption panel always shows how THIS pin will be stored (exact vs approximate)
+// as a tappable chip — both a clear disclosure and the "ⓘ" re-opener for the
+// consent sheet, so the choice is changeable right up to the moment of saving.
+const captionPlacementBtn = document.getElementById('irl-caption-placement');
+function refreshCaptionPlacementChip() {
+	if (!captionPlacementBtn) return;
+	const kind = getPlacementKind();
+	const badge = captionPlacementBtn.querySelector('.irl-caption-place-badge');
+	if (badge) badge.textContent = placementBadgeText(kind, getPlacementFuzzRadius());
+	captionPlacementBtn.classList.toggle('is-approx', kind === 'approximate');
+	captionPlacementBtn.setAttribute('aria-label',
+		`Placement: ${kind === 'approximate' ? `approximate, within about ${getPlacementFuzzRadius()} metres` : 'exact spot'}. Tap to change how this agent's location is stored.`);
+}
+if (captionPlacementBtn) {
+	captionPlacementBtn.onclick = () => { showPlacementConsentSheet(); };
+}
+
+async function openCaptionPanel(pinLat, pinLng, headingDeg, source = 'gyro-gps') {
+	// Consent gate (H4) — disclose what placing means and let the user choose exact
+	// vs approximate before the agent is written. Cancelling here releases the AR
+	// lock instead of leaving the user stuck in a locked, half-placed state.
+	if (!(await maybeConfirmPlacement())) { setLocked(false); return; }
 	if (!captionPanel) {
 		commitPin(pinLat, pinLng, headingDeg, '', source);
 		return;
 	}
 	captionInput.value = '';
+	refreshCaptionPlacementChip();
 	captionPanel.classList.add('is-open');
 	focusCaptionWhenOpen();
 	const cancel = () => {
