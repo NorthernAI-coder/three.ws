@@ -362,6 +362,16 @@ export function reputationPanelEl(agentId, opts = {}) {
 			root.innerHTML = panelInner(rep);
 			// Wire guidance/evidence stop-propagation if embedded.
 			root.querySelectorAll('a[href^="/"]').forEach((a) => a.addEventListener('click', (e) => e.stopPropagation()));
+			// Access & unlocks — what this reputation opens, and what unlocks next.
+			// Lazy-loaded so the badge path stays light; failure here never breaks the
+			// breakdown above.
+			if (opts.unlocks !== false) {
+				import('./wallet-access.js')
+					.then(({ renderUnlocksSection }) => {
+						root.appendChild(renderUnlocksSection(agentId, { isOwner: rep.is_owner }));
+					})
+					.catch(() => {});
+			}
 		} catch {
 			root.innerHTML =
 				`<div class="rep-error" role="alert"><div class="rep-error-title">Trust score unavailable</div>` +

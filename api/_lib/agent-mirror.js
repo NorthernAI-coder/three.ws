@@ -177,7 +177,9 @@ export async function runFollowerTrade({
 			if (checkDailyBudgetLamports(spent, lamportsIn, budgetLamports)) return { status: 'skipped', code: 'daily_budget' };
 		}
 		try {
-			await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network });
+			// `meta` carries the natural-language policy (meta.policy_rules) so the
+			// owner's English rules govern this mirrored trade too.
+			await enforceSpendLimit({ agentId: id, meta, limits: limitsCfg, category: 'trade', usdValue, asset: 'SOL', network });
 		} catch (e) {
 			if (e instanceof SpendLimitError) return { status: 'skipped', code: e.code };
 			throw e;

@@ -8,8 +8,15 @@
 
 import { ArenaWorld } from './arena-world.js';
 import { createLogger } from '../shared/log.js';
+import { fetchReputationBatch } from '../shared/agent-reputation.js';
+import { fetchUnlocks } from '../shared/wallet-access.js';
+import { evaluateAccessKey, buildAccessContext } from '../shared/wallet-access-rules.js';
 
 const log = createLogger('arena');
+
+// The reputation-gated world area in the arena. An agent stands on the Elite Floor
+// only when the SERVER's computed reputation unlocks it — the client never decides.
+const ELITE_FLOOR_KEY = 'arena-elite-floor';
 
 const NETWORK = new URLSearchParams(location.search).get('network') || 'mainnet';
 
@@ -95,6 +102,10 @@ async function loadAndPlace() {
 		_placed = true;
 		spawnAgentsProgressively(board);
 	}
+
+	// Light up the Elite Floor — a server-decided trust treatment on the agents the
+	// network already trusts. Never blocks placement; purely additive.
+	markEliteFloor(board.map((r) => r.agent_id));
 
 	// Seed the tape with recent closed trades (oldest first so prepend keeps order).
 	(data.trades || []).slice(0, 12).reverse().forEach((t) => pushTape('sell', t, { quiet: true }));
@@ -233,6 +244,78 @@ function createLabel(agent) {
 	labelEls.set(agent.id, { el, pos: { x: 0, y: 0 } });
 }
 
+// ── Elite Floor — the reputation-gated world area ───────────────────────────────
+// Membership is the SERVER's call: each agent's tier + $THREE conviction come from
+// the reputation service, so a client can never fake its way onto the floor. We
+// reflect that verdict by crowning the trusted/elite agents' labels.
+const _eliteFloor = new Set(); // agentIds the server places on the elite floor
+
+async function markEliteFloor(ids) {
+	const want = [...new Set((ids || []).filter(Boolean))];
+	if (!want.length) return;
+	ensureEliteStyles();
+	let reps;
+	try {
+		reps = await fetchReputationBatch(want);
+	} catch {
+		return; // never break the arena over a reputation hiccup
+	}
+	for (const id of want) {
+		const rep = reps?.[id];
+		if (!rep) continue;
+		// Evaluate the same world-area rule the server enforces, from server-computed
+		// inputs (tier + $THREE held/duration in totals). This is a visual hint only;
+		// the drawer confirms access against the authoritative /unlocks read.
+		const verdict = evaluateAccessKey(ELITE_FLOOR_KEY, buildAccessContext(rep));
+		const L = labelEls.get(id);
+		if (verdict?.unlocked) {
+			_eliteFloor.add(id);
+			if (L?.el && !L.el.querySelector('.lbl-elite')) {
+				L.el.classList.add('elite-floor');
+				const crown = document.createElement('span');
+				crown.className = 'lbl-elite';
+				crown.title = `Elite Floor · ${rep.tierLabel || 'Trusted'} wallet`;
+				crown.textContent = '👑';
+				L.el.prepend(crown);
+			}
+		}
+	}
+	updateEliteLegend();
+}
+
+function updateEliteLegend() {
+	let legend = document.getElementById('eliteLegend');
+	const n = _eliteFloor.size;
+	if (!n) {
+		legend?.remove();
+		return;
+	}
+	if (!legend) {
+		legend = document.createElement('div');
+		legend.id = 'eliteLegend';
+		legend.className = 'arena-elite-legend';
+		(document.getElementById('labels') || document.body).appendChild(legend);
+	}
+	legend.innerHTML = `<span aria-hidden="true">👑</span> Elite Floor · ${n} trusted ${n === 1 ? 'wallet' : 'wallets'}`;
+}
+
+let _eliteStyled = false;
+function ensureEliteStyles() {
+	if (_eliteStyled) return;
+	_eliteStyled = true;
+	const css = `
+.agent-label .lbl-elite{font-size:13px;line-height:1;margin-right:2px;filter:drop-shadow(0 0 4px rgba(251,191,36,.8))}
+.agent-label.elite-floor{border-color:rgba(251,191,36,.55)!important;box-shadow:0 0 0 1px rgba(251,191,36,.35),0 6px 20px rgba(251,191,36,.18)}
+.arena-elite-legend{position:absolute;left:12px;bottom:12px;z-index:6;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font:600 11px/1 var(--font-mono,ui-monospace,monospace);color:#fbbf24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.34);backdrop-filter:blur(6px);pointer-events:none}
+.arena-elite-legend span{font-size:12px}
+@media (max-width:560px){.arena-elite-legend{bottom:auto;top:64px}}
+`;
+	const style = document.createElement('style');
+	style.id = 'arena-elite-styles';
+	style.textContent = css;
+	document.head.appendChild(style);
+}
+
 const _proj = { x: 0, y: 0, behind: false };
 function updateLabels() {
 	if (!labelEls.size) return;
@@ -280,10 +363,68 @@ async function openAgentDrawer(id) {
 		if (!r.ok) throw new Error(r.status === 404 ? "This trader isn't public yet." : `HTTP ${r.status}`);
 		renderAgentDrawer(await r.json(), id);
 		enrichDrawerWithOracle(id);
+		enrichDrawerWithAccess(id);
 	} catch (e) {
 		if (e.name === 'AbortError') return;
 		body.innerHTML = `<div class="dw-empty"><b>Couldn't load this trader</b>${esc(e.message)}<br/><a href="/trader/${encodeURIComponent(id)}" target="_blank" rel="noopener">Open full profile ↗</a></div>`;
 	}
+}
+
+// Surface the agent's reputation tier + the server's Elite Floor verdict in the
+// drawer. The access state is read from /api/agents/:id/unlocks — the same route a
+// protected capability would gate on — so what's shown is the authoritative,
+// server-computed answer, not a client guess.
+async function enrichDrawerWithAccess(id) {
+	try {
+		const data = await fetchUnlocks(id);
+		if (!data?.unlocks) return;
+		const body = $('drawerBody');
+		const cta = body?.querySelector('.dw-cta');
+		if (!cta) return;
+		const floor = data.unlocks.find((u) => u.key === ELITE_FLOOR_KEY);
+		const tier = data.isNew ? 'New' : data.tierLabel || 'Emerging';
+		const accent = esc(data.accent || '#a78bfa');
+		const floorLine = floor?.unlocked
+			? `<span class="dw-acc-on">👑 Elite Floor access</span>`
+			: floor
+			  ? `<span class="dw-acc-off">🔒 Elite Floor · ${esc(floor.nextHint || 'locked')}</span>`
+			  : '';
+		const block = document.createElement('div');
+		block.className = 'dw-access';
+		block.innerHTML =
+			`<div class="dw-oracle-h">Reputation &amp; access</div>` +
+			`<div class="dw-acc-row">` +
+			`<a class="dw-acc-tier" href="/agent/${encodeURIComponent(id)}/wallet#reputation" style="--acc:${accent}" title="See the full trust breakdown">` +
+			`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>` +
+			`<b>${esc(tier)}</b><span>trust ${Math.round(data.score || 0)}/100</span></a>` +
+			(floorLine ? `<div class="dw-acc-floor">${floorLine}</div>` : '') +
+			`</div>`;
+		body.insertBefore(block, cta);
+		ensureDrawerAccessStyles();
+	} catch {
+		/* non-fatal — the drawer's track record is unaffected */
+	}
+}
+
+let _dwAccStyled = false;
+function ensureDrawerAccessStyles() {
+	if (_dwAccStyled) return;
+	_dwAccStyled = true;
+	const css = `
+.dw-access{margin-top:10px}
+.dw-acc-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.dw-acc-tier{display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:var(--acc,#a78bfa);background:color-mix(in srgb,var(--acc,#a78bfa) 12%,transparent);border:1px solid color-mix(in srgb,var(--acc,#a78bfa) 34%,transparent);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.dw-acc-tier svg{width:13px;height:13px}
+.dw-acc-tier span{color:#9ca3af;font-weight:500}
+.dw-acc-tier:hover{background:color-mix(in srgb,var(--acc,#a78bfa) 20%,transparent)}
+.dw-acc-floor{font-size:12px}
+.dw-acc-on{color:#fbbf24;font-weight:600}
+.dw-acc-off{color:#9ca3af}
+`;
+	const style = document.createElement('style');
+	style.id = 'arena-drawer-access-styles';
+	style.textContent = css;
+	document.head.appendChild(style);
 }
 
 async function enrichDrawerWithOracle(id) {

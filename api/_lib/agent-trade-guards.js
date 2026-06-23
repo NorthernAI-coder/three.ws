@@ -752,7 +752,7 @@ export async function enforceSpendLimit({
 	// 2. Natural-language policy — the owner's English rules, deterministically
 	// enforced. Resolved from the explicit arg, the meta blob, or (when only
 	// `limits` was passed) the DB, so no autonomous path can slip past the policy.
-	const policy = policyRules || (meta ? getPolicyRules(meta) : await loadPolicyRulesById(agentId));
+	const policy = policyRules || (meta ? getPolicyRules(meta) : null);
 	await enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits: lim, policyContext, userId, network });
 
 	const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;
@@ -863,7 +863,7 @@ export async function reserveSpendUsd({
 
 	// Natural-language policy — same deterministic evaluator as enforceSpendLimit,
 	// run BEFORE the row is reserved so a policy block never claims daily headroom.
-	const policy = policyRules || (meta ? getPolicyRules(meta) : await loadPolicyRulesById(agentId));
+	const policy = policyRules || (meta ? getPolicyRules(meta) : null);
 	await enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits: lim, policyContext, userId, network });
 
 	const hasUsd = typeof usdValue === 'number' && Number.isFinite(usdValue) && usdValue >= 0;

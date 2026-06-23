@@ -352,7 +352,9 @@ export async function handleTrade(req, res, id) {
 				// ownerInitiated: the hub's discretionary Trade tab is the owner acting
 				// in person (session + CSRF), not a delegated skill — so least-privilege
 				// "require a capability" never blocks the owner's own trade (like withdraw).
-				await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network, ownerInitiated: true });
+				// `meta` carries the natural-language policy (meta.policy_rules) so the
+				// owner's English rules govern this trade alongside the numeric caps.
+				await enforceSpendLimit({ agentId: id, meta, limits: limitsCfg, category: 'trade', usdValue, asset: 'SOL', network, ownerInitiated: true });
 			} catch (e) {
 				if (e instanceof SpendLimitError) guardWarning = { status: e.status, code: e.code, message: e.message, detail: e.detail };
 				else throw e;
