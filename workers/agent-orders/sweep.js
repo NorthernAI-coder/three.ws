@@ -42,7 +42,7 @@ function errCode(err) {
 
 // Blocks that won't clear by retrying — stop the order (status 'error') instead
 // of re-quoting it every sweep forever.
-const TERMINAL_CODES = new Set(['firewall_block', 'graduated', 'zero_out', 'invalid_mint', 'quote_not_sol']);
+const TERMINAL_CODES = new Set(['firewall_blocked', 'graduated', 'zero_out', 'invalid_mint', 'quote_not_sol']);
 
 /**
  * Decide whether (and how) an order fires this sweep. Returns a fire descriptor
@@ -125,11 +125,12 @@ async function settle(order, fire, result, mode) {
 	if (!result.ok) {
 		const code = result.code || 'error';
 		if (TERMINAL_CODES.has(code)) {
+			// Record the failed attempt AND halt the order to 'error' atomically — a
+			// rug verdict / graduated-buy / zero-out won't clear by retrying.
 			await recordFillAndAdvance({
-				order, terminal: false,
+				order, terminal: false, terminalError: true,
 				fill: { sliceIndex: fire.sliceIndex, triggerReason: fire.reason, triggerPrice: fire.triggerPrice, status: 'failed', detail: `${code}: ${result.message || ''}`.slice(0, 280) },
 			});
-			await releaseFire(order.id, 'error', `${code}: ${result.message || ''}`.slice(0, 280));
 			log.warn('order halted', { order: order.id, type: order.type, code });
 			return;
 		}
