@@ -77,8 +77,8 @@ Each runs locally with `npx` — no account needed unless a tool spends money or
 
 ```bash
 npx -y @three-ws/scene-mcp           # speak a 3D diorama into being from one sentence
-npx -y @three-ws/threews-avatar-mcp  # drop a live 3D avatar into any chat
-npx -y @three-ws/avatar-agent-mcp    # turn any GLB into a riggable 3D AI agent
+npx -y @three-ws/avatar-mcp          # drop a live 3D avatar into any chat
+npx -y @three-ws/avatar-agent        # turn any GLB into a riggable 3D AI agent
 npx -y @three-ws/mcp-server          # full 3D + agent toolkit, paid per call in USDC
 ```
 

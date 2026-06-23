@@ -43,30 +43,45 @@ The MCP server configuration is at `.mcp.json` in the project root, which Claude
 
 ## The full three.ws MCP ecosystem
 
-This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **14 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **20 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+
+There are two kinds. **Hosted remote servers** run over Streamable HTTP with nothing to install — add them by URL. **Install-and-run servers** are published on npm under the `@three-ws` scope and run locally over stdio — add them in one line with `npx`.
 
 **Six hosted remote servers** (Streamable HTTP, no install):
 
 | Server | Endpoint | What it does |
 |--------|----------|--------------|
-| three.ws | `/api/mcp` | Avatars, glTF/GLB validation, agent data (this page) |
+| three.ws | `/api/mcp` | Avatars, glTF/GLB validation, agent data, memory, copy-trading (this page) |
+| 3D Studio | `/api/mcp-3d` | Paid text/image→3D, rigging, retexture, optimization |
+| Agent wallet | `/api/mcp-agent` | The agent's custodial wallet: balance, find + pay services, and `monetize_endpoint` |
+| x402 Bazaar | `/api/mcp-bazaar` | Discover and price paid agent services across the facilitator network |
 | pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
-| 3D Studio | `/api/mcp-3d` | Paid text/image→3D, rigging, optimization |
-| Agent | `/api/mcp-agent` | Agent reputation and on-chain agent data |
 | IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
-| x402 Bazaar | `/api/mcp-bazaar` | Discover and price paid agent services |
 
-**Eight install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+**Fourteen install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
 
 ```bash
-npx -y @three-ws/mcp-server      # 3D + agent tools, paid per call in USDC
-npx -y @three-ws/three-token-mcp # price, hold, and burn $THREE on Solana
-npx -y @three-ws/pumpfun-mcp     # free pump.fun + Solana discovery
-npx -y @three-ws/ibm-x402-mcp    # pay-per-use IBM Granite AI
-npx -y @three-ws/ibm-watsonx-mcp # IBM watsonx.ai on your own account
-npx -y @three-ws/avatar-agent    # turn any GLB into a 3D AI agent
-npx -y @three-ws/avatar-mcp      # drop a live 3D avatar into any chat
-npx -y @three-ws/mcp-bridge      # pay any x402 endpoint on the open web
+# 3D & avatars
+npx -y @three-ws/scene-mcp        # speak a 3D diorama into being from one sentence
+npx -y @three-ws/avatar-mcp       # drop a live 3D avatar into any chat
+npx -y @three-ws/avatar-agent     # turn any GLB into a riggable 3D AI agent
+npx -y @three-ws/mcp-server       # full 3D + agent toolkit, paid per call in USDC
+
+# Payments & the agent economy
+npx -y @three-ws/x402-mcp         # self-custodial wallet: find, inspect & pay any x402 service in USDC
+npx -y @three-ws/three-token-mcp  # price, hold, and burn $THREE on Solana
+npx -y @three-ws/mcp-bridge       # bridge that pays any x402 endpoint on the open web
+npx -y @three-ws/ibm-x402-mcp     # pay-per-use IBM Granite AI
+
+# Market data, intel & discovery
+npx -y @three-ws/intel-mcp        # smart-money, signal feeds, KOL & copy-trade intel
+npx -y @three-ws/pumpfun-mcp      # free pump.fun + Solana token discovery
+npx -y @three-ws/vanity-mcp       # Solana vanity-address bounty market + rarity gallery
+npx -y @three-ws/marketplace-mcp  # browse the agent marketplace + skills catalog
+
+# Naming & AI
+npx -y @three-ws/naming-mcp       # resolve .sol names + check *.threews.sol identity availability
+npx -y @three-ws/ibm-watsonx-mcp  # IBM watsonx.ai on your own account
 ```
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.

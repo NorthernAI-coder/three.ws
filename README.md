@@ -1710,6 +1710,13 @@ Fifteen packages ship from this repo, all published to npm under the **`@three-w
 | [`@three-ws/three-token-mcp`](packages/three-token-mcp/) | `npx -y @three-ws/three-token-mcp` | Price, hold, and burn **$THREE** on Solana — deflation as an agent primitive |
 | [`@three-ws/ibm-watsonx-mcp`](packages/ibm-watsonx-mcp/) | `npx -y @three-ws/ibm-watsonx-mcp` | IBM watsonx.ai Granite (chat, generate, embed, forecast) with your own IBM key |
 | [`@three-ws/ibm-x402-mcp`](packages/ibm-x402-mcp/) | `npx -y @three-ws/ibm-x402-mcp` | Pay-per-use IBM Granite — USDC on Solana, no IBM account required |
+| [`@three-ws/mcp-bridge`](mcp-bridge/) | `npx -y @three-ws/mcp-bridge` | x402 universal payer — auto-pay any x402 endpoint on the open web, with Bazaar discovery + spend caps |
+| [`@three-ws/x402-mcp`](packages/x402-mcp/) | `npx -y @three-ws/x402-mcp` | Self-custodial x402 wallet — discover, inspect, and pay any x402 service in USDC |
+| [`@three-ws/scene-mcp`](packages/scene-mcp/) | `npx -y @three-ws/scene-mcp` | Compose a placed 3D diorama from one sentence, then browse the saved scene gallery |
+| [`@three-ws/intel-mcp`](packages/intel-mcp/) | `npx -y @three-ws/intel-mcp` | Coin smart-money scores, wallet reputation, signal feeds, and KOL leaderboards |
+| [`@three-ws/vanity-mcp`](packages/vanity-mcp/) | `npx -y @three-ws/vanity-mcp` | Solana vanity-address bounty market — quote difficulty + USDC price, browse the board |
+| [`@three-ws/marketplace-mcp`](packages/marketplace-mcp/) | `npx -y @three-ws/marketplace-mcp` | Browse the public three.ws agent marketplace + skills catalog (read-only) |
+| [`@three-ws/naming-mcp`](packages/naming-mcp/) | `npx -y @three-ws/naming-mcp` | On-chain identity for agents — resolve .sol names, reverse-lookup wallets, check handles |
 
 **`@three-ws/sdk` quickstart:**
 

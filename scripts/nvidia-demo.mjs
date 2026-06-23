@@ -68,22 +68,31 @@ async function main() {
 	const finalPrompt = enhancePrompt(prompt);
 	console.log(`→ TRELLIS text→3D  tier=${tier} steps=${steps}\n  prompt: "${finalPrompt}"`);
 
-	const res = await fetch(TRELLIS_INVOKE_URL, {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${apiKey}`,
-			accept: 'application/json',
-			'content-type': 'application/json',
-			'nvcf-poll-seconds': String(NVCF_POLL_SECONDS),
-		},
-		body: JSON.stringify({
-			mode: 'text',
-			prompt: finalPrompt,
-			ss_sampling_steps: steps,
-			slat_sampling_steps: steps,
-			output_format: 'glb',
-		}),
+	const invokeBody = JSON.stringify({
+		mode: 'text',
+		prompt: finalPrompt,
+		ss_sampling_steps: steps,
+		slat_sampling_steps: steps,
+		output_format: 'glb',
 	});
+	const invokeHeaders = {
+		authorization: `Bearer ${apiKey}`,
+		accept: 'application/json',
+		'content-type': 'application/json',
+		'nvcf-poll-seconds': String(NVCF_POLL_SECONDS),
+	};
+
+	// NVCF answers a cold model with a transient 502/503/504. Retry a few times
+	// with backoff before giving up — the model just needs to spin up.
+	let res;
+	for (let attempt = 1; attempt <= 6; attempt++) {
+		res = await fetch(TRELLIS_INVOKE_URL, { method: 'POST', headers: invokeHeaders, body: invokeBody });
+		if (![502, 503, 504].includes(res.status)) break;
+		const wait = Math.min(attempt * 5, 20);
+		console.log(`  ${res.status} (model warming) — retry ${attempt}/6 in ${wait}s…`);
+		await res.text().catch(() => {});
+		await sleep(wait * 1000);
+	}
 
 	let glb;
 	if (res.status === 202 || (res.ok && res.headers.get('nvcf-reqid') && !(await res.clone().json().catch(() => ({}))).artifacts?.length)) {
