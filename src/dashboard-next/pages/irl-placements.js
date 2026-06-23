@@ -28,6 +28,7 @@ import { skeletonHTML, emptyStateHTML, errorStateHTML, ensureStateKitStyles } fr
 import { loadInto } from '../../shared/async-state.js';
 import { loadLeaflet } from '../../shared/leaflet-loader.js';
 import { mountReputationPanel } from './irl-reputation.js';
+import { openMyDataPanel } from '../../irl/privacy-center.js';
 
 // ── Services / x402 skill pricing ───────────────────────────────────────────
 // Canonical prices live in agent_skill_prices and feed the x402 manifest +
@@ -547,6 +548,9 @@ async function mount(el) {
 					<span aria-hidden="true">📥</span> Inbox
 					<span class="irl-inbox-badge" id="irl-inbox-badge" hidden></span>
 				</button>
+				<button class="irl-btn" id="irl-privacy-btn" type="button" aria-haspopup="dialog">
+					<span aria-hidden="true">🔒</span> Privacy &amp; my data
+				</button>
 				<a class="irl-btn primary" href="/irl" id="irl-place-btn">+ Place new ↗</a>
 			</div>
 		</div>
@@ -555,6 +559,12 @@ async function mount(el) {
 		<div id="irl-list"></div>
 	</div>`;
 	el.querySelector('#irl-inbox-btn')?.addEventListener('click', openInboxModal);
+	// Privacy & my data — the full H5 right-to-be-forgotten surface (summary,
+	// per-pin unpublish/delete, export, remove-all). A delete here must also drop
+	// out of the placements list, so refresh it on change.
+	el.querySelector('#irl-privacy-btn')?.addEventListener('click', () => {
+		openMyDataPanel({ onChanged: () => { runLoad().catch(() => {}); } });
+	});
 
 	// Multiplayer AR explainer — shown once at the top so owners understand
 	// that their placed agents are visible to ALL users who visit that location.
@@ -570,6 +580,9 @@ async function mount(el) {
 	// One network boundary for the four designed states: loading skeleton → list /
 	// empty / error+retry. The retry button re-runs this same load. Signed-out is
 	// handled earlier by requireUser()'s redirect to /login, so it never reaches here.
+	await runLoad();
+
+	async function runLoad() {
 	await loadInto(list, {
 		load: async () => {
 			// Pins + interactions in parallel — interactions power both the banner and
