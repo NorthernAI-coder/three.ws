@@ -11,6 +11,7 @@ import { resolvePayoutAddress } from '../../_lib/payout.js';
 import { calculateFee } from '../../_lib/fee.js';
 import { insertNotification } from '../../_lib/notify.js';
 import { hasSkillAccess, consumeTrialUse, logSkillUsage } from '../../_lib/skill-access.js';
+import { enforceOnchainLicense } from '../../_lib/skill-license-verify.js';
 
 const HANDLERS = { echo: async (args) => ({ ok: true, echoed: args }) };
 
@@ -119,6 +120,23 @@ async function handleInvoke(req, res) {
 	// pay-per-call x402 path below unchanged.
 	const access = await hasSkillAccess(auth.userId, agent.id, body.skill);
 	if (access.paid && access.owned) {
+		// Trustless gate: if this purchase minted an on-chain license that has
+		// since been revoked on chain (e.g. a refund), entitlement is gone even
+		// though the DB grant lingers — enforce the chain's verdict. Fail-open on
+		// any infrastructure trouble so a paid user is never locked out by RPC.
+		const lic = await enforceOnchainLicense({
+			sql,
+			userId: auth.userId,
+			agentId: agent.id,
+			skill: body.skill,
+		});
+		if (lic.blocked) {
+			return error(res, 403, 'license_revoked', 'this skill license was revoked on-chain', {
+				reason: lic.reason,
+				license: lic.license ?? null,
+			});
+		}
+
 		const startedAt = Date.now();
 		const result = await executeSkill(agent, body, auth, null);
 		if (access.trial) {

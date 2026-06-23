@@ -81,13 +81,18 @@ async function waitForConfirmation(conn, signature, timeoutMs = 60_000) {
  *
  * @param {object} opts
  * @param {string} opts.toAddress              Recipient base58 address (agent's solana_address).
- * @param {'SOL'|'USDC'} [opts.token='SOL']
+ * @param {'SOL'|'USDC'|'SPL'} [opts.token='SOL']  'SPL' transfers an arbitrary
+ *        SPL token supplied at runtime via opts.mint + opts.decimals (coin-agnostic
+ *        plumbing — the caller chooses the mint; this module hardcodes none).
+ * @param {string} [opts.mint]                 SPL mint (base58), required when token==='SPL'.
+ * @param {number} [opts.decimals]             SPL token decimals, required when token==='SPL'.
+ * @param {string} [opts.noBalanceMsg]         Custom "you hold none" error copy for the SPL branch.
  * @param {number} opts.amount                 Human amount (e.g. 0.1 SOL or 5 USDC).
  * @param {'mainnet'|'devnet'} [opts.network='mainnet']
  * @param {(stage: string) => void} [opts.onStage]  Lifecycle: 'connecting'|'building'|'signing'|'sending'|'confirming'.
  * @returns {Promise<{ signature: string, explorerUrl: string, from: string }>}
  */
-export async function tipAgent({ toAddress, token = 'SOL', amount, network = 'mainnet', onStage } = {}) {
+export async function tipAgent({ toAddress, token = 'SOL', amount, mint: splMint, decimals: splDecimals, noBalanceMsg, network = 'mainnet', onStage } = {}) {
 	const stage = (s) => { try { onStage?.(s); } catch { /* listener best-effort */ } };
 
 	if (!toAddress || !BASE58_RE.test(String(toAddress))) {
@@ -146,6 +151,33 @@ export async function tipAgent({ toAddress, token = 'SOL', amount, network = 'ma
 			}
 			const raw = BigInt(Math.round(amt * 10 ** USDC_DECIMALS));
 			tx.add(createTransferCheckedInstruction(fromAta, mint, toAta, from, raw, USDC_DECIMALS, [], TOKEN_PROGRAM_ID));
+		} else if (token === 'SPL') {
+			// Generic SPL transfer — the mint + decimals are supplied at runtime by
+			// the caller (e.g. the Living Stages tip flow passing the $THREE mint). This
+			// module hardcodes no token; it only moves whatever the caller names.
+			if (!splMint || !BASE58_RE.test(String(splMint))) {
+				throw new TipError('Missing or invalid token mint for this tip.', 'bad_mint');
+			}
+			const dec = Number.isInteger(splDecimals) && splDecimals >= 0 && splDecimals <= 18 ? splDecimals : 6;
+			const mint = new PublicKey(String(splMint));
+			const fromAta = await getAssociatedTokenAddress(mint, from);
+			const toAta = await getAssociatedTokenAddress(mint, to);
+			try {
+				await getAccount(connection, fromAta);
+			} catch {
+				throw new TipError(noBalanceMsg || 'Your wallet holds none of this token to tip with.', 'no_balance');
+			}
+			let recipientHasAta = true;
+			try {
+				await getAccount(connection, toAta);
+			} catch {
+				recipientHasAta = false;
+			}
+			if (!recipientHasAta) {
+				tx.add(createAssociatedTokenAccountInstruction(from, toAta, to, mint));
+			}
+			const raw = BigInt(Math.round(amt * 10 ** dec));
+			tx.add(createTransferCheckedInstruction(fromAta, mint, toAta, from, raw, dec, [], TOKEN_PROGRAM_ID));
 		} else {
 			const lamports = Math.round(amt * LAMPORTS_PER_SOL);
 			tx.add(SystemProgram.transfer({ fromPubkey: from, toPubkey: to, lamports }));

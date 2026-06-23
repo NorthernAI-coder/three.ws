@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "A real pricing page, metered usage, and a downloadable invoice you can reconcile",
+			"summary": "Billing on three.ws is now a closed loop you can read end to end. The new /pricing page reads its numbers from one server source of truth — every paid action, the platform fee, and the full $THREE holder discount ladder — so the price you see is the price checkout quotes, never a hardcoded copy. Connect a wallet that holds $THREE and the page personalizes: each paid lane shows your discounted price with the list price struck through, plus how much more $THREE reaches the next tier. Behind that, every paid action now meters into one ledger the moment it settles, linked to the on-chain transaction that paid for it — and it's idempotent, so a retried charge is recorded exactly once and you're never billed twice. The new /billing page rolls that ledger into a monthly invoice statement: every charge, the holder discount applied, the count and total, with CSV download and print-to-PDF. Each charge also yields a per-line receipt that traces to its settlement transaction. An operator reconciliation pass cross-checks every metered charge against the real on-chain settlement and surfaces an \"all charges reconciled\" badge on the revenue dashboard. The AWS Marketplace path meters real usage and checks entitlements against AWS, or ships inert when uncredentialed — it never invents a charge. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/pricing"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "One $THREE tier page, and every locked perk now routes to it",
 			"summary": "Holding $THREE unlocks perks across three.ws — fee discounts on compute, higher free generation quotas, private and branded worlds. Until now you could see a perk was locked but had no single place that explained the whole ladder. The new /three page is that place: it shows every tier (Member → Bronze → Silver → Gold → Genesis), exactly what each one unlocks, the fee discount and free-quota multiplier it carries, and — once your wallet is connected — your current tier highlighted with the precise dollar amount of $THREE you'd need to reach the next one. Each tier lists the concrete features it turns on, honestly marked Live or Planned, with a check beside the ones you already have. Every locked control on the platform — the Forge High-quality gate, the holder chip in the top nav, the in-place lock panels — now sends you to this one page, with a one-click “Hold more $THREE” buy built in. The same tiers, the same upgrade path, everywhere. Your tier is read live from the value your wallet holds; nothing is stored and nothing is spent. $THREE is the only coin on three.ws.",
 			"tags": [

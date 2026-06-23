@@ -28,6 +28,10 @@ import addFormats from 'ajv-formats';
 
 const args = process.argv.slice(2);
 const base = (args.find((a) => a.startsWith('--base='))?.slice('--base='.length) || 'https://three.ws').replace(/\/$/, '');
+// --file=<path> validates a locally-built catalog JSON instead of fetching a
+// live URL, so CI can gate a catalog change BEFORE it deploys (the build:pages /
+// pre-push guard) rather than discovering a regression only after we're delisted.
+const filePath = args.find((a) => a.startsWith('--file='))?.slice('--file='.length) || null;
 const asJson = args.includes('--json');
 
 const NETWORK_BASE = 'eip155:8453';
@@ -118,14 +122,27 @@ function checkResource(r) {
 	return { label: label(r), url: r.url, errors, warnings };
 }
 
-async function main() {
+async function loadCatalog() {
+	if (filePath) {
+		const { readFile } = await import('node:fs/promises');
+		try {
+			return { source: filePath, doc: JSON.parse(await readFile(filePath, 'utf8')) };
+		} catch (err) {
+			console.error(`failed to read ${filePath}: ${err.message}`);
+			process.exit(2);
+		}
+	}
 	const url = `${base}/.well-known/x402.json`;
 	const res = await fetch(url);
 	if (!res.ok) {
 		console.error(`failed to fetch ${url}: HTTP ${res.status}`);
 		process.exit(2);
 	}
-	const doc = await res.json();
+	return { source: url, doc: await res.json() };
+}
+
+async function main() {
+	const { source: url, doc } = await loadCatalog();
 	const resources = doc.resources || doc.items || [];
 	const report = resources.map(checkResource);
 
