@@ -158,6 +158,49 @@ function oracleBlock(oracle, agentId) {
 		</div>`;
 }
 
+// --- Projected-vs-realized block ---------------------------------------------
+// The strategy was backtested over real captured history before it was armed.
+// Showing the projection NEXT TO what actually happened keeps it accountable —
+// a projection nobody checks is just marketing.
+function projectionBlock(p) {
+	const proj = p.projected || {};
+	const real = p.realized || {};
+	const traded = (real.closed_count || 0) > 0;
+	const pct = (v) => (v == null ? '—' : `${(v * 100).toFixed(0)}%`);
+	const signed = (v) => (v == null ? '—' : `<span class="${v >= 0 ? 'lb-pos' : 'lb-neg'}">${v > 0 ? '+' : ''}${Number(v).toFixed(1)}%</span>`);
+	const dd = (v) => (v == null ? '—' : `<span class="${v > 0 ? 'lb-neg' : 'lb-muted'}">${v > 0 ? '−' : ''}${Number(v).toFixed(1)}%</span>`);
+
+	const ran = p.ran_at ? relTime(p.ran_at) : null;
+	const conf = p.confidence ? `<span class="tp-proj-conf tp-proj-${escapeHtml(p.confidence)}">${escapeHtml(p.confidence)} confidence</span>` : '';
+
+	const row = (label, projVal, realVal) => `
+		<div class="tp-proj-row">
+			<span class="tp-proj-k">${escapeHtml(label)}</span>
+			<b class="tp-proj-proj">${projVal}</b>
+			<b class="tp-proj-real">${traded ? realVal : '<span class="lb-muted">no trades yet</span>'}</b>
+		</div>`;
+
+	return `
+		<div class="tp-oracle-block tp-proj-block">
+			<div class="tp-oracle-head">
+				<span class="tp-oracle-label">Projected vs realized</span>
+				${conf}
+			</div>
+			<div class="tp-proj-grid">
+				<div class="tp-proj-row tp-proj-head">
+					<span class="tp-proj-k"></span>
+					<b class="tp-proj-proj">Backtested${p.window_days ? ` · ${p.window_days}d` : ''}</b>
+					<b class="tp-proj-real">Realized</b>
+				</div>
+				${row('Win rate', pct(proj.win_rate), pct(real.win_rate))}
+				${row('Avg / EV per trade', signed(proj.expected_value_pct), signed(real.avg_pnl_pct))}
+				${row('Median ROI', signed(proj.roi_median_pct), signed(real.roi_pct))}
+				${row('Max drawdown', dd(proj.max_drawdown_pct), dd(real.max_drawdown_pct))}
+			</div>
+			<p class="tp-oracle-note">Projection from a replay over ${p.sample_size || 0} real historical launches${ran ? `, run ${ran}` : ''}. ${p.insufficient_data ? 'Sample was thin — treat as directional only. ' : ''}Realized numbers are chain-proven once this agent starts trading. A strategy that beats its own backtest earns trust; one that misses it is held honest.</p>
+		</div>`;
+}
+
 // --- Trade tables ------------------------------------------------------------
 function closedRows(closed) {
 	if (!closed.length) return '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint)">No closed trades in this window.</td></tr>';
@@ -249,6 +292,8 @@ function render(data) {
 		</div>
 
 		<div class="tp-metrics">${metricsGrid(m)}</div>
+
+		${data.projection ? projectionBlock(data.projection) : ''}
 
 		${data.oracle ? oracleBlock(data.oracle, a.id) : ''}
 
