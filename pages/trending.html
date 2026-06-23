@@ -6,7 +6,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	<title>Trending · three.ws</title>
-	<meta name="description" content="What's hot on three.ws — top AI agents ranked by real activity and top Oracle conviction coins ranked by score." />
+	<meta name="description" content="What's hot on three.ws — top AI agents by real chat activity, the most trusted agents by real wallet-trust score, and top Oracle conviction coins." />
 	<link rel="icon" href="/favicon.ico" sizes="any" />
 	<link rel="stylesheet" href="/fonts/fonts.css" />
 	<link rel="canonical" href="https://three.ws/trending" />
@@ -40,9 +40,10 @@
 		<div class="tr-controls">
 			<div class="tr-tabs" role="tablist">
 				<button class="tr-tab active" role="tab" aria-selected="true"  data-tab="agents">Agents</button>
+				<button class="tr-tab"        role="tab" aria-selected="false" data-tab="trusted">Trusted</button>
 				<button class="tr-tab"        role="tab" aria-selected="false" data-tab="coins">Coins</button>
 			</div>
-			<div class="tr-windows" role="group" aria-label="Time window">
+			<div class="tr-windows" id="trWindows" role="group" aria-label="Time window">
 				<button class="tr-win active" data-win="24h">24h</button>
 				<button class="tr-win"        data-win="7d">7d</button>
 				<button class="tr-win"        data-win="all">All time</button>
@@ -71,6 +72,27 @@
 				</div>
 			</section>
 
+			<section class="tr-section" id="sec-trusted" aria-label="Most trusted agents">
+				<div class="tr-legend">
+					<span>Agent</span>
+					<span class="tr-legend-r">Trust score</span>
+				</div>
+				<ol class="tr-list" id="trustedList" aria-live="polite">
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+					<li class="tr-skeleton"></li>
+				</ol>
+				<div class="tr-empty" id="trustedEmpty" hidden>No agents have earned a track record yet. Trust is built from real money and time — be the first.</div>
+				<div class="tr-error" id="trustedError" role="alert" hidden>
+					<span class="tr-error-icon" aria-hidden="true">⚠️</span>
+					<span class="tr-error-title">Couldn't load the trust leaderboard</span>
+					<span class="tr-error-sub">Check your connection and try again.</span>
+					<button class="tr-retry" id="trustedRetry" type="button">↻ Retry</button>
+				</div>
+			</section>
+
 			<section class="tr-section" id="sec-coins" aria-label="Top conviction coins">
 				<div class="tr-legend">
 					<span>Coin</span>
@@ -94,7 +116,7 @@
 		</div>
 
 		<p class="tr-footnote">
-			Agent ranking: chats with real users via embedded widgets. Coins: <a href="/oracle">Oracle</a> conviction score (pedigree + structure + narrative + momentum), refreshed every 30 min.
+			Agents: chats with real users via embedded widgets. Trusted: a real, non-gameable wallet-trust score (0–100) from settled volume, tips from distinct funded wallets, age, payment reliability, fork lineage, and on-chain identity — every input auditable, each row links to its breakdown. Coins: <a href="/oracle">Oracle</a> conviction score (pedigree + structure + narrative + momentum), refreshed every 30 min.
 		</p>
 	</main>
 
@@ -217,6 +239,21 @@
 		.tr-tier-watch   { color: #8b5cf6; border-color: rgba(139,92,246,.3); background: rgba(139,92,246,.08); }
 		.tr-tier-avoid   { color: #6b7280; border-color: rgba(107,114,128,.2); background: rgba(107,114,128,.05); }
 
+		/* reputation tier pill (matches TIERS accents in wallet-reputation.js) */
+		.tr-rt {
+			display: inline-flex; align-items: center; gap: 4px;
+			font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+			padding: 2px 7px; border-radius: 6px; border: 1px solid;
+		}
+		.tr-rt-new         { color: #9ca3af; border-color: rgba(156,163,175,.28); background: rgba(156,163,175,.06); }
+		.tr-rt-emerging    { color: #c4b5fd; border-color: rgba(196,181,253,.3);  background: rgba(196,181,253,.08); }
+		.tr-rt-established { color: #a78bfa; border-color: rgba(167,139,250,.32); background: rgba(167,139,250,.09); }
+		.tr-rt-trusted     { color: #4ade80; border-color: rgba(74,222,128,.32);  background: rgba(74,222,128,.08); }
+		.tr-rt-elite       { color: #fbbf24; border-color: rgba(251,191,36,.34);  background: rgba(251,191,36,.09); }
+
+		.tr-trust-num { color: #f3f4f6; }
+		.tr-trust-slash { color: #6b7280; font-weight: 600; }
+
 		/* onchain badge */
 		.tr-onchain {
 			font-size: 9px; font-weight: 700; letter-spacing: .08em;
@@ -284,13 +321,19 @@
 		let cache = {}; // cache[key] = data
 
 		// ── Tab switching ───────────────────────────────────────────────────
+		function syncTab(tab) {
+			currentTab = tab;
+			$$('.tr-tab').forEach(b => { b.classList.toggle('active', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
+			$$('.tr-section').forEach(s => s.classList.toggle('active', s.id === `sec-${tab}`));
+			// Trust is an all-time signal — the time-window control doesn't apply to it.
+			$('#trWindows').hidden = tab === 'trusted';
+			if (tab === 'trusted') loadTrusted();
+		}
 		$$('.tr-tab').forEach(btn => {
 			btn.addEventListener('click', () => {
 				const tab = btn.dataset.tab;
 				if (tab === currentTab) return;
-				currentTab = tab;
-				$$('.tr-tab').forEach(b => { b.classList.toggle('active', b.dataset.tab === tab); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); });
-				$$('.tr-section').forEach(s => s.classList.toggle('active', s.id === `sec-${tab}`));
+				syncTab(tab);
 			});
 		});
 
@@ -307,14 +350,15 @@
 		});
 
 		// ── Retry buttons ───────────────────────────────────────────────────
-		function retry(btn) {
+		function retry(btn, fn) {
 			btn.disabled = true;
 			const prev = btn.innerHTML;
 			btn.innerHTML = '<span class="tr-retry-spin" aria-hidden="true"></span>Retrying…';
-			loadData().finally(() => { btn.disabled = false; btn.innerHTML = prev; });
+			fn().finally(() => { btn.disabled = false; btn.innerHTML = prev; });
 		}
-		$('#agentRetry').addEventListener('click', (e) => retry(e.currentTarget));
-		$('#coinRetry').addEventListener('click', (e) => retry(e.currentTarget));
+		$('#agentRetry').addEventListener('click', (e) => retry(e.currentTarget, loadData));
+		$('#coinRetry').addEventListener('click', (e) => retry(e.currentTarget, loadData));
+		$('#trustedRetry').addEventListener('click', (e) => retry(e.currentTarget, () => loadTrusted(true)));
 
 		// ── Tier pill ───────────────────────────────────────────────────────
 		function tierPill(tier) {
@@ -421,6 +465,76 @@
 			}).join('');
 		}
 
+		// ── Render trusted agents ───────────────────────────────────────────
+		// The platform's real leaderboard of trusted agents, ranked by the same
+		// non-gameable wallet-trust score the badge shows everywhere else — backed
+		// by real money and time, fully auditable. Each row links straight to the
+		// agent's trust breakdown (#reputation), where every input is explained.
+		function renderTrusted(agents) {
+			const list  = $('#trustedList');
+			const empty = $('#trustedEmpty');
+			const error = $('#trustedError');
+
+			error.hidden = true;
+			if (!agents.length) { list.innerHTML = ''; empty.hidden = false; return; }
+			empty.hidden = true;
+
+			list.innerHTML = agents.map(a => {
+				const initial = (a.name || 'A')[0].toUpperCase();
+				const avHtml = a.avatar_thumbnail_url
+					? `<img src="${esc(a.avatar_thumbnail_url)}" alt="" loading="lazy" />`
+					: esc(initial);
+				const rankCls = a.rank <= 3 ? ` tr-rank-${a.rank}` : '';
+				const name = a.name || 'Unnamed agent';
+				const tier = String(a.tier || 'emerging');
+				const tierLabel = a.tier_label || tier;
+				const fallback = a.id != null ? `/agent/${encodeURIComponent(a.id)}/wallet#reputation` : null;
+				const href = safeHref(a.breakdown_url, fallback);
+				const tag = href ? 'a' : 'div';
+				const score = Math.round(Number(a.score) || 0);
+				const attrs = href
+					? ` href="${esc(href)}" aria-label="Rank ${a.rank}: ${esc(name)}, trust score ${score} of 100, ${esc(tierLabel)}"`
+					: ` role="group" aria-label="Rank ${a.rank}: ${esc(name)}, trust score ${score} of 100, ${esc(tierLabel)}"`;
+				// Wallet chip without its own rep badge here — the meta column is the
+				// headline trust number on this surface, so the badge would be redundant.
+				return `<li>
+					<${tag} class="tr-row"${attrs}>
+						<span class="tr-rank${rankCls}">${a.rank}</span>
+						<span class="tr-av">${avHtml}</span>
+						<span class="tr-body">
+							<span class="tr-name">${esc(name)} <span class="tr-rt tr-rt-${esc(tier)}">${esc(tierLabel)}</span></span>
+							${a.solana_address ? `<span class="tr-wallet" style="margin-top:4px;display:inline-flex">${walletChipHTML(a, { link: false, showPending: false, reputation: false })}</span>` : ''}
+						</span>
+						<span class="tr-meta">
+							<span class="tr-metric"><span class="tr-trust-num">${score}</span><span class="tr-trust-slash">/100</span></span>
+							<span class="tr-metric-label">trust</span>
+						</span>
+					</${tag}>
+				</li>`;
+			}).join('');
+
+			wireWalletChips(list);
+		}
+
+		// ── Load trusted (lazy: only when the tab is first opened) ───────────
+		let trustedData = null;
+		async function loadTrusted(force = false) {
+			if (trustedData && !force) { renderTrusted(trustedData); return; }
+			setSkeletons('trustedList');
+			$('#trustedEmpty').hidden = true;
+			$('#trustedError').hidden = true;
+			try {
+				const r = await fetch('/api/reputation/leaderboard?limit=25');
+				if (!r.ok) throw new Error('HTTP ' + r.status);
+				const data = await r.json();
+				trustedData = data.agents || [];
+				renderTrusted(trustedData);
+			} catch {
+				$('#trustedList').innerHTML = '';
+				$('#trustedError').hidden = false;
+			}
+		}
+
 		// ── Skeleton states ─────────────────────────────────────────────────
 		function setSkeletons(listId, count = 5) {
 			const list = $('#' + listId);
@@ -457,6 +571,10 @@
 				$('#coinError').hidden  = false;
 			}
 		}
+
+		// Honor a shareable ?tab= deep link (e.g. /trending?tab=trusted).
+		const initialTab = new URL(location.href).searchParams.get('tab');
+		if (initialTab === 'trusted' || initialTab === 'coins') syncTab(initialTab);
 
 		loadData();
 	</script>
