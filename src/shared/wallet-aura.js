@@ -146,8 +146,9 @@ export function mountWalletAura(container, opts = {}) {
 		layer.dataset.level = String(v.level);
 		layer.dataset.levelHi = v.level >= 3 ? 'true' : 'false';
 		layer.dataset.tier = v.tier;
-		layer.dataset.ready = v.dormant ? 'true' : 'true';
-		// Dormant stays present but whisper-quiet (a clean baseline, never absent).
+		// The layer is always present (it fades in on ready); a dormant wallet just
+		// renders a whisper-quiet baseline, never absent and never broken.
+		layer.dataset.ready = 'true';
 		if (v.dormant) layer.style.setProperty('--wa-i', '0.04');
 		particles.configure(v);
 		if (visible) particles.start();
