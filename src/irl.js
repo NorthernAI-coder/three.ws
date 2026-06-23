@@ -84,6 +84,7 @@ import { GlassesBridge } from './irl/glasses/bridge.js';
 import { openGlassesConnect } from './irl/glasses/connect-ui.js';
 import { loadLeaflet } from './shared/leaflet-loader.js';
 import { initDiscovery } from './irl/discovery.js';
+import { initIrlDrops } from './shared/irl-drops.js';
 import { walletChipEl, hasWallet } from './shared/agent-wallet-chip.js';
 import { buildSolanaPayUri } from './shared/solana-pay.js';
 import { renderQRToSVG } from './erc8004/qr.js';
@@ -1903,6 +1904,22 @@ async function handleFixRequired(_resp) {
 		updateNearbyBadge();
 	}
 }
+
+// ── IRL Money Drops & Bounties (Wave II task 06) ─────────────────────────────
+// Value placed in the real world: glowing coin markers anchored to a spot, a
+// "drop money here" create flow, and a presence-gated claim. Self-contained in
+// src/shared/irl-drops.js — we hand it accessors into the live scene + the same
+// presence-token headers the nearby read uses, and it owns the rest.
+initIrlDrops({
+	scene,
+	getCamera: () => camera,
+	getGpsState: () => gpsState,
+	gpsToWorld: (lat, lng) => gpsToWorld(lat, lng),
+	presenceHeaders: (extra) => presenceHeaders(extra),
+	deviceHeaders: (extra) => deviceHeaders(extra),
+	isAR: () => arActive,
+	NEARBY_READ_RADIUS,
+});
 
 // Honour the OS "reduce motion" setting for the spawn/despawn transitions below —
 // scale in/out for everyone else, instant for users who asked for less animation.

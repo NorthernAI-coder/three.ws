@@ -185,10 +185,13 @@ function timeAgo(iso) {
 function buildCard(c) {
 	const card = document.createElement('div');
 	card.className = 'creation showcase-card';
-	card.tabIndex = 0;
-	card.setAttribute('role', 'button');
 	card.title = c.prompt || 'Forged model';
-	card.setAttribute('aria-label', `Open in viewer: ${c.prompt || 'forged model'}`);
+	// The whole card opens the viewer, but a nested Remix <button> lives in the
+	// footer — a clickable card wrapping a button is a nested-interactive WCAG
+	// failure (4.1.2). Instead the card is a plain container and the primary
+	// "open" action is a stretched, transparent <button> overlay (.showcase-open)
+	// that covers the card; Remix sits above it via z-index. One real button per
+	// action, no nesting, native keyboard (Enter/Space) on both.
 
 	if (c.preview_image_url) {
 		// Plan A: stored thumbnail

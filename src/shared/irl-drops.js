@@ -17,7 +17,6 @@ import { detectSolanaWallet, solanaTxExplorerUrl } from '../erc8004/solana-deplo
 
 const VIOLET = 0xc4b5fd;
 const VIOLET_DEEP = 0x8b5cf6;
-const ASSETS = ['SOL', 'USDC', 'THREE'];
 // Visitor-funded create signs through agent-tip.js, which moves SOL or USDC. A
 // $THREE drop is funded server-side from an agent's wallet (an agent bounty), so
 // the user-facing "drop money here" picker offers the two the visitor can sign.
