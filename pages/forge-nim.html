@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Forge · NIM Self-Host · Image → 3D · three.ws</title>
+		<meta
+			name="description"
+			content="Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly. Drop a photo, hit /v1/infer, and get the GLB back synchronously as base64 — rendered live, downloadable."
+		/>
+		<meta property="og:title" content="Forge — Self-Hosted NIM · Image → 3D · three.ws" />
+		<meta
+			property="og:description"
+			content="A forge-styled demo for a self-hosted TRELLIS NIM. Real photo in, synchronous GLB out of /v1/infer. No async poll, no mocks."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/forge-nim" />
+		<meta property="og:image" content="https://three.ws/api/page-og?s=build&amp;t=Forge+%E2%80%94+Self-Hosted+NIM&amp;d=Drop+a+photo%2C+hit+%2Fv1%2Finfer%2C+get+the+GLB+back+synchronously+from+a+self-hosted+TRELLIS+NIM.&amp;p=%2Fforge-nim" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Forge · NIM Self-Host · Image → 3D · three.ws" />
+		<meta
+			name="twitter:description"
+			content="Drive a self-hosted TRELLIS NIM directly: photo in, synchronous GLB out of /v1/infer."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=build&amp;t=Forge+%E2%80%94+Self-Hosted+NIM&amp;d=Drop+a+photo%2C+hit+%2Fv1%2Finfer%2C+get+the+GLB+back+synchronously+from+a+self-hosted+TRELLIS+NIM.&amp;p=%2Fforge-nim" />
+		<meta name="theme-color" content="#080814" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="canonical" href="https://three.ws/forge-nim" />
+		<link rel="stylesheet" href="/style.css" />
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
+			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
+			crossorigin="anonymous"
+		></script>
+		<style>
+			.forge-main {
+				max-width: none;
+				margin: 0;
+				padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-2xl)) var(--space-2xl);
+			}
+			.forge-head {
+				display: flex;
+				align-items: baseline;
+				flex-wrap: wrap;
+				gap: var(--space-md);
+				height: auto;
+				padding: 0 0 var(--space-md);
+				background: none;
+				backdrop-filter: none;
+				-webkit-backdrop-filter: none;
+				border-bottom: 1px solid var(--stroke);
+				overflow: visible;
+				white-space: normal;
+				line-height: var(--leading-normal);
+				margin-bottom: var(--space-lg);
+			}
+			.forge-head h1 {
+				font-family: var(--font-display);
+				font-size: var(--text-xl);
+				line-height: 1;
+				margin: 0;
+				color: var(--ink);
+				flex: none;
+			}
+			.forge-head .nvbadge {
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: #76b900;
+				border: 1px solid rgba(118, 185, 0, 0.4);
+				background: rgba(118, 185, 0, 0.08);
+				border-radius: 999px;
+				padding: 0.15rem 0.55rem;
+				align-self: center;
+			}
+			.forge-head p {
+				color: var(--ink-dim);
+				font-size: var(--text-sm);
+				margin: 0;
+				line-height: var(--leading-normal);
+				flex: 1 1 320px;
+				min-width: 0;
+			}
+
+			/* Health pill ------------------------------------------------- */
+			.nim-status {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				border: 1px solid var(--stroke);
+				border-radius: 999px;
+				padding: 0.3rem 0.7rem;
+				background: var(--surface-1);
+				align-self: center;
+			}
+			.nim-status .dot {
+				width: 0.55rem;
+				height: 0.55rem;
+				border-radius: 50%;
+				background: var(--ink-dim);
+				box-shadow: 0 0 0 0 rgba(118, 185, 0, 0.5);
+				transition: background 0.2s;
+			}
+			.nim-status[data-state='live'] .dot {
+				background: #76b900;
+				box-shadow: 0 0 10px rgba(118, 185, 0, 0.7);
+			}
+			.nim-status[data-state='down'] .dot {
+				background: var(--warning, #e0a93e);
+			}
+			.nim-status[data-state='off'] .dot {
+				background: var(--ink-faint, #555);
+			}
+
+			/* Workspace --------------------------------------------------- */
+			.forge-workspace {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr);
+				gap: var(--space-lg);
+				align-items: start;
+			}
+			@media (min-width: 1080px) {
+				.forge-workspace {
+					grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
+					gap: var(--space-xl);
+				}
+				.forge-rail {
+					position: sticky;
+					top: 84px;
+				}
+			}
+			.forge-stage {
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-lg);
+			}
+
+			/* Composer ---------------------------------------------------- */
+			.composer {
+				background: var(--surface-glass);
+				border: 1px solid var(--stroke-strong);
+				border-radius: var(--radius-lg);
+				padding: var(--space-md);
+				box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.8);
+				display: flex;
+				flex-direction: column;
+				gap: var(--space-md);
+			}
+			.mode-switch {
+				display: inline-flex;
+				gap: 2px;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 2px;
+				width: 100%;
+			}
+			.mode-switch button {
+				flex: 1;
+				background: transparent;
+				border: none;
+				color: var(--ink-dim);
+				font-family: var(--font-display);
+				font-weight: 600;
+				font-size: var(--text-sm);
+				padding: 0.5rem 0.6rem;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.mode-switch button:hover {
+				color: var(--ink);
+			}
+			.mode-switch button[aria-selected='true'] {
+				background: var(--surface-3);
+				color: var(--ink);
+			}
+			.pane {
+				display: none;
+			}
+			.pane.active {
+				display: block;
+			}
+
+			/* Dropzone ---------------------------------------------------- */
+			.dropzone {
+				position: relative;
+				border: 1.5px dashed var(--stroke-strong);
+				border-radius: var(--radius-md);
+				background: var(--surface-1);
+				min-height: 200px;
+				display: grid;
+				place-items: center;
+				text-align: center;
+				padding: var(--space-lg);
+				cursor: pointer;
+				transition: border-color 0.15s, background 0.15s;
+				color: var(--ink-dim);
+			}
+			.dropzone:hover,
+			.dropzone:focus-visible {
+				border-color: #76b900;
+				background: var(--surface-2);
+				outline: none;
+			}
+			.dropzone.dragover {
+				border-color: #76b900;
+				background: rgba(118, 185, 0, 0.06);
+			}
+			.dropzone .dz-inner {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 0.45rem;
+				pointer-events: none;
+			}
+			.dropzone svg {
+				color: var(--ink-dim);
+			}
+			.dropzone .dz-title {
+				color: var(--ink);
+				font-weight: 600;
+				font-size: var(--text-sm);
+			}
+			.dropzone .dz-hint {
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.dropzone img.dz-preview {
+				position: absolute;
+				inset: 4px;
+				width: calc(100% - 8px);
+				height: calc(100% - 8px);
+				object-fit: contain;
+				border-radius: calc(var(--radius-md) - 3px);
+				background: var(--surface-0, #0b0b12);
+			}
+			.dz-clear {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				z-index: 2;
+				width: 26px;
+				height: 26px;
+				border-radius: 50%;
+				border: 1px solid var(--stroke-strong);
+				background: rgba(10, 10, 16, 0.72);
+				color: var(--ink);
+				cursor: pointer;
+				display: none;
+				align-items: center;
+				justify-content: center;
+				font-size: 14px;
+				line-height: 1;
+			}
+			.dz-clear:hover {
+				background: rgba(10, 10, 16, 0.92);
+			}
+			.dropzone.has-image .dz-clear {
+				display: inline-flex;
+			}
+			.dropzone.has-image .dz-inner {
+				display: none;
+			}
+
+			.composer textarea {
+				width: 100%;
+				min-height: 120px;
+				resize: vertical;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 0.7rem 0.8rem;
+				outline: none;
+				color: var(--ink);
+				font-family: var(--font-body);
+				font-size: var(--text-base);
+				line-height: var(--leading-normal);
+			}
+			.composer textarea:focus {
+				border-color: #76b900;
+			}
+			.composer textarea::placeholder {
+				color: var(--ink-dim);
+			}
+
+			.field-label {
+				display: block;
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--ink-dim);
+				margin-bottom: 0.4rem;
+			}
+			.tier {
+				display: inline-flex;
+				gap: 2px;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 2px;
+			}
+			.tier button {
+				background: transparent;
+				border: none;
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				padding: 0.35rem 0.7rem;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.tier button:hover {
+				color: var(--ink);
+			}
+			.tier button[aria-pressed='true'] {
+				background: var(--surface-3);
+				color: var(--ink);
+			}
+			.composer-row {
+				display: flex;
+				align-items: flex-end;
+				justify-content: space-between;
+				gap: var(--space-sm);
+				flex-wrap: wrap;
+			}
+
+			/* Buttons ----------------------------------------------------- */
+			.btn {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				font-family: var(--font-display);
+				font-weight: 600;
+				font-size: var(--text-base);
+				color: #0b0b0b;
+				background: var(--accent);
+				border: 1px solid var(--accent);
+				border-radius: var(--radius-md);
+				padding: 0.6rem 1.2rem;
+				cursor: pointer;
+				transition: transform 0.12s ease, opacity 0.15s, box-shadow 0.15s;
+			}
+			.btn:hover {
+				box-shadow: 0 0 0 4px var(--accent-soft);
+			}
+			.btn:active {
+				transform: translateY(1px);
+			}
+			.btn[disabled] {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
+			.btn-ghost {
+				background: transparent;
+				color: var(--ink);
+				border: 1px solid var(--stroke-strong);
+			}
+			.btn-ghost:hover {
+				background: var(--surface-2);
+				box-shadow: none;
+			}
+			#generate {
+				width: 100%;
+				justify-content: center;
+				font-size: var(--text-lg);
+				padding: 0.8rem 1.2rem;
+				background: #76b900;
+				border-color: #76b900;
+				color: #07120a;
+			}
+			#generate:hover:not([disabled]) {
+				box-shadow: 0 0 0 4px rgba(118, 185, 0, 0.25), 0 10px 30px -10px rgba(118, 185, 0, 0.5);
+			}
+			.spinner {
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				border: 2px solid rgba(7, 18, 10, 0.35);
+				border-top-color: #07120a;
+				animation: nim-spin 0.7s linear infinite;
+			}
+			@keyframes nim-spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			/* Advanced / endpoint ----------------------------------------- */
+			details.advanced {
+				border-top: 1px solid var(--stroke);
+				padding-top: var(--space-sm);
+			}
+			details.advanced summary {
+				cursor: pointer;
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				list-style: none;
+			}
+			details.advanced summary::-webkit-details-marker {
+				display: none;
+			}
+			details.advanced summary::before {
+				content: '▸ ';
+			}
+			details.advanced[open] summary::before {
+				content: '▾ ';
+			}
+			details.advanced input {
+				width: 100%;
+				margin-top: 0.5rem;
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 0.55rem 0.7rem;
+				color: var(--ink);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				outline: none;
+			}
+			details.advanced input:focus {
+				border-color: #76b900;
+			}
+			.contract {
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				line-height: 1.6;
+				color: var(--ink-dim);
+				background: var(--surface-0, #0b0b12);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-md);
+				padding: 0.7rem 0.8rem;
+				overflow-x: auto;
+				white-space: pre;
+			}
+			.contract .k {
+				color: #76b900;
+			}
+
+			/* Stage ------------------------------------------------------- */
+			.stage {
+				background: var(--surface-glass);
+				border: 1px solid var(--stroke-strong);
+				border-radius: var(--radius-lg);
+				min-height: 460px;
+				position: relative;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+			}
+			.stage-view {
+				position: relative;
+				flex: 1;
+				min-height: 420px;
+				background: radial-gradient(120% 120% at 50% 18%, #141b2e 0%, #0b0e18 55%, #05060c 100%);
+			}
+			model-viewer {
+				width: 100%;
+				height: 100%;
+				--poster-color: transparent;
+				background: transparent;
+			}
+			.stage-state {
+				position: absolute;
+				inset: 0;
+				display: none;
+				place-items: center;
+				text-align: center;
+				padding: var(--space-xl);
+			}
+			.stage-state.show {
+				display: grid;
+			}
+			.state-inner {
+				max-width: 360px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 0.7rem;
+				color: var(--ink-dim);
+			}
+			.state-inner h3 {
+				margin: 0;
+				color: var(--ink);
+				font-family: var(--font-display);
+				font-size: var(--text-lg);
+			}
+			.state-inner p {
+				margin: 0;
+				font-size: var(--text-sm);
+				line-height: var(--leading-normal);
+			}
+			.state-icon {
+				width: 46px;
+				height: 46px;
+				color: var(--ink-dim);
+				opacity: 0.8;
+			}
+			#state-error .state-icon {
+				color: var(--warning, #e0a93e);
+			}
+			/* Loading */
+			.loader-ring {
+				width: 54px;
+				height: 54px;
+				border-radius: 50%;
+				border: 3px solid rgba(118, 185, 0, 0.18);
+				border-top-color: #76b900;
+				animation: nim-spin 0.9s linear infinite;
+			}
+			.elapsed {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+			}
+			.loading-steps {
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				color: var(--ink-faint, #6a6a78);
+				min-height: 1.2em;
+			}
+
+			/* Result bar -------------------------------------------------- */
+			.result-bar {
+				display: flex;
+				align-items: center;
+				gap: var(--space-sm);
+				flex-wrap: wrap;
+				padding: var(--space-sm) var(--space-md);
+				border-top: 1px solid var(--stroke);
+				background: var(--surface-1);
+			}
+			.result-bar .meta {
+				display: inline-flex;
+				gap: 0.45rem;
+				align-items: center;
+				flex-wrap: wrap;
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				color: var(--ink-dim);
+			}
+			.result-bar .chip {
+				border: 1px solid var(--stroke);
+				border-radius: 999px;
+				padding: 0.15rem 0.5rem;
+				white-space: nowrap;
+			}
+			.result-bar .chip.ok {
+				color: #76b900;
+				border-color: rgba(118, 185, 0, 0.4);
+			}
+			.result-bar .spacer {
+				flex: 1;
+			}
+			.result-bar.is-hidden {
+				display: none;
+			}
+
+			/* Reference strip under the stage ----------------------------- */
+			.note {
+				font-size: var(--text-xs);
+				color: var(--ink-dim);
+				line-height: var(--leading-normal);
+			}
+			.note a {
+				color: var(--ink);
+			}
+			.sample-row {
+				display: flex;
+				gap: 0.5rem;
+				flex-wrap: wrap;
+				margin-top: 0.5rem;
+			}
+			.sample-row button {
+				background: var(--surface-1);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-sm);
+				color: var(--ink-dim);
+				font-family: var(--font-mono);
+				font-size: var(--text-2xs, 0.66rem);
+				padding: 0.3rem 0.55rem;
+				cursor: pointer;
+			}
+			.sample-row button:hover {
+				color: var(--ink);
+				border-color: var(--stroke-strong);
+			}
+		</style>
+	</head>
+	<body class="forge-page">
+		<div id="nav-container"></div>
+
+		<main class="forge-main">
+			<header class="forge-head">
+				<h1>Forge · NIM</h1>
+				<span class="nvbadge">self-hosted TRELLIS</span>
+				<p>
+					Drive a self-hosted NIM (<code>nvcr.io/nim/microsoft/trellis</code>, <code>large:image</code>)
+					directly. A real photo hits <code>/v1/infer</code> and the textured GLB comes back
+					<strong>synchronously</strong> as <code>artifacts[0].base64</code> — no async poll.
+				</p>
+				<span class="nim-status" id="nim-status" data-state="checking" role="status" aria-live="polite">
+					<span class="dot"></span><span id="nim-status-text">checking NIM…</span>
+				</span>
+			</header>
+
+			<div class="forge-workspace">
+				<!-- Composer rail -->
+				<div class="forge-rail">
+					<form class="composer" id="composer" autocomplete="off">
+						<div class="mode-switch" role="tablist" aria-label="Generation mode">
+							<button type="button" role="tab" id="tab-image" data-mode="image" aria-selected="true">
+								From a photo
+							</button>
+							<button type="button" role="tab" id="tab-text" data-mode="text" aria-selected="false">
+								From text
+							</button>
+						</div>
+
+						<!-- Image pane -->
+						<div class="pane active" id="pane-image">
+							<div
+								class="dropzone"
+								id="dropzone"
+								role="button"
+								tabindex="0"
+								aria-label="Drop a reference image, click to choose, or paste"
+							>
+								<button type="button" class="dz-clear" id="dz-clear" aria-label="Remove image">✕</button>
+								<img class="dz-preview" id="dz-preview" alt="" hidden />
+								<div class="dz-inner">
+									<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+										<rect x="3" y="3" width="18" height="18" rx="2" />
+										<circle cx="9" cy="9" r="2" />
+										<path d="m21 15-3.6-3.6a2 2 0 0 0-2.8 0L6 20" />
+									</svg>
+									<span class="dz-title">Drop a photo</span>
+									<span class="dz-hint">click to browse · or paste · PNG/JPG/WebP, ≤ 10 MB</span>
+								</div>
+								<input type="file" id="file-input" accept="image/*" hidden />
+							</div>
+						</div>
+
+						<!-- Text pane -->
+						<div class="pane" id="pane-text">
+							<label class="field-label" for="prompt">Describe one object</label>
+							<textarea
+								id="prompt"
+								placeholder="a worn brass pocket watch, studio lighting"
+								maxlength="120"
+							></textarea>
+						</div>
+
+						<div class="composer-row">
+							<div>
+								<label class="field-label">Quality</label>
+								<div class="tier" role="group" aria-label="Sampling quality">
+									<button type="button" data-tier="draft" aria-pressed="true">Draft · 15 steps</button>
+									<button type="button" data-tier="high" aria-pressed="false">High · 40 steps</button>
+								</div>
+							</div>
+						</div>
+
+						<button class="btn" id="generate" type="submit">
+							<span id="generate-label">Reconstruct 3D</span>
+						</button>
+
+						<details class="advanced">
+							<summary>NIM endpoint &amp; wire contract</summary>
+							<input
+								type="url"
+								id="base-url"
+								placeholder="https://your-nim-host  (defaults to MODEL_TRELLIS_URL)"
+								spellcheck="false"
+								autocapitalize="off"
+							/>
+							<div class="contract" aria-hidden="true">POST <span class="k">{baseUrl}</span>/v1/infer
+{ <span class="k">mode</span>: "image", <span class="k">image</span>: "data:…",
+  ss_sampling_steps, slat_sampling_steps,
+  <span class="k">output_format</span>: "glb" }
+→ 200 { <span class="k">artifacts</span>: [ { <span class="k">base64</span> } ] }</div>
+						</details>
+					</form>
+				</div>
+
+				<!-- Stage -->
+				<div class="forge-stage">
+					<div class="stage">
+						<div class="stage-view" id="stage-view">
+							<model-viewer
+								id="viewer"
+								camera-controls
+								auto-rotate
+								auto-rotate-delay="0"
+								rotation-per-second="22deg"
+								shadow-intensity="1.0"
+								shadow-softness="0.9"
+								exposure="1.25"
+								tone-mapping="aces"
+								interaction-prompt="none"
+								ar
+								ar-modes="webxr scene-viewer quick-look"
+								crossorigin="anonymous"
+								alt="Reconstructed 3D model"
+								style="display: none"
+							></model-viewer>
+
+							<!-- Idle -->
+							<div class="stage-state show" id="state-idle">
+								<div class="state-inner">
+									<svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+										<path d="M12 2 2 7l10 5 10-5-10-5Z" />
+										<path d="m2 17 10 5 10-5" />
+										<path d="m2 12 10 5 10-5" />
+									</svg>
+									<h3>Drop a photo to begin</h3>
+									<p>One clear subject, plain background. The self-hosted NIM reconstructs a textured GLB in a single hop — then orbit, AR, or download it here.</p>
+								</div>
+							</div>
+
+							<!-- Loading -->
+							<div class="stage-state" id="state-loading">
+								<div class="state-inner">
+									<div class="loader-ring"></div>
+									<h3 id="loading-title">Reconstructing…</h3>
+									<p class="loading-steps" id="loading-steps">POST /v1/infer</p>
+									<div class="elapsed" id="elapsed">0.0s</div>
+									<button type="button" class="btn btn-ghost" id="cancel" style="margin-top: 0.4rem">Cancel</button>
+								</div>
+							</div>
+
+							<!-- Error -->
+							<div class="stage-state" id="state-error">
+								<div class="state-inner">
+									<svg class="state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+										<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+										<line x1="12" y1="9" x2="12" y2="13" />
+										<line x1="12" y1="17" x2="12.01" y2="17" />
+									</svg>
+									<h3 id="error-title">Couldn't reconstruct</h3>
+									<p id="error-msg">Something went wrong.</p>
+									<button type="button" class="btn btn-ghost" id="error-retry" style="margin-top: 0.4rem">Try again</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="result-bar is-hidden" id="result-bar">
+							<div class="meta" id="result-meta"></div>
+							<span class="spacer"></span>
+							<a class="btn btn-ghost" id="download" download="trellis-nim.glb" href="#" style="font-size: var(--text-sm); padding: 0.45rem 0.9rem">Download GLB</a>
+						</div>
+					</div>
+
+					<p class="note">
+						Native image→3D runs only against a self-hosted NIM — NVIDIA's hosted NVCF preview is
+						text-only and rejects real photos. This page talks to your NIM through a thin, SSRF-guarded
+						proxy (<code>/api/forge-nim</code>); the GLB never leaves your infrastructure except to your own browser.
+						Need the production multi-engine forge instead? <a href="/forge">Open Forge</a>.
+						<span class="sample-row" id="sample-row">
+							<button type="button" data-sample="text" data-prompt="a worn brass pocket watch, studio lighting">Try a text prompt</button>
+						</span>
+					</p>
+				</div>
+			</div>
+		</main>
+
+		<script src="/nav.js" defer></script>
+		<script src="/footer.js" defer></script>
+		<script type="module">
+			const $ = (id) => document.getElementById(id);
+
+			const els = {
+				status: $('nim-status'),
+				statusText: $('nim-status-text'),
+				composer: $('composer'),
+				tabImage: $('tab-image'),
+				tabText: $('tab-text'),
+				paneImage: $('pane-image'),
+				paneText: $('pane-text'),
+				dropzone: $('dropzone'),
+				fileInput: $('file-input'),
+				preview: $('dz-preview'),
+				dzClear: $('dz-clear'),
+				prompt: $('prompt'),
+				baseUrl: $('base-url'),
+				generate: $('generate'),
+				generateLabel: $('generate-label'),
+				viewer: $('viewer'),
+				stateIdle: $('state-idle'),
+				stateLoading: $('state-loading'),
+				stateError: $('state-error'),
+				errorTitle: $('error-title'),
+				errorMsg: $('error-msg'),
+				errorRetry: $('error-retry'),
+				loadingSteps: $('loading-steps'),
+				elapsed: $('elapsed'),
+				cancel: $('cancel'),
+				resultBar: $('result-bar'),
+				resultMeta: $('result-meta'),
+				download: $('download'),
+				sampleRow: $('sample-row'),
+			};
+
+			const state = {
+				mode: 'image',
+				tier: 'draft',
+				imageDataUri: null,
+				objectUrl: null,
+				abort: null,
+				elapsedTimer: null,
+				stepTimer: null,
+			};
+
+			// ── Health ────────────────────────────────────────────────────
+			async function checkHealth() {
+				try {
+					const r = await fetch('/api/forge-nim?action=health', { headers: { accept: 'application/json' } });
+					const d = await r.json();
+					if (!d.configured) {
+						setStatus('off', 'no NIM configured');
+					} else if (d.reachable) {
+						setStatus('live', 'NIM ready');
+					} else {
+						setStatus('down', 'NIM unreachable');
+					}
+				} catch {
+					setStatus('down', 'status unavailable');
+				}
+			}
+			function setStatus(s, text) {
+				els.status.dataset.state = s;
+				els.statusText.textContent = text;
+			}
+
+			// ── Mode switch ───────────────────────────────────────────────
+			function setMode(mode) {
+				state.mode = mode;
+				const isImage = mode === 'image';
+				els.tabImage.setAttribute('aria-selected', String(isImage));
+				els.tabText.setAttribute('aria-selected', String(!isImage));
+				els.paneImage.classList.toggle('active', isImage);
+				els.paneText.classList.toggle('active', !isImage);
+				els.generateLabel.textContent = isImage ? 'Reconstruct 3D' : 'Generate 3D';
+				updateGenerateEnabled();
+			}
+			els.tabImage.addEventListener('click', () => setMode('image'));
+			els.tabText.addEventListener('click', () => setMode('text'));
+
+			// ── Tier ──────────────────────────────────────────────────────
+			document.querySelectorAll('.tier button').forEach((b) => {
+				b.addEventListener('click', () => {
+					state.tier = b.dataset.tier;
+					document.querySelectorAll('.tier button').forEach((x) =>
+						x.setAttribute('aria-pressed', String(x === b)),
+					);
+				});
+			});
+
+			// ── Dropzone ──────────────────────────────────────────────────
+			function loadFile(file) {
+				if (!file || !file.type.startsWith('image/')) return;
+				if (file.size > 10 * 1024 * 1024) {
+					showError('Image too large', 'Pick an image under 10 MB.');
+					return;
+				}
+				const reader = new FileReader();
+				reader.onload = () => {
+					state.imageDataUri = reader.result;
+					els.preview.src = reader.result;
+					els.preview.hidden = false;
+					els.dropzone.classList.add('has-image');
+					updateGenerateEnabled();
+				};
+				reader.readAsDataURL(file);
+			}
+			function clearImage() {
+				state.imageDataUri = null;
+				els.preview.src = '';
+				els.preview.hidden = true;
+				els.fileInput.value = '';
+				els.dropzone.classList.remove('has-image');
+				updateGenerateEnabled();
+			}
+			els.dropzone.addEventListener('click', (e) => {
+				if (e.target === els.dzClear) return;
+				els.fileInput.click();
+			});
+			els.dropzone.addEventListener('keydown', (e) => {
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					els.fileInput.click();
+				}
+			});
+			els.fileInput.addEventListener('change', () => loadFile(els.fileInput.files[0]));
+			els.dzClear.addEventListener('click', (e) => {
+				e.stopPropagation();
+				clearImage();
+			});
+			['dragenter', 'dragover'].forEach((ev) =>
+				els.dropzone.addEventListener(ev, (e) => {
+					e.preventDefault();
+					els.dropzone.classList.add('dragover');
+				}),
+			);
+			['dragleave', 'drop'].forEach((ev) =>
+				els.dropzone.addEventListener(ev, (e) => {
+					e.preventDefault();
+					els.dropzone.classList.remove('dragover');
+				}),
+			);
+			els.dropzone.addEventListener('drop', (e) => {
+				const file = e.dataTransfer?.files?.[0];
+				if (file) loadFile(file);
+			});
+			window.addEventListener('paste', (e) => {
+				if (state.mode !== 'image') return;
+				const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+				if (item) loadFile(item.getAsFile());
+			});
+
+			els.prompt.addEventListener('input', updateGenerateEnabled);
+			function updateGenerateEnabled() {
+				const ready =
+					state.mode === 'image' ? Boolean(state.imageDataUri) : els.prompt.value.trim().length >= 3;
+				els.generate.disabled = !ready;
+			}
+			updateGenerateEnabled();
+
+			// ── Samples ───────────────────────────────────────────────────
+			els.sampleRow.addEventListener('click', (e) => {
+				const btn = e.target.closest('button[data-sample]');
+				if (!btn) return;
+				setMode('text');
+				els.prompt.value = btn.dataset.prompt || '';
+				updateGenerateEnabled();
+				els.prompt.focus();
+			});
+
+			// ── Stage states ──────────────────────────────────────────────
+			function showState(name) {
+				els.stateIdle.classList.toggle('show', name === 'idle');
+				els.stateLoading.classList.toggle('show', name === 'loading');
+				els.stateError.classList.toggle('show', name === 'error');
+				els.viewer.style.display = name === 'result' ? 'block' : 'none';
+				if (name !== 'result') els.resultBar.classList.add('is-hidden');
+			}
+			function showError(title, msg) {
+				els.errorTitle.textContent = title;
+				els.errorMsg.textContent = msg;
+				showState('error');
+				stopTimers();
+			}
+
+			function startTimers() {
+				const t0 = performance.now();
+				els.elapsed.textContent = '0.0s';
+				state.elapsedTimer = setInterval(() => {
+					els.elapsed.textContent = ((performance.now() - t0) / 1000).toFixed(1) + 's';
+				}, 100);
+				const steps = [
+					'POST /v1/infer',
+					'sparse structure sampling…',
+					'structured latent sampling…',
+					'decoding mesh + baking texture…',
+					'encoding GLB…',
+				];
+				let i = 0;
+				els.loadingSteps.textContent = steps[0];
+				state.stepTimer = setInterval(() => {
+					i = Math.min(i + 1, steps.length - 1);
+					els.loadingSteps.textContent = steps[i];
+				}, 2600);
+			}
+			function stopTimers() {
+				clearInterval(state.elapsedTimer);
+				clearInterval(state.stepTimer);
+			}
+
+			// ── Generate ──────────────────────────────────────────────────
+			els.composer.addEventListener('submit', (e) => {
+				e.preventDefault();
+				generate();
+			});
+			els.errorRetry.addEventListener('click', generate);
+			els.cancel.addEventListener('click', () => {
+				state.abort?.abort();
+				stopTimers();
+				showState('idle');
+			});
+
+			async function generate() {
+				if (els.generate.disabled) return;
+				const payload = { mode: state.mode, tier: state.tier };
+				if (state.mode === 'image') {
+					if (!state.imageDataUri) return;
+					payload.image = state.imageDataUri;
+				} else {
+					payload.prompt = els.prompt.value.trim();
+					if (payload.prompt.length < 3) return;
+				}
+				const baseUrl = els.baseUrl.value.trim();
+				if (baseUrl) payload.baseUrl = baseUrl;
+
+				state.abort = new AbortController();
+				els.generate.disabled = true;
+				els.generateLabel.innerHTML = '<span class="spinner"></span>';
+				showState('loading');
+				startTimers();
+
+				try {
+					const r = await fetch('/api/forge-nim', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json', accept: 'application/json' },
+						body: JSON.stringify(payload),
+						signal: state.abort.signal,
+					});
+					const d = await r.json().catch(() => ({}));
+					if (!r.ok || !d.ok) {
+						throw new Error(d.message || d.error || `Request failed (${r.status})`);
+					}
+					renderResult(d);
+				} catch (err) {
+					if (err.name === 'AbortError') return;
+					showError('Couldn’t reconstruct', err.message || 'Unexpected error.');
+				} finally {
+					stopTimers();
+					els.generate.disabled = false;
+					els.generateLabel.textContent = state.mode === 'image' ? 'Reconstruct 3D' : 'Generate 3D';
+					updateGenerateEnabled();
+				}
+			}
+
+			function renderResult(d) {
+				// Decode the synchronous { artifacts:[{ base64 }] } GLB into a Blob and
+				// hand it straight to the viewer — the NIM's wire shape, end to end.
+				const bytes = base64ToBytes(d.glb_base64);
+				const blob = new Blob([bytes], { type: 'model/gltf-binary' });
+				if (state.objectUrl) URL.revokeObjectURL(state.objectUrl);
+				state.objectUrl = URL.createObjectURL(blob);
+				els.viewer.src = state.objectUrl;
+				els.download.href = state.objectUrl;
+				showState('result');
+
+				const kb = (d.bytes / 1024).toFixed(0);
+				const secs = (d.ms / 1000).toFixed(1);
+				els.resultMeta.innerHTML = '';
+				const chips = [
+					{ t: `${d.mode} → 3D`, cls: 'chip ok' },
+					{ t: `${kb} KB`, cls: 'chip' },
+					{ t: `${secs}s synchronous`, cls: 'chip' },
+					{ t: d.contract, cls: 'chip' },
+				];
+				for (const c of chips) {
+					const span = document.createElement('span');
+					span.className = c.cls;
+					span.textContent = c.t;
+					els.resultMeta.appendChild(span);
+				}
+				els.resultBar.classList.remove('is-hidden');
+			}
+
+			function base64ToBytes(b64) {
+				const bin = atob(b64);
+				const out = new Uint8Array(bin.length);
+				for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+				return out;
+			}
+
+			els.viewer.addEventListener('error', () => {
+				showError('Model failed to load', 'The GLB came back but the viewer rejected it. Try the download button to inspect it directly.');
+			});
+
+			setMode('image');
+			checkHealth();
+		</script>
+	</body>
+</html>

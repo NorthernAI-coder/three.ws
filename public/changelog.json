@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T14:39:43.869Z",
+	"generated_at": "2026-06-23T15:05:22.828Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -102,6 +102,16 @@
 			"title": "Custody Integrity",
 			"summary": "Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.",
 			"link": "/integrity",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Forge · NIM — Self-Hosted Image to 3D",
+			"summary": "Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.",
+			"link": "/forge-nim",
 			"tags": [
 				"launch"
 			]

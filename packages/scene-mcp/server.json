@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/scene-mcp",
 	"title": "three.ws Scenes",
-	"description": "Speak 3D worlds into being — compose a placed diorama plan from one sentence, then browse the saved gallery.",
+	"description": "Compose a placed 3D diorama from one sentence, then browse the saved scene gallery.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{
