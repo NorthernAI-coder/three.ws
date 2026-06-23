@@ -363,8 +363,9 @@ export function initTheater(root) {
 		const watching = state.watch.has(id);
 		const totals = rep?.totals || {};
 
+		// value may be a string or a node (e.g. the loading skeleton)
 		const stat = (label, value) => el('div', { class: 'th-stat' }, [
-			el('span', { class: 'th-stat-v', text: value }),
+			el('span', { class: 'th-stat-v' }, [value]),
 			el('span', { class: 'th-stat-l', text: label }),
 		]);
 

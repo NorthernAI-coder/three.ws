@@ -189,22 +189,29 @@ export async function redeemFromVault({ vaultId, userId, shares, idempotencyKey 
 	const toAddress = recipient?.addr;
 	if (!toAddress) return { status: 'failed', code: 'no_recipient', message: 'the funding wallet for this position is no longer available' };
 
+	// Claim a pending event keyed by the caller's idempotency key BEFORE paying —
+	// a retry/double-submit with the same key collides here and never pays twice.
+	const claimId = await recordVaultEvent({
+		vaultId: vault.id, type: 'redeem', userId, backerAgentId: backer.backer_agent_id,
+		sharesDelta: String(-redeemNow), atomicsDelta: String(-settle.netPayout),
+		navAtomics: String(nav.navAtomics), sharePriceE6: String(sharePriceE6(nav.navAtomics, vault.total_shares)),
+		status: 'pending', reason: 'redeem', idempotencyKey: idempotencyKey || `redeem:${vault.id}:${userId}:${redeemNow}`,
+		meta: { gross_atomics: String(settle.grossPayout), fee_atomics: String(settle.fee), net_atomics: String(settle.netPayout), gain_atomics: String(settle.gain), shares_burned: String(redeemNow) },
+	});
+	if (claimId == null) return { status: 'failed', code: 'in_flight', message: 'a redemption with this id is already in progress — check the ledger before retrying' };
+
 	let signature;
 	try {
 		({ signature } = await payoutUsdc({ vault, toAddress, atomics: settle.netPayout, userId, reason: 'vault_redeem' }));
 	} catch (e) {
+		const { updateVaultEvent } = await import('./vault-store.js');
+		await updateVaultEvent(claimId, { status: 'failed', meta: { error: e?.code || 'payout_failed' } });
 		return { status: 'failed', code: e?.code || 'payout_failed', message: 'the redemption payout could not be confirmed — your shares were not burned' };
 	}
 
-	// Burn shares + return cost basis + accrue the owner fee, once per payout signature.
-	const eventId = await recordVaultEvent({
-		vaultId: vault.id, type: 'redeem', userId, backerAgentId: backer.backer_agent_id,
-		sharesDelta: String(-redeemNow), atomicsDelta: String(-settle.netPayout),
-		navAtomics: String(nav.navAtomics), sharePriceE6: String(sharePriceE6(nav.navAtomics, vault.total_shares)),
-		signature, status: 'ok', reason: 'redeem', idempotencyKey: `redeem:${signature}`,
-		meta: { gross_atomics: String(settle.grossPayout), fee_atomics: String(settle.fee), net_atomics: String(settle.netPayout), gain_atomics: String(settle.gain), shares_burned: String(redeemNow) },
-	});
-	if (eventId == null) return { status: 'replayed', signature };
+	// Finalize the claimed event with the on-chain signature, then settle balances.
+	const { updateVaultEvent } = await import('./vault-store.js');
+	await updateVaultEvent(claimId, { status: 'ok', signature });
 
 	await applyBackerDelta({
 		vaultId: vault.id, userId, backerAgentId: backer.backer_agent_id,

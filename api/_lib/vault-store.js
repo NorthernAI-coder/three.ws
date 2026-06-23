@@ -16,7 +16,7 @@ const PUBLIC_COLS = sql`
 	id, agent_id, owner_user_id, network, vault_address, status,
 	performance_fee_bps, per_backer_cap_atomics, max_drawdown_bps,
 	max_per_trade_atomics, daily_budget_atomics,
-	total_shares, peak_nav_atomics, accrued_fee_atomics,
+	total_shares, peak_share_price_e6, accrued_fee_atomics,
 	halt_reason, paused_at, created_at, updated_at
 `;
 
@@ -81,7 +81,7 @@ export async function listVaults({ status = 'open', limit = 60 } = {}) {
 			v.id, v.agent_id, v.network, v.vault_address, v.status,
 			v.performance_fee_bps, v.per_backer_cap_atomics, v.max_drawdown_bps,
 			v.max_per_trade_atomics, v.daily_budget_atomics,
-			v.total_shares, v.peak_nav_atomics, v.created_at, v.updated_at,
+			v.total_shares, v.peak_share_price_e6, v.created_at, v.updated_at,
 			a.name AS agent_name,
 			COALESCE(a.profile_image_url, a.avatar_url) AS agent_image,
 			a.description AS agent_description,
@@ -106,7 +106,7 @@ export async function listBackedVaults(userId, { limit = 60 } = {}) {
 			b.shares, b.cost_basis_atomics, b.deposited_atomics, b.redeemed_atomics,
 			b.realized_gain_atomics, b.fees_paid_atomics, b.backer_agent_id,
 			v.id, v.agent_id, v.network, v.status, v.performance_fee_bps,
-			v.max_drawdown_bps, v.total_shares, v.peak_nav_atomics,
+			v.max_drawdown_bps, v.total_shares, v.peak_share_price_e6,
 			a.name AS agent_name, COALESCE(a.profile_image_url, a.avatar_url) AS agent_image
 		FROM vault_backers b
 		JOIN agent_vaults v ON v.id = b.vault_id
@@ -236,12 +236,12 @@ export async function applyBackerDelta({ vaultId, userId, backerAgentId, sharesD
 	return row;
 }
 
-/** Move total_shares by a signed delta and ratchet the high-water peak. */
-export async function applyVaultShareDelta(vaultId, sharesDelta, peakNavAtomics = null) {
+/** Move total_shares by a signed delta and ratchet the high-water share-price peak. */
+export async function applyVaultShareDelta(vaultId, sharesDelta, peakSharePriceE6 = null) {
 	const [row] = await sql`
 		UPDATE agent_vaults SET
 			total_shares = GREATEST(total_shares + ${String(sharesDelta)}, 0),
-			peak_nav_atomics = ${peakNavAtomics == null ? sql`peak_nav_atomics` : sql`GREATEST(peak_nav_atomics, ${String(peakNavAtomics)})`},
+			peak_share_price_e6 = ${peakSharePriceE6 == null ? sql`peak_share_price_e6` : sql`GREATEST(peak_share_price_e6, ${String(peakSharePriceE6)})`},
 			updated_at = now()
 		WHERE id = ${vaultId}
 		RETURNING ${PUBLIC_COLS}

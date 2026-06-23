@@ -9,7 +9,7 @@
 // same on-chain badge the trader leaderboard uses) can open one.
 
 import { cors, json, method, error, readJson, wrap, rateLimited } from '../_lib/http.js';
-import { limits, clientIp } from '../_lib/rate-limit.js';
+import { limits } from '../_lib/rate-limit.js';
 import { authWrite, loadOwnedAgent, assertReputationVerified, traderBadge } from '../_lib/vault-auth.js';
 import { resolveUserId } from '../_lib/vault-auth.js';
 import { createVault, listVaults, listBackedVaults, recordVaultEvent } from '../_lib/vault-store.js';
