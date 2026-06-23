@@ -1244,16 +1244,24 @@ export class Viewer {
 			(entry) => entry.name === this.state.environment,
 		)[0];
 
-		getCubeMapTexture(this, environment).then(({ envMap }) => {
-			if (this._disposed || !this.scene) return;
-			this.scene.environment = envMap;
-			this.scene.background = this.state.transparentBg
-				? null
-				: this.state.background
-					? envMap
-					: this.backgroundColor;
-			this.invalidate();
-		});
+		getCubeMapTexture(this, environment)
+			.then(({ envMap }) => {
+				if (this._disposed || !this.scene) return;
+				this.scene.environment = envMap;
+				this.scene.background = this.state.transparentBg
+					? null
+					: this.state.background
+						? envMap
+						: this.backgroundColor;
+				this.invalidate();
+			})
+			.catch((err) => {
+				// EXR HDRIs are fetched from an external CDN; a network drop or a
+				// blocked request (Safari surfaces these as "Load failed") must not
+				// escape as an unhandled rejection. The scene keeps its current
+				// environment — IBL is a visual nicety, never load-blocking.
+				log.warn('[viewer] environment HDRI load failed', err?.message || err);
+			});
 	}
 
 	/**
