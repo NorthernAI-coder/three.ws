@@ -20,7 +20,7 @@ let _heliusCache = { value: null, at: 0 };
 async function getSolPrice() {
 	if (Date.now() - _solCache.at < 60_000 && _solCache.price > 0) return _solCache.price;
 	try {
-		const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true');
+		const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true', { signal: AbortSignal.timeout(6000) });
 		const d = await r.json();
 		const p = d?.solana?.usd;
 		const c = d?.solana?.usd_24h_change;
