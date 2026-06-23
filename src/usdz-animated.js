@@ -33,8 +33,8 @@ import { retargetClipToObject } from './animation-retarget.js';
 export const DEFAULT_AR_ANIMATION = '/animations/Idle_Breath.glb';
 
 const DEFAULTS = {
-	targetFps: 15, // sampling density; Quick Look interpolates between samples
-	maxFrames: 30, // hard cap so a long clip can't balloon the .usdz over cellular
+	targetFps: 12, // sampling density; Quick Look interpolates between samples, so an idle reads smooth here
+	maxFrames: 24, // hard cap so a long clip can't balloon the .usdz over cellular (~Nverts × 24 ASCII frames)
 	minFrames: 2,
 	precision: 5, // ASCII float digits — 5 keeps idle silhouettes crisp at roughly a third the bytes of 7
 };
