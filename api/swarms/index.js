@@ -11,7 +11,6 @@
 import { cors, method, json, error, wrap, readJson } from '../_lib/http.js';
 import { parseLimit, parseOffset } from '../_lib/http-params.js';
 import { resolveAccount } from '../_lib/account-auth.js';
-import { sql } from '../_lib/db.js';
 import {
 	createSwarm, joinSwarm, contributeToSwarm, exitSwarm, killSwarm,
 	setSwarmPaused, listSwarms, listSwarmsForUser, SwarmError,
