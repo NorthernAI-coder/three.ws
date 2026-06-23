@@ -7,12 +7,12 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.esm.js",
-      "require": "./dist/index.cjs.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": ["dist", "README.md", "LICENSE"],
   "sideEffects": false,
   "scripts": {
     "build": "vite build && node -e \"require('fs').copyFileSync('src/index.d.ts','dist/index.d.ts')\"",
@@ -37,5 +37,5 @@
     "directory": "packages/react"
   },
   "bugs": { "url": "https://github.com/nirholas/three.ws/issues" },
-  "license": "MIT"
+  "license": "Apache-2.0"
 }
