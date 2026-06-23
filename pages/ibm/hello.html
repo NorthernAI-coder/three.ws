@@ -1339,7 +1339,13 @@ agent-3d:defined ~ .agent-skel{display:none}
       if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
       var s = document.createElement('script');
       s.type = 'module';
-      s.src = './vendor/model-viewer.min.js';
+      // Absolute, not './vendor/…': this page is built to be embedded. On any host
+      // where the relative path doesn't resolve (a preview tool, a partner site,
+      // file://) the element would never upgrade and sit as a blank box — exactly
+      // why the free generator looked broken while <agent-3d> (loaded from an
+      // absolute URL) worked. The canonical copy on three.ws is served with
+      // `Access-Control-Allow-Origin: *`, so it loads cross-origin anywhere.
+      s.src = 'https://three.ws/ibm/vendor/model-viewer.min.js';
       s.addEventListener('error', resolve);
       document.head.appendChild(s);
       if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
@@ -1805,7 +1811,13 @@ agent-3d:defined ~ .agent-skel{display:none}
       if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
       var s = document.createElement('script');
       s.type = 'module';
-      s.src = './vendor/model-viewer.min.js';
+      // Absolute, not './vendor/…': this page is built to be embedded. On any host
+      // where the relative path doesn't resolve (a preview tool, a partner site,
+      // file://) the element would never upgrade and sit as a blank box — exactly
+      // why the free generator looked broken while <agent-3d> (loaded from an
+      // absolute URL) worked. The canonical copy on three.ws is served with
+      // `Access-Control-Allow-Origin: *`, so it loads cross-origin anywhere.
+      s.src = 'https://three.ws/ibm/vendor/model-viewer.min.js';
       s.addEventListener('error', resolve);
       document.head.appendChild(s);
       if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);
@@ -2237,7 +2249,13 @@ agent-3d:defined ~ .agent-skel{display:none}
       if (window.customElements && customElements.get('model-viewer')) { resolve(); return; }
       var s = document.createElement('script');
       s.type = 'module';
-      s.src = './vendor/model-viewer.min.js';
+      // Absolute, not './vendor/…': this page is built to be embedded. On any host
+      // where the relative path doesn't resolve (a preview tool, a partner site,
+      // file://) the element would never upgrade and sit as a blank box — exactly
+      // why the free generator looked broken while <agent-3d> (loaded from an
+      // absolute URL) worked. The canonical copy on three.ws is served with
+      // `Access-Control-Allow-Origin: *`, so it loads cross-origin anywhere.
+      s.src = 'https://three.ws/ibm/vendor/model-viewer.min.js';
       s.addEventListener('error', resolve);
       document.head.appendChild(s);
       if (window.customElements) customElements.whenDefined('model-viewer').then(resolve, resolve);

@@ -49,20 +49,12 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
-		"api/cron/uptime-check.js": {
-			"includeFiles": "data/pages.json",
-			"maxDuration": 30
-		},
-		"api/cron/world-health.js": {
+		"api/cron/{uptime-check,world-health,quota-check}.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
 		"api/cron/three-holders-snapshot.js": {
 			"maxDuration": 120
-		},
-		"api/cron/quota-check.js": {
-			"includeFiles": "data/pages.json",
-			"maxDuration": 30
 		},
 		"api/cron/relayer-balance-check.js": {
 			"includeFiles": "data/pages.json",
