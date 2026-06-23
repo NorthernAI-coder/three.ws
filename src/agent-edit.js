@@ -3025,6 +3025,22 @@ async function ensureBrainTab() {
   }
 }
 
+// Brain Ownership — Portable & Verifiable Brain. Passport, storage mode, IPFS
+// pins, on-chain anchor, signed export/import.
+let ownershipTabMounted = false;
+async function ensureOwnershipTab() {
+  if (ownershipTabMounted) return;
+  ownershipTabMounted = true;
+  const host = $('brain-ownership-host');
+  try {
+    const { mountBrainOwnership } = await import('./brain-ownership.js');
+    await mountBrainOwnership(host, { agentId, agent: agentData });
+  } catch (err) {
+    ownershipTabMounted = false;
+    host.innerHTML = `<div class="error-msg" style="padding:1rem">Could not load brain ownership: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
 // Memory-grounded Autopilot — explainable autonomy. The strategy textarea above
 // stays; this mounts the scopes / proposals / trust / signed-receipts surface.
 let autopilotMounted = false;
@@ -3041,6 +3057,7 @@ const TAB_LOADERS = {
   outfit: ensureOutfitTab,
   voice: ensureVoiceTab,
   knowledge: ensureKnowledgeTab,
+  ownership: ensureOwnershipTab,
   dreams: ensureDreamsTab,
   autopilot: ensureAutopilotTab,
   skills: ensureSkillsTab,

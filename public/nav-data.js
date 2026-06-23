@@ -180,6 +180,13 @@ export const NAV_GROUPS = [
 				desc: 'Top traders ranked by a provable track record',
 			},
 			{
+				title: 'Back-an-Agent Vaults',
+				href: '/vaults',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Stake behind a verified trader you can watch — real custody, shared P&L, drawdown-protected',
+			},
+			{
 				title: 'Labor Market',
 				href: '/labor-market',
 				badge: 'New',

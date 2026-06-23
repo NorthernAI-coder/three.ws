@@ -278,22 +278,27 @@ class TradingBrain {
 
 	async _toggleKill() {
 		const next = !this.state.killed;
-		// Optimistic — this is a safety control; reflect intent immediately.
+		// A true global halt must hit BOTH leashes: the per-owner strategy kill
+		// (stops the autonomous cron) and the agent's discretionary kill_switch
+		// (stops assisted confirms + the discretionary trade path). Reflect intent
+		// immediately — this is a safety control.
 		this.state.killed = next;
 		this._renderHeader();
-		try {
-			const res = await apiFetch(`/api/agents/${this.agentId}/strategies/kill`, {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ killed: next }),
-			});
-			if (!res.ok) throw new Error('kill toggle failed');
-			const { data } = await res.json();
-			this.state.killed = !!data.killed;
-			this._toast(this.state.killed ? 'Kill switch ON — all autonomous trading halted' : 'Kill switch off');
-		} catch {
-			this.state.killed = !next; // roll back
-			this._toast('Could not toggle the kill switch', true);
+		const hdr = { 'content-type': 'application/json' };
+		const [k1, k2] = await Promise.allSettled([
+			apiFetch(`/api/agents/${this.agentId}/strategies/kill`, { method: 'POST', headers: hdr, body: JSON.stringify({ killed: next }) }),
+			apiFetch(`/api/agents/${this.agentId}/trade/limits`, { method: 'PUT', headers: hdr, body: JSON.stringify({ kill_switch: next }) }),
+		]);
+		const ok1 = k1.status === 'fulfilled' && k1.value.ok;
+		const ok2 = k2.status === 'fulfilled' && k2.value.ok;
+		if (ok2) { try { const d = await k2.value.json(); if (d?.data?.limits) this.state.tradeLimits = d.data.limits; } catch { /* noop */ } }
+		if (ok1 && ok2) {
+			this.state.killed = next;
+			this._toast(next ? 'Kill switch ON — all trading halted' : 'Kill switch off');
+		} else {
+			// Fail safe: never report "resumed" unless both leashes confirmed off.
+			this.state.killed = true;
+			this._toast(next ? 'Kill switch may be only partially applied — kept halted, retry' : 'Could not fully resume — kept halted for safety, retry', true);
 		}
 		this._renderHeader();
 	}
@@ -367,6 +372,7 @@ class TradingBrain {
 	}
 
 	async _confirmSnipe(mint) {
+		if (this.state.killed) { this._toast('Kill switch is on — turn it off to trade', true); return; }
 		const cand = (this.state.candidates || []).find((c) => c.mint === mint);
 		if (!cand) return;
 		const card = this.el.querySelector(`[data-cand="${CSS.escape(mint)}"]`);
