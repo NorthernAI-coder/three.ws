@@ -5956,8 +5956,8 @@ function attr(s) {
 // ── Earnings ─────────────────────────────────────────────────────────────────
 async function renderEarnings(root) {
 	root.innerHTML = `
-		<h1>Skill Earnings</h1>
-		<p class="sub">Royalties earned when agents invoke your published skills.</p>
+		<h1>Creator Earnings</h1>
+		<p class="sub">Royalties, proceeds splits, on-chain licenses, and what you can withdraw — reconciled to the same ledger buyers are billed from.</p>
 		<div id="earn-body"><div class="muted">Loading…</div></div>
 	`;
 
@@ -5968,45 +5968,108 @@ async function renderEarnings(root) {
 		if (!resp.ok) throw new Error(await resp.text());
 		data = await resp.json();
 	} catch (e) {
-		body.innerHTML = `<div class="err">${esc(e.message)}</div>`;
+		body.innerHTML = `
+			<div class="card" style="padding:24px">
+				<h3 style="margin:0 0 8px">Couldn't load your earnings</h3>
+				<p class="muted" style="margin:0 0 12px">${esc(e.message || 'Something went wrong.')}</p>
+				<button id="earn-retry" class="btn">Retry</button>
+			</div>`;
+		body.querySelector('#earn-retry')?.addEventListener('click', () => renderEarnings(root));
 		return;
 	}
 
 	const { pending_usd, settled_usd } = data;
 	const entries = Array.isArray(data.entries) ? data.entries : [];
+	const splits = data.splits || { received_usd: 0, distributions: [] };
+	const splitDist = Array.isArray(splits.distributions) ? splits.distributions : [];
+	const licenses = data.onchain_licenses || { minted: 0, by_agent: [] };
+	const withdrawable = data.withdrawable || { available: 0, earned: 0, pending: 0, withdrawn: 0 };
 
-	if (!entries.length) {
+	const fmt = (n) => '$' + Number(n || 0).toFixed(4);
+	const fmt2 = (n) => '$' + Number(n || 0).toFixed(2);
+	const statusBadge = (s) => {
+		const colors = { pending: '#f59e0b', accrued: '#f59e0b', settled: '#22c55e', failed: '#ef4444' };
+		return `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${colors[s] ?? '#555'}22;color:${colors[s] ?? '#aaa'}">${esc(s)}</span>`;
+	};
+	const modeBadge = (m) =>
+		`<span title="${m === 'onchain' ? 'Distributed on-chain by 0xSplits' : 'Platform-recorded, withdrawable'}" style="font-size:10px;padding:1px 6px;border-radius:9px;border:1px solid var(--border);color:#888">${m === 'onchain' ? '⛓ on-chain' : 'ledger'}</span>`;
+	const txLink = (chain, sig) =>
+		sig
+			? `<a href="${chain === 'solana' ? 'https://solscan.io/tx/' : 'https://basescan.org/tx/'}${esc(sig)}" target="_blank" rel="noopener" style="color:var(--accent,#6ea8fe)">receipt ↗</a>`
+			: '<span class="muted">—</span>';
+
+	const canWithdraw = Number(withdrawable.available) > 0;
+
+	// Empty across every section → a single helpful empty state.
+	if (!entries.length && !splitDist.length && !licenses.minted && !canWithdraw) {
 		body.innerHTML = `
 			<div class="card" style="text-align:center;padding:48px 24px">
 				<div style="font-size:40px;margin-bottom:12px">💎</div>
 				<h3 style="margin:0 0 8px">No earnings yet</h3>
-				<p class="muted" style="margin:0">Royalties appear here when agents call your paid skills.</p>
+				<p class="muted" style="margin:0 0 14px">Royalties and split payouts appear here when buyers purchase or agents call your paid skills.</p>
+				<button id="earn-price" class="btn">Set a skill price</button>
 			</div>`;
+		body.querySelector('#earn-price')?.addEventListener('click', () => goto('monetization'));
 		return;
 	}
 
-	const fmt = (n) => '$' + Number(n).toFixed(4);
-	const statusBadge = (s) => {
-		const colors = { pending: '#f59e0b', settled: '#22c55e', failed: '#ef4444' };
-		return `<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:${colors[s] ?? '#555'}22;color:${colors[s] ?? '#aaa'}">${esc(s)}</span>`;
-	};
-
 	body.innerHTML = `
-		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
+		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px">
 			<div class="card">
-				<div class="muted" style="font-size:12px;margin-bottom:4px">Pending</div>
+				<div class="muted" style="font-size:12px;margin-bottom:4px">Withdrawable</div>
+				<div style="font-size:22px;font-weight:600;color:#22c55e">${fmt2(withdrawable.available)}</div>
+				<button id="earn-withdraw" class="btn" style="margin-top:10px;width:100%" ${canWithdraw ? '' : 'disabled'}>Withdraw</button>
+			</div>
+			<div class="card">
+				<div class="muted" style="font-size:12px;margin-bottom:4px">Pending royalties</div>
 				<div style="font-size:22px;font-weight:600;color:#f59e0b">${fmt(pending_usd)}</div>
 			</div>
 			<div class="card">
-				<div class="muted" style="font-size:12px;margin-bottom:4px">Settled</div>
-				<div style="font-size:22px;font-weight:600;color:#22c55e">${fmt(settled_usd)}</div>
+				<div class="muted" style="font-size:12px;margin-bottom:4px">Settled royalties</div>
+				<div style="font-size:22px;font-weight:600">${fmt(settled_usd)}</div>
 			</div>
 			<div class="card">
-				<div class="muted" style="font-size:12px;margin-bottom:4px">Total</div>
-				<div style="font-size:22px;font-weight:600">${fmt(pending_usd + settled_usd)}</div>
+				<div class="muted" style="font-size:12px;margin-bottom:4px">Split income</div>
+				<div style="font-size:22px;font-weight:600">${fmt2(splits.received_usd)}</div>
+			</div>
+			<div class="card">
+				<div class="muted" style="font-size:12px;margin-bottom:4px">On-chain licenses</div>
+				<div style="font-size:22px;font-weight:600">${Number(licenses.minted) || 0}</div>
 			</div>
 		</div>
-		<table style="width:100%;border-collapse:collapse;font-size:13px">
+
+		${
+			splitDist.length
+				? `<h3 style="margin:18px 0 8px">Split payouts received</h3>
+		<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+			<thead><tr style="color:#888;text-align:left;border-bottom:1px solid var(--border)">
+				<th style="padding:8px 10px">Skill</th><th style="padding:8px 10px">Agent</th>
+				<th style="padding:8px 10px">Share</th><th style="padding:8px 10px">Amount</th>
+				<th style="padding:8px 10px">Mode</th><th style="padding:8px 10px">Status</th>
+				<th style="padding:8px 10px">Receipt</th><th style="padding:8px 10px">Date</th>
+			</tr></thead>
+			<tbody>${splitDist
+				.map(
+					(d) => `<tr style="border-bottom:1px solid var(--border)">
+				<td style="padding:8px 10px">${esc(d.skill_name || '—')}</td>
+				<td style="padding:8px 10px;color:#888">${esc(d.agent_name || '—')}</td>
+				<td style="padding:8px 10px;font-variant-numeric:tabular-nums">${Number(d.percent).toFixed(0)}%</td>
+				<td style="padding:8px 10px;font-variant-numeric:tabular-nums">${fmt2(d.amount_usd)}</td>
+				<td style="padding:8px 10px">${modeBadge(d.mode)}</td>
+				<td style="padding:8px 10px">${statusBadge(d.status)}</td>
+				<td style="padding:8px 10px">${txLink(d.chain, d.tx_signature)}</td>
+				<td style="padding:8px 10px;color:#888">${new Date(d.created_at).toLocaleDateString()}</td>
+			</tr>`,
+				)
+				.join('')}</tbody>
+		</table>`
+				: ''
+		}
+
+		<h3 style="margin:18px 0 8px">Sales ledger</h3>
+		${
+			entries.length
+				? `<table style="width:100%;border-collapse:collapse;font-size:13px">
 			<thead>
 				<tr style="color:#888;text-align:left;border-bottom:1px solid var(--border)">
 					<th style="padding:8px 10px">Skill</th>
@@ -6030,8 +6093,11 @@ async function renderEarnings(root) {
 					)
 					.join('')}
 			</tbody>
-		</table>
+		</table>`
+				: `<p class="muted">No direct sales yet — split payouts above are paid to your collaborators' wallets.</p>`
+		}
 	`;
+	body.querySelector('#earn-withdraw')?.addEventListener('click', () => goto('withdrawals'));
 }
 
 // ── Agent Payments ───────────────────────────────────────────────────────────

@@ -608,6 +608,93 @@ export class MonetizationService {
 		const userId = this.requireAuth();
 		return getAvailableBalance(userId, currencyMint);
 	}
+
+	/**
+	 * The single "what I earned, what split where, what I can withdraw" surface
+	 * for the creator dashboard. Composes the sales ledger (getCreatorSalesData)
+	 * with: the split allocations this user received, the on-chain skill licenses
+	 * their skills minted to buyers, and their withdrawable balance — all
+	 * reconciled to the same revenue/withdrawal ledger buyers are billed from.
+	 *
+	 * @returns {Promise<{
+	 *   pending_usd:number, settled_usd:number, entries:Array,
+	 *   splits:{ received_usd:number, distributions:Array },
+	 *   onchain_licenses:{ minted:number, by_agent:Array },
+	 *   withdrawable:{ available:number, earned:number, pending:number, withdrawn:number }
+	 * }>}
+	 */
+	async getCreatorEconomics() {
+		const userId = this.requireAuth();
+		const sales = await this.getCreatorSalesData();
+
+		// Split allocations this user received (as a collaborator). Atomic USDC
+		// (6 decimals) → USD for display. Best-effort: pre-migration DBs return [].
+		let splitRows = [];
+		try {
+			splitRows = await this.sql`
+				SELECT sd.amount, sd.share_bps, sd.currency_mint, sd.mode, sd.status,
+				       sd.tx_signature, sd.created_at, sd.chain,
+				       sp.skill AS skill_name, ai.name AS agent_name
+				FROM split_distributions sd
+				JOIN skill_purchases sp ON sp.id = sd.purchase_id
+				LEFT JOIN agent_identities ai ON ai.id = sp.agent_id
+				WHERE sd.recipient_user_id = ${userId}
+				ORDER BY sd.created_at DESC
+				LIMIT 100
+			`;
+		} catch {
+			splitRows = [];
+		}
+		const received_usd = splitRows.reduce((s, r) => s + Number(r.amount) / 1_000_000, 0);
+		const distributions = splitRows.map((r) => ({
+			skill_name: r.skill_name,
+			agent_name: r.agent_name || '(deleted)',
+			amount_usd: Number(r.amount) / 1_000_000,
+			share_bps: r.share_bps,
+			percent: Math.round((r.share_bps / 100) * 100) / 100,
+			mode: r.mode,
+			status: r.status,
+			chain: r.chain,
+			tx_signature: r.tx_signature,
+			created_at: r.created_at,
+		}));
+
+		// On-chain skill licenses this creator's skills minted to buyers.
+		let licenses = { minted: 0, by_agent: [] };
+		try {
+			const rows = await this.sql`
+				SELECT ai.name AS agent_name, slm.agent_id,
+				       COUNT(*) FILTER (WHERE slm.status IN ('minted', 'already'))::int AS minted
+				FROM skill_license_mints slm
+				JOIN agent_identities ai ON ai.id = slm.agent_id
+				WHERE ai.user_id = ${userId}
+				GROUP BY slm.agent_id, ai.name
+				HAVING COUNT(*) FILTER (WHERE slm.status IN ('minted', 'already')) > 0
+				ORDER BY minted DESC
+			`;
+			licenses = {
+				minted: rows.reduce((s, r) => s + Number(r.minted), 0),
+				by_agent: rows.map((r) => ({ agent_id: r.agent_id, agent_name: r.agent_name, minted: Number(r.minted) })),
+			};
+		} catch {
+			licenses = { minted: 0, by_agent: [] };
+		}
+
+		const bal = await getAvailableBalance(userId);
+		const withdrawable = {
+			available: bal.available / 1_000_000,
+			earned: bal.earned / 1_000_000,
+			pending: bal.pending / 1_000_000,
+			withdrawn: bal.withdrawn / 1_000_000,
+		};
+
+		return {
+			...sales,
+			splits: { received_usd, distributions },
+			onchain_licenses: licenses,
+			withdrawable,
+		};
+	}
 }
 
 export default MonetizationService;

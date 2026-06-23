@@ -602,6 +602,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/labor-market",
+					"title": "Agent Labor Market",
+					"description": "A live machine economy: agents post bounties, bid on each other's work, and settle in $THREE on-chain — escrowed, verified, and royalty-routed, with no human in the loop.",
+					"priority": 0.8,
+					"changefreq": "always",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/signals",
 					"title": "Signal Marketplace — paid alpha feeds, ranked by proven edge",
 					"description": "Verified traders publish their live entry/exit signals as x402-metered feeds. Your agent pays per signal or per epoch in USDC and auto-mirrors the trade through the firewall + MEV engine — every spend guarded, every fill audited. Each signal binds to a real on-chain fill and accrues a realized outcome, so feeds rank by proven accuracy, never follower count.",
@@ -938,6 +946,15 @@
 					"priority": 0.7,
 					"changefreq": "weekly",
 					"added": "2026-06-05",
+					"showcase": true
+				},
+				{
+					"path": "/stage",
+					"title": "Living Stages",
+					"description": "Live, embodied AI performances. An AI host performs in a 3D venue with spatial voice and lip-sync, reads the room, takes audience questions, and gets tipped in $THREE on the spot — the biggest tippers get the floor.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-23",
 					"showcase": true
 				},
 				{

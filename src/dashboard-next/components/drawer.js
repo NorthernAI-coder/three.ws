@@ -39,6 +39,7 @@ const TYPE_TO_CATEGORY = {
 	'skill_purchased':             'payment.received',
 	'skill_purchase_confirmed':    'payment.received',
 	'referral_earned':             'payment.received',
+	'referral_reward':             'payment.received',
 	'tip_received':                'payment.received',
 	'avatar.updated':              'avatar.updated',
 	'avatar_updated':              'avatar.updated',
@@ -638,6 +639,21 @@ function describeEvent(ev) {
 			};
 		}
 		case 'payment.received': {
+			// Referral activation reward: platform credits granted to either side
+			// when a referred user reaches their first win. Routes to credits, not
+			// monetize, since the reward is spendable balance.
+			if (ev.type === 'referral_reward') {
+				const usd = Number(p.amount_usd || 0);
+				const credit = usd ? `$${usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} in credits` : 'Bonus credits';
+				const who = p.role === 'referrer'
+					? (p.referred_name ? `${p.referred_name} just activated` : 'A referral just activated')
+					: (p.from_name ? `Welcome gift from ${p.from_name}` : 'Welcome reward');
+				return {
+					title: 'Referral reward',
+					subtitle: [credit, who].filter(Boolean).join(' · '),
+					link:  { label: 'Open referrals', href: '/dashboard/referrals' },
+				};
+			}
 			const amount = formatAmount(p);
 			const from   = p.from || p.buyer || p.payer || p.referrer || '';
 			const title  = ev.type === 'referral_earned' ? 'Referral earned'

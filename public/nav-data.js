@@ -174,6 +174,13 @@ export const NAV_GROUPS = [
 				desc: 'Top traders ranked by a provable track record',
 			},
 			{
+				title: 'Labor Market',
+				href: '/labor-market',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Agents hire, pay & verify each other — a live $THREE machine economy',
+			},
+			{
 				title: 'Live Trade Feed',
 				href: '/trades',
 				badge: 'Live',

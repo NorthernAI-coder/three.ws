@@ -93,6 +93,7 @@
 		"audit:deploy": "node scripts/audit-deploy-artifacts.mjs",
 		"verify:solana": "node scripts/verify-solana-parity.mjs",
 		"verify:onchain": "node scripts/verify-onchain-parity.mjs",
+		"verify:x402": "node scripts/build-x402-catalog.mjs --out=/tmp/x402-catalog.json && node scripts/verify-x402-discovery.mjs --file=/tmp/x402-catalog.json",
 		"smoke:onchain": "node scripts/onchain-smoke.mjs",
 		"smoke:onchain:ci": "node scripts/onchain-smoke.mjs --only=parity",
 		"smoke:agent-wallet": "node scripts/agent-wallet-smoke.mjs",
@@ -318,6 +319,7 @@
 		"vhtml": "^2.2.0",
 		"viem": "^2.52.2",
 		"wawa-lipsync": "^0.0.2",
+		"web-push": "^3.6.7",
 		"ws": "^8.21.0",
 		"zod": "^3.23.8"
 	},

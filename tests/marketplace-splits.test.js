@@ -16,9 +16,23 @@ import {
 	allocateAtomics,
 	describeSplit,
 	isValidAddressForChain,
+	recordSplitDistribution,
 	FULL_SHARE_BPS,
 } from '../api/_lib/splits.js';
 import { marketplaceFeeAtomics } from '../api/_lib/marketplace-platform-fee.js';
+import { enforceOnchainLicense, licenseEnforcementEnabled } from '../api/_lib/skill-license-verify.js';
+
+// A fake tagged-template `sql` that records the interpolated values of each
+// query so we can assert what would be persisted, without a database.
+function fakeSql(returnRows = []) {
+	const calls = [];
+	const fn = (strings, ...values) => {
+		calls.push(values);
+		return Promise.resolve(returnRows);
+	};
+	fn.calls = calls;
+	return fn;
+}
 
 // Synthetic addresses — never a real wallet (CLAUDE.md).
 const SOL_A = 'THREEsynthetic1111111111111111111111111111A';
