@@ -367,7 +367,7 @@ function modal(html) {
 	return { scrim, close };
 }
 
-function agentOptions(selectedFirst = true) {
+function agentOptions() {
 	return (state.agents || []).map((a) => `<option value="${esc(a.id)}">${esc(a.name)}</option>`).join('');
 }
 
