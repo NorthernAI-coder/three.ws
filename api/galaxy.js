@@ -263,6 +263,11 @@ async function loadPublishedAgents(limit) {
 			thumbnail,
 			wallet: row.wallet_address || meta.solana_address || null,
 			chain: row.chain_id || (meta.solana_address ? 'solana' : null),
+			// Vanity pattern (if any) so the shared wallet chip can advertise the
+			// address's honest rarity tier on the inspect card, matching every other
+			// surface. Public, non-secret metadata.
+			solana_vanity_prefix: meta.solana_vanity_prefix || null,
+			solana_vanity_suffix: meta.solana_vanity_suffix || null,
 			chat_count: row.chat_count,
 			token: token
 				? {

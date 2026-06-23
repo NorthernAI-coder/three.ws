@@ -41,6 +41,7 @@ const state = {
 	data: null, // galaxy payload
 	clusterById: new Map(),
 	idToIndex: new Map(), // agent id → point index
+	networthById: new Map(), // agent id → { usd, tier, level, wealth } from real wallets
 	selected: -1,
 	focusMode: null, // 'search' | 'cluster' | null
 	focusCluster: -1,
@@ -127,11 +128,13 @@ function renderGalaxy(data) {
 	const sizes = new Float32Array(n);
 	const seeds = new Float32Array(n);
 	const states = new Float32Array(n); // 0 normal, 1 highlit, -1 dimmed
+	const wealth = new Float32Array(n); // 0 dormant … 1 luminous (real net worth)
 
 	const color = new THREE.Color();
 	const maxChats = Math.max(1, ...data.agents.map((a) => a.chat_count || 0));
 
 	state.idToIndex.clear();
+	state.networthById = new Map();
 	data.agents.forEach((a, i) => {
 		state.idToIndex.set(a.id, i);
 		const [x, y, z] = a.coords;
@@ -147,6 +150,7 @@ function renderGalaxy(data) {
 		sizes[i] = 7 + 9 * (Math.log1p(a.chat_count || 0) / Math.log1p(maxChats));
 		seeds[i] = Math.random();
 		states[i] = 0;
+		wealth[i] = 0; // lit up asynchronously from real wallet net worth
 	});
 
 	geom = new THREE.BufferGeometry();
@@ -155,6 +159,7 @@ function renderGalaxy(data) {
 	geom.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
 	geom.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
 	geom.setAttribute('aState', new THREE.BufferAttribute(states, 1));
+	geom.setAttribute('aWealth', new THREE.BufferAttribute(wealth, 1));
 
 	mat = new THREE.ShaderMaterial({
 		uniforms: {
@@ -163,6 +168,10 @@ function renderGalaxy(data) {
 			uHighlight: { value: 0 },
 			uDim: { value: 0.14 },
 			uTwinkle: { value: REDUCED_MOTION ? 0 : 1 },
+			uWealthPulse: { value: REDUCED_MOTION ? 0 : 1 },
+			// Wallet-violet — funded stars bias toward the wallet accent so a glance
+			// across the galaxy reads who is wealthy. Kept in the wallet palette.
+			uWealthColor: { value: new THREE.Color('#c4b5fd') },
 		},
 		vertexShader: POINT_VERT,
 		fragmentShader: POINT_FRAG,
@@ -177,6 +186,7 @@ function renderGalaxy(data) {
 
 	buildClusterLabels(data.clusters);
 	buildLegend(data.clusters);
+	loadNetWorth(data.agents);
 
 	// Stats
 	els.gxStatAgents.innerHTML = `<strong>${n.toLocaleString()}</strong> agents`;
@@ -190,6 +200,42 @@ function renderGalaxy(data) {
 
 	// Frame the whole cloud.
 	flyTo(new THREE.Vector3(0, 36, 322), new THREE.Vector3(0, 0, 0), 0.001);
+}
+
+// ── Net-worth glow (real wallet value lights the stars) ──────────────────────
+// Every star is an agent with a real custodial wallet. We batch-read their net
+// worth (api/agents/networth → the same priced-balance path the avatars use) and
+// drive each point's `aWealth`, so the galaxy shows at a glance who is funded —
+// from real chain data, never decoration. Failures degrade silently to the
+// baseline (no glow), so a galaxy still renders if the read is unavailable.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+async function loadNetWorth(agents) {
+	const ids = agents.map((a) => a.id).filter((id) => UUID_RE.test(String(id)));
+	if (!ids.length || !geom) return;
+	const wealthAttr = geom.getAttribute('aWealth');
+	for (let i = 0; i < ids.length; i += 120) {
+		const chunk = ids.slice(i, i + 120);
+		let items;
+		try {
+			const res = await fetch(`/api/agents/networth?ids=${encodeURIComponent(chunk.join(','))}`, {
+				headers: { accept: 'application/json' },
+			});
+			if (!res.ok) return; // endpoint unavailable → keep the clean baseline
+			const body = await res.json().catch(() => ({}));
+			items = body?.data?.items || [];
+		} catch {
+			return;
+		}
+		if (!geom) return; // galaxy was disposed while we awaited
+		for (const it of items) {
+			const idx = state.idToIndex.get(it.id);
+			if (idx == null) continue;
+			state.networthById.set(it.id, it);
+			wealthAttr.setX(idx, Math.max(0, Math.min(1, Number(it.wealth) || 0)));
+		}
+		wealthAttr.needsUpdate = true;
+	}
+	dbg.networthLit = state.networthById.size;
 }
 
 // ── Cluster labels (DOM, projected each frame) ───────────────────────────────
@@ -411,8 +457,14 @@ function selectAgent(index, fly = false) {
 		: '';
 	els.gxCardDesc.textContent = a.description || 'No description.';
 
-	// Meta chips: engagement, on-chain identity, token.
+	// Meta chips: net worth (real wallet value), engagement, on-chain identity, token.
 	const chips = [];
+	const nw = state.networthById?.get(a.id);
+	if (nw && nw.level > 0) {
+		chips.push(
+			`<span class="gx-chip gx-chip-wealth" title="Net worth ${gxFmtUsd(nw.usd)} · ${escapeHtml(nw.tier)} tier — from real wallet balances">◈ ${gxFmtUsd(nw.usd)}</span>`,
+		);
+	}
 	if (a.chat_count) chips.push(chip(`✦ ${formatCount(a.chat_count)} chats`));
 	if (a.token && a.token.symbol) chips.push(chip(`$${escapeHtml(a.token.symbol)}`));
 	// The agent's custodial wallet identity — the SAME shared chip every other
@@ -718,6 +770,12 @@ function formatCount(n) {
 	if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k';
 	return String(n);
 }
+function gxFmtUsd(v) {
+	const n = Number(v) || 0;
+	if (n < 1000) return `$${n.toFixed(n < 1 ? 2 : 0)}`;
+	if (n < 1_000_000) return `$${Math.round(n).toLocaleString()}`;
+	return `$${(n / 1_000_000).toFixed(2)}M`;
+}
 function easeInOut(t) {
 	return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
@@ -728,23 +786,31 @@ const POINT_VERT = /* glsl */ `
 	attribute float aSize;
 	attribute float aSeed;
 	attribute float aState;
+	attribute float aWealth;
 	uniform float uTime;
 	uniform float uPixelRatio;
 	uniform float uTwinkle;
+	uniform float uWealthPulse;
 	varying vec3 vColor;
 	varying float vState;
+	varying float vWealth;
 	void main() {
 		vColor = aColor;
 		vState = aState;
+		vWealth = aWealth;
 		vec4 mv = modelViewMatrix * vec4(position, 1.0);
 		float size = aSize;
 		// gentle twinkle
 		size *= 1.0 + uTwinkle * 0.16 * sin(uTime * 1.6 + aSeed * 6.2831);
+		// Net worth swells the star (a funded agent is visibly bigger) and adds a
+		// slow, dignified breathing pulse that scales with wealth.
+		size *= 1.0 + aWealth * 0.9;
+		size *= 1.0 + uWealthPulse * aWealth * 0.12 * sin(uTime * 1.1 + aSeed * 6.2831);
 		// highlight pulse for matched/focused stars
 		float hi = step(0.5, aState);
 		size *= mix(1.0, 1.85 + 0.55 * sin(uTime * 5.0), hi);
 		float dist = max(-mv.z, 1.0);
-		gl_PointSize = clamp(size * (300.0 / dist), 1.0, 64.0) * uPixelRatio;
+		gl_PointSize = clamp(size * (300.0 / dist), 1.0, 90.0) * uPixelRatio;
 		gl_Position = projectionMatrix * mv;
 	}
 `;
@@ -752,8 +818,10 @@ const POINT_FRAG = /* glsl */ `
 	precision mediump float;
 	uniform float uHighlight;
 	uniform float uDim;
+	uniform vec3 uWealthColor;
 	varying vec3 vColor;
 	varying float vState;
+	varying float vWealth;
 	void main() {
 		float d = length(gl_PointCoord - 0.5);
 		if (d > 0.5) discard;
@@ -761,8 +829,13 @@ const POINT_FRAG = /* glsl */ `
 		float alpha = core * core;
 		// When a search/focus is active, fade the non-matching stars way back.
 		float dimmed = (uHighlight > 0.5 && vState < 0.5) ? uDim : 1.0;
-		vec3 col = vColor * (0.55 + 0.75 * core);
-		gl_FragColor = vec4(col, alpha * dimmed);
+		// Funded stars bias toward the wallet-violet accent and burn brighter, with
+		// a wealth-scaled halo in the outer falloff so wealth reads at a glance.
+		vec3 base = mix(vColor, uWealthColor, vWealth * 0.6);
+		float halo = smoothstep(0.5, 0.18, d) * vWealth * 0.5;
+		vec3 col = base * (0.55 + 0.75 * core) + uWealthColor * halo;
+		float a = (alpha + halo * 0.6) * dimmed;
+		gl_FragColor = vec4(col, a);
 	}
 `;
 

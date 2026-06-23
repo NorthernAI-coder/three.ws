@@ -7,6 +7,10 @@
  */
 
 import { onchainBadgeEl } from './shared/onchain-badge.js';
+import { walletChipEl } from './shared/agent-wallet-chip.js';
+import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+
+let chNetWorthAura = null;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -69,6 +73,15 @@ function renderHero(agent) {
 		showPlaceholder(agent, avatarPH);
 	}
 
+	// Net-Worth-Reactive Avatar: weld the agent's real wallet to its hero portrait
+	// so its funded-ness reads identically here, on the 3D viewer, and the galaxy.
+	const avatarWrap = $('ch-avatar-wrap');
+	if (avatarWrap && agent.id && !chNetWorthAura) {
+		hydrateAvatarWallet(avatarWrap, agent, { lod: 'card', live: true, network: 'mainnet' })
+			.then((c) => { chNetWorthAura = c; })
+			.catch(() => { /* dormant baseline already shown */ });
+	}
+
 	// Name
 	const nameEl = $('ch-name');
 	nameEl.textContent = agent.name || 'Unnamed';
@@ -81,6 +94,18 @@ function renderHero(agent) {
 		onchainBadge.id = 'ch-onchain-badge';
 		onchainBadge.style.marginTop = '8px';
 		nameEl.insertAdjacentElement('afterend', onchainBadge);
+	}
+
+	// Wallet identity — the SAME shared chip rendered on the profile, marketplace,
+	// galaxy and dashboard, so this consumer page shows the agent's custodial wallet
+	// (address, copy, Solscan, vanity tier) consistently. The owner additionally
+	// gets the vanity entry point; everyone else gets a Tip action.
+	document.getElementById('ch-wallet-chip')?.remove();
+	const walletChip = walletChipEl(agent, { isOwner: !!agent.is_owner });
+	if (walletChip) {
+		walletChip.id = 'ch-wallet-chip';
+		walletChip.style.marginTop = '8px';
+		(document.getElementById('ch-onchain-badge') || nameEl).insertAdjacentElement('afterend', walletChip);
 	}
 
 	// Creator
@@ -340,5 +365,7 @@ async function init() {
 	renderToken(agent); // async — DexScreener fetch updates card in background
 	renderMemes(agent);
 }
+
+window.addEventListener('pagehide', () => { chNetWorthAura?.destroy?.(); chNetWorthAura = null; }, { once: true });
 
 init();
