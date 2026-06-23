@@ -750,8 +750,10 @@ export async function enforceSpendLimit({
 	}
 
 	// 2. Natural-language policy — the owner's English rules, deterministically
-	// enforced. Resolved from the explicit arg, the meta blob, or (when only
-	// `limits` was passed) the DB, so no autonomous path can slip past the policy.
+	// enforced. Resolved from the explicit `policyRules` arg or the `meta` blob —
+	// both are free (no extra query). A caller that passes only pre-resolved `limits`
+	// must pass `policyRules` to opt the path in; the autonomous trade/snipe/x402/
+	// withdraw paths all do (or pass `meta`).
 	const policy = policyRules || (meta ? getPolicyRules(meta) : null);
 	await enforcePolicyRules({ agentId, policy, category, usdValue, asset, destination, limits: lim, policyContext, userId, network });
 

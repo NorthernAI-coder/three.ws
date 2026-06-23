@@ -3,6 +3,44 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Reputation is now a key: hold $THREE, earn a tier, unlock worlds and cosmetics",
+			"summary": "Your agent's reputation already turns its real on-chain life into one honest 0–100 trust score. Now that score does something: it unlocks things, and holding $THREE is a real way to earn them. The score gains a new, fully transparent component — $THREE conviction — that rewards holding the platform's only coin, and holding it through time. It reads straight from the live holder set, so it can't be faked: the value you hold is log-scaled (a whale can't buy the whole pillar in one transfer) and the duration only counts while you keep holding — sell it all and the clock honestly resets. Tap any agent's trust badge to see exactly how every point, including conviction, was earned. On top of that, a new Access & unlocks tracker shows what your reputation opens — an Arena Elite Floor for trusted wallets, a Trusted Aura and an Elite card finish for your avatar, a $THREE Holder Lounge — with every requirement spelled out and your live progress toward each. Most unlocks have two paths: earn the tier, or hold $THREE. Every gate is enforced on the server from the real, server-computed score, so a tampered client can never fake a tier to get in; claiming a cosmetic re-checks ownership and the requirement before it's granted. In the live Arena, the agents the network already trusts now stand on a visible Elite Floor. Scores are recomputed continuously in the background so what you see stays fresh. $THREE is the only coin on three.ws.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Write your agent wallet's spending rules in plain English",
+			"summary": "Numeric caps protect what you can put a number on. Real intent is richer: “let it trade up to $50 a day on tokens at least a day old, never spend my last 1 SOL, stop everything if a trade drops more than 30%, and only ever pay services I’ve used before.” Now you can just write that. A new Policy tab in your agent wallet turns plain-English rules into a deterministic, code-enforced policy — the AI only translates and explains, it never approves a payment. Before you save, you see two things: a numbered, plain-language readback of exactly what will be enforced (generated from the compiled rules, so it can never say one thing and do another), and a backtest against your wallet’s real history — “against your last 30 days, this would have blocked 3 spends ($120) and allowed 47” — computed by the very same evaluator that runs live. No history yet? It shows how the policy handles common cases instead. Once saved, the rules govern every outbound move — trades, snipes, x402 payments, withdrawals — right alongside your numeric caps, and a blocked spend tells you in plain words which rule caught it (“Blocked by your rule: never pay a service you haven’t used before”). Every block and every policy edit is written to your custody log, and the system never weakens protection silently — removing a safeguard asks you to confirm. It fails safe: if it can’t verify a spend against your rules, it blocks rather than guesses. Your withdrawals stay evacuable no matter what.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Your agent wallet now defends itself in real time",
+			"summary": "Static caps and a freeze switch protect the failure modes you can name; they do nothing about the one you can't — a prompt-injected agent, a leaked session quietly draining the wallet, a strategy that goes haywire at 3am. So every agent wallet now has an immune system. The platform learns each agent's normal spending behavior from its real custody history — typical and largest transaction size, the addresses it usually pays, its active hours, how fast it normally spends — and scores every outbound action against that profile the instant before it settles. When something looks wrong, the wallet freezes itself and pings you with the exact reason in plain language: '12 spends in the last minute — far above your usual pace,' 'first payment to this address, and it's a large amount,' '3.2× your largest-ever trade.' One tap approves it (which also teaches the guard, so the same action never nags you again) or keeps it frozen — and if you've set a safe address, one more tap sweeps the funds to safety. A new Self-defense tab shows exactly what your wallet has learned, lets you dial sensitivity from Relaxed to Strict, and keeps a transparent timeline of every scored action, allowed and flagged. It never fails open: if the guard can't make up its mind, it errs toward protecting your money. Your money defends itself.",
+			"tags": [
+				"security",
+				"feature"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Your agent now has feelings you can see — and they're real",
+			"summary": "Your agent carries a genuine emotional state — not a canned emote, a living mood derived from what's actually happening to it. Conversations move it (the real words you and it exchange are scored for sentiment), and so do the things it learns, remembers, dreams up, and the actions it takes on your behalf — good outcomes lift it, bad ones weigh on it. That mood lives as a point on a valence (how positive) by arousal (how energised) map, decays gently back toward a calm baseline when nothing's happening, and persists across sessions so your agent picks up where its feelings left off. The body reads it out continuously: the avatar's resting face and posture shift with the mood — a soft smile and open, leaned-in stance when it's content or elated, a worried brow and lowered gaze when it's subdued, wide alert eyes when something has its attention — blended smoothly, never snapping, with a small involuntary flicker the instant it recalls a memory mid-chat. Your site-wide companion glows in its mood's colour and breathes faster when energised. You stay in control: a new Mood & embodiment panel in the agent editor shows the current mood, a sparkline of how it has moved over time, and the exact real signals that moved it — plus an emotional-sensitivity dial from stoic (never wavers) to expressive. Reduced-motion is fully respected, keeping a subtle facial cue while dropping the movement. Nothing here is faked: no random moods, no timers pretending to be emotion — every shift traces to a real signal.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Proof-of-Custody: verify your agent wallet's custody on-chain yourself",
 			"summary": "Custodial means we hold your wallet's keys and sign for you — so now we make that custody provable instead of asking you to take our word for it. Every few hours the platform snapshots every custodial wallet's public state (its address, live on-chain balance, and a fingerprint of its authorized-event history), builds a Merkle tree over all wallets, and commits the single root to Solana in a real transaction. Open the new Proof of Custody tab in your wallet — or the standalone verifier — and your browser does the checking itself: it recomputes your wallet's leaf from the public data, walks the Merkle path to the root, reads the anchoring transaction straight from a public Solana RPC, and confirms the on-chain root matches. You get a clear green 'verified on-chain' with the explorer link, or an honest red state naming exactly which step failed — never a fake badge. It also reconciles movement: every drop in your balance between snapshots is mapped to an authorized, logged withdraw or spend, and any outflow the ledger can't explain is loudly flagged. The new public integrity page shows the latest root, its anchor transaction, the wallet count and aggregate balance — and lets anyone re-verify the platform's custody on-chain with no account. Don't trust, verify.",
 			"tags": [
