@@ -4865,7 +4865,13 @@ new MutationObserver(() => {
 // L3 — Location & privacy center: honest disclosure + discovery precision +
 // presence opt-in + a jump into pin management, all in one designed surface.
 document.getElementById('irl-privacy-btn')?.addEventListener('click', () => {
-	openPrivacyCenter({ getGhost: getShareGhost, setGhost: applyGhost, onManagePins: openMyPinsSheet });
+	openPrivacyCenter({
+		getGhost: getShareGhost,
+		setGhost: applyGhost,
+		onManagePins: openMyPinsSheet,
+		// A delete/unpublish from the data panel must vanish from the live world too.
+		onChanged: () => { loadNearbyPins().catch(() => {}); },
+	});
 });
 
 // Connect smart glasses — mirror the nearest-agent cue to a Frame / G1 lens over Web
