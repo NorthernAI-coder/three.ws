@@ -99,6 +99,13 @@ export async function attestTraderScore({ network, wallet, agentId, metrics, win
 		realized_pnl_sol: metrics.realized_pnl_sol,
 		max_drawdown_pct: metrics.max_drawdown_pct,
 		unique_coins: metrics.unique_coins,
+		// Anti-gaming provenance committed alongside the score: the snipe hit-rate
+		// (when a launch sample exists) and the count of self-dealt round-trips that
+		// were excluded from the credited number. Makes the anchor honest, not just
+		// tamper-evident.
+		snipe_hit_rate: metrics.snipe_hit_rate ?? null,
+		snipe_sample: metrics.snipe_sample ?? 0,
+		self_dealing_excluded: metrics.self_dealing_count ?? 0,
 		source: 'threews.trader-stats',
 	};
 

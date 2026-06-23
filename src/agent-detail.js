@@ -20,6 +20,7 @@ import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { mountStagePanel } from './shared/stage-link.js';
 import { mountLaborPanel } from './shared/labor-link.js';
+import { mountAlphaPanel } from './shared/alpha-copilot-link.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -73,6 +74,10 @@ function mountAgentDetailAura(agent) {
 					// Labor Market cross-link: this agent's "Work" record (earnings, jobs,
 					// reputation) + a link to post or work for hire. Enhancement only.
 					mountLaborPanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
+						.catch(() => { /* never block the profile */ });
+					// Alpha Co-pilot cross-link: hear this agent read a real live launch in
+					// character and (for the owner) act within its spend limits. Enhancement.
+					mountAlphaPanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
 						.catch(() => { /* never block the profile */ });
 			}
 		})

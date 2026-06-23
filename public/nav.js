@@ -159,11 +159,32 @@ function ensureSkipLink() {
 	document.body.insertBefore(link, document.body.firstChild);
 }
 
+// Load the Living-Agents bus on any page when the operator opts in with
+// ?agentbus=1, so the debug overlay (a dev tool, not product UI) can mount and
+// log live bus events anywhere. The bus module self-mounts the overlay from the
+// query flag; off by default, it costs nothing.
+function loadAgentBusDebug() {
+	let on = false;
+	try {
+		const flag = new URLSearchParams(location.search).get('agentbus');
+		on = flag === '1' || flag === 'true';
+	} catch (_) {
+		on = false;
+	}
+	if (!on) return;
+	if (document.querySelector('script[src="/agent-bus.js"]')) return;
+	const s = document.createElement('script');
+	s.type = 'module';
+	s.src = '/agent-bus.js';
+	document.head.appendChild(s);
+}
+
 function boot() {
 	ensureSkipLink();
 	loadCornerStack();
 	loadGlossary();
 	loadSearch();
+	loadAgentBusDebug();
 	loadDiscovery();
 	loadGettingStarted();
 	loadThemeSwitcher();

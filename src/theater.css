@@ -195,6 +195,19 @@
 @keyframes th-spin { to { transform: rotate(360deg); } }
 .th-loading p { color: var(--ink-dim, #888); font-size: var(--text-sm, 0.78rem); }
 
+/* Quiet-market card rides the foot of the stage so the cast stays visible. */
+.th-quiet {
+	top: auto;
+	right: auto;
+	bottom: var(--space-5, 20px);
+	transform: translateX(-50%);
+	text-align: left;
+	width: min(440px, calc(100% - 32px));
+	pointer-events: auto;
+}
+.th-quiet h2 { font-size: var(--text-md, 0.81rem); }
+.th-quiet > p { font-size: var(--text-xs, 0.7rem); }
+
 .th-highlights { margin-top: var(--space-4, 16px); display: flex; flex-direction: column; gap: 6px; text-align: left; max-height: 38vh; overflow-y: auto; }
 .th-hl {
 	display: flex; align-items: center; gap: 8px;

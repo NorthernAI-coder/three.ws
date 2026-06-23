@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:13:30.151Z",
+	"generated_at": "2026-06-23T12:20:54.280Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -256,6 +256,16 @@
 					"path": "/genome",
 					"title": "Agent Genome — breed two agents",
 					"description": "Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/genesis",
+					"title": "Instant Agent Genesis",
+					"description": "A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.",
 					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,

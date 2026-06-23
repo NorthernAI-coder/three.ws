@@ -63,6 +63,14 @@
 			<description>The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.</description>
 		</item>
 		<item>
+			<title>Instant Agent Genesis</title>
+			<link>https://three.ws/genesis</link>
+			<guid isPermaLink="false">2026-06-23:Instant Agent Genesis</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.</description>
+		</item>
+		<item>
 			<title>Live Trading Theater</title>
 			<link>https://three.ws/theater</link>
 			<guid isPermaLink="false">2026-06-23:Live Trading Theater</guid>
@@ -205,6 +213,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Every avatar you create — a GLB upload, a URL import, or a chat/MCP &quot;text → 3D avatar&quot; — is quietly upgraded in the background so it can walk, wave, and emote. Occasionally the very last step of that upgrade could fail after the rig itself had already succeeded (a momentary storage or network blip), and the avatar would stay static with nothing able to retry it — most likely for avatars made headlessly through the API or MCP, which don't sit on a page polling for the result. The completion process is now crash-safe and eventually-consistent: a rig that finished at the provider always lands on your avatar, recovered no matter which path completes it, even after an earlier failure, and safe when several finish at once. The background safety-net sweep now also clears its backlog faster and never lets a stalled job pile up. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Brain Studio: sculpt your agent's personality and hear the change land instantly</title>
+			<link>https://three.ws/dashboard</link>
+			<guid isPermaLink="false">2026-06-23:Brain Studio: sculpt your agent's personality and hear the change land instantly</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Personality is no longer a hidden prompt buried behind a five-question interview — it's something you direct. Open the new Brain Studio on your agent's edit page and shape its mind with sliders: warmth, formality, verbosity, humour, proactivity, risk appetite, and directness, plus editable tone words and the signature phrases it reaches for. Move any slider and within about a second the live 3D avatar beside you re-greets in the new register — a real model reply against the candidate personality, streamed token by token, and spoken aloud in your agent's own configured voice. Not sure between two directions? Compare A/B puts your saved persona and your current edits side by side, sends the same prompt to both avatars at once, and lets you promote the winner. Every save is a real version with a note, so you can see exactly how a trait change rewrote the underlying prompt and restore any earlier personality. When you save, your agent re-greets in character everywhere it appears on the platform.</description>
 		</item>
 		<item>
 			<title>Consistent currency formatting across the earnings dashboard</title>
@@ -429,6 +445,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>When something fails on our side, the response no longer just says 'something went wrong' — it now carries a short reference code (e.g. 'quote ref a1b2c3d4 to support'). That same code is attached to the exact server log line, our error tracker, and the ops alert that pages the team, so one code maps to one incident. This was already true for most API responses; we extended it to the remaining surfaces that previously failed silently — the RSS announcements feed, sitemaps, the MCP payment flow, on-chain permission checks, and the Solana RPC proxy — so any failure you hit is traceable. Nothing changes when things work; this only makes the rare error far faster to diagnose.</description>
+		</item>
+		<item>
+			<title>Instant Agent Genesis: a selfie or a sentence becomes a funded, on-chain 3D agent in under a minute</title>
+			<link>https://three.ws/genesis</link>
+			<guid isPermaLink="false">2026-06-23:Instant Agent Genesis: a selfie or a sentence becomes a funded, on-chain 3D agent in under a minute</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Onboarding a new agent used to be a multi-step wizard. Now it's one guided moment. Open Instant Agent Genesis, then either describe how your agent should look, drop in a selfie, or fork a public avatar to make it yours. From there everything happens in parallel and for real: the avatar engine sculpts and rigs a 3D body you watch take shape on a live progress bar, your agent is provisioned with its own custodial Solana and EVM wallet, and the persona and voice you typed are written onto it. Sixty seconds later you meet your agent — its face turning in 3D, its real wallet addresses ready to copy and fund, and a one-click path to register a verifiable ERC-8004 on-chain identity that returns a real transaction you can open on the explorer. From the reveal you can fund and snipe, open your agent, hand it to the trading co-pilot, or share its card. Ownership is unambiguous: the agent, the wallet, and the identity are yours from the first frame. Bring your own Meshy key for higher-fidelity geometry, or use the platform engine as-is.</description>
 		</item>
 		<item>
 			<title>IRL status updates now announced to screen readers</title>
@@ -687,6 +711,14 @@
 			<description>Inviting people to three.ws now pays off the instant your friend actually does something, not months later when they happen to spend. Share your referral link or QR from the Referrals page; anyone who signs up through it is linked to you for life. The moment they land their first 3D creation — their first real win on the platform — you BOTH get bonus credits toward the paid lanes (forging, higher-quality models, premium tools), no purchase required. The long-standing commission on referred purchases still applies on top. Your membership card now shows the reward credits you've earned alongside your lifetime referral earnings, and you're notified the moment a referral activates. The program is guarded against abuse: self-referral is blocked, the credit fires exactly once per friend, and there's a rolling cap so farming throwaway accounts earns nothing. Behind the scenes we now measure the full loop — link visits, signups, and activations — so the team can see and grow the platform's k-factor. $THREE is the only coin on three.ws.</description>
 		</item>
 		<item>
+			<title>Reflection &amp; Dreams: while you're away, your agent consolidates its memories into insights you review</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Reflection &amp; Dreams: while you're away, your agent consolidates its memories into insights you review</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent now reflects on its own. On a schedule — and the moment you open the new Dreams tab on its edit page — it reads its own recent memories and action history and runs a real model pass that consolidates them into higher-order insights it calls dreams: patterns it noticed, beliefs it formed about you, questions it wants to ask. Every dream cites the exact memories it was drawn from, so you can see the evidence behind it, not just a claim. You review each one: accept it and it becomes a real, higher-salience memory the agent carries forward; reject it and the agent learns the synthesis was wrong and won't propose it again. Low-confidence dreams come as a question you can answer in a line — your answer is saved as a memory. A dream journal keeps the running history of what your agent kept and let go. Reflection is cost-bounded (a daily cap and a cooldown per agent, with every skipped pass logged) so it never runs away, and it only ever consolidates memories you already own.</description>
+		</item>
+		<item>
 			<title>Security: CSRF protection extended to sniper arming and trade limits</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Security: CSRF protection extended to sniper arming and trade limits</guid>
@@ -855,6 +887,14 @@
 			<description>The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
+			<title>Trading Brain: draw how your agent snipes, and watch it trade for real within your guardrails</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-23:Trading Brain: draw how your agent snipes, and watch it trade for real within your guardrails</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's money is now something you direct visually. Open the Money tab in Agent Studio and draw its trading mind as a connected flow of blocks: when to act (new launches within a time window), what to require (market-cap range, liquidity floor, socials, creator history), how much to buy and at what slippage, and how to exit (take-profit, stop-loss, trailing stop, max hold). Every change rewrites a plain-English sentence so you always see exactly what your agent will do — no jargon, no guarantees. Two modes, both real: in Assisted mode the agent scans live launches that fit your rule, shows each one with a real on-chain quote and a rug/honeypot safety verdict, and waits for you to confirm each snipe with one tap; in Autonomous mode you arm the rule and it trades on its own through the same real Solana stack — real quotes, real slippage, real signatures, real confirmations. Safety is enforced on the server, not just in the UI: hard caps on per-trade size, daily budget, price impact, and open positions, plus a one-tap kill switch that halts all autonomous trading instantly. Every decision and fill is written to an exportable audit log and to the agent's own memory, and the avatar reacts live — celebrating fills, flagging dumps. You can also backtest a rule against real captured launch history before you arm it, shown honestly as historical, never as a promise. The agent funds, snipes, and trades from its own custodial wallet; the key never leaves the server. Trading is risky and coins can go to zero — your agent only ever spends what you fund, within the limits you set.</description>
+		</item>
+		<item>
 			<title>Treasury Autopilot — the agent that funds its own existence</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Treasury Autopilot — the agent that funds its own existence</guid>
@@ -917,6 +957,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The embodied-finance aura already makes an agent glow brighter as its wallet grows. Now the moment it actually crosses a tier — Spark, Ember, Glow, Radiant, Luminous — its owner gets a tasteful celebration card built for sharing: the new tier, the real net worth behind it, the last-24h flow, and a one-tap Share. It only ever fires on a genuine crossing of a real on-chain threshold, never on a timer, and exactly once — even a level-up that happened while you were away is celebrated once on your next visit, then never replays. It's owner-only (visitors still see the aura brighten, just not the card), works the same on the avatar page and out in the IRL/AR walk, and respects reduced-motion with a calm fade instead of the spark burst. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Your agent now remembers — and you can watch it recall mid-conversation</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Your agent now remembers — and you can watch it recall mid-conversation</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Chat with your agent and it now actually draws on what it knows about you: every reply is grounded in your agent's pinned, always-on memories plus the specific things most relevant to what you just said, pulled live from its real memory store. Nothing is faked — the agent only speaks from memories it genuinely recalled for that message. Under the hood this ships a shared nervous system for the whole platform: one canonical notion of your active agent, so the companion in the corner, the worlds you walk into, and your agent's profile finally all agree on who your agent is — even across browser tabs — plus a real-time event channel that lets every surface react the instant your agent remembers, learns, or changes. It's the foundation the living-agent features build on: your agent becoming a continuous presence instead of stateless decoration.</description>
 		</item>
 		<item>
 			<title>Your agent's Earn tab now shows hire income on its own and ranks your top customers</title>

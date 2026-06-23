@@ -407,6 +407,7 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 			}
 		}
 
+		cast.updateMatrixWorld();
 		projectReceipts(now);
 		renderer.render(scene, camera);
 	}

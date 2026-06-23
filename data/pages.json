@@ -217,6 +217,15 @@
 					"showcase": true
 				},
 				{
+					"path": "/genesis",
+					"title": "Instant Agent Genesis",
+					"description": "A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.",
+					"priority": 0.9,
+					"changefreq": "weekly",
+					"added": "2026-06-23",
+					"showcase": true
+				},
+				{
 					"path": "/create-agent",
 					"title": "Create an Agent",
 					"description": "Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.",
@@ -1021,6 +1030,15 @@
 					"priority": 0.5,
 					"changefreq": "weekly",
 					"added": "2026-06-03"
+				},
+				{
+					"path": "/autopilot-activity",
+					"title": "Autopilot Activity",
+					"description": "Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.",
+					"priority": 0.5,
+					"changefreq": "daily",
+					"auth": "required",
+					"added": "2026-06-23"
 				},
 				{
 					"path": "/avatar-wallet-chat",

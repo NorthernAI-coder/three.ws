@@ -86,7 +86,8 @@ export async function listVaults({ status = 'open', limit = 60 } = {}) {
 			COALESCE(a.profile_image_url, a.avatar_url) AS agent_image,
 			a.description AS agent_description,
 			(SELECT COUNT(*) FROM vault_backers b WHERE b.vault_id = v.id AND b.shares > 0)::int AS backer_count,
-			(SELECT COALESCE(SUM(b.deposited_atomics), 0) FROM vault_backers b WHERE b.vault_id = v.id) AS lifetime_deposited
+			(SELECT COALESCE(SUM(b.deposited_atomics), 0) FROM vault_backers b WHERE b.vault_id = v.id) AS lifetime_deposited,
+			(SELECT e.nav_atomics FROM vault_events e WHERE e.vault_id = v.id AND e.nav_atomics IS NOT NULL ORDER BY e.id DESC LIMIT 1) AS last_nav_atomics
 		FROM agent_vaults v
 		JOIN agent_identities a ON a.id = v.agent_id AND a.deleted_at IS NULL
 		WHERE (${status === 'all'} OR v.status = ${status})

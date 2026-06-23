@@ -150,6 +150,104 @@ describe('computeTraderMetrics — degenerate inputs', () => {
 	});
 });
 
+describe('computeTraderMetrics — self-dealing exclusion (anti-gaming)', () => {
+	// Two honest trades + two fat round-trips on the trader's OWN coins. A faker
+	// would pump SELF1/SELF2 and post a 100% win rate; the credited record must not.
+	const BOOK = [
+		{ status: 'closed', mint: 'AAAA', realized_pnl_lamports: String(2 * SOL), realized_pnl_pct: 200,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:00:00Z', closed_at: '2026-01-01T00:02:00Z' },
+		{ status: 'closed', mint: 'BBBB', realized_pnl_lamports: String(-0.5 * SOL), realized_pnl_pct: -50,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:03:00Z', closed_at: '2026-01-01T00:08:00Z' },
+		{ status: 'closed', mint: 'SELF1', realized_pnl_lamports: String(10 * SOL), realized_pnl_pct: 1000,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:09:00Z', closed_at: '2026-01-01T00:10:00Z' },
+		{ status: 'closed', mint: 'SELF2', realized_pnl_lamports: String(5 * SOL), realized_pnl_pct: 500,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:11:00Z', closed_at: '2026-01-01T00:12:00Z' },
+	];
+	const selfDealMints = new Set(['SELF1', 'SELF2']);
+
+	it('credits NOTHING from self-dealt coins — score reflects only honest trades', () => {
+		const m = computeTraderMetrics(BOOK, { solUsd: 200, selfDealMints });
+		expect(m.closed_count).toBe(2); // SELF1/SELF2 split out
+		expect(m.wins).toBe(1);
+		expect(m.losses).toBe(1);
+		expect(m.win_rate).toBe(0.5); // NOT 1.0
+		expect(m.realized_pnl_sol).toBeCloseTo(1.5, 6); // 2 − 0.5, the 15 SOL of self-deals excluded
+		expect(m.unique_coins).toBe(2);
+	});
+
+	it('reports the excluded self-dealing total transparently', () => {
+		const m = computeTraderMetrics(BOOK, { solUsd: 200, selfDealMints });
+		expect(m.self_dealing_count).toBe(2);
+		expect(m.self_dealing_excluded_pnl_sol).toBeCloseTo(15, 6);
+		expect(m.self_dealing_excluded_pnl_usd).toBeCloseTo(3000, 2); // 15 × 200
+	});
+
+	it('accepts a plain object as well as a Set for selfDealMints', () => {
+		const m = computeTraderMetrics(BOOK, { selfDealMints: { SELF1: true, SELF2: true } });
+		expect(m.closed_count).toBe(2);
+		expect(m.self_dealing_count).toBe(2);
+	});
+
+	it('credits every position when no self-deal evidence is supplied (legacy)', () => {
+		const m = computeTraderMetrics(BOOK, { solUsd: 200 });
+		expect(m.closed_count).toBe(4);
+		expect(m.win_rate).toBe(0.75);
+		expect(m.realized_pnl_sol).toBeCloseTo(16.5, 6);
+		expect(m.self_dealing_count).toBe(0);
+		expect(m.self_dealing_excluded_pnl_sol).toBe(0);
+	});
+});
+
+describe('computeTraderMetrics — snipe hit-rate', () => {
+	// Same launch time for A/B/C; D has no proven birth. A & C enter inside the
+	// 5-min window (A wins, C loses); B enters 10 min later (not a snipe).
+	const LAUNCH = '2026-01-01T00:00:00.000Z';
+	const BOOK = [
+		{ status: 'closed', mint: 'A', realized_pnl_lamports: String(2 * SOL), realized_pnl_pct: 200,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:00:30Z', closed_at: '2026-01-01T00:02:00Z' },
+		{ status: 'closed', mint: 'B', realized_pnl_lamports: String(1 * SOL), realized_pnl_pct: 100,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:10:00Z', closed_at: '2026-01-01T00:12:00Z' },
+		{ status: 'closed', mint: 'C', realized_pnl_lamports: String(-0.5 * SOL), realized_pnl_pct: -50,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:01:00Z', closed_at: '2026-01-01T00:03:00Z' },
+		{ status: 'closed', mint: 'D', realized_pnl_lamports: String(0.3 * SOL), realized_pnl_pct: 30,
+		  entry_quote_lamports: String(1 * SOL), opened_at: '2026-01-01T00:00:10Z', closed_at: '2026-01-01T00:05:00Z' },
+	];
+	const mintCreatedAt = { A: LAUNCH, B: LAUNCH, C: LAUNCH }; // D unknown on purpose
+
+	it('counts only entries inside the snipe window, scoped to proven launches', () => {
+		const m = computeTraderMetrics(BOOK, { mintCreatedAt });
+		expect(m.snipe_sample).toBe(3); // A, B, C have a known birth; D does not
+		expect(m.snipe_count).toBe(2); // A and C are inside 5 min; B is 10 min out
+		expect(m.snipe_wins).toBe(1); // A won, C lost
+		expect(m.snipe_hit_rate).toBe(0.5);
+	});
+
+	it('tolerates small negative clock skew between open time and block time', () => {
+		const m = computeTraderMetrics(
+			[{ status: 'closed', mint: 'A', realized_pnl_lamports: String(1 * SOL), realized_pnl_pct: 100,
+			   entry_quote_lamports: String(1 * SOL), opened_at: '2025-12-31T23:59:58Z', closed_at: '2026-01-01T00:01:00Z' }],
+			{ mintCreatedAt: { A: LAUNCH } }, // opened 2s "before" launch
+		);
+		expect(m.snipe_count).toBe(1);
+		expect(m.snipe_hit_rate).toBe(1);
+	});
+
+	it('returns a null hit-rate (not a fake zero) when no launch times are known', () => {
+		const m = computeTraderMetrics(BOOK, {});
+		expect(m.snipe_sample).toBe(0);
+		expect(m.snipe_count).toBe(0);
+		expect(m.snipe_hit_rate).toBeNull();
+	});
+
+	it('excludes self-dealt coins from the snipe sample too', () => {
+		const m = computeTraderMetrics(BOOK, { mintCreatedAt, selfDealMints: new Set(['A']) });
+		expect(m.snipe_sample).toBe(2); // A removed before snipe accounting
+		expect(m.snipe_count).toBe(1); // only C remains in-window
+		expect(m.snipe_wins).toBe(0);
+		expect(m.snipe_hit_rate).toBe(0);
+	});
+});
+
 describe('windowStartIso', () => {
 	const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 

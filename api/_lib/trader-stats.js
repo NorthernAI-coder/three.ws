@@ -460,13 +460,94 @@ export function shapeOpen(p, network) {
 }
 
 /**
+ * Mints the trader's own account launched/created — trading these is self-dealing,
+ * not skill, so the truth layer excludes their P&L. Sourced from real launch
+ * records: pump_agent_mints (coins launched through the platform by this user) plus
+ * the user's agent-identity token mints. Best-effort: degrades to an empty set if a
+ * table is absent, which simply credits every position (legacy behaviour).
+ */
+export async function selfDealMintsForUser(userId, network) {
+	const set = new Set();
+	if (!userId) return set;
+	try {
+		const rows = await sql`
+			select mint from pump_agent_mints where user_id = ${userId} and network = ${network}
+			union
+			select meta->'token'->>'mint' as mint from agent_identities
+			where user_id = ${userId} and meta->'token'->>'mint' is not null
+		`;
+		for (const r of rows) if (r.mint) set.add(r.mint);
+	} catch { /* launch tables not migrated → no exclusions */ }
+	return set;
+}
+
+/**
+ * On-chain birth time for a set of mints, from the radar's `create` precursors
+ * (observed_ts = the block time of the create instruction — provable on-chain).
+ * Returns Map(mint → ms-epoch). Best-effort: an unmigrated radar table or a launch
+ * we never observed just yields no snipe sample for that mint — we never guess.
+ */
+export async function mintLaunchTimes(mints, network) {
+	const map = new Map();
+	const list = [...new Set((mints || []).filter(Boolean))];
+	if (!list.length) return map;
+	try {
+		const rows = await sql`
+			select mint, min(observed_ts) as created_at
+			from radar_events
+			where network = ${network} and kind = 'create' and observed_ts is not null
+			  and mint = any(${list}::text[])
+			group by mint
+		`;
+		for (const r of rows) if (r.mint && r.created_at) map.set(r.mint, new Date(r.created_at).getTime());
+	} catch { /* radar table not migrated → no snipe sample */ }
+	return map;
+}
+
+/** Self-deal mint sets for many users at once (leaderboard). Map(userId → Set(mint)). */
+async function selfDealMintsByUsers(userIds, network) {
+	const byUser = new Map();
+	const ids = [...new Set((userIds || []).filter(Boolean))];
+	if (!ids.length) return byUser;
+	try {
+		const rows = await sql`
+			select user_id, mint from pump_agent_mints
+			where network = ${network} and user_id = any(${ids}::uuid[])
+			union
+			select user_id, meta->'token'->>'mint' as mint from agent_identities
+			where user_id = any(${ids}::uuid[]) and meta->'token'->>'mint' is not null
+		`;
+		for (const r of rows) {
+			if (!r.mint) continue;
+			let s = byUser.get(r.user_id);
+			if (!s) { s = new Set(); byUser.set(r.user_id, s); }
+			s.add(r.mint);
+		}
+	} catch { /* launch tables not migrated → no exclusions */ }
+	return byUser;
+}
+
+/** Tag a shaped closed-trade row with its self-deal / snipe provenance for the Proof tab. */
+function annotateProvenance(row, position, { selfDealMints, mintCreatedAt }) {
+	row.self_dealing = !!(selfDealMints && selfDealMints.has(position.mint));
+	const launch = mintCreatedAt ? mintCreatedAt.get(position.mint) : null;
+	if (launch != null) {
+		const dt = new Date(position.opened_at).getTime() - launch;
+		row.launch_at = new Date(launch).toISOString();
+		row.seconds_after_launch = Math.round(dt / 1000);
+		row.snipe = dt >= -SNIPE_SKEW_GRACE_MS && dt <= SNIPE_WINDOW_MS;
+	}
+	return row;
+}
+
+/**
  * Full trader profile: identity + metrics for the window + closed history (proof)
  * + open positions. Returns null if the agent has no positions on this network.
  */
 export async function getTraderStats({ agentId, network, window = 'all', now = Date.now() }) {
 	const [idRows, positions, solUsd, copiers, oracleSummary, projection] = await Promise.all([
 		sql`
-			select id, name, description, avatar_url, profile_image_url, is_public
+			select id, user_id, name, description, avatar_url, profile_image_url, is_public
 			from agent_identities where id = ${agentId} limit 1
 		`,
 		fetchTraderPositions({ agentId, network, window, now }),
@@ -478,8 +559,18 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 	const identity = idRows[0];
 	if (!identity) return null;
 
-	const metrics = computeTraderMetrics(positions, { solUsd });
-	const closed = positions.filter((p) => p.status === 'closed').map((p) => shapeClosed(p, network));
+	// Real anti-gaming evidence: which of this trader's coins are self-launched, and
+	// the proven on-chain birth time of every coin they touched (for snipe hit-rate).
+	const mints = [...new Set(positions.map((p) => p.mint).filter(Boolean))];
+	const [selfDealMints, mintCreatedAt] = await Promise.all([
+		selfDealMintsForUser(identity.user_id, network),
+		mintLaunchTimes(mints, network),
+	]);
+
+	const metrics = computeTraderMetrics(positions, { solUsd, selfDealMints, mintCreatedAt });
+	const closed = positions
+		.filter((p) => p.status === 'closed')
+		.map((p) => annotateProvenance(shapeClosed(p, network), p, { selfDealMints, mintCreatedAt }));
 	const open = positions
 		.filter((p) => p.status === 'open' || p.status === 'opening' || p.status === 'closing')
 		.map((p) => shapeOpen(p, network));
@@ -580,7 +671,7 @@ export async function getLeaderboard({
 			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
 			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
 			       p.opened_at, p.closed_at,
-			       a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+			       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
 			from agent_sniper_positions p
 			join agent_identities a on a.id = p.agent_id
 			where p.network = ${network} and a.is_public is not false
@@ -591,7 +682,7 @@ export async function getLeaderboard({
 			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
 			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
 			       p.opened_at, p.closed_at,
-			       a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+			       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
 			from agent_sniper_positions p
 			join agent_identities a on a.id = p.agent_id
 			where p.network = ${network} and a.is_public is not false
@@ -605,6 +696,7 @@ export async function getLeaderboard({
 		if (!g) {
 			g = {
 				agent_id: r.agent_id,
+				user_id: r.agent_user_id,
 				agent_name: r.agent_name,
 				image: r.agent_image || r.agent_avatar || null,
 				wallet: r.wallet,
@@ -615,9 +707,22 @@ export async function getLeaderboard({
 		g.positions.push(r);
 	}
 
+	// One batch each for the whole board: self-deal mints per user, launch times per
+	// mint. The same anti-gaming evidence the profile uses, so the two never disagree.
+	const allMints = [...new Set(rows.map((r) => r.mint).filter(Boolean))];
+	const [selfDealByUser, mintCreatedAt] = await Promise.all([
+		selfDealMintsByUsers([...byAgent.values()].map((g) => g.user_id), network),
+		mintLaunchTimes(allMints, network),
+	]);
+	const EMPTY = new Set();
+
 	const board = [...byAgent.values()]
 		.map((g) => {
-			const m = computeTraderMetrics(g.positions, { solUsd });
+			const m = computeTraderMetrics(g.positions, {
+				solUsd,
+				selfDealMints: selfDealByUser.get(g.user_id) || EMPTY,
+				mintCreatedAt,
+			});
 			return {
 				agent_id: g.agent_id,
 				agent_name: g.agent_name,
@@ -641,6 +746,9 @@ export async function getLeaderboard({
 				avg_hold_seconds: m.avg_hold_seconds,
 				unique_coins: m.unique_coins,
 				churn_pct: m.churn_pct,
+				snipe_hit_rate: m.snipe_hit_rate,
+				snipe_count: m.snipe_count,
+				self_dealing_count: m.self_dealing_count,
 				last_active_at: m.last_active_at,
 				copiers: copiers.get(g.agent_id) || 0,
 			};

@@ -73,7 +73,9 @@ async function upsert(agentId, entry) {
  */
 export async function addMemory(agentId, entry) {
 	if (!agentId) throw new Error('addMemory requires an agentId');
-	const { id, ...rest } = entry || {};
+	// Strip any id so the server treats this as a create, not an upsert.
+	const rest = { ...(entry || {}) };
+	delete rest.id;
 	const memory = await upsert(agentId, rest);
 	if (memory) {
 		agentBus.emit('memory:added', { agentId, memory, ts: isoFrom(memory.createdAt) });

@@ -265,7 +265,8 @@ const appConfig = {
 					chunk.name === 'walk-playground' ||
 					chunk.name === 'feature-tour' ||
 					chunk.name === 'notifications' ||
-					chunk.name === 'nav-tier-badge'
+					chunk.name === 'nav-tier-badge' ||
+					chunk.name === 'agent-bus'
 					|| chunk.name === 'i18n'
 						? `${chunk.name}.js`
 						: 'assets/[name]-[hash].js',
@@ -273,6 +274,7 @@ const appConfig = {
 			input: {
 				'footer-bot': resolve(__dirname, 'src/footer-bot.js'),
 				'walk-companion': resolve(__dirname, 'src/walk-companion.js'),
+				'agent-bus': resolve(__dirname, 'src/agents/agent-bus.js'),
 				'walk-playground': resolve(__dirname, 'src/walk-playground.js'),
 				'feature-tour': resolve(__dirname, 'src/feature-tour.js'),
 				notifications: resolve(__dirname, 'src/notifications.js'),
@@ -318,6 +320,7 @@ const appConfig = {
 				segment: resolve(__dirname, 'pages/segment.html'),
 				'create-selfie': resolve(__dirname, 'pages/create-selfie.html'),
 				'create-prompt': resolve(__dirname, 'pages/create-prompt.html'),
+				genesis: resolve(__dirname, 'pages/genesis.html'),
 				'create-character': resolve(__dirname, 'pages/create-character.html'),
 				scan: resolve(__dirname, 'pages/scan.html'),
 				worlds: resolve(__dirname, 'pages/worlds.html'),
@@ -530,6 +533,7 @@ const appConfig = {
 				'aws-marketplace-welcome': resolve(__dirname, 'pages/aws-marketplace/welcome.html'),
 				aws: resolve(__dirname, 'pages/aws/index.html'),
 				'agent-trade': resolve(__dirname, 'pages/agent-trade.html'),
+				'autopilot-activity': resolve(__dirname, 'pages/autopilot-activity.html'),
 support: resolve(__dirname, 'pages/support.html'),
 				// dashboard-next prototype — sub-pages auto-discovered so the parallel
 				// agents that land new pages/dashboard-next/*.html files don't have to
@@ -694,6 +698,8 @@ support: resolve(__dirname, 'pages/support.html'),
 					'/create/selfie/': resolve(root, 'pages/create-selfie.html'),
 					'/create/prompt': resolve(root, 'pages/create-prompt.html'),
 					'/create/prompt/': resolve(root, 'pages/create-prompt.html'),
+					'/genesis': resolve(root, 'pages/genesis.html'),
+					'/genesis/': resolve(root, 'pages/genesis.html'),
 					'/create/character': resolve(root, 'pages/create-character.html'),
 					'/create/character/': resolve(root, 'pages/create-character.html'),
 					'/create/video': resolve(root, 'pages/create/video.html'),
@@ -1297,6 +1303,12 @@ support: resolve(__dirname, 'pages/support.html'),
 					// (built to a stable, unhashed name in prod; served from src in dev).
 					if (path === '/walk-companion.js') {
 						req.url = '/src/walk-companion.js';
+						return next();
+					}
+					// /agent-bus.js — the Living-Agents nervous system at a stable URL so
+					// nav.js can load it on any page for the ?agentbus=1 debug overlay.
+					if (path === '/agent-bus.js') {
+						req.url = '/src/agents/agent-bus.js';
 						return next();
 					}
 					// /walk-playground.js — stable URL so any page (not just the nav
