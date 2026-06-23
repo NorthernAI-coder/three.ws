@@ -549,6 +549,11 @@ model-viewer.ad-hero-avatar {
 	border-color: rgba(87, 199, 255, 0.3);
 	background: rgba(87, 199, 255, 0.08);
 }
+.ad-pill-red {
+	color: #f87171;
+	border-color: rgba(248, 113, 113, 0.35);
+	background: rgba(248, 113, 113, 0.08);
+}
 
 .ad-services {
 	display: flex;

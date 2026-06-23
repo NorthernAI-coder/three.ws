@@ -148,8 +148,17 @@ export default wrap(async (req, res) => {
 					select coalesce(sum(re.net_amount), 0)::bigint
 					from agent_revenue_events re
 					join agent_identities ai on ai.id = re.agent_id
+					left join listing_splits ls
+					  on ls.agent_id = re.agent_id and ls.skill = re.skill
 					where ai.user_id = ${user.id}
 					  and re.currency_mint = ${currency_mint}
+					  and ls.id is null
+				) + (
+					select coalesce(sum(sd.amount), 0)::bigint
+					from split_distributions sd
+					where sd.recipient_user_id = ${user.id}
+					  and sd.mode = 'ledger'
+					  and sd.currency_mint = ${currency_mint}
 				) - (
 					select coalesce(sum(w2.amount), 0)::bigint
 					from agent_withdrawals w2

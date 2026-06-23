@@ -1693,6 +1693,47 @@ function renderReputation(r) {
 
 const TIER_EMOJI_MAP = { prime: '🟣', strong: '🔵', lean: '🟡', watch: '⚪', avoid: '🔴' };
 
+// Reasoning Ledger summary — the auditable track-record card. Best-effort:
+// hidden unless the agent has logged at least one decision. Verification runs in
+// the background and upgrades the badge in place.
+async function renderReasoningLedger(agentId) {
+	const card = document.getElementById('ad-ledger-card');
+	if (!card || !agentId) return;
+	let data;
+	try {
+		const r = await fetch(`/api/ledger/${encodeURIComponent(agentId)}?limit=1`);
+		if (!r.ok) return;
+		data = await r.json();
+	} catch { return; }
+
+	const rep = data.reputation;
+	if (!rep || !rep.decisions_total) return; // nothing logged yet — keep hidden
+
+	card.style.display = '';
+	const link = document.getElementById('ad-ledger-link');
+	if (link) link.href = `/ledger/${encodeURIComponent(agentId)}`;
+	const scoreEl = document.getElementById('ad-ledger-score');
+	if (scoreEl) scoreEl.textContent = String(rep.score);
+	const hitEl = document.getElementById('ad-ledger-hitrate');
+	if (hitEl) hitEl.textContent = rep.sample_size ? `${(rep.hit_rate * 100).toFixed(0)}% (${rep.wins}W/${rep.losses}L)` : 'pending';
+	const sampleEl = document.getElementById('ad-ledger-sample');
+	if (sampleEl) sampleEl.textContent = `${rep.sample_size} of ${rep.decisions_total}`;
+
+	const badge = document.getElementById('ad-ledger-verify');
+	if (!badge) return;
+	try {
+		const vr = await fetch(`/api/ledger/verify/${encodeURIComponent(agentId)}`);
+		const v = await vr.json();
+		if (v.status === 'verified') { badge.textContent = '✓ verified on-chain'; badge.className = 'ad-pill ad-pill-green'; }
+		else if (v.status === 'verified_unanchored') { badge.textContent = 'chain intact'; badge.className = 'ad-pill ad-pill-amber'; }
+		else if (v.status === 'verification_failed') { badge.textContent = '⚠ tamper detected'; badge.className = 'ad-pill ad-pill-red'; }
+		else { badge.textContent = 'no anchor'; badge.className = 'ad-pill ad-pill-muted'; }
+	} catch {
+		badge.textContent = 'unverified';
+		badge.className = 'ad-pill ad-pill-muted';
+	}
+}
+
 async function renderOracleTrackRecord(agentId) {
 	const card = document.getElementById('ad-trading-card');
 	if (!card || !agentId) return;
@@ -2300,6 +2341,7 @@ function runLoad() {
 				track(ANALYTICS_EVENTS.AGENT_PROFILE_VIEWED, { agent_id: agent.id });
 				render(agent);
 				renderOracleTrackRecord(agent.id);
+				renderReasoningLedger(agent.id);
 				return;
 			}
 			if (notFound) return renderNotFound(id, typeof error === 'string' ? error : '');

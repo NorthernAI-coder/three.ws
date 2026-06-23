@@ -10,99 +10,17 @@
 // one source of truth for scoring and splitting.
 
 import { sql } from './db.js';
-import { TOKEN_MINT, ATOMICS_PER_TOKEN } from './token/config.js';
+import { TOKEN_MINT } from './token/config.js';
+import {
+	scoreBid, reputationFromStats, defaultRoyaltyBps, settlementSplit,
+	atomicsToThree, threeToAtomics, toBig, SCORE_WEIGHTS, ETA_HALF_LIFE_S,
+} from './labor-economics.js';
 
-// ── Pure economics (unit-tested; no DB) ─────────────────────────────────────
-
-// Transparent award-score weights. Published in the API so posters can see why a
-// bid won. Lower price (deeper discount vs the escrowed reward), faster ETA, and
-// higher worker reputation all raise the score.
-export const SCORE_WEIGHTS = Object.freeze({ price: 0.45, eta: 0.2, reputation: 0.35 });
-// ETA at which the speed term is worth half its max — one hour. A same-second
-// promise scores ~1, a one-hour promise ~0.5, a one-day promise ~0.04.
-export const ETA_HALF_LIFE_S = 3600;
-
-const clamp01 = (n) => (n < 0 ? 0 : n > 1 ? 1 : n);
-const round4 = (n) => Math.round(n * 1e4) / 1e4;
-
-function toBig(v) {
-	if (typeof v === 'bigint') return v;
-	if (v == null) return 0n;
-	// numeric(40,0) arrives as a string; never parse atomics through Number().
-	return BigInt(String(v).split('.')[0]);
-}
-
-/**
- * Transparent award score in [0,1]. Deterministic and explainable — the same
- * formula the autonomy engine uses to auto-award and the UI renders next to each
- * bid. A bid priced at or above the full reward earns no price credit; a free,
- * instant bid from a perfect-reputation worker approaches 1.
- *
- * @param {{ priceAtomics: bigint|string|number, rewardAtomics: bigint|string|number,
- *   etaSeconds?: number|null, reputation?: number }} bid
- */
-export function scoreBid({ priceAtomics, rewardAtomics, etaSeconds, reputation = 0.5 }) {
-	const reward = toBig(rewardAtomics);
-	const price = toBig(priceAtomics);
-	if (reward <= 0n) return 0;
-	// Price term: how deep the discount is vs the escrowed reward.
-	const ratio = Number(price) / Number(reward);
-	const priceScore = clamp01(1 - ratio);
-	// ETA term: a smooth decay so faster always beats slower without a cliff.
-	const eta = Number.isFinite(etaSeconds) && etaSeconds > 0 ? etaSeconds : ETA_HALF_LIFE_S;
-	const etaScore = ETA_HALF_LIFE_S / (ETA_HALF_LIFE_S + eta);
-	const repScore = clamp01(Number(reputation) || 0);
-	const score =
-		SCORE_WEIGHTS.price * priceScore +
-		SCORE_WEIGHTS.eta * etaScore +
-		SCORE_WEIGHTS.reputation * repScore;
-	return round4(score);
-}
-
-/** Reputation in [0,1] from an agent's settled/failed job counts. New agents get
- *  a neutral 0.5 prior so they can still win on price + speed (no cold-start lockout). */
-export function reputationFromStats({ settled = 0, failed = 0 } = {}) {
-	const done = Number(settled) + Number(failed);
-	const successRate = done > 0 ? Number(settled) / done : 0.5;
-	const volume = Math.min(1, Number(settled) / 10); // saturates at 10 settled jobs
-	return round4(0.7 * successRate + 0.3 * volume);
-}
-
-/** Default skill royalty (bps of the awarded amount) routed to the skill author. */
-export function defaultRoyaltyBps() {
-	const raw = Number(process.env.LABOR_SKILL_ROYALTY_BPS);
-	if (Number.isFinite(raw) && raw >= 0 && raw <= 5000) return Math.round(raw);
-	return 1000; // 10%
-}
-
-/**
- * Exact-integer settlement split. The worker is paid its awarded bid; the skill
- * author takes a royalty out of that; any difference between the escrowed reward
- * and the (lower) awarded bid refunds to the poster. The three legs always sum to
- * exactly the escrowed reward — no $THREE dust is created or lost.
- *
- * @returns {{ workerAtomics: bigint, royaltyAtomics: bigint, posterRefundAtomics: bigint }}
- */
-export function settlementSplit({ rewardAtomics, awardedAtomics, royaltyBps = defaultRoyaltyBps(), hasAuthor = false }) {
-	const reward = toBig(rewardAtomics);
-	let awarded = toBig(awardedAtomics);
-	if (awarded > reward) awarded = reward; // never pay out more than is escrowed
-	if (awarded < 0n) awarded = 0n;
-	const bps = BigInt(Math.max(0, Math.min(5000, Math.round(royaltyBps))));
-	const royalty = hasAuthor ? (awarded * bps) / 10_000n : 0n;
-	const worker = awarded - royalty;
-	const posterRefund = reward - awarded;
-	return { workerAtomics: worker, royaltyAtomics: royalty, posterRefundAtomics: posterRefund };
-}
-
-export function atomicsToThree(atomics) {
-	return Number(toBig(atomics)) / Number(ATOMICS_PER_TOKEN);
-}
-export function threeToAtomics(three) {
-	const n = Number(three);
-	if (!Number.isFinite(n) || n < 0) return 0n;
-	return BigInt(Math.round(n * Number(ATOMICS_PER_TOKEN)));
-}
+// Re-export the pure economics so existing call sites keep importing from here.
+export {
+	scoreBid, reputationFromStats, defaultRoyaltyBps, settlementSplit,
+	atomicsToThree, threeToAtomics, SCORE_WEIGHTS, ETA_HALF_LIFE_S,
+};
 
 // ── Lazy schema (self-heals if the formal migration hasn't run) ─────────────
 

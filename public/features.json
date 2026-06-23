@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T10:31:59.087Z",
+	"generated_at": "2026-06-23T10:42:22.455Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1065,6 +1065,16 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": false
+				},
+				{
+					"path": "/three",
+					"title": "$THREE Tiers · Hold-to-Access",
+					"description": "Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
 				},
 				{
 					"path": "/three-live",

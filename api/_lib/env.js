@@ -677,6 +677,13 @@ export const env = {
 		return opt('AWS_MP_METERING_DIMENSION');
 	},
 
+	// Contract (entitlement-based) products only: when 'true', key issuance is
+	// gated on a live GetEntitlements check against AWS. Leave unset for
+	// usage-based products (which have no entitlements; metering is the billing).
+	get AWS_MP_ENTITLEMENT_REQUIRED() {
+		return /^(1|true|yes)$/i.test(String(opt('AWS_MP_ENTITLEMENT_REQUIRED', '') || ''));
+	},
+
 	// Optional operator EOA private key for scripts/erc8004-mint-bsc.mjs.
 	// Used to register marketplace agents on the BSC IdentityRegistry. Never
 	// referenced by request handlers — keep it out of the serverless surface.
