@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Steadier 3D generation and token stats when free providers get busy",
+			"summary": "Two backend reliability fixes. The free image step behind text→3D now shrugs off a brief blip from NVIDIA's gateway — if it answers with a fast, transient hiccup, we retry once before handing off, so fewer prompts have to fall through to a slower backup and fewer fail outright. (A real timeout still hands off immediately, so nothing waits twice.) Separately, live token stats lean on several market-data sources; when one hits its monthly quota we already pause it, but each fresh server instance used to re-discover that the hard way and waste another doomed call. That pause is now shared across the whole fleet, so the moment one instance sees a source is exhausted, none of the others retry it — quieter, faster, and no wasted quota.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Forge Standard quality generates reliably again",
 			"summary": "Forging on the Standard quality setting could stall or silently route to a slower paid path while Draft worked instantly — so Standard often felt broken. The free NVIDIA generator only returns fast at a lower detail-sampling setting; Standard was asking it for more steps than the hosted preview can finish in time, so the request timed out and fell back. Standard now uses the same proven-fast budget as Draft on the free lane, so it completes quickly and dependably. We also made the generator fail over to a backup engine immediately on a timeout instead of waiting through a second dead attempt, cutting the worst-case wait roughly in half when the free engine is busy.",
 			"tags": [

@@ -215,6 +215,14 @@
 			<description>Your agent's wallet is custodial and real-money funded, so &quot;I lost access&quot; or &quot;the owner is gone&quot; should never mean the funds are lost forever. You can now name guardians (real three.ws accounts you trust) and a beneficiary, and set how many guardians must agree. If you ever lose access, that threshold of guardians approving — plus a 48-hour safety window only you can cancel — hands control of the agent and its wallet back to you. An optional dead-man's switch passes the agent to your beneficiary if you go silent past a period you choose, but only after a generous, cancellable grace window and an explicit confirmation — and you abort the whole thing instantly just by showing up (a login, a trade, or tapping &quot;I'm here&quot;). Crucially, no private key is ever exported or exposed: recovery and inheritance only change who owns the agent, and the same encrypted, server-held key keeps signing for the new owner. Every step is time-locked, reversible until commit, and written to your custody trail; the wallet is frozen against autonomous spending during any contested process so it can never be drained out from under you. Guardians act from a new Guardian console — the agents you're trusted to protect, where you approve a recovery or confirm an inheritance without ever touching anyone's funds.</description>
 		</item>
 		<item>
+			<title>Steadier 3D generation and token stats when free providers get busy</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Steadier 3D generation and token stats when free providers get busy</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two backend reliability fixes. The free image step behind text→3D now shrugs off a brief blip from NVIDIA's gateway — if it answers with a fast, transient hiccup, we retry once before handing off, so fewer prompts have to fall through to a slower backup and fewer fail outright. (A real timeout still hands off immediately, so nothing waits twice.) Separately, live token stats lean on several market-data sources; when one hits its monthly quota we already pause it, but each fresh server instance used to re-discover that the hard way and waste another doomed call. That pause is now shared across the whole fleet, so the moment one instance sees a source is exhausted, none of the others retry it — quieter, faster, and no wasted quota.</description>
+		</item>
+		<item>
 			<title>Talk to your agent and it trades — the Conversational Wallet</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Talk to your agent and it trades — the Conversational Wallet</guid>
