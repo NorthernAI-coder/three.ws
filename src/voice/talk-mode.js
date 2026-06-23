@@ -20,6 +20,7 @@ import { AvatarMouthTarget } from './avatar-morph-target.js';
 import { TalkController } from './talk-controller.js';
 import { openVoiceCloneModal } from './voice-clone-modal.js';
 import { nextPreset, PRESET_LABELS } from './camera-presets.js';
+import { WalletIntentController } from './wallet-intent.js';
 import { log } from '../shared/log.js';
 
 let activeSession = null;
@@ -62,6 +63,9 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 	const frameLabel = frameBtn?.querySelector('.tws-talk-frame-label');
 	const emoteBar = overlay.querySelector('.tws-talk-emotes');
 	const lipsyncNotice = overlay.querySelector('.tws-talk-lipsync-notice');
+	const textbar = overlay.querySelector('.tws-talk-textbar');
+	const textInput = overlay.querySelector('.tws-talk-input');
+	const walletHintBtn = overlay.querySelector('.tws-talk-wallet-hint');
 	nameEl.textContent = avatar.name || 'Avatar';
 
 	// Owner-only affordance: `owner_id` is stripped from the API response for
@@ -112,6 +116,60 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 		onStateChange: (s) => setStatus(statusEl, s),
 		onError: (e) => showError(errEl, e.message),
 	});
+
+	// ── Conversational Wallet (owner-only) ──────────────────────────────
+	// Only the owner can move funds — `owner_id` survives in the API response only
+	// for the owner (stripped for visitors). With an agent_id we can talk-to-trade.
+	let walletCtl = null;
+	if (isOwner && avatar.agent_id) {
+		const network = avatar.wallet_network === 'devnet' ? 'devnet' : 'mainnet';
+		let walletBalance = null;
+		refreshWalletBalance(avatar.agent_id, network).then((b) => { walletBalance = b; });
+
+		walletCtl = new WalletIntentController({
+			agentId: avatar.agent_id,
+			network,
+			mountEl: overlay,
+			getState: () => ({
+				balanceSol: walletBalance,
+				history: controller.history.slice(-6),
+			}),
+			speak: (text) => controller.speakText(text),
+			appendTranscript: (role, content) => appendTranscript(transcriptEl, { role, content }),
+			onFlourish: () => {
+				scene.getEmoteController?.()?.play('celebrate').catch(() => {});
+				// Funds just moved — re-read the balance so the next command is grounded.
+				refreshWalletBalance(avatar.agent_id, network).then((b) => { walletBalance = b; });
+			},
+			onManualFallback: () =>
+				showError(errEl, 'Voice trading is offline — open the wallet card on this agent to trade manually.'),
+		});
+		controller.commandInterceptor = (transcript) => walletCtl.handle(transcript);
+
+		// Discoverable affordance: a one-tap example that drops a starter command into
+		// the text box so owners learn the capability exists.
+		if (walletHintBtn) {
+			walletHintBtn.textContent = '💸 Try: “sell half my $THREE” · “tip 0.1 SOL to …”';
+			walletHintBtn.hidden = false;
+			walletHintBtn.addEventListener('click', () => {
+				textInput.value = 'tip 0.05 SOL to ';
+				textInput.focus();
+			});
+		}
+	}
+
+	// ── Text input (mic-free path — works for chat and wallet commands) ──
+	if (textbar) {
+		textbar.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const text = textInput.value.trim();
+			if (!text) return;
+			if (controller.state !== 'idle' && controller.state !== 'speaking') return;
+			controller.stop();
+			textInput.value = '';
+			controller.say(text).catch((err) => showError(errEl, err.message));
+		});
+	}
 
 	// ── Hold-to-talk ───────────────────────────────────────────────────
 	const startHold = (ev) => {
@@ -176,6 +234,9 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 		if (unloading) return;
 		unloading = true;
 		try {
+			walletCtl?.dispose();
+		} catch {}
+		try {
 			controller?.stop();
 		} catch {}
 		try {
@@ -221,10 +282,16 @@ const TEMPLATE = `
 	<div class="tws-talk-emotes" hidden role="toolbar" aria-label="Emote shortcuts"></div>
 	<div class="tws-talk-transcript" aria-live="polite"></div>
 	<div class="tws-talk-controls">
+		<button class="tws-talk-wallet-hint" type="button" hidden></button>
 		<button class="tws-talk-hold" type="button" aria-label="Hold to talk">
 			<span class="tws-talk-hold-dot"></span>
 			<span class="tws-talk-hold-label">Hold to talk</span>
 		</button>
+		<form class="tws-talk-textbar" autocomplete="off">
+			<input class="tws-talk-input" type="text" inputmode="text"
+				placeholder="Type a message…" aria-label="Type a message or wallet command" />
+			<button class="tws-talk-send" type="submit" aria-label="Send message">↑</button>
+		</form>
 		<div class="tws-talk-status" data-state="idle">Ready</div>
 	</div>
 	<div class="tws-talk-error" role="alert" hidden></div>
@@ -241,6 +308,22 @@ function setStatus(el, state) {
 	if (!el) return;
 	el.dataset.state = state;
 	el.textContent = STATUS_LABEL[state] || state;
+}
+
+// Best-effort SOL balance read to ground the wallet parser ("half my SOL", "max").
+// Returns null on any failure — the parser then asks for an explicit amount.
+async function refreshWalletBalance(agentId, network) {
+	try {
+		const r = await fetch(
+			`/api/agents/${encodeURIComponent(agentId)}/solana?network=${encodeURIComponent(network)}`,
+			{ credentials: 'include' },
+		);
+		if (!r.ok) return null;
+		const j = await r.json();
+		return typeof j?.data?.sol === 'number' ? j.data.sol : null;
+	} catch {
+		return null;
+	}
 }
 
 function renderEmoteBar(barEl, emotes, errEl) {
@@ -477,6 +560,39 @@ const TALK_CSS = `
 	0%, 100% { opacity: 1; }
 	50% { opacity: 0.4; }
 }
+.tws-talk-wallet-hint {
+	background: rgba(139,92,246,0.1);
+	border: 1px solid rgba(139,92,246,0.28);
+	color: rgba(196,181,253,0.95);
+	font-family: inherit; font-size: 11.5px; font-weight: 600;
+	padding: 6px 13px; border-radius: 999px; cursor: pointer;
+	max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.tws-talk-wallet-hint:hover { background: rgba(139,92,246,0.18); border-color: rgba(139,92,246,0.45); transform: translateY(-1px); }
+.tws-talk-wallet-hint:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.tws-talk-textbar {
+	display: flex; align-items: center; gap: 8px;
+	width: min(440px, 100%);
+}
+.tws-talk-input {
+	flex: 1; min-width: 0;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.14);
+	color: #fafafa; font-family: inherit; font-size: 14px;
+	padding: 10px 14px; border-radius: 999px;
+	transition: border-color 0.15s, background 0.15s;
+}
+.tws-talk-input::placeholder { color: #71717a; }
+.tws-talk-input:focus { outline: none; border-color: rgba(139,92,246,0.5); background: rgba(255,255,255,0.08); }
+.tws-talk-send {
+	flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%;
+	background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+	color: #fafafa; font-size: 17px; line-height: 1; cursor: pointer;
+	transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.tws-talk-send:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); transform: translateY(-1px); }
+.tws-talk-send:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .tws-talk-status {
 	font-size: 11px;
 	letter-spacing: 0.08em; text-transform: uppercase;

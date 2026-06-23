@@ -7,12 +7,14 @@
  * (off ↔ expressive) plus per-signal opt-outs, persisted on the agent record so a
  * visitor sees the agent exactly as the owner configured it.
  *
- * Pairs with src/shared/reactive-avatar.js: the controller fetches the real data
- * and renders the 3D aura; this panel renders the same data as UI and lets the
- * owner tune it. One normalizer (agent-networth.js) feeds both.
+ * Pairs with src/shared/wallet-aura.js: that controller renders the live 3D aura
+ * on the model; this panel renders the same real data as UI and lets the owner
+ * tune it. The owner's reactivity dial here drives that aura in lockstep (see
+ * mountPresence), and one fetch (agent-networth.js → the canonical server look)
+ * feeds both, so the panel and the glow can never disagree.
  */
 
-import { saveNetWorthPrefs, normalizePrefs, fmtUsd, fmtAmount, REACTIVITY_LEVELS } from './agent-networth.js';
+import { fetchNetWorth, saveNetWorthPrefs, normalizePrefs, fmtUsd, fmtAmount, REACTIVITY_LEVELS } from './agent-networth.js';
 
 const STYLE_ID = 'tws-networth-presence-styles';
 
@@ -32,7 +34,9 @@ function ensureStyles() {
 	const s = document.createElement('style');
 	s.id = STYLE_ID;
 	s.textContent = `
-.nwp{--nw-accent:#a78bfa;font-family:var(--font-body,Inter,system-ui,sans-serif);color:var(--ink,#e7e7ea);
+.nwp{--nw-accent:var(--wallet-accent-strong,#a78bfa);--nw-accent-ink:var(--wallet-accent,#c4b5fd);
+	--nw-accent-soft:var(--wallet-accent-soft,rgba(139,92,246,.12));--nw-accent-line:var(--wallet-accent-fill,rgba(139,92,246,.28));
+	font-family:var(--font-body,Inter,system-ui,sans-serif);color:var(--ink,#e7e7ea);
 	background:var(--surface-1,rgba(255,255,255,.03));border:1px solid var(--stroke,rgba(255,255,255,.08));
 	border-radius:var(--radius-lg,16px);padding:var(--space-md,16px);display:flex;flex-direction:column;gap:14px;}
 .nwp-head{display:flex;align-items:center;gap:12px;}
@@ -47,13 +51,13 @@ function ensureStyles() {
 .nwp-sub a{color:var(--nw-accent);text-decoration:none;}
 .nwp-sub a:hover{text-decoration:underline;}
 .nwp-next{height:5px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;}
-.nwp-next i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#8b5cf6,var(--nw-accent));transition:width .6s var(--ease-standard,cubic-bezier(.4,0,.2,1));}
+.nwp-next i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--nw-accent),var(--nw-accent-ink));transition:width .6s var(--ease-standard,cubic-bezier(.4,0,.2,1));}
 .nwp-marks{display:flex;flex-wrap:wrap;gap:6px;}
 .nwp-mark{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;
-	background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.28);color:#c4b5fd;text-decoration:none;
+	background:var(--nw-accent-soft);border:1px solid var(--nw-accent-line);color:var(--nw-accent-ink);text-decoration:none;
 	transition:transform .12s ease,filter .15s ease,background .15s ease;}
-a.nwp-mark:hover{transform:translateY(-1px);background:rgba(139,92,246,.2);}
-a.nwp-mark:focus-visible{outline:2px solid rgba(139,92,246,.7);outline-offset:2px;}
+a.nwp-mark:hover{transform:translateY(-1px);background:var(--nw-accent-line);}
+a.nwp-mark:focus-visible{outline:2px solid var(--nw-accent);outline-offset:2px;}
 .nwp-mark b{color:#fff;font-weight:700;}
 .nwp-controls{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--stroke,rgba(255,255,255,.08));padding-top:12px;}
 .nwp-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-dim,#9a9aa3);}
@@ -63,7 +67,7 @@ a.nwp-mark:focus-visible{outline:2px solid rgba(139,92,246,.7);outline-offset:2p
 	transition:background .15s ease,color .15s ease;}
 .nwp-seg button:hover{color:#fff;}
 .nwp-seg button[aria-pressed="true"]{background:var(--nw-accent);color:#0a0a0a;}
-.nwp-seg button:focus-visible{outline:2px solid rgba(139,92,246,.7);outline-offset:2px;}
+.nwp-seg button:focus-visible{outline:2px solid var(--nw-accent);outline-offset:2px;}
 .nwp-hint{font-size:11px;color:var(--ink-dim,#9a9aa3);min-height:14px;}
 .nwp-sigs{display:flex;flex-wrap:wrap;gap:8px;}
 .nwp-sig{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink,#e7e7ea);cursor:pointer;user-select:none;}
@@ -216,4 +220,41 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 		update(next) { data = next; render(); },
 		destroy() { el.remove(); },
 	};
+}
+
+/**
+ * One-call mount: fetch the agent's REAL net-worth look (the canonical server
+ * endpoint — tier, reputation marks, owner prefs), render the presence panel into
+ * `container`, and keep the live 3D aura in lockstep with the owner's prefs. The
+ * panel and the aura read from the same truth, so the dial the owner turns here
+ * immediately changes the glow on the model — and a visitor sees that same look.
+ *
+ * @param {object} opts
+ * @param {string} opts.agentId
+ * @param {HTMLElement} opts.container          where to mount the panel
+ * @param {{setPrefs?:(p:object)=>void}|null} [opts.aura]  the wallet-aura controller to keep in sync
+ * @param {'append'|'prepend'} [opts.position='append']
+ * @returns {Promise<{el:HTMLElement, update:Function, destroy:Function}|null>}
+ *   the panel handle, or null when there is no presence to show (read failed).
+ */
+export async function mountPresence({ agentId, container, aura = null, position = 'append' } = {}) {
+	if (!agentId || !container || typeof document === 'undefined') return null;
+	const panel = createPresencePanel({
+		agentId,
+		onPrefsSaved: (prefs) => { try { aura?.setPrefs?.(prefs); } catch { /* aura gone */ } },
+	});
+	if (position === 'prepend' && container.firstChild) container.insertBefore(panel.el, container.firstChild);
+	else container.appendChild(panel.el);
+
+	let data = null;
+	try { data = await fetchNetWorth(agentId); } catch { data = null; }
+	if (!data) {
+		// Read genuinely failed (not provisioning — that comes back 200). Don't leave
+		// a stuck skeleton; remove the panel so the page degrades cleanly.
+		panel.destroy();
+		return null;
+	}
+	panel.update(data);
+	try { aura?.setPrefs?.(data.prefs); } catch { /* aura gone */ }
+	return panel;
 }

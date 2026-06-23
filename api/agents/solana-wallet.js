@@ -1357,6 +1357,49 @@ async function forkCountFor(id) {
 	}
 }
 
+// Lifetime tips received by this agent — confirmed on-chain tip rows only, so the
+// count can never be fabricated. Powers the "Tipped Nx / $X" reputation mark.
+async function lifetimeTipsFor(id) {
+	try {
+		const [r] = await sql`
+			SELECT count(*)::int AS n, COALESCE(sum(usd), 0)::float8 AS usd
+			FROM agent_custody_events
+			WHERE agent_id = ${id} AND event_type = 'tip' AND status IN ('ok', 'confirmed')
+		`;
+		return { count: r?.n || 0, usd: Number(r?.usd) || 0 };
+	} catch {
+		return { count: 0, usd: 0 };
+	}
+}
+
+// Realized trading P&L from CLOSED sniper positions (a real on-chain settlement).
+// Net SOL and the count of profitable closes; defensive when the table is absent.
+async function realizedPnlFor(id) {
+	try {
+		const [r] = await sql`
+			SELECT
+				COALESCE(sum(realized_pnl_lamports), 0)::float8 AS lamports,
+				count(*) FILTER (WHERE realized_pnl_lamports > 0)::int AS wins
+			FROM agent_sniper_positions
+			WHERE agent_id = ${id} AND status = 'closed' AND realized_pnl_lamports IS NOT NULL
+		`;
+		return { sol: (Number(r?.lamports) || 0) / 1e9, wins: r?.wins || 0 };
+	} catch {
+		// Table may not exist on this deployment — P&L mark simply doesn't appear.
+		return { sol: 0, wins: 0 };
+	}
+}
+
+// One real read of every reputation signal the look + regalia use.
+async function reputationFor(id) {
+	const [forkCount, tips, pnl] = await Promise.all([
+		forkCountFor(id),
+		lifetimeTipsFor(id),
+		realizedPnlFor(id),
+	]);
+	return { forkCount, tips, pnl };
+}
+
 // GET  /api/agents/:id/solana/networth — public read: the agent's net-worth "look"
 //   (presence tier, aura, confidence, regalia marks) derived entirely from real
 //   chain reads + real DB counts, plus the owner's reactivity preferences.
@@ -1401,18 +1444,29 @@ async function handleNetWorth(req, res, id) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const prefs = normalizePrefs(row.meta?.networth_look);
-	const forkCount = await forkCountFor(id);
+	const { forkCount, tips, pnl } = await reputationFor(id);
+	const repState = {
+		forkCount,
+		tipCount: tips.count, tipUsd: tips.usd,
+		realizedPnlSol: pnl.sol, realizedWins: pnl.wins,
+	};
+	const reputation = {
+		fork_count: forkCount,
+		tips: { count: tips.count, usd: tips.usd },
+		realized_pnl_sol: pnl.sol, realized_wins: pnl.wins,
+	};
 
 	// No wallet yet (provisioning): calm baseline look, honest about state. The
-	// agent still reads as itself — never poor-shamed, never faked.
+	// agent still reads as itself — never poor-shamed, never faked. Reputation it
+	// has already earned (forks, tips) still shows.
 	if (!address) {
-		const look = computeLook({ usd: 0, forkCount });
+		const look = computeLook({ usd: 0, ...repState });
 		return json(res, 200, {
 			data: {
 				agent_id: id, address: null, network: 'mainnet', provisioning: true,
 				portfolio: { usd: 0, sol: 0, three: null, usdc: 0, token_count: 0, top: [] },
-				reputation: { fork_count: forkCount },
-				tier: look.tier, look, marks: computeMarks({ usd: 0, forkCount }, { hubUrl }),
+				reputation,
+				tier: look.tier, look, marks: computeMarks({ usd: 0, ...repState }, { hubUrl }),
 				prefs, is_owner: isOwner, hub_url: hubUrl,
 			},
 		});
@@ -1440,7 +1494,7 @@ async function handleNetWorth(req, res, id) {
 		usd,
 		threeUsd: threeTok?.usd || 0,
 		threeAmount: threeTok?.amount || 0,
-		forkCount,
+		...repState,
 	};
 	const look = computeLook(state);
 	const marks = computeMarks(state, { hubUrl });
@@ -1459,7 +1513,7 @@ async function handleNetWorth(req, res, id) {
 				token_count: tokens.length,
 				top,
 			},
-			reputation: { fork_count: forkCount },
+			reputation,
 			tier: look.tier,
 			look,
 			marks,
@@ -1685,6 +1739,10 @@ export default async function handler(req, res, id, action) {
 	if (action === 'limits') return handleLimits(req, res, id);
 	if (action === 'tip') return handleTip(req, res, id);
 	if (action === 'pulse-visibility') return handlePulseVisibility(req, res, id);
+	if (action === 'intent') {
+		const mod = await import('./solana-intent.js');
+		return mod.handleIntent(req, res, id);
+	}
 	if (action === 'trade') {
 		const mod = await import('./solana-trade.js');
 		return mod.handleTrade(req, res, id);

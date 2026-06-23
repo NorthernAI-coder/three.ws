@@ -4,9 +4,9 @@
 // presence: the wealth/reputation tier, the aura intensity/colour, the idle
 // confidence, and the legible "regalia" marks. The server computes the canonical
 // look from real reads (api/agents/solana-wallet.js → handleNetWorth) and the
-// browser renders it; src/shared/agent-networth.js imports the same constants for
-// the offline/hold-last-state fallback so the galaxy star, the profile hero, and
-// the AR body always agree.
+// browser renders it (src/shared/agent-networth.js fetches it for the presence
+// panel; src/shared/wallet-aura.js + the galaxy shader share this tier vocabulary)
+// so the galaxy star, the profile hero, and the AR body always agree.
 //
 // Every output traces to a real number. Nothing here invents a balance — callers
 // pass real portfolio USD, real $THREE holdings, real fork counts, and real
@@ -20,13 +20,18 @@ export const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 // Presence tiers, keyed off real portfolio USD value. Names follow the aura
 // metaphor (light, not money) so a well-funded agent reads as *present*, never
 // gaudy. `min` is the real USD threshold that unlocks the tier.
+//
+// These thresholds, keys and labels are the CANONICAL set, kept in lockstep with
+// src/shared/wallet-networth.js (NETWORTH_TIERS) so the galaxy star, the aura on
+// every surface, and the presence panel all name the same wallet the same tier.
+// Change one, change both. Accents stay in the wallet-violet family.
 export const PRESENCE_TIERS = Object.freeze([
-	{ key: 'latent',   label: 'Latent',   min: 0,      accent: '#8b8b9a' },
+	{ key: 'dormant',  label: 'Dormant',  min: 0,      accent: '#8b8b9a' },
 	{ key: 'spark',    label: 'Spark',    min: 1,      accent: '#8b5cf6' },
-	{ key: 'glow',     label: 'Glow',     min: 50,     accent: '#a78bfa' },
-	{ key: 'radiant',  label: 'Radiant',  min: 500,    accent: '#c4b5fd' },
-	{ key: 'luminous', label: 'Luminous', min: 5_000,  accent: '#ddd6fe' },
-	{ key: 'beacon',   label: 'Beacon',   min: 50_000, accent: '#f5f3ff' },
+	{ key: 'ember',    label: 'Ember',    min: 25,     accent: '#9b7cf6' },
+	{ key: 'glow',     label: 'Glow',     min: 250,    accent: '#a78bfa' },
+	{ key: 'radiant',  label: 'Radiant',  min: 2_500,  accent: '#c4b5fd' },
+	{ key: 'luminous', label: 'Luminous', min: 25_000, accent: '#ddd6fe' },
 ]);
 
 export const REACTIVITY_LEVELS = Object.freeze(['off', 'subtle', 'balanced', 'expressive']);
@@ -64,6 +69,7 @@ export function tierForUsd(usd) {
  * @param {number} state.usd          real total portfolio USD
  * @param {number} [state.threeUsd]   real $THREE holding value (extra warmth)
  * @param {number} [state.forkCount]  real forks-of-this-agent
+ * @param {number} [state.tipUsd]     real lifetime tip volume in USD (optional)
  * @param {number} [state.repScore]   real reputation score 0..100 (optional)
  * @param {number} [state.attesters]  real unique attesters (optional)
  */
@@ -81,11 +87,14 @@ export function computeLook(state = {}) {
 	const auraIntensity = clamp(wealth + threeBoost, 0, 1);
 
 	// Reputation lifts the idle posture (stands taller / steadier) without touching
-	// the aura, so a brand-new but well-attested agent still reads as trusted.
+	// the aura, so a brand-new but well-tipped/forked agent still reads as trusted.
+	// Forks, lifetime tip volume, and attestation are all real earned signals.
 	const repScore = clamp(state.repScore, 0, 100) / 100;
 	const forks = Math.max(0, Number(state.forkCount) || 0);
 	const forkBoost = clamp(Math.log10(forks + 1) / 3, 0, 0.25); // 9 forks ~0.33→capped .25
-	const confidence = clamp(tier.index / 5 * 0.6 + repScore * 0.25 + forkBoost, 0, 1);
+	const tipUsd = Math.max(0, Number(state.tipUsd) || 0);
+	const tipBoost = tipUsd > 0 ? clamp(Math.log10(tipUsd + 1) / 4, 0, 0.2) : 0;
+	const confidence = clamp(tier.index / 5 * 0.5 + repScore * 0.2 + forkBoost + tipBoost, 0, 1);
 
 	// Emissive/material rim steps every two tiers → 0,0,1,1,2,2.
 	const materialTier = Math.floor(tier.index / 2);
@@ -137,6 +146,34 @@ export function computeMarks(state = {}, { hubUrl = null } = {}) {
 			label: forks === 1 ? 'Forked once' : `Forked ${forks}×`,
 			value: forks,
 			detail: `${forks} agent${forks === 1 ? '' : 's'} forked from this one`,
+			href: hubUrl,
+		});
+	}
+	// Lifetime tips received — a real trust signal. Counts come from confirmed
+	// on-chain tip rows (agent_custody_events, event_type='tip'); the mark
+	// deep-links to the wallet hub where each tip is itemised in the activity trail.
+	const tipCount = Math.max(0, Number(state.tipCount) || 0);
+	const tipUsd = Math.max(0, Number(state.tipUsd) || 0);
+	if (tipCount > 0) {
+		marks.push({
+			key: 'tips',
+			label: tipUsd > 0 ? `Tipped ${fmtUsd(tipUsd)}` : (tipCount === 1 ? 'Tipped once' : `Tipped ${tipCount}×`),
+			value: tipUsd > 0 ? fmtUsd(tipUsd) : tipCount,
+			detail: `${tipCount} lifetime tip${tipCount === 1 ? '' : 's'}${tipUsd > 0 ? ` worth ${fmtUsd(tipUsd)}` : ''}`,
+			href: hubUrl,
+		});
+	}
+	// Realized trading P&L — only surfaced when net-positive, so the mark reads as
+	// an earned badge, never a scarlet letter. From closed sniper positions
+	// (agent_sniper_positions.realized_pnl_lamports), a real on-chain settlement.
+	const realizedPnlSol = Number(state.realizedPnlSol) || 0;
+	if (realizedPnlSol > 0.0001) {
+		const wins = Math.max(0, Number(state.realizedWins) || 0);
+		marks.push({
+			key: 'pnl',
+			label: `+${realizedPnlSol.toFixed(realizedPnlSol < 1 ? 3 : 2)} SOL P&L`,
+			value: `+${realizedPnlSol.toFixed(realizedPnlSol < 1 ? 3 : 2)}`,
+			detail: `Realized +${realizedPnlSol.toFixed(3)} SOL across ${wins} closed trade${wins === 1 ? '' : 's'}`,
 			href: hubUrl,
 		});
 	}

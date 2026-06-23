@@ -41,6 +41,7 @@
  */
 
 import { computeRarity } from '../solana/vanity/rarity.js';
+import { formatWalletUsd, shortAddress } from './wallet-format.js';
 
 const STYLE_ID = 'tws-agent-wallet-chip-styles';
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -152,18 +153,10 @@ export function hasWallet(agent) {
 }
 
 // ── value formatting ──────────────────────────────────────────────────────────
-
-/** Compact USD label: $0, <$0.01, $9.40, $950, $1.2K, $3.4M, $1.1B. */
-export function formatWalletUsd(n) {
-	if (n == null || !Number.isFinite(n)) return null;
-	if (n <= 0) return '$0';
-	if (n < 0.01) return '<$0.01';
-	if (n < 10) return `$${n.toFixed(2)}`;
-	if (n < 1000) return `$${Math.round(n)}`;
-	if (n < 1e6) return `$${(n / 1e3).toFixed(n < 1e4 ? 1 : 0)}K`;
-	if (n < 1e9) return `$${(n / 1e6).toFixed(1)}M`;
-	return `$${(n / 1e9).toFixed(1)}B`;
-}
+// Compact USD + address shortening live in ./wallet-format.js (the single source
+// of truth for the whole wallet program). Re-exported here so the many surfaces
+// that already import { formatWalletUsd } from the chip keep working unchanged.
+export { formatWalletUsd };
 
 function formatPct(p) {
 	if (p == null || !Number.isFinite(p)) return null;
@@ -897,7 +890,7 @@ function renderPopoverBody(el, entry, meta) {
 		`<a class="twc-act twc-link" href="${esc(meta.explorerUrl)}" target="_blank" rel="noopener noreferrer" title="Solscan" aria-label="View on Solscan">${LINK_SVG}</a></div>` +
 		(meta.evm
 			? `<div class="twc-pop-addr"><span class="twc-chain" data-chain="evm">EVM</span>` +
-				`<span class="twc-amono">${esc(meta.evm.slice(0, 6))}…${esc(meta.evm.slice(-4))}</span>` +
+				`<span class="twc-amono">${esc(shortAddress(meta.evm, 6, 4))}</span>` +
 				`<button type="button" class="twc-act" data-twc-copy="${esc(meta.evm)}" title="Copy EVM address" aria-label="Copy EVM address">${COPY_SVG}</button>` +
 				(meta.evmExplorerUrl ? `<a class="twc-act twc-link" href="${esc(meta.evmExplorerUrl)}" target="_blank" rel="noopener noreferrer" title="Basescan" aria-label="View on Basescan">${LINK_SVG}</a>` : '') +
 				`</div>`

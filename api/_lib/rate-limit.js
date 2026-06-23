@@ -563,6 +563,12 @@ export const limits = {
 	walletLink: (userId) => getLimiter('wallet:link', { limit: 10, window: '10 m' }).limit(userId),
 	// Agent wallet read endpoints (GET balance, activity). Per authenticated user.
 	walletRead: (userId) => getLimiter('wallet:read', { limit: 60, window: '1 m' }).limit(userId),
+	// Public cross-origin wallet embed card (GET /api/agents/wallet-embed). Served
+	// CORS:* so a stranger's blog can mount the wallet chip — keyed per IP and
+	// generous (a page with several embeds hydrates them all on load) but bounded
+	// so the open endpoint can't be turned into a free balance-scraping relay. Reads
+	// are short-TTL cached, so this only gates cache-miss origin hits.
+	walletEmbedIp: (ip) => getLimiter('wallet:embed:ip', { limit: 120, window: '1 m' }).limit(ip),
 	agentSuggest: (ip) => getLimiter('agents:suggest', { limit: 120, window: '1 m' }).limit(ip),
 	// On-chain agent registration (register_agent MCP tool). Each call may mint a
 	// Core asset + Agent Identity PDA — real SOL spend — so this is deliberately
