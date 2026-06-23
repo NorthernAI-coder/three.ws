@@ -74,6 +74,7 @@ export default wrap(async (req, res) => {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ chat_id: chatId, parse_mode: 'Markdown', text }),
+		signal: AbortSignal.timeout(10000),
 	});
 
 	const data = await r.json().catch(() => ({}));

@@ -40,7 +40,7 @@ function isPumpMint(mint) {
 
 async function jupiterPriceFallback(mint) {
 	try {
-		const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`);
+		const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`, { signal: AbortSignal.timeout(6000) });
 		if (!r.ok) return null;
 		const data = await r.json();
 		const usd = data?.[mint]?.usdPrice ?? data?.[mint]?.price;

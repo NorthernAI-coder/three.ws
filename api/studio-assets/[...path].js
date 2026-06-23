@@ -72,7 +72,7 @@ export default wrap(async (req, res) => {
 	const upstreamUrl = UPSTREAM_BASE + path;
 	let upstream;
 	try {
-		upstream = await fetch(upstreamUrl, { method: req.method, redirect: 'follow' });
+		upstream = await fetch(upstreamUrl, { method: req.method, redirect: 'follow', signal: AbortSignal.timeout(20000) });
 	} catch (err) {
 		return error(res, 502, 'upstream_unreachable', `mirror fetch failed: ${err?.message}`);
 	}
