@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T15:13:13.840Z",
+	"generated_at": "2026-06-23T15:23:51.936Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -1339,6 +1339,16 @@
 			"link": "/forge",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Two new tutorials: generate 3D models free on NVIDIA — and run TRELLIS on your own GPU",
+			"summary": "The Forge's free text-to-3D has always run on NVIDIA NIM with Microsoft TRELLIS — now there are two step-by-step guides for it. The first is no-code: what the free lane actually does, how to get clean models out of it, the prompt rules that matter, and a live demo that shows TRELLIS rebuild a mesh in real time. The second is for builders: stand up your own TRELLIS NIM container on an NVIDIA GPU, point three.ws at it with two environment variables, and reconstruct a textured 3D model from a prompt or a photo in a single synchronous call — photo-to-3D included, which the hosted preview can't do. Every request and response is the real contract, copy-pasteable end to end.",
+			"link": "/tutorials/nvidia-3d-free",
+			"tags": [
+				"docs"
 			]
 		},
 		{
