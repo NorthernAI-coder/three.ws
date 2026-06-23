@@ -336,27 +336,31 @@ async function submitGeometryJob({
 	} else if (typeof gp.textToGeometry === 'function') {
 		submitted = await gp.textToGeometry({ prompt, tier });
 	} else {
-		// Image-only backend (e.g. Stable Fast 3D) asked to run text→3D.
+		// Image-only engine asked to run text→3D.
 		return {
 			content: [
 				{
 					type: 'text',
-					text: `${BACKENDS[backendId].label} reconstructs from a reference image — use image_to_3d with this backend, or drop it to run text→3D.`,
+					text: `The ${engineLabelFor(backendId)} reconstructs from a reference image — use image_to_3d with this engine, or drop it to run text→3D.`,
 				},
 			],
-			structuredContent: { status: 'failed', error: 'backend_image_only', backend: backendId },
+			structuredContent: {
+				status: 'failed',
+				error: 'engine_image_only',
+				engine: engineIdFor(backendId),
+			},
 			isError: true,
 		};
 	}
 
-	// Synchronous completion (Stable Fast 3D): the GLB is already persisted to R2,
-	// so there is no job to poll — return it done.
+	// Synchronous completion (the instant single-image engine): the GLB is already
+	// persisted to R2, so there is no job to poll — return it done.
 	if (!submitted.taskId && submitted.resultGlbUrl) {
 		return {
 			content: [
 				{
 					type: 'text',
-					text: `Generated a 3D model on ${BACKENDS[backendId].label} (${path} path, ${tier.id} tier).\nGLB: ${submitted.resultGlbUrl}`,
+					text: `Generated a 3D model on the ${engineLabelFor(backendId)} (${path} path, ${tier.id} tier).\nGLB: ${submitted.resultGlbUrl}`,
 				},
 			],
 			structuredContent: {
@@ -365,7 +369,7 @@ async function submitGeometryJob({
 				mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 				path,
 				tier: tier.id,
-				backend: backendId,
+				engine: engineIdFor(backendId),
 				prompt: prompt || null,
 				source_image_url: isImageMode ? primaryImage : null,
 			},
@@ -383,7 +387,7 @@ async function submitGeometryJob({
 			{
 				type: 'text',
 				text:
-					`Started ${isImageMode ? 'image-to-3D' : 'text-to-3D'} on ${BACKENDS[backendId].label} ` +
+					`Started ${isImageMode ? 'image-to-3D' : 'text-to-3D'} on the ${engineLabelFor(backendId)} ` +
 					`(${path} path, ${tier.id} tier).\nJob ID: ${token}\n${POLL_HINT}`,
 			},
 		],
@@ -393,7 +397,7 @@ async function submitGeometryJob({
 			mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
 			path,
 			tier: tier.id,
-			backend: backendId,
+			engine: engineIdFor(backendId),
 			prompt: prompt || null,
 			source_image_url: isImageMode ? primaryImage : null,
 			eta_seconds: estimateEtaSeconds({ backendId, tier }),
@@ -516,7 +520,7 @@ export const toolDefs = [
 		title: 'Generate a 3D model from a text prompt',
 		annotations: GENERATIVE_ANNOTATIONS,
 		description:
-			'Turn a text description into a textured 3D model (GLB). Runs a fast text-to-image pass, then reconstructs a mesh from that image with Microsoft TRELLIS. Returns a job_id (poll with generation_status) plus the intermediate preview image. Best results: a single, clearly described object — "a worn leather armchair", "a low-poly red fox", "a sci-fi helmet".',
+			'Turn a text description into a textured 3D model (GLB). Runs a fast text-to-image pass, then reconstructs a mesh from that image with the three.ws image engine. Returns a job_id (poll with generation_status) plus the intermediate preview image. Best results: a single, clearly described object — "a worn leather armchair", "a low-poly red fox", "a sci-fi helmet".',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -604,7 +608,7 @@ export const toolDefs = [
 		title: 'Reconstruct a 3D model from one or more images',
 		annotations: GENERATIVE_ANNOTATIONS,
 		description:
-			'Reconstruct a textured 3D model (GLB) from a reference image using Microsoft TRELLIS. Pass a single image_url, or image_urls (2–4 views of the SAME object from different angles — front/back/left/right) for multi-view reconstruction, which removes the back-of-object hallucination of single-image reconstruction. Returns a job_id to poll with generation_status, plus how many views were fused and which backend handled it. The cleaner the inputs — one subject, plain background, even lighting — the better the mesh.',
+			'Reconstruct a textured 3D model (GLB) from a reference image using the three.ws image engine. Pass a single image_url, or image_urls (2–4 views of the SAME object from different angles — front/back/left/right) for multi-view reconstruction, which removes the back-of-object hallucination of single-image reconstruction. Returns a job_id to poll with generation_status, plus how many views were fused and which engine handled it. The cleaner the inputs — one subject, plain background, even lighting — the better the mesh.',
 		inputSchema: {
 			type: 'object',
 			properties: {
