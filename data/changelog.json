@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Reasoning models now show just the answer, not their scratch work",
+			"summary": "Open reasoning models in the model playground — NVIDIA Nemotron and DeepSeek — think out loud before they answer, wrapping their internal chain-of-thought in hidden markers. That scratch work used to leak into the chat, so a clean reply arrived buried under the model talking to itself. Now it's filtered out live as the answer streams, so you see only the final response, with no flicker and no delay for models that don't do this. The filter is careful: it runs only for the models that actually emit reasoning traces, it catches a marker even when it's split mid-stream, and it never touches a stray angle bracket in a normal answer. Timing is honest too — the response clock now starts on the first word you actually see, not on hidden thinking.",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Audio2Face: your avatar's face now moves with its voice",
 			"summary": "When your avatar talks, its mouth and face now animate in real time, in sync with the actual words. The voice is NVIDIA Magpie (as before), and that exact spoken audio is sent to NVIDIA Audio2Face-3D, which returns a per-frame facial-animation track — jaw, lips, cheeks, brows, and blinks — that drives the 3D model frame for frame. Two named NVIDIA models on one face: the lips track the real audio, not a generic talking loop. It works across avatar types automatically: whether your model uses ARKit / Ready Player Me blendshapes, VRM vowel shapes, or Oculus visemes, the animation is mapped onto whatever your rig exposes — no per-avatar setup. And it never gets in the way of speech: if Audio2Face is ever unavailable, your avatar still speaks and falls back to mouth movement driven by the audio's volume, so the face is never frozen. Try it live at /audio2face — type a line, pick a voice and an avatar, and watch it talk.",
 			"tags": [
