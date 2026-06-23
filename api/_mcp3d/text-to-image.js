@@ -18,8 +18,29 @@
 // free on the NVIDIA NIM catalog as base64 JPEG (no poll; returns inline).
 // Replicate backstop: black-forest-labs/flux-schnell — same family, $0.003/run.
 
+import { markProviderCooldown, providersInCooldown } from '../_lib/provider-health.js';
+
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
 const DEFAULT_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
+
+// Circuit-breaker key + window for the free NIM FLUX synthesis lane. When NVCF
+// times out / errors, one slow window otherwise makes every text→image caller
+// (forge text→3D, avatar generation, studio) re-pay the full NIM timeout before
+// failing over. A short cooldown — recorded on a health failure, checked before
+// the lane runs — lets callers skip a degraded NIM lane and go straight to the
+// next configured provider; it expires on its own so a recovered lane is retried
+// promptly. Best-effort via the shared cache: a miss just means "not cooling".
+const NIM_FLUX_COOLDOWN_KEY = 'forge-nim-flux';
+const NIM_FLUX_COOLDOWN_SECONDS = 60;
+
+// Whether a thrown nimFluxImage error means the lane itself is degraded (timeout,
+// unreachable, throttle, or 5xx) — worth a cooldown — as opposed to a 4xx client
+// fault (bad input / key), which a cooldown would wrongly punish a healthy lane for.
+function isNimLaneDegraded(err) {
+	if (err?.code === 'provider_unreachable' || err?.code === 'rate_limited') return true;
+	const status = err?.providerStatus;
+	return typeof status === 'number' && status >= 500;
+}
 
 // NVIDIA NIM FLUX.1-schnell — synchronous genai invoke (no 202/poll), returns
 // { artifacts: [{ base64, finishReason }] }. flux-schnell is the fast 4-step
@@ -219,18 +240,32 @@ function enhanceFluxPrompt(raw) {
 // paid Replicate backstop on any failure — a broken or throttled preferred
 // provider must hand off, never take down the whole text→3D pipeline. The last
 // configured lane's error is surfaced only when nothing is left to try.
-export async function textToImage(prompt, { aspectRatio = '1:1' } = {}) {
+export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false } = {}) {
 	prompt = enhanceFluxPrompt(prompt);
 	const token = readEnv('REPLICATE_API_TOKEN');
 	const hasVertex = !!readEnv('GOOGLE_CLOUD_PROJECT');
+	const hasFallback = hasVertex || !!token;
 
 	// ── NVIDIA NIM FLUX (free, first) ─────────────────────────────────────────
-	if (readEnv('NVIDIA_API_KEY')) {
+	// Skip the NIM lane when a fallback exists AND either the caller just watched a
+	// sibling NVCF lane time out this same request (`skipNim` — the gateway is
+	// degraded now, so a second NIM window would just stack timeouts) or a recent
+	// NIM FLUX failure left it in cooldown. With no fallback, NIM stays the only
+	// lane and is always tried — a degraded lane beats no image at all.
+	const nimCooling =
+		hasFallback &&
+		(skipNim || (await providersInCooldown([NIM_FLUX_COOLDOWN_KEY])).has(NIM_FLUX_COOLDOWN_KEY));
+	if (readEnv('NVIDIA_API_KEY') && !nimCooling) {
 		try {
 			return await nimFluxImage(prompt, aspectRatio);
 		} catch (err) {
+			// A degraded lane (timeout / unreachable / throttle / 5xx) cools down so the
+			// next caller skips it; a clean 4xx (bad input) is not a lane-health fault.
+			if (isNimLaneDegraded(err)) {
+				markProviderCooldown(NIM_FLUX_COOLDOWN_KEY, NIM_FLUX_COOLDOWN_SECONDS).catch(() => {});
+			}
 			// Nothing downstream to fall through to → surface the NIM error.
-			if (!hasVertex && !token) throw err;
+			if (!hasFallback) throw err;
 			// A handled degradation (Vertex/HF will serve the image), not a fault —
 			// warn so it doesn't read as an error in the logs like the rest of the
 			// free-first cascade.

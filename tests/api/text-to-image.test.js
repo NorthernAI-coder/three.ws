@@ -12,6 +12,7 @@
 //     Imagen PNG's size, so forwarding the data URI breaks reconstruction).
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { cacheDel } from '../../api/_lib/cache.js';
 
 const vertexState = { configured: false, generate: null };
 vi.mock('../../api/_mcp3d/vertex-imagen.js', () => ({
@@ -74,11 +75,15 @@ function stubFluxSuccess() {
 	return stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
 	vertexState.configured = false;
 	vertexState.generate = null;
 	r2State.puts.length = 0;
 	for (const k of ENV_KEYS) delete process.env[k];
+	// The NIM FLUX circuit breaker persists a short cooldown in the shared in-memory
+	// cache; clear it between tests so one test's induced NIM failure doesn't make a
+	// later test skip the (now healthy) NIM lane it means to exercise.
+	await cacheDel('llm-cooldown:forge-nim-flux');
 });
 
 afterEach(() => {
@@ -236,6 +241,52 @@ describe('textToImage — NIM FLUX free lane (first)', () => {
 
 		const textToImage = await freshTextToImage();
 		await expect(textToImage('a red teapot')).rejects.toThrow(/nim flux returned 401/);
+	});
+
+	it('skipNim bypasses the NIM lane entirely when a fallback exists', async () => {
+		// A caller that just watched a sibling NVCF lane time out passes skipNim so the
+		// degraded gateway never gets a second submit-timeout window this request.
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		const calls = stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot', { skipNim: true });
+
+		expect(result.imageUrl).toBe('https://replicate.delivery/out.png');
+		expect(calls.some((c) => c.url.includes('ai.api.nvidia.com'))).toBe(false);
+	});
+
+	it('skipNim still uses NIM when it is the only lane (never skip into a dead end)', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		const calls = stubFetch([['ai.api.nvidia.com', () => nimSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot', { skipNim: true });
+
+		expect(result.model).toBe('black-forest-labs/flux.1-schnell');
+		expect(calls.filter((c) => c.url.includes('ai.api.nvidia.com'))).toHaveLength(1);
+	});
+
+	it('a degraded NIM failure cools the lane so the next call skips it', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		const calls = stubFetch([
+			['ai.api.nvidia.com', () => new Response('boom', { status: 500 })],
+			['api.replicate.com', () => replicateSuccessResponse()],
+		]);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		// First call trips the breaker (NIM 500 → cooldown), still serves via Replicate.
+		await textToImage('a red teapot');
+		const nimAfterFirst = calls.filter((c) => c.url.includes('ai.api.nvidia.com')).length;
+		expect(nimAfterFirst).toBe(1);
+
+		// Second call sees the cooldown and skips NIM straight to Replicate — no new NIM hit.
+		await textToImage('a blue teapot');
+		const nimAfterSecond = calls.filter((c) => c.url.includes('ai.api.nvidia.com')).length;
+		expect(nimAfterSecond).toBe(1);
 	});
 });
 
