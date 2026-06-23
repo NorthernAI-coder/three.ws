@@ -2,6 +2,26 @@
   "name": "@three-ws/names",
   "version": "0.1.0",
   "description": "ENS + SNS name resolution, *.threews.sol subdomain minting, and pay-by-name in one import. The three.ws agent-identity SDK.",
+  "type": "module",
+  "main": "./src/index.js",
+  "module": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
   "keywords": [
     "ens",
     "sns",
@@ -15,15 +35,22 @@
     "agent-identity",
     "three.ws"
   ],
+  "author": "nirholas <support@three.ws>",
   "license": "MIT",
-  "private": true,
-  "type": "module",
-  "homepage": "https://three.ws",
+  "homepage": "https://three.ws/names",
   "repository": {
     "type": "git",
-    "url": "https://github.com/nirholas/three.ws"
+    "url": "git+https://github.com/nirholas/three.ws.git",
+    "directory": "packages/names"
   },
   "bugs": {
     "url": "https://github.com/nirholas/three.ws/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {},
+  "publishConfig": {
+    "access": "public"
   }
 }
