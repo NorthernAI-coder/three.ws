@@ -454,7 +454,7 @@ registerWalletTab({
 			return `<div class="awh-card">
 				<div class="awh-tr-banner awh-tr-banner--info" role="note">
 					<span aria-hidden="true">👁️</span>
-					<span>You’re viewing <strong>${esc(ctx.agent.name || 'this agent')}</strong>’s wallet. Holdings and trade history are public; only the owner can trade from it.</span>
+					<span>You’re viewing <strong>${esc(ctx.agent.name || 'this agent')}</strong>’s wallet. Its holdings are public; only the owner can trade from it or see its trade history.</span>
 				</div>
 			</div>`;
 		}

@@ -30,7 +30,7 @@ const TAG = 'three-ws-viewer';
 
 class ThreeWsViewerElement extends HTMLElement {
 	static get observedAttributes() {
-		return ['src', 'alt', 'background'];
+		return ['src', 'alt', 'background', 'wallet', 'agent-id', 'api-base'];
 	}
 
 	constructor() {
@@ -53,6 +53,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		this._raf = 0;
 		this._resizeObs = null;
 		this._loadToken = 0;
+		this._wallet = null; // mounted wallet affordance, when opted in
 	}
 
 	connectedCallback() {
@@ -62,6 +63,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		const src = this.getAttribute('src');
 		if (src) this._loadModel(src);
 		this._applyAlt(this.getAttribute('alt'));
+		this._applyWallet();
 	}
 
 	disconnectedCallback() {
@@ -82,6 +84,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		}
 		this._envTex?.dispose();
 		this._envTex = null;
+		if (this._wallet) { try { this._wallet.destroy(); } catch { /* gone */ } this._wallet = null; }
 		if (this._model) { this._disposeModel(this._model); this._model = null; }
 		this._scene = null;
 		this._camera = null;
@@ -92,6 +95,7 @@ class ThreeWsViewerElement extends HTMLElement {
 		if (name === 'src') this._loadModel(value);
 		else if (name === 'alt') this._applyAlt(value);
 		else if (name === 'background') this._applyBackground(value);
+		else if (name === 'wallet' || name === 'agent-id' || name === 'api-base') this._applyWallet();
 	}
 
 	_init() {
@@ -212,6 +216,27 @@ class ThreeWsViewerElement extends HTMLElement {
 			this._shadow.appendChild(this._label);
 		}
 		this._label.textContent = text;
+	}
+
+	// Opt-in wallet identity: with `wallet agent-id="<uuid>"` the viewer shows the
+	// agent's public wallet (address, value, tips, one-tap tip) without pulling the
+	// heavy <agent-3d> runtime or any dependency. Lazy-loaded so a wallet-less embed
+	// pays zero cost. Visitor view only — never an owner control.
+	async _applyWallet() {
+		const wants = this.hasAttribute('wallet');
+		const agentId = (this.getAttribute('agent-id') || '').trim();
+		const apiBase = (this.getAttribute('api-base') || '').trim() || undefined;
+		// Tear down on a change so we never stack two cards or keep a stale agent.
+		if (this._wallet) { try { this._wallet.destroy(); } catch { /* gone */ } this._wallet = null; }
+		if (!wants || !agentId) return;
+		const network = (this.getAttribute('wallet') || '').toLowerCase() === 'devnet' ? 'devnet' : 'mainnet';
+		try {
+			const { mountSdkWallet } = await import('./wallet-affordance.js');
+			if (!this.isConnected || (this.getAttribute('agent-id') || '').trim() !== agentId) return;
+			this._wallet = mountSdkWallet(this._shadow, { agentId, apiBase, network });
+		} catch {
+			/* wallet module unavailable — the viewer still renders the avatar cleanly */
+		}
 	}
 
 	_disposeModel(obj) {

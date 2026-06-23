@@ -1475,6 +1475,17 @@ let _gpsCamTransition = null;
 // schedules this backoff re-arm, letting an idle session self-heal without a reload.
 let _gpsRetryTimer = null;
 const GPS_RETRY_MS = 4000;
+// Below this horizontal accuracy a GPS fix is trusted to *move* the own pinned
+// avatar — reprojecting it from its coordinates so walking translates the world.
+// Above it the fix is too coarse for close-range placement: an indoor fix (typically
+// 20–60 m) would swim the avatar metres off the spot it was dropped on every ~10 s
+// poll. A coarse fix leaves the avatar planted (its placed position is already the
+// pin's round-trip, so it's correct in the viewer frame) while the camera, radar, and
+// nearby agents keep tracking; a later sub-bar fix resumes moving the own avatar.
+// 10 m: indoor fixes report 15–60 m (often optimistically low), so they stay planted;
+// a clear-sky outdoor fix (3–10 m) is trusted to track. ORIGIN_REJECT_M (35) already
+// drops the very worst fixes from the origin blend; this is the tighter own-avatar bar.
+const GPS_RENDER_MAX_ACC_M = 10;
 
 function gpsToWorld(agentLat, agentLng) {
 	if (!gpsState.ready) return new Vector3(0, 0, 0);
@@ -1900,10 +1911,16 @@ function onGPSPosition(pos) {
 	// by here, so the gate drains its held pose exactly once (a no-op otherwise).
 	floorPersist.onFix(gpsState.ready);
 
-	// Move pinned avatar to its GPS-anchored world position. anchor_height_m (A2)
-	// keeps the feet on the ground plane on slopes / indoors — 0 today, but read
-	// it back so future floor-corrected placements render at the right height.
-	if (gpsPin) {
+	// Move the pinned avatar to its GPS-anchored world position — but ONLY when the fix
+	// is accurate enough to be an improvement. Reprojecting the own avatar from a noisy
+	// fix is exactly what swims it off the spot it was dropped: indoors the accuracy is
+	// tens of metres, so each ~10 s fix would yank it across the room. A coarse fix
+	// leaves the avatar planted at its placed position (which is the pin's round-trip,
+	// so it's already correct in the viewer frame); a fix that lands under the accuracy
+	// bar — typically once the user steps outside — resumes tracking and snaps it to its
+	// true world spot. anchor_height_m (A2) keeps the feet on the ground plane — 0 today,
+	// but read it back so future floor-corrected placements render at the right height.
+	if (gpsPin && gpsFixRendersOwnAvatar()) {
 		const wp = gpsToWorld(gpsPin.lat, gpsPin.lng);
 		avatarRig.position.set(wp.x, gpsPin.heightM ?? 0, wp.z);
 	}
@@ -1943,6 +1960,26 @@ function onGPSPosition(pos) {
 	irlNet?.moveTo(gpsState.lat, gpsState.lng);
 }
 
+// True when the live fix is accurate enough to move the own avatar to its GPS spot.
+// A coarse (indoor) fix leaves the avatar planted where it was dropped instead of
+// swimming it across the room with GPS noise. See GPS_RENDER_MAX_ACC_M.
+function gpsFixRendersOwnAvatar() {
+	return Number.isFinite(gpsState.accuracy) && gpsState.accuracy <= GPS_RENDER_MAX_ACC_M;
+}
+
+// Hand the own pinned avatar from the local gyro lock to the viewer-centric GPS
+// frame: camera at the origin, avatar reprojected from its coordinates each fix.
+// Eases the camera from the gyro pivot to the origin (the avatar holds its world
+// spot) so the upgrade reads as a glide, not a teleport. Idempotent.
+function enterGpsRenderMode() {
+	if (gpsModeActive) return;
+	if (gyroLockCamPos && !prefersReducedMotion()) {
+		_gpsCamTransition = { from: gyroLockCamPos.clone(), elapsed: 0 };
+	}
+	gpsModeActive = true;
+	document.body.classList.add('gps-mode');
+}
+
 // Build the GPS world-anchor for the freshly locked own avatar and open the
 // caption panel to persist its A2 pose. Requires a live GPS fix — setLocked()
 // calls this directly when one is ready, or defers it here via _pendingGpsLock
@@ -1961,16 +1998,21 @@ function anchorGpsPin() {
 	const mLng = 111320 * Math.cos(gpsState.lat * (Math.PI / 180));
 	const pinLat = gpsState.lat + (-avatarRig.position.z / mLat);
 	const pinLng = gpsState.lng + ( avatarRig.position.x / mLng);
+	// Close-range placement (a spot on a table, a chair) needs sub-metre anchoring,
+	// which GPS never delivers. Only hand rendering to the viewer-centric GPS frame
+	// when the fix is accurate enough not to make things worse — outdoors with a
+	// clear sky. Indoors the fix is far too coarse (tens of metres), so keep the
+	// rock-solid local gyro lock that holds the avatar exactly where it was dropped;
+	// the pin still persists below for nearby discovery, and onGPSPosition() upgrades
+	// to the GPS frame the moment a fix lands under GPS_RENDER_MAX_ACC_M.
 	// Local→GPS upgrade: glide the camera from the gyro pivot to the viewer origin
-	// instead of snapping. The avatar holds its world spot (the pin is derived so
-	// gpsToWorld() returns its current position), so easing the only thing that
-	// moves — the camera — keeps the avatar from visibly teleporting in the room.
-	// Reduced-motion jumps straight to the anchored frame.
-	if (!gpsModeActive && gyroLockCamPos && !prefersReducedMotion()) {
-		_gpsCamTransition = { from: gyroLockCamPos.clone(), elapsed: 0 };
-	}
-	gpsModeActive = true;
-	document.body.classList.add('gps-mode');
+	// instead of snapping. The avatar holds its world spot (its placed position is the
+	// pin's round-trip), so easing the only thing that moves — the camera — keeps it
+	// from visibly teleporting in the room. This always enters the GPS frame so the
+	// radar and nearby agents stay live; whether each later fix is allowed to *move*
+	// the own avatar is gated separately on accuracy (onGPSPosition) so a coarse indoor
+	// fix can't swim it off the spot it was dropped.
+	enterGpsRenderMode();
 	// On iOS the live compass is the authoritative bearing — re-derive cameraYaw from
 	// the freshest reading so the stored heading is north-anchored even when this runs
 	// between orientation events (notably the deferred first-GPS-fix path).

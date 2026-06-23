@@ -10,6 +10,7 @@
 
 import { apiFetch } from './api.js';
 import { mountMirrorPanel, openFollowModal } from './shared/agent-mirror-panel.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const short = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
@@ -127,11 +128,16 @@ async function loadMine() {
 		card.className = 'mp-agent-card';
 		const head = document.createElement('div');
 		head.className = 'mp-agent-head';
-		head.innerHTML = `${a.avatar_url || a.profile_image_url ? `<img class="mp-av" src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="mp-av"></div>'}<div class="mp-lname"><a href="/agent/${esc(a.id)}">${esc(a.name || short(a.id))}</a></div>`;
+		// Owner's own wallet-bearing agent → its identity chip (same shared component
+		// every other surface uses) so the wallet reads identically here and links to
+		// the HUD; these cards are already filtered to agents that have a wallet.
+		const chip = walletChipHTML(a, { isOwner: true, showPending: false, link: true, tip: false });
+		head.innerHTML = `${a.avatar_url || a.profile_image_url ? `<img class="mp-av" src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="mp-av"></div>'}<div class="mp-lname"><a href="/agent/${esc(a.id)}">${esc(a.name || short(a.id))}</a>${chip ? `<div class="mp-agent-chip">${chip}</div>` : ''}</div>`;
 		const panelMount = document.createElement('div');
 		card.appendChild(head);
 		card.appendChild(panelMount);
 		mineEl.appendChild(card);
+		if (chip) wireWalletChips(head);
 		// The owner panel reveals its own content; on this page the card is always shown.
 		const agentRec = { id: a.id, name: a.name, isOwner: true, rawMetadata: { meta: a.meta || { solana_address: a.solana_address || a.agent_solana_address } } };
 		const handle = mountMirrorPanel({ mount: panelMount, agent: agentRec, isOwner: true });

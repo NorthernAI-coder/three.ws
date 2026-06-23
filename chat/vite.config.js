@@ -55,6 +55,11 @@ export default defineConfig(function () {
 			emptyOutDir: true,
 		},
 		server: {
+			fs: {
+				// The chat app reuses shared wallet modules that live in the main
+				// repo's src/ (one repo, one wallet truth) — allow Vite to serve them.
+				allow: [path.resolve(__dirname, '..')],
+			},
 			proxy: {
 				// Vercel serverless functions live under /api/* in production but
 				// Vite's dev server doesn't run them. Forward /api/* to a real
@@ -76,6 +81,9 @@ export default defineConfig(function () {
 			dedupe: ['three'],
 			alias: {
 				'$src': path.resolve(__dirname, './src'),
+				// Shared wallet layer lives in the main app's src/shared (single source
+				// of truth for the agent wallet everywhere its avatar appears).
+				'$shared': path.resolve(__dirname, '../src/shared'),
 			}
 		},
 		define: {

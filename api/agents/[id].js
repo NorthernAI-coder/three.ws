@@ -82,6 +82,11 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'strategies') {
+		const mod = await import('./agent-strategy-objects.js');
+		return mod.default(req, res, id, action);
+	}
+
 	if (sub === 'eth-vanity') {
 		const mod = await import('./eth-vanity.js');
 		return mod.default(req, res, id, action);

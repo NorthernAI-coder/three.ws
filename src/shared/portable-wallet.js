@@ -81,6 +81,15 @@ const STYLE = `
 	--pw-bg:rgba(16,16,20,.96);--pw-ink:#e8e8ea;--pw-ink-dim:#9a9aa2;--pw-ink-bright:#fff;--pw-ok:#4ade80;--pw-danger:#f87171;
 	font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--pw-ink);box-sizing:border-box;}
 .pw-root *,.pw-root *::before,.pw-root *::after{box-sizing:border-box;}
+/* Light surfaces (e.g. the chat app) — darken the chip ink for contrast while the
+   floating popover stays a dark glass card (its vars are re-set below). */
+.pw-root[data-theme="light"]{--pw-accent:#7c3aed;--pw-accent-strong:#6d28d9;--pw-soft:rgba(124,58,237,.08);
+	--pw-fill:rgba(124,58,237,.14);--pw-stroke:rgba(124,58,237,.28);--pw-stroke-2:rgba(124,58,237,.5);
+	--pw-glow:rgba(124,58,237,.4);--pw-ink:#1e1b2e;--pw-ink-dim:#6b6780;--pw-ink-bright:#0a0a0a;}
+.pw-root[data-theme="light"] .pw-pop{--pw-accent:#c4b5fd;--pw-accent-strong:#a78bfa;
+	--pw-soft:rgba(139,92,246,.12);--pw-fill:rgba(139,92,246,.2);--pw-stroke:rgba(139,92,246,.32);
+	--pw-stroke-2:rgba(139,92,246,.55);--pw-glow:rgba(139,92,246,.45);
+	--pw-ink:#e8e8ea;--pw-ink-dim:#9a9aa2;--pw-ink-bright:#fff;}
 .pw-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:4px 9px;border-radius:999px;cursor:pointer;
 	font:600 11px/1 inherit;color:var(--pw-accent);background:var(--pw-soft);border:1px solid var(--pw-stroke);
 	white-space:nowrap;transition:border-color .18s,background .18s,box-shadow .25s;appearance:none;}
@@ -214,6 +223,7 @@ const TIP_PRESETS = {
  * @param {string}  [opts.name]                  Seed name (used while loading / on offline fallback).
  * @param {string}  [opts.avatar]                Seed avatar URL.
  * @param {object}  [opts.seedCard]              A pre-fetched embed card (skip the network call).
+ * @param {'dark'|'light'} [opts.theme='dark']   'light' darkens the chip ink for light surfaces.
  * @returns {{ el: HTMLElement, refresh: () => void, destroy: () => void }}
  */
 export function mountPortableWallet(host, opts = {}) {
@@ -228,11 +238,13 @@ export function mountPortableWallet(host, opts = {}) {
 		name: seedName = null,
 		avatar: seedAvatar = null,
 		seedCard = null,
+		theme = 'dark',
 	} = opts;
 
 	ensureStyles(host);
 	const root = document.createElement('div');
 	root.className = 'pw-root';
+	if (theme === 'light') root.setAttribute('data-theme', 'light');
 	host.appendChild(root);
 
 	let card = seedCard || null;

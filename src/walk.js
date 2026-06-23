@@ -65,6 +65,7 @@ import { log } from './shared/log.js';
 import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './walk-trails.js';
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 import { createWalkNpcs } from './walk-npcs.js';
+import { createWalkWalletProximity } from './walk-wallet.js';
 
 const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 
@@ -2318,6 +2319,9 @@ function tick() {
 	}
 	updateRemotePlayers(dt);
 
+	// 4·5 Reveal the wallet of the nearest agent you walk up to (one card, cheap).
+	walletProximity.update(performance.now());
+
 	// 4a. Advance the NPC companions' FSMs (greeter waves on approach, wanderer
 	//     roams, guide leads toward a landmark) against the live player position.
 	if (walkNpcs && avatar) walkNpcs.update(dt, avatarRig.position);
@@ -2777,6 +2781,14 @@ const REMOTE_YAW_LERP = 0.18;
 /** @type {Map<string, RemotePlayer>} */
 const remotePlayers = new Map();
 
+// In-world wallet reveal: walk up to a player piloting an agent and its wallet
+// (vanity address, live value, tip) rises beside the nameplate. Frugal by design
+// — one card, throttled proximity scan, cached embed reads. See walk-wallet.js.
+const walletProximity = createWalkWalletProximity({
+	getLocalPosition: () => avatarRig.position,
+	remotePlayers,
+});
+
 let net = null;
 let netConnected = false;
 let coinTotem = null; // CoinTotem instance when in a coin community world
@@ -2910,6 +2922,8 @@ class RemotePlayer {
 		this._lastEmoteTs = 0;
 		this._emoting = false;
 		this._avatarUrl = initial?.avatar || '';
+		// The agent this peer is piloting (UUID) — drives the in-world wallet reveal.
+		this.agent = initial?.agent || null;
 		this._avatarLoadToken = 0;
 		this._heldTemplateUrl = null; // remote-template URL this player currently clones
 		this._root = root;
@@ -2986,6 +3000,10 @@ class RemotePlayer {
 		// Live cosmetic change — they equipped/unequipped something.
 		if (player.cosmetics !== undefined && player.cosmetics !== this._cosWire) {
 			this._applyCosmetics(player.cosmetics);
+		}
+		// A player can swap which agent they pilot without rejoining.
+		if (player.agent !== undefined && player.agent !== this.agent) {
+			this.agent = player.agent || null;
 		}
 	}
 

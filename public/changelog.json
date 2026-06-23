@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:06:30.997Z",
+	"generated_at": "2026-06-23T05:17:28.201Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -35,6 +35,16 @@
 			"tags": [
 				"fix",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Copy-trading page now shows each of your agents' wallet identity",
+			"summary": "On the Copy Trading page, every one of your agents listed under \"your copy-trading\" now carries the same wallet identity chip you see everywhere else — its vanity address, live value, and a tap-through to the full wallet — so you can read an agent's wallet at a glance before setting it to mirror a leader. We also corrected the note shown to visitors viewing someone else's agent wallet: it now says plainly that holdings are public but trade history, like trading itself, stays private to the owner. Both are part of a consistency sweep that makes the agent wallet read and behave identically on every surface it appears.",
+			"link": "/mirror",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -188,6 +198,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "IRL: pinned agents now hold their exact spot indoors instead of drifting",
+			"summary": "When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.",
+			"link": "/irl",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -419,6 +439,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Your agent's wallet now follows it everywhere — the chat, the 3D world, and any site",
+			"summary": "An agent's wallet is its identity, so it now shows up wherever its avatar does, not just inside the app. In the chat, the agent you're talking to carries a wallet chip — open it to see its live value and lifetime tips, copy its address, or tip it for a good answer. In the walk-around 3D world, stroll up to another player who's piloting an agent and its wallet rises beside their nameplate: vanity address, real balance, and a one-tap tip, right there in the scene. And the lightweight avatar viewer in our SDK can now opt into the same wallet card, so an agent embedded on any third-party site keeps its real, tippable identity. Every number is real and read from the same public wallet data as the rest of the platform, so values never disagree across surfaces; it's always the visitor view, so owner-only controls never leak into an embed. It's deliberately frugal in the live 3D world — only the nearest agent's wallet loads, and only once — so nothing stutters.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
