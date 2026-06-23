@@ -160,6 +160,8 @@ describe('skillPriceMap', () => {
 			time_pass_amount: null,
 			pricing_type: 'fixed',
 			minimum_amount: null,
+			gate_type: 'price',
+			nft_collection_mint: null,
 		});
 		expect(map.summarize.time_pass_hours).toBe(24);
 		expect(map.summarize.time_pass_amount).toBe(250000);
@@ -175,6 +177,18 @@ describe('skillPriceMap', () => {
 		// Unknown/absent pricing_type folds to the fixed default.
 		expect(map.plain.pricing_type).toBe('fixed');
 		expect(map.plain.minimum_amount).toBeNull();
+	});
+
+	it('surfaces an NFT gate (gate_type + collection); price rows report gate_type "price" with no collection', () => {
+		const map = skillPriceMap([
+			priceRow('holders_only', { amount: 0, gate_type: 'nft', nft_collection_mint: 'THREEsynthetic1111111111111111111111111111' }),
+			priceRow('paid', { amount: 75000 }),
+		]);
+		expect(map.holders_only.gate_type).toBe('nft');
+		expect(map.holders_only.nft_collection_mint).toBe('THREEsynthetic1111111111111111111111111111');
+		// A price row never leaks a collection even if a stray value were present.
+		expect(map.paid.gate_type).toBe('price');
+		expect(map.paid.nft_collection_mint).toBeNull();
 	});
 
 	it('defaults mint_decimals to 6 and trial_uses to 0 when a row omits them', () => {

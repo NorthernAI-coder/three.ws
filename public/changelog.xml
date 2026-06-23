@@ -103,6 +103,14 @@
 			<description>Reworked every failure message across selfie-to-avatar and prompt-to-avatar so you get plain, actionable guidance — 'the engine is busy, try again', 'we couldn't find a face, use a brighter photo' — instead of a raw third-party error, a provider's name, or a 'buy more credits' billing link. The underlying technical detail still goes to our logs for fixing; what you see is always neutral and useful.</description>
 		</item>
 		<item>
+			<title>Avatar editor: a Walk tab to see your avatar in motion while you customize</title>
+			<link>https://three.ws/avatars</link>
+			<guid isPermaLink="false">2026-06-23:Avatar editor: a Walk tab to see your avatar in motion while you customize</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The avatar customizer now has a Walk preview. Switch to the new Walk tab and your avatar stops standing still — it strides a slow circle around the stage with a real walk cycle and a third-person follow camera, so you can judge how an outfit, hat, or face edit actually reads in motion instead of frozen in an A-pose. Take the controls any time with W/A/S/D or the arrow keys to drive it around, and pick a backdrop from a small Environment dropdown (the clean void grid by default, or any of the walk-world scenes). Every change you make elsewhere in the editor — a sculpted smile, a new jacket, a pair of glasses — shows up on the walking avatar instantly, no reload. When the look is right, “Open in Walk page” drops your in-progress draft into the full Walk experience in a new tab. The preview holds a steady 30fps so the rest of the editor stays snappy. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Avatars that didn't finish rigging now self-heal automatically</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Avatars that didn't finish rigging now self-heal automatically</guid>

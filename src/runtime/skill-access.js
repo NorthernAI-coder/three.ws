@@ -46,7 +46,22 @@ export function fromAgentDetail(agent) {
 		const price = prices[toolName];
 		if (!price) return { allowed: true }; // free skill
 
+		// `purchased_skills` folds in NFT gates the viewer currently holds, so a
+		// holder of the gating collection is allowed here just like a buyer.
 		if (purchased.has(toolName)) return { allowed: true };
+
+		// NFT-gated and not held: payment cannot unlock it, so don't surface a
+		// price challenge — tell the caller which collection they need.
+		if (price.gate_type === 'nft') {
+			return {
+				allowed: false,
+				skill: toolName,
+				gate: { type: 'nft', collection: price.nft_collection_mint },
+				message: price.nft_collection_mint
+					? `This skill requires holding an NFT from collection ${price.nft_collection_mint}`
+					: `This skill is restricted to NFT holders`,
+			};
+		}
 
 		return {
 			allowed: false,

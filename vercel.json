@@ -24,7 +24,7 @@
 		"api/tournaments/[id].js": {
 			"maxDuration": 120
 		},
-		"api/agents/networth.js": {
+		"{api/agents/networth,api/avatars/from-forge}.js": {
 			"maxDuration": 60
 		},
 		"api/club/tips-stream.js": {
@@ -41,9 +41,6 @@
 		"api/avatars/[id].js": {
 			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
-		},
-		"api/avatars/from-forge.js": {
-			"maxDuration": 60
 		},
 		"api/tts/speak.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
@@ -872,6 +869,10 @@
 		{
 			"src": "/temporary/?",
 			"dest": "/temporary.html"
+		},
+		{
+			"src": "/marketplace-walk/?",
+			"dest": "/marketplace-walk.html"
 		},
 		{
 			"src": "/irl/?",

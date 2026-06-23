@@ -15,6 +15,8 @@ export const WIDGET_TYPES = [
 	'pumpfun-feed',
 	'kol-trades',
 	'live-trades-canvas',
+	'bonding-curve',
+	'walking-avatar',
 ];
 
 export const WIDGET_TYPE_SET = new Set(WIDGET_TYPES);

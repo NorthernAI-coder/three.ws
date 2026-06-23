@@ -1421,6 +1421,16 @@ model-viewer.ad-hero-avatar {
 	border-color: rgba(167, 139, 250, 0.4);
 	background: rgba(167, 139, 250, 0.08);
 }
+.ad-price-badge.gated {
+	color: #7dd3fc;
+	border-color: rgba(56, 189, 248, 0.4);
+	background: rgba(56, 189, 248, 0.08);
+}
+.ad-skill-btn.gated-collection {
+	text-decoration: none;
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 11px;
+}
 .ad-skill-btn {
 	padding: 5px 12px;
 	border-radius: 8px;

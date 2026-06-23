@@ -77,6 +77,10 @@ export class AvatarWalkPreview {
 
 		this.keys = { forward: false, back: false, left: false, right: false };
 
+		// Local TRS of every node captured at the pre-walk rest pose, restored on
+		// exit so the skeleton never freezes mid-stride on the static editor tabs.
+		this._poseSnapshot = null;
+
 		// Environment.
 		this.envManifest = null;
 		this.envName = 'void';
@@ -146,6 +150,9 @@ export class AvatarWalkPreview {
 		// retargeted locomotion on the shared skeleton.
 		this.scene.mixer?.stopAllAction?.();
 
+		// Snapshot the rest pose now, before any walk-clip sampling deforms it.
+		this._snapshotPose();
+
 		// Zero the feet to the ground plane so the avatar reads as standing on the
 		// floor / grid rather than floating, then seed the orbit start.
 		const box = new Box3().setFromObject(this.scene.root);
@@ -196,25 +203,28 @@ export class AvatarWalkPreview {
 
 		this.scene.setFpsCap?.(0);
 
-		// Settle the avatar back to its origin pose for the static editor view.
+		// Stop locomotion sampling (keep the mixer attached for a fast re-entry)
+		// and restore the exact pre-walk rest pose so the skeleton doesn't freeze
+		// mid-stride under the (now-resumed) idle layer.
+		this.anim?.mixer?.stopAllAction?.();
+		this._motion = null;
+		this._restorePose();
 		if (this.scene.root) {
 			this.scene.root.position.set(0, 0, 0);
 			this.scene.root.rotation.y = 0;
 		}
-		this.anim?.crossfadeTo(CLIP_IDLE, 0.0).catch(() => {});
 
-		// Tear down the environment and restore the editor's neutral lighting/sky.
-		await this._clearEnvironment();
-
-		// Restore camera control.
+		// Restore camera control + ambient idle synchronously so the static editor
+		// view is interactive immediately, then tear the environment down async.
 		if (this._savedControls) {
 			this.scene.controls = this._savedControls;
 			this._savedControls = null;
 		}
 		this.scene.setCameraPreset?.(this.scene.getCameraPreset?.() || 'full');
-
 		this.resumeAmbient();
 		this._status('');
+
+		await this._clearEnvironment();
 	}
 
 	dispose() {
@@ -224,11 +234,39 @@ export class AvatarWalkPreview {
 		this._clearEnvironment();
 	}
 
+	// ── Rest pose ────────────────────────────────────────────────────────────
+
+	_snapshotPose() {
+		const snap = [];
+		this.scene.root?.traverse((n) => {
+			snap.push({ n, p: n.position.clone(), q: n.quaternion.clone(), s: n.scale.clone() });
+		});
+		this._poseSnapshot = snap;
+	}
+
+	_restorePose() {
+		if (!this._poseSnapshot) return;
+		for (const e of this._poseSnapshot) {
+			e.n.position.copy(e.p);
+			e.n.quaternion.copy(e.q);
+			e.n.scale.copy(e.s);
+		}
+		this._poseSnapshot = null;
+	}
+
 	// ── Environment ────────────────────────────────────────────────────────
 
 	availableEnvironments() {
 		if (!this.envManifest) return [{ name: 'void', label: 'Void' }];
 		return this.envManifest.environments.map((e) => ({ name: e.name, label: e.label || e.name }));
+	}
+
+	/** Ensure the manifest is loaded, then return the selectable environments. */
+	async listEnvironments() {
+		if (!this.envManifest) {
+			this.envManifest = await fetchEnvironmentManifest().catch(() => null);
+		}
+		return this.availableEnvironments();
 	}
 
 	async setEnvironment(name) {

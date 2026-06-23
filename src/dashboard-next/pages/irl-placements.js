@@ -97,6 +97,18 @@ function expiryLabel(expiresAt) {
 	return `<span class="irl-badge expiring">Expires in ${days}d ${hrs}h</span>`;
 }
 
+// Placement-exposure badge (H4) — how this pin's coordinate is stored. An
+// approximate pin was deliberately blurred to a radius and its true spot was
+// never saved; a precise (or legacy, NULL placement_kind) pin sits exactly where
+// placed. Lets the owner see how exposed each placement is at a glance.
+function placementBadge(pin) {
+	if (pin.placement_kind === 'approximate') {
+		const r = Math.round(Number(pin.fuzz_radius_m) || 0);
+		return `<span class="irl-badge approx" title="Stored at a deliberately blurred spot — your exact location was never saved">≈ Approximate${r ? ` ~${r}m` : ''}</span>`;
+	}
+	return '<span class="irl-badge exact" title="Stored at the exact spot you placed it">📍 Exact</span>';
+}
+
 // Live status pill from the agent-summary-derived status. Self-contained
 // (inline token colours) so it has no external CSS dependency.
 const STATUS_META = {
@@ -232,6 +244,8 @@ const STYLE = `
 .irl-badge.perm { color: var(--nxt-success); background: color-mix(in srgb, var(--nxt-success) 10%, transparent); border-color: color-mix(in srgb, var(--nxt-success) 30%, transparent); }
 .irl-badge.expired { color: var(--nxt-ink-faint); background: var(--nxt-bg-2); border-color: var(--nxt-stroke); }
 .irl-badge.expiring { color: var(--nxt-warn); background: color-mix(in srgb, var(--nxt-warn) 10%, transparent); border-color: color-mix(in srgb, var(--nxt-warn) 30%, transparent); }
+.irl-badge.exact { color: var(--nxt-success); background: color-mix(in srgb, var(--nxt-success) 9%, transparent); border-color: color-mix(in srgb, var(--nxt-success) 26%, transparent); }
+.irl-badge.approx { color: var(--nxt-accent); background: color-mix(in srgb, var(--nxt-accent) 10%, transparent); border-color: color-mix(in srgb, var(--nxt-accent) 30%, transparent); cursor: help; }
 
 /* Stat chips: balance / reputation / services / visitors */
 .irl-stats { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 12px; }
@@ -499,6 +513,7 @@ function cardHtml(pin, ixList) {
 				<div class="irl-meta">
 					<span class="irl-meta-loc">${esc(metaLine(pin, null))}</span>
 					${expiryLabel(pin.expires_at)}
+					${placementBadge(pin)}
 				</div>
 			</div>
 		</div>

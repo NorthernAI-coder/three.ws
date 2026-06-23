@@ -54,6 +54,14 @@ const AUTOPLAY = params.get('autoplay') === 'true' || params.get('autoplay') ===
 const SHOW_GROUND = params.get('ground') !== 'false';
 const ORBIT_ENABLED = params.get('orbit') !== 'false';
 const ENV_PARAM = (params.get('env') || 'studio').toLowerCase();
+// Walk pace multiplier baked into the embed URL (?speed=0.5…2). Mirrors the
+// runtime walk:config { speed } so a standalone iframe carries its own pace
+// without a host round-trip. Clamped to the same band the host command uses.
+const SPEED_PARAM = (() => {
+	const n = Number(params.get('speed'));
+	if (!Number.isFinite(n)) return 1.0;
+	return Math.min(3, Math.max(0.3, n));
+})();
 
 // Live-tracked state surfaced to the host via the typed contract. `currentAvatarId`
 // is the public identifier hosts gave us (?avatar=<id|url>, else the ?agent=<id>
@@ -395,7 +403,7 @@ const input = {
 	// Seek target from `walk:goto` — drive toward a world (x,z) then stop within
 	// GOTO_ARRIVE_EPSILON. Cleared by any live input or a new command.
 	seek: { active: false, x: 0, z: 0, run: false },
-	_speedMultiplier: 1.0,
+	_speedMultiplier: SPEED_PARAM,
 };
 
 const GOTO_ARRIVE_EPSILON = 0.18; // metres — close enough to "arrived"

@@ -70,7 +70,7 @@ export default wrap(async (req, res) => {
 				type: 'launch_frame',
 				name: 'three.ws Walk',
 				url: walkUrl,
-				splashImageUrl: `${origin}/icon-512.png`,
+				splashImageUrl: `${origin}/pwa-512x512.png`,
 				splashBackgroundColor: '#0a0a0a',
 			},
 		},

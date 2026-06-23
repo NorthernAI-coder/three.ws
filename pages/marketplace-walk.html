@@ -3,8 +3,21 @@
 	<head>
 		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 		<meta charset="utf-8" />
+		<script>
+			/* Walk-Browse: default the environment to the gallery and flag the
+			   engine into marketplace-hall mode. Runs before /src/walk.js (a
+			   deferred module) so GALLERY_MODE + ?env are set on first read. */
+			(function () {
+				try {
+					var u = new URL(location.href);
+					if (!u.searchParams.has('env')) u.searchParams.set('env', 'gallery');
+					u.searchParams.set('gallery', 'marketplace');
+					history.replaceState(null, '', u.pathname + '?' + u.searchParams.toString() + u.hash);
+				} catch (e) {}
+			})();
+		</script>
 		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<title>Drive Your Avatar · three.ws</title>
+		<title>Walk-Browse the Marketplace · three.ws</title>
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1, viewport-fit=cover"
@@ -12,7 +25,7 @@
 		<meta name="author" content="nirholas" />
 		<meta
 			name="description"
-			content="See a 3D agent walking on your real floor through your phone camera. Joystick or WASD. One-tap AR. Built on three.ws."
+			content="Walk your avatar through a 3D gallery of the three.ws marketplace — real agents, avatars, and skills as plinths in an endless hall. Step up to any listing and open it. Joystick or WASD."
 		/>
 		<meta name="theme-color" content="#000000" />
 
@@ -38,13 +51,13 @@
 
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
-		<meta property="og:title" content="Drive Your Avatar · three.ws" />
-		<meta property="og:description" content="Drive a 3D avatar with a joystick or WASD — in the browser and in AR." />
-		<meta property="og:url" content="https://three.ws/temporary" />
+		<meta property="og:title" content="Walk-Browse the Marketplace · three.ws" />
+		<meta property="og:description" content="Stroll a 3D hall of real marketplace listings — agents, avatars, and skills as plinths you walk up to and open." />
+		<meta property="og:url" content="https://three.ws/marketplace-walk" />
 		<meta property="og:image" id="og-image" content="https://three.ws/api/walk-og" />
 		<meta name="twitter:card" content="summary_large_image" />
-		<meta name="twitter:title" content="Drive Your Avatar · three.ws" />
-		<meta name="twitter:description" content="Drive a 3D avatar with a joystick or WASD — in the browser and in AR." />
+		<meta name="twitter:title" content="Walk-Browse the Marketplace · three.ws" />
+		<meta name="twitter:description" content="Stroll a 3D hall of real marketplace listings — agents, avatars, and skills as plinths you walk up to and open." />
 		<meta name="twitter:image" id="twitter-image" content="https://three.ws/api/walk-og" />
 		<script>
 			// Patch OG image to include avatar + handle from URL params so
@@ -1273,8 +1286,8 @@
 		</style>
 		<link rel="stylesheet" href="/nav.css" />
 	
-	<link rel="canonical" href="https://three.ws/temporary">
-	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Walk","description":"Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.","url":"https://three.ws/temporary","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+	<link rel="canonical" href="https://three.ws/marketplace-walk">
+	<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Walk-Browse the Marketplace","description":"Walk a 3D avatar through a procedurally generated hall of real three.ws marketplace listings — agents, avatars, and skills — and open any listing you step up to.","url":"https://three.ws/marketplace-walk","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 
 	<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
 	<meta property="og:locale" content="en_US">
@@ -1304,7 +1317,7 @@
 							placeholder="your name" maxlength="24" autocomplete="off" spellcheck="false"
 							aria-label="Your display name" />
 					</div>
-					<p>Drag to orbit. Joystick or <kbd>WASD</kbd> to move.</p>
+					<p><kbd>WASD</kbd> or joystick to walk the hall · step up to a listing, press <kbd>E</kbd> to open. <a href="/marketplace">Grid view →</a></p>
 				</div>
 				<div class="walk-actions">
 					<button type="button" class="walk-btn" id="walk-avatar-btn" title="Change avatar">
@@ -1459,7 +1472,6 @@
 				<span class="walk-key"><kbd>space</kbd> jump</span>
 				<span class="walk-key"><kbd>C</kbd> camera</span>
 				<span class="walk-key"><kbd>G</kbd> gestures</span>
-				<span class="walk-key"><kbd>T</kbd> hold to talk</span>
 				<span class="walk-key"><kbd>V</kbd> scene</span>
 				<span class="walk-key"><kbd>M</kbd> map</span>
 				<span class="walk-key"><kbd>Z</kbd> hide UI</span>
@@ -1469,11 +1481,10 @@
 			<div id="walk-status">loading avatar…</div>
 		</div>
 
+		<!-- The walk engine boots in marketplace-hall mode (?gallery=marketplace,
+		     set above): src/marketplace-gallery.js builds the listing plinths and
+		     the treadmill that scrolls them past the avatar. -->
 		<script type="module" src="/src/walk.js"></script>
-		<!-- Coin-world social layer: lobby (no ?coin=) or Town (live community
-		     feed + realtime bubbles) bound to the current coin. Self-contained;
-		     the 3D scene above is walk.js's, the multiplayer join is walk-net's. -->
-		<script type="module" src="/src/community/coin-world-boot.js"></script>
 		<script src="/brand.js" defer></script>
 </body>
 </html>
