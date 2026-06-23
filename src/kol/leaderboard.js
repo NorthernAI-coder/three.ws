@@ -10,8 +10,29 @@ import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
+// Resolve seed.json in a bundle-safe way. scripts/bundle-api.mjs inlines this
+// module into api/kol/[action].js with esbuild, which rewrites import.meta.url
+// to the OUTPUT file's location — so an import.meta-relative `./seed.json`
+// resolves to a bogus /var/task/api/kol/seed.json and ENOENTs at load.
+// process.cwd() is /var/task on Vercel (the file ships via vercel.json
+// includeFiles) and the repo root in dev; the import.meta path stays as a
+// fallback for unbundled callers.
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const seed = JSON.parse(readFileSync(join(__dirname, 'seed.json'), 'utf8'));
+const SEED_CANDIDATES = [
+	join(process.cwd(), 'src', 'kol', 'seed.json'),
+	join(__dirname, 'seed.json'),
+];
+const seed = (() => {
+	let lastErr;
+	for (const candidate of SEED_CANDIDATES) {
+		try {
+			return JSON.parse(readFileSync(candidate, 'utf8'));
+		} catch (err) {
+			lastErr = err;
+		}
+	}
+	throw lastErr;
+})();
 
 const VALID_WINDOWS = new Set(['24h', '7d', '30d']);
 

@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Top-trader leaderboard loads again",
+			"summary": "The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Your agent levels up: a shareable moment when its wallet crosses a wealth tier",
 			"summary": "The embodied-finance aura already makes an agent glow brighter as its wallet grows. Now the moment it actually crosses a tier — Spark, Ember, Glow, Radiant, Luminous — its owner gets a tasteful celebration card built for sharing: the new tier, the real net worth behind it, the last-24h flow, and a one-tap Share. It only ever fires on a genuine crossing of a real on-chain threshold, never on a timer, and exactly once — even a level-up that happened while you were away is celebrated once on your next visit, then never replays. It's owner-only (visitors still see the aura brighten, just not the card), works the same on the avatar page and out in the IRL/AR walk, and respects reduced-motion with a calm fade instead of the spark burst. Only coin referenced is $THREE.",
 			"tags": [

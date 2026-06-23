@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T08:52:44.524Z",
+	"generated_at": "2026-06-23T09:32:54.572Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -814,6 +814,16 @@
 			"type": "update",
 			"title": "three.ws opens cleanly inside in-app browsers",
 			"summary": "Opening a three.ws link from inside the X (Twitter) app, and other in-app browsers that sandbox local storage, could throw an error before the page finished setting up its language — leaving some visitors on a broken first screen. Language preference now degrades gracefully when storage is blocked instead of failing, so the site loads normally everywhere. We also quieted a class of harmless background network blips (an expired draft model link, a dropped request) that were being logged as errors even though the viewer already shows its designed \"couldn't load\" card and recovers.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Top-trader leaderboard loads again",
+			"summary": "The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.",
 			"link": null,
 			"tags": [
 				"fix"
