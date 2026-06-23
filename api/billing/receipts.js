@@ -1,12 +1,18 @@
 /**
- * GET /api/billing/receipts?purchase_id=<uuid>
- * Returns the signed receipt JSON for a confirmed purchase, auth-gated to the owning user.
+ * GET /api/billing/receipts
+ *
+ * Two receipt forms, both auth-gated to the owning user:
+ *   ?event_id=<id>      — a per-CHARGE receipt from the usage ledger: action,
+ *                         units, price, fee, holder discount applied, the
+ *                         settlement tx link, and the timestamp (api/_lib/metering.js).
+ *   ?purchase_id=<uuid> — the signed receipt JSON for a confirmed skill purchase.
  */
 
 import { sql } from '../_lib/db.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, error, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
+import { getReceipt } from '../_lib/metering.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
@@ -21,8 +27,18 @@ export default wrap(async (req, res) => {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const params = new URL(req.url, 'http://x').searchParams;
+
+	// Per-charge receipt from the usage ledger.
+	const eventId = params.get('event_id');
+	if (eventId) {
+		if (!/^\d+$/.test(eventId)) return error(res, 400, 'bad_request', 'event_id must be numeric');
+		const receipt = await getReceipt({ userId, eventId: Number(eventId) });
+		if (!receipt) return error(res, 404, 'not_found', 'receipt not found for this charge');
+		return json(res, 200, { data: receipt }, { 'cache-control': 'no-store' });
+	}
+
 	const purchaseId = params.get('purchase_id');
-	if (!purchaseId) return error(res, 400, 'bad_request', 'purchase_id required');
+	if (!purchaseId) return error(res, 400, 'bad_request', 'event_id or purchase_id required');
 
 	// Verify ownership before returning receipt
 	const [purchase] = await sql`

@@ -10,7 +10,18 @@ import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/
 import { requireCsrf } from '../_lib/csrf.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { invalidateSkillPriceCache } from '../_lib/skill-price-cache.js';
+import { persistListingSplit, clearListingSplit } from '../_lib/splits.js';
 import { z } from 'zod';
+
+// Optional multi-collaborator proceeds split. Each recipient declares a payout
+// address and a share (basis points OR percent); the app enforces Σ = 100%.
+const splitRecipientSchema = z.object({
+	address:           z.string().trim().min(1).max(120),
+	share_bps:         z.number().int().positive().max(10000).optional(),
+	percent:           z.number().positive().max(100).optional(),
+	recipient_user_id: z.string().uuid().nullable().optional(),
+	label:             z.string().trim().max(80).optional(),
+});
 
 const bodySchema = z.object({
 	agent_id:      z.string().uuid(),
@@ -18,6 +29,8 @@ const bodySchema = z.object({
 	amount:        z.number().int().min(0),
 	currency_mint: z.string().trim().min(1).max(100),
 	chain:         z.string().trim().min(1).max(20).default('solana'),
+	// Pass an array of 2+ recipients to split proceeds; null/[] clears the split.
+	split:         z.array(splitRecipientSchema).min(1).max(50).nullable().optional(),
 });
 
 async function resolveAuth(req) {
@@ -49,7 +62,7 @@ export default wrap(async (req, res) => {
 		return error(res, 400, 'validation_error', parsed.error.issues[0]?.message || 'validation error');
 	}
 
-	const { agent_id, skill, amount, currency_mint, chain } = parsed.data;
+	const { agent_id, skill, amount, currency_mint, chain, split } = parsed.data;
 
 	const [agent] = await sql`
 		SELECT id, user_id FROM agent_identities
@@ -57,6 +70,29 @@ export default wrap(async (req, res) => {
 	`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
 	if (agent.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+
+	// Resolve the proceeds split first so a malformed split (shares not summing
+	// to 100%, bad address) is rejected BEFORE we mutate the price row.
+	let splitResult = null;
+	if (amount === 0) {
+		// Delisting clears any split too — no orphaned config.
+		await clearListingSplit(sql, agent_id, skill).catch(() => {});
+	} else if (split && split.length > 0) {
+		try {
+			splitResult = await persistListingSplit(sql, {
+				agentId: agent_id,
+				skill,
+				chain,
+				recipients: split,
+				createdBy: auth.userId,
+			});
+		} catch (e) {
+			if (e.status) return error(res, e.status, e.code, e.message);
+			throw e;
+		}
+	} else if (split && split.length === 0) {
+		await clearListingSplit(sql, agent_id, skill).catch(() => {});
+	}
 
 	if (amount === 0) {
 		await sql`
@@ -77,5 +113,22 @@ export default wrap(async (req, res) => {
 	}
 
 	await invalidateSkillPriceCache(agent_id);
-	return json(res, 200, { data: { ok: true } });
+	return json(res, 200, {
+		data: {
+			ok: true,
+			...(splitResult
+				? {
+						split: {
+							mode: splitResult.split_mode,
+							address: splitResult.split_address,
+							recipients: splitResult.recipients.map((r) => ({
+								address: r.address,
+								share_bps: r.share_bps,
+								label: r.label,
+							})),
+						},
+					}
+				: {}),
+		},
+	});
 });

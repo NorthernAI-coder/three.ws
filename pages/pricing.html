@@ -163,6 +163,7 @@
 					quoted in USD, settled in <a href="/three">$THREE</a> at the live rate.
 					Drafts are always free.
 				</p>
+				<div class="payg-holder" id="payg-holder" hidden></div>
 				<div
 					class="payg-grid"
 					id="payg-grid"
@@ -1025,6 +1026,39 @@
 
 				const UNIT = { generation: 'generation', data: 'call' };
 				const fmtUsd = (usd) => '$' + Number(usd).toFixed(2);
+				// Personalized holder pricing — set from /api/pricing when the visitor
+				// is signed in with $THREE held. Server is the source of truth for the
+				// discounted "your price"; we never do balance math on the client.
+				let holder = null;
+
+				// A consistent holder-discount banner above the grid. Renders the real
+				// resolved tier + the live discount, or the upgrade nudge for members.
+				function renderHolderBanner() {
+					const host = document.getElementById('payg-holder');
+					if (!host) return;
+					if (!holder) {
+						host.innerHTML = '';
+						host.hidden = true;
+						return;
+					}
+					host.hidden = false;
+					const bps = Number(holder.discount_bps || 0);
+					if (bps > 0) {
+						host.innerHTML = `<div class="payg-holder-card is-active">
+							<span class="payg-holder-badge">${esc(holder.tier.label)}</span>
+							<span class="payg-holder-msg">You hold <strong>${fmtUsd(holder.usd_held)}</strong> of $THREE — every paid lane below is <strong>${holder.discount_percent}% off</strong>, applied at checkout.</span>
+							<a class="payg-holder-cta" href="/three">Manage holdings &rarr;</a>
+						</div>`;
+					} else {
+						const toNext = holder.next_tier
+							? ` Hold <strong>${fmtUsd(holder.usd_to_next)}</strong> more of $THREE to reach <strong>${esc(holder.next_tier.label)}</strong> and unlock ${(holder.next_tier.discount_bps / 100).toFixed(0)}% off.`
+							: '';
+						host.innerHTML = `<div class="payg-holder-card">
+							<span class="payg-holder-msg">Hold $THREE to discount every paid lane.${toNext}</span>
+							<a class="payg-holder-cta" href="/three">Get $THREE &rarr;</a>
+						</div>`;
+					}
+				}
 
 				function skeleton() {
 					grid.setAttribute('aria-busy', 'true');
@@ -1073,9 +1107,16 @@
 						fixed
 							.map((a) => {
 								const unit = UNIT[a.category] || 'call';
-								return `<article class="payg-card">
-									<div class="payg-card-top"><span class="payg-card-label">${esc(a.label)}</span></div>
-									<div class="payg-card-price"><span class="amt">${fmtUsd(a.usd)}</span><span class="unit">/ ${unit}</span></div>
+								// When the signed-in holder gets a discount, strike the list
+								// price and show their real price — the number checkout quotes.
+								const yours = a.your_usd != null ? Number(a.your_usd) : null;
+								const discounted = yours != null && yours < Number(a.usd);
+								const priceHtml = discounted
+									? `<span class="amt"><s class="payg-was">${fmtUsd(a.usd)}</s> ${fmtUsd(yours)}</span><span class="unit">/ ${unit}</span>`
+									: `<span class="amt">${fmtUsd(a.usd)}</span><span class="unit">/ ${unit}</span>`;
+								return `<article class="payg-card${discounted ? ' is-yourprice' : ''}">
+									<div class="payg-card-top"><span class="payg-card-label">${esc(a.label)}</span>${discounted ? '<span class="payg-badge is-discount">your price</span>' : ''}</div>
+									<div class="payg-card-price">${priceHtml}</div>
 									<div class="payg-card-settle">settled in <strong>$THREE</strong></div>
 								</article>`;
 							})
@@ -1086,10 +1127,15 @@
 				async function load() {
 					skeleton();
 					try {
-						const r = await fetch('/api/three/catalog', { headers: { accept: 'application/json' } });
-						if (!r.ok) throw new Error(`catalog ${r.status}`);
-						const { actions } = await r.json();
-						render(actions);
+						// /api/pricing is the canonical server-truth surface: catalog +
+						// platform fee + holder discount ladder + a personalized "your
+						// price" when signed in. Credentials so the session is read.
+						const r = await fetch('/api/pricing', { headers: { accept: 'application/json' }, credentials: 'include' });
+						if (!r.ok) throw new Error(`pricing ${r.status}`);
+						const data = await r.json();
+						holder = data.holder || null;
+						renderHolderBanner();
+						render(data.actions);
 						if (!viewed) {
 							viewed = true;
 							track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'pricing:pay-per-use' });

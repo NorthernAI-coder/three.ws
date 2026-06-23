@@ -19,6 +19,62 @@ import {
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
 import { assessTradeSafety, recordFirewallDecision } from '../../api/_lib/trade-firewall.js';
+import { recordDecision } from '../../api/_lib/reasoning-ledger.js';
+
+// Self-rated conviction for a snipe entry, 0..1. Lower price impact and a clean
+// firewall verdict raise it; a warned verdict and heavy impact lower it. This is
+// the prediction the Reasoning Ledger later scores for calibration — does an
+// 80%-confidence snipe actually exit profitably 80% of the time?
+function snipeConfidence({ priceImpactPct, maxImpactPct, firewallVerdict }) {
+	const impactPenalty = Math.min(1, Math.max(0, priceImpactPct) / (maxImpactPct > 0 ? maxImpactPct : 10)) * 0.4;
+	const fwBonus = firewallVerdict === 'allow' ? 0.1 : firewallVerdict === 'warn' ? -0.15 : 0;
+	const c = 0.6 + fwBonus - impactPenalty;
+	return Math.min(0.95, Math.max(0.05, c));
+}
+
+// Capture an opened snipe as a tamper-evident decision in the agent's reasoning
+// ledger. Best-effort: the on-chain buy has already settled, so a ledger-write
+// failure must never throw the trade away. Reconciled later against the closed
+// position's realized P&L by api/cron/reconcile-decisions.js.
+async function recordSnipeDecision({ strat, network, mint, posId, sig, mode, priceImpactPct, firewall, perTradeLamports }) {
+	try {
+		const perTradeSol = Number(BigInt(perTradeLamports)) / 1e9;
+		const confidence = snipeConfidence({
+			priceImpactPct,
+			maxImpactPct: Number(strat.max_price_impact_pct) || 10,
+			firewallVerdict: firewall?.verdict || null,
+		});
+		const trigger = mint.entry_trigger || 'new_mint';
+		const rationale =
+			`Sniped $${(mint.symbol || mint.mint.slice(0, 4)).toUpperCase()} on a ${trigger} trigger ` +
+			`with ${priceImpactPct.toFixed(2)}% price impact` +
+			(firewall ? `; firewall verdict ${firewall.verdict} (score ${firewall.score}).` : '.') +
+			` Committed ${perTradeSol.toFixed(4)} SOL expecting a profitable exit.`;
+		await recordDecision({
+			agentId: strat.agent_id,
+			kind: 'snipe',
+			subjectRef: mint.mint,
+			actionRef: String(posId),
+			confidence,
+			network,
+			inputs: {
+				entry_trigger: trigger,
+				trigger_ref: mint.trigger_ref || null,
+				price_impact_pct: Number(priceImpactPct.toFixed(4)),
+				per_trade_sol: Number(perTradeSol.toFixed(6)),
+				firewall: firewall ? { verdict: firewall.verdict, score: firewall.score } : null,
+				position_id: posId,
+				buy_sig: sig && sig !== 'SIMULATED' ? sig : null,
+				mode,
+				symbol: mint.symbol || null,
+			},
+			prediction: { direction: 'up', basis: 'snipe entry expects a profitable exit', metric: 'realized_pnl' },
+			rationale,
+		});
+	} catch (err) {
+		log.warn?.('ledger_record_failed', { agent: strat.agent_id, mint: mint.mint, message: err?.message });
+	}
+}
 
 // ── per-agent serialization ────────────────────────────────────────────────
 // Single-worker assumption: a per-agent in-process lock makes the budget +
@@ -226,6 +282,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			// 'off' skips the check. Never throws — the kernel degrades to 'warn'
 			// when a data source is down, so a firewall hiccup can't stall the trader.
 			const firewallLevel = ['warn', 'off'].includes(strat.firewall_level) ? strat.firewall_level : 'block';
+			let firewallSnapshot = null; // captured for the reasoning ledger
 			if (firewallLevel !== 'off') {
 				const assessment = await assessTradeSafety({
 					network: cfg.network,
@@ -261,6 +318,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 					if (assessment.verdict !== 'allow') {
 						log.info('firewall warn (proceeding)', { ...tag, level: firewallLevel, verdict: assessment.verdict, score: assessment.score });
 					}
+					firewallSnapshot = { verdict: assessment.verdict, score: assessment.score };
 				}
 			}
 
@@ -317,6 +375,10 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
 			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint });
+			await recordSnipeDecision({
+				strat, network: cfg.network, mint, posId, sig, mode: cfg.mode,
+				priceImpactPct: Number(quote.priceImpactPct), firewall: firewallSnapshot, perTradeLamports: perTrade,
+			});
 			return { status: 'open', sig };
 		} catch (err) {
 			return await fail(posId, tag, errCode(err), err);

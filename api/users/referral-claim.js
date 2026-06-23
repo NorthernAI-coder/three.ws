@@ -21,6 +21,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { cors, json, error, method, wrap, rateLimited, readJson } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { insertNotification } from '../_lib/notify.js';
+import { recordEvent } from '../_lib/usage.js';
 
 // Canonical referral-code shape (api/_lib/referrals.js REFERRAL_CODE_RE): A–Z
 // and 0–9, 3–20 chars. Accepts vanity codes (the member's name), not just the
@@ -88,6 +89,14 @@ export default wrap(async (req, res) => {
 	insertNotification(referrer.id, 'referral_signup', {
 		referred_user_id: me.id,
 		referred_name: me.display_name || null,
+	});
+
+	// Funnel: a referred signup just landed. Mirrors the inline-attribution event
+	// in api/auth/[action].js so visit→signup is measurable across every auth path.
+	recordEvent({
+		userId: referrer.id,
+		kind: 'referral_signup',
+		meta: { referred_user_id: String(me.id), source: 'claim' },
 	});
 
 	const referrerName = referrer.display_name || referrer.username || null;

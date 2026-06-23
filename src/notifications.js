@@ -7,8 +7,13 @@
 // All API calls are fire-and-forget with credentials: 'include'. A 401 just
 // means the user is not signed in — the badge stays hidden.
 
+import { isPushSupported, getPushState, getPushConfig, enablePush } from './push-notifications.js';
+
 const POLL_INTERVAL = 30_000;
 const AUTH_HINT_KEY = '3dagent:auth-hint';
+// Remember a dismissed/declined push prompt so the value-moment banner isn't
+// nagging — re-offer only via the explicit preference-center toggle after this.
+const PUSH_PROMPT_KEY = '3dagent:push-prompt-dismissed';
 
 // Cross-tab coordination. The inbox badge mounts in every open tab, and the
 // /api/notifications budget is keyed per user — so N tabs each polling on their
@@ -182,6 +187,17 @@ function relTime(dateStr) {
 	return `${Math.floor(h / 24)}d ago`;
 }
 
+// Fire-and-forget funnel beacon for the in-app channel. The push channel is
+// instrumented from the service worker; this closes the loop for inbox opens.
+function trackInApp(notificationId, event) {
+	fetch('/api/notifications/track', {
+		method: 'POST',
+		credentials: 'include',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ notification_id: notificationId, channel: 'in_app', event }),
+	}).catch(() => {});
+}
+
 function isAuthed() {
 	try {
 		const raw = localStorage.getItem(AUTH_HINT_KEY);
@@ -326,6 +342,7 @@ class NotificationInbox {
 
 		if (isAuthed()) {
 			this._renderBody();
+			this._maybeRenderPushBanner();
 			if (this._unread > 0) this._markAllRead();
 		} else {
 			this._renderLoggedOut();
@@ -421,6 +438,7 @@ class NotificationInbox {
 			const activate = () => {
 				const id = row.dataset.id;
 				const link = row.dataset.link;
+				if (id) trackInApp(id, 'opened');
 				if (id && row.classList.contains('is-unread')) this._markOneRead(id, row);
 				if (link) {
 					if (link.startsWith('http')) {
@@ -433,6 +451,57 @@ class NotificationInbox {
 			};
 			row.addEventListener('click', activate);
 			row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); } });
+		});
+	}
+
+	// Value-moment push prompt: only offered while the user is actively looking
+	// at their notifications, never on page load. Hidden when push is
+	// unsupported/unconfigured, already granted, previously denied, or dismissed.
+	async _maybeRenderPushBanner() {
+		if (!isPushSupported()) return;
+		try {
+			if (localStorage.getItem(PUSH_PROMPT_KEY) === '1') return;
+		} catch { /* storage disabled — still offer */ }
+
+		const [{ pushEnabled }, state] = await Promise.all([getPushConfig(), getPushState()]);
+		if (!pushEnabled || !state.supported) return;
+		if (state.subscribed || state.permission === 'denied') return;
+		// Panel may have closed while we awaited.
+		const body = this._panel?.querySelector('.notif-panel-body');
+		if (!this._open || !body) return;
+
+		const banner = document.createElement('div');
+		banner.className = 'notif-push-banner';
+		banner.innerHTML = `
+			<div class="notif-push-copy">
+				<span class="notif-push-icon" aria-hidden="true">🔔</span>
+				<span>Get notified the moment your agent earns or sells.</span>
+			</div>
+			<div class="notif-push-actions">
+				<button type="button" class="notif-push-enable">Turn on push</button>
+				<button type="button" class="notif-push-dismiss" aria-label="Dismiss">Not now</button>
+			</div>
+		`;
+		body.prepend(banner);
+
+		banner.querySelector('.notif-push-enable').addEventListener('click', async (e) => {
+			e.stopPropagation();
+			const btn = e.currentTarget;
+			btn.disabled = true;
+			btn.textContent = 'Enabling…';
+			const res = await enablePush();
+			if (res.ok) {
+				banner.remove();
+			} else {
+				btn.disabled = false;
+				btn.textContent = res.reason === 'denied' ? 'Blocked in browser' : 'Try again';
+				if (res.reason === 'denied') { try { localStorage.setItem(PUSH_PROMPT_KEY, '1'); } catch {} }
+			}
+		});
+		banner.querySelector('.notif-push-dismiss').addEventListener('click', (e) => {
+			e.stopPropagation();
+			try { localStorage.setItem(PUSH_PROMPT_KEY, '1'); } catch {}
+			banner.remove();
 		});
 	}
 

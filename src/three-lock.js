@@ -19,7 +19,10 @@
 
 import { safeUrl } from './safe-url.js';
 
-const ECONOMY_URL = '/three-token';
+// Default upgrade destination: the canonical $THREE tier surface (/three), where
+// the holder sees the full ladder and the "Hold more $THREE" buy action. Callers
+// may override per-control via lockStateFromAccess(access, { getThreeUrl }).
+const ECONOMY_URL = '/three';
 const SIGN_IN_URL = '/login';
 const LINK_WALLET_URL = '/dashboard/account#wallets';
 

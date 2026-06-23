@@ -1,6 +1,7 @@
 import { sql } from '../_lib/db.js';
 import { cors, json, method, wrap, error } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
+import { computeKFactor, conversionRate } from '../_lib/referral-rewards.js';
 
 export default wrap(async (req, res) => {
 	const resource = req.query?.resource;
@@ -197,6 +198,109 @@ export default wrap(async (req, res) => {
 		`;
 
 		return json(res, 200, { totals, byRoute, byDay });
+	}
+
+	if (resource === 'referrals') {
+		// Viral loop health. Window is configurable (?days=, 1–365, default 30) so
+		// the loop's k-factor and funnel can be tracked over the period that matters.
+		const params = new URL(req.url, 'http://x').searchParams;
+		const days = Math.min(365, Math.max(1, parseInt(params.get('days') || '30', 10)));
+		const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+
+		// Funnel counts over the window:
+		//   visits   — deduped referral-link visits (referral_visits)
+		//   sharers  — distinct attributed referrers who drove ≥1 visit
+		//   signups  — accounts that signed up referred (users.referred_by_id set)
+		//   activations — referred accounts that reached their first win
+		const [funnel] = await sql`
+			select
+				(select count(*)::int from referral_visits
+					where created_at > ${cutoff}::timestamptz)                                   as visits,
+				(select count(distinct referrer_user_id)::int from referral_visits
+					where created_at > ${cutoff}::timestamptz and referrer_user_id is not null) as sharers,
+				(select count(*)::int from users
+					where referred_by_id is not null and deleted_at is null
+					  and created_at > ${cutoff}::timestamptz)                                  as signups,
+				(select count(*)::int from users
+					where referred_by_id is not null and deleted_at is null
+					  and activated_at is not null and activated_at > ${cutoff}::timestamptz)   as activations
+		`;
+
+		// All-time totals for context (referred members, activated members, rewards paid).
+		const [totals] = await sql`
+			select
+				(select count(*)::int from users
+					where referred_by_id is not null and deleted_at is null)            as referred_members,
+				(select count(*)::int from users
+					where referred_by_id is not null and deleted_at is null
+					  and activated_at is not null)                                     as activated_referred_members,
+				(select coalesce(sum(amount_usd),0)::float from credit_ledger
+					where ref_type = 'referral_activation' and kind = 'grant')          as rewards_paid_usd,
+				(select count(*)::int from credit_ledger
+					where ref_type = 'referral_activation' and kind = 'grant')          as rewards_paid_count
+		`;
+
+		// Top referrers by activated referrals (the conversions that actually matter).
+		const topReferrers = await sql`
+			select
+				u.id, u.username, u.display_name,
+				count(ru.id)::int                                                  as referred_total,
+				count(ru.id) filter (where ru.activated_at is not null)::int       as activated_total,
+				coalesce(u.referral_earnings_total, 0)::bigint                     as commission_atomics
+			from users u
+			join users ru on ru.referred_by_id = u.id and ru.deleted_at is null
+			where u.deleted_at is null
+			group by u.id, u.username, u.display_name, u.referral_earnings_total
+			order by activated_total desc, referred_total desc
+			limit 20
+		`;
+
+		// Daily referred signups vs activations — the trend line for the loop.
+		const byDay = await sql`
+			select day, sum(signups)::int as signups, sum(activations)::int as activations from (
+				select date_trunc('day', created_at)::date as day, count(*) as signups, 0 as activations
+					from users
+					where referred_by_id is not null and deleted_at is null and created_at > ${cutoff}::timestamptz
+					group by 1
+				union all
+				select date_trunc('day', activated_at)::date as day, 0 as signups, count(*) as activations
+					from users
+					where referred_by_id is not null and deleted_at is null
+					  and activated_at is not null and activated_at > ${cutoff}::timestamptz
+					group by 1
+			) t
+			group by day order by day
+		`;
+
+		const visits = Number(funnel.visits || 0);
+		const signups = Number(funnel.signups || 0);
+		const activations = Number(funnel.activations || 0);
+		const sharers = Number(funnel.sharers || 0);
+
+		return json(res, 200, {
+			window_days: days,
+			funnel: { visits, sharers, signups, activations },
+			// k-factor: new referred signups per sharing user this window. >1 = viral.
+			k_factor: computeKFactor({ signups, sharers }),
+			conversion: {
+				visit_to_signup: conversionRate(signups, visits),
+				signup_to_activation: conversionRate(activations, signups),
+			},
+			totals: {
+				referred_members: Number(totals.referred_members || 0),
+				activated_referred_members: Number(totals.activated_referred_members || 0),
+				rewards_paid_usd: Number(totals.rewards_paid_usd || 0),
+				rewards_paid_count: Number(totals.rewards_paid_count || 0),
+			},
+			top_referrers: topReferrers.map((r) => ({
+				user_id: r.id,
+				username: r.username || null,
+				display_name: r.display_name || r.username || null,
+				referred_total: Number(r.referred_total || 0),
+				activated_total: Number(r.activated_total || 0),
+				commission_earned_usd: Number(r.commission_atomics || 0) / 1_000_000,
+			})),
+		});
 	}
 
 	return error(res, 404, 'not_found', 'unknown admin resource');

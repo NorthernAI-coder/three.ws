@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T09:51:57.351Z",
+	"generated_at": "2026-06-23T10:31:59.220Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -84,6 +84,17 @@
 			"link": "/arena",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Agent profiles: a guided first run for brand-new agents, and one-click into the right studio",
+			"summary": "A freshly created agent used to show blank space where its Recent Actions, Memory, and Strategy panels live — nothing to tell its owner what those panels are for or how to fill them. Now, when you own an agent that hasn't done anything yet, each of those panels shows a clear, friendly empty state instead: what the panel tracks, why it matters, and a button that takes you straight to the exact place to act. “No signed actions yet” sends you to the Skills studio to switch on capabilities; “No memories yet” opens the Memory studio to seed what it remembers; “No strategy set” drops you into the Brain studio to define how it trades and acts on its own. Those buttons now deep-link to the specific agent you were viewing — the studio opens that agent on the right tab, instead of defaulting to your first one — so the path from profile to configured agent is a single click. Visitors who don't own the agent see none of this; the panels stay owner-only. Only coin referenced is $THREE.",
+			"link": "/agents",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

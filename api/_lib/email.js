@@ -142,6 +142,41 @@ export function sendReferralCommissionEmail({ to, amount, currency, fromHandle, 
 	return sendEmail({ to, ...renderReferralCommission({ amount, currency, fromHandle, skillName, date }) });
 }
 
+// Double opt-in newsletter confirmation. Minimal localization (prompt 38) so a
+// subscriber confirms in their own language; unknown locales fall back to en.
+const NEWSLETTER_I18N = {
+	en: { subject: 'Confirm your three.ws subscription', heading: 'Confirm your subscription', body: 'Tap below to confirm you want updates from three.ws — new features, launches, and changelog highlights.', cta: 'Confirm subscription', foot: "If you didn't request this, you can ignore this email." },
+	es: { subject: 'Confirma tu suscripción a three.ws', heading: 'Confirma tu suscripción', body: 'Toca abajo para confirmar que quieres novedades de three.ws — nuevas funciones, lanzamientos y cambios destacados.', cta: 'Confirmar suscripción', foot: 'Si no lo solicitaste, puedes ignorar este correo.' },
+	fr: { subject: 'Confirmez votre abonnement three.ws', heading: 'Confirmez votre abonnement', body: 'Appuyez ci-dessous pour confirmer que vous souhaitez recevoir les actualités de three.ws — nouvelles fonctionnalités, lancements et nouveautés.', cta: "Confirmer l'abonnement", foot: "Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail." },
+	pt: { subject: 'Confirme a sua inscrição na three.ws', heading: 'Confirme a sua inscrição', body: 'Toque abaixo para confirmar que deseja novidades da three.ws — novos recursos, lançamentos e destaques.', cta: 'Confirmar inscrição', foot: 'Se não foi você, pode ignorar este e-mail.' },
+	de: { subject: 'Bestätige dein three.ws-Abo', heading: 'Abo bestätigen', body: 'Tippe unten, um zu bestätigen, dass du Updates von three.ws erhalten möchtest — neue Funktionen, Launches und Changelog-Highlights.', cta: 'Abo bestätigen', foot: 'Falls du das nicht angefordert hast, ignoriere diese E-Mail.' },
+};
+
+function newsletterCopy(locale) {
+	const lang = String(locale || 'en').slice(0, 2).toLowerCase();
+	return NEWSLETTER_I18N[lang] || NEWSLETTER_I18N.en;
+}
+
+export function renderNewsletterConfirm({ confirmUrl, locale }) {
+	const t = newsletterCopy(locale);
+	return {
+		subject: t.subject,
+		html: layout(t.subject, `
+    <p class="brand">three.ws</p>
+    <h1>${esc(t.heading)}</h1>
+    <p>${esc(t.body)}</p>
+    <a class="btn" href="${esc(confirmUrl)}">${esc(t.cta)}</a>
+    <hr>
+    <p class="muted">${esc(t.foot)}</p>
+  `),
+		text: `${t.heading}\n\n${t.body}\n\n${confirmUrl}\n\n${t.foot}`,
+	};
+}
+
+export function sendNewsletterConfirmEmail({ to, confirmUrl, locale }) {
+	return sendEmail({ to, ...renderNewsletterConfirm({ confirmUrl, locale }) });
+}
+
 // ─── HTML helpers ─────────────────────────────────────────────────────────────
 
 function layout(title, body) {

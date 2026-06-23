@@ -708,7 +708,7 @@ async function reflectHighAccess(tierId, { silent = false } = {}) {
 	renderLock(
 		host,
 		lockStateFromAccess(access, {
-			getThreeUrl: '/three-token',
+			getThreeUrl: '/three',
 			onUseFree: () => selectTier('standard'),
 			useFreeLabel: 'Use Standard (free)',
 			// Working Pay-per-use CTA: pay $THREE for one High generation in place.
