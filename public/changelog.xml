@@ -63,14 +63,6 @@
 			<description>Copy-trade a 3D agent with a verifiable on-chain reputation: stake into a verified trader, share its real P&amp;L pro-rata, and watch it trade your capital live — segregated custody, hard spend limits, and a drawdown circuit breaker.</description>
 		</item>
 		<item>
-			<title>Clone — Digital Human Twin (Redacted)</title>
-			<link>https://three.ws/features/clone</link>
-			<guid isPermaLink="false">2026-06-23:Clone — Digital Human Twin (Redacted)</guid>
-			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>How three.ws assembles a high-fidelity digital twin of a real person — likeness, voice, persona, memory, on-chain identity. The procedure is redacted; access is gated behind verified, revocable consent.</description>
-		</item>
-		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -85,14 +77,6 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Provable, on-chain-anchored custody for every three.ws agent wallet. The platform commits a Merkle root over every wallet's on-chain state to Solana — verify the latest root yourself, no account required.</description>
-		</item>
-		<item>
-			<title>Docs · When your agent asks for a body</title>
-			<link>https://three.ws/docs/agent-wants-a-body</link>
-			<guid isPermaLink="false">2026-06-23:Docs · When your agent asks for a body</guid>
-			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>The owner's playbook for the moment your 3D agent asks to become a physical being: what it's really asking, how to decide, how to pair a humanoid, the deny-by-default consent scope, the always-reachable kill-switch, what it costs in $THREE, and how ownership transfers. Embodiment is opt-in, scoped, and revocable — the body is rented, the soul is owned.</description>
 		</item>
 		<item>
 			<title>Guardian console — recover &amp; inherit agent wallets</title>
@@ -157,14 +141,6 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.</description>
-		</item>
-		<item>
-			<title>The AGI — narrow by design</title>
-			<link>https://three.ws/agi</link>
-			<guid isPermaLink="false">2026-06-23:The AGI — narrow by design</guid>
-			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.</description>
 		</item>
 		<item>
 			<title>The Arena — live PvP trading tournaments</title>

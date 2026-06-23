@@ -379,14 +379,6 @@
 					"added": "2026-06-05"
 				},
 				{
-					"path": "/features/clone",
-					"title": "Clone — Digital Human Twin (Redacted)",
-					"description": "How three.ws assembles a high-fidelity digital twin of a real person — likeness, voice, persona, memory, on-chain identity. The procedure is redacted; access is gated behind verified, revocable consent.",
-					"priority": 0.6,
-					"changefreq": "monthly",
-					"added": "2026-06-23"
-				},
-				{
 					"path": "/features/play",
 					"title": "Play — Live 3D Coin Worlds",
 					"description": "Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.",
@@ -1364,12 +1356,6 @@
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
 					"added": "2026-04-27"
-				},
-				{
-					"path": "/docs/agent-wants-a-body",
-					"title": "Docs · When your agent asks for a body",
-					"description": "The owner's playbook for the moment your 3D agent asks to become a physical being: what it's really asking, how to decide, how to pair a humanoid, the deny-by-default consent scope, the always-reachable kill-switch, what it costs in $THREE, and how ownership transfers. Embodiment is opt-in, scoped, and revocable — the body is rented, the soul is owned.",
-					"added": "2026-06-23"
 				},
 				{
 					"path": "/docs/web-component",
