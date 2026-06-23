@@ -63,9 +63,11 @@ async function refreshIfNeeded(conn) {
 	return tok.access_token;
 }
 
-async function postOne({ accessToken, text, replyTo }) {
-	const body = { text };
+async function postOne({ accessToken, text, replyTo, mediaIds = null }) {
+	const body = {};
+	if (text) body.text = text;
 	if (replyTo) body.reply = { in_reply_to_tweet_id: replyTo };
+	if (mediaIds && mediaIds.length) body.media = { media_ids: mediaIds };
 	const r = await fetch('https://api.twitter.com/2/tweets', {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', authorization: `Bearer ${accessToken}` },
@@ -75,13 +77,83 @@ async function postOne({ accessToken, text, replyTo }) {
 	return (await r.json()).data;
 }
 
+// Chunked upload of a screenshot / clip to X's v2 media endpoint, returning the
+// media_id to attach to a tweet. Single endpoint, command-driven (INIT → APPEND
+// → FINALIZE → STATUS), authenticated with the connected user's OAuth2 token —
+// which must carry the `media.write` scope (granted on connect, see auth/x).
+// Video is processed asynchronously, so we poll STATUS until it succeeds.
+const X_MEDIA_UPLOAD_URL = 'https://api.x.com/2/media/upload';
+const X_MEDIA_CHUNK_BYTES = 4 * 1024 * 1024; // 4 MB — X's per-APPEND ceiling
+
+function mediaCategoryFor(mimeType) {
+	if (mimeType.startsWith('video/')) return 'tweet_video';
+	if (mimeType === 'image/gif') return 'tweet_gif';
+	return 'tweet_image';
+}
+
+export async function uploadMediaV2({ accessToken, buffer, mimeType }) {
+	const total = buffer.length;
+	const auth = { authorization: `Bearer ${accessToken}` };
+
+	const initForm = new FormData();
+	initForm.set('command', 'INIT');
+	initForm.set('media_type', mimeType);
+	initForm.set('total_bytes', String(total));
+	initForm.set('media_category', mediaCategoryFor(mimeType));
+	const initRes = await fetch(X_MEDIA_UPLOAD_URL, { method: 'POST', headers: auth, body: initForm });
+	if (!initRes.ok)
+		throw new XPostError('media_upload_failed', `media INIT failed: ${(await initRes.text()).slice(0, 200)}`, 502);
+	const initJson = await initRes.json();
+	const mediaId = initJson?.data?.id || initJson?.data?.media_id_string || initJson?.media_id_string;
+	if (!mediaId) throw new XPostError('media_upload_failed', 'media INIT returned no id', 502);
+
+	let segment = 0;
+	for (let offset = 0; offset < total; offset += X_MEDIA_CHUNK_BYTES) {
+		const chunk = buffer.subarray(offset, Math.min(offset + X_MEDIA_CHUNK_BYTES, total));
+		const appendForm = new FormData();
+		appendForm.set('command', 'APPEND');
+		appendForm.set('media_id', mediaId);
+		appendForm.set('segment_index', String(segment));
+		appendForm.set('media', new Blob([chunk], { type: 'application/octet-stream' }), 'chunk');
+		const appendRes = await fetch(X_MEDIA_UPLOAD_URL, { method: 'POST', headers: auth, body: appendForm });
+		if (!appendRes.ok)
+			throw new XPostError('media_upload_failed', `media APPEND ${segment} failed: ${(await appendRes.text()).slice(0, 200)}`, 502);
+		segment++;
+	}
+
+	const finalizeForm = new FormData();
+	finalizeForm.set('command', 'FINALIZE');
+	finalizeForm.set('media_id', mediaId);
+	const finalizeRes = await fetch(X_MEDIA_UPLOAD_URL, { method: 'POST', headers: auth, body: finalizeForm });
+	if (!finalizeRes.ok)
+		throw new XPostError('media_upload_failed', `media FINALIZE failed: ${(await finalizeRes.text()).slice(0, 200)}`, 502);
+	const finalizeJson = await finalizeRes.json();
+	let info = finalizeJson?.data?.processing_info || finalizeJson?.processing_info || null;
+
+	// Async transcode (video): poll STATUS until the asset is ready or fails.
+	let tries = 0;
+	while (info && (info.state === 'pending' || info.state === 'in_progress') && tries < 30) {
+		await new Promise((r) => setTimeout(r, Math.min((info.check_after_secs || 1) * 1000, 5000)));
+		const statusRes = await fetch(`${X_MEDIA_UPLOAD_URL}?command=STATUS&media_id=${mediaId}`, { headers: auth });
+		if (!statusRes.ok) break;
+		const statusJson = await statusRes.json();
+		info = statusJson?.data?.processing_info || statusJson?.processing_info || null;
+		tries++;
+	}
+	if (info && info.state === 'failed')
+		throw new XPostError('media_processing_failed', info?.error?.message || 'media processing failed', 502);
+
+	return mediaId;
+}
+
 // Publish a single tweet (text) or a thread (threadParts).
 // Counts each tweet against the user's monthly quota.
 // Optionally appends a link to https://three.ws/avatars/<agentId> on the final tweet.
-export async function publishTweet({ userId, agentId = null, text, threadParts = null, replyTo = null, appendLink = false }) {
+export async function publishTweet({ userId, agentId = null, text, threadParts = null, replyTo = null, appendLink = false, mediaBuffer = null, mediaMimeType = null }) {
 	if (!env.X_OAUTH_CLIENT_ID || !env.X_OAUTH_CLIENT_SECRET) {
 		throw new XPostError('not_configured', 'X OAuth is not configured', 501);
 	}
+	const hasMedia = mediaBuffer && mediaBuffer.length > 0 && mediaMimeType;
 
 	const parts = Array.isArray(threadParts) && threadParts.length
 		? threadParts.map((s) => String(s || '').trim()).filter(Boolean)
@@ -135,15 +207,19 @@ export async function publishTweet({ userId, agentId = null, text, threadParts =
 		}
 	}
 
-	// Dedup on first part of thread.
-	const head = parts[0];
-	const dup = await sql`
-		select 1 from x_posts
-		where user_id = ${userId} and text = ${head}
-		  and created_at > now() - ${`${DEDUP_WINDOW_DAYS} days`}::interval
-		limit 1
-	`;
-	if (dup.length) throw new XPostError('duplicate', `same text posted within the last ${DEDUP_WINDOW_DAYS} days`, 409);
+	// Dedup on first part of thread. Skipped for media posts: a user sharing
+	// several distinct screenshots / clips of the same avatar reuses the same
+	// caption legitimately, so identical text alone must not block them.
+	if (!hasMedia) {
+		const head = parts[0];
+		const dup = await sql`
+			select 1 from x_posts
+			where user_id = ${userId} and text = ${head}
+			  and created_at > now() - ${`${DEDUP_WINDOW_DAYS} days`}::interval
+			limit 1
+		`;
+		if (dup.length) throw new XPostError('duplicate', `same text posted within the last ${DEDUP_WINDOW_DAYS} days`, 409);
+	}
 
 	// Append link-back to agent page on final tweet (if it fits).
 	if (appendLink && agentId) {
@@ -157,10 +233,16 @@ export async function publishTweet({ userId, agentId = null, text, threadParts =
 
 	const accessToken = await refreshIfNeeded(conn);
 
+	// Upload media once and attach to the first (head) tweet only.
+	const mediaIds = hasMedia
+		? [await uploadMediaV2({ accessToken, buffer: mediaBuffer, mimeType: mediaMimeType })]
+		: null;
+
 	const published = [];
 	let prevId = replyTo;
-	for (const part of parts) {
-		const d = await postOne({ accessToken, text: part, replyTo: prevId });
+	for (let i = 0; i < parts.length; i++) {
+		const part = parts[i];
+		const d = await postOne({ accessToken, text: part, replyTo: prevId, mediaIds: i === 0 ? mediaIds : null });
 		published.push(d);
 		await sql`
 			insert into x_posts (user_id, agent_id, tweet_id, text, reply_to_tweet_id)

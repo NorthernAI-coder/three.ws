@@ -133,12 +133,36 @@ async function handleInvoke(req, res) {
 		});
 		return json(res, 200, {
 			ok: true,
-			access: access.via_subscription ? 'subscription' : access.trial ? 'trial' : 'purchase',
+			access: access.via_subscription
+				? 'subscription'
+				: access.via_nft
+					? 'nft'
+					: access.trial
+						? 'trial'
+						: 'purchase',
 			...(access.trial
 				? { trial_remaining: Math.max(0, (access.trial_remaining ?? 1) - 1) }
 				: {}),
 			result,
 		});
+	}
+
+	// NFT-gated but the caller doesn't hold the collection. Payment cannot unlock
+	// it — access is the on-chain holding — so there is no x402 challenge to issue.
+	// Return 402 with the required collection so the caller knows what to acquire.
+	if (access.gate?.type === 'nft') {
+		return error(
+			res,
+			402,
+			'nft_gate_required',
+			`You need to hold an NFT from collection ${access.gate.collection} to use this skill.`,
+			{
+				agent_id: agent.id,
+				skill: body.skill,
+				reason: access.reason || 'nft_required',
+				gate: { type: 'nft', collection: access.gate.collection },
+			},
+		);
 	}
 
 	// Priced but unowned. A human session caller (cookie auth) cannot construct an

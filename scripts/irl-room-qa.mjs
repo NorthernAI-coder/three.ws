@@ -213,22 +213,37 @@ console.log('6) Placement-capability matrix (the WebXR-on-iOS gate)');
 	}
 }
 
-// ── 7) Deployed API probe (optional, --url) — the GET/POST contract is LIVE ───
-// Read-first: confirms GET /api/irl/pins carries the room columns in its shape.
-// Does NOT place a pin (a write needs a device token + would litter prod). The
-// real POST round-trip is the on-device step; this just proves the endpoint is up
-// and the room fields survived the deploy (R4 §6 pre-condition).
+// ── 7) Deployed API probe (optional, --url) — the LIVE GET contract + auth ────
+// Exercises the real proof-of-presence handshake the on-device client uses:
+//   POST /api/irl/fix-token { lat,lng } → token   (anti-GPS-spoof, H3)
+//   GET  /api/irl/pins?lat,lng  with  x-irl-fix: <token>  → { pins:[…] }
+// then asserts the room columns survived the deploy (R4 §6 pre-condition) and the
+// viewer projection never leaks owner identity. Read-only: it does NOT place a pin
+// (a write would litter prod) — the POST round-trip is the on-device step. An
+// empty `pins` near the synthetic coord is expected and still proves the contract.
 const urlArg = process.argv.indexOf('--url');
 if (urlArg !== -1 && process.argv[urlArg + 1]) {
 	const base = process.argv[urlArg + 1].replace(/\/$/, '');
-	console.log(`7) Deployed probe — ${base}/api/irl/pins`);
+	console.log(`7) Deployed probe — ${base}/api/irl`);
+	const LAT = 37.7749, LNG = -122.4194;
 	const ROOM_KEYS = ['room_id', 'rel_east_m', 'rel_north_m', 'origin_lat', 'origin_lng', 'origin_yaw_deg'];
 	try {
-		// San Francisco sample coord; an empty result is fine — we assert the SHAPE.
-		const res = await fetch(`${base}/api/irl/pins?lat=37.7749&lng=-122.4194&deviceToken=room-qa-probe`, {
-			headers: { accept: 'application/json' },
+		// A bare lat/lng read must be REFUSED — proof-of-presence is the whole point.
+		const noFix = await fetch(`${base}/api/irl/pins?lat=${LAT}&lng=${LNG}&deviceToken=room-qa-probe`, { headers: { accept: 'application/json' } });
+		check('a read WITHOUT a fix token is refused (anti-spoof gate live)', noFix.status === 401);
+
+		// Mint the short-lived presence proof, exactly as the client does.
+		const mint = await fetch(`${base}/api/irl/fix-token`, {
+			method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lat: LAT, lng: LNG }),
 		});
-		check('GET returns a 2xx', res.ok);
+		check('POST /api/irl/fix-token mints a presence proof (2xx)', mint.ok);
+		const token = (await mint.json().catch(() => ({}))).token;
+		check('the mint returns a signed token', typeof token === 'string' && token.length > 16);
+
+		const res = await fetch(`${base}/api/irl/pins?lat=${LAT}&lng=${LNG}&deviceToken=room-qa-probe`, {
+			headers: { accept: 'application/json', 'x-irl-fix': token || '' },
+		});
+		check('GET /api/irl/pins with the fix token returns 2xx', res.ok);
 		const data = await res.json().catch(() => null);
 		check('response is JSON with a pins array', Array.isArray(data?.pins));
 		if (Array.isArray(data?.pins) && data.pins.length) {
@@ -237,10 +252,10 @@ if (urlArg !== -1 && process.argv[urlArg + 1]) {
 			check('viewer rows expose is_mine boolean, never user_id/device_token',
 				typeof p.is_mine === 'boolean' && !('user_id' in p) && !('device_token' in p));
 		} else {
-			console.log('  · no pins near the probe coord — shape check skipped (place one on-device to fully verify)');
+			console.log('  · no pins near the synthetic probe coord — contract proven, per-row shape needs a live pin (place one on-device)');
 		}
 	} catch (err) {
-		check(`GET /api/irl/pins reachable (${err?.message || err})`, false);
+		check(`deployed /api/irl reachable (${err?.message || err})`, false);
 	}
 } else {
 	console.log('7) Deployed probe — skipped (pass --url https://three.ws to run it)');
