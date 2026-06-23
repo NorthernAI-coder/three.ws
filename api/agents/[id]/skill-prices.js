@@ -16,12 +16,26 @@ import { requireCsrf } from '../../_lib/csrf.js';
 import { invalidateSkillPriceCache } from '../../_lib/skill-price-cache.js';
 import { z } from 'zod';
 
-const upsertSchema = z.object({
-	skill: z.string().trim().min(1).max(100),
-	amount: z.number().int().min(1),
-	currency_mint: z.string().trim().min(1).max(100),
-	chain: z.string().trim().min(1).max(20).default('solana'),
-});
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const upsertSchema = z
+	.object({
+		skill: z.string().trim().min(1).max(100),
+		// Required for a price gate; stored as 0 for an NFT gate (access = holding).
+		amount: z.number().int().min(1).optional(),
+		currency_mint: z.string().trim().min(1).max(100),
+		chain: z.string().trim().min(1).max(20).default('solana'),
+		gate_type: z.enum(['price', 'nft']).default('price'),
+		nft_collection_mint: z.string().trim().regex(SOLANA_ADDRESS_RE).nullable().optional(),
+	})
+	.refine((p) => p.gate_type === 'nft' || (p.amount ?? 0) >= 1, {
+		message: 'amount is required for a priced skill',
+		path: ['amount'],
+	})
+	.refine((p) => p.gate_type !== 'nft' || !!p.nft_collection_mint, {
+		message: 'nft_collection_mint is required for an NFT gate',
+		path: ['nft_collection_mint'],
+	});
 
 const updateSchema = z.object({
 	skill: z.string().trim().min(1).max(100),
@@ -78,16 +92,23 @@ export default wrap(async (req, res) => {
 				parsed.error.issues[0]?.message || 'invalid',
 			);
 		}
-		const { skill, amount, currency_mint, chain } = parsed.data;
+		const { skill, currency_mint, chain, gate_type } = parsed.data;
+		const isNft = gate_type === 'nft';
+		const amount = isNft ? 0 : parsed.data.amount;
+		const nftCollectionMint = isNft ? parsed.data.nft_collection_mint : null;
 		await sql`
-			INSERT INTO agent_skill_prices (agent_id, skill, amount, currency_mint, chain, is_active)
-			VALUES (${agentId}, ${skill}, ${amount}, ${currency_mint}, ${chain}, true)
+			INSERT INTO agent_skill_prices
+				(agent_id, skill, amount, currency_mint, chain, is_active, gate_type, nft_collection_mint)
+			VALUES (${agentId}, ${skill}, ${amount}, ${currency_mint}, ${chain}, true,
+				${isNft ? 'nft' : 'price'}, ${nftCollectionMint})
 			ON CONFLICT (agent_id, skill) DO UPDATE SET
-				amount        = EXCLUDED.amount,
-				currency_mint = EXCLUDED.currency_mint,
-				chain         = EXCLUDED.chain,
-				is_active     = true,
-				updated_at    = now()
+				amount              = EXCLUDED.amount,
+				currency_mint       = EXCLUDED.currency_mint,
+				chain               = EXCLUDED.chain,
+				is_active           = true,
+				gate_type           = EXCLUDED.gate_type,
+				nft_collection_mint = EXCLUDED.nft_collection_mint,
+				updated_at          = now()
 		`;
 		await invalidateSkillPriceCache(agentId);
 		return json(res, 200, { data: { ok: true } });

@@ -2204,7 +2204,7 @@ function compassLabel(deg) {
 	return dirs[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 }
 
-async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
+async function savePin(lat, lng, heading = 0, caption = '', anchor = null, placement = null) {
 	try {
 		// Anchor pose (A2): a reproducible record of where the agent stands —
 		// floor height, orientation, and how trustworthy this GPS fix was — so a
@@ -2241,6 +2241,11 @@ async function savePin(lat, lng, heading = 0, caption = '', anchor = null) {
 				deviceToken: _deviceToken,
 				agentId:     _currentAgentId || null,
 				anchor:      anchorBody,
+				// Placement consent (H4): the kind + radius the coordinate above was
+				// already fuzzed by (precise → unchanged). The server stores only this
+				// fuzzed spot, never the true one. Defaults keep old behaviour intact.
+				placement:   placement?.placementKind || 'precise',
+				fuzzRadiusM: placement?.fuzzRadiusM || 0,
 			}),
 		});
 		if (!r.ok) {
@@ -2591,6 +2596,12 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 		setLocked(false);
 		return;
 	}
+	// Placement consent (H4): in approximate mode fuzz the coordinate HERE, at commit,
+	// so the true standing spot is never persisted AND the agent renders at the fuzzed
+	// spot for everyone — including the owner (gpsPin below). Precise mode is a no-op.
+	const place = applyPlacementKind(pinLat, pinLng);
+	pinLat = place.lat;
+	pinLng = place.lng;
 	gpsPin = { lat: pinLat, lng: pinLng, heightM: 0 };
 	// Gyro-GPS placement pose (A2/A3): the agent stands on the floor. anchor_height_m
 	// is a floor-relative offset, and gyro placement has no measured floor depth, so
@@ -2602,11 +2613,14 @@ function commitPin(pinLat, pinLng, headingDeg, caption, source = 'gyro-gps') {
 	// Tell the truth about precision: a noisy fix (>25 m) is an approximate spot, not a
 	// pinpoint. The exact metres ride the stored gpsAccuracyM (savePin); here we surface
 	// a subtle note so the success copy never implies more accuracy than the fix had.
+	// An intentionally-approximate placement says so plainly instead of citing the fix.
 	const acc = gpsAccuracyBucket(gpsState.accuracy);
 	// Only annotate when we have a concrete metres figure to show (skip the unknown
 	// bucket, which has no label — no number, nothing honest to add).
-	const accNote = acc.precise || !acc.label ? '' : ` · approximate spot (${acc.label})`;
-	savePin(pinLat, pinLng, headingDeg, caption, anchor).then(result => {
+	const accNote = place.placementKind === 'approximate'
+		? ` · approximate spot (~${place.fuzzRadiusM} m)`
+		: acc.precise || !acc.label ? '' : ` · approximate spot (${acc.label})`;
+	savePin(pinLat, pinLng, headingDeg, caption, anchor, place).then(result => {
 		if (result?.ok && gpsPin) {
 			gpsPin.id = result.id;
 			_myPinIds.add(result.id);
@@ -2643,9 +2657,14 @@ function startMapPlacement() {
 // Optional caption step for a map-placed pin. Reuses the caption panel UI but
 // routes confirm/cancel to the remote commit — cancel just closes (there is no AR
 // lock to release, unlike the gyro/GPS caption flow).
-function openCaptionForMapPin(lat, lng, label) {
+async function openCaptionForMapPin(lat, lng, label) {
+	// Same consent gate as the GPS path (H4) — a map-placed agent is still a public
+	// real-world spot, and approximate placement applies here too. Cancelling just
+	// drops out (no AR lock to release on this remote path).
+	if (!(await maybeConfirmPlacement())) return;
 	if (!captionPanel) { commitMapPin(lat, lng, '', label); return; }
 	captionInput.value = '';
+	refreshCaptionPlacementChip();
 	captionPanel.classList.add('is-open');
 	focusCaptionWhenOpen();
 	const close = () => { captionPanel.classList.remove('is-open'); releaseSheet(captionPanel); };
@@ -2660,9 +2679,12 @@ function openCaptionForMapPin(lat, lng, label) {
 
 async function commitMapPin(lat, lng, caption, label) {
 	setStatus('Placing agent…', { loading: true, sticky: true });
+	// Apply the placement choice (H4) — approximate fuzzes the chosen point so only
+	// the blurred spot is ever stored. precise leaves it untouched.
+	const place = applyPlacementKind(lat, lng);
 	// source:'map' → the server records a non-GPS, non-compass placement; savePin
 	// nulls the GPS accuracy/altitude for it. heading 0 (no live bearing to store).
-	const result = await savePin(lat, lng, 0, caption, { heightM: 0, yawDeg: 0, source: 'map' });
+	const result = await savePin(place.lat, place.lng, 0, caption, { heightM: 0, yawDeg: 0, source: 'map' }, place);
 	if (result?.ok) {
 		_myPinIds.add(result.id);
 		const where = label ? ` at ${label}` : '';
@@ -4455,6 +4477,20 @@ function _pinMetaLine(p) {
 	return parts.join(' · ');
 }
 
+// Exact/Approximate badge (H4) for an owned pin row — so the owner always sees how
+// exposed each placement is. An approximate pin shows its blur radius; precise (and
+// legacy pins with no placement_kind) show the exact pin. Returns escaped HTML.
+function _placementBadgeHTML(p) {
+	const approx = p?.placement_kind === 'approximate';
+	const text = approx
+		? `≈ Approximate (~${Math.round(Number(p.fuzz_radius_m) || PLACEMENT_FUZZ_DEFAULT)} m)`
+		: '📍 Exact';
+	const title = approx
+		? 'Stored at a deliberately blurred spot — your exact location was never saved.'
+		: 'Stored at the exact spot you placed it.';
+	return `<span class="irl-pin-place${approx ? ' is-approx' : ''}" title="${_escHtml(title)}">${_escHtml(text)}</span>`;
+}
+
 // Designed empty state for the My-pins sheet — shared by loadInto (sheet open)
 // and deleteMyPin (when the last pin is removed) so the copy never diverges.
 const MYPINS_EMPTY = {
@@ -4498,7 +4534,7 @@ function renderMyPins(pins, listEl) {
 	if (!list) return;
 	list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
 		<div class="irl-pin-info">
-			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}</div>
+			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}${_placementBadgeHTML(p)}</div>
 			${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
 			<div class="irl-pin-meta">${_pinMetaLine(p)}</div>
 		</div>
