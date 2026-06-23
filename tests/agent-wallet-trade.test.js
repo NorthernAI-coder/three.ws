@@ -78,6 +78,12 @@ const fakeConn = {
 	getParsedAccountInfo: vi.fn(async () => ({ value: { data: { parsed: { info: { decimals: 6 } } } } })),
 	getAccountInfo: vi.fn(async () => ({ owner: TOKEN_2022 })),
 	getLatestBlockhash: vi.fn(async () => ({ blockhash: connState.blockhash, lastValidBlockHeight: 1000 })),
+	// The execution engine runs a REAL pre-broadcast simulateTransaction to size the
+	// compute-unit budget and reads getRecentPrioritizationFees for the priority fee.
+	// The fake conn answers both so the engine's data-driven CU/fee path is exercised
+	// (not stubbed) end-to-end against this test's instructions.
+	simulateTransaction: vi.fn(async () => ({ value: { err: connState.confirmErr, unitsConsumed: 120_000, logs: [] } })),
+	getRecentPrioritizationFees: vi.fn(async () => [{ prioritizationFee: 1_000 }, { prioritizationFee: 2_000 }]),
 	sendRawTransaction: vi.fn(async () => { connState.sent += 1; return connState.sig; }),
 	confirmTransaction: vi.fn(async () => ({ value: { err: connState.confirmErr } })),
 	getSignatureStatus: vi.fn(async () => ({ value: { err: null, confirmationStatus: 'confirmed' } })),
@@ -274,8 +280,15 @@ describe('handleTrade — idempotency + execution', () => {
 		await handleTrade(makeReq({ side: 'buy', mint: MINT, sol_amount: 0.5, slippage_bps: 300, idempotency_key: 'k-live' }), res, AGENT_ID);
 		expect(res.statusCode).toBe(200);
 		expect(res.body.data.replayed).toBe(false);
-		expect(res.body.data.signature).toBe(connState.sig);
-		expect(res.body.data.explorer).toContain(connState.sig);
+		// The execution engine derives the signature locally from the signed v0 tx
+		// (bs58 of its first signature), not from sendRawTransaction's return — so it
+		// is a real base58 signature unique to this freshly-recovered keypair. Assert
+		// the contract (confirmed, base58, echoed into the explorer link), not a fixed
+		// value the engine never promises.
+		const sig = res.body.data.signature;
+		expect(typeof sig).toBe('string');
+		expect(sig).toMatch(/^[1-9A-HJ-NP-Za-km-z]{64,}$/);
+		expect(res.body.data.explorer).toContain(sig);
 		expect(connState.sent).toBe(1);
 		expect(recoverSpy).toHaveBeenCalledTimes(1);
 	});
