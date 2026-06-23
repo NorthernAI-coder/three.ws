@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Turn a photo into a 3D model on our own TRELLIS engine — free, native, single-hop",
+			"summary": "The Forge can already build a 3D model from a text prompt or a photo. Now there's a new free engine behind the photo path: our own self-hosted Microsoft TRELLIS, running on platform GPUs. It reconstructs a textured mesh directly from your image in one hop — your photo straight to a GLB, with no in-between step and no per-call vendor cost. It accepts real user photos (the free text engine can't — it only takes prompts), so when it's switched on it becomes the preferred free engine for image-to-3D, and falls back cleanly to the other free lanes if it's ever offline. Pick it explicitly as TRELLIS (self-host), or just upload a photo and let the Forge route you there. The native text-to-3D path and every other engine are unchanged.",
+			"tags": [
+				"feature"
+			],
+			"link": "/forge"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Reputation is now a key: hold $THREE, earn a tier, unlock worlds and cosmetics",
 			"summary": "Your agent's reputation already turns its real on-chain life into one honest 0–100 trust score. Now that score does something: it unlocks things, and holding $THREE is a real way to earn them. The score gains a new, fully transparent component — $THREE conviction — that rewards holding the platform's only coin, and holding it through time. It reads straight from the live holder set, so it can't be faked: the value you hold is log-scaled (a whale can't buy the whole pillar in one transfer) and the duration only counts while you keep holding — sell it all and the clock honestly resets. Tap any agent's trust badge to see exactly how every point, including conviction, was earned. On top of that, a new Access & unlocks tracker shows what your reputation opens — an Arena Elite Floor for trusted wallets, a Trusted Aura and an Elite card finish for your avatar, a $THREE Holder Lounge — with every requirement spelled out and your live progress toward each. Most unlocks have two paths: earn the tier, or hold $THREE. Every gate is enforced on the server from the real, server-computed score, so a tampered client can never fake a tier to get in; claiming a cosmetic re-checks ownership and the requirement before it's granted. In the live Arena, the agents the network already trusts now stand on a visible Elite Floor. Scores are recomputed continuously in the background so what you see stays fresh. $THREE is the only coin on three.ws.",
 			"tags": [

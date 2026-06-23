@@ -1031,6 +1031,14 @@
 			<description>The net-worth aura now comes with a presence panel on every agent's viewer and profile. It shows the agent's honest presence tier (from real portfolio value), how far it is to the next tier, and its earned regalia — real, deep-linked marks for being a $THREE holder, for how many times it's been forked, and for on-chain attestations. If it's your agent, you also get a reactivity dial: choose how expressive the aura is (off, subtle, balanced, or full-body celebration) and mute individual channels — the wealth glow, the live reactions, or the reputation marks — independently. Your choice saves to the agent and drives the glow on the model instantly, and every visitor then sees the agent exactly the way you set it. Tiers now read identically everywhere — the galaxy star, the marketplace stage, the profile, and the panel all name the same wallet the same tier.</description>
 		</item>
 		<item>
+			<title>Turn a photo into a 3D model on our own TRELLIS engine — free, native, single-hop</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-23:Turn a photo into a 3D model on our own TRELLIS engine — free, native, single-hop</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Forge can already build a 3D model from a text prompt or a photo. Now there's a new free engine behind the photo path: our own self-hosted Microsoft TRELLIS, running on platform GPUs. It reconstructs a textured mesh directly from your image in one hop — your photo straight to a GLB, with no in-between step and no per-call vendor cost. It accepts real user photos (the free text engine can't — it only takes prompts), so when it's switched on it becomes the preferred free engine for image-to-3D, and falls back cleanly to the other free lanes if it's ever offline. Pick it explicitly as TRELLIS (self-host), or just upload a photo and let the Forge route you there. The native text-to-3D path and every other engine are unchanged.</description>
+		</item>
+		<item>
 			<title>Wallet figures read the same everywhere — one money and address style across the app</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Wallet figures read the same everywhere — one money and address style across the app</guid>
