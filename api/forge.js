@@ -86,6 +86,18 @@ import {
 	getCreditAccount,
 	refundCredits,
 } from './_lib/credits.js';
+import { markProviderCooldown, providersInCooldown } from './_lib/provider-health.js';
+
+// Circuit-breaker key + window for the free NVIDIA NIM TRELLIS text→3D lane. The
+// hosted NVCF gateway can degrade so a submit neither completes nor hands back a
+// pollable id before our timeout — a single slow window otherwise makes every
+// text prompt re-pay that full timeout before failing over to the reconstruct
+// lane. A short cooldown (recorded on a health failure, checked before the lane
+// runs) lets subsequent requests skip a degraded lane and go straight to a
+// working one; it expires on its own so a recovered lane is retried promptly.
+// Best-effort via the shared cache — a miss just means "not cooling".
+const NIM_TRELLIS_COOLDOWN_KEY = 'forge-nim-trellis';
+const NIM_FORGE_COOLDOWN_SECONDS = 60;
 
 // Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
 // generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable
@@ -237,6 +249,12 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 		const nv = await loadNvidiaProvider();
 		submitted = await nv.textTo3d({ prompt, tier });
 	} catch (err) {
+		// A timed-out / unreachable / throttled / 5xx NIM lane is degraded — cool it
+		// down so the next request skips the submit-timeout gamble and fails over
+		// fast. A 4xx (bad input / key) is not a lane-health fault, so it never cools.
+		if (isUpstreamUnavailable(err)) {
+			markProviderCooldown(NIM_TRELLIS_COOLDOWN_KEY, NIM_FORGE_COOLDOWN_SECONDS).catch(() => {});
+		}
 		console.warn(`[forge] free NVIDIA NIM lane unavailable: ${err?.message || err}`);
 		return false;
 	}
@@ -470,6 +488,11 @@ async function startJob(req, res) {
 	// failed (draft already tries nvidia first; standard/high reach it only as a
 	// last-resort fallback when Replicate is down).
 	let nvidiaTried = false;
+	// Set once the free NVIDIA NIM TRELLIS lane is known-degraded this request
+	// (skipped on cooldown, or attempted and failed). The text→3D FLUX synthesis
+	// below then skips the sibling NIM image lane too, so a degraded NVCF gateway
+	// can't stack a second submit-timeout window on the same request.
+	let nimGatewayDegraded = false;
 
 	// Pay-per-use (Token Utility — consumption lever): set to { paymentId, refId,
 	// settledAt, redeemed? } once a non-holder's settled $THREE payment is accepted
@@ -993,10 +1016,24 @@ async function startJob(req, res) {
 			// lane that actually ran (trellis below), so the downgrade is never silent.
 			if (backendId === 'nvidia') {
 				nvidiaTried = true;
-				if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
-				// nvidia failed → fall through to the image-intermediate TRELLIS path
-				// below, which gives the prompt a second chance on Replicate.
-				backendId = 'trellis';
+				// Skip the submit-timeout gamble when the lane is in a recent-failure
+				// cooldown — go straight to the reconstruct lane instead of re-hanging.
+				const trellisCooling = (await providersInCooldown([NIM_TRELLIS_COOLDOWN_KEY])).has(
+					NIM_TRELLIS_COOLDOWN_KEY,
+				);
+				if (trellisCooling) {
+					console.warn('[forge] NVIDIA NIM TRELLIS lane in cooldown; routing to reconstruct lane');
+					nimGatewayDegraded = true;
+					backendId = 'trellis';
+				} else if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) {
+					return;
+				} else {
+					// nvidia failed → fall through to the image-intermediate TRELLIS path
+					// below, which gives the prompt a second chance on Replicate. The NVCF
+					// gateway is degraded, so the FLUX synthesis below skips its NIM lane too.
+					nimGatewayDegraded = true;
+					backendId = 'trellis';
+				}
 			}
 
 			// ── Image-intermediate path (TRELLIS default, or Hunyuan3D self-host) ────
@@ -1082,7 +1119,7 @@ async function startJob(req, res) {
 			referenceImageUrl = imageUrls[0];
 			textToImageModel = null;
 		} else {
-			const synthesized = await textToImage(prompt, { aspectRatio: aspect });
+			const synthesized = await textToImage(prompt, { aspectRatio: aspect, skipNim: nimGatewayDegraded });
 			referenceImageUrl = synthesized.imageUrl;
 			textToImageModel = synthesized.model;
 			views = [referenceImageUrl];
@@ -1341,13 +1378,20 @@ async function startJob(req, res) {
 		// already failed this request (the draft nvidia→trellis→nvidia loop).
 		if (isUpstreamUnavailable(err) && !isImageMode && !nvidiaTried && prompt) {
 			nvidiaTried = true;
-			console.warn(
-				`[forge] paid TRELLIS lane unavailable (${err?.providerStatus || err?.code}); degrading text→3D to free NVIDIA NIM`,
+			// Don't degrade to NIM when it's already in a recent-failure cooldown — that
+			// would just re-pay the submit timeout on a lane we know is down right now.
+			const trellisCooling = (await providersInCooldown([NIM_TRELLIS_COOLDOWN_KEY])).has(
+				NIM_TRELLIS_COOLDOWN_KEY,
 			);
-			try {
-				if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
-			} catch (fallbackErr) {
-				console.warn(`[forge] NVIDIA NIM fallback also failed: ${fallbackErr?.message || fallbackErr}`);
+			if (!trellisCooling) {
+				console.warn(
+					`[forge] paid TRELLIS lane unavailable (${err?.providerStatus || err?.code}); degrading text→3D to free NVIDIA NIM`,
+				);
+				try {
+					if (await runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path })) return;
+				} catch (fallbackErr) {
+					console.warn(`[forge] NVIDIA NIM fallback also failed: ${fallbackErr?.message || fallbackErr}`);
+				}
 			}
 		}
 
