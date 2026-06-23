@@ -448,7 +448,7 @@ async function handleNearby(req, res) {
 		.filter(({ distance }) => distance <= radius)
 		.sort((a, b) => a.distance - b.distance)
 		.map(({ r, distance }) => ({
-			...publicWorldLine(r, { owner: !!myId && false }),
+			...publicWorldLine(r, { owner: false }),
 			// Distance coarsened to 10 m — enough to render an arrow + "≈200 m" without
 			// triangulating the exact spot from successive reads.
 			distance_m: Math.max(0, Math.round(distance / 10) * 10),

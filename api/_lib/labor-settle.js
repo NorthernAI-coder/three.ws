@@ -153,7 +153,7 @@ export async function runSettlement({ job, bounty, verdict: providedVerdict = nu
 	// on the wallet HUD / live money pulse as real earnings.
 	recordCustodyEvent({
 		agentId: job.worker_agent_id, userId: null, eventType: 'tip', category: null,
-		network: 'mainnet', asset: 'THREE', amountRaw: split.workerAtomics,
+		network: 'mainnet', asset: 'THREE', amountRaw: String(split.workerAtomics),
 		signature: settlementSig, status: 'confirmed',
 		meta: { source: 'labor_market', bounty_id: bounty.id, job_id: job.id, skill: bounty.required_skill || null },
 	}).catch((e) => console.error('[labor-settle] worker income record failed', e?.message));
