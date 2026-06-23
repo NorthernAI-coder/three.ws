@@ -3,6 +3,39 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Forged 3D models now render wherever the demo is embedded",
+			"summary": "On the IBM partnership page, forging a model — paid Forge, the free no-wallet generator, or the avatar forge — could finish successfully yet show only a blank, dark viewer. The finished GLB was served from a storage domain that only permits a short list of host sites, so whenever the page ran somewhere else (a preview tool, an embed, a file opened locally) the browser silently blocked the 3D file and the viewer had nothing to draw. Models are now streamed through our own first-party delivery proxy, which any site can load, so the model appears no matter where the page is running. And if a model ever does fail to load, the viewer now shows a clear retry/download card instead of an unexplained empty stage.",
+			"tags": [
+				"fix"
+			],
+			"link": "/ibm/x402-demo"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "three.ws opens cleanly inside in-app browsers",
+			"summary": "Opening a three.ws link from inside the X (Twitter) app, and other in-app browsers that sandbox local storage, could throw an error before the page finished setting up its language — leaving some visitors on a broken first screen. Language preference now degrades gracefully when storage is blocked instead of failing, so the site loads normally everywhere. We also quieted a class of harmless background network blips (an expired draft model link, a dropped request) that were being logged as errors even though the viewer already shows its designed \"couldn't load\" card and recovers.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Generated models stop vanishing right after they finish",
+			"summary": "Models built on the free Hugging Face engines (avatars from a selfie, and Forge text/image/sketch→3D) were briefly served straight from the generator's scratch storage, which it wipes within minutes — so a model that loaded fine could 404 into a blank viewer moments later. Now the finished mesh is copied to our own durable storage the instant it's produced, while the file is still warm, and only that permanent URL is ever handed to your browser. The result is the same model, served from a link that doesn't expire.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Embedded widgets never hang on a blank frame",
+			"summary": "When an embedded avatar widget couldn't fetch its model — an expired draft link, a flaky network, a Safari load failure — it used to leave a blank box with no explanation. Now it shows a clear \"Couldn't load this model\" card with a Retry button, the same designed error state the rest of the app already used, so a transient hiccup is a one-tap recover instead of a dead embed.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Your avatar has a job — the Earn home in every agent wallet",
 			"summary": "Every agent wallet now has an Earn tab that turns it from a vault into a working participant in the agent economy. It opens with the number that matters: what your avatar has actually earned — today, this week, and all time — every dollar traced to a real settlement (skill sales and tips), never an estimate. Come back after time away and it tells you what it made while you were gone. Below that is the earning engine: price your agent's skills in USDC right where the money lands, so the moment someone buys, real funds move into this wallet. Then the part that makes letting an agent spend on its own feel safe — your agent can pay other agents and services over real x402 rails, but only inside the daily cap, per-payment limit, and allowlist you set, with a prominent kill switch that freezes all autonomous spending instantly (your own withdrawals always stay open). Finally, a clean receipts statement of every payment in and out — counterparty, amount, time, and on-chain signature — plus a path to the live services directory where agents discover and hire each other. Owner-only, enforced in the UI and on the server.",
 			"tags": [

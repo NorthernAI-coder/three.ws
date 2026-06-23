@@ -1353,6 +1353,17 @@ agent-3d:defined ~ .agent-skel{display:none}
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+  // Route the forged GLB through three.ws's first-party /cdn proxy (CORS `*`) so
+  // model-viewer can fetch it from any origin this page is embedded on — the raw
+  // r2.dev bucket domain only allow-lists specific hosts, which would leave a
+  // cross-origin embed staring at an empty viewer. See the free-forge widget below.
+  function cdnGlb(u) {
+    try {
+      var url = new URL(u, location.href);
+      if (/(^|\.)r2\.dev$/i.test(url.hostname)) return 'https://three.ws/cdn' + url.pathname + url.search;
+      return u;
+    } catch (_) { return u; }
+  }
   function prefersReducedMotion() {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
@@ -1567,6 +1578,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     clearInterval(genTimer);
     var el = $('fgResult'); el.className = 'result is-done';
     var explorer = explorerUrl(payment.network, payment.transaction);
+    glbUrl = cdnGlb(glbUrl);
     var safeGlb = escapeHtml(glbUrl);
 
     var html = '';
@@ -1611,6 +1623,19 @@ agent-3d:defined ~ .agent-skel{display:none}
       escapeHtml(JSON.stringify({ glb_url: glbUrl, job: meta, payment: payment }, null, 2)).slice(0, 6000) + '</pre></details>';
 
     el.innerHTML = html;
+    // If model-viewer upgraded but can't fetch the GLB (CORS/404), swap the inert
+    // viewer for the same honest download fallback rather than leaving it blank.
+    var mvLive = el.querySelector('model-viewer');
+    if (mvLive) mvLive.addEventListener('error', function () {
+      var mv = el.querySelector('.mv-wrap');
+      if (!mv) return;
+      mv.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:28px 18px;text-align:center;color:var(--ibm-subtle);font-size:13px;font-weight:300">' +
+        '<span>The 3D viewer couldn’t load the model here — it’s ready as a downloadable file.</span>' +
+        '<a class="r-btn" href="' + safeGlb + '" download target="_blank" rel="noopener">Download GLB</a>' +
+        '</div>';
+      announce('The 3D viewer could not load the model, but it is ready to download.');
+    }, { once: true });
     announce('Your 3D model is ready. Orbit it above or download the GLB.');
   }
 
@@ -1796,6 +1821,21 @@ agent-3d:defined ~ .agent-skel{display:none}
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+  // Forge outputs are served from the bucket's public r2.dev domain, whose CORS
+  // only allow-lists specific hosts (three.ws, the IBM properties). Embedded on
+  // any other origin — a page builder, file://, a sandboxed iframe (Origin:
+  // null), a partner site — model-viewer's cross-origin GLB fetch is CORS-blocked
+  // and the viewer paints nothing but its background. three.ws's first-party /cdn
+  // proxy streams the same object with `Access-Control-Allow-Origin: *`, so route
+  // every GLB through it and the model loads no matter where this page runs.
+  function cdnGlb(u) {
+    try {
+      var url = new URL(u, location.href);
+      if (/(^|\.)r2\.dev$/i.test(url.hostname)) return 'https://three.ws/cdn' + url.pathname + url.search;
+      return u;
+    } catch (_) { return u; }
+  }
+
   // Attempt plan. /api/forge already runs its OWN internal fallback ladder
   // (NVIDIA NIM → TRELLIS → Hugging Face → Replicate) inside a single request and
   // always hands back a job that polls to a finished GLB — so the client must NOT
@@ -1938,7 +1978,7 @@ agent-3d:defined ~ .agent-skel{display:none}
   async function renderModel(job, prompt) {
     clearInterval(loadTimer);
     await ensureModelViewer();
-    var glb = job.glb_url;
+    var glb = cdnGlb(job.glb_url);
     var scene = 'https://three.ws/scene?model=' + encodeURIComponent(glb) +
       '&name=' + encodeURIComponent(prompt.slice(0, 80));
     result.className = 'g3d-result is-done';
@@ -1952,6 +1992,10 @@ agent-3d:defined ~ .agent-skel{display:none}
       '<a class="g3d-act" href="' + esc(scene) + '" target="_blank" rel="noopener">Open in 3D scene ↗</a>' +
       '<span class="g3d-engine">Generated free · ' + esc(engineLabel(job.backend)) + '</span>' +
       '</div>';
+    // If the viewer fails to load the GLB, don't leave a blank box — surface the
+    // designed error so the visitor can retry rather than stare at an empty stage.
+    var mv = result.querySelector('model-viewer');
+    if (mv) mv.addEventListener('error', function () { setError(); }, { once: true });
     statusEl.textContent = 'Your 3D model is ready. Orbit it, or download the GLB.';
   }
 
@@ -2041,6 +2085,18 @@ agent-3d:defined ~ .agent-skel{display:none}
   }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function emit(name) { try { window.dispatchEvent(new Event(name)); } catch (_) {} }
+
+  // Route the rigged GLB through three.ws's first-party /cdn proxy (CORS `*`) so
+  // both <agent-3d> and the <model-viewer> fallback can fetch it from whatever
+  // origin this page is embedded on. The raw r2.dev bucket domain only allow-lists
+  // specific hosts, so a cross-origin embed would otherwise get an empty stage.
+  function cdnGlb(u) {
+    try {
+      var url = new URL(u, location.href);
+      if (/(^|\.)r2\.dev$/i.test(url.hostname)) return 'https://three.ws/cdn' + url.pathname + url.search;
+      return u;
+    } catch (_) { return u; }
+  }
 
   // ── pipeline step indicator (mesh → rig → animate) ──────────────────────────
   var STEP_ORDER = ['mesh', 'rig', 'animate'];
@@ -2205,6 +2261,8 @@ agent-3d:defined ~ .agent-skel{display:none}
       'camera-controls auto-rotate rotation-per-second="18deg" interaction-prompt="none" ' +
       'shadow-intensity="0.8" shadow-softness="0.8" environment-image="neutral" exposure="1" ' +
       'camera-orbit="0deg 85deg auto" loading="eager"></model-viewer></div>' + actionsHtml(glb, prompt, false);
+    var mv = result.querySelector('model-viewer');
+    if (mv) mv.addEventListener('error', function () { setError(); }, { once: true });
     statusEl.textContent = 'Your rigged avatar is ready. Orbit it, or download the GLB.';
     emit('avatar:done');
   }
@@ -2268,7 +2326,7 @@ agent-3d:defined ~ .agent-skel{display:none}
         if (seq !== runSeq) return;
         // otherwise fall through with the unrigged mesh
       }
-      renderAvatar(glb, prompt);
+      renderAvatar(cdnGlb(glb), prompt);
     } catch (e) {
       if (seq !== runSeq) return;
       if (e && e.code === 429) setBusy(e.retryAfter);

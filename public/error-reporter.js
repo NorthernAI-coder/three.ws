@@ -110,6 +110,19 @@
 		/\b(currentInset|gCrWeb|__gCrWeb|__firefox__|_AutofillCallbackHandler|instantSearchSDKJSBridgeClearHighlight|webkitStorageInfo|bannerNight|ceCurrentVideo|isHighlightingEnabled|zaloJSV2|MyAppGetLinkProperties)\b/;
 	const INJECTED_GLOBAL_ERROR = /can't find variable:|is not defined/i;
 
+	// A bare network-layer fetch failure carries no stack and no source — the
+	// browser refuses to attribute it because the failure is in the network, not
+	// in any one line of our code. Safari surfaces it as "Load failed", Chrome as
+	// "Failed to fetch", Firefox as "NetworkError when attempting to fetch
+	// resource". These reach the reporter when a transient GLB/asset fetch on the
+	// viewer surface drops or its source URL (e.g. a superseded studio draft GLB)
+	// is already gone — a condition the viewer's own LOAD_END error UI already
+	// catches and recovers from (`_classifyLoadError` → "Network error…"). Without
+	// a stack there is nothing to act on, so a stackless network rejection is
+	// double-counted, transient noise. A genuine bug in our own fetch code rejects
+	// with a stack (or a descriptive message) and still reports.
+	const NETWORK_ERROR_MESSAGE = /^(load failed|failed to fetch|networkerror\b.*|the network connection was lost\.?|cancelled|load cancelled)$/i;
+
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
 		return value.length > max ? `${value.slice(0, max)}…` : value;
@@ -242,6 +255,19 @@
 		if (
 			report.name === 'AbortError' ||
 			(report.message && /\bfetch is aborted\b|\bthe operation was aborted\b/i.test(report.message))
+		) {
+			return true;
+		}
+		// A stackless network-layer fetch rejection (Load failed / Failed to fetch /
+		// NetworkError) — a user network drop or an expired/deleted asset, not a
+		// code fault. No stack means nothing actionable; the viewer surface already
+		// shows its designed error state for handled model loads.
+		if (
+			(report.type === 'unhandledrejection' || report.type === 'manual') &&
+			!report.stack &&
+			!report.source &&
+			report.message &&
+			NETWORK_ERROR_MESSAGE.test(report.message.trim())
 		) {
 			return true;
 		}
