@@ -8,6 +8,10 @@
 //   reconstruct  → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller)
 //                  POST /reconstruct → { job_id }  GET /jobs/:id → { status, glb_url }
 //
+//   trellis      → MODEL_TRELLIS_URL        (workers/model-trellis)
+//                  Native single-image→3D via Microsoft TRELLIS. Standard task
+//                  shape: POST /infer → { task_id }  GET /tasks/:id → result_gcs_url.
+//
 //   remesh       → GCP_REMESH_URL           (workers/remesh)
 //   stylize      → GCP_STYLIZE_URL          (workers/stylize)
 //   retex        → GCP_TEXTURE_URL          (workers/texture)
@@ -69,6 +73,12 @@ function serviceUrlForMode(mode) {
 			return readEnv('GCP_SEGMENT_URL');
 		case 'sketch':
 			return readEnv('GCP_TRIPOSG_URL');
+		case 'trellis':
+			// Self-hosted Microsoft TRELLIS image→3D worker (workers/model-trellis):
+			// native single-image reconstruction, no FLUX intermediate. Distinct from
+			// the avatar pipeline's `reconstruct` (face-only, /reconstruct + /jobs/:id);
+			// this worker speaks the standard /infer + /tasks/:id task shape.
+			return readEnv('MODEL_TRELLIS_URL');
 		case 'text2motion':
 			return readEnv('GCP_TEXT2MOTION_URL');
 		case 'rerig':
@@ -99,6 +109,22 @@ function buildWorkerRequest(request) {
 			path: '/reconstruct',
 			resultKey: 'glb_url',
 			body,
+		};
+	}
+
+	if (mode === 'trellis') {
+		// Self-hosted TRELLIS image→3D (workers/model-trellis). Reconstructs a
+		// textured mesh from the primary reference view — a user photo, or the
+		// FLUX-synthesized view for a text prompt. The worker accepts an `images`
+		// array (it uses the first view); `body_type` rides along for parity with
+		// the shared worker request shape.
+		const photos = Array.isArray(params?.images) && params.images.length
+			? params.images
+			: [sourceUrl].filter(Boolean);
+		return {
+			path: '/infer',
+			resultKey: 'result_gcs_url',
+			body: { images: photos, body_type: params?.bodyType || 'neutral' },
 		};
 	}
 
@@ -246,6 +272,7 @@ function buildWorkerRequest(request) {
 // progress indicator on the client side.
 const MODE_ETA = {
 	reconstruct: 120,
+	trellis: 60,
 	remesh: 30,
 	stylize: 25,
 	retex: 180,
@@ -340,7 +367,7 @@ export function createRegenProvider({ reconstructUrl } = {}) {
 			// Report how the job was conditioned. For reconstruct the worker fuses
 			// every image in the body; other modes are single-source.
 			const viewsUsed =
-				mode === 'reconstruct' && Array.isArray(workerReq.body.images)
+				(mode === 'reconstruct' || mode === 'trellis') && Array.isArray(workerReq.body.images)
 					? workerReq.body.images.length
 					: 0;
 

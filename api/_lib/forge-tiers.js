@@ -233,6 +233,28 @@ export const BACKENDS = Object.freeze({
 		credits: null,
 		blurb: 'Self-hosted high-poly reconstruction. Image-conditioned geometry.',
 	}),
+	trellis_selfhost: Object.freeze({
+		id: 'trellis_selfhost',
+		label: 'TRELLIS (self-host)',
+		vendor: 'Microsoft TRELLIS · self-host',
+		paths: Object.freeze(['image']),
+		byok: false,
+		provider: 'gcp',
+		// Our own TRELLIS NIM worker (workers/model-trellis on Cloud Run). Unlike
+		// NVIDIA's hosted preview (text-only, userImages:false), a self-deployed
+		// TRELLIS accepts real user images — so this is a NATIVE single-hop image→3D
+		// lane (image → TRELLIS → GLB), no FLUX intermediate. Shares the worker
+		// bearer secret with the other GCP workers.
+		requiresEnv: Object.freeze(['MODEL_TRELLIS_URL', 'GCP_RECONSTRUCTION_KEY']),
+		polyControl: false,
+		userImages: true,
+		baseEta: 60,
+		credits: null,
+		// Self-hosted on our own GPU — zero vendor credit cost, so it qualifies as a
+		// free lane and is the preferred free image→3D engine when configured.
+		free: true,
+		blurb: 'Free native image→3D on our own TRELLIS worker — single-hop reconstruction (image → TRELLIS → GLB), textured GLB, no vendor cost.',
+	}),
 	triposg: Object.freeze({
 		id: 'triposg',
 		label: 'TripoSG',
@@ -344,10 +366,13 @@ export const FREE_DEFAULT_FOR_TIERS = Object.freeze({
 
 // Free lanes to fall back to per path when the tier's named free engine can't
 // serve this request — chiefly a photo submission at draft/standard (NVIDIA's
-// hosted preview is text-only), which routes to the free HuggingFace Spaces lane
-// instead of a paid engine. First configured + capable lane wins.
+// hosted preview is text-only), which routes to a free reconstruct lane instead
+// of a paid engine. First configured + capable lane wins: our self-hosted TRELLIS
+// worker (native single-hop image→3D) is preferred when MODEL_TRELLIS_URL is set,
+// otherwise the free HuggingFace Spaces lane. Both are env-gated, so the list
+// degrades cleanly on deployments that configure only one of them.
 export const FREE_FALLBACK_FOR_PATH = Object.freeze({
-	image: Object.freeze(['huggingface']),
+	image: Object.freeze(['trellis_selfhost', 'huggingface']),
 });
 
 // Whether a free lane can serve this (path, userImages) request right now: it
