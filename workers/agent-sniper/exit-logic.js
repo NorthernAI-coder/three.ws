@@ -7,8 +7,12 @@
 // is evaluated with the EXACT stop-loss / trailing-stop / take-profit / timeout
 // priority that governs real money. Keeping it here means the two can never drift.
 
-/** Coerce to a finite number, or null. */
+/** Coerce to a finite number, or null. A null/blank input is "disabled" (null) —
+ * NOT 0. (Number(null) === 0, so a missing take-profit / trailing-stop would
+ * otherwise fire immediately; the schema documents null as "no TP / no trailing
+ * stop", and this is the single source of truth that honors that.) */
 export function pct(n) {
+	if (n == null || n === '') return null;
 	const x = Number(n);
 	return Number.isFinite(x) ? x : null;
 }
