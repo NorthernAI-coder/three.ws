@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T10:53:06.010Z",
+	"generated_at": "2026-06-23T11:04:10.802Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "$THREE Tiers · Hold-to-Access",
 			"summary": "Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.",
 			"link": "/three",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Agent Genome — breed two agents",
+			"summary": "Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.",
+			"link": "/genome",
 			"tags": [
 				"launch"
 			]
@@ -52,6 +62,16 @@
 			"title": "Guardian console — recover & inherit agent wallets",
 			"summary": "The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.",
 			"link": "/guardian",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Living Stages",
+			"summary": "Live, embodied AI performances. An AI host performs in a 3D venue with spatial voice and lip-sync, reads the room, takes audience questions, and gets tipped in $THREE on the spot — the biggest tippers get the floor.",
+			"link": "/stage",
 			"tags": [
 				"launch"
 			]
@@ -108,6 +128,16 @@
 		},
 		{
 			"date": "2026-06-23",
+			"type": "launch",
+			"title": "World Lines — agent proof-of-presence quests",
+			"summary": "Walk to an AI agent's real-world spot, complete its AR challenge, and earn a cryptographically real, agent-signed proof of presence. Privacy-preserving (only a ~1 km area is ever recorded), independently verifiable, and ownable.",
+			"link": "/world-lines",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"type": "update",
 			"title": "A real pricing page, metered usage, and a downloadable invoice you can reconcile",
 			"summary": "Billing on three.ws is now a closed loop you can read end to end. The new /pricing page reads its numbers from one server source of truth — every paid action, the platform fee, and the full $THREE holder discount ladder — so the price you see is the price checkout quotes, never a hardcoded copy. Connect a wallet that holds $THREE and the page personalizes: each paid lane shows your discounted price with the list price struck through, plus how much more $THREE reaches the next tier. Behind that, every paid action now meters into one ledger the moment it settles, linked to the on-chain transaction that paid for it — and it's idempotent, so a retried charge is recorded exactly once and you're never billed twice. The new /billing page rolls that ledger into a monthly invoice statement: every charge, the holder discount applied, the count and total, with CSV download and print-to-PDF. Each charge also yields a per-line receipt that traces to its settlement transaction. An operator reconciliation pass cross-checks every metered charge against the real on-chain settlement and surfaces an \"all charges reconciled\" badge on the revenue dashboard. The AWS Marketplace path meters real usage and checks entitlements against AWS, or ships inert when uncredentialed — it never invents a charge. $THREE is the only coin on three.ws.",
@@ -115,6 +145,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Agent Genome: breed two agents into a provably-inherited child",
+			"summary": "Two agents can now breed. Open the new Genome studio, pick two parents — your own agents, or a public stud someone has opened for breeding — and preview the offspring before you commit: the predicted brain disposition, a blended voice you can actually play, the body it would inherit, and its skills, all shown as a real trait blend. Breed, and a genuinely new child agent is born with its OWN fresh wallet — the child gets brand-new keys, and neither parent's wallet or agent is touched. The child provably inherits a recombination of both parents: some traits express, some are carried recessively and can resurface a generation later, and occasionally two parents' latent traits fuse into an emergent skill neither parent had. Every breeding is recorded with a seed so the child's genome can be re-derived and verified — a forged 'child' that wasn't really descended from its claimed parents is detectable by anyone. Each agent now carries a verifiable family tree shown on the parents and the child, a rare-pedigree badge appears on deep-lineage agents across the marketplace, and a Stud market lets owners open a rare agent for breeding for a $THREE fee. Cooldowns keep deep pedigrees scarce. The only coin referenced is $THREE.",
+			"link": "/genome",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -533,6 +573,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Living Stages: watch an AI host perform live and tip it in $THREE on the spot",
+			"summary": "A new kind of room just opened at /stage — a live, embodied AI performance. Walk into a 3D venue and an AI host is on stage in real time: it opens the show, riffs, runs its format, takes audience questions, and reads the room. You hear it with spatial voice that gets louder as you move closer, with real lip-sync and live captions, and the whole performance is synchronized for everyone in the room at once. The heart of it is the tip economy: tip the host in $THREE straight from your wallet and it reacts on the spot — a shout-out by name within about a second — while a live leaderboard tracks the biggest tippers and the top spot earns the host's attention. Every tip is a real on-chain settlement to the host agent's own wallet, recorded exactly once, and the host/venue split always adds back up to the amount tipped — never a hidden cut. Any agent owner can put their agent on stage from its profile in one tap, then go live and end the show when they're done. Between shows you see the next showtime and the last show's top tippers, and if your device can't render 3D the captions, audio, and tipping still work. Only coin referenced is $THREE.",
+			"link": "/stage",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Marketplace fork no longer creates duplicate copies on a double-click",
 			"summary": "On an agent's marketplace page, impatiently double-clicking \"Fork & Chat\" used to fire the fork twice before the page could move you to your new copy — quietly leaving two identical agents in your account. The button now locks the instant you press it, shows \"Forking…\", and only ever creates one fork; if it fails, it unlocks so you can try again. The bookmark star got the same treatment, so rapid taps can no longer leave it stuck out of sync with whether the listing is actually saved. Only coin referenced is $THREE.",
 			"link": "/marketplace",
@@ -855,6 +905,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Split your skill proceeds with collaborators — paid exactly, automatically",
+			"summary": "Built a skill with someone else? You can now set a proceeds split when you price it — say 70/30 — and every sale pays each collaborator their exact share automatically. Buyers see where their money goes right on the purchase screen (\"proceeds split: 70/30\"), so it's fully transparent. On EVM chains the split runs through an on-chain 0xSplits contract, so distribution is trustless and the platform never touches the money; on Solana each collaborator's exact share is recorded and becomes withdrawable. The math is provably exact: the platform fee plus every collaborator's cut always add back up to the price the buyer paid — never a hidden cut, never a lost cent, even on awkward amounts. Your new Creator Earnings dashboard pulls it all together: royalties, split payouts you've received, the on-chain skill licenses your skills have minted to buyers, and one Withdraw button for your available balance — each payout linking to its on-chain receipt. Every paid skill purchase now also mints a trustless on-chain license proving the buyer's right to run it, and a license revoked on-chain (e.g. on a refund) blocks execution even if a stale record lingers. $THREE is the only coin on three.ws.",
+			"link": "/dashboard/earnings",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Steadier 3D generation and token stats when free providers get busy",
 			"summary": "Two backend reliability fixes. The free image step behind text→3D now shrugs off a brief blip from NVIDIA's gateway — if it answers with a fast, transient hiccup, we retry once before handing off, so fewer prompts have to fall through to a slower backup and fewer fail outright. (A real timeout still hands off immediately, so nothing waits twice.) Separately, live token stats lean on several market-data sources; when one hits its monthly quota we already pause it, but each fresh server instance used to re-discover that the hard way and waste another doomed call. That pause is now shared across the whole fleet, so the moment one instance sees a source is exhausted, none of the others retry it — quieter, faster, and no wasted quota.",
 			"link": null,
@@ -1037,6 +1097,17 @@
 			"link": null,
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "World Lines: walk to an agent, earn a cryptographically real proof you were there",
+			"summary": "A new game rides on top of IRL agents. An agent placed in the real world can now leave a World Line — a persistent, location-anchored AR quest. To complete it you have to physically travel to the spot, point your phone, and finish the agent's challenge (a tap, a passphrase, or a quiz). When you do, the agent's own wallet signs a proof of presence: a tamper-evident attestation that this device was in this place and did this thing — and it mints an ownable collectible to you. The signature is genuinely real and anyone can independently re-check it from the proof's verify link, with no trust in three.ws required. Privacy is the headline feature, not a footnote: your exact GPS never leaves your device, and a proof only ever knows a coarse ~1 km area — never a precise point, in any log, alert, or payload. Completion is anti-cheat by design: server-issued single-use nonces, server-derived co-location, replay rejection, idempotency, and rate limits. Find quests on the new World Lines page — Near me (co-located), Explore (browse coarse regions), My proofs (your verifiable collectibles), and Create (place a quest on your own pin, with completion stats by coarse cell). Every value reward is in $THREE, the only coin. There's a polished non-AR fallback wherever WebXR isn't available, so it's never a dead end.",
+			"link": "/world-lines",
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

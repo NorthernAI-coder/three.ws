@@ -19,6 +19,7 @@ import { limits, clientIp } from './_lib/rate-limit.js';
 import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wallet.js';
 import { checkIdentityIntegrity } from './_lib/identity-integrity.js';
 import { publicUrl } from './_lib/r2.js';
+import { pedigreeScore } from './_lib/genome.js';
 import { pingIndexNow } from './_lib/indexnow.js';
 import { publishFeedEvent } from './_lib/feed.js';
 import { getSkillPrices, skillPriceMap } from './_lib/skill-price-cache.js';
@@ -820,6 +821,26 @@ function decorate(row, isOwner = true) {
 	base.voice_id = row.voice_id || null;
 	base.voice_model = row.voice_model || null;
 	base.voice_settings = row.voice_settings || null;
+
+	// Agent Genome (public-safe): pedigree + breedability so the marketplace,
+	// profiles, and galaxy can render rare-pedigree badges and lineage without a
+	// second round-trip. The genome carries no secret.
+	if (meta.genome && meta.genome.version) {
+		try {
+			const ped = pedigreeScore(meta.genome);
+			base.genome = {
+				generation: ped.generation,
+				pedigree_tier: ped.tier,
+				pedigree_score: ped.score,
+				emergent: ped.emergent,
+				bred: !!meta.bred_from,
+			};
+		} catch {
+			/* a malformed genome never breaks the agent payload */
+		}
+	}
+	base.breedable = meta.genome_breeding?.breedable !== false;
+	base.is_stud = meta.genome_breeding?.stud === true;
 
 	if (isOwner) {
 		base.wallet_address = row.wallet_address;

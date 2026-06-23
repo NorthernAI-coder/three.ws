@@ -21,6 +21,7 @@ import { sql } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
+import { pedigreeScore } from '../_lib/genome.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { markProviderCooldown, AUTH_COOLDOWN_SECONDS } from '../_lib/provider-health.js';
 import { getSkillPrices, skillPriceMap } from '../_lib/skill-price-cache.js';
@@ -457,6 +458,8 @@ async function handleList(req, res, url) {
 			       ai.meta->>'solana_address'       AS solana_address,
 			       ai.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
 			       ai.meta->>'solana_vanity_suffix' AS solana_vanity_suffix,
+			       ai.meta->'genome' AS genome,
+			       (ai.meta ? 'bred_from') AS bred,
 				   u.display_name AS author_name,
 			       EXISTS (
 			         SELECT 1 FROM agent_skill_prices asp
@@ -518,6 +521,8 @@ async function handleList(req, res, url) {
 					       ai.meta->>'solana_address'       AS solana_address,
 					       ai.meta->>'solana_vanity_prefix' AS solana_vanity_prefix,
 					       ai.meta->>'solana_vanity_suffix' AS solana_vanity_suffix,
+					       ai.meta->'genome' AS genome,
+					       (ai.meta ? 'bred_from') AS bred,
 					       u.display_name AS author_name,
 					       EXISTS (
 					         SELECT 1 FROM agent_skill_prices asp
@@ -1375,7 +1380,27 @@ function toCard(row) {
 		solana_address: row.solana_address || null,
 		solana_vanity_prefix: row.solana_vanity_prefix || null,
 		solana_vanity_suffix: row.solana_vanity_suffix || null,
+		// Agent Genome pedigree — drives the rare-pedigree badge on the card.
+		genome: genomeCardField(row),
 	};
+}
+
+// Public-safe pedigree summary for a marketplace card. Null for unbred agents
+// (so the badge only ever marks a real lineage). Never throws on bad data.
+function genomeCardField(row) {
+	if (!row.genome || !row.genome.version) return null;
+	try {
+		const ped = pedigreeScore(row.genome);
+		return {
+			generation: ped.generation,
+			pedigree_tier: ped.tier,
+			pedigree_score: ped.score,
+			emergent: ped.emergent,
+			bred: !!row.bred,
+		};
+	} catch {
+		return null;
+	}
 }
 
 function toDetail(row, skill_prices = {}, viewerId = null) {

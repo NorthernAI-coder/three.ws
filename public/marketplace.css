@@ -5031,3 +5031,18 @@ body.market-page > header {
 		transition: none;
 	}
 }
+
+/* Rare-pedigree badge (Agent Genome) — marks a bred agent's lineage tier on its
+   card. Tier-colored; links into the breeding studio pre-seeded with this agent. */
+.stat-pill.pedigree-badge {
+	text-decoration: none;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	border: 1px solid transparent;
+	transition: transform 0.14s ease, filter 0.14s ease;
+}
+.stat-pill.pedigree-badge:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.stat-pill.pedigree-badge[data-tier='uncommon']  { color: #5fd1a0; border-color: #1f5a45; background: rgba(95,209,160,0.10); }
+.stat-pill.pedigree-badge[data-tier='rare']      { color: #7aa2ff; border-color: #2c4a8f; background: rgba(122,162,255,0.12); }
+.stat-pill.pedigree-badge[data-tier='legendary'] { color: #ffd479; border-color: #7a5e1f; background: linear-gradient(135deg, rgba(255,212,121,0.18), rgba(255,140,80,0.10)); }
+@media (prefers-reduced-motion: reduce) { .stat-pill.pedigree-badge { transition: none; } }

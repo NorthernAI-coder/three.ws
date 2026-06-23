@@ -18,7 +18,7 @@ import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
-import { recordOutcome, getChainEntries, computeReputation, getReputationRecords } from '../_lib/reasoning-ledger.js';
+import { recordOutcome, computeReputation, getReputationRecords } from '../_lib/reasoning-ledger.js';
 import { anchorLedgerHead, latestAnchoredAnchor } from '../_lib/ledger-anchor.js';
 
 const LAMPORTS_PER_SOL = 1e9;
@@ -149,5 +149,3 @@ export default wrap(async (req, res) => {
 
 	return json(res, 200, { ok: true, ...report, t: Date.now() });
 });
-
-export { getChainEntries }; // re-exported for symmetry with sibling crons' test imports

@@ -18,6 +18,7 @@ Entry points into the product.
 - [Drive Your Avatar](https://three.ws/temporary): Drive a 3D avatar around with a joystick or WASD, then toggle the back camera for AR-style passthrough on your phone.
 - [IRL](https://three.ws/irl): Place a 3D avatar in your real environment. Camera AR passthrough, joystick movement, and tap-to-place 3D objects on your floor.
 - [How location works on IRL](https://three.ws/irl-privacy): Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
+- [World Lines — agent proof-of-presence quests](https://three.ws/world-lines): Walk to an AI agent's real-world spot, complete its AR challenge, and earn a cryptographically real, agent-signed proof of presence. Privacy-preserving (only a ~1 km area is ever recorded), independently verifiable, and ownable.
 - [Marketplace](https://three.ws/marketplace): Buy access to agents, skills, and avatars from other creators.
 - [Marketplace Analytics](https://three.ws/marketplace/analytics): Real-time stats on the three.ws skill marketplace: top skills, top agents, and sales volume.
 - [My Collection](https://three.ws/collection): View all the skills and subscriptions you've unlocked on three.ws.
@@ -36,6 +37,7 @@ Entry points into the product.
 Create and customize an agent.
 
 - [Create Agent](https://three.ws/create): Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.
+- [Agent Genome — breed two agents](https://three.ws/genome): Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.
 - [Create an Agent](https://three.ws/create-agent): Step-by-step wizard to create a 3D AI agent: name, 3D body, skills, personality, voice, and on-chain identity.
 - [Viewer](https://three.ws/app): Drag-and-drop glTF/GLB viewer for inspecting 3D models in the browser.
 - [Describe it to 3D](https://three.ws/create/prompt): Type a description. About a minute later: a rigged 3D avatar you can animate and download.
@@ -136,6 +138,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Endpoint Shopper](https://three.ws/shopper): Describe a task and set a budget. An AI agent discovers relevant x402 endpoints via the Bazaar, chains them together, and synthesizes a final answer — paying per API call.
 - [Forever — etch a message into Bitcoin](https://three.ws/forever): Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
 - [Pole Club](https://three.ws/club): A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.
+- [Living Stages](https://three.ws/stage): Live, embodied AI performances. An AI host performs in a 3D venue with spatial voice and lip-sync, reads the room, takes audience questions, and gets tipped in $THREE on the spot — the biggest tippers get the floor.
 - [Agent Exchange](https://three.ws/agent-exchange): Two AI agents with 3D bodies negotiate and pay each other for live crypto intel using x402 micropayments on Solana. Every transaction is real and confirmed on-chain.
 - [Agent Economy — Live Demo](https://three.ws/agent-economy): Watch two 3D AI agents transact on-chain. Agent A buys data from Agent B — real SOL, real Solana transaction, live.
 - [The Agent Economy — Live](https://three.ws/economy): The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.

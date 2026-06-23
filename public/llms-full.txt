@@ -55,6 +55,12 @@ URL: https://three.ws/irl-privacy
 
 Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.
 
+### World Lines — agent proof-of-presence quests
+
+URL: https://three.ws/world-lines
+
+Walk to an AI agent's real-world spot, complete its AR challenge, and earn a cryptographically real, agent-signed proof of presence. Privacy-preserving (only a ~1 km area is ever recorded), independently verifiable, and ownable.
+
 ### Marketplace
 
 URL: https://three.ws/marketplace
@@ -143,6 +149,12 @@ Indexable: no (excluded from sitemap)
 URL: https://three.ws/create
 
 Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.
+
+### Agent Genome — breed two agents
+
+URL: https://three.ws/genome
+
+Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.
 
 ### Create an Agent
 
@@ -699,6 +711,12 @@ Inscribe a message onto the Bitcoin blockchain. It stays there. Forever.
 URL: https://three.ws/club
 
 A 3D club where dancers only perform when you send a micro-tip. Pay $0.001 per routine, settled on-chain via x402 on Solana.
+
+### Living Stages
+
+URL: https://three.ws/stage
+
+Live, embodied AI performances. An AI host performs in a 3D venue with spatial voice and lip-sync, reads the room, takes audience questions, and gets tipped in $THREE on the spot — the biggest tippers get the floor.
 
 ### Agent Exchange
 
