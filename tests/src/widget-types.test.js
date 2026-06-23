@@ -24,6 +24,7 @@ describe('WIDGET_TYPES', () => {
 				'kol-trades',
 				'live-trades-canvas',
 				'bonding-curve',
+				'walking-avatar',
 			].sort(),
 		);
 	});
