@@ -477,11 +477,24 @@ export function mountAutopilotMind(container, { agentId }) {
 			}).catch(() => {});
 			const j = await act('generate', {});
 			if (j.trust) { state.trust = j.trust; renderTrust(); }
+			// Surface anything the agent auto-ran (scoped, reversible) as live receipts.
+			for (const a of j.autoRan || []) {
+				agentBus.emit('action:taken', {
+					agentId, actionId: a.actionId || undefined, kind: a.kind,
+					summary: a.receipt || 'Action taken.', ts: a.ts || new Date().toISOString(),
+				});
+			}
+			if (j.autoRan?.length) loadReceipts();
 			if (j.created?.length) {
-				// Prepend new proposals.
+				// Prepend new proposals (auto-ran ones arrive already 'executed' and
+				// drop out of the pending view).
 				state.proposals = [...j.created, ...state.proposals.filter((p) => !j.created.some((c) => c.id === p.id))];
 				renderProposals();
-				status.textContent = `${j.created.length} new proposal${j.created.length === 1 ? '' : 's'} (${j.source}).`;
+				const pendingCount = j.created.filter((c) => c.status === 'pending').length;
+				const ranCount = j.autoRan?.length || 0;
+				status.textContent = ranCount
+					? `${ranCount} action${ranCount === 1 ? '' : 's'} taken automatically · ${pendingCount} awaiting you (${j.source}).`
+					: `${j.created.length} new proposal${j.created.length === 1 ? '' : 's'} (${j.source}).`;
 				status.className = 'apm-status ok';
 			} else {
 				status.textContent = `Nothing new to propose right now — your agent needs more high-salience memories to act on.`;

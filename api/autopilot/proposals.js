@@ -110,9 +110,31 @@ async function handleAct(req, res, auth) {
 		const rl = await limits.authIp(clientIp(req));
 		if (!rl.success) return rateLimited(res, rl, 'too many generation requests');
 		const result = await generateProposals({ agentId, userId: auth.userId, agent: { name: agent.name, description: agent.description } });
+
+		// Auto-run any freshly-created REVERSIBLE proposal the owner has scoped for
+		// auto-execution. Irreversible ($THREE) actions never auto-run — they always
+		// require an explicit confirmation, so they stay pending here. Each auto-run
+		// is real, recorded, and undoable; a guard breach just leaves it pending.
+		const config = getAutopilotConfig(agent.meta);
+		const autoRan = [];
+		if (config.enabled) {
+			for (const p of result.created) {
+				const reversible = p.kind === 'create_alert' || p.kind === 'briefing';
+				if (!reversible || !config.scopes[p.kind] || !config.auto_execute?.[p.kind]) continue;
+				try {
+					const exec = await executeProposal({ proposal: p, agent, userId: auth.userId, meta: agent.meta });
+					autoRan.push({ proposalId: p.id, receipt: exec.receipt, actionId: exec.action?.id != null ? String(exec.action.id) : null, kind: p.kind, ts: exec.action?.ts });
+					p.status = 'executed';
+				} catch (err) {
+					if (!(err instanceof AutopilotError)) throw err; // unexpected — surface as 500
+					// expected guard denial — leave the proposal pending for manual review
+				}
+			}
+		}
+
 		const created = await attachSources(agentId, result.created);
 		const trust = await computeTrust({ agentId });
-		return json(res, 200, { created, source: result.source, scanned: result.scanned, trust });
+		return json(res, 200, { created, autoRan, source: result.source, scanned: result.scanned, trust });
 	}
 
 	// All remaining actions operate on a specific proposal.

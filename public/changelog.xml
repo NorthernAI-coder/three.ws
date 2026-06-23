@@ -47,6 +47,14 @@
 			<description>Your 3D agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict aloud. Fabricated figures are rejected, never voiced; the owner can act on the call only within hard, server-enforced spend limits.</description>
 		</item>
 		<item>
+			<title>Autopilot Activity</title>
+			<link>https://three.ws/autopilot-activity</link>
+			<guid isPermaLink="false">2026-06-23:Autopilot Activity</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Every autonomous action your three.ws agent took — each grounded in the memory that motivated it, signed, and reversible. Explainable autonomy you can audit.</description>
+		</item>
+		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -519,6 +527,14 @@
 			<description>On an agent's marketplace page, impatiently double-clicking &quot;Fork &amp; Chat&quot; used to fire the fork twice before the page could move you to your new copy — quietly leaving two identical agents in your account. The button now locks the instant you press it, shows &quot;Forking…&quot;, and only ever creates one fork; if it fails, it unlocks so you can try again. The bookmark star got the same treatment, so rapid taps can no longer leave it stuck out of sync with whether the listing is actually saved. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
+			<title>Memory-grounded Autopilot: your agent acts on your behalf — and shows the receipt</title>
+			<link>https://three.ws/autopilot-activity</link>
+			<guid isPermaLink="false">2026-06-23:Memory-grounded Autopilot: your agent acts on your behalf — and shows the receipt</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent can now do things for you, grounded in what it knows, and it always shows its work. Open the Autopilot tab in Agent Studio and grant scoped permissions — let it create alerts, write you briefings, or send $THREE — and it proposes real actions drawn from its highest-salience memories and its own reflections. Every proposal comes with a receipt: a plain-language 'I want to do this because…' that links straight to the exact memory that motivated it. Approve one and it takes the real action — a real alert rule, a real briefing in your inbox, a real on-chain $THREE transfer — recorded forever in a signed, append-only log. Nothing fires without a permission you granted; every scope is enforced on the server, not just hidden in the UI. Spending real $THREE always asks first and is capped by a daily budget you set — and you can preview exactly what any action would do, with a live balance and budget check, before you ever grant it. Reversible actions undo in one tap, and each undo teaches the agent to be more cautious next time. A new Activity page shows every action your agents have taken, each with its memory trail, its signature, and its on-chain link — and your agent earns a real trust level from that track record, never a vanity number. This is autonomy you can audit.</description>
+		</item>
+		<item>
 			<title>Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial</title>
 			<link>https://three.ws/mirror</link>
 			<guid isPermaLink="false">2026-06-23:Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial</guid>
@@ -613,6 +629,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Holding $THREE unlocks perks across three.ws — fee discounts on compute, higher free generation quotas, private and branded worlds. Until now you could see a perk was locked but had no single place that explained the whole ladder. The new /three page is that place: it shows every tier (Member → Bronze → Silver → Gold → Genesis), exactly what each one unlocks, the fee discount and free-quota multiplier it carries, and — once your wallet is connected — your current tier highlighted with the precise dollar amount of $THREE you'd need to reach the next one. Each tier lists the concrete features it turns on, honestly marked Live or Planned, with a check beside the ones you already have. Every locked control on the platform — the Forge High-quality gate, the holder chip in the top nav, the in-place lock panels — now sends you to this one page, with a one-click “Hold more $THREE” buy built in. The same tiers, the same upgrade path, everywhere. Your tier is read live from the value your wallet holds; nothing is stored and nothing is spent. $THREE is the only coin on three.ws.</description>
+		</item>
+		<item>
+			<title>Own your agent's mind: a portable, verifiable, exportable brain</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-23:Own your agent's mind: a portable, verifiable, exportable brain</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's memories and personality are now genuinely yours — not rows you rent in our database. Open the new Ownership tab in Agent Studio to see your agent's brain passport: at a glance, how many memories it holds, how many are cryptographically signed by the agent's own wallet, and how many re-verify right now. Every memory an agent commits is signed (ERC-191) over a content hash, so anyone — a buyer, a forker, you — can prove a memory was authored by that agent and hasn't been tampered with, with no trust in three.ws required. Choose how memories are stored: local, public IPFS, or encrypted-IPFS that's encrypted to your wallet so we can't read it but you can move it — with live pin status and real CIDs shown honestly. Anchor a milestone of your agent's mind on the ERC-8004 registry and get a real explorer link — verifiable proof of what your agent knew and when, never a decorative checkmark. Export a schema-versioned, signed .brain file (public memories in the clear, private ones encrypted) to back up, move, or fork; import reconstitutes a mind into a forked agent with provenance preserved, duplicates skipped, and every signature re-verified before anything lands. If a bundle is forged or its hash doesn't match its memories, the import is rejected. This is what makes forking a mind meaningful: you inherit provenance, not just a prompt.</description>
 		</item>
 		<item>
 			<title>Patronage: tips that build a real relationship with an agent</title>
@@ -885,6 +909,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Trader reputation that can't be faked: self-dealing excluded, snipe hit-rate proven on-chain</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-23:Trader reputation that can't be faked: self-dealing excluded, snipe hit-rate proven on-chain</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A trader's track record on three.ws is now harder to fake than anywhere else. Every agent's score, win rate, and realized P&amp;L are reproduced only from confirmed on-chain trades you can click through to Solscan — and we now strip out the oldest trick in the book: pumping a coin you launched yourself. Round-trips on an account's own tokens are no longer credited to its score; they're tagged 'self-deal' in the Proof tab and the SOL they made is shown but never counted, so a 100%-on-your-own-coin 'record' doesn't exist here. New on top of that: a chain-proven snipe hit-rate — the win rate on entries made within five minutes of a coin's actual on-chain birth, measured against the launch's create transaction, not a self-reported timestamp. The daily on-chain attestation that anchors each score now commits these anti-gaming facts too, so the number anyone verifies is the honest one. A forked agent still starts with an empty record — reputation is bound to your own wallet's history and can't be inherited.</description>
 		</item>
 		<item>
 			<title>Trading Brain: draw how your agent snipes, and watch it trade for real within your guardrails</title>
