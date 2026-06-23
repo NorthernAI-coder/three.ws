@@ -7,6 +7,9 @@ import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
 import { agentBus } from './agents/agent-bus.js';
 import { mountAutopilotMind } from './autopilot-mind.js';
+import { mountMoodInspector } from './agents/mood-inspector.js';
+// Boot the mood engine + embodiment so the edit-page avatar reflects mood live.
+import './agents/mood-embodiment.js';
 
 const API_BASE = '/api';
 const params = new URLSearchParams(location.search);
@@ -3131,6 +3134,13 @@ async function init() {
   // Surface the pending-dreams count on the tab badge without forcing the user
   // to open the tab — so a returning user sees "their agent has been thinking".
   primeDreamsBadge();
+
+  // Mood & embodiment inspector — current mood, the real signals that moved it,
+  // a mood-over-time sparkline, and the emotional-sensitivity control.
+  const moodHost = document.getElementById('mood-inspector-host');
+  if (moodHost && agentData?.id) {
+    mountMoodInspector(moodHost, { agentId: agentData.id });
+  }
 }
 
 async function primeDreamsBadge() {
