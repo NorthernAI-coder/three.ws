@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:49:20.777Z",
+	"generated_at": "2026-06-23T05:55:20.442Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -548,6 +548,16 @@
 			"tags": [
 				"improvement",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Wallet Intents: tell your agent's wallet what to do — in plain language",
+			"summary": "Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — \"tip back anyone who tips me more than 0.1 SOL, half of what they sent\", \"when my balance is under 0.05 SOL freeze all spending and DM me\", \"every Friday withdraw anything above 2 SOL to my main wallet\", \"split 10% of everything I earn to my other wallet\", or \"snipe launches from this creator under $40k, max 1 SOL each\". The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (\"on a 0.2 SOL tip, this sends back 0.1 SOL\") before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet \"how am I doing?\" and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{

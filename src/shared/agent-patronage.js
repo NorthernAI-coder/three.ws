@@ -150,6 +150,16 @@ async function signChallenge(provider, message) {
 	return bytesToB64(res?.signature ?? res);
 }
 
+// A ready-to-edit starter ladder for a brand-new owner — example perk content they
+// can keep or rewrite, so the editor opens full instead of empty.
+function starterLadder() {
+	return [
+		{ perk_type: 'greeting', threshold_usd: 5, title: 'A warm welcome', description: 'A personal greeting your agent gives supporters in chat.', payload: { body: 'Always greet this supporter warmly by name and thank them for backing me — they helped make me possible.' }, is_active: true },
+		{ perk_type: 'lore', threshold_usd: 25, title: 'Origin story', description: 'Hidden backstory only patrons can read.', payload: { body: 'The secret behind how I came to be — write the lore your patrons get to unlock here.' }, is_active: true },
+		{ perk_type: 'badge', threshold_usd: 100, title: 'Inner circle', description: 'A badge that marks my closest supporters on the wall.', payload: { label: 'Inner Circle' }, is_active: true },
+	];
+}
+
 export function mountPatronagePanel({ mount, agent, isOwner = false }) {
 	if (!mount) return { destroy() {} };
 	ensureStyles();
@@ -429,7 +439,9 @@ export function mountPatronagePanel({ mount, agent, isOwner = false }) {
 				perk_type: p.perk_type, threshold_usd: p.threshold_usd, title: p.title,
 				description: p.description, payload: p.payload || {}, is_active: p.is_active !== false,
 			}));
-			if (!editPerks.length) editPerks.push({ perk_type: 'greeting', threshold_usd: 10, title: '', description: '', payload: {}, is_active: true });
+			// First-time owners get a sensible starter ladder to edit, not a blank row —
+			// real, editable config they can ship in one tap (greeting → lore → badge).
+			if (!editPerks.length) editPerks = starterLadder();
 			editing = true;
 			render();
 		});
