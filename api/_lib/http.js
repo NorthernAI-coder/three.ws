@@ -126,6 +126,30 @@ export function redactUrl(rawUrl) {
 	return qs ? `${path}?${qs}` : path;
 }
 
+// Distinguish a real top-level browser navigation from a programmatic API / agent
+// call. Browsers stamp `Sec-Fetch-Mode: navigate` ONLY on top-level navigations;
+// fetch()/XHR send cors|same-origin|no-cors. Clients without Sec-Fetch headers
+// fall back to an Accept that prefers HTML. Used so a human who hits a 5xx is
+// sent to the branded /500 page (carrying their support ref) while every API /
+// agent caller keeps receiving the JSON error envelope it expects.
+function wantsHtmlNavigation(req) {
+	const m = req?.method || 'GET';
+	if (m !== 'GET' && m !== 'HEAD') return false;
+	const mode = req?.headers?.['sec-fetch-mode'];
+	if (mode) return mode === 'navigate';
+	const accept = String(req?.headers?.['accept'] || '');
+	return accept.includes('text/html');
+}
+
+// Build the /500 redirect target for a browser navigation that 5xx'd: the ref so
+// the page can show + copy it, and the original (redacted) path so "Try again"
+// retries the request that actually failed. redactUrl() keeps geo / tokens out of
+// this URL too, since it ends up in the address bar and any referrer log.
+function serverErrorPageLocation(ref, req) {
+	const from = redactUrl(req?.url || '/').slice(0, 512);
+	return `/500?ref=${encodeURIComponent(ref)}&from=${encodeURIComponent(from)}`;
+}
+
 // Short, URL-safe correlation id for tying a sanitized 5xx response back to the
 // full server-side log line. Not security-sensitive — just needs to be unique.
 function correlationId() {
@@ -365,11 +389,18 @@ export function wrap(handler) {
 				// so err.message would leak HELIUS_API_KEY to the client. Hand back a
 				// sanitized envelope keyed to the same ref we just logged.
 				if (!res.headersSent && !res.writableEnded) {
-					json(res, status, {
-						error: err.code || 'internal_error',
-						error_description: `internal error — quote ref ${ref} to support`,
-						ref,
-					}, { 'cache-control': 'no-store' });
+					if (wantsHtmlNavigation(req)) {
+						// A human navigated into this 5xx — send them to the branded
+						// error page with their ref instead of a raw JSON blob. API and
+						// agent callers (no `Sec-Fetch-Mode: navigate`) keep the envelope.
+						redirect(res, serverErrorPageLocation(ref, req), 303);
+					} else {
+						json(res, status, {
+							error: err.code || 'internal_error',
+							error_description: `internal error — quote ref ${ref} to support`,
+							ref,
+						}, { 'cache-control': 'no-store' });
+					}
 				}
 			} else if (!res.headersSent && !res.writableEnded) {
 				if (err.code === 'validation_error' && Array.isArray(err.issues)) {

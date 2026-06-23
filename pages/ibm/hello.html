@@ -938,59 +938,92 @@ agent-3d:defined ~ .agent-skel{display:none}
 </section>
 
 <!-- ══ LIVE DEMO ══ -->
+<!-- ══ DEMO 02 · AVATARS (free text→mesh→auto-rig→animated) ══ -->
+<style id="av-styles">
+.av-forge{margin-top:28px;border:1px solid var(--ibm-divider);background:var(--ibm-surface)}
+.av-head{padding:22px 24px 18px;border-bottom:1px solid var(--ibm-border)}
+.av-head h3{font-size:20px;font-weight:600}
+.av-head h3 span{color:var(--ibm-blue)}
+.av-head p{font-size:13px;color:var(--ibm-muted);font-weight:300;max-width:540px;margin-top:4px;line-height:1.55}
+.av-body{padding:22px 24px}
+.av-field{display:flex;gap:1px;flex-wrap:wrap;background:var(--ibm-border)}
+.av-input{flex:1 1 280px;min-width:0;font-family:var(--font-sans);font-size:15px;color:var(--ibm-ink);background:var(--ibm-surface);border:none;padding:0 16px;height:48px;outline:none}
+.av-input:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.av-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;padding:0 24px;height:48px;transition:background .12s,transform .04s}
+.av-btn:hover:not(:disabled){background:var(--ibm-blue-fill-hover)}
+.av-btn:active:not(:disabled){transform:translateY(1px)}
+.av-btn:disabled{opacity:.7;cursor:not-allowed}
+.av-btn:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px;box-shadow:0 0 0 4px rgba(15,98,254,.25)}
+.av-spin{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+.av-btn.loading .av-spin{display:inline-block}
+.av-suggest{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.av-suggest button{font-family:inherit;font-size:13px;color:var(--ibm-muted);background:transparent;border:1px solid var(--ibm-border);padding:6px 12px;cursor:pointer;transition:border-color .12s,color .12s}
+.av-suggest button:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
+/* pipeline step indicator — mesh → rig → animate */
+.av-steps{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0;list-style:none;padding:0;counter-reset:av}
+.av-steps li{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--ibm-subtle);font-weight:500;border:1px solid var(--ibm-border);padding:6px 12px;border-radius:2px;transition:color .2s,border-color .2s}
+.av-steps li .dot{width:7px;height:7px;border-radius:50%;background:var(--ibm-divider);flex:0 0 auto;transition:background .2s}
+.av-steps li.active{color:var(--ibm-blue);border-color:var(--ibm-blue)}
+.av-steps li.active .dot{background:var(--ibm-blue);animation:dotpulse 1.2s var(--ease) infinite}
+.av-steps li.done{color:var(--ibm-green-ink);border-color:var(--ibm-green)}
+.av-steps li.done .dot{background:var(--ibm-green)}
+.av-result{margin-top:20px;border:1px solid var(--ibm-border);background:var(--ibm-field)}
+.av-result.is-empty{padding:44px 20px;text-align:center;font-size:14px;color:var(--ibm-subtle);border-style:dashed}
+.av-stage{position:relative;min-height:460px;background:radial-gradient(circle at 50% 30%,#1c2530,#0c1116 70%)}
+.av-stage agent-3d,.av-stage model-viewer{display:block;width:100%;height:460px}
+.av-load{padding:44px 20px}
+.av-bar{display:block;height:3px;background:var(--ibm-border);overflow:hidden;margin-bottom:16px}
+.av-bar span{display:block;height:100%;width:40%;background:var(--ibm-blue);animation:g3dslide 1.3s ease-in-out infinite}
+.av-loadmsg{font-size:14px;color:var(--ibm-muted);text-align:center}
+.av-err{padding:28px 20px;text-align:center}
+.av-err p{font-size:14px;color:var(--ibm-muted);margin:0 auto 16px;max-width:460px;line-height:1.6}
+.av-retry{font-family:inherit;font-size:14px;font-weight:500;color:#fff;background:var(--ibm-blue-fill);border:none;padding:10px 20px;cursor:pointer;transition:background .12s}
+.av-retry:hover{background:var(--ibm-blue-fill-hover)}
+.av-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--ibm-border);background:var(--ibm-surface)}
+.av-act{display:inline-flex;align-items:center;font-family:inherit;font-size:14px;font-weight:500;text-decoration:none;padding:9px 16px;border:1px solid var(--ibm-blue);color:var(--ibm-blue);cursor:pointer;transition:background .12s}
+.av-act:hover{background:rgba(15,98,254,.08);text-decoration:none}
+.av-act.primary{background:var(--ibm-blue-fill);color:#fff;border-color:var(--ibm-blue-fill)}
+.av-act.primary:hover{background:var(--ibm-blue-fill-hover)}
+.av-engine{font-size:12px;color:var(--ibm-subtle);margin-left:auto}
+@media(max-width:560px){.av-btn{width:100%}.av-engine{margin-left:0;width:100%}}
+@media(pointer:coarse){.av-act,.av-retry,.av-suggest button{min-height:44px}}
+</style>
 <section class="section" id="demo" aria-labelledby="demo-h">
   <div class="inner">
-    <div class="section-tag">Demo 02 · Payments</div>
-    <h2 id="demo-h">Buy a <strong>data call</strong> for $0.001</h2>
-    <p class="section-lead">This calls a real three.ws API — a ticker-symbol availability check — for one tenth of a cent in USDC, settled on-chain. The price below is read live from the server's own 402 response.</p>
+    <div class="section-tag">Demo 02 · Avatars</div>
+    <h2 id="demo-h">Forge a <strong>living avatar</strong> from a sentence</h2>
+    <p class="section-lead">Describe a character; three.ws generates the textured mesh, auto-rigs a skeleton, and drops it straight into the avatar engine — where it stands, breathes, and waves. Free, no wallet. The same universal rig that lets <em>any</em> humanoid wear our animation library, running live in your browser.</p>
 
-    <div class="demo">
-      <div class="demo-head">
-        <div>
-          <h3 class="demo-title">three<span>.ws</span> Symbol Check</h3>
-          <div class="demo-desc">Is a ticker already taken? Returns exact and look-alike matches across symbols indexed by three.ws.</div>
-        </div>
-        <div class="price-tag">
-          <div class="amt" id="priceAmt" aria-hidden="true">$<strong>0.001</strong></div>
-          <div class="net" aria-hidden="true">USDC · per call</div>
-          <span class="sr-only" id="priceSr">Price: one tenth of a cent in USDC per call.</span>
-        </div>
+    <div class="av-forge">
+      <div class="av-head">
+        <h3 class="demo-title">three<span>.ws</span> Avatar Forge</h3>
+        <p>Text → textured mesh (Microsoft TRELLIS on NVIDIA NIM) → auto-rigged skeleton → animated avatar. No payment, no API key — a generation lane kept free for everyone.</p>
       </div>
-
-      <div class="demo-body">
-        <!-- live 402 preview -->
-        <div class="preview" role="region" aria-label="Live HTTP 402 payment challenge" aria-live="polite" aria-busy="true">
-          <div class="preview-label" id="pvLabel"><span class="dot" aria-hidden="true"></span><span id="pvLabelText">Reading the server's 402 challenge…</span></div>
-          <div id="pvRows">
-            <div class="preview-row"><span class="sk" style="width:38%"></span></div>
-            <div class="preview-row"><span class="sk" style="width:54%"></span></div>
-            <div class="preview-row"><span class="sk" style="width:46%"></span></div>
-          </div>
+      <div class="av-body">
+        <div class="av-field">
+          <label for="avPrompt" class="sr-only">Describe a character to generate</label>
+          <input id="avPrompt" class="av-input" value="a brass steampunk knight, full body" maxlength="600" autocomplete="off" spellcheck="true" inputmode="text">
+          <button id="avBtn" class="av-btn" type="button"><span class="av-spin" aria-hidden="true"></span><span class="av-label">Forge avatar</span> <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="av-suggest" id="avSuggest" aria-label="Example characters">
+          <button type="button" data-p="a brass steampunk knight, full body">Steampunk knight</button>
+          <button type="button" data-p="a friendly cartoon astronaut, full body">Cartoon astronaut</button>
+          <button type="button" data-p="a wise wizard in a flowing blue robe, full body">Blue wizard</button>
+          <button type="button" data-p="a sleek cyberpunk ninja, full body">Cyberpunk ninja</button>
         </div>
 
-        <!-- input -->
-        <div class="field-row">
-          <div class="field-wrap">
-            <label for="ticker">Ticker to check</label>
-            <input id="ticker" class="field" value="GRANITE" maxlength="32" autocomplete="off" spellcheck="false" autocapitalize="characters" inputmode="text" aria-describedby="tickerHint">
-            <div class="field-hint" id="tickerHint">A–Z and 0–9, up to 32 characters.</div>
-          </div>
-          <button id="payBtn" class="btn" type="button"><span class="spin" aria-hidden="true"></span><span class="label">Pay $0.001 &amp; run</span> <span class="arrow" aria-hidden="true">→</span></button>
-        </div>
-        <div class="wallet-hint" id="walletHint">On a phone? Open this page inside your <b>MetaMask</b> or <b>Phantom</b> in-app browser to pay.</div>
+        <ol class="av-steps" id="avSteps" aria-hidden="true">
+          <li data-step="mesh"><span class="dot" aria-hidden="true"></span>Generate mesh</li>
+          <li data-step="rig"><span class="dot" aria-hidden="true"></span>Auto-rig skeleton</li>
+          <li data-step="animate"><span class="dot" aria-hidden="true"></span>Animate</li>
+        </ol>
 
-        <!-- result. The visible panel is NOT a live region (its success state
-             contains a raw-JSON block that would otherwise be read aloud in full).
-             Concise spoken updates go to #announcer instead. -->
-        <div id="result" class="result is-empty">
-          Run the call to see live, on-chain-paid data appear here.
-        </div>
-        <p id="announcer" class="sr-only" role="status" aria-live="polite"></p>
+        <div id="avResult" class="av-result is-empty">Forge a character to watch it come to life here.</div>
+        <p id="avStatus" class="sr-only" role="status" aria-live="polite"></p>
 
-        <!-- requirements -->
         <div class="note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p>You'll need a browser wallet — <b>MetaMask</b> (Base) or <b>Phantom</b> (Solana) — holding at least <b>$0.001 USDC</b> on mainnet. This spends <b>real USDC</b> — one tenth of a cent — from your own wallet. The payment itself is a gasless signature: the network fee is sponsored by the x402 facilitator, so it isn't added to your cost (it isn't zero, just not yours to pay). No wallet? You can still watch the live 402 challenge above and read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a>. <span class="note-aside">Paying with <b>MetaMask</b> on Base is fully self-contained — it talks only to three.ws. Paying with <b>Phantom</b> on Solana additionally loads a small library from <span class="mono">esm.sh</span>; if a strict host security policy blocks it, the Solana button reports it clearly and the Base path keeps working.</span></p>
+          <p>Every avatar here is generated and rigged on demand — <b>no template library, no canned characters</b>. The rig maps to three.ws's canonical skeleton, so the same idle, walk and emote clips play on whatever you describe. Want image→3D, your own GLB upload, or AR preview? <a href="https://three.ws/forge" target="_blank" rel="noopener">Open the full Forge tool ↗</a> <span class="note-aside">The free lane has an hourly cap so it stays free for everyone; if it's busy it tells you exactly when to retry. Generation runs on NVIDIA NIM and auto-falls back across lanes, so a model always comes back.</span></p>
         </div>
       </div>
     </div>
@@ -1121,19 +1154,7 @@ agent-3d:defined ~ .agent-skel{display:none}
 (function () {
   'use strict';
 
-  // The paid endpoint this demo calls. Swap to any three.ws x402 GET endpoint
-  // and the price tag + 402 preview adapt automatically (the result renderer is
-  // shaped for symbol-availability — update renderResultDone if you change it).
-  var ENDPOINT = 'https://three.ws/api/x402/symbol-availability';
-  // Per-call spend ceiling (micro-USD) handed to the widget as a safety rail:
-  // $0.01, so a $0.001 call always clears but a misconfigured price can't drain.
-  var MAX_PER_CALL_MICRO_USD = 10000;
-
   var $ = function (id) { return document.getElementById(id); };
-  var inFlight = false;
-  // Networks the live 402 challenge is currently quoting (e.g. "Base or Solana").
-  // Used to make error guidance specific — "top up USDC on <network>".
-  var quotedNetworks = '';
 
   // ── global resilience net ────────────────────────────────────────────────
   // Last-ditch catch for an unexpected throw or rejected promise, so a visitor
@@ -1171,58 +1192,11 @@ agent-3d:defined ~ .agent-skel{display:none}
     $('errBanner').classList.remove('show'); bannerShown = false;
   });
 
-  function escapeHtml(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
-    });
-  }
-  function prefersReducedMotion() {
-    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  }
-  // Replay a one-shot CSS animation class, no-op under reduced motion.
-  function flashPrice(el) {
-    if (!el || prefersReducedMotion()) return;
-    el.classList.remove('flash');
-    void el.offsetWidth; // reflow so the animation restarts on repeat changes
-    el.classList.add('flash');
-    el.addEventListener('animationend', function once() {
-      el.classList.remove('flash');
-      el.removeEventListener('animationend', once);
-    });
-  }
-  function sanitizeTicker(raw) {
-    return String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32);
-  }
-  function shortAddr(a) {
-    if (!a) return '—';
-    a = String(a);
-    return a.length > 16 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
-  }
-  function fmtUsd(atomics, decimals) {
-    var n = Number(atomics) / Math.pow(10, decimals == null ? 6 : decimals);
-    if (!isFinite(n)) return '$—';
-    if (n < 0.01) return '$' + n.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-    return '$' + n.toFixed(2);
-  }
-  function networkLabel(net) {
-    if (!net) return '—';
-    if (net.indexOf('solana') === 0) return 'Solana';
-    if (net === 'eip155:8453') return 'Base';
-    if (net.indexOf('eip155:') === 0) return 'EVM ' + net.split(':')[1];
-    return net;
-  }
-  function explorerUrl(net, tx) {
-    if (!tx || !net) return null;
-    if (net.indexOf('solana') === 0) return 'https://solscan.io/tx/' + tx;
-    if (net === 'eip155:8453') return 'https://basescan.org/tx/' + tx;
-    return null;
-  }
-
   // ── 3D agent layer ────────────────────────────────────────────────────────
   // The <agent-3d> element exposes scripted, LLM-free reactions (expressEmotion,
-  // playEmote, wave, notify). We drive those from the real payment lifecycle so
-  // the agent visibly responds to the same on-chain events the demo renders —
-  // no faked timing, no canned animation loop.
+  // playEmote, wave, notify). We drive those from the avatar-forge lifecycle above
+  // (the window 'avatar:*' events it dispatches) so the agent visibly responds to a
+  // real generation as it happens — no faked timing, no canned animation loop.
   var agentReady = false;
   function agentEl() { return document.getElementById('guideAgent'); }
   // Fire a reaction only once the component has booted; calls before that no-op
@@ -1251,8 +1225,13 @@ agent-3d:defined ~ .agent-skel{display:none}
   function agentOnError() {
     agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('concern', 0.8); });
   }
+  // Bridge: the avatar forge (Demo 02) dispatches these as it runs, so the guide
+  // agent waits, celebrates, or shows concern in lockstep with a real generation.
+  window.addEventListener('avatar:generating', agentOnWaiting);
+  window.addEventListener('avatar:done', agentOnSettled);
+  window.addEventListener('avatar:error', agentOnError);
 
-  // ── full-size demo embeds (Forge / Play / IRL) ─────────────────────────────
+  // ── full-size demo embeds (Play / IRL) ─────────────────────────────────────
   // Each presents a real, framable production surface at full size. The iframe
   // is created only as the section nears the viewport (IntersectionObserver),
   // so three heavy apps never load at once on first paint. A load timeout falls

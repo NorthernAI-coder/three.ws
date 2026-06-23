@@ -900,6 +900,84 @@ export default wrap(async (req, res) => {
 	// req.query / lat / lng on this path. Privacy-minded clients additionally
 	// coarsen the origin they send (see discoveryOrigin() in src/irl.js), so the
 	// exact device position need never reach the server at all.
+
+	// ── GET — marker room read (Epic M) ──────────────────────────────────────
+	// Indoor colocalization can't use the GPS proximity feed: GPS is ±20–50 m
+	// inside a building and never agrees phone-to-phone. Instead a MARKER room is
+	// keyed by a QR both phones can see — its id (`m-<hash>`) is derived from the
+	// QR payload (src/irl/marker-anchor.js markerRoomId), so a viewer who scanned
+	// the marker can read its pins by room_id with NO location at all. This is
+	// capability-gated by knowing the QR: the id is unguessable without having
+	// physically seen the marker, which is the same "be present to discover"
+	// contract the proximity feed enforces with GPS. Restricted to marker rooms
+	// (`m-` prefix) so a GPS room (`r-…`) can never be read here, bypassing its
+	// fix-token gate. Still IP rate-limited by the publicIp ceiling applied above.
+	if (req.method === 'GET' && req.query.room != null) {
+		const roomId = String(req.query.room);
+		if (!ROOM_ID_RE.test(roomId)) {
+			return json(res, 400, { error: 'invalid room id' });
+		}
+		if (!roomId.startsWith('m-')) {
+			// GPS rooms are readable only through the fix-gated proximity feed.
+			return json(res, 404, { error: 'not a marker room' });
+		}
+
+		const session = await getSessionUser(req).catch(() => null);
+		const myId    = session?.id ?? null;
+		const myTok   = readDeviceToken(req);
+
+		const rows = await sql`
+			SELECT id, user_id, device_token, agent_id, lat, lng, heading,
+			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
+			       anchor_height_m, anchor_yaw_deg, anchor_quat,
+			       gps_accuracy_m, altitude_m, anchor_source, avatar_version,
+			       vps_provider, vps_id,
+			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
+			FROM irl_pins
+			WHERE room_id = ${roomId}
+			  AND hidden_at IS NULL
+			  AND published IS NOT FALSE
+			  AND (expires_at IS NULL OR expires_at > NOW())
+			ORDER BY placed_at DESC
+			LIMIT 50
+		`;
+
+		// Same allow-list projection as the nearby feed: NEVER expose user_id or
+		// device_token. The marker frame (rel_east_m / rel_north_m) is the render-
+		// authoritative pose; lat/lng is only a coarse index here, so coarsen it.
+		const pins = rows.map(r => ({
+			id:              r.id,
+			agent_id:        r.agent_id,
+			lat:             roundCoord(r.lat),
+			lng:             roundCoord(r.lng),
+			heading:         r.heading,
+			avatar_url:      r.avatar_url,
+			avatar_name:     r.avatar_name,
+			caption:         r.caption,
+			x402_endpoint:   r.x402_endpoint,
+			placed_at:       r.placed_at,
+			view_count:      r.view_count,
+			anchor_height_m: r.anchor_height_m,
+			anchor_yaw_deg:  r.anchor_yaw_deg,
+			anchor_quat:     r.anchor_quat,
+			gps_accuracy_m:  r.gps_accuracy_m,
+			altitude_m:      r.altitude_m,
+			anchor_source:   r.anchor_source,
+			vps_provider:    r.vps_provider ?? null,
+			vps_id:          r.vps_id ?? null,
+			room_id:         r.room_id ?? null,
+			rel_east_m:      r.rel_east_m,
+			rel_north_m:     r.rel_north_m,
+			origin_lat:      roundCoord(r.origin_lat),
+			origin_lng:      roundCoord(r.origin_lng),
+			origin_yaw_deg:  r.origin_yaw_deg,
+			avatar_version:  Number(r.avatar_version) || 0,
+			is_mine: (!!myId && r.user_id === myId) || (!!myTok && r.device_token === myTok),
+		}));
+
+		return json(res, 200, { pins, room_id: roomId });
+	}
+
 	if (req.method === 'GET') {
 		const lat    = parseFloat(req.query.lat);
 		const lng    = parseFloat(req.query.lng);
@@ -1164,10 +1242,25 @@ export default wrap(async (req, res) => {
 		// 'webxr' (A1) · 'gyro-gps' (absolute compass heading) · 'gyro-gps:rel'
 		// (page-relative heading only — A3 down-weights its cross-user bearing) ·
 		// 'map' (L2: a point chosen on the map, not a live fix — its bearing isn't
-		// compass-trustworthy, same down-weighting as ':rel').
+		// compass-trustworthy, same down-weighting as ':rel') · 'marker' (Epic M: a
+		// visual QR marker is the shared origin; GPS is only a coarse index and the
+		// frame is reconstructed live per viewer from the marker, not from compass).
 		const anchorSource  = pose.source === 'webxr' ? 'webxr'
 			: pose.source === 'map' ? 'map'
+			: pose.source === 'marker' ? 'marker'
 			: pose.source === 'gyro-gps:rel' ? 'gyro-gps:rel' : 'gyro-gps';
+
+		// Visual-positioning identity (Epic M) — the long-reserved vps_* columns,
+		// now first written by the marker path: provider is the positioning system
+		// ('qr' for a QR marker) and id is its opaque token (the marker payload).
+		// Both phones derive the room_id from this same token, so it is the key that
+		// lets a second viewer read the room with no GPS. Length-clamped; absent on
+		// every non-marker placement (every existing caller), leaving the columns NULL.
+		const vps          = (body.vps && typeof body.vps === 'object') ? body.vps : {};
+		const vpsProvider  = anchorSource === 'marker' && typeof vps.provider === 'string'
+			? vps.provider.slice(0, 32) : null;
+		const vpsId        = anchorSource === 'marker' && typeof vps.id === 'string'
+			? vps.id.slice(0, 256) : null;
 
 		// Room frame (optional) — when the client places into a shared room it sends
 		// the exact offset from the room origin. We persist origin + offset as the
@@ -1209,7 +1302,7 @@ export default wrap(async (req, res) => {
 				 anchor_height_m, anchor_yaw_deg, anchor_quat,
 				 gps_accuracy_m, altitude_m, anchor_source, geocell7,
 				 room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg,
-				 placement_kind, fuzz_radius_m)
+				 placement_kind, fuzz_radius_m, vps_provider, vps_id)
 			VALUES (
 				${userId},
 				${body.agentId    ?? null},
@@ -1235,7 +1328,9 @@ export default wrap(async (req, res) => {
 				${originLngV},
 				${originYawV},
 				${placementKind},
-				${fuzzRadiusM}
+				${fuzzRadiusM},
+				${vpsProvider},
+				${vpsId}
 			)
 			RETURNING *
 		`;
