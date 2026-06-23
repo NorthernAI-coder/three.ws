@@ -360,6 +360,8 @@ class MoodEngine {
 	}
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUuid(v) { return typeof v === 'string' && UUID_RE.test(v); }
 function clamp01(n) { return Math.max(0, Math.min(1, Number(n) || 0)); }
 function round3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
 

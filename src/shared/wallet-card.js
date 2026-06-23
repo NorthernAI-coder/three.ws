@@ -139,7 +139,8 @@ export function mountWalletCard(host, agent, opts = {}) {
 	if (typeof document === 'undefined' || !host) return null;
 	const identity = getWalletIdentity(agent);
 	const agentId = identity?.agentId || agent?.id || agent?.agent_id || null;
-	if (!agentId) return null;
+	// No custodial wallet → no card. The caller renders its own empty/pending state.
+	if (!identity || !agentId) return null;
 
 	ensureStyles();
 

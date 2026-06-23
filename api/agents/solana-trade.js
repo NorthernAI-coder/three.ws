@@ -349,7 +349,10 @@ export async function handleTrade(req, res, id) {
 		// Cross-path USD ceiling (shared with withdraw / x402 / snipe).
 		if (!guardWarning) {
 			try {
-				await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network });
+				// ownerInitiated: the hub's discretionary Trade tab is the owner acting
+				// in person (session + CSRF), not a delegated skill — so least-privilege
+				// "require a capability" never blocks the owner's own trade (like withdraw).
+				await enforceSpendLimit({ agentId: id, limits: limitsCfg, category: 'trade', usdValue, network, ownerInitiated: true });
 			} catch (e) {
 				if (e instanceof SpendLimitError) guardWarning = { status: e.status, code: e.code, message: e.message, detail: e.detail };
 				else throw e;

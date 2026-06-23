@@ -13,6 +13,7 @@ import { getRedis } from '../../_lib/redis.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../../_lib/auth.js';
 import { sql } from '../../_lib/db.js';
 import { getAgentReputation } from '../../_lib/trust/wallet-reputation.js';
+import { saveReputation } from '../../_lib/trust/reputation-store.js';
 
 const CACHE_TTL_S = 180; // 3 minutes — score is derived, not real-time critical.
 
@@ -62,6 +63,9 @@ export const handleReputation = wrap(async (req, res, agentId) => {
 		if (redis && !result.partial) {
 			redis.set(cacheKey, result, { ex: CACHE_TTL_S }).catch(() => {});
 		}
+		// Warm the durable store too, so the access layer and the reputation-weighted
+		// leaderboard read a fresh row without waiting for the recompute cron.
+		if (!result.partial) saveReputation(result).catch(() => {});
 		res.setHeader('X-Cache', 'MISS');
 	}
 

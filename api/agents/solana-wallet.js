@@ -1083,6 +1083,7 @@ async function handlePolicy(req, res, id) {
 			SELECT id, event_type, category, network, asset, usd, destination, created_at, meta
 			FROM agent_custody_events
 			WHERE agent_id = ${id} AND network = ${network} AND event_type = 'spend'
+			  AND status IN ('ok', 'pending', 'confirmed')
 			  AND created_at > now() - interval '60 days'
 			ORDER BY created_at DESC
 			LIMIT 1000
