@@ -108,7 +108,9 @@ export default wrap(async (req, res) => {
 
 // The receipt's "what happened" — payload minus the provenance fields the UI
 // renders separately (rationale + source ids + ids/ts).
+const PROVENANCE_KEYS = new Set(['rationale', 'source_memory_ids', 'source_reflection_id', 'proposal_id', 'ts']);
 function stripProvenance(payload) {
-	const { rationale, source_memory_ids, source_reflection_id, proposal_id, ts, ...rest } = payload || {};
-	return rest;
+	const out = {};
+	for (const [k, v] of Object.entries(payload || {})) if (!PROVENANCE_KEYS.has(k)) out[k] = v;
+	return out;
 }
