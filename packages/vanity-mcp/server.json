@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/vanity-mcp",
 	"title": "three.ws Vanity",
-	"description": "Read the three.ws vanity-address grind-bounty market — quote a pattern's difficulty + USDC price, appraise any address's rarity, and browse the board, claimable queue, leaderboard, and proof-of-grind gallery.",
+	"description": "Read the three.ws vanity-address market: quote difficulty + USDC price, browse the board.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{

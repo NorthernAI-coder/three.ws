@@ -441,6 +441,9 @@ export function tradeGuardResponse(blocked) {
 }
 
 export { LAMPORTS_PER_SOL };
+// Re-export the policy-rules reader so routes can treat agent-trade-guards as the
+// single barrel for spend/policy helpers (solana-wallet.js imports it from here).
+export { getPolicyRules };
 
 /**
  * Sum the USD-equivalent of an agent's outbound spends over the trailing window.

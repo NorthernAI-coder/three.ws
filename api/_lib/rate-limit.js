@@ -379,6 +379,10 @@ export const limits = {
 	// keep that egress bounded. Non-critical: a Redis outage must never block a
 	// rewrite (the enhancer degrades gracefully to the original prompt anyway).
 	forgeEnhance: (key) => getLimiter('forge:enhance', { limit: 40, window: '1 h' }).limit(key),
+	// Self-hosted TRELLIS NIM demo (api/forge-nim) — each call is one real
+	// image/text→3D inference against the NIM, so cap per principal to keep that
+	// GPU egress bounded. Non-critical: a Redis blip must never block the demo.
+	forgeNim: (key) => getLimiter('forge:nim', { limit: 30, window: '1 h' }).limit(key),
 	// Diorama composer (api/diorama action:compose) — one free-first LLM
 	// completion per call that decomposes a sentence into a placed object set.
 	// Paid upstream egress, so cap per IP and add a global hourly circuit breaker.

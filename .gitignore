@@ -271,3 +271,6 @@ src/embodiment/
 src/embody.js
 pages/embody.html
 api/_lib/migrations/20260623170000_agent_bodies.sql
+
+# MCP registry publisher auth token (never commit)
+.mcp_publisher_token

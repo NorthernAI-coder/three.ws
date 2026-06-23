@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/marketplace-mcp",
 	"title": "three.ws Marketplace",
-	"description": "Browse and discover the public three.ws agent marketplace and skills catalog — search, page, and inspect agents and skills. Read-only.",
+	"description": "Browse and discover the public three.ws agent marketplace and skills catalog. Read-only.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{
