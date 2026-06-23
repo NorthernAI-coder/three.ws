@@ -128,6 +128,31 @@ export function computeRequestPhase({ status, approvalsRequired, approvalsCount,
 	return { phase: 'ready', approved: true, approvalsCount, approvalsRequired, timelockUntil, msUntilUnlock: 0, msUntilExpiry };
 }
 
+/**
+ * Decide what happens to the time-lock when a fresh approval count is in. Pure:
+ * the caller hands in the stored request row + the freshly-counted approvals.
+ *
+ * Returns null when nothing changes (still below threshold, or not in the
+ * approval-collecting phase), otherwise `{ until, announce }` — the time-lock
+ * deadline to write and whether this is a newly-opened window worth announcing.
+ *
+ * A RECOVERY request carries no `timelock_until` until the threshold is first met,
+ * so we open a fresh RECOVERY_TIMELOCK_MS safety window here and announce it. An
+ * INHERITANCE request already carries its grace deadline (set when the dead-man's
+ * switch armed), so we PRESERVE that deadline and don't re-announce — without this,
+ * a guardian-gated inheritance would meet threshold but never leave
+ * 'pending_approvals', so the cron (which completes only 'time_locked'/'ready'
+ * rows) could never finish the hand-off.
+ */
+export function thresholdTimelockTransition(row, approvalsCount, now = Date.now()) {
+	if (!row || row.status !== 'pending_approvals') return null;
+	if (Number(approvalsCount) < Number(row.approvals_required)) return null;
+	const until = row.timelock_until
+		? new Date(row.timelock_until).toISOString()
+		: new Date(now + RECOVERY_TIMELOCK_MS).toISOString();
+	return { until, announce: !row.timelock_until };
+}
+
 // ── user resolution ───────────────────────────────────────────────────────────
 
 /** Resolve a guardian handle (username, @username, email, or uuid) → a user row. */
@@ -576,12 +601,17 @@ export async function recordVote({ agentId, requestId, guardianId, decision, req
 	await recordCustodyEvent({ agentId, userId: guardianId, eventType: 'recovery_approval', reason: decision, meta: { request_id: requestId } }).catch(() => {});
 	logAudit({ userId: guardianId, action: `recovery.${decision}`, resourceId: agentId, meta: { request_id: requestId }, req });
 
-	// Re-evaluate: arm the time-lock the moment the threshold is first reached.
+	// Re-evaluate: arm/confirm the time-lock the moment the threshold is first
+	// reached. Recovery opens a fresh 48h window; a guardian-gated inheritance keeps
+	// its already-set grace deadline but still transitions out of pending_approvals
+	// so the cron can complete it.
 	const { approvals } = await countApprovals(requestId, agentId);
-	if (approvals >= row.approvals_required && !row.timelock_until && row.status === 'pending_approvals') {
-		const until = new Date(Date.now() + RECOVERY_TIMELOCK_MS).toISOString();
-		await sql`UPDATE agent_recovery_requests SET status = 'time_locked', timelock_until = ${until}, updated_at = now() WHERE id = ${requestId} AND status = 'pending_approvals'`;
-		await notifyParties(agentId, 'recovery_timelock_started', { request_id: requestId, unlock_at: until });
+	const transition = thresholdTimelockTransition(row, approvals);
+	if (transition) {
+		await sql`UPDATE agent_recovery_requests SET status = 'time_locked', timelock_until = ${transition.until}, updated_at = now() WHERE id = ${requestId} AND status = 'pending_approvals'`;
+		if (transition.announce) {
+			await notifyParties(agentId, 'recovery_timelock_started', { request_id: requestId, unlock_at: transition.until });
+		}
 	} else if (decision === 'approve') {
 		insertNotification(row.requester_id, 'recovery_approval_received', { agent_id: agentId, request_id: requestId, by_user_id: guardianId });
 	}
