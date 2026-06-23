@@ -157,3 +157,45 @@ export async function userHoldsCollection(userId, collectionMint, opts = {}) {
 	if (wallets.length === 0) return false;
 	return anyWalletHoldsCollection(wallets, collectionMint, opts);
 }
+
+/**
+ * For a set of active price rows, return the skill names an NFT gate currently
+ * grants the viewer — so a display surface can mark them "owned" alongside
+ * purchased skills. This is for DISPLAY only and is fail-SOFT: a verification
+ * error simply omits the skill (the viewer sees the gate, not an error). The
+ * authoritative, fail-closed decision lives in hasSkillAccess() on execution.
+ *
+ * Resolves the viewer's wallets once and checks each distinct collection a
+ * single time (skills sharing a collection cost one check).
+ *
+ * @param {Array<{ skill: string, gate_type?: string, nft_collection_mint?: string }>} priceRows
+ * @param {string|null} userId
+ * @param {{ fetchImpl?: Function, rpcUrl?: string }} [opts]
+ * @returns {Promise<string[]>} skill names the viewer can use via an NFT gate
+ */
+export async function viewerNftGatedSkills(priceRows, userId, opts = {}) {
+	if (!userId || !nftGateEnabled()) return [];
+	const gated = (priceRows || []).filter(
+		(r) => r.gate_type === 'nft' && r.nft_collection_mint,
+	);
+	if (gated.length === 0) return [];
+
+	const wallets = await getUserSolanaWallets(userId);
+	if (wallets.length === 0) return [];
+
+	const collections = [...new Set(gated.map((r) => r.nft_collection_mint))];
+	const heldByCollection = new Map();
+	await Promise.all(
+		collections.map(async (mint) => {
+			try {
+				heldByCollection.set(mint, await anyWalletHoldsCollection(wallets, mint, opts));
+			} catch {
+				heldByCollection.set(mint, false); // fail-soft for display
+			}
+		}),
+	);
+
+	return gated
+		.filter((r) => heldByCollection.get(r.nft_collection_mint) === true)
+		.map((r) => r.skill);
+}

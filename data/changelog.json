@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Place a whole room of AI agents at fixed spots — they hold their layout for everyone",
+			"summary": "IRL agents used to be dropped one at a time at a GPS point, and indoors GPS is off by whole rooms — so a cluster of agents could never keep its shape from one phone to the next. Now you can set up a real room: drop several agents at the exact spots you want — one on the couch, one by the desk, one at the door — and they share a single room frame instead of each trusting its own noisy GPS. The couch agent and the door agent stay metres apart on the right sides for every viewer, no matter how each phone's location drifts. As the owner you can realign the whole room in one gesture — grab the cluster, slide and twist it onto its true spot, and every agent moves together with the internal layout intact. If a room ever shows up rotated for you, one tap — face the room's front and tap Align — snaps it to match your view, just on your screen. After an owner realigns a room, nearby viewers pick up the new positions on their next location refresh (within about 10 seconds). Only coin referenced is $THREE.",
+			"tags": [
+				"feature"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "IRL status updates now announced to screen readers",
+			"summary": "The status line on the IRL page — the one that confirms things like 'Room aligned to your view', tells you when an agent's spot was refined, or asks you to wait for a clean GPS fix — is now a live region, so screen readers speak each update as it happens instead of leaving it silent on screen. Part of a broader pass making the real-world placement flow fully keyboard- and screen-reader-friendly.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/irl"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Consistent currency formatting across the earnings dashboard",
 			"summary": "Subscription income and plan prices on the Monetize dashboard now display with thousands separators (e.g. $1,234.56), matching how the rest of your earnings are shown. Large numbers are easier to read at a glance and every dollar figure on the page now reads the same way.",
 			"tags": [

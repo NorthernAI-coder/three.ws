@@ -25,6 +25,8 @@ import { IdleAnimation } from './idle-animation.js';
 import { renderSculptPanel } from './avatar-sculpt.js';
 import { renderWardrobePanel } from './avatar-wardrobe.js';
 import { renderRigPanel } from './avatar-rig.js';
+import { AvatarWalkPreview } from './avatar-edit-walk.js';
+import { apiFetch } from './api.js';
 import { playAs } from './game/play-handoff.js';
 import { log } from './shared/log.js';
 
@@ -64,6 +66,7 @@ let scene = null;
 let accessoryManager = null;
 let idle = null;
 let idleDispose = null;
+let walkPreview = null;
 
 // Appearance state — `current` reflects what the server has, `working` is what
 // the UI has committed (locally) and will save. We're dirty when they differ.
@@ -100,6 +103,7 @@ const TABS = [
 	{ id: 'earrings', label: 'Earrings', kinds: ['earrings'], emoji: '💎', single: false },
 	{ id: 'sculpt', label: 'Sculpt', kinds: [], emoji: '✨', single: true, sculpt: true },
 	{ id: 'rig', label: 'Animate', kinds: [], emoji: '🦴', rig: true },
+	{ id: 'walk', label: 'Walk', kinds: [], emoji: '🚶', walk: true },
 ];
 const KIND_EMOJI = {
 	outfit: '👕',
@@ -318,6 +322,15 @@ function renderActivePanel() {
 	const tab = TABS.find((t) => t.id === activeTab);
 	const panel = $('ae-panel');
 
+	// Leaving the Walk tab tears down locomotion and restores the static stage.
+	// Idempotent, so it's safe to call on every render regardless of source tab.
+	if (activeTab !== 'walk') exitWalkMode();
+
+	if (tab.walk) {
+		renderWalkPanel(panel);
+		return;
+	}
+
 	// Wardrobe tab: recolour + show/hide the avatar's own garment layers. Shares
 	// the studio's layer engine (src/avatar-wardrobe.js); changes apply live via
 	// the AccessoryManager and persist in appearance.colors / appearance.hidden.
@@ -421,6 +434,146 @@ function renderActivePanel() {
 	panel.innerHTML = searchHtml + `<div class="ae-grid">${tiles.join('')}</div>`;
 	bindSearch();
 	bindTiles(panel, tab);
+}
+
+// ── Walk preview ─────────────────────────────────────────────────────────
+
+function getWalkPreview() {
+	if (walkPreview) return walkPreview;
+	if (!scene?.root) return null;
+	walkPreview = new AvatarWalkPreview({
+		scene,
+		stageEl: $('ae-stage'),
+		// The editor's ambient idle layer writes bone rotations every frame; pause
+		// it while a retargeted walk clip owns the skeleton, resume on exit.
+		pauseAmbient: () => {
+			if (idleDispose) {
+				idleDispose();
+				idleDispose = null;
+			}
+		},
+		resumeAmbient: () => {
+			if (idle && scene && !idleDispose) {
+				idleDispose = scene.addOnTick((dt) => idle.update(dt));
+			}
+		},
+	});
+	walkPreview.onStatus((msg) => {
+		const el = $('ae-walk-status');
+		if (el) el.textContent = msg || '';
+	});
+	return walkPreview;
+}
+
+function renderWalkPanel(panel) {
+	if (!scene?.root) {
+		panel.innerHTML = `<div class="ae-empty">Waiting for avatar to load…</div>`;
+		return;
+	}
+	// Don't rebuild the panel (and lose the env selection) if it's already up —
+	// renderActivePanel can re-fire while the Walk tab stays active (e.g. on save).
+	if (panel.querySelector('#ae-walk-panel')) {
+		enterWalkMode();
+		return;
+	}
+
+	panel.innerHTML = `
+		<div class="ae-walk" id="ae-walk-panel">
+			<p class="ae-walk-lede">
+				See your avatar in motion. It auto-walks a circle around the stage —
+				take over any time with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+				or the arrow keys. Every sculpt, outfit, and accessory edit shows up here live.
+			</p>
+
+			<label class="ae-walk-field">
+				<span class="ae-walk-field-label">Environment</span>
+				<select class="ae-walk-select" id="ae-walk-env">
+					<option value="void">Void</option>
+				</select>
+			</label>
+
+			<button class="ae-btn primary ae-walk-open" id="ae-walk-open" type="button">
+				Open in Walk page →
+			</button>
+			<p class="ae-walk-note" id="ae-walk-status"></p>
+		</div>
+	`;
+
+	const envSel = panel.querySelector('#ae-walk-env');
+	envSel.addEventListener('change', () => {
+		getWalkPreview()?.setEnvironment(envSel.value);
+	});
+	panel.querySelector('#ae-walk-open').addEventListener('click', openInWalkPage);
+
+	enterWalkMode();
+
+	// Backfill the real environment list once the manifest resolves.
+	const preview = getWalkPreview();
+	if (preview) {
+		Promise.resolve(preview.envManifest || preview._applyEnvironment(preview.envName))
+			.then(() => populateEnvOptions(envSel, preview))
+			.catch(() => {});
+	}
+}
+
+function populateEnvOptions(sel, preview) {
+	if (!sel || !preview) return;
+	const envs = preview.availableEnvironments();
+	if (envs.length <= 1) return;
+	const current = preview.envName || 'void';
+	sel.innerHTML = envs
+		.map(
+			(e) => `<option value="${esc(e.name)}"${e.name === current ? ' selected' : ''}>${esc(e.label)}</option>`,
+		)
+		.join('');
+}
+
+function enterWalkMode() {
+	const preview = getWalkPreview();
+	if (!preview || preview.active) return;
+	preview.enter().catch((err) => {
+		log.warn('[avatar-edit] walk preview enter failed:', err?.message);
+		const el = $('ae-walk-status');
+		if (el) el.textContent = `Could not start walk: ${err.message}`;
+	});
+}
+
+function exitWalkMode() {
+	if (walkPreview?.active) walkPreview.exit();
+}
+
+async function openInWalkPage() {
+	const btn = $('ae-walk-open');
+	const status = $('ae-walk-status');
+	if (btn) btn.disabled = true;
+	if (status) status.textContent = 'Preparing preview…';
+	try {
+		// Mint an unguessable draft id and stash the *current* (unsaved) look so the
+		// walk page renders exactly what's on the editor stage — not the last save.
+		const draftId = (crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+			.replace(/[^a-z0-9]/gi, '')
+			.slice(0, 40);
+		const r = await apiFetch(`/api/avatars/draft/${encodeURIComponent(draftId)}`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				avatar_id: avatar.id,
+				appearance: collapseAppearance(workingAppearance),
+			}),
+		});
+		if (!r.ok) {
+			const j = await r.json().catch(() => ({}));
+			throw new Error(j.error_description || `Could not save draft (${r.status})`);
+		}
+		const env = $('ae-walk-env')?.value || 'void';
+		const url = `/walk?avatar=${encodeURIComponent(draftId)}&preview=true&env=${encodeURIComponent(env)}`;
+		window.open(url, '_blank', 'noopener');
+		if (status) status.textContent = 'Opened in a new tab.';
+	} catch (err) {
+		if (status) status.textContent = err.message;
+	} finally {
+		if (btn) btn.disabled = false;
+	}
 }
 
 function tilePreviewMarkup(preset) {

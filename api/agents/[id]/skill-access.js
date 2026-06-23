@@ -22,6 +22,7 @@ import { authenticateBearer, extractBearer, getSessionUser } from '../../_lib/au
 import { cors, error, json, method, wrap, rateLimited } from '../../_lib/http.js';
 import { clientIp, limits } from '../../_lib/rate-limit.js';
 import { getSkillPrices, skillPriceMap } from '../../_lib/skill-price-cache.js';
+import { viewerNftGatedSkills } from '../../_lib/nft-gate.js';
 import { isUuid } from '../../_lib/validate.js';
 
 async function resolveAuth(req) {
@@ -62,6 +63,13 @@ export default wrap(async (req, res) => {
 
 	const skill_prices = skillPriceMap(priceRows);
 	const purchased_skills = purchasedRows.map((r) => r.skill);
+
+	// NFT-gated skills the viewer currently holds access to count as "owned" for
+	// display — there is no purchase row for them. Fail-soft (display only).
+	if (auth) {
+		const nftSkills = await viewerNftGatedSkills(priceRows, auth.userId).catch(() => []);
+		for (const s of nftSkills) if (!purchased_skills.includes(s)) purchased_skills.push(s);
+	}
 
 	return json(
 		res,

@@ -319,6 +319,14 @@
 			<description>When something fails on our side, the response no longer just says 'something went wrong' — it now carries a short reference code (e.g. 'quote ref a1b2c3d4 to support'). That same code is attached to the exact server log line, our error tracker, and the ops alert that pages the team, so one code maps to one incident. This was already true for most API responses; we extended it to the remaining surfaces that previously failed silently — the RSS announcements feed, sitemaps, the MCP payment flow, on-chain permission checks, and the Solana RPC proxy — so any failure you hit is traceable. Nothing changes when things work; this only makes the rare error far faster to diagnose.</description>
 		</item>
 		<item>
+			<title>IRL status updates now announced to screen readers</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-23:IRL status updates now announced to screen readers</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The status line on the IRL page — the one that confirms things like 'Room aligned to your view', tells you when an agent's spot was refined, or asks you to wait for a clean GPS fix — is now a live region, so screen readers speak each update as it happens instead of leaving it silent on screen. Part of a broader pass making the real-world placement flow fully keyboard- and screen-reader-friendly.</description>
+		</item>
+		<item>
 			<title>IRL: pinned agents now hold their exact spot indoors instead of drifting</title>
 			<link>https://three.ws/irl</link>
 			<guid isPermaLink="false">2026-06-23:IRL: pinned agents now hold their exact spot indoors instead of drifting</guid>
@@ -453,6 +461,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Eighteen pages — including the camera capture, scan, IRL, city, play, and immersive app surfaces — were silently blocking pinch-zoom and browser zoom, which made them hard to read for anyone who needs larger text. Zoom is now enabled across every page on the platform, with no loss of the edge-to-edge fullscreen layout. Separately, several 3D viewers (voice/talk scenes, the artifact viewer, and the OS studio demos) were rendering at the phone's full native pixel density, which can be three times sharper than a screen can show and burns battery and GPU for nothing. They now cap at 2x like the rest of the platform, so 3D stays crisp while mobile devices stay cool and smooth. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Place a whole room of AI agents at fixed spots — they hold their layout for everyone</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-23:Place a whole room of AI agents at fixed spots — they hold their layout for everyone</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>IRL agents used to be dropped one at a time at a GPS point, and indoors GPS is off by whole rooms — so a cluster of agents could never keep its shape from one phone to the next. Now you can set up a real room: drop several agents at the exact spots you want — one on the couch, one by the desk, one at the door — and they share a single room frame instead of each trusting its own noisy GPS. The couch agent and the door agent stay metres apart on the right sides for every viewer, no matter how each phone's location drifts. As the owner you can realign the whole room in one gesture — grab the cluster, slide and twist it onto its true spot, and every agent moves together with the internal layout intact. If a room ever shows up rotated for you, one tap — face the room's front and tap Align — snaps it to match your view, just on your screen. After an owner realigns a room, nearby viewers pick up the new positions on their next location refresh (within about 10 seconds). Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>Portfolio Command — live net worth, cost basis, P&amp;L attribution &amp; risk for your agent wallet</title>
