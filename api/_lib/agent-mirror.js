@@ -256,7 +256,7 @@ async function runFollowerTrade({
 			agentId: id, userId: ownerId, reason: `mirror_${side}`,
 			meta: { mint, network, custody_event_id: claimId, leader_agent_id: leaderRef?.leader_agent_id || null },
 		});
-	} catch (e) {
+	} catch {
 		await updateCustodyEvent(claimId, { status: 'failed', meta: { error: 'key_recover_failed' } }).catch(() => {});
 		return { status: 'failed', code: 'key_recover_failed' };
 	}

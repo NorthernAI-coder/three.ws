@@ -14,7 +14,6 @@
  * is the first clamp, the spend policy is the hard backstop.
  */
 
-const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 const round6 = (x) => Math.round(x * 1e6) / 1e6;
 

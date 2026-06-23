@@ -137,7 +137,10 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 			speak: (text) => controller.speakText(text),
 			appendTranscript: (role, content) => appendTranscript(transcriptEl, { role, content }),
 			onFlourish: () => {
-				scene.getEmoteController?.()?.play('celebrate').catch(() => {});
+				// Real confirmed tx only — fire the avatar's celebrate flourish (task 07).
+				try {
+					Promise.resolve(scene.getEmoteController?.()?.play('celebrate')).catch(() => {});
+				} catch {}
 				// Funds just moved — re-read the balance so the next command is grounded.
 				refreshWalletBalance(avatar.agent_id, network).then((b) => { walletBalance = b; });
 			},
@@ -149,7 +152,8 @@ export function openTalkMode({ avatar, systemPromptFn }) {
 		// Discoverable affordance: a one-tap example that drops a starter command into
 		// the text box so owners learn the capability exists.
 		if (walletHintBtn) {
-			walletHintBtn.textContent = '💸 Try: “sell half my $THREE” · “tip 0.1 SOL to …”';
+			walletHintBtn.innerHTML =
+				'<span aria-hidden="true">◎</span> Try: “sell half my $THREE” · “tip 0.1 SOL to …”';
 			walletHintBtn.hidden = false;
 			walletHintBtn.addEventListener('click', () => {
 				textInput.value = 'tip 0.05 SOL to ';

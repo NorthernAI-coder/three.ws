@@ -468,6 +468,35 @@ export async function getAgentReputation(agentId, opts = {}) {
 	};
 }
 
+/**
+ * Compact, best-effort reputation for a set of agents — used by discovery
+ * ranking (trending, the trusted leaderboard) where many agents are scored at
+ * once. Always lite (no per-agent EVM RPC), always resilient: an agent that
+ * fails to score is simply omitted, never faked. Returns a Map id -> compact.
+ */
+export async function scoreAgentsLite(agentIds = [], { concurrency = 8 } = {}) {
+	const ids = [...new Set(agentIds.filter(Boolean))];
+	const out = new Map();
+	for (let i = 0; i < ids.length; i += concurrency) {
+		const chunk = ids.slice(i, i + concurrency);
+		const settled = await Promise.allSettled(chunk.map((id) => getAgentReputation(id, { lite: true })));
+		settled.forEach((r, idx) => {
+			if (r.status === 'fulfilled' && r.value) {
+				const v = r.value;
+				out.set(chunk[idx], {
+					score: v.score,
+					tier: v.tier,
+					tierLabel: v.tierLabel,
+					accent: v.accent,
+					isNew: v.isNew,
+					totals: v.totals,
+				});
+			}
+		});
+	}
+	return out;
+}
+
 async function readErc8004Registry(agent) {
 	if (!agent.erc8004_agent_id || !agent.chain_id) return { average: 0, count: 0 };
 	const RPC = {

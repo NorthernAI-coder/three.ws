@@ -31,6 +31,11 @@ function cacheEls() {
 		'gxCardDesc', 'gxCardMeta', 'gxCardView', 'gxCardChat',
 		'gxResults', 'gxResultsList', 'gxResultsClose', 'gxResultsLabel',
 		'gxLoading', 'gxEmpty', 'gxEmptySub', 'gxError', 'gxErrorSub', 'gxRetry', 'gxHint',
+		// Money-Cam
+		'gxMoneyToggle', 'gxMoneyCam', 'gxMcLiveDot', 'gxMcClose',
+		'gxMcModeLive', 'gxMcModeReplay', 'gxMcStats', 'gxMcReplay', 'gxMcPlay',
+		'gxMcScrub', 'gxMcSpeed', 'gxMcTime', 'gxMcFilters', 'gxMcTicker', 'gxMcNote',
+		'gxFlow', 'gxFlowClose', 'gxFlowBody',
 	]) {
 		els[id] = $(id);
 	}
@@ -56,6 +61,41 @@ let rafPending = false;
 
 // Camera fly-to tween
 const fly = { active: false, t: 0, dur: 0.9, fromPos: new THREE.Vector3(), toPos: new THREE.Vector3(), fromTgt: new THREE.Vector3(), toTgt: new THREE.Vector3() };
+
+// ── Money-Cam ────────────────────────────────────────────────────────────────
+// The galaxy as the platform's live economy: every real, on-chain transfer that
+// touches a star is rendered as light moving between them. Data is /api/galaxy/flows
+// (agent↔agent edges + one-sided flares), all real — when it's quiet, it's calm.
+let flowLayer = null;
+let pollTimer = null;
+const FLOW_COLORS = {
+	tip: '#4ade80', // inbound value — success green
+	trade: '#4589ff', // a trade — brand blue
+	snipe: '#fbbf24', // a snipe — warn amber
+	payment: '#c4b5fd', // agent→agent payment — wallet violet
+	launch: '#ffd27a', // a coin launch — gold
+};
+const LIVE_POLL_MS = 6000; // cheap delta poll cadence while live + visible
+const REPLAY_DURATION_S = 30; // wall-clock to replay the whole loaded window at 1×
+const money = {
+	active: false,
+	mode: 'live', // 'live' | 'replay'
+	type: 'all', // all | tips | trades | payments | launches
+	history: [], // loaded flows, ascending by ts (the honest data window)
+	seen: new Set(), // flow ids already enqueued/animated (dedupe across polls)
+	queue: [], // flows waiting to animate (paced, never a frame-dropping burst)
+	releaseAcc: 0,
+	headCursor: null, // newest cursor — handed back as ?since= to poll the delta
+	loading: false,
+	pollFails: 0,
+	lastServerTime: null,
+	// replay
+	replayT: 1, // 0..1 playhead across the window
+	replaySpeed: 1,
+	replayPlaying: false,
+	replayPtr: 0, // index in history spawned up to
+	nodeVec: new Map(), // agentId → THREE.Vector3 (cached node world position)
+};
 
 // Public debug/verification surface.
 const dbg = (window.__galaxy = {
@@ -200,6 +240,16 @@ function renderGalaxy(data) {
 
 	// Frame the whole cloud.
 	flyTo(new THREE.Vector3(0, 36, 322), new THREE.Vector3(0, 0, 0), 0.001);
+
+	// Money-Cam: node positions changed with this snapshot — drop the cache and
+	// (re)enable the entry. If the cam is already open, re-seed against the new map.
+	money.nodeVec = new Map();
+	if (els.gxMoneyToggle) els.gxMoneyToggle.disabled = false;
+	if (money.active) {
+		flowLayer?.reset();
+		money.queue = [];
+		loadWindow();
+	}
 }
 
 // ── Net-worth glow (real wallet value lights the stars) ──────────────────────
@@ -473,6 +523,18 @@ function selectAgent(index, fly = false) {
 	// is a public read-only map, so the viewer is always a non-owner here.
 	const walletChip = walletChipHTML(a, { isOwner: false, showPending: false, link: true, tip: true });
 	if (walletChip) chips.push(walletChip);
+	// Money-Cam cross-link: how many real flows in the current window touch this
+	// agent — turns the inspect card into a jump-off into the live economy.
+	if (money.active && money.history.length) {
+		const involved = money.history.filter(
+			(f) => f.actor?.id === a.id || f.from?.id === a.id || f.to?.id === a.id,
+		).length;
+		if (involved) {
+			chips.push(
+				`<span class="gx-chip gx-chip-flow" title="Public flows touching this agent in the current Money-Cam window">◉ ${involved} flow${involved > 1 ? 's' : ''} in view</span>`,
+			);
+		}
+	}
 	els.gxCardMeta.innerHTML = chips.join('');
 	wireWalletChips(els.gxCardMeta);
 
@@ -517,6 +579,7 @@ function setupThree() {
 	controls.addEventListener('end', scheduleIdle);
 
 	addBackgroundStars();
+	flowLayer = createFlowLayer(scene);
 
 	raycaster = new THREE.Raycaster();
 	raycaster.params.Points.threshold = 4.2;
@@ -599,6 +662,11 @@ function tick() {
 
 	controls.update();
 	updateClusterLabels();
+	if (flowLayer) flowLayer.update(dt);
+	if (money.active) {
+		paceQueue(dt);
+		if (money.mode === 'replay') replayTick(dt);
+	}
 	renderer.render(scene, camera);
 }
 
@@ -674,10 +742,19 @@ function onPointerDown(e) {
 		renderer.domElement.removeEventListener('pointerup', onUp);
 		if (!downAt) return;
 		const moved = Math.hypot(ev.clientX - downAt.x, ev.clientY - downAt.y);
-		// A click (not a drag) on a star selects it; on empty space, deselect.
+		// A click (not a drag) on a star selects it; on empty space, deselect — but
+		// in Money-Cam a click near a flowing edge opens that real transfer instead.
 		if (moved < 5) {
 			if (downAt.idx >= 0) selectAgent(downAt.idx, true);
-			else deselect();
+			else {
+				let picked = null;
+				if (money.active && flowLayer) {
+					raycaster.setFromCamera(pointer, camera);
+					picked = flowLayer.pick(raycaster);
+				}
+				if (picked) openFlow(picked, false);
+				else deselect();
+			}
 		}
 		downAt = null;
 	};
@@ -705,9 +782,62 @@ function bindUI() {
 		els.gxLegendToggle.setAttribute('aria-expanded', String(!collapsed));
 		els.gxLegendToggle.textContent = collapsed ? '+' : '−';
 	});
+	// ── Money-Cam controls ──────────────────────────────────────────────────
+	els.gxMoneyToggle.addEventListener('click', toggleMoneyCam);
+	els.gxMcClose.addEventListener('click', closeMoneyCam);
+	els.gxMcModeLive.addEventListener('click', () => setMcMode('live'));
+	els.gxMcModeReplay.addEventListener('click', () => setMcMode('replay'));
+	els.gxMcFilters.addEventListener('click', (e) => {
+		const b = e.target.closest('.gx-mc-filter');
+		if (b) setMcType(b.dataset.type);
+	});
+	els.gxMcTicker.addEventListener('click', (e) => {
+		const row = e.target.closest('.gx-mc-row');
+		if (!row) return;
+		const f = flowById(row.dataset.flow);
+		if (f) openFlow(f, true);
+	});
+	els.gxMcPlay.addEventListener('click', () => {
+		if (money.replayT >= 1) enterReplayWindow();
+		money.replayPlaying = !money.replayPlaying;
+		syncPlayBtn();
+	});
+	els.gxMcScrub.addEventListener('input', () => {
+		money.replayPlaying = false;
+		syncPlayBtn();
+		money.replayT = Number(els.gxMcScrub.value) / 1000;
+		// Move the playhead without retro-animating: advance the spawn pointer to
+		// the first flow past the new position.
+		const [t0, t1] = windowSpan();
+		const span = Math.max(1, t1 - t0);
+		const ptr = money.history.findIndex((f) => (new Date(f.ts).getTime() - t0) / span > money.replayT);
+		money.replayPtr = ptr < 0 ? money.history.length : ptr;
+		updateReplayTime();
+	});
+	els.gxMcSpeed.addEventListener('click', () => {
+		const order = [1, 2, 4];
+		money.replaySpeed = order[(order.indexOf(money.replaySpeed) + 1) % order.length];
+		els.gxMcSpeed.textContent = `${money.replaySpeed}×`;
+	});
+	els.gxFlowClose.addEventListener('click', closeFlow);
+	document.addEventListener('visibilitychange', () => {
+		if (!money.active) return;
+		if (document.hidden) stopPolling();
+		else if (money.mode === 'live') { startPolling(); pollDelta(); }
+		updateLiveDot();
+	});
+
 	window.addEventListener('keydown', (e) => {
+		const t = e.target;
+		const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+		if (!typing && (e.key === 'm' || e.key === 'M')) {
+			toggleMoneyCam();
+			return;
+		}
 		if (e.key === 'Escape') {
-			if (!els.gxCard.hidden) deselect();
+			if (!els.gxFlow.hidden) closeFlow();
+			else if (money.active) closeMoneyCam();
+			else if (!els.gxCard.hidden) deselect();
 			else if (state.focusMode) clearSearch();
 		}
 	});
@@ -745,7 +875,10 @@ function disposePoints() {
 }
 function dispose() {
 	try {
+		stopPolling();
 		renderer?.setAnimationLoop(null);
+		flowLayer?.dispose();
+		flowLayer = null;
 		disposePoints();
 		renderer?.dispose();
 	} catch {
@@ -779,6 +912,710 @@ function gxFmtUsd(v) {
 function easeInOut(t) {
 	return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Money-Cam — the live economy layer
+// ══════════════════════════════════════════════════════════════════════════════
+
+// GPU-friendly flow renderer: pooled arcs + a single Points cloud of travelling
+// "photons" + a single Points cloud of impact/flare "rings". Everything is fixed
+// capacity, so a burst of flows can never grow unbounded or drop frames — excess
+// flows queue and animate as slots free. Every photon traces a real transfer.
+function createFlowLayer(scene) {
+	const PR = Math.min(devicePixelRatio || 1, 2);
+	const ARC_MAX = 56;
+	const ARC_SEG = 22;
+	const PHOTON_MAX = ARC_MAX;
+	const RING_MAX = 96;
+	const ARC_BASE = 0.34;
+
+	// Arc pool — faint bezier trails the photon rides along.
+	const arcPool = [];
+	for (let i = 0; i < ARC_MAX; i++) {
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_SEG * 3), 3));
+		const mat = new THREE.LineBasicMaterial({
+			transparent: true,
+			opacity: 0,
+			depthWrite: false,
+			blending: THREE.AdditiveBlending,
+		});
+		const line = new THREE.Line(geom, mat);
+		line.frustumCulled = false;
+		line.visible = false;
+		line.renderOrder = 2;
+		scene.add(line);
+		arcPool.push({ line, geom, mat, free: true });
+	}
+	const acquireArc = () => {
+		for (const a of arcPool) if (a.free) { a.free = false; return a; }
+		return null;
+	};
+
+	// Photons — one travelling point per active edge.
+	const photonPos = new Float32Array(PHOTON_MAX * 3);
+	const photonCol = new Float32Array(PHOTON_MAX * 3);
+	const photonSize = new Float32Array(PHOTON_MAX);
+	const photonAlpha = new Float32Array(PHOTON_MAX);
+	const photonGeom = new THREE.BufferGeometry();
+	photonGeom.setAttribute('position', new THREE.BufferAttribute(photonPos, 3));
+	photonGeom.setAttribute('aColor', new THREE.BufferAttribute(photonCol, 3));
+	photonGeom.setAttribute('aSize', new THREE.BufferAttribute(photonSize, 1));
+	photonGeom.setAttribute('aAlpha', new THREE.BufferAttribute(photonAlpha, 1));
+	const photonMat = new THREE.ShaderMaterial({
+		uniforms: { uPixelRatio: { value: PR } },
+		vertexShader: FLOW_PHOTON_VERT,
+		fragmentShader: FLOW_PHOTON_FRAG,
+		transparent: true,
+		depthWrite: false,
+		blending: THREE.AdditiveBlending,
+	});
+	const photons = new THREE.Points(photonGeom, photonMat);
+	photons.frustumCulled = false;
+	photons.renderOrder = 3;
+	scene.add(photons);
+	const photonFree = [];
+	for (let i = PHOTON_MAX - 1; i >= 0; i--) photonFree.push(i);
+
+	// Rings — expanding halos for an edge's arrival and for one-sided flares.
+	const ringPos = new Float32Array(RING_MAX * 3);
+	const ringCol = new Float32Array(RING_MAX * 3);
+	const ringT = new Float32Array(RING_MAX).fill(1);
+	const ringSize = new Float32Array(RING_MAX);
+	const ringAge = new Float32Array(RING_MAX);
+	const ringDur = new Float32Array(RING_MAX).fill(1);
+	const ringActive = new Uint8Array(RING_MAX);
+	const ringGeom = new THREE.BufferGeometry();
+	ringGeom.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
+	ringGeom.setAttribute('aColor', new THREE.BufferAttribute(ringCol, 3));
+	ringGeom.setAttribute('aT', new THREE.BufferAttribute(ringT, 1));
+	ringGeom.setAttribute('aSize', new THREE.BufferAttribute(ringSize, 1));
+	const ringMat = new THREE.ShaderMaterial({
+		uniforms: { uPixelRatio: { value: PR }, uGrow: { value: REDUCED_MOTION ? 0.6 : 3.0 } },
+		vertexShader: FLOW_RING_VERT,
+		fragmentShader: FLOW_RING_FRAG,
+		transparent: true,
+		depthWrite: false,
+		blending: THREE.AdditiveBlending,
+	});
+	const rings = new THREE.Points(ringGeom, ringMat);
+	rings.frustumCulled = false;
+	rings.renderOrder = 3;
+	scene.add(rings);
+	let ringCursor = 0;
+
+	// Invisible pick points at active-edge midpoints → click an edge to inspect it.
+	const pickPos = new Float32Array(ARC_MAX * 3).fill(1e7);
+	const pickGeom = new THREE.BufferGeometry();
+	pickGeom.setAttribute('position', new THREE.BufferAttribute(pickPos, 3));
+	const pickPoints = new THREE.Points(
+		pickGeom,
+		new THREE.PointsMaterial({ size: 0.01, transparent: true, opacity: 0, depthWrite: false }),
+	);
+	pickPoints.frustumCulled = false;
+	pickPoints.renderOrder = 4;
+	scene.add(pickPoints);
+
+	const edges = [];
+	const tmpV = new THREE.Vector3();
+	const tmpMid = new THREE.Vector3();
+	const tmpPerp = new THREE.Vector3();
+	const UP = new THREE.Vector3(0, 1, 0);
+	const colorCache = new Map();
+	const col = (hex) => {
+		let c = colorCache.get(hex);
+		if (!c) { c = new THREE.Color(hex); colorCache.set(hex, c); }
+		return c;
+	};
+	const usdSize = (usd, base) =>
+		base + (22 - base) * Math.min(1, Math.log1p(Number(usd) || 0) / Math.log1p(5000));
+	const usdDur = (usd) => 1.5 + 1.0 * Math.min(1, Math.log1p(Number(usd) || 0) / Math.log1p(2000));
+	const ringSizeFor = (flow) => (flow.kind === 'launch' ? 16 : usdSize(flow.usd, 9));
+
+	function spawnRing(pos, color, size, kind) {
+		const s = ringCursor;
+		ringCursor = (ringCursor + 1) % RING_MAX;
+		ringPos[s * 3] = pos.x; ringPos[s * 3 + 1] = pos.y; ringPos[s * 3 + 2] = pos.z;
+		ringCol[s * 3] = color.r; ringCol[s * 3 + 1] = color.g; ringCol[s * 3 + 2] = color.b;
+		ringSize[s] = size;
+		ringAge[s] = 0;
+		ringDur[s] = kind === 'launch' ? 1.7 : 1.15;
+		ringActive[s] = 1;
+		ringT[s] = 0;
+		ringGeom.getAttribute('position').needsUpdate = true;
+		ringGeom.getAttribute('aColor').needsUpdate = true;
+		ringGeom.getAttribute('aSize').needsUpdate = true;
+	}
+
+	function freeEdge(e, i) {
+		if (e.slot >= 0) { photonAlpha[e.slot] = 0; photonSize[e.slot] = 0; photonFree.push(e.slot); e.slot = -1; }
+		e.arc.free = true;
+		e.arc.line.visible = false;
+		e.arc.mat.opacity = 0;
+		edges.splice(i, 1);
+	}
+
+	function spawnEdge(flow, a, b) {
+		const slot = photonFree.pop();
+		if (slot == null) return false;
+		const arc = acquireArc();
+		if (!arc) { photonFree.push(slot); return false; }
+
+		const dist = a.distanceTo(b);
+		tmpMid.copy(a).add(b).multiplyScalar(0.5);
+		tmpPerp.subVectors(b, a).normalize().cross(UP);
+		if (tmpPerp.lengthSq() < 1e-4) tmpPerp.set(1, 0, 0);
+		tmpPerp.normalize().multiplyScalar(dist * 0.18);
+		tmpMid.add(tmpPerp).addScaledVector(UP, dist * 0.1);
+		const curve = new THREE.QuadraticBezierCurve3(a.clone(), tmpMid.clone(), b.clone());
+
+		const pos = arc.geom.getAttribute('position');
+		for (let i = 0; i < ARC_SEG; i++) {
+			curve.getPoint(i / (ARC_SEG - 1), tmpV);
+			pos.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
+		}
+		pos.needsUpdate = true;
+
+		const cc = col(FLOW_COLORS[flow.kind] || '#9fb4d6');
+		arc.mat.color.copy(cc);
+		arc.mat.opacity = REDUCED_MOTION ? ARC_BASE * 1.4 : 0;
+		arc.line.visible = true;
+
+		photonCol[slot * 3] = cc.r; photonCol[slot * 3 + 1] = cc.g; photonCol[slot * 3 + 2] = cc.b;
+		photonSize[slot] = REDUCED_MOTION ? 0 : usdSize(flow.usd, 7);
+		photonAlpha[slot] = 0;
+		photonGeom.getAttribute('aColor').needsUpdate = true;
+
+		edges.push({ flow, curve, arc, slot, age: 0, dur: usdDur(flow.usd), phase: 'travel', fadeAge: 0, b: b.clone(), color: cc });
+		return true;
+	}
+
+	function spawnFlare(flow, pos) {
+		spawnRing(pos, col(FLOW_COLORS[flow.kind] || '#9fb4d6'), ringSizeFor(flow), flow.kind);
+		return true;
+	}
+
+	function update(dt) {
+		// Edges.
+		for (let i = edges.length - 1; i >= 0; i--) {
+			const e = edges[i];
+			e.age += dt;
+			if (REDUCED_MOTION) {
+				const k = Math.min(1, e.age / e.dur);
+				e.arc.mat.opacity = ARC_BASE * 1.4 * (1 - k);
+				if (k >= 1) { spawnRing(e.b, e.color, ringSizeFor(e.flow), e.flow.kind); freeEdge(e, i); }
+				continue;
+			}
+			if (e.phase === 'travel') {
+				const p = Math.min(1, e.age / e.dur);
+				e.curve.getPoint(p, tmpV);
+				photonPos[e.slot * 3] = tmpV.x; photonPos[e.slot * 3 + 1] = tmpV.y; photonPos[e.slot * 3 + 2] = tmpV.z;
+				let alpha = Math.min(1, p / 0.12);
+				if (p > 0.85) alpha *= Math.max(0, (1 - p) / 0.15);
+				photonAlpha[e.slot] = alpha;
+				e.arc.mat.opacity = ARC_BASE * Math.min(1, e.age / 0.22);
+				if (p >= 1) {
+					photonAlpha[e.slot] = 0; photonSize[e.slot] = 0; photonFree.push(e.slot); e.slot = -1;
+					e.phase = 'fade';
+					spawnRing(e.b, e.color, ringSizeFor(e.flow), e.flow.kind);
+				}
+			} else {
+				e.fadeAge += dt;
+				e.arc.mat.opacity = ARC_BASE * Math.max(0, 1 - e.fadeAge / 0.45);
+				if (e.fadeAge >= 0.45) freeEdge(e, i);
+			}
+		}
+		if (!REDUCED_MOTION && edges.length) {
+			photonGeom.getAttribute('position').needsUpdate = true;
+			photonGeom.getAttribute('aSize').needsUpdate = true;
+			photonGeom.getAttribute('aAlpha').needsUpdate = true;
+		}
+
+		// Rings.
+		let ringDirty = false;
+		for (let s = 0; s < RING_MAX; s++) {
+			if (!ringActive[s]) continue;
+			ringAge[s] += dt;
+			const t = ringAge[s] / ringDur[s];
+			if (t >= 1) { ringActive[s] = 0; ringT[s] = 1; } else ringT[s] = t;
+			ringDirty = true;
+		}
+		if (ringDirty) ringGeom.getAttribute('aT').needsUpdate = true;
+
+		// Pick midpoints (only the active prefix is real; the rest sit far away).
+		for (let i = 0; i < ARC_MAX; i++) {
+			if (i < edges.length) {
+				edges[i].curve.getPoint(0.5, tmpV);
+				pickPos[i * 3] = tmpV.x; pickPos[i * 3 + 1] = tmpV.y; pickPos[i * 3 + 2] = tmpV.z;
+			} else if (pickPos[i * 3] !== 1e7) {
+				pickPos[i * 3] = 1e7; pickPos[i * 3 + 1] = 1e7; pickPos[i * 3 + 2] = 1e7;
+			}
+		}
+		pickGeom.getAttribute('position').needsUpdate = true;
+	}
+
+	function pick(rc) {
+		if (!edges.length) return null;
+		const hits = rc.intersectObject(pickPoints, false);
+		if (!hits.length) return null;
+		const idx = hits[0].index;
+		return idx != null && idx < edges.length ? edges[idx].flow : null;
+	}
+
+	function reset() {
+		for (let i = edges.length - 1; i >= 0; i--) freeEdge(edges[i], i);
+		for (let s = 0; s < RING_MAX; s++) { ringActive[s] = 0; ringT[s] = 1; }
+		ringGeom.getAttribute('aT').needsUpdate = true;
+	}
+
+	function dispose() {
+		reset();
+		for (const a of arcPool) { scene.remove(a.line); a.geom.dispose(); a.mat.dispose(); }
+		scene.remove(photons); photonGeom.dispose(); photonMat.dispose();
+		scene.remove(rings); ringGeom.dispose(); ringMat.dispose();
+		scene.remove(pickPoints); pickGeom.dispose(); pickPoints.material.dispose();
+	}
+
+	return { spawnEdge, spawnFlare, update, pick, reset, dispose, get activeEdges() { return edges.length; } };
+}
+
+// ── Money-Cam controller ─────────────────────────────────────────────────────
+function nodeVec(agentId) {
+	if (!agentId) return null;
+	if (money.nodeVec.has(agentId)) return money.nodeVec.get(agentId);
+	const idx = state.idToIndex.get(agentId);
+	if (idx == null) return null;
+	const a = state.data?.agents[idx];
+	if (!a) return null;
+	const v = new THREE.Vector3(...a.coords);
+	money.nodeVec.set(agentId, v);
+	return v;
+}
+
+// Animate one real flow: an agent↔agent transfer becomes a travelling edge; a
+// one-sided flow (counterparty isn't a star we have) flares the single node. A
+// flow whose agent isn't in the current snapshot is honestly skipped — we never
+// invent a star to anchor it.
+function animateFlow(flow) {
+	if (!flowLayer) return false;
+	const fromV = flow.from?.id ? nodeVec(flow.from.id) : null;
+	const toV = flow.to?.id ? nodeVec(flow.to.id) : null;
+	if (fromV && toV && flow.from.id !== flow.to.id) return flowLayer.spawnEdge(flow, fromV, toV);
+	const v = (flow.actor?.id ? nodeVec(flow.actor.id) : null) || fromV || toV;
+	if (v) return flowLayer.spawnFlare(flow, v);
+	return false;
+}
+
+function isEdgeFlow(flow) {
+	return Boolean(flow.from?.id && flow.to?.id && flow.from.id !== flow.to.id);
+}
+
+async function fetchFlows({ since } = {}) {
+	const params = new URLSearchParams({ network: 'mainnet', type: money.type, limit: '140' });
+	if (since) params.set('since', since);
+	const res = await fetch(`/api/galaxy/flows?${params.toString()}`, {
+		headers: { accept: 'application/json' },
+	});
+	if (!res.ok) throw new Error(`flows ${res.status}`);
+	const body = await res.json().catch(() => ({}));
+	return body?.data || null;
+}
+
+function ingest(flowsNewestFirst) {
+	// Store ascending by ts; dedupe by id across overlapping polls.
+	const fresh = [];
+	for (const f of flowsNewestFirst) {
+		if (money.seen.has(f.id)) continue;
+		money.seen.add(f.id);
+		fresh.push(f);
+	}
+	if (!fresh.length) return [];
+	fresh.reverse(); // → ascending
+	money.history.push(...fresh);
+	money.history.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : a.id < b.id ? -1 : 1));
+	if (money.history.length > 500) {
+		money.history.splice(0, money.history.length - 500);
+		money.seen = new Set(money.history.map((f) => f.id));
+	}
+	return fresh;
+}
+
+async function loadWindow() {
+	money.loading = true;
+	setMcNote('');
+	try {
+		const data = await fetchFlows();
+		if (!data) throw new Error('no data');
+		money.history = [];
+		money.seen = new Set();
+		money.queue = [];
+		ingest(data.flows || []);
+		money.headCursor = data.head_cursor || null;
+		money.lastServerTime = data.server_time || null;
+		money.pollFails = 0;
+		renderStats();
+		renderTicker();
+		if (!money.history.length) {
+			setMcNote('Quiet right now — no public flows in the last 24h. The galaxy is calm.');
+		} else if (money.mode === 'live') {
+			// A gentle welcoming ripple of the most recent real flows (not all at once).
+			const seed = money.history.slice(-12);
+			money.queue.push(...seed);
+		}
+		if (money.mode === 'replay') enterReplayWindow();
+	} catch {
+		setMcNote('Money-Cam feed isn’t reachable right now — retrying. No flows are invented to fill the gap.');
+		money.pollFails++;
+	} finally {
+		money.loading = false;
+		updateLiveDot();
+	}
+}
+
+async function pollDelta() {
+	if (!money.active || money.mode !== 'live' || document.hidden) return;
+	if (!money.headCursor) { await loadWindow(); return; }
+	try {
+		const data = await fetchFlows({ since: money.headCursor });
+		if (!data) throw new Error('no data');
+		money.lastServerTime = data.server_time || money.lastServerTime;
+		const fresh = ingest(data.flows || []);
+		if (data.head_cursor) money.headCursor = data.head_cursor;
+		money.pollFails = 0;
+		setMcNote('');
+		if (fresh.length) {
+			money.queue.push(...fresh); // fresh is ascending → oldest animates first
+			renderStats();
+			renderTicker();
+		}
+	} catch {
+		money.pollFails++;
+		if (money.pollFails >= 2) setMcNote('Reconnecting to the live economy…');
+	}
+	updateLiveDot();
+}
+
+// Release queued flows at a steady cadence so a burst ripples rather than dropping
+// frames. The fixed-capacity flow layer naturally back-pressures; anything that
+// can't get a slot waits its turn.
+function paceQueue(dt) {
+	if (money.mode !== 'live' || !money.queue.length) return;
+	money.releaseAcc += dt;
+	const interval = 0.1;
+	let guard = 8;
+	while (money.queue.length && money.releaseAcc >= interval && guard-- > 0) {
+		money.releaseAcc -= interval;
+		animateFlow(money.queue.shift());
+	}
+	if (money.queue.length > 240) money.queue.splice(0, money.queue.length - 240);
+}
+
+// ── Replay ───────────────────────────────────────────────────────────────────
+function windowSpan() {
+	const h = money.history;
+	if (!h.length) return [0, 0];
+	return [new Date(h[0].ts).getTime(), new Date(h[h.length - 1].ts).getTime()];
+}
+function enterReplayWindow() {
+	money.replayPtr = 0;
+	money.replayT = 0;
+	money.replayPlaying = false;
+	if (els.gxMcScrub) els.gxMcScrub.value = '0';
+	updateReplayTime();
+}
+function replayTick(dt) {
+	if (money.mode !== 'replay' || !money.replayPlaying) return;
+	const [t0, t1] = windowSpan();
+	if (t1 <= t0) { money.replayPlaying = false; syncPlayBtn(); return; }
+	const prev = money.replayT;
+	money.replayT = Math.min(1, prev + (dt / REPLAY_DURATION_S) * money.replaySpeed);
+	spawnReplayBetween(prev, money.replayT, t0, t1);
+	if (els.gxMcScrub) els.gxMcScrub.value = String(Math.round(money.replayT * 1000));
+	updateReplayTime();
+	if (money.replayT >= 1) { money.replayPlaying = false; syncPlayBtn(); }
+}
+function spawnReplayBetween(fromT, toT, t0, t1) {
+	const span = Math.max(1, t1 - t0);
+	let guard = 60;
+	while (money.replayPtr < money.history.length && guard-- > 0) {
+		const f = money.history[money.replayPtr];
+		const norm = (new Date(f.ts).getTime() - t0) / span;
+		if (norm > toT) break;
+		if (norm > fromT - 1e-6) animateFlow(f);
+		money.replayPtr++;
+	}
+}
+function updateReplayTime() {
+	if (!els.gxMcTime) return;
+	const [t0, t1] = windowSpan();
+	if (t1 <= t0) { els.gxMcTime.textContent = money.history.length ? '1 flow' : ''; return; }
+	const at = t0 + (t1 - t0) * money.replayT;
+	els.gxMcTime.textContent = `${new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} · ${money.history.length} real flows`;
+}
+function syncPlayBtn() {
+	if (els.gxMcPlay) els.gxMcPlay.textContent = money.replayPlaying ? '❙❙' : '▶';
+}
+
+// ── Panel rendering ──────────────────────────────────────────────────────────
+function computeWindow() {
+	let usd = 0, edges = 0;
+	for (const f of money.history) {
+		if (f.usd) usd += f.usd;
+		if (isEdgeFlow(f)) edges++;
+	}
+	return { count: money.history.length, usd, edges };
+}
+function renderStats() {
+	if (!els.gxMcStats) return;
+	const w = computeWindow();
+	const [t0, t1] = windowSpan();
+	const spanMin = t1 > t0 ? Math.max(1, Math.round((t1 - t0) / 60000)) : 0;
+	els.gxMcStats.innerHTML =
+		`<span class="gx-mc-stat"><strong>${w.count.toLocaleString()}</strong> flows</span>` +
+		`<span class="gx-mc-stat"><strong>${gxFmtUsd(w.usd)}</strong> moved</span>` +
+		`<span class="gx-mc-stat"><strong>${w.edges.toLocaleString()}</strong> agent↔agent</span>` +
+		(spanMin ? `<span class="gx-mc-stat gx-mc-span">last ${spanMin >= 60 ? `${Math.round(spanMin / 60)}h` : `${spanMin}m`}</span>` : '');
+}
+function renderTicker() {
+	if (!els.gxMcTicker) return;
+	const recent = money.history.slice(-7).reverse();
+	if (!recent.length) {
+		els.gxMcTicker.innerHTML = '<div class="gx-mc-empty">No flows in view yet.</div>';
+		return;
+	}
+	els.gxMcTicker.innerHTML = recent
+		.map((f) => {
+			const c = FLOW_COLORS[f.kind] || '#9fb4d6';
+			const amount = f.usd ? gxFmtUsd(f.usd) : f.kind === 'launch' ? `$${escapeHtml(f.symbol || 'coin')}` : f.sol != null ? `${(+f.sol).toFixed(3)} SOL` : '';
+			return (
+				`<button class="gx-mc-row" type="button" data-flow="${escapeHtml(f.id)}">` +
+				`<span class="gx-mc-row-dot" style="background:${c};box-shadow:0 0 8px ${c}"></span>` +
+				`<span class="gx-mc-row-main">${flowHeadline(f)}</span>` +
+				`<span class="gx-mc-row-amt">${escapeHtml(amount)}</span>` +
+				`<span class="gx-mc-row-ago">${relTime(f.ts)}</span>` +
+				`</button>`
+			);
+		})
+		.join('');
+}
+function flowHeadline(f) {
+	const a = escapeHtml(f.actor?.name || 'Agent');
+	if (f.kind === 'launch') return `${a} launched $${escapeHtml(f.symbol || 'a coin')}`;
+	if (f.kind === 'tip') return `${escapeHtml(f.from?.name || shortAddr(f.from?.wallet) || 'someone')} → ${a}`;
+	const to = f.to?.name ? escapeHtml(f.to.name) : shortAddr(f.to?.wallet) || 'market';
+	const verb = f.kind === 'payment' ? 'paid' : f.kind === 'snipe' ? 'sniped' : 'traded →';
+	return f.kind === 'payment' ? `${a} ${verb} ${to}` : `${a} ${verb} ${to}`;
+}
+
+// ── Flow inspector ───────────────────────────────────────────────────────────
+function partyHtml(p, fallback) {
+	if (!p) return `<span class="gx-flow-party">${escapeHtml(fallback || '—')}</span>`;
+	if (p.id) return `<a class="gx-flow-party gx-flow-link" href="/agents/${escapeHtml(p.id)}">${escapeHtml(p.name || 'Agent')}</a>`;
+	return `<span class="gx-flow-party"><code>${escapeHtml(shortAddr(p.wallet) || '—')}</code></span>`;
+}
+function openFlow(flow, fly = true) {
+	const c = FLOW_COLORS[flow.kind] || '#9fb4d6';
+	const label = { tip: 'Tip', trade: 'Trade', snipe: 'Snipe', payment: 'Payment', launch: 'Launch' }[flow.kind] || 'Flow';
+	const amount = flow.usd ? gxFmtUsd(flow.usd) : null;
+	const sub = flow.kind === 'launch'
+		? `$${escapeHtml(flow.symbol || flow.coin_name || 'coin')}`
+		: flow.sol != null
+			? `${(+flow.sol).toFixed(4)} SOL`
+			: flow.asset
+				? `${flow.amount_raw ? '' : ''}${escapeHtml(flow.asset === 'SOL' ? 'SOL' : shortAddr(flow.asset) || flow.asset)}`
+				: '';
+	const explorerLink = flow.kind === 'launch' ? flow.mint_explorer : flow.explorer;
+	const explorerLabel = flow.kind === 'launch' ? 'View mint on Solscan' : 'View signature on Solscan';
+	const route = flow.kind === 'launch'
+		? partyHtml(flow.actor)
+		: `${partyHtml(flow.from, 'market')} <span class="gx-flow-arrow" aria-hidden="true">→</span> ${partyHtml(flow.to, 'market')}`;
+
+	els.gxFlowBody.innerHTML =
+		`<div class="gx-flow-head"><span class="gx-flow-dot" style="background:${c};box-shadow:0 0 12px ${c}"></span>` +
+		`<span class="gx-flow-kind">${label}</span>` +
+		`<span class="gx-flow-time">${escapeHtml(absTime(flow.ts))}</span></div>` +
+		`<div class="gx-flow-amount">${amount ? `<strong>${escapeHtml(amount)}</strong>` : ''}${sub ? `<span>${escapeHtml(sub)}</span>` : ''}</div>` +
+		`<div class="gx-flow-route">${route}</div>` +
+		(explorerLink
+			? `<a class="gx-flow-explorer" href="${escapeHtml(explorerLink)}" target="_blank" rel="noopener">${explorerLabel} ↗</a>`
+			: '<div class="gx-flow-explorer gx-flow-pending">Confirming on-chain…</div>');
+	els.gxFlow.hidden = false;
+
+	if (fly) {
+		const fv = flow.from?.id ? nodeVec(flow.from.id) : null;
+		const tv = flow.to?.id ? nodeVec(flow.to.id) : null;
+		const av = flow.actor?.id ? nodeVec(flow.actor.id) : null;
+		let target = null;
+		if (fv && tv) target = new THREE.Vector3().addVectors(fv, tv).multiplyScalar(0.5);
+		else target = av || fv || tv;
+		if (target) flyToTarget(target.clone(), 150);
+	}
+}
+function closeFlow() {
+	if (els.gxFlow) els.gxFlow.hidden = true;
+}
+
+// ── Mode + lifecycle ─────────────────────────────────────────────────────────
+function setMcNote(msg) {
+	if (!els.gxMcNote) return;
+	els.gxMcNote.textContent = msg || '';
+	els.gxMcNote.hidden = !msg;
+}
+function updateLiveDot() {
+	if (!els.gxMcLiveDot) return;
+	const live = money.active && money.mode === 'live' && !document.hidden;
+	els.gxMcLiveDot.classList.toggle('gx-mc-on', live && money.pollFails === 0);
+	els.gxMcLiveDot.classList.toggle('gx-mc-stale', money.pollFails > 0);
+}
+function startPolling() {
+	stopPolling();
+	pollTimer = setInterval(pollDelta, LIVE_POLL_MS);
+}
+function stopPolling() {
+	if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+function setMcMode(mode) {
+	money.mode = mode;
+	const live = mode === 'live';
+	els.gxMcModeLive.classList.toggle('gx-active', live);
+	els.gxMcModeReplay.classList.toggle('gx-active', !live);
+	els.gxMcModeLive.setAttribute('aria-selected', String(live));
+	els.gxMcModeReplay.setAttribute('aria-selected', String(!live));
+	els.gxMcReplay.hidden = live;
+	if (live) {
+		money.replayPlaying = false;
+		startPolling();
+		pollDelta();
+	} else {
+		stopPolling();
+		flowLayer?.reset();
+		enterReplayWindow();
+	}
+	updateLiveDot();
+}
+function setMcType(type) {
+	if (money.type === type) return;
+	money.type = type;
+	for (const b of els.gxMcFilters.querySelectorAll('.gx-mc-filter')) {
+		b.classList.toggle('gx-active', b.dataset.type === type);
+	}
+	flowLayer?.reset();
+	loadWindow().then(() => { if (money.mode === 'live') pollDelta(); });
+}
+function openMoneyCam() {
+	if (money.active) return;
+	if (!state.data || !flowLayer) return;
+	money.active = true;
+	els.gxMoneyCam.hidden = false;
+	els.gxMoneyToggle.setAttribute('aria-pressed', 'true');
+	els.gxMoneyToggle.classList.add('gx-active');
+	clearSearch();
+	if (!els.gxResults.hidden) els.gxResults.hidden = true;
+	controls.autoRotate = false;
+	track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'visualizer:money-cam' });
+	loadWindow();
+	startPolling();
+}
+function closeMoneyCam() {
+	if (!money.active) return;
+	money.active = false;
+	stopPolling();
+	flowLayer?.reset();
+	money.queue = [];
+	els.gxMoneyCam.hidden = true;
+	closeFlow();
+	els.gxMoneyToggle.setAttribute('aria-pressed', 'false');
+	els.gxMoneyToggle.classList.remove('gx-active');
+	if (!REDUCED_MOTION) scheduleIdle();
+}
+function toggleMoneyCam() {
+	if (money.active) closeMoneyCam();
+	else openMoneyCam();
+}
+
+// ── Money-Cam helpers ────────────────────────────────────────────────────────
+function shortAddr(w) {
+	if (!w || typeof w !== 'string') return '';
+	return w.length > 10 ? `${w.slice(0, 4)}…${w.slice(-4)}` : w;
+}
+function relTime(iso) {
+	const ms = Date.now() - new Date(iso).getTime();
+	if (!Number.isFinite(ms)) return '';
+	const s = Math.max(0, Math.round(ms / 1000));
+	if (s < 60) return `${s}s`;
+	const m = Math.round(s / 60);
+	if (m < 60) return `${m}m`;
+	const h = Math.round(m / 60);
+	if (h < 24) return `${h}h`;
+	return `${Math.round(h / 24)}d`;
+}
+function absTime(iso) {
+	const d = new Date(iso);
+	return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function flowById(id) {
+	return money.history.find((f) => f.id === id) || null;
+}
+
+// ── Money-Cam flow shaders ───────────────────────────────────────────────────
+const FLOW_PHOTON_VERT = /* glsl */ `
+	attribute vec3 aColor;
+	attribute float aSize;
+	attribute float aAlpha;
+	uniform float uPixelRatio;
+	varying vec3 vColor;
+	varying float vAlpha;
+	void main() {
+		vColor = aColor;
+		vAlpha = aAlpha;
+		vec4 mv = modelViewMatrix * vec4(position, 1.0);
+		float dist = max(-mv.z, 1.0);
+		gl_PointSize = clamp(aSize * (300.0 / dist), 1.0, 64.0) * uPixelRatio;
+		gl_Position = projectionMatrix * mv;
+	}
+`;
+const FLOW_PHOTON_FRAG = /* glsl */ `
+	precision mediump float;
+	varying vec3 vColor;
+	varying float vAlpha;
+	void main() {
+		float d = length(gl_PointCoord - 0.5);
+		if (d > 0.5) discard;
+		float core = smoothstep(0.5, 0.0, d);
+		gl_FragColor = vec4(vColor * (0.6 + 0.9 * core), core * core * vAlpha);
+	}
+`;
+const FLOW_RING_VERT = /* glsl */ `
+	attribute vec3 aColor;
+	attribute float aT;
+	attribute float aSize;
+	uniform float uPixelRatio;
+	uniform float uGrow;
+	varying vec3 vColor;
+	varying float vT;
+	void main() {
+		vColor = aColor;
+		vT = aT;
+		vec4 mv = modelViewMatrix * vec4(position, 1.0);
+		float dist = max(-mv.z, 1.0);
+		float grow = aSize * (1.0 + aT * uGrow);
+		gl_PointSize = clamp(grow * (300.0 / dist), 2.0, 96.0) * uPixelRatio;
+		gl_Position = projectionMatrix * mv;
+	}
+`;
+const FLOW_RING_FRAG = /* glsl */ `
+	precision mediump float;
+	varying vec3 vColor;
+	varying float vT;
+	void main() {
+		float d = length(gl_PointCoord - 0.5) * 2.0;
+		if (d > 1.0) discard;
+		// Annulus near the outer edge; fades as the ring expands.
+		float ring = smoothstep(0.62, 0.9, d) * smoothstep(1.0, 0.9, d);
+		float alpha = ring * (1.0 - vT) * 0.9;
+		gl_FragColor = vec4(vColor, alpha);
+	}
+`;
 
 // ── Shaders ──────────────────────────────────────────────────────────────────
 const POINT_VERT = /* glsl */ `

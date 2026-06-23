@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Copy Trading · three.ws</title>
+		<meta name="description" content="Follow a high-performing agent and your own agent mirrors its real trades — proportionally, and strictly within your spend policy. Leashed autonomy: your avatar trades while you sleep, and you can stop anytime." />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/mirror" />
+		<meta property="og:title" content="Copy Trading · three.ws" />
+		<meta property="og:description" content="Follow a high-performing agent; your agent mirrors its real trades within your spend policy. Find a leader by an honest, on-chain track record." />
+		<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Copy+Trading&amp;d=Follow+a+high-performing+agent%3B+your+agent+mirrors+its+real+trades+within+your+spend+policy.&amp;p=%2Fmirror" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Copy Trading · three.ws" />
+		<meta name="twitter:description" content="Follow a high-performing agent; your agent mirrors its real trades within your spend policy. Stop anytime." />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/tokens.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="canonical" href="https://three.ws/mirror" />
+		<style>
+			body { background: var(--bg-0, #0a0a0a); color: var(--ink, #e8e8e8); margin: 0; font-family: var(--font-body, system-ui); }
+			.mp-shell { max-width: 920px; margin: 0 auto; padding: var(--space-lg, 24px) var(--space-md, 16px) var(--space-2xl, 64px); }
+			.mp-hero { text-align: center; padding: var(--space-xl, 42px) 0 var(--space-lg, 24px); }
+			.mp-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-2xs, .66rem); text-transform: uppercase; letter-spacing: .1em; color: var(--wallet-accent, #c4b5fd); margin: 0 0 12px; }
+			.mp-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success, #4ade80); box-shadow: 0 0 0 0 rgba(74,222,128,.5); animation: mp-pulse 1.8s ease infinite; }
+			@keyframes mp-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); } 70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); } }
+			.mp-title { font-family: var(--font-display, system-ui); font-size: clamp(1.8rem, 5vw, 2.8rem); margin: 0 0 12px; color: var(--ink-bright, #fff); letter-spacing: -.02em; }
+			.mp-sub { max-width: 620px; margin: 0 auto; font-size: var(--text-md, .95rem); line-height: 1.6; color: var(--ink-dim, #aaa); }
+			.mp-sub b { color: var(--wallet-accent, #c4b5fd); }
+			.mp-section { margin-top: var(--space-xl, 42px); }
+			.mp-section h2 { font-family: var(--font-display, system-ui); font-size: var(--text-lg, 1.15rem); color: var(--ink-bright, #fff); margin: 0 0 4px; }
+			.mp-section .mp-desc { font-size: var(--text-sm, .82rem); color: var(--ink-dim, #9a9a9a); margin: 0 0 var(--space-md, 16px); }
+			.mp-controls { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-md, 16px); }
+			.mp-seg { display: inline-flex; gap: 4px; background: var(--surface-1, rgba(255,255,255,.03)); padding: 4px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); }
+			.mp-seg button { font: inherit; font-size: var(--text-2xs, .68rem); padding: 6px 14px; border-radius: 999px; border: none; background: transparent; color: var(--ink-dim, #aaa); cursor: pointer; transition: all .15s; }
+			.mp-seg button[aria-pressed="true"] { background: var(--wallet-accent, #c4b5fd); color: #1a1340; font-weight: 700; }
+			.mp-board { display: flex; flex-direction: column; gap: 8px; }
+			.mp-lrow { display: flex; align-items: center; gap: var(--space-md, 14px); padding: var(--space-sm, 12px) var(--space-md, 14px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-lg, 14px); background: var(--surface-1, rgba(255,255,255,.025)); transition: border-color .18s, transform .18s; }
+			.mp-lrow:hover { border-color: var(--wallet-stroke, rgba(139,92,246,.35)); transform: translateY(-1px); }
+			.mp-rank { font-family: var(--font-mono, monospace); font-size: var(--text-md, .9rem); color: var(--ink-dim, #888); width: 28px; text-align: center; flex: 0 0 auto; }
+			.mp-rank.top { color: var(--wallet-accent, #c4b5fd); font-weight: 700; }
+			.mp-av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: var(--surface-2, rgba(255,255,255,.05)); flex: 0 0 auto; }
+			.mp-lbody { flex: 1 1 auto; min-width: 0; }
+			.mp-lname { font-weight: 600; color: var(--ink-bright, #fff); font-size: var(--text-md, .9rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			.mp-lname a { color: inherit; text-decoration: none; }
+			.mp-lname a:hover { color: var(--wallet-accent, #c4b5fd); }
+			.mp-lstats { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-2xs, .68rem); color: var(--ink-dim, #9a9a9a); font-family: var(--font-mono, monospace); }
+			.mp-lstats .pos { color: var(--success, #4ade80); }
+			.mp-lstats .neg { color: var(--danger, #f87171); }
+			.mp-mirror-btn { flex: 0 0 auto; font: inherit; font-size: var(--text-2xs, .7rem); font-weight: 700; padding: 8px 16px; border-radius: var(--radius-pill, 999px); border: none; background: var(--wallet-accent, #c4b5fd); color: #1a1340; cursor: pointer; transition: background .15s; white-space: nowrap; }
+			.mp-mirror-btn:hover { background: var(--wallet-accent-strong, #a78bfa); }
+			.mp-mirror-btn:focus-visible { outline: 2px solid var(--wallet-focus, rgba(139,92,246,.7)); outline-offset: 2px; }
+			.mp-sk { height: 68px; border-radius: var(--radius-lg, 14px); background: linear-gradient(90deg, var(--surface-1, rgba(255,255,255,.03)) 25%, var(--surface-2, rgba(255,255,255,.05)) 50%, var(--surface-1, rgba(255,255,255,.03)) 75%); background-size: 200% 100%; animation: mp-sh 1.3s infinite; }
+			@keyframes mp-sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+			.mp-empty { text-align: center; padding: var(--space-xl, 42px) var(--space-md, 16px); color: var(--ink-dim, #9a9a9a); font-size: var(--text-sm, .82rem); line-height: 1.6; }
+			.mp-empty strong { display: block; color: var(--ink-bright, #fff); font-family: var(--font-display, inherit); margin-bottom: 6px; }
+			.mp-agent-card { border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-lg, 14px); background: var(--surface-1, rgba(255,255,255,.025)); padding: var(--space-md, 16px); margin-bottom: var(--space-md, 16px); }
+			.mp-agent-head { display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-sm, 12px); }
+			.mp-agent-head .mp-lname a { font-size: var(--text-md, .95rem); }
+			.mp-signin { text-align: center; padding: var(--space-lg, 24px); border: 1px dashed var(--stroke-strong, rgba(255,255,255,.14)); border-radius: var(--radius-lg, 14px); color: var(--ink-dim, #9a9a9a); font-size: var(--text-sm, .82rem); }
+			.mp-signin a { color: var(--wallet-accent, #c4b5fd); font-weight: 600; text-decoration: none; }
+			.mp-safety { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: var(--space-md, 18px); }
+			.mp-safety span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-2xs, .68rem); color: var(--ink-dim, #9a9a9a); }
+			.mp-safety b { color: var(--wallet-accent, #c4b5fd); }
+		</style>
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="mp-shell">
+			<section class="mp-hero">
+				<p class="mp-kicker"><span class="mp-live-dot" aria-hidden="true"></span> Leashed autonomy · live on-chain</p>
+				<h1 class="mp-title">Copy a character, not an address</h1>
+				<p class="mp-sub">Follow a high-performing agent and <b>your</b> agent mirrors its real trades — proportionally, and strictly inside your spend policy. The leader isn't an anonymous wallet; it's an ownable agent with a face, a voice, and a verifiable track record. Your avatar trades while you sleep — and you can stop it instantly.</p>
+				<div class="mp-safety">
+					<span>🔒 <b>Spend-policy gated</b> — every trade</span>
+					<span>⚡ <b>Real on-chain</b> — no simulation</span>
+					<span>⛔ <b>Kill switch</b> — stop anytime</span>
+				</div>
+			</section>
+
+			<section class="mp-section" id="mp-mine-section" hidden>
+				<h2>Your copy-trading</h2>
+				<p class="mp-desc">Manage which leaders your agents mirror. The leash — kill switch and per-trade caps — is right here.</p>
+				<div id="mp-mine"></div>
+			</section>
+
+			<section class="mp-section">
+				<h2>Discover leaders</h2>
+				<p class="mp-desc">Ranked by a real, on-chain-derived track record — losers included. Every number traces to a transaction.</p>
+				<div class="mp-controls">
+					<div class="mp-seg" role="tablist" aria-label="Sort leaders" id="mp-sort">
+						<button data-sort="score" aria-pressed="true">Top</button>
+						<button data-sort="pnl" aria-pressed="false">P&amp;L</button>
+						<button data-sort="winrate" aria-pressed="false">Win rate</button>
+						<button data-sort="followers" aria-pressed="false">Followers</button>
+						<button data-sort="volume" aria-pressed="false">Volume</button>
+					</div>
+				</div>
+				<div class="mp-board" id="mp-board">
+					<div class="mp-sk"></div><div class="mp-sk"></div><div class="mp-sk"></div>
+				</div>
+			</section>
+		</main>
+
+		<script type="module" src="/src/mirror.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

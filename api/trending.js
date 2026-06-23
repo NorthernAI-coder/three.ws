@@ -103,6 +103,43 @@ export default wrap(async (req, res) => {
 		};
 	});
 
+	// Reputation as a real discovery signal. Attach each agent's wallet-trust
+	// score (computed from real ledger + chain activity) and, when sort=trust is
+	// requested, blend it into the ranking as ONE signal among others — never a
+	// pay-to-win override. Best-effort: a momentary scoring failure just leaves an
+	// agent without a score and keeps the activity ranking intact.
+	const sortMode = p.get('sort') === 'trust' ? 'trust' : 'activity';
+	if (agents.length) {
+		try {
+			const { scoreAgentsLite } = await import('./_lib/trust/wallet-reputation.js');
+			const reps = await scoreAgentsLite(agents.map((a) => a.id));
+			for (const a of agents) {
+				const rep = reps.get(a.id);
+				if (rep) {
+					a.reputation = { score: rep.score, tier: rep.tier, tierLabel: rep.tierLabel, isNew: rep.isNew };
+				}
+			}
+			if (sortMode === 'trust') {
+				// Blend: normalized activity (0..1) + normalized trust (0..1), trust
+				// weighted 0.45 so genuine activity still leads but proven, trusted
+				// agents rise. Activity is normalized within this page's range.
+				const maxChats = Math.max(1, ...agents.map((a) => a.window_chats || a.chat_count || 0));
+				const blended = agents
+					.map((a) => {
+						const act = (a.window_chats || a.chat_count || 0) / maxChats;
+						const trust = (a.reputation?.score || 0) / 100;
+						return { a, k: act * 0.55 + trust * 0.45 };
+					})
+					.sort((x, y) => y.k - x.k);
+				blended.forEach((b, i) => (b.a.rank = i + 1));
+				agents.length = 0;
+				agents.push(...blended.map((b) => b.a));
+			}
+		} catch {
+			/* reputation enrichment is additive — never block the trending feed */
+		}
+	}
+
 	// ── Coins (Oracle conviction) ───────────────────────────────────────────
 	const coinRows = await sql`
 		select mint, symbol, name, score, tier, momentum, pedigree, structure, narrative,

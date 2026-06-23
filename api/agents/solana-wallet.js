@@ -487,11 +487,6 @@ async function handleWithdraw(req, res, id) {
 	if (owned.error) return;
 	const { auth, meta, address: fromAddress, encryptedSecret } = owned;
 
-	// CSRF: sweeping a custodial wallet is the single highest-stakes action on the
-	// platform — it must be at least as protected as message-signing. Bearer/API-key
-	// callers are exempt inside requireCsrf (the token is itself proof of intent).
-	if (!(await requireCsrf(req, res, auth.userId))) return;
-
 	// Owner-only daily withdraw cap + per-IP burst guard.
 	const rlUser = await limits.withdrawalPerUser(auth.userId);
 	if (!rlUser.success) return rateLimited(res, rlUser);
@@ -512,6 +507,15 @@ async function handleWithdraw(req, res, id) {
 	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
 	const asset = typeof body.asset === 'string' && body.asset.trim() ? body.asset.trim() : 'SOL';
 	const simulate = body.simulate === true;
+
+	// CSRF: sweeping a custodial wallet is the single highest-stakes action on the
+	// platform — it must be at least as protected as message-signing. Bearer/API-key
+	// callers are exempt inside requireCsrf (the token is itself proof of intent). A
+	// `simulate` request moves no funds and never touches the key (it returns a live
+	// preview, like the trade endpoint's preview), so it is CSRF-exempt — otherwise a
+	// read-back/quote would burn the owner's single-use token before they confirm.
+	if (!simulate && !(await requireCsrf(req, res, auth.userId))) return;
+
 	const idempotencyKey =
 		typeof body.idempotency_key === 'string' && body.idempotency_key.trim()
 			? body.idempotency_key.trim().slice(0, 128)

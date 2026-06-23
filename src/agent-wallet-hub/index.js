@@ -23,13 +23,17 @@ import { getVisibleTabs } from './registry.js';
 // To add a tab later: drop a file in ./tabs/ and add one import line here.
 import './tabs/balance.js';
 import './tabs/pulse.js';
+import './tabs/reputation.js';
 import './tabs/deposit.js';
 import './tabs/trade.js';
 import './tabs/snipe.js';
+import './tabs/earn.js';
+import './tabs/autopilot.js';
 import './tabs/pay.js';
 import './tabs/vanity.js';
 import './tabs/withdraw.js';
 import './tabs/give.js';
+import './tabs/recovery.js';
 
 import { escapeHtml, shortAddress, copyToClipboard, toast } from './util.js';
 

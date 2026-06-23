@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-23T03:38:53.398Z",
+	"generated_at": "2026-06-23T03:51:54.037Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "Guardian console — recover & inherit agent wallets",
+			"summary": "The agents you’re trusted to protect. Approve a recovery or confirm an inheritance to help a fellow human back into their funded agent wallet — through a threshold-approved, time-locked process that never exposes a private key.",
+			"link": "/guardian",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-23",
 			"type": "launch",
@@ -217,6 +227,17 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Social recovery & inheritance — a funded agent that never dies with its owner",
+			"summary": "Your agent's wallet is custodial and real-money funded, so \"I lost access\" or \"the owner is gone\" should never mean the funds are lost forever. You can now name guardians (real three.ws accounts you trust) and a beneficiary, and set how many guardians must agree. If you ever lose access, that threshold of guardians approving — plus a 48-hour safety window only you can cancel — hands control of the agent and its wallet back to you. An optional dead-man's switch passes the agent to your beneficiary if you go silent past a period you choose, but only after a generous, cancellable grace window and an explicit confirmation — and you abort the whole thing instantly just by showing up (a login, a trade, or tapping \"I'm here\"). Crucially, no private key is ever exported or exposed: recovery and inheritance only change who owns the agent, and the same encrypted, server-held key keeps signing for the new owner. Every step is time-locked, reversible until commit, and written to your custody trail; the wallet is frozen against autonomous spending during any contested process so it can never be drained out from under you. Guardians act from a new Guardian console — the agents you're trusted to protect, where you approve a recovery or confirm an inheritance without ever touching anyone's funds.",
+			"link": "/guardian",
+			"tags": [
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Talk to your agent and it trades — the Conversational Wallet",
 			"summary": "Your avatar's wallet now takes voice and text commands. Tell your agent \"tip 0.1 SOL to vault.sol\", \"snipe that mint with half a SOL\", \"sell half my $THREE\", or \"withdraw 2 SOL to my Phantom\" — it parses your intent with Claude, shows you exactly what it will do next to your own words (real quote, USD value, fees, network), and waits for an explicit \"yes\" or a tap before anything moves. Confirmed trades come back with a real on-chain signature and explorer link, and the avatar celebrates the moment it lands. Every action runs the same owner-only, spend-limit-gated, audited path as the rest of the wallet — visitors can chat but can never move funds, by any phrasing. A wrong hearing is caught at the read-back, \"cancel\" is always one word away, and there's a full keyboard path with no mic required.",
 			"link": null,
@@ -244,6 +265,38 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Treasury Autopilot — the agent that funds its own existence",
+			"summary": "Your agent can now manage its own money under a policy you write in plain English. Tell it something like \"Pay your own compute, keep a 1 SOL buffer, put 10% of tips into $THREE, compound coin fees into buybacks weekly, and sweep anything over 3 SOL to me on Fridays\" — it compiles that into clear, bounded rules and shows them back for you to approve before anything runs. Once armed, it executes each rule as a real, on-chain action from the agent's own wallet: it pays its own metered LLM and voice costs, holds your safety buffer, dollar-cost-averages income into $THREE, compounds its coin's fees into buybacks, and sweeps profit to you — every move clamped to your spend limits, idempotent, and written to the custody trail with an explorer link. A runway dashboard shows the honest truth: real income vs. real compute cost, the buffer, $THREE accumulated, buybacks executed, profit swept, and how long the agent self-sustains at its current burn — a net-negative agent says so plainly. A prominent kill switch halts everything instantly, and any rule pauses or edits in one tap. Owner-only, by construction.",
+			"link": null,
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Tune how your agent wears its wallet — presence dial and earned regalia",
+			"summary": "The net-worth aura now comes with a presence panel on every agent's viewer and profile. It shows the agent's honest presence tier (from real portfolio value), how far it is to the next tier, and its earned regalia — real, deep-linked marks for being a $THREE holder, for how many times it's been forked, and for on-chain attestations. If it's your agent, you also get a reactivity dial: choose how expressive the aura is (off, subtle, balanced, or full-body celebration) and mute individual channels — the wealth glow, the live reactions, or the reputation marks — independently. Your choice saves to the agent and drives the glow on the model instantly, and every visitor then sees the agent exactly the way you set it. Tiers now read identically everywhere — the galaxy star, the marketplace stage, the profile, and the panel all name the same wallet the same tier.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Wallet figures read the same everywhere — one money and address style across the app",
+			"summary": "An agent's portfolio value now formats identically wherever it appears — the tiny wallet chip on a card, the inline net-worth on a profile, the presence panel — so the same wallet never shows \"$1k\" in one place and \"$1.2K\" in another. Addresses shorten the same way across surfaces too, and the wallet's violet accent now flows from one design token instead of scattered colors, so the whole wallet layer reads as a single, coherent system. We also added an automated test that proves the platform's core promise on every fork: saving someone else's avatar always mints a brand-new wallet with its own distinct Solana and EVM addresses, never copies a secret, and leaves the original's wallet untouched.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"security"
 			]
 		},
 		{
