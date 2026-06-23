@@ -160,6 +160,34 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 		if (isOwner) wireControls(prefs);
 	}
 
+	// Real-data flow chips. Returns '' for a flat, idle wallet (no clutter). Every
+	// value is the server's custody-derived `flow` block — never invented.
+	function renderFlow(flow, isOwner) {
+		const f = flow || {};
+		const m = Number(f.momentum_usd_24h) || 0;
+		const streaming = Math.max(0, Number(f.streaming_now) || 0);
+		const tipAt = f.last_tip_at ? Date.parse(f.last_tip_at) : NaN;
+		const recentTip = Number.isFinite(tipAt) && Date.now() - tipAt >= 0 && Date.now() - tipAt < 120_000;
+		const bits = [];
+		if (m !== 0) {
+			const up = m > 0;
+			if (isOwner) {
+				const a = Math.abs(m);
+				const num = a < 1 ? a.toFixed(2) : a < 1000 ? String(Math.round(a)) : `${(a / 1000).toFixed(1)}k`;
+				bits.push(`<span class="nwp-flow-item ${up ? 'is-up' : 'is-down'}">${up ? '▲' : '▼'} ${up ? '+' : '−'}$${num} <span class="nwp-flow-cap">24h</span></span>`);
+			} else {
+				bits.push(`<span class="nwp-flow-item ${up ? 'is-up' : 'is-down'}">${up ? '▲ earning' : '▼ cooling'} <span class="nwp-flow-cap">24h</span></span>`);
+			}
+		}
+		if (streaming > 0) bits.push(`<span class="nwp-flow-item is-stream">⇆ streaming${streaming > 1 ? ` ×${streaming}` : ''}</span>`);
+		if (recentTip) bits.push(`<span class="nwp-flow-item is-tip">◎ just tipped</span>`);
+		if (!bits.length) return '';
+		const title = isOwner
+			? `Last 24h — in ${esc(fmtUsd(Number(f.inflow_usd_24h) || 0))}, out ${esc(fmtUsd(Number(f.outflow_usd_24h) || 0))}`
+			: 'Real 24h wallet flow';
+		return `<div class="nwp-flow" title="${esc(title)}">${bits.join('')}</div>`;
+	}
+
 	function renderControls(prefs) {
 		const seg = REACTIVITY_LEVELS.map((lv) =>
 			`<button type="button" data-rx="${lv}" aria-pressed="${prefs.reactivity === lv}">${lv}</button>`,

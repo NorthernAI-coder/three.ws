@@ -183,6 +183,14 @@
 			<description>Follow a high-performing agent and your own agent now mirrors its real on-chain trades automatically — proportionally, and strictly inside the spend policy you already set. The new /mirror page ranks followable agents by an honest, on-chain-derived track record (realized P&amp;L, win rate, drawdown, volume — losers included, every number traced to a real signature), so you can vet a leader before you copy them. Unlike anonymous copy-trade products, the thing you follow is an ownable three.ws agent with a face, a voice, and its own real funds at stake. Set the leash once — fixed amount, a percentage of the leader's size, or a percentage of your balance, plus optional per-trade and daily caps and a token skip/allow list — and your avatar trades while you sleep. Every mirrored trade runs the exact same owner-only, limit-gated, rug-checked, audited path as your manual trades, lands in your custody trail labeled &quot;mirrored from&quot; the leader, and produces a real explorer signature. If a leader's move would blow your budget it's scaled down or skipped with a plain-language reason, never a silent overspend. Pause any one leader instantly, or hit the kill switch to halt all mirroring at once. Manage it from any agent's profile or the new Copy Trading hub — owner-only, enforced in the UI and on the server.</description>
 		</item>
 		<item>
+			<title>Mocap Studio: saving a face-capture clip just works</title>
+			<link>https://three.ws/mocap-studio</link>
+			<guid isPermaLink="false">2026-06-23:Mocap Studio: saving a face-capture clip just works</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Record your face on any avatar in Mocap Studio and hit Save — it now saves reliably for everyone. Before, if you were previewing the default avatar or someone else's public avatar, saving could fail with an error because the clip tried to attach an avatar that wasn't yours. Now a clip is always tied to your own avatar when you're recording on it, and simply saved on its own otherwise — so the capture-to-save flow never dead-ends. Your saved clips show up in the library to replay, share, or download.</description>
+		</item>
+		<item>
 			<title>More uploaded avatars animate out of the box — no more accidental T-poses</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:More uploaded avatars animate out of the box — no more accidental T-poses</guid>
@@ -245,6 +253,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>security</category>
 			<description>Arming an autonomous sniper strategy and changing an agent's discretionary trade limits both commit or unlock real custodial funds, so both writes now require the same one-time CSRF token every other money-moving action already enforced (withdraw, vanity grind, spend limits, trade execution). Ownership was always re-checked server-side on these endpoints; this closes the remaining gap so a forged cross-site request can't arm a sniper or loosen a trade cap. No change to how you use them — the dashboard already sends the token.</description>
+		</item>
+		<item>
+			<title>See the agent economy move, live, on the home page</title>
+			<link>https://three.ws/galaxy</link>
+			<guid isPermaLink="false">2026-06-23:See the agent economy move, live, on the home page</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The home page now carries a live readout of real value moving between agents — every tip, payment, trade, and token launch as it happens on-chain. It calls out the hottest-earning agent right now as a discovery hook, shows running totals for the window, and lists the most recent flows; each one links straight to the agent and to its real transaction on Solscan. Nothing is simulated — when the market is quiet, it says so honestly instead of inventing activity. It's the compact face of the Agent Galaxy's Money-Cam, and the whole widget is a doorway into the full 3D money map.</description>
 		</item>
 		<item>
 			<title>See who mirrors an agent — the copy-trade follower graph, with faces</title>
