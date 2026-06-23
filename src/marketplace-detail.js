@@ -16,6 +16,11 @@ import { walletChipHTML } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
+import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+
+// The detail stage's wallet aura — torn down before each remount so its live
+// poll + rAF never leak across agents.
+let detailStageAura = null;
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -104,6 +109,8 @@ export function renderDetailModelStage(a) {
 		stageVisibilityObserver.disconnect();
 		stageVisibilityObserver = null;
 	}
+	detailStageAura?.destroy?.();
+	detailStageAura = null;
 	stage.innerHTML = '';
 
 	const hint = $('d-model-hint');
@@ -148,6 +155,11 @@ export function renderDetailModelStage(a) {
 			clearTimeout(loadTimeout);
 			progressEl.remove();
 			mv.style.opacity = '1';
+			// Net-Worth-Reactive Avatar: the model now wears its real wallet here
+			// exactly as on its profile and in the galaxy.
+			hydrateAvatarWallet(stage, a, { lod: 'full', live: true, network: 'mainnet' })
+				.then((c) => { detailStageAura = c; })
+				.catch(() => { /* dormant baseline already shown */ });
 		},
 		{ once: true },
 	);

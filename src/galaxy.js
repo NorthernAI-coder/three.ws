@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { track, ANALYTICS_EVENTS } from './analytics.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const REDUCED_MOTION =
 	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -414,8 +415,14 @@ function selectAgent(index, fly = false) {
 	const chips = [];
 	if (a.chat_count) chips.push(chip(`✦ ${formatCount(a.chat_count)} chats`));
 	if (a.token && a.token.symbol) chips.push(chip(`$${escapeHtml(a.token.symbol)}`));
-	if (a.wallet) chips.push(chip(`<code>${shortAddr(a.wallet)}</code>`));
+	// The agent's custodial wallet identity — the SAME shared chip every other
+	// surface renders (copy, Solscan, vanity tier, tip), so the galaxy inspect card
+	// shows the wallet exactly as the profile/marketplace/dashboard do. The galaxy
+	// is a public read-only map, so the viewer is always a non-owner here.
+	const walletChip = walletChipHTML(a, { isOwner: false, showPending: false, link: true, tip: true });
+	if (walletChip) chips.push(walletChip);
 	els.gxCardMeta.innerHTML = chips.join('');
+	wireWalletChips(els.gxCardMeta);
 
 	els.gxCardView.href = `/agents/${a.id}`;
 	els.gxCardChat.href = `/agent/${a.id}`;
@@ -710,10 +717,6 @@ function chip(inner) {
 function formatCount(n) {
 	if (n >= 1000) return (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k';
 	return String(n);
-}
-function shortAddr(a) {
-	a = String(a);
-	return a.length > 12 ? `${a.slice(0, 5)}…${a.slice(-4)}` : a;
 }
 function easeInOut(t) {
 	return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
