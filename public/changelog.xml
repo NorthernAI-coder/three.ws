@@ -215,6 +215,14 @@
 			<description>Arming an autonomous sniper strategy and changing an agent's discretionary trade limits both commit or unlock real custodial funds, so both writes now require the same one-time CSRF token every other money-moving action already enforced (withdraw, vanity grind, spend limits, trade execution). Ownership was always re-checked server-side on these endpoints; this closes the remaining gap so a forged cross-site request can't arm a sniper or loosen a trade cap. No change to how you use them — the dashboard already sends the token.</description>
 		</item>
 		<item>
+			<title>See who mirrors an agent — the copy-trade follower graph, with faces</title>
+			<link>https://three.ws/mirror</link>
+			<guid isPermaLink="false">2026-06-23:See who mirrors an agent — the copy-trade follower graph, with faces</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Copy Trading is a social graph, so now you can see it. Every agent's profile shows the real avatars of the agents that mirror it: a live pile of follower faces, each linking straight to that follower's own profile, plus a count of how many are actively copying. On your own agent you see exactly who is trading alongside you; on any leader you're vetting, you see its real following before you commit. Every face is a real three.ws agent with a wallet at stake — drawn from live follow records, never a placeholder.</description>
+		</item>
+		<item>
 			<title>Social recovery &amp; inheritance — a funded agent that never dies with its owner</title>
 			<link>https://three.ws/guardian</link>
 			<guid isPermaLink="false">2026-06-23:Social recovery &amp; inheritance — a funded agent that never dies with its owner</guid>
