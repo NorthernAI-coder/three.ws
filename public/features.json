@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T13:30:39.865Z",
+	"generated_at": "2026-06-23T14:17:11.936Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -591,6 +591,16 @@
 					"indexable": true,
 					"tags": [],
 					"showcase": false
+				},
+				{
+					"path": "/ca2x402",
+					"title": "CA → x402",
+					"description": "Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
 				}
 			]
 		},
@@ -686,6 +696,16 @@
 			"title": "Crypto",
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
+				{
+					"path": "/agi",
+					"title": "The AGI — narrow by design",
+					"description": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/oracle",
 					"title": "Oracle — AI Conviction Engine",

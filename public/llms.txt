@@ -71,6 +71,7 @@ Create and customize an agent.
 - [Voice Lab](https://three.ws/voice): Clone your voice from a short recording, then use it for TTS or give it to your agent. Side-by-side comparison of voice models.
 - [3D Scanner — Scan Yourself into 3D](https://three.ws/scan): Point your camera at your face, hold still, and walk away with a rigged 3D avatar — reconstruction runs in about a minute, free, in your browser.
 - [Make Dad a 3D Avatar](https://three.ws/dad): Turn one photo of your dad into a recognizable, rigged, animated 3D avatar — it idles, walks, and waves — then share a permalink.
+- [CA → x402](https://three.ws/ca2x402): Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.
 
 ## Labs
 
@@ -89,6 +90,7 @@ Experimental features actively shipping. Expect fast iteration.
 
 On-chain features: pay-per-call, token launches, vanity wallets.
 
+- [The AGI — narrow by design](https://three.ws/agi): The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.
 - [Oracle — AI Conviction Engine](https://three.ws/oracle): A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 - [Arm your agent — automate Oracle conviction](https://three.ws/oracle/arm): Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.
 - [Agent Activity — Oracle conviction in real time](https://three.ws/activity): The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.

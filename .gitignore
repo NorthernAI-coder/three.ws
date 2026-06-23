@@ -270,3 +270,4 @@ api/embodiment/
 src/embodiment/
 src/embody.js
 pages/embody.html
+api/_lib/migrations/20260623170000_agent_bodies.sql

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T13:30:39.999Z",
+	"generated_at": "2026-06-23T14:17:11.949Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -72,6 +72,16 @@
 			"title": "Back-an-Agent Vaults",
 			"summary": "Copy-trade a 3D agent with a verifiable on-chain reputation: stake into a verified trader, share its real P&L pro-rata, and watch it trade your capital live — segregated custody, hard spend limits, and a drawdown circuit breaker.",
 			"link": "/vaults",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "CA → x402",
+			"summary": "Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.",
+			"link": "/ca2x402",
 			"tags": [
 				"launch"
 			]
@@ -172,6 +182,16 @@
 			"title": "Strategy Objects",
 			"summary": "A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.",
 			"link": "/strategies",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "launch",
+			"title": "The AGI — narrow by design",
+			"summary": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",
+			"link": "/agi",
 			"tags": [
 				"launch"
 			]

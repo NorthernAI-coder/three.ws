@@ -482,6 +482,14 @@
 					"priority": 0.7,
 					"changefreq": "monthly",
 					"added": "2026-06-21"
+				},
+				{
+					"path": "/ca2x402",
+					"title": "CA → x402",
+					"description": "Paste any token contract address and get a live, agent-payable x402 endpoint for its market intel — price, momentum, and a bullish/bearish signal — for $0.01 USDC, discoverable in the x402 bazaar.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-23"
 				}
 			]
 		},
