@@ -76,6 +76,19 @@ export class GuideAvatar {
 		this._y = 0;
 		this._vy = 0;
 		this._tick = this._tick.bind(this);
+		this._onVisibility = this._onVisibility.bind(this);
+	}
+
+	// Stop rendering the guide while the tab is backgrounded; resume on return.
+	_onVisibility() {
+		if (this._headless) return;
+		if (document.hidden) {
+			cancelAnimationFrame(this._raf);
+			this._raf = 0;
+		} else if (this.host && this.clock && !this._raf) {
+			this.clock.getDelta(); // drop the hidden span so gravity doesn't lurch
+			this._raf = requestAnimationFrame(this._tick);
+		}
 	}
 
 	async mount() {
@@ -89,6 +102,7 @@ export class GuideAvatar {
 			await this._buildScene();
 			this.clock = new Timer();
 			this._raf = requestAnimationFrame(this._tick);
+			document.addEventListener('visibilitychange', this._onVisibility);
 		} catch (err) {
 			console.warn('[tour] guide avatar failed to load — continuing without a rendered body:', err?.message || err);
 			this._headless = true;
@@ -421,6 +435,7 @@ export class GuideAvatar {
 	}
 
 	dispose() {
+		document.removeEventListener('visibilitychange', this._onVisibility);
 		cancelAnimationFrame(this._raf);
 		cancelAnimationFrame(this._walkRaf);
 		clearTimeout(this._settleTimer);

@@ -251,7 +251,11 @@ async function renderDone(avatarId) {
 	$('#open-editor').setAttribute('href', editorUrl);
 	$('#make-another').addEventListener('click', () => resetToCompose());
 
-	const modelUrl = avatar?.model_url || avatar?.modelUrl;
+	// Private avatars (the default for this flow) have a null public model_url;
+	// the owner's GET response carries a short-lived presigned `url` instead.
+	// Read both so the "done" preview renders the result the user just made
+	// rather than silently bouncing them to the editor.
+	const modelUrl = avatar?.model_url || avatar?.url || avatar?.modelUrl;
 	const viewer = /** @type {any} */ ($('#done-model'));
 	if (modelUrl && viewer) viewer.setAttribute('src', modelUrl);
 

@@ -59,6 +59,20 @@ describe('verifyEvmUsdcPayment', () => {
 		expect(r.status).toBe('pending');
 	});
 
+	it('degrades to retryable pending when the confirmations RPC read faults', async () => {
+		// A transport fault on getBlockNumber must NOT strand a real payment as a
+		// hard error — the buyer keeps their funds and the confirm retries. (The
+		// failover transport rotates endpoints first; this is the last-resort soft
+		// fail when every endpoint is down.)
+		h.client.getTransactionReceipt.mockResolvedValue({
+			status: 'success', blockNumber: 990n,
+			logs: [transferLog({ to: RECIPIENT, value: 1_000_000n })],
+		});
+		h.client.getBlockNumber.mockRejectedValue(new Error('fetch failed'));
+		const r = await verifyEvmUsdcPayment({ txHash: TX, chain: 'base', recipient: RECIPIENT, expectedAmount: '1000000' });
+		expect(r.status).toBe('pending');
+	});
+
 	it('rejects a reverted transaction', async () => {
 		h.client.getTransactionReceipt.mockResolvedValue({ status: 'reverted', blockNumber: 990n, logs: [] });
 		const r = await verifyEvmUsdcPayment({ txHash: TX, chain: 'base', recipient: RECIPIENT, expectedAmount: '1000000' });

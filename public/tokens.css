@@ -133,6 +133,21 @@
 	--danger: #f87171;
 	--warn: #fbbf24;
 
+	/* Wallet identity accent — the violet family that marks every wallet surface
+	   (chip, HUD, vanity studio) as one coherent system across the app. Route all
+	   wallet UI through these tokens rather than scattering raw rgba(139,92,246,…).
+	     accent      default chip text / glow
+	     accent-soft chip fill (low alpha)
+	     stroke      chip border
+	     hi          vanity-highlighted address glyphs (pure white) */
+	--wallet-accent:        #c4b5fd;
+	--wallet-accent-strong: #a78bfa;
+	--wallet-accent-soft:   rgba(139, 92, 246, 0.10);
+	--wallet-accent-fill:   rgba(139, 92, 246, 0.15);
+	--wallet-stroke:        rgba(139, 92, 246, 0.30);
+	--wallet-stroke-strong: rgba(139, 92, 246, 0.50);
+	--wallet-glow:          rgba(139, 92, 246, 0.45);
+
 	/* Solid near-black backgrounds — opaque counterparts to the translucent
 	   --surface-* overlays. Use these for solid page/panel fills instead of
 	   hand-typing var(--bg-0) / var(--bg-1) so the monochrome base stays consistent. */

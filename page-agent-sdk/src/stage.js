@@ -93,8 +93,27 @@ export class AvatarStage {
 		this._resizeObs = new ResizeObserver(() => this._resize());
 		this._resizeObs.observe(container);
 
-		this._raf = 0;
+		// Pause the render loop when the tab is backgrounded or the agent scrolls
+		// offscreen — a docked WebGL canvas should never burn GPU it can't be seen on.
+		this._visible = !document.hidden;
+		this._onscreen = true;
 		this._render = this._render.bind(this);
+		this._onVisibility = () => { this._visible = !document.hidden; this._kick(); };
+		document.addEventListener('visibilitychange', this._onVisibility);
+		this._inViewObs = new IntersectionObserver(
+			(entries) => { this._onscreen = entries.some((e) => e.isIntersecting); this._kick(); },
+			{ threshold: 0 },
+		);
+		this._inViewObs.observe(container);
+
+		this._raf = 0;
+		this._raf = requestAnimationFrame(this._render);
+	}
+
+	/** (Re)start the render loop if it is paused and the stage is currently visible. */
+	_kick() {
+		if (this._raf || !this.renderer || !this._visible || !this._onscreen) return;
+		this.clock.getDelta(); // discard the idle gap so motion resumes smoothly
 		this._raf = requestAnimationFrame(this._render);
 	}
 
@@ -232,8 +251,9 @@ export class AvatarStage {
 	}
 
 	_render() {
+		// Re-arm only while visible & onscreen; _kick() resumes when that changes.
+		if (!this.renderer || !this._visible || !this._onscreen) { this._raf = 0; return; }
 		this._raf = requestAnimationFrame(this._render);
-		if (!this.renderer) return;
 		const dt = Math.min(this.clock.getDelta(), 0.05);
 		const t = this.clock.elapsedTime;
 		const nowMs = t * 1000;
@@ -276,6 +296,8 @@ export class AvatarStage {
 		cancelAnimationFrame(this._raf);
 		this._raf = 0;
 		this._resizeObs?.disconnect();
+		this._inViewObs?.disconnect();
+		document.removeEventListener('visibilitychange', this._onVisibility);
 		this._frameHooks.clear();
 		if (this.model) { this.scene.remove(this.model); this._disposeObject(this.model); }
 		this._envTex?.dispose();

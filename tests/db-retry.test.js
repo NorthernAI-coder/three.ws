@@ -2,7 +2,11 @@
 // takes a thunk, so no DB or network mocking is needed.
 
 import { describe, it, expect, vi } from 'vitest';
-import { withDbRetry } from '../api/_lib/db-retry.js';
+import { withDbRetry, withDbTimeout, DbTimeoutError } from '../api/_lib/db-retry.js';
+
+function never() {
+	return new Promise(() => {}); // a stalled connection: never settles
+}
 
 function transientError() {
 	// Shape Neon's HTTP driver produces on a cold-start / network blip.
@@ -53,5 +57,50 @@ describe('withDbRetry', () => {
 		const run = vi.fn().mockRejectedValueOnce(wrapped).mockResolvedValueOnce('ok');
 		await expect(withDbRetry(run)).resolves.toBe('ok');
 		expect(run).toHaveBeenCalledTimes(2);
+	});
+
+	it('aborts a stalled query once the total deadline elapses', async () => {
+		const run = vi.fn().mockImplementation(never);
+		const err = await withDbRetry(run, { timeoutMs: 30 }).catch((e) => e);
+		expect(err).toBeInstanceOf(DbTimeoutError);
+		expect(err.code).toBe('DB_TIMEOUT');
+		// A timeout consumes the whole budget, so a merely-slow query is not retried.
+		expect(run).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not retry past the deadline when transient errors keep failing fast', async () => {
+		// Transient errors reject immediately, so all 3 attempts fit inside a
+		// generous budget — the budget only stops *slow* queries, not fast ones.
+		const run = vi.fn().mockRejectedValue(transientError());
+		await expect(withDbRetry(run, { timeoutMs: 5_000 })).rejects.toThrow(/fetch failed/);
+		expect(run).toHaveBeenCalledTimes(3);
+	});
+
+	it('with the bound disabled, a fast query still resolves normally', async () => {
+		const run = vi.fn().mockResolvedValue('ok');
+		await expect(withDbRetry(run, { timeoutMs: 0 })).resolves.toBe('ok');
+		expect(run).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('withDbTimeout', () => {
+	it('resolves a query that beats the deadline', async () => {
+		await expect(withDbTimeout(() => Promise.resolve(42), 1_000)).resolves.toBe(42);
+	});
+
+	it('rejects with DbTimeoutError when the query stalls', async () => {
+		const err = await withDbTimeout(never, 20).catch((e) => e);
+		expect(err).toBeInstanceOf(DbTimeoutError);
+		expect(err.code).toBe('DB_TIMEOUT');
+	});
+
+	it('surfaces the query error unchanged when it rejects before the deadline', async () => {
+		const boom = new Error('boom');
+		await expect(withDbTimeout(() => Promise.reject(boom), 1_000)).rejects.toBe(boom);
+	});
+
+	it('runs the thunk without a timer when the bound is disabled', async () => {
+		await expect(withDbTimeout(() => Promise.resolve('ok'), 0)).resolves.toBe('ok');
+		await expect(withDbTimeout(() => Promise.resolve('ok'), Infinity)).resolves.toBe('ok');
 	});
 });

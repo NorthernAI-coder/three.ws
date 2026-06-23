@@ -47,4 +47,30 @@ describe('redactUrl', () => {
 		expect(out).not.toContain('0.12');
 		expect(out).not.toContain('secret');
 	});
+
+	it('strips API keys, bearer/session credentials, wallet secrets, and email', () => {
+		const out = redactUrl(
+			'/api/x?api-key=HELIUSKEY123&apiKey=DUP&access_token=BEARERTOK' +
+				'&authorization=Bearer-XYZ&session=SESS9&private_key=5Jprivkey' +
+				'&mnemonic=word1word2&secret=topsecret&email=user%40example.com&keep=ok',
+		);
+		// Every credential / secret / PII value is gone verbatim.
+		for (const leak of [
+			'HELIUSKEY123', 'DUP', 'BEARERTOK', 'Bearer-XYZ', 'SESS9',
+			'5Jprivkey', 'word1word2', 'topsecret', 'user@example.com', 'user%40example.com',
+		]) {
+			expect(out).not.toContain(leak);
+		}
+		// A genuinely benign param still survives so the log line stays useful.
+		expect(out).toContain('keep=ok');
+		expect(out).toContain('REDACTED');
+	});
+
+	it('redacts a keyed upstream RPC URL (the HELIUS_API_KEY leak path)', () => {
+		// web3.js errors embed the keyed RPC URL; redactUrl is what keeps that key
+		// out of console / Sentry / Telegram on a 5xx.
+		const out = redactUrl('https://mainnet.helius-rpc.com/?api-key=sk_live_DEADBEEF');
+		expect(out).not.toContain('sk_live_DEADBEEF');
+		expect(out).toContain('REDACTED');
+	});
 });

@@ -16,7 +16,7 @@
 // (getProgramAccounts, getBlock*) that would let an anonymous caller drain the
 // upstream quota.
 
-import { cors, method, wrap, readJson, error, rateLimited } from './_lib/http.js';
+import { cors, method, wrap, readJson, error, rateLimited, reportServerError } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import {
 	solanaRpcEndpoints,
@@ -148,12 +148,27 @@ export default wrap(async function handler(req, res) {
 	// throw an opaque StructError (or silently mis-read an empty `[]`) instead of a
 	// clean error the caller can handle. If the upstream body isn't a well-formed
 	// JSON-RPC response, surface an honest 502 keyed to the same JSON-RPC id.
-	if (classifyRpcBody(text)) {
+	const classified = classifyRpcBody(text);
+	if (classified) {
 		const id = Array.isArray(body) ? null : body?.id ?? null;
+		// A provider returning a body web3.js can't parse is a real upstream
+		// degradation worth seeing. Capture genuine 5xx through the boundary
+		// (deduped on the classification reason, so a flapping provider alerts once
+		// an hour, not per request) and thread the ref into the JSON-RPC error
+		// `data` so a caller can quote it without breaking the strict envelope.
+		// Capacity classifications (429) are expected provider backpressure, not a
+		// server fault — don't alert on those.
+		let ref;
+		if ((classified.status ?? 502) >= 500) {
+			ref = reportServerError(new Error(`rpc upstream returned an unusable response: ${classified.reason}`), {
+				code: 'rpc_upstream_unusable',
+				status: 502,
+			});
+		}
 		res.statusCode = 502;
 		res.setHeader('content-type', 'application/json; charset=utf-8');
 		res.setHeader('cache-control', 'no-store');
-		res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32603, message: 'rpc upstream returned an unusable response' } }));
+		res.end(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32603, message: 'rpc upstream returned an unusable response', ...(ref ? { data: { ref } } : {}) } }));
 		return;
 	}
 	res.statusCode = upstream.status;

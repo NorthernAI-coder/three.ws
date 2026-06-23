@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T01:57:12.708Z",
+	"generated_at": "2026-06-23T02:37:56.000Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -19,11 +19,32 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Fix: prompt-to-avatar shows your finished avatar instead of jumping to the editor",
+			"summary": "When you described an avatar in words at Create → From a prompt, the 'done' screen was meant to show a live, spinnable preview of the character you just made — the payoff moment. For private avatars (the default), that preview was being skipped and you were dropped straight into the editor with no look at the result. The preview now renders for private avatars too, using the same owner-only secure link the selfie flow already used, so every prompt-built avatar greets you with a real 3D preview you can rotate before opening the editor or making another.",
+			"link": "/create/prompt",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Fix: the bounty board and live token feeds stay up when a third party is slow",
 			"summary": "Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed.",
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Improvement: Base USDC payments confirm even when an RPC provider is flaky",
+			"summary": "When you pay for a skill or asset in USDC on Base, the platform double-checks your payment landed on-chain before unlocking it. That check used to read from a single blockchain provider — so if that one provider was briefly slow or rate-limited, a payment that had genuinely gone through could look stuck as 'pending' until you retried. It now reads through the same multi-provider failover the rest of the platform already uses: if one provider is down it automatically tries the next, and a momentary outage degrades to a safe, retryable state instead of stranding a confirmed payment. Your funds were never at risk either way; this makes the confirmation itself resilient.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{

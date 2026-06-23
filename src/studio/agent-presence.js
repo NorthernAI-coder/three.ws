@@ -72,6 +72,7 @@ class AgentPresenceElement extends HTMLElement {
 		this._disposed = false;
 		this._currentAvatarId = undefined; // tracks body so we reload only on real change
 		this._currentModelUrl = null;
+		this._currentIdleClip = null; // resting clip, re-applied when Body studio changes it
 		this._unsubStudio = null;
 		this._unsubMarket = null;
 		this._io = null;
@@ -186,11 +187,54 @@ class AgentPresenceElement extends HTMLElement {
 
 		// Best-effort baked idle so a rig with an "idle" clip loops it; the procedural
 		// IdleAnimation inside AgentAvatar keeps a clip-less rig breathing regardless.
+		// The Body studio can pin a different resting clip (e.g. "av-chilling") via
+		// meta.studio.body.idleClip — honor it so the persisted body shows everywhere.
 		try {
 			const am = this._viewer.animationManager;
-			if (am && (await am.ensureLoaded('idle'))) am.crossfadeTo('idle', 0.4);
+			const idle = this._idleClip();
+			this._currentIdleClip = idle;
+			if (am && (await am.ensureLoaded(idle))) am.crossfadeTo(idle, 0.4);
+			else if (am && idle !== 'idle' && (await am.ensureLoaded('idle'))) am.crossfadeTo('idle', 0.4);
 		} catch {
 			/* procedural idle covers it */
+		}
+	}
+
+	// The resting clip this avatar loops. Body studio persists a choice under
+	// meta.studio.body.idleClip; absent that we use the canonical "idle".
+	_idleClip() {
+		const pinned = this.getAttribute('data-agent-id') || this.getAttribute('data-avatar-id');
+		if (pinned) return 'idle';
+		return studio.agent?.meta?.studio?.body?.idleClip || 'idle';
+	}
+
+	/**
+	 * Play a clip on this live avatar — the Body studio's preview/"try it" path.
+	 * A looping clip (idle/dance) crossfades and stays; a one-shot (wave/jump)
+	 * plays once and settles back to the resting clip. Safe to call before boot
+	 * (queued) and no-ops cleanly on a rig that can't drive canonical clips.
+	 * @param {string} name  canonical clip name
+	 * @param {{ loop?: boolean }} [opts]
+	 */
+	async playClip(name, { loop = false } = {}) {
+		if (!name) return;
+		if (!this._booted || !this._viewer) {
+			if (this._reactQueue.length < 16) this._reactQueue.push({ type: '__clip', name, loop });
+			return;
+		}
+		const am = this._viewer.animationManager;
+		if (!am) return;
+		try {
+			if (am.supportsCanonicalClips && !am.supportsCanonicalClips()) {
+				// Non-canonical rig — convey it through emotion instead of a dead no-op.
+				this._protocol?.emit({ type: this._ACTION.EMOTE, payload: { trigger: 'curiosity', weight: 0.5 } });
+				return;
+			}
+			if (!(await am.ensureLoaded(name))) return;
+			if (loop) am.crossfadeTo(name, 0.35);
+			else await am.playOnce(name, { settleTo: this._idleClip(), fade: 0.3 });
+		} catch {
+			/* clip unavailable on this rig — silent, the avatar keeps its idle */
 		}
 	}
 
@@ -269,6 +313,13 @@ class AgentPresenceElement extends HTMLElement {
 		if (agent.avatarId !== this._currentAvatarId) {
 			this._currentAvatarId = agent.avatarId;
 			this._refreshBody();
+			return;
+		}
+		// Body studio changed the resting clip — restyle the loop in place (no reload).
+		const idle = agent.meta?.studio?.body?.idleClip || 'idle';
+		if (this._booted && idle !== this._currentIdleClip) {
+			this._currentIdleClip = idle;
+			this.playClip(idle, { loop: true });
 		}
 	}
 
@@ -333,6 +384,8 @@ class AgentPresenceElement extends HTMLElement {
 	 */
 	reactTo(event) {
 		if (!event || typeof event !== 'object') return;
+		// Replayed clip-preview requests (queued before boot) route to playClip.
+		if (event.type === '__clip') return void this.playClip(event.name, { loop: event.loop });
 		if (!this._booted || !this._avatar || !this._protocol) {
 			// Queue until the avatar is live so an early trade isn't dropped.
 			if (this._reactQueue.length < 16) this._reactQueue.push(event);
