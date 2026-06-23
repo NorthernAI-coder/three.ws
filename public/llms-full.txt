@@ -646,6 +646,12 @@ URL: https://three.ws/gmgn
 
 Live smart-money signals narrated by a 3D AI agent. Tracks which wallets are loading on Solana, Ethereum, Base, and BNB Chain in real time.
 
+### $THREE Tiers · Hold-to-Access
+
+URL: https://three.ws/three
+
+Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.
+
 ### $THREE Live · Protocol Pulse
 
 URL: https://three.ws/three-live

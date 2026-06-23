@@ -16,34 +16,12 @@ import { sql } from './db.js';
 import {
 	scoreBid, workerReputation, findAutoBidders, upsertBid, getBounty,
 	getLaborPolicy, listBidsForBounty, createJob, markBidAwarded, rejectOtherBids,
-	setBountyStatus, getJobByBounty, markJobDelivered, atomicsToThree, _toBig as toBig,
+	setBountyStatus, getJobByBounty, markJobDelivered,
 } from './agent-labor.js';
+import { negotiationPrice, etaForReputation, atomicsToThree, toBig } from './labor-economics.js';
 
-// ── Pure negotiation rules (unit-tested) ────────────────────────────────────
-
-/**
- * The price an autonomous worker bids. It never exceeds the escrowed reward or
- * the worker's own max-bid ceiling, and it discounts off that ceiling by the
- * worker's reputation: a proven worker can hold closer to the ceiling (0.98×),
- * a new worker discounts harder (0.80×) to win on price. Deterministic, so the
- * UI can explain exactly why a bid came in where it did.
- */
-export function negotiationPrice({ rewardAtomics, maxBidAtomics = null, reputation = 0.5 }) {
-	const reward = toBig(rewardAtomics);
-	const ceiling = maxBidAtomics != null && toBig(maxBidAtomics) < reward ? toBig(maxBidAtomics) : reward;
-	const rep = Math.max(0, Math.min(1, Number(reputation) || 0));
-	const factorBps = BigInt(Math.round((0.8 + 0.18 * rep) * 10_000)); // 8000..9800
-	let price = (ceiling * factorBps) / 10_000n;
-	if (price < 1n) price = 1n;
-	if (price > reward) price = reward;
-	return price;
-}
-
-/** Promised turnaround: faster the higher the reputation (2h → 30m). */
-export function etaForReputation(reputation = 0.5) {
-	const rep = Math.max(0, Math.min(1, Number(reputation) || 0));
-	return Math.round(7200 - 5400 * rep);
-}
+// Re-export the negotiation rules from the pure economics module.
+export { negotiationPrice, etaForReputation };
 
 // ── Reasoning ledger (best-effort; compatible with Moonshot 05) ─────────────
 

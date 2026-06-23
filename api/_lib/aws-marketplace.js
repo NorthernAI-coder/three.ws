@@ -98,6 +98,46 @@ export async function getEntitlements(customerIdentifier) {
 	return result.Entitlements ?? [];
 }
 
+/**
+ * True when the AWS Marketplace integration has the credentials + product code
+ * it needs to call AWS. Read directly from process.env so it never throws the
+ * way the `req()`-backed env getters do when unconfigured — that's what lets the
+ * whole path ship INERT (like the fee module) instead of erroring.
+ */
+export function awsMarketplaceConfigured() {
+	return Boolean(
+		process.env.AWS_MP_ACCESS_KEY_ID &&
+			process.env.AWS_MP_SECRET_ACCESS_KEY &&
+			process.env.AWS_MP_PRODUCT_CODE,
+	);
+}
+
+/**
+ * Resolve whether a customer is currently ENTITLED, via a real GetEntitlements
+ * call — filtering out expired entitlements. Inert (entitled:null) when AWS is
+ * not configured, so a deployment without AWS creds degrades open and never
+ * fakes an entitlement AWS didn't grant. Throttling / network errors surface as
+ * a typed, retryable error the caller turns into an actionable boundary state.
+ *
+ * @returns {Promise<{ configured: boolean, entitled: boolean|null, entitlements: object[] }>}
+ */
+export async function customerEntitlement(customerIdentifier) {
+	if (!awsMarketplaceConfigured()) return { configured: false, entitled: null, entitlements: [] };
+	try {
+		const entitlements = await getEntitlements(customerIdentifier);
+		const now = Date.now();
+		const active = entitlements.filter(
+			(e) => !e.ExpirationDate || new Date(e.ExpirationDate).getTime() > now,
+		);
+		return { configured: true, entitled: active.length > 0, entitlements: active };
+	} catch (err) {
+		const e = new Error(`aws_entitlement_check_failed: ${err?.name || ''} ${err?.message || ''}`.trim());
+		e.code = 'aws_entitlement_unavailable';
+		e.retryable = err?.name === 'ThrottlingException' || err?.name === 'InternalServiceErrorException';
+		throw e;
+	}
+}
+
 // ── SNS signature verification ────────────────────────────────────────────────
 // AWS signs every SNS message with a private key and includes the cert URL.
 // We download the cert once (cached per URL), build the canonical string, and

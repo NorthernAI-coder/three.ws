@@ -206,11 +206,11 @@ async function boot() {
 
 // ── Tab routing ─────────────────────────────────────────────────────────────
 
-const TAB_TITLES = { overview: 'Overview', users: 'Users', revenue: 'Revenue', llm: 'LLM Spend', usage: 'Usage' };
+const TAB_TITLES = { overview: 'Overview', users: 'Users', revenue: 'Revenue', llm: 'LLM Spend', usage: 'Usage', growth: 'Growth & Virality' };
 function switchTab(tab) {
 	state.tab = tab;
 	document.querySelectorAll('.nav-item[data-tab]').forEach((el) => el.classList.toggle('active', el.dataset.tab === tab));
-	['overview', 'users', 'revenue', 'llm', 'usage'].forEach((t) => {
+	['overview', 'users', 'revenue', 'llm', 'usage', 'growth'].forEach((t) => {
 		document.getElementById('tab-' + t).style.display = t === tab ? '' : 'none';
 	});
 	document.getElementById('page-title').textContent = TAB_TITLES[tab] || 'Overview';
@@ -219,6 +219,7 @@ function switchTab(tab) {
 	if (tab === 'revenue') loadRevenue();
 	if (tab === 'llm') loadLlmSpend();
 	if (tab === 'usage') loadFeatures();
+	if (tab === 'growth') loadGrowth();
 }
 
 // ── Overview tab ─────────────────────────────────────────────────────────────
@@ -570,6 +571,67 @@ async function loadFeatures() {
 	`;
 	document.getElementById('feat-day').innerHTML = colChart(dayRows, (v) => v + ' events');
 	document.getElementById('feat-tool').innerHTML = rankBars(data.byTool || [], (r) => r.tool, (r) => r.events, (v) => fmtNum(v));
+}
+
+// ── Growth tab (referral loop & k-factor) ──────────────────────────────────────
+
+async function loadGrowth() {
+	const el = document.getElementById('tab-growth');
+	el.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+	const data = await api.get('/api/admin/referrals');
+	if (data.error) { el.innerHTML = `<div class="empty">Error: ${esc(data.error_description || data.error)}</div>`; return; }
+
+	const f = data.funnel || {};
+	const c = data.conversion || {};
+	const t = data.totals || {};
+	const k = Number(data.k_factor) || 0;
+	// k-factor headline tints green when the loop is self-sustaining (>1).
+	const kColor = k >= 1 ? '#22c55e' : k >= 0.5 ? '#eab308' : '#888';
+	const pct = (v) => (Number(v) * 100).toFixed(1) + '%';
+
+	el.innerHTML = `
+		<div class="kpi-grid">
+			<div class="stat-card">
+				<div class="stat-label">k-factor · ${esc(data.window_days)}d</div>
+				<div class="stat-value" style="color:${kColor}">${k.toFixed(3)}</div>
+				<div class="stat-sub">signups per sharing user${k >= 1 ? ' · viral 🚀' : ''}</div>
+			</div>
+			${kpi('Link visits', fmtNum(f.visits), `${fmtNum(f.sharers)} sharers`)}
+			${kpi('Referred signups', fmtNum(f.signups), `${pct(c.visit_to_signup)} of visits`)}
+			${kpi('Activations', fmtNum(f.activations), `${pct(c.signup_to_activation)} of signups`)}
+			${kpi('Rewards paid', fmtUsdShort(t.rewards_paid_usd), `${fmtNum(t.rewards_paid_count)} grants`)}
+			${kpi('Referred members', fmtNum(t.referred_members), `${fmtNum(t.activated_referred_members)} activated`)}
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Referred signups vs activations · last ${esc(data.window_days)} days</span></div>
+			<div class="chart-wrap" id="growth-day"></div>
+		</div>
+		<div class="section">
+			<div class="section-head"><span class="section-title">Top referrers · by activated referrals</span></div>
+			<div class="section-body">
+				<table><thead><tr><th>Referrer</th><th>Referred</th><th>Activated</th><th>Commission</th></tr></thead><tbody>
+					${(data.top_referrers || []).map((r) => `<tr>
+						<td style="color:#ddd">${esc(r.display_name || r.username || r.user_id)}</td>
+						<td>${fmtNum(r.referred_total)}</td>
+						<td>${fmtNum(r.activated_total)}</td>
+						<td>$${(Number(r.commission_earned_usd) || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })}</td>
+					</tr>`).join('') || '<tr><td colspan="4" class="empty">No referrals yet.</td></tr>'}
+				</tbody></table>
+			</div>
+		</div>
+	`;
+	// Stacked-ish two-series trend: render signups as the column height with
+	// activations annotated in the tooltip (colChart is single-series).
+	const byDay = data.byDay || [];
+	document.getElementById('growth-day').innerHTML = colChart(
+		byDay.map((r) => ({ day: r.day, value: Number(r.signups) || 0 })),
+		(v) => v + ' signups',
+	);
+}
+
+function fmtUsdShort(usd) {
+	const v = Number(usd) || 0;
+	return '$' + v.toLocaleString('en-US', { minimumFractionDigits: v < 100 ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────

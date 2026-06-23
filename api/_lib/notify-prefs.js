@@ -61,6 +61,8 @@ const TYPE_CATEGORY = {
 	'payment-earned': 'sales',
 	payment_received: 'sales',
 	referral_earned: 'sales',
+	referral_signup: 'sales',
+	referral_reward: 'sales',
 	pump_launch_filled: 'sales',
 
 	skill_purchase_confirmed: 'purchases',

@@ -15,6 +15,8 @@ import { cors, json, readJson, wrap } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { issueSubscriptionForCustomer } from '../_lib/aws-marketplace-bridge.js';
+import { customerEntitlement } from '../_lib/aws-marketplace.js';
+import { env } from '../_lib/env.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
@@ -59,6 +61,30 @@ export default wrap(async (req, res) => {
 	}
 	if (row.subscription_status === 'cancelled' || row.subscription_status === 'expired') {
 		return json(res, 409, { error: 'subscription_inactive', status: row.subscription_status });
+	}
+
+	// Contract (entitlement-based) products: gate key issuance on a REAL
+	// GetEntitlements check against AWS. Usage-based products have no entitlements
+	// (metering is the billing), so this is opt-in via AWS_MP_ENTITLEMENT_REQUIRED
+	// and a no-op otherwise. Degrades open when AWS is unconfigured (inert path);
+	// a throttled/unavailable AWS surfaces an actionable 503 instead of a 500.
+	if (env.AWS_MP_ENTITLEMENT_REQUIRED) {
+		try {
+			const ent = await customerEntitlement(row.customer_identifier);
+			if (ent.configured && ent.entitled === false) {
+				return json(res, 403, {
+					error: 'not_entitled',
+					message: 'Your AWS Marketplace entitlement is not active. Renew or re-subscribe in AWS Marketplace, then try again.',
+				});
+			}
+		} catch (err) {
+			console.error('[aws-marketplace/issue-key] entitlement check failed', { customerId, error: err?.message });
+			return json(res, 503, {
+				error: 'entitlement_unavailable',
+				retryable: Boolean(err?.retryable),
+				message: 'We could not verify your AWS Marketplace entitlement just now. Please retry in a moment.',
+			});
+		}
 	}
 
 	let issued;

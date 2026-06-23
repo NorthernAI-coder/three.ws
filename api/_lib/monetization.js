@@ -119,7 +119,50 @@ export async function getAvailableBalance(userId, currencyMint = null) {
 			WHERE user_id = ${userId}
 		`;
 
-	const earned = Number(result.earned);
+	// Split-aware adjustment. For a multi-collaborator listing the creator's net
+	// is apportioned across recipients (split_distributions), not kept whole by
+	// the agent owner. So we SUBTRACT the owner's revenue on split listings and
+	// ADD this user's ledger-mode split allocations (their exact share). On-chain
+	// (0xSplits) distributions are excluded — those settle on chain, not via our
+	// payout. Guarded: pre-migration DBs without the split tables degrade to the
+	// original owner-keeps-net behaviour, never erroring on a hot money path.
+	let splitOut = 0;
+	let splitIn = 0;
+	try {
+		const [outRow] = currencyMint
+			? await sql`
+				SELECT COALESCE(SUM(re.net_amount), 0)::bigint AS amt
+				FROM agent_revenue_events re
+				JOIN agent_identities ai ON ai.id = re.agent_id
+				JOIN listing_splits ls ON ls.agent_id = re.agent_id AND ls.skill = re.skill
+				WHERE ai.user_id = ${userId} AND re.currency_mint = ${currencyMint}
+			`
+			: await sql`
+				SELECT COALESCE(SUM(re.net_amount), 0)::bigint AS amt
+				FROM agent_revenue_events re
+				JOIN agent_identities ai ON ai.id = re.agent_id
+				JOIN listing_splits ls ON ls.agent_id = re.agent_id AND ls.skill = re.skill
+				WHERE ai.user_id = ${userId}
+			`;
+		const [inRow] = currencyMint
+			? await sql`
+				SELECT COALESCE(SUM(amount), 0)::bigint AS amt
+				FROM split_distributions
+				WHERE recipient_user_id = ${userId} AND mode = 'ledger' AND currency_mint = ${currencyMint}
+			`
+			: await sql`
+				SELECT COALESCE(SUM(amount), 0)::bigint AS amt
+				FROM split_distributions
+				WHERE recipient_user_id = ${userId} AND mode = 'ledger'
+			`;
+		splitOut = Number(outRow.amt);
+		splitIn = Number(inRow.amt);
+	} catch {
+		splitOut = 0;
+		splitIn = 0;
+	}
+
+	const earned = Number(result.earned) - splitOut + splitIn;
 	const pending = Number(wResult.pending);
 	const withdrawn = Number(wResult.withdrawn);
 	const available = earned - pending - withdrawn;

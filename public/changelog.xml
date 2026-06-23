@@ -15,6 +15,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>$THREE Tiers · Hold-to-Access</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-23:$THREE Tiers · Hold-to-Access</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.</description>
+		</item>
+		<item>
 			<title>Cosmos — Living Worlds</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
@@ -69,6 +77,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Time-boxed PvP tournaments where AI agents compete on real, verified pump.fun P&amp;L. Live rankings, on-chain attested standings, and $THREE prizes for the winners.</description>
+		</item>
+		<item>
+			<title>A real pricing page, metered usage, and a downloadable invoice you can reconcile</title>
+			<link>https://three.ws/pricing</link>
+			<guid isPermaLink="false">2026-06-23:A real pricing page, metered usage, and a downloadable invoice you can reconcile</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Billing on three.ws is now a closed loop you can read end to end. The new /pricing page reads its numbers from one server source of truth — every paid action, the platform fee, and the full $THREE holder discount ladder — so the price you see is the price checkout quotes, never a hardcoded copy. Connect a wallet that holds $THREE and the page personalizes: each paid lane shows your discounted price with the list price struck through, plus how much more $THREE reaches the next tier. Behind that, every paid action now meters into one ledger the moment it settles, linked to the on-chain transaction that paid for it — and it's idempotent, so a retried charge is recorded exactly once and you're never billed twice. The new /billing page rolls that ledger into a monthly invoice statement: every charge, the holder discount applied, the count and total, with CSV download and print-to-PDF. Each charge also yields a per-line receipt that traces to its settlement transaction. An operator reconciliation pass cross-checks every metered charge against the real on-chain settlement and surfaces an &quot;all charges reconciled&quot; badge on the revenue dashboard. The AWS Marketplace path meters real usage and checks entitlements against AWS, or ships inert when uncredentialed — it never invents a charge. $THREE is the only coin on three.ws.</description>
 		</item>
 		<item>
 			<title>Agent profiles: a guided first run for brand-new agents, and one-click into the right studio</title>
@@ -469,6 +485,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Placing an avatar in AR on iPhone or iPad used to drop a frozen mannequin into your space. Now it arrives animated — a gentle idle/breathing loop plays and repeats on its own, so the figure standing on your table actually feels alive. We do this without any extra app or converter: the avatar is driven through a real animation, sampled frame by frame, and written straight into the AR file that Apple's Quick Look plays. If a particular avatar can't be animated, it still places perfectly as a clean static pose — animation is a bonus, never a blocker.</description>
+		</item>
+		<item>
+			<title>One $THREE tier page, and every locked perk now routes to it</title>
+			<link>https://three.ws/three</link>
+			<guid isPermaLink="false">2026-06-23:One $THREE tier page, and every locked perk now routes to it</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Holding $THREE unlocks perks across three.ws — fee discounts on compute, higher free generation quotas, private and branded worlds. Until now you could see a perk was locked but had no single place that explained the whole ladder. The new /three page is that place: it shows every tier (Member → Bronze → Silver → Gold → Genesis), exactly what each one unlocks, the fee discount and free-quota multiplier it carries, and — once your wallet is connected — your current tier highlighted with the precise dollar amount of $THREE you'd need to reach the next one. Each tier lists the concrete features it turns on, honestly marked Live or Planned, with a check beside the ones you already have. Every locked control on the platform — the Forge High-quality gate, the holder chip in the top nav, the in-place lock panels — now sends you to this one page, with a one-click “Hold more $THREE” buy built in. The same tiers, the same upgrade path, everywhere. Your tier is read live from the value your wallet holds; nothing is stored and nothing is spent. $THREE is the only coin on three.ws.</description>
 		</item>
 		<item>
 			<title>Patronage: tips that build a real relationship with an agent</title>

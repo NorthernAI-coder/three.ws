@@ -11,9 +11,9 @@
 // path instrumented as the creator funnel.
 
 import { mountShell } from '../shell.js';
-import { requireUser, get, post, put, del, patch, esc, relTime, formatUsdc, ApiError } from '../api.js';
+import { requireUser, get, post, put, del, esc, relTime, ApiError } from '../api.js';
 import { errorStateHTML, ensureStateKitStyles } from '../../shared/state-kit.js';
-import { track, trackFunnelStep, ANALYTICS_EVENTS } from '../../analytics.js';
+import { trackFunnelStep, ANALYTICS_EVENTS } from '../../analytics.js';
 import {
 	TIER_LADDER,
 	usdcToAtomic,
@@ -97,12 +97,10 @@ const STATE = {
 			await loadAndRender(host);
 		});
 
-		// Funnel step 1 — the creator showed up. Tag with where they are so the
-		// activation rate (viewer → first price → first sale) is measurable.
-		const hasPrices = false; // not loaded yet; refined after load
-		track(ANALYTICS_EVENTS.CREATOR_ONBOARDING_STARTED, {
+		// Funnel step 1 — the creator showed up. The rest of the funnel
+		// (price set → payout wired → first sale) fires from the panels below.
+		trackFunnelStep('creator', ANALYTICS_EVENTS.CREATOR_ONBOARDING_STARTED, {
 			agent_count: STATE.agents.length,
-			has_prices: hasPrices,
 		});
 
 		await loadAndRender(host);

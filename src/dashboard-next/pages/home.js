@@ -902,7 +902,7 @@ function renderQuickActions(host, { avatars = [], agents = [] } = {}) {
 	defaults.push(
 		{ href: '/gallery-picker', title: 'Browse avatar gallery', sub: 'Explore public 3D avatars', iconKey: '/gallery-picker', cat: 'Create & Build' },
 		{ href: '/dashboard/widgets', title: 'Embed an agent', sub: 'Drop-in chat widget for any site', iconKey: '/dashboard/widgets', cat: 'Distribute & Embed' },
-		{ href: '/dashboard/creator', title: 'Creator Studio', sub: 'Price skills, track earnings, get paid', iconKey: '/dashboard/creator', cat: 'Monetize & Earn' },
+		{ href: '/dashboard/creator', title: 'Creator Studio', sub: 'Price skills, track earnings, get paid', iconKey: '/dashboard/creator', cat: 'Monetize & Trade' },
 		{ href: '/voice', title: 'Voice Lab', sub: 'Clone your voice for avatars', iconKey: '/voice', cat: 'Create & Build' },
 		{ href: repHref, title: 'Reputation', sub: 'On-chain reviews and attestations', iconKey: '/reputation', cat: 'Agents & Identity' },
 		{ href: '/dashboard/api', title: 'API keys', sub: 'REST + MCP for your agents', iconKey: '/dashboard/api', cat: 'Distribute & Embed' },
@@ -975,6 +975,7 @@ const DIR_ICONS = {
 	'/discover':            '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 2.5c-2 2.5-2 12.5 0 15M10 2.5c2 2.5 2 12.5 0 15M2.5 10h15"/></svg>',
 	'/embed':               '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M8 9l-2 1.5L8 12M12 9l2 1.5L12 12"/></svg>',
 	'/dashboard/monetize':  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6v8M7.5 8h4a1.5 1.5 0 010 3H8.5a1.5 1.5 0 000 3h4"/></svg>',
+	'/dashboard/creator':   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l2.5-7 3 4 2.5-6 3 9"/><path d="M3 16h13"/><circle cx="15.5" cy="5" r="2"/></svg>',
 	'/dashboard/tokens':    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2l2.5 5 5.5.8-4 3.9.9 5.5L10 14.7l-4.9 2.5.9-5.5L2 7.8l5.5-.8L10 2z"/></svg>',
 	'/dashboard/portfolio': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="11" rx="1.5"/><path d="M6 7V5a4 4 0 018 0v2"/><path d="M2 11h16"/></svg>',
 	'/pump-live':           '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="2"/><path d="M6 6a5.5 5.5 0 000 8M14 6a5.5 5.5 0 010 8"/><path d="M3.5 3.5a9 9 0 000 13M16.5 3.5a9 9 0 010 13"/></svg>',
@@ -1046,6 +1047,7 @@ const DIRECTORY = [
 	{
 		group: 'Monetize & Trade',
 		items: [
+			{ href: '/dashboard/creator',    title: 'Creator Studio', sub: 'Price skills, track earnings, get paid' },
 			{ href: '/dashboard/monetize',   title: 'Monetize',      sub: 'Revenue, subscriptions, and withdrawals' },
 			{ href: '/dashboard/tokens',     title: 'Tokens',        sub: 'Launch tokens on Pump.fun with bonding curves' },
 			{ href: '/dashboard/portfolio',  title: 'Portfolio',          sub: 'Live balances, price charts, and market data' },
