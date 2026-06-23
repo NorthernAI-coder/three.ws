@@ -2,9 +2,10 @@
 /**
  * GLB compression pipeline.
  *
- * Reads GLB files with @gltf-transform, applies a lossless-perceptual transform
- * chain (dedup → prune → resample → quantize → EXT_meshopt_compression) and
- * writes the result back in place — but only if the output is actually smaller.
+ * Reads GLB files with @gltf-transform, applies a perceptual transform chain
+ * (dedup → prune → resample → quantize → EXT_meshopt_compression → WebP
+ * textures) and writes the result back in place — but only if the output is
+ * actually smaller.
  *
  *   node scripts/compress-glbs.mjs                       # scan public/ + rider/assets/
  *   node scripts/compress-glbs.mjs public/avatars/x.glb  # explicit file list
@@ -15,6 +16,13 @@
  * this on GLBs served to decoder-equipped loaders; bare GLTFLoader sites (e.g.
  * thumbnails, accessories) need scripts/optimize-glb.mjs (lossless) instead.
  * Three.js' GLTFLoader decodes KHR_mesh_quantization natively.
+ *
+ * Textures are re-encoded to WebP (quality 90) via sharp and tagged with the
+ * EXT_texture_webp extension. Three.js' GLTFLoader decodes WebP textures
+ * natively in every browser it supports, so no extra loader wiring is needed;
+ * GLBs without textures pass through this step untouched. WebP at q90 is
+ * visually lossless for albedo/normal maps while typically cutting texture
+ * payload 40–70% vs embedded PNG.
  *
  * Idempotent: reading an already-compressed GLB requires the meshopt *decoder*,
  * which is why both encoder and decoder are registered below. Re-running yields
@@ -27,8 +35,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, resample, quantize, meshopt } from '@gltf-transform/functions';
+import { dedup, prune, resample, quantize, meshopt, textureCompress } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
+import sharp from 'sharp';
 
 const ROOT = path.resolve(fileURLToPath(import.meta.url), '../..');
 const DEFAULT_SCAN_DIRS = ['public', 'rider/assets'];
@@ -111,7 +120,11 @@ async function main() {
 				resample(),
 				quantize(),
 				meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
-				// TODO: add textureCompress once sharp is added to devDependencies
+				// Re-encode every texture to WebP (q90, perceptually lossless) via
+				// sharp. GLTFLoader decodes EXT_texture_webp natively; texture-less
+				// GLBs are unaffected. This is usually the single largest win on
+				// avatar GLBs, whose embedded PNG skins dominate file size.
+				textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 90 }),
 			);
 
 			const bytes = await io.writeBinary(document);

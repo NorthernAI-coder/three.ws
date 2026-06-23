@@ -1,9 +1,10 @@
 // Widget type registry + brand defaults + per-type config validators.
 // Both the Studio UI and the public widget runtime import from here.
 //
-// `status: 'ready'` widgets have a working runtime. `status: 'pending'`
-// widgets save their config but the runtime renders a "coming soon" banner
-// — Prompts 01-05 flip these to 'ready' as their runtimes ship.
+// Every shipped widget has a working runtime (`status: 'ready'`). The
+// `status`/`isReady()` machinery stays so a newly-scaffolded type can be added
+// as `'pending'` — saving its config while the runtime renders a "coming soon"
+// banner — and flipped to `'ready'` the moment its runtime lands.
 
 import { z } from 'zod';
 

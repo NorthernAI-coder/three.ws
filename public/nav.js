@@ -134,7 +134,33 @@ function ensureNavStylesheet() {
 	});
 }
 
+// Inject the "Skip to content" link as the first focusable element on the page.
+// Keyboard and screen-reader users otherwise have to tab through the entire
+// header (search, walk, theme, notifications, auth + every dropdown trigger) on
+// every one of the 170 pages before reaching the page body. Visually hidden
+// until focused (see .nav-skip in nav.css). Resolves the main landmark at click
+// time so it works whether the page tagged it `#main-content`, a bare <main>,
+// or `[role="main"]`, and makes the target programmatically focusable on demand.
+function ensureSkipLink() {
+	if (!document.body || document.querySelector('.nav-skip')) return;
+	const link = document.createElement('a');
+	link.className = 'nav-skip';
+	link.href = '#main-content';
+	link.textContent = 'Skip to content';
+	link.addEventListener('click', (e) => {
+		const target =
+			document.getElementById('main-content') || document.querySelector('main, [role="main"]');
+		if (!target) return; // fall back to the native anchor jump
+		e.preventDefault();
+		if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+		target.focus({ preventScroll: true });
+		target.scrollIntoView({ block: 'start' });
+	});
+	document.body.insertBefore(link, document.body.firstChild);
+}
+
 function boot() {
+	ensureSkipLink();
 	loadCornerStack();
 	loadGlossary();
 	loadSearch();
@@ -321,8 +347,13 @@ function initDropdowns(root) {
 
 		trigger.addEventListener('click', (e) => {
 			e.stopPropagation();
-			if (hoverCapable) {
-				// hover already opens it; a click just pins it open
+			// Keyboard-activated clicks (Enter/Space) report detail === 0; real
+			// pointer clicks report >= 1. On hover devices a mouse click just pins
+			// the already-open menu, but a keyboard activation must also move focus
+			// into the menu — otherwise the dropdown opens with focus stranded on
+			// the trigger and the arrow-key navigation below never engages.
+			const keyboard = e.detail === 0;
+			if (hoverCapable && !keyboard) {
 				closeAll(grp);
 				setOpen(grp, true);
 				return;
@@ -330,6 +361,26 @@ function initDropdowns(root) {
 			const willOpen = !grp.classList.contains('open');
 			closeAll(grp);
 			setOpen(grp, willOpen);
+			if (keyboard && willOpen) {
+				trigger.nextElementSibling?.querySelector('a')?.focus({ preventScroll: true });
+			}
+		});
+
+		// WAI-ARIA menu-button pattern: ArrowDown/ArrowUp on the trigger open the
+		// menu and land focus on the first / last item, so a keyboard user can dive
+		// straight into the dropdown without first activating then re-reaching it.
+		trigger.addEventListener('keydown', (e) => {
+			if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+			const items = Array.prototype.slice.call(
+				(trigger.nextElementSibling || grp).querySelectorAll('a'),
+			);
+			if (!items.length) return;
+			e.preventDefault();
+			closeAll(grp);
+			setOpen(grp, true);
+			(e.key === 'ArrowDown' ? items[0] : items[items.length - 1])?.focus({
+				preventScroll: true,
+			});
 		});
 
 		if (hoverCapable) {
@@ -357,6 +408,12 @@ function initDropdowns(root) {
 					(items[(idx - 1 + items.length) % items.length] || items[0])?.focus({
 						preventScroll: true,
 					});
+				} else if (e.key === 'Home') {
+					e.preventDefault();
+					items[0]?.focus({ preventScroll: true });
+				} else if (e.key === 'End') {
+					e.preventDefault();
+					items[items.length - 1]?.focus({ preventScroll: true });
 				} else if (e.key === 'Escape') {
 					setOpen(grp, false);
 					trigger.focus({ preventScroll: true });
