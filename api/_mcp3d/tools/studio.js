@@ -1,10 +1,11 @@
 // three.ws 3D Studio MCP — generation tools.
 //
 // text_to_3d / image_to_3d submit a reconstruction job and return a job handle.
-//   Both accept a quality tier (draft/standard/high) and a generation path:
-//   "image" (FLUX→TRELLIS, the platform-keyed default) or "geometry" (native
-//   text/image→mesh via Meshy/Tripo, BYOK). generation_status polls any job —
-//   it is provider-aware, decoding the forge job token to route geometry jobs.
+//   Both accept a quality tier (draft/standard/high), a generation path ("image"
+//   reference-image reconstruction, the platform-keyed default, or "geometry"
+//   native text/image→mesh, BYOK), and a three.ws-branded `engine` selector
+//   (see the ENGINES map). generation_status polls any job — it is engine-aware,
+//   decoding the forge job token to route geometry jobs.
 // auto_rig_model adds a skeleton + skin weights to a static mesh (rerig).
 // preview_3d renders any GLB inline. remove_background strips image backgrounds.
 // remesh_model converts, simplifies, and repairs meshes.
@@ -176,11 +177,12 @@ function viewerArtifact({ glbUrl, name, options = {} }) {
 	};
 }
 
-// ── Quality tier + generation path/backend (shared by text_to_3d/image_to_3d) ──
+// ── Quality tier + generation path/engine (shared by text_to_3d/image_to_3d) ──
 // Mirrors the /api/forge axes: `path` ("image" vs "geometry"), `tier`
-// (draft/standard/high poly budget), `backend` (trellis/meshy/tripo/hunyuan3d).
-// The default — path "image", backend "trellis" — keeps the existing fast
-// platform-keyed reconstruction untouched.
+// (draft/standard/high poly budget), and `backend` — exposed as the white-labeled
+// three.ws `engine` vocabulary (ENGINES, above) rather than vendor ids. The
+// default — path "image", engine "auto" — keeps the existing fast platform-keyed
+// reconstruction untouched.
 function parsePathArg(args) {
 	const p = typeof args?.path === 'string' ? args.path.trim() : '';
 	return PATHS.includes(p) ? p : DEFAULT_PATH;
@@ -548,9 +550,9 @@ export const toolDefs = [
 			await enforce(limits.mcp3dGenerate, auth);
 			const path = parsePathArg(args);
 			const tier = resolveTier(parseTierArg(args));
-			const backendId = resolveBackendId({ path, backend: args.backend });
+			const backendId = resolveBackendId({ path, backend: resolveEngineArg(args) });
 
-			// BYOK geometry-style backends (Meshy/Tripo/Rodin) — native text→mesh.
+			// BYOK geometry-style engines (the geometry/sculpt/instant engines) — native text→mesh.
 			// Routed by registry membership, not just path, so an explicitly chosen
 			// BYOK backend is honoured even if its default path is "image".
 			if (isByokGeometryBackend(BACKENDS[backendId])) {
@@ -595,7 +597,7 @@ export const toolDefs = [
 					prompt: args.prompt,
 					path,
 					tier: tier.id,
-					backend: backendId,
+					engine: engineIdFor(backendId),
 					preview_image_url: imageUrl,
 					text_to_image_model: model,
 					eta_seconds: job.eta,
@@ -686,11 +688,11 @@ export const toolDefs = [
 
 			const path = parsePathArg(args);
 			const tier = resolveTier(parseTierArg(args));
-			const backendId = resolveBackendId({ path, backend: args.backend });
+			const backendId = resolveBackendId({ path, backend: resolveEngineArg(args) });
 
-			// BYOK geometry-style backends (Meshy/Tripo/Rodin/Stability) reconstruct
-			// from the primary view; multi-view fusion stays on the image/TRELLIS
-			// path below. Routed by registry membership, not just path.
+			// BYOK geometry-style engines (the geometry/sculpt/instant engines)
+			// reconstruct from the primary view; multi-view fusion stays on the
+			// platform image engine below. Routed by registry membership, not just path.
 			if (isByokGeometryBackend(BACKENDS[backendId])) {
 				return submitGeometryJob({
 					req,
@@ -738,7 +740,7 @@ export const toolDefs = [
 					multiview,
 					path,
 					tier: tier.id,
-					backend: job.backend ?? backendId ?? null,
+					engine: engineIdFor(job.backend ?? backendId),
 					eta_seconds: job.eta,
 				},
 			};
@@ -911,7 +913,7 @@ export const toolDefs = [
 		title: 'Remove the background from an image',
 		annotations: GENERATIVE_ANNOTATIONS,
 		description:
-			'Strip the background from a photo or illustration using BRIA RMBG-2.0 (Apache-2.0). Returns a PNG with a transparent background — useful for preparing clean inputs before image_to_3d reconstruction.',
+			'Strip the background from a photo or illustration with the three.ws background-removal engine. Returns a PNG with a transparent background — useful for preparing clean inputs before image_to_3d reconstruction.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -1225,7 +1227,7 @@ export const toolDefs = [
 		title: 'Paint a new texture onto a 3D model from a text prompt',
 		annotations: GENERATIVE_ANNOTATIONS,
 		description:
-			'Generate a fresh texture for an untextured or poorly-textured GLB using SDXL + ControlNet depth. Renders the mesh from 8 viewpoints, generates coherent texture views guided by your prompt, and back-projects them onto the UV atlas. Returns a job_id to poll with generation_status.',
+			'Generate a fresh texture for an untextured or poorly-textured GLB with the three.ws depth-guided multi-view texturing engine. Renders the mesh from 8 viewpoints, generates coherent texture views guided by your prompt, and back-projects them onto the UV atlas. Returns a job_id to poll with generation_status.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -1308,7 +1310,7 @@ export const toolDefs = [
 		description:
 			'Surgically repaint ONLY a region of an existing texture from a prompt and/or colour, ' +
 			'leaving the rest of the surface untouched and feathering the seam so the edit is invisible. ' +
-			'Real SDXL inpainting in UV space — fix a seam, recolour one panel, add a logo to a chest plate. ' +
+			'Real UV-space texture inpainting — fix a seam, recolour one panel, add a logo to a chest plate. ' +
 			"Supply mask_url: a UV-space mask PNG in the model's own UV layout where WHITE marks the area to " +
 			'repaint and black is preserved. Safe to run repeatedly — chain passes by feeding the previous ' +
 			'result GLB back in as mesh_url. Returns a job_id to poll with generation_status.',
@@ -1438,7 +1440,7 @@ export const toolDefs = [
 		title: 'Auto-rig a static 3D model (skeleton + skin weights)',
 		annotations: GENERATIVE_ANNOTATIONS,
 		description:
-			'Turn a static GLB mesh into an animation-ready character: adds a humanoid skeleton and per-vertex skin weights via the three.ws rig pipeline (VAST-AI UniRig). Pairs with text_to_3d / image_to_3d — generate a mesh, then rig it, then drive it with apply_animation or pose_model. Returns a job_id; poll generation_status for the rigged GLB.',
+			'Turn a static GLB mesh into an animation-ready character: adds a humanoid skeleton and per-vertex skin weights via the three.ws rig pipeline. Pairs with text_to_3d / image_to_3d — generate a mesh, then rig it, then drive it with apply_animation or pose_model. Returns a job_id; poll generation_status for the rigged GLB.',
 		inputSchema: {
 			type: 'object',
 			properties: {

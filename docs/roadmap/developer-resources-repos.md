@@ -50,7 +50,7 @@ These are why the obvious approach ("just push copies to new repos") fails here.
 
 1. **No CI on this account.** GitHub Actions are unavailable (all workflows deleted 2026-06-11). The standard satellite-sync pattern — a workflow pushing subtrees on every merge — cannot run. Sync must be a local script invoked from the existing push routine, or satellites rot.
 2. **Mirror maintenance already bites.** We maintain one mirror (`nirholas/3D-Agent`, push-only) and it has caused destructive history merges. Every additional repo multiplies that class of risk. Satellites must be strictly one-way exports, never pulled from.
-3. **~~npm packages 404.~~ RESOLVED (2026-06-13).** All public packages are now published on npm under the single `@three-ws/*` scope, and all 14 MCP servers (8 stdio + 6 remote) are registered in the official MCP registry. `npm install @three-ws/sdk` and `npx -y @three-ws/mcp-server` now work, so an examples repo no longer fails on its first instruction.
+3. **~~npm packages 404.~~ RESOLVED (2026-06-13).** All public packages are now published on npm under the single `@three-ws/*` scope, and all 20 MCP servers (14 stdio + 6 remote) are registered in the official MCP registry. `npm install @three-ws/sdk` and `npx -y @three-ws/mcp-server` now work, so an examples repo no longer fails on its first instruction.
 4. **A stale satellite is worse than none.** Broken examples in a standalone repo are anti-marketing. Anything we publish must be smoke-tested by the export script before it pushes.
 
 ---

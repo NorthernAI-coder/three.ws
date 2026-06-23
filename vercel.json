@@ -116,6 +116,9 @@
 		"api/forge-nim.js": {
 			"maxDuration": 300
 		},
+		"api/nim-forge.js": {
+			"maxDuration": 300
+		},
 		"api/brain/chat.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
@@ -846,6 +849,10 @@
 		{
 			"src": "/forge-nim/?",
 			"dest": "/forge-nim.html"
+		},
+		{
+			"src": "/nim-forge/?",
+			"dest": "/nim-forge.html"
 		},
 		{
 			"src": "/scene/?",

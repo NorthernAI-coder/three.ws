@@ -274,3 +274,6 @@ api/_lib/migrations/20260623170000_agent_bodies.sql
 
 # MCP registry publisher auth token (never commit)
 .mcp_publisher_token
+
+# NVIDIA TRELLIS demo outputs (local only)
+demo/
