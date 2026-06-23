@@ -240,6 +240,14 @@
 					"added": "2026-06-21"
 				},
 				{
+					"path": "/cosmos",
+					"title": "Cosmos — Living Worlds",
+					"description": "Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/scene",
 					"title": "Scene Studio",
 					"description": "Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.",
@@ -712,6 +720,14 @@
 					"priority": 0.7,
 					"changefreq": "weekly",
 					"added": "2026-05-15"
+				},
+				{
+					"path": "/strategies",
+					"title": "Strategy Objects",
+					"description": "A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.",
+					"priority": 0.8,
+					"changefreq": "daily",
+					"added": "2026-06-23"
 				},
 				{
 					"path": "/vanity-wallet",

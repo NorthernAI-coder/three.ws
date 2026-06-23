@@ -174,6 +174,9 @@ async function boot() {
 		}
 		window.location.href = '/create/video';
 	});
+	wireCard('card-cosmos', () => {
+		window.location.href = '/cosmos';
+	});
 	wireCard('card-upload-glb', (e) => {
 		// Tooltip anchors live inside the card; let them navigate normally.
 		if (e && e.target && e.target.closest('a')) return;

@@ -77,6 +77,11 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'intents') {
+		const mod = await import('./wallet-intents.js');
+		return mod.default(req, res, id, action);
+	}
+
 	if (sub === 'mirror') {
 		const mod = await import('./agent-mirror.js');
 		return mod.default(req, res, id, action);

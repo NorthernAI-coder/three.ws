@@ -652,6 +652,17 @@ export const limits = {
 		getLimiter('asr:user', { limit: 60, window: '1 h', critical: true }).limit(userId),
 	asrIp: (ip) =>
 		getLimiter('asr:ip', { limit: 15, window: '1 h', critical: true }).limit(ip),
+	// NVIDIA Audio2Face-3D (api/a2f) — free upstream but credit-metered, and each
+	// call streams a full speech clip through a bidirectional gRPC stream the
+	// server holds in memory while collecting the blendshape track. Meter per
+	// principal like the other free NVIDIA lanes; the per-IP bucket is tighter
+	// since the optional text→speech→animation path also burns a Magpie synthesis.
+	// Critical so a missing Redis in prod fails closed rather than leaving an open
+	// animation drain.
+	a2fUser: (userId) =>
+		getLimiter('a2f:user', { limit: 40, window: '1 h', critical: true }).limit(userId),
+	a2fIp: (ip) =>
+		getLimiter('a2f:ip', { limit: 10, window: '1 h', critical: true }).limit(ip),
 	// NVIDIA NIM vision (api/vision) — free upstream but credit-metered, and each
 	// call carries an image the server may relay to the NVCF asset store. Meter
 	// per principal like the other free NVIDIA lanes; critical so it fails closed

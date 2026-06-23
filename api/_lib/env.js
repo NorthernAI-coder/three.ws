@@ -281,6 +281,28 @@ export const env = {
 		return opt('NVIDIA_ASR_FUNCTION_ID');
 	},
 
+	// NVCF function id for the hosted Audio2Face-3D model used by the free facial-
+	// animation lane (api/_lib/a2f-nvidia.js, api/a2f.js) that turns Magpie speech
+	// into a per-frame ARKit blendshape track. Unlike the ASR id this is OPTIONAL:
+	// the module defaults to the published "James" model id from NVIDIA's official
+	// sample, so the lane works with only NVIDIA_API_KEY set. Override to pin a
+	// different model (Mark/Claire) — discover live ids with
+	// `node scripts/verify-nvidia-a2f.mjs --list`.
+	get NVIDIA_A2F_FUNCTION_ID() {
+		return opt('NVIDIA_A2F_FUNCTION_ID');
+	},
+
+	// Optional override for the hosted NVIDIA Cosmos world-model invoke URL used by
+	// the Cosmos text→world video lane (api/_providers/nvidia-cosmos.js, api/cosmos.js).
+	// Defaults to the published genai gateway path for cosmos-predict
+	// (https://ai.api.nvidia.com/v1/genai/nvidia/cosmos-predict1-7b); set this only
+	// to pin a different Cosmos model/version or a self-hosted NIM without a code
+	// deploy. Confirm the live contract for an account with
+	// `node scripts/verify-nvidia-cosmos.mjs`. Auth reuses NVIDIA_API_KEY.
+	get NVIDIA_COSMOS_INVOKE_URL() {
+		return opt('NVIDIA_COSMOS_INVOKE_URL');
+	},
+
 	// IBM watsonx.ai (Granite foundation models) — selectable brain in
 	// /api/chat and /api/brain/chat. Requires the API key AND a project (or
 	// space) id; the shared client in _lib/watsonx.js exchanges the key for an

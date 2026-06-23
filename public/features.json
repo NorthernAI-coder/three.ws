@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T05:35:52.581Z",
+	"generated_at": "2026-06-23T05:49:20.684Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -287,6 +287,16 @@
 					"title": "Studio — Object + Avatar from text",
 					"description": "One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.",
 					"added": "2026-06-21",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/cosmos",
+					"title": "Cosmos — Living Worlds",
+					"description": "Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -871,6 +881,16 @@
 					"title": "Strategy Lab",
 					"description": "Build DCA and subscription strategies that trade on-chain on your behalf.",
 					"added": "2026-05-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/strategies",
+					"title": "Strategy Objects",
+					"description": "A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -61,11 +61,24 @@ export async function provisionAvatarAgent({ userId, avatarId, avatarName }) {
 		}
 		return agentId;
 	} catch (err) {
-		console.error('[avatar-agent] auto-agent failed', {
-			avatarId,
-			userId,
-			error: err?.message,
-		});
+		// This path is idempotent, fire-and-forget, and self-healing: the claim is
+		// guarded by NOT EXISTS and re-runs the next time the user opens their
+		// avatar/agent, so a transient DB stall (Neon scale-to-zero wake, a
+		// connection blip — see db-retry.js) leaves nothing broken and the avatar
+		// was already created. Logging that at error level trips false alarms, so
+		// classify it the same way db-retry does and warn instead; reserve error
+		// for genuinely unexpected failures (constraint violations, bugs).
+		const transient =
+			err?.code === 'DB_TIMEOUT' ||
+			/fetch failed|connecting to database|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|terminat/i.test(
+				err?.message || '',
+			);
+		const detail = { avatarId, userId, error: err?.message };
+		if (transient) {
+			console.warn('[avatar-agent] auto-agent provisioning deferred (transient DB stall — retries on next interaction)', detail);
+		} else {
+			console.error('[avatar-agent] auto-agent failed', detail);
+		}
 		return null;
 	}
 }

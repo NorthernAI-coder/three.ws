@@ -41,6 +41,7 @@ Create and customize an agent.
 - [Describe it to 3D](https://three.ws/create/prompt): Type a description. About a minute later: a rigged 3D avatar you can animate and download.
 - [Forge — Text to 3D](https://three.ws/forge): Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 - [Studio — Object + Avatar from text](https://three.ws/forge-studio): One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.
+- [Cosmos — Living Worlds](https://three.ws/cosmos): Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.
 - [Scene Studio](https://three.ws/scene): Full 3D scene editor in the browser — import GLB models, arrange them with transform gizmos, edit materials and lights, and export complete scenes.
 - [Scene Composer](https://three.ws/compose): Real-time 3D scene composer: forge items from text, attach them to your avatar's skeleton bones, arrange and scale freely, then export your creation or save it as an outfit.
 - [Animation Studio](https://three.ws/pose): Pose any three.ws avatar or the built-in mannequin with FK/IK, keyframe a timeline, and preview the motion live. Export an animated GLB or clip JSON, save animations to your account, play them back across the platform, and sell them for USDC.
@@ -108,6 +109,7 @@ On-chain features: pay-per-call, token launches, vanity wallets.
 - [Watchlist](https://three.ws/watchlist): Your privately-stored watchlist of pump.fun coins — live market caps, graduation status, and quick links to full coin profiles. No account required; stored in your browser.
 - [Pump Dashboard](https://three.ws/pump-dashboard): Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.
 - [Strategy Lab](https://three.ws/strategy-lab): Build DCA and subscription strategies that trade on-chain on your behalf.
+- [Strategy Objects](https://three.ws/strategies): A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.
 - [Solana Vanity Wallet](https://three.ws/vanity-wallet): Grind a Solana address with a custom prefix — entirely in your browser, across your CPU cores.
 - [Verify a Vanity Receipt](https://three.ws/vanity/verify): Independently verify a three.ws provably-fair vanity wallet receipt — entirely in your browser. Prove the key was generated fresh under a committed seed and the operator never kept a copy.
 - [Proof-of-Grind Gallery](https://three.ws/vanity/gallery): A public gallery and leaderboard of the rarest Solana vanity addresses ground on three.ws — each provably-fair, verified, and shareable. Appraise any address to see its honest rarity tier and grind cost.

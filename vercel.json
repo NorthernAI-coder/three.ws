@@ -959,6 +959,10 @@
 			"dest": "/demos/lipsync-tts.html"
 		},
 		{
+			"src": "/audio2face/?",
+			"dest": "/demos/audio2face.html"
+		},
+		{
 			"src": "/launch-week/?",
 			"dest": "/three-ws-launch-week.html"
 		},
@@ -1572,6 +1576,14 @@
 		{
 			"src": "/avatar-studio/",
 			"dest": "/avatar-studio.html"
+		},
+		{
+			"src": "/cosmos",
+			"dest": "/cosmos.html"
+		},
+		{
+			"src": "/cosmos/",
+			"dest": "/cosmos.html"
 		},
 		{
 			"src": "/demos",
@@ -3911,6 +3923,10 @@
 		{
 			"path": "/api/cron/flush-usage-events",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/wallet-intents",
+			"schedule": "*/10 * * * *"
 		},
 		{
 			"path": "/api/cron/dead-man-switch",
