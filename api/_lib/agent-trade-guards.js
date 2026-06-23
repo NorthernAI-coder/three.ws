@@ -482,18 +482,6 @@ async function countPriorSpendsTo(agentId, destination, network = 'mainnet') {
 	return Number(row?.n || 0);
 }
 
-/** Lazily load an agent's policy document from the DB (only when a caller passes
- *  pre-resolved `limits` without `meta`, so enforcement is universal regardless of
- *  how the call site resolved its caps). */
-async function loadPolicyRulesById(agentId) {
-	try {
-		const [row] = await sql`SELECT meta->'policy_rules' AS policy_rules FROM agent_identities WHERE id = ${agentId}`;
-		return normalizePolicyRules(row?.policy_rules);
-	} catch (e) {
-		console.warn('[policy] load rules failed', e?.message);
-		return normalizePolicyRules(null);
-	}
-}
 
 /** Trip the wallet freeze switch from a `freeze` policy rule. Idempotent, audited,
  *  and never throws — a logging/DB hiccup must not turn the (correct) block into a

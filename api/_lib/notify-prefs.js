@@ -147,7 +147,11 @@ export function channelEnabled(prefs, type, channel) {
 	const cat = categoryForType(type);
 	const row = prefs?.categories?.[cat];
 	if (!row) return DEFAULTS[cat]?.[channel] ?? false;
-	return row[channel] !== false && row[channel] != null ? !!row[channel] : DEFAULTS[cat][channel];
+	// An explicit stored boolean (including `false`) wins; only fall back to the
+	// default when the channel is unset (null/undefined). The previous form
+	// short-circuited on `false` and wrongly returned the default — so a user who
+	// turned a channel OFF still received it.
+	return row[channel] != null ? !!row[channel] : (DEFAULTS[cat]?.[channel] ?? false);
 }
 
 /**
