@@ -19,6 +19,27 @@ const STORAGE_KEY = 'twx_lang';
 const LOCALES_BASE = '/locales';
 
 const hasDOM = typeof document !== 'undefined';
+
+// Some in-app webviews (Twitter/X Android, privacy-sandboxed frames) expose
+// `document`/`window` but set `localStorage` to null or throw on access, so a
+// raw localStorage.getItem blows up with "Cannot read properties of null". Wrap
+// every access so locale persistence degrades silently instead of throwing.
+const safeStorage = {
+	get(key) {
+		try {
+			return globalThis.localStorage?.getItem(key) ?? null;
+		} catch {
+			return null;
+		}
+	},
+	set(key, value) {
+		try {
+			globalThis.localStorage?.setItem(key, value);
+		} catch {
+			/* storage unavailable (private mode, sandboxed webview) — ignore */
+		}
+	},
+};
 const state = {
 	manifest: null,
 	current: 'en',
@@ -104,7 +125,7 @@ function supported(code, manifest) {
 // localStorage → ?lang= → navigator languages → manifest default.
 function detectLocale(manifest) {
 	if (!hasDOM) return manifest.default;
-	const stored = localStorage.getItem(STORAGE_KEY);
+	const stored = safeStorage.get(STORAGE_KEY);
 	if (stored && supported(stored, manifest)) return stored;
 	const q = new URLSearchParams(location.search).get('lang');
 	if (q && supported(q, manifest)) return q;
@@ -139,7 +160,7 @@ export async function setLocale(code) {
 	state.current = entry;
 
 	if (hasDOM) {
-		localStorage.setItem(STORAGE_KEY, entry);
+		safeStorage.set(STORAGE_KEY, entry);
 		const meta = supported(entry, manifest);
 		document.documentElement.lang = entry;
 		document.documentElement.dir = meta?.dir === 'rtl' ? 'rtl' : 'ltr';

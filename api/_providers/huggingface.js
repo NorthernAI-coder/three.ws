@@ -34,6 +34,19 @@
 
 const HF_INFERENCE_TIMEOUT_MS = 280_000; // leave headroom for response framing
 
+// A reconstructed GLB is served from the Space's ephemeral gradio /tmp path,
+// which is purged minutes (sometimes seconds) after the run. Every consumer of
+// this provider — the forge image lane and the avatar reconstruct poll — fetches
+// the result URL *later*, by which point the temp file can already be gone,
+// surfacing as a client-side 404 in model-viewer's loader. So the instant the
+// SSE completes (when the temp file is freshest) we pull the bytes and re-host
+// them to durable object storage, returning that URL instead. This is fail-soft:
+// a deployment without object storage configured keeps the raw Space URL exactly
+// as before, so nothing regresses where there's nowhere durable to put it.
+const REHOST_MAX_GLB_BYTES = 64 * 1024 * 1024; // 64 MB ceiling, matching reconstruct-finalize
+const REHOST_MAX_ATTEMPTS = 3;
+const REHOST_RETRY_BASE_MS = 350;
+
 // Ordered failover chain. We try each entry in order until one returns a GLB.
 // Each entry is { space, api, builder } where builder shapes the Gradio
 // payload from the selfie photos. Add new Spaces as they come online; keep
@@ -285,6 +298,67 @@ const BUILDERS = {
 	triposr: ({ photos, params }) => [toFileData(photos[0]), Number(params?.mc_resolution ?? 256)],
 };
 
+// Object storage is configured only when every S3 var the bucket helpers read is
+// present. Matches forge-store's gate so a partially-configured deployment skips
+// re-hosting (and keeps the raw Space URL) instead of throwing mid-run.
+function r2Configured() {
+	return Boolean(
+		readEnv('S3_ENDPOINT') &&
+		readEnv('S3_BUCKET') &&
+		readEnv('S3_PUBLIC_DOMAIN') &&
+		readEnv('S3_ACCESS_KEY_ID') &&
+		readEnv('S3_SECRET_ACCESS_KEY'),
+	);
+}
+
+// Pull the freshly-produced GLB and re-host it to durable storage, returning the
+// public URL. Returns null on any failure (storage unconfigured, fetch error,
+// oversize) so the caller falls back to the raw Space URL — the result is never
+// worse than today, and on a configured deployment the ephemeral URL never
+// escapes this provider. The HF bearer token is forwarded so private Spaces'
+// file endpoints authorize the read; public Spaces ignore it.
+async function rehostGlbToR2(glbUrl, token) {
+	if (!r2Configured()) return null;
+
+	let buf = null;
+	for (let attempt = 1; attempt <= REHOST_MAX_ATTEMPTS; attempt++) {
+		try {
+			const resp = await fetch(glbUrl, { headers: { authorization: `Bearer ${token}` } });
+			if (!resp.ok) {
+				// 404/410 = the temp file is already gone; retrying can't recover it.
+				if (resp.status === 404 || resp.status === 410) return null;
+				if (attempt >= REHOST_MAX_ATTEMPTS) return null;
+			} else {
+				const bytes = Buffer.from(await resp.arrayBuffer());
+				if (bytes.length > REHOST_MAX_GLB_BYTES) return null;
+				if (bytes.length === 0) return null;
+				buf = bytes;
+				break;
+			}
+		} catch (_) {
+			if (attempt >= REHOST_MAX_ATTEMPTS) return null;
+		}
+		await new Promise((r) => setTimeout(r, REHOST_RETRY_BASE_MS * attempt));
+	}
+	if (!buf) return null;
+
+	try {
+		const { putObject, publicUrl } = await import('../_lib/r2.js');
+		const { randomUUID } = await import('node:crypto');
+		const key = `hf-recon/${randomUUID()}.glb`;
+		await putObject({
+			key,
+			body: buf,
+			contentType: 'model/gltf-binary',
+			metadata: { source: 'huggingface-reconstruct' },
+		});
+		return publicUrl(key);
+	} catch (err) {
+		console.warn(`[huggingface] GLB re-host to R2 failed: ${err?.message || err}`);
+		return null;
+	}
+}
+
 // Try one Space end-to-end: enqueue → consume SSE → extract GLB url.
 // Throws with a tagged error containing the Space slug so the failover loop
 // can decide whether to advance to the next entry.
@@ -347,7 +421,12 @@ async function runOnSpace({ token, target, photos, params }) {
 	if (glbUrl.startsWith('/')) glbUrl = `${spaceUrl}${glbUrl}`;
 	else if (!/^https?:\/\//i.test(glbUrl)) glbUrl = `${spaceUrl}/file=${glbUrl}`;
 
-	return { resultGlbUrl: glbUrl, space, api };
+	// Re-host the ephemeral gradio temp file to durable storage right now, while
+	// it's freshest. A successful re-host means no consumer ever sees the expiring
+	// Space URL; a miss leaves the raw URL untouched (fail-soft).
+	const durableUrl = await rehostGlbToR2(glbUrl, token);
+
+	return { resultGlbUrl: durableUrl || glbUrl, space, api };
 }
 
 export function createRegenProvider() {
