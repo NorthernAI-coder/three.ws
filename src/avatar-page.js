@@ -445,12 +445,16 @@ function renderShell(glbUrl) {
 		$('av-stage-loading')?.remove();
 		positionThoughtHotspot(viewer);
 		setupAnimationControls(viewer);
-		mountNetWorthAura();
 	});
 	viewer?.addEventListener('error', () => {
 		const ld = $('av-stage-loading');
 		if (ld) ld.textContent = 'Failed to load 3D model.';
 	});
+
+	// The wallet aura is an independent sibling layer over the stage — mount it
+	// right away (the stage already has its CSS size) so the agent wears its
+	// wallet even before the GLB finishes loading, and even if the model fails.
+	mountNetWorthAura();
 
 	$('av-use')?.addEventListener('click', startAgentWithAvatar);
 	$('av-talk')?.addEventListener('click', () => enterTalkMode());

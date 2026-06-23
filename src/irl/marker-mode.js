@@ -313,7 +313,8 @@ export function initMarkerMode(deps) {
 		sheet.classList.add('is-open');
 		closeBtn.focus();
 		try {
-			const QR = (await import('qrcode')).default;
+			const mod = await import('qrcode');
+			const QR = mod.default ?? mod; // CJS/ESM interop: qrcode ships CommonJS
 			const canvas = document.createElement('canvas');
 			await QR.toCanvas(canvas, markerUrl(madeToken), { width: 240, margin: 1, errorCorrectionLevel: 'M' });
 			qrHolder.appendChild(canvas);
@@ -333,7 +334,8 @@ export function initMarkerMode(deps) {
 		};
 		if (canvas) { finish(canvas.toDataURL('image/png')); return; }
 		try {
-			const QR = (await import('qrcode')).default;
+			const mod = await import('qrcode');
+			const QR = mod.default ?? mod;
 			finish(await QR.toDataURL(markerUrl(madeToken), { width: 512, margin: 2 }));
 		} catch { status('Could not generate the marker image.', { warn: true }); }
 	}

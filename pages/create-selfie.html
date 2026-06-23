@@ -1843,6 +1843,12 @@
 					text-decoration: underline;
 				}
 				.byok-alt a:hover { color: #e8e8e8; }
+				/* Reduced-motion: stop the build/preview/done loops and the countdown
+				   pop. model-viewer auto-rotate is removed in JS when this matches. */
+				@media (prefers-reduced-motion: reduce) {
+					.build-ring, .build-preview, .bstep .dot, .done-viewer::after,
+					.done-viewer::before, .cd-num { animation: none !important; }
+				}
 			</style>
 
 			<div class="byok-card">
@@ -1897,7 +1903,7 @@
 					— it takes under a minute. The key stays in your browser and is never stored on our servers.
 				</p>
 
-				<p class="byok-error" id="byok-key-error"></p>
+				<p class="byok-error" id="byok-key-error" role="alert" aria-live="assertive"></p>
 
 				<div class="byok-actions">
 					<button type="button" class="byok-submit" id="byok-submit-btn" disabled>
@@ -2194,6 +2200,9 @@
 								},
 								{ once: true },
 							);
+							if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+								modelEl.removeAttribute('auto-rotate');
+							}
 							modelEl.setAttribute('src', modelUrl);
 						} else {
 							// Materialized but no GLB URL — don't leave a silent black void.

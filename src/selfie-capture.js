@@ -394,11 +394,13 @@ async function openCamera(slot) {
 	} catch (err) {
 		log.warn('[selfie] camera error:', err);
 		const denied = err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError';
-		showCamError(
-			denied
-				? 'Camera access was denied. Grant permission in your browser settings, or use Upload instead.'
-				: 'Could not access camera. Check permissions and try again.',
-		);
+		const msg = denied
+			? 'Camera access was denied. Grant permission in your browser settings, or use Upload instead.'
+			: 'Could not access camera. Check permissions and try again, or use Upload.';
+		// Closing the overlay hides #cam-error the same frame, so the user would
+		// see "nothing happened". Surface the reason on the persistent page banner
+		// (next to the Upload affordance) instead, then close the overlay.
+		showPageNotice(msg);
 		closeCamera();
 		return;
 	}
@@ -568,6 +570,15 @@ function showCamError(msg) {
 	camError.removeAttribute('hidden');
 }
 
+// Surface an actionable notice on the persistent page banner (the same element
+// used for unsupported browsers). Used when the camera can't open — its message
+// must outlive the overlay being closed.
+function showPageNotice(msg) {
+	if (!unsupportedMsg) return;
+	unsupportedMsg.textContent = msg;
+	unsupportedMsg.classList.add('show');
+}
+
 camOverlay?.addEventListener('click', (e) => {
 	const target = /** @type {HTMLElement} */ (e.target);
 	const action = target.closest('[data-cam-action]')?.getAttribute('data-cam-action');
@@ -579,6 +590,15 @@ camOverlay?.addEventListener('click', (e) => {
 		setCamMode('live');
 		startFaceQuality(cam.slot || REQUIRED_SLOT);
 	} else if (action === 'use') confirmCamShot();
+});
+
+// Escape closes the camera dialog (it's role="dialog" aria-modal) — keyboard
+// parity with the Cancel button so the overlay is never a mouse-only trap.
+document.addEventListener('keydown', (e) => {
+	if (e.key === 'Escape' && camOverlay?.classList.contains('open')) {
+		e.preventDefault();
+		closeCamera();
+	}
 });
 
 function startCountdown() {

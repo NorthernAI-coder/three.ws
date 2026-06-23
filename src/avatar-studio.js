@@ -143,8 +143,23 @@ const EYE_OFF =
 
 init().catch((err) => {
 	log.error('[avatar-studio] init', err);
-	$('as-shell').innerHTML = `<div class="as-error">${esc(err.message || 'Failed to load')}</div>`;
+	renderStageError($('as-shell'), 'Character Studio couldn’t load. Check your connection and try again.');
 });
+
+// Render an actionable error (Retry + Back) into a container, replacing whatever
+// loading/spinner content was there. Used by both the top-level init failure and
+// the in-stage base-avatar load failure so neither is a silent dead end.
+function renderStageError(container, message) {
+	if (!container) return;
+	container.innerHTML =
+		`<div class="as-error" role="alert">` +
+		`<p>${esc(message)}</p>` +
+		`<div class="as-error-actions">` +
+		`<button type="button" data-as-retry>Retry</button>` +
+		`<a href="/create">Back to Create</a>` +
+		`</div></div>`;
+	container.querySelector('[data-as-retry]')?.addEventListener('click', () => location.reload());
+}
 
 async function init() {
 	const params = new URLSearchParams(location.search);
@@ -403,8 +418,8 @@ async function bootScene(glbUrl, editAvatar) {
 			? 'Loaded your saved avatar. Make changes and save to update it.'
 			: 'Choose a style below to get started.');
 	} catch (err) {
-		const loadingEl = $('as-loading');
-		if (loadingEl) loadingEl.textContent = `Could not load base avatar: ${err.message}`;
+		log.error('[avatar-studio] bootScene', err);
+		renderStageError($('as-loading'), 'We couldn’t load the avatar. Check your connection and try again.');
 	}
 }
 
