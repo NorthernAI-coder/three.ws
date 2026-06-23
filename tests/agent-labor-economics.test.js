@@ -10,13 +10,13 @@ import {
 } from '../api/_lib/labor-economics.js';
 
 describe('scoreBid', () => {
-	it('is 0 when the bid asks for the full reward (no discount, no eta/rep credit)', () => {
-		expect(scoreBid({ priceAtomics: 1_000_000n, rewardAtomics: 1_000_000n, etaSeconds: null, reputation: 0 })).toBe(0);
+	it('is near 0 for a full-price, zero-reputation, very-slow bid (no price/rep credit, eta decayed away)', () => {
+		const s = scoreBid({ priceAtomics: 1_000_000n, rewardAtomics: 1_000_000n, etaSeconds: 3600 * 1000, reputation: 0 });
+		expect(s).toBeLessThan(0.05);
 	});
 
-	it('approaches 1 for a free, instant bid from a perfect-reputation worker', () => {
-		const s = scoreBid({ priceAtomics: 0n, rewardAtomics: 1_000_000n, etaSeconds: 0, reputation: 1 });
-		// price=1, eta≈1 (eta 0 → 1), rep=1 → ~ sum of weights
+	it('approaches 1 for a free, near-instant bid from a perfect-reputation worker', () => {
+		const s = scoreBid({ priceAtomics: 0n, rewardAtomics: 1_000_000n, etaSeconds: 1, reputation: 1 });
 		expect(s).toBeGreaterThan(0.99);
 		expect(s).toBeLessThanOrEqual(1);
 	});
