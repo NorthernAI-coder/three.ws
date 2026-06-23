@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Fix: avatars look right in iOS AR, not collapsed and distorted</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Fix: avatars look right in iOS AR, not collapsed and distorted</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Viewing an avatar in AR on iPhone or iPad (the 'Place in your space' / Quick Look flow) could show a mangled figure — limbs balled up at the hips and accessories like glasses floating at giant scale — instead of the avatar you saw on the page. The cause: the AR file format Apple uses doesn't carry an animation skeleton, so the standard exporter shipped the avatar in its raw, un-posed rig. We now freeze each avatar into its proper standing pose before generating the AR file, so what you place in your room matches what you see in the viewer, accessories included.</description>
+		</item>
+		<item>
 			<title>Fix: the bounty board and live token feeds stay up when a third party is slow</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Fix: the bounty board and live token feeds stay up when a third party is slow</guid>
