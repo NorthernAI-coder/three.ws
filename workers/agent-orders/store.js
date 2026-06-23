@@ -86,9 +86,11 @@ export async function seedReference(orderId, value) {
  * @param {object} o.order            the order row
  * @param {object} o.fill             { sliceIndex, triggerReason, triggerPrice, solAmount, tokenAmount, priceImpactPct, venue, signature, custodyEventId, status, detail, meta }
  * @param {boolean} o.terminal        true → order is fully filled (price/conditional, or last slice)
+ * @param {boolean} [o.terminalError] true → a FAILED fill that should halt the order to 'error'
+ *                                    (a block that won't clear by retrying), not return to active
  * @param {string|null} o.nextFireAt  ISO for the next scheduled slice (dca/twap), or null
  */
-export async function recordFillAndAdvance({ order, fill, terminal, nextFireAt = null }) {
+export async function recordFillAndAdvance({ order, fill, terminal, terminalError = false, nextFireAt = null }) {
 	const confirmedSol = fill.status === 'failed' ? 0 : Number(fill.solAmount || 0);
 	const confirmedTok = fill.status === 'failed' ? 0 : Number(fill.tokenAmount || 0);
 
@@ -104,11 +106,13 @@ export async function recordFillAndAdvance({ order, fill, terminal, nextFireAt =
 			${fill.detail || null}, ${fill.meta ? JSON.stringify(fill.meta) : null}::jsonb)
 	`;
 
-	// A failed fill does not advance fills/budget and must not consume a slice —
-	// it returns the order to its prior state to retry next sweep.
+	// A failed fill does not advance fills/budget and must not consume a slice. A
+	// terminal failure (a block that won't clear by retrying) halts the order to
+	// 'error'; an ordinary failure returns it to its prior state to retry next sweep.
 	if (fill.status === 'failed') {
+		const nextStatus = terminalError ? 'error' : (order.fill_count > 0 ? 'partial' : 'active');
 		await sql`
-			UPDATE orders SET status = ${order.fill_count > 0 ? 'partial' : 'active'},
+			UPDATE orders SET status = ${nextStatus},
 			    last_error = ${(fill.detail || 'fill_failed').slice(0, 280)}, updated_at = now()
 			WHERE id = ${order.id} AND status = 'firing'
 		`;
