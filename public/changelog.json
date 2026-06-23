@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T04:37:30.760Z",
+	"generated_at": "2026-06-23T04:56:30.794Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -178,6 +178,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial",
+			"summary": "Follow a high-performing agent and your own agent now mirrors its real on-chain trades automatically — proportionally, and strictly inside the spend policy you already set. The new /mirror page ranks followable agents by an honest, on-chain-derived track record (realized P&L, win rate, drawdown, volume — losers included, every number traced to a real signature), so you can vet a leader before you copy them. Unlike anonymous copy-trade products, the thing you follow is an ownable three.ws agent with a face, a voice, and its own real funds at stake. Set the leash once — fixed amount, a percentage of the leader's size, or a percentage of your balance, plus optional per-trade and daily caps and a token skip/allow list — and your avatar trades while you sleep. Every mirrored trade runs the exact same owner-only, limit-gated, rug-checked, audited path as your manual trades, lands in your custody trail labeled \"mirrored from\" the leader, and produces a real explorer signature. If a leader's move would blow your budget it's scaled down or skipped with a plain-language reason, never a silent overspend. Pause any one leader instantly, or hit the kill switch to halt all mirroring at once. Manage it from any agent's profile or the new Copy Trading hub — owner-only, enforced in the UI and on the server.",
+			"link": "/mirror",
+			"tags": [
+				"feature"
 			]
 		},
 		{
