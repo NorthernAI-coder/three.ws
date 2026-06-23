@@ -4534,7 +4534,7 @@ function renderMyPins(pins, listEl) {
 	if (!list) return;
 	list.innerHTML = pins.map(p => `<div class="irl-pin-row" data-pid="${_escHtml(p.id)}">
 		<div class="irl-pin-info">
-			<div class="irl-pin-name">${_escHtml(p.avatar_name || 'Agent')}${_placementBadgeHTML(p)}</div>
+			<div class="irl-pin-name"><span class="irl-pin-name-txt">${_escHtml(p.avatar_name || 'Agent')}</span>${_placementBadgeHTML(p)}</div>
 			${p.caption ? `<div class="irl-pin-caption">${_escHtml(p.caption)}</div>` : ''}
 			<div class="irl-pin-meta">${_pinMetaLine(p)}</div>
 		</div>

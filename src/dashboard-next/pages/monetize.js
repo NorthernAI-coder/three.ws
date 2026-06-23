@@ -309,10 +309,10 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 		panel.innerHTML = `
 			<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
 				<div>
-					<div class="dn-panel-title">Skill Pricing</div>
-					<div class="dn-panel-sub" style="margin:2px 0 0">Set per-call prices for your agent's skills. Callers pay in USDC — the platform takes ${esc(feePercent)}% per payment.</div>
+					<div class="dn-panel-title">Skill Pricing &amp; Access</div>
+					<div class="dn-panel-sub" style="margin:2px 0 0">Charge USDC per call (platform takes ${esc(feePercent)}%) or gate a skill to holders of an NFT collection.</div>
 				</div>
-				<button class="dn-btn primary" data-action="add-price">+ Add Pricing</button>
+				<button class="dn-btn primary" data-action="add-price">+ Add Skill</button>
 			</div>
 			<div data-slot="prices-list"></div>
 		`;
@@ -322,8 +322,8 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 		if (!skillPrices.length) {
 			listHost.innerHTML = `
 				<div class="dn-empty">
-					<h3>No skills priced yet</h3>
-					<p>Set a price on your agent's skills to start earning USDC on every call.</p>
+					<h3>No skills gated yet</h3>
+					<p>Charge USDC per call or restrict a skill to NFT holders to start monetizing your agent.</p>
 				</div>`;
 		} else {
 			listHost.innerHTML = `
@@ -340,9 +340,36 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 						<tbody>
 							${skillPrices.map((p, idx) => {
 								const active = p.active !== false;
+								const isNft = p.gate_type === 'nft';
+								const skillName = esc(p.skill_name || p.skill || p.name || 'Unnamed');
+								if (isNft) {
+									const mint = String(p.nft_collection_mint || '');
+									const shortMint = mint.length > 14 ? `${mint.slice(0, 6)}…${mint.slice(-6)}` : mint;
+									return `
+										<tr data-idx="${idx}">
+											<td style="font-weight:500">${skillName}
+												<span class="dn-tag" style="margin-left:6px;font-size:10px;vertical-align:middle">🔒 NFT gated</span>
+											</td>
+											<td style="text-align:right">
+												<span class="mon-mono" style="font-size:12px" title="${esc(mint)}">${esc(shortMint)}</span>
+												<div class="mon-fee-note">Holders of this collection only</div>
+											</td>
+											<td style="text-align:center">
+												<label class="mon-toggle" title="${active ? 'Active' : 'Inactive'}">
+													<input type="checkbox" ${active ? 'checked' : ''} data-field="active" data-idx="${idx}" disabled />
+													<span class="mon-toggle-track"></span>
+												</label>
+											</td>
+											<td style="text-align:right">
+												<div style="display:flex;gap:6px;justify-content:flex-end">
+													<button class="dn-btn danger" data-action="delete-price" data-idx="${idx}" style="padding:5px 10px;font-size:12px">Delete</button>
+												</div>
+											</td>
+										</tr>`;
+								}
 								return `
 									<tr data-idx="${idx}">
-										<td style="font-weight:500">${esc(p.skill_name || p.skill || p.name || 'Unnamed')}</td>
+										<td style="font-weight:500">${skillName}</td>
 										<td style="text-align:right">
 											<input type="number" min="0" step="0.000001" class="mon-input mon-input-sm"
 												value="${esc(String(p.price_usdc ?? p.price ?? 0))}"
@@ -375,7 +402,7 @@ function renderSkillPricing(prices, agentId, host, me, agents, feeBps = 250) {
 			openAddPriceModal(agentId, feeBps, (saved) => {
 				skillPrices.push(saved);
 				paint();
-				toastMonetize('Skill price added');
+				toastMonetize(saved?.gate_type === 'nft' ? 'NFT-gated skill added' : 'Skill price added');
 			});
 		});
 
@@ -456,7 +483,7 @@ function openAddPriceModal(agentId, feeBps, onSaved) {
 	overlay.className = 'mon-overlay';
 	overlay.innerHTML = `
 		<div role="dialog" aria-modal="true" aria-label="Add skill price" class="mon-modal">
-			<div style="font-size:16px;font-weight:600;margin-bottom:18px">Add Skill Pricing</div>
+			<div style="font-size:16px;font-weight:600;margin-bottom:18px">Add Skill Access</div>
 
 			<label class="mon-field">
 				<span class="mon-label">Skill name</span>
@@ -464,9 +491,23 @@ function openAddPriceModal(agentId, feeBps, onSaved) {
 			</label>
 
 			<label class="mon-field">
+				<span class="mon-label">How is it unlocked?</span>
+				<select data-slot="gate" class="mon-select">
+					<option value="price">Pay per call (USDC)</option>
+					<option value="nft">NFT gate — holders only</option>
+				</select>
+			</label>
+
+			<label class="mon-field" data-slot="price-field">
 				<span class="mon-label">Price per call (USDC)</span>
 				<input data-slot="price" type="number" min="0" step="0.000001" placeholder="0.001" class="mon-input" />
 				<span data-slot="fee-note" class="mon-fee-note">Platform fee: ${esc(feePercent)}% — set a price to see your net take.</span>
+			</label>
+
+			<label class="mon-field" data-slot="nft-field" hidden>
+				<span class="mon-label">NFT collection mint</span>
+				<input data-slot="collection" type="text" maxlength="44" placeholder="Collection mint address (base58)" class="mon-input mon-mono" />
+				<span class="mon-fee-note">Only wallets holding an NFT from this collection can use the skill — verified on-chain on every call.</span>
 			</label>
 
 			<label style="display:flex;align-items:center;gap:10px;margin-bottom:18px;cursor:pointer">
@@ -478,19 +519,30 @@ function openAddPriceModal(agentId, feeBps, onSaved) {
 
 			<div style="display:flex;gap:8px;justify-content:flex-end">
 				<button class="dn-btn ghost" data-action="cancel">Cancel</button>
-				<button class="dn-btn primary" data-action="submit">Add pricing</button>
+				<button class="dn-btn primary" data-action="submit">Add</button>
 			</div>
 		</div>
 	`;
 
 	document.body.appendChild(overlay);
 	const skillEl = overlay.querySelector('[data-slot="skill"]');
+	const gateEl = overlay.querySelector('[data-slot="gate"]');
+	const priceFieldEl = overlay.querySelector('[data-slot="price-field"]');
+	const nftFieldEl = overlay.querySelector('[data-slot="nft-field"]');
 	const priceEl = overlay.querySelector('[data-slot="price"]');
+	const collectionEl = overlay.querySelector('[data-slot="collection"]');
 	const activeEl = overlay.querySelector('[data-slot="active"]');
 	const errorEl = overlay.querySelector('[data-slot="error"]');
 	const feeNoteEl = overlay.querySelector('[data-slot="fee-note"]');
 	const submitBtn = overlay.querySelector('[data-action="submit"]');
 	skillEl.focus();
+
+	gateEl.addEventListener('change', () => {
+		const isNft = gateEl.value === 'nft';
+		priceFieldEl.hidden = isNft;
+		nftFieldEl.hidden = !isNft;
+		errorEl.textContent = '';
+	});
 
 	priceEl.addEventListener('input', () => {
 		const val = parseFloat(priceEl.value);
@@ -507,25 +559,37 @@ function openAddPriceModal(agentId, feeBps, onSaved) {
 
 	submitBtn.addEventListener('click', async () => {
 		const name = skillEl.value.trim();
-		const price = parseFloat(priceEl.value);
+		const isNft = gateEl.value === 'nft';
 		if (!name) { errorEl.textContent = 'Skill name is required.'; return; }
-		if (!Number.isFinite(price) || price < 0) { errorEl.textContent = 'Enter a valid price.'; return; }
+
+		let payload;
+		let saved;
+		if (isNft) {
+			const collection = collectionEl.value.trim();
+			if (!SOLANA_ADDR_RE.test(collection)) {
+				errorEl.textContent = 'Enter a valid collection mint address.';
+				return;
+			}
+			payload = { agent_id: agentId, skill_name: name, gate_type: 'nft', nft_collection_mint: collection };
+			saved = { skill_name: name, gate_type: 'nft', nft_collection_mint: collection, price_usdc: 0, active: activeEl.checked };
+		} else {
+			const price = parseFloat(priceEl.value);
+			if (!Number.isFinite(price) || price < 0) { errorEl.textContent = 'Enter a valid price.'; return; }
+			payload = { agent_id: agentId, skill_name: name, gate_type: 'price', price_usdc: price };
+			saved = { skill_name: name, gate_type: 'price', price_usdc: price, active: activeEl.checked };
+		}
+
 		errorEl.textContent = '';
 		submitBtn.disabled = true;
 		submitBtn.textContent = 'Adding...';
 		try {
-			const r = await put('/api/monetization/prices', {
-				agent_id: agentId,
-				skill_name: name,
-				price_usdc: price,
-				active: activeEl.checked,
-			});
+			const r = await put('/api/monetization/prices', payload);
 			close();
-			onSaved(r?.price || { skill_name: name, price_usdc: price, active: activeEl.checked });
+			onSaved(r?.price || saved);
 		} catch (err) {
-			errorEl.textContent = err?.body?.error || err?.message || 'Failed to add price';
+			errorEl.textContent = err?.body?.error || err?.message || 'Failed to add';
 			submitBtn.disabled = false;
-			submitBtn.textContent = 'Add pricing';
+			submitBtn.textContent = 'Add';
 		}
 	});
 }

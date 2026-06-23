@@ -62,7 +62,34 @@ export const WIDGET_TYPES = {
 		status: 'ready',
 		icon: '◭',
 	},
+	'walking-avatar': {
+		label: 'Walking Avatar',
+		desc: 'A roaming 3D avatar visitors can walk around your page — joystick or keyboard.',
+		status: 'ready',
+		icon: '🚶',
+	},
 };
+
+// Size presets for the walking-avatar embed frame. Shared by the Studio editor
+// and the widget client so the published snippet matches the preview. Walking
+// needs horizontal room, so presets lean landscape.
+export const WALK_SIZE_PRESETS = Object.freeze({
+	S: { width: 360, height: 320 },
+	M: { width: 480, height: 420 },
+	L: { width: 720, height: 560 },
+});
+
+// The environments the walk-embed runtime can actually render (mirrors ENV_IDS
+// in src/walk-embed-events.js). Kept here so the Studio picker only offers
+// environments the embed understands.
+export const WALK_ENVIRONMENTS = Object.freeze([
+	['studio', 'Studio'],
+	['void', 'Void'],
+	['beach', 'Beach'],
+	['sunset', 'Sunset'],
+	['night', 'Night'],
+	['grid', 'Grid'],
+]);
 
 export const WIDGET_TYPE_KEYS = Object.keys(WIDGET_TYPES);
 

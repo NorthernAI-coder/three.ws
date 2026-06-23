@@ -42,6 +42,7 @@ import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js'
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
+import { AccessoryManager } from './agent-accessories.js';
 import { WalkGestures, GESTURE_ORDER } from './walk-gestures.js';
 import { WalkNet } from './walk-net.js';
 import { applyLoadout } from './game/cosmetics-loadout.js';
@@ -74,6 +75,20 @@ const AVATAR_URL_DEFAULT = '/avatars/default.glb';
 // avatar — and (b) short-circuit remote avatar loads that match ours.
 let resolvedAvatarUrl = AVATAR_URL_DEFAULT;
 
+// The resolved avatar record (id, name, description, agent_id) from
+// /api/avatars/<id>, captured by resolveAvatarUrl so the voice-chat layer can
+// answer in the avatar's persona. Null for the default avatar or a direct URL.
+let avatarMeta = null;
+
+// When the page is opened as an avatar-editor draft preview
+// (?avatar=<draftId>&preview=true), the unsaved appearance to apply on top of
+// the base GLB once it loads. Stashed by resolveAvatarUrl, consumed in loadAvatar.
+let pendingDraftAppearance = null;
+// True for a draft preview — run solo (no multiplayer broadcast of a throwaway
+// presigned URL) and skip the player's own equipped cosmetics so the creator
+// sees exactly the look they're editing.
+let isDraftPreview = false;
+
 async function resolveAvatarUrl() {
 	const params = new URLSearchParams(location.search);
 	// A direct GLB/VRM URL wins — this is what the /communities lobby passes when
@@ -88,10 +103,23 @@ async function resolveAvatarUrl() {
 		resolvedAvatarUrl = AVATAR_URL_DEFAULT;
 		return AVATAR_URL_DEFAULT;
 	}
+	// Editor draft preview: resolve the unsaved look through the draft endpoint —
+	// the base (unbaked) GLB plus an appearance overlay we apply client-side.
+	if (params.get('preview') === 'true' || params.get('preview') === '1') {
+		isDraftPreview = true;
+		const dres = await fetch(`/api/avatars/draft/${encodeURIComponent(id)}`);
+		if (!dres.ok) throw new Error(`draft ${id} not found (HTTP ${dres.status})`);
+		const { draft } = await dres.json();
+		if (!draft?.base_model_url) throw new Error(`draft ${id} has no model URL`);
+		pendingDraftAppearance = draft.appearance || null;
+		resolvedAvatarUrl = draft.base_model_url;
+		return draft.base_model_url;
+	}
 	const res = await fetch(`/api/avatars/${encodeURIComponent(id)}`);
 	if (!res.ok) throw new Error(`avatar ${id} not found (HTTP ${res.status})`);
 	const { avatar } = await res.json();
 	if (!avatar?.url) throw new Error(`avatar ${id} has no GLB URL`);
+	avatarMeta = avatar;
 	resolvedAvatarUrl = avatar.url;
 	return avatar.url;
 }
@@ -1416,11 +1444,24 @@ async function loadAvatar() {
 		initialStyle: trailSetting.get(),
 	});
 
+	// Editor draft preview: dress the base GLB in the unsaved appearance the
+	// creator is editing (outfit, accessories, sculpt morphs, garment layers).
+	// Shares the AccessoryManager the editor uses, so the look is pixel-identical.
+	if (pendingDraftAppearance) {
+		try {
+			const draftAccessories = new AccessoryManager({ content: avatar, invalidate: () => {} });
+			await draftAccessories.hydrateFromAppearance(pendingDraftAppearance);
+		} catch (err) {
+			log.warn('[walk] draft appearance apply failed:', err?.message);
+		}
+	}
+
 	// Dress the local avatar in the loadout the player last equipped (R23). The
 	// equipped fit is persisted to their account in /play and mirrored to the
 	// cross-world cc-cosmetics store, so the same wardrobe rides into /walk. Reuses
 	// the shared applyLoadout, so a hat or aura renders identically in both worlds.
-	applyLocalCosmetics(getPlayCosmetics());
+	// Skipped in draft preview so the creator sees only the look they're editing.
+	if (!isDraftPreview) applyLocalCosmetics(getPlayCosmetics());
 
 	animationManager.attach(avatar);
 
@@ -3215,6 +3256,9 @@ function setOnlineStatus(status) {
 }
 
 function startNet() {
+	// Draft previews run solo — never broadcast a throwaway, soon-to-expire
+	// presigned GLB into a live room where peers would fail to load it.
+	if (isDraftPreview) return;
 	if (!avatarTemplate || !animationDefs) return;
 	if (net) return;
 	const stored = getStoredName();

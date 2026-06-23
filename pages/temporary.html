@@ -985,6 +985,152 @@
 				.walk-chat-messages { max-height: 120px; }
 			}
 
+			/* ── Voice chat: push-to-talk mic ───────────────────────────────
+			   Bottom-center column so it clears the chat box (left) and the
+			   look joystick / action buttons (right). The mic is the anchor; the
+			   waveform, status, and any error stack above it. */
+			.walk-voice {
+				position: fixed;
+				left: 50%;
+				bottom: calc(28px + env(safe-area-inset-bottom, 0));
+				transform: translateX(-50%);
+				z-index: 4;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				pointer-events: none;
+			}
+			.walk-voice > * { pointer-events: auto; }
+			.walk-voice-status {
+				font-size: 12px;
+				color: var(--text-2);
+				background: var(--panel);
+				border: 1px solid var(--border);
+				border-radius: 999px;
+				padding: 3px 12px;
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				transition: color 0.2s ease, opacity 0.2s ease;
+			}
+			.walk-voice[data-state="listening"] .walk-voice-status { color: var(--text); }
+			.walk-voice[data-state="thinking"] .walk-voice-status,
+			.walk-voice[data-state="transcribing"] .walk-voice-status,
+			.walk-voice[data-state="speaking"] .walk-voice-status { color: var(--accent); }
+			.walk-voice-wave {
+				width: 120px;
+				height: 28px;
+				opacity: 0;
+				transform: scaleY(0.6);
+				transition: opacity 0.2s ease, transform 0.2s ease;
+			}
+			.walk-voice[data-state="listening"] .walk-voice-wave {
+				opacity: 1;
+				transform: scaleY(1);
+			}
+			.walk-voice-mic {
+				position: relative;
+				width: 64px;
+				height: 64px;
+				border-radius: 50%;
+				border: 1px solid var(--border);
+				background: var(--panel);
+				color: var(--text);
+				display: grid;
+				place-items: center;
+				cursor: pointer;
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				touch-action: none;
+				-webkit-user-select: none;
+				user-select: none;
+				transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+			}
+			.walk-voice-mic:hover { background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+			.walk-voice-mic:active { transform: scale(0.94); }
+			.walk-voice-mic.is-recording {
+				background: var(--danger);
+				border-color: var(--danger);
+				color: #fff;
+			}
+			.walk-voice-mic.is-busy {
+				color: var(--accent);
+				cursor: progress;
+			}
+			.walk-voice-mic:disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+			}
+			/* Pulsing ring while recording. */
+			.walk-voice-ring {
+				position: absolute;
+				inset: -4px;
+				border-radius: 50%;
+				border: 2px solid var(--danger);
+				opacity: 0;
+				pointer-events: none;
+			}
+			.walk-voice-mic.is-recording .walk-voice-ring {
+				animation: walk-voice-pulse 1.4s ease-out infinite;
+			}
+			@keyframes walk-voice-pulse {
+				0%   { opacity: 0.7; transform: scale(1); }
+				100% { opacity: 0; transform: scale(1.45); }
+			}
+			.walk-voice-key {
+				font-size: 11px;
+				color: var(--text-2);
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+			}
+			.walk-voice-key kbd {
+				font: inherit;
+				background: rgba(255,255,255,0.08);
+				border: 1px solid var(--border);
+				border-radius: 4px;
+				padding: 0 5px;
+				color: var(--text);
+			}
+			.walk-voice-error {
+				max-width: min(320px, calc(100vw - 32px));
+				font-size: 12px;
+				line-height: 1.4;
+				color: var(--text);
+				background: var(--panel);
+				border: 1px solid rgba(248, 113, 113, 0.5);
+				border-radius: 12px;
+				padding: 8px 12px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				backdrop-filter: blur(8px);
+				-webkit-backdrop-filter: blur(8px);
+				text-align: center;
+			}
+			.walk-voice-retry {
+				align-self: center;
+				font: inherit;
+				font-size: 11px;
+				color: var(--text);
+				background: rgba(255,255,255,0.08);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 4px 14px;
+				cursor: pointer;
+				transition: background 0.2s ease;
+			}
+			.walk-voice-retry:hover { background: rgba(255,255,255,0.14); }
+			/* Touch devices have no T key — promote the key hint to hidden and
+			   rely on the large mic button, which is already touch-sized. */
+			@media (hover: none) {
+				.walk-voice-key { display: none; }
+				.walk-voice { bottom: calc(96px + env(safe-area-inset-bottom, 0)); }
+			}
+			@media (prefers-reduced-motion: reduce) {
+				.walk-voice-mic.is-recording .walk-voice-ring { animation: none; opacity: 0.5; }
+			}
+
 			/* ── Chat bubble above remote players ───────────────────────────── */
 			.walk-remote-bubble {
 				position: fixed;
@@ -1028,6 +1174,8 @@
 			.walk-emote-btn:focus-visible,
 			.walk-avatar-opt:focus-visible,
 			.walk-chat-send:focus-visible,
+			.walk-voice-mic:focus-visible,
+			.walk-voice-retry:focus-visible,
 			#walk-online:focus-visible,
 			#walk-zen-exit:focus-visible,
 			.walk-players-header button:focus-visible,
@@ -1078,6 +1226,7 @@
 			body.is-zen #walk-help,
 			body.is-zen #walk-status,
 			body.is-zen #walk-chat,
+			body.is-zen #walk-voice,
 			body.is-zen #walk-emote-tray,
 			body.is-zen #walk-players-panel,
 			body.is-zen #walk-avatar-picker,
@@ -1236,6 +1385,23 @@
 						<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2L7 9"/><path d="M14 2l-5 12-2-5-5-2z"/></svg>
 					</button>
 				</form>
+			</div>
+
+			<!-- Voice chat: push-to-talk with the avatar (mic → STT → LLM → TTS) -->
+			<div id="walk-voice" class="walk-voice" data-state="idle">
+				<div class="walk-voice-error" data-voice-error hidden role="alert"></div>
+				<div class="walk-voice-status" data-voice-status aria-live="polite">Hold to talk</div>
+				<canvas class="walk-voice-wave" data-voice-wave width="120" height="28" aria-hidden="true"></canvas>
+				<button type="button" class="walk-voice-mic" data-voice-mic
+					aria-pressed="false" aria-label="Hold to talk to your avatar (T)" title="Hold to talk (T)">
+					<span class="walk-voice-ring" aria-hidden="true"></span>
+					<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<rect x="9" y="2" width="6" height="11" rx="3"/>
+						<path d="M5 10v1a7 7 0 0 0 14 0v-1"/>
+						<path d="M12 18v3"/>
+					</svg>
+				</button>
+				<span class="walk-voice-key" aria-hidden="true">Hold <kbd>T</kbd></span>
 			</div>
 
 			<!-- Friends panel (Task 15) -->
