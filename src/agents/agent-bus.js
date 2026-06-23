@@ -36,20 +36,6 @@ export const AGENT_EVENTS = Object.freeze([
 	'dream:created',
 	'action:taken',
 	'agent:changed',
-	// Embodiment suite — the same nervous system carries the body's events so the
-	// avatar, companion, Mind Palace, and physical robot all react to one stream
-	// (replay/backlog/wildcard/debug-overlay work for these for free). The typed
-	// surface lives in src/embodiment/embodiment-bus.js, which emits/consumes these.
-	'robot:linked',
-	'robot:unlinked',
-	'robot:telemetry',
-	'robot:fault',
-	'embodiment:granted',
-	'embodiment:revoked',
-	'motion:played',
-	'face:expressed',
-	'mind:synced',
-	'estop',
 ]);
 
 /**
@@ -68,16 +54,6 @@ export const EVENTS = Object.freeze({
 	DREAM_CREATED: 'dream:created',
 	ACTION_TAKEN: 'action:taken',
 	AGENT_CHANGED: 'agent:changed',
-	ROBOT_LINKED: 'robot:linked',
-	ROBOT_UNLINKED: 'robot:unlinked',
-	ROBOT_TELEMETRY: 'robot:telemetry',
-	ROBOT_FAULT: 'robot:fault',
-	EMBODIMENT_GRANTED: 'embodiment:granted',
-	EMBODIMENT_REVOKED: 'embodiment:revoked',
-	MOTION_PLAYED: 'motion:played',
-	FACE_EXPRESSED: 'face:expressed',
-	MIND_SYNCED: 'mind:synced',
-	ESTOP: 'estop',
 });
 
 /** Wildcard subscription key — receives `(payload, type)` for every event. */

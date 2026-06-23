@@ -106,82 +106,6 @@ export interface AgentChangedEvent extends BaseEvent {
 	agent: Record<string, unknown> | null;
 }
 
-/** A body (physical robot or simulator twin) was bound to the agent. */
-export interface RobotLinkedEvent extends BaseEvent {
-	bodyId: string;
-	transport: string;
-	label?: string;
-	/** On-chain proof of the binding, when the agent wallet could sign it. */
-	onchain?: { signature: string; network: string; explorer: string } | null;
-}
-
-/** The body was released / unpaired. */
-export interface RobotUnlinkedEvent extends BaseEvent {
-	bodyId: string;
-	reason?: string;
-}
-
-/** A real telemetry sample from the body (device or simulator internal state). */
-export interface RobotTelemetryEvent extends BaseEvent {
-	bodyId: string;
-	batteryPct?: number;
-	charging?: boolean;
-	jointsOk?: boolean;
-	faults?: string[];
-	linkQuality?: number;
-	/** True when sourced from the simulator twin rather than hardware. */
-	simulated?: boolean;
-}
-
-/** The body reported a fault and entered (or should enter) its safe state. */
-export interface RobotFaultEvent extends BaseEvent {
-	bodyId: string;
-	code: string;
-	detail?: string;
-	safeState: boolean;
-}
-
-/** An embodiment right/grant was issued on-chain (Task 05). */
-export interface EmbodimentGrantedEvent extends BaseEvent {
-	bodyId: string;
-	grantee?: string;
-	scope?: string[];
-	expiresAt?: Iso;
-}
-
-/** An embodiment grant was revoked/expired — runtime must go to safe state. */
-export interface EmbodimentRevokedEvent extends BaseEvent {
-	bodyId: string;
-	reason?: string;
-}
-
-/** A motion clip/pose was played on the body (and mirrored to the twin). */
-export interface MotionPlayedEvent extends BaseEvent {
-	bodyId: string;
-	clip?: string;
-	source: 'clip' | 'pose' | 'gesture';
-}
-
-/** A facial/expression frame was rendered on the body's face (and twin). */
-export interface FaceExpressedEvent extends BaseEvent {
-	bodyId: string;
-	expression?: string;
-	viseme?: string;
-}
-
-/** The agent's mind (persona + memory) was loaded into / synced with the body. */
-export interface MindSyncedEvent extends BaseEvent {
-	bodyId: string;
-	memoryCount?: number;
-	direction: 'load' | 'writeback';
-}
-
-/** Emergency stop fired — motors to safe state, body unbinds. */
-export interface EstopEvent extends BaseEvent {
-	bodyId: string;
-	source: string;
-}
-
 export interface AgentEventMap {
 	'memory:added': MemoryAddedEvent;
 	'memory:recalled': MemoryRecalledEvent;
@@ -192,16 +116,6 @@ export interface AgentEventMap {
 	'dream:created': DreamCreatedEvent;
 	'action:taken': ActionTakenEvent;
 	'agent:changed': AgentChangedEvent;
-	'robot:linked': RobotLinkedEvent;
-	'robot:unlinked': RobotUnlinkedEvent;
-	'robot:telemetry': RobotTelemetryEvent;
-	'robot:fault': RobotFaultEvent;
-	'embodiment:granted': EmbodimentGrantedEvent;
-	'embodiment:revoked': EmbodimentRevokedEvent;
-	'motion:played': MotionPlayedEvent;
-	'face:expressed': FaceExpressedEvent;
-	'mind:synced': MindSyncedEvent;
-	'estop': EstopEvent;
 }
 
 export type AgentEventType = keyof AgentEventMap;
