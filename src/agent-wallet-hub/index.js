@@ -29,6 +29,7 @@ import './tabs/trade.js';
 import './tabs/snipe.js';
 import './tabs/earn.js';
 import './tabs/autopilot.js';
+import './tabs/intents.js';
 import './tabs/pay.js';
 import './tabs/vanity.js';
 import './tabs/withdraw.js';

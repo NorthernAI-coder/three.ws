@@ -54,6 +54,8 @@ import { startOnboarding, ensurePermission, needsMotionGesture, setPermissionSta
 import { reserveWebGLContext, releaseWebGLContext } from './webgl-budget.js';
 import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js';
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
+import { createWealthAura3D } from './shared/wealth-aura-3d.js';
+import { fetchWealthState } from './shared/agent-wealth-state.js';
 import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat, roomPlacementFromHit, roomRelFromGeo } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
@@ -928,6 +930,10 @@ const animMgr = new AnimationManager();
 let avatar = null, avatarYaw = 0, avatarLean = 0, currentMotion = 'idle';
 let _currentAvatarId = null;
 let _currentAgentId  = null;
+// Embodied-finance: the carried avatar wears its real wallet — a GPU-cheap glow
+// keyed to its live wealth tier/momentum, refreshed from the real custody flow.
+let wealthAura = null;
+let _stopWealthPoll = null;
 // iOS AR Quick Look (capability 'quicklook'): the GLB actually loaded for the
 // current avatar, the server-hosted USDZ companion (if the record carries one),
 // and a lazily generated USDZ blob URL when it doesn't. The generated URL is
@@ -945,6 +951,9 @@ function _clearAvatar() {
 	// is idempotent, so a failed (re)load that never re-attaches leaves the manager
 	// clean (no nulled mixer holding stale clips) rather than half-torn-down.
 	animMgr.detach();
+	// Tear down the wealth aura + its live poll before the rig is reused.
+	if (_stopWealthPoll) { try { _stopWealthPoll(); } catch {} _stopWealthPoll = null; }
+	if (wealthAura) { try { wealthAura.dispose(); } catch {} wealthAura = null; }
 	if (avatar) {
 		avatarRig.remove(avatar);
 		// Free the previous avatar's geometry/materials/textures. Without this every
@@ -952,6 +961,42 @@ function _clearAvatar() {
 		disposeObject3D(avatar);
 		avatar = null;
 	}
+}
+
+// Attach the embodied-finance glow to the carried avatar and start its live feed.
+// Only an agent-bound avatar has a real wallet to read; an anonymous GLB stays
+// un-glowed (honest — no wallet, no aura).
+function mountWealthAura(height) {
+	const agentId = _currentAgentId;
+	if (!agentId) return;
+	wealthAura = createWealthAura3D({ height });
+	avatarRig.add(wealthAura.object);
+	_stopWealthPoll = startWealthPoll(agentId);
+}
+
+// Poll the real custody-backed wealth state on a calm interval, push it into the
+// 3D aura, and fire the one-shot pulse only when a genuinely NEW tip lands or a
+// money stream opens (tracked across polls) — never on a bare timer.
+function startWealthPoll(agentId) {
+	let stopped = false, timer = 0, lastTipAt = null, lastStreaming = 0, primed = false;
+	const run = async () => {
+		if (stopped) return;
+		try {
+			const state = await fetchWealthState(agentId, { fresh: true });
+			if (state.ok && wealthAura) {
+				wealthAura.applyState(state);
+				const tipAdvanced = state.lastTipAt && state.lastTipAt !== lastTipAt;
+				const streamOpened = state.streamingNow > lastStreaming;
+				if (primed && (tipAdvanced || streamOpened)) wealthAura.pulse();
+				lastTipAt = state.lastTipAt;
+				lastStreaming = state.streamingNow;
+				primed = true;
+			}
+		} catch { /* transient — keep the last real glow, never invent a trend */ }
+		if (!stopped) timer = setTimeout(run, 30_000);
+	};
+	run();
+	return () => { stopped = true; if (timer) clearTimeout(timer); };
 }
 
 async function loadAvatar(idOrUrl, nameOverride) {
@@ -1014,6 +1059,10 @@ async function loadAvatar(idOrUrl, nameOverride) {
 	CAM_OFFSET.set(0, height * 1.05, height * 1.95);
 	CAM_LOOK_OFFSET.set(0, height * 0.6, 0);
 	applyCameraImmediate();
+
+	// Embodied finance: glow the carried avatar by its real wallet wealth. Only an
+	// agent-bound avatar has a wallet to read; an anonymous GLB stays un-glowed.
+	mountWealthAura(height);
 
 	animMgr.attach(avatar);
 	const manifest = await fetch(ANIMATIONS_MANIFEST_URL, { cache: 'force-cache' }).then(r => {
@@ -6516,6 +6565,9 @@ function tick() {
 	// Radar DOM is rebuilt at ~5 Hz, not every frame (it was a per-frame churn).
 	_radarAccum += dt;
 	if (_radarAccum >= RADAR_INTERVAL) { _radarAccum = 0; updateRadar(); }
+
+	// Embodied finance: advance the carried avatar's wealth glow (breath/pulse).
+	if (wealthAura) wealthAura.update(dt);
 
 	renderer.render(scene, camera);
 	frameWatchdog(dt);

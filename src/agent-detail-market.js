@@ -121,6 +121,12 @@ export async function enrichAgentDetail(baseAgent) {
 	const preview = $('ad-preview-card');
 	if (preview) preview.hidden = false;
 
+	// Pay-per-minute of talking: a non-owner can open a money stream right under the
+	// chat preview to support the agent by the second while they converse. Owners
+	// don't stream to their own agent (their earnings live on the dedicated Money
+	// Stream card), so the meter is visitor-only here.
+	mountPreviewStream(market, baseAgent);
+
 	// Reuse the marketplace module's preview-form + creator-modal wiring. navTo
 	// routes the creator's mini-cards to the canonical /agents/:id page directly
 	// (skipping the legacy /marketplace redirect hop).
@@ -133,6 +139,37 @@ export async function enrichAgentDetail(baseAgent) {
 	loadSimilar(baseAgent.id);
 	loadVersions(baseAgent.id);
 	bindPurchaseDelegation();
+}
+
+let _previewStreamHandle = null;
+
+// Mount a compact pay-per-minute stream meter under the chat preview. Visitor-only:
+// the owner's streaming income is shown on the dedicated Money Stream card instead.
+function mountPreviewStream(market, baseAgent) {
+	const host = $('d-preview-stream');
+	if (!host) return;
+	if (_previewStreamHandle) { try { _previewStreamHandle.destroy(); } catch { /* idempotent */ } _previewStreamHandle = null; }
+	const address =
+		market?.meta?.solana_address || market?.solana_address ||
+		baseAgent?.meta?.solana_address || baseAgent?.solana_address || null;
+	const owner = !!(baseAgent?.isOwner || market?.isOwner || isOwner);
+	if (!address || owner) { host.hidden = true; return; }
+	host.hidden = false;
+	import('./shared/agent-money-stream.js').then(({ mountStreamMeter }) => {
+		_previewStreamHandle = mountStreamMeter(host, {
+			id: baseAgent.id,
+			name: market?.name || baseAgent?.name,
+			solana_address: address,
+			avatar_thumbnail_url: market?.avatar_thumbnail_url || baseAgent?.avatar || '',
+			meta: market?.meta || baseAgent?.meta || {},
+		}, { network: 'mainnet', isOwner: false, compact: true });
+	}).catch(() => { host.hidden = true; });
+}
+
+if (typeof window !== 'undefined') {
+	window.addEventListener('pagehide', () => {
+		try { _previewStreamHandle?.destroy?.(); } catch { /* idempotent */ } _previewStreamHandle = null;
+	}, { once: true });
 }
 
 // Re-fetch owned-skills after a purchase / trial and re-render the pricing card.

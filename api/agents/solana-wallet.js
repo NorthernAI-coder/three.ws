@@ -10,6 +10,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { generateSolanaAgentWallet, recoverSolanaAgentKeypair, encryptSecret } from '../_lib/agent-wallet.js';
 import { solanaConnection, solanaPublicConnection } from '../_lib/agent-pumpfun.js';
 import { reverseLookupAddress } from '../../src/solana/sns.js';
+import { maybeWritePatronMemory } from '../_lib/patronage.js';
 import {
 	Keypair, PublicKey, LAMPORTS_PER_SOL, SystemProgram,
 	TransactionMessage, VersionedTransaction,
@@ -1417,7 +1418,7 @@ async function flowSignalsFor(id) {
 		const [flow] = await sql`
 			SELECT
 				COALESCE(sum(usd) FILTER (
-					WHERE event_type = 'tip' AND created_at > now() - interval '24 hours'
+					WHERE event_type IN ('tip', 'stream') AND created_at > now() - interval '24 hours'
 				), 0)::float8 AS inflow,
 				COALESCE(sum(usd) FILTER (
 					WHERE event_type IN ('spend', 'withdraw') AND created_at > now() - interval '24 hours'
@@ -1430,15 +1431,17 @@ async function flowSignalsFor(id) {
 		const outflow = Number(flow?.outflow) || 0;
 		let streamingNow = 0;
 		try {
-			// Open streams crediting this agent right now. Generic by design so it
-			// lights up automatically when Money Streams (task 01) records its events,
-			// and stays 0 — never faked — until then.
+			// Streams crediting this agent RIGHT NOW. A Money Streams session (task 01)
+			// settles on-chain every ~45s (SETTLE_INTERVAL_MS), each settlement a
+			// 'stream' custody row tagged with its stream_id — so a stream is "live"
+			// iff it settled within the last cadence-and-a-bit. Count the distinct
+			// still-settling sessions; a stream that stopped naturally drops to 0.
 			const [s] = await sql`
-				SELECT count(*)::int AS n FROM agent_custody_events
+				SELECT count(DISTINCT meta->>'stream_id')::int AS n FROM agent_custody_events
 				WHERE agent_id = ${id}
-				  AND (category = 'stream' OR event_type = 'stream')
-				  AND status IN ('ok', 'pending')
-				  AND COALESCE((meta->>'end_at')::timestamptz, now() + interval '1 second') > now()
+				  AND category = 'stream'
+				  AND status IN ('ok', 'confirmed', 'pending')
+				  AND created_at > now() - interval '100 seconds'
 			`;
 			streamingNow = s?.n || 0;
 		} catch { streamingNow = 0; }
@@ -1768,7 +1771,20 @@ async function handleTip(req, res, id) {
 	// Reflect the inbound funds in the cached balance immediately.
 	await cacheSet(`sol:bal:${address}:${network}`, null, 1).catch(() => {});
 
+	// Patronage: a tip is real support — if it just pushed this patron into a new
+	// level, write a relationship memory the agent's chat will greet them with.
+	// Best-effort; never blocks or fails the (already-final) tip record.
+	if (from) maybeWritePatronMemory({ agentId: id, wallet: from, network }).catch(() => {});
+
 	const human = amountLamports != null ? Number(amountLamports) / 1e9 : Number(amountRaw) / 10 ** decimals;
+
+	// Wallet Intents: a real, freshly-recorded tip is a trigger. Fire the owner's
+	// on_tip_received / on_income rules (tip-back, split-income, notify) through the
+	// same spend-policy-gated, audited signing path. Fire-and-forget, idempotent per
+	// (intent, tip signature) — never blocks or fails the already-final tip record.
+	import('../_lib/wallet-intents.js')
+		.then(({ onTipRecorded }) => onTipRecorded(id, { signature, amount_sol: amountLamports != null ? Number(amountLamports) / 1e9 : null, usd: usd ?? null, from: from || null, network }))
+		.catch((e) => console.warn('[tip] intent eval failed', e?.message));
 	return json(res, 201, {
 		data: {
 			recorded: true, replayed: false, id: String(inserted[0].id),
@@ -1995,6 +2011,10 @@ async function handleStreamRecord(req, res, id) {
 	// Reflect the inbound funds in the cached balance immediately.
 	await cacheSet(`sol:bal:${address}:${network}`, null, 1).catch(() => {});
 
+	// Patronage: streamed support accrues like tips — promote the patron's level
+	// and write a relationship memory on a crossing. Best-effort, non-blocking.
+	if (from) maybeWritePatronMemory({ agentId: id, wallet: from, network }).catch(() => {});
+
 	return json(res, 201, {
 		data: {
 			recorded: true, replayed: false, id: String(inserted[0].id),
@@ -2167,6 +2187,10 @@ export default async function handler(req, res, id, action) {
 	if (action === 'tip') return handleTip(req, res, id);
 	if (action === 'stream') return handleStream(req, res, id);
 	if (action === 'pulse-visibility') return handlePulseVisibility(req, res, id);
+	if (action === 'patronage') {
+		const mod = await import('./patronage.js');
+		return mod.default(req, res, id);
+	}
 	if (action === 'intent') {
 		const mod = await import('./solana-intent.js');
 		return mod.handleIntent(req, res, id);

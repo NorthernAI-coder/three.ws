@@ -13,6 +13,7 @@ import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { mountMoneyPulse } from './shared/money-pulse.js';
 import { mountMirrorPanel } from './shared/agent-mirror-panel.js';
 import { mountStrategyPanel } from './shared/agent-strategy-panel.js';
+import { mountPatronagePanel } from './shared/agent-patronage.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
@@ -36,7 +37,9 @@ const coinStatusHandles = [];
 // polling interval + observers don't leak.
 let _pulseHandle = null;
 let _mirrorHandle = null;
+let _streamHandle = null;
 let _strategyHandle = null;
+let _patronageHandle = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
@@ -67,6 +70,9 @@ if (typeof window !== 'undefined') {
 	window.addEventListener('pagehide', () => {
 		adNetWorthAura?.destroy?.(); adNetWorthAura = null;
 		adNetWorthPanel?.destroy?.(); adNetWorthPanel = null;
+		// Stop any active money stream so a final settle fires and no charges accrue
+		// past navigation (the engine also guards this internally).
+		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;
 	}, { once: true });
 }
 
@@ -757,6 +763,36 @@ function render(agent) {
 	}
 	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
 
+	// Money Stream — pay-per-second income. A visitor gets the live meter (set a
+	// rate, sign a cap, watch the agent earn while they're here); the owner gets the
+	// live "earning now" + lifetime streaming earnings view. Mounted only when the
+	// agent has a custodial wallet to stream to / earn into.
+	{
+		const streamCard = $('ad-stream-card');
+		const streamMount = $('ad-stream-mount');
+		const streamSub = $('ad-stream-sub');
+		const streamTitle = $('ad-stream-title');
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (_streamHandle) { try { _streamHandle.destroy(); } catch { /* idempotent */ } _streamHandle = null; }
+		if (streamCard && streamMount && wMeta.solana_address) {
+			streamCard.hidden = false;
+			if (streamTitle) streamTitle.textContent = agent.isOwner ? 'STREAM EARNINGS' : 'MONEY STREAM';
+			if (streamSub) streamSub.textContent = agent.isOwner ? 'earning by the second' : 'pay by the second';
+			import('./shared/agent-money-stream.js').then(({ mountStreamMeter }) => {
+				_streamHandle = mountStreamMeter(streamMount, {
+					id: agent.id,
+					name: agent.name,
+					solana_address: wMeta.solana_address,
+					avatar_thumbnail_url: agent.avatar || '',
+					isOwner: !!agent.isOwner,
+					meta: wMeta,
+				}, { network: 'mainnet', isOwner: !!agent.isOwner, compact: false });
+			}).catch(() => { if (streamCard) streamCard.hidden = true; });
+		} else if (streamCard) {
+			streamCard.hidden = true;
+		}
+	}
+
 	// Wallet story — this agent's public Money Pulse (tips, launches, trades,
 	// payments) scoped to it: the same real-data component as /pulse. Shown only
 	// when the agent has a custodial wallet; the component renders its own honest
@@ -810,6 +846,23 @@ function render(agent) {
 		const wMeta = agent.rawMetadata?.meta || {};
 		if (strategyPanel && wMeta.solana_address) {
 			_strategyHandle = mountStrategyPanel({ mount: strategyPanel, agent, isOwner: !!agent.isOwner });
+		}
+	}
+
+	// Patronage — tips/streams build a memory-backed relationship: the perk ladder,
+	// the visitor's level + progress, the public patron wall, season standings, and
+	// the owner's perk editor + patron CRM. The panel reveals its own card
+	// (#ad-patronage-card) only when there's a ladder, a wall, or the owner is here.
+	{
+		const patronagePanel = $('ad-patronage-panel');
+		if (_patronageHandle) { try { _patronageHandle.destroy(); } catch { /* idempotent */ } _patronageHandle = null; }
+		const wMeta = agent.rawMetadata?.meta || {};
+		if (patronagePanel && wMeta.solana_address) {
+			_patronageHandle = mountPatronagePanel({
+				mount: patronagePanel,
+				agent: { id: agent.id, name: agent.name, solana_address: wMeta.solana_address, rawMetadata: agent.rawMetadata },
+				isOwner: !!agent.isOwner,
+			});
 		}
 	}
 

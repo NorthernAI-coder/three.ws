@@ -77,6 +77,27 @@ export class StreamError extends Error {
 	}
 }
 
+/**
+ * Pure accrual math — the amount owed for a given rate over a span of *active*
+ * streaming time, hard-capped at the signed ceiling. This is the money-safety
+ * invariant: no matter how long a stream runs, the projected/owed amount can never
+ * exceed `maxTotal`. Exported so it can be unit-tested in isolation.
+ *
+ * @param {object} p
+ * @param {number} p.ratePerMinute  Asset units charged per minute (> 0).
+ * @param {number} p.activeMs       Accumulated active streaming time in ms (>= 0).
+ * @param {number} p.maxTotal       Signed spend ceiling in asset units (> 0).
+ * @returns {number} owed asset units, never above maxTotal.
+ */
+export function accruedHuman({ ratePerMinute, activeMs, maxTotal }) {
+	const rate = Number(ratePerMinute);
+	const ms = Number(activeMs);
+	const cap = Number(maxTotal);
+	if (!(rate > 0) || !(ms > 0)) return 0;
+	const owed = (rate / 60_000) * ms;
+	return Number.isFinite(cap) && cap > 0 ? Math.min(cap, owed) : owed;
+}
+
 function prefersReducedMotion() {
 	return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
@@ -204,8 +225,7 @@ class MoneyStreamEngine {
 
 	/** Total owed for the active time so far, hard-capped at the signed ceiling. */
 	owedHuman() {
-		const owed = (this.ratePerMinute / 60_000) * this.activeMs();
-		return Math.min(this.maxTotal, owed);
+		return accruedHuman({ ratePerMinute: this.ratePerMinute, activeMs: this.activeMs(), maxTotal: this.maxTotal });
 	}
 
 	/** Live projected amount the meter shows (settled + unsettled accrual). */
@@ -312,13 +332,15 @@ class MoneyStreamEngine {
 	_handleVisibility() {
 		if (typeof document === 'undefined') return;
 		if (document.visibilityState === 'hidden') {
-			// Leaving the tab = no longer present. Bank the time, try a best-effort
-			// final settle while the page is still alive, and freeze the meter so we
-			// never accrue charges for time the streamer isn't watching.
+			// Leaving the tab = no longer present. Freeze the meter immediately so we
+			// never accrue charges for time the streamer isn't watching. We do NOT try
+			// to settle here: a wallet can't pop a signing prompt for a hidden tab, so
+			// the attempt would hang or fail. The accrued-but-unsettled amount simply
+			// settles on the next interval once they return, or on an explicit stop —
+			// and if they never return, it's never charged (fail-safe toward the user).
 			if (this.state === 'streaming') {
 				this._pauseAccrual();
 				this._setState('paused');
-				this._maybeSettle('hidden');
 			}
 		} else if (document.visibilityState === 'visible' && this.state === 'paused') {
 			this._resumeAccrual();
@@ -343,8 +365,14 @@ class MoneyStreamEngine {
 	async _maybeSettle(reason) {
 		if (this._settleInFlight) return;
 		if (!this._conn || !this._wallet || !this._from) return;
+		// Never auto-settle while paused (tab hidden) — the wallet can't show a
+		// signing prompt. An explicit stop is the one exception (the tab is visible).
+		if (this.state === 'paused' && reason !== 'stop') return;
 		const unsettled = this._unsettled();
-		const min = reason === 'interval' || reason === 'hidden' ? MIN_SETTLE[this.asset] : DUST[this.asset];
+		// Routine interval settles batch until a meaningful amount has accrued (so
+		// tiny rates don't pay a network fee on dust); a stop/ceiling settle flushes
+		// everything above true dust.
+		const min = reason === 'interval' ? MIN_SETTLE[this.asset] : DUST[this.asset];
 		if (unsettled < min) {
 			if (reason === 'ceiling' || reason === 'stop') this._finishIfCeiling(reason);
 			return;

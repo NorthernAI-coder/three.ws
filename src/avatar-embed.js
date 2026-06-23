@@ -64,6 +64,7 @@ import { Viewer } from './viewer.js';
 import { IdleAnimation } from './idle-animation.js';
 import { LipsyncDriver, tapAudioElement } from './voice/lipsync-driver.js';
 import { AvatarMouthTarget } from './voice/avatar-morph-target.js';
+import { A2FPlayer } from './voice/a2f-player.js';
 import {
 	resolveMorphTargets,
 	setCanonicalMorph,
@@ -196,6 +197,25 @@ async function main() {
 		if (audioCtx.state === 'suspended') audioCtx.resume();
 		return audioCtx;
 	};
+
+	// ── Audio2Face-3D (server-side NVIDIA facial animation) ────────────────────
+	// Progressive enhancement over the amplitude lipsync above: when the platform
+	// has the A2F lane configured (NVIDIA_API_KEY → /api/a2f), the spoken audio is
+	// sent to Audio2Face-3D and the avatar's face is driven by the returned ARKit
+	// blendshape track instead of the audio envelope — real lip sync to the actual
+	// voice. Fully self-disabling: any failure (no key, 404, unsupported rig)
+	// leaves the amplitude path untouched, so this never blocks or freezes speech.
+	// Opt out per-embed with ?a2f=off.
+	const a2fEnabled = (params.get('a2f') || 'auto') !== 'off';
+	const a2fPlayer = new A2FPlayer();
+	a2fPlayer.attach(root);
+	let a2fAudio = null; // the <audio> element currently driven by an A2F track
+	// Per-frame: sample the track at the playing audio's time. Registered with the
+	// viewer's hook array (created below by the idle loop if absent).
+	if (!viewer._afterAnimateHooks) viewer._afterAnimateHooks = [];
+	viewer._afterAnimateHooks.push(() => {
+		if (a2fAudio && !a2fAudio.paused && !a2fAudio.ended) a2fPlayer.update(a2fAudio.currentTime);
+	});
 
 	// ── Idle-life loop ─────────────────────────────────────────────────────
 	const idle = new IdleAnimation({

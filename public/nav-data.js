@@ -105,6 +105,12 @@ export const NAV_GROUPS = [
 				badge: 'New',
 				desc: 'Follow a proven agent by its honest on-chain track record — your agent mirrors its trades within your spend policy',
 			},
+			{
+				title: 'Strategy Objects',
+				href: '/strategies',
+				badge: 'New',
+				desc: 'Equip an ownable, forkable trade strategy on your agent — ranked by real on-chain results, run inside your spend policy',
+			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },

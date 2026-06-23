@@ -24,6 +24,7 @@ import { normalizeLegacyPolicy } from '../_lib/embed-policy.js';
 import { llmComplete, LlmUnavailableError } from '../_lib/llm.js';
 import { hasSkillAccess } from '../_lib/skill-access.js';
 import { isUuid } from '../_lib/validate.js';
+import { patronChatContext, patronStanding, listPerks, entitledPerks } from '../_lib/patronage.js';
 
 const ALLOWED_MODELS = new Set([
 	'claude-haiku-4-5-20251001',
@@ -44,7 +45,7 @@ const bodySchema = z.object({
 // access via hasSkillAccess (purchase / subscription / trial). Anonymous callers
 // (userId === null) own no premium skill. Returns a compact, structured prompt
 // section, or null when the agent has no skills worth describing.
-async function buildSkillOwnershipBlock(agent, userId) {
+async function buildSkillOwnershipBlock(agent, userId, patronSkills = new Set()) {
 	const skills = Array.isArray(agent.skills) ? agent.skills.filter(Boolean) : [];
 	if (skills.length === 0) return null;
 
@@ -61,6 +62,12 @@ async function buildSkillOwnershipBlock(agent, userId) {
 	for (const skill of skills) {
 		if (!pricedSkills.has(skill)) {
 			ownership[skill] = { is_premium: false, is_owned: true };
+			continue;
+		}
+		// A patron whose verified on-chain support clears a skill-perk threshold uses
+		// that premium skill for free — the same gate the Support surface advertises.
+		if (patronSkills.has(skill)) {
+			ownership[skill] = { is_premium: true, is_owned: true, via_patron: true };
 			continue;
 		}
 		if (!userId) {
@@ -144,11 +151,29 @@ export default wrap(async (req, res) => {
 		agent.meta?.brain?.instructions ||
 		`You are ${agent.name}. ${agent.description || ''}`.trim();
 
+	// Patronage: recognize the caller as a real on-chain patron (greet them by name,
+	// reference the relationship) and free any premium skill their support has earned.
+	// The caller's identity is their linked wallet; standing derives from chain truth.
+	const callerWallet = session?.wallet_address || null;
+	const patronSkills = new Set();
+	if (callerWallet) {
+		try {
+			const [standing, perks] = await Promise.all([
+				patronStanding(agent.id, callerWallet),
+				listPerks(agent.id, { activeOnly: true }),
+			]);
+			for (const p of entitledPerks(perks, standing.usd)) {
+				if (p.perkType === 'skill' && p.payload?.skill) patronSkills.add(p.payload.skill);
+			}
+		} catch { /* patronage is enrichment — never block the reply */ }
+	}
+	const patronBlock = await patronChatContext(agent.id, callerWallet).catch(() => null);
+
 	// Real per-user skill-ownership context: lets the agent know which of its
 	// skills are premium and whether THIS caller has already unlocked them, so it
 	// can use owned skills freely and offer to sell the ones the user lacks.
-	const ownershipBlock = await buildSkillOwnershipBlock(agent, userId);
-	const systemPrompt = ownershipBlock ? `${basePrompt}\n\n${ownershipBlock}` : basePrompt;
+	const ownershipBlock = await buildSkillOwnershipBlock(agent, userId, patronSkills);
+	const systemPrompt = [basePrompt, patronBlock, ownershipBlock].filter(Boolean).join('\n\n');
 
 	const started = Date.now();
 	let result;

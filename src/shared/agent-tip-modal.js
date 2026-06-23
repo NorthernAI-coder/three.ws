@@ -25,16 +25,22 @@ const STYLE_ID = 'tws-tip-modal-styles';
 // Fire-and-forget: the tip is already final on-chain, so this never blocks the
 // success UI and a failure (e.g. no agent id, tx still finalizing) is silent.
 function recordTip(agentId, signature, token, network) {
-	if (!agentId || !signature) return;
+	if (!agentId || !signature) return Promise.resolve();
 	try {
-		fetch(`/api/agents/${encodeURIComponent(agentId)}/solana/tip`, {
+		return fetch(`/api/agents/${encodeURIComponent(agentId)}/solana/tip`, {
 			method: 'POST',
 			credentials: 'include',
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ signature, asset: token || 'SOL', network: network || 'mainnet' }),
 			keepalive: true,
 		}).catch(() => {});
-	} catch { /* never throws into the success path */ }
+	} catch { /* never throws into the success path */ return Promise.resolve(); }
+}
+
+// Broadcast a confirmed, server-recorded gift so live surfaces (the patronage
+// Support panel, money pulse) can refresh their derived state without a reload.
+function announceSupport(detail) {
+	try { window.dispatchEvent(new CustomEvent('three:patron-support', { detail })); } catch { /* best-effort */ }
 }
 
 function esc(s) {
@@ -280,7 +286,10 @@ export function openTipModal(agent, opts = {}) {
 			// agent's wallet story. The server INDEPENDENTLY re-verifies the signature
 			// on-chain before writing a row, so this is only a hint — a failure here
 			// never affects the (already-final) on-chain tip.
-			recordTip(status.agentId || agent?.id, res.signature, state.token, network);
+			const agentId = status.agentId || agent?.id;
+			recordTip(agentId, res.signature, state.token, network).then(() => {
+				announceSupport({ agentId, signature: res.signature, asset: state.token, from: res.from, network });
+			});
 			try { opts.onSent?.(res); } catch { /* listener best-effort */ }
 		} catch (e) {
 			state.sending = false;

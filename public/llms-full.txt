@@ -182,6 +182,12 @@ URL: https://three.ws/forge-studio
 
 One canvas for both text-to-3D pipelines: forge a textured object (GLB) in the Object tab, or describe a character and get a rigged avatar in the Avatar tab.
 
+### Cosmos — Living Worlds
+
+URL: https://three.ws/cosmos
+
+Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.
+
 ### Scene Studio
 
 URL: https://three.ws/scene
@@ -531,6 +537,12 @@ Pump.fun trading desk: watchlists, scanner, quotes, portfolio, and live charts.
 URL: https://three.ws/strategy-lab
 
 Build DCA and subscription strategies that trade on-chain on your behalf.
+
+### Strategy Objects
+
+URL: https://three.ws/strategies
+
+A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.
 
 ### Solana Vanity Wallet
 

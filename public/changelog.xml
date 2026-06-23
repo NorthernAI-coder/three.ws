@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Cosmos — Living Worlds</title>
+			<link>https://three.ws/cosmos</link>
+			<guid isPermaLink="false">2026-06-23:Cosmos — Living Worlds</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Bring your avatar to life: type a world and NVIDIA Cosmos renders a living, photoreal scene that plays behind your 3D avatar. Generate, preview, and download a short cinematic clip.</description>
+		</item>
+		<item>
 			<title>Guardian console — recover &amp; inherit agent wallets</title>
 			<link>https://three.ws/guardian</link>
 			<guid isPermaLink="false">2026-06-23:Guardian console — recover &amp; inherit agent wallets</guid>
@@ -21,6 +29,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.</description>
+		</item>
+		<item>
+			<title>Strategy Objects</title>
+			<link>https://three.ws/strategies</link>
+			<guid isPermaLink="false">2026-06-23:Strategy Objects</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A marketplace of how agents trade: ownable, forkable, leaderboard-ranked trade strategies your agent can equip and run on-chain within your spend policy.</description>
 		</item>
 		<item>
 			<title>Avatar creation errors are clearer — and never leak a vendor's billing page</title>
@@ -39,6 +55,14 @@
 			<description>On the Copy Trading page, every one of your agents listed under &quot;your copy-trading&quot; now carries the same wallet identity chip you see everywhere else — its vanity address, live value, and a tap-through to the full wallet — so you can read an agent's wallet at a glance before setting it to mirror a leader. We also corrected the note shown to visitors viewing someone else's agent wallet: it now says plainly that holdings are public but trade history, like trading itself, stays private to the owner. Both are part of a consistency sweep that makes the agent wallet read and behave identically on every surface it appears.</description>
 		</item>
 		<item>
+			<title>Cosmos Living Worlds: type a world, watch your avatar live in it</title>
+			<link>https://three.ws/cosmos</link>
+			<guid isPermaLink="false">2026-06-23:Cosmos Living Worlds: type a world, watch your avatar live in it</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar no longer has to stand in an empty void. The new Cosmos page turns a few words into a living, photoreal world that plays as a cinematic backdrop behind your 3D avatar — describe a neon Tokyo street in the rain, an alpine lake at sunrise, or a bioluminescent forest at midnight, and NVIDIA's Cosmos world model renders a short animated scene around your character. Pick any avatar (your own creations included), tap a prompt idea or write your own, and watch real progress as the clip renders; when it's done you can download the MP4 or copy a shareable link that reopens the exact world and avatar. It runs free on the NVIDIA NIM tier, and if the lane is ever unavailable your avatar still shines on a living animated backdrop instead of a blank screen. Find it on the Create page or at /cosmos.</description>
+		</item>
+		<item>
 			<title>Creating an agent never dead-ends on wallet setup</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Creating an agent never dead-ends on wallet setup</guid>
@@ -53,6 +77,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When an embedded avatar widget couldn't fetch its model — an expired draft link, a flaky network, a Safari load failure — it used to leave a blank box with no explanation. Now it shows a clear &quot;Couldn't load this model&quot; card with a Retry button, the same designed error state the rest of the app already used, so a transient hiccup is a one-tap recover instead of a dead embed.</description>
+		</item>
+		<item>
+			<title>Embodied Finance: agents now wear their wallet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Embodied Finance: agents now wear their wallet</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent's 3D body now shows its real wealth at a glance — no charts. A funded agent glows brighter, an earning one warms toward gold, a bleeding one cools and dims, and one being tipped or streamed to right now pulses and breathes. It's all real, read from the wallet's live on-chain balance plus its last-24h flow (tips and streams in, trades and withdrawals out) and whether a money stream is settling this second — a flat or empty wallet simply looks calm, never a fake shimmer. The same wealth tier reads consistently everywhere the agent appears: the avatar page, the galaxy, the marketplace, and now the IRL/AR walk, where an agent you pass in the real world lights up by how well it's doing. Owners get a live &quot;why&quot; breakdown — exact 24h momentum, active streams, and a fresh-tip marker — and can dial the whole effect up, down, or off.</description>
 		</item>
 		<item>
 			<title>Every agent now carries a real, auditable trust score — and there's a leaderboard of the most trusted</title>
@@ -135,6 +167,14 @@
 			<description>Models built on the free Hugging Face engines (avatars from a selfie, and Forge text/image/sketch→3D) were briefly served straight from the generator's scratch storage, which it wipes within minutes — so a model that loaded fine could 404 into a blank viewer moments later. Now the finished mesh is copied to our own durable storage the instant it's produced, while the file is still warm, and only that permanent URL is ever handed to your browser. The result is the same model, served from a link that doesn't expire.</description>
 		</item>
 		<item>
+			<title>Image understanding is now a callable API</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Image understanding is now a callable API</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The free vision capability that already reads Forge uploads, weighs image evidence in the Fact Checker, and writes gallery alt text is now exposed as a public endpoint, /api/vision, so your own agents and tools can use it too. Send an image — as a file or a link — with a question, and get back a plain-language answer on the same free models the platform runs on, with a paid model as an automatic backstop. It's metered fairly and fails open, so it adds a new capability without changing anything that already works.</description>
+		</item>
+		<item>
 			<title>Improvement: an agent's wallet identity now shows on the galaxy and character pages too</title>
 			<link>https://three.ws/galaxy</link>
 			<guid isPermaLink="false">2026-06-23:Improvement: an agent's wallet identity now shows on the galaxy and character pages too</guid>
@@ -191,6 +231,14 @@
 			<description>Record your face on any avatar in Mocap Studio and hit Save — it now saves reliably for everyone. Before, if you were previewing the default avatar or someone else's public avatar, saving could fail with an error because the clip tried to attach an avatar that wasn't yours. Now a clip is always tied to your own avatar when you're recording on it, and simply saved on its own otherwise — so the capture-to-save flow never dead-ends. Your saved clips show up in the library to replay, share, or download.</description>
 		</item>
 		<item>
+			<title>Money Streams: pay an agent by the second</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Money Streams: pay an agent by the second</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can now stream value to any agent in real time instead of sending one lump tip. Open a stream from its profile, set a per-minute rate in SOL or USDC, and sign a spend cap you can never be charged past — then watch the meter tick up as the agent earns live while you watch it perform, talk to it, or just patron its page. It's real, not a counter: every ~45 seconds your own wallet signs a genuine on-chain settlement to the agent, with a Solscan receipt for each one, and closing the tab stops the meter to the second. Owners get a live &quot;earning now&quot; view with lifetime totals and a 30-day chart. Non-custodial throughout — three.ws never holds the funds.</description>
+		</item>
+		<item>
 			<title>More uploaded avatars animate out of the box — no more accidental T-poses</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:More uploaded avatars animate out of the box — no more accidental T-poses</guid>
@@ -237,6 +285,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Placing an avatar in AR on iPhone or iPad used to drop a frozen mannequin into your space. Now it arrives animated — a gentle idle/breathing loop plays and repeats on its own, so the figure standing on your table actually feels alive. We do this without any extra app or converter: the avatar is driven through a real animation, sampled frame by frame, and written straight into the AR file that Apple's Quick Look plays. If a particular avatar can't be animated, it still places perfectly as a clean static pose — animation is a bonus, never a blocker.</description>
+		</item>
+		<item>
+			<title>Patronage: tips that build a real relationship with an agent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Patronage: tips that build a real relationship with an agent</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Supporting an agent is no longer a dead-end transaction — it builds a relationship the agent actually remembers. Every agent now has a Support surface on its profile: a perk ladder (&quot;tip to unlock&quot;), your own live patron level and progress, and a public patron wall of its real top supporters with on-chain amounts and .sol names. Your level is computed purely from your real on-chain support (tips and streams), with documented tiers — Supporter, Patron, Champion, Benefactor — and when you cross a tier the agent writes a genuine memory of you, so in chat it greets you by name and thanks you for your support. Owners define their own perks and thresholds (an exclusive greeting, hidden lore, a free premium skill, early launch access, or a patron badge), and every perk is enforced server-side against your verified on-chain support — nobody can unlock something they haven't earned. Unlocking gated content takes a wallet signature, your support level is never spoofable, and you can hide yourself from the wall at any time. There's a fresh monthly season to compete for the top of the wall, and owners get a patron CRM to thank their champions.</description>
 		</item>
 		<item>
 			<title>Prompt-to-avatar: a live progress bar you can cancel, plus motion and screen-reader polish</title>
@@ -293,6 +349,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Two backend reliability fixes. The free image step behind text→3D now shrugs off a brief blip from NVIDIA's gateway — if it answers with a fast, transient hiccup, we retry once before handing off, so fewer prompts have to fall through to a slower backup and fewer fail outright. (A real timeout still hands off immediately, so nothing waits twice.) Separately, live token stats lean on several market-data sources; when one hits its monthly quota we already pause it, but each fresh server instance used to re-discover that the hard way and waste another doomed call. That pause is now shared across the whole fleet, so the moment one instance sees a source is exhausted, none of the others retry it — quieter, faster, and no wasted quota.</description>
+		</item>
+		<item>
+			<title>Strategy Objects: equip an ownable, forkable trade strategy on your agent</title>
+			<link>https://three.ws/strategies</link>
+			<guid isPermaLink="false">2026-06-23:Strategy Objects: equip an ownable, forkable trade strategy on your agent</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A trading strategy is now a first-class thing you can own, share, and equip — not a buried setting. Build a rule-based plan (which fresh launches to buy, how big, take-profit, stop-loss, trailing stop, max hold, max concurrent positions, cooldown), then equip it on your agent and it trades the rules for real, on-chain, strictly inside that agent's spend policy and full custody audit trail. Every strategy carries an honest, on-chain track record: strategies with no closed trades show as Unproven rather than a made-up backtest curve, and the marketplace ranks published strategies by real live ROI. Fork any published strategy into your own library with credit to the author — forking copies only the rules, never any wallet access, and you run them under your own limits. A global kill switch halts every strategy you run at once, and equipped strategies surface right on each agent's profile next to copy-trading. Browse and manage everything at /strategies.</description>
 		</item>
 		<item>
 			<title>Talk to your agent and it trades — the Conversational Wallet</title>

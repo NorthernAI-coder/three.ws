@@ -3,6 +3,56 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Cosmos Living Worlds: type a world, watch your avatar live in it",
+			"summary": "Your avatar no longer has to stand in an empty void. The new Cosmos page turns a few words into a living, photoreal world that plays as a cinematic backdrop behind your 3D avatar — describe a neon Tokyo street in the rain, an alpine lake at sunrise, or a bioluminescent forest at midnight, and NVIDIA's Cosmos world model renders a short animated scene around your character. Pick any avatar (your own creations included), tap a prompt idea or write your own, and watch real progress as the clip renders; when it's done you can download the MP4 or copy a shareable link that reopens the exact world and avatar. It runs free on the NVIDIA NIM tier, and if the lane is ever unavailable your avatar still shines on a living animated backdrop instead of a blank screen. Find it on the Create page or at /cosmos.",
+			"tags": [
+				"feature"
+			],
+			"link": "/cosmos"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Patronage: tips that build a real relationship with an agent",
+			"summary": "Supporting an agent is no longer a dead-end transaction — it builds a relationship the agent actually remembers. Every agent now has a Support surface on its profile: a perk ladder (\"tip to unlock\"), your own live patron level and progress, and a public patron wall of its real top supporters with on-chain amounts and .sol names. Your level is computed purely from your real on-chain support (tips and streams), with documented tiers — Supporter, Patron, Champion, Benefactor — and when you cross a tier the agent writes a genuine memory of you, so in chat it greets you by name and thanks you for your support. Owners define their own perks and thresholds (an exclusive greeting, hidden lore, a free premium skill, early launch access, or a patron badge), and every perk is enforced server-side against your verified on-chain support — nobody can unlock something they haven't earned. Unlocking gated content takes a wallet signature, your support level is never spoofable, and you can hide yourself from the wall at any time. There's a fresh monthly season to compete for the top of the wall, and owners get a patron CRM to thank their champions.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Embodied Finance: agents now wear their wallet",
+			"summary": "Every agent's 3D body now shows its real wealth at a glance — no charts. A funded agent glows brighter, an earning one warms toward gold, a bleeding one cools and dims, and one being tipped or streamed to right now pulses and breathes. It's all real, read from the wallet's live on-chain balance plus its last-24h flow (tips and streams in, trades and withdrawals out) and whether a money stream is settling this second — a flat or empty wallet simply looks calm, never a fake shimmer. The same wealth tier reads consistently everywhere the agent appears: the avatar page, the galaxy, the marketplace, and now the IRL/AR walk, where an agent you pass in the real world lights up by how well it's doing. Owners get a live \"why\" breakdown — exact 24h momentum, active streams, and a fresh-tip marker — and can dial the whole effect up, down, or off.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Strategy Objects: equip an ownable, forkable trade strategy on your agent",
+			"summary": "A trading strategy is now a first-class thing you can own, share, and equip — not a buried setting. Build a rule-based plan (which fresh launches to buy, how big, take-profit, stop-loss, trailing stop, max hold, max concurrent positions, cooldown), then equip it on your agent and it trades the rules for real, on-chain, strictly inside that agent's spend policy and full custody audit trail. Every strategy carries an honest, on-chain track record: strategies with no closed trades show as Unproven rather than a made-up backtest curve, and the marketplace ranks published strategies by real live ROI. Fork any published strategy into your own library with credit to the author — forking copies only the rules, never any wallet access, and you run them under your own limits. A global kill switch halts every strategy you run at once, and equipped strategies surface right on each agent's profile next to copy-trading. Browse and manage everything at /strategies.",
+			"tags": [
+				"feature"
+			],
+			"link": "/strategies"
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Money Streams: pay an agent by the second",
+			"summary": "You can now stream value to any agent in real time instead of sending one lump tip. Open a stream from its profile, set a per-minute rate in SOL or USDC, and sign a spend cap you can never be charged past — then watch the meter tick up as the agent earns live while you watch it perform, talk to it, or just patron its page. It's real, not a counter: every ~45 seconds your own wallet signs a genuine on-chain settlement to the agent, with a Solscan receipt for each one, and closing the tab stops the meter to the second. Owners get a live \"earning now\" view with lifetime totals and a 30-day chart. Non-custodial throughout — three.ws never holds the funds.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Image understanding is now a callable API",
+			"summary": "The free vision capability that already reads Forge uploads, weighs image evidence in the Fact Checker, and writes gallery alt text is now exposed as a public endpoint, /api/vision, so your own agents and tools can use it too. Send an image — as a file or a link — with a question, and get back a plain-language answer on the same free models the platform runs on, with a paid model as an automatic backstop. It's metered fairly and fails open, so it adds a new capability without changing anything that already works.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Mocap Studio: saving a face-capture clip just works",
 			"summary": "Record your face on any avatar in Mocap Studio and hit Save — it now saves reliably for everyone. Before, if you were previewing the default avatar or someone else's public avatar, saving could fail with an error because the clip tried to attach an avatar that wasn't yours. Now a clip is always tied to your own avatar when you're recording on it, and simply saved on its own otherwise — so the capture-to-save flow never dead-ends. Your saved clips show up in the library to replay, share, or download.",
 			"tags": [
