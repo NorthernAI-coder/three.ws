@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T09:40:21.507Z",
+	"generated_at": "2026-06-23T09:42:46.937Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -409,6 +409,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "IRL status updates now announced to screen readers",
+			"summary": "The status line on the IRL page — the one that confirms things like 'Room aligned to your view', tells you when an agent's spot was refined, or asks you to wait for a clean GPS fix — is now a live region, so screen readers speak each update as it happens instead of leaving it silent on screen. Part of a broader pass making the real-world placement flow fully keyboard- and screen-reader-friendly.",
+			"link": "/irl",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "IRL: pinned agents now hold their exact spot indoors instead of drifting",
 			"summary": "When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.",
 			"link": "/irl",
@@ -579,6 +589,16 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Place a whole room of AI agents at fixed spots — they hold their layout for everyone",
+			"summary": "IRL agents used to be dropped one at a time at a GPS point, and indoors GPS is off by whole rooms — so a cluster of agents could never keep its shape from one phone to the next. Now you can set up a real room: drop several agents at the exact spots you want — one on the couch, one by the desk, one at the door — and they share a single room frame instead of each trusting its own noisy GPS. The couch agent and the door agent stay metres apart on the right sides for every viewer, no matter how each phone's location drifts. As the owner you can realign the whole room in one gesture — grab the cluster, slide and twist it onto its true spot, and every agent moves together with the internal layout intact. If a room ever shows up rotated for you, one tap — face the room's front and tap Align — snaps it to match your view, just on your screen. After an owner realigns a room, nearby viewers pick up the new positions on their next location refresh (within about 10 seconds). Only coin referenced is $THREE.",
+			"link": "/irl",
+			"tags": [
+				"feature"
 			]
 		},
 		{

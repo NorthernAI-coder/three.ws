@@ -36,21 +36,21 @@ const sqlMock = vi.fn((strings, ...values) => {
 	// ── Summary aggregates ──
 	if (/FILTER \(WHERE hidden_at IS NOT NULL\)/i.test(q)) return P(summaryPinAgg);
 	if (/JOIN irl_pins/i.test(q) && /COUNT\(\*\)::int\s+AS total/i.test(q)) return P(summaryInbox);
-	if (/FROM irl_interactions/i.test(q) && /viewer_device = /i.test(q) && /COUNT\(\*\)::int AS total/i.test(q)) {
+	if (/FROM irl_interactions/i.test(q) && /viewer_device =/i.test(q) && /COUNT\(\*\)::int AS total/i.test(q)) {
 		return P(summaryAuthored);
 	}
 
 	// ── Export selects ──
 	if (/SELECT id, agent_id, lat, lng, heading/i.test(q)) return P(exportPins);
 	if (/JOIN irl_pins/i.test(q) && /ix\.currency_mint/i.test(q)) return P(exportReceived);
-	if (/SELECT id, pin_id, agent_id, type/i.test(q) && /viewer_device = /i.test(q)) return P(exportAuthored);
+	if (/SELECT id, pin_id, agent_id, type/i.test(q) && /viewer_device =/i.test(q)) return P(exportAuthored);
 
 	// ── Mutations ──
 	if (/UPDATE irl_pins/i.test(q)) { writes.push('update'); return P(updateResult); }
 	if (/DELETE FROM irl_interactions/i.test(q)) {
 		// The authored purge ("forget device") is the only interactions-delete keyed
 		// on viewer_device with no pin_id clause.
-		if (/viewer_device IS NOT NULL AND viewer_device = /i.test(q) && !/pin_id/i.test(q)) {
+		if (/viewer_device IS NOT NULL AND viewer_device =/i.test(q) && !/pin_id/i.test(q)) {
 			writes.push('del-authored');
 			return P(delAuthored);
 		}
@@ -167,7 +167,7 @@ describe('GET summary — accurate, plain-language, the caller’s own data only
 		expect(body.summary.account).toBe('signed-in');
 		expect(body.summary.interactions.youLeftElsewhere).toBe(0);
 		// No statement should be keyed on viewer_device for a tokenless caller.
-		expect(calls.some((c) => /viewer_device = /i.test(c.q))).toBe(false);
+		expect(calls.some((c) => /viewer_device =/i.test(c.q))).toBe(false);
 	});
 });
 

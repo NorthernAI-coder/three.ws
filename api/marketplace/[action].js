@@ -24,6 +24,7 @@ import { publicUrl } from '../_lib/r2.js';
 import { clientIp, limits } from '../_lib/rate-limit.js';
 import { markProviderCooldown, AUTH_COOLDOWN_SECONDS } from '../_lib/provider-health.js';
 import { getSkillPrices, skillPriceMap } from '../_lib/skill-price-cache.js';
+import { viewerNftGatedSkills } from '../_lib/nft-gate.js';
 import { z } from 'zod';
 import { isUuid } from '../_lib/validate.js';
 
@@ -719,6 +720,14 @@ async function handleDetail(req, res, id) {
 
 	const skill_prices = skillPriceMap(priceRows);
 	const purchased_skills = purchasedRows.map((r) => r.skill);
+
+	// NFT-gated skills the viewer holds access to are "owned" for display (no
+	// purchase row exists for them). Fail-soft — the gate, not an error, shows if
+	// the on-chain check can't resolve. Enforcement stays in hasSkillAccess.
+	if (auth) {
+		const nftSkills = await viewerNftGatedSkills(priceRows, auth.userId).catch(() => []);
+		for (const s of nftSkills) if (!purchased_skills.includes(s)) purchased_skills.push(s);
+	}
 
 	const subscription_tiers = tierRows.map((t) => ({
 		id: t.id,

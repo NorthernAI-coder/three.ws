@@ -5591,6 +5591,23 @@ function openPinSheet(pin) {
 		}
 	}
 
+	// Placement badge (H4) — only on the owner's own pin: tell them how exposed this
+	// placement is (exact spot vs a deliberately blurred one). A non-owner never sees
+	// it; legacy own pins (no placement_kind) read as precise.
+	const placeEl = document.getElementById('irl-sheet-placement');
+	if (placeEl) {
+		if (isOwnPin(pin)) {
+			const approx = pin.placement_kind === 'approximate';
+			placeEl.textContent = approx
+				? `≈ Approximate placement (~${Math.round(Number(pin.fuzz_radius_m) || PLACEMENT_FUZZ_DEFAULT)} m) — your exact spot was never stored`
+				: '📍 Exact placement — stored at the precise spot you chose';
+			placeEl.classList.toggle('is-approx', approx);
+			placeEl.hidden = false;
+		} else {
+			placeEl.hidden = true;
+		}
+	}
+
 	// Reset the rich-card surfaces before the fresh card resolves: hide the
 	// previous agent's thumbnail + tier badge so neither flashes while the next
 	// card loads. #irl-card-body gets its skeleton from loadAgentCard() below.
