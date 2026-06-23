@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:32:22.082Z",
+	"generated_at": "2026-06-23T12:44:55.076Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -655,6 +655,16 @@
 			"type": "update",
 			"title": "Keyboard and screen-reader users can now skip the header and drive every menu without a mouse",
 			"summary": "Two accessibility upgrades now ride on every page across the site. First, a \"Skip to content\" link: press Tab the moment a page loads and it appears top-left, jumping you straight past the header — search, theme, notifications, sign-in and every dropdown — to the page body, instead of forcing keyboard and screen-reader users to tab through the whole navigation on each page. Second, the top-nav dropdowns now follow the standard menu-button keyboard pattern: pressing Down or Up arrow on a menu opens it and lands you on the first or last item, Enter and Space open it and move focus inside, Home and End jump to the ends of the list, and Escape closes it and returns focus to the menu — so the entire site map is reachable without ever touching a pointer.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "KOL leaderboard is now live: real top-trader rankings, no static snapshot",
+			"summary": "The smart-money leaderboard now reflects who is actually winning right now. It pulls the live kolscan.io board of top Solana traders — real wallets, real realized profit over the last day, week, and month — instead of the fixed snapshot it shipped with. Profit is priced to USD from the live SOL feed, win rate and trade count are derived from each trader's real wins and losses, and the three time windows (24h, 7d, 30d) all update from the source. It's wallet-first by design: you see the address and its verifiable track record, not a borrowed social handle. If the upstream board is briefly unreachable the leaderboard shows an honest empty state rather than stale or made-up rows — the numbers you see are always real.",
 			"link": null,
 			"tags": [
 				"improvement"
