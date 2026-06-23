@@ -16,7 +16,7 @@ vi.mock('../api/_lib/agent-trade-guards.js', () => ({ recordCustodyEvent: vi.fn(
 const rec = await import('../api/_lib/agent-recovery.js');
 const {
 	getRecoveryConfig, effectiveThreshold, computeRequestPhase, deadManStatus,
-	RECOVERY_TIMELOCK_MS, RECOVERY_REQUEST_TTL_MS, isUuid,
+	thresholdTimelockTransition, RECOVERY_TIMELOCK_MS, RECOVERY_REQUEST_TTL_MS, isUuid,
 } = rec;
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -123,6 +123,41 @@ describe('deadManStatus', () => {
 	it('never eligible when disabled', () => {
 		const dm = deadManStatus({ dead_man: { enabled: false, inactivity_days: 90, grace_days: 14 } }, new Date(now - 200 * DAY), now);
 		expect(dm.eligible_to_arm).toBe(false);
+	});
+});
+
+describe('thresholdTimelockTransition', () => {
+	const now = 1_700_000_000_000;
+
+	it('does nothing while approvals are below threshold', () => {
+		const row = { status: 'pending_approvals', approvals_required: 2, timelock_until: null };
+		expect(thresholdTimelockTransition(row, 1, now)).toBe(null);
+	});
+
+	it('opens a fresh 48h window for a recovery (no prior time-lock) and announces it', () => {
+		const row = { status: 'pending_approvals', approvals_required: 2, timelock_until: null };
+		const t = thresholdTimelockTransition(row, 2, now);
+		expect(t).not.toBe(null);
+		expect(t.announce).toBe(true);
+		expect(new Date(t.until).getTime()).toBe(now + RECOVERY_TIMELOCK_MS);
+	});
+
+	it('preserves a guardian-gated inheritance grace deadline and does not re-announce', () => {
+		// The dead-man's switch sets timelock_until (the grace deadline) at arm time.
+		// Reaching the guardian threshold must still leave pending_approvals (so the
+		// cron can complete it) WITHOUT extending or re-announcing the window.
+		const graceUntil = new Date(now + 14 * DAY).toISOString();
+		const row = { status: 'pending_approvals', approvals_required: 2, timelock_until: graceUntil };
+		const t = thresholdTimelockTransition(row, 2, now);
+		expect(t).not.toBe(null);
+		expect(t.announce).toBe(false);
+		expect(new Date(t.until).getTime()).toBe(new Date(graceUntil).getTime());
+	});
+
+	it('does nothing for a request no longer collecting approvals', () => {
+		for (const status of ['time_locked', 'ready', 'completed', 'cancelled']) {
+			expect(thresholdTimelockTransition({ status, approvals_required: 1, timelock_until: null }, 5, now)).toBe(null);
+		}
 	});
 });
 
