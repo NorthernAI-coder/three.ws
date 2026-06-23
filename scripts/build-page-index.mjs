@@ -22,6 +22,7 @@
  * Run via `npm run build:pages` or automatically before `vite build`.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,6 +31,7 @@ const root = resolve(here, '..');
 const dataFile = resolve(root, 'data/pages.json');
 const publicDir = resolve(root, 'public');
 const newsRoutesFile = resolve(root, 'data/_generated/news-routes.json');
+const newsSourceFile = resolve(root, 'data/rss/items.json');
 
 const data = JSON.parse(readFileSync(dataFile, 'utf8'));
 const { site } = data;
@@ -51,9 +53,21 @@ for (const e of curatedEntries) {
 	}
 }
 
-// Splice in a "News" section if scripts/build-news.mjs has written its
-// routes file. Keeps news entries in the sitemap, llms.txt, and the
-// human-readable /sitemap page without requiring manual edits.
+// Splice in the "News" section so news entries appear in the sitemap,
+// llms.txt, and the human-readable /sitemap page.
+//
+// The routes file (data/_generated/news-routes.json) is a gitignored
+// artifact produced by scripts/build-news.mjs from data/rss/items.json.
+// Running this script standalone (e.g. `npm run build:pages`) in a tree
+// where build-news hasn't run leaves that file absent — and a naive
+// existsSync skip would then silently emit every export with the entire
+// News section stripped out, deleting hundreds of real entries. Treat a
+// missing routes file as an out-of-order build and regenerate it from the
+// committed source rather than dropping the data on the floor.
+if (!existsSync(newsRoutesFile) && existsSync(newsSourceFile)) {
+	console.warn('[build-page-index] news-routes.json missing — running build-news.mjs to regenerate it before splicing News.');
+	execFileSync('node', [resolve(here, 'build-news.mjs')], { stdio: 'inherit', cwd: root });
+}
 if (existsSync(newsRoutesFile)) {
 	const newsRoutes = JSON.parse(readFileSync(newsRoutesFile, 'utf8'));
 	if (Array.isArray(newsRoutes) && newsRoutes.length) {
