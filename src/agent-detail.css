@@ -2648,3 +2648,35 @@ model-viewer.ad-hero-avatar {
 	outline: 2px solid var(--ad-cyan);
 	outline-offset: 2px;
 }
+
+/* ── Agent Genome lineage panel ───────────────────────────────────────────── */
+.ad-bullet-violet { background: #a78bfa; }
+.ad-lineage { display: flex; flex-direction: column; gap: 8px; }
+.ad-lineage-section-label {
+	font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+	color: var(--ad-muted, #8a8f9c); margin-top: 6px;
+}
+.ad-lineage-node {
+	display: flex; align-items: center; gap: 10px;
+	padding: 8px 10px; border-radius: 10px; text-decoration: none;
+	border: 1px solid var(--ad-stroke, #23262f); color: var(--ad-ink, #e8eaf0);
+	transition: border-color 0.16s ease, transform 0.16s ease;
+}
+.ad-lineage-node:hover { border-color: #a78bfa; transform: translateX(2px); }
+.ad-lineage-role { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ad-muted, #8a8f9c); min-width: 58px; }
+.ad-lineage-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-lineage-gen { font-size: 0.72rem; color: var(--ad-muted, #8a8f9c); }
+.ad-lineage-tier {
+	font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+	padding: 2px 7px; border-radius: 999px; border: 1px solid transparent;
+}
+.ad-lineage-tier[data-tier='common']    { color: #8a8f9c; border-color: #2b2f3a; }
+.ad-lineage-tier[data-tier='uncommon']  { color: #5fd1a0; border-color: #1f5a45; }
+.ad-lineage-tier[data-tier='rare']      { color: #7aa2ff; border-color: #2c4a8f; }
+.ad-lineage-tier[data-tier='legendary'] { color: #ffd479; border-color: #7a5e1f; background: rgba(255,212,121,0.10); }
+.ad-lineage-verify-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+.ad-lineage-verdict { font-size: 0.74rem; color: var(--ad-muted, #8a8f9c); }
+.ad-lineage-verdict[data-ok='1'] { color: #5fd1a0; }
+.ad-lineage-verdict[data-ok='0'] { color: #f4a3ad; }
+.ad-lineage-breed { margin-top: 8px; align-self: flex-start; text-decoration: none; }
+@media (prefers-reduced-motion: reduce) { .ad-lineage-node { transition: none; } }

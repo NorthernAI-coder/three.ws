@@ -19,6 +19,7 @@ import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { mountStagePanel } from './shared/stage-link.js';
+import { mountLaborPanel } from './shared/labor-link.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -69,6 +70,10 @@ function mountAgentDetailAura(agent) {
 			if (main) {
 				mountStagePanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
 					.catch(() => { /* stage is an enhancement; never block the profile */ });
+					// Labor Market cross-link: this agent's "Work" record (earnings, jobs,
+					// reputation) + a link to post or work for hire. Enhancement only.
+					mountLaborPanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
+						.catch(() => { /* never block the profile */ });
 			}
 		})
 		.catch(() => { /* dormant baseline already shown */ });
@@ -366,6 +371,92 @@ async function renderLaunchHistory(container, agent) {
 		}),
 	);
 	container.appendChild(box);
+}
+
+// ── Agent Genome lineage panel ───────────────────────────────────────────────
+// Reveals the verifiable family tree: parents this agent was bred from, children
+// it has parented, and a one-click verify that re-derives the genome from the
+// recorded seed + parents. Hidden entirely when the agent has no lineage, so it
+// never adds an empty card to a founder profile.
+async function renderLineage(agent) {
+	if (!agent?.id) return;
+	const card = document.getElementById('ad-lineage-card');
+	const body = document.getElementById('ad-lineage-body');
+	if (!card || !body) return;
+	let data;
+	try {
+		const r = await fetch(`/api/genome/lineage?agentId=${encodeURIComponent(agent.id)}`);
+		if (!r.ok) return;
+		data = await r.json();
+	} catch {
+		return;
+	}
+	const parents = (data.parents || []).filter((p) => p && p.id);
+	const children = (data.children || []).filter((c) => c && c.id);
+	if (!data.bred && !parents.length && !children.length) return; // founder, no offspring
+
+	const tierPill = (p) => {
+		const tier = p?.pedigree?.tier || 'common';
+		return el('span', { class: `ad-lineage-tier`, 'data-tier': tier, text: tier });
+	};
+	const nodeRow = (label, p) =>
+		el('a', { class: 'ad-lineage-node', href: `/agents/${p.id}` }, [
+			el('span', { class: 'ad-lineage-role', text: label }),
+			el('span', { class: 'ad-lineage-name', text: p.name || 'Agent' }),
+			el('span', { class: 'ad-lineage-gen', text: `gen ${p.generation ?? 0}` }),
+			tierPill(p),
+		]);
+
+	body.replaceChildren();
+	const wrap = el('div', { class: 'ad-lineage' });
+
+	if (parents.length === 2) {
+		wrap.appendChild(el('div', { class: 'ad-lineage-section-label', text: 'Parents' }));
+		wrap.appendChild(nodeRow('Parent A', parents[0]));
+		wrap.appendChild(nodeRow('Parent B', parents[1]));
+		// Verify control — re-derives and confirms the genome.
+		const verifyBtn = el('button', {
+			class: 'ad-btn ad-btn-ghost ad-lineage-verify',
+			type: 'button',
+			text: '✓ Verify lineage',
+		});
+		const verdict = el('span', { class: 'ad-lineage-verdict' });
+		verifyBtn.addEventListener('click', async () => {
+			verifyBtn.disabled = true;
+			verdict.textContent = 'Verifying…';
+			try {
+				const r = await fetch(`/api/genome/lineage?agentId=${encodeURIComponent(agent.id)}&verify=1`);
+				const j = await r.json();
+				if (j.valid) {
+					verdict.textContent = `✓ verified · genome ${String(j.genome_hash || '').slice(0, 12)}…`;
+					verdict.dataset.ok = '1';
+				} else {
+					verdict.textContent = `⚠ ${j.reason || 'verification failed'}`;
+					verdict.dataset.ok = '0';
+				}
+			} catch {
+				verdict.textContent = '⚠ could not verify — retry';
+				verdict.dataset.ok = '0';
+			} finally {
+				verifyBtn.disabled = false;
+			}
+		});
+		wrap.appendChild(el('div', { class: 'ad-lineage-verify-row' }, [verifyBtn, verdict]));
+	}
+
+	if (children.length) {
+		wrap.appendChild(el('div', { class: 'ad-lineage-section-label', text: `Offspring (${children.length})` }));
+		for (const c of children.slice(0, 12)) wrap.appendChild(nodeRow('Child', c));
+	}
+
+	// CTA into the breeding studio, pre-seeded with this agent.
+	wrap.appendChild(
+		el('a', { class: 'ad-btn ad-btn-primary ad-lineage-breed', href: `/genome?a=${encodeURIComponent(agent.id)}`, text: '🧬 Breed this agent' }),
+	);
+
+	body.classList.remove('ad-muted');
+	body.appendChild(wrap);
+	card.hidden = false;
 }
 
 // ── Holder cohorts panel ─────────────────────────────────────────────────────
@@ -947,6 +1038,11 @@ function render(agent) {
 	// Full launch history from the pump_agent_mints registry — fire-and-forget;
 	// renders nothing extra when the agent has no launches beyond the chip above.
 	renderLaunchHistory($('ad-token-body'), agent);
+
+	// Agent Genome lineage — parents (if bred), children (if a parent), and a
+	// one-click re-derivation verify. Fire-and-forget; reveals the card only when
+	// there is real descent to show.
+	renderLineage(agent);
 
 	$('ad-rewards').textContent = String(agent.creatorRewards ?? 0);
 
