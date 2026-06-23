@@ -82,7 +82,8 @@ export class MonetizationService {
 		return this.sql`
 			SELECT skill, amount, currency_mint, chain, mint_decimals,
 			       trial_uses, time_pass_hours, time_pass_amount,
-			       pricing_type, minimum_amount
+			       pricing_type, minimum_amount,
+			       gate_type, nft_collection_mint
 			FROM agent_skill_prices
 			WHERE agent_id = ${agentId} AND is_active = true
 			ORDER BY skill
@@ -110,27 +111,36 @@ export class MonetizationService {
 		const statements = [
 			this.sql`UPDATE agent_skill_prices SET is_active = false WHERE agent_id = ${agentId}`,
 			...prices.map(
-				(p) => this.sql`
-					INSERT INTO agent_skill_prices
-						(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses,
-						 time_pass_hours, time_pass_amount, pricing_type, minimum_amount)
-					VALUES
-						(${agentId}, ${p.skill}, ${p.amount}, ${p.currency_mint}, ${p.chain}, true,
-						 ${p.trial_uses ?? 0}, ${p.time_pass_hours ?? null}, ${p.time_pass_amount ?? null},
-						 ${p.pricing_type === 'pwyw' ? 'pwyw' : 'fixed'},
-						 ${p.pricing_type === 'pwyw' ? (p.minimum_amount ?? 0) : null})
-					ON CONFLICT (agent_id, skill) DO UPDATE SET
-						amount = EXCLUDED.amount,
-						currency_mint = EXCLUDED.currency_mint,
-						chain = EXCLUDED.chain,
-						is_active = true,
-						trial_uses = EXCLUDED.trial_uses,
-						time_pass_hours = EXCLUDED.time_pass_hours,
-						time_pass_amount = EXCLUDED.time_pass_amount,
-						pricing_type = EXCLUDED.pricing_type,
-						minimum_amount = EXCLUDED.minimum_amount,
-						updated_at = now()
-				`,
+				(p) => {
+					const isNft = p.gate_type === 'nft';
+					return this.sql`
+						INSERT INTO agent_skill_prices
+							(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses,
+							 time_pass_hours, time_pass_amount, pricing_type, minimum_amount,
+							 gate_type, nft_collection_mint)
+						VALUES
+							(${agentId}, ${p.skill}, ${isNft ? 0 : p.amount}, ${p.currency_mint}, ${p.chain}, true,
+							 ${isNft ? 0 : (p.trial_uses ?? 0)}, ${isNft ? null : (p.time_pass_hours ?? null)},
+							 ${isNft ? null : (p.time_pass_amount ?? null)},
+							 ${isNft ? 'fixed' : (p.pricing_type === 'pwyw' ? 'pwyw' : 'fixed')},
+							 ${isNft ? null : (p.pricing_type === 'pwyw' ? (p.minimum_amount ?? 0) : null)},
+							 ${isNft ? 'nft' : 'price'},
+							 ${isNft ? p.nft_collection_mint : null})
+						ON CONFLICT (agent_id, skill) DO UPDATE SET
+							amount = EXCLUDED.amount,
+							currency_mint = EXCLUDED.currency_mint,
+							chain = EXCLUDED.chain,
+							is_active = true,
+							trial_uses = EXCLUDED.trial_uses,
+							time_pass_hours = EXCLUDED.time_pass_hours,
+							time_pass_amount = EXCLUDED.time_pass_amount,
+							pricing_type = EXCLUDED.pricing_type,
+							minimum_amount = EXCLUDED.minimum_amount,
+							gate_type = EXCLUDED.gate_type,
+							nft_collection_mint = EXCLUDED.nft_collection_mint,
+							updated_at = now()
+					`;
+				},
 			),
 		];
 

@@ -604,6 +604,7 @@ async function mount(el) {
 		errorScope: 'irl',
 		context: 'dashboard:irl-placements',
 	});
+	}
 }
 
 // Paint the populated placements — or the designed empty state — then wire the
