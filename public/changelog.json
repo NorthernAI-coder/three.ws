@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-23T00:17:54.417Z",
+	"generated_at": "2026-06-23T01:57:12.708Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Fix: avatars look right in iOS AR, not collapsed and distorted",
+			"summary": "Viewing an avatar in AR on iPhone or iPad (the 'Place in your space' / Quick Look flow) could show a mangled figure — limbs balled up at the hips and accessories like glasses floating at giant scale — instead of the avatar you saw on the page. The cause: the AR file format Apple uses doesn't carry an animation skeleton, so the standard exporter shipped the avatar in its raw, un-posed rig. We now freeze each avatar into its proper standing pose before generating the AR file, so what you place in your room matches what you see in the viewer, accessories included.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-06-23",
 			"type": "update",

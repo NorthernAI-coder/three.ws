@@ -14,7 +14,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { conformanceReport } from './runtime/arkit52.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { USDZExporter } from 'three/addons/exporters/USDZExporter.js';
-import { MeshStandardMaterial, Color, DoubleSide } from 'three';
+import { MeshStandardMaterial, Color, DoubleSide, Mesh, BufferAttribute, Vector3 } from 'three';
 import { getDecoders } from './viewer/internal.js';
 
 // Bone-name fragments that mark the lower body. Matched case-insensitively
@@ -54,6 +54,72 @@ async function _loadGlbBlob(blob) {
 }
 
 /**
+ * Bake every SkinnedMesh in the scene into a static Mesh whose vertices are
+ * frozen at the current (rest / bind) pose.
+ *
+ * Why: three.js's USDZExporter does NOT carry skinning. It writes each mesh's
+ * raw geometry attributes plus the mesh node's world matrix and nothing else —
+ * the bone matrices that fan a humanoid into its T-pose, and that pin
+ * accessories (glasses, shoes) onto the bones they're weighted to, are simply
+ * dropped. The result in Quick Look is a collapsed avatar with limbs balled at
+ * the hips and accessories floating at raw scale. We fix it here by running CPU
+ * skinning per vertex (SkinnedMesh.applyBoneTransform) and emitting a plain Mesh
+ * the exporter can handle losslessly.
+ *
+ * The baked vertices come back in the SkinnedMesh's own local space (the space
+ * its matrix maps to world), so we copy that matrix onto the replacement and
+ * let the exporter apply the world transform exactly as it would for any static
+ * mesh.
+ */
+export function _bakeSkinnedMeshesForExport(scene) {
+	scene.updateMatrixWorld(true);
+
+	const skinned = [];
+	scene.traverse((obj) => {
+		if (obj.isSkinnedMesh && obj.skeleton?.bones?.length) skinned.push(obj);
+	});
+
+	const v = new Vector3();
+	for (const mesh of skinned) {
+		const src = mesh.geometry;
+		const posAttr = src.getAttribute('position');
+		if (!posAttr) continue;
+
+		const baked = src.clone();
+		const out = new Float32Array(posAttr.count * 3);
+		for (let i = 0; i < posAttr.count; i++) {
+			v.fromBufferAttribute(posAttr, i);
+			mesh.applyBoneTransform(i, v); // deform into local space at current pose
+			out[i * 3] = v.x;
+			out[i * 3 + 1] = v.y;
+			out[i * 3 + 2] = v.z;
+		}
+		baked.setAttribute('position', new BufferAttribute(out, 3));
+		// Skinning data is meaningless on a static mesh and confuses the exporter.
+		baked.deleteAttribute('skinIndex');
+		baked.deleteAttribute('skinWeight');
+		// Normals were authored for the bind pose; recompute so shading matches
+		// the baked geometry in Quick Look.
+		baked.computeVertexNormals();
+
+		const replacement = new Mesh(baked, mesh.material);
+		replacement.name = mesh.name;
+		replacement.visible = mesh.visible;
+		replacement.castShadow = mesh.castShadow;
+		replacement.receiveShadow = mesh.receiveShadow;
+		// applyBoneTransform returns local-space verts, so the replacement shares
+		// the original's local transform; the exporter applies it as world.
+		replacement.position.copy(mesh.position);
+		replacement.quaternion.copy(mesh.quaternion);
+		replacement.scale.copy(mesh.scale);
+
+		const parent = mesh.parent || scene;
+		parent.add(replacement);
+		parent.remove(mesh);
+	}
+}
+
+/**
  * Convert a GLB Blob to a USDZ Blob using three.js's USDZExporter.
  *
  * Materials are coerced to MeshStandardMaterial — USDZ only supports
@@ -66,6 +132,10 @@ export async function glbBlobToUsdzBlob(glbBlob) {
 	const gltf = await _loadGlbBlob(glbBlob);
 	const scene = gltf.scene || gltf.scenes?.[0];
 	if (!scene) throw new Error('USDZ: glb contained no scene');
+
+	// Freeze skinned avatars into static geometry — USDZExporter ignores
+	// skeletons, so without this the avatar exports collapsed and distorted.
+	_bakeSkinnedMeshesForExport(scene);
 
 	// Quick Look refuses Unlit/Phong/Toon materials; coerce to standard. The
 	// visual result is close-to-identical for the typical avatar PBR setup.
