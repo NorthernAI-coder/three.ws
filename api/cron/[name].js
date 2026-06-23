@@ -114,7 +114,64 @@ const HANDLERS = {
 	'unstoppable-tick': handleUnstoppableTick,
 	'cosmetic-splits-sweep': handleCosmeticSplitsSweep,
 	'treasury-autopilot': handleTreasuryAutopilot,
+	'irl-drops-refund': handleIrlDropsRefund,
 };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// irl-drops-refund — auto-refund expired, unclaimed IRL money drops
+// ═══════════════════════════════════════════════════════════════════════════
+// A drop placed in a spot nobody visits, or with claims left over at expiry,
+// returns its remaining escrow balance to the creator. Idempotent: markRefunding
+// CAS-es the drop to 'refunded' so a second pass can't double-sweep; an empty
+// escrow (fully claimed, or never funded) is marked 'expired' and skipped.
+async function handleIrlDropsRefund(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+	if (!requireCron(req, res)) return;
+
+	const {
+		listExpiredRefundable, getDropRow, markRefunding, sweepRefund, recordRefundTx, markExpired, readDropBalance, fundingConfigured,
+	} = await import('../_lib/irl-drops.js');
+
+	const report = { refunded: 0, expired: 0, errors: [] };
+	let ids = [];
+	try {
+		ids = await listExpiredRefundable(40);
+	} catch (err) {
+		report.errors.push({ stage: 'list', error: err.message || String(err) });
+		return json(res, 200, report);
+	}
+
+	for (const id of ids) {
+		try {
+			const row = await getDropRow(id);
+			if (!row) continue;
+
+			// Nothing on-chain to return (never funded, or fully claimed) → mark expired.
+			const bal = await readDropBalance({ address: row.escrow_address, asset: row.asset });
+			if (bal.atomics != null && BigInt(bal.atomics) <= 0n) {
+				await markExpired({ dropId: id });
+				report.expired += 1;
+				continue;
+			}
+			if (!row.refund_address || !fundingConfigured()) {
+				// Can't sweep yet (no refund address on file, or payout wallet
+				// unconfigured) — leave it for a later pass rather than losing track.
+				continue;
+			}
+
+			// These are already past expiry; CAS to 'refunded' is idempotent so a
+			// second pass returns null rather than double-sweeping.
+			const locked = await markRefunding({ dropId: id, allowActive: true });
+			if (!locked) continue; // already refunded / not in a refundable state
+			const refundTx = await sweepRefund({ drop: locked });
+			await recordRefundTx({ dropId: id, refundTx });
+			report.refunded += 1;
+		} catch (err) {
+			report.errors.push({ id, error: err.message || String(err) });
+		}
+	}
+	return json(res, 200, report);
+}
 
 export default wrap(async (req, res) => {
 	const name = req.query?.name;
