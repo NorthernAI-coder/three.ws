@@ -1365,6 +1365,14 @@
 					"added": "2026-05-17"
 				},
 				{
+					"path": "/blog/x402-stripe-for-agent-payments",
+					"title": "The Stripe of x402: How three.ws Turned Agent Payments Into One Line of Code",
+					"description": "HTTP 402 sat unused for thirty years. Agents revived it. three.ws built the drop in payment modal that makes x402 a one liner, on top of a full stack of agent wallets, wallet intents, on-chain reputation, sniping, and $THREE.",
+					"priority": 0.6,
+					"changefreq": "monthly",
+					"lastmod": "2026-06-23"
+				},
+				{
 					"path": "/blog/see-your-3d-in-ar",
 					"title": "See Your 3D Avatar in the Real World — AR Lands on three.ws",
 					"description": "Every 3D model and avatar on three.ws now has a View in AR button. On mobile it places the model in your real space through the camera. On desktop, a QR code gets you there in one scan. No app, no download.",
