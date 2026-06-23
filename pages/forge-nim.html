@@ -47,84 +47,6 @@
 				margin: 0;
 				padding: var(--space-md) clamp(var(--space-md), 4vw, var(--space-2xl)) var(--space-2xl);
 			}
-			.forge-head {
-				display: flex;
-				align-items: baseline;
-				flex-wrap: wrap;
-				gap: var(--space-md);
-				height: auto;
-				padding: 0 0 var(--space-md);
-				background: none;
-				backdrop-filter: none;
-				-webkit-backdrop-filter: none;
-				border-bottom: 1px solid var(--stroke);
-				overflow: visible;
-				white-space: normal;
-				line-height: var(--leading-normal);
-				margin-bottom: var(--space-lg);
-			}
-			.forge-head h1 {
-				font-family: var(--font-display);
-				font-size: var(--text-xl);
-				line-height: 1;
-				margin: 0;
-				color: var(--ink);
-				flex: none;
-			}
-			.forge-head .nvbadge {
-				font-family: var(--font-mono);
-				font-size: var(--text-2xs, 0.66rem);
-				letter-spacing: 0.06em;
-				text-transform: uppercase;
-				color: #76b900;
-				border: 1px solid rgba(118, 185, 0, 0.4);
-				background: rgba(118, 185, 0, 0.08);
-				border-radius: 999px;
-				padding: 0.15rem 0.55rem;
-				align-self: center;
-			}
-			.forge-head p {
-				color: var(--ink-dim);
-				font-size: var(--text-sm);
-				margin: 0;
-				line-height: var(--leading-normal);
-				flex: 1 1 320px;
-				min-width: 0;
-			}
-
-			/* Health pill ------------------------------------------------- */
-			.nim-status {
-				display: inline-flex;
-				align-items: center;
-				gap: 0.5rem;
-				font-family: var(--font-mono);
-				font-size: var(--text-xs);
-				color: var(--ink-dim);
-				border: 1px solid var(--stroke);
-				border-radius: 999px;
-				padding: 0.3rem 0.7rem;
-				background: var(--surface-1);
-				align-self: center;
-			}
-			.nim-status .dot {
-				width: 0.55rem;
-				height: 0.55rem;
-				border-radius: 50%;
-				background: var(--ink-dim);
-				box-shadow: 0 0 0 0 rgba(118, 185, 0, 0.5);
-				transition: background 0.2s;
-			}
-			.nim-status[data-state='live'] .dot {
-				background: #76b900;
-				box-shadow: 0 0 10px rgba(118, 185, 0, 0.7);
-			}
-			.nim-status[data-state='down'] .dot {
-				background: var(--warning, #e0a93e);
-			}
-			.nim-status[data-state='off'] .dot {
-				background: var(--ink-faint, #555);
-			}
-
 			/* Workspace --------------------------------------------------- */
 			.forge-workspace {
 				display: grid;
@@ -761,10 +683,6 @@
 					</div>
 
 					<p class="note">
-						Native image→3D runs only against a self-hosted NIM — NVIDIA's hosted NVCF preview is
-						text-only and rejects real photos. This page talks to your NIM through a thin, SSRF-guarded
-						proxy (<code>/api/forge-nim</code>); the GLB never leaves your infrastructure except to your own browser.
-						Need the production multi-engine forge instead? <a href="/forge">Open Forge</a>.
 						<span class="sample-row" id="sample-row">
 							<button type="button" data-sample="text" data-prompt="a worn brass pocket watch, studio lighting">Try a text prompt</button>
 						</span>
