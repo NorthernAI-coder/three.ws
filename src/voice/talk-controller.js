@@ -47,7 +47,7 @@ export class TalkController {
 	 * @param {(err: Error) => void} [opts.onError]
 	 * @param {{ attach: Function, setMouthShape: Function }} opts.mouthTarget
 	 */
-	constructor({ avatar, systemPromptFn, onMessage, onStateChange, onError, mouthTarget }) {
+	constructor({ avatar, systemPromptFn, onMessage, onStateChange, onError, mouthTarget, commandInterceptor }) {
 		if (!avatar?.id) throw new Error('TalkController: avatar.id required');
 		if (!mouthTarget) throw new Error('TalkController: mouthTarget required');
 		this.avatar = avatar;
@@ -56,6 +56,10 @@ export class TalkController {
 		this.onStateChange = onStateChange || (() => {});
 		this.onError = onError || ((e) => log.warn('[talk]', e?.message));
 		this.mouthTarget = mouthTarget;
+		// Optional async hook: gets first crack at a final transcript. If it returns
+		// true, the utterance was handled out-of-band (e.g. a wallet command) and the
+		// normal chat round-trip is skipped. Used by the Conversational Wallet.
+		this.commandInterceptor = commandInterceptor || null;
 
 		this._state = 'idle';
 		this._history = [];
@@ -160,11 +164,49 @@ export class TalkController {
 		this._voicePromise = null;
 	}
 
+	/** Recent conversation turns (for grounding an out-of-band command parse). */
+	get history() {
+		return this._history.slice();
+	}
+
+	/**
+	 * Voice a line through the avatar WITHOUT a chat round-trip — same TTS + lipsync
+	 * path as a reply. Used by the Conversational Wallet to speak read-backs,
+	 * clarifying questions, and confirmations in character.
+	 */
+	async speakText(text) {
+		const trimmed = String(text || '').trim();
+		if (!trimmed) return;
+		try {
+			await this._speak(trimmed);
+		} catch (err) {
+			this.onError(err);
+		}
+	}
+
 	// ── pipeline ─────────────────────────────────────────────────────────
 
 	async _handleTranscript(transcript) {
 		this.onMessage({ role: 'user', content: transcript });
 		this._history.push({ role: 'user', content: transcript });
+
+		// Wallet commands (and any other registered interceptor) get first crack at
+		// the utterance. A handled command never reaches the chat model — the
+		// interceptor owns the read-back, confirm, and execution path.
+		if (this.commandInterceptor) {
+			this._setState('thinking');
+			let handled = false;
+			try {
+				handled = await this.commandInterceptor(transcript);
+			} catch (err) {
+				this.onError(err);
+			}
+			if (handled) {
+				this._setState('idle');
+				return;
+			}
+		}
+
 		this._setState('thinking');
 
 		let replyText = '';

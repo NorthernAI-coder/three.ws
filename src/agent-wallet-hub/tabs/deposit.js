@@ -29,6 +29,7 @@
 import { registerWalletTab } from '../registry.js';
 import { fetchAgentSolanaWallet, fetchAgentSolanaActivity } from '../../agent-solana-wallet.js';
 import { renderQRToSVG } from '../../erc8004/qr.js';
+import { buildSolanaPayUri } from '../../shared/solana-pay.js';
 import { formatSol, timeAgo, explorerAddressUrl, explorerTxUrl } from '../util.js';
 
 // Balance is server-cached for 60s, so a faster poll just re-reads the cache.
@@ -107,24 +108,6 @@ function injectDepositStyle() {
 	tag.id = DEP_STYLE_ID;
 	tag.textContent = DEP_STYLE;
 	document.head.appendChild(tag);
-}
-
-/**
- * Build a Solana-Pay transfer-request URI: `solana:<recipient>[?amount=…][&label=…]`.
- * Per the Solana Pay spec the recipient is a base58 address and `amount` is a
- * decimal in SOL. Returns null without a valid-looking address.
- */
-export function buildSolanaPayUri(address, { amount, label } = {}) {
-	if (!address || typeof address !== 'string') return null;
-	const params = new URLSearchParams();
-	const amt = Number(amount);
-	if (Number.isFinite(amt) && amt > 0) {
-		// Trim to a sane lamport precision (9 dp) and drop trailing zeros.
-		params.set('amount', String(amt).slice(0, 24));
-	}
-	if (label) params.set('label', label);
-	const qs = params.toString();
-	return `solana:${address}${qs ? `?${qs}` : ''}`;
 }
 
 registerWalletTab({

@@ -483,6 +483,10 @@
 			"dest": "/api/agents/solana/[action]?action=validation"
 		},
 		{
+			"src": "/api/agents/([^/]+)/economy",
+			"dest": "/api/agents/[id]/economy?id=$1"
+		},
+		{
 			"src": "/api/agents/([^/]+)/skills-pricing",
 			"dest": "/api/agents/[id]/skills-pricing?id=$1"
 		},
@@ -1748,6 +1752,10 @@
 			"dest": "/api/agents/balances"
 		},
 		{
+			"src": "/api/agents/wallet-embed",
+			"dest": "/api/agents/wallet-embed"
+		},
+		{
 			"src": "/api/agents/by-address/([^/]+)",
 			"dest": "/api/agents/by-address/[addr]?addr=$1"
 		},
@@ -1841,6 +1849,10 @@
 		{
 			"src": "/api/agents/([^/]+)/pricing/([^/]+)",
 			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/reputation-batch",
+			"dest": "/api/agents/reputation-batch"
 		},
 		{
 			"src": "/api/agents/([^/]+)/reputation",

@@ -167,6 +167,14 @@
 			<description>Arming an autonomous sniper strategy and changing an agent's discretionary trade limits both commit or unlock real custodial funds, so both writes now require the same one-time CSRF token every other money-moving action already enforced (withdraw, vanity grind, spend limits, trade execution). Ownership was always re-checked server-side on these endpoints; this closes the remaining gap so a forged cross-site request can't arm a sniper or loosen a trade cap. No change to how you use them — the dashboard already sends the token.</description>
 		</item>
 		<item>
+			<title>Talk to your agent and it trades — the Conversational Wallet</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Talk to your agent and it trades — the Conversational Wallet</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar's wallet now takes voice and text commands. Tell your agent &quot;tip 0.1 SOL to vault.sol&quot;, &quot;snipe that mint with half a SOL&quot;, &quot;sell half my $THREE&quot;, or &quot;withdraw 2 SOL to my Phantom&quot; — it parses your intent with Claude, shows you exactly what it will do next to your own words (real quote, USD value, fees, network), and waits for an explicit &quot;yes&quot; or a tap before anything moves. Confirmed trades come back with a real on-chain signature and explorer link, and the avatar celebrates the moment it lands. Every action runs the same owner-only, spend-limit-gated, audited path as the rest of the wallet — visitors can chat but can never move funds, by any phrasing. A wrong hearing is caught at the read-back, &quot;cancel&quot; is always one word away, and there's a full keyboard path with no mic required.</description>
+		</item>
+		<item>
 			<title>The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-23:The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time</guid>

@@ -108,7 +108,7 @@ async function resolveMintDecimals(conn, mintPk) {
 // the bonding curve first (getBuy/SellQuote → price impact); on a graduated coin
 // (no curve) it prices off the canonical AMM pool. Throws a typed error the
 // handler maps to a clean 4xx.
-async function quoteTrade({ conn, side, mintPk, mintStr, network, solAmount, tokenAmountRaw, slippageBps }) {
+export async function quoteTrade({ conn, side, mintPk, mintStr, network, solAmount, tokenAmountRaw, slippageBps }) {
 	if (side === 'buy') {
 		const lamportsIn = BigInt(Math.floor(Number(solAmount) * LAMPORTS_PER_SOL));
 		if (lamportsIn <= 0n) throw typed(400, 'amount_too_small', 'enter a SOL amount greater than zero');
@@ -589,7 +589,7 @@ export async function handleTrade(req, res, id) {
 // Build the on-chain instructions for the resolved venue + side. Curve trades use
 // the pump-sdk v2 builders; graduated trades use the pump-swap AMM SDK. Mirrors
 // api/agents/pumpfun/[action].js so there is one instruction-building convention.
-async function buildTradeInstructions({ side, conn, network, mintPk, ownerPk, quote, slippageBps, solAmount, tokenAmountRaw }) {
+export async function buildTradeInstructions({ side, conn, network, mintPk, ownerPk, quote, slippageBps, solAmount, tokenAmountRaw }) {
 	const BNmod = (await import('bn.js')).default;
 
 	if (quote.venue === 'bonding_curve') {

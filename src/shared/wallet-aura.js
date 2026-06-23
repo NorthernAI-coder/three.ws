@@ -126,6 +126,16 @@ export function mountWalletAura(container, opts = {}) {
 	const particles = new ParticleField(canvas);
 	let visual = null;
 	let visible = true;
+	// The owner's reactivity preference (persisted server-side, fetched by the
+	// presence panel and pushed in via setPrefs). Until known, the aura renders at
+	// full strength; once known, a muted aura or 'off' reactivity dampens it to a
+	// quiet presence floor, and 'events: false' suppresses the live flourish — so a
+	// visitor always sees the agent exactly as its owner configured it. null = not
+	// yet known → full default.
+	let prefs = null;
+
+	const auraMuted = () => !!prefs && (prefs.reactivity === 'off' || prefs.signals?.aura === false);
+	const eventsMuted = () => !!prefs && (prefs.reactivity === 'off' || prefs.signals?.events === false);
 
 	// Pause the particle rAF when the avatar scrolls off-screen — dense lists and
 	// the galaxy must not pay for auras nobody is looking at.
@@ -140,18 +150,34 @@ export function mountWalletAura(container, opts = {}) {
 
 	function applyVisual(v) {
 		visual = v;
+		// When the owner has muted the wealth aura (or turned reactivity off), keep a
+		// flat minimal presence floor — the agent still reads as itself, just calm.
+		const muted = auraMuted();
+		const intensity = muted ? 0.04 : v.intensity;
 		layer.style.setProperty('--wa-accent', v.accent);
 		layer.style.setProperty('--wa-glow', v.glow);
-		layer.style.setProperty('--wa-i', v.intensity.toFixed(3));
-		layer.dataset.level = String(v.level);
-		layer.dataset.levelHi = v.level >= 3 ? 'true' : 'false';
+		layer.style.setProperty('--wa-i', intensity.toFixed(3));
+		layer.dataset.level = String(muted ? 0 : v.level);
+		layer.dataset.levelHi = !muted && v.level >= 3 ? 'true' : 'false';
 		layer.dataset.tier = v.tier;
+		layer.dataset.muted = muted ? 'true' : 'false';
 		// The layer is always present (it fades in on ready); a dormant wallet just
 		// renders a whisper-quiet baseline, never absent and never broken.
 		layer.dataset.ready = 'true';
-		if (v.dormant) layer.style.setProperty('--wa-i', '0.04');
-		particles.configure(v);
+		if (v.dormant && !muted) layer.style.setProperty('--wa-i', '0.04');
+		// A muted aura runs no particle field — it's a still presence, not a glow.
+		particles.configure(muted ? { ...v, dormant: true, particleDensity: 0 } : v);
 		if (visible) particles.start();
+	}
+
+	/**
+	 * Apply the owner's saved reactivity prefs. Re-renders the current visual gated
+	 * by the new prefs so the change is immediate (the presence panel calls this on
+	 * the owner's first read and after every toggle). Safe to call before any data.
+	 */
+	function setPrefs(p) {
+		prefs = p && typeof p === 'object' ? p : null;
+		if (visual) applyVisual(visual);
 	}
 
 	async function update(stateOrAgent) {
@@ -165,6 +191,8 @@ export function mountWalletAura(container, opts = {}) {
 
 	function flourish(kind = 'inflow') {
 		if (REDUCED_MOTION) return;
+		// The owner can mute live reactions while keeping the steady aura.
+		if (eventsMuted()) return;
 		if (kind === 'drawdown') {
 			layer.classList.add('wa-draw');
 			setTimeout(() => layer.classList.remove('wa-draw'), 900);
@@ -186,7 +214,7 @@ export function mountWalletAura(container, opts = {}) {
 		layer.remove();
 	}
 
-	return { applyVisual, update, flourish, destroy, el: layer, get state() { return layer.__state; } };
+	return { applyVisual, update, flourish, setPrefs, destroy, el: layer, get state() { return layer.__state; } };
 }
 
 /**
@@ -382,6 +410,9 @@ export async function hydrateAvatarWallet(container, agent, opts = {}) {
 		? agent
 		: (agent?.agent_id || agent?.agentId || agent?.id || null);
 	let stopLive = () => {};
+	// An owner reactivity pref known up front (e.g. passed by the page) gates the
+	// look before the first paint so a muted agent never flashes a full aura first.
+	if (opts.prefs) controller.setPrefs(opts.prefs);
 	try {
 		await controller.update(agent);
 		if (opts.live !== false && agentId) {

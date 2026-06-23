@@ -19,6 +19,7 @@ import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
+import { mountPresence } from './shared/networth-presence.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -56,12 +57,16 @@ if (!avatarId) {
 }
 
 // Stop the wallet-aura live poll and free its rAF when the page unloads.
-window.addEventListener('pagehide', () => { netWorthAura?.destroy?.(); netWorthAura = null; }, { once: true });
+window.addEventListener('pagehide', () => {
+	netWorthAura?.destroy?.(); netWorthAura = null;
+	netWorthPanel?.destroy?.(); netWorthPanel = null;
+}, { once: true });
 
 // ── State ─────────────────────────────────────────────────────────────
 
 let avatar = null;
 let netWorthAura = null;
+let netWorthPanel = null;
 let attachedSkills = new Set();
 let attachedPlugins = new Set();
 let chatHistory = [];
@@ -575,6 +580,17 @@ function mountNetWorthAura() {
 		.then((controller) => {
 			if (!controller) return;
 			netWorthAura = controller;
+			// The presence panel: the legible, ownable face of the aura — the tier, the
+			// reputation regalia (each a real number), and, for the owner, the
+			// reactivity dial that drives the glow above. Lives at the top of Overview.
+			if (!netWorthPanel) {
+				const overview = $('av-overview');
+				if (overview) {
+					mountPresence({ agentId, container: overview, aura: controller, position: 'prepend' })
+						.then((panel) => { if (panel) netWorthPanel = panel; else netWorthPanel = null; })
+						.catch(() => { /* read failed — aura still shows the look */ });
+				}
+			}
 			// Surface the honest net-worth tier + USD in the meta strip so the
 			// presence has a readable label, not just a glow.
 			const strip = $('av-meta-strip');

@@ -14,6 +14,7 @@ import { mountMoneyPulse } from './shared/money-pulse.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+import { mountPresence } from './shared/networth-presence.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -36,17 +37,33 @@ let _pulseHandle = null;
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
 let adNetWorthAura = null;
+let adNetWorthPanel = null;
 function mountAgentDetailAura(agent) {
 	const wrap = document.getElementById('ad-avatar-wrap');
 	if (!wrap || !agent?.id) return;
 	adNetWorthAura?.destroy?.();
 	adNetWorthAura = null;
+	adNetWorthPanel?.destroy?.();
+	adNetWorthPanel = null;
 	hydrateAvatarWallet(wrap, agent, { lod: 'full', live: true, network: 'mainnet' })
-		.then((c) => { adNetWorthAura = c; })
+		.then((c) => {
+			adNetWorthAura = c;
+			// Mount the presence panel (tier + reputation regalia + owner reactivity
+			// dial) at the top of the main column, kept in lockstep with the aura.
+			const main = document.querySelector('.ad-main');
+			if (c && main) {
+				mountPresence({ agentId: agent.id, container: main, aura: c, position: 'prepend' })
+					.then((panel) => { adNetWorthPanel = panel || null; })
+					.catch(() => { /* read failed — aura still shows the look */ });
+			}
+		})
 		.catch(() => { /* dormant baseline already shown */ });
 }
 if (typeof window !== 'undefined') {
-	window.addEventListener('pagehide', () => { adNetWorthAura?.destroy?.(); adNetWorthAura = null; }, { once: true });
+	window.addEventListener('pagehide', () => {
+		adNetWorthAura?.destroy?.(); adNetWorthAura = null;
+		adNetWorthPanel?.destroy?.(); adNetWorthPanel = null;
+	}, { once: true });
 }
 
 function destroyCoinStatus() {

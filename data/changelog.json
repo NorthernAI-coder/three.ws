@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Talk to your agent and it trades — the Conversational Wallet",
+			"summary": "Your avatar's wallet now takes voice and text commands. Tell your agent \"tip 0.1 SOL to vault.sol\", \"snipe that mint with half a SOL\", \"sell half my $THREE\", or \"withdraw 2 SOL to my Phantom\" — it parses your intent with Claude, shows you exactly what it will do next to your own words (real quote, USD value, fees, network), and waits for an explicit \"yes\" or a tap before anything moves. Confirmed trades come back with a real on-chain signature and explorer link, and the avatar celebrates the moment it lands. Every action runs the same owner-only, spend-limit-gated, audited path as the rest of the wallet — visitors can chat but can never move funds, by any phrasing. A wrong hearing is caught at the read-back, \"cancel\" is always one word away, and there's a full keyboard path with no mic required.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "More uploaded avatars animate out of the box — no more accidental T-poses",
 			"summary": "Avatars exported from Reallusion Character Creator 3/4 and 3ds Max (Biped) used to import frozen in a stiff T-pose because the platform didn't recognize their skeleton naming. Both are now mapped to the universal rig, so a CC or Biped avatar walks, idles, and emotes like any other — legs included — the moment you bring it in. A batch of generic side-labelled rigs from auto-riggers now animate too. No setup, no allowlist; it just moves.",
 			"tags": [
