@@ -19,8 +19,8 @@
 import {
 	Scene, PerspectiveCamera, WebGLRenderer, Color, Fog,
 	AmbientLight, DirectionalLight, SpotLight, PointLight,
-	Mesh, CylinderGeometry, CircleGeometry, PlaneGeometry, BoxGeometry,
-	MeshStandardMaterial, MeshBasicMaterial, Group, Vector3,
+	Mesh, CylinderGeometry, CircleGeometry, PlaneGeometry,
+	MeshStandardMaterial, MeshBasicMaterial, Group,
 	AudioListener, PositionalAudio, AudioAnalyser, SRGBColorSpace, ACESFilmicToneMapping,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';

@@ -90,9 +90,9 @@ export class StageRoom extends Room {
 
 		// The performance heartbeat: pick + perform the next beat on a cadence. A
 		// tip pre-empts this (see injectTip) so a shoutout never waits a full beat.
+		// The cadence is gated on a present audience (see _runBeat) so the host never
+		// burns the brain performing to an empty room between shows.
 		this._beatTimer = this.clock.setInterval(() => this._runBeat('cadence'), BEAT_INTERVAL_MS);
-		// Open the show immediately so the first client never lands on a dead stage.
-		this._runBeat('open');
 
 		console.log(`${this._tag()} created (host=${this.state.host.name || 'unknown'})`);
 	}
@@ -157,6 +157,10 @@ export class StageRoom extends Room {
 		this.state.audience.set(client.sessionId, member);
 		this._director.noteAudience(this.state.audience.size);
 		console.log(`${this._tag()} +join (audience=${this.state.audience.size})`);
+		// Open the show for the first arrival (or whenever the host hasn't spoken
+		// yet) so a joiner never lands on a silent stage — but only once someone is
+		// actually here to hear it.
+		if (this.state.host.utteranceId === 0) this._runBeat('open');
 	}
 
 	onLeave(client) {
@@ -306,6 +310,9 @@ export class StageRoom extends Room {
 	// ── the host loop ─────────────────────────────────────────────────────────
 	async _runBeat(trigger) {
 		if (this._beatRunning) return; // one beat in flight at a time
+		// Don't perform to an empty room on the cadence — only a real trigger (a tip,
+		// or the opener fired by the first arrival) speaks when nobody is present.
+		if (trigger === 'cadence' && this.state.audience.size === 0) return;
 		this._beatRunning = true;
 		try {
 			const beat = this._director.nextBeat();
