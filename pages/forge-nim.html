@@ -613,19 +613,6 @@
 		<div id="nav-container"></div>
 
 		<main class="forge-main">
-			<header class="forge-head">
-				<h1>Forge · NIM</h1>
-				<span class="nvbadge">self-hosted TRELLIS</span>
-				<p>
-					Drive a self-hosted NIM (<code>nvcr.io/nim/microsoft/trellis</code>, <code>large:image</code>)
-					directly. A real photo hits <code>/v1/infer</code> and the textured GLB comes back
-					<strong>synchronously</strong> as <code>artifacts[0].base64</code> — no async poll.
-				</p>
-				<span class="nim-status" id="nim-status" data-state="checking" role="status" aria-live="polite">
-					<span class="dot"></span><span id="nim-status-text">checking NIM…</span>
-				</span>
-			</header>
-
 			<div class="forge-workspace">
 				<!-- Composer rail -->
 				<div class="forge-rail">
@@ -839,7 +826,7 @@
 					const r = await fetch('/api/forge-nim?action=health', { headers: { accept: 'application/json' } });
 					const d = await r.json();
 					if (!d.configured) {
-						setStatus('off', 'no NIM configured');
+						setStatus('off', '');
 					} else if (d.reachable) {
 						setStatus('live', 'NIM ready');
 					} else {
@@ -850,6 +837,7 @@
 				}
 			}
 			function setStatus(s, text) {
+				if (!els.status) return;
 				els.status.dataset.state = s;
 				els.statusText.textContent = text;
 			}
