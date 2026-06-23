@@ -6,7 +6,7 @@
 // populated, and error — is honestly designed.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { computeReputation } from '../api/_lib/trust/wallet-reputation.js';
+import { computeReputation, PILLARS } from '../api/_lib/trust/wallet-reputation.js';
 
 // Mock the shared fetch layer so the UI module never hits the network.
 const apiFetch = vi.fn();
@@ -82,7 +82,8 @@ describe('reputationPanelEl', () => {
 		const text = el.textContent;
 		expect(text).toMatch(/Tenure & consistency/);
 		expect(text).toMatch(/Earnings & volume/);
-		expect(el.querySelectorAll('.rep-pillar').length).toBe(6);
+		// Every scoring pillar renders a row (the breakdown is exhaustive).
+		expect(el.querySelectorAll('.rep-pillar').length).toBe(PILLARS.length);
 		expect(el.querySelector('.rep-ring-num')).toBeTruthy();
 		// Evidence link present and points at real chain explorer.
 		expect(el.querySelector('.rep-evi-link')?.getAttribute('href')).toContain('solscan.io');

@@ -47,6 +47,13 @@ vi.mock('../api/_lib/db.js', () => ({
 	}),
 }));
 
+// The behavioral anomaly guard is an additive layer inside enforceSpendLimit; it
+// has its own dedicated tests. Stub it so its async DB calls don't consume this
+// test's sql queue (it would otherwise shift rows the trade-execution path expects).
+vi.mock('../api/_lib/anomaly-events.js', () => ({
+	guardOutboundAnomaly: vi.fn(async () => ({ decision: 'allow', verdict: null, anomalyId: null, froze: false })),
+}));
+
 // ── rate limit / cache / audit ────────────────────────────────────────────────
 vi.mock('../api/_lib/rate-limit.js', () => ({
 	limits: { authIp: vi.fn(async () => ({ success: true })), walletRead: vi.fn(async () => ({ success: true })) },

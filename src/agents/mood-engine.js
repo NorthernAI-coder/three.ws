@@ -67,7 +67,7 @@ class MoodEngine {
 		agentBus.on(EVENTS.MEMORY_ADDED, (p) => this._onMemoryAdded(p));
 		agentBus.on(EVENTS.MEMORY_RECALLED, (p) => this._onMemoryRecalled(p));
 		agentBus.on(EVENTS.MEMORY_FORGOTTEN, (p) => this._maybeSignal(p, 'memory:forgotten'));
-		agentBus.on(EVENTS.DREAM_CREATED, (p) => this._maybeSignal(p, 'dream:insight', { weight: clamp01(p?.dream?.confidence ?? 0.7) }));
+		agentBus.on(EVENTS.DREAM_CREATED, (p) => this._maybeSignal(p, 'dream:insight', { weight: clamp01(p?.confidence ?? 0.7), sourceLabel: p?.statement ? `Insight: ${String(p.statement).slice(0, 60)}` : undefined }));
 		agentBus.on(EVENTS.ACTION_TAKEN, (p) => this._onAction(p));
 		agentBus.on(EVENTS.BRAIN_UPDATED, (p) => this._maybeSignal(p, 'brain:updated'));
 
@@ -186,11 +186,19 @@ class MoodEngine {
 	_onAction(p) {
 		if (!this._sameAgent(p)) return;
 		const a = p?.action || p || {};
+		const label = a.summary || a.title || a.label || a.kind || 'Took an action';
+		// Prefer an explicit outcome flag when a producer supplies one.
 		const ok = a.ok === true || a.success === true || a.outcome === 'success' || a.status === 'ok' || a.status === 'success';
-		const bad = a.ok === false || a.success === false || a.error || a.outcome === 'failure' || a.status === 'error' || a.status === 'failed';
-		if (ok) this.ingestSignal('action:success', { sourceLabel: a.title || a.label || SIGNALS['action:success'].label });
-		else if (bad) this.ingestSignal('action:failure', { sourceLabel: a.title || a.label || SIGNALS['action:failure'].label });
-		else this.ingestSignal('memory:recalled', { weight: 0.3, sourceLabel: 'Took an action' });
+		const bad = a.ok === false || a.success === false || Boolean(a.error) || a.outcome === 'failure' || a.status === 'error' || a.status === 'failed';
+		if (ok) return this.ingestSignal('action:success', { sourceLabel: label });
+		if (bad) return this.ingestSignal('action:failure', { sourceLabel: label });
+		// No explicit outcome — read the receipt/summary text for real sentiment
+		// (e.g. an alert about trouble reads negative). Otherwise a completed
+		// action is a mild positive: the agent handled something for you.
+		const { score } = scoreSentiment([{ text: String(label) }]);
+		const sig = signalFromSentiment(score);
+		if (sig) this.ingestSignal(sig.signal, { weight: sig.weight, sourceLabel: label });
+		else this.ingestSignal('action:success', { weight: 0.45, sourceLabel: label });
 	}
 
 	_maybeSignal(p, source, opts = {}) {
