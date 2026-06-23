@@ -53,6 +53,11 @@
 		"packages/ibm-x402-mcp",
 		"packages/three-token-mcp",
 		"packages/threews-avatar-mcp",
+		"packages/scene-mcp",
+		"packages/vanity-mcp",
+		"packages/naming-mcp",
+		"packages/intel-mcp",
+		"packages/marketplace-mcp",
 		"walk-sdk",
 		"tour-sdk"
 	],

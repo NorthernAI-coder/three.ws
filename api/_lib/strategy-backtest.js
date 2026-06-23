@@ -104,7 +104,7 @@ function toIntelRecord(row) {
  * deflated by slippage. Exits use the live decideExit priority at the peak (for
  * take-profit) and at the terminal price (for stop / trailing / hold).
  */
-function simulateTrade(strategy, peakMult, terminalMult, impactPct) {
+export function simulateTrade(strategy, peakMult, terminalMult, impactPct) {
 	const slip = (n(strategy.slippage_bps) ?? 500) / 10_000;
 	const entryPenalty = (1 + slip) * (1 + impactPct / 100);
 

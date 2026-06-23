@@ -285,7 +285,13 @@ function describeStrategy(s) {
 // Extracts the same fields from common phrasings so the feature always compiles
 // even with no model configured.
 function heuristicCompile(text) {
-	const t = ` ${text.toLowerCase()} `;
+	// Normalize small number-words ("at least two") to digits so the numeric
+	// patterns below catch them. Bounded to one..ten — enough for graduation/
+	// launch/concurrency counts; larger figures are written as digits anyway.
+	const WORDS = { one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9', ten: '10' };
+	let lowered = text.toLowerCase();
+	for (const [w, d] of Object.entries(WORDS)) lowered = lowered.replace(new RegExp(`\\b${w}\\b`, 'g'), d);
+	const t = ` ${lowered} `;
 	const out = { assumptions: [], allowed_categories: null };
 
 	const moneyToNum = (m) => {
@@ -304,8 +310,9 @@ function heuristicCompile(text) {
 
 	const sl = t.match(/(?:stop[ -]?loss|sl|stop)\D{0,12}?(\d+(?:\.\d+)?)\s*%/);
 	if (sl) out.stop_loss_pct = parseFloat(sl[1]);
-	const trail = t.match(/(?:trailing|trail)\D{0,14}?(\d+(?:\.\d+)?)\s*%/);
-	if (trail) out.trailing_stop_pct = parseFloat(trail[1]);
+	// Match either order: "trailing 25%" or "30% trailing stop".
+	const trail = t.match(/(?:trailing|trail)(?:\s*stop)?\D{0,10}?(\d+(?:\.\d+)?)\s*%|(\d+(?:\.\d+)?)\s*%\s*trailing/);
+	if (trail) out.trailing_stop_pct = parseFloat(trail[1] || trail[2]);
 
 	const perTrade = t.match(/(\d+(?:\.\d+)?)\s*sol\s*(?:per|\/|each|a)\s*(?:trade|snipe|buy|position)/);
 	if (perTrade) out.per_trade_sol = parseFloat(perTrade[1]);

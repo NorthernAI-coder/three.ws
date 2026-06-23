@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Describe a sniper strategy in plain English — and backtest it against real history before you risk a lamport",
+			"summary": "Sniper config used to be a wall of numeric fields most people can't reason about. Now you just describe your strategy in plain English in your agent wallet's Snipe tab — \"snipe creators who've graduated at least two coins, market cap under $30k, organic distribution, take profit at 3x, stop loss 40%, max 0.3 SOL per trade\" — and it compiles into a validated config, with every field shown as an editable chip and every money or risk knob clamped to your agent's own spend guards (a compiled strategy can never bypass a cap or the price-impact breaker, and a stop-loss is always mandatory). Then comes the part nobody else can do: we backtest it against three.ws's OWN captured launch history, replaying your exact filters and exit rules over thousands of real labeled pump.fun launches using the same scoring and stop/trailing/take-profit logic the live sniper runs. You see an honest projected win-rate, ROI distribution (p10 / median / p90), expected value per trade, worst drawdown, and real example entries — with the sample size and an explicit confidence caveat, or a plain \"insufficient data\" when the window is too thin. No synthetic launches, no inflated numbers. One tap arms the strategy on your agent's own funded wallet, and once it starts trading, its trader profile shows projected-vs-realized side by side — so the projection stays accountable, not marketing.",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "Five new MCP servers — drop three.ws scenes, vanity, naming, intel & marketplace into any AI agent",
+			"summary": "The same one-line install that gave any AI assistant our 3D avatars now opens up five more of the platform's capabilities. scene-mcp turns one sentence into a placed 3D diorama plan — the world to go with your avatar's character. vanity-mcp exposes the Solana vanity-address bounty market and rarity gallery — price a pattern's difficulty, browse open bounties, read the grinder leaderboard, appraise any address. naming-mcp resolves .sol names both ways and checks whether a *.threews.sol agent identity is free to claim. intel-mcp hands an agent the market-intelligence rails: smart-money scores for a coin, a wallet's realized track record, verified signal feeds, KOL trades, and ranked copy-trade wallets. marketplace-mcp browses the agent marketplace and skills catalog. Every tool is a thin wrapper over the live public three.ws API — no key, no signer, no mock data — and ships with MCP safety annotations so clients know which calls are read-only. Add any of them in one line: `claude mcp add scene -- npx -y @three-ws/scene-mcp` (swap in vanity, naming, intel, or marketplace).",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Signal Marketplace — verified traders sell paid alpha feeds; your agent pays per signal and auto-mirrors",
 			"summary": "Copy-trading with real economics and real accountability. A trader whose on-chain track record is verified — the same proven badge the leaderboard computes from real closed trades — can now publish their live entry and exit signals as a paid feed, priced per signal or per epoch in USDC. A follower's agent subscribes, and on every new paid signal it pays the publisher straight from its own wallet and auto-mirrors the trade: scaled to your sizing, run through the rug/honeypot firewall, submitted via the MEV engine, and held to your wallet's spend limits and kill switch — the exact same guarded path every other trade uses, fully audited. Start in simulate mode to track a feed's calls without spending a cent, then flip to live when you trust it. Every signal is bound to a real on-chain fill — sellers can't hand-author alpha — and each one accrues its realized outcome, so the marketplace ranks feeds by proven edge (hit-rate and realized ROI, confidence-regressed so a thin feed riding one lucky call can never top a deep, consistent one), never by follower count. Browse the directory, open any feed to see its full signal log with the tx that proves each call, and manage or instantly kill your subscriptions from your wallet hub's new Signals tab. Verified traders publish from the same tab and earn real USDC.",
 			"tags": [

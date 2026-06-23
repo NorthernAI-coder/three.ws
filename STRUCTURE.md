@@ -54,6 +54,11 @@ packages/ibm-watsonx-mcp/     → @three-ws/ibm-watsonx-mcp   (MCP server — IB
 packages/ibm-x402-mcp/        → @three-ws/ibm-x402-mcp      (MCP server — IBM x402 payments)
 packages/three-token-mcp/     → @three-ws/three-token-mcp   (MCP server — $THREE token tools)
 packages/threews-avatar-mcp/  → @three-ws/threews-avatar-mcp (MCP server — three.ws avatar ops)
+packages/scene-mcp/           → @three-ws/scene-mcp         (MCP server — text→3D diorama scenes)
+packages/vanity-mcp/          → @three-ws/vanity-mcp        (MCP server — Solana vanity bounty market + rarity gallery)
+packages/naming-mcp/          → @three-ws/naming-mcp        (MCP server — .sol resolve + *.threews.sol identity availability)
+packages/intel-mcp/           → @three-ws/intel-mcp         (MCP server — smart-money, signals, KOL, copy-trade intel)
+packages/marketplace-mcp/     → @three-ws/marketplace-mcp   (MCP server — agent marketplace + skills catalog browse)
 walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 

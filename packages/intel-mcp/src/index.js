@@ -1,16 +1,19 @@
 #!/usr/bin/env node
-// @three-ws/scene-mcp — MCP server entry point.
+// @three-ws/intel-mcp — MCP server entry point.
 //
-// Gives any AI assistant the three.ws diorama pipeline over stdio:
-//   • compose_scene — one sentence → a placed 3D diorama plan (LLM-composed)
-//   • get_scene     — fetch a saved world by id
-//   • list_scenes   — browse the recent / featured gallery
+// Gives any AI assistant the three.ws market-intelligence surface over stdio:
+//   • smart_money_coin   — judge a coin by WHO is net-buying it (0–100 score)
+//   • wallet_intel       — one wallet's realized reputation card
+//   • signal_feed        — a feed's proven accuracy + recent emissions
+//   • kol_leaderboard    — ranked KOL traders by realized P&L
+//   • kol_trades         — recent KOL trades on a given mint
+//   • copy_smart_wallets — the ranked copy-trade Smart Money directory
 //
-// A thin wrapper over the PUBLIC three.ws API (/api/diorama). No keys, no
-// signer, no payment — point THREE_WS_BASE at a deployment and go.
+// A thin wrapper over the PUBLIC three.ws API. No keys, no signer, no payment —
+// point THREE_WS_BASE at a deployment and go.
 //
 // Run standalone:
-//   node packages/scene-mcp/src/index.js
+//   node packages/intel-mcp/src/index.js
 //
 // Or wire into Claude Code / Cursor — see README.md.
 
@@ -21,15 +24,25 @@ import { pathToFileURL } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 
-import { def as composeScene } from './tools/compose-scene.js';
-import { def as getScene } from './tools/get-scene.js';
-import { def as listScenes } from './tools/list-scenes.js';
+import { def as smartMoneyCoin } from './tools/smart-money-coin.js';
+import { def as walletIntel } from './tools/wallet-intel.js';
+import { def as signalFeed } from './tools/signal-feed.js';
+import { def as kolLeaderboard } from './tools/kol-leaderboard.js';
+import { def as kolTrades } from './tools/kol-trades.js';
+import { def as copySmartWallets } from './tools/copy-smart-wallets.js';
 
 // Single source of truth for the advertised server version — package.json.
 const require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = require('../package.json');
 
-export const TOOLS = [composeScene, getScene, listScenes];
+export const TOOLS = [
+	smartMoneyCoin,
+	walletIntel,
+	signalFeed,
+	kolLeaderboard,
+	kolTrades,
+	copySmartWallets,
+];
 
 /**
  * Construct a fully-registered McpServer without connecting a transport.
@@ -38,16 +51,18 @@ export const TOOLS = [composeScene, getScene, listScenes];
  */
 export function buildServer() {
 	const server = new McpServer(
-		{ name: 'scene-mcp', title: 'three.ws Scenes', version: PKG_VERSION },
+		{ name: 'intel-mcp', title: 'three.ws Intel', version: PKG_VERSION },
 		{
 			capabilities: { tools: {} },
 			instructions:
-				'three.ws Scene MCP — speak 3D worlds into being. compose_scene turns one short sentence ' +
-				'into a diorama PLAN (title, mood, palette, ground, and 2–8 placed single-object forge prompts) ' +
-				'using the platform free-first LLM chain; nothing is saved and no meshes are forged yet. ' +
-				'get_scene fetches a previously saved world by id (with GLB URLs and an orbitable viewer link). ' +
-				'list_scenes browses the recent or featured gallery. All data comes live from the public ' +
-				'three.ws /api/diorama endpoint — no API key, signer, or payment required.',
+				'three.ws Intel MCP — read the market the way the smart money does. smart_money_coin ' +
+				'scores a coin by WHO is net-buying it (a 0–100 reputation-weighted score, funder clusters, ' +
+				'and a sybil flag). wallet_intel pulls one wallet\'s realized track record (score, win rate, ' +
+				'labels, funder cluster). signal_feed reads a feed\'s proven accuracy and recent emissions ' +
+				'with realized ROI. kol_leaderboard ranks tracked KOL traders by P&L; kol_trades shows their ' +
+				'recent trades on a given mint. copy_smart_wallets browses the ranked copy-trade Smart Money ' +
+				'directory. All data comes live from the public three.ws API — no API key, signer, or payment ' +
+				'required. Every tool is read-only.',
 		},
 	);
 
@@ -88,7 +103,7 @@ async function main() {
 	const server = buildServer();
 	const transport = new StdioServerTransport();
 	await server.connect(transport);
-	console.error(`[scene-mcp@${PKG_VERSION}] connected over stdio with ${TOOLS.length} tools`);
+	console.error(`[intel-mcp@${PKG_VERSION}] connected over stdio with ${TOOLS.length} tools`);
 }
 
 // Connect stdio ONLY when this file is the process entry point. Importing the
@@ -105,7 +120,7 @@ function isProcessEntryPoint() {
 
 if (isProcessEntryPoint()) {
 	main().catch((err) => {
-		console.error('[scene-mcp] fatal:', err);
+		console.error('[intel-mcp] fatal:', err);
 		process.exit(1);
 	});
 }

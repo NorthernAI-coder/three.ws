@@ -159,6 +159,14 @@
 			<description>Your autonomous sniper already exits on take-profit, stop-loss, trailing stop, or max-hold, and the kill switch dumps every position at once — but until now there was no way to close just ONE open position on demand. The Sniper Strategies dashboard now puts a 'Sell now' button on each live position: tap it, confirm, and the agent market-sells its full holding of that coin from its own wallet at the current price, with a real signature and realized PnL. It runs the exact same exit path the bot uses automatically (fresh re-quote, graduated coins routed through the AMM, the protected execution engine, full custody-trail audit), so a manual exit is held to the same standard as an automatic one — and it's owner-only, with the position atomically claimed so a manual sell and the bot's own sweep can never both fire on the same bag.</description>
 		</item>
 		<item>
+			<title>Five new MCP servers — drop three.ws scenes, vanity, naming, intel &amp; marketplace into any AI agent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Five new MCP servers — drop three.ws scenes, vanity, naming, intel &amp; marketplace into any AI agent</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The same one-line install that gave any AI assistant our 3D avatars now opens up five more of the platform's capabilities. scene-mcp turns one sentence into a placed 3D diorama plan — the world to go with your avatar's character. vanity-mcp exposes the Solana vanity-address bounty market and rarity gallery — price a pattern's difficulty, browse open bounties, read the grinder leaderboard, appraise any address. naming-mcp resolves .sol names both ways and checks whether a *.threews.sol agent identity is free to claim. intel-mcp hands an agent the market-intelligence rails: smart-money scores for a coin, a wallet's realized track record, verified signal feeds, KOL trades, and ranked copy-trade wallets. marketplace-mcp browses the agent marketplace and skills catalog. Every tool is a thin wrapper over the live public three.ws API — no key, no signer, no mock data — and ships with MCP safety annotations so clients know which calls are read-only. Add any of them in one line: `claude mcp add scene -- npx -y @three-ws/scene-mcp` (swap in vanity, naming, intel, or marketplace).</description>
+		</item>
+		<item>
 			<title>Fix: avatars look right in iOS AR, not collapsed and distorted</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Fix: avatars look right in iOS AR, not collapsed and distorted</guid>
