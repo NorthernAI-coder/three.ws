@@ -1,0 +1,28 @@
+{
+  "name": "@three-ws/forge",
+  "version": "0.1.0",
+  "description": "Text/image/sketch → textured, rig-ready 3D GLB in one call. The three.ws Forge generation SDK — free TRELLIS lane, paid high-detail tiers, and auto-rigging.",
+  "keywords": [
+    "3d",
+    "text-to-3d",
+    "image-to-3d",
+    "gltf",
+    "glb",
+    "generative",
+    "trellis",
+    "avatar",
+    "rigging",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws/forge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}

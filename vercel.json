@@ -845,6 +845,10 @@
 			"dest": "/play/arena.html"
 		},
 		{
+			"src": "/arena/?",
+			"dest": "/arena.html"
+		},
+		{
 			"src": "/play/?",
 			"dest": "/play.html"
 		},

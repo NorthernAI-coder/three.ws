@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T07:40:33.570Z",
+	"generated_at": "2026-06-23T07:50:01.651Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -543,8 +543,7 @@
 			"summary": "Copy-trading with real economics and real accountability. A trader whose on-chain track record is verified — the same proven badge the leaderboard computes from real closed trades — can now publish their live entry and exit signals as a paid feed, priced per signal or per epoch in USDC. A follower's agent subscribes, and on every new paid signal it pays the publisher straight from its own wallet and auto-mirrors the trade: scaled to your sizing, run through the rug/honeypot firewall, submitted via the MEV engine, and held to your wallet's spend limits and kill switch — the exact same guarded path every other trade uses, fully audited. Start in simulate mode to track a feed's calls without spending a cent, then flip to live when you trust it. Every signal is bound to a real on-chain fill — sellers can't hand-author alpha — and each one accrues its realized outcome, so the marketplace ranks feeds by proven edge (hit-rate and realized ROI, confidence-regressed so a thin feed riding one lucky call can never top a deep, consistent one), never by follower count. Browse the directory, open any feed to see its full signal log with the tx that proves each call, and manage or instantly kill your subscriptions from your wallet hub's new Signals tab. Verified traders publish from the same tab and earn real USDC.",
 			"link": "/signals",
 			"tags": [
-				"feature",
-				"sdk"
+				"feature"
 			]
 		},
 		{

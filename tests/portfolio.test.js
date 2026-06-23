@@ -130,7 +130,7 @@ describe('buildAttribution — buckets, realized + unrealized, outflows', () => 
 			{ category: 'withdraw', amount_lamports: Number(SOL), status: 'confirmed' },
 			{ category: 'trade', amount_lamports: 999, status: 'failed' }, // ignored (failed)
 		];
-		const attr = buildAttribution({ realizedBySource, unrealizedBySource, custodyRows, solUsd: 200, hasStrategy: true });
+		const attr = buildAttribution({ realizedBySource, unrealizedBySource, custodyRows, solUsd: 200 });
 
 		const sniper = attr.find((a) => a.source === 'sniper');
 		expect(sniper.realized_sol).toBe(2);
@@ -159,7 +159,6 @@ describe('buildAttribution — buckets, realized + unrealized, outflows', () => 
 			unrealizedBySource: new Map(),
 			custodyRows: [],
 			solUsd: null,
-			hasStrategy: false,
 		});
 		expect(attr[0].realized_sol).toBe(1);
 		expect(attr[0].realized_usd).toBe(null);

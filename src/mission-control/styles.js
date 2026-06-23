@@ -184,10 +184,12 @@ const CSS = `
 
 /* ── responsive ──────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
-	.mc-main { grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr); grid-template-rows: 1fr; }
-	.mc-pane--positions { grid-column: 1 / -1; display: none; } /* folded into focus column tab on tablet */
-	.mc-main.show-positions .mc-pane--focus { display: none; }
-	.mc-main.show-positions .mc-pane--positions { display: flex; grid-column: 2; }
+	/* Two columns: the feed spans the full height on the left; focus + positions
+	   stack in the right column. Every pane stays reachable — no hidden tab. */
+	.mc-main { grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.45fr); grid-template-rows: 1.25fr 1fr; }
+	.mc-pane--feed { grid-column: 1; grid-row: 1 / span 2; }
+	.mc-pane--focus { grid-column: 2; grid-row: 1; }
+	.mc-pane--positions { grid-column: 2; grid-row: 2; }
 }
 @media (max-width: 760px) {
 	.mc-main { grid-template-columns: 1fr; }

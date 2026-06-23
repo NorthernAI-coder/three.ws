@@ -1,0 +1,28 @@
+{
+  "name": "@three-ws/intel",
+  "version": "0.1.0",
+  "description": "Token sentiment + market intelligence in one import. Sentiment pulse, aixbt narrative intel, momentum-ranked project scans, and live Solana token snapshots — the three.ws intelligence SDK.",
+  "keywords": [
+    "sentiment",
+    "market-intelligence",
+    "solana",
+    "token-snapshot",
+    "aixbt",
+    "narrative",
+    "momentum",
+    "pump.fun",
+    "x402",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}

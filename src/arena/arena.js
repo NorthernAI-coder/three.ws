@@ -443,11 +443,15 @@ function statCountdown(k, iso) {
 	);
 }
 
+const isModelUrl = (u) => typeof u === 'string' && /\.(glb|gltf)(\?|#|$)/i.test(u);
+
 function leaderVisual(leader) {
 	if (!leader) {
 		return h('div', { class: 'spot-fallback' }, 'Awaiting the first ranked trade');
 	}
-	const visual = leader.glb_url
+	// Only mount the 3D viewer when the avatar is an actual model; agent_identities
+	// .avatar_url can also hold a flat image, which <agent-3d body> can't render.
+	const visual = isModelUrl(leader.glb_url)
 		? h('agent-3d', { body: leader.glb_url, autorotate: 'true', 'camera-controls': 'true', 'aria-label': `${leader.agent_name} avatar` })
 		: leader.image
 			? h('div', { class: 'spot-fallback' }, h('img', { src: leader.image, alt: leader.agent_name, loading: 'lazy' }))

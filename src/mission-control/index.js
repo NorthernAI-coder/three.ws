@@ -164,13 +164,11 @@ export function mountMissionControl(root, opts = {}) {
 
 	function wireMobileBar() {
 		const buttons = [...rootEl.querySelectorAll('[data-mpane]')];
-		const main = rootEl.querySelector('[data-host="main"]');
 		const setActive = (name) => {
 			for (const b of buttons) b.setAttribute('aria-selected', String(b.dataset.mpane === name));
 			for (const key of ['feed', 'focus', 'positions']) {
 				rootEl.querySelector(`[data-host="${key}"]`)?.classList.toggle('is-active', key === name);
 			}
-			main.classList.toggle('show-positions', name === 'positions');
 		};
 		for (const b of buttons) b.addEventListener('click', () => setActive(b.dataset.mpane));
 		setActive('feed');

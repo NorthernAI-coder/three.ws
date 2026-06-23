@@ -37,6 +37,9 @@ const PORT_STYLE = `
 .awh-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--success,#4ade80); box-shadow: 0 0 0 0 color-mix(in srgb, var(--success,#4ade80) 60%, transparent); animation: awh-live-pulse 2s ease-out infinite; }
 @keyframes awh-live-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success,#4ade80) 50%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .awh-live::before { animation: none; } }
+.awh-paused { appearance: none; font: inherit; font-size: var(--text-2xs,.6875rem); color: var(--warn,#fbbf24); background: color-mix(in srgb, var(--warn,#fbbf24) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn,#fbbf24) 35%, transparent); border-radius: var(--radius-pill,999px); padding: 1px 9px; cursor: pointer; transition: background var(--duration-fast,140ms); }
+.awh-paused:hover { background: color-mix(in srgb, var(--warn,#fbbf24) 20%, transparent); }
+.awh-paused:focus-visible { outline: var(--focus-ring-width,2px) solid var(--focus-ring-color,#fff); outline-offset: 2px; }
 
 .awh-port-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm,.764rem); }
 .awh-port-table th { text-align: right; font-weight: 500; color: var(--ink-dim,#888); font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .04em; padding: 0 0 8px; border-bottom: 1px solid var(--stroke, rgba(255,255,255,.08)); }
@@ -207,7 +210,11 @@ registerWalletTab({
 			return `<div class="awh-card">
 				<div class="awh-port-nw">
 					<div class="awh-port-nw-main">
-						<div class="awh-port-nw-label">Net worth ${state.live ? '<span class="awh-live">live</span>' : ''}</div>
+						<div class="awh-port-nw-label">Net worth ${state.live
+							? '<span class="awh-live">live</span>'
+							: state.streamDown
+								? '<button class="awh-paused" type="button" data-act="resume" title="Live updates paused — click to reconnect">updates paused ↻</button>'
+								: ''}</div>
 						<div class="awh-port-nw-usd">${escapeHtml(usd)}</div>
 						<div class="awh-port-nw-sol">${escapeHtml(formatSol(nw.sol))} SOL${d.sol_usd ? ` · SOL ${escapeHtml(formatUsd(d.sol_usd) || '')}` : ''}</div>
 					</div>
@@ -329,6 +336,11 @@ registerWalletTab({
 		}
 
 		function wire() {
+			panel.querySelector('[data-act="resume"]')?.addEventListener('click', () => {
+				state.streamDown = false;
+				render();
+				reload();
+			});
 			panel.querySelectorAll('[data-trade]').forEach((b) => {
 				b.addEventListener('click', async () => {
 					const mint = b.dataset.trade;
@@ -387,12 +399,18 @@ registerWalletTab({
 				state.data = { ...state.data, ...ev };
 				pushSpark(ev?.net_worth?.usd);
 				state.live = true;
+				state.streamDown = false;
 				render();
 			});
 			es.addEventListener('error', () => {
 				state.live = false;
-				// EventSource auto-reconnects; if the server closed permanently, stop.
-				if (es && es.readyState === EventSource.CLOSED) closeStream();
+				// EventSource auto-reconnects; if the server closed permanently, stop
+				// and surface a "paused" affordance so the user knows data is frozen.
+				if (es && es.readyState === EventSource.CLOSED) {
+					closeStream();
+					state.streamDown = true;
+					render();
+				}
 			});
 		}
 		function closeStream() {

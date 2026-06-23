@@ -1,0 +1,29 @@
+{
+  "name": "@three-ws/names",
+  "version": "0.1.0",
+  "description": "ENS + SNS name resolution, *.threews.sol subdomain minting, and pay-by-name in one import. The three.ws agent-identity SDK.",
+  "keywords": [
+    "ens",
+    "sns",
+    "solana-name-service",
+    "name-resolution",
+    "subdomain",
+    "threews.sol",
+    "pay-by-name",
+    "x402",
+    "usdc",
+    "agent-identity",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}

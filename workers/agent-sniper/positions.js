@@ -11,29 +11,7 @@ import { getTradeCtx } from './trade-client.js';
 import { getOpenPositions } from './strategy-store.js';
 import { executeSell } from './executor.js';
 import { quoteAmmSell } from './amm-exit.js';
-
-function pct(n) {
-	const x = Number(n);
-	return Number.isFinite(x) ? x : null;
-}
-
-/** Decide the exit reason for a position, or null to hold. */
-function decideExit(pos, value, peak) {
-	const entry = BigInt(pos.entry_quote_lamports || '0');
-	if (entry <= 0n) return null;
-	const ev = Number(entry);
-	const sl = pct(pos.stop_loss_pct);
-	const ts = pct(pos.trailing_stop_pct);
-	const tp = pct(pos.take_profit_pct);
-
-	if (sl != null && value <= ev * (1 - sl / 100)) return 'stop_loss';
-	if (ts != null && peak > 0 && value <= peak * (1 - ts / 100)) return 'trailing_stop';
-	if (tp != null && value >= ev * (1 + tp / 100)) return 'take_profit';
-
-	const heldS = (Date.now() - new Date(pos.opened_at).getTime()) / 1000;
-	if (pos.max_hold_seconds != null && heldS >= pos.max_hold_seconds) return 'timeout';
-	return null;
-}
+import { decideExit } from './exit-logic.js';
 
 async function tickPosition(cfg, pos) {
 	// Kill-switch flipped while holding → exit at market now.

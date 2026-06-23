@@ -1,0 +1,30 @@
+{
+  "name": "@three-ws/vanity",
+  "version": "0.1.0",
+  "description": "Mine Solana vanity addresses (custom prefix/suffix) fast — WASM-accelerated, in the browser or Node. Ergonomic grind() API over a real Rust/ed25519 grinder, with progress, difficulty/ETA, and a paid x402 fallback.",
+  "keywords": [
+    "solana",
+    "vanity",
+    "vanity-address",
+    "keypair",
+    "ed25519",
+    "wasm",
+    "bs58",
+    "base58",
+    "wallet",
+    "mnemonic",
+    "x402",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}
