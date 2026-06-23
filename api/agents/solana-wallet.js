@@ -30,6 +30,10 @@ import {
 	getSpendLimits, setSpendLimits, listCustodyEvents, updateCustodyEvent, recordCustodyEvent,
 	getDailySpendUsd, getTradeLimits, setTradeLimits, getDailySpendLamports,
 } from '../_lib/agent-trade-guards.js';
+import { getBalances, walletUsdTotal } from '../_lib/balances.js';
+import {
+	THREE_MINT, computeLook, computeMarks, normalizePrefs,
+} from '../_lib/networth-model.js';
 
 // USDC mints per cluster — the only SPL token we can price 1:1 for the spend
 // ceiling without an external quote. $THREE is the only coin; USDC is the
@@ -1337,6 +1341,136 @@ async function handleVanity(req, res, id) {
 	});
 }
 
+// ── net-worth (the agent wears its wallet) ──────────────────────────────────────
+
+// Count agents forked from this one (real lineage rows). Lineage is stored at
+// fork time in agent_identities.meta.forked_from.agent_id (api/avatars/fork.js).
+async function forkCountFor(id) {
+	try {
+		const [r] = await sql`
+			SELECT count(*)::int AS n FROM agent_identities
+			WHERE deleted_at IS NULL AND meta->'forked_from'->>'agent_id' = ${id}
+		`;
+		return r?.n || 0;
+	} catch {
+		return 0;
+	}
+}
+
+// GET  /api/agents/:id/solana/networth — public read: the agent's net-worth "look"
+//   (presence tier, aura, confidence, regalia marks) derived entirely from real
+//   chain reads + real DB counts, plus the owner's reactivity preferences.
+// PUT  /api/agents/:id/solana/networth — owner-only: persist the reactivity prefs
+//   (CSRF-gated). Visitors render the agent exactly as the owner configured it.
+async function handleNetWorth(req, res, id) {
+	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'PUT'])) return;
+
+	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+
+	const auth = await resolveAuth(req);
+	const isOwner = !!(auth && row.user_id === auth.userId);
+	const address = row.meta?.solana_address || null;
+	const hubUrl = `/agent/${id}/wallet`;
+
+	if (req.method === 'PUT') {
+		// Only the owner shapes how their agent presents itself; a forged change
+		// could force a flex the owner opted out of, so require CSRF.
+		if (!isOwner) return error(res, auth ? 403 : 401, auth ? 'forbidden' : 'unauthorized', auth ? 'not your agent' : 'sign in required');
+		if (!(await requireCsrf(req, res, auth.userId))) return;
+		let body;
+		try {
+			body = await readJson(req);
+		} catch (e) {
+			return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+		}
+		const prev = normalizePrefs(row.meta?.networth_look);
+		const next = normalizePrefs({
+			reactivity: 'reactivity' in body ? body.reactivity : prev.reactivity,
+			signals: { ...prev.signals, ...(body.signals && typeof body.signals === 'object' ? body.signals : {}) },
+		});
+		next.updated_at = new Date().toISOString();
+		const meta = { ...(row.meta || {}), networth_look: next };
+		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
+		logAudit({ userId: auth.userId, action: 'networth.prefs_update', resourceId: id, meta: { prev, next }, req });
+		return json(res, 200, { data: { prefs: next, is_owner: true } });
+	}
+
+	const rl = await limits.walletRead(isOwner ? auth.userId : clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const prefs = normalizePrefs(row.meta?.networth_look);
+	const forkCount = await forkCountFor(id);
+
+	// No wallet yet (provisioning): calm baseline look, honest about state. The
+	// agent still reads as itself — never poor-shamed, never faked.
+	if (!address) {
+		const look = computeLook({ usd: 0, forkCount });
+		return json(res, 200, {
+			data: {
+				agent_id: id, address: null, network: 'mainnet', provisioning: true,
+				portfolio: { usd: 0, sol: 0, three: null, usdc: 0, token_count: 0, top: [] },
+				reputation: { fork_count: forkCount },
+				tier: look.tier, look, marks: computeMarks({ usd: 0, forkCount }, { hubUrl }),
+				prefs, is_owner: isOwner, hub_url: hubUrl,
+			},
+		});
+	}
+
+	let balances = null;
+	try {
+		balances = await getBalances({ chain: 'solana', address });
+	} catch (e) {
+		// Hold-last-state contract: when the chain read is briefly unavailable we
+		// return a typed error so the client keeps the agent's last real look
+		// rather than snapping it to a fake baseline.
+		console.warn(`[agents/networth] balance read failed agentId=${id} ${e?.message}`);
+		return error(res, 502, 'rpc_error', 'could not read the wallet right now — holding last state');
+	}
+
+	const usd = walletUsdTotal(balances);
+	const sol = balances?.native?.amount || 0;
+	const tokens = balances?.tokens || [];
+	const threeTok = tokens.find((t) => t.mint === THREE_MINT) || null;
+	const usdcTok = tokens.find((t) => t.symbol === 'USDC');
+	const top = tokens.slice(0, 5).map((t) => ({ symbol: t.symbol, mint: t.mint, usd: t.usd || 0, amount: t.amount || 0 }));
+
+	const state = {
+		usd,
+		threeUsd: threeTok?.usd || 0,
+		threeAmount: threeTok?.amount || 0,
+		forkCount,
+	};
+	const look = computeLook(state);
+	const marks = computeMarks(state, { hubUrl });
+
+	return json(res, 200, {
+		data: {
+			agent_id: id,
+			address,
+			network: 'mainnet',
+			portfolio: {
+				usd,
+				sol,
+				sol_usd: balances?.native?.usd || 0,
+				three: threeTok ? { amount: threeTok.amount, usd: threeTok.usd || 0, price: threeTok.price || 0 } : null,
+				usdc: usdcTok?.usd || 0,
+				token_count: tokens.length,
+				top,
+			},
+			reputation: { fork_count: forkCount },
+			tier: look.tier,
+			look,
+			marks,
+			prefs,
+			is_owner: isOwner,
+			hub_url: hubUrl,
+			updated_at: new Date().toISOString(),
+		},
+	});
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
@@ -1345,6 +1479,7 @@ export default async function handler(req, res, id, action) {
 	if (action === 'withdraw') return handleWithdraw(req, res, id);
 	if (action === 'vanity') return handleVanity(req, res, id);
 	if (action === 'holdings') return handleHoldings(req, res, id);
+	if (action === 'networth') return handleNetWorth(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
 	if (action === 'trade') {
