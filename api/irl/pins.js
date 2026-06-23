@@ -853,7 +853,8 @@ export default wrap(async (req, res) => {
 		// strictly scoped to their session id or the device token they hold. Each
 		// arm is null-guarded so a missing identifier can never widen the match.
 		const rows = await sql`
-			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at, view_count
+			SELECT id, lat, lng, avatar_name, caption, placed_at, expires_at, view_count,
+			       placement_kind, fuzz_radius_m
 			FROM irl_pins
 			WHERE ((${ownerId}::uuid IS NOT NULL AND user_id = ${ownerId}::uuid)
 			    OR (${ownerDev}::text IS NOT NULL AND device_token = ${ownerDev}))
@@ -874,7 +875,8 @@ export default wrap(async (req, res) => {
 			       placed_at, expires_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
 			       gps_accuracy_m, altitude_m, anchor_source,
-			       avatar_manifest, avatar_base_url, avatar_version
+			       avatar_manifest, avatar_base_url, avatar_version,
+			       placement_kind, fuzz_radius_m
 			FROM irl_pins
 			WHERE user_id = ${session.id}
 			  AND hidden_at IS NULL
@@ -931,6 +933,7 @@ export default wrap(async (req, res) => {
 			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
 			       gps_accuracy_m, altitude_m, anchor_source, avatar_version,
+			       placement_kind, fuzz_radius_m,
 			       vps_provider, vps_id,
 			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
 			FROM irl_pins
@@ -972,6 +975,8 @@ export default wrap(async (req, res) => {
 			origin_lng:      roundCoord(r.origin_lng),
 			origin_yaw_deg:  r.origin_yaw_deg,
 			avatar_version:  Number(r.avatar_version) || 0,
+			placement_kind:  r.placement_kind === 'approximate' ? 'approximate' : 'precise',
+			fuzz_radius_m:   Number.isFinite(r.fuzz_radius_m) ? r.fuzz_radius_m : null,
 			is_mine: (!!myId && r.user_id === myId) || (!!myTok && r.device_token === myTok),
 		}));
 
@@ -1034,6 +1039,7 @@ export default wrap(async (req, res) => {
 			       avatar_url, avatar_name, caption, x402_endpoint, placed_at, view_count,
 			       anchor_height_m, anchor_yaw_deg, anchor_quat,
 			       gps_accuracy_m, altitude_m, anchor_source, avatar_version,
+			       placement_kind, fuzz_radius_m,
 			       room_id, rel_east_m, rel_north_m, origin_lat, origin_lng, origin_yaw_deg
 			FROM irl_pins
 			WHERE lat BETWEEN ${lat - latDelta} AND ${lat + latDelta}
@@ -1085,6 +1091,12 @@ export default wrap(async (req, res) => {
 				// pin and swaps the GLB when it bumps. (The editable manifest/base URL
 				// stay owner-private — viewers only ever need the rendered avatar_url.)
 				avatar_version:  Number(r.avatar_version) || 0,
+				// Placement consent (H4): the kind + blur radius drive the owner's
+				// Exact/Approximate badge. A legacy pin (NULL column) reads as 'precise'.
+				// This is a flag, not a coordinate — for an approximate pin the true spot
+				// was never stored, so surfacing "≈ approximate (~Nm)" leaks nothing.
+				placement_kind:  r.placement_kind === 'approximate' ? 'approximate' : 'precise',
+				fuzz_radius_m:   Number.isFinite(r.fuzz_radius_m) ? r.fuzz_radius_m : null,
 				is_mine: (!!myId && r.user_id === myId) || (!!myTok && r.device_token === myTok),
 				distance_m: Math.round(haversineDist(lat, lng, r.lat, r.lng)),
 			}))

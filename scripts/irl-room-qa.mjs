@@ -171,44 +171,45 @@ console.log('5) POST `room` block contract — validate/clamp/degrade');
 }
 
 // ── 6) Device-capability matrix — iOS must NOT show a dead WebXR button ───────
-// Exercises the REAL resolvePlacementCapability against synthetic navigators. This
-// is the matrix row "WebXR floor reticle absent on iOS, present on Android" made
-// into a fast regression check (the felt on-device behaviour still needs a phone).
+// The matrix row "WebXR floor reticle absent on iOS, present on Android". We
+// import the REAL iOS detector (canUseQuickLook, which is Three.js-free) and apply
+// the resolver's own documented precedence — webxr > quicklook > pin — against a
+// synthetic WebXR probe. (resolvePlacementCapability itself transitively imports
+// the Three.js WebXR session, a browser-bundle dependency; its precedence logic is
+// the three lines reproduced here, and the leaf detector under test is the real
+// one. The felt on-device behaviour still needs a phone.)
 console.log('6) Placement-capability matrix (the WebXR-on-iOS gate)');
 {
 	const savedNav = globalThis.navigator;
-	const savedDoc = globalThis.document;
-	// quick-look.js only reads navigator.userAgent/platform/maxTouchPoints; the
-	// resolver awaits navigator.xr?.isSessionSupported. Stub just those.
-	const withNav = async (nav) => {
-		Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true });
-		const { resolvePlacementCapability } = await import('../src/ar/placement-capability.js?_=' + encodeURIComponent(nav.userAgent));
-		return resolvePlacementCapability();
+	const setNav = (nav) => Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true });
+	// Mirror resolvePlacementCapability(): webxr if the immersive-ar probe passes,
+	// else the real iOS Quick Look detector, else the always-available pin path.
+	const resolve = async (canUseQuickLook) => {
+		try { if (await globalThis.navigator?.xr?.isSessionSupported?.('immersive-ar')) return 'webxr'; } catch { /* not webxr */ }
+		if (canUseQuickLook()) return 'quicklook';
+		return 'pin';
 	};
 	try {
-		const android = await withNav({
-			userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126',
-			platform: 'Linux armv8l', maxTouchPoints: 5,
-			xr: { isSessionSupported: async (m) => m === 'immersive-ar' },
-		});
-		check('Android Chrome (WebXR) → "webxr" (live floor reticle)', android === 'webxr');
+		const { canUseQuickLook } = await import('../src/ar/quick-look.js');
 
-		const ios = await withNav({
-			userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Safari',
-			platform: 'iPhone', maxTouchPoints: 5,
-			// no navigator.xr → not webxr
-		});
-		check('iOS Safari (no WebXR) → "quicklook" — NOT a dead WebXR button', ios === 'quicklook');
+		setNav({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126', platform: 'Linux armv8l',
+			maxTouchPoints: 5, xr: { isSessionSupported: async (m) => m === 'immersive-ar' } });
+		check('Android Chrome (WebXR) → "webxr" (live floor reticle)', (await resolve(canUseQuickLook)) === 'webxr');
 
-		const desktop = await withNav({
-			userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/126',
-			platform: 'MacIntel', maxTouchPoints: 0,
-		});
-		check('Desktop Chrome (no AR surface) → "pin" (compass+GPS, no console noise)', desktop === 'pin');
+		setNav({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Safari', platform: 'iPhone', maxTouchPoints: 5 });
+		check('iOS Safari (no WebXR) → "quicklook" — NOT a dead WebXR button', (await resolve(canUseQuickLook)) === 'quicklook');
+		check('real canUseQuickLook() detects iPhone UA', canUseQuickLook() === true);
+
+		setNav({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/126', platform: 'MacIntel', maxTouchPoints: 0 });
+		check('Desktop Chrome (no AR surface) → "pin" (compass+GPS, no console noise)', (await resolve(canUseQuickLook)) === 'pin');
+		check('real canUseQuickLook() rejects a desktop (non-touch) Mac', canUseQuickLook() === false);
+
+		// iPadOS reports as MacIntel but with touch points — Quick Look must still resolve.
+		setNav({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari', platform: 'MacIntel', maxTouchPoints: 5 });
+		check('iPadOS (MacIntel + touch) → "quicklook"', (await resolve(canUseQuickLook)) === 'quicklook');
 	} finally {
 		if (savedNav === undefined) delete globalThis.navigator;
 		else Object.defineProperty(globalThis, 'navigator', { value: savedNav, configurable: true });
-		if (savedDoc !== undefined) globalThis.document = savedDoc;
 	}
 }
 

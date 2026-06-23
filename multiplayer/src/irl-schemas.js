@@ -12,9 +12,12 @@
 // The IrlPin schema + IrlState.pins map below are therefore DORMANT: declared but
 // never populated by the server and never read by the client (src/irl-net.js
 // consumes viewers + reactions only). They are retained — not deleted — because
-// @colyseus/schema's binary protocol is POSITIONAL: removing IrlPin or the `pins`
-// field would shift every later field's index and break any client still connected
-// to an older deployed server mid-deploy. They cost nothing on the wire while empty.
+// @colyseus/schema's binary protocol is POSITIONAL for IrlState's own fields:
+// removing the `pins` field would shift `geocell`/`viewers` down an index and break
+// any client still connected to an older deployed server mid-deploy. An EMPTY pins
+// map costs nothing on the wire, so the field stays; the room-frame anchoring lives
+// entirely in the REST `/api/irl/pins` projection (src/irl/room-anchor.js), never
+// here. There is deliberately no live pin/room stream over this socket.
 //
 // IMPORTANT: append-only. Field indices are positional in @colyseus/schema's
 // binary protocol — inserting in the middle shifts every later index and breaks
@@ -24,8 +27,13 @@ import { Schema, MapSchema, defineTypes } from '@colyseus/schema';
 
 // DORMANT (see header): a placed 3D agent's wire shape. Never populated by the
 // server — pins ride the REST proximity read, not this socket — and never read by
-// the client. Kept only to preserve the positional binary layout across deploys.
-// lat/lng are float64 to carry an honest coordinate had this ever synced.
+// the client. Kept solely so IrlState.pins has a member type and IrlState's field
+// order stays stable across deploys. No room-frame fields live here: room anchoring
+// is REST-only (a calibrated room reaches other viewers on their next ~10 s poll),
+// so adding them implied a live room stream that does not exist — they were removed.
+// Because no IrlPin is ever serialized (the pins map is always empty), its own field
+// set never hits the wire and can change freely; only IrlState's layout is load-
+// bearing. lat/lng are float64 to carry an honest coordinate had this ever synced.
 export class IrlPin extends Schema {
 	constructor() {
 		super();
@@ -39,17 +47,6 @@ export class IrlPin extends Schema {
 		this.x402Endpoint = '';  // optional paid endpoint the IRL Pay button calls
 		this.agentId = '';       // three.ws agent id this pin embodies (cross-links)
 		this.placedAt = 0;       // epoch ms, for age / ordering on the client
-		// — Room frame (append-only) — shared room-relative anchoring. An agent
-		// placed in a ROOM stores its exact offset from a shared origin instead of
-		// relying on its own (noisy) GPS, so a cluster keeps its room-scale layout
-		// identical for every viewer — see src/irl/room-anchor.js. roomId === ''
-		// means a legacy standalone pin that renders from its absolute lat/lng.
-		this.roomId = '';        // groups agents into one shared local frame
-		this.relEast = 0;        // metres east of the room origin (room frame)
-		this.relNorth = 0;       // metres north of the room origin (room frame)
-		this.originLat = 0;      // room origin latitude (the cluster's GPS index)
-		this.originLng = 0;      // room origin longitude
-		this.originYawDeg = 0;   // room frame rotation vs true north (0 = aligned)
 	}
 }
 defineTypes(IrlPin, {
@@ -63,16 +60,6 @@ defineTypes(IrlPin, {
 	x402Endpoint: 'string',
 	agentId: 'string',
 	placedAt: 'float64',
-	// Append-only (room frame): new fields at the end so a still-connected older
-	// client isn't shifted off the positional binary format mid-deploy. relEast/
-	// relNorth are metres (float32 ≈ 1e-5 m resolution over a building — ample);
-	// the origin is a coordinate, so float64 like lat/lng.
-	roomId: 'string',
-	relEast: 'float32',
-	relNorth: 'float32',
-	originLat: 'float64',
-	originLng: 'float64',
-	originYawDeg: 'float32',
 });
 
 // A live viewer present in this geocell — live presence (D2). D1 declared this

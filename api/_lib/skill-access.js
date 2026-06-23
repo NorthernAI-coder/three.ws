@@ -6,6 +6,9 @@
 //
 // A user is granted access through any one of (checked in priority order so a
 // confirmed purchase or a subscription is never satisfied by burning a trial):
+//   0. NFT gate (gate_type = 'nft') — access requires holding ≥1 NFT from the
+//      configured collection in a linked wallet. Not a purchase: no payment, no
+//      ledger row. Verified live on-chain and FAIL-CLOSED (an RPC error denies).
 //   1. The skill is not priced in agent_skill_prices  → free, always allowed.
 //   2. A confirmed one-time purchase in skill_purchases (honouring time-passes).
 //   3. An agent-level flat subscription (user_agent_subscriptions) — covers
@@ -14,21 +17,41 @@
 //      whose included_skills array lists this skill.
 //   5. An active trial with remaining uses.
 //
-// Returns { paid, owned, price?, reason?, via_subscription?, trial?, trial_remaining? }
-//   paid    — boolean: is this skill priced in agent_skill_prices (i.e. payment-gated)?
+// Returns { paid, owned, price?, reason?, via_subscription?, trial?, trial_remaining?, gate? }
+//   paid    — boolean: is this skill access-gated in agent_skill_prices?
 //   owned   — boolean: may the user execute it right now?
 //   price   — { skill, amount, currency_mint, chain } when paid; undefined otherwise
-//   reason  — short string when access is denied ('not_purchased' | 'trial_exhausted' | 'expired')
+//   reason  — short string when access is denied ('not_purchased' | 'trial_exhausted'
+//             | 'expired' | 'nft_required' | 'nft_check_failed')
+//   gate    — { type: 'nft', collection } when the skill is NFT-gated
 
 import { sql } from './db.js';
+import { userHoldsCollection } from './nft-gate.js';
 
 export async function hasSkillAccess(userId, agentId, skill) {
 	const [price] = await sql`
-		SELECT skill, amount, currency_mint, chain
+		SELECT skill, amount, currency_mint, chain, gate_type, nft_collection_mint
 		FROM agent_skill_prices
 		WHERE agent_id = ${agentId} AND skill = ${skill} AND is_active = true
 	`;
 	if (!price) return { paid: false, owned: true };
+
+	// 0. NFT gate — access is holding the collection, not a purchase. Resolved on
+	// its own path: trials / time-passes / subscriptions don't apply.
+	if (price.gate_type === 'nft' && price.nft_collection_mint) {
+		const gate = { type: 'nft', collection: price.nft_collection_mint };
+		if (!userId) return { paid: true, owned: false, price, gate, reason: 'nft_required' };
+		try {
+			const held = await userHoldsCollection(userId, price.nft_collection_mint);
+			return held
+				? { paid: true, owned: true, price, gate, via_nft: true }
+				: { paid: true, owned: false, price, gate, reason: 'nft_required' };
+		} catch (err) {
+			// Fail-closed: a verification failure must never unlock a gated skill.
+			console.error('[skill-access] nft gate check failed', err?.message);
+			return { paid: true, owned: false, price, gate, reason: 'nft_check_failed' };
+		}
+	}
 
 	if (!userId) return { paid: true, owned: false, price, reason: 'not_purchased' };
 
