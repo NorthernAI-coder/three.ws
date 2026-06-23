@@ -501,6 +501,10 @@
 			"dest": "/agi.html"
 		},
 		{
+			"src": "/ca2x402/?",
+			"dest": "/ca2x402.html"
+		},
+		{
 			"src": "/api/billing/receipts",
 			"dest": "/api/billing/receipts"
 		},
