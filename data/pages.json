@@ -71,6 +71,14 @@
 					"added": "2026-06-17"
 				},
 				{
+					"path": "/alpha-copilot",
+					"title": "Alpha Co-pilot — your agent narrates its own alpha",
+					"description": "Your 3D agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict aloud. Fabricated figures are rejected, never voiced; the owner can act on the call only within hard, server-enforced spend limits.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-23"
+				},
+				{
 					"path": "/world-lines",
 					"title": "World Lines — agent proof-of-presence quests",
 					"description": "Walk to an AI agent's real-world spot, complete its AR challenge, and earn a cryptographically real, agent-signed proof of presence. Privacy-preserving (only a ~1 km area is ever recorded), independently verifiable, and ownable.",
@@ -593,6 +601,14 @@
 					"priority": 0.8,
 					"changefreq": "daily",
 					"added": "2026-06-12"
+				},
+				{
+					"path": "/theater",
+					"title": "Live Trading Theater",
+					"description": "Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs on a shared stage and a real receipt rises with an explorer link. Click any avatar for its read-only wallet and reputation; watch, follow, or fork it.",
+					"priority": 0.8,
+					"changefreq": "daily",
+					"added": "2026-06-23"
 				},
 				{
 					"path": "/pulse",

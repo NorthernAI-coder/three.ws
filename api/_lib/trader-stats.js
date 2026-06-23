@@ -19,10 +19,16 @@
  * Honesty rules baked in:
  *   - SOL amounts are exact (from chain). USD is an enrichment that degrades to
  *     null if the price feed is down — we never fabricate a dollar figure.
- *   - We do NOT claim "wash detection" we can't do from one-sided position data.
- *     `churn_pct` is an explicit heuristic (near-flat in-and-out churn) and is
+ *   - `churn_pct` is an explicit heuristic (near-flat in-and-out churn) and is
  *     named as such.
  *   - Survivorship-honest: closed losers are counted, never hidden.
+ *   - Anti-gaming, when the caller supplies the evidence: realized P&L from
+ *     round-trips on the trader's OWN coins (`selfDealMints`) is NOT credited to
+ *     the verifiable record — you cannot pump a token you launched and call it a
+ *     track record. The excluded total is reported transparently, never silently
+ *     dropped. Snipe hit-rate (`mintCreatedAt`) is the win rate on entries made
+ *     within minutes of a coin's on-chain birth — the hardest, most-faked flex,
+ *     here computed only over launches whose creation slot we can actually prove.
  */
 
 import { sql } from './db.js';
@@ -59,6 +65,14 @@ const BADGE = { minClosed: 12, minUniqueCoins: 5, maxChurnPct: 40 };
 // near-flat result is in-and-out churn that pads trade counts without real risk.
 const CHURN_HOLD_SECONDS = 25;
 const CHURN_FLAT_PCT = 1.5;
+
+// Snipe window: an entry is a "snipe" when it lands within this long after the
+// coin's on-chain birth. 5 minutes is generous enough to survive the gap between
+// our DB open timestamp and the chain's block time, tight enough to mean "early".
+const SNIPE_WINDOW_MS = 5 * 60_000;
+// Grace for clock skew between our recorded open time and the launch block time —
+// a buy can never truly precede the mint, so a few seconds of negative drift is noise.
+const SNIPE_SKEW_GRACE_MS = 3_000;
 
 const big = (v) => {
 	try { return Number(BigInt(v)); } catch { return Number(v) || 0; }
@@ -107,11 +121,35 @@ function maxDrawdown(closedOrderedLamports) {
  *   opened_at, closed_at.
  * @param {object} [opts]
  * @param {number|null} [opts.solUsd]  USD per SOL, or null to omit USD fields.
+ * @param {Set<string>|Record<string,true>|null} [opts.selfDealMints]  Mints the
+ *   trader's own account launched/created. Positions on these are split out of the
+ *   credited record (anti-gaming) and reported under `self_dealing_*`. Omit/null
+ *   to credit every position (legacy behaviour).
+ * @param {Map<string,number|string>|Record<string,number|string>|null} [opts.mintCreatedAt]
+ *   Mint → on-chain creation time (ms epoch or ISO). Drives snipe hit-rate. Only
+ *   mints present here count toward the snipe sample — unknown launches are not
+ *   guessed at.
  * @returns {object} canonical metrics — see fields below.
  */
-export function computeTraderMetrics(positions, { solUsd = null } = {}) {
-	const closed = positions.filter((p) => p.status === 'closed');
-	const open = positions.filter((p) => p.status === 'open' || p.status === 'opening' || p.status === 'closing');
+export function computeTraderMetrics(positions, { solUsd = null, selfDealMints = null, mintCreatedAt = null } = {}) {
+	const isSelfDeal = (mint) =>
+		!!(mint && selfDealMints && (typeof selfDealMints.has === 'function' ? selfDealMints.has(mint) : selfDealMints[mint]));
+	const launchOf = (mint) => {
+		if (!mint || !mintCreatedAt) return null;
+		const v = typeof mintCreatedAt.get === 'function' ? mintCreatedAt.get(mint) : mintCreatedAt[mint];
+		if (v == null) return null;
+		const t = typeof v === 'number' ? v : Date.parse(v);
+		return Number.isFinite(t) ? t : null;
+	};
+
+	// Anti-gaming: round-trips on the trader's OWN coins are split out before any
+	// credited metric is computed. They are counted and reported, never hidden, but
+	// they cannot inflate the verifiable record.
+	const selfDealPositions = positions.filter((p) => isSelfDeal(p.mint));
+	const credited = selfDealPositions.length ? positions.filter((p) => !isSelfDeal(p.mint)) : positions;
+
+	const closed = credited.filter((p) => p.status === 'closed');
+	const open = credited.filter((p) => p.status === 'open' || p.status === 'opening' || p.status === 'closing');
 
 	// --- Realized (closed positions) ---
 	let realizedLamports = 0n;
@@ -125,6 +163,9 @@ export function computeTraderMetrics(positions, { solUsd = null } = {}) {
 	let churn = 0;
 	let bestPct = null, worstPct = null;
 	let firstActive = null, lastActive = null;
+	// Snipe hit-rate: only positions whose mint has a proven on-chain birth count
+	// toward the sample, so the number is honest about its own coverage.
+	let snipeSample = 0, snipeCount = 0, snipeWins = 0;
 
 	// Oldest→newest by close time for the equity curve.
 	const closedOrdered = [...closed].sort(
@@ -153,6 +194,16 @@ export function computeTraderMetrics(positions, { solUsd = null } = {}) {
 		const held = Math.max(0, (closedAt - opened) / 1000);
 		holdSeconds.push(held);
 		if (held <= CHURN_HOLD_SECONDS && pct != null && Math.abs(pct) <= CHURN_FLAT_PCT) churn += 1;
+
+		const launchMs = launchOf(p.mint);
+		if (launchMs != null) {
+			snipeSample += 1;
+			const sinceLaunch = opened - launchMs;
+			if (sinceLaunch >= -SNIPE_SKEW_GRACE_MS && sinceLaunch <= SNIPE_WINDOW_MS) {
+				snipeCount += 1;
+				if (pnl > 0n) snipeWins += 1;
+			}
+		}
 
 		if (firstActive == null || opened < firstActive) firstActive = opened;
 		if (lastActive == null || closedAt > lastActive) lastActive = closedAt;
@@ -215,6 +266,18 @@ export function computeTraderMetrics(positions, { solUsd = null } = {}) {
 
 	const usd = (sol) => (solUsd != null ? sol * solUsd : null);
 
+	// Self-dealing summary (transparent, never folded into the credited numbers).
+	let selfDealClosed = 0;
+	let selfDealPnlLamports = 0n;
+	for (const p of selfDealPositions) {
+		if (p.status === 'closed') {
+			selfDealClosed += 1;
+			selfDealPnlLamports += BigInt(p.realized_pnl_lamports ?? 0);
+		}
+	}
+	const selfDealPnlSol = big(selfDealPnlLamports.toString()) / LAMPORTS_PER_SOL;
+	const snipeHitRate = snipeCount ? snipeWins / snipeCount : null;
+
 	return {
 		score,
 		verified,
@@ -252,6 +315,20 @@ export function computeTraderMetrics(positions, { solUsd = null } = {}) {
 		median_hold_seconds: Math.round(median(holdSorted)),
 		unique_coins: coins.size,
 		churn_pct: Number(churnPct.toFixed(2)),
+
+		// Snipe hit-rate — win rate on entries inside SNIPE_WINDOW_MS of a coin's
+		// proven on-chain birth. null until at least one such launch is in the
+		// sample; `snipe_sample` exposes the coverage so the rate is never overclaimed.
+		snipe_count: snipeCount,
+		snipe_wins: snipeWins,
+		snipe_sample: snipeSample,
+		snipe_hit_rate: snipeHitRate != null ? Number(snipeHitRate.toFixed(4)) : null,
+
+		// Anti-gaming: round-trips on the trader's OWN coins, excluded from every
+		// credited metric above and surfaced here so the exclusion is auditable.
+		self_dealing_count: selfDealClosed,
+		self_dealing_excluded_pnl_sol: Number(selfDealPnlSol.toFixed(6)),
+		self_dealing_excluded_pnl_usd: usd(selfDealPnlSol) != null ? Number(usd(selfDealPnlSol).toFixed(2)) : null,
 
 		first_active_at: firstActive ? new Date(firstActive).toISOString() : null,
 		last_active_at: lastActive ? new Date(lastActive).toISOString() : null,

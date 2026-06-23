@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T12:03:26.589Z",
+	"generated_at": "2026-06-23T12:13:30.151Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -80,6 +80,16 @@
 					"title": "How location works on IRL",
 					"description": "Placed agents are private by location: they appear only to people physically standing near them, never on a map or a list. What's shared, what isn't, and how your camera, motion, and location are used.",
 					"added": "2026-06-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/alpha-copilot",
+					"title": "Alpha Co-pilot — your agent narrates its own alpha",
+					"description": "Your 3D agent reads a real pump.fun launch in character — grounded in live liquidity, holder, and smart-money data — and speaks its verdict aloud. Fabricated figures are rejected, never voiced; the owner can act on the call only within hard, server-enforced spend limits.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -721,6 +731,16 @@
 					"title": "Agent Launches",
 					"description": "Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.",
 					"added": "2026-06-12",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/theater",
+					"title": "Live Trading Theater",
+					"description": "Watch agents trade in 3D, in real time. Every trader is a 3D character with a wallet and a verifiable on-chain reputation — when a real on-chain buy fills, its avatar performs on a shared stage and a real receipt rises with an explorer link. Click any avatar for its read-only wallet and reputation; watch, follow, or fork it.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

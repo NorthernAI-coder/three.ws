@@ -50,6 +50,7 @@ import {
 	TOTAL_BUDGET_MS,
 	PER_CALL_TIMEOUT_MS,
 } from './_lib/chat-models.js';
+import { computeContext, searchMemories } from './_lib/memory-store.js';
 import { z } from 'zod';
 
 // Providers anonymous (unauthenticated) callers may use. Groq and OpenRouter
@@ -439,6 +440,7 @@ export default wrap(async (req, res) => {
 	);
 
 	let personaPrompt = null;
+	let isOwner = false;
 	if (body.agentId) {
 		// Persona prompts are private IP: only serve them for published agents,
 		// or to the agent's owner. Anonymous callers get published personas only.
@@ -448,6 +450,7 @@ export default wrap(async (req, res) => {
 			  AND (is_published = true OR user_id = ${auth?.userId ?? null})
 			LIMIT 1
 		`;
+		isOwner = Boolean(auth?.userId && agentRow?.user_id === auth.userId);
 		// Brain Studio preview: the owner may audition an unsaved compiled persona.
 		// The override only applies to the agent's owner — never published-agent
 		// visitors — so it can't be used to inject a prompt into someone's agent.
@@ -459,7 +462,25 @@ export default wrap(async (req, res) => {
 	}
 	if (!personaPrompt && body.system_prompt) personaPrompt = body.system_prompt;
 
-	const systemPrompt = buildSystemPrompt(body.context, personaPrompt);
+	// Real memory recall: surface the agent's always-in-context core (pinned /
+	// working tier) plus the memories most relevant to THIS message, inject them
+	// into the system prompt so they actually shape the reply, and report exactly
+	// which ones were used in the `done` event (the client emits `memory:recalled`
+	// from that). The owner sees all their memories; a third party chatting with a
+	// published agent sees only its public memories. Best-effort: a memory-store
+	// hiccup degrades to a memory-less reply, never a failed chat.
+	let recalledMemories = [];
+	let recalledSemantic = false;
+	if (body.agentId) {
+		try {
+			recalledMemories = await recallForChat(body.agentId, body.message, isOwner);
+			recalledSemantic = recalledMemories.some((m) => m.match === 'semantic');
+		} catch (err) {
+			captureException(err, { route: 'chat', stage: 'recall', agentId: body.agentId });
+		}
+	}
+
+	const systemPrompt = buildSystemPrompt(body.context, personaPrompt, recalledMemories);
 	const history = body.history.map((m) => ({ role: m.role, content: m.content }));
 	history.push({ role: 'user', content: body.message });
 
@@ -820,6 +841,11 @@ export default wrap(async (req, res) => {
 		governance,
 		model: route.model,
 		provider: route.name,
+		// Exactly the memories the server injected into this reply's context — the
+		// client emits `memory:recalled` from this. Empty when nothing was recalled.
+		recalled: recalledMemories,
+		recalledSemantic,
+		recalledTs: new Date().toISOString(),
 	});
 	res.end();
 
@@ -1264,7 +1290,44 @@ function parseToolJson(name, jsonText) {
 
 // ── System prompt + auth + helpers ───────────────────────────────────────────
 
-function buildSystemPrompt(ctx = {}, personaPrompt = null) {
+// Pull the memories that should ground THIS reply: the agent's always-in-context
+// core (pinned + working tier, via computeContext) merged with the memories most
+// relevant to the user's message (semantic + lexical, via searchMemories). The
+// owner sees everything; a visitor to a published agent sees only public
+// memories. Returns the compact shape the `done` event and the client bus event
+// share — id, type, tier, salience, a display snippet, and how it surfaced.
+async function recallForChat(agentId, message, isOwner) {
+	const visible = (m) => isOwner || m.isPublic;
+	const [ctx, search] = await Promise.all([
+		computeContext(agentId).catch(() => ({ entries: [] })),
+		searchMemories(agentId, message, { topK: 6 }).catch(() => ({ results: [] })),
+	]);
+
+	const byId = new Map();
+	for (const m of ctx.entries || []) {
+		if (visible(m)) byId.set(m.id, { row: m, match: 'context' });
+	}
+	for (const m of search.results || []) {
+		if (!visible(m)) continue;
+		// A search hit on a core memory keeps the more specific match label.
+		const prev = byId.get(m.id);
+		byId.set(m.id, { row: m, match: m.match || prev?.match || 'lexical' });
+	}
+
+	return [...byId.values()]
+		.sort((a, b) => (b.row.salience || 0) - (a.row.salience || 0))
+		.slice(0, 10)
+		.map(({ row, match }) => ({
+			id: row.id,
+			type: row.type,
+			tier: row.tier,
+			salience: row.salience,
+			snippet: String(row.content || '').replace(/\s+/g, ' ').trim().slice(0, 160),
+			match,
+		}));
+}
+
+function buildSystemPrompt(ctx = {}, personaPrompt = null, recalled = []) {
 	const loaded = ctx.modelName
 		? `A model named "${ctx.modelName}" is loaded. Stats: ${fmt(ctx.vertices)} vertices, ${fmt(ctx.triangles)} triangles, ${fmt(ctx.materials)} materials, ${ctx.animations ?? 0} animations.`
 		: 'No model is currently loaded in the viewer.';
@@ -1276,6 +1339,13 @@ function buildSystemPrompt(ctx = {}, personaPrompt = null) {
 
 	const lines = [];
 	if (personaPrompt) lines.push(personaPrompt, '');
+	if (Array.isArray(recalled) && recalled.length) {
+		lines.push(
+			'What you remember (recalled for this conversation — speak from it naturally, never read it back verbatim or mention "memory IDs"):',
+			...recalled.map((m) => `- (${m.type}) ${m.snippet}`),
+			'',
+		);
+	}
 	lines.push(
 		'You are an embodied AI assistant rendered as a 3D avatar at three.ws — the platform for building, embedding, and monetising 3D AI agents.',
 		'',

@@ -21,6 +21,7 @@ import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 import { mountRoyaltySetting } from './shared/agent-fork-royalty.js';
 import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
+import { emitRecallFromChat } from './agents/memory-client.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -1841,6 +1842,11 @@ async function sendChatMessage(text) {
 					assistantNode.textContent = acc;
 					log.scrollTop = log.scrollHeight;
 					streamThoughtText(acc);
+				} else if (evt.type === 'done') {
+					// The server reports exactly which memories it recalled into this
+					// reply's context — turn that into a `memory:recalled` bus event so
+					// the HUD, Mind Palace, and any other surface can react live.
+					emitRecallFromChat(isUuid ? agentIdMaybe : null, evt, text);
 				} else if (evt.type === 'error') {
 					throw new Error(evt.message || evt.error || 'Stream error');
 				}
