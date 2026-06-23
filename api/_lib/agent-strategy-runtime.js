@@ -325,10 +325,13 @@ async function evaluateEntries({ equip, agent, launches, nowMs, maxEntries = 3 }
 		const verdict = matchesEntry(config, launch, nowMs);
 		if (!verdict.pass) continue;
 
-		// Already holding this mint for this equip? Don't stack.
+		// Already holding this mint anywhere on this agent? Don't stack. The position
+		// unique key is (agent_id, mint, network), so the check must be agent-scoped —
+		// an equip-scoped check would let a buy land that the position upsert can't
+		// record (a closed/other-strategy row would win the conflict).
 		const [held] = await sql`
 			SELECT 1 FROM agent_strategy_positions
-			WHERE equip_id = ${equip.id} AND mint = ${launch.mint} AND network = ${network}
+			WHERE agent_id = ${agent.id} AND mint = ${launch.mint} AND network = ${network}
 			  AND status IN ('open','closing') LIMIT 1
 		`;
 		if (held) continue;
@@ -354,6 +357,10 @@ async function evaluateEntries({ equip, agent, launches, nowMs, maxEntries = 3 }
 		if (result.status === 'executed' || result.status === 'unconfirmed') {
 			const entryLamports = result.quote ? result.quote.inAtomics : null;
 			const baseAmount = result.quote ? result.quote.outAtomics : null;
+			// Upsert: a fresh open position, OR revive a previously-CLOSED row for the
+			// same mint (re-entry after a take-profit/stop). The WHERE guard means an
+			// already-open row (another strategy) is never clobbered — the held-check
+			// above already skipped this buy in that case.
 			await sql`
 				INSERT INTO agent_strategy_positions
 					(equip_id, strategy_id, agent_id, owner_id, network, mint, symbol, name, status,
@@ -365,7 +372,16 @@ async function evaluateEntries({ equip, agent, launches, nowMs, maxEntries = 3 }
 					${result.signature || null}, ${entryLamports}, ${baseAmount}, ${result.priceImpact ?? null},
 					${entryLamports}, ${entryLamports}, now()
 				)
-				ON CONFLICT (agent_id, mint, network) DO NOTHING
+				ON CONFLICT (agent_id, mint, network) DO UPDATE SET
+					equip_id = excluded.equip_id, strategy_id = excluded.strategy_id, owner_id = excluded.owner_id,
+					symbol = excluded.symbol, name = excluded.name, status = 'open', exit_reason = NULL,
+					entry_sig = excluded.entry_sig, entry_lamports = excluded.entry_lamports,
+					base_amount = excluded.base_amount, entry_price_impact_pct = excluded.entry_price_impact_pct,
+					peak_value_lamports = excluded.peak_value_lamports, last_value_lamports = excluded.last_value_lamports,
+					last_quoted_at = now(), exit_sig = NULL, exit_lamports = NULL,
+					realized_pnl_lamports = NULL, realized_pnl_pct = NULL, error = NULL,
+					opened_at = now(), closed_at = NULL
+				WHERE agent_strategy_positions.status = 'closed'
 			`.catch(() => {});
 			await sql`
 				UPDATE agent_strategy_equips

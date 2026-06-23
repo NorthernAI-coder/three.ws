@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Audio2Face: your avatar's face now moves with its voice",
+			"summary": "When your avatar talks, its mouth and face now animate in real time, in sync with the actual words. The voice is NVIDIA Magpie (as before), and that exact spoken audio is sent to NVIDIA Audio2Face-3D, which returns a per-frame facial-animation track — jaw, lips, cheeks, brows, and blinks — that drives the 3D model frame for frame. Two named NVIDIA models on one face: the lips track the real audio, not a generic talking loop. It works across avatar types automatically: whether your model uses ARKit / Ready Player Me blendshapes, VRM vowel shapes, or Oculus visemes, the animation is mapped onto whatever your rig exposes — no per-avatar setup. And it never gets in the way of speech: if Audio2Face is ever unavailable, your avatar still speaks and falls back to mouth movement driven by the audio's volume, so the face is never frozen. Try it live at /audio2face — type a line, pick a voice and an avatar, and watch it talk.",
+			"tags": [
+				"feature"
+			],
+			"link": "/audio2face"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Strategy Objects: equip an ownable, forkable trading strategy on your agent",
 			"summary": "A trading strategy is now a real thing you own — not a buried setting. A Strategy Object encodes a rule-based plan (snipe launches under N minutes old with the liquidity and market-cap you want, size each buy, take profit at 2×, stop out at −40%, cap concurrent positions, cool down between entries) as a named, versioned, ownable object. Equip it on your agent and it trades the rules for real, on-chain — every entry triggered by a real pump.fun launch, every exit by a real on-chain re-quote, and every order routed through the exact same spend-policy guardrails, rug/honeypot firewall, and custody audit trail as your manual trades. It can never exceed your leash: a strategy buy is gated by your per-trade cap, daily budget, and price-impact breaker, labeled strategy:<name> in the custody trail, and one global kill switch halts all your strategies at once. Publish your strategy to the new marketplace at /strategies, fork anyone else's into your library (you copy the rules with full credit to the author — never any wallet access; you run them under your own spend policy), and watch the leaderboard rank strategies by verified live ROI from real closed positions. Strategies with no closed trades are honestly labeled \"Unproven\" — there are no fabricated backtest curves. Manage equipped strategies, their live positions, and the kill switch right on your agent's profile, next to copy-trading. Owner-only to configure; find it at /strategies or on any agent's profile.",
 			"tags": [

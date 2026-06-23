@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T06:03:28.559Z",
+	"generated_at": "2026-06-23T06:05:25.056Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -44,6 +44,16 @@
 			"link": "/strategies",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Audio2Face: your avatar's face now moves with its voice",
+			"summary": "When your avatar talks, its mouth and face now animate in real time, in sync with the actual words. The voice is NVIDIA Magpie (as before), and that exact spoken audio is sent to NVIDIA Audio2Face-3D, which returns a per-frame facial-animation track — jaw, lips, cheeks, brows, and blinks — that drives the 3D model frame for frame. Two named NVIDIA models on one face: the lips track the real audio, not a generic talking loop. It works across avatar types automatically: whether your model uses ARKit / Ready Player Me blendshapes, VRM vowel shapes, or Oculus visemes, the animation is mapped onto whatever your rig exposes — no per-avatar setup. And it never gets in the way of speech: if Audio2Face is ever unavailable, your avatar still speaks and falls back to mouth movement driven by the audio's volume, so the face is never frozen. Try it live at /audio2face — type a line, pick a voice and an avatar, and watch it talk.",
+			"link": "/audio2face",
+			"tags": [
+				"feature"
 			]
 		},
 		{
