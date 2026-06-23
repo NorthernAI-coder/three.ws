@@ -158,7 +158,7 @@ export class AvatarWalkPreview {
 		const box = new Box3().setFromObject(this.scene.root);
 		this.feetY = -box.min.y;
 		this.pos.set(CIRCLE_RADIUS, 0, 0);
-		this.heading = Math.PI; // face along the initial tangent
+		this.heading = 0; // tangent of a CCW orbit at (R,0) points along +Z
 		this._motion = null;
 		this._camReady = false;
 
@@ -341,6 +341,37 @@ export class AvatarWalkPreview {
 			this.stageEl.style.background = this._savedSky;
 			this._savedSky = '';
 		}
+	}
+
+	// ── On-stage hint ────────────────────────────────────────────────────────
+
+	_installHint() {
+		if (!this.stageEl || this._hintEl) return;
+		const el = document.createElement('div');
+		el.className = 'ae-walk-hint';
+		el.textContent = 'WASD / arrows to drive';
+		el.style.cssText =
+			'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);' +
+			'padding:6px 14px;border-radius:999px;font-size:12px;font-weight:600;' +
+			'letter-spacing:0.01em;color:rgba(255,255,255,0.92);' +
+			'background:rgba(10,10,10,0.66);border:1px solid rgba(255,255,255,0.16);' +
+			'backdrop-filter:blur(6px);pointer-events:none;z-index:6;' +
+			'opacity:0;transition:opacity 0.3s ease;';
+		this.stageEl.appendChild(el);
+		this._hintEl = el;
+		requestAnimationFrame(() => {
+			if (this._hintEl) this._hintEl.style.opacity = '1';
+		});
+	}
+
+	_removeHint() {
+		if (!this._hintEl) return;
+		const el = this._hintEl;
+		this._hintEl = null;
+		el.style.opacity = '0';
+		el.addEventListener('transitionend', () => el.remove(), { once: true });
+		// Failsafe removal in case the element is detached before the transition.
+		setTimeout(() => el.remove(), 400);
 	}
 
 	// ── Input ──────────────────────────────────────────────────────────────

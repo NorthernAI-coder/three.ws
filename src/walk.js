@@ -68,6 +68,7 @@ import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './wa
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 import { createWalkNpcs } from './walk-npcs.js';
 import { createWalkWalletProximity } from './walk-wallet.js';
+import { createWalkCapture } from './walk-capture.js';
 import { createMarketplaceGallery } from './marketplace-gallery.js';
 
 // Walk-Browse: on /marketplace-walk the page boots with ?gallery=marketplace and
@@ -317,7 +318,7 @@ if (envBtn) {
 	envBtn.setAttribute('aria-expanded', 'false');
 	envBtn.addEventListener('click', () => toggleEnvPicker());
 }
-if (screenshotBtn) screenshotBtn.addEventListener('click', () => takeScreenshot());
+if (screenshotBtn) screenshotBtn.addEventListener('click', () => walkCapture.screenshot());
 if (minimapBtn) minimapBtn.addEventListener('click', () => toggleMinimap());
 
 // ── On-screen touch action cluster (mobile) ──────────────────────────────
@@ -991,7 +992,7 @@ const helpOverlay = (() => {
 				<tr><td style="color:#aaa;padding-right:16px">T / Enter</td><td>Chat</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">V</td><td>Cycle environment</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">P</td><td>Screenshot</td></tr>
-				<tr><td style="color:#aaa;padding-right:16px">R</td><td>Toggle GIF recording</td></tr>
+				<tr><td style="color:#aaa;padding-right:16px">R</td><td>Record a clip (up to 10s)</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">M</td><td>Toggle minimap</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">Z</td><td>Hide UI (scene + joystick only)</td></tr>
 				<tr><td style="color:#aaa;padding-right:16px">H / ?</td><td>Toggle this overlay</td></tr>
@@ -1167,11 +1168,11 @@ window.addEventListener('keydown', (e) => {
 			break;
 		case 'KeyP':
 			e.preventDefault();
-			takeScreenshot();
+			walkCapture.screenshot();
 			break;
 		case 'KeyR':
 			e.preventDefault();
-			toggleGifRecording();
+			walkCapture.toggleRecording();
 			break;
 		case 'KeyM':
 			e.preventDefault();

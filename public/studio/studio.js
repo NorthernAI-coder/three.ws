@@ -1911,7 +1911,31 @@ function _buildEmbedUrl(baseUrl) {
 	return params.length ? `${baseUrl}&${params.join('&')}` : baseUrl;
 }
 
+// Corner offsets for the floating-position embed (mirrors widget-client.js).
+const WALK_CORNER_CSS = {
+	tl: 'top:16px;left:16px',
+	tr: 'top:16px;right:16px',
+	bl: 'bottom:16px;left:16px',
+	br: 'bottom:16px;right:16px',
+};
+
+function _refreshWalkSnippet() {
+	const w = parseInt($('#embed-width').value) || 480;
+	const h = parseInt($('#embed-height').value) || 420;
+	const pos = state.config.position || 'inline';
+	const base = 'border:0;border-radius:12px;max-width:100%;background:transparent';
+	let snippet;
+	if (pos === 'inline' || !WALK_CORNER_CSS[pos]) {
+		snippet = `<iframe src="${_currentEmbedUrl}" width="${w}" height="${h}" style="${base}" allow="autoplay" loading="lazy"></iframe>`;
+	} else {
+		snippet = `<iframe src="${_currentEmbedUrl}" width="${w}" height="${h}" style="position:fixed;${WALK_CORNER_CSS[pos]};z-index:2147483000;${base}" allow="autoplay" loading="lazy"></iframe>`;
+	}
+	$('#embed-iframe-snippet').value = snippet;
+	$('#embed-preview-iframe').src = _currentEmbedUrl;
+}
+
 function _refreshEmbedSnippet() {
+	if (_currentWidgetType === 'walking-avatar') return _refreshWalkSnippet();
 	if (!_currentEmbedUrl) return;
 	const url = _buildEmbedUrl(_currentEmbedUrl);
 	const w = parseInt($('#embed-width').value) || 600;
@@ -1924,11 +1948,32 @@ function _refreshEmbedSnippet() {
 function openEmbedModal(widget) {
 	const origin = location.origin;
 	const shareUrl = `${origin}/w/${widget.id}`;
-	_currentEmbedUrl = `${origin}/widget#widget=${widget.id}&kiosk=true`;
 	_currentWidgetType = widget.type || state.type;
 
 	const demoNote = $('#embed-demo-note');
 	if (demoNote) demoNote.hidden = !widget.is_demo;
+
+	if (_currentWidgetType === 'walking-avatar') {
+		// The walking avatar embeds the /walk-embed runtime directly (config baked
+		// into the URL) for the iframe flavor, and uses widget-client.js as the
+		// JS-SDK flavor — which fetches this widget, recognizes the type, and
+		// injects the same iframe (plus optional narration).
+		const avatarParam = walkAvatarParam() || '/avatars/cz.glb';
+		_currentEmbedUrl = `${origin}/walk-embed?${walkEmbedQuery(avatarParam).toString()}`;
+		// No turntable-viewer include-options apply.
+		$('#embed-options').hidden = true;
+		// Prefill the W/H inputs from the chosen size preset.
+		$('#embed-width').value = state.config.width || 480;
+		$('#embed-height').value = state.config.height || 420;
+		$('#embed-share-url').value = shareUrl;
+		_refreshWalkSnippet();
+		$('#embed-script-snippet').value =
+			`<script async src="${origin}/widget-client.js" data-widget="${widget.id}"></` + 'script>';
+		$('#embed-modal').hidden = false;
+		return;
+	}
+
+	_currentEmbedUrl = `${origin}/widget#widget=${widget.id}&kiosk=true`;
 
 	// Show relevant embed-option checkboxes for this widget type, reset to checked.
 	const hasAnimations = _currentWidgetType === 'animation-gallery';
