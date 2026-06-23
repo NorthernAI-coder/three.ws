@@ -119,7 +119,7 @@ export async function runHire({ hirerAgentId, serviceSlug, input = null, maxUsd,
 			body: JSON.stringify(body),
 			allowAnonymous: true,
 		});
-	} catch (err) {
+	} catch {
 		return { ok: false, code: 'network', message: 'Network error — the hire did not start. No funds moved.' };
 	}
 	const j = await r.json().catch(() => null);
@@ -295,7 +295,7 @@ function ensureStyles() {
 const escAttr = escHtml;
 
 // Map a server error code to a designed, actionable message + optional CTA.
-function explainError(res, offer) {
+function explainError(res) {
 	const code = res.code || 'hire_failed';
 	const base = res.message || 'The hire could not complete.';
 	switch (code) {
@@ -472,7 +472,7 @@ export async function openHirePanel(offer, opts = {}) {
 		});
 
 		if (!res.ok) {
-			const ex = explainError(res, offer);
+			const ex = explainError(res);
 			feedback.innerHTML = `<div class="tahx-alert tahx-alert-${ex.kind}">${ex.html}</div>`;
 			goBtn.disabled = false;
 			goBtn.textContent = original;

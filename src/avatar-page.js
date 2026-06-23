@@ -18,6 +18,7 @@ import { PoseStage, loadPoseManifest } from './avatar-pose.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
+import { mountRoyaltySetting } from './shared/agent-fork-royalty.js';
 import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
 
@@ -557,6 +558,15 @@ function mountWalletManager() {
 		});
 	} catch (err) {
 		log.error('[avatar] vanity card', err);
+	}
+
+	// Fork Royalty Streams: let the owner earn provenance income when others fork
+	// this avatar. Applies to future forks only; the forker always keeps the
+	// majority. Mounts under the wallet manager on the owner's own avatar.
+	try {
+		mountRoyaltySetting({ host, agentId: avatar.agent_id });
+	} catch (err) {
+		log.error('[avatar] royalty setting', err);
 	}
 }
 
