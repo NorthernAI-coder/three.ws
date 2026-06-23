@@ -270,7 +270,7 @@
 	function renderCard(spec) {
 		ensureStyles();
 		dismissCard();
-		var card = el('aside', 'tws-disc-card');
+		var card = el('div', 'tws-disc-card');
 		card.setAttribute('role', 'status');
 		card.setAttribute('aria-live', 'polite');
 

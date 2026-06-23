@@ -138,6 +138,24 @@ describe('normalizeIntent — schedule + launch', () => {
 	});
 });
 
+describe('normalizeIntent — on_stream_started (event-driven, no required config)', () => {
+	it('accepts a notify-on-stream-start rule', () => {
+		const r = normalizeIntent({ trigger_type: 'on_stream_started', action_type: 'notify', action_config: { message: 'someone is streaming to you' } });
+		expect(r.ok).toBe(true);
+		expect(r.intent.trigger.type).toBe('on_stream_started');
+		expect(r.intent.action.type).toBe('notify');
+	});
+	it('accepts "split 10% of stream income" to a destination', () => {
+		const r = normalizeIntent({ trigger_type: 'on_stream_started', action_type: 'split_income', action_config: { pct: 10, destination: ADDR } });
+		expect(r.ok).toBe(true);
+		expect(r.intent.action).toMatchObject({ type: 'split_income', pct: 10, of: 'income' });
+	});
+	it('reads back a stream-start rule in plain language', () => {
+		const r = normalizeIntent({ trigger_type: 'on_stream_started', action_type: 'notify', action_config: { message: 'hi' } });
+		expect(describeIntent(r.intent).toLowerCase()).toMatch(/stream/);
+	});
+});
+
 describe('describeIntent', () => {
 	it('produces a human read-back when none was supplied', () => {
 		const r = normalizeIntent({ trigger_type: 'on_balance_below', trigger_config: { threshold_sol: 0.05 }, action_type: 'freeze' });

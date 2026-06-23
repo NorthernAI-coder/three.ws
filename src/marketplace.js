@@ -5658,7 +5658,12 @@ function exportAgentJson() {
 
 async function fork() {
 	if (!detailState) return;
+	const btn = $('d-fork');
+	// In-flight guard: a fork is a real, persisted copy. Without this, a double
+	// click POSTs /fork twice and spawns duplicate agents before navigation lands.
+	if (btn?.disabled) return;
 	const id = detailState.agent.id;
+	if (btn) { btn.disabled = true; btn.textContent = 'Forking…'; }
 	try {
 		const r = await fetch(`${API}/marketplace/agents/${id}/fork`, {
 			method: 'POST',
@@ -5670,18 +5675,26 @@ async function fork() {
 		}
 		const j = await r.json();
 		if (!r.ok) throw new Error(j?.error_description || 'Fork failed');
-		// Send the user to chat with their new fork.
+		// Send the user to chat with their new fork. Leave the button disabled —
+		// we're navigating away, so re-enabling would only flash the old label.
 		const newId = j?.data?.agent?.id;
-		if (newId) location.href = `/agents/${newId}`;
+		if (newId) { location.href = `/agents/${newId}`; return; }
+		throw new Error('Fork failed');
 	} catch (err) {
+		if (btn) { btn.disabled = false; btn.textContent = 'Fork & Chat'; }
 		alert(err.message || 'Fork failed');
 	}
 }
 
 async function toggleBookmark() {
 	if (!detailState) return;
+	const btn = $('d-bookmark');
+	// In-flight guard: rapid toggles fire interleaved POST/DELETE requests whose
+	// responses can land out of order, leaving the star out of sync with the server.
+	if (btn?.disabled) return;
 	const id = detailState.agent.id;
 	const cur = detailState.bookmarked;
+	if (btn) btn.disabled = true;
 	try {
 		const r = await fetch(`${API}/marketplace/agents/${id}/bookmark`, {
 			method: cur ? 'DELETE' : 'POST',
@@ -5693,10 +5706,12 @@ async function toggleBookmark() {
 		}
 		const j = await r.json();
 		detailState.bookmarked = !!j?.data?.bookmarked;
-		$('d-bookmark').classList.toggle('on', detailState.bookmarked);
-		$('d-bookmark').textContent = detailState.bookmarked ? '★' : '☆';
+		btn?.classList.toggle('on', detailState.bookmarked);
+		if (btn) btn.textContent = detailState.bookmarked ? '★' : '☆';
 	} catch (err) {
 		log.error('[marketplace] bookmark', err);
+	} finally {
+		if (btn) btn.disabled = false;
 	}
 }
 

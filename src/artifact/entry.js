@@ -100,7 +100,7 @@ import { log } from '../shared/log.js';
 		// Renderer
 		const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 		renderer.setSize(width, height);
-		renderer.setPixelRatio(window.devicePixelRatio);
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		renderer.shadowMap.enabled = true;
 		renderer.shadowMap.type = THREE.PCFShadowMap;
 		renderer.outputColorSpace = THREE.SRGBColorSpace;

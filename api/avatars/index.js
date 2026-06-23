@@ -156,6 +156,8 @@ async function handleCreate(req, res) {
 				avatar,
 				rigInfo: body.source_meta,
 				source: body.source || 'upload',
+				visibility: avatar.visibility,
+				prompt: body.source_meta?.source_prompt || body.source_meta?.prompt || null,
 			}),
 		);
 	}

@@ -391,6 +391,32 @@ export const limits = {
 	oauthToken: (clientId) =>
 		getLimiter('oauth:token', { limit: 120, window: '1 m' }).limit(clientId),
 	upload: (userId) => getLimiter('upload', { limit: 60, window: '1 h' }).limit(userId),
+	// Auto-rig submission (api/_lib/auto-rig.js → maybeAutoRigAvatar). Every gate
+	// lands BEFORE a paid UniRig GPU rerig job is submitted to Replicate / the
+	// self-host backend, so these are the money path of the auto-rig program — all
+	// critical (fail closed in prod without Redis, the same posture as
+	// mcp3dGenerate / videoGenerateUser). The create request itself stays gated
+	// only by size (enforceQuotas); the spend lives here.
+	//   · rig       — per-user hourly burst ceiling on auto-rig submissions (10/h).
+	//   · rigDaily  — per-user 24h hard cost cap, independent of the hourly bucket,
+	//                 so a user can't drip-feed 10/h around the clock. Env-tunable
+	//                 via AUTO_RIG_DAILY_PER_USER (default 20, floored at 5).
+	//   · rigGlobal — platform-wide hourly circuit breaker on the shared GPU budget,
+	//                 keyed 'global' (mirrors mcp3dGenerateGlobal). Env-tunable via
+	//                 AUTO_RIG_GLOBAL_HOURLY (default 300, floored at 60).
+	rig: (userId) => getLimiter('rig', { limit: 10, window: '1 h', critical: true }).limit(userId),
+	rigDaily: (userId) =>
+		getLimiter('rig:daily', {
+			limit: Math.max(5, Number(process.env.AUTO_RIG_DAILY_PER_USER) || 20),
+			window: '1 d',
+			critical: true,
+		}).limit(userId),
+	rigGlobal: () =>
+		getLimiter('rig:global', {
+			limit: Math.max(60, Number(process.env.AUTO_RIG_GLOBAL_HOURLY) || 300),
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
 	avatarPatch: (userId) => getLimiter('avatar:patch', { limit: 20, window: '1 h' }).limit(userId),
 	prefsWrite: (userId) => getLimiter('prefs:write', { limit: 30, window: '1 h' }).limit(userId),
 	// Per-user budget for the embeddings endpoint (api/agents/:id/embed — free

@@ -239,6 +239,10 @@ export class LaunchTokenModal {
 			this._chart.destroy();
 			this._chart = null;
 		}
+		if (this._copilot) {
+			this._copilot.destroy();
+			this._copilot = null;
+		}
 		if (!this._overlay) return;
 		this._overlay.classList.remove('ltm-open');
 		const el = this._overlay;
@@ -901,6 +905,7 @@ export class LaunchTokenModal {
 						<button class="ltm-btn ltm-btn-primary" id="ltm-share-x">Share on X</button>
 					</div>
 					${ctaRow}
+					<div class="ltm-copilot" id="ltm-copilot"></div>
 				</div>`,
 				`<div></div>
 				<button class="ltm-btn ltm-btn-primary btn btn--primary" id="ltm-done">Close</button>`,
@@ -908,6 +913,7 @@ export class LaunchTokenModal {
 		);
 
 		this._drawShareCard(mint);
+		this._mountCopilot(mint);
 
 		const ov = this._overlay;
 		const shareText = `I just launched $${this._d.symbol} on @pumpdotfun — built & deployed on three.ws 🌐`;
@@ -949,6 +955,28 @@ export class LaunchTokenModal {
 		window.dispatchEvent(
 			new CustomEvent('agent-token-launched', { detail: { mint, pumpUrl } }),
 		);
+	}
+
+	/**
+	 * Mount the Launch Copilot panel on the success step so the launcher can arm
+	 * an autonomous market-maker the moment their coin is live. Lazy-loaded so the
+	 * launch modal's core path never waits on it; a load failure degrades silently
+	 * (the success screen is fully usable without it).
+	 */
+	async _mountCopilot(mint) {
+		const host = this._overlay?.querySelector('#ltm-copilot');
+		if (!host) return;
+		try {
+			const { mountLaunchCopilot } = await import('../launch-copilot.js');
+			this._copilot = mountLaunchCopilot(host, {
+				mint,
+				network: this._d.cluster === 'devnet' ? 'devnet' : 'mainnet',
+				symbol: this._d.symbol || '',
+				coinName: this._d.name || '',
+			});
+		} catch (e) {
+			console.warn('[launch-modal] copilot mount skipped:', e?.message);
+		}
 	}
 
 	/** Render a polished, shareable launch card onto the success-step canvas. */

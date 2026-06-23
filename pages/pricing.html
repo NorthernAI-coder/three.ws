@@ -67,6 +67,15 @@
 			</section>
 
 			<!-- ── TIERS ───────────────────────────────────────────────────── -->
+			<!--
+				Pro/Enterprise subscription prices ($49/mo, $480/yr, the 2.9% platform
+				fee) are FIXED MARKETING FIGURES for the optional team plans — they are
+				not per-call compute and so are not in the pricing catalog
+				(api/_lib/pricing/catalog.js). Per-generation / per-call prices ARE
+				catalog-driven and rendered live in the "Pay only for what you generate"
+				section below, so the two never drift. Update plan prices here; update
+				generation prices in the catalog.
+			-->
 			<div class="pricing-tiers" id="pricing-tiers">
 				<div class="pricing-tier-card" data-tier="free">
 					<div class="pricing-tier-name">Free</div>
@@ -135,6 +144,37 @@
 
 			<!-- ── 3D AVATAR CANVAS ────────────────────────────────────────── -->
 			<canvas class="pricing-avatar-canvas" id="avatar-canvas"></canvas>
+
+			<!-- ── PAY PER USE (catalog-driven) ────────────────────────────── -->
+			<!--
+				Prices here are fetched live from /api/three/catalog (publicCatalog over
+				api/_lib/pricing/catalog.js) — never hardcoded — so the pricing page and
+				the pay/x402 flows always quote the same number. Quoted in USD, settled
+				in $THREE. States: loading skeleton / populated / empty / error.
+			-->
+			<section
+				class="pricing-payg reveal-section"
+				id="pricing-payg"
+				aria-labelledby="payg-heading"
+			>
+				<h2 id="payg-heading">Pay only for what you generate</h2>
+				<p class="payg-lead">
+					No subscription needed. Generation and compute are billed per call &mdash;
+					quoted in USD, settled in <a href="/three">$THREE</a> at the live rate.
+					Drafts are always free.
+				</p>
+				<div
+					class="payg-grid"
+					id="payg-grid"
+					aria-busy="true"
+					aria-live="polite"
+				></div>
+				<p class="payg-foot">
+					Variable items &mdash; rare <code>.threews.sol</code> names, limited
+					collectibles, and creator-priced marketplace sales &mdash; are priced per
+					item at checkout. <a href="/three">See the full $THREE economy &rarr;</a>
+				</p>
+			</section>
 
 			<!-- ── FEATURE COMPARISON ──────────────────────────────────────── -->
 			<section class="pricing-comparison reveal-section">
@@ -949,6 +989,121 @@
 				} catch (_) {}
 			})();
 		</script>
+		<!-- ── Pay-per-use catalog (live from /api/three/catalog) ──────────── -->
+		<script type="module">
+			import { track, ANALYTICS_EVENTS } from '/src/analytics.js';
+
+			const esc = (s) =>
+				String(s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]);
+
+			// Conversion instrumentation — pricing view + tier buy-intent. No PII:
+			// these carry only the surface name and which CTA was clicked. Safe no-op
+			// when PostHog isn't loaded (see src/analytics.js).
+			track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'pricing' });
+			for (const cta of document.querySelectorAll('.pricing-tier-card .pricing-cta')) {
+				const tier = cta.closest('.pricing-tier-card')?.dataset.tier || 'unknown';
+				cta.addEventListener('click', () =>
+					track(ANALYTICS_EVENTS.CTA_CLICKED, { cta: `plan:${tier}`, location: 'pricing' }),
+				);
+			}
+
+			const grid = document.getElementById('payg-grid');
+			if (grid) {
+				// The draft lane is on the free-forever allowlist (not a catalog
+				// action), so it's rendered explicitly as the obvious default — no
+				// wall in front of the free aha.
+				const FREE_CARD = `
+					<article class="payg-card is-free">
+						<div class="payg-card-top">
+							<span class="payg-card-label">Draft generation</span>
+							<span class="payg-badge">Free</span>
+						</div>
+						<div class="payg-card-price"><span class="amt">$0</span><span class="unit">/ generation</span></div>
+						<div class="payg-card-note">No wallet, no card &mdash; the default lane on NVIDIA NIM.</div>
+						<a class="payg-card-cta" href="/create" data-payg-cta="free">Start generating free</a>
+					</article>`;
+
+				const UNIT = { generation: 'generation', data: 'call' };
+				const fmtUsd = (usd) => '$' + Number(usd).toFixed(2);
+
+				function skeleton() {
+					grid.setAttribute('aria-busy', 'true');
+					grid.innerHTML =
+						FREE_CARD +
+						Array.from({ length: 5 })
+							.map(
+								() =>
+									`<article class="payg-card is-skeleton" aria-hidden="true"><div class="sk sk-label"></div><div class="sk sk-price"></div><div class="sk sk-note"></div></article>`,
+							)
+							.join('');
+				}
+
+				function renderError() {
+					grid.setAttribute('aria-busy', 'false');
+					grid.innerHTML =
+						FREE_CARD +
+						`<article class="payg-card is-msg">
+							<div class="payg-card-label">Live prices unavailable</div>
+							<div class="payg-card-note">We couldn't load the price catalog just now. The free draft lane is always available &mdash; retry or <a href="/three">view the $THREE economy</a>.</div>
+							<button class="payg-card-cta" type="button" id="payg-retry">Retry</button>
+						</article>`;
+					document.getElementById('payg-retry')?.addEventListener('click', load);
+				}
+
+				function render(actions) {
+					// Only fixed-price compute lanes belong on this grid; variable items
+					// (usd === null) are covered by the footer note.
+					const fixed = (actions || []).filter(
+						(a) =>
+							a.usd != null &&
+							Number(a.usd) > 0 &&
+							(a.category === 'generation' || a.category === 'data'),
+					);
+					grid.setAttribute('aria-busy', 'false');
+					if (!fixed.length) {
+						grid.innerHTML =
+							FREE_CARD +
+							`<article class="payg-card is-msg"><div class="payg-card-label">More paid lanes coming online</div><div class="payg-card-note">Start free today &mdash; paid generation tiers unlock as engines come online.</div><a class="payg-card-cta" href="/create">Start free</a></article>`;
+						return;
+					}
+					// Cheapest first reads as an honest ramp from the free draft.
+					fixed.sort((a, b) => Number(a.usd) - Number(b.usd));
+					grid.innerHTML =
+						FREE_CARD +
+						fixed
+							.map((a) => {
+								const unit = UNIT[a.category] || 'call';
+								return `<article class="payg-card">
+									<div class="payg-card-top"><span class="payg-card-label">${esc(a.label)}</span></div>
+									<div class="payg-card-price"><span class="amt">${fmtUsd(a.usd)}</span><span class="unit">/ ${unit}</span></div>
+									<div class="payg-card-settle">settled in <strong>$THREE</strong></div>
+								</article>`;
+							})
+							.join('');
+				}
+
+				let viewed = false;
+				async function load() {
+					skeleton();
+					try {
+						const r = await fetch('/api/three/catalog', { headers: { accept: 'application/json' } });
+						if (!r.ok) throw new Error(`catalog ${r.status}`);
+						const { actions } = await r.json();
+						render(actions);
+						if (!viewed) {
+							viewed = true;
+							track(ANALYTICS_EVENTS.SURFACE_OPENED, { surface: 'pricing:pay-per-use' });
+						}
+					} catch (err) {
+						console.warn('[pricing] catalog load failed:', err?.message || err);
+						renderError();
+					}
+				}
+
+				load();
+			}
+		</script>
+
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>

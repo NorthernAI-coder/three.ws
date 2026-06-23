@@ -186,9 +186,20 @@ export default wrap(async (req, res) => {
 		? String(prediction?.error || 'replicate reported failure')
 		: null;
 
+	// Strategy A: for an auto-rig job, finalizeAutoRigStage is the ONLY writer of
+	// status = 'done' (its closeJob sets done + result_avatar_id atomically). If we
+	// flipped the row to 'done' here and finalize then threw, the job would strand
+	// at 'done' + result_avatar_id IS NULL — invisible to the cron's
+	// status in ('queued','running') recovery filter, so the avatar never rigs.
+	// Persist a non-terminal, cron-selectable status instead while still recording
+	// result_glb_url, then let finalize own the terminal transition. Reconstruct
+	// and every other mode keep the original translated status unchanged.
+	const isAutoRig = job.mode === 'rerig' && job.params?.auto_rig === true;
+	const persistStatus = isAutoRig && nextStatus === 'done' ? 'running' : nextStatus;
+
 	await sql`
 		update avatar_regen_jobs
-		set status = ${nextStatus},
+		set status = ${persistStatus},
 		    result_glb_url = ${nextGlbUrl},
 		    error = ${nextError},
 		    updated_at = now()
@@ -223,9 +234,10 @@ export default wrap(async (req, res) => {
 	}
 
 	// Auto-rig completion — a static upload/import/forge avatar was sent through a
-	// 'rerig' job tagged auto_rig. Swap the rigged GLB in place on the source
-	// avatar now so it becomes animation-ready without waiting on a browser poll
-	// (MCP/headless creations never poll). Same SSRF host-pin as above.
+	// 'rerig' job tagged auto_rig. Materialize the rigged GLB as a sibling avatar
+	// and re-point the agent at it now so it becomes animation-ready without
+	// waiting on a browser poll (MCP/headless creations never poll). Same SSRF
+	// host-pin as above.
 	if (
 		nextStatus === 'done' &&
 		nextGlbUrl &&

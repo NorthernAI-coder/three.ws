@@ -1184,7 +1184,7 @@ async function runPhantomPayment(call, displayLabel) {
 
     renderReceipt(call, payment, durations);
     addMsg('agent', renderResult(call, dispatchJson));
-    bumpTicker();
+    bumpTicker(payment.amount);
 
     // Refresh Phantom balance label
     refreshPhantomBalance(buyerAddress);
@@ -1404,7 +1404,7 @@ async function runEvmPayment(call, displayLabel) {
 
     renderReceipt(call, payment, durations);
     addMsg('agent', renderResult(call, dispatchJson));
-    bumpTicker();
+    bumpTicker(payment.amount);
   } catch (err) {
     const activeStep = document.querySelector('.step.active')?.id?.replace('step-', '') || 'challenge';
     setStep(activeStep, 'error', err.message);
@@ -1821,7 +1821,7 @@ async function run(call, displayLabel) {
     }
     renderReceipt(call, final.payment, final.durations);
     addMsg('agent', renderResult(call, final.result));
-    bumpTicker();
+    bumpTicker(final.payment?.amount);
     refreshBalance();
     refreshFeed();
   } catch (err) {
@@ -1843,8 +1843,13 @@ async function run(call, displayLabel) {
   }
 }
 
-function bumpTicker() {
-  sessionTotal += TOOL_PRICE_USDC;
+function bumpTicker(amountAtomics) {
+  // Increment the running session total by the ACTUAL settled amount (6-decimal
+  // USDC atomics from the on-chain receipt), never a hardcoded constant — so the
+  // ticker can't drift from what was really paid. TOOL_PRICE_USDC is only the
+  // last-resort fallback when a receipt somehow arrives without an amount.
+  const usd = Number(amountAtomics) > 0 ? Number(amountAtomics) / 1e6 : TOOL_PRICE_USDC;
+  sessionTotal += usd;
   sessionStorage.setItem('x402:total', String(sessionTotal));
   renderTicker();
   tickerPill.classList.remove('flash');

@@ -141,10 +141,12 @@ export default wrap(async (req, res) => {
 				source_glb_url: glbUrl,
 				source_prompt: sourcePrompt,
 				generator: 'chat-forge-avatar',
-				// Prefer the inspected skeleton truth (definite true/false) over the
-				// untrusted client `rigged` provenance flag; fall back to the flag,
-				// then to null (unknown) when inspection couldn't decide.
-				is_rigged: typeof info.isRigged === 'boolean' ? info.isRigged : (rigged || null),
+				// Server-side GLB inspection is the ONLY rig truth (definite true/
+				// false, or null when a header-valid blob couldn't be parsed). The
+				// client `rigged` body flag is never trusted to decide rig state — it
+				// is kept separately, clearly labelled, as provenance only.
+				is_rigged: typeof info.isRigged === 'boolean' ? info.isRigged : null,
+				client_claimed_rigged: rigged,
 				mesh_count: info.meshCount ?? null,
 				animation_count: info.animationCount ?? null,
 			},
@@ -161,15 +163,19 @@ export default wrap(async (req, res) => {
 	);
 
 	// Auto-rig if the forged mesh arrived static (e.g. a mesh_forge save) so the
-	// agent's avatar can animate. A no-op when it's already rigged — forge_avatar
-	// and the chat forge tool deliver a rigged GLB and pass rigged:true — or when
-	// no rerig model is configured. Upgraded in place once the job completes.
+	// agent's avatar can animate. The rig decision derives from the SERVER-side
+	// GLB inspection (info.isRigged / skeletonJointCount), never the untrusted
+	// client `rigged` flag: a client can't send rigged:true on a static mesh to
+	// skip the gate, nor rigged:false on a skinned mesh to force a paid rig. A
+	// no-op when inspection finds a real skeleton or no rerig model is configured.
 	queueMicrotask(() =>
 		maybeAutoRigAvatar({
 			userId: auth.userId,
 			avatar,
-			rigInfo: { is_rigged: rigged || info.isRigged === true, skeleton_joint_count: info.skeletonJointCount ?? null },
+			rigInfo: { is_rigged: info.isRigged === true, skeleton_joint_count: info.skeletonJointCount ?? null },
 			source: 'studio',
+			visibility: avatar.visibility,
+			prompt: sourcePrompt,
 		}),
 	);
 

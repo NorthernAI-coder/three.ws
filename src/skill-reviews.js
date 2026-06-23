@@ -155,7 +155,7 @@ export function mountSkillReviews(container, { agentId, skill, canReview = false
 
 	function reviewItemHtml(r) {
 		const ava = r.author_avatar
-			? `<span class="skr-ava"><img src="${esc(r.author_avatar)}" alt=""></span>`
+			? `<span class="skr-ava"><img loading="lazy" decoding="async" src="${esc(r.author_avatar)}" alt=""></span>`
 			: `<span class="skr-ava">${esc((r.author_name || '?').trim().charAt(0).toUpperCase() || '?')}</span>`;
 		return `
 			<li class="skr-item${r.is_mine ? ' is-mine' : ''}">

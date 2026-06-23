@@ -932,3 +932,257 @@
 		text-align: center;
 	}
 }
+
+/* ── Pay per use (catalog-driven) ──────────────────────────────────────────
+   Prices rendered here come live from /api/three/catalog — see pages/pricing.html.
+   Quoted in USD, settled in $THREE. */
+.pricing-payg {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 100px 24px 0;
+}
+
+.pricing-payg h2 {
+	font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+	font-size: clamp(26px, 3.5vw, 38px);
+	font-weight: 700;
+	letter-spacing: -0.025em;
+	color: #fff;
+	text-align: center;
+	margin: 0 0 12px;
+}
+
+.payg-lead {
+	max-width: 620px;
+	margin: 0 auto 40px;
+	text-align: center;
+	font-size: 15px;
+	line-height: 1.6;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+.payg-lead a,
+.payg-foot a {
+	color: #fff;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+	transition: border-color 0.15s;
+}
+
+.payg-lead a:hover,
+.payg-foot a:hover {
+	border-bottom-color: #fff;
+}
+
+.payg-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 14px;
+}
+
+.payg-card {
+	background: rgba(10, 10, 10, 0.95);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 14px;
+	padding: 22px 22px 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	transition: border-color 0.18s, transform 0.18s, background 0.18s;
+}
+
+.payg-card:hover {
+	border-color: rgba(255, 255, 255, 0.2);
+	background: rgba(16, 16, 16, 0.97);
+	transform: translateY(-2px);
+}
+
+.payg-card.is-free {
+	background: rgba(18, 18, 18, 0.98);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.payg-card-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.payg-card-label {
+	font-size: 13px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.85);
+	line-height: 1.35;
+}
+
+.payg-badge {
+	flex: 0 0 auto;
+	font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+	font-size: 10px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	font-weight: 700;
+	color: #000;
+	background: #fff;
+	padding: 3px 8px;
+	border-radius: 999px;
+}
+
+.payg-card-price {
+	display: flex;
+	align-items: baseline;
+	gap: 6px;
+	margin-top: auto;
+}
+
+.payg-card-price .amt {
+	font-family: var(--font-display, 'Space Grotesk', 'Inter', sans-serif);
+	font-size: 30px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	color: #fff;
+	line-height: 1;
+}
+
+.payg-card-price .unit {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.payg-card-settle {
+	font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	color: rgba(255, 255, 255, 0.45);
+}
+
+.payg-card-settle strong {
+	color: rgba(255, 255, 255, 0.75);
+	font-weight: 600;
+}
+
+.payg-card-note {
+	font-size: 12.5px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.55);
+}
+
+.payg-card-note a {
+	color: #fff;
+	text-decoration: underline;
+}
+
+.payg-card-cta {
+	margin-top: 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px 14px;
+	border-radius: 10px;
+	font-family: var(--font-body, 'Inter', sans-serif);
+	font-size: 13px;
+	font-weight: 600;
+	text-decoration: none;
+	cursor: pointer;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	background: rgba(255, 255, 255, 0.05);
+	color: #fff;
+	transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.payg-card.is-free .payg-card-cta {
+	background: #fff;
+	color: #000;
+	border-color: transparent;
+}
+
+.payg-card-cta:hover {
+	background: rgba(255, 255, 255, 0.1);
+	border-color: rgba(255, 255, 255, 0.25);
+	transform: translateY(-1px);
+}
+
+.payg-card.is-free .payg-card-cta:hover {
+	background: #f0f0f0;
+}
+
+.payg-card-cta:focus-visible {
+	outline: var(--focus-ring-width, 2px) solid var(--focus-ring-color, #fff);
+	outline-offset: var(--focus-ring-offset, 2px);
+}
+
+.payg-foot {
+	max-width: 640px;
+	margin: 28px auto 0;
+	text-align: center;
+	font-size: 13px;
+	line-height: 1.6;
+	color: rgba(255, 255, 255, 0.5);
+}
+
+.payg-foot code {
+	font-family: var(--font-mono, 'SF Mono', 'Fira Code', monospace);
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.7);
+}
+
+/* Loading skeleton — shimmer until the live catalog arrives. */
+.payg-card.is-skeleton {
+	pointer-events: none;
+}
+
+.payg-card.is-skeleton .sk {
+	border-radius: 6px;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0.04) 25%,
+		rgba(255, 255, 255, 0.09) 37%,
+		rgba(255, 255, 255, 0.04) 63%
+	);
+	background-size: 400% 100%;
+	animation: payg-shimmer 1.4s ease infinite;
+}
+
+.payg-card.is-skeleton .sk-label {
+	height: 13px;
+	width: 70%;
+}
+
+.payg-card.is-skeleton .sk-price {
+	height: 28px;
+	width: 50%;
+	margin-top: auto;
+}
+
+.payg-card.is-skeleton .sk-note {
+	height: 11px;
+	width: 40%;
+}
+
+@keyframes payg-shimmer {
+	0% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0 50%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.payg-card.is-skeleton .sk {
+		animation: none;
+	}
+	.payg-card:hover {
+		transform: none;
+	}
+}
+
+@media (max-width: 640px) {
+	.pricing-payg {
+		padding-top: 72px;
+	}
+	.payg-grid {
+		grid-template-columns: 1fr;
+	}
+}

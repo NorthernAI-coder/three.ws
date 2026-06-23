@@ -56,6 +56,7 @@ import { detectTier, BUDGETS, TIER_ORDER, shiftTier } from './irl/perf-budget.js
 import { sharedGLTFLoader, createLoadQueue } from './irl/load-queue.js';
 import { createWealthAura3D } from './shared/wealth-aura-3d.js';
 import { fetchWealthState } from './shared/agent-wealth-state.js';
+import { trackLevelUp, installLevelUpCelebrations } from './shared/wealth-levelup.js';
 import { roomOriginWorld, agentWorldPosition, localToGeo, calibrateRoomOrigin } from './irl/room-anchor.js';
 import { anchorPoseToPin, yawDegFromQuat, roomPlacementFromHit, roomRelFromGeo } from './irl/floor-anchor.js';
 import { initRoomMode } from './irl/room-mode.js';
@@ -978,7 +979,8 @@ function mountWealthAura(height) {
 // 3D aura, and fire the one-shot pulse only when a genuinely NEW tip lands or a
 // money stream opens (tracked across polls) — never on a bare timer.
 function startWealthPoll(agentId) {
-	let stopped = false, timer = 0, lastTipAt = null, lastStreaming = 0, primed = false;
+	let stopped = false, timer = 0, lastTipAt = null, lastStreaming = 0, lastLevel = null, primed = false;
+	installLevelUpCelebrations();
 	const run = async () => {
 		if (stopped) return;
 		try {
@@ -988,6 +990,8 @@ function startWealthPoll(agentId) {
 				const tipAdvanced = state.lastTipAt && state.lastTipAt !== lastTipAt;
 				const streamOpened = state.streamingNow > lastStreaming;
 				if (primed && (tipAdvanced || streamOpened)) wealthAura.pulse();
+				// A real tier crossing for the owner's own placed agent → level-up card.
+				lastLevel = trackLevelUp(agentId, lastLevel, state);
 				lastTipAt = state.lastTipAt;
 				lastStreaming = state.streamingNow;
 				primed = true;

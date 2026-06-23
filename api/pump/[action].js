@@ -1175,6 +1175,29 @@ const launchPrepSchema = z
 		//   'regular' — plain pump.fun coin, no agent binding
 		//   'mayhem'  — pump.fun mayhem-mode coin (V2 instruction set, token-2022)
 		coin_type: z.enum(['regular', 'mayhem', 'agent']).default('agent'),
+		// Optional Launch Copilot attach: a market-maker policy to arm on this coin
+		// the moment it's confirmed (the success screen can also attach one after).
+		// Validated + safety-gated by api/_lib/market-maker.js at confirm time.
+		mm: z
+			.object({
+				preset: z.enum(['gentle', 'balanced', 'aggressive', 'custom']).optional(),
+				mode: z.enum(['simulate', 'live']).optional(),
+				enabled: z.boolean().optional(),
+				floor_price_sol: z.number().nonnegative().optional(),
+				floor_band_pct: z.number().optional(),
+				take_profit_band_pct: z.number().optional(),
+				recycle_pct: z.number().optional(),
+				max_inventory_tokens: z.number().optional(),
+				dip_buy_budget_sol: z.number().optional(),
+				daily_budget_sol: z.number().optional(),
+				seed_sol: z.number().optional(),
+				graduation_action: z.enum(['provide_lp', 'hold', 'distribute']).optional(),
+				slippage_bps: z.number().optional(),
+				max_price_impact_pct: z.number().optional(),
+				min_action_interval_seconds: z.number().optional(),
+				max_volume_pct: z.number().optional(),
+			})
+			.optional(),
 	})
 	.refine((v) => v.agent_id || v.avatar_id, {
 		message: 'agent_id or avatar_id required',
@@ -1360,6 +1383,7 @@ async function handleLaunchPrep(req, res) {
 				coin_type: body.coin_type,
 				quote_mint: quote.quoteMint, // null = SOL-paired; else the stable quote mint
 				prep_id: prepId,
+				mm: body.mm || null, // optional Launch Copilot policy to arm on confirm
 			})}::jsonb,
 			${expiresAt}
 		)
@@ -1452,6 +1476,21 @@ async function handleLaunchConfirm(req, res) {
 	`;
 
 	await sql`delete from agent_registrations_pending where id=${pending.id}`;
+
+	// Launch Copilot: if the launcher armed a market-maker policy at prep time,
+	// attach it now from the launch's own agent wallet. Best-effort — a bad policy
+	// (e.g. an anti-manipulation cap breach) must never fail the confirmed launch;
+	// the owner can fix + arm it from the success screen. The MM trades only
+	// through the shared firewall/spend-guard/custody path.
+	if (p.mm && p.agent_id) {
+		try {
+			const { normalizePolicyPatch, upsertPolicy } = await import('../_lib/market-maker.js');
+			const patch = normalizePolicyPatch(p.mm, { isCreate: true });
+			await upsertPolicy({ mint: p.mint, network: p.network, agentId: p.agent_id, userId: user.id, patch });
+		} catch (e) {
+			console.warn('[pump/launch-confirm] market-maker attach skipped:', e?.code || e?.message);
+		}
+	}
 
 	// Surface the confirmed launch on the site-wide live activity ticker.
 	publishFeedEvent({

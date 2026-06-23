@@ -89,7 +89,7 @@ export class TalkScene {
 			alpha: true,
 			preserveDrawingBuffer: true,
 		});
-		this.renderer.setPixelRatio(window.devicePixelRatio);
+		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.renderer.outputColorSpace = SRGBColorSpace;
 		this.renderer.toneMapping = ACESFilmicToneMapping;
 		this.renderer.toneMappingExposure = 1.0;

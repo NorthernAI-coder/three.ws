@@ -316,7 +316,7 @@ export async function openEquipPicker({ strategy }) {
 		back.innerHTML = `<div class="so-modal" role="dialog" aria-modal="true" aria-label="Pick an agent to equip">
 			<h3>Equip “${esc(strategy.name)}”</h3>
 			<p class="so-sub">Pick the agent that will run these rules. It trades on-chain within <b style="color:var(--ink-bright,#fff)">its own</b> spend policy — no wallet access is shared.</p>
-			<div>${mine.map((a) => `<button type="button" class="so-pick" data-id="${esc(a.id)}">${a.avatar_url || a.profile_image_url ? `<img src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="so-av"></div>'}<span class="so-pname">${esc(a.name || shortAddr(a.id))}</span></button>`).join('')}</div>
+			<div>${mine.map((a) => `<button type="button" class="so-pick" data-id="${esc(a.id)}">${a.avatar_url || a.profile_image_url ? `<img loading="lazy" decoding="async" src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="so-av"></div>'}<span class="so-pname">${esc(a.name || shortAddr(a.id))}</span></button>`).join('')}</div>
 			<div class="so-actions"><button type="button" class="so-btn" id="so-pick-cancel">Cancel</button></div>
 		</div>`;
 		const close = (v) => { back.remove(); document.removeEventListener('keydown', onKey); resolve(v); };

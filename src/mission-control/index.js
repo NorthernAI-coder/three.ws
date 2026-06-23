@@ -126,7 +126,7 @@ export function mountMissionControl(root, opts = {}) {
 		return `
 			<div class="mc-topbar">
 				<a class="mc-brand" href="/" title="three.ws home">
-					<img class="mc-brand-logo" src="/three.svg" alt="" width="22" height="22" />
+					<img class="mc-brand-logo" src="/three.svg" alt="" width="22" height="22" loading="eager" decoding="async" />
 					<b>Mission Control</b><span>Terminal</span>
 				</a>
 				<span class="mc-topbar-spacer"></span>

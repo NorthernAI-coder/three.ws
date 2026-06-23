@@ -481,6 +481,25 @@ export async function getTipIncomeUsd(agentId, network, sinceIso = null) {
 	return Number(row?.usd || 0);
 }
 
+/**
+ * When this rule last actually settled an on-chain action (confirmed custody row),
+ * as an ISO string — or null if it never has. Used to window income-basis DCA from
+ * the last DCA (not the last cron tick): the cron runs hourly but a daily/weekly
+ * DCA only spends once per bucket, so "income since last run" would otherwise count
+ * a single hour. Income since the last DCA captures the whole period exactly once.
+ */
+async function lastConfirmedActionAt(agentId, network, ruleId) {
+	const [row] = await sql`
+		SELECT created_at FROM agent_custody_events
+		WHERE agent_id = ${agentId} AND network = ${network}
+		  AND event_type = 'spend' AND category = 'autopilot'
+		  AND status IN ('ok', 'confirmed')
+		  AND meta->>'rule_id' = ${ruleId}
+		ORDER BY created_at DESC LIMIT 1
+	`;
+	return row?.created_at ? new Date(row.created_at).toISOString() : null;
+}
+
 // ── compute-settlement destination (where the agent pays for its brain) ──────────
 
 function resolveComputeTreasury() {
@@ -808,7 +827,10 @@ async function execDca(rule, ctx) {
 	if (p.amount_sol != null) {
 		lamports = BigInt(Math.floor(p.amount_sol * 1e9));
 	} else if (p.basis === 'income') {
-		const since = policy.updated_at && rule.last_run_at ? rule.last_run_at : windowStart(p.cadence, now);
+		// Window from the last DCA this rule actually settled, falling back to the
+		// cadence window on first run — so a daily/weekly DCA counts the whole
+		// period's tips once, even though the hourly cron evaluates it many times.
+		const since = (await lastConfirmedActionAt(agentId, network, rule.id)) || windowStart(p.cadence, now);
 		const incomeUsd = await getTipIncomeUsd(agentId, network, since);
 		if (incomeUsd < DUST_USD) return { status: 'skipped', note: 'no new tip income this period to DCA' };
 		lamports = BigInt(Math.floor(((incomeUsd * (p.pct / 100)) / price) * 1e9));
