@@ -652,6 +652,14 @@ export const limits = {
 		getLimiter('asr:user', { limit: 60, window: '1 h', critical: true }).limit(userId),
 	asrIp: (ip) =>
 		getLimiter('asr:ip', { limit: 15, window: '1 h', critical: true }).limit(ip),
+	// NVIDIA NIM vision (api/vision) — free upstream but credit-metered, and each
+	// call carries an image the server may relay to the NVCF asset store. Meter
+	// per principal like the other free NVIDIA lanes; critical so it fails closed
+	// without Redis in prod.
+	visionUser: (userId) =>
+		getLimiter('vision:user', { limit: 60, window: '1 h', critical: true }).limit(userId),
+	visionIp: (ip) =>
+		getLimiter('vision:ip', { limit: 15, window: '1 h', critical: true }).limit(ip),
 	// /brain multi-LLM proxy. Paid flagship models (Claude/GPT-4o) run on the
 	// server keys, so meter per principal: authenticated users get a generous
 	// per-user bucket, anonymous callers a tighter per-IP one. Both critical so a

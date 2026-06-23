@@ -39,6 +39,14 @@
 			<description>On the Copy Trading page, every one of your agents listed under &quot;your copy-trading&quot; now carries the same wallet identity chip you see everywhere else — its vanity address, live value, and a tap-through to the full wallet — so you can read an agent's wallet at a glance before setting it to mirror a leader. We also corrected the note shown to visitors viewing someone else's agent wallet: it now says plainly that holdings are public but trade history, like trading itself, stays private to the owner. Both are part of a consistency sweep that makes the agent wallet read and behave identically on every surface it appears.</description>
 		</item>
 		<item>
+			<title>Creating an agent never dead-ends on wallet setup</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Creating an agent never dead-ends on wallet setup</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Spinning up a new agent now always succeeds, even in the rare moment our custodial-wallet encryption service is briefly unavailable. Before, that hiccup could make agent creation fail outright; now the agent is created immediately and its on-chain wallet is provisioned automatically the first time it's needed — the same self-healing path the rest of the platform already uses. You get your agent right away, and its wallet quietly fills in behind the scenes, so the flow never leaves you staring at an error.</description>
+		</item>
+		<item>
 			<title>Embedded widgets never hang on a blank frame</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Embedded widgets never hang on a blank frame</guid>
@@ -285,6 +293,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your avatar could already speak for free; now it can listen for free too. A new /api/asr endpoint turns spoken audio into text using NVIDIA's hosted Riva recognition on the same free key that already powers avatar voices, 3D generation, and chat — so voice-in costs nothing extra. Until now, talking to an avatar relied on the browser's built-in recognizer, which only exists in Chrome and Edge and quietly sends your microphone to Google; the new lane is server-side and works the same everywhere. It's purely additive: when the lane isn't switched on, voice keeps working exactly as before — nothing changes for anyone. Send a short WAV, PCM, FLAC, or Ogg clip and get back the transcript, the language detected, and optional word-level timestamps, all metered fairly so it can't be abused.</description>
+		</item>
+		<item>
+			<title>Talk to your avatar out loud — in any browser</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Talk to your avatar out loud — in any browser</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your avatar could already think and speak; now it can listen. Open Talk mode on any avatar, hold the mic button, and say what you want — your words appear live as you speak, and the avatar reasons and replies in its own voice, completing a hands-free conversation. Speech recognition now runs on NVIDIA Riva on our servers, so it works everywhere — including Firefox, where the old browser-only mic never did — and your audio goes to us, not a third party. Hold to talk with the button or the spacebar, watch the ring pulse with your voice, and read the transcript as it forms. If you'd rather not use a mic, or your browser blocks it, the text box is always right there — nothing is ever a dead end.</description>
 		</item>
 		<item>
 			<title>The in-chat skill purchase card is smoother, fully keyboard-friendly, and shows the right price every time</title>

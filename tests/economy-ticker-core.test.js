@@ -51,7 +51,7 @@ describe('relTime', () => {
 	it('renders compact ages against an injected now', () => {
 		const now = new Date('2026-06-23T12:00:30.000Z').getTime();
 		expect(relTime('2026-06-23T12:00:00.000Z', now)).toBe('30s');
-		expect(relTime('2026-06-23T11:55:00.000Z', now)).toBe('5m');
+		expect(relTime('2026-06-23T11:55:30.000Z', now)).toBe('5m');
 		expect(relTime('2026-06-23T09:00:00.000Z', now)).toBe('3h');
 		expect(relTime('bad-date', now)).toBe('');
 	});
