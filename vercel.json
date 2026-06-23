@@ -1966,6 +1966,10 @@
 			"dest": "/api/agents/[id]"
 		},
 		{
+			"src": "/api/agents/([^/]+)/mood(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/eth-vanity/([^/]+)",
 			"dest": "/api/agents/[id]"
 		},
@@ -4210,6 +4214,10 @@
 		{
 			"path": "/api/cron/three-holders-snapshot",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/recompute-reputation",
+			"schedule": "*/10 * * * *"
 		},
 		{
 			"path": "/api/cron/custody-attest",

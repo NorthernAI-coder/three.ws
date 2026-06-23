@@ -206,6 +206,7 @@ const PUSH_COPY = {
 	asset_payment_mismatch:   ()  => ['Payment mismatch ⚠️', 'Check your agent payment settings'],
 	skill_payment_mismatch:   ()  => ['Payment mismatch ⚠️', 'Check your agent payment settings'],
 	security_alert:           (p) => ['Security alert 🔒', p.message || 'A security-sensitive change was made to your account'],
+	wallet_anomaly_frozen:    (p) => ['Wallet auto-frozen 🛡️', p.summary || 'Your agent wallet was frozen after an unusual action — tap to approve or keep frozen'],
 };
 
 export function pushPayloadFor(type, payload, notificationId) {

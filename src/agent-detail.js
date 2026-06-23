@@ -92,6 +92,7 @@ if (typeof window !== 'undefined') {
 		// Stop any active money stream so a final settle fires and no charges accrue
 		// past navigation (the engine also guards this internally).
 		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;
+		try { _cardHandle?.destroy?.(); } catch { /* idempotent */ } _cardHandle = null;
 	}, { once: true });
 }
 
@@ -2018,6 +2019,7 @@ function wireShareButton(agent) {
 		description: agent.description || '',
 		shareUrl,
 		remixUrl,
+		previewImage: `${origin}/api/og/agent?id=${encodeURIComponent(agent.id)}`,
 	};
 
 	// Hero float button (above the fold)

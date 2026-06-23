@@ -203,6 +203,11 @@ export default wrap(async function handler(req, res) {
 		return mod.handleBrain(req, res, id, action);
 	}
 
+	if (sub === 'mood') {
+		const mod = await import('./_id/mood.js');
+		return mod.handleMood(req, res, id, action);
+	}
+
 	if (sub === 'payments') {
 		const mod = await import('./_id/payments.js');
 		return mod.handlePayments(req, res, id);

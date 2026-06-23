@@ -579,6 +579,17 @@ async function enforcePolicyRules({ agentId, policy, category, usdValue, asset, 
 	const verdict = evaluatePolicy(policy, ctx);
 	if (!isDenied(verdict.decision)) return;
 
+	// Audit: every block records which rule fired (deliverable). A 'failed' spend
+	// row is excluded from the daily-cap sum and the backtest history, so it never
+	// inflates totals — it exists purely so the owner can see, on the live feed,
+	// exactly which payment was stopped and by which rule. Fire-and-forget.
+	recordCustodyEvent({
+		agentId, userId: userId ?? null, eventType: 'spend', category, network,
+		asset: asset || null, usd: (typeof usdValue === 'number' && Number.isFinite(usdValue)) ? usdValue : null,
+		destination: destination || null, status: 'failed', reason: `policy_${verdict.decision}`,
+		meta: { policy_block: true, rule_id: verdict.matched?.id || null, rule: verdict.message, rule_index: verdict.ruleIndex, decision: verdict.decision },
+	}).catch((e) => console.warn('[policy] block-record failed', e?.message));
+
 	// A `freeze` rule also trips the wallet kill-switch so everything else stops.
 	if (verdict.decision === 'freeze') {
 		await freezeWalletFromPolicy(agentId, userId, verdict.matched, network);

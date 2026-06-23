@@ -34,6 +34,7 @@ function fmtTime(iso) {
  * @param {object} [args.ctx]   optional hub ctx (toast, copyToClipboard)
  */
 export function renderProofUI(panel, { proof, verify, shareBase = '/proof', origin = '', ctx = {} }) {
+	injectProofStyle();
 	if (!proof || proof.included === false) {
 		panel.innerHTML = notYetState(proof);
 		panel.querySelector('[data-reload]')?.addEventListener('click', () => location.reload());
@@ -134,24 +135,29 @@ export function renderProofUI(panel, { proof, verify, shareBase = '/proof', orig
 	function renderShare() {
 		const wrap = panel.querySelector('[data-share]');
 		if (!wrap) return;
-		const url = `${origin}${shareBase}?agent=${encodeURIComponent(proof.leaf.agentId)}`;
-		const embed = `<a href="${url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font:600 12px system-ui;color:#4ade80;text-decoration:none;padding:5px 11px;border:1px solid #4ade8055;border-radius:999px;background:#4ade801a">✓ Custody verified on-chain · three.ws</a>`;
+		// The public, re-verifiable artifact is the platform integrity page — anyone
+		// can confirm the latest root on-chain there without auth. Per-wallet leaves
+		// stay owner-gated, so the shared badge points at /integrity, not the private
+		// per-wallet proof.
+		const publicUrl = `${origin}/integrity`;
+		const ownUrl = `${esc(shareBase)}?agent=${encodeURIComponent(proof.leaf.agentId)}`;
+		const embed = `<a href="${publicUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;font:600 12px system-ui;color:#4ade80;text-decoration:none;padding:5px 11px;border:1px solid #4ade8055;border-radius:999px;background:#4ade801a">✓ Custody verified on-chain · three.ws</a>`;
 		wrap.hidden = false;
 		wrap.className = 'awh-proof-card';
 		wrap.innerHTML = `
 			<h2>Show it off</h2>
-			<p class="awh-proof-lead">Your custody is provable — share it. Anyone can re-verify from the link, in their own browser.</p>
+			<p class="awh-proof-lead">Your custody is provable. The badge links to the public integrity page, where anyone can re-verify the platform's on-chain root in their own browser.</p>
 			<div class="awh-proof-actions">
 				<span class="awh-proof-badge">Custody verified on-chain</span>
-				<button class="awh-proof-btn ghost" type="button" data-copy-link>Copy verify link</button>
+				<button class="awh-proof-btn ghost" type="button" data-copy-link>Copy integrity link</button>
 				<button class="awh-proof-btn ghost" type="button" data-copy-embed>Copy badge embed</button>
-				<a class="awh-proof-btn ghost" href="${esc(shareBase)}?agent=${encodeURIComponent(proof.leaf.agentId)}" target="_blank" rel="noopener">Open verifier page ↗</a>
+				<a class="awh-proof-btn ghost" href="${ownUrl}" target="_blank" rel="noopener">Open my verifier ↗</a>
 			</div>
 			<div class="awh-proof-share">
 				<textarea class="awh-proof-embed" readonly rows="2" aria-label="Badge embed HTML">${esc(embed)}</textarea>
 			</div>
 		`;
-		wrap.querySelector('[data-copy-link]')?.addEventListener('click', () => copy(url, 'Verify link copied'));
+		wrap.querySelector('[data-copy-link]')?.addEventListener('click', () => copy(publicUrl, 'Integrity link copied'));
 		wrap.querySelector('[data-copy-embed]')?.addEventListener('click', () => copy(embed, 'Badge embed copied'));
 	}
 

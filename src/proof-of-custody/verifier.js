@@ -81,6 +81,28 @@ function extractMemo(tx) {
 }
 
 /**
+ * Read the committed Merkle root straight off the chain for an anchor signature.
+ * Public + dependency-light — the /integrity page uses it to let anyone confirm
+ * the platform's latest root on-chain without trusting our API.
+ *
+ * @returns {Promise<{ epoch: number, root: string, walletCount: number|null, endpoint: string }>}
+ */
+export async function readOnchainAnchor(signature, network, opts = {}) {
+	const fetchTx = opts.fetchTx || fetchTransaction;
+	const { tx, endpoint } = await fetchTx(signature, network);
+	const memo = extractMemo(tx);
+	if (!memo) throw new Error('no memo found in the anchor transaction');
+	const payload = JSON.parse(memo);
+	if (payload.kind !== 'threews.custody.v1') throw new Error('anchor memo is not a custody attestation');
+	return {
+		epoch: Number(payload.epoch),
+		root: String(payload.root || '').toLowerCase(),
+		walletCount: payload.wallet_count != null ? Number(payload.wallet_count) : null,
+		endpoint,
+	};
+}
+
+/**
  * Verify an inclusion proof end-to-end.
  *
  * @param {object} proof  the `data` object from GET /api/agents/:id/solana/proof

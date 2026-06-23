@@ -3,6 +3,22 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Every agent wallet now has a living trading card you can share",
+			"summary": "Each agent's wallet is now a collectible, screenshot-worthy trading card — its avatar, its glowing vanity address, its live net worth, holdings count, realized P&L, reputation tier, and the $THREE-holder mark, with a one-tap tip, fork, and share. The card's 'finish' is earned, not decorative: it steps up from Common to Mythic only as the wallet's real wealth and on-chain reputation tier rise, so a dormant new wallet reads as matte and a luminous, elite one shimmers. Everything on it is real, public-safe data pulled from the same chain reads the wallet uses everywhere else — a $0 balance honestly shows $0, owner-only details never appear, and a private agent renders no card at all. Best of all, it travels: paste an agent link into X, Telegram, or Discord and it now unfurls as that exact card, generated live from real data, so every share is a billboard with a fork-to-own hook. The Share panel even previews the card before you post it.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"title": "The Mind Palace: walk through your agent's memory in 3D",
+			"summary": "Your agent's memory is no longer an invisible database — it's a place you can explore. Open the new Mind Palace from your agent's editor or at /agent/<id>/mind and every memory becomes a tangible object orbiting your live avatar: the more a belief matters to your agent (its salience), the larger it glows and the closer it sits to the centre. Memories cluster by type into colour-coded constellations — what you've told it, the guidance you've given, your projects, and reference knowledge — with glowing threads drawn between memories that share tags, so you can literally see how your agent connects ideas. It's hands-on: drag a memory to the centre to pin it as a core belief, or flick it into the Forget well to let it go (with one-click undo — forgetting is always reversible). Search and filter instantly, click any memory to read its full content, see where it came from, and walk its associations to answer 'why does my agent believe this?'. Open it during a conversation and you'll watch memories pulse the moment your agent recalls them, and new memories bloom into being as they form. There's a timeline scrubber to replay how the mind grew over time, a full 2D view and keyboard navigation for any device, and it respects reduced-motion and the avatar performance budget throughout. Everything you do here writes straight to your agent's real memory.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
 			"title": "KOL leaderboard is now live: real top-trader rankings, no static snapshot",
 			"summary": "The smart-money leaderboard now reflects who is actually winning right now. It pulls the live kolscan.io board of top Solana traders — real wallets, real realized profit over the last day, week, and month — instead of the fixed snapshot it shipped with. Profit is priced to USD from the live SOL feed, win rate and trade count are derived from each trader's real wins and losses, and the three time windows (24h, 7d, 30d) all update from the source. It's wallet-first by design: you see the address and its verifiable track record, not a borrowed social handle. If the upstream board is briefly unreachable the leaderboard shows an honest empty state rather than stale or made-up rows — the numbers you see are always real.",
 			"tags": [

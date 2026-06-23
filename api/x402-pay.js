@@ -434,6 +434,12 @@ async function guardedFetch(rawUrl, { method = 'GET', headers = {}, body } = {})
 	}
 }
 
+// Hostname of a URL (or null) — used as the scoped-capability holder ref / target
+// host for x402 payments, so an owner can leash an integration to specific services.
+function hostOf(u) {
+	try { return new URL(String(u)).hostname || null; } catch { return null; }
+}
+
 function safeJsonParse(text) {
 	if (typeof text !== 'string' || !text) return null;
 	try {
@@ -587,6 +593,11 @@ async function runExternalFlow({ url, method, body, emit, buyer, spendGuard, ser
 				destination: accept.payTo,
 				network: 'mainnet',
 				asset: 'USDC',
+				// Scoped session keys: the service URL is the capability target (a
+				// service-scoped grant matches on its host), and the host is the holder
+				// ref so a per-integration capability resolves preferentially.
+				target: resource.url || url,
+				capabilityHolderRef: hostOf(resource.url || url),
 				rowMeta: { url, service: serviceLabel || resource.serviceName || null, resource: resource.url },
 			});
 			spendReservationId = reservation.reservationId;
@@ -742,6 +753,9 @@ async function runFlow({ tool, args, emit, buyer: buyerOverride, resourceUrl, sp
 				destination: accept.payTo,
 				network: spendGuard.network || 'mainnet',
 				asset: 'USDC',
+				// Scoped session keys: the resolved MCP resource is the capability target.
+				target: resourceUrl,
+				capabilityHolderRef: hostOf(resourceUrl),
 				rowMeta: { tool },
 			});
 			spendReservationId = reservation.reservationId;
