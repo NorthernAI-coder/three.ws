@@ -438,6 +438,9 @@ export const limits = {
 		}).limit('global'),
 	avatarPatch: (userId) => getLimiter('avatar:patch', { limit: 20, window: '1 h' }).limit(userId),
 	prefsWrite: (userId) => getLimiter('prefs:write', { limit: 30, window: '1 h' }).limit(userId),
+	// Claiming a reputation-unlocked cosmetic onto an agent (api/agents/:id/unlocks).
+	// A low-frequency owner action; this just bounds abusive retries.
+	unlockClaim: (userId) => getLimiter('unlock:claim', { limit: 40, window: '1 h' }).limit(userId),
 	// Per-user budget for the embeddings endpoint (api/agents/:id/embed — free
 	// NVIDIA NIM lane first, paid Voyage fallback). Keyed by userId (not IP) so
 	// the shared platform keys/quotas can't be drained by one account rotating

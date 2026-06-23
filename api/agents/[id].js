@@ -232,6 +232,11 @@ export default wrap(async function handler(req, res) {
 		return mod.handleReputation(req, res, id);
 	}
 
+	if (sub === 'unlocks') {
+		const mod = await import('./_id/unlocks.js');
+		return mod.handleUnlocks(req, res, id, action);
+	}
+
 	if (sub === 'memory-seed') {
 		const mod = await import('./_id/memory-seed.js');
 		return mod.default(req, res, id);

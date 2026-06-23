@@ -261,13 +261,15 @@ export async function guardOutboundAnomaly({
 		};
 	}
 
-	// Allowed (or a withdraw we only record). Persist if notable. A withdraw that
-	// scored a freeze is recorded as 'flagged' for the timeline but never blocked.
-	anomalyId = await recordAnomalyEvent({ agentId, userId, network, action, verdict, custodyEventId }).catch((e) => {
+	// Allowed (or a withdraw we only observe). Persist if notable. A withdraw is the
+	// owner's escape hatch — even a freeze-scoring one is recorded as 'allowed' (never
+	// a held flag), since we don't act on it; its factors still show in the timeline.
+	const recordVerdict = enforce ? verdict : { ...verdict, decision: 'allow' };
+	anomalyId = await recordAnomalyEvent({ agentId, userId, network, action, verdict: recordVerdict, custodyEventId }).catch((e) => {
 		console.warn('[anomaly] record failed', e?.message);
 		return null;
 	});
-	return { decision: verdict.decision === 'freeze' ? 'freeze' : 'allow', verdict, anomalyId, froze };
+	return { decision: 'allow', verdict, anomalyId, froze };
 }
 
 /** Real owner notification for an auto-freeze (in-app + push, gated by prefs). */
