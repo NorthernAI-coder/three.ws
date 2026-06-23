@@ -18,6 +18,7 @@ import { PoseStage, loadPoseManifest } from './avatar-pose.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
+import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
 
 const ATTACHED_KEY_PREFIX = 'avatar_attached_v1:';
 
@@ -54,9 +55,13 @@ if (!avatarId) {
 	});
 }
 
+// Stop the wallet-aura live poll and free its rAF when the page unloads.
+window.addEventListener('pagehide', () => { netWorthAura?.destroy?.(); netWorthAura = null; }, { once: true });
+
 // ── State ─────────────────────────────────────────────────────────────
 
 let avatar = null;
+let netWorthAura = null;
 let attachedSkills = new Set();
 let attachedPlugins = new Set();
 let chatHistory = [];
@@ -440,6 +445,7 @@ function renderShell(glbUrl) {
 		$('av-stage-loading')?.remove();
 		positionThoughtHotspot(viewer);
 		setupAnimationControls(viewer);
+		mountNetWorthAura();
 	});
 	viewer?.addEventListener('error', () => {
 		const ld = $('av-stage-loading');
@@ -543,6 +549,47 @@ function mountWalletManager() {
 	} catch (err) {
 		log.error('[avatar] vanity card', err);
 	}
+}
+
+/**
+ * The Net-Worth-Reactive Avatar: weld the agent's real wallet to its 3D body.
+ * Once the model has loaded (so the stage has size), mount the aura on the
+ * viewer stage and start the live inflow reaction. The agent's funded-ness is
+ * then visible — a tiered glow + asset-mix palette, all from real chain data —
+ * and a real confirmed deposit/tip plays a one-shot flourish on the model. A
+ * net-worth tier badge is placed in the meta strip so the number is legible too.
+ *
+ * Only mounts when the avatar is bound to an agent with a wallet to read; an
+ * unprovisioned avatar simply shows the clean dormant baseline.
+ */
+function mountNetWorthAura() {
+	const stage = $('av-stage');
+	const agentId = avatar?.agent_id;
+	if (!stage || !agentId || netWorthAura) return;
+
+	hydrateAvatarWallet(stage, avatar, { lod: 'full', live: true, network: 'mainnet' })
+		.then((controller) => {
+			if (!controller) return;
+			netWorthAura = controller;
+			// Surface the honest net-worth tier + USD in the meta strip so the
+			// presence has a readable label, not just a glow.
+			const strip = $('av-meta-strip');
+			const state = controller.state;
+			if (strip && state && !document.getElementById('av-networth')) {
+				const item = document.createElement('div');
+				item.className = 'av-meta-item';
+				item.id = 'av-networth';
+				const key = document.createElement('span');
+				key.className = 'av-meta-key';
+				key.textContent = 'Net worth';
+				const val = document.createElement('span');
+				val.className = 'av-meta-val';
+				val.appendChild(walletTierBadge(state));
+				item.append(key, val);
+				strip.appendChild(item);
+			}
+		})
+		.catch(() => { /* dormant baseline already shown */ });
 }
 
 /**

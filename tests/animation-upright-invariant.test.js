@@ -51,11 +51,22 @@ import {
 import { FEATURED } from '../src/animation-presets.js';
 import { measureHipsTiltDeg } from '../src/animation-manager.js';
 import { loadBoneGraph, hipsTiltAcrossClip } from './_helpers/glb-bone-graph.js';
+import { liftHipsUpright } from '../scripts/upright-hips.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 const avatar = (name) => resolve(repoRoot, 'public/avatars', name);
 const clipPath = (name) => resolve(repoRoot, 'public/animations/clips', `${name}.json`);
+
+// Clips whose source GLB bakes the up-axis conversion onto the animated Hips
+// (three.js Soldier/Michelle) and are corrected by `uprightFix` at build time.
+// These never reached FEATURED, which is exactly how they shipped lying flat —
+// so they get their own lock against the committed clip data.
+const UPRIGHT_FIX_CLIPS = JSON.parse(
+	readFileSync(resolve(repoRoot, 'scripts/animations.config.json'), 'utf8'),
+)
+	.filter((e) => e.uprightFix)
+	.map((e) => e.name);
 
 // Tolerance for the upright invariant: see the empirical table in the module
 // header. 40° clears the worst healthy clip (dance ~30°) with margin and sits
@@ -346,5 +357,72 @@ describe('runtime guard (measureHipsTiltDeg) catches a genuine fallen pose', () 
 		const map = canonicalNodeMapFromObject(root);
 		expect(measureHipsTiltDeg(null, root, map)).toBeNull();
 		expect(measureHipsTiltDeg(undefined, root, map)).toBeNull();
+	});
+});
+
+// ── uprightFix corpus: the soldier / samba lying-down regression ─────────────
+
+// These four clips reached production lying on their back (the `fallen-pose
+// retarget` reports for `michelle-samba-dance` and the soldier idle/walk/run).
+// Their source GLBs bake a ~90° up-axis conversion onto the animated Hips, which
+// the retargeter copies verbatim. The committed clip data is now corrected at
+// build time by `uprightFix`; this corpus asserts the shipped data stays upright
+// and that the correction is the load-bearing reason.
+describe('uprightFix corpus — committed clip data stays upright on a neutral rig', () => {
+	it('discovers the flagged clips from animations.config.json', () => {
+		// Guards the whole suite: if the flags vanish, this fails rather than
+		// silently testing nothing.
+		expect(UPRIGHT_FIX_CLIPS).toEqual(
+			expect.arrayContaining([
+				'soldier-idle',
+				'soldier-walk',
+				'soldier-run',
+				'michelle-samba-dance',
+			]),
+		);
+	});
+
+	for (const name of UPRIGHT_FIX_CLIPS) {
+		it(`${name}: at-rest Hips tilt is under the ${GUARD_THRESHOLD_DEG}° guard (won't be auto-disabled)`, () => {
+			const json = JSON.parse(readFileSync(clipPath(name), 'utf8'));
+			const clip = parseClipJSON(json, name);
+			const { root } = loadBoneGraph(avatar('cz.glb'));
+			const map = canonicalNodeMapFromObject(root);
+			const { clip: retargeted } = retargetClip(clip, map, {
+				targetRest: canonicalRestMapFromObject(root),
+			});
+			const tilt = measureHipsTiltDeg(retargeted, root, map);
+			expect(tilt).not.toBeNull();
+			expect(tilt).toBeLessThan(GUARD_THRESHOLD_DEG);
+		});
+
+		it(`${name}: stays within ${UPRIGHT_TOLERANCE_DEG + 5}° of vertical at every keyframe`, () => {
+			const json = JSON.parse(readFileSync(clipPath(name), 'utf8'));
+			const clip = parseClipJSON(json, name);
+			const { root } = loadBoneGraph(avatar('cz.glb'));
+			const map = canonicalNodeMapFromObject(root);
+			const { clip: retargeted } = retargetClip(clip, map, {
+				targetRest: canonicalRestMapFromObject(root),
+			});
+			const scan = hipsTiltAcrossClip(root, map.get('Hips'), retargeted);
+			expect(scan).not.toBeNull();
+			// Samba legitimately swings the hips to ~24°; the soldier locomotion
+			// clips sit far lower. The bound clears the dance with margin and is
+			// nowhere near the ~90° fallen floor the bug produced.
+			expect(scan.max).toBeLessThan(UPRIGHT_TOLERANCE_DEG + 5);
+		});
+	}
+
+	it('liftHipsUpright is idempotent and a no-op on already-upright data', () => {
+		// The committed clips are already corrected, so re-running the lift must
+		// not move them — proving the build step can be re-applied safely.
+		for (const name of UPRIGHT_FIX_CLIPS) {
+			const json = JSON.parse(readFileSync(clipPath(name), 'utf8'));
+			const result = liftHipsUpright(json);
+			expect(result.changed).toBe(false);
+		}
+		// A genuinely healthy featured clip is untouched too.
+		const idle = JSON.parse(readFileSync(clipPath('idle'), 'utf8'));
+		expect(liftHipsUpright(idle).changed).toBe(false);
 	});
 });

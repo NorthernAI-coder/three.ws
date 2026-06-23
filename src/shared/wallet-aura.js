@@ -38,12 +38,14 @@ function ensureStyles() {
 	opacity:0;transition:opacity var(--duration-base,.4s) var(--ease-standard,cubic-bezier(.4,0,.2,1));
 	--wa-accent:var(--wallet-accent,#c4b5fd);--wa-glow:var(--wallet-glow,rgba(139,92,246,.45));--wa-i:0;}
 .wa-layer[data-ready="true"]{opacity:1;}
-/* Radial bloom behind/around the avatar — intensity scales with net worth. */
-.wa-bloom{position:absolute;inset:-12%;border-radius:50%;
-	background:radial-gradient(circle at 50% 62%,var(--wa-glow) 0%,transparent 62%);
+/* A halo bloom AROUND the avatar — a transparent core means the figure is never
+   washed out; `screen` blend adds light only, so the body reads as emitting it.
+   Intensity scales with real net worth. */
+.wa-bloom{position:absolute;inset:-12%;border-radius:50%;mix-blend-mode:screen;
+	background:radial-gradient(circle at 50% 60%,transparent 26%,var(--wa-glow) 48%,transparent 74%);
 	opacity:calc(.25 + var(--wa-i) * .75);
-	filter:blur(calc(8px + var(--wa-i) * 26px));
-	transform:scale(calc(.7 + var(--wa-i) * .45));
+	filter:blur(calc(8px + var(--wa-i) * 22px));
+	transform:scale(calc(.78 + var(--wa-i) * .4));
 	transition:opacity .5s var(--ease-standard,ease),transform .6s var(--ease-standard,ease),filter .5s ease;
 	will-change:transform,opacity;}
 /* A crisp rim ring that reads even at card size. */

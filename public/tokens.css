@@ -147,6 +147,7 @@
 	--wallet-stroke:        rgba(139, 92, 246, 0.30);
 	--wallet-stroke-strong: rgba(139, 92, 246, 0.50);
 	--wallet-glow:          rgba(139, 92, 246, 0.45);
+	--wallet-focus:         rgba(139, 92, 246, 0.70); /* focus ring on wallet controls */
 
 	/* Solid near-black backgrounds — opaque counterparts to the translucent
 	   --surface-* overlays. Use these for solid page/panel fills instead of

@@ -1471,6 +1471,207 @@ async function handleNetWorth(req, res, id) {
 	});
 }
 
+// ── tip recording (on-chain verified) ──────────────────────────────────────────
+// POST /api/agents/:id/solana/tip — record a P2P tip that a visitor already sent
+// on-chain from their OWN wallet (api/../src/shared/agent-tip.js builds + signs it
+// client-side; three.ws never custodies it). The client hands us the confirmed
+// signature; we INDEPENDENTLY verify on-chain that the transaction really credited
+// the agent's public wallet before writing a row — so a caller can never fabricate
+// a tip. The recorded tip is a PUBLIC custody event (event_type='tip') that powers
+// the Money Pulse feed and the per-agent wallet story. Idempotent per signature.
+
+// Parsed-tx account-key → base58 string (handles PublicKey or string pubkeys).
+function _acctKeyStr(k) {
+	const p = k?.pubkey ?? k;
+	return typeof p === 'string' ? p : p?.toString?.() ?? '';
+}
+// Net lamports credited to `owner` from a parsed tx's pre/post native balances.
+function _lamportsCreditedTo(tx, owner) {
+	const keys = tx.transaction?.message?.accountKeys || [];
+	const idx = keys.findIndex((k) => _acctKeyStr(k) === owner);
+	if (idx < 0) return 0n;
+	return BigInt(tx.meta?.postBalances?.[idx] ?? 0) - BigInt(tx.meta?.preBalances?.[idx] ?? 0);
+}
+// Net SPL atomics of `mint` credited to `owner`, from pre/post token balances.
+function _tokenCreditedTo(tx, mint, owner) {
+	const pre = tx.meta?.preTokenBalances || [];
+	const post = tx.meta?.postTokenBalances || [];
+	let delta = 0n;
+	for (const p of post) {
+		if (p.mint !== mint || p.owner !== owner) continue;
+		const before = pre.find((x) => x.accountIndex === p.accountIndex);
+		delta += BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
+	}
+	return delta;
+}
+// First signer of the tx that isn't the recipient — the tipper.
+function _firstSigner(tx, exclude) {
+	const keys = tx.transaction?.message?.accountKeys || [];
+	for (const k of keys) {
+		if (k?.signer && _acctKeyStr(k) !== exclude) return _acctKeyStr(k);
+	}
+	return null;
+}
+
+async function handleTip(req, res, id) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true, origins: '*' })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	// Tipping is open to anyone (signed-in or not); throttle per-IP to keep the
+	// on-chain verification (one getParsedTransaction) from being abused.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const [row] = await sql`SELECT id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+	const address = row.meta?.solana_address || null;
+	if (!address) return error(res, 404, 'not_found', 'agent has no solana wallet');
+
+	let body;
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+	}
+
+	const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+	if (!signature || signature.length < 32 || signature.length > 128 || !BASE58_RE.test(signature)) {
+		return error(res, 400, 'validation_error', 'a valid base58 tx signature is required');
+	}
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+	const assetRaw = typeof body.asset === 'string' && body.asset.trim() ? body.asset.trim().toUpperCase() : 'SOL';
+
+	// Fast idempotency: the same signature is recorded once per agent.
+	const idempotencyKey = `tip:${signature}`;
+	{
+		const [existing] = await sql`
+			SELECT id, asset, amount_lamports, amount_raw, usd FROM agent_custody_events
+			WHERE agent_id = ${id} AND idempotency_key = ${idempotencyKey}
+		`;
+		if (existing) {
+			return json(res, 200, {
+				data: {
+					recorded: false, replayed: true, signature,
+					explorer: explorerTxUrl(signature, network), network,
+				},
+			});
+		}
+	}
+
+	// Verify on-chain. The client already waited for confirmation, so 'confirmed'
+	// is sufficient for a record of an already-public transfer.
+	const conn = solanaConnection(network);
+	let tx;
+	try {
+		tx = await conn.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+	} catch {
+		tx = null;
+	}
+	if (!tx) {
+		// Maybe still finalizing — tell the client to retry rather than failing hard.
+		return error(res, 202, 'tx_pending', 'transaction not visible yet — it may still be confirming, retry shortly');
+	}
+	if (tx.meta?.err) return error(res, 422, 'tx_failed', 'that transaction failed on-chain — nothing was tipped');
+
+	// Resolve the credited amount + price.
+	let amountLamports = null, amountRaw = null, usd = null, assetOut = 'SOL', decimals = 9;
+	const usdcMint = USDC_MINT_BY_CLUSTER[network];
+	if (assetRaw === 'SOL') {
+		const lamports = _lamportsCreditedTo(tx, address);
+		if (lamports <= 0n) return error(res, 422, 'no_funds_received', 'no SOL was received at this agent wallet in that transaction');
+		amountLamports = lamports;
+		assetOut = 'SOL';
+		try { usd = await lamportsToUsd(lamports); } catch { usd = null; }
+	} else {
+		// SPL tip. Resolve the mint (USDC by name, or an explicit mint address).
+		const mint = assetRaw === 'USDC' ? usdcMint : (validateSolanaAddress(body.asset).valid ? validateSolanaAddress(body.asset).base58 : null);
+		if (!mint) return error(res, 400, 'invalid_asset', 'asset must be "SOL", "USDC", or a valid SPL mint');
+		const atomics = _tokenCreditedTo(tx, mint, address);
+		if (atomics <= 0n) return error(res, 422, 'no_funds_received', 'none of that token was received at this agent wallet in that transaction');
+		amountRaw = atomics;
+		assetOut = mint;
+		if (mint === usdcMint) { decimals = 6; usd = Number(atomics) / 1e6; }
+	}
+
+	const from = _firstSigner(tx, address);
+	const blockTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null;
+
+	// Record the public tip event. ON CONFLICT guards the rare race where two
+	// requests verify the same signature concurrently.
+	const inserted = await sql`
+		INSERT INTO agent_custody_events
+			(agent_id, user_id, event_type, category, network, asset,
+			 amount_lamports, amount_raw, usd, destination, signature, status, idempotency_key, meta)
+		VALUES (
+			${id}, NULL, 'tip', 'tip', ${network}, ${assetOut},
+			${amountLamports != null ? String(amountLamports) : null},
+			${amountRaw != null ? String(amountRaw) : null},
+			${usd ?? null}, ${address}, ${signature}, 'confirmed', ${idempotencyKey},
+			${JSON.stringify({ source: 'p2p_tip', from: from || null, block_time: blockTime, decimals })}::jsonb
+		)
+		ON CONFLICT (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+		RETURNING id
+	`;
+	if (!inserted.length) {
+		return json(res, 200, { data: { recorded: false, replayed: true, signature, explorer: explorerTxUrl(signature, network), network } });
+	}
+
+	// Reflect the inbound funds in the cached balance immediately.
+	await cacheSet(`sol:bal:${address}:${network}`, null, 1).catch(() => {});
+
+	const human = amountLamports != null ? Number(amountLamports) / 1e9 : Number(amountRaw) / 10 ** decimals;
+	return json(res, 201, {
+		data: {
+			recorded: true, replayed: false, id: String(inserted[0].id),
+			signature, explorer: explorerTxUrl(signature, network), network,
+			asset: assetOut, amount: human, usd: usd ?? null, from: from || null,
+		},
+	});
+}
+
+// ── public-pulse visibility toggle ──────────────────────────────────────────────
+// GET/PUT /api/agents/:id/solana/pulse-visibility — owner-only control over whether
+// this agent's already-public events appear in the GLOBAL Money Pulse discovery
+// feed (/pulse). Default is included (opt_out = false) for public agents; an owner
+// can suppress their wallet from the aggregated feed without going fully private.
+// The agent's own profile/HUD pulse always shows its public history regardless —
+// this toggle governs only the platform-wide discovery stream. Enforced server-side
+// in api/pulse.js via meta.pulse_opt_out.
+async function handlePulseVisibility(req, res, id) {
+	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'PUT'])) return;
+
+	const owned = await loadOwnedWallet(req, res, id);
+	if (owned.error) return;
+	const { auth, meta } = owned;
+
+	const rl = await limits.walletRead(auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+
+	const [agentRow] = await sql`SELECT is_public FROM agent_identities WHERE id = ${id}`;
+	const isPublic = agentRow?.is_public !== false;
+
+	if (req.method === 'PUT') {
+		// Flipping pulse visibility changes what the public can discover about this
+		// wallet — gate it behind CSRF like the other wallet settings.
+		if (!(await requireCsrf(req, res, auth.userId))) return;
+		let body;
+		try {
+			body = await readJson(req);
+		} catch (e) {
+			return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+		}
+		if (typeof body.opt_out !== 'boolean') return error(res, 400, 'validation_error', 'opt_out must be a boolean');
+		const nextMeta = { ...meta, pulse_opt_out: body.opt_out };
+		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(nextMeta)}::jsonb WHERE id = ${id}`;
+		logAudit({ userId: auth.userId, action: 'wallet.pulse_visibility', resourceId: id, meta: { opt_out: body.opt_out }, req });
+		return json(res, 200, { data: { opt_out: body.opt_out, is_public: isPublic, in_public_pulse: isPublic && !body.opt_out } });
+	}
+
+	const optOut = meta.pulse_opt_out === true;
+	return json(res, 200, { data: { opt_out: optOut, is_public: isPublic, in_public_pulse: isPublic && !optOut } });
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
@@ -1482,6 +1683,8 @@ export default async function handler(req, res, id, action) {
 	if (action === 'networth') return handleNetWorth(req, res, id);
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
+	if (action === 'tip') return handleTip(req, res, id);
+	if (action === 'pulse-visibility') return handlePulseVisibility(req, res, id);
 	if (action === 'trade') {
 		const mod = await import('./solana-trade.js');
 		return mod.handleTrade(req, res, id);

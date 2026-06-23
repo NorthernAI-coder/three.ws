@@ -38,7 +38,7 @@ function _isLowerBody(name) {
 	return LOWER_BODY_FRAGMENTS.some((f) => norm.includes(f));
 }
 
-async function _loadGlbBlob(blob) {
+export async function _loadGlbBlob(blob) {
 	const loader = new GLTFLoader();
 	// Avatars baked through the server pipeline ship as EXT_meshopt_compression,
 	// and uploaded GLBs may use KHR_draco_mesh_compression. Without these
@@ -71,6 +71,62 @@ async function _loadGlbBlob(blob) {
  * let the exporter apply the world transform exactly as it would for any static
  * mesh.
  */
+/**
+ * Run CPU skinning over a SkinnedMesh at its *current* skeleton pose and return
+ * the deformed vertex positions in the mesh's own local space (the frame its
+ * matrix maps to world). Caller is responsible for having called
+ * updateMatrixWorld() so the bone matrices are current.
+ *
+ * Shared by the static bake (one pose) and the animated exporter (one call per
+ * sampled frame), so the skinning math lives in exactly one place.
+ *
+ * @param {import('three').SkinnedMesh} mesh
+ * @returns {Float32Array} length = vertexCount * 3
+ */
+export function _bakedLocalPositions(mesh) {
+	const posAttr = mesh.geometry.getAttribute('position');
+	const out = new Float32Array(posAttr.count * 3);
+	const v = new Vector3();
+	for (let i = 0; i < posAttr.count; i++) {
+		v.fromBufferAttribute(posAttr, i);
+		mesh.applyBoneTransform(i, v);
+		out[i * 3] = v.x;
+		out[i * 3 + 1] = v.y;
+		out[i * 3 + 2] = v.z;
+	}
+	return out;
+}
+
+/**
+ * Coerce every mesh material in a scene to MeshStandardMaterial in place. Quick
+ * Look's UsdPreviewSurface maps cleanly from Standard only — the exporter warns
+ * and drops Unlit/Phong/Toon meshes otherwise. Shared by the static and
+ * animated USDZ paths.
+ *
+ * @param {import('three').Object3D} scene
+ */
+export function _coerceMaterialsToStandard(scene) {
+	scene.traverse((obj) => {
+		if (!obj.isMesh) return;
+		const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+		mats.forEach((m, i) => {
+			if (!m || m.isMeshStandardMaterial) return;
+			const replacement = new MeshStandardMaterial({
+				color: m.color ? m.color.clone() : new Color(0xffffff),
+				map: m.map || null,
+				normalMap: m.normalMap || null,
+				roughness: typeof m.roughness === 'number' ? m.roughness : 0.85,
+				metalness: typeof m.metalness === 'number' ? m.metalness : 0.0,
+				transparent: !!m.transparent,
+				opacity: typeof m.opacity === 'number' ? m.opacity : 1,
+				side: m.side ?? DoubleSide,
+			});
+			if (Array.isArray(obj.material)) obj.material[i] = replacement;
+			else obj.material = replacement;
+		});
+	});
+}
+
 export function _bakeSkinnedMeshesForExport(scene) {
 	scene.updateMatrixWorld(true);
 
@@ -79,22 +135,12 @@ export function _bakeSkinnedMeshesForExport(scene) {
 		if (obj.isSkinnedMesh && obj.skeleton?.bones?.length) skinned.push(obj);
 	});
 
-	const v = new Vector3();
 	for (const mesh of skinned) {
 		const src = mesh.geometry;
-		const posAttr = src.getAttribute('position');
-		if (!posAttr) continue;
+		if (!src.getAttribute('position')) continue;
 
 		const baked = src.clone();
-		const out = new Float32Array(posAttr.count * 3);
-		for (let i = 0; i < posAttr.count; i++) {
-			v.fromBufferAttribute(posAttr, i);
-			mesh.applyBoneTransform(i, v); // deform into local space at current pose
-			out[i * 3] = v.x;
-			out[i * 3 + 1] = v.y;
-			out[i * 3 + 2] = v.z;
-		}
-		baked.setAttribute('position', new BufferAttribute(out, 3));
+		baked.setAttribute('position', new BufferAttribute(_bakedLocalPositions(mesh), 3));
 		// Skinning data is meaningless on a static mesh and confuses the exporter.
 		baked.deleteAttribute('skinIndex');
 		baked.deleteAttribute('skinWeight');
@@ -139,26 +185,7 @@ export async function glbBlobToUsdzBlob(glbBlob) {
 
 	// Quick Look refuses Unlit/Phong/Toon materials; coerce to standard. The
 	// visual result is close-to-identical for the typical avatar PBR setup.
-	scene.traverse((obj) => {
-		if (!obj.isMesh) return;
-		const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-		mats.forEach((m, i) => {
-			if (!m) return;
-			if (m.isMeshStandardMaterial) return;
-			const replacement = new MeshStandardMaterial({
-				color: m.color ? m.color.clone() : new Color(0xffffff),
-				map: m.map || null,
-				normalMap: m.normalMap || null,
-				roughness: typeof m.roughness === 'number' ? m.roughness : 0.85,
-				metalness: typeof m.metalness === 'number' ? m.metalness : 0.0,
-				transparent: !!m.transparent,
-				opacity: typeof m.opacity === 'number' ? m.opacity : 1,
-				side: m.side ?? DoubleSide,
-			});
-			if (Array.isArray(obj.material)) obj.material[i] = replacement;
-			else obj.material = replacement;
-		});
-	});
+	_coerceMaterialsToStandard(scene);
 
 	const exporter = new USDZExporter();
 	const usdzBytes = await exporter.parseAsync(scene);
