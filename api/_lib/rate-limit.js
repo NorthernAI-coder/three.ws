@@ -746,6 +746,20 @@ export const limits = {
 	// of the heaviest avoidable burners. Never critical.
 	notificationsRead: (userId) =>
 		getLimiter('notifications:read', { limit: 120, window: '1 m', local: true }).limit(userId),
+	// Web Push subscription register/unregister — one per device install plus the
+	// occasional re-subscribe when the browser rotates the endpoint.
+	pushSubscribe: (userId) =>
+		getLimiter('push:subscribe', { limit: 30, window: '1 h' }).limit(userId),
+	// Preference-center writes — debounced client, generous ceiling.
+	notifPrefsWrite: (userId) =>
+		getLimiter('notif:prefs:write', { limit: 60, window: '1 h' }).limit(userId),
+	// Funnel tracking (opened/returned) — high local ceiling; one ping per
+	// notification interaction, deduped server-side anyway.
+	notifTrack: (userId) =>
+		getLimiter('notif:track', { limit: 240, window: '1 m', local: true }).limit(userId),
+	// Newsletter confirm/unsubscribe link clicks (token in URL, no auth).
+	newsletterConfirmIp: (ip) =>
+		getLimiter('newsletter:confirm:ip', { limit: 20, window: '1 h' }).limit(ip),
 	// $THREE token payment layer (api/token/*).
 	// quote: 30 per user per minute — prevents price-polling abuse; each quote
 	//   hits a live price feed and signs a HMAC. Generous enough for interactive

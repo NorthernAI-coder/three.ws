@@ -2,6 +2,7 @@
 
 import { cors, json, method, wrap } from './_lib/http.js';
 import { resolveProviderName, BYOK_REGEN_PROVIDERS } from './_lib/regen-provider.js';
+import { vapidPublicKey, pushConfigured } from './_lib/web-push.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: false })) return;
@@ -38,6 +39,11 @@ export default wrap(async (req, res) => {
 		walletConnectProjectId: process.env.VITE_WALLETCONNECT_PROJECT_ID || '',
 		privyAppId: process.env.VITE_PRIVY_APP_ID || process.env.PRIVY_APP_ID || '',
 		samlEnabled,
+		// Web Push: the client needs the VAPID public key to subscribe. Empty
+		// string when push isn't configured, which the client reads as "hide the
+		// enable-push affordance".
+		pushEnabled: pushConfigured(),
+		vapidPublicKey: vapidPublicKey(),
 		samlLabel: process.env.SAML_BUTTON_LABEL || 'Single sign-on (SSO)',
 		features: {
 			// avatarReconstruct is always true: BYOK providers (Meshy, Tripo) are

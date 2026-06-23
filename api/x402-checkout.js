@@ -187,6 +187,41 @@ const tipSchema = z.object({
 	amount: z.string().regex(/^\d+$/),
 });
 
+// Validate one buyer-approved donation against the safety caps. Pure and
+// exported so the money-moving rules — well-formed recipient/amount, ≤ 100
+// tokens AND ≤ 50× the payment, and recipient ≠ the merchant payout — are
+// unit-testable without building a Solana transaction. The handler appends a
+// transferChecked only for an `ok` result. Returns exactly one of:
+//   { skip: true }                       — zero/negative amount, nothing to send
+//   { ok: true, to: PublicKey, amount }  — validated, ready to route
+//   { ok: false, code, message }         — rejected; caller emits a 400
+export function validateTip(tip, { payTo, paymentAmount }) {
+	let to;
+	try {
+		to = new PublicKey(tip.to);
+	} catch {
+		return { ok: false, code: 'invalid_tip', message: `donation recipient is not a valid address: ${tip.to}` };
+	}
+	let amount;
+	try {
+		amount = BigInt(tip.amount);
+	} catch {
+		return { ok: false, code: 'invalid_tip', message: 'donation amount must be a whole token amount' };
+	}
+	if (amount <= 0n) return { skip: true };
+	if (amount > TIP_ABS_MAX || amount > paymentAmount * 50n) {
+		return {
+			ok: false,
+			code: 'tip_too_large',
+			message: 'donation exceeds the safety cap (≤ 100 tokens and ≤ 50× the payment) — check the giving configuration',
+		};
+	}
+	if (to.equals(payTo)) {
+		return { ok: false, code: 'invalid_tip', message: 'donation recipient cannot be the payment recipient' };
+	}
+	return { ok: true, to, amount };
+}
+
 export const prepareSchema = z.object({
 	accept: acceptSchema,
 	buyer: solanaAddress,
@@ -320,38 +355,17 @@ async function handlePrepare(req, res) {
 	// against the merchant's own payout so a tip can never silently inflate it.
 	if (Array.isArray(tips) && tips.length) {
 		for (const tip of tips) {
-			let tipTo;
-			try {
-				tipTo = new PublicKey(tip.to);
-			} catch {
-				return error(res, 400, 'invalid_tip', `donation recipient is not a valid address: ${tip.to}`);
-			}
-			let tipAmount;
-			try {
-				tipAmount = BigInt(tip.amount);
-			} catch {
-				return error(res, 400, 'invalid_tip', 'donation amount must be a whole token amount');
-			}
-			if (tipAmount <= 0n) continue; // nothing to send
-			if (tipAmount > TIP_ABS_MAX || tipAmount > amount * 50n) {
-				return error(
-					res,
-					400,
-					'tip_too_large',
-					'donation exceeds the safety cap (≤ 100 tokens and ≤ 50× the payment) — check the giving configuration',
-				);
-			}
-			if (tipTo.equals(payTo)) {
-				return error(res, 400, 'invalid_tip', 'donation recipient cannot be the payment recipient');
-			}
-			const tipAta = getAssociatedTokenAddressSync(mint, tipTo, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+			const v = validateTip(tip, { payTo, paymentAmount: amount });
+			if (v.skip) continue; // zero/negative amount, nothing to send
+			if (!v.ok) return error(res, 400, v.code, v.message);
+			const tipAta = getAssociatedTokenAddressSync(mint, v.to, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
 			if (!(await ataExists(conn, tipAta))) {
 				ixs.push(
-					createAssociatedTokenAccountIdempotentInstruction(feePayer, tipAta, tipTo, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID),
+					createAssociatedTokenAccountIdempotentInstruction(feePayer, tipAta, v.to, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID),
 				);
 			}
 			ixs.push(
-				createTransferCheckedInstruction(senderAta, mint, tipAta, buyerPubkey, tipAmount, mintDecimals, [], TOKEN_PROGRAM_ID),
+				createTransferCheckedInstruction(senderAta, mint, tipAta, buyerPubkey, v.amount, mintDecimals, [], TOKEN_PROGRAM_ID),
 			);
 		}
 	}

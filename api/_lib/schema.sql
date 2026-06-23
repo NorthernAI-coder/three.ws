@@ -878,6 +878,22 @@ alter table usage_events add column if not exists cost_micro_usd bigint;
 create index if not exists usage_events_llm_time on usage_events(created_at desc) where kind = 'llm';
 create index if not exists usage_events_llm_provider_time on usage_events(provider, created_at desc) where kind = 'llm' and provider is not null;
 
+-- Usage metering ledger (see migrations/20260623170000_usage_metering.sql).
+-- Money is stored in USDC atomics (6 decimals) as bigint so statement sums never
+-- drift. Metered rows carry kind='metered' and an idempotency_key so a retried
+-- settlement meters EXACTLY once.
+alter table usage_events add column if not exists meter_action       text;
+alter table usage_events add column if not exists units              int;
+alter table usage_events add column if not exists price_usdc_atomics bigint;
+alter table usage_events add column if not exists fee_usdc_atomics   bigint;
+alter table usage_events add column if not exists discount_bps       int;
+alter table usage_events add column if not exists settlement_ref     text;
+alter table usage_events add column if not exists settlement_kind    text;
+alter table usage_events add column if not exists idempotency_key    text;
+create unique index if not exists usage_events_idem on usage_events(idempotency_key) where idempotency_key is not null;
+create index if not exists usage_events_settlement on usage_events(settlement_ref) where settlement_ref is not null;
+create index if not exists usage_events_metered_user_time on usage_events(user_id, created_at desc) where kind = 'metered';
+
 -- ── agent_registrations_pending — transient prep records for 2-step registration ─────
 create table if not exists agent_registrations_pending (
 	id              uuid primary key default gen_random_uuid(),
@@ -1914,3 +1930,61 @@ CREATE INDEX IF NOT EXISTS x_pending_reviews_user_pending
 
 -- ── club_tips — backfill amount_atomics ──────────────────────────────────────
 ALTER TABLE club_tips ADD COLUMN IF NOT EXISTS amount_atomics numeric;
+
+-- ── PWA & notifications (task 39) ────────────────────────────────────────────
+-- Web Push endpoints, the unified preference center, the sent→opened→returned
+-- funnel, and the double opt-in newsletter list. Full rationale lives in the
+-- dated migration 20260628000000_push_and_notification_prefs.sql; mirrored here
+-- so a clean schema.sql apply provisions the tables.
+create table if not exists push_subscriptions (
+    id           uuid primary key default gen_random_uuid(),
+    user_id      uuid not null references users(id) on delete cascade,
+    endpoint     text not null,
+    p256dh       text not null,
+    auth         text not null,
+    user_agent   text,
+    created_at   timestamptz not null default now(),
+    last_seen_at timestamptz not null default now()
+);
+create unique index if not exists push_subscriptions_endpoint
+    on push_subscriptions (endpoint);
+create index if not exists push_subscriptions_user
+    on push_subscriptions (user_id, created_at desc);
+
+create table if not exists notification_preferences (
+    user_id    uuid primary key references users(id) on delete cascade,
+    prefs      jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists notification_events (
+    id              bigint generated always as identity primary key,
+    notification_id uuid references user_notifications(id) on delete cascade,
+    user_id         uuid not null references users(id) on delete cascade,
+    channel         text not null check (channel in ('in_app','push','email','telegram')),
+    event           text not null check (event in ('sent','opened','returned')),
+    meta            jsonb not null default '{}'::jsonb,
+    created_at      timestamptz not null default now()
+);
+create index if not exists notification_events_notif
+    on notification_events (notification_id);
+create index if not exists notification_events_funnel
+    on notification_events (event, channel, created_at desc);
+create unique index if not exists notification_events_once
+    on notification_events (notification_id, channel, event)
+    where notification_id is not null and event in ('opened','returned');
+
+create table if not exists newsletter_subscribers (
+    id            uuid primary key default gen_random_uuid(),
+    email         citext not null unique,
+    status        text not null default 'pending'
+                  check (status in ('pending','confirmed','unsubscribed')),
+    confirm_token text not null,
+    locale        text,
+    source        text,
+    created_at    timestamptz not null default now(),
+    confirmed_at  timestamptz,
+    unsubbed_at   timestamptz
+);
+create index if not exists newsletter_subscribers_token
+    on newsletter_subscribers (confirm_token);

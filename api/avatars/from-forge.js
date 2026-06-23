@@ -33,6 +33,7 @@ import { provisionAvatarAgent } from '../_lib/avatar-agent.js';
 import { maybeAutoRigAvatar } from '../_lib/auto-rig.js';
 import { limits } from '../_lib/rate-limit.js';
 import { recordEvent } from '../_lib/usage.js';
+import { markActivated } from '../_lib/activation.js';
 import { env } from '../_lib/env.js';
 
 // Match the studio/reconstruct ceiling so a runaway model can't ingest an
@@ -188,6 +189,9 @@ export default wrap(async (req, res) => {
 		bytes: buf.length,
 		meta: { source: 'chat-forge-avatar', rigged: Boolean(rigged) },
 	});
+	// First win: claimed a forged 3D model as an avatar. Activates the account
+	// once and pays the two-sided referral reward when referred. Fire-and-forget.
+	queueMicrotask(() => markActivated(auth.userId, { source: 'forge_save', meta: { avatarId: avatar.id } }));
 
 	const viewUrl = `${env.APP_ORIGIN || ''}/discover/avatar/${avatar.id}`;
 	return json(res, 201, { avatar, view_url: viewUrl });

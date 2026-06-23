@@ -1097,8 +1097,32 @@ async function loadExtraSections(agentId, rec, isOwner) {
 	]);
 
 	if (actions?.actions?.length) renderActions(actions.actions, agentId);
+	else if (isOwner)
+		renderOwnerEmptyCard('ad-actions-card', 'ad-actions-list', {
+			icon: '⚡',
+			title: 'No signed actions yet',
+			body: 'Every trade, launch, and skill invocation this agent makes is logged here with a verifiable signature. Give it a strategy or chat with it to get started.',
+			ctaHref: `/agents/${encodeURIComponent(agentId)}/studio`,
+			ctaText: 'Open agent studio →',
+		});
 	if (memory?.entries?.length) renderMemory(memory.entries);
+	else if (isOwner)
+		renderOwnerEmptyCard('ad-memory-card', 'ad-memory-list', {
+			icon: '🧠',
+			title: 'No memories yet',
+			body: 'This agent builds long-term memory as it works and converses. Start a conversation to seed what it remembers.',
+			ctaHref: `/agents/${encodeURIComponent(agentId)}/talk`,
+			ctaText: 'Chat with this agent →',
+		});
 	if (strategy?.data?.strategy != null) renderStrategy(strategy.data.strategy);
+	else if (isOwner)
+		renderOwnerEmptyCard('ad-strategy-card', 'ad-strategy', {
+			icon: '🎯',
+			title: 'No strategy set',
+			body: 'Define how this agent trades, allocates, and acts on its own. A strategy turns the wallet above into an autonomous operator.',
+			ctaHref: `/agents/${encodeURIComponent(agentId)}/studio`,
+			ctaText: 'Set a strategy →',
+		});
 	if (reputation && (reputation.count > 0 || reputation.average > 0))
 		renderReputation(reputation);
 	if (embedPolicy) renderEmbedPolicy(embedPolicy);
@@ -1527,6 +1551,37 @@ function summarizeActionPayload(p) {
 	if (k == null) return '';
 	const v = p[k];
 	return typeof v === 'string' ? `${k}=${v.slice(0, 60)}` : `${k}=${typeof v}`;
+}
+
+// Designed empty state for owner-only cards (actions / memory / strategy) when a
+// fresh agent has no data yet. Public visitors never see these cards; the owner
+// gets a clear next step instead of a blank or hidden panel.
+function renderOwnerEmptyCard(cardId, bodyId, { icon, title, body, ctaHref, ctaText }) {
+	const card = document.getElementById(cardId);
+	const target = document.getElementById(bodyId);
+	if (!card || !target) return;
+	target.style.display = 'none';
+	const empty = el(
+		'div',
+		{
+			class: 'ad-owner-empty',
+			style:
+				'display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:22px 16px;color:var(--ad-muted,#8a8f98)',
+		},
+		[
+			el('div', { style: 'font-size:26px;line-height:1', text: icon }),
+			el('div', { style: 'color:#eaeaea;font-size:14px;font-weight:600', text: title }),
+			el('div', { style: 'font-size:12.5px;line-height:1.5;max-width:42ch', text: body }),
+			el('a', {
+				class: 'ad-cta',
+				style: 'margin-top:4px',
+				href: ctaHref,
+				text: ctaText,
+			}),
+		],
+	);
+	card.appendChild(empty);
+	card.style.display = '';
 }
 
 function renderActions(actions, agentId) {

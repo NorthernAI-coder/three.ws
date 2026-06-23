@@ -13,6 +13,7 @@ import { maybeAutoRigAvatar } from '../_lib/auto-rig.js';
 import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { parse, createAvatarBody } from '../_lib/validate.js';
 import { recordEvent } from '../_lib/usage.js';
+import { markActivated } from '../_lib/activation.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
 import { z } from 'zod';
 
@@ -170,6 +171,9 @@ async function handleCreate(req, res) {
 		kind: 'upload',
 		bytes: avatar.size_bytes,
 	});
+	// First win: a real avatar in hand. Activates the account once (and pays the
+	// two-sided referral reward if this user was referred). Fire-and-forget.
+	queueMicrotask(() => markActivated(auth.userId, { source: 'avatar_create', meta: { avatarId: avatar.id } }));
 	return json(res, 201, { avatar });
 }
 

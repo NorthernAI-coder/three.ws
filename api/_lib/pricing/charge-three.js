@@ -23,7 +23,37 @@ import {
 	pullFromAllowance,
 	recordAllowancePayment,
 } from '../token/index.js';
-import { catalogEntry, priceForAction, POLICY } from './catalog.js';
+import { catalogEntry, priceForAction, POLICY, CATALOG } from './catalog.js';
+import { recordUsageSafe } from '../metering.js';
+
+// Meter a SETTLED $THREE charge into the usage ledger. Derives the USDC-atomic
+// price and the holder discount actually applied from the (discounted) quote.usd
+// vs the catalog's full price, then records one idempotent row keyed by the
+// settlement id — so a retried settlement meters exactly once. Never throws, so
+// a ledger hiccup can never fail a charge the user already paid for; the
+// reconciliation pass catches anything that slips through unmetered.
+async function meterSettledCharge({ action, quoteUsd, userId, agentId, settlementRef }) {
+	if (!settlementRef) return;
+	const full = CATALOG[action]?.usd ?? null;
+	const usd = Number(quoteUsd) || 0;
+	const priceUsdcAtomics = Math.round(usd * 1_000_000);
+	// Recover the discount that was applied to reach the quoted price (fixed-price
+	// actions only — variable/marketplace prices carry no holder discount).
+	let discountBps = 0;
+	if (full != null && full > 0 && usd > 0 && usd < full) {
+		discountBps = Math.max(0, Math.min(10000, Math.round((1 - usd / full) * 10000)));
+	}
+	await recordUsageSafe({
+		userId: userId ?? null,
+		agentId: agentId ?? null,
+		action,
+		units: 1,
+		priceUsdcAtomics,
+		discountBps,
+		settlementRef: String(settlementRef),
+		settlementKind: 'three',
+	});
+}
 
 // Surfaces that are free forever (the growth funnel). These are NOT catalog
 // actions — they have no price — but they're listed explicitly so the guardrail
@@ -133,6 +163,15 @@ export async function requireThreePayment({
 			userId: user?.id ?? null,
 			network,
 		});
+		// Meter the settled charge into the usage ledger (idempotent on the
+		// settlement id). result.quote.usd is the holder-discounted price actually
+		// quoted; result.payment_id is the token_payments row this usage is paid by.
+		await meterSettledCharge({
+			action,
+			quoteUsd: result?.quote?.usd,
+			userId: user?.id ?? null,
+			settlementRef: result?.payment_id,
+		});
 		return { paid: true, payment: result };
 	}
 
@@ -163,6 +202,14 @@ export async function requireThreePayment({
 				payerWallet,
 				userId: user?.id ?? null,
 				slot: pull.slot,
+			});
+			// Meter the allowance-rail charge too — same ledger, same idempotency
+			// guarantee (keyed by the token_payments id), so both rails reconcile.
+			await meterSettledCharge({
+				action,
+				quoteUsd: quote.usd,
+				userId: user?.id ?? null,
+				settlementRef: record.id,
 			});
 			return {
 				paid: true,
