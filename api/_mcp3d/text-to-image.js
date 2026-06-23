@@ -23,6 +23,48 @@ import { markProviderCooldown, providersInCooldown } from '../_lib/provider-heal
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
 const DEFAULT_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
 
+// `Prefer: wait` asks Replicate to hold the create request open until the
+// prediction finishes, but it only waits ~60s and, under load or with a cold
+// model, returns the prediction still `starting`/`processing` and output-less.
+// flux-schnell finishes in a few seconds, so we poll the prediction's status
+// URL to a terminal state rather than dead-ending the FREE, never-fail text→3D
+// lane on a transient "did not complete (status: starting)". Bounded so a truly
+// stuck prediction still fails over instead of stalling the serverless budget.
+const REPLICATE_POLL_TIMEOUT_MS = 45_000;
+const REPLICATE_POLL_INTERVAL_MS = 1_500;
+const REPLICATE_TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'canceled']);
+
+// Poll a Replicate prediction's `get` URL until it reaches a terminal state.
+// Returns the final prediction object on success; throws on a failed/canceled
+// prediction; returns the last seen object (caller surfaces a clear error) when
+// the poll budget is exhausted. A transient poll blip is retried within budget,
+// never fatal — the prediction keeps running upstream regardless.
+async function pollReplicatePrediction(getUrl, token) {
+	const deadline = Date.now() + REPLICATE_POLL_TIMEOUT_MS;
+	let last = null;
+	while (Date.now() < deadline) {
+		await sleep(REPLICATE_POLL_INTERVAL_MS);
+		let res;
+		try {
+			res = await fetch(getUrl, {
+				headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
+				signal: AbortSignal.timeout(15_000),
+			});
+		} catch {
+			continue;
+		}
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) continue;
+		last = data;
+		if (data.status === 'succeeded') return data;
+		if (data.status === 'failed' || data.status === 'canceled') {
+			const reason = data.error ? `: ${String(data.error).slice(0, 160)}` : '';
+			throw new Error(`text-to-image ${data.status}${reason}`);
+		}
+	}
+	return last;
+}
+
 // Circuit-breaker key + window for the free NIM FLUX synthesis lane. When NVCF
 // times out / errors, one slow window otherwise makes every text→image caller
 // (forge text→3D, avatar generation, studio) re-pay the full NIM timeout before
@@ -382,11 +424,25 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 		});
 	}
 
-	// With `Prefer: wait` the prediction usually completes inline. If Replicate
-	// returned before completion (slow model, timeout), surface the partial
-	// state so the handler can decide — but for flux-schnell this is rare.
-	const url = extractImageUrl(data.output);
+	// With `Prefer: wait` the prediction usually completes inline. When Replicate
+	// returns before completion (slow model, cold start, wait window elapsed) it
+	// hands back a non-terminal status and no output — poll the prediction to a
+	// terminal state so the free text→3D lane never dead-ends on a transient
+	// "starting", instead of surfacing the partial state as a hard failure.
+	let url = extractImageUrl(data.output);
 	if (!url) {
+		const getUrl = data?.urls?.get;
+		const nonTerminal = data.status && !REPLICATE_TERMINAL_STATUSES.has(data.status);
+		if (getUrl && nonTerminal) {
+			const finished = await pollReplicatePrediction(getUrl, token);
+			url = extractImageUrl(finished?.output);
+			if (url) {
+				return { imageUrl: url, predictionId: finished?.id || data.id, model: modelRef };
+			}
+			throw new Error(
+				`text-to-image did not complete (status: ${finished?.status || data.status})`,
+			);
+		}
 		if (data.status && data.status !== 'succeeded') {
 			throw new Error(`text-to-image did not complete (status: ${data.status})`);
 		}

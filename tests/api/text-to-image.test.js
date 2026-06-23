@@ -419,6 +419,101 @@ describe('textToImage — Vertex → Replicate fallback', () => {
 		expect(caught.message).not.toMatch(/credit|purchase|payment/i);
 	});
 
+	it('polls a Replicate prediction that returns non-terminal, then resolves', async () => {
+		// Regression: under load / cold start Replicate returns the prediction still
+		// `starting` (Prefer: wait elapsed) with no output. The free text→3D lane
+		// must poll the prediction to completion, never dead-end on a transient
+		// "text-to-image did not complete (status: starting)".
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		let pollHits = 0;
+		stubFetch([
+			[
+				'/predictions/pred_poll',
+				() => {
+					pollHits += 1;
+					const done = pollHits >= 2;
+					return new Response(
+						JSON.stringify({
+							id: 'pred_poll',
+							status: done ? 'succeeded' : 'processing',
+							output: done ? ['https://replicate.delivery/polled.png'] : null,
+						}),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					);
+				},
+			],
+			[
+				'flux-schnell',
+				() =>
+					new Response(
+						JSON.stringify({
+							id: 'pred_poll',
+							status: 'starting',
+							output: null,
+							urls: { get: 'https://api.replicate.com/v1/predictions/pred_poll' },
+						}),
+						{ status: 201, headers: { 'content-type': 'application/json' } },
+					),
+			],
+		]);
+
+		vi.useFakeTimers();
+		try {
+			const textToImage = await freshTextToImage();
+			const p = textToImage('a red teapot');
+			await vi.advanceTimersByTimeAsync(5_000); // let two poll intervals elapse
+			const result = await p;
+			expect(result.imageUrl).toBe('https://replicate.delivery/polled.png');
+			expect(result.predictionId).toBe('pred_poll');
+			expect(pollHits).toBeGreaterThanOrEqual(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('surfaces a clean error when a polled Replicate prediction fails', async () => {
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		stubFetch([
+			[
+				'/predictions/pred_fail',
+				() =>
+					new Response(
+						JSON.stringify({ id: 'pred_fail', status: 'failed', error: 'NSFW content detected' }),
+						{ status: 200, headers: { 'content-type': 'application/json' } },
+					),
+			],
+			[
+				'flux-schnell',
+				() =>
+					new Response(
+						JSON.stringify({
+							id: 'pred_fail',
+							status: 'starting',
+							output: null,
+							urls: { get: 'https://api.replicate.com/v1/predictions/pred_fail' },
+						}),
+						{ status: 201, headers: { 'content-type': 'application/json' } },
+					),
+			],
+		]);
+
+		vi.useFakeTimers();
+		try {
+			const textToImage = await freshTextToImage();
+			const p = textToImage('a red teapot');
+			const settled = p.then(
+				() => null,
+				(e) => e,
+			);
+			await vi.advanceTimersByTimeAsync(3_000);
+			const caught = await settled;
+			expect(caught).toBeTruthy();
+			expect(caught.message).toMatch(/text-to-image failed/);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('persists a Vertex data: URI to object storage and returns the https URL', async () => {
 		process.env.GOOGLE_CLOUD_PROJECT = 'demo-project';
 		vertexState.configured = true;

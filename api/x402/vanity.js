@@ -66,6 +66,9 @@ import {
 	parseX25519Key,
 	SEALED_ENVELOPE_SCHEME,
 } from '../../src/solana/vanity/sealed-envelope.js';
+import { buildCertificateCore, signCertificate } from '../../src/solana/vanity/proof-of-grind.js';
+import { getServiceIdentity } from '../_lib/vanity-service-key.js';
+import { registerCert } from '../_lib/vanity-cert-store.js';
 import bs58 from 'bs58';
 
 const ROUTE = '/api/x402/vanity';
