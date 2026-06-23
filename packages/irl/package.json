@@ -1,0 +1,29 @@
+{
+  "name": "@three-ws/irl",
+  "version": "0.1.0",
+  "description": "Geofenced, real-world presence for agents and avatars — check in at a GPS spot with a proof-of-presence fix, discover who's nearby, and log real encounters. The three.ws IRL client.",
+  "keywords": [
+    "irl",
+    "geolocation",
+    "geofence",
+    "geohash",
+    "proof-of-presence",
+    "proximity",
+    "ar",
+    "agents",
+    "avatar",
+    "presence",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}

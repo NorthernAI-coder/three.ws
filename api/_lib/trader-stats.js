@@ -387,7 +387,7 @@ export function shapeOpen(p, network) {
  * + open positions. Returns null if the agent has no positions on this network.
  */
 export async function getTraderStats({ agentId, network, window = 'all', now = Date.now() }) {
-	const [idRows, positions, solUsd, copiers, oracleSummary] = await Promise.all([
+	const [idRows, positions, solUsd, copiers, oracleSummary, projection] = await Promise.all([
 		sql`
 			select id, name, description, avatar_url, profile_image_url, is_public
 			from agent_identities where id = ${agentId} limit 1
@@ -396,6 +396,7 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 		cachedSolUsd(),
 		copierCountForAgent(agentId, network),
 		actionsSummary(agentId, network).catch(() => null),
+		latestProjection(agentId, network).catch(() => null),
 	]);
 	const identity = idRows[0];
 	if (!identity) return null;
@@ -424,6 +425,54 @@ export async function getTraderStats({ agentId, network, window = 'all', now = D
 		closed,
 		open,
 		oracle: oracleSummary && oracleSummary.total > 0 ? oracleSummary : null,
+		projection: projection ? buildProjectionComparison(projection, metrics) : null,
+	};
+}
+
+/**
+ * Latest backtest snapshot linked to this agent — the projection the owner armed
+ * against. Read-only; returns null when the table is absent or no snapshot exists.
+ */
+async function latestProjection(agentId, network) {
+	const [row] = await sql`
+		select metrics, sample_size, window_days, ran_at
+		from strategy_backtests
+		where agent_id = ${agentId} and network = ${network}
+		order by ran_at desc limit 1
+	`;
+	return row || null;
+}
+
+/**
+ * Pair the armed projection against what actually happened, so the projection is
+ * accountable — not marketing. Realized numbers come straight from
+ * computeTraderMetrics (chain-proven); projected numbers from the stored backtest.
+ */
+function buildProjectionComparison(snap, metrics) {
+	const m = snap.metrics || {};
+	const bt = m.metrics || {};
+	const projWinRate = typeof bt.win_rate === 'number' ? bt.win_rate : null;
+	const projEv = typeof bt.expected_value_pct === 'number' ? bt.expected_value_pct : null;
+	const projDrawdown = typeof bt.max_drawdown_pct === 'number' ? bt.max_drawdown_pct : null;
+	return {
+		ran_at: snap.ran_at,
+		window_days: snap.window_days,
+		sample_size: snap.sample_size,
+		confidence: m.caveats?.confidence || null,
+		insufficient_data: !!m.insufficient_data,
+		projected: {
+			win_rate: projWinRate,
+			expected_value_pct: projEv,
+			roi_median_pct: typeof bt.roi_median_pct === 'number' ? bt.roi_median_pct : null,
+			max_drawdown_pct: projDrawdown,
+		},
+		realized: {
+			win_rate: metrics.win_rate,
+			avg_pnl_pct: metrics.avg_pnl_pct,
+			roi_pct: metrics.roi_pct,
+			max_drawdown_pct: metrics.max_drawdown_pct,
+			closed_count: metrics.closed_count,
+		},
 	};
 }
 

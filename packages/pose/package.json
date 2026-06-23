@@ -1,0 +1,30 @@
+{
+  "name": "@three-ws/pose",
+  "version": "0.1.0",
+  "description": "Deterministic, named pose seeds for rigged 3D avatars. Map a natural-language prompt to a stable seed + full Euler joint-rotation map from the three.ws pose-studio preset library.",
+  "keywords": [
+    "3d",
+    "pose",
+    "rig",
+    "skeleton",
+    "joint-rotation",
+    "avatar",
+    "humanoid",
+    "deterministic",
+    "seed",
+    "gltf",
+    "glb",
+    "three.ws"
+  ],
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://three.ws",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nirholas/three.ws"
+  },
+  "bugs": {
+    "url": "https://github.com/nirholas/three.ws/issues"
+  }
+}
