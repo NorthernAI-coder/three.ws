@@ -639,6 +639,14 @@
 			<description>Opening a three.ws link from inside the X (Twitter) app, and other in-app browsers that sandbox local storage, could throw an error before the page finished setting up its language — leaving some visitors on a broken first screen. Language preference now degrades gracefully when storage is blocked instead of failing, so the site loads normally everywhere. We also quieted a class of harmless background network blips (an expired draft model link, a dropped request) that were being logged as errors even though the viewer already shows its designed &quot;couldn't load&quot; card and recovers.</description>
 		</item>
 		<item>
+			<title>Top-trader leaderboard loads again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Top-trader leaderboard loads again</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The KOL top-trader leaderboard was returning an error instead of its rankings — its data file wasn't being shipped alongside the function that reads it, so every request failed. The data now travels with the function and the leaderboard resolves normally. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Treasury Autopilot — the agent that funds its own existence</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Treasury Autopilot — the agent that funds its own existence</guid>
