@@ -39,8 +39,15 @@ const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB decoded reference image ceili
 const MAX_BODY_BYTES = 16 * 1024 * 1024; // base64 inflates ~33%, plus JSON envelope
 
 function trellisSteps(tier) {
-	return tier === 'high' ? { ss: 40, slat: 40 } : { ss: 15, slat: 15 };
+	return tier === 'high' ? { ss: 50, slat: 50 } : { ss: 15, slat: 15 };
 }
+
+// CFG scales control how strictly diffusion adheres to the input. TRELLIS defaults
+// slat_cfg_scale to 3.0, which yields smooth, cartoonish reconstructions; 5.0 keeps
+// the output faithful to the real texture/shape of the source photo. ss_cfg_scale
+// stays at the tuned 7.5 default.
+const SS_CFG = 7.5;
+const SLAT_CFG = 5.0;
 
 // Mirror the provider's prompt shaping so text-mode results look the same as the
 // production forge lane: keep an already-styled prompt, else append a lighting
@@ -261,6 +268,8 @@ async function infer(req, res) {
 			prompt,
 			ss_sampling_steps: steps.ss,
 			slat_sampling_steps: steps.slat,
+			ss_cfg_scale: SS_CFG,
+			slat_cfg_scale: SLAT_CFG,
 			output_format: 'glb',
 		};
 	} else {
@@ -270,6 +279,8 @@ async function infer(req, res) {
 			image: imageDataUri,
 			ss_sampling_steps: steps.ss,
 			slat_sampling_steps: steps.slat,
+			ss_cfg_scale: SS_CFG,
+			slat_cfg_scale: SLAT_CFG,
 			output_format: 'glb',
 		};
 	}

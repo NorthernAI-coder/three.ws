@@ -1,17 +1,30 @@
 #!/usr/bin/env node
 // Image→3D against the live self-hosted TRELLIS NIM (large:image) on GCP.
-// Hits the box directly (firewall open on :8000), high quality (40 steps),
-// saves the GLB locally for the auto-orbit viewer.
+// Hits the box directly (firewall open on :8000) at MAX fidelity and saves the
+// GLB locally for the auto-orbit viewer.
 //
 //   node scripts/nim-img-to-3d.mjs path/to/photo.jpg [steps]
 //
-// Output: demo/<name>.glb  →  view with scripts/nvidia-demo-serve.mjs
+// Quality knobs (verified live against the NIM's /openapi.json Object3DRequest):
+//   • ss_sampling_steps / slat_sampling_steps — TRELLIS default 25, ceiling 50.
+//     Too few sparse-structure steps leave HOLES in the mesh; we max both at 50.
+//   • slat_cfg_scale — how strictly the structured-latent diffusion adheres to
+//     the input photo. The NIM default (3.0) is low, which is why output looks
+//     CARTOONISH (the model invents smooth, toy-like detail). We raise it so the
+//     reconstruction stays faithful to the real texture/shape in the photo.
+//   • ss_cfg_scale — sparse-structure guidance; kept at the tuned default (7.5).
+// All three are env-overridable (STEPS / SLAT_CFG / SS_CFG) for live tuning.
+// Note: this NIM exposes NO mesh_simplify / texture_size — fidelity comes from
+// steps + cfg + a sharp, evenly-lit input photo (the biggest lever of all).
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
 const NIM = process.env.NIM_URL || 'http://104.154.74.37:8000';
 const imgPath = process.argv[2];
-const steps = Number(process.argv[3]) || 40;
+// Max-fidelity defaults; CLI arg or env can override.
+const steps = Number(process.argv[3]) || Number(process.env.STEPS) || 50;
+const slatCfg = Number(process.env.SLAT_CFG) || 5.0; // ↑ from NIM default 3.0 → less cartoonish
+const ssCfg = Number(process.env.SS_CFG) || 7.5; // tuned default
 if (!imgPath) { console.error('usage: node scripts/nim-img-to-3d.mjs <image> [steps]'); process.exit(1); }
 
 const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
@@ -20,7 +33,7 @@ async function main() {
 	const buf = await readFile(imgPath);
 	const mime = MIME[extname(imgPath).toLowerCase()] || 'image/png';
 	const dataUri = `data:${mime};base64,${buf.toString('base64')}`;
-	console.log(`→ NIM image→3D  ${NIM}  steps=${steps}  input=${imgPath} (${(buf.length / 1024).toFixed(0)} KB)`);
+	console.log(`→ NIM image→3D  ${NIM}  steps=${steps}/${steps}  slat_cfg=${slatCfg}  ss_cfg=${ssCfg}  input=${imgPath} (${(buf.length / 1024).toFixed(0)} KB)`);
 
 	const t0 = Date.now();
 	const res = await fetch(`${NIM}/v1/infer`, {
@@ -31,6 +44,8 @@ async function main() {
 			image: dataUri,
 			ss_sampling_steps: steps,
 			slat_sampling_steps: steps,
+			ss_cfg_scale: ssCfg,
+			slat_cfg_scale: slatCfg,
 			output_format: 'glb',
 		}),
 		signal: AbortSignal.timeout(240_000),

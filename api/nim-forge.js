@@ -29,7 +29,7 @@ const INFER_TIMEOUT_MS = 110_000;
 function stepsForTier(tier) {
 	switch (tier) {
 		case 'high':
-			return 40;
+			return 50;
 		case 'standard':
 			return 25;
 		case 'draft':
@@ -110,9 +110,15 @@ export default wrap(async (req, res) => {
 		return json(res, 400, { error: 'bad_image', message: 'image must be a base64 data-uri.' });
 	}
 
+	// slat_cfg_scale governs how strictly the structured-latent diffusion adheres
+	// to the input. TRELLIS defaults to 3.0, which makes reconstructions look
+	// smooth and cartoonish (the model invents toy-like detail). Raising it to 5.0
+	// keeps the output faithful to the real texture/shape in the source photo.
+	const SLAT_CFG = 5.0;
+	const SS_CFG = 7.5;
 	const payload = image
-		? { mode: 'image', image, ss_sampling_steps: steps, slat_sampling_steps: steps, output_format: 'glb', seed }
-		: { mode: 'text', prompt, ss_sampling_steps: steps, slat_sampling_steps: steps, output_format: 'glb', seed };
+		? { mode: 'image', image, ss_sampling_steps: steps, slat_sampling_steps: steps, ss_cfg_scale: SS_CFG, slat_cfg_scale: SLAT_CFG, output_format: 'glb', seed }
+		: { mode: 'text', prompt, ss_sampling_steps: steps, slat_sampling_steps: steps, ss_cfg_scale: SS_CFG, slat_cfg_scale: SLAT_CFG, output_format: 'glb', seed };
 
 	const url = `${NIM_URL.replace(/\/$/, '')}/v1/infer`;
 	const headers = { 'content-type': 'application/json', accept: 'application/json' };
