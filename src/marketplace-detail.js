@@ -12,7 +12,7 @@
 
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { coinChipHTML } from './shared/agent-coin.js';
-import { walletChipHTML } from './shared/agent-wallet-chip.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { log } from './shared/log.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
@@ -502,6 +502,7 @@ function renderCreatorModal(payload, deps) {
 				<div class="meta">⊙ ${fmtNumber(a.views_count)} · ⑂ ${fmtNumber(a.forks_count)}</div>
 			</div>`;
 		}).join('');
+		wireWalletChips(agentsGrid);
 		agentsGrid.querySelectorAll('[data-agent-id]').forEach((card) => {
 			card.addEventListener('click', () => {
 				closeCreatorModal();
@@ -527,6 +528,7 @@ function renderCreatorModal(payload, deps) {
 				<div class="meta">${escapeHtml(formatDate(avt.created_at))}</div>
 			</div>`;
 		}).join('');
+		wireWalletChips(avatarsGrid);
 		avatarsGrid.querySelectorAll('[data-avatar-id]').forEach((card) => {
 			card.addEventListener('click', () => {
 				const avt = avatars.find((x) => x.id === card.dataset.avatarId);

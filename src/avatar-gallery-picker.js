@@ -18,7 +18,7 @@
 
 import './avatar-gallery-picker.css';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
-import { walletChipHTML } from './shared/agent-wallet-chip.js';
+import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
 const PAGE_SIZE = 24;
 
@@ -459,6 +459,7 @@ export class AvatarGalleryPicker {
 			</div>
 		`;
 
+		wireWalletChips(card);
 		card.addEventListener('click', () => this._selectAvatar(a));
 		return card;
 	}
