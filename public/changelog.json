@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T03:11:42.433Z",
+	"generated_at": "2026-06-23T03:17:02.870Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/pulse",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Avatar creation errors are clearer — and never leak a vendor's billing page",
+			"summary": "Reworked every failure message across selfie-to-avatar and prompt-to-avatar so you get plain, actionable guidance — 'the engine is busy, try again', 'we couldn't find a face, use a brighter photo' — instead of a raw third-party error, a provider's name, or a 'buy more credits' billing link. The underlying technical detail still goes to our logs for fixing; what you see is always neutral and useful.",
+			"link": null,
+			"tags": [
+				"fix",
+				"security"
 			]
 		},
 		{
@@ -122,6 +133,17 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "More uploaded avatars animate out of the box — no more accidental T-poses",
+			"summary": "Avatars exported from Reallusion Character Creator 3/4 and 3ds Max (Biped) used to import frozen in a stiff T-pose because the platform didn't recognize their skeleton naming. Both are now mapped to the universal rig, so a CC or Biped avatar walks, idles, and emotes like any other — legs included — the moment you bring it in. A batch of generic side-labelled rigs from auto-riggers now animate too. No setup, no allowlist; it just moves.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "New: a server error now lands you on a real page — with your support code ready to copy",
 			"summary": "On the rare occasion something breaks on our side, you used to get the host's blank error screen — a dead end. Now you land on a proper three.ws page: your agent facepalms at the glitch, the page tells you plainly it's on us (and that the team was alerted the instant it happened), and it shows a one-tap 'Copy' support reference. 'Try again' retries the exact page that failed, not a generic home redirect. Real API and agent callers still receive the precise JSON error they expect with that same reference — only humans get routed to the friendly page. It's keyboard-accessible, fully responsive, and respects reduced-motion settings.",
 			"link": null,
@@ -169,6 +191,16 @@
 			"link": null,
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Prompt-to-avatar: a live progress bar you can cancel, plus motion and screen-reader polish",
+			"summary": "Building an avatar from a text prompt now shows a progress bar that actually moves second-to-second (tied to real elapsed time) instead of sitting frozen between stages, a real elapsed clock, and a Cancel button (or Escape) so you're never stuck watching a spinner. Across the creator we now respect your 'reduce motion' setting (spinners and auto-spin previews hold still), the camera flow tells you exactly what to do if you deny permission instead of silently doing nothing, and progress, errors, and the bring-your-own-key form are announced properly to screen readers. Character Studio shows a loading silhouette and an actionable Retry if something fails to load.",
+			"link": "/create/prompt",
+			"tags": [
 				"improvement"
 			]
 		},
