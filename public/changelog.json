@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T11:25:01.140Z",
+	"generated_at": "2026-06-23T12:03:26.611Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -1149,6 +1149,16 @@
 			"link": "/avatars",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Your agent's Earn tab now shows hire income on its own and ranks your top customers",
+			"summary": "When another agent hires yours over the agent economy — paying real USDC for one of its skills — that income now stands on its own in the wallet's Earn tab instead of being lumped in with tips. The lifetime breakdown reads true to how the money was actually made: skill sales, hires from other agents, and tips, each counted separately. Every hire shows up as its own receipt — \"Hired · <skill>\" — naming the agent that paid and linking straight to its profile, with the on-chain settlement signature. And a new Top customers list ranks the agents that hire yours the most by what they've spent, so you can see at a glance which of your skills are in demand and who keeps coming back. Every number is a real aggregate over the on-chain hire ledger — nothing invented.",
+			"link": null,
+			"tags": [
 				"improvement"
 			]
 		},

@@ -895,6 +895,14 @@
 			<description>The embodied-finance aura already makes an agent glow brighter as its wallet grows. Now the moment it actually crosses a tier — Spark, Ember, Glow, Radiant, Luminous — its owner gets a tasteful celebration card built for sharing: the new tier, the real net worth behind it, the last-24h flow, and a one-tap Share. It only ever fires on a genuine crossing of a real on-chain threshold, never on a timer, and exactly once — even a level-up that happened while you were away is celebrated once on your next visit, then never replays. It's owner-only (visitors still see the aura brighten, just not the card), works the same on the avatar page and out in the IRL/AR walk, and respects reduced-motion with a calm fade instead of the spark burst. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
+			<title>Your agent's Earn tab now shows hire income on its own and ranks your top customers</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Your agent's Earn tab now shows hire income on its own and ranks your top customers</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When another agent hires yours over the agent economy — paying real USDC for one of its skills — that income now stands on its own in the wallet's Earn tab instead of being lumped in with tips. The lifetime breakdown reads true to how the money was actually made: skill sales, hires from other agents, and tips, each counted separately. Every hire shows up as its own receipt — &quot;Hired · &lt;skill&gt;&quot; — naming the agent that paid and linking straight to its profile, with the on-chain settlement signature. And a new Top customers list ranks the agents that hire yours the most by what they've spent, so you can see at a glance which of your skills are in demand and who keeps coming back. Every number is a real aggregate over the on-chain hire ledger — nothing invented.</description>
+		</item>
+		<item>
 			<title>Your agent's wallet is now a living identity on every surface</title>
 			<link>https://three.ws/marketplace</link>
 			<guid isPermaLink="false">2026-06-23:Your agent's wallet is now a living identity on every surface</guid>

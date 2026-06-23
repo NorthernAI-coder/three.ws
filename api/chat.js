@@ -145,6 +145,10 @@ const chatBody = z.object({
 	message: z.string().trim().min(1).max(4000),
 	context: contextSchema,
 	system_prompt: z.string().trim().min(1).max(2000).optional(),
+	// Owner-only candidate persona for the Brain Studio live preview: lets the
+	// owner audition an unsaved compiled persona against /api/chat even when the
+	// agent already has a stored persona. Ignored unless the caller owns agentId.
+	persona_override: z.string().trim().min(1).max(16000).optional(),
 	agentId: z.string().uuid().optional(),
 	provider: z
 		.enum(['anthropic', 'openrouter', 'groq', 'nvidia', 'openai', 'watsonx', 'orchestrate'])
@@ -439,12 +443,19 @@ export default wrap(async (req, res) => {
 		// Persona prompts are private IP: only serve them for published agents,
 		// or to the agent's owner. Anonymous callers get published personas only.
 		const [agentRow] = await sql`
-			SELECT persona_prompt FROM agent_identities
+			SELECT persona_prompt, user_id FROM agent_identities
 			WHERE id = ${body.agentId} AND deleted_at IS NULL
 			  AND (is_published = true OR user_id = ${auth?.userId ?? null})
 			LIMIT 1
 		`;
-		if (agentRow?.persona_prompt) personaPrompt = agentRow.persona_prompt;
+		// Brain Studio preview: the owner may audition an unsaved compiled persona.
+		// The override only applies to the agent's owner — never published-agent
+		// visitors — so it can't be used to inject a prompt into someone's agent.
+		if (body.persona_override && agentRow && auth?.userId && agentRow.user_id === auth.userId) {
+			personaPrompt = body.persona_override;
+		} else if (agentRow?.persona_prompt) {
+			personaPrompt = agentRow.persona_prompt;
+		}
 	}
 	if (!personaPrompt && body.system_prompt) personaPrompt = body.system_prompt;
 
