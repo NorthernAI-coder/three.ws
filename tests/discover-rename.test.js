@@ -15,7 +15,9 @@ describe('discover page — cross-links and new features', () => {
 		expect(discoverHtml).toContain('property="og:title"');
 		expect(discoverHtml).toContain('property="og:image"');
 		expect(discoverHtml).toContain('name="twitter:card"');
-		expect(discoverHtml).toContain('https://three.ws/og-image.png');
+		// Shared links unfurl with the page's own dynamic social card
+		// (/api/page-og), not the single static /og-image.png fallback.
+		expect(discoverHtml).toContain('https://three.ws/api/page-og');
 	});
 
 	it('/discover has a hidden "View my agents" chip linking to /my-agents', () => {

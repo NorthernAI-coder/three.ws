@@ -123,7 +123,7 @@
 .nav-search-hint {
 	font-family: var(--nv-font-mono, ui-monospace, monospace);
 	font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em;
-	color: var(--nv-text-4); background: var(--nv-surface-1);
+	color: var(--nv-text-2); background: var(--nv-surface-1);
 	border: 1px solid var(--nv-hairline-strong);
 	border-radius: 4px; padding: 2px 5px;
 }

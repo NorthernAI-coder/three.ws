@@ -37,11 +37,11 @@ URL: https://three.ws/animations
 
 Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.
 
-### Walk
+### Drive Your Avatar
 
 URL: https://three.ws/temporary
 
-Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.
+Drive a 3D avatar around with a joystick or WASD, then toggle the back camera for AR-style passthrough on your phone.
 
 ### IRL
 
@@ -115,7 +115,7 @@ URL: https://three.ws/tour
 
 A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
 
-### Walk
+### Walk Anywhere on the Web
 
 URL: https://three.ws/walk
 

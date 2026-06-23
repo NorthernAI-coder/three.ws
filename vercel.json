@@ -32,6 +32,9 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
+		"api/launch/mm.js": {
+			"maxDuration": 300
+		},
 		"api/avatars/[id].js": {
 			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -659,6 +662,10 @@
 		{
 			"src": "/pump-live/?",
 			"dest": "/pump-live.html"
+		},
+		{
+			"src": "/api/launch/mm/([1-9A-HJ-NP-Za-km-z]{32,44})/?",
+			"dest": "/api/launch/mm?mint=$1"
 		},
 		{
 			"src": "/launches/([1-9A-HJ-NP-Za-km-z]{32,44})/?",

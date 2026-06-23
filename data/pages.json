@@ -48,8 +48,8 @@
 				},
 				{
 					"path": "/temporary",
-					"title": "Walk",
-					"description": "Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.",
+					"title": "Drive Your Avatar",
+					"description": "Drive a 3D avatar around with a joystick or WASD, then toggle the back camera for AR-style passthrough on your phone.",
 					"priority": 0.7,
 					"changefreq": "monthly",
 					"added": "2026-05-10"
@@ -152,7 +152,7 @@
 				},
 				{
 					"path": "/walk",
-					"title": "Walk",
+					"title": "Walk Anywhere on the Web",
 					"description": "Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.",
 					"priority": 0.8,
 					"changefreq": "weekly",

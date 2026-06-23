@@ -87,6 +87,7 @@ import {
 	refundCredits,
 } from './_lib/credits.js';
 import { markProviderCooldown, providersInCooldown } from './_lib/provider-health.js';
+import { sanitizeJobError } from './_lib/provider-job-error.js';
 
 // Circuit-breaker key + window for the free NVIDIA NIM TRELLIS text→3D lane. The
 // hosted NVCF gateway can degrade so a submit neither completes nor hands back a
@@ -1650,11 +1651,14 @@ async function pollJob(req, res, jobId) {
 		});
 	}
 	if (result.status === 'failed') {
+		// Persist the RAW provider error for operators, but never relay it: the
+		// adapter strings can name the vendor ("meshy task not found"), its billing
+		// state, a task id, an IP, or a leaked key. Mask to neutral copy on the wire.
 		await markFailed({ replicateJobId: upstreamId, clientKey, error: result.error });
 		return json(res, 200, {
 			job_id: jobId,
 			status: 'failed',
-			error: result.error || 'Generation failed.',
+			error: sanitizeJobError(result.error) || '3D generation hit a snag — please try again.',
 			...metaFields,
 		});
 	}

@@ -18,6 +18,7 @@ import { cors, json, method, readJson, wrap, error } from '../_lib/http.js';
 import { isUuid } from '../_lib/validate.js';
 import { recordEvent } from '../_lib/usage.js';
 import { dispatchWebhooks } from '../_lib/webhook-dispatch.js';
+import { resolveScheduleForSource, snapshotForkRoyaltyTerms } from '../_lib/fork-royalties.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
@@ -29,6 +30,15 @@ export default wrap(async (req, res) => {
 		const url = new URL(req.url, 'http://x');
 		const of = String(url.searchParams.get('of') || '').trim();
 		if (!isUuid(of)) return error(res, 400, 'validation_error', 'of=<avatarId> required');
+
+		// ?royalty=1 — the upstream royalty terms a fork of this avatar WOULD carry,
+		// so the fork CTA can show them before the user consents. Public-safe: it
+		// reveals only the decayed/capped rate + creator names, no wallets-as-secrets.
+		if (url.searchParams.get('royalty')) {
+			const schedule = await resolveScheduleForSource(of);
+			return json(res, 200, { royalty: publicRoyaltyTerms(schedule) });
+		}
+
 		const result = await listForks({
 			avatarId: of,
 			limit: Math.min(Math.max(Number(url.searchParams.get('limit')) || 24, 1), 100),
@@ -43,6 +53,17 @@ export default wrap(async (req, res) => {
 	const body = await readJson(req);
 	const sourceId = String(body.source_avatar_id || body.avatar_id || '').trim();
 	if (!isUuid(sourceId)) return error(res, 400, 'validation_error', 'source_avatar_id required');
+
+	// Consent gate: if this avatar's lineage carries a fork royalty, the forker
+	// must be shown and accept the EXACT terms before the fork is created. The
+	// client previews via GET ?royalty=1, then re-POSTs with accept_royalty:true.
+	// A fork whose terms they reject simply isn't created — no surprise taxation.
+	const royaltySchedule = await resolveScheduleForSource(sourceId);
+	if (royaltySchedule.total_bps > 0 && body.accept_royalty !== true) {
+		return error(res, 409, 'royalty_consent_required',
+			'this avatar charges a fork royalty — review and accept the terms to fork it',
+			{ royalty: publicRoyaltyTerms(royaltySchedule) });
+	}
 
 	// Load the raw source row (need storage_key/thumbnail_key, which decorate hides).
 	const [src] = await sql`
@@ -145,6 +166,16 @@ export default wrap(async (req, res) => {
 		if (agent?.id) {
 			const wallets = await provisionAgentWallets(agent.id);
 			agent = { id: agent.id, wallet_address: wallets.evm, solana_address: wallets.solana };
+			// Freeze the consent snapshot the forker just accepted. Immutable: a later
+			// change to an ancestor's rate never retroactively re-taxes this fork.
+			if (royaltySchedule.total_bps > 0) {
+				await snapshotForkRoyaltyTerms({
+					forkAgentId: agent.id,
+					forkAvatarId: avatar.id,
+					acceptedBy: auth.userId,
+					schedule: royaltySchedule,
+				}).catch((e) => console.error('[fork] royalty snapshot failed', { avatarId: avatar.id, error: e?.message }));
+			}
 		}
 	} catch (e) {
 		// A wallet provisioning hiccup must not fail the fork — the avatar + agent
@@ -168,8 +199,32 @@ export default wrap(async (req, res) => {
 		meta: { source_avatar_id: src.id },
 	});
 
-	return json(res, 201, { avatar, agent });
+	return json(res, 201, { avatar, agent, royalty: publicRoyaltyTerms(royaltySchedule) });
 });
+
+// Shape a resolved royalty schedule for the client: the decayed/capped total, the
+// majority the forker keeps, and a per-creator receipt. Wallets are included
+// (they are public custodial addresses) so the forker sees exactly who is paid.
+function publicRoyaltyTerms(schedule) {
+	return {
+		total_bps: schedule.total_bps,
+		total_pct: schedule.total_bps / 100,
+		keep_bps: schedule.keep_bps,
+		keep_pct: schedule.keep_bps / 100,
+		has_royalty: schedule.total_bps > 0,
+		creators: schedule.entries.map((e) => ({
+			depth: e.depth,
+			owner_name: e.ancestor_owner_name || null,
+			ancestor_agent_id: e.ancestor_agent_id,
+			ancestor_avatar_id: e.ancestor_avatar_id || null,
+			wallet: e.ancestor_wallet || null,
+			bps: e.bps,
+			pct: e.bps / 100,
+			set_bps: e.set_bps,
+			eligible: e.eligible || { tips: true, stream: true },
+		})),
+	};
+}
 
 async function resolveAuth(req, requiredScope) {
 	const session = await getSessionUser(req);

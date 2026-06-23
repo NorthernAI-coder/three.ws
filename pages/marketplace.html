@@ -21,6 +21,9 @@
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="canonical" href="https://three.ws/marketplace" />
+		<!-- Agent cards mount model-viewer (4.0.0) lazily from this CDN; warm the
+		     connection so the handshake is paid before the bundle is requested. -->
+		<link rel="preconnect" href="https://ajax.googleapis.com" crossorigin />
 		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/footer.css" />
 		<link rel="stylesheet" href="/marketplace.css" />
@@ -2694,7 +2697,7 @@
 </head>
 	<body class="market-page">
 		<a class="skip-link" href="#main-content">Skip to content</a>
-		<header><div id="nav-container"></div></header>
+		<div id="nav-container"></div>
 		<script src="/nav.js"></script>
 
 		<aside class="market-sidebar" id="market-sidebar">

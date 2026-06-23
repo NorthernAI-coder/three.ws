@@ -65,19 +65,10 @@ function maskSubmitError(res, err) {
 
 // Collapse a raw job/provider error string into neutral copy before it leaves the
 // API. The DB keeps the raw value for operators; only this masked form is
-// returned to any client (browser or bearer-token API consumer). Returns null for
-// empty input so the caller can omit the field entirely.
-export function sanitizeJobError(raw) {
-	if (!raw) return null;
-	const s = String(raw).toLowerCase();
-	if (s.includes('nsfw') || s.includes('safety')) return 'Your photo was flagged by content safety — try a different shot.';
-	if (s.includes('no face') || (s.includes('face') && s.includes('detect'))) return 'We could not find a clear face — try a brighter, front-facing photo.';
-	if (s.includes('oom') || s.includes('out of memory') || s.includes('memory')) return 'The engine ran out of resources — try again with a simpler photo.';
-	if (s.includes('timeout') || s.includes('timed out')) return 'The engine took too long — please try again.';
-	if (s.includes('credit') || s.includes('billing') || s.includes('quota')) return 'The 3D engine is temporarily unavailable — please try again later.';
-	if (s.includes('rate') && s.includes('limit')) return 'The 3D engine is busy right now — wait a moment and try again.';
-	return 'Avatar generation hit a snag — please try again.';
-}
+// returned to any client (browser or bearer-token API consumer). Shared with the
+// forge text→3D poll (api/forge.js) so both pipelines mask identically; re-exported
+// here because the avatar tests and handlers already import it from this module.
+export { sanitizeJobError } from '../_lib/provider-job-error.js';
 
 // ── presign ───────────────────────────────────────────────────────────────────
 
@@ -505,6 +496,16 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 	if (!rows[0]) return error(res, 404, 'not_found', 'job not found');
 	let job = rows[0];
 
+	// Strategy A: an auto-rig job's terminal 'done' transition is owned solely by
+	// finalizeAutoRigStage (its closeJob writes done + result_avatar_id together).
+	// If this poll flipped the row to 'done' and finalize then threw, the job would
+	// strand at 'done' + null — invisible to the cron's queued/running recovery
+	// filter. So for auto-rig we persist a non-terminal status here and let finalize
+	// own 'done'; `autoRigProviderDone` carries the provider's verdict to the
+	// finalize branch below. Reconstruct and every other mode are unaffected.
+	const isAutoRig = job.mode === 'rerig' && job.params?.auto_rig === true;
+	let autoRigProviderDone = false;
+
 	// Pull a fresh status from the provider when the job is still in flight
 	// and we have an external id to query. The status endpoint serves as our
 	// poll trigger — no separate cron needed for short-lived jobs.
@@ -518,14 +519,16 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 				const nextStatus = update.status;
 				const nextResultUrl = update.resultGlbUrl ?? null;
 				const nextError = update.error ?? null;
+				if (isAutoRig && nextStatus === 'done') autoRigProviderDone = true;
+				const persistStatus = isAutoRig && nextStatus === 'done' ? 'running' : nextStatus;
 				if (
-					nextStatus !== job.status ||
+					persistStatus !== job.status ||
 					nextResultUrl !== job.result_glb_url ||
 					nextError !== job.error
 				) {
 					await sql`
 						update avatar_regen_jobs
-						set status = ${nextStatus},
+						set status = ${persistStatus},
 							result_glb_url = ${nextResultUrl},
 							error = ${nextError},
 							updated_at = now()
@@ -533,7 +536,7 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 					`;
 					job = {
 						...job,
-						status: nextStatus,
+						status: persistStatus,
 						result_glb_url: nextResultUrl,
 						error: nextError,
 					};
@@ -578,15 +581,20 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 	}
 
 	// Auto-rig completion (browser-poll fallback to the webhook) — a static
-	// upload/import/forge avatar finished its 'rerig' job. Upgrade it in place so
-	// it becomes animation-ready. Gated on auto_rig so the manual rig panel (which
-	// materializes a sibling client-side) is untouched.
+	// upload/import/forge avatar finished its 'rerig' job. Materialize the rigged
+	// result as a sibling and re-point the agent at it; resultAvatarId is the NEW
+	// sibling id so the browser navigates to the animation-ready model. Gated on
+	// auto_rig so the manual rig panel (which materializes a sibling client-side)
+	// is untouched.
+	// Fire when the provider just reported success (autoRigProviderDone — the row is
+	// now persisted as the non-terminal 'running', not 'done') OR when the row was
+	// already 'done' on entry (a legacy orphan from before Strategy A, or another
+	// driver mid-flight). finalize's DB claim makes a concurrent fire a safe no-op.
 	if (
-		job.status === 'done' &&
-		job.mode === 'rerig' &&
-		job.params?.auto_rig === true &&
+		isAutoRig &&
 		!job.result_avatar_id &&
-		job.result_glb_url
+		job.result_glb_url &&
+		(autoRigProviderDone || job.status === 'done')
 	) {
 		try {
 			const result = await finalizeAutoRigStage({ userId, jobId, job, glbUrl: job.result_glb_url });

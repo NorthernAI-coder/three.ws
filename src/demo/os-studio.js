@@ -155,7 +155,7 @@ function initViewer(host) {
 	camera.position.set(0, 1.4, 2.4);
 
 	const renderer = new WebGLRenderer({ antialias: true });
-	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.setSize(width, height);
 	renderer.outputColorSpace = SRGBColorSpace;
 	host.appendChild(renderer.domElement);

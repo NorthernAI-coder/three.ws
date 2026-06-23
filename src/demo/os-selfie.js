@@ -304,7 +304,7 @@ function ensureViewer() {
 	camera.position.set(0, 0, 0.6);
 
 	const renderer = new WebGLRenderer({ antialias: true });
-	renderer.setPixelRatio(window.devicePixelRatio);
+	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 	renderer.setSize(width, height);
 	renderer.outputColorSpace = SRGBColorSpace;
 	viewerHost.appendChild(renderer.domElement);

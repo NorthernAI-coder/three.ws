@@ -347,7 +347,7 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 		const shown = followers.slice(0, 7);
 		const overflow = data.count - shown.length;
 		const pile = shown.map((fl) => {
-			const inner = fl.avatar ? `<img src="${esc(fl.avatar)}" alt="">` : '';
+			const inner = fl.avatar ? `<img loading="lazy" decoding="async" src="${esc(fl.avatar)}" alt="">` : '';
 			return `<a href="/agent/${esc(fl.agent_id)}" title="${esc(fl.name || shortAddr(fl.agent_id))}${fl.enabled ? '' : ' (paused)'}" style="${fl.enabled ? '' : 'opacity:.5'}">${inner}</a>`;
 		}).join('');
 		const more = overflow > 0 ? `<span class="mir-more">+${overflow}</span>` : '';
@@ -364,7 +364,7 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 		const followsHtml = d.following.length
 			? d.following.map((f) => `
 				<div class="mir-follow" data-paused="${!f.enabled}" data-leader="${esc(f.leader_agent_id)}">
-					${f.leader_avatar ? `<img class="mir-av" src="${esc(f.leader_avatar)}" alt="">` : '<div class="mir-av"></div>'}
+					${f.leader_avatar ? `<img loading="lazy" decoding="async" class="mir-av" src="${esc(f.leader_avatar)}" alt="">` : '<div class="mir-av"></div>'}
 					<div class="mir-fl-body">
 						<div class="mir-fl-name"><a href="/agent/${esc(f.leader_agent_id)}" style="color:inherit;text-decoration:none">${esc(f.leader_name || shortAddr(f.leader_agent_id))}</a></div>
 						<div class="mir-fl-sub">${esc(sizingSummary(f))}${leashSummary(f) ? ' · ' + esc(leashSummary(f)) : ''}</div>
@@ -495,7 +495,7 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 			<h3>Mirror a leader</h3>
 			<p class="mir-sub">Pick an agent to copy by its real track record, or paste an agent ID. Your agent executes its trades within your limits.</p>
 			<div class="mir-field"><label>Agent ID</label><input id="mir-leader-id" placeholder="uuid of the agent to mirror"></div>
-			${leaders.length ? '<div class="mir-h">Top performers</div><div class="mir-feed" id="mir-leaders">' + leaders.map((l) => `<button type="button" class="mir-follow" data-id="${esc(l.agent_id)}" data-name="${esc(l.name || '')}" style="width:100%;text-align:left;cursor:pointer;border:1px solid var(--stroke,rgba(255,255,255,.08))">${l.avatar ? `<img class="mir-av" src="${esc(l.avatar)}" alt="">` : '<div class="mir-av"></div>'}<div class="mir-fl-body"><div class="mir-fl-name">#${l.rank} ${esc(l.name || shortAddr(l.agent_id))}</div><div class="mir-fl-sub">${l.roi_pct != null ? `${l.roi_pct > 0 ? '+' : ''}${l.roi_pct}% ROI · ` : ''}${l.win_rate != null ? `${l.win_rate}% win · ` : ''}${l.followers} followers</div></div></button>`).join('') + '</div>' : ''}
+			${leaders.length ? '<div class="mir-h">Top performers</div><div class="mir-feed" id="mir-leaders">' + leaders.map((l) => `<button type="button" class="mir-follow" data-id="${esc(l.agent_id)}" data-name="${esc(l.name || '')}" style="width:100%;text-align:left;cursor:pointer;border:1px solid var(--stroke,rgba(255,255,255,.08))">${l.avatar ? `<img loading="lazy" decoding="async" class="mir-av" src="${esc(l.avatar)}" alt="">` : '<div class="mir-av"></div>'}<div class="mir-fl-body"><div class="mir-fl-name">#${l.rank} ${esc(l.name || shortAddr(l.agent_id))}</div><div class="mir-fl-sub">${l.roi_pct != null ? `${l.roi_pct > 0 ? '+' : ''}${l.roi_pct}% ROI · ` : ''}${l.win_rate != null ? `${l.win_rate}% win · ` : ''}${l.followers} followers</div></div></button>`).join('') + '</div>' : ''}
 			<div class="mir-modal-actions"><button type="button" class="mir-btn" id="mir-pick-cancel">Cancel</button></div>
 		</div>`;
 		const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
@@ -568,7 +568,7 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 		back.innerHTML = `<div class="mir-modal" role="dialog" aria-modal="true" aria-label="Pick your agent">
 			<h3>Which agent should mirror?</h3>
 			<p class="mir-sub">Pick the agent whose wallet will copy ${esc(leaderAgent.name || 'this leader')}'s trades.</p>
-			<div class="mir-feed">${mine.map((a) => `<button type="button" class="mir-follow" data-id="${esc(a.id)}" data-name="${esc(a.name || '')}" style="width:100%;text-align:left;cursor:pointer">${a.avatar_url || a.profile_image_url ? `<img class="mir-av" src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="mir-av"></div>'}<div class="mir-fl-body"><div class="mir-fl-name">${esc(a.name || shortAddr(a.id))}</div></div></button>`).join('')}</div>
+			<div class="mir-feed">${mine.map((a) => `<button type="button" class="mir-follow" data-id="${esc(a.id)}" data-name="${esc(a.name || '')}" style="width:100%;text-align:left;cursor:pointer">${a.avatar_url || a.profile_image_url ? `<img loading="lazy" decoding="async" class="mir-av" src="${esc(a.avatar_url || a.profile_image_url)}" alt="">` : '<div class="mir-av"></div>'}<div class="mir-fl-body"><div class="mir-fl-name">${esc(a.name || shortAddr(a.id))}</div></div></button>`).join('')}</div>
 			<div class="mir-modal-actions"><button type="button" class="mir-btn" id="mir-fp-cancel">Cancel</button></div>
 		</div>`;
 		const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };

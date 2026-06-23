@@ -47,7 +47,7 @@ function statBlock(label, value, { cls = '', sub = '' } = {}) {
 function heroHtml(f) {
 	const p = f.publisher;
 	const avatar = p.image
-		? `<img class="sm-avatar" src="${escapeHtml(p.image)}" alt="" />`
+		? `<img loading="lazy" decoding="async" class="sm-avatar" src="${escapeHtml(p.image)}" alt="" />`
 		: `<span class="sm-avatar" aria-hidden="true" style="background:${identicon(p.agent_id)}"></span>`;
 	const verified = p.verified ? `<span class="sm-verified">✓ Verified track record</span>` : `<span class="sm-thin">Unverified</span>`;
 	return `

@@ -430,7 +430,7 @@ async function submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, ti
 // account runs low on credit). Because submit runs BEFORE settle, the payment
 // was never taken — so we answer 429 with a Retry-After hint and say so plainly,
 // rather than burying it as a generic 5xx the buyer can't reason about.
-function respondGenerationError(res, err) {
+export function respondGenerationError(res, err) {
 	if (err?.status === 429 || err?.code === 'rate_limited') {
 		const retryAfter =
 			Number.isFinite(err?.retryAfter) && err.retryAfter > 0 ? Math.ceil(err.retryAfter) : 5;
@@ -462,14 +462,29 @@ function respondGenerationError(res, err) {
 			{ retry_after: 30 },
 		);
 	}
-	return error(res, err?.status || 502, err?.code || 'generation_failed', err?.message);
+	// Catch-all. A 5xx here is a server/vendor fault whose raw message can carry
+	// upstream provider detail (vendor error bodies, billing/credit text, a vendor
+	// URL) — never relay it. Mask to neutral, actionable copy and keep the detail
+	// in the server log. Submit runs before settle, so the payment was not taken.
+	const status = err?.status || 502;
+	if (status >= 500) {
+		console.warn(`[x402/forge] generation failed (${status}): ${err?.message || err}`);
+		return error(
+			res,
+			status,
+			err?.code || 'generation_failed',
+			'Generation could not complete and your payment was not taken — please retry shortly.',
+		);
+	}
+	// A 4xx is a client-input fault (bad prompt/url) with a safe, actionable message.
+	return error(res, status, err?.code || 'generation_failed', err?.message);
 }
 
 // A leaked paid-account billing/credit message from the platform's own vendor
 // (e.g. Replicate "insufficient credit to run this model… purchase credit") is
 // internal infra state, never shown to the buyer. The x402 forge lane is always
 // platform-keyed (no BYOK), so any credit failure here is ours to absorb.
-function isPaidCreditFailure(err) {
+export function isPaidCreditFailure(err) {
 	if (err?.providerStatus === 402) return true;
 	const text = `${err?.message || ''} ${err?.providerDetail || ''}`.toLowerCase();
 	return /insufficient credit|purchase credit|account\/billing|out of credit|not enough credit/.test(text);

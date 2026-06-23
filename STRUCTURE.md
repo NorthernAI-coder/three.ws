@@ -59,6 +59,7 @@ packages/vanity-mcp/          → @three-ws/vanity-mcp        (MCP server — So
 packages/naming-mcp/          → @three-ws/naming-mcp        (MCP server — .sol resolve + *.threews.sol identity availability)
 packages/intel-mcp/           → @three-ws/intel-mcp         (MCP server — smart-money, signals, KOL, copy-trade intel)
 packages/marketplace-mcp/     → @three-ws/marketplace-mcp   (MCP server — agent marketplace + skills catalog browse)
+packages/x402-mcp/            → @three-ws/x402-mcp          (MCP server — self-custodial x402 buyer: find/inspect/pay any service in USDC)
 walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 
@@ -78,14 +79,22 @@ our manifest format).
 Runtime SDKs and apps live at the top level for historical compatibility with
 the deploy pipeline and existing import paths.
 
-## Docs-stage SDK packages
+## SDK packages (implemented, pending publish)
 
 These wrap already-live platform capabilities (real `api/` endpoints + MCP
-tools) into single-import `@three-ws/*` SDKs. Each ships its production README
-and `package.json` first (`"private": true`, no `main`/`exports`); the package
-is promoted into [npm workspaces](#npm-workspaces) and flipped public when its
-thin client wrapper lands. They are **not** workspaces yet — `npm install` does
-not resolve them.
+tools) into single-import `@three-ws/*` SDKs. Each is a **zero-dependency,
+pure-ESM** client: it ships `src/` directly (no build step), hand-written
+`.d.ts` types, and a `node --test` suite — all green (216 tests across the
+suite). They share one byte-identical HTTP core (`src/http.js`: base-URL
+resolution + typed `ThreeWsError`/`PaymentRequiredError`, with 402 carrying the
+x402 challenge). Verify any of them with `cd packages/<name> && node --test
+test/*.test.js`.
+
+Launch state: code complete and publishable standalone (`cd packages/<name> &&
+npm publish`). The final pre-publish steps — adding the 18 to the root
+[npm workspaces](#npm-workspaces) array and a changelog `sdk` entry — are in
+[docs/sdk-launch.md](docs/sdk-launch.md), with the publish order and full
+checklist.
 
 | Package | Location | Wraps | What it does |
 |---|---|---|---|

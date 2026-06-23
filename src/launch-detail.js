@@ -1603,6 +1603,30 @@ function renderFatal(message) {
 	);
 }
 
+// ── Launch Copilot — autonomous market-maker panel ──────────────────────────
+// Only coins launched through three.ws (which have an agent wallet) can run a
+// market-maker, so the panel renders for those. The copilot handles owner vs.
+// public (read-only, transparent) views itself.
+let _copilot = null;
+function renderCopilot() {
+	const target = $('ld-copilot');
+	if (!target) return;
+	if (!state.detail?.found) { target.remove(); return; }
+	const reg = state.detail.registry || {};
+	const intel = state.detail.intel || {};
+	import('./launch-copilot.js')
+		.then(({ mountLaunchCopilot }) => {
+			if (_copilot) _copilot.destroy();
+			_copilot = mountLaunchCopilot(target, {
+				mint: state.mint,
+				network: state.network,
+				symbol: (reg.symbol || intel.symbol || '').toUpperCase(),
+				coinName: reg.name || intel.name || '',
+			});
+		})
+		.catch(() => { target.remove(); });
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // BOOT
 // ════════════════════════════════════════════════════════════════════════════
@@ -1665,6 +1689,7 @@ async function boot() {
 	renderTape();
 	renderCommunity();
 	renderActions();
+	renderCopilot();
 
 	// Refresh the live market every 30s so price / mcap / graduation stay fresh.
 	state.priceTimer = setInterval(async () => {

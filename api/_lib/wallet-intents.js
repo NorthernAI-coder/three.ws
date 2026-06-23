@@ -992,6 +992,59 @@ export async function onTipRecorded(agentId, tip) {
 	}
 }
 
+/**
+ * Fired from the money-stream settlement path. A stream's FIRST settlement is its
+ * "started" moment; every settlement is also income. Evaluate this agent's
+ * on_stream_started (first settlement only) and on_income (every settlement) intents
+ * against the real, on-chain-verified settlement and execute any that match. Each
+ * fire is idempotent via the custody claim — on_stream_started per stream_id (one
+ * fire per session), on_income per settlement signature.
+ *
+ * @param {object} stream { stream_id, signature, amount_sol, usd, from, network, first }
+ */
+export async function onStreamSettled(agentId, stream) {
+	try {
+		const first = stream.first === true;
+		// On a non-first settlement there's nothing for the stream-start trigger to do,
+		// so don't even load it — only income rules apply to a mid-stream settlement.
+		const triggerTypes = first ? ['on_stream_started', 'on_income'] : ['on_income'];
+		const rows = await sql`
+			SELECT * FROM agent_wallet_intents
+			WHERE agent_id = ${agentId} AND enabled = true AND trigger_type = ANY(${triggerTypes})
+		`;
+		if (!rows.length) return { fired: 0 };
+		const network = stream.network === 'devnet' ? 'devnet' : 'mainnet';
+		const intents = rows.map(rowToIntent).filter((i) => i.network === network);
+		if (!intents.length) return { fired: 0 };
+
+		const needsKey = intents.some((i) => SPENDING_ACTIONS.has(i.action.type));
+		const built = await buildExecContext({ agentId, userId: null, network, dryRun: false, needsKey });
+		if (built.error) {
+			console.warn('[wallet-intents] stream eval skipped:', built.error);
+			return { fired: 0, reason: built.error };
+		}
+		const ctx = built.ctx;
+		const event = { amount_sol: stream.amount_sol ?? null, usd: stream.usd ?? null, from: stream.from || null, signature: stream.signature || null };
+
+		let fired = 0;
+		for (const intent of intents) {
+			// on_stream_started: one fire per stream session. on_income: one per settlement.
+			ctx.discriminator = intent.trigger.type === 'on_stream_started'
+				? `${intent.action.type}:stream:${stream.stream_id}`
+				: `${intent.action.type}:streamincome:${stream.signature || ctx.now.toISOString()}`;
+			let res;
+			try { res = await executeAction(intent, ctx, event); }
+			catch (e) { res = { status: 'error', note: (e?.message || 'failed').slice(0, 240) }; }
+			await stampFire(intent, res, ctx.now).catch(() => {});
+			if (res.status === 'ok' || res.status === 'notified') fired++;
+		}
+		return { fired };
+	} catch (e) {
+		console.warn('[wallet-intents] onStreamSettled failed', e?.message);
+		return { fired: 0, error: e?.message };
+	}
+}
+
 const UTC_WEEKDAY = (d) => d.getUTCDay();
 
 function scheduleDue(intent, now) {
@@ -1001,9 +1054,10 @@ function scheduleDue(intent, now) {
 }
 
 /**
- * The cron sweep: evaluate every enabled scheduled / balance / launch / stream
- * intent across all agents and execute the due ones. Each kind is bounded and
- * idempotent. Returns a per-agent summary (no secrets).
+ * The cron sweep: evaluate every enabled scheduled / balance / launch intent
+ * across all agents and execute the due ones. (Tip/income/stream intents fire
+ * inline from their event hooks — onTipRecorded / onStreamSettled.) Each kind is
+ * bounded and idempotent. Returns a per-trigger summary (no secrets).
  */
 export async function runIntentSweep({ network = 'mainnet', now = new Date(), launchLimit = 60 } = {}) {
 	const summary = { scanned: 0, fired: 0, by_trigger: {}, errors: 0 };

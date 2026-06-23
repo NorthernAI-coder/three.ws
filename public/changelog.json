@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T08:06:46.961Z",
+	"generated_at": "2026-06-23T08:51:43.426Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -99,12 +99,44 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Auto-rig now respects privacy, plan limits, and humanoid eligibility",
+			"summary": "The background step that upgrades a new avatar so it can walk, wave, and emote now has real guardrails before it spends anything. Private avatars are never sent to a third-party rigging service unless you explicitly opt in — and when you do, the handoff uses a short-lived signed link that expires within the hour, not a permanent public URL, with a record kept that the mesh left the platform. Rigging is now rate-limited per account (hourly burst plus a hard daily ceiling) and across the whole platform, so nobody can script avatar creates to burn the shared GPU budget. And if your prompt clearly describes something that isn't a humanoid — a chair, a car, a dog — auto-rig skips the paid job instead of producing a broken skeleton, and tells you why. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Auto-rigging now keeps your original avatar — the rigged model is a separate, attested, reversible version",
+			"summary": "When you upload or generate a static avatar, three.ws automatically rigs it so your agent can walk, wave, and emote. Until now that upgrade overwrote your uploaded model in place. It no longer does: the animation-ready result is saved as a brand-new model linked to your original as its parent, your agent is moved onto it automatically, and the original static avatar is preserved untouched. Each rigged model carries its own content hash, so on-chain glTF attestations and IPFS pins stay honest — nothing ever claims a signature or a pinned CID for bytes that quietly changed underneath it. A version trail records the upgrade so rigging is reversible, and if rigging ever fails you still own your original avatar, which animates through the built-in fallback skeleton. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Avatar creation errors are clearer — and never leak a vendor's billing page",
 			"summary": "Reworked every failure message across selfie-to-avatar and prompt-to-avatar so you get plain, actionable guidance — 'the engine is busy, try again', 'we couldn't find a face, use a brighter photo' — instead of a raw third-party error, a provider's name, or a 'buy more credits' billing link. The underlying technical detail still goes to our logs for fixing; what you see is always neutral and useful.",
 			"link": null,
 			"tags": [
 				"fix",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Avatars that didn't finish rigging now self-heal automatically",
+			"summary": "Every avatar you create — a GLB upload, a URL import, or a chat/MCP \"text → 3D avatar\" — is quietly upgraded in the background so it can walk, wave, and emote. Occasionally the very last step of that upgrade could fail after the rig itself had already succeeded (a momentary storage or network blip), and the avatar would stay static with nothing able to retry it — most likely for avatars made headlessly through the API or MCP, which don't sit on a page polling for the result. The completion process is now crash-safe and eventually-consistent: a rig that finished at the provider always lands on your avatar, recovered no matter which path completes it, even after an earlier failure, and safe when several finish at once. The background safety-net sweep now also clears its backlog faster and never lets a stalled job pile up. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -181,6 +213,17 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Faster first paint: lazy-decoded avatars across trading surfaces and warmed connections for 3D viewers",
+			"summary": "Every avatar thumbnail in the mirror, mission-control, strategy, signal, and skill-review surfaces now defers its network fetch and decodes off the main thread, so long agent lists and leader piles scroll smoothly without blocking the page while images load. The home and marketplace pages now warm the connection to the 3D model-viewer CDN ahead of time, so the first time a 3D agent renders, the TLS and DNS handshake is already paid — the viewer appears noticeably sooner. No layout shift: every thumbnail keeps a reserved size whether or not its image has loaded yet.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live",
 			"summary": "Agent Studio used to mount a real Brain and Memory editor but left Body, Money, and Skills as 'mounts here' placeholders. All three are now fully built and wired beside the live 3D stage. Body: swap your agent's avatar with the shared picker (the stage updates instantly), jump to the full outfit editor, browse the entire retargetable animation library, click any move to preview it live on your agent, and pin a looping idle as the resting pose it holds everywhere on the platform. Money: see your agent's real custodial Solana wallet with live USDC + SOL balances, copy its deposit address to fund it, and set a per-call USDC price on each sellable skill — with a live earnings feed of every payment other agents and people have made to yours, each linking to the explorer. Skills: toggle capabilities on and off (the change writes through immediately and the avatar acknowledges it), see which skills are sellable, and jump straight to pricing. Every tab has its own designed loading, empty, and error states, and the five tabs now feel like one product.",
 			"link": "/agent-studio",
@@ -247,6 +290,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Forge generation failures now read in plain language — never a raw engine error",
+			"summary": "When a text→3D or image→3D generation in the Forge failed, the status it showed you could occasionally pass through the raw message from the underlying 3D engine — wording meant for operators, sometimes naming the provider or its billing state. Those are now translated into clear, actionable copy on every failure: out-of-capacity reads as \"temporarily unavailable, try again later,\" a busy engine tells you to wait a moment, and a too-large or timed-out job says exactly that. The full technical detail is still recorded for the team, but you only ever see the friendly version — matching how the avatar scanner has always behaved. Only coin referenced is $THREE.",
+			"link": "/forge",
+			"tags": [
+				"fix",
+				"security"
 			]
 		},
 		{
@@ -355,6 +409,16 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Marketplace fork no longer creates duplicate copies on a double-click",
+			"summary": "On an agent's marketplace page, impatiently double-clicking \"Fork & Chat\" used to fire the fork twice before the page could move you to your new copy — quietly leaving two identical agents in your account. The button now locks the instant you press it, shows \"Forking…\", and only ever creates one fork; if it fails, it unlocks so you can try again. The bookmark star got the same treatment, so rapid taps can no longer leave it stuck out of sync with whether the listing is actually saved. Only coin referenced is $THREE.",
+			"link": "/marketplace",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial",
 			"summary": "Follow a high-performing agent and your own agent now mirrors its real on-chain trades automatically — proportionally, and strictly inside the spend policy you already set. The new /mirror page ranks followable agents by an honest, on-chain-derived track record (realized P&L, win rate, drawdown, volume — losers included, every number traced to a real signature), so you can vet a leader before you copy them. Unlike anonymous copy-trade products, the thing you follow is an ownable three.ws agent with a face, a voice, and its own real funds at stake. Set the leash once — fixed amount, a percentage of the leader's size, or a percentage of your balance, plus optional per-trade and daily caps and a token skip/allow list — and your avatar trades while you sleep. Every mirrored trade runs the exact same owner-only, limit-gated, rug-checked, audited path as your manual trades, lands in your custody trail labeled \"mirrored from\" the leader, and produces a real explorer signature. If a leader's move would blow your budget it's scaled down or skipped with a plain-language reason, never a silent overspend. Pause any one leader instantly, or hit the kill switch to halt all mirroring at once. Manage it from any agent's profile or the new Copy Trading hub — owner-only, enforced in the UI and on the server.",
 			"link": "/mirror",
@@ -401,6 +465,16 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "New SDK: @three-ws/reputation — read agent trust scores and attest on-chain in one import",
+			"summary": "There is now a tiny, zero-dependency JavaScript package, @three-ws/reputation, for any agent builder or marketplace that needs trust backed by money and time instead of a follower count. One import lets you read an agent's reputation — the same non-gameable wallet-trust score the badge shows, or the on-chain attestation history of a Solana agent — pull the live leaderboard of trusted agents, check an agent's latest ERC-8004 validation across Base and 20 other chains, and record a signed agent-to-agent attestation. It runs on plain fetch in Node 18+ and the browser, with no wallet or RPC to set up: the platform does every on-chain read and write for you. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"sdk"
 			]
 		},
 		{
@@ -479,6 +553,17 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Pinch-zoom works everywhere again, and 3D runs lighter on phones",
+			"summary": "Eighteen pages — including the camera capture, scan, IRL, city, play, and immersive app surfaces — were silently blocking pinch-zoom and browser zoom, which made them hard to read for anyone who needs larger text. Zoom is now enabled across every page on the platform, with no loss of the edge-to-edge fullscreen layout. Separately, several 3D viewers (voice/talk scenes, the artifact viewer, and the OS studio demos) were rendering at the phone's full native pixel density, which can be three times sharper than a screen can show and burns battery and GPU for nothing. They now cap at 2x like the rest of the platform, so 3D stays crisp while mobile devices stay cool and smooth. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Portfolio Command — live net worth, cost basis, P&L attribution & risk for your agent wallet",
 			"summary": "Your agent's holdings, snipes, and discretionary trades used to be scattered across tabs with no single picture. The new Portfolio tab in your agent wallet pulls it all together: live net worth in SOL and USD with a streaming sparkline, every holding valued from real on-chain prices with its FIFO cost basis and unrealized P&L, and a one-click jump to trade or exit any position. A P&L attribution breakdown shows exactly what's making and losing money — your sniper strategies, discretionary trades, strategy objects — with realized vs unrealized split out, plus x402 and withdrawal outflows. A risk panel surfaces concentration (largest-position share + a Herfindahl diversification read), volatile-memecoin tape exposure, realized drawdown and per-trade volatility, and turns them into plain-language flags like '78% concentrated in one illiquid position'. Every figure is real: SOL amounts come straight from the chain and ledger, USD degrades to honest 'unpriced' rather than a guess, and illiquid holdings are flagged, never invented. Updates stream live while the tab is open.",
 			"link": null,
@@ -500,6 +585,17 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Pricing page now shows live pay-per-use prices, straight from the catalog",
+			"summary": "The pricing page has a new \"Pay only for what you generate\" section that lists exactly what each generation and compute call costs — Forge Standard and High, Game-Ready export, the MCP-3D tools, voice cloning, the Granite oracles, and more. Every figure is pulled live from the one pricing catalog the pay-per-call flow uses, so the number you see on /pricing is the number you pay — they can never drift apart. Prices are quoted in USD and settled in $THREE, drafts stay free forever with no card, and if prices can't load the free lane and a retry are still right there. We also tightened the paid generation flow so a generator's billing or credit message can never leak to a buyer: if a generation can't complete, you get clear copy that your payment wasn't taken, not a vendor's internal error. Only coin referenced is $THREE.",
+			"link": "/pricing",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Programmable orders — limit, stop, trailing, DCA, TWAP & conditional triggers for your agent wallet",
 			"summary": "Pump.fun has no native order types — you watch a chart and click frantically. Now every agent wallet gets a real, set-and-forget order layer. Place a limit buy on a dip or a limit sell on a target market cap; arm a stop-loss that survives across sessions, or a trailing stop that locks in gains by following the high-water mark; schedule DCA to buy in on a fixed interval; slice a large order with TWAP to cut price impact; or build a conditional trigger over live signals (\"buy when the smart-money score is above 60 and market cap is under $40k\", \"sell if the dev dumps\", \"buy on graduation\"). A worker watches the market continuously and fires matched orders automatically from your wallet — every fill priced from real on-chain state, run through the same rug/honeypot firewall and spend guards as a manual trade, capped by your daily budget and per-trade limits, and written to your custody ledger with a real transaction receipt. Conditions are a safe, validated spec (no arbitrary code), orders never fire on missing data, the kill switch halts everything, and cancel is instant. Find the new Orders tab in your agent wallet.",
 			"link": null,
@@ -515,6 +611,17 @@
 			"link": "/create/prompt",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "Put your agent on a real street corner — new @three-ws/irl SDK",
+			"summary": "The geofenced presence layer that drops 3D agents at real-world GPS coordinates — the one you stumble onto in AR by walking up to it — is now a standalone, dependency-free npm package. `npm i @three-ws/irl` gives you four functions: checkIn() mints a short-lived proof-of-presence token from your live location, nearby() reads back only the handful of agents within a tight radius of where you actually stand, placePin() drops a Forge-made avatar at the spot you're on, and interact() logs that you met one IRL. Presence is the contract: you can never query a point you aren't at, the feed is radius-capped and owner-id-stripped, and anonymous placements work from a device token with no login. It pairs with @three-ws/forge to make the avatar and @three-ws/avatar to render it where you placed it. Only coin referenced is $THREE.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
 			]
 		},
 		{
@@ -737,10 +844,32 @@
 		{
 			"date": "2026-06-23",
 			"type": "update",
+			"title": "Wallet Intents now react to money streams, not just tips",
+			"summary": "Your agent's Wallet Intents can trigger \"when a money stream starts\" — and that trigger now actually fires. The moment someone opens a pay-per-second stream to your agent, your matching rules run for real: get a heads-up, split a share of the incoming flow to another wallet, or whatever rule you armed — through the same spend-policy ceilings and on-chain custody audit as every other outbound action. Rules that \"split a percentage of everything I earn\" now also count streamed income, settlement by settlement, not only one-off tips. Each fire is idempotent and capped by your limits, so a long stream can never overspend. Owner-only, as always. Only coin referenced is $THREE.",
+			"link": "/agent",
+			"tags": [
+				"fix",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
 			"title": "Wallet Intents: tell your agent's wallet what to do — in plain language",
 			"summary": "Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — \"tip back anyone who tips me more than 0.1 SOL, half of what they sent\", \"when my balance is under 0.05 SOL freeze all spending and DM me\", \"every Friday withdraw anything above 2 SOL to my main wallet\", \"split 10% of everything I earn to my other wallet\", or \"snipe launches from this creator under $40k, max 1 SOL each\". The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (\"on a 0.2 SOL tip, this sends back 0.1 SOL\") before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet \"how am I doing?\" and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.",
 			"link": null,
 			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-23",
+			"type": "update",
+			"title": "x402-mcp — give any AI agent a self-custodial wallet that can pay for anything",
+			"summary": "The buyer side of the agent economy, in one line. The new @three-ws/x402-mcp server hands any AI assistant a Solana wallet it controls and four tools: find a paid service in the live x402 bazaar, inspect exactly what an endpoint costs before spending a cent, check the wallet's USDC balance, and pay_and_call — settle the payment in USDC and run the service, all from a key you hold, never a custodial wallet. Every payment is bounded: it reads the 402 price first and refuses before any money moves if it is over your cap (default $1), and asks for explicit confirmation unless you turn that off. Because pay_and_call settles any x402 endpoint generically, one install covers the whole catalog — the paid vanity grinder, symbol-availability checks, and any third-party service in the bazaar. It pairs with the hosted seller side (monetize_endpoint on the agent-wallet server), so an agent can now both earn and spend. Add it with: claude mcp add x402 --env SOLANA_SECRET_KEY=<key> -- npx -y @three-ws/x402-mcp. The full catalog of all 20 three.ws MCP servers — hosted and npm — now lives at three.ws/docs/mcp with copy-paste installs.",
+			"link": "/docs/mcp",
+			"tags": [
+				"sdk",
 				"feature"
 			]
 		},
@@ -1107,7 +1236,7 @@
 		{
 			"date": "2026-06-21",
 			"type": "launch",
-			"title": "Walk",
+			"title": "Walk Anywhere on the Web",
 			"summary": "Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.",
 			"link": "/walk",
 			"tags": [
@@ -9095,9 +9224,9 @@
 		{
 			"date": "2026-05-10",
 			"type": "launch",
-			"title": "Pay (x402)",
-			"summary": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
-			"link": "/pay",
+			"title": "Drive Your Avatar",
+			"summary": "Drive a 3D avatar around with a joystick or WASD, then toggle the back camera for AR-style passthrough on your phone.",
+			"link": "/temporary",
 			"tags": [
 				"launch"
 			]
@@ -9105,9 +9234,9 @@
 		{
 			"date": "2026-05-10",
 			"type": "launch",
-			"title": "Walk",
-			"summary": "Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.",
-			"link": "/temporary",
+			"title": "Pay (x402)",
+			"summary": "Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.",
+			"link": "/pay",
 			"tags": [
 				"launch"
 			]

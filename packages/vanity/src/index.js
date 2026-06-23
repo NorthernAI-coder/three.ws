@@ -55,7 +55,9 @@ export function base58Encode(bytes) {
 	while (zeros < input.length && input[zeros] === 0) zeros++;
 
 	// Convert the remaining bytes (base 256) into base 58 digits, big-endian.
-	const digits = [0];
+	// Starts empty so an all-zero input contributes no digits — its value is 0,
+	// already accounted for by the leading '1's.
+	const digits = [];
 	for (let i = zeros; i < input.length; i++) {
 		let carry = input[i];
 		for (let j = 0; j < digits.length; j++) {

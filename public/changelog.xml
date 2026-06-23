@@ -79,12 +79,36 @@
 			<description>When your avatar talks, its mouth and face now animate in real time, in sync with the actual words. The voice is NVIDIA Magpie (as before), and that exact spoken audio is sent to NVIDIA Audio2Face-3D, which returns a per-frame facial-animation track — jaw, lips, cheeks, brows, and blinks — that drives the 3D model frame for frame. Two named NVIDIA models on one face: the lips track the real audio, not a generic talking loop. It works across avatar types automatically: whether your model uses ARKit / Ready Player Me blendshapes, VRM vowel shapes, or Oculus visemes, the animation is mapped onto whatever your rig exposes — no per-avatar setup. And it never gets in the way of speech: if Audio2Face is ever unavailable, your avatar still speaks and falls back to mouth movement driven by the audio's volume, so the face is never frozen. Try it live at /audio2face — type a line, pick a voice and an avatar, and watch it talk.</description>
 		</item>
 		<item>
+			<title>Auto-rig now respects privacy, plan limits, and humanoid eligibility</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Auto-rig now respects privacy, plan limits, and humanoid eligibility</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>The background step that upgrades a new avatar so it can walk, wave, and emote now has real guardrails before it spends anything. Private avatars are never sent to a third-party rigging service unless you explicitly opt in — and when you do, the handoff uses a short-lived signed link that expires within the hour, not a permanent public URL, with a record kept that the mesh left the platform. Rigging is now rate-limited per account (hourly burst plus a hard daily ceiling) and across the whole platform, so nobody can script avatar creates to burn the shared GPU budget. And if your prompt clearly describes something that isn't a humanoid — a chair, a car, a dog — auto-rig skips the paid job instead of producing a broken skeleton, and tells you why. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
+			<title>Auto-rigging now keeps your original avatar — the rigged model is a separate, attested, reversible version</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Auto-rigging now keeps your original avatar — the rigged model is a separate, attested, reversible version</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you upload or generate a static avatar, three.ws automatically rigs it so your agent can walk, wave, and emote. Until now that upgrade overwrote your uploaded model in place. It no longer does: the animation-ready result is saved as a brand-new model linked to your original as its parent, your agent is moved onto it automatically, and the original static avatar is preserved untouched. Each rigged model carries its own content hash, so on-chain glTF attestations and IPFS pins stay honest — nothing ever claims a signature or a pinned CID for bytes that quietly changed underneath it. A version trail records the upgrade so rigging is reversible, and if rigging ever fails you still own your original avatar, which animates through the built-in fallback skeleton. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Avatar creation errors are clearer — and never leak a vendor's billing page</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Avatar creation errors are clearer — and never leak a vendor's billing page</guid>
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Reworked every failure message across selfie-to-avatar and prompt-to-avatar so you get plain, actionable guidance — 'the engine is busy, try again', 'we couldn't find a face, use a brighter photo' — instead of a raw third-party error, a provider's name, or a 'buy more credits' billing link. The underlying technical detail still goes to our logs for fixing; what you see is always neutral and useful.</description>
+		</item>
+		<item>
+			<title>Avatars that didn't finish rigging now self-heal automatically</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Avatars that didn't finish rigging now self-heal automatically</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every avatar you create — a GLB upload, a URL import, or a chat/MCP &quot;text → 3D avatar&quot; — is quietly upgraded in the background so it can walk, wave, and emote. Occasionally the very last step of that upgrade could fail after the rig itself had already succeeded (a momentary storage or network blip), and the avatar would stay static with nothing able to retry it — most likely for avatars made headlessly through the API or MCP, which don't sit on a page polling for the result. The completion process is now crash-safe and eventually-consistent: a rig that finished at the provider always lands on your avatar, recovered no matter which path completes it, even after an earlier failure, and safe when several finish at once. The background safety-net sweep now also clears its backlog faster and never lets a stalled job pile up. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>Copy-trading page now shows each of your agents' wallet identity</title>
@@ -143,6 +167,14 @@
 			<description>In a world of infinite forkable avatars, trust is the scarce asset, so every agent's wallet now shows an honest 0–100 trust score wherever the agent appears — on its profile, its cards, the marketplace, and the galaxy. Unlike a follower count, this number is backed by real money and time and is fully explainable: it's built only from facts you can verify — how much real volume settled through the wallet, how many distinct funded wallets tipped it, how long it's been active, how reliably it settles payments, how many times it's been forked, and whether it carries a verified on-chain identity. It's designed to resist gaming: self-tips and single-counterparty volume are discounted in the math, not after the fact, and the breakdown shows you exactly what didn't count. Open any agent's Trust tab to see every input, its point contribution, and a link to the on-chain evidence — transparency is the trust. A brand-new agent honestly reads as &quot;new,&quot; never fake-trusted, so a proven original stands out from a fresh fork. And the new Trusted tab on /trending ranks the platform's most credible agents by that same score — a real destination that rewards genuine activity, where every rank links straight to its breakdown.</description>
 		</item>
 		<item>
+			<title>Faster first paint: lazy-decoded avatars across trading surfaces and warmed connections for 3D viewers</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Faster first paint: lazy-decoded avatars across trading surfaces and warmed connections for 3D viewers</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every avatar thumbnail in the mirror, mission-control, strategy, signal, and skill-review surfaces now defers its network fetch and decodes off the main thread, so long agent lists and leader piles scroll smoothly without blocking the page while images load. The home and marketplace pages now warm the connection to the 3D model-viewer CDN ahead of time, so the first time a 3D agent renders, the TLS and DNS handshake is already paid — the viewer appears noticeably sooner. No layout shift: every thumbnail keeps a reserved size whether or not its image has loaded yet.</description>
+		</item>
+		<item>
 			<title>Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live</title>
 			<link>https://three.ws/agent-studio</link>
 			<guid isPermaLink="false">2026-06-23:Feature: Agent Studio is complete — Body, Money, and Skills tabs are now live</guid>
@@ -197,6 +229,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Swept the API for places where a slow or flaky upstream could hang a request until it was force-killed, or a database missing a recent table could error a whole page, and closed them. The /go bounty board now provisions its own database tables, so it loads everywhere instead of erroring where they were absent. The pump trending and search feeds fall back to the last good list (or an empty one) when pump.fun returns a malformed response, rather than failing the page. And a batch of backend lookups — the live SOL price, Jupiter/Birdeye/CoinGecko market data, portfolio price charts, token-gated scene access checks, IPFS pinning, voice synthesis, and the embedded-agent AI fallback chain — now bound every third-party call with a timeout, so a stalled service returns a clean result quickly instead of holding the request open until it's killed.</description>
+		</item>
+		<item>
+			<title>Forge generation failures now read in plain language — never a raw engine error</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-23:Forge generation failures now read in plain language — never a raw engine error</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When a text→3D or image→3D generation in the Forge failed, the status it showed you could occasionally pass through the raw message from the underlying 3D engine — wording meant for operators, sometimes naming the provider or its billing state. Those are now translated into clear, actionable copy on every failure: out-of-capacity reads as &quot;temporarily unavailable, try again later,&quot; a busy engine tells you to wait a moment, and a too-large or timed-out job says exactly that. The full technical detail is still recorded for the team, but you only ever see the friendly version — matching how the avatar scanner has always behaved. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>Forge Standard quality generates reliably again</title>
@@ -279,6 +319,14 @@
 			<description>When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.</description>
 		</item>
 		<item>
+			<title>Marketplace fork no longer creates duplicate copies on a double-click</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-23:Marketplace fork no longer creates duplicate copies on a double-click</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On an agent's marketplace page, impatiently double-clicking &quot;Fork &amp; Chat&quot; used to fire the fork twice before the page could move you to your new copy — quietly leaving two identical agents in your account. The button now locks the instant you press it, shows &quot;Forking…&quot;, and only ever creates one fork; if it fails, it unlocks so you can try again. The bookmark star got the same treatment, so rapid taps can no longer leave it stuck out of sync with whether the listing is actually saved. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial</title>
 			<link>https://three.ws/mirror</link>
 			<guid isPermaLink="false">2026-06-23:Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial</guid>
@@ -317,6 +365,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Avatars exported from Reallusion Character Creator 3/4 and 3ds Max (Biped) used to import frozen in a stiff T-pose because the platform didn't recognize their skeleton naming. Both are now mapped to the universal rig, so a CC or Biped avatar walks, idles, and emotes like any other — legs included — the moment you bring it in. A batch of generic side-labelled rigs from auto-riggers now animate too. No setup, no allowlist; it just moves.</description>
+		</item>
+		<item>
+			<title>New SDK: @three-ws/reputation — read agent trust scores and attest on-chain in one import</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:New SDK: @three-ws/reputation — read agent trust scores and attest on-chain in one import</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>There is now a tiny, zero-dependency JavaScript package, @three-ws/reputation, for any agent builder or marketplace that needs trust backed by money and time instead of a follower count. One import lets you read an agent's reputation — the same non-gameable wallet-trust score the badge shows, or the on-chain attestation history of a Solana agent — pull the live leaderboard of trusted agents, check an agent's latest ERC-8004 validation across Base and 20 other chains, and record a signed agent-to-agent attestation. It runs on plain fetch in Node 18+ and the browser, with no wallet or RPC to set up: the platform does every on-chain read and write for you. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>New: a server error now lands you on a real page — with your support code ready to copy</title>
@@ -375,6 +431,14 @@
 			<description>Play worlds embedded on another site can now choose their backdrop with a single setting, so the live 3D world sits cleanly inside the host page instead of clashing with it. Add ?biome=&lt;id&gt; to a /play embed URL — for example ?biome=noir for a neutral dark world. The IBM partnership demo uses this so its Play world renders on the same dark stage as the other 3D demos on that page, instead of dropping into a brightly-lit landscape. Default play and every coin's own world are unchanged.</description>
 		</item>
 		<item>
+			<title>Pinch-zoom works everywhere again, and 3D runs lighter on phones</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Pinch-zoom works everywhere again, and 3D runs lighter on phones</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Eighteen pages — including the camera capture, scan, IRL, city, play, and immersive app surfaces — were silently blocking pinch-zoom and browser zoom, which made them hard to read for anyone who needs larger text. Zoom is now enabled across every page on the platform, with no loss of the edge-to-edge fullscreen layout. Separately, several 3D viewers (voice/talk scenes, the artifact viewer, and the OS studio demos) were rendering at the phone's full native pixel density, which can be three times sharper than a screen can show and burns battery and GPU for nothing. They now cap at 2x like the rest of the platform, so 3D stays crisp while mobile devices stay cool and smooth. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Portfolio Command — live net worth, cost basis, P&amp;L attribution &amp; risk for your agent wallet</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Portfolio Command — live net worth, cost basis, P&amp;L attribution &amp; risk for your agent wallet</guid>
@@ -391,6 +455,14 @@
 			<description>Everyone snipes a coin after it appears in the launch feed — by then thousands of bots see it too. The new Pre-Launch Radar goes earlier. It watches, in real time and from real on-chain reads, the wallets of proven creators (those who've repeatedly graduated coins) and proven smart-money wallets, and detects the launch PRECURSOR: the instant one of them funds a brand-new deploy wallet or submits a pump.fun create instruction, the radar catches it — at or before block-0 — and can pre-arm your agent's snipe before the coin hits any feed. Arm an agent with the new 'Pre-launch radar' trigger and set its gates (minimum creator graduations, require a proven smart-money funder, max precursor age); every pre-armed buy still passes the exact same rug/honeypot firewall, MEV execution engine, spend guards, kill switch, and on-chain custody audit as every other snipe. The new Pre-Launch Radar dashboard shows the live precursor tape, the auto-curated watchlist with why each wallet is watched, and — for you — which precursors your agent actually fired on. This acts only on public on-chain precursors (funding, deploys); it never front-runs anyone's pending transaction.</description>
 		</item>
 		<item>
+			<title>Pricing page now shows live pay-per-use prices, straight from the catalog</title>
+			<link>https://three.ws/pricing</link>
+			<guid isPermaLink="false">2026-06-23:Pricing page now shows live pay-per-use prices, straight from the catalog</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The pricing page has a new &quot;Pay only for what you generate&quot; section that lists exactly what each generation and compute call costs — Forge Standard and High, Game-Ready export, the MCP-3D tools, voice cloning, the Granite oracles, and more. Every figure is pulled live from the one pricing catalog the pay-per-call flow uses, so the number you see on /pricing is the number you pay — they can never drift apart. Prices are quoted in USD and settled in $THREE, drafts stay free forever with no card, and if prices can't load the free lane and a retry are still right there. We also tightened the paid generation flow so a generator's billing or credit message can never leak to a buyer: if a generation can't complete, you get clear copy that your payment wasn't taken, not a vendor's internal error. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Programmable orders — limit, stop, trailing, DCA, TWAP &amp; conditional triggers for your agent wallet</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Programmable orders — limit, stop, trailing, DCA, TWAP &amp; conditional triggers for your agent wallet</guid>
@@ -405,6 +477,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Building an avatar from a text prompt now shows a progress bar that actually moves second-to-second (tied to real elapsed time) instead of sitting frozen between stages, a real elapsed clock, and a Cancel button (or Escape) so you're never stuck watching a spinner. Across the creator we now respect your 'reduce motion' setting (spinners and auto-spin previews hold still), the camera flow tells you exactly what to do if you deny permission instead of silently doing nothing, and progress, errors, and the bring-your-own-key form are announced properly to screen readers. Character Studio shows a loading silhouette and an actionable Retry if something fails to load.</description>
+		</item>
+		<item>
+			<title>Put your agent on a real street corner — new @three-ws/irl SDK</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Put your agent on a real street corner — new @three-ws/irl SDK</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The geofenced presence layer that drops 3D agents at real-world GPS coordinates — the one you stumble onto in AR by walking up to it — is now a standalone, dependency-free npm package. `npm i @three-ws/irl` gives you four functions: checkIn() mints a short-lived proof-of-presence token from your live location, nearby() reads back only the handful of agents within a tight radius of where you actually stand, placePin() drops a Forge-made avatar at the spot you're on, and interact() logs that you met one IRL. Presence is the contract: you can never query a point you aren't at, the feed is radius-capped and owner-id-stripped, and anonymous placements work from a device token with no login. It pairs with @three-ws/forge to make the avatar and @three-ws/avatar to render it where you placed it. Only coin referenced is $THREE.</description>
 		</item>
 		<item>
 			<title>Reasoning models now show just the answer, not their scratch work</title>
@@ -575,12 +655,28 @@
 			<description>An agent's portfolio value now formats identically wherever it appears — the tiny wallet chip on a card, the inline net-worth on a profile, the presence panel — so the same wallet never shows &quot;$1k&quot; in one place and &quot;$1.2K&quot; in another. Addresses shorten the same way across surfaces too, and the wallet's violet accent now flows from one design token instead of scattered colors, so the whole wallet layer reads as a single, coherent system. We also added an automated test that proves the platform's core promise on every fork: saving someone else's avatar always mints a brand-new wallet with its own distinct Solana and EVM addresses, never copies a secret, and leaves the original's wallet untouched.</description>
 		</item>
 		<item>
+			<title>Wallet Intents now react to money streams, not just tips</title>
+			<link>https://three.ws/agent</link>
+			<guid isPermaLink="false">2026-06-23:Wallet Intents now react to money streams, not just tips</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Your agent's Wallet Intents can trigger &quot;when a money stream starts&quot; — and that trigger now actually fires. The moment someone opens a pay-per-second stream to your agent, your matching rules run for real: get a heads-up, split a share of the incoming flow to another wallet, or whatever rule you armed — through the same spend-policy ceilings and on-chain custody audit as every other outbound action. Rules that &quot;split a percentage of everything I earn&quot; now also count streamed income, settlement by settlement, not only one-off tips. Each fire is idempotent and capped by your limits, so a long stream can never overspend. Owner-only, as always. Only coin referenced is $THREE.</description>
+		</item>
+		<item>
 			<title>Wallet Intents: tell your agent's wallet what to do — in plain language</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Wallet Intents: tell your agent's wallet what to do — in plain language</guid>
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Your agent's wallet is now programmable by talking to it. Open the new Intents tab in the wallet and describe a rule in plain English — &quot;tip back anyone who tips me more than 0.1 SOL, half of what they sent&quot;, &quot;when my balance is under 0.05 SOL freeze all spending and DM me&quot;, &quot;every Friday withdraw anything above 2 SOL to my main wallet&quot;, &quot;split 10% of everything I earn to my other wallet&quot;, or &quot;snipe launches from this creator under $40k, max 1 SOL each&quot;. The copilot compiles your words into an exact, bounded rule and shows you a card with what it parsed, the guardrails, and a concrete dry-run (&quot;on a 0.2 SOL tip, this sends back 0.1 SOL&quot;) before anything is armed. Confirm, and your wallet acts on it for real — every execution runs through the same spend-policy ceilings and audit trail as your manual sends, can never exceed your limits, and leaves a real on-chain receipt you can open. Each rule shows its last fire, lifetime impact, and a one-tap pause; you can also just ask your wallet &quot;how am I doing?&quot; and get an answer read straight from your real balance and ledger. Owner-only — visitors never see or arm your rules. Find it under your agent's wallet → Intents.</description>
+		</item>
+		<item>
+			<title>x402-mcp — give any AI agent a self-custodial wallet that can pay for anything</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-06-23:x402-mcp — give any AI agent a self-custodial wallet that can pay for anything</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The buyer side of the agent economy, in one line. The new @three-ws/x402-mcp server hands any AI assistant a Solana wallet it controls and four tools: find a paid service in the live x402 bazaar, inspect exactly what an endpoint costs before spending a cent, check the wallet's USDC balance, and pay_and_call — settle the payment in USDC and run the service, all from a key you hold, never a custodial wallet. Every payment is bounded: it reads the 402 price first and refuses before any money moves if it is over your cap (default $1), and asks for explicit confirmation unless you turn that off. Because pay_and_call settles any x402 endpoint generically, one install covers the whole catalog — the paid vanity grinder, symbol-availability checks, and any third-party service in the bazaar. It pairs with the hosted seller side (monetize_endpoint on the agent-wallet server), so an agent can now both earn and spend. Add it with: claude mcp add x402 --env SOLANA_SECRET_KEY=&lt;key&gt; -- npx -y @three-ws/x402-mcp. The full catalog of all 20 three.ws MCP servers — hosted and npm — now lives at three.ws/docs/mcp with copy-paste installs.</description>
 		</item>
 		<item>
 			<title>Your agent's wallet is now a living identity on every surface</title>
@@ -863,9 +959,9 @@
 			<description>The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.</description>
 		</item>
 		<item>
-			<title>Walk</title>
+			<title>Walk Anywhere on the Web</title>
 			<link>https://three.ws/walk</link>
-			<guid isPermaLink="false">2026-06-21:Walk</guid>
+			<guid isPermaLink="false">2026-06-21:Walk Anywhere on the Web</guid>
 			<pubDate>Sun, 21 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.</description>
@@ -7055,20 +7151,20 @@
 			<description>A cloud voice agent that joins X Spaces and holds real-time conversations using streaming audio and transcription.</description>
 		</item>
 		<item>
+			<title>Drive Your Avatar</title>
+			<link>https://three.ws/temporary</link>
+			<guid isPermaLink="false">2026-05-10:Drive Your Avatar</guid>
+			<pubDate>Sun, 10 May 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Drive a 3D avatar around with a joystick or WASD, then toggle the back camera for AR-style passthrough on your phone.</description>
+		</item>
+		<item>
 			<title>Pay (x402)</title>
 			<link>https://three.ws/pay</link>
 			<guid isPermaLink="false">2026-05-10:Pay (x402)</guid>
 			<pubDate>Sun, 10 May 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
 			<description>Pay-per-call gateway: invoke any x402-protocol paid API with a USDC micro-transaction.</description>
-		</item>
-		<item>
-			<title>Walk</title>
-			<link>https://three.ws/temporary</link>
-			<guid isPermaLink="false">2026-05-10:Walk</guid>
-			<pubDate>Sun, 10 May 2026 12:00:00 GMT</pubDate>
-			<category>launch</category>
-			<description>Drive a 3D avatar around with a joystick or WASD — toggle the back camera for AR-style passthrough.</description>
 		</item>
 		<item>
 			<title>Launch-week recap published</title>

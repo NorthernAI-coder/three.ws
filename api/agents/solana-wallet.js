@@ -35,6 +35,10 @@ import { getBalances, walletUsdTotal } from '../_lib/balances.js';
 import {
 	THREE_MINT, computeLook, computeMarks, normalizePrefs,
 } from '../_lib/networth-model.js';
+import {
+	getRoyaltyConfig, clampCreatorBps, getDescendantLedger, getAncestorLedger,
+	ROYALTY_PER_CREATOR_CAP_BPS, ROYALTY_TOTAL_CAP_BPS, ROYALTY_ELIGIBLE_ASSET,
+} from '../_lib/fork-royalties.js';
 
 // USDC mints per cluster — the only SPL token we can price 1:1 for the spend
 // ceiling without an external quote. $THREE is the only coin; USDC is the
@@ -1785,6 +1789,18 @@ async function handleTip(req, res, id) {
 	import('../_lib/wallet-intents.js')
 		.then(({ onTipRecorded }) => onTipRecorded(id, { signature, amount_sol: amountLamports != null ? Number(amountLamports) / 1e9 : null, usd: usd ?? null, from: from || null, network }))
 		.catch((e) => console.warn('[tip] intent eval failed', e?.message));
+
+	// Fork Royalty Streams: if this agent is a fork whose lineage carries a royalty,
+	// a SOL tip is eligible income — stream the creator-set, capped, decaying split
+	// upstream to its ancestors' real wallets. Idempotent per (tip event, ancestor),
+	// audited on both sides. Fire-and-forget; never blocks the already-final tip.
+	if (assetOut === 'SOL' && amountLamports != null) {
+		import('../_lib/fork-royalties.js')
+			.then(({ applyForkRoyalties }) => applyForkRoyalties(id, {
+				eventId: inserted[0].id, kind: 'tip', amountLamports, asset: 'SOL', network, fromWallet: from || null,
+			}))
+			.catch((e) => console.warn('[tip] fork royalty failed', e?.message));
+	}
 	return json(res, 201, {
 		data: {
 			recorded: true, replayed: false, id: String(inserted[0].id),
@@ -2015,6 +2031,29 @@ async function handleStreamRecord(req, res, id) {
 	// and write a relationship memory on a crossing. Best-effort, non-blocking.
 	if (from) maybeWritePatronMemory({ agentId: id, wallet: from, network }).catch(() => {});
 
+	// Wallet Intents: a stream's first settlement is its "start"; every settlement is
+	// income. Fire the owner's on_stream_started / on_income rules through the same
+	// spend-policy-gated, audited signing path. Fire-and-forget, idempotent per
+	// (intent, stream/signature) — never blocks or fails the already-final record.
+	import('../_lib/wallet-intents.js')
+		.then(({ onStreamSettled }) => onStreamSettled(id, {
+			stream_id: streamId, signature,
+			amount_sol: amountLamports != null ? Number(amountLamports) / 1e9 : null,
+			usd: usd ?? null, from: from || null, network, first: priorRows.length === 0,
+		}))
+		.catch((e) => console.warn('[stream] intent eval failed', e?.message));
+
+	// Fork Royalty Streams: a SOL money-stream settlement is eligible income — split
+	// the creator-set, capped, decaying royalty upstream to ancestors. Idempotent per
+	// (settlement event, ancestor), audited both sides. Never blocks the settlement.
+	if (assetOut === 'SOL' && amountLamports != null) {
+		import('../_lib/fork-royalties.js')
+			.then(({ applyForkRoyalties }) => applyForkRoyalties(id, {
+				eventId: inserted[0].id, kind: 'stream', amountLamports, asset: 'SOL', network, fromWallet: from || null,
+			}))
+			.catch((e) => console.warn('[stream] fork royalty failed', e?.message));
+	}
+
 	return json(res, 201, {
 		data: {
 			recorded: true, replayed: false, id: String(inserted[0].id),
@@ -2173,6 +2212,93 @@ async function handleStream(req, res, id) {
 	return handleStreamRecord(req, res, id);
 }
 
+// ── fork royalties ──────────────────────────────────────────────────────────────
+// GET  /api/agents/:id/solana/royalty — PUBLIC. The full, transparent split view
+//   both sides see: this agent's royalty RATE config + caps, what it earns from
+//   descendants' forks (ancestor view), and what it shares upstream as a fork
+//   itself (descendant view), every confirmed payout linking to a real tx.
+// PUT  /api/agents/:id/solana/royalty — OWNER-only (CSRF). Set the fork royalty
+//   rate (clamped to the platform per-creator cap) + which income types it applies
+//   to. Applies to FUTURE forks only — existing forks keep their frozen terms.
+async function handleRoyalty(req, res, id) {
+	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
+	if (!method(req, res, ['GET', 'PUT'])) return;
+
+	const [row] = await sql`SELECT id, user_id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+
+	if (req.method === 'PUT') {
+		const auth = await resolveAuth(req);
+		if (!auth) return error(res, 401, 'unauthorized', 'sign in required');
+		if (row.user_id !== auth.userId) return error(res, 403, 'forbidden', 'not your agent');
+		if (!(await requireCsrf(req, res, auth.userId))) return;
+
+		let body;
+		try {
+			body = await readJson(req);
+		} catch (e) {
+			return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+		}
+		if (body.bps == null && body.pct == null) {
+			return error(res, 400, 'validation_error', 'bps (or pct) is required');
+		}
+		const requested = body.bps != null ? Number(body.bps) : Math.round(Number(body.pct) * 100);
+		if (!Number.isFinite(requested) || requested < 0) {
+			return error(res, 400, 'validation_error', 'royalty must be a non-negative number');
+		}
+		const bps = clampCreatorBps(requested);
+		const eligible = {
+			tips: body.eligible?.tips !== false,
+			stream: body.eligible?.stream !== false,
+		};
+		const prev = getRoyaltyConfig(row.meta);
+		const fork_royalty = bps > 0
+			? { bps, eligible, set_at: new Date().toISOString(), set_by: auth.userId }
+			: null; // 0 clears the royalty — forks of this become free again
+		const nextMeta = { ...(row.meta || {}), fork_royalty };
+		await sql`UPDATE agent_identities SET meta = ${JSON.stringify(nextMeta)}::jsonb WHERE id = ${id}`;
+		logAudit({ userId: auth.userId, action: 'wallet.fork_royalty', resourceId: id, meta: { prev_bps: prev.bps, bps, eligible }, req });
+		return json(res, 200, { data: royaltyConfigView(getRoyaltyConfig(nextMeta), { clamped: requested !== bps }) });
+	}
+
+	// GET — public, read-only. Resolve viewer for the is_owner flag only.
+	const auth = await resolveAuth(req).catch(() => null);
+	const isOwner = !!(auth && auth.userId === row.user_id);
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const [config, descendant, ancestor] = await Promise.all([
+		Promise.resolve(royaltyConfigView(getRoyaltyConfig(row.meta), { is_owner: isOwner })),
+		getDescendantLedger(id).catch(() => null),
+		getAncestorLedger(id).catch(() => null),
+	]);
+
+	return json(res, 200, {
+		data: {
+			is_owner: isOwner,
+			config,
+			ancestor, // "earns royalties from N forks" + income by descendant
+			descendant, // "shares N% upstream" + schedule + what it has paid
+		},
+	});
+}
+
+function royaltyConfigView(cfg, extra = {}) {
+	return {
+		bps: cfg.bps,
+		pct: cfg.bps / 100,
+		eligible: cfg.eligible,
+		set_at: cfg.set_at,
+		has_royalty: cfg.bps > 0,
+		per_creator_cap_bps: ROYALTY_PER_CREATOR_CAP_BPS,
+		per_creator_cap_pct: ROYALTY_PER_CREATOR_CAP_BPS / 100,
+		total_cap_bps: ROYALTY_TOTAL_CAP_BPS,
+		total_cap_pct: ROYALTY_TOTAL_CAP_BPS / 100,
+		eligible_asset: ROYALTY_ELIGIBLE_ASSET,
+		...extra,
+	};
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
@@ -2185,6 +2311,7 @@ export default async function handler(req, res, id, action) {
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
 	if (action === 'tip') return handleTip(req, res, id);
+	if (action === 'royalty') return handleRoyalty(req, res, id);
 	if (action === 'stream') return handleStream(req, res, id);
 	if (action === 'pulse-visibility') return handlePulseVisibility(req, res, id);
 	if (action === 'patronage') {

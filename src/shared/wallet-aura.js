@@ -26,6 +26,7 @@ import {
 } from './wallet-networth.js';
 import { fetchNetWorth } from './agent-networth.js';
 import { fetchWealthState, computeWealthDynamics } from './agent-wealth-state.js';
+import { trackLevelUp, installLevelUpCelebrations } from './wealth-levelup.js';
 
 const STYLE_ID = 'tws-wallet-aura-styles';
 const REDUCED_MOTION =
@@ -479,6 +480,7 @@ export function startWealthLiveReaction(agentId, controller, opts = {}) {
 	const intervalMs = Math.max(15_000, opts.intervalMs || 30_000);
 	let lastTipAt = null;
 	let lastStreaming = 0;
+	let lastLevel = null; // null = unprimed; tracked for the tier level-up moment
 	let primed = false;
 	let timer = 0;
 	let stopped = false;
@@ -509,6 +511,9 @@ export function startWealthLiveReaction(agentId, controller, opts = {}) {
 					/* a real net-outflow day reads honestly — handled by the cool dim,
 					   no celebratory burst */
 				}
+				// A real wealth-tier crossing → the owner-only level-up card.
+				// trackLevelUp dedupes across reloads and never double-fires.
+				if (opts.celebrateLevelUp !== false) lastLevel = trackLevelUp(agentId, lastLevel, state);
 				lastTipAt = state.lastTipAt;
 				lastStreaming = state.streamingNow;
 				primed = true;
@@ -566,6 +571,9 @@ export async function hydrateAvatarWallet(container, agent, opts = {}) {
 			stopLive = opts.wealth
 				? startWealthLiveReaction(agentId, controller, opts)
 				: startWalletLiveReaction(agentId, controller, opts);
+			// The wealth reaction can detect a real tier crossing; make sure the
+			// global celebration card is listening (idempotent, owner-gated).
+			if (opts.wealth && opts.celebrateLevelUp !== false) installLevelUpCelebrations();
 		}
 	} catch {
 		/* leave the dormant baseline in place */
