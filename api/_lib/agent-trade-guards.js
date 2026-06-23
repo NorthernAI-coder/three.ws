@@ -867,6 +867,23 @@ export async function reserveSpendUsd({
 		);
 	}
 
+	// Behavioral anomaly guard for a just-reserved spend. The pending row already
+	// exists (selfCounted: live velocity counts include it), so on a freeze verdict
+	// we RELEASE the reservation — it must not hold daily/aggregate headroom — before
+	// surfacing the SpendLimitError. guardOutboundAnomaly has already frozen + notified.
+	// Defined before the capability gate so the capability-reserved path is covered too.
+	const runAnomaly = async (reservationId, dailySpentUsd, capabilityId = null) => {
+		const anomaly = await guardOutboundAnomaly({
+			agentId, userId, meta, category, usdValue, destination, asset, network,
+			custodyEventId: reservationId, selfCounted: true,
+		});
+		if (anomaly.decision === 'freeze') {
+			await releaseSpendReservation(reservationId, 'anomaly_frozen');
+			throw new SpendLimitError('wallet_anomaly_frozen', anomaly.message, anomaly.detail || {});
+		}
+		return { ok: true, reservationId, dailySpentUsd, capabilityId, anomaly: anomaly.verdict || null };
+	};
+
 	// Capability gate (least-privilege). When a capability is in play (presented,
 	// resolvable, or required for this wallet), delegate the reserve to
 	// reserveCapabilitySpend: it atomically meters BOTH the capability aggregate
@@ -880,27 +897,11 @@ export async function reserveSpendUsd({
 				target: target ?? destination, usdValue, dailyUsd: lim.daily_usd,
 				network, asset, destination, rowMeta, now,
 			});
-			return { ok: true, reservationId: _r.reservationId, dailySpentUsd: _r.spentBefore, capabilityId: _cap.id };
+			return runAnomaly(_r.reservationId, _r.spentBefore, _cap.id);
 		}
 	}
 
 	const metaJson = JSON.stringify(rowMeta ?? {});
-
-	// Behavioral anomaly guard for a just-reserved spend. The pending row already
-	// exists (selfCounted: live velocity counts include it), so on a freeze verdict
-	// we RELEASE the reservation — it must not hold daily headroom — before surfacing
-	// the SpendLimitError. guardOutboundAnomaly has already frozen + notified.
-	const runAnomaly = async (reservationId, dailySpentUsd) => {
-		const anomaly = await guardOutboundAnomaly({
-			agentId, userId, meta, category, usdValue, destination, asset, network,
-			custodyEventId: reservationId, selfCounted: true,
-		});
-		if (anomaly.decision === 'freeze') {
-			await releaseSpendReservation(reservationId, 'anomaly_frozen');
-			throw new SpendLimitError('wallet_anomaly_frozen', anomaly.message, anomaly.detail || {});
-		}
-		return { ok: true, reservationId, dailySpentUsd, anomaly: anomaly.verdict || null };
-	};
 
 	// No daily ceiling, or an unpriceable spend: just reserve a pending row (it
 	// can't gate a cap it has no number for) so the ledger still reflects it.

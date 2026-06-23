@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T13:30:39.865Z",
+	"generated_at": "2026-06-23T13:54:08.119Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -463,6 +463,16 @@
 					"showcase": false
 				},
 				{
+					"path": "/features/clone",
+					"title": "Clone — Digital Human Twin (Redacted)",
+					"description": "How three.ws assembles a high-fidelity digital twin of a real person — likeness, voice, persona, memory, on-chain identity. The procedure is redacted; access is gated behind verified, revocable consent.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
 					"path": "/features/play",
 					"title": "Play — Live 3D Coin Worlds",
 					"description": "Every pump.fun coin gets a deterministic 3D world. Walk in as your avatar, chat with holders, and trade — all in the browser.",
@@ -686,6 +696,16 @@
 			"title": "Crypto",
 			"description": "On-chain features: pay-per-call, token launches, vanity wallets.",
 			"pages": [
+				{
+					"path": "/agi",
+					"title": "The AGI — narrow by design",
+					"description": "The first AGI, narrow by design: a single autonomous agent that is genuinely superhuman at one thing — trading memecoins on pump.fun (Solana) — and deliberately nothing else. Watch its embodied 3D body react to the market in real time, read every decision it makes with its stated confidence, and hold it to a chain-proven track record. Outside that one domain, it claims nothing.",
+					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/oracle",
 					"title": "Oracle — AI Conviction Engine",
@@ -1652,6 +1672,16 @@
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
 					"added": "2026-04-27",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/agent-wants-a-body",
+					"title": "Docs · When your agent asks for a body",
+					"description": "The owner's playbook for the moment your 3D agent asks to become a physical being: what it's really asking, how to decide, how to pair a humanoid, the deny-by-default consent scope, the always-reachable kill-switch, what it costs in $THREE, and how ownership transfers. Embodiment is opt-in, scoped, and revocable — the body is rented, the soul is owned.",
+					"added": "2026-06-23",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
