@@ -40,6 +40,7 @@
 	<link rel="stylesheet" href="/tokens.css" />
 	<link rel="stylesheet" href="/buttons.css" />
 	<link rel="stylesheet" href="/nav.css" />
+	<link rel="stylesheet" href="/economy-ticker.css" />
 	<style>
 		:root {
 			color-scheme: dark;
@@ -4276,6 +4277,22 @@
 	</div>
 </section>
 
+<!-- ── LIVE ECONOMY ──────────────────────────────────────────────────── -->
+<section class="block">
+	<div class="wrap-1280">
+		<div class="block-head reveal">
+			<p class="block-eyebrow"><span class="num">05</span>Live economy</p>
+			<h2 class="block-h">Watch real value <em>move between agents.</em></h2>
+			<p class="block-lede">
+				Every tip, payment, trade, and token launch on three.ws is on-chain and explorer-verifiable. Here it is in real time — and the full 3D money map lives in the <a href="/galaxy" style="text-decoration:underline;">Agent Galaxy</a>.
+			</p>
+		</div>
+		<div class="reveal" style="max-width:640px;margin:0 auto;">
+			<div id="economyTicker"></div>
+		</div>
+	</div>
+</section>
+
 <!-- ── ORACLE CONVICTION ─────────────────────────────────────────────── -->
 <section class="block">
 	<div class="wrap-1280">
@@ -6020,6 +6037,7 @@
 	})();
 </script>
 <script type="module" src="/src/api-playground.js"></script>
+<script type="module" src="/src/economy-ticker.js"></script>
 <script type="module">
 	// "Pose it here" pulls Three.js + OrbitControls + the full mannequin rig —
 	// load it only when the section approaches the viewport. The module

@@ -25,6 +25,7 @@ import {
 	fetchWalletState, computeWalletVisual, formatNetWorth,
 } from './wallet-networth.js';
 import { fetchNetWorth } from './agent-networth.js';
+import { fetchWealthState, computeWealthDynamics } from './agent-wealth-state.js';
 
 const STYLE_ID = 'tws-wallet-aura-styles';
 const REDUCED_MOTION =
@@ -45,7 +46,9 @@ function ensureStyles() {
 .wa-bloom{position:absolute;inset:-12%;border-radius:50%;mix-blend-mode:screen;
 	background:radial-gradient(circle at 50% 60%,transparent 26%,var(--wa-glow) 48%,transparent 74%);
 	opacity:calc(.25 + var(--wa-i) * .75);
-	filter:blur(calc(8px + var(--wa-i) * 22px));
+	/* --wa-warm (−1..1, real 24h momentum): inflow warms the halo toward the
+	   magenta-gold $THREE family, outflow cools it — a small, honest tilt. */
+	filter:blur(calc(8px + var(--wa-i) * 22px)) hue-rotate(calc(var(--wa-warm,0) * 22deg)) saturate(calc(1 + var(--wa-warm,0) * .2));
 	transform:scale(calc(.78 + var(--wa-i) * .4));
 	transition:opacity .5s var(--ease-standard,ease),transform .6s var(--ease-standard,ease),filter .5s ease;
 	will-change:transform,opacity;}
@@ -84,6 +87,18 @@ function ensureStyles() {
 	color:var(--wa-accent);background:var(--wa-glow);border:1px solid var(--wa-accent);white-space:nowrap;}
 .wa-badge .wa-badge-dot{width:6px;height:6px;border-radius:50%;background:var(--wa-accent);
 	box-shadow:0 0 6px var(--wa-accent);}
+/* ── Embodied-finance dynamics: live modifiers on top of the static tier ────── */
+/* Streaming now: a slow, gentle "earning" breath on the rim — calm, never a slot
+   machine — that plays only while a real money stream is crediting the agent. */
+.wa-layer[data-streaming="true"][data-motion="true"] .wa-rim{animation:wa-breathe 3.4s var(--ease-standard,ease) infinite;}
+@keyframes wa-breathe{0%,100%{opacity:calc(.18 + var(--wa-i) * .62);}50%{opacity:calc(.40 + var(--wa-i) * .60);}}
+/* A drawdown day reads honestly: a slightly calmer, cooler bloom (no strobe). */
+.wa-layer[data-trend="down"] .wa-bloom{opacity:calc(.18 + var(--wa-i) * .55);}
+/* A just-landed tip leaves a brief steadier halo after the burst (recency). */
+.wa-layer[data-recent-tip="true"] .wa-rim{box-shadow:0 0 0 1px var(--wa-accent),0 0 calc(16px + var(--wa-i) * 48px) var(--wa-glow);}
+@media (prefers-reduced-motion: reduce){
+	.wa-layer[data-streaming="true"] .wa-rim{animation:none;opacity:calc(.32 + var(--wa-i) * .6);}
+}
 `;
 	(document.head || document.documentElement).appendChild(style);
 }
@@ -134,6 +149,11 @@ export function mountWalletAura(container, opts = {}) {
 	// visitor always sees the agent exactly as its owner configured it. null = not
 	// yet known → full default.
 	let prefs = null;
+	// The static tier intensity from the last applyVisual, and the live flow
+	// dynamics (momentum/streaming/recency) layered on top of it. Kept separate so
+	// a balance refresh and a momentum tick can each re-render without the other.
+	let baseIntensity = 0;
+	let dynamics = null;
 
 	const auraMuted = () => !!prefs && (prefs.reactivity === 'off' || prefs.signals?.aura === false);
 	const eventsMuted = () => !!prefs && (prefs.reactivity === 'off' || prefs.signals?.events === false);
@@ -169,6 +189,46 @@ export function mountWalletAura(container, opts = {}) {
 		// A muted aura runs no particle field — it's a still presence, not a glow.
 		particles.configure(muted ? { ...v, dormant: true, particleDensity: 0 } : v);
 		if (visible) particles.start();
+		// Remember the tier floor so live dynamics layer on without losing it.
+		baseIntensity = muted ? 0.04 : (v.dormant ? 0.04 : intensity);
+		applyDynamics();
+	}
+
+	/**
+	 * Layer the live flow dynamics (real 24h momentum, active streams, tip
+	 * recency — see agent-wealth-state.computeWealthDynamics) on top of the static
+	 * tier. Bounded: momentum only nudges intensity within a small band and the
+	 * warmth tilt stays inside the wallet-violet family, so the tier always
+	 * dominates and an earning agent never eye-sears. A muted/dormant aura ignores
+	 * dynamics entirely — it stays a quiet presence.
+	 */
+	function applyDynamics() {
+		const muted = auraMuted();
+		const d = (!muted && !eventsMuted()) ? dynamics : null;
+		if (!d) {
+			layer.style.setProperty('--wa-warm', '0');
+			layer.dataset.trend = 'flat';
+			layer.dataset.streaming = 'false';
+			layer.dataset.recentTip = 'false';
+			layer.style.setProperty('--wa-i', baseIntensity.toFixed(3));
+			return;
+		}
+		const i = Math.max(0, Math.min(1, baseIntensity + (Number(d.intensityDelta) || 0)));
+		layer.style.setProperty('--wa-i', i.toFixed(3));
+		layer.style.setProperty('--wa-warm', (Number(d.warmth) || 0).toFixed(3));
+		layer.dataset.trend = d.trend || 'flat';
+		layer.dataset.streaming = d.streaming ? 'true' : 'false';
+		layer.dataset.recentTip = d.recentTip ? 'true' : 'false';
+	}
+
+	/**
+	 * Push the latest real wealth dynamics. Idempotent and cheap — call it on
+	 * every poll. Pass null to clear (e.g. RPC outage → fall back to the static
+	 * tier rather than a stale trend).
+	 */
+	function setDynamics(d) {
+		dynamics = d && typeof d === 'object' ? d : null;
+		applyDynamics();
 	}
 
 	/**
@@ -215,7 +275,7 @@ export function mountWalletAura(container, opts = {}) {
 		layer.remove();
 	}
 
-	return { applyVisual, update, flourish, setPrefs, destroy, el: layer, get state() { return layer.__state; } };
+	return { applyVisual, update, flourish, setPrefs, setDynamics, destroy, el: layer, get state() { return layer.__state; } };
 }
 
 /**
@@ -399,10 +459,85 @@ export function startWalletLiveReaction(agentId, controller, opts = {}) {
 }
 
 /**
+ * The embodied-finance DYNAMICS reaction: poll the agent's real wealth state
+ * (the custody-backed /solana/networth `flow` block, cached 60s server-side) on
+ * a visibility-gated interval, push the live momentum/streaming/recency dynamics
+ * into the aura, and fire a one-shot celebratory flourish the moment a REAL new
+ * tip lands or a money stream opens. The flourish only ever plays because a real
+ * custody row appeared (lastTipAt advanced / a stream went active) — never a
+ * bare timer. Complements startWalletLiveReaction (which watches the raw balance
+ * delta); a surface uses one or the other, not both.
+ *
+ * @param {string} agentId
+ * @param {{flourish(kind):void, setDynamics(d):void, update(s):any, el:HTMLElement}} controller
+ * @param {object} [opts] { network, intervalMs }
+ * @returns {() => void} stop fn
+ */
+export function startWealthLiveReaction(agentId, controller, opts = {}) {
+	if (!agentId || !controller) return () => {};
+	const network = opts.network === 'devnet' ? 'devnet' : 'mainnet';
+	const intervalMs = Math.max(15_000, opts.intervalMs || 30_000);
+	let lastTipAt = null;
+	let lastStreaming = 0;
+	let primed = false;
+	let timer = 0;
+	let stopped = false;
+	let visible = true;
+
+	const io = controller.el && typeof IntersectionObserver === 'function'
+		? new IntersectionObserver((es) => { visible = es.some((e) => e.isIntersecting); }, { threshold: 0.01 })
+		: null;
+	if (io) io.observe(controller.el);
+
+	async function poll() {
+		if (stopped) return;
+		if (!visible) { schedule(); return; }
+		try {
+			const state = await fetchWealthState(agentId, { network, fresh: true });
+			if (state.ok) {
+				const dyn = computeWealthDynamics(state);
+				controller.setDynamics(dyn);
+				// Refresh the tier/palette from the same real read so balance moves are
+				// reflected too (cheap — fetchWalletState shares the 60s server cache).
+				controller.update(agentId).catch(() => {});
+				const tipAdvanced = state.lastTipAt && state.lastTipAt !== lastTipAt;
+				const streamOpened = state.streamingNow > lastStreaming;
+				// Only celebrate genuinely NEW events after the first (priming) read, so
+				// landing on the page doesn't replay an old tip.
+				if (primed && (tipAdvanced || streamOpened)) controller.flourish('inflow');
+				else if (primed && state.momentum < -0.2 && dyn.trend === 'down') {
+					/* a real net-outflow day reads honestly — handled by the cool dim,
+					   no celebratory burst */
+				}
+				lastTipAt = state.lastTipAt;
+				lastStreaming = state.streamingNow;
+				primed = true;
+			}
+		} catch {
+			/* transient — keep the last real dynamics, never invent a trend */
+		}
+		schedule();
+	}
+	function schedule() { if (!stopped) timer = setTimeout(poll, intervalMs); }
+
+	poll();
+
+	return function stop() {
+		stopped = true;
+		if (timer) clearTimeout(timer);
+		try { io?.disconnect(); } catch { /* noop */ }
+	};
+}
+
+/**
  * High-level convenience: mount the aura on a container, fetch + apply the real
  * wallet state, and (optionally) start the live inflow reaction. Returns a
  * controller with a combined `destroy()`. Safe to call with no wallet — the
  * agent simply renders the clean dormant baseline.
+ *
+ * Pass `opts.wealth: true` to additionally drive the embodied-finance dynamics
+ * (momentum/streaming/recency) from the real custody flow — the richer reaction
+ * used by the avatar hero and IRL. It supersedes the plain balance-delta watcher.
  */
 export async function hydrateAvatarWallet(container, agent, opts = {}) {
 	const controller = mountWalletAura(container, opts);
@@ -426,7 +561,11 @@ export async function hydrateAvatarWallet(container, agent, opts = {}) {
 	try {
 		await controller.update(agent);
 		if (opts.live !== false && agentId) {
-			stopLive = startWalletLiveReaction(agentId, controller, opts);
+			// The richer wealth reaction (momentum/streaming/recency + tip pulse)
+			// supersedes the plain balance-delta watcher when opted in.
+			stopLive = opts.wealth
+				? startWealthLiveReaction(agentId, controller, opts)
+				: startWalletLiveReaction(agentId, controller, opts);
 		}
 	} catch {
 		/* leave the dormant baseline in place */
@@ -479,6 +618,6 @@ export function hydrateWalletAuras(root = document) {
 if (typeof window !== 'undefined') {
 	window.twsWalletAura = {
 		mountWalletAura, hydrateAvatarWallet, startWalletLiveReaction,
-		walletTierBadge, hydrateWalletAuras,
+		startWealthLiveReaction, walletTierBadge, hydrateWalletAuras,
 	};
 }
