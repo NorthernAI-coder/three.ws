@@ -552,6 +552,33 @@
 	outline: 2px solid rgba(255,255,255,0.5); outline-offset: 2px;
 	border-radius: 7px;
 }
+/* Skip-to-content link (injected by nav.js as the first focusable element).
+   Off-screen until it receives keyboard focus, then slides into the top-left so
+   keyboard / screen-reader users can jump past the header on any page. */
+.nav-skip {
+	position: fixed;
+	top: 10px;
+	left: 10px;
+	z-index: 10000;
+	transform: translateY(calc(-100% - 14px));
+	padding: 11px 18px;
+	background: var(--text, #f6f6f6);
+	color: var(--bg, #050505);
+	border-radius: 10px;
+	font: 600 14px/1 var(--font-sans, system-ui, sans-serif);
+	text-decoration: none;
+	box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+	transition: transform 150ms ease;
+}
+.nav-skip:focus { transform: translateY(0); }
+.nav-skip:focus-visible {
+	outline: 2px solid var(--focus-ring-color, #4f8cff);
+	outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+	.nav-skip { transition: none; }
+}
+
 .nav-toggle svg { width: 16px; height: 16px; }
 .nav-toggle .close { display: none; }
 .nav-toggle[aria-expanded="true"] .open { display: none; }
