@@ -1394,6 +1394,77 @@ async function realizedPnlFor(id) {
 	}
 }
 
+// Embodied-finance "flow" signals — the live DYNAMICS that ride on top of the
+// static net-worth tier so an agent that is *currently* earning reads warmer and a
+// bleeding one reads cooler, honestly. Every value traces to a real custody row:
+//
+//   - momentum_usd_24h : realized net flow over the trailing 24h. Inflows are
+//     confirmed tips (and, once Money Streams lands, stream credits); outflows are
+//     spends (trades/snipes/x402/withdraw) and owner withdraws. A positive number
+//     means the wallet took in more than it paid out today.
+//   - streaming_now    : count of OPEN, still-running money streams crediting this
+//     agent right now. There is no stream event type until task 01 ships, so this
+//     query is written generically (category/event_type='stream', meta.end_at in
+//     the future) and returns 0 today — never a fabricated "earning" glow.
+//   - last_tip_at      : ISO time of the most recent confirmed tip, for the
+//     recency pulse. null when never tipped.
+//
+// All windowed by `created_at`; defensive so a missing column/table degrades to a
+// neutral (flat) signal rather than throwing.
+async function flowSignalsFor(id) {
+	const flat = { momentumUsd24h: 0, inflowUsd24h: 0, outflowUsd24h: 0, streamingNow: 0, lastTipAt: null };
+	try {
+		const [flow] = await sql`
+			SELECT
+				COALESCE(sum(usd) FILTER (
+					WHERE event_type = 'tip' AND created_at > now() - interval '24 hours'
+				), 0)::float8 AS inflow,
+				COALESCE(sum(usd) FILTER (
+					WHERE event_type IN ('spend', 'withdraw') AND created_at > now() - interval '24 hours'
+				), 0)::float8 AS outflow,
+				max(created_at) FILTER (WHERE event_type = 'tip') AS last_tip_at
+			FROM agent_custody_events
+			WHERE agent_id = ${id} AND status IN ('ok', 'confirmed', 'pending')
+		`;
+		const inflow = Number(flow?.inflow) || 0;
+		const outflow = Number(flow?.outflow) || 0;
+		let streamingNow = 0;
+		try {
+			// Open streams crediting this agent right now. Generic by design so it
+			// lights up automatically when Money Streams (task 01) records its events,
+			// and stays 0 — never faked — until then.
+			const [s] = await sql`
+				SELECT count(*)::int AS n FROM agent_custody_events
+				WHERE agent_id = ${id}
+				  AND (category = 'stream' OR event_type = 'stream')
+				  AND status IN ('ok', 'pending')
+				  AND COALESCE((meta->>'end_at')::timestamptz, now() + interval '1 second') > now()
+			`;
+			streamingNow = s?.n || 0;
+		} catch { streamingNow = 0; }
+		return {
+			momentumUsd24h: inflow - outflow,
+			inflowUsd24h: inflow,
+			outflowUsd24h: outflow,
+			streamingNow,
+			lastTipAt: flow?.last_tip_at ? new Date(flow.last_tip_at).toISOString() : null,
+		};
+	} catch {
+		return flat;
+	}
+}
+
+// Map a real signed 24h net flow (USD) onto a bounded momentum scalar in [-1, 1]
+// for the embodiment. Log-scaled so a $5 day and a $5,000 day both read as
+// "earning" without the larger one eye-searing — symmetric for inflow/outflow.
+// 0 → 0, ±$10 → ±0.5, ±$1,000 → ±1.0. Pure + documented; never random.
+function momentumScalar(usd) {
+	const v = Number(usd) || 0;
+	if (v === 0) return 0;
+	const mag = Math.min(1, Math.log10(1 + Math.abs(v)) / 3);
+	return v > 0 ? mag : -mag;
+}
+
 // One real read of every reputation signal the look + regalia use.
 async function reputationFor(id) {
 	const [forkCount, tips, pnl] = await Promise.all([
@@ -1448,7 +1519,7 @@ async function handleNetWorth(req, res, id) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const prefs = normalizePrefs(row.meta?.networth_look);
-	const { forkCount, tips, pnl } = await reputationFor(id);
+	const [{ forkCount, tips, pnl }, flowRaw] = await Promise.all([reputationFor(id), flowSignalsFor(id)]);
 	const repState = {
 		forkCount,
 		tipCount: tips.count, tipUsd: tips.usd,
@@ -1470,6 +1541,7 @@ async function handleNetWorth(req, res, id) {
 				agent_id: id, address: null, network: 'mainnet', provisioning: true,
 				portfolio: { usd: 0, sol: 0, three: null, usdc: 0, token_count: 0, top: [] },
 				reputation,
+				flow: buildFlowPayload({ balanceSol: 0, balanceUsd: 0, tier: look.tier.key, flowRaw }),
 				tier: look.tier, look, marks: computeMarks({ usd: 0, ...repState }, { hubUrl }),
 				prefs, is_owner: isOwner, hub_url: hubUrl,
 			},
@@ -1518,6 +1590,7 @@ async function handleNetWorth(req, res, id) {
 				top,
 			},
 			reputation,
+			flow: buildFlowPayload({ balanceSol: sol, balanceUsd: usd, tier: look.tier.key, flowRaw }),
 			tier: look.tier,
 			look,
 			marks,
@@ -1527,6 +1600,24 @@ async function handleNetWorth(req, res, id) {
 			updated_at: new Date().toISOString(),
 		},
 	});
+}
+
+// Shape the embodiment flow block the same way in every branch: the static
+// balance/tier the aura already uses, plus the live momentum/streaming/recency
+// dynamics. `momentum` is the bounded scalar the client maps to a warm/cool
+// shift; the raw USD figures are kept for the owner's "why" breakdown.
+function buildFlowPayload({ balanceSol, balanceUsd, tier, flowRaw }) {
+	return {
+		balance_sol: Number(balanceSol) || 0,
+		balance_usd: Number(balanceUsd) || 0,
+		tier,
+		momentum: momentumScalar(flowRaw.momentumUsd24h),
+		momentum_usd_24h: flowRaw.momentumUsd24h,
+		inflow_usd_24h: flowRaw.inflowUsd24h,
+		outflow_usd_24h: flowRaw.outflowUsd24h,
+		streaming_now: flowRaw.streamingNow,
+		last_tip_at: flowRaw.lastTipAt,
+	};
 }
 
 // ── tip recording (on-chain verified) ──────────────────────────────────────────
@@ -1730,6 +1821,338 @@ async function handlePulseVisibility(req, res, id) {
 	return json(res, 200, { data: { opt_out: optOut, is_public: isPublic, in_public_pulse: isPublic && !optOut } });
 }
 
+// ── money streams ───────────────────────────────────────────────────────────────
+// A Money Stream is pay-per-second income: a visitor authorizes a rate + a signed
+// max-total ceiling, then their browser micro-settles the accrued amount on a fixed
+// cadence with a REAL on-chain transfer from their own wallet to the agent's public
+// wallet (src/shared/agent-money-stream.js). Each settlement is one already-final
+// transfer — three.ws never custodies the funds. The client hands us the confirmed
+// signature; we INDEPENDENTLY verify on-chain that it credited the agent before
+// recording it, and we refuse any settlement that would push a stream session over
+// the ceiling it was opened with. Settlements are PUBLIC custody events
+// (event_type='stream', category='stream') grouped by a client stream_id, so they
+// power the agent's earnings view and the Money Pulse the same way tips do.
+//
+//   POST /api/agents/:id/solana/stream — record + verify one settlement.
+//   GET  /api/agents/:id/solana/stream — earnings (lifetime + earning-now + daily).
+
+const STREAM_ID_RE = /^[0-9a-fA-F-]{8,64}$/;
+// A stream is "earning now" while its last settlement is fresher than the longest
+// settle cadence (60s) plus a grace window — anything older is a finished session.
+const STREAM_LIVE_WINDOW_S = 150;
+// Cumulative settlements may overshoot the signed ceiling only by floating-point
+// dust; anything beyond this is a real over-ceiling attempt and is rejected.
+const STREAM_CEILING_EPSILON = 1e-9;
+
+// Human (whole-asset) amount a stream row settled, from its stored raw fields.
+function _streamRowHuman(row, usdcMint) {
+	if (row.amount_lamports != null) return Number(row.amount_lamports) / 1e9;
+	if (row.amount_raw != null) return Number(row.amount_raw) / (row.asset === usdcMint ? 1e6 : 1e9);
+	return 0;
+}
+
+async function handleStreamRecord(req, res, id) {
+	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true, origins: '*' })) return;
+	if (!method(req, res, ['POST'])) return;
+
+	// Streaming is open to anyone with a wallet (signed-in or not); throttle per-IP
+	// so the on-chain verification can't be abused. A settle fires every ~45–60s per
+	// active stream, well under this budget.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const [row] = await sql`SELECT id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+	const address = row.meta?.solana_address || null;
+	if (!address) return error(res, 404, 'not_found', 'agent has no solana wallet');
+
+	let body;
+	try {
+		body = await readJson(req);
+	} catch (e) {
+		return error(res, e?.status === 415 ? 415 : 400, 'bad_request', e?.message || 'invalid request body');
+	}
+
+	const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+	if (!signature || signature.length < 32 || signature.length > 128 || !BASE58_RE.test(signature)) {
+		return error(res, 400, 'validation_error', 'a valid base58 tx signature is required');
+	}
+	const streamId = typeof body.stream_id === 'string' ? body.stream_id.trim() : '';
+	if (!streamId || !STREAM_ID_RE.test(streamId)) {
+		return error(res, 400, 'validation_error', 'a valid stream_id (uuid) is required');
+	}
+	const network = body.network === 'devnet' ? 'devnet' : 'mainnet';
+	const assetRaw = typeof body.asset === 'string' && body.asset.trim() ? body.asset.trim().toUpperCase() : 'SOL';
+	const ratePerMinute = Number(body.rate_per_minute);
+	if (!Number.isFinite(ratePerMinute) || ratePerMinute <= 0) {
+		return error(res, 400, 'validation_error', 'rate_per_minute must be a positive number');
+	}
+	const maxTotal = Number(body.max_total);
+	if (!Number.isFinite(maxTotal) || maxTotal <= 0) {
+		return error(res, 400, 'validation_error', 'max_total must be a positive number');
+	}
+
+	const usdcMint = USDC_MINT_BY_CLUSTER[network];
+
+	// Idempotency: one row per settlement signature per agent.
+	const idempotencyKey = `stream:${signature}`;
+	{
+		const [existing] = await sql`
+			SELECT id FROM agent_custody_events
+			WHERE agent_id = ${id} AND idempotency_key = ${idempotencyKey}
+		`;
+		if (existing) {
+			return json(res, 200, { data: { recorded: false, replayed: true, signature, explorer: explorerTxUrl(signature, network), network } });
+		}
+	}
+
+	// Ceiling enforcement — the streamer signed a max_total when they opened this
+	// session; the sum of all confirmed settlements for the stream_id (plus this one)
+	// can never exceed it. We use the ceiling from the FIRST recorded settlement of
+	// the session as authoritative so a later request can't silently raise its own cap.
+	const priorRows = await sql`
+		SELECT amount_lamports, amount_raw, asset, meta
+		FROM agent_custody_events
+		WHERE agent_id = ${id} AND category = 'stream' AND meta->>'stream_id' = ${streamId}
+	`;
+	let priorSum = 0;
+	let sessionCeiling = maxTotal;
+	let sessionAsset = null;
+	for (const r of priorRows) {
+		priorSum += _streamRowHuman(r, usdcMint);
+		const c = Number(r.meta?.max_total);
+		if (Number.isFinite(c) && c > 0) sessionCeiling = c; // first/any prior ceiling wins
+		if (sessionAsset == null && r.asset) sessionAsset = r.asset;
+	}
+
+	// Verify on-chain before trusting the client's claimed amount.
+	const conn = solanaConnection(network);
+	let tx;
+	try {
+		tx = await conn.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+	} catch {
+		tx = null;
+	}
+	if (!tx) return error(res, 202, 'tx_pending', 'transaction not visible yet — it may still be confirming, retry shortly');
+	if (tx.meta?.err) return error(res, 422, 'tx_failed', 'that settlement failed on-chain — nothing was streamed');
+
+	// Resolve the credited amount + asset straight from the chain.
+	let amountLamports = null, amountRaw = null, usd = null, assetOut = 'SOL', decimals = 9;
+	if (assetRaw === 'SOL') {
+		const lamports = _lamportsCreditedTo(tx, address);
+		if (lamports <= 0n) return error(res, 422, 'no_funds_received', 'no SOL was received at this agent wallet in that settlement');
+		amountLamports = lamports;
+		assetOut = 'SOL';
+		try { usd = await lamportsToUsd(lamports); } catch { usd = null; }
+	} else {
+		const mint = assetRaw === 'USDC' ? usdcMint : (validateSolanaAddress(body.asset).valid ? validateSolanaAddress(body.asset).base58 : null);
+		if (!mint) return error(res, 400, 'invalid_asset', 'asset must be "SOL", "USDC", or a valid SPL mint');
+		const atomics = _tokenCreditedTo(tx, mint, address);
+		if (atomics <= 0n) return error(res, 422, 'no_funds_received', 'none of that token was received at this agent wallet in that settlement');
+		amountRaw = atomics;
+		assetOut = mint;
+		if (mint === usdcMint) { decimals = 6; usd = Number(atomics) / 1e6; }
+	}
+
+	// A stream session is single-asset. Reject a settlement that switches asset
+	// mid-stream — it would corrupt the ceiling accounting.
+	if (sessionAsset && sessionAsset !== assetOut) {
+		return error(res, 409, 'asset_mismatch', 'this settlement uses a different asset than the rest of the stream session');
+	}
+
+	const thisHuman = amountLamports != null ? Number(amountLamports) / 1e9 : Number(amountRaw) / 10 ** decimals;
+	if (priorSum + thisHuman > sessionCeiling + STREAM_CEILING_EPSILON) {
+		return error(res, 409, 'ceiling_exceeded', 'this settlement would exceed the stream ceiling you authorized — it was not recorded', {
+			ceiling: sessionCeiling, settled_so_far: priorSum, attempted: thisHuman,
+		});
+	}
+
+	const from = _firstSigner(tx, address);
+	const blockTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : null;
+
+	const inserted = await sql`
+		INSERT INTO agent_custody_events
+			(agent_id, user_id, event_type, category, network, asset,
+			 amount_lamports, amount_raw, usd, destination, signature, status, idempotency_key, meta)
+		VALUES (
+			${id}, NULL, 'stream', 'stream', ${network}, ${assetOut},
+			${amountLamports != null ? String(amountLamports) : null},
+			${amountRaw != null ? String(amountRaw) : null},
+			${usd ?? null}, ${address}, ${signature}, 'confirmed', ${idempotencyKey},
+			${JSON.stringify({
+				source: 'money_stream', stream_id: streamId, rate_per_minute: ratePerMinute,
+				max_total: sessionCeiling, asset: assetOut, from: from || null,
+				block_time: blockTime, decimals,
+			})}::jsonb
+		)
+		ON CONFLICT (agent_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+		RETURNING id
+	`;
+	if (!inserted.length) {
+		return json(res, 200, { data: { recorded: false, replayed: true, signature, explorer: explorerTxUrl(signature, network), network } });
+	}
+
+	// Reflect the inbound funds in the cached balance immediately.
+	await cacheSet(`sol:bal:${address}:${network}`, null, 1).catch(() => {});
+
+	return json(res, 201, {
+		data: {
+			recorded: true, replayed: false, id: String(inserted[0].id),
+			signature, explorer: explorerTxUrl(signature, network), network,
+			asset: assetOut, amount: thisHuman, usd: usd ?? null, from: from || null,
+			stream_id: streamId, settled_so_far: priorSum + thisHuman, ceiling: sessionCeiling,
+		},
+	});
+}
+
+async function handleStreamEarnings(req, res, id) {
+	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true, origins: '*' })) return;
+	if (!method(req, res, ['GET'])) return;
+
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
+
+	const [row] = await sql`SELECT id, meta FROM agent_identities WHERE id = ${id} AND deleted_at IS NULL`;
+	if (!row) return error(res, 404, 'not_found', 'agent not found');
+	const address = row.meta?.solana_address || null;
+
+	const url = new URL(req.url, 'http://x');
+	const network = url.searchParams.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+	const fromRaw = url.searchParams.get('from');
+	const from = fromRaw && BASE58_RE.test(fromRaw) && fromRaw.length >= 32 && fromRaw.length <= 44 ? fromRaw : null;
+	const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '20', 10) || 20));
+	const beforeRaw = url.searchParams.get('before');
+	const beforeId = beforeRaw && /^\d+$/.test(beforeRaw) ? beforeRaw : null;
+
+	const usdcMint = USDC_MINT_BY_CLUSTER[network];
+
+	if (!address) {
+		return json(res, 200, {
+			data: {
+				agentId: id, network, has_wallet: false,
+				lifetime: { settlements: 0, sessions: 0, streamers: 0, sol: 0, usdc: 0, usd: 0 },
+				earning_now: { active_streams: 0, last_settle_at: null, usd_per_min: 0 },
+				daily: [], recent: [], next_cursor: null,
+			},
+		});
+	}
+
+	// Lifetime aggregates over every confirmed stream settlement.
+	const [life] = await sql`
+		SELECT
+			count(*)::int AS settlements,
+			count(DISTINCT meta->>'stream_id')::int AS sessions,
+			count(DISTINCT meta->>'from')::int AS streamers,
+			COALESCE(sum(amount_lamports), 0)::float8 AS lamports,
+			COALESCE(sum(amount_raw) FILTER (WHERE asset = ${usdcMint}), 0)::float8 AS usdc_raw,
+			COALESCE(sum(usd), 0)::float8 AS usd
+		FROM agent_custody_events
+		WHERE agent_id = ${id} AND category = 'stream' AND network = ${network}
+	`;
+
+	// Earning-now: stream sessions whose last settlement is still inside the live
+	// window. Their summed rate is the agent's current per-minute income.
+	const [live] = await sql`
+		SELECT
+			count(*)::int AS active_streams,
+			COALESCE(sum(rate), 0)::float8 AS usd_per_min,
+			max(last_at) AS last_settle_at
+		FROM (
+			SELECT meta->>'stream_id' AS sid,
+			       max(created_at) AS last_at,
+			       (array_agg((meta->>'rate_per_minute')::float8 ORDER BY created_at DESC))[1] AS rate
+			FROM agent_custody_events
+			WHERE agent_id = ${id} AND category = 'stream' AND network = ${network}
+			GROUP BY meta->>'stream_id'
+			HAVING max(created_at) > now() - (interval '1 second' * ${STREAM_LIVE_WINDOW_S})
+		) live_sessions
+	`;
+
+	// Daily USD + SOL income for the last 30 days (the owner earnings chart).
+	const daily = await sql`
+		SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+		       COALESCE(sum(usd), 0)::float8 AS usd,
+		       COALESCE(sum(amount_lamports), 0)::float8 / 1e9 AS sol
+		FROM agent_custody_events
+		WHERE agent_id = ${id} AND category = 'stream' AND network = ${network}
+		  AND created_at > now() - interval '30 days'
+		GROUP BY 1 ORDER BY 1 ASC
+	`;
+
+	// Recent settlements (optionally scoped to one streamer's view).
+	const recentRows = await sql`
+		SELECT id, asset, amount_lamports, amount_raw, usd, signature, network, created_at, meta
+		FROM agent_custody_events
+		WHERE agent_id = ${id} AND category = 'stream' AND network = ${network}
+		  AND (${from}::text IS NULL OR meta->>'from' = ${from})
+		  AND (${beforeId}::bigint IS NULL OR id < ${beforeId})
+		ORDER BY id DESC
+		LIMIT ${limit}
+	`;
+	const recent = recentRows.map((e) => ({
+		id: String(e.id),
+		asset: e.asset === usdcMint ? 'USDC' : e.asset,
+		amount: _streamRowHuman(e, usdcMint),
+		usd: e.usd != null ? Number(e.usd) : null,
+		from: e.meta?.from || null,
+		stream_id: e.meta?.stream_id || null,
+		rate_per_minute: e.meta?.rate_per_minute != null ? Number(e.meta.rate_per_minute) : null,
+		signature: e.signature,
+		explorer: e.signature ? explorerTxUrl(e.signature, e.network) : null,
+		created_at: e.created_at,
+	}));
+	const nextCursor = recent.length === limit ? recent[recent.length - 1].id : null;
+
+	// A single streamer's own history with this agent (their "you've streamed" line).
+	let you = null;
+	if (from) {
+		const [y] = await sql`
+			SELECT count(*)::int AS settlements,
+			       count(DISTINCT meta->>'stream_id')::int AS sessions,
+			       COALESCE(sum(amount_lamports), 0)::float8 AS lamports,
+			       COALESCE(sum(amount_raw) FILTER (WHERE asset = ${usdcMint}), 0)::float8 AS usdc_raw,
+			       COALESCE(sum(usd), 0)::float8 AS usd
+			FROM agent_custody_events
+			WHERE agent_id = ${id} AND category = 'stream' AND network = ${network} AND meta->>'from' = ${from}
+		`;
+		you = {
+			settlements: y?.settlements || 0,
+			sessions: y?.sessions || 0,
+			sol: (Number(y?.lamports) || 0) / 1e9,
+			usdc: (Number(y?.usdc_raw) || 0) / 1e6,
+			usd: Number(y?.usd) || 0,
+		};
+	}
+
+	return json(res, 200, {
+		data: {
+			agentId: id, network, has_wallet: true, address,
+			lifetime: {
+				settlements: life?.settlements || 0,
+				sessions: life?.sessions || 0,
+				streamers: life?.streamers || 0,
+				sol: (Number(life?.lamports) || 0) / 1e9,
+				usdc: (Number(life?.usdc_raw) || 0) / 1e6,
+				usd: Number(life?.usd) || 0,
+			},
+			earning_now: {
+				active_streams: live?.active_streams || 0,
+				usd_per_min: Number(live?.usd_per_min) || 0,
+				last_settle_at: live?.last_settle_at || null,
+			},
+			daily: daily.map((d) => ({ day: d.day, usd: Number(d.usd) || 0, sol: Number(d.sol) || 0 })),
+			recent,
+			next_cursor: nextCursor,
+			...(you ? { you } : {}),
+		},
+	});
+}
+
+async function handleStream(req, res, id) {
+	if (req.method === 'GET') return handleStreamEarnings(req, res, id);
+	return handleStreamRecord(req, res, id);
+}
+
 // ── dispatcher ────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res, id, action) {
@@ -1742,6 +2165,7 @@ export default async function handler(req, res, id, action) {
 	if (action === 'custody') return handleCustody(req, res, id);
 	if (action === 'limits') return handleLimits(req, res, id);
 	if (action === 'tip') return handleTip(req, res, id);
+	if (action === 'stream') return handleStream(req, res, id);
 	if (action === 'pulse-visibility') return handlePulseVisibility(req, res, id);
 	if (action === 'intent') {
 		const mod = await import('./solana-intent.js');

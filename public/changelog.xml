@@ -31,6 +31,14 @@
 			<description>Reworked every failure message across selfie-to-avatar and prompt-to-avatar so you get plain, actionable guidance — 'the engine is busy, try again', 'we couldn't find a face, use a brighter photo' — instead of a raw third-party error, a provider's name, or a 'buy more credits' billing link. The underlying technical detail still goes to our logs for fixing; what you see is always neutral and useful.</description>
 		</item>
 		<item>
+			<title>Copy-trading page now shows each of your agents' wallet identity</title>
+			<link>https://three.ws/mirror</link>
+			<guid isPermaLink="false">2026-06-23:Copy-trading page now shows each of your agents' wallet identity</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>On the Copy Trading page, every one of your agents listed under &quot;your copy-trading&quot; now carries the same wallet identity chip you see everywhere else — its vanity address, live value, and a tap-through to the full wallet — so you can read an agent's wallet at a glance before setting it to mirror a leader. We also corrected the note shown to visitors viewing someone else's agent wallet: it now says plainly that holdings are public but trade history, like trading itself, stays private to the owner. Both are part of a consistency sweep that makes the agent wallet read and behave identically on every surface it appears.</description>
+		</item>
+		<item>
 			<title>Embedded widgets never hang on a blank frame</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Embedded widgets never hang on a blank frame</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>When something fails on our side, the response no longer just says 'something went wrong' — it now carries a short reference code (e.g. 'quote ref a1b2c3d4 to support'). That same code is attached to the exact server log line, our error tracker, and the ops alert that pages the team, so one code maps to one incident. This was already true for most API responses; we extended it to the remaining surfaces that previously failed silently — the RSS announcements feed, sitemaps, the MCP payment flow, on-chain permission checks, and the Solana RPC proxy — so any failure you hit is traceable. Nothing changes when things work; this only makes the rare error far faster to diagnose.</description>
+		</item>
+		<item>
+			<title>IRL: pinned agents now hold their exact spot indoors instead of drifting</title>
+			<link>https://three.ws/irl</link>
+			<guid isPermaLink="false">2026-06-23:IRL: pinned agents now hold their exact spot indoors instead of drifting</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you pin your agent to a real-world spot in IRL — on a table, a desk, a shelf — it now stays put as you pan and move your phone, instead of sliding away. Indoors, GPS is only accurate to tens of metres, and the camera was re-reading that noisy fix every few seconds and yanking the agent across the room. Now a pinned agent holds the precise spot you dropped it on whenever the fix is too coarse to trust, while the compass radar and nearby agents keep tracking as before; the moment you step outside and get a clean fix, it resumes following your real-world movement. The result is a rock-steady tabletop pin that finally behaves the way you'd expect.</description>
 		</item>
 		<item>
 			<title>Mirror a proven agent and yours trades alongside it — Copy Trading, fully custodial</title>
@@ -325,6 +341,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The little wallet badge under every agent and avatar grew up. Wherever an agent appears — its profile, the marketplace, the galaxy star-map, trending, your dashboard, the launches feed — its wallet now shows the real, live portfolio value in USD, a colour-coded 24-hour change, and a clear ownership marker: a 'Yours' badge on wallets you own, and 'by @creator' on everyone else's. Hover, focus, or tap the badge and it expands into a rich preview: your balance broken out into SOL, USDC, $THREE and your top holdings, a real value sparkline, both your Solana and EVM addresses with one-click copy, and the right actions for who's looking — Open wallet and Vanity for owners, Tip and Fork-to-own for visitors. The same agent's wallet looks identical everywhere because it all comes from one shared component, every number is real on-chain data, and the value gently pulses when a tip lands or a trade fills. Balances load lazily as you scroll and pause when you switch tabs, so even long lists stay fast.</description>
+		</item>
+		<item>
+			<title>Your agent's wallet now follows it everywhere — the chat, the 3D world, and any site</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Your agent's wallet now follows it everywhere — the chat, the 3D world, and any site</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>An agent's wallet is its identity, so it now shows up wherever its avatar does, not just inside the app. In the chat, the agent you're talking to carries a wallet chip — open it to see its live value and lifetime tips, copy its address, or tip it for a good answer. In the walk-around 3D world, stroll up to another player who's piloting an agent and its wallet rises beside their nameplate: vanity address, real balance, and a one-tap tip, right there in the scene. And the lightweight avatar viewer in our SDK can now opt into the same wallet card, so an agent embedded on any third-party site keeps its real, tippable identity. Every number is real and read from the same public wallet data as the rest of the platform, so values never disagree across surfaces; it's always the visitor view, so owner-only controls never leak into an embed. It's deliberately frugal in the live 3D world — only the nearest agent's wallet loads, and only once — so nothing stutters.</description>
 		</item>
 		<item>
 			<title>Your avatar has a job — the Earn home in every agent wallet</title>

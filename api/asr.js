@@ -65,9 +65,31 @@ function encodingFromContentType(ct) {
 	}
 }
 
+// Encodings the lane accepts, advertised on the capability probe so the client
+// knows what it may upload without hard-coding the list twice.
+const ACCEPTED_ENCODINGS = ['wav', 'pcm', 'flac', 'ogg'];
+
 export default wrap(async function handler(req, res) {
-	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
-	if (!method(req, res, ['POST'])) return;
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+	if (!method(req, res, ['GET', 'POST'])) return;
+
+	// Capability probe — lets the avatar talk UI decide, without browser-sniffing,
+	// whether to capture audio for server-side Riva recognition or fall back to the
+	// browser's own SpeechRecognition. Cheap, unauthenticated, briefly cacheable.
+	if (req.method === 'GET' || req.method === 'HEAD') {
+		return json(
+			res,
+			200,
+			{
+				configured: nvidiaAsrConfigured(),
+				encodings: ACCEPTED_ENCODINGS,
+				// 16 kHz mono is the Riva acoustic-model rate and the rate the client
+				// downsamples its capture to — surface it so the two never drift.
+				sampleRate: 16000,
+			},
+			{ 'cache-control': 'public, max-age=60' },
+		);
+	}
 
 	if (!nvidiaAsrConfigured()) {
 		return error(

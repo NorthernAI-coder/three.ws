@@ -38,6 +38,7 @@
 	import Toolcall from './Toolcall.svelte';
 	import Modal from './Modal.svelte';
 	import Composer from './three-ui/Composer.svelte';
+	import AgentWallet from './AgentWallet.svelte';
 	import Icon from './Icon.svelte';
 	import {
 		feArrowUp,
@@ -2738,6 +2739,10 @@
 									>
 										{agentVisible ? 'Hide avatar' : 'Show avatar'}
 									</button>
+								{/if}
+								{#if effectiveAgentId}
+									<!-- The agent's wallet identity — tip it for a good answer. -->
+									<AgentWallet agentId={effectiveAgentId} />
 								{/if}
 							</div>
 						{/if}

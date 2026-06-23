@@ -6,11 +6,14 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/cron/copy-fanout.js": {
+		"api/cron/{copy-fanout,mirror-fanout,three-holders-snapshot}.js": {
 			"maxDuration": 120
 		},
-		"api/cron/mirror-fanout.js": {
-			"maxDuration": 120
+		"api/cron/{strategy-fanout,gmgn-seed}.js": {
+			"maxDuration": 300
+		},
+		"api/strategies.js": {
+			"maxDuration": 30
 		},
 		"api/agents/[id].js": {
 			"maxDuration": 45
@@ -53,14 +56,7 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
-		"api/cron/three-holders-snapshot.js": {
-			"maxDuration": 120
-		},
-		"api/cron/relayer-balance-check.js": {
-			"includeFiles": "data/pages.json",
-			"maxDuration": 60
-		},
-		"api/cron/flush-usage-events.js": {
+		"api/cron/{relayer-balance-check,flush-usage-events,oracle-digest}.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 60
 		},
@@ -78,13 +74,6 @@
 		"api/cron/oracle-score.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
-		},
-		"api/cron/oracle-digest.js": {
-			"includeFiles": "data/pages.json",
-			"maxDuration": 60
-		},
-		"api/cron/gmgn-seed.js": {
-			"maxDuration": 300
 		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
@@ -679,6 +668,14 @@
 		{
 			"src": "/mirror/?",
 			"dest": "/mirror.html"
+		},
+		{
+			"src": "/strategies/?",
+			"dest": "/strategies.html"
+		},
+		{
+			"src": "/api/strategies/(.*)",
+			"dest": "/api/strategies"
 		},
 		{
 			"src": "/mint-success/?",
@@ -4021,6 +4018,10 @@
 		},
 		{
 			"path": "/api/cron/mirror-fanout",
+			"schedule": "*/2 * * * *"
+		},
+		{
+			"path": "/api/cron/strategy-fanout",
 			"schedule": "*/2 * * * *"
 		},
 		{

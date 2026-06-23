@@ -26,7 +26,15 @@
  */
 
 import { LipsyncDriver, tapAudioElement } from './lipsync-driver.js';
+import { MicCapture } from './mic-capture.js';
 import { log } from '../shared/log.js';
+
+// Riva interim recognition cadence. While holding to talk we fire a recognition
+// pass over the audio-so-far on this interval so partial words surface live;
+// MAX_INTERIMS caps the round-trips per utterance so a long hold can't drain the
+// metered ASR budget. The release always runs one authoritative final pass.
+const INTERIM_INTERVAL_MS = 1400;
+const MAX_INTERIMS = 4;
 
 const EDGE_VOICES_BY_GENDER = {
 	female: 'en-US-AriaNeural',
@@ -43,17 +51,19 @@ export class TalkController {
 	 * @param {() => string} [opts.systemPromptFn]  Optional system prompt builder
 	 * @param {(msg: { role: 'user'|'assistant', content: string }) => void} [opts.onMessage]
 	 *        Hook so the host UI can append a transcript line.
-	 * @param {(state: 'idle'|'listening'|'thinking'|'speaking') => void} [opts.onStateChange]
+	 * @param {(state: 'idle'|'listening'|'transcribing'|'thinking'|'speaking') => void} [opts.onStateChange]
+	 * @param {(partial: string) => void} [opts.onInterim]  Live (non-final) transcript while listening.
 	 * @param {(err: Error) => void} [opts.onError]
 	 * @param {{ attach: Function, setMouthShape: Function }} opts.mouthTarget
 	 */
-	constructor({ avatar, systemPromptFn, onMessage, onStateChange, onError, mouthTarget, commandInterceptor }) {
+	constructor({ avatar, systemPromptFn, onMessage, onStateChange, onInterim, onError, mouthTarget, commandInterceptor }) {
 		if (!avatar?.id) throw new Error('TalkController: avatar.id required');
 		if (!mouthTarget) throw new Error('TalkController: mouthTarget required');
 		this.avatar = avatar;
 		this.systemPromptFn = systemPromptFn || (() => '');
 		this.onMessage = onMessage || (() => {});
 		this.onStateChange = onStateChange || (() => {});
+		this.onInterim = onInterim || (() => {});
 		this.onError = onError || ((e) => log.warn('[talk]', e?.message));
 		this.mouthTarget = mouthTarget;
 		// Optional async hook: gets first crack at a final transcript. If it returns
@@ -69,45 +79,146 @@ export class TalkController {
 		this._currentTap = null;
 		this._driver = null;
 		this._voicePromise = null; // resolves to { provider, voiceId } | null
+
+		// Speech-to-text routing. 'riva' = server-side NVIDIA Riva (cross-browser),
+		// 'browser' = window.SpeechRecognition (Chrome/Edge/Safari), 'none' = text
+		// only. Resolved once by prepare(); language tracks the avatar's locale.
+		this._sttMode = null;
+		this._sttModePromise = null;
+		this._listenMode = null; // mode of the in-flight turn
+		this._mic = null;
+		this._interimTimer = null;
+		this._interimBusy = false;
+		this._interimCount = 0;
+		this.language = 'en-US';
 	}
 
 	get state() {
 		return this._state;
 	}
 
+	/** Resolved STT path: 'riva' | 'browser' | 'none' (null until prepare()). */
+	get sttMode() {
+		return this._sttMode;
+	}
+
+	/** Live mic level (0..1) while the Riva lane is capturing; 0 otherwise. */
+	get micLevel() {
+		return this._mic ? this._mic.getLevel() : 0;
+	}
+
 	/**
-	 * Begin a single push-to-talk turn. Returns immediately; the recognized
-	 * speech triggers the chat call on the recognizer's `end` event. Call
-	 * stopListening() to terminate before a final result lands.
+	 * Decide the STT path once, before the first turn. Probes /api/asr for the
+	 * free NVIDIA Riva lane (works in every browser, including Firefox); falls
+	 * back to the browser's own SpeechRecognition, then to text-only. Safe to
+	 * call repeatedly — the probe runs at most once. Returns the resolved mode.
+	 */
+	async prepare() {
+		if (this._sttMode) return this._sttMode;
+		if (!this._sttModePromise) {
+			this._sttModePromise = (async () => {
+				const hasBrowserSR = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+				const canCapture = MicCapture.isSupported();
+				if (canCapture) {
+					try {
+						const r = await fetch('/api/asr', { headers: { accept: 'application/json' } });
+						if (r.ok) {
+							const j = await r.json();
+							if (j?.configured) return (this._sttMode = 'riva');
+						}
+					} catch {
+						// Probe failure is not fatal — fall back to whatever the browser offers.
+					}
+				}
+				return (this._sttMode = hasBrowserSR ? 'browser' : 'none');
+			})();
+		}
+		return this._sttModePromise;
+	}
+
+	/**
+	 * Begin a single push-to-talk turn. Returns immediately. The recognized speech
+	 * triggers the chat call when stopListening() lands a final transcript (Riva)
+	 * or on the recognizer's `end` event (browser). Routes by the mode resolved in
+	 * prepare(), with a synchronous fallback if prepare() hasn't settled yet.
 	 */
 	startListening() {
 		if (this._state !== 'idle') return false;
 
+		const mode = this._sttMode || this._fallbackSttMode();
+		if (mode === 'riva') {
+			this._listenMode = 'riva';
+			this._startRivaListening();
+			return true;
+		}
+		if (mode === 'browser') {
+			this._listenMode = 'browser';
+			return this._startBrowserListening();
+		}
+		this._listenMode = null;
+		this.onError(coded('Voice input isn’t available here — type your message instead.', 'stt-unavailable'));
+		return false;
+	}
+
+	/** Stop an in-flight recognition. State transitions to idle (or transcribing). */
+	stopListening() {
+		if (this._listenMode === 'riva') {
+			this._stopRivaListening().catch((err) => {
+				this._setState('idle');
+				this.onError(err);
+			});
+			return;
+		}
+		if (this._recognizer) {
+			try {
+				this._recognizer.stop();
+			} catch {}
+		}
+	}
+
+	// Best mode to use before prepare() has resolved. Prefer the browser's own
+	// recognizer (zero setup, instant) when present; otherwise attempt Riva if the
+	// environment can capture audio at all.
+	_fallbackSttMode() {
+		if (window.SpeechRecognition || window.webkitSpeechRecognition) return 'browser';
+		return MicCapture.isSupported() ? 'riva' : 'none';
+	}
+
+	// ── Browser SpeechRecognition path (Chrome/Edge/Safari) ────────────────
+	_startBrowserListening() {
 		const RecCls = window.SpeechRecognition || window.webkitSpeechRecognition;
 		if (!RecCls) {
-			this.onError(
-				new Error('Your browser does not support speech input. Try Chrome, Edge, or Safari.'),
-			);
+			this.onError(coded('Your browser does not support speech input. Try Chrome, Edge, or Safari.', 'stt-unavailable'));
 			return false;
 		}
 
 		const rec = new RecCls();
-		rec.lang = 'en-US';
+		rec.lang = this.language;
 		rec.continuous = false;
-		rec.interimResults = false;
+		rec.interimResults = true;
 		rec.maxAlternatives = 1;
 		this._recognizer = rec;
 
 		let finalText = '';
 		rec.onresult = (e) => {
-			const last = e.results[e.results.length - 1];
-			if (last.isFinal) finalText = last[0].transcript;
+			let interim = '';
+			for (let i = e.resultIndex; i < e.results.length; i++) {
+				const res = e.results[i];
+				if (res.isFinal) finalText += res[0].transcript;
+				else interim += res[0].transcript;
+			}
+			if (interim) this.onInterim(interim);
 		};
 		rec.onerror = (e) => {
-			this.onError(new Error(`Speech recognition error: ${e.error || 'unknown'}`));
+			const kind = e.error || 'unknown';
+			// 'no-speech'/'aborted' are benign end-of-hold outcomes, not failures.
+			if (kind !== 'no-speech' && kind !== 'aborted') {
+				this.onError(coded(`Speech recognition error: ${kind}`, kind === 'not-allowed' ? 'permission-denied' : 'stt-failed'));
+			}
 		};
 		rec.onend = () => {
 			this._recognizer = null;
+			this.onInterim('');
 			const transcript = finalText.trim();
 			if (!transcript) {
 				this._setState('idle');
@@ -121,19 +232,130 @@ export class TalkController {
 			this._setState('listening');
 			return true;
 		} catch (err) {
-			this.onError(new Error(`Could not start mic: ${err.message}`));
+			this.onError(coded(`Could not start mic: ${err.message}`, 'capture-failed'));
 			this._setState('idle');
 			return false;
 		}
 	}
 
-	/** Stop an in-flight recognition. The current state transitions to idle. */
-	stopListening() {
-		if (this._recognizer) {
-			try {
-				this._recognizer.stop();
-			} catch {}
+	// ── NVIDIA Riva path (cross-browser, server-side) ──────────────────────
+	_startRivaListening() {
+		const mic = new MicCapture();
+		this._mic = mic;
+		this._setState('listening'); // optimistic — the getUserMedia prompt is showing
+		mic.start().then(
+			() => {
+				// stopListening() may have run during the permission prompt.
+				if (this._mic !== mic) {
+					mic.dispose();
+					return;
+				}
+				this._interimCount = 0;
+				this._interimBusy = false;
+				this._interimTimer = setInterval(() => this._fireInterim(), INTERIM_INTERVAL_MS);
+			},
+			(err) => {
+				if (this._mic === mic) this._mic = null;
+				mic.dispose();
+				this._setState('idle');
+				this.onError(err); // .code: permission-denied | no-mic | unsupported | capture-failed
+			},
+		);
+	}
+
+	async _stopRivaListening() {
+		this._clearInterim();
+		const mic = this._mic;
+		if (!mic) return;
+		this._mic = null;
+
+		// Nothing captured (released before the mic opened) — quietly reset.
+		if (!mic.capturing) {
+			mic.dispose();
+			this._setState('idle');
+			return;
 		}
+
+		this._setState('transcribing');
+		let wav = null;
+		try {
+			wav = await mic.stop();
+		} catch {
+			// fall through — treated as no audio below
+		} finally {
+			mic.dispose();
+		}
+		this.onInterim('');
+
+		if (!wav) {
+			this._setState('idle');
+			return;
+		}
+
+		let transcript = '';
+		try {
+			transcript = (await this._recognize(wav)).trim();
+		} catch (err) {
+			this._setState('idle');
+			this.onError(err);
+			return;
+		}
+
+		if (!transcript) {
+			this._setState('idle');
+			this.onError(coded('No speech detected — hold the button and speak, or type your message.', 'no-speech'));
+			return;
+		}
+
+		this._handleTranscript(transcript).catch((err) => this.onError(err));
+	}
+
+	// Fire one interim recognition over the audio captured so far so partial words
+	// surface live. Strictly best-effort: a failed or rate-limited interim is
+	// swallowed; the authoritative transcript comes from the final pass on release.
+	async _fireInterim() {
+		if (!this._mic || this._interimBusy || this._interimCount >= MAX_INTERIMS) return;
+		const snapshot = this._mic.snapshotWav();
+		if (!snapshot) return;
+		this._interimBusy = true;
+		this._interimCount += 1;
+		try {
+			const text = await this._recognize(snapshot);
+			if (this._mic && text) this.onInterim(text); // still listening
+		} catch {
+			// interim is optional — ignore
+		} finally {
+			this._interimBusy = false;
+		}
+	}
+
+	_clearInterim() {
+		if (this._interimTimer) {
+			clearInterval(this._interimTimer);
+			this._interimTimer = null;
+		}
+		this._interimBusy = false;
+	}
+
+	// POST a WAV clip to the free Riva ASR lane and return the transcript text.
+	async _recognize(wavBlob) {
+		const r = await fetch(`/api/asr?language=${encodeURIComponent(this.language)}`, {
+			method: 'POST',
+			headers: { 'content-type': 'audio/wav' },
+			credentials: 'include',
+			body: wavBlob,
+		});
+		if (!r.ok) {
+			const j = await r.json().catch(() => ({}));
+			const err = coded(
+				j.error_description || j.error || `Speech recognition failed (${r.status})`,
+				j.error || (r.status === 429 ? 'rate_limited' : 'asr_failed'),
+			);
+			err.status = r.status;
+			throw err;
+		}
+		const j = await r.json();
+		return j.text || '';
 	}
 
 	/**
@@ -148,6 +370,11 @@ export class TalkController {
 
 	/** Stop everything immediately and detach. Idempotent. */
 	stop() {
+		this._clearInterim();
+		if (this._mic) {
+			this._mic.dispose();
+			this._mic = null;
+		}
 		this.stopListening();
 		this._stopPlayback();
 		this._driver?.dispose();
@@ -419,4 +646,12 @@ export class TalkController {
 		this._state = state;
 		this.onStateChange(state);
 	}
+}
+
+// Error carrying a machine-readable `.code` so the host UI can route each
+// failure precisely (mic denial → text input, rate limit → "try later", etc).
+function coded(message, code) {
+	const err = new Error(message);
+	err.code = code;
+	return err;
 }
