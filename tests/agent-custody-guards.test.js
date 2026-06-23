@@ -160,10 +160,13 @@ describe('enforceSpendLimit', () => {
 	});
 
 	it('skips the USD ceilings for an unpriceable asset (allowlist still applies)', async () => {
-		// usdValue null → daily/per-tx can't be evaluated; must not query or throw.
+		// usdValue null → daily/per-tx ceilings can't be evaluated and must not throw.
+		// The behavioral anomaly guard still runs (it scores destination/velocity, which
+		// matter regardless of price), but the daily USD ledger must never be summed.
 		const r = await enforceSpendLimit({ agentId: 'a', limits: { ...noLimits, daily_usd: 1, per_tx_usd: 1 }, category: 'withdraw', usdValue: null, destination: Keypair.generate().publicKey.toBase58() });
 		expect(r.ok).toBe(true);
-		expect(sqlState.calls.length).toBe(0); // never summed the ledger
+		const summedLedger = sqlState.calls.some((c) => /SUM\(usd\)/.test(c.query) && /agent_custody_events/.test(c.query));
+		expect(summedLedger).toBe(false); // never summed the USD ledger for an unpriceable spend
 	});
 
 	it('SpendLimitError is the exported class with the breach detail', async () => {
