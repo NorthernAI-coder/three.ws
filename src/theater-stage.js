@@ -435,8 +435,29 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false }
 		}
 
 		cast.updateMatrixWorld();
+		projectPlates();
 		projectReceipts(now);
 		renderer.render(scene, camera);
+	}
+
+	function projectPlates() {
+		const rect = canvas.getBoundingClientRect();
+		for (const rec of performers.values()) {
+			const plate = rec.plate;
+			if (!plate) continue;
+			_v.set(rec.group.position.x, 1.96 * (rec.slot?.scale || 1), rec.group.position.z).applyMatrix4(cast.matrixWorld);
+			_v2.copy(_v).project(camera);
+			const onScreen = _v2.z < 1 && _v2.x > -1.05 && _v2.x < 1.05;
+			if (!onScreen) { plate.style.opacity = '0'; plate.style.pointerEvents = 'none'; continue; }
+			const x = (_v2.x * 0.5 + 0.5) * rect.width;
+			const y = (-_v2.y * 0.5 + 0.5) * rect.height;
+			// Fade with depth so the back rows recede; nearest stay crisp.
+			const depth = Math.max(0, Math.min(1, (_v2.z - 0.96) / 0.04));
+			plate.style.opacity = String(0.95 - depth * 0.55);
+			plate.style.pointerEvents = 'auto';
+			plate.style.transform = `translate(-50%, -100%) translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+			plate.classList.toggle('is-highlight', rec.agent.id === highlightId);
+		}
 	}
 
 	function projectReceipts(now) {
