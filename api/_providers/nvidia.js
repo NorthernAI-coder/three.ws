@@ -106,16 +106,23 @@ const MAX_INVOKE_ATTEMPTS = 2;
 const INVOKE_RETRY_DELAY_MS = 1_500;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Sampling steps per quality tier, clamped to TRELLIS's accepted 10–50 window.
-// More steps = finer geometry/texture at higher latency; draft stays cheap so
-// the free lane returns a usable preview fast.
+// Sampling steps per quality tier. TRELLIS accepts 10–50, but the NVIDIA HOSTED
+// preview at this endpoint only returns within the gateway's synchronous window
+// at the low end: a 15-step draft completes in ~13 s, while 25 steps overruns the
+// gateway (it neither finishes inline nor hands back a pollable NVCF-REQID before
+// our submit timeout), so the whole free lane aborts and silently degrades to the
+// PAID Replicate fallback — exactly the "standard tier doesn't work like draft"
+// failure. So the free hosted lane is pinned to the proven 15-step budget for both
+// draft and standard; the tiers still differ in polycount/price (the catalog) and
+// in the higher-fidelity PAID lanes a user can select. High routes to HuggingFace,
+// not here, by default; its 40 stays for a self-hosted NIM (which serves the full
+// window) if one is ever pointed at this provider.
 function trellisSteps(tier) {
 	const id = tier?.id || tier || 'draft';
 	switch (id) {
 		case 'high':
 			return { ss: 40, slat: 40 };
 		case 'standard':
-			return { ss: 25, slat: 25 };
 		case 'draft':
 		default:
 			return { ss: 15, slat: 15 };
@@ -302,13 +309,18 @@ export function createNvidiaProvider() {
 					signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
 				});
 			} catch (err) {
-				// Socket abort / DNS blip — transient. Retry once before giving up so a
-				// single dropped connection doesn't fail the whole free lane.
 				lastErr = Object.assign(new Error(`nvidia unreachable: ${err?.message}`), {
 					code: 'provider_unreachable',
 					status: 502,
 				});
-				if (attempt < MAX_INVOKE_ATTEMPTS) {
+				// A SUBMIT_TIMEOUT abort means the gateway held our connection open without
+				// finishing or handing back a pollable id — retrying just hangs for another
+				// full window (the bug that turned a slow lane into a ~90 s double-timeout
+				// before failover). Make it terminal so the forge layer fails over to the
+				// next lane fast. A genuine socket/DNS blip (not a timeout) still gets one
+				// retry, so a single dropped connection doesn't fail the whole free lane.
+				const timedOut = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+				if (!timedOut && attempt < MAX_INVOKE_ATTEMPTS) {
 					await sleep(INVOKE_RETRY_DELAY_MS);
 					continue;
 				}
