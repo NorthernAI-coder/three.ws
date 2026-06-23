@@ -25,6 +25,7 @@
 		<link rel="stylesheet" href="/style.css" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<link rel="stylesheet" href="/src/pump/launch-token-modal.css" />
+		<link rel="stylesheet" href="/brain-ownership.css" />
 		<style>
 			body {
 				overflow: auto;
@@ -1202,6 +1203,7 @@
 					<div class="edit-sidebar-group-title">Brain</div>
 					<button class="edit-tab" data-tab="brain" role="tab" aria-selected="false" aria-controls="panel-brain" id="tab-brain">Brain Studio</button>
 					<button class="edit-tab" data-tab="knowledge" role="tab" aria-selected="false" aria-controls="panel-knowledge" id="tab-knowledge">Knowledge</button>
+					<button class="edit-tab" data-tab="ownership" role="tab" aria-selected="false" aria-controls="panel-ownership" id="tab-ownership">Ownership</button>
 					<button class="edit-tab" data-tab="dreams" role="tab" aria-selected="false" aria-controls="panel-dreams" id="tab-dreams">Dreams<span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></button>
 					<button class="edit-tab" data-tab="skills" role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills">Skills</button>
 					<button class="edit-tab" data-tab="autopilot" role="tab" aria-selected="false" aria-controls="panel-autopilot" id="tab-autopilot">Autopilot</button>
@@ -1266,6 +1268,19 @@
 			>
 				<div id="brain-studio-host">
 					<div class="loading-msg" role="status" aria-live="polite">Loading the Brain Studio…</div>
+				</div>
+			</section>
+
+			<!-- Ownership tab — Portable & Verifiable Brain -->
+			<section
+				class="edit-panel"
+				id="panel-ownership"
+				role="tabpanel"
+				aria-labelledby="tab-ownership"
+				hidden
+			>
+				<div id="brain-ownership-host">
+					<div class="loading-msg" role="status" aria-live="polite">Loading brain ownership…</div>
 				</div>
 			</section>
 

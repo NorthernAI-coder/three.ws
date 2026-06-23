@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "Memory-grounded Autopilot: your agent acts on your behalf — and shows the receipt",
+			"summary": "Your agent can now do things for you, grounded in what it knows, and it always shows its work. Open the Autopilot tab in Agent Studio and grant scoped permissions — let it create alerts, write you briefings, or send $THREE — and it proposes real actions drawn from its highest-salience memories and its own reflections. Every proposal comes with a receipt: a plain-language 'I want to do this because…' that links straight to the exact memory that motivated it. Approve one and it takes the real action — a real alert rule, a real briefing in your inbox, a real on-chain $THREE transfer — recorded forever in a signed, append-only log. Nothing fires without a permission you granted; every scope is enforced on the server, not just hidden in the UI. Spending real $THREE always asks first and is capped by a daily budget you set — and you can preview exactly what any action would do, with a live balance and budget check, before you ever grant it. Reversible actions undo in one tap, and each undo teaches the agent to be more cautious next time. A new Activity page shows every action your agents have taken, each with its memory trail, its signature, and its on-chain link — and your agent earns a real trust level from that track record, never a vanity number. This is autonomy you can audit.",
+			"tags": [
+				"feature",
+				"security"
+			],
+			"link": "/autopilot-activity"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Your agent now remembers — and you can watch it recall mid-conversation",
 			"summary": "Chat with your agent and it now actually draws on what it knows about you: every reply is grounded in your agent's pinned, always-on memories plus the specific things most relevant to what you just said, pulled live from its real memory store. Nothing is faked — the agent only speaks from memories it genuinely recalled for that message. Under the hood this ships a shared nervous system for the whole platform: one canonical notion of your active agent, so the companion in the corner, the worlds you walk into, and your agent's profile finally all agree on who your agent is — even across browser tabs — plus a real-time event channel that lets every surface react the instant your agent remembers, learns, or changes. It's the foundation the living-agent features build on: your agent becoming a continuous presence instead of stateless decoration.",
 			"tags": [
