@@ -62,18 +62,31 @@ async function loadSeed() {
 }
 
 /**
+ * Stable, rotation-aware key id derived from the public key itself, so the
+ * issuer, the published well-known keyring, and any verifier always agree on the
+ * id without separate configuration — rotating the seed rotates the id for free.
+ * @param {string} publicKeyHex
+ * @returns {string}
+ */
+export function keyIdForPublicKey(publicKeyHex) {
+	return `pog-${String(publicKeyHex).slice(0, 16)}`;
+}
+
+/**
  * Resolve the service signing identity. Cached after first load.
- * @returns {Promise<{ seed: Uint8Array, publicKey: Uint8Array, publicKeyBase58: string, publicKeyHex: string }>}
+ * @returns {Promise<{ seed: Uint8Array, publicKey: Uint8Array, publicKeyBase58: string, publicKeyHex: string, keyId: string }>}
  */
 export async function getServiceIdentity() {
 	if (_cached) return _cached;
 	const seed = await loadSeed();
 	const publicKey = ed25519.getPublicKey(seed);
+	const publicKeyHex = bytesToHex(publicKey);
 	_cached = {
 		seed,
 		publicKey,
 		publicKeyBase58: bs58.encode(publicKey),
-		publicKeyHex: bytesToHex(publicKey),
+		publicKeyHex,
+		keyId: keyIdForPublicKey(publicKeyHex),
 	};
 	return _cached;
 }
