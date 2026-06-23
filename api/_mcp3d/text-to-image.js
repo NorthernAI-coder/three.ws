@@ -29,6 +29,22 @@ const NIM_FLUX_URL = 'https://ai.api.nvidia.com/v1/genai/black-forest-labs/flux.
 const NIM_FLUX_MODEL = 'black-forest-labs/flux.1-schnell';
 const NIM_TIMEOUT_MS = 60_000;
 
+// NVCF fronts the free NIM lane with a gateway that answers a cold model or a
+// momentary capacity/routing blip with a transient 502/503/504 that returns
+// FAST (not the slow-job path — that comes back 200/202). The TRELLIS provider
+// already retries these once and it measurably keeps the free lane from
+// dead-ending straight to the (often equally throttled) paid backstop and
+// surfacing to the user as a hard 502; mirror that here. A genuine socket/DNS
+// blip (non-timeout network error) gets the same single retry. A real *timeout*
+// is deliberately NOT retried: the request already burned the full window, so a
+// second attempt would just double the wait before failover (the same reasoning
+// that makes the TRELLIS submit timeout terminal). Bounded to one extra attempt
+// so a genuinely-down gateway still hands off fast.
+const NIM_GATEWAY_RETRY_STATUSES = new Set([502, 503, 504]);
+const NIM_MAX_ATTEMPTS = 2;
+const NIM_RETRY_DELAY_MS = 1_200;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 // FLUX wants explicit pixel dimensions (multiples of 64). Map the caller's
 // aspect ratio to a sensible ~1MP size; anything unmapped falls back to square.
 const NIM_DIMENSIONS = {
@@ -109,54 +125,74 @@ async function nimFluxImage(prompt, aspectRatio) {
 	const key = readEnv('NVIDIA_API_KEY');
 	const [width, height] = NIM_DIMENSIONS[aspectRatio] || NIM_DIMENSIONS['1:1'];
 
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), NIM_TIMEOUT_MS);
-	let res;
-	try {
-		res = await fetch(NIM_FLUX_URL, {
-			method: 'POST',
-			headers: {
-				authorization: `Bearer ${key}`,
-				accept: 'application/json',
-				'content-type': 'application/json',
-			},
-			// No cfg_scale: schnell is guidance-distilled and the endpoint enforces
-			// cfg_scale <= 0 for it (sending 3.5 422s — verified live 2026-06-11).
-			body: JSON.stringify({
-				prompt,
-				mode: 'base',
-				width,
-				height,
-				seed: 0,
-				steps: 4,
-			}),
-			signal: controller.signal,
-		});
-	} catch (err) {
-		const aborted = err?.name === 'AbortError';
-		throw Object.assign(
-			new Error(aborted ? 'nim flux timed out' : `nim flux unreachable: ${err?.message}`),
-			{ code: aborted ? 'rate_limited' : 'provider_unreachable' },
-		);
-	} finally {
-		clearTimeout(timer);
-	}
+	let lastErr = null;
+	for (let attempt = 1; attempt <= NIM_MAX_ATTEMPTS; attempt++) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), NIM_TIMEOUT_MS);
+		let res;
+		try {
+			res = await fetch(NIM_FLUX_URL, {
+				method: 'POST',
+				headers: {
+					authorization: `Bearer ${key}`,
+					accept: 'application/json',
+					'content-type': 'application/json',
+				},
+				// No cfg_scale: schnell is guidance-distilled and the endpoint enforces
+				// cfg_scale <= 0 for it (sending 3.5 422s — verified live 2026-06-11).
+				body: JSON.stringify({
+					prompt,
+					mode: 'base',
+					width,
+					height,
+					seed: 0,
+					steps: 4,
+				}),
+				signal: controller.signal,
+			});
+		} catch (err) {
+			const aborted = err?.name === 'AbortError' || err?.name === 'TimeoutError';
+			lastErr = Object.assign(
+				new Error(aborted ? 'nim flux timed out' : `nim flux unreachable: ${err?.message}`),
+				{ code: aborted ? 'rate_limited' : 'provider_unreachable' },
+			);
+			// A timeout already burned the full window — don't retry it (a second
+			// attempt just doubles the wait before failover). A non-timeout network
+			// blip gets one retry, mirroring the TRELLIS provider.
+			if (!aborted && attempt < NIM_MAX_ATTEMPTS) {
+				await sleep(NIM_RETRY_DELAY_MS);
+				continue;
+			}
+			throw lastErr;
+		} finally {
+			clearTimeout(timer);
+		}
 
-	if (!res.ok) {
-		const detail = await res.text().catch(() => '');
-		const message = `nim flux returned ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`;
-		// 429 (credit-metered free tier) is retryable; surface it so a caller can
-		// route, but here it just means "fall through to the paid lanes".
-		throw Object.assign(new Error(message), {
-			providerStatus: res.status,
-			...(res.status === 429 ? { code: 'rate_limited' } : {}),
-		});
-	}
+		if (!res.ok) {
+			const detail = await res.text().catch(() => '');
+			const message = `nim flux returned ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`;
+			// A fast transient gateway 5xx (cold model / capacity blip) gets one
+			// retry before we surface it and cascade to the paid lanes.
+			if (NIM_GATEWAY_RETRY_STATUSES.has(res.status) && attempt < NIM_MAX_ATTEMPTS) {
+				lastErr = Object.assign(new Error(message), { providerStatus: res.status });
+				await sleep(NIM_RETRY_DELAY_MS);
+				continue;
+			}
+			// 429 (credit-metered free tier) is retryable upstream; surface it so a
+			// caller can route, but here it just means "fall through to the paid lanes".
+			throw Object.assign(new Error(message), {
+				providerStatus: res.status,
+				...(res.status === 429 ? { code: 'rate_limited' } : {}),
+			});
+		}
 
-	const data = await res.json().catch(() => ({}));
-	const b64 = data?.artifacts?.[0]?.base64;
-	if (!b64) throw new Error('nim flux finished but produced no image');
-	return { imageUrl: await persistImageBase64(b64), model: NIM_FLUX_MODEL };
+		const data = await res.json().catch(() => ({}));
+		const b64 = data?.artifacts?.[0]?.base64;
+		if (!b64) throw new Error('nim flux finished but produced no image');
+		return { imageUrl: await persistImageBase64(b64), model: NIM_FLUX_MODEL };
+	}
+	// Exhausted retries on a transient status/blip without a terminal verdict.
+	throw lastErr || new Error('nim flux failed after retries');
 }
 
 // Words that signal the caller already set their own lighting / background style.

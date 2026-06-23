@@ -160,8 +160,10 @@ describe('textToImage — NIM FLUX free lane (first)', () => {
 		vertexState.generate = vi.fn(async () => {
 			throw Object.assign(new Error('vertex down'), { code: 'unconfigured' });
 		});
+		// 500 is a terminal upstream fault (not a retryable gateway 502/503/504), so
+		// NIM is attempted once and the chain cascades straight through.
 		const calls = stubFetch([
-			['ai.api.nvidia.com', () => new Response('boom', { status: 503 })],
+			['ai.api.nvidia.com', () => new Response('boom', { status: 500 })],
 			['api.replicate.com', () => replicateSuccessResponse()],
 		]);
 		vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -171,8 +173,61 @@ describe('textToImage — NIM FLUX free lane (first)', () => {
 
 		expect(result.imageUrl).toBe('https://replicate.delivery/out.png');
 		expect(vertexState.generate).toHaveBeenCalledOnce();
-		expect(calls.some((c) => c.url.includes('ai.api.nvidia.com'))).toBe(true);
+		expect(calls.filter((c) => c.url.includes('ai.api.nvidia.com'))).toHaveLength(1);
 		expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(true);
+	});
+
+	it('retries a transient NIM gateway 504 once, then succeeds inline', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		let nimHits = 0;
+		const calls = stubFetch([
+			[
+				'ai.api.nvidia.com',
+				() => {
+					nimHits += 1;
+					// First hit: a fast gateway 504 (cold model / routing blip).
+					// Second hit: the warmed model returns the artifact.
+					return nimHits === 1 ? new Response('gateway timeout', { status: 504 }) : nimSuccessResponse();
+				},
+			],
+		]);
+
+		vi.useFakeTimers();
+		try {
+			const textToImage = await freshTextToImage();
+			const p = textToImage('a red teapot');
+			await vi.advanceTimersByTimeAsync(2_000); // let the retry backoff elapse
+			const result = await p;
+			expect(result.model).toBe('black-forest-labs/flux.1-schnell');
+			expect(calls.filter((c) => c.url.includes('ai.api.nvidia.com'))).toHaveLength(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('does NOT retry a NIM timeout — hands off immediately to avoid a double wait', async () => {
+		process.env.NVIDIA_API_KEY = 'nvapi-test';
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		const calls = stubFetch([
+			[
+				'ai.api.nvidia.com',
+				() => {
+					// Emulate the AbortController firing: a timeout, not a gateway status.
+					const err = new Error('aborted');
+					err.name = 'TimeoutError';
+					throw err;
+				},
+			],
+			['api.replicate.com', () => replicateSuccessResponse()],
+		]);
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		const textToImage = await freshTextToImage();
+		const result = await textToImage('a red teapot');
+
+		expect(result.imageUrl).toBe('https://replicate.delivery/out.png');
+		// NIM attempted exactly once — a timeout already burned the full window.
+		expect(calls.filter((c) => c.url.includes('ai.api.nvidia.com'))).toHaveLength(1);
 	});
 
 	it('surfaces the NIM error when it is the only configured lane', async () => {

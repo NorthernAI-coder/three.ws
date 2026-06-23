@@ -22,6 +22,7 @@ vi.stubGlobal('fetch', (url) => {
 });
 
 import { fetchTokenMarketData, __resetMarketCache } from '../../api/_lib/market/token-market.js';
+import { cacheSet } from '../../api/_lib/cache.js';
 
 const MINT = 'THREEsynthetic111111111111111111111111111111';
 
@@ -81,6 +82,18 @@ describe('token-market source circuit breaker', () => {
 		];
 		await fetchTokenMarketData(MINT, { fresh: true });
 		expect(fetchCalls.some((u) => u.includes('birdeye'))).toBe(true);
+	});
+
+	it('inherits a fleet-mate cooldown from L2 (cold instance skips a dead source)', async () => {
+		// Simulate a cold lambda: local breaker state is empty, but a sibling already
+		// published an active Birdeye cooldown to the shared cache. The cold instance
+		// must skip Birdeye without burning a doomed call against the exhausted quota.
+		await cacheSet('mktcool:v1', { fromBirdeye: Date.now() + 6 * 3_600_000 }, 6 * 3600);
+
+		fetchResponses = [{ body: DEX_OK }];
+		const result = await fetchTokenMarketData(MINT, { fresh: true });
+		expect(result.source).toBe('dexscreener');
+		expect(fetchCalls.some((u) => u.includes('birdeye'))).toBe(false);
 	});
 
 	it('trips the breaker on a 429 rate limit as well', async () => {

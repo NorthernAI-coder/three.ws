@@ -12,7 +12,7 @@
 // they can and never crash on a single upstream blip. This is the market-data
 // analogue of the RPC failover layer.
 
-import { cacheGet, cacheSet } from '../cache.js';
+import { cacheGet, cacheSet, cacheDel } from '../cache.js';
 
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
 const DEXSCREENER_BASE = 'https://api.dexscreener.com/latest/dex/tokens';
@@ -40,15 +40,59 @@ const WARN_COOLDOWN_MS = 60_000;
 // compute units) or rate-limits us, stop hitting it for a while instead of
 // burning a doomed upstream call + warning on every read. Quota exhaustion
 // only clears on the provider's billing cycle, so it gets a long cooldown.
+//
+// The breaker is FLEET-WIDE, not per-instance. The in-memory map below is wiped
+// on every Vercel cold start, so a per-instance breaker lets each fresh lambda
+// re-discover the exhausted quota the hard way — one more doomed Birdeye call
+// (which still counts against the compute-unit budget) and one more warning, per
+// cold instance, for the whole 6-hour window. Mirroring the cooldown into the L2
+// (Upstash) cache lets a cold lambda inherit a sibling's verdict and skip the
+// dead source immediately, collapsing fleet-wide waste to ~1 call per window.
 const _sourceCooldown = new Map(); // source name → epoch ms to skip until
 const QUOTA_COOLDOWN_MS = 6 * 3_600_000;
 const RATE_LIMIT_COOLDOWN_MS = 10 * 60_000;
+// Single L2 key holding { source: untilMs } for every source currently cooling.
+const COOLDOWN_KEY = 'mktcool:v1';
 
 function cooldownFor(err) {
 	const msg = String(err?.message || '');
 	if (/usage limit exceeded|quota exceeded/i.test(msg)) return QUOTA_COOLDOWN_MS;
 	if (/^429\b|rate ?limit/i.test(msg)) return RATE_LIMIT_COOLDOWN_MS;
 	return 0;
+}
+
+// Pull the shared cooldown map from L2 and merge any still-active entries into
+// the in-process map, so a cold lambda inherits the fleet's view of dead sources
+// before it tries (and re-burns) them. Best-effort: a cache miss/error just
+// leaves the in-memory map as-is and the read proceeds normally.
+async function hydrateCooldowns(now) {
+	try {
+		const shared = await cacheGet(COOLDOWN_KEY);
+		if (!shared || typeof shared !== 'object') return;
+		for (const [source, until] of Object.entries(shared)) {
+			if (Number(until) > now && Number(until) > (_sourceCooldown.get(source) || 0)) {
+				_sourceCooldown.set(source, Number(until));
+			}
+		}
+	} catch {
+		/* fall through — local breaker still applies */
+	}
+}
+
+// Publish the in-process cooldowns (only those still active) to L2 so siblings
+// inherit them. TTL tracks the longest remaining cooldown; once it expires the
+// key vanishes and sources are retried. Best-effort.
+function publishCooldowns(now) {
+	const active = {};
+	let maxRemainingMs = 0;
+	for (const [source, until] of _sourceCooldown) {
+		if (until > now) {
+			active[source] = until;
+			maxRemainingMs = Math.max(maxRemainingMs, until - now);
+		}
+	}
+	if (maxRemainingMs <= 0) return;
+	cacheSet(COOLDOWN_KEY, active, Math.ceil(maxRemainingMs / 1000)).catch(() => {});
 }
 
 function warnThrottled(key, msg) {
@@ -191,6 +235,10 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 		}
 	}
 
+	// Live fetch ahead — inherit the fleet's circuit-breaker state so a cold
+	// lambda skips a source another instance already found exhausted.
+	await hydrateCooldowns(now);
+
 	for (const src of SOURCES) {
 		if ((_sourceCooldown.get(src.name) || 0) > now) continue;
 		try {
@@ -206,6 +254,8 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 			const cooldown = cooldownFor(err);
 			if (cooldown) {
 				_sourceCooldown.set(src.name, now + cooldown);
+				// Broadcast the verdict so sibling lambdas skip this dead source too.
+				publishCooldowns(now);
 				warnThrottled(`${src.name}:cooldown`, `[market] ${src.name} quota/rate-limited — skipping it for ${Math.round(cooldown / 60_000)}min: ${err?.message}`);
 			} else {
 				warnThrottled(`${mint}:${src.name}`, `[market] ${src.name} failed for ${mint.slice(0, 6)}…: ${err?.message}`);
@@ -228,9 +278,12 @@ export async function fetchTokenPriceUsd(mint, opts) {
 	return md?.price_usd ?? null;
 }
 
-/** Test seam: clear the in-memory caches between cases. */
+/** Test seam: clear the in-memory caches (and the shared cooldown key) between cases. */
 export function __resetMarketCache() {
 	_cache.clear();
 	_warnedAt.clear();
 	_sourceCooldown.clear();
+	// Drop the L2 cooldown key so breaker state doesn't leak across cases. On the
+	// in-memory (unconfigured-Upstash) path this runs synchronously.
+	cacheDel(COOLDOWN_KEY);
 }
