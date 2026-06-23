@@ -31,10 +31,8 @@ export default wrap(async (req, res) => {
 	let agent;
 	try {
 		[agent] = await sql`
-			SELECT i.id, i.name, i.description, i.skills,
-			       a.thumbnail_key AS avatar_thumbnail_key
+			SELECT i.id, i.name, i.description, i.skills
 			FROM agent_identities i
-			LEFT JOIN avatars a ON a.id = i.avatar_id AND a.deleted_at IS NULL
 			WHERE i.id = ${agentId} AND i.deleted_at IS NULL
 			LIMIT 1
 		`;
@@ -52,9 +50,12 @@ export default wrap(async (req, res) => {
 		: '';
 	const desc = baseDesc + skillSuffix;
 
-	const { publicUrl } = await import('./_lib/r2.js');
-	const thumbnailUrl = agent.avatar_thumbnail_key ? publicUrl(agent.avatar_thumbnail_key) : null;
-	const ogImage = thumbnailUrl || `${origin}/api/agent/${agentId}/og`;
+	// Unfurl with the dynamic wallet TRADING CARD (api/og/agent.js) — the same
+	// living card shown on the page (avatar, vanity address, live net worth, P&L,
+	// reputation tier, finish), rendered from real data. The card embeds the
+	// avatar itself, so a shared link previews with identity + wallet, not a bare
+	// thumbnail. The card endpoint falls back to the brand image if it can't render.
+	const ogImage = `${origin}/api/og/agent?id=${encodeURIComponent(agentId)}`;
 
 	const pageUrl = `${origin}/agents/${agentId}`;
 

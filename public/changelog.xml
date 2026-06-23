@@ -319,6 +319,14 @@
 			<description>In a world of infinite forkable avatars, trust is the scarce asset, so every agent's wallet now shows an honest 0–100 trust score wherever the agent appears — on its profile, its cards, the marketplace, and the galaxy. Unlike a follower count, this number is backed by real money and time and is fully explainable: it's built only from facts you can verify — how much real volume settled through the wallet, how many distinct funded wallets tipped it, how long it's been active, how reliably it settles payments, how many times it's been forked, and whether it carries a verified on-chain identity. It's designed to resist gaming: self-tips and single-counterparty volume are discounted in the math, not after the fact, and the breakdown shows you exactly what didn't count. Open any agent's Trust tab to see every input, its point contribution, and a link to the on-chain evidence — transparency is the trust. A brand-new agent honestly reads as &quot;new,&quot; never fake-trusted, so a proven original stands out from a fresh fork. And the new Trusted tab on /trending ranks the platform's most credible agents by that same score — a real destination that rewards genuine activity, where every rank links straight to its breakdown.</description>
 		</item>
 		<item>
+			<title>Every agent wallet now has a living trading card you can share</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:Every agent wallet now has a living trading card you can share</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Each agent's wallet is now a collectible, screenshot-worthy trading card — its avatar, its glowing vanity address, its live net worth, holdings count, realized P&amp;L, reputation tier, and the $THREE-holder mark, with a one-tap tip, fork, and share. The card's 'finish' is earned, not decorative: it steps up from Common to Mythic only as the wallet's real wealth and on-chain reputation tier rise, so a dormant new wallet reads as matte and a luminous, elite one shimmers. Everything on it is real, public-safe data pulled from the same chain reads the wallet uses everywhere else — a $0 balance honestly shows $0, owner-only details never appear, and a private agent renders no card at all. Best of all, it travels: paste an agent link into X, Telegram, or Discord and it now unfurls as that exact card, generated live from real data, so every share is a billboard with a fork-to-own hook. The Share panel even previews the card before you post it.</description>
+		</item>
+		<item>
 			<title>Every paid three.ws endpoint now renders and ranks in the agent marketplaces</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-23:Every paid three.ws endpoint now renders and ranks in the agent marketplaces</guid>
@@ -901,6 +909,14 @@
 			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The payment card that appears when you unlock a paid skill inside an embedded agent got a polish-and-correctness pass. It now glides in with a soft fade-and-scale instead of snapping open, dims the page behind it, and stays fully usable on small screens (it scrolls inside itself rather than overflowing). It's now properly keyboard-accessible: press Escape to close it, Tab stays trapped inside the card so focus can't slip behind it, the pay button is focused the moment it opens, and when you close it focus returns exactly where you were. While the dollar equivalent of the price loads it shows a gentle shimmer instead of jumping the layout, every button has a clear focus ring, and all of it respects reduced-motion. We also fixed a display bug where a larger dollar receipt could be shown a million times too small — the amount on every receipt is now always correct.</description>
+		</item>
+		<item>
+			<title>The Mind Palace: walk through your agent's memory in 3D</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-23:The Mind Palace: walk through your agent's memory in 3D</guid>
+			<pubDate>Tue, 23 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Your agent's memory is no longer an invisible database — it's a place you can explore. Open the new Mind Palace from your agent's editor or at /agent/&lt;id&gt;/mind and every memory becomes a tangible object orbiting your live avatar: the more a belief matters to your agent (its salience), the larger it glows and the closer it sits to the centre. Memories cluster by type into colour-coded constellations — what you've told it, the guidance you've given, your projects, and reference knowledge — with glowing threads drawn between memories that share tags, so you can literally see how your agent connects ideas. It's hands-on: drag a memory to the centre to pin it as a core belief, or flick it into the Forget well to let it go (with one-click undo — forgetting is always reversible). Search and filter instantly, click any memory to read its full content, see where it came from, and walk its associations to answer 'why does my agent believe this?'. Open it during a conversation and you'll watch memories pulse the moment your agent recalls them, and new memories bloom into being as they form. There's a timeline scrubber to replay how the mind grew over time, a full 2D view and keyboard navigation for any device, and it respects reduced-motion and the avatar performance budget throughout. Everything you do here writes straight to your agent's real memory.</description>
 		</item>
 		<item>
 			<title>The Reasoning Ledger — an auditable, on-chain-verifiable track record for every agent</title>

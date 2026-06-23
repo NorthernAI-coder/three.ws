@@ -17,6 +17,9 @@
 import { sql } from '../db.js';
 import { loadAgentReputation } from './solana-bouncer.js';
 import { getSolvencyInputs } from './proof-of-reserves.js';
+import { threeHoldingFor } from '../coin/three-holders.js';
+import { getTokenPriceUsd } from '../token/price.js';
+import { ATOMICS_PER_TOKEN } from '../token/config.js';
 import {
 	computeReputation,
 	tierFor,
@@ -217,6 +220,23 @@ export async function loadReputationInputs(agentId, opts = {}) {
 		  )
 		: [{ fork_count: 0 }];
 
+	// $THREE conviction: real balance + continuous holding duration, read from the
+	// cached holder snapshot (one indexed lookup — no per-agent RPC, even in lite
+	// mode). Value needs a live price; if the price feed is momentarily down, the
+	// duration component (which is price-independent and just as real) still counts
+	// and the score is flagged `partial` rather than fabricating a value.
+	const threeHold = await soft(threeHoldingFor(ownWallet), { balance: 0n, heldSince: null });
+	const threeTokens = threeHold?.balance ? Number(threeHold.balance) / Number(ATOMICS_PER_TOKEN) : 0;
+	const threeHoldDays =
+		threeTokens > 0 && threeHold?.heldSince
+			? Math.max(0, (Date.now() - new Date(threeHold.heldSince).getTime()) / 86_400_000)
+			: 0;
+	let threeUsd = 0;
+	if (threeTokens > 0) {
+		const price = await soft(getTokenPriceUsd().then((p) => p.priceUsd || 0), 0);
+		threeUsd = threeTokens * (Number(price) || 0);
+	}
+
 	// On-chain payment / distribution / attestation record (already-real index).
 	const solRep = await soft(loadAgentReputation(agentId), null);
 
@@ -253,6 +273,9 @@ export async function loadReputationInputs(agentId, opts = {}) {
 		winningTrades: trades?.wins || 0,
 		realizedPnlSol: (Number(trades?.pnl_lamports) || 0) / 1e9,
 		dumpEvents: dumps?.n || 0,
+		threeUsd,
+		threeTokens,
+		threeHoldDays,
 		reserveUsd: solvency?.reserveUsd || 0,
 		obligationsUsd: solvency?.obligationsUsd || 0,
 		reservesKnown: Boolean(solvency?.reservesKnown),
@@ -265,7 +288,7 @@ export async function loadReputationInputs(agentId, opts = {}) {
 		hasSkillCollection: Boolean(agent.skill_collection_mint),
 	};
 
-	const evidence = buildEvidence(agent, { solRep, registry });
+	const evidence = buildEvidence(agent, { solRep, registry, holdsThree: threeTokens > 0 });
 	return { inputs, agent, evidence, partial };
 }
 
@@ -337,11 +360,15 @@ async function readErc8004Registry(agent) {
 	return { average: n === 0 ? 0 : Number(avgX100) / 100, count: n };
 }
 
-function buildEvidence(agent, { solRep, registry }) {
+function buildEvidence(agent, { solRep, registry, holdsThree }) {
 	const ev = {};
 	if (agent.solana_address) {
 		ev.wallet = { label: 'Wallet activity', href: `https://solscan.io/account/${agent.solana_address}` };
 		ev.ledger = { label: 'Custody ledger', href: `/agent/${agent.id}/wallet` };
+	}
+	if (holdsThree && agent.solana_address) {
+		// $THREE conviction is provable on-chain — link to this wallet's token holdings.
+		ev.three = { label: 'Holds $THREE', href: `https://solscan.io/account/${agent.solana_address}#portfolio` };
 	}
 	if (agent.avatar_id) {
 		ev.lineage = { label: 'Fork lineage', href: `/avatars/${agent.avatar_id}` };
@@ -384,6 +411,14 @@ function buildGuidance(result, inputs, agent) {
 			action: 'protect_supporters',
 			label: 'Stop dumping on your supporters',
 			detail: 'Large sells right after your launch hurt early buyers and lower your trading conduct.',
+			href: `/agent/${agent.id}/wallet`,
+		});
+	}
+	if (inputs.threeTokens <= 0) {
+		tips.push({
+			action: 'hold_three',
+			label: 'Hold $THREE to build conviction',
+			detail: 'Holding the platform coin over time is a real, on-chain trust signal — and it unlocks holder-only worlds and cosmetics.',
 			href: `/agent/${agent.id}/wallet`,
 		});
 	}

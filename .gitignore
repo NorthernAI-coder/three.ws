@@ -260,3 +260,6 @@ pages/ibm/test.html
 /solwallets.json
 /bscwallets.json
 three.ws-log-export-*.json
+
+# Local prompt working set (not shared)
+prompts/nvidia/

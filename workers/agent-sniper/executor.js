@@ -104,23 +104,35 @@ function bn(ctx, v) {
 // (api/_lib/agent-trade-guards.js). Returns { blocked, reason }. Never throws:
 // the sniper's own lamports caps stay the hard backstop, so a pricing or DB
 // hiccup here degrades to "allow" rather than stalling the trader.
-async function enforceSharedSpendPolicy(agentId, network, perTradeLamports) {
+async function enforceSharedSpendPolicy(agentId, network, perTradeLamports, { holderRef = null, target = null } = {}) {
 	try {
 		const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL`;
 		const limits = getSpendLimits(row?.meta);
-		// No USD ceiling set → nothing to price or enforce; skip the price call.
-		if (limits.daily_usd == null && limits.per_tx_usd == null) return { blocked: false };
+		// Gate when there's something to enforce: a USD ceiling, or least-privilege
+		// mode (require_capabilities) which makes a covering scoped session key
+		// mandatory for every autonomous spend. Otherwise skip — keep the hot path
+		// price-call- and query-free.
+		const needGate = limits.require_capabilities || limits.daily_usd != null || limits.per_tx_usd != null;
+		if (!needGate) return { blocked: false };
 		let usdValue = null;
 		try {
 			usdValue = await lamportsToUsd(perTradeLamports);
 		} catch {
-			// Can't price the SOL spend right now — don't block (lamports caps hold).
-			return { blocked: false };
+			// Can't price the SOL spend right now. If a capability is REQUIRED we still
+			// enforce scope (action/target/expiry/revoked) with a null USD value — only
+			// the per-use/aggregate USD metering is skipped. If capabilities aren't
+			// required, the USD caps can't bite, so don't block (lamports caps hold).
+			if (!limits.require_capabilities) return { blocked: false };
 		}
-		await enforceSpendLimit({ agentId, limits, category: 'snipe', usdValue, network });
-		return { blocked: false };
+		// Pass the strategy as the capability holder + the mint as the spend target so
+		// a strategy-scoped, mint-restricted session key is resolved + enforced here.
+		const res = await enforceSpendLimit({
+			agentId, limits, category: 'snipe', usdValue, network,
+			capabilityHolderRef: holderRef, target,
+		});
+		return { blocked: false, capabilityId: res?.capabilityId || null };
 	} catch (err) {
-		if (err instanceof SpendLimitError) return { blocked: true, reason: 'spend_limit' };
+		if (err instanceof SpendLimitError) return { blocked: true, reason: err.code || 'spend_limit' };
 		log.warn?.('spend_policy_check_failed', { agent: agentId, message: err?.message });
 		return { blocked: false };
 	}
@@ -133,13 +145,13 @@ async function enforceSharedSpendPolicy(agentId, network, perTradeLamports) {
 // must finish the write before returning so a rapid next snipe sees this spend
 // against the ceiling rather than racing an unwritten record. Prices the SOL
 // spend best-effort; a pricing hiccup records lamports with a null USD value.
-async function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode, mint }) {
+async function recordSnipeSpend({ agentId, userId, network, lamports, signature, mode, mint, capabilityId = null }) {
 	try {
 		let usd = null;
 		try { usd = await lamportsToUsd(lamports); } catch { usd = null; }
 		await recordSpend({
 			agentId, userId, category: 'snipe', network, asset: 'SOL',
-			amountLamports: lamports, usd,
+			amountLamports: lamports, usd, capabilityId,
 			signature: signature && signature !== 'SIMULATED' ? signature : null,
 			status: mode === 'live' ? 'confirmed' : 'ok',
 			meta: { mint, mode },
@@ -235,8 +247,11 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		// has actually set a USD ceiling, so the hot snipe path stays price-call-
 		// free otherwise. Pricing/DB hiccups never block — the lamports caps above
 		// remain the hard backstop.
-		const policy = await enforceSharedSpendPolicy(strat.agent_id, cfg.network, perTrade);
+		const policy = await enforceSharedSpendPolicy(strat.agent_id, cfg.network, perTrade, {
+			holderRef: String(strat.id), target: mint.mint,
+		});
 		if (policy.blocked) return skip(tag, policy.reason);
+		const spendCapabilityId = policy.capabilityId || null;
 
 		// 4. idempotency lock — claim the (agent,mint,network) slot BEFORE the tx.
 		const claimed = await sql`
@@ -374,7 +389,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
-			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint });
+			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint, capabilityId: spendCapabilityId });
 			await recordSnipeDecision({
 				strat, network: cfg.network, mint, posId, sig, mode: cfg.mode,
 				priceImpactPct: Number(quote.priceImpactPct), firewall: firewallSnapshot, perTradeLamports: perTrade,
