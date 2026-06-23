@@ -79,22 +79,26 @@ async function signSendConfirm(conn, tx, keypair) {
 export async function enforceBreaker(vault, { userId = null, reason = 'post_trade' } = {}) {
 	const positions = await getOpenPositions(vault.id);
 	const nav = await computeVaultNav(vault, positions);
-	const peak = nextPeak(vault.peak_nav_atomics, nav.navAtomics);
+	// The breaker measures SHARE PRICE drawdown (NAV per share), not raw NAV — so
+	// deposits/redemptions, which move NAV but not price, can never trip it. Only
+	// real trading losses move the share price down.
 	const priceE6 = sharePriceE6(nav.navAtomics, vault.total_shares);
+	const peak = nextPeak(vault.peak_share_price_e6, priceE6);
 
 	// Ratchet the peak (only rises). Done regardless of breach.
 	await applyVaultShareDelta(vault.id, 0n, peak);
 
 	let halted = false;
-	if (nav.priced && vault.status === 'open' && isDrawdownBreached(peak, nav.navAtomics, vault.max_drawdown_bps)) {
+	if (nav.priced && vault.status === 'open' && toBig(vault.total_shares) > 0n
+		&& isDrawdownBreached(peak, priceE6, vault.max_drawdown_bps)) {
 		await setVaultStatus(vault.id, 'paused', { haltReason: 'drawdown' });
 		await recordVaultEvent({
 			vaultId: vault.id, type: 'drawdown_halt', userId,
 			navAtomics: nav.navAtomics, sharePriceE6: priceE6,
 			reason: 'drawdown circuit breaker tripped — autonomous trading halted to protect capital',
-			meta: { peak_nav_atomics: String(peak), nav_atomics: String(nav.navAtomics), max_drawdown_bps: vault.max_drawdown_bps, trigger: reason },
+			meta: { peak_share_price_e6: String(peak), share_price_e6: String(priceE6), nav_atomics: String(nav.navAtomics), max_drawdown_bps: vault.max_drawdown_bps, trigger: reason },
 		});
-		logAudit({ userId, action: 'vault.drawdown_halt', resourceId: vault.id, meta: { peak: String(peak), nav: String(nav.navAtomics), max_drawdown_bps: vault.max_drawdown_bps } });
+		logAudit({ userId, action: 'vault.drawdown_halt', resourceId: vault.id, meta: { peak_share_price_e6: String(peak), share_price_e6: String(priceE6), max_drawdown_bps: vault.max_drawdown_bps } });
 		halted = true;
 	}
 	return { nav, peak, sharePriceE6: priceE6, halted };
