@@ -67,6 +67,11 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action, parts);
 	}
 
+	if (sub === 'capabilities') {
+		const mod = await import('./capabilities.js');
+		return mod.default(req, res, id, action, parts);
+	}
+
 	if (sub === 'trade') {
 		const mod = await import('./agent-trade.js');
 		return mod.default(req, res, id, action);
