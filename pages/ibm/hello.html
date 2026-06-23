@@ -368,20 +368,6 @@ a:focus-visible{outline-offset:3px}
   .raw summary{min-height:44px;display:flex;align-items:center}
 }
 
-/* ── 3D agent layer ── */
-.agent-grid{display:grid;grid-template-columns:1fr;gap:28px;margin-top:28px;align-items:start}
-@media(min-width:760px){.agent-grid{grid-template-columns:minmax(0,360px) 1fr;gap:36px}}
-.agent-stage{position:relative;border:1px solid var(--ibm-divider);background:var(--ibm-field);min-height:420px;overflow:hidden}
-.agent-stage agent-3d{display:block;width:100%;height:460px}
-/* Skeleton silhouette shown until the web component upgrades + boots. The booted
-   agent paints over it; if the script never loads, this stays as a calm fallback. */
-.agent-skel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3%;padding-bottom:8%;pointer-events:none}
-.agent-skel .s-head{width:22%;max-width:84px;aspect-ratio:1;border-radius:50%;background:linear-gradient(90deg,var(--ibm-skel-a) 25%,var(--ibm-skel-b) 37%,var(--ibm-skel-a) 63%);background-size:400% 100%;animation:sk 1.6s ease infinite}
-.agent-skel .s-body{width:42%;max-width:160px;height:44%;border-radius:44% 44% 24% 24%/26% 26% 9% 9%;background:linear-gradient(90deg,var(--ibm-skel-a) 25%,var(--ibm-skel-b) 37%,var(--ibm-skel-a) 63%);background-size:400% 100%;animation:sk 1.6s ease infinite}
-agent-3d:defined ~ .agent-skel{display:none}
-.agent-copy h3{font-size:18px;font-weight:600;margin-bottom:8px}
-.agent-copy p{font-size:14px;color:var(--ibm-muted);font-weight:300;line-height:1.65;margin-bottom:14px;max-width:48ch}
-
 /* ── Demo nav strip (hero) ── */
 .demo-nav{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
 .demo-nav a{font-size:13px;font-weight:500;color:var(--ibm-ink);border:1px solid var(--ibm-border);padding:8px 14px;border-radius:2px;transition:border-color .12s,color .12s,background .12s}
@@ -402,6 +388,13 @@ agent-3d:defined ~ .agent-skel{display:none}
 .live-embed .bar-actions button:hover,.live-embed .bar-actions a:hover{border-color:var(--ibm-blue);color:var(--ibm-blue)}
 .embed-frame{position:relative;background:var(--ibm-field);height:min(78vh,820px)}
 .embed-frame iframe{display:block;width:100%;height:100%;border:0;background:var(--ibm-field)}
+/* Play runs the dark `noir` world (?biome=noir) — paint its frame, loading and
+   error states on the same #1c2530→#0c1116 stage the 3D viewers use, so the embed
+   reads as part of that surface in both themes and never flashes a light box. */
+.play-embed .embed-frame,.play-embed .embed-frame iframe,.play-embed .embed-state{background:radial-gradient(circle at 50% 30%,#1c2530,#0c1116 70%)}
+.play-embed .embed-state{color:#aebccd}
+.play-embed .embed-state .es-hint{color:#8a9bb0}
+.play-embed .embed-state .spin{border-color:rgba(255,255,255,.22);border-top-color:#78a9ff}
 /* True full-screen via the Fullscreen API — the app fills the whole display. */
 .live-embed:fullscreen{display:flex;flex-direction:column;background:var(--ibm-surface)}
 .live-embed:fullscreen .embed-frame{flex:1;height:auto}
@@ -470,12 +463,12 @@ agent-3d:defined ~ .agent-skel{display:none}
     </div>
     <h1>A live showcase of agentic commerce, built with <strong>IBM</strong></h1>
     <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and 3D AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
-    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, forge a rigged, animated avatar from a sentence for free, an autonomous 3D agent that buys its own data over <span class="mono">x402</span>, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the paid Forge demo settles real USDC from your own wallet; the rest are free, no wallet needed.</p>
+    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, forge a rigged, animated avatar from a sentence for free, fly through a 3D galaxy of every agent mapped by <span class="mono">IBM Granite</span>, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the paid Forge demo settles real USDC from your own wallet; the rest are free, no wallet needed.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
       <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
       <a href="#demo"><span class="n">02</span>Avatars</a>
-      <a href="#agent"><span class="n">03</span>3D agent</a>
+      <a href="#galaxy"><span class="n">03</span>Galaxy</a>
       <a href="#play"><span class="n">04</span>Play</a>
       <a href="#irl"><span class="n">05</span>IRL</a>
     </nav>
@@ -616,6 +609,14 @@ agent-3d:defined ~ .agent-skel{display:none}
     mp4: '',         // plain MP4 on R2 (synced premiere)
     youTubeId: '',   // YouTube video / live id → iframe (its own premiere/live)
     mode: 'auto',    // 'auto' | 'premiere' | 'live'
+
+    // ── After the event ENDS — what the stage becomes once the countdown is over
+    //    and the slot has passed. Leave blank for the default "Thanks for joining"
+    //    card. Set endLoop to a muted MP4 (e.g. a highlight reel / ambient loop) and
+    //    it plays full-stage, looping forever, the instant the countdown expires.
+    //    A real recording (vodHls/mp4 above) always wins over this — those become a
+    //    proper replay; endLoop is the no-recording fallback so the stage never dies.
+    endLoop: '',     // looped, muted highlight reel shown after the event ends (MP4)
   };
 
   const startMs = Date.parse(WEBINAR.startTime);
@@ -691,7 +692,9 @@ agent-3d:defined ~ .agent-skel{display:none}
     if (phase === 'pre') return; // countdown already visible
     pre.hidden = true;
     if (phase === 'ended' && !hasSource) {
-      // Past the slot, no recording posted yet.
+      // Past the slot, no live/replay source. Prefer a looped highlight reel if one
+      // was configured; otherwise fall back to the static "thanks" card.
+      if (WEBINAR.endLoop) { mountLoop(); clearInterval(timer); return; }
       holding.hidden = false;
       $('wbSpinner').style.display = 'none';
       $('wbHoldTitle').textContent = 'Thanks for joining';
@@ -724,6 +727,27 @@ agent-3d:defined ~ .agent-skel{display:none}
     $('wbHoldTitle').textContent = 'Playback hit a snag';
     $('wbHoldMsg').textContent = msg || 'The stream is temporarily unavailable.';
     $('wbRetry').hidden = false;
+  }
+
+  // Post-event ambient loop: a muted, controls-free MP4 that covers the stage and
+  // repeats forever once the event is over. If it can't load, fall back to the
+  // calm "thanks" card so the stage is never a black void.
+  function mountLoop() {
+    pre.hidden = true; holding.hidden = true; badge.hidden = true; unmute.hidden = true;
+    player.hidden = false; player.innerHTML = '';
+    const v = document.createElement('video');
+    v.src = WEBINAR.endLoop;
+    v.loop = true; v.muted = true; v.autoplay = true; v.playsInline = true;
+    v.setAttribute('controlslist', 'nodownload');
+    v.addEventListener('error', () => {
+      player.hidden = true; player.innerHTML = '';
+      holding.hidden = false;
+      $('wbSpinner').style.display = 'none';
+      $('wbHoldTitle').textContent = 'Thanks for joining';
+      $('wbHoldMsg').textContent = 'The recording will be posted here shortly.';
+    });
+    player.appendChild(v);
+    v.play().catch(() => {});
   }
 
   async function mountPlayer() {
@@ -1030,32 +1054,23 @@ agent-3d:defined ~ .agent-skel{display:none}
   </div>
 </section>
 
-<!-- ══ THE AGENT ══ -->
-<section class="section" id="agent" aria-labelledby="agent-h">
+<!-- ══ DEMO 03 · AGENT GALAXY (live IBM Granite semantic 3D map) ══ -->
+<section class="section" id="galaxy" aria-labelledby="galaxy-h">
   <div class="inner">
-    <div class="section-tag">Demo 03 · Embodiment</div>
-    <h2 id="agent-h">An <strong>agent</strong> that pays for its own data</h2>
-    <p class="section-lead">The agentic-commerce loop the Forge demo runs by hand — read a price, sign, settle a real USDC micropayment — an autonomous agent can run on its own. This is one of them: a 3D agent from three.ws, driven by the very engine that just animated your avatar, rendered live in your browser. Forge a character above and watch it react.</p>
-
-    <div class="agent-grid">
-      <div class="agent-stage">
-        <!-- A bare, transparent 3D avatar — no chat, no debug controls, no name-plate.
-             A plain <agent-3d> given only a `body` is bare by default; it renders the
-             avatar and nothing else. The web component lazy-boots when scrolled into
-             view; until it upgrades, this skeleton holds the frame so the box is never blank. -->
-        <agent-3d
-          id="guideAgent"
-          body="https://three.ws/avatars/default.glb"
-          background="transparent"
-          width="100%" height="460px">
-        </agent-3d>
-        <div class="agent-skel" aria-hidden="true"><span class="s-head"></span><span class="s-body"></span></div>
+    <div class="section-tag">Demo 03 · Intelligence</div>
+    <h2 id="galaxy-h">Every agent, <strong>mapped by meaning</strong></h2>
+    <p class="section-lead">Fly through a 3D constellation of every AI agent on three.ws — each one placed in space by what it <em>means</em>, not by name or date. Coordinates come from <strong>IBM Granite</strong> embeddings on watsonx.ai, so agents that do similar things sit in the same neighbourhood; Granite names each constellation. Search by meaning and watch the matching stars light up. It runs full-size, right on the page.</p>
+    <div class="live-embed" data-src="https://three.ws/galaxy" data-allow="fullscreen; xr-spatial-tracking" data-label="Agent Galaxy — three.ws × IBM Granite">
+      <div class="embed-bar">
+        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/galaxy</span>
+        <span class="bar-actions">
+          <button type="button" data-fs>⤢ Full screen</button>
+          <a href="https://three.ws/galaxy" target="_blank" rel="noopener">New tab ↗</a>
+        </span>
       </div>
-
-      <div class="agent-copy">
-        <h3>It reacts to your avatar — in real time</h3>
-        <p>Forge a character above and watch: this agent celebrates the moment your avatar comes to life. It runs the agentic-commerce loop too — reading a price, signing, and settling a USDC micropayment on its own, exactly the way the Forge demo does, only autonomously.</p>
-        <p>Rendered live in the browser with WebGL — no video, no pre-recording.</p>
+      <div class="embed-frame">
+        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Mapping the galaxy with IBM Granite…</span></div>
+        <div class="embed-err embed-state">The galaxy couldn't load inline here. <span class="es-hint"><a href="https://three.ws/galaxy" target="_blank" rel="noopener">Open it in a new tab ↗</a></span></div>
       </div>
     </div>
   </div>
@@ -1067,7 +1082,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     <div class="section-tag">Demo 04 · Worlds</div>
     <h2 id="play-h">Play — drop an agent into a <strong>live world</strong></h2>
     <p class="section-lead">Every coin on three.ws is a 3D space agents and visitors share in real time — walk in, pick an avatar, and move around a world that reacts to live on-chain activity. Pick a name and a body below to enter; it runs full-size, right on the page.</p>
-    <div class="live-embed" data-src="https://three.ws/play?bg=transparent" data-allow="fullscreen; gamepad; autoplay; xr-spatial-tracking; microphone" data-label="Play — three.ws">
+    <div class="live-embed play-embed" data-src="https://three.ws/play?biome=noir" data-allow="fullscreen; gamepad; autoplay; xr-spatial-tracking; microphone" data-label="Play — three.ws">
       <div class="embed-bar">
         <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/play</span>
         <span class="bar-actions">
@@ -1192,46 +1207,7 @@ agent-3d:defined ~ .agent-skel{display:none}
     $('errBanner').classList.remove('show'); bannerShown = false;
   });
 
-  // ── 3D agent layer ────────────────────────────────────────────────────────
-  // The <agent-3d> element exposes scripted, LLM-free reactions (expressEmotion,
-  // playEmote, wave, notify). We drive those from the avatar-forge lifecycle above
-  // (the window 'avatar:*' events it dispatches) so the agent visibly responds to a
-  // real generation as it happens — no faked timing, no canned animation loop.
-  var agentReady = false;
-  function agentEl() { return document.getElementById('guideAgent'); }
-  // Fire a reaction only once the component has booted; calls before that no-op
-  // safely inside the element, but gating avoids wasted work.
-  function agentReact(fn) {
-    var el = agentEl();
-    if (!el || !agentReady) return;
-    try { fn(el); } catch (_) {}
-  }
-  // The avatar is bare (no chat) — we only track when it has booted so its
-  // scripted reactions to the payment lifecycle can fire.
-  function wireAgent() {
-    var el = agentEl();
-    if (!el) return;
-    el.addEventListener('agent:ready', function () { agentReady = true; });
-  }
-  function agentOnWaiting() {
-    agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('patience', 0.6); });
-  }
-  function agentOnSettled() {
-    agentReact(function (el) {
-      if (el.expressEmotion) el.expressEmotion('celebration', 0.95);
-      if (el.playEmote) el.playEmote('cheer');
-    });
-  }
-  function agentOnError() {
-    agentReact(function (el) { if (el.expressEmotion) el.expressEmotion('concern', 0.8); });
-  }
-  // Bridge: the avatar forge (Demo 02) dispatches these as it runs, so the guide
-  // agent waits, celebrates, or shows concern in lockstep with a real generation.
-  window.addEventListener('avatar:generating', agentOnWaiting);
-  window.addEventListener('avatar:done', agentOnSettled);
-  window.addEventListener('avatar:error', agentOnError);
-
-  // ── full-size demo embeds (Play / IRL) ─────────────────────────────────────
+  // ── full-size demo embeds (Galaxy / Play / IRL) ────────────────────────────
   // Each presents a real, framable production surface at full size. The iframe
   // is created only as the section nears the viewport (IntersectionObserver),
   // so three heavy apps never load at once on first paint. A load timeout falls
@@ -1298,7 +1274,6 @@ agent-3d:defined ~ .agent-skel{display:none}
     }
   });
 
-  wireAgent();
   wireLiveEmbeds();
 })();
 </script>

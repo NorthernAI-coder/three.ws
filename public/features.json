@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T06:11:22.806Z",
+	"generated_at": "2026-06-23T06:56:01.645Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1699,6 +1699,16 @@
 					"title": "Blog",
 					"description": "Editorial index of three.ws launches and long-form posts.",
 					"added": "2026-05-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/blog/x402-stripe-for-agent-payments",
+					"title": "The Stripe of x402: How three.ws Turned Agent Payments Into One Line of Code",
+					"description": "HTTP 402 sat unused for thirty years. Agents revived it. three.ws built the drop in payment modal that makes x402 a one liner, on top of a full stack of agent wallets, wallet intents, on-chain reputation, sniping, and $THREE.",
+					"added": null,
 					"auth": null,
 					"indexable": true,
 					"tags": [],

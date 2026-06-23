@@ -202,6 +202,7 @@ Docs, tutorials, and reference.
 Long-form announcements, launches, and writing from three.ws.
 
 - [Blog](https://three.ws/blog): Editorial index of three.ws launches and long-form posts.
+- [The Stripe of x402: How three.ws Turned Agent Payments Into One Line of Code](https://three.ws/blog/x402-stripe-for-agent-payments): HTTP 402 sat unused for thirty years. Agents revived it. three.ws built the drop in payment modal that makes x402 a one liner, on top of a full stack of agent wallets, wallet intents, on-chain reputation, sniping, and $THREE.
 - [See Your 3D Avatar in the Real World — AR Lands on three.ws](https://three.ws/blog/see-your-3d-in-ar): Every 3D model and avatar on three.ws now has a View in AR button. On mobile it places the model in your real space through the camera. On desktop, a QR code gets you there in one scan. No app, no download.
 - [Text to 3D Is Live — Type a Prompt, Download a 3D Model](https://three.ws/blog/text-to-3d-is-live): Forge is live on three.ws: type a description and get a textured, downloadable 3D model (GLB) in your browser. Image to 3D from photos works too. Free draft tier, no install.
 - [3D + AI + Web3 Just Converged: three.ws Shipped the Whole Stack](https://three.ws/blog/3d-ai-crypto-convergence): A web2 unicorn just raised ~$200M to build 3D AI agents. three.ws is the only crypto-native team that already shipped the full stack: browser 3D, a multi-provider MCP runtime, and on-chain agent wallets that pay each other in USDC. Open source on GitHub, published to npm, and live on Anthropic

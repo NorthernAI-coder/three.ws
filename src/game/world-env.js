@@ -119,16 +119,35 @@ const BIOMES = [
 	},
 ];
 
+// Curated biomes reachable ONLY by explicit id (biomeById) — never by the seed
+// modulo, so adding one here can't shift which biome an existing coin's mint maps
+// to. `noir` is a neutral, near-monochrome dark world tuned to match an embedding
+// host's dark UI: its sky and ground sit on the same #1c2530→#0c1116 ramp the
+// three.ws 3D viewer stages use, so a /play embed reads as part of that surface
+// instead of a clashing sunlit biome. Pinned via ?biome=noir.
+const CURATED_BIOMES = [
+	{
+		id: 'noir', label: 'Midnight',
+		sky: ['#1c2530', '#141b24', '#0c1116'], fog: '#0c1116', fogNear: 80, fogFar: 320,
+		hemi: [0x2a3645, 0x0c1116, 0.6], ambient: 0.3,
+		sun: { color: 0xbcd0ff, intensity: 1.25, elevation: 52, azimuth: 135 },
+		ground: 0x141a22, plaza: 0x1c2530, grid: 0x2f3d4e, ring: 0x4ea8ff,
+		hill: 0x141b24, trunk: 0x2a3645, leafA: 0x223044, leafB: 0x2c3c52,
+		flora: 'conifer', density: 12,
+	},
+];
+
 // Map any seed to a biome. Exposed so the UI can name the world the player is in.
 export function biomeForSeed(seed) {
 	return BIOMES[(seed >>> 3) % BIOMES.length];
 }
 
 // Look up a biome by its archetype id (e.g. a curated world that pins its look
-// instead of drawing it from the mint seed). Returns null for an unknown id so
-// the caller can fall back to the seeded pick.
+// instead of drawing it from the mint seed), searching the seeded set first and
+// the curated-only set second. Returns null for an unknown id so the caller can
+// fall back to the seeded pick.
 export function biomeById(id) {
-	return BIOMES.find((b) => b.id === id) || null;
+	return BIOMES.find((b) => b.id === id) || CURATED_BIOMES.find((b) => b.id === id) || null;
 }
 
 // A vertical gradient backdrop, rendered as the scene background so it's immune

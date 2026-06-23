@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-23",
+			"title": "IBM partnership page: a live Agent Galaxy replaces the old guide-agent demo",
+			"summary": "The third demo on the IBM Business Partner page is now the Agent Galaxy — fly through a 3D constellation of every public AI agent on three.ws, with each one placed in space by what it means, not by name or date. The coordinates come from real IBM Granite embeddings on watsonx.ai, so agents that do similar work sit in the same neighbourhood, Granite groups them into named constellations, and searching by meaning lights up the matching stars. It runs full-size and live, right on the page. It replaces a placeholder 3D character that only played a scripted celebration when you forged an avatar above — this is a real, standalone IBM Granite × three.ws experience instead.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/galaxy"
+		},
+		{
+			"date": "2026-06-23",
 			"title": "Reasoning models now show just the answer, not their scratch work",
 			"summary": "Open reasoning models in the model playground — NVIDIA Nemotron and DeepSeek — think out loud before they answer, wrapping their internal chain-of-thought in hidden markers. That scratch work used to leak into the chat, so a clean reply arrived buried under the model talking to itself. Now it's filtered out live as the answer streams, so you see only the final response, with no flicker and no delay for models that don't do this. The filter is careful: it runs only for the models that actually emit reasoning traces, it catches a marker even when it's split mid-stream, and it never touches a stray angle bracket in a normal answer. Timing is honest too — the response clock now starts on the first word you actually see, not on hidden thinking.",
 			"tags": [

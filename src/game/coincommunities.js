@@ -304,6 +304,13 @@ export class CoinCommunities {
 		// unaffected.
 		this._transparentBg = new URLSearchParams(location.search).get('bg') === 'transparent';
 
+		// Embed mode: `?biome=<id>` pins every world this session renders to one
+		// curated look (e.g. `noir` for a dark host surface) instead of the per-coin
+		// seeded biome — so a /play embed on a partner page stays visually consistent
+		// with that page. Validated against the biome table; an unknown id is ignored
+		// and the normal seeded look is used, so default play is unaffected.
+		this._biomePin = new URLSearchParams(location.search).get('biome') || null;
+
 		this._initRenderer();
 		this._initScene();
 
@@ -500,7 +507,7 @@ export class CoinCommunities {
 
 		// Transparent embed (`?bg=transparent`): the environment skips the sky
 		// backdrop so the host page shows through; ground, ring, and avatars render.
-		this.env = createWorldEnvironment(scene, this.renderer, WORLD_RADIUS, { transparent: this._transparentBg });
+		this.env = createWorldEnvironment(scene, this.renderer, WORLD_RADIUS, { transparent: this._transparentBg, biome: this._biomePin || undefined });
 
 		this.world = new Group();
 		scene.add(this.world);
@@ -774,7 +781,7 @@ export class CoinCommunities {
 		this.env?.dispose();
 		// The flagship town pins its signature biome; every other coin draws its
 		// look from the mint seed.
-		const biomeOverride = isHomeTown(coin.mint) ? (coin.biome || HOME_TOWN.biome) : undefined;
+		const biomeOverride = this._biomePin || (isHomeTown(coin.mint) ? (coin.biome || HOME_TOWN.biome) : undefined);
 		this.env = createWorldEnvironment(this.scene, this.renderer, WORLD_RADIUS, { mint: coin.mint, biome: biomeOverride });
 		this.ui.toast(`${coin.symbol ? '$' + coin.symbol : coin.name || 'Community'} — ${this.env.biome.label}`, 'info');
 
