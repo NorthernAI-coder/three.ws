@@ -40,7 +40,11 @@ create table if not exists agent_vaults (
 	daily_budget_atomics     numeric(40,0) not null         check (daily_budget_atomics > 0),
 	-- Live accounting state (re-derived from chain before every settlement, never trusted blindly).
 	total_shares             numeric(40,0) not null default 0 check (total_shares >= 0),
-	peak_nav_atomics         numeric(40,0) not null default 0 check (peak_nav_atomics >= 0),
+	-- High-water mark for the DRAWDOWN circuit breaker, tracked as peak SHARE PRICE
+	-- (NAV per share, scaled 1e6), NOT raw NAV: deposits/redemptions move NAV but
+	-- not share price, so measuring drawdown on the share price isolates real
+	-- trading losses and a big redemption can never falsely trip the breaker.
+	peak_share_price_e6      numeric(40,0) not null default 0 check (peak_share_price_e6 >= 0),
 	accrued_fee_atomics      numeric(40,0) not null default 0 check (accrued_fee_atomics >= 0),
 	halt_reason              text,
 	paused_at                timestamptz,
