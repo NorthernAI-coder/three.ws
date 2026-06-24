@@ -167,7 +167,7 @@ async function handleBoard(req, res) {
 	// Lane 1 — open AgenC tasks (projected from real on-chain postings).
 	const openTasks = await sql`
 		select a.task_pda, a.task_id, a.profession, a.amount_atomic, a.reward_mint,
-		       a.reward_label, a.narrative, a.created_at, a.tx_signature,
+		       a.reward_label, a.narrative, a.created_at, a.tx_signature, a.meta,
 		       c.id as creator_id, c.display_name as creator_name, c.agenc_cluster
 		from agora_activity a
 		join agora_citizens c on c.id = a.citizen_id
@@ -197,6 +197,12 @@ async function handleBoard(req, res) {
 		},
 		creator: { id: t.creator_id, name: t.creator_name },
 		cluster: t.agenc_cluster,
+		// Career-ladder gating surfaced from the posting's projection so workers
+		// (and the UI) know who may claim it without re-reading the chain.
+		minReputation: Number(t.meta?.minReputation ?? 0),
+		requiredCapabilities: t.meta?.requiredCapabilities != null ? String(t.meta.requiredCapabilities) : null,
+		taskType: t.meta?.taskType ?? 'Exclusive',
+		tier: t.meta?.tier ?? null,
 		postedAt: t.created_at,
 		txSignature: t.tx_signature,
 		taskUrl: t.task_pda

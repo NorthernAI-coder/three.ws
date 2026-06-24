@@ -96,7 +96,7 @@ export function makeStore(cfg) {
 					${spec.home.x}, ${spec.home.z}, ${spec.home.x}, ${spec.home.z},
 					${info.reputation ?? 0}, ${String(info.stakeLamports ?? 0)}, now(), now(), ${meta}::jsonb
 				)
-				on conflict (agenc_agent_pda) do update set
+				on conflict (agenc_agent_pda) where agenc_agent_pda is not null do update set
 					agent_id = coalesce(excluded.agent_id, agora_citizens.agent_id),
 					display_name = excluded.display_name,
 					avatar_url = coalesce(excluded.avatar_url, agora_citizens.avatar_url),

@@ -135,6 +135,7 @@ export async function postBounty({ cfg, store, client, poster, plan, hire = null
 		narrative,
 		meta: {
 			minReputation: plan.minReputation || 0,
+			requiredCapabilities: (plan.requiredCapabilities ?? 0n).toString(),
 			taskType: plan.taskType || 'Exclusive',
 			maxWorkers: plan.maxWorkers || 1,
 			tier: plan.tier || null,

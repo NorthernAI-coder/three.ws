@@ -1,64 +1,64 @@
-// Scribe (bit 2) — research / summarize / write via the LLM router. Produces a
-// real text deliverable and proves it with sha256(text). Backed by @three-ws/brain
-// over /api/brain/chat; the free open-weight tier (gpt-oss-120b) needs no key.
+// Scribe (capability bit 2) — research / summarize / write via the LLM router.
+// Produces a real text deliverable and proves it with sha256(text). Backed by
+// @three-ws/brain over /api/brain/chat; the free open-weight tier (gpt-oss-120b)
+// needs no key. Same `run<Profession>` contract as work/fetcher.js.
 
-import { sha256, toHex, storeDeliverable, brainChat, pointer64, taskPrompt } from './_lib.js';
-
-export const profession = { bit: 2, key: 'scribe', label: 'Scribe' };
+import { buildWorkResult, storeDeliverable, brainChat, jobPrompt } from './_skills.js';
 
 const DEFAULT_SYSTEM =
 	'You are a Scribe in the three.ws Agora — a precise, professional writer. ' +
 	'Deliver a complete, well-structured response to the task. No preamble, no meta-commentary, ' +
 	'no apologies. Write the artifact itself.';
 
-export async function work({ task, citizen, client }) {
-	const log = client?.log || (() => {});
-	const prompt = taskPrompt(task);
-	if (!prompt) throw new Error('scribe: task carries no prompt to write');
+const DEFAULT_BRIEFS = [
+	'Write a tight 150-word explainer on why verifiable proof-of-work matters for an agent economy.',
+	'Summarize, in 5 crisp bullet points, what makes a 3D asset "rig-ready".',
+	'Draft a short, friendly onboarding note for a new citizen joining a digital city.',
+	'Explain content-addressed storage (sha256 deliverables) to a non-technical reader in one paragraph.',
+];
 
-	const provider = task?.provider || 'gpt-oss-120b';
-	log(`scribe: writing via ${provider} for "${prompt.slice(0, 80)}"`);
+function briefFor(citizen, job) {
+	const explicit = jobPrompt(job);
+	if (explicit) return explicit;
+	const seed = String(citizen?.agentIdHex || job?.taskPda || '0');
+	let h = 0;
+	for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+	return DEFAULT_BRIEFS[h % DEFAULT_BRIEFS.length];
+}
 
-	const { text, meta } = await brainChat({
+export async function runScribe({ cfg, citizen, job } = {}) {
+	const apiBase = cfg?.apiBase || 'https://three.ws';
+	const log = cfg?.log || (() => {});
+	const prompt = briefFor(citizen, job);
+	const provider = job?.provider || 'gpt-oss-120b';
+
+	log?.(`scribe: writing via ${provider} for "${prompt.slice(0, 80)}"`);
+	const { text, meta } = await brainChat(apiBase, {
 		provider,
-		system: task?.system || DEFAULT_SYSTEM,
+		system: job?.system || DEFAULT_SYSTEM,
 		messages: [{ role: 'user', content: prompt }],
-		maxTokens: task?.maxTokens || 1200,
+		maxTokens: job?.maxTokens || 1200,
 	});
 	if (!text) throw new Error('scribe: brain returned empty text');
 
 	// The deliverable bytes ARE the proof preimage.
 	const bytes = Buffer.from(text, 'utf8');
-	const proofHash = sha256(bytes);
+	const deliverable = await storeDeliverable({
+		profession: 'scribe',
+		ext: 'md',
+		contentType: 'text/markdown; charset=utf-8',
+		bytes,
+		optional: true,
+	});
 
-	// Store in R2 when configured; the contract also allows returning the text
-	// inline (the proof still binds the exact bytes either way).
-	let deliverableUrl;
-	let stored = false;
-	try {
-		const d = await storeDeliverable({
-			profession: 'scribe',
-			ext: 'md',
-			contentType: 'text/markdown; charset=utf-8',
-			bytes,
-		});
-		deliverableUrl = d.url;
-		stored = d.stored;
-	} catch (err) {
-		log(`scribe: R2 unavailable, returning inline (${err?.message})`);
-	}
-
-	return {
-		result: text,
-		proofHash,
-		deliverableUrl,
-		resultData: pointer64(deliverableUrl || `scribe-sha256:${toHex(proofHash).slice(0, 40)}`),
-		resultMeta: {
-			model: meta?.label || meta?.provider || provider,
-			chars: text.length,
-			stored,
-		},
-	};
+	return buildWorkResult({
+		profession: 'scribe',
+		citizen,
+		deliverableUrl: deliverable.url,
+		deliverableBytes: bytes,
+		summary: `Wrote a ${text.length.toLocaleString()}-char brief via ${meta?.label || provider}`,
+		meta: { prompt, model: meta?.label || meta?.provider || provider, chars: text.length, stored: deliverable.stored },
+	});
 }
 
-export default work;
+export default runScribe;

@@ -15,7 +15,11 @@ import { createCityScene, bindResize } from '../city/city-scene.js';
 import { CityCamera } from '../city/city-camera.js';
 import { CitizenPopulation } from './citizen-avatar.js';
 import { PassportPanel } from './passport-panel.js';
+import { mountEconomyLayer } from './economy-layer.js';
 import { log } from '../shared/log.js';
+
+// Where the job board stands in the square (escrow origin for the coin flow).
+const BOARD_POSITION = new THREE.Vector3(0, 0, -7);
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const canvas    = document.getElementById('agora-canvas');
@@ -260,6 +264,28 @@ async function main() {
 	loadCitizens();
 	progress(100, 'Entering the Commons…');
 
+	// ── Economy layer (Task 06) ────────────────────────────────────────────────
+	// The job board, live ticker, and the completion moment (coin flow + rep tick
+	// + orbit-able plinth), all driven by a single deduped pulse poll. It's handed
+	// a small crowd adapter so a real claimed_task walks the right citizen and a
+	// completed_task celebrates them — decoupled from the scaffold internals.
+	const crowd = {
+		findByName: (name) => population.findByName(name),
+		getPosition: (id) => population.worldPosition(id),
+		setStatus: (id, status) => population.setStatus(id, status),
+		celebrate: (id) => population.celebrate(id),
+		walkTo: (id, target, onArrive) => population.walkTo(id, target, onArrive),
+	};
+	const economy = mountEconomyLayer({
+		scene, camera, renderer,
+		reducedMotion: REDUCED_MOTION,
+		boardPosition: BOARD_POSITION,
+		focusOn: (v) => { focusGoal = v.clone ? v.clone() : new THREE.Vector3(v.x, v.y, v.z); },
+		crowd,
+		openPassport: (id) => openPassport(id, null),
+	});
+	window.addEventListener('pagehide', () => economy.dispose(), { once: true });
+
 	// ── Render loop ───────────────────────────────────────────────────────────
 	const clock = new THREE.Timer();
 	(function tick() {
@@ -285,6 +311,7 @@ async function main() {
 
 		cityCamera.update(focus, 1.7);
 		population.update(dt);
+		economy.update(dt);
 		renderer.render(scene, camera);
 	})();
 }

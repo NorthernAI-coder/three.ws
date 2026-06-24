@@ -24,7 +24,7 @@ import {
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { gltfLoader } from '../loaders/gltf.js';
 import { AnimationManager } from '../animation-manager.js';
-import { loadManifest, getLocomotionDefs, resolveAvatarUrl, CLIP_IDLE } from '../game/avatar-rig.js';
+import { loadManifest, getLocomotionDefs, resolveAvatarUrl, CLIP_IDLE, CLIP_WALK } from '../game/avatar-rig.js';
 import { log } from '../shared/log.js';
 
 // Target on-screen height so wildly-scaled GLBs all read as people in the square.
@@ -33,6 +33,12 @@ const AVATAR_HEIGHT = 1.74;
 // saturating the network and stalling the first frame.
 const MAX_CONCURRENT_LOADS = 4;
 const FADE_IN_SEC = 0.55;
+// Citizen locomotion (Task 06 claim-walk). A citizen strolls to the board to
+// claim and on to a work spot; the economy layer drives this via walkTo().
+const WALK_SPEED = 2.7;          // m/s
+const TURN_RATE = 9;             // rad/s toward heading
+const ARRIVE_EPS = 0.35;         // metres "close enough"
+const CELEBRATE_SEC = 1.1;       // duration of the completion hop
 
 // Profession → accent colour. Keys match the API's profession keys
 // (api/agora/[action].js PROFESSIONS). Used for the label chip and selection ring
@@ -311,25 +317,33 @@ export class CitizenPopulation {
 
 		// Idle loop, desynced so the crowd doesn't breathe in lockstep.
 		let mixer = null;
+		let idleAction = null;
 		const idleClip = tpl.clips.get(CLIP_IDLE) || [...tpl.clips.values()][0];
+		const walkClip = tpl.clips.get(CLIP_WALK) || null;
 		if (idleClip && !this.reducedMotion) {
 			mixer = new AnimationMixer(model);
-			const action = mixer.clipAction(idleClip);
-			action.time = hashJitter(citizen.id + 'x') * (idleClip.duration || 1);
-			action.play();
+			idleAction = mixer.clipAction(idleClip);
+			idleAction.time = hashJitter(citizen.id + 'x') * (idleClip.duration || 1);
+			idleAction.play();
 		} else if (idleClip && this.reducedMotion) {
 			// Reduced motion: hold a calm idle pose (frame 0), no looping motion.
 			mixer = new AnimationMixer(model);
-			const action = mixer.clipAction(idleClip);
-			action.play();
+			idleAction = mixer.clipAction(idleClip);
+			idleAction.play();
 			mixer.update(0);
-			action.paused = true;
+			idleAction.paused = true;
 		}
 
 		const fade = this.reducedMotion ? null : { t: 0 };
 		for (const m of materials) m.opacity = this.reducedMotion ? 1 : 0;
 
-		const inst = { citizen, group, model, mixer, label, materials, fade, height, baseYaw };
+		const inst = {
+			citizen, group, model, mixer, label, materials, fade, height, baseYaw,
+			// Locomotion + economy state (Task 06).
+			idleClip, walkClip, idleAction, walkAction: null,
+			motion: 'idle', walkTarget: null, onArrive: null, heading: group.rotation.y,
+			busy: false, busyRing: null, busyT: 0, celebrateT: null,
+		};
 		this.instances.push(inst);
 		this._byId.set(citizen.id, inst);
 		// Pickable meshes carry a back-reference so a raycast hit resolves to the id.
@@ -337,9 +351,10 @@ export class CitizenPopulation {
 		return inst;
 	}
 
-	/** Advance idle loops + fade-ins. Cheap: one mixer.update per citizen. */
+	/** Advance idle loops + fade-ins + locomotion. Cheap: one mixer.update per citizen. */
 	update(dt) {
 		for (const inst of this.instances) {
+			this._advanceMotion(inst, dt);
 			if (!this.reducedMotion) inst.mixer?.update(dt);
 			if (inst.fade) {
 				inst.fade.t += dt;
@@ -352,6 +367,121 @@ export class CitizenPopulation {
 				}
 			}
 		}
+	}
+
+	// ── Locomotion + economy state (Task 06) ──────────────────────────────────
+	// Drive one citizen toward a target; on arrival fire its callback. Reduced
+	// motion places it instantly (no travelling motion), per the DoD.
+	_advanceMotion(inst, dt) {
+		// Busy ring pulse.
+		if (inst.busyRing) {
+			const target = inst.busy ? 0.55 + 0.25 * Math.sin((inst.busyT += dt) * 3.2) : 0;
+			inst.busyRing.material.opacity += (target - inst.busyRing.material.opacity) * Math.min(1, dt * 6);
+			inst.busyRing.position.set(inst.group.position.x, 0.03, inst.group.position.z);
+			if (inst.busy && !this.reducedMotion) {
+				inst.busyRing.scale.setScalar(1 + 0.06 * Math.sin(inst.busyT * 3.2));
+			}
+		}
+
+		// Completion celebrate — a short, tasteful hop (skipped under reduced motion).
+		if (inst.celebrateT != null) {
+			inst.celebrateT += dt;
+			const p = inst.celebrateT / CELEBRATE_SEC;
+			if (p >= 1) { inst.celebrateT = null; inst.model.position.y = 0; }
+			else { inst.model.position.y = Math.sin(p * Math.PI) * 0.32; }
+		}
+
+		// Walk toward the active target.
+		if (inst.walkTarget) {
+			const g = inst.group.position;
+			const tx = inst.walkTarget.x, tz = inst.walkTarget.z;
+			const dx = tx - g.x, dz = tz - g.z;
+			const dist = Math.hypot(dx, dz);
+			if (dist <= ARRIVE_EPS) {
+				const cb = inst.onArrive;
+				inst.walkTarget = null; inst.onArrive = null;
+				this._playMotion(inst, 'idle');
+				if (cb) cb();
+			} else {
+				const step = Math.min(dist, WALK_SPEED * dt);
+				g.x += (dx / dist) * step;
+				g.z += (dz / dist) * step;
+				inst.heading = Math.atan2(dx, dz);
+				this._playMotion(inst, 'walk');
+				let diff = inst.heading - inst.group.rotation.y;
+				while (diff > Math.PI) diff -= Math.PI * 2;
+				while (diff < -Math.PI) diff += Math.PI * 2;
+				inst.group.rotation.y += diff * Math.min(1, dt * TURN_RATE);
+			}
+		}
+	}
+
+	// Crossfade a citizen between its idle and walk clips. No-op for rigs the
+	// canonical clips can't drive (the model still translates — never a T-pose).
+	_playMotion(inst, motion) {
+		if (inst.motion === motion || !inst.mixer || this.reducedMotion) { inst.motion = motion; return; }
+		inst.motion = motion;
+		if (motion === 'walk' && inst.walkClip) {
+			if (!inst.walkAction) inst.walkAction = inst.mixer.clipAction(inst.walkClip);
+			inst.walkAction.reset().fadeIn(0.2).play();
+			inst.idleAction?.fadeOut(0.2);
+		} else {
+			inst.idleAction?.reset().fadeIn(0.2).play();
+			inst.walkAction?.fadeOut(0.2);
+		}
+	}
+
+	_buildBusyRing(accent) {
+		const geo = new RingGeometry(0.46, 0.6, 40);
+		geo.rotateX(-Math.PI / 2);
+		const mat = new MeshBasicMaterial({ color: accent, transparent: true, opacity: 0, side: DoubleSide, depthWrite: false });
+		const ring = new Mesh(geo, mat);
+		ring.renderOrder = 1;
+		this.scene.add(ring);
+		return ring;
+	}
+
+	/** Route a citizen to a world target; onArrive fires once when reached. */
+	walkTo(id, target, onArrive) {
+		const inst = this._byId.get(id);
+		if (!inst || !target) return;
+		const tx = Number(target.x), tz = Number(target.z);
+		if (!Number.isFinite(tx) || !Number.isFinite(tz)) return;
+		if (this.reducedMotion) {
+			// No travelling motion under reduced motion — place + settle.
+			inst.group.position.x = tx; inst.group.position.z = tz;
+			inst.walkTarget = null;
+			if (onArrive) onArrive();
+			return;
+		}
+		inst.walkTarget = { x: tx, z: tz };
+		inst.onArrive = typeof onArrive === 'function' ? onArrive : null;
+	}
+
+	/** Reflect an economy status — Busy shows a glowing profession-coloured ring. */
+	setStatus(id, status) {
+		const inst = this._byId.get(id);
+		if (!inst) return;
+		inst.busy = status === 'Busy';
+		if (inst.busy && !inst.busyRing) {
+			const accent = professionColor(inst.citizen.profession || inst.citizen.professions?.[0]?.key);
+			inst.busyRing = this._buildBusyRing(accent);
+		}
+	}
+
+	/** A short completion celebrate (a tasteful hop). No-op under reduced motion. */
+	celebrate(id) {
+		const inst = this._byId.get(id);
+		if (!inst || this.reducedMotion) return;
+		inst.celebrateT = 0;
+	}
+
+	/** Resolve a citizen by display name (pulse.recent carries names, not ids). */
+	findByName(name) {
+		if (!name) return null;
+		const inst = this.instances.find((i) => i.citizen.displayName === name);
+		if (!inst) return null;
+		return { id: inst.citizen.id, position: this.worldPosition(inst.citizen.id) };
 	}
 
 	/**
@@ -403,6 +533,11 @@ export class CitizenPopulation {
 			for (const m of inst.materials) m.dispose?.();
 			inst.label.material.map?.dispose?.();
 			inst.label.material.dispose?.();
+			if (inst.busyRing) {
+				inst.busyRing.geometry.dispose();
+				inst.busyRing.material.dispose();
+				this.scene.remove(inst.busyRing);
+			}
 			inst.group.parent?.remove(inst.group);
 		}
 		this.instances = [];
