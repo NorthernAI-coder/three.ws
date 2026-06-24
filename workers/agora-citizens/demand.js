@@ -1,12 +1,14 @@
-// agora-citizens — the demand generator (Task 03). This is the SPEND node of the
-// daily loop made real: a patron citizen with a budget posts bounties on an
-// interval, and any citizen mid-WORK that needs a capability it lacks hires a
-// sub-agent. Both pay out of a REAL on-chain balance, so when a citizen runs out
-// of funds it stops posting — honest scarcity, never an infinite tap.
+// agora-citizens — the demand generator (Task 03). The SPEND node of the daily
+// loop, made real: a patron citizen with a budget posts bounties on an interval,
+// and a citizen working a high-value job hires a sub-agent (true agent-to-agent
+// hiring). Both pay out of a REAL balance, so when a citizen exhausts its budget
+// it stops posting — honest scarcity, never an infinite tap.
 //
-// This module is the bridge between policy.js (pure decisions) and post.js (real
-// escrowed bounties). The engine calls it at the SPEND node; it reads live
-// balances, applies the policy, and — only when the policy says go — posts.
+// This bridges policy.js (pure decisions) and post.js (real escrowed bounties):
+// it reads live balances, applies the policy, and posts only when the policy says
+// go. The patron's "budget" is a bounded allowance over its real balance — the
+// on-chain balance is the hard gate (it matters most on mainnet $THREE, where no
+// faucet refills it), the allowance bounds devnet posting so it's visibly finite.
 
 import { PublicKey } from '@solana/web3.js';
 import { decidePatronPost, decideHire } from './policy.js';
@@ -18,23 +20,79 @@ import { log } from './log.js';
 // bounty can't strand a citizen unable to pay for its own work.
 const FEE_HEADROOM_LAMPORTS = 12_000_000n; // 0.012 SOL
 
-// Mainnet spend cap (Task 03 guardrail: escrow is real money). Cumulative $THREE
-// atomic this process may escrow across all posts; 0/unset blocks mainnet posting
-// entirely. Devnet ignores the cap (synthetic SOL).
-function mainnetSpendCapAtomic() {
-	const raw = (process.env.AGORA_MAINNET_SPEND_CAP_ATOMIC || '').trim();
-	if (!raw) return 0n;
+function bigEnv(name, def) {
+	const raw = (process.env[name] || '').trim();
+	if (!raw) return def;
 	try {
 		return BigInt(raw);
 	} catch {
-		return 0n;
+		return def;
 	}
 }
+function intEnv(name, def) {
+	const n = Number(process.env[name]);
+	return Number.isFinite(n) ? n : def;
+}
+function boolEnv(name, def) {
+	const raw = process.env[name];
+	if (raw == null || raw === '') return def;
+	return /^(1|true|yes|on)$/i.test(String(raw).trim());
+}
 
-let _spentThisRunAtomic = 0n; // mainnet only — cumulative escrow posted this process
+/** Is agent-to-agent hiring enabled? Default on for devnet. */
+export function hiringEnabled(cfg) {
+	return boolEnv('AGORA_ENABLE_HIRING', cfg.cluster === 'devnet');
+}
 
-/** Spendable reward balance for a poster, in the cluster's reward unit (atomic). */
-async function spendableBalance(cfg, connection, walletPubkey) {
+/** Reward a worker offers when hiring a sub-agent (cluster reward unit, atomic). */
+export function subtaskReward(cfg) {
+	return bigEnv('AGORA_SUBTASK_REWARD_ATOMIC', BigInt(cfg.taskRewardLamports));
+}
+
+/**
+ * The patron's tier schedule — the visible career ladder. Rewards scale with the
+ * reputation gate so high-rep work pays more (docs: README § Reputation ladder).
+ * Authored in the cluster's reward unit (devnet lamports; mainnet would override
+ * via env). profession is Fetcher — the one working profession shipped (Task 02).
+ */
+export function defaultPatronTiers(cfg) {
+	const base = BigInt(cfg.taskRewardLamports); // devnet: 0.001 SOL default
+	return [
+		{ tier: 'apprentice', profession: 'fetcher', rewardAtomic: base, minReputation: 0 },
+		{ tier: 'apprentice', profession: 'fetcher', rewardAtomic: base, minReputation: 0 },
+		{ tier: 'journeyman', profession: 'fetcher', rewardAtomic: base * 2n, minReputation: 5 },
+		{ tier: 'master', profession: 'fetcher', rewardAtomic: base * 4n, minReputation: 20 },
+	];
+}
+
+/**
+ * Designate patrons in the fleet and attach their budget + tracking state. By
+ * default the first AGORA_PATRON_COUNT citizens become patrons (they still work
+ * jobs themselves — a patron is also a Fetcher). The budget is a bounded
+ * allowance so devnet demand is visibly finite. Mutates the citizen objects.
+ */
+export function markPatrons(citizens, cfg) {
+	const count = Math.max(0, Math.min(intEnv('AGORA_PATRON_COUNT', 1), citizens.length));
+	const budgetAtomic = bigEnv('AGORA_PATRON_BUDGET_ATOMIC', BigInt(cfg.taskRewardLamports) * 30n);
+	const minPostIntervalMs = Math.max(5_000, intEnv('AGORA_PATRON_POST_INTERVAL_MS', 90_000));
+	const tiers = defaultPatronTiers(cfg);
+	for (let i = 0; i < count; i++) {
+		const c = citizens[i];
+		c.patron = { tiers, budgetAtomic, minPostIntervalMs };
+		c.postedSpentAtomic = 0n;
+		c.lastPostAt = 0;
+		c.postedCount = 0;
+		log.info('patron designated', {
+			citizen: c.spec.displayName,
+			budgetAtomic: budgetAtomic.toString(),
+			intervalMs: minPostIntervalMs,
+		});
+	}
+	return count;
+}
+
+// Spendable reward balance for a poster, in the cluster's reward unit (atomic).
+async function onchainBalance(cfg, connection, walletPubkey) {
 	if (cfg.cluster === 'mainnet') {
 		const tokenAccount = (process.env.AGORA_THREE_TOKEN_ACCOUNT || '').trim();
 		if (!tokenAccount) return 0n;
@@ -46,7 +104,6 @@ async function spendableBalance(cfg, connection, walletPubkey) {
 			return 0n;
 		}
 	}
-	// devnet — native SOL (lamports)
 	try {
 		return BigInt(await connection.getBalance(walletPubkey));
 	} catch (err) {
@@ -55,14 +112,17 @@ async function spendableBalance(cfg, connection, walletPubkey) {
 	}
 }
 
-// Headroom is only meaningful for the native-SOL devnet path (reward unit ==
-// fee unit). On mainnet the reward is $THREE and fees are paid in SOL from a
-// different balance, so no $THREE headroom is withheld.
+// Headroom only applies to the native-SOL devnet path (reward unit == fee unit).
 function headroomFor(cfg) {
 	return cfg.cluster === 'mainnet' ? 0n : FEE_HEADROOM_LAMPORTS;
 }
 
-// Enforce the mainnet escrow spend cap. Returns true if this reward is allowed.
+// Mainnet escrow spend cap (Task 03 guardrail — escrow is real money). Cumulative
+// $THREE atomic this process may post; 0/unset blocks mainnet posting entirely.
+function mainnetSpendCapAtomic() {
+	return bigEnv('AGORA_MAINNET_SPEND_CAP_ATOMIC', 0n);
+}
+let _spentThisRunAtomic = 0n;
 function withinSpendCap(cfg, rewardAtomic) {
 	if (cfg.cluster !== 'mainnet') return true;
 	const cap = mainnetSpendCapAtomic();
@@ -78,95 +138,112 @@ function withinSpendCap(cfg, rewardAtomic) {
 }
 
 /**
- * Patron demand: maybe post a bounty this tick.
+ * Patron demand: maybe post a bounty this tick. Reads the citizen's REAL balance,
+ * caps it by the remaining allowance, and posts only if the policy clears it.
+ * Updates the citizen's spend/interval tracking on success.
  *
- * @param {object} args
- * @param {object} args.cfg, args.store
- * @param {object} args.citizen      poster citizen row (needs .patron config, .id, .agentIdHex, .displayName)
- * @param {object} args.client       poster's signer-bound AgenC client
- * @param {PublicKey} args.wallet    poster's wallet pubkey (for the balance read)
- * @param {number} args.postedCount  posts so far (tier rotation)
- * @param {number} args.lastPostAt   epoch ms of last post (interval guard)
- * @returns {object|null} the post result, or null if the policy held / it's not a patron
+ * @returns {object|null} the post result, or null if the policy held.
  */
-export async function maybePatronPost({ cfg, store, citizen, client, wallet, postedCount, lastPostAt }) {
+export async function maybePatronPost(ctx, citizen) {
+	const { cfg, store } = ctx;
 	if (!citizen?.patron) return null;
-	const balanceAtomic = await spendableBalance(cfg, client.connection, wallet);
+
+	const bal = await onchainBalance(cfg, citizen.client.connection, citizen.signer.publicKey);
+	const remainingBudget = citizen.patron.budgetAtomic - citizen.postedSpentAtomic;
+	// Effective budget is the lesser of the real balance and the remaining
+	// allowance — when either is exhausted, scarcity kicks in and posting stops.
+	const effectiveBalance = bal < remainingBudget ? bal : remainingBudget;
+
 	const decision = decidePatronPost({
 		citizen,
 		now: Date.now(),
-		lastPostAt: lastPostAt || 0,
-		balanceAtomic,
+		lastPostAt: citizen.lastPostAt,
+		balanceAtomic: effectiveBalance,
 		headroomAtomic: headroomFor(cfg),
-		postedCount: postedCount || 0,
+		postedCount: citizen.postedCount,
 	});
+
 	if (!decision.post) {
 		if (decision.reason === 'insufficient_funds') {
-			log.loop('patron out of budget — holding', { citizen: citizen.displayName });
+			log.loop('patron out of budget — holding (honest scarcity)', {
+				citizen: citizen.spec.displayName,
+				remaining: remainingBudget.toString(),
+				balance: bal.toString(),
+			});
 		}
 		return null;
 	}
 	if (!withinSpendCap(cfg, decision.plan.rewardAtomic)) return null;
 
 	if (cfg.dryRun) {
-		log.loop('[dry] would post bounty', { citizen: citizen.displayName, plan: planLog(decision.plan) });
-		return null;
-	}
-
-	const result = await postBounty({ cfg, store, client, poster: citizen, plan: decision.plan });
-	if (cfg.cluster === 'mainnet') _spentThisRunAtomic += BigInt(decision.plan.rewardAtomic);
-	log.info('bounty posted', { citizen: citizen.displayName, taskPda: result.taskPda, reward: result.rewardLabel, tx: result.txSignature });
-	return result;
-}
-
-/**
- * Sub-task hiring: a worker mid-WORK hires a sub-agent for a capability it lacks
- * (true agent-to-agent hiring). Pays from the worker's own balance.
- *
- * @param {object} args.parent  { taskPda, label } the parent job being worked
- * @param {string} args.neededProfession
- * @param {bigint} args.subRewardAtomic
- * @returns {object|null} the hire post result, or null if held
- */
-export async function maybeHire({ cfg, store, citizen, client, wallet, parent, neededProfession, subRewardAtomic }) {
-	const balanceAtomic = await spendableBalance(cfg, client.connection, wallet);
-	const decision = decideHire({
-		neededProfession,
-		balanceAtomic,
-		subRewardAtomic,
-		headroomAtomic: headroomFor(cfg),
-	});
-	if (!decision.hire) {
-		log.loop('cannot hire sub-agent — holding', { citizen: citizen.displayName, reason: decision.reason });
-		return null;
-	}
-	if (!withinSpendCap(cfg, decision.plan.rewardAtomic)) return null;
-
-	if (cfg.dryRun) {
-		log.loop('[dry] would hire sub-agent', { citizen: citizen.displayName, needs: neededProfession });
+		log.loop('[dry] would post bounty', { citizen: citizen.spec.displayName, tier: decision.plan.tier });
 		return null;
 	}
 
 	const result = await postBounty({
 		cfg,
 		store,
-		client,
-		poster: citizen,
+		client: citizen.client,
+		poster: { id: citizen.id, agentIdHex: citizen.agentIdHex, displayName: citizen.spec.displayName },
+		plan: decision.plan,
+	});
+
+	citizen.postedSpentAtomic += BigInt(decision.plan.rewardAtomic);
+	citizen.lastPostAt = Date.now();
+	citizen.postedCount += 1;
+	if (cfg.cluster === 'mainnet') _spentThisRunAtomic += BigInt(decision.plan.rewardAtomic);
+
+	log.info('bounty posted', {
+		citizen: citizen.spec.displayName,
+		tier: decision.plan.tier,
+		minReputation: decision.plan.minReputation,
+		taskPda: result.taskPda,
+		reward: result.rewardLabel,
+		tx: result.txSignature,
+	});
+	return result;
+}
+
+/**
+ * Sub-task hiring: a citizen working a high-value job hires a sub-agent (real
+ * agent-to-agent hiring). Pays from the worker's own balance — same scarcity rule.
+ *
+ * @param {object} parent  { taskPda, label } the parent job being worked
+ * @returns {object|null}  the hire post result, or null if held
+ */
+export async function maybeHire(ctx, citizen, { parent, neededProfession, subRewardAtomic }) {
+	const { cfg, store } = ctx;
+	const bal = await onchainBalance(cfg, citizen.client.connection, citizen.signer.publicKey);
+	const decision = decideHire({
+		neededProfession,
+		balanceAtomic: bal,
+		subRewardAtomic,
+		headroomAtomic: headroomFor(cfg),
+	});
+	if (!decision.hire) {
+		log.loop('cannot hire sub-agent — holding', { citizen: citizen.spec.displayName, reason: decision.reason });
+		return null;
+	}
+	if (!withinSpendCap(cfg, decision.plan.rewardAtomic)) return null;
+	if (cfg.dryRun) return null;
+
+	const result = await postBounty({
+		cfg,
+		store,
+		client: citizen.client,
+		poster: { id: citizen.id, agentIdHex: citizen.agentIdHex, displayName: citizen.spec.displayName },
 		plan: decision.plan,
 		hire: { parentTaskPda: parent?.taskPda || null, parentLabel: parent?.label || null },
 	});
 	if (cfg.cluster === 'mainnet') _spentThisRunAtomic += BigInt(decision.plan.rewardAtomic);
-	log.info('sub-agent hired', { citizen: citizen.displayName, needs: neededProfession, taskPda: result.taskPda, tx: result.txSignature });
-	return result;
-}
 
-function planLog(plan) {
-	return {
-		profession: plan.profession,
-		rewardAtomic: String(plan.rewardAtomic),
-		minReputation: plan.minReputation,
-		tier: plan.tier,
-	};
+	log.info('sub-agent hired', {
+		citizen: citizen.spec.displayName,
+		needs: neededProfession,
+		taskPda: result.taskPda,
+		tx: result.txSignature,
+	});
+	return result;
 }
 
 // Test/ops hook — reset the per-process mainnet spend tracker.

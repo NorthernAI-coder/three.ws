@@ -15,9 +15,11 @@
 // (native-SOL devnet plumbing), not a projected citizen and not the Task-03
 // bounty product.
 
-import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { log } from './log.js';
 import { buildRoster, professionBits, capabilitiesSatisfy, PROFESSIONS } from './roster.js';
+import { citizenCanClaim } from './policy.js';
+import { markPatrons, maybePatronPost, maybeHire, hiringEnabled, subtaskReward } from './demand.js';
 import { loadOrCreateKeypair, ensureBalance } from './keypair.js';
 import {
 	makeReadClient,
@@ -30,6 +32,7 @@ import {
 	claimTask,
 	completeTask,
 	generateTaskId,
+	deriveTaskPda,
 	withRetry,
 	TASK_STATE,
 } from './agenc.js';
@@ -227,6 +230,12 @@ export async function bootFleet(cfg, store) {
 	}
 
 	if (!ctx.citizens.length) throw new Error('[agora-citizens] no citizens registered — cannot run the loop');
+
+	// SPEND node (Task 03): designate patrons who post real $THREE/SOL bounties on
+	// the board, giving the economy demand beyond the devnet dispatcher. Patrons
+	// still work jobs themselves — a patron is also a Fetcher.
+	const patrons = markPatrons(ctx.citizens, cfg);
+	log.info('demand wired', { patrons, hiring: hiringEnabled(cfg) });
 	return ctx;
 }
 
@@ -329,13 +338,20 @@ async function pickClaimableTask(ctx, citizen) {
 		log.warn('seek: list tasks failed', { name: citizen.spec.displayName, err: err?.message });
 		return null;
 	}
+	// Dispatcher posts Fetcher work (required ⊆ Fetcher), so any Fetcher citizen
+	// satisfies it; we still check the capability gate explicitly.
+	if (!capabilitiesSatisfy(citizen.capabilityBits, FETCHER_BITS)) return null;
 	for (const t of openTasksOf(tasks)) {
-		const pda = t.taskPda?.toBase58?.() || t.taskPda;
-		// Skip tasks we already claimed in-process. Dispatcher posts Fetcher work
-		// (required ⊆ Fetcher), so a Fetcher always satisfies it; we still check.
-		if (!pda || citizen.claimed.has(pda)) continue;
-		if (!capabilitiesSatisfy(citizen.capabilityBits, FETCHER_BITS)) continue;
-		return { taskPda: t.taskPda, pda, reward: ctx.cfg.taskRewardLamports };
+		// TaskStatus carries no PDA — re-derive it from creator + taskId.
+		let taskPda;
+		try {
+			taskPda = await deriveTaskPda(ctx.readClient, ctx.dispatcher.pubkey, t.taskId);
+		} catch {
+			continue;
+		}
+		const pda = taskPda.toBase58();
+		if (citizen.claimed.has(pda)) continue; // already worked this one in-process
+		return { taskPda, pda, reward: ctx.cfg.taskRewardLamports };
 	}
 	return null;
 }

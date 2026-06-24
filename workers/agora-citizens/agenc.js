@@ -26,6 +26,26 @@ async function sdk() {
 	return _sdk;
 }
 
+// The upstream protocol SDK — for PDA derivation helpers the three.ws adapter
+// uses internally but doesn't re-export (e.g. deriveTaskPda). Same lazy pattern.
+let _tetsuo = null;
+async function tetsuo() {
+	if (_tetsuo) return _tetsuo;
+	_tetsuo = await import('@tetsuo-ai/sdk');
+	return _tetsuo;
+}
+
+/**
+ * Derive a task's on-chain PDA from its creator + 32-byte taskId. getTasksByCreator
+ * returns TaskStatus rows WITHOUT the PDA, but claim/complete need it — so we
+ * re-derive it deterministically (no RPC).
+ */
+export async function deriveTaskPda(client, creator, taskId) {
+	const t = await tetsuo();
+	const creatorPk = creator instanceof PublicKey ? creator : new PublicKey(creator);
+	return t.deriveTaskPda(creatorPk, taskId, client.programId);
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**

@@ -8,6 +8,7 @@
 import { h, infoRow, rewardChip, copyChip } from './panel.js';
 import { fetchTask } from './api.js';
 import { mountVerifier } from './verify.js';
+import { injectTrustSurfaceCss } from './trust-surface.css.js';
 import {
 	explorerTxUrl, explorerAddressUrl, shortId, timeAgo, absoluteTime,
 	professionLabel, formatThree,
@@ -37,7 +38,19 @@ function stateBadge(state) {
 //           proofHash, deliverableUrl, txSignature }
 //   ctx:  { onOpenPassport(actorPda) }  — optional cross-links
 export async function renderJobDetail(panel, opts = {}, ctx = {}) {
+	injectTrustSurfaceCss();
 	const cluster = opts.cluster === 'mainnet' ? 'mainnet' : 'devnet';
+
+	// An x402 bazaar service marker isn't an on-chain AgenC task with a lifecycle —
+	// it's a pay-per-call endpoint. Render its real detail honestly instead of a
+	// timeline that doesn't exist.
+	if (opts.source === 'x402' || (!opts.taskPda && !(opts.creator && opts.taskId) && opts.resource)) {
+		panel.setHeader(opts.title || 'Service', 'x402 service · pay-per-call');
+		panel.open(opts.opener);
+		panel.setBody(buildService(opts));
+		return;
+	}
+
 	panel.setHeader(opts.title || 'Job', opts.taskPda ? jobSubheader(opts.taskPda, cluster) : 'On-chain task');
 	panel.setLoading('Loading job lifecycle…');
 	panel.open(opts.opener);
@@ -177,19 +190,43 @@ function buildVerifySection(opts, state) {
 }
 
 function actorLink(pda, cluster, ctx) {
-	const link = addressLink(pda, cluster);
-	if (typeof ctx.onOpenPassport === 'function') {
-		const btn = h('button', {
-			class: 'agora-actor-link', type: 'button',
-			title: 'Open this citizen\'s passport',
-		}, [shortId(pda, 4, 4)]);
-		btn.addEventListener('click', () => ctx.onOpenPassport(pda));
-		return h('span', { class: 'agora-timeline-actor' }, [
-			h('span', { class: 'agora-muted' }, ['by ']), btn,
-			h('a', { class: 'agora-addr-ext', href: explorerAddressUrl(pda, cluster), target: '_blank', rel: 'noopener noreferrer', title: 'View account on Explorer', 'aria-label': 'View account on Explorer' }, ['↗']),
-		]);
-	}
-	return h('span', { class: 'agora-timeline-actor' }, [h('span', { class: 'agora-muted' }, ['by ']), link]);
+	// Open the actor's passport: prefer an explicit callback, else broadcast the
+	// decoupled event the passport panel listens for. Always keep the raw Explorer
+	// link so the on-chain account is one click away.
+	const btn = h('button', {
+		class: 'agora-actor-link', type: 'button',
+		title: 'Open this citizen\'s passport',
+	}, [shortId(pda, 4, 4)]);
+	btn.addEventListener('click', () => {
+		if (typeof ctx.onOpenPassport === 'function') ctx.onOpenPassport(pda);
+		else window.dispatchEvent(new CustomEvent('agora:open-passport', { detail: { agentPda: pda } }));
+	});
+	return h('span', { class: 'agora-timeline-actor' }, [
+		h('span', { class: 'agora-muted' }, ['by ']), btn,
+		h('a', { class: 'agora-addr-ext', href: explorerAddressUrl(pda, cluster), target: '_blank', rel: 'noopener noreferrer', title: 'View account on Explorer', 'aria-label': 'View account on Explorer' }, ['↗']),
+	]);
+}
+
+// An x402 service marker's honest detail: what it does, what it costs, and a link
+// to call it. No lifecycle/verify — it's a live endpoint, not a proven artifact.
+function buildService(opts) {
+	const reward = opts.reward || null;
+	return [
+		opts.description ? h('p', { class: 'agora-service-desc' }, [opts.description]) : null,
+		h('div', { class: 'agora-facts' }, [
+			infoRow('Type', 'x402 · pay-per-call'),
+			opts.profession ? infoRow('Profession', h('span', { class: 'agora-chip agora-chip-prof' }, [professionLabel(opts.profession)])) : null,
+			reward ? infoRow('Price', h('span', { class: 'agora-mono-sm' }, [reward.label || '—'])) : null,
+			reward?.network ? infoRow('Network', reward.network) : null,
+			reward?.currency ? infoRow('Currency', reward.currency) : null,
+		].filter(Boolean)),
+		opts.resource ? h('div', { class: 'agora-verify-actions' }, [
+			h('a', { class: 'agora-btn agora-btn-ghost', href: opts.resource, target: '_blank', rel: 'noopener noreferrer' }, ['Open endpoint ↗']),
+		]) : null,
+		h('p', { class: 'agora-muted agora-section-empty' }, [
+			'A Fetcher citizen claims this by calling the endpoint and returning the result — value flows multi-hop through the Commons.',
+		]),
+	].filter(Boolean);
 }
 
 function addressLink(address, cluster) {
