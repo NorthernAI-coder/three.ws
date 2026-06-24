@@ -30,7 +30,7 @@ bottom.
 | On-chain skill licenses | [contracts/skill-license/](contracts/skill-license) `→ /api/skills/license-onchain` | In-repo | Anchor program: each purchased skill = a 1/1 SPL NFT + `SkillLicense` PDA, a trustless alternative to DB-backed access checks. Backend: [api/_lib/skill-license-onchain.js](api/_lib/skill-license-onchain.js) |
 | On-chain agent invocation | [contracts/agent-invocation/](contracts/agent-invocation) | In-repo | Anchor program: verifiable agent-to-agent skill invocation events. SDK: [agent-protocol-sdk/](agent-protocol-sdk) |
 | Cross-chain SDKs | [sdk/](sdk), [solana-agent-sdk/](solana-agent-sdk), [agent-payments-sdk/](agent-payments-sdk), [agent-protocol-sdk/](agent-protocol-sdk) | Published | Cross-chain agent SDKs |
-| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge) | Published as `@three-ws/mcp-server` | Model Context Protocol surface |
+| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge), [packages/*-mcp/](packages) | 31 npm servers + 6 hosted remote, all in the [MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) | Model Context Protocol surface — full server list in [docs/mcp.md](docs/mcp.md) |
 | SNS naming + pay-by-name | [api/sns.js](api/sns.js), [api/sns-subdomain.js](api/sns-subdomain.js), [api/threews/subdomain.js](api/threews/subdomain.js), [api/x402/pay-by-name.js](api/x402/pay-by-name.js), [src/solana/sns-subdomain.js](src/solana/sns-subdomain.js), [pages/threews-claim.html](pages/threews-claim.html) | In-repo | `*.threews.sol` subdomain mint, x402 payments addressed by name. Env: `THREEWS_SOL_PARENT_SECRET_BASE58`. See [SNS_PARTNERSHIP_PROPOSAL.md](docs/internal/SNS_PARTNERSHIP_PROPOSAL.md) |
 
 ## npm workspaces
@@ -60,6 +60,23 @@ packages/naming-mcp/          → @three-ws/naming-mcp        (MCP server — .s
 packages/intel-mcp/           → @three-ws/intel-mcp         (MCP server — smart-money, signals, KOL, copy-trade intel)
 packages/marketplace-mcp/     → @three-ws/marketplace-mcp   (MCP server — agent marketplace + skills catalog browse)
 packages/x402-mcp/            → @three-ws/x402-mcp          (MCP server — self-custodial x402 buyer: find/inspect/pay any service in USDC)
+packages/autopilot-mcp/       → @three-ws/autopilot-mcp     (MCP server — agent execution control: scopes, $THREE spend caps, propose/execute/undo)
+packages/portfolio-mcp/       → @three-ws/portfolio-mcp     (MCP server — portfolio, PnL, balances, trade feed, signed transfers)
+packages/provenance-mcp/      → @three-ws/provenance-mcp    (MCP server — append-only, signed, on-chain-verifiable agent action log)
+packages/copy-mcp/            → @three-ws/copy-mcp          (MCP server — manage copy-trade follows, sizing & guard rules)
+packages/signals-mcp/         → @three-ws/signals-mcp       (MCP server — discover signal feeds by proven edge; rank publishers)
+packages/alerts-mcp/          → @three-ws/alerts-mcp        (MCP server — pump.fun alert rules: in-app, webhook, Telegram)
+packages/notifications-mcp/   → @three-ws/notifications-mcp (MCP server — inbox, read state, delivery prefs, Web Push)
+packages/billing-mcp/         → @three-ws/billing-mcp       (MCP server — plan quotas, usage, invoices, receipts)
+packages/activity-mcp/        → @three-ws/activity-mcp      (MCP server — trending agents/coins, $THREE holder board, activity ticker)
+packages/agenc-mcp/           → @three-ws/agenc-mcp         (MCP server — AgenC on-chain task marketplace + agent registry)
+packages/vision-mcp/          → @three-ws/vision-mcp        (MCP server — image understanding via the three.ws vision pipeline)
+packages/brain-mcp/           → @three-ws/brain-mcp         (MCP server — multi-provider LLM router)
+packages/audio-mcp/           → @three-ws/audio-mcp         (MCP server — TTS, STT, audio-to-face lipsync, motion capture)
+packages/kol-mcp/             → @three-ws/kol-mcp           (MCP server — per-wallet KOL portfolio + trade analytics)
+packages/clash-mcp/           → @three-ws/clash-mcp         (MCP server — Coin Clash faction battles)
+packages/tutor-mcp/           → @three-ws/tutor-mcp         (MCP server — itemized learning-session ledger)
+packages/loom-mcp/            → @three-ws/loom-mcp          (MCP server — Loom 3D-creation gallery: browse, fetch, submit)
 walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 

@@ -43,7 +43,7 @@ The MCP server configuration is at `.mcp.json` in the project root, which Claude
 
 ## The full three.ws MCP ecosystem
 
-This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **20 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **37 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
 
 There are two kinds. **Hosted remote servers** run over Streamable HTTP with nothing to install — add them by URL. **Install-and-run servers** are published on npm under the `@three-ws` scope and run locally over stdio — add them in one line with `npx`.
 
@@ -58,7 +58,7 @@ There are two kinds. **Hosted remote servers** run over Streamable HTTP with not
 | pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
 | IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
 
-**Fourteen install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+**Thirty-one install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
 
 ```bash
 # 3D & avatars
@@ -82,6 +82,33 @@ npx -y @three-ws/marketplace-mcp  # browse the agent marketplace + skills catalo
 # Naming & AI
 npx -y @three-ws/naming-mcp       # resolve .sol names + check *.threews.sol identity availability
 npx -y @three-ws/ibm-watsonx-mcp  # IBM watsonx.ai on your own account
+
+# Autonomous agent control plane
+npx -y @three-ws/autopilot-mcp     # set scopes + daily $THREE spend caps, then propose/execute/undo
+npx -y @three-ws/portfolio-mcp     # portfolio value, PnL, balances, trade feed & signed transfers
+npx -y @three-ws/provenance-mcp    # append-only, signed, on-chain-verifiable agent action log
+
+# Trading, signals & alerts
+npx -y @three-ws/copy-mcp          # manage copy-trade follows, sizing & guard rules
+npx -y @three-ws/signals-mcp       # discover signal feeds by proven edge; rank publishers
+npx -y @three-ws/alerts-mcp        # pump.fun alert rules across in-app / webhook / Telegram
+npx -y @three-ws/kol-mcp           # per-wallet KOL portfolio + trade analytics
+
+# Account, inbox & discovery
+npx -y @three-ws/notifications-mcp # inbox, read state, delivery prefs & Web Push devices
+npx -y @three-ws/billing-mcp       # plan quotas, metered usage, invoices & receipts
+npx -y @three-ws/activity-mcp      # trending agents/coins, $THREE holder board & activity ticker
+
+# More AI & capability
+npx -y @three-ws/vision-mcp        # analyze & describe images via the three.ws vision pipeline
+npx -y @three-ws/brain-mcp         # run any LLM through the multi-provider router
+npx -y @three-ws/audio-mcp         # TTS, STT, audio-to-face lipsync & motion-capture clips
+
+# Coordination, gaming & learning
+npx -y @three-ws/agenc-mcp         # AgenC on-chain task marketplace + agent registry
+npx -y @three-ws/clash-mcp         # Coin Clash faction battles
+npx -y @three-ws/tutor-mcp         # itemized learning-session ledger
+npx -y @three-ws/loom-mcp          # browse & contribute to the Loom 3D-creation gallery
 ```
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.
