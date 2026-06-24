@@ -28,7 +28,7 @@ export async function getJson(url, { signal, timeout = DEFAULT_TIMEOUT } = {}) {
 	let body;
 	try { body = await res.json(); } catch { body = null; }
 	if (!res.ok) {
-		const msg = body?.message || body?.error || `HTTP ${res.status}`;
+		const msg = body?.error_description || body?.message || body?.error || `HTTP ${res.status}`;
 		throw new Error(msg);
 	}
 	return body;
@@ -56,7 +56,7 @@ export async function postJson(url, payload, { signal, timeout = DEFAULT_TIMEOUT
 	let body;
 	try { body = await res.json(); } catch { body = null; }
 	if (!res.ok) {
-		const msg = body?.message || body?.error || `HTTP ${res.status}`;
+		const msg = body?.error_description || body?.message || body?.error || `HTTP ${res.status}`;
 		throw new Error(msg);
 	}
 	return body;

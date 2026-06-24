@@ -35,7 +35,7 @@ function describeTask({ profession, tier, parentLabel }) {
 		crier: 'Produce a short voice/TTS clip',
 		appraiser: 'Return a token/market intel summary',
 		verifier: 'Re-derive a proofHash and attest pass/fail',
-		namekeeper: 'Resolve or mint a .threews.sol / ENS name',
+		namekeeper: 'Resolve a .threews.sol / ENS name',
 	}[profession] || `Complete a ${profession} job`;
 	if (parentLabel) return `${verb} (sub-task of "${parentLabel}")`.slice(0, 180);
 	return tier ? `${verb} — ${tier} tier`.slice(0, 180) : verb.slice(0, 180);
@@ -139,7 +139,8 @@ export async function postBounty({ cfg, store, client, poster, plan, hire = null
 			taskType: plan.taskType || 'Exclusive',
 			maxWorkers: plan.maxWorkers || 1,
 			tier: plan.tier || null,
-			...(hire ? { parentTaskPda: hire.parentTaskPda } : {}),
+			...(plan.target ? { target: plan.target } : {}),
+				...(hire ? { parentTaskPda: hire.parentTaskPda } : {}),
 		},
 	});
 

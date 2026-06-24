@@ -97,7 +97,11 @@ async function main() {
 	window.addEventListener('keydown', (e) => {
 		const k = e.key.toLowerCase();
 		if (!PAN_KEYS.has(k)) return;
-		if (document.activeElement && document.activeElement.tagName === 'BUTTON') return; // let roster nav work
+		// Don't hijack typing or scrolling: let form fields, editable content, and any
+		// open panel keep arrow/WASD keys. Only pan when the world itself has focus.
+		const ae = document.activeElement;
+		if (ae && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(ae.tagName) || ae.isContentEditable
+			|| (ae.closest && ae.closest('.agora-passport, .agora-panel, .agora-h-root, [role="dialog"]')))) return;
 		if (k.startsWith('arrow')) e.preventDefault();
 		keys.add(k);
 		focusGoal = null;
