@@ -45,7 +45,7 @@ export const NAV_GROUPS = [
 				desc: 'Type a description → rigged 3D avatar in about a minute',
 			},
 			{
-				title: 'Create an agent',
+				title: 'Create an avatar',
 				href: '/create-agent',
 				badge: 'New',
 				desc: 'Guided wizard: name, 3D body, skills, personality → ship it',
