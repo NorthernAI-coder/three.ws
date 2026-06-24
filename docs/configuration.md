@@ -302,6 +302,28 @@ Get from [app.pinata.cloud/keys](https://app.pinata.cloud/keys).
 WEB3_STORAGE_TOKEN=xxxxx
 ```
 
+#### Solana signer keys (`*_SECRET_KEY_B64`)
+**Optional.** Server-side Solana keypairs the cron jobs and on-chain flows sign with: `PUMP_CRON_RELAYER_SECRET_KEY_B64` (pays tx fees for the Pump.fun buyback cron), `COIN_TREASURY_SECRET_KEY_B64`, `THREE_BUYBACK_SECRET_KEY_B64`, `CLUB_SOLANA_TREASURY_SECRET_KEY_B64`, `PUMP_X402_LAUNCHER_SECRET_KEY_B64`. Each is the **base64 encoding of the 64 raw secret-key bytes** — the format `decodeSecretKey` expects (`api/_lib/solana-signers.js`).
+
+```
+PUMP_CRON_RELAYER_SECRET_KEY_B64=<base64 of 64-byte keypair>
+```
+
+Generate with the bundled, dependency-free generator (no `@solana/web3.js` install needed):
+
+```bash
+# Writes the secret to .env and prints the public key to fund with SOL
+node scripts/gen-solana-signer-key.mjs --var PUMP_CRON_RELAYER_SECRET_KEY_B64 --write
+
+# Or print to stdout (swap the var for any of the *_SECRET_KEY_B64 names)
+node scripts/gen-solana-signer-key.mjs --var COIN_TREASURY_SECRET_KEY_B64
+
+# Grind a vanity public key (case-insensitive prefix; base58 has no 0/O/I/l)
+node scripts/gen-solana-signer-key.mjs --vanity www
+```
+
+**Fund the printed public key with SOL** before the relayer can pay fees. `--write` refuses to clobber an existing value, so rotating means removing the old line first. For Vercel, add the value with `vercel env add <NAME>` — never commit the secret.
+
 ---
 
 ### Minimum Local Development Configuration

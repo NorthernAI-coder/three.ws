@@ -1033,6 +1033,12 @@ URL: https://three.ws/docs/solana-reputation
 
 How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.
 
+### Docs · SAS Credentialed Attestations
+
+URL: https://three.ws/docs/sas-attestations
+
+Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.
+
 ### Docs · Embedding
 
 URL: https://three.ws/docs/embedding

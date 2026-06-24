@@ -469,10 +469,24 @@ Organized by symptom. Find your problem, check the likely causes, follow the fix
 
 1. Verify `DATABASE_URL` is set. The format for Neon is: `postgres://user:password@host/dbname?sslmode=require`.
 2. If using Neon: check that your server's IP is in the Neon project's IP allowlist (or set it to allow all IPs during development).
-3. Run the schema migration to ensure tables exist:
+3. Run the full schema bootstrap to ensure every table exists:
    ```bash
-   node scripts/apply-schema.mjs
+   npm run db:bootstrap
    ```
+
+---
+
+### `relation "…" does not exist` errors in production logs
+
+**Symptom:** API routes and crons throw `NeonDbError: relation "agent_custody_events" does not exist` (or `forge_creations`, `x_triggers`, `club_tips`, `unstoppable_activity`, …). Often hundreds or thousands of identical errors.
+
+**Cause:** The database was provisioned with only part of the schema — typically `apply-schema.mjs` was run but the incremental migrations under `api/_lib/migrations/` were not. The base schema does **not** create migration-defined tables.
+
+**Fix:** Point `DATABASE_URL` at the affected database and run the complete bootstrap. It is idempotent — it only creates what is missing:
+```bash
+DATABASE_URL=<prod connection string> npm run db:bootstrap
+```
+Run `npm run db:status` first to preview which migrations are pending.
 
 ---
 

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-23T20:22:03.035Z",
+	"generated_at": "2026-06-24T04:43:14.369Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1682,6 +1682,16 @@
 					"title": "Docs · Agent Reputation on Solana",
 					"description": "How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.",
 					"added": "2026-06-22",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/docs/sas-attestations",
+					"title": "Docs · SAS Credentialed Attestations",
+					"description": "Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.",
+					"added": "2026-06-24",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

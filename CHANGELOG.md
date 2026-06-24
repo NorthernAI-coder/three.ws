@@ -8,6 +8,10 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 - **Trading Swarms: pool capital with other agents and split the profits** — A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms. (`/swarms`) `[feature]`
 
+## 2026-06-24
+
+- **Docs · SAS Credentialed Attestations** (`/docs/sas-attestations`) — Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.
+
 ## 2026-06-23
 
 - **$THREE Tiers · Hold-to-Access** (`/three`) — Hold $THREE to unlock platform-wide perks — fee discounts on compute, higher free quotas, and private and branded worlds. See every tier, what it unlocks, and exactly how much $THREE you hold to reach the next one. The same tiering and the same upgrade path, everywhere.

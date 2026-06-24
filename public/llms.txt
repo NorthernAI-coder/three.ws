@@ -195,6 +195,7 @@ Docs, tutorials, and reference.
 - [Docs · Reputation System](https://three.ws/docs/reputation): Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.
 - [Docs · Validation Attestations](https://three.ws/docs/validation): Record and read on-chain attestations that an agent's 3D model passes glTF validation.
 - [Docs · Agent Reputation on Solana](https://three.ws/docs/solana-reputation): How three.ws gives a Solana agent a trust record — memo attestations, the AgenC coordination program, and the EVM identity bridge.
+- [Docs · SAS Credentialed Attestations](https://three.ws/docs/sas-attestations): Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.
 - [Docs · Embedding](https://three.ws/docs/embedding): Embed an agent via iframe, oEmbed, or the <agent-3d> web component.
 - [Docs · <agent-3d>](https://three.ws/docs/web-component): Reference for the <agent-3d> custom element.
 - [Docs · MCP](https://three.ws/docs/mcp): Expose your agent as an MCP server for Claude, ChatGPT, and other clients.
