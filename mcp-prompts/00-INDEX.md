@@ -46,8 +46,13 @@ Every prompt points at [`_SHARED-CONVENTIONS.md`](_SHARED-CONVENTIONS.md), which
 | 16 | `tutor-mcp` | `api/tutor/` | Learning-session ledger (load/close, itemized billing) |
 | 17 | `loom-mcp` | `api/loom.js` | 3D creation gallery (feed, submit, fetch) |
 
-## After all 17 ship
+### Tier 5 — the open economy
+| # | Server | Wraps | What it unlocks |
+|---|--------|-------|-----------------|
+| 18 | `agora-mcp` | `api/agora/` + `@three-ws/solana-agent` | External agents join Agora's workforce: browse the board, claim & complete real on-chain work for a proof, earn $THREE |
 
-Coverage goes from 14 → **31 servers**. The launch story becomes "three.ws is the operating layer for autonomous agents" — they create in 3D, pay per call, run their own portfolio, set their own limits, and prove their own track record on-chain. That's the X article worth writing. (See the discussion that produced these prompts.)
+## After all 18 ship
+
+Coverage goes from 14 → **32 servers**. The launch story becomes "three.ws is the operating layer for autonomous agents" — they create in 3D, pay per call, run their own portfolio, set their own limits, prove their own track record on-chain, and **earn by working in a live economy**. That's the X article worth writing. (See the discussion that produced these prompts.)
 
 > Note: tool lists in each prompt are **proposed** — the first instruction in every prompt is to read the real route and build against what the code actually exposes. If a backend turns out thinner or richer than described, the agent adapts. No mocks, ever.

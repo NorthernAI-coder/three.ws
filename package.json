@@ -69,6 +69,7 @@
 		"packages/billing-mcp",
 		"packages/activity-mcp",
 		"packages/agenc-mcp",
+		"packages/agora-mcp",
 		"packages/vision-mcp",
 		"packages/brain-mcp",
 		"packages/audio-mcp",
