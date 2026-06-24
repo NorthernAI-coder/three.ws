@@ -33,6 +33,7 @@ import {
 	completeTask,
 	generateTaskId,
 	deriveTaskPda,
+	getTask,
 	withRetry,
 	TASK_STATE,
 } from './agenc.js';
@@ -357,6 +358,53 @@ async function pickClaimableTask(ctx, citizen) {
 }
 
 /**
+ * SEEK the board's AgenC lane for a real bounty a patron (or human, in Task 08)
+ * posted. Honors the career ladder: a citizen only takes a job it's qualified for
+ * (capability subset + on-chain reputation ≥ the task's minReputation). A low-rep
+ * citizen skips a master-tier bounty; a qualified one takes it. We re-read the
+ * task on-chain before claiming so we never chase a stale-open projection.
+ */
+async function pickBoardBounty(ctx, citizen) {
+	const tasks = ctx.board?.tasks || [];
+	for (const t of tasks) {
+		if (t.source !== 'agenc' || !t.taskPda) continue;
+		if (citizen.claimed.has(t.taskPda)) continue;
+		if (t.creator?.id && t.creator.id === citizen.id) continue; // never claim your own posting
+
+		// Career-ladder gate from the projection (surfaced by /api/agora/board).
+		const eligible = citizenCanClaim(citizen, {
+			requiredCapabilities: t.requiredCapabilities ?? 0,
+			minReputation: t.minReputation ?? 0,
+		});
+		if (!eligible) {
+			log.loop('skipping bounty — not qualified', {
+				name: citizen.spec.displayName,
+				taskPda: t.taskPda,
+				needRep: t.minReputation ?? 0,
+				haveRep: citizen.reputation,
+				tier: t.tier || null,
+			});
+			continue;
+		}
+
+		// On-chain truth check before claiming — must still be Open with a slot.
+		let onchain;
+		try {
+			onchain = await getTask(ctx.readClient, t.taskPda);
+		} catch {
+			continue;
+		}
+		if (!onchain || onchain.state !== TASK_STATE.Open) continue;
+		if (onchain.currentWorkers >= onchain.maxWorkers) continue;
+		if (Number(onchain.deadline) <= Date.now() / 1000) continue;
+
+		const rewardAtomic = t.reward?.amountAtomic != null ? Number(t.reward.amountAtomic) : ctx.cfg.taskRewardLamports;
+		return { taskPda: new PublicKey(t.taskPda), pda: t.taskPda, reward: rewardAtomic, minReputation: t.minReputation ?? 0, fromBoard: true };
+	}
+	return null;
+}
+
+/**
  * Run one daily-loop tick for a single citizen. Returns the node it ended on
  * (for logging). Throws nothing the caller must handle — all errors are caught
  * and surfaced as a 'failed' outcome so one citizen never stops the fleet.
@@ -370,14 +418,23 @@ export async function tickCitizen(ctx, citizen) {
 		await reconcile(ctx, citizen);
 		await refreshBoard(ctx);
 
-		// SEEK
-		const job = await pickClaimableTask(ctx, citizen);
+		// SEEK — dispatcher work first, then the board's real bounties (posted by a
+		// patron citizen here; by a human in Task 08).
+		let job = await pickClaimableTask(ctx, citizen);
+		if (!job) job = await pickBoardBounty(ctx, citizen);
 		if (!job) {
-			// Nothing to do — wander home, stay idle. World-only motion, no activity
-			// row (an activity with no real economic action isn't worth recording).
-			const pos = wander(citizen.home);
-			await ctx.store.setStatus(citizen.id, 'idle', pos);
-			return 'idle';
+			// No claimable work. SPEND node (Task 03): a patron with budget posts a
+			// bounty so the economy has demand; everyone else wanders home and idles.
+			// World-only motion gets no activity row (no real economic action).
+			if (citizen.patron) {
+				try {
+					await maybePatronPost(ctx, citizen);
+				} catch (err) {
+					log.warn('patron post failed', { name, err: err?.message });
+				}
+			}
+			await ctx.store.setStatus(citizen.id, 'idle', wander(citizen.home));
+			return citizen.patron ? 'patron-idle' : 'idle';
 		}
 
 		// CLAIM
@@ -414,6 +471,22 @@ export async function tickCitizen(ctx, citizen) {
 			narrative: `${name} claimed a Fetcher job.`,
 		});
 		log.info('claimed', { name, pda: job.pda, tx: explorerTx(claim.txSignature, cfg.cluster) });
+
+		// SPEND node (Task 03): on a high-value board bounty, hire a sub-agent for an
+		// extra fetch — true agent-to-agent hiring, paid from the worker's own
+		// balance (honest scarcity). The sub-task is picked up by another citizen and
+		// linked back to this hire by the reconcile sweep (shared task_pda).
+		if (job.fromBoard && hiringEnabled(cfg) && (job.minReputation || 0) >= 5) {
+			try {
+				await maybeHire(ctx, citizen, {
+					parent: { taskPda: job.pda, label: `Fetcher job ${String(job.pda).slice(0, 8)}` },
+					neededProfession: 'fetcher',
+					subRewardAtomic: subtaskReward(cfg),
+				});
+			} catch (err) {
+				log.warn('sub-agent hire failed', { name, err: err?.message });
+			}
+		}
 
 		// WORK — a real fetch against a live service.
 		const boardService = ctx.board.services.find((s) => typeof s.resource === 'string' && /^https?:\/\//i.test(s.resource));
