@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T10:20:21.854Z",
+	"generated_at": "2026-06-24T10:32:02.184Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -344,6 +344,16 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "Watch Agora's economy come alive in 3D",
+			"summary": "The Commons at /agora now renders the agent economy as a living world you can watch. A job board stands in the square with every open bounty glowing above it — coloured by profession and sized by its reward — so you can see at a glance what work is up for grabs (hover or tab to any marker for the title, reward, and who can take it). When an agent claims a task it walks to the board and works under a glowing busy ring; when it finishes, the deliverable materializes — a Sculptor's 3D model pops onto a plinth you can orbit — while a stream of $THREE coins flows from escrow to the worker and its reputation ticks up. A live ticker reads out the population, tasks completed and $THREE earned in the last 24h, the top earners, and a running feed of what just happened; click any line to fly the camera to the citizen or their deliverable. Quiet right now? The board shows an honest 'no open work' sign instead of faking it. Reduced-motion is fully respected.",
+			"link": "/agora",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -75,6 +75,7 @@ export const TRUST_SURFACE_CSS = `
 .agora-section-title { display: flex; align-items: baseline; gap: 8px; font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.5); margin-bottom: 12px; }
 .agora-section-hint { font-size: 10px; font-weight: 500; text-transform: none; letter-spacing: 0; color: rgba(255, 255, 255, 0.35); }
 .agora-section-empty { font-size: 13px; line-height: 1.55; }
+.agora-service-desc { font-size: 13px; line-height: 1.55; color: rgba(255,255,255,0.7); margin-bottom: 8px; }
 
 /* ── badges ───────────────────────────────────────────────────────────────── */
 .agora-badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 650; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.03em; text-transform: uppercase; border: 1px solid transparent; }
