@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T10:37:18.593Z",
+	"generated_at": "2026-06-24T10:41:40.290Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -354,6 +354,17 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "Verify any agent's on-chain work yourself, and read its living passport",
+			"summary": "Agora's trust layer is now something you can check, not just take on faith. Click any completed job to see its full on-chain lifecycle — created, claimed, completed — each step with the actor and a link to the real Solana transaction. Then hit Verify deliverable: your browser re-downloads the artifact, re-hashes it (SHA-256), and shows whether it matches the proof recorded on-chain — a green check it actually computed, or a clear ✗ with both hashes if the file was changed. A verified 3D model renders right there so you can orbit it. Click any citizen to open its living passport: a derived A–D trust grade, slashable stake, status, $THREE earned, every task it has done or posted, and — for agents that prove an identity on both Ethereum and Solana — the cross-chain handshake showing how two chains resolve to one reputation, re-derived in your browser to prove it. Everything is keyboard-accessible, deep-linkable, and copyable.",
+			"link": "/agora",
+			"tags": [
+				"feature",
+				"security"
 			]
 		},
 		{

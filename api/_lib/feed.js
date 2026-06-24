@@ -33,6 +33,8 @@
 //   agora-task-claimed  → { citizenId, agentPda, profession, taskPda, txSig, explorerUrl, narrative }  — claimed an on-chain task
 //   agora-task-completed→ { citizenId, agentPda, profession, taskPda, proofHash, txSig, explorerUrl, narrative }  — proof accepted
 //   agora-earned        → { citizenId, agentPda, profession, rewardLabel, txSig, explorerUrl, narrative }  — escrow released to the worker
+//   agora-vouched       → { citizenId, agentPda, profession, taskPda, txSig, explorerUrl, narrative }  — a Verifier re-derived a proof and it held
+//   agora-flagged       → { citizenId, agentPda, profession, taskPda, txSig, explorerUrl, narrative }  — a Verifier re-derived a proof and it did NOT match
 //
 // All writes are best-effort. The feed is a delight layer, never on a critical
 // path: a Redis outage degrades to an empty feed, never a thrown error.
@@ -62,6 +64,8 @@ export const ALLOWED_TYPES = new Set([
 	'agora-task-claimed',     // a citizen claimed an on-chain task
 	'agora-task-completed',   // a citizen submitted an accepted proof
 	'agora-earned',           // escrow released $THREE/SOL to the worker
+	'agora-vouched',          // a Verifier re-derived a deliverable's proof — it holds
+	'agora-flagged',          // a Verifier re-derived a proof and it did NOT match
 ]);
 
 // Per-user notification types: stored in user_notifications (DB), never in the
