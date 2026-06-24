@@ -1,6 +1,11 @@
 -- Unstoppable Agent tables
 -- Provisions treasury, activity log, and daily reflection log for the
 -- self-sustaining agent that funds itself through x402 micropayments.
+--
+-- Folded into the api/_lib/migrations runner path so a single `npm run db:migrate`
+-- provisions these tables. (Previously orphaned under data/migrations/, applied by
+-- no script — which left unstoppable_treasury / unstoppable_activity missing in
+-- production and the /api/agents/* + treasury/earnings routes erroring on every tick.)
 
 -- Treasury snapshot — single row, upserted on each tick
 CREATE TABLE IF NOT EXISTS unstoppable_treasury (
