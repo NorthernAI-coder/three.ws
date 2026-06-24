@@ -13,7 +13,7 @@ export const def = {
 	description:
 		"Read the agent's autopilot permission model: whether autopilot is enabled, which capability " +
 		'scopes the owner granted (create_alert, briefing, wallet_transfer), which reversible scopes may ' +
-		'auto-execute, the daily $THREE spend ceiling (whole tokens; 0 = no spending), and whether ' +
+		'auto-execute, the daily SOL spend ceiling (in SOL; 0 = no spending), and whether ' +
 		'irreversible actions require explicit confirmation. Also returns the live trust level (sandbox → ' +
 		'trusted → autonomous) computed from real action history. Nothing the agent can do exists outside ' +
 		'these owner-granted scopes — read this before proposing or executing. Read-only.',

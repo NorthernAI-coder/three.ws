@@ -4,11 +4,11 @@
 // An AI agent's own autonomous-execution control plane over the Model Context
 // Protocol. It lets the agent manage its OWN guardrails and act within them —
 // no human in the loop, but every boundary enforced server-side:
-//   • get_autopilot_config / set_autopilot_config — scopes, daily $THREE spend
+//   • get_autopilot_config / set_autopilot_config — scopes, daily SOL spend
 //     cap, auto-execute flags, confirmation policy
 //   • generate_proposals — turn high-salience memories into real candidate actions
 //   • list_proposals / dryrun_proposal / adjust_proposal — review the queue
-//   • execute_proposal — take the real action (⚠️ can move real $THREE; irreversible)
+//   • execute_proposal — take the real action (⚠️ can move real SOL; irreversible)
 //   • undo_action / dismiss_proposal — close the trust loop
 //   • list_autopilot_activity — the signed receipts log
 //   • compute_trust — the agent's earned reputation
@@ -16,7 +16,8 @@
 // AUTHENTICATED + WRITE-HEAVY. Every route is owner-only; the agent's three.ws
 // API key (or OAuth access token) is supplied via THREE_WS_API_KEY and carried as
 // a Bearer credential. Scope/spend/confirmation enforcement lives server-side —
-// this server never bypasses it. $THREE is the only coin referenced.
+// this server never bypasses it. The agent spends SOL and only ever buys, holds,
+// or burns $THREE — it never sells or sends it.
 //
 // Run standalone:
 //   THREE_WS_API_KEY=sk_live_… node packages/autopilot-mcp/src/index.js
@@ -78,18 +79,19 @@ export function buildServer() {
 			instructions:
 				"three.ws Autopilot MCP — an agent's own execution control plane. The agent manages its OWN " +
 				'autonomy boundaries and acts within them, bounded by real, server-enforced scopes and spend ' +
-				'caps. Flow: get_autopilot_config to read scopes + daily $THREE cap + trust; set_autopilot_config ' +
+				'caps. Flow: get_autopilot_config to read scopes + daily SOL cap + trust; set_autopilot_config ' +
 				'to grant capabilities (create_alert, briefing, wallet_transfer), set auto-execute, and the daily ' +
 				'spend ceiling; generate_proposals to turn high-salience memories into real, provenance-cited ' +
 				'candidate actions; list_proposals to read the queue; dryrun_proposal to preview a proposal ' +
 				'(scope/cap/balance checks) without acting; adjust_proposal to tune a pending one; execute_proposal ' +
-				'to take the real action — ⚠️ a wallet_transfer moves REAL $THREE on Solana mainnet, is ' +
+				'to take the real action — ⚠️ a wallet_transfer moves REAL SOL on Solana mainnet, is ' +
 				'IRREVERSIBLE, requires confirm:true, and is capped by the daily budget; undo_action reverses a ' +
 				'reversible execution; dismiss_proposal drops one (both record feedback memories so the agent ' +
 				'learns the boundary); list_autopilot_activity is the append-only signed receipts log; ' +
 				'compute_trust is the agent\'s earned reputation. Every scope, confirmation, and spend cap is ' +
 				'enforced server-side — these tools cannot bypass it. Requires THREE_WS_API_KEY (a three.ws API ' +
-				'key or OAuth access token for the agent owner). $THREE is the only coin.',
+				'key or OAuth access token for the agent owner). The agent spends SOL and only ever buys, ' +
+				'holds, or burns $THREE — it never sells or sends it.',
 		},
 	);
 

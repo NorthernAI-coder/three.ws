@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "Agent autopilot now spends SOL, not $THREE — and can never sell your $THREE",
+			"summary": "We changed how an agent's autopilot is bounded. The daily spend cap is now denominated in SOL — the currency agents actually spend on gas and transfers — instead of $THREE, and the wallet_transfer action sends native SOL only. Autopilot refuses any attempt to send or sell $THREE: agents can buy, hold, and burn it, but never dispose of it. Updated across the dashboard, the API, and @three-ws/autopilot-mcp (v0.2.0).",
+			"tags": [
+				"improvement",
+				"sdk"
+			],
+			"link": "/docs/mcp"
+		},
+		{
+			"date": "2026-06-24",
 			"title": "18 @three-ws SDKs are live on npm — and the x402 wallet now pays in $THREE",
 			"summary": "The full @three-ws SDK suite is published to npm: 18 zero-dependency packages that wrap live three.ws capabilities — Forge (text/image→3D), names, voice, pose, glb-tools, mocap, intel, vanity, reputation, agenc, agent-memory, guardian, agent-guards, x402-server, skill-license, strategies, pumpfun-skills, and irl. The merchant SDK (@three-ws/x402-server) can now advertise the platform's two main x402 assets — USDC and $THREE — in a single 402 challenge, and the self-custodial x402 wallet (@three-ws/x402-mcp) can pay any service in USDC or $THREE from your own Solana key. Install any of them with npm i @three-ws/<name>.",
 			"tags": [

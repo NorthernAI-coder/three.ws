@@ -42,7 +42,7 @@ describe('normalizeAutopilotConfig', () => {
 		const c = normalizeAutopilotConfig(undefined);
 		expect(c.enabled).toBe(false);
 		expect(c.scopes).toEqual({ create_alert: false, briefing: false, wallet_transfer: false });
-		expect(c.daily_spend_three).toBe(0);
+		expect(c.daily_spend_sol).toBe(0);
 		expect(c.require_confirm).toBe(true);
 	});
 
@@ -51,14 +51,14 @@ describe('normalizeAutopilotConfig', () => {
 			enabled: true,
 			scopes: { create_alert: 'yes', briefing: true },
 			auto_execute: { create_alert: 1 },
-			daily_spend_three: -5,
+			daily_spend_sol: -5,
 			require_confirm: false,
 		});
 		expect(c.enabled).toBe(true);
 		expect(c.scopes.create_alert).toBe(false); // 'yes' is not strictly true
 		expect(c.scopes.briefing).toBe(true);
 		expect(c.auto_execute.create_alert).toBe(false); // 1 is not strictly true
-		expect(c.daily_spend_three).toBe(0); // negative clamped
+		expect(c.daily_spend_sol).toBe(0); // negative clamped
 		expect(c.require_confirm).toBe(false);
 	});
 
@@ -108,11 +108,13 @@ describe('validateProposal — briefing & wallet_transfer', () => {
 	});
 
 	it('validates a wallet_transfer recipient + amount', () => {
-		const v = validateProposal('wallet_transfer', { recipient: SYNTH_ADDR, amount_three: 5, reason: 'tip' });
+		const v = validateProposal('wallet_transfer', { recipient: SYNTH_ADDR, amount_sol: 5, reason: 'tip' });
 		expect(v.ok).toBe(true);
-		expect(v.params.amount_three).toBe(5);
-		expect(validateProposal('wallet_transfer', { recipient: 'bad', amount_three: 5 }).ok).toBe(false);
-		expect(validateProposal('wallet_transfer', { recipient: SYNTH_ADDR, amount_three: 0 }).ok).toBe(false);
+		expect(v.params.amount_sol).toBe(5);
+		expect(validateProposal('wallet_transfer', { recipient: 'bad', amount_sol: 5 }).ok).toBe(false);
+		expect(validateProposal('wallet_transfer', { recipient: SYNTH_ADDR, amount_sol: 0 }).ok).toBe(false);
+		// Buy-only $THREE: a transfer routed through a token mint is refused.
+		expect(validateProposal('wallet_transfer', { recipient: SYNTH_ADDR, amount_sol: 1, mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' }).ok).toBe(false);
 	});
 
 	it('rejects unknown kinds', () => {
