@@ -660,9 +660,13 @@ a:focus-visible{outline-offset:3px}
 (function () {
   const WEBINAR = {
     // ⚠️  SET THE REAL START TIME — ISO 8601 with timezone offset (Z = UTC).
-    //     Default below is 11:00 AM US Eastern on Jun 23, 2026 (EDT = UTC−4).
-    startTime: '2026-06-23T15:00:00Z',
-    durationMin: 60,                 // talk length → when the stage flips to "replay"
+    //     Set to 6:00 PM Pacific on Jun 24, 2026. June is daylight time (PDT =
+    //     UTC−7), so the −07:00 offset below is the correct "6pm Pacific" — it
+    //     equals 2026-06-25T01:00:00Z. If you literally mean PST (UTC−8), change
+    //     the offset to −08:00; if the talk is a different calendar day, change
+    //     the date.
+    startTime: '2026-06-24T18:00:00-07:00',
+    durationMin: 60,                 // SET to the recorded video's length → when the stage flips to "replay"
     title: 'three.ws × IBM — agentic commerce, live',
     details: 'A live walkthrough of x402 micropayments and 3D AI agents on three.ws. Demos run in real time at https://three.ws/ibm/x402-demo',
     location: 'https://three.ws/ibm/x402-demo',
@@ -671,9 +675,14 @@ a:focus-visible{outline-offset:3px}
     //    when ready. Resolution priority: liveHls → vodHls → mp4 → youTubeId.
     liveHls: '',     // OBS → ingest → HLS (.m3u8) live feed
     vodHls: '',      // Cloudflare Stream / Mux HLS (.m3u8) of the recording (synced premiere)
-    mp4: '',         // plain MP4 on R2 (synced premiere)
+    mp4: '',         // ⭐ PRE-RECORDED TALK: paste a web-optimized MP4 URL here (synced premiere).
+                     //    Self-host on a three.ws-served origin so the host CSP's media-src
+                     //    can allow it without a third-party CDN; a plain MP4 needs no hls.js.
     youTubeId: '',   // YouTube video / live id → iframe (its own premiere/live)
-    mode: 'auto',    // 'auto' | 'premiere' | 'live'
+    // 'premiere' = a finished recording played wall-clock-synced so it behaves
+    // like a live broadcast (the plan for Jun 24). Switch to 'live' ONLY for a
+    // real OBS/RTMP feed via liveHls.
+    mode: 'premiere',  // 'auto' | 'premiere' | 'live'
 
     // ── After the event ENDS — what the stage becomes once the countdown is over
     //    and the slot has passed. Leave blank for the default "Thanks for joining"
@@ -817,7 +826,10 @@ a:focus-visible{outline-offset:3px}
 
   async function mountPlayer() {
     holding.hidden = true; player.hidden = false;
-    badge.hidden = !isLiveSource || phase !== 'live';
+    // A synced premiere should read as "Live now" during its window — that's the
+    // whole point — so the badge shows for a true live feed AND a premiere, and
+    // only hides once we're past the slot (replay).
+    badge.hidden = phase !== 'live';
 
     if (WEBINAR.youTubeId) {
       const offset = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
@@ -832,8 +844,14 @@ a:focus-visible{outline-offset:3px}
     }
 
     const video = document.createElement('video');
-    video.playsInline = true; video.controls = true; video.muted = true;
-    video.setAttribute('controlslist', 'nodownload');
+    // During a premiere's live window, hide the native controls entirely: a seek
+    // bar would expose the fixed duration and give away that it's a recording. No
+    // scrubber + the "Live now" badge + can't-skip-ahead reads as a real stream.
+    // Full controls return for the replay once the window has passed (and when the
+    // video ends on its own).
+    const livePremiere = !isLiveSource && phase === 'live';
+    video.playsInline = true; video.controls = !livePremiere; video.muted = true;
+    video.setAttribute('controlslist', 'nodownload noplaybackrate');
     player.appendChild(video);
 
     const src = WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4;
@@ -888,6 +906,10 @@ a:focus-visible{outline-offset:3px}
     unmute.addEventListener('click', () => {
       video.muted = false; unmute.hidden = true; video.play().catch(() => {});
     });
+
+    // When the recording finishes, drop the live illusion: reveal full controls so
+    // viewers can scrub/replay, and clear the "Live now" badge.
+    video.addEventListener('ended', () => { video.controls = true; badge.hidden = true; });
   }
 
   // Assign the interval BEFORE the first render() so an at/after-start load that
