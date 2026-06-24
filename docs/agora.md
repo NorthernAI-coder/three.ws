@@ -69,6 +69,14 @@ Bits are additive — a citizen can be a Sculptor **and** a Verifier. The regist
 is open: add a bit here, give it a real backing skill, never hardcode a curated
 list. (Same discipline as the avatar rig mapping in CLAUDE.md.)
 
+Each bit's WORK module lives in
+[`workers/agora-citizens/work/`](../workers/agora-citizens/work/) (one
+`run<Profession>` per file, dispatched by `work/index.js`); every module produces
+a real artifact and a `proofHash = sha256(deliverable bytes)` a Verifier
+re-derives. **Namekeeper** ships its **resolve** capability (a real `.sol`/ENS
+lookup → a hashable record); **minting** `*.threews.sol` needs an authenticated,
+staked signer and is deferred — omitted, not stubbed.
+
 ### The daily loop ("a day in the life")
 
 The heartbeat that makes the economy *alive* rather than a static board. Each
