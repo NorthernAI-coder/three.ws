@@ -14,16 +14,18 @@ import {
 	ComputeBudgetProgram,
 	LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
-import {
-	TOKEN_PROGRAM_ID,
-	TOKEN_2022_PROGRAM_ID,
-	getMint,
-	getAssociatedTokenAddress,
-	getAccount,
-	createAssociatedTokenAccountInstruction,
-	createTransferCheckedInstruction,
-} from '@solana/spl-token';
 import bs58 from 'bs58';
+
+// @solana/spl-token is loaded LAZILY. Its ESM build imports
+// @solana/buffer-layout-utils through a subpath whose `.mjs` entry is absent in
+// some installs, which throws at module-load time. Deferring the import to first
+// use keeps this module — and therefore the whole MCP tool surface — loading
+// cleanly; only the SPL-token code paths (token balances, SPL transfers) need it.
+let _splTokenPromise = null;
+function splToken() {
+	if (!_splTokenPromise) _splTokenPromise = import('@solana/spl-token');
+	return _splTokenPromise;
+}
 
 import { SOLANA_RPC_URL, SOLANA_DEFAULT_SECRET } from '../config.js';
 import { assertSolWithinCap, clampPriorityMicroLamports } from './spend-policy.js';
@@ -79,6 +81,7 @@ export async function getBalanceSol(pubkeyStr) {
 // Live SPL token balances (classic SPL + Token-2022) for any pubkey. Only
 // non-zero positions are returned.
 export async function getTokenBalances(pubkeyStr) {
+	const { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = await splToken();
 	const conn = getConnection();
 	const owner = new PublicKey(pubkeyStr);
 	const [legacy, t22] = await Promise.all([
@@ -117,6 +120,7 @@ function parseAmountToBaseUnits(amountStr, decimals) {
 // Which token program owns a mint — classic SPL or Token-2022. Token-2022 mints
 // need their own program id on the transfer/ATA instructions.
 async function resolveTokenProgram(conn, mintPk) {
+	const { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } = await splToken();
 	const info = await conn.getAccountInfo(mintPk);
 	if (!info) {
 		throw Object.assign(new Error(`mint ${mintPk.toBase58()} not found on-chain`), { code: 'mint_not_found' });
@@ -177,6 +181,13 @@ export async function sendTransfer({ secret, to, amount, mint, priorityMicroLamp
 			}),
 		);
 	} else {
+		const {
+			getMint,
+			getAssociatedTokenAddress,
+			getAccount,
+			createAssociatedTokenAccountInstruction,
+			createTransferCheckedInstruction,
+		} = await splToken();
 		const mintPk = new PublicKey(mint);
 		const programId = await resolveTokenProgram(conn, mintPk);
 		const mintInfo = await getMint(conn, mintPk, 'confirmed', programId);
