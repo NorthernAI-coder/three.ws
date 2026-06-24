@@ -573,19 +573,26 @@ export const env = {
 	},
 	// $THREE as a second Solana settlement asset, offered alongside USDC so
 	// holders can pay any three.ws paid endpoint in the platform token — the
-	// modal renders a token chooser whenever both are advertised. OFF by default:
-	// the advertised accept is co-signed and settled by X402_FACILITATOR_URL_SOLANA,
-	// so only enable once that facilitator actually settles the $THREE mint, else
-	// every THREE payment would verify-sign and then fail at /settle. Reuses the
-	// platform $THREE mint + decimals (THREE_TOKEN_MINT / THREE_TOKEN_DECIMALS).
+	// modal renders a token chooser whenever both are advertised. ON by default
+	// now that $THREE is the platform's only coin and every paid surface should
+	// take it. Reuses the platform $THREE mint + decimals (THREE_TOKEN_MINT /
+	// THREE_TOKEN_DECIMALS).
+	//   ⚠️ OPERATIONAL PREREQUISITE: the advertised accept is co-signed and
+	//   settled by X402_FACILITATOR_URL_SOLANA. That facilitator MUST settle the
+	//   $THREE mint — three.ws's own checkout (api/x402-checkout.js) transfers any
+	//   SPL mint, so it does; a vanilla USDC-only facilitator does NOT, and every
+	//   $THREE payment would verify-sign then fail at /settle. If your Solana
+	//   facilitator is USDC-only, set this to 'false' until it supports $THREE.
 	get X402_ACCEPT_THREE_SOLANA() {
-		return opt('X402_ACCEPT_THREE_SOLANA', 'false') === 'true';
+		return opt('X402_ACCEPT_THREE_SOLANA', 'true') === 'true';
 	},
-	// Optional THREE price per call, in atomic THREE units (6 decimals). Unset →
-	// the USDC atomic price is reused. Set explicitly to price THREE by its own
-	// value rather than 1:1 with the dollar amount (e.g. while $THREE ≠ $1).
+	// Flat THREE price per paid call, in atomic THREE units (6 decimals).
+	// 10_000_000 = 10 $THREE. A single flat amount for every endpoint regardless
+	// of its USDC price (a $0.01 oracle call and a $0.50 Forge both cost 10 THREE)
+	// — adjust to taste, or set X402_THREE_AMOUNT_SOLANA in the environment to
+	// override. Unset → falls back to reusing the USDC atomic amount.
 	get X402_THREE_AMOUNT_SOLANA() {
-		return opt('X402_THREE_AMOUNT_SOLANA');
+		return opt('X402_THREE_AMOUNT_SOLANA', '10000000');
 	},
 
 	// ERC-8021 builder-code app identifier. When set, every 402 challenge
