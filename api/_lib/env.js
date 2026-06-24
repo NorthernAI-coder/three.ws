@@ -51,26 +51,48 @@ function normalizeAppOrigin(raw) {
 	}
 }
 
-// Repair the recurring `api-mainnet.helius-rpc.com` / `api-devnet.helius-rpc.com`
-// misconfiguration (Helius's JSON-RPC host is `mainnet.helius-rpc.com`, not the
-// `api.helius.xyz` REST host) before the URL reaches any Solana caller. A bad host
-// 404s every request and gets parked in a 30m cooldown forever; rewriting it keeps
-// SOLANA_RPC_URL a working primary. Kept dependency-free so env.js stays light —
-// mirrors normalizeRpcUrl() in solana/connection.js. Unrecognized URLs pass through.
+// Returns a Connection-safe http(s) URL, or '' when the value can't be salvaged.
+// Kept dependency-free so env.js stays light — mirrors normalizeRpcUrl()/isHttpUrl()
+// in solana/connection.js. Also repairs the recurring `api-mainnet.helius-rpc.com` /
+// `api-devnet.helius-rpc.com` misconfiguration (Helius's JSON-RPC host is
+// `mainnet.helius-rpc.com`, not the `api.helius.xyz` REST host); a bad host 404s
+// every request and gets parked in cooldown, so rewriting it keeps SOLANA_RPC_URL a
+// working primary.
+// Repairs the malformed shapes seen in prod env config before they reach a
+// `new Connection`/`fetch` consumer (where a scheme-less or ws:// value 500s with
+// "Endpoint URL must start with http: or https:"): surrounding quotes, a websocket
+// scheme (mapped to its http(s) form), and a missing scheme (assumed https). The
+// getters below coalesce '' to the public default so every consumer always sees a
+// valid URL. Mirrors normalizeRpcUrl()/isHttpUrl() in solana/connection.js.
 function normalizeRpcUrl(raw) {
-	const v = (raw ?? '').trim();
-	if (!v) return v;
-	try {
-		const u = new URL(v);
-		const fixed = u.hostname.replace(/^api-(mainnet|devnet)\.helius-rpc\.com$/i, '$1.helius-rpc.com');
-		if (fixed !== u.hostname) {
-			u.hostname = fixed;
-			return u.toString();
-		}
-		return v;
-	} catch {
-		return v;
+	let v = (raw ?? '').trim();
+	if (!v) return '';
+	if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+		v = v.slice(1, -1).trim();
 	}
+	if (!v) return '';
+	let candidate = v;
+	if (/^wss:\/\//i.test(candidate)) candidate = candidate.replace(/^wss:/i, 'https:');
+	else if (/^ws:\/\//i.test(candidate)) candidate = candidate.replace(/^ws:/i, 'http:');
+	else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+		const host = candidate.split(/[/?#]/)[0];
+		if (!host.includes('.') && !/^localhost(:\d+)?$/i.test(host)) return '';
+		candidate = `https://${candidate}`;
+	}
+	let u;
+	try {
+		u = new URL(candidate);
+	} catch {
+		return '';
+	}
+	if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+	const fixed = u.hostname.replace(/^api-(mainnet|devnet)\.helius-rpc\.com$/i, '$1.helius-rpc.com');
+	if (fixed !== u.hostname) {
+		return candidate.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^/?#]+)/i, (_m, scheme, authority) =>
+			scheme + authority.replace(u.hostname, fixed),
+		);
+	}
+	return candidate;
 }
 
 // Platform owner wallets with standing admin access, independent of env config.
@@ -770,7 +792,10 @@ export const env = {
 	// Solana RPC URL — single source of truth for all Solana RPC calls.
 	// Set to a Helius/QuickNode/Triton URL in production to avoid public RPC rate limits.
 	get SOLANA_RPC_URL() {
-		return normalizeRpcUrl(opt('SOLANA_RPC_URL', 'https://api.mainnet-beta.solana.com'));
+		// Coalesce to the public endpoint when unset OR when a configured value is
+		// malformed beyond repair — every direct consumer (fetch / new Connection)
+		// then always receives a valid http(s) URL.
+		return normalizeRpcUrl(opt('SOLANA_RPC_URL', '')) || 'https://api.mainnet-beta.solana.com';
 	},
 
 	// Helius API key — extracted from SOLANA_RPC_URL when it's a Helius endpoint,
@@ -787,7 +812,7 @@ export const env = {
 
 	// Solana devnet RPC URL. Falls back to the public devnet endpoint.
 	get SOLANA_RPC_URL_DEVNET() {
-		return normalizeRpcUrl(opt('SOLANA_RPC_URL_DEVNET', 'https://api.devnet.solana.com'));
+		return normalizeRpcUrl(opt('SOLANA_RPC_URL_DEVNET', '')) || 'https://api.devnet.solana.com';
 	},
 
 	// ── threews.sol subdomain minting ─────────────────────────────────────

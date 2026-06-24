@@ -32,31 +32,80 @@ function deriveWsUrl(httpUrl) {
 	return String(httpUrl).replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
 }
 
-// Repair known-bad RPC hostnames sourced from env before they enter the endpoint
-// list. Helius's JSON-RPC host is `mainnet.helius-rpc.com` / `devnet.helius-rpc.com`;
-// a recurring prod misconfiguration set SOLANA_RPC_URL to `api-mainnet.helius-rpc.com`
-// (conflating the RPC host with the `api.helius.xyz` REST host), which 404s every
-// request and gets parked in a 30m cooldown forever. Rewriting the host turns a
-// perpetually-dead primary into a working endpoint instead of relying on failover
-// to silently route around it on every cold start. Unrecognized URLs pass through
-// untouched.
-export function normalizeRpcUrl(raw) {
-	const v = (raw ?? '').trim();
-	if (!v) return v;
+// True only for a value @solana/web3.js's `new Connection` will accept — a parseable
+// URL whose protocol is http: or https:. Connection's `assertEndpointUrl` rejects
+// everything else (ws://, a scheme-less host, junk) by throwing
+// "Endpoint URL must start with `http:` or `https:`.", which is exactly the
+// unhandled 500 that hammered /api/pump/curve and /api/pump/safety in production.
+// Every URL that reaches a Connection constructor in this module is filtered through
+// this guard so that error can never recur.
+export function isHttpUrl(u) {
+	if (typeof u !== 'string' || !u) return false;
 	try {
-		const u = new URL(v);
-		const fixedHost = u.hostname.replace(
-			/^api-(mainnet|devnet)\.helius-rpc\.com$/i,
-			'$1.helius-rpc.com',
-		);
-		if (fixedHost !== u.hostname) {
-			u.hostname = fixedHost;
-			return u.toString();
-		}
-		return v;
+		const { protocol } = new URL(u);
+		return protocol === 'http:' || protocol === 'https:';
 	} catch {
-		return v;
+		return false;
 	}
+}
+
+// Coerce an env-sourced RPC value into a Connection-safe http(s) URL, or '' when it
+// cannot be salvaged. Repairs the malformed shapes seen in production env config
+// before they reach `new Connection` (where they 500 with "Endpoint URL must start
+// with http: or https:"):
+//   • surrounding quotes — a dashboard paste artifact (`SOLANA_RPC_URL="https://…"`)
+//   • a websocket URL (ws/wss) — a valid URL but not an HTTP JSON-RPC endpoint; the
+//     RPC host serves both on the same origin, so we map it to its http(s) form
+//   • a scheme-less host (`mainnet.helius-rpc.com/?api-key=…`) — assume https
+// It also keeps the original Helius host repair: the JSON-RPC host is
+// `mainnet.helius-rpc.com` / `devnet.helius-rpc.com`; a recurring misconfiguration
+// set SOLANA_RPC_URL to `api-mainnet.helius-rpc.com` (conflating it with the
+// `api.helius.xyz` REST host), which 404s every request. Returning '' for an
+// unsalvageable value lets a real fallback take over instead of crashing the
+// constructor; callers treat '' as "not configured".
+export function normalizeRpcUrl(raw) {
+	let v = (raw ?? '').trim();
+	if (!v) return '';
+	// Strip a single pair of surrounding quotes.
+	if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+		v = v.slice(1, -1).trim();
+	}
+	if (!v) return '';
+
+	// Build a parseable candidate, repairing ws/wss and scheme-less inputs. String-
+	// level repairs (not URL.toString()) so a clean input round-trips byte-for-byte —
+	// no trailing-slash churn versus the hardcoded endpoint constants, which would
+	// otherwise defeat dedupe and list the same node twice.
+	let candidate = v;
+	if (/^wss:\/\//i.test(candidate)) candidate = candidate.replace(/^wss:/i, 'https:');
+	else if (/^ws:\/\//i.test(candidate)) candidate = candidate.replace(/^ws:/i, 'http:');
+	else if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(candidate)) {
+		// Scheme-less: assume https only for a host-shaped value (has a dot, or
+		// localhost[:port]). A bare token like "helius" is a typo, not a host — drop
+		// it so it never becomes a bogus `https://helius` lane that wastes a failover
+		// round-trip before the real fallback answers.
+		const host = candidate.split(/[/?#]/)[0];
+		if (!host.includes('.') && !/^localhost(:\d+)?$/i.test(host)) return '';
+		candidate = `https://${candidate}`;
+	}
+
+	let u;
+	try {
+		u = new URL(candidate);
+	} catch {
+		return '';
+	}
+	if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+
+	// Helius host repair, spliced into the authority only (never the path/query) so
+	// the rest of the URL keeps its exact original form.
+	const fixedHost = u.hostname.replace(/^api-(mainnet|devnet)\.helius-rpc\.com$/i, '$1.helius-rpc.com');
+	if (fixedHost !== u.hostname) {
+		return candidate.replace(/^([a-z][a-z0-9+.-]*:\/\/)([^/?#]+)/i, (_m, scheme, authority) =>
+			scheme + authority.replace(u.hostname, fixedHost),
+		);
+	}
+	return candidate;
 }
 
 // Cooldown durations by failure class. Quota exhaustion (e.g. Helius -32429
@@ -131,7 +180,7 @@ function inferNetwork(url) {
 function extraFallbackUrls() {
 	return (process.env.SOLANA_RPC_FALLBACK_URLS || '')
 		.split(',')
-		.map((s) => s.trim())
+		.map((s) => normalizeRpcUrl(s))
 		.filter(Boolean);
 }
 
@@ -149,6 +198,8 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 	// on freetier"). Added in its authenticated form only when DRPC_API_KEY is set.
 	const drpc = process.env.DRPC_API_KEY;
 	if (network === 'devnet') {
+		// .filter(isHttpUrl) is the hard guarantee: only a value `new Connection`
+		// accepts survives, so a malformed env entry can never reach the constructor.
 		return dedupe([
 			normalizeRpcUrl(url),
 			normalizeRpcUrl(process.env.SOLANA_RPC_URL_DEVNET),
@@ -156,7 +207,7 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 			alch && `https://solana-devnet.g.alchemy.com/v2/${alch}`,
 			drpc && `https://lb.drpc.org/ogrpc?network=solana-devnet&dkey=${drpc}`,
 			PUBLIC_DEVNET,
-		]);
+		]).filter(isHttpUrl);
 	}
 	return dedupe([
 		normalizeRpcUrl(url),
@@ -195,7 +246,9 @@ export function solanaRpcEndpoints(network = 'mainnet', url = null) {
 		'https://api.tatum.io/v3/blockchain/node/solana-mainnet',
 		'https://solana.therpc.io',
 		PUBLIC_MAINNET,
-	]);
+		// .filter(isHttpUrl) is the hard guarantee: only a value `new Connection`
+		// accepts survives, so a malformed env entry can never reach the constructor.
+	]).filter(isHttpUrl);
 }
 
 function maskUrl(url) {

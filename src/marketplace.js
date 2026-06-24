@@ -4512,6 +4512,7 @@ function renderCard(a) {
 	const bmOn = bookmarkedAgents.has(a.id);
 	const starBtn = `<button type="button" class="card-star${bmOn ? ' on' : ''}" data-agent-bm="${escapeHtml(a.id)}" aria-label="Bookmark agent" aria-pressed="${bmOn}" title="${bmOn ? 'Remove bookmark' : 'Bookmark agent'}">${bmOn ? '★' : '☆'}</button>`;
 	const onchainBadge = onchainBadgeHTML(a);
+	const pedigreeBadge = pedigreeBadgeHTML(a);
 	return `<div class="card card--interactive market-card-agent" role="link" tabindex="0" data-id="${a.id}">
 		${previewStrip}
 		${priceBadge}

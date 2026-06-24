@@ -17,6 +17,8 @@ import {
 	isEndpointCooling,
 	markEndpointCooldown,
 	makeRotatingFetch,
+	normalizeRpcUrl,
+	isHttpUrl,
 } from './connection.js';
 
 const MAX_CONSECUTIVE_FAILS = 3;
@@ -72,8 +74,18 @@ function isRetryable(err) {
 
 export class RpcFallback {
 	constructor({ url, fallbackUrls = [], commitment = 'confirmed' } = {}) {
-		if (!url) throw new Error('RpcFallback: primary url is required');
-		this.urls = [url, ...fallbackUrls];
+		// Normalize, then keep only Connection-safe http(s) endpoints. A malformed
+		// entry (scheme-less host, ws:// URL, quoted env value, junk) would otherwise
+		// reach `new Connection` in getConnection() and throw "Endpoint URL must start
+		// with `http:` or `https:`." — the unhandled 500 that hammered /api/pump/curve.
+		// Dedupe while preserving priority order.
+		const seen = new Set();
+		this.urls = [url, ...fallbackUrls]
+			.map((u) => normalizeRpcUrl(u))
+			.filter((u) => isHttpUrl(u) && !seen.has(u) && seen.add(u));
+		if (this.urls.length === 0) {
+			throw new Error('RpcFallback: no valid http(s) RPC endpoint configured');
+		}
 		this.commitment = commitment;
 		this.currentIndex = 0;
 		this.failCounts = new Array(this.urls.length).fill(0);
