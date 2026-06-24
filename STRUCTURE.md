@@ -60,7 +60,7 @@ packages/naming-mcp/          → @three-ws/naming-mcp        (MCP server — .s
 packages/intel-mcp/           → @three-ws/intel-mcp         (MCP server — smart-money, signals, KOL, copy-trade intel)
 packages/marketplace-mcp/     → @three-ws/marketplace-mcp   (MCP server — agent marketplace + skills catalog browse)
 packages/x402-mcp/            → @three-ws/x402-mcp          (MCP server — self-custodial x402 buyer: find/inspect/pay any service in USDC)
-packages/autopilot-mcp/       → @three-ws/autopilot-mcp     (MCP server — agent execution control: scopes, $THREE spend caps, propose/execute/undo)
+packages/autopilot-mcp/       → @three-ws/autopilot-mcp     (MCP server — agent execution control: scopes, SOL spend caps, propose/execute/undo)
 packages/portfolio-mcp/       → @three-ws/portfolio-mcp     (MCP server — portfolio, PnL, balances, trade feed, signed transfers)
 packages/provenance-mcp/      → @three-ws/provenance-mcp    (MCP server — append-only, signed, on-chain-verifiable agent action log)
 packages/copy-mcp/            → @three-ws/copy-mcp          (MCP server — manage copy-trade follows, sizing & guard rules)
@@ -96,7 +96,7 @@ our manifest format).
 Runtime SDKs and apps live at the top level for historical compatibility with
 the deploy pipeline and existing import paths.
 
-## SDK packages (implemented, pending publish)
+## SDK packages (published)
 
 These wrap already-live platform capabilities (real `api/` endpoints + MCP
 tools) into single-import `@three-ws/*` SDKs. Each is a **zero-dependency,
@@ -107,11 +107,11 @@ resolution + typed `ThreeWsError`/`PaymentRequiredError`, with 402 carrying the
 x402 challenge). Verify any of them with `cd packages/<name> && node --test
 test/*.test.js`.
 
-Launch state: code complete and publishable standalone (`cd packages/<name> &&
-npm publish`). The final pre-publish steps — adding the 18 to the root
-[npm workspaces](#npm-workspaces) array and a changelog `sdk` entry — are in
-[docs/sdk-launch.md](docs/sdk-launch.md), with the publish order and full
-checklist.
+Launch state: **published to npm** as `@three-ws/<name>` — install with
+`npm i @three-ws/<name>`. The merchant SDK (`@three-ws/x402-server`) advertises
+the two main x402 assets, **USDC and $THREE**, in one 402 challenge. Re-publish
+is idempotent via `node scripts/publish-packages.mjs` (skips versions already on
+npm); see [docs/sdk-launch.md](docs/sdk-launch.md) for the runbook.
 
 | Package | Location | Wraps | What it does |
 |---|---|---|---|

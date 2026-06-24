@@ -23,6 +23,14 @@
 			<description>Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.</description>
 		</item>
 		<item>
+			<title>18 @three-ws SDKs are live on npm — and the x402 wallet now pays in $THREE</title>
+			<link>https://three.ws/docs</link>
+			<guid isPermaLink="false">2026-06-24:18 @three-ws SDKs are live on npm — and the x402 wallet now pays in $THREE</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The full @three-ws SDK suite is published to npm: 18 zero-dependency packages that wrap live three.ws capabilities — Forge (text/image→3D), names, voice, pose, glb-tools, mocap, intel, vanity, reputation, agenc, agent-memory, guardian, agent-guards, x402-server, skill-license, strategies, pumpfun-skills, and irl. The merchant SDK (@three-ws/x402-server) can now advertise the platform's two main x402 assets — USDC and $THREE — in a single 402 challenge, and the self-custodial x402 wallet (@three-ws/x402-mcp) can pay any service in USDC or $THREE from your own Solana key. Install any of them with npm i @three-ws/&lt;name&gt;.</description>
+		</item>
+		<item>
 			<title>Agent profile avatars now stand and breathe instead of freezing in a T-pose</title>
 			<link>https://three.ws/agents</link>
 			<guid isPermaLink="false">2026-06-24:Agent profile avatars now stand and breathe instead of freezing in a T-pose</guid>
