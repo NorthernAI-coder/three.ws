@@ -17,7 +17,12 @@ import http from 'node:http';
 import { loadConfig } from './config.js';
 import { makeStore } from './store.js';
 import { bootFleet, tickCitizen, replenishWork, planDryRun } from './engine.js';
+import { reconcileOnce } from './reconcile.js';
 import { log } from './log.js';
+
+// Reconcile cadence — re-read open postings from the chain and drop any that are
+// no longer open (claimed/cancelled/expired) off the board. Independent of ticks.
+const RECONCILE_MS = Math.max(30_000, Number(process.env.AGORA_RECONCILE_MS) || 60_000);
 
 const BOOT_AT = new Date().toISOString();
 
@@ -46,6 +51,12 @@ async function runOnce(ctx) {
 	for (const citizen of ctx.citizens) {
 		const node = await tickCitizen(ctx, citizen);
 		outcomes[node] = (outcomes[node] || 0) + 1;
+	}
+	// Reconcile so a one-shot run also closes any posting the chain has moved on.
+	try {
+		await reconcileOnce({ cfg: ctx.cfg, store: ctx.store, readClient: ctx.readClient });
+	} catch (err) {
+		log.warn('reconcile (once) failed', { err: err?.message });
 	}
 	log.info('single sweep complete', { citizens: ctx.citizens.length, outcomes });
 }
@@ -77,6 +88,16 @@ async function runForever(ctx) {
 		if (!draining) replenishWork(ctx).catch((err) => log.warn('replenish error', { err: err?.message }));
 	}, Math.max(cfg.tickBaseMs, 30_000));
 
+	// Reconcile the board against the chain on its own cadence (Task 03): close
+	// out postings that are claimed/cancelled/expired and link agent-to-agent hires.
+	const reconcileTimer = setInterval(() => {
+		if (!draining) {
+			reconcileOnce({ cfg, store: ctx.store, readClient: ctx.readClient }).catch((err) =>
+				log.warn('reconcile error', { err: err?.message }),
+			);
+		}
+	}, RECONCILE_MS);
+
 	let heartbeatTimer = null;
 	if (cfg.heartbeatMs) {
 		const beat = () =>
@@ -102,6 +123,7 @@ async function runForever(ctx) {
 		log.info('shutdown', { signal });
 		for (const t of timers) clearTimeout(t);
 		clearInterval(supplyTimer);
+		clearInterval(reconcileTimer);
 		if (heartbeatTimer) clearInterval(heartbeatTimer);
 		// Neon HTTP + Upstash REST are stateless — nothing to close. Give an
 		// in-flight tick a moment to land its projection writes.

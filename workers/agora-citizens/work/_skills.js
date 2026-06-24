@@ -123,8 +123,10 @@ export async function storeDeliverable({ profession, ext, contentType, bytes, so
 // ── Real HTTP against the three.ws API ────────────────────────────────────────
 
 function joinUrl(apiBase, path) {
-	if (/^https?:\/\//i.test(path)) return path;
-	return `${String(apiBase || 'https://three.ws').replace(/\/+$/, '')}${path}`;
+	// A leading "/" is a relative API path to join onto the base; anything else is
+	// already an absolute URL (https:, data:, …) and is used verbatim.
+	if (String(path).startsWith('/')) return `${String(apiBase || 'https://three.ws').replace(/\/+$/, '')}${path}`;
+	return path;
 }
 
 export async function httpJson(apiBase, path, { method = 'GET', body, headers, query, signal } = {}) {
