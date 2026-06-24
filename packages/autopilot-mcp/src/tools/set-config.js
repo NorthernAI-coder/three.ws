@@ -14,7 +14,7 @@ const scopeFlags = z
 	.object({
 		create_alert: z.boolean().optional().describe('Allow creating real price/event alert rules.'),
 		briefing: z.boolean().optional().describe('Allow authoring memory-grounded briefing notifications.'),
-		wallet_transfer: z.boolean().optional().describe('Allow sending real $THREE from the agent wallet (irreversible).'),
+		wallet_transfer: z.boolean().optional().describe('Allow sending real SOL from the agent wallet (irreversible). Never sells or sends $THREE.'),
 	})
 	.partial();
 
@@ -27,7 +27,7 @@ export const def = {
 		"Update the agent's autopilot guardrails. A partial patch — only the fields you pass change; the " +
 		'rest are preserved. Set `enabled` to arm/disarm autopilot, `scopes` to grant/revoke each capability ' +
 		'(create_alert, briefing, wallet_transfer), `autoExecute` to let reversible scopes run without review, ' +
-		'`dailySpendThree` for the daily $THREE outflow ceiling (whole tokens; 0 disables spending), and ' +
+		'`dailySpendSol` for the daily SOL outflow ceiling (in SOL; 0 disables spending), and ' +
 		'`requireConfirm` to force explicit confirmation on irreversible actions. WRITE but idempotent: it ' +
 		'changes only the boundaries, takes no action, and re-applying the same values is a no-op. Returns the ' +
 		'full updated config. Scopes are enforced server-side at execution time — granting one here is what ' +
@@ -47,11 +47,11 @@ export const def = {
 			.partial()
 			.optional()
 			.describe('Reversible scopes allowed to auto-execute on generation (wallet_transfer can never auto-run).'),
-		dailySpendThree: z
+		dailySpendSol: z
 			.number()
 			.min(0)
 			.optional()
-			.describe('Daily ceiling on autonomous $THREE outflow, in whole tokens. 0 means no spending allowed.'),
+			.describe('Daily ceiling on autonomous SOL outflow, in SOL (fractional allowed). 0 means no spending. The agent spends SOL, never $THREE.'),
 		requireConfirm: z
 			.boolean()
 			.optional()
@@ -64,7 +64,7 @@ export const def = {
 		if (args?.enabled !== undefined) body.enabled = args.enabled === true;
 		if (args?.scopes && typeof args.scopes === 'object') body.scopes = args.scopes;
 		if (args?.autoExecute && typeof args.autoExecute === 'object') body.auto_execute = args.autoExecute;
-		if (args?.dailySpendThree !== undefined) body.daily_spend_three = args.dailySpendThree;
+		if (args?.dailySpendSol !== undefined) body.daily_spend_sol = args.dailySpendSol;
 		if (args?.requireConfirm !== undefined) body.require_confirm = args.requireConfirm === true;
 
 		const data = await apiRequest('/api/autopilot/config', { method: 'POST', body });

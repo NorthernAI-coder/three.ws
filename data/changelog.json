@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "18 @three-ws SDKs are live on npm — and the x402 wallet now pays in $THREE",
+			"summary": "The full @three-ws SDK suite is published to npm: 18 zero-dependency packages that wrap live three.ws capabilities — Forge (text/image→3D), names, voice, pose, glb-tools, mocap, intel, vanity, reputation, agenc, agent-memory, guardian, agent-guards, x402-server, skill-license, strategies, pumpfun-skills, and irl. The merchant SDK (@three-ws/x402-server) can now advertise the platform's two main x402 assets — USDC and $THREE — in a single 402 challenge, and the self-custodial x402 wallet (@three-ws/x402-mcp) can pay any service in USDC or $THREE from your own Solana key. Install any of them with npm i @three-ws/<name>.",
+			"tags": [
+				"sdk"
+			],
+			"link": "/docs"
+		},
+		{
+			"date": "2026-06-24",
 			"title": "The IBM × three.ws partnership page now updates itself after it ships",
 			"summary": "The IBM partnership page — the webinar stage and the five live demos — can now be edited after it's published on a partner site, with no re-publish. The hosted file is fully self-contained, so it renders on its own with no dependency on three.ws; on load it also pulls the latest version from three.ws and swaps it in when available. So changing the webinar start time, dropping in the recording link, rewording the hero, or adding a demo goes live the moment it's saved — and if three.ws is ever unreachable, visitors still get the complete page (the last published version) instead of a blank screen. You can preview it at /ibm/hello.",
 			"tags": [

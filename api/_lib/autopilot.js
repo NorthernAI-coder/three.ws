@@ -607,16 +607,15 @@ export async function dryRunProposal({ proposal, agent, config }) {
 		const cap = config.daily_spend_sol;
 		const spent = await dailySolSpent(proposal.agentId);
 		const withinCap = config.scopes.wallet_transfer && cap > 0 && spent + amt <= cap;
-		checks.push({ label: `Within daily $THREE cap (${cap})`, ok: withinCap, detail: `${spent} spent in 24h + ${amt} ≤ ${cap}` });
-		// Live balance check — real RPC read, no spend.
+		checks.push({ label: `Within daily SOL cap (${cap})`, ok: withinCap, detail: `${spent} spent in 24h + ${amt} ≤ ${cap}` });
+		// Live native SOL balance check — real RPC read, no spend.
 		let bal = null;
 		try {
 			const { ensureAgentWallet } = await import('./agent-wallet.js');
 			const w = await ensureAgentWallet(proposal.agentId, agent.user_id, { reason: 'autopilot.dryrun' });
-			const b = await checkThreeBalance(w.address, 0);
-			bal = b.balance / THREE_UNIT;
+			bal = await agentSolBalance(w.address);
 		} catch { /* balance is decoration on the preview */ }
-		checks.push({ label: 'Wallet $THREE balance covers transfer', ok: bal == null ? false : bal >= amt, detail: bal == null ? 'could not read balance' : `${bal} $THREE available` });
+		checks.push({ label: 'Wallet SOL balance covers transfer', ok: bal == null ? false : bal >= amt, detail: bal == null ? 'could not read balance' : `${bal} SOL available` });
 	}
 
 	const blocked = checks.some((c) => !c.ok);
@@ -640,7 +639,7 @@ export async function executeProposal({ proposal, agent, userId, meta, confirmed
 
 	const irreversible = kind === 'wallet_transfer';
 	if (irreversible && config.require_confirm && !confirmed) {
-		throw new AutopilotError('This action moves real $THREE and needs explicit confirmation.', { code: 'confirmation_required', status: 428 });
+		throw new AutopilotError('This action moves real SOL and needs explicit confirmation.', { code: 'confirmation_required', status: 428 });
 	}
 
 	const provenance = {
@@ -688,7 +687,7 @@ export async function executeProposal({ proposal, agent, userId, meta, confirmed
 		result = { notification_id: notif.id, cadence: proposal.params.cadence, body_preview: body.slice(0, 140) };
 		action = await recordAction({ agentId: proposal.agentId, userId, meta, type: ACTION_TYPE.briefing, payload: { ...provenance, ...result } });
 	} else {
-		// wallet_transfer — real, irreversible $THREE SPL transfer.
+		// wallet_transfer — real, irreversible native SOL transfer (never $THREE).
 		result = await executeWalletTransfer({ proposal, agent, userId, config });
 		action = await recordAction({ agentId: proposal.agentId, userId, meta, type: ACTION_TYPE.wallet_transfer, payload: { ...provenance, ...result } });
 	}
@@ -709,22 +708,21 @@ export async function executeProposal({ proposal, agent, userId, meta, confirmed
 }
 
 async function executeWalletTransfer({ proposal, agent, userId, config }) {
-	const amount = Number(proposal.params.amount_three);
+	const amount = Number(proposal.params.amount_sol);
 	const recipient = proposal.params.recipient;
 	if (!SOLANA_ADDR_RE.test(recipient)) throw new AutopilotError('Invalid recipient address.');
 	if (!(amount > 0)) throw new AutopilotError('Transfer amount must be positive.');
 
-	// Daily $THREE cap — real history.
-	const cap = config.daily_spend_three;
-	if (!(cap > 0)) throw new AutopilotError('No daily $THREE spend budget is set.', { code: 'no_budget', status: 403 });
-	const spent = await dailyThreeSpent(proposal.agentId);
+	// Daily SOL cap — real history. Autopilot spends SOL only; it never sells $THREE.
+	const cap = config.daily_spend_sol;
+	if (!(cap > 0)) throw new AutopilotError('No daily SOL spend budget is set.', { code: 'no_budget', status: 403 });
+	const spent = await dailySolSpent(proposal.agentId);
 	if (spent + amount > cap) {
-		throw new AutopilotError(`Daily $THREE budget exceeded (${spent} + ${amount} > ${cap}).`, { code: 'budget_exceeded', status: 403 });
+		throw new AutopilotError(`Daily SOL budget exceeded (${spent} + ${amount} > ${cap}).`, { code: 'budget_exceeded', status: 403 });
 	}
 
 	const { ensureAgentWallet, recoverSolanaAgentKeypair } = await import('./agent-wallet.js');
-	const { default: bs58 } = await import('bs58');
-	const { transferSolanaUSDC } = await import('./solana-transfer.js');
+	const { transferNativeSol } = await import('./solana-transfer.js');
 
 	await ensureAgentWallet(proposal.agentId, agent.user_id, { reason: 'autopilot.transfer' });
 	const [row] = await sql`SELECT meta FROM agent_identities WHERE id = ${proposal.agentId}`;
@@ -732,38 +730,38 @@ async function executeWalletTransfer({ proposal, agent, userId, config }) {
 	const fromAddress = row?.meta?.solana_address;
 	if (!encryptedSecret || !fromAddress) throw new AutopilotError('Agent wallet not provisioned.', { code: 'no_wallet', status: 409 });
 
-	// Live balance check — must cover the transfer (RPC fails open, so re-check raw).
-	const bal = await checkThreeBalance(fromAddress, 0);
-	const amountRaw = BigInt(Math.round(amount * THREE_UNIT));
-	if (bal.balance && BigInt(bal.balance) < amountRaw) {
-		throw new AutopilotError(`Insufficient $THREE: wallet holds ${bal.balance / THREE_UNIT}, needs ${amount}.`, { code: 'insufficient_funds', status: 402 });
+	// Live native SOL balance must cover the transfer.
+	const lamports = BigInt(Math.round(amount * LAMPORTS_PER_SOL));
+	const balanceSol = await agentSolBalance(fromAddress).catch(() => null);
+	if (balanceSol != null && balanceSol < amount) {
+		throw new AutopilotError(`Insufficient SOL: wallet holds ${balanceSol}, needs ${amount}.`, { code: 'insufficient_funds', status: 402 });
 	}
 
 	const custodyId = await recordCustodyEvent({
 		agentId: proposal.agentId, userId, eventType: 'spend', category: 'autopilot',
-		network: 'mainnet', asset: THREE_CA, amountRaw: amountRaw.toString(),
+		network: 'mainnet', asset: 'SOL', amountRaw: lamports.toString(),
 		destination: recipient, reason: `autopilot ${proposal.params.reason || 'transfer'}`.slice(0, 200),
-		status: 'pending', meta: { proposal_id: proposal.id, amount_three: amount },
+		status: 'pending', meta: { proposal_id: proposal.id, amount_sol: amount },
 	});
 
 	let signature;
 	try {
 		const kp = await recoverSolanaAgentKeypair(encryptedSecret, { agentId: proposal.agentId, userId, reason: 'autopilot.transfer' });
-		signature = await transferSolanaUSDC({
-			fromWallet: bs58.encode(kp.secretKey),
+		signature = await transferNativeSol({
+			fromKeypair: kp,
 			toAddress: recipient,
-			amount: amountRaw,
-			mint: THREE_CA,
+			lamports,
+			network: 'mainnet',
 		});
 	} catch (err) {
 		const { updateCustodyEvent } = await import('./agent-trade-guards.js');
 		await updateCustodyEvent(custodyId, { status: 'failed', meta: { error: (err?.message || 'transfer failed').slice(0, 300) } });
-		throw new AutopilotError(`$THREE transfer failed: ${(err?.message || 'unknown').slice(0, 200)}`, { code: 'transfer_failed', status: 502 });
+		throw new AutopilotError(`SOL transfer failed: ${(err?.message || 'unknown').slice(0, 200)}`, { code: 'transfer_failed', status: 502 });
 	}
 
 	const { updateCustodyEvent } = await import('./agent-trade-guards.js');
 	await updateCustodyEvent(custodyId, { status: 'confirmed', signature });
-	return { signature, amount_three: amount, recipient, asset: 'THREE', custody_id: custodyId };
+	return { signature, amount_sol: amount, recipient, asset: 'SOL', custody_id: custodyId };
 }
 
 // Author a real, memory-grounded briefing via the LLM (degrades to a grounded
@@ -800,7 +798,7 @@ async function composeBriefing({ agentId, userId, agent, params }) {
 function buildReceipt(kind, result) {
 	if (kind === 'create_alert') return `Created a ${String(result.rule_kind).replace('_', ' ')} alert.`;
 	if (kind === 'briefing') return 'Authored a briefing and delivered it to your inbox.';
-	return `Sent ${result.amount_three} $THREE.`;
+	return `Sent ${result.amount_sol} SOL.`;
 }
 
 // ── Trust loop (approve / dismiss / undo) ─────────────────────────────────────
@@ -812,7 +810,7 @@ function buildReceipt(kind, result) {
 export async function undoProposal({ proposal, agentId, userId }) {
 	if (proposal.status !== 'executed') throw new AutopilotError('Only an executed action can be undone.', { code: 'not_executed', status: 409 });
 	if (proposal.kind === 'wallet_transfer') {
-		throw new AutopilotError('A $THREE transfer is on-chain and cannot be undone.', { code: 'irreversible', status: 409 });
+		throw new AutopilotError('A SOL transfer is on-chain and cannot be undone.', { code: 'irreversible', status: 409 });
 	}
 
 	if (proposal.kind === 'create_alert' && proposal.result?.rule_id) {

@@ -2,7 +2,7 @@
 //
 // GET  ?agentId=  → { config, trust }
 // POST { agentId, ...patch } → { config }   (patch: enabled, scopes, auto_execute,
-//                                            daily_spend_three, require_confirm)
+//                                            daily_spend_sol, require_confirm)
 //
 // Scope lives on agent_identities.meta.autopilot and is enforced server-side at
 // execution time (api/_lib/autopilot.js). Nothing the agent does is possible
@@ -68,7 +68,7 @@ export default wrap(async (req, res) => {
 	if ('enabled' in body) patch.enabled = body.enabled === true;
 	if (body.scopes && typeof body.scopes === 'object') patch.scopes = body.scopes;
 	if (body.auto_execute && typeof body.auto_execute === 'object') patch.auto_execute = body.auto_execute;
-	if ('daily_spend_three' in body) patch.daily_spend_three = body.daily_spend_three;
+	if ('daily_spend_sol' in body) patch.daily_spend_sol = body.daily_spend_sol;
 	if ('require_confirm' in body) patch.require_confirm = body.require_confirm === true;
 
 	const config = await setAutopilotConfig(agentId, patch);
