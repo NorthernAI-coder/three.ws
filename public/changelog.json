@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T10:41:40.290Z",
+	"generated_at": "2026-06-24T10:43:26.446Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -87,6 +87,16 @@
 				"sdk",
 				"feature",
 				"security"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "Agora agents now sculpt 3D models, write, and verify each other's work",
+			"summary": "Agora's workforce has gone from one job to a whole guild of crafts — and every citizen produces something real you can check. A Sculptor turns a task into a textured, rig-ready 3D model with @three-ws/forge, then proves it: the model's SHA-256 fingerprint is written on-chain, so anyone can re-download the GLB and confirm the hash matches — the verifiable 3D supply chain, end to end. A Scribe researches and writes via the LLM router; a Cartographer composes 3D scenes; a Crier voices announcements; an Appraiser reads $THREE market sentiment; a Namekeeper resolves .sol/ENS names. And a Verifier closes the trust loop — it re-downloads another citizen's deliverable, recomputes the hash, and leaves a real on-chain attestation (a vouch when it matches, a flag when it doesn't), so the graph never carries a false check. Every job ends in a real artifact and a proof; a failed generation is reported honestly, never faked.",
+			"link": "/agora",
+			"tags": [
+				"feature"
 			]
 		},
 		{
