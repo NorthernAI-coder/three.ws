@@ -79,6 +79,12 @@ const REACTIONS = [
 // Confetti palette: monochrome-ish whites + very faint warm/cool accents.
 const CONFETTI_COLORS = ['#ffffff', '#e8e8e8', '#fff8e1', '#e3f2fd', '#f3e5f5', '#e8f5e9'];
 
+// King of the Totem (R07): the hold-the-totem zone, centred on the coin totem
+// (built at world (0, -12) in _buildTotem). Mirrors the server's KING_ZONE so the
+// rendered ring and the authoritative scoring area are the same circle. The server
+// also sends these bounds in every game:king message; this is the render default.
+const KING_ZONE = { x: 0, z: -12, r: 3.5 };
+
 const WORLD_RADIUS = 58; // a touch inside the server's 60m clamp
 const MOVE_SPEED = 4.2;
 const RUN_SPEED = 8.0; // hold Shift to sprint
@@ -789,6 +795,7 @@ export class CoinCommunities {
 		this._buildTotem(coin);
 		this._buildScreen(coin);
 		this._buildDanceFloor();
+		this._buildKingZone();
 		// The market reactor turns the live trade tape into world behaviour: buys
 		// ripple green and kick the boundary ring, sells ripple red, volume spins
 		// the totem, the rolling % drives the weather, and whales detonate a beam
@@ -952,6 +959,7 @@ export class CoinCommunities {
 		this.net.on('chat', (m) => this._onChat(m));
 		this.net.on('reaction', (m) => this._onReaction(m));
 		this.net.on('tag', (msg) => this._onTagMessage(msg)); // R08 tag mini-game
+		this.net.on('king', (msg) => this._onKing(msg)); // R07 King of the Totem
 		this.net.on('ping', (ms) => this.ui.setPing(ms));
 		this.net.on('blockAdd', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); this._syncBudget(); });
 		this.net.on('blockChange', (key, t) => { const [x, y, z] = parseKey(key); this.voxels?.setBlock(x, y, z, t); });
@@ -1304,6 +1312,9 @@ export class CoinCommunities {
 		this._removeLocalGlowRing();
 		this._removeLocalItLabel();
 		this._localIsIt = false;
+		// King of the Totem (R07): tear down the zone + crown marker and hide the HUD.
+		this._disposeKingZone();
+		this.ui.hideKingHud();
 		if (this.localRig) { this.scene.remove(this.localRig); this.localRig = null; }
 		if (this._nipple) { this._nipple.destroy(); this._nipple = null; }
 		this.phase = 'lobby';
@@ -1325,7 +1336,12 @@ export class CoinCommunities {
 		this._updateOnline();
 	}
 	_onChange(player, id) {
-		if (id === this.net.sessionId) return;
+		if (id === this.net.sessionId) {
+			// Tag mini-game (R08): the local player isn't a RemotePlayer, so drive
+			// our own glow ring + head label off our authoritative schema "it" flag.
+			this._updateLocalItMarker(player.it);
+			return;
+		}
 		this.remotes.get(id)?.apply(player);
 	}
 	_onRemove(id) {
@@ -1735,6 +1751,141 @@ export class CoinCommunities {
 			playEmoteClip(this.localAnim, clip, this.motion);
 			this.net?.sendEmote(clip);
 		}
+	}
+
+	// ── King of the Totem (R07) ──────────────────────────────────────────────────
+	// A round-based area-control game. The server is the sole authority: it tracks
+	// who's inside the king-zone at the totem base, awards points to a SOLE occupant
+	// each second (contested = nobody scores), runs 90 s rounds, and broadcasts the
+	// timer, scoreboard, current king and winner. This client only renders: the
+	// ground ring, a crown that follows the current king, the HUD, and a confetti
+	// burst on the winner. It never computes or trusts a score.
+
+	_buildKingZone() {
+		const { x, z, r } = KING_ZONE;
+		const g = new Group();
+		g.position.set(x, 0, z);
+
+		// Boundary ring on the ground — a warm gold annulus that reads as the coin's
+		// own colour (matches the totem disc), so the zone clearly belongs to the totem.
+		const ringMat = new MeshBasicMaterial({ color: 0xffce5c, transparent: true, opacity: 0.42, depthWrite: false, side: DoubleSide });
+		const ring = new Mesh(new RingGeometry(r - 0.2, r, 72), ringMat);
+		ring.rotation.x = -Math.PI / 2;
+		ring.position.y = 0.03;
+		g.add(ring);
+		this._kingRingMat = ringMat;
+
+		// Soft fill so the contested area is legible from above without hiding the ground.
+		const fillMat = new MeshBasicMaterial({ color: 0xffce5c, transparent: true, opacity: 0.05, depthWrite: false, side: DoubleSide });
+		const fill = new Mesh(new CircleGeometry(r - 0.1, 72), fillMat);
+		fill.rotation.x = -Math.PI / 2;
+		fill.position.y = 0.02;
+		g.add(fill);
+		this._kingFillMat = fillMat;
+
+		this.world.add(g);
+		this._kingZone = g;
+		this._kingZoneT = 0;
+		this._kingId = null;
+
+		// A crown ring that follows whoever currently holds the zone. Lives in world
+		// space (not parented to an avatar) and is repositioned each frame, so a king
+		// leaving never strands geometry on a disposed rig.
+		const crownMat = new MeshBasicMaterial({ color: 0xffd86b, transparent: true, opacity: 0.85, depthWrite: false });
+		this._kingCrownRing = new Mesh(new RingGeometry(0.46, 0.72, 36), crownMat);
+		this._kingCrownRing.rotation.x = -Math.PI / 2;
+		this._kingCrownRing.position.y = 0.05;
+		this._kingCrownRing.visible = false;
+		this.world.add(this._kingCrownRing);
+
+		// A 👑 that floats above the king's head, projected to screen each frame.
+		this._kingCrownLabel = document.createElement('div');
+		this._kingCrownLabel.className = 'cc-king-crown';
+		this._kingCrownLabel.textContent = '👑';
+		this._kingCrownLabel.style.display = 'none';
+		document.body.appendChild(this._kingCrownLabel);
+	}
+
+	// World/screen position of a player (local or remote) by session id, or null if
+	// they aren't in our view (left, or their avatar hasn't loaded yet).
+	_kingPlayerPos(id) {
+		if (!id) return null;
+		if (id === this.net?.sessionId) return { pos: this.localPos, height: this.localHeight || 1.7 };
+		const r = this.remotes.get(id);
+		if (r) return { pos: r.rig.position, height: r.height || 1.7 };
+		return null;
+	}
+
+	// Per-frame: pulse the zone (brighter while held, brightest when YOU hold it) and
+	// move the crown to the current king. Pure rendering off the last server snapshot.
+	_tickKingZone(dt) {
+		if (!this._kingZone) return;
+		this._kingZoneT += dt;
+		const held = !!this._kingId;
+		const mine = held && this._kingId === this.net?.sessionId;
+		const breathe = 0.34 + 0.12 * Math.sin(this._kingZoneT * 2);
+		this._kingRingMat.opacity = breathe + (held ? 0.2 : 0) + (mine ? 0.2 : 0);
+		this._kingFillMat.opacity = 0.05 + (held ? 0.05 : 0) + (mine ? 0.07 : 0);
+
+		const kp = held ? this._kingPlayerPos(this._kingId) : null;
+		if (kp) {
+			this._kingCrownRing.visible = true;
+			this._kingCrownRing.position.set(kp.pos.x, 0.05, kp.pos.z);
+			this._kingCrownRing.material.opacity = 0.62 + 0.3 * (0.5 + 0.5 * Math.sin(this._kingZoneT * 5));
+			this._projectKingCrown(kp.pos, kp.height);
+		} else {
+			this._kingCrownRing.visible = false;
+			if (this._kingCrownLabel) this._kingCrownLabel.style.display = 'none';
+		}
+	}
+
+	// Project the floating 👑 above the king's head to a screen position, reusing the
+	// same camera projection as the reaction sprites / nameplate labels.
+	_projectKingCrown(pos, height) {
+		const lbl = this._kingCrownLabel;
+		if (!lbl || !this.camera || !this.renderer) return;
+		const w = this.renderer.domElement.clientWidth;
+		const h = this.renderer.domElement.clientHeight;
+		const v = new Vector3(pos.x, pos.y + height + 0.42, pos.z).project(this.camera);
+		if (v.z > 1 || v.z < -1) { lbl.style.display = 'none'; return; }
+		lbl.style.left = ((v.x * 0.5 + 0.5) * w) + 'px';
+		lbl.style.top = ((-v.y * 0.5 + 0.5) * h) + 'px';
+		lbl.style.display = '';
+	}
+
+	// Authoritative game state from the server (round start/tick/end + join sync).
+	_onKing(msg) {
+		if (!msg || !msg.event) return;
+		const localId = this.net?.sessionId;
+		this._kingId = msg.kingId || null;
+		this.ui.setKingState({ ...msg, localId });
+		if (msg.event === 'end' && msg.winner) {
+			const isMe = msg.winner.id === localId;
+			const wp = this._kingPlayerPos(msg.winner.id);
+			if (wp) this._spawnConfetti(wp.pos, wp.height);
+			// Make sure the local champion always gets a burst even if their avatar is
+			// off the winner-position path above (e.g. camera angle), so winning feels good.
+			if (isMe && (!wp || wp.pos !== this.localPos)) this._spawnConfetti(this.localPos, this.localHeight || 1.7);
+			this.ui.showKingWinner(msg.winner, isMe);
+		}
+	}
+
+	_disposeKingZone() {
+		if (this._kingZone) {
+			this._kingZone.traverse((o) => { o.geometry?.dispose?.(); o.material?.dispose?.(); });
+			this.world?.remove(this._kingZone);
+			this._kingZone = null;
+		}
+		if (this._kingCrownRing) {
+			this._kingCrownRing.geometry.dispose();
+			this._kingCrownRing.material.dispose();
+			this.world?.remove(this._kingCrownRing);
+			this._kingCrownRing = null;
+		}
+		if (this._kingCrownLabel) { this._kingCrownLabel.remove(); this._kingCrownLabel = null; }
+		this._kingRingMat = null;
+		this._kingFillMat = null;
+		this._kingId = null;
 	}
 
 	// Live rename: persist and broadcast so peers' nameplates update instantly.
@@ -2566,16 +2717,26 @@ export class CoinCommunities {
 			for (const [, r] of this.remotes) r.tick(dt);
 			this.worldObjects?.update();
 			this._updateLabels();
+			this._tickKingZone(dt);
 			this._updateVoice();
 			this.playSystems?.tick(dt);
 			this.agentCommerce?.tick(dt);
 			this.intelKiosk?.tick(dt);
 			if (this.worldLife) { this.worldLife.setRealPeers(this.remotes.size); this.worldLife.tick(dt); }
 			if (this.net) this.net.sendMove({ x: this.localPos.x, y: this.localPos.y, z: this.localPos.z, yaw: this.localYaw, motion: this.motion });
-			// Gamepad: left stick steers the emote wheel; south button (0) plays selected.
+			// Gamepad: north button (Y/△, 3) opens the emote wheel; once open, the left
+			// stick steers and the south button (A/✕, 0) plays the selected clip. Edge-
+			// detect the open button so holding it doesn't reopen on the frame it closes.
 			const gp = navigator.getGamepads?.()[0];
-			if (gp && this.ui.emoteWheelOpen) {
-				this.ui.ewGamepadTick(gp.axes[0] ?? 0, gp.axes[1] ?? 0, gp.buttons[0]?.pressed ?? false);
+			if (gp) {
+				const openBtn = gp.buttons[3]?.pressed ?? false;
+				if (openBtn && !this._ewPadOpenPrev && !this.ui.emoteWheelOpen && !this.buildHud.active) {
+					this.ui.openEmoteWheel();
+				}
+				this._ewPadOpenPrev = openBtn;
+				if (this.ui.emoteWheelOpen) {
+					this.ui.ewGamepadTick(gp.axes[0] ?? 0, gp.axes[1] ?? 0, gp.buttons[0]?.pressed ?? false, gp.buttons[1]?.pressed ?? false);
+				}
 			}
 		}
 		this._tickEnv(dt);

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { Sky } from 'three/addons/objects/Sky.js';
 import { fetchOSMData, buildCity, buildMinimapStatic, CITY_HALF } from './city-map.js';
+import { createCityScene, bindResize } from './city-scene.js';
 import { CityPlayer } from './city-player.js';
 import { CityCamera } from './city-camera.js';
 import { log } from '../shared/log.js';
@@ -26,55 +26,9 @@ function progress(pct, label) {
 async function main() {
 	progress(5, 'Setting up renderer…');
 
-	const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-	renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.shadowMap.enabled = true;
-	renderer.shadowMap.type    = THREE.PCFShadowMap;
-	renderer.toneMapping       = THREE.ACESFilmicToneMapping;
-	renderer.toneMappingExposure = 0.88;
-	renderer.outputColorSpace  = THREE.SRGBColorSpace;
-
-	const scene = new THREE.Scene();
-	scene.fog = new THREE.Fog(0x9aafbf, 200, 900);
-
-	const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 1200);
-	camera.position.set(0, 14, 24);
-
-	progress(12, 'Adding lights…');
-
-	scene.add(new THREE.AmbientLight(0xc0d4e8, 1.5));
-
-	const sun = new THREE.DirectionalLight(0xffe8c0, 2.2);
-	sun.position.set(80, 100, -60);
-	sun.castShadow = true;
-	sun.shadow.mapSize.set(4096, 4096);
-	sun.shadow.camera.near   = 1;
-	sun.shadow.camera.far    = 1200;
-	sun.shadow.camera.left   = -300;
-	sun.shadow.camera.right  =  300;
-	sun.shadow.camera.top    =  300;
-	sun.shadow.camera.bottom = -300;
-	sun.shadow.bias = -0.0006;
-	scene.add(sun);
-
-	const fill = new THREE.DirectionalLight(0x90b8e0, 0.75);
-	fill.position.set(-80, 60, 80);
-	scene.add(fill);
-
-	scene.add(new THREE.HemisphereLight(0x92bada, 0x4a5e40, 0.65));
+	const { renderer, scene, camera } = createCityScene(canvas);
 
 	progress(22, 'Building sky…');
-
-	const sky = new Sky();
-	sky.scale.setScalar(8000);
-	scene.add(sky);
-	const su = sky.material.uniforms;
-	su.turbidity.value       = 3.5;
-	su.rayleigh.value        = 2.5;
-	su.mieCoefficient.value  = 0.005;
-	su.mieDirectionalG.value = 0.92;
-	su.sunPosition.value.set(0.45, 0.38, -0.80).normalize();
 
 	// ── Fetch real-world Manhattan OSM data ───────────────────────────────────
 	let osmData;
@@ -108,11 +62,7 @@ async function main() {
 	const cityCamera = new CityCamera(camera, canvas);
 	canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-	window.addEventListener('resize', () => {
-		renderer.setSize(window.innerWidth, window.innerHeight);
-		camera.aspect = window.innerWidth / window.innerHeight;
-		camera.updateProjectionMatrix();
-	});
+	bindResize(renderer, camera);
 
 	canvas.focus();
 

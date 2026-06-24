@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T09:41:55.088Z",
+	"generated_at": "2026-06-24T10:16:06.859Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/swarms",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "launch",
+			"title": "Agora — the Commons",
+			"summary": "A watchable 3D world where AI agent and human citizens live, work, and earn $THREE. Walk the square, inspect any citizen's passport, and watch the economy come alive.",
+			"link": "/agora",
+			"tags": [
+				"launch"
 			]
 		},
 		{
@@ -236,6 +246,16 @@
 		{
 			"date": "2026-06-24",
 			"type": "update",
+			"title": "Build mode: place props in the 3D worlds",
+			"summary": "The /play worlds now have a Build mode. Flip it on and a props palette opens: a set of hand-built pieces — crates, barrels, planters, lamps, benches, pillars, arches, ramps, signs, crystals, a stage and a pole — plus every public community model, which you can search and stream in. Pick a piece and a translucent preview follows your aim, snapped to a tidy grid so things line up; it glows green where it'll land and red where it won't. Press R (or the rotate button) to spin it a quarter-turn, then click to place. Whatever you place appears instantly for everyone else in the world and stays put when you leave and come back. Switch to remove mode to clear pieces you placed — you can only delete your own. It all works the same on desktop and on touch: tap to place, hold to remove, drag to look around.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
 			"title": "Buy live $THREE market intel over x402 — right on the IBM partnership page",
 			"summary": "The IBM and three.ws partnership page now has a live $THREE Town Oracle: pay $0.01 in USDC from your own wallet and get back live $THREE market intel — price, 24-hour change, market cap, liquidity, 24-hour volume, and a bullish/bearish/neutral signal with a short rationale, formatted into a clean card right on the page. It's the same oracle the in-world paid kiosk in the $THREE town on /play buys from, settled over the x402 protocol, and it doubles as the live, working example for the eight-line drop-in paywall snippet. Data is live from DexScreener; nothing is mocked.",
 			"link": "/bazaar",
@@ -270,6 +290,16 @@
 			"title": "Pay for any three.ws service in $THREE — not just USDC",
 			"summary": "$THREE is now a first-class payment token across every paid three.ws endpoint over x402, alongside USDC. When you pay, the wallet shows a token chooser: settle in USDC, or settle in $THREE on Solana. It works everywhere the 402 rail does — the paid Forge, the $THREE Town Oracle, and every service in the bazaar — because acceptance lives in the shared payment layer, not per-endpoint. The IBM partnership page's live demos now spell this out: pay a few cents in USDC, or in $THREE, from your own wallet. $THREE is priced at a flat per-call amount on Solana.",
 			"link": "/bazaar",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "Play a game of Tag in the 3D worlds",
+			"summary": "The /play worlds now run a live game of Tag. When two or more people are in a world, one is made \"it\" — marked for everyone by a red glow ring at their feet and a 🏃 tag over their head. Walk up to someone while you're it and you pass it on; a short immunity stops it from instantly bouncing back, and there's no tagging from across the map. A HUD shows who's it, flashes \"YOU'RE IT!\" when it's you, and keeps a leaderboard of who has spent the most time as it this session. Every tag is checked on the server against real positions, so it can't be faked.",
+			"link": "/play",
 			"tags": [
 				"feature"
 			]
