@@ -184,6 +184,24 @@ const TAG_IMMUNITY_MS = 2000;
 const TAG_MIN_PLAYERS = 2;
 const TAG_LB_INTERVAL_MS = 8000;
 
+// King of the Totem mini-game (R07). Server-authoritative area control: the SOLE
+// occupant of the king-zone at the totem base earns points each tick; two or more
+// inside is "contested" and nobody scores. Rounds run on a fixed timer with a
+// short intermission between them. The zone is centred on the totem (rendered at
+// world (0, -12) — see PROTECTED_POINTS) so its radius matches the client ring.
+// Occupancy is judged from the server's authoritative player positions, so a
+// client can never score from outside the zone. KING_TICK_MS is the scoring +
+// timer cadence; KING_POINTS_PER_SEC is awarded scaled by real elapsed time so a
+// dropped tick never over- or under-pays. A round needs ≥ KING_MIN_PLAYERS present
+// to start, but once running it tolerates players leaving down to zero (it simply
+// ends with no winner). Dead/downed players (W07) can't hold the zone.
+const KING_ZONE = { x: 0, z: -12, r: 3.5 };
+const KING_ROUND_MS = 90_000;
+const KING_INTERMISSION_MS = 12_000;
+const KING_TICK_MS = 1000;
+const KING_POINTS_PER_SEC = 10;
+const KING_MIN_PLAYERS = 1;
+
 // Legacy disc radius — still used as the fallback drop clamp when a driver steps
 // out of a vehicle (vehicles carry their own VEHICLE_WORLD_RADIUS_M bound).
 const WORLD_RADIUS_M = 60;
@@ -384,6 +402,23 @@ export class WalkRoom extends Room {
 		// per session ({ timeMs: number, becameIt: epoch|null }).
 		this._tagImmunity = new Map();
 		this._tagTime = new Map();
+		// King of the Totem (R07): off-schema round + score state. `phase` is the
+		// round machine ('idle' waiting for players | 'active' round running |
+		// 'intermission' showing the winner). `scores` is sessionId → accumulated
+		// points for the CURRENT round (floats; rounded only for display). `kingId`
+		// is the current sole occupant (null when empty or contested). `winner` is
+		// the last completed round's result, surfaced during the intermission.
+		this._king = {
+			phase: 'idle',
+			roundId: 0,
+			startedAt: 0,
+			endsAt: 0,
+			nextAt: 0,
+			lastTickAt: 0,
+			scores: new Map(),
+			kingId: null,
+			winner: null,
+		};
 	}
 
 	async onCreate(options) {
@@ -578,6 +613,12 @@ export class WalkRoom extends Room {
 		this.clock.setInterval(() => {
 			this.broadcast('floor:beat', { clip: DANCE_FLOOR_CLIPS[_beatIdx++ % DANCE_FLOOR_CLIPS.length] });
 		}, 4000);
+
+		// King of the Totem (R07): the single authoritative clock that runs the round
+		// machine — awards points to a sole zone occupant, ends a round on time, and
+		// schedules the next one. One interval drives scoring, the countdown, and the
+		// idle→active→intermission transitions so the timing can never drift apart.
+		this.clock.setInterval(() => this._kingTick(), KING_TICK_MS);
 	}
 
 	async onJoin(client, options) {
@@ -668,6 +709,16 @@ export class WalkRoom extends Room {
 		if (this.state.players.size >= TAG_MIN_PLAYERS && !this._itPlayer()) {
 			this._assignIt(this._randomTagPlayer(null));
 		}
+
+		// King of the Totem (R07): give the new arrival a zero score row for the
+		// current round and immediately sync them the live game state (zone bounds,
+		// phase, countdown, scoreboard) so their HUD is correct mid-round instead of
+		// blank until the next broadcast. If the room was idle and now has enough
+		// players, the next tick starts a round; sync reflects that on the following
+		// beat. Sending zone + phase here is what lets a late joiner render the ring
+		// and timer without waiting up to a full second.
+		if (this._king.phase === 'active') this._king.scores.set(client.sessionId, 0);
+		this._sendKingSync(client);
 	}
 
 	onLeave(client) {
@@ -710,6 +761,15 @@ export class WalkRoom extends Room {
 			}
 		}
 		this._tagTime.delete(client.sessionId);
+		// King of the Totem (R07): drop their current-round score and demote them if
+		// they were holding the zone. Their accumulated points are forfeited (a player
+		// who leaves can't win), and the next tick re-evaluates occupancy from scratch,
+		// so a departing king never freezes the crown. The round itself keeps running.
+		this._king.scores.delete(client.sessionId);
+		if (this._king.kingId === client.sessionId) {
+			this._king.kingId = null;
+			if (this._king.phase === 'active') this._broadcastKing('tick');
+		}
 		this._moveCounters.delete(client.sessionId);
 		this._chatCooldowns.delete(client.sessionId);
 		this._editCounters?.delete(client.sessionId);
@@ -903,6 +963,137 @@ export class WalkRoom extends Room {
 		}
 		rows.sort((a, b) => b.timeMs - a.timeMs);
 		this.broadcast('tag', { event: 'state', itId, leaderboard: rows.slice(0, 8) });
+	}
+
+	// ─── King of the Totem helpers (R07) ────────────────────────────────────────
+
+	/** Sessions whose authoritative position is inside the king-zone right now.
+	 *  Read from the server's clamped positions (never client claims) and skip
+	 *  downed players, so the zone can't be held by a corpse or faked from afar. */
+	_kingOccupants() {
+		const inside = [];
+		for (const [id, p] of this.state.players) {
+			if (p.dead) continue;
+			const dx = p.x - KING_ZONE.x;
+			const dz = p.z - KING_ZONE.z;
+			if (Math.hypot(dx, dz) <= KING_ZONE.r) inside.push(id);
+		}
+		return inside;
+	}
+
+	/** The current-round scoreboard: present players sorted high→low, rounded for
+	 *  display, capped to the top 8 the HUD shows. A player with no points yet
+	 *  still appears (score 0) so the board reads as "everyone's in the running". */
+	_kingScoreRows() {
+		const rows = [];
+		for (const [id, p] of this.state.players) {
+			const score = this._king.scores.get(id) || 0;
+			rows.push({ id, name: p.name || id.slice(0, 6), score: Math.round(score) });
+		}
+		rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+		return rows.slice(0, 8);
+	}
+
+	/** One authoritative beat: drives scoring, the countdown, and every phase
+	 *  transition. Idempotent per second — safe even if a tick is delayed. */
+	_kingTick() {
+		const now = Date.now();
+		const k = this._king;
+
+		if (k.phase === 'active') {
+			// Award the sole occupant points for the real time since the last tick
+			// (clamped so a stalled interval can't dump a huge lump sum). Contested
+			// (2+) or empty (0) means nobody scores and there's no king this beat.
+			const occ = this._kingOccupants();
+			if (occ.length === 1) {
+				const dt = Math.min(2, Math.max(0, (now - k.lastTickAt) / 1000));
+				const id = occ[0];
+				k.scores.set(id, (k.scores.get(id) || 0) + KING_POINTS_PER_SEC * dt);
+				k.kingId = id;
+			} else {
+				k.kingId = null;
+			}
+			k.lastTickAt = now;
+
+			if (now >= k.endsAt) this._endKingRound();
+			else this._broadcastKing('tick');
+			return;
+		}
+
+		if (k.phase === 'intermission') {
+			// Hold on the winner, then start the next round once enough players remain
+			// (otherwise drop back to idle and wait for arrivals).
+			if (now >= k.nextAt) {
+				if (this.state.players.size >= KING_MIN_PLAYERS) this._startKingRound();
+				else { k.phase = 'idle'; this._broadcastKing('idle'); }
+			}
+			return;
+		}
+
+		// idle: kick off a round as soon as the world has someone to play.
+		if (this.state.players.size >= KING_MIN_PLAYERS) this._startKingRound();
+	}
+
+	/** Begin a fresh round: reset scores, stamp the timer, announce the start. */
+	_startKingRound() {
+		const now = Date.now();
+		const k = this._king;
+		k.phase = 'active';
+		k.roundId += 1;
+		k.startedAt = now;
+		k.endsAt = now + KING_ROUND_MS;
+		k.lastTickAt = now;
+		k.kingId = null;
+		k.winner = null;
+		k.scores = new Map();
+		for (const [id] of this.state.players) k.scores.set(id, 0);
+		this._broadcastKing('start');
+	}
+
+	/** End the active round: pick the highest-scoring PRESENT player as winner
+	 *  (a score of 0 across the board ⇒ no winner — an honest "nobody held it"),
+	 *  enter the intermission, and announce the result so clients celebrate. */
+	_endKingRound() {
+		const now = Date.now();
+		const k = this._king;
+		const rows = this._kingScoreRows();
+		const top = rows.length && rows[0].score > 0 ? rows[0] : null;
+		k.winner = top ? { id: top.id, name: top.name, score: top.score } : null;
+		k.phase = 'intermission';
+		k.kingId = null;
+		k.nextAt = now + KING_INTERMISSION_MS;
+		this._broadcastKing('end');
+	}
+
+	/** Shared snapshot of the live game state for both broadcasts and per-client
+	 *  sync. Always carries the zone bounds so a client can render the ring without
+	 *  hardcoding them, plus the phase, countdown anchors, scoreboard and king. */
+	_kingSnapshot(event) {
+		const k = this._king;
+		return {
+			event,
+			phase: k.phase,
+			roundId: k.roundId,
+			now: Date.now(),
+			endsAt: k.endsAt,
+			nextAt: k.nextAt,
+			durationMs: KING_ROUND_MS,
+			zone: KING_ZONE,
+			kingId: k.kingId,
+			winner: k.winner,
+			scores: this._kingScoreRows(),
+		};
+	}
+
+	/** Broadcast the current game state to everyone in the room. */
+	_broadcastKing(event) {
+		this.broadcast('game:king', this._kingSnapshot(event));
+	}
+
+	/** Send the current game state to one client (on join), so a mid-round arrival
+	 *  sees the correct zone, timer and scoreboard immediately. */
+	_sendKingSync(client) {
+		try { this.send(client, 'game:king', this._kingSnapshot('sync')); } catch { /* best-effort */ }
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────────

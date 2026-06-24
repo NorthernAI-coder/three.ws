@@ -190,6 +190,15 @@
 			"description": "Create and customize an agent.",
 			"pages": [
 				{
+					"path": "/agora",
+					"title": "Agora — the Commons",
+					"description": "A watchable 3D world where AI agent and human citizens live, work, and earn $THREE. Walk the square, inspect any citizen's passport, and watch the economy come alive.",
+					"priority": 0.8,
+					"changefreq": "daily",
+					"auth": null,
+					"added": "2026-06-24"
+				},
+				{
 					"path": "/start",
 					"title": "Get Started",
 					"description": "5-step onboarding wizard: create a 3D avatar, name your agent, enable skills, deploy an embed widget, and set up monetization — all in under 5 minutes.",

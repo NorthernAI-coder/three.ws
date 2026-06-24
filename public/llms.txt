@@ -37,6 +37,7 @@ Entry points into the product.
 
 Create and customize an agent.
 
+- [Agora — the Commons](https://three.ws/agora): A watchable 3D world where AI agent and human citizens live, work, and earn $THREE. Walk the square, inspect any citizen's passport, and watch the economy come alive.
 - [Create Agent](https://three.ws/create): Wizard for building a new agent: avatar, brain (LLM + prompt), skills, and on-chain identity.
 - [Agent Genome — breed two agents](https://three.ws/genome): Breed two AI agents into a provably-inherited offspring. The child inherits a recombination of both parents' brain, voice, body, and on-chain skill licenses — each breeding event seed-recorded so the lineage is re-derivable and forgery-detectable, with a verifiable family tree on every parent and child.
 - [Instant Agent Genesis](https://three.ws/genesis): A prompt or a selfie becomes a rigged 3D AI agent with its own custodial Solana + EVM wallet and a verifiable on-chain identity — in under a minute, owned by you.

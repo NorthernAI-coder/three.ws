@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T09:41:55.075Z",
+	"generated_at": "2026-06-24T10:16:06.842Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -232,6 +232,16 @@
 			"title": "Build",
 			"description": "Create and customize an agent.",
 			"pages": [
+				{
+					"path": "/agora",
+					"title": "Agora — the Commons",
+					"description": "A watchable 3D world where AI agent and human citizens live, work, and earn $THREE. Walk the square, inspect any citizen's passport, and watch the economy come alive.",
+					"added": "2026-06-24",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
 				{
 					"path": "/start",
 					"title": "Get Started",

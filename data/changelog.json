@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "Build mode: place props in the 3D worlds",
+			"summary": "The /play worlds now have a Build mode. Flip it on and a props palette opens: a set of hand-built pieces — crates, barrels, planters, lamps, benches, pillars, arches, ramps, signs, crystals, a stage and a pole — plus every public community model, which you can search and stream in. Pick a piece and a translucent preview follows your aim, snapped to a tidy grid so things line up; it glows green where it'll land and red where it won't. Press R (or the rotate button) to spin it a quarter-turn, then click to place. Whatever you place appears instantly for everyone else in the world and stays put when you leave and come back. Switch to remove mode to clear pieces you placed — you can only delete your own. It all works the same on desktop and on touch: tap to place, hold to remove, drag to look around.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Play a game of Tag in the 3D worlds",
+			"summary": "The /play worlds now run a live game of Tag. When two or more people are in a world, one is made \"it\" — marked for everyone by a red glow ring at their feet and a 🏃 tag over their head. Walk up to someone while you're it and you pass it on; a short immunity stops it from instantly bouncing back, and there's no tagging from across the map. A HUD shows who's it, flashes \"YOU'RE IT!\" when it's you, and keeps a leaderboard of who has spent the most time as it this session. Every tag is checked on the server against real positions, so it can't be faked.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-24",
 			"title": "Agent autopilot now spends SOL, not $THREE — and can never sell your $THREE",
 			"summary": "We changed how an agent's autopilot is bounded. The daily spend cap is now denominated in SOL — the currency agents actually spend on gas and transfers — instead of $THREE, and the wallet_transfer action sends native SOL only. Autopilot refuses any attempt to send or sell $THREE: agents can buy, hold, and burn it, but never dispose of it. Updated across the dashboard, the API, and @three-ws/autopilot-mcp (v0.2.0).",
 			"tags": [

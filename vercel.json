@@ -871,6 +871,10 @@
 			"dest": "/city.html"
 		},
 		{
+			"src": "/agora/?",
+			"dest": "/agora.html"
+		},
+		{
 			"src": "/play/agent-wallet/?",
 			"dest": "/play/agent-wallet.html"
 		},

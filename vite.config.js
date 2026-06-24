@@ -439,6 +439,7 @@ const appConfig = {
 				'walk-leaderboard': resolve(__dirname, 'pages/walk-leaderboard.html'),
 				'walk-analytics': resolve(__dirname, 'pages/walk-analytics.html'),
 				city: resolve(__dirname, 'pages/city.html'),
+				agora: resolve(__dirname, 'pages/agora.html'),
 				play: resolve(__dirname, 'pages/play.html'),
 				'play-agent-wallet': resolve(__dirname, 'pages/play/agent-wallet.html'),
 				'play-arena': resolve(__dirname, 'pages/play/arena.html'),

@@ -157,6 +157,7 @@ export class CommunityNet {
 			reaction: new Set(),    // ({id, emoji}) — a player sent a floating reaction
 			tag: new Set(),         // ({event, itId, leaderboard}) — tag mini-game state (R08)
 			floorBeat: new Set(),   // ({clip}) — disco-pad beat tick (R06): pulses the floor + aligns standing dancers
+			king: new Set(),        // ({event, phase, endsAt, scores, kingId, winner, zone}) — King of the Totem state (R07)
 		};
 		this.ping = null;        // smoothed RTT in ms, null until the first echo
 		this._pingSentAt = 0;    // perf-clock stamp of the last move awaiting an echo
@@ -300,6 +301,11 @@ export class CommunityNet {
 			// lockstep. The server message keeps its colon namespace; we normalize it to
 			// a camelCase event like the other namespaced messages above.
 			this.room.onMessage('floor:beat', (msg) => this._emit('floorBeat', msg || {}));
+			// King of the Totem (R07): the room broadcasts round start/tick/end (and a
+			// targeted sync on join) for the hold-the-totem mini-game. Server-authoritative
+			// — the client only renders the HUD + zone. Colon-namespaced like floor:beat;
+			// normalized to a camelCase `king` event.
+			this.room.onMessage('game:king', (msg) => this._emit('king', msg || {}));
 
 			const $ = getStateCallbacks(this.room);
 			const $state = $(this.room.state);

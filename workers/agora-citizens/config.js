@@ -1,0 +1,112 @@
+// agora-citizens — environment + runtime configuration for the life engine.
+// Validated once at boot so a misconfigured worker fails loudly instead of
+// running half a config. Long-lived process (NOT a Vercel cron): it registers a
+// fleet of devnet AgenC agents, then runs each citizen's daily loop on its own
+// jittered cadence, projecting every on-chain action into agora_citizens /
+// agora_activity and the live feed.
+//
+//   AGORA_DRY_RUN=1   — plan only: read the board, decide, but never sign a tx
+//                       or write the DB. Inspect the loop safely.
+//   AGORA_ONCE=1      — run a single tick per citizen, then exit (CI / manual).
+//   AGORA_MAX_CITIZENS=N — cap the fleet (faucet-friendly local runs).
+//
+// Guardrails: devnet rewards are native SOL (synthetic plumbing — never another
+// real token). $THREE is the only coin Agora promotes; on mainnet the reward
+// label is '$THREE'. See docs/agora.md and CLAUDE.md.
+
+function req(name) {
+	const v = process.env[name];
+	if (!v || !String(v).trim()) throw new Error(`[agora-citizens] missing required env var: ${name}`);
+	return String(v).trim();
+}
+function opt(name, def = undefined) {
+	const v = process.env[name];
+	return v == null || v === '' ? def : String(v).trim();
+}
+function num(name, def) {
+	const raw = process.env[name];
+	if (raw == null || raw === '') return def;
+	const n = Number(raw);
+	return Number.isFinite(n) ? n : def;
+}
+function bool(name, def = false) {
+	const raw = process.env[name];
+	if (raw == null || raw === '') return def;
+	return /^(1|true|yes|on)$/i.test(String(raw).trim());
+}
+
+export function loadConfig() {
+	const dryRun = bool('AGORA_DRY_RUN', false);
+
+	// DATABASE_URL is the projection sink. A dry run reads the board + plans but
+	// never writes, so it can run without a DB — handy for inspecting the loop
+	// with zero side effects.
+	const databaseUrl = dryRun ? opt('DATABASE_URL', '') : req('DATABASE_URL');
+
+	const cluster = (opt('AGORA_CLUSTER', 'devnet')).toLowerCase();
+	if (cluster !== 'devnet' && cluster !== 'mainnet') {
+		throw new Error(`[agora-citizens] AGORA_CLUSTER must be devnet|mainnet, got "${cluster}"`);
+	}
+	// Mainnet is escrowed in $THREE and is out of scope for the devnet life
+	// engine — refuse to run live there so a stray env can't move real value.
+	if (cluster === 'mainnet' && !dryRun) {
+		throw new Error('[agora-citizens] mainnet life-engine is out of scope for this worker (devnet only). Set AGORA_CLUSTER=devnet.');
+	}
+
+	const rpcUrl = opt('AGENC_DEVNET_RPC_URL') || opt('SOLANA_RPC_URL_DEVNET') || opt('AGENC_RPC_URL') || undefined;
+
+	return {
+		cluster,
+		rpcUrl,
+		dryRun,
+		// Single tick per citizen then exit — for CI smoke tests and manual runs.
+		once: bool('AGORA_ONCE', false),
+		databaseUrl,
+
+		// Fleet size cap. The roster supplies the candidate citizens (seeded from
+		// real platform agents where possible); this bounds how many we actually
+		// run so a local devnet run respects faucet limits.
+		maxCitizens: Math.max(1, Math.min(50, num('AGORA_MAX_CITIZENS', 4))),
+		// Floor on the fleet when seeding can't find enough real agents — fill with
+		// standalone roster citizens so the world is never empty.
+		minCitizens: Math.max(1, num('AGORA_MIN_CITIZENS', 3)),
+
+		// Per-citizen loop cadence. Each citizen ticks every base ± jitter so the
+		// fleet doesn't stampede the RPC / faucet in lockstep.
+		tickBaseMs: Math.max(5_000, num('AGORA_TICK_MS', 45_000)),
+		tickJitterMs: Math.max(0, num('AGORA_TICK_JITTER_MS', 20_000)),
+
+		// Devnet work supply. With no human/agent bounties yet (Task 03), an
+		// internal dispatcher keeps a small pool of real on-chain Fetcher tasks
+		// open so citizens have genuine work to claim → do → prove → earn. This is
+		// devnet plumbing (native SOL rewards), not the Task-03 bounty product; it
+		// posts no agora `posted_task` projection and escrows no $THREE. Disable to
+		// run citizens against externally-supplied tasks only.
+		dispatchTasks: bool('AGORA_DISPATCH_TASKS', cluster === 'devnet'),
+		minOpenTasks: Math.max(0, num('AGORA_MIN_OPEN_TASKS', 3)),
+		maxOpenTasks: Math.max(1, num('AGORA_MAX_OPEN_TASKS', 8)),
+		taskRewardLamports: Math.max(1, num('AGORA_TASK_REWARD_LAMPORTS', 1_000_000)), // 0.001 SOL devnet
+		taskDeadlineSecs: Math.max(300, num('AGORA_TASK_DEADLINE_SECS', 3_600)),
+
+		// Minimum on-chain stake per agent (AgenC protocol minAgentStake on devnet).
+		stakeLamports: Math.max(1_000_000, num('AGORA_STAKE_LAMPORTS', 1_000_000)),
+
+		// Faucet top-up: keep each signer above the threshold so a claim/complete
+		// (which pays fees + locks reward) never fails for lack of SOL.
+		topupThresholdLamports: Math.max(0, num('AGORA_TOPUP_THRESHOLD_LAMPORTS', 200_000_000)), // 0.2 SOL
+		airdropLamports: Math.max(0, num('AGORA_AIRDROP_LAMPORTS', 1_000_000_000)), // 1 SOL
+
+		// Where the citizen reads the world from. The board endpoint surfaces the
+		// x402 bazaar (real Fetcher work) and any open AgenC tasks. The bridge is
+		// the live work target the Fetcher fingerprints for its proof.
+		apiBase: (opt('AGORA_API_BASE', 'https://three.ws')).replace(/\/+$/, ''),
+
+		// Retry/backoff for every on-chain call. A single citizen's failure must
+		// never halt the fleet.
+		maxRetries: Math.max(0, num('AGORA_MAX_RETRIES', 4)),
+		retryBaseMs: Math.max(200, num('AGORA_RETRY_BASE_MS', 1_500)),
+
+		// Liveness heartbeat into bot_heartbeat (shared ops visibility). 0 disables.
+		heartbeatMs: Math.max(0, num('AGORA_HEARTBEAT_MS', 30_000)),
+	};
+}

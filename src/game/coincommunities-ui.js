@@ -1270,6 +1270,7 @@ export class CommunityUI {
 		this.joystick = el('div', { id: 'cc-joystick' });
 
 		this._buildTagHud();
+		this._buildKingHud();
 		this.hud = el('div', { id: 'cc-hud', hidden: true }, [banner, leave, this.statusPill, this.voiceBtn, this.danceBtn, chat, this.emoteTray, this.reactionBar, hint, this.joystick]);
 		document.body.appendChild(this.hud);
 	}
@@ -1333,6 +1334,140 @@ export class CommunityUI {
 	hideTagHud() {
 		if (this._tagHud) this._tagHud.hidden = true;
 		if (this._tagAlert) this._tagAlert.classList.remove('cc-tag-alert--show');
+	}
+
+	// ── King of the Totem HUD (R07) ───────────────────────────────────────────
+	// Top-centre panel: round countdown, who holds the totem, a live scoreboard
+	// (your row highlighted, the king crowned), and a centre-screen winner banner.
+	// Every value here is server-authoritative — the HUD only renders the last
+	// snapshot and runs a local countdown between the per-second broadcasts.
+
+	_buildKingHud() {
+		this._kingTimer = el('div', { class: 'cc-king-timer', text: '1:30' });
+		this._kingTimerCap = el('div', { class: 'cc-king-timer-cap', text: 'round time' });
+		// aria-live on the status line only (not the whole panel) so a screen reader
+		// announces phase changes — "X holds the totem", "Round over" — without
+		// reading the per-second countdown.
+		this._kingPhase = el('div', { class: 'cc-king-phase', 'aria-live': 'polite' });
+		this._kingBoard = el('div', { class: 'cc-king-board', role: 'list', 'aria-label': 'King of the Totem scoreboard' });
+		this._kingEmpty = el('div', { class: 'cc-king-empty', hidden: true });
+		this._kingHud = el('div', { id: 'cc-king-hud', hidden: true }, [
+			el('div', { class: 'cc-king-head' }, [
+				el('span', { class: 'cc-king-head-ico', 'aria-hidden': 'true', text: '👑' }),
+				el('span', { class: 'cc-king-head-txt', text: 'King of the Totem' }),
+			]),
+			el('div', { class: 'cc-king-clock' }, [this._kingTimer, this._kingTimerCap]),
+			this._kingPhase,
+			this._kingBoard,
+			this._kingEmpty,
+		]);
+		document.body.appendChild(this._kingHud);
+
+		// Centre-screen winner flash, mirroring the tag "YOU'RE IT!" alert.
+		this._kingBanner = el('div', { id: 'cc-king-banner', 'aria-live': 'assertive' });
+		document.body.appendChild(this._kingBanner);
+	}
+
+	/** Drive the HUD from a server snapshot (round start/tick/end + join sync). */
+	setKingState({ phase, now, endsAt, nextAt, kingId, winner, scores = [], localId }) {
+		if (!this._kingHud) return;
+		this._kingHud.hidden = false;
+		// Anchor the local countdown to the SERVER clock: estimate the skew once per
+		// snapshot so the timer keeps ticking smoothly between the per-second beats
+		// (and through the intermission, which the server doesn't tick every second).
+		this._kingClock = {
+			phase,
+			skew: (typeof now === 'number' ? now : Date.now()) - Date.now(),
+			endsAt: endsAt || 0,
+			nextAt: nextAt || 0,
+		};
+		this._renderKingTimer();
+		if (!this._kingTimerInt) this._kingTimerInt = setInterval(() => this._renderKingTimer(), 250);
+
+		if (phase === 'idle') {
+			this._kingBoard.hidden = true;
+			this._kingEmpty.hidden = false;
+			this._kingEmpty.textContent = 'Waiting for players — step onto the gold ring at the totem to start a round.';
+			this._kingPhase.textContent = 'Waiting for players';
+			return;
+		}
+
+		this._kingEmpty.hidden = true;
+		this._kingBoard.hidden = false;
+		this._renderKingBoard(scores, kingId, localId);
+
+		if (phase === 'intermission') {
+			this._kingPhase.textContent = winner ? `🏆 ${winner.name} won the round` : 'Round over — nobody held it';
+		} else {
+			const kRow = kingId ? scores.find((s) => s.id === kingId) : null;
+			this._kingPhase.textContent = kingId
+				? (kingId === localId ? '👑 You hold the totem!' : `👑 ${kRow ? kRow.name : 'Someone'} holds the totem`)
+				: 'Totem is open — claim it!';
+		}
+	}
+
+	/** Re-render just the countdown from the stored server-clock anchor. */
+	_renderKingTimer() {
+		const c = this._kingClock;
+		if (!c || !this._kingTimer) return;
+		const serverNow = Date.now() + c.skew;
+		if (c.phase === 'idle') {
+			this._kingTimer.textContent = '—';
+			this._kingTimer.classList.remove('cc-king-low');
+			this._kingTimerCap.textContent = 'waiting';
+			return;
+		}
+		const target = c.phase === 'intermission' ? c.nextAt : c.endsAt;
+		const secs = Math.max(0, Math.ceil((target - serverNow) / 1000));
+		this._kingTimer.textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+		this._kingTimer.classList.toggle('cc-king-low', c.phase === 'active' && secs <= 10);
+		this._kingTimerCap.textContent = c.phase === 'intermission' ? 'next round' : 'round time';
+	}
+
+	/** Rebuild the scoreboard rows: sorted by the server, your row highlighted, the
+	 *  current king crowned, the leader medalled. Caps at the rows the server sent. */
+	_renderKingBoard(scores, kingId, localId) {
+		this._kingBoard.innerHTML = '';
+		if (!scores.length) {
+			this._kingBoard.appendChild(el('div', { class: 'cc-king-row cc-king-row--empty', text: 'No players yet' }));
+			return;
+		}
+		scores.forEach((s, i) => {
+			const isMe = s.id === localId;
+			const isKing = s.id === kingId;
+			const tag = isKing ? '👑 ' : (i === 0 && s.score > 0 ? '🥇 ' : '');
+			this._kingBoard.appendChild(
+				el('div', { class: `cc-king-row${isMe ? ' cc-king-me' : ''}${isKing ? ' cc-king-holding' : ''}`, role: 'listitem' }, [
+					el('span', { class: 'cc-king-rank', text: String(i + 1) }),
+					el('span', { class: 'cc-king-name', text: tag + (isMe ? 'You' : s.name) }),
+					el('span', { class: 'cc-king-score', text: String(s.score) }),
+				]),
+			);
+		});
+	}
+
+	/** Flash the centre-screen winner banner for 5 s, then fade. */
+	showKingWinner(winner, isMe) {
+		const b = this._kingBanner;
+		if (!b || !winner) return;
+		b.innerHTML = '';
+		b.appendChild(el('div', { class: 'cc-king-banner-crown', 'aria-hidden': 'true', text: '👑' }));
+		b.appendChild(el('div', { class: 'cc-king-banner-title', text: isMe ? "You're the King of the Totem!" : `${winner.name} wins the round!` }));
+		b.appendChild(el('div', { class: 'cc-king-banner-sub', text: `${winner.score} points` }));
+		b.classList.remove('cc-king-banner--show');
+		void b.offsetWidth; // restart the animation
+		b.classList.add('cc-king-banner--show');
+		clearTimeout(this._kingBannerTimer);
+		this._kingBannerTimer = setTimeout(() => b.classList.remove('cc-king-banner--show'), 5000);
+	}
+
+	/** Hide the King HUD + banner and stop the local countdown (called on leave). */
+	hideKingHud() {
+		if (this._kingHud) this._kingHud.hidden = true;
+		if (this._kingBanner) this._kingBanner.classList.remove('cc-king-banner--show');
+		clearInterval(this._kingTimerInt);
+		this._kingTimerInt = null;
+		this._kingClock = null;
 	}
 
 	// ---------------------------------------------------------------- build structures (R20)
@@ -2022,9 +2157,12 @@ export class CommunityUI {
 		if (def) this._ewSetEmote(def);
 	}
 
-	// Called from coincommunities.js _loop for gamepad thumbstick support.
-	ewGamepadTick(stickX, stickY, btnPlay) {
+	// Called from coincommunities.js _loop for gamepad support: the left stick steers
+	// the category selection, the south button plays the selected clip, and the east
+	// button closes the wheel without playing (cancel).
+	ewGamepadTick(stickX, stickY, btnPlay, btnCancel = false) {
 		if (!this._ewOpen) return;
+		if (btnCancel) { this.closeEmoteWheel(false); return; }
 		if (Math.hypot(stickX, stickY) > 0.35) {
 			const angle = (Math.atan2(stickY, stickX) * 180) / Math.PI;
 			let best = 0; let bestD = Infinity;
