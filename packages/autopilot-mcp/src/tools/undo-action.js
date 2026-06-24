@@ -3,7 +3,7 @@
 // Wraps POST /api/autopilot/proposals { action:'undo', agentId, proposalId } → { proposal, trust }.
 // Deletes the real artifact the execution created (the alert rule or the briefing
 // notification) and records a feedback memory so the agent learns the boundary.
-// A $THREE wallet_transfer is on-chain and CANNOT be undone — the server rejects it.
+// A SOL wallet_transfer is on-chain and CANNOT be undone — the server rejects it.
 
 import { z } from 'zod';
 
@@ -18,7 +18,7 @@ export const def = {
 	description:
 		'Reverse a reversible executed proposal: deletes the real artifact the execution created — the alert ' +
 		'rule (create_alert) or the briefing notification (briefing) — and records a feedback memory so the ' +
-		'agent learns to be more conservative next time. WRITE. NOTE: an irreversible $THREE wallet_transfer ' +
+		'agent learns to be more conservative next time. WRITE. NOTE: an irreversible SOL wallet_transfer ' +
 		'is on-chain and cannot be undone — the server rejects that with `irreversible`; to send value back ' +
 		'you would have to execute a new transfer. Returns the updated proposal (status → undone) and trust.',
 	inputSchema: {

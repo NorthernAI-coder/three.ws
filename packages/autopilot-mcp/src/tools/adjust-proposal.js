@@ -20,10 +20,11 @@ export const def = {
 		'create_alert → { asset:"three"|<mint>, condition:"price_above"|"price_below"|"graduation"|"whale_buy", ' +
 		'threshold_usd?|threshold_sol? }; ' +
 		'briefing → { summary, cadence:"once"|"daily"|"weekly", topic }; ' +
-		'wallet_transfer → { recipient:<solana addr>, amount_three:number, reason? }. ' +
+		'wallet_transfer → { recipient:<solana addr>, amount_sol:number, reason? }. ' +
 		'An invalid edit is rejected with the reason and nothing changes. Only a pending proposal can be ' +
-		'adjusted. WRITE but idempotent (no action taken; re-applying the same params is a no-op). The only ' +
-		'coin is $THREE — use asset:"three" for a $THREE alert. Returns the updated proposal.',
+		'adjusted. WRITE but idempotent (no action taken; re-applying the same params is a no-op). For alerts ' +
+		'the only coin is $THREE (asset:"three"); wallet_transfer sends SOL only and never sells or sends ' +
+		'$THREE. Returns the updated proposal.',
 	inputSchema: {
 		agentId: z
 			.string()

@@ -4,7 +4,7 @@
 
 <h1 align="center">@three-ws/autopilot-mcp</h1>
 
-<p align="center"><strong>An AI agent's own autonomous-execution control plane — set autopilot scopes, daily $THREE spend caps, and auto-execute, then run the propose → execute → undo loop, all from any MCP client.</strong></p>
+<p align="center"><strong>An AI agent's own autonomous-execution control plane — set autopilot scopes, a daily SOL spend cap, and auto-execute, then run the propose → execute → undo loop, all from any MCP client.</strong></p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@three-ws/autopilot-mcp"><img alt="npm" src="https://img.shields.io/npm/v/@three-ws/autopilot-mcp?logo=npm&color=cb3837"></a>
@@ -16,11 +16,11 @@
 
 ---
 
-> A [Model Context Protocol](https://modelcontextprotocol.io) server that gives an AI agent **its own execution control plane** over stdio. The agent configures the boundaries it is allowed to act within — capability scopes, a daily $THREE spend ceiling, auto-execute and confirmation policy — then drives the full **propose → review → execute → undo** loop. No human in the loop, but every boundary is **enforced server-side**: an out-of-scope or over-budget action is denied, never executed.
+> A [Model Context Protocol](https://modelcontextprotocol.io) server that gives an AI agent **its own execution control plane** over stdio. The agent configures the boundaries it is allowed to act within — capability scopes, a daily SOL spend ceiling, auto-execute and confirmation policy — then drives the full **propose → review → execute → undo** loop. No human in the loop, but every boundary is **enforced server-side**: an out-of-scope or over-budget action is denied, never executed.
 
 This is the keystone of the autonomous-agent story. Autopilot config and execution used to live only behind the three.ws UI/API; this server exposes them so an agent can manage its own guardrails and act within them.
 
-> ⚠️ **This server is authenticated and write-heavy.** `execute_proposal` can move **real $THREE** on Solana mainnet and is **irreversible**. Scopes, the daily spend cap, and confirmation are all enforced on the three.ws backend — this server cannot bypass them.
+> ⚠️ **This server is authenticated and write-heavy.** `execute_proposal` can move **real SOL** on Solana mainnet and is **irreversible**. It sends native SOL only — the agent never sells or sends **$THREE** (it only buys, holds, or burns it). Scopes, the daily SOL spend cap, and confirmation are all enforced on the three.ws backend — this server cannot bypass them.
 
 ## Install
 
@@ -66,21 +66,21 @@ THREE_WS_API_KEY=sk_live_… npx -y @modelcontextprotocol/inspector npx @three-w
 
 ## Authentication
 
-Every autopilot endpoint is **owner-only**, so this server is authenticated. Set **`THREE_WS_API_KEY`** to the agent owner's three.ws credential — either a three.ws **API key** (`sk_live_…` / `sk_test_…`) or an **OAuth access token**. It is sent as `Authorization: Bearer …` on every request and identifies the owning user; the agent can only manage agents that user owns. The credential can authorize **real $THREE transfers** via `execute_proposal` — store it like a password. `THREE_WS_TOKEN` and `THREE_WS_BEARER` are accepted as aliases.
+Every autopilot endpoint is **owner-only**, so this server is authenticated. Set **`THREE_WS_API_KEY`** to the agent owner's three.ws credential — either a three.ws **API key** (`sk_live_…` / `sk_test_…`) or an **OAuth access token**. It is sent as `Authorization: Bearer …` on every request and identifies the owning user; the agent can only manage agents that user owns. The credential can authorize **real SOL transfers** via `execute_proposal` — store it like a password. `THREE_WS_TOKEN` and `THREE_WS_BEARER` are accepted as aliases.
 
 ## Tools
 
 | Tool                      | Type             | What it does                                                                                                        |
 | ------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `get_autopilot_config`    | read-only        | Read the agent's guardrails: enabled, scopes, auto-execute, daily $THREE cap, confirmation policy — plus trust.     |
-| `set_autopilot_config`    | write · idempotent | Update those guardrails with a partial patch (grant scopes, set the daily $THREE ceiling, arm/disarm). No action taken. |
+| `get_autopilot_config`    | read-only        | Read the agent's guardrails: enabled, scopes, auto-execute, daily SOL cap, confirmation policy — plus trust.     |
+| `set_autopilot_config`    | write · idempotent | Update those guardrails with a partial patch (grant scopes, set the daily SOL ceiling, arm/disarm). No action taken. |
 | `generate_proposals`      | write            | Run the agent's mind: turn high-salience memories + reflections into real, provenance-cited candidate actions.       |
 | `list_proposals`          | read-only        | The proposal queue — ids, kinds, rationales, params, status, cited sources. Filter by status.                       |
 | `dryrun_proposal`         | read-only        | Preview what executing a proposal *would* do (scope / cap / balance checks), without taking any action.             |
 | `adjust_proposal`         | write · idempotent | Edit a pending proposal's params before executing (tune a threshold, amount, cadence). Validated server-side.       |
-| `execute_proposal`        | **write · destructive** | Take the real action. ⚠️ A `wallet_transfer` moves real $THREE on mainnet, irreversible — needs `confirm:true`. |
+| `execute_proposal`        | **write · destructive** | Take the real action. ⚠️ A `wallet_transfer` moves real SOL on mainnet, irreversible — needs `confirm:true`. Never sends $THREE. |
 | `dismiss_proposal`        | write            | Drop a pending proposal; records a feedback memory so the agent stops proposing it.                                 |
-| `undo_action`             | write            | Reverse a reversible execution (delete the alert rule / briefing); records a feedback memory. $THREE transfers can't be undone. |
+| `undo_action`             | write            | Reverse a reversible execution (delete the alert rule / briefing); records a feedback memory. SOL transfers can't be undone. |
 | `list_autopilot_activity` | read-only        | The append-only signed receipts log — every autonomous action, its outcome, provenance, and signature.             |
 | `compute_trust`           | read-only        | The agent's earned trust level (sandbox → trusted → autonomous), computed from real action history.                |
 
@@ -91,11 +91,11 @@ The five read tools reflect live state (proposals, receipts, trust move between 
 Every tool takes **`agentId`** (the UUID of an agent you own) except `list_autopilot_activity`, where it is optional (omit to aggregate across all your agents).
 
 - **`get_autopilot_config`** / **`compute_trust`** / **`generate_proposals`** — `agentId`.
-- **`set_autopilot_config`** — `agentId`, plus any of: `enabled` (bool), `scopes` (`{ create_alert?, briefing?, wallet_transfer? }`), `autoExecute` (`{ create_alert?, briefing? }`), `dailySpendThree` (number, whole $THREE; 0 disables spending), `requireConfirm` (bool).
+- **`set_autopilot_config`** — `agentId`, plus any of: `enabled` (bool), `scopes` (`{ create_alert?, briefing?, wallet_transfer? }`), `autoExecute` (`{ create_alert?, briefing? }`), `dailySpendSol` (number, SOL; 0 disables spending), `requireConfirm` (bool).
 - **`list_proposals`** — `agentId`, `status` (`pending` | `executed` | `dismissed` | `undone` | `failed`), `limit` (1–200).
 - **`dryrun_proposal`** / **`dismiss_proposal`** / **`undo_action`** — `agentId`, `proposalId`.
 - **`adjust_proposal`** — `agentId`, `proposalId`, `params` (full replacement params for the proposal's kind).
-- **`execute_proposal`** — `agentId`, `proposalId`, `confirm` (bool — required for an irreversible $THREE transfer).
+- **`execute_proposal`** — `agentId`, `proposalId`, `confirm` (bool — required for an irreversible SOL transfer).
 - **`list_autopilot_activity`** — `agentId` (optional), `limit` (1–200), `cursor` (from a prior `next_cursor`).
 
 ## The loop
@@ -104,7 +104,7 @@ Every tool takes **`agentId`** (the UUID of an agent you own) except `list_autop
 // 1. Grant the agent a reversible capability
 // set_autopilot_config
 > { "agentId": "…", "enabled": true, "scopes": { "create_alert": true } }
-{ "ok": true, "config": { "enabled": true, "scopes": { "create_alert": true, "briefing": false, "wallet_transfer": false }, "daily_spend_three": 0, "require_confirm": true } }
+{ "ok": true, "config": { "enabled": true, "scopes": { "create_alert": true, "briefing": false, "wallet_transfer": false }, "daily_spend_sol": 0, "require_confirm": true } }
 
 // 2. Let the agent propose actions from its memory
 // generate_proposals
@@ -130,7 +130,7 @@ Every tool takes **`agentId`** (the UUID of an agent you own) except `list_autop
 { "ok": true, "proposal": { "status": "undone" } }
 ```
 
-Spending real $THREE requires the owner to have granted `scopes.wallet_transfer`, set a positive `dailySpendThree`, and (unless pre-authorized) `execute_proposal` must be re-issued with `confirm:true`. All three are checked server-side.
+Spending real SOL requires the owner to have granted `scopes.wallet_transfer`, set a positive `dailySpendSol`, and (unless pre-authorized) `execute_proposal` must be re-issued with `confirm:true`. All three are checked server-side. The agent spends SOL only — it never sells or sends $THREE.
 
 ## Requirements
 
@@ -142,7 +142,7 @@ Spending real $THREE requires the owner to have granted `scopes.wallet_transfer`
 
 | Variable              | Required | Default            | Notes                                                            |
 | --------------------- | -------- | ------------------ | ---------------------------------------------------------------- |
-| `THREE_WS_API_KEY`    | **yes**  | —                  | three.ws API key (`sk_live_…`) or OAuth access token. Secret. Can move real $THREE. |
+| `THREE_WS_API_KEY`    | **yes**  | —                  | three.ws API key (`sk_live_…`) or OAuth access token. Secret. Can move real SOL. |
 | `THREE_WS_BASE`       | no       | `https://three.ws` | Override only when self-hosting or targeting a preview.          |
 | `THREE_WS_TIMEOUT_MS` | no       | `60000`            | Per-request timeout (generation runs a server-side LLM pass).    |
 

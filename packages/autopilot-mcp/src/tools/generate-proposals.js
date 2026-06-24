@@ -5,7 +5,7 @@
 // Generation reads the agent's high-salience memories + pending reflections and
 // synthesizes concrete, provenance-cited proposals, persisting them to the queue.
 // Reversible proposals the owner scoped for auto-execution may run immediately
-// (server-side); irreversible $THREE transfers never auto-run — they stay pending.
+// (server-side); irreversible SOL transfers never auto-run — they stay pending.
 
 import { z } from 'zod';
 
@@ -21,7 +21,7 @@ export const def = {
 		"Run the agent's mind: read its high-salience memories and pending reflections and synthesize real, " +
 		'concrete autopilot proposals — each citing the exact memories that justify it. New proposals are ' +
 		'persisted to the queue (see list_proposals). WRITE: any reversible proposal the owner has scoped for ' +
-		'auto-execution may run immediately and is reported under `autoRan`; irreversible $THREE transfers ' +
+		'auto-execution may run immediately and is reported under `autoRan`; irreversible SOL transfers ' +
 		'never auto-run — they stay pending for explicit execute_proposal. Returns the created proposals, the ' +
 		'autoRan receipts, the generation `source` (reflection | memory | heuristic), what was `scanned`, and ' +
 		'updated trust. Deduped server-side, so calling it repeatedly will not enqueue duplicates.',

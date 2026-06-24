@@ -1,7 +1,7 @@
 // Centralized env + HTTP base for the autopilot MCP.
 //
 // This server is the agent's OWN execution control plane: it reads and writes
-// the real three.ws autopilot surface (scopes, daily $THREE spend caps, the
+// the real three.ws autopilot surface (scopes, daily SOL spend caps, the
 // propose → execute → undo loop) over live HTTP. Every autopilot route is
 // owner-only, so this server is authenticated — it carries a three.ws API key
 // (or OAuth access token) as a Bearer credential on every request. It signs
