@@ -200,6 +200,14 @@ function renderPostView() {
 	panel.setBody([h('div', { class: 'agora-h-section' }, [back]), form]);
 }
 
+function renderHireView(subject) {
+	panel.open(document.activeElement);
+	panel.setHeader(`Hire ${subject.name}`, 'Post a bounty routed to this citizen — real, on-chain');
+	const form = buildComposeForm({ id: subject.id, name: subject.name, profession: subject.profession });
+	const back = h('button', { class: 'agora-btn agora-h-btn-sm', type: 'button', onclick: () => renderYou() }, ['‹ Back']);
+	panel.setBody([h('div', { class: 'agora-h-section' }, [back]), form]);
+}
+
 function buildComposeForm(hireTarget) {
 	// Lazy import keeps the form code out of the initial dock paint.
 	const placeholder = h('div', { class: 'agora-h-hint' }, ['Loading form…']);
@@ -279,7 +287,9 @@ function renderVouchSection() {
 			status.className = 'agora-h-status is-error'; status.textContent = err?.message || 'The vouch was not recorded.';
 		} finally { btn.disabled = false; }
 	});
-	return section(`Vouch for ${subj.name}`, h('div', {}, [
+	const hireBtn = h('button', { class: 'agora-btn agora-h-btn-sm', type: 'button', onclick: () => renderHireView(subj) }, [`Hire ${subj.name}`]);
+		return section(subj.name, h('div', {}, [
+			h('div', { class: 'agora-h-actions' }, [hireBtn]),
 		h('p', { class: 'agora-h-hint' }, ['Leaves a real on-chain attestation that this citizen does good work — verify their deliverable first, then vouch.']),
 		h('div', { class: 'agora-h-field' }, [note]),
 		h('div', { class: 'agora-h-actions' }, [btn]),
