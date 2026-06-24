@@ -169,6 +169,7 @@
 		"deploy": "npm run build:all && npm run check:dist && vercel --local-config vercel.json --prod",
 		"postversion": "git push && git push --tags",
 		"validate:cards": "node scripts/validate-agent-cards.mjs",
+		"db:bootstrap": "node scripts/db-bootstrap.mjs",
 		"db:migrate": "node scripts/apply-migrations.mjs --apply",
 		"db:status": "node scripts/apply-migrations.mjs",
 		"worker:oracle": "node workers/oracle/index.js",

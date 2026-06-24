@@ -170,20 +170,24 @@ The free tier handles early traffic comfortably. When you scale, switch to the p
 
 ### 2. Apply the schema
 
-Three migration scripts apply the schema. All are idempotent — safe to re-run if something fails mid-way.
+One command provisions the **entire** schema — core tables, indexer/delegation state, and every incremental migration — in dependency order. It is idempotent: safe to re-run any time, a no-op for anything already applied.
 
 ```bash
-# Core schema — agents, users, widgets, API keys, sessions, usage events
-node scripts/apply-schema.mjs
-
-# ERC-8004 indexer state — tracks on-chain crawl progress
-node scripts/apply-indexer-schema.js
-
-# ERC-7710 delegation tables — permission grants and redemptions
-node scripts/apply-delegations-schema.js
+npm run db:bootstrap
 ```
 
-Each script reads `DATABASE_URL` from `.env.local` then `.env` then the process environment. If you get a connection error, verify the URL includes `?sslmode=require` — Neon requires SSL.
+This runs, in order:
+
+1. `scripts/apply-schema.mjs` — core schema (agents, users, avatars, agent_identities, sessions, widgets, usage_events, …)
+2. `scripts/apply-indexer-schema.js` — ERC-8004 indexer state
+3. `scripts/apply-delegations-schema.js` — ERC-7710 delegation tables
+4. `scripts/apply-migrations.mjs --apply` — every incremental migration under `api/_lib/migrations/` (agent_custody_events, forge_creations, x_triggers, pump_coin_intel, club_tips, unstoppable_*, …)
+
+> **Do not skip step 4.** The base schema alone does **not** create the migration-defined tables. A database that has only had `apply-schema.mjs` run against it will throw `relation "…" does not exist` for dozens of routes (forge, custody, club tips, x-triggers, the unstoppable agent, …). `npm run db:bootstrap` runs all four steps; running them piecemeal is what leaves a half-provisioned database.
+
+Each step reads `DATABASE_URL` from `.env.local` then `.env` then the process environment. If you get a connection error, verify the URL includes `?sslmode=require` — Neon requires SSL.
+
+To preview pending migrations without writing, run `npm run db:status`.
 
 ### Schema overview
 
@@ -283,8 +287,8 @@ npm install
 cp .env.example .env.local
 # Edit .env.local — minimum: DATABASE_URL, JWT_SECRET, ANTHROPIC_API_KEY
 
-# Apply the schema
-node scripts/apply-schema.mjs
+# Apply the full schema (core + indexer + delegations + migrations)
+npm run db:bootstrap
 
 # Start the dev server
 npm run dev
