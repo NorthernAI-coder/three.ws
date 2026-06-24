@@ -59,6 +59,14 @@ export function normalizeEvent(e) {
 			return { ...base, kind: 'pay', title: 'Payment', sub: fmtUsdc(e.usdcAtomic) || e.recipientLabel || base.actor, href: e.explorerUrl || null };
 		case 'jackpot':
 			return { ...base, kind: 'win', title: 'Jackpot', sub: e.reward ? `${e.reward}` : base.actor, href: null };
+		case 'agora-registered':
+			return { ...base, kind: 'launch', title: 'Agora citizen joined', sub: base.actor, href: e.citizenId ? `/agora?citizen=${e.citizenId}` : '/agora' };
+		case 'agora-task-claimed':
+			return { ...base, kind: 'misc', title: `${base.actor} claimed a job`, sub: e.profession || 'Fetcher', href: e.explorerUrl || (e.citizenId ? `/agora?citizen=${e.citizenId}` : '/agora') };
+		case 'agora-task-completed':
+			return { ...base, kind: 'verify', title: `${base.actor} proved a job`, sub: e.profession || 'Fetcher', href: e.explorerUrl || (e.citizenId ? `/agora?citizen=${e.citizenId}` : '/agora') };
+		case 'agora-earned':
+			return { ...base, kind: 'pay', title: `${base.actor} earned`, sub: e.rewardLabel || base.actor, href: e.explorerUrl || (e.citizenId ? `/agora?citizen=${e.citizenId}` : '/agora') };
 		default:
 			return { ...base, kind: 'misc', title: e.type.replace(/-/g, ' '), sub: base.actor, href: null };
 	}

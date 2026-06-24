@@ -1,0 +1,198 @@
+import * as THREE from 'three';
+import { JobBoard } from './job-board.js';
+import { EconomyFx } from './economy-fx.js';
+import { Ticker } from './ticker.js';
+import { PulseFeed } from './pulse-feed.js';
+import { ECON_LAYER_CSS } from './economy-layer.css.js';
+
+// The economy layer — Task 06's single mount point. The Commons scaffold
+// (Task 05, src/agora/agora-world.js) builds the scene, camera and the living
+// crowd; this lights the economy on top of it:
+//   • a job board with glowing, profession-coloured, reward-sized markers,
+//   • a live ticker (economy readout + click-to-focus narration),
+//   • the completion moment (coin arc + reputation tick + an orbit-able plinth),
+//   • all driven from a single deduped, backing-off pulse poll that pauses with
+//     the tab.
+//
+// It is deliberately decoupled from the scaffold's internals. The host passes a
+// small context — scene, camera, renderer, a focus callback and an optional
+// `crowd` adapter for driving individual citizens (walk / busy / celebrate).
+// Every crowd call is optional-chained, so the board, ticker, coin flow and
+// plinth all work even before the crowd exposes those hooks; the citizen-coupled
+// flourishes simply light up as the adapter is filled in.
+//
+// Returns a handle: { update(dt), dispose() }. The host calls update(dt) in its
+// render loop and dispose() on teardown.
+
+export function mountEconomyLayer(ctx) {
+	const { scene, camera, renderer } = ctx;
+	const reducedMotion = !!ctx.reducedMotion;
+	const canvas = renderer.domElement;
+	const boardPosition = ctx.boardPosition ? ctx.boardPosition.clone() : new THREE.Vector3(0, 0, -7);
+
+	injectStyles();
+
+	// Overlay root for all HTML chrome (tooltips, ticker, floating labels).
+	const root = document.createElement('div');
+	root.className = 'agora-econ-root';
+	document.body.appendChild(root);
+
+	// ── world → screen projection (canvas-rect aware, cached per resize) ───────
+	let rect = canvas.getBoundingClientRect();
+	const refreshRect = () => { rect = canvas.getBoundingClientRect(); };
+	window.addEventListener('resize', refreshRect);
+	window.addEventListener('scroll', refreshRect, true);
+	const _proj = new THREE.Vector3();
+	function worldToScreen(v) {
+		_proj.copy(v).project(camera);
+		const visible = _proj.z < 1 && _proj.x >= -1.15 && _proj.x <= 1.15 && _proj.y >= -1.15 && _proj.y <= 1.15;
+		return {
+			x: rect.left + (_proj.x * 0.5 + 0.5) * rect.width,
+			y: rect.top + (-_proj.y * 0.5 + 0.5) * rect.height,
+			visible,
+		};
+	}
+
+	const focusOn = (v) => ctx.focusOn?.(v);
+	const crowd = ctx.crowd || {};
+
+	// ── modules ────────────────────────────────────────────────────────────────
+	const jobBoard = new JobBoard({
+		scene, root, worldToScreen, reducedMotion, boardPosition,
+		onSelectTask: (task) => {
+			// Selecting a task glides the camera to the board so the marker is framed.
+			focusOn(boardPosition.clone().setY(3.5));
+		},
+	});
+
+	const economyFx = new EconomyFx({
+		scene, root, worldToScreen, reducedMotion, focusOn, boardPosition,
+	});
+
+	const ticker = new Ticker({
+		root, reducedMotion,
+		onFocusActivity: (activity) => focusActivity(activity),
+	});
+
+	// Resolve the citizen behind an activity by display name (pulse.recent carries
+	// the actor's name, not its id) and glide to it; open the passport if the host
+	// wired that. Completion activities with a deliverable focus the plinth.
+	function focusActivity(activity) {
+		if (!activity) return;
+		const name = activity.actor;
+		const hit = name && crowd.findByName ? crowd.findByName(name) : null;
+		if (activity.citizenId && crowd.getPosition) {
+			const p = crowd.getPosition(activity.citizenId);
+			if (p) { focusOn(p.clone().setY(1.6)); ctx.openPassport?.(activity.citizenId); return; }
+		}
+		if (hit?.position) {
+			focusOn(hit.position.clone().setY(1.6));
+			ctx.openPassport?.(hit.id);
+		} else if (activity.kind === 'completed_task' && activity.deliverableUrl) {
+			focusOn(economyFx.plinthSpot.clone().setY(1.4));
+		} else {
+			focusOn(boardPosition.clone().setY(3.5));
+		}
+	}
+
+	// ── live activity routing ────────────────────────────────────────────────
+	function handleActivity(a) {
+		if (!a || !a.kind) return;
+		const hit = a.actor && crowd.findByName ? crowd.findByName(a.actor) : null;
+
+		if (a.kind === 'claimed_task' && hit) {
+			// Walk the claimant to the board, then to a work spot beside it; mark Busy.
+			crowd.setStatus?.(hit.id, 'Busy');
+			const boardSpot = boardPosition.clone();
+			boardSpot.z += 2.2; // stand in front of the board
+			const workSpot = boardPosition.clone();
+			workSpot.x += (Math.random() - 0.5) * 6;
+			workSpot.z += 4 + Math.random() * 3;
+			crowd.walkTo?.(hit.id, boardSpot, () => crowd.walkTo?.(hit.id, workSpot));
+		} else if (a.kind === 'completed_task') {
+			const workerPos = hit?.position || (a.citizenId && crowd.getPosition ? crowd.getPosition(a.citizenId) : null);
+			economyFx.onCompletion({
+				workerPos: workerPos || null,
+				rewardLabel: a.rewardLabel,
+				narrative: a.narrative,
+				deliverableUrl: a.deliverableUrl,
+			});
+			if (hit) {
+				crowd.celebrate?.(hit.id);
+				crowd.setStatus?.(hit.id, 'Active');
+			}
+		}
+	}
+
+	// ── connection state pip ───────────────────────────────────────────────────
+	let errorStreak = 0;
+	function handleError() {
+		errorStreak++;
+		if (errorStreak >= 2) root.classList.add('agora-econ-offline');
+	}
+	function clearError() { errorStreak = 0; root.classList.remove('agora-econ-offline'); }
+
+	// ── feed wiring ────────────────────────────────────────────────────────────
+	const feed = new PulseFeed();
+	const offs = [
+		feed.on('board', (b) => { clearError(); jobBoard.setBoard(b); }),
+		feed.on('pulse', (p) => { clearError(); ticker.setPulse(p); }),
+		feed.on('activity', handleActivity),
+		feed.on('error', handleError),
+	];
+	feed.start();
+
+	// ── 3D marker hover/click (single picker, only on pointer move) ────────────
+	const raycaster = new THREE.Raycaster();
+	const ndc = new THREE.Vector2();
+	function onPointerMove(e) {
+		ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+		ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+		raycaster.setFromCamera(ndc, camera);
+		const hits = raycaster.intersectObjects(jobBoard.pickables, false);
+		jobBoard.hoverByMesh(hits[0]?.object || null);
+		canvas.style.cursor = hits[0] ? 'pointer' : '';
+	}
+	function onClick(e) {
+		ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+		ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+		raycaster.setFromCamera(ndc, camera);
+		const hits = raycaster.intersectObjects(jobBoard.pickables, false);
+		if (hits[0]) {
+			const key = jobBoard.keyForMesh(hits[0].object);
+			const task = jobBoard.taskForKey(key);
+			if (task) { jobBoard.ctx.onSelectTask?.(task, key); }
+		}
+	}
+	canvas.addEventListener('pointermove', onPointerMove);
+	canvas.addEventListener('click', onClick);
+
+	return {
+		update(dt) {
+			jobBoard.update(dt);
+			economyFx.update(dt);
+		},
+		dispose() {
+			for (const off of offs) off?.();
+			feed.stop();
+			canvas.removeEventListener('pointermove', onPointerMove);
+			canvas.removeEventListener('click', onClick);
+			window.removeEventListener('resize', refreshRect);
+			window.removeEventListener('scroll', refreshRect, true);
+			jobBoard.dispose();
+			economyFx.dispose();
+			ticker.dispose();
+			root.remove();
+		},
+	};
+}
+
+let _stylesInjected = false;
+function injectStyles() {
+	if (_stylesInjected || document.getElementById('agora-econ-styles')) return;
+	const style = document.createElement('style');
+	style.id = 'agora-econ-styles';
+	style.textContent = ECON_LAYER_CSS;
+	document.head.appendChild(style);
+	_stylesInjected = true;
+}

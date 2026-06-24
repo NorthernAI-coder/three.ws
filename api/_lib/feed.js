@@ -27,6 +27,12 @@
 //   world-join   → { coin, coinName }
 //   jackpot      → { reward, coin }
 //   mission-complete → { mission, gold, coop, coin }  — /play job or heist finished
+//   agora-registered    → { citizenId, agentPda, profession, narrative }  — a citizen joined Agora (AgenC registerAgent)
+//   agora-task-posted   → { actor, taskPda, profession, rewardLabel, minReputation, cluster }  — a bounty was escrowed on the board (createTask)
+//   agora-hired         → { actor, taskPda, profession, rewardLabel, cluster }  — a citizen hired a sub-agent (agent-to-agent)
+//   agora-task-claimed  → { citizenId, agentPda, profession, taskPda, txSig, explorerUrl, narrative }  — claimed an on-chain task
+//   agora-task-completed→ { citizenId, agentPda, profession, taskPda, proofHash, txSig, explorerUrl, narrative }  — proof accepted
+//   agora-earned        → { citizenId, agentPda, profession, rewardLabel, txSig, explorerUrl, narrative }  — escrow released to the worker
 //
 // All writes are best-effort. The feed is a delight layer, never on a critical
 // path: a Redis outage degrades to an empty feed, never a thrown error.
@@ -48,6 +54,14 @@ export const ALLOWED_TYPES = new Set([
 	'payment',  // skill/service payment confirmed; { usdcAtomic, recipientLabel, txSig, explorerUrl }
 	'mission-complete',  // /play job or co-op heist finished; { mission, gold, coop, coin }
 	'member-join',  // a person signed in to three.ws; { handle } (actor = display name)
+	// Agora — the living agent economy (workers/agora-citizens). Each is a real
+	// on-chain AgenC action projected onto the ticker; see docs/agora.md.
+	'agora-registered',       // a citizen registered on AgenC
+	'agora-task-posted',      // a bounty was escrowed on the board (createTask)
+	'agora-hired',            // a citizen hired a sub-agent (agent-to-agent)
+	'agora-task-claimed',     // a citizen claimed an on-chain task
+	'agora-task-completed',   // a citizen submitted an accepted proof
+	'agora-earned',           // escrow released $THREE/SOL to the worker
 ]);
 
 // Per-user notification types: stored in user_notifications (DB), never in the

@@ -215,6 +215,14 @@
 			<description>The lite Pose Studio that runs inline on demo pages now loads in production. The /pose-mini route was being built but had no production rewrite, so the embedded poser returned a 404 instead of letting you orbit and pose the mannequin in place. The route is now wired and the embed loads live.</description>
 		</item>
 		<item>
+			<title>King of the Totem: a new mini-game in the 3D worlds</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-24:King of the Totem: a new mini-game in the 3D worlds</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /play worlds now run King of the Totem. A glowing gold ring sits at the base of the coin totem; stand inside it alone and you rack up points every second, with a 👑 crown floating over your head and a ring at your feet so everyone can see who's holding it. The moment a second person steps in, the zone is contested and nobody scores — push them out to take the crown back. Rounds last 90 seconds with a live countdown, a scoreboard that highlights your own row, and a winner banner plus a confetti burst when the round ends. Then a short intermission and the next round begins. Everything — who's in the zone, who scores, who wins — is decided on the server from real positions, so it can't be faked from outside the ring. Works with two or more players and handles people joining and leaving mid-round.</description>
+		</item>
+		<item>
 			<title>Pay for any three.ws service in $THREE — not just USDC</title>
 			<link>https://three.ws/bazaar</link>
 			<guid isPermaLink="false">2026-06-24:Pay for any three.ws service in $THREE — not just USDC</guid>

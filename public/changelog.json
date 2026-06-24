@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T10:16:06.859Z",
+	"generated_at": "2026-06-24T10:20:21.854Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -282,6 +282,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "King of the Totem: a new mini-game in the 3D worlds",
+			"summary": "The /play worlds now run King of the Totem. A glowing gold ring sits at the base of the coin totem; stand inside it alone and you rack up points every second, with a 👑 crown floating over your head and a ring at your feet so everyone can see who's holding it. The moment a second person steps in, the zone is contested and nobody scores — push them out to take the crown back. Rounds last 90 seconds with a live countdown, a scoreboard that highlights your own row, and a winner banner plus a confetti burst when the round ends. Then a short intermission and the next round begins. Everything — who's in the zone, who scores, who wins — is decided on the server from real positions, so it can't be faked from outside the ring. Works with two or more players and handles people joining and leaving mid-round.",
+			"link": "/play",
+			"tags": [
+				"feature"
 			]
 		},
 		{
