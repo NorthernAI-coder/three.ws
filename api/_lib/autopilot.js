@@ -16,18 +16,25 @@
 //   5. undoProposal() reverses reversible actions and writes a feedback memory so
 //      the agent learns the owner's boundaries (closing the loop with reflection).
 //
-// No mocks. Alert rules are real, briefings are real notifications, $THREE
-// transfers are real on-chain SPL transfers gated by real confirmation + scope.
-// $THREE is the only coin referenced anywhere here.
+// No mocks. Alert rules are real, briefings are real notifications, SOL
+// transfers are real on-chain System-program transfers gated by real
+// confirmation + scope. Autopilot spends SOL — never $THREE: the agent only ever
+// accumulates and burns $THREE, never sells or sends it. The only coin named for
+// alerts is $THREE.
 
 import { sql } from './db.js';
 import { llmComplete, llmConfigured, LlmUnavailableError } from './llm.js';
-import { THREE_CA, checkThreeBalance } from './three-gate.js';
+import { THREE_CA } from './three-gate.js';
 import { recordCustodyEvent } from './agent-trade-guards.js';
 
 // pump.fun mints (including $THREE) are 6-decimal SPL tokens.
 export const THREE_DECIMALS = 6;
-const THREE_UNIT = 10 ** THREE_DECIMALS;
+
+// Native SOL has 9 decimals (lamports). Autopilot's spend cap and wallet_transfer
+// are denominated in SOL — the currency the agent actually spends on gas and fees
+// (and, via the trading capability, buying coins). $THREE is never spent here.
+const LAMPORTS_PER_SOL = 1_000_000_000;
+const MAX_DAILY_SOL = 1000; // sane ceiling on the daily autonomous SOL spend cap
 
 export const AUTOPILOT_ACTION_KINDS = ['create_alert', 'briefing', 'wallet_transfer'];
 
@@ -48,8 +55,9 @@ export const AUTOPILOT_DEFAULTS = Object.freeze({
 	// Reversible actions may auto-execute within scope when the owner allows it;
 	// wallet_transfer is irreversible and can never auto-execute here.
 	auto_execute: Object.freeze({ create_alert: false, briefing: false }),
-	// Daily ceiling on autonomous $THREE outflow (whole tokens). 0 ⇒ no spending.
-	daily_spend_three: 0,
+	// Daily ceiling on autonomous SOL outflow (in SOL). 0 ⇒ no spending. The agent
+	// spends SOL, never $THREE — $THREE is buy-and-hold/burn only.
+	daily_spend_sol: 0,
 	// Irreversible actions require an explicit confirmation unless the owner
 	// durably pre-authorized that exact scope. Default: always ask.
 	require_confirm: true,
@@ -59,7 +67,10 @@ export function normalizeAutopilotConfig(raw) {
 	const r = raw && typeof raw === 'object' ? raw : {};
 	const scopesIn = r.scopes && typeof r.scopes === 'object' ? r.scopes : {};
 	const autoIn = r.auto_execute && typeof r.auto_execute === 'object' ? r.auto_execute : {};
-	const spend = Number(r.daily_spend_three);
+	// Read the SOL cap. A legacy daily_spend_three (denominated in $THREE) is
+	// intentionally NOT migrated — the units differ — so autopilot fails closed
+	// until the owner sets a SOL cap. SOL is fractional; we don't round to whole.
+	const spend = Number(r.daily_spend_sol);
 	return {
 		enabled: r.enabled === true,
 		scopes: {
@@ -71,7 +82,7 @@ export function normalizeAutopilotConfig(raw) {
 			create_alert: autoIn.create_alert === true,
 			briefing: autoIn.briefing === true,
 		},
-		daily_spend_three: Number.isFinite(spend) && spend > 0 ? Math.min(spend, 1_000_000_000) : 0,
+		daily_spend_sol: Number.isFinite(spend) && spend > 0 ? Math.min(spend, MAX_DAILY_SOL) : 0,
 		require_confirm: r.require_confirm !== false,
 		updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
 	};
@@ -90,7 +101,7 @@ export async function setAutopilotConfig(agentId, patch) {
 		enabled: 'enabled' in patch ? patch.enabled : current.enabled,
 		scopes: { ...current.scopes, ...(patch.scopes || {}) },
 		auto_execute: { ...current.auto_execute, ...(patch.auto_execute || {}) },
-		daily_spend_three: 'daily_spend_three' in patch ? patch.daily_spend_three : current.daily_spend_three,
+		daily_spend_sol: 'daily_spend_sol' in patch ? patch.daily_spend_sol : current.daily_spend_sol,
 		require_confirm: 'require_confirm' in patch ? patch.require_confirm : current.require_confirm,
 	});
 	next.updated_at = new Date().toISOString();
@@ -153,10 +164,17 @@ function validateBriefing(params) {
 function validateWalletTransfer(params) {
 	const recipient = typeof params?.recipient === 'string' ? params.recipient.trim() : '';
 	if (!SOLANA_ADDR_RE.test(recipient)) return { ok: false, reason: 'recipient must be a valid Solana address' };
-	const amount = Number(params?.amount_three);
-	if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: 'amount_three must be > 0' };
+	// Buy-only $THREE: autopilot sends NATIVE SOL only. Any attempt to route this
+	// through a token mint — $THREE above all — is refused. The agent never sells
+	// or sends $THREE; it only accumulates and burns it.
+	const token = String(params?.mint ?? params?.asset ?? params?.token ?? '').trim().toLowerCase();
+	if (token && token !== 'sol' && token !== 'native') {
+		return { ok: false, reason: 'wallet_transfer sends native SOL only — it will never sell or send $THREE or any SPL token' };
+	}
+	const amount = Number(params?.amount_sol);
+	if (!Number.isFinite(amount) || amount <= 0) return { ok: false, reason: 'amount_sol must be > 0' };
 	const reason = typeof params?.reason === 'string' ? params.reason.trim().slice(0, 200) : '';
-	return { ok: true, params: { recipient, amount_three: amount, reason } };
+	return { ok: true, params: { recipient, amount_sol: amount, reason } };
 }
 
 /** Validate + normalize a proposal of a given kind. Returns { ok, kind, params, rule? } | { ok:false, reason }. */
@@ -178,7 +196,7 @@ export function validateProposal(kind, params) {
 export function proposalDedupeKey(kind, params) {
 	if (kind === 'create_alert') return `create_alert:${params.condition}:${params.asset}:${params.threshold_usd ?? params.threshold_sol ?? params.threshold ?? ''}`;
 	if (kind === 'briefing') return `briefing:${params.cadence}:${(params.topic || params.summary || '').toLowerCase().slice(0, 60)}`;
-	return `wallet_transfer:${params.recipient}:${params.amount_three}`;
+	return `wallet_transfer:${params.recipient}:${params.amount_sol}`;
 }
 
 // ── Proposal generation (the "mind") ──────────────────────────────────────────
@@ -194,8 +212,8 @@ const PROPOSAL_SYSTEM = [
 	'        threshold_usd?: number (for price_*), threshold_sol?: number (for whale_buy) }',
 	'  • "briefing"      — a memory-grounded digest. params:',
 	'      { summary: string, cadence: "once"|"daily"|"weekly", topic: string }',
-	'  • "wallet_transfer" — send $THREE from the agent\'s own wallet. params:',
-	'      { recipient: "<solana address>", amount_three: number, reason: string }',
+	'  • "wallet_transfer" — send native SOL from the agent\'s own wallet. params:',
+	'      { recipient: "<solana address>", amount_sol: number, reason: string }',
 	'',
 	'RULES:',
 	'1. PROVENANCE IS MANDATORY. Every proposal must cite "source_memory_ids" using',
@@ -203,10 +221,10 @@ const PROPOSAL_SYSTEM = [
 	'   in specific memories is invalid — do not emit it.',
 	'2. Propose ONLY what the memories justify. Prefer 1-3 high-value proposals over',
 	'   a long list. If nothing is warranted, return {"proposals":[]}.',
-	'3. The ONLY coin is $THREE. Never reference any other token by name. For a',
-	'   $THREE alert set asset:"three".',
-	'4. wallet_transfer is real spending — only propose it when a memory explicitly',
-	'   asks the agent to pay/tip/fund a specific recipient and amount.',
+	'3. For alerts the ONLY coin you name is $THREE (asset:"three"); an explicit mint',
+	'   is allowed only when a memory supplies one. NEVER sell or send $THREE.',
+	'4. wallet_transfer spends real SOL (never $THREE) — propose only when a memory',
+	'   explicitly asks the agent to pay/tip/fund a recipient, with amount_sol.',
 	'5. "rationale" is the receipt the user reads: one sentence, plain language,',
 	'   explaining WHY (referencing what the memories show).',
 	'',
@@ -468,7 +486,7 @@ function defaultTitle(kind, v) {
 		return `Alert: ${m} ${v.rule.kind.replace('_', ' ')}`;
 	}
 	if (kind === 'briefing') return v.params.summary;
-	return `Send ${v.params.amount_three} $THREE`;
+	return `Send ${v.params.amount_sol} SOL`;
 }
 
 function clamp01(n, dflt) {
@@ -540,16 +558,25 @@ export class AutopilotError extends Error {
 	}
 }
 
-/** Sum of $THREE sent by autopilot in the trailing 24h (real history from agent_actions). */
-export async function dailyThreeSpent(agentId) {
+/** Sum of SOL sent by autopilot in the trailing 24h (real history from agent_actions). */
+export async function dailySolSpent(agentId) {
 	const [row] = await sql`
-		SELECT COALESCE(SUM((payload->>'amount_three')::numeric), 0) AS spent
+		SELECT COALESCE(SUM((payload->>'amount_sol')::numeric), 0) AS spent
 		FROM agent_actions
 		WHERE agent_id = ${agentId}
 		  AND type = ${ACTION_TYPE.wallet_transfer}
 		  AND created_at > now() - interval '24 hours'
 	`;
 	return Number(row?.spent ?? 0);
+}
+
+/** Live native SOL balance (in SOL) for an address. Best-effort RPC read. */
+async function agentSolBalance(address) {
+	const { Connection, PublicKey } = await import('@solana/web3.js');
+	const url = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+	const conn = new Connection(url, 'confirmed');
+	const lamports = await conn.getBalance(new PublicKey(address), 'confirmed');
+	return lamports / LAMPORTS_PER_SOL;
 }
 
 /**
@@ -575,10 +602,10 @@ export async function dryRunProposal({ proposal, agent, config }) {
 		willDo = `Author a memory-grounded briefing ("${proposal.params.topic || proposal.params.summary}") and deliver it to your inbox. Reversible.`;
 		checks.push({ label: 'LLM available for synthesis', ok: llmConfigured(), detail: llmConfigured() ? 'ready' : 'will use a grounded summary fallback' });
 	} else {
-		const amt = Number(proposal.params.amount_three) || 0;
-		willDo = `Send ${amt} $THREE to ${proposal.params.recipient}. IRREVERSIBLE — always requires explicit confirmation.`;
-		const cap = config.daily_spend_three;
-		const spent = await dailyThreeSpent(proposal.agentId);
+		const amt = Number(proposal.params.amount_sol) || 0;
+		willDo = `Send ${amt} SOL to ${proposal.params.recipient}. IRREVERSIBLE — always requires explicit confirmation. (Autopilot never sells or sends $THREE.)`;
+		const cap = config.daily_spend_sol;
+		const spent = await dailySolSpent(proposal.agentId);
 		const withinCap = config.scopes.wallet_transfer && cap > 0 && spent + amt <= cap;
 		checks.push({ label: `Within daily $THREE cap (${cap})`, ok: withinCap, detail: `${spent} spent in 24h + ${amt} ≤ ${cap}` });
 		// Live balance check — real RPC read, no spend.

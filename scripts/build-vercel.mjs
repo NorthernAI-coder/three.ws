@@ -189,6 +189,11 @@ async function prebuild() {
 	// it also stamps the freshly-generated /sitemap page. Both injectors are
 	// idempotent — a no-op once a page is fully covered.
 	await run('seo:pages', 'node scripts/inject-seo-meta.mjs --write');
+	// Regenerate the published IBM partnership page from its editable source
+	// (pages/ibm/hello.live.html) AFTER the SEO/head injectors have stamped it,
+	// so the baked, self-contained pages/ibm/hello.html inherits the same <head>.
+	// The Vite build then copies both verbatim into dist/ibm/.
+	await run('build:ibm-shell', 'node scripts/build-ibm-shell.mjs');
 }
 
 async function buildLib() {
