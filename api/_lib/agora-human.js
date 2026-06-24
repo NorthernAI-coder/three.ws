@@ -1,0 +1,345 @@
+// Agora — human citizen service (Task 08, see docs/agora.md § Citizens).
+//
+// A human citizen is a signed-in user living in Agora. To transact on AgenC
+// (post/escrow, hire, claim, complete) the server signs on their behalf from a
+// CUSTODIAL Solana wallet provisioned on join — the same mechanism agents use
+// (api/_lib/agent-wallet.js). The secret is AES-256-GCM encrypted at rest in
+// agora_citizens.meta and never leaves the server.
+//
+// Everything here projects into the SAME agora_activity ledger + feed an agent
+// would: there is no separate "fake human" path. On-chain is the source of
+// truth; agora_* is the world-layer projection (docs/agora.md invariant 3).
+//
+// On-chain calls go through @three-ws/solana-agent, imported LAZILY so this
+// module (and the act endpoint) load even where that SDK isn't built — the same
+// discipline as the passport reconcile in api/agora/[action].js.
+
+import { createHash } from 'node:crypto';
+import { sql } from './db.js';
+import { generateSolanaAgentWallet, getSolanaAddressBalances } from './agent-wallet.js';
+import { decryptSecret } from './secret-box.js';
+import { TOKEN_MINT, TOKEN_DECIMALS } from './token/config.js';
+import { publishFeedEvent } from './feed.js';
+
+// AgenC devnet minAgentStake (matches examples/agenc-task-roundtrip/run.mjs).
+const MIN_STAKE_LAMPORTS = 1_000_000;
+// Default reward used when a hire/claim needs a tx-fee floor on devnet.
+const LAMPORTS_PER_SOL = 1_000_000_000;
+
+// Human citizens are generalists: they assert capability by actually delivering
+// a real proof, so we register them with the full profession bitmap (all 8 bits)
+// rather than a curated subset. AgenC's claim/complete still gates them — a
+// claim only sticks if their capabilities cover the task's requiredCapabilities,
+// and completion requires a real proofHash. (Mirrors the open-registry rule in
+// docs/agora.md — never a hardcoded allowlist.)
+const HUMAN_CAPABILITIES = 0xffn;
+
+// Profession ↔ capability-bit map — mirrors docs/agora.md and the PROFESSIONS
+// array in api/agora/[action].js (the canonical source is the doc). Used to turn
+// a human's chosen target profession into a task's requiredCapabilities bitmap.
+export const PROFESSION_BITS = {
+	fetcher: 0,
+	sculptor: 1,
+	scribe: 2,
+	cartographer: 3,
+	crier: 4,
+	appraiser: 5,
+	verifier: 6,
+	namekeeper: 7,
+};
+
+export function professionToCapabilityBits(profession) {
+	const bit = PROFESSION_BITS[String(profession || '').toLowerCase()];
+	if (bit == null) return 0n;
+	return 1n << BigInt(bit);
+}
+
+function pickRpc(cluster) {
+	const override = (process.env.AGENC_RPC_URL || '').trim();
+	if (override) return override;
+	if (cluster === 'devnet') return (process.env.AGENC_DEVNET_RPC_URL || process.env.SOLANA_RPC_URL_DEVNET || '').trim() || undefined;
+	return (process.env.SOLANA_RPC_URL || '').trim() || undefined;
+}
+
+// Deterministically scatter a citizen across the Commons plaza from a stable id
+// so their home/spawn is consistent run to run (no Math.random in a projection).
+function homeForId(id) {
+	const h = createHash('sha256').update(String(id)).digest();
+	const angle = (h[0] / 255) * Math.PI * 2;
+	const radius = 6 + (h[1] / 255) * 14; // 6..20 units from the board
+	return {
+		x: Math.round(Math.cos(angle) * radius * 100) / 100,
+		z: Math.round(Math.sin(angle) * radius * 100) / 100,
+	};
+}
+
+function shortName(user) {
+	return (user.display_name || user.username || 'three.ws citizen').toString().slice(0, 60);
+}
+
+// ── Citizen provisioning ──────────────────────────────────────────────────────
+
+/**
+ * Idempotently get-or-create the human citizen for a signed-in user. Provisions
+ * a custodial Solana wallet on first join, places them in the Commons, and fires
+ * a member-join feed event for a genuinely new arrival. Does NOT touch the chain
+ * — AgenC registration is lazy (ensureRegistered), so joining is instant and
+ * works offline of any RPC.
+ *
+ * @returns {Promise<{ citizen: object, created: boolean }>}
+ */
+export async function ensureHumanCitizen({ user, cluster = 'devnet' }) {
+	const [existing] = await sql`
+		select * from agora_citizens where user_id = ${user.id} and kind = 'human' limit 1
+	`;
+	if (existing) {
+		// Keep the live presence fresh + repair a missing wallet (never hand a
+		// downstream signer an empty secret).
+		if (!existing.meta?.encrypted_solana_secret) {
+			const wallet = await generateSolanaAgentWallet();
+			const meta = { ...(existing.meta || {}), solana_address: wallet.address, encrypted_solana_secret: wallet.encrypted_secret, solana_wallet_source: 'generated' };
+			const [repaired] = await sql`
+				update agora_citizens set meta = ${JSON.stringify(meta)}::jsonb, last_active_at = now()
+				where id = ${existing.id} returning *`;
+			return { citizen: repaired, created: false };
+		}
+		const [touched] = await sql`
+			update agora_citizens set last_active_at = now() where id = ${existing.id} returning *`;
+		return { citizen: touched, created: false };
+	}
+
+	const wallet = await generateSolanaAgentWallet();
+	const home = homeForId(user.id);
+	const meta = {
+		solana_address: wallet.address,
+		encrypted_solana_secret: wallet.encrypted_secret,
+		solana_wallet_source: 'generated',
+		handle: user.username || null,
+	};
+	const [citizen] = await sql`
+		insert into agora_citizens
+			(kind, user_id, display_name, avatar_url, agenc_cluster, status,
+			 capability_bits, home_x, home_z, pos_x, pos_z, meta)
+		values
+			('human', ${user.id}, ${shortName(user)}, ${user.avatar_url || null}, ${cluster}, 'idle',
+			 ${HUMAN_CAPABILITIES}, ${home.x}, ${home.z}, ${home.x}, ${home.z}, ${JSON.stringify(meta)}::jsonb)
+		returning *
+	`;
+
+	// A real arrival on the ticker (throttled inside the feed lib).
+	publishFeedEvent({
+		type: 'member-join',
+		actor: shortName(user).slice(0, 32),
+		handle: user.username || undefined,
+	}).catch(() => {});
+
+	return { citizen, created: true };
+}
+
+// ── On-chain plumbing ─────────────────────────────────────────────────────────
+
+/** Decrypt the citizen's custodial secret into a Solana Keypair (server-only). */
+export async function recoverCitizenKeypair(citizen) {
+	const enc = citizen.meta?.encrypted_solana_secret;
+	if (!enc) throw Object.assign(new Error('citizen has no custodial wallet'), { status: 409, code: 'no_wallet' });
+	const { Keypair } = await import('@solana/web3.js');
+	const secretB64 = await decryptSecret(enc);
+	return Keypair.fromSecretKey(Buffer.from(secretB64, 'base64'));
+}
+
+async function buildClient(cluster, signer) {
+	const { createAgenCClient } = await import('@three-ws/solana-agent');
+	return createAgenCClient({ cluster, rpcUrl: pickRpc(cluster), signer });
+}
+
+// Top up a devnet wallet from the public faucet with backoff — mirrors the
+// roundtrip example. Mainnet never airdrops: an underfunded mainnet wallet is an
+// honest, actionable error, not a silent failure.
+async function ensureDevnetBalance(connection, keypair, neededLamports) {
+	const bal = await connection.getBalance(keypair.publicKey);
+	if (bal >= neededLamports) return bal;
+	const chunks = [LAMPORTS_PER_SOL, LAMPORTS_PER_SOL / 2, LAMPORTS_PER_SOL / 4];
+	for (let i = 0; i < chunks.length; i++) {
+		try {
+			const sig = await connection.requestAirdrop(keypair.publicKey, Math.max(chunks[i], LAMPORTS_PER_SOL / 50));
+			await connection.confirmTransaction(sig, 'confirmed');
+			const next = await connection.getBalance(keypair.publicKey);
+			if (next >= neededLamports) return next;
+		} catch {
+			await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+		}
+	}
+	return connection.getBalance(keypair.publicKey);
+}
+
+/**
+ * Ensure the human citizen is registered as an AgenC agent on `cluster`, signing
+ * with their custodial wallet. Lazy + idempotent: returns the existing on-chain
+ * agent if present, otherwise funds (devnet), registers, persists the canonical
+ * id/PDA, and projects a 'registered' activity row + feed event.
+ *
+ * @returns {Promise<{ agentId: Uint8Array, agentIdHex: string, agentPda: string, signer: object, client: object, citizen: object }>}
+ */
+export async function ensureRegistered({ citizen, cluster }) {
+	const {
+		registerAgenCAgent, getAgenCAgent, deriveAgenCAgentPda, toAgenCAgentId,
+		buildThreewsMetadataUri, agenCAgentIdToHex,
+	} = await import('@three-ws/solana-agent');
+
+	const signer = await recoverCitizenKeypair(citizen);
+	const client = await buildClient(cluster, signer);
+
+	const label = `agora-human-${citizen.id}`;
+	const agentId = toAgenCAgentId(label);
+	const agentPda = deriveAgenCAgentPda(client, agentId);
+
+	// Already registered on-chain (and our projection matches the cluster) → reuse.
+	const existingOnChain = await getAgenCAgent(client, agentPda).catch(() => null);
+	if (existingOnChain) {
+		if (citizen.agenc_agent_pda !== agentPda.toBase58() || citizen.agenc_cluster !== cluster) {
+			await sql`
+				update agora_citizens
+				set agenc_agent_id = ${agenCAgentIdToHex(agentId)}, agenc_agent_pda = ${agentPda.toBase58()},
+				    agenc_cluster = ${cluster}, identity_source = 'handle', synced_at = now()
+				where id = ${citizen.id}`;
+		}
+		return { agentId, agentIdHex: agenCAgentIdToHex(agentId), agentPda: agentPda.toBase58(), signer, client, citizen };
+	}
+
+	// Fund (devnet) enough for the stake + tx fees, then register.
+	if (cluster === 'devnet') {
+		await ensureDevnetBalance(client.connection, signer, MIN_STAKE_LAMPORTS + 10_000_000);
+	}
+
+	const metadataUri = buildThreewsMetadataUri({ handle: citizen.meta?.handle || citizen.id });
+	const result = await registerAgenCAgent(client, {
+		agentId,
+		capabilities: HUMAN_CAPABILITIES,
+		endpoint: `https://three.ws/agora/citizen/${citizen.id}`,
+		metadataUri,
+		stakeAmount: MIN_STAKE_LAMPORTS,
+	});
+
+	const idHex = agenCAgentIdToHex(agentId);
+	await sql`
+		update agora_citizens
+		set agenc_agent_id = ${idHex}, agenc_agent_pda = ${result.agentPda.toBase58()},
+		    agenc_cluster = ${cluster}, identity_source = 'handle',
+		    stake_lamports = ${MIN_STAKE_LAMPORTS}, synced_at = now(), last_active_at = now()
+		where id = ${citizen.id}`;
+
+	await projectActivity({
+		citizenId: citizen.id,
+		kind: 'registered',
+		txSignature: result.txSignature,
+		narrative: `${citizen.display_name} joined Agora as a citizen.`,
+		worldX: citizen.home_x, worldZ: citizen.home_z,
+	});
+
+	publishFeedEvent({
+		type: 'agora-registered',
+		actor: citizen.display_name.slice(0, 32),
+		citizenId: citizen.id,
+		agentPda: result.agentPda.toBase58(),
+		profession: citizen.profession || null,
+		narrative: `${citizen.display_name} joined Agora`,
+	}).catch(() => {});
+
+	return { agentId, agentIdHex: idHex, agentPda: result.agentPda.toBase58(), signer, client, citizen };
+}
+
+// ── Projection writers ────────────────────────────────────────────────────────
+
+/**
+ * Append an agora_activity row. Idempotent on (citizen, kind, tx_signature) via
+ * the unique index from the world migration — a re-run of the same on-chain
+ * action never double-projects. Returns the row (or the existing one on conflict).
+ */
+export async function projectActivity(a) {
+	const [row] = await sql`
+		insert into agora_activity
+			(citizen_id, kind, task_pda, task_id, profession, counterparty_citizen_id,
+			 amount_atomic, reward_mint, reward_label, tx_signature, proof_hash,
+			 deliverable_url, narrative, rep_before, rep_after, world_x, world_z, meta)
+		values
+			(${a.citizenId}, ${a.kind}, ${a.taskPda || null}, ${a.taskId || null},
+			 ${a.profession || null}, ${a.counterpartyCitizenId || null},
+			 ${a.amountAtomic != null ? a.amountAtomic : null}, ${a.rewardMint || null},
+			 ${a.rewardLabel || null}, ${a.txSignature || null}, ${a.proofHash || null},
+			 ${a.deliverableUrl || null}, ${a.narrative}, ${a.repBefore ?? null},
+			 ${a.repAfter ?? null}, ${a.worldX ?? null}, ${a.worldZ ?? null},
+			 ${JSON.stringify(a.meta || {})}::jsonb)
+		on conflict (citizen_id, kind, tx_signature) where tx_signature is not null
+		do nothing
+		returning *
+	`;
+	return row || null;
+}
+
+/** Patch a citizen's cumulative world stats + live status. */
+export async function bumpCitizenStats(citizenId, patch = {}) {
+	const sets = [];
+	if (patch.status) sets.push(sql`status = ${patch.status}`);
+	if (patch.incPosted) sets.push(sql`tasks_posted = tasks_posted + ${patch.incPosted}`);
+	if (patch.incCompleted) sets.push(sql`tasks_completed = tasks_completed + ${patch.incCompleted}`);
+	if (patch.addEarnedAtomic) sets.push(sql`earned_three_atomic = earned_three_atomic + ${patch.addEarnedAtomic}`);
+	if (patch.setReputation != null) sets.push(sql`reputation = ${patch.setReputation}`);
+	sets.push(sql`last_active_at = now()`);
+
+	let assignment = sets[0];
+	for (let i = 1; i < sets.length; i++) assignment = sql`${assignment}, ${sets[i]}`;
+	const [row] = await sql`update agora_citizens set ${assignment} where id = ${citizenId} returning *`;
+	return row;
+}
+
+// ── Read helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Read the citizen's live custodial balances. Returns SOL always, plus $THREE on
+ * mainnet (the economy's coin). Never throws — an RPC hiccup yields nulls so the
+ * HUD degrades to "balance unavailable" rather than erroring.
+ */
+export async function citizenBalances(citizen, cluster) {
+	const address = citizen.meta?.solana_address;
+	if (!address) return { sol: null, three: null, address: null };
+	const { sol } = await getSolanaAddressBalances(address, cluster).catch(() => ({ sol: null }));
+	let three = null;
+	if (cluster === 'mainnet') {
+		three = await readThreeBalance(address).catch(() => null);
+	}
+	return { sol, three, address };
+}
+
+async function readThreeBalance(address) {
+	const { PublicKey } = await import('@solana/web3.js');
+	const { getAssociatedTokenAddressSync } = await import('@solana/spl-token');
+	const { solanaConnection } = await import('./agent-pumpfun.js');
+	const conn = solanaConnection('mainnet');
+	const owner = new PublicKey(address);
+	const ata = getAssociatedTokenAddressSync(new PublicKey(TOKEN_MINT), owner, false);
+	try {
+		const bal = await conn.getTokenAccountBalance(ata);
+		return bal?.value?.uiAmount ?? 0;
+	} catch {
+		return 0; // no ATA yet → zero $THREE
+	}
+}
+
+/** $THREE atomic-units multiplier as a BigInt. */
+export const THREE_ATOMICS_PER_TOKEN = 10n ** BigInt(TOKEN_DECIMALS);
+
+/** Human label for a reward, e.g. "25,000 $THREE" or "0.05 SOL". */
+export function rewardLabel(amountAtomic, cluster) {
+	const a = BigInt(amountAtomic);
+	if (cluster === 'mainnet') {
+		const whole = a / THREE_ATOMICS_PER_TOKEN;
+		return `${whole.toLocaleString('en-US')} $THREE`;
+	}
+	const sol = Number(a) / LAMPORTS_PER_SOL;
+	return `${sol} SOL`;
+}
+
+/** sha256(deliverable) as a 32-byte hex proof, the same shape AgenC expects. */
+export function proofHashFor(deliverable) {
+	return createHash('sha256').update(String(deliverable), 'utf8').digest('hex');
+}
