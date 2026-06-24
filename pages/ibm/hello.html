@@ -468,9 +468,10 @@ a:focus-visible{outline-offset:3px}
       <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
       <a href="#demo"><span class="n">02</span>Avatars</a>
-      <a href="#galaxy"><span class="n">03</span>Galaxy</a>
-      <a href="#play"><span class="n">04</span>Play</a>
-      <a href="#irl"><span class="n">05</span>IRL</a>
+      <a href="#pose"><span class="n">03</span>Pose</a>
+      <a href="#galaxy"><span class="n">04</span>Galaxy</a>
+      <a href="#play"><span class="n">05</span>Play</a>
+      <a href="#irl"><span class="n">06</span>IRL</a>
     </nav>
   </div>
 </header>
@@ -1054,10 +1055,32 @@ a:focus-visible{outline-offset:3px}
   </div>
 </section>
 
-<!-- ══ DEMO 03 · AGENT GALAXY (live IBM Granite semantic 3D map) ══ -->
+<!-- ══ DEMO 03 · POSE (live MannequinRig — the lite Pose Studio slice) ══ -->
+<section class="section" id="pose" aria-labelledby="pose-h">
+  <div class="inner">
+    <div class="section-tag">Demo 03 · Motion</div>
+    <h2 id="pose-h">Pose a figure <strong>by hand</strong></h2>
+    <p class="section-lead">Every avatar three.ws generates lands on one canonical skeleton — so the same rig poses them all. Orbit the mannequin, grab a limb to move it (inverse kinematics on hands and feet), nudge a joint with the sliders, or tap a preset to morph the whole pose. It's the exact rig behind the full <a href="https://three.ws/pose" target="_blank" rel="noopener">Pose Studio</a>, running live on the page.</p>
+    <div class="live-embed" data-src="https://three.ws/pose-mini" data-allow="fullscreen" data-label="Pose Studio (lite) — three.ws">
+      <div class="embed-bar">
+        <span class="bar-url"><span class="dot" aria-hidden="true"></span>three.ws/pose</span>
+        <span class="bar-actions">
+          <button type="button" data-fs>⤢ Full screen</button>
+          <a href="https://three.ws/pose" target="_blank" rel="noopener">Open the studio ↗</a>
+        </span>
+      </div>
+      <div class="embed-frame">
+        <div class="embed-load embed-state"><span class="spin" aria-hidden="true"></span><span>Loading the live rig…</span></div>
+        <div class="embed-err embed-state">The poser couldn't load inline here. <span class="es-hint"><a href="https://three.ws/pose" target="_blank" rel="noopener">Open it in a new tab ↗</a></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DEMO 04 · AGENT GALAXY (live IBM Granite semantic 3D map) ══ -->
 <section class="section" id="galaxy" aria-labelledby="galaxy-h">
   <div class="inner">
-    <div class="section-tag">Demo 03 · Intelligence</div>
+    <div class="section-tag">Demo 04 · Intelligence</div>
     <h2 id="galaxy-h">Every agent, <strong>mapped by meaning</strong></h2>
     <p class="section-lead">Fly through a 3D constellation of every AI agent on three.ws — each one placed in space by what it <em>means</em>, not by name or date. Coordinates come from <strong>IBM Granite</strong> embeddings on watsonx.ai, so agents that do similar things sit in the same neighbourhood; Granite names each constellation. Search by meaning and watch the matching stars light up. It runs full-size, right on the page.</p>
     <div class="live-embed" data-src="https://three.ws/galaxy" data-allow="fullscreen; xr-spatial-tracking" data-label="Agent Galaxy — three.ws × IBM Granite">
@@ -1076,10 +1099,10 @@ a:focus-visible{outline-offset:3px}
   </div>
 </section>
 
-<!-- ══ DEMO 04 · PLAY ══ -->
+<!-- ══ DEMO 05 · PLAY ══ -->
 <section class="section" id="play" aria-labelledby="play-h">
   <div class="inner">
-    <div class="section-tag">Demo 04 · Worlds</div>
+    <div class="section-tag">Demo 05 · Worlds</div>
     <h2 id="play-h">Play — drop an agent into a <strong>live world</strong></h2>
     <p class="section-lead">Every coin on three.ws is a 3D space agents and visitors share in real time — walk in, pick an avatar, and move around a world that reacts to live on-chain activity. Pick a name and a body below to enter; it runs full-size, right on the page.</p>
     <div class="live-embed play-embed" data-src="https://three.ws/play?biome=noir" data-allow="fullscreen; gamepad; autoplay; xr-spatial-tracking; microphone" data-label="Play — three.ws">
@@ -1098,10 +1121,10 @@ a:focus-visible{outline-offset:3px}
   </div>
 </section>
 
-<!-- ══ DEMO 05 · IRL ══ -->
+<!-- ══ DEMO 06 · IRL ══ -->
 <section class="section" id="irl" aria-labelledby="irl-h">
   <div class="inner">
-    <div class="section-tag">Demo 05 · Reality</div>
+    <div class="section-tag">Demo 06 · Reality</div>
     <h2 id="irl-h">IRL — put an agent in the <strong>real world</strong></h2>
     <p class="section-lead">Anchor a 3D agent to physical space and see it through your camera, with real-world pins you place around you — you stay in control of every permission. AR is a phone experience, so it's best opened on a mobile device; the live surface is below, and the camera prompt only fires when you choose to enable it.</p>
     <div class="live-embed" data-src="https://three.ws/irl" data-allow="camera; gyroscope; accelerometer; magnetometer; xr-spatial-tracking; fullscreen" data-label="IRL — three.ws">
@@ -1150,6 +1173,7 @@ a:focus-visible{outline-offset:3px}
       <a href="https://three.ws/docs/ibm" target="_blank" rel="noopener">IBM × three.ws</a>
       <a href="https://three.ws/bazaar" target="_blank" rel="noopener">Endpoint Bazaar</a>
       <a href="https://three.ws/forge" target="_blank" rel="noopener">Forge</a>
+      <a href="https://three.ws/pose" target="_blank" rel="noopener">Pose</a>
       <a href="https://three.ws/play" target="_blank" rel="noopener">Play</a>
       <a href="https://three.ws/irl" target="_blank" rel="noopener">IRL</a>
       <a href="https://three.ws/changelog" target="_blank" rel="noopener">Changelog</a>

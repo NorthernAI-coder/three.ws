@@ -2,6 +2,15 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-24",
+			"title": "Pose a figure by hand — the live Pose Studio rig now runs right on the IBM showcase",
+			"summary": "The IBM × three.ws showcase page has a new demo: pose a 3D figure by hand. Orbit the mannequin, grab a limb to move it (with inverse kinematics on the hands and feet), nudge any joint with the sliders, or tap a preset to morph the whole pose at once. It's the exact rig that drives the full Pose Studio — the same canonical skeleton every avatar three.ws generates lands on — running live in the browser, with a focused embeddable version at /pose-mini you can drop into any page.",
+			"tags": [
+				"feature"
+			],
+			"link": "/pose"
+		},
+		{
 			"date": "2026-06-23",
 			"title": "Image-to-3D is live on NVIDIA: upload a photo, get a textured 3D model — free",
 			"summary": "The photo path in the Forge is now switched on for everyone. Upload a photo and our self-hosted Microsoft TRELLIS engine, running live on NVIDIA GPUs, reconstructs a textured 3D model straight from your image in a single hop — no in-between step, no per-call vendor cost, and it's free. It takes real user photos (the free text engine only takes prompts), so it's now the preferred free engine for image-to-3D, with clean fallback to the other free lanes if it ever goes offline. Just drop in a photo and the Forge routes you there, or pick TRELLIS (self-host) explicitly. The text-to-3D path and every other engine are unchanged.",
