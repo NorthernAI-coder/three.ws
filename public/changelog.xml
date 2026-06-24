@@ -15,6 +15,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>Docs · SAS Credentialed Attestations</title>
+			<link>https://three.ws/docs/sas-attestations</link>
+			<guid isPermaLink="false">2026-06-24:Docs · SAS Credentialed Attestations</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.</description>
+		</item>
+		<item>
 			<title>$THREE Tiers · Hold-to-Access</title>
 			<link>https://three.ws/three</link>
 			<guid isPermaLink="false">2026-06-23:$THREE Tiers · Hold-to-Access</guid>

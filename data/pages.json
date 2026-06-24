@@ -1376,6 +1376,12 @@
 					"added": "2026-06-22"
 				},
 				{
+					"path": "/docs/sas-attestations",
+					"title": "Docs · SAS Credentialed Attestations",
+					"description": "Set up the three.ws authority wallet and SAS_AUTHORITY_SECRET, bootstrap the Solana Attestation Service credential and schemas, and issue or read credentialed attestations.",
+					"added": "2026-06-24"
+				},
+				{
 					"path": "/docs/embedding",
 					"title": "Docs · Embedding",
 					"description": "Embed an agent via iframe, oEmbed, or the <agent-3d> web component.",
