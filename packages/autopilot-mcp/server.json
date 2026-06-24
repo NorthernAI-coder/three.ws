@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/autopilot-mcp",
 	"title": "three.ws Autopilot",
-	"description": "An agent's own execution control plane: set autopilot scopes + daily $THREE spend caps, then propose, execute, and undo actions.",
+	"description": "Set autopilot scopes and daily $THREE spend caps, then propose, execute, and undo agent actions.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{

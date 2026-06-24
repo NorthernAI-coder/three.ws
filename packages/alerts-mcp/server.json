@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/alerts-mcp",
 	"title": "three.ws Alerts",
-	"description": "Manage your pump.fun alert rules — create, update, delete, and read fired-alert history with in-app, webhook, and Telegram delivery.",
+	"description": "Create, update, and delete pump.fun alert rules and read fired-alert history across channels.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{

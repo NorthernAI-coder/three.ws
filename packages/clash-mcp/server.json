@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/clash-mcp",
 	"title": "three.ws Coin Clash",
-	"description": "Play three.ws Coin Clash — read the live faction battle board and leaderboard, enlist your wallet, and rally power for a faction.",
+	"description": "Play three.ws Coin Clash — read the faction battle board and leaderboard, enlist, and rally.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{

@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/notifications-mcp",
 	"title": "three.ws Notifications",
-	"description": "Read the notification inbox, mark items read, manage the per-category delivery matrix, and register Web Push devices.",
+	"description": "Read the inbox, mark items read, manage delivery preferences, and register Web Push devices.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{

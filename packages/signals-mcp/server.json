@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/signals-mcp",
 	"title": "three.ws Signals",
-	"description": "Discover copy-trade signal feeds ranked by proven edge, rank publishers by real on-chain performance, and subscribe + track over the live three.ws API.",
+	"description": "Discover signal feeds ranked by proven edge, rank publishers, and subscribe + track results.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{
