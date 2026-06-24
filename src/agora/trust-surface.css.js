@@ -237,6 +237,16 @@ export const TRUST_SURFACE_CSS = `
 .agora-handshake-loading { display: flex; flex-direction: column; gap: 6px; }
 .agora-handshake-loading-label { font-size: 12px; color: rgba(255,255,255,0.5); }
 
+/* passport additions layered over agora.css's .agora-pp-* base */
+.agora-pp-hero-text { flex: 1; min-width: 0; }
+.agora-pp-grade { flex: none; margin-left: auto; }
+.agora-pp-statusline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 2px 0 14px; }
+.agora-pp-stat-sub { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+.agora-pp-section-live { display: flex; align-items: center; gap: 8px; }
+.agora-pp-onchain { display: flex; flex-direction: column; gap: 0; padding: 4px 12px; background: rgba(143,181,255,0.05); border: 1px solid rgba(143,181,255,0.16); border-radius: 12px; }
+.agora-pp-reward { font-size: 11px; color: #8a6dff; font-weight: 600; }
+.agora-pp-feed-time { font-size: 11px; color: rgba(255,255,255,0.4); }
+
 .sr-only, .agora-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 @media (max-width: 480px) {

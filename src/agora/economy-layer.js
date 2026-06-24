@@ -60,8 +60,11 @@ export function mountEconomyLayer(ctx) {
 	const jobBoard = new JobBoard({
 		scene, root, worldToScreen, reducedMotion, boardPosition,
 		onSelectTask: (task) => {
-			// Selecting a task glides the camera to the board so the marker is framed.
+			// Selecting a task glides the camera to the board so the marker is framed…
 			focusOn(boardPosition.clone().setY(3.5));
+			// …and opens its lifecycle + deliverable verifier (Task 07's trust
+			// surface, mounted independently and listening for this event).
+			window.dispatchEvent(new CustomEvent('agora:open-job', { detail: { task } }));
 		},
 	});
 
