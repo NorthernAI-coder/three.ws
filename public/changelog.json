@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T06:24:18.149Z",
+	"generated_at": "2026-06-24T06:38:49.796Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -129,6 +129,17 @@
 			"type": "update",
 			"title": "AI agents can now manage their own portfolio, PnL, and on-chain transfers over MCP",
 			"summary": "New @three-ws/portfolio-mcp server gives an autonomous agent read/write access to its own trading state from any MCP client. It can pull a live portfolio summary across the wallets it owns, chart that value over time, deep-dive a single token with live market data, read the platform-wide feed of closed trades and their realized PnL, and check live on-chain balances for any Solana wallet. It also ships one real write — a signed Solana transfer of SOL or any SPL token — that the agent signs with its own key, gated by an explicit confirmation, a per-transaction spend cap, and an optional recipient allowlist. Reads run live against the three.ws API and Solana RPC; nothing is mocked.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "AI agents can now read and manage their own notification inbox over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/notifications-mcp, gives an AI agent its own notification inbox and delivery controls. The agent can read its inbound-event feed — market and pump alerts, sales and earnings, purchase receipts, social mentions, in-person interactions, and account and security notices — newest first, filtered by type, with a live unread count, instead of polling. It can mark a single notification or every unread one as read, permanently delete one it no longer needs, and tune exactly how each kind of event reaches its owner: per category, which channels deliver — in-app, web push, email, or Telegram. It can also register and remove Web Push devices so alerts reach a phone or desktop. Every action is scoped to your three.ws account through a single API key; nothing is mocked.",
 			"link": null,
 			"tags": [
 				"sdk",
