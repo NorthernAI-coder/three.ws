@@ -1736,6 +1736,13 @@ support: resolve(__dirname, 'pages/support.html'),
 			// the preview from the standalone file and pulls in origins the page's
 			// `script-src 'self' three.ws` CSP forbids. The .md hosting guide is
 			// source-only and excluded from the copy.
+			//
+			// The same applies to the partnership page: pages/ibm/hello.html is a thin,
+			// publish-once SHELL that fetches the full page (pages/ibm/hello.live.html)
+			// from three.ws at runtime and renders it in place, so the content stays
+			// editable after the shell is locked on the host. Both ship verbatim (the
+			// closeBundle copies the whole pages/ibm/ dir), and the dev middleware below
+			// serves /ibm/hello + /ibm/hello.live so the loader resolves locally too.
 			name: 'copy-ibm-x402-demo',
 			configureServer(server) {
 				const dir = resolve(__dirname, 'pages/ibm');
@@ -1751,6 +1758,10 @@ support: resolve(__dirname, 'pages/support.html'),
 					let rel = null;
 					if (path === '/ibm/x402-demo' || path === '/ibm/x402-demo.html')
 						rel = 'x402-demo.html';
+					else if (path === '/ibm/hello' || path === '/ibm/hello.html')
+						rel = 'hello.html';
+					else if (path === '/ibm/hello.live' || path === '/ibm/hello.live.html')
+						rel = 'hello.live.html';
 					else if (path.startsWith('/ibm/fonts/'))
 						rel = 'fonts/' + path.slice('/ibm/fonts/'.length);
 					else if (path.startsWith('/ibm/vendor/'))

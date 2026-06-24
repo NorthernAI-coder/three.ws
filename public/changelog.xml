@@ -183,6 +183,14 @@
 			<description>The lite Pose Studio that runs inline on demo pages now loads in production. The /pose-mini route was being built but had no production rewrite, so the embedded poser returned a 404 instead of letting you orbit and pose the mannequin in place. The route is now wired and the embed loads live.</description>
 		</item>
 		<item>
+			<title>Pay for any three.ws service in $THREE — not just USDC</title>
+			<link>https://three.ws/bazaar</link>
+			<guid isPermaLink="false">2026-06-24:Pay for any three.ws service in $THREE — not just USDC</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>$THREE is now a first-class payment token across every paid three.ws endpoint over x402, alongside USDC. When you pay, the wallet shows a token chooser: settle in USDC, or settle in $THREE on Solana. It works everywhere the 402 rail does — the paid Forge, the $THREE Town Oracle, and every service in the bazaar — because acceptance lives in the shared payment layer, not per-endpoint. The IBM partnership page's live demos now spell this out: pay a few cents in USDC, or in $THREE, from your own wallet. $THREE is priced at a flat per-call amount on Solana.</description>
+		</item>
+		<item>
 			<title>Play Coin Clash from any AI agent over MCP</title>
 			<link>https://three.ws/clash</link>
 			<guid isPermaLink="false">2026-06-24:Play Coin Clash from any AI agent over MCP</guid>
@@ -197,6 +205,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The IBM × three.ws showcase page has a new demo: pose a 3D figure by hand. Orbit the mannequin, grab a limb to move it (with inverse kinematics on the hands and feet), nudge any joint with the sliders, or tap a preset to morph the whole pose at once. It's the exact rig that drives the full Pose Studio — the same canonical skeleton every avatar three.ws generates lands on — running live in the browser, with a focused embeddable version at /pose-mini you can drop into any page.</description>
+		</item>
+		<item>
+			<title>The IBM × three.ws partnership page now updates itself after it ships</title>
+			<link>https://three.ws/ibm/hello</link>
+			<guid isPermaLink="false">2026-06-24:The IBM × three.ws partnership page now updates itself after it ships</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The IBM partnership page — the webinar stage and the five live demos — can now be edited after it's published on a partner site, with no re-publish. The hosted file is a thin loader that pulls the real page from three.ws each visit, so changing the webinar start time, dropping in the recording link, rewording the hero, or adding a demo goes live the moment it's saved on three.ws. If three.ws is ever unreachable the page shows a branded retry instead of a blank screen. You can preview the live version at /ibm/hello.</description>
 		</item>
 		<item>
 			<title>$THREE Tiers · Hold-to-Access</title>
