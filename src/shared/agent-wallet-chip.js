@@ -174,20 +174,36 @@ function formatTokenAmount(n) {
 	return n.toPrecision(2);
 }
 
+/**
+ * The single vanity-aware address highlighter for the whole wallet program. When
+ * the address really begins with `prefix` / ends with `suffix`, that segment is
+ * shown verbatim and emphasized (`twc-hi`); otherwise the head/tail fall back to a
+ * plain `head`/`tail`-length slice. Returns the inner spans only (no wrapper), so
+ * the chip, the popover, and the living-avatar nameplate all render the same
+ * "license plate" — reuse this, never reimplement the head/tail/highlight logic.
+ *
+ * @param {string} address  base58 Solana address
+ * @param {string|null} prefix  claimed vanity prefix (highlighted only if it matches)
+ * @param {string|null} suffix  claimed vanity suffix (highlighted only if it matches)
+ * @param {{head?:number, tail?:number}} [opts]
+ * @returns {string} HTML: `<span[ class="twc-hi"]>head</span><span class="twc-dots">…</span><span[…]>tail</span>`
+ */
+export function highlightAddress(address, prefix, suffix, { head = 4, tail = 4 } = {}) {
+	const a = String(address || '');
+	const headHi = !!(prefix && a.startsWith(prefix));
+	const tailHi = !!(suffix && a.endsWith(suffix));
+	const headTxt = headHi ? prefix : a.slice(0, head);
+	const tailTxt = tailHi ? suffix : a.slice(-tail);
+	return (
+		`<span class="${headHi ? 'twc-hi' : ''}">${esc(headTxt)}</span>` +
+		`<span class="twc-dots">…</span>` +
+		`<span class="${tailHi ? 'twc-hi' : ''}">${esc(tailTxt)}</span>`
+	);
+}
+
 /** Render the short, vanity-aware address label (prefix/suffix highlighted). */
 function addressLabelHTML(status) {
-	const { address, prefix, suffix } = status;
-	const head = prefix && address.startsWith(prefix) ? prefix : address.slice(0, 4);
-	const tail = suffix && address.endsWith(suffix) ? suffix : address.slice(-4);
-	const headHi = !!(prefix && address.startsWith(prefix));
-	const tailHi = !!(suffix && address.endsWith(suffix));
-	return (
-		`<span class="twc-addr">` +
-		`<span class="${headHi ? 'twc-hi' : ''}">${esc(head)}</span>` +
-		`<span class="twc-dots">…</span>` +
-		`<span class="${tailHi ? 'twc-hi' : ''}">${esc(tail)}</span>` +
-		`</span>`
-	);
+	return `<span class="twc-addr">${highlightAddress(status.address, status.prefix, status.suffix, { head: 4, tail: 4 })}</span>`;
 }
 
 /** Build a tiny sparkline SVG from a real value series (empty state when sparse). */
@@ -854,12 +870,7 @@ function positionPopover(el, trigger) {
 }
 
 function vanityAddrHTML(meta) {
-	const a = meta.address;
-	const head = meta.prefix && a.startsWith(meta.prefix) ? meta.prefix : a.slice(0, 6);
-	const tail = meta.suffix && a.endsWith(meta.suffix) ? meta.suffix : a.slice(-6);
-	const hH = meta.prefix && a.startsWith(meta.prefix);
-	const tH = meta.suffix && a.endsWith(meta.suffix);
-	return `<span class="${hH ? 'twc-hi' : ''}">${esc(head)}</span>…<span class="${tH ? 'twc-hi' : ''}">${esc(tail)}</span>`;
+	return highlightAddress(meta.address, meta.prefix, meta.suffix, { head: 6, tail: 6 });
 }
 
 function renderPopoverBody(el, entry, meta) {
@@ -1035,6 +1046,6 @@ function wirePopoverActions(el, meta) {
 if (typeof window !== 'undefined') {
 	window.twsAgentWalletChip = {
 		getWalletStatus, getWalletIdentity, hasWallet, walletChipHTML, walletChipEl,
-		wireWalletChips, ensureWalletChipStyles, formatWalletUsd,
+		wireWalletChips, ensureWalletChipStyles, formatWalletUsd, highlightAddress,
 	};
 }

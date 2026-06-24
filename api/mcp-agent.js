@@ -75,7 +75,9 @@ export default wrap(async (req, res) => {
 		// advertised 402 price is only ever charged once useful work was delivered;
 		// a wholesale failure leaves the payer's signed payload un-broadcast.
 		if (x402Ctx) {
-			const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+			const anySuccess = responses.some(
+				(r) => r && !r.error && !(r.result && r.result.isError),
+			);
 			if (anySuccess) {
 				try {
 					const settled = await settlePayment({ verified: x402Ctx.verified });

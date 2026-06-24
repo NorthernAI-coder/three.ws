@@ -46,6 +46,7 @@ function neutralState(agentId, network) {
 		balanceSol: 0, balanceUsd: 0,
 		momentum: 0, momentumUsd24h: 0, inflowUsd24h: 0, outflowUsd24h: 0,
 		streamingNow: 0, lastTipAt: null,
+		holdsThree: false, prefs: null,
 		isOwner: false, ok: false,
 	};
 }
@@ -53,8 +54,9 @@ function neutralState(agentId, network) {
 /**
  * Fetch + normalize an agent's live wealth state into the canonical contract
  * the task defines: { tier, balanceSol, balanceUsd, momentum, streamingNow,
- * lastTipAt } (plus the raw USD figures for the owner's "why" breakdown and an
- * `ok` flag the caller can use to decide whether to keep its last real state).
+ * lastTipAt, holdsThree, prefs, isOwner } (plus the raw USD figures for the
+ * owner's "why" breakdown and an `ok` flag the caller can use to decide whether
+ * to keep its last real state).
  *
  * @param {string|object} agent  an agent id or any record holding one
  * @param {object} [opts]
@@ -108,6 +110,11 @@ function normalizeWealth(agentId, network, data, flow) {
 	const balanceUsd = Number(flow.balance_usd ?? data?.portfolio?.usd) || 0;
 	const balanceSol = Number(flow.balance_sol ?? data?.portfolio?.sol) || 0;
 	const t = data?.tier?.key ? data.tier : tierForUsd(balanceUsd);
+	// $THREE is the only coin the platform names; holding it earns the brand accent
+	// on the avatar and nameplate. Real holding from the same canonical read — the
+	// `portfolio.three` block is present only when the agent actually holds $THREE.
+	const three = data?.portfolio?.three;
+	const holdsThree = !!(three && (Number(three.amount) > 0 || Number(three.usd) > 0));
 	return {
 		agentId, network,
 		tier: t.key || flow.tier || 'dormant',
@@ -121,6 +128,11 @@ function normalizeWealth(agentId, network, data, flow) {
 		outflowUsd24h: Number(flow.outflow_usd_24h) || 0,
 		streamingNow: Math.max(0, Number(flow.streaming_now) || 0),
 		lastTipAt: flow.last_tip_at || null,
+		holdsThree,
+		// The owner's saved presentation prefs travel with the state so a surface that
+		// reads the wealth state (the living-avatar nameplate) honours how the owner
+		// configured the agent without a second request. Raw here; consumers normalize.
+		prefs: data?.prefs || null,
 		isOwner: !!data?.is_owner,
 		ok: true,
 	};

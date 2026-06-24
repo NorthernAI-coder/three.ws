@@ -36,6 +36,7 @@ import {
 	settlePayment,
 	verifyPayment,
 } from '../_lib/x402-spec.js';
+import { reservePaymentProof } from '../_lib/x402/payment-identifier-server.js';
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const SOL_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -108,14 +109,17 @@ async function fulfillConcierge({ page, body }) {
 	const system =
 		`You are the concierge for "${headline}". ${tagline} ` +
 		'Answer the visitor concisely and helpfully in plain language. ' +
-		"If the question is unrelated or something you cannot know, say so briefly rather than inventing an answer.";
+		'If the question is unrelated or something you cannot know, say so briefly rather than inventing an answer.';
 	const result = await llmComplete({
 		system,
 		user: question.slice(0, 2000),
 		maxTokens: 600,
 		track: { surface: 'launchpad-concierge', slug: page.slug },
 	});
-	return { answer: (result?.text || '').trim() || 'No answer was generated — please try again.', model: result?.model || null };
+	return {
+		answer: (result?.text || '').trim() || 'No answer was generated — please try again.',
+		model: result?.model || null,
+	};
 }
 
 function fulfillUnlock({ page }) {
@@ -166,7 +170,12 @@ export default wrap(async (req, res) => {
 	}
 	const chain = CHAINS[String(monetize.chain || 'base').toLowerCase()];
 	if (!chain) {
-		return error(res, 422, 'unsupported_chain', 'this page is configured for an unsupported chain');
+		return error(
+			res,
+			422,
+			'unsupported_chain',
+			'this page is configured for an unsupported chain',
+		);
 	}
 
 	const priceAtomics = priceToAtomics(monetize.price);
@@ -185,7 +194,10 @@ export default wrap(async (req, res) => {
 	}
 
 	const action = isUnlock ? 'unlock' : 'ask';
-	const resourceUrl = resolveResourceUrl(req, `/api/launchpad/invoke?slug=${slug}&action=${action}`);
+	const resourceUrl = resolveResourceUrl(
+		req,
+		`/api/launchpad/invoke?slug=${slug}&action=${action}`,
+	);
 	const accept = buildAccept({ chain, priceAtomics, payTo, resourceUrl });
 
 	const paymentHeader = (req.headers['x-payment'] || '').toString().trim();
@@ -210,36 +222,70 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── Paid: verify → fulfill → settle → respond ──────────────────────────────
-	let verified;
-	try {
-		verified = await verifyPayment({ paymentHeader, requirements: [accept] });
-	} catch (err) {
-		return error(res, err.status || 402, err.code || 'payment_invalid', err.message || 'payment verification failed');
+	// Replay guard (parity with paidEndpoint): hold a single-use lock on the
+	// signed payment proof across fulfill+settle so a captured/retried X-PAYMENT
+	// can't re-run the concierge LLM call before the first settle lands. Released
+	// in the finally; the consumed on-chain nonce blocks any replay thereafter.
+	const proofGuard = await reservePaymentProof(
+		`/api/launchpad/invoke:${slug}:${action}`,
+		paymentHeader,
+	);
+	if (!proofGuard.ok) {
+		return error(
+			res,
+			409,
+			'payment_in_flight',
+			'a request with this payment is already being processed; retry shortly',
+		);
 	}
 
-	let result;
 	try {
-		result = isUnlock
-			? fulfillUnlock({ page })
-			: await fulfillConcierge({ page, body });
-	} catch (err) {
-		return error(res, err.status || 500, err.code || 'fulfillment_failed', err.message || 'could not fulfill request');
-	}
+		let verified;
+		try {
+			verified = await verifyPayment({ paymentHeader, requirements: [accept] });
+		} catch (err) {
+			return error(
+				res,
+				err.status || 402,
+				err.code || 'payment_invalid',
+				err.message || 'payment verification failed',
+			);
+		}
 
-	let settled;
-	try {
-		settled = await settlePayment({ verified });
-	} catch (err) {
-		return error(res, err.status || 502, err.code || 'settle_failed', err.message || 'payment settlement failed');
-	}
+		let result;
+		try {
+			result = isUnlock ? fulfillUnlock({ page }) : await fulfillConcierge({ page, body });
+		} catch (err) {
+			return error(
+				res,
+				err.status || 500,
+				err.code || 'fulfillment_failed',
+				err.message || 'could not fulfill request',
+			);
+		}
 
-	res.setHeader('X-PAYMENT-RESPONSE', encodePaymentResponseHeader(settled));
-	return json(res, 200, {
-		slug,
-		action,
-		payer: settled.payer || verified?.payer || null,
-		transaction: settled.transaction || null,
-		network: settled.network || accept.network,
-		...result,
-	});
+		let settled;
+		try {
+			settled = await settlePayment({ verified });
+		} catch (err) {
+			return error(
+				res,
+				err.status || 502,
+				err.code || 'settle_failed',
+				err.message || 'payment settlement failed',
+			);
+		}
+
+		res.setHeader('X-PAYMENT-RESPONSE', encodePaymentResponseHeader(settled));
+		return json(res, 200, {
+			slug,
+			action,
+			payer: settled.payer || verified?.payer || null,
+			transaction: settled.transaction || null,
+			network: settled.network || accept.network,
+			...result,
+		});
+	} finally {
+		await proofGuard.release();
+	}
 });

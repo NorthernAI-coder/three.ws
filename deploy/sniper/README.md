@@ -95,7 +95,7 @@ loop instead of silently mis-trading) when:
 - `SNIPER_MODE` / `SNIPER_NETWORK` is not one of the allowed values,
 - `SNIPER_MODE=live` with neither `SOLANA_RPC_URL` nor `HELIUS_API_KEY`.
 
-This is unit-verified in `tests/agent-sniper-ops.test.mjs`.
+This is unit-verified in `tests/agent-sniper-ops.test.js`.
 
 ## Deploy (simulate)
 

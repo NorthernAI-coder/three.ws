@@ -510,9 +510,25 @@ export default {
 		}
 
 		const responses = [];
-		for (const msg of messages) {
-			const envelope = await dispatchRpc(msg, env);
-			if (envelope !== null) responses.push(envelope);
+		try {
+			for (const msg of messages) {
+				const envelope = await dispatchRpc(msg, env);
+				if (envelope !== null) responses.push(envelope);
+			}
+		} catch (err) {
+			// dispatchRpc guards each tool call, but an unexpected throw before that
+			// guard (a malformed message, a handler-builder failure) would otherwise
+			// escape as an opaque Cloudflare 1101 — breaking the JSON-RPC contract.
+			// Log the real cause to the worker log; hand the client a sanitized
+			// -32603 envelope echoing the request id when it's unambiguous.
+			console.error('[pump-fun-mcp] dispatch failed', err?.stack || err);
+			return respond(
+				rpcEnvelope(isBatch ? null : messages[0]?.id ?? null, null, {
+					code: -32603,
+					message: 'internal error',
+				}),
+				500,
+			);
 		}
 
 		// All-notification requests owe no body — 202 Accepted per Streamable HTTP.

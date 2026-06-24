@@ -109,18 +109,26 @@ vi.mock('../../api/_lib/glb-inspect.js', () => ({
 vi.mock('../../api/_lib/webhook-dispatch.js', () => ({ dispatchWebhooks: vi.fn(async () => {}) }));
 vi.mock('../../api/_lib/regen-provider.js', () => ({ getRegenProvider: async () => ({ name: 'replicate', instance: null }) }));
 
+// The rigged-GLB fetch now flows through the shared provider-result-url guard
+// (host allowlist + IP-pinned SSRF connect), which uses raw node http — not the
+// global fetch — so stubbing global.fetch no longer intercepts it. Mock the one
+// guarded helper instead; the real allowlist/extract logic stays intact for the
+// SSRF specs. RIGGED_BYTES are the exact 4 bytes the checksum assertions expect.
+const RIGGED_BYTES = new Uint8Array([0x67, 0x6c, 0x54, 0x46]);
+let fetchGlbImpl = async () => Buffer.from(RIGGED_BYTES);
+const fetchProviderGlbBufferMock = vi.fn((...a) => fetchGlbImpl(...a));
+vi.mock('../../api/_lib/provider-result-url.js', async (importOriginal) => {
+	const actual = await importOriginal();
+	return { ...actual, fetchProviderGlbBuffer: (...a) => fetchProviderGlbBufferMock(...a) };
+});
+
 const { finalizeAutoRigStage } = await import('../../api/_lib/auto-rig.js');
 const { dispatchWebhooks } = await import('../../api/_lib/webhook-dispatch.js');
 
 function mockFetchGlb(ok = true) {
-	global.fetch = vi.fn(async () => {
-		if (!ok) return { ok: false, status: 502, headers: { get: () => '0' }, arrayBuffer: async () => new ArrayBuffer(0) };
-		return {
-			ok: true,
-			headers: { get: () => '4' },
-			arrayBuffer: async () => new Uint8Array([0x67, 0x6c, 0x54, 0x46]).buffer,
-		};
-	});
+	fetchGlbImpl = ok
+		? async () => Buffer.from(RIGGED_BYTES)
+		: async () => { throw new Error('fetch glb: 502'); };
 }
 
 const job = { source_avatar_id: 'src-1', mode: 'rerig', params: { auto_rig: true } };

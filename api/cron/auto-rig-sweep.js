@@ -23,6 +23,7 @@ import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
 import { getRegenProvider } from '../_lib/regen-provider.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
+import { isAllowedProviderResultUrl } from '../_lib/provider-result-url.js';
 
 // Leave the webhook a clear runway before we touch a job: most rigs finish in
 // 60–90s, so a 3-minute quiet window means we only ever sweep genuinely stalled
@@ -53,6 +54,11 @@ function requireCron(req, res) {
 		return false;
 	}
 	return true;
+}
+
+// Best-effort hostname for a log line — never throws on a malformed URL.
+function hostOf(raw) {
+	try { return new URL(raw).hostname; } catch { return 'unparseable'; }
 }
 
 async function failJob(jobId, userId, reason) {
@@ -150,6 +156,16 @@ export default wrap(async (req, res) => {
 			// latency + an extra failure surface for a URL we already hold). The
 			// finalize claim makes this safe even if a webhook retry races us.
 			if (job.result_glb_url) {
+				// SSRF gate: the webhook persists the extracted URL WITHOUT the host
+				// allowlist, so a poisoned URL could be sitting in this column. Pin it to
+				// an allowed provider host before fetching server-side; fail the job
+				// cleanly on a miss instead of finalizing from it.
+				if (!isAllowedProviderResultUrl(job.result_glb_url)) {
+					console.warn('[auto-rig-sweep] blocked result url', { jobId: job.job_id, host: hostOf(job.result_glb_url) });
+					await failJob(job.job_id, job.user_id, 'provider returned a disallowed result url');
+					summary.failed++;
+					continue;
+				}
 				await finalizeAutoRigStage({
 					userId: job.user_id,
 					jobId: job.job_id,
@@ -179,13 +195,21 @@ export default wrap(async (req, res) => {
 			const update = await prov.instance.status(job.ext_job_id);
 
 			if (update.status === 'done' && update.resultGlbUrl) {
-				await finalizeAutoRigStage({
-					userId: job.user_id,
-					jobId: job.job_id,
-					job,
-					glbUrl: update.resultGlbUrl,
-				});
-				summary.finalized++;
+				// SSRF gate (same as the fast path): pin the fresh provider URL to an
+				// allowed host before the guarded fetch ever runs; fail on a miss.
+				if (!isAllowedProviderResultUrl(update.resultGlbUrl)) {
+					console.warn('[auto-rig-sweep] blocked result url', { jobId: job.job_id, host: hostOf(update.resultGlbUrl) });
+					await failJob(job.job_id, job.user_id, 'provider returned a disallowed result url');
+					summary.failed++;
+				} else {
+					await finalizeAutoRigStage({
+						userId: job.user_id,
+						jobId: job.job_id,
+						job,
+						glbUrl: update.resultGlbUrl,
+					});
+					summary.finalized++;
+				}
 			} else if (update.status === 'failed') {
 				await failJob(job.job_id, job.user_id, update.error || 'provider reported rig failure');
 				summary.failed++;

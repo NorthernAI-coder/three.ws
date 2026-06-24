@@ -34,24 +34,25 @@ vi.mock('../../api/_lib/regen-provider.js', () => ({
 	getRegenProvider: async () => providerMock,
 }));
 
+// Provider/result GLBs (the reconstruct output, the rigged result, and the bare
+// unrigged mesh) are now fetched through the shared guard, which uses raw node
+// http rather than the global fetch — so we mock the guarded helper. The real
+// host-allowlist + extract logic is covered by tests/provider-result-url.test.js.
+const fetchProviderGlbBufferMock = vi.fn(async () => Buffer.from(new Uint8Array([0x67, 0x6c, 0x54, 0x46])));
+vi.mock('../../api/_lib/provider-result-url.js', async (importOriginal) => {
+	const actual = await importOriginal();
+	return { ...actual, fetchProviderGlbBuffer: (...a) => fetchProviderGlbBufferMock(...a) };
+});
+
 const { finalizeReconstructStage, pollRiggingStage } = await import('../../api/_lib/reconstruct-finalize.js');
 
 const RIGGED = { isRigged: true, skinCount: 1, skeletonJointCount: 30, nodeCount: 40, meshCount: 1, animationCount: 0, generator: 'test' };
 const UNRIGGED = { isRigged: false, skinCount: 0, skeletonJointCount: 0, nodeCount: 2, meshCount: 1, animationCount: 0, generator: 'test' };
 
-function mockFetchGlb() {
-	global.fetch = vi.fn(async () => ({
-		ok: true,
-		headers: { get: () => '1024' },
-		arrayBuffer: async () => new Uint8Array([0x67, 0x6c, 0x54, 0x46]).buffer,
-	}));
-}
-
 const baseJob = { provider: 'replicate', params: { name: 'Me', visibility: 'private' } };
 
 beforeEach(() => {
 	vi.clearAllMocks();
-	mockFetchGlb();
 	providerMock.instance = null;
 });
 
