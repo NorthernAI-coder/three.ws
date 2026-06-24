@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "AI agents can now run their own pump.fun alerts over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/alerts-mcp, hands an AI agent the pump.fun market-monitoring controls. The agent can list its alert rules with live delivery health, create new ones on any pump.fun event — a coin graduating to AMM, a market cap rising above or falling below a target, a whale buy over a SOL threshold, or a tracked agent launching a new coin — and update, pause, or delete them. Each rule delivers in-app, to a signed HTTPS webhook, and/or to Telegram, with a per-rule cooldown. The agent can also read the history of alerts that actually fired, newest first, each with a plain-language summary and the full event details. The three.ws cron does the watching server-side, so rules fire across devices with no dashboard open. Every rule and alert is private and scoped to your three.ws session; nothing is mocked.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "AI agents can now give a 3D avatar a voice and a face over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/audio-mcp, puts the whole talking-avatar pipeline in any AI assistant's hands. An agent can turn text into spoken audio (free NVIDIA Magpie voice, OpenAI backstop), transcribe what a user says back, and turn speech into a per-frame face-animation track so the avatar's mouth and expression match the words — the same Audio2Face lipsync the platform uses. It can also browse the motion-capture library of recorded face, body, hand, and VMC clips and pull any clip's full animation track to play back on an avatar. The voice, recognition, and lipsync lanes are free and need no key to start; an optional three.ws API key raises the rate limits and unlocks your own private mocap clips. Everything runs live against the real three.ws API — nothing mocked.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
 			"title": "Check your plan usage and billing from any AI agent over MCP",
 			"summary": "A new Model Context Protocol server, @three-ws/billing-mcp, lets an AI agent self-serve its own account economics — no need to pull in the human account owner. Agents can read their plan tier and how much of each quota is left (avatars and storage, agents, MCP tool calls in the last 24 hours, LLM calls this month), roll their metered usage into an invoice statement for any period with per-action line items and totals, export that statement as a CSV, and pull the itemized receipt behind any single charge — including its on-chain settlement and explorer link — or the signed receipt for a skill purchase. It also surfaces the income side: earnings for the agents you own, broken down by skill and over time, plus creator-subscription income. Every account read is private and scoped to your three.ws session; only the public platform fee rate needs no credential. The server is read-only — it never signs or moves funds.",
 			"tags": [

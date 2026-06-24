@@ -78,7 +78,7 @@ export const def = {
 			if (args?.to) query.to = args.to;
 		}
 
-		const { contentType, text } = await apiRequest('/api/billing/invoices', {
+		const { contentType, disposition, text } = await apiRequest('/api/billing/invoices', {
 			auth: true,
 			query,
 			accept: 'text/csv',
@@ -87,12 +87,15 @@ export const def = {
 
 		const { rows } = parseCsv(text);
 		const previewN = args?.preview_rows ?? 5;
-		// Derive the canonical filename the API offers; fall back to the period label.
+		// Prefer the authoritative download name from content-disposition; fall back
+		// to a name derived from the requested period.
+		const fromHeader = disposition?.match(/filename="?([^"]+)"?/i)?.[1];
 		const label = args?.period || (args?.from || args?.to ? 'custom' : 'current');
+		const filename = fromHeader || `three-ws-invoice-${label}.csv`;
 
 		return {
 			ok: true,
-			filename: `three-ws-invoice-${label}.csv`,
+			filename,
 			content_type: contentType || 'text/csv',
 			row_count: rows.length,
 			preview: rows.slice(0, previewN),
