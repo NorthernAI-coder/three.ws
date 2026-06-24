@@ -84,10 +84,23 @@ export async function apiRequest(path, { method = 'GET', query, body } = {}) {
 	}
 
 	if (!res.ok) {
-		const message = data?.message || data?.error || `three.ws ${path} returned HTTP ${res.status}`;
-		throw Object.assign(new Error(message), { code: 'upstream_error', status: res.status, body: data });
+		throw upstreamError(path, res.status, data);
 	}
 	return data;
+}
+
+// The three.ws API's standard error body is { error: <code>, error_description:
+// <message> } (api/_lib/http.js). Prefer the human-readable description, fall
+// back to the code, then to a generic HTTP line — so the MCP client always gets
+// an actionable message, never a bare code or a numeric gRPC status.
+function upstreamError(path, status, data) {
+	const message =
+		data?.error_description ||
+		data?.message ||
+		(typeof data?.error === 'string' ? data.error : null) ||
+		`three.ws ${path} returned HTTP ${status}`;
+	const code = typeof data?.error === 'string' ? data.error : 'upstream_error';
+	return Object.assign(new Error(message), { code, status, body: data });
 }
 
 /**
@@ -132,8 +145,7 @@ export async function apiRequestBinary(path, { method = 'POST', query, body } = 
 		} catch {
 			data = {};
 		}
-		const message = data?.message || data?.error || `three.ws ${path} returned HTTP ${res.status}`;
-		throw Object.assign(new Error(message), { code: 'upstream_error', status: res.status, body: data });
+		throw upstreamError(path, res.status, data);
 	}
 
 	const buffer = Buffer.from(await res.arrayBuffer());
