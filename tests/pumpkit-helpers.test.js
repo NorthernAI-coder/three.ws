@@ -54,8 +54,13 @@ describe('solana/rpc-fallback', () => {
 		expect(deriveWsUrl('http://localhost:8899')).toBe('ws://localhost:8899');
 	});
 
-	it('throws when constructed without a primary url', () => {
-		expect(() => new RpcFallback({})).toThrow(/primary url/i);
+	it('throws when constructed without any valid http(s) endpoint', () => {
+		expect(() => new RpcFallback({})).toThrow(/no valid http\(s\) RPC endpoint/i);
+		// A malformed-only set (dotless typo, junk, ftp://) is rejected up front
+		// rather than crashing later inside new Connection with assertEndpointUrl.
+		expect(() => new RpcFallback({ url: 'helius', fallbackUrls: ['also junk', 'ftp://y'] })).toThrow(
+			/no valid http\(s\) RPC endpoint/i,
+		);
 	});
 
 	it('createRpcFallback returns a working instance', () => {

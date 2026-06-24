@@ -201,6 +201,19 @@ const ERC8004_METADATA_BATCH = 25;
 
 const ERC8004_FETCH_TIMEOUT_MS = 10_000;
 
+// Headers sent on every EVM JSON-RPC POST. Node/undici's fetch sends no
+// `User-Agent` by default, and PublicNode's gateway (ethereum.publicnode.com,
+// base.publicnode.com, the *-sepolia-rpc.publicnode.com testnet hosts) hard-403s
+// any request without an identifiable UA — which blanked the last lane of the
+// failover chain and surfaced as the "RPC HTTP 403 from …publicnode.com" storm in
+// the index-delegations and erc8004 crawl stages. A descriptive bot UA satisfies
+// the gateway; `accept` keeps strict providers from negotiating a non-JSON body.
+const EVM_RPC_HEADERS = {
+	'content-type': 'application/json',
+	accept: 'application/json',
+	'user-agent': 'three.ws-onchain-indexer/1.0 (+https://three.ws)',
+};
+
 // Metadata URLs are external, user-controlled (on-chain agentURI) and often
 // point at slow IPFS gateways. Cap each fetch tighter than RPC calls so a single
 // hung gateway can't stall the whole enrichment batch toward Vercel's 300s kill.
@@ -407,7 +420,7 @@ async function erc8004RpcCall(urls, method, params) {
 		try {
 			const res = await fetch(url, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: EVM_RPC_HEADERS,
 				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
 				signal: ac.signal,
 			});
@@ -811,7 +824,7 @@ async function idxRpc(urls, method, params) {
 		try {
 			const res = await fetch(url, {
 				method: 'POST',
-				headers: { 'content-type': 'application/json' },
+				headers: EVM_RPC_HEADERS,
 				body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
 				signal: ac.signal,
 			});

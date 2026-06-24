@@ -68,7 +68,12 @@ function maskSubmitError(res, err) {
 // returned to any client (browser or bearer-token API consumer). Shared with the
 // forge text→3D poll (api/forge.js) so both pipelines mask identically; re-exported
 // here because the avatar tests and handlers already import it from this module.
-export { sanitizeJobError } from '../_lib/provider-job-error.js';
+// A bare `export { x } from './mod'` re-export does NOT bind `x` in this module's
+// scope, so the regenerate-status poll handler below (which calls sanitizeJobError)
+// threw `ReferenceError: sanitizeJobError is not defined` at runtime. Import the
+// local binding and re-export it so both this module and its consumers resolve it.
+import { sanitizeJobError } from '../_lib/provider-job-error.js';
+export { sanitizeJobError };
 
 // ── presign ───────────────────────────────────────────────────────────────────
 

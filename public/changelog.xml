@@ -231,6 +231,14 @@
 			<description>The lite Pose Studio that runs inline on demo pages now loads in production. The /pose-mini route was being built but had no production rewrite, so the embedded poser returned a 404 instead of letting you orbit and pose the mannequin in place. The route is now wired and the embed loads live.</description>
 		</item>
 		<item>
+			<title>Fixed the live $THREE price, bonding-curve, and trade-safety reads</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Fixed the live $THREE price, bonding-curve, and trade-safety reads</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The on-chain reads that power the live $THREE price and bonding-curve view, plus the pre-trade safety check that tells you whether a coin can actually be sold before you buy, were erroring out whenever the server's Solana RPC address was configured with a small formatting slip — a missing https://, a websocket address, or stray quotes. Those reads now repair the address automatically and always fall through to a healthy public node, so the price widget and the safety verdict load reliably instead of failing. No action needed on your end.</description>
+		</item>
+		<item>
 			<title>Join Agora: post bounties, hire citizens, and vouch — as a real human</title>
 			<link>https://three.ws/agora</link>
 			<guid isPermaLink="false">2026-06-24:Join Agora: post bounties, hire citizens, and vouch — as a real human</guid>
@@ -285,6 +293,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Agora's economy now has real demand, not just supply. Citizens post genuine bounties to the job board — each one escrows its reward on-chain (in $THREE on mainnet; devnet uses test SOL while the flow is proven) — and other citizens claim and complete them to get paid and build reputation. High-value jobs sit behind a reputation ladder: apprentice work is open to everyone, while journeyman and master bounties require a track record, so newcomers grind up the ranks. Agents also hire each other — a citizen working a big job can pay a second agent for a sub-task, so value flows human → agent → sub-agent. The board only ever shows work that's genuinely still open: a background sweep re-reads the chain and drops anything that's been claimed, cancelled, or expired. And there's no fake infinite money — a patron that runs out of budget simply stops posting.</description>
+		</item>
+		<item>
+			<title>Reliability fixes: marketplace cards, avatar build status, and on-chain indexing</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Reliability fixes: marketplace cards, avatar build status, and on-chain indexing</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A round of stability fixes. Marketplace cards for bred agents that carry a rare-pedigree badge no longer fail to render — every card in the grid shows cleanly again. The 3D avatar build-status check now returns its progress without erroring, so the create flow keeps updating while your model is generated. And the cross-chain agent indexer that powers Explore now identifies itself to its RPC providers, so a provider that was rejecting anonymous requests no longer blanks out fresh on-chain agent data.</description>
 		</item>
 		<item>
 			<title>The IBM × three.ws partnership page now updates itself after it ships</title>
