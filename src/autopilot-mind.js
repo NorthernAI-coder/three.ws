@@ -7,7 +7,7 @@
 // It is the legible face of explainable autonomy: the owner grants scoped
 // capabilities, the agent proposes real actions grounded in memory (each showing
 // its receipt), and every executed action links back to the memory that
-// motivated it. Wallet actions move real $THREE and are always confirmation-gated.
+// motivated it. Wallet actions move real SOL and are always confirmation-gated.
 //
 // Kept in its own module so it can evolve without touching the heavily-shared
 // agent-edit.js. All API calls go through apiFetch (CSRF-safe).
@@ -20,7 +20,7 @@ const API = '/api/autopilot';
 const KIND_META = {
 	create_alert: { label: 'Alert', icon: '🔔', reversible: true, blurb: 'Watches a token and notifies you.' },
 	briefing: { label: 'Briefing', icon: '📋', reversible: true, blurb: 'Authors a memory-grounded digest.' },
-	wallet_transfer: { label: 'Transfer', icon: '💸', reversible: false, blurb: 'Sends $THREE from the agent wallet.' },
+	wallet_transfer: { label: 'Transfer', icon: '💸', reversible: false, blurb: 'Sends SOL from the agent wallet. Never sells or sends $THREE.' },
 };
 
 const esc = (s) =>
@@ -240,7 +240,7 @@ export function mountAutopilotMind(container, { agentId }) {
 		const scopeDefs = [
 			{ key: 'create_alert', name: '🔔 Create alerts', desc: 'Set up real price / graduation / whale alerts on $THREE and tokens it knows about.', auto: true },
 			{ key: 'briefing', name: '📋 Author briefings', desc: 'Write memory-grounded briefings and deliver them to your inbox.', auto: true },
-			{ key: 'wallet_transfer', name: '💸 Spend $THREE', desc: 'Send $THREE from the agent\'s custodial wallet. Always asks before each transfer.', auto: false },
+			{ key: 'wallet_transfer', name: '💸 Spend SOL', desc: 'Send SOL from the agent\'s custodial wallet. Always asks before each transfer. Never sells or sends $THREE.', auto: false },
 		];
 		$('apm-scopes').innerHTML = scopeDefs.map((s) => {
 			const on = c.scopes[s.key];
@@ -248,8 +248,8 @@ export function mountAutopilotMind(container, { agentId }) {
 			let extra = '';
 			if (s.key === 'wallet_transfer') {
 				extra = `<div class="apm-scope-extra"><label class="apm-prop-conf" for="apm-daily">Daily limit</label>
-					<input class="apm-num" type="number" min="0" step="1" id="apm-daily" value="${esc(c.daily_spend_three)}" ${on ? '' : 'disabled'}>
-					<span class="apm-prop-conf">$THREE / day</span></div>`;
+					<input class="apm-num" type="number" min="0" step="0.1" id="apm-daily" value="${esc(c.daily_spend_sol)}" ${on ? '' : 'disabled'}>
+					<span class="apm-prop-conf">SOL / day</span></div>`;
 			} else if (s.auto) {
 				extra = `<div class="apm-scope-extra">
 					<label class="apm-switch" title="Auto-run within scope (reversible only)"><input type="checkbox" data-auto="${s.key}" ${autoOn ? 'checked' : ''} ${on ? '' : 'disabled'}><span class="apm-switch-track"></span></label>
@@ -274,7 +274,7 @@ export function mountAutopilotMind(container, { agentId }) {
 			let t;
 			daily.addEventListener('input', () => {
 				clearTimeout(t);
-				t = setTimeout(() => saveConfig({ daily_spend_three: Number(daily.value) || 0 }), 500);
+				t = setTimeout(() => saveConfig({ daily_spend_sol: Number(daily.value) || 0 }), 500);
 			});
 		}
 	}
@@ -435,19 +435,19 @@ export function mountAutopilotMind(container, { agentId }) {
 		return `<div class="apm-willdo">${esc(preview.willDo)}</div>${checks}`;
 	}
 
-	// ── Confirm modal (irreversible $THREE transfer) ──────────────────────────
+	// ── Confirm modal (irreversible SOL transfer) ──────────────────────────
 	function confirmTransfer(p) {
 		return new Promise((resolve) => {
 			const back = document.createElement('div');
 			back.className = 'apm-modal-backdrop';
 			back.innerHTML = `
 				<div class="apm-modal" role="dialog" aria-modal="true" aria-labelledby="apm-confirm-h">
-					<h4 id="apm-confirm-h">Confirm $THREE transfer</h4>
-					<p>Your agent will send <b>${esc(p.params.amount_three)} $THREE</b> to <b>${esc(String(p.params.recipient).slice(0, 10))}…${esc(String(p.params.recipient).slice(-6))}</b>.</p>
+					<h4 id="apm-confirm-h">Confirm SOL transfer</h4>
+					<p>Your agent will send <b>${esc(p.params.amount_sol)} SOL</b> to <b>${esc(String(p.params.recipient).slice(0, 10))}…${esc(String(p.params.recipient).slice(-6))}</b>.</p>
 					<p>This is real and <b>cannot be undone</b>. ${p.params.reason ? `Reason: ${esc(p.params.reason)}` : ''}</p>
 					<div class="apm-modal-actions">
 						<button class="apm-btn" data-c="cancel">Cancel</button>
-						<button class="apm-btn primary" data-c="ok">Send ${esc(p.params.amount_three)} $THREE</button>
+						<button class="apm-btn primary" data-c="ok">Send ${esc(p.params.amount_sol)} SOL</button>
 					</div>
 				</div>`;
 			document.body.appendChild(back);
@@ -591,7 +591,7 @@ export function receiptRow(rc, agentId, { undo = false, showAgent = false } = {}
 	let line = '';
 	if (rc.kind === 'alert_created') line = `Created a <b>${esc(String(result.rule_kind || 'alert').replace('_', ' '))}</b> alert${result.target_mint ? ` on ${esc(result.target_mint === 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' ? '$THREE' : String(result.target_mint).slice(0, 6) + '…')}` : ''}.`;
 	else if (rc.kind === 'briefing_authored') line = `Authored a briefing${result.body_preview ? `: "${esc(String(result.body_preview).slice(0, 90))}…"` : ''}.`;
-	else if (rc.kind === 'wallet_transfer') line = `Sent <b>${esc(result.amount_three)} $THREE</b>${result.recipient ? ` to ${esc(String(result.recipient).slice(0, 8))}…` : ''}.`;
+	else if (rc.kind === 'wallet_transfer') line = `Sent <b>${esc(result.amount_sol)} SOL</b>${result.recipient ? ` to ${esc(String(result.recipient).slice(0, 8))}…` : ''}.`;
 	else line = esc(rc.type);
 
 	const sources = (rc.sources || []).slice(0, 3).map((s) => sourceChip(rc.agentId || agentId, s)).join('');

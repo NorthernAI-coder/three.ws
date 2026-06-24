@@ -22,8 +22,32 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-// Every publishable library package in this repo.
-const PACKAGES = [{ key: 'react', dir: 'packages/react' }];
+// Every publishable library package in this repo. The 18 `@three-ws/*` SDKs
+// (docs/sdk-launch.md) ship src/ directly — no build step — so publishing is a
+// cd-and-`npm publish` per dir; this script is idempotent (skips versions
+// already on npm). Order mirrors the launch runbook: flagship, avatar/3D
+// cluster, agent cluster, payments/onchain cluster.
+const PACKAGES = [
+	{ key: 'react', dir: 'packages/react' },
+	{ key: 'forge', dir: 'packages/forge' },
+	{ key: 'names', dir: 'packages/names' },
+	{ key: 'voice', dir: 'packages/voice' },
+	{ key: 'pose', dir: 'packages/pose' },
+	{ key: 'glb-tools', dir: 'packages/glb-tools' },
+	{ key: 'mocap', dir: 'packages/mocap' },
+	{ key: 'intel', dir: 'packages/intel' },
+	{ key: 'vanity', dir: 'packages/vanity' },
+	{ key: 'reputation', dir: 'packages/reputation' },
+	{ key: 'agenc', dir: 'packages/agenc' },
+	{ key: 'agent-memory', dir: 'packages/agent-memory' },
+	{ key: 'guardian', dir: 'packages/guardian' },
+	{ key: 'agent-guards', dir: 'packages/agent-guards' },
+	{ key: 'x402-server', dir: 'packages/x402-server' },
+	{ key: 'skill-license', dir: 'packages/skill-license' },
+	{ key: 'strategies', dir: 'packages/strategies' },
+	{ key: 'pumpfun-skills', dir: 'packages/pumpfun-skills' },
+	{ key: 'irl', dir: 'packages/irl' },
+];
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
