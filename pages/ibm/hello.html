@@ -586,6 +586,18 @@ a:focus-visible{outline-offset:3px}
 .wb-cal:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
 .wb-cal svg{width:15px;height:15px;flex:0 0 auto}
 .demo-nav a.nav-live .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ibm-red);margin-right:7px;vertical-align:middle;animation:wbpulse 1.4s var(--ease) infinite}
+.wb-gate{gap:0}
+.wb-gate[hidden]{display:none}
+.wb-lock{width:34px;height:34px;color:#78a9ff;margin-bottom:16px}
+.wb-gate-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:6px;width:100%;max-width:420px}
+.wb-gate-input{flex:1 1 220px;min-width:0;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.38);color:#fff;font-family:var(--font-sans);font-size:15px;padding:0 14px;height:46px;border-radius:2px}
+.wb-gate-input::placeholder{color:rgba(255,255,255,.55)}
+.wb-gate-input:focus-visible{outline:2px solid #78a9ff;outline-offset:1px;background:rgba(255,255,255,.14)}
+.wb-gate-btn{flex:0 0 auto;background:var(--ibm-blue-fill);color:#fff;border:none;cursor:pointer;font-family:var(--font-sans);font-size:15px;font-weight:500;padding:0 22px;height:46px;border-radius:2px;transition:background .12s}
+.wb-gate-btn:hover{background:var(--ibm-blue-fill-hover)}
+.wb-gate-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.wb-gate-err{margin-top:14px;font-size:13px;color:#ffb3b8}
+.wb-gate-err[hidden]{display:none}
 </style>
 <section class="section webinar" id="webinar" aria-labelledby="wb-h">
   <div class="inner">
@@ -621,6 +633,18 @@ a:focus-visible{outline-offset:3px}
         <p class="wb-soon" id="wbHoldMsg">The stream will appear here the moment it starts.</p>
         <button class="wb-retry" id="wbRetry" type="button" hidden>Reload the player</button>
       </div>
+
+      <!-- POST-EVENT · password-gated replay -->
+      <form class="wb-fill wb-gate" id="wbGate" hidden>
+        <svg class="wb-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="11" width="16" height="9" rx="1.5"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+        <h3 class="wb-stage-title">This session has ended</h3>
+        <p class="wb-soon" id="wbGateMsg">The replay is private. Enter the access password to watch the recording.</p>
+        <div class="wb-gate-row">
+          <input class="wb-gate-input" id="wbGateInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Replay access password" placeholder="Access password">
+          <button class="wb-gate-btn" id="wbGateBtn" type="submit">Unlock</button>
+        </div>
+        <p class="wb-gate-err" id="wbGateErr" role="alert" hidden>That password didn't match. Try again.</p>
+      </form>
 
       <!-- LIVE / REPLAY · player mounts here -->
       <div class="wb-player" id="wbPlayer" hidden></div>
@@ -691,6 +715,24 @@ a:focus-visible{outline-offset:3px}
     //    A real recording (vodHls/mp4 above) always wins over this — those become a
     //    proper replay; endLoop is the no-recording fallback so the stage never dies.
     endLoop: '',     // looped, muted highlight reel shown after the event ends (MP4)
+
+    // ── REPLAY POLICY — what the recording does once the live window has passed.
+    //    'password' — the replay is private, gated behind replayPasswordSha256.
+    //                 With no hash set it stays fully locked (the "ended" card),
+    //                 so the talk is never freely replayable.
+    //    'off'      — no replay at all; the stage shows the "session ended" card.
+    //    'open'     — the recording becomes a normal, seekable replay (legacy).
+    replay: 'password',
+    // SHA-256 hex of the replay password — NOT the password itself, so it can't
+    // be read from page source. Generate it once:
+    //    echo -n 'your-password' | shasum -a 256
+    //    (browser) crypto.subtle.digest('SHA-256', new TextEncoder().encode('your-password'))
+    //       .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+    //    Leave blank to keep the replay locked until you set it. NOTE: a client-side
+    //    gate keeps casual viewers out, but once unlocked the MP4 URL is visible in
+    //    the network panel — for hard protection, serve the video from signed/
+    //    expiring URLs (e.g. Cloudflare Stream signed playback).
+    replayPasswordSha256: '',
   };
 
   const startMs = Date.parse(WEBINAR.startTime);
@@ -699,7 +741,17 @@ a:focus-visible{outline-offset:3px}
 
   const $ = (id) => document.getElementById(id);
   const stage = $('wbStage'), pre = $('wbPre'), holding = $('wbHolding'),
-        player = $('wbPlayer'), badge = $('wbBadge'), unmute = $('wbUnmute');
+        player = $('wbPlayer'), badge = $('wbBadge'), unmute = $('wbUnmute'),
+        gate = $('wbGate'), gateInput = $('wbGateInput'), gateErr = $('wbGateErr');
+
+  // Replay gate: a 64-hex SHA-256 of the access password. The plaintext password
+  // is never in the page — we hash what the viewer types and compare.
+  const REPLAY_HASH = String(WEBINAR.replayPasswordSha256 || '').trim().toLowerCase();
+  const replayHashSet = /^[0-9a-f]{64}$/.test(REPLAY_HASH);
+  async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
 
   const hasSource = !!(WEBINAR.liveHls || WEBINAR.vodHls || WEBINAR.mp4 || WEBINAR.youTubeId);
   const isLiveSource = WEBINAR.mode === 'live' || (WEBINAR.mode === 'auto' && !!WEBINAR.liveHls && !WEBINAR.vodHls && !WEBINAR.mp4);
@@ -765,21 +817,67 @@ a:focus-visible{outline-offset:3px}
   function applyPhase() {
     if (phase === 'pre') return; // countdown already visible
     pre.hidden = true;
-    if (phase === 'ended' && !hasSource) {
-      // Past the slot, no live/replay source. Prefer a looped highlight reel if one
-      // was configured; otherwise fall back to the static "thanks" card.
-      if (WEBINAR.endLoop) { mountLoop(); clearInterval(timer); return; }
-      holding.hidden = false;
-      $('wbSpinner').style.display = 'none';
-      $('wbHoldTitle').textContent = 'Thanks for joining';
-      $('wbHoldMsg').textContent = 'The recording will be posted here shortly.';
-      clearInterval(timer);
-      return;
-    }
-    if (!hasSource) { holding.hidden = false; return; } // live window, awaiting source
+    if (phase === 'ended') { enterEnded(); clearInterval(timer); return; }
+    // Live window:
+    if (!hasSource) { holding.hidden = false; return; } // awaiting source
     mountPlayer();
     clearInterval(timer);
   }
+
+  // Static "session ended" card — no video. Used when there's no recording, when
+  // replay is 'off', or when a password gate has no hash set yet (stays locked).
+  function endedCard(msg) {
+    pre.hidden = true; player.hidden = true; player.innerHTML = '';
+    badge.hidden = true; unmute.hidden = true; if (gate) gate.hidden = true;
+    holding.hidden = false;
+    $('wbSpinner').style.display = 'none';
+    $('wbHoldTitle').textContent = 'This session has ended';
+    $('wbHoldMsg').textContent = msg || 'Thanks for joining.';
+    $('wbRetry').hidden = true;
+  }
+
+  function showGate() {
+    pre.hidden = true; holding.hidden = true; player.hidden = true; player.innerHTML = '';
+    badge.hidden = true; unmute.hidden = true;
+    gate.hidden = false;
+    setTimeout(() => { try { gateInput.focus(); } catch (_) {} }, 0);
+  }
+
+  // The recording is private once the live window closes. Route per REPLAY POLICY:
+  // 'open' → seekable replay; 'off' or password-without-hash → locked card;
+  // 'password' (+hash) → gate, unless this tab already unlocked it.
+  function enterEnded() {
+    if (!hasSource) {
+      if (WEBINAR.endLoop) { mountLoop(); return; }
+      endedCard('Thanks for joining. The recording will be posted shortly.');
+      return;
+    }
+    if (WEBINAR.replay === 'open') { mountPlayer(); return; }
+    if (WEBINAR.replay === 'password' && replayHashSet) {
+      let unlocked = false;
+      try { unlocked = sessionStorage.getItem('wbReplayOk') === '1'; } catch (_) {}
+      if (unlocked) { mountPlayer(); return; }
+      showGate();
+      return;
+    }
+    endedCard('Thanks for joining. This recording is private.');
+  }
+
+  if (gate) gate.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const val = gateInput.value || '';
+    if (!val) { gateInput.focus(); return; }
+    let ok = false;
+    try { ok = (await sha256Hex(val)) === REPLAY_HASH; } catch (_) { ok = false; }
+    if (ok) {
+      try { sessionStorage.setItem('wbReplayOk', '1'); } catch (_) {}
+      gate.hidden = true;
+      mountPlayer();
+    } else {
+      gateErr.hidden = false;
+      gateInput.value = ''; gateInput.focus();
+    }
+  });
 
   // ── Player ──────────────────────────────────────────────────────────────
   function loadHls() {
@@ -907,9 +1005,18 @@ a:focus-visible{outline-offset:3px}
       video.muted = false; unmute.hidden = true; video.play().catch(() => {});
     });
 
-    // When the recording finishes, drop the live illusion: reveal full controls so
-    // viewers can scrub/replay, and clear the "Live now" badge.
-    video.addEventListener('ended', () => { video.controls = true; badge.hidden = true; });
+    // When the recording finishes, honor the replay policy. An open replay (or a
+    // viewer who already unlocked it this session) gets full scrub controls; an
+    // otherwise-private recording is taken off screen and re-gated so it isn't
+    // left freely playable once the live moment has passed.
+    video.addEventListener('ended', () => {
+      let unlocked = false;
+      try { unlocked = sessionStorage.getItem('wbReplayOk') === '1'; } catch (_) {}
+      if (WEBINAR.replay === 'open' || unlocked) { video.controls = true; badge.hidden = true; return; }
+      player.hidden = true; player.innerHTML = '';
+      if (WEBINAR.replay === 'password' && replayHashSet) showGate();
+      else endedCard('Thanks for joining. This recording is private.');
+    });
   }
 
   // Assign the interval BEFORE the first render() so an at/after-start load that
