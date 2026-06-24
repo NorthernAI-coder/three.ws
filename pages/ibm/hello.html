@@ -722,7 +722,7 @@ a:focus-visible{outline-offset:3px}
     //                 so the talk is never freely replayable.
     //    'off'      — no replay at all; the stage shows the "session ended" card.
     //    'open'     — the recording becomes a normal, seekable replay (legacy).
-    replay: 'password',
+    replay: 'off',
     // SHA-256 hex of the replay password — NOT the password itself, so it can't
     // be read from page source. Generate it once:
     //    echo -n 'your-password' | shasum -a 256
@@ -860,7 +860,9 @@ a:focus-visible{outline-offset:3px}
       showGate();
       return;
     }
-    endedCard('Thanks for joining. This recording is private.');
+    endedCard(WEBINAR.replay === 'off'
+      ? 'Thanks for joining. The live session has ended.'
+      : 'Thanks for joining. This recording is private.');
   }
 
   if (gate) gate.addEventListener('submit', async (e) => {
@@ -1015,7 +1017,9 @@ a:focus-visible{outline-offset:3px}
       if (WEBINAR.replay === 'open' || unlocked) { video.controls = true; badge.hidden = true; return; }
       player.hidden = true; player.innerHTML = '';
       if (WEBINAR.replay === 'password' && replayHashSet) showGate();
-      else endedCard('Thanks for joining. This recording is private.');
+      else endedCard(WEBINAR.replay === 'off'
+        ? 'Thanks for joining. The live session has ended.'
+        : 'Thanks for joining. This recording is private.');
     });
   }
 
