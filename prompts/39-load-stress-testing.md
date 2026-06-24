@@ -27,3 +27,17 @@ and fix or document the scaling story so a launch spike doesn't take us down.
 
 ---
 ### Operating rules — read CLAUDE.md + STRUCTURE.md first. Load-test only our own infra (staging/test env + free lanes) — no third-party targeting. No mocks/fake data/stubs. $THREE only (`FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`). Put harnesses in `scripts/`, not the repo root. Stage explicit paths; never `git add -A`. Don't commit `api/*.js` bundles. Push both remotes when asked; never pull from `threeD`. DoD = CLAUDE.md checklist.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/39-load-stress-testing.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

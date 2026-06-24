@@ -20,7 +20,7 @@ import {
 	handleTerminate,
 	isMcpProtocolClient,
 } from './_mcp/auth.js';
-import { sendX402Error } from './_mcp/payments.js';
+import { sendX402Error, reservePaymentProof } from './_mcp/payments.js';
 
 const RESOURCE_PATH = '/api/mcp-3d';
 
@@ -71,35 +71,53 @@ export default wrap(async (req, res) => {
 	const batch = Array.isArray(body) ? body : [body];
 	if (batch.length > 16) return sendJsonRpcError(res, null, -32600, 'batch too large (max 16)');
 
-	const responses = [];
-	for (const msg of batch) {
-		const r = await dispatch(msg, auth, req);
-		if (r !== null) responses.push(r);
+	// Replay guard (parity with paidEndpoint): hold a single-use lock on the
+	// signed payment proof across dispatch+settle so a captured/retried X-PAYMENT
+	// can't re-run the priced (and here often generation-grade) tools before the
+	// first settle lands. Released in the finally; the consumed on-chain nonce
+	// blocks any replay thereafter. Fails open — see reservePaymentProof.
+	let releaseProof = async () => {};
+	if (x402Ctx) {
+		const guard = await reservePaymentProof('/api/mcp-3d', req.headers['x-payment']);
+		if (!guard.ok) {
+			return sendJsonRpcError(res, null, -32000, 'payment_in_flight', { retry_after: 1 });
+		}
+		releaseProof = guard.release;
 	}
 
-	// OAuth users run tools operator-funded (bounded by rate limits). x402
-	// callers pay per tool: the verified payment covers the batch's summed
-	// per-tool price (tier-aware for generation — see _mcp3d/pricing.js), and
-	// settling it here means the charge lands only after the work succeeded.
-	// Only settle if a call succeeded — a wholesale failure is free.
-	if (x402Ctx) {
-		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
-		if (anySuccess) {
-			try {
-				const settled = await settlePayment({ verified: x402Ctx.verified });
-				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
-			} catch (err) {
-				return sendX402Error(
-					res,
-					{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
-					err,
-				);
+	try {
+		const responses = [];
+		for (const msg of batch) {
+			const r = await dispatch(msg, auth, req);
+			if (r !== null) responses.push(r);
+		}
+
+		// OAuth users run tools operator-funded (bounded by rate limits). x402
+		// callers pay per tool: the verified payment covers the batch's summed
+		// per-tool price (tier-aware for generation — see _mcp3d/pricing.js), and
+		// settling it here means the charge lands only after the work succeeded.
+		// Only settle if a call succeeded — a wholesale failure is free.
+		if (x402Ctx) {
+			const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+			if (anySuccess) {
+				try {
+					const settled = await settlePayment({ verified: x402Ctx.verified });
+					res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+				} catch (err) {
+					return sendX402Error(
+						res,
+						{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
+						err,
+					);
+				}
 			}
 		}
-	}
 
-	res.statusCode = 200;
-	res.setHeader('content-type', 'application/json; charset=utf-8');
-	res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
-	res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+		res.statusCode = 200;
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+		res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+	} finally {
+		await releaseProof();
+	}
 });

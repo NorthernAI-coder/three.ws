@@ -215,6 +215,5 @@ export const _internal = {
 	dayKey,
 	resetMemoryStore() {
 		memoryStore.clear();
-		redisClient = null;
 	},
 };

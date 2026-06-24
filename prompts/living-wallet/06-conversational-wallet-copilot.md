@@ -94,3 +94,17 @@ Push it: proactive nudges ("your DCA from Task 03 just ran"), spoken P&L summari
 "explain this transaction" over the real custody trail. Update `data/changelog.json`.
 **Then delete this prompt file.**
 </content>
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/living-wallet/06-conversational-wallet-copilot.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -3,7 +3,7 @@
 // prompt/task markdown file under tasks/ and prompts/. Skips meta docs
 // (README/PLAN/REPORT/...) and files already stamped. Safe to re-run.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const ROOT = process.cwd();
@@ -43,7 +43,9 @@ Stage the deletion alongside your implementation and include it in the completio
 
 let stamped = 0, skipped = 0, meta = 0;
 for (const r of ROOTS) {
-  for (const file of walk(join(ROOT, r))) {
+  const rootDir = join(ROOT, r);
+  if (!existsSync(rootDir)) continue;
+  for (const file of walk(rootDir)) {
     const rel = relative(ROOT, file);
     const base = file.split('/').pop();
     if (META.test(base)) { meta++; continue; }

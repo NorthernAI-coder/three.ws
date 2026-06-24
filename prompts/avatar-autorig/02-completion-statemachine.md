@@ -186,3 +186,17 @@ Run, in order, and paste results into your final summary:
 - Reconstruct-pipeline finalize hardening (`api/_lib/reconstruct-finalize.js`) — defer unless a shared helper extraction is trivially safe.
 - Surfacing a per-avatar "rigging…" / "rig failed, retry" state in the avatar UI — note the gap for a follow-up UI prompt; don't build it here.
 - Provider-side webhook retry configuration on Replicate — infra, out of band.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/avatar-autorig/02-completion-statemachine.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -14,7 +14,7 @@ import {
 	handleTerminate,
 	isMcpProtocolClient,
 } from './_mcp/auth.js';
-import { sendX402Error } from './_mcp/payments.js';
+import { sendX402Error, reservePaymentProof } from './_mcp/payments.js';
 
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,HEAD,POST,DELETE,OPTIONS', origins: '*' })) return;
@@ -66,37 +66,55 @@ export default wrap(async (req, res) => {
 	// unbounded batch multiplies rate-limited work by N against the user's budget.
 	if (batch.length > 32) return sendJsonRpcError(res, null, -32600, 'batch too large (max 32)');
 
-	const responses = [];
-	for (const msg of batch) {
-		const r = await dispatch(msg, auth, req);
-		if (r !== null) responses.push(r);
-	}
-
-	// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
-	// perspective: if settle fails, the payer's signed payload is not broadcast
-	// and they get a 502 instead of having paid for nothing.
-	//
-	// Only settle when at least one call actually produced a result. If every
-	// call failed (JSON-RPC error or a tool result flagged isError), no useful
-	// work was delivered, so we do not broadcast the payment. We deliberately do
-	// NOT void settlement on a *partial* failure: a single failing call in a
-	// batch must not let the caller reclaim the expensive calls that succeeded.
-	const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
-	if (x402Ctx && anySuccess) {
-		try {
-			const settled = await settlePayment({ verified: x402Ctx.verified });
-			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
-		} catch (err) {
-			return sendX402Error(
-				res,
-				{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
-				err,
-			);
+	// Replay guard (parity with paidEndpoint): hold a single-use lock on the
+	// signed payment proof across dispatch+settle so a captured/retried X-PAYMENT
+	// can't re-run the priced tools before the first settle lands. Released in the
+	// finally once the request finishes; the consumed on-chain nonce blocks any
+	// replay thereafter. Fails open — see reservePaymentProof.
+	let releaseProof = async () => {};
+	if (x402Ctx) {
+		const guard = await reservePaymentProof('/api/mcp', req.headers['x-payment']);
+		if (!guard.ok) {
+			return sendJsonRpcError(res, null, -32000, 'payment_in_flight', { retry_after: 1 });
 		}
+		releaseProof = guard.release;
 	}
 
-	res.statusCode = 200;
-	res.setHeader('content-type', 'application/json; charset=utf-8');
-	res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
-	res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+	try {
+		const responses = [];
+		for (const msg of batch) {
+			const r = await dispatch(msg, auth, req);
+			if (r !== null) responses.push(r);
+		}
+
+		// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
+		// perspective: if settle fails, the payer's signed payload is not broadcast
+		// and they get a 502 instead of having paid for nothing.
+		//
+		// Only settle when at least one call actually produced a result. If every
+		// call failed (JSON-RPC error or a tool result flagged isError), no useful
+		// work was delivered, so we do not broadcast the payment. We deliberately do
+		// NOT void settlement on a *partial* failure: a single failing call in a
+		// batch must not let the caller reclaim the expensive calls that succeeded.
+		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+		if (x402Ctx && anySuccess) {
+			try {
+				const settled = await settlePayment({ verified: x402Ctx.verified });
+				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+			} catch (err) {
+				return sendX402Error(
+					res,
+					{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
+					err,
+				);
+			}
+		}
+
+		res.statusCode = 200;
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+		res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+	} finally {
+		await releaseProof();
+	}
 });

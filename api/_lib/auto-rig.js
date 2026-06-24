@@ -50,8 +50,11 @@ import { isAutoRigEligible } from './auto-rig-eligibility.js';
 // gate forge_avatar already runs before paid work — the module is dependency-free
 // and synchronous, so it bundles cleanly into the Vercel function.
 import { classifyHumanoidPrompt } from '../../mcp-server/src/tools/_humanoid.js';
-
-const MAX_GLB_BYTES = 64 * 1024 * 1024; // matches reconstruct-finalize's ceiling
+// The rigged GLB returned by the provider is fetched through the shared guard:
+// host allowlist + IP-pinned SSRF connect + the single 64 MB ceiling (MAX_GLB_BYTES
+// now lives there, no longer duplicated here). No bare fetch() of a provider URL
+// remains in this file.
+import { fetchProviderGlbBuffer } from './provider-result-url.js';
 
 // Does this rig signal indicate a usable skeleton? Mirrors classifyRig
 // (src/shared/rig-classify.js) on the snake_case source_meta shape so the
@@ -61,16 +64,6 @@ export function rigInfoIsRigged(rigInfo) {
 	if (rigInfo.is_rigged === true) return true;
 	const joints = rigInfo.skeleton_joint_count;
 	return typeof joints === 'number' && joints > 0;
-}
-
-async function fetchGlbBuffer(url) {
-	const resp = await fetch(url);
-	if (!resp.ok) throw new Error(`fetch glb: ${resp.status}`);
-	const len = Number(resp.headers.get('content-length') || 0);
-	if (len && len > MAX_GLB_BYTES) throw new Error(`glb too large: ${len} bytes`);
-	const buf = Buffer.from(await resp.arrayBuffer());
-	if (buf.length > MAX_GLB_BYTES) throw new Error(`glb too large: ${buf.length} bytes`);
-	return buf;
 }
 
 // Re-run bone-name + up-axis canonicalization on a rigged GLB so the new
@@ -364,7 +357,7 @@ export async function finalizeAutoRigStage({ userId, jobId, job, glbUrl }) {
 	// Fetch + canonicalize the rigged GLB. A fetch/canonicalize failure throws
 	// out of here BEFORE any write, leaving the source avatar fully intact — the
 	// caller logs it and the job is retried on the next webhook/poll/sweep.
-	let glbBuf = await fetchGlbBuffer(glbUrl);
+	let glbBuf = await fetchProviderGlbBuffer(glbUrl);
 	glbBuf = await canonicalize(glbBuf);
 	const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
 

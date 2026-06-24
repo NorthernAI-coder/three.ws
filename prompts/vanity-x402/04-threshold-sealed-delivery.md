@@ -83,3 +83,17 @@ re-keying via re-sharing), share-holder revocation, an audit view of who has ope
 their share, and tying the member set to three.ws identities/agents so shares seal to
 people automatically. Summarize, then **delete this file**
 (`prompts/vanity-x402/04-threshold-sealed-delivery.md`).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/vanity-x402/04-threshold-sealed-delivery.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

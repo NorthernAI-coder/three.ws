@@ -951,6 +951,13 @@
 					"added": "2026-06-17"
 				},
 				{
+					"path": "/ibm/hello",
+					"title": "IBM × three.ws partnership",
+					"description": "The IBM × three.ws partnership page: how three.ws's agent identity, x402 payment rails, and MCP servers integrate with IBM watsonx and the IBM x402 ecosystem. A self-contained showcase that stays live-editable after publish.",
+					"priority": 0.6,
+					"changefreq": "monthly"
+				},
+				{
 					"path": "/lookup",
 					"title": "Agent Lookup",
 					"description": "Resolve any three.ws agent by Solana mint, agent ID, avatar ID, or slug — renders its interactive 3D avatar alongside its on-chain identity (collection, owner, agent wallet, Active/x402 status, Metaplex/Solscan/Magic Eden links).",

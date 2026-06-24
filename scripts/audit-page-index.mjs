@@ -56,6 +56,7 @@ const IGNORE = new Set([
 	'/aws', // AWS Marketplace entitlement landing, reached via marketplace redirect
 	'/paywall', // transactional gate, reached in-flow when access is required
 '/sperax/iframe', // partner chat embed iframe, not a discovery page
+	'/ibm/hello.live', // editable source variant of /ibm/hello (the canonical page is generated from it); not a separate discovery page
 ]);
 
 // Whole prefixes that are internal/auth-gated/embed and never belong in the

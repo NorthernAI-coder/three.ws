@@ -107,3 +107,17 @@ and visualize the stream so the throttle is obvious; make the dead-man status a
 calm, reassuring readout ("Active — last seen 2h ago; protection arms after 30
 days"). Verify both flows on devnet in the browser, review your diff, then
 **delete this prompt file.**
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/wallet-innovation/07-streaming-allowance-deadman.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

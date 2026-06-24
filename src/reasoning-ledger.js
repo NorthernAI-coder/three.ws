@@ -249,7 +249,7 @@ function timelineSection() {
 
 function hero(agent) {
 	const img = agent?.image
-		? `<img class="rl-agent-avatar" src="${esc(agent.image)}" alt="" />`
+		? `<img class="rl-agent-avatar" src="${esc(agent.image)}" alt="" loading="lazy" decoding="async" />`
 		: `<div class="rl-agent-avatar"></div>`;
 	const name = agent?.name ? esc(agent.name) : 'Agent';
 	return `

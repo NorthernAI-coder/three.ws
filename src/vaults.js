@@ -203,7 +203,7 @@ function renderDetail(v, ledger) {
 	const nav = v.nav;
 	const roi = nav.roi_bps || 0;
 	const t = v.terms;
-	const agentImg = v.agent?.image ? `<img class="vx-d-av" src="${esc(v.agent.image)}" alt="" />` : '<div class="vx-d-av vx-d-av--ph" aria-hidden="true"></div>';
+	const agentImg = v.agent?.image ? `<img class="vx-d-av" src="${esc(v.agent.image)}" alt="" loading="lazy" decoding="async" />` : '<div class="vx-d-av vx-d-av--ph" aria-hidden="true"></div>';
 	const halted = v.status === 'paused';
 	const closed = v.status === 'closing' || v.status === 'closed';
 

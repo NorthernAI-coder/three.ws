@@ -21,18 +21,11 @@ import { storageKeyFor, createAvatar } from './avatars.js';
 import { inspectGlb, isValidGlbHeader } from './glb-inspect.js';
 import { dispatchWebhooks } from './webhook-dispatch.js';
 import { getRegenProvider } from './regen-provider.js';
-
-const MAX_GLB_BYTES = 64 * 1024 * 1024; // 64 MB ceiling on a fetched model
-
-async function fetchGlbBuffer(url) {
-	const resp = await fetch(url);
-	if (!resp.ok) throw new Error(`fetch glb: ${resp.status}`);
-	const len = Number(resp.headers.get('content-length') || 0);
-	if (len && len > MAX_GLB_BYTES) throw new Error(`glb too large: ${len} bytes`);
-	const buf = Buffer.from(await resp.arrayBuffer());
-	if (buf.length > MAX_GLB_BYTES) throw new Error(`glb too large: ${buf.length} bytes`);
-	return buf;
-}
+// Every provider-returned GLB fetched here — the reconstruct output, the rigged
+// result, and our own stored bare mesh (rig.unriggedUrl) — goes through the
+// shared guard: host allowlist + IP-pinned SSRF connect + 64 MB ceiling. No bare
+// fetch() of a provider URL remains in this file.
+import { fetchProviderGlbBuffer } from './provider-result-url.js';
 
 function glbMetaFrom(info) {
 	return info
@@ -139,7 +132,7 @@ async function materializeReconstructAvatar({
 //
 // Returns { status, resultAvatarId? } reflecting the post-call job state.
 export async function finalizeReconstructStage({ userId, jobId, job, glbUrl }) {
-	const glbBuf = await fetchGlbBuffer(glbUrl);
+	const glbBuf = await fetchProviderGlbBuffer(glbUrl);
 	const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
 	const slugPrefix = job?.params?.source === 'prompt' ? 'prompt' : 'selfie';
 	const slug = `${slugPrefix}-${Math.random().toString(36).slice(2, 8)}`;
@@ -235,7 +228,7 @@ export async function pollRiggingStage({ userId, jobId, job }) {
 	// the job can't hang forever in 'rigging'.
 	if (!provider?.instance || !rig.extJobId) {
 		if (!rig.unriggedUrl) return { status: 'rigging' };
-		const glbBuf = await fetchGlbBuffer(rig.unriggedUrl);
+		const glbBuf = await fetchProviderGlbBuffer(rig.unriggedUrl);
 		const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
 		const avatar = await materializeReconstructAvatar({
 			userId, jobId, job, glbBuf, glbInfo: info, storageKey, slug,
@@ -248,7 +241,7 @@ export async function pollRiggingStage({ userId, jobId, job }) {
 	const update = await provider.instance.status(rig.extJobId);
 
 	if (update.status === 'done' && update.resultGlbUrl) {
-		const glbBuf = await fetchGlbBuffer(update.resultGlbUrl);
+		const glbBuf = await fetchProviderGlbBuffer(update.resultGlbUrl);
 		const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
 		const avatar = await materializeReconstructAvatar({
 			userId, jobId, job, glbBuf, glbInfo: info, storageKey, slug,
@@ -259,7 +252,7 @@ export async function pollRiggingStage({ userId, jobId, job }) {
 
 	if (update.status === 'failed') {
 		// Rigging failed — deliver the bare mesh we stored before rigging.
-		const glbBuf = await fetchGlbBuffer(rig.unriggedUrl);
+		const glbBuf = await fetchProviderGlbBuffer(rig.unriggedUrl);
 		const info = isValidGlbHeader(glbBuf) ? inspectGlb(glbBuf) : null;
 		const avatar = await materializeReconstructAvatar({
 			userId, jobId, job, glbBuf, glbInfo: info, storageKey, slug,

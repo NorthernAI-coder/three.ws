@@ -82,6 +82,7 @@ import {
 	getAmmPoolState,
 	buildUnsignedTxBase64,
 	verifySignature,
+	txInvokesPumpProgram,
 	solanaPubkey,
 } from '../_lib/pump.js';
 
@@ -1455,6 +1456,12 @@ async function handleLaunchConfirm(req, res) {
 	const accountKeys = tx.transaction.message.accountKeys.map((k) => (k.pubkey || k).toString());
 	if (!accountKeys.includes(p.mint)) {
 		return error(res, 422, 'mint_not_in_tx', 'mint pubkey not present in tx');
+	}
+	// Prove the confirmed tx actually ran the pump.fun program — not just a tx
+	// that happens to reference the mint pubkey. Without this, a confirmed memo
+	// or transfer touching the new mint account could be recorded as a launch.
+	if (!txInvokesPumpProgram(tx)) {
+		return error(res, 422, 'not_a_pump_launch', 'transaction did not invoke the pump.fun program');
 	}
 
 	const [existing] = await sql`

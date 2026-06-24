@@ -19,6 +19,7 @@ import { getRegenProvider, getRegenProviderByName, getRegenProviderForJob, BYOK_
 import { resolveProviderKey } from '../_lib/forge-provider-key.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
+import { isAllowedProviderResultUrl } from '../_lib/provider-result-url.js';
 import { textToImage } from '../_mcp3d/text-to-image.js';
 
 // ── provider error masking ──────────────────────────────────────────────────────
@@ -521,9 +522,25 @@ const handleRegenerateStatus = wrap(async (req, res) => {
 			const provider = await getRegenProviderForJob(job.provider, req);
 			if (provider.instance) {
 				const update = await provider.instance.status(job.ext_job_id);
-				const nextStatus = update.status;
-				const nextResultUrl = update.resultGlbUrl ?? null;
-				const nextError = update.error ?? null;
+				let nextStatus = update.status;
+				let nextResultUrl = update.resultGlbUrl ?? null;
+				let nextError = update.error ?? null;
+				// SSRF gate (defense-in-depth): a provider-returned result URL is
+				// attacker-influenceable if the provider account/payload is forged.
+				// Pin it to an allowed provider host BEFORE it ever lands in
+				// result_glb_url — which the cron/poll later fetch server-side. A
+				// disallowed URL terminates the job cleanly instead of seeding a
+				// poisoned fetch (the guarded fetch would reject it too, but failing
+				// here keeps the bad URL out of the DB).
+				if (nextResultUrl && !isAllowedProviderResultUrl(nextResultUrl)) {
+					let blockedHost = 'unparseable';
+					try { blockedHost = new URL(nextResultUrl).hostname; } catch { /* keep placeholder */ }
+					console.warn('[regenerate-status] blocked result url', { jobId, host: blockedHost });
+					nextStatus = 'failed';
+					nextResultUrl = null;
+					nextError = 'provider returned a disallowed result url';
+				}
+
 				if (isAutoRig && nextStatus === 'done') autoRigProviderDone = true;
 				const persistStatus = isAutoRig && nextStatus === 'done' ? 'running' : nextStatus;
 				if (

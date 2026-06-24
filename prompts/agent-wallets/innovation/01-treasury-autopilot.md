@@ -79,3 +79,17 @@ Per the README checklist. Prove live: arm a real rule, trigger it with a real ti
 mainnet (or devnet for the demo, clearly labeled in UI as network), watch the agent
 act on-chain, see it in the timeline + custody ledger. Then add your improvement.
 Summarize, then delete this file (`prompts/agent-wallets/innovation/01-treasury-autopilot.md`).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-wallets/innovation/01-treasury-autopilot.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

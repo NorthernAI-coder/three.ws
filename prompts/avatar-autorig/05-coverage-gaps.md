@@ -154,3 +154,17 @@ Manual checks:
 - **Cron rescue + rig cache/backfill** (`06-rig-cache-and-backfill.md`): the jobs these paths now submit are what the cron rescues; backfilling avatars created before this fix lives there.
 - **Cost & consent gates** (`04-cost-and-consent-gates.md`): whether auto-rig should be gated by cost/consent on the fork/studio paths is decided there, not here.
 - **Completion state machine** (`02-completion-statemachine.md`) and **observability/events** (`08-observability-and-events.md`): the lifecycle/status transitions and event emission for these new jobs are owned by those prompts.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/avatar-autorig/05-coverage-gaps.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
