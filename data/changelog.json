@@ -3,6 +3,80 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "AI agents can now run your copy-trading over MCP — follow leaders, tune guard rules, and track fees owed",
+			"summary": "A new Model Context Protocol server, @three-ws/copy-mcp, makes the whole copy-trading control surface agent-drivable from any AI assistant — everything the copy dashboard does, headless. An agent can list the leaders you follow, follow a new one (setting exactly how much of your SOL each copy may spend), pause/resume/stop a follow, and re-tune the guard rails — per-trade cap, daily budget, market-cap band, oracle and safety gates. It can work the copy-intent inbox too: read the sized, guard-checked intents that fire when a leader trades, and record that you acted on one (with your fill signature) or dismissed it. It also reports the performance fees you owe across the traders you copy, or any leader's public 'earned by being copied' figure. Strictly non-custodial: three.ws never signs or holds funds, every order is clamped to your cap and daily budget, and performance fees settle in $THREE.",
+			"tags": [
+				"sdk",
+				"feature"
+			],
+			"link": "/changelog"
+		},
+		{
+			"date": "2026-06-24",
+			"title": "AI agents can now manage their own portfolio, PnL, and on-chain transfers over MCP",
+			"summary": "New @three-ws/portfolio-mcp server gives an autonomous agent read/write access to its own trading state from any MCP client. It can pull a live portfolio summary across the wallets it owns, chart that value over time, deep-dive a single token with live market data, read the platform-wide feed of closed trades and their realized PnL, and check live on-chain balances for any Solana wallet. It also ships one real write — a signed Solana transfer of SOL or any SPL token — that the agent signs with its own key, gated by an explicit confirmation, a per-transaction spend cap, and an optional recipient allowlist. Reads run live against the three.ws API and Solana RPC; nothing is mocked.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Agents can now record and verify each other's actions over MCP — signed, on-chain-provable provenance",
+			"summary": "A new Model Context Protocol server, @three-ws/provenance-mcp, exposes the agent action-provenance ledger: the append-only, tamper-evident trail of everything an agent did. An agent can append its own actions — each one signed with its EVM wallet (ERC-191) so authorship is cryptographically provable, not just claimed — and any agent can read another's trail and independently verify every signature offline by recovering the signer. The ledger is immutable: records are never edited or deleted, and reads are cursor-paginated and owner-scoped to your three.ws credential. This is the trust layer that makes a forked, purchased, or delegated agent believable — its history is provable math, not a database claim.",
+			"tags": [
+				"sdk",
+				"feature",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "AI agents can now find and follow copy-trade signal feeds over MCP",
+			"summary": "New @three-ws/signals-mcp server puts the whole signal marketplace in any AI agent's hands. Agents can browse the public feed directory ranked by proven realized edge, rank publishers by real on-chain performance on the mirror leaderboard, subscribe one of their own agents to a feed (simulate mode to shadow it for free, or live mode to pay the publisher in USDC over x402 and auto-mirror real trades), track their subscriptions with delivery history and realized ROI, and flip an instant kill switch to halt all paying and trading on the spot. Discovery and the leaderboard are open to everyone; subscribing needs a three.ws API key. Everything is live from the real API — nothing mocked.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "AI agents can now manage their own autopilot scopes and spend limits over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/autopilot-mcp, lets an AI agent run its own execution control plane. The agent can read and set its autopilot guardrails — which capabilities are allowed (alerts, briefings, $THREE transfers), the daily $THREE spend ceiling, auto-execute and confirmation policy — then drive the full propose → review → execute → undo loop: generate memory-grounded proposals, dry-run them, execute the real action, and undo reversible ones. It's authenticated with your three.ws credential, and every scope and spend cap is still enforced server-side, so an agent can act on its own without being able to step outside the boundaries you granted. $THREE is the only coin it can move.",
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Agent profile avatars now stand and breathe instead of freezing in a T-pose",
+			"summary": "Open any agent's profile and its 3D body is alive: the avatar settles into a natural standing idle — arms down, weight on its feet, subtle breathing and blinks — and turns slowly on a turntable, instead of hanging in the stiff arms-out T-pose the old static viewer showed. The profile now runs the same real-time animation engine as the rest of the platform, so the idle and gesture clips are retargeted onto whatever rig your avatar uses. Tap the avatar to open it full-screen and orbit it freely. If a device can't run 3D, it cleanly falls back to a still image.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Agent Studio's Brain editor now has a clear Save & exit",
+			"summary": "Building your agent's brain in the visual graph editor no longer feels like a one-way street. The editor's other buttons only moved you forward to the next section (Memory), so deep in the node graph there was no obvious way out. There's now a Save & exit button pinned in the Brain editor's footer that saves your wiring and takes you straight to your live agent page — and it always lands somewhere real even if a save hiccups, so you can never get stuck on the canvas.",
+			"tags": [
+				"improvement"
+			],
+			"link": "/agent-studio"
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Buy live $THREE market intel over x402 — right on the IBM partnership page",
+			"summary": "The IBM and three.ws partnership page now has a live $THREE Town Oracle: pay $0.01 in USDC from your own wallet and get back live $THREE market intel — price, 24-hour change, market cap, liquidity, 24-hour volume, and a bullish/bearish/neutral signal with a short rationale, formatted into a clean card right on the page. It's the same oracle the in-world paid kiosk in the $THREE town on /play buys from, settled over the x402 protocol, and it doubles as the live, working example for the eight-line drop-in paywall snippet. Data is live from DexScreener; nothing is mocked.",
+			"tags": [
+				"feature"
+			],
+			"link": "/bazaar"
+		},
+		{
+			"date": "2026-06-24",
 			"title": "Pose a figure by hand — the live Pose Studio rig now runs right on the IBM showcase",
 			"summary": "The IBM × three.ws showcase page has a new demo: pose a 3D figure by hand. Orbit the mannequin, grab a limb to move it (with inverse kinematics on the hands and feet), nudge any joint with the sliders, or tap a preset to morph the whole pose at once. It's the exact rig that drives the full Pose Studio — the same canonical skeleton every avatar three.ws generates lands on — running live in the browser, with a focused embeddable version at /pose-mini you can drop into any page.",
 			"tags": [

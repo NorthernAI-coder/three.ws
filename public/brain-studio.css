@@ -205,9 +205,11 @@ textarea.brainstudio__input { resize: vertical; }
 	background: var(--bg-1);
 }
 .brainstudio__footer-save {
+	margin-right: auto;
 	font-size: var(--text-sm); color: var(--ink-faint);
 	transition: color .2s;
 }
+.brainstudio__footer-exit { padding: 8px 16px; }
 .brainstudio__footer-save[data-state="saving"] { color: var(--warn, #fbbf24); }
 .brainstudio__footer-save[data-state="saved"] { color: var(--node-market); }
 .brainstudio__footer-save[data-state="error"] { color: var(--node-output); }

@@ -108,6 +108,7 @@ class BrainStudio {
 					</div>
 					<div class="brainstudio__footer">
 						<span class="brainstudio__footer-save" id="bsFooterSave">Auto-saved</span>
+						<button class="studio__btn brainstudio__footer-exit" id="bsExit" title="Save your brain and leave the studio">Save &amp; exit ↗</button>
 						<button class="studio__btn studio__btn-primary brainstudio__footer-continue" id="bsContinue">Save &amp; continue →</button>
 					</div>
 				</div>
@@ -127,6 +128,7 @@ class BrainStudio {
 		this.el.querySelector('#bsSave').addEventListener('click', () => this._saveNow());
 		this.el.querySelector('#bsDone').addEventListener('click', () => this._done());
 		this.el.querySelector('#bsContinue').addEventListener('click', () => this._done());
+		this.el.querySelector('#bsExit').addEventListener('click', (e) => this._exit(e));
 		this.el.querySelector('#bsCompose').addEventListener('submit', (e) => { e.preventDefault(); this._send(); });
 		const input = this.el.querySelector('#bsInput');
 		input.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); this._send(); } });
@@ -217,6 +219,20 @@ class BrainStudio {
 		} else {
 			btns.forEach((b) => { b.disabled = false; b.textContent = 'Retry'; delete b.dataset.busy; });
 		}
+	}
+
+	// Save the brain and leave the studio. The graph's other actions (Done / Save &
+	// continue) advance to Memory, so without this the editor reads as forward-only
+	// with no way out. We delegate the real save + navigate to the shell via
+	// `studio:exit` — its flushAndCommit pulls our latest wiring through `studio:flush`
+	// first, and it owns the destination (the live agent page) so it stays in one place.
+	_exit(e) {
+		const btn = e.currentTarget;
+		if (btn.dataset.busy) return;
+		btn.dataset.busy = '1';
+		btn.disabled = true;
+		btn.textContent = 'Saving…';
+		document.dispatchEvent(new CustomEvent('studio:exit'));
 	}
 
 	_renderPalette() {

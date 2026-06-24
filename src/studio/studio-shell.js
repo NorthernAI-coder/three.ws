@@ -291,6 +291,13 @@ class StudioShell {
 		};
 		document.addEventListener('studio:navigate', this._navHandler);
 
+		// A focused sub-studio can also ask to leave the studio entirely (save + exit
+		// to the live agent). The Brain editor's "Save & exit" fires this so the graph
+		// is never a forward-only dead-end — its own controls otherwise only advance to
+		// the next tab. The shell owns the destination so it lives in exactly one place.
+		this._exitHandler = () => this._leaveStudio();
+		document.addEventListener('studio:exit', this._exitHandler);
+
 		// Keep the header in sync if another surface edits the same agent.
 		this._unsub = studio.subscribe((agent) => {
 			if (!agent) return;
@@ -346,14 +353,22 @@ class StudioShell {
 		e.preventDefault();
 		if (link.dataset.busy) return;
 		link.dataset.busy = '1';
-		const href = link.getAttribute('href') || '/';
 		link.textContent = 'Saving…';
+		await this._leaveStudio(link.getAttribute('href'));
+	}
+
+	// Flush every sub-studio's edits, commit, then navigate out to the live agent.
+	// Shared by the header "View agent" link and any sub-studio's studio:exit request
+	// so a save-and-leave always lands somewhere real. We navigate even if the save
+	// throws — leaving must never trap the user.
+	async _leaveStudio(href) {
+		const dest = href || this.root.querySelector('#studio-exit')?.getAttribute('href') || '/';
 		try {
 			await this._flushAndCommit();
 		} catch {
 			/* navigate anyway — leaving must never trap the user */
 		}
-		location.href = href;
+		location.href = dest;
 	}
 
 	_onTabKeydown(e, tabs) {

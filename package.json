@@ -59,6 +59,7 @@
 		"packages/intel-mcp",
 		"packages/marketplace-mcp",
 		"packages/x402-mcp",
+		"packages/provenance-mcp",
 		"walk-sdk",
 		"tour-sdk"
 	],

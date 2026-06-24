@@ -248,13 +248,21 @@ a {
 	display: block;
 }
 
-model-viewer.ad-hero-avatar {
+/* Hero avatar is a live WebGL stage (real idle animation, never a T-pose). */
+div.ad-hero-avatar {
+	position: relative;
 	width: 240px;
 	height: 280px;
 	border-radius: 18px;
-	--poster-color: transparent;
+	overflow: hidden;
 	background: transparent;
 	border: 1px solid var(--ad-line);
+}
+div.ad-hero-avatar canvas {
+	display: block;
+	width: 100% !important;
+	height: 100% !important;
+	border-radius: 18px;
 }
 
 .ad-hero-body {
@@ -370,11 +378,18 @@ model-viewer.ad-hero-avatar {
 	line-height: 1;
 }
 .ad-3d-modal-close:hover { color: #fff; }
-.ad-3d-modal model-viewer {
+.ad-3d-modal #ad-avatar-modal-3d {
+	position: relative;
 	width: 100%; height: 100%;
 	border-radius: 20px;
-	--poster-color: transparent;
+	overflow: hidden;
 	background: var(--ad-bg-2);
+}
+.ad-3d-modal #ad-avatar-modal-3d canvas {
+	display: block;
+	width: 100% !important;
+	height: 100% !important;
+	border-radius: 20px;
 }
 .ad-3d-modal-world {
 	position: absolute;

@@ -16,6 +16,7 @@ import { mountStrategyPanel } from './shared/agent-strategy-panel.js';
 import { mountPatronagePanel } from './shared/agent-patronage.js';
 import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
+import { mountIdleAvatar } from './shared/idle-avatar.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { mountStagePanel } from './shared/stage-link.js';
@@ -45,6 +46,13 @@ let _streamHandle = null;
 let _strategyHandle = null;
 let _cardHandle = null;
 let _patronageHandle = null;
+// Live WebGL avatar mounts (hero + fullscreen modal). Disposed on re-render so a
+// fresh render() doesn't stack a second renderer onto the same container.
+let _heroAvatarHandle = null;
+let _modalAvatarHandle = null;
+// Refreshed every render() so the once-wired modal-open handler always mounts the
+// current avatar (enrichment can re-render with an updated GLB url).
+let _mountModalAvatar = null;
 
 // The hero's wallet aura controller — torn down on re-render/unload so its live
 // poll + rAF never leak.
@@ -93,6 +101,10 @@ if (typeof window !== 'undefined') {
 		// past navigation (the engine also guards this internally).
 		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;
 		try { _cardHandle?.destroy?.(); } catch { /* idempotent */ } _cardHandle = null;
+		// Release the WebGL contexts so they don't count against the browser's
+		// hard context budget once the user navigates away.
+		try { _heroAvatarHandle?.dispose(); } catch { /* idempotent */ } _heroAvatarHandle = null;
+		try { _modalAvatarHandle?.dispose(); } catch { /* idempotent */ } _modalAvatarHandle = null;
 	}, { once: true });
 }
 
@@ -653,7 +665,7 @@ function render(agent) {
 
 	const $ = (id) => document.getElementById(id);
 
-	// Flat image fallback (hidden when model-viewer works)
+	// Flat image fallback (hidden while the live WebGL avatar renders)
 	const avatarImg = $('ad-avatar');
 	if (avatarImg) {
 		avatarImg.src = agent.avatar || avatarDataUri(agent.name);
@@ -738,16 +750,30 @@ function render(agent) {
 	renderAgentEmbed({ ...agent, avatar_glb_url: agent.avatar_glb_url || agentAvatarGlb(agent) });
 
 	// ── Hero 3D avatar ────────────────────────────────────────────────────
+	// A live, idle-animated body — the canonical idle clip is retargeted onto the
+	// avatar's rig (arms drop, weight settles) and the procedural idle-life loop
+	// (breathing, blink, weight shift) plays on top. Never a frozen bind-pose
+	// T-pose, which is what a static <model-viewer> could only ever show.
 	const glbUrl = agentAvatarGlb(agent);
-	const mv3d = document.getElementById('ad-avatar-3d');
-	if (mv3d) {
-		mv3d.setAttribute('src', glbUrl);
-		mv3d.addEventListener('error', () => {
-			// GLB failed — show the flat image fallback
-			mv3d.style.display = 'none';
-			const img = document.getElementById('ad-avatar');
-			if (img) img.style.display = '';
-		}, { once: true });
+	// WebGL unavailable or the GLB failed → reveal the still image (already given a
+	// real src — thumbnail or generated initials — earlier in render()).
+	const showFlatFallback = () => {
+		const host = document.getElementById('ad-avatar-3d');
+		if (host) host.style.display = 'none';
+		const img = document.getElementById('ad-avatar');
+		if (img) img.style.display = '';
+	};
+	_heroAvatarHandle?.dispose();
+	_heroAvatarHandle = null;
+	const heroHost = document.getElementById('ad-avatar-3d');
+	if (heroHost && glbUrl) {
+		_heroAvatarHandle = mountIdleAvatar(heroHost, glbUrl, {
+			autoRotate: true,
+			seed: agent.id || agent.name || glbUrl,
+			onError: showFlatFallback,
+		});
+		// null → no WebGL context available; fall back to the still image.
+		if (!_heroAvatarHandle) showFlatFallback();
 	}
 	// Radial glow behind avatar derived from agent name color
 	const glowEl = document.getElementById('ad-hero-glow');
@@ -758,9 +784,21 @@ function render(agent) {
 	// Net-Worth-Reactive Avatar: weld the agent's real wallet to its hero body so
 	// its funded-ness is legible here exactly as on the viewer and in the galaxy.
 	mountAgentDetailAura(agent);
-	// Fullscreen modal
-	const mvModal = document.getElementById('ad-avatar-modal-3d');
-	if (mvModal) mvModal.setAttribute('src', glbUrl);
+	// Fullscreen modal — the orbitable, camera-controlled body. Mounted lazily on
+	// first open so the page doesn't pay for a second WebGL context up front.
+	_modalAvatarHandle?.dispose();
+	_modalAvatarHandle = null;
+	_mountModalAvatar = () => {
+		if (_modalAvatarHandle) return;
+		const host = document.getElementById('ad-avatar-modal-3d');
+		if (host && glbUrl) {
+			_modalAvatarHandle = mountIdleAvatar(host, glbUrl, {
+				autoRotate: true,
+				cameraControls: true,
+				seed: agent.id || agent.name || glbUrl,
+			});
+		}
+	};
 	// "View in AR" link drops this agent into the live three.ws world (every
 	// agent has a body — custom GLB or mannequin — so the href is always real).
 	const modalWorld = document.getElementById('ad-3d-modal-world');
@@ -778,9 +816,10 @@ function render(agent) {
 	const closeModal = () => modal.classList.add('hidden');
 	if (modal && avatarWrap && !avatarWrap._modalWired) {
 		avatarWrap._modalWired = true;
-		avatarWrap.addEventListener('click', () => modal.classList.remove('hidden'));
+		const openModal = () => { _mountModalAvatar?.(); modal.classList.remove('hidden'); };
+		avatarWrap.addEventListener('click', openModal);
 		avatarWrap.addEventListener('keydown', (e) => {
-			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); modal.classList.remove('hidden'); }
+			if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openModal(); }
 		});
 		document.getElementById('ad-3d-modal-close')?.addEventListener('click', closeModal);
 		modal.addEventListener('click', (e) => {

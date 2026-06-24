@@ -5,10 +5,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>x402 live demo — three.ws × IBM</title>
-<meta name="description" content="A live, self-contained x402 demo: pay $0.001 in USDC from your own wallet to call a real three.ws data API. Settled on-chain on Base or Solana. No backend, no account.">
-<meta property="og:title" content="x402 live demo — three.ws × IBM">
-<meta property="og:description" content="Pay $0.001 in USDC from your own wallet to call a real three.ws API. See HTTP 402 micropayments settle on-chain — on Base or Solana — in seconds.">
+<title>IBM and three.ws partnership</title>
+<meta name="description" content="IBM and three.ws work together to unite payments, data, 3D and AI — pairing IBM Granite on watsonx.ai with three.ws's on-chain micropayments and 3D agent engine. Explore live demos that run against real production systems.">
+<meta property="og:title" content="IBM and three.ws partnership">
+<meta property="og:description" content="IBM and three.ws unite payments, data, 3D and AI — IBM Granite on watsonx.ai with three.ws on-chain micropayments and 3D agents. Live demos, nothing mocked.">
 <meta property="og:type" content="website">
 <style>
 /* ─── Self-hosted IBM Plex (latin subset) — no third-party font CDN, so a
@@ -113,11 +113,15 @@ a:focus-visible{outline-offset:3px}
 
 /* ── Hero ── */
 .hero{padding:56px 0 36px}
-.partner-label{display:inline-flex;align-items:center;gap:12px;border:1px solid var(--ibm-border);padding:6px 14px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-muted);margin-bottom:28px}
-.ibm-mark{font-family:var(--font-sans);font-weight:700;font-size:15px;letter-spacing:-.01em;color:var(--ibm-blue);line-height:1}
 .hero h1{font-size:clamp(30px,5vw,46px);font-weight:300;line-height:1.1;margin-bottom:18px;max-width:680px}
 .hero h1 strong{font-weight:600}
 .hero-sub{font-size:18px;color:var(--ibm-muted);max-width:620px;font-weight:300;line-height:1.6}
+.hero-eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-blue);font-weight:500;margin-bottom:14px}
+.hero-cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;margin-top:30px}
+.btn-tertiary{display:inline-flex;align-items:center;gap:10px;color:var(--ibm-link);font-size:15px;font-weight:500;background:none;border:none;padding:0;cursor:pointer;transition:gap .12s,color .12s}
+.btn-tertiary:hover{text-decoration:none;color:var(--ibm-blue-hover);gap:14px}
+.btn-tertiary:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:3px}
+.hero-note{font-size:14px;color:var(--ibm-subtle);max-width:660px;font-weight:300;line-height:1.65;margin-top:30px}
 
 /* ── How-it-works ── */
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);list-style:none;margin-top:24px}
@@ -448,22 +452,82 @@ a:focus-visible{outline-offset:3px}
   <button type="button" id="errBannerClose">Dismiss</button>
 </div>
 
+<!-- ══ IBM MASTHEAD + BREADCRUMB ══
+     The IBM.com global-navigation design language: a thin top bar with the IBM
+     wordmark, primary product links (to real ibm.com destinations), and the
+     search / account / app-grid icons, followed by a content breadcrumb. The
+     masthead logo is the neutral IBM Plex wordmark, NOT the registered 8-bar
+     mark — a defensible placeholder; confirm the exact lockup with IBM brand
+     before public launch (see HOSTING.md, "Note on branding"). -->
+<style id="ibm-shell-styles">
+.ibm-mast{position:sticky;top:0;z-index:40;background:var(--ibm-surface);border-bottom:1px solid var(--ibm-border)}
+.ibm-mast .mast-inner{display:flex;align-items:center;height:48px;padding:0 16px;gap:0}
+.ibm-mast .mast-logo{display:inline-flex;align-items:center;height:100%;padding:0 16px 0 0;font-weight:700;font-size:18px;letter-spacing:-.01em;color:var(--ibm-ink);line-height:1}
+.ibm-mast .mast-logo:hover{text-decoration:none;color:var(--ibm-blue)}
+.ibm-mast .mast-logo:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.ibm-mast .mast-nav{display:flex;align-items:stretch;height:100%;flex:1 1 auto;min-width:0}
+.ibm-mast .mast-nav a{display:inline-flex;align-items:center;height:100%;padding:0 16px;font-size:14px;font-weight:400;color:var(--ibm-ink);border-bottom:2px solid transparent;transition:background .12s,border-color .12s,color .12s}
+.ibm-mast .mast-nav a:hover{background:var(--ibm-field);text-decoration:none;border-bottom-color:var(--ibm-blue)}
+.ibm-mast .mast-nav a:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.ibm-mast .mast-actions{display:flex;align-items:stretch;height:100%;margin-left:auto;flex:0 0 auto}
+.ibm-mast .mast-actions a{display:inline-flex;align-items:center;justify-content:center;width:48px;height:100%;color:var(--ibm-ink);transition:background .12s,color .12s}
+.ibm-mast .mast-actions a:hover{background:var(--ibm-field);color:var(--ibm-blue)}
+.ibm-mast .mast-actions a:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.ibm-mast .mast-actions svg{width:20px;height:20px;display:block}
+.breadcrumb{border-bottom:1px solid var(--ibm-border)}
+.breadcrumb ol{display:flex;flex-wrap:wrap;align-items:center;gap:8px;list-style:none;margin:0 auto;max-width:880px;padding:14px 16px;font-size:14px}
+.breadcrumb li{display:inline-flex;align-items:center;gap:8px;color:var(--ibm-subtle)}
+.breadcrumb li+li::before{content:"/";color:var(--ibm-divider);font-size:14px}
+.breadcrumb a{color:var(--ibm-link)}
+.breadcrumb a:hover{text-decoration:underline}
+.breadcrumb [aria-current="page"]{color:var(--ibm-subtle)}
+@media(max-width:671px){
+  .ibm-mast .mast-nav{display:none}
+  .breadcrumb ol{padding:12px}
+}
+</style>
+<nav class="ibm-mast" aria-label="IBM">
+  <div class="mast-inner">
+    <a class="mast-logo" href="https://www.ibm.com" target="_blank" rel="noopener" aria-label="IBM home">IBM</a>
+    <div class="mast-nav">
+      <a href="https://www.ibm.com/products/software" target="_blank" rel="noopener">Software</a>
+      <a href="https://www.ibm.com/infrastructure" target="_blank" rel="noopener">Infrastructure</a>
+      <a href="https://www.ibm.com/consulting" target="_blank" rel="noopener">Consulting</a>
+      <a href="https://www.ibm.com/support" target="_blank" rel="noopener">Support</a>
+      <a href="https://www.ibm.com/think" target="_blank" rel="noopener">Think</a>
+    </div>
+    <div class="mast-actions">
+      <a href="https://www.ibm.com/search" target="_blank" rel="noopener" aria-label="Search ibm.com">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="14" cy="14" r="9"/><path d="M21 21l6 6" stroke-linecap="round"/></svg>
+      </a>
+      <a href="https://www.ibm.com/profile" target="_blank" rel="noopener" aria-label="IBM account">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="16" cy="11" r="5"/><path d="M6 27c0-5 4.5-8 10-8s10 3 10 8" stroke-linecap="round"/></svg>
+      </a>
+      <a href="https://www.ibm.com" target="_blank" rel="noopener" aria-label="IBM products and tools">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><rect x="4" y="4" width="7" height="7"/><rect x="13" y="4" width="7" height="7"/><rect x="22" y="4" width="7" height="7"/><rect x="4" y="13" width="7" height="7"/><rect x="13" y="13" width="7" height="7"/><rect x="22" y="13" width="7" height="7"/><rect x="4" y="22" width="7" height="7"/><rect x="13" y="22" width="7" height="7"/><rect x="22" y="22" width="7" height="7"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <ol>
+    <li><a href="https://www.ibm.com" target="_blank" rel="noopener">Home</a></li>
+    <li><a href="https://www.ibm.com/partnerplus" target="_blank" rel="noopener">Strategic Partnerships</a></li>
+    <li><span aria-current="page">three.ws</span></li>
+  </ol>
+</nav>
+
 <!-- ══ HERO ══ -->
 <header class="hero">
   <div class="inner">
-    <div class="partner-label">
-      <!-- IBM brand: neutral typographic wordmark (IBM Plex, Carbon blue) — a defensible
-           placeholder, NOT the registered 8-bar logo. Confirm the exact mark and the
-           "IBM Business Partner" lockup + wording with IBM brand before public launch
-           (see HOSTING.md, "Note on branding"). -->
-      <span class="ibm-mark">IBM</span>
-      <span>Business Partner</span>
-      <span style="color:var(--ibm-border)" aria-hidden="true">|</span>
-      <span class="mono">three.ws</span>
+    <p class="hero-eyebrow">Strategic partnership</p>
+    <h1>IBM and <strong>three.ws</strong> partnership</h1>
+    <p class="hero-sub">IBM® and three.ws work together to unite payments, data, 3D and AI — pairing IBM Granite on watsonx.ai with three.ws's on-chain micropayments and 3D agent engine, so developers and brands can deliver trusted, personalized agent experiences at scale.</p>
+    <div class="hero-cta">
+      <a class="btn" href="#forge">Explore the live demos <span class="arrow" aria-hidden="true">→</span></a>
+      <a class="btn-tertiary" href="https://three.ws/docs/ibm" target="_blank" rel="noopener">Explore IBM and three.ws technology collaborations <span aria-hidden="true">→</span></a>
     </div>
-    <h1>A live showcase of agentic commerce, built with <strong>IBM</strong></h1>
-    <p class="hero-sub">IBM has shaped computing for over a century — and it stays at the frontier by backing what comes next. three.ws is one of those bets: a platform for on-chain micropayments and 3D AI agents. As an IBM Business Partner, we built this page to demonstrate that partnership in the open — every demo below runs against real, production three.ws systems. Nothing is mocked, nothing is a slide.</p>
-    <p class="hero-sub" style="margin-top:14px">Five things we want to show you: pay a few cents to turn text into a 3D model, forge a rigged, animated avatar from a sentence for free, fly through a 3D galaxy of every agent mapped by <span class="mono">IBM Granite</span>, a shared 3D world, and an agent placed in augmented reality. Try each one yourself — the paid Forge demo settles real USDC from your own wallet; the rest are free, no wallet needed.</p>
+    <p class="hero-note">Every demo below runs against real, production three.ws systems: pay a few cents to turn text into a 3D model, forge a rigged avatar from a sentence, pose it by hand, fly a 3D galaxy of agents mapped by <span class="mono">IBM Granite</span>, enter a shared world, or place an agent in augmented reality. The paid Forge settles real USDC from your own wallet; the rest are free, no wallet needed. Nothing is mocked.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
       <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
@@ -1144,6 +1208,33 @@ a:focus-visible{outline-offset:3px}
 </section>
 
 <!-- ══ EMBED ══ -->
+<style id="three-x402-styles">
+.x402-live{margin-top:28px;border:1px solid var(--ibm-border);background:var(--ibm-surface)}
+.x402-live .xl-head{padding:16px 18px;border-bottom:1px solid var(--ibm-border)}
+.x402-live .xl-kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ibm-blue);font-weight:500;margin-bottom:6px}
+.x402-live .xl-title{font-size:18px;font-weight:600}
+.x402-live .xl-body{padding:18px}
+.x402-live .xl-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px 24px;margin-top:16px}
+.x402-live .xl-note{font-size:12.5px;color:var(--ibm-subtle);margin-top:14px;line-height:1.55}
+.ti-result{margin-top:18px}
+.ti-empty{font-size:14px;color:var(--ibm-subtle);line-height:1.6;margin:0}
+.ti-topline{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ti-sym{font-size:20px;font-weight:600}
+.ti-signal{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;border-radius:2px}
+.ti-signal::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.ti-signal.bullish{background:var(--ibm-green-fill);color:var(--ibm-green-ink)}
+.ti-signal.bearish{background:var(--ibm-red-fill);color:var(--ibm-red-ink)}
+.ti-signal.neutral{background:var(--ibm-amber-fill);color:var(--ibm-amber)}
+.ti-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border)}
+.ti-cell{background:var(--ibm-surface);padding:12px 14px}
+.ti-cell .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ibm-subtle);margin-bottom:5px}
+.ti-cell .v{font-size:16px;font-weight:600;font-family:var(--font-mono)}
+.ti-cell .v.ti-up{color:var(--ibm-green-ink)}
+.ti-cell .v.ti-down{color:var(--ibm-red-ink)}
+.ti-headline{font-size:15px;font-weight:600;margin:16px 0 6px}
+.ti-rationale{font-size:14px;color:var(--ibm-muted);line-height:1.55;margin:0}
+.ti-meta{font-size:12px;color:var(--ibm-subtle);margin-top:12px;font-family:var(--font-mono)}
+</style>
 <section class="section" aria-labelledby="embed-h">
   <div class="inner">
     <div class="section-tag">For developers</div>
@@ -1154,12 +1245,38 @@ a:focus-visible{outline-offset:3px}
 
 <span class="c-com">&lt;!-- any element with data-x402-endpoint becomes payable --&gt;</span>
 <span class="c-tag">&lt;button</span>
-  <span class="c-attr">data-x402-endpoint</span>=<span class="c-str">"https://three.ws/api/x402/symbol-availability?ticker=GRANITE"</span>
+  <span class="c-attr">data-x402-endpoint</span>=<span class="c-str">"https://three.ws/api/x402/three-intel"</span>
   <span class="c-attr">data-x402-merchant</span>=<span class="c-str">"three.ws"</span>
-  <span class="c-attr">data-x402-action</span>=<span class="c-str">"Check symbol"</span><span class="c-tag">&gt;</span>
-  Pay $0.001 &amp; run
+  <span class="c-attr">data-x402-action</span>=<span class="c-str">"$THREE intel"</span><span class="c-tag">&gt;</span>
+  Pay $0.01 &amp; get $THREE intel
 <span class="c-tag">&lt;/button&gt;</span></div>
     <div class="copy-row"><button class="copy-btn" id="copyBtn" type="button">Copy snippet</button></div>
+
+    <!-- The snippet above, wired live. x402.js (loaded near </body>) binds any
+         [data-x402-endpoint]; this is the same $THREE Town Oracle the in-world
+         kiosk on /play buys from, settled in real USDC over x402. -->
+    <div class="x402-live" id="threeOracle">
+      <div class="xl-head">
+        <div class="xl-kicker">Live · runs right here</div>
+        <div class="xl-title">The <span class="mono">$THREE</span> Town Oracle</div>
+      </div>
+      <div class="xl-body">
+        <p class="section-lead" style="margin-top:0">That exact button, wired to the real endpoint. Pay <strong>$0.01 USDC</strong> from your own wallet and get live <span class="mono">$THREE</span> market intel — price, 24-hour move, market cap, liquidity, volume, and a bullish / bearish / neutral signal — from the same oracle the paid kiosk in the <span class="mono">$THREE</span> town on <a href="https://three.ws/play" target="_blank" rel="noopener">/play</a> sells from.</p>
+        <div class="xl-row">
+          <button class="btn" id="threeOracleBtn" type="button"
+            data-x402-endpoint="https://three.ws/api/x402/three-intel"
+            data-x402-merchant="three.ws"
+            data-x402-action="$THREE market intel">
+            <span class="label">Pay $0.01 &amp; fetch live $THREE intel</span> <span class="arrow" aria-hidden="true">→</span>
+          </button>
+          <a class="btn-tertiary" href="https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" target="_blank" rel="noopener">View <span class="mono">$THREE</span> on pump.fun <span aria-hidden="true">→</span></a>
+        </div>
+        <div class="ti-result" id="threeOracleResult" aria-live="polite">
+          <p class="ti-empty">You'll get back price, 24-hour change, market cap, liquidity, 24-hour volume, and a signal with a short rationale — live from DexScreener. Settles in USDC on Solana or Base; the network fee is sponsored by the facilitator.</p>
+        </div>
+        <p class="xl-note">Spends $0.01 of real USDC from your wallet. The only coin three.ws issues is <span class="mono">$THREE</span> &middot; <span class="mono">FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</span>.</p>
+      </div>
+    </div>
   </div>
 </section>
 </main>
@@ -1285,10 +1402,10 @@ a:focus-visible{outline-offset:3px}
     var snippet =
       '<script type="module" src="https://three.ws/x402.js"><\/script>\n\n' +
       '<button\n' +
-      '  data-x402-endpoint="https://three.ws/api/x402/symbol-availability?ticker=GRANITE"\n' +
+      '  data-x402-endpoint="https://three.ws/api/x402/three-intel"\n' +
       '  data-x402-merchant="three.ws"\n' +
-      '  data-x402-action="Check symbol">\n' +
-      '  Pay $0.001 & run\n' +
+      '  data-x402-action="$THREE intel">\n' +
+      '  Pay $0.01 & get $THREE intel\n' +
       '</button>';
     var done = function (label) { var b = $('copyBtn'); b.textContent = label; setTimeout(function () { b.textContent = 'Copy snippet'; }, 1600); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1297,6 +1414,52 @@ a:focus-visible{outline-offset:3px}
       done('Select the code above to copy');
     }
   });
+
+  // ── Live $THREE Town Oracle ($0.01 USDC over x402) ─────────────────────────
+  // x402.js binds [data-x402-endpoint] and fires `x402:result` on the button
+  // with detail { ok, result, payment, response } once payment settles. We
+  // format the live oracle response into the on-page intel card.
+  (function () {
+    var btn = $('threeOracleBtn');
+    var out = $('threeOracleResult');
+    if (!btn || !out) return;
+    var esc = function (s) { var d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML; };
+    var num = function (n) { return typeof n === 'number' && isFinite(n); };
+    var fmtPrice = function (n) { if (!num(n)) return '—'; return n >= 1 ? '$' + n.toLocaleString(undefined, { maximumFractionDigits: 4 }) : '$' + Number(n).toPrecision(4); };
+    var fmtCompact = function (n) { if (!num(n)) return '—'; try { return '$' + new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 2 }).format(n); } catch (_) { return '$' + Math.round(n).toLocaleString(); } };
+    var fmtPct = function (n) { if (!num(n)) return '—'; return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; };
+    function render(r) {
+      if (!r || typeof r !== 'object') { out.innerHTML = '<p class="ti-empty">The call settled but returned no data. Try again.</p>'; return; }
+      var sig = String(r.signal || 'neutral').toLowerCase();
+      if (['bullish', 'bearish', 'neutral'].indexOf(sig) < 0) sig = 'neutral';
+      var chgCls = num(r.change_24h) ? (r.change_24h >= 0 ? 'ti-up' : 'ti-down') : '';
+      var mintShort = r.mint ? (String(r.mint).slice(0, 4) + '…' + String(r.mint).slice(-4)) : '';
+      out.innerHTML =
+        '<div class="ti-topline"><span class="ti-sym mono">$' + esc(r.symbol || 'THREE') + '</span>' +
+          '<span class="ti-signal ' + sig + '">' + esc(sig) + '</span></div>' +
+        '<div class="ti-grid">' +
+          '<div class="ti-cell"><div class="k">Price</div><div class="v">' + fmtPrice(r.price_usd) + '</div></div>' +
+          '<div class="ti-cell"><div class="k">24h</div><div class="v ' + chgCls + '">' + fmtPct(r.change_24h) + '</div></div>' +
+          '<div class="ti-cell"><div class="k">Market cap</div><div class="v">' + fmtCompact(r.market_cap_usd) + '</div></div>' +
+          '<div class="ti-cell"><div class="k">Liquidity</div><div class="v">' + fmtCompact(r.liquidity_usd) + '</div></div>' +
+          '<div class="ti-cell"><div class="k">24h volume</div><div class="v">' + fmtCompact(r.volume_24h_usd) + '</div></div>' +
+        '</div>' +
+        (r.headline ? '<p class="ti-headline">' + esc(r.headline) + '</p>' : '') +
+        (r.rationale ? '<p class="ti-rationale">' + esc(r.rationale) + '</p>' : '') +
+        '<p class="ti-meta">' + (mintShort ? 'mint ' + esc(mintShort) + ' · ' : '') + (num(r.confidence) ? 'confidence ' + Math.round(r.confidence * 100) + '% · ' : '') + 'live via x402</p>';
+    }
+    btn.addEventListener('x402:result', function (e) {
+      var d = e.detail || {};
+      var r = d.result;
+      if (typeof r === 'string') { try { r = JSON.parse(r); } catch (_) {} }
+      render(r);
+      try { out.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (_) {}
+    });
+    btn.addEventListener('x402:error', function (e) {
+      var msg = (e.detail && e.detail.error) ? String(e.detail.error) : 'The payment was cancelled or failed.';
+      out.innerHTML = '<p class="ti-empty">' + esc(msg) + ' Nothing was charged unless a receipt appeared — you can try again.</p>';
+    });
+  })();
 
   wireLiveEmbeds();
 })();

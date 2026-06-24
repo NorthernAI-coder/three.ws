@@ -209,12 +209,6 @@
 		<link rel="stylesheet" href="/nav.css" />
 		<link rel="stylesheet" href="/footer.css" />
 		<script defer src="/footer-newsletter.js"></script>
-		<script
-			type="module"
-			src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"
-			integrity="sha384-sr9b4Ux0WhAUGclJ0ym0FSY2zSOMmNSn0bP/SA0e6bNCrpn/5W3QL8mm+LdlQMKw"
-			crossorigin="anonymous"
-		></script>
 		<script>
 			// Optimistic auth probe so the reviews widget can prompt sign-in on
 			// submit instead of firing a csrf/POST round-trip the server would
@@ -241,7 +235,6 @@
 					);
 				});
 		</script>
-		<script type="module" src="/model-viewer-meshopt.js"></script>
 	</head>
 	<body>
 		<div id="nav-container"></div>
@@ -289,18 +282,7 @@
 						<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
 					</button>
 					<div class="ad-hero-avatar-wrap" id="ad-avatar-wrap" role="button" aria-label="View full 3D model" tabindex="0">
-						<model-viewer
-							id="ad-avatar-3d"
-							class="ad-hero-avatar"
-							auto-rotate
-							rotation-per-second="18deg"
-							interaction-prompt="none"
-							loading="eager"
-							reveal="auto"
-							shadow-intensity="0"
-							exposure="1.1"
-							alt="Agent 3D avatar"
-						></model-viewer>
+						<div id="ad-avatar-3d" class="ad-hero-avatar" role="img" aria-label="Agent 3D avatar"></div>
 						<img class="ad-hero-avatar" id="ad-avatar" alt="" style="display:none" />
 						<div class="ad-hero-avatar-overlay" aria-hidden="true">
 							<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
@@ -982,14 +964,7 @@
 		<div class="ad-3d-modal hidden" id="ad-3d-modal" role="dialog" aria-modal="true" aria-label="Full-screen 3D viewer">
 			<div class="ad-3d-modal-inner">
 				<button class="ad-3d-modal-close" id="ad-3d-modal-close" aria-label="Close">✕</button>
-				<model-viewer
-					id="ad-avatar-modal-3d"
-					auto-rotate
-					camera-controls
-					shadow-intensity="0"
-					exposure="1.1"
-					alt="Agent 3D avatar — fullscreen"
-				></model-viewer>
+				<div id="ad-avatar-modal-3d" role="img" aria-label="Agent 3D avatar — fullscreen"></div>
 				<a
 					id="ad-3d-modal-world"
 					class="ad-3d-modal-world"
