@@ -134,6 +134,42 @@ export function makeStore(cfg) {
 		},
 
 		/**
+		 * A recent peer deliverable nobody has verified yet — the Verifier's work
+		 * queue. Returns a completed_task by ANOTHER citizen that has a
+		 * re-downloadable deliverable_url + an on-chain proof_hash and no `vouched`
+		 * row yet, or null. Powers the trust loop: a patron posts a verification
+		 * bounty against this, a Verifier claims it and re-derives the proof.
+		 */
+		async recentUnverifiedDeliverable({ excludeCitizenId } = {}) {
+			if (!sql || !excludeCitizenId) return null;
+			const rows = await sql`
+				select a.task_pda, a.proof_hash, a.deliverable_url, a.citizen_id, a.profession
+				from agora_activity a
+				where a.kind = 'completed_task'
+				  and a.deliverable_url is not null
+				  and a.proof_hash is not null
+				  and a.task_pda is not null
+				  and a.citizen_id <> ${excludeCitizenId}
+				  and a.created_at > now() - interval '2 hours'
+				  and not exists (
+				    select 1 from agora_activity v
+				    where v.task_pda = a.task_pda and v.kind = 'vouched'
+				  )
+				order by a.created_at desc
+				limit 1
+			`;
+			const r = rows[0];
+			if (!r) return null;
+			return {
+				taskPda: r.task_pda,
+				proofHash: r.proof_hash,
+				deliverableUrl: r.deliverable_url,
+				citizenId: r.citizen_id,
+				profession: r.profession,
+			};
+		},
+
+		/**
 		 * Append an activity row (idempotent on tx_signature). Returns the new row
 		 * id, or null if it already existed. Every caller passes a non-empty
 		 * narrative — an activity with no story isn't worth recording.

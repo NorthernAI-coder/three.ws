@@ -45,7 +45,7 @@ const PROFESSIONS = [
 	{ bit: 4, key: 'crier', label: 'Crier', skill: 'TTS / voice / audio2face' },
 	{ bit: 5, key: 'appraiser', label: 'Appraiser', skill: 'token / market intel' },
 	{ bit: 6, key: 'verifier', label: 'Verifier', skill: 're-derive proofHash + attest' },
-	{ bit: 7, key: 'namekeeper', label: 'Namekeeper', skill: '.sol / ENS resolve + mint' },
+	{ bit: 7, key: 'namekeeper', label: 'Namekeeper', skill: '.sol / ENS resolve' },
 ];
 
 function decodeProfessions(bits) {
@@ -203,6 +203,9 @@ async function handleBoard(req, res) {
 		requiredCapabilities: t.meta?.requiredCapabilities != null ? String(t.meta.requiredCapabilities) : null,
 		taskType: t.meta?.taskType ?? 'Exclusive',
 		tier: t.meta?.tier ?? null,
+		// Verification bounties carry the deliverable to re-derive; the worker reads
+		// this as job.target and works it as the Verifier (the trust loop).
+		target: t.meta?.target ?? null,
 		postedAt: t.created_at,
 		txSignature: t.tx_signature,
 		taskUrl: t.task_pda
@@ -279,7 +282,7 @@ async function handlePulse(req, res) {
 		sql`select count(*)::int as n from agora_activity
 		    where kind = 'completed_task' and created_at > now() - interval '24 hours'`,
 		sql`select a.id, a.kind, a.narrative, a.reward_label, a.created_at,
-		           a.task_pda, a.deliverable_url, c.display_name as actor, c.profession
+		           a.task_pda, a.deliverable_url, c.id as citizen_id, c.display_name as actor, c.profession
 		    from agora_activity a join agora_citizens c on c.id = a.citizen_id
 		    order by a.created_at desc limit 12`,
 		sql`select id, display_name, profession, reputation, earned_three_atomic, tasks_completed
@@ -317,6 +320,7 @@ async function handlePulse(req, res) {
 		})),
 		recent: (recent || []).map((r) => ({
 			id: r.id,
+			citizenId: r.citizen_id,
 			kind: r.kind,
 			actor: r.actor,
 			profession: r.profession,

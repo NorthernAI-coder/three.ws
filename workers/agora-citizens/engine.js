@@ -19,7 +19,7 @@ import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { log } from './log.js';
 import { buildRoster, professionBits, capabilitiesSatisfy, PROFESSIONS } from './roster.js';
 import { citizenCanClaim } from './policy.js';
-import { markPatrons, maybePatronPost, maybeHire, hiringEnabled, subtaskReward } from './demand.js';
+import { markPatrons, maybePatronPost, maybePatronVerify, maybeHire, hiringEnabled, subtaskReward } from './demand.js';
 import { loadOrCreateKeypair, ensureBalance } from './keypair.js';
 import {
 	makeReadClient,
@@ -400,7 +400,7 @@ async function pickBoardBounty(ctx, citizen) {
 		if (Number(onchain.deadline) <= Date.now() / 1000) continue;
 
 		const rewardAtomic = t.reward?.amountAtomic != null ? Number(t.reward.amountAtomic) : ctx.cfg.taskRewardLamports;
-		return { taskPda: new PublicKey(t.taskPda), pda: t.taskPda, reward: rewardAtomic, minReputation: t.minReputation ?? 0, fromBoard: true };
+		return { taskPda: new PublicKey(t.taskPda), pda: t.taskPda, reward: rewardAtomic, minReputation: t.minReputation ?? 0, fromBoard: true, target: t.target ?? null };
 	}
 	return null;
 }
@@ -436,10 +436,22 @@ export async function tickCitizen(ctx, citizen) {
 				} catch (err) {
 					log.warn('patron post failed', { name, err: err?.message });
 				}
+				// Trust loop: also seed verification bounties against peer deliverables
+				// so Verifier-capable citizens have work checking others' proofs.
+				try {
+					await maybePatronVerify(ctx, citizen);
+				} catch (err) {
+					log.warn('patron verify-post failed', { name, err: err?.message });
+				}
 			}
 			await ctx.store.setStatus(citizen.id, 'idle', wander(citizen.home));
 			return citizen.patron ? 'patron-idle' : 'idle';
 		}
+
+		// A verification bounty carries the deliverable to check as job.target; work
+		// it as the Verifier regardless of this citizen's headline craft, so the
+		// dispatch runs runVerifier (and the trust-loop vouch projects below).
+		const workProfession = job.target ? 'verifier' : profession;
 
 		// CLAIM
 		await ctx.store.setStatus(citizen.id, 'seeking', wander(citizen.home));
@@ -498,7 +510,7 @@ export async function tickCitizen(ctx, citizen) {
 		// router, a Verifier re-derives another citizen's proof. Every runner returns
 		// the same proof shape, so PROVE below stays profession-agnostic.
 		const boardService = ctx.board.services.find((s) => typeof s.resource === 'string' && /^https?:\/\//i.test(s.resource));
-		const work = await runProfession(profession, {
+		const work = await runProfession(workProfession, {
 			cfg,
 			citizen: { agentIdHex: citizen.agentIdHex, displayName: name, pubkey: citizen.pubkey },
 			job: { taskPda: job.pda, source: 'agenc', resource: boardService?.resource || defaultTarget(cfg), ...(job.target ? { target: job.target } : {}) },

@@ -81,6 +81,7 @@ export function markPatrons(citizens, cfg) {
 		c.patron = { tiers, budgetAtomic, minPostIntervalMs };
 		c.postedSpentAtomic = 0n;
 		c.lastPostAt = 0;
+		c.lastVerifyPostAt = 0;
 		c.postedCount = 0;
 		log.info('patron designated', {
 			citizen: c.spec.displayName,
@@ -199,6 +200,88 @@ export async function maybePatronPost(ctx, citizen) {
 		minReputation: decision.plan.minReputation,
 		taskPda: result.taskPda,
 		reward: result.rewardLabel,
+		tx: result.txSignature,
+	});
+	return result;
+}
+
+/** Is the autonomous trust loop (patron-posted verification bounties) enabled? */
+export function verifyEnabled(cfg) {
+	return boolEnv('AGORA_ENABLE_VERIFY', cfg.cluster === 'devnet');
+}
+
+/** Reward a patron offers for a verification bounty (cluster reward unit, atomic). */
+function verifyReward(cfg) {
+	return bigEnv('AGORA_VERIFY_REWARD_ATOMIC', BigInt(cfg.taskRewardLamports));
+}
+
+const VERIFIER_BITS = 1n << 6n; // capability bit 6 (see roster.js PROFESSIONS)
+
+/**
+ * The trust loop (Task 04 DoD): a patron posts a REAL verification bounty against
+ * a recent peer deliverable nobody has checked yet. A Verifier-capable citizen
+ * claims it, re-downloads the deliverable, re-derives sha256, and attests
+ * pass/fail on-chain — agents checking agents' work. Fail-safe: with no
+ * unverified deliverable (or no R2-stored artifacts) it simply holds, and the
+ * paid-work loop is untouched.
+ *
+ * @returns {object|null} the post result, or null if held.
+ */
+export async function maybePatronVerify(ctx, citizen) {
+	const { cfg, store } = ctx;
+	if (!citizen?.patron || !verifyEnabled(cfg)) return null;
+	const now = Date.now();
+	if (now - (citizen.lastVerifyPostAt || 0) < citizen.patron.minPostIntervalMs) return null;
+
+	// Find a peer deliverable that's re-downloadable + has an on-chain proof and
+	// hasn't been vouched yet. None → hold (honest: nothing to verify).
+	const target = await store.recentUnverifiedDeliverable({ excludeCitizenId: citizen.id });
+	if (!target) return null;
+
+	const reward = verifyReward(cfg);
+	const bal = await onchainBalance(cfg, citizen.client.connection, citizen.signer.publicKey);
+	const remainingBudget = citizen.patron.budgetAtomic - citizen.postedSpentAtomic;
+	const effectiveBalance = bal < remainingBudget ? bal : remainingBudget;
+	if (effectiveBalance < reward + headroomFor(cfg)) return null;
+	if (!withinSpendCap(cfg, reward)) return null;
+
+	if (cfg.dryRun) {
+		log.loop('[dry] would post verification bounty', { citizen: citizen.spec.displayName, target: target.taskPda });
+		return null;
+	}
+
+	const result = await postBounty({
+		cfg,
+		store,
+		client: citizen.client,
+		poster: { id: citizen.id, agentIdHex: citizen.agentIdHex, displayName: citizen.spec.displayName },
+		plan: {
+			profession: 'verifier',
+			requiredCapabilities: VERIFIER_BITS,
+			rewardAtomic: reward,
+			minReputation: 0,
+			taskType: 'Exclusive',
+			maxWorkers: 1,
+			tier: 'trust',
+			// The deliverable to re-derive — flows board → job.target → runVerifier.
+			target: {
+				deliverableUrl: target.deliverableUrl,
+				proofHash: target.proofHash,
+				taskPda: target.taskPda,
+				citizenId: target.citizenId,
+				profession: target.profession,
+			},
+		},
+	});
+
+	citizen.postedSpentAtomic += BigInt(reward);
+	citizen.lastVerifyPostAt = now;
+	if (cfg.cluster === 'mainnet') _spentThisRunAtomic += BigInt(reward);
+
+	log.info('verification bounty posted', {
+		citizen: citizen.spec.displayName,
+		verifyTask: result.taskPda,
+		targetTask: target.taskPda,
 		tx: result.txSignature,
 	});
 	return result;

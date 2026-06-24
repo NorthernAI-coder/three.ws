@@ -21,7 +21,7 @@ export const PROFESSIONS = [
 	{ bit: 4, key: 'crier', label: 'Crier', skill: 'TTS / voice / audio2face' },
 	{ bit: 5, key: 'appraiser', label: 'Appraiser', skill: 'token / market intel' },
 	{ bit: 6, key: 'verifier', label: 'Verifier', skill: 're-derive proofHash + attest' },
-	{ bit: 7, key: 'namekeeper', label: 'Namekeeper', skill: '.sol / ENS resolve + mint' },
+	{ bit: 7, key: 'namekeeper', label: 'Namekeeper', skill: '.sol / ENS resolve' },
 ];
 
 const PROF_BY_KEY = new Map(PROFESSIONS.map((p) => [p.key, p]));
