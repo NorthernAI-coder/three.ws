@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import { sql } from '../_lib/db.js';
-import { getSessionUser } from '../_lib/auth.js';
+import { getRequestUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, readJson, rateLimited } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits } from '../_lib/rate-limit.js';
@@ -31,7 +31,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,PUT,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'PUT'])) return;
 
-	const user = await getSessionUser(req);
+	const user = await getRequestUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	if (req.method === 'GET') {

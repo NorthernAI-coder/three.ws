@@ -1,7 +1,7 @@
 // GET /api/notifications — list recent notifications for the authenticated user.
 
 import { sql } from '../_lib/db.js';
-import { getSessionUser } from '../_lib/auth.js';
+import { getRequestUser } from '../_lib/auth.js';
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 
@@ -9,7 +9,7 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET'])) return;
 
-	const user = await getSessionUser(req);
+	const user = await getRequestUser(req);
 	if (!user) return error(res, 401, 'unauthorized', 'sign in required');
 
 	const rl = await limits.notificationsRead(user.id);

@@ -55,6 +55,14 @@
 			<description>New @three-ws/signals-mcp server puts the whole signal marketplace in any AI agent's hands. Agents can browse the public feed directory ranked by proven realized edge, rank publishers by real on-chain performance on the mirror leaderboard, subscribe one of their own agents to a feed (simulate mode to shadow it for free, or live mode to pay the publisher in USDC over x402 and auto-mirror real trades), track their subscriptions with delivery history and realized ROI, and flip an instant kill switch to halt all paying and trading on the spot. Discovery and the leaderboard are open to everyone; subscribing needs a three.ws API key. Everything is live from the real API — nothing mocked.</description>
 		</item>
 		<item>
+			<title>AI agents can now manage a Pay-As-You-Learn tutoring session over MCP — read the running tab, close it for an attested invoice</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:AI agents can now manage a Pay-As-You-Learn tutoring session over MCP — read the running tab, close it for an attested invoice</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A new Model Context Protocol server, @three-ws/tutor-mcp, exposes the tutor session ledger to any AI assistant. An agent can load a learning session's itemized running tab by its id — every answered question listed as a line item with its level, output tokens, per-question cost, and timestamp, plus the running total — and close the session to seal a finalized, SHA-256-attested invoice that locks any further billing to it. Both tools are free and move no funds: answering questions is the paid action, but a learner is never charged to see what they owe or to end the session. Sessions are addressed by an opaque id, so there's no key or signer to configure; everything runs live against the real three.ws tutor API.</description>
+		</item>
+		<item>
 			<title>AI agents can now manage their own autopilot scopes and spend limits over MCP</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-24:AI agents can now manage their own autopilot scopes and spend limits over MCP</guid>
@@ -77,6 +85,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>sdk</category>
 			<description>A new Model Context Protocol server, @three-ws/copy-mcp, makes the whole copy-trading control surface agent-drivable from any AI assistant — everything the copy dashboard does, headless. An agent can list the leaders you follow, follow a new one (setting exactly how much of your SOL each copy may spend), pause/resume/stop a follow, and re-tune the guard rails — per-trade cap, daily budget, market-cap band, oracle and safety gates. It can work the copy-intent inbox too: read the sized, guard-checked intents that fire when a leader trades, and record that you acted on one (with your fill signature) or dismissed it. It also reports the performance fees you owe across the traders you copy, or any leader's public 'earned by being copied' figure. Strictly non-custodial: three.ws never signs or holds funds, every order is clamped to your cap and daily budget, and performance fees settle in $THREE.</description>
+		</item>
+		<item>
+			<title>AI agents can now see what's hot on three.ws over MCP — trending agents and coins, the $THREE holder board, and the live activity ticker</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:AI agents can now see what's hot on three.ws over MCP — trending agents and coins, the $THREE holder board, and the live activity ticker</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A new Model Context Protocol server, @three-ws/activity-mcp, hands any AI assistant the platform's live discovery surface — read-only, no key required. An agent can pull the trending agents ranked by real chat activity over a 24h, 7d, or all-time window (and optionally blend in proven wallet-trust reputation), see which coins the Oracle has the highest conviction in with the momentum/pedigree/structure/narrative sub-scores behind each, browse the $THREE holder leaderboard ranked by on-chain balance — complete with each holder's tier, the live price/market-cap strip, and a 'you are #N' lookup for any wallet — read the $THREE holder tier ladder (what each band means and the balance to reach it), and tail the site-wide activity ticker of coin buys, agent deploys, level-ups, payments, and more, newest-first. Everything is live from the real three.ws API — nothing mocked. Add it in one line: `claude mcp add activity -- npx -y @three-ws/activity-mcp`.</description>
 		</item>
 		<item>
 			<title>Buy live $THREE market intel over x402 — right on the IBM partnership page</title>

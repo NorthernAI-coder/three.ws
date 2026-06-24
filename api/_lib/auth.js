@@ -304,6 +304,20 @@ export async function authenticateBearer(token, { audience } = {}) {
 	}
 }
 
+// Resolve the request's user from a session cookie OR a bearer credential
+// (OAuth access token / API key). Returns the full user object for cookie
+// callers (same shape as getSessionUser) or a minimal { id, source, scope } for
+// bearer callers; null when neither authenticates. Use in account-scoped routes
+// that must serve both the browser (cookie) and machine clients / MCP servers
+// (Authorization: Bearer …). CSRF is enforced separately and self-exempts bearer.
+export async function getRequestUser(req, res) {
+	const session = await getSessionUser(req, res);
+	if (session) return session;
+	const bearer = await authenticateBearer(extractBearer(req));
+	if (bearer) return { id: bearer.userId, source: 'bearer', scope: bearer.scope || '' };
+	return null;
+}
+
 // ── Privy token verification (JWKS) ─────────────────────────────────────────
 // Lazy singleton — the JWKS set caches the remote keyset and handles rotation
 // automatically; it is only created on first call so imports don't fail when
