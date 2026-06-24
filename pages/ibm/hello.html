@@ -527,7 +527,7 @@ a:focus-visible{outline-offset:3px}
       <a class="btn" href="#forge">Explore the live demos <span class="arrow" aria-hidden="true">→</span></a>
       <a class="btn-tertiary" href="https://three.ws/docs/ibm" target="_blank" rel="noopener">Explore IBM and three.ws technology collaborations <span aria-hidden="true">→</span></a>
     </div>
-    <p class="hero-note">Every demo below runs against real, production three.ws systems: pay a few cents to turn text into a 3D model, forge a rigged avatar from a sentence, pose it by hand, fly a 3D galaxy of agents mapped by <span class="mono">IBM Granite</span>, enter a shared world, or place an agent in augmented reality. The paid Forge settles real USDC from your own wallet; the rest are free, no wallet needed. Nothing is mocked.</p>
+    <p class="hero-note">Every demo below runs against real, production three.ws systems: pay a few cents to turn text into a 3D model, forge a rigged avatar from a sentence, pose it by hand, fly a 3D galaxy of agents mapped by <span class="mono">IBM Granite</span>, enter a shared world, or place an agent in augmented reality. The paid Forge settles real USDC — or <span class="mono">$THREE</span> — from your own wallet; the rest are free, no wallet needed. Nothing is mocked.</p>
     <nav class="demo-nav" aria-label="The demos on this page">
       <a href="#webinar" class="nav-live"><span class="live-dot" aria-hidden="true"></span>Watch live</a>
       <a href="#forge"><span class="n">01</span>Forge</a>
@@ -1035,7 +1035,7 @@ a:focus-visible{outline-offset:3px}
   <div class="inner">
     <div class="section-tag">Demo 01 · Creation</div>
     <h2 id="forge-h">Forge a <strong>3D model</strong> from a sentence</h2>
-    <p class="section-lead">This pays the same x402 rail as the demo below — one USDC micropayment runs a real text→3D pipeline (Microsoft TRELLIS on NVIDIA NIM) and hands back a textured GLB you can orbit and download. The price below is read live from the server's own 402 response.</p>
+    <p class="section-lead">This pays the same x402 rail as the demo below — one micropayment, in USDC or <span class="mono">$THREE</span> on Solana, runs a real text→3D pipeline (Microsoft TRELLIS on NVIDIA NIM) and hands back a textured GLB you can orbit and download. The price below is read live from the server's own 402 response; pick your token in the wallet.</p>
 
     <div class="demo">
       <div class="demo-head">
@@ -1045,8 +1045,8 @@ a:focus-visible{outline-offset:3px}
         </div>
         <div class="price-tag">
           <div class="amt" id="fgPriceAmt" aria-hidden="true">$<strong>0.05</strong></div>
-          <div class="net" aria-hidden="true">USDC · per model</div>
-          <span class="sr-only" id="fgPriceSr">Price: five cents in USDC per generation.</span>
+          <div class="net" aria-hidden="true">USDC or $THREE · per model</div>
+          <span class="sr-only" id="fgPriceSr">Price: five cents per generation, payable in USDC or $THREE on Solana.</span>
         </div>
       </div>
 
@@ -1101,7 +1101,7 @@ a:focus-visible{outline-offset:3px}
         <!-- requirements -->
         <div class="note">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-          <p>You'll need the <b>Phantom</b> wallet on <b>Solana</b> — holding the model's price in <b>USDC</b> on Solana mainnet. This spends <b>real USDC</b> — the price shown above — from your own wallet. The payment itself is a gasless signature: the network fee is sponsored by the x402 facilitator, so it isn't added to your cost. Generation runs once the payment verifies and takes roughly a minute. No wallet? Forge one <b>free</b> below — no wallet, no key, no payment.</p>
+          <p>You'll need the <b>Phantom</b> wallet on <b>Solana</b> — holding the model's price in <b>USDC</b>, or the equivalent in <b>$THREE</b>, on Solana mainnet. This spends <b>real funds</b> — the price shown above — from your own wallet; the wallet lets you pick USDC or <b>$THREE</b>. The payment itself is a gasless signature: the network fee is sponsored by the x402 facilitator, so it isn't added to your cost. Generation runs once the payment verifies and takes roughly a minute. No wallet? Forge one <b>free</b> below — no wallet, no key, no payment.</p>
         </div>
       </div>
     </div>
@@ -1387,7 +1387,7 @@ a:focus-visible{outline-offset:3px}
 
     <!-- The snippet above, wired live. x402.js (loaded near </body>) binds any
          [data-x402-endpoint]; this is the same $THREE Town Oracle the in-world
-         kiosk on /play buys from, settled in real USDC over x402. -->
+         kiosk on /play buys from, settled in real USDC or $THREE over x402. -->
     <div class="x402-live" id="threeOracle">
       <div class="xl-head">
         <div class="xl-kicker">Live · runs right here</div>
@@ -1405,9 +1405,9 @@ a:focus-visible{outline-offset:3px}
           <a class="btn-tertiary" href="https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" target="_blank" rel="noopener">View <span class="mono">$THREE</span> on pump.fun <span aria-hidden="true">→</span></a>
         </div>
         <div class="ti-result" id="threeOracleResult" aria-live="polite">
-          <p class="ti-empty">You'll get back price, 24-hour change, market cap, liquidity, 24-hour volume, and a signal with a short rationale — live from DexScreener. Settles in USDC on Solana or Base; the network fee is sponsored by the facilitator.</p>
+          <p class="ti-empty">You'll get back price, 24-hour change, market cap, liquidity, 24-hour volume, and a signal with a short rationale — live from DexScreener. Settles in USDC or <span class="mono">$THREE</span> on Solana (USDC on Base); the network fee is sponsored by the facilitator.</p>
         </div>
-        <p class="xl-note">Spends $0.01 of real USDC from your wallet. The only coin three.ws issues is <span class="mono">$THREE</span> &middot; <span class="mono">FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</span>.</p>
+        <p class="xl-note">Spends $0.01 of real funds from your wallet — pay in USDC, or in <span class="mono">$THREE</span> on Solana. The only coin three.ws issues is <span class="mono">$THREE</span> &middot; <span class="mono">FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</span>.</p>
       </div>
     </div>
   </div>
@@ -1429,7 +1429,7 @@ a:focus-visible{outline-offset:3px}
       <a href="https://three.ws/changelog" target="_blank" rel="noopener">Changelog</a>
     </nav>
     <div class="footer-legal">
-      Live x402 demo · three.ws, an IBM Business Partner. Payments settle in USDC on Base or Solana mainnet via the x402 protocol. The only coin this platform issues is $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump).
+      Live x402 demo · three.ws, an IBM Business Partner. Payments settle in USDC on Base or Solana mainnet — or in $THREE on Solana — via the x402 protocol. The only coin this platform issues is $THREE (FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump).
     </div>
   </div>
 </footer>

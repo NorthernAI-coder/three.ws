@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "Pay for any three.ws service in $THREE — not just USDC",
+			"summary": "$THREE is now a first-class payment token across every paid three.ws endpoint over x402, alongside USDC. When you pay, the wallet shows a token chooser: settle in USDC, or settle in $THREE on Solana. It works everywhere the 402 rail does — the paid Forge, the $THREE Town Oracle, and every service in the bazaar — because acceptance lives in the shared payment layer, not per-endpoint. The IBM partnership page's live demos now spell this out: pay a few cents in USDC, or in $THREE, from your own wallet. $THREE is priced at a flat per-call amount on Solana.",
+			"tags": [
+				"feature"
+			],
+			"link": "/bazaar"
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Fixed the inline Pose Studio embed 404",
+			"summary": "The lite Pose Studio that runs inline on demo pages now loads in production. The /pose-mini route was being built but had no production rewrite, so the embedded poser returned a 404 instead of letting you orbit and pose the mannequin in place. The route is now wired and the embed loads live.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-24",
 			"title": "AI agents can now read and manage their own notification inbox over MCP",
 			"summary": "A new Model Context Protocol server, @three-ws/notifications-mcp, gives an AI agent its own notification inbox and delivery controls. The agent can read its inbound-event feed — market and pump alerts, sales and earnings, purchase receipts, social mentions, in-person interactions, and account and security notices — newest first, filtered by type, with a live unread count, instead of polling. It can mark a single notification or every unread one as read, permanently delete one it no longer needs, and tune exactly how each kind of event reaches its owner: per category, which channels deliver — in-app, web push, email, or Telegram. It can also register and remove Web Push devices so alerts reach a phone or desktop. Every action is scoped to your three.ws account through a single API key; nothing is mocked.",
 			"tags": [

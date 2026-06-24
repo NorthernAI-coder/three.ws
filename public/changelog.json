@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T07:26:26.842Z",
+	"generated_at": "2026-06-24T07:36:37.840Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -231,6 +231,16 @@
 			"tags": [
 				"sdk",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "Fixed the inline Pose Studio embed 404",
+			"summary": "The lite Pose Studio that runs inline on demo pages now loads in production. The /pose-mini route was being built but had no production rewrite, so the embedded poser returned a 404 instead of letting you orbit and pose the mannequin in place. The route is now wired and the embed loads live.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

@@ -976,6 +976,10 @@
 			"dest": "/pose.html"
 		},
 		{
+			"src": "/pose-mini/?",
+			"dest": "/pose-mini.html"
+		},
+		{
 			"src": "/club/?",
 			"dest": "/club.html"
 		},
