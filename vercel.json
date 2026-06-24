@@ -921,6 +921,28 @@
 			"dest": "/ibm/x402-demo.html"
 		},
 		{
+			"src": "/ibm/hello/",
+			"status": 308,
+			"headers": {
+				"Location": "/ibm/hello"
+			}
+		},
+		{
+			"src": "/ibm/hello",
+			"dest": "/ibm/hello.html"
+		},
+		{
+			"src": "/ibm/hello.live/",
+			"status": 308,
+			"headers": {
+				"Location": "/ibm/hello.live"
+			}
+		},
+		{
+			"src": "/ibm/hello.live",
+			"dest": "/ibm/hello.live.html"
+		},
+		{
 			"src": "/communities/?",
 			"dest": "/communities.html"
 		},

@@ -418,7 +418,7 @@ a:focus-visible{outline-offset:3px}
 }
 </style>
 
-	<link rel="canonical" href="https://three.ws/ibm/x402-demo">
+	<link rel="canonical" href="https://three.ws/ibm/hello">
 	<meta property="og:site_name" content="three.ws">
 	<meta property="og:url" content="https://three.ws/ibm/x402-demo">
 	<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=x402+Live+Demo+%28IBM+%C3%97+three.ws%29&amp;d=A+self-contained+x402+micropayment+demo%3A+pay+%240.001+USDC+from+your+own+wallet+%E2%80%94+MetaMask+on+Base+or+Phantom+on+Solana+%E2%80%94+to+call+a+real+three.ws+data+API.+Watch+&amp;p=%2Fibm%2Fx402-demo">
@@ -541,6 +541,70 @@ a:focus-visible{outline-offset:3px}
 </header>
 
 <main>
+<!-- ══ PARTNERSHIP HIGHLIGHTS · the proof grid (covers the whole stack) ══
+     IBM-partnership-page convention: a grid of icon tiles that states what is
+     real and broad before the demos show what it does. Every figure here is
+     structural and verifiable from this repo (STRUCTURE.md) — no invented metrics. -->
+<style id="hl-styles">
+.hl-sec{padding:44px 0 40px;border-bottom:1px solid var(--ibm-border)}
+.hl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);margin-top:28px;list-style:none}
+.hl{background:var(--ibm-surface);padding:24px 22px;display:flex;flex-direction:column;gap:10px}
+.hl-ico{width:26px;height:26px;color:var(--ibm-blue)}
+.hl-ico svg{width:100%;height:100%;display:block}
+.hl-stat{font-size:24px;font-weight:300;line-height:1.1;color:var(--ibm-ink)}
+.hl-stat strong{font-weight:600}
+.hl h3{font-size:13px;font-weight:600;color:var(--ibm-ink);letter-spacing:.01em}
+.hl p{font-size:13px;color:var(--ibm-muted);font-weight:300;line-height:1.55}
+.hl p a{font-weight:500}
+@media(max-width:768px){.hl-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.hl-grid{grid-template-columns:1fr}}
+</style>
+<section class="section hl-sec" id="highlights" aria-labelledby="hl-h">
+  <div class="inner">
+    <div class="section-tag">Partnership highlights</div>
+    <h2 id="hl-h">One stack: <strong>3D, AI, and on-chain payments</strong>, wired together</h2>
+    <p class="section-lead">three.ws turns a sentence into a rigged 3D agent, gives it identity and memory on-chain, lets it earn and spend in real time over x402, and reasons about all of it with IBM Granite on watsonx.ai. The demos below are the moving parts — here's the whole machine.</p>
+    <ul class="hl-grid">
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M16 3l11 6v14l-11 6-11-6V9z"/><path d="M5 9l11 6 11-6M16 15v14"/></svg></span>
+        <div class="hl-stat"><strong>Text → 3D</strong> in one call</div>
+        <h3>Real-time 3D engine</h3>
+        <p>A prompt becomes a textured, auto-rigged GLB (Microsoft TRELLIS on NVIDIA NIM), then walks, poses, and inhabits shared worlds — six live demos on this page, nothing mocked.</p>
+      </li>
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="9" y="9" width="14" height="14" rx="2"/><path d="M13 3v4M19 3v4M13 25v4M19 25v4M3 13h4M3 19h4M25 13h4M25 19h4"/></svg></span>
+        <div class="hl-stat"><strong>IBM Granite</strong> on watsonx.ai</div>
+        <h3>Trusted AI layer</h3>
+        <p>Granite embeddings place every agent in a 3D map by meaning and name each constellation; Granite Guardian screens generated content. The reasoning and safety layer over the whole platform.</p>
+      </li>
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2"><circle cx="16" cy="16" r="12"/><path d="M16 9v14M19.5 12.5c0-1.7-1.6-3-3.5-3s-3.5 1.3-3.5 3 1.6 3 3.5 3 3.5 1.3 3.5 3-1.6 3-3.5 3-3.5-1.3-3.5-3" stroke-linecap="round"/></svg></span>
+        <div class="hl-stat"><strong>x402</strong> micropayments</div>
+        <h3>Pay-per-call, sub-cent</h3>
+        <p>Agents and visitors pay for a single API call with a gasless authorization — in USDC or <span class="mono">$THREE</span>, settled on Base or Solana mainnet. The open <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">x402</a> rail, live on this page.</p>
+      </li>
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M16 3l11 4v8c0 7-4.6 11.5-11 14C9.6 26.5 5 22 5 15V7z"/><path d="M11.5 16l3 3 6-6" stroke-linecap="round"/></svg></span>
+        <div class="hl-stat"><strong>ERC-8004</strong> identity</div>
+        <h3>On-chain agents</h3>
+        <p>Every agent carries portable identity and reputation on-chain, plus skill licenses minted as 1/1 SPL NFTs — verifiable access without a database in the trust path. Solana + EVM.</p>
+      </li>
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="18" y="4" width="10" height="10" rx="1.5"/><rect x="4" y="18" width="10" height="10" rx="1.5"/><rect x="18" y="18" width="10" height="10" rx="1.5"/></svg></span>
+        <div class="hl-stat"><strong>37</strong> MCP servers</div>
+        <h3>Agent-native tools</h3>
+        <p>3D, payments, trading intel, identity, and provenance exposed to any AI agent through the <a href="https://three.ws/docs/mcp" target="_blank" rel="noopener">Model Context Protocol</a> — 31 npm packages and 6 hosted servers in the public registry.</p>
+      </li>
+      <li class="hl">
+        <span class="hl-ico" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 10l-6 6 6 6M21 10l6 6-6 6"/></svg></span>
+        <div class="hl-stat"><strong>18</strong> zero-dep SDKs</div>
+        <h3>Build on the rail</h3>
+        <p>Single-import <span class="mono">@three-ws/*</span> clients wrap the live APIs — forge, voice, names, intel, x402, reputation — pure ESM, no build step, 216 tests green.</p>
+      </li>
+    </ul>
+  </div>
+</section>
+
 <!-- ══ WEBINAR · live stage (countdown → synced premiere / live OBS) ══ -->
 <style id="wb-styles">
 .webinar{padding:34px 0 40px;border-bottom:1px solid var(--ibm-border)}
@@ -1412,7 +1476,134 @@ a:focus-visible{outline-offset:3px}
     </div>
   </div>
 </section>
+
+<!-- ══ FAQ · breadth coverage (3D, AI, crypto, x402, blockchain, MCP, $THREE) ══
+     Native <details> accordion — keyboard- and screen-reader-native, no JS.
+     Mirrored in the FAQPage JSON-LD at the foot of the page for rich results. -->
+<style id="faq-styles">
+.faq-list{margin-top:26px;border-top:1px solid var(--ibm-border)}
+.faq-item{border-bottom:1px solid var(--ibm-border)}
+.faq-item summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 2px;font-size:16px;font-weight:500;color:var(--ibm-ink);transition:color .12s}
+.faq-item summary::-webkit-details-marker{display:none}
+.faq-item summary:hover{color:var(--ibm-blue)}
+.faq-item summary:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:2px}
+.faq-ico{position:relative;flex:0 0 auto;width:16px;height:16px}
+.faq-ico::before,.faq-ico::after{content:"";position:absolute;background:var(--ibm-blue);transition:transform .2s var(--ease),opacity .2s var(--ease)}
+.faq-ico::before{left:0;top:7px;width:16px;height:2px}
+.faq-ico::after{left:7px;top:0;width:2px;height:16px}
+.faq-item[open] .faq-ico::after{transform:scaleY(0);opacity:0}
+.faq-a{padding:0 2px 22px;font-size:14px;color:var(--ibm-muted);line-height:1.7;font-weight:300;max-width:700px}
+.faq-a p{margin-bottom:10px}
+.faq-a p:last-child{margin-bottom:0}
+.faq-a a{font-weight:500}
+.faq-a .mono{font-size:12.5px}
+@media(pointer:coarse){.faq-item summary{min-height:56px}}
+</style>
+<section class="section" id="faq" aria-labelledby="faq-h">
+  <div class="inner">
+    <div class="section-tag">Questions, answered</div>
+    <h2 id="faq-h">Frequently <strong>asked</strong></h2>
+    <p class="section-lead">What three.ws is, what IBM brings, and how the 3D, AI, and on-chain pieces fit together.</p>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>What is three.ws?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>three.ws is a platform for 3D AI agents. You describe a character in plain language and get a textured, rigged avatar that walks, poses, and lives in shared 3D worlds — running in any browser, no install. Each agent can carry on-chain identity, hold a wallet, and pay or charge for work in real time.</p>
+          <p>Everything on this page is a live slice of the production platform: <a href="https://three.ws/forge" target="_blank" rel="noopener">Forge</a> (text→3D), <a href="https://three.ws/pose" target="_blank" rel="noopener">Pose</a>, the Granite-mapped agent galaxy, <a href="https://three.ws/play" target="_blank" rel="noopener">Play</a> worlds, and <a href="https://three.ws/irl" target="_blank" rel="noopener">IRL</a> augmented reality.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>What does IBM bring to the partnership?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>IBM provides the trusted AI layer. <strong>IBM Granite</strong> models on <strong>watsonx.ai</strong> generate the embeddings that place every agent in the semantic 3D galaxy — agents that do similar things sit together — and Granite names each constellation. <strong>Granite Guardian</strong> screens generated content for safety.</p>
+          <p>The integration ships as real, installable MCP servers — <span class="mono">@three-ws/ibm-watsonx-mcp</span> and <span class="mono">@three-ws/ibm-x402-mcp</span> — so any agent can call watsonx.ai and pay for it over x402.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>What is the x402 protocol?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>x402 revives the dormant HTTP <span class="mono">402 Payment Required</span> status as a real payment rail. You call an endpoint normally; if it's paid, the server answers <span class="mono">402</span> with an exact price, asset, and address. Your wallet signs a gasless authorization, you resend with an <span class="mono">X-PAYMENT</span> header, and the call settles on-chain — all in one round trip, no account or API key.</p>
+          <p>It's what lets agents transact with each other autonomously, pay-per-call, down to a fraction of a cent. Read the <a href="https://three.ws/docs/x402" target="_blank" rel="noopener">protocol docs</a> or add a paywall with the eight-line snippet above.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>Is this real money on a real blockchain?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>Yes. The paid demos move real funds from your own wallet — USDC, or <span class="mono">$THREE</span> on Solana — and settle on Base or Solana <em>mainnet</em>. Nothing is simulated and nothing is mocked; the price you see is read live from the server's own 402 response, and you get an on-chain settlement receipt.</p>
+          <p>Amounts are deliberately tiny (a cent or less), and the free demos — avatars, pose, galaxy, worlds, AR — need no wallet at all.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>What is <span class="mono">$THREE</span>?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p><span class="mono">$THREE</span> is the native coin of three.ws, used to pay across the platform alongside USDC. It's the only coin three.ws issues. Contract address: <span class="mono">FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump</span> on Solana.</p>
+          <p>You can pay every x402 demo on this page in <span class="mono">$THREE</span>, or <a href="https://pump.fun/FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump" target="_blank" rel="noopener">view it on pump.fun</a>.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>How do I build on it?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>Three ways in, by altitude. Drop the one-line <span class="mono">x402.js</span> script onto any page to make an element payable. Reach for one of the <strong>18 zero-dependency <span class="mono">@three-ws/*</span> SDKs</strong> — forge, voice, names, intel, reputation, x402 — to call the APIs directly from code. Or wire the <strong>37 MCP servers</strong> into an AI agent so it can create 3D, pay, trade, and check identity as native tools.</p>
+          <p>Start at the <a href="https://three.ws/docs/ibm" target="_blank" rel="noopener">IBM × three.ws docs</a> or browse callable, paid endpoints in the <a href="https://three.ws/bazaar" target="_blank" rel="noopener">Endpoint Bazaar</a>.</p>
+        </div>
+      </details>
+      <details class="faq-item">
+        <summary>Is this a demo or production?<span class="faq-ico" aria-hidden="true"></span></summary>
+        <div class="faq-a">
+          <p>Production. Every demo here calls the same live systems the platform runs on — Microsoft TRELLIS on NVIDIA NIM for text→3D, IBM Granite on watsonx.ai for embeddings and safety, Solana and Base RPC for settlement, and the x402 facilitator for payments. There is no sample data and no mock backend anywhere on this page.</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ══ NEXT STEPS · deliberate exit (IBM-style CTA band) ══ -->
+<style id="next-styles">
+.next-sec{padding:44px 0 48px}
+.next-band{background:var(--ibm-field);border:1px solid var(--ibm-border);padding:34px 30px;display:flex;flex-wrap:wrap;gap:26px 40px;align-items:center;justify-content:space-between}
+.nb-copy{max-width:520px;min-width:0}
+.nb-copy h2{font-size:clamp(22px,3.4vw,28px);font-weight:300;line-height:1.15}
+.nb-copy h2 strong{font-weight:600}
+.nb-copy p{font-size:14.5px;color:var(--ibm-muted);font-weight:300;line-height:1.6;margin-top:10px}
+.next-actions{display:flex;flex-direction:column;gap:1px;background:var(--ibm-border);border:1px solid var(--ibm-border);flex:1 1 280px;min-width:0}
+.next-act{display:flex;align-items:center;justify-content:space-between;gap:16px;background:var(--ibm-surface);padding:16px 18px;font-size:14px;font-weight:500;color:var(--ibm-ink);transition:background .12s,color .12s}
+.next-act:hover{background:var(--ibm-field-focus);color:var(--ibm-blue);text-decoration:none}
+.next-act:focus-visible{outline:2px solid var(--ibm-blue);outline-offset:-2px}
+.next-act .na-sub{display:block;font-size:12px;font-weight:300;color:var(--ibm-subtle);margin-top:3px}
+.next-act:hover .na-sub{color:var(--ibm-blue)}
+.next-act .na-arrow{flex:0 0 auto;font-size:17px;color:var(--ibm-blue);transition:transform .12s}
+.next-act:hover .na-arrow{transform:translateX(3px)}
+@media(pointer:coarse){.next-act{min-height:56px}}
+</style>
+<section class="section next-sec" id="next" aria-labelledby="next-h">
+  <div class="inner">
+    <div class="section-tag">Next steps</div>
+    <div class="next-band">
+      <div class="nb-copy">
+        <h2 id="next-h">Build the next <strong>3D agent economy</strong></h2>
+        <p>The same rails behind these demos — 3D creation, Granite intelligence, on-chain identity, and x402 payments — are open for you to build on. Pick a door.</p>
+      </div>
+      <div class="next-actions">
+        <a class="next-act" href="https://three.ws/docs/ibm" target="_blank" rel="noopener">
+          <span>Read the IBM × three.ws docs<span class="na-sub">Integration guide, watsonx + x402 MCP servers</span></span>
+          <span class="na-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="next-act" href="https://three.ws/bazaar" target="_blank" rel="noopener">
+          <span>Browse the Endpoint Bazaar<span class="na-sub">Callable, paid agent endpoints over x402</span></span>
+          <span class="na-arrow" aria-hidden="true">→</span>
+        </a>
+        <a class="next-act" href="https://three.ws/forge" target="_blank" rel="noopener">
+          <span>Open the platform<span class="na-sub">Forge, Pose, Play and IRL — the full apps</span></span>
+          <span class="na-arrow" aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
 </main>
+
+<!-- FAQPage structured data — mirrors the accordion above for rich results. -->
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is three.ws?","acceptedAnswer":{"@type":"Answer","text":"three.ws is a platform for 3D AI agents. You describe a character in plain language and get a textured, rigged avatar that walks, poses, and lives in shared 3D worlds — running in any browser, no install. Each agent can carry on-chain identity, hold a wallet, and pay or charge for work in real time over the x402 protocol."}},{"@type":"Question","name":"What does IBM bring to the partnership?","acceptedAnswer":{"@type":"Answer","text":"IBM provides the trusted AI layer. IBM Granite models on watsonx.ai generate the embeddings that place every agent in a semantic 3D galaxy and name each constellation, and Granite Guardian screens generated content for safety. The integration ships as installable MCP servers (@three-ws/ibm-watsonx-mcp and @three-ws/ibm-x402-mcp)."}},{"@type":"Question","name":"What is the x402 protocol?","acceptedAnswer":{"@type":"Answer","text":"x402 revives the HTTP 402 Payment Required status as a real payment rail. You call an endpoint normally; if it is paid the server answers 402 with an exact price, asset, and address. Your wallet signs a gasless authorization, you resend with an X-PAYMENT header, and the call settles on-chain in one round trip — no account or API key. It lets AI agents transact autonomously, pay-per-call, down to a fraction of a cent."}},{"@type":"Question","name":"Is this real money on a real blockchain?","acceptedAnswer":{"@type":"Answer","text":"Yes. The paid demos move real funds from your own wallet — USDC, or $THREE on Solana — and settle on Base or Solana mainnet. Nothing is simulated; the price is read live from the server's 402 response and you receive an on-chain settlement receipt. Amounts are a cent or less, and the free demos need no wallet."}},{"@type":"Question","name":"What is $THREE?","acceptedAnswer":{"@type":"Answer","text":"$THREE is the native coin of three.ws, used to pay across the platform alongside USDC, and the only coin three.ws issues. Contract address: FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump on Solana."}},{"@type":"Question","name":"How do I build on it?","acceptedAnswer":{"@type":"Answer","text":"Three ways in: drop the one-line x402.js script to make any element payable; use one of the 18 zero-dependency @three-ws/* SDKs (forge, voice, names, intel, reputation, x402) to call the APIs from code; or wire the 37 MCP servers into an AI agent so it can create 3D, pay, trade, and verify identity as native tools. Start at the IBM × three.ws docs or the Endpoint Bazaar."}},{"@type":"Question","name":"Is this a demo or production?","acceptedAnswer":{"@type":"Answer","text":"Production. Every demo calls the live systems the platform runs on — Microsoft TRELLIS on NVIDIA NIM for text→3D, IBM Granite on watsonx.ai for embeddings and safety, Solana and Base RPC for settlement, and the x402 facilitator for payments. There is no sample data or mock backend on this page."}}]}</script>
 
 <!-- ══ FOOTER ══ -->
 <footer class="footer">

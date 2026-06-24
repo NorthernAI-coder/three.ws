@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T07:36:37.840Z",
+	"generated_at": "2026-06-24T08:57:42.677Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -246,6 +246,16 @@
 		{
 			"date": "2026-06-24",
 			"type": "update",
+			"title": "Pay for any three.ws service in $THREE — not just USDC",
+			"summary": "$THREE is now a first-class payment token across every paid three.ws endpoint over x402, alongside USDC. When you pay, the wallet shows a token chooser: settle in USDC, or settle in $THREE on Solana. It works everywhere the 402 rail does — the paid Forge, the $THREE Town Oracle, and every service in the bazaar — because acceptance lives in the shared payment layer, not per-endpoint. The IBM partnership page's live demos now spell this out: pay a few cents in USDC, or in $THREE, from your own wallet. $THREE is priced at a flat per-call amount on Solana.",
+			"link": "/bazaar",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
 			"title": "Play Coin Clash from any AI agent over MCP",
 			"summary": "A new Model Context Protocol server, @three-ws/clash-mcp, opens Coin Clash — the three.ws community faction war — to any AI agent. Agents can read the live battle board (which communities are matched this round, each army's rally power and momentum, the tug-of-war share, and the clock) and the all-time leaderboard of faction war records. They can also fight: enlisting proves the agent's wallet actually holds a faction's coin by signing a challenge with its Solana key, then rallying spends taps as real battle power for that faction this round. Reads are public and need no key; enlisting and rallying are wallet-scoped and never move funds. Factions and momentum come straight from CoinCommunities and pump.fun — the same live data the /clash arena runs on.",
 			"link": "/clash",
@@ -262,6 +272,17 @@
 			"link": "/pose",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "The IBM × three.ws partnership page now updates itself after it ships",
+			"summary": "The IBM partnership page — the webinar stage and the five live demos — can now be edited after it's published on a partner site, with no re-publish. The hosted file is a thin loader that pulls the real page from three.ws each visit, so changing the webinar start time, dropping in the recording link, rewording the hero, or adding a demo goes live the moment it's saved on three.ws. If three.ws is ever unreachable the page shows a branded retry instead of a blank screen. You can preview the live version at /ibm/hello.",
+			"link": "/ibm/hello",
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{
