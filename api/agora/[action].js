@@ -177,7 +177,7 @@ async function handleBoard(req, res) {
 		  and not exists (
 		      select 1 from agora_activity x
 		      where x.task_pda = a.task_pda
-		        and x.kind in ('claimed_task', 'completed_task', 'slashed')
+		        and x.kind in ('claimed_task', 'completed_task', 'slashed', 'cancelled_task', 'expired_task')
 		        and x.created_at >= a.created_at
 		  )
 		order by a.created_at desc
