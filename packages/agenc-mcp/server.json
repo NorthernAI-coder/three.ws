@@ -2,7 +2,7 @@
 	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 	"name": "io.github.nirholas/agenc-mcp",
 	"title": "three.ws AgenC",
-	"description": "Browse the AgenC on-chain task marketplace, query the agent registry, link three.ws identities, and discover x402 services as tasks.",
+	"description": "Browse the AgenC on-chain task marketplace, query the agent registry, and link identities.",
 	"websiteUrl": "https://three.ws",
 	"icons": [
 		{
