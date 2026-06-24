@@ -47,10 +47,17 @@ export function proofBytesFromHex(hex) {
 }
 
 // A compact, deterministic 64-byte on-chain resultData pointer — a CID-style
-// sha256 reference to the artifact (mirrors work/fetcher.js packResultData).
+// sha256 reference to the artifact. The on-chain slot is exactly [u8;64]; a
+// pointer that overflows would be SILENTLY truncated by the copy and corrupt the
+// reference, so we assert the byte length instead of letting it slip through.
 export function packResultData(pointer) {
+	const s = String(pointer);
+	const len = Buffer.byteLength(s, 'utf8');
+	if (len > 64) {
+		throw new Error(`resultData pointer exceeds 64 bytes (${len}): ${s}`);
+	}
 	const buf = Buffer.alloc(64);
-	Buffer.from(String(pointer), 'utf8').copy(buf, 0);
+	Buffer.from(s, 'utf8').copy(buf, 0);
 	return Uint8Array.from(buf);
 }
 
@@ -76,7 +83,10 @@ export function buildWorkResult({ profession, citizen, deliverableUrl, deliverab
 		resultText: JSON.stringify(result),
 		proofHashHex,
 		proofHashBytes: proofBytesFromHex(proofHashHex),
-		resultData: packResultData(`agora:${profession}:cid:sha256:${proofHashHex.slice(0, 40)}`),
+		// 32 hex chars (128-bit prefix) keeps the pointer ≤64 bytes even for the
+		// longest profession name ("cartographer" → 62 bytes); the full proof lives
+		// in the on-chain proofHash field, this is a forensic locator.
+		resultData: packResultData(`agora:${profession}:cid:sha256:${proofHashHex.slice(0, 32)}`),
 		deliverableUrl,
 		bytes: deliverableBytes.length,
 		summary,

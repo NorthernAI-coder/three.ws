@@ -19,7 +19,7 @@
 // gate, and Idempotency-Key support so a retried POST never double-escrows.
 
 import { createHash } from 'node:crypto';
-import { cors, error, json, method, rateLimited, readJson, wrap, serverError } from '../_lib/http.js';
+import { cors, error, json, method, rateLimited, readJson, wrap, serverError, reportServerError } from '../_lib/http.js';
 import { limits } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
 import { authWrite } from '../_lib/labor-auth.js';
@@ -204,7 +204,7 @@ async function postTaskCore({ user, body, requestedCluster, hire }) {
 	try {
 		created = await createAgenCTask(reg.client, createArgs);
 	} catch (e) {
-		return { err: [502, 'escrow_failed', `the bounty was not posted — no funds moved: ${e?.message || 'createTask failed'}`] };
+		return { err: [502, 'escrow_failed', 'the bounty was not posted — no funds moved'], cause: e };
 	}
 
 	const taskPda = created.taskPda.toBase58();
@@ -283,7 +283,7 @@ async function actClaim(user, body) {
 	try {
 		claim = await claimAgenCTask(reg.client, { taskPda: new PublicKey(taskPda), workerAgentId: reg.agentId });
 	} catch (e) {
-		return { err: [502, 'claim_failed', `could not claim the task: ${e?.message || 'claimTask failed'}`] };
+		return { err: [502, 'claim_failed', 'could not claim the task'], cause: e };
 	}
 
 	await projectActivity({
@@ -321,14 +321,19 @@ async function actComplete(user, body) {
 	const { completeAgenCTask, getAgenCTask, getAgenCAgent } = await import('@three-ws/solana-agent');
 
 	const pda = new PublicKey(taskPda);
+	// resultData is an on-chain [u8;64]; size it by BYTES, not characters, so a
+	// multibyte deliverable (emoji/CJK/accents) can't overflow Anchor's fixed slot
+	// and fail serialization. Zero-padded; the first byte is non-zero (deliverable
+	// is validated non-empty above) so it's never the rejected all-zero slot.
+	const resultData = Buffer.alloc(64);
+	Buffer.from(deliverable, 'utf8').copy(resultData, 0, 0, 64);
 	let completion;
 	try {
 		completion = await completeAgenCTask(reg.client, {
-			taskPda: pda, workerAgentId: reg.agentId, proofHash,
-			resultData: Buffer.from(deliverable.padEnd(64, ' ').slice(0, 64), 'utf8'),
+			taskPda: pda, workerAgentId: reg.agentId, proofHash, resultData,
 		});
 	} catch (e) {
-		return { err: [502, 'complete_failed', `could not submit the proof: ${e?.message || 'completeTask failed'}`] };
+		return { err: [502, 'complete_failed', 'could not submit the proof'], cause: e };
 	}
 
 	// Re-read the chain for the real reward + reputation — never invent them.
@@ -412,7 +417,7 @@ async function actVouch(user, body) {
 	try {
 		sig = await sendOnchainAttestation({ cluster, signer: reg.signer, memo });
 	} catch (e) {
-		return { err: [502, 'attestation_failed', `the vouch was not recorded on-chain: ${e?.message || 'attestation failed'}`] };
+		return { err: [502, 'attestation_failed', 'the vouch was not recorded on-chain'], cause: e };
 	}
 
 	const [edge] = existing
@@ -489,7 +494,14 @@ export default wrap(async (req, res) => {
 		if (result.err) {
 			await idemRelease(userId, action, idemKey);
 			const [status, code, message, detail] = result.err;
-			return error(res, status, code, message, detail || {});
+			const extra = { ...(detail || {}) };
+			// A ≥500 carries an upstream on-chain cause: log + capture it server-side
+			// under a correlation id and return only that ref — never the raw RPC
+			// error string, which can embed the keyed RPC URL (HELIUS_API_KEY).
+			if (result.cause && status >= 500) {
+				extra.ref = reportServerError(result.cause, { code, status, context: { action } });
+			}
+			return error(res, status, code, message, extra);
 		}
 		await idemFinish(userId, action, idemKey, result.body);
 		return json(res, 200, result.body);

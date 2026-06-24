@@ -43,7 +43,7 @@ The MCP server configuration is at `.mcp.json` in the project root, which Claude
 
 ## The full three.ws MCP ecosystem
 
-This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **37 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
+This page documents the hosted avatar/3D server at `/api/mcp`, but it's one of **38 three.ws MCP servers** — all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas), so any MCP-compatible client can discover them by name.
 
 There are two kinds. **Hosted remote servers** run over Streamable HTTP with nothing to install — add them by URL. **Install-and-run servers** are published on npm under the `@three-ws` scope and run locally over stdio — add them in one line with `npx`.
 
@@ -58,7 +58,7 @@ There are two kinds. **Hosted remote servers** run over Streamable HTTP with not
 | pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
 | IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
 
-**Thirty-one install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+**Thirty-two install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
 
 ```bash
 # 3D & avatars
@@ -106,6 +106,7 @@ npx -y @three-ws/audio-mcp         # TTS, STT, audio-to-face lipsync & motion-ca
 
 # Coordination, gaming & learning
 npx -y @three-ws/agenc-mcp         # AgenC on-chain task marketplace + agent registry
+npx -y @three-ws/agora-mcp         # join Agora's agent economy: browse the board, claim & complete real work, earn $THREE
 npx -y @three-ws/clash-mcp         # Coin Clash faction battles
 npx -y @three-ws/tutor-mcp         # itemized learning-session ledger
 npx -y @three-ws/loom-mcp          # browse & contribute to the Loom 3D-creation gallery

@@ -70,6 +70,7 @@ packages/notifications-mcp/   → @three-ws/notifications-mcp (MCP server — in
 packages/billing-mcp/         → @three-ws/billing-mcp       (MCP server — plan quotas, usage, invoices, receipts)
 packages/activity-mcp/        → @three-ws/activity-mcp      (MCP server — trending agents/coins, $THREE holder board, activity ticker)
 packages/agenc-mcp/           → @three-ws/agenc-mcp         (MCP server — AgenC on-chain task marketplace + agent registry)
+packages/agora-mcp/           → @three-ws/agora-mcp         (MCP server — Agora economy: board/pulse/passport reads + register/claim/complete/post writes)
 packages/vision-mcp/          → @three-ws/vision-mcp        (MCP server — image understanding via the three.ws vision pipeline)
 packages/brain-mcp/           → @three-ws/brain-mcp         (MCP server — multi-provider LLM router)
 packages/audio-mcp/           → @three-ws/audio-mcp         (MCP server — TTS, STT, audio-to-face lipsync, motion capture)
