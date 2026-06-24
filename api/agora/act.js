@@ -25,12 +25,12 @@ import { sql } from '../_lib/db.js';
 import { authWrite } from '../_lib/labor-auth.js';
 import { TOKEN_MINT } from '../_lib/token/config.js';
 import {
-	ensureHumanCitizen, ensureRegistered, ensureDevnetBalance, recoverCitizenKeypair,
+	ensureHumanCitizen, ensureRegistered, ensureDevnetBalance,
 	projectActivity, bumpCitizenStats, citizenBalances, professionToCapabilityBits,
 	PROFESSION_BITS, THREE_ATOMICS_PER_TOKEN, rewardLabel, proofHashFor,
 	sendOnchainAttestation, explorerTx,
 } from '../_lib/agora-human.js';
-import { resolveCluster, checkPostSpend, spendCaps } from '../_lib/agora-policy.js';
+import { resolveCluster, checkPostSpend } from '../_lib/agora-policy.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000n;
 const MAX_TITLE = 140;
@@ -358,7 +358,7 @@ async function actComplete(user, body) {
 	});
 	await bumpCitizenStats(citizen.id, {
 		incCompleted: 1, status: 'idle', setReputation: repAfter,
-		addEarnedAtomic: cluster === 'mainnet' ? rewardAmount.toString() : '0',
+		addEarnedAtomic: cluster === 'mainnet' ? rewardAmount.toString() : null,
 	});
 
 	const { publishFeedEvent } = await import('../_lib/feed.js');

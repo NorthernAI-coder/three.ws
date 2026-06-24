@@ -310,8 +310,6 @@ function openJobByPda(taskPda) {
 	window.dispatchEvent(new CustomEvent('agora:open-job', { detail: { task: { taskPda, cluster: state.me?.cluster || 'devnet' } } }));
 }
 
-function openJobByPdaThenWork(taskPda) { openJobByPda(taskPda); }
-
 function reopenJob() {
 	if (state.job?.taskPda) {
 		window.dispatchEvent(new CustomEvent('agora:open-job', { detail: { task: { taskPda: state.job.taskPda, cluster: state.job.cluster } } }));
