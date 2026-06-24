@@ -10,11 +10,21 @@
 //   composite: sha256("AgenC/three.ws/composite/v1\0" + canonicalJSON)
 //   where canonicalJSON = {"v":1,"erc8004":"0x<32-byte BE hex>","mplCore":"<base58>"}
 
-import { PublicKey } from '@solana/web3.js';
 import { h, copyChip } from './panel.js';
 import { sha256Hex } from './verify.js';
 import { linkIdentity } from './api.js';
 import { normalizeHex, shortId, explorerAddressUrl, etherscanAddressUrl } from './format.js';
+
+// @solana/web3.js is the app's heaviest dep (~1MB solana chunk). The handshake
+// only needs PublicKey to validate/normalize a base58 asset, and only renders for
+// the rare dual-identity citizen — so we lazy-import it here instead of pulling
+// the whole solana chunk into every /agora load. Memoized after first use.
+let _PublicKey = null;
+async function getPublicKey() {
+	if (_PublicKey) return _PublicKey;
+	({ PublicKey: _PublicKey } = await import('@solana/web3.js'));
+	return _PublicKey;
+}
 
 const NS_COMPOSITE = 'AgenC/three.ws/composite/v1\0';
 const NS_ERC8004 = 'AgenC/three.ws/erc8004/v1\0';
@@ -74,6 +84,7 @@ export async function deriveCanonicalAgenCId(proofs) {
 	const hasMpl = proofs.mplCoreAsset != null && proofs.mplCoreAsset !== '';
 
 	if (hasErc && hasMpl) {
+		const PublicKey = await getPublicKey();
 		const ercBytes = erc8004IdToBeBytes(proofs.erc8004AgentId);
 		const ercHex = [...ercBytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 		const mplBase58 = new PublicKey(proofs.mplCoreAsset).toBase58();
@@ -84,6 +95,7 @@ export async function deriveCanonicalAgenCId(proofs) {
 		return { source: 'erc8004', hex: await sha256Hex(concatBytes(enc.encode(NS_ERC8004), erc8004IdToBeBytes(proofs.erc8004AgentId))) };
 	}
 	if (hasMpl) {
+		const PublicKey = await getPublicKey();
 		const pkBytes = new PublicKey(proofs.mplCoreAsset).toBytes();
 		return { source: 'mpl-core', hex: await sha256Hex(concatBytes(enc.encode(NS_MPL_CORE), pkBytes)) };
 	}

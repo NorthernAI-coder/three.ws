@@ -37,7 +37,8 @@ import {
 	withRetry,
 	TASK_STATE,
 } from './agenc.js';
-import { runFetcher, defaultTarget } from './work/fetcher.js';
+import { defaultTarget } from './work/fetcher.js';
+import { runProfession } from './work/index.js';
 
 const FETCHER_BITS = professionBits(['fetcher']); // 1n
 const BOARD_TTL_MS = 60_000;
@@ -414,6 +415,9 @@ export async function tickCitizen(ctx, citizen) {
 	citizen.busy = true;
 	const cfg = ctx.cfg;
 	const name = citizen.spec.displayName;
+	// The profession this citizen works — drives the WORK dispatch and every
+	// projection label. Defaults to Fetcher (the founding workforce).
+	const profession = citizen.spec.profession || 'fetcher';
 	try {
 		await reconcile(ctx, citizen);
 		await refreshBoard(ctx);
@@ -453,10 +457,10 @@ export async function tickCitizen(ctx, citizen) {
 		await ctx.store.appendActivity({
 			citizenId: citizen.id,
 			kind: 'claimed_task',
-			profession: 'fetcher',
+			profession,
 			taskPda: job.pda,
 			txSignature: claim.txSignature,
-			narrative: `${name} claimed a Fetcher job (${rewardShape(cfg, job.reward).label}).`,
+			narrative: `${name} claimed a ${capLabel(profession)} job (${rewardShape(cfg, job.reward).label}).`,
 			repAfter: citizen.reputation,
 		});
 		await ctx.store.publishFeed({
@@ -464,11 +468,11 @@ export async function tickCitizen(ctx, citizen) {
 			actor: name,
 			citizenId: citizen.id,
 			agentPda: citizen.agentPda.toBase58(),
-			profession: 'fetcher',
+			profession,
 			taskPda: job.pda,
 			txSig: claim.txSignature,
 			explorerUrl: explorerTx(claim.txSignature, cfg.cluster),
-			narrative: `${name} claimed a Fetcher job.`,
+			narrative: `${name} claimed a ${capLabel(profession)} job.`,
 		});
 		log.info('claimed', { name, pda: job.pda, tx: explorerTx(claim.txSignature, cfg.cluster) });
 
@@ -488,12 +492,16 @@ export async function tickCitizen(ctx, citizen) {
 			}
 		}
 
-		// WORK — a real fetch against a live service.
+		// WORK — do the REAL work for this citizen's profession (docs/agora.md §
+		// Professions). The registry dispatches by capability: a Fetcher calls the
+		// x402/HTTP service, a Sculptor forges a GLB, a Scribe writes via the LLM
+		// router, a Verifier re-derives another citizen's proof. Every runner returns
+		// the same proof shape, so PROVE below stays profession-agnostic.
 		const boardService = ctx.board.services.find((s) => typeof s.resource === 'string' && /^https?:\/\//i.test(s.resource));
-		const work = await runFetcher({
+		const work = await runProfession(profession, {
 			cfg,
 			citizen: { agentIdHex: citizen.agentIdHex, displayName: name, pubkey: citizen.pubkey },
-			job: { taskPda: job.pda, source: 'agenc', resource: boardService?.resource || defaultTarget(cfg) },
+			job: { taskPda: job.pda, source: 'agenc', resource: boardService?.resource || defaultTarget(cfg), ...(job.target ? { target: job.target } : {}) },
 		});
 
 		// PROVE — submit the proof on-chain.
@@ -518,25 +526,27 @@ export async function tickCitizen(ctx, citizen) {
 		await ctx.store.appendActivity({
 			citizenId: citizen.id,
 			kind: 'completed_task',
-			profession: 'fetcher',
+			profession,
 			taskPda: job.pda,
 			txSignature: completion.txSignature,
 			proofHash: work.proofHashHex,
 			deliverableUrl: work.deliverableUrl,
-			narrative: `${name} fetched ${hostOf(work.target)} and proved the result; reputation ${repBefore} → ${repAfter}.`,
+			narrative: work.summary
+				? `${name} ${work.summary.charAt(0).toLowerCase()}${work.summary.slice(1)} and proved it; reputation ${repBefore} → ${repAfter}.`
+				: `${name} fetched ${hostOf(work.target)} and proved the result; reputation ${repBefore} → ${repAfter}.`,
 			repBefore,
 			repAfter,
 		});
 		await ctx.store.appendActivity({
 			citizenId: citizen.id,
 			kind: 'earned',
-			profession: 'fetcher',
+			profession,
 			taskPda: job.pda,
 			txSignature: completion.txSignature,
 			amountAtomic: reward.atomic,
 			rewardMint: reward.mint,
 			rewardLabel: reward.label,
-			narrative: `${name} earned ${reward.label} for a completed Fetcher job.`,
+			narrative: `${name} earned ${reward.label} for a completed ${capLabel(profession)} job.`,
 			repBefore,
 			repAfter,
 		});
@@ -545,24 +555,60 @@ export async function tickCitizen(ctx, citizen) {
 			actor: name,
 			citizenId: citizen.id,
 			agentPda: citizen.agentPda.toBase58(),
-			profession: 'fetcher',
+			profession,
 			taskPda: job.pda,
 			proofHash: work.proofHashHex,
+			deliverableUrl: work.deliverableUrl,
 			txSig: completion.txSignature,
 			explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
-			narrative: `${name} completed a Fetcher job (rep ${repBefore} → ${repAfter}).`,
+			narrative: `${name} completed a ${capLabel(profession)} job (rep ${repBefore} → ${repAfter}).`,
 		});
 		await ctx.store.publishFeed({
 			type: 'agora-earned',
 			actor: name,
 			citizenId: citizen.id,
 			agentPda: citizen.agentPda.toBase58(),
-			profession: 'fetcher',
+			profession,
 			rewardLabel: reward.label,
 			txSig: completion.txSignature,
 			explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
 			narrative: `${name} earned ${reward.label}.`,
 		});
+
+		// The trust loop: a Verifier re-derived another citizen's proof. Project the
+		// attestation as a `vouched` activity citing the verified task + the proof it
+		// re-computed (idempotent on this completion tx). A mismatch is recorded just
+		// as honestly as a pass — the graph never carries a false ✓.
+		if (work.vouch) {
+			const v = work.vouch;
+			await ctx.store.appendActivity({
+				citizenId: citizen.id,
+				kind: 'vouched',
+				profession,
+				taskPda: v.targetTaskPda || job.pda,
+				counterpartyCitizenId: v.targetCitizenId || null,
+				txSignature: completion.txSignature,
+				proofHash: v.recomputed,
+				deliverableUrl: v.targetDeliverableUrl,
+				narrative: v.match
+					? `${name} verified a ${capLabel(v.targetProfession || 'fetcher')} deliverable — sha256 re-derived, proof holds (${String(v.recomputed).slice(0, 12)}…).`
+					: `${name} flagged a ${capLabel(v.targetProfession || 'fetcher')} deliverable — recomputed hash does NOT match the on-chain proof.`,
+				repBefore,
+				repAfter,
+				meta: { verdict: v.verdict, claimed: v.claimed, recomputed: v.recomputed },
+			});
+			await ctx.store.publishFeed({
+				type: v.match ? 'agora-vouched' : 'agora-flagged',
+				actor: name,
+				citizenId: citizen.id,
+				agentPda: citizen.agentPda.toBase58(),
+				profession,
+				taskPda: v.targetTaskPda || job.pda,
+				txSig: completion.txSignature,
+				explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
+				narrative: v.match ? `${name} vouched for a deliverable.` : `${name} flagged a deliverable mismatch.`,
+			});
+		}
 
 		const restPos = wander(citizen.home);
 		await ctx.store.updateCitizen(citizen.id, {
