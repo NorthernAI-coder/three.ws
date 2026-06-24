@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "King of the Totem: a new mini-game in the 3D worlds",
+			"summary": "The /play worlds now run King of the Totem. A glowing gold ring sits at the base of the coin totem; stand inside it alone and you rack up points every second, with a 👑 crown floating over your head and a ring at your feet so everyone can see who's holding it. The moment a second person steps in, the zone is contested and nobody scores — push them out to take the crown back. Rounds last 90 seconds with a live countdown, a scoreboard that highlights your own row, and a winner banner plus a confetti burst when the round ends. Then a short intermission and the next round begins. Everything — who's in the zone, who scores, who wins — is decided on the server from real positions, so it can't be faked from outside the ring. Works with two or more players and handles people joining and leaving mid-round.",
+			"tags": [
+				"feature"
+			],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-24",
 			"title": "Build mode: place props in the 3D worlds",
 			"summary": "The /play worlds now have a Build mode. Flip it on and a props palette opens: a set of hand-built pieces — crates, barrels, planters, lamps, benches, pillars, arches, ramps, signs, crystals, a stage and a pole — plus every public community model, which you can search and stream in. Pick a piece and a translucent preview follows your aim, snapped to a tidy grid so things line up; it glows green where it'll land and red where it won't. Press R (or the rotate button) to spin it a quarter-turn, then click to place. Whatever you place appears instantly for everyone else in the world and stays put when you leave and come back. Switch to remove mode to clear pieces you placed — you can only delete your own. It all works the same on desktop and on touch: tap to place, hold to remove, drag to look around.",
 			"tags": [

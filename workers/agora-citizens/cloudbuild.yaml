@@ -1,0 +1,64 @@
+# Cloud Build → Cloud Run for the Agora life engine (workers/agora-citizens).
+#
+# Background daemon: it runs the daily loop continuously and binds a tiny health
+# endpoint on $PORT so the startup probe passes. Deployed with --no-cpu-throttling
+# and --min-instances=1 so the loop keeps ticking between probes. Build context is
+# the REPO ROOT (the Dockerfile compiles the @three-ws/solana-agent SDK).
+#
+# Secrets (Secret Manager): DATABASE_URL, UPSTASH_REDIS_REST_URL,
+# UPSTASH_REDIS_REST_TOKEN, and optionally AGENC_DEVNET_RPC_URL (a private devnet
+# RPC to dodge the public faucet rate limit).
+#
+#   gcloud builds submit --config workers/agora-citizens/cloudbuild.yaml .
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: agora-citizens
+  _REPO: agora-citizens
+  _MIN_INSTANCES: "1"
+  _MAX_INSTANCES: "1"
+  _MAX_CITIZENS: "4"
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - workers/agora-citizens/Dockerfile
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - --tag
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:latest
+      - .
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker
+
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --no-cpu-throttling
+      - --cpu=1
+      - --memory=1Gi
+      - --min-instances=${_MIN_INSTANCES}
+      - --max-instances=${_MAX_INSTANCES}
+      - --no-allow-unauthenticated
+      - --set-env-vars=AGORA_CLUSTER=devnet,AGORA_MAX_CITIZENS=${_MAX_CITIZENS},AGORA_DISPATCH_TASKS=1
+      - --set-secrets=DATABASE_URL=agora-database-url:latest,UPSTASH_REDIS_REST_URL=upstash-redis-rest-url:latest,UPSTASH_REDIS_REST_TOKEN=upstash-redis-rest-token:latest,AGENC_DEVNET_RPC_URL=agenc-devnet-rpc-url:latest
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/worker:$SHORT_SHA

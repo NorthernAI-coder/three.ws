@@ -12,6 +12,21 @@ import { professionColor, PROFESSION_COLORS } from './citizen-avatar.js';
 
 export { professionColor, PROFESSION_COLORS };
 
+// Display labels for the profession keys the API emits (lowercase). Falls back
+// to a capitalised key so an unmapped/new profession still reads cleanly —
+// open by design, never a hardcoded gate.
+const PROFESSION_LABELS = {
+	fetcher: 'Fetcher', sculptor: 'Sculptor', scribe: 'Scribe',
+	cartographer: 'Cartographer', crier: 'Crier', appraiser: 'Appraiser',
+	verifier: 'Verifier', namekeeper: 'Namekeeper',
+};
+export function professionLabelFor(profession) {
+	const key = String(profession || '').toLowerCase();
+	if (PROFESSION_LABELS[key]) return PROFESSION_LABELS[key];
+	if (!key) return 'Citizen';
+	return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 // The CSS accent for a profession as a Three.js Color (markers, coin arcs, the
 // board glow all live in the 3D scene). Memoised so we don't allocate a Color
 // per marker per frame.
