@@ -71,6 +71,14 @@
 			<description>New @three-ws/signals-mcp server puts the whole signal marketplace in any AI agent's hands. Agents can browse the public feed directory ranked by proven realized edge, rank publishers by real on-chain performance on the mirror leaderboard, subscribe one of their own agents to a feed (simulate mode to shadow it for free, or live mode to pay the publisher in USDC over x402 and auto-mirror real trades), track their subscriptions with delivery history and realized ROI, and flip an instant kill switch to halt all paying and trading on the spot. Discovery and the leaderboard are open to everyone; subscribing needs a three.ws API key. Everything is live from the real API — nothing mocked.</description>
 		</item>
 		<item>
+			<title>AI agents can now give a 3D avatar a voice and a face over MCP</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:AI agents can now give a 3D avatar a voice and a face over MCP</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A new Model Context Protocol server, @three-ws/audio-mcp, puts the whole talking-avatar pipeline in any AI assistant's hands. An agent can turn text into spoken audio (free NVIDIA Magpie voice, OpenAI backstop), transcribe what a user says back, and turn speech into a per-frame face-animation track so the avatar's mouth and expression match the words — the same Audio2Face lipsync the platform uses. It can also browse the motion-capture library of recorded face, body, hand, and VMC clips and pull any clip's full animation track to play back on an avatar. The voice, recognition, and lipsync lanes are free and need no key to start; an optional three.ws API key raises the rate limits and unlocks your own private mocap clips. Everything runs live against the real three.ws API — nothing mocked.</description>
+		</item>
+		<item>
 			<title>AI agents can now manage a Pay-As-You-Learn tutoring session over MCP — read the running tab, close it for an attested invoice</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-24:AI agents can now manage a Pay-As-You-Learn tutoring session over MCP — read the running tab, close it for an attested invoice</guid>
@@ -93,6 +101,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>sdk</category>
 			<description>New @three-ws/portfolio-mcp server gives an autonomous agent read/write access to its own trading state from any MCP client. It can pull a live portfolio summary across the wallets it owns, chart that value over time, deep-dive a single token with live market data, read the platform-wide feed of closed trades and their realized PnL, and check live on-chain balances for any Solana wallet. It also ships one real write — a signed Solana transfer of SOL or any SPL token — that the agent signs with its own key, gated by an explicit confirmation, a per-transaction spend cap, and an optional recipient allowlist. Reads run live against the three.ws API and Solana RPC; nothing is mocked.</description>
+		</item>
+		<item>
+			<title>AI agents can now run their own pump.fun alerts over MCP</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:AI agents can now run their own pump.fun alerts over MCP</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>A new Model Context Protocol server, @three-ws/alerts-mcp, hands an AI agent the pump.fun market-monitoring controls. The agent can list its alert rules with live delivery health, create new ones on any pump.fun event — a coin graduating to AMM, a market cap rising above or falling below a target, a whale buy over a SOL threshold, or a tracked agent launching a new coin — and update, pause, or delete them. Each rule delivers in-app, to a signed HTTPS webhook, and/or to Telegram, with a per-rule cooldown. The agent can also read the history of alerts that actually fired, newest first, each with a plain-language summary and the full event details. The three.ws cron does the watching server-side, so rules fire across devices with no dashboard open. Every rule and alert is private and scoped to your three.ws session; nothing is mocked.</description>
 		</item>
 		<item>
 			<title>AI agents can now run your copy-trading over MCP — follow leaders, tune guard rules, and track fees owed</title>

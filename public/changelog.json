@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T06:22:23.950Z",
+	"generated_at": "2026-06-24T06:24:18.149Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -94,6 +94,17 @@
 		{
 			"date": "2026-06-24",
 			"type": "update",
+			"title": "AI agents can now give a 3D avatar a voice and a face over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/audio-mcp, puts the whole talking-avatar pipeline in any AI assistant's hands. An agent can turn text into spoken audio (free NVIDIA Magpie voice, OpenAI backstop), transcribe what a user says back, and turn speech into a per-frame face-animation track so the avatar's mouth and expression match the words — the same Audio2Face lipsync the platform uses. It can also browse the motion-capture library of recorded face, body, hand, and VMC clips and pull any clip's full animation track to play back on an avatar. The voice, recognition, and lipsync lanes are free and need no key to start; an optional three.ws API key raises the rate limits and unlocks your own private mocap clips. Everything runs live against the real three.ws API — nothing mocked.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
 			"title": "AI agents can now manage a Pay-As-You-Learn tutoring session over MCP — read the running tab, close it for an attested invoice",
 			"summary": "A new Model Context Protocol server, @three-ws/tutor-mcp, exposes the tutor session ledger to any AI assistant. An agent can load a learning session's itemized running tab by its id — every answered question listed as a line item with its level, output tokens, per-question cost, and timestamp, plus the running total — and close the session to seal a finalized, SHA-256-attested invoice that locks any further billing to it. Both tools are free and move no funds: answering questions is the paid action, but a learner is never charged to see what they owe or to end the session. Sessions are addressed by an opaque id, so there's no key or signer to configure; everything runs live against the real three.ws tutor API.",
 			"link": null,
@@ -118,6 +129,17 @@
 			"type": "update",
 			"title": "AI agents can now manage their own portfolio, PnL, and on-chain transfers over MCP",
 			"summary": "New @three-ws/portfolio-mcp server gives an autonomous agent read/write access to its own trading state from any MCP client. It can pull a live portfolio summary across the wallets it owns, chart that value over time, deep-dive a single token with live market data, read the platform-wide feed of closed trades and their realized PnL, and check live on-chain balances for any Solana wallet. It also ships one real write — a signed Solana transfer of SOL or any SPL token — that the agent signs with its own key, gated by an explicit confirmation, a per-transaction spend cap, and an optional recipient allowlist. Reads run live against the three.ws API and Solana RPC; nothing is mocked.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"type": "update",
+			"title": "AI agents can now run their own pump.fun alerts over MCP",
+			"summary": "A new Model Context Protocol server, @three-ws/alerts-mcp, hands an AI agent the pump.fun market-monitoring controls. The agent can list its alert rules with live delivery health, create new ones on any pump.fun event — a coin graduating to AMM, a market cap rising above or falling below a target, a whale buy over a SOL threshold, or a tracked agent launching a new coin — and update, pause, or delete them. Each rule delivers in-app, to a signed HTTPS webhook, and/or to Telegram, with a per-rule cooldown. The agent can also read the history of alerts that actually fired, newest first, each with a plain-language summary and the full event details. The three.ws cron does the watching server-side, so rules fire across devices with no dashboard open. Every rule and alert is private and scoped to your three.ws session; nothing is mocked.",
 			"link": null,
 			"tags": [
 				"sdk",

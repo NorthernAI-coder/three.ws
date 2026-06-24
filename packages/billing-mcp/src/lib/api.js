@@ -83,7 +83,12 @@ export async function apiRequest(path, { method = 'GET', query, body, auth = fal
 			const message = data?.message || data?.error || `three.ws ${path} returned HTTP ${res.status}`;
 			throw Object.assign(new Error(message), { code: 'upstream_error', status: res.status, body: data });
 		}
-		return { status: res.status, contentType: res.headers.get('content-type') || '', text };
+		return {
+			status: res.status,
+			contentType: res.headers.get('content-type') || '',
+			disposition: res.headers.get('content-disposition') || '',
+			text,
+		};
 	}
 
 	let data;
