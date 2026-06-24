@@ -102,6 +102,7 @@
 		"dev:lib": "TARGET=lib vite",
 		"presence": "node scripts/three-ws-presence.mjs",
 		"build:pages": "node scripts/build-page-index.mjs",
+		"build:ibm-shell": "node scripts/build-ibm-shell.mjs",
 		"i18n": "npm run i18n:extract && npm run i18n:translate",
 		"i18n:extract": "node scripts/i18n-extract.mjs",
 		"i18n:translate": "node scripts/i18n-translate.mjs",

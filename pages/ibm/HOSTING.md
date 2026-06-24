@@ -13,34 +13,44 @@ host it.
 
 The full partnership page (the webinar stage, the hero, the five demos) ships in two forms:
 
-- **`hello.html`** — a thin, **publish-once shell**. Upload it (plus `fonts/`, `vendor/`,
-  `three.svg`) exactly like `x402-demo.html`. It carries no content of its own beyond a branded
-  loading state. At runtime it fetches the live page from `https://three.ws/ibm/hello.live` and
-  renders it in place — re-running every demo's script so the page behaves identically to a
-  standalone file.
-- **`hello.live.html`** — the **actual page**, served from three.ws at
-  <https://three.ws/ibm/hello.live>. This is the file that holds all the copy, layout, and the
-  webinar config (start time, video URL).
+- **`hello.html`** — the **publish-once file** you upload (plus `fonts/`, `vendor/`, `three.svg`),
+  exactly like `x402-demo.html`. It is **fully self-contained**: the complete page — markup,
+  styles, and every demo — is baked in, so it renders and runs with **zero dependency on
+  three.ws**. On load it *also* quietly fetches the latest version from
+  `https://three.ws/ibm/hello.live` and, if reachable, swaps it in (and caches it for next time).
+  This file is **generated** from `hello.live.html` — do not hand-edit it.
+- **`hello.live.html`** — the **editable source**, served from three.ws at
+  <https://three.ws/ibm/hello.live>. It holds all the copy, layout, and the webinar config (start
+  time, video URL). Edit this.
 
-**Why this split exists:** some hosts let you publish a page once but then lock the path — you can
-push, but you can't re-edit. That freezes the content forever. The shell solves it: the locked
-file is just a loader, so **every edit you make to `hello.live.html` on three.ws goes live on
-your hosted page automatically, with no re-publish.** Change the webinar start time, paste the
-recording URL, reword the hero, add a demo — edit it on three.ws and refresh the hosted page.
+**Why it's built this way:** some hosts let you publish a page once but then lock the path — you
+can push, but you can't re-edit. That would freeze the content forever. So **every edit you make
+to `hello.live.html` on three.ws appears on your hosted page automatically, with no re-publish** —
+change the webinar start time, paste the recording URL, reword the hero, add a demo, and refresh
+the hosted page. But three.ws is only an *enhancement*: if it's slow, down, or blocked, the
+baked-in page runs instead. The visitor **never** sees a blank screen or a "couldn't load" card —
+worst case they see the last published baseline rather than the very latest edit.
 
-Publish `hello.html` once and you never touch the host again. If three.ws is ever unreachable,
-the shell shows a branded fallback with a retry and a direct link instead of a blank page — it
-never throws.
+> Note: the **demos themselves** (the Forge/Play/IRL iframes, the x402 widget, the 3D agent)
+> inherently call three.ws — that's what they are — so during a three.ws outage they degrade to
+> their skeletons. What the self-contained baseline guarantees is that the **page** — its
+> content, layout, and structure — always renders regardless.
 
-**CSP:** the shell introduces **no new origins** — it only `fetch()`es and runs scripts from
-`https://three.ws`, both already permitted by the policies below (`connect-src https://three.ws`,
-`script-src … https://three.ws`). Because the partnership page includes the 3D agent layer, host
-it under **Tier 2**. (Note: SRI/`integrity` is intentionally not used on the shell — pinning a
-hash would defeat the whole point of letting the content change. The single trusted origin,
-`three.ws`, is the security boundary.)
+To refresh the baked baseline that ships in `hello.html` (so offline visitors get newer content
+too), regenerate and re-publish: `npm run build:ibm-shell` rebuilds `hello.html` from
+`hello.live.html`. The Vercel deploy also runs this automatically, so the reference deployment's
+baseline is always current; you only re-run it locally when you want a fresh file to hand off.
 
-> The same publish-once loader pattern can be applied to `x402-demo.html` if you want that page
-> editable post-publish too; everything below documents the standalone `x402-demo.html` artifact.
+**CSP:** the page introduces **no new origins** — the live-update step only `fetch()`es and runs
+scripts from `https://three.ws`, both already permitted by the policies below
+(`connect-src https://three.ws`, `script-src … https://three.ws`). Because the partnership page
+includes the 3D agent layer, host it under **Tier 2**. (SRI/`integrity` is intentionally not used
+on the live fetch — pinning a hash would defeat letting the content change; the single trusted
+origin, `three.ws`, is the security boundary, and the baked baseline is the integrity floor.)
+
+> The same self-contained-plus-live-update pattern can be applied to `x402-demo.html` if you want
+> that page editable post-publish too; everything below documents the standalone `x402-demo.html`
+> artifact.
 
 ## What it demonstrates
 

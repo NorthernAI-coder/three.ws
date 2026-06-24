@@ -212,7 +212,7 @@
 			<guid isPermaLink="false">2026-06-24:The IBM × three.ws partnership page now updates itself after it ships</guid>
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>The IBM partnership page — the webinar stage and the five live demos — can now be edited after it's published on a partner site, with no re-publish. The hosted file is a thin loader that pulls the real page from three.ws each visit, so changing the webinar start time, dropping in the recording link, rewording the hero, or adding a demo goes live the moment it's saved on three.ws. If three.ws is ever unreachable the page shows a branded retry instead of a blank screen. You can preview the live version at /ibm/hello.</description>
+			<description>The IBM partnership page — the webinar stage and the five live demos — can now be edited after it's published on a partner site, with no re-publish. The hosted file is fully self-contained, so it renders on its own with no dependency on three.ws; on load it also pulls the latest version from three.ws and swaps it in when available. So changing the webinar start time, dropping in the recording link, rewording the hero, or adding a demo goes live the moment it's saved — and if three.ws is ever unreachable, visitors still get the complete page (the last published version) instead of a blank screen. You can preview it at /ibm/hello.</description>
 		</item>
 		<item>
 			<title>$THREE Tiers · Hold-to-Access</title>

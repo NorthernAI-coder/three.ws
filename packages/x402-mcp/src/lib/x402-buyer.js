@@ -14,6 +14,61 @@ import bs58 from 'bs58';
 
 import { SOLANA_DEFAULT_SECRET } from '../config.js';
 
+// The two main x402 assets. $THREE is the three.ws platform token (Solana SPL);
+// USDC is canonical on Solana + Base. Used to pick which advertised accept to
+// settle when the caller prefers a specific token.
+const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+const USDC_MINTS = new Set([
+	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana
+	'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // Base (lowercased)
+]);
+
+/** True when an `accepts[]` entry settles in $THREE (by token name or mint). */
+export function isThreeAccept(a) {
+	const name = String(a?.extra?.name || '').trim().toUpperCase();
+	return name === 'THREE' || String(a?.asset || '') === THREE_MINT;
+}
+/** True when an `accepts[]` entry settles in USDC (by token name or mint). */
+export function isUsdcAccept(a) {
+	const name = String(a?.extra?.name || '').trim().toUpperCase().replace('USD COIN', 'USDC');
+	return name === 'USDC' || USDC_MINTS.has(String(a?.asset || '').toLowerCase());
+}
+
+/**
+ * Narrow an `accepts[]` to the caller's preferred token ('usdc' | 'three').
+ * Fail-open: if nothing matches the preference, the original list is returned so
+ * a payment still settles rather than dead-ending.
+ */
+export function filterAcceptsByToken(accepts, token) {
+	if (!Array.isArray(accepts) || !token) return Array.isArray(accepts) ? accepts : [];
+	const want = String(token).toLowerCase();
+	const matches = accepts.filter((a) => (want === 'three' ? isThreeAccept(a) : want === 'usdc' ? isUsdcAccept(a) : true));
+	return matches.length ? matches : accepts;
+}
+
+// A fetch that rewrites a 402 challenge's `accepts` down to the preferred token
+// BEFORE the payment layer reads it, so wrapFetchWithPayment selects + signs
+// that asset. Non-402 responses pass straight through.
+function makeTokenFilteringFetch(token) {
+	return async (input, init) => {
+		const res = await globalThis.fetch(input, init);
+		if (res.status !== 402) return res;
+		let body;
+		try {
+			body = await res.clone().json();
+		} catch {
+			return res; // not JSON — let the default flow handle it
+		}
+		if (!body || !Array.isArray(body.accepts)) return res;
+		const filtered = filterAcceptsByToken(body.accepts, token);
+		if (filtered === body.accepts || filtered.length === body.accepts.length) return res;
+		body.accepts = filtered;
+		const headers = new Headers(res.headers);
+		headers.delete('content-length'); // body changed
+		return new Response(JSON.stringify(body), { status: 402, statusText: res.statusText, headers });
+	};
+}
+
 /** Decode a base58 string OR a JSON byte array into raw secret-key bytes. */
 function secretKeyBytes(secret) {
 	const s = String(secret || '').trim();
@@ -54,11 +109,16 @@ export async function getSigner(secretOverride) {
 
 /**
  * Build a payment-aware fetch bound to a Solana signer. The returned `payingFetch`
- * behaves like global fetch but transparently settles a 402 challenge in USDC.
+ * behaves like global fetch but transparently settles a 402 challenge — in USDC
+ * by default, or in $THREE when `preferToken: 'three'` is passed (the endpoint
+ * must advertise that asset). The `exact` SVM scheme signs whichever asset the
+ * selected accept names, so token choice is just accept selection.
  *
+ * @param {string} [secretOverride]
+ * @param {{ preferToken?: 'usdc' | 'three' }} [opts]
  * @returns {Promise<{ payingFetch: typeof fetch, httpClient: any, address: string }>}
  */
-export async function buildPayingFetch(secretOverride) {
+export async function buildPayingFetch(secretOverride, opts = {}) {
 	const [{ x402Client, x402HTTPClient }, { ExactSvmScheme }, { wrapFetchWithPayment }] = await Promise.all([
 		import('@x402/core/client'),
 		import('@x402/svm/exact/client'),
@@ -68,7 +128,8 @@ export async function buildPayingFetch(secretOverride) {
 	const client = new x402Client();
 	client.register('solana:*', new ExactSvmScheme(signer));
 	const httpClient = new x402HTTPClient(client);
-	const payingFetch = wrapFetchWithPayment(globalThis.fetch, client);
+	const baseFetch = opts.preferToken ? makeTokenFilteringFetch(opts.preferToken) : globalThis.fetch;
+	const payingFetch = wrapFetchWithPayment(baseFetch, client);
 	return { payingFetch, httpClient, address: String(signer.address) };
 }
 
