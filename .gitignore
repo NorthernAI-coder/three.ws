@@ -278,3 +278,4 @@ api/_lib/migrations/20260623170000_agent_bodies.sql
 # NVIDIA TRELLIS demo outputs (local only)
 demo/
 three-ws-prod-log-export-2026-06-24T04-15-25.json
+pages/ibm/hello.html
