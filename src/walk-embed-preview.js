@@ -277,6 +277,12 @@ export function initWalkPreview(container) {
 	let currentMotion = 'idle';
 
 	async function loadAvatar() {
+		// A retry after a partial failure (GLB added, then the clip manifest fetch
+		// threw) must not stack a second avatar in the rig — drop the prior one first.
+		if (avatar) {
+			avatarRig.remove(avatar);
+			avatar = null;
+		}
 		const loader = new GLTFLoader();
 		const gltf = await loader.loadAsync(AVATAR_URL);
 		const model = gltf.scene;
@@ -315,6 +321,38 @@ export function initWalkPreview(container) {
 			loadingEl.classList.add('is-done');
 			loadingEl.addEventListener('transitionend', () => loadingEl.remove(), { once: true });
 		}
+	}
+
+	// Drive the load and, on failure, swap the perpetual spinner for a designed,
+	// retryable error state. A loading overlay that never resolves — what the
+	// avatar/manifest/clip fetch left behind when it threw — is exactly the frozen
+	// UI this surface must not ship.
+	function startLoad() {
+		const loadingEl = container.querySelector('[data-walk-loading]');
+		if (loadingEl) {
+			loadingEl.classList.remove('is-done');
+			loadingEl.innerHTML =
+				'<div class="walk-preview-spinner"></div><span>Loading 3D scene…</span>';
+		}
+		loadAvatar().catch((err) => {
+			log.warn('[walk-preview] load failed', err);
+			showLoadError();
+		});
+	}
+
+	function showLoadError() {
+		const loadingEl = container.querySelector('[data-walk-loading]');
+		if (!loadingEl) return;
+		loadingEl.classList.remove('is-done');
+		loadingEl.innerHTML = '';
+		const msg = document.createElement('span');
+		msg.textContent = 'Couldn’t load the 3D preview.';
+		const retry = document.createElement('button');
+		retry.type = 'button';
+		retry.className = 'walk-preview-retry';
+		retry.textContent = 'Retry';
+		retry.addEventListener('click', startLoad, { once: true });
+		loadingEl.append(msg, retry);
 	}
 
 	// ── Resize ──────────────────────────────────────────────────────
@@ -483,7 +521,7 @@ export function initWalkPreview(container) {
 		for (const entry of entries) {
 			if (entry.isIntersecting && !started) {
 				started = true;
-				loadAvatar().catch((err) => log.warn('[walk-preview] load failed', err));
+				startLoad();
 				syncRunning();
 				observer.disconnect();
 			}

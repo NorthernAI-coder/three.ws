@@ -55,6 +55,16 @@ vi.mock('../../api/_lib/avatars.js', () => ({
 	createAvatar: createAvatarMock,
 }));
 
+// The finalize stage fetches the result GLB through the shared guard (raw node
+// http, not global fetch), so stub just that helper — and keep extractGlbUrl /
+// isAllowedProviderResultUrl REAL so the webhook's actual host-allowlist gating
+// is exercised here, not mocked away.
+const fetchProviderGlbBufferMock = vi.fn(async () => Buffer.from(Buffer.alloc(256)));
+vi.mock('../../api/_lib/provider-result-url.js', async (importOriginal) => {
+	const actual = await importOriginal();
+	return { ...actual, fetchProviderGlbBuffer: (...a) => fetchProviderGlbBufferMock(...a) };
+});
+
 // Don't actually fetch the result GLB URL — return a tiny fake buffer.
 // Snapshot fetch eagerly so each test file's tearDown restores its own
 // baseline regardless of cross-file worker ordering.

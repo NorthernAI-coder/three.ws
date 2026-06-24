@@ -98,7 +98,9 @@ export default wrap(async (req, res) => {
 		// settling it here means the charge lands only after the work succeeded.
 		// Only settle if a call succeeded — a wholesale failure is free.
 		if (x402Ctx) {
-			const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+			const anySuccess = responses.some(
+				(r) => r && !r.error && !(r.result && r.result.isError),
+			);
 			if (anySuccess) {
 				try {
 					const settled = await settlePayment({ verified: x402Ctx.verified });

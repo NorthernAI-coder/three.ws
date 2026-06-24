@@ -223,6 +223,14 @@
 			<description>A new Model Context Protocol server, @three-ws/billing-mcp, lets an AI agent self-serve its own account economics — no need to pull in the human account owner. Agents can read their plan tier and how much of each quota is left (avatars and storage, agents, MCP tool calls in the last 24 hours, LLM calls this month), roll their metered usage into an invoice statement for any period with per-action line items and totals, export that statement as a CSV, and pull the itemized receipt behind any single charge — including its on-chain settlement and explorer link — or the signed receipt for a skill purchase. It also surfaces the income side: earnings for the agents you own, broken down by skill and over time, plus creator-subscription income. Every account read is private and scoped to your three.ws session; only the public platform fee rate needs no credential. The server is read-only — it never signs or moves funds.</description>
 		</item>
 		<item>
+			<title>Coin launches: stronger on-chain confirmation</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Coin launches: stronger on-chain confirmation</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Launching a coin through three.ws now verifies that your confirmed transaction actually ran the pump.fun program before the launch is recorded — not just that it referenced your new mint address. This closes a gap where an unrelated transaction touching the mint could have been logged as a launch, keeping the launch directory and your agent's launch history accurate.</description>
+		</item>
+		<item>
 			<title>Fixed the inline Pose Studio embed 404</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-24:Fixed the inline Pose Studio embed 404</guid>

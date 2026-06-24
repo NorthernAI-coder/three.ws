@@ -181,6 +181,49 @@ export async function releaseSlot({ route, paymentId }) {
 	await cache.release(route, paymentId);
 }
 
+// Always-on replay guard for endpoints that hand-roll the x402 dance (the MCP
+// servers, launchpad/invoke) instead of using paidEndpoint(). paidEndpoint
+// closes the verify→deliver→settle window with a proof-hash reservation; this is
+// the same guard, packaged as a one-liner those endpoints can wrap their
+// dispatch+settle in.
+//
+// It reserves a single-use lock keyed on the SHA-256 of the signed X-PAYMENT
+// proof — only the original payer can reproduce it — so a captured or retried
+// payment can't re-run the (often expensive: LLM / RPC / generation) work before
+// the first settle lands. Double-CHARGE is already prevented downstream (the
+// on-chain EIP-3009 nonce / Solana blockhash + the deterministic facilitator
+// Idempotency-Key); this closes the remaining gap: free re-delivery / compute
+// amplification from a concurrent replay in the narrow pre-settlement window.
+// Once a payment settles, the consumed nonce makes any later /verify fail, so the
+// lock only needs to span dispatch+settle and the caller releases it as soon as
+// the request finishes — leaving a transient failure free to retry the same
+// payment.
+//
+// Fails OPEN: a missing header, or a store with no Redis, degrades to the
+// best-effort in-process claim in cache.reserve — it never blocks a legitimate
+// payment, matching the paidEndpoint stance (a Redis blip must not 5xx a paid
+// call when double-charge is already protected on-chain).
+//
+// Returns { ok, release }:
+//   ok=false  → a concurrent request already holds the slot for this exact
+//               payment; the caller should reject (HTTP 409 / JSON-RPC error).
+//   release() → idempotent; call once the request finishes (use a finally block).
+export async function reservePaymentProof(route, paymentHeader) {
+	const hash = cache.hashPaymentProof(paymentHeader);
+	if (!hash) return { ok: true, release: async () => {} };
+	const paymentId = `proof:${hash}`;
+	const owns = await reserveSlot({ route, paymentId });
+	let released = false;
+	return {
+		ok: owns,
+		release: async () => {
+			if (!owns || released) return;
+			released = true;
+			await releaseSlot({ route, paymentId });
+		},
+	};
+}
+
 // Flush a cached entry back onto the wire. Mirrors the headers the live path
 // would have set (cache-control: no-store, x-payment-response, etc.) and
 // tags the response with `x-x402-idempotent: replay` so the caller can tell

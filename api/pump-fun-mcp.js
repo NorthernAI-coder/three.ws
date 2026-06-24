@@ -37,6 +37,7 @@ import {
 	paymentRequirements,
 	build402Body,
 } from './_lib/x402-spec.js';
+import { reservePaymentProof } from './_lib/x402/payment-identifier-server.js';
 import { getPumpSdk, getConnection, solanaPubkey, getAmmPoolState } from './_lib/pump.js';
 import { pumpfunMcp, pumpfunBotEnabled } from './_lib/pumpfun-mcp.js';
 import { TOOLS, resolveToolName, rpcError, rpcEnvelope } from '../src/pump/mcp-tools.js';
@@ -765,8 +766,14 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 	}
 
 	const LAMPORTS_PER_SOL = 1_000_000_000;
-	const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
-	const sol = (v) => { const n = num(v); return n == null ? null : Math.round(n / LAMPORTS_PER_SOL * 10000) / 10000; };
+	const num = (v) => {
+		const n = Number(v);
+		return Number.isFinite(n) ? n : null;
+	};
+	const sol = (v) => {
+		const n = num(v);
+		return n == null ? null : Math.round((n / LAMPORTS_PER_SOL) * 10000) / 10000;
+	};
 
 	try {
 		// Main intel row
@@ -787,15 +794,19 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 
 		if (!row) return { found: false, mint: cleanMint, network };
 
-		const signals = (row.signals && typeof row.signals === 'object') ? row.signals : {};
+		const signals = row.signals && typeof row.signals === 'object' ? row.signals : {};
 		const riskFlags = Array.isArray(row.risk_flags) ? row.risk_flags : [];
 		const q = num(row.quality_score) ?? 0;
 		const hardFlags = ['bundle_launch', 'dev_dumped', 'single_whale'];
 		const hard = riskFlags.some((f) => hardFlags.includes(f));
-		const verdict = hard || q < 25 ? { key: 'avoid', label: 'Avoid', tone: 'danger' }
-			: q < 50 || riskFlags.length ? { key: 'caution', label: 'Caution', tone: 'warn' }
-			: q < 72 ? { key: 'watch', label: 'Watch', tone: 'neutral' }
-			: { key: 'strong', label: 'Strong', tone: 'success' };
+		const verdict =
+			hard || q < 25
+				? { key: 'avoid', label: 'Avoid', tone: 'danger' }
+				: q < 50 || riskFlags.length
+					? { key: 'caution', label: 'Caution', tone: 'warn' }
+					: q < 72
+						? { key: 'watch', label: 'Watch', tone: 'neutral' }
+						: { key: 'strong', label: 'Strong', tone: 'success' };
 
 		// Outcome label (may not exist yet for fresh coins)
 		let outcome = null;
@@ -804,15 +815,18 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 				select outcome, graduated, rugged, ath_market_cap_usd, ath_multiple, labeled_at
 				from pump_coin_outcomes where mint = ${cleanMint} limit 1
 			`;
-			if (o) outcome = {
-				outcome: o.outcome,
-				graduated: o.graduated,
-				rugged: o.rugged,
-				ath_market_cap_usd: num(o.ath_market_cap_usd),
-				ath_multiple: num(o.ath_multiple),
-				labeled_at: o.labeled_at,
-			};
-		} catch { /* outcome table absent — fine */ }
+			if (o)
+				outcome = {
+					outcome: o.outcome,
+					graduated: o.graduated,
+					rugged: o.rugged,
+					ath_market_cap_usd: num(o.ath_market_cap_usd),
+					ath_multiple: num(o.ath_multiple),
+					labeled_at: o.labeled_at,
+				};
+		} catch {
+			/* outcome table absent — fine */
+		}
 
 		// Top wallets (compact — notable ones only for the MCP response)
 		let topWallets = [];
@@ -828,10 +842,12 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 				is_creator: !!w.is_creator,
 				buy_sol: sol(w.buy_lamports),
 				sell_sol: sol(w.sell_lamports),
-				share: Math.round((num(w.buy_lamports) || 0) / totalBuy * 1000) / 1000,
+				share: Math.round(((num(w.buy_lamports) || 0) / totalBuy) * 1000) / 1000,
 				funder: w.funder || null,
 			}));
-		} catch { /* wallets absent — fine */ }
+		} catch {
+			/* wallets absent — fine */
+		}
 
 		// Latest model conditional win-rates (so agents see the evidence behind each signal)
 		let model = null;
@@ -842,12 +858,15 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 				where network = ${network}
 				order by trained_at desc limit 1
 			`;
-			if (wrow) model = {
-				sample_size: wrow.sample_size,
-				trained_at: wrow.trained_at,
-				conditional_win_rates: wrow.conditional_win_rates || null,
-			};
-		} catch { /* weights table absent — training hasn't run yet */ }
+			if (wrow)
+				model = {
+					sample_size: wrow.sample_size,
+					trained_at: wrow.trained_at,
+					conditional_win_rates: wrow.conditional_win_rates || null,
+				};
+		} catch {
+			/* weights table absent — training hasn't run yet */
+		}
 
 		// Oracle conviction — fused 4-pillar score from the oracle engine (may not
 		// exist for brand-new coins; the oracle-score cron sweeps ~every 5 min).
@@ -860,21 +879,24 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 				where mint = ${cleanMint} and network = ${network}
 				limit 1
 			`;
-			if (oc) oracle = {
-				score: num(oc.score),
-				tier: oc.tier,
-				pillars: {
-					pedigree: num(oc.pedigree),
-					structure: num(oc.structure),
-					narrative: num(oc.narrative),
-					momentum: num(oc.momentum),
-				},
-				structure_cap: !!oc.structure_cap,
-				badges: Array.isArray(oc.badges) ? oc.badges : [],
-				reasons: Array.isArray(oc.reasons) ? oc.reasons : [],
-				scored_at: oc.scored_at,
-			};
-		} catch { /* oracle tables not yet migrated — fine */ }
+			if (oc)
+				oracle = {
+					score: num(oc.score),
+					tier: oc.tier,
+					pillars: {
+						pedigree: num(oc.pedigree),
+						structure: num(oc.structure),
+						narrative: num(oc.narrative),
+						momentum: num(oc.momentum),
+					},
+					structure_cap: !!oc.structure_cap,
+					badges: Array.isArray(oc.badges) ? oc.badges : [],
+					reasons: Array.isArray(oc.reasons) ? oc.reasons : [],
+					scored_at: oc.scored_at,
+				};
+		} catch {
+			/* oracle tables not yet migrated — fine */
+		}
 
 		const smartNotable = Array.isArray(row.smart_money_notable) ? row.smart_money_notable : [];
 
@@ -883,15 +905,21 @@ async function handleGetCoinIntel({ mint, network = 'mainnet' } = {}) {
 		if (verdict.key === 'avoid') parts.push('⛔ AVOID.');
 		else if (verdict.key === 'strong') parts.push('✅ Strong entry signal.');
 		if (row.smart_money_count > 0)
-			parts.push(`${row.smart_money_count} proven smart-money wallet${row.smart_money_count > 1 ? 's' : ''} entered (win-rate avg ${smartNotable[0]?.win_rate != null ? (smartNotable[0].win_rate * 100).toFixed(0) + '%' : 'unknown'}).`);
+			parts.push(
+				`${row.smart_money_count} proven smart-money wallet${row.smart_money_count > 1 ? 's' : ''} entered (win-rate avg ${smartNotable[0]?.win_rate != null ? (smartNotable[0].win_rate * 100).toFixed(0) + '%' : 'unknown'}).`,
+			);
 		if (row.dev_sold) parts.push('Dev sold during observation window — high rug risk.');
 		if (riskFlags.includes('bundle_launch')) parts.push('Coordinated bundle launch detected.');
-		if (row.is_news_meme && signals.news_headline) parts.push(`News-meme: "${signals.news_headline}".`);
+		if (row.is_news_meme && signals.news_headline)
+			parts.push(`News-meme: "${signals.news_headline}".`);
 		if (row.category && row.category !== 'unknown') parts.push(`Category: ${row.category}.`);
 		if (outcome?.graduated) parts.push('GRADUATED to Raydium.');
 		else if (outcome?.rugged) parts.push('Rugged.');
-		else if (outcome?.ath_multiple) parts.push(`ATH ${outcome.ath_multiple.toFixed(1)}× from entry.`);
-		const summary = parts.join(' ') || `Quality ${q}/100. ${riskFlags.length ? 'Risk flags: ' + riskFlags.join(', ') + '.' : 'No hard risk flags.'}`;
+		else if (outcome?.ath_multiple)
+			parts.push(`ATH ${outcome.ath_multiple.toFixed(1)}× from entry.`);
+		const summary =
+			parts.join(' ') ||
+			`Quality ${q}/100. ${riskFlags.length ? 'Risk flags: ' + riskFlags.join(', ') + '.' : 'No hard risk flags.'}`;
 
 		return {
 			found: true,
@@ -1011,7 +1039,10 @@ async function _pinBuffer(buf, filename) {
 		if (!r.ok) throw Object.assign(new Error(`Web3.Storage ${r.status}`), { rpcCode: -32004 });
 		return { cid: (await r.json()).cid, provider: 'web3.storage' };
 	}
-	throw rpcError(-32004, 'no IPFS pinning provider configured (PINATA_JWT or WEB3_STORAGE_TOKEN)');
+	throw rpcError(
+		-32004,
+		'no IPFS pinning provider configured (PINATA_JWT or WEB3_STORAGE_TOKEN)',
+	);
 }
 
 async function _fetchImgBuf(imageUrl) {
@@ -1034,9 +1065,14 @@ async function _fetchImgBuf(imageUrl) {
 		// cloud metadata) before fetching. Pinned variant closes the DNS-rebind window.
 		let r;
 		try {
-			r = await fetchSafePublicUrlPinned(imageUrl, { signal: ctrl.signal }, { allowHttp: true });
+			r = await fetchSafePublicUrlPinned(
+				imageUrl,
+				{ signal: ctrl.signal },
+				{ allowHttp: true },
+			);
 		} catch (err) {
-			if (err instanceof SsrfBlockedError) throw rpcError(-32602, 'image_url is not an allowed public URL');
+			if (err instanceof SsrfBlockedError)
+				throw rpcError(-32602, 'image_url is not an allowed public URL');
 			throw err;
 		}
 		if (!r.ok) throw rpcError(-32004, `image fetch failed: HTTP ${r.status}`);
@@ -1046,10 +1082,20 @@ async function _fetchImgBuf(imageUrl) {
 		const ext = ct.split('/')[1]?.split(';')[0] || 'png';
 		const fname = new URL(imageUrl, 'https://x').pathname.split('/').pop() || `image.${ext}`;
 		return { buf, filename: fname };
-	} finally { clearTimeout(tid); }
+	} finally {
+		clearTimeout(tid);
+	}
 }
 
-async function handleUploadMetadata({ name, symbol, description, image_url, twitter, telegram, website } = {}) {
+async function handleUploadMetadata({
+	name,
+	symbol,
+	description,
+	image_url,
+	twitter,
+	telegram,
+	website,
+} = {}) {
 	if (!name || !symbol || !description || !image_url)
 		throw rpcError(-32602, 'name, symbol, description, and image_url are required');
 	if (String(name).length > 32) throw rpcError(-32602, 'name exceeds 32 chars');
@@ -1117,13 +1163,21 @@ async function handlePumpfunBotStatus() {
 		if (!r.ok) return { configured: true, healthy: false, latencyMs, error: `bot ${r.status}` };
 		const j = await r.json().catch(() => null);
 		if (j?.error)
-			return { configured: true, healthy: false, latencyMs, error: j.error.message || 'rpc error' };
+			return {
+				configured: true,
+				healthy: false,
+				latencyMs,
+				error: j.error.message || 'rpc error',
+			};
 		return { configured: true, healthy: true, latencyMs };
 	} catch (err) {
 		return {
 			configured: true,
 			healthy: false,
-			error: err?.name === 'AbortError' ? 'timeout after 3000ms' : err?.message || 'fetch failed',
+			error:
+				err?.name === 'AbortError'
+					? 'timeout after 3000ms'
+					: err?.message || 'fetch failed',
 		};
 	} finally {
 		clearTimeout(timer);
@@ -1146,7 +1200,10 @@ async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
 		return { found: false, reason: 'database_unavailable' };
 	}
 
-	const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+	const num = (v) => {
+		const n = Number(v);
+		return Number.isFinite(n) ? n : null;
+	};
 
 	try {
 		// 1. Conviction verdict from oracle_conviction cache
@@ -1205,21 +1262,26 @@ async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
 				select outcome, graduated, rugged, ath_market_cap_usd, ath_multiple, labeled_at
 				from pump_coin_outcomes where mint = ${cleanMint} limit 1
 			`;
-			if (o) outcome = {
-				outcome: o.outcome,
-				graduated: o.graduated,
-				rugged: o.rugged,
-				ath_market_cap_usd: num(o.ath_market_cap_usd),
-				ath_multiple: num(o.ath_multiple),
-				labeled_at: o.labeled_at,
-			};
-		} catch { /* fine — table may not exist yet */ }
+			if (o)
+				outcome = {
+					outcome: o.outcome,
+					graduated: o.graduated,
+					rugged: o.rugged,
+					ath_market_cap_usd: num(o.ath_market_cap_usd),
+					ath_multiple: num(o.ath_multiple),
+					labeled_at: o.labeled_at,
+				};
+		} catch {
+			/* fine — table may not exist yet */
+		}
 
 		// Resolve wallet labels: brain reputation wins; knownWallet() seed fills the gap.
 		let knownWallet;
 		try {
 			knownWallet = (await import('./_lib/oracle/known-wallets.js')).knownWallet;
-		} catch { knownWallet = () => null; }
+		} catch {
+			knownWallet = () => null;
+		}
 
 		const whosIn = walletRows.map((w) => {
 			const brainLabel = w.label && w.label !== 'unproven' ? w.label : null;
@@ -1227,10 +1289,11 @@ async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
 			return {
 				wallet: w.wallet,
 				label: brainLabel || known?.label || 'unproven',
-				score: w.smart_money_score != null ? num(w.smart_money_score) : (known?.score ?? null),
+				score:
+					w.smart_money_score != null ? num(w.smart_money_score) : (known?.score ?? null),
 				win_rate: w.win_rate != null ? num(w.win_rate) : null,
 				early_win_rate: w.early_win_rate != null ? num(w.early_win_rate) : null,
-				source: brainLabel ? 'brain' : (known ? 'gmgn' : null),
+				source: brainLabel ? 'brain' : known ? 'gmgn' : null,
 				tag: w.tag || known?.tag || null,
 				buy_sol: Number(w.buy_lamports || 0) / 1e9,
 				sell_sol: Number(w.sell_lamports || 0) / 1e9,
@@ -1240,13 +1303,14 @@ async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
 		});
 
 		// Tier summary for agent quick-read
-		const tierLabel = {
-			prime: 'PRIME — highest conviction. Top-grade entry signal.',
-			strong: 'STRONG — solid conviction. Enter with normal position size.',
-			lean: 'LEAN — mild positive lean. Size small or wait for confirmation.',
-			watch: 'WATCH — insufficient signal. Observe only.',
-			avoid: 'AVOID — negative signal. Do not enter.',
-		}[conv.tier] || conv.tier;
+		const tierLabel =
+			{
+				prime: 'PRIME — highest conviction. Top-grade entry signal.',
+				strong: 'STRONG — solid conviction. Enter with normal position size.',
+				lean: 'LEAN — mild positive lean. Size small or wait for confirmation.',
+				watch: 'WATCH — insufficient signal. Observe only.',
+				avoid: 'AVOID — negative signal. Do not enter.',
+			}[conv.tier] || conv.tier;
 
 		return {
 			found: true,
@@ -1273,14 +1337,16 @@ async function handleGetOracleConviction({ mint, network = 'mainnet' } = {}) {
 				scored_at: conv.scored_at,
 			},
 
-			narrative: narr ? {
-				category: narr.category,
-				narrative: narr.narrative,
-				virality: num(narr.virality),
-				confidence: num(narr.confidence),
-				tags: Array.isArray(narr.tags) ? narr.tags : [],
-				source: narr.source,
-			} : null,
+			narrative: narr
+				? {
+						category: narr.category,
+						narrative: narr.narrative,
+						virality: num(narr.virality),
+						confidence: num(narr.confidence),
+						tags: Array.isArray(narr.tags) ? narr.tags : [],
+						source: narr.source,
+					}
+				: null,
 
 			whos_in: whosIn,
 			outcome,
@@ -1357,7 +1423,7 @@ const INSTRUCTIONS =
 	'LAUNCH A COIN: to deploy a new pump.fun coin as an agent, call pumpfun_upload_metadata ' +
 	'(bearer required) to pin name/symbol/description/image to IPFS and get a uri, then POST ' +
 	'to /api/pump/launch-agent with agent_id + uri to build, sign, and submit the launch ' +
-	'transaction using the agent\'s custodial wallet. All data is live; most tools need no key.';
+	"transaction using the agent's custodial wallet. All data is live; most tools need no key.";
 const MAX_BATCH = 16;
 
 // Tools that are expensive (CPU grind or long-lived RPC subscriptions) or that
@@ -1529,9 +1595,7 @@ async function dispatchRpc(msg, ctx) {
 		// Advertise indexer-backed tools only when the bot is configured, so MCP
 		// clients never see a tool that would just return -32004 on call. The
 		// always-on pumpfun_bot_status (not in INDEXER_TOOLS) reports capability.
-		const tools = pumpfunBotEnabled()
-			? TOOLS
-			: TOOLS.filter((t) => !INDEXER_TOOLS.has(t.name));
+		const tools = pumpfunBotEnabled() ? TOOLS : TOOLS.filter((t) => !INDEXER_TOOLS.has(t.name));
 		return rpcEnvelope(id, { tools });
 	}
 	if (rpcMethod === 'resources/list') return rpcEnvelope(id, { resources: [] });
@@ -1548,7 +1612,10 @@ async function dispatchRpc(msg, ctx) {
 		const handler =
 			typeof name === 'string' && Object.hasOwn(HANDLERS, name) ? HANDLERS[name] : null;
 		if (!handler) {
-			return rpcEnvelope(id, null, { code: -32601, message: `unknown tool: ${requestedName}` });
+			return rpcEnvelope(id, null, {
+				code: -32601,
+				message: `unknown tool: ${requestedName}`,
+			});
 		}
 		// Auth gate: expensive (vanity grind, long-lived RPC watch) and sensitive
 		// (returns a secret key) tools require a bearer or verified x402 payment.
@@ -1569,11 +1636,18 @@ async function dispatchRpc(msg, ctx) {
 				if (!ctx.batch) {
 					ctx.gateDenied = {
 						id,
-						failure: { kind: 'rate_limited', code: -32029, message: 'rate limit exceeded for gated tools' },
+						failure: {
+							kind: 'rate_limited',
+							code: -32029,
+							message: 'rate limit exceeded for gated tools',
+						},
 					};
 					return null;
 				}
-				return rpcEnvelope(id, null, { code: -32029, message: 'rate limit exceeded for gated tools' });
+				return rpcEnvelope(id, null, {
+					code: -32029,
+					message: 'rate limit exceeded for gated tools',
+				});
 			}
 			try {
 				const data = await handler(params?.arguments || {});
@@ -1642,7 +1716,10 @@ export default wrap(async (req, res) => {
 		return json(
 			res,
 			200,
-			rpcEnvelope(null, null, { code: -32600, message: `batch too large (max ${MAX_BATCH})` }),
+			rpcEnvelope(null, null, {
+				code: -32600,
+				message: `batch too large (max ${MAX_BATCH})`,
+			}),
 			{ 'mcp-protocol-version': PROTOCOL_VERSION },
 		);
 	}
@@ -1663,72 +1740,102 @@ export default wrap(async (req, res) => {
 				400,
 				rpcEnvelope(null, null, {
 					code: -32600,
-					message: 'one X-PAYMENT settles a single gated call — send at most one paid tool per request',
+					message:
+						'one X-PAYMENT settles a single gated call — send at most one paid tool per request',
 				}),
 				{ 'mcp-protocol-version': PROTOCOL_VERSION },
 			);
 		}
 	}
 
-	// Per-request dispatch context. Gate credentials resolve at most once.
-	let gateAuthPromise = null;
-	const ctx = {
-		req,
-		res,
-		batch: isBatch,
-		x402Ctx: null,
-		gatedSuccess: false,
-		gatedId: null,
-		gateDenied: null,
-		ensureGateAuth() {
-			if (!gateAuthPromise) gateAuthPromise = resolveGatedAuth(req);
-			return gateAuthPromise;
-		},
-	};
-
-	const responses = [];
-	for (const msg of messages) {
-		const envelope = await dispatchRpc(msg, ctx);
-		// Single-request gate denial keeps the legacy 401/402 HTTP semantics.
-		if (ctx.gateDenied) return writeGatedAuthFailure(res, ctx.gateDenied.id, ctx.gateDenied.failure);
-		if (envelope !== null) responses.push(envelope);
-	}
-
-	// Settle the verified x402 payment AFTER gated work succeeded — atomic from
-	// the payer's perspective (verify → work → settle, mirroring /api/mcp): a
-	// failed tool never broadcasts the payment, and a successful one is always
-	// captured so the gated work can't be delivered free or the same signed
-	// payload replayed. One settlement covers the whole request.
-	if (ctx.x402Ctx && ctx.gatedSuccess) {
-		try {
-			const settled = await settlePayment({ verified: ctx.x402Ctx.verified });
-			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
-		} catch (settleErr) {
+	// Replay guard (parity with paidEndpoint): a paid request holds a single-use
+	// lock on its signed payment proof across dispatch+settle so a captured/retried
+	// X-PAYMENT can't re-run the gated (often on-chain or LLM-backed) tool before
+	// the first settle lands. Scoped to genuine paid requests (X-PAYMENT, no
+	// bearer) — the same condition as the pay-once-run-many guard above. Released
+	// in the finally; the consumed on-chain nonce blocks any replay thereafter.
+	let releaseProof = async () => {};
+	if (req.headers['x-payment'] && !extractBearer(req)) {
+		const guard = await reservePaymentProof('/api/pump-fun-mcp', req.headers['x-payment']);
+		if (!guard.ok) {
 			return json(
 				res,
-				402,
-				rpcEnvelope(ctx.gatedId, null, {
+				409,
+				rpcEnvelope(null, null, {
 					code: -32402,
-					message: `payment settlement failed: ${settleErr?.message || 'settle error'}`,
-					data: build402Body({
-						resourceUrl: ctx.x402Ctx.resourceUrl,
-						accepts: ctx.x402Ctx.requirements,
-						error: settleErr?.message || 'settle error',
-					}),
+					message:
+						'a request with this payment is already being processed; retry shortly',
 				}),
 				{ 'mcp-protocol-version': PROTOCOL_VERSION },
 			);
 		}
+		releaseProof = guard.release;
 	}
 
-	// All-notification requests owe no body — 202 Accepted per Streamable HTTP.
-	if (responses.length === 0) {
-		res.statusCode = 202;
-		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
-		return res.end();
-	}
+	try {
+		// Per-request dispatch context. Gate credentials resolve at most once.
+		let gateAuthPromise = null;
+		const ctx = {
+			req,
+			res,
+			batch: isBatch,
+			x402Ctx: null,
+			gatedSuccess: false,
+			gatedId: null,
+			gateDenied: null,
+			ensureGateAuth() {
+				if (!gateAuthPromise) gateAuthPromise = resolveGatedAuth(req);
+				return gateAuthPromise;
+			},
+		};
 
-	return json(res, 200, isBatch ? responses : responses[0], {
-		'mcp-protocol-version': PROTOCOL_VERSION,
-	});
+		const responses = [];
+		for (const msg of messages) {
+			const envelope = await dispatchRpc(msg, ctx);
+			// Single-request gate denial keeps the legacy 401/402 HTTP semantics.
+			if (ctx.gateDenied)
+				return writeGatedAuthFailure(res, ctx.gateDenied.id, ctx.gateDenied.failure);
+			if (envelope !== null) responses.push(envelope);
+		}
+
+		// Settle the verified x402 payment AFTER gated work succeeded — atomic from
+		// the payer's perspective (verify → work → settle, mirroring /api/mcp): a
+		// failed tool never broadcasts the payment, and a successful one is always
+		// captured so the gated work can't be delivered free or the same signed
+		// payload replayed. One settlement covers the whole request.
+		if (ctx.x402Ctx && ctx.gatedSuccess) {
+			try {
+				const settled = await settlePayment({ verified: ctx.x402Ctx.verified });
+				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+			} catch (settleErr) {
+				return json(
+					res,
+					402,
+					rpcEnvelope(ctx.gatedId, null, {
+						code: -32402,
+						message: `payment settlement failed: ${settleErr?.message || 'settle error'}`,
+						data: build402Body({
+							resourceUrl: ctx.x402Ctx.resourceUrl,
+							accepts: ctx.x402Ctx.requirements,
+							error: settleErr?.message || 'settle error',
+						}),
+					}),
+					{ 'mcp-protocol-version': PROTOCOL_VERSION },
+				);
+			}
+		}
+
+		// All-notification requests owe no body — 202 Accepted per Streamable HTTP.
+		if (responses.length === 0) {
+			res.statusCode = 202;
+			res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+			return res.end();
+		}
+
+		return json(res, 200, isBatch ? responses : responses[0], {
+			'mcp-protocol-version': PROTOCOL_VERSION,
+		});
+	} finally {
+		await releaseProof();
+	}
 });
