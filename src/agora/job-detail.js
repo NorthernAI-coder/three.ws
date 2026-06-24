@@ -71,14 +71,21 @@ export async function renderJobDetail(panel, opts = {}, ctx = {}) {
 			cluster, lifecycle: true,
 		}, { signal: ac.signal });
 	} catch (err) {
-		panel.setError(`Couldn't load this job from the chain: ${err.message}`, () => renderJobDetail(panel, opts, ctx));
+		if (ac.signal.aborted) return;
+		// not_found is a real, designed state — the PDA is referenced but the
+		// on-chain account is gone or on another cluster (the API 404s, which the
+		// client surfaces as a thrown error). Everything else is a retryable error.
+		if (/not.?found|404/i.test(err.message || '')) {
+			panel.setHeader(opts.title || 'Job', opts.taskPda ? jobSubheader(opts.taskPda, cluster) : 'On-chain task');
+			panel.setBody(buildNotFound(opts, cluster));
+		} else {
+			panel.setError(`Couldn't load this job from the chain: ${err.message}`, () => renderJobDetail(panel, opts, ctx));
+		}
 		return;
 	}
 	if (ac.signal.aborted) return;
 
 	if (!data || data.ok === false) {
-		// not_found is a real, designed state — the PDA exists in the projection
-		// but the on-chain account is gone or on another cluster.
 		panel.setBody(buildNotFound(opts, cluster));
 		return;
 	}
