@@ -1,0 +1,529 @@
+#!/usr/bin/env node
+/**
+ * Console sweep — drives every canonical HTML route from data/pages.json in a
+ * headless Chromium (Playwright) at desktop and mobile viewports, exercises the
+ * primary interaction (scroll + settle), and collects:
+ *   • console errors / warnings (from our code; environment noise filtered out)
+ *   • uncaught page errors and unhandled promise rejections
+ *   • failed first-party network requests (4xx/5xx + transport failures)
+ *
+ * A clean console is part of the Definition of Done (CLAUDE.md). This is the
+ * lasting, npm-able check — wired as `npm run audit:console`.
+ *
+ * Usage:
+ *   node scripts/audit-console.mjs                  # every HTML route, both viewports
+ *   node scripts/audit-console.mjs / /forge /play   # specific routes only
+ *   node scripts/audit-console.mjs --desktop        # 1440×900 only
+ *   node scripts/audit-console.mjs --mobile         # 390×844 only
+ *   node scripts/audit-console.mjs --no-blog        # skip /blog/* content pages
+ *   node scripts/audit-console.mjs --report         # write docs/audit/console-sweep-<date>.md
+ *   LOG_ALL=1 node scripts/audit-console.mjs        # stream every console line
+ *   HEADFUL=1 node scripts/audit-console.mjs        # watch it run
+ *   CONCURRENCY=6 node scripts/audit-console.mjs    # parallel tabs (default 5)
+ *
+ * Reuses a dev server already on :3000, otherwise spawns an ephemeral Vite. The
+ * dev server proxies /api/* to https://three.ws, so API calls hit real
+ * endpoints — auth/payment-gated 4xx are classified "expected", never failures.
+ */
+
+import { existsSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:net';
+import { spawn } from 'node:child_process';
+import { get as httpGet } from 'node:http';
+import { chromium } from 'playwright';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+const C = {
+	g: (s) => `\x1b[32m${s}\x1b[0m`,
+	r: (s) => `\x1b[31m${s}\x1b[0m`,
+	y: (s) => `\x1b[33m${s}\x1b[0m`,
+	d: (s) => `\x1b[2m${s}\x1b[0m`,
+	b: (s) => `\x1b[1m${s}\x1b[0m`,
+	c: (s) => `\x1b[36m${s}\x1b[0m`,
+};
+
+// ── Viewports ────────────────────────────────────────────────────────────────
+const VIEWPORTS = {
+	desktop: { width: 1440, height: 900, isMobile: false, label: 'desktop 1440×900' },
+	mobile: { width: 390, height: 844, isMobile: true, label: 'mobile 390×844' },
+};
+
+// ── Noise filters ────────────────────────────────────────────────────────────
+// Console text that is never a real defect from our code (dev infra, browser
+// policy, third-party telemetry, auth-gated API statuses, external CDN CORS).
+const IGNORE_CONSOLE = [
+	// Vite HMR / dev infra. In Codespaces the HMR wss handshake 302s through the
+	// proxy — documented environment noise, not a page bug.
+	/\[vite\]/i,
+	/@vite\/client/i,
+	/WebSocket closed without opened/i,
+	/WebSocket connection to .* failed/i,
+	/Error during WebSocket handshake/i,
+	/failed to connect to websocket/i,
+	/\[HMR\]/i,
+	// Browser policy / environment
+	/the AudioContext was not allowed to start/i,
+	/Tracking Prevention/i,
+	/autoplay/i,
+	/Permissions policy violation/i,
+	/Unrecognized feature:/i,
+	// Third-party analytics / telemetry (never our code)
+	/posthog/i,
+	/sentry/i,
+	/segment\.com/i,
+	/google-analytics/i,
+	/cdn\.vercel-insights/i,
+	/vercel\.live/i,
+	// API calls judged by HTTP status, not console — auth/payment-gate is expected
+	/Failed to load resource.*\/api\//i,
+	/\b(401|402|403|429|503)\b.*\/api\//i,
+	/Failed to load resource: the server responded with a status of 40[0-3]/i,
+	/Failed to load resource: the server responded with a status of 429/i,
+	/Failed to load resource: the server responded with a status of 5(02|03)/i,
+	// Walk multiplayer / live socket servers not running in dev (graceful fallback)
+	/Failed to load resource: net::ERR_CONNECTION_REFUSED/i,
+	/net::ERR_CONNECTION_REFUSED/i,
+	/\[walk-net\]/i,
+	// R2/CDN CORS from dev origins (localhost) — only blocks in dev, not production
+	/r2\.dev.*Access-Control/i,
+	/r2\.dev.*CORS policy/i,
+	/CORS policy.*r2\.dev/i,
+	/Access-Control-Allow-Origin.*r2\.dev/i,
+	/pub-[a-f0-9]+\.r2\.dev.*blocked/i,
+	/blocked by CORS policy.*r2\.dev/i,
+	// User-generated data with expired signed URLs — not our code
+	/private-user-images\.githubusercontent\.com.*404/i,
+	/X-Amz-Signature.*404/i,
+	// Three.js / WebGL expected notices
+	/THREE\.WebGLRenderer: WebGL 1 is not supported/i,
+	/THREE\.BufferGeometry\.computeBoundingSphere/i,
+	/WebGL.*swiftshader/i,
+	/Automatic fallback to software WebGL/i,
+	// Content-Security-Policy noise from third-party embeds
+	/content security policy/i,
+	/Refused to (load|connect|execute|frame)/i,
+	// Solana / wallet adapter expected console output
+	/StandardWalletAdapter/i,
+	/wallet adapter/i,
+	// dev tooling
+	/Download the React DevTools/i,
+	// iframe sandbox noise
+	/Allow attribute/i,
+	/Blocked.*frame/i,
+	// Font loading via CSS (browser-level, not our JS)
+	/OTS parsing error/i,
+	/downloadable font/i,
+	// Colyseus/socket deprecation warnings
+	/using deprecated parameters for the initialization/i,
+	// Vite dep-optimizer race: when the optimizer re-bundles mid-navigation,
+	// in-flight requests for the old dep hash 504 and Vite auto-reloads the page.
+	// Purely a dev-server artifact — production ships pre-bundled deps, never 504s.
+	/504 \(Outdated Optimize Dep\)/i,
+	/Outdated Optimize Dep/i,
+];
+
+function isIgnorableConsole(text) {
+	return IGNORE_CONSOLE.some((re) => re.test(text));
+}
+
+// First-party URLs whose 4xx/5xx is a dev-server artifact, never a prod defect:
+//   • /.vite/deps/*           — optimizer re-bundle race (504), Vite auto-reloads
+//   • /agent-3d/.../agent-3d.js — the <agent-3d> custom-element bundle. In dev a
+//     plugin serves it from dist-lib/ (needs `npm run build:lib`); in production
+//     it's a real CDN asset at https://three.ws/agent-3d/latest/agent-3d.js.
+//   • *.map                   — source maps; browsers probe them, 404 is harmless
+function isDevOnlyAsset(u) {
+	if (/\/.vite\/deps\//.test(u)) return true;
+	if (/\/agent-3d\/[^/]+\/agent-3d\.(js|umd\.cjs)(\?|$)/.test(u)) return true;
+	if (/\.map(\?|$)/.test(u)) return true;
+	return false;
+}
+
+// ── Route manifest from data/pages.json ──────────────────────────────────────
+function loadRoutes({ includeBlog }) {
+	const data = JSON.parse(readFileSync(join(ROOT, 'data/pages.json'), 'utf8'));
+	const seen = new Set();
+	const routes = [];
+	for (const section of data.sections) {
+		// `machine` section = non-HTML endpoints (.xml/.txt/.json/.well-known) —
+		// no DOM, no console; not part of a browser sweep.
+		if (section.id === 'machine') continue;
+		if (section.id === 'blog' && !includeBlog) continue;
+		for (const page of section.pages) {
+			const path = page.path;
+			// Skip anything that resolves to a static file rather than an HTML page.
+			if (/\.[a-z0-9]+$/i.test(path) && !/\.html$/i.test(path)) continue;
+			if (seen.has(path)) continue;
+			seen.add(path);
+			routes.push({
+				path,
+				section: section.id,
+				title: page.title || path,
+				auth: page.auth === 'required',
+			});
+		}
+	}
+	return routes;
+}
+
+// ── Dev server ───────────────────────────────────────────────────────────────
+function probe(url, timeoutMs = 2000) {
+	return new Promise((resolve) => {
+		const req = httpGet(url, (res) => {
+			res.resume();
+			resolve(res.statusCode || 0);
+		});
+		req.setTimeout(timeoutMs, () => req.destroy());
+		req.on('error', () => resolve(0));
+	});
+}
+
+function freePort() {
+	return new Promise((resolve, reject) => {
+		const srv = createServer();
+		srv.unref();
+		srv.on('error', reject);
+		srv.listen(0, () => {
+			const { port } = srv.address();
+			srv.close(() => resolve(port));
+		});
+	});
+}
+
+const PROBE_BASE = 'http://127.0.0.1:3000';
+
+async function warmupDeps(base) {
+	// Hit a few dep-heavy pages so Vite pre-bundles before the timed sweep,
+	// otherwise the first real navigation eats the optimizer's reload.
+	const warmPaths = ['/', '/forge', '/play', '/pumpfun', '/agent-exchange'];
+	process.stdout.write('  warming Vite dep optimizer ');
+	for (const p of warmPaths) {
+		await fetch(`${base}${p}`).catch(() => {});
+		process.stdout.write('.');
+	}
+	await new Promise((r) => setTimeout(r, 8000));
+	process.stdout.write('\n');
+}
+
+async function startServer() {
+	if (await probe(`${PROBE_BASE}/`, 5000)) {
+		console.log(C.d('  reusing dev server on :3000'));
+		// localhost (not 127.0.0.1) — some CDN CORS configs allow it, fewer spurious errors.
+		const navBase = 'http://localhost:3000';
+		await warmupDeps(navBase);
+		return { base: navBase, stop: async () => {} };
+	}
+	const port = await freePort();
+	const bin = join(ROOT, 'node_modules', '.bin', 'vite');
+	const child = spawn(bin, ['--port', String(port), '--strictPort'], {
+		cwd: ROOT,
+		stdio: process.env.LOG_ALL ? 'inherit' : 'ignore',
+		env: process.env,
+	});
+	const probeBase = `http://127.0.0.1:${port}`;
+	const navBase = `http://localhost:${port}`;
+	const deadline = Date.now() + 90_000;
+	process.stdout.write(`  starting Vite on :${port} `);
+	while (Date.now() < deadline) {
+		if (child.exitCode != null) throw new Error(`vite exited early (code ${child.exitCode})`);
+		if (await probe(`${probeBase}/`, 2000)) {
+			process.stdout.write('\n');
+			break;
+		}
+		process.stdout.write('.');
+		await new Promise((r) => setTimeout(r, 500));
+	}
+	if (Date.now() >= deadline) {
+		child.kill('SIGKILL');
+		throw new Error('vite did not become ready within 90s');
+	}
+	await warmupDeps(navBase);
+	return { base: navBase, stop: async () => child.kill('SIGTERM') };
+}
+
+// ── Per-route check ──────────────────────────────────────────────────────────
+const SETTLE_MS = Number(process.env.SETTLE_MS || 3000);
+
+async function checkRoute(context, base, route) {
+	const page = await context.newPage();
+
+	const consoleErrors = [];
+	const consoleWarnings = [];
+	const failedAssets = [];
+	const degradedApis = [];
+
+	page.on('console', (msg) => {
+		const text = msg.text();
+		if (process.env.LOG_ALL) console.log(C.d(`  [${route.path} ${msg.type()}] ${text}`));
+		if (isIgnorableConsole(text)) return;
+		if (msg.type() === 'error') consoleErrors.push(text);
+		else if (msg.type() === 'warning') consoleWarnings.push(text);
+	});
+
+	page.on('pageerror', (err) => {
+		const msg = err.message || String(err);
+		if (!isIgnorableConsole(msg)) consoleErrors.push('pageerror: ' + msg);
+	});
+
+	page.on('requestfailed', (req) => {
+		const u = req.url();
+		const errorText = req.failure()?.errorText || '';
+		if (u.includes('@vite') || u.startsWith('ws:') || u.startsWith('wss:')) return;
+		if (/posthog|sentry|segment|google-analytics|vercel-insights|vercel\.live/i.test(u)) return;
+		if (isDevOnlyAsset(u)) return;
+		const rt = req.resourceType();
+		if (!['document', 'script', 'stylesheet', 'font'].includes(rt)) return;
+		if (!u.startsWith(base)) return;
+		if (rt === 'document' && errorText.includes('ERR_ABORTED')) return;
+		if (errorText.includes('ERR_CONNECTION_REFUSED')) return;
+		// ERR_ABORTED on a script/style usually follows a 4xx/5xx already recorded
+		// by the response handler — don't double-count.
+		if (errorText.includes('ERR_ABORTED')) return;
+		failedAssets.push(`${req.method()} ${rt} ${u.replace(base, '')} — ${errorText}`);
+	});
+
+	page.on('response', (res) => {
+		const u = res.url();
+		const s = res.status();
+		if (s < 400) return;
+		if (/posthog|sentry|segment|google-analytics|vercel-insights|vercel\.live/i.test(u)) return;
+		if (u.includes('/api/')) {
+			degradedApis.push(`${s} ${u.replace(base, '')}`);
+			return;
+		}
+		if (!u.startsWith(base)) return; // external (CDN/third-party) — not our first-party asset
+		if (isDevOnlyAsset(u)) return;
+		const rt = res.request().resourceType();
+		failedAssets.push(`HTTP ${s} ${rt} ${u.replace(base, '')}`);
+	});
+
+	const navErrors = [];
+	const rejections = [];
+	await page.addInitScript(() => {
+		window.addEventListener('unhandledrejection', (e) => {
+			const r = e.reason;
+			(window.__rejections ||= []).push(String((r && (r.stack || r.message)) || r));
+		});
+	});
+
+	const url = base + route.path;
+	try {
+		await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+	} catch (e) {
+		navErrors.push(`navigation failed: ${e.message}`);
+		await page.close();
+		return { route, navErrors, consoleErrors, consoleWarnings, failedAssets, degradedApis, rejections };
+	}
+
+	// Primary interaction: scroll the page to fire lazy loaders / intersection
+	// observers / on-scroll mounts, then settle so async fetches + module loads land.
+	try {
+		await page.evaluate(async () => {
+			const h = document.body?.scrollHeight || 0;
+			window.scrollTo({ top: h, behavior: 'instant' });
+			await new Promise((r) => setTimeout(r, 200));
+			window.scrollTo({ top: 0, behavior: 'instant' });
+		});
+	} catch {
+		/* page may have torn down */
+	}
+	await new Promise((r) => setTimeout(r, SETTLE_MS));
+
+	const injected = await page.evaluate(() => window.__rejections || []).catch(() => []);
+	for (const e of injected) if (!isIgnorableConsole(e)) rejections.push('unhandledrejection: ' + e);
+
+	await page.close();
+	return { route, navErrors, consoleErrors, consoleWarnings, failedAssets, degradedApis, rejections };
+}
+
+function totalErrors(r) {
+	return r.navErrors.length + r.consoleErrors.length + r.failedAssets.length + r.rejections.length;
+}
+
+// ── Concurrency pool ─────────────────────────────────────────────────────────
+async function runPool(items, size, worker) {
+	const out = new Array(items.length);
+	let next = 0;
+	const runners = Array.from({ length: Math.min(size, items.length) }, async () => {
+		while (true) {
+			const i = next++;
+			if (i >= items.length) break;
+			out[i] = await worker(items[i], i);
+		}
+	});
+	await Promise.all(runners);
+	return out;
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+const args = process.argv.slice(2);
+const argRoutes = args.filter((a) => a.startsWith('/'));
+const wantReport = args.includes('--report');
+const includeBlog = !args.includes('--no-blog');
+const onlyDesktop = args.includes('--desktop');
+const onlyMobile = args.includes('--mobile');
+const CONCURRENCY = Number(process.env.CONCURRENCY || 5);
+
+const viewportKeys = onlyDesktop ? ['desktop'] : onlyMobile ? ['mobile'] : ['desktop', 'mobile'];
+
+let routes = loadRoutes({ includeBlog });
+if (argRoutes.length) routes = routes.filter((r) => argRoutes.includes(r.path));
+if (!routes.length) {
+	console.error('No matching routes from data/pages.json.');
+	process.exit(1);
+}
+
+console.log(C.b('\n╔══ Console Sweep (Playwright) ═══════════════════════════════╗'));
+console.log(`  ${routes.length} HTML routes × ${viewportKeys.length} viewport(s) — concurrency ${CONCURRENCY}`);
+console.log(C.b('╚═════════════════════════════════════════════════════════════╝\n'));
+
+const { base, stop } = await startServer();
+
+const browser = await chromium.launch({
+	headless: !process.env.HEADFUL,
+	args: [
+		'--no-sandbox',
+		'--disable-dev-shm-usage',
+		'--disable-setuid-sandbox',
+		'--use-gl=angle',
+		'--use-angle=swiftshader',
+		'--enable-unsafe-swiftshader',
+		'--ignore-gpu-blocklist',
+		'--mute-audio',
+	],
+});
+
+// results[viewportKey] = array of per-route result objects
+const results = {};
+
+for (const vpKey of viewportKeys) {
+	const vp = VIEWPORTS[vpKey];
+	console.log(C.b(`\n▶ ${vp.label}\n`));
+	const context = await browser.newContext({
+		viewport: { width: vp.width, height: vp.height },
+		isMobile: vp.isMobile,
+		hasTouch: vp.isMobile,
+		deviceScaleFactor: vp.isMobile ? 3 : 1,
+		userAgent: vp.isMobile
+			? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+			: undefined,
+	});
+
+	let done = 0;
+	const res = await runPool(routes, CONCURRENCY, async (route) => {
+		const r = await checkRoute(context, base, route);
+		done++;
+		const errs = totalErrors(r);
+		const status = errs === 0 ? C.g('✓') : C.r(`✗ ${errs}`);
+		const warn = r.consoleWarnings.length ? C.y(` (${r.consoleWarnings.length}w)`) : '';
+		process.stdout.write(
+			`  [${String(done).padStart(3)}/${routes.length}] ${status}${warn} ${C.c(route.path)}\n`,
+		);
+		return r;
+	});
+	results[vpKey] = res;
+	await context.close();
+}
+
+await browser.close();
+await stop();
+
+// ── Report ───────────────────────────────────────────────────────────────────
+// Merge per-viewport rows by route for the summary table.
+const byPath = new Map();
+for (const vpKey of viewportKeys) {
+	for (const r of results[vpKey]) {
+		const row = byPath.get(r.route.path) || { route: r.route, vp: {} };
+		row.vp[vpKey] = r;
+		byPath.set(r.route.path, row);
+	}
+}
+
+const rows = [...byPath.values()];
+const failing = rows.filter((row) => viewportKeys.some((k) => totalErrors(row.vp[k]) > 0));
+
+console.log('\n' + C.b('═══════════════ SUMMARY ═══════════════\n'));
+let grandErrors = 0;
+for (const row of rows) {
+	const parts = [];
+	for (const k of viewportKeys) {
+		const r = row.vp[k];
+		const e = totalErrors(r);
+		grandErrors += e;
+		parts.push(`${k}: ${e === 0 ? C.g('clean') : C.r(e + ' err')}${r.consoleWarnings.length ? C.y(' ' + r.consoleWarnings.length + 'w') : ''}`);
+	}
+}
+if (failing.length === 0) {
+	console.log(C.g(`  ALL ${rows.length} ROUTES CLEAN across ${viewportKeys.length} viewport(s) — zero errors from our code.\n`));
+} else {
+	console.log(C.r(`  ${failing.length} route(s) with errors:\n`));
+	for (const row of failing) {
+		console.log(C.r(`✗ ${row.route.path}  ${C.d('(' + row.route.section + ')')}`));
+		for (const k of viewportKeys) {
+			const r = row.vp[k];
+			if (totalErrors(r) === 0) continue;
+			for (const e of r.navErrors) console.log(`    ${C.d(k)} nav:    ${C.r(e)}`);
+			for (const e of r.consoleErrors) console.log(`    ${C.d(k)} console:${C.r(e)}`);
+			for (const e of r.failedAssets) console.log(`    ${C.d(k)} asset:  ${C.r(e)}`);
+			for (const e of r.rejections) console.log(`    ${C.d(k)} reject: ${C.r(e)}`);
+		}
+	}
+	console.log('');
+}
+
+// ── Optional markdown report ─────────────────────────────────────────────────
+if (wantReport) {
+	const date = new Date().toISOString().slice(0, 10);
+	const outDir = join(ROOT, 'docs/audit');
+	mkdirSync(outDir, { recursive: true });
+	const outFile = join(outDir, `console-sweep-${date}.md`);
+	const lines = [];
+	lines.push(`# Console Sweep — ${date}`);
+	lines.push('');
+	lines.push(
+		`Headless Chromium (Playwright) over ${rows.length} HTML routes from \`data/pages.json\` at ${viewportKeys.map((k) => VIEWPORTS[k].label).join(' and ')}. ` +
+			`Each route: \`domcontentloaded\` → scroll → ${SETTLE_MS}ms settle. ` +
+			`Environment noise (Vite HMR-proxy wss handshake, third-party telemetry, auth-gated \`/api\` 4xx, dev-origin CDN CORS) is filtered.`,
+	);
+	lines.push('');
+	lines.push(`**Result:** ${failing.length === 0 ? '✅ all routes clean' : `❌ ${failing.length} route(s) with errors`} — ${grandErrors} total error(s).`);
+	lines.push('');
+	lines.push('## Per-route');
+	lines.push('');
+	const head = ['Route', 'Section', ...viewportKeys.flatMap((k) => [`${k} err`, `${k} warn`])];
+	lines.push('| ' + head.join(' | ') + ' |');
+	lines.push('|' + head.map(() => '---').join('|') + '|');
+	for (const row of rows.sort((a, b) => a.route.path.localeCompare(b.route.path))) {
+		const cells = [`\`${row.route.path}\``, row.route.section];
+		for (const k of viewportKeys) {
+			const r = row.vp[k];
+			cells.push(String(totalErrors(r)), String(r.consoleWarnings.length));
+		}
+		lines.push('| ' + cells.join(' | ') + ' |');
+	}
+	if (failing.length) {
+		lines.push('');
+		lines.push('## Failures (detail)');
+		lines.push('');
+		for (const row of failing) {
+			lines.push(`### \`${row.route.path}\` (${row.route.section})`);
+			for (const k of viewportKeys) {
+				const r = row.vp[k];
+				if (totalErrors(r) === 0) continue;
+				lines.push(`- **${k}**`);
+				for (const e of r.navErrors) lines.push(`  - nav: ${e}`);
+				for (const e of r.consoleErrors) lines.push(`  - console: ${e}`);
+				for (const e of r.failedAssets) lines.push(`  - asset: ${e}`);
+				for (const e of r.rejections) lines.push(`  - rejection: ${e}`);
+			}
+			lines.push('');
+		}
+	}
+	writeFileSync(outFile, lines.join('\n') + '\n');
+	console.log(C.c(`  report written → ${outFile.replace(ROOT + '/', '')}\n`));
+}
+
+process.exit(failing.length === 0 ? 0 : 1);

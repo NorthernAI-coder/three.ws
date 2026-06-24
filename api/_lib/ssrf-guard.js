@@ -197,6 +197,21 @@ export async function fetchSafePublicUrlPinned(input, init = {}, opts = {}) {
 				nodeRes.on('error', reject);
 			});
 			req.on('error', reject);
+			// Honor an optional AbortSignal (e.g. AbortSignal.timeout) from init so a
+			// caller can bound a hung host instead of holding the socket — and the
+			// serverless invocation — open for the function's full duration. Purely
+			// additive: callers that pass no signal are unaffected.
+			const signal = init.signal;
+			if (signal) {
+				if (signal.aborted) {
+					req.destroy(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
+				} else {
+					const onAbort = () =>
+						req.destroy(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
+					signal.addEventListener('abort', onAbort, { once: true });
+					req.on('close', () => signal.removeEventListener('abort', onAbort));
+				}
+			}
 			if (init.body) req.write(init.body);
 			req.end();
 		});

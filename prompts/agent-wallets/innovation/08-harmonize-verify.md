@@ -74,3 +74,17 @@ and the verified cross-feature flows.
 When done: commit (explicit paths only; push to **both** remotes if asked), then **delete
 this file**. When 01–08 are all deleted, delete `00-README-innovation.md` too — the
 innovation program is shipped.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-wallets/innovation/08-harmonize-verify.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

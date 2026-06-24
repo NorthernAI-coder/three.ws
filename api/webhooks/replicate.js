@@ -25,6 +25,12 @@ import { sql } from '../_lib/db.js';
 import { json, method, wrap, error } from '../_lib/http.js';
 import { finalizeReconstructStage } from '../_lib/reconstruct-finalize.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
+// Provider-result URL guard, shared with the poll, cron, and rig-poller paths so
+// every completion path pins the fetched GLB URL to an allowed provider host the
+// same way (SSRF). isAllowedProviderResultUrl carries the exact semantics the
+// webhook used to define inline; extractGlbUrl is the hardened scheme-checked
+// extractor.
+import { isAllowedProviderResultUrl, extractGlbUrl } from '../_lib/provider-result-url.js';
 
 const REPLAY_WINDOW_SECONDS = 5 * 60;
 
@@ -55,46 +61,6 @@ function verifyStandardWebhook({ signingKey, id, timestamp, body, headerSig }) {
 		if (a.length === b.length && timingSafeEqual(a, b)) return true;
 	}
 	return false;
-}
-
-// Replicate serves prediction outputs from its own delivery hosts. Pin the
-// fetched GLB URL to https on one of those hosts so a forged/compromised payload
-// can't point the server-side fetch at an internal/metadata endpoint (SSRF).
-const REPLICATE_RESULT_HOSTS = [
-	'replicate.delivery',
-	'replicate.com',
-	'pbxt.replicate.delivery',
-];
-
-function isAllowedResultUrl(raw) {
-	let u;
-	try {
-		u = new URL(raw);
-	} catch {
-		return false;
-	}
-	if (u.protocol !== 'https:') return false;
-	const host = u.hostname.toLowerCase();
-	return REPLICATE_RESULT_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
-}
-
-function extractGlbUrl(output) {
-	if (!output) return null;
-	if (typeof output === 'string') return output;
-	if (Array.isArray(output)) {
-		for (const v of output) {
-			if (typeof v === 'string' && /\.glb(\?|$)/i.test(v)) return v;
-		}
-		for (const v of output) {
-			if (typeof v === 'string' && /^https?:\/\//.test(v)) return v;
-		}
-	}
-	if (typeof output === 'object') {
-		for (const key of ['glb', 'mesh', 'mesh_url', 'output_url', 'url', 'model']) {
-			if (typeof output[key] === 'string') return output[key];
-		}
-	}
-	return null;
 }
 
 function translateStatus(s) {
@@ -210,12 +176,13 @@ export default wrap(async (req, res) => {
 	// user's status poll then sees resultAvatarId (or the 'rigging' stage) on its
 	// next hit instead of waiting a round-trip. The shared stage handles the
 	// rig-or-materialize decision, identical to the poll path, so the two never
-	// drift. isAllowedResultUrl pins the fetch to Replicate's delivery hosts
-	// (SSRF guard) before we hand the URL off.
+	// drift. isAllowedProviderResultUrl pins the fetch to an allowed provider host
+	// (SSRF guard) before we hand the URL off; the finalize fetch then re-checks
+	// the host and IP-pins the connection.
 	if (
 		nextStatus === 'done' &&
 		nextGlbUrl &&
-		isAllowedResultUrl(nextGlbUrl) &&
+		isAllowedProviderResultUrl(nextGlbUrl) &&
 		job.mode === 'reconstruct' &&
 		!job.result_avatar_id
 	) {
@@ -241,7 +208,7 @@ export default wrap(async (req, res) => {
 	if (
 		nextStatus === 'done' &&
 		nextGlbUrl &&
-		isAllowedResultUrl(nextGlbUrl) &&
+		isAllowedProviderResultUrl(nextGlbUrl) &&
 		job.mode === 'rerig' &&
 		job.params?.auto_rig === true &&
 		!job.result_avatar_id

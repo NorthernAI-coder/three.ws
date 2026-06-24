@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-24T13:47:33.721Z",
+	"generated_at": "2026-06-24T15:43:34.011Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1161,6 +1161,16 @@
 					"title": "x402 Live Demo (IBM × three.ws)",
 					"description": "A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.",
 					"added": "2026-06-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/ibm/hello",
+					"title": "IBM × three.ws partnership",
+					"description": "The IBM × three.ws partnership page: how three.ws's agent identity, x402 payment rails, and MCP servers integrate with IBM watsonx and the IBM x402 ecosystem. A self-contained showcase that stays live-editable after publish.",
+					"added": null,
 					"auth": null,
 					"indexable": true,
 					"tags": [],

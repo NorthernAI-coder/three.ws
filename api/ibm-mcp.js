@@ -27,7 +27,7 @@ import {
 	handleTerminate,
 	isMcpProtocolClient,
 } from './_mcp/auth.js';
-import { sendX402Error } from './_mcp/payments.js';
+import { sendX402Error, reservePaymentProof } from './_mcp/payments.js';
 
 const RESOURCE_PATH = '/api/ibm-mcp';
 
@@ -83,34 +83,52 @@ export default wrap(async (req, res) => {
 	// an unbounded batch multiplies billable work against the user's budget.
 	if (batch.length > 16) return sendJsonRpcError(res, null, -32600, 'batch too large (max 16)');
 
-	const responses = [];
-	for (const msg of batch) {
-		const r = await dispatch(msg, auth, req);
-		if (r !== null) responses.push(r);
-	}
-
-	// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
-	// perspective: if settle fails, the payer's signed payload is not broadcast
-	// and they get an error instead of having paid for nothing. Only settle when
-	// at least one call produced a result; a wholesale failure (every call errored
-	// or returned isError) charges nothing. A partial failure still settles in
-	// full so a single failing call can't reclaim the calls that succeeded.
-	const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
-	if (x402Ctx && anySuccess) {
-		try {
-			const settled = await settlePayment({ verified: x402Ctx.verified });
-			res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
-		} catch (err) {
-			return sendX402Error(
-				res,
-				{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
-				err,
-			);
+	// Replay guard (parity with paidEndpoint): hold a single-use lock on the
+	// signed payment proof across dispatch+settle so a captured/retried X-PAYMENT
+	// can't re-run the priced (billable IBM inference) tools before the first
+	// settle lands. Released in the finally; the consumed on-chain nonce blocks any
+	// replay thereafter. Fails open — see reservePaymentProof.
+	let releaseProof = async () => {};
+	if (x402Ctx) {
+		const guard = await reservePaymentProof(RESOURCE_PATH, req.headers['x-payment']);
+		if (!guard.ok) {
+			return sendJsonRpcError(res, null, -32000, 'payment_in_flight', { retry_after: 1 });
 		}
+		releaseProof = guard.release;
 	}
 
-	res.statusCode = 200;
-	res.setHeader('content-type', 'application/json; charset=utf-8');
-	res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
-	res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+	try {
+		const responses = [];
+		for (const msg of batch) {
+			const r = await dispatch(msg, auth, req);
+			if (r !== null) responses.push(r);
+		}
+
+		// Settle the x402 payment AFTER the work succeeded — atomic from the caller's
+		// perspective: if settle fails, the payer's signed payload is not broadcast
+		// and they get an error instead of having paid for nothing. Only settle when
+		// at least one call produced a result; a wholesale failure (every call errored
+		// or returned isError) charges nothing. A partial failure still settles in
+		// full so a single failing call can't reclaim the calls that succeeded.
+		const anySuccess = responses.some((r) => r && !r.error && !(r.result && r.result.isError));
+		if (x402Ctx && anySuccess) {
+			try {
+				const settled = await settlePayment({ verified: x402Ctx.verified });
+				res.setHeader('x-payment-response', encodePaymentResponseHeader(settled));
+			} catch (err) {
+				return sendX402Error(
+					res,
+					{ resourceUrl: x402Ctx.resourceUrl, accepts: x402Ctx.requirements },
+					err,
+				);
+			}
+		}
+
+		res.statusCode = 200;
+		res.setHeader('content-type', 'application/json; charset=utf-8');
+		res.setHeader('mcp-protocol-version', PROTOCOL_VERSION);
+		res.end(JSON.stringify(Array.isArray(body) ? responses : (responses[0] ?? null)));
+	} finally {
+		await releaseProof();
+	}
 });

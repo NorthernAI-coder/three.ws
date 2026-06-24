@@ -76,3 +76,17 @@ addresses. Realtime, trustless, paid. Nobody has this.
 If Task 01's split-key isn't merged, build the pool on the trustless invariant as specified and
 integrate the moment it lands — but do NOT ship a version that routes full private keys through
 workers. Trustless or nothing. Real economics, no shortcuts.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/vanity-frontier/05-grind-to-earn-pool.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

@@ -69,3 +69,17 @@ suite that *can't* be copied by a generic key tool.
 
 This is the one that goes viral. Make it feel like magic — but every frame is backed by real
 crypto and real grinding. No shortcuts.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/vanity-frontier/07-vanity-as-agent-identity-3d.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

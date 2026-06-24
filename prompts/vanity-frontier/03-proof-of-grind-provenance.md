@@ -75,3 +75,17 @@ trustable asset.
 If Task 01 (split-key) isn't merged yet, build the certificate + verifier for the existing
 keypair/mnemonic formats first and design the schema so the split-key non-custody fields slot in
 cleanly. No fake signatures, no "trust us" verifier — real, independent verification only.
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/vanity-frontier/03-proof-of-grind-provenance.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

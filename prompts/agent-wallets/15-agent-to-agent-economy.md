@@ -115,3 +115,17 @@ When done: run the self-review + improvement pass, add a real changelog entry,
 `npm run build:pages` to validate, commit (staging explicit paths only; push to
 **both** `threeD` and `threews` if asked), then **delete this file**
 (`prompts/agent-wallets/15-agent-to-agent-economy.md`).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/agent-wallets/15-agent-to-agent-economy.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

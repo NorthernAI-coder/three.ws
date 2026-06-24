@@ -708,6 +708,12 @@ URL: https://three.ws/ibm/x402-demo
 
 A self-contained x402 micropayment demo: pay $0.001 USDC from your own wallet — MetaMask on Base or Phantom on Solana — to call a real three.ws data API. Watch the live HTTP 402 challenge, sign a gasless authorization, and see the on-chain settlement receipt. No backend, no account; built as the public face of the IBM × three.ws partnership.
 
+### IBM × three.ws partnership
+
+URL: https://three.ws/ibm/hello
+
+The IBM × three.ws partnership page: how three.ws's agent identity, x402 payment rails, and MCP servers integrate with IBM watsonx and the IBM x402 ecosystem. A self-contained showcase that stays live-editable after publish.
+
 ### Agent Lookup
 
 URL: https://three.ws/lookup

@@ -20,6 +20,7 @@
 import { PublicKey } from '@solana/web3.js';
 import { solanaConnection } from './solana/connection.js';
 import { rpcFallbackFromEnv } from './solana/rpc-fallback.js';
+import { PUMP_PROGRAM_ID } from './solana/programs.js';
 
 // @solana/web3.js calls console.error() on every 429 retry attempt. Those
 // retries succeed (callers see a resolved value, not a thrown error), but
@@ -211,6 +212,34 @@ export async function verifySignature({ network, signature }) {
 		throw e;
 	}
 	return tx;
+}
+
+// Collect every program id invoked by a parsed transaction — both top-level
+// instructions and the CPIs recorded in `meta.innerInstructions`. Works for the
+// `getParsedTransaction` shape, where each instruction (parsed or partially
+// decoded) carries a `programId` that is a PublicKey or a base58 string.
+export function txProgramIds(tx) {
+	const ids = new Set();
+	const add = (ix) => {
+		const pid = ix?.programId;
+		if (!pid) return;
+		ids.add(typeof pid === 'string' ? pid : pid.toString());
+	};
+	for (const ix of tx?.transaction?.message?.instructions || []) add(ix);
+	for (const group of tx?.meta?.innerInstructions || []) {
+		for (const ix of group?.instructions || []) add(ix);
+	}
+	return ids;
+}
+
+// True when a confirmed tx actually invoked the pump.fun bonding-curve program.
+// launch-confirm uses this so a tx that merely *references* the new mint pubkey
+// (e.g. a memo/transfer touching that account) can never be recorded in
+// pump_agent_mints as a real launch — the program must have run. Future-proof by
+// design: it asserts the program, not a specific create-instruction
+// discriminator, so a new create variant keeps confirming cleanly.
+export function txInvokesPumpProgram(tx) {
+	return txProgramIds(tx).has(PUMP_PROGRAM_ID);
 }
 
 // Resolve the canonical pump.fun AMM pool for `mint` (post-graduation). Pass

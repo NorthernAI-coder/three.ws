@@ -117,3 +117,17 @@ Re-read as an attacker: where could a single domain still betray the user? Close
 it. Then make the transparency UI genuinely reassuring (a simple diagram of the
 split beats a paragraph). Verify on devnet, review your diff, then **delete this
 prompt file.**
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/wallet-innovation/01-mpc-threshold-custody.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

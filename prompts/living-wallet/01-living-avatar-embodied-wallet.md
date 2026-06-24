@@ -120,3 +120,17 @@ moment, a subtle $THREE-holder signature, or wiring the pulse to Task 08's econo
 feed. Add the polish that makes people screenshot it. Update `data/changelog.json`.
 **Then delete this prompt file** — the code is the artifact now.
 </content>
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/living-wallet/01-living-avatar-embodied-wallet.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

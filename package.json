@@ -177,6 +177,8 @@
 		"test:pages": "node scripts/test-pages.mjs",
 		"verify:ibm": "node scripts/verify-ibm-pages.mjs",
 		"verify:zauth": "node scripts/verify-zauth-runtime.mjs",
+		"triage": "node scripts/verify-task-completion.mjs",
+		"prioritize": "node scripts/verify-task-completion.mjs && node scripts/rank-backlog.mjs",
 		"zauth:register": "node scripts/zauth-register-endpoints.mjs",
 		"test:all": "npm run test && npm run test:pages",
 		"verify": "prettier --check . && vite build",

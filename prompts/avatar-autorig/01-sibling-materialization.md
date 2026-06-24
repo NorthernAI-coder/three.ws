@@ -169,3 +169,17 @@ Run, in order:
 - **CDN/edge purge of stale id-keyed GLB bytes** for embeds that already cached the source by id (the `immutable` proxy header at `api/avatars/[id]/[action].js:656`). The sibling's new id + new R2 key is sufficient for this prompt; the deep cache-busting fix is a deferred follow-up (tracked in `00-README.md`).
 - **Auto-pin the rigged sibling to IPFS** (real Pinata orchestration of the rigged bytes + re-attestation). Here we only avoid the orphan; wiring the re-pin is a deferred follow-up (tracked in `00-README.md`).
 - **Gallery/library UX for parent→rigged lineage** ("view original", lineage badge, dedupe in the grid) — deferred frontend follow-up (tracked in `00-README.md`).
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/avatar-autorig/01-sibling-materialization.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

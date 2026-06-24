@@ -82,7 +82,7 @@ at https://solscan.io/account/GseMAnNDvntR5uFePZ51yZBXzNSn7GdFPkfHwfr6d77J#accou
   },
   "base_mint": {
     "type": "pubkey",
-    "data": "7LSsEoJGhLeZzGvDofTdNg7M3JttxQqGWNLo6vWMpump"
+    "data": "EXAMPLEpumpfunBaseMint1111111111111111pump"
   },
   "quote_mint": {
     "type": "pubkey",

@@ -90,3 +90,17 @@ amount the human is actually approving, with the allowlist badge), and add
 "require passkey to disable any safety feature" as a default so protections can't
 be quietly turned off. Verify with a real virtual authenticator in the browser,
 review your diff, then **delete this prompt file.**
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/wallet-innovation/05-passkey-stepup.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.

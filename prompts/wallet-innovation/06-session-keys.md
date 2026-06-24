@@ -95,3 +95,17 @@ Then improve it: auto-suggest tight default capabilities when an owner enables a
 skill/strategy (so least-privilege is the default, not a chore), and show each
 capability's real-time spend against its leash. Verify the devnet scope test in
 the browser, review your diff, then **delete this prompt file.**
+
+<!-- AUTO:self-delete-on-complete -->
+
+---
+
+## ✅ On completion — delete this file
+
+This file is a unit of work, not a permanent doc. The moment every item above is **built, wired, verified, and committed** to the "Definition of done" in the repo-root `CLAUDE.md`, remove it in the same change:
+
+```bash
+git rm "prompts/wallet-innovation/06-session-keys.md"
+```
+
+Stage the deletion alongside your implementation and include it in the completion commit. This directory is the backlog: a file that still exists is unfinished work; a file that is gone has shipped. Do not delete early, and never leave a completed prompt behind.
