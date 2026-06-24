@@ -76,16 +76,22 @@ function districtFor(i) {
 	return DISTRICTS[i % DISTRICTS.length];
 }
 
-// Standalone Fetcher citizens — the founding workforce. All Fetchers in Task 02
-// (the one real profession this task ships). Each becomes a real AgenC agent on
-// devnet. Names are evocative, not branded; no coin references.
+// Standalone citizens — the founding workforce. Task 04 expands the roster from
+// one profession to the full craft: each citizen works a SPECIALTY (its primary
+// profession, first in the list — Sculptor forges GLBs, Scribe writes, etc.) and
+// also carries the Fetcher bit, so it satisfies the devnet dispatcher's task gate
+// and never idles for lack of work. A few also carry the Verifier bit for the
+// trust loop. Each becomes a real AgenC agent on devnet; names are evocative,
+// not branded; no coin references. Bits are additive — see roster PROFESSIONS.
 const STANDALONE = [
-	{ key: 'aria-fetch', displayName: 'Aria', professions: ['fetcher'] },
+	{ key: 'aria-sculpt', displayName: 'Aria', professions: ['sculptor', 'fetcher', 'verifier'] },
+	{ key: 'sol-scribe', displayName: 'Sol', professions: ['scribe', 'fetcher'] },
+	{ key: 'cato-carto', displayName: 'Cato', professions: ['cartographer', 'fetcher'] },
+	{ key: 'echo-crier', displayName: 'Echo', professions: ['crier', 'fetcher'] },
+	{ key: 'mira-appraise', displayName: 'Mira', professions: ['appraiser', 'fetcher'] },
+	{ key: 'nyx-name', displayName: 'Nyx', professions: ['namekeeper', 'fetcher'] },
 	{ key: 'koa-fetch', displayName: 'Koa', professions: ['fetcher'] },
-	{ key: 'mira-fetch', displayName: 'Mira', professions: ['fetcher'] },
-	{ key: 'toshi-fetch', displayName: 'Toshi', professions: ['fetcher'] },
-	{ key: 'wren-fetch', displayName: 'Wren', professions: ['fetcher'] },
-	{ key: 'ines-fetch', displayName: 'Inés', professions: ['fetcher'] },
+	{ key: 'wren-fetch', displayName: 'Wren', professions: ['fetcher', 'verifier'] },
 ];
 
 function shapeStandalone(def, i) {

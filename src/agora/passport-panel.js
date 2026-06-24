@@ -87,12 +87,12 @@ export class PassportPanel {
 		this._cluster = 'devnet';
 
 		this._el.querySelector('.agora-passport-close').addEventListener('click', () => this.close());
-		this._onKey = (e) => {
-			if (!this.isOpen()) return;
-			if (e.key === 'Escape') { e.stopPropagation(); this.close(); return; }
-			if (e.key === 'Tab') this._trapTab(e);
-		};
-		this._el.addEventListener('keydown', this._onKey);
+		// Escape stays global (the passport is non-modal — the world is live behind
+		// it, so Esc should close it from anywhere); Tab is trapped within the panel
+		// only while focus is inside it.
+		this._onKey = (e) => { if (e.key === 'Escape' && this.isOpen()) { e.stopPropagation(); this.close(); } };
+		document.addEventListener('keydown', this._onKey);
+		this._el.addEventListener('keydown', (e) => { if (e.key === 'Tab' && this.isOpen()) this._trapTab(e); });
 
 		// Decoupled open: job-detail actor links + ?citizen= deep-links broadcast
 		// this rather than reaching into the world's panel instance.
@@ -180,6 +180,7 @@ export class PassportPanel {
 	}
 
 	dispose() {
+		document.removeEventListener('keydown', this._onKey);
 		window.removeEventListener('agora:open-passport', this._onOpenEvent);
 		this._el.remove();
 	}

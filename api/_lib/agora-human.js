@@ -152,10 +152,17 @@ async function buildClient(cluster, signer) {
 	return createAgenCClient({ cluster, rpcUrl: pickRpc(cluster), signer });
 }
 
+/** Solana Explorer tx URL for a cluster (mainnet drops the cluster query). */
+export function explorerTx(sig, cluster) {
+	return cluster === 'mainnet'
+		? `https://explorer.solana.com/tx/${sig}`
+		: `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
+}
+
 // Top up a devnet wallet from the public faucet with backoff — mirrors the
 // roundtrip example. Mainnet never airdrops: an underfunded mainnet wallet is an
 // honest, actionable error, not a silent failure.
-async function ensureDevnetBalance(connection, keypair, neededLamports) {
+export async function ensureDevnetBalance(connection, keypair, neededLamports) {
 	const bal = await connection.getBalance(keypair.publicKey);
 	if (bal >= neededLamports) return bal;
 	const chunks = [LAMPORTS_PER_SOL, LAMPORTS_PER_SOL / 2, LAMPORTS_PER_SOL / 4];
@@ -342,4 +349,28 @@ export function rewardLabel(amountAtomic, cluster) {
 /** sha256(deliverable) as a 32-byte hex proof, the same shape AgenC expects. */
 export function proofHashFor(deliverable) {
 	return createHash('sha256').update(String(deliverable), 'utf8').digest('hex');
+}
+
+// SPL Memo program — the canonical way to write a small, signed, on-chain note.
+const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+
+/**
+ * Leave a real on-chain attestation (a signed SPL-memo transaction) from the
+ * citizen's custodial wallet. Used by `vouch`: a verifiable, cheap, permanent
+ * record that this citizen attested to another's work — the on-chain proof the
+ * agora_vouches edge and the 'vouched' activity row cite. Returns the tx sig.
+ */
+export async function sendOnchainAttestation({ cluster, signer, memo }) {
+	const { Connection, Transaction, TransactionInstruction, PublicKey, sendAndConfirmTransaction } =
+		await import('@solana/web3.js');
+	const rpc = pickRpc(cluster) || (cluster === 'devnet' ? 'https://api.devnet.solana.com' : 'https://api.mainnet-beta.solana.com');
+	const conn = new Connection(rpc, 'confirmed');
+	if (cluster === 'devnet') await ensureDevnetBalance(conn, signer, 5_000_000);
+	const ix = new TransactionInstruction({
+		keys: [{ pubkey: signer.publicKey, isSigner: true, isWritable: false }],
+		programId: new PublicKey(MEMO_PROGRAM_ID),
+		data: Buffer.from(String(memo).slice(0, 500), 'utf8'),
+	});
+	const tx = new Transaction().add(ix);
+	return sendAndConfirmTransaction(conn, tx, [signer], { commitment: 'confirmed' });
 }
