@@ -95,17 +95,22 @@ Generated from the live tool catalogs (`TOOL_CATALOG` / `buildTools()`) — the 
 | @three-ws/mcp-server (stdio) | `agenc_get_agent` | AgenC get agent ($0.001) | ✅ | — | — | ✅ | $0.001 |
 | @three-ws/mcp-server (stdio) | `aixbt_intel` | aixbt intel ($0.01) | ✅ | — | — | ✅ | $0.01 |
 | @three-ws/mcp-server (stdio) | `aixbt_projects` | aixbt projects ($0.01) | ✅ | — | — | ✅ | $0.01 |
+| @three-ws/mcp-server (stdio) | `agent_hire_discover` | Agent hire — discover ($0.01) | ✅ | — | — | ✅ | $0.01 |
+| @three-ws/mcp-server (stdio) | `agent_hire` | Agent hire (env-configured, default $0.05) | — | — | — | ✅ | $0.05 |
+| /api/mcp-3d (Studio) | `create_agent_persona` | Mint a persistent, living agent persona from a rigged GLB | — | — | — | ✅ | free |
+| /api/mcp-3d (Studio) | `get_agent_persona` | Reload a persisted persona by id (continuity across sessions) | ✅ | — | ✅ | — | free |
+| /api/mcp-3d (Studio) | `persona_say` | Speak a reply through a persona — lip-sync + emotion + gesture | — | — | — | — | free |
 
-**Total tools across all servers: 89**
+**Total tools across all servers: 94**
 
 ## Per-server counts
 
 - /api/mcp (main): 35
-- /api/mcp-3d (Studio): 21
+- /api/mcp-3d (Studio): 24
 - /api/agent-mcp (Agent): 6
 - /api/ibm-mcp (IBM Granite): 6
 - /api/bazaar-mcp (Bazaar): 4
-- @three-ws/mcp-server (stdio): 17
+- @three-ws/mcp-server (stdio): 19
 
 ## Tools flagged destructive (destructiveHint: true)
 
