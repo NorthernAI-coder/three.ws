@@ -237,7 +237,7 @@ function buildLightingRig(scene, anchors, bounds, profile) {
 	for (const a of anchors.lights) {
 		if (a.kind === 'rim') {
 			const p = new PointLight(a.color, a.intensity, a.distance || 0, 1.6);
-			p.position.copy(a.pos);
+			p.position.copy(a.position);
 			scene.add(p);
 			out.push(p);
 			continue;
@@ -245,7 +245,7 @@ function buildLightingRig(scene, anchors, bounds, profile) {
 
 		// key + fill are directional so they shape the whole room evenly.
 		const d = new DirectionalLight(a.color, a.intensity);
-		d.position.copy(a.pos);
+		d.position.copy(a.position);
 		d.target.position.copy(centre);
 		scene.add(d.target);
 

@@ -47,9 +47,11 @@ Before running any prompt, the agent in that chat must read:
    operational risk, nothing new to maintain server-side.
 
 3. **Contest state never touches our game server.** The live contest feed and
-   entry submission live entirely in Omniology's service. Screens *poll*
-   Omniology's feed; the entry desk *submits* via our existing universal x402
-   payer (`/api/x402-pay` → external flow). The Colyseus room only carries player
+   entry submission live entirely in Omniology's service. Screens *poll* their
+   feed (through our read-through proxy); the entry desk *submits* via a dedicated
+   server endpoint that runs Omniology's 3-step entry handshake (their submit flow
+   is **not** x402 — see CONTRACTS §0/§1.3 — so `/api/x402-pay` is not used; we
+   reuse only its safe primitives). The Colyseus room only carries player
    presence. This keeps Omniology's uptime decoupled from our world.
 
 4. **The building is the only core-side asset we author.** A premium venue GLB
@@ -75,20 +77,39 @@ Before running any prompt, the agent in that chat must read:
 | **01** | Route + page + bootstrap skeleton; multiplayer presence in a namespaced `walk_world`; local player movement/camera; empty lit space you can walk around with others | — |
 | **02** | Premium Arena venue GLB + named-anchor module (build script + loader + anchor resolution); environment, lighting, spawn, collision/bounds | 01 |
 | **03** | Generalized live in-world screens (current contest, ~88s countdown, leaderboard, recent entries) fed by Omniology's contest feed via an adapter; mounted on venue screen anchors | 02 + CONTRACTS |
-| **04** | In-world entry desk interactable → `/api/x402-pay` external flow → live SSE settlement UI → receipt; pushes the new entry to the screens from 03 | 03 + CONTRACTS |
-| **05** | `@three-ws/omniology-mcp` server (`list_contests`, `get_contest`, `get_leaderboard`, `submit_entry`), x402-priced, `server.json`, modeled on `packages/*-mcp` | CONTRACTS |
+| **04** | In-world entry desk + server endpoint running Omniology's 3-step entry handshake (sign-and-broadcast with the player's agent key, **C7 inspect-before-sign**), live SSE stepper + receipt; pushes the entry to the screens from 03 | 03 + CONTRACTS + SECURITY |
+| **05** | Register Omniology's **existing** MCP (`{base}/mcp`) in `.mcp.json`; optional thin safety-wrapper package only if non-world agents need our guardrails. (Their MCP already exists — we do not rebuild it.) | CONTRACTS |
 | **06** | Polish pass: all states designed, responsive, a11y, performance (instancing/LOD), tests, changelog entry, real-browser end-to-end verification | 01–05 |
 
 ---
 
-## The one hard external dependency
+## External dependency — mostly resolved
 
-For screens (03) and submission (04) to be **100% working with no mocks**,
-Omniology must expose the endpoints in `CONTRACTS.md`. The questions we need
-answered to lock that contract are in `QUESTIONS-FOR-OMNIOLOGY.md` — send those
-first. Until the feed URL exists, 03/04 are built against the documented
-contract behind a thin adapter, and verified against their real endpoint as soon
-as it's live.
+Omniology already publishes a real API and MCP server (engine base
+`https://omniology-engine.fly.dev`, MCP at `{base}/mcp`), so `CONTRACTS.md` is
+written against their **actual** endpoints — screens (03) and the desk (04) can be
+built against real data, not guesses. Re-verify field names against a live
+response before building. `QUESTIONS-FOR-OMNIOLOGY.md` is now down to a few open
+items (team identity, sandbox env, leaderboard REST-vs-MCP, who enforces geo).
+
+## Diligence + go/no-go gates (see SECURITY.md)
+
+Diligence found Omniology to be a real, on-chain-transparent skill-contest
+platform (88s contests; 0.02 USDC entry; winner ~70% of pot; 30% house rake; real
+USDC on Solana; no proprietary token; public `/audit` + `/winners`). It is
+deliberately structured around the gambling question (AI-judged on a rubric, not
+chance) and geo-blocks AZ/IA/MD/VT/WA. No scam signals found; team is unnamed.
+
+Two **business gates** must clear before placement (neither is engineering):
+1. **Legal:** our counsel blesses hosting a paid-entry skill contest, and tells us
+   who owns the geo/eligibility duty for our users.
+2. **Identity:** real names behind the operators (basic KYC).
+
+The **technical** risk is contained by SECURITY.md (C7 inspect-before-sign, C1
+per-entry cap, C3 bounded responses, C4 sanitized content, C5 server-side proxy,
+C6 no partner code in our origin). With those, a fully compromised Omniology can
+only break its own contests — it cannot move funds, OOM us, inject content, or run
+code in our origin.
 
 ---
 

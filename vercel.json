@@ -887,6 +887,10 @@
 			"dest": "/arena/omniology.html"
 		},
 		{
+			"src": "/world/atelier/?",
+			"dest": "/world/atelier.html"
+		},
+		{
 			"src": "/arena/?",
 			"dest": "/arena.html"
 		},

@@ -120,18 +120,18 @@ describe('resolveArenaAnchors', () => {
 		const empties = collectArenaEmpties(root, ARENA_REQUIRED_EMPTIES);
 		const anchors = resolveArenaAnchors(empties);
 
-		expect(anchors.spawn.pos).toBeInstanceOf(Vector3);
-		expect(anchors.spawn.pos.toArray()).toEqual(positions.spawn_01);
-		expect(anchors.spawn.yaw).toBeCloseTo(Math.PI, 5);
+		expect(anchors.spawn.position).toBeInstanceOf(Vector3);
+		expect(anchors.spawn.position.toArray()).toEqual(positions.spawn_01);
+		expect(anchors.spawn.rotationY).toBeCloseTo(Math.PI, 5);
 
 		expect(anchors.screens).toHaveLength(ARENA_SCREEN_SLOTS);
-		expect(anchors.screens[0].pos.toArray()).toEqual(positions.screen_01);
-		expect(anchors.screens[0].yaw).toBeCloseTo(Math.PI / 2, 5);
+		expect(anchors.screens[0].position.toArray()).toEqual(positions.screen_01);
+		expect(anchors.screens[0].rotationY).toBeCloseTo(Math.PI / 2, 5);
 		expect(anchors.screens[0].width).toBe(9); // from scale.x
 		// Unscaled screens fall back to the default width.
 		expect(anchors.screens[1].width).toBe(DEFAULT_SCREEN_WIDTH_M);
 
-		expect(anchors.desk.pos.toArray()).toEqual(positions.desk_01);
+		expect(anchors.desk.position.toArray()).toEqual(positions.desk_01);
 		expect(anchors.desk.node.name).toBe('desk_01');
 	});
 
@@ -160,11 +160,11 @@ describe('resolveArenaAnchors', () => {
 		const empties = collectArenaEmpties(root, ARENA_REQUIRED_EMPTIES);
 		const anchors = resolveArenaAnchors(empties);
 
-		expect(anchors.camera_intro.pos.toArray()).toEqual(positions.camera_intro);
+		expect(anchors.camera_intro.position.toArray()).toEqual(positions.camera_intro);
 		// camera_intro is rotated 180° about Y, so its forward (-Z) points +Z;
 		// lookAt sits ahead of the camera at greater Z than the camera itself.
-		expect(anchors.camera_intro.lookAt.z).toBeGreaterThan(anchors.camera_intro.pos.z);
-		expect(anchors.camera_intro.lookAt.x).toBeCloseTo(anchors.camera_intro.pos.x, 5);
+		expect(anchors.camera_intro.lookAt.z).toBeGreaterThan(anchors.camera_intro.position.z);
+		expect(anchors.camera_intro.lookAt.x).toBeCloseTo(anchors.camera_intro.position.x, 5);
 	});
 
 	it('honors a parent transform when computing world positions', () => {
@@ -187,7 +187,7 @@ describe('arenaBounds', () => {
 		const bounds = arenaBounds(anchors);
 
 		// Spawn must be reachable (inside the clamp).
-		const s = anchors.spawn.pos;
+		const s = anchors.spawn.position;
 		const clampedSpawn = bounds.clamp(s.x, s.z);
 		expect(clampedSpawn.x).toBeCloseTo(s.x, 5);
 		expect(clampedSpawn.z).toBeCloseTo(s.z, 5);

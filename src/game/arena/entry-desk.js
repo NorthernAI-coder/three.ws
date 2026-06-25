@@ -24,7 +24,7 @@
 import {
 	Group, Mesh, MeshBasicMaterial, MeshStandardMaterial,
 	BoxGeometry, PlaneGeometry, RingGeometry, CylinderGeometry,
-	CanvasTexture, SRGBColorSpace, DoubleSide, PointLight, Vector3,
+	CanvasTexture, SRGBColorSpace, DoubleSide, PointLight,
 } from 'three';
 import { payX402Stream } from '../../agent-x402-pay.js';
 import {
@@ -47,10 +47,6 @@ const STAGES = [
 ];
 
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtUsd = (n) => {
-	const v = Number(n) || 0;
-	return '$' + (v >= 0.01 || v === 0 ? v.toFixed(2) : v.toFixed(4));
-};
 const fmtUsdc = (micro) => `${((Number(micro) || 0) / 1e6).toFixed(4)} USDC`;
 const shortAddr = (a) => (a ? `${String(a).slice(0, 6)}…${String(a).slice(-4)}` : '—');
 
@@ -197,7 +193,7 @@ class EntryDesk {
 		this.celebrateLight.position.set(0, 1.7, 0.4);
 		group.add(this.celebrateLight);
 
-		scene.add(group);
+		this.scene.add(group);
 	}
 
 	_paintScreen(headline, sub) {
@@ -484,7 +480,7 @@ class EntryDesk {
 			const result = mode === 'free'
 				? await this._submitFree(request)
 				: await this._submitPaid(request);
-			this._onSuccess(liveContest, result, request);
+			this._onSuccess(liveContest, result);
 		} catch (err) {
 			this._renderError(err);
 		} finally {
@@ -503,7 +499,7 @@ class EntryDesk {
 				headers: { 'content-type': 'application/json', accept: 'application/json' },
 				body: JSON.stringify(request.body),
 			});
-		} catch (err) {
+		} catch {
 			throw Object.assign(new Error('Could not reach Omniology to submit your entry.'), { code: 'endpoint_unreachable' });
 		}
 		let body = null;
@@ -548,7 +544,7 @@ class EntryDesk {
 		);
 	}
 
-	_onSuccess(contestId, result, request) {
+	_onSuccess(contestId, result) {
 		this._submitted.add(String(contestId));
 		const agentName = this.getAgentName();
 		const confirmation = readEntryConfirmation(result);
