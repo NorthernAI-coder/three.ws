@@ -405,6 +405,93 @@ export async function getPublicCreation({ id }) {
 	}
 }
 
+// Record a refinement: a new creation derived from an existing one. Inserts into
+// forge_creations with parent_creation_id + refine_instruction + lineage_index.
+// Returns the new creation id or null when the store is unavailable.
+export async function createRefinement({
+	clientKey,
+	ipHash,
+	parentCreationId,
+	prompt,
+	refineInstruction,
+	lineageIndex,
+	aspect,
+	backend,
+	tier,
+	path,
+	modelCategory,
+}) {
+	if (!forgeStoreEnabled()) return null;
+	const id = randomUUID();
+	const category = validModelCategory(modelCategory) ?? 'other';
+	try {
+		await sql`
+			insert into forge_creations
+				(id, client_key, ip_hash, prompt, aspect, backend, tier, path,
+				 parent_creation_id, refine_instruction, lineage_index,
+				 status, outcome, model_category)
+			values
+				(${id}, ${clientKey}, ${ipHash ?? null}, ${prompt}, ${aspect ?? null},
+				 ${backend ?? null}, ${tier ?? null}, ${path ?? null},
+				 ${parentCreationId ?? null}, ${refineInstruction ?? null},
+				 ${typeof lineageIndex === 'number' ? lineageIndex : 0},
+				 'generating', 'generated', ${category})
+		`;
+		await recordGenerationEvent({ phase: 'start', backend, tier, path, source: 'refine' });
+		return id;
+	} catch (err) {
+		console.error('[forge-store] createRefinement failed:', err?.message);
+		return null;
+	}
+}
+
+// Return the full lineage thread rooted at rootCreationId: the root itself plus
+// all descendants in lineage_index order. Fails soft (returns []) when the store
+// is unavailable or the root doesn't exist. The caller reconstructs the tree
+// structure using parent_creation_id + lineage_index.
+export async function getLineage({ rootCreationId, clientKey }) {
+	if (!forgeStoreEnabled() || !rootCreationId) return [];
+	try {
+		// Recursive CTE: walk descendants of the root creation. Up to 50 versions
+		// per thread (a hard cap so a misbehaving recursive loop can't exhaust the
+		// connection pool). Rows are returned newest-first within each lineage_index
+		// so the latest refinement at each depth comes first.
+		const rows = await sql`
+			with recursive thread as (
+				select id, parent_creation_id, prompt, refine_instruction, lineage_index,
+					glb_url, preview_image_url, status, backend, created_at
+				from forge_creations
+				where id = ${rootCreationId}
+					and (${clientKey}::text is null or client_key = ${clientKey})
+				union all
+				select fc.id, fc.parent_creation_id, fc.prompt, fc.refine_instruction,
+					fc.lineage_index, fc.glb_url, fc.preview_image_url, fc.status,
+					fc.backend, fc.created_at
+				from forge_creations fc
+				join thread t on fc.parent_creation_id = t.id
+			)
+			select * from thread
+			order by lineage_index asc, created_at asc
+			limit 50
+		`;
+		return rows.map((r) => ({
+			id: r.id,
+			parent_creation_id: r.parent_creation_id,
+			prompt: r.prompt,
+			refine_instruction: r.refine_instruction,
+			lineage_index: r.lineage_index,
+			glb_url: r.glb_url,
+			preview_image_url: r.preview_image_url,
+			status: r.status,
+			backend: r.backend,
+			created_at: r.created_at,
+		}));
+	} catch (err) {
+		console.error('[forge-store] getLineage failed:', err?.message);
+		return [];
+	}
+}
+
 // Newest durable creations for one anonymous client — powers the gallery.
 export async function listCreations({ clientKey, limit = 24 }) {
 	if (!forgeStoreEnabled()) return [];
