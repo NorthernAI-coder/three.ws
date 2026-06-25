@@ -50,6 +50,7 @@
 	},
 	"scripts": {
 		"start": "node src/index.js",
+		"build:ui": "node app/build.mjs",
 		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js",
 		"prepublishOnly": "node -e \"import('./src/index.js').catch(e => { if (!e.message.includes('facilitator')) throw e })\" 2>/dev/null; echo 'package check ok'"
 	},
@@ -75,6 +76,10 @@
 		"short-uuid": "6.0.3",
 		"zod": "^3.23.8",
 		"zod-to-json-schema": "3.25.2"
+	},
+	"devDependencies": {
+		"@modelcontextprotocol/ext-apps": "^1.7.4",
+		"esbuild": "^0.28.0"
 	},
 	"bugs": {
 		"url": "https://github.com/nirholas/three.ws/issues"

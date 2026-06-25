@@ -16,6 +16,10 @@
 // `-end` transition (driven externally by the caller calling fire('react-end')
 // after the clip duration elapses — the machine itself is duration-agnostic).
 //
+// `listen` and `think` are looping conversational postures (worn while a peer
+// speaks / while a reply is generated). They behave like idle/talk/walk — held
+// until a `listen-end` / `think-end` (or any other) event crossfades them out.
+//
 // This module is pure: no Three.js, no DOM, no async. Playback side effects
 // are delivered through a single `onTransition({ state, clip, crossfade })`
 // callback supplied by the caller. That makes the state machine unit-testable
@@ -31,11 +35,19 @@
  */
 import { log } from './shared/log.js';
 const DEFAULT_STATES = Object.freeze({
-	idle:  { clip: 'idle',     loop: true,  crossfade: 0.5,  oneShot: false, returnTo: null },
-	talk:  { clip: 'idle',     loop: true,  crossfade: 0.35, oneShot: false, returnTo: null },
-	walk:  { clip: 'walk',     loop: true,  crossfade: 0.3,  oneShot: false, returnTo: null },
-	react: { clip: 'reaction', loop: false, crossfade: 0.25, oneShot: true,  returnTo: 'idle' },
-	emote: { clip: 'wave',     loop: false, crossfade: 0.25, oneShot: true,  returnTo: 'idle' },
+	idle:   { clip: 'idle',                loop: true,  crossfade: 0.5,  oneShot: false, returnTo: null },
+	talk:   { clip: 'idle',                loop: true,  crossfade: 0.35, oneShot: false, returnTo: null },
+	walk:   { clip: 'walk',                loop: true,  crossfade: 0.3,  oneShot: false, returnTo: null },
+	react:  { clip: 'reaction',            loop: false, crossfade: 0.25, oneShot: true,  returnTo: 'idle' },
+	emote:  { clip: 'wave',                loop: false, crossfade: 0.25, oneShot: true,  returnTo: 'idle' },
+	// Postural modes the body holds while a conversation is in flight. `listen`
+	// is the attentive sway worn while the user/peer is speaking; `think` is the
+	// considering pose worn while a reply is being generated. Both loop and are
+	// left via their `-end` event (or any other transition), so they crossfade
+	// cleanly back to idle/talk without a T-pose pop. Clips are baked library
+	// loops, retargeted to any humanoid rig like every other state.
+	listen: { clip: 'av-listening-music',  loop: true,  crossfade: 0.4,  oneShot: false, returnTo: null },
+	think:  { clip: 'av-waiting',          loop: true,  crossfade: 0.4,  oneShot: false, returnTo: null },
 });
 
 /** Built-in event → target-state transition table. */
@@ -48,6 +60,10 @@ const DEFAULT_TRANSITIONS = Object.freeze({
 	'react-end':   'idle',
 	'emote':       'emote',
 	'emote-end':   'idle',
+	'listen':      'listen',
+	'listen-end':  'idle',
+	'think':       'think',
+	'think-end':   'idle',
 });
 
 const STATE_NAMES = Object.freeze(Object.keys(DEFAULT_STATES));
@@ -85,6 +101,15 @@ const GESTURES = Object.freeze({
 	agree:    { clip: 'xbot-agree',      label: 'Agree',    icon: '✅', loop: false, layer: 'upper', crossfade: 0.2  },
 	disagree: { clip: 'xbot-head-shake', label: 'Disagree', icon: '🙅', loop: false, layer: 'upper', crossfade: 0.2  },
 	talking:  { clip: 'av-vtubing',      label: 'Talking',  icon: '💬', loop: true,  layer: 'upper', crossfade: 0.3  },
+	// Conversational + locomotion gestures. `nod` reuses the agree clip as an
+	// upper-body affirm; `shrug` borrows the full-body `defeated` clip the agent
+	// slot registry already designates for the shrug slot; `jog` is a full-body
+	// run loop; `celebrate` a one-shot whole-body cheer. All clip names are baked
+	// in public/animations/manifest.json (covered by the gesture-manifest test).
+	nod:      { clip: 'xbot-agree',      label: 'Nod',      icon: '🙂', loop: false, layer: 'upper', crossfade: 0.2  },
+	shrug:    { clip: 'defeated',        label: 'Shrug',    icon: '🤷', loop: false, layer: 'full',  crossfade: 0.3  },
+	jog:      { clip: 'xbot-run',        label: 'Jog',      icon: '🏃', loop: true,  layer: 'full',  crossfade: 0.3  },
+	celebrate:{ clip: 'av-celebrating',  label: 'Celebrate',icon: '🎉', loop: false, layer: 'full',  crossfade: 0.3  },
 });
 
 const GESTURE_NAMES = Object.freeze(Object.keys(GESTURES));

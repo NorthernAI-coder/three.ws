@@ -48,6 +48,8 @@ export default wrap(async (req, res) => {
 			i.chat_count,
 			i.created_at,
 			i.meta,
+			i.erc8004_agent_id,
+			i.chain_id,
 			a.thumbnail_key  as avatar_thumbnail_key,
 			a.visibility     as avatar_visibility
 		from agent_identities i
@@ -88,8 +90,13 @@ export default wrap(async (req, res) => {
 			avatar_thumbnail:  thumbnail,
 			home_url:          r.home_url || `/agent/${r.id}`,
 			chat_count:        Number(r.chat_count) || 0,
-			is_registered:     !!(onchain || meta.sol_mint_address || meta.erc8004_agent_id),
+			is_registered:     !!(onchain || meta.sol_mint_address || r.erc8004_agent_id || meta.erc8004_agent_id),
 			onchain:           onchain ? { network: onchain.network, asset: onchain.sol_asset || null } : null,
+			// On-chain ERC-8004 identity (public registry ids) so the agent-commerce
+			// discovery tool can read each candidate's reputation without a second
+			// round-trip. Falls back to the legacy meta field for older records.
+			erc8004_agent_id:  r.erc8004_agent_id != null ? String(r.erc8004_agent_id) : (meta.erc8004_agent_id != null ? String(meta.erc8004_agent_id) : null),
+			chain_id:          r.chain_id ?? null,
 			created_at:        r.created_at,
 		};
 	});
