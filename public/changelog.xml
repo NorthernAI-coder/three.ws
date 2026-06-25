@@ -23,6 +23,14 @@
 			<description>Avatars on three.ws now feel alive. Facial expressions (happy, sad, surprised, angry, thinking, neutral) are driven by blendshapes or brow-bone fallback — every emotion is automatically matched to the right face and a body gesture. Audio-driven lipsync syncs mouth movement to speech in real time, with a text-envelope fallback when no audio is available. The animation library gained new emotes (nod, shrug, jog, celebrate) and the state machine adds listen and think postures for more natural conversational presence. All existing clip IDs and AnimationManager APIs are unchanged.</description>
 		</item>
 		<item>
+			<title>Homepage live preview always renders a real agent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-25:Homepage live preview always renders a real agent</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The hero stage on the homepage no longer shows a &quot;live preview couldn't load&quot; card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.</description>
+		</item>
+		<item>
 			<title>Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry</title>
 			<link>https://three.ws/pose</link>
 			<guid isPermaLink="false">2026-06-25:Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry</guid>
