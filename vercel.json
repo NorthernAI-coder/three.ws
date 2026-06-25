@@ -2549,6 +2549,26 @@
 			"dest": "/api/pump/[action]?action=coin-trades"
 		},
 		{
+			"src": "/api/clash/state",
+			"dest": "/api/clash/[action]?action=state"
+		},
+		{
+			"src": "/api/clash/enlist",
+			"dest": "/api/clash/[action]?action=enlist"
+		},
+		{
+			"src": "/api/clash/enlist-verify",
+			"dest": "/api/clash/[action]?action=enlist-verify"
+		},
+		{
+			"src": "/api/clash/rally",
+			"dest": "/api/clash/[action]?action=rally"
+		},
+		{
+			"src": "/api/clash/leaderboard",
+			"dest": "/api/clash/[action]?action=leaderboard"
+		},
+		{
 			"src": "/api/demo/coin/state",
 			"dest": "/api/demo/coin/[action]?action=state"
 		},
@@ -2713,6 +2733,10 @@
 		{
 			"src": "/api/avatars/([^/]+)/[^/]+\\.glb",
 			"dest": "/api/avatars/$1/glb"
+		},
+		{
+			"src": "/api/avatars/([^/]+)",
+			"dest": "/api/avatars/[id]"
 		},
 		{
 			"src": "/api/a/(\\d+)/(\\d+)/og",
