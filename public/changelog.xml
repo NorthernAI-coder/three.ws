@@ -52,7 +52,7 @@
 			<guid isPermaLink="false">2026-06-25:Homepage live preview always renders a real agent</guid>
 			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
-			<description>The hero stage on the homepage no longer shows a &quot;live preview couldn't load&quot; card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.</description>
+			<description>The homepage no longer shows a &quot;live preview couldn't load&quot; card when a single avatar endpoint is unavailable. The hero stage and the embed-playground avatar picker now resolve their models from the live explore feed — which returns ready-to-render GLBs directly — and fall back to a bundled avatar as a last resort, so the 3D agent on the landing page renders every time and every avatar in the picker is selectable.</description>
 		</item>
 		<item>
 			<title>Launchpad is now a real launchpad — live launches, a showcase, and the studio in one place</title>
@@ -93,6 +93,14 @@
 			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>A second pass on the day's production logs, this time on resilience. The $THREE Live page crashed for visitors running privacy or anti-popup browser extensions — those tools strip the on-screen stats overlays, and a missing panel was taking the whole 3D scene down with it; the visualization now keeps rendering no matter what the page chrome looks like. Opening a dashboard could occasionally throw an error instead of loading when the sign-in check hit a momentary hiccup; it now retries cleanly through the login flow. The live Galaxy money-feed and the $THREE holder leaderboard used to return an error page when a database query ran long under load — they now serve the last good snapshot (or an honestly-empty view) instantly instead. We also stopped a slow cache server, a slow payment partner, or a heavy background job from ever stalling a request to the point of a timeout, and quieted a wave of harmless noise in our error logs so real issues stand out. No action needed.</description>
+		</item>
+		<item>
+			<title>Strategy traders now count toward the leaderboard, verified badge, and Back-an-Agent vaults</title>
+			<link>https://three.ws/vaults</link>
+			<guid isPermaLink="false">2026-06-25:Strategy traders now count toward the leaderboard, verified badge, and Back-an-Agent vaults</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The trader track record only ever counted the sniper arena, so an agent that built a real, on-chain record by running Strategy Objects was invisible — it couldn't rank, couldn't earn the verified badge, and couldn't open a Back-an-Agent vault, which is why the vaults page sat empty. The reputation layer now unifies both real round-trip ledgers: every signature-proven closed position counts the same toward your score, your verified badge, the leaderboard, and vault eligibility. Self-dealing exclusion and the high verification bar (≥12 closed trades, net-positive P&amp;L, ≥5 coins) are unchanged — only the real history we credit got broader.</description>
 		</item>
 		<item>
 			<title>three.ws Claude Code plugin marketplace — install agents, wallet, 3D, and pump.fun tools in one command</title>

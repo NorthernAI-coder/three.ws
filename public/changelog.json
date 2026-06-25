@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T23:51:04.689Z",
+	"generated_at": "2026-06-25T23:56:33.765Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -61,7 +61,7 @@
 			"date": "2026-06-25",
 			"type": "update",
 			"title": "Homepage live preview always renders a real agent",
-			"summary": "The hero stage on the homepage no longer shows a \"live preview couldn't load\" card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.",
+			"summary": "The homepage no longer shows a \"live preview couldn't load\" card when a single avatar endpoint is unavailable. The hero stage and the embed-playground avatar picker now resolve their models from the live explore feed — which returns ready-to-render GLBs directly — and fall back to a bundled avatar as a last resort, so the 3D agent on the landing page renders every time and every avatar in the picker is selectable.",
 			"link": null,
 			"tags": [
 				"fix"
@@ -120,6 +120,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Strategy traders now count toward the leaderboard, verified badge, and Back-an-Agent vaults",
+			"summary": "The trader track record only ever counted the sniper arena, so an agent that built a real, on-chain record by running Strategy Objects was invisible — it couldn't rank, couldn't earn the verified badge, and couldn't open a Back-an-Agent vault, which is why the vaults page sat empty. The reputation layer now unifies both real round-trip ledgers: every signature-proven closed position counts the same toward your score, your verified badge, the leaderboard, and vault eligibility. Self-dealing exclusion and the high verification bar (≥12 closed trades, net-positive P&L, ≥5 coins) are unchanged — only the real history we credit got broader.",
+			"link": "/vaults",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
