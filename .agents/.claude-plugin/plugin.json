@@ -7,5 +7,16 @@
   },
   "homepage": "https://three.ws",
   "license": "Apache-2.0",
-  "repository": "https://github.com/nirholas/three.ws"
+  "repository": "https://github.com/nirholas/three.ws",
+  "keywords": [
+    "wallet",
+    "x402",
+    "usdc",
+    "payments",
+    "trade",
+    "base",
+    "solana",
+    "polygon"
+  ],
+  "category": "payments"
 }

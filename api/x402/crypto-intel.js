@@ -33,7 +33,7 @@ const INPUT_SCHEMA = {
 	properties: {
 		topic: {
 			type: 'string',
-			description: 'Token ticker or CoinGecko id: btc, sol, eth, doge, …',
+			description: 'Token ticker or CoinGecko id: btc, sol, eth, xrp, …',
 			default: 'sol',
 		},
 	},

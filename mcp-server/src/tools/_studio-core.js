@@ -49,6 +49,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const VALID_TIER = new Set(['draft', 'standard', 'high']);
 const VALID_ASPECT = new Set(['1:1', '4:3', '3:4', '16:9', '9:16']);
 
+// Probe that a generated asset URL is actually fetchable before returning it as
+// a success: a degraded lane can hand back an already-expired temp URL, and a
+// 404 link reads as breakage downstream. A 1-byte ranged GET is used because
+// gradio file routes frequently reject HEAD. Best-effort — any error counts as
+// unreachable.
+async function isUrlReachable(url) {
+	if (!url) return false;
+	try {
+		const r = await fetch(url, {
+			method: 'GET',
+			headers: { range: 'bytes=0-0' },
+			signal: AbortSignal.timeout(15_000),
+		});
+		return r.ok || r.status === 206;
+	} catch {
+		return false;
+	}
+}
+
 // ---------------------------------------------------------------------------
 // /api/forge client — submit + poll, shared by forge_free / mesh_forge /
 // forge_avatar. The three callers differ only in: which backend/path they pin,
@@ -256,57 +275,118 @@ export async function runForgeFree({ prompt, tier }) {
 	const tierId = VALID_TIER.has(tier) ? tier : 'draft';
 	const base = apiBaseFrom(['FORGE_FREE_API_BASE']);
 	const startedAt = Date.now();
+	// The free lane's happy path is the durable NVIDIA NIM (R2-persisted) result.
+	// When NIM is cold it degrades to a HuggingFace Space whose gradio /tmp URL
+	// expires within seconds — a non-durable result that can be DEAD on arrival.
+	// Prefer a durable result via a bounded retry, verify any non-durable URL is
+	// actually reachable before returning it, and never hand back a confirmed-dead
+	// link as success. This is what keeps the free smoke-test reliable for a
+	// reviewer even during a NIM outage. Raise FORGE_FREE_ATTEMPTS to trade
+	// latency for a better shot at landing the durable lane.
+	const maxAttempts = Math.max(1, Math.min(4, Number(env('FORGE_FREE_ATTEMPTS', '2')) || 2));
 
-	let job;
-	try {
-		// Pin the free NVIDIA NIM (TRELLIS) lane so the happy path is always the
-		// zero-cost engine; path:"image" is the only path NVIDIA serves. NVCF can
-		// finish inside the generous submit window, so accept a synchronous done.
-		job = await submitForge({
+	let liveFallback = null; // first reachable-but-non-durable result, used only if no durable one appears
+	let lastError = null;
+
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		let gen;
+		try {
+			gen = await forgeFreeOnce({ base, prompt: trimmed, tierId });
+		} catch (err) {
+			lastError = err;
+			continue; // provider/timeout error — retry while attempts remain
+		}
+		// Durable — the reliable, R2-persisted result. Return immediately.
+		if (gen.data.durable && gen.data.glb_url) {
+			return shapeForgeFree({
+				data: gen.data,
+				prompt: trimmed,
+				tierId,
+				jobId: gen.jobId,
+				base,
+				startedAt,
+				attempts: attempt,
+			});
+		}
+		// Non-durable — only trust it if the ephemeral URL is actually fetchable
+		// right now. Keep the first reachable one, but keep trying for a durable
+		// result while attempts remain.
+		if (gen.data.glb_url && !liveFallback && (await isUrlReachable(gen.data.glb_url))) {
+			liveFallback = { data: gen.data, jobId: gen.jobId };
+		}
+	}
+
+	// No durable result — fall back to a verified-reachable non-durable one.
+	if (liveFallback) {
+		return shapeForgeFree({
+			data: liveFallback.data,
+			prompt: trimmed,
+			tierId,
+			jobId: liveFallback.jobId,
 			base,
-			payload: { prompt: trimmed, tier: tierId, backend: 'nvidia', path: 'image' },
-			submitTimeoutMs: 90_000,
-			allowSyncDone: true,
-		});
-	} catch (err) {
-		return coreError(err.code || 'provider_error', err.message, {
-			...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
+			startedAt,
+			attempts: maxAttempts,
 		});
 	}
 
+	// Nothing usable across all attempts — return a clear, actionable error
+	// instead of a dead "success".
+	if (lastError) {
+		return coreError(lastError.code || 'provider_error', lastError.message, {
+			...(lastError.extra || {}),
+			...(lastError.retryAfter ? { retryAfter: lastError.retryAfter } : {}),
+			attempts: maxAttempts,
+			durationMs: Date.now() - startedAt,
+		});
+	}
+	return coreError(
+		'lane_degraded',
+		'The free 3D lane produced a result but its URL was unreachable — the durable NVIDIA NIM path is ' +
+			'momentarily cold and the fallback provider URL expired before it could be used. Please try again shortly.',
+		{ attempts: maxAttempts, durationMs: Date.now() - startedAt },
+	);
+}
+
+// One forge_free generation attempt: submit to the pinned free NVIDIA NIM lane,
+// then (when queued) poll to a terminal state. Returns { data, jobId } or throws
+// a coded error (with optional `.extra`/`.retryAfter`) the retry loop acts on.
+async function forgeFreeOnce({ base, prompt, tierId }) {
+	const job = await submitForge({
+		base,
+		// Pin the free NVIDIA NIM (TRELLIS) lane so the happy path is always the
+		// zero-cost engine; path:"image" is the only path NVIDIA serves. NVCF can
+		// finish inside the generous submit window, so accept a synchronous done.
+		payload: { prompt, tier: tierId, backend: 'nvidia', path: 'image' },
+		submitTimeoutMs: 90_000,
+		allowSyncDone: true,
+	});
+
 	if (job.status === 'done' && job.glb_url) {
-		return shapeForgeFree({ data: job, prompt: trimmed, tierId, jobId: null, base, startedAt });
+		return { data: job, jobId: null };
 	}
 
 	const timeoutMs = Number(env('FORGE_FREE_TIMEOUT_MS', '180000'));
 	const intervalMs = Number(env('FORGE_FREE_POLL_MS', '3000'));
-	let final;
-	try {
-		final = await pollForge(job.job_id, { base, timeoutMs, intervalMs });
-	} catch (err) {
-		return coreError(err.code || 'provider_error', err.message, {
-			jobId: job.job_id,
-			creationId: job.creation_id ?? null,
-			durationMs: Date.now() - startedAt,
-		});
-	}
+	const final = await pollForge(job.job_id, { base, timeoutMs, intervalMs });
 
 	if (final._timedOut) {
-		return coreError('timeout', `generation did not finish within ${timeoutMs}ms`, {
+		const e = new Error(`generation did not finish within ${timeoutMs}ms`);
+		e.code = 'timeout';
+		e.extra = {
 			jobId: job.job_id,
 			creationId: job.creation_id ?? null,
 			status: final.status || 'running',
 			resumeUrl: `${base}/api/forge?job=${job.job_id}`,
-			durationMs: Date.now() - startedAt,
-		});
+		};
+		throw e;
 	}
-
-	return shapeForgeFree({ data: final, prompt: trimmed, tierId, jobId: job.job_id, base, startedAt });
+	return { data: final, jobId: job.job_id };
 }
 
-function shapeForgeFree({ data, prompt, tierId, jobId, base, startedAt }) {
+function shapeForgeFree({ data, prompt, tierId, jobId, base, startedAt, attempts }) {
 	const glbUrl = data.glb_url;
-	return {
+	const durable = Boolean(data.durable);
+	const result = {
 		ok: true,
 		free: true,
 		cost: '$0.00',
@@ -316,12 +396,24 @@ function shapeForgeFree({ data, prompt, tierId, jobId, base, startedAt }) {
 		prompt,
 		tier: tierId,
 		backend: data.backend ?? null,
+		durable,
 		jobId,
 		creationId: data.creation_id ?? null,
-		durable: Boolean(data.durable),
+		attempts,
 		durationMs: Date.now() - startedAt,
 		fetchedAt: new Date().toISOString(),
 	};
+	// A non-durable URL is an ephemeral provider temp file (the free lane degraded
+	// off the durable NVIDIA NIM path). We only return it after verifying it is
+	// reachable, but it can still expire soon — flag it so a stale link later is
+	// never read as breakage, and so the caller views/downloads it promptly.
+	if (!durable) {
+		result.verifiedReachable = true;
+		result.warning =
+			'Served from an ephemeral provider URL (the free lane degraded off the durable NVIDIA NIM path). ' +
+			'It is reachable now but may expire soon — open or download it promptly, or call again for a durable result.';
+	}
+	return result;
 }
 
 // ---------------------------------------------------------------------------

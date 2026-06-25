@@ -8,5 +8,14 @@
   "homepage": "https://pump.fun",
   "license": "Apache-2.0",
   "skills": "./",
-  "repository": "https://github.com/nirholas/three.ws"
+  "repository": "https://github.com/nirholas/three.ws",
+  "keywords": [
+    "pump.fun",
+    "solana",
+    "trading",
+    "defi",
+    "tokens",
+    "swap"
+  ],
+  "category": "trading"
 }

@@ -413,6 +413,17 @@ export function classifyHumanoidPrompt(prompt) {
 		};
 	}
 
+	// Pure punctuation/digits ("!!!", "12345") name no subject at all, so the
+	// "proceed on ambiguity" default below must not apply — there is nothing to rig.
+	if (!/[a-z]/.test(text)) {
+		return {
+			humanoid: false,
+			confidence: 'low',
+			reason: 'prompt has no descriptive words to identify a character',
+			signals: { humanoid: [], nonHumanoid: [] },
+		};
+	}
+
 	const pos = countMatches(text, HUMANOID_TERMS);
 	const neg = countMatches(text, NON_HUMANOID_TERMS);
 	const signals = { humanoid: pos.hits, nonHumanoid: neg.hits };

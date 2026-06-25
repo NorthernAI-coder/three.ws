@@ -261,7 +261,10 @@ export default wrap(async (req, res) => {
 		try {
 			result = await loadModelArtifactConfig(safeUrl, opts);
 		} catch (err) {
-			return error(res, 502, 'upstream_error', err.message || 'model fetch failed');
+			// Upstream fetch/parse errors can carry internal URLs and paths — log
+			// the detail server-side and return a stable, non-revealing message.
+			console.error('[artifact] loadModelArtifactConfig failed:', err?.message || err);
+			return error(res, 502, 'upstream_error', 'Could not load the model configuration.');
 		}
 	}
 
