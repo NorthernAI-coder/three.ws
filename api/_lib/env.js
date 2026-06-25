@@ -157,6 +157,23 @@ export const env = {
 		);
 	},
 
+	// Optional dedicated cache store, separate from the rate-limiter store above.
+	// The rate limiter must fail closed and lives on UPSTASH_REDIS_REST_*. The
+	// best-effort caches (cacheGet/Set/Wrap) write large bodies — e.g. the galaxy
+	// money-feed — that, sharing one free store with the limiter, both contend for
+	// connections and burn the limiter's 500k/mo command quota; that contention is
+	// the failure mode behind the SET timeouts on /api/galaxy/flows. Point these at
+	// a SECOND Upstash store (ideally co-located with the prod Vercel region) to move
+	// all cache traffic off the limiter. Unset → the cache (api/_lib/cache.js) falls
+	// back to the shared store, then to in-memory — no behavior change. The Vercel-KV
+	// marketplace names for a second store prefixed `cache` are accepted too.
+	get UPSTASH_CACHE_REST_URL() {
+		return opt('UPSTASH_CACHE_REST_URL') || opt('cache_KV_REST_API_URL');
+	},
+	get UPSTASH_CACHE_REST_TOKEN() {
+		return opt('UPSTASH_CACHE_REST_TOKEN') || opt('cache_KV_REST_API_TOKEN');
+	},
+
 	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────
 	// The free plan ceils at 500k commands/month; when it is exhausted every
 	// critical limiter fails closed and all paid forge + x402 flows 503 (the

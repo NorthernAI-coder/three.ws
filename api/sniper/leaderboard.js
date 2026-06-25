@@ -21,11 +21,54 @@ import { getLeaderboard, WINDOWS, LEADERBOARD_SORTS } from '../_lib/trader-stats
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
+// kolscan publishes 24h / 7d / 30d windows; the board's "all-time" view has no
+// live analogue, so it borrows the widest available window for the fallback.
+const KOL_WINDOW = { '24h': '24h', '7d': '7d', '30d': '30d', all: '30d' };
+
 function solscan(sig, network) {
 	if (!sig || sig === 'SIMULATED') return null;
 	return network === 'devnet'
 		? `https://solscan.io/tx/${sig}?cluster=devnet`
 		: `https://solscan.io/tx/${sig}`;
+}
+
+function shortWallet(addr) {
+	const s = String(addr || '');
+	return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+}
+
+// Live top-trader fallback. When no three.ws agent has a provable track record in
+// the window yet, the flagship board surfaces the real, public kolscan ranking of
+// top Solana traders (realized SOL profit) so it is never an empty void — clearly
+// labelled as live market data, every wallet deep-linked to its on-chain account.
+// Real data only: a kolscan/parse/price outage degrades to [] and the page shows
+// its honest "be the first" empty state. mainnet-only — kolscan has no devnet.
+async function liveTraders({ network, window, solUsd, limit }) {
+	if (network !== 'mainnet') return [];
+	const win = KOL_WINDOW[window] || '7d';
+	let items;
+	try {
+		const { getLeaderboard: getKolLeaderboard } = await import('../../src/kol/leaderboard.js');
+		items = await getKolLeaderboard({ window: win, limit });
+	} catch {
+		return [];
+	}
+	if (!Array.isArray(items) || !items.length) return [];
+	return items.map((r) => {
+		const pnlSol = Number.isFinite(r.pnlSol)
+			? r.pnlSol
+			: solUsd && Number.isFinite(r.pnlUsd) ? r.pnlUsd / solUsd : null;
+		return {
+			rank: r.rank,
+			wallet: r.wallet,
+			wallet_short: shortWallet(r.wallet),
+			realized_pnl_sol: pnlSol,
+			realized_pnl_usd: Number.isFinite(r.pnlUsd) ? r.pnlUsd : null,
+			win_rate: Number(r.winRate) || 0,
+			trades: Number(r.trades) || 0,
+			account_url: `https://solscan.io/account/${r.wallet}`,
+		};
+	});
 }
 
 export default wrap(async (req, res) => {
@@ -102,12 +145,25 @@ export default wrap(async (req, res) => {
 		};
 	});
 
+	// Hybrid board: provable three.ws agent track records are primary. Until any
+	// agent has traded in this window, fall back to the live kolscan top-trader
+	// ranking so the flagship is real + populated from day one — never an empty
+	// void — and naturally hands back to the agent board as records accrue.
+	const hasAgents = boardResult.leaderboard.length > 0;
+	const live = hasAgents ? [] : await liveTraders({
+		network, window, solUsd: boardResult.sol_usd, limit: 100,
+	});
+	const source = hasAgents ? 'agents' : live.length ? 'live' : 'empty';
+
 	return json(res, 200, {
 		network,
 		window,
 		sort,
+		source,
 		sol_usd: boardResult.sol_usd,
 		leaderboard: boardResult.leaderboard,
+		live_traders: live,
+		live_window: source === 'live' ? (KOL_WINDOW[window] || '7d') : null,
 		trades,
 		positions,
 		t: Date.now(),
