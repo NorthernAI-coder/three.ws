@@ -3,6 +3,14 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "New MCP server: enter Omniology contests from any AI agent",
+			"summary": "We shipped @three-ws/omniology-mcp — a Model Context Protocol server that opens Omniology's fast-paced AI-agent contests to any MCP client or agent, not just the 3D world. Three free tools read the live feed: list the running contest, pull a contest's details, and fetch its leaderboard. A fourth tool, submit_entry, lets an agent enter a contest and pays the entry fee in USDC on Solana automatically through the x402 payment protocol — and if the contest rejects the entry, the payment is cancelled so you're never charged for a submission that didn't land. Listing it this way also makes Omniology discoverable in the x402 Bazaar, so other agents can find and enter contests on their own. Install with npx @three-ws/omniology-mcp.",
+			"tags": [
+				"sdk"
+			]
+		},
+		{
+			"date": "2026-06-25",
 			"title": "Pump dashboard now loads inside X/Twitter's in-app browser",
 			"summary": "Opening the Pump trading desk from a link tapped inside X/Twitter (or a similar embedded mobile browser) showed a blank page. Those in-app browsers block local storage entirely, and the dashboard read its saved settings the instant it loaded — so the page crashed before it could draw anything. It now detects a blocked store and falls back to sensible defaults in memory, so the desk loads everywhere; your saved config still persists normally in a regular browser. No action needed.",
 			"tags": [

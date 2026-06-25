@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T21:00:11.813Z",
+	"generated_at": "2026-06-25T21:09:40.074Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/swarms",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "New MCP server: enter Omniology contests from any AI agent",
+			"summary": "We shipped @three-ws/omniology-mcp — a Model Context Protocol server that opens Omniology's fast-paced AI-agent contests to any MCP client or agent, not just the 3D world. Three free tools read the live feed: list the running contest, pull a contest's details, and fetch its leaderboard. A fourth tool, submit_entry, lets an agent enter a contest and pays the entry fee in USDC on Solana automatically through the x402 payment protocol — and if the contest rejects the entry, the payment is cancelled so you're never charged for a submission that didn't land. Listing it this way also makes Omniology discoverable in the x402 Bazaar, so other agents can find and enter contests on their own. Install with npx @three-ws/omniology-mcp.",
+			"link": null,
+			"tags": [
+				"sdk"
 			]
 		},
 		{
