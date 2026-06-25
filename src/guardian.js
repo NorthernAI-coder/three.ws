@@ -188,7 +188,7 @@ function renderSignedOut() {
 				<span class="ill" aria-hidden="true">🛡</span>
 				<h2 style="margin:0 0 6px;color:var(--ink-bright,#fff);">Sign in to your guardian console</h2>
 				<p>This is where you help the people who trust you back into their agents. Sign in to see who’s named you.</p>
-				<div class="gd-actions" style="justify-content:center;margin-top:14px;"><a class="gd-btn gd-btn--primary" href="/account">Sign in</a></div>
+				<div class="gd-actions" style="justify-content:center;margin-top:14px;"><a class="gd-btn gd-btn--primary" href="/login">Sign in</a></div>
 			</div>
 		</div>`;
 }

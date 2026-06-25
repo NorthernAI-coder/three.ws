@@ -1307,13 +1307,64 @@ support: resolve(__dirname, 'pages/support.html'),
 					// Generic fallback: /<slug> or /<slug>.html → pages/<slug>.html
 					// Catches the long tail of bundled root-level pages (community,
 					// playground, embed, profile, …) without bloating fileMap.
+					// /docs/<topic> -> mirror vercel.json: the walk sub-site is its own built
+					// dir; every other topic is the docs SPA (docs/index.html), which client-
+					// routes and fetches public/docs/<topic>.md at runtime.
+					else if (!filePath && /^\/docs\/walk(\/[a-z0-9-]+)?\/?$/.test(path)) {
+						const sub = path.replace(/^\/docs\/walk\/?/, '').replace(/\/$/, '');
+						const cand = sub
+							? resolve(root, `public/docs/walk/${sub}.html`)
+							: resolve(root, 'public/docs/walk/index.html');
+						if (existsSync(cand)) filePath = cand;
+					} else if (!filePath && /^\/docs\/[a-z0-9][a-z0-9-]*\/?$/.test(path))
+						filePath = resolve(root, 'docs/index.html');
+					// /legal/<slug> -> public/legal/<slug>.html (privacy, tos)
+					else if (!filePath && /^\/legal\/[a-z0-9-]+\/?$/.test(path)) {
+						const slug = path.replace(/^\/legal\//, '').replace(/\/$/, '');
+						const cand = resolve(root, `public/legal/${slug}.html`);
+						if (existsSync(cand)) filePath = cand;
+					}
+					// /x402/<slug> -> public/x402/<slug>.html (e.g. /x402/studio)
+					else if (!filePath && /^\/x402\/[a-z0-9-]+\/?$/.test(path)) {
+						const slug = path.replace(/^\/x402\//, '').replace(/\/$/, '');
+						const cand = resolve(root, `public/x402/${slug}.html`);
+						if (existsSync(cand)) filePath = cand;
+					}
+					// /threews/<slug> -> pages/threews-<slug>.html (e.g. /threews/claim)
+					else if (!filePath && /^\/threews\/[a-z0-9-]+\/?$/.test(path)) {
+						const slug = path.replace(/^\/threews\//, '').replace(/\/$/, '');
+						const cand = resolve(root, `pages/threews-${slug}.html`);
+						if (existsSync(cand)) filePath = cand;
+					}
+					// /marketplace/analytics -> pages/marketplace-analytics.html
+					else if (!filePath && path.replace(/\/$/, '') === '/marketplace/analytics')
+						filePath = resolve(root, 'pages/marketplace-analytics.html');
+					// /play/<slug> -> pages/play/<slug>.html (e.g. /play/ufo)
+					else if (!filePath && /^\/play\/[a-z0-9-]+\/?$/.test(path)) {
+						const slug = path.replace(/^\/play\//, '').replace(/\/$/, '');
+						const cand = resolve(root, `pages/play/${slug}.html`);
+						if (existsSync(cand)) filePath = cand;
+					}
+					// Generic fallback: /<slug> or /<slug>.html resolves to the page's HTML on
+					// disk -- pages/ first, then public/ (file, then dir index). Catches the long
+					// tail of root-level pages (community, playground, pumpfun, lookup, register,
+					// settings, ...) without bloating fileMap.
 					else if (!filePath && /^\/[a-z0-9][a-z0-9-]*(\.html)?\/?$/.test(path)) {
 						const slug = path
 							.replace(/^\//, '')
 							.replace(/\.html$/, '')
 							.replace(/\/$/, '');
-						const candidate = resolve(root, `pages/${slug}.html`);
-						if (existsSync(candidate)) filePath = candidate;
+						for (const rel of [
+							`pages/${slug}.html`,
+							`public/${slug}.html`,
+							`public/${slug}/index.html`,
+						]) {
+							const candidate = resolve(root, rel);
+							if (existsSync(candidate)) {
+							filePath = candidate;
+							break;
+							}
+						}
 					}
 					// /footer-bot.js — serve the Vite-processed src/footer-bot.js at a
 					// stable URL in dev so footer.js can load it without knowing the hash.

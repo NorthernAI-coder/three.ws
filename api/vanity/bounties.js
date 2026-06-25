@@ -372,6 +372,16 @@ async function handleCreate(req, res, url) {
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 	if (!paymentHeader) return send402(res, challenge);
 
+	// Only requests carrying a payment proof reach the facilitator /verify round-trip,
+	// so gate exactly here with the shared critical x402-verify limiters (per-IP +
+	// global). Without this, one cheap junk-X-PAYMENT request amplifies into one
+	// outbound facilitator call at our expense — the same protection paidEndpoint()
+	// applies, which this hand-rolled handler would otherwise skip.
+	const vIp = await limits.x402VerifyIp(clientIp(req));
+	if (!vIp.success) return rateLimited(res, vIp);
+	const vGlobal = await limits.x402VerifyGlobal();
+	if (!vGlobal.success) return rateLimited(res, vGlobal);
+
 	// Idempotency: a retried POST with the same payment proof returns the same
 	// stored bounty rather than escrowing twice.
 	const clientPaymentId = extractIdFromHeader(paymentHeader);
@@ -563,7 +573,6 @@ async function handleRefund(req, res) {
 		return error(res, err.status || 400, 'validation_error', err.message || 'invalid JSON body');
 	}
 	const bountyId = String(body?.bountyId || '').trim();
-	const toAddress = String(body?.refundAddress || '').trim();
 	if (!/^[0-9a-f]{8,32}$/.test(bountyId)) return error(res, 400, 'validation_error', 'bountyId must be a hex bounty id');
 
 	const record = await getBountyRecord(bountyId);
@@ -579,10 +588,15 @@ async function handleRefund(req, res) {
 		return json(res, 409, { refunded: false, status: fresh?.status, reason: why });
 	}
 
-	// Refund destination: the body-supplied address, else the one set at post time.
-	const refundTo = toAddress || record.refundAddress;
+	// Refund destination is BOUND to the address recorded when the bounty was
+	// funded — never a value supplied in this request. Refund is unauthenticated
+	// (it needs only an expired bounty id, and expired ids are listed on the public
+	// board), so honoring a body-supplied `refundAddress` would let anyone redirect
+	// every expired escrow to their own wallet. A bounty funded without a refund
+	// address can only be recovered out-of-band by the operator, never to a stranger.
+	const refundTo = record.refundAddress;
 	if (!refundTo || !BASE58_RE.test(refundTo)) {
-		return error(res, 400, 'no_refund_address', 'no refund address: supply refundAddress, or set one when posting the bounty');
+		return error(res, 409, 'no_refund_address', 'this bounty was funded without a refund address; a self-service refund requires one set when posting');
 	}
 
 	let refund;

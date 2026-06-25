@@ -14,7 +14,8 @@
 // verified live) — so this demo only works against a self-hosted NIM. Point
 // NIM_TRELLIS_URL (or MODEL_TRELLIS_URL) at it.
 
-import { wrap, cors, json, method, readJson } from './_lib/http.js';
+import { wrap, cors, json, method, readJson, rateLimited } from './_lib/http.js';
+import { limits, clientIp } from './_lib/rate-limit.js';
 
 const NIM_URL = process.env.NIM_TRELLIS_URL || process.env.MODEL_TRELLIS_URL || '';
 const NIM_KEY = process.env.NIM_TRELLIS_KEY || process.env.NVIDIA_API_KEY || '';
@@ -83,6 +84,13 @@ export default wrap(async (req, res) => {
 		return json(res, 200, { configured: Boolean(NIM_URL), endpoint: '/v1/infer' });
 	}
 	if (!method(req, res, ['GET', 'POST'])) return;
+
+	// Public endpoint that drives a real self-hosted GPU TRELLIS inference per call,
+	// so meter per IP before touching the upstream — otherwise an anonymous caller
+	// can spam reconstructions against the platform's NIM/key. Mirrors the sibling
+	// /api/forge-nim limiter (limits.forgeNim, 30/hr/IP).
+	const rl = await limits.forgeNim(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	if (!NIM_URL) {
 		return json(res, 503, {

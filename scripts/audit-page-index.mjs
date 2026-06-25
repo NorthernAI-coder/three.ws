@@ -57,6 +57,7 @@ const IGNORE = new Set([
 	'/paywall', // transactional gate, reached in-flow when access is required
 '/sperax/iframe', // partner chat embed iframe, not a discovery page
 	'/ibm/hello.live', // editable source variant of /ibm/hello (the canonical page is generated from it); not a separate discovery page
+	'/profile', // "my profile" shortcut — resolves the signed-in user and redirects to /u/<me>, not a landing
 ]);
 
 // Whole prefixes that are internal/auth-gated/embed and never belong in the
@@ -64,6 +65,7 @@ const IGNORE = new Set([
 const IGNORE_PREFIXES = [
 	'/dashboard/', // authenticated sub-pages
 	'/dashboard-classic/', // legacy authenticated dashboard, superseded by /dashboard
+	'/admin/', // internal admin console — auth-gated, never a public discovery page
 	'/aws-marketplace/', // AWS Marketplace post-subscribe transactional pages
 	'/demo/', // demos
 	'/lobehub/', // partner embed iframes

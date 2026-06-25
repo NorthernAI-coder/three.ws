@@ -247,7 +247,42 @@ async function startServer() {
 // ── Per-route check ──────────────────────────────────────────────────────────
 const SETTLE_MS = Number(process.env.SETTLE_MS || 3000);
 
+// Errors that are the Vite dep-optimizer re-bundling mid-navigation: a page's
+// first load can reference a dep generation the optimizer is still rebuilding,
+// so a transitive import 504s and the dynamic import fails. Vite then full-reloads
+// the page. On a second visit the dep is cached and the page loads clean. None of
+// this exists in production (deps are pre-bundled). So: retry the route once, and
+// only believe an error that survives the retry.
+const OPTIMIZER_RACE = [
+	/Failed to fetch dynamically imported module/i,
+	/error loading dynamically imported module/i,
+	/Importing a module script failed/i,
+	/Outdated Optimize Dep/i,
+	/504/,
+	/\/.vite\/deps\//,
+];
+
+function isOptimizerRace(result) {
+	const all = [
+		...result.navErrors,
+		...result.consoleErrors,
+		...result.failedAssets,
+		...result.rejections,
+	];
+	if (all.length === 0) return false;
+	return all.every((e) => OPTIMIZER_RACE.some((re) => re.test(e)));
+}
+
 async function checkRoute(context, base, route) {
+	let result = await checkRouteOnce(context, base, route);
+	if (totalErrors(result) > 0 && isOptimizerRace(result)) {
+		// Second visit — deps the first load triggered are now optimized.
+		result = await checkRouteOnce(context, base, route);
+	}
+	return result;
+}
+
+async function checkRouteOnce(context, base, route) {
 	const page = await context.newPage();
 
 	const consoleErrors = [];

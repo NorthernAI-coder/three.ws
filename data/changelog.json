@@ -3,6 +3,65 @@
 	"entries": [
 		{
 			"date": "2026-06-24",
+			"title": "Security pass on the new world: escrow recovery, stud fees, and money-drop privacy",
+			"summary": "A focused security review of everything we shipped this past week. Refunds and reclaims on the vanity bounty and sealed-drop markets now always return funds to the address you set when you funded them — never one supplied later — so an expired escrow can only ever come back to its owner. Cross-agent breeding now verifies the $THREE stud fee really landed on-chain in the stud owner's wallet before the offspring is minted, so studs always get paid. Real-world money drops no longer reveal their exact spot to anyone holding a link — precise coordinates stay presence-gated, the way the rest of the map already works; you still get the neighborhood to navigate to. We also tightened rate limits on a few public compute endpoints and hardened the labor market's automated work verification. No user action needed.",
+			"tags": [
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Add Funds stops watching forever for a deposit that never lands",
+			"summary": "When you buy USDC from inside the app, the Add Funds window watches your connected wallet and confirms the moment your deposit arrives. It used to keep watching indefinitely if a deposit never came — a quiet 'waiting' indicator with no way forward. It now watches for up to about twelve minutes, then tells you plainly that it hasn't seen the deposit yet (card purchases are usually instant; bank transfers can take a few minutes) and offers a Check again button to look right away or resume watching. Closing the window stops the check, and a confirmed deposit still closes it automatically and reports your new balance.",
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Dead-link sweep — every nav, footer, and pretty URL lands somewhere live",
+			"summary": "We swept the whole platform for links that went nowhere and fixed every one. Pages that could only be reached through a URL that 404'd — Proof, Integrity, World Lines, Clash, Vaults, Alpha Copilot, Forge Spark, Autopilot activity, and the UFO mini-game — now open at their clean addresses. Footer and navigation links that pointed at the wrong place are corrected: the Terms and Privacy links on agent pages, the IBM watsonx menu item, the guardian sign-in button, the Coin Intelligence sniper link, the ERC-8004 registry button, the 'View avatar' and 'Get the extension' buttons, and the AR tutorial link all reach their real destinations again. The 'My Profile' shortcut now resolves to your own profile instead of a blank page. We also hardened every external link that opens in a new tab with rel=noopener so a linked site can never reach back into your three.ws tab.",
+			"tags": [
+				"fix",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Your avatar now wears its wallet — a live identity nameplate",
+			"summary": "Every agent avatar gets a nameplate anchored to its 3D body: its name, its vanity-highlighted address, and a wealth-tier glyph that lights up as the agent gets funded — the same tier its aura already paints, so the figure and the plate always agree. A $THREE holder shows a distinct gold mark; a real trade or tip fires a single tasteful glint. Hover the plate to reveal the full address with copy and explorer links, or tip the agent on the spot; a fresh empty wallet nudges its owner to fund it. In the walkable worlds, the floating name tags now carry the same tier dot and vanity mark, so a crowded plaza is legible at a glance — you can see who's real without walking up to each one. We never float a precise dollar value over an avatar — only the bucketed tier. Owners can choose what their plate shows from the presence panel, and the setting is saved to the agent.",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Hardened avatar auto-rig against malicious provider URLs",
+			"summary": "When you create a 3D avatar, our build pipeline fetches the finished model from the rigging provider. We tightened that step so every completion path — instant webhook, in-browser status checks, and the background safety sweep — now pins those fetches to the provider's own delivery hosts and refuses any address that points back at internal infrastructure. A tampered or forged result can no longer trick the server into fetching from somewhere it shouldn't; affected jobs fail cleanly with a clear status instead.",
+			"tags": [
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Homepage 3D walk demo recovers from a failed load",
+			"summary": "The interactive 3D walk demo on the homepage used to sit on its loading spinner forever if the avatar or its animations couldn't be fetched — a dropped connection or a slow network would leave you staring at a frozen scene with no way out. It now replaces the spinner with a clear message and a Retry button, so a single tap reloads the scene cleanly instead of leaving the demo stuck.",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-24",
+			"title": "Paid MCP calls: replay protection so a captured payment can't be re-spent",
+			"summary": "Pay-per-call MCP servers (the main tools server, the 3D Studio, the x402 Bazaar, the agent and IBM watsonx servers, and the pump.fun tools) now hold a single-use lock on each signed payment while your tool call runs, matching the protection already on our other paid endpoints. If the same payment is sent twice in the moment before it settles on-chain, only the first call runs and the duplicate is told to retry — so a captured or accidentally-retried payment can never re-run a paid tool for free. Double-charging was already impossible (the on-chain transfer can only execute once); this closes the matching gap on the delivery side. The same guard now also covers Launchpad concierge and showroom-unlock payments.",
+			"tags": [
+				"security",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-24",
 			"title": "Coin launches: stronger on-chain confirmation",
 			"summary": "Launching a coin through three.ws now verifies that your confirmed transaction actually ran the pump.fun program before the launch is recorded — not just that it referenced your new mint address. This closes a gap where an unrelated transaction touching the mint could have been logged as a launch, keeping the launch directory and your agent's launch history accurate.",
 			"tags": [

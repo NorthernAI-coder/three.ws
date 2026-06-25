@@ -17,7 +17,8 @@
 // Data is live DexScreener. When the token is unknown, we return a clean 404
 // the page renders as a designed "not found" state — never a fabricated token.
 
-import { cors, json, error, wrap } from '../_lib/http.js';
+import { cors, json, error, wrap, rateLimited } from '../_lib/http.js';
+import { limits, clientIp } from '../_lib/rate-limit.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { env } from '../_lib/env.js';
 import {
@@ -68,6 +69,12 @@ function buildSnippets(endpointUrl) {
 async function handler(req, res) {
 	if (cors(req, res, { origins: '*', methods: 'GET,OPTIONS' })) return;
 	if (req.method !== 'GET') return error(res, 405, 'method_not_allowed', 'GET only');
+
+	// Public, unauthenticated read that fans out to an external DexScreener fetch per
+	// call — bound per IP so it can't be looped as an unmetered upstream relay that
+	// gets the shared key/IP throttled for everyone.
+	const rl = await limits.publicIp(clientIp(req));
+	if (!rl.success) return rateLimited(res, rl);
 
 	const url = new URL(req.url, 'http://x');
 	const mint = (url.searchParams.get('mint') || '').trim();

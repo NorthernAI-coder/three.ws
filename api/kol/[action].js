@@ -12,21 +12,35 @@ import { putObject, getObjectBuffer } from '../_lib/r2.js';
 
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
 const CACHE_TTL_MS = 60_000;
+// Birdeye failures are negative-cached for a much shorter window: long enough to
+// stop an outage hammering the upstream every request, short enough that a
+// transient blip doesn't hide a wallet (or, worse, render it as a fake zero-P&L
+// row) for a full minute.
+const NEG_CACHE_TTL_MS = 15_000;
 const MAX_ADDRESSES = 20;
-const _cache = new Map(); // address → { data, ts }
+const _cache = new Map(); // address → { data, ts } (hit) | { error: true, ts } (miss)
 
 function _getCached(addr) {
 	const entry = _cache.get(addr);
 	if (!entry) return null;
-	if (Date.now() - entry.ts > CACHE_TTL_MS) {
+	const ttl = entry.error ? NEG_CACHE_TTL_MS : CACHE_TTL_MS;
+	if (Date.now() - entry.ts > ttl) {
 		_cache.delete(addr);
 		return null;
 	}
-	return entry.data;
+	return entry;
 }
 
 function _setCache(addr, data) {
 	_cache.set(addr, { data, ts: Date.now() });
+}
+
+// Negative-cache a fetch failure instead of storing a normalized-from-null
+// portfolio: that shape is all zeros and is indistinguishable from a real
+// flat wallet, so callers would render an upstream outage as legitimate KOL
+// data. A miss entry is filtered out of the response and refreshed sooner.
+function _setCacheError(addr) {
+	_cache.set(addr, { error: true, ts: Date.now() });
 }
 
 async function _fetchBirdeye(addr, apiKey) {
@@ -93,14 +107,20 @@ async function handleWallets(req, res) {
 				try {
 					const portfolio = await _fetchBirdeye(addr, apiKey);
 					_setCache(addr, _normalizePortfolio(addr, portfolio));
-				} catch {
-					_setCache(addr, _normalizePortfolio(addr, null));
+				} catch (err) {
+					// The negative cache bounds this log to once per address per
+					// NEG_CACHE_TTL window, so an outage can't flood the function logs.
+					console.warn(`[kol] birdeye portfolio failed for ${addr.slice(0, 4)}…: ${err?.message || err}`);
+					_setCacheError(addr);
 				}
 			}),
 		);
 	}
 
-	const data = addresses.map((a) => _getCached(a)).filter(Boolean);
+	const data = addresses
+		.map((a) => _getCached(a))
+		.filter((e) => e && !e.error)
+		.map((e) => e.data);
 	res.setHeader('x-cache', cacheHit ? 'HIT' : 'MISS');
 	return json(res, 200, { data });
 }

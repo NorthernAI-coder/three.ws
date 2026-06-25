@@ -37,10 +37,13 @@ export const PRESENCE_TIERS = Object.freeze([
 export const REACTIVITY_LEVELS = Object.freeze(['off', 'subtle', 'balanced', 'expressive']);
 
 // Per-signal opt-in/out, all default-on. The owner can hide any single channel
-// (e.g. mute the balance-driven aura while keeping tip reactions).
+// (e.g. mute the balance-driven aura while keeping tip reactions). `nameplate`
+// controls what the avatar's license-plate overlay shows (its public address, its
+// wealth-tier glyph) — both default-on; the agent name is always shown.
 export const DEFAULT_PREFS = Object.freeze({
 	reactivity: 'balanced',
 	signals: Object.freeze({ aura: true, events: true, reputation: true }),
+	nameplate: Object.freeze({ address: true, tier: true }),
 });
 
 const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, Number(n) || 0));
@@ -195,12 +198,17 @@ export function normalizePrefs(raw) {
 	const r = raw && typeof raw === 'object' ? raw : {};
 	const reactivity = REACTIVITY_LEVELS.includes(r.reactivity) ? r.reactivity : DEFAULT_PREFS.reactivity;
 	const sig = r.signals && typeof r.signals === 'object' ? r.signals : {};
+	const np = r.nameplate && typeof r.nameplate === 'object' ? r.nameplate : {};
 	return {
 		reactivity,
 		signals: {
 			aura: sig.aura !== false,
 			events: sig.events !== false,
 			reputation: sig.reputation !== false,
+		},
+		nameplate: {
+			address: np.address !== false,
+			tier: np.tier !== false,
 		},
 	};
 }

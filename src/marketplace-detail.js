@@ -17,10 +17,12 @@ import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-
 import { log } from './shared/log.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+import { mountNameplate } from './shared/living-avatar.js';
 
 // The detail stage's wallet aura — torn down before each remount so its live
 // poll + rAF never leak across agents.
 let detailStageAura = null;
+let detailStagePlate = null;
 
 const API = '/api';
 const $ = (id) => document.getElementById(id);
@@ -111,6 +113,8 @@ export function renderDetailModelStage(a) {
 	}
 	detailStageAura?.destroy?.();
 	detailStageAura = null;
+	detailStagePlate?.destroy?.();
+	detailStagePlate = null;
 	stage.innerHTML = '';
 
 	const hint = $('d-model-hint');
@@ -165,6 +169,10 @@ export function renderDetailModelStage(a) {
 	hydrateAvatarWallet(stage, a, { lod: 'full', live: true, network: 'mainnet' })
 		.then((c) => { detailStageAura = c; })
 		.catch(() => { /* dormant baseline already shown */ });
+	// The nameplate — name + vanity-highlighted address + tier glyph anchored to the
+	// model. Ownership is reconciled from the server read (upgrades to the owner view
+	// only on a confirmed owner), so a visitor never sees an owner control.
+	detailStagePlate = mountNameplate(stage, a, { network: 'mainnet', live: true, position: 'bottom' });
 	mv.addEventListener(
 		'error',
 		() => {

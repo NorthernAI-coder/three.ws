@@ -256,15 +256,15 @@
 		<div class="links">
 			<a href="#install">Install</a>
 			<a href="#demo">Demo</a>
-			<a href="/docs/x402" target="_blank">Docs</a>
-			<a href="https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07" target="_blank">Live activity ↗</a>
+			<a href="/docs/x402" target="_blank" rel="noopener">Docs</a>
+			<a href="https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07" target="_blank" rel="noopener">Live activity ↗</a>
 		</div>
 	</nav>
 
 	<section class="hero">
 		<h1>x402 payments,<br /><span class="grad">drop-in.</span></h1>
 		<p class="lede">
-			One <code style="background:var(--panel);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:0.9em;">&lt;script&gt;</code> tag. A clean modal. Stablecoin payments on Base and Solana, settled on-chain in seconds. No keys, no signup, no SDK to learn. Built on the <a href="https://x402.org" target="_blank">x402 protocol</a>.
+			One <code style="background:var(--panel);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:0.9em;">&lt;script&gt;</code> tag. A clean modal. Stablecoin payments on Base and Solana, settled on-chain in seconds. No keys, no signup, no SDK to learn. Built on the <a href="https://x402.org" target="_blank" rel="noopener">x402 protocol</a>.
 		</p>
 		<div class="cta-row">
 			<a class="btn" href="#install">Get the snippet</a>
@@ -395,7 +395,7 @@
 		<p class="sub">
 			For re-downloadable content — GLBs, avatars, agent skills, lobby
 			characters — buyers shouldn't pay again every time they fetch the same
-			asset. When an endpoint opts into <a href="https://github.com/x402/x402/blob/main/typescript/site/CHANGELOG-v2.md" target="_blank">SIWX (Sign-In-With-X, CAIP-122)</a>,
+			asset. When an endpoint opts into <a href="https://github.com/x402/x402/blob/main/typescript/site/CHANGELOG-v2.md" target="_blank" rel="noopener">SIWX (Sign-In-With-X, CAIP-122)</a>,
 			the modal grows a second option:
 		</p>
 		<pre style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.5;overflow:auto;"><code>┌──────────────────────────────────────────┐
@@ -453,9 +453,9 @@
 			<span>x402 · operated by three.ws</span>
 		</div>
 		<div class="right">
-			<a href="/docs/x402" target="_blank">Docs</a>
-			<a href="https://x402.org" target="_blank">Protocol ↗</a>
-			<a href="https://www.x402scan.com" target="_blank">x402scan ↗</a>
+			<a href="/docs/x402" target="_blank" rel="noopener">Docs</a>
+			<a href="https://x402.org" target="_blank" rel="noopener">Protocol ↗</a>
+			<a href="https://www.x402scan.com" target="_blank" rel="noopener">x402scan ↗</a>
 		</div>
 	</footer>
 </div>
@@ -496,7 +496,7 @@
 			const explorer = payment?.transaction
 				? (payment.network?.startsWith('solana') ? `https://solscan.io/tx/${payment.transaction}` : `https://basescan.org/tx/${payment.transaction}`)
 				: null;
-			panel.innerHTML = `<span class="ok">✓ Paid</span> · network=${payment?.network || '?'} · ${explorer ? `<a href="${explorer}" target="_blank">tx ↗</a>` : ''}\n\n${escapeHtml(JSON.stringify(result, null, 2).slice(0, 2400))}`;
+			panel.innerHTML = `<span class="ok">✓ Paid</span> · network=${payment?.network || '?'} · ${explorer ? `<a href="${explorer}" target="_blank" rel="noopener">tx ↗</a>` : ''}\n\n${escapeHtml(JSON.stringify(result, null, 2).slice(0, 2400))}`;
 			panel.classList.add('show');
 		});
 		btn.addEventListener('x402:error', (e) => {

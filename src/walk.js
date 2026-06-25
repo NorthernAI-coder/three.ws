@@ -39,6 +39,7 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
+import { getMeshoptDecoder } from './viewer/internal.js';
 import nipplejs from 'nipplejs';
 
 import { AnimationManager } from './animation-manager.js';
@@ -68,6 +69,7 @@ import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './wa
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 import { createWalkNpcs } from './walk-npcs.js';
 import { createWalkWalletProximity } from './walk-wallet.js';
+import { applyWorldNameplate } from './shared/living-avatar.js';
 import { createWalkCapture } from './walk-capture.js';
 import { createMarketplaceGallery } from './marketplace-gallery.js';
 
@@ -1415,6 +1417,23 @@ function applyLocalCosmetics(wire) {
 	localCosmetics = applyLoadout(avatarRig, avatarHeight || 1.7, next);
 }
 
+// three.ws avatars ship with EXT_meshopt_compression, so every GLTFLoader that
+// loads one must have the meshopt decoder wired first — otherwise GLTFLoader
+// throws "setMeshoptDecoder must be called before loading compressed files".
+// Build the loader once and share it across the initial load, live avatar swaps,
+// and remote-player templates (mirrors walk-embed.js's getAvatarLoader).
+let _avatarLoaderPromise = null;
+function getAvatarLoader() {
+	if (!_avatarLoaderPromise) {
+		_avatarLoaderPromise = getMeshoptDecoder().then((decoder) => {
+			const loader = new GLTFLoader();
+			loader.setMeshoptDecoder(decoder);
+			return loader;
+		});
+	}
+	return _avatarLoaderPromise;
+}
+
 async function loadAvatar() {
 	setLoadingText('Resolving avatar...');
 	const avatarUrl = await resolveAvatarUrl();
@@ -1422,7 +1441,7 @@ async function loadAvatar() {
 	// avatar even before any in-page swap (id is already seeded from ?avatar).
 	selectedAvatarUrl = avatarUrl;
 	setLoadingText('Loading 3D model...');
-	const loader = new GLTFLoader();
+	const loader = await getAvatarLoader();
 	const gltf = await loader.loadAsync(avatarUrl);
 	avatar = gltf.scene;
 	avatarTemplate = gltf.scene;
@@ -1535,7 +1554,7 @@ async function loadAvatar() {
 // by session restore so both paths build, frame, animate, and broadcast the new
 // avatar identically. Throws on load failure so callers can surface it.
 async function applyAvatarSwap(url, id) {
-	const loader = new GLTFLoader();
+	const loader = await getAvatarLoader();
 	const gltf = await loader.loadAsync(url);
 	if (avatar) avatarRig.remove(avatar);
 	avatar = gltf.scene;
@@ -2918,8 +2937,8 @@ function loadRemoteAvatarTemplate(url) {
 		entry.lastUsed = performance.now();
 		return entry.promise;
 	}
-	const promise = new GLTFLoader()
-		.loadAsync(url)
+	const promise = getAvatarLoader()
+		.then((loader) => loader.loadAsync(url))
 		.then((gltf) => {
 			gltf.scene.traverse((n) => {
 				if (n.isMesh) {
@@ -3068,6 +3087,14 @@ class RemotePlayer {
 		this.label.textContent = initial?.name ?? sessionId.slice(0, 6);
 		document.body.appendChild(this.label);
 
+		// Living-avatar legibility: enrich the nameplate with the piloted agent's
+		// wealth tier (a coloured dot) + a vanity mark, so a crowded plaza reads at a
+		// glance — who's funded, who's vanity — without walking up to each. One cached,
+		// deduped public wallet-embed read per agent; the tier dot rides CSS so the
+		// per-frame textContent name update never clobbers it. Released on dispose.
+		this._wealthLabel = null;
+		this._applyWealthLabel();
+
 		// Visual state — target (latest server) vs current (interpolated).
 		this.targetX = initial?.x ?? 0;
 		this.targetY = initial?.y ?? 0;
@@ -3109,7 +3136,18 @@ class RemotePlayer {
 		// A player can swap which agent they pilot without rejoining.
 		if (player.agent !== undefined && player.agent !== this.agent) {
 			this.agent = player.agent || null;
+			this._applyWealthLabel();
 		}
+	}
+
+	// (Re)bind the nameplate's wealth-tier + vanity enrichment to the currently
+	// piloted agent. Idempotent — tears down a stale binding before rebinding, and
+	// no-ops (clean label) when the peer isn't piloting a real agent.
+	_applyWealthLabel() {
+		try { this._wealthLabel?.destroy?.(); } catch { /* already gone */ }
+		this._wealthLabel = null;
+		const id = this.agent && UUID_RE.test(String(this.agent)) ? String(this.agent) : null;
+		if (id && this.label) this._wealthLabel = applyWorldNameplate(this.label, id, { network: 'mainnet' });
 	}
 
 	// (Re)dress this peer in their equipped loadout. Idempotent — re-applies only
@@ -3259,6 +3297,8 @@ class RemotePlayer {
 		scene.remove(this.rig);
 		this.rig = null;
 		this.anim.dispose();
+		try { this._wealthLabel?.destroy?.(); } catch { /* already gone */ }
+		this._wealthLabel = null;
 		this.label.remove();
 	}
 }

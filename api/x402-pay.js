@@ -31,7 +31,7 @@ import {
 } from '@solana/spl-token';
 import bs58 from 'bs58';
 
-import { cors, json, readJson, wrap, rateLimited, setRateLimitHeaders } from './_lib/http.js';
+import { cors, json, readJson, wrap, rateLimited, setRateLimitHeaders, respondError } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { requireCsrf } from './_lib/csrf.js';
 import {
@@ -1038,7 +1038,11 @@ export default wrap(async (req, res) => {
 				if (err.code === 'wallet_misconfigured' || err.code === 'wallet_unconfigured') {
 					return json(res, 200, { configured: false, code: err.code, error: err.message, address: null, sol: 0, usdc: 0 });
 				}
-				return json(res, err.status || 500, { error: err.message });
+				// A balance read failure here is a Solana RPC fault — and web3.js
+					// embeds the keyed RPC URL in its error text, so the raw message
+					// must never reach the client. respondError sanitizes the 5xx to a
+					// support ref (and still passes a 4xx client-fault message through).
+					return respondError(res, err.status || 500, err.code || 'balance_unavailable', err);
 			}
 		}
 		if (u.searchParams.get('feed') === '1') {

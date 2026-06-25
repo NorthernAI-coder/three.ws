@@ -198,6 +198,12 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 				<input type="checkbox" data-sig="${key}" ${prefs.signals[key] !== false ? 'checked' : ''} ${disabled ? 'disabled' : ''}/>${esc(label)}
 			</label>`;
 		};
+		// Nameplate display: what the avatar's license-plate overlay shows. The name
+		// is always shown; the owner chooses whether to reveal the public address and
+		// the wealth-tier glyph. Independent of reactivity (it's identity, not motion).
+		const np = (key, label) => `<label class="nwp-sig">
+			<input type="checkbox" data-np="${key}" ${prefs.nameplate?.[key] !== false ? 'checked' : ''}/>${esc(label)}
+		</label>`;
 		return `
 			<div class="nwp-controls">
 				<div class="nwp-label">Reactivity</div>
@@ -207,6 +213,11 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 					${sig('aura', 'Wealth aura')}
 					${sig('events', 'Live reactions')}
 					${sig('reputation', 'Reputation marks')}
+				</div>
+				<div class="nwp-label">Nameplate</div>
+				<div class="nwp-sigs">
+					${np('address', 'Show address')}
+					${np('tier', 'Show tier glyph')}
 				</div>
 				<div class="nwp-err" data-err hidden></div>
 			</div>`;
@@ -221,10 +232,11 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 			if (saving) return;
 			saving = true;
 			showErr('');
-			const prevPrefs = { ...prefs, signals: { ...prefs.signals } };
+			const prevPrefs = { ...prefs, signals: { ...prefs.signals }, nameplate: { ...prefs.nameplate } };
 			// optimistic
 			Object.assign(prefs, patch);
 			if (patch.signals) prefs.signals = { ...prefs.signals, ...patch.signals };
+			if (patch.nameplate) prefs.nameplate = { ...prefs.nameplate, ...patch.nameplate };
 			syncControlsUI();
 			try {
 				const saved = await saveNetWorthPrefs(agentId, prefs);
@@ -232,6 +244,9 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 				if (data) data.prefs = prefs;
 				syncControlsUI();
 				onPrefsSaved?.(prefs);
+				// Broadcast so every wallet-reactive surface for this agent (the aura, the
+				// living-avatar nameplate) applies the change instantly — no page wiring.
+				try { window.dispatchEvent(new CustomEvent('tws:networth-prefs', { detail: { agentId, prefs: { ...prefs, signals: { ...prefs.signals }, nameplate: { ...prefs.nameplate } } } })); } catch { /* SSR */ }
 			} catch (e) {
 				Object.assign(prefs, prevPrefs);
 				syncControlsUI();
@@ -253,6 +268,7 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 			// Honour the reputation opt-out instantly: hide/show the regalia row in place.
 			const marksRow = el.querySelector('[data-marks]');
 			if (marksRow) marksRow.hidden = prefs.signals.reputation === false;
+			for (const c of el.querySelectorAll('[data-np]')) c.checked = prefs.nameplate?.[c.dataset.np] !== false;
 		}
 
 		for (const b of el.querySelectorAll('[data-rx]')) {
@@ -260,6 +276,9 @@ export function createPresencePanel({ agentId, onPrefsSaved } = {}) {
 		}
 		for (const c of el.querySelectorAll('[data-sig]')) {
 			c.addEventListener('change', () => commit({ signals: { [c.dataset.sig]: c.checked } }));
+		}
+		for (const c of el.querySelectorAll('[data-np]')) {
+			c.addEventListener('change', () => commit({ nameplate: { [c.dataset.np]: c.checked } }));
 		}
 	}
 

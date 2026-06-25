@@ -1668,6 +1668,7 @@ async function handleNetWorth(req, res, id) {
 		const next = normalizePrefs({
 			reactivity: 'reactivity' in body ? body.reactivity : prev.reactivity,
 			signals: { ...prev.signals, ...(body.signals && typeof body.signals === 'object' ? body.signals : {}) },
+			nameplate: { ...prev.nameplate, ...(body.nameplate && typeof body.nameplate === 'object' ? body.nameplate : {}) },
 		});
 		next.updated_at = new Date().toISOString();
 		const meta = { ...(row.meta || {}), networth_look: next };

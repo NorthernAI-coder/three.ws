@@ -25,7 +25,8 @@
 //        (useless without the recipient's private key) for client-side open.
 //        body: { id }
 //   POST ?action=reclaim               → sender sweeps an EXPIRED, unclaimed drop's
-//        funds back on-chain (atomic, exactly-once). body: { id, reclaimAddress? }
+//        funds back on-chain (atomic, exactly-once). body: { id } — funds always
+//        return to the reclaimAddress recorded at create time (never a body value).
 //
 // Money + key safety (see sealed-drop-store.js + sealed-drop-funding.js +
 // src/solana/vanity/drop-protocol.js):
@@ -410,6 +411,15 @@ async function handleCreate(req, res, url) {
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
 	if (!paymentHeader) return send402(res, challenge);
 
+	// Only requests carrying a payment proof reach the facilitator /verify round-trip,
+	// so gate exactly here with the shared critical x402-verify limiters (per-IP +
+	// global) — the same amplification protection paidEndpoint() applies, which this
+	// hand-rolled handler would otherwise skip.
+	const vIp = await limits.x402VerifyIp(clientIp(req));
+	if (!vIp.success) return rateLimited(res, vIp);
+	const vGlobal = await limits.x402VerifyGlobal();
+	if (!vGlobal.success) return rateLimited(res, vGlobal);
+
 	// Idempotency: a retried create with the same payment proof returns the same
 	// stored drop instead of grinding + funding twice.
 	const clientPaymentId = extractIdFromHeader(paymentHeader);
@@ -734,7 +744,6 @@ async function handleReclaim(req, res) {
 	}
 	const id = String(body?.id || '').trim();
 	if (!isValidDropId(id)) return error(res, 400, 'validation_error', 'id must be a 24-char hex drop id');
-	const toAddress = String(body?.reclaimAddress || '').trim();
 
 	const record = await getDropRecord(id);
 	if (!record) return error(res, 404, 'not_found', 'no drop with that id');
@@ -751,9 +760,13 @@ async function handleReclaim(req, res) {
 		return json(res, 409, { reclaimed: false, status: fresh?.status, reason: why });
 	}
 
-	const refundTo = toAddress || record.reclaimAddress;
+	// Reclaim destination is BOUND to the address recorded when the drop was
+	// created — never a value supplied in this (unauthenticated) request. A drop id
+	// leaks through share links / OG cards, so trusting a body-supplied address
+	// would let anyone who sees an id sweep the funded drop wallet to themselves.
+	const refundTo = record.reclaimAddress;
 	if (!refundTo || !BASE58_RE.test(refundTo)) {
-		return error(res, 400, 'no_reclaim_address', 'no reclaim address: supply reclaimAddress, or set one when creating the drop');
+		return error(res, 409, 'no_reclaim_address', 'this drop was created without a reclaim address; a self-service reclaim requires one set at create time');
 	}
 
 	// Reconstruct the drop wallet's key from the at-rest ciphertext ONLY to sign

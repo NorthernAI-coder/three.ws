@@ -388,7 +388,7 @@
 						Store handle
 						<div class="add-row">
 							<input id="store_handle" class="mono" placeholder="acme" spellcheck="false" autocomplete="off" />
-							<a class="btn ghost sm" id="viewStore" target="_blank" style="white-space:nowrap">View store ↗</a>
+							<a class="btn ghost sm" id="viewStore" target="_blank" style="white-space:nowrap" rel="noopener">View store ↗</a>
 						</div>
 						<span class="hint" id="handleHint">Public URL: <span id="handlePreview" class="mono">/store/acme</span></span>
 					</label>
@@ -1189,7 +1189,7 @@ function renderOverview(){
 	$('ov-prods').textContent = products.length;
 	$('ov-calls').textContent = calls;
 	$('ov-rev').innerHTML = `${fmtUsdc(gross)}<span class="u">USDC</span>`;
-	$('ov-store').innerHTML = settings.store_published && settings.store_handle ? `<a href="/store/${esc(settings.store_handle)}" target="_blank">Live ↗</a>` : '<span style="color:var(--muted)">Draft</span>';
+	$('ov-store').innerHTML = settings.store_published && settings.store_handle ? `<a href="/store/${esc(settings.store_handle)}" target="_blank" rel="noopener">Live ↗</a>` : '<span style="color:var(--muted)">Draft</span>';
 	const checks = [
 		{ done: !!(settings.payout_evm || settings.payout_solana), main: 'Add a payout wallet', sub: 'Where your USDC settles', tab: 'payout' },
 		{ done: products.length>0, main: 'Create a product', sub: 'A paid endpoint with a price', tab: 'products' },

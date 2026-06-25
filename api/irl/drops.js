@@ -43,6 +43,10 @@ import {
 } from '../_lib/irl-drops.js';
 
 const NEARBY_CAP_M = 80; // server-side hard cap on the nearby read radius.
+// Single-drop reads are not presence-gated, so a non-owner only ever gets a coarse
+// (~110 m, matching the presence token's anchor precision) location — a leaked drop
+// id must not reveal the exact spot a stranger placed real money.
+const COARSE_DP = 3;
 
 // The stable identity a claim is idempotent against: the authenticated user, else
 // the anonymous IRL device token. One claim per identity per drop.
@@ -83,7 +87,22 @@ export default wrap(async (req, res) => {
 		if (id) {
 			const row = await getDropRow(id);
 			if (!row) return error(res, 404, 'not_found', 'drop not found');
-			return json(res, 200, { drop: toPublicDrop(row, { viewerKey: deviceToken, viewerUserId: userId }) });
+			const drop = toPublicDrop(row, { viewerKey: deviceToken, viewerUserId: userId });
+			// Coarsen the location for anyone but the owner: every other location read in
+			// the IRL system is presence-gated (the nearby read needs a fix token bound to
+			// where you stand), but this id-addressed read has no presence proof. Precise
+			// coordinates are revealed only to the owner or via the presence-gated nearby
+			// read when you are physically there.
+			if (!drop.is_mine) {
+				const plat = Number(drop.lat);
+				const plng = Number(drop.lng);
+				if (Number.isFinite(plat) && Number.isFinite(plng)) {
+					drop.lat = Number(plat.toFixed(COARSE_DP));
+					drop.lng = Number(plng.toFixed(COARSE_DP));
+					drop.coarse = true;
+				}
+			}
+			return json(res, 200, { drop });
 		}
 
 		if (query.get('mine') === '1') {

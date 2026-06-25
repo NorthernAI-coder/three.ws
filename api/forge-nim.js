@@ -27,6 +27,7 @@
 import { cors, method, wrap, error, readJson, json } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { env } from './_lib/env.js';
+import { fetchSafePublicUrl, SsrfBlockedError } from './_lib/ssrf-guard.js';
 
 const INFER_PATH = '/v1/infer';
 const READY_PATH = '/v1/health/ready'; // NIM containers expose this by convention
@@ -139,7 +140,22 @@ async function toImageDataUri(image) {
 		return image;
 	}
 	if (/^https?:\/\//i.test(image)) {
-		const res = await fetch(image, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS * 3) });
+		// SSRF guard: this is an unauthenticated, public endpoint and the fetched
+		// bytes are forwarded to the NIM. Route through the SSRF guard so a caller
+		// can't point `image` at cloud-metadata (169.254.169.254), loopback, or any
+		// RFC1918 host — each redirect hop is re-validated and http:// is rejected.
+		let res;
+		try {
+			res = await fetchSafePublicUrl(image, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS * 3) });
+		} catch (err) {
+			if (err instanceof SsrfBlockedError) {
+				throw Object.assign(new Error('reference image URL is not allowed (must be a public https URL)'), {
+					status: 400,
+					code: 'bad_image_url',
+				});
+			}
+			throw Object.assign(new Error('could not fetch reference image'), { status: 502, code: 'image_fetch_failed' });
+		}
 		if (!res.ok) {
 			throw Object.assign(new Error(`could not fetch reference image (${res.status})`), {
 				status: 502,
@@ -171,7 +187,17 @@ async function extractGlb(res) {
 		if (typeof inline === 'string' && inline && !inline.startsWith('http')) return Buffer.from(inline, 'base64');
 		const url = a0?.url ?? (typeof inline === 'string' && inline.startsWith('http') ? inline : null);
 		if (url) {
-			const r = await fetch(url, { signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS) });
+			// Defense in depth: the NIM-supplied artifact URL is also SSRF-guarded so a
+			// (possibly caller-pointed) NIM can't redirect the second hop at an internal host.
+			let r;
+			try {
+				r = await fetchSafePublicUrl(url, { signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS) });
+			} catch (err) {
+				if (err instanceof SsrfBlockedError) {
+					throw Object.assign(new Error('artifact url is not allowed'), { status: 502, code: 'nim_bad_artifact' });
+				}
+				throw err;
+			}
 			if (r.ok) return Buffer.from(await r.arrayBuffer());
 			throw Object.assign(new Error(`artifact url fetch ${r.status}`), { status: 502, code: 'nim_bad_artifact' });
 		}

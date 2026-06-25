@@ -19,7 +19,7 @@
 //   • per-IP rate limit + per-payment cap + per-wallet daily USDC cap.
 //   • target endpoints must be on an allowlisted origin (three.ws + local dev).
 
-import { cors, wrap, error, setRateLimitHeaders } from './_lib/http.js';
+import { cors, wrap, error, serverError, setRateLimitHeaders } from './_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
@@ -265,7 +265,9 @@ export default wrap(async (req, res) => {
 			res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
 			res.end(JSON.stringify(status));
 		} catch (err) {
-			error(res, 503, 'wallet_unavailable', err.message);
+			// A 503 here means the signer/RPC layer faulted — sanitize so a keyed
+				// RPC URL or signer internal can't ride out in the error body.
+				serverError(res, 503, 'wallet_unavailable', err);
 		}
 		return;
 	}
