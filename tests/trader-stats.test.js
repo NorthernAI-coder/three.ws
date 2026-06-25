@@ -248,6 +248,40 @@ describe('computeTraderMetrics — snipe hit-rate', () => {
 	});
 });
 
+// A trader who earns their record through Strategy Objects is exactly as proven
+// as a sniper — the DB layer aliases agent_strategy_positions into this same
+// canonical shape (entry_lamports→entry_quote_lamports, exit_sig→sell_sig, …).
+// This pins that a normalized strategy record is first-class toward verification,
+// so the unified truth layer can never quietly drop a whole real trading surface.
+describe('strategy-origin records earn the same verified badge', () => {
+	const COINS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6'];
+	// 12 real round-trips across 6 distinct coins, net-positive, no churn — the
+	// canonical shape produced after aliasing strategy position rows.
+	const strategyRecord = COINS.flatMap((mint, i) => [
+		{
+			status: 'closed', mint, symbol: mint, realized_pnl_lamports: String(0.4 * SOL),
+			realized_pnl_pct: 40, entry_quote_lamports: String(1 * SOL), exit_quote_lamports: String(1.4 * SOL),
+			opened_at: `2026-02-0${(i % 9) + 1}T00:00:00.000Z`, closed_at: `2026-02-0${(i % 9) + 1}T01:00:00.000Z`,
+			buy_sig: `sb${i}a`, sell_sig: `ss${i}a`,
+		},
+		{
+			status: 'closed', mint, symbol: mint, realized_pnl_lamports: String(0.1 * SOL),
+			realized_pnl_pct: 10, entry_quote_lamports: String(1 * SOL), exit_quote_lamports: String(1.1 * SOL),
+			opened_at: `2026-02-1${i % 9}T00:00:00.000Z`, closed_at: `2026-02-1${i % 9}T02:00:00.000Z`,
+			buy_sig: `sb${i}b`, sell_sig: `ss${i}b`,
+		},
+	]);
+
+	it('verifies a clean 12-trade, 6-coin, net-positive strategy record', () => {
+		const m = computeTraderMetrics(strategyRecord);
+		expect(m.closed_count).toBe(12);
+		expect(m.unique_coins).toBe(6);
+		expect(m.realized_pnl_sol).toBeGreaterThan(0);
+		expect(m.churn_pct).toBe(0);
+		expect(m.verified).toBe(true);
+	});
+});
+
 describe('windowStartIso', () => {
 	const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 
