@@ -5360,7 +5360,13 @@
 			return fetch(location.origin + '/api/avatars/' + id)
 				.then(function(r) { return r.json(); })
 				.then(function(d) { return devProxyGlb(d.avatar && (d.avatar.model_url || d.avatar.url)) || ''; })
-				.catch(function() { return ''; });
+				// The per-avatar detail endpoint can be unavailable; rather than
+				// strand the preview on a blank model, borrow a real, renderable
+				// GLB from the explore-backed pool so the playground always shows
+				// a live agent.
+				.catch(function() {
+					return getAvatarPool().then(function(pool) { return pool.find(Boolean) || ''; }).catch(function() { return ''; });
+				});
 		}
 
 		function switchAvatar(id, directGlb) {
@@ -5418,21 +5424,26 @@
 				{ id: 'avatar_demo_disk_ai', name: 'AI', glb: O + '/animations/robotexpressive.glb' },
 			];
 			renderAvatars(defaults);
-			fetch('/api/marketplace')
+			// Source the picker from the explore feed, which returns a ready-to-render
+			// glbUrl per avatar. Carrying the GLB on each chip means selecting one
+			// uses the direct-GLB path in switchAvatar and never depends on the
+			// per-avatar detail endpoint.
+			fetch(O + '/api/explore?source=avatar&only3d=1&limit=24&quality=high', { headers: { accept: 'application/json' } })
 				.then(function(r) { return r.json(); })
 				.then(function(d) {
-					var items = (d.agents || d.items || d || []).slice(0, 24);
+					var items = (Array.isArray(d.items) ? d.items : []).filter(function(it) { return it.glbUrl && it.avatarId; });
 					var list = defaults.slice();
 					var seen = {};
 					defaults.forEach(function(da) { seen[da.id] = true; });
 					items.forEach(function(item) {
-						var id = item.avatar_id || item.avatarId || item.id;
+						var id = item.avatarId;
 						if (!id || seen[id]) return;
 						seen[id] = true;
 						list.push({
 							id: id,
-							name: item.name || item.agent_name || '',
-							thumb: item.thumbnail || (THUMB_CDN + '/' + id + '.png'),
+							name: item.name || '',
+							glb: devProxyGlb(item.glbUrl),
+							thumb: item.thumbUrl || item.image || (THUMB_CDN + '/' + id + '.png'),
 						});
 					});
 					renderAvatars(list.slice(0, 14));
