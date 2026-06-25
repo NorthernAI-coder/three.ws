@@ -17,6 +17,7 @@ import { OmniologyArena, REMOTE_LERP, RUN_TIMESCALE } from './arena.js';
 import { AnimationManager } from '../../animation-manager.js';
 import { CommunityNet } from '../community-net.js';
 import { mountContestScreens } from './contest-screens.js';
+import { createEntryDesk } from './entry-desk.js';
 import {
 	resolveAvatarUrl, buildAvatar, loadManifest, CLIP_IDLE, CLIP_WALK,
 } from '../avatar-rig.js';
@@ -165,6 +166,24 @@ async function hideLoader() {
 	setTimeout(() => { try { boot?.dispose?.(); } catch {} l.remove(); }, 600);
 }
 
+// Resolve the player's paying agent — the custodial agent whose Solana USDC
+// settles an entry fee at the desk. Reads the signed-in owner's agents (the same
+// list the wallet hub Pay tab uses) and picks the first with a Solana wallet.
+// Returns null when the visitor isn't signed in or has no walletted agent, which
+// the desk renders as a designed "connect a paying agent" state — it never
+// invents an identity or charges the wrong wallet.
+async function resolvePayingAgent() {
+	try {
+		const res = await fetch('/api/x402-pay?agents=1', { credentials: 'include' });
+		if (!res.ok) return null;
+		const json = await res.json().catch(() => ({}));
+		const agents = Array.isArray(json.agents) ? json.agents : [];
+		return agents.find((a) => a && a.solana_address) || null;
+	} catch {
+		return null;
+	}
+}
+
 async function start(canvas) {
 	const arena = new OmniologyArena(canvas);
 
@@ -248,6 +267,24 @@ async function start(canvas) {
 	const mover = { update() { net.sendMove(arena.getLocalState()); } };
 	arena.registerUpdatable(mover);
 
+	// Entry desk (04) — the in-world kiosk. Walk up, press E, compose an entry, and
+	// submit it to Omniology with a REAL USDC-on-Solana x402 payment (settled from
+	// the player's own agent wallet via /api/x402-pay). On confirmation it pushes the
+	// entry to every screen's live ticker, then the next poll reconciles it. Mounted
+	// at the venue's desk anchor; proximity is driven by the local player's position.
+	let payingAgent = null;
+	resolvePayingAgent().then((a) => { payingAgent = a; });
+	const desk = createEntryDesk(arena.scene, {
+		position: arena.anchors.desk.position,
+		rotationY: arena.anchors.desk.rotationY,
+		getAgentId: () => payingAgent?.id || null,
+		getAgentName: () => payingAgent?.name || name,
+		getContestId: () => contestScreens.getContestId(),
+		getPlayer: () => ({ x: arena.localPos.x, z: arena.localPos.z }),
+		onSubmitted: ({ entryId, agent }) => contestScreens.pushEntry({ entryId, agent: agent || name }),
+	});
+	arena.registerUpdatable(desk);
+
 	if (isGuest) uploadPendingGuestAvatar((publicUrl) => net.setAvatar(publicUrl));
 
 	net.connect();
@@ -262,6 +299,7 @@ async function start(canvas) {
 		torn = true;
 		try { net.destroy(); } catch {}
 		for (const id of [...remotes.keys()]) removeRemote(id);
+		try { desk.dispose(); } catch {}
 		try { contestScreens.dispose(); } catch {}
 		try {
 			localRig.traverse((n) => {
@@ -279,7 +317,7 @@ async function start(canvas) {
 	if (typeof window !== 'undefined') {
 		// contestScreens.pushEntry is the hand-off the entry desk (04) wires to its
 		// onSubmitted callback so a confirmed entry shows on the screens immediately.
-		window.__ARENA__ = { arena, net, remotes, teardown, contestScreens, pushEntry: contestScreens.pushEntry };
+		window.__ARENA__ = { arena, net, remotes, teardown, contestScreens, desk, pushEntry: contestScreens.pushEntry };
 	}
 }
 

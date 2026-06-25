@@ -534,17 +534,16 @@ export function createContestScreen(scene, opts = {}) {
 		paintBackground();
 		paintHeader();
 
-		const live = status === 'live' || (status === 'empty' && role === 'winners' && (feed?.recentWinners?.length));
-		if (!live && status !== 'live') {
-			// winners panel still shows its list during 'empty' (history persists);
-			// every other role shows the designed state screen.
-			if (!(role === 'winners' && feed?.recentWinners?.length)) {
-				paintState();
-				paintTicker();
-				paintSweep();
-				tex.needsUpdate = true;
-				return;
-			}
+		// The winners panel keeps showing its list even between rounds (history
+		// persists); every other role shows the designed state screen whenever the
+		// feed isn't live (loading / empty / error / unconfigured).
+		const winnersHaveHistory = role === 'winners' && (feed?.recentWinners?.length || 0) > 0;
+		if (status !== 'live' && !winnersHaveHistory) {
+			paintState();
+			paintTicker();
+			paintSweep();
+			tex.needsUpdate = true;
+			return;
 		}
 
 		const padX = 44, bodyTop = 150;

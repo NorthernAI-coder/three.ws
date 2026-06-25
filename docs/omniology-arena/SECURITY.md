@@ -10,27 +10,43 @@ gaps must be closed before pointing it at any third party, and two more apply to
 rendering their content. Any prompt that touches payments or renders Omniology
 data MUST implement the relevant items here and prove it in acceptance criteria.
 
-## C1 — Pin the recipient (CRITICAL, blocks launch)
-The external flow trusts whatever `payTo` the endpoint returns in the 402
-challenge ([api/x402-pay.js](../../api/x402-pay.js) ~line 340) — there is **no
-allowlist**. A compromised/malicious Omniology server can return an attacker
-address and the player signs USDC to it.
-- Obtain Omniology's **fixed** Solana receiving address out-of-band and verify it.
-- Enforce an allowlist: reject any `payTo` that is not the pinned address, before
-  building/signing. Add `x402_recipient_allowlist` to the agent spend-limits
-  shape (`api/_lib/agent-trade-guards.js` `normalizeSpendLimits`) and check it in
-  `runExternalFlow` after probing.
-- If Omniology says the receiver is "dynamic per contest," that is a **red flag** —
-  do not proceed without a verifiable scheme (e.g. a small set of pinned
-  addresses, or an on-chain program they control).
+## C7 — Inspect the transaction before signing (CRITICAL, blocks launch)
+**This is now the central control.** Omniology's real submit flow is NOT x402: the
+engine returns a base64 `pending_tx` that **we sign with the player's agent key
+and broadcast** (CONTRACTS §1.3). Signing a transaction a third party built is
+the highest-risk operation in the whole integration. Before signing, the server
+endpoint MUST fully decode `pending_tx` and assert ALL of:
+- It contains **exactly one** SPL `TransferChecked` of the USDC mint (canonical
+  mainnet mint read from the repo), for **exactly** `expected_fee_micro_usdc`,
+  to the contest's `deposit_address` from the **proxied** `/active` feed (not a
+  value pulled from the same step-1 response alone — cross-check against the feed).
+- **No other instructions**: no `Approve`/`SetAuthority`/delegate, no additional
+  transfers, no SOL movement charged to the agent, no unknown programs.
+- `feePayer` is **Omniology's** account, not the agent (they pay network fees).
+- A sane recent blockhash; reject if it tries to make the agent the fee payer.
+Reject and do not sign if any assertion fails. Cover this with a unit test that
+feeds a tampered `pending_tx` (wrong recipient, extra instruction, inflated
+amount) and asserts rejection.
 
-## C2 — Cap the amount (CRITICAL, blocks launch)
-The external endpoint dictates the charge amount; there is **no platform-wide
-ceiling** — only optional per-agent daily/per-tx caps which may be unset.
-- Enforce a hard per-call max for the Arena desk (e.g. the known entry fee + a
-  small tolerance). Reject any challenge that exceeds it, with a clear message.
-- Surface the exact amount + recipient to the player **before** they approve.
-  No silent payment.
+## C1 — Cross-check the recipient + cap the amount (CRITICAL, blocks launch)
+The `deposit_address` is **per-contest** (returned in the feed), so a single
+static allowlist doesn't fit. Instead:
+- The recipient is verified transitively by C7: the signed transfer must pay the
+  `deposit_address` that OUR server-side proxy fetched from `/active` over TLS —
+  not an address asserted only by the step-1 enter response.
+- Because the address is dynamic, the **hard per-entry USDC cap is the real
+  backstop**: reject any `expected_fee_micro_usdc` above a small ceiling (e.g.
+  ≤ $0.10). Sub-cent fees mean worst-case loss per entry is negligible even if
+  the engine is compromised. Surface the exact fee + contest to the player before
+  they confirm.
+- If Omniology ever asks us to sign anything that is not a single sub-cent USDC
+  transfer to a feed-published pool address, **stop** — that is the red flag.
+
+## C2 — (folded into C1)
+The Omniology flow has no separate attacker-set "amount" step to cap beyond the
+per-entry ceiling already covered in C1 + the transaction inspection in C7. Keep
+the rule: **show the player the exact fee + contest before they confirm; never
+sign silently.**
 
 ## C3 — Bound the response (required)
 `guardedFetch` has a 20s timeout but **no body-size limit** — a malicious

@@ -181,9 +181,13 @@ export function mountContestScreens(arena, opts = {}) {
 		return screen;
 	});
 
+	// Track the latest feed so the entry desk (prompt 04) can read the live contest
+	// id from the SAME poll the screens use — no second request to Omniology.
+	let latestFeed = null;
+
 	const poller = createContestPoller({
 		pollMs: opts.pollMs,
-		onFeed: (feed) => { for (const s of screens) s.applyFeed(feed); },
+		onFeed: (feed) => { latestFeed = feed; for (const s of screens) s.applyFeed(feed); },
 		onError: () => { for (const s of screens) s.setStatus('error'); },
 	});
 	poller.start();
@@ -194,6 +198,9 @@ export function mountContestScreens(arena, opts = {}) {
 		// Optimistic insert from the entry desk (prompt 04) — show the entry on
 		// every screen the instant a submission settles, before the next poll.
 		pushEntry: (entry) => { for (const s of screens) s.pushEntry(entry); },
+		// The live contest id (or null) from the latest poll — the desk's getContestId.
+		getContestId: () => (latestFeed && latestFeed.current ? latestFeed.current.id : null),
+		getCurrentFeed: () => latestFeed,
 		dispose: () => {
 			poller.dispose();
 			for (const s of screens) s.dispose();
