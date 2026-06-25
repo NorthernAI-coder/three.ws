@@ -50,6 +50,11 @@ it makes Omniology auto-discoverable in the x402 Bazaar. It wraps Omniology's
 ## Guardrails
 - Only `$THREE` may be referenced as a coin. USDC is the payment asset — fine.
   No other token anywhere in code, tests, fixtures, or docs.
+- **Security (see `docs/omniology-arena/SECURITY.md`).** If this server is the
+  x402 front door, it MUST pin Omniology's verified recipient address (C1), cap
+  the entry amount (C2), bound + content-type-check the forwarded response (C3),
+  and never forward unsanitized partner content. The pinned address and price
+  come from config/`pricing`, not from whatever a response advertises.
 - Real APIs only. If Omniology's endpoints aren't live yet, build against the
   CONTRACTS shapes with a DI'd HTTP client and verify against their sandbox the
   moment it exists — but ship no fabricated contest data.

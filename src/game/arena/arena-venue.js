@@ -208,17 +208,20 @@ export function resolveArenaAnchors(empties) {
 }
 
 /**
- * Axis-aligned walkable footprint for the venue, derived from the screen,
- * desk, and spawn anchors so the player clamp follows the authored room. A
- * margin keeps the avatar off the walls. Returned as half-extents on X/Z
- * around a centre, mirroring /play's square WORLD_BOUND clamp shape.
+ * Axis-aligned walkable footprint for the venue, derived from the spawn, desk,
+ * and screen anchors so the player clamp follows the authored room without a
+ * second source of truth. The clamp box is the anchor bounding box grown
+ * outward by `margin`: the venue's walls are authored to sit beyond the
+ * outermost anchors (the screens mount ON the walls, the player floor reaches
+ * up to them), so every anchor — including the entry-side spawn — stays inside
+ * the walkable region. Mirrors /play's square WORLD_BOUND clamp shape.
  *
  * @param {ReturnType<typeof resolveArenaAnchors>} anchors
- * @param {number} [margin] — metres to inset from the outermost anchors.
+ * @param {number} [margin] — metres of interior floor past the outermost anchor.
  * @returns {{ center: { x: number, z: number }, halfX: number, halfZ: number,
  *   clamp: (x: number, z: number) => { x: number, z: number } }}
  */
-export function arenaBounds(anchors, margin = 1.4) {
+export function arenaBounds(anchors, margin = 1.2) {
 	const pts = [
 		anchors.spawn.pos,
 		anchors.desk.pos,
@@ -234,11 +237,9 @@ export function arenaBounds(anchors, margin = 1.4) {
 		minZ = Math.min(minZ, p.z);
 		maxZ = Math.max(maxZ, p.z);
 	}
-	// Pull the walls in by `margin` from the anchors that sit ON the walls
-	// (screens, desk), so the player floor area is the interior.
 	const center = { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 };
-	const halfX = Math.max(1, (maxX - minX) / 2 - margin);
-	const halfZ = Math.max(1, (maxZ - minZ) / 2 - margin);
+	const halfX = (maxX - minX) / 2 + margin;
+	const halfZ = (maxZ - minZ) / 2 + margin;
 	const clamp = (x, z) => ({
 		x: Math.max(center.x - halfX, Math.min(center.x + halfX, x)),
 		z: Math.max(center.z - halfZ, Math.min(center.z + halfZ, z)),
