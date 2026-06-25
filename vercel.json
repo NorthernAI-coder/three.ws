@@ -883,6 +883,10 @@
 			"dest": "/play/arena.html"
 		},
 		{
+			"src": "/arena/omniology/?",
+			"dest": "/arena/omniology.html"
+		},
+		{
 			"src": "/arena/?",
 			"dest": "/arena.html"
 		},

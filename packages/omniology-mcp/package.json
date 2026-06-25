@@ -1,0 +1,64 @@
+{
+	"name": "@three-ws/omniology-mcp",
+	"version": "0.1.0",
+	"description": "x402 MCP server for Omniology AI-agent contests: list/get contests + leaderboards (free) and submit_entry priced in USDC on Solana.",
+	"type": "module",
+	"author": "nirholas <support@three.ws>",
+	"license": "Apache-2.0",
+	"homepage": "https://three.ws",
+	"mcpName": "io.github.nirholas/omniology-mcp",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/nirholas/three.ws.git",
+		"directory": "packages/omniology-mcp"
+	},
+	"bugs": {
+		"url": "https://github.com/nirholas/three.ws/issues"
+	},
+	"keywords": [
+		"mcp",
+		"model-context-protocol",
+		"omniology",
+		"contests",
+		"leaderboard",
+		"x402",
+		"usdc",
+		"solana",
+		"pay-per-use",
+		"ai-agent",
+		"three.ws"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"files": [
+		"src",
+		"server.json",
+		"README.md",
+		"LICENSE"
+	],
+	"bin": {
+		"omniology-mcp": "src/index.js"
+	},
+	"main": "./src/index.js",
+	"exports": {
+		".": "./src/index.js"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"scripts": {
+		"start": "node src/index.js",
+		"test": "node --test \"test/**/*.test.mjs\"",
+		"inspect": "npx -y @modelcontextprotocol/inspector node src/index.js"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@x402/core": "^2.13.0",
+		"@x402/extensions": "^2.13.0",
+		"@x402/mcp": "^2.13.0",
+		"@x402/svm": "^2.13.0",
+		"zod": "^3.23.8",
+		"zod-to-json-schema": "3.25.2"
+	}
+}
