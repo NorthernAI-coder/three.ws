@@ -37,7 +37,7 @@ export function atelierBase() {
 	try {
 		const env = import.meta?.env?.VITE_ATELIER_BASE;
 		if (env) return clean(String(env));
-	} catch (_) { /* import.meta unavailable outside a bundler (e.g. node tests) */ }
+	} catch { /* import.meta unavailable outside a bundler (e.g. node tests) */ }
 	return '';
 }
 

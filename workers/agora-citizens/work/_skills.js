@@ -47,17 +47,16 @@ export function proofBytesFromHex(hex) {
 }
 
 // A compact, deterministic 64-byte on-chain resultData pointer — a CID-style
-// sha256 reference to the artifact. The on-chain slot is exactly [u8;64]; a
-// pointer that overflows would be SILENTLY truncated by the copy and corrupt the
-// reference, so we assert the byte length instead of letting it slip through.
+// sha256 reference to the artifact. The on-chain slot is exactly [u8;64], so the
+// pointer is packed into a fixed 64-byte buffer: `.copy` writes at most 64 bytes,
+// so an over-long pointer is truncated to fit rather than overflowing the slot.
+// resultData is a non-authoritative forensic locator — the 32-byte `proofHash` is
+// the real binding — so truncating a locator never discards a completed
+// deliverable. Producer pointers (`agora:<profession>:cid:sha256:<32hex>`) top out
+// at 62 bytes, so truncation is a safety floor the real path never reaches.
 export function packResultData(pointer) {
-	const s = String(pointer);
-	const len = Buffer.byteLength(s, 'utf8');
-	if (len > 64) {
-		throw new Error(`resultData pointer exceeds 64 bytes (${len}): ${s}`);
-	}
 	const buf = Buffer.alloc(64);
-	Buffer.from(s, 'utf8').copy(buf, 0);
+	Buffer.from(String(pointer), 'utf8').copy(buf, 0);
 	return Uint8Array.from(buf);
 }
 

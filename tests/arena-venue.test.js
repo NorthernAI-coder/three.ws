@@ -175,7 +175,7 @@ describe('resolveArenaAnchors', () => {
 		const empties = collectArenaEmpties(root, ARENA_REQUIRED_EMPTIES);
 		const anchors = resolveArenaAnchors(empties);
 		// spawn_01 local (0,0,6) + parent (10,0,-2) → world (10,0,4).
-		expect(anchors.spawn.pos.toArray()).toEqual([10, 0, 4]);
+		expect(anchors.spawn.position.toArray()).toEqual([10, 0, 4]);
 	});
 });
 

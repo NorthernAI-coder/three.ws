@@ -197,6 +197,11 @@ class EntryDesk {
 	}
 
 	_paintScreen(headline, sub) {
+		// Skip redundant repaints — _syncActionButton calls this every frame while
+		// the player is near, but the texture only changes on a state change.
+		const key = `${headline} ${sub || ''}`;
+		if (key === this._screenKey) return;
+		this._screenKey = key;
 		const c = this._screenCanvas;
 		const x = c.getContext('2d');
 		x.clearRect(0, 0, c.width, c.height);
