@@ -187,6 +187,14 @@ async function start(canvas) {
 		log.warn('[omniology] avatar failed to load — using stand-in:', url);
 	}
 
+	// Live contest screens (03) — one per venue screen anchor, all fed by a single
+	// shared Omniology poller (no duplicate requests, pauses when the tab is
+	// hidden). Reads whatever anchors are current, so it works against the authored
+	// defaults now and the venue GLB's resolved anchors once prompt 02 calls
+	// setAnchors before this. pushEntry is handed to the entry desk (04) so a
+	// settled submission lands on every screen the instant it confirms.
+	const contestScreens = mountContestScreens(arena);
+
 	// Display name — reuse /play's persisted name (cc-name); mint a stable guest
 	// name if blank, and persist it so it sticks across worlds.
 	let name = '';
@@ -254,6 +262,7 @@ async function start(canvas) {
 		torn = true;
 		try { net.destroy(); } catch {}
 		for (const id of [...remotes.keys()]) removeRemote(id);
+		try { contestScreens.dispose(); } catch {}
 		try {
 			localRig.traverse((n) => {
 				n.geometry?.dispose?.();
@@ -267,7 +276,11 @@ async function start(canvas) {
 	window.addEventListener('beforeunload', teardown);
 
 	// Expose for debugging + future HUD prompts (mirrors window.__CC__).
-	if (typeof window !== 'undefined') window.__ARENA__ = { arena, net, remotes, teardown };
+	if (typeof window !== 'undefined') {
+		// contestScreens.pushEntry is the hand-off the entry desk (04) wires to its
+		// onSubmitted callback so a confirmed entry shows on the screens immediately.
+		window.__ARENA__ = { arena, net, remotes, teardown, contestScreens, pushEntry: contestScreens.pushEntry };
+	}
 }
 
 // Swap the boot loader for an actionable error state when the world can't start
