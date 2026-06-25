@@ -25,6 +25,7 @@ const PACKAGES = [
 	'packages/avatar-agent-mcp',
 	'packages/threews-avatar-mcp',
 	'packages/three-token-mcp',
+	'packages/omniology-mcp',
 	'mcp-bridge',
 ];
 

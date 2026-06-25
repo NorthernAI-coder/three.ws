@@ -78,6 +78,7 @@ packages/kol-mcp/             → @three-ws/kol-mcp           (MCP server — pe
 packages/clash-mcp/           → @three-ws/clash-mcp         (MCP server — Coin Clash faction battles)
 packages/tutor-mcp/           → @three-ws/tutor-mcp         (MCP server — itemized learning-session ledger)
 packages/loom-mcp/            → @three-ws/loom-mcp          (MCP server — Loom 3D-creation gallery: browse, fetch, submit)
+packages/omniology-mcp/       → @three-ws/omniology-mcp     (MCP server — Omniology contests: list/get/leaderboard free, submit_entry x402 USDC)
 walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 

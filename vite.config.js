@@ -1692,20 +1692,26 @@ support: resolve(__dirname, 'pages/support.html'),
 						.split('/')
 						.pop();
 					if (EMBED_FILES.has(filename)) return [];
+					// Inline the dependency-free source directly as a classic
+					// (non-module) script. Two failure modes this avoids:
+					//   1. A `type=module` inline script gets externalized by Vite
+					//      into a `?html-proxy` request that 404s to the SPA HTML
+					//      fallback for repo-root dir-index pages (e.g. /docs).
+					//   2. A dynamic `import('/src/view-transitions.js')` is rewritten
+					//      by the prod build into `import('data:text/javascript;…')`,
+					//      which the site CSP (no `data:` in script-src) blocks — the
+					//      transition wiring then silently never runs.
+					// Inlining the actual source sidesteps both: it runs under the
+					// existing `'unsafe-inline'` allowance with no extra fetch. The
+					// file stays the single source of truth (dev imports it directly).
+					const vtSource = readFileSync(
+						resolve(__dirname, 'src/view-transitions.js'),
+						'utf8',
+					).replace(/^export\s+function/m, 'function');
 					return [
 						{
 							tag: 'script',
-							// Classic (non-module) inline script on purpose: a `type=module`
-							// inline script gets externalized by Vite into a `?html-proxy`
-							// request that fails to resolve for repo-root dir-index pages
-							// (e.g. /docs → docs/index.html), where the proxy URL falls
-							// through to the SPA HTML fallback and the browser throws
-							// "Failed to load module script … MIME type text/html". A classic
-							// script keeps the dynamic import inline; /src/view-transitions.js
-							// is dependency-free browser ESM that Vite serves directly in dev
-							// and the copy-src-to-dist plugin mirrors into dist/ for prod, so
-							// it resolves in both — no html-proxy needed.
-							children: `import('/src/view-transitions.js').then(m=>m.enableViewTransitions()).catch(()=>{});`,
+							children: `(function(){${vtSource}\ntry{enableViewTransitions();}catch(e){}})();`,
 							injectTo: 'head',
 						},
 					];
