@@ -30,7 +30,7 @@
 //   GET /api/galaxy/flows?network=mainnet|devnet&limit=<n>
 
 import { sql } from '../_lib/db.js';
-import { cors, json, method, serverError, rateLimited } from '../_lib/http.js';
+import { cors, json, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import {
@@ -43,8 +43,41 @@ import {
 } from '../_lib/galaxy-flows.js';
 
 const FEED_TTL_S = 8; // first-page cache — it's a live feed, keep it short
+const LASTGOOD_TTL_S = 600; // last-good snapshot, served if a build is slow/fails
 const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 200;
+
+// The feed query fans across agent_custody_events + a JSONB-keyed counterparty
+// self-join; under load it can run long. Rather than hold the request until
+// Vercel's hard 30s ceiling (a 504 page the galaxy can't render), we cap the
+// build at a soft deadline and degrade to the last-good snapshot or an honestly
+// empty window — both valid 200s the map renders calmly.
+const BUILD_DEADLINE_MS = 22_000;
+
+class FeedDeadline extends Error {}
+
+// A valid, empty feed window — the same shape handleFeed returns — so a degraded
+// response is indistinguishable to the client from a genuinely quiet platform.
+function emptyFeed(network, type) {
+	return {
+		flows: [],
+		has_more: false,
+		next_cursor: null,
+		head_cursor: null,
+		network,
+		type,
+		summary: {
+			count: 0,
+			edges: 0,
+			flares: 0,
+			usd_total: 0,
+			by_kind: { tip: 0, trade: 0, snipe: 0, payment: 0, launch: 0 },
+			window_start: null,
+			window_end: null,
+		},
+		server_time: new Date().toISOString(),
+	};
+}
 
 // A flow is only worth animating if it touches a star the viewer can actually
 // see, but that gating happens client-side against the loaded snapshot — here we
@@ -208,6 +241,26 @@ export default async function handler(req, res) {
 	const cursor = url.searchParams.get('cursor');
 	const since = url.searchParams.get('since');
 
+	// Build the feed but never let a slow query run past the soft deadline. On a
+	// timeout or DB failure, fall back to the last-good snapshot for this
+	// view, and only then to an empty (but valid) window — so the galaxy degrades
+	// to last-known or calm-empty instead of surfacing a 504/502 the map can't use.
+	const lastGoodKey = `galaxy:flows:lastgood:${network}:${type}:${limit}`;
+	async function buildWithDeadline() {
+		let timer;
+		const deadline = new Promise((_, reject) => {
+			timer = setTimeout(() => reject(new FeedDeadline('feed build exceeded soft deadline')), BUILD_DEADLINE_MS);
+		});
+		try {
+			const body = await Promise.race([handleFeed({ network, type, limit, cursor, since }), deadline]);
+			// Retain a long-lived copy for the degraded path on a future slow build.
+			cacheSet(lastGoodKey, body, LASTGOOD_TTL_S).catch(() => {});
+			return body;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
 	try {
 		// A first page (no cursor/since) is cached briefly to shield the DB from a
 		// herd of pollers. A delta poll (`since`) is never cached — it must be live.
@@ -216,17 +269,28 @@ export default async function handler(req, res) {
 			const cacheKey = `galaxy:flows:${network}:${type}:${limit}`;
 			let body = await cacheGet(cacheKey);
 			if (body === null) {
-				body = await handleFeed({ network, type, limit, cursor, since });
+				body = await buildWithDeadline();
 				await cacheSet(cacheKey, body, FEED_TTL_S);
 			}
 			res.setHeader('cache-control', 'public, max-age=6');
 			return json(res, 200, { data: body });
 		}
 
-		const body = await handleFeed({ network, type, limit, cursor, since });
+		const body = await buildWithDeadline();
 		return json(res, 200, { data: body });
 	} catch (e) {
-		console.error('[api/galaxy/flows] failed', e?.message, e?.stack);
-		return serverError(res, 502, 'galaxy_flows_failed', e);
+		const timedOut = e instanceof FeedDeadline;
+		console.error('[api/galaxy/flows] failed', timedOut ? 'soft-deadline' : e?.message, timedOut ? '' : e?.stack);
+		// Degrade gracefully: a delta poll (`since`) returns nothing new rather than
+		// erroring the live map; any view falls back to its last-good snapshot when
+		// one exists, else an empty window. All are valid 200s.
+		const lastGood = await cacheGet(lastGoodKey).catch(() => null);
+		if (lastGood) {
+			res.setHeader('cache-control', 'public, max-age=6');
+			res.setHeader('x-galaxy-flows-degraded', timedOut ? 'deadline' : 'error');
+			return json(res, 200, { data: lastGood });
+		}
+		res.setHeader('x-galaxy-flows-degraded', timedOut ? 'deadline-empty' : 'error-empty');
+		return json(res, 200, { data: emptyFeed(network, type) });
 	}
 }
