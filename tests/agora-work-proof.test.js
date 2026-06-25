@@ -40,12 +40,15 @@ describe('proof helpers', () => {
 		expect(a.equals(b)).toBe(true);
 	});
 
-	it('packResultData is exactly 64 bytes and truncates', () => {
-		const rd = packResultData('agora:sculptor:cid:sha256:' + 'f'.repeat(40));
+	it('packResultData zero-pads to exactly 64 bytes and rejects overflow', () => {
+		// The real builder emits "agora:<profession>:cid:sha256:<32-hex>" (≤64 B).
+		const rd = packResultData('agora:sculptor:cid:sha256:' + 'f'.repeat(32));
 		expect(rd).toBeInstanceOf(Uint8Array);
 		expect(rd.length).toBe(64);
-		const huge = packResultData('x'.repeat(200));
-		expect(huge.length).toBe(64);
+		// The on-chain slot is exactly [u8;64]; silently truncating a content-
+		// addressed pointer would corrupt the reference, so an oversized pointer
+		// must be rejected, never quietly clipped.
+		expect(() => packResultData('x'.repeat(200))).toThrow(/exceeds 64 bytes/);
 	});
 
 	it('proofBytesFromHex round-trips to 32 bytes', () => {
