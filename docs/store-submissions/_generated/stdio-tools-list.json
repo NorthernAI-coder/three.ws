@@ -1,7 +1,4 @@
 {
-  "captured_via": "node mcp-server/src/index.js — raw JSON-RPC over stdio",
-  "protocolVersion": "2025-06-18",
-  "tool_count": 17,
   "tools": [
     {
       "name": "text_to_avatar",
@@ -66,6 +63,26 @@
     {
       "name": "agent_delegate_action",
       "title": "Agent delegate action ($0.01)",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "agent_hire_discover",
+      "title": "Agent hire — discover ($0.01)",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "agent_hire",
+      "title": "Agent hire ($0.05)",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -173,5 +190,6 @@
         "openWorldHint": true
       }
     }
-  ]
+  ],
+  "count": 19
 }
