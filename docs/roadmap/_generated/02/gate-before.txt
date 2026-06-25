@@ -30,3 +30,7 @@ stderr | tests/auto-rig-completion.test.js > 6a — cron recovers an open job fr
      × serves /style.css from dist root 53ms
  ❯ tests/api/agent-memory.test.js (22 tests | 1 failed) 148ms
      × truncates content longer than 10,000 characters 18ms
+ ❯ tests/api/x402-discovery-parity.test.js (4 tests | 3 failed) 615330ms
+     × lists every paid /api/x402/* endpoint (no silent drift) 256105ms
+     × catalogs both hosted MCP servers with their own identities 199182ms
+     × every cataloged x402 resource carries a price and at least one accept 159733ms

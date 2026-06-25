@@ -90,6 +90,37 @@
         "defi",
         "trading"
       ]
+    },
+    {
+      "name": "three-ws-3d",
+      "source": "./marketplace/plugins/three-ws-3d",
+      "displayName": "three.ws 3D Forge",
+      "description": "Generate textured 3D models and rigged, animation-ready avatars from text or images — free text→3D (NVIDIA NIM / TRELLIS) plus the paid mesh, avatar, and auto-rig lanes, scene composition, and live avatar embeds over the three.ws MCP servers.",
+      "version": "1.0.0",
+      "author": {
+        "name": "nirholas"
+      },
+      "homepage": "https://three.ws/forge",
+      "repository": "https://github.com/nirholas/three.ws",
+      "license": "Apache-2.0",
+      "keywords": [
+        "3d",
+        "forge",
+        "avatar",
+        "glb",
+        "text-to-3d",
+        "image-to-3d",
+        "rigging",
+        "trellis",
+        "mcp"
+      ],
+      "category": "creative",
+      "tags": [
+        "3d",
+        "forge",
+        "avatar",
+        "mcp"
+      ]
     }
   ]
 }

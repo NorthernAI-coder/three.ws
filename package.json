@@ -124,6 +124,7 @@
 		"audit:pages": "node scripts/audit-page-index.mjs",
 		"audit:routes": "node scripts/verify-routes.mjs",
 		"audit:handlers": "node scripts/audit-empty-handlers.mjs",
+		"gate": "npm run test:gate && npm run audit:mcp && npm run audit:routes && npm run audit:handlers && npm run audit:pages && npm run audit:hidden-guard",
 		"audit:hidden-guard": "node scripts/audit-hidden-guard.mjs",
 		"guard:hidden": "node scripts/inject-hidden-guard.mjs --write",
 		"check:images": "node scripts/audit-image-loading.mjs --strict",

@@ -21,11 +21,29 @@ three.ws is a large, live, single monorepo (see `STRUCTURE.md` for the full surf
 
 ### The regression gate (copy/run at start and end of every prompt)
 ```bash
-npm run typecheck && npm test && npm run test:gate && \
-npm run audit:routes && npm run audit:handlers && \
-npm run audit:mcp && npm run smoke:mcp && npm run audit:pages
+npm run gate
 ```
-If any of these don't exist or fail on a clean tree, note it in your report and proceed with the subset that runs green. Save the baseline output to `docs/roadmap/_generated/<prompt>/gate-before.txt` and the final to `gate-after.txt`. **`gate-after` must be no worse than `gate-before`.**
+This alias (added to `package.json`) runs the **offline-safe** checks only:
+`test:gate` (curated money/auth unit tests) + `audit:mcp` + `audit:routes` +
+`audit:handlers` + `audit:pages` + `audit:hidden-guard`. It is intentionally the
+*offline* subset — the project doctrine (see `scripts/test-gate.mjs`) keeps
+catalog/handler-heavy and browser specs in `npm test`, because importing a hosted
+MCP catalog pulls in DB/RPC clients that **block without live credentials** (an
+import alone exceeds 60s). Do NOT write tests that `import` an `api/_mcp*/catalog.js`
+— they hang the suite. Verify MCP tool contracts against a *running* server
+(`npm run dev` → `tools/list`, or `npm run test:mcp`/`smoke:mcp` with creds), not by importing.
+
+For full local verification when you have credentials + a browser: also run
+`npm run typecheck` and `npm test`. Save the gate baseline to
+`docs/roadmap/_generated/<prompt>/gate-before.txt` and the final to `gate-after.txt`.
+**`gate-after` must be no worse than `gate-before`.**
+
+### Reuse before you build
+`docs/roadmap/REUSE-MAP.md` is a verified (June 2026) catalog of permissively-licensed
+OSS to integrate instead of reinventing — compression, AR/USDZ, lipsync, text/image→3D,
+splatting, PBR/restyle, scene layout, Solana minting, embed/OG. Each roadmap prompt's
+"reuse" needs are covered there. Check it first; prefer ✅-licensed options; avoid the
+⛔ list (non-commercial / unlicensed).
 
 ---
 

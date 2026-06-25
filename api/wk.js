@@ -1100,6 +1100,10 @@ async function handleX402Discovery(req, res) {
 			serviceName: '$THREE Town Oracle',
 			tags: ['three', 'market', 'signal', 'play', 'solana'],
 		}),
+		tokenIntel: withService({
+			serviceName: 'three.ws Token Oracle',
+			tags: ['crypto', 'market', 'signal', 'oracle', 'solana'],
+		}),
 		avatarShop: withService({
 			serviceName: 'three.ws Avatar Shop',
 			tags: ['3d', 'avatar', 'cosmetic', 'shop', 'wearable'],
@@ -2016,7 +2020,7 @@ async function handleX402Discovery(req, res) {
 									topic: {
 										type: 'string',
 										description:
-											'Token ticker or CoinGecko id: btc, sol, eth, doge, …',
+											'Token ticker or CoinGecko id: btc, sol, eth, xrp, …',
 										default: 'sol',
 									},
 								},
@@ -2043,6 +2047,38 @@ async function handleX402Discovery(req, res) {
 							discoverable: true,
 							input: {},
 							inputSchema: { type: 'object', properties: {} },
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/token-intel`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/token-intel',
+						url,
+						method: 'GET',
+						description:
+							'three.ws Token Oracle — pay $0.01 USDC per call for live market intel on ANY token by contract address: price, 24 h change, market cap, liquidity, 24 h volume, and a bullish / bearish / neutral signal with a two-sentence rationale. Pass ?mint=<contract-address> (Solana mint or EVM 0x). The mint is supplied at runtime — generic coin-agnostic plumbing. Powered by live DexScreener data; this is the paid endpoint the CA-to-x402 resolver generates.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.tokenIntel.serviceName,
+						tags: routeMeta.tokenIntel.tags,
+						iconUrl: routeMeta.tokenIntel.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: { mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump' },
+							inputSchema: {
+								type: 'object',
+								required: ['mint'],
+								properties: {
+									mint: {
+										type: 'string',
+										description:
+											'Token contract address — Solana base58 mint or EVM 0x address.',
+									},
+								},
+							},
 						}),
 					};
 				})(),

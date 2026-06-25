@@ -14,16 +14,11 @@ import { z } from 'zod';
 
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
-import { resilientFetch } from '../lib/resilient-fetch.js';
+import { runDelegation } from '../lib/delegate-transport.js';
 
 const TOOL_NAME = 'agent_delegate_action';
 const TOOL_DESCRIPTION =
 	'Send a message to a three.ws-registered agent and receive its response. The target agent uses its configured brain (Claude model and system prompt set via its embed policy). Agents that have opted out of MCP delegation are refused. Useful for agent-to-agent collaboration and tool composition. Paid: $0.01 USDC.';
-
-function env(k, def) {
-	const v = process.env[k];
-	return v && String(v).trim() ? String(v).trim() : def;
-}
 
 // Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
 // derived. The prior hand-written JSON Schema left `model` with no bounds; the
@@ -66,33 +61,17 @@ export async function buildAgentDelegateActionTool() {
 			},
 		},
 		async ({ agentId, message, model }) => {
-			const endpoint = env('MCP_AGENT_TALK_ENDPOINT', 'https://three.ws/api/agents/talk');
-			let res;
-			try {
-				// Bounded timeout but NO retry: delivering a message to an agent is
-				// not idempotent, so a replay could double-send / double-bill the
-				// target. A long brain response is expected, so the timeout is
-				// generous.
-				res = await resilientFetch(
-					endpoint,
-					{
-						method: 'POST',
-						headers: { 'content-type': 'application/json' },
-						body: JSON.stringify({ agentId, message, model }),
-					},
-					{ timeoutMs: 60_000, retries: 0, label: 'agent-delegate' },
-				);
-			} catch (err) {
-				return toolError('upstream_unreachable', err?.message || 'fetch failed');
-			}
-			const data = await res.json().catch(() => null);
-			if (!res.ok || !data || data.ok === false) {
+			const result = await runDelegation({ agentId, message, model });
+			if (!result.ok) {
+				if (result.status === 0) {
+					return toolError('upstream_unreachable', result.error || 'fetch failed');
+				}
 				return toolError(
-					data?.code || data?.error || 'agent_delegate_failed',
-					data?.message || `endpoint returned ${res.status}`,
+					result.error || 'agent_delegate_failed',
+					result.message || result.error || `endpoint returned ${result.status}`,
 				);
 			}
-			return data;
+			return result.data;
 		},
 	);
 	return {

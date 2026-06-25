@@ -16,6 +16,7 @@
 // blowout.
 
 import { getRedis } from './redis.js';
+import { backendCostClass } from './forge-tiers.js';
 
 const redis = getRedis();
 
@@ -132,6 +133,27 @@ export async function readGenerationMetrics({ windowHours = DEFAULT_WINDOW_HOURS
 		}
 	}
 
+	// Free-vs-paid serve split — the headline number for the self-host-first cost
+	// goal: how many generations were served on a zero-vendor-cost lane (our own
+	// GPU workers + free external previews) vs a paid one (Replicate platform
+	// credits or a BYOK vendor key). Derived from the per-backend counters via the
+	// registry's cost class, so it needs no extra counter writes and stays correct
+	// as lanes are added. `unknown` collects any backend the registry no longer
+	// knows (a renamed lane), surfaced rather than silently dropped.
+	const byCost = {
+		free: { total: 0, ok: 0, fail: 0 },
+		paid: { total: 0, ok: 0, fail: 0 },
+		unknown: { total: 0, ok: 0, fail: 0 },
+	};
+	for (const [backend, c] of Object.entries(agg.by_backend)) {
+		const cls = backend === 'unknown' ? 'unknown' : backendCostClass(backend) || 'unknown';
+		const slot = byCost[cls] || byCost.unknown;
+		slot.total += c.total;
+		slot.ok += c.ok;
+		slot.fail += c.fail;
+	}
+	const servedTotal = byCost.free.total + byCost.paid.total;
+
 	return {
 		window_hours: hours,
 		total: agg.total,
@@ -141,5 +163,9 @@ export async function readGenerationMetrics({ windowHours = DEFAULT_WINDOW_HOURS
 		success_rate: agg.total > 0 ? Number((agg.ok / agg.total).toFixed(4)) : null,
 		avg_latency_ms: agg.lat_n > 0 ? Math.round(agg.lat_sum / agg.lat_n) : null,
 		by_backend: agg.by_backend,
+		by_cost: byCost,
+		// Share of generations that cost no vendor money — the metric the
+		// self-host-first work is measured by. Null when nothing has been served yet.
+		free_share: servedTotal > 0 ? Number((byCost.free.total / servedTotal).toFixed(4)) : null,
 	};
 }
