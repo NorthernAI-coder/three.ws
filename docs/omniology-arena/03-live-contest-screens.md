@@ -5,20 +5,27 @@ contest with a ~88-second countdown, a leaderboard, and a live ticker of recent
 entries. Real data from Omniology's feed — no mocks, no sample arrays.
 
 ## Read first (required)
-- `docs/omniology-arena/README.md`, `docs/omniology-arena/CONTRACTS.md` (esp. §1.1 feed shape and §2.1/§2.2 module contracts), `CLAUDE.md`
+- `docs/omniology-arena/README.md`, `docs/omniology-arena/CONTRACTS.md` (esp. §1.1 feed, §1.6 leaderboard, §2.1/§2.2/§2.5 module contracts), `docs/omniology-arena/SECURITY.md` (C3–C5 — the proxy enforces these), `CLAUDE.md`
+- `api/x402-pay.js` for the SSRF-guarded `guardedFetch` (host-pinned, size/timeout bounded) you reuse in the proxy; `api/_lib/ssrf.js`.
 - `src/game/chart-screen.js` — the proven live-screen pattern to generalize: a `CanvasTexture` (sRGB, anisotropy) on a `PlaneGeometry`, a poll loop with `clearTimeout`/`setTimeout`, a `draw()` that paints loading/live/empty/error states, a `~10fps` redraw (`REDRAW_MS = 100`) via `update(dt)`, clickable raycast, and a clean `dispose()`. Mirror its structure closely.
 - `src/game/coincommunities.js` `_buildScreen()` / `_drawScreen()` (~592–720) — event-driven redraw and canvas layout reference.
 - `src/game/arena/arena.js` (prompt 01) — `registerUpdatable()` and `this.anchors.screens[]` (prompt 02).
 
 ## Build
-1. **Adapter** `src/game/arena/omniology-adapter.js` per CONTRACTS §2.1 — the
-   ONLY module that knows Omniology's wire shapes. `omniologyBase()` reads
-   `<meta name="omniology-base">` or `VITE_OMNIOLOGY_BASE`. `fetchLiveFeed()`
-   calls `GET {base}/v1/contests/live`, normalizes to `NormalizedFeed`
-   (ms timestamps, camelCase), and throws on network error. Also export
-   `submitEntryRequest(contestId, entry, agent)` for prompt 04 (define it now so
-   the boundary is fixed). **If `omniologyBase()` is empty, `fetchLiveFeed()`
-   must surface a clear "unconfigured" status — never return fabricated data.**
+1. **Server proxy** `api/arena/omniology-feed.js` per CONTRACTS §2.5 — read-through,
+   short-TTL cache (~5s) over `GET {OMNIOLOGY_ENGINE_BASE}/v1/contests/active`
+   (and the leaderboard, §1.6). Use the SSRF-guarded `guardedFetch` host-pinned to
+   the engine; enforce a response size limit + content-type check (SECURITY.md C3)
+   and clamp/strip partner strings (C4). The browser only ever talks to this proxy,
+   never the engine (privacy, C5). Expose e.g. `GET /api/arena/omniology-feed` and
+   `GET /api/arena/omniology-feed?leaderboard={contestId}`.
+2. **Adapter** `src/game/arena/omniology-adapter.js` per CONTRACTS §2.1 — the ONLY
+   client module that knows Omniology shapes. `omniologyBase()` reads
+   `<meta name="omniology-base">` / `VITE_OMNIOLOGY_BASE` (OUR proxy base, default
+   `/api/arena`). `fetchLiveFeed()` GETs the proxy, normalizes to `NormalizedFeed`
+   (ms timestamps, camelCase, picks `current` = soonest-closing open/collecting
+   contest), throws on network error. `fetchLeaderboard(contestId)` via the proxy.
+   **If unconfigured, surface a clear "unconfigured" status — never fabricate data.**
 2. **Screen component** `src/game/arena/contest-screen.js` per CONTRACTS §2.2 —
    `createContestScreen(scene, { position, width, rotationY })`. Three logical
    panels rendered to the canvas:
@@ -47,10 +54,14 @@ entries. Real data from Omniology's feed — no mocks, no sample arrays.
    "connecting to Omniology" placeholder, not fake leaderboard rows).
 
 ## Acceptance criteria
-- With `VITE_OMNIOLOGY_BASE` (or the meta tag) pointed at Omniology's real or
-  sandbox feed, the screens show live contests, a counting-down ~88s clock that
-  stays in sync across a round flip, a populated leaderboard, and entries
-  ticking in. Verified in a real browser against a real endpoint.
+- With `OMNIOLOGY_ENGINE_BASE` set (server) and the proxy live, the screens show
+  real contests from `/v1/contests/active`, a counting-down ~88s clock
+  (`time_remaining_seconds`/`submission_closes_at`) that stays in sync across a
+  round flip, a populated leaderboard (§1.6), and entries ticking in. Verified in
+  a real browser against the real engine (or sandbox).
+- The browser only calls our proxy; the proxy enforces size/content-type (C3) and
+  string clamping (C4). Confirm in the Network tab the engine host is never hit
+  directly from the client.
 - With no base configured, screens show the designed unconfigured/connecting
   state — never invented data. (This satisfies no-mocks while unblocked of the
   partner.)
@@ -61,5 +72,6 @@ entries. Real data from Omniology's feed — no mocks, no sample arrays.
 
 ## Hand-off
 Export the screen handles (or a `pushEntry` hook) so prompt 04's desk can call
-`pushEntry()` on successful submission. Keep `submitEntryRequest()` in the
-adapter stable — prompt 04 depends on it.
+`pushEntry()` on a confirmed entry. Keep the adapter's `fetchLiveFeed()` /
+`NormalizedFeed` and the `current` selection stable — prompt 04 reads the
+featured contest (id, theme, fee, payload_format, max_payload_chars) from it.

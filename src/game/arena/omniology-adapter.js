@@ -261,7 +261,7 @@ export function entryFeeMode() {
 	let v = '';
 	if (typeof window !== 'undefined' && window.OMNIOLOGY_ENTRY_FEE) v = String(window.OMNIOLOGY_ENTRY_FEE);
 	if (!v && typeof document !== 'undefined') v = document.querySelector('meta[name="omniology-entry-fee"]')?.getAttribute('content') || '';
-	if (!v) { try { v = String(import.meta?.env?.VITE_OMNIOLOGY_ENTRY_FEE || ''); } catch (_) { /* node */ } }
+	if (!v) { try { v = String(import.meta?.env?.VITE_OMNIOLOGY_ENTRY_FEE || ''); } catch { /* node */ } }
 	v = v.trim().toLowerCase();
 	return v === 'free' || v === 'paid' ? v : 'auto';
 }

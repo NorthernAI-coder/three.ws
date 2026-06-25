@@ -132,13 +132,18 @@ export function collectArenaEmpties(root, required = ARENA_REQUIRED_EMPTIES) {
  * `extras` (exposed by GLTFLoader as `node.userData`); each falls back to a
  * sensible per-role default so a hand-placed empty still lights the room.
  *
+ * Field names mirror the bootstrap anchor contract (`position` / `rotationY` /
+ * `width`) that src/game/arena/arena.js exposes via `setAnchors()` and that the
+ * screen (03) + desk (04) consumers read — so the resolved set drops straight
+ * into `setAnchors(resolveArenaAnchors(...))` with no remapping.
+ *
  * @param {Map<string, import('three').Object3D>} empties
  * @returns {{
- *   spawn: { pos: Vector3, yaw: number },
- *   screens: Array<{ pos: Vector3, yaw: number, width: number, node: import('three').Object3D }>,
- *   desk: { pos: Vector3, yaw: number, node: import('three').Object3D },
- *   lights: Array<{ name: string, kind: 'key'|'fill'|'rim', pos: Vector3, color: number, intensity: number, distance: number, castShadow: boolean }>,
- *   camera_intro: { pos: Vector3, lookAt: Vector3 },
+ *   spawn: { position: Vector3, rotationY: number },
+ *   screens: Array<{ position: Vector3, rotationY: number, width: number, node: import('three').Object3D }>,
+ *   desk: { position: Vector3, rotationY: number, node: import('three').Object3D },
+ *   lights: Array<{ name: string, kind: 'key'|'fill'|'rim', position: Vector3, color: number, intensity: number, distance: number, castShadow: boolean }>,
+ *   camera_intro: { position: Vector3, lookAt: Vector3 },
  * }}
  */
 export function resolveArenaAnchors(empties) {
@@ -152,8 +157,8 @@ export function resolveArenaAnchors(empties) {
 
 	const spawnNode = get('spawn_01');
 	const spawn = {
-		pos: spawnNode.getWorldPosition(new Vector3()),
-		yaw: worldYaw(spawnNode),
+		position: spawnNode.getWorldPosition(new Vector3()),
+		rotationY: worldYaw(spawnNode),
 	};
 
 	const screens = [];
@@ -161,8 +166,8 @@ export function resolveArenaAnchors(empties) {
 		const node = get(`screen_${pad(i + 1)}`);
 		const scaleX = node.getWorldScale(new Vector3()).x;
 		screens.push({
-			pos: node.getWorldPosition(new Vector3()),
-			yaw: worldYaw(node),
+			position: node.getWorldPosition(new Vector3()),
+			rotationY: worldYaw(node),
 			width: scaleX > 1.001 ? scaleX : DEFAULT_SCREEN_WIDTH_M,
 			node,
 		});
@@ -170,8 +175,8 @@ export function resolveArenaAnchors(empties) {
 
 	const deskNode = get('desk_01');
 	const desk = {
-		pos: deskNode.getWorldPosition(new Vector3()),
-		yaw: worldYaw(deskNode),
+		position: deskNode.getWorldPosition(new Vector3()),
+		rotationY: worldYaw(deskNode),
 		node: deskNode,
 	};
 
@@ -190,7 +195,7 @@ export function resolveArenaAnchors(empties) {
 		lights.push({
 			name,
 			kind,
-			pos: node.getWorldPosition(new Vector3()),
+			position: node.getWorldPosition(new Vector3()),
 			color: parseColor(extras.color, def.color),
 			intensity: numberOr(extras.intensity, def.intensity),
 			distance: numberOr(extras.distance, def.distance),
@@ -202,7 +207,7 @@ export function resolveArenaAnchors(empties) {
 	const camPos = camNode.getWorldPosition(new Vector3());
 	const focal = numberOr(camNode.userData?.focal, DEFAULT_CAMERA_FOCAL_M);
 	const lookAt = camPos.clone().add(worldForward(camNode).multiplyScalar(focal));
-	const camera_intro = { pos: camPos, lookAt };
+	const camera_intro = { position: camPos, lookAt };
 
 	return { spawn, screens, desk, lights, camera_intro };
 }
@@ -223,9 +228,9 @@ export function resolveArenaAnchors(empties) {
  */
 export function arenaBounds(anchors, margin = 1.2) {
 	const pts = [
-		anchors.spawn.pos,
-		anchors.desk.pos,
-		...anchors.screens.map((s) => s.pos),
+		anchors.spawn.position,
+		anchors.desk.position,
+		...anchors.screens.map((s) => s.position),
 	];
 	let minX = Infinity;
 	let maxX = -Infinity;

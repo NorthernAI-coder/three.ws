@@ -1,75 +1,66 @@
-# Prompt 05 — `@three-ws/omniology-mcp` server
+# Prompt 05 — Omniology MCP: consume theirs (optional thin wrapper)
 
-Build a real MCP server that exposes Omniology's contests as agent-callable
-tools (`list_contests`, `get_contest`, `get_leaderboard`, `submit_entry`), with
-`submit_entry` x402-priced in USDC. This is the contract artifact: it lets *any*
-MCP client/agent — not just our 3D world — read and enter Omniology contests, and
-it makes Omniology auto-discoverable in the x402 Bazaar. It wraps Omniology's
-**real** HTTP API (CONTRACTS §1). No mocks.
+**Status changed by diligence.** Omniology **already ships an MCP server** at
+`https://omniology-engine.fly.dev/mcp` (`npx omniology-init`) with tools
+`register_agent`, `list_active_contests`, `get_contest_rules`, `submit_entry`,
+`check_payout`, `get_my_history`, `get_leaderboard`, `get_theme_history`,
+`get_judge_rubric_explainer`. So we do **not** build their MCP server. This prompt
+is now: (A) wire their MCP into our `.mcp.json` so agents/tools can use it, and
+(B) decide whether to build a **thin safety wrapper** package — only if we need to
+enforce our controls in front of `submit_entry`.
+
+This prompt is OPTIONAL and independent of 01–04. Do A; do B only if the decision
+in §B lands on "yes."
 
 ## Read first (required)
-- `docs/omniology-arena/README.md`, `docs/omniology-arena/CONTRACTS.md` (§1 external contract), `CLAUDE.md`
-- `STRUCTURE.md` — the `packages/*-mcp` conventions and the published MCP list.
-- A representative existing server to mirror exactly — read **all** of one, e.g.
-  `packages/marketplace-mcp/` (its `package.json`, `server.json`, `src/index.js`).
-  Also skim `packages/activity-mcp/` or `packages/intel-mcp/` for read-only tool
-  shape, and `mcp-server/src/payments.js` + `mcp-server/src/tools/pose-seed.js`
-  for the x402 `paid()` wrapper pattern (`@x402/mcp`, Solana USDC settlement).
-- `mcp-bridge/src/bazaar-discover.js` — how a server gets discovered (so you set
-  `server.json` / discovery metadata correctly).
+- `docs/omniology-arena/README.md`, `docs/omniology-arena/CONTRACTS.md` (§0, §1.3, §1.6), `docs/omniology-arena/SECURITY.md` (C7, C1), `CLAUDE.md`
+- `.mcp.json` (how remote/local MCP servers are registered for this repo)
+- `STRUCTURE.md` and one `packages/*-mcp` (e.g. `packages/marketplace-mcp/`) only if you proceed with §B.
 
-## Build
-1. **Package** `packages/omniology-mcp/` named `@three-ws/omniology-mcp`,
-   matching the structure, scripts, ESM style, hand-written types, and
-   `node --test` suite of the reference package. Add it to the npm workspaces in
-   the root `package.json` and to the workspace list in `STRUCTURE.md`.
-2. **Config**: read Omniology's base URL from env
-   (`OMNIOLOGY_BASE_URL`), with a clear startup error if a paid tool is invoked
-   without required payment env (lazy-validate like `mcp-server/src/payments.js`).
-3. **Read tools** (free): `list_contests`, `get_contest(contestId)`,
-   `get_leaderboard(contestId)` — thin, validated wrappers over Omniology's feed
-   (CONTRACTS §1.1) with Zod input schemas, `zod-to-json-schema` output, and
-   sanitized errors. Real `fetch` to the real API.
-4. **Write tool** (x402-priced): `submit_entry(contestId, entry, agent?)` wrapped
-   with the `paid()` helper so it settles USDC on Solana before forwarding the
-   POST to Omniology's submit endpoint (CONTRACTS §1.2). If Omniology's own
-   endpoint already speaks x402, the tool can delegate the challenge; if not,
-   this server *is* the x402 front door for them — implement the settlement here
-   and forward authenticated. Pricing read from a `pricing` module like the other
-   servers.
-5. **`server.json`** manifest (stdio transport) under `io.github.nirholas/*`
-   namespace, consistent with sibling servers, with accurate tool descriptions
-   and discovery metadata.
-6. **Tests** (`node --test`): tool registration, input validation, error
-   sanitization, and the free/paid wrapper wiring. Network calls in tests must
-   hit a real injected fetch (dependency-injected), not a global monkeypatch —
-   follow the sibling package's test style. No live-network dependency in CI.
-7. **Docs**: a `README.md` with install + a real usage example, and add a row to
-   the MCP table in `STRUCTURE.md`.
+## A. Register their MCP (do this)
+1. Add Omniology's MCP endpoint to `.mcp.json` as a remote server
+   (`https://omniology-engine.fly.dev/mcp`), matching how other remotes are
+   declared. Verify it lists tools and that read tools (`list_active_contests`,
+   `get_leaderboard`) return real data.
+2. Document it: a short `docs/omniology-arena/USING-THEIR-MCP.md` with the connect
+   command and the tool list, so our agents can discover it.
+3. Do **not** put any payment/agent secret in `.mcp.json`.
+
+## B. Thin safety wrapper — build ONLY if decided "yes"
+**The deciding question:** their `submit_entry` MCP tool, called directly by an
+agent, signs and pays without our C7 inspect-before-sign / per-entry cap. For the
+**in-world desk** that's already handled — prompt 04's server endpoint does the
+signing with C7. So a wrapper is only worth building if we want *every* three.ws
+agent (outside the 3D world) to get the same guardrails when entering Omniology
+contests.
+
+If yes, build `@three-ws/omniology-guard` under `packages/omniology-guard/`:
+- A small MCP server exposing `omniology_enter_safe(contestId, payload, agentId)`
+  that internally runs the CONTRACTS §1.3 handshake with **C7 inspection + the
+  per-entry USDC cap** before signing/broadcasting — i.e. the same server logic as
+  prompt 04's endpoint, packaged for non-world agents.
+- Pass-through read tools that proxy `list_active_contests` / `get_leaderboard`.
+- `package.json`, `server.json`, `node --test` suite, README — mirror a sibling
+  `packages/*-mcp`. Add to workspaces + `STRUCTURE.md`.
+- A test that a tampered `pending_tx` is rejected (reuse prompt 04's C7 test).
+
+If no, record the decision in `USING-THEIR-MCP.md` (in-world desk carries the
+guardrails; direct MCP use is at the agent's own risk) and stop.
 
 ## Guardrails
-- Only `$THREE` may be referenced as a coin. USDC is the payment asset — fine.
-  No other token anywhere in code, tests, fixtures, or docs.
-- **Security (see `docs/omniology-arena/SECURITY.md`).** If this server is the
-  x402 front door, it MUST pin Omniology's verified recipient address (C1), cap
-  the entry amount (C2), bound + content-type-check the forwarded response (C3),
-  and never forward unsanitized partner content. The pinned address and price
-  come from config/`pricing`, not from whatever a response advertises.
-- Real APIs only. If Omniology's endpoints aren't live yet, build against the
-  CONTRACTS shapes with a DI'd HTTP client and verify against their sandbox the
-  moment it exists — but ship no fabricated contest data.
+- Only `$THREE` may be referenced as a coin; USDC is a payment asset — fine. No
+  other token anywhere.
+- Never sign anything that isn't a single sub-cent USDC transfer to a
+  feed-published pool address (SECURITY.md C7/C1). The pinned cap + inspection
+  live in code, not in trust of the engine's response.
 
 ## Acceptance criteria
-- `cd packages/omniology-mcp && node --test test/*.test.js` is green.
-- The server boots over stdio and registers all four tools; read tools return
-  real Omniology data against a real/sandbox base URL; `submit_entry` performs a
-  real USDC settlement then forwards the entry.
-- `server.json` validates against the repo's manifest auditor
-  (`scripts/audit-mcp-manifests.mjs`).
-- Added to workspaces + `STRUCTURE.md`. `npm test` at root still passes.
-- Changelog: add an `sdk` entry to `data/changelog.json` (holder-readable) for
-  the new MCP server, then `npm run build:pages`.
+- (A) Omniology's MCP is registered in `.mcp.json`; read tools return real data;
+  `USING-THEIR-MCP.md` documents it. No secrets committed.
+- (B, if built) `cd packages/omniology-guard && node --test` is green, including
+  the tampered-tx rejection; added to workspaces + `STRUCTURE.md`; root `npm test`
+  passes; changelog `sdk` entry added + `npm run build:pages`.
 
 ## Hand-off
-This server is independently shippable and is also what we hand Omniology if they
-prefer we run the x402 front door for them. It does not depend on prompts 01–04.
+Independent of the world build. If A-only, no changelog entry is needed (internal
+config).
