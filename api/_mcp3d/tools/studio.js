@@ -2023,7 +2023,7 @@ export const toolDefs = [
 			additionalProperties: false,
 		},
 		async handler(args, auth) {
-			await enforce(limits.mcp3dRead || limits.mcp3dGenerate, auth);
+			await enforce(limits.mcp3dStatus, auth);
 			if (!isPersonaId(args.persona_id)) {
 				return {
 					content: [{ type: 'text', text: 'Error: that is not a valid persona_id.' }],
@@ -2087,7 +2087,7 @@ export const toolDefs = [
 			additionalProperties: false,
 		},
 		async handler(args, auth) {
-			await enforce(limits.mcp3dGenerate, auth);
+			await enforce(limits.mcp3dGenerateFree, auth);
 			if (!isPersonaId(args.persona_id)) {
 				return {
 					content: [{ type: 'text', text: 'Error: that is not a valid persona_id.' }],
