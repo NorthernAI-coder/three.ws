@@ -668,11 +668,15 @@ function periodStart(period) {
 	return new Date(0);
 }
 
+// Keyless single-endpoint defaults, used only when RPC_URL_<chainId> is unset.
+// dRPC for chain 1 / Sepolia: cloudflare-eth.com is sunset and rpc.sepolia.org is
+// dead, so the old defaults guaranteed a relayer failure on any deploy without an
+// explicit RPC env. dRPC answers keyless from datacenter IPs (probed live).
 const PERMISSIONS_PUBLIC_RPCS = {
-	1: 'https://cloudflare-eth.com',
+	1: 'https://eth.drpc.org',
 	8453: 'https://mainnet.base.org',
 	84532: 'https://sepolia.base.org',
-	11155111: 'https://rpc.sepolia.org',
+	11155111: 'https://sepolia.drpc.org',
 	421614: 'https://sepolia-rollup.arbitrum.io/rpc',
 	11155420: 'https://sepolia.optimism.io',
 };

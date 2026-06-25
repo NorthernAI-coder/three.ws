@@ -503,27 +503,56 @@ const BLOCKS_PER_DAY = {
 // Public RPC fallbacks per chain — tried in order. Override primary via env
 // RPC_URL_<chainId> with a keyed provider (Alchemy/Infura/QuickNode); the env
 // URL is always tried first (see idxRpcUrls). The public fallbacks below are a
-// best-effort safety net only — they rate-limit (429) and some don't serve
-// eth_getLogs, so prod MUST set RPC_URL_1 / RPC_URL_8453 for reliable indexing.
-// Removed: cloudflare-eth.com (endpoint sunset — always failed, wasting the
-// first attempt + timeout each run) and 1rpc.io/* (chronic 429 in prod logs).
+// best-effort safety net only, so prod SHOULD still set RPC_URL_1 / RPC_URL_8453
+// for the most reliable indexing — but the keyless set is curated to ones that
+// actually answer eth_getLogs from a serverless datacenter IP.
+//
+// Why these and not the "obvious" ones — every endpoint below was probed live for
+// eth_blockNumber AND eth_getLogs from a datacenter host:
+//   • eth.llamarpc.com / base.llamarpc.com / *.llamarpc.com → now sit behind a
+//     Cloudflare "Just a moment…" bot challenge that hard-403s every server-side
+//     POST (no browser to solve the JS challenge). They were the FIRST entry in
+//     the old chain 1 list, so every tick burned an attempt on a guaranteed 403.
+//   • cloudflare-eth.com → endpoint sunset (-32046 "Cannot fulfill request").
+//   • rpc.sepolia.org / rpc2.sepolia.org → dead (404 / no route).
+//   • rpc.ankr.com/<chain> keyless → "Unauthorized: authenticate with an API key"
+//     (handled in idxRpcUrls: rewritten to the keyed form when ANKR_API_KEY is
+//     set, dropped otherwise so it never wastes an attempt).
+//   • *.publicnode.com → answers fine from most hosts but 403s from Vercel's IAD
+//     egress range, so it is demoted to LAST (best-effort) rather than relied on —
+//     it was the surfaced "RPC HTTP 403 from …publicnode.com" storm.
+// Leading providers (dRPC, 1rpc, mevblocker, ethpandaops, tenderly) are
+// independent operators verified serving eth_getLogs keyless from a datacenter,
+// so a single one being throttled or blocked still leaves a working lane.
 const PUBLIC_RPCS = {
-	1: ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth', 'https://ethereum.publicnode.com'],
+	1: [
+		'https://eth.drpc.org',
+		'https://1rpc.io/eth',
+		'https://rpc.mevblocker.io',
+		'https://rpc.ankr.com/eth',
+		'https://ethereum-rpc.publicnode.com',
+	],
 	8453: [
 		'https://mainnet.base.org',
-		'https://base.llamarpc.com',
+		'https://base.drpc.org',
+		'https://1rpc.io/base',
 		'https://rpc.ankr.com/base',
-		'https://base.publicnode.com',
+		'https://base-rpc.publicnode.com',
 	],
 	84532: [
 		'https://sepolia.base.org',
-		'https://base-sepolia-rpc.publicnode.com',
+		'https://base-sepolia.drpc.org',
+		'https://base-sepolia.gateway.tenderly.co',
 		'https://rpc.ankr.com/base_sepolia',
+		'https://base-sepolia-rpc.publicnode.com',
 	],
 	11155111: [
-		'https://rpc.sepolia.org',
-		'https://ethereum-sepolia-rpc.publicnode.com',
+		'https://sepolia.drpc.org',
+		'https://1rpc.io/sepolia',
+		'https://rpc.sepolia.ethpandaops.io',
+		'https://sepolia.gateway.tenderly.co',
 		'https://rpc.ankr.com/eth_sepolia',
+		'https://ethereum-sepolia-rpc.publicnode.com',
 	],
 	421614: [
 		'https://sepolia-rollup.arbitrum.io/rpc',

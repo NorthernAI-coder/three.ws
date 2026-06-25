@@ -45,10 +45,10 @@ export const CHAINS = [
 		explorer: 'https://basescan.org',
 		rpcUrls: [
 			'https://mainnet.base.org',
-			'https://base.llamarpc.com',
-			'https://rpc.ankr.com/base',
-			'https://base.publicnode.com',
+			'https://base.drpc.org',
 			'https://1rpc.io/base',
+			'https://rpc.ankr.com/base',
+			'https://base-rpc.publicnode.com',
 		],
 	},
 	{
@@ -59,9 +59,10 @@ export const CHAINS = [
 		explorer: 'https://arbiscan.io',
 		rpcUrls: [
 			'https://arb1.arbitrum.io/rpc',
-			'https://arbitrum.llamarpc.com',
+			'https://arbitrum.drpc.org',
+			'https://1rpc.io/arb',
 			'https://rpc.ankr.com/arbitrum',
-			'https://arbitrum.publicnode.com',
+			'https://arbitrum-rpc.publicnode.com',
 		],
 	},
 	{
@@ -73,8 +74,9 @@ export const CHAINS = [
 		rpcUrls: [
 			'https://bsc-dataseed1.binance.org',
 			'https://bsc-dataseed2.binance.org',
+			'https://bsc.drpc.org',
 			'https://rpc.ankr.com/bsc',
-			'https://bsc.publicnode.com',
+			'https://bsc-rpc.publicnode.com',
 		],
 	},
 	{
@@ -85,13 +87,17 @@ export const CHAINS = [
 		explorer: 'https://etherscan.io',
 		// Mainnet public RPCs are the most restrictive/latent on eth_getLogs; use a
 		// smaller scan window than the global default so a single call stays fast.
+		// Keyless set probed live for eth_getLogs from a datacenter IP. Dropped:
+		// eth.llamarpc.com (Cloudflare bot-wall 403s server-side POSTs) and
+		// cloudflare-eth.com (endpoint sunset, -32046). publicnode 403s from Vercel
+		// IPs so it sits last as best-effort; dRPC/1rpc lead as they answer keyless.
 		blockChunk: 500,
 		rpcUrls: [
-			'https://eth.llamarpc.com',
-			'https://cloudflare-eth.com',
-			'https://rpc.ankr.com/eth',
-			'https://ethereum.publicnode.com',
+			'https://eth.drpc.org',
 			'https://1rpc.io/eth',
+			'https://rpc.mevblocker.io',
+			'https://rpc.ankr.com/eth',
+			'https://ethereum-rpc.publicnode.com',
 		],
 	},
 	{
@@ -102,9 +108,10 @@ export const CHAINS = [
 		explorer: 'https://optimistic.etherscan.io',
 		rpcUrls: [
 			'https://mainnet.optimism.io',
-			'https://optimism.llamarpc.com',
+			'https://optimism.drpc.org',
+			'https://1rpc.io/op',
 			'https://rpc.ankr.com/optimism',
-			'https://optimism.publicnode.com',
+			'https://optimism-rpc.publicnode.com',
 		],
 	},
 	{
@@ -117,9 +124,10 @@ export const CHAINS = [
 		blockChunk: 500,
 		rpcUrls: [
 			'https://polygon-rpc.com',
-			'https://polygon.llamarpc.com',
+			'https://polygon.drpc.org',
+			'https://1rpc.io/matic',
 			'https://rpc.ankr.com/polygon',
-			'https://polygon.publicnode.com',
+			'https://polygon-bor-rpc.publicnode.com',
 		],
 	},
 	{
@@ -208,7 +216,13 @@ export const CHAINS = [
 		testnet: true,
 		registry: IDENTITY_REGISTRY_TESTNET,
 		explorer: 'https://sepolia.basescan.org',
-		rpcUrls: ['https://sepolia.base.org', 'https://base-sepolia-rpc.publicnode.com', 'https://rpc.ankr.com/base_sepolia'],
+		rpcUrls: [
+			'https://sepolia.base.org',
+			'https://base-sepolia.drpc.org',
+			'https://base-sepolia.gateway.tenderly.co',
+			'https://rpc.ankr.com/base_sepolia',
+			'https://base-sepolia-rpc.publicnode.com',
+		],
 	},
 	{
 		id: 421614,
@@ -216,7 +230,14 @@ export const CHAINS = [
 		testnet: true,
 		registry: IDENTITY_REGISTRY_TESTNET,
 		explorer: 'https://sepolia.arbiscan.io',
-		rpcUrls: ['https://sepolia-rollup.arbitrum.io/rpc', 'https://arbitrum-sepolia.publicnode.com'],
+		// `arbitrum-sepolia.publicnode.com` (bare host) has no RPC service — it 403s
+		// every call. PublicNode serves testnets at the `<chain>-rpc` subdomain.
+		rpcUrls: [
+			'https://sepolia-rollup.arbitrum.io/rpc',
+			'https://arbitrum-sepolia.drpc.org',
+			'https://arbitrum-sepolia.gateway.tenderly.co',
+			'https://arbitrum-sepolia-rpc.publicnode.com',
+		],
 	},
 	{
 		id: 11155111,
@@ -224,7 +245,16 @@ export const CHAINS = [
 		testnet: true,
 		registry: IDENTITY_REGISTRY_TESTNET,
 		explorer: 'https://sepolia.etherscan.io',
-		rpcUrls: ['https://rpc2.sepolia.org', 'https://ethereum-sepolia-rpc.publicnode.com', 'https://rpc.ankr.com/eth_sepolia'],
+		// rpc2.sepolia.org is dead (no route). Lead with dRPC + ethPandaOps + Tenderly,
+		// all verified serving eth_getLogs keyless; publicnode last (Vercel-IP 403s).
+		rpcUrls: [
+			'https://sepolia.drpc.org',
+			'https://1rpc.io/sepolia',
+			'https://rpc.sepolia.ethpandaops.io',
+			'https://sepolia.gateway.tenderly.co',
+			'https://rpc.ankr.com/eth_sepolia',
+			'https://ethereum-sepolia-rpc.publicnode.com',
+		],
 	},
 	{
 		id: 11155420,
@@ -234,8 +264,9 @@ export const CHAINS = [
 		explorer: 'https://sepolia-optimism.etherscan.io',
 		rpcUrls: [
 			'https://sepolia.optimism.io',
-			'https://optimism-sepolia.publicnode.com',
 			'https://optimism-sepolia.drpc.org',
+			'https://optimism-sepolia.gateway.tenderly.co',
+			'https://optimism-sepolia-rpc.publicnode.com',
 		],
 	},
 	{

@@ -172,14 +172,21 @@ function normalizeStatus(status) {
 //     timeoutMs?, track? }
 //
 // `timeoutMs` bounds EACH provider attempt so a hung free lane can't stall a
-// serverless function — the next lane is tried instead. `track` is the same
-// optional spend-ledger attribution as llmComplete; a successful call records a
-// kind:'vision' usage event with provider/model/tokens/cost (free NIM prices to
-// 0 in llm-pricing.js).
+// serverless function — the next lane is tried instead. `deadlineMs` bounds the
+// WHOLE chain: without it, a handful of lanes each timing out at `timeoutMs`
+// sequentially can blow past the function's wall-clock limit, which is exactly
+// what produced the "Vercel Runtime Timeout Error: Task timed out after 30s" 504
+// on /api/vision (3 free NIM models + a paid backstop × 20s each ≫ 30s). With a
+// deadline we stop walking the chain and return a clean 504 before the platform
+// hard-kills the invocation. Each attempt is capped at min(timeoutMs, time left).
+// `track` is the same optional spend-ledger attribution as llmComplete; a
+// successful call records a kind:'vision' usage event with provider/model/tokens/cost
+// (free NIM prices to 0 in llm-pricing.js).
 //
 // Returns { text, provider, model, usage:{input,output}, raw }.
 // Throws VisionUnavailableError when nothing is configured, or the last upstream
-// error (with .status = 502, .code = normalized) when every provider failed.
+// error (with .status = 502/504, .code = normalized) when every provider failed
+// or the deadline elapsed.
 export async function describeImage({
 	prompt,
 	imageUrl = null,
@@ -188,10 +195,12 @@ export async function describeImage({
 	system = null,
 	maxTokens = 512,
 	timeoutMs = 20_000,
+	deadlineMs = null,
 	track = null,
 }) {
 	const chain = visionChain();
 	if (!chain.length) throw new VisionUnavailableError();
+	const deadlineAt = deadlineMs != null ? Date.now() + deadlineMs : Infinity;
 
 	// SSRF guard: the provider's model server fetches `imageUrl` server-side, so a
 	// caller-supplied URL could otherwise reach internal targets (169.254.169.254,
@@ -209,6 +218,17 @@ export async function describeImage({
 
 	let lastErr;
 	for (const p of chain) {
+		// Stop walking the chain once the overall budget is spent — returning a clean
+		// 504 here beats letting the platform hard-kill the function mid-request.
+		const remaining = deadlineAt - Date.now();
+		if (remaining <= 0) {
+			lastErr = Object.assign(new Error('vision deadline exceeded before a provider answered'), {
+				status: 504,
+				code: 'deadline_exceeded',
+			});
+			break;
+		}
+		const attemptTimeout = Math.min(timeoutMs, remaining);
 		const startedAt = Date.now();
 		let upstream;
 		try {
@@ -216,7 +236,7 @@ export async function describeImage({
 				method: 'POST',
 				headers: p.headers,
 				body: JSON.stringify(p.buildBody(system, parts, maxTokens)),
-				signal: AbortSignal.timeout(timeoutMs),
+				signal: AbortSignal.timeout(attemptTimeout),
 			});
 		} catch (e) {
 			lastErr = Object.assign(new Error(`${p.name} vision unreachable: ${e.message}`), { status: 502, code: 'provider_unreachable' });

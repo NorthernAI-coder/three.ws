@@ -25,6 +25,10 @@ export const maxDuration = 60;
 // bounding the in-memory buffer per request.
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 const VISION_TIMEOUT_MS = 20_000;
+// Overall budget for the whole provider chain (free NIM models + paid backstop),
+// kept well under the function wall-clock limit so describeImage returns a clean
+// 504 instead of being hard-killed by the platform ("Task timed out after 30s").
+const VISION_DEADLINE_MS = 24_000;
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const DEFAULT_PROMPT =
@@ -117,6 +121,7 @@ export default wrap(async function handler(req, res) {
 			mimeType,
 			maxTokens: Math.min(Math.max(maxTokens, 16), 2048),
 			timeoutMs: VISION_TIMEOUT_MS,
+			deadlineMs: VISION_DEADLINE_MS,
 			track: { userId, tool: 'api/vision' },
 		});
 		return json(

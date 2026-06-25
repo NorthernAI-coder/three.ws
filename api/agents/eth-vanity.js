@@ -47,7 +47,7 @@ const TX_RE   = /^0x[0-9a-f]{64}$/i;
  * deploy is recorded *unverified* with a warning flag.
  */
 const RPCS = {
-	1:        'https://cloudflare-eth.com',
+	1:        'https://eth.drpc.org', // cloudflare-eth.com is sunset (-32046)
 	8453:     'https://mainnet.base.org',
 	10:       'https://mainnet.optimism.io',
 	42161:    'https://arb1.arbitrum.io/rpc',

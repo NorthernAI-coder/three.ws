@@ -340,20 +340,15 @@ export async function scoreAgentsLite(agentIds = [], { concurrency = 8 } = {}) {
 
 async function readErc8004Registry(agent) {
 	if (!agent.erc8004_agent_id || !agent.chain_id) return { average: 0, count: 0 };
-	const RPC = {
-		1: 'https://eth.llamarpc.com',
-		10: 'https://optimism.llamarpc.com',
-		8453: 'https://base.llamarpc.com',
-		42161: 'https://arbitrum.llamarpc.com',
-		137: 'https://polygon.llamarpc.com',
-	};
-	const rpcUrl = RPC[agent.chain_id];
-	if (!rpcUrl) return { average: 0, count: 0 };
-	const { JsonRpcProvider, Contract } = await import('ethers');
+	const { Contract } = await import('ethers');
 	const { REGISTRY_DEPLOYMENTS, REPUTATION_REGISTRY_ABI } = await import('../../../src/erc8004/abi.js');
 	const deployment = REGISTRY_DEPLOYMENTS[agent.chain_id];
 	if (!deployment?.reputationRegistry) return { average: 0, count: 0 };
-	const provider = new JsonRpcProvider(rpcUrl, agent.chain_id, { staticNetwork: true });
+	// Shared EVM failover provider (override → Alchemy → curated public lanes) instead
+	// of a single hardcoded llamarpc URL per chain — those sit behind a Cloudflare
+	// bot-wall that 403s server-side reads, so the registry read always failed.
+	const { evmFallbackProvider } = await import('../evm/rpc.js');
+	const provider = await evmFallbackProvider(agent.chain_id);
 	const contract = new Contract(deployment.reputationRegistry, REPUTATION_REGISTRY_ABI, provider);
 	const [avgX100, count] = await contract.getReputation(BigInt(agent.erc8004_agent_id));
 	const n = Number(count);
