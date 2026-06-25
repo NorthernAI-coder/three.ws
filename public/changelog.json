@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T08:09:10.560Z",
+	"generated_at": "2026-06-25T21:43:39.482Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -25,6 +25,17 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Stability sweep: live page, dashboards, and the galaxy feed never hard-fail",
+			"summary": "A second pass on the day's production logs, this time on resilience. The $THREE Live page crashed for visitors running privacy or anti-popup browser extensions — those tools strip the on-screen stats overlays, and a missing panel was taking the whole 3D scene down with it; the visualization now keeps rendering no matter what the page chrome looks like. Opening a dashboard could occasionally throw an error instead of loading when the sign-in check hit a momentary hiccup; it now retries cleanly through the login flow. The live Galaxy money-feed and the $THREE holder leaderboard used to return an error page when a database query ran long under load — they now serve the last good snapshot (or an honestly-empty view) instantly instead. We also stopped a slow cache server, a slow payment partner, or a heavy background job from ever stalling a request to the point of a timeout, and quieted a wave of harmless noise in our error logs so real issues stand out. No action needed.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

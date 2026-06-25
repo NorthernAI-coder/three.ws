@@ -156,8 +156,15 @@ async function main() {
 		return population.pick(raycaster);
 	}
 
-	// ── Fetch + populate (re-runnable for the error-state retry) ───────────────
+	// ── Fetch + populate (re-runnable for the error-state retry + live joins) ──
+	// Guarded against overlap: population.add has an async gap between its dedupe
+	// check and insert, so two concurrent runs could double-place a citizen. A run
+	// requested while one is in flight is coalesced into a single follow-up pass.
+	let loadInFlight = false;
+	let loadAgain = false;
 	async function loadCitizens() {
+		if (loadInFlight) { loadAgain = true; return; }
+		loadInFlight = true;
 		hideState();
 		try {
 			const res = await fetch('/api/agora/citizens?limit=200', { headers: { accept: 'application/json' } });
@@ -188,6 +195,9 @@ async function main() {
 			log.warn('[agora] citizens fetch failed', err?.message);
 			revealWorld();
 			showErrorState(err?.message || 'The registry could not be reached.');
+		} finally {
+			loadInFlight = false;
+			if (loadAgain) { loadAgain = false; loadCitizens(); }
 		}
 	}
 
@@ -267,6 +277,22 @@ async function main() {
 	// Kick off the population fetch; the world reveals as soon as we know its state.
 	loadCitizens();
 	progress(100, 'Entering the Commons…');
+
+	// When a human joins or posts (me-hud emits this after a successful act), the
+	// agora_citizens projection changed — re-fetch so their freshly-placed avatar
+	// streams into the square live, no reload. population.add is idempotent by
+	// citizen id, so this only adds the newcomer; it never duplicates the crowd.
+	// Debounced to coalesce the join + first-action burst into one fetch.
+	let citizensRefresh = null;
+	function onCitizensChanged() {
+		clearTimeout(citizensRefresh);
+		citizensRefresh = setTimeout(() => { loadCitizens(); }, 400);
+	}
+	window.addEventListener('agora:citizens-changed', onCitizensChanged);
+	window.addEventListener('pagehide', () => {
+		clearTimeout(citizensRefresh);
+		window.removeEventListener('agora:citizens-changed', onCitizensChanged);
+	}, { once: true });
 
 	// ── Economy layer (Task 06) ────────────────────────────────────────────────
 	// The job board, live ticker, and the completion moment (coin flow + rep tick
