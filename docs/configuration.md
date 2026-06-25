@@ -172,6 +172,17 @@ UPSTASH_REDIS_REST_TOKEN=xxxxx
 
 Get from [upstash.com](https://upstash.com). Without Redis, rate limiting falls back to per-instance in-memory state — ineffective in a multi-instance serverless environment and a security risk in production.
 
+#### `UPSTASH_CACHE_REST_URL`
+#### `UPSTASH_CACHE_REST_TOKEN`
+**Optional, recommended at scale.** A *second*, dedicated Upstash store for the best-effort response caches (galaxy feed, pulse, agent/explore lists, provider health). The variables above back the fail-closed rate limiter; the caches write much larger bodies. On a single shared free store those large writes contend for connections and burn the limiter's command quota — the cause of the `redis SET failed … aborted due to timeout` warnings on `/api/galaxy/flows`.
+
+```
+UPSTASH_CACHE_REST_URL=https://yyy.upstash.io
+UPSTASH_CACHE_REST_TOKEN=yyyyy
+```
+
+Provision a separate store **co-located with your production Vercel region** (cross-region latency is what pushes large `SET`s past the 3s client timeout). When unset, the cache transparently falls back to the rate-limiter store, then to in-memory — no behavior change. Verify the cutover on the Upstash dashboard: command traffic shifts to the new store and the limiter store's usage drops.
+
 ---
 
 ### Authentication
