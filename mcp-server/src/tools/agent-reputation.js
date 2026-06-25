@@ -288,6 +288,7 @@ export async function buildAgentReputationTool() {
 		// so not idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},

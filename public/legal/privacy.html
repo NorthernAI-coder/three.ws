@@ -118,10 +118,20 @@
 	<h2>9. Children's Privacy</h2>
 	<p>The Service is not directed to children under 13. We do not knowingly collect personal information from children under 13. If we learn we have collected such information, we will delete it promptly.</p>
 
-	<h2>10. Changes to This Policy</h2>
+	<h2>10. MCP Connectors, AI Processing &amp; Payments</h2>
+	<p>three.ws exposes Model Context Protocol (MCP) connectors (e.g. <code>https://three.ws/api/mcp</code> and <code>https://three.ws/api/mcp-3d</code>) that AI clients such as Claude and ChatGPT can call on your behalf. This section explains how data flows through those connectors.</p>
+	<ul>
+		<li><strong>Tool inputs we receive:</strong> the arguments you (or your AI client) send to a tool — text prompts, reference image URLs, GLB/glTF model URLs, wallet or agent addresses, token mints, and search terms. We process these to fulfill the request and log them only as needed for quota, abuse prevention, and debugging.</li>
+		<li><strong>Third-party AI model providers:</strong> generation and editing tools forward your prompts and asset URLs to upstream model APIs to produce results. Depending on the tool, these may include NVIDIA NIM (Microsoft TRELLIS), Meshy, Replicate, Stability, Hugging Face, OpenAI, Anthropic, and IBM (Granite). Each provider processes the input under its own privacy policy. Do not submit confidential or personal data in tool prompts.</li>
+		<li><strong>Payment data (x402):</strong> paid tools settle in USDC via the x402 payment protocol. When you pay per call we receive your public wallet address and the payment/settlement transaction signature, verified through a payment facilitator (Coinbase CDP and/or the public x402.org facilitator). We never receive, request, or store your private keys or seed phrase. The only token three.ws itself references is <code>$THREE</code>; USDC is used purely for settlement.</li>
+		<li><strong>OAuth-scoped access:</strong> when you connect via OAuth, the connector can read and write only the three.ws account data covered by the scopes you grant (avatars, agents, memory, profile). It cannot access your AI client's chat history, memory, or local files.</li>
+		<li><strong>Retention of tool inputs:</strong> tool-call inputs and outputs follow the usage-data retention in Section 5 (90 days), except content you explicitly save (e.g. a saved avatar), which is retained as account content until you delete it.</li>
+	</ul>
+
+	<h2>11. Changes to This Policy</h2>
 	<p>We may update this Privacy Policy. We will notify you of material changes by email or a prominent notice on the Service. The "Effective" date at the top reflects the most recent revision.</p>
 
-	<h2>11. Contact</h2>
+	<h2>12. Contact</h2>
 	<p>Privacy questions: <a href="mailto:privacy@three.ws">privacy@three.ws</a></p>
 
 	<hr>

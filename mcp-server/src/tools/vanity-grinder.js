@@ -215,6 +215,7 @@ export async function buildVanityGrinderTool() {
 		// freshly-random keypair every call — never idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: false,
 		},

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T21:43:39.482Z",
+	"generated_at": "2026-06-25T22:09:22.886Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -36,6 +36,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "three.ws submitted to the Claude Connectors Directory",
+			"summary": "We packaged the three.ws MCP servers for review by Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect tools. The submission covers our main avatars-and-agents connector and the 3D Studio connector, with every tool carrying a human-readable title, an updated privacy policy that spells out exactly what AI tool calls collect and which model providers they touch, and a reviewer guide so anyone can verify the server end to end. Once approved, Claude users will be able to add three.ws as a connector and generate avatars, validate 3D models, and read live on-chain agent data straight from their chat.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

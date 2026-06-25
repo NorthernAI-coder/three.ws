@@ -110,6 +110,7 @@ export async function buildSentimentPulseTool() {
 		// fresh data, so not idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},
