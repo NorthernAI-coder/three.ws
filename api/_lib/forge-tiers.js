@@ -463,29 +463,31 @@ function defaultBackendFor(p, tierId, userImages) {
 	return candidates[0] || DEFAULT_BACKEND_FOR_PATH[p];
 }
 
-// A lane's health status is unhealthy only when the liveness layer is sure it is
-// down (probe failed, or a recent submit cooled it). Unknown/degraded never
-// disqualifies a lane — we degrade gracefully, never block routing on missing
-// telemetry.
-function isLaneDown(health, id) {
-	return health?.[id] === 'down';
-}
-
 // Health-aware default resolver. Given a `health` map of laneId → 'ok' | 'down' |
 // 'degraded' | undefined, walk the same candidate ordering as the env-only default
-// but: (1) prefer the first lane the probe confirms healthy ('ok'), favouring our
-// self-host GPU workers because they lead the ordering; (2) otherwise the first
-// lane not known to be down (unknown health is usable — we never block on missing
-// telemetry); (3) only when every free lane is confirmed down, the paid standing
-// default. With an empty/undefined health map this returns exactly what
-// defaultBackendFor would, so callers with no telemetry are unaffected.
+// and pick by preference order tempered by health, never the reverse — so our
+// self-host GPU workers (which lead the ordering) keep precedence unless they are
+// actually unhealthy:
+//   1. The first lane that is healthy OR simply unknown. Missing telemetry never
+//      demotes a preferred lane (the liveness layer reports external lanes as
+//      'unknown' by design), but a probe-confirmed 'degraded' lane is skipped if a
+//      later candidate is clean.
+//   2. Otherwise the first lane not confirmed 'down' — accept a degraded lane,
+//      still better than paying a vendor.
+//   3. Only when every free lane is confirmed down, the paid standing default.
+// With an empty/undefined health map this returns exactly what defaultBackendFor
+// would, so callers with no telemetry are unaffected.
 export function defaultBackendForHealthAware(p, tierId, userImages, health) {
 	const candidates = freeLaneCandidates(p, tierId, userImages);
 	if (!candidates.length) return DEFAULT_BACKEND_FOR_PATH[p];
-	const firstHealthy = candidates.find((id) => health?.[id] === 'ok');
-	if (firstHealthy) return firstHealthy;
-	const firstUsable = candidates.find((id) => !isLaneDown(health, id));
-	if (firstUsable) return firstUsable;
+	const statusOf = (id) => health?.[id];
+	const preferred = candidates.find((id) => {
+		const s = statusOf(id);
+		return s === 'ok' || s == null || s === 'unknown';
+	});
+	if (preferred) return preferred;
+	const usable = candidates.find((id) => statusOf(id) !== 'down');
+	if (usable) return usable;
 	// Every free lane is confirmed down — fall to the paid default rather than
 	// dead-ending on a lane we know will fail.
 	return DEFAULT_BACKEND_FOR_PATH[p];

@@ -65,10 +65,9 @@ describe('computeRemixSplit — split math', () => {
 	});
 
 	it('drops a sub-dust royalty rather than paying it', () => {
-		// Tiny price where 10% rounds below the dust floor.
-		const s = computeRemixSplit({ priceAtomics: 50_000n, royaltyBps: 100 }); // 1% of 0.05 = 500 atomics
-		expect(s.creatorAtomics < REMIX_MIN_PAYOUT_ATOMICS).toBe(false); // it was dropped to 0
-		expect(s.creatorAtomics).toBe(0n);
+		// Tiny price where 1% rounds below the dust floor (500 < 10_000 atomics).
+		const s = computeRemixSplit({ priceAtomics: 50_000n, royaltyBps: 100 });
+		expect(s.creatorAtomics).toBe(0n); // sub-dust royalty dropped, not paid
 		expect(s.dust).toBe(true);
 		expect(s.platformAtomics).toBe(50_000n);
 	});

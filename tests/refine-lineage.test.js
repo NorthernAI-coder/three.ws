@@ -46,8 +46,8 @@ describe('composeRefinement', () => {
 	});
 
 	it('is deterministic — same inputs give the same prompt', () => {
-		const a = composeRefinement('a knight helmet', 'bigger helmet');
-		const b = composeRefinement('a knight helmet', 'bigger helmet');
+		const a = composeRefinement('a knight helmet', 'make the helmet bigger');
+		const b = composeRefinement('a knight helmet', 'make the helmet bigger');
 		expect(a).toBe(b);
 		expect(a).toBe('a knight helmet, helmet bigger');
 	});

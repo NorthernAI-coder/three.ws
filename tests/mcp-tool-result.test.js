@@ -160,8 +160,18 @@ describe('MCP tool surface', () => {
 		}
 
 		// Generation + delegation tools are writes (they create hosted artifacts
-		// or dispatch actions); everything else is a pure read.
-		const writes = ['text_to_avatar', 'mesh_forge', 'forge_free', 'rig_mesh', 'forge_avatar', 'agent_delegate_action'];
+		// or dispatch actions); everything else is a pure read. agent_hire spends
+		// USDC + runs a remote agent (a write); agent_hire_discover only reads the
+		// registry + reputation, so it stays a read.
+		const writes = [
+			'text_to_avatar',
+			'mesh_forge',
+			'forge_free',
+			'rig_mesh',
+			'forge_avatar',
+			'agent_delegate_action',
+			'agent_hire',
+		];
 		for (const [name, a] of Object.entries(byName)) {
 			expect(a.readOnlyHint, `${name}.readOnlyHint`).toBe(!writes.includes(name));
 		}
