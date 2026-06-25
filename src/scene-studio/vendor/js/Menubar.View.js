@@ -105,25 +105,21 @@ function MenubarView( editor ) {
 	option.setTextContent( strings.getKey( 'menubar/view/fullscreen' ) );
 	option.onClick( function () {
 
-		if ( document.fullscreenElement === null ) {
+		// Feature-detect each method before calling it: some webviews expose
+		// document.fullscreenElement (as null) without the unprefixed
+		// requestFullscreen, which threw "requestFullscreen is not a function".
+		const el = document.documentElement;
+		const inFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
 
-			document.documentElement.requestFullscreen();
+		if ( ! inFullscreen ) {
 
-		} else if ( document.exitFullscreen ) {
+			if ( el.requestFullscreen ) el.requestFullscreen();
+			else if ( el.webkitRequestFullscreen ) el.webkitRequestFullscreen();
 
-			document.exitFullscreen();
+		} else {
 
-		}
-
-		// Safari
-
-		if ( document.webkitFullscreenElement === null ) {
-
-			document.documentElement.webkitRequestFullscreen();
-
-		} else if ( document.webkitExitFullscreen ) {
-
-			document.webkitExitFullscreen();
+			if ( document.exitFullscreen ) document.exitFullscreen();
+			else if ( document.webkitExitFullscreen ) document.webkitExitFullscreen();
 
 		}
 

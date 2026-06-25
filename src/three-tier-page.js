@@ -416,14 +416,6 @@ function mount() {
 	}
 }
 
-if (typeof document !== 'undefined') {
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', mount, { once: true });
-	} else {
-		mount();
-	}
-}
-
 // ── styles ──────────────────────────────────────────────────────────────────
 
 let _styled = false;
@@ -531,4 +523,19 @@ function injectStyles() {
 	el.id = 'tt-styles';
 	el.textContent = css;
 	document.head.appendChild(el);
+}
+
+// ── bootstrap (must run last) ─────────────────────────────────────────────────
+// Kept at the very end of the module: mount() → boot() → injectStyles() reads the
+// `_styled` guard, so the bootstrap can only run after `let _styled` is initialized.
+// When the DOM is already parsed (readyState !== 'loading') mount() runs during
+// module evaluation, so invoking it before `let _styled` was declared hit that
+// binding in its temporal dead zone — the intermittent "Cannot access '_styled'
+// before initialization" / "Cannot access uninitialized variable" crash on /three.
+if (typeof document !== 'undefined') {
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', mount, { once: true });
+	} else {
+		mount();
+	}
 }
