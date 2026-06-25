@@ -15,6 +15,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>Animation Gallery now shows the full motion library</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-06-25:Animation Gallery now shows the full motion library</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>three.ws/animations was coming up empty — it only listed community-published clips, and with none yet public the page was a blank void. It now leads with the complete built-in motion library (100+ curated animations) alongside any community clips, all searchable and filterable by loop or one-shot. Hovering a card plays the animation live on a real avatar, and the live preview now points at the correct embed so it actually loads. &quot;Open in Studio&quot; works for both built-in presets and saved community clips.</description>
+		</item>
+		<item>
 			<title>Avatar embodiment: expressions, lipsync, and expanded emotes</title>
 			<link>https://three.ws/embodiment</link>
 			<guid isPermaLink="false">2026-06-25:Avatar embodiment: expressions, lipsync, and expanded emotes</guid>
@@ -45,6 +53,14 @@
 			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The hero stage on the homepage no longer shows a &quot;live preview couldn't load&quot; card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.</description>
+		</item>
+		<item>
+			<title>Launchpad is now a real launchpad — live launches, a showcase, and the studio in one place</title>
+			<link>https://three.ws/launchpad</link>
+			<guid isPermaLink="false">2026-06-25:Launchpad is now a real launchpad — live launches, a showcase, and the studio in one place</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws/launchpad used to drop you straight into the page editor with no context. It's now a proper front door: a hero with live platform stats, a &quot;Launching now&quot; rail of real coins minted by three.ws agents (each linking to its coin page), a &quot;Built on three.ws&quot; gallery of pages people have actually published, a one-click template chooser, and a clear how-it-works. Pick a template — Token Launchpad, Paid Concierge, or Gated 3D Showroom — and the studio opens in place with the monetization flow pre-wired. Deep links into the editor (existing pages, create-flow handoffs) still open the studio directly, so nothing you bookmarked breaks.</description>
 		</item>
 		<item>
 			<title>Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry</title>

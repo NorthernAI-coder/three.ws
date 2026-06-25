@@ -342,33 +342,89 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 // list is written literally into each query below. It is static SQL with no user
 // input — duplication here is the safe, correct trade-off.
 
+// A trader's verifiable round-trip record is NOT confined to the sniper arena.
+// Strategy Objects (`agent_strategy_positions`) close real, on-chain, sell-signed
+// positions with the same realized-P&L shape — an agent that earns its track
+// record by running strategies is exactly as proven as one that snipes. Both
+// surfaces feed this single truth layer, so the leaderboard, profiles, copy-trade
+// badge, and the Back-an-Agent vault gate all credit the same real history.
+//
+// agent_strategy_positions uses different column names (entry_lamports, exit_sig,
+// …) and is a newer table, so each query aliases its rows into the canonical
+// position shape and the fetch degrades to [] if the table isn't migrated —
+// matching every other optional-source read below. It has no per-trade wallet
+// column (custody is at the agent level), so wallet is null for strategy-origin
+// rows; that only affects the display wallet, never a metric.
+
+/** Strategy-Objects round-trips for one agent, canonical-shaped. Best-effort. */
+async function fetchStrategyPositions({ agentId, network, start }) {
+	try {
+		return start
+			? await sql`
+				select s.id, s.agent_id, null::text as wallet, s.mint, s.symbol, s.name, s.status, s.exit_reason,
+				       s.entry_lamports as entry_quote_lamports, s.exit_lamports as exit_quote_lamports,
+				       s.last_value_lamports, s.peak_value_lamports,
+				       s.realized_pnl_lamports, s.realized_pnl_pct,
+				       s.entry_sig as buy_sig, s.exit_sig as sell_sig,
+				       s.opened_at, s.closed_at
+				from agent_strategy_positions s
+				where s.agent_id = ${agentId} and s.network = ${network}
+				  and (s.status in ('open','closing') or s.closed_at >= ${start})
+			`
+			: await sql`
+				select s.id, s.agent_id, null::text as wallet, s.mint, s.symbol, s.name, s.status, s.exit_reason,
+				       s.entry_lamports as entry_quote_lamports, s.exit_lamports as exit_quote_lamports,
+				       s.last_value_lamports, s.peak_value_lamports,
+				       s.realized_pnl_lamports, s.realized_pnl_pct,
+				       s.entry_sig as buy_sig, s.exit_sig as sell_sig,
+				       s.opened_at, s.closed_at
+				from agent_strategy_positions s
+				where s.agent_id = ${agentId} and s.network = ${network}
+			`;
+	} catch {
+		return []; // table not migrated yet → sniper record stands alone
+	}
+}
+
 /**
  * Fetch a trader's positions for a window. Closed positions are window-bounded by
  * close time; open positions are ALWAYS included (current exposure is "now",
- * regardless of window).
+ * regardless of window). Unifies the sniper arena and Strategy Objects ledgers so
+ * the whole reputation surface counts every real round-trip.
  */
 export async function fetchTraderPositions({ agentId, network, window = 'all', now = Date.now() }) {
 	const start = windowStartIso(window, now);
-	return start
-		? sql`
-			select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
-			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
-			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
-			       p.opened_at, p.closed_at
-			from agent_sniper_positions p
-			where p.agent_id = ${agentId} and p.network = ${network}
-			  and (p.status in ('open','opening','closing') or p.closed_at >= ${start})
-			order by coalesce(p.closed_at, p.opened_at) desc
-		`
-		: sql`
-			select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
-			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
-			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
-			       p.opened_at, p.closed_at
-			from agent_sniper_positions p
-			where p.agent_id = ${agentId} and p.network = ${network}
-			order by coalesce(p.closed_at, p.opened_at) desc
-		`;
+	const [sniper, strategy] = await Promise.all([
+		start
+			? sql`
+				select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
+				       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
+				       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+				       p.opened_at, p.closed_at
+				from agent_sniper_positions p
+				where p.agent_id = ${agentId} and p.network = ${network}
+				  and (p.status in ('open','opening','closing') or p.closed_at >= ${start})
+				order by coalesce(p.closed_at, p.opened_at) desc
+			`
+			: sql`
+				select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
+				       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
+				       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+				       p.opened_at, p.closed_at
+				from agent_sniper_positions p
+				where p.agent_id = ${agentId} and p.network = ${network}
+				order by coalesce(p.closed_at, p.opened_at) desc
+			`,
+		fetchStrategyPositions({ agentId, network, start }),
+	]);
+	if (!strategy.length) return sniper;
+	// Merge both real ledgers, newest activity first — computeTraderMetrics re-sorts
+	// the closed subset for its equity curve, so this ordering is only for callers
+	// that render the raw list (profile history, open positions).
+	return [...sniper, ...strategy].sort(
+		(a, b) =>
+			new Date(b.closed_at || b.opened_at).getTime() - new Date(a.closed_at || a.opened_at).getTime(),
+	);
 }
 
 /** SOL/USD with a short module cache so a burst of stat requests prices once. */
@@ -645,12 +701,51 @@ function buildProjectionComparison(snap, metrics) {
 }
 
 /**
- * Leaderboard: every agent with sniper activity in the window, ranked by composite
- * score. One query pulls all in-window positions; we group by agent and run each
- * group through the SAME pure `computeTraderMetrics` the profile uses, so the two
- * surfaces can never disagree. Scale note: the sniper arena is a curated set of
- * agents — if it ever grows past a few hundred active traders per window, move the
- * grouping into SQL with a windowed aggregate.
+ * Public, canonical-shaped Strategy-Objects positions across a network, for the
+ * leaderboard. Mirrors the sniper leaderboard query (joined to agent_identities,
+ * public agents only) so strategy traders rank alongside snipers. Best-effort: an
+ * unmigrated table yields no extra rows rather than failing the whole board.
+ */
+async function fetchStrategyLeaderboardRows({ network, start }) {
+	try {
+		return start
+			? await sql`
+				select s.id, s.agent_id, null::text as wallet, s.mint, s.symbol, s.name, s.status, s.exit_reason,
+				       s.entry_lamports as entry_quote_lamports, s.exit_lamports as exit_quote_lamports,
+				       s.last_value_lamports, s.peak_value_lamports,
+				       s.realized_pnl_lamports, s.realized_pnl_pct,
+				       s.entry_sig as buy_sig, s.exit_sig as sell_sig,
+				       s.opened_at, s.closed_at,
+				       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+				from agent_strategy_positions s
+				join agent_identities a on a.id = s.agent_id
+				where s.network = ${network} and a.is_public is not false
+				  and (s.status in ('open','closing') or s.closed_at >= ${start})
+			`
+			: await sql`
+				select s.id, s.agent_id, null::text as wallet, s.mint, s.symbol, s.name, s.status, s.exit_reason,
+				       s.entry_lamports as entry_quote_lamports, s.exit_lamports as exit_quote_lamports,
+				       s.last_value_lamports, s.peak_value_lamports,
+				       s.realized_pnl_lamports, s.realized_pnl_pct,
+				       s.entry_sig as buy_sig, s.exit_sig as sell_sig,
+				       s.opened_at, s.closed_at,
+				       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+				from agent_strategy_positions s
+				join agent_identities a on a.id = s.agent_id
+				where s.network = ${network} and a.is_public is not false
+			`;
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Leaderboard: every agent with real trading activity in the window, ranked by
+ * composite score. Pulls in-window positions from both the sniper arena and
+ * Strategy Objects, groups by agent, and runs each group through the SAME pure
+ * `computeTraderMetrics` the profile uses, so the two surfaces can never disagree.
+ * Scale note: the trader set is curated — if it ever grows past a few hundred
+ * active traders per window, move the grouping into SQL with a windowed aggregate.
  */
 export const LEADERBOARD_SORTS = new Set(['score', 'pnl', 'winrate', 'roi']);
 
@@ -687,11 +782,13 @@ export async function getLeaderboard({
 			join agent_identities a on a.id = p.agent_id
 			where p.network = ${network} and a.is_public is not false
 		`;
+	const strategyRows = await fetchStrategyLeaderboardRows({ network, start });
+	const allRows = strategyRows.length ? [...rows, ...strategyRows] : rows;
 	const solUsd = await cachedSolUsd();
 	const copiers = await activeCopierCounts(network);
 
 	const byAgent = new Map();
-	for (const r of rows) {
+	for (const r of allRows) {
 		let g = byAgent.get(r.agent_id);
 		if (!g) {
 			g = {
@@ -709,7 +806,7 @@ export async function getLeaderboard({
 
 	// One batch each for the whole board: self-deal mints per user, launch times per
 	// mint. The same anti-gaming evidence the profile uses, so the two never disagree.
-	const allMints = [...new Set(rows.map((r) => r.mint).filter(Boolean))];
+	const allMints = [...new Set(allRows.map((r) => r.mint).filter(Boolean))];
 	const [selfDealByUser, mintCreatedAt] = await Promise.all([
 		selfDealMintsByUsers([...byAgent.values()].map((g) => g.user_id), network),
 		mintLaunchTimes(allMints, network),

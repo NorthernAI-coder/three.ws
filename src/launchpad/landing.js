@@ -247,9 +247,13 @@ function galleryCardHTML(p) {
 		? `<img loading="lazy" alt="" src="${esc(p.image)}" />`
 		: `<span class="glyph">${esc(monogram(p.headline))}</span>`;
 	const priceTxt = p.price ? `${p.price.amount} ${esc(p.price.currency || '')}`.trim() : '';
+	// Studio's default brand is #ffffff, so blend the brand toward near-black —
+	// the glyph stays legible on light brand colors while keeping the tint. The
+	// leading solid is a fallback for engines without color-mix().
+	const topBg = `#16181d; background:linear-gradient(150deg, color-mix(in srgb, ${esc(p.brand)} 50%, #0b0d10), #16181d)`;
 	return `
 		<a class="lp-card" href="${esc(p.url)}" title="Open /p/${esc(p.slug)}">
-			<span class="top" style="background:linear-gradient(150deg, ${esc(p.brand)} 0%, #16181d 100%)">
+			<span class="top" style="background:${topBg}">
 				${top}
 				<span class="tbadge" style="background:${esc(badge.accent)}">${esc(badge.label)}</span>
 				${p.viewCount ? `<span class="views">${esc(fmtCount(p.viewCount))} views</span>` : ''}
@@ -386,11 +390,11 @@ async function loadStats(root, galleryTotalRef) {
 	const nodes = stats.querySelectorAll('.lp-stat .n');
 	const set = (i, val) => { if (nodes[i]) nodes[i].textContent = val; };
 	try {
-		const launches = await getJson('/api/pump/launches?limit=1&offset=0');
-		// has_more with a tiny page doesn't give a true count; fall back to a
-		// representative "live" figure derived from the feed presence.
-		const any = (launches?.data?.launches || []).length > 0;
-		set(0, any ? 'Live' : '0');
+		// The launches feed has no count(*) — over-fetch a page and report the real
+		// floor (e.g. "50+") rather than inventing a precise total.
+		const launches = await getJson('/api/pump/launches?limit=50&offset=0');
+		const arr = launches?.data?.launches || [];
+		set(0, arr.length ? `${fmtCount(arr.length)}${launches?.data?.has_more ? '+' : ''}` : '0');
 	} catch {
 		set(0, '—');
 	}
@@ -399,7 +403,7 @@ async function loadStats(root, galleryTotalRef) {
 	else galleryTotalRef.onResolve = (n) => set(1, fmtCount(n));
 }
 
-async function loadGallery(root, galleryTotalRef, enterStudio) {
+async function loadGallery(root, galleryTotalRef) {
 	const gal = root.querySelector('[data-gallery]');
 	if (!gal) return;
 	try {
@@ -455,22 +459,19 @@ export function mountLaunchpadLanding(root) {
 	styleEl.textContent = STYLE;
 	document.head.appendChild(styleEl);
 
-	let studioMounted = false;
-
 	function renderLanding() {
 		document.title = 'Launchpad — three.ws';
 		root.innerHTML = shellHTML();
 		const galleryTotalRef = { value: null, onResolve: null };
 		loadLiveFeed(root);
 		loadStats(root, galleryTotalRef);
-		loadGallery(root, galleryTotalRef, enterStudio);
+		loadGallery(root, galleryTotalRef);
 	}
 
 	async function mountStudio(opts) {
 		root.innerHTML = '';
 		const { mountLaunchpadStudio } = await import('../editor/launchpad-studio.js');
 		mountLaunchpadStudio(root, opts);
-		studioMounted = true;
 		document.title = 'Launchpad Studio — three.ws';
 	}
 
