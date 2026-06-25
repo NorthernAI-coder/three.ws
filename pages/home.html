@@ -4987,14 +4987,26 @@
 	// DB row hasn't been seeded yet) — fall back to a real featured avatar so
 	// the stage is never just an error card.
 	async function resolveFeaturedGlb() {
-		const r = await fetch(`${location.origin}/api/avatars/featured?limit=12`);
-		if (!r.ok) throw new Error('HTTP ' + r.status);
-		const d = await r.json();
-		const list = Array.isArray(d.avatars) ? d.avatars : [];
-		for (const a of list) {
-			try { return await fetchAvatarGlb(a.id); } catch (_) { /* try next */ }
-		}
-		throw new Error('no featured avatar with a model');
+		// Preferred: a curated featured avatar via the detail endpoint (richest
+		// metadata). Wrapped so a flaky/unavailable detail route never strands
+		// the hero — we drop to the explore pool below instead.
+		try {
+			const r = await fetch(`${location.origin}/api/avatars/featured?limit=12`);
+			if (r.ok) {
+				const d = await r.json();
+				const list = Array.isArray(d.avatars) ? d.avatars : [];
+				for (const a of list) {
+					try { return await fetchAvatarGlb(a.id); } catch (_) { /* try next */ }
+				}
+			}
+		} catch (_) { /* fall through to the explore pool */ }
+		// Fallback: the explore feed returns ready-to-render GLB URLs directly
+		// (and getAvatarPool degrades to bundled /avatars/*.glb), so the stage
+		// renders a real avatar even if the per-avatar detail endpoint is down.
+		const pool = await getAvatarPool();
+		const glb = pool.find(Boolean);
+		if (!glb) throw new Error('no renderable avatar found');
+		return glb;
 	}
 	async function bootHeroAvatar() {
 		const heroInner = document.getElementById('hero-stage-inner');
