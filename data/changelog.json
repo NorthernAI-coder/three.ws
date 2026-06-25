@@ -3,6 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "Avatar profile pages load again",
+			"summary": "Every avatar page (three.ws/avatars/…) was failing to load its model and details because the underlying avatar endpoint wasn't wired up — the request fell through to a generic 404 instead of reaching the avatar service. The route is now connected, so avatar pages fetch the 3D model, metadata, and related avatars correctly again.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-25",
+			"title": "Coin Clash is back online",
+			"summary": "The Coin Clash arena couldn't load — round state, the live bracket, enlistment, rallying, and the leaderboard all failed because the backend routes weren't wired up. Every Clash endpoint now resolves correctly, so the page loads battles, lets you enlist and rally for your faction, and renders the leaderboard in real time again.",
+			"tags": ["fix"],
+			"link": "/clash"
+		},
+		{
+			"date": "2026-06-25",
 			"title": "Homepage live preview always renders a real agent",
 			"summary": "The hero stage on the homepage no longer shows a \"live preview couldn't load\" card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.",
 			"tags": ["fix"]

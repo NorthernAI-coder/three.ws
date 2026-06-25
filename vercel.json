@@ -3369,6 +3369,18 @@
 			"dest": "/api/token/[action]?action=$1"
 		},
 		{
+			"src": "/api/three/([^/]+)",
+			"dest": "/api/three/[action]?action=$1"
+		},
+		{
+			"src": "/api/auth/extension-token",
+			"dest": "/api/auth/extension-token.js"
+		},
+		{
+			"src": "/api/auth/([^/]+)",
+			"dest": "/api/auth/[action]?action=$1"
+		},
+		{
 			"src": "/api/developer/webhooks/([^/]+)",
 			"dest": "/api/developer/webhooks/[id]?id=$1"
 		},

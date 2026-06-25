@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T23:38:47.439Z",
+	"generated_at": "2026-06-25T23:42:54.066Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -24,6 +24,26 @@
 			"link": "/embodiment",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Avatar profile pages load again",
+			"summary": "Every avatar page (three.ws/avatars/…) was failing to load its model and details because the underlying avatar endpoint wasn't wired up — the request fell through to a generic 404 instead of reaching the avatar service. The route is now connected, so avatar pages fetch the 3D model, metadata, and related avatars correctly again.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Coin Clash is back online",
+			"summary": "The Coin Clash arena couldn't load — round state, the live bracket, enlistment, rallying, and the leaderboard all failed because the backend routes weren't wired up. Every Clash endpoint now resolves correctly, so the page loads battles, lets you enlist and rally for your faction, and renders the leaderboard in real time again.",
+			"link": "/clash",
+			"tags": [
+				"fix"
 			]
 		},
 		{

@@ -86,6 +86,14 @@ export class AnimationLibrary {
 		this._previewing = false;
 		this._state = 'loading';
 
+		// Resolves once mount() has finished loading the manifest (success or
+		// failure) — openByName() awaits this so a ?anim=<preset> deep-link works
+		// even before the gallery has rendered.
+		this._readyResolve = null;
+		this._ready = new Promise((resolve) => {
+			this._readyResolve = resolve;
+		});
+
 		// Text-to-animation job state (token-based abort like the forge panels).
 		this._genToken = 0;
 		this._genTimer = null;
@@ -114,7 +122,26 @@ export class AnimationLibrary {
 		} catch (err) {
 			log.warn('[AnimationLibrary] manifest load failed:', err.message);
 			this._setState('error-load');
+		} finally {
+			this._readyResolve?.();
 		}
+	}
+
+	/**
+	 * Open a preset by its manifest name and play it on the current rig. This is
+	 * the ?anim= deep-link path for built-in library clips (keyed by name, e.g.
+	 * "idle" or "av-boxer-dance") — the counterpart to PoseLibrary.openById() for
+	 * saved community clips, which are keyed by API UUID. Waits for the manifest
+	 * to finish loading first. Throws if no preset carries that name; when no
+	 * compatible rig is loaded, preview() surfaces its own "load an avatar"
+	 * guidance rather than throwing.
+	 * @param {string} name  manifest clip name
+	 */
+	async openByName(name) {
+		await this._ready;
+		const def = this._defs.find((d) => d.name === name);
+		if (!def) throw new Error(`No built-in animation named “${name}”`);
+		return this.preview(def);
 	}
 
 	/** Called by the host when the active rig changes (avatar load / mannequin). */

@@ -640,9 +640,14 @@
 				state.coins = data.coins || [];
 				$('#cnt-radar').textContent = state.degraded ? '' : state.coins.length;
 				if (state.degraded || !state.coins.length) {
-					grid.innerHTML = emptyState(state.degraded);
+					// Distinguish "filtered to nothing" from "the index is genuinely empty".
+					// With no active filters and zero coins, the engine simply hasn't
+					// observed anything yet — show the warming-up state, not a misleading
+					// "no coins match these filters" (there are no filters to loosen).
+					const hasFilters = !!(state.category || state.verdict || state.minq || state.q);
+					grid.innerHTML = emptyState(state.degraded || !hasFilters);
 					const rb = $('#ci-empty-retry');
-					if (rb) rb.addEventListener('click', () => { if (!state.degraded) { state.category=state.verdict=state.minq=state.q=''; $('#ci-q').value=''; $('#ci-verdict').value=''; $('#ci-minq').value=''; renderCatChips(); } loadRadar(); });
+					if (rb) rb.addEventListener('click', () => { if (hasFilters && !state.degraded) { state.category=state.verdict=state.minq=state.q=''; $('#ci-q').value=''; $('#ci-verdict').value=''; $('#ci-minq').value=''; renderCatChips(); } loadRadar(); });
 				} else {
 					grid.innerHTML = '';
 					state.coins.forEach(c => grid.appendChild(coinCard(c)));
@@ -995,7 +1000,9 @@
 				$('#ci-stats').innerHTML = [
 					['Observed', cov.observed], ['Classified', cov.classified], ['Labeled', cov.labeled], ['Graduated', grad],
 				].map(([l,v]) => `<div class="ci-stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
-				$('#ci-hero').dataset.degraded = data.degraded ? '1' : '0';
+				// Amber pulse when the engine is degraded OR has observed nothing yet
+				// (worker not reporting) — never a false "all-green live" with no data.
+				$('#ci-hero').dataset.degraded = (data.degraded || cov.observed === 0) ? '1' : '0';
 			} catch { $('#ci-hero').dataset.degraded = '1'; }
 		}
 
