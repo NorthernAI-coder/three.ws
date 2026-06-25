@@ -48,6 +48,9 @@ export default wrap(async (req, res) => {
 				'llm_unavailable',
 				'agent delegation is not available right now',
 			);
-		return error(res, 502, 'upstream_error', `LLM call failed: ${err.message}`);
+		// An LLM/provider error can embed keyed RPC/provider URLs — keep it out of
+		// the client response; the detail is logged server-side for triage.
+		console.error('[agent-delegate] LLM call failed:', err?.message || err);
+		return error(res, 502, 'upstream_error', 'Agent delegation failed temporarily. Try again shortly.');
 	}
 });

@@ -401,7 +401,7 @@ export class DeployButton {
 					'Your Solana wallet is not linked to this account. Sign in with your Solana wallet first.',
 					{
 						label: 'Open wallet sign-in',
-						handler: () => (window.location.href = '/login.html'),
+						handler: () => (window.location.href = '/login'),
 					},
 				);
 				return;
@@ -411,7 +411,7 @@ export class DeployButton {
 					`${err.message || 'Paid plan required'} — upgrade to use 5+ character vanity prefixes.`,
 					{
 						label: 'View plans',
-						handler: () => (window.location.href = '/pricing.html'),
+						handler: () => (window.location.href = '/pricing'),
 					},
 				);
 				return;

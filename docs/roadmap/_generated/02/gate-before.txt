@@ -28,3 +28,5 @@ stderr | tests/auto-rig-completion.test.js > 6a — cron recovers an open job fr
      × issues a MeterUsage command with the product code, dimension, and idempotency allocation 2255ms
  ❯ tests/build-asset-paths.test.js (5 tests | 1 failed) 56ms
      × serves /style.css from dist root 53ms
+ ❯ tests/api/agent-memory.test.js (22 tests | 1 failed) 148ms
+     × truncates content longer than 10,000 characters 18ms

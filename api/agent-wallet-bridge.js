@@ -295,7 +295,10 @@ export default wrap(async (req, res) => {
 				resource: challenge.resource || null,
 			}));
 		} catch (err) {
-			error(res, 502, 'quote_failed', err.message);
+			// Don't echo upstream endpoint URLs / response bodies to the caller —
+			// fetch402 errors embed both. Log server-side, return a stable message.
+			console.error('[agent-wallet-bridge] quote_failed:', err?.message || err);
+			error(res, 502, 'quote_failed', 'Unable to retrieve a payment quote right now. Try again shortly.');
 		}
 		return;
 	}

@@ -44,11 +44,16 @@ import {
 	BACKENDS,
 	resolveTier,
 	resolveBackendId,
+	resolveBackendIdWithHealth,
+	freeLaneCandidates,
+	isSelfHostBackend,
+	coldStartSecondsFor,
 	estimateEtaSeconds,
 	estimateCredits,
 	preferFreeReconstruct,
 	buildCatalog,
 } from './_lib/forge-tiers.js';
+import { laneHealthSnapshot, markLaneUnhealthy } from './_lib/forge-lane-health.js';
 import { resolveProviderKey } from './_lib/forge-provider-key.js';
 import { validateForgeImage } from './_lib/forge-image-validate.js';
 import { encodeJobToken, decodeJobToken } from './_lib/forge-job-token.js';
@@ -542,6 +547,48 @@ async function startJob(req, res) {
 		}
 	}
 
+	// Health-aware lane selection: when the caller didn't name a backend, consult a
+	// cheap, cached liveness snapshot of the free lanes and skip any our probe (or a
+	// recent submit failure) marks down — so a cold or unreachable self-host worker
+	// is routed AROUND before submit, not failed-over after. Only the platform free
+	// lanes (image/sketch) are candidates; geometry is BYOK and unaffected. Pure
+	// best-effort: any snapshot error leaves the env-resolved backendId in place, so
+	// a deployment with no telemetry behaves exactly as before. The snapshot is also
+	// reused below to decide an honest cold-start ETA without a second probe.
+	if (!backendExplicit && (path === 'image' || path === 'sketch')) {
+		try {
+			const candidates = freeLaneCandidates(path, tier.id, isImageMode);
+			if (candidates.length) {
+				const snap = await laneHealthSnapshot(candidates);
+				const healthAware = resolveBackendIdWithHealth({
+					path,
+					tier,
+					userImages: isImageMode,
+					health: snap.statusMap,
+				});
+				if (BACKENDS[healthAware]) backendId = healthAware;
+			}
+		} catch (err) {
+			console.warn(`[forge] lane-health routing skipped: ${err?.message || err}`);
+		}
+	}
+
+	// Honest cold-start signal for a chosen self-host lane: true only when the
+	// liveness probe reached the worker but it answered slowly (a scale-to-zero
+	// container spinning up). Reuses the cached snapshot, so the common path pays no
+	// extra probe. Used to widen the ETA + flag `cold_start` in the response — never
+	// to fabricate progress; the client's real polling still drives actual status.
+	const coldStartFor = async (id) => {
+		if (!isSelfHostBackend(id) || !coldStartSecondsFor(id)) return false;
+		try {
+			const snap = await laneHealthSnapshot([id]);
+			const rec = snap.byId[id];
+			return Boolean(rec && rec.status === 'ok' && rec.warm === false);
+		} catch {
+			return false;
+		}
+	};
+
 	// $THREE hold-to-access gate (Token Utility v1) — the High tier (200k poly +
 	// PBR, textured) is the platform's premium quality tier. It now runs on a
 	// free-for-us engine (HuggingFace Hunyuan3D) like every other tier, so this is
@@ -851,6 +898,22 @@ async function startJob(req, res) {
 							'Sketch-to-3D is not configured on this deployment (GCP_TRIPOSG_URL is not set).',
 					});
 				}
+				// The sketch model is conditioned on the drawing — no other lane can
+				// serve it, so there is nothing to fail over to. Cool the worker so the
+				// next request skips it while it recovers, and return a designed,
+				// retryable state instead of a raw provider error.
+				if (isUpstreamUnavailable(err)) {
+					await markLaneUnhealthy('triposg');
+					console.warn(`[forge] self-host sketch lane unavailable: ${err?.message || err}`);
+					res.setHeader('retry-after', '20');
+					return json(res, 503, {
+						error: 'generation_unavailable',
+						backend: backendId,
+						message:
+							'The sketch-to-3D worker is warming up or briefly unavailable. Try again in a moment.',
+						retry_after: 20,
+					});
+				}
 				throw err;
 			}
 
@@ -873,6 +936,7 @@ async function startJob(req, res) {
 				path,
 			});
 
+			const sketchCold = await coldStartFor(backendId);
 			return json(res, 200, {
 				job_id: token,
 				creation_id: creationId,
@@ -884,7 +948,8 @@ async function startJob(req, res) {
 				prompt,
 				preview_image_url: sketchUrl,
 				reference_image_urls: [sketchUrl],
-				eta_seconds: estimateEtaSeconds({ backendId, tier }),
+				cold_start: sketchCold,
+				eta_seconds: estimateEtaSeconds({ backendId, tier, cold: sketchCold }),
 				estimated_credits: estimateCredits({ backendId, path, tier }),
 			});
 		}
@@ -1175,6 +1240,7 @@ async function startJob(req, res) {
 			}
 
 			let job;
+			let selfHostTrellisFailed = false;
 			try {
 				job = await gcp.submit({
 					mode: 'trellis',
@@ -1190,44 +1256,78 @@ async function startJob(req, res) {
 							'Self-hosted TRELLIS is not configured on this deployment (MODEL_TRELLIS_URL is not set).',
 					});
 				}
-				throw err;
+				// A genuine config/input fault surfaces as-is. An upstream blip (the
+				// worker is cold, restarting, throttled, or briefly unreachable) must
+				// not fail a request another lane can serve: cool this lane so the next
+				// request skips it, then fail over below to our other self-host worker
+				// (Hunyuan3D) or the standing reconstruct chain (which free-firsts to HF
+				// and only then the paid lane). We already hold the reference views, so
+				// the next lane reconstructs from exactly the same input.
+				if (!isUpstreamUnavailable(err)) throw err;
+				await markLaneUnhealthy('trellis_selfhost');
+				console.warn(
+					`[forge] self-host TRELLIS lane unavailable (${err?.providerStatus || err?.code}); failing over to the next image lane`,
+				);
+				selfHostTrellisFailed = true;
 			}
 
-			// Wrap the gcp job envelope in a forge token so polling routes back to the
-			// gcp provider -- same idiom as the sketch and Hunyuan3D lanes.
-			const token = encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId });
-			const clientKey = clientKeyFrom(req);
-			const creationId = await createCreation({
-				clientKey,
-				ipHash: hashIp(ip),
-				prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
-				aspect: isImageMode ? null : aspect,
-				previewImageUrl: referenceImageUrl,
-				replicateJobId: job.extJobId,
-				textToImageModel: isImageMode ? null : textToImageModel,
-				viewsRequested: views.length,
-				viewsUsed: job.viewsUsed ?? views.length,
-				multiview: views.length > 1,
-				backend: backendId,
-				tier: tier.id,
-				path,
-			});
+			if (!selfHostTrellisFailed) {
+				// Wrap the gcp job envelope in a forge token so polling routes back to the
+				// gcp provider -- same idiom as the sketch and Hunyuan3D lanes.
+				const token = encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId });
+				const clientKey = clientKeyFrom(req);
+				const creationId = await createCreation({
+					clientKey,
+					ipHash: hashIp(ip),
+					prompt: prompt || (isImageMode ? 'image-to-3d' : ''),
+					aspect: isImageMode ? null : aspect,
+					previewImageUrl: referenceImageUrl,
+					replicateJobId: job.extJobId,
+					textToImageModel: isImageMode ? null : textToImageModel,
+					viewsRequested: views.length,
+					viewsUsed: job.viewsUsed ?? views.length,
+					multiview: views.length > 1,
+					backend: backendId,
+					tier: tier.id,
+					path,
+				});
 
-			return json(res, 200, {
-				job_id: token,
-				creation_id: creationId,
-				status: 'queued',
-				mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
-				path,
-				tier: tier.id,
-				backend: backendId,
-				prompt: prompt || null,
-				preview_image_url: referenceImageUrl,
-				reference_image_urls: isImageMode ? [imageUrls[0]] : [referenceImageUrl],
-				text_to_image_model: isImageMode ? null : textToImageModel,
-				eta_seconds: estimateEtaSeconds({ backendId, tier }),
-				estimated_credits: estimateCredits({ backendId, path, tier }),
-			});
+				const cold = await coldStartFor(backendId);
+				return json(res, 200, {
+					job_id: token,
+					creation_id: creationId,
+					status: 'queued',
+					mode: isImageMode ? 'image_to_3d' : 'text_to_3d',
+					path,
+					tier: tier.id,
+					backend: backendId,
+					prompt: prompt || null,
+					preview_image_url: referenceImageUrl,
+					reference_image_urls: isImageMode ? [imageUrls[0]] : [referenceImageUrl],
+					text_to_image_model: isImageMode ? null : textToImageModel,
+					cold_start: cold,
+					eta_seconds: estimateEtaSeconds({ backendId, tier, cold }),
+					estimated_credits: estimateCredits({ backendId, path, tier }),
+				});
+			}
+
+			// Fail over from the down self-host TRELLIS worker. Prefer our other
+			// self-host GPU lane (Hunyuan3D) when it's wired; otherwise hand off to the
+			// standing reconstruct chain (backend 'trellis'), which free-firsts to the
+			// HuggingFace Spaces lane and only then the paid Replicate account. Falls
+			// through (no return) into the lane blocks below; provenance reports the
+			// lane that actually runs, so the failover is never silent.
+			if (process.env.GCP_HUNYUAN3D_URL && process.env.GCP_RECONSTRUCTION_KEY) {
+				backendId = 'hunyuan3d';
+				provider = createGcpProvider({ reconstructUrl: process.env.GCP_HUNYUAN3D_URL });
+			} else {
+				backendId = 'trellis';
+				try {
+					provider = createRegenProvider();
+				} catch {
+					provider = undefined;
+				}
+			}
 		}
 
 		if (backendId === 'huggingface') {
@@ -1296,6 +1396,17 @@ async function startJob(req, res) {
 
 		let job;
 		try {
+			// A self-host failover landed here with no paid provider configured (no
+			// REPLICATE_API_TOKEN) and the free HF lane above didn't serve the request
+			// — there is no reconstruct lane left. Raise it as upstream-unavailable so
+			// the catch below runs the remaining free fallbacks (Hunyuan3D → HF) and,
+			// if those are gone too, surfaces a designed unavailable state.
+			if (!provider) {
+				throw Object.assign(new Error('no reconstruct lane configured'), {
+					code: 'provider_unreachable',
+					status: 502,
+				});
+			}
 			// Per-provider submit throttle: shed platform Replicate bursts to the free
 			// lane BEFORE they hit the account quota and turn into fleet-wide 429s. Only
 			// the platform-keyed default lane is capped — BYOK lanes spend the caller's
@@ -1431,6 +1542,10 @@ async function startJob(req, res) {
 		// GPU pipeline. First writer wins; best-effort (no-op without Redis).
 		await registerInFlight(requestHash, jobHandle);
 
+		// Honest cold-start: only a self-host worker reached cold widens the ETA
+		// (a paid/external lane returns false). Covers the Hunyuan3D self-host
+		// fallback this block serves after a self-host TRELLIS failover.
+		const cold = await coldStartFor(backendId);
 		return json(res, 200, {
 			job_id: jobHandle,
 			creation_id: creationId,
@@ -1446,7 +1561,8 @@ async function startJob(req, res) {
 			views_used: viewsUsed,
 			multiview,
 			text_to_image_model: textToImageModel,
-			eta_seconds: estimateEtaSeconds({ backendId, tier }),
+			cold_start: cold,
+			eta_seconds: estimateEtaSeconds({ backendId, tier, cold }),
 			estimated_credits: estimateCredits({ backendId, path, tier }),
 		});
 	} catch (err) {

@@ -30,3 +30,11 @@ Route verify — 231 catalog pages, 908 main routes, 1 post-filesystem routes.
 > 3d-agent@1.5.2 audit:handlers
 > node scripts/audit-empty-handlers.mjs
 
+✓ audit-empty-handlers: all API handlers export a body (1185 checked)
+
+> 3d-agent@1.5.2 audit:mcp
+> node scripts/audit-mcp-manifests.mjs
+
+[audit:mcp] server-studio.json: description is 186 chars (registry max is 100)
+[audit:mcp] 1 violation(s) across 15 manifests
+EXIT:1

@@ -17,7 +17,6 @@ const TOPICS = [
 	{ id: 'sol',  label: '◎ SOL'  },
 	{ id: 'btc',  label: '₿ BTC'  },
 	{ id: 'eth',  label: '⟠ ETH'  },
-	{ id: 'doge', label: '🐕 DOGE' },
 	{ id: 'bnb',  label: '⬡ BNB'  },
 ];
 

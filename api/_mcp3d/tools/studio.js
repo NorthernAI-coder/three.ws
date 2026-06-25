@@ -41,6 +41,14 @@ import { createAvatar, storageKeyFor } from '../../_lib/avatars.js';
 import { putObject } from '../../_lib/r2.js';
 import { isValidGlbHeader, inspectGlb } from '../../_lib/glb-inspect.js';
 import { env } from '../../_lib/env.js';
+import {
+	createPersona,
+	getPersona,
+	touchPersona,
+	personaPublicView,
+	isPersonaId,
+} from '../../_lib/persona-store.js';
+import { expressionForText, expressionFor } from '../../../src/embodiment/emotion.js';
 import { PRESETS, PRESET_GROUPS } from '../../../src/pose-presets.js';
 import {
 	renderModelViewerHtml,
@@ -176,6 +184,70 @@ function viewerArtifact({ glbUrl, name, options = {} }) {
 		resource: { uri: glbUrl, mimeType: 'text/html', text: html },
 	};
 }
+
+// The Apps SDK template URL the embodiment component is served from. A persona
+// tool result references this so a host (ChatGPT/Claude) renders the LIVING body
+// inline — the same hosted page the local demo harness drives.
+const EMBODIMENT_EMBED = `${env.APP_ORIGIN}/embodiment/embed`;
+
+function buildEmbedUrl({ persona, state, text, emotion, intensity, gesture }) {
+	const u = new URL(EMBODIMENT_EMBED);
+	u.searchParams.set('persona', persona.persona_id);
+	u.searchParams.set('glb', persona.glb_url);
+	if (persona.name) u.searchParams.set('name', persona.name);
+	if (state) u.searchParams.set('state', state);
+	if (text) u.searchParams.set('text', text.slice(0, 600));
+	if (emotion) u.searchParams.set('emotion', emotion);
+	if (intensity != null) u.searchParams.set('intensity', String(intensity));
+	if (gesture) u.searchParams.set('gesture', gesture);
+	return u.toString();
+}
+
+// Render the embodied persona as an inline, sandboxed artifact: a self-contained
+// HTML document that mounts the hosted embodiment component (the live, rigged body
+// that lip-syncs + emotes) and passes the turn's speak/emotion payload. Mirrors the
+// viewerArtifact contract; adds the `_meta` openai/outputTemplate key so Apps SDK
+// hosts that prefer a registered template can use the same embed URL.
+function embodimentArtifact({ persona, state = 'idle', text = '', emotion = 'neutral', intensity = 0, gesture = null }) {
+	const embedUrl = buildEmbedUrl({ persona, state, text, emotion, intensity, gesture });
+	const safe = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+	const html =
+		`<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+		`<meta name="viewport" content="width=device-width,initial-scale=1">` +
+		`<title>${safe(persona.name || 'Agent')} — live</title>` +
+		`<style>html,body{margin:0;height:100%;background:transparent}` +
+		`.wrap{position:relative;width:100%;height:480px;border-radius:16px;overflow:hidden;` +
+		`background:radial-gradient(120% 120% at 50% 0%,#1a1a24 0%,#0c0c12 70%)}` +
+		`iframe{width:100%;height:100%;border:0;display:block}` +
+		`.fb{position:absolute;inset:auto 0 0 0;padding:8px 12px;font:600 12px system-ui;color:#cbd5e1;text-align:center}` +
+		`.fb a{color:#a78bfa}</style></head><body>` +
+		`<div class="wrap"><iframe title="${safe(persona.name || 'Agent')} live avatar" ` +
+		`src="${safe(embedUrl)}" allow="autoplay" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>` +
+		`<noscript class="fb">Open <a href="${safe(embedUrl)}">${safe(persona.name || 'this agent')}</a> in a browser.</noscript>` +
+		`</div></body></html>`;
+	return {
+		type: 'resource',
+		resource: {
+			uri: embedUrl,
+			mimeType: 'text/html',
+			text: html,
+			_meta: { 'openai/outputTemplate': embedUrl },
+		},
+	};
+}
+
+// Annotations for the persona lifecycle tools. create mints a new body (write,
+// non-destructive). get is a pure read. say is a render directive that also bumps
+// the persona's turn counter — a write, never destructive.
+const PERSONA_CREATE_ANNOTATIONS = {
+	readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true,
+};
+const PERSONA_READ_ANNOTATIONS = {
+	readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false,
+};
+const PERSONA_SAY_ANNOTATIONS = {
+	readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false,
+};
 
 // ── Quality tier + generation path/engine (shared by text_to_3d/image_to_3d) ──
 // Mirrors the /api/forge axes: `path` ("image" vs "geometry"), `tier`
@@ -1842,6 +1914,229 @@ export const toolDefs = [
 					model_url: avatar.model_url,
 					view_url: viewUrl,
 					visibility,
+				},
+			};
+		},
+	},
+	{
+		name: 'create_agent_persona',
+		title: 'Mint a persistent, living agent persona from a rigged GLB',
+		annotations: PERSONA_CREATE_ANNOTATIONS,
+		description:
+			'Turn a generated GLB into a NAMED, persistent agent body — a "persona" the agent reuses across turns and across sessions. The mesh is copied into durable storage so the body survives the provider URL expiring, then registered under a stable persona_id. The returned text/html resource renders the LIVING body inline: it idles between turns, and persona_say makes it lip-sync and emote a reply. The persona_id is the capability — keep it and pass it to get_agent_persona or persona_say later to bring the exact same body back. No sign-in required.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				glb_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the rigged GLB to embody (e.g. from generation_status).',
+				},
+				name: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 80,
+					description: 'A display name for the persona, 1–80 characters.',
+				},
+				voice: {
+					type: 'string',
+					maxLength: 64,
+					description: 'Optional voice id/name to speak with (used for TTS-driven lip-sync when available).',
+				},
+				source_prompt: {
+					type: 'string',
+					maxLength: 1000,
+					description: 'Optional: the prompt that generated this body, kept as provenance.',
+				},
+			},
+			required: ['glb_url', 'name'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.glb_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: glb_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			const buf = await fetchGlbBuffer(args.glb_url);
+			const info = isValidGlbHeader(buf) ? inspectGlb(buf) : null;
+			if (!info) {
+				return {
+					content: [
+						{ type: 'text', text: 'Error: that URL did not return a valid GLB (binary glTF). Pass a .glb model URL.' },
+					],
+					isError: true,
+				};
+			}
+
+			const record = await createPersona({
+				name: args.name,
+				glbUrl: args.glb_url,
+				glbBuffer: buf,
+				voice: args.voice ?? null,
+				sourcePrompt: args.source_prompt ?? null,
+				ownerId: auth.userId ?? null,
+				look: {
+					rigged: info.isRigged ?? null,
+					mesh_count: info.meshCount ?? null,
+					animation_count: info.animationCount ?? null,
+				},
+			});
+			const persona = personaPublicView(record);
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Minted "${persona.name}" as a living persona.\n` +
+							`Persona ID: ${persona.persona_id}\n` +
+							(persona.look?.rigged ? 'Rig: humanoid — full body animation + lip-sync.\n' : 'Rig: static/non-humanoid — will fall back to the default rig gracefully.\n') +
+							'Display the attached text/html resource to see the body. ' +
+							'Call persona_say with this persona_id to make it speak a reply, or get_agent_persona to bring it back in a future session.',
+					},
+					embodimentArtifact({ persona, state: 'idle' }),
+				],
+				structuredContent: { ...persona, status: 'created' },
+			};
+		},
+	},
+	{
+		name: 'get_agent_persona',
+		title: 'Reload a persisted persona by id (continuity across sessions)',
+		annotations: PERSONA_READ_ANNOTATIONS,
+		description:
+			'Bring back a previously minted persona by its persona_id — the SAME body and identity, in a fresh session. Returns the persona name, its GLB, accumulated turn count, and the inline living-body artifact. Use this at the start of a conversation when the user returns to a named agent.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				persona_id: {
+					type: 'string',
+					minLength: 8,
+					maxLength: 64,
+					description: 'The persona_id returned by create_agent_persona.',
+				},
+			},
+			required: ['persona_id'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dRead || limits.mcp3dGenerate, auth);
+			if (!isPersonaId(args.persona_id)) {
+				return {
+					content: [{ type: 'text', text: 'Error: that is not a valid persona_id.' }],
+					structuredContent: { status: 'invalid_id' },
+					isError: true,
+				};
+			}
+			const record = await getPersona(args.persona_id);
+			if (!record) {
+				return {
+					content: [{ type: 'text', text: 'No persona found for that id. Mint one with create_agent_persona.' }],
+					structuredContent: { status: 'not_found' },
+					isError: true,
+				};
+			}
+			const persona = personaPublicView(record);
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`Welcome back, ${persona.name}.\n` +
+							`Persona ID: ${persona.persona_id}\n` +
+							`Turns spoken so far: ${persona.turn_count}.\n` +
+							'Display the attached text/html resource to see the body; call persona_say to make it speak.',
+					},
+					embodimentArtifact({ persona, state: 'idle' }),
+				],
+				structuredContent: { ...persona, status: 'loaded' },
+			};
+		},
+	},
+	{
+		name: 'persona_say',
+		title: 'Speak a reply through a persona — lip-sync + emotion + gesture',
+		annotations: PERSONA_SAY_ANNOTATIONS,
+		description:
+			"Make a persona PERFORM a reply: the body lip-syncs the text and shows the matching expression and body gesture. Pass the persona_id and the exact text the agent is saying this turn; the emotion is detected from the text automatically (or override it). The returned text/html resource animates the body for this turn — display it alongside the spoken reply. This is the turn-by-turn embodiment hook.",
+		inputSchema: {
+			type: 'object',
+			properties: {
+				persona_id: {
+					type: 'string',
+					minLength: 8,
+					maxLength: 64,
+					description: 'The persona to speak through.',
+				},
+				text: {
+					type: 'string',
+					minLength: 1,
+					maxLength: 2000,
+					description: 'The reply text the agent is saying this turn — drives lip-sync and emotion.',
+				},
+				emotion: {
+					type: 'string',
+					enum: ['neutral', 'joy', 'sad', 'angry', 'surprised', 'thinking'],
+					description: 'Optional explicit emotion override; omit to auto-detect from the text.',
+				},
+			},
+			required: ['persona_id', 'text'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!isPersonaId(args.persona_id)) {
+				return {
+					content: [{ type: 'text', text: 'Error: that is not a valid persona_id.' }],
+					structuredContent: { status: 'invalid_id' },
+					isError: true,
+				};
+			}
+			const record = await getPersona(args.persona_id);
+			if (!record) {
+				return {
+					content: [{ type: 'text', text: 'No persona found for that id. Mint one with create_agent_persona.' }],
+					structuredContent: { status: 'not_found' },
+					isError: true,
+				};
+			}
+			const expr = args.emotion
+				? { ...expressionFor(args.emotion, 0.85), scores: {} }
+				: expressionForText(args.text);
+			const updated = await touchPersona(args.persona_id);
+			const persona = personaPublicView(updated || record);
+
+			return {
+				content: [
+					{
+						type: 'text',
+						text:
+							`${persona.name} says it with a ${expr.emotion} expression` +
+							(expr.gesture ? ` and a ${expr.gesture} gesture` : '') +
+							`. Display the attached text/html resource — the body lip-syncs the reply and emotes.`,
+					},
+					embodimentArtifact({
+						persona,
+						state: 'speaking',
+						text: args.text,
+						emotion: expr.emotion,
+						intensity: expr.intensity,
+						gesture: expr.gesture,
+					}),
+				],
+				structuredContent: {
+					persona_id: persona.persona_id,
+					name: persona.name,
+					glb_url: persona.glb_url,
+					text: args.text,
+					emotion: expr.emotion,
+					intensity: expr.intensity,
+					gesture: expr.gesture,
+					turn_count: persona.turn_count,
+					status: 'spoken',
 				},
 			};
 		},

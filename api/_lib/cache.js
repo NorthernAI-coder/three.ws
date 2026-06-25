@@ -211,7 +211,13 @@ export async function cacheWrap(key, ttlSeconds, fn) {
 	if (hit !== null && hit !== undefined) return hit;
 	const value = await fn();
 	if (value !== null && value !== undefined) {
-		await cacheSet(key, value, ttlSeconds);
+		// Don't block the response on the write-back. The value is already in hand;
+		// the cache is an optimization, not part of the result. Awaiting here put a
+		// degraded Upstash (writes timing out at REDIS_CMD_TIMEOUT_MS) directly on
+		// the request's critical path — up to 3s of dead latency per miss for a SET
+		// that then falls back to memory anyway. cacheSet swallows its own errors
+		// (never rejects), so fire-and-forget is safe; the .catch is belt-and-braces.
+		cacheSet(key, value, ttlSeconds).catch(() => {});
 	}
 	return value;
 }

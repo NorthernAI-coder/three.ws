@@ -19,5 +19,13 @@
       }
     }
   },
-  "repository": "https://github.com/nirholas/three.ws"
+  "repository": "https://github.com/nirholas/three.ws",
+  "keywords": [
+    "developer",
+    "scaffold",
+    "mcp",
+    "tools",
+    "agent"
+  ],
+  "category": "developer-tools"
 }
