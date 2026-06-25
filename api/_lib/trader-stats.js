@@ -760,29 +760,31 @@ export async function getLeaderboard({
 	network, window = '30d', limit = 100, sort = 'score', verifiedOnly = false, now = Date.now(),
 }) {
 	const start = windowStartIso(window, now);
-	const rows = start
-		? await sql`
-			select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
-			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
-			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
-			       p.opened_at, p.closed_at,
-			       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
-			from agent_sniper_positions p
-			join agent_identities a on a.id = p.agent_id
-			where p.network = ${network} and a.is_public is not false
-			  and (p.status in ('open','opening','closing') or p.closed_at >= ${start})
-		`
-		: await sql`
-			select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
-			       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
-			       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
-			       p.opened_at, p.closed_at,
-			       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
-			from agent_sniper_positions p
-			join agent_identities a on a.id = p.agent_id
-			where p.network = ${network} and a.is_public is not false
-		`;
-	const strategyRows = await fetchStrategyLeaderboardRows({ network, start });
+	const [rows, strategyRows] = await Promise.all([
+		start
+			? sql`
+				select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
+				       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
+				       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+				       p.opened_at, p.closed_at,
+				       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+				from agent_sniper_positions p
+				join agent_identities a on a.id = p.agent_id
+				where p.network = ${network} and a.is_public is not false
+				  and (p.status in ('open','opening','closing') or p.closed_at >= ${start})
+			`
+			: sql`
+				select p.id, p.agent_id, p.wallet, p.mint, p.symbol, p.name, p.status, p.exit_reason,
+				       p.entry_quote_lamports, p.exit_quote_lamports, p.last_value_lamports, p.peak_value_lamports,
+				       p.realized_pnl_lamports, p.realized_pnl_pct, p.buy_sig, p.sell_sig,
+				       p.opened_at, p.closed_at,
+				       a.user_id as agent_user_id, a.name as agent_name, a.avatar_url as agent_avatar, a.profile_image_url as agent_image
+				from agent_sniper_positions p
+				join agent_identities a on a.id = p.agent_id
+				where p.network = ${network} and a.is_public is not false
+			`,
+		fetchStrategyLeaderboardRows({ network, start }),
+	]);
 	const allRows = strategyRows.length ? [...rows, ...strategyRows] : rows;
 	const solUsd = await cachedSolUsd();
 	const copiers = await activeCopierCounts(network);
