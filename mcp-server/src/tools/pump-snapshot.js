@@ -254,6 +254,7 @@ export async function buildPumpSnapshotTool() {
 		// so not idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},

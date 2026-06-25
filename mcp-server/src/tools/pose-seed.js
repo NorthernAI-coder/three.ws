@@ -161,6 +161,7 @@ export async function buildPoseSeedTool() {
 		// no external interaction.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: true,
 			openWorldHint: false,
 		},

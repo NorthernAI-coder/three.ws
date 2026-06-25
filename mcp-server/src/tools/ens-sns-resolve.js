@@ -201,6 +201,7 @@ export async function buildEnsSnsResolveTool() {
 		// be re-pointed between calls.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},

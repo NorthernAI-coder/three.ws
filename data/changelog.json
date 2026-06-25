@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "three.ws submitted to the Claude Connectors Directory",
+			"summary": "We packaged the three.ws MCP servers for review by Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect tools. The submission covers our main avatars-and-agents connector and the 3D Studio connector, with every tool carrying a human-readable title, an updated privacy policy that spells out exactly what AI tool calls collect and which model providers they touch, and a reviewer guide so anyone can verify the server end to end. Once approved, Claude users will be able to add three.ws as a connector and generate avatars, validate 3D models, and read live on-chain agent data straight from their chat.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-25",
 			"title": "Stability sweep: live page, dashboards, and the galaxy feed never hard-fail",
 			"summary": "A second pass on the day's production logs, this time on resilience. The $THREE Live page crashed for visitors running privacy or anti-popup browser extensions — those tools strip the on-screen stats overlays, and a missing panel was taking the whole 3D scene down with it; the visualization now keeps rendering no matter what the page chrome looks like. Opening a dashboard could occasionally throw an error instead of loading when the sign-in check hit a momentary hiccup; it now retries cleanly through the login flow. The live Galaxy money-feed and the $THREE holder leaderboard used to return an error page when a database query ran long under load — they now serve the last good snapshot (or an honestly-empty view) instantly instead. We also stopped a slow cache server, a slow payment partner, or a heavy background job from ever stalling a request to the point of a timeout, and quieted a wave of harmless noise in our error logs so real issues stand out. No action needed.",
 			"tags": [

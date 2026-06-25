@@ -100,6 +100,7 @@ export async function buildAixbtIntelTool() {
 		// so not idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},

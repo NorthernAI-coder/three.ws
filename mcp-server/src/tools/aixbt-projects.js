@@ -108,6 +108,7 @@ export async function buildAixbtProjectsTool() {
 		// idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},

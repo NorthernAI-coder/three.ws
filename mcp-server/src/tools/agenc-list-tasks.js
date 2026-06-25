@@ -102,6 +102,7 @@ export async function buildAgenCListTasksTool() {
 		// post/claim work, so not idempotent.
 		annotations: {
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false,
 			openWorldHint: true,
 		},
