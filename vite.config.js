@@ -443,6 +443,8 @@ const appConfig = {
 				play: resolve(__dirname, 'pages/play.html'),
 				'play-agent-wallet': resolve(__dirname, 'pages/play/agent-wallet.html'),
 				'play-arena': resolve(__dirname, 'pages/play/arena.html'),
+				'play-ufo': resolve(__dirname, 'pages/play/ufo.html'),
+				agi: resolve(__dirname, 'pages/agi.html'),
 				arena: resolve(__dirname, 'pages/arena.html'),
 				'smart-money': resolve(__dirname, 'pages/smart-money.html'),
 				pose: resolve(__dirname, 'pages/pose.html'),

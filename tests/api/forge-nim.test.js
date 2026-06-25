@@ -156,7 +156,7 @@ describe('POST /api/forge-nim — image mode', () => {
 		const sent = JSON.parse(init.body);
 		expect(sent.mode).toBe('image');
 		expect(sent.output_format).toBe('glb');
-		expect(sent.ss_sampling_steps).toBe(40); // high tier
+		expect(sent.ss_sampling_steps).toBe(50); // high tier (fidelity-tuned)
 		expect(sent.image).toMatch(/^data:image\/png;base64,/);
 	});
 

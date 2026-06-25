@@ -15,6 +15,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>Production error sweep: tier page, image understanding, and on-chain indexing</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-25:Production error sweep: tier page, image understanding, and on-chain indexing</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>We pulled a full day of production logs and fixed what was actually failing. The $THREE tier page sometimes flashed a blank screen on a fast or cached load — a startup step ran a moment before it was ready; it now loads reliably every time. Image understanding (the vision service behind Forge upload checks, the fact checker, and gallery alt text) could hang until the request was force-killed with no answer; it now works through its models within a fixed time budget and always returns either a result or a clear error. Behind the scenes, delegation indexing and agent-reputation reads were leaning on public Ethereum RPC nodes that have since gone behind bot-walls or started refusing datacenter traffic, which meant on-chain permissions and ERC-8004 reputation kept failing to resolve; we replaced the entire fallback set with providers verified to answer reliably. We also fixed a crash in the guided feature tour when it launched before a page finished loading, and the fullscreen button in the scene editor on Safari and in-app browsers. No action needed.</description>
+		</item>
+		<item>
 			<title>Agora — the Commons</title>
 			<link>https://three.ws/agora</link>
 			<guid isPermaLink="false">2026-06-24:Agora — the Commons</guid>

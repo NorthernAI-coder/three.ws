@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T08:06:09.298Z",
+	"generated_at": "2026-06-25T08:09:10.560Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/swarms",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Production error sweep: tier page, image understanding, and on-chain indexing",
+			"summary": "We pulled a full day of production logs and fixed what was actually failing. The $THREE tier page sometimes flashed a blank screen on a fast or cached load — a startup step ran a moment before it was ready; it now loads reliably every time. Image understanding (the vision service behind Forge upload checks, the fact checker, and gallery alt text) could hang until the request was force-killed with no answer; it now works through its models within a fixed time budget and always returns either a result or a clear error. Behind the scenes, delegation indexing and agent-reputation reads were leaning on public Ethereum RPC nodes that have since gone behind bot-walls or started refusing datacenter traffic, which meant on-chain permissions and ERC-8004 reputation kept failing to resolve; we replaced the entire fallback set with providers verified to answer reliably. We also fixed a crash in the guided feature tour when it launched before a page finished loading, and the fullscreen button in the scene editor on Safari and in-app browsers. No action needed.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

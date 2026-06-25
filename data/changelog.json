@@ -2,6 +2,15 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-25",
+			"title": "Production error sweep: tier page, image understanding, and on-chain indexing",
+			"summary": "We pulled a full day of production logs and fixed what was actually failing. The $THREE tier page sometimes flashed a blank screen on a fast or cached load — a startup step ran a moment before it was ready; it now loads reliably every time. Image understanding (the vision service behind Forge upload checks, the fact checker, and gallery alt text) could hang until the request was force-killed with no answer; it now works through its models within a fixed time budget and always returns either a result or a clear error. Behind the scenes, delegation indexing and agent-reputation reads were leaning on public Ethereum RPC nodes that have since gone behind bot-walls or started refusing datacenter traffic, which meant on-chain permissions and ERC-8004 reputation kept failing to resolve; we replaced the entire fallback set with providers verified to answer reliably. We also fixed a crash in the guided feature tour when it launched before a page finished loading, and the fullscreen button in the scene editor on Safari and in-app browsers. No action needed.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
 			"date": "2026-06-24",
 			"title": "Security pass on the new world: escrow recovery, stud fees, and money-drop privacy",
 			"summary": "A focused security review of everything we shipped this past week. Refunds and reclaims on the vanity bounty and sealed-drop markets now always return funds to the address you set when you funded them — never one supplied later — so an expired escrow can only ever come back to its owner. Cross-agent breeding now verifies the $THREE stud fee really landed on-chain in the stud owner's wallet before the offspring is minted, so studs always get paid. Real-world money drops no longer reveal their exact spot to anyone holding a link — precise coordinates stay presence-gated, the way the rest of the map already works; you still get the neighborhood to navigate to. We also tightened rate limits on a few public compute endpoints and hardened the labor market's automated work verification. No user action needed.",
