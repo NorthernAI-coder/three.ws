@@ -81,8 +81,17 @@ export function getMe() {
 				return data || null;
 			})
 			.catch((err) => {
-				if (err.status === 401) return null;
-				throw err;
+				// A 401 is the normal "no live session" answer. We also treat any other
+				// non-success (404 from deploy-skew/cold-start routing, 5xx, or a network
+				// failure) as "session could not be confirmed" → null, rather than letting
+				// an ApiError escape: every dashboard page calls this first via
+				// requireUser(), and an unguarded throw here surfaced as an uncaught
+				// `ApiError http_404` rejection across all of them. Returning null routes
+				// the visitor through requireUser()'s /login redirect, which is
+				// self-healing — a still-valid session cookie bounces them straight back.
+				if (err && err.status === 401) return null;
+				console.warn('[dashboard] session check failed, treating as signed-out:', err?.status ?? err?.message ?? err);
+				return null;
 			});
 	}
 	return mePromise;

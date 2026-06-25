@@ -296,6 +296,14 @@
 		const introEl = document.getElementById('pl-intro');
 		const toastEl = document.getElementById('pl-toast');
 		const el = (id) => document.getElementById(id);
+		// Null-tolerant writers. Privacy/anti-popup browser extensions strip
+		// fixed-position overlays (our HUD is a set of `.pl-overlay` nodes), which
+		// would otherwise make a per-frame `el(id).textContent = …` throw on a null
+		// node and kill the entire render loop — re-firing every animation frame and
+		// flooding error telemetry. These no-op when the node is gone; the WebGL
+		// scene keeps rendering regardless of what the page chrome looks like.
+		const setText = (node, value) => { if (node) node.textContent = value; };
+		const setTextById = (id, value) => { const n = el(id); if (n) n.textContent = value; };
 
 		// ── Scene ──────────────────────────────────────────────────────────────
 		const scene = new THREE.Scene();
@@ -512,13 +520,13 @@
 			while (recentTrades.length && now - recentTrades[0].t > FLOW_WINDOW_MS) recentTrades.shift();
 			let buys = 0, sells = 0, vol = 0;
 			for (const r of recentTrades) { if (r.isBuy) buys++; else sells++; vol += r.usd; }
-			el('pl-buys').textContent = String(buys);
-			el('pl-sells').textContent = String(sells);
-			el('pl-vol60').textContent = vol > 0 ? fmtUsd(vol) : '$0';
+			setTextById('pl-buys', String(buys));
+			setTextById('pl-sells', String(sells));
+			setTextById('pl-vol60', vol > 0 ? fmtUsd(vol) : '$0');
 			const trades = buys + sells;
 			const busy = Math.min(1, trades / 30); // 30 trades/min ≈ "busy"
-			activityFill.style.width = Math.round(busy * 100) + '%';
-			activityReading.textContent = trades === 0 ? 'Quiet' : trades >= 24 ? 'Very busy' : trades >= 8 ? 'Active' : 'Steady';
+			if (activityFill) activityFill.style.width = Math.round(busy * 100) + '%';
+			setText(activityReading, trades === 0 ? 'Quiet' : trades >= 24 ? 'Very busy' : trades >= 8 ? 'Active' : 'Steady');
 		}
 
 		// ── HUD updates ─────────────────────────────────────────────────────────
@@ -539,9 +547,11 @@
 			if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
 			return String(Math.round(n));
 		}
-		function setHero(state, text) { heroEl.dataset.state = state; if (text) statusText.textContent = text; }
+		function setHero(state, text) { if (heroEl) heroEl.dataset.state = state; if (text) setText(statusText, text); }
+		const heroState = () => (heroEl ? heroEl.dataset.state : '');
 
 		function pushTicker(isBuy, usd, who) {
+			if (!tickerList) return;
 			if (tickerEmpty) tickerEmpty.remove();
 			const li = document.createElement('li');
 			li.className = isBuy ? 'buy' : 'sell';
@@ -564,22 +574,22 @@
 				statsFailures = 0;
 				// Recover from a prior stats-error badge once figures load again. Don't stomp
 				// the live/quiet badge the trade stream owns — only clear the error state.
-				if (heroEl.dataset.state === 'error') {
+				if (heroState() === 'error') {
 					setHero(recentTrades.length ? 'live' : 'connecting', recentTrades.length ? '$THREE · live' : '$THREE · connecting…');
 				}
-				if (tk.price_usd != null) priceEl.textContent = fmtUsd(tk.price_usd);
+				if (tk.price_usd != null) setText(priceEl, fmtUsd(tk.price_usd));
 				const chg = Number(tk.price_change_24h);
-				if (Number.isFinite(chg)) {
+				if (Number.isFinite(chg) && changeEl) {
 					changeEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + '% · 24h';
 					changeEl.className = 'chg ' + (chg > 0.01 ? 'up' : chg < -0.01 ? 'down' : 'flat');
 				}
-				el('pl-mcap').textContent = fmtUsd(tk.market_cap);
-				el('pl-vol').textContent = fmtUsd(tk.volume_24h);
-				el('pl-holders').textContent = tk.holders != null ? fmtNum(tk.holders) : '—';
-				el('pl-liq').textContent = fmtUsd(tk.liquidity);
-				el('pl-agents').textContent = pr.total_agents != null ? fmtNum(pr.total_agents) : '—';
+				setTextById('pl-mcap', fmtUsd(tk.market_cap));
+				setTextById('pl-vol', fmtUsd(tk.volume_24h));
+				setTextById('pl-holders', tk.holders != null ? fmtNum(tk.holders) : '—');
+				setTextById('pl-liq', fmtUsd(tk.liquidity));
+				setTextById('pl-agents', pr.total_agents != null ? fmtNum(pr.total_agents) : '—');
 				const burned = (pr.total_agents || 0) * (pr.agent_deploy_burn || 0);
-				el('pl-burned').textContent = burned ? fmtNum(burned) : '—';
+				setTextById('pl-burned', burned ? fmtNum(burned) : '—');
 				// market cap gently scales the core
 				if (tk.market_cap) {
 					const mc = Math.min(1, Math.log10(Number(tk.market_cap) + 1) / Math.log10(50_000_000));
@@ -591,7 +601,7 @@
 				// red and the status line says so, then keep retrying on the poll interval.
 				// Only flip the badge if a live trade stream isn't already proving the chain
 				// is reachable; in that case the stats endpoint alone hiccupped.
-				if (heroEl.dataset.state !== 'live') setHero('error', '$THREE · stats unavailable');
+				if (heroState() !== 'live') setHero('error', '$THREE · stats unavailable');
 				showToast(statsFailures >= 2 ? 'Live stats still unavailable — retrying…' : 'Live stats unavailable — retrying…');
 			}
 		}
@@ -624,6 +634,7 @@
 
 		let toastTimer = null;
 		function showToast(msg) {
+			if (!toastEl) return;
 			toastEl.textContent = msg; toastEl.classList.add('is-visible');
 			clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('is-visible'), 3200);
 		}
@@ -679,7 +690,7 @@
 			}
 
 			// idle/quiet state
-			if (lastTradeAt && now - lastTradeAt > 25_000 && heroEl.dataset.state === 'live') setHero('quiet', '$THREE · market quiet');
+			if (lastTradeAt && now - lastTradeAt > 25_000 && heroState() === 'live') setHero('quiet', '$THREE · market quiet');
 
 			updateFlowCounters(now);
 			controls.update();

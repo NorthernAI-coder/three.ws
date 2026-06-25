@@ -583,8 +583,15 @@ function idxRpcUrls(chainId) {
 	// is a guaranteed failed attempt + error log each run. With a key, rewrite
 	// to Ankr's authenticated form (…/<chain>/<KEY>); without one, drop it so
 	// failover lands on a working public node instead.
+	// PublicNode hard-403s from Vercel's egress range (see PUBLIC_RPCS note). On a
+	// Vercel deployment that endpoint is a guaranteed failed attempt — it both
+	// wastes a failover slot and is the source of the "RPC HTTP 403 from
+	// …publicnode.com" error storm — so drop it there. It stays in the rotation for
+	// self-hosted / non-Vercel runs where it answers normally.
+	const onVercel = !!process.env.VERCEL;
 	const fallbacks = (PUBLIC_RPCS[chainId] ?? [])
 		.map((url) => {
+			if (onVercel && url.includes('.publicnode.com')) return null;
 			if (!url.startsWith('https://rpc.ankr.com/')) return url;
 			return ankrKey ? `${url}/${ankrKey}` : null;
 		})

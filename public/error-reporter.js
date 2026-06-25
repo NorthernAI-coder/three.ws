@@ -271,6 +271,23 @@
 		) {
 			return true;
 		}
+		// A promise rejected with a bare DOM Event rather than an Error — the reason
+		// IS the event object, so it carries no message and no stack, serializing to
+		// just `{"isTrusted":true}` with a constructor name of Event/ErrorEvent/
+		// ProgressEvent/etc. This is what surfaces when an element or stream's onerror
+		// is wired straight as a promise's reject callback (an <img>/<audio> failing to
+		// load, an EventSource/WebSocket erroring): the element owns its own onerror
+		// recovery and there is nothing in the event to act on. Guarded by "no stack"
+		// and the isTrusted shape so a genuine error that merely happens to be named
+		// with an Event suffix still reports.
+		if (
+			report.type === 'unhandledrejection' &&
+			!report.stack &&
+			/Event$/.test(report.name || '') &&
+			(!report.message || /^\{"isTrusted":(?:true|false)\}$/.test(report.message.trim()))
+		) {
+			return true;
+		}
 		// A ReferenceError naming a known injected webview/extension bridge global.
 		if (
 			report.message &&

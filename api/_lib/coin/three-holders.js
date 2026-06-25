@@ -139,7 +139,7 @@ export async function persistThreeHolderSnapshot(balances) {
  * no fresh snapshot (table missing, never populated, or older than
  * MAX_SNAPSHOT_AGE_MS) so the caller can fall back to a live scan.
  */
-export async function readThreeHolderSnapshot() {
+export async function readThreeHolderSnapshot({ allowStale = false } = {}) {
 	let meta;
 	try {
 		[meta] = await sql`select snapshot_at, holder_count from three_holder_snapshot_meta where id = 1`;
@@ -150,7 +150,10 @@ export async function readThreeHolderSnapshot() {
 	}
 	if (!meta?.snapshot_at) return null;
 	const ageMs = Date.now() - new Date(meta.snapshot_at).getTime();
-	if (ageMs > MAX_SNAPSHOT_AGE_MS) return null;
+	// `allowStale` is the degraded path: when a cold-fallback live scan can't finish
+	// inside the request budget, serving an hours-old snapshot beats blocking to a
+	// 504. The freshness gate still applies to the normal read.
+	if (!allowStale && ageMs > MAX_SNAPSHOT_AGE_MS) return null;
 
 	const rows = await sql`select wallet, balance from three_holder_snapshot`;
 	const balances = new Map();
@@ -190,6 +193,12 @@ export async function threeHolderCount() {
 // it auto-expires if the holder's lambda dies mid-scan.
 const COLD_SCAN_LOCK_KEY = 'three:holders:coldscan';
 const COLD_SCAN_LOCK_TTL = 90;
+// How long a public READ will wait on the cold-fallback DAS walk before degrading
+// to a stale snapshot. A full walk can take tens of seconds (well past the public
+// endpoints' function budget → 504); cap the wait so the request always returns
+// fast while the scan keeps running in the background to self-heal the snapshot.
+const COLD_SCAN_READ_BUDGET_MS = 18_000;
+const SCAN_DEADLINE = Symbol('threeHolderScanDeadline');
 // In-process single-flight: coalesce concurrent cold scans within ONE warm
 // lambda so a burst of cache-miss requests on the same instance shares one scan.
 let _inflightColdScan = null;
@@ -212,9 +221,23 @@ let _inflightColdScan = null;
 export async function threeHolderBalances() {
 	const snap = await readThreeHolderSnapshot();
 	if (snap) return snap;
-	if (_inflightColdScan) return _inflightColdScan;
-	_inflightColdScan = coldFallbackScan().finally(() => { _inflightColdScan = null; });
-	return _inflightColdScan;
+	// Cold/stale snapshot: run at most one guarded scan, shared across callers. But
+	// never let the REQUEST block on it past the read budget — a full DAS walk can
+	// exceed the function's maxDuration and 504. The scan runs to completion in the
+	// background (self-healing the snapshot); this read degrades to the most recent
+	// stale snapshot, or an empty map only on a truly cold first deploy.
+	if (!_inflightColdScan) {
+		_inflightColdScan = coldFallbackScan().finally(() => { _inflightColdScan = null; });
+	}
+	const scan = _inflightColdScan;
+	let timer;
+	const budget = new Promise((resolve) => {
+		timer = setTimeout(() => resolve(SCAN_DEADLINE), COLD_SCAN_READ_BUDGET_MS);
+	});
+	const result = await Promise.race([scan.catch(() => SCAN_DEADLINE), budget]).finally(() => clearTimeout(timer));
+	if (result && result !== SCAN_DEADLINE) return result;
+	const stale = await readThreeHolderSnapshot({ allowStale: true }).catch(() => null);
+	return stale || new Map();
 }
 
 /**
