@@ -555,15 +555,15 @@
 			"dest": "/api/oauth/[action]?action=introspect"
 		},
 		{
-			"src": "/login",
+			"src": "/login/?",
 			"dest": "/login.html"
 		},
 		{
-			"src": "/register",
+			"src": "/register/?",
 			"dest": "/register.html"
 		},
 		{
-			"src": "/forgot-password",
+			"src": "/forgot-password/?",
 			"dest": "/forgot-password.html"
 		},
 		{
@@ -3641,7 +3641,7 @@
 			"dest": "/api/app-og?agent=$agent"
 		},
 		{
-			"src": "/app",
+			"src": "/app/?",
 			"dest": "/app-next.html"
 		},
 		{

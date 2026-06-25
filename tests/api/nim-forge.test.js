@@ -102,7 +102,7 @@ describe('POST /api/nim-forge — image→3D contract', () => {
 		const draft = await call('POST', { image: PNG_DATA_URI, tier: 'draft' });
 		expect(draft.body.steps).toBe(15);
 		const high = await call('POST', { image: PNG_DATA_URI, tier: 'high' });
-		expect(high.body.steps).toBe(40);
+		expect(high.body.steps).toBe(50);
 	});
 
 	it('extracts a GLB returned as raw model bytes (Accept ignored)', async () => {
