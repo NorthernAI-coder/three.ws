@@ -23,6 +23,22 @@
 			<description>Avatars on three.ws now feel alive. Facial expressions (happy, sad, surprised, angry, thinking, neutral) are driven by blendshapes or brow-bone fallback — every emotion is automatically matched to the right face and a body gesture. Audio-driven lipsync syncs mouth movement to speech in real time, with a text-envelope fallback when no audio is available. The animation library gained new emotes (nod, shrug, jog, celebrate) and the state machine adds listen and think postures for more natural conversational presence. All existing clip IDs and AnimationManager APIs are unchanged.</description>
 		</item>
 		<item>
+			<title>Avatar profile pages load again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-25:Avatar profile pages load again</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every avatar page (three.ws/avatars/…) was failing to load its model and details because the underlying avatar endpoint wasn't wired up — the request fell through to a generic 404 instead of reaching the avatar service. The route is now connected, so avatar pages fetch the 3D model, metadata, and related avatars correctly again.</description>
+		</item>
+		<item>
+			<title>Coin Clash is back online</title>
+			<link>https://three.ws/clash</link>
+			<guid isPermaLink="false">2026-06-25:Coin Clash is back online</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Coin Clash arena couldn't load — round state, the live bracket, enlistment, rallying, and the leaderboard all failed because the backend routes weren't wired up. Every Clash endpoint now resolves correctly, so the page loads battles, lets you enlist and rally for your faction, and renders the leaderboard in real time again.</description>
+		</item>
+		<item>
 			<title>Homepage live preview always renders a real agent</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-25:Homepage live preview always renders a real agent</guid>

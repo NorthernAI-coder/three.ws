@@ -1736,24 +1736,31 @@ function boot() {
 	// recovered draft; otherwise we offer back last session's unsaved work.
 	const recovered = !requestedAnim && autosave?.tryRestore();
 
+	// A 36-char UUID is a saved community clip (PoseLibrary.openById); anything
+	// else is a built-in preset name from the animation library (AnimationLibrary
+	// .openByName). The /animations gallery deep-links into both.
+	const openRequestedAnim = (id) => {
+		const isApiId = /^[0-9a-f-]{36}$/i.test(id);
+		const p = isApiId
+			? library.openById(id)
+			: state.animLibrary
+				? state.animLibrary.openByName(id)
+				: Promise.reject(new Error('animation library unavailable'));
+		return p.catch((err) => {
+			setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');
+		});
+	};
+
 	if (requestedAvatar) {
 		loadAvatarById(requestedAvatar).catch((err) => {
 			setStatus(`${err.message} Showing the mannequin instead.`, 'error');
 			switchToMannequin();
 		}).then(() => {
-			if (requestedAnim) {
-				library.openById(requestedAnim).catch((err) => {
-					setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');
-				});
-			}
+			if (requestedAnim) openRequestedAnim(requestedAnim);
 		});
 	} else {
 		if (!recovered) setStatus('Ready. Click a body part to pose, or load an avatar.');
-		if (requestedAnim) {
-			library.openById(requestedAnim).catch((err) => {
-				setStatus(`Could not load animation: ${err?.message || 'unknown error'}`, 'error');
-			});
-		}
+		if (requestedAnim) openRequestedAnim(requestedAnim);
 	}
 }
 
