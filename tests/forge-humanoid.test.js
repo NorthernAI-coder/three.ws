@@ -6,13 +6,22 @@
  * skeleton on a non-character mesh; a false negative ships an un-riggable avatar.
  * Both are real-money / real-product failures, so the classifier is covered
  * thoroughly: clear humanoids rig, clear objects/animals don't, ambiguous
- * prompts default to not-rigging (below threshold), and the function never
- * throws on junk input.
+ * prompts default to not-rigging, and the function never throws on junk input.
+ *
+ * Contract (see mcp-server/src/tools/_humanoid.js):
+ *   { humanoid: boolean,
+ *     confidence: 'high'|'medium'|'low',
+ *     reason: string,
+ *     signals: { humanoid: string[], nonHumanoid: string[] } }
+ * `humanoid` is the only field the production caller (api/_lib/auto-rig.js) acts
+ * on; `confidence`/`signals` are for observability.
  */
 
 import { describe, it, expect } from 'vitest';
 
 import { classifyHumanoidPrompt } from '../mcp-server/src/tools/_humanoid.js';
+
+const CONFIDENCE_LEVELS = ['high', 'medium', 'low'];
 
 describe('classifyHumanoidPrompt — humanoid figures rig', () => {
 	const HUMANOID = [
@@ -31,7 +40,9 @@ describe('classifyHumanoidPrompt — humanoid figures rig', () => {
 		it(`rigs: "${prompt}"`, () => {
 			const r = classifyHumanoidPrompt(prompt);
 			expect(r.humanoid).toBe(true);
-			expect(r.confidence).toBeGreaterThanOrEqual(0.5);
+			// Clear humanoids never resolve to the ambiguous low-confidence default.
+			expect(['high', 'medium']).toContain(r.confidence);
+			expect(r.signals.humanoid.length).toBeGreaterThan(0);
 		});
 	}
 });
@@ -53,7 +64,8 @@ describe('classifyHumanoidPrompt — non-humanoid subjects skip rigging', () => 
 		it(`skips: "${prompt}"`, () => {
 			const r = classifyHumanoidPrompt(prompt);
 			expect(r.humanoid).toBe(false);
-			expect(r.confidence).toBeLessThan(0.5);
+			expect(CONFIDENCE_LEVELS).toContain(r.confidence);
+			expect(r.signals.nonHumanoid.length).toBeGreaterThan(0);
 		});
 	}
 });
@@ -81,30 +93,29 @@ describe('classifyHumanoidPrompt — animals are non-humanoid', () => {
 describe('classifyHumanoidPrompt — whole-word matching', () => {
 	it('does not match "man" inside "manifold"', () => {
 		const r = classifyHumanoidPrompt('a chrome manifold engine part');
-		expect(r.signals.humanoid).toBe(0);
+		expect(r.signals.humanoid).toHaveLength(0);
 		expect(r.humanoid).toBe(false);
 	});
 
 	it('does not match "arm" inside "armchair"', () => {
 		const r = classifyHumanoidPrompt('a velvet armchair');
-		// armchair is a non-humanoid term; "arm" must not also register as a body hit
-		expect(r.signals.body).toBe(0);
+		// "armchair" is a non-humanoid term; "arm" must not register a humanoid hit.
+		expect(r.signals.humanoid).toHaveLength(0);
 		expect(r.humanoid).toBe(false);
 	});
 });
 
 describe('classifyHumanoidPrompt — robustness and contract', () => {
-	it('returns a low-confidence verdict for empty input, never throws', () => {
+	it('returns a non-humanoid verdict for empty input, never throws', () => {
 		for (const junk of ['', '   ', null, undefined, '!!!', '12345']) {
 			const r = classifyHumanoidPrompt(junk);
 			expect(r.humanoid).toBe(false);
-			expect(r.confidence).toBeGreaterThanOrEqual(0);
-			expect(r.confidence).toBeLessThanOrEqual(1);
+			expect(CONFIDENCE_LEVELS).toContain(r.confidence);
 			expect(typeof r.reason).toBe('string');
 		}
 	});
 
-	it('confidence is always within [0,1]', () => {
+	it('confidence is always one of the documented levels', () => {
 		const prompts = [
 			'a hero warrior knight soldier man',
 			'armchair car table sword coin building',
@@ -112,9 +123,7 @@ describe('classifyHumanoidPrompt — robustness and contract', () => {
 			'random noise words about nothing in particular',
 		];
 		for (const p of prompts) {
-			const r = classifyHumanoidPrompt(p);
-			expect(r.confidence).toBeGreaterThanOrEqual(0);
-			expect(r.confidence).toBeLessThanOrEqual(1);
+			expect(CONFIDENCE_LEVELS).toContain(classifyHumanoidPrompt(p).confidence);
 		}
 	});
 
@@ -125,10 +134,9 @@ describe('classifyHumanoidPrompt — robustness and contract', () => {
 		expect(a).toEqual(b);
 	});
 
-	it('exposes signal counts for observability', () => {
+	it('exposes signal hits for observability', () => {
 		const r = classifyHumanoidPrompt('a warrior woman with strong arms');
-		expect(r.signals.humanoid).toBeGreaterThan(0);
-		expect(r.signals.body).toBeGreaterThan(0);
-		expect(r.signals.nonHumanoid).toBe(0);
+		expect(r.signals.humanoid.length).toBeGreaterThan(0);
+		expect(r.signals.nonHumanoid).toHaveLength(0);
 	});
 });

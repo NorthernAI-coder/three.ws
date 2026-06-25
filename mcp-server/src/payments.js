@@ -39,26 +39,79 @@ const env = (key, fallback) => {
 	return v && v.trim() ? v.trim() : fallback;
 };
 
+// Platform's canonical Solana USDC payout address (the documented
+// X402_PAY_TO_SOLANA receiver). Used as the DEFAULT payTo so the server always
+// advertises a valid recipient — and always boots — even on a deployment that
+// never set a payout address (e.g. a connector reviewer running
+// `npx @three-ws/mcp-server` with zero env). A real operator overrides it with
+// MCP_SVM_PAYMENT_ADDRESS.
+const DEFAULT_SVM_PAY_TO = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
+
+// Base58 Solana address: 32–44 chars, excluding 0 O I l.
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+// Read an env var, treating an empty value OR a literal "${VAR}" templating miss
+// as "not set". Without the placeholder guard an unsubstituted `${...}` (seen in
+// the field when an MCP host forwards a config var for an unset shell variable)
+// leaks straight into the advertised payTo, and every PaymentRequired ships a
+// recipient no client can pay.
+function configuredValue(key) {
+	const v = env(key);
+	if (!v) return null;
+	if (/^\$\{[^}]*\}$/.test(v)) return null;
+	return v;
+}
+
 function requireSvmPayTo() {
-	const addr = env('MCP_SVM_PAYMENT_ADDRESS') || env('X402_PAY_TO_SOLANA') || env('X402_PAY_TO');
-	if (!addr) {
+	const configured =
+		configuredValue('MCP_SVM_PAYMENT_ADDRESS') ||
+		configuredValue('X402_PAY_TO_SOLANA') ||
+		configuredValue('X402_PAY_TO');
+	if (!configured) return DEFAULT_SVM_PAY_TO;
+	if (!SOLANA_ADDRESS_RE.test(configured)) {
+		// A *configured* but malformed address is an operator mistake — fail loud
+		// rather than silently route funds to the platform default or advertise an
+		// unpayable challenge. (An *unset* address, by contrast, falls back to the
+		// default above so the server still boots and challenges cleanly.)
 		throw new Error(
-			'mcp-server: set MCP_SVM_PAYMENT_ADDRESS to receive Solana USDC payments (or X402_PAY_TO_SOLANA / X402_PAY_TO)',
+			`mcp-server: payout address "${configured}" is not a valid base58 Solana address ` +
+				'(set MCP_SVM_PAYMENT_ADDRESS to a 32–44 char base58 wallet)',
 		);
 	}
-	return addr;
+	return configured;
 }
 
 /**
- * Assert the receiving Solana payment address is configured. Called once by the
- * stdio entry point so a running server fails fast with a single clean line
- * instead of only erroring on the first paid call. Does NOT run during
- * `buildServer()`/tests — tool registration stays secret-free.
+ * Server-side review entitlement. A connector reviewer driving a plain MCP host
+ * (claude.ai, Claude Desktop) cannot mint x402 payments, so every paid tool
+ * would answer 402 and the reviewer could never see a real result. When the
+ * operator sets MCP_REVIEW_SECRET on the server AND the caller's env carries a
+ * matching MCP_REVIEW_MODE, paid tools run their REAL handler and skip the USDC
+ * charge — genuine results, no mock. Gated on a shared secret so a published
+ * deployment that never sets MCP_REVIEW_SECRET can never be bypassed for free
+ * (review mode is OFF by default).
  *
- * @throws {Error} with a single actionable message when no pay-to is set
+ * @returns {boolean} true when a valid reviewer entitlement is present
+ */
+export function reviewModeActive() {
+	const secret = configuredValue('MCP_REVIEW_SECRET');
+	if (!secret) return false;
+	const presented = configuredValue('MCP_REVIEW_MODE');
+	return Boolean(presented) && presented === secret;
+}
+
+/**
+ * Resolve and validate the payout configuration at startup. With the built-in
+ * DEFAULT_SVM_PAY_TO this NO LONGER blocks boot when no address is set — it only
+ * throws when a *configured* address is malformed — so a connector reviewer can
+ * run the server with zero payment env. Called once by the stdio entry point;
+ * does NOT run during `buildServer()`/tests, so tool registration stays
+ * secret-free.
+ *
+ * @returns {string} the resolved Solana payout address
  */
 export function assertPaymentEnv() {
-	requireSvmPayTo();
+	return requireSvmPayTo();
 }
 
 function svmFeePayer() {
@@ -260,9 +313,42 @@ export function paid(cfg, handler) {
 	// The callback McpServer.registerTool() invokes. Defers all payment wiring
 	// to the first real call.
 	return async function paidToolCallback(args, context) {
+		// Reviewer entitlement: run the real handler with no payment wrapper and
+		// no charge so a connector reviewer gets a genuine result instead of a 402.
+		// The handler shape is identical to the paid path (buildToolResult), and
+		// every handler reads only `args` — context is passed through for parity.
+		if (reviewModeActive()) {
+			const result = await handler(args, context);
+			return buildToolResult(result);
+		}
 		const wrapped = await getWrapper();
-		return wrapped(args, context);
+		const result = await wrapped(args, context);
+		return annotatePaymentRequired(result, { toolName, priceUsd });
 	};
+}
+
+// Make the @x402/mcp PaymentRequired result self-explanatory to a human
+// reviewing the connector, WITHOUT breaking x402 interop. The official x402
+// client keys off BOTH `isError: true` and the `structuredContent` envelope to
+// auto-detect-and-pay, so we keep them byte-for-byte and only APPEND a
+// plain-language content block stating the price, the asset (USDC on Solana),
+// the recipient, and how to proceed — so a 402 reads as the expected paid-tool
+// response, never a crash. A non-challenge result passes through untouched.
+function annotatePaymentRequired(result, { toolName, priceUsd }) {
+	const sc = result?.structuredContent;
+	const isChallenge = sc && sc.x402Version != null && Array.isArray(sc.accepts);
+	if (!isChallenge) return result;
+	const accept = sc.accepts[0] || {};
+	const human =
+		`Payment required — this is the EXPECTED response for a paid tool, not an error. ` +
+		`Calling "${toolName}" costs ${priceUsd} in USDC on Solana` +
+		`${accept.payTo ? ` (paid to ${accept.payTo})` : ''}. ` +
+		`To execute it, supply an x402 "exact" payment in _meta["x402/payment"] and call again, ` +
+		`or set the reviewer entitlement (MCP_REVIEW_MODE) to run it without payment. ` +
+		`Full machine-readable requirements are in structuredContent.accepts.`;
+	const content = Array.isArray(result.content) ? [...result.content] : [];
+	content.push({ type: 'text', text: human });
+	return { ...result, content };
 }
 
 /**

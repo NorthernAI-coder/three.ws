@@ -1,0 +1,118 @@
+// three.ws 3D Studio (free) — JSON-RPC dispatcher.
+//
+// A slim, payment-free MCP dispatcher for the free studio server. It mirrors the
+// shared api/_lib/mcp-dispatch.js core (method routing, Ajv arg validation,
+// usage accounting, error sanitizing) but ALSO serves the Apps SDK UI resource
+// (resources/list + resources/read for the ui:// widget), which the shared core
+// stubs out. There is no scope check and no payment path here — every tool is
+// free and unauthenticated.
+
+import { recordEvent, logger } from '../_lib/usage.js';
+import { sanitizeToolError } from '../_lib/mcp-error-sanitize.js';
+import { TOOL_CATALOG, TOOLS } from './tools.js';
+import { COMPONENT_HTML, COMPONENT_URI, COMPONENT_MIME, COMPONENT_CSP } from './component.js';
+
+export const PROTOCOL_VERSION = '2025-06-18';
+
+const SERVER_INFO = { name: 'three-ws-3d-studio-free', version: '1.0.0' };
+
+const INSTRUCTIONS = [
+	'three.ws 3D Studio turns a text prompt or an image into an interactive, downloadable 3D model (GLB) — free.',
+	'forge_free(prompt) generates a model from text; text_to_avatar and mesh_forge generate an avatar or art-directed',
+	'mesh from text or a reference image; rig_mesh(glb_url) makes a static model animation-ready; forge_avatar does',
+	'generate + rig in one step. Each result includes a glbUrl and a viewerUrl and renders inline in a 3D viewer widget.',
+].join(' ');
+
+// The Apps SDK widget resource — one HTML template all generation tools render.
+const RESOURCE = {
+	uri: COMPONENT_URI,
+	name: 'three.ws 3D model viewer',
+	description: 'Interactive 3D viewer that renders a generated GLB model inline.',
+	mimeType: COMPONENT_MIME,
+	_meta: {
+		'openai/widgetDescription': 'Interactive 3D viewer for a generated model — rotate, view, and download the GLB.',
+		'openai/widgetCSP': COMPONENT_CSP,
+		'openai/widgetDomain': 'https://three.ws',
+		'openai/widgetPrefersBorder': true,
+	},
+};
+
+const log = logger('mcp-studio');
+
+function ok(id, result) {
+	return { jsonrpc: '2.0', id, result };
+}
+
+function rpcError(code, message, data) {
+	const e = new Error(message);
+	e.code = code;
+	e.data = data;
+	return e;
+}
+
+function summarize(args) {
+	const o = {};
+	for (const [k, v] of Object.entries(args || {})) {
+		o[k] = typeof v === 'string' && v.length > 64 ? v.slice(0, 64) + '…' : v;
+	}
+	return o;
+}
+
+async function onToolCall(params, auth, started, req) {
+	const { name, arguments: args = {} } = params || {};
+	const tool = typeof name === 'string' && Object.hasOwn(TOOLS, name) ? TOOLS[name] : null;
+	if (!tool) throw rpcError(-32602, `unknown tool: ${name}`);
+	if (tool.validate && !tool.validate(args)) {
+		const first = tool.validate.errors?.[0];
+		const detail = first ? `${first.instancePath || '(root)'} ${first.message || 'invalid'}` : 'invalid arguments';
+		throw rpcError(-32602, `invalid params for ${name}: ${detail}`);
+	}
+	try {
+		const result = await tool.handler(args, auth, req);
+		recordEvent({ kind: 'tool_call', tool: name, latencyMs: Date.now() - started, meta: { args_summary: summarize(args), server: 'mcp-studio' } });
+		return result;
+	} catch (err) {
+		recordEvent({ kind: 'tool_call', tool: name, status: 'error', latencyMs: Date.now() - started, meta: { error: err.message, server: 'mcp-studio' } });
+		if (err.code && typeof err.code === 'number') throw err;
+		const { message } = sanitizeToolError(err, { tool: name, server: 'mcp-studio', log });
+		return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
+	}
+}
+
+export async function dispatch(msg, auth, req) {
+	const started = Date.now();
+	const id = msg.id;
+	const isNotification = id === undefined;
+	try {
+		if (msg.jsonrpc != null && msg.jsonrpc !== '2.0') throw rpcError(-32600, 'invalid Request');
+		const method = msg.method;
+
+		if (method === 'initialize') {
+			return ok(id, {
+				protocolVersion: PROTOCOL_VERSION,
+				serverInfo: SERVER_INFO,
+				capabilities: { tools: { listChanged: false }, resources: { listChanged: false, subscribe: false }, logging: {} },
+				instructions: INSTRUCTIONS,
+			});
+		}
+		if (method === 'ping') return ok(id, {});
+		if (method === 'notifications/initialized') return null;
+		if (method === 'tools/list') return ok(id, { tools: TOOL_CATALOG });
+		if (method === 'tools/call') return ok(id, await onToolCall(msg.params, auth, started, req));
+		if (method === 'resources/list') return ok(id, { resources: [RESOURCE] });
+		if (method === 'resources/read') {
+			const uri = msg.params?.uri;
+			if (uri !== COMPONENT_URI) throw rpcError(-32602, `unknown resource: ${uri}`);
+			return ok(id, { contents: [{ uri: COMPONENT_URI, mimeType: COMPONENT_MIME, text: COMPONENT_HTML, _meta: RESOURCE._meta }] });
+		}
+		if (method === 'resources/templates/list') return ok(id, { resourceTemplates: [] });
+		if (method === 'prompts/list') return ok(id, { prompts: [] });
+		if (method === 'logging/setLevel') return ok(id, {});
+
+		throw rpcError(-32601, `method not found: ${method}`);
+	} catch (err) {
+		log.warn('rpc_error', { method: msg.method, code: err.code, message: err.message });
+		if (isNotification) return null;
+		return { jsonrpc: '2.0', id, error: { code: err.code || -32603, message: err.message || 'internal error', data: err.data } };
+	}
+}

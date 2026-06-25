@@ -1,0 +1,30 @@
+
+> 3d-agent@1.5.2 typecheck
+> tsc -p jsconfig.json
+
+
+> 3d-agent@1.5.2 test
+> vitest run && playwright test
+
+
+ RUN  v4.1.7 /workspaces/three.ws
+
+ ❯ tests/api/x402-spec.test.js (23 tests | 23 skipped) 78772ms
+ ❯ tests/forge-humanoid.test.js (31 tests | 1 failed) 610ms
+     × returns a non-humanoid verdict for empty input, never throws 86ms
+stderr | tests/auto-rig-completion.test.js > 6a — cron recovers an open job from its stored result_glb_url > finalizes via the stored URL and never re-polls the provider
+[auto-rig-sweep] job error { jobId: 'job-a', error: 'Invalid IP address: undefined' }
+
+ ❯ tests/auto-rig-completion.test.js (5 tests | 3 failed) 693ms
+     × finalizes via the stored URL and never re-polls the provider 466ms
+     × lets exactly one of two concurrent finalizes materialize the avatar 72ms
+     × a thrown winner releases the claim to a cron-selectable status (not done, not wedged) 106ms
+ ❯ tests/branding.test.js (4 tests | 4 failed) 99729ms
+     × no "Avaturn" in user-facing files 97652ms
+     × no "Character Studio" in user-facing files 564ms
+     × no "Ready Player Me" in user-facing files 1097ms
+     × no "RPM" referring to Ready Player Me (heuristic: near avatar/selfie) 414ms
+ ❯ tests/metering.test.js (11 tests | 1 failed) 2595ms
+     × issues a MeterUsage command with the product code, dimension, and idempotency allocation 2515ms
+ ❯ tests/build-asset-paths.test.js (5 tests | 1 failed) 71ms
+     × serves /style.css from dist root 49ms

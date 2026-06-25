@@ -206,6 +206,11 @@ const NON_HUMANOID_TERMS = [
 	'airplane',
 	'aircraft',
 	'jet',
+	// Disambiguate "fighter jet" / "jet fighter": "fighter" is a humanoid class
+	// word (boxer/warrior), but paired with jet the subject is the aircraft. The
+	// multi-word hits outweigh the lone "fighter" so the gate never rigs a jet.
+	'fighter jet',
+	'jet fighter',
 	'helicopter',
 	'drone',
 	'boat',
@@ -260,6 +265,9 @@ const NON_HUMANOID_TERMS = [
 	// Buildings / environment / nature
 	'building',
 	'house',
+	'cabin',
+	'hut',
+	'cottage',
 	'castle',
 	'tower',
 	'bridge',

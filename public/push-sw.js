@@ -1,5 +1,3 @@
-/* eslint-env serviceworker */
-/* global clients */
 //
 // Web Push handlers, imported into the VitePWA-generated service worker via
 // `workbox.importScripts: ['/push-sw.js']` (see vite.config.js). Kept as a plain

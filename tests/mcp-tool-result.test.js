@@ -116,6 +116,11 @@ describe('MCP tool surface', () => {
 			expect(typeof t.annotations.readOnlyHint, `${t.name}.readOnlyHint`).toBe('boolean');
 			expect(typeof t.annotations.idempotentHint, `${t.name}.idempotentHint`).toBe('boolean');
 			expect(typeof t.annotations.openWorldHint, `${t.name}.openWorldHint`).toBe('boolean');
+			// destructiveHint must be present AND explicitly boolean: the spec
+			// defaults it to TRUE when omitted, so an absent hint silently marks
+			// even a read-only tool destructive. `.not.toBe(true)` alone passed for
+			// undefined and let read-only tools ship without it.
+			expect(typeof t.annotations.destructiveHint, `${t.name}.destructiveHint`).toBe('boolean');
 			// No tool on this server is destructive.
 			expect(t.annotations.destructiveHint, `${t.name}.destructiveHint`).not.toBe(true);
 			if (t.annotations.readOnlyHint === false) {
@@ -135,11 +140,13 @@ describe('MCP tool surface', () => {
 		// Pure local compute — no external interaction.
 		expect(byName.get_pose_seed).toEqual({
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: true,
 			openWorldHint: false,
 		});
 		expect(byName.vanity_grinder).toEqual({
 			readOnlyHint: true,
+			destructiveHint: false,
 			idempotentHint: false, // random keypair every call
 			openWorldHint: false,
 		});
