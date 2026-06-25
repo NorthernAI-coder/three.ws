@@ -309,6 +309,7 @@
 		"colyseus": "^0.17.10",
 		"colyseus.js": "0.16.22",
 		"dat.gui": "^0.7.9",
+		"draco3dgltf": "^1.5.7",
 		"ethers": "^6.16.0",
 		"express": "^5.2.1",
 		"fast-check": "^4.8.0",

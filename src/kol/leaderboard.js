@@ -45,6 +45,7 @@ export async function getLeaderboard({
 		.filter((r) => r && typeof r.wallet === 'string' && Number.isFinite(r.pnlUsd))
 		.map((r) => ({
 			wallet: r.wallet,
+			pnlSol: Number.isFinite(r.pnlSol) ? r.pnlSol : null,
 			pnlUsd: r.pnlUsd,
 			winRate: Number(r.winRate) || 0,
 			trades: Number(r.trades) || 0,
