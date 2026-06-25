@@ -31,7 +31,15 @@ const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
 // fires its own DOMException[TimeoutError]. When the timeout fires, fetchJson returns
 // { timedOut: true } — startNextJob treats that as a soft failure and rolls back
 // the pending user so the next tick can retry cleanly.
-const FETCH_TIMEOUT_MS = 48_000;
+//
+// poll + submit run in parallel and each can hold a fetch for this long, with the
+// per-job DB work (avatar insert, job upserts, user rollback) stacked on top inside
+// the same 70 s window. At 48 s a worst-case fetch left too little headroom for that
+// tail and the cron occasionally tipped past 70 s → a hard 504. The free NVIDIA
+// draft lane returns inline in ~13–22 s, so 35 s still covers a healthy generation
+// with wide margin while keeping the whole tick comfortably under the ceiling; a
+// genuinely degraded lane simply rolls back and retries next minute.
+const FETCH_TIMEOUT_MS = 35_000;
 const MAX_CONCURRENT_PENDING = 3;
 const MIN_JOB_AGE_SECONDS = 20;
 

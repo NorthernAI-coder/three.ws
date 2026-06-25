@@ -115,19 +115,27 @@ export function recordEvent(evt) {
 }
 
 /**
- * Drain up to `limit` events from the Redis buffer and insert them into Neon.
- * Returns { flushed, remaining, errors }.
+ * Drain up to `limit` events from the Redis buffer and insert them into Neon,
+ * stopping after `deadlineMs` so a slow Neon spell can't push the caller past its
+ * function timeout. Returns { flushed, remaining, errors, timedOut }.
  * Called by api/cron/flush-usage-events.js and api/jobs/flush-usage-events.js.
  */
-export async function flushUsageBuffer({ limit = 500 } = {}) {
+export async function flushUsageBuffer({ limit = 500, deadlineMs = 45_000 } = {}) {
 	const r = getRedis();
 	if (!r) return { flushed: 0, remaining: 0, errors: 0, skipped: 'redis_unavailable' };
 
 	const BATCH = 200;
 	let flushed = 0;
 	let errors = 0;
+	let timedOut = false;
+	// Stop cleanly before the function's maxDuration: a slow Neon write spell across
+	// several batches could otherwise run past the limit and 504 the cron, dropping
+	// the entire flush. Bailing early returns what we managed — the safety-net cron
+	// runs again next minute and clears the rest (`remaining` is also alerted on).
+	const startedAt = Date.now();
 
 	while (flushed < limit) {
+		if (Date.now() - startedAt > deadlineMs) { timedOut = true; break; }
 		const take = Math.min(BATCH, limit - flushed);
 		// Read the front of the list, then atomically trim those entries.
 		const raw = await r.lrange(BUFFER_KEY, 0, take - 1);
@@ -156,7 +164,7 @@ export async function flushUsageBuffer({ limit = 500 } = {}) {
 	}
 
 	const remaining = await r.llen(BUFFER_KEY).catch(() => -1);
-	return { flushed, remaining, errors };
+	return { flushed, remaining, errors, timedOut };
 }
 
 export function logger(name) {
