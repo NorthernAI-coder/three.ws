@@ -352,6 +352,10 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 // this returns status:'done' synchronously like the NVIDIA sync branch — no
 // poll handle to route. Returns true once a 200 is written, false when the lane
 // is unavailable so the caller can surface its own error.
+// One-shot guard so the "HuggingFace lane not configured" notice is logged once
+// per process instead of on every forge request (a static env condition).
+let _hfUnconfiguredWarned = false;
+
 async function runHfImageLane({
 	req,
 	res,
@@ -376,7 +380,18 @@ async function runHfImageLane({
 	} catch (err) {
 		// HF_TOKEN absent or the Space chain is empty — the lane isn't available
 		// on this deployment; fall through so the caller surfaces the real error.
-		console.warn(`[forge] free HuggingFace image lane unavailable: ${err?.message || err}`);
+		// A missing token is a STATIC deployment condition, not a per-request fault:
+		// logging it on every forge call floods the function logs (it was the
+		// single noisiest line). Warn once per process for the unconfigured case;
+		// keep logging genuine transient init failures each time.
+		if (err?.code === 'provider_unconfigured') {
+			if (!_hfUnconfiguredWarned) {
+				_hfUnconfiguredWarned = true;
+				console.warn(`[forge] free HuggingFace image lane disabled (not configured): ${err?.message || err}`);
+			}
+		} else {
+			console.warn(`[forge] free HuggingFace image lane unavailable: ${err?.message || err}`);
+		}
 		return false;
 	}
 

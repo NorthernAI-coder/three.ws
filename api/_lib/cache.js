@@ -74,6 +74,15 @@ function redisConfigured() {
 	return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
 }
 
+// A cache round-trip must be fast or not happen at all. Without a timeout a
+// Upstash TCP stall (as opposed to a clean 5xx, which rejects promptly) would hang
+// the fetch until the caller's function hits its hard maxDuration → a 504 on an
+// endpoint whose whole point in calling us was to be fast. Cap every command so a
+// degraded Redis fails fast into the in-memory fallback instead of stalling the
+// request. 3s is far longer than a healthy REST GET/SET yet well under any caller's
+// budget.
+const REDIS_CMD_TIMEOUT_MS = 3_000;
+
 async function redisCmd(args) {
 	const r = await fetch(env.UPSTASH_REDIS_REST_URL, {
 		method: 'POST',
@@ -82,6 +91,7 @@ async function redisCmd(args) {
 			'content-type': 'application/json',
 		},
 		body: JSON.stringify(args),
+		signal: AbortSignal.timeout(REDIS_CMD_TIMEOUT_MS),
 	});
 	if (!r.ok) throw new Error(`upstash ${r.status}: ${await r.text().catch(() => '')}`);
 	const json = await r.json();

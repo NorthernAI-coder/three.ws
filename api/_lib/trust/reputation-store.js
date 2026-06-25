@@ -187,13 +187,22 @@ export async function listStaleAgents(limit = 40) {
  *
  * @param {string[]} agentIds
  * @param {object} [opts]
- * @returns {Promise<{ scored: number, failed: number }>}
+ * @param {number} [opts.concurrency]
+ * @param {number} [opts.deadlineMs] stop dispatching new chunks once this much
+ *   wall-clock has elapsed, so a per-agent RPC/DB latency spike can't run the
+ *   batch past the cron's function timeout. Unscored agents simply roll over to
+ *   the next tick (they sort as stalest-first), so coverage is never lost.
+ * @returns {Promise<{ scored: number, failed: number, remaining: number, timedOut: boolean }>}
  */
-export async function recomputeAgents(agentIds = [], { concurrency = 4 } = {}) {
+export async function recomputeAgents(agentIds = [], { concurrency = 4, deadlineMs = Infinity } = {}) {
 	let scored = 0;
 	let failed = 0;
+	let timedOut = false;
 	const ids = [...new Set(agentIds.filter(Boolean))];
-	for (let i = 0; i < ids.length; i += concurrency) {
+	const startedAt = Date.now();
+	let i = 0;
+	for (; i < ids.length; i += concurrency) {
+		if (Date.now() - startedAt > deadlineMs) { timedOut = true; break; }
 		const chunk = ids.slice(i, i + concurrency);
 		const results = await Promise.allSettled(chunk.map((id) => getAgentReputation(id)));
 		for (const r of results) {
@@ -205,5 +214,5 @@ export async function recomputeAgents(agentIds = [], { concurrency = 4 } = {}) {
 			}
 		}
 	}
-	return { scored, failed };
+	return { scored, failed, remaining: Math.max(0, ids.length - i), timedOut };
 }

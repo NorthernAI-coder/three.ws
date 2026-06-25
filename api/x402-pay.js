@@ -397,7 +397,13 @@ async function buildSolanaPaymentPayload({ accept, buyer, conn, resourceUrl }) {
 // resource server, and that server — not us — verifies + settles. We only build
 // and sign the SPL transfer with the agent key and present it as X-PAYMENT.
 
-const EXTERNAL_FETCH_TIMEOUT_MS = 30_000;
+// A paid flow makes TWO sequential calls to the external resource server (the 402
+// probe, then the X-PAYMENT settle) plus on-chain blockhash + settlement work, all
+// inside the function's 60s ceiling. At the old 30s-per-fetch budget two slow
+// probes alone consumed the entire window, leaving nothing for settlement and
+// surfacing a 504 instead of a clean, retryable timeout. 20s still tolerates a
+// genuinely slow-but-alive server while leaving room for the second call + Solana.
+const EXTERNAL_FETCH_TIMEOUT_MS = 20_000;
 
 // SSRF-guarded one-shot fetch of an untrusted URL: https-only (http in dev),
 // DNS resolved + checked against the private-range blocklist, the socket pinned

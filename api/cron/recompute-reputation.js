@@ -50,9 +50,13 @@ export default wrap(async (req, res) => {
 		if (!ids.length) {
 			return json(res, 200, { ok: true, scored: 0, failed: 0, reason: 'no agents to score' });
 		}
-		const { scored, failed } = await recomputeAgents(ids);
-		console.log(`[recompute-reputation] scored ${scored}/${ids.length} (failed ${failed}) in ${Date.now() - started}ms`);
-		return json(res, 200, { ok: true, scored, failed, batch: ids.length, elapsed_ms: Date.now() - started });
+		// Stop well before Vercel's 300s hard kill: a single agent's slow RPC/DB read
+		// must not drag the whole batch past the limit and 504 the cron (which would
+		// drop every score this tick). Unfinished agents are the stalest, so they're
+		// first in line next run — continuous rollover, never lost coverage.
+		const { scored, failed, remaining, timedOut } = await recomputeAgents(ids, { deadlineMs: 250_000 });
+		console.log(`[recompute-reputation] scored ${scored}/${ids.length} (failed ${failed}, remaining ${remaining}${timedOut ? ', hit time budget' : ''}) in ${Date.now() - started}ms`);
+		return json(res, 200, { ok: true, scored, failed, remaining, timed_out: timedOut, batch: ids.length, elapsed_ms: Date.now() - started });
 	} catch (err) {
 		// Never throw: a failed run leaves the prior stored scores intact.
 		console.error('[recompute-reputation] failed:', err?.message || err);

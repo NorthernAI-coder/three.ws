@@ -95,8 +95,13 @@ export default wrap(async (req, res) => {
 	// Filter construction via template fragments kept inline because Neon's
 	// tagged-template driver doesn't compose them the way pg.Client does; a
 	// single query with optional predicates guarded by nulls is clearer.
-	const onchainRows = includeOnchain
-		? await sql`
+	// The three source feeds are independent — run them concurrently so the
+	// endpoint's DB time is the slowest single query, not the sum of all three.
+	// A leading-wildcard ILIKE scan on one source no longer serializes in front of
+	// the others, which is what pushed slow searches past the function budget → 504.
+	const [onchainRows, avatarRows, solanaRows] = await Promise.all([
+		includeOnchain
+			? sql`
 		SELECT chain_id, agent_id, owner, name, description, image, glb_url,
 		       has_3d, x402_support, registered_at, registered_tx,
 		       services, agent_uri
@@ -112,10 +117,9 @@ export default wrap(async (req, res) => {
 		ORDER BY registered_at DESC NULLS LAST
 		LIMIT ${limit + 1}
 	`
-		: [];
-
-	const avatarRows = includeAvatars
-		? await sql`
+			: [],
+		includeAvatars
+			? sql`
 		SELECT a.id, a.slug, a.name, a.description, a.storage_key, a.thumbnail_key,
 		       a.tags, a.created_at, a.source, a.model_category,
 		       coalesce(a.featured, false)   AS featured,
@@ -142,10 +146,9 @@ export default wrap(async (req, res) => {
 		ORDER BY coalesce(a.featured, false) DESC, a.created_at DESC
 		LIMIT ${(limit + 1) * 3}
 	`
-		: [];
-
-	const solanaRows = includeSolana
-		? await sql`
+			: [],
+		includeSolana
+			? sql`
 		SELECT ai.id, ai.name, ai.description, ai.wallet_address, ai.skills,
 		       ai.meta, ai.created_at,
 		       a.thumbnail_key AS avatar_thumb
@@ -162,7 +165,8 @@ export default wrap(async (req, res) => {
 		ORDER BY ai.created_at DESC NULLS LAST
 		LIMIT ${limit + 1}
 	`
-		: [];
+			: [],
+	]);
 
 	const onchainItems = onchainRows.map((r) => {
 		const chain = CHAIN_BY_ID[r.chain_id];
