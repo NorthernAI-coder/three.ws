@@ -34,6 +34,16 @@ Authoritative sources (re-fetch at submission time; requirements move):
 5. `05-openai-apps-sdk-component.md` — the embedded GLB-viewer UI component the Apps SDK expects.
 6. `06-openai-submission-package.md` — OpenAI directory metadata, policy-compliance audit, screenshots, developer verification.
 
+### Track C — Differentiation layer (the 10x–100x; what makes us NOT just another listing)
+Baseline (01–06) gets us *listed*. Track C makes us *un-ignorable*. The thesis: three.ws is the only platform in either store with generation + agent payments + agent coordination in one place — so we ship the new primitive nobody else can: **embodied, economically-autonomous agents, and 3D as a native conversational medium.**
+7. `07-embodied-agent-live-avatar.md` — a persistent 3D body that lip-syncs, emotes, and idles inline. The consumer screenshot moment. (Both stores.)
+8. `08-live-agent-commerce.md` — autonomous discover→reputation→pay→delegate, made *visible* with provenance receipts. The agent-economy demo. (Claude/paid only.)
+9. `09-conversational-remixable-3d.md` — iterate on a model by talking to it ("bigger helmet"), plus remixable assets with provenance + automatic creator royalties. (Iteration: both stores. Royalties: Claude/paid only.)
+
+The 100x meta-move (positioning, not a single prompt): don't just *be in* the stores — **own a category across them.** Publish an open pattern for 3D-native / spatial MCP responses (tool results that return live interactive scenes, not text) and x402 agent-commerce patterns, and be the reference implementation other apps call under the hood. Infrastructure, not an app.
+
+**Sequencing:** ship 01–06 first (real listings beat vision). Then 07 is the highest-leverage single add — it's the headline screenshot for both listings. 08 and 09 deepen the moat.
+
 ---
 
 ## Rules every chat must follow (from CLAUDE.md)
