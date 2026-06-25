@@ -110,6 +110,8 @@
 		"i18n:lint": "node scripts/i18n-translate.mjs --lint",
 		"changelog:push": "node scripts/changelog-telegram.mjs",
 		"audit:deploy": "node scripts/audit-deploy-artifacts.mjs",
+		"guard:esbuild": "node scripts/guard-esbuild-bundles.mjs",
+		"guard:esbuild:all": "node scripts/guard-esbuild-bundles.mjs --all",
 		"verify:solana": "node scripts/verify-solana-parity.mjs",
 		"verify:onchain": "node scripts/verify-onchain-parity.mjs",
 		"verify:x402": "node scripts/build-x402-catalog.mjs --out=/tmp/x402-catalog.json && node scripts/verify-x402-discovery.mjs --file=/tmp/x402-catalog.json",

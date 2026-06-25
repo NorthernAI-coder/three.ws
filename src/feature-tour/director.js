@@ -576,6 +576,15 @@ export class TourDirector {
 	// that clears the moment the real assets are mounted (or the load gives up).
 	_showLoading() {
 		if (this._loadingEl) return;
+		// bootstrap() can fire (via ?tour=/resume) before <body> is parsed — appending
+		// to a null document.body threw "Cannot read properties of null (reading
+		// 'appendChild')". Defer to DOMContentLoaded once, then mount normally.
+		if (typeof document === 'undefined' || !document.body) {
+			if (typeof document !== 'undefined') {
+				document.addEventListener('DOMContentLoaded', () => this._showLoading(), { once: true });
+			}
+			return;
+		}
 		ensureLoadingStyles();
 		const el = document.createElement('div');
 		el.className = 'tws-tour-loading';
