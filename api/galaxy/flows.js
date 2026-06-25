@@ -270,7 +270,12 @@ export default async function handler(req, res) {
 			let body = await cacheGet(cacheKey);
 			if (body === null) {
 				body = await buildWithDeadline();
-				await cacheSet(cacheKey, body, FEED_TTL_S);
+				// Fire-and-forget: the body is already in hand and the cache is an
+				// optimization, not part of the result. Awaiting put a degraded Upstash
+				// (SET timing out at REDIS_CMD_TIMEOUT_MS) directly on the request's
+				// critical path — up to 3s of dead latency for a write that falls back to
+				// memory anyway. cacheSet swallows its own errors; .catch is belt-and-braces.
+				cacheSet(cacheKey, body, FEED_TTL_S).catch(() => {});
 			}
 			res.setHeader('cache-control', 'public, max-age=6');
 			return json(res, 200, { data: body });
