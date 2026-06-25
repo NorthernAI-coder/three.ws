@@ -21,13 +21,13 @@
 			body {
 				margin: 0;
 				padding: 0;
-				height: 100%;
-				background: #0d0d0d;
+				min-height: 100%;
+				background: #0b0d10;
 				color: #fff;
 				font-family: system-ui, sans-serif;
 			}
 			#root {
-				height: 100vh;
+				min-height: 100vh;
 			}
 		</style>
 			<link rel="stylesheet" href="/mobile.css" />
@@ -55,16 +55,14 @@
 	<body>
 		<div id="root"></div>
 		<script type="module">
-			import { mountLaunchpadStudio } from '/src/editor/launchpad-studio.js';
-			const url = new URL(location.href);
-			mountLaunchpadStudio(document.getElementById('root'), {
-				template: url.searchParams.get('template') || 'token-launchpad',
-				slug: url.searchParams.get('slug') || '',
-				wallet: url.searchParams.get('wallet') || '',
-				website: url.searchParams.get('website') || '',
-				avatarSrc: url.searchParams.get('avatar') || '',
-			});
+			// The landing decides what to show: a live discovery front door, or —
+			// when the URL deep-links the editor (?slug, ?template, ?wallet, ?avatar,
+			// ?build, ?studio) — the Launchpad Studio mounted straight away.
+			import { mountLaunchpadLanding } from '/src/launchpad/landing.js';
+			mountLaunchpadLanding(document.getElementById('root'));
 		</script>
 		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
 </body>
 </html>

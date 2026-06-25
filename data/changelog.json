@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "Animation Gallery now shows the full motion library",
+			"summary": "three.ws/animations was coming up empty — it only listed community-published clips, and with none yet public the page was a blank void. It now leads with the complete built-in motion library (100+ curated animations) alongside any community clips, all searchable and filterable by loop or one-shot. Hovering a card plays the animation live on a real avatar, and the live preview now points at the correct embed so it actually loads. \"Open in Studio\" works for both built-in presets and saved community clips.",
+			"tags": ["fix", "improvement"],
+			"link": "/animations"
+		},
+		{
+			"date": "2026-06-25",
+			"title": "Launchpad is now a real launchpad — live launches, a showcase, and the studio in one place",
+			"summary": "three.ws/launchpad used to drop you straight into the page editor with no context. It's now a proper front door: a hero with live platform stats, a \"Launching now\" rail of real coins minted by three.ws agents (each linking to its coin page), a \"Built on three.ws\" gallery of pages people have actually published, a one-click template chooser, and a clear how-it-works. Pick a template — Token Launchpad, Paid Concierge, or Gated 3D Showroom — and the studio opens in place with the monetization flow pre-wired. Deep links into the editor (existing pages, create-flow handoffs) still open the studio directly, so nothing you bookmarked breaks.",
+			"tags": ["feature", "improvement"],
+			"link": "/launchpad"
+		},
+		{
+			"date": "2026-06-25",
 			"title": "Avatar profile pages load again",
 			"summary": "Every avatar page (three.ws/avatars/…) was failing to load its model and details because the underlying avatar endpoint wasn't wired up — the request fell through to a generic 404 instead of reaching the avatar service. The route is now connected, so avatar pages fetch the 3D model, metadata, and related avatars correctly again.",
 			"tags": ["fix"]
