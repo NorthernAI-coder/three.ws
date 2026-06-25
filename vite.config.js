@@ -100,8 +100,33 @@ const appConfig = {
 				rewrite: (path) => path.replace(/^\/ingest/, ''),
 			},
 			'/chat': {
+				// The chat UI is a separate Vite app served on :5174 (run
+				// `cd chat && npm run dev`). `npm run dev` does not start it, so when
+				// it's down the proxy would surface a bare HTTP 500 on every /chat
+				// navigation. Degrade to a clean, self-contained 200 placeholder that
+				// explains how to start it — no console error, honest dev guidance.
 				target: 'http://localhost:5174',
 				changeOrigin: true,
+				configure: (proxy) => {
+					proxy.on('error', (err, _req, res) => {
+						if (!res || res.headersSent || res.writableEnded) return;
+						res.statusCode = 200;
+						res.setHeader('content-type', 'text/html; charset=utf-8');
+						res.end(
+							`<!doctype html><meta charset="utf-8"><title>Chat — dev server offline</title>` +
+								`<style>html{color-scheme:dark}body{margin:0;min-height:100vh;display:grid;place-items:center;` +
+								`background:#0a0a0f;color:#e8e8f0;font:15px/1.6 ui-sans-serif,system-ui,sans-serif}` +
+								`main{max-width:34rem;padding:2rem;text-align:center}code{background:#1a1a24;padding:.15em .45em;` +
+								`border-radius:6px;font-size:.92em}a{color:#8ab4ff}</style>` +
+								`<main><h1 style="margin:.2em 0;font-size:1.4rem">Chat dev server isn't running</h1>` +
+								`<p>The chat UI is a separate app. Start it in another terminal:</p>` +
+								`<p><code>cd chat &amp;&amp; npm run dev</code></p>` +
+								`<p style="opacity:.6;font-size:.9em">It serves on <code>:5174</code>; this page proxies to it. ` +
+								`In production <code>/chat</code> is the deployed build — this notice is dev-only ` +
+								`(${(err && err.code) || 'upstream offline'}).</p></main>`,
+						);
+					});
+				},
 			},
 			...(X402_PAY_DEV_URL
 				? {
@@ -1667,7 +1692,16 @@ support: resolve(__dirname, 'pages/support.html'),
 					return [
 						{
 							tag: 'script',
-							attrs: { type: 'module' },
+							// Classic (non-module) inline script on purpose: a `type=module`
+							// inline script gets externalized by Vite into a `?html-proxy`
+							// request that fails to resolve for repo-root dir-index pages
+							// (e.g. /docs → docs/index.html), where the proxy URL falls
+							// through to the SPA HTML fallback and the browser throws
+							// "Failed to load module script … MIME type text/html". A classic
+							// script keeps the dynamic import inline; /src/view-transitions.js
+							// is dependency-free browser ESM that Vite serves directly in dev
+							// and the copy-src-to-dist plugin mirrors into dist/ for prod, so
+							// it resolves in both — no html-proxy needed.
 							children: `import('/src/view-transitions.js').then(m=>m.enableViewTransitions()).catch(()=>{});`,
 							injectTo: 'head',
 						},

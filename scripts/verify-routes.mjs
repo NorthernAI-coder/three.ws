@@ -178,6 +178,11 @@ for (const path of catalog) {
 		continue;
 	}
 	covered++;
+	// A trailing slash only makes sense for "directory-like" pretty URLs — not for
+	// file resources (robots.txt, openapi.json), well-known endpoints, or APIs,
+	// where `…/` is never requested and would be wrong to serve.
+	const isResource = /\.[a-z0-9]+$/i.test(noSlash) || noSlash.startsWith('/.well-known/') || noSlash.startsWith('/api/');
+	if (isResource) continue;
 	const withSlash = noSlash === '/' ? '/' : noSlash + '/';
 	const b = resolvePath(withSlash);
 	if (!reachable(b)) warnings.push(`TRAILSLASH ${path}/  → ${b.kind} (lands on designed 404)`);
