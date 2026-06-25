@@ -44,10 +44,49 @@ export async function fetchCandidates({ q, skill, limit = 24 } = {}) {
 	return agents;
 }
 
+/**
+ * Fetch one agent's public record by id, returning the fields the commerce
+ * tools need (name, on-chain identity for reputation, skills for task-fit).
+ * Returns null when the agent does not exist or the directory is unreachable —
+ * the caller decides whether a missing record is fatal.
+ *
+ * @param {string} agentId — three.ws agent UUID
+ * @returns {Promise<{id:string,name:string,description:string|null,skills:string[],erc8004_agent_id:string|null,chain_id:number|null,is_registered:boolean}|null>}
+ */
+export async function fetchAgentById(agentId) {
+	const url = `${baseUrl()}/api/agents/${encodeURIComponent(agentId)}`;
+	let res;
+	try {
+		res = await resilientFetch(
+			url,
+			{ headers: { accept: 'application/json' } },
+			{ timeoutMs: 10_000, retries: 2, label: 'agent-by-id' },
+		);
+	} catch {
+		return null;
+	}
+	if (!res.ok) return null;
+	const data = await res.json().catch(() => null);
+	const a = data?.agent;
+	if (!a || !a.id) return null;
+	return {
+		id: a.id,
+		name: a.name || null,
+		description: a.description || null,
+		skills: Array.isArray(a.skills) ? a.skills : [],
+		erc8004_agent_id:
+			a.erc8004_agent_id != null && String(a.erc8004_agent_id).trim() !== ''
+				? String(a.erc8004_agent_id)
+				: null,
+		chain_id: a.chain_id ?? null,
+		is_registered: !!a.is_registered,
+	};
+}
+
 // Token-overlap relevance between the task text and an agent's name + skills +
 // description. Cheap, deterministic, and good enough to order a shortlist; the
 // registry's full-text search already did the heavy filtering.
-function relevanceScore(task, agent) {
+export function relevanceScore(task, agent) {
 	const taskTokens = tokenize(task);
 	if (taskTokens.size === 0) return 0;
 	const hay = tokenize(

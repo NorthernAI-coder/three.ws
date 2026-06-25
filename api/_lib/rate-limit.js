@@ -388,25 +388,12 @@ export const limits = {
 	// the Upstash quota without buying any real protection here.
 	mcp3dStatus: (key) =>
 		getLimiter('mcp3d:status', { limit: 240, window: '1 m', local: true }).limit(key),
-	// FREE 3D Studio MCP (api/mcp-studio.js) — unauthenticated, no payment, so the
-	// per-IP limits ARE the abuse boundary that keeps anonymous callers from
-	// draining real provider spend (Replicate / forge GPU). Three buckets:
-	//   · studioIp        — cheap per-IP/min guard on EVERY JSON-RPC call (incl.
-	//                       discovery), so a poll/list flood can't hammer the box.
-	//   · studioGenerateIp — hard hourly ceiling per IP on the costly generation
-	//                       tools (each submits a real GPU job). Critical → fails
-	//                       closed in prod without Redis rather than uncapping spend.
-	//   · studioGenerateGlobal — platform-wide hourly circuit breaker across ALL
-	//                       studio IPs, so distributed callers each under their own
-	//                       cap can't collectively drain the shared budget. Shares
-	//                       the FORGE_PAID_GLOBAL_HOURLY envelope with the paid lane.
-	studioIp: (ip) => getLimiter('studio:ip', { limit: 120, window: '1 m' }).limit(ip),
-	studioGenerateIp: (ip) =>
-		getLimiter('studio:generate:ip', {
-			limit: Math.max(1, Number(process.env.STUDIO_GENERATE_HOURLY) || 20),
-			window: '1 h',
-			critical: true,
-		}).limit(ip),
+	// Platform-wide hourly circuit breaker across ALL free-studio IPs, so
+	// distributed callers each under their own studioGenHourly cap can't
+	// collectively drain the shared GPU/provider budget. Shares the
+	// FORGE_PAID_GLOBAL_HOURLY envelope with the paid lane. Critical → fails closed
+	// in prod without Redis rather than uncapping spend. (studioIp / studioGenBurst
+	// / studioGenHourly are defined above next to the other mcp buckets.)
 	studioGenerateGlobal: () =>
 		getLimiter('studio:generate:global', {
 			limit: FORGE_PAID_GLOBAL_HOURLY,

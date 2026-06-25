@@ -808,6 +808,11 @@ function decorate(row, isOwner = true) {
 		wallet_ready: walletReady,
 		walletReady,
 		is_registered: Boolean(row.erc8004_agent_id) || !!onchain,
+		// Public on-chain ERC-8004 identity (the registry ids are public, mirroring
+		// /api/agents/by-wallet and the public registry index) so agent-to-agent
+		// commerce can read this agent's reputation by id without a second lookup.
+		erc8004_agent_id: row.erc8004_agent_id != null ? String(row.erc8004_agent_id) : null,
+		chain_id: row.chain_id ?? null,
 		// Whether the requesting session owns this agent. Owner-only write paths
 		// (action log, memory sync) gate on this so public viewers don't fire
 		// requests the backend will reject with 403.

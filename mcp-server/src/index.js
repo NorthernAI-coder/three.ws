@@ -39,11 +39,19 @@ import { buildForgeAvatarTool } from './tools/forge-avatar.js';
 import { buildSentimentPulseTool } from './tools/sentiment-pulse.js';
 import { buildEnsSnsResolveTool } from './tools/ens-sns-resolve.js';
 import { buildAgentDelegateActionTool } from './tools/agent-delegate-action.js';
+import { buildAgentHireDiscoverTool } from './tools/agent-hire-discover.js';
+import { buildAgentHireTool } from './tools/agent-hire.js';
 import { buildAgenCListTasksTool } from './tools/agenc-list-tasks.js';
 import { buildAgenCGetTaskTool } from './tools/agenc-get-task.js';
 import { buildAgenCGetAgentTool } from './tools/agenc-get-agent.js';
 import { buildAixbtIntelTool } from './tools/aixbt-intel.js';
 import { buildAixbtProjectsTool } from './tools/aixbt-projects.js';
+import {
+	UI_RESOURCE_URI,
+	UI_MIME_TYPE,
+	UI_RESOURCE_META,
+	loadReceiptHtml,
+} from './commerce-ui.js';
 
 const SERVER_INSTRUCTIONS =
 	'MCP tools from three.ws. Most are paid: each quotes its USDC price in its description, and a call ' +
@@ -62,9 +70,13 @@ const SERVER_INSTRUCTIONS =
 	'ERC-8004 agent reputation (agent_reputation), Solana vanity address mining ' +
 	'(vanity_grinder), and AgenC coordination protocol reads — ' +
 	'task discovery, task status + lifecycle, and agent registry lookup ' +
-	'(agenc_list_tasks, agenc_get_task, agenc_get_agent), and aixbt market ' +
+	'(agenc_list_tasks, agenc_get_task, agenc_get_agent), aixbt market ' +
 	'intelligence — narrative intel feed and momentum-ranked project scans ' +
-	'(aixbt_intel, aixbt_projects).';
+	'(aixbt_intel, aixbt_projects), and live agent-to-agent commerce: discover and ' +
+	'reputation-rank agents to hire for a task (agent_hire_discover), then hire one ' +
+	'end to end — quote the price, settle real USDC via x402, run the remote agent, ' +
+	'and return its result plus an inline provenance receipt with hard spend caps ' +
+	'(agent_hire).';
 
 // The advertised MCP server version comes straight from package.json so it
 // can never drift from the published npm version.
@@ -82,6 +94,8 @@ const TOOL_BUILDERS = [
 	buildForgeAvatarTool,
 	buildEnsSnsResolveTool,
 	buildAgentDelegateActionTool,
+	buildAgentHireDiscoverTool,
+	buildAgentHireTool,
 	buildSentimentPulseTool,
 	buildPoseSeedTool,
 	buildPumpSnapshotTool,
@@ -124,11 +138,13 @@ export async function buildServer() {
 		{
 			// Declare full tools capability so clients on the strict MCP 2025-06-18
 			// spec know we don't push tools/list_changed notifications (our tool
-			// surface is fixed per-process). `resources` + `logging` left
-			// undeclared because we don't ship resource or logging APIs over this
-			// transport; declaring them empty would mislead clients into calling
-			// resources/list and getting a method-not-found.
-			capabilities: { tools: { listChanged: false } },
+			// surface is fixed per-process). `resources` is declared because
+			// agent_hire ships an MCP Apps UI resource (the provenance receipt
+			// card). `logging` stays undeclared — we ship no logging API.
+			capabilities: {
+				tools: { listChanged: false },
+				resources: { listChanged: false },
+			},
 			instructions: SERVER_INSTRUCTIONS,
 		},
 	);
@@ -146,10 +162,37 @@ export async function buildServer() {
 				// confirmation prompts per tool instead of treating every call
 				// as a destructive write.
 				annotations: t.annotations,
+				// Optional tool-level _meta (e.g. MCP Apps _meta.ui.resourceUri,
+				// which links agent_hire to its inline provenance receipt card).
+				...(t._meta ? { _meta: t._meta } : {}),
 			},
 			t.handler,
 		);
 	}
+
+	// MCP Apps UI resource: the agent_hire provenance receipt card the host
+	// renders in a sandboxed iframe. agent_hire links to it via
+	// _meta.ui.resourceUri; the resource carries the sandbox CSP grant.
+	server.registerResource(
+		'hire-receipt',
+		UI_RESOURCE_URI,
+		{
+			title: 'Agent hire receipt',
+			description: 'Inline provenance receipt rendered by agent_hire.',
+			mimeType: UI_MIME_TYPE,
+			_meta: UI_RESOURCE_META,
+		},
+		async (uri) => ({
+			contents: [
+				{
+					uri: uri.href ?? UI_RESOURCE_URI,
+					mimeType: UI_MIME_TYPE,
+					text: loadReceiptHtml(),
+					_meta: UI_RESOURCE_META,
+				},
+			],
+		}),
+	);
 
 	return server;
 }

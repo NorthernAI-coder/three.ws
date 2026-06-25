@@ -30,8 +30,20 @@ describe('AnimationStateMachine — defaults', () => {
 	});
 
 	it('exposes the canonical state list', () => {
-		expect(STATE_NAMES).toEqual(['idle', 'talk', 'walk', 'react', 'emote']);
+		expect(STATE_NAMES).toEqual(['idle', 'talk', 'walk', 'react', 'emote', 'listen', 'think']);
 		for (const n of STATE_NAMES) expect(DEFAULT_STATES[n]?.clip).toBeTruthy();
+	});
+
+	it('listen / think are looping postures that leave back to idle', () => {
+		expect(sm.fire('listen')).toBe('listen');
+		expect(DEFAULT_STATES.listen.loop).toBe(true);
+		expect(DEFAULT_STATES.listen.oneShot).toBe(false);
+		expect(sm.fire('listen-end')).toBe('idle');
+		expect(sm.fire('think')).toBe('think');
+		expect(DEFAULT_STATES.think.loop).toBe(true);
+		expect(sm.fire('think-end')).toBe('idle');
+		expect(DEFAULT_TRANSITIONS.listen).toBe('listen');
+		expect(DEFAULT_TRANSITIONS.think).toBe('think');
 	});
 
 	it('starts in idle', () => {
@@ -198,9 +210,10 @@ describe('AnimationStateMachine — gesture slot', () => {
 		sm = new AnimationStateMachine({}, onT, onG);
 	});
 
-	it('exposes the eight built-in gestures', () => {
+	it('exposes the built-in gestures', () => {
 		expect(GESTURE_NAMES).toEqual([
 			'wave', 'dance', 'sit', 'point', 'cheer', 'agree', 'disagree', 'talking',
+			'nod', 'shrug', 'jog', 'celebrate',
 		]);
 		for (const name of GESTURE_NAMES) {
 			const g = GESTURES[name];

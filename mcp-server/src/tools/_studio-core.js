@@ -286,15 +286,25 @@ export async function runForgeFree({ prompt, tier }) {
 	const maxAttempts = Math.max(1, Math.min(4, Number(env('FORGE_FREE_ATTEMPTS', '2')) || 2));
 
 	let liveFallback = null; // first reachable-but-non-durable result, used only if no durable one appears
-	let lastError = null;
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		let gen;
 		try {
 			gen = await forgeFreeOnce({ base, prompt: trimmed, tierId });
 		} catch (err) {
-			lastError = err;
-			continue; // provider/timeout error — retry while attempts remain
+			// A generation error is surfaced immediately — terminal failures
+			// (generation_failed, rate_limited, not_configured, timeout) must not
+			// trigger a wasteful re-generation, and this preserves the tool's
+			// original error contract. The ONLY exception: if an earlier attempt
+			// already produced a reachable result, keep it rather than losing a
+			// usable model to a later attempt's transient error.
+			if (liveFallback) break;
+			return coreError(err.code || 'provider_error', err.message, {
+				...(err.extra || {}),
+				...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
+				...(attempt > 1 ? { attempts: attempt } : {}),
+				durationMs: Date.now() - startedAt,
+			});
 		}
 		// Durable — the reliable, R2-persisted result. Return immediately.
 		if (gen.data.durable && gen.data.glb_url) {
@@ -308,15 +318,16 @@ export async function runForgeFree({ prompt, tier }) {
 				attempts: attempt,
 			});
 		}
-		// Non-durable — only trust it if the ephemeral URL is actually fetchable
-		// right now. Keep the first reachable one, but keep trying for a durable
-		// result while attempts remain.
+		// Non-durable success — only trust it if the ephemeral URL is actually
+		// fetchable right now. Keep the first reachable one, but keep trying for a
+		// durable result while attempts remain.
 		if (gen.data.glb_url && !liveFallback && (await isUrlReachable(gen.data.glb_url))) {
 			liveFallback = { data: gen.data, jobId: gen.jobId };
 		}
 	}
 
-	// No durable result — fall back to a verified-reachable non-durable one.
+	// No durable result across all attempts — fall back to a verified-reachable
+	// non-durable one (flagged with a `warning` in shapeForgeFree).
 	if (liveFallback) {
 		return shapeForgeFree({
 			data: liveFallback.data,
@@ -329,16 +340,8 @@ export async function runForgeFree({ prompt, tier }) {
 		});
 	}
 
-	// Nothing usable across all attempts — return a clear, actionable error
-	// instead of a dead "success".
-	if (lastError) {
-		return coreError(lastError.code || 'provider_error', lastError.message, {
-			...(lastError.extra || {}),
-			...(lastError.retryAfter ? { retryAfter: lastError.retryAfter } : {}),
-			attempts: maxAttempts,
-			durationMs: Date.now() - startedAt,
-		});
-	}
+	// Every attempt produced a non-durable URL that was unreachable — return a
+	// clear, actionable error instead of a dead "success".
 	return coreError(
 		'lane_degraded',
 		'The free 3D lane produced a result but its URL was unreachable — the durable NVIDIA NIM path is ' +
