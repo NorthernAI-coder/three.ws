@@ -70,8 +70,24 @@ function memDel(key) {
 	memCache.delete(key);
 }
 
+// Resolve which Upstash store the cache talks to. Prefer a dedicated cache store
+// (UPSTASH_CACHE_REST_*) so the large, best-effort cache writes never contend with —
+// or burn the command quota of — the fail-closed rate limiter, which lives on
+// UPSTASH_REDIS_REST_* (api/_lib/redis.js). Fall back to the shared store for
+// back-compat, then to in-memory. Resolved per call: it's a couple of cheap env
+// reads, and resolving fresh avoids pinning stale config across env changes in tests.
+function cacheTarget() {
+	if (env.UPSTASH_CACHE_REST_URL && env.UPSTASH_CACHE_REST_TOKEN) {
+		return { url: env.UPSTASH_CACHE_REST_URL, token: env.UPSTASH_CACHE_REST_TOKEN, dedicated: true };
+	}
+	if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
+		return { url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN, dedicated: false };
+	}
+	return null;
+}
+
 function redisConfigured() {
-	return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
+	return cacheTarget() !== null;
 }
 
 // A cache round-trip must be fast or not happen at all. Without a timeout a
@@ -84,10 +100,12 @@ function redisConfigured() {
 const REDIS_CMD_TIMEOUT_MS = 3_000;
 
 async function redisCmd(args) {
-	const r = await fetch(env.UPSTASH_REDIS_REST_URL, {
+	const target = cacheTarget();
+	if (!target) throw new Error('cache redis not configured');
+	const r = await fetch(target.url, {
 		method: 'POST',
 		headers: {
-			authorization: `Bearer ${env.UPSTASH_REDIS_REST_TOKEN}`,
+			authorization: `Bearer ${target.token}`,
 			'content-type': 'application/json',
 		},
 		body: JSON.stringify(args),
