@@ -1764,61 +1764,6 @@
 			} from '/src/wallet.js';
 			import { emptyStateHTML } from '/src/shared/state-kit.js';
 
-			// Some embedded webviews — notably the in-app browsers X/Twitter
-			// and a few Android wrappers ship — expose `window.localStorage`
-			// as `null`, or throw on access in private mode. Reading it
-			// directly during module init crashed the whole page. Route every
-			// storage call through this shim: it probes the real store once,
-			// and silently degrades to an in-memory map when it's unavailable
-			// so the dashboard still loads (config just won't persist).
-			const safeStorage = (() => {
-				let store = null;
-				try {
-					store = window.localStorage;
-					const probe = '__twx_probe__';
-					store.setItem(probe, '1');
-					store.removeItem(probe);
-				} catch {
-					store = null;
-				}
-				const mem = new Map();
-				return {
-					getItem(key) {
-						if (store) {
-							try {
-								return store.getItem(key);
-							} catch {
-								/* fall through to in-memory */
-							}
-						}
-						return mem.has(key) ? mem.get(key) : null;
-					},
-					setItem(key, value) {
-						const v = String(value);
-						if (store) {
-							try {
-								store.setItem(key, v);
-								return;
-							} catch {
-								/* fall through to in-memory */
-							}
-						}
-						mem.set(key, v);
-					},
-					removeItem(key) {
-						if (store) {
-							try {
-								store.removeItem(key);
-								return;
-							} catch {
-								/* fall through to in-memory */
-							}
-						}
-						mem.delete(key);
-					},
-				};
-			})();
-
 			const PAGE_TITLES = {
 				dashboard: 'Dashboard',
 				feed: 'Live Feed',
@@ -1835,16 +1780,16 @@
 			};
 
 			const state = {
-				apiUrl: safeStorage.getItem('pumpbot-api-url') || location.origin,
-				wsUrl: safeStorage.getItem('pumpbot-ws-url') || 'wss://pumpportal.fun/api/data',
-				apiKey: safeStorage.getItem('pumpbot-api-key') || '',
+				apiUrl: localStorage.getItem('pumpbot-api-url') || location.origin,
+				wsUrl: localStorage.getItem('pumpbot-ws-url') || 'wss://pumpportal.fun/api/data',
+				apiKey: localStorage.getItem('pumpbot-api-key') || '',
 				// Default to the same-origin proxy (/api/solana-rpc), which forwards
 				// to a keyed Helius upstream server-side. The public RPC 403s
 				// browser requests, so we also migrate anyone whose stored value is
 				// that old broken default onto the proxy; genuine custom RPCs are
 				// preserved untouched.
 				rpcUrl: (() => {
-					const stored = safeStorage.getItem('pumpbot-rpc-url');
+					const stored = localStorage.getItem('pumpbot-rpc-url');
 					return stored && stored !== 'https://api.mainnet-beta.solana.com'
 						? stored
 						: '/api/solana-rpc';
@@ -1857,7 +1802,7 @@
 				activityCount: 0,
 				feedPaused: false,
 				alertRules: (() => {
-					const v = safeParseJson(safeStorage.getItem('pumpbot-alerts') || '[]', []);
+					const v = safeParseJson(localStorage.getItem('pumpbot-alerts') || '[]', []);
 					return Array.isArray(v) ? v : [];
 				})(),
 				// Deep-link target: /pump-dashboard?agent=<id> (e.g. straight from the
@@ -3094,7 +3039,7 @@
 					}
 					const { rules } = await resp.json();
 					state.alertRules = Array.isArray(rules) ? rules : [];
-					safeStorage.setItem('pumpbot-alerts', JSON.stringify(state.alertRules));
+					localStorage.setItem('pumpbot-alerts', JSON.stringify(state.alertRules));
 					setRuleFormSignedOut(false);
 					renderRulesList(state.alertRules);
 					populateAgentOptions();
@@ -4211,10 +4156,10 @@
 				state.wsUrl = $('pd-cfg-ws-url').value.trim() || 'wss://pumpportal.fun/api/data';
 				state.apiKey = $('pd-cfg-api-key').value.trim();
 				state.rpcUrl = $('pd-cfg-rpc-url').value.trim() || '/api/solana-rpc';
-				safeStorage.setItem('pumpbot-api-url', state.apiUrl);
-				safeStorage.setItem('pumpbot-ws-url', state.wsUrl);
-				safeStorage.setItem('pumpbot-api-key', state.apiKey);
-				safeStorage.setItem('pumpbot-rpc-url', state.rpcUrl);
+				localStorage.setItem('pumpbot-api-url', state.apiUrl);
+				localStorage.setItem('pumpbot-ws-url', state.wsUrl);
+				localStorage.setItem('pumpbot-api-key', state.apiKey);
+				localStorage.setItem('pumpbot-rpc-url', state.rpcUrl);
 				$('pd-api-endpoint-display').textContent = state.apiUrl;
 				connectApi();
 				// A manual save is an explicit retry — reset the backoff so the new

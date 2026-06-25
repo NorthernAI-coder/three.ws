@@ -268,22 +268,6 @@ async function main() {
 	loadCitizens();
 	progress(100, 'Entering the Commons…');
 
-	// When a human joins or posts (me-hud emits this after a successful act), the
-	// agora_citizens projection changed — re-fetch so their freshly-placed avatar
-	// streams into the square live, no reload. population.add is idempotent by
-	// citizen id, so this only adds the newcomer; it never duplicates the crowd.
-	// Debounced to coalesce the join + first-action burst into one fetch.
-	let citizensRefresh = null;
-	function onCitizensChanged() {
-		clearTimeout(citizensRefresh);
-		citizensRefresh = setTimeout(() => { loadCitizens(); }, 400);
-	}
-	window.addEventListener('agora:citizens-changed', onCitizensChanged);
-	window.addEventListener('pagehide', () => {
-		clearTimeout(citizensRefresh);
-		window.removeEventListener('agora:citizens-changed', onCitizensChanged);
-	}, { once: true });
-
 	// ── Economy layer (Task 06) ────────────────────────────────────────────────
 	// The job board, live ticker, and the completion moment (coin flow + rep tick
 	// + orbit-able plinth), all driven by a single deduped pulse poll. It's handed
