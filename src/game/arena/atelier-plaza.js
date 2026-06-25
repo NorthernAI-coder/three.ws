@@ -14,7 +14,7 @@
 
 import {
 	Group, Mesh, Vector3,
-	CylinderGeometry, CircleGeometry, RingGeometry, PlaneGeometry,
+	CylinderGeometry, RingGeometry, PlaneGeometry,
 	MeshStandardMaterial, MeshBasicMaterial,
 	CanvasTexture, SRGBColorSpace, DoubleSide, PointLight,
 } from 'three';
@@ -26,7 +26,6 @@ const ACTIVATE_DIST = 3.4;       // how close the player walks before a booth ac
 const CARD_W = 2.6;              // billboard width (metres)
 const CARD_H = 1.7;
 const ACCENT = 0x6ea8ff;         // Atelier-tinted accent (matches the arena ring)
-const ACCENT_HOT = 0x9bd0ff;
 
 export function createAtelierPlaza(arena, opts = {}) {
 	return new AtelierPlaza(arena, opts);
@@ -128,7 +127,7 @@ class AtelierPlaza {
 		root.add(light);
 
 		const booth = { agent, root, card, tex, ring, ringMat, light, basePos: basePos.clone(), pedH, tint, featured, _hot: 0 };
-		this._drawCard(booth, false);
+		this._drawCard(booth);
 		this.booths.push(booth);
 	}
 
@@ -277,14 +276,14 @@ class AtelierPlaza {
 		}
 		if (this._hireBusy) return;
 		const req = hireRequest(a);
-		if (!req) { this._flow(booth, 'error', 'This agent has no hire endpoint configured.'); return; }
+		if (!req) { this._flow('error', 'This agent has no hire endpoint configured.'); return; }
 
 		this._hireBusy = true;
 		const hireBtn = this._overlay?.querySelector('.atl-hire');
 		if (hireBtn) { hireBtn.disabled = true; hireBtn.textContent = 'Settling…'; }
 
 		const stages = ['challenge', 'built', 'verified', 'settled'];
-		this._flowStepper(booth, stages, 'challenge');
+		this._flowStepper(stages, 'challenge');
 
 		try {
 			const res = await fetch('/api/x402-pay', {
@@ -300,35 +299,35 @@ class AtelierPlaza {
 			}
 			let settled = null, result = null;
 			for await (const { event, data } of sse(res)) {
-				if (stages.includes(event)) this._flowStepper(booth, stages, event);
+				if (stages.includes(event)) this._flowStepper(stages, event);
 				if (event === 'settled') settled = data;
 				else if (event === 'result') result = data;
 				else if (event === 'error') throw new Error(data?.error || 'payment failed');
 			}
 			if (!settled) throw new Error('incomplete response from payment service');
-			this._flowDone(booth, settled, result);
+			this._flowDone(settled, result);
 		} catch (e) {
 			log.warn('[atelier] hire failed', e?.message);
-			this._flow(booth, 'error', e?.message || 'Hire failed. Try again.');
+			this._flow('error', e?.message || 'Hire failed. Try again.');
 			if (hireBtn) { hireBtn.disabled = false; hireBtn.textContent = 'Retry — pay in USDC'; }
 		} finally {
 			this._hireBusy = false;
 		}
 	}
 
-	_flowEl(booth) {
+	_flowEl() {
 		const el = this._overlay?.querySelector('.atl-flow');
 		if (el) el.hidden = false;
 		return el;
 	}
-	_flow(booth, kind, msg) {
-		const el = this._flowEl(booth);
+	_flow(kind, msg) {
+		const el = this._flowEl();
 		if (!el) return;
 		el.className = `atl-flow atl-flow-${kind}`;
 		el.textContent = msg;
 	}
-	_flowStepper(booth, stages, active) {
-		const el = this._flowEl(booth);
+	_flowStepper(stages, active) {
+		const el = this._flowEl();
 		if (!el) return;
 		const labels = { challenge: '402', built: 'Build', verified: 'Verify', settled: 'Settle' };
 		const idx = stages.indexOf(active);
@@ -337,8 +336,8 @@ class AtelierPlaza {
 			`<span class="atl-step ${i < idx ? 'done' : ''} ${i === idx ? 'on' : ''}">${labels[s]}</span>`
 		).join('<i class="atl-step-sep"></i>');
 	}
-	_flowDone(booth, settled, result) {
-		const el = this._flowEl(booth);
+	_flowDone(settled, result) {
+		const el = this._flowEl();
 		if (!el) return;
 		const tx = settled?.transaction || settled?.tx || result?.payment?.transaction || '';
 		const short = tx ? `${tx.slice(0, 6)}…${tx.slice(-6)}` : '';
@@ -369,7 +368,7 @@ class AtelierPlaza {
 	}
 
 	// ── canvas painters ───────────────────────────────────────────────────────────
-	_drawCard(booth, active) {
+	_drawCard(booth) {
 		const a = booth.agent;
 		const cv = booth.tex.image;
 		const W = 768, H = 500; cv.width = W; cv.height = H;

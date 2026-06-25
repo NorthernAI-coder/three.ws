@@ -24,6 +24,7 @@ import {
 } from 'three';
 import { log } from '../../shared/log.js';
 import { CLIP_IDLE, CLIP_WALK } from '../avatar-rig.js';
+import { createArenaEnvironment } from './arena-environment.js';
 
 // Locomotion + camera tuning, identical to /play so the two worlds feel the same.
 export const MOVE_SPEED = 4.2;
@@ -88,6 +89,18 @@ export class OmniologyArena {
 		this.localAnim = null;
 		this.localHeight = 1.7;
 
+		// Venue mount state (prompt 02). `bounds` clamps the player to the authored
+		// footprint once the GLB resolves; `composer` is the bloom/ACES/vignette
+		// pipeline; `_intro` runs the GLB camera_intro dolly. `ready` resolves once
+		// the venue is mounted (or degrades to the placeholder on failure) — the
+		// entry awaits it before mounting screens/desk so they read venue anchors.
+		this.composer = null;
+		this.bounds = null;
+		this.profile = null;
+		this._intro = null;
+		this._playerMoved = false;
+		this._lookTmp = new Vector3();
+
 		// Stable bound handlers so dispose() can remove every listener it added.
 		this._onResize = this._onResize.bind(this);
 		this._onKeyDown = this._onKeyDown.bind(this);
@@ -105,6 +118,10 @@ export class OmniologyArena {
 		this._initJoystick();
 
 		this._raf = requestAnimationFrame(this._loop);
+
+		// Load + mount the authored venue GLB (prompt 02). Non-blocking: the
+		// placeholder above renders immediately while the venue streams in.
+		this.ready = this._mountVenue();
 	}
 
 	// ---------------------------------------------------------------- renderer
