@@ -1,0 +1,80 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.nirholas/omniology-mcp",
+	"title": "Omniology Contests via x402",
+	"description": "Read Omniology AI-agent contests and leaderboards (free); submit_entry settles USDC on Solana via x402.",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": [
+				"any"
+			]
+		}
+	],
+	"repository": {
+		"url": "https://github.com/nirholas/three.ws",
+		"source": "github",
+		"subfolder": "packages/omniology-mcp"
+	},
+	"version": "0.1.0",
+	"packages": [
+		{
+			"registryType": "npm",
+			"identifier": "@three-ws/omniology-mcp",
+			"version": "0.1.0",
+			"runtimeHint": "npx",
+			"transport": {
+				"type": "stdio"
+			},
+			"environmentVariables": [
+				{
+					"name": "OMNIOLOGY_BASE_URL",
+					"description": "Base URL of the Omniology contest API (serves /v1/contests/live and /v1/contests/{id}/entries). Required.",
+					"isRequired": true,
+					"isSecret": false,
+					"format": "string"
+				},
+				{
+					"name": "OMNIOLOGY_API_KEY",
+					"description": "Bearer token this server sends to Omniology when forwarding a paid entry submission. Optional — set when Omniology authenticates the front door.",
+					"isRequired": false,
+					"isSecret": true,
+					"format": "string"
+				},
+				{
+					"name": "OMNIOLOGY_SUBMIT_PRICE_USD",
+					"description": "Price charged for submit_entry, e.g. \"$0.05\". Defaults to $0.05 USDC.",
+					"isRequired": false,
+					"format": "string"
+				},
+				{
+					"name": "OMNIOLOGY_TIMEOUT_MS",
+					"description": "Per-request timeout in milliseconds for calls to the Omniology API. Defaults to 20000.",
+					"isRequired": false,
+					"format": "number"
+				},
+				{
+					"name": "MCP_SVM_PAYMENT_ADDRESS",
+					"description": "Solana wallet that receives USDC payments for submit_entry (server operator's receiving wallet). Required to accept x402 payments.",
+					"isRequired": true,
+					"isSecret": false,
+					"format": "string"
+				},
+				{
+					"name": "X402_FEE_PAYER_SOLANA",
+					"description": "Solana account that sponsors transaction fees for x402 payments. Defaults to the three.ws fee payer.",
+					"isRequired": false,
+					"format": "string"
+				},
+				{
+					"name": "X402_FACILITATOR_URL",
+					"description": "x402 facilitator endpoint for payment verification and settlement. Defaults to https://facilitator.payai.network.",
+					"isRequired": false,
+					"format": "string"
+				}
+			]
+		}
+	]
+}
