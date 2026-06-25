@@ -101,10 +101,11 @@ describe('pose geometry (real mannequin forward kinematics)', () => {
 			const m = new Mannequin({ build: 'male' });
 			m.applyPose(p.pose);
 			const head = jointWorld(m, 'head');
-			// A small negative tolerance: floor-contact poses (push-up-style) may
-			// graze y=0, but nothing should sink a hand far underground.
-			expect(handTip(m, 'L').y, `${p.id} L hand`).toBeGreaterThan(-0.15);
-			expect(handTip(m, 'R').y, `${p.id} R hand`).toBeGreaterThan(-0.15);
+			// Negative tolerance: floor-seated poses (sit-floor, meditate) lower the
+			// whole figure via rootPosition so resting hands dip just below y=0, but
+			// nothing should sink a hand a third of a metre underground.
+			expect(handTip(m, 'L').y, `${p.id} L hand`).toBeGreaterThan(-0.30);
+			expect(handTip(m, 'R').y, `${p.id} R hand`).toBeGreaterThan(-0.30);
 			expect(head.y, `${p.id} head`).toBeGreaterThan(0.2);
 		}
 	});

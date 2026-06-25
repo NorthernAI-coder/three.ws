@@ -31,6 +31,7 @@ https://github.com/user-attachments/assets/d52515d1-cb04-4dd6-98bd-fef233312dc4
 - [Key Features](#key-features)
 - [Forge — Text & Image to 3D](#forge--text--image-to-3d)
 - [Platform Pages](#platform-pages)
+- [Install in Claude Code](#install-in-claude-code)
 - [Cloud Marketplaces](#cloud-marketplaces)
 - [Ecosystem Directories](#ecosystem-directories)
 - [IBM watsonx & Granite](#ibm-watsonx--granite)
@@ -428,6 +429,27 @@ A map of every user-facing route. Full detail (source files, feature description
 | **IBM Showcase**     | `/ibm`, `/ibm/galaxy`, `/ibm/oracle`, `/ibm/twin`, `/ibm/trust-layer`, `/ibm/proof`, `/ibm/vision` | Granite on watsonx.ai — semantic galaxy, TimeSeries oracle, digital twin, Guardian trust layer, on-chain proof, vision |
 | **Docs**             | `/docs`, `/docs/widgets`                                                                        | Developer documentation                                                                                         |
 | **Legal**            | `/legal/privacy`, `/legal/tos`                                                                  | Privacy policy and terms                                                                                        |
+
+---
+
+## Install in Claude Code
+
+three.ws ships an official **Claude Code plugin marketplace** — install wallet, payments, pump.fun trading, agent scaffolding, and the 3D Forge as namespaced skills and MCP tools, in one command. Add the marketplace once:
+
+```
+/plugin marketplace add nirholas/three.ws
+```
+
+Then install any of the four plugins:
+
+```
+/plugin install three-ws-core@three-ws       # wallet + x402 — authenticate, fund, send, trade, bazaar, pay, monetize, query onchain
+/plugin install three-ws-developer@three-ws  # scaffold agents, configure MCP, runnable code examples
+/plugin install three-ws-pump-fun@three-ws   # create coins, swap, creator fees, tokenize agents, live avatar reactions
+/plugin install three-ws-3d@three-ws         # text→3D (free), text→avatar, mesh forge, auto-rig + scene/avatar MCP
+```
+
+Run `/reload-plugins` and the skills appear under each plugin's namespace (e.g. `/three-ws-3d:forge-3d`). Plugins that expose MCP tools (`three-ws-developer`, `three-ws-3d`) wire the published `@three-ws/*` MCP servers automatically — `forge_free` is free (no wallet); the paid lanes settle over x402 in USDC. The canonical manifest lives at [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json).
 
 ---
 

@@ -115,11 +115,11 @@ Then replace `"command": "npx", "args": ["-y", "@three-ws/mcp-server"]` with `"c
 
 ## Environment variables
 
-### Required
+### Payout (set this to receive payments yourself)
 
 | Var                       | Description                                                                                                          |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `MCP_SVM_PAYMENT_ADDRESS` | Solana USDC payout address (base58) where tools receive payment. Falls back to `X402_PAY_TO_SOLANA` / `X402_PAY_TO`. |
+| `MCP_SVM_PAYMENT_ADDRESS` | Solana USDC payout address (base58) where tools receive payment. Falls back to `X402_PAY_TO_SOLANA` / `X402_PAY_TO`. **If unset, the server still boots and routes paid-call USDC to the three.ws platform payout** — set this to a 32–44 char base58 wallet to collect payments yourself. A configured-but-malformed address fails fast. |
 
 ### Optional
 
@@ -137,6 +137,9 @@ Then replace `"command": "npx", "args": ["-y", "@three-ws/mcp-server"]` with `"c
 | `FORGE_FREE_API_BASE`           | `https://three.ws`                    | three.ws origin the free `forge_free` tool calls (`/api/forge`)                                                    |
 | `FORGE_FREE_TIMEOUT_MS`         | `180000`                              | `forge_free` poll budget before it returns a resumable `timeout`                                                   |
 | `FORGE_FREE_POLL_MS`            | `3000`                                | `forge_free` poll interval while a queued job runs                                                                 |
+| `FORGE_FREE_ATTEMPTS`           | `2`                                   | Max `forge_free` generations to prefer a **durable** result when the NVIDIA lane degrades (1–4). It never returns a confirmed-dead URL as success |
+| `MCP_REVIEW_SECRET`             | unset                                 | **Review entitlement.** When set, a caller presenting a matching `MCP_REVIEW_MODE` runs paid tools for real with **no charge** (connector-review access). Off unless set — never bypassable on a normal install |
+| `MCP_REVIEW_MODE`               | unset                                 | Client-side value that must equal the server's `MCP_REVIEW_SECRET` to activate the review entitlement above        |
 | `MCP_POSE_PREVIEW_BASE`         | `https://three.ws/pose`               | Base URL for `get_pose_seed` preview links                                                                         |
 | `MCP_AGENT_REP_RPC_<chainId>`   | public RPC                            | Per-chain RPC override for `agent_reputation` (tried before the failover set)                                      |
 | `MCP_AGENT_REP_LOG_WINDOW`      | `200000`                              | Block window for `agent_reputation` event scan                                                                     |
