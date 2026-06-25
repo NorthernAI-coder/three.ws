@@ -168,8 +168,12 @@ export default wrap(async (req, res) => {
 		const evmEndpoints = [
 			env.ALCHEMY_API_KEY ? `https://eth-mainnet.g.alchemy.com/v2/${env.ALCHEMY_API_KEY}` : null,
 			env.MAINNET_RPC_URL || null,
+			// Keyless, datacenter-reachable lanes. dRPC/1rpc lead (verified answering
+			// from a serverless IP); publicnode last (403s from Vercel egress).
+			// eth.llamarpc.com removed — its Cloudflare bot-wall 403s server-side POSTs.
+			'https://eth.drpc.org',
+			'https://1rpc.io/eth',
 			'https://ethereum-rpc.publicnode.com',
-			'https://eth.llamarpc.com',
 		].filter(Boolean);
 
 		const rpcAt = (url) => (id, methodName, params) =>

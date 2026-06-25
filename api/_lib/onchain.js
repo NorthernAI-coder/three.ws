@@ -37,7 +37,10 @@ export const SERVER_CHAIN_META = {
 	1: {
 		name: 'Ethereum',
 		short: 'ETH',
-		rpc: 'https://eth.llamarpc.com',
+		// dRPC (not llamarpc — its Cloudflare bot-wall 403s server-side POSTs, which
+		// wasted the first failover attempt on every call). evmFallbackProvider adds
+		// the rest of the chain from erc8004-chains.js behind this primary.
+		rpc: 'https://eth.drpc.org',
 		explorer: 'https://etherscan.io',
 		registry: MAINNET,
 		testnet: false,
@@ -167,7 +170,7 @@ export const SERVER_CHAIN_META = {
 	11155111: {
 		name: 'Ethereum Sepolia',
 		short: 'SEP',
-		rpc: 'https://rpc.sepolia.org',
+		rpc: 'https://sepolia.drpc.org',
 		explorer: 'https://sepolia.etherscan.io',
 		registry: TESTNET,
 		testnet: true,
