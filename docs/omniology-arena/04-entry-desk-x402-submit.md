@@ -50,7 +50,26 @@ reuses the proven agent-commerce flow; **no scripted/fake stages**.
    POST directly to the submit URL (no x402) and skip the payment stepper. Keep
    both paths implemented and selected by the adapter, not by a hardcoded flag.
 
+## Security (MANDATORY — see `docs/omniology-arena/SECURITY.md`)
+The desk pays a third-party endpoint with a player's real funds. You MUST
+implement and prove these before this prompt is "done":
+- **C1 — Pin the recipient.** Reject any 402 `payTo` that is not Omniology's
+  verified, fixed Solana address (add `x402_recipient_allowlist` to spend-limits
+  and enforce in `runExternalFlow`). Do NOT trust the address the endpoint
+  returns. This blocks launch if unmet.
+- **C2 — Cap the amount.** Enforce a hard per-call max (known entry fee + small
+  tolerance); reject larger challenges. Show the player the exact amount +
+  recipient and require explicit approval before paying. No silent payment.
+- **C3 — Bound the response.** Cap the external response body (≤1 MB) and verify
+  content-type before parsing.
+- **C4 — Sanitize partner content.** Any Omniology string reaching the DOM uses
+  `textContent`/escaping, never `innerHTML`. Length-clamp and strip control chars.
+- The flow is auth + CSRF gated already; do not weaken that. Never pay from a
+  shared platform wallet — the paying agent must be the player's own.
+
 ## Acceptance criteria
+- C1–C4 above are implemented and demonstrated (e.g. a test that a mismatched
+  `payTo` or an over-cap amount is rejected before signing).
 - Walking to the desk and pressing E opens the compose UI; submitting runs a
   **real** x402 payment and returns Omniology's real confirmation. Verified in a
   real browser end-to-end against Omniology's real/sandbox submit endpoint, with

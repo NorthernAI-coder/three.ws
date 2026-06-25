@@ -168,6 +168,124 @@ export function submitEntryRequest(contestId, entry, agent) {
 	};
 }
 
+// ── compose schema + local validation (entry desk, prompt 04) ──────────────────
+//
+// Omniology's exact entry fields are pending QUESTIONS-FOR-OMNIOLOGY.md #6. This
+// is the documented default contract and the SINGLE place to update when the
+// partner confirms — the desk's compose UI renders itself from ENTRY_FIELDS, so a
+// field change never touches entry-desk.js. Validation runs BEFORE any payment so
+// a doomed entry is never charged (acceptance criteria + QUESTIONS #10).
+
+/**
+ * @typedef {object} EntryField
+ * @property {string} key
+ * @property {string} label
+ * @property {'text'|'textarea'|'url'} type
+ * @property {boolean} required
+ * @property {number} [max]      max characters
+ * @property {string} [placeholder]
+ * @property {string} [hint]
+ */
+
+/** @type {EntryField[]} */
+export const ENTRY_FIELDS = [
+	{ key: 'title', label: 'Title', type: 'text', required: true, max: 80, placeholder: 'Name your entry', hint: 'Shown on the leaderboard.' },
+	{ key: 'prompt', label: 'Your entry', type: 'textarea', required: true, max: 600, placeholder: 'What are you submitting to this round?', hint: 'This is what gets judged.' },
+	{ key: 'media_url', label: 'Image or model URL', type: 'url', required: false, placeholder: 'https://…  (optional)', hint: 'Optional HTTPS link to an image or 3D model.' },
+];
+
+/**
+ * Trim string fields and drop empty optionals so the wire body is clean and
+ * deterministic. Required-but-empty fields are kept as '' so validateEntry can
+ * flag them (rather than silently omitting and shipping an incomplete entry).
+ * @param {object} values  raw compose-form values
+ * @returns {object}
+ */
+export function normalizeEntry(values) {
+	const src = values && typeof values === 'object' ? values : {};
+	const out = {};
+	for (const f of ENTRY_FIELDS) {
+		const raw = src[f.key];
+		const val = typeof raw === 'string' ? raw.trim() : raw;
+		if (val === undefined || val === null || val === '') {
+			if (f.required) out[f.key] = '';
+			continue;
+		}
+		out[f.key] = val;
+	}
+	return out;
+}
+
+/**
+ * Validate a compose-form entry against Omniology's documented rules locally,
+ * before payment. Returns { ok, errors:{ [field]: message } }.
+ * @param {object} values
+ * @returns {{ ok:boolean, errors:Record<string,string> }}
+ */
+export function validateEntry(values) {
+	const entry = normalizeEntry(values);
+	const errors = {};
+	for (const f of ENTRY_FIELDS) {
+		const val = entry[f.key];
+		if (f.required && (val == null || !String(val).length)) {
+			errors[f.key] = `${f.label} is required.`;
+			continue;
+		}
+		if (val == null || val === '') continue; // empty optional — nothing to check
+		const s = String(val);
+		if (f.max && s.length > f.max) {
+			errors[f.key] = `${f.label} must be ${f.max} characters or fewer.`;
+			continue;
+		}
+		if (f.type === 'url') {
+			let ok = false;
+			try { ok = new URL(s).protocol === 'https:'; } catch { ok = false; }
+			if (!ok) errors[f.key] = 'Enter a valid https:// link, or leave it blank.';
+		}
+	}
+	return { ok: Object.keys(errors).length === 0, errors };
+}
+
+/**
+ * How entries are priced — selected by config, NEVER a hardcoded flag in the desk:
+ *   'auto' (default) — let /api/x402-pay probe the submit URL: a 402 ⇒ paid (real
+ *                      x402 USDC), a plain 200 ⇒ free (no funds move).
+ *   'free' — Omniology confirmed entries are free (QUESTIONS #7); the desk POSTs
+ *            the submit URL directly and skips the payment stepper entirely.
+ *   'paid' — entries always carry a fee; the desk always runs the x402 flow.
+ * Reads `window.OMNIOLOGY_ENTRY_FEE`, then `<meta name="omniology-entry-fee">`,
+ * then VITE_OMNIOLOGY_ENTRY_FEE.
+ * @returns {'auto'|'free'|'paid'}
+ */
+export function entryFeeMode() {
+	let v = '';
+	if (typeof window !== 'undefined' && window.OMNIOLOGY_ENTRY_FEE) v = String(window.OMNIOLOGY_ENTRY_FEE);
+	if (!v && typeof document !== 'undefined') v = document.querySelector('meta[name="omniology-entry-fee"]')?.getAttribute('content') || '';
+	if (!v) { try { v = String(import.meta?.env?.VITE_OMNIOLOGY_ENTRY_FEE || ''); } catch (_) { /* node */ } }
+	v = v.trim().toLowerCase();
+	return v === 'free' || v === 'paid' ? v : 'auto';
+}
+
+/**
+ * Pull the player-facing confirmation out of Omniology's submit response. On the
+ * paid path the body arrives nested under the payer's result envelope
+ * ({ result: { entry_id, status, round, position } }); on the free path it is the
+ * bare body. Tolerant of either, and of string/number round/position, so the desk
+ * always shows a real confirmation rather than "undefined".
+ * @param {object} resultEnvelope
+ * @returns {{ entryId:string|null, status:string|null, round:number|null, position:number|null }}
+ */
+export function readEntryConfirmation(resultEnvelope) {
+	const env = resultEnvelope && typeof resultEnvelope === 'object' ? resultEnvelope : {};
+	const body = env.result && typeof env.result === 'object' ? env.result : env;
+	return {
+		entryId: body.entry_id ?? body.entryId ?? null,
+		status: body.status ?? null,
+		round: num(body.round),
+		position: num(body.position),
+	};
+}
+
 // ── coercion helpers (defensive: the feed is external) ─────────────────────────
 
 function nowMs() { return Date.now(); }
