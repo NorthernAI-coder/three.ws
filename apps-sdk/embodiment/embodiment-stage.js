@@ -40,7 +40,7 @@ import { A2FPlayer } from '../../src/voice/a2f-player.js';
 import { inspectRig, decideRigMode } from '../../src/embodiment/rig-mode.js';
 import { expressionForText, expressionFor } from '../../src/embodiment/emotion.js';
 import { TextVisemeEnvelope, estimateSpeechDuration } from '../../src/embodiment/text-visemes.js';
-import { FaceExpression } from './face-expression.js';
+import { FaceExpression } from '../../src/embodiment/face-expression.js';
 
 const REDUCED_MOTION =
 	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
