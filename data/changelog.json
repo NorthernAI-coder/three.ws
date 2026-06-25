@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "Homepage live preview always renders a real agent",
+			"summary": "The hero stage on the homepage no longer shows a \"live preview couldn't load\" card when a single avatar endpoint is unavailable. It now falls back through the live explore feed — which returns ready-to-render models directly — and finally to a bundled avatar, so the 3D agent on the landing page renders every time.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-25",
 			"title": "Self-hosted GPU lanes are now the resilient default for 3D generation",
 			"summary": "Our own Cloud Run GPU workers (TRELLIS, Hunyuan3D, TripoSG on NVIDIA L4s) are now the default generation backend — routing prefers a healthy self-hosted lane, then another free external lane, and only falls back to a paid Replicate lane when every free option is confirmed down. A cached liveness probe picks up cold-start containers and widens the ETA estimate honestly instead of showing a fake timer. If a self-hosted worker errors at submit time, the handler cools that lane and transparently retries the next configured one before surfacing any error. The /forge?health dashboard now shows a real free-vs-paid serve split so you can see how many generations ran at zero vendor cost.",
 			"tags": ["improvement", "infra"]
