@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-25",
+			"title": "Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry",
+			"summary": "The universal rig canonicalizer now handles Autodesk HumanIK / MotionBuilder / Maya character namespaces (`Character1:Hips`, `subject:LeftArm`, nested `char:ns:Hips`) so mocap-exported avatars and Maya-rigged characters drive the animation library without any manual bone renaming. Three new poses land in the /pose studio and the get_pose_seed MCP tool — Salute (Standing), Fighting stance (Action), and Facepalm (Expressive) — each validated against real mannequin forward kinematics so the joint rotations are geometrically correct, not guessed.",
+			"tags": ["feature", "improvement"],
+			"link": "/pose"
+		},
+		{
+			"date": "2026-06-25",
+			"title": "three.ws Claude Code plugin marketplace — install agents, wallet, 3D, and pump.fun tools in one command",
+			"summary": "We published an official Claude Code plugin marketplace at nirholas/three.ws. One `/plugin marketplace add nirholas/three.ws` and four install commands give you every three.ws capability as namespaced skills and MCP tools right inside Claude Code: three-ws-core (wallet, x402, trade, bazaar), three-ws-developer (scaffold agents, configure MCP), three-ws-pump-fun (create coins, swap, creator fees, live avatar reactions), and three-ws-3d (free text→3D via NVIDIA NIM, text/image→avatar, mesh forge, auto-rig). The 3D plugin wires all three published MCP servers — @three-ws/mcp-server, @three-ws/scene-mcp, and @three-ws/avatar-mcp — with zero extra config. forge_free is completely free; the paid generation and rigging lanes settle over x402 in USDC. See the README for install commands.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/"
+		},
+		{
+			"date": "2026-06-25",
 			"title": "three.ws submitted to the Claude Connectors Directory",
 			"summary": "We packaged the three.ws MCP servers for review by Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect tools. The submission covers our main avatars-and-agents connector and the 3D Studio connector, with every tool carrying a human-readable title, an updated privacy policy that spells out exactly what AI tool calls collect and which model providers they touch, and a reviewer guide so anyone can verify the server end to end. Once approved, Claude users will be able to add three.ws as a connector and generate avatars, validate 3D models, and read live on-chain agent data straight from their chat.",
 			"tags": [
