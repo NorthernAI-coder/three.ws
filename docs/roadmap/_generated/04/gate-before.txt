@@ -1,0 +1,15 @@
+=== typecheck ===
+
+> 3d-agent@1.5.2 typecheck
+> tsc -p jsconfig.json
+
+EXIT:0
+=== test:gate ===
+
+> 3d-agent@1.5.2 test:gate
+> node scripts/test-gate.mjs
+
+[test-gate] running 7 critical-path test files…
+
+ RUN  v4.1.7 /workspaces/three.ws
+

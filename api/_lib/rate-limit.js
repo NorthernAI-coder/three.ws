@@ -320,6 +320,20 @@ export const limits = {
 		getLimiter('vanity:gallery:read:ip', { limit: 240, window: '5 m' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
+	// Free, unauthenticated 3D Studio (api/mcp-studio.js) abuse protection. The
+	// studio runs generation operator-funded for anonymous ChatGPT users, so each
+	// generation call costs the platform real GPU/provider spend. These are the
+	// real per-IP quota (NOT a comment): a short burst cap stops hammering and an
+	// hourly cap bounds cost per source. Critical — fail closed in prod when Redis
+	// is absent rather than allow unbounded spend across serverless instances.
+	studioGenBurst: (ip) =>
+		getLimiter('studio:gen:burst', { limit: 4, window: '1 m', critical: true }).limit(ip),
+	studioGenHourly: (ip) =>
+		getLimiter('studio:gen:hourly', { limit: 30, window: '1 h', critical: true }).limit(ip),
+	// Cheap per-IP cap on studio transport/discovery (initialize, tools/list,
+	// ping, resources). Bounds discovery floods without touching the generation
+	// budget. Non-critical: a missing-Redis misconfig degrades gracefully.
+	studioIp: (ip) => getLimiter('studio:ip', { limit: 300, window: '1 m' }).limit(ip),
 	// Per-principal ceiling on the expensive/gated pump-fun MCP tools (vanity grind,
 	// whale/claim watches, metadata upload that burns shared IPFS pinning credits).
 	// A bearer authorizes these for free, so without a per-principal cap one account
@@ -374,6 +388,31 @@ export const limits = {
 	// the Upstash quota without buying any real protection here.
 	mcp3dStatus: (key) =>
 		getLimiter('mcp3d:status', { limit: 240, window: '1 m', local: true }).limit(key),
+	// FREE 3D Studio MCP (api/mcp-studio.js) — unauthenticated, no payment, so the
+	// per-IP limits ARE the abuse boundary that keeps anonymous callers from
+	// draining real provider spend (Replicate / forge GPU). Three buckets:
+	//   · studioIp        — cheap per-IP/min guard on EVERY JSON-RPC call (incl.
+	//                       discovery), so a poll/list flood can't hammer the box.
+	//   · studioGenerateIp — hard hourly ceiling per IP on the costly generation
+	//                       tools (each submits a real GPU job). Critical → fails
+	//                       closed in prod without Redis rather than uncapping spend.
+	//   · studioGenerateGlobal — platform-wide hourly circuit breaker across ALL
+	//                       studio IPs, so distributed callers each under their own
+	//                       cap can't collectively drain the shared budget. Shares
+	//                       the FORGE_PAID_GLOBAL_HOURLY envelope with the paid lane.
+	studioIp: (ip) => getLimiter('studio:ip', { limit: 120, window: '1 m' }).limit(ip),
+	studioGenerateIp: (ip) =>
+		getLimiter('studio:generate:ip', {
+			limit: Math.max(1, Number(process.env.STUDIO_GENERATE_HOURLY) || 20),
+			window: '1 h',
+			critical: true,
+		}).limit(ip),
+	studioGenerateGlobal: () =>
+		getLimiter('studio:generate:global', {
+			limit: FORGE_PAID_GLOBAL_HOURLY,
+			window: '1 h',
+			critical: true,
+		}).limit('global'),
 	// Forge prompt enhancer — one free-tier LLM rewrite per call. Cheap text
 	// completion, but each one hits an upstream provider, so cap per principal to
 	// keep that egress bounded. Non-critical: a Redis outage must never block a

@@ -7,6 +7,7 @@
 //   • Blender:         `Armature_LeftArm`, `Armature/LeftArm`, `upperarm.L` (.L/.R side)
 //   • Rigify:          `DEF-LeftArm`, `ORG-LeftArm`, `MCH-LeftArm`
 //   • CharacterStudio: `CH_Hips`, `CH_LeftUpLeg` (CH_ prefix stripped)
+//   • HumanIK / Maya:   `Character1:Hips`, `Character1:LeftArm`, `subject:LeftUpLeg` (namespace strip)
 //   • Unreal mannequin: `pelvis`, `clavicle_l`, `upperarm_l`, `thigh_l`, `calf_l`, … (alias map)
 //   • VRM / VRoid:     `J_Bip_C_Hips`, `J_Bip_L_UpperArm`, `J_Bip_L_Little1` (alias map)
 //   • VRM 1.0:         `upperChest`, `leftUpperArm`, `leftLowerLeg`, `leftToes` (camelCase)
@@ -188,6 +189,17 @@ export function canonicalizeBoneName(name) {
 // Strips vendor prefixes and separators; returns null on no match.
 function _lookupBone(name) {
 	let s = name;
+	// Strip a leading Maya / FBX / MotionBuilder namespace (one or more
+	// `identifier:` segments). Autodesk HumanIK exports every joint behind a
+	// character namespace — `Character1:Hips`, `Character1:LeftArm`,
+	// `Character1:LeftUpLeg` — whose stems are already canonical, so removing the
+	// namespace makes the whole HumanIK / MotionBuilder rig drivable. Maya
+	// referenced rigs and OptiTrack/mocap subjects use the same `subject:bone`
+	// (and nested `char:ns:bone`) convention. Runs first so it also normalises
+	// the colon form of any vendor prefix below (`mixamorig:`, `Armature:`).
+	// Safe by construction: a stripped name that isn't a real bone (`prop:Sword`
+	// → `Sword`) simply falls through to null and is left untouched.
+	s = s.replace(/^(?:[A-Za-z][\w]*:)+/, '');
 	// Strip well-known vendor prefixes (case-insensitive, in priority order).
 	s = s.replace(/^mixamorig\d*[_:]?/i, '');
 	s = s.replace(/^Armature[_/]?/i, '');

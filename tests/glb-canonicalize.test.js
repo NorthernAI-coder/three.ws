@@ -277,6 +277,42 @@ describe('canonicalizeBoneName', () => {
 		expect(canonicalizeBoneName(input)).toBe(expected);
 	});
 
+	// Autodesk HumanIK / MotionBuilder / Maya — every joint sits behind a
+	// character or subject namespace (`Character1:Hips`, `subject:LeftArm`),
+	// optionally nested (`char:ns:Hips`). The stems are already canonical, so
+	// stripping the namespace makes the whole HumanIK rig (the standard mocap
+	// retarget skeleton) drive the clip library — legs included.
+	it.each([
+		['Character1:Hips',        'Hips'],
+		['Character1:Spine',       'Spine'],
+		['Character1:Spine1',      'Spine1'],
+		['Character1:Spine2',      'Spine2'],
+		['Character1:Neck',        'Neck'],
+		['Character1:Head',        'Head'],
+		['Character1:LeftShoulder','LeftShoulder'],
+		['Character1:LeftArm',     'LeftArm'],
+		['Character1:LeftForeArm', 'LeftForeArm'],
+		['Character1:RightHand',   'RightHand'],
+		['Character1:LeftUpLeg',   'LeftUpLeg'],
+		['Character1:RightLeg',    'RightLeg'],
+		['Character1:LeftFoot',    'LeftFoot'],
+		['Character1:LeftToeBase', 'LeftToeBase'],
+		['Character2:RightUpLeg',  'RightUpLeg'],   // multi-character scene
+		['subject:LeftArm',        'LeftArm'],       // OptiTrack / mocap subject namespace
+		['char:ns:Hips',           'Hips'],          // nested Maya namespaces
+		['Character1:LeftHandThumb1', 'LeftHandThumb1'],
+	])('strips the HumanIK / Maya namespace prefix: %s → %s', (input, expected) => {
+		expect(canonicalizeBoneName(input)).toBe(expected);
+	});
+
+	// A namespaced node that isn't a real bone must still resolve to null (the
+	// strip only ever helps a name that was already a humanoid bone).
+	it('returns null for a namespaced non-bone node', () => {
+		expect(canonicalizeBoneName('Character1:Reference')).toBeNull();
+		expect(canonicalizeBoneName('prop:Sword')).toBeNull();
+		expect(canonicalizeBoneName('Character1:IKLeftFootEffector')).toBeNull();
+	});
+
 	// Generic bare side-prefix auto-riggers (some Meshy/Tripo + simple rigs) emit
 	// the canonical short bone name behind an `L_`/`R_` token.
 	it.each([

@@ -27,64 +27,19 @@ import { z } from 'zod';
 import { paid, toolError } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
 import { makeEvmProvider, getEvmRpcUrls } from '../lib/evm-rpc.js';
+import {
+	IDENTITY_REGISTRY_ABI,
+	IDENTITY_REGISTRY_MAINNET,
+	REPUTATION_REGISTRY_ABI,
+	REPUTATION_REGISTRY_MAINNET,
+	readReputationAggregate,
+	resolveAgentId,
+	resolveChain,
+} from '../lib/erc8004.js';
 
 const TOOL_NAME = 'agent_reputation';
 const TOOL_DESCRIPTION =
 	'ERC-8004 on-chain reputation for an agent: aggregate score + count + average from the canonical ReputationRegistry, total ETH staked on vouches, and the latest ReputationSubmitted/ReputationStaked events. Resolves agentId from a wallet via IdentityRegistry when needed. Reads default to Base; switch chains via "chain". Paid: $0.01 USDC.';
-
-const IDENTITY_REGISTRY_ABI = [
-	'function balanceOf(address owner) external view returns (uint256)',
-	'function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)',
-	'function ownerOf(uint256 tokenId) external view returns (address)',
-	'function tokenURI(uint256 tokenId) external view returns (string)',
-	'function getAgentWallet(uint256 agentId) external view returns (address)',
-	'function totalSupply() external view returns (uint256)',
-];
-
-// Mirrors the deployed ReputationRegistry exactly (contracts/src/
-// ReputationRegistry.sol, canonical in src/erc8004/abi.js):
-//   getReputation → (int256 avgX100, uint256 count)  — average ×100, signed
-//   FeedbackSubmitted(agentId, from, int8 score, string uri)  — NOT
-//     "ReputationSubmitted(...uint8 score, string comment)", which is a
-//     different event topic the registry never emits (so the old filter always
-//     returned zero vouches).
-const REPUTATION_REGISTRY_ABI = [
-	'function getReputation(uint256 agentId) external view returns (int256 avgX100, uint256 count)',
-	'function getTotalStake(uint256 agentId) external view returns (uint256)',
-	'event FeedbackSubmitted(uint256 indexed agentId, address indexed from, int8 score, string uri)',
-	'event ReputationStaked(uint256 indexed agentId, address indexed staker, uint8 score, uint256 value)',
-];
-
-const IDENTITY_REGISTRY_MAINNET = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
-const REPUTATION_REGISTRY_MAINNET = '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63';
-
-// Canonical mainnet RPCs. Operators may pin custom endpoints via
-// MCP_AGENT_REP_RPC_<chainId> to avoid rate-limiting the public defaults.
-const CHAINS = {
-	base: { id: 8453, rpc: 'https://mainnet.base.org', name: 'Base' },
-	ethereum: { id: 1, rpc: 'https://eth.llamarpc.com', name: 'Ethereum' },
-	arbitrum: { id: 42161, rpc: 'https://arb1.arbitrum.io/rpc', name: 'Arbitrum One' },
-	optimism: { id: 10, rpc: 'https://mainnet.optimism.io', name: 'Optimism' },
-	polygon: { id: 137, rpc: 'https://polygon-rpc.com', name: 'Polygon' },
-	bsc: { id: 56, rpc: 'https://bsc-dataseed1.binance.org', name: 'BNB Chain' },
-	avalanche: { id: 43114, rpc: 'https://api.avax.network/ext/bc/C/rpc', name: 'Avalanche' },
-	celo: { id: 42220, rpc: 'https://forno.celo.org', name: 'Celo' },
-	linea: { id: 59144, rpc: 'https://rpc.linea.build', name: 'Linea' },
-	scroll: { id: 534352, rpc: 'https://rpc.scroll.io', name: 'Scroll' },
-};
-const CHAIN_BY_ID = Object.fromEntries(Object.values(CHAINS).map((c) => [c.id, c]));
-
-function resolveChain(input) {
-	if (!input) return CHAINS.base;
-	if (typeof input === 'string') {
-		const lower = input.toLowerCase();
-		if (CHAINS[lower]) return CHAINS[lower];
-		const id = Number(input);
-		if (!Number.isNaN(id) && CHAIN_BY_ID[id]) return CHAIN_BY_ID[id];
-	}
-	if (typeof input === 'number' && CHAIN_BY_ID[input]) return CHAIN_BY_ID[input];
-	throw new Error(`unsupported chain "${input}" — known: ${Object.keys(CHAINS).join(', ')}`);
-}
 
 // Parse the agent identifier. Accepts: numeric ID, EVM wallet, or CAIP-10
 // "eip155:<chainId>:<address>" (which can also override the chain selection).
@@ -110,14 +65,6 @@ function parseAgentInput(raw, defaultChain) {
 	);
 }
 
-async function resolveAgentId(provider, wallet) {
-	const id = new Contract(IDENTITY_REGISTRY_MAINNET, IDENTITY_REGISTRY_ABI, provider);
-	const bal = await id.balanceOf(wallet);
-	if (bal === 0n) return null;
-	const tokenId = await id.tokenOfOwnerByIndex(wallet, 0n);
-	return BigInt(tokenId);
-}
-
 async function readIdentity(provider, agentId) {
 	const id = new Contract(IDENTITY_REGISTRY_MAINNET, IDENTITY_REGISTRY_ABI, provider);
 	const [owner, agentWallet, uri] = await Promise.allSettled([
@@ -132,25 +79,6 @@ async function readIdentity(provider, agentId) {
 		errors: [owner, agentWallet, uri]
 			.filter((r) => r.status === 'rejected')
 			.map((r) => r.reason?.message || String(r.reason)),
-	};
-}
-
-async function readReputationAggregate(provider, agentId) {
-	const rep = new Contract(REPUTATION_REGISTRY_MAINNET, REPUTATION_REGISTRY_ABI, provider);
-	const [agg, totalStake] = await Promise.all([
-		rep.getReputation(agentId),
-		rep.getTotalStake(agentId),
-	]);
-	const [avgX100, count] = agg;
-	const countNum = Number(count);
-	// getReputation returns the average already multiplied by 100 (signed).
-	// average = avgX100 / 100. Dividing by count again is the bug this avoids;
-	// Number() on a possibly-negative BigInt preserves the sign.
-	return {
-		averageX100: avgX100.toString(),
-		average: countNum > 0 ? Number(avgX100) / 100 : null,
-		count: count.toString(),
-		totalStakeWei: totalStake.toString(),
 	};
 }
 

@@ -96,6 +96,15 @@ export default [
 		},
 	},
 	{
+		// Service workers run in their own global scope (self, clients,
+		// registration, skipWaiting, …). Flat config replaces the old
+		// `/* eslint-env serviceworker */` directive with explicit globals.
+		files: ['**/push-sw.js', '**/*-sw.js', '**/service-worker.js'],
+		languageOptions: {
+			globals: { ...globals.serviceworker },
+		},
+	},
+	{
 		files: ['**/*.cjs'],
 		languageOptions: {
 			ecmaVersion: 'latest',

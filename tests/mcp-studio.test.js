@@ -1,0 +1,148 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import { TOOL_CATALOG, TOOL_NAMES } from '../api/_mcp-studio/tools.js';
+import { dispatch } from '../api/_mcp-studio/dispatch.js';
+import { COMPONENT_URI } from '../api/_mcp-studio/component.js';
+
+const ALLOWED = ['forge_free', 'text_to_avatar', 'mesh_forge', 'rig_mesh', 'forge_avatar'];
+
+// Anything that would signal a crypto / payment surface. The whole point of the
+// free studio app is that NONE of this appears anywhere in its contract.
+const FORBIDDEN = /x402|payment|paymentrequired|wallet|usdc|solana|\$three|pump\.fun|pumpfun|token|coin|credit|price|\bpaid\b|crypto|onchain|web3|mint/i;
+
+function mkReq() {
+	return { headers: { host: 'three.ws', 'x-forwarded-proto': 'https' } };
+}
+const auth = { userId: null, rateKey: '127.0.0.1', scope: '' };
+
+describe('mcp-studio catalog', () => {
+	it('exposes exactly the five allowed generation tools', () => {
+		const names = TOOL_CATALOG.map((t) => t.name).sort();
+		expect(names).toEqual([...ALLOWED].sort());
+		expect(TOOL_NAMES.sort()).toEqual([...ALLOWED].sort());
+	});
+
+	it('every tool has a title and correct generation annotations', () => {
+		for (const t of TOOL_CATALOG) {
+			expect(typeof t.title).toBe('string');
+			expect(t.title.length).toBeGreaterThan(0);
+			expect(t.annotations).toMatchObject({
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			});
+		}
+	});
+
+	it('every tool links the Apps SDK widget template', () => {
+		for (const t of TOOL_CATALOG) {
+			expect(t._meta?.['openai/outputTemplate']).toBe(COMPONENT_URI);
+		}
+	});
+
+	it('inputs are minimal — no chat-history or "just in case" fields', () => {
+		for (const t of TOOL_CATALOG) {
+			const props = Object.keys(t.inputSchema?.properties || {});
+			expect(t.inputSchema.additionalProperties).toBe(false);
+			// no history / context / session / user fields
+			expect(props.some((p) => /history|context|session|user|messages|conversation/i.test(p))).toBe(false);
+		}
+	});
+
+	it('exposes ZERO crypto / payment surface anywhere in the catalog', () => {
+		expect(FORBIDDEN.test(JSON.stringify(TOOL_CATALOG))).toBe(false);
+	});
+});
+
+describe('mcp-studio dispatch', () => {
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it('initialize works with no auth and advertises resources', async () => {
+		const r = await dispatch({ jsonrpc: '2.0', id: 1, method: 'initialize' }, auth, mkReq());
+		expect(r.result.serverInfo.name).toBe('three-ws-3d-studio-free');
+		expect(r.result.capabilities.resources).toBeTruthy();
+		expect(FORBIDDEN.test(JSON.stringify(r))).toBe(false);
+	});
+
+	it('tools/list returns the five tools', async () => {
+		const r = await dispatch({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, auth, mkReq());
+		expect(r.result.tools.map((t) => t.name).sort()).toEqual([...ALLOWED].sort());
+	});
+
+	it('serves the Apps SDK widget resource', async () => {
+		const list = await dispatch({ jsonrpc: '2.0', id: 3, method: 'resources/list' }, auth, mkReq());
+		expect(list.result.resources[0].uri).toBe(COMPONENT_URI);
+		const read = await dispatch(
+			{ jsonrpc: '2.0', id: 4, method: 'resources/read', params: { uri: COMPONENT_URI } },
+			auth,
+			mkReq(),
+		);
+		expect(read.result.contents[0].text).toContain('model-viewer');
+	});
+
+	it('unknown tool returns an error', async () => {
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'pump_snapshot', arguments: {} } },
+			auth,
+			mkReq(),
+		);
+		expect(r.error).toBeTruthy();
+	});
+
+	it('forge_free returns a clean, identifier-free model with no internal fields', async () => {
+		// Mock the /api/forge pipeline: a synchronous-done generation.
+		globalThis.fetch = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({
+				status: 'done',
+				glb_url: 'https://three.ws/cdn/creations/model.glb',
+				job_id: 'JOBID_K7M2Q9X4',
+				creation_id: 'CREATIONID_555',
+				backend: 'nvidia-internal',
+			}),
+		}));
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 6, method: 'tools/call', params: { name: 'forge_free', arguments: { prompt: 'a friendly round robot mascot' } } },
+			auth,
+			mkReq(),
+		);
+		const sc = r.result.structuredContent;
+		expect(sc.glbUrl).toBe('https://three.ws/cdn/creations/model.glb');
+		expect(sc.viewerUrl).toContain('/viewer?src=');
+		// data minimization: no job/creation/prediction/backend/trace ids leak.
+		const serialized = JSON.stringify(r.result);
+		expect(serialized).not.toContain('JOBID_K7M2Q9X4');
+		expect(serialized).not.toContain('CREATIONID_555');
+		expect(serialized).not.toContain('nvidia-internal');
+		expect(serialized).not.toContain('creation_id');
+	});
+
+	it('refuses age-inappropriate prompts before any generation', async () => {
+		const spy = vi.fn();
+		globalThis.fetch = spy;
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'forge_free', arguments: { prompt: 'a nude figure' } } },
+			auth,
+			mkReq(),
+		);
+		expect(r.result.isError).toBe(true);
+		expect(spy).not.toHaveBeenCalled();
+	});
+
+	it('validates inputs — forge_free requires a prompt', async () => {
+		const r = await dispatch(
+			{ jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'forge_free', arguments: {} } },
+			auth,
+			mkReq(),
+		);
+		expect(r.error).toBeTruthy();
+		expect(r.error.message).toMatch(/invalid params/i);
+	});
+});

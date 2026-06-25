@@ -230,8 +230,18 @@ export const BACKENDS = Object.freeze({
 		requiresEnv: Object.freeze(['GCP_HUNYUAN3D_URL', 'GCP_RECONSTRUCTION_KEY']),
 		polyControl: true,
 		baseEta: 120,
+		// Cold-start budget: this is our own Cloud Run GPU worker scaled-to-zero by
+		// default, so a request that lands on a cold container pays a one-time spin-up
+		// (model load) on top of baseEta. Surfaced honestly in the ETA when the
+		// liveness probe says the worker is not warm — never as a fake progress timer.
+		coldStartSeconds: 75,
 		credits: null,
-		blurb: 'Self-hosted high-poly reconstruction. Image-conditioned geometry.',
+		// Our own GPU worker — zero vendor credit cost, so it qualifies as a free lane
+		// and participates in free-first routing as the second self-host image engine
+		// behind TRELLIS. Image-conditioned, so it accepts user photos and the
+		// FLUX-synthesized reference for text prompts.
+		free: true,
+		blurb: 'Free self-hosted high-poly reconstruction on our own GPU worker — image-conditioned geometry, zero vendor cost.',
 	}),
 	trellis_selfhost: Object.freeze({
 		id: 'trellis_selfhost',
@@ -249,6 +259,10 @@ export const BACKENDS = Object.freeze({
 		polyControl: false,
 		userImages: true,
 		baseEta: 60,
+		// Cold-start budget for our own scale-to-zero Cloud Run GPU worker — added to
+		// the ETA only when the liveness probe reports the worker cold, so a user
+		// waiting on a spin-up sees an honest estimate rather than a stalled bar.
+		coldStartSeconds: 60,
 		credits: null,
 		// Self-hosted on our own GPU — zero vendor credit cost, so it qualifies as a
 		// free lane and is the preferred free image→3D engine when configured.
@@ -269,6 +283,12 @@ export const BACKENDS = Object.freeze({
 		// collapse), so the tier's polycount is a real target here.
 		polyControl: true,
 		baseEta: 45,
+		// Cold-start budget for our own scale-to-zero sketch worker (see TRELLIS).
+		coldStartSeconds: 45,
+		// Sketch→3D runs only on our own GPU — zero vendor cost. Flagging it free
+		// keeps the cost rollups honest (a sketch generation never bills a vendor)
+		// even though `sketch` has a single lane with no free/paid alternative.
+		free: true,
 		credits: null,
 		blurb: 'Sketch→3D — draw it, name it, get geometry. Untextured mesh; retexture or stylize after.',
 	}),
@@ -367,13 +387,37 @@ export const FREE_DEFAULT_FOR_TIERS = Object.freeze({
 // Free lanes to fall back to per path when the tier's named free engine can't
 // serve this request — chiefly a photo submission at draft/standard (NVIDIA's
 // hosted preview is text-only), which routes to a free reconstruct lane instead
-// of a paid engine. First configured + capable lane wins: our self-hosted TRELLIS
-// worker (native single-hop image→3D) is preferred when MODEL_TRELLIS_URL is set,
-// otherwise the free HuggingFace Spaces lane. Both are env-gated, so the list
-// degrades cleanly on deployments that configure only one of them.
+// of a paid engine. First configured + capable lane wins, and our OWN GPU workers
+// come first so the platform leans on the credits we control before any external
+// free lane: self-hosted TRELLIS (native single-hop image→3D), then self-hosted
+// Hunyuan3D, then the free HuggingFace Spaces lane. Every entry is env-gated, so
+// the list degrades cleanly on deployments that configure only some of them.
 export const FREE_FALLBACK_FOR_PATH = Object.freeze({
-	image: Object.freeze(['trellis_selfhost', 'huggingface']),
+	image: Object.freeze(['trellis_selfhost', 'hunyuan3d', 'huggingface']),
 });
+
+// Our own GPU workers, by provider. A "self-host" lane runs on infrastructure we
+// operate (Cloud Run + GPU) against substantial GCP credits, so it is the lane we
+// most want to serve every request: zero per-call vendor cost and no BYOK
+// dependency. Health-aware routing prefers a healthy self-host lane over any other
+// free lane, which over any paid vendor.
+export const SELF_HOST_PROVIDERS = Object.freeze(['gcp']);
+
+export function isSelfHostBackend(backendId) {
+	const b = BACKENDS[backendId];
+	return Boolean(b && SELF_HOST_PROVIDERS.includes(b.provider));
+}
+
+export function isFreeBackend(backendId) {
+	return BACKENDS[backendId]?.free === true;
+}
+
+// Cost class of a finished generation for the free-vs-paid serve rollups: a
+// `free` lane (self-host or a free external preview) bills no vendor; anything
+// else is `paid` (Replicate platform credits or a BYOK vendor key).
+export function backendCostClass(backendId) {
+	return isFreeBackend(backendId) ? 'free' : 'paid';
+}
 
 // Whether a free lane can serve this (path, userImages) request right now: it
 // exists, is marked free (zero vendor cost), serves the path, is configured on
@@ -389,16 +433,61 @@ function freeLaneUsable(id, p, userImages) {
 	);
 }
 
-// Resolve the default backend for a (path, tier) when the caller didn't name one.
-// Free-for-us policy: try the tier's named free engine, then any other configured
-// free lane for the path, and only fall to the paid standing default when NO free
-// lane is live on this deployment.
-function defaultBackendFor(p, tierId, userImages) {
+// Ordered list of every free lane that could serve this (path, tier, userImages)
+// request on this deployment, most-preferred first — the tier's named free engine
+// (NVIDIA's native text→3D at draft/standard, HuggingFace's textured engine at
+// high), then the per-path fallback chain (our self-host GPU workers, then the
+// free external Spaces). De-duplicated; only configured + capable lanes survive.
+// This is the single ordering both the env-only default and the health-aware
+// resolver walk, so they can never drift apart.
+export function freeLaneCandidates(p, tierId, userImages) {
+	const ordered = [];
 	const named = FREE_DEFAULT_FOR_TIERS[tierId]?.[p];
-	if (freeLaneUsable(named, p, userImages)) return named;
-	for (const id of FREE_FALLBACK_FOR_PATH[p] || []) {
-		if (freeLaneUsable(id, p, userImages)) return id;
+	if (named) ordered.push(named);
+	for (const id of FREE_FALLBACK_FOR_PATH[p] || []) ordered.push(id);
+	const seen = new Set();
+	const out = [];
+	for (const id of ordered) {
+		if (seen.has(id)) continue;
+		seen.add(id);
+		if (freeLaneUsable(id, p, userImages)) out.push(id);
 	}
+	return out;
+}
+
+// Resolve the default backend for a (path, tier) when the caller didn't name one.
+// Free-for-us policy: the first configured free lane in the candidate ordering,
+// and only the paid standing default when NO free lane is live on this deployment.
+function defaultBackendFor(p, tierId, userImages) {
+	const candidates = freeLaneCandidates(p, tierId, userImages);
+	return candidates[0] || DEFAULT_BACKEND_FOR_PATH[p];
+}
+
+// A lane's health status is unhealthy only when the liveness layer is sure it is
+// down (probe failed, or a recent submit cooled it). Unknown/degraded never
+// disqualifies a lane — we degrade gracefully, never block routing on missing
+// telemetry.
+function isLaneDown(health, id) {
+	return health?.[id] === 'down';
+}
+
+// Health-aware default resolver. Given a `health` map of laneId → 'ok' | 'down' |
+// 'degraded' | undefined, walk the same candidate ordering as the env-only default
+// but: (1) prefer the first lane the probe confirms healthy ('ok'), favouring our
+// self-host GPU workers because they lead the ordering; (2) otherwise the first
+// lane not known to be down (unknown health is usable — we never block on missing
+// telemetry); (3) only when every free lane is confirmed down, the paid standing
+// default. With an empty/undefined health map this returns exactly what
+// defaultBackendFor would, so callers with no telemetry are unaffected.
+export function defaultBackendForHealthAware(p, tierId, userImages, health) {
+	const candidates = freeLaneCandidates(p, tierId, userImages);
+	if (!candidates.length) return DEFAULT_BACKEND_FOR_PATH[p];
+	const firstHealthy = candidates.find((id) => health?.[id] === 'ok');
+	if (firstHealthy) return firstHealthy;
+	const firstUsable = candidates.find((id) => !isLaneDown(health, id));
+	if (firstUsable) return firstUsable;
+	// Every free lane is confirmed down — fall to the paid default rather than
+	// dead-ending on a lane we know will fail.
 	return DEFAULT_BACKEND_FOR_PATH[p];
 }
 
@@ -413,6 +502,22 @@ export function resolveBackendId({ path, tier, backend, userImages = false }) {
 	}
 	const tierId = tier?.id || tier || DEFAULT_TIER;
 	return defaultBackendFor(p, tierId, userImages);
+}
+
+// Health-aware twin of resolveBackendId: an explicitly named backend is always
+// honored (the handler owns rejecting an unsupported input combination), but an
+// unnamed request consults the `health` map so a cold/down free lane is skipped
+// in favour of the next healthy one before it ever reaches submit. `health` is a
+// laneId → status map (see defaultBackendForHealthAware). Pure — the caller
+// gathers the (cached) snapshot and passes it in, so this stays trivially
+// testable and adds no I/O of its own.
+export function resolveBackendIdWithHealth({ path, tier, backend, userImages = false, health }) {
+	const p = PATHS.includes(path) ? path : DEFAULT_PATH;
+	if (backend && BACKENDS[backend] && BACKENDS[backend].paths.includes(p)) {
+		return backend;
+	}
+	const tierId = tier?.id || tier || DEFAULT_TIER;
+	return defaultBackendForHealthAware(p, tierId, userImages, health);
 }
 
 function readEnv(name) {
@@ -445,12 +550,25 @@ export function backendIsConfigured(backendId) {
 }
 
 // Estimated wall-clock seconds for a (backend, path, tier) combination —
-// used to populate the client progress estimate and the catalog.
-export function estimateEtaSeconds({ backendId, tier }) {
+// used to populate the client progress estimate and the catalog. When `cold` is
+// true (the liveness probe reports a scale-to-zero self-host worker not warm), the
+// lane's one-time spin-up budget is added so the ETA stays honest about a cold
+// start instead of understating it; the client's real polling still drives actual
+// progress, so this only widens the estimate — it never fabricates progress.
+export function estimateEtaSeconds({ backendId, tier, cold = false }) {
 	const b = BACKENDS[backendId];
 	if (!b) return 90;
 	const t = resolveTier(tier?.id || tier);
-	return Math.round(b.baseEta * t.etaMultiplier);
+	const base = Math.round(b.baseEta * t.etaMultiplier);
+	if (cold && b.coldStartSeconds > 0) return base + Math.round(b.coldStartSeconds);
+	return base;
+}
+
+// The one-time cold-start budget (seconds) for a scale-to-zero self-host worker,
+// or 0 for an always-warm / external lane. Lets a caller report `cold_start` and
+// the widened ETA without re-deriving the number.
+export function coldStartSecondsFor(backendId) {
+	return BACKENDS[backendId]?.coldStartSeconds || 0;
 }
 
 // Estimated vendor credits for a (backend, path, tier) — null when the backend

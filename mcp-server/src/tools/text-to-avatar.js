@@ -5,12 +5,12 @@
 //
 // Pricing: $0.15 USDC, settled `exact` in USDC on Solana mainnet.
 //
-// Behavior: synchronously submits a Replicate prediction and polls until the
-// prediction reaches a terminal state or the configured timeout fires. The
-// returned GLB URL is the Replicate-hosted output. To avoid the caller having
-// to chase signed-URL expiration, this tool re-fetches the GLB and rehosts it
-// on the three.ws R2 bucket when MCP_TEXT_TO_AVATAR_REHOST is enabled
-// (default off; opt-in because rehosting writes a public object).
+// The generation logic lives in `_studio-core.js` (runTextToAvatar) so the paid
+// stdio transport and the hosted FREE 3D Studio endpoint (api/_studio,
+// /api/mcp-studio) share ONE implementation and never drift. It synchronously
+// submits a Replicate prediction and polls until terminal/timeout; the returned
+// GLB URL is the Replicate-hosted output (optionally rehosted on three.ws R2
+// when MCP_TEXT_TO_AVATAR_REHOST is enabled).
 //
 // Environment:
 //   REPLICATE_API_TOKEN                — required.
@@ -26,131 +26,13 @@
 
 import { z } from 'zod';
 
-import { paid, toolError } from '../payments.js';
+import { paid } from '../payments.js';
 import { jsonSchemaFromZod } from './_shared.js';
+import { runTextToAvatar } from './_studio-core.js';
 
 const TOOL_NAME = 'text_to_avatar';
 const TOOL_DESCRIPTION =
 	'Generate a textured 3D GLB avatar from a text prompt or one or more reference image URLs. Drives Replicate (Hunyuan-3D 3.1 by default, configurable) and polls the prediction synchronously until a GLB is produced or the timeout fires. Returns the GLB URL, the source prompt/images, the picked model version, the prediction id, and timing metadata. Paid: $0.15 USDC.';
-
-const REPLICATE_BASE = 'https://api.replicate.com/v1';
-
-function env(k, def) {
-	const v = process.env[k];
-	return v && String(v).trim() ? String(v).trim() : def;
-}
-
-function authHeaders() {
-	const token = env('REPLICATE_API_TOKEN');
-	if (!token) {
-		const err = new Error('REPLICATE_API_TOKEN is not configured on the MCP server');
-		err.code = 'not_configured';
-		throw err;
-	}
-	return { authorization: `Bearer ${token}`, 'content-type': 'application/json' };
-}
-
-function extractGlbUrl(output) {
-	if (!output) return null;
-	if (typeof output === 'string') return output;
-	if (Array.isArray(output)) {
-		for (const v of output) {
-			if (typeof v === 'string' && /\.glb(\?|$)/i.test(v)) return v;
-		}
-		for (const v of output) {
-			if (typeof v === 'string' && /^https?:\/\//.test(v)) return v;
-		}
-	}
-	if (typeof output === 'object') {
-		for (const key of ['glb', 'mesh', 'mesh_url', 'output_url', 'url', 'model']) {
-			if (typeof output[key] === 'string') return output[key];
-		}
-	}
-	return null;
-}
-
-async function submitPrediction({ version, input }) {
-	const res = await fetch(`${REPLICATE_BASE}/predictions`, {
-		method: 'POST',
-		headers: authHeaders(),
-		body: JSON.stringify({ version, input }),
-	});
-	const data = await res.json().catch(() => ({}));
-	if (!res.ok) {
-		const err = new Error(data?.detail || data?.title || `replicate returned ${res.status}`);
-		err.code = 'provider_error';
-		err.providerStatus = res.status;
-		throw err;
-	}
-	return data;
-}
-
-async function pollPrediction(predictionId, { timeoutMs, intervalMs }) {
-	const deadline = Date.now() + timeoutMs;
-	let last = null;
-	// Per-fetch ceiling so a single hung HTTP roundtrip can't block the whole
-	// poll loop past `deadline`. Without this, Node's fetch has no default
-	// timeout — a Replicate edge-stall would dangle the request indefinitely
-	// and the outer loop never gets a chance to re-check Date.now() < deadline.
-	const perFetchTimeoutMs = Math.max(intervalMs * 3, 10_000);
-	while (Date.now() < deadline) {
-		let r;
-		try {
-			r = await fetch(`${REPLICATE_BASE}/predictions/${encodeURIComponent(predictionId)}`, {
-				headers: authHeaders(),
-				signal: AbortSignal.timeout(perFetchTimeoutMs),
-			});
-		} catch (err) {
-			// Aborted polls are transient; resume the loop until `deadline`
-			// expires. Other network failures bubble up as provider errors so
-			// the caller sees them instead of an opaque _timedOut.
-			if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
-				await new Promise((res) => setTimeout(res, intervalMs));
-				continue;
-			}
-			const e = new Error(`replicate poll fetch failed: ${err?.message || err}`);
-			e.code = 'provider_error';
-			throw e;
-		}
-		const data = await r.json().catch(() => ({}));
-		if (!r.ok) {
-			const err = new Error(data?.detail || `replicate poll returned ${r.status}`);
-			err.code = 'provider_error';
-			throw err;
-		}
-		last = data;
-		const s = data.status;
-		if (s === 'succeeded' || s === 'failed' || s === 'canceled') return data;
-		await new Promise((res) => setTimeout(res, intervalMs));
-	}
-	return { ...last, _timedOut: true };
-}
-
-async function rehostIfRequested(glbUrl, { prompt, images }) {
-	if (env('MCP_TEXT_TO_AVATAR_REHOST', '0') !== '1') return null;
-	const endpoint = env('MCP_REHOST_ENDPOINT', 'https://three.ws/api/avatars/ingest-url');
-	const ingestKey = env('MCP_REHOST_KEY');
-	if (!ingestKey) return null;
-	try {
-		const r = await fetch(endpoint, {
-			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-				authorization: `Bearer ${ingestKey}`,
-			},
-			body: JSON.stringify({
-				source_url: glbUrl,
-				name: (prompt || 'mcp-text-to-avatar').slice(0, 80),
-				source: 'mcp',
-				source_meta: { provider: 'replicate', prompt, images },
-			}),
-		});
-		if (!r.ok) return { error: `rehost failed: ${r.status}` };
-		return await r.json();
-	} catch (err) {
-		return { error: err?.message || 'rehost call failed' };
-	}
-}
 
 // Single source of truth: Zod shape carries descriptions + bounds; JSON Schema
 // derived. (No required fields — the handler enforces "prompt OR images".)
@@ -186,90 +68,7 @@ export async function buildTextToAvatarTool() {
 				preview: 'https://three.ws/viewer?src=https%3A%2F%2Freplicate.delivery%2F...',
 			},
 		},
-		async ({ prompt, images, seed, texture }) => {
-			const version = env('REPLICATE_TEXT_TO_AVATAR_MODEL');
-			if (!version) {
-				return toolError(
-					'not_configured',
-					'REPLICATE_TEXT_TO_AVATAR_MODEL is not set on the MCP server. Pin a commercial-OK image/text-to-3D version (e.g. tencent/hunyuan-3d-3.1 latest).',
-				);
-			}
-			if (!prompt && (!images || images.length === 0)) {
-				return toolError('invalid_input', 'Provide either prompt or images[].');
-			}
-			const input = {
-				prompt: prompt || undefined,
-				image: images && images.length ? images[0] : undefined,
-				images: images && images.length ? images : undefined,
-				seed: typeof seed === 'number' ? seed : undefined,
-				texture: typeof texture === 'boolean' ? texture : true,
-			};
-			Object.keys(input).forEach((k) => input[k] === undefined && delete input[k]);
-
-			const started = Date.now();
-			let submitted;
-			try {
-				submitted = await submitPrediction({ version, input });
-			} catch (err) {
-				return toolError(err.code || 'provider_error', err.message);
-			}
-
-			const timeoutMs = Number(env('MCP_TEXT_TO_AVATAR_TIMEOUT_MS', '110000'));
-			const intervalMs = Number(env('MCP_TEXT_TO_AVATAR_POLL_MS', '2000'));
-			let finalState;
-			try {
-				finalState = await pollPrediction(submitted.id, { timeoutMs, intervalMs });
-			} catch (err) {
-				return toolError(err.code || 'provider_error', err.message, {
-					predictionId: submitted.id,
-				});
-			}
-
-			const durationMs = Date.now() - started;
-
-			if (finalState._timedOut) {
-				return toolError('timeout', `prediction did not finish within ${timeoutMs}ms`, {
-					predictionId: submitted.id,
-					status: finalState.status,
-					resumeUrl: `${REPLICATE_BASE}/predictions/${submitted.id}`,
-					durationMs,
-				});
-			}
-
-			if (finalState.status === 'failed' || finalState.status === 'canceled') {
-				return toolError(
-					'prediction_failed',
-					finalState.error || `prediction ended with status ${finalState.status}`,
-					{ predictionId: submitted.id, durationMs },
-				);
-			}
-
-			const glbUrl = extractGlbUrl(finalState.output);
-			if (!glbUrl) {
-				return toolError('no_glb_in_output', 'prediction succeeded but no GLB url was found in output', {
-					rawOutput: finalState.output,
-					predictionId: submitted.id,
-					durationMs,
-				});
-			}
-
-			const rehost = await rehostIfRequested(glbUrl, { prompt, images });
-			const preview = `https://three.ws/viewer?src=${encodeURIComponent(glbUrl)}`;
-
-			return {
-				ok: true,
-				predictionId: submitted.id,
-				glbUrl,
-				rehosted: rehost,
-				prompt: prompt || null,
-				images: images || null,
-				seed: typeof seed === 'number' ? seed : null,
-				model: version,
-				durationMs,
-				preview,
-				fetchedAt: new Date().toISOString(),
-			};
-		},
+		(args) => runTextToAvatar(args),
 	);
 	return {
 		name: TOOL_NAME,
