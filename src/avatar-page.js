@@ -20,6 +20,7 @@ import { mountAgentSolanaWalletCard } from './agent-solana-wallet.js';
 import { mountAgentVanityGrinderCard } from './agent-vanity-grinder.js';
 import { mountRoyaltySetting } from './shared/agent-fork-royalty.js';
 import { hydrateAvatarWallet, walletTierBadge } from './shared/wallet-aura.js';
+import { mountNameplate } from './shared/living-avatar.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { emitRecallFromChat } from './agents/memory-client.js';
 import { moodEngine } from './agents/mood-engine.js';
@@ -63,6 +64,7 @@ if (!avatarId) {
 window.addEventListener('pagehide', () => {
 	netWorthAura?.destroy?.(); netWorthAura = null;
 	netWorthPanel?.destroy?.(); netWorthPanel = null;
+	netWorthPlate?.destroy?.(); netWorthPlate = null;
 }, { once: true });
 
 // ── State ─────────────────────────────────────────────────────────────
@@ -70,6 +72,7 @@ window.addEventListener('pagehide', () => {
 let avatar = null;
 let netWorthAura = null;
 let netWorthPanel = null;
+let netWorthPlate = null;
 let attachedSkills = new Set();
 let attachedPlugins = new Set();
 let chatHistory = [];
@@ -587,6 +590,15 @@ function mountNetWorthAura() {
 	const stage = $('av-stage');
 	const agentId = avatar?.agent_id;
 	if (!stage || !agentId || netWorthAura) return;
+
+	// The nameplate — the avatar's license plate: name + vanity-highlighted address
+	// + a tier glyph anchored to the viewer. Identity renders immediately; the tier
+	// hydrates from the same cached wallet read the aura uses (no extra request).
+	if (!netWorthPlate) {
+		netWorthPlate = mountNameplate(stage, avatar, {
+			network: 'mainnet', isOwner: !!avatar.owner_id, live: true, position: 'bottom',
+		});
+	}
 
 	hydrateAvatarWallet(stage, avatar, { lod: 'full', live: true, wealth: true, network: 'mainnet', fetchPrefs: false })
 		.then((controller) => {

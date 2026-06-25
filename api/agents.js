@@ -13,7 +13,7 @@
 
 import { getSessionUser, authenticateBearer, extractBearer, hasScope } from './_lib/auth.js';
 import { sql } from './_lib/db.js';
-import { cors, json, method, readJson, wrap, error, rateLimited } from './_lib/http.js';
+import { cors, json, method, readJson, wrap, error, serverError, rateLimited } from './_lib/http.js';
 import { requireCsrf } from './_lib/csrf.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { generateAgentWallet, generateSolanaAgentWallet } from './_lib/agent-wallet.js';
@@ -645,7 +645,9 @@ export async function handleWallet(req, res, id, action = null) {
 				solana_address: wallets.solana,
 			});
 		} catch (e) {
-			return error(res, 500, 'provision_failed', e?.message || 'wallet provisioning failed');
+			// EVM/Solana wallet provisioning hits keyed RPC providers (Alchemy URL
+				// embeds the API key); never echo the raw provider error to the client.
+				return serverError(res, 500, 'provision_failed', e);
 		}
 	}
 

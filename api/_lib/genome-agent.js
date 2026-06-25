@@ -4,6 +4,8 @@
 // preview, breed, and lineage endpoints agree on one source of truth.
 
 import { sql } from './db.js';
+import { solanaConnection } from './agent-pumpfun.js';
+import { TOKEN_MINT, TOKEN_DECIMALS } from './token/config.js';
 import {
 	genomeFromAgent,
 	normalizeGenome,
@@ -14,6 +16,58 @@ import {
 	composePersonaPrompt,
 	expressedSkills,
 } from './genome.js';
+
+const SOL_SIG_RE = /^[1-9A-HJ-NP-Za-km-z]{43,88}$/;
+
+// Verify, on-chain, that a stud fee was actually paid in $THREE to the stud
+// owner(s) before a cross-owner breeding is allowed. Without this, the breed
+// endpoint only checked that *some* (any) string was supplied as the settlement
+// signature — letting a breeder pair with a paid, rare stud for free and stiff
+// the stud owner. Returns { ok, atomics } or { ok:false, reason }.
+//
+// `recipientOwners` is the set of the cross-owner studs' Solana payout wallets;
+// the total $THREE credited across them in the referenced transaction must cover
+// the fee. Replay across breedings is prevented by the caller (signature must be
+// unique in genome_breedings).
+export async function verifyStudFeePayment({ signature, recipientOwners, feeThree, network = 'mainnet' }) {
+	const sig = String(signature || '').trim();
+	if (!SOL_SIG_RE.test(sig)) {
+		return { ok: false, reason: 'stud_fee_signature is not a valid Solana transaction signature' };
+	}
+	const owners = [...new Set((recipientOwners || []).filter(Boolean))];
+	if (!owners.length) {
+		return { ok: false, reason: 'the stud has no Solana payout wallet on record — cannot verify the fee' };
+	}
+	const decimals = Number(TOKEN_DECIMALS) || 6;
+	const need = BigInt(Math.ceil((Number(feeThree) || 0) * 10 ** decimals));
+	if (need <= 0n) return { ok: true, atomics: '0' };
+
+	const conn = solanaConnection(network === 'devnet' ? 'devnet' : 'mainnet');
+	let tx;
+	try {
+		tx = await conn.getParsedTransaction(sig, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' });
+	} catch {
+		return { ok: false, reason: 'could not fetch the stud-fee transaction from the chain' };
+	}
+	if (!tx) return { ok: false, reason: 'stud-fee transaction not found or not yet confirmed' };
+	if (tx.meta?.err) return { ok: false, reason: 'the stud-fee transaction failed on-chain' };
+
+	// Sum the $THREE balance delta credited to any stud owner wallet in this tx
+	// (robust to an ATA created within the same transaction).
+	const pre = tx.meta?.preTokenBalances || [];
+	const post = tx.meta?.postTokenBalances || [];
+	const ownerSet = new Set(owners);
+	let delta = 0n;
+	for (const p of post) {
+		if (p.mint !== TOKEN_MINT || !ownerSet.has(p.owner)) continue;
+		const before = pre.find((x) => x.accountIndex === p.accountIndex);
+		delta += BigInt(p.uiTokenAmount?.amount ?? '0') - BigInt(before?.uiTokenAmount?.amount ?? '0');
+	}
+	if (delta < need) {
+		return { ok: false, reason: `stud-fee transfer is too small: need ${feeThree} $THREE paid to the stud owner` };
+	}
+	return { ok: true, atomics: delta.toString() };
+}
 
 // Client-safe projection of a genome — everything needed to render the predicted
 // offspring (traits, voice settings + voice_id for a real TTS sample, bakeable

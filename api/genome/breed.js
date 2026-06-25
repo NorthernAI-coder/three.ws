@@ -42,6 +42,7 @@ import {
 	eligibilityFor,
 	cooldownRemainingMs,
 	publicGenome,
+	verifyStudFeePayment,
 } from '../_lib/genome-agent.js';
 
 export default wrap(async (req, res) => {
@@ -90,13 +91,44 @@ export default wrap(async (req, res) => {
 
 	const feeThree = (eligA.fee_three || 0) + (eligB.fee_three || 0);
 	const consentOwner = eligA.cross_owner ? eligA.owner_id : eligB.cross_owner ? eligB.owner_id : null;
-	// A cross-owner stud with a fee must be paid in $THREE: the caller supplies a
+	const studFeeSig = (typeof body.stud_fee_signature === 'string' && body.stud_fee_signature.trim()) || '';
+	// A cross-owner stud with a fee must be paid in $THREE. The caller supplies a
 	// real settlement signature, or we 402 with the exact terms (no breed on credit).
-	if (feeThree > 0 && !body.stud_fee_signature) {
-		return error(res, 402, 'stud_fee_required', `breeding with this stud costs ${feeThree} $THREE — settle and include stud_fee_signature`, {
-			stud_fee_three: feeThree,
-			coin: '$THREE',
+	if (feeThree > 0) {
+		if (!studFeeSig) {
+			return error(res, 402, 'stud_fee_required', `breeding with this stud costs ${feeThree} $THREE — settle and include stud_fee_signature`, {
+				stud_fee_three: feeThree,
+				coin: '$THREE',
+			});
+		}
+		// Replay guard: one settlement pays for exactly one breeding. The breeding_key
+		// dedupe above only covers an identical (parents, seed) retry; this blocks
+		// reusing a single payment across distinct breedings with the same stud.
+		const [usedSig] = await sql`
+			select 1 from genome_breedings where stud_fee_signature = ${studFeeSig} limit 1
+		`;
+		if (usedSig) {
+			return error(res, 409, 'stud_fee_replayed', 'that stud_fee_signature was already used to pay for another breeding');
+		}
+		// Verify on-chain that the fee was actually paid in $THREE to the cross-owner
+		// stud's payout wallet. Presence of a signature is NOT proof of payment.
+		const studWallets = [
+			eligA.cross_owner ? rowA.meta?.solana_address : null,
+			eligB.cross_owner ? rowB.meta?.solana_address : null,
+		].filter(Boolean);
+		const paid = await verifyStudFeePayment({
+			signature: studFeeSig,
+			recipientOwners: studWallets,
+			feeThree,
+			network: body.network === 'devnet' ? 'devnet' : 'mainnet',
 		});
+		if (!paid.ok) {
+			return error(res, 402, 'stud_fee_unverified', paid.reason, {
+				stud_fee_three: feeThree,
+				coin: '$THREE',
+				stud_wallets: studWallets,
+			});
+		}
 	}
 
 	// Cooldown — both parents must be off cooldown. Keeps deep pedigrees scarce.
@@ -212,7 +244,7 @@ export default wrap(async (req, res) => {
 				${breedingKey}, ${rowA.id}, ${rowB.id}, ${child.id},
 				${seed}, ${JSON.stringify(childGenome)}::jsonb, ${genomeHash},
 				${childGenome.generation}, ${pedigree.tier}, ${auth.userId},
-				${0}, ${body.stud_fee_signature || null}, ${consentOwner}, 'born'
+				${0}, ${studFeeSig || null}, ${consentOwner}, 'born'
 			)
 			on conflict (breeding_key) do nothing
 		`;

@@ -17,13 +17,25 @@
 import { formatWalletUsdSafe } from './wallet-format.js';
 
 export const REACTIVITY_LEVELS = ['off', 'subtle', 'balanced', 'expressive'];
-export const DEFAULT_PREFS = { reactivity: 'balanced', signals: { aura: true, events: true, reputation: true } };
+// `nameplate` controls the avatar's license-plate overlay (its public address +
+// wealth-tier glyph), both default-on; the agent name is always shown. Mirrors the
+// server contract in api/_lib/networth-model.js so the panel and the plate agree.
+export const DEFAULT_PREFS = {
+	reactivity: 'balanced',
+	signals: { aura: true, events: true, reputation: true },
+	nameplate: { address: true, tier: true },
+};
 
 export function normalizePrefs(raw) {
 	const r = raw && typeof raw === 'object' ? raw : {};
 	const reactivity = REACTIVITY_LEVELS.includes(r.reactivity) ? r.reactivity : DEFAULT_PREFS.reactivity;
 	const sig = r.signals && typeof r.signals === 'object' ? r.signals : {};
-	return { reactivity, signals: { aura: sig.aura !== false, events: sig.events !== false, reputation: sig.reputation !== false } };
+	const np = r.nameplate && typeof r.nameplate === 'object' ? r.nameplate : {};
+	return {
+		reactivity,
+		signals: { aura: sig.aura !== false, events: sig.events !== false, reputation: sig.reputation !== false },
+		nameplate: { address: np.address !== false, tier: np.tier !== false },
+	};
 }
 
 // ── Network ──────────────────────────────────────────────────────────────────

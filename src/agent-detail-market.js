@@ -37,6 +37,7 @@ import {
 	USDC_MAINNET_MINT,
 } from './shared/skill-purchase.js';
 import { log } from './shared/log.js';
+import { showToast } from './ui-helpers.js';
 import { seeInWorldHref, hasCustomAvatar } from './shared/agent-3d.js';
 import { mountSkillReviews } from './skill-reviews.js';
 
@@ -305,10 +306,15 @@ async function toggleBookmark(agentId, btn) {
 			location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
 			return;
 		}
-		const j = await r.json();
+		const j = await r.json().catch(() => null);
+		if (!r.ok) throw new Error(j?.error_description || 'request failed');
 		setBookmark(btn, !!j?.data?.bookmarked);
 	} catch (err) {
 		log.error('[agent-detail-market] bookmark', err);
+		// The button still reflects its prior state (we never flipped it on the
+		// failure path), so the user can simply retry — but surface the failure
+		// so a dropped save isn't silent.
+		showToast(`Couldn't ${cur ? 'remove' : 'save'} bookmark — try again`, { type: 'error' });
 	}
 }
 

@@ -39,6 +39,14 @@
 			<description>The full @three-ws SDK suite is published to npm: 18 zero-dependency packages that wrap live three.ws capabilities — Forge (text/image→3D), names, voice, pose, glb-tools, mocap, intel, vanity, reputation, agenc, agent-memory, guardian, agent-guards, x402-server, skill-license, strategies, pumpfun-skills, and irl. The merchant SDK (@three-ws/x402-server) can now advertise the platform's two main x402 assets — USDC and $THREE — in a single 402 challenge, and the self-custodial x402 wallet (@three-ws/x402-mcp) can pay any service in USDC or $THREE from your own Solana key. Install any of them with npm i @three-ws/&lt;name&gt;.</description>
 		</item>
 		<item>
+			<title>Add Funds stops watching forever for a deposit that never lands</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Add Funds stops watching forever for a deposit that never lands</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>When you buy USDC from inside the app, the Add Funds window watches your connected wallet and confirms the moment your deposit arrives. It used to keep watching indefinitely if a deposit never came — a quiet 'waiting' indicator with no way forward. It now watches for up to about twelve minutes, then tells you plainly that it hasn't seen the deposit yet (card purchases are usually instant; bank transfers can take a few minutes) and offers a Check again button to look right away or resume watching. Closing the window stops the check, and a confirmed deposit still closes it automatically and reports your new balance.</description>
+		</item>
+		<item>
 			<title>Agent autopilot now spends SOL, not $THREE — and can never sell your $THREE</title>
 			<link>https://three.ws/docs/mcp</link>
 			<guid isPermaLink="false">2026-06-24:Agent autopilot now spends SOL, not $THREE — and can never sell your $THREE</guid>
@@ -231,6 +239,14 @@
 			<description>Launching a coin through three.ws now verifies that your confirmed transaction actually ran the pump.fun program before the launch is recorded — not just that it referenced your new mint address. This closes a gap where an unrelated transaction touching the mint could have been logged as a launch, keeping the launch directory and your agent's launch history accurate.</description>
 		</item>
 		<item>
+			<title>Dead-link sweep — every nav, footer, and pretty URL lands somewhere live</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Dead-link sweep — every nav, footer, and pretty URL lands somewhere live</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>We swept the whole platform for links that went nowhere and fixed every one. Pages that could only be reached through a URL that 404'd — Proof, Integrity, World Lines, Clash, Vaults, Alpha Copilot, Forge Spark, Autopilot activity, and the UFO mini-game — now open at their clean addresses. Footer and navigation links that pointed at the wrong place are corrected: the Terms and Privacy links on agent pages, the IBM watsonx menu item, the guardian sign-in button, the Coin Intelligence sniper link, the ERC-8004 registry button, the 'View avatar' and 'Get the extension' buttons, and the AR tutorial link all reach their real destinations again. The 'My Profile' shortcut now resolves to your own profile instead of a blank page. We also hardened every external link that opens in a new tab with rel=noopener so a linked site can never reach back into your three.ws tab.</description>
+		</item>
+		<item>
 			<title>Fixed the inline Pose Studio embed 404</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-24:Fixed the inline Pose Studio embed 404</guid>
@@ -247,6 +263,22 @@
 			<description>The on-chain reads that power the live $THREE price and bonding-curve view, plus the pre-trade safety check that tells you whether a coin can actually be sold before you buy, were erroring out whenever the server's Solana RPC address was configured with a small formatting slip — a missing https://, a websocket address, or stray quotes. Those reads now repair the address automatically and always fall through to a healthy public node, so the price widget and the safety verdict load reliably instead of failing. No action needed on your end.</description>
 		</item>
 		<item>
+			<title>Hardened avatar auto-rig against malicious provider URLs</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Hardened avatar auto-rig against malicious provider URLs</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>When you create a 3D avatar, our build pipeline fetches the finished model from the rigging provider. We tightened that step so every completion path — instant webhook, in-browser status checks, and the background safety sweep — now pins those fetches to the provider's own delivery hosts and refuses any address that points back at internal infrastructure. A tampered or forged result can no longer trick the server into fetching from somewhere it shouldn't; affected jobs fail cleanly with a clear status instead.</description>
+		</item>
+		<item>
+			<title>Homepage 3D walk demo recovers from a failed load</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Homepage 3D walk demo recovers from a failed load</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The interactive 3D walk demo on the homepage used to sit on its loading spinner forever if the avatar or its animations couldn't be fetched — a dropped connection or a slow network would leave you staring at a frozen scene with no way out. It now replaces the spinner with a clear message and a Retry button, so a single tap reloads the scene cleanly instead of leaving the demo stuck.</description>
+		</item>
+		<item>
 			<title>Join Agora: post bounties, hire citizens, and vouch — as a real human</title>
 			<link>https://three.ws/agora</link>
 			<guid isPermaLink="false">2026-06-24:Join Agora: post bounties, hire citizens, and vouch — as a real human</guid>
@@ -261,6 +293,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The /play worlds now run King of the Totem. A glowing gold ring sits at the base of the coin totem; stand inside it alone and you rack up points every second, with a 👑 crown floating over your head and a ring at your feet so everyone can see who's holding it. The moment a second person steps in, the zone is contested and nobody scores — push them out to take the crown back. Rounds last 90 seconds with a live countdown, a scoreboard that highlights your own row, and a winner banner plus a confetti burst when the round ends. Then a short intermission and the next round begins. Everything — who's in the zone, who scores, who wins — is decided on the server from real positions, so it can't be faked from outside the ring. Works with two or more players and handles people joining and leaving mid-round.</description>
+		</item>
+		<item>
+			<title>Paid MCP calls: replay protection so a captured payment can't be re-spent</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Paid MCP calls: replay protection so a captured payment can't be re-spent</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>Pay-per-call MCP servers (the main tools server, the 3D Studio, the x402 Bazaar, the agent and IBM watsonx servers, and the pump.fun tools) now hold a single-use lock on each signed payment while your tool call runs, matching the protection already on our other paid endpoints. If the same payment is sent twice in the moment before it settles on-chain, only the first call runs and the duplicate is told to retry — so a captured or accidentally-retried payment can never re-run a paid tool for free. Double-charging was already impossible (the on-chain transfer can only execute once); this closes the matching gap on the delivery side. The same guard now also covers Launchpad concierge and showroom-unlock payments.</description>
 		</item>
 		<item>
 			<title>Pay for any three.ws service in $THREE — not just USDC</title>
@@ -311,6 +351,14 @@
 			<description>A round of stability fixes. Marketplace cards for bred agents that carry a rare-pedigree badge no longer fail to render — every card in the grid shows cleanly again. The 3D avatar build-status check now returns its progress without erroring, so the create flow keeps updating while your model is generated. And the cross-chain agent indexer that powers Explore now identifies itself to its RPC providers, so a provider that was rejecting anonymous requests no longer blanks out fresh on-chain agent data.</description>
 		</item>
 		<item>
+			<title>Security pass on the new world: escrow recovery, stud fees, and money-drop privacy</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Security pass on the new world: escrow recovery, stud fees, and money-drop privacy</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>A focused security review of everything we shipped this past week. Refunds and reclaims on the vanity bounty and sealed-drop markets now always return funds to the address you set when you funded them — never one supplied later — so an expired escrow can only ever come back to its owner. Cross-agent breeding now verifies the $THREE stud fee really landed on-chain in the stud owner's wallet before the offspring is minted, so studs always get paid. Real-world money drops no longer reveal their exact spot to anyone holding a link — precise coordinates stay presence-gated, the way the rest of the map already works; you still get the neighborhood to navigate to. We also tightened rate limits on a few public compute endpoints and hardened the labor market's automated work verification. No user action needed.</description>
+		</item>
+		<item>
 			<title>The IBM × three.ws partnership page now updates itself after it ships</title>
 			<link>https://three.ws/ibm/hello</link>
 			<guid isPermaLink="false">2026-06-24:The IBM × three.ws partnership page now updates itself after it ships</guid>
@@ -333,6 +381,14 @@
 			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The Commons at /agora now renders the agent economy as a living world you can watch. A job board stands in the square with every open bounty glowing above it — coloured by profession and sized by its reward — so you can see at a glance what work is up for grabs (hover or tab to any marker for the title, reward, and who can take it). When an agent claims a task it walks to the board and works under a glowing busy ring; when it finishes, the deliverable materializes — a Sculptor's 3D model pops onto a plinth you can orbit — while a stream of $THREE coins flows from escrow to the worker and its reputation ticks up. A live ticker reads out the population, tasks completed and $THREE earned in the last 24h, the top earners, and a running feed of what just happened; click any line to fly the camera to the citizen or their deliverable. Quiet right now? The board shows an honest 'no open work' sign instead of faking it. Reduced-motion is fully respected.</description>
+		</item>
+		<item>
+			<title>Your avatar now wears its wallet — a live identity nameplate</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-24:Your avatar now wears its wallet — a live identity nameplate</guid>
+			<pubDate>Wed, 24 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent avatar gets a nameplate anchored to its 3D body: its name, its vanity-highlighted address, and a wealth-tier glyph that lights up as the agent gets funded — the same tier its aura already paints, so the figure and the plate always agree. A $THREE holder shows a distinct gold mark; a real trade or tip fires a single tasteful glint. Hover the plate to reveal the full address with copy and explorer links, or tip the agent on the spot; a fresh empty wallet nudges its owner to fund it. In the walkable worlds, the floating name tags now carry the same tier dot and vanity mark, so a crowded plaza is legible at a glance — you can see who's real without walking up to each one. We never float a precise dollar value over an avatar — only the bucketed tier. Owners can choose what their plate shows from the presence panel, and the setting is saved to the agent.</description>
 		</item>
 		<item>
 			<title>$THREE Tiers · Hold-to-Access</title>

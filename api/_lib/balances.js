@@ -27,7 +27,13 @@ function heliusRpc() {
 }
 
 async function fetchJson(url, opts = {}) {
-	const r = await fetch(url, opts);
+	// A sick upstream (Helius/public RPC, Jupiter, CoinGecko, pump.fun) must never
+	// hang the holder-gate / pricing path indefinitely — bound every request to 6s
+	// unless the caller already supplied its own AbortSignal. A timeout rejects, so
+	// solRpc()'s Helius→public-RPC failover and the price helpers' try/catch each
+	// degrade rather than stall the whole portfolio read.
+	const signal = opts.signal ?? AbortSignal.timeout(6000);
+	const r = await fetch(url, { ...opts, signal });
 	if (!r.ok) {
 		const text = await r.text().catch(() => r.status.toString());
 		throw Object.assign(new Error(`upstream ${r.status}: ${text}`), { status: 502 });

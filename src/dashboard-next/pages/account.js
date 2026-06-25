@@ -180,7 +180,7 @@ async function copyToClipboard(text) {
 					<a class="dn-btn" href="/dashboard/settings" style="justify-content:center">Sessions &amp; notifications →</a>
 					<a class="dn-btn" href="/dashboard/settings" style="justify-content:center">Storage &amp; LLM usage →</a>
 					<a class="dn-btn" href="/dashboard/settings" style="justify-content:center">Preferences →</a>
-					<a class="dn-btn" href="/onchain" target="_blank" rel="noopener" style="justify-content:center">ERC-8004 registry ↗</a>
+					<a class="dn-btn" href="/reputation" target="_blank" rel="noopener" style="justify-content:center">ERC-8004 registry ↗</a>
 				</div>
 			</section>
 		</div>

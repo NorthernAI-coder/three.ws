@@ -3035,6 +3035,10 @@
 			"dest": "/docs/index.html"
 		},
 		{
+			"src": "/docs/tutorials/([^./]+)/?",
+			"dest": "/docs/index.html"
+		},
+		{
 			"src": "/docs/(.*)",
 			"dest": "/docs/$1"
 		},
@@ -4068,6 +4072,94 @@
 		{
 			"src": "/paywall/",
 			"dest": "/paywall.html"
+		},
+		{
+			"src": "/profile",
+			"dest": "/profile.html"
+		},
+		{
+			"src": "/profile/",
+			"dest": "/profile.html"
+		},
+		{
+			"src": "/integrity",
+			"dest": "/integrity.html"
+		},
+		{
+			"src": "/integrity/",
+			"dest": "/integrity.html"
+		},
+		{
+			"src": "/proof",
+			"dest": "/proof.html"
+		},
+		{
+			"src": "/proof/",
+			"dest": "/proof.html"
+		},
+		{
+			"src": "/world-lines",
+			"dest": "/world-lines.html"
+		},
+		{
+			"src": "/world-lines/",
+			"dest": "/world-lines.html"
+		},
+		{
+			"src": "/autopilot-activity",
+			"dest": "/autopilot-activity.html"
+		},
+		{
+			"src": "/autopilot-activity/",
+			"dest": "/autopilot-activity.html"
+		},
+		{
+			"src": "/alpha-copilot",
+			"dest": "/alpha-copilot.html"
+		},
+		{
+			"src": "/alpha-copilot/",
+			"dest": "/alpha-copilot.html"
+		},
+		{
+			"src": "/forge-spark",
+			"dest": "/forge-spark.html"
+		},
+		{
+			"src": "/forge-spark/",
+			"dest": "/forge-spark.html"
+		},
+		{
+			"src": "/clash",
+			"dest": "/clash.html"
+		},
+		{
+			"src": "/clash/",
+			"dest": "/clash.html"
+		},
+		{
+			"src": "/vaults",
+			"dest": "/vaults.html"
+		},
+		{
+			"src": "/vaults/",
+			"dest": "/vaults.html"
+		},
+		{
+			"src": "/play/ufo",
+			"dest": "/play/ufo.html"
+		},
+		{
+			"src": "/play/ufo/",
+			"dest": "/play/ufo.html"
+		},
+		{
+			"src": "/admin/news",
+			"dest": "/admin/news.html"
+		},
+		{
+			"src": "/admin/news/",
+			"dest": "/admin/news.html"
 		},
 		{
 			"src": "/api/x402/service/([^/?]+)",

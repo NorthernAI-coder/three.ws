@@ -711,7 +711,7 @@ async function renderAvatars(root) {
 					</p>
 					<div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
 						<a href="/create" class="btn-primary">Take a selfie →</a>
-						<a href="/dashboard/upload" class="btn-primary" style="background:#222230; color:#ddd;">Upload .glb</a>
+						<a href="/dashboard-classic/upload" class="btn-primary" style="background:#222230; color:#ddd;">Upload .glb</a>
 						<a href="/deploy" class="btn-primary" style="background:#222230; color:#ddd;">Deploy on-chain</a>
 					</div>
 				</div>`;
@@ -2311,7 +2311,7 @@ async function renderEmbed(root) {
 	if (!agent) {
 		body.innerHTML = `
 			<div class="empty">
-				You don't have an agent yet. <a href="/dashboard/create">Create one from a selfie</a> first.
+				You don't have an agent yet. <a href="/dashboard-classic/create">Create one from a selfie</a> first.
 			</div>
 		`;
 		return;
@@ -3912,7 +3912,7 @@ async function renderWithdrawals(root) {
 		} else {
 			addrEl.value = '';
 			hintEl.innerHTML =
-				'No default set. Configure one on the <a href="/dashboard/monetization">Monetization tab</a> to pre-fill.';
+				'No default set. Configure one on the <a href="/dashboard-classic/monetization">Monetization tab</a> to pre-fill.';
 		}
 	}
 	syncDefaultAddress();
@@ -5484,7 +5484,7 @@ async function renderAnimations(root) {
 		const res = await api.getAgentMe();
 		agent = res?.agent;
 		if (!agent) {
-			body.innerHTML = `<div class="empty">No agent found. <a href="/dashboard/create">Create one first.</a></div>`;
+			body.innerHTML = `<div class="empty">No agent found. <a href="/dashboard-classic/create">Create one first.</a></div>`;
 			return;
 		}
 		if (agent.avatar_id) {

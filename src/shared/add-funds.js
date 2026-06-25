@@ -12,6 +12,10 @@
 
 const USDC_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const POLL_INTERVAL_MS = 5000;
+// Stop actively polling after this long with no deposit, then surface a manual
+// "Check again" affordance instead of spinning forever. Card buys land in
+// seconds; bank-funded onramps can take a few minutes, so give it a wide window.
+const POLL_MAX_MS = 12 * 60 * 1000;
 
 function esc(s) {
 	return String(s ?? '')
@@ -46,8 +50,11 @@ const OVERLAY_HTML = `
 			</div>
 			<div class="af-status" id="af-status" role="status" aria-live="polite"></div>
 			<div class="af-poll" id="af-poll" hidden>
-				<div class="af-poll-indicator"></div>
-				<span>Watching for deposit…</span>
+				<div class="af-poll-live" id="af-poll-live">
+					<div class="af-poll-indicator"></div>
+					<span>Watching for deposit…</span>
+				</div>
+				<button class="af-recheck" id="af-recheck" hidden>Check again</button>
 			</div>
 		</div>
 	</div>
@@ -158,6 +165,17 @@ const OVERLAY_STYLE = `
 	0%, 100% { opacity: 1; transform: scale(1); }
 	50% { opacity: 0.4; transform: scale(0.7); }
 }
+.af-poll-live { display: flex; align-items: center; gap: 8px; }
+.af-poll-live[hidden] { display: none; }
+.af-recheck {
+	font-size: 12px; padding: 6px 14px; border-radius: 8px;
+	border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06);
+	color: #fff; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+}
+.af-recheck:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.32); }
+.af-recheck:disabled { opacity: 0.5; cursor: default; }
+.af-recheck:focus-visible { outline: 2px solid rgba(255,255,255,0.4); outline-offset: 2px; }
+.af-recheck[hidden] { display: none; }
 `;
 
 /**
@@ -234,10 +252,13 @@ export function showAddFunds({ walletAddress, requiredUsdc, container } = {}) {
 		const closeBtn = wrapper.querySelector('#af-close');
 		const statusEl = wrapper.querySelector('#af-status');
 		const pollEl  = wrapper.querySelector('#af-poll');
+		const pollLive = wrapper.querySelector('#af-poll-live');
+		const recheckBtn = wrapper.querySelector('#af-recheck');
 		const amtBtns = wrapper.querySelectorAll('.af-amt');
 
 		let selectedAmount = 25;
 		let pollTimer = null;
+		let pollStart = 0;
 		let baselineUsdc = null;
 		let popupWindow = null;
 		let destroyed = false;
@@ -295,26 +316,57 @@ export function showAddFunds({ walletAddress, requiredUsdc, container } = {}) {
 			baselineUsdc = await fetchUsdcBalance(walletAddress);
 		}
 
-		// Poll for balance increase after popup opens
-		async function startPolling() {
-			if (!walletAddress) return;
-			pollEl.removeAttribute('hidden');
-			setStatus('Waiting for your deposit to confirm…');
+		// Detect the deposit landing and resolve the overlay.
+		function showSuccess(current) {
+			clearInterval(pollTimer);
+			pollEl.setAttribute('hidden', '');
+			setStatus(`✓ Deposit confirmed — ${current.toFixed(2)} USDC added`, 'ok');
+			setTimeout(() => dismiss({ usdc: current }), 1800);
+		}
 
+		// Resolves true (and shows success) once USDC lands above the baseline.
+		async function checkForDeposit() {
+			const current = await fetchUsdcBalance(walletAddress);
+			if (current === null) return false;
+			if (baselineUsdc !== null && current > baselineUsdc) {
+				showSuccess(current);
+				return true;
+			}
+			return false;
+		}
+
+		// Watch the balance for up to POLL_MAX_MS, then hand off to a manual re-check
+		// instead of polling forever.
+		function beginPollWindow() {
+			if (!walletAddress || destroyed) return;
+			pollStart = Date.now();
+			pollEl.removeAttribute('hidden');
+			pollLive.removeAttribute('hidden');
+			recheckBtn.setAttribute('hidden', '');
+			setStatus('Waiting for your deposit to confirm…');
+			clearInterval(pollTimer);
 			pollTimer = setInterval(async () => {
-				const current = await fetchUsdcBalance(walletAddress);
-				if (current === null) return;
-				if (baselineUsdc !== null && current > baselineUsdc) {
-					clearInterval(pollTimer);
-					pollEl.setAttribute('hidden', '');
-					setStatus(
-						`✓ Deposit confirmed — ${current.toFixed(2)} USDC added`,
-						'ok',
-					);
-					setTimeout(() => dismiss({ usdc: current }), 1800);
-				}
+				if (destroyed) { clearInterval(pollTimer); return; }
+				if (await checkForDeposit()) return;
+				if (Date.now() - pollStart >= POLL_MAX_MS) pausePolling();
 			}, POLL_INTERVAL_MS);
 		}
+
+		// Stop the active loop and surface a manual "Check again" affordance.
+		function pausePolling() {
+			clearInterval(pollTimer);
+			pollLive.setAttribute('hidden', '');
+			recheckBtn.removeAttribute('hidden');
+			setStatus("Haven't seen your deposit yet. Card buys are usually instant; bank transfers can take a few minutes.", '');
+		}
+
+		recheckBtn.addEventListener('click', async () => {
+			recheckBtn.disabled = true;
+			setStatus('Checking for your deposit…');
+			const landed = await checkForDeposit();
+			recheckBtn.disabled = false;
+			if (!landed) beginPollWindow();
+		});
 
 		// Main CTA: open onramp popup + start polling
 		ctaBtn.addEventListener('click', async () => {
@@ -346,7 +398,7 @@ export function showAddFunds({ walletAddress, requiredUsdc, container } = {}) {
 			}
 
 			ctaBtn.disabled = false;
-			await startPolling();
+			beginPollWindow();
 		});
 
 		// Close handlers

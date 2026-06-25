@@ -593,7 +593,7 @@
 					<span class="ago">${fmtAgo(c.paid_at)}</span>
 					<span class="who">${escapeHtml(who)}</span>
 					<span class="amount">${fmtUsdc(c.amount_atomics)}</span>
-					<span class="net">${explorer ? `<a href="${explorer}" target="_blank">${netLabel} ↗</a>` : escapeHtml(netLabel || '—')}</span>
+					<span class="net">${explorer ? `<a href="${explorer}" target="_blank" rel="noopener">${netLabel} ↗</a>` : escapeHtml(netLabel || '—')}</span>
 				</div>`;
 			}).join('');
 		} else {

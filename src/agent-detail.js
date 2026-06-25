@@ -18,6 +18,7 @@ import { mountValidationBadge } from './shared/validation-badge.js';
 import { seeInWorldHref, agentAvatarGlb } from './shared/agent-3d.js';
 import { mountIdleAvatar } from './shared/idle-avatar.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+import { mountNameplate } from './shared/living-avatar.js';
 import { mountPresence } from './shared/networth-presence.js';
 import { mountStagePanel } from './shared/stage-link.js';
 import { mountLaborPanel } from './shared/labor-link.js';
@@ -58,6 +59,7 @@ let _mountModalAvatar = null;
 // poll + rAF never leak.
 let adNetWorthAura = null;
 let adNetWorthPanel = null;
+let adNetWorthPlate = null;
 function mountAgentDetailAura(agent) {
 	const wrap = document.getElementById('ad-avatar-wrap');
 	if (!wrap || !agent?.id) return;
@@ -65,6 +67,14 @@ function mountAgentDetailAura(agent) {
 	adNetWorthAura = null;
 	adNetWorthPanel?.destroy?.();
 	adNetWorthPanel = null;
+	adNetWorthPlate?.destroy?.();
+	adNetWorthPlate = null;
+	// The nameplate — name + vanity-highlighted address + tier glyph, anchored to the
+	// hero avatar. Renders identity immediately; the tier hydrates from the same
+	// cached wallet read the aura uses, so the two never disagree.
+	adNetWorthPlate = mountNameplate(wrap, agent, {
+		network: 'mainnet', isOwner: !!agent.isOwner, live: true, position: 'bottom',
+	});
 	hydrateAvatarWallet(wrap, agent, { lod: 'full', live: true, network: 'mainnet', fetchPrefs: false })
 		.then((c) => {
 			adNetWorthAura = c;
@@ -97,6 +107,7 @@ if (typeof window !== 'undefined') {
 	window.addEventListener('pagehide', () => {
 		adNetWorthAura?.destroy?.(); adNetWorthAura = null;
 		adNetWorthPanel?.destroy?.(); adNetWorthPanel = null;
+		adNetWorthPlate?.destroy?.(); adNetWorthPlate = null;
 		// Stop any active money stream so a final settle fires and no charges accrue
 		// past navigation (the engine also guards this internally).
 		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;

@@ -395,6 +395,12 @@ export function mountNameplate(container, agent, opts = {}) {
 	render();
 	requestAnimationFrame(() => { plate.dataset.ready = '1'; });
 
+	// Apply the owner's nameplate/reactivity prefs the instant they're saved in the
+	// presence panel (it broadcasts), so a toggle is reflected without waiting for
+	// the next poll. Scoped to this agent.
+	const onPrefs = (e) => { if (e?.detail?.agentId === agentId && e.detail.prefs) setPrefs(e.detail.prefs); };
+	window.addEventListener('tws:networth-prefs', onPrefs);
+
 	// Live tier + pulse: a visibility-gated poll of the cached custody read. Uses the
 	// shared 60s client cache (fresh:false) so on a hero page it rides the aura's
 	// poll for zero extra requests, and self-hydrates anywhere the aura isn't mounted.
@@ -421,7 +427,7 @@ export function mountNameplate(container, agent, opts = {}) {
 	return {
 		el: plate,
 		update, setTier, setPrefs, pulse,
-		destroy() { stop(); plate.remove(); },
+		destroy() { stop(); window.removeEventListener('tws:networth-prefs', onPrefs); plate.remove(); },
 	};
 }
 
