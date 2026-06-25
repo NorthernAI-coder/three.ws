@@ -7857,6 +7857,15 @@
 				"improvement"
 			],
 			"link": "/dashboard"
+		},
+		{
+			"date": "2026-06-25",
+			"title": "Avatar embodiment: expressions, lipsync, and expanded emotes",
+			"summary": "Avatars on three.ws now feel alive. Facial expressions (happy, sad, surprised, angry, thinking, neutral) are driven by blendshapes or brow-bone fallback — every emotion is automatically matched to the right face and a body gesture. Audio-driven lipsync syncs mouth movement to speech in real time, with a text-envelope fallback when no audio is available. The animation library gained new emotes (nod, shrug, jog, celebrate) and the state machine adds listen and think postures for more natural conversational presence. All existing clip IDs and AnimationManager APIs are unchanged.",
+			"tags": [
+				"feature"
+			],
+			"link": "/embodiment"
 		}
 	]
 }

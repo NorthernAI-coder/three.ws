@@ -13,13 +13,39 @@
 
  Test Files  7 passed (7)
       Tests  79 passed (79)
-   Start at  23:21:08
-   Duration  4.86s (transform 2.60s, setup 0ms, import 6.79s, tests 1.31s, environment 4ms)
+   Start at  23:22:30
+   Duration  1.20s (transform 609ms, setup 0ms, import 1.78s, tests 331ms, environment 1ms)
 
 [test-gate] ✓ all critical-path tests passed
 
 > 3d-agent@1.5.2 audit:mcp
 > node scripts/audit-mcp-manifests.mjs
 
-[audit:mcp] server-studio.json: description is 186 chars (registry max is 100)
-[audit:mcp] 1 violation(s) across 15 manifests
+[audit:mcp] 15 MCP manifests consistent
+
+> 3d-agent@1.5.2 audit:routes
+> node scripts/verify-routes.mjs
+
+Route verify — 231 catalog pages, 908 main routes, 1 post-filesystem routes.
+  modeled dist files: 1456 · canonical-covered: 231 · literal page routes checked for shadows: 377
+  filesystem boundary (handle:filesystem) present: yes
+
+✓ static checks pass: every catalog page reachable, unknown paths → designed 404, no shadowed page routes.
+
+> 3d-agent@1.5.2 audit:handlers
+> node scripts/audit-empty-handlers.mjs
+
+✓ audit-empty-handlers: all API handlers export a body (1194 checked)
+
+> 3d-agent@1.5.2 audit:pages
+> node scripts/audit-page-index.mjs
+
+Route audit: 122 auditable page routes, 231 documented in pages.json.
+✓ Every auditable page route is documented.
+
+ℹ 5 manifest page(s) have no `added` date (omitted from /changelog). Fine for legacy pages; add dates as you touch them.
+
+> 3d-agent@1.5.2 audit:hidden-guard
+> node scripts/audit-hidden-guard.mjs
+
+✓ audit-hidden-guard: all 216 pages resolve the [hidden] guard

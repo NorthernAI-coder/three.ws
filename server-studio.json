@@ -10,7 +10,7 @@
 			"sizes": ["any"]
 		}
 	],
-	"description": "Turn a text prompt or an image into an interactive, downloadable 3D model (GLB) — free. Generate models and avatars, then auto-rig them for animation. No account, no payment, no API key.",
+	"description": "Text or image to 3D GLB, free. Generate models and avatars, auto-rig for animation. No login.",
 	"repository": {
 		"url": "https://github.com/nirholas/three.ws",
 		"source": "github"
