@@ -6,8 +6,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../api/_lib/zauth.js', () => ({ instrument: () => {}, drain: async () => {} }));
 vi.mock('../../api/_lib/sentry.js', () => ({ captureException: () => {} }));
+// Keep the suite hermetic: with no DB, probeMonitor falls back to the
+// serverless-liveness signal (running: true) and the x402 sub-probes degrade
+// gracefully. Without this mock the build would query the production DB, where
+// a stale bot_heartbeat row flips monitor.running to false and fails the smoke
+// test non-deterministically.
+vi.mock('../../api/_lib/db.js', () => ({
+	sql: () => { throw new Error('no database in test'); },
+}));
 
-import healthz, { _resetResendCache } from '../../api/healthz.js';
+import healthz, { _resetResendCache, _resetMonitorCache, _resetX402Cache } from '../../api/healthz.js';
 
 function makeReq({ method = 'GET' } = {}) { return { url: '/api/healthz', method, headers: {} }; }
 function makeRes() {
@@ -31,6 +39,8 @@ const ORIGINAL_KEY = process.env.RESEND_API_KEY;
 
 beforeEach(() => {
 	_resetResendCache();
+	_resetMonitorCache();
+	_resetX402Cache();
 	delete process.env.RESEND_API_KEY;
 });
 
