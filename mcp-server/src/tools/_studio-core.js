@@ -20,6 +20,7 @@
 // neither the @x402 stack nor zod-to-json-schema) unchanged.
 
 import { classifyHumanoidPrompt } from './_humanoid.js';
+import { composeRefinement, seedLineage, appendVersion } from './_lineage.js';
 
 // Standard tool error envelope — identical shape to payments.js `toolError`, so
 // a core's error is indistinguishable whether it is surfaced through the paid
@@ -944,6 +945,130 @@ export async function runTextToAvatar({ prompt, images, seed, texture }) {
 		model: version,
 		durationMs,
 		preview: `https://three.ws/viewer?src=${encodeURIComponent(glbUrl)}`,
+		fetchedAt: new Date().toISOString(),
+	};
+}
+
+// ---------------------------------------------------------------------------
+// refine_model — conversational refinement: carry a model forward with a
+// natural-language change instruction. The prior prompt is folded into the new
+// generation prompt so form, material, and subject carry forward. A reference
+// image (2D preview/screenshot of the parent) anchors the generation when
+// provided; otherwise text-only re-generation is used — still real, still
+// anchored through the composed prompt.
+//
+// Lineage: pass parent_lineage to extend an existing version history, or omit
+// to start a fresh lineage rooted at glb_url. The returned lineage array
+// supports revert (pointer move, no mutation) and branch (parentIndex override).
+// ---------------------------------------------------------------------------
+export async function runRefineModel({
+	glb_url,
+	instruction,
+	parent_prompt,
+	parent_lineage,
+	parent_index,
+	reference_image_url,
+}) {
+	if (!glb_url || typeof glb_url !== 'string' || !glb_url.trim()) {
+		return coreError('invalid_input', 'Provide glb_url of the model to refine.');
+	}
+	const instructionTrimmed = typeof instruction === 'string' ? instruction.trim() : '';
+	if (!instructionTrimmed) {
+		return coreError('invalid_input', 'Provide an instruction describing the change to make.');
+	}
+
+	const parentPromptStr = typeof parent_prompt === 'string' ? parent_prompt.trim() : '';
+	const composedPrompt = composeRefinement(parentPromptStr, instructionTrimmed);
+
+	// Resolve starting lineage: extend an existing one, or seed from the parent.
+	const baseLineage =
+		Array.isArray(parent_lineage) && parent_lineage.length > 0
+			? parent_lineage
+			: seedLineage({ glbUrl: glb_url.trim(), prompt: parentPromptStr || null });
+
+	const effectiveParentIndex =
+		Number.isInteger(parent_index) && parent_index >= 0 && parent_index < baseLineage.length
+			? parent_index
+			: undefined;
+
+	const base = apiBaseFrom(['MESH_FORGE_API_BASE']);
+	const started = Date.now();
+
+	const refImageUrl =
+		typeof reference_image_url === 'string' && reference_image_url.trim()
+			? reference_image_url.trim()
+			: null;
+
+	let job;
+	try {
+		job = await submitForge({
+			base,
+			payload: refImageUrl
+				? { image_urls: [refImageUrl], prompt: composedPrompt }
+				: { prompt: composedPrompt },
+			submitTimeoutMs: 30_000,
+			allowSyncDone: false,
+		});
+	} catch (err) {
+		return coreError(err.code || 'provider_error', err.message, {
+			...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
+		});
+	}
+
+	const timeoutMs = Number(env('REFINE_MODEL_TIMEOUT_MS', '180000'));
+	const intervalMs = Number(env('REFINE_MODEL_POLL_MS', '3000'));
+	let final;
+	try {
+		final = await pollForge(job.job_id, { base, timeoutMs, intervalMs });
+	} catch (err) {
+		return coreError(err.code || 'provider_error', err.message, {
+			jobId: job.job_id,
+			creationId: job.creation_id ?? null,
+			durationMs: Date.now() - started,
+		});
+	}
+
+	const durationMs = Date.now() - started;
+	if (final._timedOut) {
+		return coreError('timeout', `refinement did not finish within ${timeoutMs}ms`, {
+			jobId: job.job_id,
+			creationId: job.creation_id ?? null,
+			status: final.status || 'running',
+			resumeUrl: `${base}/api/forge?job=${job.job_id}`,
+			durationMs,
+		});
+	}
+
+	const newGlbUrl = final.glb_url;
+	const viewerUrl = `${base}/viewer?src=${encodeURIComponent(newGlbUrl)}`;
+
+	const lineage = appendVersion(baseLineage, {
+		glbUrl: newGlbUrl,
+		viewerUrl,
+		prompt: composedPrompt,
+		instruction: instructionTrimmed,
+		refKind: refImageUrl ? 'image' : 'text',
+		...(effectiveParentIndex !== undefined ? { parentIndex: effectiveParentIndex } : {}),
+	});
+	const activeIndex = lineage.length - 1;
+
+	return {
+		ok: true,
+		mode: 'refine',
+		glbUrl: newGlbUrl,
+		viewerUrl,
+		composedPrompt,
+		instruction: instructionTrimmed,
+		parentGlbUrl: glb_url.trim(),
+		anchored: Boolean(refImageUrl),
+		referenceImageUrl: refImageUrl,
+		backend: (final.backend ?? job.backend) ?? null,
+		jobId: job.job_id,
+		creationId: final.creation_id ?? job.creation_id ?? null,
+		durable: Boolean(final.durable),
+		lineage,
+		activeIndex,
+		durationMs,
 		fetchedAt: new Date().toISOString(),
 	};
 }
