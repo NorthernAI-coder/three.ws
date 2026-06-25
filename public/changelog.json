@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-25T22:09:22.886Z",
+	"generated_at": "2026-06-25T23:04:18.898Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/swarms",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry",
+			"summary": "The universal rig canonicalizer now handles Autodesk HumanIK / MotionBuilder / Maya character namespaces (`Character1:Hips`, `subject:LeftArm`, nested `char:ns:Hips`) so mocap-exported avatars and Maya-rigged characters drive the animation library without any manual bone renaming. Three new poses land in the /pose studio and the get_pose_seed MCP tool — Salute (Standing), Fighting stance (Action), and Facepalm (Expressive) — each validated against real mannequin forward kinematics so the joint rotations are geometrically correct, not guessed.",
+			"link": "/pose",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -36,6 +47,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-25",
+			"type": "update",
+			"title": "three.ws Claude Code plugin marketplace — install agents, wallet, 3D, and pump.fun tools in one command",
+			"summary": "We published an official Claude Code plugin marketplace at nirholas/three.ws. One `/plugin marketplace add nirholas/three.ws` and four install commands give you every three.ws capability as namespaced skills and MCP tools right inside Claude Code: three-ws-core (wallet, x402, trade, bazaar), three-ws-developer (scaffold agents, configure MCP), three-ws-pump-fun (create coins, swap, creator fees, live avatar reactions), and three-ws-3d (free text→3D via NVIDIA NIM, text/image→avatar, mesh forge, auto-rig). The 3D plugin wires all three published MCP servers — @three-ws/mcp-server, @three-ws/scene-mcp, and @three-ws/avatar-mcp — with zero extra config. forge_free is completely free; the paid generation and rigging lanes settle over x402 in USDC. See the README for install commands.",
+			"link": "/",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

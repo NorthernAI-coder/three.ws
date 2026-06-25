@@ -15,6 +15,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry</title>
+			<link>https://three.ws/pose</link>
+			<guid isPermaLink="false">2026-06-25:Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The universal rig canonicalizer now handles Autodesk HumanIK / MotionBuilder / Maya character namespaces (`Character1:Hips`, `subject:LeftArm`, nested `char:ns:Hips`) so mocap-exported avatars and Maya-rigged characters drive the animation library without any manual bone renaming. Three new poses land in the /pose studio and the get_pose_seed MCP tool — Salute (Standing), Fighting stance (Action), and Facepalm (Expressive) — each validated against real mannequin forward kinematics so the joint rotations are geometrically correct, not guessed.</description>
+		</item>
+		<item>
 			<title>Production error sweep: tier page, image understanding, and on-chain indexing</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-25:Production error sweep: tier page, image understanding, and on-chain indexing</guid>
@@ -29,6 +37,14 @@
 			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>A second pass on the day's production logs, this time on resilience. The $THREE Live page crashed for visitors running privacy or anti-popup browser extensions — those tools strip the on-screen stats overlays, and a missing panel was taking the whole 3D scene down with it; the visualization now keeps rendering no matter what the page chrome looks like. Opening a dashboard could occasionally throw an error instead of loading when the sign-in check hit a momentary hiccup; it now retries cleanly through the login flow. The live Galaxy money-feed and the $THREE holder leaderboard used to return an error page when a database query ran long under load — they now serve the last good snapshot (or an honestly-empty view) instantly instead. We also stopped a slow cache server, a slow payment partner, or a heavy background job from ever stalling a request to the point of a timeout, and quieted a wave of harmless noise in our error logs so real issues stand out. No action needed.</description>
+		</item>
+		<item>
+			<title>three.ws Claude Code plugin marketplace — install agents, wallet, 3D, and pump.fun tools in one command</title>
+			<link>https://three.ws/</link>
+			<guid isPermaLink="false">2026-06-25:three.ws Claude Code plugin marketplace — install agents, wallet, 3D, and pump.fun tools in one command</guid>
+			<pubDate>Thu, 25 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>We published an official Claude Code plugin marketplace at nirholas/three.ws. One `/plugin marketplace add nirholas/three.ws` and four install commands give you every three.ws capability as namespaced skills and MCP tools right inside Claude Code: three-ws-core (wallet, x402, trade, bazaar), three-ws-developer (scaffold agents, configure MCP), three-ws-pump-fun (create coins, swap, creator fees, live avatar reactions), and three-ws-3d (free text→3D via NVIDIA NIM, text/image→avatar, mesh forge, auto-rig). The 3D plugin wires all three published MCP servers — @three-ws/mcp-server, @three-ws/scene-mcp, and @three-ws/avatar-mcp — with zero extra config. forge_free is completely free; the paid generation and rigging lanes settle over x402 in USDC. See the README for install commands.</description>
 		</item>
 		<item>
 			<title>three.ws submitted to the Claude Connectors Directory</title>
