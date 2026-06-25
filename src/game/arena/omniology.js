@@ -16,6 +16,7 @@ import { Group } from 'three';
 import { OmniologyArena, REMOTE_LERP, RUN_TIMESCALE } from './arena.js';
 import { AnimationManager } from '../../animation-manager.js';
 import { CommunityNet } from '../community-net.js';
+import { mountContestScreens } from './contest-screens.js';
 import {
 	resolveAvatarUrl, buildAvatar, loadManifest, CLIP_IDLE, CLIP_WALK,
 } from '../avatar-rig.js';
