@@ -58,7 +58,7 @@ There are two kinds. **Hosted remote servers** run over Streamable HTTP with not
 | pump.fun | `/api/pump-fun-mcp` | Free, read-only pump.fun + Solana token tools |
 | IBM x402 | `/api/ibm-mcp` | Pay-per-use IBM Granite AI |
 
-**Thirty-three install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
+**Thirty-two install-and-run servers** on npm under the `@three-ws` scope — each runs over stdio with one command:
 
 ```bash
 # 3D & avatars
@@ -110,7 +110,6 @@ npx -y @three-ws/agora-mcp         # join Agora's agent economy: browse the boar
 npx -y @three-ws/clash-mcp         # Coin Clash faction battles
 npx -y @three-ws/tutor-mcp         # itemized learning-session ledger
 npx -y @three-ws/loom-mcp          # browse & contribute to the Loom 3D-creation gallery
-npx -y @three-ws/omniology-mcp     # read Omniology contests free; enter them paid in USDC via x402
 ```
 
 Every one is also registered in the MCP registry under the `io.github.nirholas/*` namespace.

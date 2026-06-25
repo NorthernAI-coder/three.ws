@@ -30,7 +30,7 @@ bottom.
 | On-chain skill licenses | [contracts/skill-license/](contracts/skill-license) `→ /api/skills/license-onchain` | In-repo | Anchor program: each purchased skill = a 1/1 SPL NFT + `SkillLicense` PDA, a trustless alternative to DB-backed access checks. Backend: [api/_lib/skill-license-onchain.js](api/_lib/skill-license-onchain.js) |
 | On-chain agent invocation | [contracts/agent-invocation/](contracts/agent-invocation) | In-repo | Anchor program: verifiable agent-to-agent skill invocation events. SDK: [agent-protocol-sdk/](agent-protocol-sdk) |
 | Cross-chain SDKs | [sdk/](sdk), [solana-agent-sdk/](solana-agent-sdk), [agent-payments-sdk/](agent-payments-sdk), [agent-protocol-sdk/](agent-protocol-sdk) | Published | Cross-chain agent SDKs |
-| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge), [packages/*-mcp/](packages) | 32 npm servers + 6 hosted remote, all in the [MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) | Model Context Protocol surface — full server list in [docs/mcp.md](docs/mcp.md) |
+| MCP integration | [mcp-server/](mcp-server), [mcp-bridge/](mcp-bridge), [packages/*-mcp/](packages) | 31 npm servers + 6 hosted remote, all in the [MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) | Model Context Protocol surface — full server list in [docs/mcp.md](docs/mcp.md) |
 | SNS naming + pay-by-name | [api/sns.js](api/sns.js), [api/sns-subdomain.js](api/sns-subdomain.js), [api/threews/subdomain.js](api/threews/subdomain.js), [api/x402/pay-by-name.js](api/x402/pay-by-name.js), [src/solana/sns-subdomain.js](src/solana/sns-subdomain.js), [pages/threews-claim.html](pages/threews-claim.html) | In-repo | `*.threews.sol` subdomain mint, x402 payments addressed by name. Env: `THREEWS_SOL_PARENT_SECRET_BASE58`. See [SNS_PARTNERSHIP_PROPOSAL.md](docs/internal/SNS_PARTNERSHIP_PROPOSAL.md) |
 
 ## npm workspaces
@@ -78,7 +78,6 @@ packages/kol-mcp/             → @three-ws/kol-mcp           (MCP server — pe
 packages/clash-mcp/           → @three-ws/clash-mcp         (MCP server — Coin Clash faction battles)
 packages/tutor-mcp/           → @three-ws/tutor-mcp         (MCP server — itemized learning-session ledger)
 packages/loom-mcp/            → @three-ws/loom-mcp          (MCP server — Loom 3D-creation gallery: browse, fetch, submit)
-packages/omniology-mcp/       → @three-ws/omniology-mcp     (MCP server — Omniology contests: list/get/leaderboard free, submit_entry x402 USDC)
 walk-sdk/                     → @three-ws/walk             (page walking companion + playground + avatar picker)
 ```
 

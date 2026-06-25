@@ -185,10 +185,7 @@ describe('roster assembly', () => {
 		const specs = buildRoster([], { maxCitizens: 4 });
 		expect(specs.length).toBe(4);
 		expect(specs.every((s) => s.kind === 'agent')).toBe(true);
-		// Each standalone citizen works a specialty (Task 04) but ALWAYS carries the
-		// Fetcher bit, so it satisfies the devnet dispatcher's task gate and never
-		// idles for lack of work.
-		expect(specs.every((s) => capabilitiesSatisfy(s.professionBits, 1n))).toBe(true);
+		expect(specs.every((s) => s.professionBits === 1n)).toBe(true); // all Fetchers in Task 02
 	});
 
 	it('respects the citizen cap', () => {
