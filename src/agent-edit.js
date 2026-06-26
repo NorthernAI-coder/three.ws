@@ -140,12 +140,21 @@ function showBanner(msg) {
 
 function render() {
   $('loading').hidden = true;
-  // Reveal the persona panel (the rest stay [hidden] until their tab is opened).
-  $('panel-persona').hidden = false;
-  $('panel-persona').classList.add('active');
   $('agent-title').textContent = `Edit Agent: ${agentData.name || 'Untitled'}`;
   $('back-link').href = `/agents/${agentData.id}`;
   renderHeaderWalletChip();
+
+  // Reveal section nav and preview actions
+  const secNav = $('section-nav');
+  if (secNav) secNav.hidden = false;
+  const previewActions = $('preview-actions');
+  if (previewActions) {
+    previewActions.style.display = 'flex';
+    const viewLink = $('preview-view-link');
+    const chatLink = $('preview-chat-link');
+    if (viewLink) viewLink.href = `/agents/${agentData.id}`;
+    if (chatLink) chatLink.href = `/agents/${agentData.id}`;
+  }
 
   // Persona
   $('f-name').value = agentData.name || '';
@@ -162,6 +171,53 @@ function render() {
 
   // Autopilot
   $('f-strategy').value = formatStrategy(agentData.meta?.strategy);
+
+  // Mount all sections eagerly now that agent data is available
+  initAllSections();
+
+  // Wire sticky section-nav active highlight
+  initSectionNavHighlight();
+}
+
+function initAllSections() {
+  // These are all idempotent (each has a mounted guard)
+  ensureOutfitTab();
+  ensureVoiceTab();
+  ensureKnowledgeTab();
+  ensureBrainTab();
+  ensureMindTab();
+  ensureOwnershipTab();
+  ensureDreamsTab();
+  ensureSkillsTab();
+  ensureAutopilotTab();
+  ensureEmbedTab();
+  ensureWidgetsTab();
+  ensureSocialTab();
+  ensureAnalyticsTab();
+  ensureStudioTab();
+  ensureWalletTab();
+  if (!plansLoaded) loadSubscriptionPlans();
+}
+
+function initSectionNavHighlight() {
+  const contentCol = document.querySelector('.content-col');
+  const sections = document.querySelectorAll('.edit-section');
+  const links = document.querySelectorAll('.snav-link');
+  if (!contentCol || !sections.length || !links.length) return;
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const id = entry.target.id; // e.g. "section-identity"
+      const key = id.replace('section-', '');
+      const link = document.querySelector(`.snav-link[href="#${id}"]`);
+      if (link) link.classList.toggle('active', entry.isIntersecting);
+    });
+  }, {
+    root: contentCol,
+    threshold: 0.15,
+  });
+
+  sections.forEach((s) => observer.observe(s));
 }
 
 // Render the shared custodial-wallet chip in the edit header. This page is the
