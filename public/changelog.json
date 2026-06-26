@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T12:28:34.290Z",
+	"generated_at": "2026-06-26T12:38:26.692Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -73,6 +73,16 @@
 			"type": "update",
 			"title": "Agent profile pages no longer fail to load over a hiccup",
 			"summary": "Opening an agent's profile (/agents/<id>) could show a full-page \"Couldn't load this agent\" error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.",
+			"link": "/agents",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Agent profile pages render again",
+			"summary": "Every agent profile (/agents/<id>) had stopped loading — the page sat on its loading skeleton and never revealed the agent. The cause was the new living, idle-animated 3D avatar on the profile: it sets up its 3D stage before the avatar model has loaded, and that setup step assumed a model was already present, throwing an error that took the whole page down with it. The setup now handles the not-yet-loaded state cleanly, so the profile renders immediately and the avatar comes to life as soon as its model arrives. Every agent page — custom avatar or default body — loads correctly again.",
 			"link": "/agents",
 			"tags": [
 				"fix"

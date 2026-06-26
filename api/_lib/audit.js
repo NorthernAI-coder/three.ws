@@ -37,7 +37,19 @@ export function logAudit({ userId, action, resourceId = null, meta = null, req =
 				values (${userId}, ${action}, ${resourceId}, ${meta}, ${resolvedIp}, ${resolvedUa})
 			`, { timeoutMs: 5_000 });
 		} catch (err) {
-			console.error('[audit] insert failed', { action, resourceId, error: err?.message });
+			// A transient DB stall (Neon scale-to-zero wake, a connection blip — see
+			// db-retry.js) is infrastructure, not a code fault: it drops this one
+			// best-effort row but breaks nothing. Logging it at error level trips
+			// false alarms, so classify it the same way db-retry/avatar-agent do and
+			// warn instead; reserve error for genuinely unexpected failures.
+			const detail = { action, resourceId, error: err?.message };
+			const transient =
+				err?.code === 'DB_TIMEOUT' ||
+				/fetch failed|connecting to database|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|terminat/i.test(
+					err?.message || '',
+				);
+			if (transient) console.warn('[audit] insert dropped (transient DB stall)', detail);
+			else console.error('[audit] insert failed', detail);
 		}
 	});
 }

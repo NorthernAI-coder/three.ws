@@ -1329,22 +1329,27 @@ export class Viewer {
 			this.skeletonHelpers.forEach((helper) => this.scene.remove(helper));
 		}
 
-		traverseMaterials(this.content, (material) => {
-			material.wireframe = this.state.wireframe;
+		// May run before any model has loaded (e.g. idle-avatar configures the
+		// viewer up front, then loads the GLB). The material/skeleton passes need
+		// content; the grid/auto-rotate state below does not, so skip just these.
+		if (this.content) {
+			traverseMaterials(this.content, (material) => {
+				material.wireframe = this.state.wireframe;
 
-			if (material instanceof PointsMaterial) {
-				material.size = this.state.pointSize;
-			}
-		});
+				if (material instanceof PointsMaterial) {
+					material.size = this.state.pointSize;
+				}
+			});
 
-		this.content.traverse((node) => {
-			if (node.geometry && node.skeleton && this.state.skeleton) {
-				const helper = new SkeletonHelper(node.skeleton.bones[0].parent);
-				helper.material.linewidth = 3;
-				this.scene.add(helper);
-				this.skeletonHelpers.push(helper);
-			}
-		});
+			this.content.traverse((node) => {
+				if (node.geometry && node.skeleton && this.state.skeleton) {
+					const helper = new SkeletonHelper(node.skeleton.bones[0].parent);
+					helper.material.linewidth = 3;
+					this.scene.add(helper);
+					this.skeletonHelpers.push(helper);
+				}
+			});
+		}
 
 		if (this.state.grid !== Boolean(this.gridHelper)) {
 			if (this.state.grid) {

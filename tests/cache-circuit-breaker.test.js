@@ -58,4 +58,49 @@ describe('cache circuit breaker', () => {
 		const openWarnings = warn.mock.calls.filter((c) => String(c[0]).includes('circuit opened'));
 		expect(openWarnings).toHaveLength(1);
 	});
+
+	it('suppresses SET writes when SETs fail but GETs stay healthy (shared breaker stays closed)', async () => {
+		// Production failure mode: a degraded Upstash fails the large best-effort
+		// SETs while GETs stay fast. Each healthy GET resets the shared breaker's
+		// consecutive-failure counter, so it never opens — yet without a SET-path
+		// gate every SET keeps paying a stall and logging. The SET gate must trip on
+		// its own streak and then stop touching the network for writes.
+		//
+		// Fresh module instance so the previous test's tripped breaker/suppression
+		// (module-level state) doesn't leak in and pre-arm this scenario.
+		vi.resetModules();
+		const { cacheGet, cacheSet } = await import('../api/_lib/cache.js');
+		const isSet = (init) => {
+			try { return JSON.parse(init.body)[0] === 'SET'; } catch { return false; }
+		};
+		const fetchMock = vi.fn(async (_url, init) => {
+			if (isSet(init)) throw new Error('The operation was aborted due to timeout');
+			// GET succeeds (Upstash returns { result: <raw> }); null result = miss.
+			return { ok: true, json: async () => ({ result: null }) };
+		});
+		globalThis.fetch = fetchMock;
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+		// Interleave a healthy GET before each failing SET so the SHARED breaker's
+		// consecutive counter is reset every iteration and never reaches its
+		// threshold — isolating the SET-path gate.
+		for (let i = 0; i < 5; i++) {
+			await cacheGet(`setgate:get:${i}`);
+			await cacheSet(`setgate:set:${i}`, { v: i }, 30);
+		}
+		// The shared breaker never opened (GETs kept it closed).
+		const noOpen = warn.mock.calls.filter((c) => String(c[0]).includes('circuit opened'));
+		expect(noOpen).toHaveLength(0);
+		// The SET gate tripped exactly once after its 5 consecutive failures.
+		const suppress = warn.mock.calls.filter((c) => String(c[0]).includes('suppressing cache writes'));
+		expect(suppress).toHaveLength(1);
+
+		// Writes are now suppressed: a further SET must NOT hit the network, but a
+		// GET still must (reads stay live throughout a write outage).
+		const callsBefore = fetchMock.mock.calls.length;
+		await cacheSet('setgate:after', { v: 'x' }, 30);
+		expect(fetchMock).toHaveBeenCalledTimes(callsBefore); // SET skipped the network
+		await cacheGet('setgate:after-get');
+		expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore); // GET still went out
+	});
 });
