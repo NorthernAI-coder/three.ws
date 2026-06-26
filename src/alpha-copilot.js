@@ -143,12 +143,16 @@ function agentCard(a) {
 	node.setAttribute('role', 'option');
 	node.dataset.id = a.id;
 	const meta = a.featured ? 'Featured' : a.onchain ? esc(a.onchain.network || 'on-chain') : a.chats ? `${a.chats.toLocaleString()} chats` : a.skill ? esc(a.skill.replace(/[-_]/g, ' ')) : 'agent';
+	const fallback = `<span class="ac-agent-initials">${esc(initials(a.name))}</span>`;
 	node.innerHTML = `
-		<span class="ac-agent-av">${a.avatar ? `<img src="${esc(a.avatar)}" alt="" loading="lazy" />` : `<span class="ac-agent-initials">${esc(initials(a.name))}</span>`}</span>
+		<span class="ac-agent-av">${a.avatar ? `<img src="${esc(a.avatar)}" alt="" loading="lazy" />` : fallback}</span>
 		<span class="ac-agent-info">
 			<span class="ac-agent-name">${esc(a.name || 'Agent')}</span>
 			<span class="ac-agent-meta">${meta}</span>
 		</span>`;
+	// A broken avatar URL falls back to initials rather than the browser's broken-image glyph.
+	const img = node.querySelector('img');
+	if (img) img.addEventListener('error', () => { const host = img.parentElement; if (host) host.innerHTML = fallback; }, { once: true });
 	node.addEventListener('click', () => loadAgent(a.id));
 	return node;
 }
