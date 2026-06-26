@@ -92,22 +92,48 @@ function initials(name) {
 	return String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
 }
 
+// Normalize the two real agent sources into one card shape. `/api/agents/public`
+// is the rich directory; `/api/agents/featured` always returns at least one real
+// public agent, so it guarantees the picker is never empty even if the directory
+// query is briefly unavailable.
+function normPublic(a) {
+	return { id: a.id, name: a.name, avatar: a.avatar_thumbnail || null, skill: (a.skills && a.skills[0]) || null, chats: Number(a.chat_count) || 0, onchain: a.onchain || null };
+}
+function normFeatured(d) {
+	return { id: d.id, name: d.display_name, avatar: d.avatar_url || null, skill: null, chats: 0, onchain: null, featured: true };
+}
+
 async function loadGallery() {
 	dom.gallery.innerHTML = Array.from({ length: 6 }, () => `<div class="ac-agent-card ac-skel"><div class="ac-skel-orb"></div><div class="ac-skel-line w80"></div><div class="ac-skel-line w60"></div></div>`).join('');
-	let agents = [];
-	try {
-		const r = await fetch('/api/agents/public?sort=popular&limit=12', { credentials: 'include' });
-		const j = await r.json().catch(() => ({}));
-		agents = Array.isArray(j.agents) ? j.agents : [];
-	} catch { /* fall through to error state */ }
+	const [pub, feat] = await Promise.all([
+		fetch('/api/agents/public?sort=popular&limit=12', { credentials: 'include' }).then((r) => r.json()).then((j) => (Array.isArray(j.agents) ? j.agents.map(normPublic) : [])).catch(() => []),
+		fetch('/api/agents/featured', { credentials: 'include' }).then((r) => r.json()).then((j) => (j?.data?.id ? [normFeatured(j.data)] : [])).catch(() => []),
+	]);
+	const byId = new Map();
+	for (const a of [...feat, ...pub]) if (a?.id && !byId.has(a.id)) byId.set(a.id, a);
+	const agents = [...byId.values()];
 	state.gallery = agents;
-	if (!agents.length) {
-		dom.gallery.innerHTML = `<div class="ac-gallery-empty">No public agents to feature right now. Paste an agent ID instead.</div>`;
-		revealIdRow(true);
+	renderGallery();
+	if (!agents.length) revealIdRow(true);
+}
+
+function renderGallery() {
+	if (!state.gallery.length) {
+		dom.gallery.innerHTML = `<div class="ac-gallery-empty">No public agents to feature right now — paste an agent ID to load one.</div>`;
 		return;
 	}
 	dom.gallery.innerHTML = '';
-	for (const a of agents) dom.gallery.appendChild(agentCard(a));
+	for (const a of state.gallery) dom.gallery.appendChild(agentCard(a));
+	if (state.agent) markActiveCard(state.agent.id);
+}
+
+// Make sure the agent on stage always has a card in the rail (an ID-loaded or
+// the caller's own agent may not be in the public directory) so it can be
+// highlighted and re-selected.
+function ensureCardFor(agent) {
+	if (!agent?.id || state.gallery.some((a) => a.id === agent.id)) return;
+	state.gallery.unshift({ id: agent.id, name: agent.name, avatar: agent.avatar_thumbnail_url || agent.avatar_url || null, skill: null, chats: 0, onchain: null });
+	renderGallery();
 }
 
 function agentCard(a) {
@@ -116,10 +142,9 @@ function agentCard(a) {
 	node.className = 'ac-agent-card';
 	node.setAttribute('role', 'option');
 	node.dataset.id = a.id;
-	const skill = (a.skills && a.skills[0]) ? a.skills[0].replace(/[-_]/g, ' ') : null;
-	const meta = a.onchain ? `${esc(a.onchain.network || 'on-chain')}` : (a.chat_count ? `${a.chat_count.toLocaleString()} chats` : (skill ? esc(skill) : 'agent'));
+	const meta = a.featured ? 'Featured' : a.onchain ? esc(a.onchain.network || 'on-chain') : a.chats ? `${a.chats.toLocaleString()} chats` : a.skill ? esc(a.skill.replace(/[-_]/g, ' ')) : 'agent';
 	node.innerHTML = `
-		<span class="ac-agent-av">${a.avatar_thumbnail ? `<img src="${esc(a.avatar_thumbnail)}" alt="" loading="lazy" />` : `<span class="ac-agent-initials">${esc(initials(a.name))}</span>`}</span>
+		<span class="ac-agent-av">${a.avatar ? `<img src="${esc(a.avatar)}" alt="" loading="lazy" />` : `<span class="ac-agent-initials">${esc(initials(a.name))}</span>`}</span>
 		<span class="ac-agent-info">
 			<span class="ac-agent-name">${esc(a.name || 'Agent')}</span>
 			<span class="ac-agent-meta">${meta}</span>
@@ -170,6 +195,8 @@ async function loadAgent(id) {
 	dom.agentRole.textContent = agent.is_owner ? 'Your alpha co-pilot' : 'Alpha co-pilot · public read';
 	dom.agentLink.href = agent.home_url || `/agent/${agent.id}`;
 	dom.agentLink.hidden = false;
+	ensureCardFor(agent);
+	markActiveCard(agent.id);
 	mountAvatar(agent);
 	resetRead();
 	loadCandidates();
