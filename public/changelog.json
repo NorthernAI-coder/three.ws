@@ -1,11 +1,32 @@
 {
-	"generated_at": "2026-06-26T00:06:48.020Z",
+	"generated_at": "2026-06-26T00:12:52.909Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Default avatars render again everywhere",
+			"summary": "Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.",
+			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Mission Control's live launch feed never goes dark",
+			"summary": "The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.",
+			"link": "/terminal",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "update",

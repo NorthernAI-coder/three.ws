@@ -264,10 +264,14 @@ three.ws-log-export-*.json
 # Local prompt working set (not shared)
 prompts/nvidia/
 
-# Embodiment / digital-human work — kept local, never shared to the mirrors
+# Embodiment / digital-human work — kept local, never shared to the mirrors.
+# Exception: emotion.js is a pure emotion/gesture descriptor that committed,
+# deployed MCP routes (api/mcp-3d.js → _mcp3d/tools/studio.js) and the embodiment
+# stage import, so it MUST be in the tree or the Vercel bundle fails to resolve it.
 api/_lib/embodiment.js
 api/embodiment/
-src/embodiment/
+src/embodiment/*
+!src/embodiment/emotion.js
 src/embody.js
 pages/embody.html
 api/_lib/migrations/20260623170000_agent_bodies.sql

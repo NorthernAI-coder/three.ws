@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Default avatars render again everywhere</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-26:Default avatars render again everywhere</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.</description>
+		</item>
+		<item>
+			<title>Mission Control's live launch feed never goes dark</title>
+			<link>https://three.ws/terminal</link>
+			<guid isPermaLink="false">2026-06-26:Mission Control's live launch feed never goes dark</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.</description>
+		</item>
+		<item>
 			<title>Steadier live feeds under load</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:Steadier live feeds under load</guid>
