@@ -172,6 +172,8 @@ const els = {
 	catChips: $('market-cat-chips'),
 	modelCatChips: $('market-model-category-chips'),
 	grid: $('market-grid'),
+	pulse: $('market-pulse'),
+	pulseTrack: $('market-pulse-track'),
 	search: $('market-search'),
 	sortSel: $('market-sort'),
 	loadMore: $('market-loadmore'),
@@ -528,6 +530,7 @@ async function loadList(reset = false, opts = {}) {
 		loadPublicAvatars();
 		loadFeatured();
 		loadOnchainAgents(true);
+		loadMarketplacePulse();
 	}
 }
 
@@ -887,6 +890,97 @@ async function loadFeatured() {
 		state.featured = [];
 		renderHero();
 	}
+}
+
+// ── Live sales pulse ──────────────────────────────────────────────────────
+//
+// A marquee of the most recent skill purchases across the whole marketplace.
+// It's social proof — a visitor lands and immediately sees real money moving
+// through real agents. Pulls from /api/marketplace/analytics (the same feed
+// behind the analytics page), so there's one source of truth for "what sold".
+// The strip is decorative-but-real: it hides cleanly when the market is empty
+// or the fetch fails, and only ever appears on the discovery list view.
+
+// USDC/SOL are the mints that actually carry decimals we care about; everything
+// else (agent coins, $THREE) defaults to 6, which is the SPL norm. We only need
+// enough precision to render a believable amount, not to settle a transaction.
+const PULSE_MINT_META = {
+	EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: { symbol: 'USDC', decimals: 6 },
+	So11111111111111111111111111111111111111112: { symbol: 'SOL', decimals: 9 },
+};
+
+function pulseAmountLabel(atomic, mint) {
+	const meta = PULSE_MINT_META[mint] || { symbol: shortMintLabel(mint || ''), decimals: 6 };
+	const ui = Number(atomic || 0) / Math.pow(10, meta.decimals);
+	if (!Number.isFinite(ui) || ui <= 0) return `Free · ${meta.symbol}`;
+	const places = ui >= 100 ? 0 : ui >= 1 ? 2 : 4;
+	return `${ui.toLocaleString(undefined, { maximumFractionDigits: places })} ${meta.symbol}`;
+}
+
+async function loadMarketplacePulse() {
+	// Only the discovery list view has the strip; skip the work entirely on
+	// detail/skills/etc. and when a search or category is narrowing the grid
+	// (the global pulse would feel disconnected from a filtered result set).
+	if (!els.pulse || !els.pulseTrack) return;
+	if (state.q || state.category) {
+		els.pulse.hidden = true;
+		return;
+	}
+	try {
+		const r = await fetch(`${API}/marketplace/analytics`, { credentials: 'include' });
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		const j = await r.json();
+		const sales = (j?.data?.recentSales || []).filter((s) => s.agentId && s.agentName);
+		renderMarketplacePulse(sales);
+	} catch (err) {
+		log.error('[marketplace] pulse', err);
+		els.pulse.hidden = true;
+	}
+}
+
+function pulseItemHTML(sale) {
+	const skill = String(sale.skill || 'a skill').replace(/[-_]/g, ' ');
+	const amount = pulseAmountLabel(sale.amountAtomic, sale.currencyMint);
+	const when = liveTime(sale.confirmedAt);
+	const avatar = sale.agentImage
+		? `<img class="market-pulse-av" src="${escapeHtml(sale.agentImage)}" alt="" loading="lazy" decoding="async" />`
+		: `<span class="market-pulse-av" aria-hidden="true">${escapeHtml(initial(sale.agentName))}</span>`;
+	const verb = sale.trial ? 'started a trial of' : 'unlocked';
+	const amtClass = sale.trial ? 'market-pulse-amt is-trial' : 'market-pulse-amt';
+	return (
+		`<a class="market-pulse-item" href="/marketplace/agents/${encodeURIComponent(sale.agentId)}" ` +
+		`data-agent="${escapeHtml(sale.agentId)}" ` +
+		`title="${escapeHtml(sale.agentName)} — ${escapeHtml(skill)}${when ? ` · ${when}` : ''}">` +
+		`${avatar}` +
+		`<span><b>${escapeHtml(sale.agentName)}</b> ` +
+		`<span class="market-pulse-skill">${escapeHtml(verb)} ${escapeHtml(skill)}</span></span>` +
+		`<span class="${amtClass}">${escapeHtml(amount)}</span>` +
+		(when ? `<span class="market-pulse-time">${escapeHtml(when)}</span>` : '') +
+		`</a>`
+	);
+}
+
+function renderMarketplacePulse(sales) {
+	if (!els.pulse || !els.pulseTrack) return;
+	if (!sales.length) {
+		els.pulse.hidden = true;
+		return;
+	}
+	const items = sales.map(pulseItemHTML).join('');
+	// Duplicate the run so the -50% keyframe translate lands exactly one full
+	// set over, giving a seamless infinite loop. aria-hidden the clone so screen
+	// readers announce each sale only once. Pace the scroll to the content so a
+	// short feed doesn't whip past and a long one doesn't crawl.
+	els.pulseTrack.innerHTML = items + `<span aria-hidden="true">${items}</span>`;
+	const seconds = Math.min(90, Math.max(24, sales.length * 6));
+	els.pulseTrack.style.setProperty('--pulse-duration', `${seconds}s`);
+	els.pulse.hidden = false;
+	els.pulseTrack.querySelectorAll('.market-pulse-item').forEach((a) => {
+		a.addEventListener('click', (e) => {
+			e.preventDefault();
+			navTo(`/marketplace/agents/${a.dataset.agent}`);
+		});
+	});
 }
 
 function renderHero() {

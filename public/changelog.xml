@@ -79,6 +79,14 @@
 			<description>The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes.</description>
 		</item>
 		<item>
+			<title>The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-26:The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new background generator quietly grows the public gallery with photorealistic, animation-ready Avaturn avatars — each one a fresh randomized character (body, outfit, hair, and colors) built from Avaturn's own catalog and exported with a complete rig, so it walks and emotes out of the box. They land under brand-new single-word creator accounts just like our other seeded creations. The cadence starts conservative and ramps up over time.</description>
+		</item>
+		<item>
 			<title>The post-create screen now greets you with a living agent</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:The post-create screen now greets you with a living agent</guid>
