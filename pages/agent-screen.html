@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<title>Agent Screen · three.ws</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#060a12" />
+		<meta name="description" content="Watch your agent in real time — see their screen and avatar as they autonomously trade, browse, and act." />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content="https://three.ws/agent-screen" />
+		<meta property="og:title" content="Agent Screen · three.ws" />
+		<meta property="og:description" content="Watch your agent work — live screen and avatar feed." />
+		<meta property="og:image" content="https://three.ws/og-image.png" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:image" content="https://three.ws/og-image.png" />
+
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+
+		<style>
+			:root {
+				--screen-accent: #5b8fff;
+				--screen-live: #3ddc84;
+				--screen-dark: rgba(255,255,255,0.3);
+			}
+
+			body {
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				min-height: 100vh;
+				background: #060a12;
+			}
+
+			/* ── header ── */
+			.asc-header {
+				display: flex;
+				align-items: center;
+				gap: 0.9rem;
+				padding: 0.6rem 1rem;
+				border-bottom: 1px solid rgba(255,255,255,0.07);
+				background: rgba(6, 10, 18, 0.95);
+				backdrop-filter: blur(12px);
+				flex: none;
+				z-index: 30;
+			}
+			.asc-header .back {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				color: rgba(255,255,255,0.6);
+				text-decoration: none;
+				font-size: 0.82rem;
+				font-weight: 600;
+				padding: 0.3rem 0.55rem;
+				border-radius: 7px;
+				transition: background 0.15s, color 0.15s;
+			}
+			.asc-header .back:hover { color: #fff; background: rgba(255,255,255,0.07); }
+			.asc-agent-info { display: flex; align-items: center; gap: 0.65rem; }
+			.asc-agent-name {
+				font-size: 0.95rem;
+				font-weight: 680;
+				color: #eef2fa;
+				letter-spacing: -0.01em;
+			}
+			.asc-live-badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.35rem;
+				background: rgba(61,220,132,0.12);
+				color: var(--screen-live);
+				font-size: 0.72rem;
+				font-weight: 700;
+				letter-spacing: 0.07em;
+				text-transform: uppercase;
+				padding: 0.25rem 0.6rem;
+				border-radius: 999px;
+				border: 1px solid rgba(61,220,132,0.25);
+			}
+			.asc-live-badge .dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--screen-live);
+				animation: asc-pulse 1.4s ease-in-out infinite;
+			}
+			.asc-live-badge.dark {
+				background: rgba(255,255,255,0.06);
+				color: var(--screen-dark);
+				border-color: rgba(255,255,255,0.1);
+			}
+			.asc-live-badge.dark .dot {
+				background: var(--screen-dark);
+				animation: none;
+			}
+			.asc-header-right {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+			}
+			.asc-btn {
+				appearance: none;
+				background: rgba(255,255,255,0.07);
+				border: 1px solid rgba(255,255,255,0.12);
+				color: rgba(255,255,255,0.75);
+				border-radius: 8px;
+				padding: 0.35rem 0.75rem;
+				font: inherit;
+				font-size: 0.8rem;
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+			}
+			.asc-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+			/* ── main layout ── */
+			.asc-main {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				overflow: hidden;
+			}
+
+			/* ── screen panel (left 64%) ── */
+			.asc-screen-panel {
+				flex: 0 0 64%;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				border-right: 1px solid rgba(255,255,255,0.06);
+				background: #04060d;
+				position: relative;
+			}
+			.asc-screen-label {
+				padding: 0.5rem 0.9rem;
+				font-size: 0.72rem;
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: rgba(255,255,255,0.35);
+				border-bottom: 1px solid rgba(255,255,255,0.05);
+				flex: none;
+			}
+			.asc-screen-wrap {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				position: relative;
+				overflow: hidden;
+			}
+			#asc-screen-canvas {
+				max-width: 100%;
+				max-height: 100%;
+				display: block;
+				border-radius: 4px;
+				image-rendering: crisp-edges;
+			}
+			.asc-screen-overlay {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 1rem;
+				color: rgba(255,255,255,0.5);
+				font-size: 0.9rem;
+				pointer-events: none;
+			}
+			.asc-screen-overlay .pulse-ring {
+				width: 56px;
+				height: 56px;
+				border: 2px solid rgba(91,143,255,0.35);
+				border-radius: 50%;
+				animation: asc-ring 2s ease-out infinite;
+				position: relative;
+			}
+			.asc-screen-overlay .pulse-ring::after {
+				content: '';
+				position: absolute;
+				inset: 8px;
+				border-radius: 50%;
+				background: rgba(91,143,255,0.12);
+				animation: asc-inner 2s ease-out infinite;
+			}
+			.asc-screen-overlay p { margin: 0; text-align: center; }
+			.asc-screen-overlay small { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
+
+			/* ── right panel ── */
+			.asc-right-panel {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				background: #060a14;
+			}
+
+			/* ── webcam section ── */
+			.asc-webcam-section {
+				flex: 0 0 auto;
+				border-bottom: 1px solid rgba(255,255,255,0.06);
+			}
+			.asc-webcam-label {
+				padding: 0.5rem 0.9rem;
+				font-size: 0.72rem;
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: rgba(255,255,255,0.35);
+				border-bottom: 1px solid rgba(255,255,255,0.05);
+			}
+			.asc-webcam-wrap {
+				padding: 0.9rem;
+				display: flex;
+				justify-content: center;
+			}
+			.asc-webcam-bezel {
+				position: relative;
+				border-radius: 14px;
+				overflow: hidden;
+				border: 2px solid rgba(255,255,255,0.1);
+				background: #0a0d1a;
+				box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+				aspect-ratio: 4/3;
+				width: 100%;
+				max-width: 300px;
+			}
+			.asc-webcam-bezel video,
+			.asc-webcam-bezel canvas {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+				display: block;
+			}
+			.asc-webcam-badge {
+				position: absolute;
+				top: 8px;
+				left: 10px;
+				display: flex;
+				align-items: center;
+				gap: 5px;
+				background: rgba(0,0,0,0.65);
+				backdrop-filter: blur(4px);
+				border-radius: 6px;
+				padding: 3px 8px;
+				font-size: 0.7rem;
+				font-weight: 600;
+				color: #fff;
+			}
+			.asc-webcam-badge .cam-dot {
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--screen-live);
+			}
+			.asc-webcam-idle {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 100%;
+				color: rgba(255,255,255,0.3);
+				font-size: 0.82rem;
+			}
+
+			/* ── activity log ── */
+			.asc-log-section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+			.asc-log-label {
+				padding: 0.5rem 0.9rem;
+				font-size: 0.72rem;
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: rgba(255,255,255,0.35);
+				border-bottom: 1px solid rgba(255,255,255,0.05);
+				flex: none;
+			}
+			#asc-log {
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				padding: 0.6rem 0;
+				display: flex;
+				flex-direction: column-reverse;
+				scrollbar-width: thin;
+				scrollbar-color: rgba(255,255,255,0.1) transparent;
+			}
+			.asc-log-entry {
+				display: flex;
+				align-items: flex-start;
+				gap: 0.55rem;
+				padding: 0.4rem 0.9rem;
+				font-size: 0.8rem;
+				line-height: 1.4;
+				border-bottom: 1px solid rgba(255,255,255,0.03);
+				animation: asc-fadein 0.25s ease;
+			}
+			.asc-log-entry:first-child { border-bottom: none; }
+			.asc-log-time { color: rgba(255,255,255,0.28); font-size: 0.72rem; flex: none; padding-top: 1px; }
+			.asc-log-type {
+				flex: none;
+				font-size: 0.68rem;
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				padding: 1px 6px;
+				border-radius: 4px;
+			}
+			.asc-log-type.screenshot { background: rgba(91,143,255,0.15); color: #7aaeff; }
+			.asc-log-type.trade { background: rgba(61,220,132,0.15); color: #4ddd96; }
+			.asc-log-type.analysis { background: rgba(255,192,80,0.15); color: #ffc85a; }
+			.asc-log-type.activity { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); }
+			.asc-log-text { color: rgba(255,255,255,0.78); }
+			.asc-log-empty {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 80px;
+				color: rgba(255,255,255,0.2);
+				font-size: 0.82rem;
+			}
+
+			/* ── current activity bar ── */
+			.asc-activity-bar {
+				padding: 0.55rem 0.9rem;
+				background: rgba(255,255,255,0.03);
+				border-top: 1px solid rgba(255,255,255,0.06);
+				font-size: 0.82rem;
+				color: rgba(255,255,255,0.6);
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				min-height: 38px;
+				flex: none;
+			}
+			.asc-activity-icon { font-size: 0.9rem; flex: none; }
+			#asc-current-activity { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+			/* ── no-agent state ── */
+			.asc-no-agent {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 1.2rem;
+				text-align: center;
+				padding: 2rem;
+				color: #e8edf7;
+				font-family: system-ui, sans-serif;
+			}
+			.asc-no-agent h2 { margin: 0; font-size: 1.15rem; font-weight: 680; color: #c8d4f0; }
+			.asc-no-agent p { margin: 0; font-size: 0.88rem; color: rgba(255,255,255,0.45); max-width: 340px; }
+			.asc-no-agent a {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.4rem;
+				background: linear-gradient(135deg, #4a7fff, #8260ff);
+				color: #fff;
+				border-radius: 9px;
+				padding: 0.55rem 1.1rem;
+				font-weight: 650;
+				font-size: 0.88rem;
+				text-decoration: none;
+				transition: opacity 0.15s;
+			}
+			.asc-no-agent a:hover { opacity: 0.88; }
+
+			/* ── animations ── */
+			@keyframes asc-pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
+			@keyframes asc-ring { 0%{transform:scale(1);opacity:0.8}100%{transform:scale(1.6);opacity:0} }
+			@keyframes asc-inner { 0%{opacity:0.5}100%{opacity:0} }
+			@keyframes asc-fadein { from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none} }
+
+			/* ── fullscreen mode ── */
+			.asc-screen-panel:fullscreen { background: #000; }
+			.asc-screen-panel:fullscreen .asc-screen-label { display: none; }
+			.asc-screen-panel:fullscreen .asc-screen-wrap { align-items: stretch; }
+			.asc-screen-panel:fullscreen #asc-screen-canvas { max-height: 100%; border-radius: 0; }
+
+			/* ── responsive ── */
+			@media (max-width: 700px) {
+				.asc-main { flex-direction: column; }
+				.asc-screen-panel { flex: 0 0 55vh; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+				.asc-right-panel { flex: 1; }
+				.asc-webcam-wrap { padding: 0.6rem; }
+				.asc-webcam-bezel { max-width: 180px; }
+			}
+		</style>
+	</head>
+	<body>
+		<script src="/nav.js"></script>
+
+		<header class="asc-header">
+			<a class="back" id="asc-back" href="/agents">← Agents</a>
+			<div class="asc-agent-info">
+				<span class="asc-agent-name" id="asc-agent-name">Loading…</span>
+				<span class="asc-live-badge dark" id="asc-live-badge">
+					<span class="dot"></span>
+					<span id="asc-badge-text">Connecting</span>
+				</span>
+			</div>
+			<div class="asc-header-right">
+				<button class="asc-btn" id="asc-fullscreen-btn" title="Fullscreen screen view">⛶ Fullscreen</button>
+				<a class="asc-btn" id="asc-agent-link" href="/agents" style="text-decoration:none">View Agent →</a>
+			</div>
+		</header>
+
+		<div class="asc-main" id="asc-main">
+			<!-- populated by agent-screen.js -->
+			<div id="asc-no-agent" class="asc-no-agent" style="display:flex">
+				<h2>No agent selected</h2>
+				<p>Open this page from an agent's profile to watch them work in real time.</p>
+				<a href="/agents">Browse agents →</a>
+			</div>
+		</div>
+
+		<script type="module" src="/src/agent-screen.js"></script>
+		<script src="/footer.js"></script>
+	</body>
+</html>
