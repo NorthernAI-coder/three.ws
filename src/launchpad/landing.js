@@ -107,7 +107,6 @@ const STYLE = `
 	.lp-hero::before { content:''; position:absolute; inset:-40% 0 auto 0; height:520px; pointer-events:none;
 		background:radial-gradient(60% 80% at 70% 0%, rgba(236,72,153,0.16), transparent 70%),
 			radial-gradient(50% 70% at 20% 10%, rgba(99,102,241,0.14), transparent 70%); }
-	.lp-hero-inner { position:relative; display:grid; grid-template-columns:1.15fr 0.85fr; gap:40px; align-items:center; }
 	.lp-eyebrow { display:inline-flex; align-items:center; gap:8px; padding:5px 12px; border-radius:999px;
 		font-size:12px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color:#fbcfe8;
 		background:rgba(236,72,153,0.1); border:1px solid rgba(236,72,153,0.25); }
@@ -116,8 +115,7 @@ const STYLE = `
 	@keyframes lp-pulse { 0%{box-shadow:0 0 0 0 rgba(236,72,153,0.5)} 70%{box-shadow:0 0 0 8px rgba(236,72,153,0)} 100%{box-shadow:0 0 0 0 rgba(236,72,153,0)} }
 	.lp-hero h1 { margin:18px 0 14px; font-size:clamp(34px,5vw,56px); line-height:1.04; letter-spacing:-0.03em; font-weight:800; }
 	.lp-hero h1 em { font-style:normal; background:linear-gradient(120deg,#fff,#ec4899 70%); -webkit-background-clip:text; background-clip:text; color:transparent; }
-	.lp-hero p.sub { margin:0 0 26px; font-size:18px; line-height:1.55; color:var(--muted); max-width:560px; }
-	.lp-cta-row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+	.lp-hero p.sub { margin:0 auto 26px; font-size:18px; line-height:1.55; color:var(--muted); max-width:600px; }
 	.lp-btn { display:inline-flex; align-items:center; gap:8px; padding:13px 22px; font:inherit; font-size:15px; font-weight:600;
 		border-radius:12px; cursor:pointer; text-decoration:none; border:1px solid transparent; transition:transform .12s,filter .12s,background .12s,border-color .12s; }
 	.lp-btn:active { transform:translateY(1px); }
@@ -130,14 +128,9 @@ const STYLE = `
 	.lp-stat .n .skl { display:inline-block; width:46px; height:24px; border-radius:6px; background:#1a1e24; vertical-align:middle; }
 	.lp-stat .l { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px; }
 
-	/* Hero live card */
-	.lp-hero-card { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 30px 60px -30px rgba(0,0,0,0.7); }
-	.lp-hc-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; padding:2px 4px; }
-	.lp-hc-head .t { font-size:12px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--dim); display:flex; align-items:center; gap:8px; }
-	.lp-hc-head .t .dot { width:7px; height:7px; border-radius:50%; background:#22c55e; animation:lp-pulse 1.8s infinite; }
-	.lp-hc-head a { font-size:12px; color:var(--muted); text-decoration:none; }
-	.lp-hc-head a:hover { color:var(--fg); }
-	.lp-feed { display:flex; flex-direction:column; gap:6px; max-height:340px; overflow:hidden; }
+	/* Live launches board */
+	.lp-feed { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 16px; }
+	@media (max-width:640px) { .lp-feed { grid-template-columns:1fr; } }
 	.lp-coin { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:11px; text-decoration:none; color:inherit;
 		border:1px solid transparent; transition:background .12s,border-color .12s; }
 	.lp-coin:hover { background:#16191f; border-color:var(--line2); }
@@ -199,23 +192,18 @@ const STYLE = `
 	.lp-empty { grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--dim); }
 	.lp-empty .em-cta { margin-top:14px; }
 
-	/* How it works */
-	.lp-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
-	.lp-step { padding:22px; border-radius:16px; background:var(--panel); border:1px solid var(--line); }
-	.lp-step .n { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-weight:800; font-size:14px;
-		color:#0b0d10; background:linear-gradient(135deg,#fff,#fce7f3); margin-bottom:12px; }
-	.lp-step h3 { margin:0 0 6px; font-size:16px; font-weight:700; }
-	.lp-step p { margin:0; font-size:14px; color:var(--muted); line-height:1.55; }
-
-	/* Final CTA band */
-	.lp-band { padding:60px 0 72px; text-align:center; }
-	.lp-band h2 { margin:0 0 10px; font-size:30px; font-weight:780; letter-spacing:-0.02em; }
-	.lp-band p { margin:0 0 24px; color:var(--muted); font-size:16px; }
+	/* Launch-first hero */
+	.lp-hero-solo { text-align:center; max-width:780px; margin:0 auto; }
+	.lp-hero-solo .lp-stats { justify-content:center; }
+	.lp-launcher { position:relative; margin:30px auto 0; max-width:840px;
+		background:var(--panel); border:1px solid var(--line); border-radius:18px;
+		padding:20px 16px; box-shadow:0 30px 60px -30px rgba(0,0,0,0.7); }
+	.lp-launcher-skel { color:var(--dim); text-align:center; padding:56px 16px; font-size:14px; }
+	.lp-launcher-skel .pulse { display:inline-block; width:8px; height:8px; border-radius:50%;
+		background:#22c55e; margin-right:8px; animation:lp-pulse 1.8s infinite; }
 
 	@media (max-width:880px) {
-		.lp-hero-inner { grid-template-columns:1fr; }
-		.lp-hero-card { order:-1; }
-		.lp-tpl-grid, .lp-gal, .lp-steps { grid-template-columns:1fr; }
+		.lp-tpl-grid, .lp-gal { grid-template-columns:1fr; }
 	}
 `;
 
@@ -279,43 +267,22 @@ function shellHTML() {
 			<span class="go">${esc(t.cta)} <span class="arrow">→</span></span>
 		</button>`).join('');
 
-	const steps = [
-		['Pick a template', 'Token launchpad, paid concierge, or gated 3D showroom. Each ships with a working monetization flow.'],
-		['Make it yours', 'Drop in your wallet, brand color, copy, and a 3D avatar — from your own agents or the gallery. Live preview as you type.'],
-		['Publish & share', 'Get a hosted page at three.ws/p/your-slug plus an x402 agent-skill manifest. Edit anytime; payments settle to your wallet.'],
-	].map(([h, p], i) => `
-		<div class="lp-step">
-			<div class="n">${i + 1}</div>
-			<h3>${esc(h)}</h3>
-			<p>${esc(p)}</p>
-		</div>`).join('');
-
 	return `
 	<div class="lp-land">
 		<section class="lp-hero">
-			<div class="lp-wrap lp-hero-inner">
-				<div class="lp-hero-copy">
-					<span class="lp-eyebrow"><span class="pulse"></span> three.ws launchpad</span>
-					<h1>Launch a coin, concierge, or showroom — <em>hosted by a 3D agent</em>.</h1>
-					<p class="sub">Build a white-label, monetized page in minutes. Real Pump.fun mints, real x402 USDC payments, real 3D — settled to your wallet. No code, no backend.</p>
-					<div class="lp-cta-row">
-						<button class="lp-btn primary" type="button" data-action="build">Start building →</button>
-						<a class="lp-btn ghost" href="/launches">Browse live launches</a>
-					</div>
-					<div class="lp-stats" data-stats>
-						<div class="lp-stat"><div class="n"><span class="skl"></span></div><div class="l">Coins launched</div></div>
-						<div class="lp-stat"><div class="n"><span class="skl"></span></div><div class="l">Pages live</div></div>
-						<div class="lp-stat"><div class="n">3</div><div class="l">Templates</div></div>
-					</div>
+			<div class="lp-wrap lp-hero-solo">
+				<span class="lp-eyebrow"><span class="pulse"></span> three.ws launchpad</span>
+				<h1>Launch your coin — <em>hosted by a 3D agent</em>.</h1>
+				<p class="sub">Mint a Pump.fun coin in one flow, right here. Pick your agent, set the name, ticker, and image, then launch straight from your wallet. Creator fees route to you.</p>
+				<div class="lp-stats" data-stats>
+					<div class="lp-stat"><div class="n"><span class="skl"></span></div><div class="l">Coins launched</div></div>
+					<div class="lp-stat"><div class="n"><span class="skl"></span></div><div class="l">Pages live</div></div>
+					<div class="lp-stat"><div class="n">∞</div><div class="l">Your wallet, your fees</div></div>
 				</div>
-				<div class="lp-hero-card">
-					<div class="lp-hc-head">
-						<span class="t"><span class="dot"></span> Launching now</span>
-						<a href="/launches">All launches →</a>
-					</div>
-					<div class="lp-feed" data-live-feed>
-						${Array.from({ length: 5 }).map(() => '<div class="lp-skel-row"></div>').join('')}
-					</div>
+			</div>
+			<div class="lp-wrap">
+				<div class="lp-launcher" data-launcher>
+					<div class="lp-launcher-skel"><span class="pulse"></span> Loading the launcher…</div>
 				</div>
 			</div>
 		</section>
@@ -324,8 +291,23 @@ function shellHTML() {
 			<div class="lp-wrap">
 				<div class="lp-sec-head">
 					<div>
-						<h2>Start from a template</h2>
-						<p>Each template is wired end to end — pick one and the studio opens with the monetization flow already configured.</p>
+						<h2>Launching now</h2>
+						<p>Coins minted by three.ws agents — live.</p>
+					</div>
+					<a class="more" href="/launches">All launches →</a>
+				</div>
+				<div class="lp-feed" data-live-feed>
+					${Array.from({ length: 5 }).map(() => '<div class="lp-skel-row"></div>').join('')}
+				</div>
+			</div>
+		</section>
+
+		<section class="lp-sec">
+			<div class="lp-wrap">
+				<div class="lp-sec-head">
+					<div>
+						<h2>Want a hosted page for your coin?</h2>
+						<p>Optional. Build a white-label landing page, a paid concierge, or a gated 3D showroom — each ships with a working monetization flow and an x402 agent skill.</p>
 					</div>
 				</div>
 				<div class="lp-tpl-grid">${tpls}</div>
@@ -346,27 +328,30 @@ function shellHTML() {
 				</div>
 			</div>
 		</section>
-
-		<section class="lp-sec">
-			<div class="lp-wrap">
-				<div class="lp-sec-head"><div><h2>How it works</h2></div></div>
-				<div class="lp-steps">${steps}</div>
-			</div>
-		</section>
-
-		<section class="lp-band">
-			<div class="lp-wrap">
-				<h2>Your launchpad, live in five minutes.</h2>
-				<p>One wallet, one avatar, one slug. Publish a monetized 3D page that pays you directly.</p>
-				<button class="lp-btn primary" type="button" data-action="build">Open the studio →</button>
-			</div>
-		</section>
 	</div>`;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
 // Data wiring
 // ──────────────────────────────────────────────────────────────────────────
+// Mount the real, production coin launcher (the same flow as /launch) as the
+// centerpiece — a launchpad's whole job is to launch a coin. launch.js lives in
+// /public and is loaded by URL at runtime; the @vite-ignore + string-var keeps
+// Vite from trying to resolve a public-dir asset at build time.
+async function mountRealLauncher(root) {
+	const host = root.querySelector('[data-launcher]');
+	if (!host) return;
+	try {
+		const spec = '/launch/launch.js';
+		const { mountLaunchCoin } = await import(/* @vite-ignore */ spec);
+		host.innerHTML = '';
+		mountLaunchCoin(host);
+	} catch (err) {
+		log.warn('[launchpad-landing] launcher failed:', err.message);
+		host.innerHTML = `<div class="lp-launcher-skel">Couldn't load the launcher here — <a href="/launch" style="color:var(--fg)">open it on /launch →</a></div>`;
+	}
+}
+
 async function loadLiveFeed(root) {
 	const feed = root.querySelector('[data-live-feed]');
 	if (!feed) return;
@@ -463,6 +448,7 @@ export function mountLaunchpadLanding(root) {
 		document.title = 'Launchpad — three.ws';
 		root.innerHTML = shellHTML();
 		const galleryTotalRef = { value: null, onResolve: null };
+		mountRealLauncher(root);
 		loadLiveFeed(root);
 		loadStats(root, galleryTotalRef);
 		loadGallery(root, galleryTotalRef);
