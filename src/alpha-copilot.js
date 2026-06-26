@@ -53,7 +53,9 @@ const state = {
 	agent: null,        // full GET /api/agents/:id object
 	avatarEl: null,     // <agent-3d>
 	candidates: [],
+	gallery: [],        // public agent directory (the picker)
 	read: null,         // last /alpha/read response
+	activeMint: null,   // mint currently being / last read
 	lastSpoken: '',
 	speaking: false,
 	loadingRead: false,
@@ -62,21 +64,79 @@ const state = {
 // ── DOM refs ────────────────────────────────────────────────────────────────
 const dom = {};
 function cacheDom() {
+	dom.gallery = $('#ac-agent-gallery');
+	dom.idToggle = $('#ac-id-toggle');
+	dom.idRow = $('#ac-id-row');
 	dom.agentInput = $('#ac-agent-input');
 	dom.agentLoad = $('#ac-agent-load');
 	dom.avatarHost = $('#ac-avatar-host');
 	dom.avatarPlaceholder = $('#ac-avatar-placeholder');
+	dom.eq = $('#ac-eq');
 	dom.agentName = $('#ac-agent-name');
 	dom.agentRole = $('#ac-agent-role');
+	dom.agentLink = $('#ac-agent-link');
 	dom.speak = $('#ac-speak');
 	dom.speakLine = $('#ac-speak-line');
 	dom.replay = $('#ac-replay');
 	dom.readEmpty = $('#ac-read-empty');
 	dom.readBody = $('#ac-read-body');
 	dom.launchesList = $('#ac-launches-list');
+	dom.launchesCount = $('#ac-launches-count');
 	dom.refresh = $('#ac-refresh');
 	dom.actDrawer = $('#ac-act-drawer');
 	dom.actBody = $('#ac-act-body');
+}
+
+// ── agent gallery (the picker) ───────────────────────────────────────────────
+function initials(name) {
+	return String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '?';
+}
+
+async function loadGallery() {
+	dom.gallery.innerHTML = Array.from({ length: 6 }, () => `<div class="ac-agent-card ac-skel"><div class="ac-skel-orb"></div><div class="ac-skel-line w80"></div><div class="ac-skel-line w60"></div></div>`).join('');
+	let agents = [];
+	try {
+		const r = await fetch('/api/agents/public?sort=popular&limit=12', { credentials: 'include' });
+		const j = await r.json().catch(() => ({}));
+		agents = Array.isArray(j.agents) ? j.agents : [];
+	} catch { /* fall through to error state */ }
+	state.gallery = agents;
+	if (!agents.length) {
+		dom.gallery.innerHTML = `<div class="ac-gallery-empty">No public agents to feature right now. Paste an agent ID instead.</div>`;
+		revealIdRow(true);
+		return;
+	}
+	dom.gallery.innerHTML = '';
+	for (const a of agents) dom.gallery.appendChild(agentCard(a));
+}
+
+function agentCard(a) {
+	const node = document.createElement('button');
+	node.type = 'button';
+	node.className = 'ac-agent-card';
+	node.setAttribute('role', 'option');
+	node.dataset.id = a.id;
+	const skill = (a.skills && a.skills[0]) ? a.skills[0].replace(/[-_]/g, ' ') : null;
+	const meta = a.onchain ? `${esc(a.onchain.network || 'on-chain')}` : (a.chat_count ? `${a.chat_count.toLocaleString()} chats` : (skill ? esc(skill) : 'agent'));
+	node.innerHTML = `
+		<span class="ac-agent-av">${a.avatar_thumbnail ? `<img src="${esc(a.avatar_thumbnail)}" alt="" loading="lazy" />` : `<span class="ac-agent-initials">${esc(initials(a.name))}</span>`}</span>
+		<span class="ac-agent-info">
+			<span class="ac-agent-name">${esc(a.name || 'Agent')}</span>
+			<span class="ac-agent-meta">${meta}</span>
+		</span>`;
+	node.addEventListener('click', () => loadAgent(a.id));
+	return node;
+}
+
+function markActiveCard(id) {
+	dom.gallery.querySelectorAll('.ac-agent-card').forEach((c) => c.classList.toggle('is-active', c.dataset.id === id));
+}
+
+function revealIdRow(open) {
+	dom.idRow.hidden = !open;
+	dom.idToggle.setAttribute('aria-expanded', String(open));
+	dom.idToggle.textContent = open ? 'Hide ID entry' : 'Use an agent ID';
+	if (open) dom.agentInput.focus();
 }
 
 // ── agent loading ───────────────────────────────────────────────────────────
@@ -87,8 +147,11 @@ function parseAgentId(raw) {
 }
 
 async function loadAgent(id) {
+	if (!id) return;
+	markActiveCard(id);
 	dom.agentName.textContent = 'Loading…';
-	dom.agentRole.textContent = 'Alpha co-pilot';
+	dom.agentRole.textContent = 'Bringing it on stage';
+	dom.agentLink.hidden = true;
 	let agent;
 	try {
 		const r = await fetch(`/api/agents/${encodeURIComponent(id)}`, { credentials: 'include' });
@@ -105,6 +168,8 @@ async function loadAgent(id) {
 	try { localStorage.setItem(LS_KEY, agent.id); } catch { /* ignore */ }
 	dom.agentName.textContent = agent.name || 'Agent';
 	dom.agentRole.textContent = agent.is_owner ? 'Your alpha co-pilot' : 'Alpha co-pilot · public read';
+	dom.agentLink.href = agent.home_url || `/agent/${agent.id}`;
+	dom.agentLink.hidden = false;
 	mountAvatar(agent);
 	resetRead();
 	loadCandidates();
@@ -122,6 +187,9 @@ async function mountAvatar(agent) {
 	el.setAttribute('height', '100%');
 	el.setAttribute('autorotate', '');
 	el.className = 'ac-avatar';
+	// The element renders behind opacity:0 until it boots — reveal on ready so the
+	// stage fades the body in instead of popping a half-loaded mesh.
+	el.addEventListener('agent:ready', () => el.classList.add('ready'), { once: true });
 	dom.avatarHost.appendChild(el);
 	state.avatarEl = el;
 }

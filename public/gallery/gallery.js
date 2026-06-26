@@ -321,6 +321,7 @@ async function loadPage() {
 }
 
 function updateStats() {
+	if (!els.statCount) return;
 	els.statCount.textContent =
 		state.total != null ? state.total.toLocaleString() : state.totalLoaded.toLocaleString();
 }
