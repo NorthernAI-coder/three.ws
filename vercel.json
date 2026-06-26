@@ -121,17 +121,11 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
-		"api/mcp-studio.js": {
+		"{api/mcp-studio,api/forge-nim,api/nim-forge}.js": {
 			"maxDuration": 300
 		},
 		"api/forge.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
-		"api/forge-nim.js": {
-			"maxDuration": 300
-		},
-		"api/nim-forge.js": {
 			"maxDuration": 300
 		},
 		"api/brain/chat.js": {
