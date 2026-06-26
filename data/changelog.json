@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "View any token in 3D — now a live trading scene with price, real-time trade pulses, and risk signals",
+			"summary": "The /coin3d viewer got a major upgrade. It now opens with a proper landing page: paste any mint to render it, jump straight to $THREE, or pick from a grid of recent three.ws launches. Load a coin and the scene comes alive — the HUD shows live price, 24h change with a sparkline, market cap, 24h volume, top-holder concentration, quality and smart-money signals, and any risk flags. Every real DEX swap fires a glowing pulse into the coin (green for buys, red for sells) that's mirrored in a scrolling live-trade tape with running net flow and links to each transaction. Graduated coins like $THREE now resolve their name, logo and market cap correctly, a drifting starfield adds depth, and if a device can't do 3D the page gracefully falls back to the full live data view instead of a blank screen.",
+			"tags": ["feature", "improvement"],
+			"link": "/coin3d"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "3D avatars look brighter and more lifelike everywhere — new studio lighting rig",
 			"summary": "Auto-generated avatars used to render dark and flat in the gallery — dark-clothed agents could all but disappear into the black cards. The 3D viewer now lights every avatar with a proper studio three-point rig (key, fill, and a rim/back light that traces a bright edge around the silhouette so no avatar blends into the background), boosted ambient and image-based lighting, and the Khronos PBR-Neutral tone mapper, which keeps colors bright and true instead of crushing them. The preview-card edge vignette was softened so small thumbnails no longer look murky. The same rig now also drives the server-rendered poster images used for share cards and gallery warm-up, so avatars look consistent and vivid the instant they appear.",
 			"tags": ["improvement"]
