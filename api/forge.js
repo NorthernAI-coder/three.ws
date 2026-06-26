@@ -103,7 +103,7 @@ import { sanitizeJobError } from './_lib/provider-job-error.js';
 // working one; it expires on its own so a recovered lane is retried promptly.
 // Best-effort via the shared cache — a miss just means "not cooling".
 const NIM_TRELLIS_COOLDOWN_KEY = 'forge-nim-trellis';
-const NIM_FORGE_COOLDOWN_SECONDS = 60;
+const NIM_FORGE_COOLDOWN_SECONDS = 120;
 
 // Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
 // generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable

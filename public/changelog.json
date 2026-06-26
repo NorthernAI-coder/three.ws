@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T07:55:04.228Z",
+	"generated_at": "2026-06-26T08:27:59.024Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -151,6 +151,17 @@
 			"type": "update",
 			"title": "Fixed: the app no longer breaks its own offline cache after a new release",
 			"summary": "Every time we shipped an update, some visitors saw a wave of console errors and a broken background cache: the app tries to pre-save its scripts for fast repeat visits, but right after a deploy a few of those files briefly point at the previous release and come back missing — which made the whole caching step abort. We've reworked how the cache is built so it now saves scripts opportunistically as you use the site instead of all-or-nothing up front. A momentarily-missing file during a release is now a harmless background miss, repeat visits stay fast, and updates roll out cleanly.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Infrastructure fixes: 3D forge reliability, cache resilience, and bounty escrow",
+			"summary": "Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.",
 			"link": null,
 			"tags": [
 				"fix",

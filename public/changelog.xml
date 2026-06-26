@@ -119,6 +119,14 @@
 			<description>Every time we shipped an update, some visitors saw a wave of console errors and a broken background cache: the app tries to pre-save its scripts for fast repeat visits, but right after a deploy a few of those files briefly point at the previous release and come back missing — which made the whole caching step abort. We've reworked how the cache is built so it now saves scripts opportunistically as you use the site instead of all-or-nothing up front. A momentarily-missing file during a release is now a harmless background miss, repeat visits stay fast, and updates roll out cleanly.</description>
 		</item>
 		<item>
+			<title>Infrastructure fixes: 3D forge reliability, cache resilience, and bounty escrow</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-26:Infrastructure fixes: 3D forge reliability, cache resilience, and bounty escrow</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.</description>
+		</item>
+		<item>
 			<title>Living Worlds video generator is back online</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-26:Living Worlds video generator is back online</guid>
