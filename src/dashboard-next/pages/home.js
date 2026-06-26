@@ -458,6 +458,8 @@ async function loadTradingOverview(host) {
 	const oBestAth     = oStats.best_ath != null ? Number(oStats.best_ath) : null;
 	const oPrimeCount  = Number(oStats.prime_count)  || 0;
 	const oOpenActions = Number(oStats.open_actions) || 0;
+	const oStrongCount = Number(oStats.strong_count) || 0;
+	const oTotalWins   = Number(oStats.total_wins)   || 0;
 
 	const oValueText = oScored24h > 0
 		? `${oScored24h.toLocaleString()} <span class="dnx-tc-unit">scored today</span>`
@@ -472,6 +474,11 @@ async function loadTradingOverview(host) {
 			: oOpenActions > 0
 				? `<span>${oOpenActions} open action${oOpenActions !== 1 ? 's' : ''}</span>`
 				: '<span class="dnx-tc-arm-cta">Arm an agent →</span>';
+	const oMeta3 = oTotalWins > 0
+		? `<span>${oTotalWins} total win${oTotalWins !== 1 ? 's' : ''} · ${oStrongCount} strong</span>`
+		: oPrimeCount > 0
+			? `<span>${oPrimeCount} prime · ${oStrongCount} strong</span>`
+			: '';
 
 	cards.innerHTML = `
 		<a class="dnx-tc" href="/dashboard/sniper">
@@ -487,7 +494,7 @@ async function loadTradingOverview(host) {
 		<a class="dnx-tc" href="${oPrimePick ? `/oracle?mint=${encodeURIComponent(oPrimePick.mint)}` : '/oracle'}">
 			<div class="dnx-tc-label">Oracle</div>
 			<div class="dnx-tc-value">${oValueText}</div>
-			<div class="dnx-tc-meta">${oMeta1}${oMeta2}</div>
+			<div class="dnx-tc-meta">${oMeta1}${oMeta2}${oMeta3 ? oMeta3 : ''}</div>
 		</a>
 		<a class="dnx-tc" href="/dashboard/copy">
 			<div class="dnx-tc-label">Copy trading</div>

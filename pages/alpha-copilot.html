@@ -65,6 +65,14 @@
 				</ul>
 			</section>
 
+			<!-- Live oracle context bar -->
+			<div class="acp-oracle-bar" id="acp-oracle-bar" hidden>
+				<div class="acp-oracle-kpi"><span class="acp-oracle-kpi-val" id="acp-armed">—</span><span class="acp-oracle-kpi-lbl">Agents armed</span></div>
+				<div class="acp-oracle-kpi"><span class="acp-oracle-kpi-val" id="acp-scored">—</span><span class="acp-oracle-kpi-lbl">Scored today</span></div>
+				<div class="acp-oracle-kpi"><span class="acp-oracle-kpi-val pos" id="acp-wr">—</span><span class="acp-oracle-kpi-lbl">Win rate</span></div>
+				<div class="acp-oracle-kpi"><span class="acp-oracle-kpi-val" id="acp-wins">—</span><span class="acp-oracle-kpi-lbl">Total wins</span></div>
+			</div>
+
 			<!-- Agent picker: a real gallery of public agents, not a bare UUID box -->
 			<section class="ac-pick" aria-label="Choose an agent">
 				<div class="ac-pick-head">
@@ -146,6 +154,21 @@
 		</div>
 
 		<script type="module" src="/src/alpha-copilot.js"></script>
+		<script>
+			// Live oracle context — shows agents scored/armed so visitors know the oracle is active.
+			fetch('/api/oracle/stats').then(r=>r.ok?r.json():null).then(d=>{
+				if(!d) return;
+				var bar=document.getElementById('acp-oracle-bar');
+				if(!bar) return;
+				var fmt=n=>n>=1e3?(n/1e3).toFixed(1)+'K':String(n||0);
+				var s=(id,v)=>{var e=document.getElementById(id);if(e)e.textContent=v;};
+				s('acp-armed',fmt(d.agents_armed));
+				s('acp-scored',fmt(d.scored_24h));
+				s('acp-wr',d.win_rate!=null?d.win_rate+'%':'—');
+				s('acp-wins',fmt(d.total_wins));
+				bar.hidden=false;
+			}).catch(()=>{});
+		</script>
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>

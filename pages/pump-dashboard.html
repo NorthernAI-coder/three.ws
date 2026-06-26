@@ -156,6 +156,11 @@
 			.pd-oracle-empty a { color: var(--accent, #7c83ff); }
 			.pd-oracle-sk { height: 60px; background: linear-gradient(90deg, rgba(255,255,255,.03) 25%, rgba(255,255,255,.06) 37%, rgba(255,255,255,.03) 63%); background-size: 400% 100%; animation: pd-sk 1.4s infinite; border-bottom: 1px solid var(--line, rgba(255,255,255,.07)); }
 			@keyframes pd-sk { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+			.pd-oracle-stats-row { display:grid; grid-template-columns:repeat(5,1fr); gap:1px; background:var(--line,rgba(255,255,255,.07)); border-bottom:1px solid var(--line,rgba(255,255,255,.07)); }
+			.pd-oracle-stat { padding:10px 12px; background:var(--surface-0,#0d0f14); display:flex; flex-direction:column; gap:2px; }
+			.pd-oracle-stat-val { font:700 14px/1 var(--font-mono,monospace); color:var(--text,#e8e8e8); }
+			.pd-oracle-stat-val.positive { color:#34d399; }
+			.pd-oracle-stat-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted,#888); }
 		</style>
 
 		<meta name="twitter:card" content="summary_large_image" />
@@ -627,6 +632,13 @@
 								<h2>High conviction <span class="pd-oracle-live-dot" aria-hidden="true"></span></h2>
 								<div class="pd-spacer"></div>
 								<a class="pd-btn pd-btn-sm" href="/oracle" style="font-size:11px">Oracle →</a>
+							</div>
+							<div class="pd-oracle-stats-row" id="pd-oracle-stats-row">
+								<div class="pd-oracle-stat"><span class="pd-oracle-stat-val" id="pds-agents">—</span><span class="pd-oracle-stat-lbl">Armed</span></div>
+								<div class="pd-oracle-stat"><span class="pd-oracle-stat-val" id="pds-scored">—</span><span class="pd-oracle-stat-lbl">Scored 24h</span></div>
+								<div class="pd-oracle-stat"><span class="pd-oracle-stat-val positive" id="pds-winrate">—</span><span class="pd-oracle-stat-lbl">Win rate</span></div>
+								<div class="pd-oracle-stat"><span class="pd-oracle-stat-val" id="pds-open">—</span><span class="pd-oracle-stat-lbl">Open</span></div>
+								<div class="pd-oracle-stat"><span class="pd-oracle-stat-val" id="pds-ath">—</span><span class="pd-oracle-stat-lbl">Best ATH</span></div>
 							</div>
 							<div class="pd-panel-body no-pad">
 								<div id="pd-oracle-feed" class="pd-oracle-feed">
@@ -5264,6 +5276,18 @@
 			document.addEventListener('DOMContentLoaded', () => {
 				loadOracleFeed();
 				setInterval(loadOracleFeed, 90_000);
+
+				// Oracle stats strip
+				fetch('/api/oracle/stats').then(r => r.ok ? r.json() : null).then(d => {
+					if (!d) return;
+					const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+					const fmt = n => n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n||0);
+					set('pds-agents', fmt(d.agents_armed));
+					set('pds-scored', fmt(d.scored_24h));
+					set('pds-winrate', d.win_rate != null ? d.win_rate+'%' : '—');
+					set('pds-open', fmt(d.open_actions));
+					set('pds-ath', d.best_ath != null ? d.best_ath.toFixed(1)+'×' : '—');
+				}).catch(()=>{});
 			});
 		})();
 		</script>

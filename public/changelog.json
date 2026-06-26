@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T19:59:37.950Z",
+	"generated_at": "2026-06-26T20:03:46.147Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -403,6 +403,17 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Oracle activity data across every surface — 8 pages now show live win rates, agents armed, and platform stats",
+			"summary": "Live oracle data now reaches every major page visitors touch: the Pump Dashboard oracle panel has a 5-cell stats header (armed agents, scored 24h, win rate, open trades, best ATH); the Activity page gains three new KPIs (prime coins, strong coins, all-time scored) bringing its count to 9; every agent detail page shows a platform context bar (agents live, platform win rate, oracle wins, scored today); Coin Intel gets a live oracle strip at the top; Alpha Co-pilot shows agents armed, scored today, win rate, and total wins as social proof; the Leaderboard summary adds oracle win rate and scored today to its header strip; the Oracle page statline gains open trades and total wins cells; the dashboard-next Oracle card now shows strong count and total wins; and the Analytics modal during agent creation shows a live oracle trading stats row alongside the platform metrics.",
+			"link": "/activity",
+			"tags": [
+				"improvement",
+				"feature"
 			]
 		},
 		{
