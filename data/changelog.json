@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Brain page simplified — pick a personality in one tap",
+			"summary": "Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.",
+			"tags": ["improvement"],
+			"link": "/brain"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Agent editor redesigned — one unified page instead of 15 sidebar tabs",
 			"summary": "The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.",
 			"tags": ["improvement"],

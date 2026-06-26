@@ -417,9 +417,14 @@ async function handleWallet(req, res, id) {
 			};
 			await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
 		} else if (!meta.solana_address) {
-			const sol = await generateSolanaAgentWallet();
-			meta = { ...meta, solana_address: sol.address, encrypted_solana_secret: sol.encrypted_secret, solana_wallet_source: 'generated' };
-			await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
+			try {
+				const sol = await generateSolanaAgentWallet();
+				meta = { ...meta, solana_address: sol.address, encrypted_solana_secret: sol.encrypted_secret, solana_wallet_source: 'generated' };
+				await sql`UPDATE agent_identities SET meta = ${JSON.stringify(meta)}::jsonb WHERE id = ${id}`;
+			} catch (e) {
+				console.error('[agents/solana] wallet generation failed', e);
+				return serverError(res, 502, 'provision_failed', e);
+			}
 		}
 	}
 

@@ -79,6 +79,14 @@
 			<description>Your avatar no longer stands frozen in a stiff T-pose while you dress it. Avatar Studio now plays a natural looping idle the moment it loads — proof the avatar is fully rigged — and a new Animate tab lets you drive the rig live: 16 curated motions including Idle, Wave, Cheer, Celebrate, Flex, Dance, Shuffle, Rumba, Thriller, Capoeira and more. Looping motions become your avatar's resting idle, so when you Save, your avatar is captured in the relaxed stance you chose rather than a rigid pose. One-shot moves like Wave and Celebrate play once and settle back to idle automatically.</description>
 		</item>
 		<item>
+			<title>Brain page simplified — pick a personality in one tap</title>
+			<link>https://three.ws/brain</link>
+			<guid isPermaLink="false">2026-06-26:Brain page simplified — pick a personality in one tap</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.</description>
+		</item>
+		<item>
 			<title>Claim Wallet is now a full Wallet Intelligence dashboard</title>
 			<link>https://three.ws/claim-wallet</link>
 			<guid isPermaLink="false">2026-06-26:Claim Wallet is now a full Wallet Intelligence dashboard</guid>
