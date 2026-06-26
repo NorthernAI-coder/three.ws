@@ -8227,6 +8227,15 @@
 			"link": "/dashboard"
 		},
 		{
+			"date": "2026-06-26",
+			"title": "Integrations gallery — drop 3D agents into any site",
+			"summary": "New /integrations page showcasing six ready-to-use embeds: 3D Avatar Viewer (web component), Talking Chat Agent (like PumpBot), Walk Companion (floating corner mascot), Page Narrator, Token Market Widget, and MCP Server. Each card includes a live preview, category filter, difficulty rating, and a one-click copy code snippet. One script tag is all it takes to bring any of these to any site.",
+			"tags": [
+				"feature"
+			],
+			"link": "/integrations"
+		},
+		{
 			"date": "2026-06-25",
 			"title": "Avatar embodiment: expressions, lipsync, and expanded emotes",
 			"summary": "Avatars on three.ws now feel alive. Facial expressions (happy, sad, surprised, angry, thinking, neutral) are driven by blendshapes or brow-bone fallback — every emotion is automatically matched to the right face and a body gesture. Audio-driven lipsync syncs mouth movement to speech in real time, with a text-envelope fallback when no audio is available. The animation library gained new emotes (nod, shrug, jog, celebrate) and the state machine adds listen and think postures for more natural conversational presence. All existing clip IDs and AnimationManager APIs are unchanged.",

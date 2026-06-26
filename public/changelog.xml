@@ -23,6 +23,14 @@
 			<description>A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.</description>
 		</item>
 		<item>
+			<title>Integrations</title>
+			<link>https://three.ws/integrations</link>
+			<guid isPermaLink="false">2026-06-26:Integrations</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.</description>
+		</item>
+		<item>
 			<title>Splat Viewer — Photoreal Gaussian Avatars</title>
 			<link>https://three.ws/splat</link>
 			<guid isPermaLink="false">2026-06-26:Splat Viewer — Photoreal Gaussian Avatars</guid>
@@ -245,6 +253,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.</description>
+		</item>
+		<item>
+			<title>Integrations gallery — drop 3D agents into any site</title>
+			<link>https://three.ws/integrations</link>
+			<guid isPermaLink="false">2026-06-26:Integrations gallery — drop 3D agents into any site</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New /integrations page showcasing six ready-to-use embeds: 3D Avatar Viewer (web component), Talking Chat Agent (like PumpBot), Walk Companion (floating corner mascot), Page Narrator, Token Market Widget, and MCP Server. Each card includes a live preview, category filter, difficulty rating, and a one-click copy code snippet. One script tag is all it takes to bring any of these to any site.</description>
 		</item>
 		<item>
 			<title>Launchpad is now an actual launchpad — mint a coin right on the page</title>

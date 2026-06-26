@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T19:51:04.595Z",
+	"generated_at": "2026-06-26T19:59:37.950Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "Avatar Engines Atlas",
 			"summary": "A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.",
 			"link": "/avatar-engines",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "launch",
+			"title": "Integrations",
+			"summary": "Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.",
+			"link": "/integrations",
 			"tags": [
 				"launch"
 			]
@@ -319,6 +329,16 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Integrations gallery — drop 3D agents into any site",
+			"summary": "New /integrations page showcasing six ready-to-use embeds: 3D Avatar Viewer (web component), Talking Chat Agent (like PumpBot), Walk Companion (floating corner mascot), Page Narrator, Token Market Widget, and MCP Server. Each card includes a live preview, category filter, difficulty rating, and a one-click copy code snippet. One script tag is all it takes to bring any of these to any site.",
+			"link": "/integrations",
+			"tags": [
+				"feature"
 			]
 		},
 		{

@@ -396,6 +396,14 @@
 					"added": "2026-05-20"
 				},
 				{
+					"path": "/integrations",
+					"title": "Integrations",
+					"description": "Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-26"
+				},
+				{
 					"path": "/features",
 					"title": "Features",
 					"description": "Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.",
