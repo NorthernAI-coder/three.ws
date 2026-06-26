@@ -12,6 +12,7 @@ import { getOpenPositions } from './strategy-store.js';
 import { executeSell } from './executor.js';
 import { quoteAmmSell } from './amm-exit.js';
 import { decideExit } from './exit-logic.js';
+import { screenPush } from './screen-push.js';
 
 async function tickPosition(cfg, pos) {
 	// Kill-switch flipped while holding → exit at market now.
@@ -36,6 +37,11 @@ async function tickPosition(cfg, pos) {
 		SET last_value_lamports = ${Math.round(value)}, peak_value_lamports = ${Math.round(peak)}, last_quoted_at = now()
 		WHERE id = ${pos.id}
 	`;
+
+	const entry = Number(pos.entry_quote_lamports || 0);
+	const pnlPct = entry > 0 ? ((value - entry) / entry) * 100 : 0;
+	const sym = (pos.symbol || pos.mint.slice(0, 6)).toUpperCase();
+	screenPush(`$${sym}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}% P&L — monitoring`, 'trade');
 
 	const reason = decideExit(pos, value, peak);
 	if (reason) await executeSell({ cfg, position: pos, reason });

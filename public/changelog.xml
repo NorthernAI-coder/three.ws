@@ -87,6 +87,14 @@
 			<description>Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.</description>
 		</item>
 		<item>
+			<title>Agent Screen Caster — standalone Playwright service streams live browser sessions to any watching agent profile</title>
+			<link>https://three.ws/dashboard-next/watch</link>
+			<guid isPermaLink="false">2026-06-26:Agent Screen Caster — standalone Playwright service streams live browser sessions to any watching agent profile</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new long-running Node.js service (services/agent-screen-caster) lets any agent process drive a real Chromium browser and stream what it sees — frame by frame — to three.ws. The AgentScreenCaster class wraps Playwright: it captures JPEG screenshots every 400 ms, compresses them to ~50 KB, and POSTs them to /api/agent/screen-push. Named actions (navigate, click, trade) push both a frame and a structured activity record so the watch panel shows what the agent is doing in plain language. Two built-in tasks ship out of the box: pump-monitor watches a pump.fun coin page and fires an activity event on every price change detected via DOM mutation; trade drives Jupiter, Raydium, or pump.fun swap UIs to submit real on-chain transactions. Run anywhere Docker runs — the Dockerfile uses the official Playwright Jammy image so Chromium and all system dependencies are pre-installed. Multiple agents can share one process as separate AgentScreenCaster instances.</description>
+		</item>
+		<item>
 			<title>Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</title>
 			<link>https://three.ws/alpha-copilot</link>
 			<guid isPermaLink="false">2026-06-26:Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</guid>
@@ -141,6 +149,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.</description>
+		</item>
+		<item>
+			<title>Browser capture worker — agents can now stream real browser sessions to the live screen feed</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-26:Browser capture worker — agents can now stream real browser sessions to the live screen feed</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A new worker (workers/agent-screen-worker) connects a Stagehand-driven browser session to the agent screen stream. The worker navigates the web autonomously, captures screenshots on every meaningful state change, and pushes both frames and plain-text activity narration to /api/agent-screen-push. Supports two modes: local Playwright (Docker, self-hosted) and Browserbase cloud (zero-infra, just set an API key). Swap in any task in task-runner.js — the default scans pump.fun for trending tokens and narrates each step.</description>
 		</item>
 		<item>
 			<title>Claim Wallet is now a full Wallet Intelligence dashboard</title>
@@ -237,6 +253,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Going to /launchpad used to drop you into a page-builder studio instead of letting you launch anything. Now it's a real launchpad, like it should be: the live coin launcher is front and center, so you pick your agent, set the name, ticker, and image, and mint a Pump.fun coin straight from your wallet — creator fees route to you. Live launches from three.ws agents show right below it. The white-label page builder (hosted token page, paid concierge, gated 3D showroom) is still there as an optional add-on, not the main event. Token-launchpad pages also carry your coin details into the launch flow pre-filled and flip from &quot;Launch&quot; to a one-click &quot;Trade&quot; once your coin is live.</description>
+		</item>
+		<item>
+			<title>Live oracle activity on marketplace and home — win rates, agents armed, and trades scored surface across the platform</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-26:Live oracle activity on marketplace and home — win rates, agents armed, and trades scored surface across the platform</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Platform activity is now visible where users browse. The marketplace now shows a live strip above the agent grid with five oracle stats: agents currently armed, coins scored in the last 24 hours, platform win rate, open trades, and total oracle wins — all pulled live from the oracle engine. Agent cards that have oracle trading history now display a win-rate badge so you can spot proven performers at a glance. The home page platform section gets the same five-number panel so first-time visitors immediately see that the oracle is active.</description>
 		</item>
 		<item>
 			<title>Living Worlds video generator is back online</title>

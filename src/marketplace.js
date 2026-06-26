@@ -4555,6 +4555,15 @@ function renderAvatarCard(a, spotlight = false) {
 // Rare-pedigree badge — marks a bred agent by its lineage tier. Uncommon and up
 // only, so the badge stays a genuine signal of scarcity (deep pedigree, emergent
 // skills) rather than noise on every card. Links into the agent's lineage.
+function oracleBadgeHTML(oracle) {
+	if (!oracle || oracle.total < 3) return '';
+	const wr = oracle.win_rate;
+	if (wr == null) return '';
+	const isGood = wr >= 50;
+	const title = `Oracle: ${oracle.total} trades · ${oracle.wins} wins · ${wr.toFixed(1)}% win rate`;
+	return `<span class="oracle-badge${isGood ? '' : ' neutral'}" title="${escapeHtml(title)}">⚡ ${wr.toFixed(0)}% win rate</span>`;
+}
+
 function pedigreeBadgeHTML(a) {
 	const g = a.genome;
 	if (!g || !g.bred || !g.pedigree_tier) return '';
@@ -4630,6 +4639,7 @@ function renderCard(a) {
 			${buyers > 0 ? `<span class="stat-pill" title="${buyers} confirmed purchase${buyers === 1 ? '' : 's'}${buyers24h ? `, ${buyers24h} in last 24h` : ''}">$ ${fmtNumber(buyers)}${buyers24h > 0 ? ` <em>(+${buyers24h}/24h)</em>` : ''}</span>` : ''}
 			${skillPriceBadge}
 			${!skillPriceBadge && paid ? `<span class="stat-pill paid-badge">$ Paid</span>` : ''}
+			${oracleBadgeHTML(a.oracle)}
 			${walletChipHTML(a, { isOwner: false, showPending: false, link: true })}
 		</div>
 		<div class="footer">
@@ -7912,6 +7922,7 @@ function init() {
 	loadCategories();
 	loadList(true);
 	loadTheme();
+	loadOracleStats();
 	initPlugins();
 	fetchUserPurchases();
 	loadCurrentUser();
@@ -8520,6 +8531,35 @@ function showPluginUrlError(msg) {
 }
 
 // ── Plugin init / wiring ──────────────────────────────────────────────────────
+
+// ── Platform activity strip ────────────────────────────────────────────────
+
+async function loadOracleStats() {
+	const strip = $('market-activity-strip');
+	if (!strip) return;
+	try {
+		const r = await fetch('/api/oracle/stats', { headers: { accept: 'application/json' } });
+		if (!r.ok) return;
+		const d = await r.json();
+		if (!d) return;
+
+		const setKpi = (id, val) => {
+			const el = $(id);
+			if (!el) return;
+			el.textContent = val;
+			el.classList.remove('loading');
+		};
+
+		setKpi('mkt-stat-agents', fmtNumber(d.agents_armed ?? 0));
+		setKpi('mkt-stat-scored', fmtNumber(d.scored_24h ?? 0));
+		setKpi('mkt-stat-winrate', d.win_rate != null ? `${Number(d.win_rate).toFixed(0)}%` : '—');
+		setKpi('mkt-stat-actions', fmtNumber(d.open_actions ?? 0));
+		setKpi('mkt-stat-wins', fmtNumber(d.total_wins ?? 0));
+		strip.hidden = false;
+	} catch {
+		// non-fatal — strip stays hidden
+	}
+}
 
 function initPlugins() {
 	// Add by URL button

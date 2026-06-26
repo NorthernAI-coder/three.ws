@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T18:45:53.543Z",
+	"generated_at": "2026-06-26T19:51:04.595Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -111,6 +111,17 @@
 		{
 			"date": "2026-06-26",
 			"type": "update",
+			"title": "Agent Screen Caster — standalone Playwright service streams live browser sessions to any watching agent profile",
+			"summary": "A new long-running Node.js service (services/agent-screen-caster) lets any agent process drive a real Chromium browser and stream what it sees — frame by frame — to three.ws. The AgentScreenCaster class wraps Playwright: it captures JPEG screenshots every 400 ms, compresses them to ~50 KB, and POSTs them to /api/agent/screen-push. Named actions (navigate, click, trade) push both a frame and a structured activity record so the watch panel shows what the agent is doing in plain language. Two built-in tasks ship out of the box: pump-monitor watches a pump.fun coin page and fires an activity event on every price change detected via DOM mutation; trade drives Jupiter, Raydium, or pump.fun swap UIs to submit real on-chain transactions. Run anywhere Docker runs — the Dockerfile uses the official Playwright Jammy image so Chromium and all system dependencies are pre-installed. Multiple agents can share one process as separate AgentScreenCaster instances.",
+			"link": "/dashboard-next/watch",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
 			"title": "Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed",
 			"summary": "The Alpha Co-pilot page has been fully redesigned. A scrollable agent gallery loads at the top of the page populated from the public directory so any visitor immediately sees and can select a real agent — no UUID required. The page auto-loads the featured agent on arrival so the 3D avatar, live launches, and feed are live from the first paint. Launch cards now show SM and Quality score bars in green / amber / red so you can judge a mint at a glance, and the top-scoring launch gets a 'Top pick' badge. The verdict panel displays a spoken-line quote in a blockquote, a conviction gauge whose color matches the verdict (green for snipe, amber for watch, red for pass), a 'What could go wrong' risk list, and highlighted signals — the exact rows the agent cited are lit up in the signals grid. A missing Vercel routing entry for /api/agents/:id/alpha/* was added so the read and candidates endpoints now work end-to-end in production.",
 			"link": "/alpha-copilot",
@@ -181,6 +192,17 @@
 			"link": "/brain",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Browser capture worker — agents can now stream real browser sessions to the live screen feed",
+			"summary": "A new worker (workers/agent-screen-worker) connects a Stagehand-driven browser session to the agent screen stream. The worker navigates the web autonomously, captures screenshots on every meaningful state change, and pushes both frames and plain-text activity narration to /api/agent-screen-push. Supports two modes: local Playwright (Docker, self-hosted) and Browserbase cloud (zero-infra, just set an API key). Swap in any task in task-runner.js — the default scans pump.fun for trending tokens and narrates each step.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{
@@ -307,6 +329,17 @@
 			"link": "/launchpad",
 			"tags": [
 				"fix",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Live oracle activity on marketplace and home — win rates, agents armed, and trades scored surface across the platform",
+			"summary": "Platform activity is now visible where users browse. The marketplace now shows a live strip above the agent grid with five oracle stats: agents currently armed, coins scored in the last 24 hours, platform win rate, open trades, and total oracle wins — all pulled live from the oracle engine. Agent cards that have oracle trading history now display a win-rate badge so you can spot proven performers at a glance. The home page platform section gets the same five-number panel so first-time visitors immediately see that the oracle is active.",
+			"link": "/marketplace",
+			"tags": [
+				"improvement",
 				"feature"
 			]
 		},

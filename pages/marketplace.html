@@ -2259,6 +2259,80 @@
 			@media (max-width: 640px) {
 				.market-pulse-label span:not(.market-pulse-dot) { display: none; }
 			}
+
+			/* ── Platform activity strip ──────────────────────────────────── */
+			.market-activity-strip {
+				display: flex;
+				align-items: center;
+				gap: 0;
+				margin: 0 0 14px;
+				border: 1px solid var(--stroke);
+				border-radius: 12px;
+				overflow: hidden;
+				background: var(--surface-1);
+			}
+			.market-activity-kpi {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				padding: 10px 20px;
+				flex: 1 1 0;
+				min-width: 0;
+				border-right: 1px solid var(--stroke);
+				gap: 2px;
+			}
+			.market-activity-kpi:last-child { border-right: none; }
+			.market-activity-kpi-value {
+				font-size: 16px;
+				font-weight: 700;
+				color: var(--text);
+				letter-spacing: -0.02em;
+				white-space: nowrap;
+			}
+			.market-activity-kpi-value.positive { color: #34d399; }
+			.market-activity-kpi-value.loading { color: var(--text-3); }
+			.market-activity-kpi-label {
+				font-size: 10px;
+				font-weight: 500;
+				color: var(--text-3);
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				white-space: nowrap;
+			}
+			.market-activity-kpi-dot {
+				display: inline-block;
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--accent, #34d399);
+				margin-right: 5px;
+				animation: market-pulse-blink 2s ease-out infinite;
+				vertical-align: middle;
+			}
+			@media (max-width: 600px) {
+				.market-activity-strip { display: none; }
+			}
+
+			/* ── Oracle win-rate badge on agent cards ─────────────────────── */
+			.oracle-badge {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 3px 8px;
+				border-radius: 999px;
+				font-size: 11px;
+				font-weight: 600;
+				background: color-mix(in srgb, #34d399 12%, transparent);
+				color: #34d399;
+				border: 1px solid color-mix(in srgb, #34d399 25%, transparent);
+			}
+			.oracle-badge.neutral {
+				background: color-mix(in srgb, #a1a1aa 10%, transparent);
+				color: #a1a1aa;
+				border-color: color-mix(in srgb, #a1a1aa 20%, transparent);
+			}
+
 			.market-anim-card {
 				background: var(--surface-1);
 				border: 1px solid var(--stroke);
@@ -3085,6 +3159,30 @@
 				></div>
 
 				<div class="market-tag-banner" id="market-tag-banner" role="status" hidden></div>
+
+				<!-- Platform activity strip — live oracle stats -->
+				<div class="market-activity-strip" id="market-activity-strip" hidden>
+					<div class="market-activity-kpi">
+						<span class="market-activity-kpi-value loading" id="mkt-stat-agents">—</span>
+						<span class="market-activity-kpi-label">Agents live</span>
+					</div>
+					<div class="market-activity-kpi">
+						<span class="market-activity-kpi-value loading" id="mkt-stat-scored">—</span>
+						<span class="market-activity-kpi-label">Scored today</span>
+					</div>
+					<div class="market-activity-kpi">
+						<span class="market-activity-kpi-value positive loading" id="mkt-stat-winrate">—</span>
+						<span class="market-activity-kpi-label"><span class="market-activity-kpi-dot" aria-hidden="true"></span>Win rate</span>
+					</div>
+					<div class="market-activity-kpi">
+						<span class="market-activity-kpi-value loading" id="mkt-stat-actions">—</span>
+						<span class="market-activity-kpi-label">Open trades</span>
+					</div>
+					<div class="market-activity-kpi">
+						<span class="market-activity-kpi-value loading" id="mkt-stat-wins">—</span>
+						<span class="market-activity-kpi-label">Total wins</span>
+					</div>
+				</div>
 
 				<aside
 					class="market-pulse"
