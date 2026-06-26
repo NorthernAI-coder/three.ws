@@ -422,10 +422,25 @@ export async function handleGetOne(req, res, id) {
 
 		// Skill prices come from the cache (1h TTL, invalidated on price edits)
 		// rather than an inline subquery, so the dominant repeat read on this hot
-		// path never touches agent_skill_prices once the agent is warm.
-		row.skill_prices = skillPriceMap(await getSkillPrices(id));
+		// path never touches agent_skill_prices once the agent is warm. Pricing is
+		// decoration: a cache-backend hiccup or agent_skill_prices read failure must
+		// never 500 the whole profile (the frontend renders that as "Couldn't load
+		// this agent"). Degrade to an empty price map and keep serving the agent.
+		try {
+			row.skill_prices = skillPriceMap(await getSkillPrices(id));
+		} catch (err) {
+			console.warn('[agents] skill_prices lookup failed, defaulting to {}:', err?.message);
+			row.skill_prices = {};
+		}
 
-		await healStaleAvatarId(row);
+		// Self-heal of a dangling avatar_id is opportunistic maintenance, not part
+		// of the read contract. If the avatars probe throws, leave avatar_id as-is
+		// and let the frontend fall back to its placeholder — never fail the fetch.
+		try {
+			await healStaleAvatarId(row);
+		} catch (err) {
+			console.warn('[agents] healStaleAvatarId failed, leaving avatar_id intact:', err?.message);
+		}
 
 		// chat_count is supplementary decoration on the agent record — never let
 		// a usage-stats query failure (e.g. usage_events not yet migrated, code

@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Fixed the marketplace's collapsed layout for good",
+			"summary": "The marketplace could load with its whole layout collapsed — the navigation crammed into overlapping text and the section tabs (Agent, Avatars, Tools, Skills, and the rest) stacked into a plain full-width list with the agent grid squeezed into a narrow strip or missing entirely. The real cause was structural, not a caching hiccup: the page is built as a two-column grid (a 240px sidebar beside the main content), and the global navigation bar was quietly claiming the sidebar's column, shoving the sidebar and main content into the wrong places. The navigation now spans the full width as intended, so the sidebar and the agent/avatar grid always land in their correct columns. The marketplace renders right on the very first load, every time.",
+			"tags": ["fix"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Dashboard Overview now leads with your live numbers",
+			"summary": "The dashboard home page used to open with a row of avatar thumbnails, pushing your actual metrics below the fold. It now leads with your key numbers — 7-day revenue, widget views, chats, and active avatars — each with a momentum chip (▲/▼ with the percent change across the week) and a colored sparkline that's green when a metric is trending up and red when it's falling, so you can read your week at a glance. The header gained a clear primary action (Create avatar) plus a New widget shortcut and today's date, filling space that was previously empty. Your avatars, autonomous-trading status, agent health, and recent activity all still live one glance further down.",
+			"tags": ["improvement"],
+			"link": "/dashboard"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Marketplace no longer loads with a broken layout after an update",
+			"summary": "After we shipped a site update, returning visitors could occasionally land on a page that looked broken — the top navigation collapsed into overlapping text and the marketplace tabs (including Animations) stacked into a plain vertical list instead of the real design. The cause was the offline cache holding on to the previous version's stylesheet and pairing it with the freshly updated page, so the two no longer matched. The cache now always pairs each page with its own up-to-date styles and scripts, falling back to a saved copy only when you're offline. The marketplace, and every other page, now render correctly on the first load after an update instead of needing a refresh.",
+			"tags": ["fix"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Agent profile pages no longer fail to load over a hiccup",
+			"summary": "Opening an agent's profile (/agents/<id>) could show a full-page \"Couldn't load this agent\" error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.",
+			"tags": ["fix"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Coin pages now show price moves and on-chain safety at a glance",
 			"summary": "Every coin's launch page (/launches/<mint>) gained a richer market header. A new metrics strip shows price moves across 5m, 1h, 6h, and 24h — computed live from real trade history, and only quoting a window once there's enough history to back it, so a brand-new coin never shows a fake 24h number. Alongside it, an on-chain safety panel surfaces the same checks the autonomous sniper runs before trading: whether the mint and freeze authorities are revoked (can the dev print more supply or freeze your tokens?), where real liquidity sits, and an overall 0–100 safety score. The coin header also now lists total supply. On the /launches feed, every card leads with the coin's age, the same at-a-glance freshness cue pro terminals open with.",
 			"tags": ["feature", "improvement"],

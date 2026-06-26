@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T11:55:28.746Z",
+	"generated_at": "2026-06-26T12:23:53.168Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -66,6 +66,16 @@
 			"link": "/agent-edit",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Agent profile pages no longer fail to load over a hiccup",
+			"summary": "Opening an agent's profile (/agents/<id>) could show a full-page \"Couldn't load this agent\" error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.",
+			"link": "/agents",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -189,6 +199,16 @@
 		{
 			"date": "2026-06-26",
 			"type": "update",
+			"title": "Dashboard Overview now leads with your live numbers",
+			"summary": "The dashboard home page used to open with a row of avatar thumbnails, pushing your actual metrics below the fold. It now leads with your key numbers — 7-day revenue, widget views, chats, and active avatars — each with a momentum chip (▲/▼ with the percent change across the week) and a colored sparkline that's green when a metric is trending up and red when it's falling, so you can read your week at a glance. The header gained a clear primary action (Create avatar) plus a New widget shortcut and today's date, filling space that was previously empty. Your avatars, autonomous-trading status, agent health, and recent activity all still live one glance further down.",
+			"link": "/dashboard",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
 			"title": "Default avatars render again everywhere",
 			"summary": "Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.",
 			"link": null,
@@ -256,6 +276,16 @@
 			"title": "Living Worlds video generator is back online",
 			"summary": "The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.",
 			"link": "/cosmos",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Marketplace no longer loads with a broken layout after an update",
+			"summary": "After we shipped a site update, returning visitors could occasionally land on a page that looked broken — the top navigation collapsed into overlapping text and the marketplace tabs (including Animations) stacked into a plain vertical list instead of the real design. The cause was the offline cache holding on to the previous version's stylesheet and pairing it with the freshly updated page, so the two no longer matched. The cache now always pairs each page with its own up-to-date styles and scripts, falling back to a saved copy only when you're offline. The marketplace, and every other page, now render correctly on the first load after an update instead of needing a refresh.",
+			"link": "/marketplace",
 			"tags": [
 				"fix"
 			]

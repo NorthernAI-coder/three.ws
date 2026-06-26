@@ -37,7 +37,7 @@ graph TD
         Lib["api/_lib/ — 413 shared utilities\ndb.js · auth.js · redis.js · r2.js · x402-spec.js · memory-store.js"]
     end
 
-    APILayer --> Neon["Neon Postgres\n(primary DB)\npgvector · ~260 tables"]
+    APILayer --> Neon["Neon Postgres\n(primary DB)\ncitext · pg_trgm · pgcrypto\n~270 tables · JSONB embeddings"]
     APILayer --> Redis["Upstash Redis REST\n(rate limit + cache)"]
     APILayer --> R2["Cloudflare R2\nGLBs · Audio · Thumbnails · Metadata"]
     APILayer --> MCPSvc["MCP Servers — 8 remote endpoints\n/api/mcp · /api/mcp-3d\n/api/pump-fun-mcp · /api/ibm-mcp · + 4 more"]
@@ -187,10 +187,10 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Surface | Route | HTML | JS Controller | Description |
 |---------|-------|------|---------------|-------------|
 | Home / Landing | `/` | `pages/home.html` | `src/app.js` (partial) | Walk companion, footer-bot, hero stage, live token ticker |
-| 3D Viewer / App | `/app` | `pages/app.html` | `src/app.js` | Core GLB viewer: material editor, texture inspector, scene explorer, magic brush, Runtime LLM brain, widget system, drop-zone upload |
+| 3D Viewer / App | `/app` (`/app-next`) | `pages/app-next.html` | `src/app-next-overlay.js` + `src/next-layout.js` | Core GLB viewer: material editor, texture inspector, scene explorer, magic brush, Runtime LLM brain, widget system, drop-zone upload. Legacy `pages/app.html` (`src/app.js`) is served at `/app-classic` |
 | Agent Edit | `/agent/:id/edit`, `/agent/new` | `pages/agent-edit.html` | `src/agent-edit.js` | Full agent editor: name, description, avatar picker, skills config, wallet chips, mood engine, autopilot brain |
 | Create Agent | `/create-agent` | `pages/create-agent.html` | `src/create-agent.js` | 5-step wizard: Basics → 3D Model → Skills → Personality → Review |
-| Agent Detail | `/agent/:id` | `pages/agent-detail.html` | `src/agent-detail.js` | Live wallet pulse, mirror panel, strategy panel, patronage, validation badge, WebGL avatar, on-chain status, coin launch history |
+| Agent Detail | `/agent/:id` (301 → canonical) | `public/agent/index.html` (`src/agent-home.js`); `pages/agent-detail.html` (`src/agent-detail.js`) | `/agent/:id` 301-redirects to the canonical profile (`public/agent/index.html`). Live wallet pulse, mirror panel, strategy panel, patronage, validation badge, WebGL avatar, on-chain status, coin launch history |
 | Agent Wallet Hub | `/agent/:id/wallet` | `pages/agent-wallet.html` | `src/agent-wallet-hub/index.js` | **22-tab** Solana wallet (`src/agent-wallet-hub/tabs/`): Balance, Portfolio, Deposit, Trade, Snipe, Orders, Earn, Autopilot, Intents, Signals, Pay, Vanity, Policy, Withdraw, Give, Access, Recovery, Guard, Proof, **Copilot, Pulse, Reputation** |
 | Agent Mind Palace | `/agent/:id/mind` | `pages/agent-mind.html` | `src/agent-mind.js` + `src/mind-palace.js` | Visual 3D memory graph |
 | Agent Studio | `/agent/:id/studio` | `pages/agent-studio.html` | `src/studio/studio-shell.js` | Tabs: Brain, Memory, Body, Money, Skills |
@@ -341,7 +341,7 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Hydrate (ERC-8004) | `/hydrate` | `public/hydrate/index.html` — on-chain agent hydration tool |
 | Vanity Wallet | `/vanity-wallet` | `public/vanity-wallet.html` — browser-side Solana vanity address grinder |
 | ETH Vanity | `/eth-vanity` | `public/eth-vanity.html` — browser-side EVM vanity address grinder |
-| Brain (Persona Builder) | `/brain` | `pages/brain.html` — 14-provider LLM playground |
+| Brain (Persona Builder) | `/brain` | `pages/brain.html` — 20+ provider LLM playground |
 | IBM Suite | `/ibm/*` | `pages/ibm/` — IBM watsonx.ai integration pages |
 
 ---
@@ -441,7 +441,7 @@ Requests authenticate through one of these gates:
 | `x402-paid-endpoint.js` | `paidEndpoint()` factory — wraps any handler with 402 challenge |
 | `x402.js` | pump.fun agent-payments 402 protocol (separate from CDP x402) |
 | `agent-wallet.js` | Custodial agent keypair load/encrypt/decrypt (AES-256-GCM) |
-| `memory-store.js` | Tiered memory engine (working/recall/archival, pgvector embeddings) |
+| `memory-store.js` | Tiered memory engine (working/recall/archival; JSONB-array embeddings, cosine in JS — no pgvector) |
 | `granite-guardian.js` | IBM Granite Guardian 12-risk taxonomy safety gate |
 | `three-tier.js` | $THREE holder tier resolution (Genesis/Diamond/Platinum/Gold/Silver/Bronze) |
 | `three-gate.js` | $THREE token balance check (Redis-cached 30s, fails open on RPC error) |
@@ -477,7 +477,7 @@ Requests authenticate through one of these gates:
 | `/api/agents/:id/autopilot` | GET/POST | Per-agent autopilot policy config |
 | `/api/agents/:id/memory` | GET/POST/DELETE | Agent memory CRUD |
 | `/api/agents/:id/brain` | GET/PUT | Persona + LLM config |
-| `/api/agents/:id/voice-clone` | POST | ElevenLabs voice clone |
+| `/api/agents/:id/voice` · `/api/agents/:id/voice/clone` | GET/PUT · POST | Voice status/assign/tune; ElevenLabs voice clone (POST `/voice/clone`) |
 | `/api/agents/:id/embed` | GET | Embedding vector (NIM or VoyageAI) |
 | `/api/agents/:id/strategies` | GET/POST | Agent strategy management |
 | `/api/agents/:id/sns` | POST | Mint `*.threews.sol` subdomain |
@@ -600,7 +600,7 @@ Representative endpoints:
 | Endpoint | Description |
 |----------|-------------|
 | `GET/POST/DELETE /api/agent-memory` | Agent memory CRUD; ERC-191 signed writes |
-| `POST /api/memory/search` | Semantic + lexical search over `agent_memories` (pgvector cosine) |
+| `POST /api/memory/search` | Semantic + lexical search over `agent_memories` (JSONB embeddings, cosine computed in JS) |
 | `GET /api/memory/context` | Working-tier token-budgeted context assembly |
 | `POST /api/memory/curate` | Memory curation |
 | `GET /api/memory/graph` | Entity knowledge graph (Zep/Graphiti-style temporal KG) |
@@ -945,7 +945,7 @@ Beyond animated-USDZ export, a full AR stack: `src/ar/webxr.js` (`immersive-ar` 
 
 ## MCP Layer
 
-three.ws exposes **~311 total MCP tools** across a multi-tier server architecture.
+three.ws exposes **~317 total MCP tools** (≈115 remote + 180 domain-package + 22 stdio) across a multi-tier server architecture.
 
 ### MCP Protocol
 
@@ -1421,7 +1421,7 @@ Tiered memory architecture (Letta/MemGPT model):
 | Recall | Semantic search results | ~2000 tokens |
 | Archival | Long-term knowledge graph | Unlimited (paginated) |
 
-**Embeddings:** NVIDIA NIM `nv-embedqa-e5-v5` (primary) · OpenAI `text-embedding-3-small` (backstop) — 1024-dim vectors stored in pgvector.
+**Embeddings:** NVIDIA NIM `nv-embedqa-e5-v5` (primary) · OpenAI `text-embedding-3-small` (backstop) — 1024-dim vectors stored as **JSONB arrays tagged with the embedder** (cosine computed in JS strictly within each embedder space; **no pgvector column**). Postgres extensions in use are `citext`, `pg_trgm`, and `pgcrypto`.
 
 **Memory writes:** signed with agent's EVM wallet (ERC-191) for authorship provenance.
 
@@ -1725,7 +1725,7 @@ three.ws/                        (root package v1.5.2, Node 24.x)
 
 ### Vercel Deployment
 
-**Config:** `vercel.json` — ~350+ route rewrites mapping URL patterns to `api/*.js` handlers.
+**Config:** `vercel.json` — **932 entries** in the legacy `routes` array mapping URL patterns to `api/*.js` handlers and static assets (no `rewrites`/`redirects`/`headers` arrays), plus a 49-entry `functions` block and 61 `crons`.
 
 **Build command:** `npm run build:vercel` (`scripts/build-vercel.mjs`) — esbuild bundles all `api/*.js` functions.
 
@@ -1757,7 +1757,7 @@ three.ws/                        (root package v1.5.2, Node 24.x)
 
 **Driver:** `@neondatabase/serverless` HTTP driver (tagged-template `sql` with composable fragments)
 
-**Schema:** `api/_lib/schema.sql` — ~260 tables (full list in [Complete Database Table Inventory](#complete-database-table-inventory))
+**Schema:** `api/_lib/schema.sql` — ~270 tables (full list in [Database Schema — Complete Table Index](#database-schema--complete-table-index))
 
 **Migrations:** `api/_lib/migrations/` — 234 dated migration files (2026-04-29 through 2026-06-23)
 
@@ -1770,8 +1770,8 @@ Key table groups:
 | Payments | `skill_purchases`, `purchase_receipts`, `x402_payments`, `x402_merchant_settings`, `x402_skus`, `siwx_payments` |
 | Agents | `agent_memories`, `agent_strategies`, `agent_sniper_strategies`, `agent_sniper_positions` |
 | Pump.fun | `pump_agent_mints`, `pump_coin_intel`, `oracle_conviction`, `oracle_narrative`, `wallet_reputation`, `coin_smart_money` |
-| Market | `market_maker_policies`, `dca_strategies`, `copy_follows`, `mirror_strategies`, `swarms`, `vaults` |
-| Community | `agora_citizens`, `agora_activity`, `clash_rounds`, `tournaments`, `labor_bounties` |
+| Market | `market_maker_policies`, `dca_strategies`, `copy_subscriptions`/`copy_executions`, `agent_mirror_follows`/`agent_mirror_fills`, `swarms`, `agent_vaults` |
+| Community | `agora_citizens`, `agora_activity`, `clash_battles`, `tournaments`/`tournament_entries`, `agent_bounties`/`agent_jobs` |
 | x402 | `x402_pump_launches`, `x402_checkout_records`, `bsc_consumed_tx` |
 | Infrastructure | `radar_watchlist`, `radar_events`, `firewall_decisions`, `bot_heartbeat` |
 
@@ -1853,65 +1853,13 @@ Stores: GLBs · audio clips · thumbnails · manifests · OG images · validatio
 
 ### Repository Directory Reference
 
-Every top-level directory in the monorepo, mapped to its purpose and the section that documents it in depth. Surfaces documented elsewhere are cross-referenced rather than re-described.
-
-| Directory | Purpose | Detailed in |
-|-----------|---------|-------------|
-| `api/` | 1,200+ Vercel serverless functions + `api/_lib/` shared layer | [API Layer](#api-layer) |
-| `src/` | Frontend JS modules: page controllers + 60+ subsystem dirs | [Frontend Application](#frontend-application) |
-| `pages/` | 150+ HTML MPA entry points (+ `dashboard-next/` SPA shell) | [Frontend Application](#frontend-application) |
-| `public/` | Static surfaces, well-known files, animation clips, embed apps | [Frontend Application](#frontend-application) |
-| `packages/` | Spec/schema packages + 30+ domain MCP servers (`@three-ws/*`) | [SDK Ecosystem](#sdk-ecosystem) · [MCP Layer](#mcp-layer) |
-| `contracts/` | Anchor (Rust) + Solidity (Foundry) on-chain programs | [On-chain & Solana](#on-chain--solana) |
-| `crates/` | Rust crates (`vanity-grinder`) | [Rust Crates](#rust-crates-crates) |
-| `workers/` | Long-running Node + Python/GPU workers | [Long-Running Workers](#long-running-workers) |
-| `services/` | Standalone always-on services (`pump-graduations` indexer) | [Standalone Services](#standalone-services-services) |
-| `multiplayer/` | Colyseus real-time room server (`@three-ws/multiplayer`, :2567) | [Other Infrastructure](#other-infrastructure) |
-| `infra/` | AWS CDK (TypeScript) — Lambda, S3, CloudWatch | [Other Infrastructure](#other-infrastructure) |
-| `deploy/` | Cloud Run + Docker world deployment configs | [Other Infrastructure](#other-infrastructure) |
-| `sdk/` · `solana-agent-sdk/` · `agent-payments-sdk/` · `agent-protocol-sdk/` · `agent-ui-sdk/` | Cross-chain agent SDKs (published `@three-ws/*`) | [Top-Level SDKs](#top-level-sdks) |
-| `avatar-sdk/` · `walk-sdk/` · `page-agent-sdk/` · `tour-sdk/` | Avatar/embed web-component SDKs | [Top-Level SDKs](#top-level-sdks) |
-| `x402-payment-modal/` · `x402-modal-sdk/` | Drop-in x402 checkout modal SDKs | [Published Modal / Payment SDKs](#published-modal--payment-sdks) |
-| `mcp-server/` · `mcp-bridge/` | Top-level npm stdio MCP servers | [npm stdio MCP Servers](#npm-stdio-mcp-servers) |
-| `apps-sdk/` | OpenAI Apps SDK surface: `embodiment/` helpers + `studio-viewer/` | [Embeds & Plugins](#mobile-embeds--integrations) |
-| `chat/` | `three.ws-chat` — standalone fast, light, BYOK chat UI (own Vite app) | [Embeds & Plugins](#mobile-embeds--integrations) |
-| `chat-plugin/` | `@three-ws/chat-plugin` — LobeHub sidebar plugin (embodied avatar) | [Embeds & Plugins](#mobile-embeds--integrations) |
-| `extensions/` | Browser extension(s): `walk-avatar` | [Embeds & Plugins](#mobile-embeds--integrations) |
-| `integrations/` | DCC/tooling bridges: `blender/`, `comfyui/` nodes, `_pyclient` Python client | [Embeds & Plugins](#mobile-embeds--integrations) |
-| `solana-mobile/` | Seeker dApp Store build: TWA + PWA + publish + `.well-known` | [Mobile, Embeds & Integrations](#mobile-embeds--integrations) |
-| `agents/` | Reference standalone agents: `endpoint-shopper`, `fact-checker`, `tutor`, `unstoppable` | [Reference Agents & Skills](#reference-agents--skills-examples) |
-| `pump-fun-skills/` | Composable pump.fun skill modules: `coin-fees`, `create-coin`, `reactive`, `swap`, `tokenized-agents` | [Reference Agents & Skills](#reference-agents--skills-examples) |
-| `examples/` | Embed/integration demos: `coach-leo` (VR), `agenc-task-roundtrip`, `pump-fun-agent`, `metamask-agent-wallet`, bare-avatar/minimal HTML | [Reference Agents & Skills](#reference-agents--skills-examples) |
-| `marketplace/` | Marketplace plugin assets (`plugins/`) | — |
-| `character-studio/` | Web character creator (fork of `m3-org/CharacterStudio`, MIT) | `STRUCTURE.md` |
-| `animation-sources/` | Mixamo FBX source library (120+ clips) feeding the animation build | [Animation Pipeline](#animation-pipeline-build-time) |
-| `scripts/` | 400+ build, migration, backfill, audit & smoke scripts | [Build, Migration & Audit Scripts](#build-migration--audit-scripts-scripts) |
-| `tests/` | Vitest + Playwright test suite (589 `.test.js`) | [Testing & QA](#testing--qa) |
-| `prompts/` | Numbered manual QA/audit playbooks (production-readiness, dead-paths, a11y, perf…) | [Testing & QA](#testing--qa) |
-| `specs/` | Protocol & format specifications (agent card, manifest, embed, memory, skills…) | [Specifications & Protocol Documents](#specifications--protocol-documents-specs) |
-| `docs/` | 100+ public docs + subdirs (tutorials, roadmap, audits, ux-flows, internal) | [Documentation Map](#documentation-map-docs) |
-| `data/` | Build-time data: `changelog.json`, `pages.json`, `walk-social.json`, ERC-8004 ledgers | [Vite Frontend Build](#vite-frontend-build) |
-| `blog/` | Marketing/blog posts (HTML + Markdown) | — |
-| `content/` | Editorial content schedule (`x-schedule`, manifesto) | — |
-| `snapshots/` | Captured site snapshots for diffing/regression | — |
-| `x402-buildout/` | x402 rollout `PLAN.md` + agent prompts (internal) | — |
-| `my-agents/` | Static landing for the on-chain "My Agents" surface | [Auth, Identity & Discovery](#auth-identity--discovery) |
+The complete top-level directory map — every directory, its purpose, file counts, and where it is documented in depth — lives in [Repository Directory Atlas](#repository-directory-atlas).
 
 ---
 
 ### Testing & QA
 
-**Runner:** `npm test` → `vitest run && playwright test`. The repo holds **589 `.test.js` files** in `tests/`, plus shared `tests/_fixtures/` and `tests/_helpers/`.
-
-| Layer | Tooling | Scope |
-|-------|---------|-------|
-| Unit / integration | Vitest | API handlers, `_lib` utilities, SDK clients, on-chain guards, animation/retarget math, MCP tool shapes |
-| End-to-end | Playwright | Critical browser flows (wallet tabs, agent detail, lipsync, marketplace purchase) |
-| SDK suites | `node --test` | Per-package suites under `packages/*/test/` and the top-level SDKs (216+ green) |
-
-Representative coverage: agent custody/trade guards, A2A payment mandates, sniper/oracle scoring, reflection & dreams, reputation UI, avatar lipsync & retargeting, `glb-canonicalize` rig conventions, agent recovery, monetization & labor economics.
-
-**Manual QA playbooks (`prompts/`):** numbered audit prompts run by agents/engineers before release — production-readiness audit, dead-paths & broken-links, console error/warning sweep, build/deploy artifact integrity, routing & 404 audit, unit + e2e coverage, error-handling failsafes, accessibility, responsive/mobile, and Web-Vitals performance.
+Full test-suite layout (runners, per-directory counts, heaviest-tested subsystems) and the `prompts/` manual QA playbooks are documented under [Testing & Quality Assurance](#testing--quality-assurance) and [Build, Test & Release Pipeline](#build-test--release-pipeline).
 
 ---
 
@@ -2087,13 +2035,13 @@ flowchart TD
     B --> C["recallForChat()"]
     C --> D["api/_lib/memory-store.js computeContext()"]
     D --> E["embedQuery\n(NVIDIA NIM nv-embedqa-e5-v5)"]
-    E --> F["pgvector cosine similarity search\non agent_memories"]
+    E --> F["cosine similarity in JS\n(JSONB embeddings on agent_memories)"]
     F --> G["top-k working + recall tier memories\ninjected into system prompt"]
     G --> H["LLM generates response"]
     H --> I["POST /api/agent-memory { content, type }"]
     I --> J["ERC-191 sign with agent's EVM wallet"]
     J --> K["INSERT agent_memories"]
-    K --> L["lazy: embed content → pgvector update"]
+    K --> L["lazy: embed content → JSONB embedding update"]
 
     subgraph Reflect["reflect-sweep cron (daily)"]
         R1["gatherReflectionContext\n(recent memories)"]
@@ -2395,23 +2343,9 @@ Beyond the page controllers in the Surfaces tables, `src/` contains **62 subsyst
 
 ---
 
-### Agent-Discovery & Well-Known Files (`public/.well-known/`)
+### Agent-Discovery & Well-Known Files
 
-Machine-readable manifests that let agents, crawlers, and wallets discover the platform:
-
-| File | Purpose |
-|------|---------|
-| `3d-agent-card.json` + `.schema.json` | three.ws 3D agent card + its JSON Schema |
-| `agent-card.json` | A2A / agent-card discovery |
-| `agent-registration.json` | Agent registration descriptor |
-| `three-ws-agent.metaplex.json` | Metaplex on-chain agent metadata |
-| `ai-plugin.json` | OpenAI plugin manifest |
-| `lobehub-plugin.json` | LobeHub plugin manifest |
-| `openapi.yaml` | OpenAPI spec for the public API |
-| `validators.json` | Allow-listed GLB-validation authorities |
-| `security.txt` | Security disclosure contact |
-| `x402.json` (served at `/.well-known/x402.json`) | Published x402 payable services (see [Bazaar Marketplace](#bazaar-marketplace)) |
-| `three-vanity.json` | Proof-of-grind vanity certificates (see [Vanity Wallet Protocol](#vanity-wallet-protocol)) |
+The full set of `/.well-known/` manifests (static `public/.well-known/` + dynamic `api/wk.js` / `api/openapi-json.js`) is catalogued under [Agent Discovery & Well-Known Manifests](#agent-discovery--well-known-manifests).
 
 ---
 
@@ -2423,62 +2357,145 @@ Standalone HTML apps and asset roots served directly (not Vite-controller pages)
 
 ### Complete Cron Schedule (`api/cron/`)
 
-**62 scheduled jobs** are declared in `vercel.json` (`crons`). Full inventory by domain (schedule in cron syntax):
-
-| Domain | Job (`/api/cron/…`) — schedule |
-|--------|-------------------------------|
-| Oracle & intel | `oracle-score` `*/2m` · `oracle-digest` `08:00` · `intel-learn` `*/15m` · `reconcile-decisions` `*/10m` · `gmgn-seed` `03:00` |
-| Smart money & reputation | `smart-money-rollup` `*/5m` · `smart-money-graph` `*/10m` · `recompute-reputation` `*/10m` · `trader-score-attest` `09:45` |
-| Pump.fun | `pumpfun-monitor` `*/3m` · `pumpfun-graduations-sync` `*/2m` · `pumpfun-signals` `*/15m` · `pump-agent-stats` `*/10m` · `radar-watchlist` `*/10m` |
-| Buyback & payouts | `run-buyback` `hourly` · `run-distribute-payments` `:30` · `run-three-buyback` `06:00` · `run-coin-cycle` `*/5m` · `run-coin-payouts` `1-59/5m` · `club-payouts` `2-59/5m` · `cosmetic-splits-sweep` `:15` · `settle-royalties` `03:00` · `treasury-autopilot` `:23` |
-| Trading fanout | `copy-fanout` · `mirror-fanout` · `signal-fanout` · `strategy-fanout` (all `*/2m`) · `run-dca` `hourly` |
-| Subscriptions & billing | `run-subscriptions` `hourly` · `process-subscriptions` `*/6h` · `process-withdrawals` `hourly` · `expire-pending-purchases` `*/5m` · `flush-usage-events` `*/1m` |
-| On-chain attest & index | `erc8004-crawl` `*/15m` · `solana-attestations-crawl` `*/10m` · `solana-attest-event-cleanup` `*/10m` · `custody-attest` `17 */6h` · `index-delegations` `*/5m` |
-| Agent lifecycle | `reflect-sweep` `*/30m` · `dead-man-switch` `05:00` · `auto-rig-sweep` `*/5m` · `avaturn-seed-cron` `*/1m` |
-| Forge | `forge-seed-cron` `*/1m` · `forge-smoke` `09:30` |
-| $THREE | `three-holders-snapshot` `*/5m` |
-| IRL & worlds | `irl-drops-refund` `*/10m` · `irl-reap` `:17` · `world-health` `*/15m` |
-| Wallet & custody | `wallet-intents` `*/10m` · `relayer-balance-check` `*/6h` |
-| X (social) | `run-x-scheduled-posts` `*/1m` · `run-x-triggers` `*/5m` · `fetch-x-metrics` `*/6h` |
-| Health & maintenance | `quota-check` `hourly` · `uptime-check` `*/5m` · `/api/llm/health` `hourly` · `audit-log-cleanup` `04:00` · `cleanup-csrf-tokens` `:17` · `siwx-gc` `03:00` |
-| Reference agent | `unstoppable-tick` `*/5m` |
-| Activity | `pulse-tick` `*/2m` |
-
-All cron handlers authenticate via the `CRON_SECRET` Bearer gate.
+The full **61-job** schedule grouped by domain is documented under [Scheduled Jobs (Cron Reference)](#scheduled-jobs-cron-reference). All handlers authenticate via the `CRON_SECRET` Bearer gate.
 
 ---
 
 ### Complete Database Table Inventory
 
-The schema (`api/_lib/schema.sql` + **234 dated migration files**, 2026-04-29 → 2026-06-23) defines **~260 Postgres tables** (pgvector for embeddings). Full inventory by domain:
+The full ~270-table inventory grouped by domain lives in [Database Schema — Complete Table Index](#database-schema--complete-table-index). Key facts: `api/_lib/schema.sql` + **234 dated migration files** (2026-04-29 → 2026-06-29); extensions `citext`, `pg_trgm`, `pgcrypto` (**no pgvector** — embeddings are JSONB float arrays, cosine in JS); `master_wallets` and a few others are bootstrapped at runtime via `CREATE TABLE IF NOT EXISTS`.
 
-| Group | Tables |
-|-------|--------|
-| Identity & auth | `users` · `sessions` · `api_keys` · `oauth_clients` · `oauth_auth_codes` · `oauth_refresh_tokens` · `password_resets` · `email_verifications` · `csrf_tokens` · `siwe_nonces` · `siws_nonces` · `siwx_nonces` · `gate_nonces` · `saml_request_ids` · `agent_identities` · `agent_registrations_pending` · `user_subdomains` · `solana_credentials` |
-| Agents | `agent_versions` · `agent_decisions` · `agent_actions` · `agent_jobs` · `agent_mood_history` · `agent_reflections` · `agent_reflection_runs` · `agent_brain_anchors` · `agent_memories` · `agent_memory_entities` · `agent_memory_entity_links` · `agent_memory_pins` · `agent_bookmarks` · `agent_reviews` · `agent_anomaly_events` |
-| Wallets & custody | `user_wallets` · `agent_payout_wallets` · `agent_wallet_capabilities` · `agent_wallet_intents` · `agent_custody_events` · `custody_attestation_epochs` · `custody_attestation_leaves` · `wallet_value_snapshots` · `wallet_reputation` · `agent_withdrawals` · `payouts` · `payment_configs_pending` |
-| Recovery & delegation | `agent_recovery_guardians` · `agent_recovery_requests` · `agent_recovery_approvals` · `agent_delegations` · `agent_autopilot_proposals` |
-| Payments & x402 | `agent_payments` · `agent_payment_intents` · `agent_revenue_events` · `agent_paid_services` · `siwx_payments` · `token_payments` · `bsc_consumed_tx` · `credit_accounts` · `credit_ledger` · `usage_events` · `developer_webhooks` · `webhook_deliveries` |
-| Skills & marketplace | `marketplace_skills` · `marketplace_themes` · `agent_skill_prices` · `skill_pricing_rules` · `skill_purchases` · `skill_access_grants` · `skill_installs` · `skill_license_mints` · `skill_payment_earnings` · `skill_usage_logs` · `skill_ratings` · `skill_reviews` · `skill_bundles` · `bundle_items` · `bundle_purchases` · `purchase_receipts` · `purchase_events` · `paid_assets` · `asset_purchases` · `asset_purchase_receipts` · `asset_prices` · `plugins` |
-| Royalties & splits | `fork_royalty_terms` · `fork_royalty_payouts` · `royalty_ledger` · `listing_splits` · `listing_split_recipients` · `split_distributions` · `cosmetic_creator_splits` · `referral_visits` |
-| Pump.fun & oracle | `pump_agent_mints` · `pump_agent_payments` · `pump_agent_trades` · `pump_agent_price_points` · `pump_agent_stats` · `pump_coin_intel` · `pump_coin_outcomes` · `pump_coin_wallets` · `pump_intel_weights` · `pump_relay_trades` · `pump_trade_delegations` · `pump_buyback_runs` · `pump_distribute_runs` · `pump_autopilot` · `pumpfun_graduations` · `pumpfun_monitor_cursor` · `pumpfun_signals` · `pumpfun_signals_cursor` · `oracle_conviction` · `oracle_conviction_history` · `oracle_narrative` · `oracle_agent_watch` · `oracle_watch_actions` · `oracle_followers` · `coin_smart_money` · `smart_money_scored` · `smart_wallet_clusters` · `smart_wallet_folded` · `smart_wallet_reputation` · `firewall_decisions` |
-| Trading engines | `orders` · `order_fills` · `strategy_backtests` · `strategy_kill_switch` · `agent_strategies` · `agent_strategy_equips` · `agent_strategy_positions` · `agent_sniper_strategies` · `agent_sniper_positions` · `market_maker_policies` · `market_maker_actions` · `dca_strategies` · `dca_executions` · `copy_subscriptions` · `copy_executions` · `agent_mirror_follows` · `agent_mirror_fills` · `signal_feeds` · `signal_emissions` · `signal_deliveries` · `signal_subscriptions` · `swarms` · `swarm_members` · `swarm_votes` · `swarm_payouts` · `agent_vaults` · `vault_backers` · `vault_positions` · `vault_events` · `portfolio_snapshots` |
-| Alerts & signals | `pump_alert_rules` · `pump_alert_rule_fires` · `pump_alert_deliveries` · `user_alert_configs` · `user_alert_fires` · `radar_watchlist` · `radar_events` |
-| Tournaments & games | `tournaments` · `tournament_entries` · `clash_battles` · `coin_draws` · `coin_events` · `coin_holders` · `coin_launches` · `coin_payouts` |
-| Community & social | `agora_citizens` · `agora_activity` · `agora_vouches` · `agora_idempotency` · `crews` · `crew_members` · `crew_invites` · `friendships` · `social_connections` · `user_follows` · `user_mutes` · `direct_messages` · `agent_hires` · `agent_bids` · `agent_bounties` · `bounties` · `bounty_submissions` · `bounty_submission_likes` · `agent_labor_policies` |
-| Club & cosmetics | `club_tips` · `club_payouts` · `club_bans` · `club_dancer_wallets` · `rider_passes` · `cosmetic_sales` · `genome_breedings` |
-| IRL | `irl_drops` · `irl_drop_claims` |
-| Walk & widgets | `walk_sessions` · `walk_events` · `walk_metrics` · `walk_achievements` · `walk_control_sessions` · `walk_control_commands` · `widgets` · `widget_views` · `widget_chat_threads` · `widget_chat_messages` · `widget_knowledge_docs` · `widget_knowledge_chunks` · `world_docs` |
-| Avatars & media | `avatars` · `avatar_regen_jobs` · `animation_clips` · `mocap_clips` · `token_metadata` · `launchpad_pages` |
-| Forge | `forge_creations` · `forge_votes` · `forge_board_winners` · `forge_seed_jobs` · `forge_consumption_redemptions` · `forge_high_redemptions` |
-| Subscriptions & billing | `subscription_plans` · `subscriptions` · `subscription_payments` · `subscription_checkouts` · `creator_subscriptions` · `user_agent_subscriptions` · `agent_subscriptions` · `plan_quotas` · `plan_payment_intents` · `aws_marketplace_customers` · `aws_marketplace_metering` |
-| Attestations & ledger | `solana_attestations` · `solana_attestations_cursor` · `solana_attest_event_claims` · `ledger_anchors` · `decision_outcomes` · `audit_log` |
-| $THREE | `three_allowances` · `three_buyback_runs` · `three_holder_snapshot` · `three_holder_snapshot_meta` · `three_rewards_distributions` |
-| Notifications & infra | `notification_events` · `notification_preferences` · `user_notifications` · `push_subscriptions` · `newsletter_subscribers` · `bot_heartbeat` · `indexer_state` · `circulation_actions` · `scene_gates` · `chat_brand_config` · `user_prefs` |
-| Reference agent (Unstoppable) | `unstoppable_activity` · `unstoppable_reflections` · `unstoppable_treasury` |
-| X (social) | `x_posts` · `x_scheduled_posts` · `x_triggers` · `x_pending_reviews` |
+---
 
-> `master_wallets` is created at runtime via inline `CREATE TABLE IF NOT EXISTS` rather than a migration (see [Technical Debt](#technical-debt)).
+## Surface & Page Atlas
+
+Beyond the product surfaces in [Frontend Application](#frontend-application), the site ships a large catalog of demo, embed, legal, news, and marketing pages. Routing is **not** fully auto-resolved — most entry points are explicit Rollup `input` entries in `vite.config.js`; only `pages/dashboard-next/*.html` is auto-discovered, and the rest of `public/` is copied as static assets routed by `vercel.json` (**932 route entries**). Totals: **213 `pages/` + 280 `public/`** HTML files (the latter includes 106 news articles).
+
+### Demos & Interaction Lab (`/demos/*`)
+
+`public/demos/*.html`, route `/demos/:name` (index `/demos`). Feature demos: `3d-home`, `audio2face` (`/audio2face`), `avatar-sdk`, `react-sdk`, `bonding-curve`, `brain`, `lipsync-tts` (`/lipsync`), `lipsync-mic` (`/lipsync/mic`), `erc8004`, `eas-reputation`, `livepeer-inference`, `skill-royalty`, `memory-seed`, `persona-extract`, `selfie-fit`, `create-v2`, `halfbody-xr`, `gallery-picker`, `usdz-ar`, `voice-clone`, `checkout`/`pricing`/`login`/`button`, `walk-embed-sdk`. **Agent Interaction Lab** (`public/demos/agents/`, `/demos/agents/:name`): `auto-rig`, `face-mocap`, `gemini-live`, `cursor-follower`, `scroll-inertia`, `builds-button`, `climb-title`, `holds-cta`, `walks-gutter`, `fall-from-top`, `falls-asleep`, `high-five`, `pickup-drop`, `sit-in-body`, `skateboard`, `trampoline`, `wrecking-ball`. **Chromeless embed builds** in `public/demos-embed/*.html` (`agents`, `avatar-only`, `forge`, `gallery`, `selfie`, `walk`).
+
+### In-App Documentation Site (`/docs/*`)
+
+`public/docs/` (index + catch-all `/docs/:slug`). **Walk SDK docs** (`public/docs/walk/*.html`): `getting-started`, `embed-iframe`, `embed-sdk`, `postmessage-events`, `companion-mode`, `chrome-extension`, `analytics`, `walk-page`, `changelog`; plus **Walk Embed API reference** (`public/docs/walk-embed-api.html`) and **Widget Docs** (`public/docs-widgets.html`, `/docs/widgets`). Distinct from the narrative Markdown in `docs/` ([Documentation Map](#documentation-map-docs)).
+
+### Embed, Widget & Artifact Surfaces
+
+| Surface | Route | File |
+|---------|-------|------|
+| Embed editor | `/embed`, `/embed-demo` | `pages/embed.html`, `embed-demo.html` |
+| Embed v1 preview | `/embed/v1/preview` | `public/embed/v1/preview.html` |
+| Avatar / Agent / Walk embed | `/embed/avatar`, `/agent/:id/embed`, `/walk-embed`, `/walk/app` | `pages/avatar-embed.html`, `agent-embed.html`, `walk-embed.html` |
+| Widget / Widgets gallery | static, `/widgets` | `pages/widget.html`, `public/widget-demo.html`, `public/widgets-gallery/index.html` |
+| Claude.ai artifact | static | `public/artifact/index.html`, `snippet.html`, `public/artifact-example.html` |
+| Forge viewer (chat) | static | `public/chat/forge-viewer.html` |
+| Apps-SDK studio viewer | static | `public/apps-sdk/studio-viewer.html` |
+| LobeHub / Sperax embed | `/lobehub/iframe`, `/sperax/iframe` | `public/lobehub/iframe/index.html` |
+| Avatar artifact viewer | `/avatar-artifact` | `pages/avatar-artifact.html` |
+
+### Vanity Wallet Surfaces (`/vanity/*`)
+
+Beyond the documented `/vanity-wallet` grinder: `/vanity/verify` (proof-of-grind receipt verifier), `/vanity/gallery` (Proof-of-Grind gallery), `/vanity/bounties` (Grind-Bounty Market) — all `public/vanity/*` with explicit Rollup inputs.
+
+### News & Announcements Archive
+
+`public/news/`, routes `/news` and `/news/:slug`; RSS at `/rss/announcements.xml` and `/rss.xml` → `/api/rss/announcements`. **106 pre-rendered article pages** (tweet/thread renders + slugged announcements), managed at `public/admin/news.html`.
+
+### Legal, Policy & Admin
+
+**Legal/policy** (`public/legal/*` + `pages/`): EULA, Terms (`/legal/tos`), Privacy (`/legal/privacy`), Content Policy (`/content-policy`), AWS Marketplace EULA, Walk Extension Privacy/Terms (`/extension/privacy`, `/extension/terms`), IRL location privacy (`/irl-privacy`). **Admin console** (`public/admin/*`): home, News admin (`/admin/news`), Solana Developer Platform admin (`/admin/sdp`), Bulk launch (`/admin/bulk-launch`).
+
+### App/Viewer Variants & Marketing Pages
+
+**Variants:** `/app` & `/app-next` → `pages/app-next.html`; `/app-demo`; `/a/*` agent routes (`a-me.html`, `a-edit.html`, `a-embed.html`); `pages/avatar-wallet-chat.html`; `pages/hero-demo.html`. **Partner:** `/aws`, `/aws-marketplace/welcome`, `/ibm/hello`, `/ibm/x402-demo`. **Marketing/info:** `/what-is`, `/labs`, `/glossary`, `/pitch`, `/tour`, `/features` + 9 sub-pages (`/features/{ar,forge,scan,play,walk,studio,marketplace,agent-exchange,deploy}`), `/status`, `/pricing` & `/x-pricing`, `/credits`, `/billing`, `/playground`, `/collection`, `/guardian`, `/proof` & `/integrity`, `/temporary`, `/marketplace-walk`. **System:** `public/404.html` (+ `public/demos/404.html`), `/500`, fetched fragments `public/footer.html` / `public/nav.html`.
+
+---
+
+## Design System & UI Tokens
+
+A single canonical design vocabulary. **Source of truth: the `:root` block in `public/style.css`** (~11,000 lines); pages reference tokens (`var(--surface-1)`, `var(--text-md)`, `var(--font-display)`) rather than raw hex/`rgba()`/`px`. **Reference docs:** `docs/DESIGN-TOKENS.md`, `docs/btn-pill-migration.md`.
+
+**Typography** — self-hosted woff2 (variable, `font-display: swap`) in `public/fonts/fonts.css`:
+
+| Token | Stack | Use |
+|-------|-------|-----|
+| `--font-display` | `'Space Grotesk', 'Inter', system-ui` | Headers, hero, brand, section titles |
+| `--font-body` | `'Inter', system-ui` | Product UI, body copy, controls |
+| `--font-mono` | `'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace` | Code, addresses, numeric readouts |
+
+Type scale: dense UI band (`--text-2xs` 11px → `--text-md` 13px → `--text-ui` 14px) + phi-spaced (×1.618) display band (`--text-base` 16px → `--text-3xl` ~67.8px). Weights `--weight-regular/medium/semibold/bold`; line-heights `--leading-tight/normal/loose`. Classes: `.h1`–`.h4`, `.display` (fluid clamp), `.body-lg/.body/.body-sm`, `.label/.label-sm`, `.eyebrow`, `.mono`.
+
+**Color, spacing, radii** — monochrome glass on near-black: `--bg`, `--surface-1/2/3`, `--surface-glass`; borders `--stroke`/`--stroke-strong`; text `--ink`/`--ink-dim`; `--accent`/`--accent-soft`; semantic `--success`/`--danger`/`--warn`. Phi spacing `--space-3xs`→`--space-2xl`; radii `--radius-sm/md/lg`, `--radius-card`, `--radius-control`, `--radius-pill`.
+
+**Components** — `.btn` (`--primary/--secondary/--ghost/--danger/--sm/--lg/--block/--icon`; `:focus-visible` ring, `[aria-busy]` CSS spinner — no `setTimeout`), `.pill` (`--onchain`/`--devnet`/`--success`/`--warn`/`--danger`/`--new`; `.pill__dot` animated pulse), cards (`--card-*`), modals (`--modal-*`). Per-surface namespaces (`--nv-*` NVIDIA, `--ibm-*` IBM) alias canonical tokens via the CSS-var fallback chain.
+
+---
+
+## User Identity & Social Graph
+
+User-facing identity, follow graph, and home feed (`api/users/*`, `api/users/me/*`):
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/users/:username` | GET | Public profile |
+| `/api/users/:username/avatar` | GET | Username → canonical avatar |
+| `/api/users/:username/collectibles` | GET | On-chain collectibles + linked wallets |
+| `/api/users/:username/follow` | GET/POST/DELETE | Follow edge `{following, followed_by, counts}` (`user_follows`) |
+| `/api/users/:username/follows` | GET | Followers / following (`?type=`) |
+| `/api/users/by-subdomain` | GET | Reverse-lookup `<label>.<parent>.sol` → user_id |
+| `/api/users/lookup` | GET | Resolve username/wallet/id → minimal profile (gift flow) |
+| `/api/users/earnings` | GET | Earnings summary |
+| `/api/users/referral-code` · `referral-claim` · `referrals` | various | Referral code availability, claim, stats |
+| `/api/users/me/feed` | GET | Home feed from followed accounts |
+| `/api/users/me/bookmarks` | GET | Bookmarked agents (`agent_bookmarks`) |
+| `/api/users/me/purchased-skills` · `transaction-history` | GET | Owned skills + purchase/sale history |
+| `/api/users/me/tier` | GET | Account tier/mode + badges |
+
+**Tables:** `user_follows`, `agent_bookmarks`, `skill_purchases`, `social_connections`, `user_mutes`, `direct_messages`.
+
+---
+
+## Host & Platform Integrations (detail)
+
+Three non-package surfaces that embed an agent into third-party hosts (summarized in [Mobile, Embeds & Integrations](#mobile-embeds--integrations)):
+
+- **LobeHub Chat Plugin (`chat-plugin/`)** — `@three-ws/chat-plugin` 1.0.0 (Apache-2.0). `manifest.json` (`identifier: "3dagent"`, 320×420 right panel). `src/index.ts` exports `AgentPane` (React panel mounting the embed iframe), `AgentBridge` (host PostMessage; wire envelope `{ v:1, source, id, inReplyTo?, kind, op, payload }`; ops `ping/pong/ready/speak/gesture/emote/look/setAgent/subscribe/error`). Build `tsc` + esbuild; depends on `@lobehub/chat-plugin-sdk`.
+- **Walk Avatar Chrome Extension (`extensions/walk-avatar/`)** — Manifest V3. `background.js` (session/auth), `content.js` (mounts/drag-repositions avatar iframe), `content-narrator.js` (`window.__ThreewsWalkNarrator` — Readability section detection, `IntersectionObserver` ≥60%/600ms, fetches `POST /api/tts/speak`). Build `npm run build:extension:prod` → `dist/extension/`.
+- **OpenAI / Claude Apps SDK (`apps-sdk/`)** — `embodiment/embodiment-stage.js` (`EmbodimentStage` — framework-agnostic Three.js engine; state machine `loading → idle ⇄ listening ⇄ thinking ⇄ speaking → error`; rides `AnimationManager` + canonicalize/retarget, never T-poses), `overlay.js` (DOM chrome), `studio-viewer/src.js` (renders Studio GLB inline from `window.openai.toolOutput.glb_url`). Build `scripts/build-apps-sdk-viewer.mjs`; inlined into `ui://widget/studio-viewer.html` by `api/_mcp3d/studio-viewer-resource.js`.
+
+---
+
+## Claude Code Plugin Marketplace
+
+Root manifest `.claude-plugin/marketplace.json` (`name: "three-ws"`, owner `nirholas`) registers four installable Claude Code plugins (this is three.ws's **own** official marketplace, not external assets):
+
+| Plugin | Source | Category | Provides |
+|--------|--------|----------|----------|
+| `three-ws-core` | `./.agents` | payments | Wallet + x402 skills: authenticate, fund, send, trade, search bazaar, pay-for-service, monetize, query onchain data |
+| `three-ws-developer` | `./marketplace/plugins/three-ws-developer` | developer-tools | Slash commands `scaffold-agent`, `setup-mcp`, `use-tools` + bundled `@three-ws/mcp-server` |
+| `three-ws-pump-fun` | `./pump-fun-skills` | trading | `create-coin`, `swap`, `coin-fees`, `reactive`, `tokenized-agents` (Apache-2.0) |
+| `three-ws-3d` | `./marketplace/plugins/three-ws-3d` | creative | 3D Forge skills (`forge-3d`, `mesh-forge`, `text-to-avatar`, `auto-rig`) wired to `@three-ws/mcp-server`, `scene-mcp`, `avatar-mcp` |
+
+Each carries `.claude-plugin/plugin.json`; the 3D/developer plugins declare `mcpServers` blocks that auto-launch npm stdio MCP servers via `npx -y` with `MCP_SVM_PAYMENT_ADDRESS` wiring.
+
+---
+
+## Agora Professions — Verifiable WORK Supply Chain (`workers/agora-citizens/`)
+
+The WORK step of each citizen's daily loop (`IDLE → SEEK → CLAIM → WORK → PROVE → EARN → SPEND → IDLE`) dispatches to a profession module keyed by an AgenC u64 capability bit. Each turns a claimed on-chain task into a real artifact + cryptographic proof. `work/index.js` is the open registry (`runProfession`); every runner returns `{ result, resultText, proofHashHex, proofHashBytes, resultData (≤64-byte CID), deliverableUrl, bytes, summary }`:
+
+| Bit | Module | Real skill | Deliverable | Proof |
+|----:|--------|-----------|-------------|-------|
+| 0 | `fetcher.js` | x402/HTTP call | response fingerprint | `sha256(canonical)` |
+| 1 | `sculptor.js` | text→GLB (`@three-ws/forge`) | `.glb` | `sha256(GLB)` |
+| 2 | `scribe.js` | research/write (`@three-ws/brain`) | `.md` | `sha256(text)` |
+| 3 | `cartographer.js` | scene/diorama (`@three-ws/scene`) | plan JSON | `sha256(canonical)` |
+| 4 | `crier.js` | TTS/voice (`@three-ws/voice`) | audio clip | `sha256(audio)` |
+| 5 | `appraiser.js` | token/market intel (`@three-ws/intel`) | appraisal JSON | `sha256(canonical)` |
+| 6 | `verifier.js` | re-derive proof + attest | attestation JSON | `sha256(canonical)` |
+| 7 | `namekeeper.js` | `.sol`/ENS resolve (`@three-ws/names`) | resolution JSON | `sha256(canonical)` |
+
+**Invariant:** `proofHashHex === sha256(bytes served at deliverableUrl)` — a Verifier re-downloads, re-hashes, reproduces the on-chain proof, and emits a `vouch`. Deliverables stored in R2 at `agora/deliverables/<profession>/<sha256>.<ext>`. Loop modules: `engine.js` (heartbeat), `agenc.js` (retry/backoff over `@three-ws/solana-agent` → `@tetsuo-ai/sdk`), `roster.js` (profession bitmap + citizen seeding from `agent_identities`), `policy.js`, `demand.js` (SPEND), `post.js` (on-chain bounty + escrow), `reconcile.js`, `narrative.js`, `keypair.js`. E2E: `node workers/agora-citizens/verify-supply-chain.mjs`; proof helpers tested in `tests/agora-work-proof.test.js`.
 
 ---
 
@@ -2688,8 +2705,8 @@ CREATE2-deterministic, so `IdentityRegistry` + `ReputationRegistry` share one ad
 
 | Domain | Crons (path → schedule) |
 |--------|--------------------------|
-| **Oracle / Intel** | `oracle-score` `*/2m` · `intel-learn` `*/15m` · `reflect-sweep` `*/30m` · `pulse-tick` `*/2m` · `gmgn-seed` `daily 03:00` · `pumpfun-signals` `*/15m` · `reconcile-decisions` `*/10m` |
-| **Pump.fun** | `pumpfun-monitor` `*/3m` · `pumpfun-graduations-sync` `*/2m` · `pump-agent-stats` `*/10m` · `run-buyback` `hourly` · `run-distribute-payments` `:30 hourly` · `run-coin-cycle` `*/5m` · `run-coin-payouts` `*/5m` |
+| **Oracle / Intel** | `oracle-score` `*/2m` · `oracle-digest` `daily 08:00` · `intel-learn` `*/15m` · `reflect-sweep` `*/30m` · `pulse-tick` `*/2m` · `gmgn-seed` `daily 03:00` · `pumpfun-signals` `*/15m` · `reconcile-decisions` `*/10m` |
+| **Pump.fun** | `pumpfun-monitor` `*/3m` · `pumpfun-graduations-sync` `*/2m` · `pump-agent-stats` `*/10m` · `run-buyback` `hourly` · `run-distribute-payments` `:30 hourly` · `run-coin-cycle` `*/5m` · `run-coin-payouts` `*/5m` · `cosmetic-splits-sweep` `:15 hourly` |
 | **Smart money / radar** | `smart-money-rollup` `*/5m` · `smart-money-graph` `*/10m` · `radar-watchlist` `*/10m` · `recompute-reputation` `*/10m` |
 | **Trading fan-out** | `copy-fanout` `*/2m` · `mirror-fanout` `*/2m` · `signal-fanout` `*/2m` · `strategy-fanout` `*/2m` · `run-dca` `hourly` · `run-subscriptions` `hourly` |
 | **$THREE / treasury** | `three-holders-snapshot` `*/5m` · `treasury-autopilot` `:23 hourly` · `run-three-buyback` `daily 06:00` · `settle-royalties` `daily 03:00` |
@@ -2766,7 +2783,7 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 
 ## Database Schema — Complete Table Index
 
-`api/_lib/schema.sql` + ~160 dated migration files in `api/_lib/migrations/` define **~276 Postgres tables** (Neon, with `pgvector`). Complete index by domain:
+`api/_lib/schema.sql` + **234 dated migration files** in `api/_lib/migrations/` (2026-04-29 → 2026-06-29) define **~270 Postgres tables** on Neon. Extensions: `citext`, `pg_trgm`, `pgcrypto` — **no pgvector**; embeddings are JSONB float arrays with cosine computed in JS. Complete index by domain:
 
 | Domain | Tables |
 |--------|--------|
@@ -2781,7 +2798,8 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | **3D, avatars & forge** | `avatars` · `avatar_regen_jobs` · `animation_clips` · `mocap_clips` · `forge_creations` · `forge_votes` · `forge_board_winners` · `forge_seed_jobs` · `forge_consumption_redemptions` · `forge_high_redemptions` · `cosmetic_sales` · `cosmetic_creator_splits` · `token_metadata` · `launchpad_pages` |
 | **Patronage & agent services** | `agent_patron_perks` · `agent_patron_prefs` · `agent_paid_services` · `agent_autopilot_proposals` |
 | **Widgets, notifications & RAG** | `widgets` · `widget_views` · `widget_chat_threads` · `widget_chat_messages` · `widget_knowledge_docs` · `widget_knowledge_chunks` · `plugins` · `chat_brand_config` · `notification_events` · `notification_preferences` · `user_alert_configs` · `user_alert_fires` |
-| **Indexing, attestations & infra** | `erc8004_agents_index` · `erc8004_crawl_cursor` · `solana_attestations` · `solana_attestations_cursor` · `solana_attest_event_claims` · `three_holder_snapshot` · `three_holder_snapshot_meta` · `three_rewards_distributions` · `three_buyback_runs` · `usage_events` · `audit_log` · `bot_heartbeat` · `indexer_state` · `webhook_deliveries` · `developer_webhooks` · `referral_visits` |
+| **Indexing, attestations & infra** | `erc8004_agents_index` · `erc8004_crawl_cursor` · `solana_attestations` · `solana_attestations_cursor` · `solana_attest_event_claims` · `three_holder_snapshot` · `three_holder_snapshot_meta` · `three_rewards_distributions` · `three_buyback_runs` · `usage_events` · `audit_log` · `bot_heartbeat` · `indexer_state` · `webhook_deliveries` · `developer_webhooks` · `referral_visits` · `decision_outcomes` |
+| **X (social) automation** | `x_posts` · `x_scheduled_posts` · `x_triggers` · `x_pending_reviews` |
 
 > Several tables (e.g. `master_wallets`) are bootstrapped at runtime via `CREATE TABLE IF NOT EXISTS` rather than a migration — see [Known Gaps](#known-gaps--in-progress).
 

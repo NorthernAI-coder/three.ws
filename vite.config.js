@@ -2255,17 +2255,18 @@ support: resolve(__dirname, 'pages/support.html'),
 						urlPattern: /^https?:\/\/[^/]+\/api\/widgets\//i,
 						handler: 'NetworkOnly',
 					},
-					// Same-origin scripts & styles. Not precached (see globPatterns
-					// note above) — cached opportunistically at runtime so repeat
-					// visits stay fast without the deploy-skew fragility of
-					// precaching every hashed chunk. StaleWhileRevalidate serves the
-					// cached chunk instantly and refreshes it in the background; a
-					// 404 during a deploy rollover is a non-fatal background miss,
-					// never a broken SW install. Placed after the /widget, /embed,
-					// and /api/widgets NetworkOnly rules so those keep precedence.
+					// Content-hashed build chunks under /assets/ (e.g.
+					// assets/marketplace-Cn45GLvE.js, assets/index-<hash>.css).
+					// These are immutable: the filename changes whenever the bytes
+					// change, so the cached copy can NEVER be stale for a URL that
+					// still resolves. StaleWhileRevalidate is correct and fast here —
+					// serve instantly, refresh in the background; a 404 during a
+					// deploy rollover is a non-fatal background miss the page's own
+					// dynamic import handles, never a broken SW install.
 					{
-						urlPattern: ({ request, sameOrigin }) =>
+						urlPattern: ({ url, request, sameOrigin }) =>
 							sameOrigin &&
+							url.pathname.startsWith('/assets/') &&
 							(request.destination === 'script' ||
 								request.destination === 'style'),
 						handler: 'StaleWhileRevalidate',
@@ -2273,6 +2274,36 @@ support: resolve(__dirname, 'pages/support.html'),
 							cacheName: 'app-assets',
 							expiration: {
 								maxEntries: 200,
+								maxAgeSeconds: 60 * 60 * 24 * 30,
+							},
+							cacheableResponse: { statuses: [200] },
+						},
+					},
+					// Stable-named same-origin scripts & styles served verbatim from
+					// public/ (/style.css, /marketplace.css, /nav.css, /mobile.css,
+					// /nav.js, /footer.js, ...). Unlike the hashed chunks above these
+					// keep ONE URL across deploys while their BYTES change — so
+					// StaleWhileRevalidate would hand a returning user last deploy's
+					// CSS against this deploy's freshly-served HTML. When a redesign
+					// renames classes or restructures the header/marketplace markup,
+					// the stale stylesheet no longer matches: the header collapses to
+					// overlapping text and the tab rail stacks vertically (the exact
+					// FOUC users hit "again" after every deploy). NetworkFirst pins
+					// the live deploy's CSS/JS to its HTML — always fetch fresh, fall
+					// back to cache only when offline. A short network timeout keeps
+					// repeat visits fast. Placed after the /assets/ rule so hashed
+					// chunks keep their immutable SWR fast path.
+					{
+						urlPattern: ({ request, sameOrigin }) =>
+							sameOrigin &&
+							(request.destination === 'script' ||
+								request.destination === 'style'),
+						handler: 'NetworkFirst',
+						options: {
+							cacheName: 'app-shell-assets',
+							networkTimeoutSeconds: 4,
+							expiration: {
+								maxEntries: 80,
 								maxAgeSeconds: 60 * 60 * 24 * 30,
 							},
 							cacheableResponse: { statuses: [200] },

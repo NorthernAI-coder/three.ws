@@ -55,6 +55,14 @@
 			<description>The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.</description>
 		</item>
 		<item>
+			<title>Agent profile pages no longer fail to load over a hiccup</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-26:Agent profile pages no longer fail to load over a hiccup</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Opening an agent's profile (/agents/&lt;id&gt;) could show a full-page &quot;Couldn't load this agent&quot; error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.</description>
+		</item>
+		<item>
 			<title>Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</title>
 			<link>https://three.ws/alpha-copilot</link>
 			<guid isPermaLink="false">2026-06-26:Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</guid>
@@ -143,6 +151,14 @@
 			<description>The community tab from the Avatars page is now its own first-class destination: /dashboard/community-avatars. Browse every public avatar on the platform with full search, rig filters, tag chips, and sort controls — all without needing to navigate through your own avatar library first. Accessible directly from the Explore section of the dashboard sidebar.</description>
 		</item>
 		<item>
+			<title>Dashboard Overview now leads with your live numbers</title>
+			<link>https://three.ws/dashboard</link>
+			<guid isPermaLink="false">2026-06-26:Dashboard Overview now leads with your live numbers</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The dashboard home page used to open with a row of avatar thumbnails, pushing your actual metrics below the fold. It now leads with your key numbers — 7-day revenue, widget views, chats, and active avatars — each with a momentum chip (▲/▼ with the percent change across the week) and a colored sparkline that's green when a metric is trending up and red when it's falling, so you can read your week at a glance. The header gained a clear primary action (Create avatar) plus a New widget shortcut and today's date, filling space that was previously empty. Your avatars, autonomous-trading status, agent health, and recent activity all still live one glance further down.</description>
+		</item>
+		<item>
 			<title>Default avatars render again everywhere</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:Default avatars render again everywhere</guid>
@@ -197,6 +213,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.</description>
+		</item>
+		<item>
+			<title>Marketplace no longer loads with a broken layout after an update</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-26:Marketplace no longer loads with a broken layout after an update</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>After we shipped a site update, returning visitors could occasionally land on a page that looked broken — the top navigation collapsed into overlapping text and the marketplace tabs (including Animations) stacked into a plain vertical list instead of the real design. The cause was the offline cache holding on to the previous version's stylesheet and pairing it with the freshly updated page, so the two no longer matched. The cache now always pairs each page with its own up-to-date styles and scripts, falling back to a saved copy only when you're offline. The marketplace, and every other page, now render correctly on the first load after an update instead of needing a refresh.</description>
 		</item>
 		<item>
 			<title>Mission Control now has a real candlestick chart with live price updates</title>
