@@ -28,10 +28,10 @@
 		<link rel="stylesheet" href="/brain-ownership.css" />
 		<style>
 			body {
-				overflow: auto;
+				overflow: hidden;
+				height: 100svh;
 				display: flex;
 				flex-direction: column;
-				min-height: 100vh;
 			}
 
 			.edit-header {
@@ -58,137 +58,133 @@
 				margin: 0;
 			}
 
-			/* ── Layout: sidebar + main ── */
-			.edit-layout {
-				display: flex;
+			/* ── Unified two-column layout ── */
+			.unified-layout {
 				flex: 1;
 				min-height: 0;
-				align-items: stretch;
+				display: grid;
+				grid-template-columns: 360px 1fr;
+				overflow: hidden;
 			}
-			.edit-sidebar {
-				width: 220px;
-				flex-shrink: 0;
+
+			/* Left column: sticky 3D viewer */
+			.preview-col {
+				display: flex;
+				flex-direction: column;
+				overflow: hidden;
 				border-right: 1px solid rgba(255, 255, 255, 0.06);
-				padding: 1rem 0.75rem 2rem;
+				background: #070707;
+				position: relative;
+			}
+
+			.outfit-preview {
+				flex: 1;
+				min-height: 0;
+				background: #070707;
+				overflow: hidden;
+				position: relative;
+			}
+			.outfit-preview agent-3d {
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+
+			.preview-actions {
+				display: flex;
+				gap: 0.5rem;
+				padding: 0.75rem;
+				border-top: 1px solid rgba(255, 255, 255, 0.06);
+				flex-shrink: 0;
+			}
+			.preview-no-avatar {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+				gap: 0.75rem;
+				color: rgba(255,255,255,0.2);
+				font-size: 0.764rem;
+				text-align: center;
+				padding: 2rem;
+			}
+			.preview-no-avatar-icon {
+				font-size: 2.5rem;
+				line-height: 1;
+				opacity: 0.3;
+			}
+
+			/* Right column: scrollable all sections */
+			.content-col {
 				overflow-y: auto;
-				background: rgba(255, 255, 255, 0.015);
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
 			}
-			.edit-sidebar-group {
-				margin-bottom: 1rem;
+
+			/* Sticky in-page nav */
+			.section-nav {
+				position: sticky;
+				top: 0;
+				z-index: 50;
+				background: rgba(6, 6, 6, 0.92);
+				backdrop-filter: blur(12px);
+				-webkit-backdrop-filter: blur(12px);
+				border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+				display: flex;
+				align-items: center;
+				padding: 0 1rem;
+				flex-shrink: 0;
+				gap: 0;
+				overflow-x: auto;
 			}
-			.edit-sidebar-group:last-child {
-				margin-bottom: 0;
+			.section-nav::-webkit-scrollbar { display: none; }
+			.snav-link {
+				font-size: 0.764rem;
+				font-weight: 500;
+				color: rgba(255, 255, 255, 0.42);
+				text-decoration: none;
+				padding: 0.618rem 0.75rem;
+				border-bottom: 2px solid transparent;
+				transition: color 0.15s, border-color 0.15s;
+				white-space: nowrap;
+				flex-shrink: 0;
 			}
-			.edit-sidebar-group-title {
+			.snav-link:hover { color: rgba(255, 255, 255, 0.85); }
+			.snav-link.active { color: #fff; border-bottom-color: #3b82f6; }
+
+			/* Edit sections */
+			.edit-section {
+				border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+			}
+			.edit-section-label {
 				font-size: 0.618rem;
 				text-transform: uppercase;
-				letter-spacing: 0.1em;
-				color: rgba(255, 255, 255, 0.32);
-				padding: 0.5rem 0.75rem 0.382rem;
-				font-weight: 600;
-			}
-			.edit-tab {
-				display: block;
-				width: 100%;
-				background: transparent;
-				border: 0;
-				border-left: 2px solid transparent;
-				color: rgba(255, 255, 255, 0.55);
-				font-size: 0.875rem;
-				font-family: inherit;
-				padding: 0.5rem 0.75rem;
-				cursor: pointer;
-				text-align: left;
-				border-radius: 0 6px 6px 0;
-				margin-bottom: 1px;
-				transition: color 0.12s, background 0.12s, border-color 0.12s;
-			}
-			.edit-tab:hover {
-				color: rgba(255, 255, 255, 0.9);
-				background: rgba(255, 255, 255, 0.03);
-			}
-			.edit-tab.active {
-				color: #fff;
-				background: rgba(59, 130, 246, 0.12);
-				border-left-color: #3b82f6;
-			}
-			.edit-tab.danger { color: rgba(252, 165, 165, 0.75); }
-			.edit-tab.danger.active { color: #fca5a5; background: rgba(220, 38, 38, 0.12); border-left-color: #dc2626; }
-
-			.edit-main {
-				flex: 1;
-				min-width: 0;
-				display: flex;
-				flex-direction: column;
+				letter-spacing: 0.12em;
+				font-weight: 700;
+				color: rgba(255, 255, 255, 0.25);
+				padding: 1.5rem 1.5rem 0;
 			}
 
+			/* Each panel is a visible section */
 			.edit-panel {
-				display: none;
-				flex: 1;
-			}
-			.edit-panel.active {
 				display: flex;
-			}
-
-			/* Mobile: sidebar collapses to a horizontal-scroll top bar */
-			@media (max-width: 800px) {
-				.edit-layout {
-					flex-direction: column;
-				}
-				.edit-sidebar {
-					width: 100%;
-					box-sizing: border-box;
-					border-right: 0;
-					border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-					padding: 0.5rem 0.75rem;
-					display: flex;
-					gap: 0.382rem;
-					overflow-x: auto;
-					overflow-y: hidden;
-				}
-				.edit-sidebar-group {
-					display: flex;
-					align-items: center;
-					gap: 0.236rem;
-					margin: 0;
-					padding-right: 0.5rem;
-					border-right: 1px solid rgba(255, 255, 255, 0.06);
-					flex-shrink: 0;
-				}
-				.edit-sidebar-group:last-child { border-right: 0; padding-right: 0; }
-				.edit-sidebar-group-title {
-					padding: 0;
-					font-size: 0.55rem;
-					color: rgba(255, 255, 255, 0.28);
-					white-space: nowrap;
-				}
-				.edit-tab {
-					width: auto;
-					padding: 0.382rem 0.618rem;
-					border-radius: 6px;
-					border-left: 0;
-					border-bottom: 2px solid transparent;
-					font-size: 0.764rem;
-					margin-bottom: 0;
-					white-space: nowrap;
-				}
-				.edit-tab.active {
-					background: rgba(59, 130, 246, 0.18);
-					border-left: 0;
-					border-bottom-color: #3b82f6;
-				}
-				.edit-tab.danger.active { border-left: 0; border-bottom-color: #dc2626; }
-			}
-
-			/* ── Persona tab ── */
-			.persona-panel {
-				max-width: 560px;
-				margin: 2rem auto;
-				padding: 0 1rem;
 				flex-direction: column;
 				gap: 1rem;
-				width: 100%;
+				padding: 1.25rem 1.5rem 1.5rem;
+				border-top: 1px solid rgba(255, 255, 255, 0.04);
 			}
+			.edit-section > .edit-panel:first-of-type { border-top: none; }
+
+			.subsection-title {
+				font-size: 0.875rem;
+				font-weight: 600;
+				color: rgba(255, 255, 255, 0.72);
+				flex-shrink: 0;
+			}
+
+			/* Form primitives */
 			.form-group {
 				display: flex;
 				flex-direction: column;
@@ -224,7 +220,8 @@
 				display: flex;
 				align-items: center;
 				gap: 1rem;
-				margin-top: 0.5rem;
+				margin-top: 0.25rem;
+				flex-wrap: wrap;
 			}
 			.btn-primary {
 				background: #3b82f6;
@@ -235,6 +232,7 @@
 				font: 0.875rem/1 inherit;
 				padding: 0.618rem 1.25rem;
 				font-weight: 500;
+				flex-shrink: 0;
 			}
 			.btn-primary:hover {
 				background: #2563eb;
@@ -254,44 +252,20 @@
 				color: #fca5a5;
 			}
 
-			/* ── Outfit tab ── */
-			.outfit-panel {
-				display: grid;
-				grid-template-columns: 380px 1fr;
+			/* Outfit controls inline (no inner scroll, just block) */
+			.outfit-controls-inline {
+				display: flex;
+				flex-direction: column;
 				gap: 0;
-				flex: 1;
-				min-height: 0;
-			}
-			@media (max-width: 800px) {
-				.outfit-panel {
-					grid-template-columns: 1fr;
-				}
-				.outfit-preview {
-					height: 300px;
-				}
-			}
-			.outfit-preview {
-				position: sticky;
-				top: 0;
-				height: 100vh;
-				background: #0b0b0b;
-				border-right: 1px solid rgba(255, 255, 255, 0.06);
-				overflow: hidden;
-			}
-			.outfit-preview agent-3d {
-				width: 100%;
-				height: 100%;
-			}
-			.outfit-controls {
-				padding: 1.5rem;
-				overflow-y: auto;
 			}
 			.outfit-header {
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
-				margin-bottom: 1.25rem;
+				margin-bottom: 0.75rem;
+				margin-top: 0.75rem;
 			}
+			.outfit-header:first-child { margin-top: 0; }
 			.outfit-title {
 				font-size: 0.764rem;
 				color: rgba(255, 255, 255, 0.35);
@@ -428,6 +402,7 @@
 				display: flex;
 				align-items: center;
 				gap: 0.5rem;
+				z-index: 100;
 			}
 			.outfit-status {
 				font-size: 0.618rem;
@@ -466,6 +441,7 @@
 				justify-content: center;
 				color: rgba(255, 255, 255, 0.3);
 				font-size: 0.875rem;
+				min-height: 120px;
 			}
 			.error-msg {
 				color: #fca5a5;
@@ -484,7 +460,7 @@
 
 			.avatar-picker-list {
 				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+				grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
 				gap: 0.75rem;
 			}
 			.avatar-tile {
@@ -592,7 +568,7 @@
 
 			.anims-picker-grid {
 				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+				grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
 				gap: 0.5rem;
 			}
 			.anim-tile {
@@ -688,30 +664,6 @@
 				outline: none;
 			}
 
-			.edit-tab:focus-visible,
-			.btn-primary:focus-visible,
-			.btn-reset-all:focus-visible,
-			.btn-reset-mat:focus-visible,
-			.edit-header a:focus-visible,
-			.mat-card-header:focus-visible {
-				outline: 2px solid rgba(147, 197, 253, 0.7);
-				outline-offset: 2px;
-			}
-
-			.skip-link {
-				position: absolute;
-				left: -9999px;
-				top: 0;
-				background: #000;
-				color: #fff;
-				padding: 0.5rem 1rem;
-				z-index: 10000;
-				text-decoration: none;
-			}
-			.skip-link:focus {
-				left: 0.5rem;
-				top: 0.5rem;
-			}
 			.skill-price-row {
 				display: flex;
 				align-items: center;
@@ -723,7 +675,6 @@
 				font-size: 0.875rem;
 				color: rgba(255, 255, 255, 0.7);
 			}
-
 			.skill-pricing-controls {
 				display: flex;
 				align-items: center;
@@ -823,13 +774,12 @@
 				color: rgba(255, 255, 255, 0.4);
 			}
 
-			/* ── Shared building blocks for new tabs ── */
+			/* ── Shared building blocks ── */
 			.card {
 				background: rgba(255, 255, 255, 0.03);
 				border: 1px solid rgba(255, 255, 255, 0.07);
 				border-radius: 10px;
 				padding: 1rem 1.25rem;
-				margin-bottom: 0.875rem;
 			}
 			.card-title {
 				font-size: 0.764rem;
@@ -887,9 +837,9 @@
 			/* Voice */
 			.voice-list {
 				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+				grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 				gap: 0.5rem;
-				max-height: 380px;
+				max-height: 340px;
 				overflow-y: auto;
 				border: 1px solid rgba(255, 255, 255, 0.06);
 				border-radius: 10px;
@@ -971,14 +921,14 @@
 			}
 			.mem-vis-toggle:disabled { opacity: 0.5; cursor: progress; }
 
-			/* Dreams (reflection review) */
+			/* Dreams */
 			.tab-badge {
 				display: inline-flex; align-items: center; justify-content: center;
 				min-width: 1.05rem; height: 1.05rem; padding: 0 0.3rem; margin-left: 0.4rem;
 				font-size: 0.6rem; font-weight: 700; line-height: 1; border-radius: 999px;
 				background: linear-gradient(135deg, #a78bfa, #7c3aed); color: #fff; vertical-align: middle;
 			}
-			.dreams-head { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; }
+			.dreams-head { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
 			.dreams-meta { font-size: 0.7rem; color: rgba(255,255,255,0.45); margin-top: 0.5rem; min-height: 1em; }
 			.dreams-meta .dot { color: #a78bfa; }
 			.dreams-reflect-btn { white-space: nowrap; flex-shrink: 0; display: inline-flex; align-items: center; gap: 0.45rem; }
@@ -1054,7 +1004,7 @@
 			@keyframes dream-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 			@media (prefers-reduced-motion: reduce) { .dream-skel { animation: none; } }
 
-			.dreams-journal { margin-top: 1.75rem; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 1rem; }
+			.dreams-journal { margin-top: 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 1rem; }
 			.dreams-journal-toggle { background: none; border: none; color: rgba(255,255,255,0.6); font-family: inherit; font-size: 0.8rem; cursor: pointer; padding: 0.25rem 0; display: inline-flex; align-items: center; gap: 0.4rem; }
 			.dreams-journal-toggle:hover { color: rgba(255,255,255,0.85); }
 			.dreams-journal-toggle:focus-visible { outline: 2px solid rgba(167,139,250,0.6); outline-offset: 2px; }
@@ -1085,7 +1035,7 @@
 			.chip-builtin { opacity: 0.7; }
 
 			/* Wallet */
-			.wallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.875rem; }
+			.wallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.875rem; }
 			.modal {
 				position: fixed;
 				inset: 0;
@@ -1145,19 +1095,19 @@
 				border-radius: 10px;
 				padding: 0.5rem;
 				overflow: auto;
-				max-height: 720px;
+				max-height: 600px;
 			}
 			.embed-preview iframe { border: 0; border-radius: 6px; background: #000; display: block; max-width: 100%; }
 
 			/* Widgets */
-			.widget-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; }
+			.widget-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
 			.widget-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; padding: 0.875rem; }
 			.widget-card-type { display: inline-block; font-size: 0.618rem; color: #93c5fd; background: rgba(59, 130, 246, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
 			.widget-card-name { font-size: 0.875rem; font-weight: 500; color: rgba(255, 255, 255, 0.9); margin-bottom: 0.5rem; }
 			.widget-card-meta { font-size: 0.618rem; color: rgba(255, 255, 255, 0.4); margin-bottom: 0.5rem; }
 
 			/* Studio */
-			.studio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
+			.studio-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
 			.studio-tile {
 				display: block;
 				background: rgba(255, 255, 255, 0.03);
@@ -1175,6 +1125,45 @@
 			/* Danger */
 			.danger-card { border-color: rgba(220, 38, 38, 0.3); }
 
+			/* Accessibility */
+			.btn-primary:focus-visible,
+			.btn-ghost:focus-visible,
+			.btn-danger:focus-visible,
+			.btn-reset-all:focus-visible,
+			.btn-reset-mat:focus-visible,
+			.mat-card-header:focus-visible {
+				outline: 2px solid rgba(147, 197, 253, 0.7);
+				outline-offset: 2px;
+			}
+			.skip-link {
+				position: absolute;
+				left: -9999px;
+				top: 0;
+				background: #000;
+				color: #fff;
+				padding: 0.5rem 1rem;
+				z-index: 10000;
+				text-decoration: none;
+			}
+			.skip-link:focus { left: 0.5rem; top: 0.5rem; }
+
+			/* Mobile */
+			@media (max-width: 800px) {
+				body { overflow: auto; height: auto; }
+				.unified-layout {
+					grid-template-columns: 1fr;
+					overflow: visible;
+				}
+				.preview-col {
+					height: 300px;
+					border-right: 0;
+					border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+					flex-shrink: 0;
+				}
+				.content-col { overflow-y: visible; }
+				.section-nav { overflow-x: auto; }
+				.edit-panel { padding: 1rem 1rem 1.25rem; }
+			}
 		</style>
 			<link rel="stylesheet" href="/nav.css" />
 			<link rel="stylesheet" href="/footer.css" />
@@ -1191,801 +1180,768 @@
 			<h1 class="edit-header-title" id="agent-title">Edit Agent</h1>
 		</header>
 
-		<div class="edit-layout">
-			<nav class="edit-sidebar" role="tablist" aria-label="Edit sections">
-				<div class="edit-sidebar-group">
-					<div class="edit-sidebar-group-title">Identity</div>
-					<button class="edit-tab active" data-tab="persona" role="tab" aria-selected="true" aria-controls="panel-persona" id="tab-persona">Persona</button>
-					<button class="edit-tab" data-tab="outfit" role="tab" aria-selected="false" aria-controls="panel-outfit" id="tab-outfit">Outfit</button>
-					<button class="edit-tab" data-tab="voice" role="tab" aria-selected="false" aria-controls="panel-voice" id="tab-voice">Voice</button>
-				</div>
-				<div class="edit-sidebar-group">
-					<div class="edit-sidebar-group-title">Brain</div>
-					<button class="edit-tab" data-tab="brain" role="tab" aria-selected="false" aria-controls="panel-brain" id="tab-brain">Brain Studio</button>
-					<button class="edit-tab" data-tab="knowledge" role="tab" aria-selected="false" aria-controls="panel-knowledge" id="tab-knowledge">Knowledge</button>
-					<button class="edit-tab" data-tab="mind" role="tab" aria-selected="false" aria-controls="panel-mind" id="tab-mind">Mind Palace</button>
-					<button class="edit-tab" data-tab="ownership" role="tab" aria-selected="false" aria-controls="panel-ownership" id="tab-ownership">Ownership</button>
-					<button class="edit-tab" data-tab="dreams" role="tab" aria-selected="false" aria-controls="panel-dreams" id="tab-dreams">Dreams<span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></button>
-					<button class="edit-tab" data-tab="skills" role="tab" aria-selected="false" aria-controls="panel-skills" id="tab-skills">Skills</button>
-					<button class="edit-tab" data-tab="autopilot" role="tab" aria-selected="false" aria-controls="panel-autopilot" id="tab-autopilot">Autopilot</button>
-				</div>
-				<div class="edit-sidebar-group">
-					<div class="edit-sidebar-group-title">Distribute</div>
-					<button class="edit-tab" data-tab="publish" role="tab" aria-selected="false" aria-controls="panel-publish" id="tab-publish">Publish</button>
-					<button class="edit-tab" data-tab="embed" role="tab" aria-selected="false" aria-controls="panel-embed" id="tab-embed">Embed</button>
-					<button class="edit-tab" data-tab="widgets" role="tab" aria-selected="false" aria-controls="panel-widgets" id="tab-widgets">Widgets</button>
-					<button class="edit-tab" data-tab="social" role="tab" aria-selected="false" aria-controls="panel-social" id="tab-social">Social</button>
-				</div>
-				<div class="edit-sidebar-group">
-					<div class="edit-sidebar-group-title">Money</div>
-					<button class="edit-tab" data-tab="monetization" role="tab" aria-selected="false" aria-controls="panel-monetization" id="tab-monetization">Monetization</button>
-					<button class="edit-tab" data-tab="wallet" role="tab" aria-selected="false" aria-controls="panel-wallet" id="tab-wallet">Wallet</button>
-					<button class="edit-tab" data-tab="analytics" role="tab" aria-selected="false" aria-controls="panel-analytics" id="tab-analytics">Analytics</button>
-				</div>
-				<div class="edit-sidebar-group">
-					<div class="edit-sidebar-group-title">Advanced</div>
-					<button class="edit-tab" data-tab="studio" role="tab" aria-selected="false" aria-controls="panel-studio" id="tab-studio">Studio</button>
-					<button class="edit-tab danger" data-tab="danger" role="tab" aria-selected="false" aria-controls="panel-danger" id="tab-danger">Danger zone</button>
-				</div>
-			</nav>
+		<div class="unified-layout">
 
-			<main id="main" class="edit-main">
-			<div id="loading" class="loading-msg" role="status" aria-live="polite">Loading…</div>
-			<div id="error" class="error-msg" style="display: none" role="alert"></div>
-
-			<!-- Persona tab -->
-			<section
-				class="edit-panel persona-panel"
-				id="panel-persona"
-				role="tabpanel"
-				aria-labelledby="tab-persona"
-			>
-				<div class="form-group">
-					<label class="form-label" for="f-name">Name</label>
-					<input class="form-input" id="f-name" type="text" maxlength="100" />
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="f-desc">Description</label>
-					<textarea class="form-textarea" id="f-desc" rows="4" maxlength="500"></textarea>
-				</div>
-				<div class="form-actions">
-					<button class="btn-primary" id="persona-save">Save</button>
-					<span
-						class="form-status"
-						id="persona-status"
-						role="status"
-						aria-live="polite"
-					></span>
-				</div>
-			</section>
-
-			<!-- Brain Studio tab -->
-			<section
-				class="edit-panel persona-panel"
-				id="panel-brain"
-				role="tabpanel"
-				aria-labelledby="tab-brain"
-				hidden
-			>
-				<div id="brain-studio-host">
-					<div class="loading-msg" role="status" aria-live="polite">Loading the Brain Studio…</div>
-				</div>
-			</section>
-
-			<!-- Ownership tab — Portable & Verifiable Brain -->
-			<section
-				class="edit-panel"
-				id="panel-ownership"
-				role="tabpanel"
-				aria-labelledby="tab-ownership"
-				hidden
-			>
-				<div id="brain-ownership-host">
-					<div class="loading-msg" role="status" aria-live="polite">Loading brain ownership…</div>
-				</div>
-			</section>
-
-			<!-- Outfit tab -->
-			<section
-				class="edit-panel outfit-panel"
-				id="panel-outfit"
-				role="tabpanel"
-				aria-labelledby="tab-outfit"
-				hidden
-			>
-				<div class="outfit-preview" id="outfit-preview" aria-label="Avatar preview">
-					<!-- agent-3d injected by agent-edit.js when the tab opens -->
-				</div>
-				<div class="outfit-controls" id="outfit-controls">
-					<div class="outfit-header">
-						<h2 class="outfit-title">Avatar</h2>
-						<a
-							class="btn-reset-all"
-							href="/dashboard/avatars"
-							aria-label="Create or manage avatars in the dashboard"
-						>
-							Manage in dashboard ›
-						</a>
-					</div>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin: 0 0 1rem;">
-						Pick which 3D avatar represents this agent. The preview updates on save.
-					</p>
-					<div id="avatar-picker-list" class="avatar-picker-list">
-						<div class="no-named-mats">Loading avatars…</div>
-					</div>
-
-					<div class="outfit-header" style="margin-top: 2rem;">
-						<h2 class="outfit-title">Animations</h2>
-						<button type="button" class="btn-reset-all" id="anims-save" disabled>Save selection</button>
-					</div>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin: 0 0 1rem;">
-						Pick which clips from the three.ws animation library this agent can play. They&rsquo;re also available to skills via <code>playAnimation</code>.
-					</p>
-					<div id="anims-picker-grid" class="anims-picker-grid">
-						<div class="no-named-mats">Loading animations…</div>
-					</div>
-					<span class="form-status" id="anims-status" role="status" aria-live="polite"></span>
-
-					<div class="outfit-header" style="margin-top: 2rem;">
-						<h2 class="outfit-title">Animation states</h2>
-						<button type="button" class="btn-reset-all" id="anim-graph-save" disabled>Save states</button>
-					</div>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin: 0 0 1rem;">
-						Pick which clip plays in each behaviour state. The avatar crossfades between states as it speaks, walks, and reacts.
-					</p>
-					<div id="anim-graph-rows" class="anim-graph-rows"></div>
-					<span class="form-status" id="anim-graph-status" role="status" aria-live="polite"></span>
-
-					<div class="outfit-header" style="margin-top: 2rem;">
-						<h2 class="outfit-title">Mood &amp; embodiment</h2>
-					</div>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin: 0 0 1rem;">
-						Your agent carries a real emotional state derived from its memory, conversations, dreams, and actions &mdash; expressed continuously through the avatar&rsquo;s face and posture. Tune how strongly it feels, and see the real signals that move it.
-					</p>
-					<div id="mood-inspector-host" class="mood-inspector-host"></div>
-				</div>
-			</section>
-			<!-- Publish tab -->
-			<section
-				class="edit-panel persona-panel"
-				id="panel-publish"
-				role="tabpanel"
-				aria-labelledby="tab-publish"
-				hidden
-			>
-				<div class="form-group">
-					<label class="form-label" for="f-category">Category</label>
-					<select class="form-input" id="f-category">
-						<option value="">— Select —</option>
-						<option value="academic">Academic</option>
-						<option value="career">Career</option>
-						<option value="copywriting">Copywriting</option>
-						<option value="design">Design</option>
-						<option value="education">Education</option>
-						<option value="emotions">Emotions</option>
-						<option value="entertainment">Entertainment</option>
-						<option value="games">Games</option>
-						<option value="general">General</option>
-						<option value="life">Life</option>
-						<option value="marketing">Marketing</option>
-						<option value="office">Office</option>
-						<option value="programming">Programming</option>
-						<option value="translation">Translation</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="f-tags">Tags (comma-separated, max 12)</label>
-					<input class="form-input" id="f-tags" type="text" placeholder="thesis, polishing, academic-writing" />
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="f-prompt">Agent Profile (system prompt)</label>
-					<textarea class="form-textarea" id="f-prompt" rows="8" maxlength="16000" placeholder="You are a professor of computer science…"></textarea>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="f-greeting">Greeting (demo first message)</label>
-					<textarea class="form-textarea" id="f-greeting" rows="3" maxlength="1000" placeholder="Hello! I am your computer science thesis polishing assistant…"></textarea>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="f-changelog">Changelog (optional, for this version)</label>
-					<input class="form-input" id="f-changelog" type="text" maxlength="1000" placeholder="Initial publish" />
-				</div>
-				<div class="form-actions">
-					<button class="btn-primary" id="publish-save">Publish to Marketplace</button>
-					<a id="publish-view" href="#" target="_blank" rel="noopener" style="margin-left:1rem;font-size:0.764rem;color:rgba(255,255,255,0.55);" hidden>View on marketplace ›</a>
-					<span class="form-status" id="publish-status" role="status" aria-live="polite"></span>
-				</div>
-			</section>
-
-			<!-- Monetization tab -->
-			<section
-				class="edit-panel persona-panel"
-				id="panel-monetization"
-				role="tabpanel"
-				aria-labelledby="tab-monetization"
-				hidden
-			>
-				<div class="form-group" id="launch-token-group">
-					<label class="form-label">Agent Token</label>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Launch a pump.fun community token (its price rises as more people buy) tied to this agent. Buyers help fund the token, fees route to the agent.</p>
-					<div id="launch-token-state" class="muted">Loading…</div>
-				</div>
-				<div class="form-group">
-					<label class="form-label">Skill Prices</label>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Set a price for your skills to be used by other agents. Leave blank for free skills. Prices are set in USDC (a $1 digital dollar) on Solana.</p>
-					<div id="skill-prices-list">
-						<div class="muted">Loading skills…</div>
+			<!-- ── Left column: persistent 3D preview ── -->
+			<aside class="preview-col" aria-label="Agent 3D preview">
+				<div class="outfit-preview" id="outfit-preview">
+					<div class="preview-no-avatar" id="preview-placeholder">
+						<div class="preview-no-avatar-icon">🤖</div>
+						<div>Add an avatar in the Outfit section</div>
 					</div>
 				</div>
-				<div class="form-actions">
-					<button class="btn-primary" id="monetization-save">Save Prices</button>
-					<span
-						class="form-status"
-						id="monetization-status"
-						role="status"
-						aria-live="polite"
-					></span>
+				<div class="preview-actions" id="preview-actions" style="display:none">
+					<a id="preview-view-link" class="btn-ghost" href="#" target="_blank" rel="noopener" style="flex:1;justify-content:center;font-size:0.764rem">View agent →</a>
+					<a id="preview-chat-link" class="btn-ghost" href="#" target="_blank" rel="noopener" style="flex:1;justify-content:center;font-size:0.764rem">Talk to agent</a>
 				</div>
+			</aside>
 
-				<!-- Subscription Plans -->
-				<div class="form-group" style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem;">
-					<label class="form-label">Subscription Plans</label>
-					<p class="note" style="font-size: 0.764rem; color: rgba(255,255,255,0.4); margin-top: -0.5rem; margin-bottom: 1rem;">Offer recurring access to your agent's skills. Subscribers pay a fixed USDC amount monthly or weekly. Up to 3 active plans.</p>
-					<div id="subscription-plans-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem;">
-						<div class="muted">Loading plans…</div>
-					</div>
-					<button class="btn-ghost" id="show-create-plan-btn" style="align-self: flex-start;">+ New Plan</button>
-				</div>
+			<!-- ── Right column: all edit sections ── -->
+			<main id="main" class="content-col">
+				<div id="loading" class="loading-msg" role="status" aria-live="polite">Loading…</div>
+				<div id="error" class="error-msg" style="display: none" role="alert"></div>
 
-				<!-- Plan editor (hidden until triggered) -->
-				<div id="plan-editor" style="display:none; margin-top: 1rem; padding: 1rem; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; background: rgba(255,255,255,0.03);">
-					<input type="hidden" id="plan-editor-id">
-					<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
-						<div class="form-group" style="margin: 0;">
-							<label class="form-label" style="font-size: 0.764rem;" for="plan-name-input">Plan Name</label>
-							<input class="form-input" id="plan-name-input" type="text" placeholder="e.g. Pro" maxlength="80">
-						</div>
-						<div class="form-group" style="margin: 0;">
-							<label class="form-label" style="font-size: 0.764rem;" for="plan-interval-input">Billing</label>
-							<select class="form-input" id="plan-interval-input">
-								<option value="monthly">Monthly</option>
-								<option value="weekly">Weekly</option>
-							</select>
-						</div>
-					</div>
-					<div class="form-group" style="margin-bottom: 0.75rem;">
-						<label class="form-label" style="font-size: 0.764rem;" for="plan-price-input">Price (USD)</label>
-						<input class="form-input" id="plan-price-input" type="number" min="0.99" max="999" step="0.01" placeholder="9.99" style="max-width: 140px;">
-					</div>
-					<div class="form-group" style="margin-bottom: 0.75rem;">
-						<label class="form-label" style="font-size: 0.764rem;" for="plan-perks-input">Perks (one per line)</label>
-						<textarea class="form-textarea" id="plan-perks-input" rows="3" placeholder="Unlimited API calls&#10;Priority queue&#10;Early access to new skills" style="font-size: 0.764rem;"></textarea>
-					</div>
-					<div class="form-group" style="margin-bottom: 0.75rem;">
-						<label class="form-label" style="font-size: 0.764rem;">Included Skills</label>
-						<p class="note" style="font-size: 0.7rem; color: rgba(255,255,255,0.4); margin: -0.25rem 0 0.4rem;">Subscribers get unlimited access to the skills you tick here for the life of their plan.</p>
-						<div id="plan-skills-checklist" class="plan-skills-checklist" role="group" aria-label="Skills included in this plan">
-							<span class="muted" style="font-size: 0.7rem;">Loading skills…</span>
-						</div>
-					</div>
-					<div class="form-group" style="margin-bottom: 0.75rem; flex-direction: row; align-items: center; justify-content: space-between; gap: 0.75rem;">
-						<div>
-							<label class="form-label" style="font-size: 0.764rem; margin: 0;" for="plan-active-input">Active</label>
-							<p class="note" style="font-size: 0.7rem; color: rgba(255,255,255,0.4); margin: 0.15rem 0 0;">Inactive plans are hidden from subscribers. Existing subscribers keep access.</p>
-						</div>
-						<label class="toggle-switch" title="Toggle whether this plan is offered to subscribers">
-							<input type="checkbox" id="plan-active-input" checked>
-							<span class="slider"></span>
-						</label>
-					</div>
-					<div style="display: flex; gap: 0.5rem; align-items: center;">
-						<button class="btn-primary" id="plan-save-btn" style="font-size: 0.764rem; padding: 0.4rem 0.9rem;">Save Plan</button>
-						<button class="btn-ghost" id="plan-cancel-btn" style="font-size: 0.764rem; padding: 0.4rem 0.9rem;">Cancel</button>
-						<span class="form-status" id="plan-status" role="status" aria-live="polite" style="font-size: 0.764rem;"></span>
-					</div>
-				</div>
-			</section>
+				<!-- Sticky section nav -->
+				<nav class="section-nav" id="section-nav" aria-label="Jump to section" hidden>
+					<a class="snav-link" href="#section-identity">Identity</a>
+					<a class="snav-link" href="#section-brain">Brain</a>
+					<a class="snav-link" href="#section-distribute">Distribute</a>
+					<a class="snav-link" href="#section-money">Money</a>
+					<a class="snav-link" href="#section-advanced">Advanced</a>
+				</nav>
 
-			<!-- Autopilot tab -->
-			<section
-				class="edit-panel persona-panel"
-				id="panel-autopilot"
-				role="tabpanel"
-				aria-labelledby="tab-autopilot"
-				hidden
-			>
-				<div class="form-group">
-					<label class="form-label" for="f-strategy">Trading Strategy</label>
-					<textarea class="form-textarea" id="f-strategy" rows="8" placeholder="Define your agent's trading strategy here..."></textarea>
-				</div>
-				<div class="form-actions">
-					<button class="btn-primary" id="autopilot-save">Save Strategy</button>
-					<span
-						class="form-status"
-						id="autopilot-status"
-						role="status"
-						aria-live="polite"
-					></span>
-				</div>
-					<!-- Memory-grounded Autopilot: explainable autonomy (scopes, proposals,
-					     trust, signed receipts). Rendered by src/autopilot-mind.js. -->
-					<div id="autopilot-mind" style="margin-top: 1.75rem;">
-						<div class="apm-skel" style="height: 90px; border-radius: 12px;"></div>
-					</div>
-			</section>
+				<!-- ═══════════════════════════════════════
+				     IDENTITY
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-identity">
+					<div class="edit-section-label">Identity</div>
 
-			<!-- Voice tab -->
-			<section class="edit-panel persona-panel" id="panel-voice" role="tabpanel" aria-labelledby="tab-voice" hidden>
-				<div class="card">
-					<div class="card-row">
-						<div>
-							<div class="card-title">Current voice</div>
-							<div class="card-sub" id="voice-current">Loading…</div>
-						</div>
-						<div class="card-actions">
-							<button class="btn-ghost" id="voice-preview-btn" hidden>Preview</button>
-							<button class="btn-ghost danger" id="voice-remove-btn" hidden>Remove</button>
-						</div>
-					</div>
-				</div>
-
-				<div class="form-group">
-					<label class="form-label">Pick an ElevenLabs voice</label>
-					<input class="form-input" id="voice-filter" type="search" placeholder="Filter voices by name…" />
-					<div id="voice-list" class="voice-list"><div class="muted">Loading voices…</div></div>
-				</div>
-
-				<div class="form-group" id="voice-tune" hidden>
-					<label class="form-label">Fine-tune delivery</label>
-					<p class="hint">Applied whenever this agent speaks with its ElevenLabs voice.</p>
-
-					<div class="voice-tune-grid">
-						<label class="form-label" for="voice-model">Model</label>
-						<select class="form-input" id="voice-model"></select>
-
-						<label class="form-label" for="voice-stability">Stability
-							<span class="voice-range-val" id="voice-stability-val">0.50</span></label>
-						<input type="range" id="voice-stability" min="0" max="1" step="0.05" value="0.5" />
-
-						<label class="form-label" for="voice-similarity">Similarity
-							<span class="voice-range-val" id="voice-similarity-val">0.75</span></label>
-						<input type="range" id="voice-similarity" min="0" max="1" step="0.05" value="0.75" />
-
-						<label class="form-label" for="voice-style">Style
-							<span class="voice-range-val" id="voice-style-val">0.50</span></label>
-						<input type="range" id="voice-style" min="0" max="1" step="0.05" value="0.5" />
-
-						<label class="voice-check" for="voice-speaker-boost">
-							<input type="checkbox" id="voice-speaker-boost" checked /> Speaker boost
-						</label>
-					</div>
-
-					<div class="form-actions">
-						<input class="form-input" id="voice-test-text" type="text" maxlength="200"
-							placeholder="Type a line to test…" value="Hi! This is how I sound." style="max-width:280px" />
-						<button class="btn-ghost" id="voice-test-btn">Test voice</button>
-						<button class="btn-primary" id="voice-save-settings-btn">Save settings</button>
-						<span class="form-status" id="voice-settings-status" role="status" aria-live="polite"></span>
-					</div>
-				</div>
-
-				<div class="form-group">
-					<label class="form-label">Or clone your own voice</label>
-					<p class="hint">Upload at least 30 seconds of clean speech (mp3/wav/m4a, max 10 MB). 3 clones per day.</p>
-					<div class="form-actions">
-						<input type="file" id="voice-clone-file" accept="audio/*" hidden />
-						<button class="btn-primary" id="voice-clone-btn">Upload &amp; clone</button>
-						<input class="form-input" id="voice-clone-name" type="text" placeholder="Clone name (optional)" style="max-width:240px" />
-						<span class="form-status" id="voice-status" role="status" aria-live="polite"></span>
-					</div>
-				</div>
-			</section>
-
-			<!-- Knowledge tab -->
-			<section class="edit-panel persona-panel" id="panel-knowledge" role="tabpanel" aria-labelledby="tab-knowledge" hidden>
-				<p class="hint">Persistent memories the agent will recall. Add facts, preferences, references, and project context.</p>
-
-				<div class="form-group">
-					<label class="form-label" for="mem-type">Type</label>
-					<select class="form-input" id="mem-type">
-						<option value="reference">Reference</option>
-						<option value="user">User</option>
-						<option value="feedback">Feedback</option>
-						<option value="project">Project</option>
-					</select>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="mem-content">Content</label>
-					<textarea class="form-textarea" id="mem-content" rows="3" maxlength="4000" placeholder="Bug reports are tracked in Linear project INGEST…"></textarea>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="mem-tags">Tags (comma-separated)</label>
-					<input class="form-input" id="mem-tags" type="text" placeholder="incidents, observability" />
-				</div>
-				<div class="form-actions">
-					<button class="btn-primary" id="mem-add-btn">Add memory</button>
-					<span class="form-status" id="mem-status" role="status" aria-live="polite"></span>
-				</div>
-
-				<div class="form-group" style="margin-top:1.5rem">
-					<label class="form-label">Seed from a URL</label>
-					<p class="hint">Fetch a web page and import key facts as memories.</p>
-					<div class="form-actions">
-						<input class="form-input" id="mem-seed-url" type="url" placeholder="https://…" style="flex:1" />
-						<button class="btn-ghost" id="mem-seed-btn">Seed</button>
-					</div>
-				</div>
-
-				<div class="form-group" style="margin-top:1.5rem">
-					<label class="form-label">Existing memories</label>
-					<div id="mem-list" class="mem-list"><div class="muted">Loading…</div></div>
-				</div>
-			</section>
-
-			<!-- Mind Palace tab -->
-			<section class="edit-panel" id="panel-mind" role="tabpanel" aria-labelledby="tab-mind" hidden>
-				<div class="mind-tab-intro">
-					<p class="hint" style="margin:0 0 .75rem">Walk through your agent's mind. Every memory is an object you can see, search, and shape — drag one to the centre to pin it, flick it into the well to forget. <a href="#" id="mind-fullscreen-link" target="_blank" rel="noopener" style="color:#9ad0ff">Open full-screen ↗</a></p>
-				</div>
-				<div id="mind-palace-host" style="position:relative;width:100%;height:min(640px,72vh);min-height:440px"></div>
-			</section>
-
-			<!-- Dreams tab -->
-			<section class="edit-panel persona-panel" id="panel-dreams" role="tabpanel" aria-labelledby="tab-dreams" hidden>
-				<div class="dreams-head">
-					<div>
-						<p class="hint" style="margin:0">While you're away, your agent <strong>reflects</strong> — it reads its own memories and actions and consolidates them into higher-order insights. Review each below: accept one and it becomes a real, higher-salience memory; reject it and your agent learns the synthesis was wrong.</p>
-						<div class="dreams-meta" id="dreams-meta" aria-live="polite"></div>
-					</div>
-					<button class="btn-ghost dreams-reflect-btn" id="dreams-reflect-btn" title="Run a reflection pass now">
-						<span class="dreams-reflect-label">Reflect now</span>
-					</button>
-				</div>
-
-				<div id="dreams-list" class="dreams-list" aria-live="polite"><div class="muted">Loading…</div></div>
-
-				<div class="dreams-journal" id="dreams-journal" hidden>
-					<button class="dreams-journal-toggle" id="dreams-journal-toggle" aria-expanded="false" aria-controls="dreams-journal-list">
-						<span class="dreams-journal-caret" aria-hidden="true">▸</span> Dream journal <span class="muted" id="dreams-journal-count"></span>
-					</button>
-					<div id="dreams-journal-list" class="dreams-journal-list" hidden></div>
-				</div>
-			</section>
-
-			<!-- Skills tab -->
-			<section class="edit-panel persona-panel" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" hidden>
-				<p class="hint">Skills the agent exposes. Built-ins (greet, present-model, validate-model, remember, think) are always available. Add custom skills below.</p>
-
-				<div class="form-group">
-					<label class="form-label">Active skills</label>
-					<div id="skills-list" class="chip-list"><div class="muted">Loading…</div></div>
-				</div>
-
-				<div class="form-group">
-					<label class="form-label" for="skill-add-input">Add a skill</label>
-					<div class="form-actions">
-						<input class="form-input" id="skill-add-input" type="text" placeholder="skill-slug (e.g. translate-text)" list="skills-marketplace" style="flex:1" />
-						<datalist id="skills-marketplace"></datalist>
-						<button class="btn-primary" id="skill-add-btn">Add</button>
-					</div>
-					<p class="hint">Browse the marketplace for community skills: <a href="/marketplace" target="_blank" rel="noopener" style="color:#93c5fd">marketplace ›</a></p>
-				</div>
-
-				<div class="form-actions">
-					<button class="btn-primary" id="skills-save">Save skills</button>
-					<span class="form-status" id="skills-status" role="status" aria-live="polite"></span>
-				</div>
-			</section>
-
-			<!-- Wallet tab -->
-			<section class="edit-panel persona-panel" id="panel-wallet" role="tabpanel" aria-labelledby="tab-wallet" hidden>
-				<div class="wallet-grid">
-					<div class="card">
-						<div class="card-title">Solana wallet</div>
-						<div class="card-sub mono" id="wallet-sol-address">—</div>
-						<div class="card-row" style="margin-top:.618rem">
-							<div>
-								<div class="metric-label">SOL</div>
-								<div class="metric-value" id="wallet-sol-balance">—</div>
-							</div>
-							<div>
-								<div class="metric-label">USDC</div>
-								<div class="metric-value" id="wallet-usdc-balance">—</div>
-							</div>
-							<div>
-								<div class="metric-label">Total</div>
-								<div class="metric-value" id="wallet-total-usd">—</div>
-							</div>
-						</div>
-						<div class="card-actions" style="margin-top:.875rem">
-							<button class="btn-primary" id="wallet-send-btn">Send</button>
-							<button class="btn-ghost" id="wallet-fund-btn">Fund</button>
-							<button class="btn-ghost" id="wallet-copy-sol">Copy address</button>
-							<a class="btn-ghost" id="wallet-explorer" href="#" target="_blank" rel="noopener">Explorer ›</a>
-						</div>
-					</div>
-
-					<div class="card">
-						<div class="card-title">Base wallet</div>
-						<div class="card-sub mono" id="wallet-evm-address">Not linked.</div>
-						<div class="card-row" style="margin-top:.618rem">
-							<div>
-								<div class="metric-label">Chain</div>
-								<div class="metric-value" id="wallet-evm-chain">—</div>
-							</div>
-						</div>
-						<div class="card-actions" style="margin-top:.875rem">
-							<button class="btn-ghost" id="wallet-evm-copy">Copy address</button>
-							<a class="btn-ghost" id="wallet-evm-explorer" href="#" target="_blank" rel="noopener" hidden>Explorer ›</a>
-						</div>
-					</div>
-
-					<div class="card">
-						<div class="card-title">On-chain identity</div>
-						<div class="card-sub" id="wallet-identity">Loading…</div>
-					</div>
-
-					<div class="card">
-						<div class="card-title">Recent activity</div>
-						<div class="card-sub" id="wallet-activity">Loading…</div>
-					</div>
-				</div>
-
-				<!-- Send modal -->
-				<div id="send-modal" class="modal" hidden>
-					<div class="modal-card">
-						<div class="modal-title">Send from agent wallet</div>
+					<!-- Persona -->
+					<section class="edit-panel" id="panel-persona" role="region" aria-label="Persona">
+						<div class="subsection-title">Persona</div>
 						<div class="form-group">
-							<label class="form-label" for="send-asset">Asset</label>
-							<select class="form-input" id="send-asset">
-								<option value="usdc">USDC (Solana)</option>
-								<option value="sol">SOL</option>
+							<label class="form-label" for="f-name">Name</label>
+							<input class="form-input" id="f-name" type="text" maxlength="100" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="f-desc">Description</label>
+							<textarea class="form-textarea" id="f-desc" rows="4" maxlength="500"></textarea>
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="persona-save">Save</button>
+							<span class="form-status" id="persona-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
+
+					<!-- Outfit (controls; 3D preview is in the left column) -->
+					<section class="edit-panel" id="panel-outfit" role="region" aria-label="Outfit">
+						<div class="subsection-title">Outfit</div>
+						<div class="outfit-controls-inline" id="outfit-controls">
+							<div class="outfit-header">
+								<h2 class="outfit-title">Avatar</h2>
+								<a class="btn-reset-all" href="/dashboard/avatars" aria-label="Create or manage avatars in the dashboard">Manage in dashboard ›</a>
+							</div>
+							<p style="font-size:0.764rem;color:rgba(255,255,255,0.4);margin:0 0 0.75rem">
+								Pick which 3D avatar represents this agent. The preview updates on save.
+							</p>
+							<div id="avatar-picker-list" class="avatar-picker-list">
+								<div class="no-named-mats">Loading avatars…</div>
+							</div>
+
+							<div class="outfit-header">
+								<h2 class="outfit-title">Animations</h2>
+								<button type="button" class="btn-reset-all" id="anims-save" disabled>Save selection</button>
+							</div>
+							<p style="font-size:0.764rem;color:rgba(255,255,255,0.4);margin:0 0 0.75rem">
+								Pick which clips from the three.ws animation library this agent can play.
+							</p>
+							<div id="anims-picker-grid" class="anims-picker-grid">
+								<div class="no-named-mats">Loading animations…</div>
+							</div>
+							<span class="form-status" id="anims-status" role="status" aria-live="polite"></span>
+
+							<div class="outfit-header">
+								<h2 class="outfit-title">Animation states</h2>
+								<button type="button" class="btn-reset-all" id="anim-graph-save" disabled>Save states</button>
+							</div>
+							<p style="font-size:0.764rem;color:rgba(255,255,255,0.4);margin:0 0 0.75rem">
+								Pick which clip plays in each behaviour state. The avatar crossfades between states as it speaks, walks, and reacts.
+							</p>
+							<div id="anim-graph-rows" class="anim-graph-rows"></div>
+							<span class="form-status" id="anim-graph-status" role="status" aria-live="polite"></span>
+
+							<div class="outfit-header">
+								<h2 class="outfit-title">Mood &amp; embodiment</h2>
+							</div>
+							<p style="font-size:0.764rem;color:rgba(255,255,255,0.4);margin:0 0 0.75rem">
+								Your agent carries a real emotional state derived from its memory, conversations, dreams, and actions — expressed continuously through the avatar's face and posture.
+							</p>
+							<div id="mood-inspector-host" class="mood-inspector-host"></div>
+						</div>
+					</section>
+
+					<!-- Voice -->
+					<section class="edit-panel" id="panel-voice" role="region" aria-label="Voice">
+						<div class="subsection-title">Voice</div>
+						<div class="card">
+							<div class="card-row">
+								<div>
+									<div class="card-title">Current voice</div>
+									<div class="card-sub" id="voice-current">Loading…</div>
+								</div>
+								<div class="card-actions">
+									<button class="btn-ghost" id="voice-preview-btn" hidden>Preview</button>
+									<button class="btn-ghost danger" id="voice-remove-btn" hidden>Remove</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="form-label">Pick an ElevenLabs voice</label>
+							<input class="form-input" id="voice-filter" type="search" placeholder="Filter voices by name…" />
+							<div id="voice-list" class="voice-list"><div class="muted">Loading voices…</div></div>
+						</div>
+
+						<div class="form-group" id="voice-tune" hidden>
+							<label class="form-label">Fine-tune delivery</label>
+							<p class="hint">Applied whenever this agent speaks with its ElevenLabs voice.</p>
+							<div class="voice-tune-grid">
+								<label class="form-label" for="voice-model">Model</label>
+								<select class="form-input" id="voice-model"></select>
+
+								<label class="form-label" for="voice-stability">Stability
+									<span class="voice-range-val" id="voice-stability-val">0.50</span></label>
+								<input type="range" id="voice-stability" min="0" max="1" step="0.05" value="0.5" />
+
+								<label class="form-label" for="voice-similarity">Similarity
+									<span class="voice-range-val" id="voice-similarity-val">0.75</span></label>
+								<input type="range" id="voice-similarity" min="0" max="1" step="0.05" value="0.75" />
+
+								<label class="form-label" for="voice-style">Style
+									<span class="voice-range-val" id="voice-style-val">0.50</span></label>
+								<input type="range" id="voice-style" min="0" max="1" step="0.05" value="0.5" />
+
+								<label class="voice-check" for="voice-speaker-boost">
+									<input type="checkbox" id="voice-speaker-boost" checked /> Speaker boost
+								</label>
+							</div>
+							<div class="form-actions">
+								<input class="form-input" id="voice-test-text" type="text" maxlength="200"
+									placeholder="Type a line to test…" value="Hi! This is how I sound." style="max-width:280px" />
+								<button class="btn-ghost" id="voice-test-btn">Test voice</button>
+								<button class="btn-primary" id="voice-save-settings-btn">Save settings</button>
+								<span class="form-status" id="voice-settings-status" role="status" aria-live="polite"></span>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="form-label">Or clone your own voice</label>
+							<p class="hint">Upload at least 30 seconds of clean speech (mp3/wav/m4a, max 10 MB). 3 clones per day.</p>
+							<div class="form-actions">
+								<input type="file" id="voice-clone-file" accept="audio/*" hidden />
+								<button class="btn-primary" id="voice-clone-btn">Upload &amp; clone</button>
+								<input class="form-input" id="voice-clone-name" type="text" placeholder="Clone name (optional)" style="max-width:240px" />
+								<span class="form-status" id="voice-status" role="status" aria-live="polite"></span>
+							</div>
+						</div>
+					</section>
+				</div><!-- /section-identity -->
+
+				<!-- ═══════════════════════════════════════
+				     BRAIN
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-brain">
+					<div class="edit-section-label">Brain</div>
+
+					<!-- Brain Studio -->
+					<section class="edit-panel" id="panel-brain" role="region" aria-label="Brain Studio">
+						<div class="subsection-title">Brain Studio</div>
+						<div id="brain-studio-host">
+							<div class="loading-msg" style="min-height:80px" role="status" aria-live="polite">Loading the Brain Studio…</div>
+						</div>
+					</section>
+
+					<!-- Knowledge -->
+					<section class="edit-panel" id="panel-knowledge" role="region" aria-label="Knowledge">
+						<div class="subsection-title">Knowledge</div>
+						<p class="hint">Persistent memories the agent will recall. Add facts, preferences, references, and project context.</p>
+
+						<div class="form-group">
+							<label class="form-label" for="mem-type">Type</label>
+							<select class="form-input" id="mem-type">
+								<option value="reference">Reference</option>
+								<option value="user">User</option>
+								<option value="feedback">Feedback</option>
+								<option value="project">Project</option>
 							</select>
 						</div>
 						<div class="form-group">
-							<label class="form-label" for="send-to">Recipient address</label>
-							<input class="form-input" id="send-to" type="text" placeholder="Solana address" />
+							<label class="form-label" for="mem-content">Content</label>
+							<textarea class="form-textarea" id="mem-content" rows="3" maxlength="4000" placeholder="Bug reports are tracked in Linear project INGEST…"></textarea>
 						</div>
 						<div class="form-group">
-							<label class="form-label" for="send-amount">Amount</label>
-							<input class="form-input" id="send-amount" type="number" min="0" step="0.000001" placeholder="0.00" />
+							<label class="form-label" for="mem-tags">Tags (comma-separated)</label>
+							<input class="form-input" id="mem-tags" type="text" placeholder="incidents, observability" />
 						</div>
 						<div class="form-actions">
-							<button class="btn-primary" id="send-confirm">Send</button>
-							<button class="btn-ghost" id="send-cancel">Cancel</button>
-							<span class="form-status" id="send-status" role="status" aria-live="polite"></span>
+							<button class="btn-primary" id="mem-add-btn">Add memory</button>
+							<span class="form-status" id="mem-status" role="status" aria-live="polite"></span>
 						</div>
-					</div>
-				</div>
 
-				<!-- Fund modal -->
-				<div id="fund-modal" class="modal" hidden>
-					<div class="modal-card">
-						<div class="modal-title">Fund this agent</div>
-						<p class="hint">Send SOL or USDC (Solana) to the address below.</p>
-						<div class="qr-wrap"><img id="fund-qr" alt="Wallet QR code" /></div>
-						<div class="card-sub mono" id="fund-address">—</div>
+						<div class="form-group" style="margin-top:0.5rem">
+							<label class="form-label">Seed from a URL</label>
+							<p class="hint">Fetch a web page and import key facts as memories.</p>
+							<div class="form-actions">
+								<input class="form-input" id="mem-seed-url" type="url" placeholder="https://…" style="flex:1" />
+								<button class="btn-ghost" id="mem-seed-btn">Seed</button>
+							</div>
+						</div>
+
+						<div class="form-group" style="margin-top:0.5rem">
+							<label class="form-label">Existing memories</label>
+							<div id="mem-list" class="mem-list"><div class="muted">Loading…</div></div>
+						</div>
+					</section>
+
+					<!-- Mind Palace -->
+					<section class="edit-panel" id="panel-mind" role="region" aria-label="Mind Palace">
+						<div class="subsection-title">Mind Palace</div>
+						<div class="mind-tab-intro">
+							<p class="hint" style="margin:0 0 .75rem">Walk through your agent's mind. Every memory is an object you can see, search, and shape. <a href="#" id="mind-fullscreen-link" target="_blank" rel="noopener" style="color:#9ad0ff">Open full-screen ↗</a></p>
+						</div>
+						<div id="mind-palace-host" style="position:relative;width:100%;height:min(560px,65vh);min-height:380px"></div>
+					</section>
+
+					<!-- Ownership -->
+					<section class="edit-panel" id="panel-ownership" role="region" aria-label="Ownership">
+						<div class="subsection-title">Ownership</div>
+						<div id="brain-ownership-host">
+							<div class="loading-msg" style="min-height:60px" role="status" aria-live="polite">Loading brain ownership…</div>
+						</div>
+					</section>
+
+					<!-- Dreams -->
+					<section class="edit-panel" id="panel-dreams" role="region" aria-label="Dreams">
+						<div class="subsection-title">Dreams <span class="tab-badge" id="dreams-tab-badge" hidden aria-hidden="true">0</span></div>
+						<div class="dreams-head">
+							<div>
+								<p class="hint" style="margin:0">While you're away, your agent <strong>reflects</strong> — it reads its own memories and actions and consolidates them into higher-order insights. Review each below: accept one and it becomes a real, higher-salience memory; reject it and your agent learns the synthesis was wrong.</p>
+								<div class="dreams-meta" id="dreams-meta" aria-live="polite"></div>
+							</div>
+							<button class="btn-ghost dreams-reflect-btn" id="dreams-reflect-btn" title="Run a reflection pass now">
+								<span class="dreams-reflect-label">Reflect now</span>
+							</button>
+						</div>
+
+						<div id="dreams-list" class="dreams-list" aria-live="polite"><div class="muted">Loading…</div></div>
+
+						<div class="dreams-journal" id="dreams-journal" hidden>
+							<button class="dreams-journal-toggle" id="dreams-journal-toggle" aria-expanded="false" aria-controls="dreams-journal-list">
+								<span class="dreams-journal-caret" aria-hidden="true">▸</span> Dream journal <span class="muted" id="dreams-journal-count"></span>
+							</button>
+							<div id="dreams-journal-list" class="dreams-journal-list" hidden></div>
+						</div>
+					</section>
+
+					<!-- Skills -->
+					<section class="edit-panel" id="panel-skills" role="region" aria-label="Skills">
+						<div class="subsection-title">Skills</div>
+						<p class="hint">Skills the agent exposes. Built-ins (greet, present-model, validate-model, remember, think) are always available. Add custom skills below.</p>
+
+						<div class="form-group">
+							<label class="form-label">Active skills</label>
+							<div id="skills-list" class="chip-list"><div class="muted">Loading…</div></div>
+						</div>
+
+						<div class="form-group">
+							<label class="form-label" for="skill-add-input">Add a skill</label>
+							<div class="form-actions">
+								<input class="form-input" id="skill-add-input" type="text" placeholder="skill-slug (e.g. translate-text)" list="skills-marketplace" style="flex:1" />
+								<datalist id="skills-marketplace"></datalist>
+								<button class="btn-primary" id="skill-add-btn">Add</button>
+							</div>
+							<p class="hint">Browse the marketplace for community skills: <a href="/marketplace" target="_blank" rel="noopener" style="color:#93c5fd">marketplace ›</a></p>
+						</div>
+
 						<div class="form-actions">
-							<button class="btn-ghost" id="fund-copy">Copy address</button>
-							<button class="btn-ghost" id="fund-close">Close</button>
+							<button class="btn-primary" id="skills-save">Save skills</button>
+							<span class="form-status" id="skills-status" role="status" aria-live="polite"></span>
 						</div>
-					</div>
-				</div>
-			</section>
+					</section>
 
-			<!-- Social tab -->
-			<section class="edit-panel persona-panel" id="panel-social" role="tabpanel" aria-labelledby="tab-social" hidden>
-				<div class="card">
-					<div class="card-row">
-						<div>
-							<div class="card-title">X (Twitter)</div>
-							<div class="card-sub" id="x-status">Loading…</div>
+					<!-- Autopilot -->
+					<section class="edit-panel" id="panel-autopilot" role="region" aria-label="Autopilot">
+						<div class="subsection-title">Autopilot</div>
+						<div class="form-group">
+							<label class="form-label" for="f-strategy">Trading Strategy</label>
+							<textarea class="form-textarea" id="f-strategy" rows="6" placeholder="Define your agent's trading strategy here..."></textarea>
 						</div>
-						<div class="card-actions">
-							<button class="btn-primary" id="x-connect-btn" hidden>Connect X</button>
-							<button class="btn-ghost danger" id="x-disconnect-btn" hidden>Disconnect</button>
+						<div class="form-actions">
+							<button class="btn-primary" id="autopilot-save">Save Strategy</button>
+							<span class="form-status" id="autopilot-status" role="status" aria-live="polite"></span>
 						</div>
-					</div>
-				</div>
+						<div id="autopilot-mind" style="margin-top:0.75rem">
+							<div class="apm-skel" style="height:90px;border-radius:12px"></div>
+						</div>
+					</section>
+				</div><!-- /section-brain -->
 
-				<div class="form-group">
-					<label class="form-label" for="x-username">Agent's X handle (public, optional)</label>
-					<div class="form-actions">
-						<input class="form-input" id="x-username" type="text" placeholder="@handle" style="flex:1" />
-						<button class="btn-ghost" id="x-username-save">Save handle</button>
-					</div>
-				</div>
+				<!-- ═══════════════════════════════════════
+				     DISTRIBUTE
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-distribute">
+					<div class="edit-section-label">Distribute</div>
 
-				<div class="form-group">
-					<label class="form-label">Scheduled posts</label>
-					<p class="hint">Triggers run on cron and post automatically.</p>
-					<div id="x-triggers-list" class="trigger-list"><div class="muted">Loading…</div></div>
-					<div class="form-actions" style="margin-top:.5rem">
-						<select class="form-input" id="x-trigger-kind" style="max-width:220px">
-							<option value="daily_persona">Daily persona post</option>
-							<option value="weekly_digest">Weekly digest</option>
-							<option value="price_milestone">Price milestone</option>
-							<option value="payment_received">Payment received</option>
-						</select>
-						<button class="btn-primary" id="x-trigger-add">Add trigger</button>
-					</div>
-				</div>
+					<!-- Publish -->
+					<section class="edit-panel" id="panel-publish" role="region" aria-label="Publish">
+						<div class="subsection-title">Publish</div>
+						<div class="form-group">
+							<label class="form-label" for="f-category">Category</label>
+							<select class="form-input" id="f-category">
+								<option value="">— Select —</option>
+								<option value="academic">Academic</option>
+								<option value="career">Career</option>
+								<option value="copywriting">Copywriting</option>
+								<option value="design">Design</option>
+								<option value="education">Education</option>
+								<option value="emotions">Emotions</option>
+								<option value="entertainment">Entertainment</option>
+								<option value="games">Games</option>
+								<option value="general">General</option>
+								<option value="life">Life</option>
+								<option value="marketing">Marketing</option>
+								<option value="office">Office</option>
+								<option value="programming">Programming</option>
+								<option value="translation">Translation</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="f-tags">Tags (comma-separated, max 12)</label>
+							<input class="form-input" id="f-tags" type="text" placeholder="thesis, polishing, academic-writing" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="f-prompt">Agent Profile (system prompt)</label>
+							<textarea class="form-textarea" id="f-prompt" rows="8" maxlength="16000" placeholder="You are a professor of computer science…"></textarea>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="f-greeting">Greeting (demo first message)</label>
+							<textarea class="form-textarea" id="f-greeting" rows="3" maxlength="1000" placeholder="Hello! I am your computer science thesis polishing assistant…"></textarea>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="f-changelog">Changelog (optional, for this version)</label>
+							<input class="form-input" id="f-changelog" type="text" maxlength="1000" placeholder="Initial publish" />
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="publish-save">Publish to Marketplace</button>
+							<a id="publish-view" href="#" target="_blank" rel="noopener" style="font-size:0.764rem;color:rgba(255,255,255,0.55);" hidden>View on marketplace ›</a>
+							<span class="form-status" id="publish-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
 
-				<div class="form-group">
-					<label class="form-label">Post now</label>
-					<textarea class="form-textarea" id="x-post-text" rows="3" maxlength="280" placeholder="Compose a tweet (max 280 chars)…"></textarea>
-					<div class="form-actions">
-						<button class="btn-primary" id="x-post-btn">Post to X</button>
-						<span class="form-status" id="x-post-status" role="status" aria-live="polite"></span>
-					</div>
-				</div>
-			</section>
+					<!-- Embed -->
+					<section class="edit-panel" id="panel-embed" role="region" aria-label="Embed">
+						<div class="subsection-title">Embed</div>
+						<p class="hint">Drop your agent on any website, Notion page, or Discord channel.</p>
 
-			<!-- Analytics tab -->
-			<section class="edit-panel persona-panel" id="panel-analytics" role="tabpanel" aria-labelledby="tab-analytics" hidden>
-				<div class="metrics-grid">
-					<div class="metric-card">
-						<div class="metric-label">LLM calls (this month)</div>
-						<div class="metric-value" id="m-llm-month">—</div>
-					</div>
-					<div class="metric-card">
-						<div class="metric-label">LLM calls (30d)</div>
-						<div class="metric-value" id="m-llm-30d">—</div>
-					</div>
-					<div class="metric-card">
-						<div class="metric-label">Earnings received</div>
-						<div class="metric-value" id="m-earn-in">—</div>
-					</div>
-					<div class="metric-card">
-						<div class="metric-label">Spend (paid to others)</div>
-						<div class="metric-value" id="m-earn-out">—</div>
-					</div>
-				</div>
+						<div class="form-group">
+							<label class="form-label" for="embed-size">Preview size</label>
+							<select class="form-input" id="embed-size" style="max-width:220px">
+								<option value="420x520">Small (420×520)</option>
+								<option value="560x680" selected>Medium (560×680)</option>
+								<option value="800x900">Large (800×900)</option>
+								<option value="100%x600">Full width (×600)</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label class="form-label">Live preview</label>
+							<div id="embed-preview" class="embed-preview"></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="embed-iframe-code">Iframe snippet</label>
+							<textarea class="form-input mono" id="embed-iframe-code" rows="3" readonly></textarea>
+							<div class="form-actions"><button class="btn-ghost" data-copy="#embed-iframe-code">Copy</button></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="embed-link">Direct link</label>
+							<input class="form-input mono" id="embed-link" type="text" readonly />
+							<div class="form-actions"><button class="btn-ghost" data-copy="#embed-link">Copy</button> <a class="btn-ghost" id="embed-open" href="#" target="_blank" rel="noopener">Open in new tab ›</a></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="embed-oembed">oEmbed discovery URL</label>
+							<input class="form-input mono" id="embed-oembed" type="text" readonly />
+							<div class="form-actions"><button class="btn-ghost" data-copy="#embed-oembed">Copy</button></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label">Embed policy</label>
+							<p class="hint">Restrict which sites and surfaces may embed this agent.</p>
+							<label class="form-label" for="embed-allowed-origins">Allowed origins (one per line, * for any)</label>
+							<textarea class="form-input mono" id="embed-allowed-origins" rows="3" placeholder="https://example.com&#10;https://*.mysite.com"></textarea>
+							<div class="form-actions">
+								<button class="btn-primary" id="embed-policy-save">Save policy</button>
+								<button class="btn-ghost" id="embed-policy-clear">Clear policy</button>
+								<span class="form-status" id="embed-policy-status" role="status" aria-live="polite"></span>
+							</div>
+						</div>
+					</section>
 
-				<div class="form-group" style="margin-top:1rem">
-					<label class="form-label">Calls per day (30 days)</label>
-					<div id="m-chart" class="bar-chart"><div class="muted">Loading…</div></div>
-				</div>
+					<!-- Widgets -->
+					<section class="edit-panel" id="panel-widgets" role="region" aria-label="Widgets">
+						<div class="subsection-title">Widgets</div>
+						<p class="hint">Widgets are reusable embeds (turntable, talking-agent, gallery) you can paste anywhere.</p>
 
-				<div class="form-group">
-					<label class="form-label">Recent payments received</label>
-					<div id="m-pay-in" class="pay-list"><div class="muted">Loading…</div></div>
-				</div>
-				<div class="form-group">
-					<label class="form-label">Recent payments sent</label>
-					<div id="m-pay-out" class="pay-list"><div class="muted">Loading…</div></div>
-				</div>
-			</section>
+						<div class="form-group">
+							<label class="form-label">Create a widget for this agent's avatar</label>
+							<div class="form-actions">
+								<select class="form-input" id="widget-new-type" style="max-width:220px">
+									<option value="talking-agent">Talking agent</option>
+									<option value="turntable">Turntable</option>
+									<option value="animation-gallery">Animation gallery</option>
+									<option value="passport">Passport</option>
+									<option value="hotspot-tour">Hotspot tour</option>
+								</select>
+								<input class="form-input" id="widget-new-name" type="text" placeholder="Widget name" style="flex:1" />
+								<button class="btn-primary" id="widget-new-btn">Create</button>
+							</div>
+							<span class="form-status" id="widget-status" role="status" aria-live="polite"></span>
+						</div>
 
-			<!-- Embed tab -->
-			<section class="edit-panel persona-panel" id="panel-embed" role="tabpanel" aria-labelledby="tab-embed" hidden>
-				<p class="hint">Drop your agent on any website, Notion page, or Discord channel.</p>
+						<div class="form-group" style="margin-top:0.5rem">
+							<label class="form-label">Your widgets</label>
+							<div id="widgets-list" class="widget-list"><div class="muted">Loading…</div></div>
+						</div>
+					</section>
 
-				<div class="form-group">
-					<label class="form-label" for="embed-size">Preview size</label>
-					<select class="form-input" id="embed-size" style="max-width:220px">
-						<option value="420x520">Small (420×520)</option>
-						<option value="560x680" selected>Medium (560×680)</option>
-						<option value="800x900">Large (800×900)</option>
-						<option value="100%x600">Full width (×600)</option>
-					</select>
-				</div>
+					<!-- Social -->
+					<section class="edit-panel" id="panel-social" role="region" aria-label="Social">
+						<div class="subsection-title">Social</div>
+						<div class="card">
+							<div class="card-row">
+								<div>
+									<div class="card-title">X (Twitter)</div>
+									<div class="card-sub" id="x-status">Loading…</div>
+								</div>
+								<div class="card-actions">
+									<button class="btn-primary" id="x-connect-btn" hidden>Connect X</button>
+									<button class="btn-ghost danger" id="x-disconnect-btn" hidden>Disconnect</button>
+								</div>
+							</div>
+						</div>
 
-				<div class="form-group">
-					<label class="form-label">Live preview</label>
-					<div id="embed-preview" class="embed-preview"></div>
-				</div>
+						<div class="form-group">
+							<label class="form-label" for="x-username">Agent's X handle (public, optional)</label>
+							<div class="form-actions">
+								<input class="form-input" id="x-username" type="text" placeholder="@handle" style="flex:1" />
+								<button class="btn-ghost" id="x-username-save">Save handle</button>
+							</div>
+						</div>
 
-				<div class="form-group">
-					<label class="form-label" for="embed-iframe-code">Iframe snippet</label>
-					<textarea class="form-input mono" id="embed-iframe-code" rows="3" readonly></textarea>
-					<div class="form-actions"><button class="btn-ghost" data-copy="#embed-iframe-code">Copy</button></div>
-				</div>
+						<div class="form-group">
+							<label class="form-label">Scheduled posts</label>
+							<p class="hint">Triggers run on cron and post automatically.</p>
+							<div id="x-triggers-list" class="trigger-list"><div class="muted">Loading…</div></div>
+							<div class="form-actions" style="margin-top:.5rem">
+								<select class="form-input" id="x-trigger-kind" style="max-width:220px">
+									<option value="daily_persona">Daily persona post</option>
+									<option value="weekly_digest">Weekly digest</option>
+									<option value="price_milestone">Price milestone</option>
+									<option value="payment_received">Payment received</option>
+								</select>
+								<button class="btn-primary" id="x-trigger-add">Add trigger</button>
+							</div>
+						</div>
 
-				<div class="form-group">
-					<label class="form-label" for="embed-link">Direct link</label>
-					<input class="form-input mono" id="embed-link" type="text" readonly />
-					<div class="form-actions"><button class="btn-ghost" data-copy="#embed-link">Copy</button> <a class="btn-ghost" id="embed-open" href="#" target="_blank" rel="noopener">Open in new tab ›</a></div>
-				</div>
+						<div class="form-group">
+							<label class="form-label">Post now</label>
+							<textarea class="form-textarea" id="x-post-text" rows="3" maxlength="280" placeholder="Compose a tweet (max 280 chars)…"></textarea>
+							<div class="form-actions">
+								<button class="btn-primary" id="x-post-btn">Post to X</button>
+								<span class="form-status" id="x-post-status" role="status" aria-live="polite"></span>
+							</div>
+						</div>
+					</section>
+				</div><!-- /section-distribute -->
 
-				<div class="form-group">
-					<label class="form-label" for="embed-oembed">oEmbed discovery URL</label>
-					<input class="form-input mono" id="embed-oembed" type="text" readonly />
-					<div class="form-actions"><button class="btn-ghost" data-copy="#embed-oembed">Copy</button></div>
-				</div>
+				<!-- ═══════════════════════════════════════
+				     MONEY
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-money">
+					<div class="edit-section-label">Money</div>
 
-				<div class="form-group">
-					<label class="form-label">Embed policy</label>
-					<p class="hint">Restrict which sites and surfaces may embed this agent.</p>
-					<label class="form-label" for="embed-allowed-origins">Allowed origins (one per line, * for any)</label>
-					<textarea class="form-input mono" id="embed-allowed-origins" rows="3" placeholder="https://example.com&#10;https://*.mysite.com"></textarea>
-					<div class="form-actions">
-						<button class="btn-primary" id="embed-policy-save">Save policy</button>
-						<button class="btn-ghost" id="embed-policy-clear">Clear policy</button>
-						<span class="form-status" id="embed-policy-status" role="status" aria-live="polite"></span>
-					</div>
-				</div>
-			</section>
+					<!-- Monetization -->
+					<section class="edit-panel" id="panel-monetization" role="region" aria-label="Monetization">
+						<div class="subsection-title">Monetization</div>
+						<div class="form-group" id="launch-token-group">
+							<label class="form-label">Agent Token</label>
+							<p class="hint">Launch a pump.fun community token tied to this agent. Buyers help fund the token, fees route to the agent.</p>
+							<div id="launch-token-state" class="muted">Loading…</div>
+						</div>
+						<div class="form-group">
+							<label class="form-label">Skill Prices</label>
+							<p class="hint">Set a price for your skills to be used by other agents. Leave blank for free skills. Prices are set in USDC (a $1 digital dollar) on Solana.</p>
+							<div id="skill-prices-list">
+								<div class="muted">Loading skills…</div>
+							</div>
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="monetization-save">Save Prices</button>
+							<span class="form-status" id="monetization-status" role="status" aria-live="polite"></span>
+						</div>
 
-			<!-- Widgets tab -->
-			<section class="edit-panel persona-panel" id="panel-widgets" role="tabpanel" aria-labelledby="tab-widgets" hidden>
-				<p class="hint">Widgets are reusable embeds (turntable, talking-agent, gallery) you can paste anywhere.</p>
+						<!-- Subscription Plans -->
+						<div class="form-group" style="margin-top:1rem;border-top:1px solid rgba(255,255,255,0.08);padding-top:1.25rem">
+							<label class="form-label">Subscription Plans</label>
+							<p class="hint">Offer recurring access to your agent's skills. Subscribers pay a fixed USDC amount monthly or weekly. Up to 3 active plans.</p>
+							<div id="subscription-plans-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.75rem">
+								<div class="muted">Loading plans…</div>
+							</div>
+							<button class="btn-ghost" id="show-create-plan-btn" style="align-self:flex-start">+ New Plan</button>
+						</div>
 
-				<div class="form-group">
-					<label class="form-label">Create a widget for this agent's avatar</label>
-					<div class="form-actions">
-						<select class="form-input" id="widget-new-type" style="max-width:220px">
-							<option value="talking-agent">Talking agent</option>
-							<option value="turntable">Turntable</option>
-							<option value="animation-gallery">Animation gallery</option>
-							<option value="passport">Passport</option>
-							<option value="hotspot-tour">Hotspot tour</option>
-						</select>
-						<input class="form-input" id="widget-new-name" type="text" placeholder="Widget name" style="flex:1" />
-						<button class="btn-primary" id="widget-new-btn">Create</button>
-					</div>
-					<span class="form-status" id="widget-status" role="status" aria-live="polite"></span>
-				</div>
+						<!-- Plan editor (hidden until triggered) -->
+						<div id="plan-editor" style="display:none;margin-top:1rem;padding:1rem;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(255,255,255,0.03)">
+							<input type="hidden" id="plan-editor-id">
+							<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+								<div class="form-group" style="margin:0">
+									<label class="form-label" style="font-size:0.764rem" for="plan-name-input">Plan Name</label>
+									<input class="form-input" id="plan-name-input" type="text" placeholder="e.g. Pro" maxlength="80">
+								</div>
+								<div class="form-group" style="margin:0">
+									<label class="form-label" style="font-size:0.764rem" for="plan-interval-input">Billing</label>
+									<select class="form-input" id="plan-interval-input">
+										<option value="monthly">Monthly</option>
+										<option value="weekly">Weekly</option>
+									</select>
+								</div>
+							</div>
+							<div class="form-group" style="margin-bottom:0.75rem">
+								<label class="form-label" style="font-size:0.764rem" for="plan-price-input">Price (USD)</label>
+								<input class="form-input" id="plan-price-input" type="number" min="0.99" max="999" step="0.01" placeholder="9.99" style="max-width:140px">
+							</div>
+							<div class="form-group" style="margin-bottom:0.75rem">
+								<label class="form-label" style="font-size:0.764rem" for="plan-perks-input">Perks (one per line)</label>
+								<textarea class="form-textarea" id="plan-perks-input" rows="3" placeholder="Unlimited API calls&#10;Priority queue&#10;Early access to new skills" style="font-size:0.764rem"></textarea>
+							</div>
+							<div class="form-group" style="margin-bottom:0.75rem">
+								<label class="form-label" style="font-size:0.764rem">Included Skills</label>
+								<p style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin:-0.25rem 0 0.4rem">Subscribers get unlimited access to the skills you tick here.</p>
+								<div id="plan-skills-checklist" class="plan-skills-checklist" role="group" aria-label="Skills included in this plan">
+									<span class="muted" style="font-size:0.7rem">Loading skills…</span>
+								</div>
+							</div>
+							<div class="form-group" style="margin-bottom:0.75rem;flex-direction:row;align-items:center;justify-content:space-between;gap:0.75rem">
+								<div>
+									<label class="form-label" style="font-size:0.764rem;margin:0" for="plan-active-input">Active</label>
+									<p style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin:0.15rem 0 0">Inactive plans are hidden from subscribers.</p>
+								</div>
+								<label class="toggle-switch" title="Toggle whether this plan is offered to subscribers">
+									<input type="checkbox" id="plan-active-input" checked>
+									<span class="slider"></span>
+								</label>
+							</div>
+							<div style="display:flex;gap:0.5rem;align-items:center">
+								<button class="btn-primary" id="plan-save-btn" style="font-size:0.764rem;padding:0.4rem 0.9rem">Save Plan</button>
+								<button class="btn-ghost" id="plan-cancel-btn" style="font-size:0.764rem;padding:0.4rem 0.9rem">Cancel</button>
+								<span class="form-status" id="plan-status" role="status" aria-live="polite" style="font-size:0.764rem"></span>
+							</div>
+						</div>
+					</section>
 
-				<div class="form-group" style="margin-top:1rem">
-					<label class="form-label">Your widgets</label>
-					<div id="widgets-list" class="widget-list"><div class="muted">Loading…</div></div>
-				</div>
-			</section>
+					<!-- Wallet -->
+					<section class="edit-panel" id="panel-wallet" role="region" aria-label="Wallet">
+						<div class="subsection-title">Wallet</div>
+						<div class="wallet-grid">
+							<div class="card">
+								<div class="card-title">Solana wallet</div>
+								<div class="card-sub mono" id="wallet-sol-address">—</div>
+								<div class="card-row" style="margin-top:.618rem">
+									<div>
+										<div class="metric-label">SOL</div>
+										<div class="metric-value" id="wallet-sol-balance">—</div>
+									</div>
+									<div>
+										<div class="metric-label">USDC</div>
+										<div class="metric-value" id="wallet-usdc-balance">—</div>
+									</div>
+									<div>
+										<div class="metric-label">Total</div>
+										<div class="metric-value" id="wallet-total-usd">—</div>
+									</div>
+								</div>
+								<div class="card-actions" style="margin-top:.875rem">
+									<button class="btn-primary" id="wallet-send-btn">Send</button>
+									<button class="btn-ghost" id="wallet-fund-btn">Fund</button>
+									<button class="btn-ghost" id="wallet-copy-sol">Copy address</button>
+									<a class="btn-ghost" id="wallet-explorer" href="#" target="_blank" rel="noopener">Explorer ›</a>
+								</div>
+							</div>
 
-			<!-- Studio tab -->
-			<section class="edit-panel persona-panel" id="panel-studio" role="tabpanel" aria-labelledby="tab-studio" hidden>
-				<p class="hint">Power-user tools for tuning the avatar, animations, and blockchain identity.</p>
+							<div class="card">
+								<div class="card-title">Base wallet</div>
+								<div class="card-sub mono" id="wallet-evm-address">Not linked.</div>
+								<div class="card-row" style="margin-top:.618rem">
+									<div>
+										<div class="metric-label">Chain</div>
+										<div class="metric-value" id="wallet-evm-chain">—</div>
+									</div>
+								</div>
+								<div class="card-actions" style="margin-top:.875rem">
+									<button class="btn-ghost" id="wallet-evm-copy">Copy address</button>
+									<a class="btn-ghost" id="wallet-evm-explorer" href="#" target="_blank" rel="noopener" hidden>Explorer ›</a>
+								</div>
+							</div>
 
-				<div class="studio-grid">
-					<a class="studio-tile" id="studio-playground" href="#" target="_blank" rel="noopener">
-						<div class="studio-tile-title">3D Playground</div>
-						<div class="studio-tile-desc">Inspect the avatar in a freeform Three.js scene.</div>
-					</a>
-					<a class="studio-tile" id="studio-avatar" href="#" target="_blank" rel="noopener">
-						<div class="studio-tile-title">Avatar studio</div>
-						<div class="studio-tile-desc">Customize materials, animations, and metadata.</div>
-					</a>
-					<a class="studio-tile" id="studio-marketplace" href="/marketplace" target="_blank" rel="noopener">
-						<div class="studio-tile-title">Marketplace</div>
-						<div class="studio-tile-desc">Browse and remix published agents.</div>
-					</a>
-					<a class="studio-tile" id="studio-dashboard" href="/dashboard/" target="_blank" rel="noopener">
-						<div class="studio-tile-title">Creator dashboard</div>
-						<div class="studio-tile-desc">All your agents, avatars, widgets, and revenue.</div>
-					</a>
-					<a class="studio-tile" id="studio-public" href="#" target="_blank" rel="noopener">
-						<div class="studio-tile-title">Public agent page</div>
-						<div class="studio-tile-desc">See your agent the way visitors do.</div>
-					</a>
-					<a class="studio-tile" id="studio-manifest" href="#" target="_blank" rel="noopener">
-						<div class="studio-tile-title">Agent manifest (JSON)</div>
-						<div class="studio-tile-desc">Canonical machine-readable agent spec.</div>
-					</a>
-				</div>
+							<div class="card">
+								<div class="card-title">On-chain identity</div>
+								<div class="card-sub" id="wallet-identity">Loading…</div>
+							</div>
 
-				<div class="form-group" style="margin-top:1.5rem">
-					<label class="form-label">Animations</label>
-					<div id="studio-animations" class="chip-list"><div class="muted">None.</div></div>
-				</div>
-			</section>
+							<div class="card">
+								<div class="card-title">Recent activity</div>
+								<div class="card-sub" id="wallet-activity">Loading…</div>
+							</div>
+						</div>
 
-			<!-- Danger zone -->
-			<section class="edit-panel persona-panel" id="panel-danger" role="tabpanel" aria-labelledby="tab-danger" hidden>
-				<div class="card danger-card">
-					<div class="card-title">Delete this agent</div>
-					<p class="hint">Soft-deletes the agent, removes all memories, and unlists it from your dashboard. Wallet keys stay encrypted in cold storage. This cannot be undone from the UI.</p>
-					<div class="form-group">
-						<label class="form-label" for="danger-confirm">Type the agent's name to confirm:</label>
-						<input class="form-input" id="danger-confirm" type="text" autocomplete="off" />
-					</div>
-					<div class="form-actions">
-						<button class="btn-danger" id="danger-delete-btn" disabled>Delete agent</button>
-						<span class="form-status" id="danger-status" role="status" aria-live="polite"></span>
-					</div>
-				</div>
-			</section>
+						<!-- Send modal -->
+						<div id="send-modal" class="modal" hidden>
+							<div class="modal-card">
+								<div class="modal-title">Send from agent wallet</div>
+								<div class="form-group">
+									<label class="form-label" for="send-asset">Asset</label>
+									<select class="form-input" id="send-asset">
+										<option value="usdc">USDC (Solana)</option>
+										<option value="sol">SOL</option>
+									</select>
+								</div>
+								<div class="form-group">
+									<label class="form-label" for="send-to">Recipient address</label>
+									<input class="form-input" id="send-to" type="text" placeholder="Solana address" />
+								</div>
+								<div class="form-group">
+									<label class="form-label" for="send-amount">Amount</label>
+									<input class="form-input" id="send-amount" type="number" min="0" step="0.000001" placeholder="0.00" />
+								</div>
+								<div class="form-actions">
+									<button class="btn-primary" id="send-confirm">Send</button>
+									<button class="btn-ghost" id="send-cancel">Cancel</button>
+									<span class="form-status" id="send-status" role="status" aria-live="polite"></span>
+								</div>
+							</div>
+						</div>
+
+						<!-- Fund modal -->
+						<div id="fund-modal" class="modal" hidden>
+							<div class="modal-card">
+								<div class="modal-title">Fund this agent</div>
+								<p class="hint">Send SOL or USDC (Solana) to the address below.</p>
+								<div class="qr-wrap"><img id="fund-qr" alt="Wallet QR code" /></div>
+								<div class="card-sub mono" id="fund-address">—</div>
+								<div class="form-actions">
+									<button class="btn-ghost" id="fund-copy">Copy address</button>
+									<button class="btn-ghost" id="fund-close">Close</button>
+								</div>
+							</div>
+						</div>
+					</section>
+
+					<!-- Analytics -->
+					<section class="edit-panel" id="panel-analytics" role="region" aria-label="Analytics">
+						<div class="subsection-title">Analytics</div>
+						<div class="metrics-grid">
+							<div class="metric-card">
+								<div class="metric-label">LLM calls (this month)</div>
+								<div class="metric-value" id="m-llm-month">—</div>
+							</div>
+							<div class="metric-card">
+								<div class="metric-label">LLM calls (30d)</div>
+								<div class="metric-value" id="m-llm-30d">—</div>
+							</div>
+							<div class="metric-card">
+								<div class="metric-label">Earnings received</div>
+								<div class="metric-value" id="m-earn-in">—</div>
+							</div>
+							<div class="metric-card">
+								<div class="metric-label">Spend (paid to others)</div>
+								<div class="metric-value" id="m-earn-out">—</div>
+							</div>
+						</div>
+
+						<div class="form-group" style="margin-top:0.5rem">
+							<label class="form-label">Calls per day (30 days)</label>
+							<div id="m-chart" class="bar-chart"><div class="muted">Loading…</div></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label">Recent payments received</label>
+							<div id="m-pay-in" class="pay-list"><div class="muted">Loading…</div></div>
+						</div>
+						<div class="form-group">
+							<label class="form-label">Recent payments sent</label>
+							<div id="m-pay-out" class="pay-list"><div class="muted">Loading…</div></div>
+						</div>
+					</section>
+				</div><!-- /section-money -->
+
+				<!-- ═══════════════════════════════════════
+				     ADVANCED
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-advanced">
+					<div class="edit-section-label">Advanced</div>
+
+					<!-- Studio -->
+					<section class="edit-panel" id="panel-studio" role="region" aria-label="Studio">
+						<div class="subsection-title">Studio</div>
+						<p class="hint">Power-user tools for tuning the avatar, animations, and blockchain identity.</p>
+						<div class="studio-grid">
+							<a class="studio-tile" id="studio-playground" href="#" target="_blank" rel="noopener">
+								<div class="studio-tile-title">3D Playground</div>
+								<div class="studio-tile-desc">Inspect the avatar in a freeform Three.js scene.</div>
+							</a>
+							<a class="studio-tile" id="studio-avatar" href="#" target="_blank" rel="noopener">
+								<div class="studio-tile-title">Avatar studio</div>
+								<div class="studio-tile-desc">Customize materials, animations, and metadata.</div>
+							</a>
+							<a class="studio-tile" id="studio-marketplace" href="/marketplace" target="_blank" rel="noopener">
+								<div class="studio-tile-title">Marketplace</div>
+								<div class="studio-tile-desc">Browse and remix published agents.</div>
+							</a>
+							<a class="studio-tile" id="studio-dashboard" href="/dashboard/" target="_blank" rel="noopener">
+								<div class="studio-tile-title">Creator dashboard</div>
+								<div class="studio-tile-desc">All your agents, avatars, widgets, and revenue.</div>
+							</a>
+							<a class="studio-tile" id="studio-public" href="#" target="_blank" rel="noopener">
+								<div class="studio-tile-title">Public agent page</div>
+								<div class="studio-tile-desc">See your agent the way visitors do.</div>
+							</a>
+							<a class="studio-tile" id="studio-manifest" href="#" target="_blank" rel="noopener">
+								<div class="studio-tile-title">Agent manifest (JSON)</div>
+								<div class="studio-tile-desc">Canonical machine-readable agent spec.</div>
+							</a>
+						</div>
+						<div class="form-group" style="margin-top:1rem">
+							<label class="form-label">Animations</label>
+							<div id="studio-animations" class="chip-list"><div class="muted">None.</div></div>
+						</div>
+					</section>
+
+					<!-- Danger zone -->
+					<section class="edit-panel" id="panel-danger" role="region" aria-label="Danger zone">
+						<div class="subsection-title" style="color:#fca5a5">Danger zone</div>
+						<div class="card danger-card">
+							<div class="card-title">Delete this agent</div>
+							<p class="hint">Soft-deletes the agent, removes all memories, and unlists it from your dashboard. Wallet keys stay encrypted in cold storage. This cannot be undone from the UI.</p>
+							<div class="form-group">
+								<label class="form-label" for="danger-confirm">Type the agent's name to confirm:</label>
+								<input class="form-input" id="danger-confirm" type="text" autocomplete="off" />
+							</div>
+							<div class="form-actions">
+								<button class="btn-danger" id="danger-delete-btn" disabled>Delete agent</button>
+								<span class="form-status" id="danger-status" role="status" aria-live="polite"></span>
+							</div>
+						</div>
+					</section>
+				</div><!-- /section-advanced -->
+
 			</main>
-		</div>
+		</div><!-- /unified-layout -->
 
 		<div class="outfit-status-bar">
 			<div class="outfit-status" id="outfit-status" role="status" aria-live="polite"></div>
@@ -1993,7 +1949,7 @@
 		</div>
 
 		<script type="module" src="/src/agent-edit.js"></script>
-	
+
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
 	<script src="/brand.js" defer></script>
