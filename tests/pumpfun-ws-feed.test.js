@@ -17,8 +17,19 @@ vi.mock('../api/_lib/env.js', () => ({
 	env: { DATABASE_URL: 'postgres://test', APP_ORIGIN: 'http://test' },
 }));
 
+// Keep the WS client inert so connectPumpFunFeed never opens a real socket — we
+// only exercise the REST mint fallback here.
+vi.mock('ws', () => {
+	class FakeWS {
+		on() { return this; }
+		send() {}
+		close() {}
+	}
+	return { default: FakeWS };
+});
+
 const mod = await import('../api/_lib/pumpfun-ws-feed.js');
-const { recentBuffered, recentGraduations } = mod;
+const { recentBuffered, recentGraduations, connectPumpFunFeed } = mod;
 
 // Internal symbols we want to exercise. They're not exported; reach in via the
 // module namespace if available. The test suite below reaches them through
@@ -88,5 +99,67 @@ describe('recentGraduations', () => {
 		expect(typeof last).toBe('number');
 		expect(last).toBeLessThanOrEqual(100);
 		expect(last).toBeGreaterThanOrEqual(1);
+	});
+});
+
+describe('connectPumpFunFeed — new-mint REST fallback', () => {
+	const realFetch = globalThis.fetch;
+	afterEach(() => { globalThis.fetch = realFetch; });
+
+	function mockFetch(coins) {
+		globalThis.fetch = vi.fn(async (url) => {
+			const u = String(url);
+			if (u.includes('coingecko')) return { ok: true, json: async () => ({ solana: { usd: 150 } }) };
+			if (u.includes('pump.fun/coins')) return { ok: true, json: async () => coins };
+			return { ok: false, json: async () => ({}) };
+		});
+	}
+
+	it('emits recent pump.fun coins as mint events when the WS is silent', async () => {
+		mockFetch([
+			{ mint: 'MINTAAA', name: 'Alpha', symbol: 'ALP', creator: 'CR1', market_cap: 30, usd_market_cap: 5000, created_timestamp: 1782432177000, image_uri: 'ipfs://a', twitter: 'https://x.com/a', quote_mint: '11111111111111111111111111111111' },
+			{ mint: 'MINTBBB', name: 'Beta', symbol: 'BET', creator: 'CR2', market_cap: 20, usd_market_cap: 3000, created_timestamp: 1782432170000 },
+		]);
+
+		const events = [];
+		const ac = new AbortController();
+		const stop = connectPumpFunFeed({ kind: 'all', mints: [], signal: ac.signal, onEvent: (e) => events.push(e) });
+		await new Promise((r) => setTimeout(r, 60)); // let the immediate backfill resolve
+		stop();
+
+		const mints = events.filter((e) => e.kind === 'mint');
+		expect(mints.length).toBe(2);
+		const byMint = Object.fromEntries(mints.map((e) => [e.data.mint, e.data]));
+		expect(byMint.MINTAAA).toMatchObject({
+			symbol: 'ALP', market_cap_usd: 5000, source: 'rest',
+			quote_symbol: 'SOL', twitter: 'https://x.com/a',
+		});
+		// created_timestamp (ms) is surfaced to the client as unix seconds.
+		expect(byMint.MINTAAA.created_at).toBe(Math.floor(1782432177000 / 1000));
+		// USD market cap is derived from market_cap (SOL) × price when absent.
+		expect(byMint.MINTAAA.market_cap_usd).toBe(5000);
+	});
+
+	it('does not re-emit the same mint across repeated backfills (dedupe)', async () => {
+		mockFetch([
+			{ mint: 'DUPE111', name: 'Dup', symbol: 'DUP', market_cap: 10, usd_market_cap: 1000, created_timestamp: 1782432177000 },
+		]);
+
+		const events = [];
+		const ac = new AbortController();
+		// First connection consumes the coin once.
+		const stop1 = connectPumpFunFeed({ kind: 'all', mints: [], signal: ac.signal, onEvent: (e) => events.push(e) });
+		await new Promise((r) => setTimeout(r, 60));
+		stop1();
+		const firstCount = events.filter((e) => e.kind === 'mint').length;
+		expect(firstCount).toBe(1);
+
+		// A brand-new connection (fresh per-connection dedupe) still sees the
+		// backlog — the dedupe is per-connection, not global.
+		const events2 = [];
+		const stop2 = connectPumpFunFeed({ kind: 'all', mints: [], signal: new AbortController().signal, onEvent: (e) => events2.push(e) });
+		await new Promise((r) => setTimeout(r, 60));
+		stop2();
+		expect(events2.filter((e) => e.kind === 'mint').length).toBe(1);
 	});
 });
