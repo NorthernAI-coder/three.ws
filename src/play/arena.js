@@ -420,7 +420,41 @@ function focusAgent(id) {
 	}
 	const L = labelEls.get(id);
 	if (L) { L.el.classList.add('active'); setTimeout(() => L.el.classList.remove('active'), 2200); }
-	openAgentDrawer(id);
+	const meta = rowsById.get(id);
+	if (meta?.kind === 'live') openLiveTraderDrawer(meta);
+	else openAgentDrawer(id);
+}
+
+// Live kolscan traders have no three.ws profile, so the drawer shows their public
+// market standing (rank, realized profit, win rate) and deep-links the wallet to
+// Solscan rather than calling the agent-only /trader endpoint.
+function openLiveTraderDrawer(row) {
+	const el = $('agentDrawer');
+	el.classList.add('open');
+	if (drawerAbort) { drawerAbort.abort(); drawerAbort = null; }
+	world.focusOnAgent?.(row.id);
+	const up = (row.pnl_sol ?? 0) >= 0;
+	const usd = row.pnl_usd != null ? fmtUsd(row.pnl_usd) : (row.pnl_sol != null && _solUsd ? fmtUsd(row.pnl_sol * _solUsd) : '');
+	$('drawerBody').innerHTML = `
+		<div class="dw-head">
+			<span class="dw-av-fallback"></span>
+			<div>
+				<div class="dw-name">${esc(row.name)}</div>
+				<div class="dw-sub"><span class="dw-badge">🔥 Live market${_liveWindow ? ' · ' + esc(_liveWindow) : ''}</span></div>
+			</div>
+			<div class="dw-score ${up ? 'up' : 'down'}"><b>#${row.rank}</b><span>rank</span></div>
+		</div>
+		<div class="dw-grid">
+			<div class="dw-stat"><span>Realized P&amp;L</span><b class="${up ? 'up' : 'down'}">${fmtSol(row.pnl_sol)}${usd ? `<small> ${usd}</small>` : ''}</b></div>
+			<div class="dw-stat"><span>Win rate</span><b>${row.win_pct != null ? Math.round(row.win_pct) + '%' : '—'}</b></div>
+			<div class="dw-stat"><span>Trades</span><b>${row.trades != null ? Number(row.trades).toLocaleString('en-US') : '—'}</b></div>
+			<div class="dw-stat"><span>Window</span><b>${esc(_liveWindow || 'live')}</b></div>
+		</div>
+		<p class="dw-live-note">Live public ranking of top Solana traders by realized profit. three.ws agents take these spots the moment they post a provable on-chain track record.</p>
+		<div class="dw-cta">
+			${row.url ? `<a class="btn primary" href="${esc(row.url)}" target="_blank" rel="noopener">View wallet on Solscan ↗</a>` : ''}
+			<a class="btn" href="/agents">Browse three.ws agents ↗</a>
+		</div>`;
 }
 
 // ── agent detail drawer (real on-chain track record) ────────────────────────────
@@ -655,18 +689,25 @@ function renderBoard(rows) {
 	const body = $('board');
 	if (!rows.length) { body.innerHTML = ''; return; }
 	body.innerHTML = rows.slice(0, 12).map((r) => {
-		const wr = r.closed ? Math.round((r.wins / r.closed) * 100) : 0;
-		const up = (r.realized_pnl_sol ?? 0) >= 0;
-		const name = r.agent_name || 'Agent';
+		rowsById.set(r.id, r); // route clicks even for rows past the 3D cap
+		const up = (r.pnl_sol ?? 0) >= 0;
+		const name = r.name;
 		const initial = esc((name.trim()[0] || '?').toUpperCase());
 		// On a broken avatar, swap the <img> for a mono-initial tile that fills the
 		// same 26px column — no orphaned gap in the grid.
 		const onerr = `this.outerHTML='<span class=&quot;r-av r-av-fb&quot;>${initial}</span>'`;
-		return `<button class="row no-orbit" data-id="${esc(r.agent_id)}">
+		const sub = r.kind === 'live'
+			? `${r.trades != null ? Number(r.trades).toLocaleString('en-US') + ' trades' : 'live'}${r.win_pct != null ? ' · ' + Math.round(r.win_pct) + '% win' : ''}`
+			: `${r.open} open · ${r.closed ? Math.round(r.win_pct) + '% win' : 'new'}`;
+		// Live wallets have no avatar — use the mono-initial tile directly.
+		const av = r.kind === 'live'
+			? `<span class="r-av r-av-fb">${initial}</span>`
+			: `<img loading="lazy" decoding="async" class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="${onerr}"/>`;
+		return `<button class="row no-orbit" data-id="${esc(r.id)}">
 			<span class="r-rank">${r.rank}</span>
-			<img loading="lazy" decoding="async" class="r-av" src="${esc(r.image || '/avatars/thumbs/default.png')}" alt="" onerror="${onerr}"/>
-			<span class="r-name">${esc(name)}<small>${r.open_positions} open · ${r.closed ? wr + '% win' : 'new'}</small></span>
-			<span class="r-pnl ${up ? 'up' : 'down'}">${fmtSol(r.realized_pnl_sol)}</span>
+			${av}
+			<span class="r-name">${esc(name)}<small>${esc(sub)}</small></span>
+			<span class="r-pnl ${up ? 'up' : 'down'}">${fmtSol(r.pnl_sol)}</span>
 		</button>`;
 	}).join('');
 	body.querySelectorAll('.row').forEach((b) => b.addEventListener('click', () => focusAgent(b.dataset.id)));
@@ -674,16 +715,71 @@ function renderBoard(rows) {
 
 function renderTopCard(top) {
 	if (!top) return;
-	$('topName').textContent = top.agent_name || 'Agent';
+	const live = top.kind === 'live';
+	const crown = document.querySelector('.topcard .crown');
+	if (crown) crown.innerHTML = live ? `🔥 Top Solana trader${_liveWindow ? ' · live ' + esc(_liveWindow) : ' · live'}` : '👑 #1 by realized P&amp;L';
+	$('topName').textContent = top.name;
 	const pnl = $('topPnl');
-	pnl.textContent = fmtSol(top.realized_pnl_sol);
-	pnl.className = 'big ' + ((top.realized_pnl_sol ?? 0) >= 0 ? 'up' : 'down');
-	$('topWins').textContent = top.wins ?? 0;
-	$('topOpen').textContent = top.open_positions ?? 0;
-	const wr = top.closed ? Math.round((top.wins / top.closed) * 100) : 0;
-	$('topWr').textContent = top.closed ? wr + '%' : '—';
+	pnl.textContent = fmtSol(top.pnl_sol);
+	pnl.className = 'big ' + ((top.pnl_sol ?? 0) >= 0 ? 'up' : 'down');
+	const usdEl = $('topPnlUsd');
+	if (usdEl) usdEl.textContent = top.pnl_usd != null ? fmtUsd(top.pnl_usd) : (top.pnl_sol != null && _solUsd ? fmtUsd(top.pnl_sol * _solUsd) : '');
+	// Third stat is contextual: agents show wins, live wallets show trade count.
+	const winsLabel = $('topWins')?.parentElement?.querySelector('span');
+	if (winsLabel) winsLabel.textContent = live ? 'Trades' : 'Wins';
+	$('topWins').textContent = live ? (top.trades != null ? Number(top.trades).toLocaleString('en-US') : '—') : (top.wins ?? 0);
+	// "Open" only applies to agents — hide it for a live wallet.
+	const openCell = $('topOpen')?.parentElement;
+	if (openCell) openCell.style.display = live ? 'none' : '';
+	$('topOpen').textContent = top.open ?? 0;
+	$('topWr').textContent = top.win_pct != null ? Math.round(top.win_pct) + '%' : '—';
 	const img = $('topAv');
 	if (top.image) { img.src = top.image; img.style.display = ''; } else img.style.display = 'none';
+}
+
+// Field-wide aggregates — the data points that make the arena feel alive at a
+// glance: who's on the floor, the field's combined realized P&L (with USD), the
+// average win rate, and live open exposure / trade volume.
+function renderStats(rows) {
+	const el = $('arenaStats');
+	if (!el) return;
+	if (!rows.length) { el.hidden = true; return; }
+	el.hidden = false;
+	const live = _source === 'live';
+	const pnlSum = rows.reduce((a, r) => a + (r.pnl_sol ?? 0), 0);
+	const wrs = rows.map((r) => r.win_pct).filter((v) => v != null);
+	const avgWr = wrs.length ? Math.round(wrs.reduce((a, b) => a + b, 0) / wrs.length) : null;
+	const usd = _solUsd ? fmtUsd(pnlSum * _solUsd) : '';
+	const fourth = live
+		? { label: 'Trades', val: rows.reduce((a, r) => a + (r.trades || 0), 0).toLocaleString('en-US') }
+		: { label: 'Open now', val: String(_positions.length) };
+	const kpi = (label, val, cls = '', sub = '') =>
+		`<div class="as-kpi"><span>${label}</span><b class="${cls}">${val}</b>${sub ? `<i>${sub}</i>` : ''}</div>`;
+	el.innerHTML =
+		kpi(live ? 'On the board' : 'On the floor', String(rows.length)) +
+		kpi('Field P&amp;L', fmtSol(pnlSum), pnlSum >= 0 ? 'up' : 'down', usd) +
+		kpi('Avg win', avgWr != null ? avgWr + '%' : '—') +
+		kpi(fourth.label, fourth.val);
+
+	// Source ribbon in the leaderboard header — honest about whether these are
+	// three.ws agents or the live market fallback.
+	const badge = $('boardSource');
+	if (badge) {
+		badge.hidden = !live;
+		if (live) { badge.textContent = `live market${_liveWindow ? ' · ' + _liveWindow : ''}`; badge.title = 'Top Solana traders by realized profit — three.ws agents take over as they post provable records.'; }
+	}
+	// The sort toggle only makes sense over the agent board (kolscan is pnl-ranked).
+	const seg = $('sortSeg');
+	if (seg) seg.hidden = live;
+}
+
+// Execution-quality tag for a streamed fill — real fields from the sniper worker
+// (route + time to land on-chain). Absent on seeded/closed history rows.
+function execTag(p) {
+	const bits = [];
+	if (p.landed_ms != null && p.landed_ms > 0) bits.push(`${(p.landed_ms / 1000).toFixed(2)}s`);
+	if (p.exec_route) bits.push(esc(String(p.exec_route)));
+	return bits.length ? ` · <span class="t-exec" title="Execution route · time to land on-chain">⚡ ${bits.join(' · ')}</span>` : '';
 }
 
 function pushTape(kind, p, { quiet = false } = {}) {
@@ -701,7 +797,7 @@ function pushTape(kind, p, { quiet = false } = {}) {
 		<span class="t-side ${sideCls}">${sideTxt}</span>
 		<span class="t-body">
 			<span class="t-l1"><b>${esc(p.agent_name || 'Agent')}</b> <span class="t-sym">${esc(p.symbol || p.name || (p.mint || '').slice(0, 6))}</span></span>
-			<span class="t-l2">${isSell ? esc(p.exit_reason || 'closed') : `entry ${fmtSol(p.entry_sol)}`} ${proof ? `· <a href="${esc(proof)}" target="_blank" rel="noopener" class="no-orbit">on-chain ↗</a>` : '· simulated'}</span>
+			<span class="t-l2">${isSell ? esc(p.exit_reason || 'closed') : `entry ${fmtSol(p.entry_sol)}`} ${proof ? `· <a href="${esc(proof)}" target="_blank" rel="noopener" class="no-orbit">on-chain ↗</a>` : '· simulated'}${execTag(p)}</span>
 		</span>
 		${pnl}`;
 	tape.prepend(row);
@@ -755,6 +851,13 @@ function mountControls() {
 	// Collapse side panels on mobile.
 	$('togglePanels')?.addEventListener('click', () => document.body.classList.toggle('panels-open'));
 	$('drawerClose')?.addEventListener('click', closeAgentDrawer);
+	// Leaderboard sort (agents only — re-ranks via the API's sort param).
+	$('sortSeg')?.querySelectorAll('[data-sort]').forEach((b) => b.addEventListener('click', () => {
+		if (b.dataset.sort === _sort) return;
+		_sort = b.dataset.sort;
+		$('sortSeg').querySelectorAll('[data-sort]').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+		loadBoardOnly();
+	}));
 	window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePicker(); closeAgentDrawer(); } });
 }
 

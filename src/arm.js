@@ -20,7 +20,8 @@ function ago(ts) {
 	return `${Math.floor(s / 86400)}d`;
 }
 
-const state = { agents: [], agentId: null, watch: null, minScore: 72 };
+const state = { agents: [], agentId: null, watch: null, minScore: 72, wallet: null, feed: [], feedAt: null, edge: null };
+let feedTimer = null;
 
 async function api(path, opts = {}) {
 	const ctrl = new AbortController();
@@ -39,6 +40,7 @@ async function api(path, opts = {}) {
 // ── boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
 	wireStaticControls();
+	showSkeletons();
 	const { ok, data } = await api('/api/agents');
 	const agents = ok && data ? (data.agents || data.items || data || []) : [];
 	state.agents = Array.isArray(agents) ? agents : [];
@@ -56,7 +58,26 @@ async function boot() {
 	sel.innerHTML = state.agents.map((a) => `<option value="${esc(a.id)}">${esc(a.name || a.id)}</option>`).join('');
 	sel.addEventListener('change', () => loadWatch(sel.value));
 	state.agentId = state.agents[0].id;
+
+	loadEdge();        // 30-day proof-of-edge for the conviction bar (global)
+	startFeedLoop();   // live "clearing your bar" preview (global, polls)
 	loadWatch(state.agentId);
+}
+
+// Skeleton placeholders so nothing renders as a dead "—" while real data loads.
+function showSkeletons() {
+	['#statWin', '#statPnl', '#statOpen', '#statTotal'].forEach((id) => {
+		const el = $(id); el.classList.add('sk'); el.textContent = '00%';
+	});
+	$('#edgeReadout').innerHTML = '<div class="e-note">Loading 30-day track record for this bar…</div>';
+	$('#qualBody').innerHTML = '<div class="qual-empty">Reading the live conviction stream…</div>';
+	$('#ledgerBody').innerHTML = skeletonLedger();
+}
+
+function skeletonLedger() {
+	const row = `<div style="display:flex;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.04)">
+		<span class="sk" style="height:13px;flex:1"></span><span class="sk" style="height:13px;width:42px"></span><span class="sk" style="height:13px;width:50px"></span></div>`;
+	return row.repeat(4);
 }
 
 // Controls that exist in the static markup (segmented + toggles + chips + buttons).
@@ -65,7 +86,7 @@ function wireStaticControls() {
 	$('#catChips').innerHTML = CATEGORIES.map((c) => `<button type="button" class="cchip" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
 	$('#catChips').addEventListener('click', (e) => {
 		const b = e.target.closest('.cchip');
-		if (b) { b.classList.toggle('on'); markDirty(); }
+		if (b) { b.classList.toggle('on'); markDirty(); renderQualifying(); }
 	});
 
 	// min-conviction segmented
@@ -75,6 +96,8 @@ function wireStaticControls() {
 		$$('#convSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.minScore = Number(b.dataset.min);
 		markDirty();
+		renderEdge();
+		renderQualifying();
 	});
 
 	// mode segmented (simulate / live)
@@ -88,11 +111,13 @@ function wireStaticControls() {
 		markDirty();
 	});
 
-	wireSwitch('#smartToggle');
-	wireSwitch('#scaleToggle', renderScaleSub);
+	wireSwitch('#smartToggle', renderQualifying);
+	wireSwitch('#scaleToggle', () => { renderScaleSub(); renderQualifying(); });
 	wireSwitch('#armToggle', updateArmStatus);
 
-	['#fSize', '#fDaily', '#fOpen'].forEach((s) => $(s).addEventListener('input', () => { renderScaleSub(); renderRisk(); markDirty(); }));
+	['#fSize', '#fDaily', '#fOpen'].forEach((s) => $(s).addEventListener('input', () => {
+		renderScaleSub(); renderRisk(); renderWalletRunway(); renderQualifying(); markDirty();
+	}));
 
 	$('#saveBtn').addEventListener('click', saveWatch);
 	$('#tgTest').addEventListener('click', sendTelegramTest);
@@ -190,9 +215,12 @@ async function loadWatch(agentId) {
 	renderScaleSub();
 	renderRisk();
 	updateArmStatus();
+	renderEdge();
+	renderQualifying();
 	$('#saveBtn').dataset.dirty = '0';
 	$('#saveBtn').classList.remove('dirty');
 
+	loadWallet(agentId);
 	loadActions(agentId);
 }
 
