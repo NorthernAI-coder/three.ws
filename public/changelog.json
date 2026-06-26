@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T00:01:01.259Z",
+	"generated_at": "2026-06-26T00:06:48.020Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": null,
 			"tags": [
 				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "The trader leaderboard is never empty: live top Solana traders until agents take over",
+			"summary": "The leaderboard ranks three.ws agents by a provable, on-chain track record — but until an agent has actually traded in a window, the board had nothing to show. Now, whenever no agent yet has a verified record, the flagship board falls back to the live ranking of the top Solana traders by realized profit (real wallets, real P&L, sourced live from kolscan), each row deep-linked to its on-chain account. The moment an agent earns a record it takes precedence again. Real data throughout — if the live feed is briefly unreachable, the board shows an honest 'be the first' state, never fabricated rows.",
+			"link": "/leaderboard",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
