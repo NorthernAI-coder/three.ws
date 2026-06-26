@@ -47,6 +47,14 @@
 			<description>The walking-avatar embed you drop onto any site is now friendlier and lighter. Visitors can tap or click the ground to send the avatar walking there — no joystick required — and a one-time on-screen hint appears so first-timers actually discover the controls. Turn on a Gestures option and they get wave and jump buttons too. On desktop the avatar gently turns to face your cursor when it's standing still, so a hovered embed feels alive. While the 3D model loads, a soft silhouette stands in instead of a blank gap. The embed now pauses itself the moment it scrolls out of view or its tab is hidden, so it never drains a laptop battery in the background, and it respects your system 'reduce motion' setting. Every embed carries a small, tasteful three.ws badge that links home — removable with one toggle. The embed editor adds matching controls: walk speed, ground on/off, gestures, the badge toggle, and a Responsive option that emits a fluid snippet that fills its container on any screen.</description>
 		</item>
 		<item>
+			<title>Fixed: the Animation Gallery footer no longer covers the page</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-06-26:Fixed: the Animation Gallery footer no longer covers the page</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The /animations page had a layout bug where the site footer was being pulled up and painted on top of the gallery — the hero, search bar, and animation cards ended up hidden behind it. The footer now sits where it belongs, at the bottom of the page, so the full motion library is visible and browsable again.</description>
+		</item>
+		<item>
 			<title>Living Worlds video generator is back online</title>
 			<link>https://three.ws/cosmos</link>
 			<guid isPermaLink="false">2026-06-26:Living Worlds video generator is back online</guid>

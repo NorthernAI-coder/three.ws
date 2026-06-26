@@ -22,6 +22,7 @@ import {
 	WebGLRenderer,
 	LinearToneMapping,
 	ACESFilmicToneMapping,
+	NeutralToneMapping,
 } from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -136,11 +137,16 @@ export class Viewer {
 			grid: false,
 			autoRotate: false,
 
-			// Lights
+			// Lights — studio three-point rig (key + fill + rim) plus ambient
+			// base, lit by the Khronos PBR-Neutral tone mapper. Neutral keeps
+			// midtone brightness and saturation instead of crushing them the way
+			// ACES/Linear do, so auto-generated avatars read bright and true
+			// rather than dark and muddy in gallery cards. See updateLights() and
+			// viewer/lights.js for how the rig is assembled.
 			punctualLights: true,
 			exposure: 0.0,
-			toneMapping: LinearToneMapping,
-			ambientIntensity: 0.3,
+			toneMapping: NeutralToneMapping,
+			ambientIntensity: 0.45,
 			ambientColor: '#FFFFFF',
 			// The 0.8 * π factor compensates for three.js's historical
 			// `irradiance *= PI` step on punctual lights and keeps direct
@@ -149,6 +155,16 @@ export class Viewer {
 			// question; removing π would require a shader-side adjustment.
 			directIntensity: 0.8 * Math.PI,
 			directColor: '#FFFFFF',
+			// Fill softens the key's shadow side; rim/back light carves the
+			// silhouette out of dark backdrops so even a black-clad avatar never
+			// disappears into a black card. Ratios are relative to directIntensity.
+			fillRatio: 0.4,
+			fillColor: '#DCE6FF',
+			rimRatio: 0.65,
+			rimColor: '#FFFFFF',
+			// Image-based lighting strength (RoomEnvironment / HDRI). >1 lifts the
+			// ambient PBR response without washing out direct highlights.
+			environmentIntensity: 1.15,
 			bgColor: '#000000',
 			transparentBg: false,
 
@@ -225,7 +241,9 @@ export class Viewer {
 		this._composer = new EffectComposer(this.renderer);
 		this._renderPass = new RenderPass(this.scene, this.activeCamera);
 		this._composer.addPass(this._renderPass);
-		const vignetteEffect = new VignetteEffect({ offset: 0.35, darkness: 0.4 });
+		// Gentle vignette — pulls focus to the avatar without darkening the small
+		// gallery thumbnails. Lower darkness + wider offset keeps the body lit.
+		const vignetteEffect = new VignetteEffect({ offset: 0.5, darkness: 0.22 });
 		const bloomEffect = new BloomEffect({
 			intensity: 0.6,
 			luminanceThreshold: 0.8,
@@ -1229,11 +1247,35 @@ export class Viewer {
 		this.renderer.toneMapping = Number(state.toneMapping);
 		this.renderer.toneMappingExposure = Math.pow(2, state.exposure);
 
-		if (lights.length === 2) {
-			lights[0].intensity = state.ambientIntensity;
-			lights[0].color.set(state.ambientColor);
-			lights[1].intensity = state.directIntensity;
-			lights[1].color.set(state.directColor);
+		// Image-based lighting strength (RoomEnvironment / HDRI). Supported by
+		// three r163+; guarded so older peers degrade to the baseline response.
+		if (this.scene && 'environmentIntensity' in this.scene) {
+			this.scene.environmentIntensity = state.environmentIntensity ?? 1.0;
+		}
+
+		// Keep the studio rig in sync with GUI / scene-pref edits, addressing
+		// each light by name so the rig can grow without re-indexing.
+		for (const light of lights) {
+			switch (light.name) {
+				case 'ambient_light':
+					light.intensity = state.ambientIntensity;
+					light.color.set(state.ambientColor);
+					break;
+				case 'main_light':
+					light.intensity = state.directIntensity;
+					light.color.set(state.directColor);
+					break;
+				case 'fill_light':
+					light.intensity = state.directIntensity * (state.fillRatio ?? 0.4);
+					light.color.set(state.fillColor ?? '#DCE6FF');
+					break;
+				case 'rim_light':
+					light.intensity = state.directIntensity * (state.rimRatio ?? 0.65);
+					light.color.set(state.rimColor ?? '#FFFFFF');
+					break;
+				default:
+					break;
+			}
 		}
 
 		this.invalidate();
@@ -1541,15 +1583,21 @@ export class Viewer {
 		});
 		[
 			lightFolder.add(this.state, 'toneMapping', {
+				Neutral: NeutralToneMapping,
 				Linear: LinearToneMapping,
 				'ACES Filmic': ACESFilmicToneMapping,
 			}),
 			lightFolder.add(this.state, 'punctualLights').listen(),
+			lightFolder.add(this.state, 'environmentIntensity', 0, 3).name('IBL intensity'),
 			lightFolder.add(this.state, 'ambientIntensity', 0, 2),
 			lightFolder.addColor(this.state, 'ambientColor'),
 			// Slider range tracks the π-scaled default above (see #116 note).
 			lightFolder.add(this.state, 'directIntensity', 0, 4),
 			lightFolder.addColor(this.state, 'directColor'),
+			lightFolder.add(this.state, 'fillRatio', 0, 1).name('fill'),
+			lightFolder.addColor(this.state, 'fillColor'),
+			lightFolder.add(this.state, 'rimRatio', 0, 1.5).name('rim'),
+			lightFolder.addColor(this.state, 'rimColor'),
 		].forEach((ctrl) => ctrl.onChange(() => this.updateLights()));
 
 		// Light Probe Grid controls.

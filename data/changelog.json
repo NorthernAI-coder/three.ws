@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Fixed: the Animation Gallery footer no longer covers the page",
+			"summary": "The /animations page had a layout bug where the site footer was being pulled up and painted on top of the gallery — the hero, search bar, and animation cards ended up hidden behind it. The footer now sits where it belongs, at the bottom of the page, so the full motion library is visible and browsable again.",
+			"tags": ["fix"],
+			"link": "/animations"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "The post-create screen now greets you with a living agent",
 			"summary": "After you create an avatar or agent, the 'what's next' screen no longer shows your character frozen in a stiff T-pose. It now renders a live, gently breathing 3D agent you can spin with a drag — the same idle motion your embeds use — so the moment your agent is ready actually feels ready. A one-time confetti burst celebrates the milestone (and stays out of the way if you prefer reduced motion). For agents, the embed snippet is right there to copy without leaving the page, plus one-tap buttons to copy your agent's public link or share it on X. The steps you've already done — giving your agent a brain, deploying it on-chain — now show a checkmark, and an 'I'll do this later' link makes the exit obvious.",
 			"tags": ["feature", "improvement"]
