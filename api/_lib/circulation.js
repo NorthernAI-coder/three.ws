@@ -32,12 +32,18 @@ import { solUsdPrice } from './avatar-wallet.js';
 import { CHAIN_BY_ID } from './erc8004-chains.js';
 import { publicUrl as r2PublicUrl } from './r2.js';
 import { pinToIPFS } from './ipfs-pin.js';
+import { confirmSkillPurchase, resolvePayoutAddress } from './purchase-confirm.js';
+import { submitProtected } from './execution-engine.js';
+import { insertNotification } from './notify.js';
 import {
 	PERSONAS,
 	COIN_THEMES,
 	PAYMENT_SERVICES,
 	REVIEW_LINES,
 	OWNER_FIRST_NAMES,
+	SKILL_LISTINGS,
+	ASSET_BLURBS,
+	GENERIC_SKILLS,
 	pick,
 	pickTwo,
 } from './circulation-personas.js';
@@ -55,6 +61,22 @@ const PAY_MIN = Math.floor(0.0012 * SOL);
 const PAY_MAX = Math.floor(0.01 * SOL);
 
 const THREE_MINT = () => env.THREE_TOKEN_MINT || 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+
+// Marketplace economics. Listings are priced in whole $THREE; buyers acquire $THREE
+// through the same real trade engine before paying, so the only funding rail is the
+// SOL treasury. Prices are deliberately small — a believable marketplace heartbeat,
+// not volume for its own sake.
+const THREE_DECIMALS = 6;
+const SKILL_PRICE_MIN_THREE = 80; // whole $THREE
+const SKILL_PRICE_MAX_THREE = 1200;
+const ASSET_PRICE_MIN_THREE = 600;
+const ASSET_PRICE_MAX_THREE = 4000;
+const THREE_TOPUP_SOL = 0.012; // SOL spent to buy $THREE when a buyer is short
+const SKILLS_PER_SELLER = 3; // how many skills a seller lists before it's "stocked"
+
+function threeAtomic(whole) {
+	return BigInt(Math.round(whole)) * 10n ** BigInt(THREE_DECIMALS);
+}
 
 function clampInt(v, dflt, lo, hi) {
 	const n = Number.parseInt(String(v ?? ''), 10);

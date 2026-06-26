@@ -2203,7 +2203,19 @@ support: resolve(__dirname, 'pages/support.html'),
 				// always return the current page from Vercel's edge — no stale HTML
 				// and no offline.html served to online users.
 				navigateFallback: null,
-				globPatterns: ['**/*.{js,css,ico,woff2}'],
+				// Precache ONLY stable, rarely-renamed assets (icons + fonts).
+				// JS/CSS are intentionally excluded from the precache manifest and
+				// served via runtime StaleWhileRevalidate instead (see runtimeCaching
+				// below). Reason: every JS/CSS chunk is content-hashed and Vercel's
+				// production alias only serves the *latest* deployment's assets. When
+				// a new deploy lands while a user still holds an older page/SW — or
+				// while a fresh SW is mid-install — the precache manifest references
+				// chunks (e.g. assets/stage-<hash>.js) that now 404. Workbox treats a
+				// single 404 as fatal `bad-precaching-response` and aborts the ENTIRE
+				// SW install, leaving the user with no SW at all. Runtime caching makes
+				// a 404 non-fatal: it's just a missed fetch the page's own dynamic
+				// import handles, and autoUpdate still rolls the new SW forward.
+				globPatterns: ['**/*.{ico,woff2}'],
 				globIgnores: [
 					'pages/**',
 					'**/animations/**',
@@ -2236,6 +2248,29 @@ support: resolve(__dirname, 'pages/support.html'),
 					{
 						urlPattern: /^https?:\/\/[^/]+\/api\/widgets\//i,
 						handler: 'NetworkOnly',
+					},
+					// Same-origin scripts & styles. Not precached (see globPatterns
+					// note above) — cached opportunistically at runtime so repeat
+					// visits stay fast without the deploy-skew fragility of
+					// precaching every hashed chunk. StaleWhileRevalidate serves the
+					// cached chunk instantly and refreshes it in the background; a
+					// 404 during a deploy rollover is a non-fatal background miss,
+					// never a broken SW install. Placed after the /widget, /embed,
+					// and /api/widgets NetworkOnly rules so those keep precedence.
+					{
+						urlPattern: ({ request, sameOrigin }) =>
+							sameOrigin &&
+							(request.destination === 'script' ||
+								request.destination === 'style'),
+						handler: 'StaleWhileRevalidate',
+						options: {
+							cacheName: 'app-assets',
+							expiration: {
+								maxEntries: 200,
+								maxAgeSeconds: 60 * 60 * 24 * 30,
+							},
+							cacheableResponse: { statuses: [200] },
+						},
 					},
 					{
 						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

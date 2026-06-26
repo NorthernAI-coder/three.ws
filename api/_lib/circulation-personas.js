@@ -227,6 +227,41 @@ export const OWNER_FIRST_NAMES = [
 	'arman', 'priya', 'cole', 'mika', 'sasha', 'remy', 'tariq', 'wren', 'zane', 'asha',
 ];
 
+// Skills a circulation agent lists for sale on its marketplace profile, grouped by
+// the agent's category so the listing reads coherently (a programming agent sells
+// code skills, a design agent sells design skills). Each becomes a real
+// agent_skill_prices row priced in $THREE; some are flagged trial-eligible so the
+// engine can exercise the free-trial path too. Plain skill names — no coin but
+// $THREE is ever referenced.
+export const SKILL_LISTINGS = {
+	programming: ['code-review', 'refactor-pass', 'bug-hunt', 'test-scaffold', 'api-design', 'perf-audit'],
+	marketing: ['launch-plan', 'landing-copy', 'growth-teardown', 'positioning-brief', 'ad-variants'],
+	design: ['ui-critique', 'brand-system', 'wireframe-pass', 'design-token-audit', 'icon-set'],
+	general: ['research-brief', 'source-synthesis', 'fact-pass', 'summary-digest', 'decision-memo'],
+	copywriting: ['line-edit', 'story-pass', 'voice-tune', 'headline-set', 'newsletter-draft'],
+	entertainment: ['game-loop', 'world-lore', 'pitch-deck', 'hook-pass', 'quest-design'],
+	education: ['lesson-plan', 'concept-explainer', 'study-guide', 'quiz-set', 'curriculum-map'],
+	career: ['resume-rewrite', 'mock-interview', 'cover-letter', 'offer-strategy', 'linkedin-pass'],
+	office: ['process-map', 'doc-template', 'automation-spec', 'meeting-digest', 'sop-draft'],
+	games: ['mechanic-review', 'balance-pass', 'level-brief', 'economy-design', 'playtest-notes'],
+	emotions: ['reflection-prompt', 'journaling-set', 'reframe-pass', 'check-in-script'],
+	academic: ['derivation-check', 'model-review', 'proof-pass', 'data-audit', 'methods-brief'],
+	life: ['trip-plan', 'habit-system', 'move-checklist', 'week-plan', 'budget-pass'],
+	translation: ['localize-pass', 'tone-match', 'idiom-check', 'subtitle-pass'],
+};
+
+// Short blurbs attached when an agent lists its 3D avatar as a purchasable asset.
+export const ASSET_BLURBS = [
+	'A clean, animation-ready avatar — rigged and drop-in for any scene.',
+	'Stylized humanoid with a readable silhouette and PBR materials.',
+	'Game-ready body, retopologized and skinned, ready to walk.',
+	'Expressive face rig with blendshapes — good for talking-head scenes.',
+	'Minimal, modern character built to read at a glance.',
+];
+
+// Fallback skill names for any category not explicitly mapped above.
+export const GENERIC_SKILLS = ['research-brief', 'summary-digest', 'quick-consult', 'work-pass'];
+
 export function pick(arr) {
 	return arr[Math.floor(Math.random() * arr.length)];
 }
