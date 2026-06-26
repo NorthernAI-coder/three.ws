@@ -2761,6 +2761,30 @@
 			"dest": "/api/avatars/fork"
 		},
 		{
+			"src": "/api/avatars/mine",
+			"dest": "/api/avatars/mine"
+		},
+		{
+			"src": "/api/avatars/featured",
+			"dest": "/api/avatars/featured"
+		},
+		{
+			"src": "/api/avatars/thumbnail",
+			"dest": "/api/avatars/thumbnail"
+		},
+		{
+			"src": "/api/avatars/from-forge",
+			"dest": "/api/avatars/from-forge"
+		},
+		{
+			"src": "/api/avatars/draft/([^/]+)",
+			"dest": "/api/avatars/draft/[id]?id=$1"
+		},
+		{
+			"src": "/api/avatars/?",
+			"dest": "/api/avatars/index"
+		},
+		{
 			"src": "/api/avatars/([^/]+)/([^/]+)",
 			"dest": "/api/avatars/[id]/[action]?id=$1&action=$2"
 		},
