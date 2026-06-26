@@ -2357,6 +2357,24 @@ async function fetchJson(url) {
 }
 
 /**
+ * Fetch the primary agent record with one automatic retry on a *transient*
+ * failure (offline, 5xx, 429) — a single network blip or cold serverless boot
+ * shouldn't dump the visitor onto the full "Couldn't load this agent" screen.
+ * A 404 is a definitive answer, never retried; it falls straight through to the
+ * not-found / avatar-redirect path.
+ */
+async function fetchAgentRecord(url) {
+	try {
+		return await fetchJson(url);
+	} catch (e) {
+		const transient = e?.status == null || e.status >= 500 || e.status === 429;
+		if (!transient) throw e;
+		await new Promise((r) => setTimeout(r, 600));
+		return fetchJson(url);
+	}
+}
+
+/**
  * Inflate the /api/agents/:id record into the detail-page shape.
  * `meta.onchain`, `rec.token`, and `rec.payments` are surfaced when present.
  */
@@ -2497,7 +2515,7 @@ async function loadAgent(id) {
 
 	let rec;
 	try {
-		const json = await fetchJson(`/api/agents/${encodeURIComponent(id)}`);
+		const json = await fetchAgentRecord(`/api/agents/${encodeURIComponent(id)}`);
 		rec = json.agent;
 	} catch (e) {
 		// A 404 is genuinely "no such agent"; anything else (offline, 5xx) is a

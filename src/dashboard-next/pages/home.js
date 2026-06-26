@@ -37,9 +37,17 @@ const STATE = {
 		${!forgeAnnounceDismissed ? `<section data-slot="announce" class="dnx-announce-wrap"></section>` : ''}
 
 		<div class="dnx-welcome-row">
-			<div>
+			<div class="dnx-welcome-text">
 				<h1 class="dn-h1" style="margin-bottom:4px">Welcome back, ${esc(greeting)}.</h1>
 				<p class="dn-h1-sub" style="margin:0">Your 3D agents, revenue, and visitor activity — all in one place.</p>
+			</div>
+			<div class="dnx-welcome-actions">
+				<span class="dnx-welcome-date" aria-hidden="true">${esc(todayLabel())}</span>
+				<a class="dn-btn" href="/dashboard/widgets">New widget</a>
+				<a class="dn-btn primary dnx-welcome-cta" href="/create">
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+					Create avatar
+				</a>
 			</div>
 		</div>
 
@@ -47,8 +55,8 @@ const STATE = {
 
 		<div class="dnx-grid">
 			<div class="dnx-col-main">
-				<section data-slot="hero" class="dnx-hero"></section>
 				<section data-slot="kpis"  class="dnx-kpis"></section>
+				<section data-slot="hero" class="dnx-hero"></section>
 				<section data-slot="trading" class="dnx-trading-wrap"></section>
 				<section data-slot="health" class="dnx-health-wrap"></section>
 				<section data-slot="quick" class="dnx-quick"></section>
@@ -351,6 +359,12 @@ async function refreshKpis(host, ctx) {
 		},
 	];
 
+	for (const c of cards) {
+		// Active-avatars is a running total (flat synthetic series), so a momentum
+		// read would be meaningless — only chart-backed metrics get a trend chip.
+		c.trend = c.key === 'avatars' ? null : trendOf(c.series);
+	}
+
 	host.innerHTML = cards.map(renderKpiCard).join('');
 
 	for (const c of cards) {
@@ -363,15 +377,31 @@ async function refreshKpis(host, ctx) {
 }
 
 function renderKpiCard(c) {
-	const body = c.empty
-		? `<div class="dnx-kpi-empty"><div class="dnx-kpi-value">${esc(c.value)}</div>
-		   <a class="dn-btn" href="${c.emptyCta.href}">${esc(c.emptyCta.label)}</a></div>`
-		: `<div class="dnx-kpi-value">${esc(c.value)}</div>
-		   <div class="dnx-kpi-spark">${sparkSvg(c.series)}</div>`;
+	if (c.empty) {
+		return `
+			<div class="dn-panel dnx-kpi dnx-kpi-is-empty" data-kpi="${esc(c.key)}">
+				<div class="dnx-kpi-label">${esc(c.label)}</div>
+				<div class="dnx-kpi-empty">
+					<div class="dnx-kpi-value">${esc(c.value)}</div>
+					<a class="dn-btn" href="${c.emptyCta.href}">${esc(c.emptyCta.label)}</a>
+				</div>
+			</div>`;
+	}
+	const t = c.trend;
+	const dir = t?.dir || 'flat';
+	const trendHtml = t
+		? `<span class="dnx-kpi-trend dnx-kpi-trend-${dir}" title="Momentum across the last 7 days">
+				${trendArrow(dir)}<span>${t.label ? esc(t.label) : `${Math.abs(t.pct).toFixed(0)}%`}</span>
+			</span>`
+		: '';
 	return `
 		<div class="dn-panel dnx-kpi" data-kpi="${esc(c.key)}">
 			<div class="dnx-kpi-label">${esc(c.label)}</div>
-			${body}
+			<div class="dnx-kpi-value-row">
+				<div class="dnx-kpi-value">${esc(c.value)}</div>
+				${trendHtml}
+			</div>
+			<div class="dnx-kpi-spark">${sparkSvg(c.series, dir)}</div>
 		</div>
 	`;
 }
@@ -1404,24 +1434,64 @@ function renderDirectory(host) {
 
 // ── Sparkline ─────────────────────────────────────────────────────────────
 
-function sparkSvg(series) {
+const SPARK_COLOR = {
+	up: 'var(--nxt-success)',
+	down: 'var(--nxt-danger)',
+	flat: 'var(--nxt-ink-dim)',
+};
+
+function sparkSvg(series, dir = 'flat') {
 	if (!series.length) return '';
 	const w = 220, h = 38, pad = 2;
+	const color = SPARK_COLOR[dir] || SPARK_COLOR.flat;
 	const max = Math.max(1, ...series.map((p) => p.value));
 	const dx = (w - pad * 2) / Math.max(1, series.length - 1);
-	const pts = series.map((p, i) => {
+	const coords = series.map((p, i) => {
 		const x = pad + i * dx;
 		const y = h - pad - (p.value / max) * (h - pad * 2);
-		return `${x.toFixed(2)},${y.toFixed(2)}`;
+		return [x, y];
 	});
-	const line = pts.join(' ');
+	const line = coords.map(([x, y]) => `${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
 	const area = `${pad},${h - pad} ${line} ${(w - pad).toFixed(2)},${h - pad}`;
+	const [lx, ly] = coords[coords.length - 1];
 	return `
-		<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="${h}">
-			<polygon points="${area}" fill="var(--nxt-ink-dim)" fill-opacity="0.10"/>
-			<polyline points="${line}" fill="none" stroke="var(--nxt-ink-dim)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+		<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" width="100%" height="${h}" style="color:${color}">
+			<polygon points="${area}" fill="currentColor" fill-opacity="0.12"/>
+			<polyline points="${line}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>
+			<circle cx="${lx.toFixed(2)}" cy="${ly.toFixed(2)}" r="2.4" fill="currentColor" vector-effect="non-scaling-stroke"/>
 		</svg>
 	`;
+}
+
+// Momentum across the available window: sum of the latest third vs the earliest
+// third of the daily series. Honest read computed from real data only — null
+// when there's nothing to compare (flat or empty series).
+function trendOf(series) {
+	if (!series || series.length < 4) return null;
+	const vals = series.map((p) => Number(p.value) || 0);
+	const span = Math.max(1, Math.floor(vals.length / 3));
+	const first = vals.slice(0, span).reduce((a, b) => a + b, 0);
+	const second = vals.slice(vals.length - span).reduce((a, b) => a + b, 0);
+	if (first === 0 && second === 0) return null;
+	if (first === 0) return { dir: 'up', pct: null, label: 'New' };
+	const pct = ((second - first) / first) * 100;
+	if (Math.abs(pct) < 1) return { dir: 'flat', pct: 0 };
+	return { dir: pct > 0 ? 'up' : 'down', pct };
+}
+
+function trendArrow(dir) {
+	if (dir === 'up') return '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5L6 4l3.5 3.5"/></svg>';
+	if (dir === 'down') return '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg>';
+	return '<svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M2.5 6h7"/></svg>';
+}
+
+// "Thu, Jun 26" — calm context for the header, no live ticking.
+function todayLabel() {
+	try {
+		return new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+	} catch {
+		return '';
+	}
 }
 
 function padDailySeries(rows, days) {
@@ -1570,7 +1640,15 @@ function injectStyles() {
 			gap: 14px;
 		}
 		@media (max-width: 920px) { .dnx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-		.dnx-kpi { padding: 14px 16px; }
+		.dnx-kpi {
+			padding: 14px 16px;
+			transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+		}
+		.dnx-kpi:hover {
+			border-color: var(--nxt-stroke-strong);
+			transform: translateY(-2px);
+			box-shadow: 0 10px 30px -18px rgba(0,0,0,0.6);
+		}
 		.dnx-kpi-label {
 			font-size: 11.5px;
 			font-weight: 600;
@@ -1579,17 +1657,71 @@ function injectStyles() {
 			color: var(--nxt-ink-fade);
 			margin-bottom: 8px;
 		}
+		.dnx-kpi-value-row {
+			display: flex;
+			align-items: baseline;
+			justify-content: space-between;
+			gap: 8px;
+			margin-bottom: 8px;
+		}
 		.dnx-kpi-value {
 			font-size: 26px;
 			font-weight: 600;
 			letter-spacing: -0.02em;
 			color: var(--nxt-ink);
 			line-height: 1.1;
-			margin-bottom: 8px;
 			font-variant-numeric: tabular-nums;
 		}
+		.dnx-kpi-value-row .dnx-kpi-value { margin-bottom: 0; }
+		.dnx-kpi-trend {
+			display: inline-flex;
+			align-items: center;
+			gap: 2px;
+			flex-shrink: 0;
+			font-size: 11.5px;
+			font-weight: 600;
+			font-variant-numeric: tabular-nums;
+			padding: 2px 6px 2px 4px;
+			border-radius: var(--nxt-radius-pill);
+			line-height: 1;
+		}
+		.dnx-kpi-trend svg { display: block; }
+		.dnx-kpi-trend-up   { color: var(--nxt-success); background: rgba(184, 188, 196, 0.1); }
+		.dnx-kpi-trend-down { color: var(--nxt-danger);  background: rgba(150, 155, 163, 0.1); }
+		.dnx-kpi-trend-flat { color: var(--nxt-ink-fade); background: rgba(255,255,255,0.04); }
 		.dnx-kpi-spark { height: 38px; }
 		.dnx-kpi-empty { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+		.dnx-kpi-empty .dnx-kpi-value { margin-bottom: 0; }
+
+		/* ── Welcome header ── */
+		.dnx-welcome-row {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			gap: 18px;
+			flex-wrap: wrap;
+			margin-bottom: 20px;
+		}
+		.dnx-welcome-text { min-width: 0; }
+		.dnx-welcome-actions {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-shrink: 0;
+		}
+		.dnx-welcome-date {
+			font-size: 12.5px;
+			color: var(--nxt-ink-fade);
+			font-variant-numeric: tabular-nums;
+			white-space: nowrap;
+			margin-right: 2px;
+		}
+		.dnx-welcome-cta svg { margin-right: -1px; }
+		@media (max-width: 620px) {
+			.dnx-welcome-actions { width: 100%; }
+			.dnx-welcome-date { display: none; }
+			.dnx-welcome-cta { margin-left: auto; }
+		}
 
 		/* ── Agent health ── */
 		.dnx-health-wrap { min-width: 0; }
