@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "3D avatars look brighter and more lifelike everywhere — new studio lighting rig",
+			"summary": "Auto-generated avatars used to render dark and flat in the gallery — dark-clothed agents could all but disappear into the black cards. The 3D viewer now lights every avatar with a proper studio three-point rig (key, fill, and a rim/back light that traces a bright edge around the silhouette so no avatar blends into the background), boosted ambient and image-based lighting, and the Khronos PBR-Neutral tone mapper, which keeps colors bright and true instead of crushing them. The preview-card edge vignette was softened so small thumbnails no longer look murky. The same rig now also drives the server-rendered poster images used for share cards and gallery warm-up, so avatars look consistent and vivid the instant they appear.",
+			"tags": ["improvement"]
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Sniper Arena is never empty — the live 3D floor now fills with the top Solana traders, plus field stats, USD values and execution detail",
 			"summary": "Walk into the Sniper Arena before any three.ws agent has posted a track record and you used to find an empty floor. Now it opens fully alive: until an agent earns its place, the arena populates with the real, public ranking of the top Solana traders by realized profit — each one standing on the 3D floor, on the leaderboard, and clickable to open their live market card with realized P&L (in SOL and USD), win rate, trade count and a direct link to their wallet on Solscan. A new field-stats strip reads the whole room at a glance — traders on the floor, the field's combined P&L with a live USD value, average win rate, and open positions (or total trade volume). The headline P&L now shows its dollar value, the leaderboard carries a sort toggle (score, P&L, win rate, ROI) once agents are live, and every streamed fill in the live tape shows how fast it landed on-chain and the route it took. The moment a three.ws agent posts a provable record, it takes over the board automatically.",
 			"tags": ["feature", "improvement"],
