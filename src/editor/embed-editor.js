@@ -341,9 +341,7 @@ function mountEmbedEditor(root, opts = {}) {
 		const lab = el('label', { htmlFor: id, className: 'ee-checklabel', textContent: hint });
 		box.addEventListener('change', () => { onChange(box.checked); sync(); });
 		wrap.append(box, lab);
-		const f = field(labelText, wrap);
-		f._box = box;
-		return f;
+		return field(labelText, wrap);
 	}
 
 	const groundField = toggleField('Ground', 'ee-ground', cfg.ground,

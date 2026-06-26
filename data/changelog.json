@@ -3,6 +3,33 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "The post-create screen now greets you with a living agent",
+			"summary": "After you create an avatar or agent, the 'what's next' screen no longer shows your character frozen in a stiff T-pose. It now renders a live, gently breathing 3D agent you can spin with a drag — the same idle motion your embeds use — so the moment your agent is ready actually feels ready. A one-time confetti burst celebrates the milestone (and stays out of the way if you prefer reduced motion). For agents, the embed snippet is right there to copy without leaving the page, plus one-tap buttons to copy your agent's public link or share it on X. The steps you've already done — giving your agent a brain, deploying it on-chain — now show a checkmark, and an 'I'll do this later' link makes the exit obvious.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Embeddable avatars get tap-to-walk, gestures, and a lighter footprint",
+			"summary": "The walking-avatar embed you drop onto any site is now friendlier and lighter. Visitors can tap or click the ground to send the avatar walking there — no joystick required — and a one-time on-screen hint appears so first-timers actually discover the controls. Turn on a Gestures option and they get wave and jump buttons too. On desktop the avatar gently turns to face your cursor when it's standing still, so a hovered embed feels alive. While the 3D model loads, a soft silhouette stands in instead of a blank gap. The embed now pauses itself the moment it scrolls out of view or its tab is hidden, so it never drains a laptop battery in the background, and it respects your system 'reduce motion' setting. Every embed carries a small, tasteful three.ws badge that links home — removable with one toggle. The embed editor adds matching controls: walk speed, ground on/off, gestures, the badge toggle, and a Responsive option that emits a fluid snippet that fills its container on any screen.",
+			"tags": ["feature", "improvement"],
+			"link": "/embed"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Avatar Studio avatars come alive — pick from 16 motions",
+			"summary": "Your avatar no longer stands frozen in a stiff T-pose while you dress it. Avatar Studio now plays a natural looping idle the moment it loads — proof the avatar is fully rigged — and a new Animate tab lets you drive the rig live: 16 curated motions including Idle, Wave, Cheer, Celebrate, Flex, Dance, Shuffle, Rumba, Thriller, Capoeira and more. Looping motions become your avatar's resting idle, so when you Save, your avatar is captured in the relaxed stance you chose rather than a rigid pose. One-shot moves like Wave and Celebrate play once and settle back to idle automatically.",
+			"tags": ["feature", "improvement"],
+			"link": "/avatar-studio"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Animation Studio gains undo, mirror, and copy/paste posing",
+			"summary": "Posing an avatar in the Animation Studio is now far quicker. Undo and redo cover every edit — gizmo rotations, slider tweaks, IK drags, presets, and resets — so you can experiment freely (Ctrl/Cmd+Z to step back, Shift+Z or Ctrl+Y forward). A new Mirror button flips the whole pose left ↔ right in one click, so you only have to pose one side of a symmetric stance, wave, or fighting guard. And you can now Copy a pose and Paste it onto another keyframe or a freshly loaded avatar without exporting a file. Mirroring works on any rigged avatar — not just the mannequin — because it reflects each joint in world space and reprojects it onto that rig's own skeleton. Keyboard shortcuts: M to mirror, C to copy, V to paste.",
+			"tags": ["feature", "improvement"],
+			"link": "/pose"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Living Worlds video generator is back online",
 			"summary": "The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.",
 			"tags": ["fix"],

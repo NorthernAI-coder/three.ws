@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-26T03:49:16.783Z",
+	"generated_at": "2026-06-26T04:31:58.208Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Animation Studio gains undo, mirror, and copy/paste posing",
+			"summary": "Posing an avatar in the Animation Studio is now far quicker. Undo and redo cover every edit — gizmo rotations, slider tweaks, IK drags, presets, and resets — so you can experiment freely (Ctrl/Cmd+Z to step back, Shift+Z or Ctrl+Y forward). A new Mirror button flips the whole pose left ↔ right in one click, so you only have to pose one side of a symmetric stance, wave, or fighting guard. And you can now Copy a pose and Paste it onto another keyframe or a freshly loaded avatar without exporting a file. Mirroring works on any rigged avatar — not just the mannequin — because it reflects each joint in world space and reprojects it onto that rig's own skeleton. Keyboard shortcuts: M to mirror, C to copy, V to paste.",
+			"link": "/pose",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "update",
@@ -20,11 +31,33 @@
 		{
 			"date": "2026-06-26",
 			"type": "update",
+			"title": "Avatar Studio avatars come alive — pick from 16 motions",
+			"summary": "Your avatar no longer stands frozen in a stiff T-pose while you dress it. Avatar Studio now plays a natural looping idle the moment it loads — proof the avatar is fully rigged — and a new Animate tab lets you drive the rig live: 16 curated motions including Idle, Wave, Cheer, Celebrate, Flex, Dance, Shuffle, Rumba, Thriller, Capoeira and more. Looping motions become your avatar's resting idle, so when you Save, your avatar is captured in the relaxed stance you chose rather than a rigid pose. One-shot moves like Wave and Celebrate play once and settle back to idle automatically.",
+			"link": "/avatar-studio",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
 			"title": "Default avatars render again everywhere",
 			"summary": "Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.",
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Embeddable avatars get tap-to-walk, gestures, and a lighter footprint",
+			"summary": "The walking-avatar embed you drop onto any site is now friendlier and lighter. Visitors can tap or click the ground to send the avatar walking there — no joystick required — and a one-time on-screen hint appears so first-timers actually discover the controls. Turn on a Gestures option and they get wave and jump buttons too. On desktop the avatar gently turns to face your cursor when it's standing still, so a hovered embed feels alive. While the 3D model loads, a soft silhouette stands in instead of a blank gap. The embed now pauses itself the moment it scrolls out of view or its tab is hidden, so it never drains a laptop battery in the background, and it respects your system 'reduce motion' setting. Every embed carries a small, tasteful three.ws badge that links home — removable with one toggle. The embed editor adds matching controls: walk speed, ground on/off, gestures, the badge toggle, and a Responsive option that emits a fluid snippet that fills its container on any screen.",
+			"link": "/embed",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -56,6 +89,17 @@
 			"link": null,
 			"tags": [
 				"infra",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "The post-create screen now greets you with a living agent",
+			"summary": "After you create an avatar or agent, the 'what's next' screen no longer shows your character frozen in a stiff T-pose. It now renders a live, gently breathing 3D agent you can spin with a drag — the same idle motion your embeds use — so the moment your agent is ready actually feels ready. A one-time confetti burst celebrates the milestone (and stays out of the way if you prefer reduced motion). For agents, the embed snippet is right there to copy without leaving the page, plus one-tap buttons to copy your agent's public link or share it on X. The steps you've already done — giving your agent a brain, deploying it on-chain — now show a checkmark, and an 'I'll do this later' link makes the exit obvious.",
+			"link": null,
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
