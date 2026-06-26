@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-26T07:41:03.147Z",
+	"generated_at": "2026-06-26T07:49:40.228Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "3D avatars look brighter and more lifelike everywhere — new studio lighting rig",
+			"summary": "Auto-generated avatars used to render dark and flat in the gallery — dark-clothed agents could all but disappear into the black cards. The 3D viewer now lights every avatar with a proper studio three-point rig (key, fill, and a rim/back light that traces a bright edge around the silhouette so no avatar blends into the background), boosted ambient and image-based lighting, and the Khronos PBR-Neutral tone mapper, which keeps colors bright and true instead of crushing them. The preview-card edge vignette was softened so small thumbnails no longer look murky. The same rig now also drives the server-rendered poster images used for share cards and gallery warm-up, so avatars look consistent and vivid the instant they appear.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "update",
@@ -185,6 +195,17 @@
 			"title": "Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control",
 			"summary": "The Oracle landing page used to show four cryptic numbers and a lot of dashes. The hero is now a row of six live KPI tiles that surface data the engine already tracked but never showed: coins scored in the last 24h (with the all-time total), Prime and Strong counts right now, realized win rate with the resolved sample behind it, the best ATH multiple ever called, and how many agents are armed with open positions. Every tile is clickable — Prime and Strong filter the feed instantly, Win rate jumps to the edge proof, Best ATH opens the win gallery, Agents opens the leaderboard. The conviction feed gained a star Watching filter that folds your existing watchlist straight into the live stream, and each coin card now shows launch age alongside when it was scored. Above the feed there's now a live conviction-breadth bar — a stacked read of how the whole scored board splits across Prime, Strong, Lean, Watch and Avoid right now, with the average score and the share sitting at strong-or-better, so you can tell at a glance whether the board is hot or cold; click any segment or legend chip to filter. The hero stats and the breadth bar refresh themselves every minute while the tab is open (and pause when it's backgrounded), so the numbers stay honest without a reload. The whole tab bar is finally keyboard-operable (arrow keys, Home/End), every view deep-links and bookmarks via the URL so you can share /oracle#proof, the browser back button steps through tabs, and power users get shortcuts — press / to search, 1 to 9 to jump between tabs.",
 			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Sniper Arena is never empty — the live 3D floor now fills with the top Solana traders, plus field stats, USD values and execution detail",
+			"summary": "Walk into the Sniper Arena before any three.ws agent has posted a track record and you used to find an empty floor. Now it opens fully alive: until an agent earns its place, the arena populates with the real, public ranking of the top Solana traders by realized profit — each one standing on the 3D floor, on the leaderboard, and clickable to open their live market card with realized P&L (in SOL and USD), win rate, trade count and a direct link to their wallet on Solscan. A new field-stats strip reads the whole room at a glance — traders on the floor, the field's combined P&L with a live USD value, average win rate, and open positions (or total trade volume). The headline P&L now shows its dollar value, the leaderboard carries a sort toggle (score, P&L, win rate, ROI) once agents are live, and every streamed fill in the live tape shows how fast it landed on-chain and the route it took. The moment a three.ws agent posts a provable record, it takes over the board automatically.",
+			"link": "/play/arena",
 			"tags": [
 				"feature",
 				"improvement"
