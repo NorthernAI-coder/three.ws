@@ -160,7 +160,7 @@ export class Viewer {
 			// disappears into a black card. Ratios are relative to directIntensity.
 			fillRatio: 0.4,
 			fillColor: '#DCE6FF',
-			rimRatio: 0.65,
+			rimRatio: 0.55,
 			rimColor: '#FFFFFF',
 			// Image-based lighting strength (RoomEnvironment / HDRI). >1 lifts the
 			// ambient PBR response without washing out direct highlights.
