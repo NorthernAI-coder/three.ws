@@ -125,10 +125,12 @@ async function logAction(row) {
 	}
 }
 
-async function recentCount(kind, intervalSql) {
+// `interval` is a plain Postgres interval string (e.g. '1 day', '45 minutes')
+// bound as a parameter — no embedded quotes.
+async function recentCount(kind, interval) {
 	const [r] = await sql`
 		select count(*)::int as count from circulation_actions
-		where kind = ${kind} and status = 'ok' and created_at > now() - ${intervalSql}::interval
+		where kind = ${kind} and status = 'ok' and created_at > now() - ${interval}::interval
 	`;
 	return r?.count ?? 0;
 }
@@ -180,7 +182,7 @@ async function transferSol(conn, fromKp, toAddress, lamports) {
 		recentBlockhash: blockhash,
 		instructions: [
 			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 60_000 }),
-			ComputeBudgetProgram.setComputeUnitLimit({ units: 400 }),
+			ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000 }),
 			SystemProgram.transfer({ fromPubkey: fromKp.publicKey, toPubkey: toPk, lamports }),
 		],
 	}).compileToV0Message();
@@ -697,9 +699,9 @@ async function buildAgentCard(agent, origin) {
 // solo. Everything else can batch up to actionsPerTick.
 async function planActions(cfg, poolSize) {
 	const plan = [];
-	const launchesToday = await recentCount('launch', "'1 day'");
-	const deploysToday = await recentCount('deploy', "'1 day'");
-	const launchesHour = await recentCount('launch', "'45 minutes'");
+	const launchesToday = await recentCount('launch', '1 day');
+	const deploysToday = await recentCount('deploy', '1 day');
+	const launchesHour = await recentCount('launch', '45 minutes');
 
 	// Heavyweight, low-frequency, solo actions get first refusal.
 	const r = Math.random();
