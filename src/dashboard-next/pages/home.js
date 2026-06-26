@@ -879,7 +879,6 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 		return;
 	}
 
-	const nextStep = steps.find((s) => !s.done);
 	const pct = Math.round((doneCount / steps.length) * 100);
 
 	injectCryptoOptionalStyles();
@@ -898,7 +897,7 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 	const pendingSteps = steps.filter((s) => !s.done);
 	const [activeStep, ...futureSteps] = pendingSteps;
 
-	const futureHtml = futureSteps.map((s, i) => `
+	const futureHtml = futureSteps.map((s) => `
 		<li class="dnx-ob-future-row">
 			<span class="dnx-ob-future-num" aria-hidden="true">${steps.indexOf(s) + 1}</span>
 			<span class="dnx-ob-future-label">${esc(s.label)}</span>
@@ -1939,41 +1938,170 @@ function injectStyles() {
 		}
 		.dnx-ob-fill {
 			height: 100%; border-radius: 4px;
-			background: var(--nxt-ink-dim);
-			transition: width 0.4s ease;
+			background: linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.8));
+			transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 		}
-		.dnx-ob-steps {
-			list-style: none; padding: 0; margin: 0;
-			display: flex; flex-direction: column; gap: 2px;
+
+		/* Completed steps — compact strip */
+		.dnx-ob-done-list {
+			list-style: none; padding: 0; margin: 0 0 14px;
+			display: flex; flex-direction: column; gap: 4px;
 		}
-		.dnx-ob-step {
-			display: flex; align-items: center; gap: 12px;
-			padding: 9px 8px; border-radius: 8px;
-			transition: background 0.12s ease;
+		.dnx-ob-done-row {
+			display: flex; align-items: center; gap: 8px;
+			font-size: 12.5px; color: var(--nxt-ink-fade);
 		}
-		.dnx-ob-step:hover { background: rgba(255,255,255,0.04); }
-		.dnx-ob-step.is-done { opacity: 0.5; }
-		.dnx-ob-num {
-			width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+		.dnx-ob-done-check {
+			width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
 			display: grid; place-items: center;
-			font-size: 11px; font-weight: 600;
-			background: rgba(255,255,255,0.06);
-			color: var(--nxt-ink-dim);
-			border: 1px solid var(--nxt-stroke);
+			background: rgba(52, 211, 153, 0.12);
+			color: #34d399;
 		}
-		.dnx-ob-step.is-done .dnx-ob-num {
+		.dnx-ob-done-label { text-decoration: line-through; opacity: 0.7; }
+
+		/* Active (next) step — full card, accent border */
+		.dnx-ob-active {
+			display: flex; gap: 16px; align-items: flex-start;
+			padding: 16px;
+			border-radius: 10px;
+			border: 1px solid rgba(255,255,255,0.14);
+			background: rgba(255,255,255,0.04);
+			margin-bottom: 12px;
+			position: relative;
+			overflow: hidden;
+		}
+		.dnx-ob-active::before {
+			content: '';
+			position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+			background: linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+			border-radius: 3px 0 0 3px;
+		}
+		.dnx-ob-active-icon {
+			width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+			display: grid; place-items: center;
 			background: rgba(255,255,255,0.08);
 			color: var(--nxt-ink);
-			border-color: var(--nxt-stroke-strong);
 		}
-		.dnx-ob-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-		.dnx-ob-label { font-size: 13.5px; font-weight: 500; color: var(--nxt-ink); display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-		.dnx-ob-sub { font-size: 12px; color: var(--nxt-ink-fade); }
-		.dnx-ob-btn { flex-shrink: 0; font-size: 12px; padding: 5px 10px; white-space: nowrap; }
+		.dnx-ob-active-body { flex: 1; min-width: 0; }
+		.dnx-ob-active-step-label {
+			font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+			text-transform: uppercase; color: var(--nxt-ink-fade);
+			margin-bottom: 4px;
+			display: flex; align-items: center; gap: 6px;
+		}
+		.dnx-ob-active-opt {
+			font-size: 10px; font-weight: 600; letter-spacing: 0.05em;
+			padding: 1px 7px; border-radius: 99px;
+			background: rgba(251,191,36,0.15); color: #fbbf24;
+			text-transform: uppercase;
+		}
+		.dnx-ob-active-title {
+			font-size: 15px; font-weight: 600; color: var(--nxt-ink);
+			margin-bottom: 3px; line-height: 1.3;
+		}
+		.dnx-ob-active-outcome {
+			font-size: 12.5px; font-weight: 500;
+			color: rgba(255,255,255,0.65);
+			margin-bottom: 8px;
+		}
+		.dnx-ob-active-detail {
+			font-size: 12px; color: var(--nxt-ink-fade);
+			line-height: 1.5; margin-bottom: 14px;
+		}
+		.dnx-ob-active-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+		.dnx-ob-active-cta {
+			background: var(--nxt-accent, rgba(255,255,255,0.9)); color: #000;
+			font-weight: 600; font-size: 13px; padding: 8px 16px;
+			border-radius: 8px; border: none;
+			transition: transform 0.12s ease, box-shadow 0.15s ease;
+		}
+		.dnx-ob-active-cta:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 4px 18px -6px rgba(255,255,255,0.4);
+		}
+		.dnx-ob-active-skip { font-size: 12px; color: var(--nxt-ink-fade); }
+		.dnx-ob-active-skip a { color: var(--nxt-ink-fade); text-decoration: underline; }
+		.dnx-ob-active-skip a:hover { color: var(--nxt-ink); }
+
+		/* Future (upcoming) steps — minimal */
+		.dnx-ob-future-list {
+			list-style: none; padding: 0; margin: 0 0 12px;
+			border-top: 1px solid var(--nxt-stroke);
+			padding-top: 10px;
+			display: flex; flex-direction: column; gap: 6px;
+		}
+		.dnx-ob-future-row {
+			display: flex; align-items: center; gap: 10px;
+			font-size: 12.5px; color: var(--nxt-ink-fade);
+			padding: 2px 0;
+		}
+		.dnx-ob-future-num {
+			width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+			display: grid; place-items: center;
+			font-size: 10px; font-weight: 600;
+			background: rgba(255,255,255,0.05);
+			border: 1px solid var(--nxt-stroke);
+			color: var(--nxt-ink-fade);
+		}
+		.dnx-ob-future-label { flex: 1; }
+		.dnx-ob-future-opt {
+			font-size: 10px; font-weight: 600; letter-spacing: 0.04em;
+			padding: 1px 7px; border-radius: 99px;
+			background: rgba(251,191,36,0.1); color: #fbbf24;
+			text-transform: uppercase;
+		}
+
 		.dnx-ob-reassure { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--nxt-line, rgba(255,255,255,0.08)); }
-		@media (max-width: 600px) {
-			.dnx-ob-step { flex-wrap: wrap; }
-			.dnx-ob-btn { margin-left: 36px; }
+
+		/* ── Empty hero: platform flow ── */
+		.dnx-empty-hero {
+			display: flex; flex-direction: column; align-items: center;
+			gap: 24px; padding: 40px 28px 36px;
+			border-radius: var(--nxt-radius);
+			border: 1px solid var(--nxt-stroke);
+			background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent);
+			text-align: center;
+		}
+		.dnx-empty-hero-flow {
+			display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+		}
+		.dnx-flow-step {
+			display: flex; flex-direction: column; align-items: center; gap: 6px;
+			min-width: 80px;
+		}
+		.dnx-flow-icon {
+			width: 58px; height: 58px; border-radius: 16px;
+			display: grid; place-items: center;
+			background: rgba(255,255,255,0.05);
+			border: 1px solid var(--nxt-stroke);
+			color: var(--nxt-ink-dim);
+			transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+		}
+		.dnx-flow-step:hover .dnx-flow-icon {
+			background: rgba(255,255,255,0.09); border-color: var(--nxt-stroke-strong); color: var(--nxt-ink);
+		}
+		.dnx-flow-label { font-size: 13px; font-weight: 600; color: var(--nxt-ink); }
+		.dnx-flow-sub { font-size: 11.5px; color: var(--nxt-ink-fade); }
+		.dnx-flow-arrow {
+			font-size: 18px; color: var(--nxt-ink-fade); flex-shrink: 0;
+			margin-top: -18px;
+		}
+		.dnx-empty-hero-cta { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+		.dnx-empty-hero-main-cta {
+			background: var(--nxt-accent, rgba(255,255,255,0.88)); color: #000;
+			font-weight: 600; font-size: 14px; padding: 10px 22px;
+			border-radius: 9px; border: none;
+			transition: transform 0.12s ease, box-shadow 0.15s ease;
+		}
+		.dnx-empty-hero-main-cta:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 6px 24px -8px rgba(255,255,255,0.35);
+		}
+		@media (max-width: 580px) {
+			.dnx-flow-arrow { display: none; }
+			.dnx-empty-hero-flow { gap: 8px; }
+			.dnx-flow-step { min-width: 70px; }
+			.dnx-flow-icon { width: 48px; height: 48px; border-radius: 13px; }
 		}
 
 		/* ── Feature directory ── */

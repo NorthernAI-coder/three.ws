@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T08:57:01.508Z",
+	"generated_at": "2026-06-26T09:08:09.663Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -100,6 +100,16 @@
 			"link": "/avatar-studio",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Brain page simplified — pick a personality in one tap",
+			"summary": "Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.",
+			"link": "/brain",
+			"tags": [
 				"improvement"
 			]
 		},

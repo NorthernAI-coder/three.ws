@@ -1904,6 +1904,10 @@
 			"dest": "/api/agents/x402/[action]?action=manifest"
 		},
 		{
+			"src": "/api/agents/([^/]+)/wallet/([^/]+)",
+			"dest": "/api/agents/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/wallet",
 			"dest": "/api/agents/[id]"
 		},
