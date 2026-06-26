@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars",
+			"summary": "A new background generator quietly grows the public gallery with photorealistic, animation-ready Avaturn avatars — each one a fresh randomized character (body, outfit, hair, and colors) built from Avaturn's own catalog and exported with a complete rig, so it walks and emotes out of the box. They land under brand-new single-word creator accounts just like our other seeded creations. The cadence starts conservative and ramps up over time.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Fixed: the Animation Gallery footer no longer covers the page",
 			"summary": "The /animations page had a layout bug where the site footer was being pulled up and painted on top of the gallery — the hero, search bar, and animation cards ended up hidden behind it. The footer now sits where it belongs, at the bottom of the page, so the full motion library is visible and browsable again.",
 			"tags": ["fix"],

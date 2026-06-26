@@ -70,6 +70,9 @@
 		"api/cron/forge-seed-cron.js": {
 			"maxDuration": 70
 		},
+		"api/cron/avaturn-seed-cron.js": {
+			"maxDuration": 300
+		},
 		"api/cron/reflect-sweep.js": {
 			"maxDuration": 120
 		},
@@ -4238,6 +4241,10 @@
 		}
 	],
 	"crons": [
+		{
+			"path": "/api/cron/avaturn-seed-cron",
+			"schedule": "* * * * *"
+		},
 		{
 			"path": "/api/cron/irl-drops-refund",
 			"schedule": "*/10 * * * *"
