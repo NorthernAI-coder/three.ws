@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-26T00:12:52.909Z",
+	"generated_at": "2026-06-26T00:13:32.448Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "API endpoints answer HEAD checks instantly and shrug off cache hiccups",
+			"summary": "Two reliability fixes for anything that talks to the three.ws API. Lightweight HEAD requests — the kind uptime monitors, link previews, and agent crawlers send to check an endpoint — used to hang on agent routes until the request timed out; they now return immediately, the same as a GET but without the body. And when our cache store has a rough moment, the platform now trips a fast circuit-breaker and serves from local memory instantly instead of making every request wait on a slow cache write. Live feeds and agent pages stay snappy through a cache blip.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "update",

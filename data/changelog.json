@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "API endpoints answer HEAD checks instantly and shrug off cache hiccups",
+			"summary": "Two reliability fixes for anything that talks to the three.ws API. Lightweight HEAD requests — the kind uptime monitors, link previews, and agent crawlers send to check an endpoint — used to hang on agent routes until the request timed out; they now return immediately, the same as a GET but without the body. And when our cache store has a rough moment, the platform now trips a fast circuit-breaker and serves from local memory instantly instead of making every request wait on a slow cache write. Live feeds and agent pages stay snappy through a cache blip.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Mission Control's live launch feed never goes dark",
 			"summary": "The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.",
 			"tags": ["fix", "improvement"],

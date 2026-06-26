@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>API endpoints answer HEAD checks instantly and shrug off cache hiccups</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-26:API endpoints answer HEAD checks instantly and shrug off cache hiccups</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two reliability fixes for anything that talks to the three.ws API. Lightweight HEAD requests — the kind uptime monitors, link previews, and agent crawlers send to check an endpoint — used to hang on agent routes until the request timed out; they now return immediately, the same as a GET but without the body. And when our cache store has a rough moment, the platform now trips a fast circuit-breaker and serves from local memory instantly instead of making every request wait on a slow cache write. Live feeds and agent pages stay snappy through a cache blip.</description>
+		</item>
+		<item>
 			<title>Default avatars render again everywhere</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:Default avatars render again everywhere</guid>
