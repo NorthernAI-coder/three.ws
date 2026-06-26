@@ -175,13 +175,187 @@ function renderScaleSub() {
 }
 
 function renderRisk() {
+	const el = $('#riskSummary');
 	const size = Number($('#fSize').value) || 0;
 	const daily = Number($('#fDaily').value) || 0;
 	const open = Number($('#fOpen').value) || 0;
-	const trades = size > 0 ? Math.floor(daily / size) : 0;
-	$('#riskSummary').textContent = size > 0 && daily > 0
-		? `≈ ${trades} ${trades === 1 ? 'buy' : 'buys'}/day max · up to ${fmtSol(daily)} deployed · ${open} position${open === 1 ? '' : 's'} open at once`
-		: 'Set a per-trade size and daily cap to see your exposure.';
+	if (!(size > 0 && daily > 0)) {
+		el.textContent = 'Set a per-trade size and daily cap to see your exposure.';
+		return;
+	}
+	const trades = Math.floor(daily / size);
+	let txt = `≈ ${trades} ${trades === 1 ? 'buy' : 'buys'}/day max · up to ${fmtSol(daily)} deployed · ${open} position${open === 1 ? '' : 's'} open at once`;
+	const w = state.wallet;
+	if (w && w.sol != null) {
+		if (w.sol < size) {
+			txt += ` · <b style="color:var(--amber)">wallet holds ${fmtSol(w.sol)} — fund it before going live</b>`;
+		} else if (w.sol < daily) {
+			txt += ` · wallet covers ≈ ${Math.floor(w.sol / size)} ${Math.floor(w.sol / size) === 1 ? 'trade' : 'trades'} before it's dry`;
+		}
+	}
+	el.innerHTML = txt;
+}
+
+// ── agent wallet balance + runway ───────────────────────────────────────────────
+async function loadWallet(agentId) {
+	const pill = $('#walletPill');
+	const bal = $('#walletBal');
+	pill.hidden = false;
+	pill.classList.remove('low');
+	$('#walletFund').href = `/agent/${encodeURIComponent(agentId)}/wallet#deposit`;
+	$('#walletRun').textContent = '';
+	bal.classList.add('sk'); bal.textContent = '0.00◎';
+	state.wallet = null;
+
+	const { ok, data } = await api(`/api/agents/${encodeURIComponent(agentId)}/wallet`);
+	bal.classList.remove('sk');
+	if (ok && data) {
+		const sol = data.solana_balance == null ? null : Number(data.solana_balance);
+		state.wallet = { sol, address: data.solana_address || null };
+		bal.textContent = sol == null ? '—' : fmtSol(sol);
+	} else {
+		bal.textContent = '—';
+	}
+	renderWalletRunway();
+	renderRisk();
+}
+
+function renderWalletRunway() {
+	const run = $('#walletRun');
+	const pill = $('#walletPill');
+	pill.classList.remove('low');
+	const w = state.wallet;
+	if (!w || w.sol == null) { run.textContent = ''; return; }
+	const size = Number($('#fSize').value) || 0.05;
+	const trades = size > 0 ? Math.floor(w.sol / size) : 0;
+	run.textContent = `· ${trades} ${trades === 1 ? 'trade' : 'trades'} left`;
+	if (w.sol < size) pill.classList.add('low');
+}
+
+// ── proof of edge: 30-day backtest for the chosen bar ───────────────────────────
+async function loadEdge() {
+	const { ok, data } = await api(`/api/oracle/backtest?period=30d&network=${NETWORK}`);
+	state.edge = ok && data && Array.isArray(data.by_tier) ? data : null;
+	renderEdge();
+}
+
+function includedTiers(minScore) {
+	if (minScore >= 86) return ['prime'];
+	if (minScore >= 72) return ['prime', 'strong'];
+	return ['prime', 'strong', 'lean'];
+}
+
+function renderEdge() {
+	const el = $('#edgeReadout');
+	const e = state.edge;
+	if (!e) {
+		el.innerHTML = '<div class="e-note">Edge stats are warming up — historical win rates for this bar will show here.</div>';
+		return;
+	}
+	const inc = new Set(includedTiers(state.minScore));
+	const agg = { wins: 0, losses: 0, threeX: 0, athSum: 0, athN: 0 };
+	for (const t of e.by_tier) {
+		if (!inc.has(t.tier)) continue;
+		agg.wins += t.wins || 0;
+		agg.losses += t.losses || 0;
+		agg.threeX += t.three_x || 0;
+		if (t.avg_ath) { agg.athSum += t.avg_ath * (t.total || 0); agg.athN += t.total || 0; }
+	}
+	const resolved = agg.wins + agg.losses;
+	const label = state.minScore >= 86 ? 'Prime' : state.minScore >= 72 ? 'Strong+' : 'Lean+';
+	if (!resolved) {
+		el.innerHTML = `<div class="e-note">Not enough resolved coins at the <b>${label}</b> bar in the last 30 days to show a win rate yet. Lower the floor for a larger sample.</div>`;
+		return;
+	}
+	const wr = Math.round((agg.wins / resolved) * 100);
+	const avgAth = agg.athN ? agg.athSum / agg.athN : null;
+	el.innerHTML = `
+		<div class="e-stat"><b>${wr}%</b><span>win rate</span></div>
+		${avgAth ? `<div class="e-stat"><b>${avgAth.toFixed(1)}×</b><span>avg peak</span></div>` : ''}
+		<div class="e-stat"><b>${agg.threeX}</b><span>hit 3×+</span></div>
+		<div class="e-stat"><b>${resolved}</b><span>resolved</span></div>
+		<div class="e-note">Last 30 days at your <b>${label}</b> bar. A win = graduated or ≥2× from the score. Past results aren't a promise.</div>`;
+}
+
+// ── live "clearing your bar" preview ────────────────────────────────────────────
+async function startFeedLoop() {
+	await loadFeed();
+	feedTimer = setInterval(loadFeed, 20000);
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) { clearInterval(feedTimer); feedTimer = null; }
+		else if (!feedTimer) { loadFeed(); feedTimer = setInterval(loadFeed, 20000); }
+	});
+}
+
+async function loadFeed() {
+	const { ok, data } = await api(`/api/oracle/feed?network=${NETWORK}&limit=80`);
+	if (ok && data && Array.isArray(data.items)) {
+		state.feed = data.items;
+		state.feedAt = Date.now();
+	}
+	renderQualifying();
+}
+
+function currentRules() {
+	return {
+		minScore: state.minScore,
+		cats: new Set($$('#catChips .cchip.on').map((b) => b.dataset.cat)),
+		requireSmart: isOn('#smartToggle'),
+		size: Number($('#fSize').value) || 0.05,
+		scaling: isOn('#scaleToggle'),
+	};
+}
+
+function scaledSize(base, score) {
+	const floor = state.minScore;
+	if (score <= floor) return base;
+	const t = Math.min(1, (score - floor) / (100 - floor || 1));
+	return base * (1 + 0.5 * t);
+}
+
+function renderQualifying() {
+	const body = $('#qualBody');
+	const countEl = $('#qualCount');
+	const metaEl = $('#qualMeta');
+	if (!Array.isArray(state.feed)) return;
+	const r = currentRules();
+	const matches = state.feed
+		.filter((it) =>
+			Number(it.score) >= r.minScore &&
+			(r.cats.size === 0 || r.cats.has(it.category)) &&
+			(!r.requireSmart || (it.smart_wallet_count || 0) >= 1))
+		.sort((a, b) => b.score - a.score);
+
+	countEl.textContent = matches.length
+		? `${matches.length} clearing your bar`
+		: 'Nothing clears your bar right now';
+	metaEl.textContent = state.feed.length ? `live · ${state.feed.length} scored / 12h` : '';
+
+	if (!matches.length) {
+		body.innerHTML = `<div class="qual-empty">No live coin meets every rule this moment — normal for a tight bar. Loosen the conviction floor or widen narratives to see more flow, or keep it strict and let your agent wait for the real ones.</div>`;
+		return;
+	}
+	body.innerHTML = matches.slice(0, 8).map((it) => qualRow(it, r)).join('');
+}
+
+function qualRow(it, r) {
+	const sym = esc(it.symbol || (it.mint || '').slice(0, 6));
+	const img = it.image_uri
+		? `<img class="coinimg" src="${esc(it.image_uri)}" alt="" loading="lazy" onerror="this.remove()">`
+		: '';
+	const smart = (it.smart_wallet_count || 0) >= 1
+		? `<span class="q-smart">${it.smart_wallet_count} smart in</span>`
+		: 'no smart money';
+	const cat = it.category ? esc(it.category) : '—';
+	const size = r.scaling ? scaledSize(r.size, Number(it.score)) : r.size;
+	return `<div class="qrow">
+		<div class="q-main">
+			<div class="q-sym">${img}<a href="https://pump.fun/coin/${esc(it.mint)}" target="_blank" rel="noopener">${sym}</a><span class="tierpill ${tierPill(it.tier)}">${esc(it.tier || '—')}</span></div>
+			<div class="q-sub"><span>${cat}</span><span>${smart}</span><span>${ago(it.scored_at)} ago</span></div>
+		</div>
+		<div class="q-score ${Number(it.score) >= 86 ? 'hi' : ''}">${esc(it.score)}</div>
+		<div class="q-size"><span>would buy</span>${fmtSol(size)}</div>
+	</div>`;
 }
 
 // ── load current config ───────────────────────────────────────────────────────

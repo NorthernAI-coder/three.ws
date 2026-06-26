@@ -253,6 +253,41 @@
 			color: var(--vz-text);
 		}
 
+		/* ── Render-style toggle (Coins ⟷ Orbs) — visible in every mode ── */
+		.vz-style {
+			display: flex;
+			gap: 0;
+			padding: 2px;
+			border-radius: 8px;
+			background: rgba(0, 0, 0, 0.35);
+			border: 1px solid rgba(255, 255, 255, 0.06);
+			margin-left: 2px;
+		}
+		.vz-style button {
+			background: transparent;
+			border: 1px solid transparent;
+			color: var(--vz-muted);
+			border-radius: 6px;
+			padding: 5px 10px;
+			font: inherit;
+			cursor: pointer;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			font-size: 10px;
+			font-weight: 600;
+			display: inline-flex;
+			align-items: center;
+			gap: 5px;
+		}
+		.vz-style button .ico { width: 11px; height: 11px; flex-shrink: 0; opacity: 0.85; }
+		.vz-style button:hover { color: var(--vz-text); }
+		.vz-style button.is-active {
+			background: rgba(255, 255, 255, 0.22);
+			border-color: var(--vz-border);
+			color: var(--vz-text);
+		}
+		.vz-style button:focus-visible { outline: 2px solid var(--vz-accent); outline-offset: 1px; }
+
 		/* ── Cross-links to sibling launchpad surfaces ──── */
 		.vz-links {
 			display: flex;
@@ -391,6 +426,26 @@
 			border: 1px solid rgba(255,255,255,0.05);
 		}
 		.vz-detail .description:empty { display: none; }
+		/* ── Extra real-data rows (creator track record, from-ATH, liquidity) ── */
+		.vz-detail .vz-extra { display: flex; flex-direction: column; gap: 8px; }
+		.vz-detail .vz-extra:empty { display: none; }
+		.vz-detail .meta-row {
+			display: flex; align-items: center; gap: 10px;
+			padding: 9px 11px; border-radius: 8px;
+			background: rgba(255, 255, 255, 0.03);
+			border: 1px solid rgba(255, 255, 255, 0.06);
+			font-family: var(--font-mono); font-size: 12px;
+		}
+		.vz-detail .meta-row .k {
+			color: var(--vz-muted); text-transform: uppercase;
+			letter-spacing: 0.06em; font-size: 10px;
+		}
+		.vz-detail .meta-row .v { color: var(--vz-text); margin-left: auto; text-align: right; }
+		.vz-detail .meta-row a.v { color: var(--vz-accent); text-decoration: none; }
+		.vz-detail .meta-row a.v:hover { text-decoration: underline; }
+		.vz-detail .meta-row .v .good { color: var(--vz-green); }
+		.vz-detail .meta-row .v .bad { color: var(--vz-red); }
+		.vz-detail .meta-row .v .dim { color: var(--vz-muted); }
 		.vz-detail .mint {
 			font-family: var(--font-mono);
 			font-size: 11px; color: var(--vz-muted);
@@ -791,6 +846,14 @@
 				<button type="button" data-sort="replies">Replies</button>
 				<button type="button" data-sort="recent">New</button>
 			</div>
+			<div class="vz-style" role="tablist" aria-label="Render style" title="Switch how tokens are drawn (C)">
+				<button type="button" data-style="coin" aria-label="Show tokens as coin logos">
+					<svg class="ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg>Coins
+				</button>
+				<button type="button" data-style="orb" aria-label="Show tokens as 3D orbs">
+					<svg class="ico" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><ellipse cx="12" cy="12" rx="9" ry="3.6" stroke="currentColor" stroke-width="1.4" opacity="0.7"/></svg>Orbs
+				</button>
+			</div>
 			<nav class="vz-links" aria-label="Explore the launchpad">
 				<a href="/pump-live">Feed →</a>
 				<a href="/launches">All launches →</a>
@@ -846,6 +909,7 @@
 				<div class="stat"><div class="label">Replies</div><div class="value" id="vz-detail-replies"></div></div>
 				<div class="stat"><div class="label">Age</div><div class="value" id="vz-detail-age"></div></div>
 			</div>
+			<div class="vz-extra" id="vz-detail-extra"></div>
 			<div class="description" id="vz-detail-description"></div>
 			<div id="vz-oracle-slot"></div>
 			<div class="mint" id="vz-detail-mint" title="Token mint address"></div>
@@ -1250,6 +1314,7 @@
 		}
 
 		function buildTokenMesh(token, position, radius) {
+			if (state.renderStyle === 'coin') return buildCoinMesh(token, position, radius);
 			const fallback = fallbackTexture(token.symbol, token.mint);
 			const isLive = !!token.is_currently_live;
 			const glow = liveGlowHex(token);
@@ -1297,7 +1362,69 @@
 				});
 			}
 
-			return { mesh, ring, isLive, tier, cage };
+			return { mesh, ring, isLive, tier, cage, rim: null };
+		}
+
+		// Coin-logo render style: each token is a flat, camera-facing medallion so
+		// the artwork reads crisply instead of wrapping (and distorting) around a
+		// sphere. The logo doubles as the emissive map so the art itself catches the
+		// bloom, and a bright tier-/live-colored torus forms the coin's edge. The
+		// disc + ring are billboarded toward the camera every frame in animate().
+		function buildCoinMesh(token, position, radius) {
+			const fallback = fallbackTexture(token.symbol, token.mint);
+			const isLive = !!token.is_currently_live;
+			const glow = liveGlowHex(token);
+			const tier = tierForMcap(token.usd_market_cap);
+			const rimColor = isLive ? glow : tier.color;
+			const material = new THREE.MeshStandardMaterial({
+				map: fallback,
+				emissiveMap: fallback,
+				emissive: new THREE.Color(0xffffff), // white → logo glows in true colour
+				emissiveIntensity: 0.5,
+				roughness: 0.5,
+				metalness: 0.0,
+				side: THREE.DoubleSide,
+			});
+			const geometry = new THREE.CircleGeometry(radius, 56);
+			const mesh = new THREE.Mesh(geometry, material);
+			mesh.position.copy(position);
+			mesh.quaternion.copy(camera.quaternion); // billboard from the first frame
+			mesh.scale.setScalar(0.001);
+
+			// Coin edge — bright unlit torus in the disc's own plane → blooms, and
+			// inherits the disc's billboard rotation as a child.
+			const rimGeo = new THREE.TorusGeometry(radius * 1.02, Math.max(0.045, radius * 0.07), 14, 56);
+			const rimMat = new THREE.MeshBasicMaterial({ color: rimColor, transparent: true, opacity: 0.92 });
+			const rim = new THREE.Mesh(rimGeo, rimMat);
+			mesh.add(rim);
+
+			// Selection / hover ring — concentric with the coin, billboarded alongside it.
+			const ringGeo = new THREE.RingGeometry(radius * 1.2, radius * 1.36, 56);
+			const ringMat = new THREE.MeshBasicMaterial({
+				color: isLive ? glow : 0x8b5cf6,
+				transparent: true,
+				opacity: isLive ? 0.45 : 0,
+				side: THREE.DoubleSide,
+				depthWrite: false,
+			});
+			const ring = new THREE.Mesh(ringGeo, ringMat);
+			ring.position.copy(position);
+			ring.quaternion.copy(camera.quaternion);
+			ring.scale.setScalar(0.001);
+
+			mesh.userData = { token, ring };
+
+			if (token.image_uri) {
+				loadTokenTexture(proxiedImg(token.image_uri, token.mint || token.symbol), null).then((tex) => {
+					if (tex) {
+						material.map = tex;
+						material.emissiveMap = tex;
+						material.needsUpdate = true;
+					}
+				});
+			}
+
+			return { mesh, ring, isLive, tier, cage: null, rim };
 		}
 
 		function placeTokens(tokens) {
@@ -1341,7 +1468,7 @@
 				const p = points[i];
 				const position = new THREE.Vector3(p.x * shellR, p.y * shellR, p.z * shellR);
 
-				const { mesh, ring, isLive, tier, cage } = buildTokenMesh(token, position, radius);
+				const { mesh, ring, isLive, tier, cage, rim } = buildTokenMesh(token, position, radius);
 				tokensGroup.add(mesh);
 				tokensGroup.add(ring);
 				const prevMcap = previousMcaps.get(token.mint);
@@ -1355,7 +1482,8 @@
 					baseScale: 1,
 					radius,
 					isLive,
-					tier, cage,
+					tier, cage, rim,
+					style: state.renderStyle,
 					spawnAt: spawnStart + i * 22, // ms — stagger reveals
 					spawned: false,
 					hoverScale: 1,
@@ -1366,7 +1494,10 @@
 					sonarRings: [],         // expanding "broadcasting" rings for live tokens
 					nextSonarAt: 0,
 					deltaPct,               // refresh-to-refresh change
-					flashAt: deltaPct !== 0 ? performance.now() + 50 + i * 30 : 0,
+					// The diff-flash recolours the mesh emissive — only meaningful for
+					// orbs. Coins convey movement via the persistent up/down colour wash
+					// and surge, keeping the logo glowing in true colour.
+					flashAt: (state.renderStyle === 'orb' && deltaPct !== 0) ? performance.now() + 50 + i * 30 : 0,
 				};
 				tokenMeshes.push(entry);
 				if (isLive) seedSonarRing(entry);
@@ -1951,6 +2082,13 @@
 			// Per-token: spawn animation, hover scale lerp, live pulse, flash, sonar.
 			const evictedThisFrame = [];
 			tokenMeshes.forEach((entry) => {
+				// Coin style: billboard the disc (and its selection ring) toward the
+				// camera every frame so the logo always faces the viewer head-on. Done
+				// before the fade/spawn early-returns so spawning coins never flash edge-on.
+				if (entry.style === 'coin') {
+					entry.mesh.quaternion.copy(camera.quaternion);
+					entry.ring.quaternion.copy(camera.quaternion);
+				}
 				// Fade-out (feed eviction): shrink + drop opacity then remove.
 				if (entry.fadeOutAt) {
 					const t = Math.min(1, (time - entry.fadeOutAt) / FEED_FADE_OUT_MS);
@@ -1984,7 +2122,8 @@
 
 				// Market-cap tier motion — self-rotation plus an independently
 				// spinning cage, energy scaling with the tier. Bigger cap = livelier.
-				if (entry.tier) {
+				// Coins stay billboarded (handled above), so spin only applies to orbs.
+				if (entry.tier && entry.style !== 'coin') {
 					entry.mesh.rotation.y += entry.tier.spin * 0.01;
 					if (entry.cage) {
 						entry.cage.rotation.y -= entry.tier.spin * 0.014;
@@ -2150,8 +2289,18 @@
 		if (webglOK) animate();
 
 		// ── state, filtering, sorting ────────────────────────────────
+		// Render style persists across sessions — a viewer who prefers crisp coin
+		// logos over wrapped orbs shouldn't have to re-pick it every visit.
+		const RENDER_STYLE_KEY = 'vz-render-style';
+		function loadRenderStyle() {
+			try {
+				const v = localStorage.getItem(RENDER_STYLE_KEY);
+				return v === 'orb' || v === 'coin' ? v : 'coin';
+			} catch { return 'coin'; }
+		}
 		const state = {
 			mode: 'feed',     // 'feed' (live mints) | 'migrations' (live graduations) | 'trending' (top-50 snapshot)
+			renderStyle: loadRenderStyle(), // 'coin' (camera-facing logo medallion) | 'orb' (textured sphere)
 			all: [],          // raw tokens; in stream modes = recent events, newest first
 			sortMode: 'mcap', // 'mcap' | 'live' | 'replies' | 'recent' — trending only
 			query: '',
@@ -2376,14 +2525,15 @@
 			const shellR = SPHERE_RADIUS * (0.80 + Math.random() * 0.22);
 			const position = new THREE.Vector3(p.x * shellR, p.y * shellR, p.z * shellR);
 			const radius = feedRadius(token.usd_market_cap);
-			const { mesh, ring, tier, cage } = buildTokenMesh(token, position, radius);
+			const { mesh, ring, tier, cage, rim } = buildTokenMesh(token, position, radius);
 			tokensGroup.add(mesh);
 			tokensGroup.add(ring);
 			const entry = {
 				mesh, ring, data: token,
 				baseScale: 1, radius,
 				isLive: true,
-				tier, cage,
+				tier, cage, rim,
+				style: state.renderStyle,
 				spawnAt: performance.now(),
 				spawned: false,
 				hoverScale: 1,

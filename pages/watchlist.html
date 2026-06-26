@@ -68,11 +68,74 @@
 					<span id="wl-count" class="wl-count" aria-live="polite"></span>
 					<div class="wl-hero-ctas">
 						<a class="wl-btn" href="/launches">Browse launches</a>
+						<button id="wl-share" class="wl-btn wl-btn-ghost" type="button" hidden title="Copy a shareable link that recreates this watchlist on any device">Share list</button>
 						<button id="wl-alerts" class="wl-btn wl-btn-ghost" type="button" aria-pressed="false" title="Notify me when a watched coin reaches a higher Oracle tier">🔔 Alerts</button>
 						<button id="wl-clear" class="wl-btn wl-btn-ghost" type="button" hidden>Clear all</button>
 					</div>
 				</div>
 			</section>
+
+			<!-- Portfolio summary — aggregate readout of everything watched -->
+			<section id="wl-summary" class="wl-summary" aria-label="Watchlist summary" hidden>
+				<div class="wl-sum-stat">
+					<span class="wl-sum-label">Combined market cap</span>
+					<span id="wl-sum-mcap" class="wl-sum-value">—</span>
+				</div>
+				<div class="wl-sum-stat">
+					<span class="wl-sum-label">24h volume</span>
+					<span id="wl-sum-vol" class="wl-sum-value">—</span>
+				</div>
+				<div class="wl-sum-stat">
+					<span class="wl-sum-label">Graduated</span>
+					<span id="wl-sum-grad" class="wl-sum-value">—</span>
+				</div>
+				<div class="wl-sum-stat">
+					<span class="wl-sum-label">Avg conviction</span>
+					<span id="wl-sum-conv" class="wl-sum-value">—</span>
+				</div>
+				<div class="wl-sum-stat wl-sum-stat--wide">
+					<span class="wl-sum-label">Oracle tiers</span>
+					<div id="wl-sum-tiers" class="wl-tierbar" role="img" aria-label="Conviction tier distribution"></div>
+				</div>
+			</section>
+
+			<!-- Toolbar — search, sort, tier filter, density -->
+			<div id="wl-toolbar" class="wl-toolbar" role="region" aria-label="Watchlist controls" hidden>
+				<div class="wl-tb-search">
+					<svg viewBox="0 0 24 24" aria-hidden="true" class="wl-tb-search-ic"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+					<input id="wl-search" class="wl-tb-search-in" type="search" placeholder="Filter by symbol, name, or mint…" aria-label="Filter watched coins" spellcheck="false" autocomplete="off" />
+				</div>
+				<div class="wl-tb-filters" id="wl-filters" role="group" aria-label="Filter by Oracle tier">
+					<button class="wl-chip is-active" type="button" data-tier="all" aria-pressed="true">All</button>
+					<button class="wl-chip" type="button" data-tier="prime" aria-pressed="false">Prime</button>
+					<button class="wl-chip" type="button" data-tier="strong" aria-pressed="false">Strong</button>
+					<button class="wl-chip" type="button" data-tier="lean" aria-pressed="false">Lean</button>
+					<button class="wl-chip" type="button" data-tier="watch" aria-pressed="false">Watch</button>
+					<button class="wl-chip" type="button" data-tier="avoid" aria-pressed="false">Avoid</button>
+				</div>
+				<div class="wl-tb-end">
+					<label class="wl-tb-sort">
+						<span class="wl-tb-sort-label">Sort</span>
+						<select id="wl-sort" class="wl-tb-select" aria-label="Sort watched coins">
+							<option value="added">Recently added</option>
+							<option value="conviction">Oracle conviction</option>
+							<option value="mcap">Market cap</option>
+							<option value="volume">24h volume</option>
+							<option value="graduation">Graduation %</option>
+							<option value="movers">Conviction movers</option>
+							<option value="name">Name (A–Z)</option>
+						</select>
+					</label>
+					<div class="wl-view" role="group" aria-label="Layout density">
+						<button id="wl-view-grid" class="wl-view-btn is-active" type="button" aria-pressed="true" title="Grid view" aria-label="Grid view">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+						</button>
+						<button id="wl-view-list" class="wl-view-btn" type="button" aria-pressed="false" title="List view" aria-label="List view">
+							<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1.5"/><rect x="3" y="10" width="18" height="4" rx="1.5"/><rect x="3" y="16" width="18" height="4" rx="1.5"/></svg>
+						</button>
+					</div>
+				</div>
+			</div>
 
 			<section id="wl-feed" class="wl-grid" aria-label="Watched coins" aria-busy="true"></section>
 			<div id="wl-state" class="wl-state"></div>

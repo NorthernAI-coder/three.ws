@@ -584,6 +584,7 @@ function chip(label, active, onClick) {
 function onFilterChange() {
 	writeUrl();
 	fetchFeed();
+	fetchPulse();
 }
 
 function updateUpdatedLabel() {
@@ -610,6 +611,125 @@ function renderGrid(coins) {
 	grid.setAttribute('role', 'list');
 	for (const coin of coins) grid.append(renderCard(coin));
 	return grid;
+}
+
+// Compact list view — a dense row per coin for fast scanning, same data spine
+// as the cards. Click / Enter opens the same detail drawer.
+function renderList(coins) {
+	const list = el('div', 'radar-list');
+	list.setAttribute('role', 'list');
+
+	const header = el('div', 'rl-header');
+	header.setAttribute('aria-hidden', 'true');
+	['Coin', 'Quality', 'Organic / Bundle', 'Buyers', 'Net flow', 'Signals', ''].forEach((h, i) => {
+		header.append(el('span', 'rl-h' + (i === 0 ? ' rl-h-coin' : ''), h));
+	});
+	list.append(header);
+
+	for (const coin of coins) list.append(renderListRow(coin));
+	return list;
+}
+
+function renderListRow(coin) {
+	const isNew = !state.seen.has(coin.mint);
+	state.seen.add(coin.mint);
+
+	const row = el('div', 'radar-list-row' + (isNew ? ' is-enter' : ''));
+	row.setAttribute('role', 'listitem');
+	row.tabIndex = 0;
+	row.setAttribute('aria-label', `${coin.name || coin.symbol || 'coin'} — quality ${coin.quality_score ?? 'unscored'}. Open details.`);
+	const open = () => openDrawer(coin.mint);
+	row.addEventListener('click', (e) => { if (e.target.closest('a,button')) return; open(); });
+	row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+
+	// coin identity
+	const idc = el('div', 'rl-coin');
+	const img = el('img', 'rl-img');
+	img.loading = 'lazy'; img.decoding = 'async'; img.width = 30; img.height = 30; img.alt = '';
+	const seed = coin.symbol || coin.name || coin.mint || 'coin';
+	img.src = coin.image_uri && /^https?:\/\//i.test(coin.image_uri)
+		? `/api/img?url=${encodeURIComponent(coin.image_uri)}&seed=${encodeURIComponent(seed)}`
+		: `/api/img?seed=${encodeURIComponent(seed)}`;
+	img.addEventListener('error', () => { img.src = `/api/img?seed=${encodeURIComponent(seed)}`; }, { once: true });
+	const idt = el('div', 'rl-id');
+	const nm = el('div', 'rl-name', coin.name || 'Unnamed');
+	nm.title = coin.name || '';
+	const sub = el('div', 'rl-sub');
+	sub.append(el('span', 'rl-ticker', coin.symbol ? '$' + coin.symbol : '—'));
+	sub.append(el('span', 'rl-cat', CATEGORY_LABEL[coin.category] || 'Unknown'));
+	sub.append(el('span', 'rl-age', timeAgo(coin.first_seen_at)));
+	idt.append(nm, sub);
+	idc.append(img, idt);
+
+	// quality pill
+	const ql = el('div', 'rl-quality');
+	const dot = el('span', 'rl-q-dot');
+	dot.style.background = qualityColor(coin.quality_score);
+	const qn = el('span', 'rl-q-num', coin.quality_score != null ? String(coin.quality_score) : '—');
+	qn.style.color = qualityColor(coin.quality_score);
+	ql.append(dot, qn);
+
+	// organic/bundle mini-bar
+	const ob = el('div', 'rl-ob');
+	const bar = el('div', 'rc-ob-bar');
+	const o = coin.organic_score, b = coin.bundle_score;
+	const oFill = el('span', 'rc-ob-fill rc-ob-fill--organic');
+	oFill.style.width = (o != null ? clamp01(o) * 100 : 0) + '%';
+	const bFill = el('span', 'rc-ob-fill rc-ob-fill--bundle');
+	bFill.style.width = (b != null ? clamp01(b) * 100 : 0) + '%';
+	bar.append(oFill, bFill);
+	const obTxt = el('span', 'rl-ob-txt');
+	obTxt.append(el('span', 'rc-ob-tag--organic', o != null ? pct(o) + '%' : 'n/m'));
+	obTxt.append(el('span', null, ' / '));
+	obTxt.append(el('span', 'rc-ob-tag--bundle', b != null ? pct(b) + '%' : 'n/m'));
+	ob.append(bar, obTxt);
+
+	// buyers
+	const buyers = el('div', 'rl-buyers rd-num', fmtInt(coin.unique_buyers));
+
+	// net flow
+	const net = el('div', 'rl-net rd-num');
+	if (coin.net_volume_sol == null) net.textContent = '—';
+	else {
+		net.textContent = (coin.net_volume_sol > 0 ? '+' : '') + fmtSol(coin.net_volume_sol) + ' ◎';
+		net.classList.add(coin.net_volume_sol > 0 ? 'rc-pos' : coin.net_volume_sol < 0 ? 'rc-neg' : '');
+	}
+
+	// signals (badges + flags, condensed)
+	const sig = el('div', 'rl-signals');
+	const badges = renderCardBadges(coin);
+	if (badges) sig.append(badges);
+	const dangers = (coin.risk_flags || []).filter((f) => (FLAG_META[f]?.tone ?? 'warn') === 'danger');
+	if (dangers.length) {
+		const f = el('span', 'rc-flag rc-flag--danger', `${dangers.length} flag${dangers.length === 1 ? '' : 's'}`);
+		f.title = dangers.map((d) => FLAG_META[d]?.label || d).join(', ');
+		sig.append(f);
+	} else if (!badges) {
+		sig.append(el('span', 'rc-flag rc-flag--clean', 'Clean'));
+	}
+
+	// actions
+	const act = el('div', 'rl-act');
+	const watched = isWatched(coin.mint);
+	const watchBtn = el('button', `rc-watch${watched ? ' rc-watched' : ''}`, watched ? '★' : '☆');
+	watchBtn.type = 'button';
+	watchBtn.title = watched ? 'Remove from watchlist' : 'Add to watchlist';
+	watchBtn.setAttribute('aria-label', watchBtn.title);
+	watchBtn.setAttribute('aria-pressed', String(watched));
+	watchBtn.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const now = toggleRadarWatch(coin.mint);
+		watchBtn.textContent = now ? '★' : '☆';
+		watchBtn.classList.toggle('rc-watched', now);
+		watchBtn.setAttribute('aria-pressed', String(now));
+		watchBtn.title = now ? 'Remove from watchlist' : 'Add to watchlist';
+		watchBtn.setAttribute('aria-label', watchBtn.title);
+	});
+	act.append(watchBtn);
+
+	row.append(idc, ql, ob, buyers, net, sig, act);
+	if (isNew) requestAnimationFrame(() => row.classList.remove('is-enter'));
+	return row;
 }
 
 function renderSkeletonGrid() {
@@ -753,11 +873,68 @@ function renderCard(coin) {
 	return card;
 }
 
-function stat(label, value) {
+function stat(label, value, tip) {
 	const s = el('div', 'rc-stat');
-	s.append(el('span', 'rc-stat-label', label));
+	const l = el('span', 'rc-stat-label', label);
+	if (tip) { s.title = tip; }
+	s.append(l);
 	s.append(el('span', 'rc-stat-value', value));
 	return s;
+}
+
+// Net flow stat — buy minus sell volume, coloured by sign.
+function netStat(net) {
+	const s = el('div', 'rc-stat');
+	s.title = 'Net SOL flow (buy volume − sell volume) during observation';
+	s.append(el('span', 'rc-stat-label', 'Net flow'));
+	const v = el('span', 'rc-stat-value');
+	if (net == null) { v.textContent = '—'; }
+	else {
+		v.textContent = (net > 0 ? '+' : '') + fmtSol(net) + ' ◎';
+		v.classList.add(net > 0 ? 'rc-pos' : net < 0 ? 'rc-neg' : '');
+	}
+	s.append(v);
+	return s;
+}
+
+// Smart-money / news / outcome badges shown high on each card. Returns null when
+// a coin has none, so plain coins stay visually quiet.
+function renderCardBadges(coin) {
+	const items = [];
+	if (coin.smart_money_count > 0) {
+		const b = el('span', 'rc-badge rc-badge--smart');
+		b.append(el('span', 'rc-badge-glyph', '◆'));
+		b.append(el('span', null, `${coin.smart_money_count} smart`));
+		b.title = `${coin.smart_money_count} reputation-scored wallet${coin.smart_money_count === 1 ? '' : 's'} bought in${coin.smart_money_score != null ? ` · pedigree ${Math.round(coin.smart_money_score)}/100` : ''}`;
+		items.push(b);
+	}
+	if (coin.is_news_meme) {
+		const b = el('span', 'rc-badge rc-badge--news');
+		b.append(el('span', 'rc-badge-glyph', '⚡'));
+		b.append(el('span', null, 'News'));
+		b.title = coin.news_headline ? `Matches headline: ${coin.news_headline}` : 'Matches a live news headline';
+		items.push(b);
+	}
+	if (coin.cluster_count > 1) {
+		const b = el('span', 'rc-badge rc-badge--cluster');
+		b.append(el('span', 'rc-badge-glyph', '⬡'));
+		b.append(el('span', null, `${coin.cluster_count} clusters`));
+		b.title = `${coin.cluster_count} distinct funding clusters detected among buyers`;
+		items.push(b);
+	}
+	if (coin.outcome && (coin.outcome.graduated || coin.outcome.rugged)) {
+		const grad = coin.outcome.graduated;
+		const b = el('span', `rc-badge rc-badge--${grad ? 'grad' : 'rug'}`);
+		b.append(el('span', 'rc-badge-glyph', grad ? '↑' : '↓'));
+		const ath = coin.outcome.ath_multiple;
+		b.append(el('span', null, grad ? (ath ? `Graduated ${ath.toFixed(1)}×` : 'Graduated') : 'Rugged'));
+		b.title = grad ? 'This coin later graduated to a DEX' : 'This coin later rugged';
+		items.push(b);
+	}
+	if (!items.length) return null;
+	const row = el('div', 'rc-badges');
+	for (const b of items) row.append(b);
+	return row;
 }
 
 // SVG quality ring, 0–100, color-graded.
@@ -1081,6 +1258,59 @@ function renderDrawerContent(panel, coin) {
 		panel.append(sec);
 	}
 
+	// news-meme provenance
+	if (coin.is_news_meme && coin.news_headline) {
+		const newsSec = el('div', 'rd-section rd-news');
+		newsSec.append(el('h3', 'rd-h3', 'News-driven'));
+		const row = el('div', 'rd-news-row');
+		row.append(el('span', 'rd-news-glyph', '⚡'));
+		const body = el('div');
+		body.append(el('p', 'rd-news-headline', coin.news_headline));
+		if (coin.news_url && /^https?:\/\//i.test(coin.news_url)) {
+			const a = el('a', 'rd-news-link', 'Read source →');
+			a.href = coin.news_url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+			body.append(a);
+		}
+		row.append(body);
+		newsSec.append(row);
+		panel.append(newsSec);
+	}
+
+	// smart money
+	const notable = Array.isArray(coin.smart_money_notable) ? coin.smart_money_notable : [];
+	if (coin.smart_money_count > 0 || notable.length) {
+		const smSec = el('div', 'rd-section');
+		smSec.append(el('h3', 'rd-h3', 'Smart money'));
+		const summary = el('div', 'rd-sm-summary');
+		summary.append(smChip(`${coin.smart_money_count} wallet${coin.smart_money_count === 1 ? '' : 's'}`));
+		if (coin.smart_money_score != null) summary.append(smChip(`Pedigree ${Math.round(coin.smart_money_score)}/100`));
+		smSec.append(summary);
+		smSec.append(el('p', 'rd-meta', 'Buyers whose prior launches give them a reputation score — the highest-signal early tell the engine measures.'));
+		if (notable.length) {
+			const list = el('div', 'rd-sm-list');
+			for (const w of notable.slice(0, 5)) {
+				const item = el('div', 'rd-sm-item');
+				const left = el('div', 'rd-sm-left');
+				const a = el('a', 'rd-waddr', w.label || short(w.wallet, 4, 4));
+				a.href = solscanAccount(w.wallet, coin.network); a.target = '_blank'; a.rel = 'noopener noreferrer';
+				a.title = w.wallet;
+				left.append(a);
+				if (w.win_rate != null) {
+					const wins = w.wins != null && w.duds != null ? ` · ${w.wins}W/${w.duds}L` : '';
+					left.append(el('span', 'rd-sm-stat', `${Math.round(w.win_rate * 100)}% win${wins}`));
+				}
+				item.append(left);
+				if (w.smart_money_score != null) {
+					const sc = el('span', 'rd-sm-score', String(Math.round(w.smart_money_score)));
+					item.append(sc);
+				}
+				list.append(item);
+			}
+			smSec.append(list);
+		}
+		panel.append(smSec);
+	}
+
 	// risk flags
 	const flagsSec = el('div', 'rd-section');
 	flagsSec.append(el('h3', 'rd-h3', 'Risk flags'));
@@ -1114,14 +1344,20 @@ function renderDrawerContent(panel, coin) {
 	const ratio = (v) => (v == null ? 'not measured' : pct(v) + '%');
 	grid.append(sigRow('Organic score', ratio(coin.organic_score)));
 	grid.append(sigRow('Bundle score', ratio(coin.bundle_score)));
+	grid.append(sigRow('Coordination', ratio(coin.coordination_score), 'Blended bundle + funding-graph coordination signal'));
 	grid.append(sigRow('Snipe ratio', ratio(coin.snipe_ratio), 'Share of early supply taken by snipers'));
 	grid.append(sigRow('Top-10 concentration', ratio(coin.concentration_top10), 'Share of supply held by the top 10 wallets'));
+	grid.append(sigRow('Top-5 concentration', ratio(coin.concentration_top5), 'Share of supply held by the top 5 wallets'));
 	grid.append(sigRow('Fresh-wallet ratio', ratio(coin.fresh_wallet_ratio), 'Share of buyers using brand-new wallets'));
 	grid.append(sigRow('Bubblemap connectivity', ratio(coin.bubblemap_connectivity), 'How interlinked the buyer wallets are by funding'));
+	grid.append(sigRow('Funding clusters', coin.cluster_count != null ? fmtInt(coin.cluster_count) : '—', 'Distinct funding clusters among buyers'));
+	grid.append(sigRow('Market cap (first seen)', coin.market_cap_sol != null ? fmtSol(coin.market_cap_sol) + ' ◎' : 'not measured', 'Market cap in SOL when the engine began observing'));
 	grid.append(sigRow('Unique buyers', fmtInt(coin.unique_buyers)));
 	grid.append(sigRow('Unique sellers', fmtInt(coin.unique_sellers)));
 	grid.append(sigRow('Buys / sells', `${fmtInt(coin.buy_count)} / ${fmtInt(coin.sell_count)}`));
+	grid.append(sigRow('Buy/sell ratio', coin.buy_sell_ratio != null ? coin.buy_sell_ratio.toFixed(2) + '×' : '—', 'Buy volume divided by sell volume'));
 	grid.append(sigRow('Buy / sell volume', `${coin.buy_volume_sol != null ? fmtSol(coin.buy_volume_sol) : '—'} / ${coin.sell_volume_sol != null ? fmtSol(coin.sell_volume_sol) : '—'} ◎`));
+	grid.append(sigRow('Net flow', coin.net_volume_sol != null ? (coin.net_volume_sol > 0 ? '+' : '') + fmtSol(coin.net_volume_sol) + ' ◎' : '—', 'Buy volume minus sell volume'));
 	grid.append(sigRow('Dev buy', coin.dev_buy_sol != null ? fmtSol(coin.dev_buy_sol) + ' ◎' : '—'));
 	grid.append(sigRow('Dev sold', coin.dev_sold ? 'Yes' : 'No'));
 	grid.append(sigRow('Largest buy', coin.largest_buy_sol != null ? fmtSol(coin.largest_buy_sol) + ' ◎' : '—'));
@@ -1239,6 +1475,10 @@ function renderDrawerContent(panel, coin) {
 	if (close) close.focus();
 }
 
+function smChip(text) {
+	return el('span', 'rd-sm-chip', text);
+}
+
 function socialLink(label, href) {
 	const a = el('a', 'radar-btn radar-btn--ghost', label);
 	const safe = /^https?:\/\//i.test(href) ? href : ('https://' + href);
@@ -1314,12 +1554,37 @@ export function mountRadar(mountEl) {
 	readUrl();
 	render();
 	fetchFeed();
+	fetchPulse();
 	startPolling();
 
 	// keep "updated Xs ago" ticking without re-rendering the grid
 	setInterval(updateUpdatedLabel, 1000);
 
 	document.addEventListener('visibilitychange', () => {
-		if (!document.hidden) fetchFeed({ silent: true });
+		if (!document.hidden) { fetchFeed({ silent: true }); fetchPulse(); }
+	});
+
+	bindShortcuts();
+}
+
+// Keyboard shortcuts — power-user affordances that don't get in the way:
+//   /  focus search   ·   g/l  grid/list   ·   r  refresh now
+function bindShortcuts() {
+	document.addEventListener('keydown', (e) => {
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
+		const drawerOpen = drawer && !drawer.scrim.hidden;
+		if (drawerOpen) return;
+		const t = e.target;
+		const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+		if (e.key === '/' && !typing) {
+			e.preventDefault();
+			const input = root && root.querySelector('#radar-search');
+			if (input) input.focus();
+			return;
+		}
+		if (typing) return;
+		if (e.key === 'g' && state.view !== 'grid') { state.view = 'grid'; writeUrl(); render(); }
+		else if (e.key === 'l' && state.view !== 'list') { state.view = 'list'; writeUrl(); render(); }
+		else if (e.key === 'r') { e.preventDefault(); fetchFeed(); fetchPulse(); }
 	});
 }

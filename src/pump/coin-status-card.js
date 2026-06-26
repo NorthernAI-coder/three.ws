@@ -440,6 +440,11 @@ function injectStyles() {
  * @param {boolean}     [opts.showBuy]   — show "Buy" link (default: false)
  * @param {HTMLElement} [opts.placeholder] — node shown behind the avatar in the
  *                       'card' variant until the real logo loads (e.g. an identicon)
+ * @param {boolean}     [opts.oracle]    — fetch + render the per-card Oracle
+ *                       conviction badge ('card' variant only, default true).
+ *                       Hosts that already batch-fetch conviction (e.g. the
+ *                       watchlist) pass false to skip the redundant per-coin
+ *                       /api/oracle/coin round trip.
  * @returns {{ destroy: () => void }}   — cleanup handle
  */
 export function mountCoinStatus(container, mint, opts = {}) {
@@ -447,6 +452,7 @@ export function mountCoinStatus(container, mint, opts = {}) {
 	const refreshMs = opts.refreshMs == null ? DEFAULT_REFRESH_MS : Number(opts.refreshMs);
 	const showBuy = !!opts.showBuy;
 	const placeholder = opts.placeholder || null;
+	const wantOracle = opts.oracle !== false;
 	// Optional observer fired with the normalized coin after every successful
 	// load (initial + each refresh). Lets a host surface aggregate the same live
 	// market data it's already paying to fetch — e.g. the launches feed's
@@ -477,7 +483,7 @@ export function mountCoinStatus(container, mint, opts = {}) {
 
 		try {
 			// Fire coin + oracle fetches in parallel; oracle is best-effort (card only).
-			const oraclePromise = variant === 'card'
+			const oraclePromise = variant === 'card' && wantOracle
 				? fetch(`${ORACLE_ENDPOINT}?mint=${encodeURIComponent(mint)}`, { signal: sig })
 					.then((r) => (r.ok ? r.json() : null))
 					.catch(() => null)
