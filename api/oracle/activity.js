@@ -42,11 +42,15 @@ function shapeRow(r) {
 		outcome: r.outcome || 'open',
 		peak_multiple: r.peak_multiple != null ? Number(r.peak_multiple) : null,
 		realized_pnl_sol: r.realized_pnl_sol != null ? Number(r.realized_pnl_sol) : null,
+		entry_mc_usd: r.entry_mc_usd != null ? Number(r.entry_mc_usd) : null,
+		reason: r.reason || null,
+		tx_signature: r.tx_signature || null,
 		acted_at: r.acted_at,
 		settled_at: r.settled_at,
 		// convenience links
 		pump_url: `https://pump.fun/coin/${r.mint}`,
 		agent_url: `/agents/${r.agent_id}`,
+		tx_url: r.tx_signature ? `https://solscan.io/tx/${r.tx_signature}` : null,
 	};
 }
 
@@ -71,6 +75,7 @@ export default wrap(async (req, res) => {
 			a.id, a.agent_id, a.network, a.mint, a.symbol,
 			a.conviction, a.tier, a.mode, a.size_sol, a.status,
 			a.outcome, a.peak_multiple, a.realized_pnl_sol,
+			a.entry_mc_usd, a.reason, a.tx_signature,
 			a.acted_at, a.settled_at,
 			ai.name        as agent_name,
 			ai.avatar_url  as agent_avatar,

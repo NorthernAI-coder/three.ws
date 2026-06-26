@@ -103,6 +103,34 @@
 		.topcard .tc-stats div b { font: 700 15px/1.2 var(--mono); }
 		.big { font: 800 22px/1 var(--mono); }
 		.up { color: var(--up); } .down { color: var(--down); }
+		.tc-usd { display: block; font: 500 11px/1.2 var(--mono); color: var(--faint); font-style: normal; margin-top: 3px; }
+
+		/* source badge in the leaderboard header */
+		.src-badge { font: 600 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--gold);
+			background: color-mix(in srgb, var(--gold) 16%, transparent); border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line));
+			padding: 3px 7px; border-radius: 999px; }
+
+		/* field-wide aggregate KPIs */
+		.arena-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+		.as-kpi { background: var(--panel-solid); padding: 9px 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+		.as-kpi span { font-size: 8.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.as-kpi b { font: 700 14px/1.1 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.as-kpi b.up { color: var(--up); } .as-kpi b.down { color: var(--down); }
+		.as-kpi i { font: 500 10px/1.1 var(--mono); color: var(--faint); font-style: normal; }
+
+		/* sort segmented control */
+		.board-tools:empty, .sort-seg[hidden] { display: none; }
+		.board-tools { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+		.sort-seg { display: inline-flex; gap: 2px; padding: 2px; border-radius: 9px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); }
+		.sort-seg button { padding: 5px 11px; border-radius: 7px; border: none; background: none; color: var(--muted);
+			font: 600 11px/1 Inter, sans-serif; transition: background .15s, color .15s; }
+		.sort-seg button:hover { color: var(--ink); }
+		.sort-seg button[aria-pressed="true"] { background: color-mix(in srgb, var(--cyan) 18%, var(--panel-solid)); color: var(--cyan); }
+		.sort-seg button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+		/* live-trader drawer note + execution tag */
+		.dw-live-note { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 14px 2px 0; }
+		.t-exec { color: var(--faint); white-space: nowrap; }
 
 		/* leaderboard */
 		.board { max-height: min(46vh, 420px); overflow: auto; }
@@ -321,18 +349,27 @@
 
 	<!-- left: top agent + leaderboard -->
 	<section class="panel panel-l" aria-label="Leaderboard">
-		<h2 id="togglePanels">Live leaderboard <span class="toggle-panels btn" style="padding:3px 9px;font-size:11px">tap ▲</span></h2>
+		<h2 id="togglePanels">Live leaderboard <span id="boardSource" class="src-badge" hidden></span> <span class="toggle-panels btn" style="padding:3px 9px;font-size:11px">tap ▲</span></h2>
 		<div class="topcard">
 			<div class="crown">👑 #1 by realized P&amp;L</div>
 			<img id="topAv" src="" alt="" style="display:none" />
 			<div>
 				<div class="tc-name" id="topName">—</div>
 				<div class="tc-stats">
-					<div><span>P&amp;L</span><b id="topPnl" class="big">—</b></div>
+					<div><span>P&amp;L</span><b id="topPnl" class="big">—</b><i id="topPnlUsd" class="tc-usd"></i></div>
 					<div><span>Win rate</span><b id="topWr">—</b></div>
 					<div><span>Wins</span><b id="topWins">—</b></div>
 					<div><span>Open</span><b id="topOpen">—</b></div>
 				</div>
+			</div>
+		</div>
+		<div class="arena-stats" id="arenaStats" hidden></div>
+		<div class="board-tools">
+			<div class="sort-seg" id="sortSeg" role="group" aria-label="Sort leaderboard" hidden>
+				<button type="button" data-sort="score" aria-pressed="true">Score</button>
+				<button type="button" data-sort="pnl" aria-pressed="false">P&amp;L</button>
+				<button type="button" data-sort="winrate" aria-pressed="false">Win</button>
+				<button type="button" data-sort="roi" aria-pressed="false">ROI</button>
 			</div>
 		</div>
 		<div class="board" id="board">

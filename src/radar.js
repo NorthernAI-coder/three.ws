@@ -57,6 +57,16 @@ const FLAG_META = {
 	sniped:            { label: 'Sniped',            tone: 'warn',   tip: 'Snipers grabbed supply in the first moments.' },
 };
 
+// Sort options — the label users see, mapped to the server `sort` param.
+const SORTS = [
+	{ key: 'new',     label: 'Newest' },
+	{ key: 'quality', label: 'Quality' },
+	{ key: 'smart',   label: 'Smart money' },
+	{ key: 'buyers',  label: 'Buyers' },
+	{ key: 'volume',  label: 'Buy volume' },
+];
+const SORT_KEYS = new Set(SORTS.map((s) => s.key));
+
 // ── tiny DOM + format helpers ───────────────────────────────────────────────
 const el = (tag, cls, text) => {
 	const n = document.createElement(tag);
@@ -79,6 +89,14 @@ const fmtSol = (v) => {
 	return v.toLocaleString(undefined, { maximumFractionDigits: 0 });
 };
 const fmtInt = (v) => (v == null ? '—' : Number(v).toLocaleString());
+
+// Market cap (denominated in SOL at first observation) → compact label.
+const fmtMcap = (v) => {
+	if (v == null || Number.isNaN(v)) return null;
+	if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k ◎';
+	if (v >= 1) return v.toFixed(1).replace(/\.0$/, '') + ' ◎';
+	return v.toFixed(2) + ' ◎';
+};
 
 function timeAgo(ts) {
 	if (!ts) return '';
@@ -122,12 +140,19 @@ const state = {
 	category: null,        // null = all
 	minQuality: 0,
 	hideRisky: false,      // client-side: drop danger-flagged coins
+	smartOnly: false,      // server-side: only coins smart money touched
+	newsOnly: false,       // server-side: only news-meme coins
+	sort: 'new',           // new | quality | smart | buyers | volume
+	query: '',             // free-text search (name / symbol / mint)
+	view: 'grid',          // grid | list
 	coins: [],
 	seen: new Set(),       // mints already rendered (for enter animation)
 	status: 'loading',     // loading | ready | empty | error
 	lastUpdated: 0,
 	pollTimer: null,
 	inFlight: null,
+	pulse: null,           // market-pulse aggregate (or null until first load)
+	pulseInFlight: null,
 };
 
 let root = null;
@@ -141,6 +166,12 @@ function readUrl() {
 	const mq = parseInt(p.get('min_quality'), 10);
 	if (Number.isFinite(mq)) state.minQuality = Math.max(0, Math.min(100, mq));
 	if (p.get('hide_risky') === '1') state.hideRisky = true;
+	if (p.get('smart_money') === '1') state.smartOnly = true;
+	if (p.get('news') === '1') state.newsOnly = true;
+	if (SORT_KEYS.has(p.get('sort'))) state.sort = p.get('sort');
+	if (p.get('view') === 'list') state.view = 'list';
+	const q = p.get('q');
+	if (q) state.query = q.slice(0, 64);
 }
 
 function writeUrl() {
@@ -149,6 +180,11 @@ function writeUrl() {
 	if (state.category) p.set('category', state.category);
 	if (state.minQuality > 0) p.set('min_quality', String(state.minQuality));
 	if (state.hideRisky) p.set('hide_risky', '1');
+	if (state.smartOnly) p.set('smart_money', '1');
+	if (state.newsOnly) p.set('news', '1');
+	if (state.sort !== 'new') p.set('sort', state.sort);
+	if (state.view === 'list') p.set('view', 'list');
+	if (state.query) p.set('q', state.query);
 	const qs = p.toString();
 	const url = location.pathname + (qs ? '?' + qs : '');
 	history.replaceState(null, '', url);
@@ -161,6 +197,10 @@ function buildFeedUrl() {
 	p.set('network', state.network);
 	if (state.category) p.set('category', state.category);
 	if (state.minQuality > 0) p.set('min_quality', String(state.minQuality));
+	if (state.smartOnly) p.set('smart_money', '1');
+	if (state.newsOnly) p.set('news', '1');
+	if (state.sort !== 'new') p.set('sort', state.sort);
+	if (state.query) p.set('q', state.query);
 	return '/api/pump/coin-intel?' + p.toString();
 }
 
@@ -198,12 +238,36 @@ async function fetchFeed({ silent = false } = {}) {
 	}
 }
 
+// Market-pulse aggregate — independent of the feed filters; reflects the whole
+// recent window for the active network. Best-effort: a failure leaves the last
+// strip in place rather than blanking it.
+async function fetchPulse() {
+	if (state.pulseInFlight) state.pulseInFlight.abort();
+	const ctrl = new AbortController();
+	state.pulseInFlight = ctrl;
+	try {
+		const r = await fetch(`/api/pump/coin-intel?stats=1&network=${state.network}`, {
+			headers: { accept: 'application/json' },
+			signal: ctrl.signal,
+		});
+		if (!r.ok) throw new Error(`pulse HTTP ${r.status}`);
+		state.pulse = await r.json();
+		updatePulseStrip();
+	} catch (err) {
+		if (err.name === 'AbortError') return;
+		log.error('pulse fetch failed:', err.message || err);
+	} finally {
+		state.pulseInFlight = null;
+	}
+}
+
 // ── polling (paused when tab hidden) ────────────────────────────────────────
 function startPolling() {
 	stopPolling();
 	state.pollTimer = setInterval(() => {
 		if (document.hidden) return;
 		fetchFeed({ silent: true });
+		fetchPulse();
 	}, POLL_MS);
 }
 function stopPolling() {
@@ -216,6 +280,7 @@ function stopPolling() {
 function render() {
 	if (!root) return;
 	root.innerHTML = '';
+	root.append(renderPulseStrip());
 	root.append(renderToolbar());
 
 	const body = el('div', 'radar-body');
@@ -228,7 +293,7 @@ function render() {
 		if (!visible.length) {
 			body.append(state.status === 'empty' ? renderEmptyState() : renderNoMatchState());
 		} else {
-			body.append(renderGrid(visible));
+			body.append(state.view === 'list' ? renderList(visible) : renderGrid(visible));
 		}
 	}
 	root.append(body);
@@ -241,6 +306,101 @@ function applyClientFilters(coins) {
 		const flags = c.risk_flags || [];
 		return !flags.some((f) => (FLAG_META[f]?.tone ?? 'warn') === 'danger');
 	});
+}
+
+// ── market pulse ──────────────────────────────────────────────────────────────
+// A single-glance read of the room: launches in the window, the health split,
+// and the structural rates (bundle, smart-money, graduation) the engine derives.
+function renderPulseStrip() {
+	const strip = el('div', 'radar-pulse');
+	strip.id = 'radar-pulse';
+	strip.setAttribute('aria-label', 'Market pulse — last 24 hours');
+	fillPulseStrip(strip, state.pulse);
+	return strip;
+}
+
+function updatePulseStrip() {
+	const strip = root && root.querySelector('#radar-pulse');
+	if (strip) fillPulseStrip(strip, state.pulse);
+}
+
+function fillPulseStrip(strip, p) {
+	strip.innerHTML = '';
+	if (!p) {
+		// first paint, before the aggregate lands — quiet skeleton, no layout jump
+		for (let i = 0; i < 5; i++) {
+			const cell = el('div', 'rp-cell rp-cell--sk');
+			cell.append(el('div', 'sk sk-bar w70'), el('div', 'sk sk-bar'));
+			strip.append(cell);
+		}
+		return;
+	}
+
+	const total24 = p.observed_24h || 0;
+	const known = (p.healthy || 0) + (p.mixed || 0) + (p.risky || 0);
+
+	// 1 — launches observed (24h, with a 1h pace inset)
+	strip.append(pulseCell('Launches · 24h', fmtInt(total24), p.observed_1h != null ? `${fmtInt(p.observed_1h)} in last hour` : null));
+
+	// 2 — health distribution (segmented mini-bar + legend)
+	const healthCell = el('div', 'rp-cell rp-cell--health');
+	healthCell.append(el('span', 'rp-label', 'Health mix · 24h'));
+	const bar = el('div', 'rp-dist');
+	bar.setAttribute('aria-hidden', 'true');
+	const seg = (cls, n) => {
+		if (!n) return;
+		const s = el('span', `rp-dist-seg rp-dist-seg--${cls}`);
+		s.style.flex = String(n);
+		s.title = `${n} ${cls}`;
+		bar.append(s);
+	};
+	if (known) { seg('healthy', p.healthy); seg('mixed', p.mixed); seg('risky', p.risky); }
+	else bar.append(el('span', 'rp-dist-seg rp-dist-seg--empty'));
+	const legend = el('div', 'rp-dist-legend');
+	legend.append(distTag('healthy', 'Healthy', p.healthy || 0));
+	legend.append(distTag('mixed', 'Mixed', p.mixed || 0));
+	legend.append(distTag('risky', 'Risk', p.risky || 0));
+	healthCell.append(bar, legend);
+	strip.append(healthCell);
+
+	// 3 — flagged share of scored launches
+	const scored = known || 1;
+	const flaggedPct = Math.round(((p.flagged || 0) / scored) * 100);
+	strip.append(pulseCell('Flagged · 24h', known ? flaggedPct + '%' : '—', `${fmtInt(p.flagged || 0)} with danger flags`, flaggedPct >= 50 ? 'danger' : flaggedPct >= 25 ? 'warn' : 'ok'));
+
+	// 4 — smart money footprint
+	strip.append(pulseCell('Smart money', fmtInt(p.smart_money_touched || 0), 'launches they touched', (p.smart_money_touched || 0) > 0 ? 'smart' : null));
+
+	// 5 — labeled outcomes (graduated vs rugged)
+	const o = p.outcomes || {};
+	const outCell = el('div', 'rp-cell');
+	outCell.append(el('span', 'rp-label', 'Outcomes · 24h'));
+	const outVal = el('div', 'rp-outcomes');
+	outVal.append(outStat('grad', '↑', fmtInt(o.graduated || 0), 'graduated'));
+	outVal.append(outStat('rug', '↓', fmtInt(o.rugged || 0), 'rugged'));
+	outCell.append(outVal);
+	strip.append(outCell);
+}
+
+function pulseCell(label, value, sub, tone) {
+	const cell = el('div', 'rp-cell' + (tone ? ` rp-cell--${tone}` : ''));
+	cell.append(el('span', 'rp-label', label));
+	cell.append(el('span', 'rp-value', value));
+	if (sub) cell.append(el('span', 'rp-sub', sub));
+	return cell;
+}
+function distTag(cls, label, n) {
+	const t = el('span', `rp-leg rp-leg--${cls}`);
+	t.append(el('span', 'rp-leg-dot'));
+	t.append(el('span', null, `${label} ${n}`));
+	return t;
+}
+function outStat(cls, glyph, n, label) {
+	const s = el('span', `rp-out rp-out--${cls}`);
+	s.append(el('span', 'rp-out-glyph', glyph));
+	s.append(el('span', 'rp-out-num', n));
+	s.title = `${n} ${label}`;
+	return s;
 }
 
 // ── toolbar / filters ───────────────────────────────────────────────────────
@@ -263,6 +423,51 @@ function renderToolbar() {
 
 	// row 2: controls
 	const controls = el('div', 'radar-controls');
+
+	// search (name / symbol / mint) — debounced, server-side
+	const search = el('div', 'radar-search');
+	const searchIcon = el('span', 'radar-search-icon');
+	searchIcon.setAttribute('aria-hidden', 'true');
+	searchIcon.innerHTML = '<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="9" r="6"/><path d="M14 14l3.5 3.5"/></svg>';
+	const input = el('input', 'radar-search-input');
+	input.type = 'search';
+	input.id = 'radar-search';
+	input.placeholder = 'Search name, ticker, or mint';
+	input.value = state.query;
+	input.setAttribute('aria-label', 'Search coins by name, ticker, or mint');
+	input.autocomplete = 'off';
+	input.spellcheck = false;
+	let searchTimer = null;
+	input.addEventListener('input', () => {
+		const v = input.value.trim().slice(0, 64);
+		if (searchTimer) clearTimeout(searchTimer);
+		searchTimer = setTimeout(() => {
+			if (v === state.query) return;
+			state.query = v;
+			onFilterChange();
+		}, 320);
+	});
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Escape' && input.value) { e.stopPropagation(); input.value = ''; state.query = ''; onFilterChange(); }
+	});
+	search.append(searchIcon, input);
+
+	// sort
+	const sortWrap = el('div', 'radar-control radar-sort');
+	const sortLabel = el('label', 'radar-control-label');
+	sortLabel.htmlFor = 'radar-sort';
+	sortLabel.append(el('span', null, 'Sort'));
+	const sel = el('select', 'radar-select');
+	sel.id = 'radar-sort';
+	sel.setAttribute('aria-label', 'Sort coins');
+	for (const s of SORTS) {
+		const opt = el('option', null, s.label);
+		opt.value = s.key;
+		if (s.key === state.sort) opt.selected = true;
+		sel.append(opt);
+	}
+	sel.addEventListener('change', () => { state.sort = SORT_KEYS.has(sel.value) ? sel.value : 'new'; onFilterChange(); });
+	sortWrap.append(sortLabel, sel);
 
 	// min-quality slider
 	const qWrap = el('div', 'radar-control radar-quality');
@@ -301,6 +506,33 @@ function renderToolbar() {
 		render();
 	});
 
+	// smart-money + news-meme quick filters (server-side)
+	const smartFilter = filterPill('Smart money', state.smartOnly, 'Only coins a reputation-scored wallet bought', () => {
+		state.smartOnly = !state.smartOnly; onFilterChange();
+	});
+	const newsFilter = filterPill('News-driven', state.newsOnly, 'Only coins matching a live news headline', () => {
+		state.newsOnly = !state.newsOnly; onFilterChange();
+	});
+
+	// grid / list view toggle
+	const viewWrap = el('div', 'radar-control radar-view');
+	viewWrap.setAttribute('role', 'group');
+	viewWrap.setAttribute('aria-label', 'View density');
+	const viewBtn = (key, title, svg) => {
+		const b = el('button', 'radar-seg radar-view-btn' + (state.view === key ? ' is-active' : ''));
+		b.type = 'button';
+		b.title = title;
+		b.setAttribute('aria-label', title);
+		b.setAttribute('aria-pressed', String(state.view === key));
+		b.innerHTML = svg;
+		b.addEventListener('click', () => { if (state.view === key) return; state.view = key; writeUrl(); render(); });
+		return b;
+	};
+	viewWrap.append(
+		viewBtn('grid', 'Grid view', '<svg viewBox="0 0 18 18" width="15" height="15" fill="currentColor"><rect x="1" y="1" width="7" height="7" rx="1.5"/><rect x="10" y="1" width="7" height="7" rx="1.5"/><rect x="1" y="10" width="7" height="7" rx="1.5"/><rect x="10" y="10" width="7" height="7" rx="1.5"/></svg>'),
+		viewBtn('list', 'List view', '<svg viewBox="0 0 18 18" width="15" height="15" fill="currentColor"><rect x="1" y="2" width="16" height="3" rx="1.5"/><rect x="1" y="7.5" width="16" height="3" rx="1.5"/><rect x="1" y="13" width="16" height="3" rx="1.5"/></svg>'),
+	);
+
 	// network segmented control
 	const netWrap = el('div', 'radar-control radar-network');
 	netWrap.setAttribute('role', 'group');
@@ -327,9 +559,18 @@ function renderToolbar() {
 	dot.setAttribute('aria-hidden', 'true');
 	updated.append(dot, el('span', 'radar-updated-text', 'Connecting…'));
 
-	controls.append(qWrap, toggle, netWrap, updated);
+	controls.append(search, sortWrap, qWrap, toggle, smartFilter, newsFilter, viewWrap, netWrap, updated);
 	bar.append(chips, controls);
 	return bar;
+}
+
+function filterPill(label, active, tip, onClick) {
+	const b = el('button', 'radar-filter-pill' + (active ? ' is-active' : ''), label);
+	b.type = 'button';
+	b.title = tip;
+	b.setAttribute('aria-pressed', String(active));
+	b.addEventListener('click', onClick);
+	return b;
 }
 
 function chip(label, active, onClick) {
@@ -433,12 +674,17 @@ function renderCard(coin) {
 		: 'Category';
 
 	head.append(img, idCol, cat);
+	card.append(head);
+
+	// ── signal badges (smart money / news / outcome) ──
+	const badges = renderCardBadges(coin);
+	if (badges) card.append(badges);
 
 	// ── quality ring + organic/bundle ──
 	const scoreRow = el('div', 'rc-score');
 	scoreRow.append(renderRing(coin.quality_score));
 	scoreRow.append(renderOrganicBundle(coin));
-	card.append(head, scoreRow);
+	card.append(scoreRow);
 
 	// ── narrative ──
 	if (coin.narrative) {
@@ -467,9 +713,11 @@ function renderCard(coin) {
 	// ── key stats ──
 	const stats = el('div', 'rc-stats');
 	stats.append(stat('Buyers', fmtInt(coin.unique_buyers)));
+	stats.append(stat('Mkt cap', fmtMcap(coin.market_cap_sol) || '—', 'Market cap in SOL at first observation'));
 	stats.append(stat('Dev buy', coin.dev_buy_sol != null ? fmtSol(coin.dev_buy_sol) + ' ◎' : '—'));
 	stats.append(stat('Buy vol', coin.buy_volume_sol != null ? fmtSol(coin.buy_volume_sol) + ' ◎' : '—'));
-	stats.append(stat('Sell vol', coin.sell_volume_sol != null ? fmtSol(coin.sell_volume_sol) + ' ◎' : '—'));
+	stats.append(stat('Top 10', coin.concentration_top10 != null ? pct(coin.concentration_top10) + '%' : '—', 'Share of supply held by the top 10 wallets'));
+	stats.append(netStat(coin.net_volume_sol));
 	card.append(stats);
 
 	// ── footer links ──
@@ -625,8 +873,8 @@ function renderNoMatchState() {
 	reset.type = 'button';
 	reset.addEventListener('click', () => {
 		state.category = null; state.minQuality = 0; state.hideRisky = false;
+		state.smartOnly = false; state.newsOnly = false; state.query = ''; state.sort = 'new';
 		onFilterChange();
-		render();
 	});
 	actions.append(reset);
 	box.append(actions);

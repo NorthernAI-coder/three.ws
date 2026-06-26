@@ -53,7 +53,7 @@
 			background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); border: 1px solid color-mix(in srgb, var(--cyan) 30%, var(--line)); }
 
 		/* control bar — agent + arm status */
-		.control { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; margin: 6px 0 16px; }
+		.control { display: grid; grid-template-columns: 1fr auto auto; gap: 18px; align-items: center; margin: 6px 0 16px; }
 		.control .agentpick { min-width: 0; }
 		.control .agentpick label { display: block; font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin-bottom: 7px; }
 		.control select { width: 100%; max-width: 320px; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--ink); padding: 10px 12px; font: 600 14px/1 var(--mono); }
@@ -173,10 +173,54 @@
 
 		.foot { margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; line-height: 1.6; }
 
+		/* wallet pill (control bar) */
+		.walletpill { display: flex; align-items: center; gap: 11px; padding: 9px 14px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid var(--line); transition: border-color .18s; }
+		.walletpill .wp-lab { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+		.walletpill .wp-bal { font: 800 15px/1 var(--mono); color: var(--ink); }
+		.walletpill .wp-run { font: 600 11px/1 var(--mono); color: var(--muted); }
+		.walletpill.low { border-color: color-mix(in srgb, var(--amber) 55%, var(--line)); }
+		.walletpill.low .wp-bal { color: var(--amber); }
+		.walletpill .wp-fund { font: 600 11.5px/1 var(--mono); color: var(--cyan); margin-left: 2px; }
+		.walletpill .wp-fund:hover { text-decoration: underline; }
+
+		/* edge readout (proof of the bar) */
+		.edge { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; margin-top: 12px; padding: 12px 14px; border-radius: var(--r-sm); background: rgba(255,255,255,0.03); border: 1px solid var(--line); }
+		.edge .e-stat { display: flex; align-items: baseline; gap: 6px; }
+		.edge .e-stat b { font: 800 15px/1 var(--mono); color: var(--ink); }
+		.edge .e-stat span { font: 600 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+		.edge .e-note { width: 100%; font-size: 11px; color: var(--muted); line-height: 1.5; margin: 2px 0 0; }
+		.edge .e-note b { color: var(--ink); font-weight: 700; }
+
+		/* qualifying-now live preview */
+		.qual-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 6px; }
+		.qual-head .qh-count { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+		.qual-head .qh-meta { font: 600 10px/1 var(--mono); color: var(--faint); white-space: nowrap; }
+		.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); color: var(--up); box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); animation: pulse 1.9s infinite; flex: none; }
+		.qual-sub { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+		.qrow { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+		.qrow:first-child { border-top: none; }
+		.qrow .q-main { min-width: 0; }
+		.qrow .q-sym { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13.5px; min-width: 0; }
+		.qrow .q-sym a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.qrow .q-sym a:hover { text-decoration: underline; }
+		.qrow .q-sub { margin-top: 4px; font: 600 10.5px/1.3 var(--mono); color: var(--muted); display: flex; gap: 9px; flex-wrap: wrap; }
+		.qrow .q-score { font: 800 17px/1 var(--mono); text-align: right; }
+		.qrow .q-score.hi { color: var(--up); }
+		.qrow .q-size { font: 600 11px/1 var(--mono); color: var(--cyan); text-align: right; white-space: nowrap; }
+		.qrow .q-size span { display: block; font: 600 8.5px/1 var(--mono); color: var(--faint); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+		.q-smart { color: var(--up); }
+		.qual-empty { padding: 26px 8px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+		.coinimg { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.06); flex: none; }
+
+		/* skeleton shimmer */
+		.sk { display: inline-block; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.1) 37%, rgba(255,255,255,0.04) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 6px; color: transparent !important; }
+		@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+
 		@media (max-width: 860px) {
 			.layout { grid-template-columns: 1fr; }
 			.col-side { position: static; }
 			.control { grid-template-columns: 1fr; }
+			.walletpill { justify-content: space-between; }
 			.armbox { justify-content: space-between; }
 			.arm-state { text-align: left; } .arm-state .lab { justify-content: flex-start; }
 			.stats { grid-template-columns: repeat(2, 1fr); }
@@ -217,6 +261,12 @@
 				<label for="agentSel">Agent</label>
 				<select id="agentSel" aria-label="Choose which agent to arm"></select>
 			</div>
+			<div class="walletpill" id="walletPill" hidden>
+				<span class="wp-lab">Wallet</span>
+				<span class="wp-bal" id="walletBal">—</span>
+				<span class="wp-run" id="walletRun"></span>
+				<a class="wp-fund" id="walletFund" href="#" target="_blank" rel="noopener">Fund →</a>
+			</div>
 			<div class="armbox">
 				<div class="arm-state">
 					<div class="lab"><span class="arm-dot off" id="armStatusDot"></span><span id="armStatusLab">Disarmed</span></div>
@@ -247,6 +297,7 @@
 							<button type="button" data-min="72" class="on">Strong+<small>≥ 72</small></button>
 							<button type="button" data-min="56">Lean+<small>≥ 56</small></button>
 						</div>
+						<div class="edge" id="edgeReadout" aria-live="polite"></div>
 					</div>
 					<div class="toggle">
 						<div class="t-lab"><b>Require smart money in</b><span>Only act if ≥1 proven wallet has already bought</span></div>
@@ -292,8 +343,17 @@
 				</div>
 			</div>
 
-			<!-- side: mode + save + ledger -->
+			<!-- side: live preview + mode + save + ledger -->
 			<div class="col-side">
+				<div class="card" id="qualCard">
+					<div class="qual-head">
+						<div class="qh-count"><span class="live-dot"></span><span id="qualCount">Reading the conviction stream…</span></div>
+						<div class="qh-meta" id="qualMeta"></div>
+					</div>
+					<p class="qual-sub">Live coins that clear every rule you've set — exactly what your agent would act on right now. Tighten or loosen the rules and watch this list change.</p>
+					<div id="qualBody"></div>
+				</div>
+
 				<div class="card">
 					<h3><span class="stepno">4</span> Mode &amp; arm</h3>
 					<p class="sub">Simulate logs every play risk-free. Live spends real SOL from the agent wallet, capped by your limits.</p>

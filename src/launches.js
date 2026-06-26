@@ -358,6 +358,50 @@ function teardownStatusHandles() {
 	cardStatusHandles.clear();
 }
 
+// ── live aggregate data points ───────────────────────────────────────────────
+// Each card's coin-status widget already fetches /api/pump/coin for its own
+// render; its onData callback hands that same payload up here so the hero can
+// tally a combined market cap and a graduated count across every loaded coin —
+// real on-chain numbers, no extra requests. Recompute is rAF-coalesced so a
+// page of ~24 widgets resolving in a burst repaints the hero once, not 24×.
+
+let aggregateRaf = 0;
+
+function recordMarket(coin) {
+	if (!coin || !coin.mint) return;
+	state.marketByMint.set(coin.mint, coin);
+	if (aggregateRaf) return;
+	aggregateRaf = requestAnimationFrame(() => {
+		aggregateRaf = 0;
+		recomputeAggregates();
+	});
+}
+
+function recomputeAggregates() {
+	let totalMcap = 0;
+	let priced = 0;
+	let graduated = 0;
+	for (const coin of state.marketByMint.values()) {
+		if (Number.isFinite(coin.mcap)) {
+			totalMcap += coin.mcap;
+			priced += 1;
+		}
+		if (coin.graduated) graduated += 1;
+	}
+	if (statMcapEl) statMcapEl.textContent = priced ? formatMcap(totalMcap) : '—';
+	if (statGradEl) statGradEl.textContent = priced ? String(graduated) : '—';
+}
+
+function resetAggregates() {
+	if (aggregateRaf) {
+		cancelAnimationFrame(aggregateRaf);
+		aggregateRaf = 0;
+	}
+	state.marketByMint = new Map();
+	if (statMcapEl) statMcapEl.textContent = '—';
+	if (statGradEl) statGradEl.textContent = '—';
+}
+
 // ── Oracle conviction batch enrichment ───────────────────────────────────────
 // After each page of cards renders, batch-fetch Oracle conviction for all
 // visible mints (≤20 per request) and paint a tier badge on each card.
@@ -561,7 +605,11 @@ function launchCard(launch, index, { featured = false } = {}) {
 	reveal(card, index);
 	if (!isDevnet) {
 		cardStatusHandles.add(
-			mountCoinStatus(market, launch.mint, { variant: 'card', placeholder: identicon }),
+			mountCoinStatus(market, launch.mint, {
+				variant: 'card',
+				placeholder: identicon,
+				onData: recordMarket,
+			}),
 		);
 	}
 	return card;
@@ -715,6 +763,7 @@ async function loadPage({ reset = false } = {}) {
 		state.seenMints = new Set();
 		state.latestCreatedAt = null;
 		teardownStatusHandles(); // stop refresh timers from the cards we're about to drop
+		resetAggregates(); // drop stale market data so the hero tally rebuilds clean
 		feedEl.textContent = '';
 		footerEl.textContent = '';
 		countEl.textContent = '';

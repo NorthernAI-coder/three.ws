@@ -103,6 +103,7 @@ const state = {
 	category: '',
 	minScore: 0,
 	sort: 'score',         // 'score' | 'hot' | 'new'
+	watchOnly: false,      // feed filtered to the local watchlist
 	label: '',
 	feed: new Map(),       // mint -> item, preserves SSE + initial load
 	es: null,
@@ -122,8 +123,26 @@ function boot() {
 		catSel.appendChild(o);
 	}
 
-	// tabs
-	$$('.tab').forEach((t) => t.addEventListener('click', () => switchView(t.dataset.view)));
+	// tabs — click + full keyboard support (roving tabindex per ARIA tablist).
+	const tabs = $$('.tab');
+	tabs.forEach((t, i) => {
+		t.setAttribute('aria-selected', String(i === 0));
+		t.tabIndex = i === 0 ? 0 : -1;
+		t.addEventListener('click', () => switchView(t.dataset.view));
+		t.addEventListener('keydown', (e) => {
+			const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+				: e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+			if (dir) {
+				e.preventDefault();
+				const next = tabs[(i + dir + tabs.length) % tabs.length];
+				next.focus(); switchView(next.dataset.view);
+			} else if (e.key === 'Home') {
+				e.preventDefault(); tabs[0].focus(); switchView(tabs[0].dataset.view);
+			} else if (e.key === 'End') {
+				e.preventDefault(); tabs[tabs.length - 1].focus(); switchView(tabs[tabs.length - 1].dataset.view);
+			}
+		});
+	});
 	// filters
 	$('#tierSeg').addEventListener('click', (e) => {
 		const b = e.target.closest('button'); if (!b) return;
@@ -141,6 +160,12 @@ function boot() {
 		const b = e.target.closest('[data-fsort]'); if (!b) return;
 		$$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b));
 		state.sort = b.dataset.fsort; syncFilterUrl(); renderFeed();
+	});
+	// Watchlist filter — folds the local ★ watchlist into the live feed.
+	$('#watchToggle')?.addEventListener('click', () => {
+		state.watchOnly = !state.watchOnly;
+		syncWatchToggleUi();
+		renderFeed();
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const searchEl = $('#mintSearch');
@@ -285,15 +310,50 @@ function boot() {
 	if (qMinScore)                 { state.minScore  = qMinScore; const s = $('#minSel'); if (s) s.value = String(qMinScore); }
 	if (VALID_SORTS.has(qSort) && qSort !== 'score') { state.sort = qSort; const b = $(`#sortSeg [data-fsort="${qSort}"]`); if (b) { $$('#sortSeg button').forEach((x) => x.classList.toggle('on', x === b)); } }
 
+	wireStatActions();
+	syncWatchToggleUi();
+	setupShortcuts(tabs);
+
 	loadFeed();
 	loadHotSectors();
 	openStream();
+
+	// Restore the active tab from the URL hash so /oracle#wallets etc. deep-link,
+	// and keep the browser back/forward buttons stepping through views.
+	const hashView = location.hash.replace(/^#/, '');
+	if (VIEWS.includes(hashView) && hashView !== 'feed') switchView(hashView, { updateHash: false });
+	window.addEventListener('popstate', () => {
+		const v = location.hash.replace(/^#/, '') || 'feed';
+		switchView(VIEWS.includes(v) ? v : 'feed', { updateHash: false });
+	});
 
 	// If the page was opened with ?mint= (e.g. from a shared link or Telegram alert),
 	// open that coin's drawer immediately after the feed loads.
 	const MINT_RE2 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const initialMint = qs.get('mint');
 	if (initialMint && MINT_RE2.test(initialMint)) openCoin(initialMint);
+}
+
+// Global keyboard shortcuts: "/" focuses search, 1–9 jump to a tab. Ignored
+// while typing in a field or when a modifier is held.
+function setupShortcuts(tabs) {
+	document.addEventListener('keydown', (e) => {
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
+		const el = e.target;
+		const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+		if (e.key === '/' && !typing) {
+			e.preventDefault();
+			const s = $('#mintSearch');
+			if (s) { switchView('feed'); s.focus(); s.select(); }
+			return;
+		}
+		if (typing) return;
+		if ($('#drawer')?.classList.contains('open')) return;
+		if (/^[1-9]$/.test(e.key)) {
+			const tab = tabs[Number(e.key) - 1];
+			if (tab) { e.preventDefault(); tab.focus(); switchView(tab.dataset.view); }
+		}
+	});
 }
 
 function syncFilterUrl() {
@@ -305,10 +365,25 @@ function syncFilterUrl() {
 	history.replaceState(null, '', url.toString());
 }
 
-function switchView(view) {
+const VIEWS = ['feed', 'movers', 'wallets', 'graph', 'edge', 'proof', 'agents', 'activity', 'agent'];
+
+function switchView(view, { updateHash = true } = {}) {
+	if (!VIEWS.includes(view)) view = 'feed';
 	state.view = view;
-	$$('.tab').forEach((t) => t.classList.toggle('on', t.dataset.view === view));
+	$$('.tab').forEach((t) => {
+		const on = t.dataset.view === view;
+		t.classList.toggle('on', on);
+		t.setAttribute('aria-selected', String(on));
+		t.tabIndex = on ? 0 : -1;
+	});
 	$$('.view').forEach((v) => v.classList.toggle('on', v.id === `view-${view}`));
+	// Keep the tab in the URL hash so views are shareable, bookmarkable, and the
+	// browser back button steps through them. 'feed' is the default — no hash.
+	if (updateHash) {
+		const url = new URL(location.href);
+		url.hash = view === 'feed' ? '' : view;
+		history.replaceState(null, '', url.toString());
+	}
 	if (view === 'movers' && !$('#moversGrid').dataset.loaded) loadMovers();
 	if (view === 'wallets' && !$('#walletWrap').dataset.loaded) loadWallets();
 	if (view === 'edge' && !$('#edgeWrap').dataset.loaded) loadEdge();
@@ -377,18 +452,30 @@ async function loadFeed() {
 	if (Array.isArray(data.backtest)) cacheBacktest(data.backtest);
 }
 
+function syncWatchToggleUi() {
+	const btn = $('#watchToggle');
+	if (!btn) return;
+	const on = state.watchOnly;
+	btn.setAttribute('aria-pressed', String(on));
+	btn.firstChild.textContent = on ? '★ Watching ' : '☆ Watching ';
+	const ct = $('#watchCt');
+	if (ct) ct.textContent = watchedMints().size ? watchedMints().size : '';
+}
+
 function renderFeed() {
 	const sorter = state.sort === 'new'
 		? (a, b) => new Date(b.scored_at || 0) - new Date(a.scored_at || 0)
 		: state.sort === 'hot'
 			? (a, b) => (Number(b.pillars?.momentum) || 0) - (Number(a.pillars?.momentum) || 0)
 			: (a, b) => b.score - a.score;
-	const items = [...state.feed.values()].sort(sorter);
+	const watched = watchedMints();
+	let items = [...state.feed.values()].sort(sorter);
+	if (state.watchOnly) items = items.filter((it) => watched.has(it.mint));
+	syncWatchToggleUi();
 	$('#ctFeed').textContent = items.length ? items.length : '';
-	if (!items.length) return renderFeedEmpty('empty');
+	if (!items.length) return renderFeedEmpty(state.watchOnly ? 'watch' : 'empty');
 	const grid = $('#feedGrid');
 	grid.innerHTML = '';
-	const watched = watchedMints();
 	items.forEach((it) => grid.appendChild(coinCard(it, watched)));
 }
 
@@ -398,6 +485,19 @@ function renderFeedEmpty(kind) {
 
 	if (kind === 'warming') {
 		grid.innerHTML = `<div class="state" style="grid-column:1/-1"><b>Oracle is warming up</b>The conviction engine ships with its backend — once the ingestion augmentor is live it scores every new pump.fun launch in real time. Check back shortly.</div>`;
+		return;
+	}
+
+	if (kind === 'watch') {
+		const hasWatched = watchedMints().size > 0;
+		grid.innerHTML = hasWatched
+			? `<div class="state" style="grid-column:1/-1"><b>None of your watched coins are scored right now</b>The coins on your watchlist haven't surfaced in the current conviction window. They'll reappear here the moment Oracle re-scores them.<div style="margin-top:14px"><button class="btn" type="button" id="watchClear">Show all coins</button></div></div>`
+			: `<div class="state" style="grid-column:1/-1"><b>Your watchlist is empty</b>Tap the ☆ on any coin to track it — then this filter shows just your watched setups, scored live. It's shared with your launch watchlist across three.ws.<div style="margin-top:14px"><button class="btn" type="button" id="watchClear">Show all coins</button></div></div>`;
+		$('#watchClear')?.addEventListener('click', () => {
+			state.watchOnly = false;
+			syncWatchToggleUi();
+			renderFeed();
+		});
 		return;
 	}
 
@@ -517,7 +617,8 @@ function coinCard(it, watched = new Set()) {
 			${it.category ? `<span class="chip cat">${esc(it.category)}</span>` : ''}
 			${it.smart_wallet_count ? `<span class="chip sm"><b>${it.smart_wallet_count}</b> smart in</span>` : ''}
 			${badges}
-			<span class="chip">${ago(it.scored_at)} ago</span>
+			${it.coin_first_seen_at ? `<span class="chip" title="Launch age — first seen on pump.fun">age <b>${ago(it.coin_first_seen_at)}</b></span>` : ''}
+			<span class="chip" title="When Oracle last scored this launch">scored ${ago(it.scored_at)} ago</span>
 		</div>`;
 	btn.addEventListener('click', () => openCoin(it.mint));
 
@@ -548,12 +649,11 @@ function coinCard(it, watched = new Set()) {
 
 function setStats(data) {
 	const items = data.items || [];
-	// Populate from feed immediately, then override with richer global stats.
-	$('#stScored').textContent = data.count ?? items.length;
-	$('#stStrong').textContent = items.filter((i) => i.tier === 'strong' || i.tier === 'prime').length;
-	$('#stSmart').textContent = items.reduce((s, i) => s + (i.smart_wallet_count || 0), 0);
-	$('#stUpdated').textContent = '—';
-	// Fetch global platform stats asynchronously.
+	// Populate from the feed window immediately, then override with the richer
+	// global stats once /api/oracle/stats responds.
+	$('#stScored').textContent = (data.count ?? items.length).toLocaleString();
+	$('#stPrime').textContent  = items.filter((i) => i.tier === 'prime').length || '—';
+	$('#stStrong').textContent = items.filter((i) => i.tier === 'strong').length || '—';
 	loadGlobalStats();
 }
 
@@ -561,13 +661,51 @@ async function loadGlobalStats() {
 	try {
 		const { ok, data } = await api('/api/oracle/stats');
 		if (!ok || !data) return;
-		if (data.scored_24h != null) $('#stScored').textContent = data.scored_24h.toLocaleString();
-		if (data.win_rate != null) $('#stStrong').textContent = data.win_rate + '%';
-		else $('#stStrong').textContent = '—';
-		if (data.best_ath != null) $('#stSmart').textContent = Number(data.best_ath).toFixed(1) + '×';
-		else $('#stSmart').textContent = '—';
-		if (data.prime_count != null) $('#stUpdated').textContent = data.prime_count.toLocaleString();
-	} catch { /* non-fatal */ }
+		const set = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+
+		set('#stScored', (data.scored_24h ?? 0).toLocaleString());
+		if (data.scored_total != null) set('#stScoredSub', `${data.scored_total.toLocaleString()} all-time`);
+
+		set('#stPrime',  data.prime_count != null ? data.prime_count.toLocaleString() : '—');
+		set('#stStrong', data.strong_count != null ? data.strong_count.toLocaleString() : '—');
+
+		set('#stWin', data.win_rate != null ? data.win_rate + '%' : '—');
+		set('#stWinSub', data.total_resolved
+			? `${(data.total_wins ?? 0).toLocaleString()} / ${data.total_resolved.toLocaleString()} resolved`
+			: 'no calls resolved yet');
+		const winEl = $('#stWin');
+		if (winEl) winEl.classList.toggle('up', (data.win_rate ?? 0) >= 50);
+
+		set('#stAth', data.best_ath != null ? Number(data.best_ath).toFixed(1) + '×' : '—');
+
+		set('#stArmed', (data.agents_armed ?? 0).toLocaleString());
+		set('#stArmedSub', data.open_actions != null ? `${data.open_actions.toLocaleString()} open positions` : '');
+	} catch { /* non-fatal — feed-window fallbacks already rendered */ }
+}
+
+// Deep-link the hero KPIs: clicking a stat jumps to the surface that proves it.
+function wireStatActions() {
+	$('#statline')?.addEventListener('click', (e) => {
+		const btn = e.target.closest('[data-stat-action]');
+		if (!btn) return;
+		const action = btn.dataset.statAction;
+		if (action === 'prime' || action === 'strong') {
+			state.tier = action;
+			$$('#tierSeg button').forEach((x) => x.classList.toggle('on', x.dataset.tier === action));
+			state.watchOnly = false;
+			syncWatchToggleUi();
+			syncFilterUrl();
+			loadFeed();
+			switchView('feed');
+			$('.tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		} else if (action === 'edge') {
+			switchView('edge');
+		} else if (action === 'proof') {
+			switchView('proof');
+		} else if (action === 'agents') {
+			switchView('agents');
+		}
+	});
 }
 
 // ── live stream ──────────────────────────────────────────────────────────────

@@ -1916,6 +1916,10 @@
 			"dest": "/api/agents/[id]"
 		},
 		{
+			"src": "/api/agents/([^/]+)/alpha/([^/]+)",
+			"dest": "/api/agents/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/recovery/requests/([^/]+)/([^/]+)",
 			"dest": "/api/agents/[id]"
 		},
