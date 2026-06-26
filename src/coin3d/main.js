@@ -1,17 +1,27 @@
-// /coin3d — a live 3D snapshot of any pump.fun / Solana token.
+// /coin3d — a live, interactive 3D snapshot of any pump.fun / Solana token.
 //
-// Reads ?mint=<base58> (and optional &network=mainnet|devnet), pulls real
-// data from the public pump.fun MCP endpoint (/api/pump-fun-mcp), and renders
-// an interactive Three.js scene:
+// Reads ?mint=<base58> (and optional &network=mainnet|devnet) and renders a
+// real-time Three.js scene built entirely from live on-chain + market data:
 //
 //   • a spinning coin medallion textured with the token's logo,
 //   • a galaxy of the top holders as spheres sized by balance and tinted by
 //     concentration (the rug-risk picture, spatially),
-//   • a graduation ring that fills with the token's bonding-curve progress.
+//   • a graduation ring that fills with the token's bonding-curve progress,
+//   • live trade pulses — every real DEX swap fires a particle (green buy /
+//     red sell) sized by USD value, with a synchronized scrolling tape and a
+//     coin glow that reacts to order flow,
+//   • a drifting starfield for depth.
 //
-// All data is live and on-chain (no mocks). Every state — loading, error,
-// empty, populated — is designed. This is the page that the MCP tool
-// `pumpfun_token_3d` deep-links to.
+// Data sources (all real, no mocks):
+//   /api/pump-fun-mcp        getTokenDetails / getBondingCurve / getTokenHolders
+//   /api/pump/coin-intel     quality, smart-money, concentration, risk flags
+//   /api/pump/price-history  OHLCV → price, 24h change, 24h volume, sparkline
+//   /api/pump/dex-trades     real DEX swaps → live tape + 3D pulses
+//   /api/oracle/coin         conviction score + tier
+//   /api/pump/launches       platform launch records → no-mint landing grid
+//
+// Every state — landing, loading, error, populated — is designed. This is the
+// page the MCP tool `pumpfun_token_3d` deep-links to.
 
 import {
 	Scene,
@@ -35,10 +45,17 @@ import {
 	AdditiveBlending,
 	MathUtils,
 	PointLight,
+	Points,
+	BufferGeometry,
+	Float32BufferAttribute,
+	PointsMaterial,
+	Vector3,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const MCP_ENDPOINT = '/api/pump-fun-mcp';
+// The one and only coin — featured on the no-mint landing.
+const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 // ── DOM handles ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('scene');
@@ -49,6 +66,9 @@ const statusEl = document.getElementById('status');
 const params = new URLSearchParams(location.search);
 const mint = (params.get('mint') || '').trim();
 const network = params.get('network') === 'devnet' ? 'devnet' : 'mainnet';
+
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const isPlausibleMint = (s) => BASE58_RE.test(String(s || '').trim());
 
 // ── MCP client (JSON-RPC over the public read-only endpoint) ─────────────────
 let rpcId = 0;
@@ -69,9 +89,9 @@ async function mcpCall(name, args = {}) {
 	return env.result?.structuredContent ?? null;
 }
 
-// Pull the three data sources in parallel. Holder + curve data are
-// best-effort: if a source is unavailable we keep the snapshot but degrade the
-// matching visual, rather than failing the whole scene.
+// Pull the core data sources in parallel. Holder + curve data are best-effort:
+// if a source is unavailable we keep the snapshot but degrade the matching
+// visual, rather than failing the whole scene.
 async function loadSnapshot() {
 	const [details, curve, holders] = await Promise.allSettled([
 		mcpCall('getTokenDetails', { mint }),
@@ -88,6 +108,7 @@ async function loadSnapshot() {
 
 	return {
 		mint,
+		network,
 		name,
 		symbol,
 		image,
@@ -142,7 +163,7 @@ function clamp01(v) {
 	return Math.max(0, Math.min(1, v > 1 ? v / 100 : v));
 }
 
-// ── Status overlay (loading / error / empty) ─────────────────────────────────
+// ── Status overlay (loading / error) ─────────────────────────────────────────
 function setStatus(kind, title, detail, action) {
 	if (kind === null) {
 		statusEl.hidden = true;
@@ -167,10 +188,48 @@ function escapeHtml(s) {
 	);
 }
 
+// ── Number formatting ─────────────────────────────────────────────────────────
+function compact(n) {
+	if (!Number.isFinite(n)) return '—';
+	const abs = Math.abs(n);
+	if (abs >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+	if (abs >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+	if (abs >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+	return n.toFixed(0);
+}
+
+// Price formatting that survives sub-cent meme-coin prices without lying about
+// precision: show enough significant digits to be meaningful.
+function fmtPrice(n) {
+	if (!Number.isFinite(n) || n <= 0) return '—';
+	if (n >= 1) return '$' + n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+	if (n >= 0.01) return '$' + n.toFixed(4);
+	if (n >= 1e-6) return '$' + n.toFixed(8).replace(/0+$/, '');
+	return '$' + n.toExponential(2);
+}
+
+function shortAddr(a) {
+	if (!a || a.length < 9) return a || '—';
+	return `${a.slice(0, 4)}…${a.slice(-4)}`;
+}
+
+function timeAgo(tsSec) {
+	if (!tsSec) return '';
+	const s = Math.max(0, Math.floor(Date.now() / 1000 - tsSec));
+	if (s < 60) return `${s}s`;
+	if (s < 3600) return `${Math.floor(s / 60)}m`;
+	if (s < 86400) return `${Math.floor(s / 3600)}h`;
+	return `${Math.floor(s / 86400)}d`;
+}
+
 // ── Three.js scene ────────────────────────────────────────────────────────────
 let renderer, scene, camera, controls, rafId;
 const spin = new Group();
 const holderOrbits = [];
+let starField = null;
+let coinFaceMats = []; // medallion face materials, glow-modulated by order flow
+let coinGlow = 0; // decaying 0..1 pulse driven by trades
+let coinGlowColor = new Color(0x6ea8ff);
 
 function initScene() {
 	renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -179,14 +238,14 @@ function initScene() {
 
 	scene = new Scene();
 
-	camera = new PerspectiveCamera(45, 1, 0.1, 100);
+	camera = new PerspectiveCamera(45, 1, 0.1, 200);
 	camera.position.set(0, 1.6, 6.2);
 
 	controls = new OrbitControls(camera, renderer.domElement);
 	controls.enableDamping = true;
 	controls.dampingFactor = 0.08;
 	controls.minDistance = 3.5;
-	controls.maxDistance = 12;
+	controls.maxDistance = 14;
 	controls.autoRotate = true;
 	controls.autoRotateSpeed = 0.6;
 
@@ -199,10 +258,41 @@ function initScene() {
 	rim.position.set(-5, 2, -4);
 	scene.add(rim);
 
+	buildStarfield();
 	scene.add(spin);
 	resize();
 	addEventListener('resize', resize);
 	animate();
+}
+
+// Drifting starfield — pure depth cue, lives outside `spin` so it rotates
+// independently of the coin.
+function buildStarfield() {
+	const count = 700;
+	const pos = new Float32Array(count * 3);
+	for (let i = 0; i < count; i++) {
+		// Random point in a spherical shell well behind the scene.
+		const r = 18 + Math.random() * 40;
+		const theta = Math.random() * Math.PI * 2;
+		const phi = Math.acos(2 * Math.random() - 1);
+		pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+		pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+		pos[i * 3 + 2] = r * Math.cos(phi);
+	}
+	const geo = new BufferGeometry();
+	geo.setAttribute('position', new Float32BufferAttribute(pos, 3));
+	starField = new Points(
+		geo,
+		new PointsMaterial({
+			color: 0x9fb4ff,
+			size: 0.09,
+			sizeAttenuation: true,
+			transparent: true,
+			opacity: 0.55,
+			depthWrite: false,
+		}),
+	);
+	scene.add(starField);
 }
 
 function resize() {
@@ -217,12 +307,29 @@ function animate() {
 	rafId = requestAnimationFrame(animate);
 	const t = performance.now() / 1000;
 	spin.rotation.y += 0.004;
+	if (starField) starField.rotation.y += 0.0004;
+
 	for (const o of holderOrbits) {
 		o.angle += o.speed;
 		o.mesh.position.x = Math.cos(o.angle) * o.radius;
 		o.mesh.position.z = Math.sin(o.angle) * o.radius;
 		o.mesh.position.y = o.y + Math.sin(t * o.bob + o.phase) * 0.08;
 	}
+
+	stepPulses();
+
+	// Coin glow decays toward zero; trades bump it back up (see firePulse).
+	if (coinGlow > 0.001) {
+		coinGlow *= 0.94;
+		for (const m of coinFaceMats) {
+			m.emissive.copy(coinGlowColor);
+			m.emissiveIntensity = coinGlow * 0.9;
+		}
+	} else if (coinGlow !== 0) {
+		coinGlow = 0;
+		for (const m of coinFaceMats) m.emissiveIntensity = 0;
+	}
+
 	controls.update();
 	renderer.render(scene, camera);
 }
@@ -231,12 +338,19 @@ function animate() {
 // metallic rim. Falls back to a brand-tinted disc if the logo can't be loaded.
 function buildCoin(snapshot) {
 	const rim = new MeshStandardMaterial({ color: 0x2b2f44, metalness: 0.9, roughness: 0.35 });
-	const faceMat = new MeshStandardMaterial({ color: 0x1a1d2e, metalness: 0.5, roughness: 0.6 });
+	const faceMat = new MeshStandardMaterial({
+		color: 0x1a1d2e,
+		metalness: 0.5,
+		roughness: 0.6,
+		emissive: 0x000000,
+		emissiveIntensity: 0,
+	});
 	const geo = new CylinderGeometry(1.6, 1.6, 0.28, 64);
 	// [side, top, bottom] material groups for a CylinderGeometry.
 	const coin = new Mesh(geo, [rim, faceMat, faceMat]);
 	coin.rotation.x = Math.PI / 2; // face the camera
 	spin.add(coin);
+	coinFaceMats = [faceMat];
 
 	if (snapshot.image) {
 		const loader = new TextureLoader();
@@ -244,8 +358,15 @@ function buildCoin(snapshot) {
 
 		const applyTexture = (tex) => {
 			tex.colorSpace = SRGBColorSpace;
-			const lit = new MeshStandardMaterial({ map: tex, metalness: 0.3, roughness: 0.55 });
+			const lit = new MeshStandardMaterial({
+				map: tex,
+				metalness: 0.3,
+				roughness: 0.55,
+				emissive: 0x000000,
+				emissiveIntensity: 0,
+			});
 			coin.material = [rim, lit, lit];
+			coinFaceMats = [lit];
 		};
 
 		const loadFrom = (src, allowRetry) => {
@@ -333,6 +454,88 @@ function buildGraduationRing(snapshot) {
 	spin.add(arc);
 }
 
+// ── Live trade pulses (3D) ────────────────────────────────────────────────────
+// A bounded pool of glowing particles. Each real DEX swap fires one: buys fly
+// inward toward the coin, sells fly outward — sized by USD value, colored by
+// side. The coin's emissive glow is bumped on every trade so order flow reads
+// even before you parse the tape.
+const PULSE_POOL = 36;
+const pulses = [];
+const _tmpVec = new Vector3();
+
+function buildPulsePool() {
+	for (let i = 0; i < PULSE_POOL; i++) {
+		const mat = new MeshBasicMaterial({
+			color: 0x44e08a,
+			transparent: true,
+			opacity: 0,
+			blending: AdditiveBlending,
+			depthWrite: false,
+		});
+		const mesh = new Mesh(new SphereGeometry(0.08, 12, 12), mat);
+		mesh.visible = false;
+		// Pulses live outside `spin` so they fly along fixed world rays rather
+		// than being dragged by the coin's rotation.
+		scene.add(mesh);
+		pulses.push({ mesh, mat, active: false, start: 0, life: 1, from: new Vector3(), to: new Vector3(), base: 0.08 });
+	}
+}
+
+function firePulse(trade) {
+	const slot = pulses.find((p) => !p.active);
+	if (!slot) return; // pool saturated — drop the visual, tape still records it
+	const isBuy = trade.is_buy;
+	const usd = Number(trade.sol_value_usd) || 0;
+	// Size: clamp so a whale doesn't fill the screen and dust is still visible.
+	const mag = Math.min(1, Math.log10(1 + usd) / 4); // ~0 at $0, ~1 at $10k+
+	const size = MathUtils.lerp(0.05, 0.34, mag);
+
+	// Random direction on a sphere for variety.
+	const theta = Math.random() * Math.PI * 2;
+	const phi = Math.acos(2 * Math.random() - 1);
+	_tmpVec.set(Math.sin(phi) * Math.cos(theta), Math.sin(phi) * Math.sin(theta) * 0.6, Math.cos(phi));
+	const near = 1.7;
+	const far = 6.5;
+	if (isBuy) {
+		slot.from.copy(_tmpVec).multiplyScalar(far);
+		slot.to.copy(_tmpVec).multiplyScalar(near);
+	} else {
+		slot.from.copy(_tmpVec).multiplyScalar(near);
+		slot.to.copy(_tmpVec).multiplyScalar(far);
+	}
+	slot.base = size;
+	slot.mat.color.set(isBuy ? 0x44e08a : 0xff6b6b);
+	slot.active = true;
+	slot.start = performance.now() / 1000;
+	slot.life = 1.3 + mag * 0.6;
+	slot.mesh.scale.setScalar(1);
+	slot.mesh.visible = true;
+
+	// Bump the coin glow toward the trade's side, scaled by size.
+	coinGlow = Math.min(1, coinGlow + 0.35 + mag * 0.4);
+	coinGlowColor.set(isBuy ? 0x44e08a : 0xff6b6b);
+}
+
+function stepPulses() {
+	const now = performance.now() / 1000;
+	for (const p of pulses) {
+		if (!p.active) continue;
+		const k = (now - p.start) / p.life;
+		if (k >= 1) {
+			p.active = false;
+			p.mesh.visible = false;
+			p.mat.opacity = 0;
+			continue;
+		}
+		// Ease toward target; fade in fast, out slow; gentle scale swell.
+		const eased = 1 - Math.pow(1 - k, 2);
+		p.mesh.position.lerpVectors(p.from, p.to, eased);
+		p.mat.opacity = Math.sin(k * Math.PI) * 0.95;
+		const s = p.base * (0.7 + Math.sin(k * Math.PI) * 0.6);
+		p.mesh.scale.setScalar(s / 0.08);
+	}
+}
+
 // ── Watchlist (shared ld_watchlist key) ──────────────────────────────────────
 const WATCH_KEY = 'ld_watchlist';
 
@@ -366,10 +569,9 @@ async function fetchOracleConviction(mintAddr, net) {
 	const key = `${net}:${mintAddr}`;
 	if (_c3dOracleCache.has(key)) return _c3dOracleCache.get(key);
 	try {
-		const r = await fetch(
-			`/api/oracle/coin?mint=${encodeURIComponent(mintAddr)}&network=${net}`,
-			{ signal: AbortSignal.timeout(8000) },
-		);
+		const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(mintAddr)}&network=${net}`, {
+			signal: AbortSignal.timeout(8000),
+		});
 		if (!r.ok) return null;
 		const d = await r.json();
 		const cv = d?.conviction ? { score: d.conviction.score, tier: d.conviction.tier } : null;
@@ -399,34 +601,222 @@ function renderOracleSlot(cv, mintAddr) {
 	el.innerHTML = `<a class="c3d-oracle" href="/oracle?mint=${encodeURIComponent(mintAddr)}" aria-label="Oracle conviction: ${cv.score} ${cv.tier}">
 		<span class="c3d-oracle-label">Oracle</span>
 		<span class="c3d-oracle-score" style="color:${color}">${cv.score}</span>
-		<span class="c3d-oracle-tier" style="color:${color}">${cv.tier}</span>
+		<span class="c3d-oracle-tier" style="color:${color}">${escapeHtml(cv.tier)}</span>
 		<span class="c3d-oracle-arrow">→</span>
 	</a>`;
 }
 
-// ── HUD ───────────────────────────────────────────────────────────────────────
+// ── Coin intelligence (quality, smart money, concentration, risk flags) ───────
+const RISK_LABELS = {
+	bundle_launch: 'Bundle launch',
+	dev_dumped: 'Dev dumped',
+	single_whale: 'Single whale',
+	low_diversity: 'Low diversity',
+	fresh_wallet_swarm: 'Fresh-wallet swarm',
+	high_concentration: 'Concentrated',
+	rugged: 'Rugged',
+};
+
+async function fetchCoinIntel(mintAddr, net) {
+	try {
+		const r = await fetch(
+			`/api/pump/coin-intel?mint=${encodeURIComponent(mintAddr)}&network=${net}`,
+			{ signal: AbortSignal.timeout(8000) },
+		);
+		if (!r.ok) return null; // 404 = coin not observed by the intel engine; fine
+		return await r.json();
+	} catch {
+		return null;
+	}
+}
+
+// ── Market data (price, 24h change, 24h volume, sparkline) ────────────────────
+async function fetchMarket(mintAddr) {
+	try {
+		const r = await fetch(`/api/pump/price-history?mint=${encodeURIComponent(mintAddr)}&interval=15m`, {
+			signal: AbortSignal.timeout(9000),
+		});
+		if (!r.ok) return null;
+		const body = await r.json();
+		const candles = Array.isArray(body?.data) ? body.data : [];
+		if (!candles.length) return null;
+		const closes = candles.map((c) => Number(c.c)).filter(Number.isFinite);
+		if (!closes.length) return null;
+		const price = closes[closes.length - 1];
+		const first = closes[0];
+		const change = first > 0 ? (price - first) / first : null;
+		const volume = candles.reduce((s, c) => s + (Number(c.v) || 0), 0);
+		return { price, change, volume, closes };
+	} catch {
+		return null;
+	}
+}
+
+// ── Live trade tape (polls real DEX swaps) ────────────────────────────────────
+const tape = {
+	seen: new Set(),
+	rows: [],
+	timer: null,
+	netFlow: 0, // running USD net flow over the session
+	primed: false,
+};
+
+async function pollTrades(mintAddr) {
+	try {
+		const r = await fetch(`/api/pump/dex-trades?mint=${encodeURIComponent(mintAddr)}&limit=40`, {
+			signal: AbortSignal.timeout(9000),
+		});
+		if (!r.ok) return;
+		const body = await r.json();
+		const trades = Array.isArray(body?.trades) ? body.trades : [];
+		// Oldest-first so newest ends up at the top of the tape and pulses fire
+		// in chronological order.
+		const fresh = trades
+			.filter((t) => t.signature && !tape.seen.has(t.signature))
+			.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+		const stale = body?.stale === true;
+		updateLiveDot(stale, trades.length > 0);
+
+		if (!fresh.length) return;
+		for (const t of fresh) tape.seen.add(t.signature);
+		// Keep the seen-set from growing without bound over a long session.
+		if (tape.seen.size > 4000) tape.seen = new Set([...tape.seen].slice(-2000));
+
+		for (const t of fresh) {
+			tape.rows.unshift(t);
+			tape.netFlow += (t.is_buy ? 1 : -1) * (Number(t.sol_value_usd) || 0);
+			// Fire a 3D pulse only once the scene is primed, so the initial batch
+			// doesn't dump 40 particles at once.
+			if (tape.primed) firePulse(t);
+		}
+		tape.rows = tape.rows.slice(0, 40);
+		tape.primed = true;
+		renderTape();
+	} catch {
+		// Tape is best-effort; a blip just skips this tick.
+	}
+}
+
+function updateLiveDot(stale, hasData) {
+	const dot = document.getElementById('c3d-live-dot');
+	if (dot) dot.classList.toggle('stale', stale || !hasData);
+	const flow = document.getElementById('c3d-tape-flow');
+	if (flow && tape.rows.length) {
+		const f = tape.netFlow;
+		const sign = f >= 0 ? '+' : '−';
+		flow.textContent = `net ${sign}$${compact(Math.abs(f))}`;
+		flow.style.color = f >= 0 ? '#74e0a8' : '#ff8f8f';
+	}
+}
+
+function renderTape() {
+	const list = document.getElementById('c3d-tape-list');
+	if (!list) return;
+	if (!tape.rows.length) {
+		list.innerHTML = `<div class="c3d-tape-empty">Watching the tape for live swaps…</div>`;
+		return;
+	}
+	list.innerHTML = tape.rows
+		.slice(0, 14)
+		.map((t, i) => {
+			const side = t.is_buy ? 'buy' : 'sell';
+			const usd = Number(t.sol_value_usd);
+			const usdLabel = Number.isFinite(usd) ? `$${compact(usd)}` : '—';
+			const sol = Number(t.sol_amount);
+			const solLabel = Number.isFinite(sol) ? `${sol.toFixed(sol < 1 ? 3 : 2)} SOL` : '';
+			const href = t.signature ? `https://solscan.io/tx/${encodeURIComponent(t.signature)}` : null;
+			const trader = shortAddr(t.trader);
+			const ago = timeAgo(t.timestamp);
+			const inner = `
+				<span class="t-side" aria-hidden="true"></span>
+				<span class="t-mid"><span class="t-usd">${t.is_buy ? '↑' : '↓'} ${usdLabel}</span> · ${escapeHtml(solLabel)} · ${escapeHtml(trader)}</span>
+				<span class="t-time">${ago}</span>`;
+			// New rows (only the top one on a fresh poll) animate in.
+			const cls = `c3d-trade ${side}${i === 0 ? ' enter' : ''}`;
+			return href
+				? `<a class="${cls}" href="${href}" target="_blank" rel="noopener" aria-label="${side} ${usdLabel} by ${escapeHtml(trader)} ${ago} ago — view transaction">${inner}</a>`
+				: `<div class="${cls}">${inner}</div>`;
+		})
+		.join('');
+}
+
+function startTradePolling(mintAddr) {
+	pollTrades(mintAddr);
+	tape.timer = setInterval(() => pollTrades(mintAddr), 9000);
+	// Pause polling when the tab is hidden; resume (and refresh once) on return.
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) {
+			clearInterval(tape.timer);
+			tape.timer = null;
+		} else if (!tape.timer) {
+			pollTrades(mintAddr);
+			tape.timer = setInterval(() => pollTrades(mintAddr), 9000);
+		}
+	});
+}
+
+// ── Sparkline ─────────────────────────────────────────────────────────────────
+function sparklineSvg(closes, up) {
+	if (!closes || closes.length < 2) return '<div class="c3d-spark-empty"></div>';
+	const w = 320;
+	const h = 44;
+	const min = Math.min(...closes);
+	const max = Math.max(...closes);
+	const span = max - min || 1;
+	const n = closes.length;
+	const pts = closes.map((c, i) => {
+		const x = (i / (n - 1)) * w;
+		const y = h - 3 - ((c - min) / span) * (h - 6);
+		return `${x.toFixed(1)},${y.toFixed(1)}`;
+	});
+	const stroke = up ? '#44e08a' : '#ff6b6b';
+	const areaId = 'c3dSparkFill';
+	const area = `0,${h} ${pts.join(' ')} ${w},${h}`;
+	return `<svg class="c3d-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="24-hour price trend">
+		<defs><linearGradient id="${areaId}" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0%" stop-color="${stroke}" stop-opacity="0.28"/>
+			<stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+		</linearGradient></defs>
+		<polygon points="${area}" fill="url(#${areaId})"/>
+		<polyline points="${pts.join(' ')}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+	</svg>`;
+}
+
+// ── HUD ─────────────────────────────────────────────────────────────────────
+// Built once with stable element IDs; live data updaters mutate nodes in place
+// so polling never tears down the tape scroll position or rebinds listeners.
 function renderHud(s) {
-	const cap = s.marketCapUsd !== null ? `$${compact(s.marketCapUsd)}` : '—';
-	const grad = s.graduated
-		? 'Graduated → Raydium'
-		: s.graduationProgress !== null
-			? `${Math.round(s.graduationProgress * 100)}% to graduation`
-			: 'Bonding curve';
-	const conc = s.topHolderPercent !== null ? `${s.topHolderPercent.toFixed(1)}%` : '—';
 	const watching = s.mint ? isWatched(s.mint) : false;
 	hud.hidden = false;
 	hud.innerHTML = `
 		<div class="hud-head">
 			<h1>${escapeHtml(s.name)}</h1>
 			${s.symbol ? `<span class="ticker">$${escapeHtml(s.symbol)}</span>` : ''}
+			<span id="c3d-cat" class="c3d-cat" hidden></span>
 		</div>
+		<div class="hud-price">
+			<span class="px" id="c3d-price">—</span>
+			<span class="c3d-change flat" id="c3d-change"></span>
+		</div>
+		<div class="c3d-spark-wrap" id="c3d-spark"><div class="c3d-spark-empty"></div></div>
 		<dl class="hud-stats">
-			<div><dt>Market cap</dt><dd>${cap}</dd></div>
-			<div><dt>Top-holder share</dt><dd>${conc}</dd></div>
-			<div><dt>Status</dt><dd>${escapeHtml(grad)}</dd></div>
-			<div><dt>Top holders shown</dt><dd>${s.holders.length || 0}</dd></div>
+			<div><dt>Market cap</dt><dd id="c3d-mcap">${s.marketCapUsd !== null ? '$' + compact(s.marketCapUsd) : '—'}</dd></div>
+			<div><dt>24h volume</dt><dd id="c3d-vol">—</dd></div>
+			<div><dt>Top-holder share</dt><dd id="c3d-conc">${s.topHolderPercent !== null ? s.topHolderPercent.toFixed(1) + '%' : '—'}</dd></div>
+			<div><dt>Status</dt><dd id="c3d-status">${escapeHtml(gradLabel(s))}</dd></div>
+			<div><dt>Quality</dt><dd id="c3d-quality">—</dd></div>
+			<div><dt>Smart money</dt><dd id="c3d-smart">—</dd></div>
 		</dl>
+		<div class="c3d-risks" id="c3d-risks" hidden></div>
 		<div id="c3d-oracle"><div class="c3d-oracle-sk" aria-hidden="true"></div></div>
+		<div class="c3d-tape">
+			<div class="c3d-tape-head">
+				<span class="c3d-tape-title"><span class="c3d-live-dot stale" id="c3d-live-dot" aria-hidden="true"></span>Live trades</span>
+				<span class="c3d-tape-flow" id="c3d-tape-flow"></span>
+			</div>
+			<div class="c3d-tape-list" id="c3d-tape-list"><div class="c3d-tape-empty">Watching the tape for live swaps…</div></div>
+		</div>
 		<div class="hud-links">
 			${s.mint ? `<button id="c3d-watch" class="c3d-watch-btn" type="button" aria-pressed="${watching}">${watching ? '★ Watching' : '☆ Watch'}</button>` : ''}
 			<a class="hud-link" href="https://pump.fun/coin/${encodeURIComponent(s.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
@@ -444,19 +834,170 @@ function renderHud(s) {
 	}
 }
 
-function compact(n) {
-	if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
-	if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-	if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-	return n.toFixed(0);
+function gradLabel(s) {
+	if (s.graduated) return 'Graduated → Raydium';
+	if (s.graduationProgress !== null) return `${Math.round(s.graduationProgress * 100)}% to graduation`;
+	return 'Bonding curve';
+}
+
+function applyMarket(m) {
+	if (!m) return;
+	const priceEl = document.getElementById('c3d-price');
+	if (priceEl) priceEl.textContent = fmtPrice(m.price);
+	const volEl = document.getElementById('c3d-vol');
+	if (volEl && m.volume) volEl.textContent = '$' + compact(m.volume);
+	const changeEl = document.getElementById('c3d-change');
+	if (changeEl && m.change !== null) {
+		const pct = m.change * 100;
+		const dir = pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : 'flat';
+		changeEl.className = `c3d-change ${dir}`;
+		changeEl.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% · 24h`;
+	}
+	const spark = document.getElementById('c3d-spark');
+	if (spark) spark.innerHTML = sparklineSvg(m.closes, (m.change ?? 0) >= 0);
+}
+
+function applyIntel(intel) {
+	if (!intel || intel.error) return;
+	const cat = document.getElementById('c3d-cat');
+	if (cat && intel.category && intel.category !== 'unknown') {
+		cat.textContent = intel.category;
+		cat.hidden = false;
+	}
+	const quality = document.getElementById('c3d-quality');
+	if (quality && intel.quality_score != null) quality.textContent = `${Math.round(intel.quality_score)}/100`;
+	const smart = document.getElementById('c3d-smart');
+	if (smart && intel.smart_money_count != null) {
+		smart.textContent = intel.smart_money_count > 0 ? `${intel.smart_money_count} wallet${intel.smart_money_count === 1 ? '' : 's'}` : 'None';
+	}
+	// Prefer the intel engine's concentration when MCP didn't supply one.
+	const conc = document.getElementById('c3d-conc');
+	if (conc && conc.textContent === '—' && intel.concentration_top1 != null) {
+		conc.textContent = `${(intel.concentration_top1 * (intel.concentration_top1 <= 1 ? 100 : 1)).toFixed(1)}%`;
+	}
+	// Risk flags → chips (danger flags only; a clean coin shows a green "Clean").
+	const risks = document.getElementById('c3d-risks');
+	const flags = Array.isArray(intel.risk_flags) ? intel.risk_flags : [];
+	if (risks) {
+		if (flags.length) {
+			risks.innerHTML = flags
+				.slice(0, 5)
+				.map((f) => `<span class="c3d-risk">${escapeHtml(RISK_LABELS[f] || f.replace(/_/g, ' '))}</span>`)
+				.join('');
+			risks.hidden = false;
+		} else if (intel.quality_score != null && intel.quality_score >= 70) {
+			risks.innerHTML = `<span class="c3d-risk ok">✓ No risk flags</span>`;
+			risks.hidden = false;
+		}
+	}
+}
+
+// ── No-mint landing ───────────────────────────────────────────────────────────
+function navigateToMint(value) {
+	const v = String(value || '').trim();
+	const m = v.match(BASE58_RE) ? v : (v.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/) || [])[0];
+	return m && isPlausibleMint(m) ? m : null;
+}
+
+function renderLanding() {
+	statusEl.hidden = false;
+	statusEl.dataset.kind = 'empty';
+	statusEl.innerHTML = `
+		<div class="c3d-landing">
+			<h2>See any token in 3D</h2>
+			<p class="lede">Paste a pump.fun or Solana mint to render it as a live scene — a logo medallion, holder galaxy, graduation ring, and real-time trade pulses, all from on-chain data.</p>
+			<form class="c3d-search" id="c3d-form" autocomplete="off">
+				<input id="c3d-mint-input" type="text" inputmode="text" spellcheck="false"
+					placeholder="Paste a token mint address…" aria-label="Token mint address" />
+				<button type="submit" id="c3d-go">View in 3D</button>
+			</form>
+			<p class="c3d-search-err" id="c3d-err" role="alert"></p>
+			<a class="c3d-three" href="?mint=${THREE_MINT}">◎ View $THREE in 3D →</a>
+			<p class="c3d-recent-label">Recent launches on three.ws</p>
+			<div class="c3d-recent" id="c3d-recent">
+				${Array.from({ length: 4 }).map(() => '<div class="c3d-recent-sk"></div>').join('')}
+			</div>
+			<div class="c3d-landing-foot">
+				<a class="hud-link" href="/launches">Browse all launches →</a>
+				<a class="hud-link" href="/launch">Launch your own →</a>
+			</div>
+		</div>`;
+
+	const form = document.getElementById('c3d-form');
+	const input = document.getElementById('c3d-mint-input');
+	const err = document.getElementById('c3d-err');
+	form?.addEventListener('submit', (e) => {
+		e.preventDefault();
+		const m = navigateToMint(input.value);
+		if (!m) {
+			err.textContent = 'That doesn’t look like a valid Solana mint address.';
+			input.focus();
+			return;
+		}
+		location.search = `?mint=${m}`;
+	});
+	input?.addEventListener('input', () => {
+		err.textContent = '';
+	});
+	input?.focus();
+
+	loadRecentLaunches();
+}
+
+async function loadRecentLaunches() {
+	const grid = document.getElementById('c3d-recent');
+	if (!grid) return;
+	try {
+		const r = await fetch('/api/pump/launches?limit=8', { signal: AbortSignal.timeout(8000) });
+		if (!r.ok) throw new Error('launches');
+		const body = await r.json();
+		const launches = (body?.data?.launches || []).filter((l) => l.mint).slice(0, 8);
+		if (!launches.length) {
+			grid.innerHTML = `<p class="c3d-tape-empty" style="grid-column:1/-1">No launches yet. <a class="hud-link" href="/launch">Be the first →</a></p>`;
+			return;
+		}
+		// Resolve each card's thumbnail from its metadata JSON (best-effort, capped).
+		const cards = await Promise.all(launches.map(resolveLaunchCard));
+		grid.innerHTML = cards.join('');
+	} catch {
+		grid.innerHTML = `<p class="c3d-tape-empty" style="grid-column:1/-1"><a class="hud-link" href="/launches">Browse launches →</a></p>`;
+	}
+}
+
+async function resolveLaunchCard(l) {
+	const sym = (l.symbol || l.name || '?').toUpperCase();
+	let img = null;
+	if (l.metadata_uri) {
+		try {
+			const r = await fetch(ipfsToHttp(l.metadata_uri), { signal: AbortSignal.timeout(5000) });
+			if (r.ok) {
+				const meta = await r.json();
+				img = meta?.image ? ipfsToHttp(meta.image) : null;
+			}
+		} catch {
+			img = null;
+		}
+	}
+	const imgHtml = img
+		? `<img class="c3d-recent-img" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'c3d-recent-img ph',textContent:'${escapeHtml(sym.slice(0, 2))}'}))" />`
+		: `<div class="c3d-recent-img ph">${escapeHtml(sym.slice(0, 2))}</div>`;
+	const label = escapeHtml(l.symbol ? `$${l.symbol.toUpperCase()}` : sym);
+	return `<a class="c3d-recent-card" href="?mint=${encodeURIComponent(l.mint)}" aria-label="View ${label} in 3D">
+		${imgHtml}
+		<span class="c3d-recent-sym">${label}</span>
+	</a>`;
 }
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 async function main() {
 	if (!mint) {
-		setStatus('empty', 'No token specified', 'Add ?mint=<address> to view a token in 3D.', {
-			href: '/launches',
-			label: 'Browse coins',
+		renderLanding();
+		return;
+	}
+	if (!isPlausibleMint(mint)) {
+		setStatus('error', 'Invalid mint address', `"${mint}" is not a valid Solana mint.`, {
+			href: '/coin3d',
+			label: 'Try another token',
 		});
 		return;
 	}
@@ -482,6 +1023,7 @@ async function main() {
 	}
 
 	initScene();
+	buildPulsePool();
 	buildCoin(snapshot);
 	buildGraduationRing(snapshot);
 	buildHolderGalaxy(snapshot);
@@ -489,8 +1031,13 @@ async function main() {
 	setStatus(null);
 	document.title = `${snapshot.name}${snapshot.symbol ? ` ($${snapshot.symbol})` : ''} · 3D — three.ws`;
 
-	// Async — does not block scene render
+	// Async enrichment — none of these block the scene render.
 	fetchOracleConviction(mint, network).then((cv) => renderOracleSlot(cv, mint));
+	fetchMarket(mint).then(applyMarket);
+	fetchCoinIntel(mint, network).then(applyIntel);
+	startTradePolling(mint);
+	// Refresh market figures periodically so price/volume stay live.
+	setInterval(() => fetchMarket(mint).then(applyMarket), 60_000);
 
 	// Expose the live scene for embedders and host pages (e.g. to react to the
 	// loaded snapshot or drive the camera from the outside).
@@ -500,6 +1047,7 @@ async function main() {
 
 addEventListener('beforeunload', () => {
 	if (rafId) cancelAnimationFrame(rafId);
+	if (tape.timer) clearInterval(tape.timer);
 	renderer?.dispose?.();
 });
 

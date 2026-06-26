@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed",
+			"summary": "The Alpha Co-pilot page has been fully redesigned. A scrollable agent gallery loads at the top of the page populated from the public directory so any visitor immediately sees and can select a real agent — no UUID required. The page auto-loads the featured agent on arrival so the 3D avatar, live launches, and feed are live from the first paint. Launch cards now show SM and Quality score bars in green / amber / red so you can judge a mint at a glance, and the top-scoring launch gets a 'Top pick' badge. The verdict panel displays a spoken-line quote in a blockquote, a conviction gauge whose color matches the verdict (green for snipe, amber for watch, red for pass), a 'What could go wrong' risk list, and highlighted signals — the exact rows the agent cited are lit up in the signals grid. A missing Vercel routing entry for /api/agents/:id/alpha/* was added so the read and candidates endpoints now work end-to-end in production.",
+			"tags": ["feature", "improvement"],
+			"link": "/alpha-copilot"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "The Pump Visualizer can now render every token as its own coin logo",
 			"summary": "The 3D market view has a new Coins style that draws each live token as a crisp, camera-facing logo medallion — the artwork reads instantly instead of wrapping (and distorting) around a sphere — ringed by a tier-coloured glowing edge that still pulses red for fresh mints and green for graduations. A Coins / Orbs toggle in the toolbar (or press C) switches the whole scene instantly without losing your place in the feed, and your choice is remembered next visit. Coins is now the default. We also added real signal to the coin detail panel: the creator's track record (how many coins they've launched and what share actually graduated, with a link to their wallet), how far the coin has retraced from its all-time-high market cap, and — for graduations — the liquidity it migrated with. Every number comes straight from the live on-chain data already on screen.",
 			"tags": ["feature", "improvement"],

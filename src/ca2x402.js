@@ -188,6 +188,51 @@ function signalPill(sig) {
 	return `<span class="cx-pill ${map[sig] || 'cx-neu'}">${esc(sig)}</span>`;
 }
 
+// Multi-timeframe momentum strip — m5 / 1h / 6h / 24h price change. Shows the
+// shape of the move (accelerating vs. fading), not just its 24h endpoint.
+function momentumStrip(m) {
+	if (!m) return '';
+	const cells = [['5m', m.m5], ['1h', m.h1], ['6h', m.h6], ['24h', m.h24]];
+	if (cells.every(([, v]) => v == null)) return '';
+	return `
+		<div class="cx-momentum" role="group" aria-label="Momentum by timeframe">
+			${cells.map(([k, v]) => `
+				<div class="cx-mom">
+					<div class="cx-mom-k">${k}</div>
+					<div class="cx-mom-v ${pctClass(v)}">${fmtPct(v)}</div>
+				</div>`).join('')}
+		</div>`;
+}
+
+// Risk panel — the due-diligence score (0 safe … 100 critical) and the factors
+// behind it. The headline number is what someone screenshots before aping in.
+function riskPanel(r) {
+	if (!r || typeof r.score !== 'number') return '';
+	const lvl = r.level || 'medium';
+	return `
+		<div class="cx-risk cx-risk-${esc(lvl)}">
+			<div class="cx-risk-head">
+				<div class="cx-risk-gauge" style="--cx-risk:${Math.max(0, Math.min(100, r.score))}">
+					<div class="cx-risk-score">${r.score}</div>
+					<div class="cx-risk-100">/100</div>
+				</div>
+				<div class="cx-risk-id">
+					<div class="cx-risk-label">Risk score <span class="cx-risk-lvl">${esc(lvl)}</span></div>
+					<div class="cx-risk-summary">${esc(r.summary || '')}</div>
+				</div>
+			</div>
+			${Array.isArray(r.factors) && r.factors.length ? `
+				<ul class="cx-risk-factors">
+					${r.factors.map((f) => `
+						<li class="cx-rf cx-rf-${esc(f.status || 'unknown')}">
+							<span class="cx-rf-dot" aria-hidden="true"></span>
+							<span class="cx-rf-label">${esc(f.label)}</span>
+							<span class="cx-rf-detail">${esc(f.detail)}</span>
+						</li>`).join('')}
+				</ul>` : ''}
+		</div>`;
+}
+
 function tokenCard(t) {
 	const chain = t.chain ? `<span class="cx-chain">${esc(t.chain)}</span>` : '';
 	const avatar = t.image

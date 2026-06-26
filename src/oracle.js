@@ -77,6 +77,8 @@ function tweetConviction(c) {
 }
 
 const CATEGORIES = ['meme', 'tech', 'ai', 'culture', 'community', 'political', 'news', 'animal', 'celebrity', 'utility', 'unknown'];
+const TIER_ORDER = ['prime', 'strong', 'lean', 'watch', 'avoid'];
+const TIER_COLOR = { prime: '#e8ebf2', strong: '#cdd2e0', lean: '#c4c9d6', watch: '#8a92a8', avoid: '#6c7280' };
 const ARCH_TITLE = {
 	smart_money: 'Smart Money', kol: 'KOL', top_dev: 'Top Dev', sniper: 'Sniper',
 	dumper: 'Dumper', rugger: 'Rugger', fresh: 'Fresh', neutral: 'Neutral', unproven: 'Unproven',
@@ -166,6 +168,11 @@ function boot() {
 		state.watchOnly = !state.watchOnly;
 		syncWatchToggleUi();
 		renderFeed();
+	});
+	// Conviction breadth bar — segments and legend chips filter the feed by tier.
+	$('#breadthBar')?.addEventListener('click', (e) => {
+		const el = e.target.closest('[data-tier]');
+		if (el) applyTierFilter(el.dataset.tier);
 	});
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const searchEl = $('#mintSearch');
@@ -316,7 +323,17 @@ function boot() {
 
 	loadFeed();
 	loadHotSectors();
+	loadBreadth();
 	openStream();
+
+	// Keep the headline numbers honest while the page sits open: re-pull the
+	// global stats and the conviction-breadth read on a slow cadence, but only
+	// while the tab is visible so a backgrounded page costs nothing.
+	setInterval(() => {
+		if (document.hidden) return;
+		loadGlobalStats();
+		loadBreadth();
+	}, 60000);
 
 	// Restore the active tab from the URL hash so /oracle#wallets etc. deep-link,
 	// and keep the browser back/forward buttons stepping through views.
@@ -573,6 +590,71 @@ async function loadHotSectors() {
 		loadFeed();
 		$$('#hotSectors .hs-card').forEach((c) => c.classList.toggle('active', c === card && !!state.category));
 	});
+}
+
+// ── conviction breadth ─────────────────────────────────────────────────────────
+// A market-breadth read: the live tier distribution across the full scored
+// window, independent of the user's active feed filters. Each segment / legend
+// chip filters the feed to that tier. Refreshed on its own cadence so it stays
+// an honest gauge of "is the board hot or cold right now".
+async function loadBreadth() {
+	const { ok, data } = await api(`/api/oracle/feed?network=${NETWORK}&limit=200`);
+	if (!ok || !Array.isArray(data?.items) || !data.items.length) return;
+	renderBreadth(data.items);
+}
+
+function renderBreadth(items) {
+	const bar = $('#breadthBar');
+	if (!bar) return;
+	const counts = Object.fromEntries(TIER_ORDER.map((t) => [t, 0]));
+	let scoreSum = 0;
+	for (const it of items) {
+		if (counts[it.tier] != null) counts[it.tier]++;
+		scoreSum += Number(it.score) || 0;
+	}
+	const total = items.length;
+	const avg = Math.round(scoreSum / total);
+	const hotPct = Math.round(((counts.prime + counts.strong) / total) * 100);
+
+	const sub = $('#breadthSub');
+	if (sub) sub.innerHTML = `${total} live · avg <b>${avg}</b> · ${hotPct}% strong+`;
+
+	const track = $('#breadthTrack');
+	if (track) {
+		track.innerHTML = TIER_ORDER.filter((t) => counts[t] > 0).map((t) => {
+			const pct = (counts[t] / total) * 100;
+			return `<button class="breadth-seg" type="button" data-tier="${t}" style="width:${pct}%;background:${TIER_COLOR[t]}"
+				title="${counts[t]} ${t} (${Math.round(pct)}%)" aria-label="${counts[t]} ${t} coins — filter the feed"></button>`;
+		}).join('');
+	}
+
+	const legend = $('#breadthLegend');
+	if (legend) {
+		legend.innerHTML = TIER_ORDER.map((t) =>
+			`<button class="breadth-leg ${state.tier === t ? 'on' : ''}" type="button" data-tier="${t}" aria-pressed="${state.tier === t}">
+				<i style="background:${TIER_COLOR[t]}"></i>${t} <b>${counts[t]}</b></button>`
+		).join('');
+	}
+	bar.style.display = '';
+}
+
+// Reflect the active tier filter on the breadth legend without a refetch.
+function syncBreadthActive() {
+	$$('#breadthLegend .breadth-leg').forEach((el) => {
+		const on = el.dataset.tier === state.tier;
+		el.classList.toggle('on', on);
+		el.setAttribute('aria-pressed', String(on));
+	});
+}
+
+// Shared tier-filter mutation used by the breadth bar (toggle semantics).
+function applyTierFilter(tier) {
+	state.tier = state.tier === tier ? '' : tier;
+	$$('#tierSeg button').forEach((x) => x.classList.toggle('on', x.dataset.tier === state.tier));
+	state.watchOnly = false;
+	syncFilterUrl();
+	syncBreadthActive();
+	loadFeed();
 }
 
 function pillar(kind, label, val) {
