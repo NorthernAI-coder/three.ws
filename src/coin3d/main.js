@@ -93,18 +93,23 @@ async function mcpCall(name, args = {}) {
 // if a source is unavailable we keep the snapshot but degrade the matching
 // visual, rather than failing the whole scene.
 async function loadSnapshot() {
-	const [details, curve, holders] = await Promise.allSettled([
+	const [details, curve, holders, meta] = await Promise.allSettled([
 		mcpCall('getTokenDetails', { mint }),
 		mcpCall('getBondingCurve', { mint, network }),
 		mcpCall('getTokenHolders', { mint, limit: 12, network }),
+		fetchTokenMeta(mint),
 	]);
 	const d = details.status === 'fulfilled' ? details.value || {} : {};
 	const c = curve.status === 'fulfilled' ? curve.value || null : null;
 	const h = holders.status === 'fulfilled' ? holders.value || null : null;
+	// GeckoTerminal token info — the reliable name/symbol/logo/market-cap source
+	// for graduated coins, whose on-chain metadata authority is renounced so
+	// getTokenDetails comes back null (e.g. $THREE itself).
+	const gt = meta.status === 'fulfilled' ? meta.value || null : null;
 
-	const name = d.name || d.metadata?.name || 'Unknown token';
-	const symbol = (d.symbol || d.metadata?.symbol || '').toUpperCase();
-	const image = await resolveImage(d);
+	const name = d.name || d.metadata?.name || gt?.name || 'Unknown token';
+	const symbol = (d.symbol || d.metadata?.symbol || gt?.symbol || '').toUpperCase();
+	const image = (await resolveImage(d)) || gt?.image || null;
 
 	return {
 		mint,
@@ -112,12 +117,41 @@ async function loadSnapshot() {
 		name,
 		symbol,
 		image,
-		marketCapUsd: numOrNull(d.marketCapUsd ?? d.usdMarketCap ?? d.market_cap),
+		marketCapUsd: numOrNull(d.marketCapUsd ?? d.usdMarketCap ?? d.market_cap) ?? gt?.marketCapUsd ?? null,
+		priceUsd: gt?.priceUsd ?? null,
+		volume24: gt?.volume24 ?? null,
 		graduationProgress: clamp01(numOrNull(c?.graduationProgress ?? c?.progress)),
 		graduated: Boolean(c?.graduated || c?.complete),
 		topHolderPercent: numOrNull(h?.topHolderPercent),
 		holders: Array.isArray(h?.holders) ? h.holders : [],
 	};
+}
+
+// GeckoTerminal token info (keyless, CORS-enabled, mainnet-only). Resolves the
+// canonical name, symbol, logo and market cap for any token — including
+// graduated coins that getTokenDetails can't describe. Best-effort: null on any
+// failure so the snapshot still renders from MCP data.
+async function fetchTokenMeta(mintAddr) {
+	if (network !== 'mainnet') return null;
+	try {
+		const r = await fetch(
+			`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${encodeURIComponent(mintAddr)}`,
+			{ headers: { accept: 'application/json' }, signal: AbortSignal.timeout(7000) },
+		);
+		if (!r.ok) return null;
+		const a = (await r.json())?.data?.attributes || {};
+		const img = a.image_url && !/missing\.png$/i.test(a.image_url) ? a.image_url : null;
+		return {
+			name: a.name || null,
+			symbol: a.symbol || null,
+			image: img,
+			marketCapUsd: numOrNull(a.market_cap_usd) ?? numOrNull(a.fdv_usd),
+			priceUsd: numOrNull(a.price_usd),
+			volume24: numOrNull(a.volume_usd?.h24),
+		};
+	} catch {
+		return null;
+	}
 }
 
 // The token logo lives in the off-chain metadata JSON pointed to by the
@@ -796,13 +830,13 @@ function renderHud(s) {
 			<span id="c3d-cat" class="c3d-cat" hidden></span>
 		</div>
 		<div class="hud-price">
-			<span class="px" id="c3d-price">—</span>
+			<span class="px" id="c3d-price">${s.priceUsd !== null ? fmtPrice(s.priceUsd) : '—'}</span>
 			<span class="c3d-change flat" id="c3d-change"></span>
 		</div>
 		<div class="c3d-spark-wrap" id="c3d-spark"><div class="c3d-spark-empty"></div></div>
 		<dl class="hud-stats">
 			<div><dt>Market cap</dt><dd id="c3d-mcap">${s.marketCapUsd !== null ? '$' + compact(s.marketCapUsd) : '—'}</dd></div>
-			<div><dt>24h volume</dt><dd id="c3d-vol">—</dd></div>
+			<div><dt>24h volume</dt><dd id="c3d-vol">${s.volume24 !== null ? '$' + compact(s.volume24) : '—'}</dd></div>
 			<div><dt>Top-holder share</dt><dd id="c3d-conc">${s.topHolderPercent !== null ? s.topHolderPercent.toFixed(1) + '%' : '—'}</dd></div>
 			<div><dt>Status</dt><dd id="c3d-status">${escapeHtml(gradLabel(s))}</dd></div>
 			<div><dt>Quality</dt><dd id="c3d-quality">—</dd></div>
@@ -944,43 +978,56 @@ function renderLanding() {
 	loadRecentLaunches();
 }
 
+// The pretty path `/api/pump/launches` depends on a vercel rewrite that isn't
+// live on every deploy; the underlying `[action]` form (encoded so it survives
+// proxies) always is. Try the canonical path first, fall back to the action
+// form, so the grid never silently empties on a partial deploy.
+async function fetchLaunches(limit) {
+	for (const url of [
+		`/api/pump/launches?limit=${limit}`,
+		`/api/pump/%5Baction%5D?action=launches&limit=${limit}`,
+	]) {
+		try {
+			const r = await fetch(url, {
+				headers: { accept: 'application/json' },
+				signal: AbortSignal.timeout(8000),
+			});
+			if (r.ok) return await r.json();
+		} catch {
+			// try the next form
+		}
+	}
+	return null;
+}
+
 async function loadRecentLaunches() {
 	const grid = document.getElementById('c3d-recent');
 	if (!grid) return;
 	try {
-		const r = await fetch('/api/pump/launches?limit=8', { signal: AbortSignal.timeout(8000) });
-		if (!r.ok) throw new Error('launches');
-		const body = await r.json();
+		const body = await fetchLaunches(8);
+		if (!body) throw new Error('launches');
 		const launches = (body?.data?.launches || []).filter((l) => l.mint).slice(0, 8);
 		if (!launches.length) {
 			grid.innerHTML = `<p class="c3d-tape-empty" style="grid-column:1/-1">No launches yet. <a class="hud-link" href="/launch">Be the first →</a></p>`;
 			return;
 		}
-		// Resolve each card's thumbnail from its metadata JSON (best-effort, capped).
-		const cards = await Promise.all(launches.map(resolveLaunchCard));
-		grid.innerHTML = cards.join('');
+		grid.innerHTML = launches.map(launchCard).join('');
 	} catch {
 		grid.innerHTML = `<p class="c3d-tape-empty" style="grid-column:1/-1"><a class="hud-link" href="/launches">Browse launches →</a></p>`;
 	}
 }
 
-async function resolveLaunchCard(l) {
+// Coin logos live in IPFS/R2 metadata JSON that isn't CORS-readable from the
+// browser, so we render the launching agent's avatar (a CORS-safe <img>) when
+// present, falling back to the symbol initials. No per-card fetch — the grid
+// paints instantly from the launches payload.
+function launchCard(l) {
 	const sym = (l.symbol || l.name || '?').toUpperCase();
-	let img = null;
-	if (l.metadata_uri) {
-		try {
-			const r = await fetch(ipfsToHttp(l.metadata_uri), { signal: AbortSignal.timeout(5000) });
-			if (r.ok) {
-				const meta = await r.json();
-				img = meta?.image ? ipfsToHttp(meta.image) : null;
-			}
-		} catch {
-			img = null;
-		}
-	}
-	const imgHtml = img
-		? `<img class="c3d-recent-img" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'c3d-recent-img ph',textContent:'${escapeHtml(sym.slice(0, 2))}'}))" />`
-		: `<div class="c3d-recent-img ph">${escapeHtml(sym.slice(0, 2))}</div>`;
+	const initials = escapeHtml(sym.slice(0, 2));
+	const avatar = l.agent?.avatar_thumbnail_url || null;
+	const imgHtml = avatar
+		? `<img class="c3d-recent-img" src="${escapeHtml(avatar)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'c3d-recent-img ph',textContent:'${initials}'}))" />`
+		: `<div class="c3d-recent-img ph">${initials}</div>`;
 	const label = escapeHtml(l.symbol ? `$${l.symbol.toUpperCase()}` : sym);
 	return `<a class="c3d-recent-card" href="?mint=${encodeURIComponent(l.mint)}" aria-label="View ${label} in 3D">
 		${imgHtml}
@@ -1022,14 +1069,26 @@ async function main() {
 		return;
 	}
 
-	initScene();
-	buildPulsePool();
-	buildCoin(snapshot);
-	buildGraduationRing(snapshot);
-	buildHolderGalaxy(snapshot);
+	// The data HUD is valuable on its own, so render it (and clear the loading
+	// overlay) before the scene. If WebGL is unavailable — old device, disabled
+	// in the browser, a lost context — we degrade to the HUD + live tape instead
+	// of hanging on the loading spinner forever.
 	renderHud(snapshot);
 	setStatus(null);
 	document.title = `${snapshot.name}${snapshot.symbol ? ` ($${snapshot.symbol})` : ''} · 3D — three.ws`;
+
+	let sceneOk = true;
+	try {
+		initScene();
+		buildPulsePool();
+		buildCoin(snapshot);
+		buildGraduationRing(snapshot);
+		buildHolderGalaxy(snapshot);
+	} catch (err) {
+		sceneOk = false;
+		console.warn('[coin3d] 3D scene unavailable, falling back to data view:', err?.message || err);
+		showSceneFallback();
+	}
 
 	// Async enrichment — none of these block the scene render.
 	fetchOracleConviction(mint, network).then((cv) => renderOracleSlot(cv, mint));
@@ -1041,8 +1100,18 @@ async function main() {
 
 	// Expose the live scene for embedders and host pages (e.g. to react to the
 	// loaded snapshot or drive the camera from the outside).
-	window.__coin3d = { renderer, scene, camera, controls, snapshot };
-	dispatchEvent(new CustomEvent('coin3d:ready', { detail: { snapshot } }));
+	window.__coin3d = { renderer, scene, camera, controls, snapshot, sceneOk };
+	dispatchEvent(new CustomEvent('coin3d:ready', { detail: { snapshot, sceneOk } }));
+}
+
+// When WebGL can't render, hide the dead canvas and explain it — but the HUD,
+// live tape, sparkline, and links all keep working as a data view.
+function showSceneFallback() {
+	if (canvas) canvas.style.display = 'none';
+	const hint = document.querySelector('.hint');
+	if (hint) hint.textContent = '3D unavailable — showing live data';
+	document.body.style.background =
+		'radial-gradient(120% 120% at 50% 0%, #15182c 0%, #060606 70%)';
 }
 
 addEventListener('beforeunload', () => {
