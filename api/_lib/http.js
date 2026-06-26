@@ -427,6 +427,14 @@ export function method(req, res, allowed) {
 	// Treat an incoming HEAD as GET for the purposes of the allowlist check;
 	// Node.js HTTP automatically strips the response body on HEAD responses.
 	const effective = (m === 'HEAD' && allowed.includes('GET')) ? 'GET' : m;
+	// …and normalize the request itself to GET so downstream dispatch that
+	// branches on `req.method === 'GET'` (exact equality) actually runs for a
+	// HEAD probe instead of falling through every branch and hanging the
+	// invocation until the function's hard timeout → a 504. This is safe: Node's
+	// ServerResponse captured the request method at construction (set
+	// `_hasBody = false` for HEAD), so the body stays stripped no matter what we
+	// set req.method to here.
+	if (effective === 'GET' && m === 'HEAD') req.method = 'GET';
 	if (!allowed.includes(effective)) {
 		const advertised = allowed.includes('GET') ? [...allowed, 'HEAD'] : allowed;
 		res.setHeader('allow', advertised.join(', '));

@@ -99,22 +99,88 @@ function redisConfigured() {
 // budget.
 const REDIS_CMD_TIMEOUT_MS = 3_000;
 
+// Circuit breaker around the Upstash REST call. A degraded store (commands
+// timing out at REDIS_CMD_TIMEOUT_MS rather than rejecting promptly) otherwise
+// makes EVERY request pay a full 3s stall before falling back to memory, and
+// emits one identical "redis SET failed" warning per request — the exact flood
+// seen in production on hot endpoints like /api/galaxy/flows. After
+// CIRCUIT_FAIL_THRESHOLD consecutive command failures we OPEN the circuit: for
+// CIRCUIT_COOLDOWN_MS every command short-circuits straight to the memory
+// fallback (no fetch, no per-request warning). Once the cooldown elapses the
+// circuit goes half-open and lets exactly one trial command through — its
+// success closes the circuit (Redis restored), its failure re-arms the cooldown.
+// Net cost of a Redis outage: one "opened" log + one trial per 30s, instead of a
+// 3s-stall-plus-warning on every single request.
+const CIRCUIT_FAIL_THRESHOLD = 5;
+const CIRCUIT_COOLDOWN_MS = 30_000;
+let circuitFailures = 0;
+let circuitOpenUntil = 0; // epoch ms; 0 = closed
+let circuitTrialInFlight = false;
+
+// Thrown when the circuit is open. Callers treat it as a normal cache miss but
+// skip the per-request warning, since the open/close transitions log once each.
+class CircuitOpenError extends Error {
+	constructor() {
+		super('cache redis circuit open');
+		this.circuitOpen = true;
+	}
+}
+
+function circuitAllows() {
+	if (circuitOpenUntil === 0) return true; // closed — normal operation
+	if (Date.now() < circuitOpenUntil) return false; // open — fail fast to memory
+	// Cooldown elapsed → half-open: admit a single trial, hold everyone else back.
+	if (circuitTrialInFlight) return false;
+	circuitTrialInFlight = true;
+	return true;
+}
+
+function circuitRecordSuccess() {
+	if (circuitOpenUntil !== 0) console.warn('[cache] redis recovered — circuit closed');
+	circuitFailures = 0;
+	circuitOpenUntil = 0;
+	circuitTrialInFlight = false;
+}
+
+function circuitRecordFailure() {
+	circuitTrialInFlight = false;
+	if (circuitOpenUntil !== 0) {
+		// A half-open trial failed — Redis still down, re-arm the cooldown.
+		circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+		return;
+	}
+	circuitFailures++;
+	if (circuitFailures >= CIRCUIT_FAIL_THRESHOLD) {
+		circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+		console.warn(
+			`[cache] redis degraded — circuit opened for ${CIRCUIT_COOLDOWN_MS / 1000}s after ${circuitFailures} consecutive failures; serving from memory`,
+		);
+	}
+}
+
 async function redisCmd(args) {
 	const target = cacheTarget();
 	if (!target) throw new Error('cache redis not configured');
-	const r = await fetch(target.url, {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${target.token}`,
-			'content-type': 'application/json',
-		},
-		body: JSON.stringify(args),
-		signal: AbortSignal.timeout(REDIS_CMD_TIMEOUT_MS),
-	});
-	if (!r.ok) throw new Error(`upstash ${r.status}: ${await r.text().catch(() => '')}`);
-	const json = await r.json();
-	if (json.error) throw new Error(`upstash error: ${json.error}`);
-	return json.result;
+	if (!circuitAllows()) throw new CircuitOpenError();
+	try {
+		const r = await fetch(target.url, {
+			method: 'POST',
+			headers: {
+				authorization: `Bearer ${target.token}`,
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify(args),
+			signal: AbortSignal.timeout(REDIS_CMD_TIMEOUT_MS),
+		});
+		if (!r.ok) throw new Error(`upstash ${r.status}: ${await r.text().catch(() => '')}`);
+		const json = await r.json();
+		if (json.error) throw new Error(`upstash error: ${json.error}`);
+		circuitRecordSuccess();
+		return json.result;
+	} catch (err) {
+		circuitRecordFailure();
+		throw err;
+	}
 }
 
 export async function cacheGet(key) {
@@ -131,7 +197,7 @@ export async function cacheGet(key) {
 			memoPut(key, value);
 			return value;
 		} catch (err) {
-			console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
+			if (!err?.circuitOpen) console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
 			return memGet(key);
 		} finally {
 			inflightGets.delete(key);
@@ -148,7 +214,7 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
 		memoPut(key, value); // keep the memo coherent with what we just wrote
 	} catch (err) {
-		console.warn('[cache] redis SET failed, using memory fallback:', err?.message);
+		if (!err?.circuitOpen) console.warn('[cache] redis SET failed, using memory fallback:', err?.message);
 		readMemo.delete(key);
 		memSet(key, value, ttlSeconds);
 	}
@@ -190,7 +256,7 @@ export async function acquireLock(key, ttlSeconds) {
 		const res = await redisCmd(['SET', key, '1', 'NX', 'EX', String(ttlSeconds)]);
 		return res === 'OK';
 	} catch (err) {
-		console.warn('[cache] acquireLock failed, proceeding without lock:', err?.message);
+		if (!err?.circuitOpen) console.warn('[cache] acquireLock failed, proceeding without lock:', err?.message);
 		return true;
 	}
 }
