@@ -158,6 +158,32 @@ function circuitRecordFailure() {
 	}
 }
 
+// Throttled warning for the memory-fallback paths. When Upstash is sustainedly
+// degraded in a way the circuit breaker does NOT trip — the production case is a
+// slow SET path interleaved with fast, healthy GETs: each request's successful
+// GET resets the consecutive-failure counter before the SET timeout can push it
+// to the threshold, so the breaker stays (correctly) closed to keep serving cache
+// hits, yet every SET still logs — the per-request "redis SET failed" line floods
+// the logs (hundreds per export window for one hot endpoint). The breaker should
+// not open here (GETs are healthy and worth keeping), so the fix is at the log:
+// collapse repeats of the same category to one line per WARN_THROTTLE_MS, with a
+// suppressed-count digest so a sustained outage stays visible without the flood.
+const WARN_THROTTLE_MS = 30_000;
+const warnState = new Map(); // category -> { lastAt, suppressed }
+
+function warnThrottled(category, message) {
+	const now = Date.now();
+	const st = warnState.get(category) || { lastAt: 0, suppressed: 0 };
+	if (now - st.lastAt < WARN_THROTTLE_MS) {
+		st.suppressed++;
+		warnState.set(category, st);
+		return;
+	}
+	const tail = st.suppressed > 0 ? ` (+${st.suppressed} more in last ${Math.round((now - st.lastAt) / 1000)}s)` : '';
+	console.warn(message + tail);
+	warnState.set(category, { lastAt: now, suppressed: 0 });
+}
+
 async function redisCmd(args) {
 	const target = cacheTarget();
 	if (!target) throw new Error('cache redis not configured');
@@ -197,7 +223,7 @@ export async function cacheGet(key) {
 			memoPut(key, value);
 			return value;
 		} catch (err) {
-			if (!err?.circuitOpen) console.warn('[cache] redis GET failed, using memory fallback:', err?.message);
+			if (!err?.circuitOpen) warnThrottled('GET', `[cache] redis GET failed, using memory fallback: ${err?.message}`);
 			return memGet(key);
 		} finally {
 			inflightGets.delete(key);
@@ -214,7 +240,7 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
 		memoPut(key, value); // keep the memo coherent with what we just wrote
 	} catch (err) {
-		if (!err?.circuitOpen) console.warn('[cache] redis SET failed, using memory fallback:', err?.message);
+		if (!err?.circuitOpen) warnThrottled('SET', `[cache] redis SET failed, using memory fallback: ${err?.message}`);
 		readMemo.delete(key);
 		memSet(key, value, ttlSeconds);
 	}
@@ -256,7 +282,7 @@ export async function acquireLock(key, ttlSeconds) {
 		const res = await redisCmd(['SET', key, '1', 'NX', 'EX', String(ttlSeconds)]);
 		return res === 'OK';
 	} catch (err) {
-		if (!err?.circuitOpen) console.warn('[cache] acquireLock failed, proceeding without lock:', err?.message);
+		if (!err?.circuitOpen) warnThrottled('acquireLock', `[cache] acquireLock failed, proceeding without lock: ${err?.message}`);
 		return true;
 	}
 }

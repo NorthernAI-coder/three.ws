@@ -26,9 +26,12 @@ import {
 	MeshStandardMaterial,
 	PCFShadowMap,
 	PerspectiveCamera,
+	Plane,
 	PMREMGenerator,
+	Raycaster,
 	Scene,
 	ShadowMaterial,
+	Vector2,
 	Vector3,
 	WebGLRenderer,
 } from 'three';
@@ -62,6 +65,22 @@ const SPEED_PARAM = (() => {
 	if (!Number.isFinite(n)) return 1.0;
 	return Math.min(3, Math.max(0.3, n));
 })();
+// Attribution badge ships by default — the embed is the distribution channel, so
+// every dropped avatar links home. `?badge=false` removes it (paid/whitelabel).
+const SHOW_BADGE = params.get('badge') !== 'false' && params.get('badge') !== '0';
+// Opt-in floating wave/jump buttons so a plain iframe visitor can trigger the
+// gestures the postMessage contract already exposes to hosts.
+const SHOW_GESTURE_UI = params.get('gestures') === 'true' || params.get('gestures') === '1';
+// Tap/click the ground to send the avatar there — on by default for interactive
+// control modes, off for non-interactive (controls=none) embeds and ?click=false.
+const CLICK_TO_MOVE = params.get('click') !== 'false' && CONTROLS !== 'none';
+// Honor the viewer's OS "reduce motion" setting: skip the autoplay circle-walk
+// (the avatar settles to idle) so an embed never animates against their wishes.
+const PREFERS_REDUCED_MOTION =
+	typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Idle cursor-glance only on hover-capable (desktop) pointers — on touch there's
+// no persistent cursor to glance toward and it would jitter.
+const HAS_HOVER = typeof matchMedia === 'function' && matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 // Live-tracked state surfaced to the host via the typed contract. `currentAvatarId`
 // is the public identifier hosts gave us (?avatar=<id|url>, else the ?agent=<id>
@@ -204,8 +223,16 @@ const stage = document.getElementById('walk-stage');
 const canvas = document.getElementById('walk-canvas');
 const joystickEl = document.getElementById('walk-joystick');
 const statusEl = document.getElementById('walk-status');
+const posterEl = document.getElementById('walk-poster');
+const hintEl = document.getElementById('walk-hint');
+const hintTextEl = document.getElementById('walk-hint-text');
+const gesturesEl = document.getElementById('walk-gestures');
+const badgeEl = document.getElementById('walk-badge');
 
 stage.dataset.controls = CONTROLS;
+stage.dataset.gestures = String(SHOW_GESTURE_UI);
+if (!SHOW_BADGE && badgeEl) badgeEl.remove();
+if (!SHOW_GESTURE_UI && gesturesEl) gesturesEl.remove();
 
 // Apply background. Default is transparent so the host page shows through.
 // `?bg=#101820` paints a solid color; `?bg=transparent` is explicit no-op.
@@ -222,6 +249,39 @@ function setStatus(text, { error = false, sticky = false } = {}) {
 	if (!sticky) {
 		clearTimeout(setStatus._t);
 		setStatus._t = setTimeout(() => statusEl.classList.add('is-hidden'), 2200);
+	}
+}
+
+// ── Loading poster ──────────────────────────────────────────────────────────
+// Fades the silhouette out once the first avatar frame is ready, then removes it
+// so it never intercepts pointer events or stays in the a11y tree.
+function hidePoster() {
+	if (!posterEl) return;
+	posterEl.classList.add('is-hidden');
+	setTimeout(() => posterEl.remove(), 500);
+}
+
+// ── Control hint ────────────────────────────────────────────────────────────
+// A one-time discovery affordance: most visitors never realize an embedded
+// avatar is interactive. We show a per-control-mode hint after load and dismiss
+// it on the first real input (or after a timeout) so it never nags.
+let hintDismissed = CONTROLS === 'none'; // non-interactive embeds get no hint
+function maybeShowHint() {
+	if (hintDismissed || !hintEl || !hintTextEl) return;
+	const move = CONTROLS === 'joystick' ? 'Joystick or WASD to move' : 'WASD / arrows to move';
+	const tap = CLICK_TO_MOVE ? ' · tap the ground to walk there' : '';
+	hintTextEl.textContent = `${move} · drag to look${tap}`;
+	hintEl.classList.add('is-visible');
+	clearTimeout(maybeShowHint._t);
+	maybeShowHint._t = setTimeout(dismissHint, 6000);
+}
+function dismissHint() {
+	if (hintDismissed) return;
+	hintDismissed = true;
+	clearTimeout(maybeShowHint._t);
+	if (hintEl) {
+		hintEl.classList.remove('is-visible');
+		setTimeout(() => hintEl.remove(), 400);
 	}
 }
 
@@ -403,6 +463,11 @@ const input = {
 	// Seek target from `walk:goto` — drive toward a world (x,z) then stop within
 	// GOTO_ARRIVE_EPSILON. Cleared by any live input or a new command.
 	seek: { active: false, x: 0, z: 0, run: false },
+	// Idle cursor-glance: the avatar gently turns its body toward the pointer when
+	// standing still, so a hovered embed feels like it noticed you. `targetYaw` is
+	// the desired heading (radians) derived from the cursor's horizontal position;
+	// `active` is true only while the pointer is over the canvas on a hover device.
+	glance: { active: false, targetYaw: 0 },
 	_speedMultiplier: SPEED_PARAM,
 };
 
@@ -428,6 +493,7 @@ if (CONTROLS === 'keyboard' || CONTROLS === 'joystick') {
 			case 'ShiftLeft': case 'ShiftRight': input.keys.run = true; break;
 			default: return;
 		}
+		dismissHint();
 	});
 	window.addEventListener('keyup', (e) => {
 		switch (e.code) {
@@ -458,6 +524,7 @@ if (CONTROLS === 'joystick') {
 			input.joy.x = data.vector.x;
 			input.joy.y = data.vector.y;
 			input.joy.active = Math.hypot(data.vector.x, data.vector.y) > 0.05;
+			if (input.joy.active) dismissHint();
 		}
 	});
 	joystick.on('end', () => {
@@ -557,7 +624,7 @@ async function loadAvatar() {
 	await animationManager.crossfadeTo(CLIP_IDLE, 0.0);
 	currentMotion = 'idle';
 
-	if (AUTOPLAY) {
+	if (AUTOPLAY && !PREFERS_REDUCED_MOTION) {
 		input.autoplay.active = true;
 		input.autoplay.t = 0;
 	}
@@ -567,6 +634,8 @@ async function loadAvatar() {
 	} else {
 		setStatus('walk it');
 	}
+	hidePoster();
+	maybeShowHint();
 	isReady = true;
 	emit(OUTBOUND.READY, { avatarId: currentAvatarId, env: currentEnv, fallback: usedFallback });
 }

@@ -30,7 +30,7 @@ if (!KEY) {
 }
 
 const INVOKE_URL =
-	process.env.NVIDIA_COSMOS_INVOKE_URL || 'https://ai.api.nvidia.com/v1/genai/nvidia/cosmos-predict1-7b';
+	process.env.NVIDIA_COSMOS_INVOKE_URL || 'https://ai.api.nvidia.com/v1/cosmos/nvidia/cosmos-predict1-7b';
 const STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
 
 const args = process.argv.slice(2);
