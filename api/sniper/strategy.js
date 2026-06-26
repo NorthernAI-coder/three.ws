@@ -58,7 +58,7 @@ const STRATEGY_SCHEMA = z.object({
 	// trigger: what arms this strategy.
 	//   new_mint    — snipe new pump.fun launches off the PumpPortal feed (default).
 	//   first_claim — snipe a creator's coin the first time they EVER claim rewards.
-	trigger: z.enum(['new_mint', 'first_claim', 'intel_confirmed', 'prelaunch_radar']).optional(),
+	trigger: z.enum(['new_mint', 'first_claim', 'intel_confirmed', 'prelaunch_radar', 'alpha_hunt']).optional(),
 	buy_delay_ms: z.union([z.string(), z.number()]).optional(),
 	// prelaunch_radar gates (null clears)
 	min_creator_graduated_radar: optInt,
@@ -97,6 +97,12 @@ const STRATEGY_SCHEMA = z.object({
 	max_concentration_top1: z.union([z.string(), z.number()]).nullable().optional(),
 	avoid_dev_dump: z.boolean().optional(),
 	allowed_categories: z.array(z.string()).nullable().optional(),
+	// alpha_hunt specific filters (null clears)
+	alpha_min_smart_money: z.number().int().min(0).max(20).optional(),
+	alpha_min_organic_score: z.number().min(0).max(100).optional(),
+	alpha_max_mcap_usd: z.number().min(0).optional(),
+	alpha_narrative_keywords: z.array(z.string()).max(10).optional(),
+	alpha_min_quality_score: z.number().int().min(0).max(100).optional(),
 	// Notifications: personal Telegram chat ID for this strategy's buy/sell alerts.
 	// Must be a numeric chat ID (positive = user/group, negative = supergroup/channel).
 	telegram_chat_id: z.string().regex(/^-?[0-9]+$/).nullable().optional(),
@@ -229,6 +235,11 @@ async function listStrategies(req, res, userId) {
 			avoid_dev_dump: s.avoid_dev_dump ?? true,
 			allowed_categories: s.allowed_categories || null,
 			telegram_chat_id: s.telegram_chat_id || null,
+			alpha_min_smart_money: s.alpha_min_smart_money != null ? Number(s.alpha_min_smart_money) : null,
+			alpha_min_organic_score: s.alpha_min_organic_score != null ? Number(s.alpha_min_organic_score) : null,
+			alpha_max_mcap_usd: s.alpha_max_mcap_usd != null ? Number(s.alpha_max_mcap_usd) : null,
+			alpha_narrative_keywords: s.alpha_narrative_keywords || null,
+			alpha_min_quality_score: s.alpha_min_quality_score != null ? Number(s.alpha_min_quality_score) : null,
 			summary: {
 				open_positions: sum ? Number(sum.open_positions) : 0,
 				closed_positions: sum ? Number(sum.closed_positions) : 0,
@@ -286,6 +297,8 @@ async function upsertStrategy(req, res, userId) {
 		min_quality_score: null, max_bundle_score: null, max_concentration_top1: null,
 		avoid_dev_dump: true, allowed_categories: null,
 		telegram_chat_id: null,
+		alpha_min_smart_money: null, alpha_min_organic_score: null, alpha_max_mcap_usd: null,
+		alpha_narrative_keywords: null, alpha_min_quality_score: null,
 	};
 
 	const next = {
@@ -323,6 +336,11 @@ async function upsertStrategy(req, res, userId) {
 		avoid_dev_dump: p.avoid_dev_dump ?? cur.avoid_dev_dump ?? true,
 		allowed_categories: 'allowed_categories' in p ? (Array.isArray(p.allowed_categories) ? p.allowed_categories.filter(Boolean) : null) : (cur.allowed_categories || null),
 		telegram_chat_id: 'telegram_chat_id' in p ? (p.telegram_chat_id || null) : (cur.telegram_chat_id || null),
+		alpha_min_smart_money: 'alpha_min_smart_money' in p ? (p.alpha_min_smart_money == null ? null : Math.min(20, Math.max(0, Math.round(Number(p.alpha_min_smart_money))))) : (cur.alpha_min_smart_money != null ? Number(cur.alpha_min_smart_money) : null),
+		alpha_min_organic_score: 'alpha_min_organic_score' in p ? (p.alpha_min_organic_score == null ? null : Math.min(100, Math.max(0, Number(p.alpha_min_organic_score)))) : (cur.alpha_min_organic_score != null ? Number(cur.alpha_min_organic_score) : null),
+		alpha_max_mcap_usd: 'alpha_max_mcap_usd' in p ? (p.alpha_max_mcap_usd == null ? null : Math.max(0, Number(p.alpha_max_mcap_usd))) : (cur.alpha_max_mcap_usd != null ? Number(cur.alpha_max_mcap_usd) : null),
+		alpha_narrative_keywords: 'alpha_narrative_keywords' in p ? (Array.isArray(p.alpha_narrative_keywords) ? p.alpha_narrative_keywords.filter(Boolean).slice(0, 10) : null) : (cur.alpha_narrative_keywords || null),
+		alpha_min_quality_score: 'alpha_min_quality_score' in p ? (p.alpha_min_quality_score == null ? null : Math.min(100, Math.max(0, Math.round(Number(p.alpha_min_quality_score))))) : (cur.alpha_min_quality_score != null ? Number(cur.alpha_min_quality_score) : null),
 	};
 
 	// Mandatory stop-loss — never let the DB constraint be the first line of defense.
@@ -353,7 +371,9 @@ async function upsertStrategy(req, res, userId) {
 			 min_oracle_score,
 			 min_creator_graduated_radar, require_smart_money_funder, radar_max_age_ms,
 			 min_quality_score, max_bundle_score, max_concentration_top1,
-			 avoid_dev_dump, allowed_categories, telegram_chat_id, updated_at)
+			 avoid_dev_dump, allowed_categories, telegram_chat_id,
+			 alpha_min_smart_money, alpha_min_organic_score, alpha_max_mcap_usd,
+			 alpha_narrative_keywords, alpha_min_quality_score, updated_at)
 		values
 			(${p.agent_id}, ${userId}, ${p.network}, ${next.enabled}, ${next.kill_switch},
 			 ${next.trigger}, ${next.buy_delay_ms}, ${next.min_claim_lamports}, ${next.max_claim_lamports}, ${next.first_claim_max_age_seconds},
@@ -365,7 +385,9 @@ async function upsertStrategy(req, res, userId) {
 			 ${next.min_oracle_score},
 			 ${next.min_creator_graduated_radar}, ${next.require_smart_money_funder}, ${next.radar_max_age_ms},
 			 ${next.min_quality_score}, ${next.max_bundle_score}, ${next.max_concentration_top1},
-			 ${next.avoid_dev_dump}, ${next.allowed_categories}, ${next.telegram_chat_id}, now())
+			 ${next.avoid_dev_dump}, ${next.allowed_categories}, ${next.telegram_chat_id},
+			 ${next.alpha_min_smart_money}, ${next.alpha_min_organic_score}, ${next.alpha_max_mcap_usd},
+			 ${next.alpha_narrative_keywords}, ${next.alpha_min_quality_score}, now())
 		on conflict (agent_id, network) do update set
 			enabled                  = excluded.enabled,
 			kill_switch              = excluded.kill_switch,
@@ -401,6 +423,11 @@ async function upsertStrategy(req, res, userId) {
 			avoid_dev_dump           = excluded.avoid_dev_dump,
 			allowed_categories       = excluded.allowed_categories,
 			telegram_chat_id         = excluded.telegram_chat_id,
+			alpha_min_smart_money    = excluded.alpha_min_smart_money,
+			alpha_min_organic_score  = excluded.alpha_min_organic_score,
+			alpha_max_mcap_usd       = excluded.alpha_max_mcap_usd,
+			alpha_narrative_keywords = excluded.alpha_narrative_keywords,
+			alpha_min_quality_score  = excluded.alpha_min_quality_score,
 			updated_at               = now()
 		returning *
 	`;
@@ -444,6 +471,11 @@ async function upsertStrategy(req, res, userId) {
 			avoid_dev_dump: row.avoid_dev_dump ?? true,
 			allowed_categories: row.allowed_categories || null,
 			telegram_chat_id: row.telegram_chat_id || null,
+			alpha_min_smart_money: row.alpha_min_smart_money != null ? Number(row.alpha_min_smart_money) : null,
+			alpha_min_organic_score: row.alpha_min_organic_score != null ? Number(row.alpha_min_organic_score) : null,
+			alpha_max_mcap_usd: row.alpha_max_mcap_usd != null ? Number(row.alpha_max_mcap_usd) : null,
+			alpha_narrative_keywords: row.alpha_narrative_keywords || null,
+			alpha_min_quality_score: row.alpha_min_quality_score != null ? Number(row.alpha_min_quality_score) : null,
 		},
 	});
 }

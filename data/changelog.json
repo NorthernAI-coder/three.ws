@@ -3,6 +3,23 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Agent Payment Sessions — governed x402 spend without private keys",
+			"summary": "Agents can now pay x402 APIs without holding a private key. Create a Payment Session with a budget (drawn from credits), hand the token to an agent, and the platform signs every Solana USDC transfer. Five governance checks fire before any money moves: token auth, session status, URL allowlist, per-tx ceiling, and atomic budget reservation. Sessions expire automatically; un-spent budget is refunded on cancel. Also ships: a /payments dashboard to manage sessions and view payment history, and the @three-ws/agentcore-payments-mcp MCP server with create_payment_session, pay_with_session, check_payment_session, list_payment_sessions, and cancel_payment_session tools.",
+			"tags": [
+				"feature",
+				"sdk"
+			],
+			"link": "/payments"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "4 new agent capabilities: Alpha Hunt, Coin Launcher, Creator Auto-Claim, and Market Maker",
+			"summary": "Agents can now do a lot more. Alpha Hunt is a new strategy trigger that scores coins using smart-money signals, organic growth patterns, quality scores, and narrative keywords — finding undervalued gems before they move. Coin Launcher lets an agent autonomously launch coins on pump.fun on a schedule, with configurable metadata templates, initial dev buys, and Telegram notifications. Creator Auto-Claim watches your agent's launched coins and automatically claims creator fees when they exceed a configurable threshold, with optional reinvestment into the sniper buy budget. Market Maker uses Jito-accelerated execution to provide liquidity on any pump.fun coin, placing buy and sell orders in a configured spread band to capture the spread. All four capabilities are wired into the agent-sniper worker and configurable from the agent edit page.",
+			"tags": ["feature"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Oracle activity data across every surface — 8 pages now show live win rates, agents armed, and platform stats",
 			"summary": "Live oracle data now reaches every major page visitors touch: the Pump Dashboard oracle panel has a 5-cell stats header (armed agents, scored 24h, win rate, open trades, best ATH); the Activity page gains three new KPIs (prime coins, strong coins, all-time scored) bringing its count to 9; every agent detail page shows a platform context bar (agents live, platform win rate, oracle wins, scored today); Coin Intel gets a live oracle strip at the top; Alpha Co-pilot shows agents armed, scored today, win rate, and total wins as social proof; the Leaderboard summary adds oracle win rate and scored today to its header strip; the Oracle page statline gains open trades and total wins cells; the dashboard-next Oracle card now shows strong count and total wins; and the Analytics modal during agent creation shows a live oracle trading stats row alongside the platform metrics.",
 			"tags": ["improvement", "feature"],

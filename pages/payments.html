@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash */(function(){document.documentElement.classList.add('js');try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<title>Agent Payment Sessions · three.ws</title>
+		<meta name="description" content="Create budget-limited payment sessions for AI agents. No private keys needed — agents pay x402 endpoints with platform governance enforcing spend limits, URL allowlists, and expiry." />
+		<meta name="robots" content="noindex" />
+		<link rel="canonical" href="https://three.ws/payments" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/mobile.css" />
+		<style>
+			.pay-wrap { max-width: 1040px; margin: 0 auto; padding: clamp(1.25rem, 4vw, 3rem) 1.25rem 4rem; }
+			.pay-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+			.pay-head h1 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); margin: 0 0 0.3rem; letter-spacing: -0.02em; }
+			.pay-head p { margin: 0; color: var(--text-secondary, #9aa3b2); max-width: 58ch; line-height: 1.55; font-size: 15px; }
+
+			/* Stats row */
+			.pay-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+			.pay-stat { border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 1.1rem 1.25rem; background: rgba(10,10,10,0.7); }
+			.pay-stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.45); font-weight: 600; margin-bottom: 0.5rem; }
+			.pay-stat .value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+			.pay-stat .value.green { color: #2fbf71; }
+			.pay-stat .value.purple { color: #a78bfa; }
+			.pay-stat .sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 0.2rem; }
+
+			/* Toolbar */
+			.pay-toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+			.pay-filter { display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; }
+			.pay-filter button { font: inherit; font-size: 13px; font-weight: 500; padding: 8px 14px; background: transparent; border: none; color: rgba(255,255,255,0.55); cursor: pointer; transition: color .15s, background .15s; }
+			.pay-filter button:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06); }
+			.pay-filter button.active { color: #fff; background: rgba(255,255,255,0.12); }
+			.btn-new { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 10px; border: none; background: var(--accent, #7c5cff); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity .15s; margin-left: auto; }
+			.btn-new:hover { opacity: 0.85; }
+			.btn-new:disabled { opacity: 0.5; cursor: default; }
+
+			/* Session cards */
+			.pay-list { display: flex; flex-direction: column; gap: 1rem; }
+			.sess-card { border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; background: rgba(10,10,10,0.8); overflow: hidden; transition: border-color .2s; }
+			.sess-card:hover { border-color: rgba(255,255,255,0.22); }
+			.sess-card-head { display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.25rem; cursor: pointer; }
+			.sess-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; }
+			.sess-badge.active { background: rgba(47,191,113,0.18); color: #2fbf71; border: 1px solid rgba(47,191,113,0.3); }
+			.sess-badge.exhausted { background: rgba(240,169,59,0.15); color: #f0a93b; border: 1px solid rgba(240,169,59,0.28); }
+			.sess-badge.expired { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.12); }
+			.sess-badge.cancelled { background: rgba(255,80,80,0.1); color: #ff6b6b; border: 1px solid rgba(255,80,80,0.2); }
+			.sess-label { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.sess-amounts { display: flex; align-items: center; gap: 1.5rem; font-variant-numeric: tabular-nums; font-size: 14px; }
+			.sess-remaining { font-weight: 700; font-size: 16px; }
+			.sess-remaining.green { color: #2fbf71; }
+			.sess-remaining.yellow { color: #f0a93b; }
+			.sess-remaining.grey { color: rgba(255,255,255,0.35); }
+			.sess-budget-dim { color: rgba(255,255,255,0.4); font-size: 13px; }
+			.sess-expand { font-size: 18px; color: rgba(255,255,255,0.3); transition: transform .2s; }
+			.sess-card.open .sess-expand { transform: rotate(180deg); }
+
+			/* Budget bar */
+			.sess-bar-wrap { padding: 0 1.25rem; }
+			.sess-bar-track { height: 5px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
+			.sess-bar-fill { height: 100%; border-radius: 99px; transition: width .4s; }
+			.sess-bar-fill.green { background: linear-gradient(90deg, #2fbf71, #52e89a); }
+			.sess-bar-fill.yellow { background: linear-gradient(90deg, #f0a93b, #ffd280); }
+			.sess-bar-fill.red { background: linear-gradient(90deg, #ff5050, #ff8f70); }
+
+			/* Expanded detail */
+			.sess-detail { display: none; padding: 1.1rem 1.25rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); }
+			.sess-card.open .sess-detail { display: block; }
+			.sess-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem 1.5rem; margin-bottom: 1rem; font-size: 13px; }
+			.sess-meta-item .k { color: rgba(255,255,255,0.45); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+			.sess-meta-item .v { font-weight: 500; word-break: break-all; }
+			.sess-meta-item .v code { font-family: monospace; font-size: 12px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
+
+			/* Executions mini-table */
+			.exec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+			.exec-table th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); font-weight: 600; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.07); text-align: left; }
+			.exec-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
+			.exec-table tr:last-child td { border-bottom: none; }
+			.exec-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; }
+			.exec-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
+			.exec-status.settled::before { background: #2fbf71; }
+			.exec-status.failed::before { background: #ff5050; }
+			.exec-status.pending::before { background: #f0a93b; }
+			.exec-url { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.65); font-family: monospace; font-size: 12px; }
+			.exec-tx a { color: var(--accent, #7c5cff); text-decoration: none; font-family: monospace; font-size: 11px; }
+			.exec-tx a:hover { text-decoration: underline; }
+
+			/* Actions */
+			.sess-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+			.sess-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
+			.sess-btn.cancel { background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.25); color: #ff7070; }
+			.sess-btn.cancel:hover { opacity: 0.75; }
+
+			/* Empty / loading states */
+			.pay-empty { text-align: center; padding: 4rem 1rem; color: rgba(255,255,255,0.5); }
+			.pay-empty h2 { font-size: 1.25rem; color: rgba(255,255,255,0.85); margin: 0 0 0.6rem; }
+			.pay-empty p { margin: 0 0 1.4rem; max-width: 42ch; margin-left: auto; margin-right: auto; line-height: 1.6; }
+			.pay-skel { height: 88px; border-radius: 16px; background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.1), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: payShimmer 1.3s infinite; margin-bottom: 1rem; }
+			@keyframes payShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+			@media (prefers-reduced-motion: reduce) { .pay-skel { animation: none; } }
+
+			/* Create session modal */
+			.modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
+			.modal-bg.show { opacity: 1; pointer-events: auto; }
+			.modal { background: #111; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 1.75rem; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+			.modal h2 { margin: 0 0 0.3rem; font-size: 1.2rem; }
+			.modal .modal-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 1.5rem; }
+			.form-row { margin-bottom: 1.1rem; }
+			.form-row label { display: block; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.65); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+			.form-row input, .form-row select, .form-row textarea { width: 100%; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; transition: border-color .15s; box-sizing: border-box; }
+			.form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--accent, #7c5cff); }
+			.form-row .hint { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 5px; line-height: 1.45; }
+			.form-row select option { background: #1a1a1a; }
+			.modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+			.modal-actions button { flex: 1; font: inherit; font-weight: 600; font-size: 14px; padding: 11px; border-radius: 10px; border: none; cursor: pointer; transition: opacity .15s; }
+			.modal-actions .primary { background: var(--accent, #7c5cff); color: #fff; }
+			.modal-actions .primary:hover { opacity: 0.85; }
+			.modal-actions .primary:disabled { opacity: 0.45; cursor: default; }
+			.modal-actions .secondary { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12); }
+
+			/* Token reveal */
+			.token-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 1rem; margin-top: 1rem; word-break: break-all; font-family: monospace; font-size: 12.5px; color: #a78bfa; }
+			.token-copy { font: inherit; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 7px; border: 1px solid rgba(167,139,250,0.3); background: rgba(167,139,250,0.1); color: #a78bfa; cursor: pointer; margin-top: 0.6rem; }
+			.token-copy:hover { background: rgba(167,139,250,0.18); }
+			.token-warn { display: flex; align-items: flex-start; gap: 0.5rem; background: rgba(240,169,59,0.1); border: 1px solid rgba(240,169,59,0.3); border-radius: 10px; padding: 0.85rem 1rem; font-size: 13px; color: #f3c478; margin-top: 0.75rem; }
+			.token-warn svg { flex-shrink: 0; margin-top: 1px; }
+
+			/* Toast */
+			.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 10px 18px; font-size: 14px; z-index: 2000; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+			.toast.show { opacity: 1; }
+			.toast { opacity: 0; }
+
+			@media (max-width: 640px) {
+				.pay-stats { grid-template-columns: 1fr 1fr; }
+				.sess-amounts { gap: 0.75rem; }
+				.sess-meta { grid-template-columns: 1fr 1fr; }
+			}
+		</style>
+	</head>
+	<body>
+		<a href="#main-content" class="h-skip-link">Skip to main content</a>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main id="main-content" class="pay-wrap">
+			<div class="pay-head">
+				<div>
+					<h1>Agent Payment Sessions</h1>
+					<p>Fund spend envelopes for AI agents. No private key required — agents pay x402 APIs via session token. Governance enforces budget limits, URL allowlists, and expiry.</p>
+				</div>
+			</div>
+
+			<!-- Stats -->
+			<div class="pay-stats" id="payStats">
+				<div class="pay-skel"></div>
+				<div class="pay-skel" style="height:72px"></div>
+				<div class="pay-skel" style="height:72px"></div>
+				<div class="pay-skel" style="height:72px"></div>
+			</div>
+
+			<!-- Toolbar -->
+			<div class="pay-toolbar">
+				<div class="pay-filter" id="filterRow">
+					<button class="active" data-f="all">All</button>
+					<button data-f="active">Active</button>
+					<button data-f="exhausted">Exhausted</button>
+					<button data-f="expired">Expired</button>
+					<button data-f="cancelled">Cancelled</button>
+				</div>
+				<button class="btn-new" id="btnNew">
+					<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+					New Session
+				</button>
+			</div>
+
+			<!-- Session list -->
+			<div id="payList" class="pay-list">
+				<div class="pay-skel"></div>
+				<div class="pay-skel"></div>
+				<div class="pay-skel"></div>
+			</div>
+		</main>
+
+		<!-- Create session modal -->
+		<div class="modal-bg" id="createModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+			<div class="modal" id="modalInner">
+				<h2 id="modalTitle">New Payment Session</h2>
+				<p class="modal-sub">Fund a spend envelope from your credits. The agent uses the returned token — no wallet key needed.</p>
+				<div class="form-row">
+					<label>Budget (USD)</label>
+					<input type="number" id="fBudget" min="0.001" max="1000" step="0.001" value="1.00" />
+					<div class="hint">Drawn from your credit balance. Un-spent budget is refunded on cancel/expiry.</div>
+				</div>
+				<div class="form-row">
+					<label>Label</label>
+					<input type="text" id="fLabel" maxlength="120" placeholder="Research run, data fetch, etc." />
+				</div>
+				<div class="form-row">
+					<label>Expiry</label>
+					<select id="fExpiry">
+						<option value="900">15 minutes</option>
+						<option value="3600" selected>1 hour</option>
+						<option value="21600">6 hours</option>
+						<option value="86400">24 hours</option>
+						<option value="604800">7 days</option>
+					</select>
+				</div>
+				<div class="form-row">
+					<label>Max per transaction (USD, optional)</label>
+					<input type="number" id="fMaxTx" min="0.000001" max="1000" step="0.0001" placeholder="No limit" />
+					<div class="hint">Rejects any single payment above this amount before signing.</div>
+				</div>
+				<div class="form-row">
+					<label>Allowed hosts (optional, comma-separated)</label>
+					<input type="text" id="fHosts" placeholder="api.example.com, data.provider.io" />
+					<div class="hint">If set, the agent can only pay endpoints at these domains. Empty = any host.</div>
+				</div>
+				<div class="form-row">
+					<label>Network</label>
+					<select id="fNetwork">
+						<option value="solana" selected>Solana</option>
+						<option value="base">Base</option>
+					</select>
+				</div>
+
+				<!-- Token reveal (shown after creation) -->
+				<div id="tokenReveal" style="display:none">
+					<div class="token-warn">
+						<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 2L2 17h16L10 2z" stroke="#f0a93b" stroke-width="1.5"/><path d="M10 8v4M10 14.5v.5" stroke="#f0a93b" stroke-width="1.5" stroke-linecap="round"/></svg>
+						This token is shown <strong>once</strong>. Copy it now and set it as <code>PAYMENT_SESSION_TOKEN</code> in your agent.
+					</div>
+					<div class="token-box" id="tokenVal"></div>
+					<button class="token-copy" id="tokenCopyBtn">Copy token</button>
+				</div>
+
+				<div class="modal-actions" id="modalActions">
+					<button class="secondary" id="modalClose">Cancel</button>
+					<button class="primary" id="modalCreate">Create session</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="toast" id="toast"></div>
+
+		<footer><div id="footer-container"></div></footer>
+		<script src="/footer.js"></script>
+
+		<script type="module">
+			const $ = id => document.getElementById(id);
+			let sessions = [];
+			let activeFilter = 'all';
+			let stats = null;
+
+			// ── API helpers ─────────────────────────────────────────
+			async function apiFetch(path, opts = {}) {
+				const res = await fetch(path, {
+					credentials: 'include',
+					headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
+					...opts,
+				});
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) throw Object.assign(new Error(data.message || data.error || `HTTP ${res.status}`), { code: data.code, status: res.status });
+				return data;
+			}
+
+			// ── Toast ───────────────────────────────────────────────
+			function toast(msg, duration = 2800) {
+				const el = $('toast');
+				el.textContent = msg;
+				el.classList.add('show');
+				setTimeout(() => el.classList.remove('show'), duration);
+			}
+
+			// ── Stats render ────────────────────────────────────────
+			function renderStats(s) {
+				const el = $('payStats');
+				el.innerHTML = `
+					<div class="pay-stat">
+						<div class="label">Active</div>
+						<div class="value green">${s.sessions.active}</div>
+						<div class="sub">${s.sessions.exhausted} exhausted</div>
+					</div>
+					<div class="pay-stat">
+						<div class="label">Total budget</div>
+						<div class="value purple">$${s.sessions.total_budget_usd.toFixed(2)}</div>
+						<div class="sub">$${s.sessions.total_spent_usd.toFixed(4)} spent</div>
+					</div>
+					<div class="pay-stat">
+						<div class="label">Payments settled</div>
+						<div class="value">${s.executions.settled}</div>
+						<div class="sub">${s.executions.failed} failed</div>
+					</div>
+					<div class="pay-stat">
+						<div class="label">Unique endpoints</div>
+						<div class="value">${s.executions.unique_endpoints}</div>
+						<div class="sub">$${s.executions.settled_usd.toFixed(4)} moved</div>
+					</div>
+				`;
+			}
+
+			// ── Session card render ─────────────────────────────────
+			function pct(s) {
+				if (!s.budget_usd) return 0;
+				return Math.min(100, (s.spent_usd / s.budget_usd) * 100);
+			}
+
+			function barColor(s) {
+				const p = pct(s);
+				if (p >= 95 || s.status === 'exhausted') return 'red';
+				if (p >= 70) return 'yellow';
+				return 'green';
+			}
+
+			function remainColor(s) {
+				const p = pct(s);
+				if (s.status !== 'active') return 'grey';
+				if (p >= 70) return 'yellow';
+				return 'green';
+			}
+
+			function fmtExpiry(s) {
+				const d = new Date(s.expires_at);
+				const now = new Date();
+				const diff = d - now;
+				if (diff <= 0) return 'Expired';
+				const h = Math.floor(diff / 3600000);
+				const m = Math.floor((diff % 3600000) / 60000);
+				if (h > 48) return `${Math.floor(h/24)}d remaining`;
+				if (h > 0) return `${h}h ${m}m remaining`;
+				return `${m}m remaining`;
+			}
+
+			function fmtDate(iso) {
+				return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+			}
+
+			function renderExecs(execs) {
+				if (!execs || !execs.length) return '<div style="color:rgba(255,255,255,0.35);font-size:13px;padding:8px 0">No payments yet.</div>';
+				return `
+					<table class="exec-table">
+						<thead><tr>
+							<th>Endpoint</th>
+							<th>Amount</th>
+							<th>Status</th>
+							<th>Tx</th>
+							<th>Time</th>
+						</tr></thead>
+						<tbody>
+							${execs.map(e => `
+								<tr>
+									<td><div class="exec-url" title="${escHtml(e.endpoint_url)}">${escHtml(e.endpoint_host)}</div></td>
+									<td style="font-variant-numeric:tabular-nums">$${e.amount_usd.toFixed(6)}</td>
+									<td><span class="exec-status ${e.status}">${e.status}</span></td>
+									<td class="exec-tx">${e.tx_hash ? `<a href="https://solscan.io/tx/${escHtml(e.tx_hash)}" target="_blank" rel="noopener">${e.tx_hash.slice(0,8)}…</a>` : '—'}</td>
+									<td style="color:rgba(255,255,255,0.45);font-size:12px">${fmtDate(e.created_at)}</td>
+								</tr>
+							`).join('')}
+						</tbody>
+					</table>
+				`;
+			}
+
+			function escHtml(s) {
+				return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+			}
+
+			function renderCard(s) {
+				const p = pct(s);
+				const bc = barColor(s);
+				const rc = remainColor(s);
+				const hosts = s.allowed_hosts?.length ? s.allowed_hosts.join(', ') : 'Any host';
+				const maxTx = s.max_per_tx_usd != null ? `$${s.max_per_tx_usd}` : 'No limit';
+				const network = s.network === 'base' ? 'Base' : 'Solana';
+
+				return `
+					<div class="sess-card" data-id="${s.id}">
+						<div class="sess-card-head" role="button" tabindex="0" aria-expanded="false">
+							<span class="sess-badge ${s.status}">${s.status}</span>
+							<span class="sess-label">${escHtml(s.label || 'Unnamed session')}</span>
+							<div class="sess-amounts">
+								<span class="sess-remaining ${rc}">$${s.remaining_usd.toFixed(4)}</span>
+								<span class="sess-budget-dim">/ $${s.budget_usd.toFixed(4)}</span>
+							</div>
+							<span class="sess-expand">⌄</span>
+						</div>
+						<div class="sess-bar-wrap">
+							<div class="sess-bar-track"><div class="sess-bar-fill ${bc}" style="width:${p}%"></div></div>
+						</div>
+						<div class="sess-detail">
+							<div class="sess-meta">
+								<div class="sess-meta-item"><div class="k">Session ID</div><div class="v"><code>${escHtml(s.id.slice(0,13))}…</code></div></div>
+								<div class="sess-meta-item"><div class="k">Spent</div><div class="v">$${s.spent_usd.toFixed(6)}</div></div>
+								<div class="sess-meta-item"><div class="k">Network</div><div class="v">${network}</div></div>
+								<div class="sess-meta-item"><div class="k">Max per tx</div><div class="v">${maxTx}</div></div>
+								<div class="sess-meta-item"><div class="k">Allowed hosts</div><div class="v" style="font-size:12px">${escHtml(hosts)}</div></div>
+								<div class="sess-meta-item"><div class="k">Expiry</div><div class="v">${fmtExpiry(s)}</div></div>
+								<div class="sess-meta-item"><div class="k">Created</div><div class="v">${fmtDate(s.created_at)}</div></div>
+							</div>
+							<div class="exec-section" data-exec-session="${s.id}">
+								<div style="color:rgba(255,255,255,0.35);font-size:13px">Loading payments…</div>
+							</div>
+							${s.status === 'active' ? `
+								<div class="sess-actions">
+									<button class="sess-btn cancel" data-cancel="${s.id}">Cancel &amp; refund</button>
+								</div>
+							` : ''}
+						</div>
+					</div>
+				`;
+			}
+
+			// ── Render session list ─────────────────────────────────
+			function renderList() {
+				const listEl = $('payList');
+				const filtered = activeFilter === 'all' ? sessions : sessions.filter(s => s.status === activeFilter);
+				if (!filtered.length) {
+					listEl.innerHTML = `
+						<div class="pay-empty">
+							<h2>${activeFilter === 'all' ? 'No payment sessions yet' : `No ${activeFilter} sessions`}</h2>
+							<p>Create a session to fund an AI agent's payments from your credits — no private key required.</p>
+							${activeFilter === 'all' ? `<button class="btn-new" onclick="openModal()">New Session</button>` : ''}
+						</div>
+					`;
+					return;
+				}
+				listEl.innerHTML = filtered.map(renderCard).join('');
+
+				// Expand/collapse
+				listEl.querySelectorAll('.sess-card-head').forEach(head => {
+					head.addEventListener('click', () => toggleCard(head.closest('.sess-card')));
+					head.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(head.closest('.sess-card')); } });
+				});
+
+				// Cancel buttons
+				listEl.querySelectorAll('[data-cancel]').forEach(btn => {
+					btn.addEventListener('click', e => { e.stopPropagation(); cancelSession(btn.dataset.cancel); });
+				});
+			}
+
+			async function toggleCard(card) {
+				const wasOpen = card.classList.contains('open');
+				card.classList.toggle('open');
+				const head = card.querySelector('.sess-card-head');
+				head.setAttribute('aria-expanded', card.classList.contains('open') ? 'true' : 'false');
+
+				if (!wasOpen) {
+					const execSection = card.querySelector('.exec-section');
+					const sessionId = execSection?.dataset.execSession;
+					if (sessionId && execSection) {
+						try {
+							const data = await apiFetch(`/api/pay/session/${sessionId}/executions?limit=10`);
+							execSection.innerHTML = renderExecs(data.items);
+						} catch {
+							execSection.innerHTML = '<div style="color:rgba(255,80,80,0.7);font-size:13px">Could not load payments.</div>';
+						}
+					}
+				}
+			}
+
+			async function cancelSession(id) {
+				if (!confirm('Cancel this session? Un-spent budget will be refunded to your credits.')) return;
+				try {
+					const data = await apiFetch(`/api/pay/session/${id}`, { method: 'DELETE' });
+					toast(`Cancelled. $${data.refunded_usd?.toFixed(4) ?? '0'} refunded to credits.`);
+					await load();
+				} catch (err) {
+					toast(err.message || 'Failed to cancel session.');
+				}
+			}
+
+			// ── Load data ───────────────────────────────────────────
+			async function load() {
+				try {
+					const data = await apiFetch('/api/pay/session');
+					sessions = data.items || [];
+					stats = data.stats;
+					if (stats) renderStats(stats);
+					renderList();
+				} catch (err) {
+					if (err.status === 401) {
+						$('payList').innerHTML = `
+							<div class="pay-empty">
+								<h2>Sign in to manage sessions</h2>
+								<p>Payment sessions are account-scoped. Sign in to create and manage them.</p>
+								<a href="/login?r=/payments" class="btn-new" style="display:inline-flex;text-decoration:none">Sign in</a>
+							</div>
+						`;
+						$('payStats').innerHTML = '';
+					} else {
+						$('payList').innerHTML = `<div class="pay-empty"><h2>Could not load sessions</h2><p>${err.message}</p></div>`;
+					}
+				}
+			}
+
+			// ── Filter ──────────────────────────────────────────────
+			$('filterRow').addEventListener('click', e => {
+				const btn = e.target.closest('button[data-f]');
+				if (!btn) return;
+				$('filterRow').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+				btn.classList.add('active');
+				activeFilter = btn.dataset.f;
+				renderList();
+			});
+
+			// ── Create modal ────────────────────────────────────────
+			function openModal() {
+				$('tokenReveal').style.display = 'none';
+				$('modalActions').style.display = 'flex';
+				$('modalCreate').disabled = false;
+				$('modalCreate').textContent = 'Create session';
+				$('createModal').classList.add('show');
+				$('fBudget').focus();
+			}
+
+			window.openModal = openModal;
+
+			$('btnNew').addEventListener('click', openModal);
+			$('modalClose').addEventListener('click', () => {
+				$('createModal').classList.remove('show');
+				load();
+			});
+			$('createModal').addEventListener('click', e => {
+				if (e.target === $('createModal')) { $('createModal').classList.remove('show'); load(); }
+			});
+
+			$('modalCreate').addEventListener('click', async () => {
+				const budget = parseFloat($('fBudget').value);
+				if (!budget || budget <= 0) { toast('Enter a budget amount.'); return; }
+
+				const hostsRaw = $('fHosts').value.trim();
+				const allowed_hosts = hostsRaw ? hostsRaw.split(/[\s,]+/).map(h => h.trim()).filter(Boolean) : [];
+
+				const maxTxRaw = $('fMaxTx').value.trim();
+				const max_per_tx_usd = maxTxRaw ? parseFloat(maxTxRaw) : null;
+
+				$('modalCreate').disabled = true;
+				$('modalCreate').textContent = 'Creating…';
+
+				try {
+					const data = await apiFetch('/api/pay/session', {
+						method: 'POST',
+						body: JSON.stringify({
+							budget_usd: budget,
+							label: $('fLabel').value.trim(),
+							expiry_seconds: parseInt($('fExpiry').value, 10),
+							max_per_tx_usd,
+							allowed_hosts,
+							network: $('fNetwork').value,
+						}),
+					});
+
+					// Show the token
+					$('tokenVal').textContent = data.token;
+					$('tokenReveal').style.display = 'block';
+					$('modalActions').innerHTML = `<button class="secondary" id="modalDone">Done</button>`;
+					$('modalDone').addEventListener('click', () => { $('createModal').classList.remove('show'); load(); });
+
+					$('tokenCopyBtn').addEventListener('click', () => {
+						navigator.clipboard.writeText(data.token).then(() => toast('Token copied to clipboard.')).catch(() => {});
+					});
+
+				} catch (err) {
+					toast(err.message || 'Failed to create session.');
+					$('modalCreate').disabled = false;
+					$('modalCreate').textContent = 'Create session';
+				}
+			});
+
+			load();
+		</script>
+	</body>
+</html>

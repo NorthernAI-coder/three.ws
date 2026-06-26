@@ -1259,6 +1259,14 @@
 					"added": "2026-06-21"
 				},
 				{
+					"path": "/payments",
+					"title": "Agent Payment Sessions",
+					"description": "Create budget-limited payment sessions for AI agents. Governance-enforced spend limits, URL allowlists, and expiry — agents pay x402 APIs without holding a private key.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-06-26"
+				},
+				{
 					"path": "/login",
 					"title": "Sign in",
 					"description": "Sign in with email, GitHub, or a connected wallet.",

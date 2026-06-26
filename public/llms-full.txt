@@ -931,6 +931,12 @@ URL: https://three.ws/credits
 
 Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.
 
+### Agent Payment Sessions
+
+URL: https://three.ws/payments
+
+Create budget-limited payment sessions for AI agents. Governance-enforced spend limits, URL allowlists, and expiry — agents pay x402 APIs without holding a private key.
+
 ### Sign in
 
 URL: https://three.ws/login

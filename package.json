@@ -67,6 +67,7 @@
 		"packages/alerts-mcp",
 		"packages/notifications-mcp",
 		"packages/billing-mcp",
+		"packages/agentcore-payments-mcp",
 		"packages/activity-mcp",
 		"packages/agenc-mcp",
 		"packages/agora-mcp",
