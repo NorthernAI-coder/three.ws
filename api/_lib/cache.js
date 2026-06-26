@@ -112,7 +112,7 @@ const REDIS_CMD_TIMEOUT_MS = 3_000;
 // Net cost of a Redis outage: one "opened" log + one trial per 30s, instead of a
 // 3s-stall-plus-warning on every single request.
 const CIRCUIT_FAIL_THRESHOLD = 5;
-const CIRCUIT_COOLDOWN_MS = 30_000;
+const CIRCUIT_COOLDOWN_MS = 60_000;
 let circuitFailures = 0;
 let circuitOpenUntil = 0; // epoch ms; 0 = closed
 let circuitTrialInFlight = false;
@@ -168,7 +168,7 @@ function circuitRecordFailure() {
 // not open here (GETs are healthy and worth keeping), so the fix is at the log:
 // collapse repeats of the same category to one line per WARN_THROTTLE_MS, with a
 // suppressed-count digest so a sustained outage stays visible without the flood.
-const WARN_THROTTLE_MS = 30_000;
+const WARN_THROTTLE_MS = 60_000;
 const warnState = new Map(); // category -> { lastAt, suppressed }
 
 function warnThrottled(category, message) {

@@ -87,7 +87,9 @@ function unpackExtJobId(extJobId) {
 }
 
 function spaceBaseUrl(slug) {
-	const host = slug.replace(/\//g, '-').toLowerCase();
+	// HF subdomain: lowercase, all non-alphanumeric chars → hyphens.
+	// e.g. tencent/Hunyuan3D-2.1 → tencent-hunyuan3d-2-1.hf.space
+	const host = slug.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
 	return `https://${host}.hf.space`;
 }
 
