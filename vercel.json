@@ -82,6 +82,9 @@
 		"api/cron/reflect-sweep.js": {
 			"maxDuration": 120
 		},
+		"api/cron/payment-session-sweep.js": {
+			"maxDuration": 30
+		},
 		"api/cron/oracle-score.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
@@ -4327,6 +4330,10 @@
 		}
 	],
 	"crons": [
+		{
+			"path": "/api/cron/payment-session-sweep",
+			"schedule": "*/5 * * * *"
+		},
 		{
 			"path": "/api/cron/avaturn-seed-cron",
 			"schedule": "* * * * *"

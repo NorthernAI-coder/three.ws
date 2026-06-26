@@ -9,10 +9,12 @@
 //   - idempotency_key: caller's dedup key (optional, recommended)
 //
 // The platform:
-//   1. Verifies the session token and checks governance (budget, allowlist, per-tx cap)
-//   2. Probes the endpoint for its 402 challenge
-//   3. Reserves the amount from the session budget (atomic, race-safe)
-//   4. Signs the Solana USDC transfer with the platform payer wallet
+//   1. Verifies the session token and reads the session's network preference
+//   2. Probes the endpoint for its 402 challenge, selecting the right network accept
+//   3. Enforces governance (budget, allowlist, per-tx cap) and reserves budget atomically
+//   4. Signs the payment using the platform payer wallet for the session's network:
+//      • solana → Solana USDC SPL transfer (X402_AGENT_SOLANA_SECRET_BASE58)
+//      • base   → EIP-3009 transferWithAuthorization via viem (X402_EVM_AGENT_PRIVATE_KEY)
 //   5. Presents X-PAYMENT header and returns the endpoint's response
 //   6. Records the execution in payment_session_executions
 //   7. On failure, rolls back the budget reservation so the session isn't charged
@@ -41,41 +43,59 @@ import { solanaConnection } from '../_lib/solana/connection.js';
 import {
 	usdToAtomics,
 	atomicsToUsd,
+	verifySessionToken,
 	reserveSessionSpend,
 	rollbackReservation,
 	recordExecution,
 	SpendGovernorError,
 } from '../_lib/pay/spend-governor.js';
+import { createPrivateKeySigner, buildEvmExactPayload } from '../_lib/x402/a2a-client.js';
 
-const USDC_MAINNET_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+// Known USDC mint addresses per network
+const USDC_SOLANA_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const USDC_BASE_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const BASE_CHAIN_ID = 8453; // eip155:8453
+
 const SOLANA_RPC = env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
 const FETCH_TIMEOUT_MS = 20_000;
 
-// ── Platform payer keypair ──────────────────────────────────────────────────
-// Shared with x402-pay.js; loads X402_AGENT_SOLANA_SECRET_BASE58 or falls back
-// to the dev test keypair. This is the wallet that signs session payments on
-// behalf of users — it needs to hold USDC to fund the transfers.
-let _platformKeypair = null;
+// ── Platform payer: Solana ───────────────────────────────────────────────────
+let _solanaKeypair = null;
 
-function loadPlatformKeypair() {
-	if (_platformKeypair) return _platformKeypair;
+function loadSolanaKeypair() {
+	if (_solanaKeypair) return _solanaKeypair;
 	const b58 = process.env.X402_AGENT_SOLANA_SECRET_BASE58;
 	if (b58) {
-		const raw = bs58.decode(b58);
-		_platformKeypair = Keypair.fromSecretKey(raw);
-		return _platformKeypair;
+		_solanaKeypair = Keypair.fromSecretKey(bs58.decode(b58));
+		return _solanaKeypair;
 	}
 	if (process.env.NODE_ENV !== 'production') {
 		try {
 			const arr = JSON.parse(readFileSync('/home/codespace/.config/x402-test-wallets/solana.json', 'utf8'));
-			_platformKeypair = Keypair.fromSecretKey(Uint8Array.from(arr));
-			return _platformKeypair;
+			_solanaKeypair = Keypair.fromSecretKey(Uint8Array.from(arr));
+			return _solanaKeypair;
 		} catch { /* fall through */ }
 	}
-	const e = new Error('Platform payer wallet not configured (set X402_AGENT_SOLANA_SECRET_BASE58)');
+	const e = new Error('Platform Solana payer wallet not configured (set X402_AGENT_SOLANA_SECRET_BASE58)');
 	e.status = 503;
 	e.code = 'wallet_unconfigured';
 	throw e;
+}
+
+// ── Platform payer: EVM ──────────────────────────────────────────────────────
+let _evmSigner = null;
+
+async function loadEvmSigner() {
+	if (_evmSigner) return _evmSigner;
+	const privateKey = process.env.X402_EVM_AGENT_PRIVATE_KEY;
+	if (!privateKey) {
+		const e = new Error('Platform EVM payer wallet not configured (set X402_EVM_AGENT_PRIVATE_KEY)');
+		e.status = 503;
+		e.code = 'wallet_unconfigured';
+		throw e;
+	}
+	_evmSigner = await createPrivateKeySigner(privateKey);
+	return _evmSigner;
 }
 
 // ── SSRF-guarded fetch ──────────────────────────────────────────────────────
@@ -116,11 +136,23 @@ function b64decodeJson(s) {
 	try { return JSON.parse(Buffer.from(String(s), 'base64').toString('utf8')); } catch { return null; }
 }
 
-// ── Probe a 402 endpoint ────────────────────────────────────────────────────
-async function probe402(url, { method, body }) {
+// Classify a network string into 'solana' | 'base' | 'evm' | 'unknown'
+function classifyNetwork(network) {
+	if (!network) return 'unknown';
+	if (typeof network === 'string' && network.startsWith('solana')) return 'solana';
+	if (network === 'eip155:8453' || network === 'base') return 'base';
+	if (/^eip155:\d+$/.test(network)) return 'evm';
+	return 'unknown';
+}
+
+// ── Probe a 402 endpoint and select the best matching accept ────────────────
+// networkPreference: 'solana' | 'base' | 'evm' — used to pick the right
+// accept from the challenge's offers. Falls back to Solana if preferred network
+// isn't available.
+async function probe402(rawUrl, { method, body, networkPreference = 'solana' }) {
 	let res;
 	try {
-		res = await guardedFetch(url, { method, body });
+		res = await guardedFetch(rawUrl, { method, body });
 	} catch (err) {
 		if (err instanceof SsrfError) {
 			throw Object.assign(new Error('Target URL is not a reachable public endpoint'), {
@@ -143,40 +175,87 @@ async function probe402(url, { method, body }) {
 		});
 	}
 
-	const accept = challenge.accepts.find(
-		(a) => typeof a?.network === 'string' && a.network.startsWith('solana'),
-	);
-	if (!accept) {
-		throw Object.assign(new Error('Service has no Solana payment option (only EVM may be supported)'), {
-			status: 422, code: 'no_solana_accept',
-			detail: { networks: [...new Set(challenge.accepts.map((a) => a?.network).filter(Boolean))] },
-		});
-	}
+	// Select the accept that matches the session's network preference.
+	// For Solana: look for a solana:* accept with the known USDC mint.
+	// For Base: look for eip155:8453 with the known USDC address.
+	// If the preferred network isn't available, fail clearly — mixing networks
+	// between session policy and endpoint capability is not allowed.
+	let accept = null;
 
-	// Security: only allow the known Solana USDC mint — no arbitrary SPL tokens
-	if (accept.asset !== USDC_MAINNET_MINT) {
-		throw Object.assign(new Error('Service requested payment in a non-USDC asset; sessions only pay Solana USDC'), {
-			status: 422, code: 'unsupported_asset',
-			detail: { asset: accept.asset, expected: USDC_MAINNET_MINT },
-		});
-	}
-
-	if (!accept.extra?.feePayer) {
-		throw Object.assign(new Error('Service did not advertise a Solana fee payer'), {
-			status: 422, code: 'missing_fee_payer',
-		});
+	if (networkPreference === 'solana') {
+		accept = challenge.accepts.find(
+			(a) => typeof a?.network === 'string' &&
+				a.network.startsWith('solana') &&
+				a.asset === USDC_SOLANA_MINT,
+		);
+		if (!accept) {
+			// Accept any Solana option as fallback (validate asset separately)
+			accept = challenge.accepts.find(
+				(a) => typeof a?.network === 'string' && a.network.startsWith('solana'),
+			);
+		}
+		if (!accept) {
+			throw Object.assign(new Error('Service has no Solana payment option; endpoint may be EVM-only'), {
+				status: 422, code: 'no_solana_accept',
+				detail: { networks: [...new Set(challenge.accepts.map((a) => a?.network).filter(Boolean))] },
+			});
+		}
+		if (accept.asset !== USDC_SOLANA_MINT) {
+			throw Object.assign(new Error(`Service requested payment in a non-USDC asset (${accept.asset})`), {
+				status: 422, code: 'unsupported_asset',
+				detail: { asset: accept.asset, expected: USDC_SOLANA_MINT },
+			});
+		}
+		if (!accept.extra?.feePayer) {
+			throw Object.assign(new Error('Solana 402 challenge is missing feePayer'), {
+				status: 422, code: 'missing_fee_payer',
+			});
+		}
+	} else if (networkPreference === 'base') {
+		accept = challenge.accepts.find(
+			(a) => (a?.network === 'eip155:8453' || a?.network === 'base') &&
+				typeof a?.asset === 'string' &&
+				a.asset.toLowerCase() === USDC_BASE_ADDRESS.toLowerCase(),
+		);
+		if (!accept) {
+			// Fall back to any EVM accept on Base
+			accept = challenge.accepts.find(
+				(a) => a?.network === 'eip155:8453' || a?.network === 'base',
+			);
+		}
+		if (!accept) {
+			throw Object.assign(new Error('Service has no Base/EVM payment option; endpoint may be Solana-only'), {
+				status: 422, code: 'no_evm_accept',
+				detail: { networks: [...new Set(challenge.accepts.map((a) => a?.network).filter(Boolean))] },
+			});
+		}
+		if (accept.asset?.toLowerCase() !== USDC_BASE_ADDRESS.toLowerCase()) {
+			throw Object.assign(new Error(`Service requested payment in a non-USDC EVM asset (${accept.asset})`), {
+				status: 422, code: 'unsupported_asset',
+				detail: { asset: accept.asset, expected: USDC_BASE_ADDRESS },
+			});
+		}
+	} else {
+		// Unknown network preference — try to find any Solana accept first, then any EVM
+		accept = challenge.accepts.find((a) => typeof a?.network === 'string' && a.network.startsWith('solana'))
+			|| challenge.accepts[0];
+		if (!accept) {
+			throw Object.assign(new Error('Service has no recognized payment options'), {
+				status: 422, code: 'no_accept',
+			});
+		}
 	}
 
 	const resource =
 		challenge.resource && typeof challenge.resource === 'object'
 			? challenge.resource
-			: { url: typeof challenge.resource === 'string' ? challenge.resource : url };
+			: { url: typeof challenge.resource === 'string' ? challenge.resource : rawUrl };
 
 	return { challenge, accept, resource };
 }
 
 // ── Build and sign the Solana USDC transfer ─────────────────────────────────
-async function buildPaymentPayload({ accept, buyer, conn, resourceUrl }) {
+async function buildSolanaPayload({ accept, buyer, conn, resourceUrl }) {
 	const mint = new PublicKey(accept.asset);
 	const payTo = new PublicKey(accept.payTo);
 	const feePayer = new PublicKey(accept.extra.feePayer);
@@ -224,6 +303,28 @@ async function buildPaymentPayload({ accept, buyer, conn, resourceUrl }) {
 	};
 }
 
+// ── Build and sign an EVM EIP-3009 transferWithAuthorization ────────────────
+async function buildEvmPayload({ accept, signer, resourceUrl }) {
+	const payload = await buildEvmExactPayload({
+		accept,
+		signer,
+		resource: { url: resourceUrl, mimeType: 'application/json' },
+	});
+	return payload;
+}
+
+// Explorer URL for a given tx hash and network
+function explorerUrl(txHash, network) {
+	if (!txHash) return null;
+	if (typeof network === 'string' && network.startsWith('solana')) {
+		return `https://solscan.io/tx/${txHash}`;
+	}
+	if (network === 'eip155:8453' || network === 'base') {
+		return `https://basescan.org/tx/${txHash}`;
+	}
+	return null;
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', origins: '*' })) return;
@@ -247,7 +348,6 @@ export default wrap(async (req, res) => {
 	const requestBody = method === 'POST' ? body.body ?? null : null;
 	const idempotencyKey = body.idempotency_key ?? null;
 
-	// Validate the URL is reachable (not SSRF)
 	try {
 		validatePublicUrl(targetUrl);
 	} catch {
@@ -256,10 +356,24 @@ export default wrap(async (req, res) => {
 
 	const t0 = Date.now();
 
+	// Phase 0: peek at the session to know the network preference before probing.
+	// This is a read-only lookup — the atomic reservation happens later in phase 3.
+	let sessionPreview;
+	try {
+		sessionPreview = await verifySessionToken(sessionToken);
+	} catch (err) {
+		if (err instanceof SpendGovernorError) {
+			return error(res, err.status, err.code, err.message, err.detail);
+		}
+		throw err;
+	}
+
+	const networkPreference = classifyNetwork(sessionPreview.network) === 'base' ? 'base' : 'solana';
+
 	// Phase 1: probe the endpoint for its 402 challenge
 	let probeResult;
 	try {
-		probeResult = await probe402(targetUrl, { method, body: requestBody });
+		probeResult = await probe402(targetUrl, { method, body: requestBody, networkPreference });
 	} catch (err) {
 		return error(res, err.status ?? 502, err.code ?? 'probe_failed', err.message, err.detail);
 	}
@@ -275,11 +389,11 @@ export default wrap(async (req, res) => {
 		});
 	}
 
-	const { accept, resource, challenge } = probeResult;
+	const { accept, resource } = probeResult;
 	const amountAtomics = BigInt(accept.amount);
 	const amountUsd = atomicsToUsd(amountAtomics);
 
-	// Phase 2: governance enforcement — check session, allowlist, budget
+	// Phase 2: governance enforcement — check session, allowlist, budget (atomic)
 	let sessionRecord, reservationId;
 	try {
 		const reservation = await reserveSessionSpend({
@@ -296,28 +410,50 @@ export default wrap(async (req, res) => {
 		throw err;
 	}
 
-	// Phase 3: load platform payer and sign
-	let keypair;
-	try {
-		keypair = loadPlatformKeypair();
-	} catch (err) {
-		// Roll back — we reserved but can't sign
-		await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
-		return error(res, 503, 'wallet_unconfigured', 'Platform payment wallet is not configured');
-	}
-
-	const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+	// Phase 3: load platform payer and build the signed payment payload
 	let paymentPayload;
-	try {
-		paymentPayload = await buildPaymentPayload({
-			accept,
-			buyer: keypair,
-			conn,
-			resourceUrl: resource.url,
-		});
-	} catch (err) {
-		await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
-		return error(res, 502, 'build_failed', `Failed to build payment: ${err?.message}`);
+	let payerAddress;
+
+	if (networkPreference === 'base') {
+		let signer;
+		try {
+			signer = await loadEvmSigner();
+		} catch (err) {
+			await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
+			return error(res, 503, 'wallet_unconfigured', 'Platform EVM payment wallet is not configured');
+		}
+		payerAddress = signer.address;
+		try {
+			paymentPayload = await buildEvmPayload({
+				accept,
+				signer,
+				resourceUrl: resource.url || targetUrl,
+			});
+		} catch (err) {
+			await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
+			return error(res, 502, 'build_failed', `Failed to build EVM payment: ${err?.message}`);
+		}
+	} else {
+		let keypair;
+		try {
+			keypair = loadSolanaKeypair();
+		} catch (err) {
+			await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
+			return error(res, 503, 'wallet_unconfigured', 'Platform Solana payment wallet is not configured');
+		}
+		payerAddress = keypair.publicKey.toBase58();
+		const conn = solanaConnection({ url: SOLANA_RPC, commitment: 'confirmed' });
+		try {
+			paymentPayload = await buildSolanaPayload({
+				accept,
+				buyer: keypair,
+				conn,
+				resourceUrl: resource.url || targetUrl,
+			});
+		} catch (err) {
+			await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
+			return error(res, 502, 'build_failed', `Failed to build Solana payment: ${err?.message}`);
+		}
 	}
 
 	const xPayment = Buffer.from(JSON.stringify(paymentPayload)).toString('base64');
@@ -332,7 +468,6 @@ export default wrap(async (req, res) => {
 		});
 	} catch (err) {
 		// Network failure AFTER signing — chain state unknown, do NOT roll back.
-		// The wallet may have been debited. Record as 'failed' in the audit log.
 		await recordExecution({
 			sessionId: sessionRecord.id,
 			userId: sessionRecord.user_id,
@@ -341,7 +476,7 @@ export default wrap(async (req, res) => {
 			amountAtomics,
 			network: accept.network,
 			txHash: null,
-			payerAddress: keypair.publicKey.toBase58(),
+			payerAddress,
 			payeeAddress: accept.payTo,
 			status: 'failed',
 			errorCode: 'settle_uncertain',
@@ -355,37 +490,36 @@ export default wrap(async (req, res) => {
 
 	const paidJson = safeJson(paid.text) ?? paid.text;
 	const settled = b64decodeJson(paid.headers.get('x-payment-response'));
-	const txHash = settled?.transaction || null;
-	const payer = settled?.payer || keypair.publicKey.toBase58();
+	const txHash = settled?.transaction || settled?.txHash || null;
+	const payer = settled?.payer || payerAddress;
 	const durationMs = Date.now() - t0;
 
-	// Handle endpoint rejection after payment attempt
-	if (!paid.ok) {
-		if (paid.status === 402) {
-			// Explicit pre-settlement rejection — no funds moved, safe to roll back
-			await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
-			await recordExecution({
-				sessionId: sessionRecord.id,
-				userId: sessionRecord.user_id,
-				endpointUrl: targetUrl,
-				method,
-				amountAtomics,
-				network: accept.network,
-				txHash: null,
-				payerAddress: payer,
-				payeeAddress: accept.payTo,
-				status: 'failed',
-				errorCode: 'payment_rejected',
-				errorMessage: 'Service rejected the payment before settlement',
-				durationMs,
-				idempotencyKey,
-			}).catch(() => {});
-			return error(res, 402, 'payment_rejected',
-				'Service rejected the payment before settlement — budget has been restored.',
-				typeof paidJson === 'object' ? paidJson : null);
-		}
+	// Explicit pre-settlement rejection — no funds moved, safe to roll back
+	if (paid.status === 402) {
+		await rollbackReservation(sessionRecord.id, amountAtomics).catch(() => {});
+		await recordExecution({
+			sessionId: sessionRecord.id,
+			userId: sessionRecord.user_id,
+			endpointUrl: targetUrl,
+			method,
+			amountAtomics,
+			network: accept.network,
+			txHash: null,
+			payerAddress: payer,
+			payeeAddress: accept.payTo,
+			status: 'failed',
+			errorCode: 'payment_rejected',
+			errorMessage: 'Service rejected the payment before settlement',
+			durationMs,
+			idempotencyKey,
+		}).catch(() => {});
+		return error(res, 402, 'payment_rejected',
+			'Service rejected the payment before settlement — budget has been restored.',
+			typeof paidJson === 'object' ? paidJson : null);
+	}
 
-		// Non-402 error after payment — chain state uncertain
+	// Non-402 non-success — chain state uncertain
+	if (!paid.ok) {
 		await recordExecution({
 			sessionId: sessionRecord.id,
 			userId: sessionRecord.user_id,
@@ -435,11 +569,11 @@ export default wrap(async (req, res) => {
 			payer,
 			pay_to: accept.payTo,
 			tx_hash: txHash,
-			explorer: txHash ? `https://solscan.io/tx/${txHash}` : null,
+			explorer: explorerUrl(txHash, accept.network),
 		},
 		session: {
 			id: sessionRecord.id,
-			spent_usd: atomicsToUsd(sessionRecord.spent_usdc),
+			spent_usd: atomicsToUsd(BigInt(sessionRecord.spent_usdc)),
 			remaining_usd: atomicsToUsd(
 				BigInt(sessionRecord.budget_usdc) - BigInt(sessionRecord.spent_usdc),
 			),

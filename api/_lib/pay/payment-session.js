@@ -200,6 +200,39 @@ export async function listPaymentSessions(userId, { status, limit = 20, cursor }
 }
 
 /**
+ * Update mutable fields on an active session.
+ * Only label, allowed_hosts, and max_per_tx_usd can be changed after creation.
+ * Returns the updated session row or null if not found / not owned / not active.
+ */
+export async function updatePaymentSession(sessionId, userId, { label, allowedHosts, maxPerTxUsd } = {}) {
+	const params = { id: sessionId, userId };
+
+	if (label !== undefined) {
+		params.label = String(label).trim().slice(0, MAX_LABEL_LEN);
+	}
+	if (allowedHosts !== undefined) {
+		params.allowedHosts = normalizeAllowedHosts(allowedHosts);
+	}
+	if (maxPerTxUsd !== undefined) {
+		params.maxPerTxAtomics = maxPerTxUsd != null ? usdToAtomics(normalizeMaxPerTx(maxPerTxUsd)).toString() : null;
+	}
+
+	const [row] = await sql`
+		UPDATE payment_sessions
+		SET
+			label = CASE WHEN ${params.label !== undefined}::boolean THEN ${params.label ?? null} ELSE label END,
+			allowed_hosts = CASE WHEN ${params.allowedHosts !== undefined}::boolean THEN ${params.allowedHosts ?? []} ELSE allowed_hosts END,
+			max_per_tx_usdc = CASE WHEN ${params.maxPerTxAtomics !== undefined}::boolean THEN ${params.maxPerTxAtomics ?? null}::bigint ELSE max_per_tx_usdc END,
+			updated_at = now()
+		WHERE id = ${sessionId} AND user_id = ${userId} AND status = 'active'
+		RETURNING id, user_id, agent_id, label, budget_usdc, spent_usdc,
+		          max_per_tx_usdc, allowed_hosts, network, status, expires_at,
+		          session_metadata, created_at, updated_at
+	`;
+	return row ? formatSession(row) : null;
+}
+
+/**
  * Cancel a session. Refunds un-spent budget to the user's credit balance.
  */
 export async function cancelPaymentSession(sessionId, userId) {
