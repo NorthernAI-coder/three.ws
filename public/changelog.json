@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T12:38:26.692Z",
+	"generated_at": "2026-06-26T17:39:27.923Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -449,6 +449,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "three.ws built a 3D AI agent live with IBM",
+			"summary": "three.ws and IBM ran a live build session — \"Building 3D AI Agents Live: From Prompt to Embeddable Agent in Minutes\" — streamed on IBM Cloud on June 24, going from a single sentence to a rigged, talking 3D agent embedded into a web page with one line of HTML, then wired to real tools and live on-chain payments, all against production systems. It marks three.ws as an IBM Business Partner: the agent runtime can run on IBM Granite through watsonx.ai as a first-class brain, with Granite Guardian as a real governance veto before an agent ever sends value, and Granite reachable over MCP and pay-per-use x402. Watch the replay and explore the partnership at /ibm.",
+			"link": "/ibm/hello",
+			"tags": [
+				"feature"
 			]
 		},
 		{
