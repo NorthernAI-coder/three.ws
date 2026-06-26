@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-26T06:43:53.261Z",
+	"generated_at": "2026-06-26T07:12:03.426Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "A stale Arena link no longer dead-ends on a 'not found' screen",
+			"summary": "Opening a shared tournament link after the competition has ended or rolled off used to leave you stranded on a bare 'Tournament not found' page whose only button was a Retry that could never work. Now that case turns into a way forward: a clear explanation plus a live grid of the tournaments running and starting right now, so there's always something to jump into. Genuine connection hiccups (as opposed to a missing tournament) keep a Retry alongside a 'Back to all tournaments' escape hatch. Every tournament page also gets a Share button that copies its link, sets a proper browser-tab title, and scrolls cleanly to the top as you move between views.",
+			"link": "/arena",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "update",

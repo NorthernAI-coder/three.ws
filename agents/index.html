@@ -14,7 +14,7 @@
 		<meta property="og:image" content="https://three.ws/og-image.png" />
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:site" content="@trythreews" />
-		<meta name="theme-color" content="#0a0a0c" />
+		<meta name="theme-color" content="#050505" />
 		<link rel="icon" href="/favicon.ico" sizes="any" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -26,18 +26,17 @@
 		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Agents Index","description":"Browse every public 3D AI agent on three.ws.","url":"https://three.ws/agents","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
 		<style>
 		:root {
-			--bg: #05060c; --panel: rgba(13,15,23,0.72); --panel-solid: #0c0e16; --line: rgba(255,255,255,0.09);
-			--ink: #eaeefa; --muted: #8a92a8; --faint: rgba(255,255,255,0.45);
-			--cyan: #5fe3ff; --violet: #a07bff; --gold: #fbbf24; --up: #34d399; --down: #f87171;
+			--bg: #050505; --panel: rgba(255,255,255,0.03); --panel-solid: #111111; --line: rgba(255,255,255,0.09);
+			--ink: #f6f6f6; --muted: #a8a8a8; --faint: rgba(255,255,255,0.45);
+			--accent: #ffffff;
 			--r: 14px; --r-sm: 9px;
-			--mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, monospace;
+			--mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 		}
 		* { box-sizing: border-box; }
 		html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink);
 			font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 			-webkit-font-smoothing: antialiased; }
-		body { background: radial-gradient(52% 44% at 88% -4%, color-mix(in srgb, var(--violet) 14%, transparent), transparent 68%),
-			radial-gradient(44% 38% at 2% -2%, color-mix(in srgb, var(--cyan) 11%, transparent), transparent 62%), var(--bg); }
+		body { background: radial-gradient(60% 48% at 50% -6%, rgba(255,255,255,0.05), transparent 70%), var(--bg); }
 		a { color: inherit; text-decoration: none; }
 		button { font: inherit; color: inherit; cursor: pointer; }
 		.wrap { max-width: 1200px; margin: 0 auto; padding: 0 18px 90px; }
@@ -45,19 +44,18 @@
 		/* hero */
 		.hero { padding: 40px 0 24px; }
 		.eyebrow { display: inline-flex; align-items: center; gap: 8px; font: 600 12px/1 var(--mono);
-			letter-spacing: .04em; text-transform: uppercase; color: var(--cyan); padding: 6px 12px;
-			border: 1px solid color-mix(in srgb, var(--cyan) 28%, var(--line)); border-radius: 999px;
-			background: color-mix(in srgb, var(--cyan) 8%, transparent); margin-bottom: 18px; }
+			letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 6px 12px;
+			border: 1px solid var(--line); border-radius: 999px;
+			background: rgba(255,255,255,0.04); margin-bottom: 18px; }
 		.hero h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.05; letter-spacing: -0.025em;
 			margin: 0 0 10px; font-weight: 800; }
-		.hero h1 span { background: linear-gradient(100deg, var(--cyan), var(--violet));
-			-webkit-background-clip: text; background-clip: text; color: transparent; }
+		.hero h1 span { color: var(--ink); }
 		.hero p { max-width: 580px; font-size: 15.5px; color: var(--muted); margin: 0 0 22px; }
 		.hero-ctas { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 		.btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px;
 			font-weight: 600; font-size: 14px; border: 1px solid rgba(255,255,255,0.14); transition: all .16s; cursor: pointer; }
-		.btn-primary { background: linear-gradient(135deg, var(--cyan), var(--violet)); border-color: transparent; color: #050610; }
-		.btn-primary:hover { opacity: .88; }
+		.btn-primary { background: var(--accent); border-color: transparent; color: #050505; }
+		.btn-primary:hover { background: rgba(255,255,255,0.88); }
 		.btn-ghost { background: rgba(255,255,255,0.05); color: var(--ink); }
 		.btn-ghost:hover { background: rgba(255,255,255,0.1); }
 
@@ -67,11 +65,11 @@
 		.search-wrap input { width: 100%; background: var(--panel); border: 1px solid var(--line);
 			border-radius: 8px; padding: 9px 14px 9px 36px; font: 14px/1 inherit; color: var(--ink); outline: none;
 			transition: border-color .16s; }
-		.search-wrap input:focus { border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		.search-wrap input:focus { border-color: rgba(255,255,255,0.28); }
 		.search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; stroke: var(--muted); }
 		select.ctrl { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
 			padding: 9px 12px; font: 14px/1 inherit; color: var(--ink); outline: none; cursor: pointer; }
-		select.ctrl:focus { border-color: color-mix(in srgb, var(--cyan) 50%, var(--line)); }
+		select.ctrl:focus { border-color: rgba(255,255,255,0.28); }
 		.count-label { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
 		/* grid */
@@ -81,19 +79,20 @@
 		/* agent card */
 		.ag-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r);
 			padding: 18px; display: flex; flex-direction: column; gap: 12px; transition: border-color .18s, transform .18s; position: relative; overflow: hidden; }
-		.ag-card:hover { border-color: color-mix(in srgb, var(--cyan) 35%, var(--line)); transform: translateY(-2px); }
+		.ag-card:hover { border-color: rgba(255,255,255,0.22); transform: translateY(-2px); }
 		.ag-card-link { position: absolute; inset: 0; z-index: 1; }
 		.ag-top { display: flex; gap: 12px; align-items: flex-start; }
 		.ag-avatar { width: 52px; height: 52px; border-radius: 11px; object-fit: cover;
 			background: rgba(255,255,255,0.07); border: 1px solid var(--line); flex-shrink: 0; }
-		.ag-avatar-fallback { width: 52px; height: 52px; border-radius: 11px; background: linear-gradient(135deg, var(--violet), var(--cyan));
-			display: flex; align-items: center; justify-content: center; font: 800 22px/1 var(--mono); color: #050610; flex-shrink: 0; }
+		.ag-avatar-fallback { width: 52px; height: 52px; border-radius: 11px; background: rgba(255,255,255,0.08);
+			border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
+			font: 800 22px/1 var(--mono); color: var(--ink); flex-shrink: 0; }
 		.ag-meta { min-width: 0; flex: 1; }
 		.ag-name { font-weight: 700; font-size: 15.5px; line-height: 1.2; margin-bottom: 3px;
 			white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.ag-badge-onchain { display: inline-flex; align-items: center; gap: 4px; font: 600 10.5px/1 var(--mono);
-			color: var(--up); padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--up) 12%, transparent);
-			border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
+			color: var(--ink); padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.07);
+			border: 1px solid rgba(255,255,255,0.16); }
 		.ag-desc { font-size: 13px; color: var(--muted); line-height: 1.45;
 			overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 		.ag-footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
@@ -110,7 +109,7 @@
 		/* state */
 		.state { text-align: center; padding: 60px 20px; color: var(--muted); }
 		.state b { display: block; font-size: 17px; color: var(--ink); margin-bottom: 8px; }
-		.state a { color: var(--cyan); }
+		.state a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 
 		/* load more */
 		.load-more-wrap { text-align: center; margin-top: 28px; }

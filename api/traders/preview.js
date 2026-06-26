@@ -36,20 +36,53 @@ export default wrap(async (req, res) => {
 
 	// Build a useful summary even if wallet_reputation doesn't have this wallet
 	// yet (it's scored by the smart-money rollup worker, so new wallets lag).
+	// Every per-coin number traces to a real on-chain trade aggregate in
+	// pump_coin_wallets — buy/sell lamports + base amounts + tx counts + the
+	// observed first/last-seen window — so the wallet dashboard renders deep,
+	// honest analytics with no synthesized values.
 	const coins = (recent || []).map((r) => {
 		const buySol  = r.buy_lamports  != null ? Number(r.buy_lamports)  / LAMPORTS : null;
 		const sellSol = r.sell_lamports != null ? Number(r.sell_lamports) / LAMPORTS : null;
 		const pnlSol  = buySol != null && sellSol != null ? sellSol - buySol : null;
+		// ROI on deployed capital — the canonical "Xx" a trader reads off GMGN.
+		const roi     = buySol != null && sellSol != null && buySol > 0 ? (sellSol - buySol) / buySol : null;
+		const buyCount  = r.buy_count  != null ? Number(r.buy_count)  : 0;
+		const sellCount = r.sell_count != null ? Number(r.sell_count) : 0;
+		// Tokens still held = bought − sold (base units). >0 means an open bag,
+		// so realized PnL alone understates an unclosed winner.
+		const baseBought = r.base_bought != null ? Number(r.base_bought) : null;
+		const baseSold   = r.base_sold   != null ? Number(r.base_sold)   : null;
+		const baseHeld   = baseBought != null && baseSold != null ? Math.max(0, baseBought - baseSold) : null;
+		const holdMs = r.first_seen_at && r.last_seen_at
+			? new Date(r.last_seen_at).getTime() - new Date(r.first_seen_at).getTime()
+			: null;
+		const open = baseHeld != null ? baseHeld > 0 && (baseBought ? baseHeld / baseBought > 0.01 : false) : false;
 		return {
 			mint:        r.mint,
 			symbol:      r.symbol || null,
 			name:        r.name   || null,
 			image_uri:   r.image_uri || null,
 			category:    r.category || null,
+			narrative:   r.narrative || null,
+			quality_score: r.quality_score != null ? Number(r.quality_score) : null,
 			is_creator:  r.is_creator || false,
+			graduated:   r.graduated ?? null,
+			rugged:      r.rugged ?? null,
+			ath_multiple:       r.ath_multiple != null ? Number(r.ath_multiple) : null,
+			last_market_cap_usd: r.last_market_cap_usd != null ? Number(r.last_market_cap_usd) : null,
+			buy_count:   buyCount,
+			sell_count:  sellCount,
+			tx_count:    buyCount + sellCount,
 			buy_sol:     buySol,
 			sell_sol:    sellSol,
 			pnl_sol:     pnlSol,
+			roi:         roi,
+			base_bought: baseBought,
+			base_sold:   baseSold,
+			base_held:   baseHeld,
+			open:        open,
+			hold_ms:     holdMs != null && holdMs >= 0 ? holdMs : null,
+			first_seen_at: r.first_seen_at ? new Date(r.first_seen_at).toISOString() : null,
 			last_seen_at: r.last_seen_at ? new Date(r.last_seen_at).toISOString() : null,
 		};
 	});
@@ -58,6 +91,33 @@ export default wrap(async (req, res) => {
 	const totalSell = coins.reduce((a, c) => a + (c.sell_sol || 0), 0);
 	const wins      = coins.filter((c) => c.pnl_sol != null && c.pnl_sol > 0).length;
 	const losses    = coins.filter((c) => c.pnl_sol != null && c.pnl_sol <= 0).length;
+
+	// ROI distribution buckets — the GMGN "Distribution (Token N)" panel. Each
+	// closed position lands in exactly one bucket by realized return.
+	const closed = coins.filter((c) => c.roi != null && !c.open);
+	const dist = { x5: 0, x2: 0, up: 0, down: 0, rug: 0 };
+	for (const c of closed) {
+		if (c.roi >= 5) dist.x5++;
+		else if (c.roi >= 2) dist.x2++;
+		else if (c.roi >= 0) dist.up++;
+		else if (c.roi >= -0.5) dist.down++;
+		else dist.rug++;
+	}
+
+	// Holding-duration + tx aggregates across the observed window.
+	const holdMsList = coins.map((c) => c.hold_ms).filter((m) => m != null && m > 0);
+	const avgHoldMs = holdMsList.length ? Math.round(holdMsList.reduce((a, b) => a + b, 0) / holdMsList.length) : null;
+	const totalTx   = coins.reduce((a, c) => a + (c.tx_count || 0), 0);
+	const openCount = coins.filter((c) => c.open).length;
+	const creatorCoins = coins.filter((c) => c.is_creator).length;
+
+	// Category mix — what this wallet actually trades.
+	const catMap = new Map();
+	for (const c of coins) {
+		const k = c.category || 'unknown';
+		catMap.set(k, (catMap.get(k) || 0) + 1);
+	}
+	const categories = [...catMap.entries()].map(([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
 
 	const profile = rep ? {
 		coins_traded:      Number(rep.coins_traded)      || 0,
@@ -88,11 +148,22 @@ export default wrap(async (req, res) => {
 		coins,
 		summary: {
 			total_coins: coins.length,
+			closed_coins: closed.length,
+			open_positions: openCount,
+			creator_coins: creatorCoins,
 			wins_in_window:   wins,
 			losses_in_window: losses,
+			win_rate_window: closed.length ? Math.round((closed.filter((c) => c.pnl_sol > 0).length / closed.length) * 1000) / 1000 : null,
 			total_buy_sol:   Math.round(totalBuy  * 1000) / 1000,
 			total_sell_sol:  Math.round(totalSell * 1000) / 1000,
+			total_volume_sol: Math.round((totalBuy + totalSell) * 1000) / 1000,
 			net_pnl_sol:     Math.round((totalSell - totalBuy) * 1000) / 1000,
+			avg_buy_sol:     coins.length ? Math.round((totalBuy  / coins.length) * 1000) / 1000 : 0,
+			avg_sell_sol:    coins.length ? Math.round((totalSell / coins.length) * 1000) / 1000 : 0,
+			total_tx: totalTx,
+			avg_hold_ms: avgHoldMs,
+			distribution: dist,
+			categories,
 		},
 		generated_at: new Date().toISOString(),
 	}, { 'Cache-Control': 'public, max-age=120, stale-while-revalidate=300' });

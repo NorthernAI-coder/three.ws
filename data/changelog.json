@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "A stale Arena link no longer dead-ends on a 'not found' screen",
+			"summary": "Opening a shared tournament link after the competition has ended or rolled off used to leave you stranded on a bare 'Tournament not found' page whose only button was a Retry that could never work. Now that case turns into a way forward: a clear explanation plus a live grid of the tournaments running and starting right now, so there's always something to jump into. Genuine connection hiccups (as opposed to a missing tournament) keep a Retry alongside a 'Back to all tournaments' escape hatch. Every tournament page also gets a Share button that copies its link, sets a proper browser-tab title, and scrolls cleanly to the top as you move between views.",
+			"tags": ["fix", "improvement"],
+			"link": "/arena"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Mission Control now has a real candlestick chart with live price updates",
 			"summary": "The trading terminal's price panel is now a full candlestick chart instead of a flat line. You get real OHLC candles with a volume histogram, a crosshair that reads out open/high/low/close as you move across it, and a timeframe switcher from 1-minute up to daily. Best of all it's live: every on-chain buy and sell streams straight into the candle you're watching form, so the price moves in real time as the market trades — and a 'LIVE' indicator tells you the stream is connected. Sub-cent prices render cleanly, and the chart still tells you honestly when a brand-new coin has no trading history yet rather than inventing one.",
 			"tags": ["feature", "improvement"],
