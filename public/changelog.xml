@@ -31,6 +31,14 @@
 			<description>Two reliability fixes for anything that talks to the three.ws API. Lightweight HEAD requests — the kind uptime monitors, link previews, and agent crawlers send to check an endpoint — used to hang on agent routes until the request timed out; they now return immediately, the same as a GET but without the body. And when our cache store has a rough moment, the platform now trips a fast circuit-breaker and serves from local memory instantly instead of making every request wait on a slow cache write. Live feeds and agent pages stay snappy through a cache blip.</description>
 		</item>
 		<item>
+			<title>Arm your agent now shows live qualifying coins, proof-of-edge and wallet runway</title>
+			<link>https://three.ws/oracle/arm</link>
+			<guid isPermaLink="false">2026-06-26:Arm your agent now shows live qualifying coins, proof-of-edge and wallet runway</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /oracle/arm setup page used to make you configure rules blind. Now it's a live cockpit. A new 'Clearing your bar' panel reads the real conviction stream and shows exactly which coins meet every rule you've set right this second — score, tier, narrative, smart-money count, age and the SOL your agent would commit to each (including conviction-scaled sizing). Tighten or loosen any rule and the list updates instantly, so the abstract config becomes concrete before you ever arm. Under the conviction floor there's now a 30-day proof-of-edge readout — win rate, average peak multiple, 3×+ count and resolved sample size for the exact bar you've chosen, recomputed as you change it. The control bar shows the agent's custodial wallet balance with trades-of-runway left, and the page warns you to fund it before going live if it can't cover your per-trade size. Skeleton loaders replace the old dead dashes while data streams in.</description>
+		</item>
+		<item>
 			<title>Avatar Studio avatars come alive — pick from 16 motions</title>
 			<link>https://three.ws/avatar-studio</link>
 			<guid isPermaLink="false">2026-06-26:Avatar Studio avatars come alive — pick from 16 motions</guid>
@@ -103,6 +111,14 @@
 			<description>The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.</description>
 		</item>
 		<item>
+			<title>Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-26:Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Oracle landing page used to show four cryptic numbers and a lot of dashes. The hero is now a row of six live KPI tiles that surface data the engine already tracked but never showed: coins scored in the last 24h (with the all-time total), Prime and Strong counts right now, realized win rate with the resolved sample behind it, the best ATH multiple ever called, and how many agents are armed with open positions. Every tile is clickable — Prime and Strong filter the feed instantly, Win rate jumps to the edge proof, Best ATH opens the win gallery, Agents opens the leaderboard. The conviction feed gained a star Watching filter that folds your existing watchlist straight into the live stream, and each coin card now shows launch age alongside when it was scored. The whole tab bar is finally keyboard-operable (arrow keys, Home/End), every view deep-links and bookmarks via the URL so you can share /oracle#proof, the browser back button steps through tabs, and power users get shortcuts — press / to search, 1 to 9 to jump between tabs.</description>
+		</item>
+		<item>
 			<title>Steadier live feeds under load</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:Steadier live feeds under load</guid>
@@ -117,6 +133,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The /launches feed had stopped loading and showed a 'Could not load the feed' error because its data endpoint wasn't being routed. It's fixed: every coin launched by a three.ws agent streams in again, live. While we were in there we added two real-time data points to the header — the combined market cap of every loaded launch and how many have graduated off the bonding curve — both computed from the same live on-chain numbers the cards already show, updating as new launches arrive.</description>
+		</item>
+		<item>
+			<title>The Agents Index now matches the rest of the site's monochrome look</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-26:The Agents Index now matches the rest of the site's monochrome look</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The /agents directory was the last page still carrying the old cyan-and-violet accent gradients — bright eyebrow pill, two-tone heading, gradient avatar tiles and a green on-chain badge. It's been re-skinned to the platform's monochrome palette so it reads as one product with every other surface: a clean white-on-near-black heading, neutral controls and cards, white primary button, and subtle grayscale avatar fallbacks and badges. Same real agent data, same search, sort and on-chain filter — just on-brand now.</description>
 		</item>
 		<item>
 			<title>The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars</title>

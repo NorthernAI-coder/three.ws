@@ -66,7 +66,7 @@ function normalizeRow(r, kind) {
 			rank: r.rank,
 			pnl_sol: r.realized_pnl_sol,
 			pnl_usd: r.realized_pnl_usd,
-			win_pct: r.win_rate != null ? Number(r.win_rate) : null, // already 0–100
+			win_pct: r.win_rate != null ? Number(r.win_rate) * 100 : null, // API sends a 0–1 fraction
 			trades: r.trades ?? null,
 			open: 0,
 			image: '',

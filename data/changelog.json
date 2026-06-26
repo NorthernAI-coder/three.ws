@@ -3,6 +3,34 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Agent Activity is now a live trading floor — Conviction Board rail, richer trade detail and a real KPI bar that never shows an empty void",
+			"summary": "The /activity page used to go blank whenever no agent had traded recently. It no longer does. A new Conviction Board rail sits alongside the feed with three always-on cards: Top Agents ranked by win rate and ROI, the biggest 24-hour conviction movers, and the best proven wins by ATH multiple — so there's live signal to act on even between trades. An insight strip surfaces the single standout in each. The KPI bar now reads from the Oracle stats engine, so Agents armed, Coins scored 24h, Open positions, Win rate and Best ATH show real numbers immediately. Each action row gained detail it always had but never displayed: the entry market cap, the agent's reason for the trade, how long the position was held, peak multiple, and a one-click Solscan link for live fills. Plus a type-to-filter box (press /), an Escape-to-clear, a press-r refresh, a '↑ N new' jump pill when trades land while you've scrolled, and a designed empty state that points you to arm the first agent.",
+			"tags": ["feature", "improvement"],
+			"link": "/activity"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control",
+			"summary": "The Oracle landing page used to show four cryptic numbers and a lot of dashes. The hero is now a row of six live KPI tiles that surface data the engine already tracked but never showed: coins scored in the last 24h (with the all-time total), Prime and Strong counts right now, realized win rate with the resolved sample behind it, the best ATH multiple ever called, and how many agents are armed with open positions. Every tile is clickable — Prime and Strong filter the feed instantly, Win rate jumps to the edge proof, Best ATH opens the win gallery, Agents opens the leaderboard. The conviction feed gained a star Watching filter that folds your existing watchlist straight into the live stream, and each coin card now shows launch age alongside when it was scored. The whole tab bar is finally keyboard-operable (arrow keys, Home/End), every view deep-links and bookmarks via the URL so you can share /oracle#proof, the browser back button steps through tabs, and power users get shortcuts — press / to search, 1 to 9 to jump between tabs.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Arm your agent now shows live qualifying coins, proof-of-edge and wallet runway",
+			"summary": "The /oracle/arm setup page used to make you configure rules blind. Now it's a live cockpit. A new 'Clearing your bar' panel reads the real conviction stream and shows exactly which coins meet every rule you've set right this second — score, tier, narrative, smart-money count, age and the SOL your agent would commit to each (including conviction-scaled sizing). Tighten or loosen any rule and the list updates instantly, so the abstract config becomes concrete before you ever arm. Under the conviction floor there's now a 30-day proof-of-edge readout — win rate, average peak multiple, 3×+ count and resolved sample size for the exact bar you've chosen, recomputed as you change it. The control bar shows the agent's custodial wallet balance with trades-of-runway left, and the page warns you to fund it before going live if it can't cover your per-trade size. Skeleton loaders replace the old dead dashes while data streams in.",
+			"tags": ["feature", "improvement"],
+			"link": "/oracle/arm"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "The Agents Index now matches the rest of the site's monochrome look",
+			"summary": "The /agents directory was the last page still carrying the old cyan-and-violet accent gradients — bright eyebrow pill, two-tone heading, gradient avatar tiles and a green on-chain badge. It's been re-skinned to the platform's monochrome palette so it reads as one product with every other surface: a clean white-on-near-black heading, neutral controls and cards, white primary button, and subtle grayscale avatar fallbacks and badges. Same real agent data, same search, sort and on-chain filter — just on-brand now.",
+			"tags": ["improvement"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Claim Wallet is now a full Wallet Intelligence dashboard",
 			"summary": "Paste any Solana address and /claim-wallet now reads its complete pump.fun record like a pro terminal: realized P&L in SOL and live USD, win rate, smart-money score with a gauge, total volume, and a real micro equity-curve sparkline. Below that, a trade-analysis panel (net flow, average buy/sold, hold time, transaction count), a reputation panel (early-entry win rate, dump rate, dumps, coins created), an ROI distribution bar that buckets every closed position from >5× down to rugs, and a category mix of what the wallet actually trades. The centerpiece is a full sortable trade ledger — realized P&L, ROI with an inline bar, bought/sold, buy/sell transaction counts, hold duration and last activity per coin — and every row opens that coin's complete launch page with its live chart, holders and bubblemap. 7D / 30D / All-time toggles, instant filters (hide dust, open positions only, created coins), copy address, share, and a one-click signature-verified claim are all wired. Every number traces to a real on-chain trade — no placeholders.",
 			"tags": ["feature", "improvement"],

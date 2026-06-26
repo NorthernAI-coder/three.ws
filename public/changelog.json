@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T07:19:38.641Z",
+	"generated_at": "2026-06-26T07:22:36.416Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -37,6 +37,17 @@
 			"tags": [
 				"fix",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Arm your agent now shows live qualifying coins, proof-of-edge and wallet runway",
+			"summary": "The /oracle/arm setup page used to make you configure rules blind. Now it's a live cockpit. A new 'Clearing your bar' panel reads the real conviction stream and shows exactly which coins meet every rule you've set right this second — score, tier, narrative, smart-money count, age and the SOL your agent would commit to each (including conviction-scaled sizing). Tighten or loosen any rule and the list updates instantly, so the abstract config becomes concrete before you ever arm. Under the conviction floor there's now a 30-day proof-of-edge readout — win rate, average peak multiple, 3×+ count and resolved sample size for the exact bar you've chosen, recomputed as you change it. The control bar shows the agent's custodial wallet balance with trades-of-runway left, and the page warns you to fund it before going live if it can't cover your per-trade size. Skeleton loaders replace the old dead dashes while data streams in.",
+			"link": "/oracle/arm",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -138,6 +149,17 @@
 		{
 			"date": "2026-06-26",
 			"type": "update",
+			"title": "Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control",
+			"summary": "The Oracle landing page used to show four cryptic numbers and a lot of dashes. The hero is now a row of six live KPI tiles that surface data the engine already tracked but never showed: coins scored in the last 24h (with the all-time total), Prime and Strong counts right now, realized win rate with the resolved sample behind it, the best ATH multiple ever called, and how many agents are armed with open positions. Every tile is clickable — Prime and Strong filter the feed instantly, Win rate jumps to the edge proof, Best ATH opens the win gallery, Agents opens the leaderboard. The conviction feed gained a star Watching filter that folds your existing watchlist straight into the live stream, and each coin card now shows launch age alongside when it was scored. The whole tab bar is finally keyboard-operable (arrow keys, Home/End), every view deep-links and bookmarks via the URL so you can share /oracle#proof, the browser back button steps through tabs, and power users get shortcuts — press / to search, 1 to 9 to jump between tabs.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
 			"title": "Steadier live feeds under load",
 			"summary": "The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes.",
 			"link": null,
@@ -155,6 +177,16 @@
 			"tags": [
 				"fix",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "The Agents Index now matches the rest of the site's monochrome look",
+			"summary": "The /agents directory was the last page still carrying the old cyan-and-violet accent gradients — bright eyebrow pill, two-tone heading, gradient avatar tiles and a green on-chain badge. It's been re-skinned to the platform's monochrome palette so it reads as one product with every other surface: a clean white-on-near-black heading, neutral controls and cards, white primary button, and subtle grayscale avatar fallbacks and badges. Same real agent data, same search, sort and on-chain filter — just on-brand now.",
+			"link": "/agents",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
