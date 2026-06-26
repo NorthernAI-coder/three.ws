@@ -4,7 +4,8 @@
  * The center cockpit. When a coin is selected anywhere (feed row, position, or
  * keyboard), this pane fuses everything three.ws knows about it:
  *   • identity + market stats (GET /api/pump/coin)
- *   • a real price sparkline (GET /api/pump/price-history — never fabricated)
+ *   • a real candlestick chart (price-history OHLCV + the live trade firehose,
+ *     folded into the forming candle — never fabricated; see ./chart.js)
  *   • the intel breakdown (organic vs bundle, risk flags, verdict)
  *   • the firewall safety verdict (reused createSafetyPanel → /api/pump/safety)
  *   • smart-money flow (GET /api/intel/smart-money)
@@ -16,6 +17,7 @@
  */
 
 import { createSafetyPanel } from '../shared/safety-panel.js';
+import { mountPriceChart } from './chart.js';
 import { buy, sell, quote } from './trade.js';
 import {
 	escapeHtml,
@@ -24,7 +26,6 @@ import {
 	formatCompactUsd,
 	formatCompact,
 	ageFrom,
-	formatPct,
 	explorerAddressUrl,
 	formatSol,
 } from './format.js';
@@ -48,6 +49,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 	let currentMint = null;
 	let seq = 0;
 	let safety = null;
+	let chart = null;
 	let buyDisabled = false;
 	let coinDetail = null;
 	let quoteTimer = null;
@@ -57,6 +59,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 	function showIdle() {
 		currentMint = null;
 		teardownSafety();
+		teardownChart();
 		body.innerHTML = `
 			<div class="mc-empty">
 				<div class="mc-empty-ico" aria-hidden="true">⌖</div>
@@ -67,6 +70,10 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 
 	function teardownSafety() {
 		if (safety) { safety.destroy(); safety = null; }
+	}
+
+	function teardownChart() {
+		if (chart) { chart.destroy(); chart = null; }
 	}
 
 	function load(mint) {
@@ -87,10 +94,6 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 			coinDetail = coin;
 			updateHead(store.getRow(mint) || row);
 		});
-		fetchSpark(mint).then((pts) => {
-			if (mySeq !== seq) return;
-			renderSpark(pts);
-		});
 	}
 
 	async function fetchCoin(mint) {
@@ -101,18 +104,6 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		} catch { return null; }
 	}
 
-	async function fetchSpark(mint) {
-		try {
-			const to = Math.floor(Date.now() / 1000);
-			const from = to - 6 * 3600;
-			const r = await fetch(`/api/pump/price-history?mint=${encodeURIComponent(mint)}&interval=5m&from=${from}&to=${to}`, { headers: { accept: 'application/json' } });
-			if (!r.ok) return null;
-			const j = await r.json();
-			const arr = Array.isArray(j?.data) ? j.data : [];
-			return arr.map((d) => Number(d.c)).filter((n) => Number.isFinite(n));
-		} catch { return null; }
-	}
-
 	// ── shell (built once per selection) ────────────────────────────────────────
 	function renderShell(row) {
 		const mint = row.mint;
@@ -120,7 +111,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 			<div class="mc-focus">
 				<div class="mc-focus-head" data-host="head"></div>
 				<div class="mc-stats" data-host="stats"></div>
-				<div class="mc-spark-wrap"><div class="mc-section-h">Price · 6h</div><div data-host="sparkbody" style="color:var(--ink-faint,#666);font-size:.72rem">Loading chart…</div></div>
+				<div class="mc-chart-wrap" data-host="chart"></div>
 				<div data-host="intel"></div>
 				<div data-host="safety"></div>
 				<div data-host="smart"></div>
@@ -129,8 +120,16 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		updateHead(row);
 		updateIntel(row);
 		updateSmart(row);
+		mountChart(mint);
 		mountSafety(mint);
 		mountTrade();
+	}
+
+	function mountChart(mint) {
+		teardownChart();
+		const host = $('[data-host="chart"]');
+		if (!host) return;
+		chart = mountPriceChart({ host, mint });
 	}
 
 	function updateHead(row) {
@@ -297,25 +296,6 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		}, 350);
 	}
 
-	function renderSpark(pts) {
-		const host = $('[data-host="sparkbody"]');
-		if (!host) return;
-		if (!pts || pts.length < 2) { host.textContent = 'No price history yet for this coin.'; return; }
-		const w = 100, h = 36;
-		const min = Math.min(...pts), max = Math.max(...pts);
-		const span = max - min || 1;
-		const step = w / (pts.length - 1);
-		const d = pts.map((p, i) => `${(i * step).toFixed(2)},${(h - ((p - min) / span) * h).toFixed(2)}`).join(' ');
-		const up = pts[pts.length - 1] >= pts[0];
-		const col = up ? 'var(--success,#4ade80)' : 'var(--danger,#f87171)';
-		const change = pts[0] ? ((pts[pts.length - 1] - pts[0]) / pts[0]) * 100 : 0;
-		host.innerHTML = `
-			<svg class="mc-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Price chart, ${formatPct(change)} over 6 hours">
-				<polyline points="${d}" fill="none" stroke="${col}" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
-			</svg>
-			<div class="mc-num" style="margin-top:4px;color:${col};font-size:.74rem">${formatPct(change)} · 6h</div>`;
-	}
-
 	async function doBuy() {
 		if (!currentMint) { return; }
 		await buy({ store, bus, mint: currentMint, solAmount: store.getActiveSize() });
@@ -341,6 +321,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 	return {
 		destroy() {
 			teardownSafety();
+			teardownChart();
 			clearTimeout(quoteTimer);
 			unsubs.forEach((u) => u());
 		},

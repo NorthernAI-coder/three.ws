@@ -125,8 +125,29 @@ const CSS = `
 .mc-stat span { font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); text-transform: uppercase; letter-spacing: .05em; }
 .mc-stat b { font-size: var(--text-md,.8125rem); color: var(--ink-bright,#fff); font-variant-numeric: tabular-nums; }
 .mc-section-h { font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-dim,#888); font-weight: 700; margin: 0 0 8px; }
-.mc-spark { width: 100%; height: 64px; display: block; }
-.mc-spark-wrap { border: 1px solid var(--stroke,rgba(255,255,255,.07)); border-radius: var(--mc-radius); padding: 10px 12px; background: var(--surface-1,rgba(255,255,255,.02)); }
+.mc-chart-wrap { border: 1px solid var(--stroke,rgba(255,255,255,.07)); border-radius: var(--mc-radius); padding: 10px 12px 8px; background: var(--surface-1,rgba(255,255,255,.02)); }
+.mc-chart { display: flex; flex-direction: column; gap: 8px; }
+.mc-chart-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 20px; }
+.mc-chart-legend { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.mc-chart-legend .mc-section-h { margin: 0; }
+.mc-chart-px { font-size: var(--text-md,.8125rem); font-weight: 700; color: var(--ink-bright,#fff); font-variant-numeric: tabular-nums; font-family: var(--font-mono, ui-monospace, monospace); }
+.mc-chart-chg { font-size: var(--text-2xs,.6875rem); font-variant-numeric: tabular-nums; font-weight: 700; }
+.mc-chart-chg.pos { color: var(--success,#4ade80); } .mc-chart-chg.neg { color: var(--danger,#f87171); }
+.mc-chart-ohlc { font-size: var(--text-2xs,.6875rem); color: var(--ink-faint,#666); font-variant-numeric: tabular-nums; font-family: var(--font-mono, ui-monospace, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-chart-ohlc b { color: var(--ink-dim,#999); font-weight: 600; }
+.mc-chart-right { display: flex; align-items: center; gap: 10px; flex: none; }
+.mc-chart-live { display: inline-flex; align-items: center; gap: 5px; font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint,#555); font-weight: 700; transition: color var(--duration-fast,140ms); }
+.mc-chart-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint,#555); transition: background var(--duration-fast,140ms); }
+.mc-chart-live[data-state="on"] { color: var(--success,#4ade80); }
+.mc-chart-live[data-state="on"] .mc-chart-live-dot { background: var(--success,#4ade80); box-shadow: 0 0 6px color-mix(in srgb, var(--success,#4ade80) 70%, transparent); animation: mc-breathe 2.4s ease-in-out infinite; }
+.mc-chart-ivs { display: inline-flex; gap: 2px; background: var(--surface-2,rgba(255,255,255,.04)); border: 1px solid var(--stroke,rgba(255,255,255,.08)); border-radius: var(--radius-sm,6px); padding: 2px; }
+.mc-chart-iv { appearance: none; font: inherit; font-size: var(--text-2xs,.6875rem); font-weight: 600; color: var(--ink-dim,#888); background: transparent; border: 0; border-radius: 4px; padding: 2px 7px; cursor: pointer; transition: color var(--duration-fast,140ms), background var(--duration-fast,140ms); }
+.mc-chart-iv:hover { color: var(--ink,#e8e8e8); }
+.mc-chart-iv[aria-selected="true"] { color: var(--ink-bright,#fff); background: color-mix(in srgb, var(--accent,#7dd3fc) 22%, transparent); }
+.mc-chart-iv:focus-visible { outline: 2px solid var(--accent,#7dd3fc); outline-offset: 1px; }
+.mc-chart-body { position: relative; width: 100%; height: 240px; }
+.mc-chart-canvas { position: absolute; inset: 0; }
+.mc-chart-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-faint,#666); font-size: var(--text-sm,.764rem); pointer-events: none; text-align: center; padding: 0 12px; }
 .mc-smart-bar { height: 8px; border-radius: 999px; background: var(--surface-2,rgba(255,255,255,.06)); overflow: hidden; }
 .mc-smart-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent,#7dd3fc), var(--success,#4ade80)); border-radius: 999px; transition: width var(--duration-base,260ms) var(--ease-out,ease); }
 .mc-smart-wallets { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

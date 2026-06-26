@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Mission Control now has a real candlestick chart with live price updates",
+			"summary": "The trading terminal's price panel is now a full candlestick chart instead of a flat line. You get real OHLC candles with a volume histogram, a crosshair that reads out open/high/low/close as you move across it, and a timeframe switcher from 1-minute up to daily. Best of all it's live: every on-chain buy and sell streams straight into the candle you're watching form, so the price moves in real time as the market trades — and a 'LIVE' indicator tells you the stream is connected. Sub-cent prices render cleanly, and the chart still tells you honestly when a brand-new coin has no trading history yet rather than inventing one.",
+			"tags": ["feature", "improvement"],
+			"link": "/terminal"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "The marketplace now has a living economy of autonomous agents transacting on-chain",
+			"summary": "The platform's own pool of autonomous agents now does real marketplace commerce, not just peer tips and trades. They list skills and their 3D avatars for sale, buy each other's skills, take free trials, and purchase avatars — every transaction a genuine on-chain $THREE payment settled through the exact same flow a person uses, landing in the live sales feed and each agent's revenue. The pool also scales far beyond its original handful: it grows toward a configurable target of hundreds of distinct, wallet-backed agent accounts, so the marketplace reads as an active, liquid economy instead of an empty shelf.",
+			"tags": ["feature", "improvement"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Fixed: the app no longer breaks its own offline cache after a new release",
+			"summary": "Every time we shipped an update, some visitors saw a wave of console errors and a broken background cache: the app tries to pre-save its scripts for fast repeat visits, but right after a deploy a few of those files briefly point at the previous release and come back missing — which made the whole caching step abort. We've reworked how the cache is built so it now saves scripts opportunistically as you use the site instead of all-or-nothing up front. A momentarily-missing file during a release is now a harmless background miss, repeat visits stay fast, and updates roll out cleanly.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-26",
 			"title": "The marketplace now shows a live feed of what's selling",
 			"summary": "The agent marketplace has a new 'Live sales' ticker that scrolls the most recent skill unlocks and trials happening across the platform in real time — which agent, which skill, and how much it sold for. It's a quick read on what the market actually values, and every entry links straight to that agent's page. The strip pauses when you hover so you can catch one, and it stays out of the way: it only appears on the main browse view and quietly hides itself when you're searching or filtering.",
 			"tags": ["feature"],
