@@ -31,6 +31,14 @@
 			<description>The /activity page used to go blank whenever no agent had traded recently. It no longer does. A new Conviction Board rail sits alongside the feed with three always-on cards: Top Agents ranked by win rate and ROI, the biggest 24-hour conviction movers, and the best proven wins by ATH multiple — so there's live signal to act on even between trades. An insight strip surfaces the single standout in each. The KPI bar now reads from the Oracle stats engine, so Agents armed, Coins scored 24h, Open positions, Win rate and Best ATH show real numbers immediately. Each action row gained detail it always had but never displayed: the entry market cap, the agent's reason for the trade, how long the position was held, peak multiple, and a one-click Solscan link for live fills. Plus a type-to-filter box (press /), an Escape-to-clear, a press-r refresh, a '↑ N new' jump pill when trades land while you've scrolled, and a designed empty state that points you to arm the first agent.</description>
 		</item>
 		<item>
+			<title>Agent editor redesigned — one unified page instead of 15 sidebar tabs</title>
+			<link>https://three.ws/agent-edit</link>
+			<guid isPermaLink="false">2026-06-26:Agent editor redesigned — one unified page instead of 15 sidebar tabs</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.</description>
+		</item>
+		<item>
 			<title>Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</title>
 			<link>https://three.ws/alpha-copilot</link>
 			<guid isPermaLink="false">2026-06-26:Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</guid>

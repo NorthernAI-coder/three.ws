@@ -154,6 +154,45 @@ const CSS = `
 .mc-smart-wallets li { display: flex; align-items: center; gap: 8px; font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); }
 .mc-smart-wallets b { color: var(--ink,#e8e8e8); font-variant-numeric: tabular-nums; }
 
+/* ── focus section tabs (Trades / Security / Smart Money) ────────────────── */
+.mc-focus-tabs { display: flex; gap: 2px; background: var(--surface-2,rgba(255,255,255,.04)); border: 1px solid var(--stroke,rgba(255,255,255,.08)); border-radius: 8px; padding: 2px; margin-bottom: 8px; }
+.mc-focus-tab { appearance: none; font: inherit; font-size: var(--text-2xs,.6875rem); font-weight: 600; color: var(--ink-dim,#888); background: transparent; border: 0; border-radius: 5px; padding: 3px 10px; cursor: pointer; transition: color var(--duration-fast,140ms), background var(--duration-fast,140ms); }
+.mc-focus-tab:hover { color: var(--ink,#e8e8e8); }
+.mc-focus-tab[aria-selected="true"] { color: var(--ink-bright,#fff); background: color-mix(in srgb, var(--accent,#7dd3fc) 22%, transparent); }
+.mc-focus-tab:focus-visible { outline: 2px solid var(--accent,#7dd3fc); outline-offset: 1px; }
+.mc-focus-tabpanel[hidden] { display: none; }
+
+/* ── live trades tape ────────────────────────────────────────────────────── */
+.mc-tape-wrap { display: flex; flex-direction: column; min-height: 0; }
+.mc-tape-head { display: grid; grid-template-columns: 36px 44px 62px 1fr 62px 72px; gap: 0 6px; padding: 4px 8px; font-size: var(--text-2xs,.6875rem); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint,#555); border-bottom: 1px solid var(--stroke,rgba(255,255,255,.06)); font-weight: 700; }
+.mc-tape-body { overflow-y: auto; max-height: 220px; display: flex; flex-direction: column; }
+.mc-tape-row { display: grid; grid-template-columns: 36px 44px 62px 1fr 62px 72px; gap: 0 6px; padding: 4px 8px; font-size: var(--text-2xs,.6875rem); font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--stroke,rgba(255,255,255,.04)); transition: background var(--duration-fast,140ms); align-items: center; animation: mc-rowin var(--duration-base,200ms) var(--ease-out,ease); }
+.mc-tape-row:hover { background: var(--surface-1,rgba(255,255,255,.03)); }
+.mc-tape-row--buy { color: var(--ink-dim,#aaa); }
+.mc-tape-row--buy .mc-tape-type a, .mc-tape-row--buy .mc-tape-type { color: var(--success,#4ade80); font-weight: 700; }
+.mc-tape-row--sell .mc-tape-type a, .mc-tape-row--sell .mc-tape-type { color: var(--danger,#f87171); font-weight: 700; }
+.mc-tape-row a { text-decoration: none; color: inherit; }
+.mc-tape-row a:hover { text-decoration: underline; }
+.mc-tape-col-amt { color: var(--ink-dim,#999); }
+.mc-tape-empty { padding: 18px 12px; color: var(--ink-faint,#555); font-size: var(--text-sm,.764rem); text-align: center; }
+
+/* ── token security grid (GMGN-style stats) ──────────────────────────────── */
+.mc-sec-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--stroke,rgba(255,255,255,.07)); border: 1px solid var(--stroke,rgba(255,255,255,.07)); border-radius: var(--mc-radius); overflow: hidden; margin-bottom: 10px; }
+.mc-sec-cell { background: var(--surface-1,rgba(255,255,255,.02)); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.mc-sec-cell span { font-size: var(--text-2xs,.6875rem); color: var(--ink-dim,#888); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-sec-cell b { font-size: var(--text-sm,.764rem); color: var(--ink-bright,#fff); font-variant-numeric: tabular-nums; }
+.mc-sec-cell b.warn { color: var(--warn,#fbbf24); }
+.mc-sec-cell b.danger { color: var(--danger,#f87171); }
+.mc-sec-cell b.ok { color: var(--success,#4ade80); }
+.mc-sec-checks { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.mc-sec-check { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-2xs,.6875rem); padding: 2px 8px; border-radius: var(--radius-pill,999px); font-weight: 600; border: 1px solid transparent; }
+.mc-sec-check--ok { color: var(--success,#4ade80); background: color-mix(in srgb, var(--success,#4ade80) 10%, transparent); border-color: color-mix(in srgb, var(--success,#4ade80) 28%, transparent); }
+.mc-sec-check--warn { color: var(--warn,#fbbf24); background: color-mix(in srgb, var(--warn,#fbbf24) 10%, transparent); border-color: color-mix(in srgb, var(--warn,#fbbf24) 28%, transparent); }
+.mc-sec-check--fail { color: var(--danger,#f87171); background: color-mix(in srgb, var(--danger,#f87171) 10%, transparent); border-color: color-mix(in srgb, var(--danger,#f87171) 28%, transparent); }
+.mc-sec-check--dim { color: var(--ink-faint,#555); background: var(--surface-2,rgba(255,255,255,.04)); border-color: var(--stroke,rgba(255,255,255,.08)); }
+.mc-sec-flags { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.mc-sec-flags li { font-size: var(--text-2xs,.6875rem); color: var(--warn,#fbbf24); background: color-mix(in srgb, var(--warn,#fbbf24) 8%, transparent); border: 1px solid color-mix(in srgb, var(--warn,#fbbf24) 24%, transparent); border-radius: var(--radius-pill,999px); padding: 2px 8px; }
+
 /* ── trade panel ─────────────────────────────────────────────────────────── */
 .mc-trade { border: 1px solid var(--stroke,rgba(255,255,255,.08)); border-radius: var(--radius-lg,14px); background: var(--surface-1,rgba(255,255,255,.025)); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .mc-sizes { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }

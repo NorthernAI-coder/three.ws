@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Agent editor redesigned — one unified page instead of 15 sidebar tabs",
+			"summary": "The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.",
+			"tags": ["improvement"],
+			"link": "/agent-edit"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Infrastructure fixes: 3D forge reliability, cache resilience, and bounty escrow",
 			"summary": "Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.",
 			"tags": ["fix", "infra"]

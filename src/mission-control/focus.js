@@ -6,6 +6,10 @@
  *   • identity + market stats (GET /api/pump/coin)
  *   • a real candlestick chart (price-history OHLCV + the live trade firehose,
  *     folded into the forming candle — never fabricated; see ./chart.js)
+ *   • a live trades tape (SSE + dex-trades polling; newest buys/sells in a
+ *     scrolling table like GMGN's Trades tab — see ./trades-tape.js)
+ *   • a token security grid: top-10 concentration, sniper %, bundler %, risk
+ *     flags, safety checks (NoMint, NoFreeze, LP Burnt) — all real on-chain
  *   • the intel breakdown (organic vs bundle, risk flags, verdict)
  *   • the firewall safety verdict (reused createSafetyPanel → /api/pump/safety)
  *   • smart-money flow (GET /api/intel/smart-money)
@@ -18,6 +22,7 @@
 
 import { createSafetyPanel } from '../shared/safety-panel.js';
 import { mountPriceChart } from './chart.js';
+import { mountTradesTape } from './trades-tape.js';
 import { buy, sell, quote } from './trade.js';
 import {
 	escapeHtml,
@@ -29,6 +34,9 @@ import {
 	explorerAddressUrl,
 	formatSol,
 } from './format.js';
+
+const TABS = ['trades', 'security', 'smart'];
+const TAB_LABELS = { trades: 'Trades', security: 'Security', smart: 'Smart Money' };
 
 export function createFocusPane({ store, bus, enrich, mount }) {
 	mount.classList.add('mc-pane', 'mc-pane--focus');
@@ -50,9 +58,11 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 	let seq = 0;
 	let safety = null;
 	let chart = null;
+	let tape = null;
 	let buyDisabled = false;
 	let coinDetail = null;
 	let quoteTimer = null;
+	let activeTab = 'trades';
 
 	const $ = (sel) => body.querySelector(sel);
 
@@ -60,6 +70,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		currentMint = null;
 		teardownSafety();
 		teardownChart();
+		teardownTape();
 		body.innerHTML = `
 			<div class="mc-empty">
 				<div class="mc-empty-ico" aria-hidden="true">⌖</div>
@@ -71,9 +82,11 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 	function teardownSafety() {
 		if (safety) { safety.destroy(); safety = null; }
 	}
-
 	function teardownChart() {
 		if (chart) { chart.destroy(); chart = null; }
+	}
+	function teardownTape() {
+		if (tape) { tape.destroy(); tape = null; }
 	}
 
 	function load(mint) {
@@ -84,10 +97,11 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		const row = store.getRow(mint) || { mint };
 		coinDetail = null;
 		if (fresh) renderShell(row);
-		else { updateHead(row); updateIntel(row); updateSmart(row); }
+		else { updateHead(row); updateSecurity(row); updateSmart(row); }
 
 		enrich.ensureIntel(mint);
 		enrich.ensureSmart(mint);
+		enrich.ensureSafety(mint, store.getActiveSize());
 
 		fetchCoin(mint).then((coin) => {
 			if (mySeq !== seq) return;
@@ -112,17 +126,41 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 				<div class="mc-focus-head" data-host="head"></div>
 				<div class="mc-stats" data-host="stats"></div>
 				<div class="mc-chart-wrap" data-host="chart"></div>
-				<div data-host="intel"></div>
-				<div data-host="safety"></div>
-				<div data-host="smart"></div>
+				<div class="mc-focus-tabs" role="tablist" data-host="tabs">
+					${TABS.map((t) => `<button class="mc-focus-tab" role="tab" data-tab="${t}" aria-selected="${t === activeTab}">${TAB_LABELS[t]}</button>`).join('')}
+				</div>
+				<div data-host="panel-trades" ${activeTab !== 'trades' ? 'hidden' : ''}></div>
+				<div data-host="panel-security" ${activeTab !== 'security' ? 'hidden' : ''}></div>
+				<div data-host="panel-smart" ${activeTab !== 'smart' ? 'hidden' : ''}></div>
 				<div class="mc-trade" data-host="trade"></div>
 			</div>`;
+
+		// Wire tab clicks
+		$('[data-host="tabs"]').addEventListener('click', (e) => {
+			const btn = e.target.closest('[data-tab]');
+			if (!btn) return;
+			switchTab(btn.dataset.tab);
+		});
+
 		updateHead(row);
-		updateIntel(row);
+		updateSecurity(row);
 		updateSmart(row);
 		mountChart(mint);
 		mountSafety(mint);
+		mountTape(mint);
 		mountTrade();
+	}
+
+	function switchTab(tab) {
+		if (!TABS.includes(tab)) return;
+		activeTab = tab;
+		for (const btn of body.querySelectorAll('[data-tab]')) {
+			btn.setAttribute('aria-selected', String(btn.dataset.tab === tab));
+		}
+		for (const t of TABS) {
+			const panel = $(`[data-host="panel-${t}"]`);
+			if (panel) panel.hidden = t !== tab;
+		}
 	}
 
 	function mountChart(mint) {
@@ -130,6 +168,13 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		const host = $('[data-host="chart"]');
 		if (!host) return;
 		chart = mountPriceChart({ host, mint });
+	}
+
+	function mountTape(mint) {
+		teardownTape();
+		const host = $('[data-host="panel-trades"]');
+		if (!host) return;
+		tape = mountTradesTape({ host, mint, network: store.getNetwork() });
 	}
 
 	function updateHead(row) {
@@ -177,34 +222,70 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 			<div class="mc-stat"><span>B/S ratio</span><b>${intel?.buy_sell_ratio != null ? Number(intel.buy_sell_ratio).toFixed(2) : '—'}</b></div>`;
 	}
 
-	function updateIntel(row) {
-		const host = $('[data-host="intel"]');
+	// ── Security tab: GMGN-style stats grid + intel flags + safety checks ──────
+	function updateSecurity(row) {
+		const host = $('[data-host="panel-security"]');
 		if (!host) return;
 		const intel = row.intel && !row.intel._none ? row.intel : (row.intel === undefined ? undefined : null);
-		if (intel === undefined) { host.innerHTML = `<div class="mc-section-h">Intel</div><div class="mc-chip-skel" style="width:100%"></div>`; return; }
-		if (!intel) {
-			host.innerHTML = `<div class="mc-section-h">Intel</div><p style="color:var(--ink-faint,#666);font-size:.75rem;margin:0">Structural intel is still being gathered for this launch.</p>`;
+		const safetyData = row.safety;
+
+		// Loading skeleton while intel is in-flight
+		if (intel === undefined) {
+			host.innerHTML = `
+				<div class="mc-sec-grid">
+					${Array.from({ length: 8 }, () => '<div class="mc-sec-cell"><span class="mc-chip-skel" style="width:60%"></span><div class="mc-chip-skel" style="width:50%;margin-top:4px"></div></div>').join('')}
+				</div>`;
 			return;
 		}
-		const flags = Array.isArray(intel.risk_flags) ? intel.risk_flags : [];
-		const v = intel.verdict;
-		const tone = v?.tone === 'success' ? 'allow' : v?.tone === 'danger' ? 'block' : v?.tone === 'warn' ? 'warn' : 'unknown';
-		const bars = [
-			['Organic', intel.organic_score],
-			['Bundle', intel.bundle_score],
-			['Snipe', intel.snipe_ratio != null ? intel.snipe_ratio * 100 : null],
-			['Top-10', intel.concentration_top10 != null ? intel.concentration_top10 * 100 : null],
-		].filter(([, val]) => val != null);
+
+		// Stats grid cells
+		const pct = (v) => v != null ? `${Math.round(Number(v) * 100)}%` : '—';
+		const score = (v) => v != null ? Math.round(Number(v)) : '—';
+
+		const top10 = intel?.concentration_top10;
+		const snipe = intel?.snipe_ratio;
+		const bundle = intel?.bundle_score;
+		const organic = intel?.organic_score;
+		const buyers = intel?.unique_buyers;
+		const buySellRatio = intel?.buy_sell_ratio;
+
+		// Color class helpers
+		const top10Class = top10 == null ? '' : top10 > 0.6 ? 'danger' : top10 > 0.4 ? 'warn' : 'ok';
+		const snipeClass = snipe == null ? '' : snipe > 0.3 ? 'danger' : snipe > 0.15 ? 'warn' : 'ok';
+		const bundleClass = bundle == null ? '' : bundle > 60 ? 'danger' : bundle > 30 ? 'warn' : 'ok';
+		const organicClass = organic == null ? '' : organic > 65 ? 'ok' : organic > 40 ? 'warn' : 'danger';
+
+		// Safety check pills from the safety verdict
+		const checks = Array.isArray(safetyData?.checks) ? safetyData.checks : [];
+		const checkPills = checks.slice(0, 6).map((c) => {
+			const ok = c.passed !== false;
+			const cls = ok ? 'mc-sec-check--ok' : c.severity === 'block' ? 'mc-sec-check--fail' : 'mc-sec-check--warn';
+			const icon = ok ? '✓' : '✕';
+			return `<span class="mc-sec-check ${cls}">${icon} ${escapeHtml(c.label || c.id || '')}</span>`;
+		});
+
+		// Risk flags
+		const flags = Array.isArray(intel?.risk_flags) ? intel.risk_flags : [];
+		const verdict = intel?.verdict;
+		const tone = verdict?.tone === 'success' ? 'allow' : verdict?.tone === 'danger' ? 'block' : verdict?.tone === 'warn' ? 'warn' : 'unknown';
+
 		host.innerHTML = `
-			<div class="mc-section-h">Intel breakdown ${v?.label ? `<span class="mc-chip mc-chip--${tone}" style="margin-left:6px">${escapeHtml(v.label)}</span>` : ''}</div>
-			<div class="mc-stats" style="grid-template-columns:repeat(auto-fit,minmax(76px,1fr))">
-				${bars.map(([label, val]) => `<div class="mc-stat"><span>${escapeHtml(label)}</span><b>${Math.round(Number(val))}${label === 'Organic' || label === 'Bundle' ? '' : '%'}</b></div>`).join('')}
+			<div class="mc-sec-grid">
+				<div class="mc-sec-cell"><span>Top 10</span><b class="${top10Class}">${pct(top10)}</b></div>
+				<div class="mc-sec-cell"><span>Snipers</span><b class="${snipeClass}">${pct(snipe)}</b></div>
+				<div class="mc-sec-cell"><span>Bundle</span><b class="${bundleClass}">${score(bundle)}</b></div>
+				<div class="mc-sec-cell"><span>Organic</span><b class="${organicClass}">${score(organic)}</b></div>
+				<div class="mc-sec-cell"><span>Buyers</span><b>${buyers != null ? formatCompact(buyers) : '—'}</b></div>
+				<div class="mc-sec-cell"><span>B/S Ratio</span><b>${buySellRatio != null ? Number(buySellRatio).toFixed(2) : '—'}</b></div>
+				<div class="mc-sec-cell" style="grid-column:span 2"><span>Verdict</span><b class="${tone === 'allow' ? 'ok' : tone === 'block' ? 'danger' : tone === 'warn' ? 'warn' : ''}">${verdict?.label || (intel ? 'Unscored' : '—')}</b></div>
 			</div>
-			${flags.length ? `<ul class="mc-smart-wallets" style="margin-top:8px">${flags.slice(0, 5).map((f) => `<li style="color:var(--warn,#fbbf24)">⚠ ${escapeHtml(String(f).replace(/_/g, ' '))}</li>`).join('')}</ul>` : ''}`;
+			${checkPills.length ? `<div class="mc-sec-checks">${checkPills.join('')}</div>` : safetyData === undefined ? `<div class="mc-sec-checks"><span class="mc-sec-check mc-sec-check--dim">Safety checks loading…</span></div>` : ''}
+			${flags.length ? `<ul class="mc-sec-flags">${flags.slice(0, 6).map((f) => `<li>⚠ ${escapeHtml(String(f).replace(/_/g, ' '))}</li>`).join('')}</ul>` : ''}
+			${!intel ? `<p style="color:var(--ink-faint,#666);font-size:.75rem;margin:8px 0 0">Structural intel is still being gathered for this launch.</p>` : ''}`;
 	}
 
 	function updateSmart(row) {
-		const host = $('[data-host="smart"]');
+		const host = $('[data-host="panel-smart"]');
 		if (!host) return;
 		const smart = row.smart;
 		if (smart === undefined) { host.innerHTML = `<div class="mc-section-h">Smart money</div><div class="mc-chip-skel" style="width:100%"></div>`; return; }
@@ -213,7 +294,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 			return;
 		}
 		const score = Math.round(smart.smart_money_score || 0);
-		const wallets = Array.isArray(smart.wallets) ? smart.wallets.slice(0, 4) : [];
+		const wallets = Array.isArray(smart.wallets) ? smart.wallets.slice(0, 5) : [];
 		host.innerHTML = `
 			<div class="mc-section-h">Smart money <span class="mc-num" style="margin-left:auto;color:var(--accent,#7dd3fc)">${score}/100${smart.count ? ` · ${smart.count} wallets` : ''}</span></div>
 			<div class="mc-smart-bar"><i style="width:${Math.max(2, score)}%"></i></div>
@@ -223,13 +304,17 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 
 	function mountSafety(mint) {
 		teardownSafety();
-		const host = $('[data-host="safety"]');
-		if (!host) return;
+		// Safety panel is used for buy-gate enforcement but we surface its checks
+		// inside the Security tab via row.safety (populated by enrich.ensureSafety).
+		// We still need the panel instance for the verdict → buyDisabled gate.
 		safety = createSafetyPanel({
 			onVerdict: (v) => { buyDisabled = v?.verdict === 'block'; updateTradeButtons(); },
 		});
-		host.innerHTML = `<div class="mc-section-h">Safety firewall</div>`;
-		host.appendChild(safety.el);
+		// Mount it hidden — we only care about its verdict callback, not its UI.
+		const hidden = document.createElement('div');
+		hidden.style.display = 'none';
+		hidden.appendChild(safety.el);
+		mount.appendChild(hidden);
 		safety.loadForMint({ mint, network: store.getNetwork(), amountSol: store.getActiveSize() });
 	}
 
@@ -307,11 +392,20 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 
 	const unsubs = [
 		bus.on('select', (mint) => load(mint)),
-		bus.on('size', () => { updateTradeButtons(); refreshQuote(); if (safety && currentMint) safety.loadForMint({ mint: currentMint, network: store.getNetwork(), amountSol: store.getActiveSize() }); }),
+		bus.on('size', () => {
+			updateTradeButtons(); refreshQuote();
+			if (safety && currentMint) safety.loadForMint({ mint: currentMint, network: store.getNetwork(), amountSol: store.getActiveSize() });
+		}),
 		bus.on('presets', () => { if (currentMint) mountTrade(); }),
 		bus.on('agent', () => { if (currentMint) mountTrade(); }),
 		bus.on('network', () => { netEl.textContent = store.getNetwork(); if (currentMint) load(currentMint); }),
-		bus.on('feed:update', (row) => { if (row.mint === currentMint) { updateHead(row); updateIntel(row); updateSmart(row); } }),
+		bus.on('feed:update', (row) => {
+			if (row.mint === currentMint) {
+				updateHead(row);
+				updateSecurity(row);
+				updateSmart(row);
+			}
+		}),
 		bus.on('action:buy', () => doBuy()),
 		bus.on('action:sell', () => doSell()),
 	];
@@ -322,6 +416,7 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		destroy() {
 			teardownSafety();
 			teardownChart();
+			teardownTape();
 			clearTimeout(quoteTimer);
 			unsubs.forEach((u) => u());
 		},
