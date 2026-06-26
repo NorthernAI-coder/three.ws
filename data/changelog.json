@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "The marketplace now shows a live feed of what's selling",
+			"summary": "The agent marketplace has a new 'Live sales' ticker that scrolls the most recent skill unlocks and trials happening across the platform in real time — which agent, which skill, and how much it sold for. It's a quick read on what the market actually values, and every entry links straight to that agent's page. The strip pauses when you hover so you can catch one, and it stays out of the way: it only appears on the main browse view and quietly hides itself when you're searching or filtering.",
+			"tags": ["feature"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars",
 			"summary": "A new background generator quietly grows the public gallery with photorealistic, animation-ready Avaturn avatars — each one a fresh randomized character (body, outfit, hair, and colors) built from Avaturn's own catalog and exported with a complete rig, so it walks and emotes out of the box. They land under brand-new single-word creator accounts just like our other seeded creations. The cadence starts conservative and ramps up over time.",
 			"tags": ["feature", "improvement"]

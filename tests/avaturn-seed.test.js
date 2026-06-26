@@ -1,11 +1,11 @@
 /**
  * avaturn-seed — unit tests for the pure look-randomization helpers and the
- * catalog-session request shaping. The headless chromium export path is covered
- * by deployment smoke (it needs a live AVATURN_API_KEY + browser), so here we
- * pin the deterministic, I/O-free logic that decides *what* gets exported.
+ * public-editor URL builder. The headless chromium export path is covered by
+ * deployment smoke (it needs a real browser), so here we pin the deterministic,
+ * I/O-free logic that decides *what* gets exported.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
 	hashSeed,
 	mulberry32,
@@ -14,6 +14,8 @@ import {
 	groupAssetsBySlot,
 	pickRandomLook,
 	pickBodyType,
+	defaultEditorUrl,
+	AVATURN_DEFAULT_BODY,
 	WEARABLE_SLOTS,
 	HAIR_COLORS,
 	EYE_COLORS,
@@ -142,45 +144,24 @@ describe('pickBodyType', () => {
 	});
 });
 
-describe('createCatalogSession request shaping', () => {
-	let fetchSpy;
-	beforeEach(() => {
-		vi.resetModules();
-		process.env.AVATURN_API_KEY = 'test-key';
-		process.env.AVATURN_API_URL = 'https://api.avaturn.me';
-		fetchSpy = vi.spyOn(globalThis, 'fetch');
-	});
-	afterEach(() => {
-		fetchSpy.mockRestore();
-		delete process.env.AVATURN_API_KEY;
-		delete process.env.AVATURN_API_URL;
+describe('defaultEditorUrl (public demo editor — no API key)', () => {
+	it('points at the public editor with the gender-appropriate default body', () => {
+		const male = defaultEditorUrl('male');
+		expect(male.startsWith('https://preview.avaturn.dev/editor?avatar_link=')).toBe(true);
+		expect(decodeURIComponent(male.split('avatar_link=')[1])).toBe(AVATURN_DEFAULT_BODY.male);
+
+		const female = defaultEditorUrl('female');
+		expect(decodeURIComponent(female.split('avatar_link=')[1])).toBe(AVATURN_DEFAULT_BODY.female);
 	});
 
-	it('POSTs a no-photo create session and returns the session url', async () => {
-		fetchSpy.mockResolvedValue(
-			new Response(JSON.stringify({ session_url: 'https://hub.avaturn.me/s/abc', expires_at: '2026-06-26T00:00:00Z' }), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			}),
-		);
-		const { createCatalogSession } = await import('../api/_lib/avaturn.js');
-		const out = await createCatalogSession({ externalUserId: 'user-1', bodyType: 'female' });
-
-		expect(out.sessionUrl).toBe('https://hub.avaturn.me/s/abc');
-		expect(out.expiresAt).toBe('2026-06-26T00:00:00Z');
-
-		const [url, init] = fetchSpy.mock.calls[0];
-		expect(url).toBe('https://api.avaturn.me/api/v1/sessions');
-		expect(init.method).toBe('POST');
-		expect(init.headers.authorization).toBe('Bearer test-key');
-		const body = JSON.parse(init.body);
-		expect(body).toMatchObject({ external_user_id: 'user-1', body_type: 'female', session_type: 'create' });
-		expect(body.photos).toBeUndefined();
+	it('falls back to the male body for an unknown type', () => {
+		const url = defaultEditorUrl('nonbinary-typo');
+		expect(decodeURIComponent(url.split('avatar_link=')[1])).toBe(AVATURN_DEFAULT_BODY.male);
 	});
 
-	it('throws a coded error on an upstream failure', async () => {
-		fetchSpy.mockResolvedValue(new Response('nope', { status: 401 }));
-		const { createCatalogSession } = await import('../api/_lib/avaturn.js');
-		await expect(createCatalogSession({ externalUserId: 'u' })).rejects.toMatchObject({ code: 'upstream_auth' });
+	it('url-encodes the avatar_link so the editor parses it as one param', () => {
+		const url = defaultEditorUrl('male');
+		expect(url).toContain('avatar_link=https%3A%2F%2F');
+		expect(new URL(url).searchParams.get('avatar_link')).toBe(AVATURN_DEFAULT_BODY.male);
 	});
 });

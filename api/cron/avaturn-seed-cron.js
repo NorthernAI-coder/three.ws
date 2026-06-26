@@ -7,10 +7,11 @@
 // editor via the SDK's postMessage protocol. So each tick:
 //
 //   1. Claims an OG single-word username for a fresh synthetic account.
-//   2. Opens a no-photo Avaturn *catalog* session for that account.
-//   3. Boots headless chromium, lets the SDK randomize a body + assets + colors
-//      from the account's own catalog, and exports a rigged GLB.
-//   4. Stores the GLB in R2 and inserts a public avatar row (source=avaturn).
+//   2. Boots headless chromium against Avaturn's public demo editor (no API
+//      key, same iframe the demo uses) and lets the SDK randomize a body +
+//      assets + colors from the public catalog.
+//   3. Exports a rigged GLB, stores it in R2, and inserts a public avatar row
+//      (source=avaturn).
 //
 // One avatar per tick — the headless export runs to completion inside the
 // invocation (no poll table needed). A Redis blocking slot stops a slow export
@@ -30,7 +31,6 @@ import {
 	circuitRecordSuccess,
 	acquireBlockingSlot,
 } from '../_lib/forge-scale.js';
-import { createCatalogSession } from '../_lib/avaturn.js';
 import { exportRandomAvaturnAvatar } from '../_lib/avaturn-headless.js';
 import { putObject } from '../_lib/r2.js';
 import { pickBodyType } from '../_lib/avaturn-seed.js';
@@ -108,12 +108,8 @@ async function runOnce() {
 	const bodyType = pickBodyType(seed);
 
 	try {
-		const session = await createCatalogSession({ externalUserId: user.id, bodyType });
-		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({
-			sessionUrl: session.sessionUrl,
-			seed,
-			bodyType,
-		});
+		// Public demo editor — no API key, no per-account session.
+		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({ seed, bodyType });
 
 		const slug = toSlug(displayName);
 		const storageKey = `u/${user.id}/${slug}.glb`;
@@ -158,9 +154,6 @@ export default wrap(async (req, res) => {
 
 	if (!env.AVATURN_SEED_ENABLED) {
 		return json(res, 200, { ok: true, skipped: 'disabled', hint: 'set AVATURN_SEED_ENABLED=1 to enable' });
-	}
-	if (!env.AVATURN_API_KEY) {
-		return json(res, 200, { ok: true, skipped: 'not_configured', hint: 'AVATURN_API_KEY unset' });
 	}
 
 	// Single headless export in flight at a time, fleet-wide.
