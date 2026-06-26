@@ -243,6 +243,14 @@
 					"added": "2026-06-05"
 				},
 				{
+					"path": "/agent-screen",
+					"title": "Agent Screen",
+					"description": "Watch your agent work in real time — split view with the agent's live screen on the left and their 3D avatar rendered as a webcam on the right.",
+					"auth": "required",
+					"indexable": false,
+					"added": "2026-06-26"
+				},
+				{
 					"path": "/agent-studio",
 					"title": "Agent Studio",
 					"description": "Author your agent's brain, memory, body, money, and skills in one place, with a live 3D avatar that updates everywhere as you edit.",

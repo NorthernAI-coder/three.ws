@@ -58,6 +58,7 @@ import { clearStoredPass, refreshPlayPass, loadStoredPass, storePass } from './p
 import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
 import { log } from '../shared/log.js';
+import { createAgentDesk } from './agent-desk.js';
 
 // localStorage throws in private mode and in third-party iframe contexts where
 // storage is blocked — exactly the `?bg=transparent` embed case (e.g. the IBM
@@ -531,6 +532,9 @@ export class CoinCommunities {
 		this._chartScreen?.update(dt);
 		this._oracleRibbon?.update(dt);
 		this._reactor?.update(dt);
+		if (this._agentDesks?.length) {
+			for (const desk of this._agentDesks) desk.update(dt, this.localPos);
+		}
 		this._tickDanceFloor(dt);
 	}
 
@@ -1021,6 +1025,31 @@ export class CoinCommunities {
 				ui: this.ui,
 			});
 		}
+		// Agent desks — visible in every world. Fetches the world's top registered
+		// agents from /api/agents and seats them at working desks with live
+		// CanvasTexture monitors streaming their real activity. Players can walk up
+		// and press E (or tap) to open the full 2D watch view.
+		this._agentDesks = [];
+		fetch(`/api/agents?limit=3`, { credentials: 'include' })
+			.then((r) => r.ok ? r.json() : null)
+			.then((d) => {
+				const agents = d?.agents || d?.data || [];
+				agents.slice(0, 3).forEach((a, i) => {
+					const offsets = [[-14, 0, -10], [14, 0, -10], [0, 0, -14]];
+					const rotations = [Math.PI * 0.15, -Math.PI * 0.15, Math.PI];
+					const desk = createAgentDesk(this.scene, {
+						agentId: a.id,
+						agentName: a.name || 'Agent',
+						avatarUrl: a.avatar_glb_url || a.avatar_model_url || '',
+					}, {
+						position: offsets[i],
+						rotationY: rotations[i],
+					});
+					this._agentDesks.push(desk);
+				});
+			})
+			.catch(() => { /* non-critical — world works without desks */ });
+
 		// Living world (W08): ambient pedestrians + traffic, interactive vendor /
 		// quest / flavor NPCs, and (gated behind W07) hostile mobs — all on a
 		// deterministic nav graph so every client sees the same crowd without
@@ -1279,6 +1308,10 @@ export class CoinCommunities {
 		}
 		if (this._chartScreen) { this._chartScreen.dispose(); this._chartScreen = null; }
 		if (this._oracleRibbon) { this._oracleRibbon.dispose(); this._oracleRibbon = null; }
+		if (this._agentDesks?.length) {
+			for (const desk of this._agentDesks) desk.dispose();
+			this._agentDesks = [];
+		}
 		if (this._danceFloor) { this.world.remove(this._danceFloor); this._danceFloor = null; }
 		this._floorLights = null; this._floorTiles = null; this._floorCenterMat = null;
 		this._danceFloorPos = null; this._onFloor = false; this._wantsDance = false;
@@ -2029,6 +2062,16 @@ export class CoinCommunities {
 			if (this.worldLife?.tryActivateAt(e.clientX, e.clientY)) return;
 			if (this.agentCommerce?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
 			if (this.intelKiosk?.tryActivateAt(this._pointerRay(e.clientX, e.clientY))) return;
+			// Tap an agent desk screen → open its full 2D watch view.
+			if (this._agentDesks?.length) {
+				const ray = this._pointerRay(e.clientX, e.clientY);
+				for (const desk of this._agentDesks) {
+					if (desk.screen && ray.intersectObject(desk.screen, false).length > 0) {
+						desk.openWatch();
+						return;
+					}
+				}
+			}
 			if (this._raycastScreen(e.clientX, e.clientY)) this._chartScreen.openExternal();
 		});
 		// Right-click always breaks the targeted block while building.
@@ -2044,7 +2087,14 @@ export class CoinCommunities {
 					this._hoverAt = now;
 					this._lastHover = { x: e.clientX, y: e.clientY };
 					if (this.buildHud.active) this._updateGhost(e.clientX, e.clientY);
-					else if (this._chartScreen) this.canvas.style.cursor = this._raycastScreen(e.clientX, e.clientY) ? 'pointer' : '';
+					else {
+						let overDesk = false;
+						if (this._agentDesks?.length) {
+							const ray = this._pointerRay(e.clientX, e.clientY);
+							overDesk = this._agentDesks.some((d) => d.screen && ray.intersectObject(d.screen, false).length > 0);
+						}
+						this.canvas.style.cursor = overDesk || (this._chartScreen && this._raycastScreen(e.clientX, e.clientY)) ? 'pointer' : '';
+					}
 				}
 				return;
 			}

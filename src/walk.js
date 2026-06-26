@@ -72,6 +72,7 @@ import { createWalkWalletProximity } from './walk-wallet.js';
 import { applyWorldNameplate } from './shared/living-avatar.js';
 import { createWalkCapture } from './walk-capture.js';
 import { createMarketplaceGallery } from './marketplace-gallery.js';
+import { createAgentDeskManager, fetchLiveAgentDesks } from './walk-agent-desk.js';
 
 // Walk-Browse: on /marketplace-walk the page boots with ?gallery=marketplace and
 // the engine becomes a strollable 3D marketplace hall. See marketplace-gallery.js.
@@ -522,6 +523,9 @@ let npcsEnabled = (() => {
 })();
 /** @type {ReturnType<typeof createWalkNpcs>|null} */
 let walkNpcs = null;
+
+/** @type {ReturnType<typeof createAgentDeskManager>|null} */
+let walkAgentDesks = null;
 
 // Avatar accent → trail colour. The walk avatar is a raw GLB, so we read any
 // authored meta accent (gltf.userData / scene.userData), else fall back to the
@@ -1537,6 +1541,13 @@ async function loadAvatar() {
 	});
 	walkNpcs.setEnabled(npcsEnabled);
 
+	// Stand up the agent desk system — desks show live agent screens in-world.
+	// Fetches active agents from Redis and spawns one desk per active stream.
+	walkAgentDesks = createAgentDeskManager({ scene, camera, renderer });
+	fetchLiveAgentDesks().then((deskConfigs) => {
+		if (deskConfigs.length) walkAgentDesks.spawn(deskConfigs);
+	}).catch(() => {});
+
 	// Auto-hide help hints after 5 seconds — fade first, then remove from layout
 	// so the transition in temporary.html's #walk-help { transition: opacity } plays.
 	if (helpEl) {
@@ -2443,6 +2454,7 @@ function tick() {
 	// 4a. Advance the NPC companions' FSMs (greeter waves on approach, wanderer
 	//     roams, guide leads toward a landmark) against the live player position.
 	if (walkNpcs && avatar) walkNpcs.update(dt, avatarRig.position);
+	if (walkAgentDesks && avatar) walkAgentDesks.update(dt, avatarRig.position);
 
 	// 4b. Animate the coin totem (billboard + bob + ring spin) when present.
 	if (coinTotem) coinTotem.update(dt);

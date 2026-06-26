@@ -101,6 +101,10 @@ export default async function handleAgentScreenPush(req, res) {
 		r.set(frameKey, frameRecord, { ex: FRAME_TTL }),
 		r.lpush(logKey, logEntry).then(() => r.ltrim(logKey, 0, LOG_CAP - 1)),
 		r.expire(logKey, FRAME_TTL * 5),
+		// Track active agents in a sorted set (score = timestamp) so the walk
+		// scene can discover which agents have live streams to show desks for.
+		r.zadd('agent:screen:active', { score: now, member: agentId }),
+		r.expire('agent:screen:active', FRAME_TTL * 3),
 	]);
 
 	return json(res, 200, { ok: true, ts: now });

@@ -24,7 +24,7 @@
 		"{api/agents/networth,api/avatars/from-forge}.js": {
 			"maxDuration": 60
 		},
-		"{api/club/tips-stream,api/feed-stream,api/pump/trades-stream,api/oracle/stream,api/oracle/action-stream,api/sniper/stream,api/sniper/radar-stream}.js": {
+		"{api/club/tips-stream,api/feed-stream,api/pump/trades-stream,api/oracle/stream,api/oracle/action-stream,api/sniper/stream,api/sniper/radar-stream,api/agent-screen-stream}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
@@ -2407,6 +2407,18 @@
 			"dest": "/api/sniper/radar-stream.js"
 		},
 		{
+			"src": "/api/agent-screen-stream",
+			"dest": "/api/agent-screen-stream.js"
+		},
+		{
+			"src": "/api/agent-screen-push",
+			"dest": "/api/agent-screen-push.js"
+		},
+		{
+			"src": "/api/agent-screen-active",
+			"dest": "/api/agent-screen-active.js"
+		},
+		{
 			"src": "/api/sniper/radar",
 			"dest": "/api/sniper/radar.js"
 		},
@@ -2980,6 +2992,10 @@
 		{
 			"src": "/agent/([^/]+)/wallet/?",
 			"dest": "/agent-wallet.html"
+		},
+		{
+			"src": "/agent-screen/?",
+			"dest": "/agent-screen.html"
 		},
 		{
 			"src": "/agent/index.html",

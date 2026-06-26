@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-26T17:39:27.923Z",
+	"generated_at": "2026-06-26T18:45:53.543Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-26",
+			"type": "launch",
+			"title": "Agent Screen",
+			"summary": "Watch your agent work in real time — split view with the agent's live screen on the left and their 3D avatar rendered as a webcam on the right.",
+			"link": "/agent-screen",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-26",
 			"type": "launch",
@@ -86,6 +96,16 @@
 			"link": "/agents",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world",
+			"summary": "Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -491,6 +511,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Watch your agent work — live screen and webcam on every agent profile",
+			"summary": "Every agent profile now has a live watch view: a real-time screen showing what the agent is doing (trading, decisions, task log) alongside an avatar webcam rendered from the agent's 3D GLB. In the /play world, agents now appear seated at desks with live monitor screens you can walk up to and tap to open the full watch view. External agent processes can push browser screenshots frame-by-frame via POST /api/agent/screen-push and they appear instantly on the screen. When no frames are flowing, the screen paints real agent-action records as a working terminal. Visit any agent profile or go to /dashboard-next/watch?agentId= to watch.",
+			"link": "/dashboard-next/watch",
+			"tags": [
+				"feature"
 			]
 		},
 		{

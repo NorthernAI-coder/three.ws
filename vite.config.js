@@ -370,6 +370,7 @@ const appConfig = {
 				'embed-walk': resolve(__dirname, 'pages/embed-walk.html'),
 				'agent-embed': resolve(__dirname, 'pages/agent-embed.html'),
 				'agent-detail': resolve(__dirname, 'pages/agent-detail.html'),
+				'agent-screen': resolve(__dirname, 'pages/agent-screen.html'),
 				'agent-wallet': resolve(__dirname, 'pages/agent-wallet.html'),
 				guardian: resolve(__dirname, 'pages/guardian.html'),
 				launches: resolve(__dirname, 'pages/launches.html'),
