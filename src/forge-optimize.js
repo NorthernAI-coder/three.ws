@@ -37,9 +37,9 @@ if (resultPanel && viewer) {
 
 	const MODE_HINTS = {
 		triangle:
-			'Quadric (QEM) decimation. Fast, general-purpose polygon reduction — best for trimming size before download.',
+			'Quadric (QEM) decimation. Fast, general-purpose polygon reduction, best for trimming size before download.',
 		quad:
-			'Field-aligned quad-dominant retopology (QuadriFlow). Clean edge loops that deform well for rigging & animation. GLB triangulates for preview — pick OBJ for true quad faces.',
+			'Field-aligned quad-dominant retopology (QuadriFlow). Clean edge loops that deform well for rigging & animation. GLB triangulates for preview, pick OBJ for true quad faces.',
 		lowpoly:
 			'Silhouette-preserving low-poly for real-time use. UVs are re-unwrapped and the original texture is re-baked onto the new mesh so it still renders correctly.',
 	};
@@ -70,9 +70,9 @@ if (resultPanel && viewer) {
 		lowpoly: {
 			label: 'Poly budget',
 			options: [
-				[1000, '1k — mobile'],
-				[5000, '5k — standard'],
-				[20000, '20k — hero'],
+				[1000, '1k, mobile'],
+				[5000, '5k, standard'],
+				[20000, '20k, hero'],
 			],
 			default: 5000,
 		},
@@ -148,7 +148,7 @@ if (resultPanel && viewer) {
 	panel.dataset.open = 'false';
 	panel.innerHTML = `
 		<button class="optimize-toggle" type="button" aria-expanded="false">
-			<span>Optimize topology — quad remesh &amp; game-ready low-poly</span>
+			<span>Optimize topology, quad remesh &amp; game-ready low-poly</span>
 			<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 				stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 				<polyline points="6 9 12 15 18 9" />
@@ -366,7 +366,7 @@ if (resultPanel && viewer) {
 			const done = await pollRemesh(jobId);
 			if (!done) return; // superseded by a newer model / cancelled
 			applyResult(done);
-			setStatus('Done — optimized mesh ready to download.', 'done');
+			setStatus('Done, optimized mesh ready to download.', 'done');
 		} catch (err) {
 			setStatus(err.message || 'Optimization failed.', 'error');
 		} finally {

@@ -130,7 +130,7 @@ function renderHero(d) {
 				<span class="agi-domain-tag"><i class="agi-dot"></i> ${esc(doctrine.domain)}</span>
 				<h1 class="agi-title" id="agi-title">The first AGI.<br /><span class="agi-em">Narrow by design.</span></h1>
 				<p class="agi-lede">${esc(doctrine.thesis)}</p>
-				<p class="agi-thesis">It is not a chatbot pretending to be smart. It is a single autonomous agent that out-trades humans at one game — and tells you plainly it can do nothing else.</p>
+				<p class="agi-thesis">It is not a chatbot pretending to be smart. It is a single autonomous agent that out-trades humans at one game, and tells you plainly it can do nothing else.</p>
 				<div class="agi-hero-actions">
 					<a class="agi-btn agi-btn-primary" href="${ledgerHref}">Audit its track record →</a>
 					<a class="agi-btn" href="/trader/${agent?.id || ''}">Live trades</a>
@@ -177,7 +177,7 @@ function renderMind(d) {
 	const list = d.decisions || [];
 	const body = list.length
 		? `<div class="agi-stream">${list.map((t) => renderThought(t, d.network, !state.seen.has(t.id))).join('')}</div>`
-		: `<div class="agi-empty"><p>No decisions logged in this window yet. Every call it makes will appear here — with its reasoning, its stated confidence, and, once the trade resolves, whether it was right.</p></div>`;
+		: `<div class="agi-empty"><p>No decisions logged in this window yet. Every call it makes will appear here, with its reasoning, its stated confidence, and, once the trade resolves, whether it was right.</p></div>`;
 	list.forEach((t) => state.seen.add(t.id));
 	return `
 		<section class="agi-card agi-mind">
@@ -228,8 +228,8 @@ function renderRecord(d) {
 		return `<div class="agi-position"><span>${url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)}</a>` : esc(label)}</span><span class="${pnlClass(pos.unrealized_pct)}">${fmtPct(pos.unrealized_pct)}</span></div>`;
 	}).join('');
 	const calNote = rep && rep.sample_size
-		? `Computed from <b>${rep.sample_size}</b> reconciled call${rep.sample_size === 1 ? '' : 's'} — hit rate, calibration, and realized P&amp;L, regressed toward neutral until proven.`
-		: `Regressed toward neutral — too few reconciled calls to trust yet.`;
+		? `Computed from <b>${rep.sample_size}</b> reconciled call${rep.sample_size === 1 ? '' : 's'}, hit rate, calibration, and realized P&amp;L, regressed toward neutral until proven.`
+		: `Regressed toward neutral, too few reconciled calls to trust yet.`;
 	const ledgerHref = agent?.id ? `/ledger/${agent.id}` : '/ledger';
 	return `
 		<section class="agi-card">
@@ -250,7 +250,7 @@ function renderRecord(d) {
 				${stat('Coins traded', String(p.unique_coins ?? 0))}
 			</div>
 			${positions ? `<div class="agi-section-head" style="margin-bottom:var(--space-sm)"><h2 style="font-size:var(--text-md)">Open now</h2><span class="agi-section-sub">${pnlClass(p.unrealized_pnl_sol) === 'agi-neg' ? '' : ''}<span class="${pnlClass(p.unrealized_pnl_sol)}">${fmtSol(p.unrealized_pnl_sol)} SOL unrealized</span></span></div><div class="agi-positions">${positions}</div>` : ''}
-			<p class="agi-honesty">Being wrong is visible — that's the point. Every loss above is counted, never hidden. <a href="${ledgerHref}">Interrogate the full ledger →</a></p>
+			<p class="agi-honesty">Being wrong is visible, that's the point. Every loss above is counted, never hidden. <a href="${ledgerHref}">Interrogate the full ledger →</a></p>
 		</section>`;
 }
 
@@ -263,7 +263,7 @@ function renderDoctrine(d) {
 				<div class="agi-card agi-claim">
 					<h3>What it is</h3>
 					<ul class="agi-list">
-						<li><span class="agi-mark">✓</span><span>Superhuman at <b>${esc(doctrine.domain)}</b> — reading launches, the wallet graph, and order flow faster and more consistently than a human.</span></li>
+						<li><span class="agi-mark">✓</span><span>Superhuman at <b>${esc(doctrine.domain)}</b>, reading launches, the wallet graph, and order flow faster and more consistently than a human.</span></li>
 						<li><span class="agi-mark">✓</span><span>Fully autonomous: it sizes, enters, and exits on its own, inside hard spend caps and a kill switch.</span></li>
 						<li><span class="agi-mark">✓</span><span>Accountable: every decision is logged with its reasoning and reconciled against the real outcome.</span></li>
 					</ul>
@@ -306,7 +306,7 @@ function renderError() {
 	root.innerHTML = `
 		<div class="agi-error">
 			<h2 style="font-family:var(--font-display);color:var(--ink)">The agent is unreachable</h2>
-			<p>Couldn't load the AGI's live state right now. This is a transient connection issue — the agent keeps trading regardless.</p>
+			<p>Couldn't load the AGI's live state right now. This is a transient connection issue, the agent keeps trading regardless.</p>
 			<button class="agi-btn agi-btn-primary" id="agi-retry" type="button">Retry</button>
 		</div>`;
 	document.getElementById('agi-retry')?.addEventListener('click', () => { renderLoading(); boot(); });
@@ -318,7 +318,7 @@ async function refresh() {
 		const d = await fetchState();
 		state.data = d;
 		render(d);
-		document.title = d.agent?.name ? `${d.agent.name} — The AGI · three.ws` : 'The AGI · three.ws';
+		document.title = d.agent?.name ? `${d.agent.name} · The AGI · three.ws` : 'The AGI · three.ws';
 	} catch (e) {
 		if (!state.data) renderError();
 		// If we already have a render up, keep it and try again next tick.

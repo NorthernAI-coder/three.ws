@@ -527,18 +527,14 @@ See [MCP Layer](#mcp-layer) section for full tool listings.
 
 ### Animation Pipeline (Build Time)
 
-```
-animation-sources/     (Mixamo FBX source library, 120+ clips)
-        │
-        ▼
-scripts/build-animations.mjs
-        │  reads: scripts/animations.config.json (121 entries)
-        │  retargets: FBX/GLB → canonical Avaturn skeleton (cz.glb)
-        │  trims clips, applies uprightFix where configured
-        │  emits: AnimationClip.toJSON() per clip
-        ▼
-public/animations/clips/*.json   (121 canonical JSON clips)
-public/animations/manifest.json  (clip catalog with metadata)
+```mermaid
+flowchart TD
+    A["animation-sources/\n(Mixamo FBX source library, 120+ clips)"]
+    B["scripts/build-animations.mjs\nreads: scripts/animations.config.json (121 entries)\nretargets: FBX/GLB → canonical Avaturn skeleton (cz.glb)\ntrims clips, applies uprightFix where configured\nemits: AnimationClip.toJSON() per clip"]
+    C["public/animations/clips/*.json\n(121 canonical JSON clips)"]
+    D["public/animations/manifest.json\n(clip catalog with metadata)"]
+    A --> B --> C
+    B --> D
 ```
 
 ### Bone Canonicalization (`src/glb-canonicalize.js`)
@@ -590,12 +586,20 @@ Central animation controller managing the full lifecycle:
 
 Pure directed graph (no Three.js dependency, unit-testable):
 
-```
-idle ←→ talk ←→ walk
- ↕         ↕
-react    listen ←→ think
- ↕
-emote
+```mermaid
+stateDiagram-v2
+    idle --> talk
+    talk --> idle
+    talk --> walk
+    walk --> talk
+    idle --> react
+    react --> idle
+    talk --> listen
+    listen --> talk
+    listen --> think
+    think --> listen
+    react --> emote
+    emote --> react
 ```
 
 Driven by protocol events, delivers transitions via `onTransition` callback.
@@ -613,13 +617,15 @@ Per-avatar seeded PRNG prevents multiple avatars from syncing.
 ### Lipsync Systems
 
 **Audio-driven** (`src/voice/lipsync-driver.js`):
-```
-Web Audio AnalyserNode → RMS/band energy → open/wide/round mouth shapes → morphTargetInfluences
+```mermaid
+flowchart LR
+    A["Web Audio\nAnalyserNode"] --> B["RMS/band energy"] --> C["open/wide/round\nmouth shapes"] --> D["morphTargetInfluences"]
 ```
 
 **Text-to-viseme heuristic** (`src/runtime/lipsync.js`, `page-agent-sdk/src/lipsync.js`):
-```
-character → ARKit viseme map → 80ms/phoneme timeline → per-frame morph lerp
+```mermaid
+flowchart LR
+    A["character"] --> B["ARKit viseme map"] --> C["80ms/phoneme timeline"] --> D["per-frame morph lerp"]
 ```
 
 ### ARKit 52 Blendshape System (`src/voice/arkit-blendshapes.js`)
@@ -926,38 +932,42 @@ three.ws implements three distinct payment rails:
 
 ### Full x402 Payment Flow (Solana)
 
-```
-Buyer browser
-    │
-    ├─ GET target endpoint (receives 402 challenge)
-    │
-    ├─ POST /api/x402-checkout?action=prepare
-    │    └─ Builds unsigned Solana v0 SPL transferChecked tx
-    │
-    ├─ Phantom wallet signs tx
-    │
-    ├─ POST /api/x402-checkout?action=encode
-    │    └─ Wraps signed tx into X-PAYMENT header payload
-    │
-    ├─ Request target endpoint with X-PAYMENT header
-    │    └─ Facilitator /verify (PayAI or CDP)
-    │    └─ Handler executes
-    │    └─ Facilitator /settle (on-chain)
-    │    └─ X-PAYMENT-RESPONSE header returned
-    │
-    └─ POST /api/x402-checkout-record (analytics)
+```mermaid
+sequenceDiagram
+    participant B as Buyer Browser
+    participant C as /api/x402-checkout
+    participant W as Phantom Wallet
+    participant T as Target Endpoint
+    participant F as Facilitator (PayAI/CDP)
+
+    B->>T: GET target endpoint
+    T-->>B: 402 Payment Required challenge
+    B->>C: POST ?action=prepare
+    C-->>B: Unsigned Solana v0 SPL transferChecked tx
+    B->>W: Sign transaction
+    W-->>B: Signed tx
+    B->>C: POST ?action=encode
+    C-->>B: X-PAYMENT header payload
+    B->>T: Request with X-PAYMENT header
+    T->>F: /verify
+    F-->>T: verified
+    T->>T: Handler executes
+    T->>F: /settle (on-chain)
+    F-->>T: settled
+    T-->>B: X-PAYMENT-RESPONSE header
+    B->>C: POST /api/x402-checkout-record (analytics)
 ```
 
 **Agent autonomous payment** (`/api/x402-pay` SSE flow):
-```
-agentId + target endpoint
-    → probeExternalRequirements (fetch 402 challenge)
-    → reserveSpendUsd (spend cap advisory lock)
-    → buildSolanaPaymentPayload (custodial keypair signs SPL transferChecked)
-    → guardedFetch (send X-PAYMENT to target)
-    → facilitator settles on-chain
-    → updateCustodyEvent (finalize ledger)
-    → SSE result stream
+```mermaid
+flowchart TD
+    A["agentId + target endpoint"] --> B["probeExternalRequirements\n(fetch 402 challenge)"]
+    B --> C["reserveSpendUsd\n(spend cap advisory lock)"]
+    C --> D["buildSolanaPaymentPayload\n(custodial keypair signs SPL transferChecked)"]
+    D --> E["guardedFetch\n(send X-PAYMENT to target)"]
+    E --> F["facilitator settles on-chain"]
+    F --> G["updateCustodyEvent\n(finalize ledger)"]
+    G --> H["SSE result stream"]
 ```
 
 ---
@@ -995,13 +1005,13 @@ The x402 Bazaar aggregates paid API services from multiple facilitators:
 
 ### Marketplace Revenue Split
 
-```
-Skill purchase (Solana Pay)
-    │
-    ├─ Platform fee: MARKETPLACE_PLATFORM_FEE_BPS (default: 0, env-configured)
-    ├─ Author wallet: remaining after fee
-    └─ agent_revenue_events (timestamped revenue record)
-         └─ billing/revenue.js — gross/fee/net + by-skill timeseries
+```mermaid
+flowchart TD
+    A["Skill purchase (Solana Pay)"] --> B{Fee Split}
+    B -->|"MARKETPLACE_PLATFORM_FEE_BPS\n(default: 0, env-configured)"| C["Platform fee"]
+    B -->|"remaining after fee"| D["Author wallet"]
+    A --> E["agent_revenue_events\n(timestamped revenue record)"]
+    E --> F["billing/revenue.js\ngross/fee/net + by-skill timeseries"]
 ```
 
 **Withdrawal:** `POST /api/billing/withdrawals` → `agent_withdrawals` row (pending) → async off-chain worker executes on-chain transfer to payout wallet from `agent_payout_wallets`.
@@ -1036,13 +1046,15 @@ Any user can become a merchant:
 
 #### `api/chat.js` — Avatar Chat (Failover Chain)
 
-```
-Groq (llama-3.3-70b-versatile, free)
-  → OpenRouter (meta-llama/llama-3.3-70b-instruct:free, openai/gpt-oss-120b:free)
-  → NVIDIA NIM (nemotron-super-120b, nemotron-super-49b, deepseek-v4-pro)
-  → Anthropic (claude-sonnet-4-6)
-  → OpenAI (gpt-4o-mini)
-  → IBM watsonx Orchestrate
+```mermaid
+flowchart TD
+    A["Groq\nllama-3.3-70b-versatile (free)"]
+    B["OpenRouter\nmeta-llama/llama-3.3-70b:free · openai/gpt-oss-120b:free"]
+    C["NVIDIA NIM\nnemotron-super-120b · nemotron-super-49b · deepseek-v4-pro"]
+    D["Anthropic\nclaude-sonnet-4-6"]
+    E["OpenAI\ngpt-4o-mini"]
+    F["IBM watsonx Orchestrate"]
+    A -->|fallback| B -->|fallback| C -->|fallback| D -->|fallback| E -->|fallback| F
 ```
 
 **Tool dispatch (13 action tools):** avatar control, memory write, Solana transfer (Guardian-gated), marketplace purchase, wallet query, schedule task, etc.
@@ -1099,17 +1111,20 @@ Returns `allow | review | block`. SHA-256 hash-chained audit records. Gates all 
 
 ### Multimodal Pipeline
 
-```
-Text → /api/tts/speak → NVIDIA Magpie gRPC → WAV audio
-                                           ↓
-Audio → /api/a2f → NVIDIA Audio2Face-3D gRPC → ARKit 52 blendshapes JSON
-                                                         ↓
-                                           avatar-morph-target.js → morphTargetInfluences
+```mermaid
+flowchart TD
+    TXT["Text"] -->|"POST /api/tts/speak"| MAG["NVIDIA Magpie gRPC"]
+    MAG -->|"WAV audio"| A2F["POST /api/a2f\nNVIDIA Audio2Face-3D gRPC"]
+    A2F --> BS["ARKit 52 blendshapes JSON"]
+    BS --> MT["avatar-morph-target.js\nmorphTargetInfluences"]
 
-Audio → /api/asr → NVIDIA Riva gRPC → transcript text
+    AUD["Audio"] -->|"POST /api/asr"| RIV["NVIDIA Riva gRPC"]
+    RIV --> TXT2["transcript text"]
 
-Image → /api/vision → NVIDIA NIM Nemotron-nano-12B-v2-VL → description
-                    → OpenAI gpt-4o-mini (backstop)
+    IMG["Image"] -->|"POST /api/vision"| VLM["NVIDIA NIM\nNemotron-nano-12B-v2-VL"]
+    VLM --> DESC["description"]
+    VLM -->|"backstop"| MINI["OpenAI gpt-4o-mini"]
+    MINI --> DESC
 ```
 
 ---
@@ -1118,17 +1133,23 @@ Image → /api/vision → NVIDIA NIM Nemotron-nano-12B-v2-VL → description
 
 #### `workers/agent-sniper` — Autonomous Sniper
 
-```
-PumpPortal WSS (wss://pumpportal.fun/api/data)
-    │
-    ├─ new_mint events → scoreMint (pattern + intel)
-    ├─ first_claim → first_claim trigger
-    ├─ intel_confirmed → oracleGate → executeBuy → agent wallet
-    └─ prelaunch_radar → block-zero pre-cog snipe
+```mermaid
+flowchart TD
+    WSS["PumpPortal WSS\nwss://pumpportal.fun/api/data"]
 
-Coin Intelligence Engine (workers/agent-sniper/intel/):
-    per-mint → computeSignals + classifyCoin (LLM-assisted)
-    → pump_coin_intel DB → oracle_conviction
+    WSS -->|"new_mint events"| SCORE["scoreMint\n(pattern + intel)"]
+    WSS -->|"first_claim"| FC["first_claim trigger"]
+    WSS -->|"intel_confirmed"| OG["oracleGate → executeBuy → agent wallet"]
+    WSS -->|"prelaunch_radar"| PRE["block-zero pre-cog snipe"]
+
+    subgraph Intel["Coin Intelligence Engine (workers/agent-sniper/intel/)"]
+        CI["per-mint → computeSignals + classifyCoin (LLM-assisted)"]
+        DB[("pump_coin_intel DB")]
+        OC["oracle_conviction"]
+        CI --> DB --> OC
+    end
+
+    SCORE --> Intel
 ```
 
 **Strategy matching:** per-agent `agent_sniper_strategies` table. Swarm support: consensus + pro-rata position splitting.
@@ -1177,24 +1198,27 @@ Registers real AgenC agents on Solana, drives daily citizen loop, projects to `a
 
 #### Agent-Owned Launch (custodial)
 
-```
-browser (homepage-launcher.js / launch-token-modal.js)
-    → POST /api/pump/launch-prep (vanity mint grind, metadata prep)
-    → user wallet signs tx (or agent custodial key if server-signed)
-    → POST /api/pump/launch-confirm
-    → pump_agent_mints table + pump.fun bonding curve on-chain
+```mermaid
+flowchart TD
+    A["browser\n(homepage-launcher.js / launch-token-modal.js)"]
+    B["POST /api/pump/launch-prep\n(vanity mint grind, metadata prep)"]
+    C["user wallet signs tx\n(or agent custodial key if server-signed)"]
+    D["POST /api/pump/launch-confirm"]
+    E["pump_agent_mints table\n+ pump.fun bonding curve on-chain"]
+    A --> B --> C --> D --> E
 ```
 
 **Buyback:** `buyback_bps` routes a slice of agent payments into on-chain burns.
 
 #### x402 Pay-Per-Call Launch (anonymous)
 
-```
-USDC $5.00 payment → /api/x402/pump-launch
-    → uploadPumpMetadata (pump.fun IPFS upload)
-    → launchPumpToken (@pump-fun/pump-sdk createV2)
-    → x402_pump_launches table
-    → pump.fun chain (server fronts ~0.022 SOL)
+```mermaid
+flowchart TD
+    A["USDC $5.00 payment"] --> B["/api/x402/pump-launch"]
+    B --> C["uploadPumpMetadata\n(pump.fun IPFS upload)"]
+    C --> D["launchPumpToken\n(@pump-fun/pump-sdk createV2)"]
+    D --> E["x402_pump_launches table"]
+    E --> F["pump.fun chain\n(server fronts ~0.022 SOL)"]
 ```
 
 ---
@@ -1203,13 +1227,16 @@ USDC $5.00 payment → /api/x402/pump-launch
 
 Every new mint is classified in its first seconds of trading:
 
-```
-PumpPortal WSS new-mint → intel watcher
-    → classify: meme/ai/political/nsfw/utility/gaming/…
-    → score: bundle_risk, organic_activity, snipe_ratio, smart_money_concentration
-    → news_match: cryptocurrency.cv headlines
-    → persist: pump_coin_intel table
-    → oracle_conviction: LLM narrative + 0-100 conviction score
+```mermaid
+flowchart TD
+    A["PumpPortal WSS new-mint"] --> B["intel watcher"]
+    B --> C["classify: meme/ai/political/nsfw/utility/gaming/…"]
+    B --> D["score: bundle_risk, organic_activity,\nsnipe_ratio, smart_money_concentration"]
+    B --> E["news_match: cryptocurrency.cv headlines"]
+    C --> F[("pump_coin_intel table")]
+    D --> F
+    E --> F
+    F --> G["oracle_conviction\nLLM narrative + 0-100 conviction score"]
 ```
 
 **Firewall** (`api/pump/safety.js`): SPL authority audit + simulated buy→sell round-trip (honeypot detection). Returns `allow | warn | block`. Logs to `firewall_decisions`.
@@ -1238,11 +1265,12 @@ Paginated $THREE holder board ranked by on-chain balance. Seven tiers with per-w
 
 ### Smart Money & Oracle
 
-```
-pump.fun coin data + wallet_reputation + coin_smart_money
-    → oracle score-loop (workers/oracle)
-    → oracle_conviction (0-100 score + LLM narrative)
-    → /api/oracle/feed SSE → browser (real-time tier chips on launches feed)
+```mermaid
+flowchart LR
+    A["pump.fun coin data\n+ wallet_reputation\n+ coin_smart_money"] --> B["oracle score-loop\n(workers/oracle)"]
+    B --> C["oracle_conviction\n(0-100 score + LLM narrative)"]
+    C --> D["/api/oracle/feed SSE"]
+    D --> E["browser\n(real-time tier chips on launches feed)"]
 ```
 
 **Smart Money Rollup** (`cron/smart-money-rollup`): cross-references `pumpfun_graduations` with wallet history to build proven track records.
@@ -1418,129 +1446,175 @@ Stores: GLBs · audio clips · thumbnails · manifests · OG images · validatio
 
 ### 1. User Creates an Avatar
 
-```
-browser (Avatar Studio)
-    → src/avatar-studio.js loads base template GLB from R2
-    → User sculpts morphs, picks colors, adds accessories
-    → GLTFExporter serializes to GLB Blob
-    → POST /api/avatar/presign-glb → presigned R2 upload URL
-    → PUT to R2 (GLB stored)
-    → api/_lib/avatars.js calls canonicalizeGLBBones()
-        → src/glb-canonicalize.js rewrites joint names to canonical Avaturn set
-        → canonical GLB written back to R2
-    → POST /api/avatars (create avatar record in Neon DB)
-    → AnimationManager.attach() at next view
-        → retargetClip() per clip against uploaded skeleton
-        → AnimationMixer drives runtime animation
+```mermaid
+flowchart TD
+    A["Avatar Studio (browser)\nsrc/avatar-studio.js"]
+    R2[("Cloudflare R2")]
+    A -->|"load base template GLB"| R2
+    A --> B["User sculpts morphs, picks colors, adds accessories"]
+    B --> C["GLTFExporter serializes to GLB Blob"]
+    C -->|"POST /api/avatar/presign-glb"| D["Presigned R2 upload URL"]
+    D -->|"PUT to R2"| R2
+    R2 -->|"api/_lib/avatars.js"| E["canonicalizeGLBBones()\nsrc/glb-canonicalize.js\nrewrites joint names to canonical Avaturn set"]
+    E -->|"canonical GLB"| R2
+    E -->|"POST /api/avatars"| DB[("Neon DB")]
+    DB --> AM["AnimationManager.attach()\nretargetClip() per clip against uploaded skeleton\nAnimationMixer drives runtime animation"]
 ```
 
 ### 2. Agent Pays for a Service (A2A x402)
 
-```
-Agent (MCP client or worker)
-    → GET target endpoint → 402 Payment Required
-    → POST /api/x402-pay { url, agentId }
-        → probeExternalRequirements (parse 402 challenge)
-        → reserveSpendUsd (Upstash atomic spend cap check)
-        → loadAgentKeypair (decrypt AES-256-GCM custodial key)
-        → buildSolanaPaymentPayload (sign SPL transferChecked)
-        → guardedFetch with X-PAYMENT header
-        → POST facilitator.payai.network/verify
-        → tool/handler executes
-        → POST facilitator.payai.network/settle (on-chain)
-        → updateCustodyEvent (finalize ledger in Neon)
-    → SSE stream: challenge → built → verified → settled → result
+```mermaid
+sequenceDiagram
+    participant A as Agent (MCP client/worker)
+    participant X as /api/x402-pay
+    participant T as Target Endpoint
+    participant F as PayAI Facilitator
+    participant N as Neon DB
+
+    A->>T: GET target endpoint
+    T-->>A: 402 Payment Required
+    A->>X: POST { url, agentId }
+    X->>X: probeExternalRequirements (parse 402 challenge)
+    X->>X: reserveSpendUsd (Upstash atomic spend cap check)
+    X->>X: loadAgentKeypair (decrypt AES-256-GCM)
+    X->>X: buildSolanaPaymentPayload (sign SPL transferChecked)
+    X->>T: guardedFetch with X-PAYMENT header
+    T->>F: POST /verify
+    F-->>T: verified
+    T->>T: handler executes
+    T->>F: POST /settle (on-chain)
+    F-->>T: settled
+    T-->>X: response
+    X->>N: updateCustodyEvent (finalize ledger)
+    X-->>A: SSE stream: challenge → built → verified → settled → result
 ```
 
 ### 3. User Launches a Pump.fun Token
 
-```
-browser (launch-token-modal.js)
-    → POST /api/pump/launch-prep {metadata, imageUrl}
-        → upload image to pump.fun IPFS (https://pump.fun/api/ipfs)
-        → optional: WASM vanity mint grind
-        → returns unsigned createV2 tx + metadata URI
-    → user wallet signs tx (Phantom)
-    → POST /api/pump/launch-confirm {signedTx}
-        → submit to Solana mainnet
-        → wait for confirmation
-        → INSERT pump_agent_mints (mint, agent_id, tx_sig, created_at)
-    → agent-sniper intel watcher picks up mint from PumpPortal WSS
-    → classify + score → pump_coin_intel
-    → oracle score-loop → oracle_conviction
-    → /launches feed shows coin with real-time conviction chip
+```mermaid
+sequenceDiagram
+    participant B as Browser (launch-token-modal.js)
+    participant A as /api/pump/
+    participant W as Phantom Wallet
+    participant S as Solana mainnet
+    participant P as PumpPortal WSS
+    participant O as Oracle
+
+    B->>A: POST /launch-prep { metadata, imageUrl }
+    A->>A: upload image to pump.fun IPFS
+    A->>A: optional WASM vanity mint grind
+    A-->>B: unsigned createV2 tx + metadata URI
+    B->>W: Sign transaction
+    W-->>B: Signed tx
+    B->>A: POST /launch-confirm { signedTx }
+    A->>S: submit to Solana mainnet
+    S-->>A: confirmation
+    A->>A: INSERT pump_agent_mints
+    P->>A: intel watcher picks up mint from PumpPortal WSS
+    A->>A: classify + score → pump_coin_intel
+    A->>O: oracle score-loop → oracle_conviction
+    O-->>B: /launches feed shows coin with real-time conviction chip
 ```
 
 ### 4. MCP Client Calls a Paid 3D Tool
 
-```
-Claude Desktop / Cursor
-    → stdio → @three-ws/mcp-server
-    → tool: mesh_forge { prompt: "a dragon" }
-    → @x402/mcp PaymentRequired challenge
-    → user approves USDC payment on Solana
-    → x402 facilitator verifies payment
-    → POST https://three.ws/api/forge { prompt, tier: "standard" }
-        → forge-tiers.js selects backend (TRELLIS/TripoSG)
-        → submit to GPU worker → poll status
-        → GLB written to R2
-    → return: { glb_url, preview_url, mint_address }
-    → receipt returned to MCP client
+```mermaid
+sequenceDiagram
+    participant C as Claude Desktop / Cursor
+    participant M as @three-ws/mcp-server (stdio)
+    participant X as x402 Facilitator
+    participant A as /api/forge
+    participant G as GPU Worker (TRELLIS/TripoSG)
+    participant R as Cloudflare R2
+
+    C->>M: tool: mesh_forge { prompt: "a dragon" }
+    M-->>C: @x402/mcp PaymentRequired challenge
+    C->>X: user approves USDC payment on Solana
+    X-->>M: payment verified
+    M->>A: POST /api/forge { prompt, tier: "standard" }
+    A->>A: forge-tiers.js selects backend
+    A->>G: submit job
+    G-->>A: GLB ready
+    A->>R: write GLB to R2
+    A-->>M: { glb_url, preview_url, mint_address }
+    M-->>C: receipt returned to MCP client
 ```
 
 ### 5. Agent Memory Write and Recall
 
-```
-agent runtime (chat turn)
-    → message arrives at /api/chat
-    → recallForChat():
-        → api/_lib/memory-store.js computeContext()
-        → embedQuery (NVIDIA NIM nv-embedqa-e5-v5)
-        → pgvector cosine similarity search on agent_memories
-        → returns top-k working + recall tier memories
-        → injected into system prompt
-    → LLM generates response
-    → POST /api/agent-memory { content, type }
-        → ERC-191 sign with agent's EVM wallet
-        → INSERT agent_memories
-        → lazy: embed content → pgvector update
-    → reflect-sweep cron (daily):
-        → gatherReflectionContext (recent memories)
-        → llmComplete (claude-opus-4-5 → Groq fallback)
-        → INSERT "dream" memory with provenance citations
+```mermaid
+flowchart TD
+    A["agent runtime (chat turn)"] --> B["message arrives at /api/chat"]
+    B --> C["recallForChat()"]
+    C --> D["api/_lib/memory-store.js computeContext()"]
+    D --> E["embedQuery\n(NVIDIA NIM nv-embedqa-e5-v5)"]
+    E --> F["pgvector cosine similarity search\non agent_memories"]
+    F --> G["top-k working + recall tier memories\ninjected into system prompt"]
+    G --> H["LLM generates response"]
+    H --> I["POST /api/agent-memory { content, type }"]
+    I --> J["ERC-191 sign with agent's EVM wallet"]
+    J --> K["INSERT agent_memories"]
+    K --> L["lazy: embed content → pgvector update"]
+
+    subgraph Reflect["reflect-sweep cron (daily)"]
+        R1["gatherReflectionContext\n(recent memories)"]
+        R2["llmComplete\n(claude-opus-4-5 → Groq fallback)"]
+        R3["INSERT 'dream' memory\nwith provenance citations"]
+        R1 --> R2 --> R3
+    end
+
+    K --> Reflect
 ```
 
 ### 6. User Buys a Skill from the Marketplace
 
-```
-browser (marketplace-detail.js)
-    → POST /api/marketplace/purchase { agentId, skillName, price }
-        → create pending skill_purchases row + Solana Pay reference
-    → buyer wallet signs Solana Pay transaction
-    → POST /api/marketplace/purchase/:ref/confirm
-        → findReference (on-chain tx lookup)
-        → validateTransfer (SPL amount + recipient check)
-        → confirmSkillPurchase():
-            → agent_revenue_events (fee split: platform fee + author)
-            → purchase_receipts (signed receipt)
-            → POST /api/skills/mint → mintSkillNft()
-                → lazy-create Metaplex Core collection on first sale
-                → mint 1-of-1 NFT to buyer wallet
-                → skill_purchases.nft_mint updated
-    → buyer gains skill access (check-skill-access gate)
+```mermaid
+sequenceDiagram
+    participant B as Browser (marketplace-detail.js)
+    participant A as /api/marketplace/
+    participant W as Buyer Wallet (Solana Pay)
+    participant S as Solana mainnet
+    participant M as Metaplex Core
+
+    B->>A: POST /purchase { agentId, skillName, price }
+    A->>A: create pending skill_purchases row + Solana Pay reference
+    A-->>B: Solana Pay reference
+    B->>W: Sign Solana Pay transaction
+    W->>S: Submit transaction
+    B->>A: POST /purchase/:ref/confirm
+    A->>S: findReference (on-chain tx lookup)
+    A->>S: validateTransfer (SPL amount + recipient check)
+    A->>A: confirmSkillPurchase()
+    A->>A: agent_revenue_events (fee split: platform fee + author)
+    A->>A: purchase_receipts (signed receipt)
+    A->>M: POST /api/skills/mint → mintSkillNft()
+    M->>M: lazy-create Metaplex Core collection on first sale
+    M->>S: mint 1-of-1 NFT to buyer wallet
+    A->>A: skill_purchases.nft_mint updated
+    A-->>B: buyer gains skill access (check-skill-access gate)
 ```
 
 ### 7. Browser Streams Live Market Intelligence
 
-```
-browser (radar.html)
-    → EventSource('/api/pump/coin-intel?stream=1')
-    → server: pump_coin_intel polling loop → SSE events
-    → each event: { mint, name, symbol, category, riskScore, conviction }
-    → browser renders coin cards with real-time tier chips
-    → user clicks card → GET /api/pump/coin-intel?mint=:mint
-        → aggregate: pump.fun frontend API + oracle_conviction + wallet_reputation
-    → WebGL Coin3D renders: spinning medallion + holder galaxy + bonding-curve ring
+```mermaid
+sequenceDiagram
+    participant B as Browser (radar.html)
+    participant S as /api/pump/coin-intel SSE
+    participant DB as pump_coin_intel DB
+    participant W as WebGL Coin3D
+
+    B->>S: EventSource('/api/pump/coin-intel?stream=1')
+    loop SSE polling
+        S->>DB: poll pump_coin_intel
+        DB-->>S: { mint, name, symbol, category, riskScore, conviction }
+        S-->>B: SSE event
+        B->>B: render coin cards with real-time tier chips
+    end
+    B->>S: GET /api/pump/coin-intel?mint=:mint (on card click)
+    S->>DB: aggregate: pump.fun API + oracle_conviction + wallet_reputation
+    DB-->>S: detailed coin data
+    S-->>B: detailed coin data
+    B->>W: render spinning medallion + holder galaxy + bonding-curve ring
 ```
 
 ---

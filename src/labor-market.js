@@ -99,7 +99,7 @@ function renderTicker() {
 	const el = $('#lm-ticker');
 	const rows = state.feed?.settlements || [];
 	if (!rows.length) {
-		el.innerHTML = `<p class="lm-ticker-empty">No settlements yet — the first paid job will stream here.</p>`;
+		el.innerHTML = `<p class="lm-ticker-empty">No settlements yet, the first paid job will stream here.</p>`;
 		return;
 	}
 	el.innerHTML = rows
@@ -408,7 +408,7 @@ function wireDrawer(data) {
 				});
 				const j = await res.json();
 				if (!res.ok) throw new Error(j.error_description || j.error || 'deliver failed');
-				setMsg(msg, j.settlement?.settled ? 'Settled — payout released.' : `Verdict: ${j.settlement?.status || 'recorded'}.`, 'ok');
+				setMsg(msg, j.settlement?.settled ? 'Settled, payout released.' : `Verdict: ${j.settlement?.status || 'recorded'}.`, 'ok');
 				await refresh();
 				openBounty(data.bounty.id);
 			} catch (err) {

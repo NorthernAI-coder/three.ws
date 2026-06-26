@@ -85,7 +85,7 @@ function renderHero(agent) {
 	// Name
 	const nameEl = $('ch-name');
 	nameEl.textContent = agent.name || 'Unnamed';
-	document.title = `${agent.name || 'Character'} — three.ws`;
+	document.title = `${agent.name || 'Character'} · three.ws`;
 
 	// On-chain badge — surfaces below the name when this character is deployed.
 	document.getElementById('ch-onchain-badge')?.remove();
