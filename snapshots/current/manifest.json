@@ -1,24 +1,19 @@
 {
-  "capturedAt": "2026-06-21T08:42:21.012Z",
-  "date": "2026-06-21",
+  "capturedAt": "2026-06-26T07:13:17.006Z",
+  "date": "2026-06-26",
   "baseUrl": "http://localhost:3000",
   "viewports": [
     "desktop"
   ],
   "pageCount": 1,
-  "capturedCount": 1,
+  "capturedCount": 0,
   "pages": [
     {
-      "path": "/oracle",
-      "title": "/oracle",
+      "path": "/agents",
+      "title": "/agents",
       "section": "Selected",
-      "slug": "oracle",
-      "shots": {
-        "desktop": {
-          "bytes": 102285,
-          "navStatus": 200
-        }
-      }
+      "slug": "agents",
+      "shots": {}
     }
   ]
 }

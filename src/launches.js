@@ -18,7 +18,7 @@
  *   · 60s live refresh that prepends genuinely new launches in place
  */
 
-import { mountCoinStatus } from './pump/coin-status-card.js';
+import { mountCoinStatus, formatMcap } from './pump/coin-status-card.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { createLogger } from './shared/log.js';
 
@@ -38,6 +38,9 @@ const state = {
 	count: 0,
 	seenMints: new Set(),
 	latestCreatedAt: null,
+	// Live market data keyed by mint, fed by each card's coin-status widget as it
+	// loads/refreshes — the source for the feed's aggregate data points.
+	marketByMint: new Map(),
 };
 
 const feedEl = document.getElementById('lx-feed');
@@ -49,6 +52,8 @@ const tickerTrackEl = document.getElementById('lx-ticker-track');
 const statCountEl = document.getElementById('lx-stat-count');
 const statLatestEl = document.getElementById('lx-stat-latest');
 const statNetworkEl = document.getElementById('lx-stat-network');
+const statMcapEl = document.getElementById('lx-stat-mcap');
+const statGradEl = document.getElementById('lx-stat-grad');
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
