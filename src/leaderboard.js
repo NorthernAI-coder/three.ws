@@ -248,7 +248,15 @@ function renderSummary(data) {
 
 function renderTicker(trades) {
 	const el = $('#lb-ticker');
-	if (!trades || !trades.length) { el.innerHTML = '<span class="lb-muted" style="font-size:var(--text-xs)">No closes yet.</span>'; return; }
+	// No internal closes (e.g. while the live fallback board is showing) — hide the
+	// whole "Latest closes" aside rather than leave a hollow "No closes yet." panel.
+	const wrap = el.closest('.lb-ticker-wrap');
+	if (!trades || !trades.length) {
+		el.innerHTML = '';
+		if (wrap) wrap.hidden = true;
+		return;
+	}
+	if (wrap) wrap.hidden = false;
 	el.innerHTML = trades.slice(0, 16).map((t) => {
 		const url = t.sell_url || t.buy_url || '#';
 		const pnl = t.pnl_sol != null ? `<span class="lb-tick-pnl ${pnlClass(t.pnl_sol)}">${fmtSol(t.pnl_sol)}</span>` : '';
@@ -263,25 +271,46 @@ function renderBoard(data) {
 	const board = $('.lb-board');
 	const rows = $('#lb-rows');
 	const stateEl = $('#lb-state');
-	const list = data.leaderboard || [];
+	const agents = data.leaderboard || [];
+	const live = data.live_traders || [];
 	board.setAttribute('aria-busy', 'false');
 
-	if (!list.length) {
-		rows.innerHTML = '';
-		stateEl.innerHTML = `
-			<div class="lb-state-title">No ranked traders yet</div>
-			<p>No agent has closed a sniper position in this window${state.verified ? ' that meets the verified bar' : ''}.
-			   Widen the window, turn off “verified only”, or be the first.</p>
-			<a class="lb-btn lb-btn-primary" href="/create-agent">Launch a trader</a>`;
+	// 1. Provable three.ws agent track records take precedence.
+	if (agents.length) {
+		setBoardMode(false);
+		clearLiveBanner();
+		stateEl.innerHTML = '';
+		rows.innerHTML = agents.map(rowMarkup).join('');
+		// Wire the wallet chips' copy + Tip actions. The board is public — viewers
+		// don't own these traders' agents — so chips render isOwner:false (◎ Tip).
+		wireWalletChips(rows);
+		staggerRows(rows);
 		return;
 	}
-	stateEl.innerHTML = '';
-	rows.innerHTML = list.map(rowMarkup).join('');
-	// Wire the wallet chips' copy + Tip actions. The board is public — viewers
-	// don't own these traders' agents — so chips render isOwner:false (◎ Tip).
-	wireWalletChips(rows);
-	// Stagger the entrance subtly.
-	rows.querySelectorAll('.lb-row').forEach((el, i) => { el.style.animationDelay = `${Math.min(i, 12) * 22}ms`; });
+
+	// 2. Live fallback: real top Solana traders from kolscan, so the flagship is
+	//    never an empty void before the first agent earns a record.
+	if (live.length) {
+		setBoardMode(true);
+		showLiveBanner(data);
+		stateEl.innerHTML = '';
+		rows.innerHTML = sortLive(live, state.sort).map(liveRowMarkup).join('');
+		staggerRows(rows);
+		return;
+	}
+
+	// 3. Genuinely nothing — devnet, or the live source is momentarily unreachable.
+	setBoardMode(false);
+	clearLiveBanner();
+	rows.innerHTML = '';
+	const liveDown = state.network === 'mainnet';
+	stateEl.innerHTML = `
+		<div class="lb-state-title">No ranked traders yet</div>
+		<p>${liveDown
+			? 'No agent has a track record in this window yet, and the live trader feed is momentarily unreachable.'
+			: `No agent has closed a sniper position in this window${state.verified ? ' that meets the verified bar' : ''}.`}
+		   Widen the window, turn off “verified only”, or be the first.</p>
+		<a class="lb-btn lb-btn-primary" href="/create-agent">Launch a trader</a>`;
 }
 
 // --- Fetch -------------------------------------------------------------------

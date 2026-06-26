@@ -252,6 +252,36 @@
 .lb-col-num { text-align: right; font-variant-numeric: tabular-nums; }
 .lb-col-act { text-align: right; }
 
+/* Live top-trader fallback: a leaner 6-column grid (no Score / ROI / Max DD —
+   those are ours to compute for agents, not scraped for external wallets). */
+.lb-board.is-live .lb-board-head,
+.lb-board.is-live .lb-row {
+	grid-template-columns: 36px minmax(0, 2.4fr) 1.2fr 0.9fr 0.8fr 96px;
+}
+
+/* Contextual banner shown above the board while the live fallback is on screen. */
+.lb-live-banner {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	margin: 0 0 12px;
+	padding: 9px 13px;
+	border: 1px solid color-mix(in srgb, var(--accent, #8c9bff) 32%, var(--line, var(--stroke)));
+	background: color-mix(in srgb, var(--accent, #8c9bff) 8%, transparent);
+	border-radius: var(--r, 10px);
+	font-size: var(--text-xs);
+	line-height: 1.4;
+	color: var(--ink-dim, #b8b8c4);
+	animation: lb-stale-in 0.2s ease both;
+}
+.lb-live-banner strong { color: var(--ink-bright, #fff); font-weight: 600; }
+.lb-live-banner a { color: var(--accent, #8c9bff); text-decoration: none; font-weight: 600; }
+.lb-live-banner a:hover { text-decoration: underline; }
+.lb-live-banner-text { min-width: 0; }
+
+/* The verified toggle is meaningless for external wallets — dim it in live mode. */
+.lb-toggle.is-disabled { opacity: 0.4; pointer-events: none; }
+
 .lb-rows { display: flex; flex-direction: column; }
 .lb-row {
 	border-bottom: 1px solid var(--hairline);
@@ -551,6 +581,8 @@
 	.lb-hide-md { display: none !important; }
 	.lb-board-head,
 	.lb-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 1.1fr 0.9fr 0.8fr 0.8fr 88px; }
+	.lb-board.is-live .lb-board-head,
+	.lb-board.is-live .lb-row { grid-template-columns: 30px minmax(0, 2.2fr) 1.1fr 0.9fr 0.8fr 88px; }
 	.lb-oracle-board-head,
 	.lb-oracle-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 0.8fr 1.1fr 0.8fr 72px; }
 }
@@ -562,6 +594,9 @@
 	.lb-controls { justify-content: center; }
 	.lb-board-head,
 	.lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.8fr 1fr 70px; }
+	/* Win-rate column is hidden below 620px, so the live grid drops to 5 columns. */
+	.lb-board.is-live .lb-board-head,
+	.lb-board.is-live .lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 1fr 0.8fr 70px; }
 	.lb-avatar { width: 32px; height: 32px; }
 	.lb-oracle-board-head,
 	.lb-oracle-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.9fr 68px; }
