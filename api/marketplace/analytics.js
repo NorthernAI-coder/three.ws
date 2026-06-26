@@ -89,6 +89,28 @@ export default wrap(async (req, res) => {
 		WHERE skill_nft_mint IS NOT NULL
 	`;
 
+	// ── Recent sales feed (latest individual purchases) ──────────────────────
+	// Powers the marketplace "live pulse" ticker — social proof that the market
+	// is liquid. No PII: we expose the agent (the seller, already public) and the
+	// skill + amount, never the buyer's identity or wallet.
+	const recentSales = await sql`
+		SELECT
+			sp.skill,
+			sp.agent_id,
+			ai.name              AS agent_name,
+			ai.profile_image_url AS agent_image,
+			sp.amount,
+			sp.currency_mint,
+			sp.status,
+			sp.confirmed_at
+		FROM skill_purchases sp
+		JOIN agent_identities ai ON ai.id = sp.agent_id
+		WHERE sp.status IN ('confirmed', 'trial')
+		  AND sp.confirmed_at IS NOT NULL
+		ORDER BY sp.confirmed_at DESC
+		LIMIT 16
+	`;
+
 	return json(res, 200, {
 		data: {
 			summary: {
@@ -120,6 +142,16 @@ export default wrap(async (req, res) => {
 				sales:        Number(r.sales),
 				volumeAtomic: String(r.volume_atomic ?? 0),
 				currencyMint: r.currency_mint,
+			})),
+			recentSales: recentSales.map(r => ({
+				skill:        r.skill,
+				agentId:      r.agent_id,
+				agentName:    r.agent_name,
+				agentImage:   r.agent_image,
+				amountAtomic: String(r.amount ?? 0),
+				currencyMint: r.currency_mint,
+				trial:        r.status === 'trial',
+				confirmedAt:  r.confirmed_at ? new Date(r.confirmed_at).toISOString() : null,
 			})),
 		},
 	});

@@ -296,6 +296,12 @@ export const env = {
 	get AVATURN_API_URL() {
 		return trimSlash(opt('AVATURN_API_URL', 'https://api.avaturn.me'));
 	},
+	// avaturn-seed cron — set to '1' to enable the per-minute headless seeder that
+	// grows the public gallery with randomized, Avaturn-rigged avatars. Off by
+	// default so the cron is a no-op until the operator opts in (and has quota).
+	get AVATURN_SEED_ENABLED() {
+		return opt('AVATURN_SEED_ENABLED', '') === '1';
+	},
 
 	// Anthropic API key — used by persona / memory-seeding endpoints and
 	// the we-pay LLM proxy (/api/llm/anthropic) when an agent selects a

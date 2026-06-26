@@ -19,7 +19,7 @@ import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
-import { fetchTokenMarket, buildTokenSignal, isResolvableAddress } from '../_lib/token-market.js';
+import { fetchTokenMarket, buildTokenSignal, buildTokenRisk, isResolvableAddress } from '../_lib/token-market.js';
 
 const ROUTE = '/api/x402/token-intel';
 
@@ -47,7 +47,7 @@ export const INPUT_SCHEMA = {
 export const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['mint', 'signal', 'headline', 'rationale', 'confidence', 'ts'],
+	required: ['mint', 'signal', 'headline', 'rationale', 'confidence', 'risk', 'ts'],
 	properties: {
 		mint:            { type: 'string' },
 		symbol:          { type: ['string', 'null'] },
@@ -58,10 +58,41 @@ export const OUTPUT_SCHEMA = {
 		market_cap_usd:  { type: ['number', 'null'] },
 		liquidity_usd:   { type: ['number', 'null'] },
 		volume_24h_usd:  { type: ['number', 'null'] },
+		momentum: {
+			type: 'object',
+			description: 'Price change (%) per window — m5, h1, h6, h24.',
+			properties: {
+				m5:  { type: ['number', 'null'] },
+				h1:  { type: ['number', 'null'] },
+				h6:  { type: ['number', 'null'] },
+				h24: { type: ['number', 'null'] },
+			},
+		},
 		signal:          { type: 'string', enum: ['bullish', 'bearish', 'neutral'] },
 		headline:        { type: 'string' },
 		rationale:       { type: 'string' },
 		confidence:      { type: 'number', minimum: 0, maximum: 1 },
+		risk: {
+			type: 'object',
+			description: 'Due-diligence risk score (0 safe … 100 critical) with the factors behind it.',
+			required: ['score', 'level', 'summary', 'factors'],
+			properties: {
+				score:   { type: 'integer', minimum: 0, maximum: 100 },
+				level:   { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
+				summary: { type: 'string' },
+				factors: {
+					type: 'array',
+					items: {
+						type: 'object',
+						properties: {
+							label:  { type: 'string' },
+							status: { type: 'string', enum: ['low', 'medium', 'high', 'critical', 'unknown'] },
+							detail: { type: 'string' },
+						},
+					},
+				},
+			},
+		},
 		ts:              { type: 'string', format: 'date-time' },
 	},
 };
@@ -81,10 +112,22 @@ export const BAZAAR = {
 			symbol: 'THREE', name: 'three.ws', chain: 'solana',
 			price_usd: 0.003685, change_24h: 12.4, market_cap_usd: 3685000,
 			liquidity_usd: 412000, volume_24h_usd: 1268079,
+				momentum: { m5: 0.3, h1: 1.8, h6: 6.1, h24: 12.4 },
 			signal: 'bullish',
 			headline: 'THREE climbs +12.40% — moderate upside',
-			rationale: 'THREE is up +12.40% over 24 h, trading at $0.003685. Volume is healthy against liquidity; participation is real.',
-			confidence: 0.86, ts: '2026-06-12T10:00:00Z',
+			rationale: 'THREE is up +12.40% over 24 h, trading at $0.003685. Volume is healthy against liquidity; participation is real. Buyers dominate the tape. The last hour confirms the trend.',
+			confidence: 0.86,
+				risk: {
+					score: 8, level: 'low',
+					summary: 'THREE clears the basic depth, age, and flow checks.',
+					factors: [
+						{ label: 'Liquidity', status: 'low', detail: '$412,000 pooled — healthy depth.' },
+						{ label: 'Age', status: 'low', detail: 'Pair is 240d old — established.' },
+						{ label: 'Float', status: 'low', detail: 'Cap is 8.9× liquidity — well backed.' },
+						{ label: 'Flow', status: 'low', detail: '63% of 24 h trades are buys — net accumulation.' },
+					],
+				},
+				ts: '2026-06-12T10:00:00Z',
 		},
 	},
 	schema: buildBazaarSchema({
@@ -129,6 +172,7 @@ export default paidEndpoint({
 		}
 
 		const { signal, headline, rationale, confidence } = buildTokenSignal(live);
+		const risk = buildTokenRisk(live);
 		return {
 			mint: live.mint,
 			symbol: live.symbol,
@@ -139,10 +183,12 @@ export default paidEndpoint({
 			market_cap_usd: live.market_cap_usd,
 			liquidity_usd: live.liquidity_usd,
 			volume_24h_usd: live.volume_24h_usd,
+			momentum: live.momentum,
 			signal,
 			headline,
 			rationale,
 			confidence,
+			risk,
 			ts: new Date().toISOString(),
 		};
 	},

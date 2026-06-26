@@ -24,6 +24,7 @@ import { env } from '../_lib/env.js';
 import {
 	fetchTokenMarket,
 	buildTokenSignal,
+	buildTokenRisk,
 	isResolvableAddress,
 	chainOf,
 } from '../_lib/token-market.js';
@@ -112,6 +113,7 @@ async function handler(req, res) {
 	}
 
 	const signal = market.change_24h != null ? buildTokenSignal(market) : null;
+	const risk = buildTokenRisk(market);
 
 	const origin = originOf(req);
 	const endpointUrl = `${origin}${ENDPOINT_PATH}?mint=${encodeURIComponent(market.mint)}`;
@@ -129,10 +131,12 @@ async function handler(req, res) {
 		market_cap_usd: market.market_cap_usd,
 		liquidity_usd: market.liquidity_usd,
 		volume_24h_usd: market.volume_24h_usd,
+		momentum: market.momentum,
 		signal: signal?.signal ?? null,
 		headline: signal?.headline ?? null,
 		rationale: signal?.rationale ?? null,
 		confidence: signal?.confidence ?? null,
+		risk,
 	};
 
 	const service = {
