@@ -2511,6 +2511,14 @@
 			"dest": "/api/pump/[action]?action=by-agent"
 		},
 		{
+			"src": "/api/pump/launches",
+			"dest": "/api/pump/[action]?action=launches"
+		},
+		{
+			"src": "/api/pump/coin",
+			"dest": "/api/pump/[action]?action=coin"
+		},
+		{
 			"src": "/api/pump/quote",
 			"dest": "/api/pump/[action]?action=quote"
 		},
