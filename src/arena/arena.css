@@ -670,6 +670,28 @@
 	line-height: 1.5;
 	font-size: var(--text-md, 0.82rem);
 }
+.state-icon {
+	font-size: 2.4rem;
+	line-height: 1;
+	margin-bottom: 0.7rem;
+}
+.state-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	justify-content: center;
+}
+
+/* Not-found recovery: surfaced live/upcoming tournaments */
+#nf-suggest {
+	margin-top: var(--space-lg, 1.6rem);
+}
+.nf-h {
+	font-size: var(--text-base, 1rem);
+	letter-spacing: -0.01em;
+	margin: 0 0 var(--space-md, 1rem);
+	color: var(--text-2, #a8a8a8);
+}
 
 /* ── Modal ────────────────────────────────────────────────────────────── */
 .arena-modal {

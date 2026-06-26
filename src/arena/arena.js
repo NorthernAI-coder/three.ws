@@ -311,7 +311,7 @@ async function renderDetail(id) {
 	detailId = id;
 	lastRanks = new Map();
 	root.replaceChildren(
-		h('button', { class: 'arena-back', type: 'button', onclick: () => (location.hash = '#/') }, '← All tournaments'),
+		backButton(),
 		h('div', { class: 'skeleton', style: 'height:120px;margin-bottom:1.2rem' }),
 		h('div', { class: 'skeleton', style: 'height:340px' }),
 	);
@@ -320,14 +320,23 @@ async function renderDetail(id) {
 	try {
 		data = await fetchJSON(`/api/tournaments/${id}`);
 	} catch (err) {
+		// A 404 means the link is stale — retrying it will never succeed. Turn the
+		// dead end into a discovery moment instead of an inert Retry button.
+		if (err.status === 404) return renderNotFound();
 		root.replaceChildren(
-			h('button', { class: 'arena-back', type: 'button', onclick: () => (location.hash = '#/') }, '← All tournaments'),
+			backButton(),
 			h(
 				'div',
 				{ class: 'state' },
-				h('h3', {}, err.status === 404 ? 'Tournament not found' : 'Could not load this tournament'),
-				h('p', {}, err.message || ''),
-				h('button', { class: 'btn', type: 'button', onclick: () => renderDetail(id) }, 'Retry'),
+				h('div', { class: 'state-icon', 'aria-hidden': 'true' }, '⚠️'),
+				h('h3', {}, 'Could not load this tournament'),
+				h('p', {}, err.message || 'Something went wrong reaching the Arena. Check your connection and try again.'),
+				h(
+					'div',
+					{ class: 'state-actions' },
+					h('button', { class: 'btn btn-primary', type: 'button', onclick: () => renderDetail(id) }, 'Retry'),
+					h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => (location.hash = '#/') }, 'Back to all tournaments'),
+				),
 			),
 		);
 		return;
@@ -345,11 +354,75 @@ function phaseFromStatus(d) {
 	return 'finished';
 }
 
+/**
+ * Not-found recovery. A shared link can outlive its tournament (ended, removed, or
+ * created on a different network). Rather than stranding the visitor on a 404, show
+ * what's live or upcoming right now so there's always a way forward.
+ */
+async function renderNotFound() {
+	stopStream();
+	document.title = `Tournament not found · ${BASE_TITLE}`;
+	const suggestions = h('div', { id: 'nf-suggest' });
+	root.replaceChildren(
+		backButton(),
+		h(
+			'div',
+			{ class: 'state' },
+			h('div', { class: 'state-icon', 'aria-hidden': 'true' }, '🏁'),
+			h('h3', {}, 'This tournament isn’t here'),
+			h(
+				'p',
+				{},
+				'The link may be stale, or the competition has wrapped up and rolled off. Here’s what’s happening in the Arena right now.',
+			),
+			h('button', { class: 'btn btn-primary', type: 'button', onclick: () => (location.hash = '#/') }, 'Browse all tournaments'),
+		),
+		suggestions,
+	);
+
+	try {
+		const data = listCache ? { tournaments: listCache } : await fetchJSON(`/api/tournaments?network=${NETWORK}`);
+		const all = data.tournaments || [];
+		listCache = all;
+		const picks = [
+			...all.filter((t) => t.phase === 'live'),
+			...all.filter((t) => t.phase === 'upcoming'),
+		].slice(0, 6);
+		if (picks.length) {
+			suggestions.replaceChildren(
+				h('h2', { class: 'nf-h' }, 'Live & upcoming'),
+				h('div', { class: 'tourn-grid' }, ...picks.map(tournamentCard)),
+			);
+			startCountdowns();
+		}
+	} catch {
+		/* Suggestions are a bonus — the recovery state stands on its own without them. */
+	}
+}
+
+/** Share the deep link to a tournament (native share sheet, with clipboard fallback). */
+function shareTournament(t) {
+	const url = `${location.origin}/arena#/t/${t.id}`;
+	if (navigator.share) {
+		navigator.share({ title: `${t.name} · The Arena`, url }).catch(() => {});
+		return;
+	}
+	if (navigator.clipboard?.writeText) {
+		navigator.clipboard.writeText(url).then(
+			() => toast('Link copied to clipboard'),
+			() => toast('Could not copy the link', true),
+		);
+		return;
+	}
+	toast('Copy this link from your address bar to share', true);
+}
+
 function paintDetail(data) {
 	const t = data.tournament;
 	const phase = phaseFromStatus(data.derived_status);
 	const standings = data.standings || [];
 	const leader = standings.find((s) => s.rank === 1);
+	document.title = `${t.name} · The Arena · three.ws`;
 
 	// Cache the full board so the SSE stream can merge lean live rows into it and so
 	// row-proof toggles can re-render without a refetch.
@@ -379,6 +452,7 @@ function paintDetail(data) {
 			t.attestation_url
 				? h('a', { class: 'btn btn-ghost', href: t.attestation_url, target: '_blank', rel: 'noopener' }, '⛓ On-chain result')
 				: null,
+			h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => shareTournament(t) }, '↗ Share'),
 		),
 	);
 
@@ -414,11 +488,7 @@ function paintDetail(data) {
 		),
 	);
 
-	root.replaceChildren(
-		h('button', { class: 'arena-back', type: 'button', onclick: () => (location.hash = '#/') }, '← All tournaments'),
-		head,
-		body,
-	);
+	root.replaceChildren(backButton(), head, body);
 }
 
 function detailStats(data, phase) {
@@ -947,6 +1017,7 @@ function toLocalInput(d) {
 // ───────────────────────────────────────────────────────────────────────────
 function route() {
 	const hash = location.hash || '#/';
+	window.scrollTo({ top: 0, behavior: 'auto' });
 	const m = hash.match(/^#\/t\/([0-9a-f-]{36})/i);
 	if (m) renderDetail(m[1]);
 	else renderList();

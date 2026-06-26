@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>A stale Arena link no longer dead-ends on a 'not found' screen</title>
+			<link>https://three.ws/arena</link>
+			<guid isPermaLink="false">2026-06-26:A stale Arena link no longer dead-ends on a 'not found' screen</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Opening a shared tournament link after the competition has ended or rolled off used to leave you stranded on a bare 'Tournament not found' page whose only button was a Retry that could never work. Now that case turns into a way forward: a clear explanation plus a live grid of the tournaments running and starting right now, so there's always something to jump into. Genuine connection hiccups (as opposed to a missing tournament) keep a Retry alongside a 'Back to all tournaments' escape hatch. Every tournament page also gets a Share button that copies its link, sets a proper browser-tab title, and scrolls cleanly to the top as you move between views.</description>
+		</item>
+		<item>
 			<title>Animation Studio gains undo, mirror, and copy/paste posing</title>
 			<link>https://three.ws/pose</link>
 			<guid isPermaLink="false">2026-06-26:Animation Studio gains undo, mirror, and copy/paste posing</guid>

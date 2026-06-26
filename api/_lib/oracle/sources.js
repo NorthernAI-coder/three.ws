@@ -232,13 +232,16 @@ export async function walletProfile(wallet, network = 'mainnet') {
 		from wallet_reputation where wallet = ${wallet} and network = ${network} limit 1
 	`);
 	const recent = await tryRows(() => sql`
-		select w.mint, w.buy_lamports, w.sell_lamports, w.is_creator, w.last_seen_at,
-		       i.symbol, i.name, i.image_uri, i.category
+		select w.mint, w.buy_count, w.sell_count, w.buy_lamports, w.sell_lamports,
+		       w.base_bought, w.base_sold, w.is_creator, w.first_seen_at, w.last_seen_at,
+		       i.symbol, i.name, i.image_uri, i.category, i.quality_score, i.narrative,
+		       o.graduated, o.rugged, o.ath_multiple, o.last_market_cap_usd
 		from pump_coin_wallets w
 		left join pump_coin_intel i on i.mint = w.mint
+		left join pump_coin_outcomes o on o.mint = w.mint
 		where w.wallet = ${wallet}
 		order by w.last_seen_at desc
-		limit 25
+		limit 60
 	`);
 	return { rep, recent };
 }
