@@ -450,6 +450,7 @@ const appConfig = {
 				pricing: resolve(__dirname, 'pages/pricing.html'),
 				billing: resolve(__dirname, 'pages/billing.html'),
 				credits: resolve(__dirname, 'pages/credits.html'),
+				payments: resolve(__dirname, 'pages/payments.html'),
 				'x-pricing': resolve(__dirname, 'pages/x-pricing.html'),
 				'avatar-studio-demo': resolve(__dirname, 'pages/avatar-studio-demo.html'),
 				'gallery-picker': resolve(__dirname, 'pages/gallery-picker.html'),

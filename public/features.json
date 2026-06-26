@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T20:03:46.134Z",
+	"generated_at": "2026-06-26T21:04:17.961Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1525,6 +1525,16 @@
 					"title": "Credits",
 					"description": "Top up with SOL or $THREE and spend credits on 3D generation, agents, and compute. Hold $THREE for up to 30% off every spend.",
 					"added": "2026-06-21",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/payments",
+					"title": "Agent Payment Sessions",
+					"description": "Create budget-limited payment sessions for AI agents. Governance-enforced spend limits, URL allowlists, and expiry — agents pay x402 APIs without holding a private key.",
+					"added": "2026-06-26",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

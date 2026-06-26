@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent Payment Sessions</title>
+			<link>https://three.ws/payments</link>
+			<guid isPermaLink="false">2026-06-26:Agent Payment Sessions</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Create budget-limited payment sessions for AI agents. Governance-enforced spend limits, URL allowlists, and expiry — agents pay x402 APIs without holding a private key.</description>
+		</item>
+		<item>
 			<title>Agent Screen</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-26:Agent Screen</guid>
@@ -47,6 +55,14 @@
 			<description>Auto-generated avatars used to render dark and flat in the gallery — dark-clothed agents could all but disappear into the black cards. The 3D viewer now lights every avatar with a proper studio three-point rig (key, fill, and a rim/back light that traces a bright edge around the silhouette so no avatar blends into the background), boosted ambient and image-based lighting, and the Khronos PBR-Neutral tone mapper, which keeps colors bright and true instead of crushing them. The preview-card edge vignette was softened so small thumbnails no longer look murky. The same rig now also drives the server-rendered poster images used for share cards and gallery warm-up, so avatars look consistent and vivid the instant they appear.</description>
 		</item>
 		<item>
+			<title>4 new agent capabilities: Alpha Hunt, Coin Launcher, Creator Auto-Claim, and Market Maker</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-26:4 new agent capabilities: Alpha Hunt, Coin Launcher, Creator Auto-Claim, and Market Maker</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agents can now do a lot more. Alpha Hunt is a new strategy trigger that scores coins using smart-money signals, organic growth patterns, quality scores, and narrative keywords — finding undervalued gems before they move. Coin Launcher lets an agent autonomously launch coins on pump.fun on a schedule, with configurable metadata templates, initial dev buys, and Telegram notifications. Creator Auto-Claim watches your agent's launched coins and automatically claims creator fees when they exceed a configurable threshold, with optional reinvestment into the sniper buy budget. Market Maker uses Jito-accelerated execution to provide liquidity on any pump.fun coin, placing buy and sell orders in a configured spread band to capture the spread. All four capabilities are wired into the agent-sniper worker and configurable from the agent edit page.</description>
+		</item>
+		<item>
 			<title>A stale Arena link no longer dead-ends on a 'not found' screen</title>
 			<link>https://three.ws/arena</link>
 			<guid isPermaLink="false">2026-06-26:A stale Arena link no longer dead-ends on a 'not found' screen</guid>
@@ -69,6 +85,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.</description>
+		</item>
+		<item>
+			<title>Agent Payment Sessions — governed x402 spend without private keys</title>
+			<link>https://three.ws/payments</link>
+			<guid isPermaLink="false">2026-06-26:Agent Payment Sessions — governed x402 spend without private keys</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agents can now pay x402 APIs without holding a private key. Create a Payment Session with a budget (drawn from credits), hand the token to an agent, and the platform signs every Solana USDC transfer. Five governance checks fire before any money moves: token auth, session status, URL allowlist, per-tx ceiling, and atomic budget reservation. Sessions expire automatically; un-spent budget is refunded on cancel. Also ships: a /payments dashboard to manage sessions and view payment history, and the @three-ws/agentcore-payments-mcp MCP server with create_payment_session, pay_with_session, check_payment_session, list_payment_sessions, and cancel_payment_session tools.</description>
 		</item>
 		<item>
 			<title>Agent profile pages no longer fail to load over a hiccup</title>

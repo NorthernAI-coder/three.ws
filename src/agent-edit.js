@@ -3201,6 +3201,11 @@ async function init() {
   if (moodHost && agentData?.id) {
     mountMoodInspector(moodHost, { agentId: agentData.id });
   }
+
+  // Autonomous capabilities — alpha hunt, coin launcher, auto-claim, market maker.
+  initAlphaHunt();
+  initLauncher();
+  initMarketMaker();
 }
 
 async function primeDreamsBadge() {
@@ -3212,6 +3217,375 @@ async function primeDreamsBadge() {
     setDreamsBadge(j.pending || 0);
   } catch {
     // Non-fatal — the badge simply stays hidden until the tab is opened.
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ALPHA HUNT — strategy config wired to /api/sniper/strategy
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function initAlphaHunt() {
+  if (!agentId) return;
+  const statusEl = document.getElementById('alpha-hunt-status');
+  function setStatus(msg, ok = true) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.color = ok ? 'rgba(255,255,255,0.6)' : '#f87171';
+    if (msg) setTimeout(() => { statusEl.textContent = ''; }, 4000);
+  }
+
+  // Load existing alpha_hunt strategy for this agent
+  try {
+    const r = await apiFetch(`${API_BASE}/sniper/strategy?agentId=${agentId}`, { credentials: 'include' });
+    if (r.ok) {
+      const { strategies = [] } = await r.json();
+      const s = strategies.find(x => x.trigger === 'alpha_hunt');
+      if (s) {
+        const g = id => document.getElementById(id);
+        if (g('alpha-enabled')) g('alpha-enabled').checked = !!s.enabled;
+        if (g('alpha-min-smart-money')) g('alpha-min-smart-money').value = s.alpha_min_smart_money ?? '';
+        if (g('alpha-min-quality-score')) g('alpha-min-quality-score').value = s.alpha_min_quality_score ?? '';
+        if (g('alpha-min-organic-score')) g('alpha-min-organic-score').value = s.alpha_min_organic_score ?? '';
+        if (g('alpha-max-mcap-usd')) g('alpha-max-mcap-usd').value = s.alpha_max_mcap_usd ?? '';
+        if (g('alpha-narrative-keywords') && s.alpha_narrative_keywords?.length) {
+          g('alpha-narrative-keywords').value = s.alpha_narrative_keywords.join(', ');
+        }
+        if (g('alpha-per-trade-sol')) g('alpha-per-trade-sol').value = s.per_trade_sol ?? '';
+        if (g('alpha-daily-budget-sol')) g('alpha-daily-budget-sol').value = s.daily_budget_sol ?? '';
+        if (g('alpha-stop-loss')) g('alpha-stop-loss').value = s.stop_loss_pct ?? '';
+        if (g('alpha-take-profit')) g('alpha-take-profit').value = s.take_profit_pct ?? '';
+        if (g('alpha-trailing-stop')) g('alpha-trailing-stop').value = s.trailing_stop_pct ?? '';
+        if (g('alpha-mev-tip')) g('alpha-mev-tip').value = s.mev_tip_mode || 'economy';
+      }
+    }
+  } catch { /* load errors are non-fatal — form stays at defaults */ }
+
+  const saveBtn = document.getElementById('alpha-hunt-save');
+  if (!saveBtn) return;
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    setStatus('Saving…');
+    const g = id => document.getElementById(id);
+    const keywords = (g('alpha-narrative-keywords')?.value || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
+    const body = {
+      agentId,
+      trigger: 'alpha_hunt',
+      enabled: g('alpha-enabled')?.checked ?? true,
+      alpha_min_smart_money: g('alpha-min-smart-money')?.value !== '' ? Number(g('alpha-min-smart-money').value) : null,
+      alpha_min_quality_score: g('alpha-min-quality-score')?.value !== '' ? Number(g('alpha-min-quality-score').value) : null,
+      alpha_min_organic_score: g('alpha-min-organic-score')?.value !== '' ? Number(g('alpha-min-organic-score').value) : null,
+      alpha_max_mcap_usd: g('alpha-max-mcap-usd')?.value !== '' ? Number(g('alpha-max-mcap-usd').value) : null,
+      alpha_narrative_keywords: keywords.length ? keywords : null,
+      mev_tip_mode: g('alpha-mev-tip')?.value || 'economy',
+    };
+    try {
+      const r = await apiFetch(`${API_BASE}/sniper/strategy`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.message || j.error || 'Save failed');
+      setStatus('Saved');
+    } catch (err) {
+      setStatus(err.message, false);
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LAUNCHER — wired to /api/agent/launcher
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function initLauncher() {
+  if (!agentId) return;
+  const statusEl = document.getElementById('launcher-status');
+  function setStatus(msg, ok = true) {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.style.color = ok ? 'rgba(255,255,255,0.6)' : '#f87171';
+    if (msg) setTimeout(() => { statusEl.textContent = ''; }, 4000);
+  }
+
+  async function loadLauncher() {
+    try {
+      const r = await apiFetch(`${API_BASE}/agent/launcher?agentId=${agentId}`, { credentials: 'include' });
+      if (!r.ok) return;
+      const { configs = [], coins = [] } = await r.json();
+      const cfg = configs[0];
+      if (cfg) {
+        const g = id => document.getElementById(id);
+        if (g('launcher-enabled')) g('launcher-enabled').checked = !!cfg.enabled;
+        if (g('launcher-network')) g('launcher-network').value = cfg.network || 'mainnet';
+        if (g('launcher-interval-hours')) g('launcher-interval-hours').value = cfg.interval_hours ?? '';
+        if (g('launcher-max-launches')) g('launcher-max-launches').value = cfg.max_launches ?? '';
+        if (g('launcher-name-template')) g('launcher-name-template').value = cfg.name_template ?? '';
+        if (g('launcher-symbol')) g('launcher-symbol').value = cfg.symbol ?? '';
+        if (g('launcher-description')) g('launcher-description').value = cfg.description ?? '';
+        if (g('launcher-image-url')) g('launcher-image-url').value = cfg.image_url ?? '';
+        if (g('launcher-twitter')) g('launcher-twitter').value = cfg.twitter ?? '';
+        if (g('launcher-telegram')) g('launcher-telegram').value = cfg.telegram ?? '';
+        if (g('launcher-website')) g('launcher-website').value = cfg.website ?? '';
+        if (g('launcher-initial-buy')) g('launcher-initial-buy').value = cfg.initial_buy_sol ?? '';
+        if (g('auto-claim-enabled')) g('auto-claim-enabled').checked = !!cfg.auto_claim_enabled;
+        if (g('auto-claim-threshold')) g('auto-claim-threshold').value = cfg.auto_claim_threshold_sol ?? '';
+        const reinvest = document.getElementById('auto-claim-reinvest');
+        const reinvestVal = document.getElementById('auto-claim-reinvest-val');
+        if (reinvest) reinvest.value = cfg.auto_claim_reinvest_pct ?? 0;
+        if (reinvestVal) reinvestVal.textContent = `${Math.round(cfg.auto_claim_reinvest_pct ?? 0)}%`;
+      }
+      renderLaunchedCoins(coins);
+      renderClaimableFees(coins);
+    } catch { /* non-fatal */ }
+  }
+
+  function renderLaunchedCoins(coins) {
+    const wrap = document.getElementById('launched-coins-table-wrap');
+    if (!wrap) return;
+    if (!coins.length) {
+      wrap.innerHTML = '<div class="muted">No coins launched yet.</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+        <thead>
+          <tr style="color:rgba(255,255,255,0.4);text-align:left">
+            <th style="padding:0.4rem 0.6rem">Symbol</th>
+            <th style="padding:0.4rem 0.6rem">Name</th>
+            <th style="padding:0.4rem 0.6rem">Network</th>
+            <th style="padding:0.4rem 0.6rem">Claimed SOL</th>
+            <th style="padding:0.4rem 0.6rem">Graduated</th>
+            <th style="padding:0.4rem 0.6rem">Launched</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coins.map(c => `
+            <tr style="border-top:1px solid rgba(255,255,255,0.06)">
+              <td style="padding:0.4rem 0.6rem;font-weight:600">$${escHtml(c.symbol || '—')}</td>
+              <td style="padding:0.4rem 0.6rem;color:rgba(255,255,255,0.7)">${escHtml(c.name || '—')}</td>
+              <td style="padding:0.4rem 0.6rem;color:rgba(255,255,255,0.5)">${escHtml(c.network || 'mainnet')}</td>
+              <td style="padding:0.4rem 0.6rem">${c.total_claimed_lamports ? (Number(c.total_claimed_lamports) / 1e9).toFixed(4) : '0'}</td>
+              <td style="padding:0.4rem 0.6rem">${c.is_graduated ? '<span style="color:#34d399">Yes</span>' : '<span style="color:rgba(255,255,255,0.3)">No</span>'}</td>
+              <td style="padding:0.4rem 0.6rem;color:rgba(255,255,255,0.4)">${c.created_at ? new Date(c.created_at).toLocaleDateString() : '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function renderClaimableFees(coins) {
+    const wrap = document.getElementById('claimable-fees-table-wrap');
+    if (!wrap) return;
+    const withFees = coins.filter(c => Number(c.claimable_lamports) > 0);
+    if (!withFees.length) {
+      wrap.innerHTML = '<div class="muted">No claimable fees yet. Fees accumulate as your coins trade.</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+        <thead>
+          <tr style="color:rgba(255,255,255,0.4);text-align:left">
+            <th style="padding:0.4rem 0.6rem">Symbol</th>
+            <th style="padding:0.4rem 0.6rem">Claimable (SOL)</th>
+            <th style="padding:0.4rem 0.6rem">Auto-Claim</th>
+            <th style="padding:0.4rem 0.6rem">Last Checked</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${withFees.map(c => `
+            <tr style="border-top:1px solid rgba(255,255,255,0.06)">
+              <td style="padding:0.4rem 0.6rem;font-weight:600">$${escHtml(c.symbol || '—')}</td>
+              <td style="padding:0.4rem 0.6rem;color:#34d399">${(Number(c.claimable_lamports) / 1e9).toFixed(4)}</td>
+              <td style="padding:0.4rem 0.6rem">${c.auto_claim_enabled ? '<span style="color:#60a5fa">On</span>' : '<span style="color:rgba(255,255,255,0.3)">Off</span>'}</td>
+              <td style="padding:0.4rem 0.6rem;color:rgba(255,255,255,0.4)">${c.last_fee_check_at ? new Date(c.last_fee_check_at).toLocaleDateString() : 'Never'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  // Wire reinvest slider display
+  const reinvest = document.getElementById('auto-claim-reinvest');
+  const reinvestVal = document.getElementById('auto-claim-reinvest-val');
+  if (reinvest && reinvestVal) {
+    reinvest.addEventListener('input', () => { reinvestVal.textContent = `${reinvest.value}%`; });
+  }
+
+  await loadLauncher();
+
+  const saveBtn = document.getElementById('launcher-save');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      saveBtn.disabled = true;
+      setStatus('Saving…');
+      const g = id => document.getElementById(id);
+      const body = {
+        agentId,
+        enabled: g('launcher-enabled')?.checked ?? false,
+        network: g('launcher-network')?.value || 'mainnet',
+        interval_hours: g('launcher-interval-hours')?.value !== '' ? Number(g('launcher-interval-hours').value) : null,
+        max_launches: g('launcher-max-launches')?.value !== '' ? Number(g('launcher-max-launches').value) : null,
+        name_template: g('launcher-name-template')?.value || '',
+        symbol: (g('launcher-symbol')?.value || '').toUpperCase(),
+        description: g('launcher-description')?.value || null,
+        image_url: g('launcher-image-url')?.value || null,
+        twitter: g('launcher-twitter')?.value || null,
+        telegram: g('launcher-telegram')?.value || null,
+        website: g('launcher-website')?.value || null,
+        initial_buy_sol: g('launcher-initial-buy')?.value !== '' ? Number(g('launcher-initial-buy').value) : 0,
+        auto_claim_enabled: g('auto-claim-enabled')?.checked ?? false,
+        auto_claim_threshold_sol: g('auto-claim-threshold')?.value !== '' ? Number(g('auto-claim-threshold').value) : 0.5,
+        auto_claim_reinvest_pct: g('auto-claim-reinvest')?.value !== '' ? Number(g('auto-claim-reinvest').value) : 0,
+      };
+      try {
+        const r = await apiFetch(`${API_BASE}/agent/launcher`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.message || j.error || 'Save failed');
+        setStatus('Saved');
+        await loadLauncher();
+      } catch (err) {
+        setStatus(err.message, false);
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+  }
+
+  // Auto-claim save mirrors launcher save (same endpoint, same config row)
+  const acSaveBtn = document.getElementById('auto-claim-save');
+  if (acSaveBtn) {
+    acSaveBtn.addEventListener('click', () => {
+      if (saveBtn) saveBtn.click();
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MARKET MAKER — wired to /api/agent/market-maker
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function initMarketMaker() {
+  if (!agentId) return;
+  const addStatusEl = document.getElementById('mm-add-status');
+  function setAddStatus(msg, ok = true) {
+    if (!addStatusEl) return;
+    addStatusEl.textContent = msg;
+    addStatusEl.style.color = ok ? 'rgba(255,255,255,0.6)' : '#f87171';
+    if (msg) setTimeout(() => { addStatusEl.textContent = ''; }, 4000);
+  }
+
+  // Spread slider display
+  const spreadSlider = document.getElementById('mm-spread');
+  const spreadVal = document.getElementById('mm-spread-val');
+  if (spreadSlider && spreadVal) {
+    spreadSlider.addEventListener('input', () => {
+      spreadVal.textContent = `${(Number(spreadSlider.value) / 100).toFixed(2)}%`;
+    });
+  }
+
+  async function loadMarkets() {
+    const wrap = document.getElementById('active-markets-table-wrap');
+    if (!wrap) return;
+    try {
+      const r = await apiFetch(`${API_BASE}/agent/market-maker?agentId=${agentId}`, { credentials: 'include' });
+      if (!r.ok) { wrap.innerHTML = '<div class="muted">Could not load markets.</div>'; return; }
+      const { configs = [] } = await r.json();
+      const active = configs.filter(c => c.enabled);
+      if (!active.length) {
+        wrap.innerHTML = '<div class="muted">No active markets. Add one above.</div>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
+          <thead>
+            <tr style="color:rgba(255,255,255,0.4);text-align:left">
+              <th style="padding:0.4rem 0.6rem">Symbol</th>
+              <th style="padding:0.4rem 0.6rem">Spread</th>
+              <th style="padding:0.4rem 0.6rem">Order Size</th>
+              <th style="padding:0.4rem 0.6rem">Inventory</th>
+              <th style="padding:0.4rem 0.6rem">P&amp;L (SOL)</th>
+              <th style="padding:0.4rem 0.6rem">MEV Tip</th>
+              <th style="padding:0.4rem 0.6rem"></th>
+            </tr>
+          </thead>
+          <tbody>
+            ${active.map(c => `
+              <tr style="border-top:1px solid rgba(255,255,255,0.06)" data-mm-id="${escHtml(c.id)}">
+                <td style="padding:0.4rem 0.6rem;font-weight:600">${escHtml(c.symbol || c.mint.slice(0, 6))}</td>
+                <td style="padding:0.4rem 0.6rem">${(Number(c.spread_bps) / 100).toFixed(2)}%</td>
+                <td style="padding:0.4rem 0.6rem">${Number(c.order_size_sol).toFixed(3)} SOL</td>
+                <td style="padding:0.4rem 0.6rem">${Number(c.current_inventory_sol || 0).toFixed(3)} / ${Number(c.max_inventory_sol).toFixed(3)}</td>
+                <td style="padding:0.4rem 0.6rem;color:${Number(c.total_pnl_sol) >= 0 ? '#34d399' : '#f87171'}">${Number(c.total_pnl_sol || 0).toFixed(4)}</td>
+                <td style="padding:0.4rem 0.6rem;color:rgba(255,255,255,0.5)">${escHtml(c.mev_tip_mode || 'off')}</td>
+                <td style="padding:0.4rem 0.6rem">
+                  <button class="btn-ghost mm-remove-btn" style="font-size:0.7rem;padding:0.25rem 0.6rem" data-id="${escHtml(c.id)}">Remove</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+      wrap.querySelectorAll('.mm-remove-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            const r = await apiFetch(`${API_BASE}/agent/market-maker?id=${encodeURIComponent(btn.dataset.id)}`, {
+              method: 'DELETE', credentials: 'include',
+            });
+            if (!r.ok) { const j = await r.json(); throw new Error(j.message || 'Failed'); }
+            await loadMarkets();
+          } catch (err) {
+            setAddStatus(err.message, false);
+            btn.disabled = false;
+          }
+        });
+      });
+    } catch { wrap.innerHTML = '<div class="muted">Failed to load markets.</div>'; }
+  }
+
+  await loadMarkets();
+
+  const addBtn = document.getElementById('mm-add-market');
+  if (addBtn) {
+    addBtn.addEventListener('click', async () => {
+      addBtn.disabled = true;
+      setAddStatus('Adding…');
+      const g = id => document.getElementById(id);
+      const body = {
+        agentId,
+        mint: g('mm-mint')?.value?.trim() || '',
+        symbol: (g('mm-symbol')?.value || '').toUpperCase(),
+        spread_bps: Number(g('mm-spread')?.value || 200),
+        order_size_sol: Number(g('mm-order-size')?.value || 0.05),
+        max_inventory_sol: Number(g('mm-max-inventory')?.value || 1.0),
+        rebalance_interval_ms: Number(g('mm-rebalance')?.value || 30) * 1000,
+        mev_tip_mode: g('mm-mev-tip')?.value || 'economy',
+      };
+      if (!body.mint) { setAddStatus('Mint address is required', false); addBtn.disabled = false; return; }
+      try {
+        const r = await apiFetch(`${API_BASE}/agent/market-maker`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.message || j.error || 'Add failed');
+        setAddStatus('Market added');
+        if (g('mm-mint')) g('mm-mint').value = '';
+        if (g('mm-symbol')) g('mm-symbol').value = '';
+        await loadMarkets();
+      } catch (err) {
+        setAddStatus(err.message, false);
+      } finally {
+        addBtn.disabled = false;
+      }
+    });
   }
 }
 

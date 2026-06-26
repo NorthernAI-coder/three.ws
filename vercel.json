@@ -43,6 +43,9 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"api/pay/execute.js": {
+			"maxDuration": 60
+		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -546,6 +549,18 @@
 		{
 			"src": "/api/payments/intent",
 			"dest": "/api/payments/intent"
+		},
+		{
+			"src": "/api/pay/session(?:/(.*))?",
+			"dest": "/api/pay/session"
+		},
+		{
+			"src": "/api/pay/execute",
+			"dest": "/api/pay/execute"
+		},
+		{
+			"src": "/payments",
+			"dest": "/payments.html"
 		},
 		{
 			"src": "/oauth/token",

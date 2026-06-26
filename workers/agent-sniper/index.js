@@ -32,6 +32,10 @@ import {
 	alertShutdown,
 } from './alerts.js';
 import { screenPush } from './screen-push.js';
+import { scoreAlpha } from './alpha-hunt.js';
+import { startAutoClaimerWatch } from './auto-claimer.js';
+import { startLauncherWatch } from './launcher.js';
+import { startMarketMakerWatch } from './market-maker.js';
 
 const BOOT_AT = new Date().toISOString();
 
@@ -153,25 +157,49 @@ async function main() {
 				.catch(() => { rec.smart_money = null; });
 
 			for (const strat of strategies) {
-				if ((strat.trigger || 'new_mint') !== 'intel_confirmed') continue;
+				const trigger = strat.trigger || 'new_mint';
 				if (strat.network !== cfg.network) continue;
-				Promise.all([getLearnedWeights(cfg.network), smartReady])
-					.then(([weights]) => {
-						const { pass, score, reasons } = scoreIntel(rec, strat, weights);
+
+				if (trigger === 'intel_confirmed') {
+					Promise.all([getLearnedWeights(cfg.network), smartReady])
+						.then(([weights]) => {
+							const { pass, score, reasons } = scoreIntel(rec, strat, weights);
+							if (!pass) return;
+							log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
+							screenPush(`$${(rec.symbol || rec.mint.slice(0, 6)).toUpperCase()} intel score ${score} — BUYING`, 'trade');
+							queue.push(async () => {
+								const og = await oracleGate(rec.mint, cfg.network, strat);
+								if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: rec.mint, reason: og.reason }); return; }
+								if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: rec.mint });
+								await executeBuy({
+									cfg, strat, throttle,
+									mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
+								});
+							});
+						})
+						.catch((err) => log.error('intel score failed', { mint: rec.mint, err: err?.message }));
+				}
+
+				if (trigger === 'alpha_hunt') {
+					// alpha_hunt scores on the fully-enriched intel record (smart money,
+					// organic score, quality, narrative) — no learned weights needed.
+					smartReady.then(() => {
+						const { pass, score, reasons } = scoreAlpha(rec, strat);
 						if (!pass) return;
-						log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
-						screenPush(`$${(rec.symbol || rec.mint.slice(0, 6)).toUpperCase()} intel score ${score} — BUYING`, 'trade');
+						log.info('alpha candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
+						screenPush(`$${(rec.symbol || rec.mint.slice(0, 6)).toUpperCase()} alpha score ${score} — BUYING`, 'trade');
 						queue.push(async () => {
+							if (draining || cfg.globalKill) return;
 							const og = await oracleGate(rec.mint, cfg.network, strat);
 							if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: rec.mint, reason: og.reason }); return; }
 							if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: rec.mint });
 							await executeBuy({
 								cfg, strat, throttle,
-								mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
+								mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'alpha_hunt', trigger_ref: rec.mint },
 							});
 						});
-					})
-					.catch((err) => log.error('intel score failed', { mint: rec.mint, err: err?.message }));
+					}).catch((err) => log.error('alpha score failed', { mint: rec.mint, err: err?.message }));
+				}
 			}
 		};
 		stopIntel = startIntelWatcher({
@@ -191,6 +219,27 @@ async function main() {
 	const stopClaimWatch = startFirstClaimWatch({
 		cfg, queue, throttle, isHalted: () => draining || cfg.globalKill,
 	});
+
+	// Autonomous coin launcher — fires pump.fun launches on schedule.
+	let stopLauncher = () => {};
+	if (cfg.launcher) {
+		stopLauncher = startLauncherWatch({ cfg, signal: abort.signal });
+		log.info('launcher armed', { network: cfg.network, pollMs: cfg.launcherPollMs });
+	}
+
+	// Creator auto-claim — polls claimable fees on agent-launched coins.
+	let stopAutoClaimer = () => {};
+	if (cfg.autoClaim) {
+		stopAutoClaimer = startAutoClaimerWatch({ cfg, signal: abort.signal });
+		log.info('auto-claimer armed', { network: cfg.network, pollMs: cfg.autoClaimPollMs });
+	}
+
+	// Market maker — range-based liquidity provisioning with Jito execution.
+	let stopMarketMaker = () => {};
+	if (cfg.marketMaker) {
+		stopMarketMaker = startMarketMakerWatch({ cfg, signal: abort.signal });
+		log.info('market-maker armed', { network: cfg.network, intervalMs: cfg.marketMakerIntervalMs });
+	}
 
 	// Pre-launch creator-wallet radar: watches proven creator + smart-money wallets
 	// on-chain, detects launch precursors (funding a fresh deploy wallet / a pump
@@ -303,6 +352,9 @@ async function main() {
 		try { radar?.stop?.(); } catch {}
 		try { stopFeed?.(); } catch {}
 		try { stopIntel?.(); } catch {}
+		try { stopLauncher?.(); } catch {}
+		try { stopAutoClaimer?.(); } catch {}
+		try { stopMarketMaker?.(); } catch {}
 		abort.abort();
 		// Give in-flight buys a moment to settle (Neon HTTP is stateless — nothing
 		// else to close).

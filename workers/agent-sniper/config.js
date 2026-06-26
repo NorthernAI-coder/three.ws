@@ -127,5 +127,23 @@ export function loadConfig() {
 		// How long a freshly-funded wallet stays under correlation watch for its
 		// create instruction before it's dropped (ms).
 		radarDeployWatchTtlMs: Math.max(30_000, num('SNIPER_RADAR_DEPLOY_WATCH_TTL_MS', 180_000)),
+		// ── autonomous coin launcher ────────────────────────────────────────────
+		// Runs a periodic check for enabled launcher configs and fires launches.
+		// On by default when AGENT_JWT is set; disable with SNIPER_LAUNCHER=0.
+		launcher: bool('SNIPER_LAUNCHER', !!process.env.AGENT_JWT),
+		// How often to check for due launcher configs (ms).
+		launcherPollMs: Math.max(30_000, num('SNIPER_LAUNCHER_POLL_MS', 60_000)),
+		// ── creator auto-claim ──────────────────────────────────────────────────
+		// Polls claimable creator fees on agent-launched coins and auto-claims them.
+		// On by default when AGENT_JWT is set; disable with SNIPER_AUTO_CLAIM=0.
+		autoClaim: bool('SNIPER_AUTO_CLAIM', !!process.env.AGENT_JWT),
+		// How often to poll claimable fees (ms). Default 5 minutes.
+		autoClaimPollMs: Math.max(60_000, num('SNIPER_AUTO_CLAIM_POLL_MS', 300_000)),
+		// ── market maker ───────────────────────────────────────────────────────
+		// Runs range-based market making on configured coins via Jito execution.
+		// On by default; disable with SNIPER_MARKET_MAKER=0.
+		marketMaker: bool('SNIPER_MARKET_MAKER', true),
+		// Default rebalance interval when no per-config override (ms).
+		marketMakerIntervalMs: Math.max(5_000, num('SNIPER_MM_INTERVAL_MS', 10_000)),
 	};
 }

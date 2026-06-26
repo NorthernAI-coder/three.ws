@@ -1207,6 +1207,10 @@
 					<a class="snav-link" href="#section-brain">Brain</a>
 					<a class="snav-link" href="#section-distribute">Distribute</a>
 					<a class="snav-link" href="#section-money">Money</a>
+					<a class="snav-link" href="#section-alpha-hunt">Alpha Hunt</a>
+					<a class="snav-link" href="#section-launcher">Launcher</a>
+					<a class="snav-link" href="#section-auto-claim">Auto-Claim</a>
+					<a class="snav-link" href="#section-market-maker">Market Maker</a>
 					<a class="snav-link" href="#section-advanced">Advanced</a>
 				</nav>
 
@@ -1881,6 +1885,270 @@
 				</div><!-- /section-money -->
 
 				<!-- ═══════════════════════════════════════
+				     ALPHA HUNT
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-alpha-hunt">
+					<div class="edit-section-label">Alpha Hunt</div>
+
+					<section class="edit-panel" id="panel-alpha-hunt" role="region" aria-label="Alpha Hunt">
+						<div class="subsection-title">Alpha Hunt</div>
+						<p class="hint">Find undervalued gems using smart-money signals and organic growth patterns</p>
+
+						<div class="form-group">
+							<label class="form-label" for="alpha-trigger">Trigger</label>
+							<select class="form-input" id="alpha-trigger" disabled>
+								<option value="alpha_hunt">Alpha Hunt</option>
+							</select>
+							<p class="hint" style="margin-top:0.382rem">Strategy trigger — alpha hunt mode scans continuously for qualifying tokens.</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-min-smart-money">Min Smart Money Wallets</label>
+							<input class="form-input" id="alpha-min-smart-money" type="number" min="0" step="1" placeholder="e.g. 2" />
+							<p class="hint" style="margin-top:0.382rem">Proven wallets that must be buying</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-min-quality">Min Quality Score</label>
+							<input class="form-input" id="alpha-min-quality" type="number" min="0" max="100" step="1" placeholder="e.g. 60" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-min-organic">Min Organic Score</label>
+							<input class="form-input" id="alpha-min-organic" type="number" min="0" max="100" step="1" placeholder="e.g. 50" />
+							<p class="hint" style="margin-top:0.382rem">Filters coordinated/bot-driven launches</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-max-mcap">Max Market Cap (USD)</label>
+							<input class="form-input" id="alpha-max-mcap" type="number" min="0" step="100" placeholder="e.g. 5000" />
+							<p class="hint" style="margin-top:0.382rem">Only hunt below this cap</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-keywords">Narrative Keywords</label>
+							<input class="form-input" id="alpha-keywords" type="text" placeholder="ai, dog, meme" />
+							<p class="hint" style="margin-top:0.382rem">Comma-separated — any keyword match triggers consideration</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-budget-sol">Buy Budget (SOL)</label>
+							<input class="form-input" id="alpha-budget-sol" type="number" min="0" step="0.01" placeholder="e.g. 0.1" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-take-profit-pct">Take Profit (%)</label>
+							<input class="form-input" id="alpha-take-profit-pct" type="number" min="0" step="1" placeholder="e.g. 200" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-stop-loss-pct">Stop Loss (%)</label>
+							<input class="form-input" id="alpha-stop-loss-pct" type="number" min="0" max="100" step="1" placeholder="e.g. 30" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="alpha-mev-tip">MEV Tip</label>
+							<select class="form-input" id="alpha-mev-tip">
+								<option value="off">Off</option>
+								<option value="economy">Economy</option>
+								<option value="turbo">Turbo</option>
+							</select>
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="alpha-hunt-save">Save</button>
+							<span class="form-status" id="alpha-hunt-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
+				</div><!-- /section-alpha-hunt -->
+
+				<!-- ═══════════════════════════════════════
+				     LAUNCHER
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-launcher">
+					<div class="edit-section-label">Launcher</div>
+
+					<section class="edit-panel" id="panel-launcher-schedule" role="region" aria-label="Launch Schedule">
+						<div class="subsection-title">Launch Schedule</div>
+						<p class="hint">Autonomously launch coins on pump.fun on a schedule or on demand</p>
+
+						<div class="form-group">
+							<label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+								Enable Launcher
+								<label class="toggle-switch" title="Enable or disable the coin launcher">
+									<input type="checkbox" id="launcher-enabled">
+									<span class="slider"></span>
+								</label>
+							</label>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-network">Network</label>
+							<select class="form-input" id="launcher-network">
+								<option value="mainnet">Mainnet</option>
+								<option value="devnet">Devnet</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-interval-hours">Launch Every (hours)</label>
+							<input class="form-input" id="launcher-interval-hours" type="number" min="1" step="1" placeholder="e.g. 24" />
+							<p class="hint" style="margin-top:0.382rem">Leave blank for manual-only</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-max-launches">Max Total Launches</label>
+							<input class="form-input" id="launcher-max-launches" type="number" min="0" step="1" placeholder="Unlimited" />
+						</div>
+					</section>
+
+					<section class="edit-panel" id="panel-launcher-metadata" role="region" aria-label="Token Metadata">
+						<div class="subsection-title">Token Metadata</div>
+
+						<div class="form-group">
+							<label class="form-label" for="launcher-name-template">Token Name Template</label>
+							<input class="form-input" id="launcher-name-template" type="text" placeholder="Agent Coin {{seq}}" />
+							<p class="hint" style="margin-top:0.382rem">{{seq}} = launch number, {{timestamp}} = Unix time</p>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-symbol">Symbol</label>
+							<input class="form-input" id="launcher-symbol" type="text" maxlength="10" placeholder="AGNT" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-description">Description</label>
+							<textarea class="form-textarea" id="launcher-description" rows="3"></textarea>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-image-url">Image URL</label>
+							<input class="form-input" id="launcher-image-url" type="url" placeholder="https://…" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-twitter">Twitter</label>
+							<input class="form-input" id="launcher-twitter" type="text" placeholder="https://twitter.com/…" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-telegram">Telegram</label>
+							<input class="form-input" id="launcher-telegram" type="text" placeholder="https://t.me/…" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-website">Website</label>
+							<input class="form-input" id="launcher-website" type="url" placeholder="https://…" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="launcher-initial-buy">Initial Dev Buy (SOL)</label>
+							<input class="form-input" id="launcher-initial-buy" type="number" min="0" step="0.01" placeholder="0" />
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="launcher-save">Save</button>
+							<span class="form-status" id="launcher-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
+
+					<section class="edit-panel" id="panel-launched-coins" role="region" aria-label="Launched Coins">
+						<div class="subsection-title">Launched Coins</div>
+						<div id="launched-coins-table-wrap">
+							<div class="muted">Loading…</div>
+						</div>
+					</section>
+				</div><!-- /section-launcher -->
+
+				<!-- ═══════════════════════════════════════
+				     AUTO-CLAIM
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-auto-claim">
+					<div class="edit-section-label">Auto-Claim</div>
+
+					<section class="edit-panel" id="panel-auto-claim" role="region" aria-label="Creator Auto-Claim">
+						<div class="subsection-title">Creator Auto-Claim</div>
+						<p class="hint">Automatically claim creator fees when your launched coins become runners</p>
+
+						<div class="form-group">
+							<label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+								Enable Auto-Claim
+								<label class="toggle-switch" title="Enable or disable automatic fee claiming">
+									<input type="checkbox" id="auto-claim-enabled">
+									<span class="slider"></span>
+								</label>
+							</label>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="auto-claim-threshold">Claim Threshold (SOL)</label>
+							<input class="form-input" id="auto-claim-threshold" type="number" min="0" step="0.1" placeholder="0.5" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="auto-claim-reinvest">
+								Reinvest % of Claimed Fees
+								<span id="auto-claim-reinvest-val" style="color:rgba(255,255,255,0.55);font-weight:400;margin-left:0.5rem">0%</span>
+							</label>
+							<input type="range" id="auto-claim-reinvest" min="0" max="100" step="1" value="0" style="width:100%;accent-color:#3b82f6" />
+							<p class="hint" style="margin-top:0.5rem">Reinvested fees go back into the sniper buy budget. Remaining goes to your agent wallet.</p>
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="auto-claim-save">Save</button>
+							<span class="form-status" id="auto-claim-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
+
+					<section class="edit-panel" id="panel-claimable-fees" role="region" aria-label="Claimable Fees">
+						<div class="subsection-title">Your Claimable Fees</div>
+						<div id="claimable-fees-table-wrap">
+							<div class="muted">Loading…</div>
+						</div>
+					</section>
+				</div><!-- /section-auto-claim -->
+
+				<!-- ═══════════════════════════════════════
+				     MARKET MAKER
+				═══════════════════════════════════════ -->
+				<div class="edit-section" id="section-market-maker">
+					<div class="edit-section-label">Market Maker</div>
+
+					<section class="edit-panel" id="panel-market-maker-add" role="region" aria-label="Add Market">
+						<div class="subsection-title">Market Maker</div>
+						<p class="hint">Provide liquidity and capture spread using Jito-accelerated execution</p>
+
+						<div class="form-group">
+							<label class="form-label" for="mm-mint">Coin Mint</label>
+							<input class="form-input" id="mm-mint" type="text" placeholder="Paste pump.fun mint address" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-symbol">Symbol</label>
+							<input class="form-input" id="mm-symbol" type="text" placeholder="e.g. PEPE" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-spread">
+								Spread
+								<span id="mm-spread-val" style="color:rgba(255,255,255,0.55);font-weight:400;margin-left:0.5rem">0.50%</span>
+							</label>
+							<input type="range" id="mm-spread" min="50" max="2000" step="10" value="100" style="width:100%;accent-color:#3b82f6" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-order-size">Order Size (SOL)</label>
+							<input class="form-input" id="mm-order-size" type="number" min="0" step="0.01" placeholder="0.05" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-max-inventory">Max Inventory (SOL)</label>
+							<input class="form-input" id="mm-max-inventory" type="number" min="0" step="0.1" placeholder="1.0" />
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-rebalance">Rebalance Every</label>
+							<select class="form-input" id="mm-rebalance">
+								<option value="5">5s</option>
+								<option value="10">10s</option>
+								<option value="30" selected>30s</option>
+								<option value="60">60s</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="mm-mev-tip">MEV Tip</label>
+							<select class="form-input" id="mm-mev-tip">
+								<option value="off">Off</option>
+								<option value="economy">Economy</option>
+								<option value="turbo">Turbo</option>
+							</select>
+						</div>
+						<div class="form-actions">
+							<button class="btn-primary" id="mm-add-market">Add Market</button>
+							<span class="form-status" id="mm-add-status" role="status" aria-live="polite"></span>
+						</div>
+					</section>
+
+					<section class="edit-panel" id="panel-active-markets" role="region" aria-label="Active Markets">
+						<div class="subsection-title">Active Markets</div>
+						<div id="active-markets-table-wrap">
+							<div class="muted">Loading…</div>
+						</div>
+					</section>
+				</div><!-- /section-market-maker -->
+
+				<!-- ═══════════════════════════════════════
 				     ADVANCED
 				═══════════════════════════════════════ -->
 				<div class="edit-section" id="section-advanced">
@@ -1949,6 +2217,372 @@
 		</div>
 
 		<script type="module" src="/src/agent-edit.js"></script>
+
+		<script type="module">
+		// ── New capability sections: Alpha Hunt, Launcher, Auto-Claim, Market Maker ──
+
+		const params = new URLSearchParams(location.search);
+		const agentId = params.get('id') || params.get('agentId');
+
+		// ── Helpers ──
+		function setStatus(el, msg, type) {
+			el.textContent = msg;
+			el.className = 'form-status' + (type ? ' ' + type : '');
+		}
+
+		async function apiFetch(url, opts) {
+			const res = await fetch(url, opts);
+			const json = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(json.error || json.message || `HTTP ${res.status}`);
+			return json;
+		}
+
+		// ── Spread slider display ──
+		const mmSpread = document.getElementById('mm-spread');
+		const mmSpreadVal = document.getElementById('mm-spread-val');
+		if (mmSpread) {
+			const updateSpread = () => {
+				mmSpreadVal.textContent = (mmSpread.value / 100).toFixed(2) + '%';
+			};
+			mmSpread.addEventListener('input', updateSpread);
+			updateSpread();
+		}
+
+		// ── Reinvest slider display ──
+		const reinvestSlider = document.getElementById('auto-claim-reinvest');
+		const reinvestVal = document.getElementById('auto-claim-reinvest-val');
+		if (reinvestSlider) {
+			const updateReinvest = () => {
+				reinvestVal.textContent = reinvestSlider.value + '%';
+			};
+			reinvestSlider.addEventListener('input', updateReinvest);
+		}
+
+		// ── ALPHA HUNT ──
+		async function loadAlphaHunt() {
+			if (!agentId) return;
+			try {
+				const data = await apiFetch(`/api/sniper/strategy?agentId=${encodeURIComponent(agentId)}`);
+				const cfg = data.strategy || data;
+				if (cfg.alpha_min_smart_money != null) document.getElementById('alpha-min-smart-money').value = cfg.alpha_min_smart_money;
+				if (cfg.alpha_min_quality_score != null) document.getElementById('alpha-min-quality').value = cfg.alpha_min_quality_score;
+				if (cfg.alpha_min_organic_score != null) document.getElementById('alpha-min-organic').value = cfg.alpha_min_organic_score;
+				if (cfg.alpha_max_mcap_usd != null) document.getElementById('alpha-max-mcap').value = cfg.alpha_max_mcap_usd;
+				if (cfg.alpha_narrative_keywords) document.getElementById('alpha-keywords').value = Array.isArray(cfg.alpha_narrative_keywords) ? cfg.alpha_narrative_keywords.join(', ') : cfg.alpha_narrative_keywords;
+				if (cfg.budget_sol != null) document.getElementById('alpha-budget-sol').value = cfg.budget_sol;
+				if (cfg.take_profit_pct != null) document.getElementById('alpha-take-profit-pct').value = cfg.take_profit_pct;
+				if (cfg.stop_loss_pct != null) document.getElementById('alpha-stop-loss-pct').value = cfg.stop_loss_pct;
+				if (cfg.mev_tip) document.getElementById('alpha-mev-tip').value = cfg.mev_tip;
+			} catch (_) { /* no existing config */ }
+		}
+
+		const alphaHuntSaveBtn = document.getElementById('alpha-hunt-save');
+		if (alphaHuntSaveBtn) {
+			loadAlphaHunt();
+			alphaHuntSaveBtn.addEventListener('click', async () => {
+				const statusEl = document.getElementById('alpha-hunt-status');
+				alphaHuntSaveBtn.disabled = true;
+				setStatus(statusEl, 'Saving…', '');
+				try {
+					const keywords = document.getElementById('alpha-keywords').value
+						.split(',').map(k => k.trim()).filter(Boolean);
+					await apiFetch('/api/sniper/strategy', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							agentId,
+							trigger: 'alpha_hunt',
+							alpha_min_smart_money: Number(document.getElementById('alpha-min-smart-money').value) || undefined,
+							alpha_min_quality_score: Number(document.getElementById('alpha-min-quality').value) || undefined,
+							alpha_min_organic_score: Number(document.getElementById('alpha-min-organic').value) || undefined,
+							alpha_max_mcap_usd: Number(document.getElementById('alpha-max-mcap').value) || undefined,
+							alpha_narrative_keywords: keywords.length ? keywords : undefined,
+							budget_sol: Number(document.getElementById('alpha-budget-sol').value) || undefined,
+							take_profit_pct: Number(document.getElementById('alpha-take-profit-pct').value) || undefined,
+							stop_loss_pct: Number(document.getElementById('alpha-stop-loss-pct').value) || undefined,
+							mev_tip: document.getElementById('alpha-mev-tip').value,
+						}),
+					});
+					setStatus(statusEl, 'Saved', 'ok');
+				} catch (err) {
+					setStatus(statusEl, err.message, 'err');
+				} finally {
+					alphaHuntSaveBtn.disabled = false;
+				}
+			});
+		}
+
+		// ── LAUNCHER ──
+		async function loadLauncher() {
+			if (!agentId) return;
+			try {
+				const data = await apiFetch(`/api/agent/launcher?agentId=${encodeURIComponent(agentId)}`);
+				const cfg = data.config || data;
+				document.getElementById('launcher-enabled').checked = !!cfg.enabled;
+				if (cfg.network) document.getElementById('launcher-network').value = cfg.network;
+				if (cfg.interval_hours != null) document.getElementById('launcher-interval-hours').value = cfg.interval_hours;
+				if (cfg.max_launches != null) document.getElementById('launcher-max-launches').value = cfg.max_launches;
+				if (cfg.name_template) document.getElementById('launcher-name-template').value = cfg.name_template;
+				if (cfg.symbol) document.getElementById('launcher-symbol').value = cfg.symbol;
+				if (cfg.description) document.getElementById('launcher-description').value = cfg.description;
+				if (cfg.image_url) document.getElementById('launcher-image-url').value = cfg.image_url;
+				if (cfg.twitter) document.getElementById('launcher-twitter').value = cfg.twitter;
+				if (cfg.telegram) document.getElementById('launcher-telegram').value = cfg.telegram;
+				if (cfg.website) document.getElementById('launcher-website').value = cfg.website;
+				if (cfg.initial_buy_sol != null) document.getElementById('launcher-initial-buy').value = cfg.initial_buy_sol;
+			} catch (_) { /* no existing config */ }
+			renderLaunchedCoinsTable();
+		}
+
+		async function renderLaunchedCoinsTable() {
+			const wrap = document.getElementById('launched-coins-table-wrap');
+			if (!wrap || !agentId) return;
+			try {
+				const data = await apiFetch(`/api/agent/launcher?agentId=${encodeURIComponent(agentId)}&launches=1`);
+				const coins = data.launches || [];
+				if (!coins.length) {
+					wrap.innerHTML = '<div class="muted">No coins launched yet.</div>';
+					return;
+				}
+				wrap.innerHTML = `<table class="data-table" style="width:100%;border-collapse:collapse;font-size:0.764rem">
+					<thead>
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Symbol</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Name</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Mint</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Launched</th>
+							<th style="text-align:right;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">P&amp;L</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						${coins.map(c => `
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.85)">${esc(c.symbol)}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.7)">${esc(c.name)}</td>
+							<td style="padding:0.5rem 0.75rem;font-family:ui-monospace,monospace;font-size:0.618rem;color:rgba(255,255,255,0.5)">${esc(c.mint ? c.mint.slice(0,8) + '…' : '—')}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.5)">${c.launched_at ? new Date(c.launched_at).toLocaleDateString() : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;text-align:right;color:${c.pnl_sol >= 0 ? '#86efac' : '#fca5a5'}">${c.pnl_sol != null ? (c.pnl_sol >= 0 ? '+' : '') + c.pnl_sol.toFixed(3) + ' SOL' : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.55)">${esc(c.status || '—')}</td>
+						</tr>`).join('')}
+					</tbody>
+				</table>`;
+			} catch (_) {
+				wrap.innerHTML = '<div class="muted">Unable to load launched coins.</div>';
+			}
+		}
+
+		const launcherSaveBtn = document.getElementById('launcher-save');
+		if (launcherSaveBtn) {
+			loadLauncher();
+			launcherSaveBtn.addEventListener('click', async () => {
+				const statusEl = document.getElementById('launcher-status');
+				launcherSaveBtn.disabled = true;
+				setStatus(statusEl, 'Saving…', '');
+				try {
+					await apiFetch('/api/agent/launcher', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							agentId,
+							enabled: document.getElementById('launcher-enabled').checked,
+							network: document.getElementById('launcher-network').value,
+							interval_hours: Number(document.getElementById('launcher-interval-hours').value) || null,
+							max_launches: Number(document.getElementById('launcher-max-launches').value) || null,
+							name_template: document.getElementById('launcher-name-template').value,
+							symbol: document.getElementById('launcher-symbol').value,
+							description: document.getElementById('launcher-description').value,
+							image_url: document.getElementById('launcher-image-url').value,
+							twitter: document.getElementById('launcher-twitter').value,
+							telegram: document.getElementById('launcher-telegram').value,
+							website: document.getElementById('launcher-website').value,
+							initial_buy_sol: Number(document.getElementById('launcher-initial-buy').value) || 0,
+						}),
+					});
+					setStatus(statusEl, 'Saved', 'ok');
+				} catch (err) {
+					setStatus(statusEl, err.message, 'err');
+				} finally {
+					launcherSaveBtn.disabled = false;
+				}
+			});
+		}
+
+		// ── AUTO-CLAIM ──
+		async function loadAutoClaim() {
+			if (!agentId) return;
+			try {
+				const data = await apiFetch(`/api/agent/launcher?agentId=${encodeURIComponent(agentId)}`);
+				const cfg = data.config || data;
+				document.getElementById('auto-claim-enabled').checked = !!cfg.auto_claim_enabled;
+				if (cfg.auto_claim_threshold_sol != null) document.getElementById('auto-claim-threshold').value = cfg.auto_claim_threshold_sol;
+				if (cfg.auto_claim_reinvest_pct != null) {
+					document.getElementById('auto-claim-reinvest').value = cfg.auto_claim_reinvest_pct;
+					document.getElementById('auto-claim-reinvest-val').textContent = cfg.auto_claim_reinvest_pct + '%';
+				}
+			} catch (_) { /* no existing config */ }
+			renderClaimableFeesTable();
+		}
+
+		async function renderClaimableFeesTable() {
+			const wrap = document.getElementById('claimable-fees-table-wrap');
+			if (!wrap || !agentId) return;
+			try {
+				const data = await apiFetch(`/api/agent/launcher?agentId=${encodeURIComponent(agentId)}&fees=1`);
+				const fees = data.claimable_fees || [];
+				if (!fees.length) {
+					wrap.innerHTML = '<div class="muted">No claimable fees. Launched coins will appear here as they earn creator fees.</div>';
+					return;
+				}
+				wrap.innerHTML = `<table class="data-table" style="width:100%;border-collapse:collapse;font-size:0.764rem">
+					<thead>
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Symbol</th>
+							<th style="text-align:right;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Claimable SOL</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Last Claimed</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						${fees.map(f => `
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.85)">${esc(f.symbol)}</td>
+							<td style="padding:0.5rem 0.75rem;text-align:right;color:#86efac">${f.claimable_sol != null ? f.claimable_sol.toFixed(4) : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.5)">${f.last_claimed_at ? new Date(f.last_claimed_at).toLocaleDateString() : 'Never'}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.55)">${esc(f.status || '—')}</td>
+						</tr>`).join('')}
+					</tbody>
+				</table>`;
+			} catch (_) {
+				wrap.innerHTML = '<div class="muted">Unable to load claimable fees.</div>';
+			}
+		}
+
+		const autoClaimSaveBtn = document.getElementById('auto-claim-save');
+		if (autoClaimSaveBtn) {
+			loadAutoClaim();
+			autoClaimSaveBtn.addEventListener('click', async () => {
+				const statusEl = document.getElementById('auto-claim-status');
+				autoClaimSaveBtn.disabled = true;
+				setStatus(statusEl, 'Saving…', '');
+				try {
+					await apiFetch('/api/agent/launcher', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							agentId,
+							auto_claim_enabled: document.getElementById('auto-claim-enabled').checked,
+							auto_claim_threshold_sol: Number(document.getElementById('auto-claim-threshold').value) || 0.5,
+							auto_claim_reinvest_pct: Number(document.getElementById('auto-claim-reinvest').value) || 0,
+						}),
+					});
+					setStatus(statusEl, 'Saved', 'ok');
+				} catch (err) {
+					setStatus(statusEl, err.message, 'err');
+				} finally {
+					autoClaimSaveBtn.disabled = false;
+				}
+			});
+		}
+
+		// ── MARKET MAKER ──
+		async function loadActiveMarkets() {
+			const wrap = document.getElementById('active-markets-table-wrap');
+			if (!wrap || !agentId) return;
+			try {
+				const data = await apiFetch(`/api/agent/market-maker?agentId=${encodeURIComponent(agentId)}`);
+				const markets = data.markets || [];
+				if (!markets.length) {
+					wrap.innerHTML = '<div class="muted">No active markets. Add one above.</div>';
+					return;
+				}
+				wrap.innerHTML = `<table class="data-table" style="width:100%;border-collapse:collapse;font-size:0.764rem">
+					<thead>
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.08)">
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Symbol</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Spread</th>
+							<th style="text-align:right;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Inventory</th>
+							<th style="text-align:right;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Volume</th>
+							<th style="text-align:right;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">P&amp;L</th>
+							<th style="text-align:left;padding:0.5rem 0.75rem;color:rgba(255,255,255,0.4);font-weight:500">Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						${markets.map(m => `
+						<tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.85)">${esc(m.symbol)}</td>
+							<td style="padding:0.5rem 0.75rem;color:rgba(255,255,255,0.7)">${m.spread_bps != null ? (m.spread_bps / 100).toFixed(2) + '%' : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;text-align:right;color:rgba(255,255,255,0.7)">${m.inventory_sol != null ? m.inventory_sol.toFixed(3) + ' SOL' : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;text-align:right;color:rgba(255,255,255,0.55)">${m.volume_sol != null ? m.volume_sol.toFixed(3) + ' SOL' : '—'}</td>
+							<td style="padding:0.5rem 0.75rem;text-align:right;color:${(m.pnl_sol || 0) >= 0 ? '#86efac' : '#fca5a5'}">${m.pnl_sol != null ? (m.pnl_sol >= 0 ? '+' : '') + m.pnl_sol.toFixed(3) + ' SOL' : '—'}</td>
+							<td style="padding:0.5rem 0.75rem">
+								<label class="toggle-switch" title="Enable or disable this market" style="vertical-align:middle">
+									<input type="checkbox" data-mm-id="${esc(m.id)}" class="mm-market-toggle" ${m.enabled ? 'checked' : ''}>
+									<span class="slider"></span>
+								</label>
+							</td>
+						</tr>`).join('')}
+					</tbody>
+				</table>`;
+
+				wrap.querySelectorAll('.mm-market-toggle').forEach(toggle => {
+					toggle.addEventListener('change', async () => {
+						try {
+							await apiFetch('/api/agent/market-maker', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ agentId, id: toggle.dataset.mmId, enabled: toggle.checked }),
+							});
+						} catch (err) {
+							toggle.checked = !toggle.checked;
+						}
+					});
+				});
+			} catch (_) {
+				wrap.innerHTML = '<div class="muted">Unable to load active markets.</div>';
+			}
+		}
+
+		const mmAddBtn = document.getElementById('mm-add-market');
+		if (mmAddBtn) {
+			loadActiveMarkets();
+			mmAddBtn.addEventListener('click', async () => {
+				const statusEl = document.getElementById('mm-add-status');
+				mmAddBtn.disabled = true;
+				setStatus(statusEl, 'Adding…', '');
+				try {
+					await apiFetch('/api/agent/market-maker', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							agentId,
+							mint: document.getElementById('mm-mint').value.trim(),
+							symbol: document.getElementById('mm-symbol').value.trim(),
+							spread_bps: Number(document.getElementById('mm-spread').value),
+							order_size_sol: Number(document.getElementById('mm-order-size').value) || 0.05,
+							max_inventory_sol: Number(document.getElementById('mm-max-inventory').value) || 1.0,
+							rebalance_seconds: Number(document.getElementById('mm-rebalance').value),
+							mev_tip: document.getElementById('mm-mev-tip').value,
+							enabled: true,
+						}),
+					});
+					setStatus(statusEl, 'Market added', 'ok');
+					document.getElementById('mm-mint').value = '';
+					document.getElementById('mm-symbol').value = '';
+					loadActiveMarkets();
+				} catch (err) {
+					setStatus(statusEl, err.message, 'err');
+				} finally {
+					mmAddBtn.disabled = false;
+				}
+			});
+		}
+
+		// ── XSS-safe escaper ──
+		function esc(str) {
+			return String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		}
+		</script>
 
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>
