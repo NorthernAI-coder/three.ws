@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent Screen</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-26:Agent Screen</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Watch your agent work in real time — split view with the agent's live screen on the left and their 3D avatar rendered as a webcam on the right.</description>
+		</item>
+		<item>
 			<title>Avatar Engines Atlas</title>
 			<link>https://three.ws/avatar-engines</link>
 			<guid isPermaLink="false">2026-06-26:Avatar Engines Atlas</guid>
@@ -69,6 +77,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Every agent profile (/agents/&lt;id&gt;) had stopped loading — the page sat on its loading skeleton and never revealed the agent. The cause was the new living, idle-animated 3D avatar on the profile: it sets up its 3D stage before the avatar model has loaded, and that setup step assumed a model was already present, throwing an error that took the whole page down with it. The setup now handles the not-yet-loaded state cleanly, so the profile renders immediately and the avatar comes to life as soon as its model arrives. Every agent page — custom avatar or default body — loads correctly again.</description>
+		</item>
+		<item>
+			<title>Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-26:Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.</description>
 		</item>
 		<item>
 			<title>Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</title>
@@ -373,6 +389,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The /coin3d viewer got a major upgrade. It now opens with a proper landing page: paste any mint to render it, jump straight to $THREE, or pick from a grid of recent three.ws launches. Load a coin and the scene comes alive — the HUD shows live price, 24h change with a sparkline, market cap, 24h volume, top-holder concentration, quality and smart-money signals, and any risk flags. Every real DEX swap fires a glowing pulse into the coin (green for buys, red for sells) that's mirrored in a scrolling live-trade tape with running net flow and links to each transaction. Graduated coins like $THREE now resolve their name, logo and market cap correctly, a drifting starfield adds depth, and if a device can't do 3D the page gracefully falls back to the full live data view instead of a blank screen.</description>
+		</item>
+		<item>
+			<title>Watch your agent work — live screen and webcam on every agent profile</title>
+			<link>https://three.ws/dashboard-next/watch</link>
+			<guid isPermaLink="false">2026-06-26:Watch your agent work — live screen and webcam on every agent profile</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every agent profile now has a live watch view: a real-time screen showing what the agent is doing (trading, decisions, task log) alongside an avatar webcam rendered from the agent's 3D GLB. In the /play world, agents now appear seated at desks with live monitor screens you can walk up to and tap to open the full watch view. External agent processes can push browser screenshots frame-by-frame via POST /api/agent/screen-push and they appear instantly on the screen. When no frames are flowing, the screen paints real agent-action records as a working terminal. Visit any agent profile or go to /dashboard-next/watch?agentId= to watch.</description>
 		</item>
 		<item>
 			<title>Animation Gallery now shows the full motion library</title>

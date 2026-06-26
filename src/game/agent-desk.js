@@ -52,7 +52,7 @@ const MON_H  = (MON_W * CH) / CW;
 
 // ── canvas painting ───────────────────────────────────────────────────────────
 
-function paintDesk(ctx, actions, status, agentName, t) {
+function paintDesk(ctx, tex, actions, status, agentName, t) {
 	const text = '#f0f0f4', dim = 'rgba(255,255,255,0.35)', faint = 'rgba(255,255,255,0.12)';
 	const up = '#5fd08a', bg0 = '#080809', bg1 = '#0d0d11';
 	const pulse = 0.5 + 0.5 * Math.sin(t * 3);
@@ -192,10 +192,8 @@ function paintDesk(ctx, actions, status, agentName, t) {
 	ctx.fillText('walk up · press E to watch', winX + winW - 10, sbY + 12);
 	ctx.textAlign = 'left';
 
-	tex.needsUpdate = true; // eslint-disable-line no-use-before-define
+	tex.needsUpdate = true;
 }
-
-let tex; // assigned after canvas is created so paintDesk can reference it
 
 function roundRect(ctx, x, y, w, h, r) {
 	const tl = Array.isArray(r) ? r[0] : r;
@@ -277,7 +275,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 	const canvas = document.createElement('canvas');
 	canvas.width = CW; canvas.height = CH;
 	const ctx = canvas.getContext('2d');
-	tex = new CanvasTexture(canvas);
+	const tex = new CanvasTexture(canvas);
 	tex.colorSpace = SRGBColorSpace;
 	tex.anisotropy = 8;
 
@@ -313,7 +311,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 	let es         = null;
 
 	// Initial paint so the screen isn't blank before the first fetch.
-	paintDesk(ctx, [], 'idle', agent.agentName || 'Agent', 0);
+	paintDesk(ctx, tex, [], 'idle', agent.agentName || 'Agent', 0);
 
 	function connectSSE() {
 		if (es) { try { es.close(); } catch { /* */ } }
@@ -387,7 +385,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 				ctx.drawImage(frameImg, 0, 0, CW, CH);
 				tex.needsUpdate = true;
 			} else {
-				paintDesk(ctx, actions, status, agent.agentName || 'Agent', t);
+				paintDesk(ctx, tex, actions, status, agent.agentName || 'Agent', t);
 			}
 		},
 

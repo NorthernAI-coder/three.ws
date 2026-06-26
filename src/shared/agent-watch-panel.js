@@ -18,10 +18,15 @@
 // The panel is entirely self-contained: it manages its own SSE connection,
 // Three.js renderer, timers, and styles. Disposing cleans up everything.
 
-import { Viewer } from '../viewer.js';
-import { IdleAnimation } from '../idle-animation.js';
+import {
+	PerspectiveCamera, WebGLRenderer, Scene,
+	AmbientLight, DirectionalLight, Box3,
+} from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
+import { AnimationManager } from '../animation-manager.js';
 
-const STREAM_URL = (id) => `/api/agent/screen-stream?agentId=${encodeURIComponent(id)}`;
+const STREAM_URL = (id) => `/api/agent-screen-stream?agentId=${encodeURIComponent(id)}`;
 const ACTIONS_URL = (id) => `/api/agent-actions?agent_id=${encodeURIComponent(id)}&limit=20`;
 
 // Canvas dimensions for the activity screen (no frames mode).
@@ -484,9 +489,12 @@ class WatchPanel {
 		this._streamStatus = 'connecting'; // connecting | live | idle
 		this._t = 0;
 		this._rafId = null;
-		this._activityRaf = null;
-		this._viewer = null;
-		this._idleAnim = null;
+		this._webcamRafId = null;
+		this._webcamRenderer = null;
+		this._webcamScene = null;
+		this._webcamCamera = null;
+		this._webcamMixer = null;
+		this._webcamManager = null;
 
 		this._buildDOM();
 	}
@@ -554,32 +562,46 @@ class WatchPanel {
 		const es = new EventSource(STREAM_URL(this.agentId));
 		this._es = es;
 
-		es.onmessage = (e) => {
-			let msg;
-			try { msg = JSON.parse(e.data); } catch { return; }
-
-			if (msg.type === 'meta') {
-				if (msg.avatarUrl && msg.avatarUrl !== this.avatarUrl) {
-					this.avatarUrl = msg.avatarUrl;
-					this._rebootWebcam();
+		// Named events from /api/agent-screen-stream
+		es.addEventListener('frame', (e) => {
+			try {
+				const frame = JSON.parse(e.data);
+				if (frame.data) this._renderFrame(frame.data);
+				if (frame.activity) {
+					// Inject into the activity log as a live push
+					const logEntry = { ts: frame.ts || Date.now(), type: frame.type || 'activity', summary: frame.activity };
+					this._actions = [logEntry, ...this._actions].slice(0, 50);
+					this._renderLog();
 				}
-			}
-			if (msg.type === 'frame') {
-				this._renderFrame(msg.frame);
 				this._setStatus('live');
-			}
-			if (msg.type === 'activity') {
-				this._actions = msg.actions || [];
-				this._renderLog();
-			}
-			if (msg.type === 'heartbeat') {
-				if (this._streamStatus !== 'live') this._setStatus('idle');
-			}
-		};
+			} catch { /* malformed */ }
+		});
+
+		es.addEventListener('log', (e) => {
+			try {
+				const { entries } = JSON.parse(e.data);
+				if (Array.isArray(entries) && entries.length) {
+					this._actions = entries.map((en) => ({
+						ts: en.ts,
+						type: en.type || 'activity',
+						summary: en.activity || '',
+					}));
+					this._renderLog();
+				}
+			} catch { /* malformed */ }
+		});
+
+		es.addEventListener('dark', () => {
+			if (this._streamStatus !== 'connecting') this._setStatus('idle');
+		});
+
+		es.addEventListener('ping', () => {
+			if (this._streamStatus !== 'live') this._setStatus('idle');
+		});
 
 		es.onerror = () => {
 			this._setStatus('idle');
-			// EventSource auto-reconnects; give it a moment.
+			// EventSource auto-reconnects.
 		};
 	}
 
@@ -597,14 +619,15 @@ class WatchPanel {
 		}
 	}
 
-	_renderFrame(b64) {
+	_renderFrame(dataOrB64) {
 		if (this._destroyed) return;
 		const img = new Image();
 		img.onload = () => {
 			if (this._destroyed) return;
 			this._ctx.drawImage(img, 0, 0, CW, CH);
 		};
-		img.src = 'data:image/png;base64,' + b64;
+		// Accept both raw base64 and full data URLs
+		img.src = dataOrB64.startsWith('data:') ? dataOrB64 : 'data:image/png;base64,' + dataOrB64;
 	}
 
 	_startCanvasLoop() {
@@ -670,54 +693,61 @@ class WatchPanel {
 		if (!wrap) return;
 
 		try {
-			// Load the animation manifest once.
-			const manifest = await fetch('/animations/manifest.json')
-				.then((r) => r.ok ? r.json() : [])
-				.catch(() => []);
+			const loader = new GLTFLoader();
+			const gltf = await loader.loadAsync(this.avatarUrl);
+			const model = cloneSkinnedScene(gltf.scene);
 
-			// Create an offscreen canvas for the avatar, matching the webcam pane's 3:4 ratio.
-			const offscreen = document.createElement('canvas');
-			offscreen.width  = 480;
-			offscreen.height = 640;
-			offscreen.style.display = 'none';
-			wrap.appendChild(offscreen);
-			this._camCanvas = offscreen;
+			const webcamScene = new Scene();
+			webcamScene.add(new AmbientLight(0xffffff, 0.7));
+			const sun = new DirectionalLight(0xffffff, 1.2);
+			sun.position.set(1.5, 2.5, 2);
+			webcamScene.add(sun);
+			const rim = new DirectionalLight(0x8090ff, 0.4);
+			rim.position.set(-2, 1, -1);
+			webcamScene.add(rim);
+			webcamScene.add(model);
 
-			// Mount a Viewer in kiosk mode into the offscreen canvas.
-			this._viewer = new Viewer({
-				el: offscreen,
-				kiosk: true,
-				background: '#0d0d10',
-				environment: 'Neutral',
-				cameraControls: false,
-				autoRotate: false,
-			});
+			const webcamCamera = new PerspectiveCamera(38, 3 / 4, 0.01, 20);
+			const box = new Box3().setFromObject(model);
+			const h = box.max.y;
+			webcamCamera.position.set(0, h - 0.12, 0.72);
+			webcamCamera.lookAt(0, h - 0.18, 0);
 
-			await this._viewer.load(this.avatarUrl);
+			const renderer = new WebGLRenderer({ antialias: true, alpha: false });
+			renderer.setClearColor(0x0d0d10, 1);
+			renderer.setSize(480, 640);
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			this._webcamRenderer = renderer;
+			this._webcamScene = webcamScene;
+			this._webcamCamera = webcamCamera;
 
-			// Position the camera close to the face — head cam.
-			const cam = this._viewer.camera;
-			if (cam) {
-				cam.position.set(0, 1.55, 0.65);
-				cam.lookAt(0, 1.55, 0);
+			// Drive idle
+			const mgr = new AnimationManager(model, { loop: true });
+			if (gltf.animations?.length) {
+				this._webcamMixer = mgr.init(gltf.animations);
+				mgr.play('idle');
+				this._webcamManager = mgr;
 			}
 
-			// Retarget idle onto the avatar.
-			const idleDef = manifest.find?.((c) => c.id === 'idle' || c.name === 'idle');
-			if (idleDef) {
-				this._idleAnim = new IdleAnimation(this._viewer, idleDef);
-				this._idleAnim.start();
-			}
+			// Tick loop
+			let last = 0;
+			const tick = (t) => {
+				if (this._destroyed) return;
+				this._webcamRafId = requestAnimationFrame(tick);
+				const dt = Math.min((t - last) / 1000, 0.1); last = t;
+				if (this._webcamMixer) this._webcamMixer.update(dt);
+				renderer.render(webcamScene, webcamCamera);
+			};
+			this._webcamRafId = requestAnimationFrame(tick);
 
-			// Pipe to the video element via captureStream.
-			const stream = offscreen.captureStream?.(15);
+			// Pipe to <video> via captureStream
+			const stream = renderer.domElement.captureStream?.(15);
 			if (stream && this._video) {
 				this._video.srcObject = stream;
 				this._video.style.display = 'block';
 				await this._video.play().catch(() => {});
 			}
 		} catch {
-			// Webcam boot failed — hide the pane gracefully.
 			const cw = this.el.querySelector('#wp-cw');
 			if (cw) cw.style.display = 'none';
 			const stage = this.el.querySelector('.wp-stage');
@@ -726,24 +756,22 @@ class WatchPanel {
 	}
 
 	async _rebootWebcam() {
-		this._idleAnim?.stop?.();
-		this._viewer?.dispose?.();
-		this._viewer = null;
-		this._idleAnim = null;
-		if (this._camCanvas) {
-			this._camCanvas.remove();
-			this._camCanvas = null;
-		}
+		if (this._webcamRafId) cancelAnimationFrame(this._webcamRafId);
+		this._webcamRenderer?.dispose?.();
+		this._webcamRenderer = null;
+		this._webcamScene = null;
+		this._webcamCamera = null;
+		this._webcamMixer = null;
+		this._webcamManager = null;
 		await this._bootWebcam();
 	}
 
 	destroy() {
 		this._destroyed = true;
 		if (this._rafId) cancelAnimationFrame(this._rafId);
+		if (this._webcamRafId) cancelAnimationFrame(this._webcamRafId);
 		try { this._es?.close(); } catch { /* */ }
-		this._idleAnim?.stop?.();
-		this._viewer?.dispose?.();
-		if (this._camCanvas) this._camCanvas.remove();
+		this._webcamRenderer?.dispose?.();
 	}
 }
 

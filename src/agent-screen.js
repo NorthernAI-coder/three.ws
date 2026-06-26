@@ -21,13 +21,11 @@ import {
 	Scene,
 	AmbientLight,
 	DirectionalLight,
-	Vector3,
 	Box3,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from './animation-manager.js';
-import { glbCanonicalize } from './glb-canonicalize.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
 import { agentAvatarGlb } from './shared/agent-3d.js';
 
@@ -151,8 +149,6 @@ async function boot(id) {
 			const loader = new GLTFLoader();
 			const gltf = await loader.loadAsync(glbUrl || '/avatars/default.glb');
 			const model = cloneSkinnedScene(gltf.scene);
-			glbCanonicalize(model);
-
 			webcamScene.add(model);
 			webcamAvatar = model;
 

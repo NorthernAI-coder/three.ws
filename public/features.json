@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T17:39:27.910Z",
+	"generated_at": "2026-06-26T18:45:53.530Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -289,6 +289,16 @@
 					"added": "2026-06-05",
 					"auth": null,
 					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/agent-screen",
+					"title": "Agent Screen",
+					"description": "Watch your agent work in real time — split view with the agent's live screen on the left and their 3D avatar rendered as a webcam on the right.",
+					"added": "2026-06-26",
+					"auth": "required",
+					"indexable": false,
 					"tags": [],
 					"showcase": false
 				},

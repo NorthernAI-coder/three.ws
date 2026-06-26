@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world",
+			"summary": "Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.",
+			"tags": ["feature"],
+			"link": "/agent-screen"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Watch your agent work — live screen and webcam on every agent profile",
+			"summary": "Every agent profile now has a live watch view: a real-time screen showing what the agent is doing (trading, decisions, task log) alongside an avatar webcam rendered from the agent's 3D GLB. In the /play world, agents now appear seated at desks with live monitor screens you can walk up to and tap to open the full watch view. External agent processes can push browser screenshots frame-by-frame via POST /api/agent/screen-push and they appear instantly on the screen. When no frames are flowing, the screen paints real agent-action records as a working terminal. Visit any agent profile or go to /dashboard-next/watch?agentId= to watch.",
+			"tags": ["feature"],
+			"link": "/dashboard-next/watch"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "three.ws built a 3D AI agent live with IBM",
 			"summary": "three.ws and IBM ran a live build session — \"Building 3D AI Agents Live: From Prompt to Embeddable Agent in Minutes\" — streamed on IBM Cloud on June 24, going from a single sentence to a rigged, talking 3D agent embedded into a web page with one line of HTML, then wired to real tools and live on-chain payments, all against production systems. It marks three.ws as an IBM Business Partner: the agent runtime can run on IBM Granite through watsonx.ai as a first-class brain, with Granite Guardian as a real governance veto before an agent ever sends value, and Granite reachable over MCP and pay-per-use x402. Watch the replay and explore the partnership at /ibm.",
 			"tags": ["feature"],

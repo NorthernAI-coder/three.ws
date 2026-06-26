@@ -23,6 +23,7 @@ import { mountPresence } from './shared/networth-presence.js';
 import { mountStagePanel } from './shared/stage-link.js';
 import { mountLaborPanel } from './shared/labor-link.js';
 import { mountAlphaPanel } from './shared/alpha-copilot-link.js';
+import { mountWatchPanel } from './shared/agent-watch-panel.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -47,6 +48,7 @@ let _streamHandle = null;
 let _strategyHandle = null;
 let _cardHandle = null;
 let _patronageHandle = null;
+let _watchHandle = null;
 // Live WebGL avatar mounts (hero + fullscreen modal). Disposed on re-render so a
 // fresh render() doesn't stack a second renderer onto the same container.
 let _heroAvatarHandle = null;
@@ -99,6 +101,17 @@ function mountAgentDetailAura(agent) {
 					// character and (for the owner) act within its spend limits. Enhancement.
 					mountAlphaPanel({ agentId: agent.id, agentName: agent.name || 'this agent', isOwner: !!agent.isOwner, container: main, position: 'prepend' })
 						.catch(() => { /* never block the profile */ });
+					// Live watch panel — agent's screen + avatar webcam. Always shown;
+					// renders real activity canvas when no Playwright frames are flowing.
+					try { _watchHandle?.destroy?.(); } catch { /* */ } _watchHandle = null;
+					mountWatchPanel({
+						agentId: agent.id,
+						agentName: agent.name || 'this agent',
+						avatarUrl: agentAvatarGlb(agent),
+						isOwner: !!agent.isOwner,
+						container: main,
+						position: 'append',
+					}).then((h) => { _watchHandle = h || null; }).catch(() => { /* never block */ });
 			}
 		})
 		.catch(() => { /* dormant baseline already shown */ });
@@ -112,6 +125,7 @@ if (typeof window !== 'undefined') {
 		// past navigation (the engine also guards this internally).
 		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;
 		try { _cardHandle?.destroy?.(); } catch { /* idempotent */ } _cardHandle = null;
+		try { _watchHandle?.destroy?.(); } catch { /* idempotent */ } _watchHandle = null;
 		// Release the WebGL contexts so they don't count against the browser's
 		// hard context budget once the user navigates away.
 		try { _heroAvatarHandle?.dispose(); } catch { /* idempotent */ } _heroAvatarHandle = null;
