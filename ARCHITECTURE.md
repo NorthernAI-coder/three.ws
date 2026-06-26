@@ -12,65 +12,61 @@ three.ws is a full-stack AI agent platform where agents own wallets, launch toke
 
 ## System Architecture Diagram
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                            BROWSER / CLIENT                                     │
-│  ┌─────────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐   │
-│  │   150+ MPA Pages    │  │  Dashboard SPA   │  │  Embedded SDKs / Widgets  │   │
-│  │  (Vite 7, Vanilla   │  │  (dashboard-next)│  │  <agent-3d>, walk-sdk,    │   │
-│  │   JS + Three.js)    │  │  25+ sub-pages   │  │  page-agent, tour-sdk     │   │
-│  └─────────┬───────────┘  └────────┬─────────┘  └──────────┬───────────────┘   │
-│            │                       │                        │                   │
-│  ┌─────────▼───────────────────────▼────────────────────────▼───────────────┐   │
-│  │                     Three.js WebGL Layer (r184)                           │   │
-│  │  Viewer · AnimationManager · Retargeter · MorphTargets · ARKit Lipsync   │   │
-│  └────────────────────────────────┬──────────────────────────────────────────┘   │
-└───────────────────────────────────┼────────────────────────────────────────────┘
-                                    │ fetch / SSE / WebSocket
-┌───────────────────────────────────▼────────────────────────────────────────────┐
-│                         VERCEL SERVERLESS FUNCTIONS (api/)                      │
-│                                                                                 │
-│  Auth      Agents     Avatars    Forge     Wallet     Pump.fun   Oracle        │
-│  OAuth2.1  MCP Main  Marketplace x402      Master     Launches   Sniper        │
-│  SIWE/SIWS A2A Pay   Billing    Brain/LLM  Agent hub  Intel      Market-maker  │
-│  Privy     Memory    Skills     TTS/ASR    x402 SKUs  Community  Strategies    │
-│                                                                                 │
-│                    api/_lib/ — 413 shared utilities                             │
-│         db.js · auth.js · redis.js · r2.js · x402-spec.js · memory-store.js  │
-└───────┬──────────────┬────────────────────┬──────────────────────┬─────────────┘
-        │              │                    │                      │
-┌───────▼──────┐ ┌─────▼───────┐  ┌────────▼───────┐  ┌──────────▼──────────┐
-│  Neon        │ │  Upstash     │  │  Cloudflare R2  │  │  MCP Servers        │
-│  Postgres    │ │  Redis REST  │  │  GLBs · Audio  │  │  8 remote endpoints │
-│  (primary DB)│ │  (rate limit │  │  Thumbnails    │  │  /api/mcp           │
-│  pgvector    │ │   + cache)  │  │  Metadata      │  │  /api/mcp-3d        │
-│  160+ tables │ │             │  │                │  │  /api/pump-fun-mcp  │
-└──────────────┘ └─────────────┘  └────────────────┘  │  /api/ibm-mcp       │
-                                                        │  + 4 more           │
-┌───────────────────────────────────────────────────────└─────────────────────┘
-│                      LONG-RUNNING WORKERS                                       │
-│                                                                                 │
-│  agent-sniper   agent-mm     agent-orders   oracle     agora-citizens          │
-│  (Node.js)      (Node.js)    (Node.js)      (Node.js)  (Node.js)               │
-│                                                                                 │
-│         Python / FastAPI on Google Cloud Run (GPU workers):                    │
-│  avatar-pipeline-controller → Hunyuan3D / TRELLIS / TripoSR / TripoSG         │
-│  unirig (auto-rigging) · rembg (bg removal) · model-text2motion (MDM)          │
-└─────────────────────────────────────────────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────────────┐
-│                         EXTERNAL SERVICES                                       │
-│                                                                                 │
-│  Blockchain:   Solana mainnet/devnet · Base · Arbitrum · BSC · 12+ EVM chains │
-│  AI/LLM:       Anthropic · OpenAI · NVIDIA NIM · IBM watsonx · Groq · DeepSeek│
-│  3D Gen:       TRELLIS · Hunyuan3D · TripoSG · Meshy · Replicate · Stability  │
-│  Voice:        NVIDIA Magpie TTS · Riva ASR · Audio2Face-3D · ElevenLabs      │
-│  On-chain:     pump.fun · Jupiter · Helius · Pyth · Metaplex · SNS · EAS      │
-│  x402:         PayAI facilitator · Coinbase CDP · x402scan Bazaar             │
-│  Auth:         Privy · GitHub OAuth · X OAuth · SAML 2.0                      │
-│  Infra:        Vercel · GCP Cloud Run · AWS Lambda (Forge) · Cloudflare R2    │
-│  Comms:        Resend (email) · Telegram Bot · PostHog · Sentry · Axiom       │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Browser["BROWSER / CLIENT"]
+        MPA["150+ MPA Pages\n(Vite 7, Vanilla JS + Three.js)"]
+        DASH["Dashboard SPA\n(dashboard-next, 25+ sub-pages)"]
+        SDK["Embedded SDKs / Widgets\nagent-3d · walk-sdk · page-agent · tour-sdk"]
+        MPA --> WebGL
+        DASH --> WebGL
+        SDK --> WebGL
+        WebGL["Three.js WebGL Layer r184\nViewer · AnimationManager · Retargeter · MorphTargets · ARKit Lipsync"]
+    end
+
+    WebGL -->|"fetch / SSE / WebSocket"| APILayer
+
+    subgraph APILayer["VERCEL SERVERLESS FUNCTIONS (api/)"]
+        Auth["Auth\nOAuth2.1 · SIWE/SIWS · Privy"]
+        AgentsSvc["Agents\nMCP Main · A2A Pay"]
+        AvatarsSvc["Avatars\nMarketplace · Billing"]
+        ForgeSvc["Forge\nx402 · Brain/LLM"]
+        WalletSvc["Wallet\nMaster · Agent hub · x402 SKUs"]
+        PumpSvc["Pump.fun\nLaunches · Intel"]
+        OracleSvc["Oracle\nSniper · Market-maker · Strategies"]
+        Lib["api/_lib/ — 413 shared utilities\ndb.js · auth.js · redis.js · r2.js · x402-spec.js · memory-store.js"]
+    end
+
+    APILayer --> Neon["Neon Postgres\n(primary DB)\npgvector · 160+ tables"]
+    APILayer --> Redis["Upstash Redis REST\n(rate limit + cache)"]
+    APILayer --> R2["Cloudflare R2\nGLBs · Audio · Thumbnails · Metadata"]
+    APILayer --> MCPSvc["MCP Servers — 8 remote endpoints\n/api/mcp · /api/mcp-3d\n/api/pump-fun-mcp · /api/ibm-mcp · + 4 more"]
+
+    subgraph Workers["LONG-RUNNING WORKERS"]
+        Sniper["agent-sniper (Node.js)"]
+        MM["agent-mm (Node.js)"]
+        OrdersW["agent-orders (Node.js)"]
+        OracleW["oracle (Node.js)"]
+        AgoraW["agora-citizens (Node.js)"]
+        GPU["Python / FastAPI on Google Cloud Run\nHunyuan3D · TRELLIS · TripoSR · TripoSG\nunirig · rembg · model-text2motion (MDM)"]
+    end
+
+    APILayer --> Workers
+
+    subgraph External["EXTERNAL SERVICES"]
+        Blockchain["Blockchain: Solana · Base · Arbitrum · BSC · 12+ EVM chains"]
+        AILLM["AI/LLM: Anthropic · OpenAI · NVIDIA NIM · IBM watsonx · Groq · DeepSeek"]
+        Gen3D["3D Gen: TRELLIS · Hunyuan3D · TripoSG · Meshy · Replicate · Stability"]
+        Voice["Voice: NVIDIA Magpie TTS · Riva ASR · Audio2Face-3D · ElevenLabs"]
+        OnChain["On-chain: pump.fun · Jupiter · Helius · Pyth · Metaplex · SNS · EAS"]
+        X402ext["x402: PayAI facilitator · Coinbase CDP · x402scan Bazaar"]
+        AuthExt["Auth: Privy · GitHub OAuth · X OAuth · SAML 2.0"]
+        InfraExt["Infra: Vercel · GCP Cloud Run · AWS Lambda (Forge) · Cloudflare R2"]
+        Comms["Comms: Resend (email) · Telegram Bot · PostHog · Sentry · Axiom"]
+    end
+
+    Workers --> External
+    APILayer --> External
 ```
 
 ---

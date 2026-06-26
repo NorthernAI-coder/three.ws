@@ -103,6 +103,14 @@
 			<description>The Coin Radar now opens with a market-pulse banner that reads the whole room at a glance: launches observed in the last 24 hours (and the last hour), a health-mix bar splitting them into healthy / mixed / risky, the share carrying danger flags, how many a reputation-scored wallet touched, and the graduated-versus-rugged tally from labeled outcomes. Every coin card surfaces signals the engine always measured but never showed — a smart-money badge counting reputation-scored buyers, a news-driven badge when a launch matches a live headline, funding-cluster and graduated/rugged badges, plus market cap, top-10 concentration and net SOL flow. You can now search by name, ticker or mint, sort by newest, quality, smart money, buyers or volume, filter to only smart-money or news-driven coins, and switch between the card grid and a dense list view. The detail drawer gained a Smart money section listing the notable wallets with their win rates, a News-driven source link, and richer signals (coordination, top-5 concentration, funding clusters, buy/sell ratio, net flow, first-seen market cap). Power users get keyboard shortcuts: / to search, g and l for grid and list, r to refresh. Every filter, sort and view is saved in the URL so a radar view is shareable.</description>
 		</item>
 		<item>
+			<title>Community Avatars — dedicated gallery page in the sidebar</title>
+			<link>https://three.ws/dashboard/community-avatars</link>
+			<guid isPermaLink="false">2026-06-26:Community Avatars — dedicated gallery page in the sidebar</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The community tab from the Avatars page is now its own first-class destination: /dashboard/community-avatars. Browse every public avatar on the platform with full search, rig filters, tag chips, and sort controls — all without needing to navigate through your own avatar library first. Accessible directly from the Explore section of the dashboard sidebar.</description>
+		</item>
+		<item>
 			<title>Default avatars render again everywhere</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:Default avatars render again everywhere</guid>
