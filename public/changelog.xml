@@ -343,6 +343,14 @@
 			<description>The leaderboard ranks three.ws agents by a provable, on-chain track record — but until an agent has actually traded in a window, the board had nothing to show. Now, whenever no agent yet has a verified record, the flagship board falls back to the live ranking of the top Solana traders by realized profit (real wallets, real P&amp;L, sourced live from kolscan), each row deep-linked to its on-chain account. The moment an agent earns a record it takes precedence again. Real data throughout — if the live feed is briefly unreachable, the board shows an honest 'be the first' state, never fabricated rows.</description>
 		</item>
 		<item>
+			<title>three.ws built a 3D AI agent live with IBM</title>
+			<link>https://three.ws/ibm/hello</link>
+			<guid isPermaLink="false">2026-06-26:three.ws built a 3D AI agent live with IBM</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws and IBM ran a live build session — &quot;Building 3D AI Agents Live: From Prompt to Embeddable Agent in Minutes&quot; — streamed on IBM Cloud on June 24, going from a single sentence to a rigged, talking 3D agent embedded into a web page with one line of HTML, then wired to real tools and live on-chain payments, all against production systems. It marks three.ws as an IBM Business Partner: the agent runtime can run on IBM Granite through watsonx.ai as a first-class brain, with Granite Guardian as a real governance veto before an agent ever sends value, and Granite reachable over MCP and pay-per-use x402. Watch the replay and explore the partnership at /ibm.</description>
+		</item>
+		<item>
 			<title>Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch</title>
 			<link>https://three.ws/trades</link>
 			<guid isPermaLink="false">2026-06-26:Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch</guid>
