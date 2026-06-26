@@ -50,6 +50,7 @@ export const NAV = [
 	// ── Explore ─────────────────────────────────────────────────────────
 	{ path: '/dashboard/irl-placements', label: 'IRL Placements', icon: 'pin', group: 'Explore', tags: ['irl', 'ar', 'gps', 'pin', 'place', 'avatar', 'location', 'anchor', 'real world'] },
 	{ path: '/go',                    label: 'GO · Bounties',   icon: 'bounty',    group: 'Explore',    tags: ['bounty', 'earn', 'submit', 'proof', 'challenge', 'reward', 'go'], external: true },
+	{ path: '/dashboard/community-avatars', label: 'Community Avatars', icon: 'gallery', group: 'Explore', tags: ['browse', 'public', 'models', 'community', 'gallery', 'discover', 'remix', 'explore avatars'] },
 	{ path: '/gallery-picker',        label: 'Gallery',         icon: 'gallery',   group: 'Explore',    tags: ['browse', 'avatars', 'public', 'models', 'pick'], external: true },
 	{ path: '/discover',              label: 'Discover',        icon: 'globe',     group: 'Explore',    tags: ['explore', 'directory', 'onchain', 'agents'], external: true },
 	{ path: '/community',             label: 'Community',       icon: 'community', group: 'Explore',    tags: ['social', 'forum', 'connect', 'members'], external: true },
