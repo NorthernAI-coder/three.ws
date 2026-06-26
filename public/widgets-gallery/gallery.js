@@ -20,6 +20,8 @@ const TYPE_COLORS = {
 	'pumpfun-feed': '#ec4899',
 	'kol-trades': '#ffffff',
 	'live-trades-canvas': '#f43f5e',
+	'bonding-curve': '#22d3ee',
+	'walking-avatar': '#a855f7',
 };
 
 // Which customize knobs apply to which type. Universal knobs (size, accent)
@@ -33,6 +35,8 @@ const TYPE_KNOBS = {
 	'pumpfun-feed': ['kind'],
 	'kol-trades': ['mint'],
 	'live-trades-canvas': ['mint'],
+	'bonding-curve': ['mint'],
+	'walking-avatar': [],
 };
 
 const SIZE_PRESETS = {
@@ -316,7 +320,8 @@ function renderShowcase(w) {
 	placeholder.querySelector('.play-btn').addEventListener('click', loadIframe);
 	frame.appendChild(placeholder);
 
-	// Auto-load when the frame becomes 50 % visible.
+	// Auto-load 200px before the frame scrolls into view so the iframe is
+	// already running by the time the visitor sees it — no click required.
 	const autoObs = new IntersectionObserver(
 		(entries) => {
 			if (entries[0].isIntersecting) {
@@ -324,7 +329,7 @@ function renderShowcase(w) {
 				autoObs.disconnect();
 			}
 		},
-		{ threshold: 0.5 },
+		{ threshold: 0, rootMargin: '200px 0px' },
 	);
 	autoObs.observe(frame);
 

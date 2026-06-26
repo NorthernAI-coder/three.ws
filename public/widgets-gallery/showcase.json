@@ -72,6 +72,24 @@
 			"width": 600,
 			"height": 400,
 			"features": ["Real-time WebGL canvas", "Green/red particles for buys/sells", "Size scales with USD"]
+		},
+		{
+			"type": "bonding-curve",
+			"label": "Bonding Curve",
+			"tagline": "Live graduation progress and bonding-curve climb for any pump.fun token.",
+			"id": "wdgt_demo_bondcrv",
+			"width": 520,
+			"height": 480,
+			"features": ["Live market cap and progress bar", "Refreshes every 15s", "Works with any pump.fun mint"]
+		},
+		{
+			"type": "walking-avatar",
+			"label": "Walking Avatar",
+			"tagline": "A roaming 3D avatar visitors can walk around your page.",
+			"id": "wdgt_demo_walkavt",
+			"width": 480,
+			"height": 420,
+			"features": ["Joystick or keyboard controls", "Multiple environments", "Drop into any site or Notion doc"]
 		}
 	]
 }

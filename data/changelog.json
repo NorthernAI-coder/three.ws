@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Community Avatars — dedicated gallery page in the sidebar",
+			"summary": "The community tab from the Avatars page is now its own first-class destination: /dashboard/community-avatars. Browse every public avatar on the platform with full search, rig filters, tag chips, and sort controls — all without needing to navigate through your own avatar library first. Accessible directly from the Explore section of the dashboard sidebar.",
+			"tags": ["feature"],
+			"link": "/dashboard/community-avatars"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Brain page simplified — pick a personality in one tap",
 			"summary": "Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.",
 			"tags": ["improvement"],
