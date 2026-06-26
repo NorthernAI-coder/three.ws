@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T10:33:35.325Z",
+	"generated_at": "2026-06-26T11:07:33.926Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -347,6 +347,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Token Launchpad pages now actually launch — and flip to Trade once live",
+			"summary": "The Token Launchpad template's published page used to open a blank launch form and throw away the coin details you set up. Now its button carries your coin's name, ticker, description, image, and initial buy straight into the launch flow, pre-filled and ready to mint. Once your coin is live, paste its mint address in the studio and the same button flips from \"Launch\" to a one-click \"Trade\" link to the live coin. We also corrected misleading copy: a pump.fun coin is created once and then traded — it isn't \"minted by each visitor.\"",
+			"link": "/launchpad",
+			"tags": [
+				"fix",
+				"feature"
 			]
 		},
 		{

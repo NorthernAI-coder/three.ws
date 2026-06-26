@@ -406,7 +406,7 @@ function injectCss() {
 
 const DEMO_ID = '__demo__';
 
-export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewViewer, context } = {}) {
+export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewViewer, context, prefill } = {}) {
 	injectCss();
 
 	// The left-column UI differs by mount: on /launch it's an agent picker, in the
@@ -1847,6 +1847,43 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		checkExistingMint(av); // async — updates state and re-renders when done
 	}
 
+	// Seed the form from a deep-link prefill (token-launchpad → /launch handoff).
+	// Provided fields override avatar defaults; a provided symbol is marked edited
+	// so a later agent switch (avatarChanged) won't re-derive it from the name.
+	function applyPrefill() {
+		if (!prefill) return;
+		if (prefill.name) s.name = String(prefill.name).slice(0, 32);
+		if (prefill.symbol) {
+			s.symbol = [...String(prefill.symbol)].slice(0, 10).join('');
+			s._symbolEdited = true;
+		} else if (prefill.name) {
+			s.symbol = toSymbol(s.name);
+		}
+		if (prefill.description) s.description = String(prefill.description).slice(0, 500);
+		const buy = Number(prefill.initialBuy);
+		if (isFinite(buy) && buy > 0) s.initialBuy = String(buy);
+	}
+
+	// Pull a prefilled token image (a hosted URL from the launchpad config) into a
+	// real File so it pins to IPFS alongside the metadata, exactly like an upload.
+	// Best-effort: a CORS-blocked or oversized image silently falls back to the
+	// avatar-derived image — the launch still works.
+	async function loadPrefillImage(url) {
+		try {
+			const r = await fetch(url, { mode: 'cors' });
+			if (!r.ok) return;
+			const blob = await r.blob();
+			if (!blob.type.startsWith('image/') || blob.size > 4_000_000) return;
+			const ext = (blob.type.split('/')[1] || 'png').replace('+xml', '');
+			s.imageFile = new File([blob], `token.${ext}`, { type: blob.type });
+			if (s.imagePreviewUrl) URL.revokeObjectURL(s.imagePreviewUrl);
+			s.imagePreviewUrl = URL.createObjectURL(blob);
+			render();
+		} catch {
+			/* CORS / network — fall back to the avatar image */
+		}
+	}
+
 	// ── Boot ────────────────────────────────────────────────────────────────
 
 	av = getAvatar?.() || null;
@@ -1855,10 +1892,14 @@ export function mountLaunchPanel(container, { getAvatar, getUser, getPreviewView
 		s.symbol      = toSymbol(s.name);
 		s.description = (av.description || '').slice(0, 500);
 	}
+	// Deep-link prefill wins over avatar defaults — it carries the exact coin a
+	// launchpad page was built for. Applied after the avatar seed so it overrides.
+	applyPrefill();
 
 	render();
 	setTimeout(tryAutoConnect, 250);
 	if (av && av.id !== DEMO_ID) checkExistingMint(av);
+	if (prefill?.imageUrl) loadPrefillImage(prefill.imageUrl);
 
 	return {
 		avatarChanged,

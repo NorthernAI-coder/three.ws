@@ -50,11 +50,19 @@ function renderPage(root, payload) {
 	const theme = config?.identity?.theme === 'dark' ? 'dark' : 'light';
 	const headline = config?.copy?.headline || 'three.ws launchpad';
 	const tagline = config?.copy?.tagline || '';
-	const cta = config?.copy?.cta || 'Get started';
 	const website = config?.identity?.website || '';
 	const wallet = config?.identity?.wallet || '';
 	const avatarSrc = config?.avatar?.src || `${AGENT_3D_HOST}/avatars/default.glb`;
 	const monetize = config?.monetize || {};
+
+	// A token-launchpad page has two lives: before the coin is minted the CTA
+	// launches it; once a mint is set it flips to a trade action. Honor the
+	// creator's custom CTA label, but default the post-launch label to "Trade".
+	let cta = config?.copy?.cta || 'Get started';
+	if (template === 'token-launchpad' && config?.token?.mint) {
+		const tk = config.token.ticker ? `$${config.token.ticker}` : 'the coin';
+		cta = `Trade ${tk}`;
+	}
 
 	document.title = `${headline} — three.ws`;
 	document.documentElement.style.setProperty('--brand', brand);
@@ -117,9 +125,12 @@ function extraCopy(payload) {
 	const m = config?.monetize || {};
 	if (template === 'token-launchpad') {
 		const t = config?.token || {};
-		const name = t.name || 'your token';
+		const name = t.name || 'this coin';
 		const ticker = t.ticker ? ` ($${t.ticker})` : '';
-		return `One click launches ${name}${ticker} on Pump.fun. Creator fees route to ${short(config?.identity?.wallet)}.`;
+		if (t.mint) {
+			return `${name}${ticker} is live on Pump.fun — trade it in one click, hosted by a 3D agent on three.ws.`;
+		}
+		return `Launch ${name}${ticker} on Pump.fun in one guided flow. Creator fees route to ${short(config?.identity?.wallet) || 'the creator wallet'}.`;
 	}
 	if (template === 'paid-concierge') {
 		return `Ask anything. Each call costs ${priceLabel(m) || 'a small USDC fee'} and settles instantly to ${short(config?.identity?.wallet)}.`;
@@ -132,12 +143,29 @@ function extraCopy(payload) {
 
 // CTA handler — each template hands off to its real flow.
 function onCtaClick(payload, btn, statusEl) {
-	const { template } = payload;
+	const { template, config } = payload;
 	if (template === 'token-launchpad') {
-		// Pump.fun coin creation lives on the public /launch surface, where the
-		// visitor picks a wallet and signs the mint transaction themselves.
-		window.open(`${AGENT_3D_HOST}/launch`, '_blank', 'noopener');
-		statusEl.textContent = 'Opened the three.ws launch flow in a new tab.';
+		const t = config?.token || {};
+		// Already minted → send the visitor to the live coin to trade it.
+		if (t.mint) {
+			window.open(`${AGENT_3D_HOST}/launches/${encodeURIComponent(t.mint)}`, '_blank', 'noopener');
+			statusEl.textContent = 'Opened the live coin — trade it on the next page.';
+			statusEl.className = 'status-msg ok';
+			return;
+		}
+		// Not minted yet → hand off to the real /launch flow with every field the
+		// creator configured here pre-filled, so the coin launches as designed
+		// rather than dropping the user onto a blank form.
+		const params = new URLSearchParams();
+		if (t.name) params.set('name', t.name);
+		if (t.ticker) params.set('symbol', t.ticker);
+		if (t.description) params.set('description', t.description);
+		if (t.imageUrl) params.set('image', t.imageUrl);
+		const initialBuy = Number(config?.monetize?.price);
+		if (isFinite(initialBuy) && initialBuy > 0) params.set('initialBuy', String(initialBuy));
+		const qs = params.toString();
+		window.open(`${AGENT_3D_HOST}/launch${qs ? `?${qs}` : ''}`, '_blank', 'noopener');
+		statusEl.textContent = 'Opened the launch flow with your coin details pre-filled.';
 		statusEl.className = 'status-msg ok';
 		return;
 	}
