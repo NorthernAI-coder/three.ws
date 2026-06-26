@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T07:22:36.416Z",
+	"generated_at": "2026-06-26T07:23:48.234Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/arena",
 			"tags": [
 				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Agent Activity is now a live trading floor — Conviction Board rail, richer trade detail and a real KPI bar that never shows an empty void",
+			"summary": "The /activity page used to go blank whenever no agent had traded recently. It no longer does. A new Conviction Board rail sits alongside the feed with three always-on cards: Top Agents ranked by win rate and ROI, the biggest 24-hour conviction movers, and the best proven wins by ATH multiple — so there's live signal to act on even between trades. An insight strip surfaces the single standout in each. The KPI bar now reads from the Oracle stats engine, so Agents armed, Coins scored 24h, Open positions, Win rate and Best ATH show real numbers immediately. Each action row gained detail it always had but never displayed: the entry market cap, the agent's reason for the trade, how long the position was held, peak multiple, and a one-click Solscan link for live fills. Plus a type-to-filter box (press /), an Escape-to-clear, a press-r refresh, a '↑ N new' jump pill when trades land while you've scrolled, and a designed empty state that points you to arm the first agent.",
+			"link": "/activity",
+			"tags": [
+				"feature",
 				"improvement"
 			]
 		},
