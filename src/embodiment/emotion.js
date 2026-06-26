@@ -35,7 +35,7 @@ const EMOTION_MAP = Object.freeze({
 		face: {},
 	},
 	joy: {
-		idle: 'av-idle-breath',
+		idle: 'idle',
 		low: 'av-joy',
 		high: 'av-celebrating',
 		face: {
@@ -82,7 +82,6 @@ const EMOTION_MAP = Object.freeze({
 			browInnerUp: 0.6,
 			browOuterUpLeft: 0.6,
 			browOuterUpRight: 0.6,
-			jawOpen: 0.5,
 		},
 	},
 	thinking: {
@@ -98,6 +97,15 @@ const EMOTION_MAP = Object.freeze({
 		},
 	},
 });
+
+/**
+ * Every ARKit-style blendshape channel any emotion drives, deduped. Derived from
+ * the emotion weight sets so it stays in lockstep with them — FaceExpression binds
+ * exactly these channels and leaves mouth/viseme morphs to the lip-sync driver.
+ */
+export const EXPRESSION_CHANNELS = Object.freeze([
+	...new Set(Object.values(EMOTION_MAP).flatMap((entry) => Object.keys(entry.face))),
+]);
 
 /**
  * Lexical cues per emotion. Single words are matched on word boundaries;
