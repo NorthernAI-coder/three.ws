@@ -15,6 +15,10 @@
 
 const root = document.getElementById('arena');
 const NETWORK = 'mainnet';
+const BASE_TITLE = document.title;
+
+const backButton = () =>
+	h('button', { class: 'arena-back', type: 'button', onclick: () => (location.hash = '#/') }, '← All tournaments');
 
 // ── tiny DOM + format helpers ─────────────────────────────────────────────
 const h = (tag, attrs = {}, ...kids) => {
@@ -130,6 +134,7 @@ const listState = { tab: 'live' };
 
 async function renderList() {
 	stopStream();
+	document.title = BASE_TITLE;
 	root.replaceChildren(
 		h(
 			'section',

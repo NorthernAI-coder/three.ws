@@ -195,8 +195,14 @@ async function mountAvatar(agent) {
 }
 
 // ── candidate launches ──────────────────────────────────────────────────────
+function setCount(n) {
+	if (n > 0) { dom.launchesCount.textContent = n; dom.launchesCount.hidden = false; }
+	else dom.launchesCount.hidden = true;
+}
+
 async function loadCandidates() {
 	if (!state.agent) return;
+	setCount(0);
 	dom.launchesList.innerHTML = skeletonLaunches(4);
 	let items = [];
 	try {
@@ -210,37 +216,71 @@ async function loadCandidates() {
 		return;
 	}
 	state.candidates = items;
+	setCount(items.length);
 	if (!items.length) {
-		dom.launchesList.innerHTML = `<div class="ac-state"><p>No live launches on the feed this second. New pump.fun mints appear here the moment they land — hit Refresh.</p></div>`;
+		dom.launchesList.innerHTML = `<div class="ac-state"><div class="ac-state-orb" aria-hidden="true"></div><p>No live launches on the feed this second. Fresh pump.fun mints appear here the moment they land.</p><button type="button" class="ac-btn ac-btn-ghost" id="ac-retry-feed">Check again</button></div>`;
+		$('#ac-retry-feed')?.addEventListener('click', loadCandidates);
 		return;
 	}
+	// Surface a single "top pick" — the highest combined real conviction — so a
+	// first-time visitor has an obvious launch to ask about.
+	const topMint = pickTopMint(items);
 	dom.launchesList.innerHTML = '';
-	for (const c of items) dom.launchesList.appendChild(launchCard(c));
+	for (const c of items) dom.launchesList.appendChild(launchCard(c, c.mint === topMint));
+	if (state.activeMint) markActiveLaunch(state.activeMint);
 }
 
-function launchCard(c) {
+// Rank by the real signals we already have: smart-money + quality, lightly
+// boosted by visible liquidity, penalised for a sybil-dominated funder graph.
+function pickTopMint(items) {
+	let best = null, bestScore = -Infinity;
+	for (const c of items) {
+		const sm = num(c.smart_money_score) ?? 0;
+		const q = num(c.quality_score) ?? 0;
+		if (sm === 0 && q === 0) continue;
+		let score = sm * 1.1 + q;
+		if (c.sybil_flag) score -= 40;
+		if (score > bestScore) { bestScore = score; best = c.mint; }
+	}
+	return best;
+}
+
+function scoreBar(label, v, title) {
+	const n = num(v);
+	const pct = n == null ? 0 : Math.max(0, Math.min(100, n));
+	const cls = n == null ? 'is-empty' : n >= 60 ? 'is-good' : n >= 35 ? 'is-mid' : 'is-low';
+	return `<div class="ac-bar ${cls}" title="${esc(title)}"><span class="ac-bar-k">${label}</span><span class="ac-bar-track"><span class="ac-bar-fill" style="width:${pct}%"></span></span><span class="ac-bar-v">${n == null ? '—' : Math.round(n)}</span></div>`;
+}
+
+function launchCard(c, isTop) {
 	const node = document.createElement('article');
-	node.className = 'ac-launch';
+	node.className = 'ac-launch' + (isTop ? ' is-top' : '');
+	node.dataset.mint = c.mint;
 	const label = c.symbol ? `$${esc(c.symbol)}` : short(c.mint, 4, 4);
-	const sm = num(c.smart_money_score);
-	const q = num(c.quality_score);
 	node.innerHTML = `
+		${isTop ? '<span class="ac-launch-top">Top pick</span>' : ''}
 		<div class="ac-launch-head">
 			<div class="ac-launch-id">
 				<span class="ac-launch-sym">${label}</span>
 				${c.name ? `<span class="ac-launch-name">${esc(c.name)}</span>` : ''}
 			</div>
-			<span class="ac-launch-age" title="Age">${ageLabel(c.age_seconds)}</span>
+			<div class="ac-launch-num">
+				<span class="ac-launch-mc" title="Market cap">${fmtUsd(c.market_cap_usd)}</span>
+				<span class="ac-launch-age" title="Age">${ageLabel(c.age_seconds)} old</span>
+			</div>
 		</div>
-		<div class="ac-launch-stats">
-			<span title="Market cap">${fmtUsd(c.market_cap_usd)}</span>
-			<span title="Smart-money score" class="${sm != null && sm >= 60 ? 'is-good' : ''}">SM ${fmtScore(sm)}</span>
-			<span title="Quality score" class="${q != null && q >= 60 ? 'is-good' : ''}">Q ${fmtScore(q)}</span>
-			${c.sybil_flag ? '<span class="ac-flag" title="One funder cluster dominates">sybil</span>' : ''}
+		<div class="ac-launch-bars">
+			${scoreBar('SM', c.smart_money_score, 'Smart-money score (0–100)')}
+			${scoreBar('Q', c.quality_score, 'Quality score (0–100)')}
 		</div>
+		${c.sybil_flag ? '<span class="ac-flag" title="One funder cluster dominates the holders">sybil cluster</span>' : ''}
 		<button type="button" class="ac-btn ac-btn-read" data-mint="${esc(c.mint)}">Ask for a read</button>`;
 	node.querySelector('.ac-btn-read').addEventListener('click', () => requestRead(c.mint, label));
 	return node;
+}
+
+function markActiveLaunch(mint) {
+	dom.launchesList.querySelectorAll('.ac-launch').forEach((el) => el.classList.toggle('is-reading', el.dataset.mint === mint));
 }
 
 // ── the read ────────────────────────────────────────────────────────────────
@@ -256,9 +296,11 @@ function resetRead() {
 async function requestRead(mint, label) {
 	if (!state.agent || state.loadingRead) return;
 	state.loadingRead = true;
+	state.activeMint = mint;
+	markActiveLaunch(mint);
 	dom.readEmpty.hidden = true;
 	dom.readBody.hidden = false;
-	dom.readBody.innerHTML = `<div class="ac-read-loading"><div class="ac-thinking"><span></span><span></span><span></span></div><p>${esc(state.agent.name || 'The agent')} is reading ${esc(label || 'this launch')}…</p></div>`;
+	dom.readBody.innerHTML = `<div class="ac-read-loading"><div class="ac-thinking"><span></span><span></span><span></span></div><p>${esc(state.agent.name || 'The agent')} is reading ${esc(label || 'this launch')}…</p><p class="ac-read-loading-fine">Pulling live liquidity, holders, and smart-money signals.</p></div>`;
 	setSpeaking(false);
 
 	let data;
@@ -289,12 +331,31 @@ function verdictMeta(v) {
 	return { label: 'Watch', cls: 'is-watch' };
 }
 
+// Which signal rows the agent actually name-checked — matched loosely so a cited
+// "smart money" lights up the "Smart money" row regardless of exact phrasing.
+function citedSet(cited) {
+	const set = new Set();
+	for (const raw of cited || []) {
+		const k = String(raw).toLowerCase();
+		if (/liquid/.test(k)) set.add('Liquidity');
+		if (/market\s*cap|mcap|mc\b/.test(k)) set.add('Market cap');
+		if (/age|minute|old|new/.test(k)) set.add('Age');
+		if (/impact|slippage/.test(k)) set.add('Buy impact (◎0.1)');
+		if (/curve|bonding|graduat/.test(k)) set.add('Curve filled');
+		if (/quality/.test(k)) set.add('Quality');
+		if (/smart|wallet|whale/.test(k)) set.add('Smart money');
+		if (/organic|volume|buyer|holder/.test(k)) set.add('Organic');
+	}
+	return set;
+}
+
 function renderRead(data) {
 	const read = data.read || {};
 	const sig = data.signals || {};
 	const vm = verdictMeta(read.verdict);
 	const conviction = num(read.conviction) ?? 0;
 	const sym = sig.symbol ? `$${esc(sig.symbol)}` : short(data.mint, 4, 4);
+	const cited = citedSet(read.cited_signals);
 
 	const signalRows = [
 		['Liquidity', fmtSol(sig.liquidity_sol)],
@@ -305,10 +366,10 @@ function renderRead(data) {
 		['Quality', fmtScore(sig.quality_score)],
 		['Smart money', sig.smart_money_score != null ? `${fmtScore(sig.smart_money_score)} · ${sig.smart_money_wallets ?? 0} wallet${sig.smart_money_wallets === 1 ? '' : 's'}` : '—'],
 		['Organic', fmtScore(sig.organic_score)],
-	].filter(([, v]) => v !== '—' || true);
+	];
 
 	const ownerWallet = data.owner && sig.wallet_balance_sol != null
-		? `<div class="ac-read-wallet">Wallet ${fmtSol(sig.wallet_balance_sol)} · per-trade ${sig.per_trade_limit_sol != null ? fmtSol(sig.per_trade_limit_sol) : '∞'} · daily ${sig.daily_budget_sol != null ? fmtSol(sig.daily_budget_sol) : '∞'}${sig.trading_paused ? ' · <span class="ac-flag">paused</span>' : ''}</div>`
+		? `<div class="ac-read-wallet"><span class="ac-read-wallet-k">Wallet</span> ${fmtSol(sig.wallet_balance_sol)} · per-trade ${sig.per_trade_limit_sol != null ? fmtSol(sig.per_trade_limit_sol) : '∞'} · daily ${sig.daily_budget_sol != null ? fmtSol(sig.daily_budget_sol) : '∞'}${sig.trading_paused ? ' · <span class="ac-flag">paused</span>' : ''}</div>`
 		: '';
 
 	const guard = read.hallucination_guard || {};
@@ -319,17 +380,18 @@ function renderRead(data) {
 	dom.readBody.innerHTML = `
 		<div class="ac-read-top">
 			<div class="ac-verdict ${vm.cls}">${vm.label}</div>
-			<div class="ac-conviction" title="Conviction">
-				<div class="ac-conviction-bar"><span style="width:${Math.max(2, conviction)}%"></span></div>
-				<span class="ac-conviction-val">${conviction}<small>/100</small></span>
-			</div>
+			<div class="ac-read-target">${sym}${sig.name ? ` · <span class="ac-read-coinname">${esc(sig.name)}</span>` : ''}</div>
 		</div>
-		<div class="ac-read-target">${sym}${sig.name ? ` · <span class="ac-read-coinname">${esc(sig.name)}</span>` : ''}</div>
+		<div class="ac-conviction ${vm.cls}" title="How convinced the agent is">
+			<div class="ac-conviction-bar"><span style="width:${Math.max(2, conviction)}%"></span></div>
+			<span class="ac-conviction-val">${conviction}<small>/100 conviction</small></span>
+		</div>
+		${read.spoken_line ? `<blockquote class="ac-read-quote">“${esc(read.spoken_line)}”</blockquote>` : ''}
 		${guardNote}
-		${read.risks?.length ? `<ul class="ac-risks">${read.risks.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+		${read.risks?.length ? `<div class="ac-risks-wrap"><div class="ac-risks-head">What could go wrong</div><ul class="ac-risks">${read.risks.map((r) => `<li>${esc(r)}</li>`).join('')}</ul></div>` : ''}
 		<div class="ac-read-signals">
 			<div class="ac-read-signals-head">Signals it used <span>(live, on-chain)</span></div>
-			<dl>${signalRows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>
+			<dl>${signalRows.map(([k, v]) => `<div class="${cited.has(k) ? 'is-cited' : ''}"><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>
 		</div>
 		${ownerWallet}
 		<div class="ac-action" id="ac-action"></div>`;
@@ -356,6 +418,7 @@ let currentAudio = null;
 function setSpeaking(on) {
 	state.speaking = on;
 	dom.speak?.classList.toggle('is-speaking', on);
+	dom.eq?.classList.toggle('is-on', on);
 	$('.ac-stage')?.classList.toggle('is-speaking', on);
 }
 
@@ -499,23 +562,30 @@ function skeletonLaunches(n) {
 }
 
 // ── boot ────────────────────────────────────────────────────────────────────
+// Resolve a concrete agent id to open with, in priority order: an explicit
+// ?agent=, the last one this browser used, the signed-in caller's own agent,
+// then a featured public agent — so the page is always live, never a blank void.
 async function resolveInitialAgent() {
 	const url = new URL(location.href);
 	const fromUrl = parseAgentId(url.searchParams.get('agent'));
 	if (fromUrl) return fromUrl;
 	const stored = (() => { try { return localStorage.getItem(LS_KEY); } catch { return null; } })();
 	if (stored && UUID_RE.test(stored)) return stored;
-	// Logged-in default: the caller's own agent.
 	try {
 		const r = await fetch('/api/agents/me', { credentials: 'include' });
 		if (r.ok) { const j = await r.json().catch(() => ({})); const a = j.agent || j; if (a?.id) return a.id; }
-	} catch { /* logged out — prompt for an id */ }
+	} catch { /* logged out — fall through to a featured agent */ }
+	try {
+		const r = await fetch('/api/agents/featured', { credentials: 'include' });
+		if (r.ok) { const j = await r.json().catch(() => ({})); const fid = j?.data?.id; if (fid && UUID_RE.test(fid)) return fid; }
+	} catch { /* no featured agent — wait for the gallery */ }
 	return null;
 }
 
 async function init() {
 	cacheDom();
 	wireDrawer();
+	dom.idToggle.addEventListener('click', () => revealIdRow(dom.idRow.hidden));
 	dom.agentLoad.addEventListener('click', () => {
 		const id = parseAgentId(dom.agentInput.value);
 		if (id) loadAgent(id);
@@ -526,16 +596,24 @@ async function init() {
 	dom.replay.addEventListener('click', () => { if (state.lastSpoken) speakAloud(state.read?.agent || state.agent, state.lastSpoken); });
 	const mintFromUrl = new URL(location.href).searchParams.get('mint');
 
+	// Fire the gallery and the initial-agent resolution together; whichever the
+	// resolver returns gets highlighted in the rail once it renders.
+	const galleryP = loadGallery();
 	const id = await resolveInitialAgent();
 	if (id) {
 		await loadAgent(id);
 		dom.agentInput.value = id;
 		if (mintFromUrl && UUID_RE.test(id)) requestRead(mintFromUrl, null);
 	} else {
-		dom.avatarPlaceholder.textContent = 'Enter an agent id (or paste a profile URL) to begin.';
-		dom.agentName.textContent = 'No agent';
-		dom.agentRole.textContent = 'Pick an agent to hear its read';
+		// No agent anywhere — let the gallery be the call to action; open the ID row
+		// as a fallback only if the gallery also came up empty.
+		await galleryP;
+		if (!state.gallery.length) {
+			dom.avatarPlaceholder.querySelector('span:last-child').textContent = 'Enter an agent ID (or paste a profile URL) to begin.';
+		}
 	}
+	await galleryP;
+	if (state.agent) markActiveCard(state.agent.id);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
