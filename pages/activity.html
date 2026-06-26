@@ -711,7 +711,7 @@
 		// ── KPIs: merge /api/oracle/stats (always-present platform numbers) with
 		//    the activity summary (7-day action rollup). Stats wins for fields it
 		//    owns; activity fills PnL which stats doesn't carry. ──
-		const kpiData = { agents_armed: null, scored_24h: null, open_actions: null, win_rate: null, best_ath: null, total_pnl_sol: null, actions_7d: null };
+		const kpiData = { agents_armed: null, scored_24h: null, open_actions: null, win_rate: null, best_ath: null, total_pnl_sol: null, actions_7d: null, prime_count: null, strong_count: null, scored_total: null };
 		function mergeSummary(s) {
 			kpiData.actions_7d   = Number(s.total) || 0;
 			kpiData.total_pnl_sol = Number(s.total_pnl_sol) || 0;
@@ -727,6 +727,9 @@
 			kpiData.open_actions = Number(st.open_actions)  || 0;
 			kpiData.win_rate     = st.win_rate != null ? Number(st.win_rate) : kpiData.win_rate;
 			kpiData.best_ath     = st.best_ath != null ? Number(st.best_ath) : null;
+			kpiData.prime_count  = st.prime_count  != null ? Number(st.prime_count)  : null;
+			kpiData.strong_count = st.strong_count != null ? Number(st.strong_count) : null;
+			kpiData.scored_total = st.scored_total != null ? Number(st.scored_total) : null;
 			renderKpis();
 		}
 		function renderKpis() {
@@ -740,12 +743,15 @@
 				['Win rate',     d.win_rate     != null ? d.win_rate + '%' : '—', d.win_rate != null ? (d.win_rate >= 50 ? 'up' : 'dn') : ''],
 				['Best ATH',     d.best_ath     != null ? d.best_ath.toFixed(1) + '×' : '—', d.best_ath != null ? 'up' : ''],
 				['PnL (7d)',     pnl != null ? (pnl >= 0 ? '+' : '') + sol(pnl) : '—', pnl != null ? (pnl >= 0 ? 'up' : 'dn') : ''],
+				['Prime coins',    d.prime_count  != null ? d.prime_count  : '—', d.prime_count  > 0 ? 'accent' : ''],
+				['Strong coins',   d.strong_count != null ? d.strong_count : '—', ''],
+				['All-time scored',d.scored_total != null ? d.scored_total.toLocaleString() : '—', ''],
 			];
 			kpis.innerHTML = cells.map(([l, v, cls]) =>
 				`<div class="ac-kpi"><div class="v ${cls}">${v}</div><div class="l">${l}</div></div>`).join('');
 		}
 		function kpiSkeleton() {
-			document.getElementById('ac-kpis').innerHTML = Array.from({length: 6}, () =>
+			document.getElementById('ac-kpis').innerHTML = Array.from({length: 9}, () =>
 				`<div class="ac-kpi is-skel"><div class="v"></div><div class="l">&nbsp;</div></div>`).join('');
 		}
 

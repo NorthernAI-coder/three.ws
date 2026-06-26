@@ -316,3 +316,12 @@
 	.ac-live-dot, .ac-thinking span, .ac-skel-line, .ac-skel-orb, .ac-speak.is-speaking, .ac-drawer-card,
 	.ac-stage-orb, .ac-state-orb, .ac-eq span { animation: none; }
 }
+
+/* Oracle platform context bar */
+.acp-oracle-bar { display:flex; align-items:stretch; gap:0; border:1px solid var(--stroke); border-radius:10px; overflow:hidden; max-width:760px; margin:0 auto var(--space-lg); }
+.acp-oracle-kpi { flex:1; padding:10px 16px; background:var(--surface-0); border-right:1px solid var(--stroke); display:flex; flex-direction:column; gap:2px; }
+.acp-oracle-kpi:last-child { border-right:none; }
+.acp-oracle-kpi-val { font-size:16px; font-weight:700; color:var(--ink-bright); letter-spacing:-0.02em; }
+.acp-oracle-kpi-val.pos { color:#34d399; }
+.acp-oracle-kpi-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); }
+@media (max-width:540px) { .acp-oracle-bar { display:none; } }

@@ -340,6 +340,13 @@
 			.ci-drawer { width: 100%; }
 			.ci-hero { padding-top: 22px; }
 		}
+	.ci-oracle-strip { display:flex; gap:0; border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; margin:0 0 20px; }
+	.ci-oracle-kpi { flex:1; padding:12px 16px; background:rgba(255,255,255,.02); border-right:1px solid rgba(255,255,255,.06); display:flex; flex-direction:column; gap:3px; }
+	.ci-oracle-kpi:last-child { border-right:none; }
+	.ci-oracle-kpi-val { font-size:18px; font-weight:700; color:#f4f4f5; letter-spacing:-0.02em; }
+	.ci-oracle-kpi-val.pos { color:#34d399; }
+	.ci-oracle-kpi-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:#666; }
+	@media (max-width:600px) { .ci-oracle-strip { display:none; } }
 	</style>
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Coin Intelligence · three.ws" />
@@ -364,6 +371,13 @@
 	<script src="/nav.js"></script>
 
 	<main class="ci-wrap">
+		<div class="ci-oracle-strip" id="ci-oracle-strip">
+		  <div class="ci-oracle-kpi"><span class="ci-oracle-kpi-val" id="ci-stat-agents">—</span><span class="ci-oracle-kpi-lbl">Agents live</span></div>
+		  <div class="ci-oracle-kpi"><span class="ci-oracle-kpi-val" id="ci-stat-scored">—</span><span class="ci-oracle-kpi-lbl">Scored today</span></div>
+		  <div class="ci-oracle-kpi"><span class="ci-oracle-kpi-val pos" id="ci-stat-wr">—</span><span class="ci-oracle-kpi-lbl">Win rate</span></div>
+		  <div class="ci-oracle-kpi"><span class="ci-oracle-kpi-val" id="ci-stat-open">—</span><span class="ci-oracle-kpi-lbl">Open trades</span></div>
+		  <div class="ci-oracle-kpi"><span class="ci-oracle-kpi-val" id="ci-stat-ath">—</span><span class="ci-oracle-kpi-lbl">Best ATH</span></div>
+		</div>
 		<div class="ci-hero" id="ci-hero">
 			<div>
 				<h1><span class="pulse" aria-hidden="true"></span>Coin Intelligence</h1>
@@ -1020,5 +1034,17 @@
 		document.addEventListener('visibilitychange', () => { if (!document.hidden && state.tab === 'radar') loadRadar(); });
 	</script>
 	<script src="/brand.js" defer></script>
+	<script>
+		fetch('/api/oracle/stats').then(r=>r.ok?r.json():null).then(d=>{
+		  if(!d) return;
+		  const fmt=n=>n>=1e3?(n/1e3).toFixed(1)+'K':String(n||0);
+		  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+		  s('ci-stat-agents',fmt(d.agents_armed));
+		  s('ci-stat-scored',fmt(d.scored_24h));
+		  s('ci-stat-wr',d.win_rate!=null?d.win_rate+'%':'—');
+		  s('ci-stat-open',fmt(d.open_actions));
+		  s('ci-stat-ath',d.best_ath!=null?d.best_ath.toFixed(1)+'×':'—');
+		}).catch(()=>{});
+	</script>
 </body>
 </html>

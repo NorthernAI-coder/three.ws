@@ -311,6 +311,14 @@
 			<description>The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.</description>
 		</item>
 		<item>
+			<title>Oracle activity data across every surface — 8 pages now show live win rates, agents armed, and platform stats</title>
+			<link>https://three.ws/activity</link>
+			<guid isPermaLink="false">2026-06-26:Oracle activity data across every surface — 8 pages now show live win rates, agents armed, and platform stats</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Live oracle data now reaches every major page visitors touch: the Pump Dashboard oracle panel has a 5-cell stats header (armed agents, scored 24h, win rate, open trades, best ATH); the Activity page gains three new KPIs (prime coins, strong coins, all-time scored) bringing its count to 9; every agent detail page shows a platform context bar (agents live, platform win rate, oracle wins, scored today); Coin Intel gets a live oracle strip at the top; Alpha Co-pilot shows agents armed, scored today, win rate, and total wins as social proof; the Leaderboard summary adds oracle win rate and scored today to its header strip; the Oracle page statline gains open trades and total wins cells; the dashboard-next Oracle card now shows strong count and total wins; and the Analytics modal during agent creation shows a live oracle trading stats row alongside the platform metrics.</description>
+		</item>
+		<item>
 			<title>Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-06-26:Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control</guid>

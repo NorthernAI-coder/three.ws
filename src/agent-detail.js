@@ -1347,6 +1347,7 @@ async function loadExtraSections(agentId, rec, isOwner) {
 	if (embedPolicy) renderEmbedPolicy(embedPolicy);
 
 	loadReviews(agentId, rec);
+	loadPlatformBar();
 }
 
 // ── Reviews ──────────────────────────────────────────────────────────────────
@@ -2591,4 +2592,20 @@ function runLoad() {
 			renderLoadError(e);
 		});
 }
+async function loadPlatformBar() {
+	try {
+		const r = await fetch('/api/oracle/stats');
+		if (!r.ok) return;
+		const d = await r.json();
+		const fmt = n => n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n||0);
+		const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+		set('adp-agents', fmt(d.agents_armed));
+		set('adp-winrate', d.win_rate != null ? d.win_rate+'%' : '—');
+		set('adp-wins', fmt(d.total_wins));
+		set('adp-scored', fmt(d.scored_24h));
+		const bar = document.getElementById('ad-platform-bar');
+		if (bar) bar.hidden = false;
+	} catch { /* non-fatal */ }
+}
+
 runLoad();
