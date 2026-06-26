@@ -73,6 +73,18 @@ export const NAV_GROUPS = [
 				desc: 'Pose with IK, keyframe a timeline → animated GLB you can sell',
 			},
 			{
+				title: 'Avatar Engines Atlas',
+				href: '/avatar-engines',
+				badge: 'New',
+				desc: 'Every engine for high-quality & photoreal 3D avatars — technique, license & how three.ws uses each',
+			},
+			{
+				title: 'Splat Viewer',
+				href: '/splat',
+				badge: 'New',
+				desc: 'Render photoreal Gaussian-splat avatars in the browser — load a .ply / .splat by URL or upload',
+			},
+			{
 				title: 'CA → x402',
 				href: '/ca2x402',
 				badge: 'New',

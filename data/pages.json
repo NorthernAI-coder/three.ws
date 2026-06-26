@@ -275,6 +275,22 @@
 					"added": "2026-06-04"
 				},
 				{
+					"path": "/avatar-engines",
+					"title": "Avatar Engines Atlas",
+					"description": "A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-26"
+				},
+				{
+					"path": "/splat",
+					"title": "Splat Viewer — Photoreal Gaussian Avatars",
+					"description": "Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-26"
+				},
+				{
 					"path": "/forge-nim",
 					"title": "Forge · NIM — Self-Hosted Image to 3D",
 					"description": "Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.",

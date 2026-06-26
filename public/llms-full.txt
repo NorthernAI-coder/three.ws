@@ -206,6 +206,18 @@ URL: https://three.ws/forge
 
 Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.
 
+### Avatar Engines Atlas
+
+URL: https://three.ws/avatar-engines
+
+A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.
+
+### Splat Viewer — Photoreal Gaussian Avatars
+
+URL: https://three.ws/splat
+
+Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.
+
 ### Forge · NIM — Self-Hosted Image to 3D
 
 URL: https://three.ws/forge-nim
