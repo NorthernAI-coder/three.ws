@@ -1,5 +1,10 @@
 /* Trading Swarms — directory + dashboard. All color/space/type from /tokens.css. */
 
+body {
+	font-family: var(--font-body, 'Inter', system-ui, sans-serif);
+	-webkit-font-smoothing: antialiased;
+}
+
 .sw-shell {
 	max-width: 1180px;
 	margin: 0 auto;

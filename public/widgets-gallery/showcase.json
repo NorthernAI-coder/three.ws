@@ -90,6 +90,51 @@
 			"width": 480,
 			"height": 420,
 			"features": ["Joystick or keyboard controls", "Multiple environments", "Drop into any site or Notion doc"]
+		},
+		{
+			"type": "talking-agent",
+			"label": "Pitch Bot",
+			"tagline": "Embed a live AI rep that pitches your product, fields FAQs, and routes to checkout — 24/7.",
+			"id": "wdgt_demo_pitch",
+			"width": 460,
+			"height": 580,
+			"features": ["Speaks first with your custom pitch", "Overlay chat — no side panel", "Wire to any LLM via Studio"]
+		},
+		{
+			"type": "talking-agent",
+			"label": "Quest Guide",
+			"tagline": "A conversational NPC for game wikis, Discord embeds, and streaming pages.",
+			"id": "wdgt_demo_npc",
+			"width": 440,
+			"height": 600,
+			"features": ["Custom persona and voice", "Bottom-panel chat for compact layouts", "No engine — pure iframe"]
+		},
+		{
+			"type": "walking-avatar",
+			"label": "Night Drop",
+			"tagline": "Roaming 3D mascot in a night environment — for NFT drops, clubs, and dark-mode launches.",
+			"id": "wdgt_demo_nightwlk",
+			"width": 720,
+			"height": 480,
+			"features": ["Night sky environment", "Wider landscape frame", "Drop on any launch or event page"]
+		},
+		{
+			"type": "animation-gallery",
+			"label": "Motion Archive",
+			"tagline": "Browse and preview an entire motion-capture library on a different avatar — click to trigger any clip.",
+			"id": "wdgt_demo_mtnlib",
+			"width": 720,
+			"height": 560,
+			"features": ["All clips loop automatically", "Wider landscape frame for widescreen embeds", "Copy any clip ID for the SDK"]
+		},
+		{
+			"type": "turntable",
+			"label": "Product Stage",
+			"tagline": "A cinematic 3D stage for fashion drops, product launches, and brand mascots.",
+			"id": "wdgt_demo_prodstg",
+			"width": 560,
+			"height": 600,
+			"features": ["Venice sunset environment", "Faster dramatic rotation", "No chrome — pure showcase"]
 		}
 	]
 }
