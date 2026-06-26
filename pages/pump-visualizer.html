@@ -2168,10 +2168,12 @@
 					}
 				}
 
-				// Live pulse on emissive + ring.
+				// Live pulse on emissive + ring. Coins keep a higher emissive floor so
+				// the logo (which is the emissive map) stays brightly legible.
+				const isCoin = entry.style === 'coin';
 				if (entry.isLive && !entry.flashAt) {
 					const pulse = 0.5 + 0.5 * Math.sin(time * 0.006 + entry.spawnAt * 0.001);
-					entry.mesh.material.emissiveIntensity = 0.18 + pulse * 0.35;
+					entry.mesh.material.emissiveIntensity = (isCoin ? 0.5 : 0.18) + pulse * 0.35;
 					if (entry !== selected && entry !== hovered) {
 						entry.ring.material.opacity = 0.35 + pulse * 0.35;
 					}
@@ -2180,7 +2182,8 @@
 					// Non-live: breathe the emissive at the tier's own pace + intensity.
 					if (!entry.flashAt && entry.tier) {
 						const tp = 0.5 + 0.5 * Math.sin(time * entry.tier.pulseRate + entry.spawnAt * 0.0011);
-						entry.mesh.material.emissiveIntensity = entry.tier.pulse * (0.55 + tp * 0.9);
+						const base = isCoin ? 0.55 : entry.tier.pulse;
+						entry.mesh.material.emissiveIntensity = base * (0.55 + tp * 0.9);
 					}
 					if (entry !== selected) entry.ring.scale.setScalar(entry.hoverScale);
 				}
@@ -2588,6 +2591,11 @@
 				entry.cage.geometry.dispose();
 				entry.cage.material.dispose();
 				entry.cage = null;
+			}
+			if (entry.rim) {
+				entry.rim.geometry.dispose();
+				entry.rim.material.dispose();
+				entry.rim = null;
 			}
 			if (entry.mesh.geometry) entry.mesh.geometry.dispose();
 			if (entry.mesh.material) {

@@ -606,10 +606,27 @@
 @media (max-width: 720px) {
 	.radar-main { padding: var(--space-md) var(--space-sm) var(--space-2xl); }
 	.radar-controls { gap: var(--space-sm); }
+	.radar-search { max-width: none; flex-basis: 100%; }
 	.radar-updated { margin-left: 0; width: 100%; }
 	.radar-grid { grid-template-columns: 1fr; }
 	.rd-signals { grid-template-columns: 1fr; }
 	.radar-drawer-panel { width: 100%; border-left: none; }
+	.radar-pulse { grid-template-columns: repeat(2, 1fr); }
+	.rp-cell--health { grid-column: span 2; }
+	.rp-value, .rp-out-num { font-size: var(--text-lg); }
+	/* list collapses to a simpler 3-column row on phones */
+	.rl-header { display: none; }
+	.radar-list-row {
+		grid-template-columns: minmax(0, 1fr) 52px auto;
+		grid-template-areas: 'coin quality act' 'ob ob ob' 'meta meta meta';
+		gap: var(--space-xs) var(--space-sm); row-gap: var(--space-xs);
+	}
+	.rl-coin { grid-area: coin; }
+	.rl-quality { grid-area: quality; }
+	.rl-act { grid-area: act; }
+	.rl-ob { grid-area: ob; }
+	.rl-buyers, .rl-net { display: none; }
+	.rl-signals { grid-area: meta; justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
