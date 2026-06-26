@@ -861,7 +861,7 @@
 		</div>
 
 		<div class="vz-overlay vz-hint" id="vz-hint" aria-hidden="true">
-			<b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Click</b> for details · <b>Double-click</b> to open · <b>/</b> to search
+			<b>Drag</b> to rotate · <b>Scroll</b> to zoom · <b>Click</b> for details · <b>Double-click</b> to open · <b>/</b> to search · <b>C</b> coins/orbs
 			<button type="button" class="dismiss" id="vz-hint-dismiss" aria-label="Dismiss">×</button>
 		</div>
 
@@ -995,6 +995,7 @@
 		const searchInput = document.getElementById('vz-search-input');
 		const sortBtns = controlsEl.querySelectorAll('.vz-sort button');
 		const modeBtns = controlsEl.querySelectorAll('.vz-mode button');
+		const styleBtns = controlsEl.querySelectorAll('.vz-style button');
 		const legendHeadEl = document.querySelector('#vz-legend .head');
 		const hintEl = document.getElementById('vz-hint');
 		const hintDismiss = document.getElementById('vz-hint-dismiss');
@@ -1708,8 +1709,86 @@
 					clearSelection();
 					loadData();
 				}
+			} else if (ev.key.toLowerCase() === 'c' && document.activeElement !== searchInput && !ev.metaKey && !ev.ctrlKey) {
+				// Toggle the render style (Coins ⟷ Orbs).
+				setRenderStyle(state.renderStyle === 'coin' ? 'orb' : 'coin');
 			}
 		});
+
+		// ── extra real-data rows: creator track record, distance from ATH,
+		//    migration liquidity. Every value traces to data already on the token —
+		//    no extra fetch, no placeholders. Rows render only when their data exists.
+		function shortAddr(a) {
+			const s = String(a || '');
+			return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s;
+		}
+		function metaRow(key, valueNode) {
+			const row = document.createElement('div');
+			row.className = 'meta-row';
+			const k = document.createElement('span');
+			k.className = 'k';
+			k.textContent = key;
+			row.appendChild(k);
+			if (typeof valueNode === 'string') {
+				const v = document.createElement('span');
+				v.className = 'v';
+				v.innerHTML = valueNode;
+				row.appendChild(v);
+			} else {
+				valueNode.classList.add('v');
+				row.appendChild(valueNode);
+			}
+			return row;
+		}
+		function renderDetailExtra(token) {
+			const host = document.getElementById('vz-detail-extra');
+			if (!host) return;
+			host.innerHTML = '';
+
+			// Creator track record — launches and how many of them graduated. A high
+			// graduation rate is a real credibility signal; a serial-launcher with
+			// zero graduations is a real warning. Both numbers are on the token.
+			const launches = Number(token.creator_launches);
+			if (token.creator && Number.isFinite(launches) && launches > 0) {
+				const graduated = Number(token.creator_graduated) || 0;
+				const rate = Math.round((graduated / launches) * 100);
+				const rateClass = rate >= 30 ? 'good' : rate === 0 ? 'bad' : 'dim';
+				const val = `${launches.toLocaleString()} launch${launches === 1 ? '' : 'es'} · `
+					+ `<span class="${rateClass}">${graduated.toLocaleString()} graduated (${rate}%)</span>`;
+				if (isValidMint(token.creator)) {
+					const a = document.createElement('a');
+					a.href = `https://solscan.io/account/${token.creator}`;
+					a.target = '_blank';
+					a.rel = 'noopener noreferrer';
+					a.innerHTML = `${val} <span class="dim">· ${shortAddr(token.creator)} ↗</span>`;
+					host.appendChild(metaRow('Creator', a));
+				} else {
+					host.appendChild(metaRow('Creator', val));
+				}
+			}
+
+			// Distance from all-time-high market cap — how far the coin has retraced.
+			const mc = Number(token.usd_market_cap) || 0;
+			const ath = Number(token.ath_market_cap) || 0;
+			if (mc > 0 && ath > mc * 1.01) {
+				const downPct = Math.round(((ath - mc) / ath) * 100);
+				host.appendChild(metaRow('From ATH', `<span class="bad">−${downPct}%</span> <span class="dim">· ATH ${formatMcap(ath)}</span>`));
+			} else if (mc > 0 && ath > 0 && mc >= ath * 0.99) {
+				host.appendChild(metaRow('From ATH', `<span class="good">at the high</span>`));
+			}
+
+			// Migration liquidity — for graduated coins, how much SOL/USD seeded the pool.
+			if (token.is_migration) {
+				const usd = Number(token.amount_usd) || 0;
+				const sol = Number(token.amount_sol) || 0;
+				if (usd > 0 || sol > 0) {
+					const parts = [];
+					if (usd > 0) parts.push(formatMcap(usd));
+					if (sol > 0) parts.push(`${sol.toLocaleString(undefined, { maximumFractionDigits: 2 })} SOL`);
+					host.appendChild(metaRow('Graduated with', `<span class="good">${parts.join(' · ')}</span>`));
+				}
+			}
+		}
 
 		// ── detail panel rendering ───────────────────────────────────
 		function renderDetail(token) {
@@ -1725,6 +1804,8 @@
 			document.getElementById('vz-detail-ath').textContent = formatMcap(token.ath_market_cap);
 			document.getElementById('vz-detail-replies').textContent = token.reply_count != null ? Number(token.reply_count).toLocaleString() : '—';
 			document.getElementById('vz-detail-age').textContent = formatAge(token.created_timestamp);
+
+			renderDetailExtra(token);
 
 			const desc = (token.description || '').trim();
 			const descEl = document.getElementById('vz-detail-description');
@@ -2865,6 +2946,81 @@
 				applyFilterAndRender();
 			});
 		});
+
+		// ── Render-style toggle (Coins ⟷ Orbs) ──────────────────────
+		// Rebuild every live mesh in place — same data, same shell positions — so a
+		// style switch is instant and never drops the user's place in the feed.
+		// Preserves any open detail selection across the swap.
+		function rebuildMeshesForStyle() {
+			if (!webglOK) return; // list-view fallback is unaffected by 3D style
+			const snapshots = tokenMeshes.map((e) => ({
+				data: e.data,
+				position: e.mesh.position.clone(),
+				radius: e.radius,
+				isLive: e.isLive,
+				deltaPct: e.deltaPct,
+				visible: e.visible,
+			}));
+			const selMint = selected?.data?.mint || null;
+			const detailWasOpen = detailEl.classList.contains('is-open');
+			for (const e of tokenMeshes.slice()) removeEntry(e);
+
+			for (const s of snapshots) {
+				const { mesh, ring, isLive, tier, cage, rim } = buildTokenMesh(s.data, s.position, s.radius);
+				mesh.scale.setScalar(1);
+				ring.scale.setScalar(1);
+				mesh.visible = s.visible;
+				ring.visible = s.visible;
+				tokensGroup.add(mesh);
+				tokensGroup.add(ring);
+				const entry = {
+					mesh, ring, data: s.data,
+					baseScale: 1, radius: s.radius,
+					isLive,
+					tier, cage, rim,
+					style: state.renderStyle,
+					spawnAt: performance.now() - 1000, // already on-screen → skip pop-in
+					spawned: true,
+					hoverScale: 1,
+					surge: 1,
+					visible: s.visible,
+					label: null,
+					labelOffset: s.radius + 1.6,
+					sonarRings: [],
+					nextSonarAt: 0,
+					deltaPct: s.deltaPct,
+					flashAt: 0,
+					fadeOutAt: 0,
+				};
+				tokenMeshes.push(entry);
+				if (isLive) seedSonarRing(entry);
+			}
+			applyFilterAndRender();
+			if (detailWasOpen && selMint) {
+				const tok = state.all.find((t) => t.mint === selMint);
+				if (tok) selectToken(tok);
+			}
+		}
+
+		function setRenderStyle(style, persist = true) {
+			if (style !== 'coin' && style !== 'orb') return;
+			const changed = state.renderStyle !== style;
+			state.renderStyle = style;
+			styleBtns.forEach((b) => {
+				const on = b.dataset.style === style;
+				b.classList.toggle('is-active', on);
+				b.setAttribute('aria-selected', String(on));
+			});
+			if (persist) { try { localStorage.setItem(RENDER_STYLE_KEY, style); } catch {} }
+			if (changed) rebuildMeshesForStyle();
+		}
+
+		styleBtns.forEach((btn) => {
+			btn.addEventListener('click', () => setRenderStyle(btn.dataset.style));
+		});
+		// Reflect the persisted style on the toggle at boot (no meshes exist yet, so
+		// no rebuild is forced).
+		setRenderStyle(state.renderStyle, false);
 
 		// Hint dismiss.
 		hintDismiss.addEventListener('click', () => {
