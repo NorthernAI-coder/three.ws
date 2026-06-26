@@ -1336,7 +1336,7 @@ $('plan-save-btn')?.addEventListener('click', async () => {
   }
 });
 
-// Plans are loaded lazily via TAB_LOADERS['monetization'] when the tab activates.
+// Plans are loaded eagerly via initAllSections() on render.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Voice tab
@@ -3112,7 +3112,13 @@ async function ensureMindTab() {
   mindMounted = true;
   const host = $('mind-palace-host');
   if (!host) return;
-  host.addEventListener('mind:add-memory', () => activateTab('knowledge'));
+  host.addEventListener('mind:add-memory', () => {
+    const target = document.getElementById('section-brain');
+    const contentCol = document.querySelector('.content-col');
+    if (target && contentCol) contentCol.scrollTo({ top: target.offsetTop, behavior: 'smooth' });
+    const knowledgePanel = document.getElementById('panel-knowledge');
+    if (knowledgePanel) knowledgePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   try {
     const { mountMindPalace } = await import('./mind-palace.js');
     mindController = mountMindPalace(host, { agentId, agent: agentData, embedded: true });
@@ -3133,45 +3139,42 @@ function ensureAutopilotTab() {
   mountAutopilotMind(host, { agentId });
 }
 
-const TAB_LOADERS = {
-  brain: ensureBrainTab,
-  outfit: ensureOutfitTab,
-  voice: ensureVoiceTab,
-  knowledge: ensureKnowledgeTab,
-  mind: ensureMindTab,
-  ownership: ensureOwnershipTab,
-  dreams: ensureDreamsTab,
-  autopilot: ensureAutopilotTab,
-  skills: ensureSkillsTab,
-  wallet: ensureWalletTab,
-  social: ensureSocialTab,
-  analytics: ensureAnalyticsTab,
-  embed: ensureEmbedTab,
-  widgets: ensureWidgetsTab,
-  studio: ensureStudioTab,
-  monetization: () => { if (!plansLoaded) loadSubscriptionPlans(); },
-};
-
-function activateTab(tabId) {
-  document.querySelectorAll('.edit-tab').forEach((t) => {
-    const active = t.dataset.tab === tabId;
-    t.classList.toggle('active', active);
-    t.setAttribute('aria-selected', active ? 'true' : 'false');
-  });
-  document.querySelectorAll('.edit-panel').forEach((p) => {
-    const active = p.id === `panel-${tabId}`;
-    p.classList.toggle('active', active);
-    if (active) p.removeAttribute('hidden');
-    else p.setAttribute('hidden', '');
-  });
-  if (agentData && TAB_LOADERS[tabId]) TAB_LOADERS[tabId]();
+// Scroll to a named section in the unified layout (used by OAuth callback redirects via ?tab=…)
+function scrollToSection(tabId) {
+  const sectionMap = {
+    persona: 'section-identity',
+    outfit: 'section-identity',
+    voice: 'section-identity',
+    brain: 'section-brain',
+    knowledge: 'section-brain',
+    mind: 'section-brain',
+    ownership: 'section-brain',
+    dreams: 'section-brain',
+    skills: 'section-brain',
+    autopilot: 'section-brain',
+    publish: 'section-distribute',
+    embed: 'section-distribute',
+    widgets: 'section-distribute',
+    social: 'section-distribute',
+    monetization: 'section-money',
+    wallet: 'section-money',
+    analytics: 'section-money',
+    studio: 'section-advanced',
+    danger: 'section-advanced',
+  };
+  const panelId = `panel-${tabId}`;
+  const panel = document.getElementById(panelId);
+  if (panel) {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const sectionId = sectionMap[tabId];
+  if (sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
-document.querySelectorAll('.edit-tab').forEach((tab) => {
-  tab.addEventListener('click', (e) => activateTab(e.currentTarget.dataset.tab));
-});
-
-// Open a specific tab via ?tab=… (used by OAuth callback redirects).
 const _cancelBtn = $('outfit-cancel');
 if (_cancelBtn) {
   _cancelBtn.addEventListener('click', () => {
@@ -3184,8 +3187,9 @@ async function init() {
   if (!agentData) return;
   const params = new URLSearchParams(location.search);
   const initialTab = params.get('tab');
-  if (initialTab && document.getElementById(`panel-${initialTab}`)) {
-    activateTab(initialTab);
+  if (initialTab) {
+    // Defer slightly so sections are painted before scrolling
+    requestAnimationFrame(() => scrollToSection(initialTab));
   }
   // Surface the pending-dreams count on the tab badge without forcing the user
   // to open the tab — so a returning user sees "their agent has been thinking".

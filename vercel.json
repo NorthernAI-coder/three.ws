@@ -2753,6 +2753,14 @@
 			"dest": "/api/avatars/$1/glb"
 		},
 		{
+			"src": "/api/avatars/fork",
+			"dest": "/api/avatars/fork"
+		},
+		{
+			"src": "/api/avatars/([^/]+)/([^/]+)",
+			"dest": "/api/avatars/[id]/[action]?id=$1&action=$2"
+		},
+		{
 			"src": "/api/avatars/([^/]+)",
 			"dest": "/api/avatars/[id]"
 		},
