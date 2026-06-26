@@ -179,7 +179,12 @@ async function loadFeed(reset) {
 		state.rows = rows;
 		renderFeed(rows);
 	} catch {
-		if (reset) feed.innerHTML = feedState('Could not load the feed.', 'Retry', () => loadFeed(true));
+		if (reset) {
+			const pinned = state.tab === 'launches'
+				? rowHtml({ kind: 'launch', mint: THREE_MINT, symbol: 'THREE', name: 'three.ws · platform coin', image_uri: '', agent_name: 'The only coin', oracle_tier: null }, { pinned: true })
+				: '';
+			feed.innerHTML = pinned + feedState('Could not load other launches.', 'Retry', () => loadFeed(true));
+		}
 	}
 }
 
