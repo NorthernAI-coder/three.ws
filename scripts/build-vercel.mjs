@@ -122,6 +122,10 @@ const SDKS = [
 		// deployed node_modules at runtime.
 		name: '@three-ws/solana-agent',
 		dir: 'solana-agent-sdk',
+		// Unlike agent-payments-sdk this package is NOT a root workspace, so the
+		// top-level `npm ci` never installs its devDeps (tsup, typescript). Its
+		// own deps must be installed before the dist can be rebuilt from source.
+		installDeps: true,
 		entries: [
 			'solana-agent-sdk/dist/index.js',
 			'solana-agent-sdk/dist/wallet/index.js',
