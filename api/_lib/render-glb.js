@@ -81,6 +81,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 window.__renderDone = false;
 window.__renderError = null;
@@ -90,20 +91,30 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true,
 renderer.setSize(${width}, ${height}, false);
 renderer.setPixelRatio(1);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+// Khronos PBR-Neutral keeps midtone brightness and saturation instead of the
+// darkening/desaturation ACES applies — posters match the bright, true-color
+// look of the live viewer (src/viewer.js) instead of coming out muddy.
+renderer.toneMapping = THREE.NeutralToneMapping;
+renderer.toneMappingExposure = 1.05;
 
 const scene = new THREE.Scene();
 const bgColor = ${bg};
 if (bgColor !== null) scene.background = new THREE.Color(bgColor);
 
+// Image-based lighting from a neutral room — gives PBR materials a soft,
+// even ambient response so unlit/shadowed areas never read as flat black.
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+if ('environmentIntensity' in scene) scene.environmentIntensity = 1.15;
+
 const camera = new THREE.PerspectiveCamera(28, ${width}/${height}, 0.01, 100);
 
-// Three-light rig: key from front-right, fill from front-left, rim from behind.
-scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-const key = new THREE.DirectionalLight(0xffffff, 1.4); key.position.set(2, 3, 4); scene.add(key);
-const fill = new THREE.DirectionalLight(0xbfd6ff, 0.6); fill.position.set(-3, 1, 2); scene.add(fill);
-const rim = new THREE.DirectionalLight(0xc7a8ff, 0.5); rim.position.set(0, 2, -4); scene.add(rim);
+// Studio three-light rig: key from front-right, fill from front-left, rim from
+// behind to carve the silhouette out of dark backdrops.
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const key = new THREE.DirectionalLight(0xffffff, 2.0); key.position.set(2, 3, 4); scene.add(key);
+const fill = new THREE.DirectionalLight(0xdce6ff, 0.9); fill.position.set(-3, 1, 2); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffffff, 1.1); rim.position.set(-1.5, 3, -4); scene.add(rim);
 
 // Avatars from the forge/remesh/texture pipeline ship Draco-compressed
 // geometry, Meshopt-packed buffers, and KTX2 (Basis) textures. A bare
