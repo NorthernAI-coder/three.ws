@@ -400,6 +400,7 @@ export function mountDetail(host, opts = {}) {
 		const econ = d.economics;
 		if (!agent && !econ) {
 			$('[data-section="agent"]').hidden = true;
+			body.innerHTML = '';
 			return;
 		}
 		const av = agent?.avatar_thumbnail_url || (agent ? identicon(agent.id) : '');

@@ -3,6 +3,20 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch",
+			"summary": "The Trades page has been replaced with a full terminal-style workstation. A left rail lists every three.ws platform launch and notable agent exit in real time — $THREE is always pinned at the top. Clicking any row opens a deep-dive with everything the platform holds on that mint: a TradingView-style candlestick chart, bonding-curve progress ring, coin intelligence signals (organic score, bundle risk, snipe ratio, concentration, funder spread) with a quality ring, a canvas force-simulation bubblemap of every enriched wallet coloured by behaviour (creator, rugger, sniper, whale, smart money), a top-20 wallet table, smart-money wallets with win rates, holder count and cohort distribution, a first-seconds footprint (buys, sells, dev behaviour, observation window), a live trade tape via GeckoTerminal and PumpPortal SSE, and agent + economics data. Searching by mint address is supported. The header carries a live network pulse — mints per minute, graduations per hour, and SOL price.",
+			"tags": ["feature", "improvement"],
+			"link": "/trades"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Coin Radar upgraded — a live market-pulse banner, smart-money signals, search, sort and a list view",
+			"summary": "The Coin Radar now opens with a market-pulse banner that reads the whole room at a glance: launches observed in the last 24 hours (and the last hour), a health-mix bar splitting them into healthy / mixed / risky, the share carrying danger flags, how many a reputation-scored wallet touched, and the graduated-versus-rugged tally from labeled outcomes. Every coin card surfaces signals the engine always measured but never showed — a smart-money badge counting reputation-scored buyers, a news-driven badge when a launch matches a live headline, funding-cluster and graduated/rugged badges, plus market cap, top-10 concentration and net SOL flow. You can now search by name, ticker or mint, sort by newest, quality, smart money, buyers or volume, filter to only smart-money or news-driven coins, and switch between the card grid and a dense list view. The detail drawer gained a Smart money section listing the notable wallets with their win rates, a News-driven source link, and richer signals (coordination, top-5 concentration, funding clusters, buy/sell ratio, net flow, first-seen market cap). Power users get keyboard shortcuts: / to search, g and l for grid and list, r to refresh. Every filter, sort and view is saved in the URL so a radar view is shareable.",
+			"tags": ["feature", "improvement"],
+			"link": "/radar"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed",
 			"summary": "The Alpha Co-pilot page has been fully redesigned. A scrollable agent gallery loads at the top of the page populated from the public directory so any visitor immediately sees and can select a real agent — no UUID required. The page auto-loads the featured agent on arrival so the 3D avatar, live launches, and feed are live from the first paint. Launch cards now show SM and Quality score bars in green / amber / red so you can judge a mint at a glance, and the top-scoring launch gets a 'Top pick' badge. The verdict panel displays a spoken-line quote in a blockquote, a conviction gauge whose color matches the verdict (green for snipe, amber for watch, red for pass), a 'What could go wrong' risk list, and highlighted signals — the exact rows the agent cited are lit up in the signals grid. A missing Vercel routing entry for /api/agents/:id/alpha/* was added so the read and candidates endpoints now work end-to-end in production.",
 			"tags": ["feature", "improvement"],
