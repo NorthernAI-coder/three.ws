@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Coin pages now show price moves and on-chain safety at a glance",
+			"summary": "Every coin's launch page (/launches/<mint>) gained a richer market header. A new metrics strip shows price moves across 5m, 1h, 6h, and 24h — computed live from real trade history, and only quoting a window once there's enough history to back it, so a brand-new coin never shows a fake 24h number. Alongside it, an on-chain safety panel surfaces the same checks the autonomous sniper runs before trading: whether the mint and freeze authorities are revoked (can the dev print more supply or freeze your tokens?), where real liquidity sits, and an overall 0–100 safety score. The coin header also now lists total supply. On the /launches feed, every card leads with the coin's age, the same at-a-glance freshness cue pro terminals open with.",
+			"tags": ["feature", "improvement"],
+			"link": "/launches"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Animation Studio — avatars no longer break when you switch animations",
 			"summary": "In the /pose Animation Studio, playing one animation preset and then a second one used to mangle the avatar — limbs would lock up in the wrong position (arms stuck overhead while \"walking\", a forearm bent 90° off). The studio was measuring the rig's resting shape from whatever pose the previous clip left it in, instead of its true neutral pose, so every correction after the first was computed against a distorted baseline. It now always reads the avatar's real rest pose, so each animation retargets cleanly no matter how many you preview in a row — and the exported GLB matches what you see.",
 			"tags": ["fix"],

@@ -477,6 +477,18 @@ function launchCard(launch, index, { featured = false } = {}) {
 		: `https://pump.fun/${launch.mint}`;
 
 	const badges = el('div', { class: 'lx-badges' });
+	// Age leads the badge row — the at-a-glance "how fresh is this" GMGN-style
+	// terminals open with. Available from the registry row immediately, before the
+	// per-card market fetch resolves, so it never waits on pump.fun.
+	if (launch.created_at) {
+		badges.appendChild(
+			el('span', {
+				class: 'lx-badge lx-badge-age',
+				title: `Launched ${timeAgo(launch.created_at)}`,
+				text: timeAgo(launch.created_at),
+			}),
+		);
+	}
 	if (isDevnet) badges.appendChild(el('span', { class: 'lx-badge', text: 'Devnet' }));
 	if (Number(launch.buyback_bps) > 0) {
 		badges.appendChild(
