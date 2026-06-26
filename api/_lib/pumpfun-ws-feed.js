@@ -9,6 +9,12 @@ const PUMPPORTAL_WS = 'wss://pumpportal.fun/api/data';
 const RECONNECT_DELAY_MS = 2_000;
 const MAX_RECONNECTS = 5;
 
+// REST fallback for the new-mint feed (used when the PumpPortal WS yields no
+// `create` events — e.g. blocked/failed WS egress from a serverless instance).
+const FALLBACK_POLL_MS = 5_000;
+const FALLBACK_LIMIT = 40;
+const RECENT_COINS_TTL_MS = 3_000; // collapse concurrent SSE clients to one upstream poll
+
 // Cross-emit dedupe by tx signature. PumpPortal can occasionally redeliver an
 // event after a transient WS hiccup; this prevents duplicate cards.
 const SEEN_SIG_LIMIT = 2_000;
@@ -85,16 +91,56 @@ export function connectPumpFunFeed({ onEvent, signal, kind = 'all', mints = [] }
 	let ws = null;
 	let reconnects = 0;
 	let reconnectTimer = null;
+	let fallbackTimer = null;
 	const tradeMints = Array.isArray(mints) ? mints.filter(Boolean) : [];
 	const wantsTrades = (kind === 'all' || kind === 'trades') && tradeMints.length > 0;
+	const wantsMints = kind === 'all' || kind === 'mint';
+
+	// Per-connection mint dedupe, shared between the WS and the REST fallback so a
+	// launch surfaced by one source is never re-emitted by the other.
+	const _seenMints = new Set();
+	function markMint(mint) {
+		if (!mint || _seenMints.has(mint)) return false;
+		_seenMints.add(mint);
+		if (_seenMints.size > 4_000) {
+			const it = _seenMints.values();
+			for (let i = 0; i < 1_000; i++) _seenMints.delete(it.next().value);
+		}
+		return true;
+	}
 
 	function stop() {
 		active = false;
 		clearTimeout(reconnectTimer);
+		clearInterval(fallbackTimer);
 		if (ws) try { ws.close(); } catch {}
 	}
 
 	signal?.addEventListener('abort', stop);
+
+	// Resilience: pump.fun new-mint REST fallback. Serverless egress can fail to
+	// establish (or sustain) the PumpPortal WebSocket while plain HTTPS to
+	// pump.fun keeps working — when that happens the WS delivers no `create`
+	// events and the live feed goes dark. We poll pump.fun's most-recent-coins
+	// endpoint and emit any launch the WS hasn't already surfaced, so the feed
+	// always has data. When the WS is healthy this is near-silent: it just
+	// backfills the cold-start window, and mint-level dedupe suppresses overlap.
+	async function pollMintFallback() {
+		if (!active || !wantsMints) return;
+		try {
+			const [coins, solPrice] = await Promise.all([fetchRecentCoins(), getSolPrice()]);
+			if (!active || !Array.isArray(coins) || !coins.length) return;
+			// Oldest-first: the client unshifts each row, so emitting in chronological
+			// order leaves the newest launch on top.
+			for (let i = coins.length - 1; i >= 0; i--) {
+				const c = coins[i];
+				if (!c?.mint || !markMint(c.mint)) continue;
+				onEvent({ kind: 'mint', data: normalizeRestCoin(c, solPrice) });
+			}
+		} catch (err) {
+			console.warn('[pumpportal-ws] mint REST fallback failed:', err?.message);
+		}
+	}
 
 	function connect() {
 		if (!active) return;
@@ -121,8 +167,10 @@ export function connectPumpFunFeed({ onEvent, signal, kind = 'all', mints = [] }
 			try { msg = JSON.parse(raw.toString()); } catch { return; }
 			if (msg.message) return; // ack
 
-			if (msg.txType === 'create' && (kind === 'all' || kind === 'mint')) {
+			if (msg.txType === 'create' && wantsMints) {
 				if (!markSeen(msg.signature)) return;
+				// Claim the mint so the REST fallback won't re-emit this launch.
+				markMint(msg.mint);
 				enrichMint(msg).then((data) => {
 					pushBuffer('mint', data);
 					if (active) onEvent({ kind: 'mint', data });
@@ -170,6 +218,12 @@ export function connectPumpFunFeed({ onEvent, signal, kind = 'all', mints = [] }
 	}
 
 	connect();
+	if (wantsMints) {
+		// Immediate backfill so a fresh client never stares at a blank feed, then
+		// keep polling as a live safety net behind the WS.
+		pollMintFallback();
+		fallbackTimer = setInterval(pollMintFallback, FALLBACK_POLL_MS);
+	}
 	return stop;
 }
 
@@ -352,6 +406,67 @@ async function fetchCreatorCoins(creator) {
 	if (_creatorCache.size > 500) _creatorCache.clear();
 	_creatorCache.set(creator, { t: Date.now(), v });
 	return v;
+}
+
+// ── new-mint REST fallback ───────────────────────────────────────────────────
+//
+// pump.fun's coins listing, newest-first, is the same HTTPS API we already use
+// for graduation enrichment — reachable from any environment that can make an
+// outbound fetch, including serverless instances where the WS won't connect. A
+// short shared TTL means many concurrent SSE clients on one instance collapse
+// to a single upstream request.
+
+let _recentCoinsCache = { t: 0, coins: [] };
+let _recentCoinsInFlight = null;
+async function fetchRecentCoins() {
+	if (Date.now() - _recentCoinsCache.t < RECENT_COINS_TTL_MS) return _recentCoinsCache.coins;
+	if (_recentCoinsInFlight) return _recentCoinsInFlight;
+	_recentCoinsInFlight = fetchJsonWithTimeout(
+		`${PUMPFUN_COIN_API}?offset=0&limit=${FALLBACK_LIMIT}&sort=created_timestamp&order=DESC&includeNsfw=true`,
+	)
+		.then((data) => {
+			const coins = Array.isArray(data) ? data : Array.isArray(data?.coins) ? data.coins : [];
+			if (coins.length) _recentCoinsCache = { t: Date.now(), coins };
+			return _recentCoinsCache.coins;
+		})
+		.catch(() => _recentCoinsCache.coins)
+		.finally(() => { _recentCoinsInFlight = null; });
+	return _recentCoinsInFlight;
+}
+
+/** Map a pump.fun REST coin to the same mint-event shape `normalizeMint` emits. */
+function normalizeRestCoin(c, solPrice = 0) {
+	const mcSol = typeof c.market_cap === 'number' ? c.market_cap : null;
+	const usdMc = typeof c.usd_market_cap === 'number' ? c.usd_market_cap
+		: mcSol != null && solPrice > 0 ? mcSol * solPrice : null;
+	const createdMs = c.created_timestamp ? Number(c.created_timestamp) : null;
+	// Bonding-curve coins quote in SOL (the upstream reports the System Program id
+	// for native pairs); only an explicit USDC mint flips the pair.
+	const quote = c.quote_mint === USDC_MINT_STR
+		? { quote_mint: USDC_MINT_STR, quote_symbol: 'USDC', is_usdc_pair: true }
+		: { quote_mint: WSOL_MINT_STR, quote_symbol: 'SOL', is_usdc_pair: false };
+	return {
+		mint: c.mint,
+		name: c.name,
+		symbol: c.symbol,
+		creator: c.creator || null,
+		signature: null,
+		market_cap_sol: mcSol,
+		market_cap_usd: usdMc,
+		initial_buy_sol: null,
+		initial_buy_usd: null,
+		sol_price: solPrice || null,
+		bonding_curve: c.bonding_curve || null,
+		image_uri: c.image_uri || null,
+		description: c.description || null,
+		twitter: c.twitter || null,
+		telegram: c.telegram || null,
+		website: c.website || null,
+		created_at: createdMs ? Math.floor(createdMs / 1000) : Math.floor(Date.now() / 1000),
+		complete: c.complete === true || !!c.raydium_pool || !!c.pump_swap_pool,
+		source: 'rest',
+		...quote,
+	};
 }
 
 function formatAge(createdAtMs) {
