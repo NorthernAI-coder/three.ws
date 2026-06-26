@@ -9,7 +9,7 @@ import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
 import { recoverSolanaAgentKeypair } from '../../_lib/agent-wallet.js';
 import { solanaConnection } from '../../_lib/agent-pumpfun.js';
-import { validateSolanaAddress, ensureAgentWallet } from '../../_lib/agent-trade-guards.js';
+import { validateSolanaAddress } from '../../_lib/agent-trade-guards.js';
 import { recordEvent } from '../../_lib/usage.js';
 import {
 	PublicKey, SystemProgram, TransactionMessage, VersionedTransaction,
