@@ -161,6 +161,12 @@ async function ensureSDKDist() {
 		if (sdkDistIsValid(sdk.entries)) continue;
 		console.log(`[sdk-dist] ${sdk.name} dist missing or invalid — rebuilding from source`);
 		execSync('rm -rf dist', { cwd: resolve(ROOT, sdk.dir), stdio: 'inherit' });
+		if (sdk.installDeps && !existsSync(resolve(ROOT, sdk.dir, 'node_modules/.bin/tsup'))) {
+			console.log(`[sdk-dist] ${sdk.name} build deps missing — installing`);
+			await run(`sdk-deps:${sdk.dir}`, `npm ci --prefix ${sdk.dir} --no-audit --no-fund`, {
+				env: { NODE_OPTIONS: '--no-deprecation' },
+			});
+		}
 		await run(`sdk-dist:${sdk.dir}`, `npm run build --prefix ${sdk.dir}`, {
 			env: { NODE_OPTIONS: '--no-deprecation' },
 		});
