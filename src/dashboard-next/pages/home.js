@@ -36,8 +36,12 @@ const STATE = {
 	main.innerHTML = `
 		${!forgeAnnounceDismissed ? `<section data-slot="announce" class="dnx-announce-wrap"></section>` : ''}
 
-		<h1 class="dn-h1">Welcome back, ${esc(greeting)}.</h1>
-		<p class="dn-h1-sub">Your live avatars, revenue, widget reach, and the latest visitor activity.</p>
+		<div class="dnx-welcome-row">
+			<div>
+				<h1 class="dn-h1" style="margin-bottom:4px">Welcome back, ${esc(greeting)}.</h1>
+				<p class="dn-h1-sub" style="margin:0">Your 3D agents, revenue, and visitor activity — all in one place.</p>
+			</div>
+		</div>
 
 		${!dismissed ? `<section data-slot="onboarding" class="dnx-onboarding-wrap"></section>` : ''}
 
@@ -210,13 +214,45 @@ function renderHero(host, avatars, err) {
 
 	if (!avatars.length) {
 		host.innerHTML = `
-			<a href="/create" class="dn-panel dnx-create-cta">
-				<div class="dnx-create-icon">+</div>
-				<div>
-					<div class="dn-panel-title" style="margin:0 0 4px;font-size:16px">Create your first avatar</div>
-					<div class="dn-panel-sub" style="margin:0">Snap a selfie and we'll spin up a full-body 3D agent in under a minute.</div>
+			<div class="dnx-empty-hero" style="grid-column:1/-1">
+				<div class="dnx-empty-hero-flow" aria-label="How three.ws works">
+					<div class="dnx-flow-step">
+						<div class="dnx-flow-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="6" width="32" height="36" rx="4"/><circle cx="24" cy="20" r="7"/><path d="M10 42c0-7.7 6.3-14 14-14s14 6.3 14 14"/><path d="M30 8v6M27 11h6"/></svg>
+						</div>
+						<div class="dnx-flow-label">Snap a selfie</div>
+						<div class="dnx-flow-sub">Any phone photo</div>
+					</div>
+					<div class="dnx-flow-arrow" aria-hidden="true">→</div>
+					<div class="dnx-flow-step">
+						<div class="dnx-flow-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="4" width="24" height="26" rx="5"/><circle cx="19" cy="16" r="2"/><circle cx="29" cy="16" r="2"/><path d="M19 22h10M6 34l6-4h20l6 4v8a2 2 0 01-2 2H8a2 2 0 01-2-2v-8z"/></svg>
+						</div>
+						<div class="dnx-flow-label">3D AI agent</div>
+						<div class="dnx-flow-sub">Animated &amp; intelligent</div>
+					</div>
+					<div class="dnx-flow-arrow" aria-hidden="true">→</div>
+					<div class="dnx-flow-step">
+						<div class="dnx-flow-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="40" height="32" rx="4"/><path d="M4 18h40"/><circle cx="11" cy="13" r="1.5" fill="currentColor"/><circle cx="17" cy="13" r="1.5" fill="currentColor"/><path d="M14 26h12M14 31h8"/></svg>
+						</div>
+						<div class="dnx-flow-label">Live on your site</div>
+						<div class="dnx-flow-sub">One HTML tag</div>
+					</div>
+					<div class="dnx-flow-arrow" aria-hidden="true">→</div>
+					<div class="dnx-flow-step">
+						<div class="dnx-flow-icon" aria-hidden="true">
+							<svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="18"/><path d="M24 14v20M18 19h9a4 4 0 010 8H20a4 4 0 000 8h10"/></svg>
+						</div>
+						<div class="dnx-flow-label">Earn from chats</div>
+						<div class="dnx-flow-sub">USDC payouts</div>
+					</div>
 				</div>
-			</a>
+				<div class="dnx-empty-hero-cta">
+					<a href="/create" class="dn-btn dnx-empty-hero-main-cta">Create your avatar →</a>
+					<a href="/dashboard/upload" class="dn-btn">Upload .glb</a>
+				</div>
+			</div>
 		`;
 		return;
 	}
@@ -783,41 +819,57 @@ function guideStepDone(id) {
 	try { return !!window.__twsGuide?.progress?.()[id]; } catch (_) { return false; }
 }
 
+// Step icons as inline SVG so no external assets are needed.
+const OB_ICONS = {
+	avatar: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 3v4M15 5h4"/></svg>`,
+	agent:  `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="13" rx="3"/><circle cx="9.5" cy="8" r="1"/><circle cx="14.5" cy="8" r="1"/><path d="M9 11.5h6M4 17l3-2h10l3 2v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4z"/></svg>`,
+	widget: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20"/><circle cx="6" cy="6.5" r=".8" fill="currentColor"/><circle cx="9" cy="6.5" r=".8" fill="currentColor"/><path d="M7 13h4M7 16h7"/></svg>`,
+	monetize: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5h4.5a2 2 0 010 4H10a2 2 0 000 4h5"/></svg>`,
+};
+
 function renderOnboarding(host, { avatars, agents, widgets }) {
 	const steps = [
 		{
 			id: 'avatar',
+			icon: OB_ICONS.avatar,
 			label: 'Create your first avatar',
-			sub: 'Snap a selfie — your 3D agent is ready in under 60 seconds.',
+			outcome: 'Your selfie becomes a 3D character ready to talk to visitors',
+			detail: 'We turn a single photo into a full-body animated 3D agent in under 60 seconds. No design tools, no uploads — just a selfie.',
 			href: avatars.length === 0 ? '/start' : '/create',
-			cta: avatars.length === 0 ? 'Start wizard →' : 'Create another',
+			cta: avatars.length === 0 ? 'Take a selfie' : 'Create another avatar',
 			done: avatars.length > 0,
 		},
 		{
 			id: 'agent',
-			label: 'Build an agent identity',
-			sub: 'Give your avatar a name, personality, and voice. Add an on-chain address later if you want one.',
+			icon: OB_ICONS.agent,
+			label: 'Give your avatar a brain',
+			outcome: 'It learns your personality and answers in your style — not a generic bot',
+			detail: 'Set its name, persona, and knowledge base. Upload docs, link URLs, or just write a prompt. This is what makes it distinctly yours.',
 			href: agents.length === 0 ? '/start' : '/dashboard/agents',
 			cta: 'Set up agent',
 			done: agents.length > 0,
 		},
 		{
 			id: 'widget',
-			label: 'Embed a chat widget',
-			sub: 'Drop your agent onto any website with a single HTML tag.',
+			icon: OB_ICONS.widget,
+			label: 'Put it on your website',
+			outcome: 'One line of HTML — visitors chat with your 3D agent in 2 minutes',
+			detail: 'Copy a single script tag. Drop it anywhere — WordPress, Shopify, Webflow, raw HTML. Visitors see your agent immediately, no account required on their end.',
 			href: '/dashboard/widgets',
-			cta: 'Create widget',
+			cta: 'Create embed widget',
 			done: widgets.length > 0,
 		},
 		{
 			id: 'monetize',
-			label: 'Start earning',
-			sub: 'Charge per message, set a subscription, or let fans tip — paid out in USDC.',
+			icon: OB_ICONS.monetize,
+			label: 'Start earning from chats',
+			outcome: 'Charge per message, set a subscription, or let fans tip — you keep 90%',
+			detail: 'Your agent becomes a revenue stream. Choose your pricing: per-message, monthly subscription, or tip jar. Payouts in USDC, directly to your wallet.',
 			href: '/dashboard/monetize',
 			cta: 'Set up monetization',
 			done: guideStepDone('monetize'),
 			optional: true,
-			optionalTip: 'Earning and payouts settle in USDC and need a wallet. It is entirely opt-in — skip it and the rest of your agent works exactly the same.',
+			optionalTip: 'Earning and payouts settle in USDC and need a wallet. It is entirely opt-in — your agent works exactly the same without it.',
 		},
 	];
 
@@ -827,15 +879,38 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 		return;
 	}
 
+	const nextStep = steps.find((s) => !s.done);
 	const pct = Math.round((doneCount / steps.length) * 100);
 
 	injectCryptoOptionalStyles();
+
+	const doneStepsHtml = steps
+		.filter((s) => s.done)
+		.map((s) => `
+			<li class="dnx-ob-done-row" aria-label="${esc(s.label)} — complete">
+				<span class="dnx-ob-done-check" aria-hidden="true">
+					<svg viewBox="0 0 14 14" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l3.5 3.5L12 3"/></svg>
+				</span>
+				<span class="dnx-ob-done-label">${esc(s.label)}</span>
+			</li>
+		`).join('');
+
+	const pendingSteps = steps.filter((s) => !s.done);
+	const [activeStep, ...futureSteps] = pendingSteps;
+
+	const futureHtml = futureSteps.map((s, i) => `
+		<li class="dnx-ob-future-row">
+			<span class="dnx-ob-future-num" aria-hidden="true">${steps.indexOf(s) + 1}</span>
+			<span class="dnx-ob-future-label">${esc(s.label)}</span>
+			${s.optional ? `<span class="dnx-ob-future-opt">Optional</span>` : ''}
+		</li>
+	`).join('');
 
 	host.innerHTML = `
 		<div class="dn-panel dnx-ob" id="dnx-onboarding">
 			<div class="dnx-ob-head">
 				<div>
-					<div class="dn-panel-title" style="margin:0 0 2px">Getting started</div>
+					<div class="dn-panel-title" style="margin:0 0 2px">Get your agent live</div>
 					<div class="dn-panel-sub" style="margin:0">${doneCount} of ${steps.length} steps complete</div>
 				</div>
 				<button class="dnx-ob-dismiss" aria-label="Dismiss getting started" title="Dismiss">
@@ -845,22 +920,29 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 			<div class="dnx-ob-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
 				<div class="dnx-ob-fill" style="width:${pct}%"></div>
 			</div>
-			<ol class="dnx-ob-steps">
-				${steps.map((s, i) => `
-					<li class="dnx-ob-step ${s.done ? 'is-done' : ''}">
-						<span class="dnx-ob-num" aria-hidden="true">
-							${s.done
-								? `<svg viewBox="0 0 14 14" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7l3.5 3.5L12 3"/></svg>`
-								: `${i + 1}`}
-						</span>
-						<div class="dnx-ob-text">
-							<span class="dnx-ob-label">${esc(s.label)}${s.optional ? ` ${cryptoOptionalTagHTML('', s.optionalTip)}` : ''}</span>
-							<span class="dnx-ob-sub">${esc(s.sub)}</span>
-						</div>
-						${!s.done ? `<a class="dn-btn dnx-ob-btn" href="${s.href}">${esc(s.cta)} →</a>` : ''}
-					</li>
-				`).join('')}
-			</ol>
+
+			${doneCount > 0 ? `<ul class="dnx-ob-done-list" aria-label="Completed steps">${doneStepsHtml}</ul>` : ''}
+
+			<div class="dnx-ob-active" aria-current="step">
+				<div class="dnx-ob-active-icon" aria-hidden="true">${activeStep.icon}</div>
+				<div class="dnx-ob-active-body">
+					<div class="dnx-ob-active-step-label">Step ${steps.indexOf(activeStep) + 1} of ${steps.length}${activeStep.optional ? ` <span class="dnx-ob-active-opt">Optional</span>` : ''}</div>
+					<div class="dnx-ob-active-title">${esc(activeStep.label)}</div>
+					<div class="dnx-ob-active-outcome">${esc(activeStep.outcome)}</div>
+					<div class="dnx-ob-active-detail">${esc(activeStep.detail)}</div>
+					<div class="dnx-ob-active-actions">
+						<a class="dn-btn dnx-ob-active-cta" href="${activeStep.href}">${esc(activeStep.cta)} →</a>
+						${activeStep.optional ? `<span class="dnx-ob-active-skip">or <a href="#" data-ob-skip>skip for now</a></span>` : ''}
+					</div>
+				</div>
+			</div>
+
+			${futureSteps.length ? `
+				<ul class="dnx-ob-future-list" aria-label="Upcoming steps">
+					${futureHtml}
+				</ul>
+			` : ''}
+
 			<div class="dnx-ob-reassure">${cryptoOptionalBannerHTML('compact')}</div>
 		</div>
 	`;
@@ -869,6 +951,15 @@ function renderOnboarding(host, { avatars, agents, widgets }) {
 		localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
 		host.remove();
 	});
+
+	const skipLink = host.querySelector('[data-ob-skip]');
+	if (skipLink) {
+		skipLink.addEventListener('click', (e) => {
+			e.preventDefault();
+			localStorage.setItem(ONBOARDING_DISMISSED_KEY, '1');
+			host.remove();
+		});
+	}
 }
 
 // ── Shortcuts (quick actions) ─────────────────────────────────────────────

@@ -153,7 +153,7 @@ export function mountTradesTape({ host, mint, network = 'mainnet' }) {
 		for (const t of arr) {
 			addTrade({
 				sig: t.signature || t.tx_hash || `dex-${Date.now()}-${Math.random()}`,
-				ts: t.timestamp ? Math.floor(new Date(t.timestamp).getTime() / 1000) : Math.floor(Date.now() / 1000),
+				ts: t.timestamp != null ? Number(t.timestamp) : Math.floor(Date.now() / 1000),
 				is_buy: !!t.is_buy,
 				token_amount: t.token_amount != null ? Number(t.token_amount) : null,
 				sol_amount: t.sol_amount != null ? Number(t.sol_amount) : null,

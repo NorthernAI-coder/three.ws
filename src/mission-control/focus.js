@@ -256,12 +256,19 @@ export function createFocusPane({ store, bus, enrich, mount }) {
 		const organicClass = organic == null ? '' : organic > 65 ? 'ok' : organic > 40 ? 'warn' : 'danger';
 
 		// Safety check pills from the safety verdict
-		const checks = Array.isArray(safetyData?.checks) ? safetyData.checks : [];
-		const checkPills = checks.slice(0, 6).map((c) => {
-			const ok = c.passed !== false;
-			const cls = ok ? 'mc-sec-check--ok' : c.severity === 'block' ? 'mc-sec-check--fail' : 'mc-sec-check--warn';
-			const icon = ok ? '✓' : '✕';
-			return `<span class="mc-sec-check ${cls}">${icon} ${escapeHtml(c.label || c.id || '')}</span>`;
+		const CHECK_NAMES = {
+			mint_authority: 'Mint & Freeze',
+			venue: 'Tradable',
+			round_trip: 'Buy→Sell',
+			concentration: 'Concentration',
+			price_impact: 'Price Impact',
+		};
+		const rawChecks = Array.isArray(safetyData?.checks) ? safetyData.checks.filter((c) => c && c.name !== 'input') : [];
+		const checkPills = rawChecks.slice(0, 5).map((c) => {
+			const st = c.status === 'pass' ? 'ok' : c.status === 'fail' ? 'fail' : c.status === 'warn' ? 'warn' : 'dim';
+			const icon = c.status === 'pass' ? '✓' : c.status === 'fail' ? '✕' : '~';
+			const label = CHECK_NAMES[c.name] || c.name;
+			return `<span class="mc-sec-check mc-sec-check--${st}">${icon} ${escapeHtml(label)}</span>`;
 		});
 
 		// Risk flags

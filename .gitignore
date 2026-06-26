@@ -75,6 +75,10 @@ test-coin-metadata.json
 scripts/x402-genwallets.mjs
 scripts/pump-usdc-race.mjs
 
+# Production log exports — contain sensitive data, never commit
+*-prod-log-export-*.json
+*-log-export-*.json
+
 # Wallet / private-key material — NEVER commit
 *.privkey.txt
 *.b58.txt
