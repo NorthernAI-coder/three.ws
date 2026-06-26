@@ -57,7 +57,14 @@ export default wrap(async (req, res) => {
 	} catch (err) {
 		// Never throw: a failed scan leaves the prior snapshot intact (the refresh
 		// only deletes inside a successful scan), so public reads are unaffected.
-		console.error('[three-holders-snapshot] refresh failed:', err?.message || err);
-		return json(res, 200, { ok: false, refreshed: false, error: err?.message || String(err) });
+		// A transient upstream blip — a `terminated` fetch, a Helius 429 cooldown,
+		// a network reset — is expected operationally and self-heals on the next
+		// 5-minute tick, so warn rather than error to keep it out of alerting;
+		// reserve error for unexpected faults (a bug, a bad schema migration).
+		const msg = err?.message || String(err);
+		const transient = /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|network/i.test(msg);
+		if (transient) console.warn('[three-holders-snapshot] refresh deferred (transient upstream):', msg);
+		else console.error('[three-holders-snapshot] refresh failed:', msg);
+		return json(res, 200, { ok: false, refreshed: false, error: msg });
 	}
 });

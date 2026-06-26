@@ -63,6 +63,14 @@
 			<description>Opening an agent's profile (/agents/&lt;id&gt;) could show a full-page &quot;Couldn't load this agent&quot; error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.</description>
 		</item>
 		<item>
+			<title>Agent profile pages render again</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-26:Agent profile pages render again</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every agent profile (/agents/&lt;id&gt;) had stopped loading — the page sat on its loading skeleton and never revealed the agent. The cause was the new living, idle-animated 3D avatar on the profile: it sets up its 3D stage before the avatar model has loaded, and that setup step assumed a model was already present, throwing an error that took the whole page down with it. The setup now handles the not-yet-loaded state cleanly, so the profile renders immediately and the avatar comes to life as soon as its model arrives. Every agent page — custom avatar or default body — loads correctly again.</description>
+		</item>
+		<item>
 			<title>Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</title>
 			<link>https://three.ws/alpha-copilot</link>
 			<guid isPermaLink="false">2026-06-26:Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed</guid>

@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Agent profile pages render again",
+			"summary": "Every agent profile (/agents/<id>) had stopped loading — the page sat on its loading skeleton and never revealed the agent. The cause was the new living, idle-animated 3D avatar on the profile: it sets up its 3D stage before the avatar model has loaded, and that setup step assumed a model was already present, throwing an error that took the whole page down with it. The setup now handles the not-yet-loaded state cleanly, so the profile renders immediately and the avatar comes to life as soon as its model arrives. Every agent page — custom avatar or default body — loads correctly again.",
+			"tags": ["fix"],
+			"link": "/agents"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Fixed the marketplace's collapsed layout for good",
 			"summary": "The marketplace could load with its whole layout collapsed — the navigation crammed into overlapping text and the section tabs (Agent, Avatars, Tools, Skills, and the rest) stacked into a plain full-width list with the agent grid squeezed into a narrow strip or missing entirely. The real cause was structural, not a caching hiccup: the page is built as a two-column grid (a 240px sidebar beside the main content), and the global navigation bar was quietly claiming the sidebar's column, shoving the sidebar and main content into the wrong places. The navigation now spans the full width as intended, so the sidebar and the agent/avatar grid always land in their correct columns. The marketplace renders right on the very first load, every time.",
 			"tags": ["fix"],

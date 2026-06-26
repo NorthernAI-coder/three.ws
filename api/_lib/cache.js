@@ -117,6 +117,24 @@ let circuitFailures = 0;
 let circuitOpenUntil = 0; // epoch ms; 0 = closed
 let circuitTrialInFlight = false;
 
+// SET-path write suppression. The shared circuit breaker above keys off
+// CONSECUTIVE command failures across all ops, but the production failure mode is
+// a degraded Upstash that fails the large best-effort SETs while GETs stay fast
+// and healthy (see the WARN_THROTTLE_MS note below). Every healthy GET resets
+// circuitFailures before SET timeouts can reach the threshold, so the breaker
+// stays (correctly) closed to keep serving cache reads — yet every SET still pays
+// a full REDIS_CMD_TIMEOUT_MS stall and emits a warning, which is the actual log
+// flood seen on hot endpoints (/api/galaxy/flows, /api/explore). The fix is a
+// gate that counts SET failures on their OWN consecutive streak: once they reach
+// SET_FAIL_THRESHOLD we suppress the Redis SET entirely for SET_SUPPRESS_MS —
+// memory write only, no fetch, no per-request stall, no warning. One trial SET is
+// admitted after the window; its success resumes writes. GET reads are never
+// gated by this, so cache hits keep flowing throughout.
+const SET_FAIL_THRESHOLD = 5;
+const SET_SUPPRESS_MS = 60_000;
+let setFailures = 0;
+let setSuppressedUntil = 0; // epoch ms; 0 = writing normally
+
 // Thrown when the circuit is open. Callers treat it as a normal cache miss but
 // skip the per-request warning, since the open/close transitions log once each.
 class CircuitOpenError extends Error {
@@ -235,14 +253,39 @@ export async function cacheGet(key) {
 
 export async function cacheSet(key, value, ttlSeconds = 60) {
 	if (!redisConfigured()) return memSet(key, value, ttlSeconds);
+	// While SETs are known-degraded, skip Redis entirely — go straight to memory.
+	// Saves the per-request REDIS_CMD_TIMEOUT_MS stall and the warning flood; one
+	// trial SET is admitted once the window elapses to detect recovery.
+	const now = Date.now();
+	if (setSuppressedUntil !== 0 && now < setSuppressedUntil) {
+		readMemo.delete(key);
+		return memSet(key, value, ttlSeconds);
+	}
 	try {
 		const payload = JSON.stringify(value);
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
+		if (setSuppressedUntil !== 0) console.warn('[cache] redis SET recovered — resuming cache writes');
+		setFailures = 0;
+		setSuppressedUntil = 0;
 		memoPut(key, value); // keep the memo coherent with what we just wrote
 	} catch (err) {
-		if (!err?.circuitOpen) warnThrottled('SET', `[cache] redis SET failed, using memory fallback: ${err?.message}`);
 		readMemo.delete(key);
 		memSet(key, value, ttlSeconds);
+		if (err?.circuitOpen) return; // shared breaker already logged the open transition
+		if (setSuppressedUntil !== 0) {
+			// A post-window trial failed — Redis writes still down, re-arm quietly.
+			setSuppressedUntil = now + SET_SUPPRESS_MS;
+			return;
+		}
+		setFailures++;
+		if (setFailures >= SET_FAIL_THRESHOLD) {
+			setSuppressedUntil = now + SET_SUPPRESS_MS;
+			console.warn(
+				`[cache] redis SET degraded — suppressing cache writes for ${SET_SUPPRESS_MS / 1000}s after ${setFailures} consecutive failures; serving from memory`,
+			);
+		} else {
+			warnThrottled('SET', `[cache] redis SET failed, using memory fallback: ${err?.message}`);
+		}
 	}
 }
 

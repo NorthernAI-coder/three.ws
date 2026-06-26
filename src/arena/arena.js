@@ -443,6 +443,7 @@ function paintDetail(data) {
 		),
 		t.description ? h('p', { class: 'desc' }, t.description) : null,
 		detailStats(data, phase),
+		windowTimeline(t, phase),
 		h(
 			'div',
 			{ class: 'hero-actions' },
@@ -469,11 +470,12 @@ function paintDetail(data) {
 	const body = h(
 		'div',
 		{ class: 'detail-body' },
-		spotlight,
+		h('div', { class: 'detail-aside' }, spotlight, prizeLadder(data, phase), rulesPanel(data)),
 		h(
 			'div',
-			{},
+			{ class: 'detail-main' },
 			phase === 'finished' ? resultsBanner(data) : null,
+			aggregateStrip(standings, t),
 			h(
 				'div',
 				{ class: 'board-head' },
