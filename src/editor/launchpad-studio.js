@@ -26,7 +26,7 @@ const TEMPLATES = [
 		id: 'token-launchpad',
 		label: 'Token Launchpad',
 		tagline: 'White-label Pump.fun launcher with a 3D avatar host',
-		hint: 'Visitors land on a 3D-hosted page and mint a Pump.fun coin in one click. Creator wallet receives the launch fee split.',
+		hint: 'A 3D-hosted landing page for your coin. Launch it through the guided flow; once it is live, the page flips to a one-click Trade button. Creator fees route to your wallet.',
 		monetize: { kind: 'pump-launch', defaultPrice: 0.02, currency: 'SOL', chain: 'solana' },
 		defaultCta: 'Launch your coin',
 		defaultTagline: 'Mint a Pump.fun coin in seconds — hosted by your own 3D agent.',
@@ -1215,8 +1215,8 @@ function buildRailHTML(state) {
 				${field('Initial supply', `<input type="number" data-bind="token.supply" value="${state.token.supply}" min="1" />`)}
 				${field('Description', `<textarea data-bind="token.description" placeholder="Brief description shown on the launchpad page">${esc(state.token.description || '')}</textarea>`)}
 				${field('Token image URL', `<input type="text" data-bind="token.imageUrl" value="${esc(state.token.imageUrl || '')}" placeholder="https://.../logo.png" />`, '512×512 recommended. Used as the on-page logo and Pump.fun metadata image.')}
-				${field('Mint address (after launch)', `<input type="text" data-bind="token.mint" value="${esc(state.token.mint || '')}" placeholder="Auto-filled once minted on Pump.fun" />`, 'Paste the mint pubkey after you launch — links the page to the live token.')}
-				${field('Launch fee (SOL)', `<input type="number" step="0.001" data-bind="monetize.price" value="${state.monetize.price}" />`, 'Charged to each visitor that mints. Routes via Pump.fun creator fee split.')}
+				${field('Mint address (after launch)', `<input type="text" data-bind="token.mint" value="${esc(state.token.mint || '')}" placeholder="Auto-filled once minted on Pump.fun" />`, 'Paste the mint pubkey after you launch — the page flips from "Launch" to a live "Trade" button.')}
+				${field('Initial buy (SOL)', `<input type="number" step="0.001" min="0" data-bind="monetize.price" value="${state.monetize.price}" />`, 'Optional dev buy seeded into the launch flow when you mint from this page. Set 0 to skip. Creator fees from trades route to your payout wallet automatically.')}
 			</div>
 		`;
 	} else if (tpl.id === 'paid-concierge') {

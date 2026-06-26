@@ -19,7 +19,7 @@ const TEMPLATES = [
 		id: 'token-launchpad',
 		label: 'Token Launchpad',
 		tagline: 'White-label Pump.fun launcher with a 3D avatar host',
-		blurb: 'A hosted page where visitors mint your coin in one click. Creator fees route straight to your wallet.',
+		blurb: 'A hosted landing page for your coin with a 3D agent host. Launch it through three.ws; once live, visitors trade it in one click — creator fees route straight to your wallet.',
 		icon: '◎',
 		accent: '#22c55e',
 		cta: 'Build a token page',

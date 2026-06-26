@@ -171,10 +171,24 @@ export function mountLaunchCoin(root) {
 
 	renderPicker();
 
+	// Deep-link prefill — a token-launchpad page (/p/<slug>) hands the visitor
+	// here with the coin's configured name, symbol, description, image, and
+	// initial buy so the launch form opens ready to go instead of blank.
+	const params = new URL(location.href).searchParams;
+	const prefill = {
+		name: params.get('name') || '',
+		symbol: params.get('symbol') || '',
+		description: params.get('description') || '',
+		imageUrl: params.get('image') || '',
+		initialBuy: params.get('initialBuy') || '',
+	};
+	const hasPrefill = Object.values(prefill).some(Boolean);
+
 	launchPanel = mountLaunchPanel(panelEl, {
 		getAvatar: () => currentAvatar(),
 		getUser: () => state.user,
 		context: 'launch',
+		prefill: hasPrefill ? prefill : null,
 	});
 
 	(async function boot() {

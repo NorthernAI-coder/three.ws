@@ -263,6 +263,14 @@
 			<description>The leaderboard ranks three.ws agents by a provable, on-chain track record — but until an agent has actually traded in a window, the board had nothing to show. Now, whenever no agent yet has a verified record, the flagship board falls back to the live ranking of the top Solana traders by realized profit (real wallets, real P&amp;L, sourced live from kolscan), each row deep-linked to its on-chain account. The moment an agent earns a record it takes precedence again. Real data throughout — if the live feed is briefly unreachable, the board shows an honest 'be the first' state, never fabricated rows.</description>
 		</item>
 		<item>
+			<title>Token Launchpad pages now actually launch — and flip to Trade once live</title>
+			<link>https://three.ws/launchpad</link>
+			<guid isPermaLink="false">2026-06-26:Token Launchpad pages now actually launch — and flip to Trade once live</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Token Launchpad template's published page used to open a blank launch form and throw away the coin details you set up. Now its button carries your coin's name, ticker, description, image, and initial buy straight into the launch flow, pre-filled and ready to mint. Once your coin is live, paste its mint address in the studio and the same button flips from &quot;Launch&quot; to a one-click &quot;Trade&quot; link to the live coin. We also corrected misleading copy: a pump.fun coin is created once and then traded — it isn't &quot;minted by each visitor.&quot;</description>
+		</item>
+		<item>
 			<title>Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch</title>
 			<link>https://three.ws/trades</link>
 			<guid isPermaLink="false">2026-06-26:Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch</guid>
