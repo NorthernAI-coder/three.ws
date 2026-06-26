@@ -70,7 +70,7 @@ button {
 	border-radius: 4px;
 	border: 1px solid var(--accent);
 	background-color: var(--accent);
-	color: white;
+	color: var(--btn-primary-fg, #0a0a0a);
 	cursor: pointer;
 	font-weight: 600;
 	transition: background-color 0.2s;

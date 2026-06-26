@@ -12,6 +12,10 @@
 const CZ = '/avatars/cz.glb';
 const SOLDIER = '/animations/soldier.glb';
 const ROBOT = '/animations/robotexpressive.glb';
+const MICHELLE = '/avatars/michelle.glb';
+const XBOT = '/avatars/xbot.glb';
+const REALISTIC_M = '/avatars/realistic-male.glb';
+const REALISTIC_F = '/avatars/realistic-female.glb';
 
 function fixture({ id, type, name, config, modelUrl }) {
 	return {
@@ -240,6 +244,101 @@ export const DEMO_WIDGETS = {
 			height: 420,
 			position: 'inline',
 			enableNarration: false,
+		},
+	}),
+
+	// ── Outside-the-box demos ────────────────────────────────────────────────────
+
+	wdgt_demo_pitch: fixture({
+		id: 'wdgt_demo_pitch',
+		type: 'talking-agent',
+		name: 'Pitch Bot',
+		modelUrl: REALISTIC_F,
+		config: {
+			background: '#0a0a0a',
+			accent: '#f59e0b',
+			caption: '',
+			showControls: false,
+			autoRotate: false,
+			envPreset: 'neutral',
+			agentTitle: 'AI Rep',
+			greeting: "Hey! I'm your AI rep — ask me anything: the roadmap, the team, the product.",
+			brainProvider: 'none',
+			proxyURL: '',
+			chatPosition: 'overlay',
+		},
+	}),
+
+	wdgt_demo_npc: fixture({
+		id: 'wdgt_demo_npc',
+		type: 'talking-agent',
+		name: 'Quest Guide',
+		modelUrl: XBOT,
+		config: {
+			background: '#0d0d1a',
+			accent: '#8b5cf6',
+			caption: '',
+			showControls: false,
+			autoRotate: false,
+			envPreset: 'neutral',
+			agentTitle: 'Quest Guide',
+			greeting: 'Greetings, traveler. What quest brings you here today?',
+			brainProvider: 'none',
+			proxyURL: '',
+			chatPosition: 'bottom',
+		},
+	}),
+
+	wdgt_demo_nightwlk: fixture({
+		id: 'wdgt_demo_nightwlk',
+		type: 'walking-avatar',
+		name: 'Night Drop',
+		modelUrl: ROBOT,
+		config: {
+			controls: 'joystick',
+			environment: 'night',
+			autoplay: true,
+			walkSpeed: 1.2,
+			bg: '#050510',
+			size: 'L',
+			width: 720,
+			height: 480,
+			position: 'inline',
+			enableNarration: false,
+		},
+	}),
+
+	wdgt_demo_mtnlib: fixture({
+		id: 'wdgt_demo_mtnlib',
+		type: 'animation-gallery',
+		name: 'Motion Archive',
+		modelUrl: MICHELLE,
+		config: {
+			background: '#0a0a0a',
+			accent: '#f97316',
+			caption: '',
+			showControls: false,
+			autoRotate: false,
+			envPreset: 'neutral',
+			defaultClip: '',
+			loopAll: true,
+			showClipPicker: true,
+		},
+	}),
+
+	wdgt_demo_prodstg: fixture({
+		id: 'wdgt_demo_prodstg',
+		type: 'turntable',
+		name: 'Product Stage',
+		modelUrl: REALISTIC_M,
+		config: {
+			background: '#08080f',
+			accent: '#e2e8f0',
+			caption: '',
+			showControls: false,
+			autoRotate: true,
+			rotationSpeed: 1.2,
+			envPreset: 'venice-sunset',
 		},
 	}),
 };

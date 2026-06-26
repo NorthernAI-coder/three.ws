@@ -237,7 +237,7 @@ body.market-page > header {
 }
 .market-cat-chip.active {
 	background: var(--ink);
-	color: #000;
+	color: var(--btn-primary-fg, #0a0a0a);
 	border-color: var(--ink);
 }
 .market-cat-chip .cat-chip-count {
@@ -641,7 +641,7 @@ body.market-page > header {
 }
 .market-avatar-detail-cta {
 	background: var(--ink);
-	color: #000;
+	color: var(--btn-primary-fg, #0a0a0a);
 	border: 0;
 	padding: var(--space-md) var(--space-md);
 	border-radius: var(--radius-md);
@@ -767,7 +767,7 @@ body.market-page > header {
 }
 .tool-detail-cta {
 	background: var(--ink);
-	color: #000;
+	color: var(--btn-primary-fg, #0a0a0a);
 	border: 0;
 	padding: var(--space-sm) var(--space-lg);
 	border-radius: var(--radius-md);
@@ -3201,7 +3201,7 @@ body.market-page > header {
 }
 .market-hero-cta {
 	background: var(--ink);
-	color: #000;
+	color: var(--btn-primary-fg, #0a0a0a);
 }
 .market-hero-cta:hover {
 	transform: translateY(-1px);
@@ -3522,7 +3522,7 @@ body.market-page > header {
 }
 .market-mine-cta {
 	background: var(--ink);
-	color: #000;
+	color: var(--btn-primary-fg, #0a0a0a);
 	border: 0;
 	padding: var(--space-sm) var(--space-md);
 	border-radius: var(--radius-md);
