@@ -68,12 +68,12 @@ CREATE TABLE IF NOT EXISTS agent_launched_coins (
     UNIQUE (mint, network)
 );
 CREATE INDEX IF NOT EXISTS idx_launched_coins_agent ON agent_launched_coins(agent_id);
-CREATE INDEX IF NOT EXISTS idx_launched_coins_claim ON agent_launched_coins(agent_id, network) WHERE auto_claim_enabled OR launcher_id IS NOT NULL;
-
 -- auto_claim_enabled column convenience (on the launcher drives per-coin default,
 -- but allow per-coin override in agent_launched_coins):
 ALTER TABLE agent_launched_coins
     ADD COLUMN IF NOT EXISTS auto_claim_enabled BOOLEAN NOT NULL DEFAULT false;
+
+CREATE INDEX IF NOT EXISTS idx_launched_coins_claim ON agent_launched_coins(agent_id, network) WHERE auto_claim_enabled OR launcher_id IS NOT NULL;
 
 -- 4. Market maker configs — one per agent per coin
 CREATE TABLE IF NOT EXISTS agent_market_maker_configs (

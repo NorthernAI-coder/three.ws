@@ -315,6 +315,7 @@ export const NAV_GROUPS = [
 			{ title: 'Tutorials', href: '/tutorials', desc: 'Step-by-step guides' },
 			{ title: 'Chat', href: '/chat', desc: 'Talk to your agent' },
 			{ title: 'Pay', href: '/pay', desc: 'Agent payments — x402 + USDC' },
+			{ title: 'Payment Sessions', href: '/payments', desc: 'Governed agent spend budgets — no private key needed' },
 			{ title: 'Credits', href: '/credits', desc: 'Top up & spend — SOL or $THREE' },
 			{
 				title: 'Avatar SDK',

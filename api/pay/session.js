@@ -7,6 +7,7 @@
 //
 // POST   /api/pay/session                     — create a new session
 // GET    /api/pay/session/:id                 — inspect a session (owner only)
+// PATCH  /api/pay/session/:id                 — update label / allowlist / per-tx cap
 // DELETE /api/pay/session/:id                 — cancel + refund un-spent budget
 // GET    /api/pay/session/:id/executions      — list payments made in a session
 // GET    /api/pay/session                     — list all sessions for the caller
@@ -19,6 +20,7 @@ import {
 	getPaymentSession,
 	listPaymentSessions,
 	cancelPaymentSession,
+	updatePaymentSession,
 	listSessionExecutions,
 	getPaymentStats,
 } from '../_lib/pay/payment-session.js';
@@ -40,7 +42,7 @@ function parsePath(req) {
 }
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'GET,POST,DELETE,OPTIONS', credentials: true })) return;
+	if (cors(req, res, { methods: 'GET,POST,PATCH,DELETE,OPTIONS', credentials: true })) return;
 
 	const rl = await limits.authIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
@@ -123,6 +125,24 @@ export default wrap(async (req, res) => {
 		const session = await getPaymentSession(id, user.id);
 		if (!session) return error(res, 404, 'not_found', 'session not found');
 		return json(res, 200, { session });
+	}
+
+	// PATCH /api/pay/session/:id — update mutable fields on an active session
+	if (httpMethod === 'PATCH') {
+		const body = await readJson(req, res);
+		if (!body) return;
+
+		const updates = {};
+		if (typeof body.label === 'string') updates.label = body.label.trim();
+		if (Array.isArray(body.allowed_hosts)) updates.allowedHosts = body.allowed_hosts;
+		if (body.max_per_tx_usd !== undefined) updates.maxPerTxUsd = body.max_per_tx_usd;
+		if (Object.keys(updates).length === 0) {
+			return error(res, 400, 'nothing_to_update', 'Provide at least one of: label, allowed_hosts, max_per_tx_usd');
+		}
+
+		const result = await updatePaymentSession(id, user.id, updates);
+		if (!result) return error(res, 404, 'not_found', 'session not found, not active, or not owned by you');
+		return json(res, 200, { session: result });
 	}
 
 	// DELETE /api/pay/session/:id

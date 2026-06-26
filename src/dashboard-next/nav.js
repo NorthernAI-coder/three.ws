@@ -37,6 +37,7 @@ export const NAV = [
 	{ path: '/dashboard/analytics',   label: 'Analytics',       icon: 'chart',     group: 'Monetize',   tags: ['revenue', 'charts', 'metrics', 'funnel', 'performance', 'views', 'engagement'] },
 	{ path: '/dashboard/creator',     label: 'Creator Studio',  icon: 'creator',   group: 'Monetize',   tags: ['creator', 'earnings', 'pricing', 'price', 'payout', 'royalties', 'skill analytics', 'sell', 'income', 'make money', '$three discount'] },
 	{ path: '/dashboard/monetize',    label: 'Monetize',        icon: 'coin',      group: 'Monetize',   tags: ['revenue', 'payments', 'subscriptions', 'withdrawals', 'earnings', 'plan', 'billing'] },
+	{ path: '/payments',              label: 'Payment Sessions', icon: 'paysess',   group: 'Monetize',   tags: ['x402', 'agent pay', 'session', 'budget', 'usdc', 'autonomous', 'mcp', 'spend', 'governed'], external: true },
 	{ path: '/dashboard/transactions',label: 'Transactions',    icon: 'receipt',   group: 'Monetize',   tags: ['history', 'purchases', 'sales', 'receipts', 'ledger', 'orders', 'spent', 'earned', 'invoice', 'transaction history', 'buys', 'csv'] },
 	{ path: '/dashboard/tokens',      label: 'Tokens',          icon: 'token',     group: 'Monetize',   tags: ['pump.fun', 'launch', 'bonding curve', 'royalties', 'trade'] },
 	{ path: '/dashboard/copy',        label: 'Copy Trading',    icon: 'live',      group: 'Monetize',   tags: ['copy', 'copy-trade', 'mirror', 'leader', 'follow', 'traders', 'intents', 'pump.fun', 'sniper'] },
@@ -104,6 +105,7 @@ export const ICONS = {
 	gift:      '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="14" height="9" rx="1.5"/><path d="M3 11h14M10 8v9"/><path d="M10 8S8.5 4.5 6.5 4.5a2 2 0 000 4H10zM10 8s1.5-3.5 3.5-3.5a2 2 0 010 4H10z"/></svg>',
 	pin:       '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z"/><circle cx="10" cy="7" r="1.8"/></svg>',
 	receipt:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2V2.5z"/><path d="M8 6.5h4M8 9.5h4M8 12.5h2.5"/></svg>',
+	paysess:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="16" height="10" rx="2"/><path d="M2 8.5h16"/><circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none"/><path d="M9.5 12h5"/></svg>',
 };
 
 /** Resolve the route for the current pathname (exact match wins; falls back to startsWith). */
