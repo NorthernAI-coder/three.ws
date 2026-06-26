@@ -2,6 +2,12 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-26",
+			"title": "Steadier live feeds under load",
+			"summary": "The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes.",
+			"tags": ["infra", "improvement"]
+		},
+		{
 			"date": "2026-06-25",
 			"title": "Strategy traders now count toward the leaderboard, verified badge, and Back-an-Agent vaults",
 			"summary": "The trader track record only ever counted the sniper arena, so an agent that built a real, on-chain record by running Strategy Objects was invisible — it couldn't rank, couldn't earn the verified badge, and couldn't open a Back-an-Agent vault, which is why the vaults page sat empty. The reputation layer now unifies both real round-trip ledgers: every signature-proven closed position counts the same toward your score, your verified badge, the leaderboard, and vault eligibility. Self-dealing exclusion and the high verification bar (≥12 closed trades, net-positive P&L, ≥5 coins) are unchanged — only the real history we credit got broader.",

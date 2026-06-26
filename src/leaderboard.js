@@ -121,13 +121,129 @@ function rowMarkup(r) {
 		</a>`;
 }
 
+// --- Live top-trader fallback (kolscan) --------------------------------------
+// When no three.ws agent has a provable record in the window yet, the board shows
+// the real, public kolscan ranking of top Solana traders so it is never an empty
+// void. These rows are external wallets: they deep-link to the on-chain account
+// (not a three.ws trader profile) and carry no Trader Score — that is ours to award.
+const LIVE_HEAD = `
+	<span class="lb-col-rank">#</span>
+	<span class="lb-col-trader">Trader</span>
+	<span class="lb-col-num">Realized P&amp;L</span>
+	<span class="lb-col-num lb-winrate">Win rate</span>
+	<span class="lb-col-num">Trades</span>
+	<span class="lb-col-act"></span>`;
+let agentHeadHTML = null;
+
+function setBoardMode(live) {
+	const board = $('.lb-board');
+	const head = board?.querySelector('.lb-board-head');
+	if (agentHeadHTML == null && head) agentHeadHTML = head.innerHTML;
+	board?.classList.toggle('is-live', live);
+	if (head) head.innerHTML = live ? LIVE_HEAD : (agentHeadHTML || head.innerHTML);
+	// The verified-track-record toggle has no meaning for external wallets.
+	const verified = $('#lb-verified');
+	if (verified) {
+		verified.disabled = live;
+		verified.closest('.lb-toggle')?.classList.toggle('is-disabled', live);
+	}
+}
+
+const LIVE_SORTS = {
+	pnl: (a, b) => (b.realized_pnl_usd ?? -Infinity) - (a.realized_pnl_usd ?? -Infinity),
+	winrate: (a, b) => b.win_rate - a.win_rate || b.trades - a.trades,
+};
+// score/roi don't exist for external wallets — fall back to realized P&L.
+function sortLive(rows, sort) {
+	const cmp = LIVE_SORTS[sort] || LIVE_SORTS.pnl;
+	return [...rows].sort(cmp).map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+function liveRowMarkup(r) {
+	const img = identicon(r.wallet || '?');
+	const pnlSol = r.realized_pnl_sol != null
+		? `<span class="${pnlClass(r.realized_pnl_sol)}">${fmtSol(r.realized_pnl_sol)}</span>` : '';
+	const pnlUsd = r.realized_pnl_usd != null
+		? `<span class="lb-sub-num">${fmtUsd(r.realized_pnl_usd)}</span>` : '';
+	const label = [
+		`Rank ${r.rank}`,
+		`Solana trader ${shortAddr(r.wallet)}`,
+		r.realized_pnl_usd != null ? `realized P&L ${fmtUsd(r.realized_pnl_usd)}` : '',
+		`${r.trades} trades`,
+	].filter(Boolean).join(', ');
+	return `
+		<a class="lb-row lb-row--live" href="${escapeHtml(r.account_url)}" target="_blank" rel="noopener" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(label)}">
+			<span class="lb-rank">${r.rank}</span>
+			<span class="lb-trader">
+				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" />
+				<span class="lb-trader-meta">
+					<span class="lb-trader-name">${escapeHtml(shortAddr(r.wallet, 6, 6))}</span>
+					<span class="lb-trader-sub">Solana trader · on-chain account</span>
+				</span>
+			</span>
+			<span class="lb-num">${pnlSol}${pnlUsd}</span>
+			<span class="lb-num lb-winrate">${fmtPct(r.win_rate * 100)}</span>
+			<span class="lb-num">${r.trades}</span>
+			<span class="lb-col-act"><span class="lb-view">Account →</span></span>
+		</a>`;
+}
+
+let liveBannerEl = null;
+function showLiveBanner(data) {
+	if (!liveBannerEl) {
+		const board = $('.lb-board');
+		if (!board) return;
+		const el = document.createElement('div');
+		el.className = 'lb-live-banner';
+		el.setAttribute('role', 'note');
+		board.parentNode.insertBefore(el, board);
+		liveBannerEl = el;
+	}
+	const win = data.live_window || '7d';
+	liveBannerEl.innerHTML = `
+		<span class="lb-stale-dot" aria-hidden="true"></span>
+		<span class="lb-live-banner-text">No three.ws agent has a verified track record in this window yet — showing the <strong>live top Solana traders</strong> (${escapeHtml(win)}, via kolscan). <a href="/create-agent">Launch an agent</a> to earn your spot on the provable board.</span>`;
+	liveBannerEl.hidden = false;
+}
+function clearLiveBanner() {
+	if (liveBannerEl) liveBannerEl.hidden = true;
+}
+
+function staggerRows(rows) {
+	rows.querySelectorAll('.lb-row').forEach((el, i) => { el.style.animationDelay = `${Math.min(i, 12) * 22}ms`; });
+}
+
+// Update a summary cell's <dt> label so the same strip reads correctly in both
+// the agent-track-record mode and the live-market fallback.
+function summaryLabel(ddId, text) {
+	const dt = document.getElementById(ddId)?.closest('.lb-summary-cell')?.querySelector('dt');
+	if (dt) dt.textContent = text;
+}
+
 function renderSummary(data) {
-	const board = data.leaderboard || [];
-	$('#lb-sum-traders').textContent = String(board.length);
-	$('#lb-sum-verified').textContent = String(board.filter((r) => r.verified).length);
-	const top = board[0];
-	$('#lb-sum-top').textContent = top ? fmtSol(top.realized_pnl_sol) : '—';
+	const agents = data.leaderboard || [];
+	const live = data.live_traders || [];
+	const isLive = !agents.length && live.length > 0;
 	$('#lb-sum-sol').textContent = data.sol_usd ? `$${Math.round(data.sol_usd)}` : '—';
+
+	if (isLive) {
+		const top = live[0];
+		summaryLabel('lb-sum-traders', 'Live traders');
+		summaryLabel('lb-sum-verified', 'Source');
+		$('#lb-sum-traders').textContent = String(live.length);
+		$('#lb-sum-verified').textContent = 'kolscan';
+		$('#lb-sum-top').textContent = top
+			? (top.realized_pnl_sol != null ? fmtSol(top.realized_pnl_sol) : fmtUsd(top.realized_pnl_usd))
+			: '—';
+		return;
+	}
+
+	summaryLabel('lb-sum-traders', 'Ranked traders');
+	summaryLabel('lb-sum-verified', 'Verified');
+	$('#lb-sum-traders').textContent = String(agents.length);
+	$('#lb-sum-verified').textContent = String(agents.filter((r) => r.verified).length);
+	const top = agents[0];
+	$('#lb-sum-top').textContent = top ? fmtSol(top.realized_pnl_sol) : '—';
 }
 
 function renderTicker(trades) {

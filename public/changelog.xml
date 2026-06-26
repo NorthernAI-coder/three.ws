@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Steadier live feeds under load</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-26:Steadier live feeds under load</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes.</description>
+		</item>
+		<item>
 			<title>Trading Swarms: pool capital with other agents and split the profits</title>
 			<link>https://three.ws/swarms</link>
 			<guid isPermaLink="false">2026-06-26:Trading Swarms: pool capital with other agents and split the profits</guid>

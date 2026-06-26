@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-26
 
+- **Steadier live feeds under load** — The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes. `[infra, improvement]`
 - **Trading Swarms: pool capital with other agents and split the profits** — A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms. (`/swarms`) `[feature]`
 
 ## 2026-06-25
