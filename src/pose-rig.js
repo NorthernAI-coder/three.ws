@@ -67,6 +67,20 @@ const NORMALIZED_CANONICAL = new Map(
 	CANONICAL_BONES.map((c) => [normalizeBoneName(c), c]),
 );
 
+// Left ↔ right bone name (canonical). Center bones (Hips, Spine, Head…) map to
+// themselves. Used to mirror a pose across the sagittal plane.
+export function mirrorBoneName(key) {
+	if (key.startsWith('Left')) return `Right${key.slice(4)}`;
+	if (key.startsWith('Right')) return `Left${key.slice(5)}`;
+	return key;
+}
+
+// Reflect a world-space rotation across the x=0 (sagittal) plane: conjugation by
+// diag(-1,1,1) keeps x, negates y and z. Operates in place on a THREE.Quaternion.
+export function reflectWorldQuaternion(q) {
+	return q.set(q.x, -q.y, -q.z, q.w);
+}
+
 // IK chains: drag the end-effector, the link bones rotate to reach it. Defined
 // once in canonical space and resolved per-rig (links present on the rig only).
 // Order: links go from the effector's parent outward toward the root.
@@ -214,6 +228,35 @@ class BaseRig {
 		const chain = this.getIKChains().find((c) => c.effectorKey === effectorKey);
 		if (!chain) return;
 		solveCCD(chain.links, chain.effector, targetWorld);
+	}
+
+	// Mirror the current pose left ↔ right. Works on any rig (mannequin or GLB),
+	// including ones whose left/right rest frames aren't symmetric, by mirroring
+	// in WORLD space and reprojecting each bone into its own parent frame. Bones
+	// are processed root→leaf (CANONICAL_BONES order is topological) so each
+	// parent's new world rotation is current before its children reproject.
+	mirrorPose() {
+		if (!this.root) return;
+		this.root.updateWorldMatrix(true, true);
+		const ordered = this.getBones();
+		// Snapshot every posable bone's ORIGINAL world rotation first, so swaps
+		// read pre-mirror values and the operation is its own inverse.
+		const origWorld = new Map();
+		for (const { key, node } of ordered) {
+			origWorld.set(key, node.getWorldQuaternion(new Quaternion()));
+		}
+		const parentWorld = new Quaternion();
+		for (const { key, node } of ordered) {
+			const source = origWorld.get(mirrorBoneName(key)) || origWorld.get(key);
+			const targetWorld = reflectWorldQuaternion(source.clone());
+			if (node.parent) {
+				node.parent.getWorldQuaternion(parentWorld);
+				node.quaternion.copy(parentWorld.invert().multiply(targetWorld));
+			} else {
+				node.quaternion.copy(targetWorld);
+			}
+			node.updateWorldMatrix(false, false);
+		}
 	}
 
 	getSelectableMeshes() { return this.selectableMeshes; }

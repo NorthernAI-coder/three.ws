@@ -54,6 +54,11 @@ const DEFAULTS = {
 	width: 320,
 	height: 480,
 	autoplay: true,
+	speed: 1, // walk-pace multiplier (?speed=0.3…3)
+	ground: true, // show the ground disc + shadow (?ground=false floats the avatar)
+	gestures: false, // show end-user wave/jump buttons (?gestures=true)
+	badge: true, // show the three.ws attribution badge (?badge=false to remove)
+	responsive: false, // emit a fluid (width:100%) snippet instead of fixed px
 	snippetVariant: 'iframe', // 'iframe' | 'script'
 };
 
@@ -317,7 +322,40 @@ function mountEmbedEditor(root, opts = {}) {
 	autoplayWrap.append(autoplayCheck, autoplayLabel);
 	const autoplayField = field('Autoplay', autoplayWrap);
 
-	panel.append(avatarField, controlsField, envField, bgField, sizeField, dimField, autoplayField);
+	// Speed (avatar modes) — walk-pace multiplier baked into ?speed=.
+	const speedWrap = el('div', { className: 'ee-bgrow' });
+	const speedInput = el('input', { type: 'range', min: '0.3', max: '3', step: '0.1', value: String(cfg.speed), className: 'ee-range' });
+	const speedVal = el('span', { className: 'ee-rangeval', textContent: `${cfg.speed.toFixed(1)}×` });
+	speedInput.addEventListener('input', () => {
+		cfg.speed = Math.min(3, Math.max(0.3, Number(speedInput.value) || 1));
+		speedVal.textContent = `${cfg.speed.toFixed(1)}×`;
+		sync();
+	});
+	speedWrap.append(speedInput, speedVal);
+	const speedField = field('Walk speed', speedWrap);
+
+	// A reusable on/off toggle row for the boolean embed options below.
+	function toggleField(labelText, id, checked, hint, onChange) {
+		const wrap = el('div', { className: 'ee-bgrow' });
+		const box = el('input', { type: 'checkbox', id, checked });
+		const lab = el('label', { htmlFor: id, className: 'ee-checklabel', textContent: hint });
+		box.addEventListener('change', () => { onChange(box.checked); sync(); });
+		wrap.append(box, lab);
+		const f = field(labelText, wrap);
+		f._box = box;
+		return f;
+	}
+
+	const groundField = toggleField('Ground', 'ee-ground', cfg.ground,
+		'Show the ground disc + shadow', (v) => { cfg.ground = v; });
+	const gesturesField = toggleField('Gestures', 'ee-gestures', cfg.gestures,
+		'Show wave / jump buttons to visitors', (v) => { cfg.gestures = v; });
+	const badgeField = toggleField('Badge', 'ee-badge', cfg.badge,
+		'Show the three.ws badge', (v) => { cfg.badge = v; });
+	const responsiveField = toggleField('Responsive', 'ee-responsive', cfg.responsive,
+		'Fluid width (fills its container)', (v) => { cfg.responsive = v; });
+
+	panel.append(avatarField, controlsField, envField, bgField, sizeField, dimField, autoplayField, speedField, groundField, gesturesField, badgeField, responsiveField);
 
 	// ── Right: preview + snippet ────────────────────────────────────────────
 	const previewWrap = el('div', { className: 'ee-preview-wrap' });
@@ -427,6 +465,13 @@ function mountEmbedEditor(root, opts = {}) {
 		autoplayField.style.display = isWalking ? '' : 'none';
 		envField.style.display = isAvatar ? '' : 'none';
 		bgField.style.display = isAvatar ? '' : 'none';
+		// Avatar-runtime-only knobs (walk-embed params); chat is a plain agent iframe.
+		speedField.style.display = isAvatar ? '' : 'none';
+		groundField.style.display = isAvatar ? '' : 'none';
+		gesturesField.style.display = isAvatar ? '' : 'none';
+		badgeField.style.display = isAvatar ? '' : 'none';
+		// Responsive layout applies to every snippet (chat included).
+		responsiveField.style.display = '';
 		// Size applies to every mode — all runtimes render a sized iframe.
 		sizeField.style.display = '';
 		dimField.style.display = '';
@@ -501,8 +546,13 @@ function mountEmbedEditor(root, opts = {}) {
 		if (cfg.mode !== 'chat') {
 			q.set('env', cfg.env);
 			q.set('bg', cfg.bg);
+			if (cfg.speed !== 1) q.set('speed', String(cfg.speed)); else q.delete('speed');
+			if (!cfg.ground) q.set('ground', 'false'); else q.delete('ground');
+			if (cfg.gestures) q.set('gestures', 'true'); else q.delete('gestures');
+			if (!cfg.badge) q.set('badge', 'false'); else q.delete('badge');
 		} else {
-			q.delete('env'); q.delete('bg');
+			q.delete('env'); q.delete('bg'); q.delete('speed');
+			q.delete('ground'); q.delete('gestures'); q.delete('badge');
 		}
 		if (cfg.mode === 'walking') { q.set('controls', cfg.controls); q.set('autoplay', String(cfg.autoplay)); }
 		else { q.delete('controls'); q.delete('autoplay'); }
@@ -532,6 +582,11 @@ function walkSrc(cfg, preview = false) {
 	}
 	if (cfg.bg && cfg.bg !== 'transparent') q.set('bg', cfg.bg);
 	if (cfg.env && cfg.env !== 'studio') q.set('env', cfg.env);
+	// Only serialize non-default runtime knobs so the URL stays clean.
+	if (cfg.speed && cfg.speed !== 1) q.set('speed', String(cfg.speed));
+	if (cfg.ground === false) q.set('ground', 'false');
+	if (cfg.gestures) q.set('gestures', 'true');
+	if (cfg.badge === false) q.set('badge', 'false');
 	// Preview frames load over the dev/local origin so the iframe actually
 	// renders here; the copied snippet always points at the production origin.
 	if (preview) return u.toString().replace(ORIGIN, location.origin);
@@ -556,7 +611,7 @@ function buildSnippet(cfg) {
 		return '<!-- Chat embeds need an agent id — pick an agent from the gallery above -->';
 	}
 	if (cfg.mode === 'chat') {
-		return `<iframe\n  src="${chatSrc(cfg)}"\n  width="${cfg.width}"\n  height="${cfg.height}"\n  style="border:0;border-radius:16px"\n  allow="microphone; autoplay; clipboard-write"\n  loading="lazy"><\/iframe>`;
+		return iframeSnippet(cfg, chatSrc(cfg), 'microphone; autoplay; clipboard-write');
 	}
 	if (cfg.snippetVariant === 'script') {
 		const attrs = [
@@ -566,14 +621,29 @@ function buildSnippet(cfg) {
 			cfg.bg !== 'transparent' ? `data-bg="${cfg.bg}"` : null,
 			cfg.env !== 'studio' ? `data-env="${cfg.env}"` : null,
 			autoplayFor(cfg) ? `data-autoplay="true"` : null,
+			cfg.speed !== 1 ? `data-speed="${cfg.speed}"` : null,
+			cfg.ground === false ? `data-ground="false"` : null,
+			cfg.gestures ? `data-gestures="true"` : null,
+			cfg.badge === false ? `data-badge="false"` : null,
 			`data-width="${cfg.width}"`,
 			`data-height="${cfg.height}"`,
 		].filter(Boolean);
 		return `<script\n  ${attrs.join('\n  ')}><\/script>`;
 	}
 	// iframe variant
-	const src = walkSrc(cfg);
-	return `<iframe\n  src="${src}"\n  width="${cfg.width}"\n  height="${cfg.height}"\n  style="border:0;border-radius:16px"\n  allow="accelerometer; gyroscope; autoplay"\n  loading="lazy"><\/iframe>`;
+	return iframeSnippet(cfg, walkSrc(cfg), 'accelerometer; gyroscope; autoplay');
+}
+
+// Build an <iframe> snippet. Fixed-pixel by default; when cfg.responsive is set,
+// wrap it in an aspect-ratio box so it fills its container fluidly (the layout
+// most modern sites actually need). referrerpolicy keeps the host's full URL out
+// of our logs — only the origin is sent.
+function iframeSnippet(cfg, src, allow) {
+	if (cfg.responsive) {
+		const ratio = `${cfg.width} / ${cfg.height}`;
+		return `<div style="position:relative;width:100%;max-width:${cfg.width}px;aspect-ratio:${ratio}">\n  <iframe\n    src="${src}"\n    style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:16px"\n    allow="${allow}"\n    referrerpolicy="strict-origin-when-cross-origin"\n    loading="lazy"><\/iframe>\n</div>`;
+	}
+	return `<iframe\n  src="${src}"\n  width="${cfg.width}"\n  height="${cfg.height}"\n  style="border:0;border-radius:16px"\n  allow="${allow}"\n  referrerpolicy="strict-origin-when-cross-origin"\n  loading="lazy"><\/iframe>`;
 }
 
 function autoplayFor(cfg) {
@@ -595,6 +665,13 @@ function sanitize(opts) {
 	if (opts.height) out.height = clampDim(opts.height);
 	if (opts.width || opts.height) out.size = 'custom';
 	if (opts.autoplay != null && opts.autoplay !== '') out.autoplay = opts.autoplay === true || opts.autoplay === 'true';
+	if (opts.speed != null && opts.speed !== '') {
+		const n = Number(opts.speed);
+		if (Number.isFinite(n)) out.speed = Math.min(3, Math.max(0.3, n));
+	}
+	if (opts.ground != null && opts.ground !== '') out.ground = !(opts.ground === false || opts.ground === 'false');
+	if (opts.gestures != null && opts.gestures !== '') out.gestures = opts.gestures === true || opts.gestures === 'true';
+	if (opts.badge != null && opts.badge !== '') out.badge = !(opts.badge === false || opts.badge === 'false');
 	return out;
 }
 
@@ -661,6 +738,8 @@ function injectStyles() {
 		.embed-editor input[type=color] { width:44px; height:34px; padding:2px; background:#15181d; border:1px solid #2a2f37; border-radius:8px; cursor:pointer; }
 		.embed-editor input[type=color]:disabled { opacity:.4; cursor:not-allowed; }
 		.embed-editor input[type=checkbox] { width:16px; height:16px; accent-color:#6366f1; cursor:pointer; }
+		.ee-range { flex:1; accent-color:#6366f1; cursor:pointer; height:4px; }
+		.ee-rangeval { flex:0 0 auto; min-width:34px; text-align:right; font-size:12px; font-weight:600; color:#d4d4d8; font-variant-numeric:tabular-nums; }
 		.ee-dimrow { display:flex; gap:10px; }
 		.ee-dim { display:flex; align-items:center; gap:6px; flex:1; }
 		.ee-dim-label { font-size:12px; color:#71717a; font-weight:600; }
