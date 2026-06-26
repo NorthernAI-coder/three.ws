@@ -209,7 +209,7 @@ function renderDetail(v, ledger) {
 
 	const statusBanner = halted
 		? `<div class="vx-banner vx-banner--warn">⚠ Trading halted${v.halt_reason === 'drawdown' ? ' by the drawdown circuit breaker' : v.halt_reason === 'owner_pause' ? ' by the owner' : ''}. Backers can still redeem.</div>`
-		: closed ? '<div class="vx-banner">Vault is winding down — redemptions only.</div>' : '';
+		: closed ? '<div class="vx-banner">Vault is winding down, redemptions only.</div>' : '';
 
 	const repLine = v.reputation
 		? `${repBadge(v.reputation)} <span class="vx-d-rep-detail">${v.reputation.closed_count} closed · ${(v.reputation.win_rate * 100).toFixed(0)}% win · ${Number(v.reputation.realized_pnl_sol).toFixed(2)} SOL realized · max DD ${Number(v.reputation.max_drawdown_pct).toFixed(0)}%</span>`
@@ -231,7 +231,7 @@ function renderDetail(v, ledger) {
 
 	const positionsRows = v.positions.length
 		? v.positions.filter((p) => p.amount_raw !== '0').map((p) => `<tr><td class="vx-mono">${shortMint(p.mint)}</td><td>${Number(p.amount_raw).toLocaleString()}</td><td>${p.mark_atomics != null ? usd(p.mark_atomics) : '<span class="vx-muted">repricing…</span>'}</td></tr>`).join('')
-		: '<tr><td colspan="3" class="vx-muted">All capital is in USDC — no open positions.</td></tr>';
+		: '<tr><td colspan="3" class="vx-muted">All capital is in USDC, no open positions.</td></tr>';
 
 	const ownerBlock = v.is_owner ? ownerPanel(v) : '';
 
@@ -264,7 +264,7 @@ function renderDetail(v, ledger) {
 			<div class="vx-d-main">
 				${mineBlock}
 				<div class="vx-panel">
-					<h3 class="vx-panel-h">Open positions <span class="vx-panel-sub">${nav.priced ? 'marked to market' : 'partial — repricing'}</span></h3>
+					<h3 class="vx-panel-h">Open positions <span class="vx-panel-sub">${nav.priced ? 'marked to market' : 'partial, repricing'}</span></h3>
 					<table class="vx-table"><thead><tr><th>Token</th><th>Amount</th><th>Value</th></tr></thead><tbody>${positionsRows}</tbody></table>
 				</div>
 				${ownerBlock}
@@ -362,7 +362,7 @@ function wireOwner(v) {
 			const res = await apiFetch('/api/vaults/trade', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 			const j = await res.json();
 			if (!res.ok) throw new Error(j.error_description || 'trade blocked');
-			if (j.data?.halted) toast('Trade filled — drawdown breaker tripped, vault halted to protect capital.', 'warn');
+			if (j.data?.halted) toast('Trade filled, drawdown breaker tripped, vault halted to protect capital.', 'warn');
 			else toast(`Trade filled (${side}). NAV ${usd(j.data.nav_atomics)}`, 'ok');
 			await refreshDetail(v.id);
 		} catch (e) { toast(e.message, 'err'); }
@@ -432,7 +432,7 @@ function backModal(v) {
 			const res = await apiFetch('/api/vaults/deposit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ vaultId: v.id, backerAgentId, usdc: amt }) });
 			const j = await res.json();
 			if (!res.ok) throw new Error(j.error_description || 'deposit failed');
-			toast(`Deposited ${usd(j.data.shares_minted ? amt * ATOMICS : 0)} — ${shares(j.data.shares_minted)} shares`, 'ok');
+			toast(`Deposited ${usd(j.data.shares_minted ? amt * ATOMICS : 0)}, ${shares(j.data.shares_minted)} shares`, 'ok');
 			modal('#vx-back-modal', false);
 			await refreshDetail(v.id);
 		} catch (e) { errEl.textContent = e.message; errEl.hidden = false; }
@@ -467,9 +467,9 @@ function redeemModal(v) {
 			const res = await apiFetch('/api/vaults/redeem', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ vaultId: v.id, shares: shares_ }) });
 			const j = await res.json();
 			if (!res.ok && res.status !== 202) throw new Error(j.error_description || 'redeem failed');
-			if (j.data?.status === 'queued') toast('No liquid USDC right now — your redemption is queued.', 'warn');
+			if (j.data?.status === 'queued') toast('No liquid USDC right now, your redemption is queued.', 'warn');
 			else if (j.data?.status === 'partial') toast(`Partial: ${usd(j.data.net_atomics)} paid, rest queued.`, 'warn');
-			else toast(`Redeemed — ${usd(j.data.net_atomics)} paid out`, 'ok');
+			else toast(`Redeemed, ${usd(j.data.net_atomics)} paid out`, 'ok');
 			modal('#vx-back-modal', false);
 			await refreshDetail(v.id);
 		} catch (e) { errEl.textContent = e.message; errEl.hidden = false; }
@@ -482,7 +482,7 @@ function openVaultModal() {
 	if (!state.me) { window.location.href = '/login?next=' + encodeURIComponent('/vaults'); return; }
 	const sel = $('#vx-open-agent');
 	if (!state.agents.length) {
-		$('#vx-open-agent-hint').textContent = 'You have no agents yet — create one and build a track record first.';
+		$('#vx-open-agent-hint').textContent = 'You have no agents yet, create one and build a track record first.';
 		sel.innerHTML = '<option>No agents</option>';
 		sel.disabled = true;
 	} else {
@@ -509,7 +509,7 @@ async function submitOpen(ev) {
 		const res = await apiFetch('/api/vaults', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 		const j = await res.json();
 		if (!res.ok) throw new Error(j.error_description || 'could not open vault');
-		toast('Vault opened — share it so backers can stake.', 'ok');
+		toast('Vault opened, share it so backers can stake.', 'ok');
 		modal('#vx-open-modal', false);
 		await openDetail(j.data.vault.id);
 	} catch (e) { err.textContent = e.message; err.hidden = false; }

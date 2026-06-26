@@ -471,7 +471,7 @@ export class NichAgent {
 		// isn't re-rendered. See api/chat.js governActions().
 		if (governance?.decision === 'block') {
 			const why = governance.reasons?.[0]?.label || 'platform policy';
-			this._addMessage('agent', `Held by the IBM Granite Guardian Trust Layer — ${why}.`, 'status');
+			this._addMessage('agent', `Held by the IBM Granite Guardian Trust Layer, ${why}.`, 'status');
 		}
 
 		for (const action of actions || []) {
@@ -747,7 +747,7 @@ export class NichAgent {
 			return 'Right-click and drag to pan. Two fingers on mobile.';
 		}
 		if (lower.match(/\b(wireframe)\b/)) {
-			return 'Toggle wireframe in the Display controls panel — shows mesh topology.';
+			return 'Toggle wireframe in the Display controls panel, shows mesh topology.';
 		}
 		if (lower.match(/\b(light|lighting|dark|bright|exposure)\b/)) {
 			return 'Open the Lighting folder in the controls panel. Change the environment map, adjust exposure, toggle punctual lights.';
@@ -776,7 +776,7 @@ export class NichAgent {
 			return 'three.ws is the platform for building, embedding, and monetising 3D AI agents. Turn a selfie into a photorealistic 3D avatar in ~60s, embed it on any site with <agent-3d>, give it voice, memory and tools, and let it earn via x402 micropayments. Browse live agents at three.ws/agents.';
 		}
 		if (lower.match(/\b(who|what).*(you|this|agent)\b/)) {
-			return `I'm ${this.identity?.name || 'three.ws'} — present, embodied, and here to help with your 3D work.`;
+			return `I'm ${this.identity?.name || 'three.ws'}, present, embodied, and here to help with your 3D work.`;
 		}
 		if (lower.match(/\b(memory|remember|memories)\b/)) {
 			const stats = this.identity?.memory?.stats;
