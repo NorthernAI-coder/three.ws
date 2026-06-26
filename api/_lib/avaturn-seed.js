@@ -179,3 +179,25 @@ export function pickRandomLook(seed, { bodies, assets, bodyType }) {
 export function pickBodyType(seed) {
 	return mulberry32(hashSeed(seed + ':bodytype'))() < 0.5 ? 'male' : 'female';
 }
+
+// ── Public editor (no API key) ──────────────────────────────────────────────────
+// The seed cron drives Avaturn's *public* editor — the same iframe the demo uses
+// — so it needs no API key or per-account session. The SDK opens this URL, the
+// catalog is the public one, and exportAvatar() returns a rigged GLB.
+
+export const AVATURN_DEFAULT_EDITOR = 'https://preview.avaturn.dev/editor';
+export const AVATURN_DEFAULT_BODY = {
+	male: 'https://assets.avaturn.me/editor_resources/default_male.glb',
+	female: 'https://assets.avaturn.me/editor_resources/default_female.glb',
+};
+
+/**
+ * Build the public Avaturn editor URL seeded with a default body for the
+ * requested gender. The SDK appends `?sdk=true&noui=true` itself.
+ * @param {'male'|'female'} [bodyType]
+ * @returns {string}
+ */
+export function defaultEditorUrl(bodyType = 'male') {
+	const link = AVATURN_DEFAULT_BODY[bodyType] || AVATURN_DEFAULT_BODY.male;
+	return `${AVATURN_DEFAULT_EDITOR}?avatar_link=${encodeURIComponent(link)}`;
+}

@@ -55,6 +55,15 @@ const normalizeSlot = (raw) => { const k = String(raw || '').trim().toLowerCase(
 const HAIR_COLORS = ['#0b0b0b', '#1c1310', '#2a1a0f', '#3b2412', '#4a2f1a', '#5c3a1e', '#6b4423', '#7a5230', '#8d6239', '#a87c4f', '#c69a63', '#d9b380', '#e3c79a', '#9a9a9a', '#d8d8d8'];
 const EYE_COLORS = ['brown', 'dark_brown', 'hazel', 'amber', 'green', 'blue', 'gray'];
 
+// Public editor (no API key) — same iframe the demo uses.
+const AVATURN_DEFAULT_BODY = {
+	male: 'https://assets.avaturn.me/editor_resources/default_male.glb',
+	female: 'https://assets.avaturn.me/editor_resources/default_female.glb',
+};
+const defaultEditorUrl = (bodyType) =>
+	'https://preview.avaturn.dev/editor?avatar_link=' +
+	encodeURIComponent(AVATURN_DEFAULT_BODY[bodyType] || AVATURN_DEFAULT_BODY.male);
+
 function pickRandomLook(seed, { bodies, assets, bodyType }) {
 	const rng = mulberry32(hashSeed(String(seed)));
 	let bodyPool = (bodies || []).filter((b) => b && b.id);
@@ -107,10 +116,11 @@ function extractExportUrl(result) {
 (async () => {
 	try {
 		const params = new URLSearchParams(location.search);
-		const sessionUrl = params.get('session');
-		const seed = params.get('seed') || String(hashSeed(sessionUrl || 'fallback'));
 		const bodyType = params.get('bodyType') || 'male';
-		if (!sessionUrl) return fail('missing session url');
+		const seed = params.get('seed') || String(hashSeed('fallback'));
+		// Use an explicit session URL if one was supplied (authenticated path),
+		// otherwise drive the public demo editor — no API key needed.
+		const editorUrl = params.get('session') || defaultEditorUrl(bodyType);
 
 		step('init');
 		const sdk = new AvaturnSDK();
@@ -122,7 +132,7 @@ function extractExportUrl(result) {
 			const done = () => { if (!settled) { settled = true; resolve(); } };
 			// 'load' is the one callback allowed in disableUi mode.
 			try { sdk.on('load', done); } catch { /* fall through to init resolve */ }
-			sdk.init(stage, { url: sessionUrl, disableUi: true })
+			sdk.init(stage, { url: editorUrl, disableUi: true })
 				.then(() => setTimeout(done, 1500)) // safety net if 'load' never fires
 				.catch((e) => fail('init failed: ' + (e?.message || e)));
 		});

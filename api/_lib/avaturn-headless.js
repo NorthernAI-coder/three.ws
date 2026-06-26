@@ -69,28 +69,27 @@ async function pullGlb(exportUrl, maxBytes) {
 }
 
 /**
- * Drive one full headless Avaturn export.
+ * Drive one full headless Avaturn export. With no `sessionUrl` the harness opens
+ * the public demo editor (no API key) — that's the default seed path.
  *
  * @param {{
- *   sessionUrl: string,
  *   seed: string,
  *   bodyType?: 'male'|'female',
+ *   sessionUrl?: string,
  *   timeoutMs?: number,
  *   maxBytes?: number,
  * }} opts
  * @returns {Promise<{ glbBytes: Buffer, exportUrl: string, look: any }>}
  */
 export async function exportRandomAvaturnAvatar({
-	sessionUrl,
 	seed,
 	bodyType = 'male',
+	sessionUrl,
 	timeoutMs = 110_000,
 	maxBytes = DEFAULT_MAX_GLB_BYTES,
 }) {
-	if (!sessionUrl) throw Object.assign(new Error('sessionUrl required'), { code: 'invalid_args' });
-
 	const harness = new URL('/internal/avaturn-forge.html', env.APP_ORIGIN);
-	harness.searchParams.set('session', sessionUrl);
+	if (sessionUrl) harness.searchParams.set('session', sessionUrl);
 	harness.searchParams.set('seed', String(seed));
 	harness.searchParams.set('bodyType', bodyType);
 

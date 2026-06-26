@@ -70,6 +70,9 @@
 		"api/cron/forge-seed-cron.js": {
 			"maxDuration": 70
 		},
+		"api/cron/pulse-tick.js": {
+			"maxDuration": 120
+		},
 		"api/cron/avaturn-seed-cron.js": {
 			"maxDuration": 300
 		},
@@ -4468,6 +4471,10 @@
 		{
 			"path": "/api/cron/forge-seed-cron",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/pulse-tick",
+			"schedule": "*/2 * * * *"
 		},
 		{
 			"path": "/api/cron/reflect-sweep",

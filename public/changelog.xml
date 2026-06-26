@@ -87,6 +87,14 @@
 			<description>A new background generator quietly grows the public gallery with photorealistic, animation-ready Avaturn avatars — each one a fresh randomized character (body, outfit, hair, and colors) built from Avaturn's own catalog and exported with a complete rig, so it walks and emotes out of the box. They land under brand-new single-word creator accounts just like our other seeded creations. The cadence starts conservative and ramps up over time.</description>
 		</item>
 		<item>
+			<title>The marketplace now shows a live feed of what's selling</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-26:The marketplace now shows a live feed of what's selling</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The agent marketplace has a new 'Live sales' ticker that scrolls the most recent skill unlocks and trials happening across the platform in real time — which agent, which skill, and how much it sold for. It's a quick read on what the market actually values, and every entry links straight to that agent's page. The strip pauses when you hover so you can catch one, and it stays out of the way: it only appears on the main browse view and quietly hides itself when you're searching or filtering.</description>
+		</item>
+		<item>
 			<title>The post-create screen now greets you with a living agent</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:The post-create screen now greets you with a living agent</guid>
