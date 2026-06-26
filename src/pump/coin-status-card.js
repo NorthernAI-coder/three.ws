@@ -447,6 +447,11 @@ export function mountCoinStatus(container, mint, opts = {}) {
 	const refreshMs = opts.refreshMs == null ? DEFAULT_REFRESH_MS : Number(opts.refreshMs);
 	const showBuy = !!opts.showBuy;
 	const placeholder = opts.placeholder || null;
+	// Optional observer fired with the normalized coin after every successful
+	// load (initial + each refresh). Lets a host surface aggregate the same live
+	// market data it's already paying to fetch — e.g. the launches feed's
+	// combined-market-cap / graduated tallies — without a second round trip.
+	const onData = typeof opts.onData === 'function' ? opts.onData : null;
 	const render = RENDERERS[variant];
 
 	injectStyles();
@@ -489,6 +494,10 @@ export function mountCoinStatus(container, mint, opts = {}) {
 			}
 
 			paint(render(lastCoin, { showBuy, placeholder, conviction: lastConviction }));
+			if (onData) {
+				// Never let an observer error break the widget's own render/refresh.
+				try { onData(lastCoin); } catch { /* host-side aggregation is best-effort */ }
+			}
 		} catch (err) {
 			if (err?.name === 'AbortError' || destroyed) return;
 			// A refresh blip keeps the last good render; only a cold failure with

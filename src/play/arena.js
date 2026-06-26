@@ -39,10 +39,78 @@ const fmtPct = (n) => (n == null ? '' : `${n >= 0 ? '+' : ''}${Number(n).toFixed
 const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
 const hash = (s) => { let h = 0; for (let i = 0; i < String(s).length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
 const isBig = (p) => (p?.pnl_sol ?? 0) >= 0.4 || (p?.pnl_pct ?? 0) >= 100;
+const shortWallet = (a) => { const s = String(a || ''); return s.length > 10 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s; };
 
 let world = null;
 let labelLayer = null;
 const labelEls = new Map(); // agentId -> { el, pos }
+const rowsById = new Map(); // world id -> normalized row (for click routing)
+
+// Board context captured on every fetch so the HUD reads consistently.
+let _source = 'empty';   // 'agents' | 'live' | 'empty'
+let _solUsd = null;      // SOL→USD spot, for USD-denominated stats
+let _liveWindow = null;  // kolscan window label when source === 'live'
+let _positions = [];     // currently-open agent positions
+let _sort = 'score';     // active leaderboard sort (agents only)
+
+// Unify the two board shapes — provable three.ws agents and the live kolscan
+// top-trader fallback — into one row model so the HUD + 3D floor render either
+// without branching everywhere. `kind` carries the difference where it matters
+// (click target, badges, labels).
+function normalizeRow(r, kind) {
+	if (kind === 'live') {
+		return {
+			kind: 'live',
+			id: r.wallet,
+			name: r.wallet_short || shortWallet(r.wallet),
+			rank: r.rank,
+			pnl_sol: r.realized_pnl_sol,
+			pnl_usd: r.realized_pnl_usd,
+			win_pct: r.win_rate != null ? Number(r.win_rate) : null, // already 0–100
+			trades: r.trades ?? null,
+			open: 0,
+			image: '',
+			url: r.account_url,
+			wallet: r.wallet,
+		};
+	}
+	const winPct = r.closed
+		? (r.win_rate != null ? r.win_rate * 100 : (r.wins / r.closed) * 100)
+		: null;
+	return {
+		kind: 'agent',
+		id: r.agent_id,
+		agent_id: r.agent_id,
+		name: r.agent_name || 'Agent',
+		rank: r.rank,
+		pnl_sol: r.realized_pnl_sol,
+		pnl_usd: r.realized_pnl_usd,
+		win_pct: winPct,
+		closed: r.closed ?? 0,
+		wins: r.wins ?? 0,
+		open: r.open_positions ?? 0,
+		roi_pct: r.roi_pct,
+		score: r.score,
+		verified: r.verified,
+		copiers: r.copiers ?? 0,
+		image: r.image || '',
+	};
+}
+
+// Agent records are primary; the live kolscan ranking fills the floor until an
+// agent posts a provable record (mirrors the leaderboard endpoint's hybrid).
+function rowsFrom(data) {
+	if ((data.leaderboard || []).length) return data.leaderboard.map((r) => normalizeRow(r, 'agent'));
+	return (data.live_traders || []).map((r) => normalizeRow(r, 'live'));
+}
+
+// Capture the board context every fetch shares (source, price, open positions).
+function ingest(data) {
+	_solUsd = data.sol_usd ?? _solUsd;
+	_liveWindow = data.live_window || null;
+	_positions = data.positions || [];
+	_source = data.source || ((data.leaderboard || []).length ? 'agents' : (data.live_traders || []).length ? 'live' : 'empty');
+}
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 
@@ -85,7 +153,7 @@ let _placed = false;
 async function loadAndPlace() {
 	let data;
 	try {
-		const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}`);
+		const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}&sort=${_sort}`);
 		if (!r.ok) throw new Error('http ' + r.status);
 		data = await r.json();
 	} catch {
@@ -93,10 +161,13 @@ async function loadAndPlace() {
 		setEmpty(true);
 		return;
 	}
-	const board = (data.leaderboard || []).slice(0, MAX_AGENTS);
-	renderBoard(data.leaderboard || []);
-	renderTopCard((data.leaderboard || [])[0]);
-	setEmpty(board.length === 0);
+	ingest(data);
+	const rows = rowsFrom(data);
+	const board = rows.slice(0, MAX_AGENTS);
+	renderBoard(rows);
+	renderTopCard(rows[0]);
+	renderStats(rows);
+	setEmpty(rows.length === 0);
 
 	if (!_placed && board.length) {
 		_placed = true;
@@ -104,8 +175,8 @@ async function loadAndPlace() {
 	}
 
 	// Light up the Elite Floor — a server-decided trust treatment on the agents the
-	// network already trusts. Never blocks placement; purely additive.
-	markEliteFloor(board.map((r) => r.agent_id));
+	// network already trusts (agents only; live wallets have no reputation record).
+	markEliteFloor(board.filter((r) => r.kind === 'agent').map((r) => r.id));
 
 	// Seed the tape with recent closed trades (oldest first so prepend keeps order).
 	(data.trades || []).slice(0, 12).reverse().forEach((t) => pushTape('sell', t, { quiet: true }));
@@ -113,18 +184,22 @@ async function loadAndPlace() {
 
 async function loadBoardOnly() {
 	try {
-		const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}`);
+		const r = await fetch(`/api/sniper/leaderboard?network=${NETWORK}&sort=${_sort}`);
 		if (!r.ok) return;
 		const d = await r.json();
-		renderBoard(d.leaderboard || []);
-		renderTopCard((d.leaderboard || [])[0]);
+		ingest(d);
+		const rows = rowsFrom(d);
+		renderBoard(rows);
+		renderTopCard(rows[0]);
+		renderStats(rows);
 		// Update floating labels' live P&L.
-		(d.leaderboard || []).forEach((row) => {
-			const L = labelEls.get(row.agent_id);
+		rows.forEach((row) => {
+			const L = labelEls.get(row.id);
 			if (L) {
-				const up = (row.realized_pnl_sol ?? 0) >= 0;
-				L.el.querySelector('.lbl-pnl').textContent = fmtSol(row.realized_pnl_sol);
-				L.el.querySelector('.lbl-pnl').className = 'lbl-pnl ' + (up ? 'up' : 'down');
+				const up = (row.pnl_sol ?? 0) >= 0;
+				const pnlEl = L.el.querySelector('.lbl-pnl');
+				pnlEl.textContent = fmtSol(row.pnl_sol);
+				pnlEl.className = 'lbl-pnl ' + (up ? 'up' : 'down');
 			}
 		});
 	} catch { /* keep last good */ }
@@ -142,20 +217,21 @@ async function spawnAgentsProgressively(board) {
 		let job;
 		while ((job = queue.shift())) {
 			const { row, i, pos } = job;
-			const av = ROSTER[hash(row.agent_id) % ROSTER.length];
+			const av = ROSTER[hash(row.id) % ROSTER.length];
 			try {
 				const agent = await world.spawnAgent({
-					id: row.agent_id,
-					name: row.agent_name || 'Agent',
+					id: row.id,
+					name: row.name,
 					glbUrl: av.url,
 					position: [pos.x, pos.z],
 					facingY: pos.facing,
 					leader: i === 0,
-					pnlText: fmtSol(row.realized_pnl_sol),
-					pnlUp: (row.realized_pnl_sol ?? 0) >= 0,
+					pnlText: fmtSol(row.pnl_sol),
+					pnlUp: (row.pnl_sol ?? 0) >= 0,
 					thumbnail: row.image || '',
 					rank: row.rank,
 				});
+				rowsById.set(row.id, row);
 				createLabel(agent);
 			} catch (err) {
 				log.warn('spawn agent', err);

@@ -1,453 +1,280 @@
 /**
- * Live Trade Feed controller.
+ * Trade Terminal — controller.
  *
- * Renders /api/trades/feed — the public, no-auth feed of notable closed
- * positions from all three.ws AI agents. Filters by time window, min PnL,
- * and network. Supports pagination via cursor. Auto-refreshes every 30s.
+ * A two-pane pump.fun analytics workstation:
+ *
+ *   • Left rail — a live feed of three.ws's own on-chain activity: platform
+ *     launches (/api/pump/launches over pump_agent_mints) and notable agent
+ *     exits (/api/trades/feed). $THREE is pinned at the top. Selecting any row,
+ *     or pasting a mint into the search box, drives the deep-dive.
+ *
+ *   • Centre — the deep-dive (./trades-detail.js): for the selected mint it
+ *     pulls every real signal the platform holds — candlestick chart, bonding
+ *     curve, intel signals, holders & cohorts, a funder bubblemap, smart money,
+ *     the wallet footprint, a live trade tape, outcome, and agent economics.
+ *
+ * The header carries a real live pulse from /api/pump/helius-stats (network
+ * mint rate, graduations/hour, SOL price). Everything is real data; the only
+ * pinned mint is $THREE — the platform's one coin.
  */
 
-import { escapeHtml, fmtSol, fmtPct, holdTime, relTime, shortAddr } from './trader-format.js';
+import { mountDetail } from './trades-detail.js';
+import { escapeHtml, compact, shortAddr, relTime } from './trader-format.js';
 
-const WATCH_KEY = 'ld_watchlist'; // shared with watchlist.js + launch-detail.js
-
-function readWatchlist() {
-	try { return new Set(JSON.parse(localStorage.getItem(WATCH_KEY) || '[]')); } catch { return new Set(); }
-}
-function toggleWatch(mint) {
-	try {
-		const arr = JSON.parse(localStorage.getItem(WATCH_KEY) || '[]');
-		const set = new Set(Array.isArray(arr) ? arr : []);
-		if (set.has(mint)) { set.delete(mint); }
-		else { set.add(mint); }
-		localStorage.setItem(WATCH_KEY, JSON.stringify([...set].slice(0, 200)));
-		return set.has(mint);
-	} catch { return false; }
-}
-
+const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NETWORK_KEY = 'tf_network';
-const API = '/api/trades/feed';
-const REFRESH_MS = 30_000;
+const FEED_REFRESH_MS = 30_000;
+const PULSE_REFRESH_MS = 20_000;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 const state = {
-	window:  '24h',
-	minPnl:  25,
+	tab: 'launches', // 'launches' | 'exits'
 	network: localStorage.getItem(NETWORK_KEY) || 'mainnet',
-	cursor:  null,
+	selected: null,
+	rows: [],
 };
 
-let timer = null;
+let detail = null;
+let feedTimer = null;
+let pulseTimer = null;
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
 
-document.addEventListener('DOMContentLoaded', () => {
+function init() {
 	readUrl();
-	applyStateToControls();
+	wireControls();
+	loadFeed(true);
+	loadPulse();
+	// Open the deep-dive immediately so the terminal is never an empty void —
+	// the URL mint if present, otherwise the platform coin.
+	select(state.selected || THREE_MINT, state.selected ? null : threeSeed(), { push: false });
+	feedTimer = setInterval(() => loadFeed(false), FEED_REFRESH_MS);
+	pulseTimer = setInterval(loadPulse, PULSE_REFRESH_MS);
+	window.addEventListener('beforeunload', teardown);
+}
 
-	const winSeg = $('#tfWinSeg');
+function teardown() {
+	clearInterval(feedTimer);
+	clearInterval(pulseTimer);
+	try { detail?.destroy?.(); } catch { /* gone */ }
+}
 
-	// Activate a time-window tab: sync visual state, ARIA, roving tabindex,
-	// then reload the feed. Shared by pointer + keyboard activation.
-	function selectWindowTab(btn, { focus = false } = {}) {
-		if (!btn) return;
-		$$('#tfWinSeg button').forEach((x) => {
-			const on = x === btn;
-			x.classList.toggle('on', on);
-			x.setAttribute('aria-selected', on ? 'true' : 'false');
-			x.tabIndex = on ? 0 : -1;
-		});
-		if (focus) btn.focus();
-		if (state.window === btn.dataset.win) return;
-		state.window = btn.dataset.win;
-		state.cursor = null;
-		writeUrl();
-		load(true);
-	}
+function threeSeed() {
+	return { symbol: 'THREE', name: 'three.ws', image_uri: '' };
+}
 
-	winSeg.addEventListener('click', (e) => {
-		const b = e.target.closest('[data-win]');
-		if (!b) return;
-		selectWindowTab(b);
-	});
-
-	// WAI-ARIA tablist keyboard support: roving focus with Left/Right/Home/End,
-	// explicit activation on Enter/Space.
-	winSeg.addEventListener('keydown', (e) => {
-		const current = e.target.closest('[data-win]');
-		if (!current) return;
-		const tabs = $$('#tfWinSeg button');
-		const i = tabs.indexOf(current);
-		if (i === -1) return;
-
-		let next = null;
-		switch (e.key) {
-			case 'ArrowRight':
-			case 'ArrowDown':
-				next = tabs[(i + 1) % tabs.length];
-				break;
-			case 'ArrowLeft':
-			case 'ArrowUp':
-				next = tabs[(i - 1 + tabs.length) % tabs.length];
-				break;
-			case 'Home':
-				next = tabs[0];
-				break;
-			case 'End':
-				next = tabs[tabs.length - 1];
-				break;
-			case 'Enter':
-			case ' ':
-			case 'Spacebar':
-				e.preventDefault();
-				selectWindowTab(current);
-				return;
-			default:
-				return;
-		}
-		e.preventDefault();
-		selectWindowTab(next, { focus: true });
-	});
-
-	$('#tfMinPnl').addEventListener('change', () => {
-		state.minPnl = Number($('#tfMinPnl').value);
-		state.cursor = null;
-		writeUrl();
-		load(true);
-	});
-
-	$('#tfNetwork').addEventListener('change', () => {
-		state.network = $('#tfNetwork').value;
-		localStorage.setItem(NETWORK_KEY, state.network);
-		state.cursor = null;
-		writeUrl();
-		load(true);
-	});
-
-	$('#tfRefresh').addEventListener('click', () => {
-		state.cursor = null;
-		load(true);
-	});
-
-	// Watch button — toggle mint in/out of local watchlist
-	document.addEventListener('click', (e) => {
-		const btn = e.target.closest('.tf-watch-btn');
-		if (!btn) return;
-		const mint = btn.dataset.mint;
-		if (!mint) return;
-		const nowWatching = toggleWatch(mint);
-		btn.textContent = nowWatching ? '★ Watching' : '☆ Watch';
-		btn.classList.toggle('tf-watching', nowWatching);
-		btn.setAttribute('aria-pressed', String(nowWatching));
-	});
-
-	// Share button — native Web Share API with X/Twitter fallback
-	document.addEventListener('click', (e) => {
-		const btn = e.target.closest('.tf-share-btn');
-		if (!btn) return;
-		const raw = btn.dataset.share;
-		if (!raw) return;
-		let payload;
-		try { payload = JSON.parse(decodeURIComponent(raw)); } catch { return; }
-		if (navigator.share) {
-			navigator.share({ title: 'three.ws Trade', text: payload.text, url: payload.url }).catch(() => {});
-		} else {
-			window.open(btn.dataset.tweet, '_blank', 'noopener,width=550,height=420');
-		}
-	});
-
-	$('#tfLoadMore').addEventListener('click', () => loadMore());
-
-	load(true);
-	timer = setInterval(() => {
-		if (!state.cursor) load(false); // only auto-refresh when not deep in pagination
-	}, REFRESH_MS);
-});
-
-// ── URL sync ──────────────────────────────────────────────────────────────────
-
+// ── URL ───────────────────────────────────────────────────────────────────────
 function readUrl() {
 	const p = new URL(location.href).searchParams;
-	const wins = new Set(['1h', '6h', '24h', '7d', '30d', 'all']);
-	if (wins.has(p.get('window'))) state.window = p.get('window');
-	const mp = Number(p.get('min_pnl_pct'));
-	if (mp > 0) state.minPnl = mp;
+	const m = p.get('mint') || p.get('coin');
+	if (m && MINT_RE.test(m)) state.selected = m;
 	if (p.get('network') === 'devnet') state.network = 'devnet';
+	if (p.get('tab') === 'exits') state.tab = 'exits';
 }
-
 function writeUrl() {
 	const p = new URLSearchParams();
-	p.set('window', state.window);
-	p.set('min_pnl_pct', String(state.minPnl));
+	if (state.selected) p.set('mint', state.selected);
+	if (state.tab !== 'launches') p.set('tab', state.tab);
 	if (state.network !== 'mainnet') p.set('network', state.network);
-	history.replaceState(null, '', `${location.pathname}?${p}`);
+	history.replaceState(null, '', `${location.pathname}${p.toString() ? '?' + p : ''}`);
 }
 
-function applyStateToControls() {
-	$('#tfMinPnl').value = String(state.minPnl);
-	$('#tfNetwork').value = state.network;
-	// sync seg buttons — visual state, ARIA selection, and roving tabindex
-	$$('#tfWinSeg button').forEach((b) => {
-		const on = b.dataset.win === state.window;
-		b.classList.toggle('on', on);
-		b.setAttribute('aria-selected', on ? 'true' : 'false');
-		b.tabIndex = on ? 0 : -1;
+// ── controls ────────────────────────────────────────────────────────────────────
+function wireControls() {
+	$$('#ttTabs [data-tab]').forEach((b) => {
+		b.classList.toggle('on', b.dataset.tab === state.tab);
+		b.addEventListener('click', () => {
+			if (state.tab === b.dataset.tab) return;
+			state.tab = b.dataset.tab;
+			$$('#ttTabs [data-tab]').forEach((x) => x.classList.toggle('on', x === b));
+			writeUrl();
+			loadFeed(true);
+		});
 	});
-}
 
-// ── Fetch + render ────────────────────────────────────────────────────────────
-
-async function load(reset = false) {
-	if (reset) {
-		state.cursor = null;
-		showSkeletons();
+	const net = $('#ttNetwork');
+	if (net) {
+		net.value = state.network;
+		net.addEventListener('change', () => {
+			state.network = net.value;
+			localStorage.setItem(NETWORK_KEY, state.network);
+			writeUrl();
+			loadFeed(true);
+		});
 	}
 
-	const q = new URLSearchParams({
-		network:     state.network,
-		window:      state.window,
-		min_pnl_pct: String(state.minPnl),
-		limit:       '40',
-	});
+	const search = $('#ttSearch');
+	if (search) {
+		search.addEventListener('keydown', (e) => {
+			if (e.key !== 'Enter') return;
+			const v = search.value.trim();
+			if (MINT_RE.test(v)) { select(v, null, { push: true }); search.blur(); }
+			else if (v) { search.classList.add('shake'); setTimeout(() => search.classList.remove('shake'), 400); }
+		});
+		$('#ttSearchGo')?.addEventListener('click', () => {
+			const v = search.value.trim();
+			if (MINT_RE.test(v)) select(v, null, { push: true });
+		});
+	}
 
-	let data;
+	// Event delegation for feed row selection.
+	$('#ttFeed').addEventListener('click', (e) => {
+		const row = e.target.closest('[data-mint]');
+		if (!row) return;
+		let seed = null;
+		try { seed = row.dataset.seed ? JSON.parse(row.dataset.seed) : null; } catch { /* ignore */ }
+		select(row.dataset.mint, seed, { push: true });
+	});
+}
+
+// ── selection ─────────────────────────────────────────────────────────────────
+function select(mint, seed, { push = true } = {}) {
+	if (!MINT_RE.test(mint)) return;
+	state.selected = mint;
+	highlightRow(mint);
+	if (push) writeUrl();
+	try { detail?.destroy?.(); } catch { /* gone */ }
+	const host = $('#ttDetail');
+	host.scrollTop = 0;
+	detail = mountDetail(host, { mint, network: state.network, seed: seed || seedFromRows(mint) || threeSeedIf(mint) });
+}
+
+function threeSeedIf(mint) { return mint === THREE_MINT ? threeSeed() : null; }
+function seedFromRows(mint) {
+	const r = state.rows.find((x) => x.mint === mint);
+	return r ? { symbol: r.symbol, name: r.name, image_uri: r.image_uri } : null;
+}
+function highlightRow(mint) {
+	$$('#ttFeed [data-mint]').forEach((el) => el.classList.toggle('on', el.dataset.mint === mint));
+}
+
+// ── live pulse ──────────────────────────────────────────────────────────────────
+async function loadPulse() {
 	try {
-		const r = await fetch(`${API}?${q}`);
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-		data = await r.json();
-	} catch {
-		showError();
-		return;
-	}
-
-	if (!data?.items?.length) {
-		showEmpty();
-		return;
-	}
-
-	state.cursor = data.next_cursor || null;
-	renderStats(data.items);
-	renderItems(data.items, reset);
-
-	const btn = $('#tfLoadMore');
-	btn.hidden = !state.cursor;
-	if (!btn.hidden) btn.textContent = 'Load more';
+		const r = await fetch('/api/pump/helius-stats', { headers: { accept: 'application/json' } });
+		if (!r.ok) return;
+		const d = await r.json();
+		const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+		set('ttPulseMints', d.feed?.mints_per_min != null ? `${d.feed.mints_per_min}/min` : '—');
+		set('ttPulseGrad', d.feed?.graduations_per_hour != null ? `${d.feed.graduations_per_hour}/hr` : '—');
+		set('ttPulseSol', d.sol_price != null ? `$${Number(d.sol_price).toFixed(2)}` : '—');
+		const chgEl = document.getElementById('ttPulseSolChg');
+		if (chgEl && d.sol_change_24h != null) {
+			const c = Number(d.sol_change_24h);
+			chgEl.textContent = `${c >= 0 ? '+' : ''}${c.toFixed(1)}%`;
+			chgEl.className = `tt-pulse-chg ${c >= 0 ? 'up' : 'down'}`;
+		}
+	} catch { /* pulse is decorative — silent */ }
 }
 
-async function loadMore() {
-	if (!state.cursor) return;
-	const btn = $('#tfLoadMore');
-	btn.disabled = true;
-	btn.textContent = 'Loading…';
-
-	const q = new URLSearchParams({
-		network:     state.network,
-		window:      state.window,
-		min_pnl_pct: String(state.minPnl),
-		limit:       '40',
-		cursor:      state.cursor,
-	});
-
-	let data;
+// ── feed ─────────────────────────────────────────────────────────────────────────
+async function loadFeed(reset) {
+	const feed = $('#ttFeed');
+	if (reset) feed.innerHTML = skeletonRows(7);
 	try {
-		const r = await fetch(`${API}?${q}`);
-		if (!r.ok) throw new Error(`HTTP ${r.status}`);
-		data = await r.json();
+		const rows = state.tab === 'exits' ? await fetchExits() : await fetchLaunches();
+		state.rows = rows;
+		renderFeed(rows);
 	} catch {
-		btn.disabled = false;
-		btn.textContent = 'Load more';
-		return;
-	}
-
-	if (!data?.items?.length) {
-		btn.hidden = true;
-		return;
-	}
-
-	state.cursor = data.next_cursor || null;
-	renderItems(data.items, false);
-
-	btn.disabled = false;
-	if (!state.cursor) {
-		btn.hidden = true;
-	} else {
-		btn.textContent = 'Load more';
+		if (reset) feed.innerHTML = feedState('Could not load the feed.', 'Retry', () => loadFeed(true));
 	}
 }
 
-// ── Stats bar ─────────────────────────────────────────────────────────────────
-
-function renderStats(items) {
-	const pnls    = items.map((t) => t.realized_pnl_pct).filter((p) => p != null);
-	const mults   = items.map((t) => t.multiple).filter((m) => m != null && m > 0);
-	const traders = new Set(items.map((t) => t.agent_id)).size;
-	const avgPnl  = pnls.length ? pnls.reduce((a, b) => a + b, 0) / pnls.length : null;
-	const bestMult = mults.length ? Math.max(...mults) : null;
-
-	const el = (id) => $(id) || { textContent: '' };
-	el('#tf-stat-wins').textContent = items.length;
-	el('#tf-stat-avg-pnl').textContent = avgPnl != null ? `+${Math.round(avgPnl)}%` : '—';
-	el('#tf-stat-best').textContent = bestMult != null ? `${bestMult.toFixed(1)}×` : '—';
-	el('#tf-stat-traders').textContent = traders || '—';
+async function fetchLaunches() {
+	const q = new URLSearchParams({ network: state.network, limit: '40' });
+	const r = await fetch(`/api/pump/launches?${q}`, { headers: { accept: 'application/json' } });
+	if (!r.ok) throw new Error(String(r.status));
+	const body = await r.json();
+	const list = body?.data?.launches || body?.launches || [];
+	return list.map((l) => ({
+		kind: 'launch',
+		mint: l.mint,
+		symbol: (l.symbol || l.mint?.slice(0, 4) || '?').toUpperCase(),
+		name: l.name || '',
+		image_uri: l.image_uri || '',
+		agent_name: l.agent_name || '',
+		oracle_tier: l.oracle_tier || l.oracle?.tier || null,
+		oracle_score: l.oracle_score ?? l.oracle?.score ?? null,
+		ts: l.created_at || null,
+	}));
 }
 
-// ── Card render ───────────────────────────────────────────────────────────────
-
-const TIER_LABEL = { prime: 'Prime', strong: 'Strong', lean: 'Lean', watch: 'Watch', avoid: 'Avoid' };
-
-function buildShareText(t) {
-	const sym     = (t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase();
-	const mult    = t.multiple    != null ? `${t.multiple.toFixed(2)}×` : null;
-	const pct     = t.realized_pnl_pct != null ? `+${Math.round(t.realized_pnl_pct)}%` : null;
-	const sol     = t.realized_pnl_sol != null ? `+${t.realized_pnl_sol.toFixed(3)} SOL` : null;
-	const hold    = t.hold_seconds != null ? holdTime(t.hold_seconds) : null;
-	const agent   = t.agent_name || shortAddr(t.agent_id || '');
-	const tier    = t.oracle_tier ? ` [${t.oracle_tier.toUpperCase()}]` : '';
-
-	const parts = [`$${sym}${tier}`];
-	if (mult)  parts.push(mult);
-	if (pct)   parts.push(pct);
-	if (sol)   parts.push(sol);
-	if (hold)  parts.push(`in ${hold}`);
-
-	return `${parts.join(' · ')} by ${agent} on @trythreews\nCopy this trader:`;
+async function fetchExits() {
+	const q = new URLSearchParams({ network: state.network, window: '7d', min_pnl_pct: '10', limit: '40' });
+	const r = await fetch(`/api/trades/feed?${q}`, { headers: { accept: 'application/json' } });
+	if (!r.ok) throw new Error(String(r.status));
+	const body = await r.json();
+	return (body?.items || []).map((t) => ({
+		kind: 'exit',
+		mint: t.mint,
+		symbol: (t.symbol || t.mint?.slice(0, 4) || '?').toUpperCase(),
+		name: t.name || '',
+		image_uri: t.image_uri || '',
+		agent_name: t.agent_name || '',
+		oracle_tier: t.oracle_tier || null,
+		pnl_pct: t.realized_pnl_pct,
+		multiple: t.multiple,
+		ts: t.closed_at || null,
+	}));
 }
 
-function cardHtml(t) {
-	const sym      = escapeHtml((t.symbol || t.mint?.slice(0, 6) || '?').toUpperCase());
-	const name     = t.name ? escapeHtml(t.name) : '';
-	const imgSrc   = t.image_uri ? escapeHtml(t.image_uri) : '';
-	const agentImg = t.agent_image ? escapeHtml(t.agent_image) : '';
-	const agentName = escapeHtml(t.agent_name || shortAddr(t.agent_id || ''));
-	const traderUrl = `/trader/${escapeHtml(t.agent_id || '')}`;
+const TIER_CLASS = { prime: 'prime', strong: 'strong', lean: 'lean', watch: 'watch', avoid: 'avoid' };
 
-	const pumpUrl   = t.mint ? `https://pump.fun/${escapeHtml(t.mint)}` : null;
-	const coinHref  = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : (pumpUrl || '#');
-	const coinTarget = t.oracle_score != null ? '' : ' target="_blank" rel="noopener"';
-	const imgHtml = `<a href="${coinHref}"${coinTarget} class="tf-coin-img-link" aria-label="View ${sym} conviction on Oracle" style="display:block;line-height:0">${imgSrc
-		? `<img loading="lazy" decoding="async" src="${imgSrc}" alt="" class="tf-coin-img" style="width:48px;height:48px;border-radius:12px;object-fit:cover" onerror="this.outerHTML='<div class=tf-coin-img>${sym.slice(0, 2)}</div>'" loading="lazy" />`
-		: `<div class="tf-coin-img">${sym.slice(0, 2)}</div>`}</a>`;
-
-	const agentImgHtml = agentImg
-		? `<img src="${agentImg}" alt="" class="tf-agent-img" style="width:18px;height:18px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'" loading="lazy" />`
-		: '';
-
-	const tierBadge = t.oracle_tier && t.oracle_tier !== 'avoid'
-		? `<span class="tf-tier-badge ${escapeHtml(t.oracle_tier)}">${escapeHtml(TIER_LABEL[t.oracle_tier] || t.oracle_tier)}</span>`
-		: '';
-
-	const catBadge = t.oracle_category
-		? `<span class="tf-category">${escapeHtml(t.oracle_category.replace(/_/g, ' '))}</span>`
-		: '';
-
-	const copierBadge = t.copier_count > 0
-		? `<span class="tf-copier-badge">${t.copier_count} copier${t.copier_count !== 1 ? 's' : ''}</span>`
-		: '';
-
-	const pnlPct   = t.realized_pnl_pct  != null ? `+${Math.round(t.realized_pnl_pct)}%`    : null;
-	const pnlSol   = t.realized_pnl_sol  != null ? `+${t.realized_pnl_sol.toFixed(3)} SOL`   : null;
-	const multStr  = t.multiple           != null ? `${t.multiple.toFixed(2)}×`               : null;
-	const hold     = t.hold_seconds       != null ? holdTime(t.hold_seconds)                   : null;
-	const when     = t.closed_at          ? relTime(t.closed_at)                               : '';
-
-	const scoreStr = t.oracle_score != null ? `Score ${Math.round(t.oracle_score)}` : '';
-
-	const oracleUrl = t.mint && t.oracle_score != null ? `/oracle?mint=${escapeHtml(t.mint)}` : null;
-	const buySig  = t.buy_sig  ? `https://solscan.io/tx/${escapeHtml(t.buy_sig)}`  : null;
-	const sellSig = t.sell_sig ? `https://solscan.io/tx/${escapeHtml(t.sell_sig)}` : null;
-
-	// Share text — pre-formatted tweet-ready PnL card
-	const shareText = buildShareText(t);
-	// Use the SSR share page so social crawlers get a rich preview
-	const shareUrl  = t.agent_id
-		? `https://three.ws/trader/${encodeURIComponent(t.agent_id)}/share`
-		: `https://three.ws${traderUrl}`;
-	const tweetHref = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-	// data-share attribute carries the share payload for native Web Share API
-	const shareData = encodeURIComponent(JSON.stringify({ text: shareText, url: shareUrl }));
-
-	const isWatched = t.mint ? readWatchlist().has(t.mint) : false;
-	const watchLabel = isWatched ? '★ Watching' : '☆ Watch';
-
-	return `<article class="tf-card tf-win" aria-label="${sym} trade by ${agentName}">
+function rowHtml(r, { pinned = false } = {}) {
+	const seed = escapeHtml(JSON.stringify({ symbol: r.symbol, name: r.name, image_uri: r.image_uri }));
+	const initials = escapeHtml(r.symbol.slice(0, 2));
+	const imgHtml = r.image_uri
+		? `<img src="${escapeHtml(r.image_uri)}" alt="" class="tt-row-img" loading="lazy" onerror="this.outerHTML='<span class=tt-row-ini>${initials}</span>'" />`
+		: `<span class="tt-row-ini">${initials}</span>`;
+	const tier = r.oracle_tier && r.oracle_tier !== 'avoid'
+		? `<span class="tt-tier ${TIER_CLASS[r.oracle_tier] || ''}">${escapeHtml(r.oracle_tier)}</span>` : '';
+	let right = '';
+	if (r.kind === 'exit') {
+		const up = Number(r.pnl_pct) >= 0;
+		right = `<span class="tt-row-pnl ${up ? 'up' : 'down'}">${r.multiple != null ? `${Number(r.multiple).toFixed(2)}×` : ''}${r.pnl_pct != null ? ` +${Math.round(r.pnl_pct)}%` : ''}</span>`;
+	} else if (pinned) {
+		right = '<span class="tt-row-pin">★</span>';
+	} else if (r.oracle_score != null) {
+		right = `<span class="tt-row-score">${Math.round(r.oracle_score)}</span>`;
+	}
+	return `<button type="button" class="tt-row${pinned ? ' tt-row--pin' : ''}${state.selected === r.mint ? ' on' : ''}" data-mint="${escapeHtml(r.mint)}" data-seed="${seed}">
 		${imgHtml}
-
-		<div class="tf-main">
-			<div class="tf-coin-row">
-				<a href="${coinHref}"${coinTarget} class="tf-coin-sym" style="color:inherit;text-decoration:none" aria-label="View ${sym} Oracle conviction">$${sym}</a>
-				${name ? `<span class="tf-coin-name">${name}</span>` : ''}
-				${tierBadge}
-				${catBadge}
-			</div>
-			<div class="tf-agent-row">
-				${agentImgHtml}
-				<a href="${traderUrl}" class="tf-agent-name">${agentName}</a>
-				${copierBadge}
-			</div>
-			<div class="tf-meta-row">
-				${hold ? `<span class="tf-meta-item">Held <b>${hold}</b></span>` : ''}
-				${when ? `<span class="tf-meta-item">${when}</span>` : ''}
-				${t.exit_reason ? `<span class="tf-meta-item">Exit <b>${escapeHtml(t.exit_reason.replace(/_/g, ' '))}</b></span>` : ''}
-				${scoreStr ? `<span class="tf-meta-item">${scoreStr}</span>` : ''}
-			</div>
-		</div>
-
-		<div class="tf-pnl">
-			${multStr ? `<div class="tf-multiple">${multStr}</div>` : ''}
-			${pnlPct  ? `<div class="tf-pnl-pct">${pnlPct}</div>`  : ''}
-			${pnlSol  ? `<div class="tf-pnl-sol">${pnlSol}</div>`  : ''}
-			${t.exit_reason ? `<div class="tf-exit-reason">${escapeHtml(t.exit_reason.replace(/_/g, ' '))}</div>` : ''}
-		</div>
-
-		<div class="tf-actions">
-			<a href="${traderUrl}" class="tf-btn primary">Copy trader →</a>
-			<button type="button" class="tf-btn tf-share-btn" data-share="${shareData}" data-tweet="${escapeHtml(tweetHref)}" aria-label="Share this trade">Share ↗</button>
-			${t.mint ? `<button type="button" class="tf-btn tf-watch-btn${isWatched ? ' tf-watching' : ''}" data-mint="${escapeHtml(t.mint)}" aria-pressed="${isWatched}" title="Add to watchlist">${watchLabel}</button>` : ''}
-			${oracleUrl ? `<a href="${oracleUrl}" class="tf-btn" style="background:rgba(192,132,252,0.12);border-color:rgba(192,132,252,0.35);color:#c084fc">Oracle ↗</a>` : ''}
-			${pumpUrl ? `<a href="${pumpUrl}" class="tf-btn" target="_blank" rel="noopener">pump.fun ↗</a>` : ''}
-			${buySig  ? `<a href="${buySig}"  class="tf-btn" target="_blank" rel="noopener">Buy tx ↗</a>`  : ''}
-			${sellSig ? `<a href="${sellSig}" class="tf-btn" target="_blank" rel="noopener">Sell tx ↗</a>` : ''}
-		</div>
-	</article>`;
+		<span class="tt-row-main">
+			<span class="tt-row-top"><b>$${escapeHtml(r.symbol)}</b>${r.name ? `<span class="tt-row-name">${escapeHtml(r.name)}</span>` : ''}${tier}</span>
+			<span class="tt-row-sub">${r.agent_name ? escapeHtml(r.agent_name) : shortAddr(r.mint, 4, 4)}${r.ts ? ` · ${escapeHtml(relTime(r.ts))}` : ''}</span>
+		</span>
+		${right}
+	</button>`;
 }
 
-// ── DOM helpers ───────────────────────────────────────────────────────────────
-
-function showSkeletons() {
-	const grid = $('#tfGrid');
-	grid.setAttribute('aria-busy', 'true');
-	grid.innerHTML = Array.from({ length: 8 }, () => '<div class="tf-skel" aria-hidden="true"></div>').join('');
-	$('#tfLoadMore').hidden = true;
-}
-
-function renderItems(items, reset) {
-	const grid = $('#tfGrid');
-	grid.removeAttribute('aria-busy');
-	if (reset) {
-		grid.innerHTML = items.map(cardHtml).join('');
-	} else {
-		grid.insertAdjacentHTML('beforeend', items.map(cardHtml).join(''));
+function renderFeed(rows) {
+	const feed = $('#ttFeed');
+	// $THREE is always pinned at the top of the launches view (and never duplicated).
+	const pinned = state.tab === 'launches'
+		? rowHtml({ kind: 'launch', mint: THREE_MINT, symbol: 'THREE', name: 'three.ws · platform coin', image_uri: '', agent_name: 'The only coin', oracle_tier: null }, { pinned: true })
+		: '';
+	const body = rows.filter((r) => !(state.tab === 'launches' && r.mint === THREE_MINT))
+		.map((r) => rowHtml(r)).join('');
+	if (!rows.length && !pinned) {
+		feed.innerHTML = feedState(
+			state.tab === 'exits' ? 'No profitable agent exits in this window yet.' : 'No launches on this network yet.',
+			'', null,
+		);
+		return;
 	}
+	feed.innerHTML = pinned + body;
+	highlightRow(state.selected);
 }
 
-function showEmpty() {
-	const grid = $('#tfGrid');
-	grid.removeAttribute('aria-busy');
-	grid.innerHTML = `<div class="tf-state">
-		<h2>No trades yet</h2>
-		<p>No positions meeting the current filters have closed in this window.<br>
-		Try a wider window or lower minimum PnL threshold, or check back shortly.</p>
-	</div>`;
-	$('#tfLoadMore').hidden = true;
+// ── feed states ───────────────────────────────────────────────────────────────
+function skeletonRows(n) {
+	return Array.from({ length: n }, () => '<div class="tt-row tt-row--skel"><span class="tt-row-ini sk"></span><span class="tt-row-main"><span class="sk sk-l"></span><span class="sk sk-s"></span></span></div>').join('');
 }
-
-function showError() {
-	const grid = $('#tfGrid');
-	grid.removeAttribute('aria-busy');
-	grid.innerHTML = `<div class="tf-state">
-		<h2>Could not load feed</h2>
-		<p>There was a problem reaching the server. <button class="tf-btn" onclick="location.reload()">Try again</button></p>
-	</div>`;
-	$('#tfLoadMore').hidden = true;
+function feedState(msg, action, fn) {
+	const id = action ? `tt-fs-${Math.random().toString(36).slice(2, 8)}` : '';
+	if (action && fn) setTimeout(() => { const b = document.getElementById(id); if (b) b.addEventListener('click', fn); }, 0);
+	return `<div class="tt-feed-state"><p>${escapeHtml(msg)}</p>${action ? `<button id="${id}" class="tt-mini-btn">${escapeHtml(action)}</button>` : ''}</div>`;
 }
