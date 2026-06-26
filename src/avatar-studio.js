@@ -70,31 +70,6 @@ let previewToken = 0;
 let opQueue = Promise.resolve();
 let searchQuery = '';
 
-// Animation state. `emotesReady` flips true once the clip library loads and the
-// idle clip binds to the rig; until then the Animate tab shows a loading state.
-// `currentEmote` is the looping clip the avatar rests in (one-shots settle back
-// to it). `activeIdleClip` is the looping baseline that Save bakes in.
-let emotesReady = false;
-let currentEmote = DEFAULT_EMOTE;
-let activeIdleClip = DEFAULT_EMOTE;
-
-function queueOp(fn) {
-	const next = opQueue.then(fn).catch((err) => {
-		log.warn('[avatar-studio] queued op failed:', err);
-	});
-	opQueue = next;
-	return next;
-}
-
-const TABS = [
-	{ id: 'color', label: 'Color', kinds: [], color: true },
-	{ id: 'hat', label: 'Hats', kinds: ['hat'], emoji: '🎩', single: true },
-	{ id: 'glasses', label: 'Glasses', kinds: ['glasses'], emoji: '🕶️', single: true },
-	{ id: 'earrings', label: 'Earrings', kinds: ['earrings'], emoji: '💎', single: false },
-	{ id: 'sculpt', label: 'Face', kinds: [], emoji: '✨', single: true, sculpt: true },
-	{ id: 'animate', label: 'Animate', kinds: [], emoji: '🎬', animate: true },
-];
-
 // ── Animate — drive the rig live with the shared canonical clip library ──────
 // These names resolve against /animations/manifest.json (loaded by the scene's
 // emote controller) and retarget onto the avatar's skeleton at runtime. Proof
@@ -121,6 +96,32 @@ const EMOTES = [
 ];
 const EMOTE_BY_NAME = new Map(EMOTES.map((e) => [e.name, e]));
 const DEFAULT_EMOTE = 'idle';
+
+// Animation state. `emotesReady` flips true once the clip library loads and the
+// idle clip binds to the rig; until then the Animate tab shows a loading state.
+// `currentEmote` is the looping clip the avatar rests in (one-shots settle back
+// to it). `activeIdleClip` is the looping baseline that Save bakes in.
+let emotesReady = false;
+let currentEmote = DEFAULT_EMOTE;
+let activeIdleClip = DEFAULT_EMOTE;
+
+function queueOp(fn) {
+	const next = opQueue.then(fn).catch((err) => {
+		log.warn('[avatar-studio] queued op failed:', err);
+	});
+	opQueue = next;
+	return next;
+}
+
+const TABS = [
+	{ id: 'color', label: 'Color', kinds: [], color: true },
+	{ id: 'hat', label: 'Hats', kinds: ['hat'], emoji: '🎩', single: true },
+	{ id: 'glasses', label: 'Glasses', kinds: ['glasses'], emoji: '🕶️', single: true },
+	{ id: 'earrings', label: 'Earrings', kinds: ['earrings'], emoji: '💎', single: false },
+	{ id: 'sculpt', label: 'Face', kinds: [], emoji: '✨', single: true, sculpt: true },
+	{ id: 'animate', label: 'Animate', kinds: [], emoji: '🎬', animate: true },
+];
+
 const KIND_EMOJI = { hat: '🎩', glasses: '🕶️', earrings: '💎' };
 const KIND_LABEL = { hat: 'Hat', glasses: 'Glasses', earrings: 'Earrings' };
 let activeTab = 'color';

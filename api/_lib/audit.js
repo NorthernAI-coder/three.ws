@@ -35,7 +35,7 @@ export function logAudit({ userId, action, resourceId = null, meta = null, req =
 			await withDbRetry(() => sql`
 				insert into audit_log (user_id, action, resource_id, meta, ip, user_agent)
 				values (${userId}, ${action}, ${resourceId}, ${meta}, ${resolvedIp}, ${resolvedUa})
-			`);
+			`, { timeoutMs: 5_000 });
 		} catch (err) {
 			console.error('[audit] insert failed', { action, resourceId, error: err?.message });
 		}
