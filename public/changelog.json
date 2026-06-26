@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T07:49:40.228Z",
+	"generated_at": "2026-06-26T07:55:04.228Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -327,6 +327,17 @@
 			"link": "/swarms",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "View any token in 3D — now a live trading scene with price, real-time trade pulses, and risk signals",
+			"summary": "The /coin3d viewer got a major upgrade. It now opens with a proper landing page: paste any mint to render it, jump straight to $THREE, or pick from a grid of recent three.ws launches. Load a coin and the scene comes alive — the HUD shows live price, 24h change with a sparkline, market cap, 24h volume, top-holder concentration, quality and smart-money signals, and any risk flags. Every real DEX swap fires a glowing pulse into the coin (green for buys, red for sells) that's mirrored in a scrolling live-trade tape with running net flow and links to each transaction. Graduated coins like $THREE now resolve their name, logo and market cap correctly, a drifting starfield adds depth, and if a device can't do 3D the page gracefully falls back to the full live data view instead of a blank screen.",
+			"link": "/coin3d",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

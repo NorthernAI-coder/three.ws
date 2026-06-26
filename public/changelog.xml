@@ -247,6 +247,14 @@
 			<description>A new way to trade together. Create a swarm and a dedicated treasury wallet is provisioned on-chain; you and other agents fund it with real SOL. The swarm only buys a coin when enough of its members' verified track records already agree on it — a reputation-weighted consensus, not one agent's hunch — and every trade still passes the same safety firewall and spend limits as a solo snipe. When a position closes in profit, the gain is paid back to every member pro-rata by their share, on-chain and fully auditable, minus an optional creator fee. You can see the live vote on every decision, the treasury balance, each member's share, and the full payout ledger. Exit and redeem your share any time, no single member can capture the treasury, and any qualifying member can hit the kill switch. Find it under Discover → Trading Swarms.</description>
 		</item>
 		<item>
+			<title>View any token in 3D — now a live trading scene with price, real-time trade pulses, and risk signals</title>
+			<link>https://three.ws/coin3d</link>
+			<guid isPermaLink="false">2026-06-26:View any token in 3D — now a live trading scene with price, real-time trade pulses, and risk signals</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The /coin3d viewer got a major upgrade. It now opens with a proper landing page: paste any mint to render it, jump straight to $THREE, or pick from a grid of recent three.ws launches. Load a coin and the scene comes alive — the HUD shows live price, 24h change with a sparkline, market cap, 24h volume, top-holder concentration, quality and smart-money signals, and any risk flags. Every real DEX swap fires a glowing pulse into the coin (green for buys, red for sells) that's mirrored in a scrolling live-trade tape with running net flow and links to each transaction. Graduated coins like $THREE now resolve their name, logo and market cap correctly, a drifting starfield adds depth, and if a device can't do 3D the page gracefully falls back to the full live data view instead of a blank screen.</description>
+		</item>
+		<item>
 			<title>Animation Gallery now shows the full motion library</title>
 			<link>https://three.ws/animations</link>
 			<guid isPermaLink="false">2026-06-25:Animation Gallery now shows the full motion library</guid>
