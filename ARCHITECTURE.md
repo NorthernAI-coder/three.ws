@@ -2836,3 +2836,364 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 ---
 
 *This document is the authoritative architecture reference for three.ws. For surface-level routing, see `STRUCTURE.md`. For API endpoint details, consult `api/openapi-json.js`. For on-chain deployments, see `contracts/DEPLOYMENTS.md`.*
+
+---
+
+## Appendix: Complete Reference Catalogs
+
+The catalogs below are the output of an exhaustive automated sweep of the codebase — every top-level directory, every file — enumerating the platform surface in full. They are the long-form companion to the curated sections above. Where a count here disagrees with a summary above, the appendix (counted directly from source) is authoritative.
+
+### Complete Route & Page Map
+
+Two layers resolve paths: **`vercel.json`** (`routes` array, 932 entries — production) and **`vite.config.js`** (dev-server `fileMap` + regex rewrites mirroring prod). Dynamic segments use `:param`.
+
+**Core / Marketing / 3D:** `/` → `pages/home.html`; `/home*` 301→`/`; `/what-is`, `/pitch`, `/tour`, `/features` (+ `/features/{ar,forge,scan,play,walk,studio,marketplace,agent-exchange,deploy}`), `/playground`, `/coin3d`, `/hero-demo`, `/constellation`, `/galaxy`, `/cosmos`, `/genome`; `/coin`→`/demo/coin`.
+
+**Agent:** `/agents` → `public/agents/index.html`; `/agents/:id` → `pages/agent-detail.html`; `/agent/:id` 301→`/agents/:id`; `/agent/new`, `/agent/:id/{edit,mind,embed,wallet}`; `/my-agents`; `/discover` (+`/discover/detail.html`); `/agent-studio`; `/agent-badge.html`, `/agent-passport.html`; `/a/:chainId/:agentId` (+`/edit`,`/embed`), `/a/me`, `/a/sol/:asset/.well-known/agent-card.json`→`/api/agents/solana`; `/skills`, `/brain`, `/guardian`, `/reasoning-ledger` (`/ledger/:agentId`).
+
+**Trading / Market:** `/trader/:id`, `/trades`, `/signals` (+`/signals/:slug`), `/terminal`, `/strategies`, `/strategy-lab`, `/swarms`, `/mirror`, `/vaults`, `/labor-market`, `/alpha-copilot`, `/smart-money`, `/oracle` (+`/oracle/arm`,`/arm`), `/radar`, `/coin-intel`, `/trending`, `/activity`, `/watchlist`, `/leaderboard`, `/pulse`, `/pump-live`, `/pump-dashboard`, `/pump-visualizer`, `/pumpfun`, `/gmgn`, `/autopilot` (+`/autopilot-activity`), `/arbitrage`, `/compose`, `/agent-trade`, `/clash`, `/arena` (`/play/arena`).
+
+**3D Worlds:** `/worlds`, `/world-lines`, `/city`, `/agora`, `/club`, `/theater`, `/stage`, `/communities` (`/communities/:mint`, `/town`), `/community`, `/agenc/{embodied,room}`, `/embodiment/embed`, `/play` (+`/play/ufo`,`/play/agent-wallet`), `/game/*` 308→`/play`, `/scene-studio/app`.
+
+**Creation / Studio / Avatars:** `/start`, `/create` (+`/create/{selfie,prompt,character,video,next,studio}`, `/create-review`, `/creating`), `/genesis`, `/scan`, `/segment`, `/scene`, `/dad`, `/forge` (+`/forge/embed`,`/forge-studio`,`/forge-nim`,`/nim-forge`,`/forge-spark`), `/import/rpm`, `/avatar-studio` (dev serves `character-studio/build/`), `/avatar-studio-demo`, `/avatars/:id` (+`/edit`,`/ar`), `/avatar-sdk`, `/avatar-artifact`, `/avatar-wallet-chat`, `/embed/avatar` (`/:handle`), `/characters`, `/character/:id`, `/gallery`, `/gallery-picker`, `/pose` (+`/pose-mini`), `/animations`, `/mocap-studio`, `/overlay-control`, `/voice`, `/xr`, `/ar`, `/hydrate`, `/first-meet`, `/store/:slug`, `/internal/avaturn-forge.html`.
+
+**Launch / Token / $THREE:** `/launch`, `/launchpad`, `/launches` (+`/launches/:mint`), `/launch-week`, `/three`, `/three-live`, `/three-token`, `/threews/claim`, `/claim-wallet`, `/mint-success`, `/bulk-launch` (`/admin/bulk-launch`), `/p/:slug`, `/demo/coin` (`/:mint`), `/bounties` (+`/bounty/:id`), `/go`.
+
+**x402 / Payments:** `/x402` → `public/x402-stripe.html`; `/x402/studio`; `/ca2x402`; `/pay` (+`/pay/calls/:txSig`, `/pay/c/:slug`); `/bazaar`; `/paywall`; `/crypto-demo.html`, `/wallet-connect-demo.html`, `/studio-deposit-harness.html`; `.well-known/x402[.json]`→`/api/wk`; `.well-known/did.json`→`/api/x402/did`.
+
+**Auth / Identity / Wallet:** `/login`, `/register`, `/forgot-password`, `/reset-password`, `/settings`, `/profile` (`/u/:handle`), `/@:handle`, `/wallet.html`, `/vanity-wallet` (+`/vanity/{verify,gallery,bounties}`), `/eth-vanity`, `/evm-wallet`, `/lookup`, `/siwx-test.html`, `/extension/{auth-callback,privacy,terms}`, `/persona/{authorize,demo}`, `.well-known/jwks.json`→`/api/auth/persona`.
+
+**Marketplace / Widgets / Embeds:** `/marketplace` (+`/marketplace/{tools,skills,animations,onchain}` and `/:id`; `/marketplace/agents/:id`→`/agents/:id`; `/marketplace/avatars/:id`→`/avatars/:id`; `/marketplace/analytics`; `/marketplace-walk`), `/collection`, `/widgets` (`public/widgets-gallery/`), `/widget`, `/widget-demo.html`, `/embed` (+`/embed-demo`, `/embed-example.html`, `/embed/v1/preview`, `/embed/walk`), `/walk` → `pages/walk-landing.html` (+`/walk/app`,`/walk-embed`,`/walk-leaderboard`,`/walk-analytics`), `/wk/:avatar`→`/temporary`, `/temporary`, `/artifact` (+`/artifact-example.html`,`/artifact/snippet.html`), `/widget-studio`→`/studio`, `/studio` → `public/studio/index.html`, `/apps-sdk/studio-viewer.html`, `/chat/forge-viewer.html`, `/lobehub/iframe` (`/sperax/iframe`), `/demos-embed/{agents,avatar-only,forge,gallery,selfie,walk}`.
+
+**Dashboard (dashboard-next SPA):** `/dashboard` (+`/dashboard-next`); `/dashboard/{avatars,community-avatars,agents,library,widgets,walk,developers,three-token,holders,analytics,monetize,account,referrals,copy,irl-placements,sniper,settings,tokens,portfolio,api,brain,creator,landscape,prelaunch-radar,transactions,wallet-grinder}` → `pages/dashboard-next/:slug.html`; `/dashboard/:slug` (auto); `/dashboard/edit/:id`; `/dashboard/x402` + `/dashboard/x402-admin` → `public/dashboard/*` (classic); `/dashboard/{wallets,sessions,actions,embed-policy,memory,strategy,voice,sns,delegation,agent-pumpfun,storage,usage}` 301→dashboard-next; `/dashboard-classic/*` 301→`/dashboard/*`. Classic dashboard pages still on disk (`public/dashboard/*.html`) reachable via 301.
+
+**IBM / Cloud partners:** `/ibm/{hello,hello.live,x402-demo}`, `/aws`, `/aws-marketplace/{welcome,error}`, `/dappbay` 302→`dappbay.bnbchain.org/detail/three`, `/providers`.
+
+**Demos:** `/demos` (+`/demos/:slug` ~28 demos incl. `bonding-curve`, `brain`, `erc8004`, `eas-reputation`, `lipsync-{mic,tts}`, `voice-clone`, `usdz-ar`, `react-sdk`, `skill-royalty`, `persona-extract`, `livepeer-inference`, `audio2face`, `halfbody-xr`, `selfie-fit`, `memory-seed`, `create-v2`, `checkout`, `walk-embed-sdk`, `3d-home`, …); `/demos/agents/:slug` (~17: `auto-rig`, `face-mocap`, `gemini-live`, `high-five`, `skateboard`, `trampoline`, `wrecking-ball`, `pickup-drop`, `sit-in-body`, `scroll-inertia`, `cursor-follower`, `builds-button`, `climb-title`, `holds-cta`, `fall-from-top`, `falls-asleep`, `walks-gutter`); `/demo` → `pages/demo-economy.html`; `/demo/avatar-os` (+`/{studio,selfie,combined}`); `/lipsync` (`/mic`); `/live`, `/agent-economy`, `/economy`, `/agent-exchange`, `/labs`, `/fact-checker`, `/unstoppable`, `/shopper`, `/tutor`, `/agi`, `/irl`, `/cz` (+`/cz/offline`), `/next`, `/forever`.
+
+**Docs / Blog / News / Legal:** `/docs` (SPA fetching `public/docs/*.md`) + `/docs/:topic`, `/docs/tutorials/:slug`, `/docs/widgets`, `/docs/walk` (+`/docs/walk/:sub` 9 pages), `/docs/walk-embed-api`; `/tutorials` (+`/tutorials/:slug`), `/glossary`; `/blog`, `/blog/:slug` 301→`/changelog`; `/changelog` (+`/changelog/:slug`); `/news` (+`/news/:slug` ~95 entries); `/events/:slug`; `/legal/{privacy,tos,content-policy,eula,aws-marketplace-eula}`, `/irl-privacy`; `/sitemap` (+`/pages`,`/directory`,`/everything`,`/all-pages` 308→`/sitemap`).
+
+**Identity / Reputation / Validation / Proof:** `/reputation`, `/validation`, `/proof`, `/integrity`, `/status`, `/pricing`, `/x-pricing`, `/billing`, `/credits`, `/support`.
+
+**App / Deploy:** `/app` → `pages/app-next.html`; `/app-classic` → `pages/app.html`; `/app-next` 301→`/app`; `/app-demo`; `/deploy`, `/showcase` → `pages/app.html`; `/chat` 301→`/app` (dev proxied to `:5174`).
+
+**Admin / Internal:** `/admin/{news,sdp,index.html}`, `/admin/bulk-launch`, `/dashboard/x402-admin`, `/internal/avaturn-forge.html`.
+
+**System / Static / `.well-known`:** `/404` (catch-all `/(.*)`), `/500`, `/robots.txt`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`→`/api/sitemap`, `/sitemap/{core,agents,avatars,widgets,profiles}.xml`→`/api/sitemap/[type]`, `/changelog.{json,xml}` (static, build-generated), `/rss.xml`, `/rss/announcements.xml`→`/api/rss/announcements`, `/openapi.json`→`/api/openapi-json`, `/agent-3d/versions.json` + `/agent-3d/:ver/agent-3d.js` (CDN lib), `.well-known/{solana/actions.json, chat-plugin.json, sperax-plugin.json, x402.json, agent-attestation-schemas, three-vanity.json, oauth-authorization-server, oauth-protected-resource}`→`/api/wk`, `.well-known/did.json`→`/api/x402/did`, `.well-known/jwks.json`→`/api/auth/persona`, `/footer.html`, `/nav.html` (shared partials); stable unhashed bundles `/footer-bot.js`, `/walk-companion.js`, `/walk-playground.js`, `/feature-tour.js`, `/notifications.js`, `/nav-tier-badge.js`, `/agent-bus.js`, `/i18n.js`, `/error-reporter.js`.
+
+**Counts:** `vercel.json` = 932 route entries (~420 HTML/dir-index, ~65 redirects, rest API rewrites + asset/header routes); `pages/` ≈ 210 HTML, `public/` ≈ 230 HTML (incl. ~95 `news/`, demos, dashboard-classic, docs/walk). `vite.config.js` deliberately mirrors prod so dev matches.
+
+### Complete API Directory Index
+
+All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[bracket].js` are dynamic routes.
+
+| Directory | Files | Purpose |
+|---|---|---|
+| `_lib/` | 326 `.js` + 19 sub-pkgs | Shared utility layer (see catalog below). |
+| `_mcp/` `_mcp3d/` `_mcp-studio/` `_mcpagent/` `_mcpbazaar/` `_mcpibm/` | 17/7/5/3/3/5 | Impl dirs behind the remote MCP servers (auth, catalog, dispatch, pricing, render, tools). |
+| `_providers/` | 10 | 3D/image gen provider adapters (gcp, huggingface, meshy, nvidia, nvidia-cosmos, replicate, rodin, stability, tripo) + BYOK registry. |
+| `_studio/` | 3 | Studio MCP tool registry/dispatch. |
+| `actions/` | avatar, avatar-icon | Farcaster/embed action endpoints. |
+| `admin/` | 11 | Admin console (revenue, health, bulk-launch, withdrawals, register-agents, club/news/user subdirs). |
+| `agenc/` | [action] | AgenC / watsonx Orchestrate dispatcher. |
+| `agent-3d/` | versions | 3D asset version listing. |
+| `agent-economy/` | status, transact | Two-agent demo economy. |
+| `agent-trade/` | demo (SSE), skill | Live A2A trade demo + tradeable skill. |
+| `agent/` | activity, dreams, reflect, send-sol, wallet | Single-agent runtime. |
+| `agents/` | ~60+ incl `[id]/`, a2a-* (call/cart-verify/hire/mandate/paid), solana*/onchain/, register/, sas/, ens/, pumpfun/, endpoint-shopper-run, networth, copilot, recovery | Central agent surface (identity, A2A, trading/strategy/mirror, ERC-8004 register, Solana ops, portfolio). |
+| `agi/` | state | AGI global state. |
+| `agora/` | [action], act | Agora citizen actions. |
+| `aixbt/` | chat, grounding, intel, projects, _shared | aixbt intelligence proxy. |
+| `alerts/` | rules, rules/ | Alert rule CRUD. |
+| `animations/` | [id], clips, presign, sell, thumbnail | Animation clip marketplace. |
+| `api-keys/` | [id] | API-key management. |
+| `assets/` | index | Asset listing. |
+| `auth/` | [action], extension-token, github/, persona/, privy/, saml/, session(s)/, siwe/, siws/, wallets/, x/ | Auth: sessions, OAuth, Privy, SAML, SIWE/SIWS, persona, wallet-linking. |
+| `autopilot/` | activity, config, proposals | Memory-grounded autopilot. |
+| `avatar/` | optimize, presign-audio, presign-glb, render, video-generate, video-status | Single-avatar ops + talking-video. |
+| `avatars/` | [id]/, mine, featured, fork, from-forge, draft/, thumbnail, view | Avatar collection CRUD. |
+| `aws-marketplace/` | issue-key, link, register, subscription | AWS Marketplace SaaS fulfillment. |
+| `bazaar/` | arbitrage, context, list, providers, search | x402 bazaar marketplace. |
+| `billing/` | fee-info, invoices, receipts, revenue, summary, payout-wallets/, withdrawals/ | Billing dashboard. |
+| `bounties/` | [id]/, leaderboard | Bounty board. |
+| `brain/` | chat | Portable-brain chat. |
+| `ca2x402/` | resolve | CA → x402 endpoint resolver. |
+| `chat-plugin/` | [tool] | LobeHub/ChatGPT plugin tool dispatcher. |
+| `chat/` | config, mcp, models, proxy | Chat proxy (LLM proxy, model list, MCP, brand config). |
+| `clash/` | [action] | Coin Clash battle actions. |
+| `club/` | leaderboard, presence, tips, tips-stream | Club tips/presence/leaderboard (+ SSE). |
+| `coin/` | [mint]/ | Per-mint coin detail. |
+| `community/` | auth/, capabilities, holder-pass, world-gate, worlds, ws-ticket, messages, me, wallet/ | CoinCommunities-gated layer. |
+| `copy/` | earnings, executions, settle-fee, smart-wallets, subscriptions | Copy-trading. |
+| `cosmetics/` | catalog, earnings, leaderboard, owned, split | Avatar cosmetics shop + creator splits. |
+| `creators/` | [id], skill-analytics | Creator profiles + analytics. |
+| `credits/` | deposit, index | Prepaid credit wallet. |
+| `crews/` | [tag], index | Crews/clans. |
+| `cron/` | 32 files | Scheduled jobs (fanouts, attest, reputation, seeding, sweeps, health) — 61 schedules in vercel.json. |
+| `custody/` | anchor, integrity | Custodial-wallet anchors + integrity proofs. |
+| `cz/` | claim | CZ campaign claim. |
+| `dad/` | generate | Persona/"dad" generation. |
+| `dashboard/` | prefs | Dashboard preferences. |
+| `demo/` | economy, coin/ | Demo surfaces. |
+| `developer/` | mcp-test, usage, webhooks, webhooks/ | Developer portal. |
+| `embed/` | resolve | Resolve embeddable widget/agent. |
+| `erc8004/` | [action], register-confirm | ERC-8004 registry register + confirm + validate. |
+| `forever/` | inscribe, status | Permanent inscription (Arweave/Ordinals). |
+| `frames/` | walk | Farcaster Frame. |
+| `friends/` | index, messages, presence-ticket, search | Social graph. |
+| `galaxy/` | flows | Agent-galaxy money-cam flow feed. |
+| `genome/` | breed, edges, lineage, preview, stud | Agent genome breeding/lineage. |
+| `guardian/` | assess | Granite Guardian assessment. |
+| `ibm/` | attest, galaxy, oracle, twin, vision | IBM Granite product surfaces. |
+| `inference/` | livepeer | Livepeer inference proxy. |
+| `insights/` | revenue-vision | AI revenue insights. |
+| `intel/` | smart-money, wallet/ | Smart-money + wallet intel. |
+| `irl/` | agent-card, agent-summary, drops, fix-token, interactions(+stream), pins, privacy, report, world-lines | IRL/AR layer. |
+| `jobs/` | flush-usage-events | Usage-event flush. |
+| `keys/` | [id], index | API/provider key store. |
+| `kol/` | [action], trades | KOL actions + trades. |
+| `labor/` | post, bid, award, deliver, settle, bounty, feed, policy, agent, tick | Agent Labor Market. |
+| `launch/` | mm | Launch market-maker copilot. |
+| `launchpad/` | get, invoke, list, publish | Paid-service launchpad. |
+| `ledger/` | [agentId], verify/ | Reasoning ledger read + verify. |
+| `llm/` | anthropic, health | LLM proxy + health. |
+| `lobehub/` | [action] | LobeHub plugin dispatcher. |
+| `marketplace/` | [action], analytics, animations, asset-price, buy-asset, check-skill-access, purchase(+-as-agent,-bundle), reviews, set-skill-price, start-trial, theme | Skill/asset marketplace. |
+| `memory/` | context, curate, graph, search | Agent memory (context, KG, search). |
+| `mirror/` | leaderboard | Mirror-trade leaderboard. |
+| `mocap/` | [id], clips | Motion-capture library. |
+| `monetization/` | prices, revenue, wallet, withdrawals | Creator monetization. |
+| `nft/` | mint-scene(+confirm), resolve | Scene NFT minting. |
+| `notifications/` | [id]/, index, preferences, read-all, track | In-app notifications. |
+| `oauth/` | [action] | OAuth flow dispatcher. |
+| `og/` | agent, sealed-drop, three-token-badge | OG image generators. |
+| `onboarding/` | [action] | Onboarding dispatcher. |
+| `onramp/` | link | Fiat on-ramp link. |
+| `oracle/` | 24 files (action-stream, feed, stream, leaderboard, backtest, coin, signal, social, watch, follow, movers, wins, og, …) | Granite Oracle product surface. |
+| `pay/` | deal | Pay-by-deal. |
+| `payments/` | intent, purchase-skill, evm/, solana/, _config | Unified payment intents. |
+| `permissions/` | [action] | ERC-7710 permission grant/redeem dispatcher. |
+| `persona/` | extract, preview | Persona extraction from social seeds. |
+| `pinning/` | [action] | IPFS pinning dispatcher. |
+| `platform/` | stats | Platform-wide stats. |
+| `play/` | builds, nonce, refresh, verify | /play sandbox + play-pass. |
+| `plugins/` | [action] | Plugin registry dispatcher. |
+| `portfolio/` | [action] | Portfolio command dispatcher. |
+| `pump-bounties/` | [id], stats | pump.fun GO bounty board. |
+| `pump/` | 35 files ([action], launch-prep/-agent/-detail/-og, curve, price-history, coin-intel, intel(+enrich), safety, smart-money, autopilot, trades-stream, helius-webhook, withdraw-prep/-confirm, …) | pump.fun surface. |
+| `purchase/` | skill | Skill purchase. |
+| `push/` | subscribe | Web-push subscription. |
+| `referral/` | visit | Referral visit tracking. |
+| `registry/` | resolve | Agent/name registry resolution. |
+| `render/` | avatar-clip, glb | Server render endpoints. |
+| `reputation/` | leaderboard | Reputation leaderboard. |
+| `rider/` | check, firebase, info, webhook | Rider-pass system. |
+| `rss/` | announcements | Announcements RSS. |
+| `scene/` | gate-check, gate-create | Token-gated 3D scene access. |
+| `sdp/` | [...path] | Solana Data Platform proxy. |
+| `seed/` | farcaster, github, x, synthesize | Persona seeding from socials. |
+| `share/` | x | Share-to-X. |
+| `signals/` | feed, feeds, marketplace, stream, subscribe, _common | Signal marketplace. |
+| `sitemap/` | [type] | Dynamic sitemap generator. |
+| `skills/` | [id]/, categories, index, license-onchain, mint, review | Skill catalog + on-chain license. |
+| `sniper/` | compile, backtest, close, radar(+stream), leaderboard, status, strategy, stream, trader, history | Sniper strategy lab. |
+| `social/` | sentiment, sentiment-pulse | Social sentiment. |
+| `stage/` | host, index, tip | Living Stages. |
+| `studio/` | retexture-region | Studio retexture endpoint. |
+| `studio-assets/` | [...path] | Studio asset proxy. |
+| `subscriptions/` | index, plans, subscribe, verify | Creator subscriptions. |
+| `swarms/` | [id], index | Trading swarms. |
+| `three/` `three-token/` `token/` | [action] each | $THREE tier/access + token data dispatchers. |
+| `threews/` | me, subdomain | three.ws identity + SNS subdomain. |
+| `tournaments/` | [id], index | Social Trading Arena tournaments. |
+| `traders/` | preview | Trader track-record preview. |
+| `trades/` | feed | Live trade feed. |
+| `trading/` | scan | Trade-opportunity scanner. |
+| `tts/` | speak, edge, eleven(+-clone), voices, eleven/ | Text-to-speech. |
+| `tutor/` | session | AI tutor session. |
+| `tx/` | explain, solana/ | Transaction explainer. |
+| `usage/` | summary | Usage summary. |
+| `user/` | provider-keys, wallet/ | Per-user provider keys + wallet. |
+| `users/` | [username]/, by-subdomain, earnings, lookup, me/, referral-claim/-code, referrals | User profiles. |
+| `v1/` | _catalog, _providers, agents/, market/, sentiment, x/, index | Versioned public API gateway. |
+| `vanity/` | bounties, cert, drops, gallery, og | Vanity-address grind market. |
+| `vaults/` | [id], deposit, redeem, trade, claim-fees, ledger, index | Trading vaults. |
+| `walk/` | session, pilot, metrics, leaderboard, analytics, control/ | Walk/embodiment experience. |
+| `wallet/` | balances | Wallet balances. |
+| `watsonx/` | embed | watsonx embedding proxy. |
+| `webhooks/` | replicate, solana-pay | Inbound webhooks. |
+| `widgets/` | [id]/, index, oembed, og, page, view, _demo-fixtures | Embeddable widgets. |
+| `world/` | [action] | Per-world persistence dispatcher. |
+| `x/` | post, draft, schedule, analytics, reviews, status, triggers | X (Twitter) automation. |
+| `x402/` | 34 files (forge, mint-to-mesh(+batch), token-intel, crypto-intel, three-intel, skill-call, skill-marketplace, pay-by-name, agent-bouncer, agent-reputation, onchain-identity-verify, pump-agent-audit, pump-launch, fact-check, dance-tip, asset-download, animation-download, vanity(+-verifiable), symbol-availability, model-check, permit2-paid-demo, club-cover, cosmetic-purchase, my-receipts, did, service, admin/) | Paid x402 endpoint catalog (each file = a monetized service). |
+| `x402-pay/` | og | OG image for x402 payment pages. |
+
+### Complete `api/_lib/` Utility Catalog
+
+**326 top-level `.js` modules** + **19 sub-packages** (`a2a`, `a2f-protos`, `club`, `coin`, `copy`, `evm`, `format`, `market`, `migrations`, `oracle`, `pricing`, `pump-intel`, `riva-protos`, `services`, `sniper`, `solana`, `token`, `trust`, `x402`). Nothing in `_lib` is itself a route. Grouped by domain:
+
+- **DB / cache / storage / infra:** `db.js`, `db-retry.js`, `schema.sql`, `migrations/`, `cache.js`, `redis.js`, `redis-usage.js`, `skill-price-cache.js`, `r2.js`, `ipfs-pin.js`, `storage-mode.js`, `forge-cache.js`, `qstash.js`, `resilience.js` (cockatiel), `sse-poll-breaker.js`, `env.js`, `http.js`, `http-params.js`, `ids.js`, `sentry.js`, `axiom.js`, `rate-limit.js`.
+- **Auth / security / crypto:** `auth.js`, `account-auth.js`, `admin.js`, `zauth.js`, `crypto.js`, `secret-box.js` (AES-256-GCM), `provider-keys.js`, `csrf.js`, `ssrf.js`, `ssrf-guard.js`, `fetch-model.js`, `pii.js`, `moderation.js` (NemoGuard), `granite-guardian.js`, `identity-integrity.js`, `siwe.js`, `siws.js`, `siwx-server.js`, `siwx-storage.js`, `saml.js`, `privy.js`, `audit.js`.
+- **Solana / on-chain:** `solana/` (connection, rpc-fallback, confirm, gasless-tx, idl, programs, sdk-bridge), `solana-wallet.js`, `solana-signers.js`, `solana-transfer.js`, `solana-collection.js`, `solana-token-meta.js`, `token-metadata.js`, `onchain.js`, `onchain-deploy.js`, `agent-registry.js`, `agent-invocation-onchain.js`; attestations: `attest-event.js`, `sas.js`, `solana-attestations.js`, `solana-validation-attest.js`, `validation-attest.js`, `tournament-attest.js`, `trader-score-attest.js`, `ledger-anchor.js`, `brain-anchor.js`, `custody-proof.js`; `helius.js`, `balances.js`, `three-brand.js`, `threews-sns.js`.
+- **EVM / x402:** `x402/` (a2a-client/server, access-control, api-keys, audit-log, auth-hints, bazaar-client/helpers, idempotency-cache, offer-receipt-issuer/server, payment-identifier-client/server, paywall-handler, receipt-storage), `x402.js`, `x402-spec.js`, `x402-paid-endpoint.js`, `x402-prices.js`, `x402-errors.js`, `x402-buyer-fetch.js`, `x402-buyer-axios.js`, `x402-user-payer.js`, `x402-spending-cap/-ledger/-price.js`, `x402-solana-confirm.js`, `x402-bsc-direct.js`, `x402-builder-code.js`, `evm/rpc.js`, `evm-transfer.js`, `evm-payment-verify.js`, `erc8004-chains.js`, `a2a/` (cart-mandate, mandate, reputation-gate, spend-ledger), `aws-marketplace.js`, `aws-marketplace-bridge.js`.
+- **LLM / embeddings / vision / voice:** `llm.js`, `chat-models.js`, `llm-pricing.js`, `llm-health.js`, `provider-health.js`, `strip-reasoning.js`, `orchestrate.js`, `watsonx.js`, `watsonx-forecast.js`, `embeddings.js`, `agent-embeddings.js`, `embedding-math.js`, `chunker.js`, `text-extract.js`, `rerank.js`, `vision.js`, `avatar-alt-text.js`, `forge-image-validate.js`, `a2f-nvidia.js`, `asr-nvidia.js`, `tts-nvidia.js`, `tts-voices.js`, `elevenlabs.js`, `a2f-protos/`, `riva-protos/`.
+- **Forge / 3D / avatars:** `forge-tiers/-options/-store/-events/-health/-lane-health/-scale/-job-token/-provider-key/-high-payment/-consumption-payment.js`, `glb-compress/-inspect/-quality/-themer.js`, `model-inspect.js`, `rig-inspect.js`, `provider-result-url.js`, `avatars.js`, `avatar-agent/-render/-wallet.js`, `bake.js`, `accessories.js`, `auto-rig.js`, `auto-rig-eligibility.js`, `avaturn-headless.js`, `avaturn-seed.js`, `reconstruct-finalize.js`, `regen-provider.js`, `render-glb.js`, `render-clip.js`, `networth-model.js`, `genome.js`, `genome-agent.js`, `fork-royalties.js`, `remix-royalty.js`.
+- **Pump / oracle / intel / market:** `pump.js`, `pump-go/-launch/-launch-feed/-quote/-pricing/-platform-fee/-swap-ix/-trade-args/-vanity/-claims.js`, `pump-alert-eval/-runner.js`, `pumpfun-mcp.js`, `pumpfun-ws-feed.js`, `pump-intel/` (enrich, funder-graph, news-matcher, smart-money-xref), `oracle/` (agent-eval, alerts, archetype, conviction, known-wallets, narrative, news-context, settle, sources, store), `aixbt.js`, `birdeye.js`, `gmgn-feed.js`, `smart-money.js`, `coin-communities.js`, `channel-feed-sources.js`, `signal-engine.js`, `alpha-read.js`, `token-market.js`, `market/` (ohlcv, token-market), `coin/` (cohorts, creator-fees, distribution, holders, three-holders, treasury, payouts, randomness).
+- **Trading / vault / labor / tournament / copy / mirror / swarms:** `execution-engine.js`, `trade-firewall.js`, `orders.js`, `market-maker.js`, `strategy-schema/-compiler/-backtest.js`, `agent-strategy-runtime.js`, `sniper/notify.js`, `vault-store/-wallet/-auth/-trade/-transfer/-accounting/-jupiter.js`, `agent-labor.js`, `labor-auth/-economics/-escrow/-match/-settle.js`, `tournament-engine/-store/-scoring/-settlement.js`, `copy-engine.js`, `copy-earnings.js`, `agent-mirror.js`, `mirror-engine.js`, `mirror-stats.js`, `swarms.js`, `syndicate.js`, `trader-stats.js`, `treasury-autopilot.js`, `trust/` (access, proof-of-reserves, reputation-store, solana-bouncer, wallet-reputation).
+- **Agent / memory / spend policy:** `agent-wallet/-identity/-delegate/-economy/-pumpfun/-recovery/-usdc-transfer/-paid-services.js`, `economy-shape.js`, `agent-spend-policy.js`, `agent-trade-guards.js`, `spend-policy-rules.js`, `spend-policy-compiler.js`, `wallet-capabilities.js`, `wallet-intents.js`, `wallet-anomaly.js`, `anomaly-events.js`, `memory-store.js`, `memory-entities.js`, `reasoning-ledger.js`, `reflection.js`, `autopilot.js`, `persona-store.js`, `seed-default-agent.js`, `seed-prompts.js`, `circulation.js`, `circulation-personas.js`, `brain-bundle.js`, `brain-sign.js`, `galaxy.js`, `galaxy-flows.js`.
+- **Billing / usage / monetization / skills:** `metering.js`, `usage.js`, `monetization.js`, `services/MonetizationService.js`, `credits.js`, `credit-deposit.js`, `fee.js`, `payout.js`, `splits.js`, `royalty.js`, `patronage.js`, `skill-access/-runtime/-pricing-rules/-nft.js`, `skill-license-issue/-onchain/-verify.js`, `purchase-confirm.js`, `marketplace-platform-fee.js`, `nft-gate.js`, `subscription-billing/-checkout/-pricing.js`, `pricing/` (catalog, charge-three, name-rarity), `token/` (allowance, buyback, config, payments, price, quote, rewards), `three-access.js`, `three-gate.js`, `three-tier.js`, `require-three.js`, `holder-pass.js`, `account-tier.js`, `play-pass.js`, `referrals.js`, `referral-rewards.js`, `activation.js`, `sdp.js`.
+- **IRL / community / world / club / stage:** `irl-auth/-bake/-drops/-presence.js`, `geohash.js`, `world-lines.js`, `sealed-drop-store.js`, `sealed-drop-funding.js`, `resolve-recipient.js`, `world-store/-gate/-service-auth.js`, `crews-store.js`, `friends-store.js`, `presence-store.js`, `diorama-store.js`, `builds-store.js`, `clash.js`, `clash-store.js`, `club/` (chain, cover-pass, payouts, sweep), `stage-bridge.js`, `stage-split.js`, `agora-human.js`, `agora-policy.js`.
+- **Notifications / comms / distribution:** `notify.js`, `notify-prefs.js`, `alerts.js`, `alert-delivery.js`, `web-push.js`, `email.js`, `newsletter.js`, `webhook-dispatch.js`, `x-post.js`, `indexnow.js`, `rss-feed.js`, `feed.js`.
+- **MCP / aggregator / validation / misc:** `mcp-dispatch.js`, `mcp-batch-price.js`, `mcp-error-sanitize.js`, `mcp-getting-started.js`, `pump-pricing.js`, `aggregator.js`, `gateway.js`, `validate.js` (zod schemas), `embed.js`, `embed-policy.js`, `widget-types.js`, `cosmetics.js`, `cosmetics-economy.js`, `cosmetics-ownership.js`, `pump-vanity.js`, `vanity-bounty-store.js`, `vanity-bounty-payout.js`, `vanity-cert-store.js`, `vanity-gallery-store.js`, `vanity-service-key.js`, `bounty-judge.js`, `bounty-likes.js`, `provider-job-error.js`, `format/links.js`.
+
+### Complete MCP Tool Reference
+
+three.ws exposes MCP tools across **8 remote HTTP servers** + **32 stdio/npm servers** (`mcp-server`, `mcp-bridge`, 30 `packages/*-mcp`).
+
+**Remote HTTP servers:**
+
+- **Core — `POST /api/mcp`** (OAuth scopes or x402 USDC; prices `api/_lib/pump-pricing.js`): `getting_started`(free), `list_my_avatars`, `get_avatar`, `search_public_avatars`, `render_avatar`($0.005), `render_avatar_image`, `delete_avatar`, `get_embed_code`, `validate_model`($0.01), `inspect_model`($0.01), `optimize_model`($0.05), `list_animations`, `apply_animation`($0.02), `text_to_animation`, `solana_agent_reputation`, `solana_agent_attestations`, `solana_agent_passport`, `pumpfun_recent_claims`, `pumpfun_token_intel`, `pumpfun_creator_intel`, `pumpfun_recent_graduations`, `call_agent`, `register_agent`, `identity_check`, `remember`, `recall`, `forget`, `oracle_top_plays`, `oracle_coin`, `oracle_arm_watch`, `oracle_watch_status`, `trader_leaderboard`, `trader_profile`, `copy_subscribe`, `copy_status` (~35).
+- **3D Studio — `POST /api/mcp-3d`** (OAuth or x402; `api/_mcp3d/pricing.js`): `getting_started`, `text_to_3d`(tier), `image_to_3d`(tier), `generation_status`, `preview_3d`, `remove_background`($0.01), `remesh_model`($0.02), `stylize_model`($0.02), `segment_model`($0.02), `retexture_model`($0.05), `retexture_region`($0.05), `auto_rig_model`($0.05), `pose_model`($0.01), `direct_prompt`($0.01), `generate_material`($0.01), `save_avatar`, `create_agent_persona`, `get_agent_persona`, `persona_say`, `inspect_model`, `optimize_model`, `list_animations`, `apply_animation`($0.01) (24).
+- **Free Studio — `POST /api/mcp-studio`** (no auth): `forge_free`, `text_to_avatar`, `mesh_forge`, `rig_mesh`, `forge_avatar` (5).
+- **Agent Wallet — `POST /api/mcp-agent`** (OAuth + x402 from agent wallet): `getting_started`, `wallet_status`, `find_services`, `pay_and_call`(variable), `provision_wallet`, `monetize_endpoint` (6).
+- **Bazaar — `POST /api/mcp-bazaar`**: `getting_started`, `search_services`, `browse_services`, `get_service` (4).
+- **IBM Granite — `POST /api/ibm-mcp`** (x402 USDC Base/Solana): `ibm_granite_getting_started`, `ibm_granite_chat`($0.02), `ibm_granite_code`($0.025), `ibm_granite_embed`($0.005), `ibm_granite_analyze`($0.04), `ibm_granite_forecast`($0.05) (6).
+- **Pump.fun — `POST /api/pump-fun-mcp`** (mostly free; 4 gated tools need Bearer or $0.001 x402): `search_tokens`, `get_token_details`, `get_bonding_curve`, `get_token_trades`, `get_trending_tokens`, `get_new_tokens`, `get_graduated_tokens`, `get_king_of_the_hill`, `get_creator_profile`, `get_token_holders`, `pumpfun_vanity_mint`*, `pumpfun_watch_whales`*, `pumpfun_list_claims`, `pumpfun_watch_claims`*, `pumpfun_first_claims`, `sns_resolve`, `sns_reverseLookup`, `social_cashtag_sentiment`, `kol_leaderboard`, `pumpfun_quote_swap`, `social_x_post_impact`, `get_coin_intel`, `get_oracle_conviction`, `pumpfun_upload_metadata`*, `pumpfun_bot_status` (25; * = gated).
+- **Viewer/Chat — `POST /api/chat/mcp`** (Bearer required): `setWireframe`, `setSkeleton`, `setGrid`, `setAutoRotate`, `setBgColor`, `setTransparentBg`, `setEnvironment`, `takeScreenshot`, `loadModel`, `runValidation`, `showMaterialEditor` (11).
+
+**stdio / npm servers:**
+
+- **`@three-ws/mcp-server`** (x402 USDC, mostly Solana): `forge_free`(free), `mesh_forge`($0.25), `rig_mesh`($0.20), `forge_avatar`($0.45), `text_to_avatar`($0.15), `get_pose_seed`($0.001), `pump_snapshot`($0.005), `sentiment_pulse`($0.003), `aixbt_intel`($0.01), `aixbt_projects`($0.01), `ens_sns_resolve`($0.0005), `vanity_grinder`($0.05), `agent_reputation`($0.01), `agent_delegate_action`($0.01), `agent_hire_discover`($0.01), `agent_hire`($0.05), `agenc_get_agent`($0.001), `agenc_get_task`($0.001), `agenc_list_tasks`($0.001) (19).
+- **`@three-ws/mcp-bridge`** (x402 universal payer): `call_paid_endpoint`, `list_bazaar_tools`, `refresh_bazaar`, + 0–N dynamic `paid_<slug>` (cap `MCP_BRIDGE_DISCOVER_LIMIT`=20).
+- **`@three-ws/activity-mcp`**: `get_trending_agents`, `get_trending_coins`, `get_holder_leaderboard`, `get_tier_info`, `get_feed_events`.
+- **`@three-ws/agenc-mcp`**: `get_agent`, `get_task`, `link_agent`, `list_tasks`, `query_x402_services`.
+- **`@three-ws/agora-mcp`**: `agora_board`, `agora_citizens`, `agora_passport`, `agora_professions`, `agora_pulse`, `agora_register`, `agora_claim_task`, `agora_complete_task`, `agora_post_task`.
+- **`@three-ws/alerts-mcp`**: `create_alert_rule`, `update_alert_rule`, `delete_alert_rule`, `list_alert_rules`, `get_alert_history`.
+- **`@three-ws/audio-mcp`**: `text_to_speech`, `speech_to_text`, `audio_to_face`, `motion_capture_clips`, `motion_capture_clip`.
+- **`@three-ws/autopilot-mcp`**: `get_autopilot_config`, `set_autopilot_config`, `compute_trust`, `generate_proposals`, `list_proposals`, `adjust_proposal`, `dryrun_proposal`, `dismiss_proposal`, `execute_proposal`, `undo_action`, `list_autopilot_activity`.
+- **`@three-ws/avatar-agent`**: `spawn_avatar`, `dress_avatar`, `generate_avatar`, `render_avatar`, `thumbnail_glb`, `viewer_url`, `list_avatars`, `list_animations`, `inspect_glb`, `validate_glb`, `optimize_glb`, `speak`, `ens_sns_resolve`, `wallet_create`, `wallet_balance`, `wallet_send`, `pump_buy`, `pump_launch`, `pump_collect_fees`, `pump_snapshot` (20).
+- **`@three-ws/billing-mcp`**: `get_billing_summary`, `query_usage`, `export_billing_history`, `get_receipt`, `get_revenue`, `get_fee_info`.
+- **`@three-ws/brain-mcp`**: `list_providers`, `chat`.
+- **`@three-ws/clash-mcp`**: `get_clash_state`, `get_clash_leaderboard`, `enlist_faction`, `rally_faction`.
+- **`@three-ws/copy-mcp`**: `list_subscriptions`, `create_subscription`, `update_subscription`, `cancel_subscription`, `get_executions`, `record_execution`, `get_earnings`.
+- **`@three-ws/intel-mcp`**: `smart_money_coin`, `wallet_intel`, `signal_feed`, `kol_leaderboard`, `kol_trades`, `copy_smart_wallets`.
+- **`@three-ws/kol-mcp`**: `get_wallet_portfolio`, `get_wallet_trades`.
+- **`@three-ws/loom-mcp`**: `get_loom_feed`, `get_creation`, `submit_creation`.
+- **`@three-ws/ibm-watsonx-mcp`** (your own IBM creds): `watsonx_chat`, `watsonx_forecast`, `watsonx_generate`, `watsonx_embed`, `watsonx_tokenize`, `watsonx_list_models`.
+- **`@three-ws/ibm-x402-mcp`** (x402): `ibm_granite_getting_started`, `ibm_granite_chat`($0.02), `ibm_granite_code`($0.025), `ibm_granite_embed`($0.005), `ibm_granite_analyze`($0.04), `ibm_granite_forecast`($0.05).
+- **`@three-ws/marketplace-mcp`**: `browse_agents`, `browse_skills`, `agent_detail`, `agent_categories`, `skill_categories`.
+- **`@three-ws/naming-mcp`**: `sns_resolve`, `sns_reverse`, `threews_availability`.
+- **`@three-ws/notifications-mcp`**: `list_notifications`, `mark_read`, `delete_notification`, `get_preferences`, `set_preferences`, `register_push_device`, `unregister_push_device`.
+- **`@three-ws/portfolio-mcp`**: `get_portfolio_summary`, `get_portfolio_history`, `get_portfolio_asset`, `get_wallet_balances`, `get_trades_feed`, `send_transfer`.
+- **`@three-ws/provenance-mcp`**: `append_agent_action`, `list_agent_actions`, `query_action`.
+- **`@three-ws/pumpfun-mcp`** (proxies `/api/pump-fun-mcp`): 22 tools mirroring the remote pump.fun server (+ legacy camelCase aliases).
+- **`@three-ws/scene-mcp`**: `compose_scene`, `get_scene`, `list_scenes`.
+- **`@three-ws/signals-mcp`**: `list_signal_feeds`, `get_mirror_leaderboard`, `get_subscriptions`, `subscribe_signal`(x402 live mode), `set_subscription_status`.
+- **`@three-ws/three-token-mcp`**: `three_price`, `three_balance`, `three_burn` (capped $100, REQUIRE_CONFIRM).
+- **`@three-ws/avatar-mcp`** (free): `render_avatar`, `avatar_embed_code`, `get_avatar` + a `showcase-avatar` MCP-App prompt/resource.
+- **`@three-ws/tutor-mcp`**: `load_session`, `close_session`.
+- **`@three-ws/vanity-mcp`**: `vanity_quote`, `vanity_appraise`, `vanity_board`, `vanity_open`, `vanity_stats`, `vanity_leaderboard`, `vanity_config`, `vanity_gallery`.
+- **`@three-ws/vision-mcp`**: `analyze_image`, `describe_image`, `get_vision_status`.
+- **`@three-ws/x402-mcp`**: `x402_wallet`, `find_services`, `inspect_endpoint`, `pay_and_call`(capped MAX_PAY_USD $1).
+
+### Complete Environment Variable Reference
+
+Tiers: **CRITICAL** = `req()` in `api/_lib/env.js` (cold-start throw) or prod-fail-closed; **Required** = feature returns 501/503 without it; **Optional** = safe fallback/default; **Test/Ops** = scripts/CI/platform only. Names only — never values.
+
+- **CRITICAL `req()` (cold-start risk):** `DATABASE_URL`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_PUBLIC_DOMAIN`, `JWT_SECRET`, `AGENT_RELAYER_KEY`, `AWS_MP_ACCESS_KEY_ID`, `AWS_MP_SECRET_ACCESS_KEY`, `AWS_MP_PRODUCT_CODE`.
+- **Prod fail-closed (throw only in production):** `MULTIPLAYER_SHARED_SECRET`/`HOLDER_PASS_SECRET`, `THREE_TREASURY_WALLET`, `THREE_REWARDS_WALLET`, `THREE_QUOTE_SECRET`. Money receivers fail-closed by design (no default): `X402_PAY_TO_SOLANA`/`_BASE`/`_BSC`, `X402_FEE_PAYER_SOLANA`.
+- **Database / cache / storage:** `R2_ENDPOINT`/`R2_ACCOUNT_ID`/`R2_BUCKET`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`/`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, `UPSTASH_REDIS_REST_URL`/`_TOKEN` (aliases `three_KV_REST_API_URL/TOKEN`, `KV_REST_API_URL/TOKEN`), `UPSTASH_CACHE_REST_URL`/`_TOKEN`, `UPSTASH_EMAIL`, `UPSTASH_MANAGEMENT_API_KEY`, `UPSTASH_REDIS_STORE_ID`, `REDIS_URL`/`REDIS_URI`, `QSTASH_TOKEN`/`QSTASH_CURRENT_SIGNING_KEY`/`QSTASH_NEXT_SIGNING_KEY`.
+- **Auth / session / encryption:** `JWT_KID`, `WALLET_ENCRYPTION_KEY`, `WALLET_CAPABILITY_SECRET`, `SESSION_SECRET`, `HOLDER_PASS_SECRET`, `CSRF_DISABLED`, `PASSWORD_ROUNDS`, `PRIVY_APP_ID`/`VITE_PRIVY_APP_ID`/`PRIVY_APP_SECRET`/`PRIVY_JWKS_ENDPOINT`, `GITHUB_OAUTH_CLIENT_ID`/`_SECRET`, `X_OAUTH_CLIENT_ID`/`_SECRET`, `PERSONA_JWKS_PRIVATE_KEY_PEM`/`_PUBLIC_KEY_PEM`/`PERSONA_JWKS_KID`/`PERSONA_STORE_DIR`/`PERSONA_TTL_SEC`, `SIWX_VERIFY_MODE`, `ADMIN_ADDRESSES`, `CHAT_ADMIN_KEY`, `SAML_IDP_*` (ENTITY_ID/SSO_URL/SLO_URL/CERT/METADATA_URL), `SAML_SP_*` (ENTITY_ID/PRIVATE_KEY/CERT), `SAML_WANT_ASSERTIONS_SIGNED`/`_WANT_RESPONSE_SIGNED`/`_SIGNATURE_ALGORITHM`/`_IDENTIFIER_FORMAT`/`_CLOCK_SKEW_MS`/`_ALLOW_IDP_INITIATED`/`_BUTTON_LABEL`.
+- **Solana / on-chain:** `SOLANA_RPC_URL` (+aliases `SOLANA_RPC`/`SOLANA_MAINNET_RPC`/`NEXT_PUBLIC_SOLANA_RPC_URL`), `SOLANA_RPC_URL_DEVNET`/`SOLANA_DEVNET_RPC`, `SOLANA_RPC_URLS`/`_FALLBACK_URLS`, `HELIUS_API_KEY`/`HELIUS_WEBHOOK_AUTH`, `SOLANA_USDC_MINT`/`DEVNET_USDC_MINT`, `NEXT_PUBLIC_SOLANA_ALT_ADDRESS`, `TREASURY_KEYPAIR`/`PLATFORM_TREASURY_KEYPAIR`, `MAINNET_RPC_URL`, `JITO_BLOCK_ENGINE_URL`/`JITO_BUNDLE_URL`/`JITO_TIP_SOL`, `ALCHEMY_API_KEY`/`ANKR_API_KEY`/`DRPC_API_KEY`, `SOLANA_AGENT_COLLECTION_MAINNET`/`_DEVNET`/`_AUTHORITY_KEY`, `THREEWS_SOL_PARENT_DOMAIN`/`_PARENT_SECRET_BASE58`, `STOREFRONT_ORIGIN`, `BUBBLEGUM_MERKLE_TREE`/`_TREE_AUTHORITY`, `NFT_STORAGE_TOKEN`/`WEB3_STORAGE_TOKEN`/`PINATA_JWT`/`FILEBASE_KEY`/`_SECRET`, `BTC_INSCRIPTION_RECEIVE_ADDRESS`/`ORDINALSBOT_API_KEY`/`_BASE_URL`, `AGENC_RPC_URL`/`AGENC_DEVNET_RPC_URL`/`AGENC_BRIDGE_URL`.
+- **EVM / x402:** `AGENT_RELAYER_ADDRESS`, `PERMISSIONS_RELAYER_ENABLED`, `BASE_RPC_URL`/`BASE_SEPOLIA_RPC_URL`/`SEPOLIA_RPC_URL`, `RPC_URL_<CHAINID>`, `EVM_RPC_URL`, `EVM_PRIVATE_KEY`/`EVM_TREASURY_PRIVATE_KEY`/`PRIVATE_KEY`, `EVM_MIN_CONFIRMATIONS`, `X402_ASSET_MINT_SOLANA`/`X402_ASSET_ADDRESS_BASE`/`_ARBITRUM`/`_BSC`, `X402_MAX_AMOUNT_REQUIRED`, `X402_IDEMPOTENCY_TTL_SECONDS`, `X402_FACILITATOR_URL_SOLANA`/`_BASE`/`_TOKEN_*`/`_TIMEOUT_MS`, `CDP_API_KEY_ID`/`_SECRET`, `X402_CDP_FACILITATOR_URL`, `X402_ACCEPT_THREE_SOLANA`/`X402_THREE_AMOUNT_SOLANA`, `X402_EVM_NETWORKS`, `X402_BUILDER_CODE_APP`/`_WALLET`, `X402_MAX_PER_CALL_ATOMIC`/`_PER_HOUR_ATOMIC`/`_PER_DAY_ATOMIC`, `INTERNAL_API_KEY`, `OFFER_RECEIPT_SIGNING_PRIVATE_KEY`/`_FORMAT`/`_JWK`/`_JWS_ALG`, `SERVER_DOMAIN`, `A2A_MANDATE_SECRET`, `A2A_PAYER_PRIVATE_KEY`/`A2A_PAYER_SOLANA_SECRET`, `A2A_REPUTATION_RPC_URL`, `VALIDATOR_PRIVATE_KEY`, `ETHERSCAN_API_KEY`/`BASESCAN_API_KEY`, `ERC8004_CRAWL_LOOKBACK`, `SPLITS_SIGNER_PRIVATE_KEY`, `MARKETPLACE_PAYER_KEYPAIR`/`MARKETPLACE_PLATFORM_FEE_BPS`/`_WALLET`, `ZAUTH_API_KEY`/`_DEBUG`/`_API_ENDPOINT`/`_SCAN_URL`/`_CIRCUIT_*`/`_REFUND_*`.
+- **MCP / bridge:** `MCP_RESOURCE`, `MCP_REGISTRY_TOKEN`, `MCP_AGENT_TALK_ENDPOINT`, `MCP_POSE_PREVIEW_BASE`, `MCP_SVM_PAYMENT_ADDRESS`, `MCP_VANITY_PRICE_USD`, `MCP_BRIDGE_EVM_PRIVATE_KEY`/`_SVM_PRIVATE_KEY`, `MCP_BRIDGE_ALLOWED_HOSTS`/`_ALLOWED_PAYTO`/`_ALLOW_HTTP`, `MCP_BRIDGE_BAZAAR_URL`/`_DISCOVER_LIMIT`, `MCP_BRIDGE_MAX_DEPOSIT_ATOMIC`/`_MAX_PRICE_PER_CALL_ATOMIC`/`_MAX_TOTAL_ATOMIC`, `X402_BRIDGE_PORT`/`_ALLOWED_ENDPOINT_ORIGINS`/`_MAX_USDC_MICROS`.
+- **LLM providers:** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`/`OPENAI_BASE_URL`, `GROQ_API_KEY`, `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`/`OPENROUTER_FALLBACK_KEYS`, `DASHSCOPE_API_KEY`, `MODELSCOPE_API_KEY`, `GEMINI_API_KEY`/`GOOGLE_API_KEY`/`GOOGLE_GENAI_API_KEY`/`GOOGLE_CLOUD_PROJECT`, `WATSONX_API_KEY`/`_PROJECT_ID`/`_SPACE_ID`/`_URL`/`_MODEL_ID`/`_API_VERSION`/`_GUARDIAN_MODEL_ID`/`_VISION_MODEL_ID`/`_ORCHESTRATE_*`, `GUARDIAN_SEND_CAP_USD`/`GUARDIAN_DISABLE`, `LIVEPEER_API_KEY`, `LONGCAT_WORKER_URL`/`_KEY`, `OMNI_URL`/`NIM_URL`, `CHAT_MODEL`/`CHAT_MAX_TOKENS`/`CHAT_URL`, `KNOWLEDGE_RERANK_ENABLED`, `ANON_MODERATION_DISABLED`/`_MODEL`/`_TIMEOUT_MS`, `VOYAGE_API_KEY`, `BRAVE_API_KEY`, `TAVILY_API_KEY`/`EXA_API_KEY`/`SERPER_API_KEY`/`SERPAPI_API_KEY`, `BIRDEYE_API_KEY`/`GMGN_COOKIE`, `NEYNAR_API_KEY`, `TWITTER_BEARER_TOKEN`/`X_API_BEARER`, `AIXBT_API_KEY`/`_API_BASE`.
+- **Voice / 3D gen:** `ELEVENLABS_API_KEY`, `NVIDIA_ASR_FUNCTION_ID`/`NVIDIA_A2F_FUNCTION_ID`/`NVIDIA_COSMOS_INVOKE_URL`, `LIVEKIT_API_KEY`/`_SECRET`/`_SERVER_URL`, `GCP_PROJECT`/`GCP_REGION`/`GCP_SERVICE_ACCOUNT_JSON`, `GCP_RECONSTRUCTION_URL`/`_KEY`, `GCP_TRIPOSG_URL`/`GCP_HUNYUAN3D_URL`/`GCP_REMESH_URL`/`GCP_TEXTURE_URL`/`GCP_STYLIZE_URL`/`GCP_SEGMENT_URL`/`GCP_REMBG_URL`/`GCP_TEXT2MOTION_URL`, `HF_TOKEN`/`HF_RECONSTRUCT_SPACE(S)`, `REPLICATE_API_TOKEN`/`_RECONSTRUCT_MODEL`/`_RERIG_MODEL`/`_POLL_MS`/`_TIMEOUT_MS`/`_WEBHOOK_URL`/`_WEBHOOK_SIGNING_KEY`, `NIM_TRELLIS_URL`/`_KEY`/`MODEL_TRELLIS_URL`, `TRIPO_MODEL_VERSION`, `VERTEX_IMAGEN_MODEL`, `CHROMIUM_PACK_URL`/`CHROME_PATH`/`PUPPETEER_EXECUTABLE_PATH`, `AVATURN_API_KEY`/`_API_URL`/`_SEED_ENABLED`, `MIXAMO_TOKEN`, `AVATAR_REGEN_PROVIDER`, `AUTO_RIG_DAILY_PER_USER`/`_GLOBAL_HOURLY`/`_PRIVATE`/`_REQUIRE_TIER`, `FORGE_ORIGIN`/`FORGE_PREFER_FREE`/`FORGE_FREE_POLL_MS`/`FORGE_PAID_GLOBAL_HOURLY`.
+- **Pump.fun / $THREE / treasury:** `PUMP_X402_LAUNCHER_SECRET_KEY_B64`, `PUMP_CRON_RELAYER_SECRET_KEY_B64`, `PUMP_DEFAULT_AGENT_MINT`/`_NETWORK`, `PUMP_PLATFORM_FEE_BPS`/`_WALLET`, `PUMP_GRADUATIONS_SOURCE`/`GRADUATIONS_LIST_KEY`/`_MAX_LEN`, `PUMPFUN_BOT_TOKEN`/`_URL`/`PUMPFUN_MCP_URL`, `PUMP_COINS_V2_BASE`/`PUMP_FRONTEND_BASE`, `PUMPKIT_WEBHOOK_SECRET`, `THREE_WS_MARK_ENFORCE`/`ALLOW_UNMARKED_MINT`, `THREE_TOKEN_MINT`/`THREE_MINT`/`THREE_TOKEN_DECIMALS`, `THREE_PRIZE_PAYOUT_KEY`, `THREE_BURN_ADDRESS`, `THREE_QUOTE_TTL_S`, `THREE_ALLOWANCE_DELEGATE_SECRET_KEY_B64`, `THREE_BUYBACK_ENABLED`/`_SECRET_KEY_B64`/`_MIN_USD`/`_MAX_USD`/`_COMMIT_BPS`/`_SLIPPAGE_BPS`, `BUYBACK_BPS`, `PLATFORM_FEE_BPS`, `REWARDS_DISTRIBUTOR_SECRET`, `REFLECTION_DAILY_CAP`/`_DEBOUNCE_MS`/`REFLECT_SWEEP_BATCH`, `REFERRAL_COMMISSION_BPS`, `RIDER_VAULT_ADDRESS`/`_HELIUS_WEBHOOK_SECRET`, `CREDITS_DEPOSIT_WALLET_SOLANA`, `PURCHASE_RECEIPT_KEY`, `VANITY_SERVICE_KEY`/`VANITY_BOUNTY_PAYOUT_KEY`/`VANITY_DROP_FUNDING_KEY`, `COIN_TREASURY_SECRET_KEY_B64`, `COSMETIC_SPLIT_TREASURY_SECRET_KEY_B64`, `CLUB_SOLANA_TREASURY_SECRET_KEY_B64`/`CLUB_EVM_TREASURY_PRIVATE_KEY`/`CLUB_BASE_RPC_URL`/`CLUB_SWEEP_DUST_ATOMICS`.
+- **Comms / observability:** `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHANGELOG_CHAT_ID`/`_ALERTS_CHAT_ID`/`_ORACLE_CHAT_ID`/`_SNIPER_CHAT_ID`, `RESEND_API_KEY`/`_AUDIENCE_ID`, `EMAIL_FROM`/`_REPLY_TO`, `SENTRY_DSN`/`_ENVIRONMENT`/`_RELEASE`, `AXIOM_TOKEN`/`_DATASET`/`_URL`, `VAPID_PUBLIC_KEY`/`_PRIVATE_KEY`/`_SUBJECT`, `DEV_TO_API_KEY`, `MEDIUM_INTEGRATION_TOKEN`/`_AUTHOR_ID`, `THREEWS_TWITTER_URL`.
+- **Cron / multiplayer / games / ops:** `CRON_SECRET`, `WEBHOOK_SECRET`/`ALLOW_UNSIGNED_WEBHOOKS`, `IRL_FIX_SECRET`/`IRL_X402_ALLOWED_HOSTS`, `X402_SWEEP_MAX_PRICE_USD`, `NODE_ENV`/`VERCEL_ENV`, `PUBLIC_APP_ORIGIN`, `MULTIPLAYER_SHARED_SECRET`/`_INTERNAL_URL`/`_URL`/`_API_BASE`, `REALM_TRANSFER_SECRET`, `WORLD_URL`/`WORLDS_URL`/`WORLD_API_BASE`, `GAME_SERVER_URL`, `WALK_URL`/`WALK_BASE`/`WALK_EMBED_BASE`, `GAME_TOKEN_MINT`/`_DECIMALS`/`_TREASURY`/`_SECRET`/`_REWARDS`, `PLAY_GATE_MINT`/`_MIN`/`_SYMBOL`, `HOLDER_MIN_USD`, `AGORA_MAINNET_ENABLED`/`_RECONCILE_MS`/`_DEVNET_MAX_SOL_PER_TASK`/`_MAX_THREE_PER_TASK`/`_THREE_MINT`/`_THREE_TOKEN_ACCOUNT`, `ORACLE_*` (MODE/NETWORK/GLOBAL_KILL/MAX_TRADE_SOL/USE_JITO/ALERT_MIN_TIER/intervals), `SNIPER_MODE`/`_NETWORK`/`_HEARTBEAT_MS`, `ORDERS_MODE`/`_NETWORK`/`SETTLE_MS`, `DCA_ALLOWED_TOKEN_OUT`/`_CHAIN_ID`, `CIRCULATION_*`, `SMART_GRAPH`/`_INTERVAL_MS`, `CLASH_*` (EPOCH_MS/MAX_FACTIONS/MAX_POWER_PER_WALLET/PASS_SECRET/WAR_RESULT_SECRET), `AUTOPILOT_COMPUTE_TREASURY`, `AGENT_WALLET_ALLOWED_ORIGINS`/`_MAX_USDC_MICROS`/`_DAILY_USDC_MICROS`, `AGENT_TRADE_NETWORK`/`_PRICE_SOL`/`AGENT_INVOCATION_NETWORK`/`_PROGRAM_ID`, `LABOR_ESCROW_SECRET_BASE58`/`LABOR_SKILL_ROYALTY_BPS`, `SKILL_LICENSE_ENFORCE`/`_MINTER_KEY`/`_PROGRAM_ID`/`SKILL_NFT_NETWORK`, `ATTEST_AGENT_SECRET_KEY`/`SAS_AUTHORITY_SECRET`, `CUSTODY_ANCHOR_NETWORK`/`_SNAPSHOT_NETWORK`, `ALLOWED_ORIGINS`, `COINBASE_PAY_APP_ID`, `VITE_WALLETCONNECT_PROJECT_ID`, `CZ_REGISTRY_CONTRACT`/`CZ_AGENT_ID`/`_NAME`, `SDP_API_BASE`/`_KEY`, `STUDIO_API_BASE`/`_PUBLIC_BASE`, `THREEWS_API_BASE`/`_ORIGIN`/`THREE_WS_API_BASE`/`_BASE`/`_API_KEY`.
+- **Test/Ops only (not request surface):** `SMOKE_*`, `X402_BUYER_*`/`X402_TEST_*`/`X402_PAYER_*`, `TEST_EMAIL`/`_PASSWORD`, `GH_TOKEN`/`GITHUB_TOKEN`, `CC_*`, `DEV_API_PROXY`/`DEV_API_UPSTREAM`, `CI`/`DEBUG`/`DRY_RUN`/`HEADED`/`STRICT_A11Y`/`SKIP_NETWORK_TESTS`/`CONFIRM_MAINNET*`/`VERIFY_ONCHAIN_CHAINS`, Vercel/Codespaces platform vars.
+
+> Fallback chains: secrets cascade `dedicated → WALLET_ENCRYPTION_KEY → JWT_SECRET`; Redis `UPSTASH_REDIS_REST_* → three_KV_* → KV_*`; Base RPC `BASE_RPC_URL → CLUB_BASE_RPC_URL → RPC_URL_8453`; `HELIUS_API_KEY` auto-derives from `SOLANA_RPC_URL`.
+
+### SDK & Package API Surface
+
+**Top-level SDKs:**
+
+- **@three-ws/sdk** 0.2.0 (`sdk/`) — cross-chain agent kit. `AgentKit`, `AgentPanel`, `loadAvatar`, `agentRegistration`, `agentCard`, `aiPlugin`, `connectWallet`, `registerAgent`, `pinToIPFS`, `buildRegistrationJSON`, `getIdentityRegistry`, `IDENTITY/REPUTATION/VALIDATION_REGISTRY_ABI`, `REGISTRY_DEPLOYMENTS`, `PermissionsClient`, `AgentClient`, `PaymentRequiredError`. Subpaths `./solana` (`signInWithSolana`, `registerSolanaAgent`, `startSolanaCheckout`, `confirmSolanaPayment`), `./solana-attestations` (`attestFeedback/Validation/Revoke/Dispute`, `createTask`, `acceptTask`, `fetchReputation`), `./permissions`, `./styles`.
+- **@three-ws/solana-agent** 0.2.0 — `SolanaAgent`, `KeypairWalletProvider`, `BrowserWalletProvider`, `WalletAdapterProvider`, `transferSol`, `transferSpl`, `jupiterSwap`, `getSwapQuote`, `getOrCreateAta`, `getTokenBalance`, `stakeSOL`/`unstakeSOL`, `buildAndSend`, `fetchLookupTables`, `estimatePriorityFee`/`estimateComputeUnits`, `memoInstruction`; errors `SolanaAgentError`/`TransactionRejectedError`/`WalletNotConnectedError`/`SwapError`/`SimulationError`/`ConfirmationTimeoutError`. Subpaths `./wallet`, `./x402-exact`, `./solana-agent-kit`, `./vanity`.
+- **@three-ws/agent-payments** 3.2.0 — `./solana`: `PumpAgent`, `PumpAgentOffline`, `PumpTradeClient`, PDA helpers, decoders, `subscribeToAgentEvents`; `./evm`: `EvmAgent`, `EvmAgentOffline`, `AGENT_PAYMENTS_ABI`, `EVM_CHAINS`, `getInvoiceId`; `./a2a`: `payA2A`, `requestA2AQuote`, `submitA2APayment`, `buildEvmExactPayload`, `A2A_X402_EXTENSION_URI`.
+- **@three-ws/agent-protocol-sdk** 0.2.0 — `invokeSkill`, `deriveAgentPda`, `IDL`, `AGENT_INVOCATION_PROGRAM_ID`, `MAX_SKILL_NAME_LEN`, `MAX_PARAMETERS_LEN`.
+- **@three-ws/agent-ui** 0.2.0 — `createAgentUI`, `createRenderer`, `loadAvatar`, `createAnimator`, `moveTo`, `walkTo`, `standOn`, `fallOnto`, `runOff`, `interceptNavigation`, `dust`, `impactPulse`, `proximityShadow`, `scan`. `./bundle`, `./styles`.
+- **@three-ws/avatar** 0.2.0 — `<agent-3d>` (`Agent3DElement`), `<agent-stage>` (`AgentStageElement`), `Viewer`, `Runtime`, `SceneController`, `Memory`, `Skill`, `SkillRegistry`, `defineElement`. Subpaths `./creator` (`AvatarCreator`, `saveBlob`), `./viewer` (`<three-ws-viewer>`), `./agent` (`ensureAgent3D`), `./react` (`<Avatar>`, `<AgentAvatar>`, `useAvatar`).
+- **@three-ws/walk** 0.1.0 — `createWalkCompanion`, `launchPlayground`, `WALK_AVATARS`, `getAvatar`, `createAvatarPicker`, `loadWalkAvatar`, `resolveConfig`. `./roster`, `./style.css`.
+- **@three-ws/page-agent** 0.1.0 — `<page-agent>` (`PageAgentElement`), `PageAgent`, `collectSegments`, `mount`, `AvatarStage`, `SpeechNarrator`, `AvatarPicker`, `createLipsync`, `AGENTS`. `./catalog`, `./global`.
+- **@three-ws/tour** 0.1.0 — `createFeatureTour`, `TourDirector`, `resolveTourConfig`, `loadCurriculum`, `buildPlaylist`, `buildCurriculum`. Bin `tour-build-curriculum`. `./curriculum(.schema.json)`.
+
+**Feature packages** (`packages/*`; all share `ThreeWsError`/`PaymentRequiredError`/`DEFAULT_BASE_URL`):
+
+- **forge** 0.1.0 — `createForge`, `forge`, `rig`, `catalog`. **names** 0.1.0 — `resolve`, `reverseLookup`, `checkSubdomain`, `mintSubdomain`, `claimSubdomain`, `resolvePayee`, `payByName`. **intel** 0.1.0 — `sentiment`, `intel`, `projects`, `snapshot`. **vanity** 0.1.0 — `grind`, `grindViaApi`, `validatePattern`, `expectedAttempts`, `base58Encode`. **reputation** 0.1.0 — `reputation`, `leaderboard`, `validation`, `attest`, `SUPPORTED_CHAINS`. **voice** 0.1.0 — `transcribe`, `speak`, `say`, `lipsync`, `voices`. **x402-server** 0.1.0 — `createX402Server`, `buildChallenge`, `verifyPayment`, `settlePayment`, `paid`, `feeSplit`, `X402_VERSION`, `MAX_FEE_BPS`. **x402-fetch** 1.0.1 — `withX402`, `wrapFetchWithPayment`, `privateKeyToWallet`. **agent-memory** 0.1.0 — `AgentMemory`, `createAgentMemory`. **agenc** 0.1.0 — `listTasks`, `getTask`, `getAgent`. **guardian** 0.1.0 — `check`, `govern`, `moderate`, `risks`, `RISKS`, `BLOCK_THRESHOLD`. **glb-tools** 0.1.0 — `inspect`, `theme`, `bake`. **agent-guards** 0.1.0 — `policy`, `guard`, `checkKillSwitch`, `checkPerTradeCap`, `checkDailyBudgetLamports`, `checkPriceImpact`, `checkAllowlist`, `TRADE_LIMIT_DEFAULTS`. **skill-license** 0.1.0 — `mintLicense`, `verifyLicense`, `getLicense`, `skillSeed`, `PROGRAM_ID`. **mocap** 0.1.0 — `saveClip`, `getClip`, `listClips`. **strategies** 0.1.0 — `dca`, `copy`, `mirror`, `killSwitch`, `createStrategy`, `forkStrategy`, `leaderboard`. **pumpfun-skills** 0.1.0 — `createCoin`, `swap`, `collectFees`, `sharingConfig`, `coinFees`. **irl** 0.1.0 — `checkIn`, `nearby`, `placePin`, `myPins`, `interact`, `encodeGeohash`. **pose** 0.1.0 — `poseSeed`, `presetPose`, `listPresetGroups`, `PRESETS`. **avatar-schema** 0.2.0 — `validate`, `assertValid`, `schema`, `SCHEMA_VERSION`. **react** 1.0.0 — `<Agent3D>`, `<WalkEmbed>`. **viewer-presets** 0.2.0 — `buildLightRig`, `LIGHT_CONFIG`, `floorReflectionConfig`, `bloomConfig`. **avatar-cli** 0.2.0 — CLI `three-ws-avatar {init,validate,hash,preview}`. **vscode-x402** 0.1.0 — VS Code commands `threewsX402.{refresh,search,setFilters,inspect,openService,pay,setWalletKey,clearWalletKey,scaffoldEndpoint}`.
+
+### Key Algorithms & Internal Mechanisms
+
+**1. Animation retargeting (`src/animation-retarget.js`).** Clips store absolute local rotations baked against `cz.glb` (A-pose Avaturn). Per canonical bone, `bindCorrections()` computes a pair `{L,R}` so `q' = L·q·R` re-expresses a keyframe as the same world-space delta on a differently-proportioned/posed target: `L = Rt·WT⁻¹·WS·Rs⁻¹`, `R = WS⁻¹·WT` (Rs/Rt = source/target local bind, WS/WT = world bind). Falls back to local-only `L = Rt·Rs⁻¹, R = I` when world rests are unknown; corrections within `BIND_EPSILON=1e-6` of identity omitted (matching rigs round-trip exactly). Root-motion: the `Hips.position` track is rotated by the inverse of the target hips-parent world rotation to preserve travel direction. Hip scaling: `targetY/sourceY` clamped `[0.2,5]`; raw Object3D graphs use **local** height (world Y ÷ parent scale) so cm-native Mixamo armatures (`scale 0.01`) don't collapse. Clip accepted only at `matched/total ≥ MIN_COVERAGE=0.5`; `rig.resetPose()` runs before measuring.
+
+**2. Bone canonicalization (`src/glb-canonicalize.js`).** `canonicalizeBoneName` → one of 52 canonical bones: strip namespaces (`Character1:`), strip vendor prefixes (`mixamorig`, `Armature_`, Rigify `DEF/ORG/MCH`, `CC_Base_`, `Bip001`), collapse separators+lowercase, resolve against LOOKUP → UNREAL_ALIASES → EXTRA_ALIASES (lower tables never shadow canonical). De-dup retry strips trailing `_NN`/`.NNN` only if the full name didn't resolve. **Mixamo armature fix:** Mixamo bakes +90°X on armature / −90°X on Hips; the fix folds armature rotation into children, zeroes it, collapses Hips to identity — only when armature scale is uniform, and **verified by comparing every joint's world matrix before/after within `1e-4`** (reverts entirely on mismatch). GLB rewrite re-pads the JSON chunk to 4 bytes and repacks BIN verbatim.
+
+**3. Coin intelligence scoring (`workers/agent-sniper/intel/`).** `computeSignals` is pure/deterministic (missing data → `null`, never fabricated). `bundleScore` = `(density·0.5 + clustering·0.5)·(0.6 + 0.4·walletMult)` over a 3s burst; `snipeRatio` = buy-volume share in first 5s; concentration ranks per-wallet net buys (top-1/5/10 share); organic score blends buyer diversity, arrival-time Shannon entropy, (1−bundle), (1−snipe), (1−whale), penalized for dev-sell + fresh-wallet swarms. `summarizeRisk` → transparent 0–100. Classification is 3-layered (ordered-keyword heuristic seed → `matchNewsHeadline` → LLM refinement with XML-delimited fields), never fails. **Online learning** (`learn.js`): `labelOutcomes` derives ground truth (`graduated`/`pumped ≥3×`/`rugged ≤0.25×`/`flat`) after a min age; `trainWeights` computes per-signal **Pearson correlation** vs binary good-label (≥50 samples) and persists weights + conditional win-rates; `learnedScore` = logistic squash `1/(1+e^(−Σwᵢvᵢ))` (null → fall back to baseline).
+
+**4. Oracle conviction (`workers/oracle/score-loop.js` → `api/_lib/oracle/conviction.js`).** `convict()` is pure: four pillars scored 0–100 with weights **pedigree 0.34 · structure 0.30 · narrative 0.18 · momentum 0.18**. Pedigree anchors on smart-money composite ± proven/flagged-wallet adjustments; structure anchors on `30 + organic·0.55` minus bundle/concentration/dev-sold/cluster, several imposing a **hard cap** on the final score; narrative blends classifier virality with category prior weighted by confidence; momentum from buy/sell share + dev-buy sizing. Final `score = min(weightedSum, structure.cap)` — pedigree/narrative can't paper over a bundle. Tiers: `prime ≥86, strong ≥72, lean ≥56, watch ≥34, avoid`. History row only when score moves ≥3.
+
+**5. Tiered agent memory (`api/_lib/memory-store.js`).** Letta/MemGPT model: working (pinned + `tier='working'`, `WORKING_TOKEN_BUDGET=2000`), recall, archival. Embeddings free-first: NVIDIA NIM `nv-embedqa-e5-v5@1024` ingest default, OpenAI `text-embedding-3-small@256` backstop — stored as **JSONB arrays tagged with the embedder** (not a pgvector column), cosine computed in JS **strictly within each embedder space** (`cosine` returns 0 on dimensionality mismatch — guards silent cross-space comparison). Search lazily embeds ≤24 rows/call, filters `minScore≥0.25`, fills shortfall with salience-ranked substring matches (never empty). Every surfaced row bumps `access_count`, `last_accessed_at=now()`, `salience=LEAST(1.0, salience+0.02)`; a Zep/Graphiti temporal KG mines entities into nodes + co-occurrence edges.
+
+**6. A2A spend ledger / TOCTOU (`api/_lib/a2a/spend-ledger.js`, `reserveSpendUsd`).** Mandate budget enforced by Redis **`INCRBY`-then-rollback**: increment first, `DECRBY` if over cap (no funds held), `EXPIRE` set on first write. `spent()` **fails closed** (can't prove headroom → throw); `release()` floors at 0. Per-agent daily USD ceiling (`reserveSpendUsd`, `agent-trade-guards.js`) uses a **Postgres advisory lock** + pending custody reservation row to stop K concurrent calls each reading the same pre-spend total — also runs freeze gate, withdraw allowlist, NL policy eval, per-tx ceiling, capability metering, post-reserve anomaly guard.
+
+**7. Custodial keypair encryption (`api/_lib/secret-box.js`).** Single AES-256-GCM primitive (webcrypto, no deps). **v2:** random 16-byte salt + 12-byte IV per record, key via **HKDF-SHA256** from `WALLET_ENCRYPTION_KEY`, emits `"v2:"+base64(salt‖iv‖ct+tag)`. **Fails closed in production** on missing/short key (no silent `JWT_SECRET` downgrade — a JWT leak must not decrypt wallets). Legacy v1 (no tag, `JWT_SECRET` + constant salt) still decrypts for old records; all new writes are v2.
+
+**8. Vanity grind protocol (`crates/vanity-grinder`, `src/solana/vanity/`).** WASM `grind`: `pubkey_from_seed` = `SHA-512(seed) → low 32 → EdwardsPoint::mul_base_clamped → compress` (bit-identical to `SigningKey`, minus overhead); seeds enumerated by overwriting low 4 bytes of a CSPRNG `start_seed` with a wrapping counter. **Proof-of-grind cert** (`three-pog/v1`): canonical key-sorted JSON over `SIGNED_FIELDS`, domain-tag `three-pog/cert/v1`, `certId = SHA-256(domain‖stableStringify(address,pattern,format,nonce))`, Ed25519 attestation sig; `verifyProofOfGrind` recomputes every claim (validity, binding, difficulty `58^len`, freshness, first-cert-for-address, rotation-aware sig). Split-key non-custody assertion `P1 + a2·B == address` (server only ever knew offset `a2`). **Sealed delivery** `x25519-hkdf-sha256-aes256gcm/v1` (ECIES, ephemeral X25519 + HKDF + AES-256-GCM, epk bound as AAD, forward-secret w.r.t. server).
+
+**9. Honeypot / firewall (`api/_lib/trade-firewall.js`, `api/pump/safety.js`).** `assessTradeSafety` runs checks concurrently, never throws (outage → `warn`, never fake `allow`). SPL authority audit: non-null `freezeAuthority` = fatal; `mintAuthority` = warn. Venue+reserves check. **Simulated buy→sell round-trip**: packs both legs in one v0 message, simulates on live RPC (`sigVerify:false, replaceRecentBlockhash:true`); revert on sell leg or ~0 SOL out = honeypot → fatal. Score starts 100, subtracts penalties; `block` if any fatal flag or ≤45, `warn` if ≤70. Authority/curve reads cached 8s; **round-trip never cached**. Logged to `firewall_decisions`.
+
+**10. Granite Guardian gate (`api/_lib/granite-guardian.js`).** 12-risk taxonomy, each an independent watsonx classifier pass; default input risks `[jailbreak,harm,violence,unethical_behavior,social_bias]` run concurrently. Each pass recovers a real unsafe-probability by softmaxing Yes/No logprobs (`logprobs:true, top_logprobs:5`); `decide` → allow/review/block at `FLAG_THRESHOLD=0.55`. `governSend` adds a model-independent `sendCapUsd` (default $25). **Hash-chained audit:** stores only SHA-256 of content + decision + `prev` hash; `verifyAuditChain` re-derives from `GENESIS_HASH`.
+
+**11. LLM failover (`api/_lib/chat-models.js`, `api/chat.js`).** `DEFAULT_PROVIDER_ORDER = [groq, openrouter, nvidia, anthropic, openai]` — free lanes first, paid as last-resort backstop (prod paid keys routinely 401/over-quota). `MODEL_CATALOG` annotates `{provider, tools, moderationGated}`; `usableModels` drops tool-incapable or moderation-gated models from auto-chains. `api/chat.js` skips providers in health cooldown (recent 429/5xx/timeout) + unconfigured keys, bounds the loop by `TOTAL_BUDGET_MS=25000` + `MAX_FALLBACK_ATTEMPTS=4` (per-call abort at `min(15000, remaining)`); auth/billing failures cool the whole provider; exhausted-within-budget → clean **503 + Retry-After:20**.
+
+### Specifications, Protocols & Platform Constants
+
+Hard, load-bearing specifics from `specs/` and `docs/`. (The $THREE hold-to-access tier ladder is documented above under On-chain & Solana / $THREE.)
+
+**Mint-mark `3ws`** (`docs/mint-mark.md`, `src/solana/vanity/brand.js`) — address-prefix convention baked into the Ed25519 keypair; every three.ws-launched mint's pubkey starts with `3ws` (case-insensitive). `THREE_WS_MARK='3ws'`, frozen `THREE_WS_VANITY={prefix:'3ws',ignoreCase:true}`; grind ~49,000 keypairs @ ~25,000/s → <1s. Kill-switch `THREE_WS_MARK_ENFORCE` (default ON, fail-closed); enforced in `launch-prep`/`launch-agent`; unbranded → `400 unbranded_mint`. **Exempt:** `api/x402/pump-launch.js` (arbitrary caller mint).
+
+**Persona Hub JWT** (`docs/persona-hub.md`, `api/auth/persona/[action].js`) — ES256 (P-256) when `PERSONA_JWKS_PRIVATE_KEY_PEM` set, else HS256(`JWT_SECRET`); `kid` default `persona-es256-1`. TTL `PERSONA_TTL_SEC=86400` (24h), no refresh/revocation. Claims: `iss=https://three.ws`, `sub=userId`, `aud=tenant_origin`, `scope="persona:read avatar:read"`, `token_use="persona"`, `avatar{id,name,url,thumbnail_url}`, `jti`. Endpoints `GET /me`, `POST /issue`, `GET /verify?token=&audience=`, `GET /.well-known/jwks.json`. Widget `<three-ws-signin>` (`public/persona/widget.js`), events `three-ws:authorized`/`cancelled`. Allowed origins `three.ws`, `*.three.ws`, dev localhost.
+
+**Agent Manifest** (`specs/AGENT_MANIFEST.md`) — `$schema=https://3d-agent.io/schemas/manifest/0.2.json`, `spec="agent-manifest/0.2"` (v0.2 added `permissions`). Bundle: `manifest.json` (req) + `instructions.md`, `SKILL.md`, `body.glb`, `poster.webp`, `skills/`, `memory/MEMORY.md`, `attestations/`. Fields: `id{chain,registry,agentId,owner}`, `body{uri,format(gltf-binary|gltf|vrm),rig,boundingBoxHeight}`, `brain{provider,model,instructions,temperature(0.7),maxTokens(4096),thinking(auto)}`, `voice{tts,stt}`, `skills[]`, `memory{mode,index,maxTokens(8192)}`, `tools[]` (default `["wave","lookAt","play_clip","setExpression"]`), `attestations[]`, `permissions`. **3D Agent Card v1** is a strict superset of ERC-8004 registration v1 via ERC-721 `tokenURI`; required `model{uri(ipfs),format,sha256}` — consumers MUST treat mismatched hash as unverified.
+
+**Skill spec** (`specs/SKILL_SPEC.md`, `spec="skill/0.1"`) — bundle `manifest.json` + `SKILL.md`; `tools.json` uses `input_schema`. Code runs in a **shared Web Worker** (no DOM/window/localStorage/navigator), handler loaded via `blob:` URL; `ctx.*` calls are structured-clone postMessage round-trips, **30s timeout each**; network only via `ctx.fetch`. Trust `any|whitelist|owned-only` (default `owned-only`), integrity hashes verified pre-exec; `trusted-main-thread` opt-out only for owned/whitelist. Events `perform-skill`/`skill-done{result:{ok,output,sentiment∈[−1,1]}}`/`skill-error`. Built-ins: `greet`, `present-model`, `validate-model`, `remember`, `think`, `sign-action`, `help`.
+
+**Permissions ERC-7710/7715** (`specs/PERMISSIONS_SPEC.md`) — DelegationManager `0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3` (same address all chains via CREATE2). Caveat enforcers (`src/erc7710/abi.js` `CAVEAT_ENFORCERS`): AllowedTargets, ERC20TransferAmount, ERC20PeriodTransfer, NativeTokenTransferAmount, NativeTokenPeriodTransfer, Timestamp, LimitedCalls. Envelope `{delegate,delegator,authority,caveats[{enforcer,terms}],salt,signature(EIP-712)}`, id = `delegation_hash` keccak256. API `/api/permissions/{grant,list,revoke,redeem,metadata,verify}`. `redeemFromSkill` rate-limited 5/min/tab. Spec defaults mainnet-disabled (Base Sepolia 84532 + Sepolia 11155111); `agent_delegations` table tracks `status(active|revoked|expired)`, `redemption_count`.
+
+**Memory spec** (`specs/MEMORY_SPEC.md`, `memory/0.1`) — salience bonus: feedback +0.3, user +0.2, project +0.1, reference +0.0; rank = salience × recency (7-day half-life); `important:true` pins to 1.0. Retrieval budget default 8192 tokens (~4 chars/token); MEMORY.md index truncated beyond 200 lines. Modes `local` (key `agent:<id>:memory`, max 150 entries / 200 timeline rows), `ipfs`, `encrypted-ipfs` (ECIES/libsodium sealed box), `none`. Spec-level recall = substring (vector search deferred; the live server engine uses cosine).
+
+**Embed/Host protocol** (`specs/EMBED_HOST_PROTOCOL.md`, envelope `v:1`) — `{v:1, type:"<host|embed>.<cat>", id?, payload}`. Host→embed: `host.hello`, `host.chat.message`, `host.action`, `host.theme`, `host.response`. Embed→host: `embed.ready`, `embed.event` (`agent.speaking|idle|emote|error`), `embed.error`, `embed.request` (5000ms default timeout). EMBED_SPEC bridge **forbids `'*'`** origin. Delegation message types (v0.2+) `host/embed.permissions.{query,redeem,redeemed,error}`. `embedPolicy{mode:allowlist|denylist|open, hosts[]}` stored as `agent_identities.embed_policy` JSONB. **Stage** (`stage/0.1`): `<agent-stage formation=row|circle|freeform>` (row spacing 1.1m), one renderer/stage, tools `observe_agents`/`say_to_agent`.
+
+**`<agent-3d>` web component** (`docs/web-component.md`) — CDN `/agent-3d/<ver>/agent-3d.js` (immutable; channel tags 5-min), current **v1.5.2**. Methods: `say`, `ask`, `wave`, `lookAt`, `play`, `speak`, `clearConversation`, `installSkill`/`uninstallSkill`, `expressEmotion(trigger,weight)`, `setMode`/`setPosition`/`setSize`, `pause`, `destroy`, `activateAR`. Events: `agent:ready`, `agent:load-progress{phase}`, `agent:error`, `brain:message`/`thinking`, `voice:*`, `skill:loaded`/`tool-called`, `memory:write`, `ar-status`. CSS vars `--agent-{bubble-radius,accent,surface,on-surface,chat-font,mic-glow,shadow}`. iframe `sandbox="allow-scripts allow-same-origin"`; collapses to 56px pill below 480px.
+
+**Widget API** (`docs/widget-api.md`) — shell `/widget`, loader `embed.js`, client `widget-client.js`, global `ThreeWidget.attach`. Types `turntable`(default), `talking-agent`. **JSON-RPC 2.0** over postMessage: `viewer.{getInfo,setBackground,setAutoRotate,setEnvironment}`, `camera.{getLookAt,setLookAt,recenter}`, `animation.{list,play,stop}`, `screenshot.capture`, `model.{load,export}`, `ping`; events `viewer.ready`/`model.loaded`/`widget.revealed`. WebGL context cap ~16/tab.
+
+**Claude Artifact** (`specs/CLAUDE_ARTIFACT.md`) — `GET /api/artifact?agent=|model=&theme=&idle=&bg=` → one self-contained HTML (three.js + GLB inlined). SSRF whitelist (`*.r2.cloudflarestorage.com`, `*.amazonaws.com`, `storage.googleapis.com`, `three.ws`, `*.vercel.app`, …); GLB max 6MB raw → 413; fetch timeout 8s; rate `widgetRead` 600/min/IP; strict CSP (`default-src 'none'`); GLB via `GLTFLoader.parse(atob(...))`, never `.load(url)`.
+
+**On-chain attestations.** Solana: Memo program `MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`; AgenC devnet `6UcJzbTEemBz3aY5wK5qKHGMD7bdRsmR4smND29gB2ab`; mainnet genesis `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`. Seven permissionless kinds (SPL Memos): `threews.{feedback,stake,validation,task,accept,dispute,revoke}.v1` (stake ≥0.001 SOL). SAS schemas `threews.verified-client.v1`, `threews.audited-validation.v1` (authority `SAS_AUTHORITY_SECRET`). EVM ERC-8004 registries (CREATE2, same address per chain): Identity `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`, Reputation `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` (scores −100…+100, optional ≥0.001 ETH stake), Validation testnet `0x8004Cb1BF31DAf7788923b405b754f57acEB4272`. Platform validator EOA `0x93Bc7EfB0059B784465619FC73C2db8D01b1CD04` (kind `glb-schema`). **Metaplex Core collection** `56Gnsb7Jjg1N9c8V7EAnDC4HmQbQjsEueSUA3EK5272H` ("three.ws Agents", 500-bps royalty plugin, ~0.004 SOL/agent mint).
+
+**x402 wire constants** — `X402_VERSION=2`, scheme `exact`. USDC: Solana `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`, Base `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, Arbitrum `0xaf88d065e77c8cC2239327C5EDb3A432268e5831`. Facilitators: PayAI `https://facilitator.payai.network`, Coinbase CDP `https://api.cdp.coinbase.com/platform/v2/x402` (Base+Arbitrum). CAIP-2: Base `eip155:8453`, Arbitrum `eip155:42161`, BSC `eip155:56`, Solana `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp`. $THREE accepted as second Solana settlement asset (`acceptThree:true`, opt-in `X402_ACCEPT_THREE_SOLANA`).
+
+**AI model IDs.** NVIDIA (`NVIDIA_API_KEY`, NIM base `integrate.api.nvidia.com/v1`): text→3D `microsoft/trellis` (steps 10–50, prompt ≤77 chars), text→image `black-forest-labs/flux.1-schnell`, default LLM `meta/llama-3.3-70b-instruct`, vision `nvidia/nemotron-nano-12b-v2-vl`→`meta/llama-3.2-11b-vision-instruct`, embeddings `nvidia/nv-embedqa-e5-v5` (1024-dim, ≤512 tok)→`baai/bge-m3`, rerank `nvidia/rerank-qa-mistral-4b`, safety `nvidia/llama-3.1-nemoguard-8b-content-safety`→`meta/llama-guard-4-12b`, TTS `magpie-tts-multilingual`. IBM watsonx: chat `ibm/granite-3-8b-instruct`, embeddings `ibm/granite-embedding-278m-multilingual`, forecast `ibm/granite-ttm-{512|1024|1536}-96-r2`, vision `ibm/granite-vision-3-2-2b`, governance `ibm/granite-guardian-3-8b`; Identity Firewall similarity ≥93% = block, 86–93% = review. i18n provider ladder: groq (default) → gemini (CJK) → openrouter → nvidia → openai → anthropic; glossary `doNotTranslate` includes `$THREE`, contract address, `x402`, `USDC`, `Solana`, `IBM watsonx.ai`.
+
+**Pump platform fee** (`docs/pump-platform-fee.md`) — `PUMP_PLATFORM_FEE_BPS` default 0 (off), hard-capped 500 (5%); recipient `PUMP_PLATFORM_FEE_WALLET` → treasury fallback; buy fee added on top, sell fee from proceeds.
+
+**Distribution / syndication** — Listings (live): AWS Marketplace, Alibaba Cloud Intl, BNB Chain Dappbay (`dappbay.bnbchain.org/detail/three`). News syndication: WebSub hub, Dev.to (`DEV_TO_API_KEY`), Medium (`MEDIUM_INTEGRATION_TOKEN`, create-only), HackerNoon (RSS auto-import), CoinMarketCap (manual); `POST /api/admin/news/resyndicate`; store `data/rss/items.json`. **X Spaces agent** (`xspace-agent`): Puppeteer+CDP headless Chromium → WebRTC audio → STT→LLM→TTS; presets agent-zero/comedian/crypto-degen/educator/interviewer/tech-analyst; Docker `ghcr.io/nirholas/xspace-agent`.
+
+**Agora / AgenC** (`docs/agora.md`) — AgenC agent PDA `["agent",agentId]`: `reputation` u16 (start 5000), `stake` u64 (≥0.001 SOL), `capabilities` bitmask. Professions (bits 0–7): Fetcher, Sculptor, Scribe, Cartographer, Crier, Appraiser, Verifier, Namekeeper — each WORK module emits `proofHash=sha256(deliverable)`. Task types Exclusive/Competitive/Collaborative; loop IDLE→SEEK→CLAIM→BUSY/WORK→PROVE→SPEND. On-chain currency = $THREE on mainnet (devnet uses SOL/synthetic). Identity bridge `sha256` namespaces `AgenC/three.ws/{erc8004|mpl-core|handle|composite}/v1`.
+
+**zauth suite** (`docs/zauth/*`, vendored 2026-06-10) — API host `api.zauth.inc`. RepoScan x402 $0.05/scan (trust score 0–100), `GET /api/bot/scan`, `GET /api/bot/progress/:scanId` (SSE), `POST /x402/reposcan`. Provider Hub `@zauthx402/sdk` Express middleware `zauthProvider(apiKey)` with auto-refunds (per-refund/daily/monthly caps). Free directory `GET https://api.zauth.inc/api/directory`.
+
+**Spec schema snippets** (`specs/schema/*.sql`) — `agent_subscriptions`(`period_seconds>0`, `status active|canceled|paused`), `dca_strategies`(`dca/0.1`, `chain_id` default 84532, `period_seconds IN (86400,604800)`, `slippage_bps` 1–500), `indexer_state`(`(contract,chain_id)` unique, `last_indexed_block`), `voice-cloning`(`agent_identities.voice_provider/voice_id/voice_cloned_at`), `embed-policy`(`agent_identities.embed_policy` JSONB).

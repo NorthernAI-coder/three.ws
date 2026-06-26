@@ -650,5 +650,78 @@ body {
 .ld-skel-avatar { width: 72px; height: 72px; border-radius: var(--radius-md); }
 .ld-skel-stack { flex: 1 1 auto; display: flex; flex-direction: column; gap: var(--space-sm); }
 .ld-skel-chart { height: 200px; }
+.ld-skel-strip { height: 58px; }
 @keyframes ld-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .ld-skel { animation: none; } }
+
+/* ── Market metrics — multi-timeframe moves + on-chain safety ──────────────── */
+
+.ld-metrics-body {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: var(--space-lg);
+}
+@media (max-width: 720px) { .ld-metrics-body { grid-template-columns: 1fr; } }
+.ld-metrics-block { min-width: 0; }
+.ld-metrics-h {
+	margin: 0 0 var(--space-sm);
+	font-size: var(--text-2xs);
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	color: var(--ink-dim);
+	font-weight: var(--weight-semibold);
+}
+
+/* Multi-timeframe price-move strip */
+.ld-mtf { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-xs); }
+.ld-mtf-cell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: var(--space-sm) var(--space-xs);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	background: var(--surface-2);
+}
+.ld-mtf-label { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-dim); }
+.ld-mtf-val { font-family: var(--font-mono); font-size: var(--text-md); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; }
+.ld-mtf-empty {
+	display: flex;
+	align-items: center;
+	gap: var(--space-sm);
+	min-height: 58px;
+	margin: 0;
+	font-size: var(--text-sm);
+	color: var(--ink-dim);
+}
+
+/* On-chain safety / trust strip */
+.ld-trust-head { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.ld-verdict-pill {
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	padding: 3px var(--space-sm);
+	border-radius: var(--radius-pill);
+	border: 1px solid;
+}
+.ld-pill-good { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.ld-pill-warn { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.ld-pill-danger { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.ld-pill-muted { color: var(--ink-dim); border-color: var(--stroke); }
+.ld-trust-score { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink-dim); }
+.ld-trust-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-xs); }
+.ld-trust {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-sm);
+	padding: var(--space-xs) var(--space-sm);
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	background: var(--surface-2);
+}
+.ld-trust-k { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-dim); }
+.ld-trust-v { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; }

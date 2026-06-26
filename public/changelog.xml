@@ -103,6 +103,14 @@
 			<description>Paste any Solana address and /claim-wallet now reads its complete pump.fun record like a pro terminal: realized P&amp;L in SOL and live USD, win rate, smart-money score with a gauge, total volume, and a real micro equity-curve sparkline. Below that, a trade-analysis panel (net flow, average buy/sold, hold time, transaction count), a reputation panel (early-entry win rate, dump rate, dumps, coins created), an ROI distribution bar that buckets every closed position from &gt;5× down to rugs, and a category mix of what the wallet actually trades. The centerpiece is a full sortable trade ledger — realized P&amp;L, ROI with an inline bar, bought/sold, buy/sell transaction counts, hold duration and last activity per coin — and every row opens that coin's complete launch page with its live chart, holders and bubblemap. 7D / 30D / All-time toggles, instant filters (hide dust, open positions only, created coins), copy address, share, and a one-click signature-verified claim are all wired. Every number traces to a real on-chain trade — no placeholders.</description>
 		</item>
 		<item>
+			<title>Coin pages now show price moves and on-chain safety at a glance</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-26:Coin pages now show price moves and on-chain safety at a glance</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every coin's launch page (/launches/&lt;mint&gt;) gained a richer market header. A new metrics strip shows price moves across 5m, 1h, 6h, and 24h — computed live from real trade history, and only quoting a window once there's enough history to back it, so a brand-new coin never shows a fake 24h number. Alongside it, an on-chain safety panel surfaces the same checks the autonomous sniper runs before trading: whether the mint and freeze authorities are revoked (can the dev print more supply or freeze your tokens?), where real liquidity sits, and an overall 0–100 safety score. The coin header also now lists total supply. On the /launches feed, every card leads with the coin's age, the same at-a-glance freshness cue pro terminals open with.</description>
+		</item>
+		<item>
 			<title>Coin Radar upgraded — a live market-pulse banner, smart-money signals, search, sort and a list view</title>
 			<link>https://three.ws/radar</link>
 			<guid isPermaLink="false">2026-06-26:Coin Radar upgraded — a live market-pulse banner, smart-money signals, search, sort and a list view</guid>
