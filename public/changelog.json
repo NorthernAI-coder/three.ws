@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T12:23:53.168Z",
+	"generated_at": "2026-06-26T12:28:34.290Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -225,6 +225,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Fixed the marketplace's collapsed layout for good",
+			"summary": "The marketplace could load with its whole layout collapsed — the navigation crammed into overlapping text and the section tabs (Agent, Avatars, Tools, Skills, and the rest) stacked into a plain full-width list with the agent grid squeezed into a narrow strip or missing entirely. The real cause was structural, not a caching hiccup: the page is built as a two-column grid (a 240px sidebar beside the main content), and the global navigation bar was quietly claiming the sidebar's column, shoving the sidebar and main content into the wrong places. The navigation now spans the full width as intended, so the sidebar and the agent/avatar grid always land in their correct columns. The marketplace renders right on the very first load, every time.",
+			"link": "/marketplace",
+			"tags": [
+				"fix"
 			]
 		},
 		{

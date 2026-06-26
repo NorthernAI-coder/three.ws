@@ -175,6 +175,14 @@
 			<description>The walking-avatar embed you drop onto any site is now friendlier and lighter. Visitors can tap or click the ground to send the avatar walking there — no joystick required — and a one-time on-screen hint appears so first-timers actually discover the controls. Turn on a Gestures option and they get wave and jump buttons too. On desktop the avatar gently turns to face your cursor when it's standing still, so a hovered embed feels alive. While the 3D model loads, a soft silhouette stands in instead of a blank gap. The embed now pauses itself the moment it scrolls out of view or its tab is hidden, so it never drains a laptop battery in the background, and it respects your system 'reduce motion' setting. Every embed carries a small, tasteful three.ws badge that links home — removable with one toggle. The embed editor adds matching controls: walk speed, ground on/off, gestures, the badge toggle, and a Responsive option that emits a fluid snippet that fills its container on any screen.</description>
 		</item>
 		<item>
+			<title>Fixed the marketplace's collapsed layout for good</title>
+			<link>https://three.ws/marketplace</link>
+			<guid isPermaLink="false">2026-06-26:Fixed the marketplace's collapsed layout for good</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The marketplace could load with its whole layout collapsed — the navigation crammed into overlapping text and the section tabs (Agent, Avatars, Tools, Skills, and the rest) stacked into a plain full-width list with the agent grid squeezed into a narrow strip or missing entirely. The real cause was structural, not a caching hiccup: the page is built as a two-column grid (a 240px sidebar beside the main content), and the global navigation bar was quietly claiming the sidebar's column, shoving the sidebar and main content into the wrong places. The navigation now spans the full width as intended, so the sidebar and the agent/avatar grid always land in their correct columns. The marketplace renders right on the very first load, every time.</description>
+		</item>
+		<item>
 			<title>Fixed: the Animation Gallery footer no longer covers the page</title>
 			<link>https://three.ws/animations</link>
 			<guid isPermaLink="false">2026-06-26:Fixed: the Animation Gallery footer no longer covers the page</guid>
