@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T11:45:38.745Z",
+	"generated_at": "2026-06-26T11:55:28.725Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -327,6 +327,26 @@
 					"title": "Forge — Text to 3D",
 					"description": "Type a prompt — or drop in photos or a sketch — and get a downloadable textured 3D model (GLB). Pick from multiple generation engines with live health status.",
 					"added": "2026-06-04",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/avatar-engines",
+					"title": "Avatar Engines Atlas",
+					"description": "A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.",
+					"added": "2026-06-26",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/splat",
+					"title": "Splat Viewer — Photoreal Gaussian Avatars",
+					"description": "Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.",
+					"added": "2026-06-26",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

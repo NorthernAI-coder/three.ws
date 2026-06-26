@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Avatar Engines Atlas</title>
+			<link>https://three.ws/avatar-engines</link>
+			<guid isPermaLink="false">2026-06-26:Avatar Engines Atlas</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A curated, factual atlas of the open-source and commercial engines that build high-quality and photoreal 3D human avatars — Gaussian-splat heads, single-photo humans, text→avatar generators, and the rigs three.ws already animates. Technique, license, compute, and integration status for each.</description>
+		</item>
+		<item>
+			<title>Splat Viewer — Photoreal Gaussian Avatars</title>
+			<link>https://three.ws/splat</link>
+			<guid isPermaLink="false">2026-06-26:Splat Viewer — Photoreal Gaussian Avatars</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.</description>
+		</item>
+		<item>
 			<title>3D avatars look brighter and more lifelike everywhere — new studio lighting rig</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-26:3D avatars look brighter and more lifelike everywhere — new studio lighting rig</guid>
