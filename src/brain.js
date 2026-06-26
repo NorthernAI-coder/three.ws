@@ -291,14 +291,14 @@ function renderArchetypes() {
 function applyArchetype(index) {
 	const archetype = ARCHETYPES[index];
 	if (!archetype) return;
-	state.persona = { ...archetype.persona };
+	state.persona = { ...archetype.persona, _label: archetype.label };
 	persistPersona();
 	renderPersonaCard(state.persona);
-	// Mark the selected chip
+	updateStatusBar(archetype.label);
 	document.querySelectorAll('.br-archetype-chip').forEach((chip, i) => {
 		chip.classList.toggle('selected', i === index);
 	});
-	toast(`"${archetype.label}" persona applied`);
+	autoSavePersonaToAgent(archetype.label);
 }
 
 function showAuthGate() {
@@ -325,9 +325,56 @@ function hideAuthGate() {
 	if (gate) gate.style.display = 'none';
 }
 
+// ── Status bar (simplified view of active persona) ───────────────────────────
+function updateStatusBar(label) {
+	const bar = $('brStatusBar');
+	const text = $('brStatusText');
+	if (!state.persona) {
+		bar.classList.remove('show');
+		return;
+	}
+	text.textContent = label || state.persona._label || 'Custom persona';
+	bar.classList.add('show');
+}
+
+// ── Auto-save persona to the currently selected agent ───────────────────────
+async function autoSavePersonaToAgent(label) {
+	const agentId = $('brAgentSelect').value;
+	if (!agentId || !state.persona) return;
+
+	const bar = $('brStatusBar');
+	bar.classList.add('saving');
+
+	try {
+		const persona = {
+			system_prompt: buildPersonaSystemPrompt(state.persona),
+			tone: state.persona.tone,
+			traits: [
+				...(state.persona.vocabulary || []),
+				...(state.persona.interests || []),
+			],
+		};
+		const res = await fetch(`/api/agents/${agentId}`, {
+			method: 'PUT',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ persona }),
+		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({}));
+			throw new Error(data.error || `HTTP ${res.status}`);
+		}
+		bar.classList.remove('saving');
+		bar.classList.add('saved');
+		setTimeout(() => bar.classList.remove('saved'), 2200);
+	} catch (err) {
+		bar.classList.remove('saving');
+		toast(`Save failed: ${err.message}`);
+	}
+}
+
 // ── Render: Persona card ─────────────────────────────────────────────────────
 function renderPersonaCard(p) {
-	$('brPersonaCard').classList.add('show');
 	$('brPcTone').textContent = p.tone || '-';
 	$('brPcStyle').textContent = p.communication_style || '-';
 	renderChips($('brPcVocab'), p.vocabulary, 'br-chip br-chip-blue');
@@ -411,7 +458,8 @@ async function runExtraction(payload) {
 		state.persona = data.persona;
 		persistPersona();
 		renderPersonaCard(state.persona);
-		toast(`Persona extracted (${data.tokens_used} tokens, ${data.latency_ms}ms)`);
+		updateStatusBar('Custom persona');
+		autoSavePersonaToAgent('Custom persona');
 	} catch (err) {
 		toast(`Extraction failed: ${err.message}`);
 	} finally {
@@ -438,6 +486,7 @@ function openEditMode() {
 function saveEdit() {
 	const split = v => v.split(',').map(s => s.trim()).filter(Boolean);
 	state.persona = {
+		_label: state.persona?._label || 'Custom persona',
 		tone: $('brEditTone').value.trim() || 'Neutral',
 		communication_style: $('brEditStyle').value,
 		vocabulary: split($('brEditVocab').value),
@@ -448,6 +497,7 @@ function saveEdit() {
 	persistPersona();
 	closeEditMode();
 	renderPersonaCard(state.persona);
+	updateStatusBar(state.persona._label);
 	toast('Persona updated');
 }
 
@@ -457,7 +507,7 @@ function closeEditMode() {
 	$('brEditPersona').style.display = '';
 }
 
-// ── Persona: Save to agent ───────────────────────────────────────────────────
+// ── Persona: Agent list + auto-select ────────────────────────────────────────
 async function loadAgents() {
 	try {
 		const res = await fetch('/api/agents', { credentials: 'include' });
@@ -465,18 +515,26 @@ async function loadAgents() {
 		const data = await res.json();
 		state.agents = data.agents || data || [];
 		renderAgentSelect();
+		// Auto-select most recently used agent, or fall back to first
+		const saved = load('brain_active_agent');
+		const sel = $('brAgentSelect');
+		if (saved && state.agents.find(a => a.id === saved)) {
+			sel.value = saved;
+		} else if (state.agents.length > 0) {
+			sel.value = state.agents[0].id;
+		}
 	} catch {}
 }
 
 function renderAgentSelect() {
 	const sel = $('brAgentSelect');
-	sel.innerHTML = '<option value="">Select agent...</option>';
-	for (const agent of state.agents) {
-		const opt = document.createElement('option');
-		opt.value = agent.id;
-		opt.textContent = agent.name || `Agent ${agent.id.slice(0, 8)}`;
-		sel.appendChild(opt);
+	if (!state.agents.length) {
+		sel.innerHTML = '<option value="">No agents yet</option>';
+		return;
 	}
+	sel.innerHTML = state.agents.map(a =>
+		`<option value="${escHtml(a.id)}">${escHtml(a.name || `Agent ${a.id.slice(0,8)}`)}</option>`
+	).join('');
 }
 
 async function savePersonaToAgent() {
@@ -992,18 +1050,14 @@ function bindEvents() {
 		t.addEventListener('click', () => setTab(t.dataset.tab));
 	});
 
-	// Describe input + generate button
-	$('brDescribeInput').addEventListener('input', () => {
-		$('brDescribeGenerate').disabled = !$('brDescribeInput').value.trim();
-	});
+	// Describe input — Enter submits (Shift+Enter = newline)
 	$('brDescribeInput').addEventListener('keydown', e => {
-		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); synthesizeFromDescription(); }
+		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); synthesizeFromDescription(); }
 	});
-	$('brDescribeGenerate').addEventListener('click', synthesizeFromDescription);
 
-	// Persona card actions
+	// Persona card (advanced view) actions
 	$('brEditPersona').addEventListener('click', openEditMode);
-	$('brSaveEdit').addEventListener('click', saveEdit);
+	$('brSaveEdit').addEventListener('click', () => { saveEdit(); autoSavePersonaToAgent(state.persona?._label || 'Custom persona'); });
 	$('brCancelEdit').addEventListener('click', closeEditMode);
 	$('brToggleRaw').addEventListener('click', () => {
 		const raw = $('brRawJson');
@@ -1015,26 +1069,34 @@ function bindEvents() {
 			navigator.clipboard.writeText(JSON.stringify(state.persona, null, 2)).then(() => toast('Copied to clipboard'));
 		}
 	});
+
+	// Status bar actions
 	$('brTestInPlayground').addEventListener('click', () => {
-		if (state.persona) {
-			$('brSystem').value = buildPersonaSystemPrompt(state.persona);
-		}
+		if (state.persona) $('brSystem').value = buildPersonaSystemPrompt(state.persona);
 		setTab('playground');
+	});
+	$('brToggleAdvanced').addEventListener('click', () => {
+		const card = $('brPersonaCard');
+		const isOpen = card.classList.contains('show');
+		card.classList.toggle('show', !isOpen);
+		$('brToggleAdvanced').textContent = isOpen ? 'Customize' : 'Done';
 	});
 	$('brResetPersona').addEventListener('click', () => {
 		state.persona = null;
 		persistPersona();
 		$('brPersonaCard').classList.remove('show');
+		$('brStatusBar').classList.remove('show');
+		document.querySelectorAll('.br-archetype-chip').forEach(c => c.classList.remove('selected'));
 		updatePersonaMini();
 		updatePersonaBanner();
 		toast('Persona cleared');
 	});
 
-	// Save to agent
+	// Agent switcher — persist selection and re-save persona if one is active
 	$('brAgentSelect').addEventListener('change', () => {
-		$('brSaveToAgent').disabled = !$('brAgentSelect').value;
+		save('brain_active_agent', $('brAgentSelect').value);
+		if (state.persona) autoSavePersonaToAgent(state.persona._label || 'Custom persona');
 	});
-	$('brSaveToAgent').addEventListener('click', savePersonaToAgent);
 
 	// Sidebar: build persona shortcut
 	$('brBuildPersonaBtn').addEventListener('click', () => setTab('persona'));
@@ -1104,6 +1166,7 @@ fetchProviderAvailability();
 
 if (state.persona) {
 	renderPersonaCard(state.persona);
+	updateStatusBar(state.persona._label || 'Custom persona');
 }
 updatePersonaMini();
 updatePersonaBanner();

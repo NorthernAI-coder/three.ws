@@ -227,6 +227,20 @@ function walletRowHTML() {
 	return chip ? `<div class="av-wallet-row" id="av-wallet-row">${chip}</div>` : '';
 }
 
+const CATEGORY_META = {
+	avatar:    { label: 'Avatar · 3D Body',        tip: 'An avatar is the 3D body. Pair it with an agent to give that agent a presence.' },
+	accessory: { label: 'Accessory · 3D Item',      tip: 'A wearable or attachable 3D accessory.' },
+	item:      { label: 'Item · 3D Object',          tip: 'A standalone 3D object or prop.' },
+	scene:     { label: 'Scene · 3D Environment',    tip: 'A 3D environment or backdrop.' },
+	creature:  { label: 'Creature · 3D Character',   tip: 'A 3D creature or non-human character.' },
+	vehicle:   { label: 'Vehicle · 3D Object',       tip: 'A 3D vehicle.' },
+	other:     { label: '3D Model',                  tip: 'A 3D model.' },
+};
+
+function categoryMeta() {
+	return CATEGORY_META[avatar.model_category] || CATEGORY_META.avatar;
+}
+
 function renderShell(glbUrl) {
 	const tagsHtml = (avatar.tags || [])
 		.map((t) => `<a class="av-tag" href="/marketplace?tag=${encodeURIComponent(t)}">${esc(t)}</a>`)
@@ -291,16 +305,16 @@ function renderShell(glbUrl) {
 		<div class="av-side">
 			<div class="av-side-head">
 				<div class="av-eyebrow">
-					<span>Avatar · 3D Body</span>
+					<span>${esc(categoryMeta().label)}</span>
 					<a
 						class="av-eyebrow-help"
 						href="/docs/agents-vs-avatars"
-						title="An avatar is the 3D body. Pair it with an agent to give that agent a presence."
-						aria-label="What is an avatar?"
+						title="${esc(categoryMeta().tip)}"
+						aria-label="What is this?"
 					>?</a>
 				</div>
 				<h1 class="av-name">${esc(avatar.name)}</h1>
-				<div class="av-source-tag">${avatar.demo ? 'Curated · Public Domain' : 'Community avatar'}</div>
+				<div class="av-source-tag">${avatar.demo ? 'Curated · Public Domain' : `Community ${esc(CATEGORY_META[avatar.model_category]?.label.split(' · ')[0].toLowerCase() || 'avatar')}`}</div>
 				${byLine}
 				${tagsHtml ? `<div class="av-tags">${tagsHtml}</div>` : ''}
 				${walletRowHTML()}
