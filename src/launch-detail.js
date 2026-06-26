@@ -406,6 +406,7 @@ function renderHero() {
 		stat('Price', fmtPrice(price)),
 		stat('Market cap', fmtMcap(mcap)),
 		stat('24h volume', fmtMcap(Number(coin?.volume_24h ?? coin?.volume24h))),
+		stat('Total supply', supply != null ? compact(supply) : '—'),
 		stat('Launched', reg?.created_at || intel?.created_at ? relTime(reg?.created_at || intel?.created_at) : '—'),
 	]);
 
@@ -424,6 +425,179 @@ function renderHero() {
 		stats,
 	);
 	target.classList.add('ld-revealed');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MARKET METRICS — multi-timeframe price moves + live on-chain safety read
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Two live reads, each real and independently degradable:
+//   · price moves — one 5m-candle pull (/api/pump/price-history), windowed in the
+//     client into 5m / 1h / 6h / 24h percentage moves. A window is shown only
+//     when the history actually spans (most of) it, so a young coin renders "—"
+//     for 24h rather than a misleading figure derived from two hours of data.
+//   · trust strip — the same pre-trade firewall verdict the autonomous sniper
+//     enforces (/api/pump/safety): a live SPL mint/freeze authority audit + a
+//     tradable-venue read, scored 0..100. Answers the on-chain trust questions a
+//     GMGN-style terminal leads with — can the dev mint more, freeze your tokens,
+//     is there a real venue — at a glance, every value traceable to chain state.
+
+const TF_WINDOWS = [
+	{ key: '5m', label: '5m', sec: 300 },
+	{ key: '1h', label: '1h', sec: 3600 },
+	{ key: '6h', label: '6h', sec: 21600 },
+	{ key: '24h', label: '24h', sec: 86400 },
+];
+
+// Window a single ascending 5m-candle series into per-timeframe % moves. Returns
+// null when there isn't enough data to compute even the shortest window.
+function priceDeltas(pts) {
+	const sorted = (pts || [])
+		.filter((p) => Number.isFinite(p.c) && Number.isFinite(p.t) && p.c > 0)
+		.sort((a, b) => a.t - b.t);
+	if (sorted.length < 2) return null;
+	const last = sorted[sorted.length - 1];
+	const span = last.t - sorted[0].t;
+	const deltas = TF_WINDOWS.map((w) => {
+		// Require ≥60% of the window in history before quoting it — never fabricate
+		// a long-horizon move from a short series.
+		if (span < w.sec * 0.6) return { ...w, pct: null };
+		const target = last.t - w.sec;
+		let ref = sorted[0];
+		for (const p of sorted) { if (p.t >= target) { ref = p; break; } }
+		return { ...w, pct: ref.c ? ((last.c - ref.c) / ref.c) * 100 : null };
+	});
+	return { last: last.c, deltas };
+}
+
+function renderTimeframeStrip(host) {
+	host.replaceChildren(el('div', { class: 'ld-skel ld-skel-strip' }));
+	const to = Math.floor(Date.now() / 1000);
+	const from = to - 30 * 3600;
+	fetchJson(`/api/pump/price-history?mint=${encodeURIComponent(state.mint)}&interval=5m&from=${from}&to=${to}`)
+		.then((body) => {
+			const res = priceDeltas(body.data);
+			if (!res || res.deltas.every((d) => d.pct == null)) {
+				host.replaceChildren(el('p', { class: 'ld-mtf-empty', text: 'Not enough trade history yet for price moves.' }));
+				return;
+			}
+			host.replaceChildren(
+				el('div', { class: 'ld-mtf' }, res.deltas.map((d) =>
+					el('div', { class: 'ld-mtf-cell' }, [
+						el('span', { class: 'ld-mtf-label', text: d.label }),
+						el('span', {
+							class: `ld-mtf-val ${d.pct == null ? 'ld-muted' : pnlClass(d.pct)}`,
+							text: d.pct == null ? '—' : fmtPct(d.pct, { sign: true }),
+						}),
+					]),
+				)),
+			);
+		})
+		.catch(() => {
+			host.replaceChildren(
+				el('div', { class: 'ld-mtf-empty' }, [
+					el('span', { text: 'Price moves unavailable right now.' }),
+					el('button', { class: 'ld-btn ld-btn-ghost', type: 'button', text: 'Retry', onclick: () => renderTimeframeStrip(host) }),
+				]),
+			);
+		});
+}
+
+const TRUST_TONE = { pass: 'good', warn: 'warn', fail: 'danger', skip: 'muted' };
+const VERDICT_META = {
+	allow: { label: 'Tradable', tone: 'good' },
+	warn: { label: 'Caution', tone: 'warn' },
+	block: { label: 'High risk', tone: 'danger' },
+};
+const VENUE_LABEL = {
+	live_amm_pool: 'AMM pool',
+	live_bonding_curve: 'Bonding curve',
+	no_tradable_venue: 'None',
+	curve_reserves_empty: 'Drained',
+	pool_reserves_empty: 'Drained',
+};
+
+function trustChip(label, value, tone, title) {
+	return el('div', { class: 'ld-trust', title: title || null }, [
+		el('span', { class: 'ld-trust-k', text: label }),
+		el('span', { class: `ld-trust-v ld-${tone}`, text: value }),
+	]);
+}
+
+function renderTrustStrip(host) {
+	host.replaceChildren(el('div', { class: 'ld-skel ld-skel-strip' }));
+	fetchJson(`/api/pump/safety?mint=${encodeURIComponent(state.mint)}&network=${state.network}`)
+		.then((s) => {
+			const checks = Array.isArray(s.checks) ? s.checks : [];
+			const byName = (n) => checks.find((c) => c.name === n);
+			const auth = byName('mint_authority');
+			const venue = byName('venue');
+			const sell = byName('round_trip');
+
+			const chips = [];
+			// A null on-chain authority means it was renounced — the dev can no longer
+			// inflate supply (mint) or freeze your account (the cleanest honeypot).
+			if (auth) {
+				const unread = auth.reason === 'authority_read_failed' || auth.reason === 'mint_not_found';
+				const mintActive = auth.detail?.mint_authority != null;
+				const freezeActive = auth.detail?.freeze_authority != null;
+				chips.push(trustChip('Mint authority', unread ? 'Unknown' : mintActive ? 'Active' : 'Revoked',
+					unread ? 'muted' : mintActive ? 'danger' : 'good',
+					mintActive ? 'The creator can still mint new supply and dilute holders.' : 'Mint authority renounced — supply is fixed.'));
+				chips.push(trustChip('Freeze authority', unread ? 'Unknown' : freezeActive ? 'Active' : 'Revoked',
+					unread ? 'muted' : freezeActive ? 'danger' : 'good',
+					freezeActive ? 'The creator can freeze your token account — you may be unable to sell.' : 'Freeze authority renounced — your tokens cannot be frozen.'));
+			}
+			if (venue) {
+				chips.push(trustChip('Liquidity', VENUE_LABEL[venue.reason] || (venue.status === 'pass' ? 'Live' : '—'),
+					TRUST_TONE[venue.status] || 'muted', 'Where this coin can actually be traded.'));
+			}
+			if (sell) {
+				const label = sell.status === 'pass' ? 'Sellable' : sell.status === 'fail' ? 'Honeypot' : 'Untested';
+				chips.push(trustChip('Sell test', label, TRUST_TONE[sell.status] || 'muted',
+					sell.status === 'skip' ? 'A live buy→sell round-trip is simulated at trade time.' : 'Simulated buy→sell round-trip on-chain.'));
+			}
+
+			if (!chips.length) {
+				host.replaceChildren(el('p', { class: 'ld-mtf-empty', text: 'Safety checks are unavailable for this coin.' }));
+				return;
+			}
+
+			const v = VERDICT_META[s.verdict] || { label: 'Unscored', tone: 'muted' };
+			const head = el('div', { class: 'ld-trust-head' }, [
+				el('span', { class: `ld-verdict-pill ld-pill-${v.tone}`, text: v.label }),
+				Number.isFinite(Number(s.score)) ? el('span', { class: 'ld-trust-score', text: `${Math.round(Number(s.score))}/100 safety` }) : null,
+			]);
+			host.replaceChildren(head, el('div', { class: 'ld-trust-grid' }, chips));
+		})
+		.catch(() => {
+			host.replaceChildren(
+				el('div', { class: 'ld-mtf-empty' }, [
+					el('span', { text: 'Safety check unavailable right now.' }),
+					el('button', { class: 'ld-btn ld-btn-ghost', type: 'button', text: 'Retry', onclick: () => renderTrustStrip(host) }),
+				]),
+			);
+		});
+}
+
+function renderMetrics() {
+	const target = $('ld-metrics');
+	if (!target) return;
+	if (state.network !== 'mainnet') {
+		section(target, 'Market metrics', el('div', { class: 'ld-empty ld-empty-sm' }, [
+			el('p', { text: 'Live price moves and on-chain safety checks are mainnet-only.' }),
+		]));
+		return;
+	}
+	const tfHost = el('div', { class: 'ld-mtf-host' });
+	const trustHost = el('div', { class: 'ld-trust-host' });
+	const body = el('div', { class: 'ld-metrics-body' }, [
+		el('div', { class: 'ld-metrics-block' }, [el('h3', { class: 'ld-metrics-h', text: 'Price moves' }), tfHost]),
+		el('div', { class: 'ld-metrics-block' }, [el('h3', { class: 'ld-metrics-h', text: 'On-chain safety' }), trustHost]),
+	]);
+	section(target, 'Market metrics', body, { tag: 'live' });
+	renderTimeframeStrip(tfHost);
+	renderTrustStrip(trustHost);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -1679,6 +1853,7 @@ async function boot() {
 	// Paint everything. Each section owns its own empty/error state, so one
 	// missing data source never blanks the page.
 	renderHero();
+	renderMetrics();
 	renderVerdict();
 	renderOracleConviction();
 	renderSmartMoney();
