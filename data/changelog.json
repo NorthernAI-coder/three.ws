@@ -3,8 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
-			"title": "Token Launchpad pages now actually launch — and flip to Trade once live",
-			"summary": "The Token Launchpad template's published page used to open a blank launch form and throw away the coin details you set up. Now its button carries your coin's name, ticker, description, image, and initial buy straight into the launch flow, pre-filled and ready to mint. Once your coin is live, paste its mint address in the studio and the same button flips from \"Launch\" to a one-click \"Trade\" link to the live coin. We also corrected misleading copy: a pump.fun coin is created once and then traded — it isn't \"minted by each visitor.\"",
+			"title": "Animation Studio — avatars no longer break when you switch animations",
+			"summary": "In the /pose Animation Studio, playing one animation preset and then a second one used to mangle the avatar — limbs would lock up in the wrong position (arms stuck overhead while \"walking\", a forearm bent 90° off). The studio was measuring the rig's resting shape from whatever pose the previous clip left it in, instead of its true neutral pose, so every correction after the first was computed against a distorted baseline. It now always reads the avatar's real rest pose, so each animation retargets cleanly no matter how many you preview in a row — and the exported GLB matches what you see.",
+			"tags": ["fix"],
+			"link": "/pose"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Launchpad is now an actual launchpad — mint a coin right on the page",
+			"summary": "Going to /launchpad used to drop you into a page-builder studio instead of letting you launch anything. Now it's a real launchpad, like it should be: the live coin launcher is front and center, so you pick your agent, set the name, ticker, and image, and mint a Pump.fun coin straight from your wallet — creator fees route to you. Live launches from three.ws agents show right below it. The white-label page builder (hosted token page, paid concierge, gated 3D showroom) is still there as an optional add-on, not the main event. Token-launchpad pages also carry your coin details into the launch flow pre-filled and flip from \"Launch\" to a one-click \"Trade\" once your coin is live.",
 			"tags": ["fix", "feature"],
 			"link": "/launchpad"
 		},

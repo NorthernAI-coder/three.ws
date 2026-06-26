@@ -86,7 +86,87 @@ graph TD
 | x402 / Payments | `api/x402*` · `api/bazaar/` · `api/marketplace/` | active | Full micropayment + marketplace stack |
 | AI / Agent Intelligence | `api/chat.js` · `api/brain/` · `workers/` | active | Multi-provider LLM, memory, multimodal |
 | Pump.fun / Token Launch | `api/pump/` · `workers/agent-sniper/` | active | Launch, trade, community, oracle |
+| Backend Compute | `workers/` · `services/` · `crates/` | active | 21 workers (Node/Python/CF), stateful WS services, Rust→WASM |
 | Infrastructure | `vercel.json` · `infra/` · `deploy/` | active | Vercel, GCP Cloud Run, AWS CDK |
+
+---
+
+## Repository Directory Atlas
+
+Every top-level directory in the monorepo, what it is, and where to look. File counts are approximate working-tree totals.
+
+### Application & Frontend
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `src/` | ~1,084 | Frontend JS modules — page controllers, the 3D/avatar/animation engine, dashboard-next SPA, shared web components, world surfaces. The heart of the browser app. |
+| `pages/` | ~222 | MPA HTML entry points (150+ routes) + `pages/dashboard-next/` SPA shell + `pages/ibm/`. Auto-resolved by `vite.config.js`. |
+| `public/` | ~764 | Static surfaces & standalone mini-apps served as-is: `/pay`, `/bazaar`, `/discover`, `/gallery`, `/studio` (vendored Three.js editor r184), `/validation`, `/reputation`, `/login`, `.well-known/` manifests, locales, OG assets. |
+| `chat/` | ~178 | `three.ws-chat` (v0.0.0) — standalone Vite chat app (embodied-avatar chat UI) with its own `server/`, `src/`, `public/`. |
+| `character-studio/` | ~486 | `@m3-org/characterstudio` v0.5.0 — vendored avatar-creation Vite app (VRM-centric), its own tests + vitest config. |
+| `blog/` | ~32 | Static blog posts (`.html` + `.md`): product announcements, SDK launches, deep-dives. Feeds the public content surface. |
+
+### Backend, Workers & Services
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `api/` | ~1,464 | Vercel serverless functions (Node ESM) across ~125 feature subdirs + `api/_lib/` shared layer. See [API Layer](#api-layer). |
+| `workers/` | ~189 | Long-running Node workers (sniper, mm, orders, oracle, agora-citizens) + Python/FastAPI GPU workers (Hunyuan3D, TRELLIS, TripoSR/SG, UniRig, rembg, remesh, segment, stylize, texture, text2motion, avatar-pipeline-controller, avatar-reconstruction, longcat). `workers/longcat/` runs LongCat-Video-Avatar-1.5 (image+audio → lip-synced MP4) — see [GPU & CPU Workers](#gpu--cpu-workers-google-cloud-run). |
+| `services/` | ~5 | Standalone always-on processes that don't fit request/response or stateless-worker shapes. `services/pump-graduations/` — pump.fun graduations indexer (Dockerized, persistent connection, `carbon-source.js`). |
+| `multiplayer/` | ~47 | `@three-ws/multiplayer` v0.1.0 — authoritative Colyseus server backing `/walk` (rooms, schema state, anti-cheat clamps). Cloud Run + Fly deploy configs (`Dockerfile`, `fly.toml`, `deploy-cloudrun.sh`). |
+
+### SDKs & Packages
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `packages/` | ~636 | 54 published npm packages — feature SDKs + 30+ domain MCP servers. See [SDK Ecosystem](#sdk-ecosystem) & [MCP Layer](#mcp-layer). |
+| `sdk/` | ~41 | `@three-ws/sdk` — top-level agent kit (ERC-8004, chat, x402, SIWS, EAS). |
+| `solana-agent-sdk/` | ~100 | `@three-ws/solana-agent` (TS) — keypair/browser/wallet-adapter providers, SPL, Jupiter, AgenC, x402-exact. |
+| `agent-payments-sdk/` | ~76 | `@three-ws/agent-payments` (TS) — pump.fun agent payments, EVM/cross-chain clients, `pump_agent_payments` IDL. |
+| `agent-protocol-sdk/` | ~7 | `@three-ws/agent-protocol-sdk` (TS) — on-chain A2A skill invocation (Anchor `deriveAgentPda`/`invokeSkill`). |
+| `agent-ui-sdk/` | ~14 | `@three-ws/agent-ui` — Three.js GLB overlay (`createAgentUI`). |
+| `avatar-sdk/` | ~14 | `@three-ws/avatar` — `<three-ws-viewer>` + `<agent-3d>` web components + AvatarCreator iframe. |
+| `walk-sdk/` | ~19 | `@three-ws/walk` — walk companion + playground. |
+| `page-agent-sdk/` | ~31 | `@three-ws/page-agent` — drop-in 3D page narrator. |
+| `tour-sdk/` | ~23 | `@three-ws/tour` — guided product tour SDK. |
+| `mcp-server/` | ~46 | `@three-ws/mcp-server` v1.2.0 — npm stdio MCP server (paid tools, Solana x402). |
+| `mcp-bridge/` | ~14 | `@three-ws/mcp-bridge` v1.0.0 — x402 Bazaar bridge MCP. |
+| `x402-payment-modal/` | ~36 | `@three-ws/x402-payment-modal` v1.2.0 — drop-in Phantom checkout modal. |
+| `x402-modal-sdk/` | ~17 | `@three-ws/x402-modal` v0.2.0 — lighter modal variant. |
+| `pump-fun-skills/` | ~75 | `@three-ws/pumpfun-skills` — pump.fun launch/trade as composable agent tools. |
+| `chat-plugin/` | ~14 | `@three-ws/chat-plugin` v1.0.0 — LobeHub sidebar plugin rendering an embodied avatar (`manifest.json`, TS). |
+| `apps-sdk/` | ~4 | Unversioned raw helpers: `embodiment/` + `studio-viewer/` (no `package.json` — see Known Gaps). |
+
+### On-chain & Distribution
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `contracts/` | ~1,068 | Anchor Rust programs (`skill-license`, `agent-invocation`) + Solidity (ERC-8004 registries, `ThreeWSPayments`/`Factory`), IDLs, `DEPLOYMENTS.md`. |
+| `crates/` | ~3 | `crates/vanity-grinder` — Rust→WASM ed25519 Solana vanity grinder (`wasm-bindgen`, `curve25519-dalek`), powers browser-side grinding. |
+| `solana-mobile/` | ~22 | Packaging to publish three.ws to the Solana Mobile (Seeker/Saga) on-chain dApp Store: `src/` (MWA wallet, seeker-detect), `pwa/`, `twa/`, `publish/`, `well-known/assetlinks`. |
+| `extensions/` | ~28 | `extensions/walk-avatar` — Chrome MV3 extension: walk your avatar on any site + read pages aloud. |
+| `integrations/` | ~13 | First-party DCC plugins driving `/api/forge`: `blender/` (Python addon), `comfyui/` (custom nodes), `_pyclient/` (shared Python client). |
+| `marketplace/` | ~11 | `marketplace/plugins/` — `three-ws-3d` & `three-ws-developer` plugin manifests for external marketplaces. |
+
+### Assets, Tooling, Specs & Ops
+
+| Directory | Files | Purpose |
+|-----------|-------|---------|
+| `scripts/` | ~416 | Build scripts (`build-animations.mjs`, `build-vercel.mjs`, `build-pages`), migrations, one-off tooling. |
+| `tests/` | ~617 | Test suites (`glb-canonicalize.test.js`, animation, x402, etc.). No CI runner wired (see Known Gaps). |
+| `docs/` | ~383 | ~80 `.md` guides + 24 subdirs (api, security, erc8004, agora, ux-flows, roadmap, audits, specs, onboarding, nvidia-inception, …). Source for `llms.txt`/`ALL.md` concatenations. |
+| `data/` | ~186 | `changelog.json`, `pages.json`, `skills/`, `rss/`, `erc8004-bsc-mint-ledger.json`, `_generated/`, `archives/`. Feeds the changelog/RSS/Telegram pipeline. |
+| `prompts/` | ~117 | Numbered agent operating playbooks (production-readiness audit, dead-paths, a11y, perf, e2e, etc.) — internal QA harness prompts. |
+| `specs/` | ~21 | Protocol specifications: `AGENT_MANIFEST.md`, `EMBED_HOST_PROTOCOL.md`, `MEMORY_SPEC.md`, `PERMISSIONS_SPEC.md`, `SKILL_SPEC.md`, `ENS_AGENT_CLAIM.md`, `x402-specification-v2.md`. |
+| `examples/` | ~52 | Runnable usage examples: `agenc-task-roundtrip`, `coach-leo`, `metamask-agent-wallet`, `pump-fun-agent`, `skills/` (pump-fun, solana-wallet, wave), bare-avatar/embed HTML demos. |
+| `agents/` | ~15 | Reference agent definitions (`endpoint-shopper`, `fact-checker`, `tutor`, `unstoppable`) each with `src/` + an index gallery. |
+| `my-agents/` | ~1 | Standalone `index.html` surface for a user's own agents (native + ERC-8004). |
+| `animation-sources/` | ~58 | Mixamo FBX source library (120+ clips) consumed by `scripts/build-animations.mjs`. |
+| `x402-buildout/` | ~42 | `PLAN.md` + `prompts/` — buildout plan wiring every x402 use case end-to-end. |
+| `content/` | ~17 | Outbound X/social schedule (`x-schedule.json/md`, `x-mcp-manifesto.md`, `whats-next/`). |
+| `snapshots/` | ~3 | Daily visual page-snapshot record (`current/`) for pre-redesign comparison. |
+| `infra/` | ~11 | AWS CDK (TypeScript) — Lambda Function URL (Forge), S3 avatar bucket, CloudWatch. |
+| `deploy/` | ~9 | Cloud Run + Docker configs (`deploy/world/cloudrun.yaml` — Hyperfy `world.three.ws`). |
 
 ---
 
@@ -94,9 +174,9 @@ graph TD
 
 ### Routing Architecture
 
-three.ws is a **Multi-Page Application (MPA)** with no client-side router framework. Each page is an independent HTML/JS Vite entry point. Vite dev middleware handles URL rewrites that mirror production Vercel routes. The one exception is `pages/dashboard-next/` — a full SPA shell with 25+ sub-pages loaded dynamically by `src/dashboard-next/shell.js`.
+three.ws is a **Multi-Page Application (MPA)** with no client-side router framework. Each page is an independent HTML/JS Vite entry point. Vite dev middleware handles URL rewrites that mirror production Vercel routes. There are two SPA-shell exceptions: `pages/dashboard-next/` (**32 sub-page modules** loaded dynamically by `src/dashboard-next/shell.js`) and the **classic dashboard** `public/dashboard/*.html` (18 pages, controller `src/dashboard/dashboard.js`, reachable at e.g. `/dashboard/x402`, `/dashboard/holders`). The standalone Avatar Studio (`/avatar-studio/*`) is a separately-built React SPA (see Character Studio).
 
-**Build:** `npm run dev` (port 3000), `npm run build` (Vite 7 MPA). All 150+ HTML files are auto-resolved as entry points in `vite.config.js`.
+**Build:** `npm run dev` (port 3000), `npm run build` (Vite 7 MPA). HTML entry points are auto-resolved in `vite.config.js`: **~213 under `pages/` + ~150 under `public/` ≈ 290+ total** (the "150+" figure counts top-level `pages/*.html` routes only). Three.js is `^0.184.0` (r184).
 
 **Dev API proxy:** `/api/*` proxies to `DEV_API_PROXY` (default: `https://three.ws`).
 
@@ -111,7 +191,7 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Agent Edit | `/agent/:id/edit`, `/agent/new` | `pages/agent-edit.html` | `src/agent-edit.js` | Full agent editor: name, description, avatar picker, skills config, wallet chips, mood engine, autopilot brain |
 | Create Agent | `/create-agent` | `pages/create-agent.html` | `src/create-agent.js` | 5-step wizard: Basics → 3D Model → Skills → Personality → Review |
 | Agent Detail | `/agent/:id` | `pages/agent-detail.html` | `src/agent-detail.js` | Live wallet pulse, mirror panel, strategy panel, patronage, validation badge, WebGL avatar, on-chain status, coin launch history |
-| Agent Wallet Hub | `/agent/:id/wallet` | `pages/agent-wallet.html` | `src/agent-wallet-hub/index.js` | 19-tab Solana wallet: Balance, Portfolio, Deposit, Trade, Snipe, Orders, Earn, Autopilot, Intents, Signals, Pay, Vanity, Policy, Withdraw, Give, Access, Recovery, Guard, Proof |
+| Agent Wallet Hub | `/agent/:id/wallet` | `pages/agent-wallet.html` | `src/agent-wallet-hub/index.js` | **22-tab** Solana wallet (`src/agent-wallet-hub/tabs/`): Balance, Portfolio, Deposit, Trade, Snipe, Orders, Earn, Autopilot, Intents, Signals, Pay, Vanity, Policy, Withdraw, Give, Access, Recovery, Guard, Proof, **Copilot, Pulse, Reputation** |
 | Agent Mind Palace | `/agent/:id/mind` | `pages/agent-mind.html` | `src/agent-mind.js` + `src/mind-palace.js` | Visual 3D memory graph |
 | Agent Studio | `/agent/:id/studio` | `pages/agent-studio.html` | `src/studio/studio-shell.js` | Tabs: Brain, Memory, Body, Money, Skills |
 | Marketplace | `/marketplace` | `pages/marketplace.html` | `src/marketplace.js` | Agent + skill discovery: category sidebar, search, list+detail SPA |
@@ -123,7 +203,7 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 
 **Path:** `pages/dashboard-next/*.html` + `src/dashboard-next/shell.js`
 
-25+ sub-pages loaded dynamically via `src/dashboard-next/pages/*.js`:
+**32 sub-page modules** loaded dynamically via `src/dashboard-next/pages/*.js` (the table below lists the primary ones; also present: **Community Avatars** `community-avatars.js`, **IRL Outfit Editor** `irl-outfit-editor.js`, **IRL Reputation** `irl-reputation.js`, plus helper modules `creator-helpers.js`, `widgets-helpers.js`):
 
 | Sub-page | File | Description |
 |----------|------|-------------|
@@ -285,18 +365,65 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 
 ---
 
+### Frontend Module Map — `src/` Subsystems
+
+Beyond the page controllers above, `src/` holds ~60 subsystem directories. Map of those not detailed elsewhere:
+
+| Module | Path | Purpose |
+|--------|------|---------|
+| Active Agent | `src/agents/` | Canonical "my agent" record + `agent-bus` event bus shared by every surface (with tests) |
+| Loaders | `src/loaders/` | Shared `GLTFLoader` wired with Draco + KTX2 + Meshopt against locally-served decoders |
+| Components | `src/components/` | Reusable UI: `ModelViewerElement`, `PriceBadge`, `animation-panel`, `bonding-curve` |
+| Widget RPC | `src/widget/` | JSON-RPC 2.0 server for the in-iframe embeddable widget surface |
+| Widgets | `src/widgets/` | Embeddable widget components (animation-gallery, bonding-curve, hotspot-tour) |
+| Plugins | `src/plugins/` | Plugin registry — loads LobeHub/pai-chat-compatible plugin manifests |
+| Skills | `src/skills/` | Skill registry + sandboxed skill execution (`sandbox-host`/`sandbox-worker`, `local-packs`) |
+| Physics | `src/physics/` | `PhysicsWorld` — thin reusable wrapper over Rapier (WASM 3D) |
+| Memory | `src/memory/` | Client-side memory: deterministic key derivation + AES-GCM-256 authenticated encryption |
+| Auth | `src/auth/` | Email auth + WalletConnect bridge (with tests) |
+| Wallet | `src/wallet/` | EVM connect button + WalletConnect provider + reconnect state |
+| Permissions | `src/permissions/` | Permission grant modal, manage panel, token toolkit |
+| ERC-7710 | `src/erc7710/` | MetaMask DelegationManager ABI + per-chain addresses (opt-in delegation) |
+| On-chain | `src/onchain/` | CAIP-2 chain refs, deploy-button, launch-token, chain adapters |
+| ETH/SNS | `src/eth/`, `src/sns/` | EVM vanity + Solana pay-by-name (Phantom/Solflare/Backpack) |
+| Attestations | `src/attestations/` | glTF schema attestation builder |
+| Proof of Custody | `src/proof-of-custody/` | Merkle proof builder + verifier + custody UI |
+| Arweave | `src/arweave/` | Permanent ("forever") Arweave upload |
+| Pinning | `src/pinning/` | Multi-provider IPFS pinning (Pinata, Filebase, web3.storage) with retry |
+| Mint | `src/mint/` | Scene/asset mint flow |
+| Pump | `src/pump/` | pump.fun browser widgets: agent-token-widget, bonding-curve-chart, channel-feed, coin stats, modals |
+| KOL | `src/kol/` | KOL/smart-money UI: gmgn-parser, kolscan-live, leaderboard, wallet-pnl |
+| Social | `src/social/` | Sentiment + X-post-impact scoring, lexicon |
+| Community | `src/community/` | Coin lobby + coin-world boot + town client/auth for `/walk` coin worlds |
+| Play | `src/play/` | Arena 3D trading floor (`arena-world`, `arena`) |
+| Forge Studio | `src/forge-studio/` | Forge launchpad studio internals: create-prompt, dropzone, AR, embed panel |
+| Scene Studio | `src/scene-studio/` | Boots the vendored three.js editor (r184) |
+| Feature Tour | `src/feature-tour/` | 85-stop product tour: chapters, curriculum, director, guide avatar, free-roam |
+| Embodiment | `src/embodiment/` | Emotion phrase/emoji → expression mapping |
+| Glossary | `src/glossary/` | Plain-language glossary page |
+| Dad | `src/dad/` | "Make Dad a 3D avatar" page controller |
+| Demo | `src/demo/` | MediaPipe face-landmarker demos (os-hub, os-selfie, os-studio, triangulation) |
+| Artifact | `src/artifact/` | three.ws Claude Artifact bundle entry |
+| Pages | `src/pages/` | Misc surfaces: sealed wallet drops, vanity bounties |
+
+---
+
 ## API Layer
 
 The API layer is **1,209 JavaScript files** across `api/`, organized as Vercel serverless functions (Node.js ESM). All functions share a `api/_lib/` utility layer (413 files).
 
 ### Authentication Patterns
 
-Every request passes through one of four auth gates:
+Requests authenticate through one of these gates:
 
-1. **Session cookie** (`__Host-sid`) — set by `api/auth/[action].js`, verified by `api/_lib/auth.js`
-2. **OAuth 2.1 Bearer token** — issued by `api/oauth/[action].js`, verified per-request
-3. **x402 X-PAYMENT header** — verified by `api/_lib/x402-spec.js` via PayAI or CDP facilitator
-4. **CRON_SECRET Bearer** — for `api/cron/*` scheduled jobs
+1. **Session cookie** (`__Host-sid`, 32-byte opaque, SHA-256 at rest, 30-day rolling) — set by `api/auth/[action].js`, verified by `api/_lib/auth.js`. Wallet sign-in via SIWE (`siwe.js`) / SIWS (`siws.js`); enterprise SSO via SAML 2.0 (`saml.js` — IBM Cloud App ID, Okta, Azure AD); CSRF guard (`csrf.js`).
+2. **OAuth 2.1 Bearer token** — authorization-code + PKCE + refresh + dynamic client registration (RFC 7591) via `api/oauth/[action].js` (1-hour JWT).
+3. **API key** (`sk_live_`/`sk_test_`, SHA-256 hashed, shown once) — `api/api-keys/*`.
+4. **x402 X-PAYMENT header** — verified by `api/_lib/x402-spec.js` via PayAI or CDP facilitator; SIWX free-tier via `siwx-server.js`/`siwx-storage.js`.
+5. **Persona JWT** (cross-app "Sign in with three.ws") — 24h ES256 token issued by `api/auth/persona/*`, public keys at `/.well-known/jwks.json`, embeddable `<three-ws-signin>` (`public/persona/widget.js`). Distinct from the `/api/persona` extraction endpoints and the LLM "persona/brain" builder.
+6. **CRON_SECRET Bearer** (or `x-vercel-cron`) — for `api/cron/*` scheduled jobs.
+
+**zauth integration** (`api/_lib/zauth.js`, `docs/zauth/`): three.ws integrates the external zauth.inc agent-security suite — Vector (black-box web vuln scanner), RepoScan (x402 GitHub trust-scoring, `POST /x402/reposcan` $0.05/scan), a live x402 endpoint registry, and the `@zauthx402/sdk` provider-hub middleware.
 
 ### Core Utility Modules (`api/_lib/`)
 
@@ -394,7 +521,9 @@ See [MCP Layer](#mcp-layer) section for full tool listings.
 
 #### x402 Paid Endpoints (`api/x402/*`)
 
-~25 individual paid endpoints built on `paidEndpoint()`:
+**34 files** in `api/x402/`, each a paid endpoint built on `paidEndpoint()`. Payable on Base USDC, Solana USDC, and (for `model-check`/`mint-to-mesh`) Arbitrum One USDC; discoverable via `/.well-known/x402.json` + `/openapi.json`. Additional priced endpoints beyond the table: `model-check` ($0.001), `mint-to-mesh-batch` ($0.05), `revenue-vision` ($0.001), `symbol-availability` ($0.001), `permit2-paid-demo` ($0.001, Base gas-sponsored EIP-2612), `onchain-identity-verify` ($0.005), `agent-reputation` ($0.01), `pump-agent-audit` ($0.02). Sample paid MCP-tool prices: `render_avatar` $0.005, `text_to_3d`/`image_to_3d` $0.15, `mesh_forge` $0.25, `forge_avatar` $0.45, `ibm_granite_forecast` $0.05.
+
+Representative endpoints:
 
 | Endpoint | Price | Description |
 |----------|-------|-------------|
@@ -493,7 +622,9 @@ See [MCP Layer](#mcp-layer) section for full tool listings.
 | `reviews` | Read/write reviews |
 | `analytics` | Skill revenue analytics |
 
-#### Cron Jobs (`api/cron/`) — 33 scheduled functions
+#### Cron Jobs (`api/cron/`) — 32 handler files, 61 schedules
+
+`api/cron/` holds **32 `.js` files** (31 named crons + a dynamic `[name].js` dispatcher), wired by **61 `crons` entries** in `vercel.json` (cron auth = `x-vercel-cron` header or `Bearer $CRON_SECRET`). Beyond the representative table below, undocumented-but-live crons include the four fanout workers (`copy-fanout`, `mirror-fanout`, `signal-fanout`, `strategy-fanout`), `run-dca`, `run-subscriptions`, `run-buyback`/`run-distribute-payments`, `treasury-autopilot`, `process-withdrawals`, `solana-attestations-crawl`, `trader-score-attest`, `custody-attest`, `auto-rig-sweep`, `dead-man-switch`, `relayer-balance-check`, `reconcile-decisions`, `smart-money-graph`, `index-delegations`, `cleanup-csrf-tokens`, `siwx-gc`, `expire-pending-purchases`, `irl-reap`/`irl-drops-refund`, `run-x-scheduled-posts`, `unstoppable-tick`.
 
 | Cron | Schedule | Description |
 |------|----------|-------------|
@@ -511,15 +642,91 @@ See [MCP Layer](#mcp-layer) section for full tool listings.
 | `intel-learn` | frequent | Coin intel classifier learning pass |
 | `gmgn-seed` | hourly | GMGN smart-money data seeding |
 | `radar-watchlist` | frequent | Pre-launch radar watchlist update |
-| `reputation-recompute` | daily | Wallet reputation recalculation |
-| `erc8004-crawl` | hourly | Etherscan V2 ERC-8004 event indexing |
+| `recompute-reputation` | daily | Wallet reputation recalculation (file is `recompute-reputation.js`, not `reputation-recompute`) |
 | `avaturn-seed-cron` | daily | Avaturn avatar seeding |
-| `forge-seed` / `forge-smoke` | daily | Forge gallery seeding + smoke test |
+| `forge-seed-cron` / `forge-smoke` | daily | Forge gallery seeding + smoke test |
 | `wallet-intents` | frequent | Agent wallet intent execution |
 | `quota-check` | hourly | Upstash Redis quota monitoring |
 | `uptime-check` | frequent | Platform endpoint health check |
 | `world-health` | frequent | Multiplayer world health check |
 | `flush-usage-events` | frequent | Usage event batch flush to billing |
+
+---
+
+### API Surface Index — Additional Endpoint Groups
+
+Beyond the feature areas above, the `api/` tree exposes many more surfaces. Complete index of the remaining subdirectories:
+
+#### Agent Economy, Social & Genetics
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/agent-economy/*` | `status`, `transact` | Two-agent demo economy: balances + autonomous transact loop |
+| `/api/agent-trade/*` | `demo` (SSE), `skill` | SSE orchestrator for a live agent-to-agent trade demo + tradeable skill |
+| `/api/genome/*` | `breed`, `stud`, `lineage`, `edges`, `preview` | Agent "genome" breeding: on-chain breeding tx, stud market, lineage graph |
+| `/api/crews/[tag]` | `index`, `[tag]` | Agent crews/guilds by tag |
+| `/api/friends/*` | `index`, `messages`, `presence-ticket`, `search` | Agent/user social graph: presence, DMs, search |
+| `/api/community/*` | `capabilities`, `holder-pass`, `world-gate`, `worlds`, `ws-ticket`, `messages`, `me`, `auth/`, `wallet/` | Coin-world community layer: holder-pass gating, world entry tickets, chat |
+| `/api/social/*` | `sentiment`, `sentiment-pulse` | Cashtag/social sentiment scoring |
+| `/api/x/*` | `post`, `draft`, `schedule`, `analytics`, `reviews`, `status`, `triggers` | X (Twitter) posting + scheduling + engagement analytics |
+| `/api/share/x`, `/api/frames/walk`, `/api/traders/preview`, `/api/trades/feed` | — | Social share-card + Farcaster-frame + OG preview renderers |
+
+#### Money, Custody, Credits & Monetization
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/payments/*` | `intent`, `purchase-skill`, `evm/`, `solana/`, `_config` | Unified payment intents (EVM + Solana lanes) |
+| `/api/credits/*` | `deposit`, `index` | Platform credits: verify on-chain SOL/$THREE deposit → credit balance |
+| `/api/monetization/*` | `prices`, `revenue`, `wallet`, `withdrawals` | Per-agent price config, revenue, payout wallet, withdrawals |
+| `/api/custody/*` | `anchor`, `integrity` | Proof-of-custody public epoch anchors + integrity checks |
+| `/api/ledger/[agentId]` | `[agentId]`, `verify/` | Reasoning Ledger: explainable agent-decision timeline |
+| `/api/onramp/link`, `/api/usage/summary`, `/api/insights/revenue-vision` | — | Fiat on-ramp link, per-user usage summary, revenue-vision insights |
+| `/api/token/[action]` | `[action]` | $THREE on-chain token HTTP layer (price/balance/burn surface) |
+| `/api/cz/claim`, `/api/cosmetics/*` | `catalog`, `owned`, `earnings`, `leaderboard`, `split` | Cosmetics catalog + creator revenue split + ownership |
+
+#### Creators, Developers & Distribution
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/creators/*` | `[id]`, `skill-analytics` | Public creator profile + skill revenue analytics |
+| `/api/developer/*` | `mcp-test`, `usage`, `webhooks/` | Developer console: MCP self-test, usage, webhook config |
+| `/api/api-keys/*`, `/api/keys/*`, `/api/registry/resolve` | — | API key issuance/rotation, key store, universal entity resolver |
+| `/api/v1/*` | `index`, `_catalog`, `_providers`, `agents/`, `market/`, `x/`, `sentiment` | Unified public `/api/v1` REST facade (single source of truth) |
+| `/api/lobehub/[action]`, `/api/aws-marketplace/*` | — | LobeHub iframe embed + AWS Marketplace SaaS resolve/meter/entitlement |
+| `/api/referral/visit`, `/api/onboarding/[action]` | — | Referral funnel tracking + consolidated onboarding (avaturn-session, link-avatar) |
+
+#### Assets, Rendering & Permanence
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/actions/avatar*` | `avatar`, `avatar-icon` | Headless-chromium posed-avatar GLB → PNG renderer |
+| `/api/render/*` | `avatar-clip`, `glb` | Public posed + camera-orbited avatar clip/GLB renderer |
+| `/api/assets/index`, `/api/studio-assets/*` | — | Public asset library catalog + studio asset store |
+| `/api/nft/*` | `mint-scene`, `mint-scene-confirm`, `resolve` | Scene-as-NFT minting + resolution |
+| `/api/forever/*` | `inscribe`, `status` | Permanent inscription (Arweave/on-chain permanence) |
+| `/api/pinning/[action]`, `/api/dad/generate` | — | IPFS/Pinata pinning + "dad" (Replicate/GCP) generation envelope |
+
+#### LLM, Inference & AI Providers
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/inference/livepeer` | `livepeer` | Livepeer AI gateway side-by-side LLM comparison |
+| `/api/watsonx/embed`, `/api/aixbt/*` | `chat`, `intel`, `grounding`, `projects`, `_shared` | IBM Granite embeddings + aixbt crypto-narrative intelligence bridge |
+| `/api/persona/*` | `extract`, `preview` | Persona extraction + preview from source material |
+| `/api/_providers/*` | — | Provider routing internals shared across LLM endpoints |
+
+#### Platform Ops, Feeds & Webhooks
+
+| Endpoint Group | Files | Description |
+|----------------|-------|-------------|
+| `/api/webhooks/*` | `replicate`, `solana-pay` | Replicate prediction + Solana Pay webhook receivers |
+| `/api/push/subscribe`, `/api/rss/announcements`, `/api/sitemap/[type]` | — | Web Push registry, RSS 2.0 announcements feed, per-entity sub-sitemaps |
+| `/api/og/*` | `agent`, `sealed-drop`, `three-token-badge` | Dynamic Open Graph image renderers |
+| `/api/seed/*`, `/api/demo/*`, `/api/tx/*`, `/api/sdp/*`, `/api/rider/*` | — | Seed/fixtures, public demo economy, raw-tx helpers, WebRTC SDP relay, "rider" Firebase webhook bridge |
+| `/api/pump-bounties/*` | `[id]`, `stats` | pump.fun GO bounty board + submission stats |
+| `/api/trading/scan`, `/api/three-token/*`, `/api/three/*` | — | Candidate-trade scanner (RPC-budgeted) + $THREE tier/price surfaces |
+
+> Internal MCP handler implementations live in `api/_mcp`, `api/_mcp3d`, `api/_mcpagent`, `api/_mcpbazaar`, `api/_mcpibm`, `api/_mcp-studio`, `api/_studio` — see [MCP Layer](#mcp-layer).
 
 ---
 
@@ -654,7 +861,51 @@ Bakes skinned mesh vertex positions at N keyframes, surgically rewrites `USDZExp
 
 ### Auto-Rig API (`api/_lib/auto-rig.js`)
 
-Static mesh uploads → UniRig/Replicate backend → poll `regenerate-status` → canonicalize bones → register as new sibling avatar. Non-destructive. Feature-gated via `/api/config features.avatarRigging`.
+Static mesh uploads → UniRig/Replicate backend → poll `regenerate-status` → canonicalize bones → register as new sibling avatar. Non-destructive. Feature-gated via `/api/config features.avatarRigging`. Companions: `api/_lib/auto-rig-eligibility.js`, `api/_lib/rig-inspect.js`, and the `auto-rig-sweep` cron.
+
+---
+
+### Physics Engine (`src/physics/`)
+
+`src/physics/physics-world.js` wraps `@dimforge/rapier3d-compat` `^0.19.3`: a kinematic capsule character controller (wall-slide, step-up, ground-snap, dynamic-body shove), static world colliders, and dynamic rigid-body props synced to Three.js meshes. `initRapier()` memoizes WASM init; default gravity `{0, -14, 0}`; character translation is measured at the feet. `src/game/terrain.js` feeds one column-major `Float32Array` heightfield to both the rendered mesh and Rapier's `ColliderDesc.heightfield`. Vehicles use Rapier's raycast vehicle controller.
+
+### 3D World Engine (`src/game/`, 40+ modules)
+
+The open-world layer behind `/play` and per-coin worlds:
+
+- **Terrain & building:** procedural heightfield terrain (`terrain.js`), collaborative voxel building (`build-voxels.js`, 1.5 m blocks, server-persisted per coin), districts/zones (`district.js`, `world-zones.js`).
+- **Day/night:** authoritative server-broadcast world time drives sun/sky/fog/lights (`day-night.js`).
+- **Vehicles:** drivable networked vehicles (`vehicles.js`, `vehicle-mesh.js`) — Notblox-style local raycast sim + server-validated transforms.
+- **NPCs & navigation (`src/game/npc/`):** navmesh pathfinding via `three-pathfinding` `^1.3.0` (`nav-graph.js`), ambient life director (`ambient-life.js`, `world-life.js`), mobs (`mobs.js`), embodied service/chat NPCs (`npc-aixbt.js`, `npc-services.js`, `npc-chat.js`, `npc-zauth.js`, `aixbt-pay-hud.js`). `@recast-navigation/three` is present as a dependency.
+- **Cosmetics & economy:** shop/wardrobe/loadout/visual primitives (`cosmetics-*.js` — tint + prop + aura), ambient crowd (`ambient-crowd.js`), activities/fishing (`play-activities.js`, `play-systems.js`), world objects/items (`world-objects.js`, `items.js`).
+- **Market-reactive FX:** `market-reactor.js`, `oracle-ribbon.js`, `x402-jumbotron.js`, `chart-screen.js` make the world react to live on-chain data.
+
+Standalone Three.js scenes not covered as page surfaces above: `/coin3d` (`src/coin3d/`, live token snapshot), `/diorama` (`src/diorama/`, text→3D island), `/constellation` (`src/constellation/`, Granite-embedding token galaxy + in-browser PCA), Agent Galaxy (`src/galaxy.js`, `src/ibm-galaxy.js`), Mind Palace (`src/mind-palace.js`), `/club` (`src/club*.js`), `/theater` (`src/theater*.js`), Living Stages (`src/stage*.js`, `hero-stage.js`), `/arena` & `/play` arena (`src/play/arena-world.js`, `src/arena/arena.js`), `/mirror` (`src/mirror/`), Scene Composer (`src/scene-compose.js`), Scene Studio (`src/scene-studio/` — vendored three.js r184 editor). Walk environments: 6 staged scenes (park, cyberpunk, beach, gallery, void, office) in `public/environments/index.json`.
+
+### Multiplayer / Networked 3D (`multiplayer/`)
+
+`@three-ws/multiplayer` v0.1.0 — an **authoritative Colyseus server** (Node ≥20, `@colyseus/core ^0.16`, `@colyseus/schema 3.0.76`, Express 5, port **2567**) backing every networked surface. Four rooms (`multiplayer/src/index.js`):
+
+| Room | Backs | filterBy |
+|------|-------|----------|
+| `walk_world` (WalkRoom) | `/walk`, `/play` coin worlds | `['coin','tier']` |
+| `irl_world` (IrlRoom) | `/irl` presence (pins **not** broadcast — per-viewer proximity reads only) | `['geocell']` |
+| `clash_arena` (ClashRoom) | Coin Clash faction battles | `['matchKey']` |
+| `stage_world` (StageRoom) | Living Stages performances (tip-reactive AI host) | `['stageId']` |
+
+Move messages validated at 15 Hz with max-step/world-bounds/name/rate clamps; binary delta state (`schemas.js`: Player, Block, Vehicle, Mob, Tombstone, WorldObject). Auth/gates: `holder-pass.js`, `play-pass.js`, `guest-token.js`, `presence-token.js` (HMAC), `game-token.js` — boot fails in prod without `HOLDER_PASS_SECRET`. Durable per-world voxel builds + player state in Upstash Redis (`block-store.js`, `persistence.js`, `playerStore.js`); `@colyseus/redis-driver`/`-presence` for horizontal scale (>~200 players). Clients connect via `src/shared/colyseus-connect.js` + per-surface net wrappers (`src/walk-net.js`, `src/stage-net.js`, `src/game/community-net.js`). Deploy: `multiplayer/Dockerfile` + **Fly.io** (`fly.toml`, app `three-ws-multiplayer`, iad) and **Cloud Run** (`deploy-cloudrun.sh`); `@colyseus/monitor` at `/colyseus`, health at `/health`.
+
+### AR / WebXR Pipeline (`src/ar/`, `src/irl/`)
+
+Beyond animated-USDZ export, a full AR stack: `src/ar/webxr.js` (`immersive-ar` session + hit-test placement + opt-in half-body XR), `depth-occlusion.js` (real-world occlusion via WebXR depth-sensing), `anchor-lifecycle.js` (reticle / tracking-loss state machine), `quick-look.js` (iOS USDZ Quick Look), `scene-viewer.js` (Android ARCore Intent), `placement-capability.js`. `src/irl/` is a GPS/marker AR "world lines" subsystem (~25 modules: floor/room/marker anchors, sensor fusion, GPS lifecycle, geohash proximity, QR detect, privacy center, perf budget), backed by the IrlRoom. `src/irl/glasses/` integrates **Even Realities G1 smart glasses** over BLE (`protocol.js`, `transport.js`, `bridge.js`, `g1.js`, `frame.js`).
+
+### Mocap & Realtime Voice
+
+- **Capture studios:** `src/mocap-studio.js` (record/save/replay face-mocap clips), `src/face-mocap.js` (52 ARKit blendshapes + 478 landmarks + head-pose via MediaPipe FaceLandmarker @~30 Hz, one-euro smoothing), `src/pose-studio.js` (FK gizmos, drag-IK/CCD, timeline → animated-GLB export). Backed by `/api/mocap/clips`.
+- **Realtime voice:** `src/runtime/livekit-voice.js` (LiveKit bidirectional voice, `livekit-client ^2.19.2`), `src/runtime/gemini-live-client.js` (Gemini Live), `src/voice/a2f-player.js` (NVIDIA Audio2Face-3D playback), `src/embodiment/emotion.js` (text→emotion→idle+gesture+blendshape descriptor consumed by the MCP `speak` tool).
+- **Avatar formats:** GLB/glTF, VRM/VRoid (`@pixiv/three-vrm ^3.5.3`), FBX (`fbx2gltf`), Draco/KTX2/Basis/Meshopt decoders (served locally via `src/loaders/gltf.js` AND from CDN via `src/viewer/internal.js`).
+
+**Animation asset counts:** ~102 built JSON clips in `public/animations/clips/`, `manifest.json` ~100 runtime entries, 58 source FBX in `animation-sources/`, `scripts/animations.config.json` ~121 clip specs, and a 2453-entry R2-backed Mixamo catalog (`public/animations/mixamo/index.json`). Reference rig: Avaturn `public/avatars/cz.glb` (53-bone canonical skeleton; ≥50% track coverage required to retarget).
 
 ---
 
@@ -1063,14 +1314,17 @@ flowchart TD
 
 | Tier | Models |
 |------|--------|
-| Anthropic | claude-sonnet-4-6, claude-haiku-4-5, claude-opus-4-5 |
+| Anthropic | claude-fable-5, claude-mythos-5 (restricted, moderation-gated, never auto-selected), claude-opus-4-7, claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (native `claude-haiku-4-5-20251001`) |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini |
-| NVIDIA NIM | Nemotron-super-120b, DeepSeek-v4-pro, Kimi-k2.6, Llama-4-Maverick, MiniMax-M2.7 |
-| IBM watsonx | Granite-3.8B-Instruct, Granite-34B |
+| NVIDIA NIM | `nvidia/nemotron-3-super-120b-a12b`, `nvidia/nvidia-nemotron-nano-9b-v2`, `deepseek-ai/deepseek-v4-pro`, `moonshotai/kimi-k2.6`, `meta/llama-4-maverick-17b-128e-instruct`, `minimaxai/minimax-m2.7` |
+| IBM watsonx | `ibm-granite` (Granite 3.8B Instruct) |
 | Groq | llama-3.3-70b-versatile, llama-3.1-8b-instant |
 | DashScope | qwen-plus |
+| ModelScope | `Qwen/Qwen3-Coder-480B-A35B-Instruct` |
 | DeepSeek | deepseek-reasoner (R1) |
 | OpenRouter | 50+ via fallback routing |
+
+`PROVIDERS` in `api/brain/chat.js` has **21 entries**. The auto-router for avatar chat (`api/_lib/chat-models.js`) is a distinct, smaller catalog with `DEFAULT_PROVIDER_ORDER = ['groq','openrouter','nvidia','anthropic','openai']` (NVIDIA lane `meta/llama-3.3-70b-instruct` + `nvidia/llama-3.3-nemotron-super-49b-v1.5`; Anthropic lane `claude-sonnet-4-6` + `claude-haiku-4-5-20251001`), budgets `MAX_FALLBACK_ATTEMPTS=4`, `TOTAL_BUDGET_MS=25000`, `PER_CALL_TIMEOUT_MS=15000`.
 
 ---
 
@@ -1088,7 +1342,7 @@ Tiered memory architecture (Letta/MemGPT model):
 
 **Memory writes:** signed with agent's EVM wallet (ERC-191) for authorship provenance.
 
-**Reflection** (`api/agent/reflect.js`): LLM-powered consolidation of recent memories into higher-order "dreams". Rate-limited, daily-capped, uses `claude-opus-4-5` preferentially → Groq/OpenRouter fallback.
+**Reflection** (`api/agent/reflect.js`, `api/_lib/reflection.js`): LLM-powered consolidation of recent memories into higher-order "dreams". Rate-limited, daily-capped, uses `REFLECTION_MODEL = 'claude-opus-4-7'` preferentially → Groq/OpenRouter fallback. User-facing review at `api/agent/dreams.js` (accept/reject/answer with provenance); owner-only curation at `api/memory/curate.js` (edit/forget/merge with re-embedding) alongside `api/memory/{search,graph,context}.js`.
 
 **Brain format** (`api/_lib/brain-bundle.js`): portable `.brain` export — schema-versioned persona + signed memories + ERC-8004 anchor on Base.
 
@@ -1152,18 +1406,24 @@ flowchart TD
     SCORE --> Intel
 ```
 
-**Strategy matching:** per-agent `agent_sniper_strategies` table. Swarm support: consensus + pro-rata position splitting.
+**Strategy matching:** per-agent `agent_sniper_strategies` table. Swarm support: consensus + pro-rata position splitting (`swarm.js`).
+
+**Subsystems (selected modules):**
+- **Coin Intelligence Engine** (`intel/`): `signals.js` (computeSignals), `classify.js` (LLM-assisted classifyCoin), `learn.js` (online learning), `wallet-graph.js` (creator/funder graph), `watcher.js`, `store.js` → `pump_coin_intel` DB.
+- **Radar / pre-cog:** `prelaunch-radar.js` (block-zero pre-cog snipe — watches `radar_watchlist` for creator/smart-money wallet activity before the mint goes public), `radar-detect.js`, `radar-scorer.js`, `radar-watchlist.js`, `recompute-wallet-graph.js`.
+- **Execution & exit:** `executor.js` (per-agent in-process spend lock), `exit-logic.js`, `amm-exit.js`, `positions.js`, `oracle-gate.js`, `claim-scorer.js`, `first-claim-watch.js`.
+- **Ops:** `heartbeat.js`, `alerts.js`, `error-tracker.js`, `keys.js`, `config.js`, `log.js`.
 
 #### `workers/oracle` — Market Oracle
 
-Three loops:
+Three loops (`score-loop.js`, `agent-loop.js`, `settle-loop.js`) sharing `executor.js` + `keys.js`:
 1. **score-loop:** `pump_coin_intel` + `wallet_reputation` → LLM narrative classification → `oracle_conviction`
 2. **agent-loop:** acts on verdicts for armed watches
 3. **settle-loop:** position settlement
 
 #### `workers/agent-mm` — Market Maker
 
-Defends price floors, recycles profit, manages graduation transitions for `market_maker_policies`.
+Defends price floors, recycles profit, manages graduation transitions for `market_maker_policies` (`graduation.js` handles the bonding-curve → AMM transition, `engine.js`/`market.js`/`store.js`).
 
 #### `workers/agent-orders` — Order Execution
 
@@ -1175,20 +1435,68 @@ Registers real AgenC agents on Solana, drives daily citizen loop, projects to `a
 
 ---
 
-### GPU Workers (Google Cloud Run)
+### GPU & CPU Workers (Google Cloud Run)
+
+`workers/` holds **21 worker subdirectories** total — the long-running Node workers above, plus the Python/FastAPI inference and mesh-processing fleet below. Workers split into three tiers: **GPU mesh/video inference** (NVIDIA L4), **CPU geometry processing** (no GPU), and **orchestration/runbooks**.
+
+#### GPU inference workers (NVIDIA L4)
 
 | Worker | Technology | Description |
 |--------|-----------|-------------|
-| `avatar-pipeline-controller` | Python/FastAPI | Routes to Hunyuan3D/TRELLIS/TripoSR/TripoSG, then pipes through UniRig |
-| `model-hunyuan3d` | Python/FastAPI + CUDA | Image → 3D mesh (Hunyuan3D) |
+| `avatar-pipeline-controller` | Python/FastAPI (**CPU**) | Reconstruction orchestrator — the Vercel layer talks ONLY to this (`GCP_RECONSTRUCTION_URL`). Fans out to a mesh model + UniRig and returns one rigged GLB. |
+| `model-hunyuan3d` | Python/FastAPI + CUDA | Image → 3D mesh (Hunyuan3D-2.1, HF license-gated — needs `HF_TOKEN`) |
 | `model-trellis` | Python/FastAPI + CUDA | Image → 3D mesh (TRELLIS) |
-| `model-triposr` | Python/FastAPI + CUDA | Image → 3D mesh (TripoSR) |
-| `model-triposg` | Python/FastAPI + CUDA | Image → 3D mesh (TripoSG) |
-| `workers/unirig` | Python/FastAPI + CUDA | Skeleton + skinning + ARKit-52 blendshapes (UniRig/SIGGRAPH 2025) |
-| `workers/rembg` | Python/FastAPI | Background removal (BRIA RMBG-2.0, u2net, isnet-general-use) |
-| `workers/model-text2motion` | Python/FastAPI + CUDA | Text → SMPL motion (MDM) → canonical three.js AnimationClip JSON |
+| `model-triposr` | Python/FastAPI + CUDA | Fast single-image → 3D mesh (TripoSR, VAST-AI MIT; 5–15s, baked texture; fast-path/fallback) |
+| `model-triposg` | Python/FastAPI + CUDA | High-fidelity image/sketch → 3D shape (TripoSG, VAST-AI MIT; 1.5B rectified-flow). Two modes: `image` (mesh) + `scribble` (sketch+text → mesh, CFG-distilled 16-step) powering `/forge` sketch→3D. Geometry only — pair with `texture`. |
+| `model-text2motion` | Python/FastAPI + CUDA | Text → SMPL motion (MDM) → canonical three.js AnimationClip JSON (`mdm_sampler.py`, `smpl_to_clip.py`) |
+| `avatar-reconstruction` | Python/FastAPI + CUDA | "Scan yourself to 3D" — 1–6 face photos → Zero123++ 6-view synthesis → InstantMesh textured GLB → GCS (`face_pipeline.py`, `glb_ops.py`, `precompute_uv.py`, `templates/`). Output bucket `gs://three-ws-avatar-reconstructions`. |
+| `longcat` | Python/FastAPI + CUDA | LongCat-Video-Avatar-1.5 (MIT) — reference image + audio URL → lip-synced talking-avatar MP4 → `gs://three-ws-avatar-videos`. `POST /generate` · `GET /jobs/:id` · `GET /health`. |
+| `unirig` | Python/FastAPI + CUDA | Skeleton + skinning + ARKit-52 blendshapes (UniRig/SIGGRAPH 2025) |
 
-**Contract:** all workers expose `POST /infer` + `GET /tasks/:id`. Job state in Google Cloud Firestore, outputs to GCS.
+#### CPU geometry workers (no GPU)
+
+| Worker | Technology | Description |
+|--------|-----------|-------------|
+| `rembg` | Python/FastAPI | Background removal (BRIA RMBG-2.0, u2net, isnet-general-use) |
+| `segment` | Python/FastAPI (CPU) | Part-segmentation — splits a mesh at disconnected shells + the minima rule (concave-crease cuts) into named addressable parts, tints each, emits a GLB whose nodes are parts + a parts manifest (id/name/region/bbox/centroid/face+vertex counts/colour). Backs `/api/forge-segment`. (`segment_core.py`) |
+| `remesh` | Python/FastAPI (CPU) | Mesh ops via trimesh + open3d + QuadriFlow (MIT) + xatlas + headless Blender (bpy): format convert (GLB ↔ OBJ ↔ FBX ↔ STL ↔ PLY ↔ USDZ ↔ 3MF), **rig-preserving FBX export** (bones + skin weights + blendshapes via `blender_fbx.py` — the only round-trip path, trimesh has no FBX writer), quadric decimation, quad remesh, UV unwrap, repair. (`verify_fbx.py`) |
+| `texture` | Python/FastAPI (CUDA) | Text-guided texturing — full retexture (`/texture`: render N views → SDXL + ControlNet-depth → back-project to UV) + magic-brush region retexture (`/retexture_region`: repaint only a masked region, feathered seam). Backs `retexture_model` / `retexture_region`. |
+| `stylize` | Python/FastAPI (CPU) | One-click geometric stylization (pure trimesh + numpy + scipy, no inference): `voxel`, `brick` (LEGO studs), `voronoi` (strut lattice), `lowpoly` (faceted). Extensible via `STYLES`. |
+
+#### Orchestration & MCP-mirror workers
+
+| Worker | Technology | Description |
+|--------|-----------|-------------|
+| `deploy` | Bash runbooks | Repeatable, idempotent Cloud Run provisioning for the reconstruction pipeline: `deploy-all.sh` (ordered provision of controller + mesh models + UniRig, prints controller URL+key for Vercel env), `deploy-editing.sh`, `stage-weights.sh` (stages ~80 GB model weights). |
+| `pump-fun-mcp` | Cloudflare Worker | Stateless **mirror** of `api/pump-fun-mcp.js` — full MCP Streamable HTTP (protocol `2025-06-18`), read-only on-chain/indexer tool subset only, camelCase legacy aliases via `TOOL_NAME_ALIASES`, no auth/x402. Deploy: `wrangler deploy`. (`worker.js`, `wrangler.toml`) |
+
+**Endpoint contracts vary by worker:** the mesh-inference models (`model-*`) expose `POST /infer` + `GET /tasks/:id`; `longcat` exposes `POST /generate` + `GET /jobs/:id` + `GET /health`; `avatar-reconstruction`/controller expose `/reconstruct` + `/rig`; CPU workers expose named verb endpoints (`/texture`, `/retexture_region`, `/segment`, `/convert`, …). Job state in Google Cloud Firestore (native mode), outputs to GCS.
+
+**Shared security module (`worker_security.py`):** a stdlib-only file COPYed byte-identically into every Python worker's Docker build context. Provides three primitives every worker uses: `require_api_key` (timing-safe constant-time bearer check), `fetch_remote_bytes` (SSRF-hardened fetch — https-only, DNS resolution rejecting private/loopback/link-local/metadata IPs, per-hop redirect re-validation, bounded response size), and `safe_error` (opaque correlation-id-tagged errors, full traceback logged server-side only). Keep all copies byte-identical when editing.
+
+---
+
+### Standalone Services (`services/`)
+
+Long-running, **stateful** processes that hold persistent connections and so fit neither a Vercel request/response function (`api/`) nor a stateless Cloud Run/Cloudflare worker (`workers/`). Each is its own subdir with `package.json`, entrypoint, and `Dockerfile`.
+
+#### `services/pump-graduations` — pump.fun graduations indexer
+
+The only piece that keeps the live graduation WebSocket open. Holds a long-lived Solana WS subscription to the Pump program, detects token "graduations" (bonding-curve → PumpAMM migration) by matching the `complete` anchor event via its 8-byte discriminator (`COMPLETE_EVENT_DISCRIMINATOR`, matching `@pumpkit/core`), and pushes each event into a capped Upstash Redis list. The Vercel side reads the events back from Redis.
+
+- `index.js` — main loop (Pump program log subscription).
+- `carbon-source.js` — drop-in alternative source backed by a Carbon indexer; same `start(cb)`/`stop()` contract + identical events, selected at startup.
+- **Env:** `SOLANA_RPC_URL`, `SOLANA_WS_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `GRADUATIONS_LIST_KEY` (default `pf:graduations`), `GRADUATIONS_MAX_LEN` (default `500`), `PUMP_GRADUATIONS_SOURCE` (`legacy` default | `carbon`).
+
+---
+
+### Rust Crates (`crates/`)
+
+Native/WASM Rust code that compiles to WASM for the frontend (distinct from `contracts/`, which holds Anchor/Solidity on-chain programs).
+
+#### `crates/vanity-grinder` — Solana vanity address grinder
+
+WASM-backed ed25519 vanity grinder (v0.1.0, MIT, `publish=false`) that powers `@three-ws/vanity` and `src/solana/vanity/`. `crate-type = ["cdylib","rlib"]`; deps `curve25519-dalek` v4 (precomputed-tables), `wasm-bindgen` 0.2, `js-sys` 0.3, `bs58` 0.5, `sha2` 0.10. Release profile: `opt-level=3`, `lto="fat"`, `codegen-units=1`, `panic="abort"`, `wasm-opt -O3 --enable-simd --enable-bulk-memory`.
 
 ---
 
@@ -1304,15 +1612,17 @@ three.ws/                        (root package v1.5.2, Node 24.x)
 ├── mcp-bridge/                  (npm x402 bridge MCP)
 ├── character-studio/            (avatar creation Vite app)
 ├── multiplayer/                 (Colyseus room server)
-├── workers/                     (long-running Node/Python workers)
+├── workers/                     (21 long-running Node/Python/CF workers — sniper, oracle, mm, orders, agora, GPU/CPU mesh fleet, MCP mirror)
+├── services/                    (stateful long-lived services — pump-graduations WS indexer)
+├── crates/                      (Rust → WASM — vanity-grinder)
 ├── contracts/                   (Rust Anchor + Solidity)
 ├── infra/                       (AWS CDK TypeScript)
-├── deploy/                      (Cloud Run + Docker configs)
+├── deploy/                      (Cloud Run + Docker configs — world, sniper)
 ├── data/                        (changelog.json, pages.json)
 └── scripts/                     (build scripts, migrations)
 ```
 
-**npm workspaces:** 28 packages declared in root `package.json`.
+**npm workspaces:** 43 packages declared in root `package.json` (30 under `packages/*` + 13 top-level SDKs/apps).
 
 ---
 
@@ -1400,9 +1710,11 @@ Stores: GLBs · audio clips · thumbnails · manifests · OG images · validatio
 
 | Service | Config | Description |
 |---------|--------|-------------|
-| AWS CDK | `infra/lib/three-ws-stack.ts` | Lambda Function URL (Forge), S3 avatar bucket, CloudWatch |
-| GCP Cloud Run | `deploy/world/cloudrun.yaml` | Hyperfy world (`world.three.ws`), SQLite + GCS volume |
-| Colyseus | `multiplayer/` | Real-time multiplayer rooms (:2567), HMAC auth |
+| AWS CDK | `infra/lib/three-ws-stack.ts` | Account `155407237916`, `us-east-1`. `ThreeWsStack`: S3 bucket `3d-agent-avatars` (RETAIN, `tmp/` 1-day lifecycle, CORS), Forge Lambda `three-ws-forge` (NODEJS_22_X, ARM_64, 1536 MB, 20s, public Function URL GET-only), log groups `/three-ws/api` + `/aws/lambda/three-ws-forge`, AppRegistry MyApplications association. CfnOutputs: `ForgeUrl`, `AvatarBucketName`, `AvatarBucketArn`. |
+| GCP Cloud Run (world) | `deploy/world/cloudrun.yaml` | Hyperfy world (`world.three.ws`), SQLite + GCS volume. SA `hyperfy-world-sa@…`, secret `hyperfy-admin-code` (in-world `/admin <code>` claims build rights). Project `aerial-vehicle-466722-p5`, us-central1. |
+| GCP Cloud Run (sniper) | `deploy/sniper/cloudrun.yaml` | `agent-sniper` long-lived worker. **`minScale=maxScale=1` is load-bearing** — the in-process per-agent spend lock (`executor.js`) makes a second instance double-spend. `SNIPER_MODE` defaults to `simulate` (real quotes, no broadcast); `live` is a deliberate separate cutover. SA `agent-sniper-sa@…`, deploy via `scripts/deploy-sniper.mjs`, status at `/api/sniper/status`. |
+| GCP Cloud Run (GPU/CPU fleet) | `workers/*/cloudbuild.yaml` + `workers/deploy/` | Avatar pipeline (controller + mesh models + UniRig + reconstruction/longcat/texture/etc.) on NVIDIA L4. Quota `nvidia_l4_gpu_allocation_no_zonal_redundancy`. Buckets `gs://three-ws-avatar-reconstructions`, `gs://three-ws-avatar-videos`; job state in Firestore. |
+| Colyseus | `multiplayer/` | Authoritative real-time room server (:2567), 4 rooms, HMAC-gated — see [Multiplayer / Networked 3D](#multiplayer--networked-3d-multiplayer). Deploys to Fly.io + Cloud Run |
 | Sentry | `api/_lib/sentry.js` | Error capture via raw envelope API (no SDK weight) |
 | Axiom | `api/_lib/axiom.js` | x402 payment metrics (`AXIOM_TOKEN`, `AXIOM_DATASET`) |
 | Resend | `api/_lib/email.js` | Transactional email (`RESEND_API_KEY`) |
@@ -1420,7 +1732,7 @@ Stores: GLBs · audio clips · thumbnails · manifests · OG images · validatio
 | `UPSTASH_REDIS_REST_URL` + `_TOKEN` | required | Redis rate limiting |
 | `S3_ENDPOINT` + `S3_BUCKET` + `S3_PUBLIC_DOMAIN` | required | Cloudflare R2 |
 | `JWT_SECRET` | required | Session token signing |
-| `WALLET_ENCRYPTION_KEY` | critical | Custodial keypair encryption (falls back to `JWT_SECRET` if unset) |
+| `WALLET_ENCRYPTION_KEY` | critical | Custodial keypair encryption — dedicated key, AES-256-GCM `v2:` scheme with per-record salt (`api/_lib/secret-box.js`). `JWT_SECRET` is **legacy v1 read-only** fallback for pre-2026-06-19 records, not the active encryptor |
 | `SOLANA_RPC_URL` | required | Solana mainnet RPC |
 | `ANTHROPIC_API_KEY` | critical | Claude models |
 | `OPENAI_API_KEY` | critical | OpenAI TTS + GPT models |
@@ -1439,6 +1751,127 @@ Stores: GLBs · audio clips · thumbnails · manifests · OG images · validatio
 | `AGENT_RELAYER_KEY` | declared req() | ERC-7710 delegation relayer (hard-required in env.js, breaks cold starts if unset) |
 | `SENTRY_DSN` | optional | Error reporting |
 | `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHANGELOG_CHAT_ID` | optional | Alert delivery + changelog push |
+
+---
+
+### Repository Directory Reference
+
+Every top-level directory in the monorepo, mapped to its purpose and the section that documents it in depth. Surfaces documented elsewhere are cross-referenced rather than re-described.
+
+| Directory | Purpose | Detailed in |
+|-----------|---------|-------------|
+| `api/` | 1,200+ Vercel serverless functions + `api/_lib/` shared layer | [API Layer](#api-layer) |
+| `src/` | Frontend JS modules: page controllers + 60+ subsystem dirs | [Frontend Application](#frontend-application) |
+| `pages/` | 150+ HTML MPA entry points (+ `dashboard-next/` SPA shell) | [Frontend Application](#frontend-application) |
+| `public/` | Static surfaces, well-known files, animation clips, embed apps | [Frontend Application](#frontend-application) |
+| `packages/` | Spec/schema packages + 30+ domain MCP servers (`@three-ws/*`) | [SDK Ecosystem](#sdk-ecosystem) · [MCP Layer](#mcp-layer) |
+| `contracts/` | Anchor (Rust) + Solidity (Foundry) on-chain programs | [On-chain & Solana](#on-chain--solana) |
+| `crates/` | Rust crates (`vanity-grinder`) | [Rust Crates](#rust-crates-crates) |
+| `workers/` | Long-running Node + Python/GPU workers | [Long-Running Workers](#long-running-workers) |
+| `services/` | Standalone always-on services (`pump-graduations` indexer) | [Standalone Services](#standalone-services-services) |
+| `multiplayer/` | Colyseus real-time room server (`@three-ws/multiplayer`, :2567) | [Other Infrastructure](#other-infrastructure) |
+| `infra/` | AWS CDK (TypeScript) — Lambda, S3, CloudWatch | [Other Infrastructure](#other-infrastructure) |
+| `deploy/` | Cloud Run + Docker world deployment configs | [Other Infrastructure](#other-infrastructure) |
+| `sdk/` · `solana-agent-sdk/` · `agent-payments-sdk/` · `agent-protocol-sdk/` · `agent-ui-sdk/` | Cross-chain agent SDKs (published `@three-ws/*`) | [Top-Level SDKs](#top-level-sdks) |
+| `avatar-sdk/` · `walk-sdk/` · `page-agent-sdk/` · `tour-sdk/` | Avatar/embed web-component SDKs | [Top-Level SDKs](#top-level-sdks) |
+| `x402-payment-modal/` · `x402-modal-sdk/` | Drop-in x402 checkout modal SDKs | [Published Modal / Payment SDKs](#published-modal--payment-sdks) |
+| `mcp-server/` · `mcp-bridge/` | Top-level npm stdio MCP servers | [npm stdio MCP Servers](#npm-stdio-mcp-servers) |
+| `apps-sdk/` | OpenAI Apps SDK surface: `embodiment/` helpers + `studio-viewer/` | [Embeds & Plugins](#mobile-embeds--integrations) |
+| `chat/` | `three.ws-chat` — standalone fast, light, BYOK chat UI (own Vite app) | [Embeds & Plugins](#mobile-embeds--integrations) |
+| `chat-plugin/` | `@three-ws/chat-plugin` — LobeHub sidebar plugin (embodied avatar) | [Embeds & Plugins](#mobile-embeds--integrations) |
+| `extensions/` | Browser extension(s): `walk-avatar` | [Embeds & Plugins](#mobile-embeds--integrations) |
+| `integrations/` | DCC/tooling bridges: `blender/`, `comfyui/` nodes, `_pyclient` Python client | [Embeds & Plugins](#mobile-embeds--integrations) |
+| `solana-mobile/` | Seeker dApp Store build: TWA + PWA + publish + `.well-known` | [Mobile, Embeds & Integrations](#mobile-embeds--integrations) |
+| `agents/` | Reference standalone agents: `endpoint-shopper`, `fact-checker`, `tutor`, `unstoppable` | [Reference Agents & Skills](#reference-agents--skills-examples) |
+| `pump-fun-skills/` | Composable pump.fun skill modules: `coin-fees`, `create-coin`, `reactive`, `swap`, `tokenized-agents` | [Reference Agents & Skills](#reference-agents--skills-examples) |
+| `examples/` | Embed/integration demos: `coach-leo` (VR), `agenc-task-roundtrip`, `pump-fun-agent`, `metamask-agent-wallet`, bare-avatar/minimal HTML | [Reference Agents & Skills](#reference-agents--skills-examples) |
+| `marketplace/` | Marketplace plugin assets (`plugins/`) | — |
+| `character-studio/` | Web character creator (fork of `m3-org/CharacterStudio`, MIT) | `STRUCTURE.md` |
+| `animation-sources/` | Mixamo FBX source library (120+ clips) feeding the animation build | [Animation Pipeline](#animation-pipeline-build-time) |
+| `scripts/` | 400+ build, migration, backfill, audit & smoke scripts | [Build, Migration & Audit Scripts](#build-migration--audit-scripts-scripts) |
+| `tests/` | Vitest + Playwright test suite (589 `.test.js`) | [Testing & QA](#testing--qa) |
+| `prompts/` | Numbered manual QA/audit playbooks (production-readiness, dead-paths, a11y, perf…) | [Testing & QA](#testing--qa) |
+| `specs/` | Protocol & format specifications (agent card, manifest, embed, memory, skills…) | [Specifications & Protocol Documents](#specifications--protocol-documents-specs) |
+| `docs/` | 100+ public docs + subdirs (tutorials, roadmap, audits, ux-flows, internal) | [Documentation Map](#documentation-map-docs) |
+| `data/` | Build-time data: `changelog.json`, `pages.json`, `walk-social.json`, ERC-8004 ledgers | [Vite Frontend Build](#vite-frontend-build) |
+| `blog/` | Marketing/blog posts (HTML + Markdown) | — |
+| `content/` | Editorial content schedule (`x-schedule`, manifesto) | — |
+| `snapshots/` | Captured site snapshots for diffing/regression | — |
+| `x402-buildout/` | x402 rollout `PLAN.md` + agent prompts (internal) | — |
+| `my-agents/` | Static landing for the on-chain "My Agents" surface | [Auth, Identity & Discovery](#auth-identity--discovery) |
+
+---
+
+### Testing & QA
+
+**Runner:** `npm test` → `vitest run && playwright test`. The repo holds **589 `.test.js` files** in `tests/`, plus shared `tests/_fixtures/` and `tests/_helpers/`.
+
+| Layer | Tooling | Scope |
+|-------|---------|-------|
+| Unit / integration | Vitest | API handlers, `_lib` utilities, SDK clients, on-chain guards, animation/retarget math, MCP tool shapes |
+| End-to-end | Playwright | Critical browser flows (wallet tabs, agent detail, lipsync, marketplace purchase) |
+| SDK suites | `node --test` | Per-package suites under `packages/*/test/` and the top-level SDKs (216+ green) |
+
+Representative coverage: agent custody/trade guards, A2A payment mandates, sniper/oracle scoring, reflection & dreams, reputation UI, avatar lipsync & retargeting, `glb-canonicalize` rig conventions, agent recovery, monetization & labor economics.
+
+**Manual QA playbooks (`prompts/`):** numbered audit prompts run by agents/engineers before release — production-readiness audit, dead-paths & broken-links, console error/warning sweep, build/deploy artifact integrity, routing & 404 audit, unit + e2e coverage, error-handling failsafes, accessibility, responsive/mobile, and Web-Vitals performance.
+
+---
+
+### Build, Migration & Audit Scripts (`scripts/`)
+
+400+ Node scripts (`.mjs`/`.js`) backing the build and ops surface:
+
+| Group | Examples | Purpose |
+|-------|----------|---------|
+| Build | `build-animations.mjs`, `build-vercel.mjs`, `build-pages.mjs`, `build-cache.mjs`, `build-apps-sdk-viewer.mjs` | Asset/clip baking, Vercel function bundling, changelog/pages generation |
+| Schema & migration | `apply-migrations.mjs`, `apply-schema.mjs`, `apply-siwx-migration.mjs`, `apply-delegations-schema.js` | Apply `api/_lib/migrations/` to Neon |
+| Backfill | `backfill-agent-wallets.mjs`, `backfill-erc8004.mjs`, `backfill-avatar-thumbnails.mjs`, `backfill-rig-meta.mjs` | One-shot data repair / hydration |
+| Audit | `audit-links.mjs`, `audit-console.mjs`, `audit-deploy-artifacts.mjs`, `audit-mcp-manifests.mjs`, `audit-page-index.mjs` | Automated hygiene checks (back the `prompts/` playbooks) |
+| Mint / on-chain | `batch-mint-agents.mjs`, `agent-invocation-smoke.mjs` | Bulk agent minting, program smoke tests |
+| Publish | `publish-packages.mjs` | Idempotent npm publish of `@three-ws/*` packages |
+
+---
+
+### Specifications & Protocol Documents (`specs/`)
+
+Authoritative format/protocol specs that the code implements:
+
+| Spec | Defines |
+|------|---------|
+| `AGENT_MANIFEST.md` · `3D_AGENT_CARD.md` | Agent identity + manifest schema (ERC-8004 / agent card) |
+| `EMBED_SPEC.md` · `EMBED_HOST_PROTOCOL.md` | `<agent-3d>` embed contract + host↔iframe message protocol |
+| `EDITOR_SPEC.md` | Scene/avatar editor contract |
+| `MEMORY_SPEC.md` | Tiered memory + `.brain` export format |
+| `SKILL_SPEC.md` | Skill definition, pricing, licensing |
+| `PERMISSIONS_SPEC.md` | ERC-7710 delegation & permission model |
+| `ENS_AGENT_CLAIM.md` | ENS / SNS agent name claim flow |
+| `SECURITY.md` · `CLAUDE_ARTIFACT.md` | Security model + Claude artifact contract |
+
+---
+
+### Mobile, Embeds & Integrations
+
+| Surface | Path | Description |
+|---------|------|-------------|
+| Solana Mobile (Seeker) | `solana-mobile/` | dApp Store submission: Trusted Web Activity + PWA wrapper, `publish/` config, `.well-known/` association |
+| LobeHub chat plugin | `chat-plugin/` | `@three-ws/chat-plugin` — sidebar plugin rendering an embodied avatar |
+| Standalone chat UI | `chat/` | `three.ws-chat` — fast, light, BYOK multi-provider chat (own Vite app) |
+| OpenAI Apps SDK | `apps-sdk/` | `embodiment/` helpers + `studio-viewer/` for ChatGPT-app embedding |
+| Browser extension | `extensions/walk-avatar/` | Walk-companion avatar as a browser extension |
+| Blender bridge | `integrations/blender/` | `three_ws` Blender add-on |
+| ComfyUI nodes | `integrations/comfyui/` | `three_ws_nodes` custom nodes |
+| Python client | `integrations/_pyclient/` | `three_ws_client.py` reference client + drift tests |
+
+---
+
+### Reference Agents & Skills (`examples/`)
+
+Runnable reference implementations that exercise the live platform:
+
+- **`agents/`** — standalone agents: `endpoint-shopper` (x402 service shopper), `fact-checker`, `tutor`, `unstoppable`.
+- **`pump-fun-skills/`** — composable pump.fun skill modules: `create-coin`, `swap`, `coin-fees`, `reactive`, `tokenized-agents`.
+- **`examples/`** — embed & integration demos: `coach-leo` (VR), `agenc-task-roundtrip`, `pump-fun-agent`, `metamask-agent-wallet`, plus `bare-avatar.html` / `minimal.html` / `web-component.html`.
 
 ---
 
@@ -1558,7 +1991,7 @@ flowchart TD
 
     subgraph Reflect["reflect-sweep cron (daily)"]
         R1["gatherReflectionContext\n(recent memories)"]
-        R2["llmComplete\n(claude-opus-4-5 → Groq fallback)"]
+        R2["llmComplete\n(claude-opus-4-7 → Groq fallback)"]
         R3["INSERT 'dream' memory\nwith provenance citations"]
         R1 --> R2 --> R3
     end
@@ -1646,7 +2079,7 @@ sequenceDiagram
 
 | Service | Models / Usage |
 |---------|---------------|
-| Anthropic | claude-sonnet-4-6, claude-haiku-4-5, claude-opus-4-5 (chat, reflect) |
+| Anthropic | claude-fable-5, claude-mythos-5, claude-opus-4-7, claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 (chat, brain, reflect) |
 | OpenAI | gpt-4o, gpt-4o-mini, o3-mini, text-embedding-3-small, TTS |
 | NVIDIA NIM | Nemotron-super-120b, DeepSeek-v4-pro, Kimi-k2.6, Llama-4-Maverick, MiniMax-M2.7, nv-embedqa-e5-v5 |
 | NVIDIA NIM Vision | Nemotron-nano-12B-v2-VL, Llama-3.2-11B-vision |
@@ -1723,6 +2156,53 @@ sequenceDiagram
 | CoinGecko | SOL/USD price (1-min cache) |
 | CoinCommunities SDK | Social layer for coin worlds |
 | cryptocurrency.cv | Real-time news headlines (oracle intel) |
+
+---
+
+## Documentation Map (`docs/`)
+
+`docs/` holds 100+ public Markdown docs plus themed subdirectories. This is the canonical narrative documentation that ARCHITECTURE.md summarizes; consult it for depth on any subsystem.
+
+### Core guides
+
+| Doc | Covers |
+|-----|--------|
+| `introduction.md` · `how-it-works.md` · `start-here.md` · `quick-start.md` | Platform onboarding |
+| `architecture.md` · `layers.md` | Narrative architecture (companion to this file) |
+| `api-reference.md` · `api/` · `js-api.md` | REST + JS API reference |
+| `sdk.md` · `sdk-launch.md` | SDK usage + publish runbook |
+| `mcp.md` · `mcp-3d-studio.md` · `mcp-agent.md` · `mcp-studio.md` · `mcp-x402-bazaar.md` · `ibm-x402-mcp.md` | MCP server catalogs |
+| `x402.md` · `aws-builder-center-marketplace-x402.md` | x402 payment rail |
+| `smart-contracts.md` · `solana.md` · `solana-pumpfun.md` · `solana-reputation.md` · `onchain-agents.md` · `erc8004.md` | On-chain systems |
+| `memory.md` · `multi-agent.md` · `persona-hub.md` · `agent-system.md` · `agent-manifest.md` · `agent-reputation.md` | Agent intelligence |
+
+### 3D, avatar & creation
+
+`3d-asset-pipeline.md` · `animations.md` · `avatar-creation.md` · `character-studio.md` · `editor.md` · `viewer.md` · `validation.md` · `web-component.md` · `embedding.md` · `widgets.md` · `widget-api.md` · `widget-studio.md` · `ar.md` · `share-and-embed.md` · `nvidia-models.md` · `voice` (see `js-api.md`).
+
+### Surfaces, identity & ops
+
+`agora.md` · `irl/` · `reputation.md` · `sas-attestations.md` · `authentication.md` · `permissions.md` · `hold-to-access.md` · `i18n.md` · `do-i-need-crypto.md` · `make-your-agent.md` · `configuration.md` · `deployment.md` · `build.md` · `troubleshooting.md` · `contributing.md` · `security.md` · `security/`.
+
+### Themed subdirectories
+
+| Subdir | Contents |
+|--------|----------|
+| `docs/tutorials/` | 43 step-by-step tutorials |
+| `docs/roadmap/` | 22 roadmap / future-work docs |
+| `docs/internal/` | 26 internal specs & proposals (e.g. SNS partnership) |
+| `docs/ux-flows/` | 12 UX flow walkthroughs |
+| `docs/store-submissions/` | 22 app-store / marketplace listing kits |
+| `docs/audits/` · `docs/audit/` | 16 audit reports |
+| `docs/improvement-plans/` | 11 improvement plans |
+| `docs/x402-offer-receipt/` | 7 x402 offer/receipt protocol docs |
+| `docs/pumpfun-program/` | 6 pump.fun program references |
+| `docs/zauth/` | 5 auth/identity protocol docs |
+| `docs/agent-briefs/` | 4 agent briefs |
+| `docs/ops/` · `docs/security/` | Operational + security runbooks |
+| `docs/ibm.md` · `docs/aws-*` · `docs/nvidia-inception/` | Partner integration kits (IBM watsonx, AWS Marketplace, NVIDIA Inception) |
+
+> `docs/ALL.md` (3.4 MB) is a generated concatenation of the entire docs tree; `docs/llms.txt` / `docs/llms-full.txt` are the LLM-discovery indexes.
 
 ---
 
@@ -1845,7 +2325,6 @@ sequenceDiagram
 | ValidationRegistry mainnet | Testnet only | Platform validator key `0x93Bc7EfB…` provisioned but not funded or allow-listed |
 | Trading swarms UI | Backend complete (2026-06-26 migration), no confirmed production page | `api/swarms/*`, swarms tables |
 | Agora economy | Very new (2026-06-29 migration) | Workers/citizens exist but full economy bootstrapping in progress |
-| `workers/longcat/` | No `index.js` found | Appears to be an empty/stub worker directory |
 
 ### Technical Debt
 

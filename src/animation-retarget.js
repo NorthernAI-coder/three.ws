@@ -472,7 +472,17 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
 
 /**
  * High-level: retarget a canonical clip onto a rig (GltfRig/MannequinRig),
- * computing hip scaling from the rig's actual proportions. Mutates nothing.
+ * computing hip scaling from the rig's actual proportions.
+ *
+ * The bind correction (and hip scaling) is measured from the rig's LIVE bone
+ * transforms, so they must read the rig's true rest pose — not whatever pose a
+ * previously-previewed clip left the bones in. A preview mixer leaves the bones
+ * mid-animation after it stops, so without this the second clip a user plays is
+ * retargeted against a garbage "rest" and its limbs skew by 60–90° (an avatar
+ * that plays one clip fine, then plays the next with its arms stuck overhead).
+ * We restore the rig to its bind pose first; the caller's mixer immediately
+ * re-poses it on the next frame, so the reset is invisible. Aside from that
+ * normalization the clip itself is not mutated.
  *
  * @param {AnimationClip} clip
  * @param {object} rig
@@ -480,6 +490,7 @@ export function retargetClip(clip, canonicalToNode, opts = {}) {
  * @returns {RetargetResult}
  */
 export function retargetClipToRig(clip, rig, opts = {}) {
+	rig.resetPose?.(); // read the bind pose, not a leftover preview pose
 	const map = canonicalNodeMapFromRig(rig);
 	const targetRest = canonicalRestMapFromRig(rig);
 	const targetWorldRest = canonicalWorldRestMapFromRig(rig);

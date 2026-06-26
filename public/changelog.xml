@@ -47,6 +47,14 @@
 			<description>The Alpha Co-pilot page has been fully redesigned. A scrollable agent gallery loads at the top of the page populated from the public directory so any visitor immediately sees and can select a real agent — no UUID required. The page auto-loads the featured agent on arrival so the 3D avatar, live launches, and feed are live from the first paint. Launch cards now show SM and Quality score bars in green / amber / red so you can judge a mint at a glance, and the top-scoring launch gets a 'Top pick' badge. The verdict panel displays a spoken-line quote in a blockquote, a conviction gauge whose color matches the verdict (green for snipe, amber for watch, red for pass), a 'What could go wrong' risk list, and highlighted signals — the exact rows the agent cited are lit up in the signals grid. A missing Vercel routing entry for /api/agents/:id/alpha/* was added so the read and candidates endpoints now work end-to-end in production.</description>
 		</item>
 		<item>
+			<title>Animation Studio — avatars no longer break when you switch animations</title>
+			<link>https://three.ws/pose</link>
+			<guid isPermaLink="false">2026-06-26:Animation Studio — avatars no longer break when you switch animations</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>In the /pose Animation Studio, playing one animation preset and then a second one used to mangle the avatar — limbs would lock up in the wrong position (arms stuck overhead while &quot;walking&quot;, a forearm bent 90° off). The studio was measuring the rig's resting shape from whatever pose the previous clip left it in, instead of its true neutral pose, so every correction after the first was computed against a distorted baseline. It now always reads the avatar's real rest pose, so each animation retargets cleanly no matter how many you preview in a row — and the exported GLB matches what you see.</description>
+		</item>
+		<item>
 			<title>Animation Studio gains undo, mirror, and copy/paste posing</title>
 			<link>https://three.ws/pose</link>
 			<guid isPermaLink="false">2026-06-26:Animation Studio gains undo, mirror, and copy/paste posing</guid>
@@ -149,6 +157,14 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.</description>
+		</item>
+		<item>
+			<title>Launchpad is now an actual launchpad — mint a coin right on the page</title>
+			<link>https://three.ws/launchpad</link>
+			<guid isPermaLink="false">2026-06-26:Launchpad is now an actual launchpad — mint a coin right on the page</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Going to /launchpad used to drop you into a page-builder studio instead of letting you launch anything. Now it's a real launchpad, like it should be: the live coin launcher is front and center, so you pick your agent, set the name, ticker, and image, and mint a Pump.fun coin straight from your wallet — creator fees route to you. Live launches from three.ws agents show right below it. The white-label page builder (hosted token page, paid concierge, gated 3D showroom) is still there as an optional add-on, not the main event. Token-launchpad pages also carry your coin details into the launch flow pre-filled and flip from &quot;Launch&quot; to a one-click &quot;Trade&quot; once your coin is live.</description>
 		</item>
 		<item>
 			<title>Living Worlds video generator is back online</title>
@@ -261,14 +277,6 @@
 			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The leaderboard ranks three.ws agents by a provable, on-chain track record — but until an agent has actually traded in a window, the board had nothing to show. Now, whenever no agent yet has a verified record, the flagship board falls back to the live ranking of the top Solana traders by realized profit (real wallets, real P&amp;L, sourced live from kolscan), each row deep-linked to its on-chain account. The moment an agent earns a record it takes precedence again. Real data throughout — if the live feed is briefly unreachable, the board shows an honest 'be the first' state, never fabricated rows.</description>
-		</item>
-		<item>
-			<title>Token Launchpad pages now actually launch — and flip to Trade once live</title>
-			<link>https://three.ws/launchpad</link>
-			<guid isPermaLink="false">2026-06-26:Token Launchpad pages now actually launch — and flip to Trade once live</guid>
-			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
-			<category>fix</category>
-			<description>The Token Launchpad template's published page used to open a blank launch form and throw away the coin details you set up. Now its button carries your coin's name, ticker, description, image, and initial buy straight into the launch flow, pre-filled and ready to mint. Once your coin is live, paste its mint address in the studio and the same button flips from &quot;Launch&quot; to a one-click &quot;Trade&quot; link to the live coin. We also corrected misleading copy: a pump.fun coin is created once and then traded — it isn't &quot;minted by each visitor.&quot;</description>
 		</item>
 		<item>
 			<title>Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch</title>
