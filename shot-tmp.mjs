@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+const out = '/tmp/claude-1000/-workspaces-three-ws/763f2aa8-1bb7-4ff5-96db-bed3a25c0445/scratchpad';
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 720, height: 440 }, deviceScaleFactor: 2 });
+const errors = [];
+page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+page.on('pageerror', e => errors.push(String(e)));
+await page.goto('http://localhost:3000/compare-tmp.html', { waitUntil: 'load' });
+await page.waitForFunction(() => window.__ready === true, { timeout: 30000 }).catch(() => {});
+await page.waitForTimeout(1500);
+await page.screenshot({ path: out + '/compare.png' });
+if (errors.length) console.log('PAGE ERRORS:\n' + errors.slice(0, 8).join('\n'));
+else console.log('no page errors');
+await browser.close();
