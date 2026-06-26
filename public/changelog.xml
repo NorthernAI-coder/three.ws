@@ -23,6 +23,14 @@
 			<description>Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.</description>
 		</item>
 		<item>
+			<title>Living Worlds video generator is back online</title>
+			<link>https://three.ws/cosmos</link>
+			<guid isPermaLink="false">2026-06-26:Living Worlds video generator is back online</guid>
+			<pubDate>Fri, 26 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.</description>
+		</item>
+		<item>
 			<title>Mission Control's live launch feed never goes dark</title>
 			<link>https://three.ws/terminal</link>
 			<guid isPermaLink="false">2026-06-26:Mission Control's live launch feed never goes dark</guid>

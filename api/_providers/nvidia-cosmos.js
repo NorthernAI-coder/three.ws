@@ -41,8 +41,8 @@
 //           the other providers. On an unrecognized shape the warn logs the
 //           top-level keys so the next schema drift is visible without guessing.
 //
-// The default INVOKE_URL follows NVIDIA's published genai gateway path for
-// cosmos-predict and is overridable (without a redeploy) via
+// The default INVOKE_URL follows NVIDIA's published cosmos gateway path
+// (/v1/cosmos/nvidia/cosmos-predict1-7b) and is overridable (without a redeploy) via
 // NVIDIA_COSMOS_INVOKE_URL — confirm the live contract for an account with
 // `node scripts/verify-nvidia-cosmos.mjs`.
 //
@@ -55,7 +55,7 @@ import { env } from '../_lib/env.js';
 // Published genai gateway path for the hosted cosmos-predict world model. The
 // `command` input's leading token (text2world) selects the modality, so one
 // endpoint serves the whole predict line.
-const DEFAULT_COSMOS_INVOKE_URL = 'https://ai.api.nvidia.com/v1/genai/nvidia/cosmos-predict1-7b';
+const DEFAULT_COSMOS_INVOKE_URL = 'https://ai.api.nvidia.com/v1/cosmos/nvidia/cosmos-predict1-7b';
 const NVCF_STATUS_URL = 'https://api.nvcf.nvidia.com/v2/nvcf/pexec/status';
 
 // Cosmos predict renders a fixed ~5 s 1280×704 @ 24fps clip; the prompt is the

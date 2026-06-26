@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T00:16:41.927Z",
+	"generated_at": "2026-06-26T03:49:16.783Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -23,6 +23,16 @@
 			"title": "Default avatars render again everywhere",
 			"summary": "Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.",
 			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-26",
+			"type": "update",
+			"title": "Living Worlds video generator is back online",
+			"summary": "The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.",
+			"link": "/cosmos",
 			"tags": [
 				"fix"
 			]

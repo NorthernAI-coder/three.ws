@@ -344,8 +344,8 @@ export const env = {
 
 	// Optional override for the hosted NVIDIA Cosmos world-model invoke URL used by
 	// the Cosmos text→world video lane (api/_providers/nvidia-cosmos.js, api/cosmos.js).
-	// Defaults to the published genai gateway path for cosmos-predict
-	// (https://ai.api.nvidia.com/v1/genai/nvidia/cosmos-predict1-7b); set this only
+	// Defaults to the published cosmos gateway path for cosmos-predict
+	// (https://ai.api.nvidia.com/v1/cosmos/nvidia/cosmos-predict1-7b); set this only
 	// to pin a different Cosmos model/version or a self-hosted NIM without a code
 	// deploy. Confirm the live contract for an account with
 	// `node scripts/verify-nvidia-cosmos.mjs`. Auth reuses NVIDIA_API_KEY.
