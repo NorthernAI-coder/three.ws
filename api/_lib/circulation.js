@@ -35,6 +35,7 @@ import { pinToIPFS } from './ipfs-pin.js';
 import { confirmSkillPurchase, resolvePayoutAddress } from './purchase-confirm.js';
 import { submitProtected } from './execution-engine.js';
 import { insertNotification } from './notify.js';
+import { invalidateSkillPriceCache } from './skill-price-cache.js';
 import {
 	PERSONAS,
 	COIN_THEMES,
@@ -92,8 +93,9 @@ export function config() {
 		treasurySecret: (process.env.CIRCULATION_TREASURY_SECRET || '').trim(),
 		evmTreasurySecret: (process.env.CIRCULATION_EVM_TREASURY_SECRET || '').trim(),
 		evmChainId: clampInt(process.env.CIRCULATION_EVM_CHAIN_ID, 8453, 1, 1_000_000_000),
-		poolTarget: clampInt(process.env.CIRCULATION_POOL_TARGET, 14, 2, 80),
-		actionsPerTick: clampInt(process.env.CIRCULATION_ACTIONS_PER_TICK, 2, 1, 6),
+		poolTarget: clampInt(process.env.CIRCULATION_POOL_TARGET, 14, 2, 2000),
+		growthPerTick: clampInt(process.env.CIRCULATION_GROWTH_PER_TICK, 3, 1, 40),
+		actionsPerTick: clampInt(process.env.CIRCULATION_ACTIONS_PER_TICK, 2, 1, 12),
 		origin: env.APP_ORIGIN || 'https://three.ws',
 	};
 }
@@ -319,13 +321,19 @@ async function cloneAvatarFor(userId, name) {
 // persona (a persona already represented is skipped). Returns a short descriptor
 // or null when the persona set is exhausted.
 async function createPoolAgent() {
-	const used = await sql`
-		select meta->>'persona' as persona from agent_identities
+	// Variant-based scaling: the pool grows past the 16 base personas by minting
+	// additional accounts that reuse a persona's craft but get their own owner,
+	// wallet, name suffix, and marketplace listing. Selection is deterministic on
+	// the current count so repeated calls produce distinct accounts.
+	const [{ count }] = await sql`
+		select count(*)::int as count from agent_identities
 		where (meta->>'circulation') = 'true' and deleted_at is null
 	`;
-	const usedSet = new Set(used.map((r) => r.persona).filter(Boolean));
-	const persona = PERSONAS.find((p) => !usedSet.has(p.handle));
-	if (!persona) return null; // full set represented
+	if (count >= 5000) return null; // hard safety ceiling
+
+	const persona = PERSONAS[count % PERSONAS.length];
+	const variant = Math.floor(count / PERSONAS.length);
+	const agentName = variant === 0 ? persona.name : `${persona.name} #${variant + 1}`;
 
 	const ownerWord = `${pick(OWNER_FIRST_NAMES)}${persona.handle}`.replace(/[^a-z0-9]/g, '');
 	const username = await claimUsername(slugify(ownerWord) || persona.handle);
@@ -340,15 +348,15 @@ async function createPoolAgent() {
 	`;
 	if (!user?.id) return { skipped: 'user_conflict', persona: persona.handle };
 
-	const avatarId = await cloneAvatarFor(user.id, persona.name).catch(() => null);
+	const avatarId = await cloneAvatarFor(user.id, agentName).catch(() => null);
 
-	const meta = { circulation: true, persona: persona.handle };
+	const meta = { circulation: true, persona: persona.handle, variant };
 	const [agent] = await sql`
 		insert into agent_identities
 			(user_id, name, description, system_prompt, greeting, category, tags, capabilities,
 			 avatar_id, is_published, published_at, meta, created_at, updated_at)
 		values (
-			${user.id}, ${persona.name}, ${persona.description}, ${persona.system_prompt}, ${persona.greeting},
+			${user.id}, ${agentName}, ${persona.description}, ${persona.system_prompt}, ${persona.greeting},
 			${persona.category}, ${persona.tags}, ${JSON.stringify({ bullets: [], skills: [], library: [] })}::jsonb,
 			${avatarId}, true, now(), ${JSON.stringify(meta)}::jsonb, now(), now()
 		)
@@ -393,6 +401,128 @@ async function senderKeypair(agent, reason) {
 		reason,
 		meta: { source: 'circulation' },
 	});
+}
+
+// ── marketplace helpers ───────────────────────────────────────────────────────
+
+// Register the agent's custodial Solana wallet as its default payout wallet so
+// buyers' funds resolve a destination (resolvePayoutAddress reads this table).
+// Idempotent — mirrors the upsert in /api/monetization/wallet.
+async function ensurePayoutWallet(agent) {
+	if (!agent.address) throw new Skip('seller has no custodial wallet');
+	await sql`
+		insert into agent_payout_wallets
+			(user_id, agent_id, address, chain, is_default, preferred_network)
+		values (${agent.userId}, ${agent.id}, ${agent.address}, 'solana', true, 'mainnet')
+		on conflict (user_id, agent_id, chain) do update set
+			address = excluded.address, is_default = true
+	`;
+}
+
+// Read an owner's $THREE balance in atomic units (0 when the token account does
+// not exist yet). Cheap, read-only.
+async function threeBalanceAtomic(conn, ownerAddress) {
+	const { PublicKey } = await import('@solana/web3.js');
+	const { getAssociatedTokenAddressSync } = await import('@solana/spl-token');
+	const ata = getAssociatedTokenAddressSync(new PublicKey(THREE_MINT()), new PublicKey(ownerAddress));
+	try {
+		const bal = await conn.getTokenAccountBalance(ata, 'confirmed');
+		return BigInt(bal?.value?.amount ?? '0');
+	} catch {
+		return 0n; // no ATA / not found
+	}
+}
+
+// Guarantee `agent` holds at least `needAtomic` $THREE. Tops the wallet up with SOL
+// from the treasury, then buys $THREE through the real trade engine. Returns when
+// the balance clears; throws Skip if it still falls short (the tick records the skip
+// and a later tick retries once the buy settles).
+async function ensureThree(ctx, agent, needAtomic) {
+	const { conn, treasuryKp, network } = ctx;
+	let have = await threeBalanceAtomic(conn, agent.address);
+	if (have >= needAtomic) return have;
+
+	await ensureFunded(conn, treasuryKp, agent, AGENT_FLOOR);
+
+	const { PublicKey } = await import('@solana/web3.js');
+	const { executeAgentTrade } = await import('../agents/agent-trade.js');
+	const full = await loadAgentMeta(agent.id);
+	if (!full) throw new Skip('agent vanished');
+
+	const result = await executeAgentTrade({
+		id: agent.id,
+		userId: agent.userId,
+		meta: full.meta,
+		input: {
+			side: 'buy',
+			mint: THREE_MINT(),
+			mintPk: new PublicKey(THREE_MINT()),
+			amount: THREE_TOPUP_SOL,
+			isMax: false,
+			slippageBps: 700,
+			slippagePct: 7,
+			network,
+			simulate: false,
+			idempotencyKey: randomUUID(),
+		},
+		source: 'discretionary',
+	});
+	if (!result.ok) throw new Skip(`could not acquire $THREE: ${result.code || 'trade_error'}`);
+
+	// Give the buy a moment to settle, then re-read.
+	for (let i = 0; i < 6; i++) {
+		have = await threeBalanceAtomic(conn, agent.address);
+		if (have >= needAtomic) return have;
+		await new Promise((r) => setTimeout(r, 2500));
+	}
+	throw new Skip('still short on $THREE after top-up buy — will retry next tick');
+}
+
+// Build, sign, and submit an SPL transferChecked of `atomic` $THREE from `fromKp`
+// to `toAddress`, tagging it with a Solana-Pay `referenceKey` so confirm/validate
+// can find it on-chain. Buyer pays the seller-ATA rent idempotently. Returns the
+// confirmed signature.
+async function transferThreeWithReference(conn, fromKp, toAddress, atomic, referenceKey, network) {
+	const { PublicKey } = await import('@solana/web3.js');
+	const {
+		getAssociatedTokenAddressSync,
+		createTransferCheckedInstruction,
+		createAssociatedTokenAccountIdempotentInstruction,
+		getMint,
+	} = await import('@solana/spl-token');
+
+	const mintKey = new PublicKey(THREE_MINT());
+	const recipKey = new PublicKey(toAddress);
+	const mintInfo = await getMint(conn, mintKey);
+	const fromAta = getAssociatedTokenAddressSync(mintKey, fromKp.publicKey);
+	const toAta = getAssociatedTokenAddressSync(mintKey, recipKey);
+
+	const transferIx = createTransferCheckedInstruction(
+		fromAta, mintKey, toAta, fromKp.publicKey, atomic, mintInfo.decimals,
+	);
+	transferIx.keys.push({ pubkey: referenceKey, isSigner: false, isWritable: false });
+
+	const ixs = [
+		createAssociatedTokenAccountIdempotentInstruction(fromKp.publicKey, toAta, recipKey, mintKey),
+		transferIx,
+	];
+	const { signature } = await submitProtected({ network, connection: conn, payer: fromKp, instructions: ixs });
+	return signature;
+}
+
+// Skills currently listed (active, $THREE-priced) by circulation sellers, joined to
+// the seller's owner so the purchase action can exclude self-dealing.
+async function listedSkills() {
+	return sql`
+		select asp.agent_id, asp.skill, asp.amount, asp.currency_mint, asp.trial_uses,
+		       ai.user_id as seller_user_id, ai.name as seller_name
+		from agent_skill_prices asp
+		join agent_identities ai on ai.id = asp.agent_id
+		where asp.is_active = true
+		  and asp.currency_mint = ${THREE_MINT()}
+		  and (ai.meta->>'circulation') = 'true'
+		  and ai.deleted_at is null
+	`;
 }
 
 // ── actions ───────────────────────────────────────────────────────────────────
@@ -615,6 +745,313 @@ async function actionReview(ctx) {
 	return { kind: 'review', by: reviewer.name, on: target.name, rating };
 }
 
+// A seller agent lists one more skill on its marketplace profile: a real
+// agent_skill_prices row priced in $THREE (some trial-eligible), plus the skill
+// surfaced on the agent's published capabilities so it's a visible listing — not
+// just a price row. Registers the seller's payout wallet so buyers can pay it.
+async function actionListSkill() {
+	const [seller] = await sql`
+		select ai.id, ai.user_id, ai.name, ai.category, ai.capabilities, ai.meta
+		from agent_identities ai
+		where (ai.meta->>'circulation') = 'true' and ai.deleted_at is null
+		  and ai.meta->>'solana_address' is not null
+		  and (
+			select count(*) from agent_skill_prices asp
+			where asp.agent_id = ai.id and asp.is_active = true and asp.currency_mint = ${THREE_MINT()}
+		  ) < ${SKILLS_PER_SELLER}
+		order by random()
+		limit 1
+	`;
+	if (!seller) throw new Skip('every seller is fully stocked');
+
+	const sellerAgent = { id: seller.id, userId: seller.user_id, name: seller.name, address: seller.meta?.solana_address };
+	await ensurePayoutWallet(sellerAgent);
+
+	const catalog = SKILL_LISTINGS[seller.category] || GENERIC_SKILLS;
+	const listed = new Set((await sql`select skill from agent_skill_prices where agent_id = ${seller.id}`).map((r) => r.skill));
+	const choices = catalog.filter((s) => !listed.has(s));
+	if (!choices.length) throw new Skip('seller has listed its whole catalog');
+	const skill = pick(choices);
+
+	const priceWhole = randBetween(SKILL_PRICE_MIN_THREE, SKILL_PRICE_MAX_THREE);
+	const amount = threeAtomic(priceWhole).toString();
+	const trialUses = Math.random() < 0.4 ? 1 : 0;
+
+	await sql`
+		insert into agent_skill_prices
+			(agent_id, skill, amount, currency_mint, chain, is_active, trial_uses,
+			 mint_decimals, pricing_type, gate_type)
+		values
+			(${seller.id}, ${skill}, ${amount}, ${THREE_MINT()}, 'solana', true, ${trialUses},
+			 ${THREE_DECIMALS}, 'fixed', 'price')
+		on conflict (agent_id, skill) do update set
+			amount = excluded.amount, currency_mint = excluded.currency_mint, chain = excluded.chain,
+			is_active = true, trial_uses = excluded.trial_uses, mint_decimals = excluded.mint_decimals,
+			updated_at = now()
+	`;
+
+	const skills = Array.isArray(seller.capabilities?.skills) ? seller.capabilities.skills : [];
+	if (!skills.includes(skill)) {
+		const next = { ...(seller.capabilities || {}), skills: [...skills, skill] };
+		await sql`update agent_identities set capabilities = ${JSON.stringify(next)}::jsonb, updated_at = now() where id = ${seller.id}`;
+	}
+	await invalidateSkillPriceCache(seller.id).catch(() => {});
+
+	await logAction({ kind: 'list_skill', actorAgentId: seller.id, detail: { skill, price_three: priceWhole, trial: !!trialUses, seller: seller.name } });
+	return { kind: 'list_skill', seller: seller.name, skill, price_three: priceWhole, trial: !!trialUses };
+}
+
+// A buyer agent purchases a listed skill from another agent. The buyer signs a real
+// $THREE SPL transfer (acquiring $THREE first if short, via the same trade engine),
+// then confirmSkillPurchase validates on-chain, records the seller's revenue, and
+// grants persistent access — the identical path a human-owned agent uses.
+async function actionBuySkill(ctx) {
+	const { conn, pool, network } = ctx;
+	const listings = await listedSkills();
+	if (!listings.length) throw new Skip('no skills listed yet');
+	const listing = pick(listings);
+
+	const candidates = pool.filter((a) => a.userId !== listing.seller_user_id && a.id !== listing.agent_id);
+	if (!candidates.length) throw new Skip('no eligible buyer');
+	const buyer = pick(candidates);
+
+	const [owned] = await sql`
+		select 1 from skill_purchases
+		where user_id = ${buyer.userId} and agent_id = ${listing.agent_id} and skill = ${listing.skill}
+		  and status in ('confirmed','trial') limit 1
+	`;
+	if (owned) throw new Skip('buyer already owns this skill');
+
+	const amountAtomic = BigInt(listing.amount);
+	await ensureThree(ctx, buyer, amountAtomic);
+
+	const recipient = await resolvePayoutAddress(listing.agent_id, 'solana').catch(() => null);
+	if (!recipient) throw new Skip('seller payout wallet missing');
+
+	const { Keypair } = await import('@solana/web3.js');
+	const referenceKp = Keypair.generate();
+	const reference = referenceKp.publicKey.toBase58();
+
+	const [pur] = await sql`
+		insert into skill_purchases
+			(user_id, agent_id, skill, status, reference, amount, currency_mint, chain, expires_at, kind)
+		values
+			(${buyer.userId}, ${listing.agent_id}, ${listing.skill}, 'pending', ${reference},
+			 ${listing.amount}, ${THREE_MINT()}, 'solana', now() + interval '15 minutes', 'purchase')
+		returning id, user_id, agent_id, skill, status, amount, currency_mint, chain, reference, expires_at
+	`;
+	pur.mint_decimals = THREE_DECIMALS;
+
+	const buyerKp = await senderKeypair(buyer, 'circulation_skill_purchase');
+	let txSig;
+	try {
+		txSig = await transferThreeWithReference(conn, buyerKp, recipient, amountAtomic, referenceKp.publicKey, network);
+	} catch (e) {
+		await sql`update skill_purchases set status = 'failed' where id = ${pur.id} and status = 'pending'`.catch(() => {});
+		throw new Skip(`skill payment failed: ${e?.message?.slice(0, 160)}`);
+	}
+
+	const result = await confirmSkillPurchase({ ...pur, tx_signature: txSig, referrer_user_id: null });
+	if (result.status !== 'confirmed') {
+		throw new Skip(`skill purchase ${result.status}: ${(result.message || '').slice(0, 120)}`.trim());
+	}
+
+	const priceThree = Number(amountAtomic / 10n ** BigInt(THREE_DECIMALS));
+	await recordCustodyEvent({
+		agentId: buyer.id,
+		userId: buyer.userId,
+		eventType: 'spend',
+		category: 'marketplace',
+		network,
+		asset: 'THREE',
+		amountRaw: amountAtomic,
+		destination: recipient,
+		signature: txSig,
+		status: 'confirmed',
+		reason: 'skill_purchase',
+		idempotencyKey: `skillbuy:${txSig}`,
+		meta: { source: 'marketplace_skill', skill: listing.skill, seller: listing.seller_name, amount_three: priceThree, decimals: THREE_DECIMALS, to: recipient, block_time: new Date().toISOString() },
+	}).catch((e) => console.warn('[circulation] custody event failed', e?.message));
+
+	await logAction({ kind: 'buy_skill', network, actorAgentId: buyer.id, counterpartyAgentId: listing.agent_id, signature: txSig, detail: { skill: listing.skill, buyer: buyer.name, seller: listing.seller_name, amount_three: priceThree } });
+	return { kind: 'buy_skill', buyer: buyer.name, seller: listing.seller_name, skill: listing.skill, three: priceThree, signature: txSig };
+}
+
+// A buyer agent starts a free trial on a trial-eligible listed skill. No payment —
+// a real skill_purchases trial row, exactly like /api/marketplace/start-trial.
+async function actionTrial(ctx) {
+	const { pool } = ctx;
+	const trialable = (await listedSkills()).filter((l) => (l.trial_uses || 0) > 0);
+	if (!trialable.length) throw new Skip('no trial-eligible skills listed');
+	const listing = pick(trialable);
+
+	const candidates = pool.filter((a) => a.userId !== listing.seller_user_id && a.id !== listing.agent_id);
+	if (!candidates.length) throw new Skip('no eligible trial taker');
+	const taker = pick(candidates);
+
+	const [blocked] = await sql`
+		select 1 from skill_purchases
+		where user_id = ${taker.userId} and agent_id = ${listing.agent_id} and skill = ${listing.skill}
+		  and (status in ('confirmed','trial') or kind = 'trial') limit 1
+	`;
+	if (blocked) throw new Skip('taker already engaged this skill');
+
+	const reference = randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
+	await sql`
+		insert into skill_purchases
+			(user_id, agent_id, skill, status, kind, reference, amount, currency_mint, chain, trial_remaining)
+		values
+			(${taker.userId}, ${listing.agent_id}, ${listing.skill}, 'trial', 'trial', ${reference},
+			 ${listing.amount}, ${THREE_MINT()}, 'solana', ${listing.trial_uses})
+	`;
+	await logAction({ kind: 'trial', actorAgentId: taker.id, counterpartyAgentId: listing.agent_id, detail: { skill: listing.skill, taker: taker.name, seller: listing.seller_name } });
+	return { kind: 'trial', taker: taker.name, seller: listing.seller_name, skill: listing.skill };
+}
+
+// A seller agent lists its 3D avatar as a purchasable asset (real asset_prices row,
+// priced in $THREE). Registers the payout wallet so the asset can be bought.
+async function actionListAsset() {
+	const [row] = await sql`
+		select ai.id as agent_id, ai.user_id, ai.name, ai.avatar_id, ai.meta
+		from agent_identities ai
+		where (ai.meta->>'circulation') = 'true' and ai.deleted_at is null
+		  and ai.avatar_id is not null
+		  and ai.meta->>'solana_address' is not null
+		  and not exists (
+			select 1 from asset_prices ap
+			where ap.item_type = 'avatar' and ap.item_id = ai.avatar_id and ap.is_active = true
+		  )
+		order by random()
+		limit 1
+	`;
+	if (!row) throw new Skip('no unlisted avatars to sell');
+
+	const seller = { id: row.agent_id, userId: row.user_id, name: row.name, address: row.meta?.solana_address };
+	await ensurePayoutWallet(seller);
+
+	const priceWhole = randBetween(ASSET_PRICE_MIN_THREE, ASSET_PRICE_MAX_THREE);
+	const amount = threeAtomic(priceWhole).toString();
+	await sql`
+		insert into asset_prices (item_type, item_id, owner_user_id, amount, currency_mint, chain, mint_decimals, is_active)
+		values ('avatar', ${row.avatar_id}, ${row.user_id}, ${amount}, ${THREE_MINT()}, 'solana', ${THREE_DECIMALS}, true)
+		on conflict (item_type, item_id) do update set
+			amount = excluded.amount, currency_mint = excluded.currency_mint, chain = excluded.chain,
+			mint_decimals = excluded.mint_decimals, owner_user_id = excluded.owner_user_id,
+			is_active = true, updated_at = now()
+	`;
+	await logAction({ kind: 'list_asset', actorAgentId: row.agent_id, detail: { item: 'avatar', avatar_id: row.avatar_id, price_three: priceWhole, blurb: pick(ASSET_BLURBS), seller: row.name } });
+	return { kind: 'list_asset', seller: row.name, avatar_id: row.avatar_id, price_three: priceWhole };
+}
+
+// A buyer agent purchases a listed avatar. Real $THREE SPL transfer tagged with the
+// Solana-Pay reference, validated on-chain, then asset_purchases is confirmed and
+// both sides notified — the same settlement the buy-asset endpoint performs.
+async function actionBuyAsset(ctx) {
+	const { conn, pool, network } = ctx;
+	const listings = await sql`
+		select ap.item_type, ap.item_id, ap.owner_user_id, ap.amount
+		from asset_prices ap
+		where ap.is_active = true and ap.currency_mint = ${THREE_MINT()} and ap.item_type = 'avatar'
+		  and exists (
+			select 1 from agent_identities ai
+			where ai.user_id = ap.owner_user_id and (ai.meta->>'circulation') = 'true' and ai.deleted_at is null
+		  )
+	`;
+	if (!listings.length) throw new Skip('no avatars listed for sale');
+	const listing = pick(listings);
+
+	const candidates = pool.filter((a) => a.userId !== listing.owner_user_id);
+	if (!candidates.length) throw new Skip('no eligible buyer');
+	const buyer = pick(candidates);
+
+	const [owned] = await sql`
+		select 1 from asset_purchases
+		where buyer_user_id = ${buyer.userId} and item_type = 'avatar' and item_id = ${listing.item_id}
+		  and status = 'confirmed' limit 1
+	`;
+	if (owned) throw new Skip('buyer already owns this avatar');
+
+	const [payoutRow] = await sql`
+		select address from agent_payout_wallets
+		where user_id = ${listing.owner_user_id} and chain = 'solana' and is_default = true
+		order by created_at asc limit 1
+	`;
+	const payout = payoutRow?.address;
+	if (!payout) throw new Skip('seller payout wallet missing');
+
+	const amountAtomic = BigInt(listing.amount);
+	await ensureThree(ctx, buyer, amountAtomic);
+
+	const { Keypair, PublicKey } = await import('@solana/web3.js');
+	const { findReference, validateTransfer } = await import('@solana/pay');
+	const BigNumber = (await import('bignumber.js')).default;
+
+	const referenceKp = Keypair.generate();
+	const reference = referenceKp.publicKey.toBase58();
+
+	const [pur] = await sql`
+		insert into asset_purchases
+			(buyer_user_id, item_type, item_id, seller_user_id, status, reference,
+			 amount, currency_mint, chain, payout_address, expires_at)
+		values
+			(${buyer.userId}, 'avatar', ${listing.item_id}, ${listing.owner_user_id}, 'pending', ${reference},
+			 ${listing.amount}, ${THREE_MINT()}, 'solana', ${payout}, now() + interval '15 minutes')
+		returning id
+	`;
+
+	const buyerKp = await senderKeypair(buyer, 'circulation_asset_purchase');
+	let txSig;
+	try {
+		txSig = await transferThreeWithReference(conn, buyerKp, payout, amountAtomic, referenceKp.publicKey, network);
+	} catch (e) {
+		await sql`update asset_purchases set status = 'expired' where id = ${pur.id} and status = 'pending'`.catch(() => {});
+		throw new Skip(`asset payment failed: ${e?.message?.slice(0, 160)}`);
+	}
+
+	const expected = new BigNumber(String(amountAtomic)).dividedBy(new BigNumber(10).pow(THREE_DECIMALS));
+	try {
+		await findReference(conn, referenceKp.publicKey, { finality: 'confirmed' });
+		await validateTransfer(
+			conn, txSig,
+			{ recipient: new PublicKey(payout), amount: expected, splToken: new PublicKey(THREE_MINT()), reference: referenceKp.publicKey },
+			{ commitment: 'confirmed' },
+		);
+	} catch (e) {
+		throw new Skip(`asset transfer not validated: ${e?.message?.slice(0, 160)}`);
+	}
+
+	await sql`
+		update asset_purchases set status = 'confirmed', tx_signature = ${txSig}, confirmed_at = now(), updated_at = now()
+		where id = ${pur.id} and status = 'pending'
+	`;
+	const priceThree = Number(amountAtomic / 10n ** BigInt(THREE_DECIMALS));
+	await insertNotification(listing.owner_user_id, 'asset_purchased', {
+		item_type: 'avatar', item_id: listing.item_id, amount: String(listing.amount), currency_mint: THREE_MINT(), tx_signature: txSig, purchase_id: pur.id,
+	}).catch(() => {});
+	await insertNotification(buyer.userId, 'asset_purchase_confirmed', {
+		item_type: 'avatar', item_id: listing.item_id, amount: String(listing.amount), currency_mint: THREE_MINT(), tx_signature: txSig, purchase_id: pur.id,
+	}).catch(() => {});
+
+	await recordCustodyEvent({
+		agentId: buyer.id,
+		userId: buyer.userId,
+		eventType: 'spend',
+		category: 'marketplace',
+		network,
+		asset: 'THREE',
+		amountRaw: amountAtomic,
+		destination: payout,
+		signature: txSig,
+		status: 'confirmed',
+		reason: 'asset_purchase',
+		idempotencyKey: `assetbuy:${txSig}`,
+		meta: { source: 'marketplace_asset', item_type: 'avatar', amount_three: priceThree, decimals: THREE_DECIMALS, to: payout, block_time: new Date().toISOString() },
+	}).catch((e) => console.warn('[circulation] custody event failed', e?.message));
+
+	await logAction({ kind: 'buy_asset', network, actorAgentId: buyer.id, signature: txSig, detail: { item: 'avatar', avatar_id: listing.item_id, buyer: buyer.name, amount_three: priceThree } });
+	return { kind: 'buy_asset', buyer: buyer.name, avatar_id: listing.item_id, three: priceThree, signature: txSig };
+}
+
 // Register an agent's on-chain (ERC-8004) identity. Funds the agent's EVM wallet
 // for gas from the EVM treasury, pins an agent card, signs register(string), and
 // confirms it through the platform's verify endpoint. Gated behind an EVM
@@ -734,15 +1171,36 @@ async function planActions(cfg, poolSize) {
 		return ['deploy'];
 	}
 
-	// Otherwise batch light actions.
+	// Bootstrap / replenish marketplace inventory first so there's always
+	// something to buy. A seller lists skills until each agent averages a few
+	// listings; avatars get listed at about half that rate.
+	const [{ c: listedSkillCount }] = await sql`
+		select count(*)::int as c from agent_skill_prices asp
+		join agent_identities ai on ai.id = asp.agent_id
+		where asp.is_active = true and asp.currency_mint = ${THREE_MINT()}
+		  and (ai.meta->>'circulation') = 'true' and ai.deleted_at is null
+	`;
+	const [{ c: listedAssetCount }] = await sql`
+		select count(*)::int as c from asset_prices ap
+		where ap.is_active = true and ap.currency_mint = ${THREE_MINT()} and ap.item_type = 'avatar'
+		  and exists (select 1 from agent_identities ai where ai.user_id = ap.owner_user_id and (ai.meta->>'circulation') = 'true')
+	`;
+	if (listedSkillCount < poolSize * 2) plan.push('list_skill');
+	if (listedAssetCount < Math.floor(poolSize / 2)) plan.push('list_asset');
+
+	// Fill the remaining budget with light actions — including real marketplace
+	// purchases, trials, and asset buys alongside the p2p tip/pay/trade/review mix.
 	const weighted = [
-		['tip', 50],
-		['payment', 20],
-		['trade', 18],
-		['review', 12],
+		['tip', 26],
+		['buy_skill', 22],
+		['payment', 12],
+		['trade', 12],
+		['trial', 10],
+		['buy_asset', 8],
+		['review', 10],
 	];
 	const total = weighted.reduce((s, [, w]) => s + w, 0);
-	for (let i = 0; i < cfg.actionsPerTick; i++) {
+	while (plan.length < cfg.actionsPerTick) {
 		let roll = Math.random() * total;
 		for (const [kind, w] of weighted) {
 			roll -= w;
@@ -759,6 +1217,11 @@ const ACTIONS = {
 	launch: actionLaunch,
 	review: actionReview,
 	deploy: actionDeploy,
+	list_skill: actionListSkill,
+	buy_skill: actionBuySkill,
+	trial: actionTrial,
+	list_asset: actionListAsset,
+	buy_asset: actionBuyAsset,
 };
 
 /**
@@ -771,17 +1234,23 @@ export async function runCirculationTick() {
 
 	await ensureSchema();
 
-	// Grow the pool one agent per tick until it reaches target.
+	// Grow the pool toward target, up to growthPerTick new agents per tick so a
+	// large target (hundreds–thousands) fills in a reasonable number of ticks.
 	let pool = await loadPool();
-	let grew = null;
-	if (pool.length < cfg.poolTarget) {
+	const grew = [];
+	let createdAny = false;
+	for (let i = 0; i < cfg.growthPerTick && pool.length + i < cfg.poolTarget; i++) {
 		try {
-			grew = await createPoolAgent();
-			if (grew?.created) pool = await loadPool();
+			const r = await createPoolAgent();
+			if (!r) break; // safety ceiling hit
+			grew.push(r);
+			if (r.created) createdAny = true;
 		} catch (e) {
 			console.warn('[circulation] pool growth failed', e?.message);
+			break;
 		}
 	}
+	if (createdAny) pool = await loadPool();
 
 	if (pool.length < 2) {
 		return { ok: true, pool: pool.length, grew, note: 'pool warming up' };
