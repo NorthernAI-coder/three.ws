@@ -125,6 +125,14 @@
 						<dt>SOL price</dt>
 						<dd id="lb-sum-sol">—</dd>
 					</div>
+					<div class="lb-summary-cell">
+						<dt>Oracle win rate</dt>
+						<dd id="lb-sum-oracle-wr">—</dd>
+					</div>
+					<div class="lb-summary-cell">
+						<dt>Scored today</dt>
+						<dd id="lb-sum-oracle-scored">—</dd>
+					</div>
 				</dl>
 			</section>
 
@@ -234,6 +242,15 @@
 		</main>
 
 		<script type="module" src="/src/leaderboard.js"></script>
+		<script>
+			fetch('/api/oracle/stats').then(r=>r.ok?r.json():null).then(d=>{
+				if(!d) return;
+				var wr = document.getElementById('lb-sum-oracle-wr');
+				var sc = document.getElementById('lb-sum-oracle-scored');
+				if(wr) wr.textContent = d.win_rate != null ? d.win_rate+'%' : '—';
+				if(sc) sc.textContent = d.scored_24h != null ? (d.scored_24h >= 1000 ? (d.scored_24h/1000).toFixed(1)+'K' : String(d.scored_24h)) : '—';
+			}).catch(()=>{});
+		</script>
 		<script src="/brand.js" defer></script>
 		<div id="footer-container"></div>
 		<script src="/footer.js"></script>

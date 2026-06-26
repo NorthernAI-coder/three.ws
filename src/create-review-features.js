@@ -1107,6 +1107,24 @@ export function openAnalyticsModal() {
 				<span class="fm-kpi-label">Attestations</span>
 			</div>
 		</div>
+		<div class="fm-kpi-row" data-oracle-row aria-label="Live oracle trading metrics" aria-busy="true">
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-oracle-stat="armed">—</span>
+				<span class="fm-kpi-label">Agents trading</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-oracle-stat="winrate" style="color:#34d399">—</span>
+				<span class="fm-kpi-label">Win rate</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-oracle-stat="scored">—</span>
+				<span class="fm-kpi-label">Scored today</span>
+			</div>
+			<div class="fm-kpi">
+				<span class="fm-kpi-value" data-oracle-stat="wins">—</span>
+				<span class="fm-kpi-label">Total wins</span>
+			</div>
+		</div>
 		<p class="fm-note" data-stats-note>Live three.ws platform metrics. Your own dashboard populates the moment your agent goes live — every API call, widget load, and voice session tracked in real time.</p>
 	`;
 
@@ -1137,6 +1155,23 @@ export function openAnalyticsModal() {
 		set('attestations', fmtCount(stats.attestations));
 		row?.setAttribute('aria-busy', 'false');
 	});
+
+	// Oracle trading stats — second live data row.
+	fetch('/api/oracle/stats', { headers: { accept: 'application/json' } })
+		.then((r) => r.ok ? r.json() : null)
+		.then((d) => {
+			if (!d) { body.querySelector('[data-oracle-row]')?.remove(); return; }
+			const oset = (key, val) => {
+				const el = body.querySelector(`[data-oracle-stat="${key}"]`);
+				if (el) el.textContent = val;
+			};
+			oset('armed',   fmtCount(d.agents_armed));
+			oset('winrate', d.win_rate != null ? `${d.win_rate}%` : '—');
+			oset('scored',  fmtCount(d.scored_24h));
+			oset('wins',    fmtCount(d.total_wins));
+			body.querySelector('[data-oracle-row]')?.setAttribute('aria-busy', 'false');
+		})
+		.catch(() => body.querySelector('[data-oracle-row]')?.remove());
 }
 
 // ── Widgets modal ───────────────────────────────────────────────────────────

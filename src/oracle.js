@@ -762,6 +762,9 @@ async function loadGlobalStats() {
 
 		set('#stArmed', (data.agents_armed ?? 0).toLocaleString());
 		set('#stArmedSub', data.open_actions != null ? `${data.open_actions.toLocaleString()} open positions` : '');
+		set('#stOpenTrades', data.open_actions != null ? data.open_actions.toLocaleString() : '—');
+		set('#stTotalWins', data.total_wins != null ? data.total_wins.toLocaleString() : '—');
+		set('#stTotalWinsSub', data.total_resolved ? `of ${data.total_resolved.toLocaleString()} resolved` : '');
 	} catch { /* non-fatal — feed-window fallbacks already rendered */ }
 }
 

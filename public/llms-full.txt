@@ -298,6 +298,12 @@ URL: https://three.ws/hydrate
 
 Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
 
+### Integrations
+
+URL: https://three.ws/integrations
+
+Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.
+
 ### Features
 
 URL: https://three.ws/features

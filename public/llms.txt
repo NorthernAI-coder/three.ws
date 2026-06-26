@@ -59,6 +59,7 @@ Create and customize an agent.
 - [Artifact Viewer](https://three.ws/artifact): Renders Claude artifact bundles as standalone embeddable apps.
 - [Widgets Gallery](https://three.ws/widgets): Pre-built chat, voice, and 3D-avatar widgets you can drop into any page.
 - [Hydrate](https://three.ws/hydrate): Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.
+- [Integrations](https://three.ws/integrations): Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.
 - [Features](https://three.ws/features): Full feature overview of the three.ws platform: avatars, agents, on-chain identity, x402 payments, and embedding.
 - [AR & WebXR — Place Any 3D Agent in Your Real World](https://three.ws/features/ar): Every three.ws avatar and Forge model has a View in AR button. On mobile it anchors the model to real surfaces through your camera. WebXR on Android, Quick Look on iOS — no app, no download.
 - [Forge — Text to 3D Model](https://three.ws/features/forge): Type a description, get a downloadable textured 3D model (GLB). Powered by Flux image generation and TRELLIS 3D reconstruction.

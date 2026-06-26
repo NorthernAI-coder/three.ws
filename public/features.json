@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T19:51:04.575Z",
+	"generated_at": "2026-06-26T19:59:37.935Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -477,6 +477,16 @@
 					"title": "Hydrate",
 					"description": "Take an existing on-chain agent (ERC-8004 / Solana) and attach a 3D body, voice, and skills.",
 					"added": "2026-05-20",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/integrations",
+					"title": "Integrations",
+					"description": "Drop-in 3D agents, chat widgets, walk companions, and live token embeds for any site. One script tag. Powered by three.ws.",
+					"added": "2026-06-26",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

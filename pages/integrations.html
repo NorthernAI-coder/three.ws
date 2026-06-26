@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<style>[hidden]{display:none!important}</style>
+	<script>(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+	<title>Integrations — three.ws</title>
+	<meta name="description" content="Drop-in 3D agents, chat widgets, and avatar embeds for any site. One script tag. Powered by three.ws." />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="three.ws" />
+	<meta property="og:title" content="Integrations — three.ws" />
+	<meta property="og:description" content="Drop-in 3D agents, chat widgets, and avatar embeds for any site. One script tag." />
+	<meta property="og:url" content="https://three.ws/integrations" />
+	<meta property="og:image" content="https://three.ws/api/page-og?s=build&t=Integrations&d=Drop-in+3D+agents%2C+chat+widgets%2C+and+avatar+embeds+for+any+site.+One+script+tag.&p=%2Fintegrations" />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content="Integrations — three.ws" />
+	<meta name="twitter:description" content="Drop-in 3D agents, chat widgets, and avatar embeds for any site." />
+	<meta name="twitter:image" content="https://three.ws/api/page-og?s=build&t=Integrations&d=Drop-in+3D+agents%2C+chat+widgets%2C+and+avatar+embeds+for+any+site.+One+script+tag.&p=%2Fintegrations" />
+	<meta name="twitter:site" content="@trythreews" />
+	<link rel="canonical" href="https://three.ws/integrations" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	<link rel="manifest" href="/site.webmanifest" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<link rel="stylesheet" href="/nav.css" />
+	<link rel="stylesheet" href="/footer.css" />
+	<script defer src="/footer-newsletter.js"></script>
+	<script src="/embed.js" defer></script>
+	<script src="/nav.js" defer></script>
+
+	<style>
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		:root {
+			--bg: #000;
+			--surface: #0a0a0a;
+			--surface-2: #111;
+			--border: #1c1c1c;
+			--border-2: #2a2a2a;
+			--text: #fafafa;
+			--text-2: #a1a1aa;
+			--text-3: #52525b;
+			--accent: #fff;
+			--accent-ink: #000;
+			--green: #4ade80;
+			--blue: #60a5fa;
+			--purple: #a78bfa;
+			--amber: #fbbf24;
+			--pink: #f472b6;
+			--radius: 12px;
+			--radius-lg: 16px;
+			color-scheme: dark;
+		}
+
+		html, body {
+			background: var(--bg);
+			color: var(--text);
+			font-family: 'Inter', system-ui, sans-serif;
+			-webkit-font-smoothing: antialiased;
+			min-height: 100%;
+		}
+
+		/* ── Nav shell ─────────────────────────────────── */
+		header { position: sticky; top: 0; z-index: 100; }
+		#nav-container { width: 100%; }
+
+		/* ── Page layout ───────────────────────────────── */
+		.page { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+		/* ── Hero ──────────────────────────────────────── */
+		.hero {
+			padding: 80px 0 56px;
+			text-align: center;
+		}
+		.hero-eyebrow {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 11px;
+			font-weight: 600;
+			letter-spacing: 0.1em;
+			text-transform: uppercase;
+			color: var(--text-2);
+			border: 1px solid var(--border-2);
+			border-radius: 100px;
+			padding: 4px 12px;
+			margin-bottom: 20px;
+		}
+		.hero-eyebrow-dot {
+			width: 6px; height: 6px;
+			border-radius: 50%;
+			background: var(--green);
+			flex-shrink: 0;
+		}
+		.hero h1 {
+			font-size: clamp(36px, 6vw, 64px);
+			font-weight: 700;
+			letter-spacing: -0.03em;
+			line-height: 1.05;
+			margin-bottom: 18px;
+		}
+		.hero h1 em {
+			font-style: normal;
+			background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.4));
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+			background-clip: text;
+		}
+		.hero-sub {
+			font-size: 18px;
+			color: var(--text-2);
+			max-width: 52ch;
+			margin: 0 auto 36px;
+			line-height: 1.6;
+		}
+		.hero-cta {
+			display: inline-flex;
+			align-items: center;
+			gap: 12px;
+			flex-wrap: wrap;
+			justify-content: center;
+		}
+		.btn-primary {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			background: var(--accent);
+			color: var(--accent-ink);
+			font-size: 14px;
+			font-weight: 600;
+			padding: 10px 20px;
+			border-radius: 8px;
+			text-decoration: none;
+			transition: opacity 0.15s;
+		}
+		.btn-primary:hover { opacity: 0.88; }
+		.btn-ghost {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			color: var(--text-2);
+			font-size: 14px;
+			font-weight: 500;
+			padding: 10px 20px;
+			border-radius: 8px;
+			border: 1px solid var(--border-2);
+			text-decoration: none;
+			transition: color 0.15s, border-color 0.15s;
+		}
+		.btn-ghost:hover { color: var(--text); border-color: #444; }
+
+		/* ── Filter bar ────────────────────────────────── */
+		.filter-bar {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 4px;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			background: var(--surface);
+			width: fit-content;
+			margin: 0 auto 48px;
+			flex-wrap: wrap;
+		}
+		.filter-chip {
+			appearance: none;
+			background: none;
+			border: none;
+			cursor: pointer;
+			font: inherit;
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--text-2);
+			padding: 6px 14px;
+			border-radius: 7px;
+			transition: background 0.15s, color 0.15s;
+		}
+		.filter-chip:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+		.filter-chip.active {
+			background: var(--accent);
+			color: var(--accent-ink);
+		}
+
+		/* ── Grid ──────────────────────────────────────── */
+		.grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+			gap: 20px;
+			margin-bottom: 80px;
+		}
+
+		/* ── Card ──────────────────────────────────────── */
+		.card {
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: var(--radius-lg);
+			overflow: hidden;
+			display: flex;
+			flex-direction: column;
+			transition: border-color 0.2s, transform 0.2s;
+		}
+		.card:hover {
+			border-color: var(--border-2);
+			transform: translateY(-2px);
+		}
+		.card[hidden] { display: none; }
+
+		/* Preview area */
+		.card-preview {
+			position: relative;
+			height: 220px;
+			overflow: hidden;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+		}
+		.card-preview-bg {
+			position: absolute;
+			inset: 0;
+		}
+		/* Category-specific preview backgrounds */
+		.card[data-cat="avatar"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(96,165,250,0.12) 0%, transparent 70%);
+		}
+		.card[data-cat="chat"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(167,139,250,0.12) 0%, transparent 70%);
+		}
+		.card[data-cat="companion"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(74,222,128,0.10) 0%, transparent 70%);
+		}
+		.card[data-cat="narrator"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(251,191,36,0.10) 0%, transparent 70%);
+		}
+		.card[data-cat="crypto"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(244,114,182,0.10) 0%, transparent 70%);
+		}
+		.card[data-cat="mcp"] .card-preview-bg {
+			background: radial-gradient(ellipse at 50% 60%, rgba(167,139,250,0.08) 0%, transparent 70%);
+		}
+
+		/* Live avatar embed inside card */
+		.card-preview threews-avatar {
+			position: relative;
+			width: 160px;
+			height: 200px;
+			z-index: 1;
+		}
+
+		/* Illustrated preview for non-avatar cards */
+		.preview-illustration {
+			position: relative;
+			z-index: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 10px;
+		}
+		.preview-icon {
+			width: 56px;
+			height: 56px;
+			border-radius: 14px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 26px;
+		}
+		.preview-mockup {
+			background: rgba(255,255,255,0.04);
+			border: 1px solid rgba(255,255,255,0.08);
+			border-radius: 10px;
+			padding: 10px 14px;
+			font-size: 12px;
+			color: var(--text-2);
+			font-family: 'JetBrains Mono', 'SF Mono', monospace;
+			line-height: 1.6;
+			text-align: left;
+			width: 220px;
+		}
+		.preview-mockup .k { color: #60a5fa; }
+		.preview-mockup .s { color: #4ade80; }
+		.preview-mockup .c { color: #71717a; }
+
+		/* Chat preview mockup */
+		.preview-chat {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			width: 240px;
+		}
+		.preview-chat-bubble {
+			background: rgba(255,255,255,0.07);
+			border: 1px solid rgba(255,255,255,0.08);
+			border-radius: 12px 12px 12px 2px;
+			padding: 8px 12px;
+			font-size: 12px;
+			color: var(--text-2);
+			max-width: 200px;
+		}
+		.preview-chat-bubble.user {
+			background: rgba(96,165,250,0.12);
+			border-radius: 12px 12px 2px 12px;
+			align-self: flex-end;
+			color: #93c5fd;
+		}
+
+		/* Walk companion mockup */
+		.preview-walk {
+			position: relative;
+			width: 240px;
+			height: 140px;
+			border: 1px solid rgba(255,255,255,0.06);
+			border-radius: 10px;
+			background: rgba(255,255,255,0.03);
+			overflow: hidden;
+		}
+		.preview-walk-body {
+			position: absolute;
+			bottom: 12px;
+			right: 16px;
+			width: 52px;
+			height: 80px;
+			background: rgba(74,222,128,0.12);
+			border: 1px solid rgba(74,222,128,0.25);
+			border-radius: 10px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 28px;
+		}
+		.preview-walk-label {
+			position: absolute;
+			top: 10px;
+			left: 12px;
+			font-size: 10px;
+			color: var(--text-3);
+			font-family: 'JetBrains Mono', monospace;
+		}
+		.preview-walk-site {
+			position: absolute;
+			top: 30px;
+			left: 12px;
+			right: 72px;
+			display: flex;
+			flex-direction: column;
+			gap: 5px;
+		}
+		.preview-walk-line {
+			height: 8px;
+			border-radius: 4px;
+			background: rgba(255,255,255,0.06);
+		}
+
+		/* Token widget mockup */
+		.preview-token {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			background: rgba(255,255,255,0.04);
+			border: 1px solid rgba(255,255,255,0.08);
+			border-radius: 12px;
+			padding: 12px 16px;
+			width: 240px;
+		}
+		.preview-token-avatar {
+			width: 40px;
+			height: 40px;
+			border-radius: 50%;
+			background: rgba(244,114,182,0.2);
+			border: 1px solid rgba(244,114,182,0.3);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 20px;
+			flex-shrink: 0;
+		}
+		.preview-token-info { flex: 1; min-width: 0; }
+		.preview-token-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+		.preview-token-price { font-size: 11px; color: var(--green); font-family: monospace; }
+		.preview-token-change { font-size: 10px; color: var(--text-3); }
+
+		/* MCP mockup */
+		.preview-mcp {
+			width: 240px;
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+		.preview-mcp-tool {
+			background: rgba(255,255,255,0.04);
+			border: 1px solid rgba(255,255,255,0.07);
+			border-radius: 8px;
+			padding: 7px 10px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 11px;
+			color: var(--text-2);
+			font-family: 'JetBrains Mono', monospace;
+		}
+		.preview-mcp-tool-dot {
+			width: 6px; height: 6px;
+			border-radius: 50%;
+			flex-shrink: 0;
+		}
+
+		/* Card body */
+		.card-body {
+			padding: 20px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			flex: 1;
+		}
+		.card-meta {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+		}
+		.cat-badge {
+			font-size: 10px;
+			font-weight: 700;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			padding: 3px 8px;
+			border-radius: 100px;
+		}
+		.cat-badge.avatar  { background: rgba(96,165,250,0.15);  color: #93c5fd; }
+		.cat-badge.chat    { background: rgba(167,139,250,0.15); color: #c4b5fd; }
+		.cat-badge.companion { background: rgba(74,222,128,0.12); color: #86efac; }
+		.cat-badge.narrator  { background: rgba(251,191,36,0.12); color: #fcd34d; }
+		.cat-badge.crypto  { background: rgba(244,114,182,0.12); color: #f9a8d4; }
+		.cat-badge.mcp     { background: rgba(167,139,250,0.10); color: #c4b5fd; }
+
+		.diff-badge {
+			font-size: 10px;
+			font-weight: 600;
+			letter-spacing: 0.04em;
+			color: var(--text-3);
+			border: 1px solid var(--border);
+			border-radius: 100px;
+			padding: 2px 8px;
+		}
+		.card-title {
+			font-size: 17px;
+			font-weight: 700;
+			letter-spacing: -0.02em;
+			line-height: 1.2;
+		}
+		.card-desc {
+			font-size: 14px;
+			color: var(--text-2);
+			line-height: 1.6;
+		}
+
+		/* Code section */
+		.card-code { margin-top: auto; }
+		.code-toggle {
+			appearance: none;
+			background: none;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			cursor: pointer;
+			font: inherit;
+			font-size: 13px;
+			font-weight: 500;
+			color: var(--text-2);
+			padding: 8px 14px;
+			width: 100%;
+			text-align: left;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			transition: color 0.15s, border-color 0.15s, background 0.15s;
+		}
+		.code-toggle:hover {
+			color: var(--text);
+			border-color: var(--border-2);
+			background: rgba(255,255,255,0.03);
+		}
+		.code-toggle svg { flex-shrink: 0; transition: transform 0.2s; }
+		.code-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+		.code-toggle-label { flex: 1; }
+		.code-panel {
+			margin-top: 10px;
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			overflow: hidden;
+			display: none;
+		}
+		.code-panel.open { display: block; }
+		.code-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 8px 12px;
+			background: rgba(255,255,255,0.03);
+			border-bottom: 1px solid var(--border);
+		}
+		.code-lang {
+			font-size: 11px;
+			font-family: 'JetBrains Mono', 'SF Mono', monospace;
+			color: var(--text-3);
+		}
+		.copy-btn {
+			appearance: none;
+			background: rgba(255,255,255,0.06);
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font: inherit;
+			font-size: 11px;
+			font-weight: 600;
+			color: var(--text-2);
+			padding: 4px 10px;
+			transition: background 0.15s, color 0.15s;
+		}
+		.copy-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+		.copy-btn.copied { color: var(--green); }
+		pre.code-block {
+			margin: 0;
+			padding: 14px;
+			font-size: 11.5px;
+			font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+			line-height: 1.7;
+			color: var(--text-2);
+			overflow-x: auto;
+			tab-size: 2;
+			white-space: pre;
+		}
+		pre.code-block .k  { color: #60a5fa; } /* tag names / keywords */
+		pre.code-block .a  { color: #c4b5fd; } /* attributes */
+		pre.code-block .s  { color: #86efac; } /* strings */
+		pre.code-block .c  { color: #52525b; } /* comments */
+		pre.code-block .p  { color: #fbbf24; } /* punctuation */
+
+		/* ── Showcase strip ────────────────────────────── */
+		.showcase {
+			border-top: 1px solid var(--border);
+			padding: 64px 0;
+			text-align: center;
+		}
+		.showcase-label {
+			font-size: 12px;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--text-3);
+			margin-bottom: 16px;
+		}
+		.showcase-title {
+			font-size: clamp(22px, 3vw, 32px);
+			font-weight: 700;
+			letter-spacing: -0.02em;
+			margin-bottom: 12px;
+		}
+		.showcase-sub {
+			font-size: 15px;
+			color: var(--text-2);
+			max-width: 48ch;
+			margin: 0 auto 28px;
+			line-height: 1.6;
+		}
+		.showcase-examples {
+			display: flex;
+			justify-content: center;
+			gap: 12px;
+			flex-wrap: wrap;
+			margin-bottom: 28px;
+		}
+		.showcase-example-tag {
+			font-size: 13px;
+			color: var(--text-2);
+			border: 1px solid var(--border);
+			border-radius: 100px;
+			padding: 6px 14px;
+			background: var(--surface);
+		}
+		.showcase-example-tag strong { color: var(--text); }
+
+		/* ── Footer ────────────────────────────────────── */
+
+		@media (max-width: 640px) {
+			.hero { padding: 48px 0 40px; }
+			.hero h1 { font-size: 36px; }
+			.filter-bar { justify-content: center; }
+			.grid { grid-template-columns: 1fr; }
+		}
+	</style>
+</head>
+<body>
+
+<header><div id="nav-container"></div></header>
+
+<main>
+	<div class="page">
+
+		<!-- ── Hero ──────────────────────────────────────────── -->
+		<section class="hero">
+			<div class="hero-eyebrow">
+				<span class="hero-eyebrow-dot" aria-hidden="true"></span>
+				Powered by three.ws
+			</div>
+			<h1>One line of code.<br><em>Any site.</em></h1>
+			<p class="hero-sub">
+				Drop 3D agents, chat widgets, walk companions, and live token data
+				into any website — no backend required.
+			</p>
+			<div class="hero-cta">
+				<a href="/create" class="btn-primary">
+					<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+						<path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+					</svg>
+					Create an agent
+				</a>
+				<a href="/docs/embedding" class="btn-ghost">Read the docs</a>
+			</div>
+		</section>
+
+		<!-- ── Filter ────────────────────────────────────────── -->
+		<div class="filter-bar" role="group" aria-label="Filter integrations by category">
+			<button class="filter-chip active" data-filter="all">All</button>
+			<button class="filter-chip" data-filter="avatar">3D Avatar</button>
+			<button class="filter-chip" data-filter="chat">Chat Agent</button>
+			<button class="filter-chip" data-filter="companion">Walk Companion</button>
+			<button class="filter-chip" data-filter="narrator">Page Narrator</button>
+			<button class="filter-chip" data-filter="crypto">Token Widget</button>
+			<button class="filter-chip" data-filter="mcp">MCP Server</button>
+		</div>
+
+		<!-- ── Integration grid ──────────────────────────────── -->
+		<div class="grid" id="integration-grid">
+
+			<!-- 1. 3D Avatar Viewer -->
+			<article class="card" data-cat="avatar">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<threews-avatar
+						avatar-id="avatar_demo_disk_cz"
+						hide-chrome
+						pose="idle"
+						aria-label="Live 3D avatar preview"
+					></threews-avatar>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge avatar">3D Avatar</span>
+						<span class="diff-badge">Simple</span>
+					</div>
+					<h2 class="card-title">Avatar Viewer</h2>
+					<p class="card-desc">
+						A rotatable, animated 3D avatar — transparent background, OBS-ready, fully scriptable.
+						Drop it on any page as a web component.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-avatar">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-avatar" role="region">
+							<div class="code-header">
+								<span class="code-lang">html</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">&lt;!-- Load once on your page --&gt;</span>
+<span class="k">&lt;script</span> <span class="a">src</span>=<span class="s">"https://three.ws/embed.js"</span> <span class="a">defer</span><span class="k">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- Drop anywhere in your HTML --&gt;</span>
+<span class="k">&lt;threews-avatar</span>
+  <span class="a">avatar-id</span>=<span class="s">"your-avatar-id"</span>
+  <span class="a">hide-chrome</span>
+  <span class="a">pose</span>=<span class="s">"idle"</span>
+<span class="k">&gt;&lt;/threews-avatar&gt;</span>
+
+<span class="c">&lt;!-- Optional JS control --&gt;</span>
+<span class="k">&lt;script&gt;</span>
+  <span class="a">const</span> el = document.querySelector(<span class="s">'threews-avatar'</span>);
+  <span class="a">await</span> el.ready;
+  el.play(<span class="s">'wave'</span>);
+<span class="k">&lt;/script&gt;</span></pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- 2. Chat Agent -->
+			<article class="card" data-cat="chat">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<div class="preview-illustration" aria-hidden="true">
+						<div class="preview-icon" style="background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.2);">🤖</div>
+						<div class="preview-chat">
+							<div class="preview-chat-bubble">Hey, I'm PumpBot. What do you want to look at?</div>
+							<div class="preview-chat-bubble user">Tell me about this token</div>
+							<div class="preview-chat-bubble">Let me pull the latest data for you…</div>
+						</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge chat">Chat Agent</span>
+						<span class="diff-badge">Simple</span>
+					</div>
+					<h2 class="card-title">Talking Chat Agent</h2>
+					<p class="card-desc">
+						A full chat interface with a live 3D character. Voice or text. Bring your AI agent to life
+						on any site — like PumpBot.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-chat">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-chat" role="region">
+							<div class="code-header">
+								<span class="code-lang">html</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">&lt;!-- Injects a 420×600 chat agent iframe --&gt;</span>
+<span class="k">&lt;script</span>
+  <span class="a">src</span>=<span class="s">"https://three.ws/embed.js"</span>
+  <span class="a">data-widget</span>=<span class="s">"your-widget-id"</span>
+  <span class="a">data-type</span>=<span class="s">"talking-agent"</span>
+  <span class="a">defer</span>
+<span class="k">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- Or control the iframe with JS --&gt;</span>
+<span class="k">&lt;script</span> <span class="a">src</span>=<span class="s">"https://three.ws/embed-sdk.js"</span><span class="k">&gt;&lt;/script&gt;</span>
+<span class="k">&lt;script&gt;</span>
+  <span class="a">const</span> agent = Agent3D.connect(iframeEl, {
+    agentId: <span class="s">'your-agent-id'</span>,
+    onReady: () =&gt; agent.send(<span class="s">'Hello!'</span>),
+  });
+<span class="k">&lt;/script&gt;</span></pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- 3. Walk Companion -->
+			<article class="card" data-cat="companion">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<div class="preview-illustration" aria-hidden="true">
+						<div class="preview-walk">
+							<span class="preview-walk-label">yoursite.com</span>
+							<div class="preview-walk-site">
+								<div class="preview-walk-line" style="width: 80%"></div>
+								<div class="preview-walk-line" style="width: 60%"></div>
+								<div class="preview-walk-line" style="width: 70%"></div>
+								<div class="preview-walk-line" style="width: 45%"></div>
+							</div>
+							<div class="preview-walk-body">🚶</div>
+						</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge companion">Walk Companion</span>
+						<span class="diff-badge">Simple</span>
+					</div>
+					<h2 class="card-title">Walk Companion</h2>
+					<p class="card-desc">
+						A floating 3D character that lives in the corner of your site. It walks, gestures,
+						and responds to your users — with one script tag.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-companion">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-companion" role="region">
+							<div class="code-header">
+								<span class="code-lang">html</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">&lt;!-- Floating corner avatar — one tag --&gt;</span>
+<span class="k">&lt;script</span>
+  <span class="a">src</span>=<span class="s">"https://three.ws/walk-embed-sdk.js"</span>
+  <span class="a">data-avatar</span>=<span class="s">"your-avatar-id"</span>
+  <span class="a">data-position</span>=<span class="s">"bottom-right"</span>
+  <span class="a">data-env</span>=<span class="s">"studio"</span>
+  <span class="a">defer</span>
+<span class="k">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- Control with JS --&gt;</span>
+<span class="k">&lt;script&gt;</span>
+  <span class="a">const</span> a = ThreeWalkAvatar.embed(<span class="s">'#my-iframe'</span>);
+  a.on(<span class="s">'ready'</span>, () =&gt; {
+    a.gesture(<span class="s">'wave'</span>);
+    a.say(<span class="s">'Welcome!'</span>, <span class="s">'aria'</span>);
+  });
+<span class="k">&lt;/script&gt;</span></pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- 4. Page Narrator -->
+			<article class="card" data-cat="narrator">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<div class="preview-illustration" aria-hidden="true">
+						<div class="preview-icon" style="background: rgba(251,191,36,0.10); border: 1px solid rgba(251,191,36,0.2);">📖</div>
+						<div class="preview-mockup">
+<span class="k">&lt;page-agent</span>
+  <span class="a">agent-id</span>=<span class="s">"my-agent"</span>
+<span class="k">&gt;&lt;/page-agent&gt;</span>
+<span class="c">// reads your page, explains it</span>
+						</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge narrator">Page Narrator</span>
+						<span class="diff-badge">Simple</span>
+					</div>
+					<h2 class="card-title">Page Narrator</h2>
+					<p class="card-desc">
+						A 3D agent that reads your page and guides visitors through your content.
+						Add it to a docs site, landing page, or blog — no setup required.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-narrator">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-narrator" role="region">
+							<div class="code-header">
+								<span class="code-lang">html</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">&lt;!-- Load the SDK --&gt;</span>
+<span class="k">&lt;script</span> <span class="a">src</span>=<span class="s">"https://three.ws/embed.js"</span> <span class="a">defer</span><span class="k">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- Drop the web component on your page --&gt;</span>
+<span class="k">&lt;page-agent</span>
+  <span class="a">agent-id</span>=<span class="s">"your-agent-id"</span>
+<span class="k">&gt;&lt;/page-agent&gt;</span>
+
+<span class="c">&lt;!-- npm install @three-ws/page-agent --&gt;</span>
+<span class="c">&lt;!-- import '@three-ws/page-agent'; --&gt;</span></pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- 5. Token / Crypto Widget -->
+			<article class="card" data-cat="crypto">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<div class="preview-illustration" aria-hidden="true">
+						<div class="preview-icon" style="background: rgba(244,114,182,0.10); border: 1px solid rgba(244,114,182,0.2);">📊</div>
+						<div class="preview-token">
+							<div class="preview-token-avatar">🪙</div>
+							<div class="preview-token-info">
+								<div class="preview-token-name">$THREE</div>
+								<div class="preview-token-price">$0.0024 USDC</div>
+								<div class="preview-token-change">↑ 12.4% today · powered by three.ws</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge crypto">Token Widget</span>
+						<span class="diff-badge">Moderate</span>
+					</div>
+					<h2 class="card-title">Token Market Widget</h2>
+					<p class="card-desc">
+						Live price, chart, and market data — with a 3D mascot that reacts to price moves.
+						Built for token communities and launchpad sites.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-crypto">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-crypto" role="region">
+							<div class="code-header">
+								<span class="code-lang">html</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">&lt;!-- Token widget with live 3D mascot --&gt;</span>
+<span class="k">&lt;script</span>
+  <span class="a">src</span>=<span class="s">"https://three.ws/embed.js"</span>
+  <span class="a">data-widget</span>=<span class="s">"your-widget-id"</span>
+  <span class="a">data-type</span>=<span class="s">"talking-agent"</span>
+  <span class="a">data-width</span>=<span class="s">"420"</span>
+  <span class="a">data-height</span>=<span class="s">"600"</span>
+  <span class="a">defer</span>
+<span class="k">&gt;&lt;/script&gt;</span>
+
+<span class="c">&lt;!-- Get your widget ID at three.ws/widgets --&gt;</span></pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+			<!-- 6. MCP Server -->
+			<article class="card" data-cat="mcp">
+				<div class="card-preview">
+					<div class="card-preview-bg" aria-hidden="true"></div>
+					<div class="preview-illustration" aria-hidden="true">
+						<div class="preview-icon" style="background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.2);">⚡</div>
+						<div class="preview-mcp">
+							<div class="preview-mcp-tool">
+								<div class="preview-mcp-tool-dot" style="background: #86efac;"></div>
+								render_agent
+							</div>
+							<div class="preview-mcp-tool">
+								<div class="preview-mcp-tool-dot" style="background: #c4b5fd;"></div>
+								speak
+							</div>
+							<div class="preview-mcp-tool">
+								<div class="preview-mcp-tool-dot" style="background: #93c5fd;"></div>
+								gesture
+							</div>
+							<div class="preview-mcp-tool">
+								<div class="preview-mcp-tool-dot" style="background: #fcd34d;"></div>
+								emote
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div class="card-meta">
+						<span class="cat-badge mcp">MCP Server</span>
+						<span class="diff-badge">Advanced</span>
+					</div>
+					<h2 class="card-title">MCP Integration</h2>
+					<p class="card-desc">
+						Let any AI assistant control your 3D agents directly — render, speak, gesture,
+						and emote from Claude, Cursor, or any MCP-compatible tool.
+					</p>
+					<div class="card-code">
+						<button class="code-toggle" aria-expanded="false" aria-controls="code-mcp">
+							<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+								<path d="M2 4l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="code-toggle-label">Get embed code</span>
+						</button>
+						<div class="code-panel" id="code-mcp" role="region">
+							<div class="code-header">
+								<span class="code-lang">json</span>
+								<button class="copy-btn" aria-label="Copy code">Copy</button>
+							</div>
+							<pre class="code-block" data-code><span class="c">// claude_desktop_config.json</span>
+{
+  <span class="a">"mcpServers"</span>: {
+    <span class="a">"threews-avatar"</span>: {
+      <span class="a">"command"</span>: <span class="s">"npx"</span>,
+      <span class="a">"args"</span>: [
+        <span class="s">"-y"</span>,
+        <span class="s">"@three-ws/avatar-agent-mcp"</span>
+      ],
+      <span class="a">"env"</span>: {
+        <span class="a">"THREEWS_API_KEY"</span>: <span class="s">"your-key"</span>
+      }
+    }
+  }
+}</pre>
+						</div>
+					</div>
+				</div>
+			</article>
+
+		</div><!-- /grid -->
+
+		<!-- ── Showcase CTA ───────────────────────────────────── -->
+		<section class="showcase">
+			<p class="showcase-label">Built with three.ws</p>
+			<h2 class="showcase-title">See what people are building</h2>
+			<p class="showcase-sub">
+				From token chat bots to 3D docs guides — these integrations are
+				already live on real sites.
+			</p>
+			<div class="showcase-examples">
+				<span class="showcase-example-tag"><strong>PumpBot</strong> — token chat agent</span>
+				<span class="showcase-example-tag"><strong>Docs guides</strong> — narrated walkthroughs</span>
+				<span class="showcase-example-tag"><strong>Corner mascots</strong> — walk companions</span>
+				<span class="showcase-example-tag"><strong>Agent profiles</strong> — avatar embeds</span>
+			</div>
+			<div class="hero-cta">
+				<a href="/create" class="btn-primary">Start building</a>
+				<a href="/docs/embedding" class="btn-ghost">Read the docs →</a>
+			</div>
+		</section>
+
+	</div>
+</main>
+
+<!-- ── Footer ────────────────────────────────────────────── -->
+<footer class="h-footer h-footer-horizon">
+	<div class="h-footer-glow-line" aria-hidden="true"></div>
+	<div class="h-footer-floor" aria-hidden="true"></div>
+	<div class="h-footer-haze" aria-hidden="true"></div>
+	<div class="h-footer-watermark" aria-hidden="true">three.ws</div>
+	<div class="h-footer-cta">
+		<div class="h-footer-newsletter">
+			<h3>Stay in the loop</h3>
+			<p>Get updates on new integrations, agent tooling, and protocol changes.</p>
+			<form class="h-footer-newsletter-form" data-newsletter-form novalidate>
+				<input type="email" class="h-footer-newsletter-input" name="email" placeholder="Enter your email" aria-label="Email address" autocomplete="email" required />
+				<button type="submit" class="h-footer-newsletter-btn" aria-label="Subscribe">
+					<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2 8h11m0 0L9 4m4 4l-4 4"/></svg>
+				</button>
+			</form>
+			<p class="h-footer-newsletter-msg" data-newsletter-msg aria-live="polite"></p>
+		</div>
+		<div class="h-footer-community">
+			<h3>Join the community</h3>
+			<p>Follow along for builds, demos, and conversations with the team.</p>
+			<a class="h-footer-community-btn" href="https://x.com/trythreews" target="_blank" rel="noopener noreferrer">
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+				Follow on X
+			</a>
+		</div>
+	</div>
+	<div class="h-footer-inner">
+		<div class="h-footer-brand-col">
+			<div class="h-footer-brand">
+				<img class="wordmark-logo" src="/three.svg" alt="" aria-hidden="true" />
+				<span class="wordmark-dot" aria-hidden="true"></span>
+				<span>three.ws</span>
+			</div>
+			<p class="h-footer-tagline">Give your AI a body.</p>
+		</div>
+		<nav class="h-footer-links" aria-label="Footer">
+			<div class="h-footer-link-col">
+				<h4 class="h-footer-link-heading">Product</h4>
+				<a href="/features">Features</a>
+				<a href="/create">Create</a>
+				<a href="/integrations">Integrations</a>
+				<a href="/marketplace">Marketplace</a>
+			</div>
+			<div class="h-footer-link-col">
+				<h4 class="h-footer-link-heading">Developers</h4>
+				<a href="/docs">Docs</a>
+				<a href="/docs/embedding">Embedding</a>
+				<a href="/bazaar">Paid API Bazaar</a>
+				<a href="https://github.com/nirholas/three.ws" target="_blank" rel="noopener noreferrer">GitHub</a>
+			</div>
+			<div class="h-footer-link-col">
+				<h4 class="h-footer-link-heading">Legal</h4>
+				<a href="/legal/privacy">Privacy</a>
+				<a href="/legal/tos">Terms</a>
+			</div>
+		</nav>
+	</div>
+	<div class="h-footer-bottom">
+		<p class="h-footer-legal">© 2026 three.ws — All rights reserved.</p>
+	</div>
+</footer>
+
+<script>
+	// ── Filter chips ──────────────────────────────────────────
+	const chips = document.querySelectorAll('.filter-chip');
+	const cards = document.querySelectorAll('#integration-grid .card');
+
+	chips.forEach(chip => {
+		chip.addEventListener('click', () => {
+			chips.forEach(c => c.classList.remove('active'));
+			chip.classList.add('active');
+			const filter = chip.dataset.filter;
+			cards.forEach(card => {
+				const match = filter === 'all' || card.dataset.cat === filter;
+				card.hidden = !match;
+			});
+		});
+	});
+
+	// ── Code toggle expand/collapse ───────────────────────────
+	document.querySelectorAll('.code-toggle').forEach(btn => {
+		btn.addEventListener('click', () => {
+			const expanded = btn.getAttribute('aria-expanded') === 'true';
+			btn.setAttribute('aria-expanded', String(!expanded));
+			const panel = document.getElementById(btn.getAttribute('aria-controls'));
+			if (panel) panel.classList.toggle('open', !expanded);
+		});
+	});
+
+	// ── Copy buttons ──────────────────────────────────────────
+	document.querySelectorAll('.copy-btn').forEach(btn => {
+		btn.addEventListener('click', async () => {
+			const pre = btn.closest('.code-panel').querySelector('[data-code]');
+			if (!pre) return;
+			try {
+				await navigator.clipboard.writeText(pre.innerText.trim());
+				btn.textContent = 'Copied!';
+				btn.classList.add('copied');
+				setTimeout(() => {
+					btn.textContent = 'Copy';
+					btn.classList.remove('copied');
+				}, 2000);
+			} catch {
+				btn.textContent = 'Error';
+			}
+		});
+	});
+</script>
+
+</body>
+</html>
