@@ -100,6 +100,12 @@
 	// Floating-corner embeds default to no ground disc and no orbit drag —
 	// hosts that mount into a full-size container can opt back in with
 	// `data-ground="true"` / `data-orbit="true"`.
+	function attrNum(name, fallback, lo, hi) {
+		var n = Number(attr(name, null));
+		if (!isFinite(n)) return fallback;
+		return Math.min(hi, Math.max(lo, n));
+	}
+
 	var defaults = {
 		avatar: attr('data-avatar', ''),
 		position: attr('data-position', 'bottom-right'),
@@ -111,6 +117,9 @@
 		ground: attrBool('data-ground', false),
 		orbit: attrBool('data-orbit', false),
 		bg: attr('data-bg', 'transparent'),
+		speed: attrNum('data-speed', 1, 0.3, 3),
+		gestures: attrBool('data-gestures', false),
+		badge: attrBool('data-badge', true),
 		zIndex: parseInt(attr('data-z-index', '2147483640'), 10) || 2147483640,
 	};
 
@@ -137,6 +146,9 @@
 		if (opts.orbit === false) p.set('orbit', 'false');
 		if (opts.bg && opts.bg !== 'transparent') p.set('bg', opts.bg);
 		if (opts.env && opts.env !== 'studio') p.set('env', opts.env);
+		if (opts.speed && opts.speed !== 1) p.set('speed', String(opts.speed));
+		if (opts.gestures) p.set('gestures', 'true');
+		if (opts.badge === false) p.set('badge', 'false');
 		return EMBED_ORIGIN + '/walk-embed?' + p.toString();
 	}
 
@@ -433,7 +445,7 @@
 		if (!SCRIPT) return false;
 		var keys = ['data-avatar', 'data-position', 'data-width', 'data-height',
 			'data-controls', 'data-env', 'data-autoplay', 'data-ground', 'data-orbit',
-			'data-bg', 'data-z-index'];
+			'data-bg', 'data-speed', 'data-gestures', 'data-badge', 'data-z-index'];
 		for (var i = 0; i < keys.length; i++) {
 			if (SCRIPT.getAttribute(keys[i]) != null) return true;
 		}

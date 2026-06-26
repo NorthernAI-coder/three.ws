@@ -55,6 +55,8 @@ import {
 	sampleAtTime,
 	bakeClip,
 	serializeClip,
+	clonePose,
+	posesEqual,
 	EASINGS,
 	DEFAULT_EASING,
 } from './pose-animation.js';
@@ -535,6 +537,7 @@ function boot() {
 		state.draggingIK = null;
 		controls.enabled = true;
 		syncIKHandles();
+		commitEdit();
 	}
 	canvas.addEventListener('pointerup', endIKDrag);
 	canvas.addEventListener('pointercancel', endIKDrag);
@@ -543,6 +546,87 @@ function boot() {
 	gizmo.addEventListener('objectChange', () => {
 		if (state.selectedBone) renderControlsPanel();
 	});
+	// A gizmo drag is one undoable edit: snapshot on grab, commit on release.
+	gizmo.addEventListener('mouseDown', beginEdit);
+	gizmo.addEventListener('mouseUp', commitEdit);
+
+	// ── Pose history (undo / redo) ───────────────────────────────────────────
+	// A bounded stack of canonical pose snapshots. Discrete actions (preset,
+	// reset, mirror, paste, import) call recordHistory() before mutating;
+	// continuous gestures (gizmo, IK drag, FK slider) bracket themselves with
+	// beginEdit()/commitEdit() so the whole drag collapses to a single step.
+	const HISTORY_LIMIT = 100;
+	const history = { undo: [], redo: [], pending: null };
+
+	function pushUndo(before) {
+		history.undo.push(before);
+		if (history.undo.length > HISTORY_LIMIT) history.undo.shift();
+		history.redo.length = 0;
+		updateHistoryButtons();
+	}
+	function recordHistory() {
+		pushUndo(state.rig.getPose());
+	}
+	function beginEdit() {
+		if (!history.pending) history.pending = state.rig.getPose();
+	}
+	function commitEdit() {
+		const before = history.pending;
+		history.pending = null;
+		if (before && !posesEqual(before, state.rig.getPose())) pushUndo(before);
+	}
+	function restorePose(pose) {
+		state.rig.applyPose(pose);
+		if (state.poseMode === 'fk') attachGizmo();
+		else syncIKHandles();
+		renderControlsPanel();
+	}
+	function undoPose() {
+		if (!history.undo.length) return setStatus('Nothing to undo.');
+		history.redo.push(state.rig.getPose());
+		if (history.redo.length > HISTORY_LIMIT) history.redo.shift();
+		restorePose(history.undo.pop());
+		updateHistoryButtons();
+		setStatus('Undo.');
+	}
+	function redoPose() {
+		if (!history.redo.length) return setStatus('Nothing to redo.');
+		history.undo.push(state.rig.getPose());
+		restorePose(history.redo.pop());
+		updateHistoryButtons();
+		setStatus('Redo.');
+	}
+	function updateHistoryButtons() {
+		const u = $('#pose-undo');
+		const r = $('#pose-redo');
+		if (u) u.disabled = !history.undo.length;
+		if (r) r.disabled = !history.redo.length;
+	}
+
+	// ── Mirror / copy / paste ────────────────────────────────────────────────
+	function mirrorPose() {
+		recordHistory();
+		state.rig.mirrorPose();
+		if (state.poseMode === 'fk') attachGizmo();
+		else syncIKHandles();
+		renderControlsPanel();
+		setStatus('Pose mirrored left ↔ right.');
+	}
+	function copyPose() {
+		state.clipboardPose = clonePose(state.rig.getPose());
+		try {
+			navigator.clipboard?.writeText(JSON.stringify(state.clipboardPose)).catch(() => {});
+		} catch {}
+		const pasteBtn = $('#pose-paste');
+		if (pasteBtn) pasteBtn.disabled = false;
+		setStatus('Pose copied.');
+	}
+	function pastePose() {
+		if (!state.clipboardPose) return setStatus('Copy a pose first.', 'error');
+		recordHistory();
+		restorePose(state.clipboardPose);
+		setStatus('Pose pasted.');
+	}
 
 	// ── FK gizmo ───────────────────────────────────────────────────────────
 	function attachGizmo() {
@@ -595,6 +679,7 @@ function boot() {
 		// Drag plane: faces the camera, passes through the handle.
 		const normal = camera.getWorldDirection(new Vector3()).negate();
 		const plane = new Plane().setFromNormalAndCoplanarPoint(normal, handle.position.clone());
+		beginEdit();
 		state.draggingIK = { effectorKey, plane };
 		controls.enabled = false;
 		canvas.setPointerCapture(ev.pointerId);
@@ -676,6 +761,9 @@ function boot() {
 				value: String(value),
 				'aria-label': `${CANONICAL_LABELS[key] || key} ${label}`,
 			});
+			slider.addEventListener('pointerdown', beginEdit);
+			slider.addEventListener('keydown', beginEdit);
+			slider.addEventListener('change', commitEdit);
 			slider.addEventListener('input', () => {
 				const cur = state.rig.getBoneEuler(key);
 				cur[axis] = parseFloat(slider.value);
@@ -692,6 +780,7 @@ function boot() {
 			'Reset this bone',
 		]);
 		resetBtn.addEventListener('click', () => {
+			recordHistory();
 			state.rig.setBoneEuler(key, { x: 0, y: 0, z: 0 });
 			renderControlsPanel();
 		});
@@ -749,6 +838,7 @@ function boot() {
 					[preset.label],
 				);
 				btn.addEventListener('click', () => {
+					recordHistory();
 					state.rig.applyPose(poseFromMannequinPreset(preset.pose));
 					if (state.poseMode === 'fk') attachGizmo();
 					renderControlsPanel();
@@ -888,6 +978,7 @@ function boot() {
 
 	// ── Top toolbar ──────────────────────────────────────────────────────────
 	$('#pose-reset')?.addEventListener('click', () => {
+		recordHistory();
 		state.rig.resetPose();
 		if (state.poseMode === 'fk') attachGizmo();
 		else syncIKHandles();
@@ -928,6 +1019,7 @@ function boot() {
 		reader.onload = () => {
 			try {
 				const pose = JSON.parse(String(reader.result));
+				recordHistory();
 				state.rig.applyPose(pose);
 				if (state.poseMode === 'fk') attachGizmo();
 				renderControlsPanel();
@@ -1033,10 +1125,33 @@ function boot() {
 		}
 	}
 
+	// ── Top-toolbar pose actions ─────────────────────────────────────────────
+	$('#pose-undo')?.addEventListener('click', undoPose);
+	$('#pose-redo')?.addEventListener('click', redoPose);
+	$('#pose-mirror')?.addEventListener('click', mirrorPose);
+	$('#pose-copy')?.addEventListener('click', copyPose);
+	$('#pose-paste')?.addEventListener('click', pastePose);
+	updateHistoryButtons();
+
 	// ── Keyboard shortcuts ───────────────────────────────────────────────────
 	window.addEventListener('keydown', (ev) => {
 		if (ev.target.matches('input, textarea, select')) return;
 		const k = ev.key.toLowerCase();
+		const mod = ev.ctrlKey || ev.metaKey;
+		// Undo / redo — Ctrl/Cmd+Z, Shift+Z or Ctrl+Y to redo.
+		if (mod && k === 'z') {
+			ev.preventDefault();
+			ev.shiftKey ? redoPose() : undoPose();
+			return;
+		}
+		if (mod && k === 'y') {
+			ev.preventDefault();
+			redoPose();
+			return;
+		}
+		// Remaining shortcuts are single-key (no modifier) so they never clobber
+		// browser/OS chords like Ctrl+C.
+		if (mod || ev.altKey) return;
 		if (k === 'f') {
 			state.poseMode = 'fk';
 			applyPoseMode();
@@ -1049,8 +1164,15 @@ function boot() {
 				renderControlsPanel();
 			}
 		} else if (k === 'r' && state.selectedBone) {
+			recordHistory();
 			state.rig.setBoneEuler(state.selectedBone, { x: 0, y: 0, z: 0 });
 			renderControlsPanel();
+		} else if (k === 'm') {
+			mirrorPose();
+		} else if (k === 'c') {
+			copyPose();
+		} else if (k === 'v') {
+			pastePose();
 		} else if (k === 'escape') {
 			state.selectedBone = null;
 			gizmo.detach();

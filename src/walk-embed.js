@@ -217,6 +217,10 @@ const LEAN_LERP = 0.12;
 const CAM_OFFSET = new Vector3(0, 1.85, 3.6);
 const CAM_LOOK_OFFSET = new Vector3(0, 1.1, 0);
 const GROUND_RADIUS = 12;
+// Idle cursor-glance: max body turn toward the cursor (radians) and how quickly
+// the avatar eases toward it — slow enough to read as "noticing," not twitchy.
+const GLANCE_MAX_RAD = 0.42;
+const GLANCE_LERP = 0.045;
 
 // ── DOM ───────────────────────────────────────────────────────────────────
 const stage = document.getElementById('walk-stage');
@@ -447,6 +451,22 @@ if (ORBIT_ENABLED) {
 	canvas.addEventListener('pointermove', onMove);
 	canvas.addEventListener('pointerup', onUp);
 	canvas.addEventListener('pointercancel', onUp);
+}
+
+// ── Idle cursor-glance ──────────────────────────────────────────────────────
+// On hover-capable devices, track the cursor's horizontal position over the
+// canvas and feed it to the idle-glance target so a standing avatar turns toward
+// the visitor. Skipped under reduced-motion and on touch (no persistent cursor).
+if (HAS_HOVER && !PREFERS_REDUCED_MOTION) {
+	canvas.addEventListener('pointermove', (e) => {
+		if (e.pointerType && e.pointerType !== 'mouse') return;
+		const rect = canvas.getBoundingClientRect();
+		if (!rect.width) return;
+		const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1; // [-1, 1]
+		input.glance.targetYaw = -ndcX * GLANCE_MAX_RAD;
+		input.glance.active = true;
+	});
+	canvas.addEventListener('pointerleave', () => { input.glance.active = false; });
 }
 
 // ── Input state ───────────────────────────────────────────────────────────
@@ -780,6 +800,15 @@ function tick() {
 		animationManager.crossfadeTo(CLIP_IDLE, 0.25);
 	}
 
+	// Idle cursor-glance: while standing still, ease the body toward facing the
+	// viewer (yaw 0), offset toward the cursor when it's over the canvas. Only the
+	// idle state touches yaw here — locomotion above owns it while moving.
+	if (mag <= 0.01 && avatar && HAS_HOVER && !PREFERS_REDUCED_MOTION) {
+		const targetYaw = input.glance.active ? input.glance.targetYaw : 0;
+		avatarYaw = lerpAngle(avatarYaw, targetYaw, GLANCE_LERP);
+		avatarRig.quaternion.setFromAxisAngle(upY, avatarYaw);
+	}
+
 	if (animationManager.mixer) {
 		let ts = 1.0;
 		if (currentMotion === 'walk') {
@@ -829,7 +858,7 @@ function tick() {
 	}
 
 	renderer.render(scene, camera);
-	requestAnimationFrame(tick);
+	if (loopRunning) rafHandle = requestAnimationFrame(tick);
 }
 
 function lerpAngle(a, b, t) {
@@ -961,6 +990,67 @@ const runtime = {
 // runtime without importing it. Public methods only — no scene internals.
 window.__walkEmbed = runtime;
 
+// ── Click / tap to walk ─────────────────────────────────────────────────────
+// Raycast a tap on the canvas onto the ground plane (y=0) and send the avatar
+// there via the same goto seek the host postMessage contract uses. This makes
+// the most intuitive control discoverable to a visitor who'd never read docs.
+// A tap is distinguished from an orbit drag (movement threshold) and a hold.
+const _raycaster = new Raycaster();
+const _groundPlane = new Plane(new Vector3(0, 1, 0), 0);
+const _ndc = new Vector2();
+const _hit = new Vector3();
+
+function groundPointAt(clientX, clientY) {
+	const rect = canvas.getBoundingClientRect();
+	if (!rect.width || !rect.height) return null;
+	_ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+	_ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+	_raycaster.setFromCamera(_ndc, camera);
+	return _raycaster.ray.intersectPlane(_groundPlane, _hit);
+}
+
+if (CLICK_TO_MOVE) {
+	let downX = 0, downY = 0, downT = 0, tracking = false;
+	canvas.addEventListener('pointerdown', (e) => {
+		// A tap starting over the joystick belongs to the joystick, not a goto.
+		const jr = joystickEl.getBoundingClientRect();
+		const overJoystick = CONTROLS === 'joystick' &&
+			e.clientX >= jr.left && e.clientX <= jr.right &&
+			e.clientY >= jr.top && e.clientY <= jr.bottom;
+		if (overJoystick) { tracking = false; return; }
+		downX = e.clientX; downY = e.clientY; downT = performance.now(); tracking = true;
+	});
+	canvas.addEventListener('pointerup', (e) => {
+		if (!tracking) return;
+		tracking = false;
+		// A drag (orbit) or a hold isn't a click-to-walk.
+		if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
+		if (performance.now() - downT > 400) return;
+		const p = groundPointAt(e.clientX, e.clientY);
+		if (!p) return;
+		// Keep the target inside the walkable disc so the avatar never seeks a
+		// point it would be clamped away from anyway.
+		const r = Math.hypot(p.x, p.z);
+		const max = GROUND_RADIUS - 0.5;
+		let x = p.x, z = p.z;
+		if (r > max) { const k = max / r; x *= k; z *= k; }
+		runtime.goto(x, z);
+		dismissHint();
+	});
+}
+
+// ── Gesture buttons (opt-in) ────────────────────────────────────────────────
+// Wire the floating wave/jump buttons (rendered only when ?gestures=true) to the
+// same gesture path the host contract drives.
+if (SHOW_GESTURE_UI && gesturesEl) {
+	gesturesEl.querySelectorAll('.walk-gesture-btn').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const g = btn.dataset.gesture;
+			if (g) { runtime.gesture(g); dismissHint(); }
+		});
+	});
+}
+
 // Apply a runtime background override (walk:config { bg }). 'transparent' lets
 // the host page show through; a hex/rgb paints a solid clear color.
 function applyBackground(bg) {
@@ -1080,10 +1170,46 @@ function hideSpeechBubble() {
 	if (bubbleEl) bubbleEl.style.opacity = '0';
 }
 
+// ── Render-loop visibility gating ───────────────────────────────────────────
+// Stop the rAF loop (and all WebGL work) whenever the embed is scrolled off the
+// host viewport or its tab is hidden, then resume seamlessly when it returns —
+// the per-frame dt cap (Math.min(getDelta(), 0.05)) absorbs the paused gap so
+// the avatar never teleports. Without this an embed on a long page keeps burning
+// GPU/battery while completely invisible.
+let loopRunning = false;
+let rafHandle = 0;
+let canRender = false; // true once boot has a scene worth drawing
+let onScreen = true;
+
+function startLoop() {
+	if (loopRunning || !canRender) return;
+	loopRunning = true;
+	clock.update(); // reset the delta baseline so the first frame's dt is small
+	rafHandle = requestAnimationFrame(tick);
+}
+function stopLoop() {
+	loopRunning = false;
+	if (rafHandle) { cancelAnimationFrame(rafHandle); rafHandle = 0; }
+}
+function syncLoop() {
+	if (canRender && onScreen && !document.hidden) startLoop();
+	else stopLoop();
+}
+
+document.addEventListener('visibilitychange', syncLoop);
+if (typeof IntersectionObserver === 'function') {
+	const io = new IntersectionObserver((entries) => {
+		onScreen = entries.some((en) => en.isIntersecting);
+		syncLoop();
+	}, { threshold: 0 });
+	io.observe(stage);
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadAvatar()
 	.then(() => {
-		requestAnimationFrame(tick);
+		canRender = true;
+		syncLoop();
 	})
 	.catch((err) => {
 		log.error('[walk-embed] failed to load avatar:', err);
@@ -1092,6 +1218,8 @@ loadAvatar()
 			statusEl.classList.add('is-error');
 			statusEl.classList.remove('is-hidden');
 		}
+		hidePoster();
 		emit(OUTBOUND.ERROR, { code: 'avatar_load_failed', message: String(err?.message || err) });
-		requestAnimationFrame(tick);
+		canRender = true;
+		syncLoop();
 	});

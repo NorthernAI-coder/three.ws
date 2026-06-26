@@ -70,6 +70,14 @@ let previewToken = 0;
 let opQueue = Promise.resolve();
 let searchQuery = '';
 
+// Animation state. `emotesReady` flips true once the clip library loads and the
+// idle clip binds to the rig; until then the Animate tab shows a loading state.
+// `currentEmote` is the looping clip the avatar rests in (one-shots settle back
+// to it). `activeIdleClip` is the looping baseline that Save bakes in.
+let emotesReady = false;
+let currentEmote = DEFAULT_EMOTE;
+let activeIdleClip = DEFAULT_EMOTE;
+
 function queueOp(fn) {
 	const next = opQueue.then(fn).catch((err) => {
 		log.warn('[avatar-studio] queued op failed:', err);
@@ -84,7 +92,35 @@ const TABS = [
 	{ id: 'glasses', label: 'Glasses', kinds: ['glasses'], emoji: '🕶️', single: true },
 	{ id: 'earrings', label: 'Earrings', kinds: ['earrings'], emoji: '💎', single: false },
 	{ id: 'sculpt', label: 'Face', kinds: [], emoji: '✨', single: true, sculpt: true },
+	{ id: 'animate', label: 'Animate', kinds: [], emoji: '🎬', animate: true },
 ];
+
+// ── Animate — drive the rig live with the shared canonical clip library ──────
+// These names resolve against /animations/manifest.json (loaded by the scene's
+// emote controller) and retarget onto the avatar's skeleton at runtime. Proof
+// the avatar is fully rigged — and a customization dimension of its own: the
+// chosen idle loop is what the saved avatar settles into. `loop` clips hold
+// until the user picks another; one-shots play once and settle back to idle.
+const EMOTES = [
+	{ name: 'idle', label: 'Idle', emoji: '🧍', loop: true },
+	{ name: 'av-waiting', label: 'Waiting', emoji: '⏳', loop: true },
+	{ name: 'av-chilling', label: 'Chill', emoji: '😎', loop: true },
+	{ name: 'wave', label: 'Wave', emoji: '👋', loop: false },
+	{ name: 'av-cheering', label: 'Cheer', emoji: '🙌', loop: false },
+	{ name: 'celebrate', label: 'Celebrate', emoji: '🎉', loop: false },
+	{ name: 'av-arm-flex', label: 'Flex', emoji: '💪', loop: false },
+	{ name: 'jump', label: 'Jump', emoji: '⬆️', loop: false },
+	{ name: 'pray', label: 'Pray', emoji: '🙏', loop: false },
+	{ name: 'kiss', label: 'Blow Kiss', emoji: '😘', loop: false },
+	{ name: 'taunt', label: 'Taunt', emoji: '😏', loop: false },
+	{ name: 'dance', label: 'Dance', emoji: '💃', loop: true },
+	{ name: 'av-dance-shuffle', label: 'Shuffle', emoji: '🕺', loop: true },
+	{ name: 'rumba', label: 'Rumba', emoji: '🌹', loop: true },
+	{ name: 'thriller', label: 'Thriller', emoji: '🧟', loop: true },
+	{ name: 'capoeira', label: 'Capoeira', emoji: '🤸', loop: true },
+];
+const EMOTE_BY_NAME = new Map(EMOTES.map((e) => [e.name, e]));
+const DEFAULT_EMOTE = 'idle';
 const KIND_EMOJI = { hat: '🎩', glasses: '🕶️', earrings: '💎' };
 const KIND_LABEL = { hat: 'Hat', glasses: 'Glasses', earrings: 'Earrings' };
 let activeTab = 'color';
@@ -414,6 +450,13 @@ async function bootScene(glbUrl, editAvatar) {
 		});
 		scene.addOnTick((dt) => idle.update(dt));
 
+		// Bring the rig to life: load the clip library and settle the avatar into
+		// a looping idle so it leaves its bind T-pose. The clip drives the whole
+		// skeleton (breathing included), so the procedural idle layer is narrowed
+		// to blinking only — otherwise it would overwrite the clip's spine/head
+		// rotations back to the T-pose rest each frame (it runs after the mixer).
+		startIdleClip();
+
 		setStatus('', editAvatar
 			? 'Loaded your saved avatar. Make changes and save to update it.'
 			: 'Choose a style below to get started.');
@@ -421,6 +464,64 @@ async function bootScene(glbUrl, editAvatar) {
 		log.error('[avatar-studio] bootScene', err);
 		renderStageError($('as-loading'), 'We couldn’t load the avatar. Check your connection and try again.');
 	}
+}
+
+// ── Animate — live rig playback ──────────────────────────────────────
+
+/**
+ * Load the emote library and settle the avatar into its idle loop. On success
+ * the procedural idle layer drops to blink-only so it stops fighting the clip;
+ * on failure (manifest 404 / rig can't bind) the avatar keeps the full
+ * procedural idle (breathing + blink) so it's never a dead T-pose either way.
+ */
+async function startIdleClip() {
+	const emotes = scene?.getEmoteController?.();
+	if (!emotes) return;
+	try {
+		const ok = await emotes.loadManifest();
+		if (ok && (await scene.playEmote(DEFAULT_EMOTE))) {
+			emotesReady = true;
+			currentEmote = DEFAULT_EMOTE;
+			activeIdleClip = DEFAULT_EMOTE;
+			idle?.setChannels({ breathing: false, saccade: false, weightShift: false, blink: true });
+		}
+	} catch (err) {
+		log.warn('[avatar-studio] idle clip unavailable; using procedural idle', err?.message);
+	}
+	if (activeTab === 'animate') renderActivePanel();
+}
+
+/**
+ * Play an emote on the live rig. Looping clips become the new resting state
+ * (and the idle baked into Save); one-shots play once and settle back to the
+ * current idle so the avatar never freezes on a final frame.
+ */
+async function playEmote(name) {
+	if (!emotesReady || !scene) return;
+	const def = EMOTE_BY_NAME.get(name);
+	if (!def) return;
+	try {
+		if (def.loop) {
+			await scene.playEmote(name);
+			currentEmote = name;
+			activeIdleClip = name;
+		} else {
+			currentEmote = name;
+			await scene.playEmoteOnce(name, { settleTo: activeIdleClip });
+		}
+	} catch (err) {
+		log.warn(`[avatar-studio] emote "${name}" failed:`, err?.message);
+	}
+	if (activeTab === 'animate') markActiveEmote();
+}
+
+/** Await N animation frames — used to let a crossfade land before exporting. */
+function nextFrames(n) {
+	return new Promise((resolve) => {
+		let left = Math.max(1, n | 0);
+		const step = () => (--left <= 0 ? resolve() : requestAnimationFrame(step));
+		requestAnimationFrame(step);
+	});
 }
 
 // ── Fetch presets ────────────────────────────────────────────────────
@@ -510,6 +611,11 @@ function renderActivePanel() {
 		return;
 	}
 
+	if (tab.animate) {
+		renderAnimatePanel(panel);
+		return;
+	}
+
 	const q = searchQuery.trim().toLowerCase();
 	const items = presets.filter(
 		(p) => tab.kinds.includes(p.kind) && (!q || p.name.toLowerCase().includes(q)),
@@ -578,6 +684,54 @@ function tilePreviewMarkup(preset) {
 		     style="position:absolute;inset:0;"
 		     onerror="this.remove()" />
 	`;
+}
+
+// ── Animate panel ────────────────────────────────────────────────────
+
+function renderAnimatePanel(panel) {
+	if (!scene?.root) {
+		panel.innerHTML = `<div class="as-empty">Waiting for avatar to load...</div>`;
+		return;
+	}
+	if (!emotesReady) {
+		panel.innerHTML = `
+			<div class="as-animate-intro">Loading the motion library…</div>
+			<div class="as-grid as-anim-grid">${EMOTES.map(() =>
+				`<div class="as-tile as-skeleton" aria-hidden="true"></div>`,
+			).join('')}</div>`;
+		return;
+	}
+
+	const tiles = EMOTES.map((e) => {
+		const active = currentEmote === e.name;
+		return `
+			<button class="as-tile as-anim-tile${active ? ' selected' : ''}" type="button"
+			        data-emote="${esc(e.name)}" aria-pressed="${active ? 'true' : 'false'}"
+			        title="${esc(e.label)}">
+				<div class="as-tile-preview" aria-hidden="true">${e.emoji}</div>
+				<div class="as-tile-name">${esc(e.label)}</div>
+				<div class="as-tile-kind">${e.loop ? 'loop' : 'play once'}</div>
+			</button>`;
+	}).join('');
+
+	panel.innerHTML = `
+		<div class="as-animate-intro">Drive the rig live. A looping motion becomes your avatar's resting idle when you save.</div>
+		<div class="as-grid as-anim-grid">${tiles}</div>`;
+
+	panel.querySelectorAll('[data-emote]').forEach((btn) => {
+		btn.addEventListener('click', () => playEmote(btn.dataset.emote));
+	});
+}
+
+/** Refresh the pressed/selected state of the emote tiles without a full re-render. */
+function markActiveEmote() {
+	const panel = $('as-panel');
+	if (!panel) return;
+	panel.querySelectorAll('[data-emote]').forEach((btn) => {
+		const on = btn.dataset.emote === currentEmote;
+		btn.classList.toggle('selected', on);
+		btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+	});
 }
 
 // ── Color panel ──────────────────────────────────────────────────────
@@ -1317,6 +1471,18 @@ async function saveAvatar() {
 		// This captures all colours, morphs, and accessories already applied
 		// to the Three.js scene — no server-side bake needed.
 		updateSaveOverlay('Exporting model...', 'Capturing colours and accessories');
+		// GLTFExporter bakes each bone's *current* transform into the saved rest
+		// pose. Settle the rig into its chosen looping idle (not a frozen mid-emote
+		// frame) and let the crossfade land before capturing, so the saved avatar's
+		// first-frame / thumbnail pose is a clean relaxed stance.
+		if (emotesReady) {
+			try {
+				await scene.playEmote(activeIdleClip);
+				await nextFrames(18);
+			} catch (err) {
+				log.warn('[avatar-studio] idle settle before export failed:', err?.message);
+			}
+		}
 		const rawGlbBlob = await exportSceneGlb();
 		updateProgress(15);
 

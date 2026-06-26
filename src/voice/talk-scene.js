@@ -199,6 +199,15 @@ export class TalkScene {
 		return this._emotes?.play(name) ?? Promise.resolve(false);
 	}
 
+	/**
+	 * Convenience: play a one-shot emote, settling back into a looping clip
+	 * (idle by default) when it finishes so the rig never freezes on the final
+	 * frame. Use for non-looping clips (wave, celebrate, flex, …).
+	 */
+	playEmoteOnce(name, opts) {
+		return this._emotes?.playOnce(name, opts) ?? Promise.resolve(false);
+	}
+
 	attachMouthTarget(target) {
 		this._mouthTarget = target;
 		if (this.root) target.attach(this.root);

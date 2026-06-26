@@ -58,7 +58,7 @@ export function createDocument(overrides = {}) {
 	};
 }
 
-function clonePose(pose) {
+export function clonePose(pose) {
 	if (!pose) return null;
 	const bones = {};
 	for (const [key, q] of Object.entries(pose.bones || {})) {
@@ -66,6 +66,31 @@ function clonePose(pose) {
 	}
 	const rp = pose.rootPosition || { x: 0, y: 0, z: 0 };
 	return { bones, rootPosition: { x: rp.x || 0, y: rp.y || 0, z: rp.z || 0 } };
+}
+
+// True when two canonical poses are equal within `eps` — the same quaternion per
+// bone and the same root position. Used by the studio's undo stack to skip
+// no-op edits (a gizmo click that didn't actually rotate anything).
+export function posesEqual(a, b, eps = 1e-4) {
+	if (!a || !b) return a === b;
+	const ba = a.bones || {};
+	const bb = b.bones || {};
+	const keys = new Set([...Object.keys(ba), ...Object.keys(bb)]);
+	for (const key of keys) {
+		const qa = ba[key];
+		const qb = bb[key];
+		if (!qa || !qb) return false;
+		for (let i = 0; i < 4; i++) {
+			if (Math.abs((qa[i] || 0) - (qb[i] || 0)) > eps) return false;
+		}
+	}
+	const ra = a.rootPosition || { x: 0, y: 0, z: 0 };
+	const rb = b.rootPosition || { x: 0, y: 0, z: 0 };
+	return (
+		Math.abs((ra.x || 0) - (rb.x || 0)) <= eps &&
+		Math.abs((ra.y || 0) - (rb.y || 0)) <= eps &&
+		Math.abs((ra.z || 0) - (rb.z || 0)) <= eps
+	);
 }
 
 function sortKeyframes(doc) {

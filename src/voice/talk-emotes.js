@@ -140,6 +140,26 @@ export class TalkEmotes {
 		return true;
 	}
 
+	/**
+	 * Play a one-shot emote once, then settle back into a looping clip (idle by
+	 * default) with a crossfade. For manifest entries whose `loop` is false
+	 * (wave, celebrate, flex, …) this avoids freezing the avatar on the final
+	 * frame. Lazily loads both the one-shot and the settle clip via the manager.
+	 *
+	 * @param {string} name
+	 * @param {{ settleTo?: string, fade?: number }} [opts]
+	 * @returns {Promise<boolean>} false if the emote isn't in the manifest.
+	 */
+	async playOnce(name, { settleTo = 'idle', fade = 0.25 } = {}) {
+		const def = this._defsByName.get(name);
+		if (!def) {
+			log.warn(`[talk-emotes] unknown emote: ${name}`);
+			return false;
+		}
+		await this._manager.playOnce(name, { settleTo, fade });
+		return true;
+	}
+
 	get currentEmote() {
 		return this._manager.currentName;
 	}
