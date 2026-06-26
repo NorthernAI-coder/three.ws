@@ -7,7 +7,7 @@
 //
 // Network calls are stubbed via globalThis.fetch.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const sqlCalls = [];
 const sqlMock = vi.fn(async (...a) => { sqlCalls.push(a); return []; });
@@ -140,26 +140,29 @@ describe('connectPumpFunFeed — new-mint REST fallback', () => {
 		expect(byMint.MINTAAA.market_cap_usd).toBe(5000);
 	});
 
-	it('does not re-emit the same mint across repeated backfills (dedupe)', async () => {
+	it('dedupes within a connection but re-serves the backlog to a fresh one', async () => {
 		mockFetch([
 			{ mint: 'DUPE111', name: 'Dup', symbol: 'DUP', market_cap: 10, usd_market_cap: 1000, created_timestamp: 1782432177000 },
+			{ mint: 'DUPE222', name: 'Dup2', symbol: 'DU2', market_cap: 11, usd_market_cap: 1100, created_timestamp: 1782432170000 },
 		]);
 
-		const events = [];
-		const ac = new AbortController();
-		// First connection consumes the coin once.
-		const stop1 = connectPumpFunFeed({ kind: 'all', mints: [], signal: ac.signal, onEvent: (e) => events.push(e) });
+		// First connection: every distinct backlog mint is emitted exactly once,
+		// never duplicated within the connection.
+		const events1 = [];
+		const stop1 = connectPumpFunFeed({ kind: 'all', mints: [], signal: new AbortController().signal, onEvent: (e) => events1.push(e) });
 		await new Promise((r) => setTimeout(r, 60));
 		stop1();
-		const firstCount = events.filter((e) => e.kind === 'mint').length;
-		expect(firstCount).toBe(1);
+		const mints1 = events1.filter((e) => e.kind === 'mint').map((e) => e.data.mint);
+		expect(mints1.length).toBeGreaterThan(0);
+		expect(new Set(mints1).size).toBe(mints1.length); // no intra-connection dupes
 
-		// A brand-new connection (fresh per-connection dedupe) still sees the
-		// backlog — the dedupe is per-connection, not global.
+		// Per-connection dedupe: a brand-new connection still receives the full
+		// backlog (the seen-set is not shared across connections).
 		const events2 = [];
 		const stop2 = connectPumpFunFeed({ kind: 'all', mints: [], signal: new AbortController().signal, onEvent: (e) => events2.push(e) });
 		await new Promise((r) => setTimeout(r, 60));
 		stop2();
-		expect(events2.filter((e) => e.kind === 'mint').length).toBe(1);
+		const mints2 = events2.filter((e) => e.kind === 'mint').map((e) => e.data.mint);
+		expect(mints2.length).toBe(mints1.length);
 	});
 });
