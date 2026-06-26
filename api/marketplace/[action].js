@@ -475,12 +475,24 @@ async function handleList(req, res, url) {
 			       ap.amount        AS asset_price_amount,
 			       ap.currency_mint AS asset_price_currency_mint,
 			       ap.chain         AS asset_price_chain,
-			       ap.mint_decimals AS asset_price_mint_decimals
+			       ap.mint_decimals AS asset_price_mint_decimals,
+			       os.oracle_total, os.oracle_wins, os.oracle_win_rate, os.oracle_pnl_sol
 			FROM agent_identities ai
 			LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
 			LEFT JOIN users u ON u.id = ai.user_id
 			LEFT JOIN asset_prices ap
 			       ON ap.item_type = 'agent' AND ap.item_id = ai.id AND ap.is_active = true
+			LEFT JOIN (
+			       SELECT agent_id,
+			              COUNT(*)::int AS oracle_total,
+			              COUNT(*) FILTER (WHERE outcome = 'win')::int AS oracle_wins,
+			              ROUND(100.0 * COUNT(*) FILTER (WHERE outcome = 'win')
+			                    / NULLIF(COUNT(*) FILTER (WHERE outcome IN ('win','loss')), 0), 1) AS oracle_win_rate,
+			              ROUND(COALESCE(SUM(realized_pnl_sol), 0)::numeric, 4) AS oracle_pnl_sol
+			       FROM oracle_watch_actions
+			       WHERE outcome IS NOT NULL
+			       GROUP BY agent_id
+			) os ON os.agent_id = ai.id
 			WHERE ai.is_published = true
 			  AND ai.deleted_at IS NULL
 			  AND ai.name !~* ${AGENT_AUTONAMED_RE_SQL}
@@ -1382,6 +1394,15 @@ function toCard(row) {
 		solana_vanity_suffix: row.solana_vanity_suffix || null,
 		// Agent Genome pedigree — drives the rare-pedigree badge on the card.
 		genome: genomeCardField(row),
+		// Oracle trading track record — null when agent has no oracle history.
+		oracle: row.oracle_total > 0
+			? {
+				total: row.oracle_total,
+				wins: row.oracle_wins,
+				win_rate: Number(row.oracle_win_rate ?? 0),
+				pnl_sol: Number(row.oracle_pnl_sol ?? 0),
+			}
+			: null,
 	};
 }
 

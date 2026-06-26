@@ -21,6 +21,7 @@ import {
 import { buildAmmSellInstructions } from './amm-exit.js';
 import { assessTradeSafety, recordFirewallDecision } from '../../api/_lib/trade-firewall.js';
 import { recordDecision } from '../../api/_lib/reasoning-ledger.js';
+import { screenPush } from './screen-push.js';
 
 // Self-rated conviction for a snipe entry, 0..1. Lower price impact and a clean
 // firewall verdict raise it; a warned verdict and heavy impact lower it. This is
@@ -331,6 +332,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 							WHERE id = ${posId}
 						`;
 						log.warn('buy blocked by firewall', { ...tag, score: assessment.score, reasons: assessment.reasons });
+						screenPush(`$${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} blocked by firewall: ${reason}`, 'analysis');
 						return { status: 'failed', reason: 'firewall_block' };
 					}
 					if (assessment.verdict !== 'allow') {
@@ -351,6 +353,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 			// Execution telemetry — only set on a live broadcast; simulate keeps nulls
 			// (except a 'simulated' route marker so the UI can label paper fills).
 			let exec = { route: 'simulated', tipLamports: 0, priorityFeeMicroLamports: null, landedMs: null };
+			screenPush(`Buying $${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} — sending tx`, 'trade');
 			if (cfg.mode === 'live') {
 				const tipMode = ['economy', 'turbo'].includes(strat.mev_tip_mode) ? strat.mev_tip_mode : 'off';
 				// The tip guard needs to know what's already committed today + this trade.
@@ -391,6 +394,7 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 				WHERE id = ${posId}
 			`;
 			log.trade('buy', { ...tag, mode: cfg.mode, sig, sol: lamportsToSol(perTrade), base: baseAmount.toString(), impact: Number(quote.priceImpactPct).toFixed(2) });
+			screenPush(`Bought $${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} at ${lamportsToSol(perTrade).toFixed(4)} SOL — position open`, 'trade');
 			notifyBuy({ agentName: strat.agent_name || strat.agent_id, symbol: mint.symbol, mint: mint.mint, solSpent: lamportsToSol(perTrade), mode: cfg.mode, sig, chatId: strat.telegram_chat_id || null });
 			await recordSnipeSpend({ agentId: strat.agent_id, userId: strat.user_id, network: cfg.network, lamports: perTrade, signature: sig, mode: cfg.mode, mint: mint.mint, capabilityId: spendCapabilityId });
 			await recordSnipeDecision({
@@ -412,6 +416,7 @@ export async function executeSell({ cfg, position, reason }) {
 	return withAgentLock(position.agent_id, async () => {
 		const tag = { agent: position.agent_id, mint: position.mint, symbol: position.symbol, reason };
 		await sql`UPDATE agent_sniper_positions SET status = 'closing' WHERE id = ${position.id} AND status = 'open'`;
+		screenPush(`Selling $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()}: ${reason}`, 'trade');
 
 		try {
 			const loaded = await loadAgentKeypair(position.agent_id, position.user_id, 'sniper_sell');
@@ -470,8 +475,10 @@ export async function executeSell({ cfg, position, reason }) {
 					closed_at = now()
 				WHERE id = ${position.id}
 			`;
-			log.trade('sell', { ...tag, venue, mode: cfg.mode, sig, pnl_sol: lamportsToSol(pnl), pnl_pct: pnlPct.toFixed(1) });
-			notifySell({ agentName: position.agent_name || position.agent_id, symbol: position.symbol, mint: position.mint, pnlSol: lamportsToSol(pnl), pnlPct, exitReason: reason, mode: cfg.mode, sig, chatId: position.telegram_chat_id || null });
+			const pnlSol = lamportsToSol(pnl);
+			log.trade('sell', { ...tag, venue, mode: cfg.mode, sig, pnl_sol: pnlSol, pnl_pct: pnlPct.toFixed(1) });
+			screenPush(`Sold $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()} — ${pnlPct >= 0 ? 'profit' : 'loss'}: ${pnlSol >= 0 ? '+' : ''}${pnlSol.toFixed(4)} SOL`, 'trade');
+			notifySell({ agentName: position.agent_name || position.agent_id, symbol: position.symbol, mint: position.mint, pnlSol, pnlPct, exitReason: reason, mode: cfg.mode, sig, chatId: position.telegram_chat_id || null });
 			return { status: 'closed', sig, pnl: pnl.toString(), venue };
 		} catch (err) {
 			// A failed sell must NOT terminate the position — leave it 'open' so the
@@ -482,6 +489,7 @@ export async function executeSell({ cfg, position, reason }) {
 			const errState = wasGraduated ? `graduated:amm_exit_retry:${errCode(err)}` : errCode(err);
 			await sql`UPDATE agent_sniper_positions SET status = 'open', error = ${errState}, last_quoted_at = now() WHERE id = ${position.id}`;
 			log.warn('sell failed (will retry)', { ...tag, code: errCode(err), graduated: wasGraduated, err: err?.message });
+			screenPush(`Error: sell $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()} failed (${errCode(err)}) — retrying`, 'activity');
 			return { status: 'retry', reason: errCode(err) };
 		}
 	});

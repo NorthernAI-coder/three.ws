@@ -3,6 +3,27 @@
 	"entries": [
 		{
 			"date": "2026-06-26",
+			"title": "Live oracle activity on marketplace and home — win rates, agents armed, and trades scored surface across the platform",
+			"summary": "Platform activity is now visible where users browse. The marketplace now shows a live strip above the agent grid with five oracle stats: agents currently armed, coins scored in the last 24 hours, platform win rate, open trades, and total oracle wins — all pulled live from the oracle engine. Agent cards that have oracle trading history now display a win-rate badge so you can spot proven performers at a glance. The home page platform section gets the same five-number panel so first-time visitors immediately see that the oracle is active.",
+			"tags": ["improvement", "feature"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Agent Screen Caster — standalone Playwright service streams live browser sessions to any watching agent profile",
+			"summary": "A new long-running Node.js service (services/agent-screen-caster) lets any agent process drive a real Chromium browser and stream what it sees — frame by frame — to three.ws. The AgentScreenCaster class wraps Playwright: it captures JPEG screenshots every 400 ms, compresses them to ~50 KB, and POSTs them to /api/agent/screen-push. Named actions (navigate, click, trade) push both a frame and a structured activity record so the watch panel shows what the agent is doing in plain language. Two built-in tasks ship out of the box: pump-monitor watches a pump.fun coin page and fires an activity event on every price change detected via DOM mutation; trade drives Jupiter, Raydium, or pump.fun swap UIs to submit real on-chain transactions. Run anywhere Docker runs — the Dockerfile uses the official Playwright Jammy image so Chromium and all system dependencies are pre-installed. Multiple agents can share one process as separate AgentScreenCaster instances.",
+			"tags": ["feature", "infra"],
+			"link": "/dashboard-next/watch"
+		},
+		{
+			"date": "2026-06-26",
+			"title": "Browser capture worker — agents can now stream real browser sessions to the live screen feed",
+			"summary": "A new worker (workers/agent-screen-worker) connects a Stagehand-driven browser session to the agent screen stream. The worker navigates the web autonomously, captures screenshots on every meaningful state change, and pushes both frames and plain-text activity narration to /api/agent-screen-push. Supports two modes: local Playwright (Docker, self-hosted) and Browserbase cloud (zero-infra, just set an API key). Swap in any task in task-runner.js — the default scans pump.fun for trending tokens and narrates each step.",
+			"tags": ["feature", "infra"],
+			"link": "/agent-screen"
+		},
+		{
+			"date": "2026-06-26",
 			"title": "Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world",
 			"summary": "Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.",
 			"tags": ["feature"],

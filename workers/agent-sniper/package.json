@@ -12,5 +12,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
   }
 }

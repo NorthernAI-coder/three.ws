@@ -31,6 +31,7 @@ import {
 	alertBoot,
 	alertShutdown,
 } from './alerts.js';
+import { screenPush } from './screen-push.js';
 
 const BOOT_AT = new Date().toISOString();
 
@@ -77,6 +78,7 @@ async function main() {
 	const cfg = loadConfig();
 	log.info('boot', { network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill, pollMs: cfg.pollMs });
 	if (cfg.announceLifecycle) alertBoot({ network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill });
+	screenPush(`Sniper online — ${cfg.network} / ${cfg.mode} mode`, 'activity');
 
 	const throttle = makeThrottle(cfg.maxGlobalBuysPerMin);
 	const errors = makeErrorTracker({ threshold: cfg.errorAlertThreshold, windowMs: cfg.errorAlertWindowMs });
@@ -100,17 +102,24 @@ async function main() {
 		lastEventAt = Date.now();
 		feedConnected = true; // an event is proof the subscription is live
 		if (kind !== 'mint' || draining || cfg.globalKill) return;
+		const sym = (data.symbol || data.mint.slice(0, 6)).toUpperCase();
+		screenPush(`New token: $${sym} — scoring`, 'analysis');
 		const strategies = cachedStrategies();
 		for (const strat of strategies) {
 			// The new-mint feed only drives new_mint strategies; first_claim
 			// strategies are driven by the on-chain claim poll loop below.
 			if ((strat.trigger || 'new_mint') !== 'new_mint') continue;
-			const { pass, reasons } = scoreMint(data, strat);
+			const { pass, score, reasons } = scoreMint(data, strat);
 			if (!pass) continue;
-			log.info('candidate', { agent: strat.agent_id, mint: data.mint, symbol: data.symbol, reasons });
+			log.info('candidate', { agent: strat.agent_id, mint: data.mint, symbol: data.symbol, score, reasons });
+			screenPush(`$${sym} scored ${score} — BUYING`, 'trade');
 			queue.push(async () => {
 				const og = await oracleGate(data.mint, cfg.network, strat);
-				if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: data.mint, reason: og.reason }); return; }
+				if (!og.pass) {
+					log.info('oracle gate skip', { agent: strat.agent_id, mint: data.mint, reason: og.reason });
+					screenPush(`$${sym} oracle blocked: ${og.reason}`, 'analysis');
+					return;
+				}
 				if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: data.mint });
 				await executeBuy({ cfg, strat, mint: data, throttle });
 			});
@@ -151,6 +160,7 @@ async function main() {
 						const { pass, score, reasons } = scoreIntel(rec, strat, weights);
 						if (!pass) return;
 						log.info('intel candidate', { agent: strat.agent_id, mint: rec.mint, symbol: rec.symbol, score, reasons });
+						screenPush(`$${(rec.symbol || rec.mint.slice(0, 6)).toUpperCase()} intel score ${score} — BUYING`, 'trade');
 						queue.push(async () => {
 							const og = await oracleGate(rec.mint, cfg.network, strat);
 							if (!og.pass) { log.info('oracle gate skip', { agent: strat.agent_id, mint: rec.mint, reason: og.reason }); return; }
@@ -247,6 +257,7 @@ async function main() {
 			reconnectCount++;
 			log.warn('feed silent — re-subscribing', { silentMs, reconnects: reconnectCount });
 			alertFeedSilent({ silentMs, network: cfg.network, mode: cfg.mode });
+			screenPush(`Feed silent ${Math.round(silentMs / 1000)}s — reconnecting`, 'activity');
 			try { stopFeed?.(); } catch {}
 			lastEventAt = Date.now();
 			const a2 = new AbortController();
@@ -307,6 +318,7 @@ async function main() {
 	process.on('unhandledRejection', (err) => {
 		log.error('unhandledRejection', { err: err?.message });
 		noteError('unhandledRejection', err?.message);
+		screenPush(`Error: ${err?.message || 'unhandled rejection'}`, 'activity');
 	});
 }
 
