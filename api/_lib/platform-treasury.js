@@ -127,8 +127,12 @@ export async function transferSol(conn, fromKp, toAddress, lamports) {
 		}).compileToV0Message();
 		const tx = new VersionedTransaction(message);
 		tx.sign([fromKp]);
+		// Captured outside the try so a confirmation failure still carries the
+		// broadcast signature out on the thrown error — the caller can then check
+		// whether the tx actually landed before treating it as a clean failure.
+		let signature = null;
 		try {
-			const signature = await conn.sendTransaction(tx, { maxRetries: 5 });
+			signature = await conn.sendTransaction(tx, { maxRetries: 5 });
 			const conf = await conn.confirmTransaction(
 				{ signature, blockhash, lastValidBlockHeight },
 				'confirmed',
@@ -139,14 +143,39 @@ export async function transferSol(conn, fromKp, toAddress, lamports) {
 			return signature;
 		} catch (err) {
 			const msg = err?.message || '';
-			if (attempt < MAX_ATTEMPTS - 1 && /Blockhash not found|BlockhashNotFound/i.test(msg)) {
+			// Retry only when the tx provably never landed (preflight blockhash miss)
+			// AND nothing was broadcast — never re-broadcast after a confirmation
+			// ambiguity, which could double-send.
+			if (
+				attempt < MAX_ATTEMPTS - 1 &&
+				!signature &&
+				/Blockhash not found|BlockhashNotFound/i.test(msg)
+			) {
 				lastErr = err;
 				continue;
 			}
+			if (signature && err && typeof err === 'object') err.signature = signature;
 			throw err;
 		}
 	}
 	throw lastErr;
+}
+
+/**
+ * Whether a transaction signature has landed on-chain (confirmed or finalized,
+ * with no execution error). Used to disambiguate a confirmation-timeout — where
+ * the tx may have actually succeeded — before any retry/refund decision, so a
+ * grant is never sent twice. Returns false on any RPC trouble (caller decides).
+ */
+export async function signatureLanded(conn, signature) {
+	if (!signature) return false;
+	const statuses = await conn.getSignatureStatuses([signature], {
+		searchTransactionHistory: true,
+	});
+	const st = statuses?.value?.[0];
+	if (!st) return false;
+	if (st.err) return false;
+	return st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized';
 }
 
 /** The shared Solana RPC connection for a network (re-export for convenience). */

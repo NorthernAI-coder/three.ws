@@ -587,7 +587,11 @@ async function listedSkills(cfg) {
 			where asp.is_active = true
 			  and asp.currency_mint = ${THREE_MINT()}
 			  and coalesce(ai.meta->>'circulation', '') <> 'true'
-			  and ai.is_public = true
+			  -- is_published is the canonical "live + visible in the marketplace" gate
+			  -- (browse/detail all use it). Demand must only reach listings a user has
+			  -- actually published, not merely any non-private agent.
+			  and ai.is_published = true
+			  and coalesce(ai.is_public, true) = true
 			  and ai.deleted_at is null
 			  and asp.amount >= ${minAtomic}::numeric
 			  and asp.amount <= ${maxAtomic}::numeric

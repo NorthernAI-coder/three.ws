@@ -195,7 +195,7 @@ function pointCloudArtifact({ plyUrl, name }) {
 	const html =
 		`<!doctype html><html><head><meta charset="utf-8"><title>${safeName}</title>` +
 		`<style>html,body{margin:0;height:100%;background:#0a0a0a}iframe{border:0;width:100%;height:100%;display:block}</style>` +
-		`</head><body><iframe src="${viewer}" allow="fullscreen" title="${safeName}"></iframe></body></html>`;
+		`</head><body><iframe src="${viewer}" sandbox="allow-scripts allow-same-origin" allow="fullscreen" title="${safeName}"></iframe></body></html>`;
 	return {
 		type: 'resource',
 		resource: { uri: plyUrl, mimeType: 'text/html', text: html },
