@@ -108,6 +108,24 @@ function pem(name) {
 	return v.includes('\\n') ? v.replace(/\\n/g, '\n') : v;
 }
 
+// Bearer-token / endpoint credentials (Upstash REST URL + token, etc.) pasted
+// into the Vercel/Upstash dashboards frequently carry a trailing newline or stray
+// spaces. The @upstash/redis client drops the token straight into an
+// `Authorization: Bearer <token>` header and the URL into `fetch(`${url}/...`)`,
+// so a single trailing "\n" produces the exact production symptom we hit —
+// "WRONGPASS invalid or missing auth token" on a token that is otherwise correct,
+// while the URL still resolves (Upstash is reached, only the header is rejected).
+// That one stray character fails every critical limiter CLOSED (denying paid
+// endpoints) and silently disables the usage buffer + caches. Trim at the source
+// so no Redis consumer ever sees whitespace. Returns undefined when blank so the
+// `if (url && token)` guard in redis.js still skips cleanly. Mirrors
+// addr()/normalizeRpcUrl()/pem().
+function cred(value) {
+	if (value == null) return value;
+	const v = String(value).trim();
+	return v || undefined;
+}
+
 export const env = {
 	get APP_ORIGIN() {
 		return normalizeAppOrigin(opt('PUBLIC_APP_ORIGIN'));
@@ -145,15 +163,19 @@ export const env = {
 	},
 
 	get UPSTASH_REDIS_REST_URL() {
+		// cred() each candidate (not the coalesced result) so a whitespace-only
+		// primary falls through to the next alias instead of masking it.
 		return (
-			opt('UPSTASH_REDIS_REST_URL') || opt('three_KV_REST_API_URL') || opt('KV_REST_API_URL')
+			cred(opt('UPSTASH_REDIS_REST_URL')) ||
+			cred(opt('three_KV_REST_API_URL')) ||
+			cred(opt('KV_REST_API_URL'))
 		);
 	},
 	get UPSTASH_REDIS_REST_TOKEN() {
 		return (
-			opt('UPSTASH_REDIS_REST_TOKEN') ||
-			opt('three_KV_REST_API_TOKEN') ||
-			opt('KV_REST_API_TOKEN')
+			cred(opt('UPSTASH_REDIS_REST_TOKEN')) ||
+			cred(opt('three_KV_REST_API_TOKEN')) ||
+			cred(opt('KV_REST_API_TOKEN'))
 		);
 	},
 
@@ -168,10 +190,10 @@ export const env = {
 	// back to the shared store, then to in-memory — no behavior change. The Vercel-KV
 	// marketplace names for a second store prefixed `cache` are accepted too.
 	get UPSTASH_CACHE_REST_URL() {
-		return opt('UPSTASH_CACHE_REST_URL') || opt('cache_KV_REST_API_URL');
+		return cred(opt('UPSTASH_CACHE_REST_URL')) || cred(opt('cache_KV_REST_API_URL'));
 	},
 	get UPSTASH_CACHE_REST_TOKEN() {
-		return opt('UPSTASH_CACHE_REST_TOKEN') || opt('cache_KV_REST_API_TOKEN');
+		return cred(opt('UPSTASH_CACHE_REST_TOKEN')) || cred(opt('cache_KV_REST_API_TOKEN'));
 	},
 
 	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────
