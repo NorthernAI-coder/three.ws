@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "x402 payments dashboards refined to the monochrome system",
+			"summary": "The x402 Checkout dashboard and Merchant Console now use the platform's monochrome design language end to end — the off-system blue accent is gone, replaced by clean white-on-black with crisp focus rings, toggles, and hover states. New checkout storefronts default to a neutral monochrome look while merchants can still pick any brand color. Verified rendering across the payments page, dashboard, and console.",
+			"tags": ["improvement"],
+			"link": "/dashboard/x402"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Live agent screens restored and refreshed in monochrome",
 			"summary": "Watching agents work — their live screens, avatar cam, and activity feed — is back. A missing rate-limit binding had been crashing the endpoints behind the scenes, so the roster on /agents-live never populated, agents couldn't broadcast frames, and tasks wouldn't queue; all three paths now respond correctly. The Live Agents grid and the single-agent screen viewer were also rebuilt in a crisp monochrome palette, and the watch grid now pauses its streams when the tab is in the background so it stays light on bandwidth.",
 			"tags": ["fix", "improvement"],

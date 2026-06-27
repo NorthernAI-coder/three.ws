@@ -98,6 +98,15 @@ export function config() {
 		growthPerTick: clampInt(process.env.CIRCULATION_GROWTH_PER_TICK, 3, 1, 40),
 		actionsPerTick: clampInt(process.env.CIRCULATION_ACTIONS_PER_TICK, 2, 1, 12),
 		origin: env.APP_ORIGIN || 'https://three.ws',
+		// Route the platform's manufactured marketplace demand to REAL (user-owned,
+		// activated) sellers too — turning the activation funnel into sustained
+		// earning wallets. Opt-in and bounded (price band + per-seller daily cap);
+		// when off, demand stays entirely within the circulation pool (identical to
+		// prior behaviour).
+		realSellerDemand: ['1', 'true', 'yes'].includes(
+			String(process.env.CIRCULATION_REAL_SELLER_DEMAND ?? '').toLowerCase(),
+		),
+		realSellerDailyCap: clampInt(process.env.CIRCULATION_REAL_SELLER_DAILY_CAP, 3, 1, 50),
 	};
 }
 
@@ -545,12 +554,18 @@ async function transferThreeWithReference(conn, fromKp, toAddress, atomic, refer
 	return signature;
 }
 
-// Skills currently listed (active, $THREE-priced) by circulation sellers, joined to
-// the seller's owner so the purchase action can exclude self-dealing.
-async function listedSkills() {
-	return sql`
+// Skills currently listed (active, $THREE-priced), joined to the seller's owner so
+// the purchase action can exclude self-dealing. Circulation sellers are always
+// included; when `cfg.realSellerDemand` is on, REAL user-owned sellers are folded
+// in too — but only ones that are genuinely onboarded (the owner has activated the
+// agent), priced within the normal band, public, and under a per-seller daily cap.
+// That makes platform-funded demand reward real, activated wallets without opening
+// a treasury-drain vector (overpriced listings, sybil sellers, runaway repeats).
+// Each row is tagged seller_kind so callers can reason about it.
+async function listedSkills(cfg) {
+	const circulation = await sql`
 		select asp.agent_id, asp.skill, asp.amount, asp.currency_mint, asp.trial_uses,
-		       ai.user_id as seller_user_id, ai.name as seller_name
+		       ai.user_id as seller_user_id, ai.name as seller_name, 'circulation' as seller_kind
 		from agent_skill_prices asp
 		join agent_identities ai on ai.id = asp.agent_id
 		where asp.is_active = true
@@ -558,6 +573,41 @@ async function listedSkills() {
 		  and (ai.meta->>'circulation') = 'true'
 		  and ai.deleted_at is null
 	`;
+	if (!cfg?.realSellerDemand) return circulation;
+
+	const minAtomic = threeAtomic(SKILL_PRICE_MIN_THREE).toString();
+	const maxAtomic = threeAtomic(SKILL_PRICE_MAX_THREE).toString();
+	let real = [];
+	try {
+		real = await sql`
+			select asp.agent_id, asp.skill, asp.amount, asp.currency_mint, asp.trial_uses,
+			       ai.user_id as seller_user_id, ai.name as seller_name, 'real' as seller_kind
+			from agent_skill_prices asp
+			join agent_identities ai on ai.id = asp.agent_id
+			where asp.is_active = true
+			  and asp.currency_mint = ${THREE_MINT()}
+			  and coalesce(ai.meta->>'circulation', '') <> 'true'
+			  and ai.is_public = true
+			  and ai.deleted_at is null
+			  and asp.amount >= ${minAtomic}::numeric
+			  and asp.amount <= ${maxAtomic}::numeric
+			  and exists (
+				select 1 from agent_activations aa
+				where aa.agent_id = ai.id and aa.status = 'confirmed'
+			  )
+			  and (
+				select count(*) from circulation_actions ca
+				where ca.kind = 'buy_skill' and ca.counterparty_agent_id = ai.id
+				  and ca.status = 'ok' and ca.created_at > now() - interval '24 hours'
+			  ) < ${cfg.realSellerDailyCap}
+		`;
+	} catch (e) {
+		// agent_activations may not be migrated yet — degrade to circulation-only
+		// rather than breaking the tick.
+		console.warn('[circulation] real-seller demand query skipped', e?.message);
+		real = [];
+	}
+	return [...circulation, ...real];
 }
 
 // ── actions ───────────────────────────────────────────────────────────────────
@@ -841,8 +891,8 @@ async function actionListSkill() {
 // then confirmSkillPurchase validates on-chain, records the seller's revenue, and
 // grants persistent access — the identical path a human-owned agent uses.
 async function actionBuySkill(ctx) {
-	const { conn, pool, network } = ctx;
-	const listings = await listedSkills();
+	const { conn, pool, network, cfg } = ctx;
+	const listings = await listedSkills(cfg);
 	if (!listings.length) throw new Skip('no skills listed yet');
 	const listing = pick(listings);
 
@@ -938,8 +988,8 @@ async function actionBuySkill(ctx) {
 // A buyer agent starts a free trial on a trial-eligible listed skill. No payment —
 // a real skill_purchases trial row, exactly like /api/marketplace/start-trial.
 async function actionTrial(ctx) {
-	const { pool } = ctx;
-	const trialable = (await listedSkills()).filter((l) => (l.trial_uses || 0) > 0);
+	const { pool, cfg } = ctx;
+	const trialable = (await listedSkills(cfg)).filter((l) => (l.trial_uses || 0) > 0);
 	if (!trialable.length) throw new Skip('no trial-eligible skills listed');
 	const listing = pick(trialable);
 
