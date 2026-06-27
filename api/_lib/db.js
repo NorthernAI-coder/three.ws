@@ -143,7 +143,11 @@ export function sqlValues(rows) {
 // DB-unavailable alert per hour is enough.
 export function isDbUnavailableError(err) {
 	if (!err) return false;
-	const name = err.constructor?.name ?? '';
+	// esbuild minifies class names (e.g. NeonDbError → Pt in the bundle), so
+	// err.constructor.name is unreliable in production. Use err.name instead —
+	// NeonDbError explicitly sets `this.name = 'NeonDbError'` via a class field,
+	// which survives minification. Fall back to constructor.name for dev builds.
+	const name = String(err.name || err.constructor?.name || '');
 	const msg = String(err.message ?? '');
 	if (name === 'NeonDbError' || name === 'DatabaseError') {
 		return (
@@ -159,6 +163,12 @@ export function isDbUnavailableError(err) {
 	// the Neon HTTP gateway is unreachable).
 	if (name === 'FetchError' || name === 'TypeError') {
 		return msg.includes('ECONNREFUSED') || msg.includes('fetch failed');
+	}
+	// Upstash Redis auth failure — WRONGPASS means the token is wrong or rotated.
+	// Same "infra misconfigured" class as a DB auth failure: a single bad env var
+	// would otherwise produce an unhandled-500 storm on every cron tick.
+	if (name === 'UpstashError') {
+		return msg.includes('WRONGPASS') || msg.includes('invalid or missing auth token') || msg.includes('Unauthorized');
 	}
 	return false;
 }

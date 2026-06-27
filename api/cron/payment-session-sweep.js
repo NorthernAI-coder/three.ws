@@ -43,14 +43,24 @@ export default wrapCron(async (req, res) => {
 
 	const t0 = Date.now();
 
-	// Find expired sessions in one query, limiting the batch
+	// PostgreSQL does not allow LIMIT directly in UPDATE. Use a CTE to select
+	// the batch first (FOR UPDATE SKIP LOCKED prevents double-processing when
+	// multiple cron invocations race), then join back to update.
 	const expiredRows = await sql`
+		WITH batch AS (
+			SELECT id FROM payment_sessions
+			WHERE status = 'active'
+			  AND expires_at < now()
+			ORDER BY expires_at
+			LIMIT ${BATCH_LIMIT}
+			FOR UPDATE SKIP LOCKED
+		)
 		UPDATE payment_sessions
 		SET status = 'expired', updated_at = now()
-		WHERE status = 'active'
-		  AND expires_at < now()
-		RETURNING id, user_id, budget_usdc, spent_usdc
-		LIMIT ${BATCH_LIMIT}
+		FROM batch
+		WHERE payment_sessions.id = batch.id
+		RETURNING payment_sessions.id, payment_sessions.user_id,
+		          payment_sessions.budget_usdc, payment_sessions.spent_usdc
 	`;
 
 	let refunded = 0;
