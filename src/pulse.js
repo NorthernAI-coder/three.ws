@@ -70,6 +70,16 @@ function fmtNum(n) {
 	return String(v);
 }
 
+// Whole-token $THREE amount → compact label (e.g. 12.4k, 1.2M, 340).
+function fmtThree(n) {
+	const v = Number(n) || 0;
+	if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
+	if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+	if (v >= 100) return String(Math.round(v));
+	return v.toFixed(v < 1 ? 3 : 1).replace(/\.0$/, '');
+}
+const fmtPct = (frac) => `${Math.round((Number(frac) || 0) * 100)}%`;
+
 function timeAgo(iso) {
 	const t = new Date(iso).getTime();
 	if (!Number.isFinite(t)) return '';
@@ -93,6 +103,11 @@ function renderStats(d) {
 	$('px-c-trades').textContent = String(d.trades_only_24h ?? 0);
 	$('px-c-trades-sub').textContent = (d.snipes_24h ?? 0) > 0 ? `+${d.snipes_24h} snipe${d.snipes_24h === 1 ? '' : 's'}` : 'swaps';
 	$('px-c-pays').textContent = String(d.payments_24h ?? 0);
+	const mkt = d.marketplace_24h || {};
+	$('px-c-market').textContent = String(mkt.purchases ?? 0);
+	$('px-c-market-sub').textContent = mkt.gmv_three > 0
+		? `${fmtThree(mkt.gmv_three)} $THREE`
+		: (mkt.trials > 0 ? `${mkt.trials} trial${mkt.trials === 1 ? '' : 's'}` : 'paid skill buys');
 	$('px-c-active').textContent = String(d.active_wallets_24h ?? 0);
 
 	renderSparkline(d.series_7d);
@@ -184,6 +199,104 @@ function renderLaunches(list) {
 		.join('');
 }
 
+async function loadMarketplace() {
+	try {
+		const res = await fetch(`/api/pulse?view=marketplace&network=${state.network}`, { headers: { accept: 'application/json' } });
+		if (!res.ok) throw new Error(`marketplace ${res.status}`);
+		const { data } = await res.json();
+		renderMarketplace(data);
+	} catch (e) {
+		log.warn('marketplace failed', e?.message);
+		// Supplementary panel — never block the page; just hide it on failure.
+		$('px-market')?.setAttribute('hidden', '');
+		$('px-sellers-card')?.setAttribute('hidden', '');
+	}
+}
+
+function renderMarketplace(d) {
+	const panel = $('px-market');
+	if (!panel) return;
+	const w24 = d.window_24h || {};
+	const w7 = d.window_7d || {};
+	const anyActivity = (w7.purchases || 0) > 0 || (w7.trials || 0) > 0 || (w24.purchases || 0) > 0;
+	panel.hidden = false;
+
+	// Fee tag — surfaces the live take-rate, or that it's off (honest either way).
+	const feeEl = $('px-mkt-fee');
+	if (feeEl) {
+		feeEl.textContent = d.fee_bps > 0 ? `${d.fee_pct}% take-rate` : 'take-rate off';
+		feeEl.classList.toggle('px-market-tag--off', !(d.fee_bps > 0));
+	}
+
+	$('px-mkt-gmv24').textContent = fmtThree(w24.gmv_three);
+	$('px-mkt-gmv24-sub').textContent = `$THREE · ${w24.purchases || 0} buy${w24.purchases === 1 ? '' : 's'}`;
+	$('px-mkt-gmv7').textContent = fmtThree(w7.gmv_three);
+	$('px-mkt-gmv7-sub').textContent = `$THREE · ${w7.purchases || 0} buy${w7.purchases === 1 ? '' : 's'}`;
+	$('px-mkt-ticket').textContent = fmtThree(w7.avg_ticket_three);
+	$('px-mkt-repeat').textContent = fmtPct(d.repeat_buyer_rate_7d);
+	$('px-mkt-repeat-sub').textContent = `${d.repeat_buyers_7d || 0}/${d.buyers_7d || 0} buyers · 7d`;
+	$('px-mkt-pairs').textContent = String(w7.pairs || 0);
+	$('px-mkt-take').textContent = d.fee_bps > 0 ? fmtThree(w7.take_rate_three) : '—';
+	$('px-mkt-take-sub').textContent = d.fee_bps > 0 ? `$THREE earned · 7d` : 'fee disabled';
+
+	renderMarketSpark(d.series_7d);
+
+	// Top skills — what the market is paying for.
+	const skillsHost = $('px-mkt-skills');
+	if (d.top_skills?.length) {
+		skillsHost.innerHTML = d.top_skills
+			.map((s) => (
+				`<div class="px-skill-row">` +
+				`<span class="px-skill-name">${esc(s.skill)}</span>` +
+				`<span class="px-skill-meta">${fmtThree(s.gmv_three)} <small>$THREE · ${s.purchases} buy${s.purchases === 1 ? '' : 's'}</small></span>` +
+				`</div>`
+			))
+			.join('');
+	} else {
+		skillsHost.innerHTML = anyActivity
+			? `<p class="px-lb-empty">No paid skills cleared in the last 7 days.</p>`
+			: `<p class="px-lb-empty">No marketplace sales yet. Fund agents and list paid skills to start the loop. <a href="/marketplace">Open marketplace.</a></p>`;
+	}
+
+	// Top sellers rail card — the supply side that's actually clearing.
+	const sellersCard = $('px-sellers-card');
+	const sellersHost = $('px-sellers');
+	if (d.top_sellers?.length) {
+		sellersCard.hidden = false;
+		sellersHost.innerHTML = d.top_sellers
+			.map((a) => agentCardHTML(a, `${fmtThree(a.gmv_three)} <small>$THREE · ${a.sales} sale${a.sales === 1 ? '' : 's'}</small>`))
+			.join('');
+		wireWalletChips(sellersHost);
+	} else {
+		sellersCard.hidden = true;
+	}
+}
+
+// 7-day GMV sparkline for the marketplace panel; today highlighted, bars scale to peak.
+function renderMarketSpark(series) {
+	const host = $('px-mkt-spark');
+	const totalEl = $('px-mkt-spark-total');
+	if (!host) return;
+	const days = Array.isArray(series) ? series : [];
+	const total = days.reduce((s, d) => s + (d.gmv_three || 0), 0);
+	if (totalEl) totalEl.textContent = total > 0 ? `${fmtThree(total)} $THREE` : '—';
+	if (!days.length) { host.innerHTML = `<p class="px-lb-empty">No activity yet.</p>`; return; }
+	const peak = Math.max(1e-9, ...days.map((d) => d.gmv_three || 0));
+	host.innerHTML = days
+		.map((d, i) => {
+			const v = d.gmv_three || 0;
+			const h = v > 0 ? Math.max(6, Math.round((v / peak) * 100)) : 2;
+			const today = i === days.length - 1;
+			return (
+				`<div class="px-spark-col${today ? ' px-spark-col--now' : ''}" title="${esc(d.day)}: ${fmtThree(v)} $THREE · ${d.purchases || 0} buys">` +
+				`<div class="px-spark-bar px-spark-bar--mkt" style="height:${h}%"></div>` +
+				`<span class="px-spark-lbl">${esc(d.label)}</span>` +
+				`</div>`
+			);
+		})
+		.join('');
+}
+
 function mountFeed() {
 	const host = $('px-feed');
 	if (state.pulse) state.pulse.destroy();
@@ -210,6 +323,7 @@ function wireNetworkToggle() {
 			$('px-net-label').textContent = net;
 			state.pulse?.setNetwork(net);
 			loadStats();
+			loadMarketplace();
 		});
 	}
 }
@@ -218,8 +332,9 @@ function init() {
 	wireNetworkToggle();
 	mountFeed();
 	loadStats();
+	loadMarketplace();
 	// Refresh stats on a slow cadence; the feed has its own live delta polling.
-	setInterval(() => { if (!document.hidden) loadStats(); }, 60_000);
+	setInterval(() => { if (!document.hidden) { loadStats(); loadMarketplace(); } }, 60_000);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

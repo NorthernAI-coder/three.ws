@@ -583,6 +583,17 @@ export const limits = {
 	// a screenshot in Redis, so cap the burst per IP to keep that bounded; reads use
 	// the generic publicIp bucket.
 	buildPublishIp: (ip) => getLimiter('build:publish:ip', { limit: 10, window: '10 m' }).limit(ip),
+	// /play sign-in nonce (GET /api/play/nonce). Hit on every /play page load — and
+	// again on each sign-in attempt — to read the gate config + mint a self-verifying
+	// HMAC nonce. It has NO side effects and NO cost (no RPC, no DB), so it must NOT
+	// borrow the strict credential `authIp` bucket (30/10m, shared with login/register/
+	// trading): a shared office/NAT, a burst of players, or a couple of reloads would
+	// exhaust that and 429 the gate on what is almost always an open game. The real
+	// abuse surface is /verify (ed25519 signature + RPC balance read), which keeps
+	// `authIp`. local: a per-instance flood guard is all this needs — like publicIp /
+	// tokenPriceIp — and it spends zero Redis commands on a high-traffic page-load path.
+	playNonceIp: (ip) =>
+		getLimiter('play:nonce:ip', { limit: 120, window: '1 m', local: true }).limit(ip),
 	// Browser Solana JSON-RPC proxy (api/solana-rpc). Forwards to the keyed
 	// upstream (Helius), so cap per-IP burst to keep the studio launch panel
 	// responsive while preventing anonymous quota drain, plus a global hourly

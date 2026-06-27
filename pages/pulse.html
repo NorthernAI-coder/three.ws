@@ -86,7 +86,12 @@
 				<div class="px-counter">
 					<dt>Payments · 24h</dt>
 					<dd id="px-c-pays">—</dd>
-					<span class="px-counter-sub">agent → agent</span>
+					<span class="px-counter-sub">agent → agent x402</span>
+				</div>
+				<div class="px-counter">
+					<dt>Marketplace · 24h</dt>
+					<dd id="px-c-market">—</dd>
+					<span class="px-counter-sub" id="px-c-market-sub">paid skill buys</span>
 				</div>
 				<div class="px-counter">
 					<dt>Active wallets · 24h</dt>
@@ -101,6 +106,37 @@
 					<span class="px-spark-total" id="px-spark-total">—</span>
 				</div>
 				<div class="px-spark-bars" id="px-spark-bars" role="img" aria-label="Daily activity, last 7 days"></div>
+			</section>
+
+			<section class="px-market" id="px-market" aria-label="Marketplace viability" hidden>
+				<div class="px-market-h">
+					<div class="px-market-htxt">
+						<span class="px-market-title">Marketplace viability</span>
+						<span class="px-market-tag" id="px-mkt-fee">—</span>
+					</div>
+					<span class="px-market-sub">Real $THREE skill purchases — value delivered, take-rate earned. The honest signal behind the payments counter.</span>
+				</div>
+				<div class="px-market-kpis">
+					<div class="px-kpi"><dt>GMV · 24h</dt><dd id="px-mkt-gmv24">—</dd><span class="px-kpi-sub" id="px-mkt-gmv24-sub">$THREE</span></div>
+					<div class="px-kpi"><dt>GMV · 7d</dt><dd id="px-mkt-gmv7">—</dd><span class="px-kpi-sub" id="px-mkt-gmv7-sub">$THREE</span></div>
+					<div class="px-kpi"><dt>Avg ticket</dt><dd id="px-mkt-ticket">—</dd><span class="px-kpi-sub">per purchase · 7d</span></div>
+					<div class="px-kpi"><dt>Repeat buyers</dt><dd id="px-mkt-repeat">—</dd><span class="px-kpi-sub" id="px-mkt-repeat-sub">of buyers · 7d</span></div>
+					<div class="px-kpi"><dt>Trading pairs</dt><dd id="px-mkt-pairs">—</dd><span class="px-kpi-sub">unique buyer→seller · 7d</span></div>
+					<div class="px-kpi"><dt>Take-rate · 7d</dt><dd id="px-mkt-take">—</dd><span class="px-kpi-sub" id="px-mkt-take-sub">platform fee</span></div>
+				</div>
+				<div class="px-market-body">
+					<div class="px-market-spark">
+						<div class="px-spark-h">
+							<span class="px-spark-title">GMV · last 7 days</span>
+							<span class="px-spark-total" id="px-mkt-spark-total">—</span>
+						</div>
+						<div class="px-spark-bars" id="px-mkt-spark" role="img" aria-label="Daily marketplace GMV, last 7 days"></div>
+					</div>
+					<div class="px-market-skills">
+						<div class="px-card-h">Top skills <small>GMV · 7d</small></div>
+						<div id="px-mkt-skills"><p class="px-lb-empty">Loading…</p></div>
+					</div>
+				</div>
 			</section>
 
 			<div class="px-grid">
@@ -120,6 +156,10 @@
 					<section class="px-card">
 						<div class="px-card-h">Busiest wallets <small>events · 24h</small></div>
 						<div id="px-busiest"><p class="px-lb-empty">Loading…</p></div>
+					</section>
+					<section class="px-card" id="px-sellers-card" hidden>
+						<div class="px-card-h">Top sellers <small>earnings · 7d</small></div>
+						<div id="px-sellers"><p class="px-lb-empty">Loading…</p></div>
 					</section>
 					<section class="px-card">
 						<div class="px-card-h">Fresh launches <small>newest coins</small></div>

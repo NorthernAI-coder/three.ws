@@ -14,7 +14,7 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	res.setHeader('cache-control', 'no-store');
 
-	const rl = await limits.authIp(clientIp(req));
+	const rl = await limits.playNonceIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
 	const { nonce, exp } = issueNonce();
