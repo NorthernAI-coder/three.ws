@@ -230,8 +230,12 @@ export const limits = {
 	// closed here locks every user out of login — a self-inflicted outage strictly
 	// worse than the brute-force window a degraded per-instance cap leaves open,
 	// especially with bcrypt already throttling the credential path per request.
+	// 50/10m per IP: generous enough for shared NAT / office egress and an active
+	// user retrying a forgotten password without tripping, yet far below what a
+	// credential-stuffing run needs — bcrypt's per-request cost already throttles
+	// the guess rate, and `registerIp` (5/h) caps account creation independently.
 	authIp: (ip) =>
-		getLimiter('auth:ip', { limit: 30, window: '10 m', critical: true, degradeToMemory: true }).limit(ip),
+		getLimiter('auth:ip', { limit: 50, window: '10 m', critical: true, degradeToMemory: true }).limit(ip),
 	registerIp: (ip) =>
 		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true, degradeToMemory: true }).limit(ip),
 	// NL→strategy compile (api/sniper/compile.js) runs a real LLM call per request,

@@ -936,6 +936,48 @@
 						});
 				}
 
+				// ── Rate-limit cooldown ──
+				// When the server returns 429 it tells us exactly how long to wait
+				// (Retry-After header, mirrored as retry_after in the JSON body). Drive
+				// a real, ticking countdown off that value instead of a vague "try
+				// later" — the button and the error line both count down and the form
+				// re-arms itself the instant the window clears. No fake timers.
+				let cooldownTimer = null;
+				function clearCooldown() {
+					if (cooldownTimer) { clearInterval(cooldownTimer); cooldownTimer = null; }
+				}
+				function fmtCooldown(s) {
+					if (s >= 60) {
+						const m = Math.floor(s / 60);
+						return `${m}:${String(s % 60).padStart(2, '0')}`;
+					}
+					return `${s}s`;
+				}
+				function startCooldown(seconds) {
+					clearCooldown();
+					let remaining = Math.max(1, Math.ceil(seconds));
+					btn.disabled = true;
+					const render = () => {
+						btn.textContent = `Try again in ${fmtCooldown(remaining)}`;
+						err.textContent = `Too many sign-in attempts. You can try again in ${fmtCooldown(remaining)}.`;
+						err.style.color = '';
+						err.style.display = 'block';
+					};
+					render();
+					cooldownTimer = setInterval(() => {
+						remaining -= 1;
+						if (remaining <= 0) {
+							clearCooldown();
+							btn.disabled = false;
+							btn.textContent = 'Sign in';
+							err.style.display = 'none';
+							emailInput.focus();
+							return;
+						}
+						render();
+					}, 1000);
+				}
+
 				// ── Submit ──
 				form.addEventListener('submit', async (e) => {
 					e.preventDefault();
@@ -956,52 +998,73 @@
 					}
 					if (bad) { window.__avatarReact?.(); return; }
 
+					clearCooldown();
 					btn.disabled = true;
 					btn.textContent = 'Signing in…';
+
+					let res;
 					try {
-						const res = await fetch('/api/auth/login', {
+						res = await fetch('/api/auth/login', {
 							method: 'POST',
 							credentials: 'include',
 							headers: { 'content-type': 'application/json' },
 							body: JSON.stringify({ email, password, remember: document.getElementById('remember')?.checked || false }),
 						});
-						const data = await res.json().catch(() => ({}));
-						if (!res.ok) {
-							const err429 = res.status === 429;
-							const msg = err429
-								? 'Too many attempts. Try again in a moment.'
-								: 'Email or password is incorrect.';
-							throw new Error(msg);
-						}
-						try {
-							localStorage.setItem(LAST_EMAIL_KEY, email);
-							localStorage.setItem(
-								'3dagent:auth-hint',
-								JSON.stringify({
-									authed: true,
-									name: data.user?.display_name || '',
-									ts: Date.now(),
-								}),
-							);
-						} catch {
-							/* ignore */
-						}
-						btn.textContent = 'Signed in — redirecting…';
-						// Tie the redirect to the celebration animation's own length
-						// (one dance cycle) instead of an arbitrary fixed timer, and
-						// use replace() so Back never lands the user on the login form
-						// again after they're authenticated.
-						const danceMs = window.__avatarCelebrate?.() || 1200;
-						setTimeout(
-							() => location.replace(next),
-							Math.min(Math.max(danceMs, 700), 1800),
-						);
-					} catch (e2) {
-						setFieldError(passwordInput, passwordErr, e2.message);
+					} catch {
+						// Transport failure — the request never reached the server.
+						setFieldError(passwordInput, passwordErr, 'Network error — check your connection and try again.');
 						btn.disabled = false;
 						btn.textContent = 'Sign in';
 						window.__avatarFall?.();
+						return;
 					}
+
+					const data = await res.json().catch(() => ({}));
+
+					if (res.status === 429) {
+						// Honour the server's own back-off window: prefer the JSON
+						// retry_after, fall back to the Retry-After header, then a sane
+						// default. The countdown re-arms the form when it elapses.
+						const retryAfter =
+							Number(data.retry_after) ||
+							parseInt(res.headers.get('retry-after') || '', 10) ||
+							60;
+						startCooldown(retryAfter);
+						window.__avatarFall?.();
+						return;
+					}
+
+					if (!res.ok) {
+						setFieldError(passwordInput, passwordErr, 'Email or password is incorrect.');
+						btn.disabled = false;
+						btn.textContent = 'Sign in';
+						window.__avatarFall?.();
+						return;
+					}
+
+					try {
+						localStorage.setItem(LAST_EMAIL_KEY, email);
+						localStorage.setItem(
+							'3dagent:auth-hint',
+							JSON.stringify({
+								authed: true,
+								name: data.user?.display_name || '',
+								ts: Date.now(),
+							}),
+						);
+					} catch {
+						/* ignore */
+					}
+					btn.textContent = 'Signed in — redirecting…';
+					// Tie the redirect to the celebration animation's own length
+					// (one dance cycle) instead of an arbitrary fixed timer, and
+					// use replace() so Back never lands the user on the login form
+					// again after they're authenticated.
+					const danceMs = window.__avatarCelebrate?.() || 1200;
+					setTimeout(
+						() => location.replace(next),
+						Math.min(Math.max(danceMs, 700), 1800),
+					);
 				});
 
 			})();

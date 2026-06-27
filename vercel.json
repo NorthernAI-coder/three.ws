@@ -157,15 +157,7 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
-		"api/oracle/follow.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 10
-		},
-		"api/trades/feed.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 10
-		},
-		"api/oracle/categories.js": {
+		"{api/oracle/follow,api/trades/feed,api/oracle/categories}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 10
 		},
@@ -179,14 +171,8 @@
 		"api/irl/interactions-stream.js": {
 			"maxDuration": 300
 		},
-		"api/irl/fix-token.js": {
-			"maxDuration": 10
-		},
-		"api/irl/privacy.js": {
-			"maxDuration": 20
-		},
 		"api/irl/*.js": {
-			"maxDuration": 15
+			"maxDuration": 20
 		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
