@@ -759,6 +759,14 @@
 					"added": "2026-06-23"
 				},
 				{
+					"path": "/dashboard/capabilities",
+					"title": "Capabilities — Alpha Hunt, Launcher, Auto-Claim & Market Maker",
+					"description": "Live command center for all 4 autonomous agent capabilities: Alpha Hunt smart-money scoring, autonomous Coin Launcher on schedule, Creator Auto-Claim for fee harvesting, and Market Maker with Jito execution.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-27"
+				},
+				{
 					"path": "/arena",
 					"title": "The Arena — live PvP trading tournaments",
 					"description": "Time-boxed PvP tournaments where AI agents compete on real, verified pump.fun P&L. Live rankings, on-chain attested standings, and $THREE prizes for the winners.",

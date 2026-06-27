@@ -303,7 +303,7 @@ function stratCard(s) {
 	const wins = s.summary?.wins || 0;
 	const wr = closed > 0 ? Math.round((wins / closed) * 100) : null;
 	const img = s.image || '/favicon.ico';
-	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : s.trigger === 'intel_confirmed' ? 'Intel-confirmed trigger' : s.trigger === 'prelaunch_radar' ? 'Pre-launch radar trigger' : 'New mint trigger';
+	const triggerLabel = s.trigger === 'first_claim' ? 'First-claim trigger' : s.trigger === 'intel_confirmed' ? 'Intel-confirmed trigger' : s.trigger === 'prelaunch_radar' ? 'Pre-launch radar trigger' : s.trigger === 'alpha_hunt' ? 'Alpha Hunt trigger' : 'New mint trigger';
 
 	const walletBal = s.wallet_sol != null ? s.wallet_sol : null;
 	const walletWarn = walletBal != null && walletBal < lamportsToSol(s.per_trade_lamports || '0') + 0.003;
@@ -373,11 +373,13 @@ function stratForm(s) {
 		<div class="sn-field">
 			<label>Trigger</label>
 			<select name="trigger" aria-label="Trigger">
-				<option value="new_mint" ${s.trigger === 'new_mint' || (!s.trigger || (s.trigger !== 'first_claim' && s.trigger !== 'intel_confirmed')) ? 'selected' : ''}>New mint — snipe every launch</option>
+				<option value="new_mint" ${s.trigger === 'new_mint' || (!s.trigger || (s.trigger !== 'first_claim' && s.trigger !== 'intel_confirmed' && s.trigger !== 'prelaunch_radar' && s.trigger !== 'alpha_hunt')) ? 'selected' : ''}>New mint — snipe every launch</option>
 				<option value="first_claim" ${s.trigger === 'first_claim' ? 'selected' : ''}>First claim — creator claims for first time</option>
 				<option value="intel_confirmed" ${s.trigger === 'intel_confirmed' ? 'selected' : ''}>Intel confirmed — buy after Coin Intelligence verdict</option>
 				<option value="prelaunch_radar" ${s.trigger === 'prelaunch_radar' ? 'selected' : ''}>Pre-launch radar — pre-arm on a proven creator's launch precursor</option>
+				<option value="alpha_hunt" ${s.trigger === 'alpha_hunt' ? 'selected' : ''}>Alpha Hunt — buy on smart-money + organic signal score</option>
 			</select>
+			<span class="sn-hint">Alpha Hunt scores each coin after the observation window using smart-money wallet count, organic score, quality, and narrative match — only buys when the composite score clears the thresholds you set.</span>
 			<span class="sn-hint">Pre-launch radar watches proven creator + smart-money wallets on-chain and pre-arms the snipe the instant one funds a fresh deploy wallet or submits a pump.fun create — at block-0, on signal not luck.</span>
 			<span class="sn-hint">Intel confirmed waits for the observation window (~60s) and only buys if the coin passes bundle detection and quality analysis.</span>
 			<span class="sn-hint">When the agent enters a position.</span>
@@ -490,6 +492,7 @@ function stratForm(s) {
 		${s.trigger === 'first_claim' ? firstClaimFields(s) : ''}
 		${s.trigger === 'intel_confirmed' ? intelFields(s) : ''}
 		${s.trigger === 'prelaunch_radar' ? radarFields(s) : ''}
+		${s.trigger === 'alpha_hunt' ? alphaHuntFields(s) : ''}
 
 		<div class="sn-section-head">Notifications</div>
 		<div class="sn-field sn-field-full">
@@ -578,6 +581,37 @@ function intelFields(s) {
 			<label>Allowed categories (comma-separated)</label>
 			<input name="allowed_categories" type="text" value="${esc(cats)}" placeholder="e.g. meme, animal, culture (blank = allow all)" aria-label="Allowed categories, comma-separated" />
 			<span class="sn-hint">Only snipe coins classified into these categories. Leave blank to allow all.</span>
+		</div>`;
+}
+
+function alphaHuntFields(s) {
+	const keywords = Array.isArray(s.alpha_narrative_keywords) ? s.alpha_narrative_keywords.join(', ') : '';
+	return `
+		<div class="sn-section-head">Alpha Hunt Filters</div>
+		<div class="sn-field">
+			<label>Min smart-money wallets</label>
+			<input name="alpha_min_smart_money" type="number" step="1" min="0" max="20" value="${s.alpha_min_smart_money != null ? s.alpha_min_smart_money : ''}" placeholder="e.g. 2" aria-label="Min smart-money wallet count" />
+			<span class="sn-hint">Proven wallets (from the smart-money list) that must be buying. Leave blank to ignore.</span>
+		</div>
+		<div class="sn-field">
+			<label>Min quality score (0–100)</label>
+			<input name="alpha_min_quality_score" type="number" step="1" min="0" max="100" value="${s.alpha_min_quality_score != null ? s.alpha_min_quality_score : ''}" placeholder="e.g. 60" aria-label="Alpha hunt min quality score" />
+			<span class="sn-hint">Minimum intel quality composite. Score &ge; 70 earns +30 points toward the 40-point pass threshold.</span>
+		</div>
+		<div class="sn-field">
+			<label>Min organic score (0–100)</label>
+			<input name="alpha_min_organic_score" type="number" step="1" min="0" max="100" value="${s.alpha_min_organic_score != null ? s.alpha_min_organic_score : ''}" placeholder="e.g. 50" aria-label="Alpha hunt min organic score" />
+			<span class="sn-hint">Filters bot/coordinated launches. 0–100 (internally 0–1, multiplied by 100 for display). Score &ge; 0.7 earns +15 points.</span>
+		</div>
+		<div class="sn-field">
+			<label>Max market cap (USD)</label>
+			<input name="alpha_max_mcap_usd" type="number" step="100" min="0" value="${s.alpha_max_mcap_usd != null ? s.alpha_max_mcap_usd : ''}" placeholder="e.g. 5000" aria-label="Alpha hunt max market cap USD" />
+			<span class="sn-hint">Only enter below this cap. Leave blank for no upper limit.</span>
+		</div>
+		<div class="sn-field">
+			<label>Narrative keywords (comma-separated)</label>
+			<input name="alpha_narrative_keywords" type="text" value="${esc(keywords)}" placeholder="e.g. ai, dog, meme, pepe" aria-label="Alpha hunt narrative keywords" />
+			<span class="sn-hint">Any match passes the keyword gate. Leave blank to ignore narratives entirely.</span>
 		</div>`;
 }
 
@@ -1046,6 +1080,13 @@ async function saveForm(form, root) {
 			body.min_creator_graduated_radar = fd.min_creator_graduated_radar !== '' ? Number(fd.min_creator_graduated_radar) : null;
 			body.radar_max_age_ms = fd.radar_max_age_ms !== '' ? Number(fd.radar_max_age_ms) : null;
 			body.require_smart_money_funder = fd.require_smart_money_funder === 'true';
+		}
+		if (fd.trigger === 'alpha_hunt') {
+			body.alpha_min_smart_money = fd.alpha_min_smart_money !== '' ? Math.round(Number(fd.alpha_min_smart_money)) : null;
+			body.alpha_min_quality_score = fd.alpha_min_quality_score !== '' ? Math.round(Number(fd.alpha_min_quality_score)) : null;
+			body.alpha_min_organic_score = fd.alpha_min_organic_score !== '' ? Number(fd.alpha_min_organic_score) : null;
+			body.alpha_max_mcap_usd = fd.alpha_max_mcap_usd !== '' ? Number(fd.alpha_max_mcap_usd) : null;
+			body.alpha_narrative_keywords = fd.alpha_narrative_keywords ? fd.alpha_narrative_keywords.split(',').map((k) => k.trim()).filter(Boolean) : null;
 		}
 
 		await post('/api/sniper/strategy', body);
