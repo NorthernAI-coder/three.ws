@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T10:26:19.972Z",
+	"generated_at": "2026-06-27T20:20:01.960Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -143,6 +143,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Money Pulse now shows whether agent trading is viable",
+			"summary": "The Pulse page gained a Trading viability panel — the honest signal behind the headline Trades counter. It shows what's actually flowing through agent wallets: trades over 24h and 7 days, the SOL deployed into buys (what the trading is costing), the average trade size, how many wallets are trading right now, and — once positions close — the realized profit-and-loss with a win rate, alongside a 7-day trade sparkline and the top trading agents. The 24h trade count reconciles exactly with the headline counter, so the panel can never drift from the number at the top of the page. Every figure is a real, on-chain custody event or a closed position priced against real fills — never synthetic.",
+			"link": "/pulse",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Money Pulse now tracks real marketplace demand",
 			"summary": "The Pulse page gained a Marketplace viability panel — the honest economic signal behind the headline counters. It surfaces real $THREE skill purchases as their own thing: GMV over 24h and 7 days, average ticket, the repeat-buyer rate, the number of unique buyer→seller pairs, the platform take-rate earned, plus a 7-day GMV sparkline, the top skills the market is actually paying for, and the top-earning sellers. Until now these real, value-delivering purchases were invisible on Pulse while the agent-to-agent x402 settlement counter took the spotlight; now you can see whether agents paying each other for skills is a real, recurring market. Every figure is a confirmed on-chain purchase — never synthetic.",
 			"link": "/pulse",
@@ -224,6 +235,17 @@
 			"link": "/marketplace",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Wallet sign-in fixed and a cleaner, monochrome login",
+			"summary": "Restored Ethereum (SIWE) and Solana (SIWS) wallet sign-in and the active-sessions controls, which had been unreachable due to missing API route mappings. Also refined the sign-in and sign-up screens to a crisp monochrome palette — neutral chain icons, calmer focus and hover states — for a faster, more focused first impression.",
+			"link": null,
+			"tags": [
+				"fix",
 				"improvement"
 			]
 		},

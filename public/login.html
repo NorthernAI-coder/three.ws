@@ -96,14 +96,14 @@
 				box-shadow:
 					0 0 0 1px rgba(255, 255, 255, 0.03),
 					0 30px 80px rgba(0, 0, 0, 0.85),
-					0 0 120px rgba(200, 210, 255, 0.04);
+					0 0 120px rgba(255, 255, 255, 0.04);
 			}
 			/* .panel, .agent-avatar, .agent-avatar model-viewer come from /auth.css.
 			   Override only what's specific to this page below. */
 			.agent-avatar::after {
 				width: 90px;
 				height: 10px;
-				background: radial-gradient(ellipse, rgba(220, 230, 255, 0.25), transparent 70%);
+				background: radial-gradient(ellipse, rgba(255, 255, 255, 0.22), transparent 70%);
 				bottom: -2px;
 				filter: blur(6px);
 			}
@@ -113,7 +113,7 @@
 				pointer-events: none; z-index: 999;
 			}
 			a {
-				color: #c8d0e0;
+				color: #cfcfcf;
 				text-decoration: none;
 			}
 			a:hover {
@@ -205,7 +205,7 @@
 				transition: background 0.15s, opacity 0.15s;
 			}
 			button:hover:not(:disabled) {
-				background: #e8ecf4;
+				background: #e6e6e6;
 			}
 			button:disabled {
 				opacity: 0.35;
@@ -317,7 +317,7 @@
 				white-space: nowrap; flex-shrink: 0;
 				transition: background 0.12s, opacity 0.12s;
 			}
-			.privy-row-btn:hover:not(:disabled) { background: #e8ecf4; }
+			.privy-row-btn:hover:not(:disabled) { background: #e6e6e6; }
 			.privy-row-btn:disabled { opacity: 0.4; cursor: default; }
 			#privy-inline-err { margin: 6px 0 0; font-size: 12px; color: #ff9a9a; }
 			#privy-captcha-slot:not(:empty) { margin-top: 10px; display: flex; justify-content: center; }
@@ -557,11 +557,11 @@
 						<p class="privy-wallet-divider">or connect wallet</p>
 						<div class="privy-chain-btns">
 							<button type="button" id="privy-evm-btn" class="privy-chain-btn">
-								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2L4 16.5 16 22l12-5.5L16 2z" fill="#627EEA" opacity=".6"/><path d="M16 2v12.5L4 16.5 16 2z" fill="#627EEA"/><path d="M16 22v8l12-11L16 22z" fill="#627EEA" opacity=".6"/><path d="M16 22L4 19l12 11V22z" fill="#627EEA"/><path d="M16 14.5v5.5L4 16.5l12-2z" fill="#627EEA" opacity=".2"/><path d="M28 16.5l-12 3.5v-5.5l12 2z" fill="#627EEA"/></svg>
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 2L4 16.5 16 22l12-5.5L16 2z" fill="currentColor" opacity=".55"/><path d="M16 2v12.5L4 16.5 16 2z" fill="currentColor" opacity=".9"/><path d="M16 22v8l12-11L16 22z" fill="currentColor" opacity=".55"/><path d="M16 22L4 19l12 11V22z" fill="currentColor" opacity=".9"/><path d="M16 14.5v5.5L4 16.5l12-2z" fill="currentColor" opacity=".35"/><path d="M28 16.5l-12 3.5v-5.5l12 2z" fill="currentColor" opacity=".9"/></svg>
 								EVM
 							</button>
 							<button type="button" id="privy-solana-btn" class="privy-chain-btn">
-								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M6 13.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="#9945FF"/><path d="M26.3 18H6a.6.6 0 0 0-.5.3l-2 3.5a.6.6 0 0 0 .4.7h20.3c.2 0 .4-.1.5-.3l2-3.5a.6.6 0 0 0-.4-.7z" fill="#14F195"/></svg>
+								<svg width="14" height="14" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="currentColor" opacity=".55"/><path d="M6 13.5h20.3a.6.6 0 0 0 .4-.7l-2-3.5a.6.6 0 0 0-.5-.3H3.9a.6.6 0 0 0-.4.7l2 3.5c.1.2.3.3.5.3z" fill="currentColor" opacity=".55"/><path d="M26.3 18H6a.6.6 0 0 0-.5.3l-2 3.5a.6.6 0 0 0 .4.7h20.3c.2 0 .4-.1.5-.3l2-3.5a.6.6 0 0 0-.4-.7z" fill="currentColor" opacity=".9"/></svg>
 								Solana
 							</button>
 						</div>

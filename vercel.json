@@ -814,6 +814,10 @@
 			"dest": "/activity.html"
 		},
 		{
+			"src": "/pipeline/?",
+			"dest": "/pipeline.html"
+		},
+		{
 			"src": "/guardian/?",
 			"dest": "/guardian.html"
 		},
@@ -2217,6 +2221,18 @@
 			"dest": "/api/auth/sessions/[action]?action=$1"
 		},
 		{
+			"src": "/api/auth/siwe/([^/]+)",
+			"dest": "/api/auth/siwe/[action]?action=$1"
+		},
+		{
+			"src": "/api/auth/siws/([^/]+)",
+			"dest": "/api/auth/siws/[action]?action=$1"
+		},
+		{
+			"src": "/api/auth/session/([^/]+)",
+			"dest": "/api/auth/session/[action]?action=$1"
+		},
+		{
 			"src": "/api/onboarding/avaturn-session",
 			"dest": "/api/onboarding/[action]?action=avaturn-session"
 		},
@@ -2495,6 +2511,10 @@
 		{
 			"src": "/api/pulse",
 			"dest": "/api/pulse.js"
+		},
+		{
+			"src": "/api/pipeline",
+			"dest": "/api/pipeline.js"
 		},
 		{
 			"src": "/api/deployments",
