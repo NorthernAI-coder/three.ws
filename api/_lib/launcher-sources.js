@@ -19,6 +19,7 @@
 
 import { sql } from './db.js';
 import { llmComplete, llmConfigured } from './llm.js';
+import { rankNarratives } from './launcher-trends.js';
 
 // ── sanitisers ──────────────────────────────────────────────────────────────
 // pump.fun caps: name ≤ 32, symbol ≤ 10. Symbols are uppercased alphanumerics.
@@ -79,65 +80,44 @@ export function randomCoin() {
 // ── cultural signal ───────────────────────────────────────────────────────────
 
 /**
- * Mine what's culturally hot from our own intel: the categories, tags, and
- * narratives of recently observed, high-quality coins, plus recent X chatter.
- * Returns deduped theme strings (never specific tickers).
- * @param {{network?:string, categories?:string[], limit?:number}} opts
+ * Rank the live cultural currents worth riding, fused across every configured
+ * signal (live pump.fun meta, oracle conviction, X chatter, and — when enabled —
+ * Hacker News / Reddit / Wikipedia culture). Returns the ranked terms (with
+ * momentum + which sources confirmed each) so the coiner can ride the single
+ * strongest wave, not a flat bag of words. Always mines THEMES, never tickers.
+ * @param {{network?:string, categories?:string[], sources?:string[]}} opts
+ * @returns {Promise<Array<{term:string, score:number, sources:string[], kind:string}>>}
+ */
+export async function gatherNarratives({ network = 'mainnet', categories = [], sources } = {}) {
+	const { terms } = await rankNarratives({ network, categories, sources });
+	return terms;
+}
+
+/**
+ * Backward-compatible theme list (deduped strings, hottest first) over the fused
+ * narrative ranker. Never specific tickers.
+ * @param {{network?:string, categories?:string[], sources?:string[], limit?:number}} opts
  * @returns {Promise<string[]>}
  */
-export async function gatherThemes({ network = 'mainnet', categories = [], limit = 40 } = {}) {
-	const themes = new Set();
-
-	try {
-		const rows = await sql`
-			select category, tags, narrative
-			from pump_coin_intel
-			where network = ${network}
-			  and first_seen_at > now() - interval '24 hours'
-			  and quality_score is not null and quality_score >= 55
-			  ${categories.length ? sql`and category = any(${categories})` : sql``}
-			order by quality_score desc nulls last
-			limit ${limit}
-		`;
-		for (const r of rows) {
-			if (r.category && r.category !== 'unknown') themes.add(String(r.category));
-			if (Array.isArray(r.tags)) r.tags.slice(0, 4).forEach((t) => t && themes.add(String(t)));
-			if (r.narrative) themes.add(String(r.narrative).slice(0, 80));
-		}
-	} catch {
-		/* intel table absent or empty — themes stay sparse, engine falls back */
-	}
-
-	// Recent X chatter is an optional cultural input; its schema varies, so probe
-	// defensively and skip cleanly when the column/table isn't there.
-	try {
-		const rows = await sql`
-			select text from x_posts
-			where text is not null and created_at > now() - interval '48 hours'
-			order by created_at desc limit 15
-		`;
-		for (const r of rows) {
-			const words = String(r.text || '')
-				.replace(/https?:\/\/\S+/g, '')
-				.match(/#?[A-Za-z][A-Za-z0-9]{3,18}/g);
-			(words || []).slice(0, 3).forEach((w) => themes.add(w.replace(/^#/, '')));
-		}
-	} catch {
-		/* no X signal available — fine */
-	}
-
-	return [...themes].slice(0, 24);
+export async function gatherThemes({ network = 'mainnet', categories = [], sources, limit = 24 } = {}) {
+	const terms = await gatherNarratives({ network, categories, sources });
+	return terms.map((t) => t.term).slice(0, limit);
 }
 
 // ── LLM synthesis ─────────────────────────────────────────────────────────────
 
 const SYNTH_SYSTEM =
-	'You are a memecoin naming engine for three.ws, a Solana launch platform. ' +
-	'You invent ORIGINAL, punchy, memeable coin identities. Absolute rules: ' +
+	'You are the lead memecoin strategist for three.ws, a Solana launch platform ' +
+	'competing to be the top deployer on pump.fun. Your job: read the live cultural ' +
+	'currents you are given and coin ONE original token that rides the strongest one ' +
+	'while it is still rising — the kind degens screenshot and share. ' +
+	'Absolute rules: ' +
 	'(1) Never copy, reference, or imitate the name or ticker of any existing real ' +
-	'cryptocurrency or token — invent something new. (2) name ≤ 32 chars, ' +
-	'symbol 3-8 uppercase letters/digits, no spaces. (3) Keep it playful and ' +
-	'culturally aware, not offensive or hateful. ' +
+	'cryptocurrency or token — riff on the CULTURE, invent a fresh identity. ' +
+	'(2) name ≤ 32 chars; symbol 3-8 uppercase letters/digits, no spaces, instantly ' +
+	'readable and tickerable. (3) Playful, internet-native, culturally sharp — never ' +
+	'offensive, hateful, or referencing real tragedies/victims. ' +
+	'(4) The description is one punchy line that makes the meme legible at a glance. ' +
 	'Respond with STRICT JSON only: {"name":"","symbol":"","description":""}.';
 
 function parseCoinJson(text) {
@@ -158,21 +138,39 @@ function parseCoinJson(text) {
 }
 
 /**
- * Ask the LLM to coin an original token, optionally riding a set of themes.
- * Degrades to randomCoin() on any LLM failure — never throws, never blocks a tick.
- * @param {{themes?:string[], flavor?:'trend'|'meme', triggerSource?:string}} opts
+ * Ask the LLM to coin an original token, riding the ranked live narratives when
+ * supplied. Degrades to randomCoin() on any LLM failure — never throws, never
+ * blocks a tick.
+ * @param {{narratives?:Array<{term:string,score:number,sources:string[],kind:string}>, themes?:string[], flavor?:'trend'|'meme', triggerSource?:string}} opts
  */
-export async function synthesizeCoin({ themes = [], flavor = 'meme', triggerSource } = {}) {
+export async function synthesizeCoin({ narratives = [], themes = [], flavor = 'meme', triggerSource } = {}) {
 	if (!llmConfigured()) return { ...randomCoin(), degraded: 'llm_unconfigured' };
 
-	const userPrompt = themes.length
-		? `These cultural themes are trending on Solana right now: ${themes.join(', ')}. ` +
-		  `Coin ONE original memecoin riding this energy. Do not name it after any of these themes literally if they are existing tokens — riff, don't copy.`
-		: 'Coin ONE original, funny, internet-native memecoin from current meme culture.';
+	// Prefer the ranked narratives (momentum + confirming sources) so the model
+	// understands WHICH wave is strongest, not just a flat list.
+	const ranked = narratives.length
+		? narratives
+		: themes.map((t) => ({ term: t, score: 1, sources: [], kind: 'culture' }));
+	const top = ranked[0] || null;
+
+	let userPrompt;
+	if (ranked.length) {
+		const lines = ranked
+			.slice(0, 12)
+			.map((n, i) => `${i + 1}. ${n.term}${n.kind ? ` [${n.kind}]` : ''}${n.sources?.length ? ` (confirmed by ${n.sources.length} source${n.sources.length === 1 ? '' : 's'})` : ''}`)
+			.join('\n');
+		userPrompt =
+			`Live cultural currents on the internet right now, strongest first:\n${lines}\n\n` +
+			`Coin ONE original memecoin riding ${top ? `"${top.term}"` : 'the strongest current'} ` +
+			`(or fuse it with another current below it if that makes a sharper meme). ` +
+			`Riff on the culture — never name it after an existing token. Make the ticker instantly memeable.`;
+	} else {
+		userPrompt = 'Coin ONE original, funny, internet-native memecoin from current meme culture. Make the ticker instantly memeable.';
+	}
 
 	let out;
 	try {
-		out = await llmComplete({ system: SYNTH_SYSTEM, user: userPrompt, maxTokens: 200, timeoutMs: 12_000 });
+		out = await llmComplete({ system: SYNTH_SYSTEM, user: userPrompt, maxTokens: 220, timeoutMs: 12_000 });
 	} catch {
 		return { ...randomCoin(), degraded: 'llm_error' };
 	}
@@ -185,8 +183,13 @@ export async function synthesizeCoin({ themes = [], flavor = 'meme', triggerSour
 		name: coin.name,
 		symbol: coin.symbol,
 		description: coin.description,
-		trigger_source: triggerSource || (flavor === 'trend' ? 'coin_intel' : 'meme-llm'),
-		trigger_detail: { themes: themes.slice(0, 12) },
+		trigger_source: triggerSource || (flavor === 'trend' ? 'narratives' : 'meme-llm'),
+		trigger_detail: {
+			top_narrative: top?.term || null,
+			top_kind: top?.kind || null,
+			top_sources: top?.sources || [],
+			themes: ranked.slice(0, 12).map((n) => n.term),
+		},
 	};
 }
 
@@ -195,22 +198,24 @@ export async function synthesizeCoin({ themes = [], flavor = 'meme', triggerSour
 /**
  * Choose a coin for a tick given the configured mode. Hybrid prefers a live
  * trend, falls back to a meme, and injects random filler when no signal exists.
+ * `sources` selects which narrative providers feed trend/hybrid mode (see
+ * launcher-trends.js); empty ⇒ the default internal set.
  * @param {{mode:string, network?:string, categories?:string[], sources?:string[]}} cfg
  */
-export async function pickSource({ mode, network = 'mainnet', categories = [] } = {}) {
+export async function pickSource({ mode, network = 'mainnet', categories = [], sources } = {}) {
 	if (mode === 'random') return randomCoin();
 	if (mode === 'meme') return synthesizeCoin({ flavor: 'meme' });
 
 	if (mode === 'trend') {
-		const themes = await gatherThemes({ network, categories });
-		if (themes.length >= 2) return synthesizeCoin({ themes, flavor: 'trend' });
+		const narratives = await gatherNarratives({ network, categories, sources });
+		if (narratives.length >= 2) return synthesizeCoin({ narratives, flavor: 'trend' });
 		// No live trend → still honour 'trend' intent with a meme rather than stall.
 		return synthesizeCoin({ flavor: 'meme', triggerSource: 'trend-fallback' });
 	}
 
 	// hybrid (default): trend first, meme second, occasional random filler.
-	const themes = await gatherThemes({ network, categories });
-	if (themes.length >= 2) return synthesizeCoin({ themes, flavor: 'trend' });
+	const narratives = await gatherNarratives({ network, categories, sources });
+	if (narratives.length >= 2) return synthesizeCoin({ narratives, flavor: 'trend' });
 	if (Math.random() < 0.5) return synthesizeCoin({ flavor: 'meme', triggerSource: 'hybrid' });
 	return randomCoin();
 }

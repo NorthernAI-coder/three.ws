@@ -243,6 +243,11 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 
 // ── aggregate stats view ──────────────────────────────────────────────────────
 async function handleStats(network) {
+	// Public-agent gate, reused across every aggregate below so each counter honours
+	// the same privacy contract as the live feed (no deleted, no private, no opt-out).
+	const pubAgent = sql`ai.deleted_at IS NULL AND ai.is_public = true
+		AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false`;
+
 	// 24h tip flow (count + SOL + USD where priced), platform-wide, public agents.
 	const [tip24] = await sql`
 		SELECT
@@ -250,9 +255,7 @@ async function handleStats(network) {
 			COALESCE(SUM(ce.amount_lamports), 0)::text             AS lamports,
 			COALESCE(SUM(ce.usd), 0)::float8                       AS usd
 		FROM agent_custody_events ce
-		JOIN agent_identities ai ON ai.id = ce.agent_id
-			AND ai.deleted_at IS NULL AND ai.is_public = true
-			AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
 		WHERE ce.network = ${network} AND ce.event_type = 'tip'
 		  AND ce.status IN ('ok', 'confirmed')
 		  AND ce.created_at > now() - interval '24 hours'
@@ -268,9 +271,7 @@ async function handleStats(network) {
 		       COALESCE(SUM(ce.amount_lamports), 0)::text AS lamports,
 		       COALESCE(SUM(ce.usd), 0)::float8 AS usd
 		FROM agent_custody_events ce
-		JOIN agent_identities ai ON ai.id = ce.agent_id
-			AND ai.deleted_at IS NULL AND ai.is_public = true
-			AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
 		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
 		WHERE ce.network = ${network} AND ce.event_type = 'tip'
 		  AND ce.status IN ('ok', 'confirmed')
@@ -288,9 +289,7 @@ async function handleStats(network) {
 		       ai.meta->>'solana_address' AS agent_addr,
 		       COUNT(*)::int AS events
 		FROM agent_custody_events ce
-		JOIN agent_identities ai ON ai.id = ce.agent_id
-			AND ai.deleted_at IS NULL AND ai.is_public = true
-			AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
 		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
 		WHERE ce.network = ${network}
 		  AND ce.status IN ('ok', 'confirmed')
@@ -301,25 +300,98 @@ async function handleStats(network) {
 		LIMIT 6
 	`;
 
-	// Launch + trade tempo for the headline counters.
 	const [launch24] = await sql`
 		SELECT COUNT(*)::int AS count
 		FROM pump_agent_mints pam
-		JOIN agent_identities ai ON ai.id = pam.agent_id
-			AND ai.deleted_at IS NULL AND ai.is_public = true
-			AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false
+		JOIN agent_identities ai ON ai.id = pam.agent_id AND ${pubAgent}
 		WHERE pam.network = ${network} AND pam.created_at > now() - interval '24 hours'
 	`;
-	const [trade24] = await sql`
-		SELECT COUNT(*)::int AS count
+
+	// 24h money tempo in one pass: total volume (SOL + priced USD), distinct active
+	// wallets, and the trade/snipe/payment breakdown — so each spend category gets
+	// its own honest counter instead of being lumped together.
+	const [tempo24] = await sql`
+		SELECT
+			COUNT(*) FILTER (WHERE ce.event_type = 'spend' AND ce.category = 'trade')::int  AS trades,
+			COUNT(*) FILTER (WHERE ce.event_type = 'spend' AND ce.category = 'snipe')::int  AS snipes,
+			COUNT(*) FILTER (WHERE ce.event_type = 'spend' AND ce.category = 'x402')::int   AS payments,
+			COUNT(DISTINCT ce.agent_id)::int                                               AS active_wallets,
+			COALESCE(SUM(ce.amount_lamports), 0)::text                                     AS lamports,
+			COALESCE(SUM(ce.usd), 0)::float8                                               AS usd
 		FROM agent_custody_events ce
-		JOIN agent_identities ai ON ai.id = ce.agent_id
-			AND ai.deleted_at IS NULL AND ai.is_public = true
-			AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false
-		WHERE ce.network = ${network} AND ce.event_type = 'spend'
-		  AND ce.category = ANY(${PUBLIC_SPEND_CATEGORIES})
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+		WHERE ce.network = ${network}
+		  AND ce.status IN ('ok', 'confirmed')
+		  AND (ce.event_type = 'tip' OR (ce.event_type = 'spend' AND ce.category = ANY(${PUBLIC_SPEND_CATEGORIES})))
+		  AND ce.created_at > now() - interval '24 hours'
+	`;
+
+	// The single biggest tip of the last 24h — the day's headline moment.
+	const [bigTip] = await sql`
+		SELECT ai.id AS agent_id, ai.name AS agent_name,
+		       av.thumbnail_key AS thumb_key, av.visibility AS avatar_vis,
+		       ai.meta->>'solana_address' AS agent_addr,
+		       ce.amount_lamports::text AS lamports, ce.usd::float8 AS usd, ce.created_at AS ts
+		FROM agent_custody_events ce
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+		WHERE ce.network = ${network} AND ce.event_type = 'tip'
 		  AND ce.status IN ('ok', 'confirmed')
 		  AND ce.created_at > now() - interval '24 hours'
+		ORDER BY COALESCE(ce.usd, ce.amount_lamports / 1e9) DESC NULLS LAST
+		LIMIT 1
+	`;
+
+	// Freshest coins off the launcher — real records from pump_agent_mints.
+	const recentLaunches = await sql`
+		SELECT pam.mint, pam.symbol, pam.name AS coin_name, pam.created_at AS ts,
+		       ai.id AS agent_id, ai.name AS agent_name,
+		       av.thumbnail_key AS thumb_key, av.visibility AS avatar_vis,
+		       ai.meta->>'solana_address' AS agent_addr
+		FROM pump_agent_mints pam
+		JOIN agent_identities ai ON ai.id = pam.agent_id AND ${pubAgent}
+		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+		WHERE pam.network = ${network}
+		ORDER BY pam.created_at DESC
+		LIMIT 5
+	`;
+
+	// 7-day daily pulse — a zero-filled series the page renders as a sparkline so the
+	// headline isn't a single flat number. Wallet events + launches, per UTC day.
+	const series = await sql`
+		WITH days AS (
+			SELECT generate_series(
+				date_trunc('day', now()) - interval '6 days',
+				date_trunc('day', now()),
+				interval '1 day'
+			) AS day
+		),
+		ev AS (
+			SELECT date_trunc('day', ce.created_at) AS day, COUNT(*)::int AS n
+			FROM agent_custody_events ce
+			JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+			WHERE ce.network = ${network}
+			  AND ce.status IN ('ok', 'confirmed')
+			  AND (ce.event_type = 'tip' OR (ce.event_type = 'spend' AND ce.category = ANY(${PUBLIC_SPEND_CATEGORIES})))
+			  AND ce.created_at > date_trunc('day', now()) - interval '6 days'
+			GROUP BY 1
+		),
+		lc AS (
+			SELECT date_trunc('day', pam.created_at) AS day, COUNT(*)::int AS n
+			FROM pump_agent_mints pam
+			JOIN agent_identities ai ON ai.id = pam.agent_id AND ${pubAgent}
+			WHERE pam.network = ${network}
+			  AND pam.created_at > date_trunc('day', now()) - interval '6 days'
+			GROUP BY 1
+		)
+		SELECT to_char(days.day, 'Dy')         AS label,
+		       to_char(days.day, 'YYYY-MM-DD')  AS day,
+		       COALESCE(ev.n, 0)                AS events,
+		       COALESCE(lc.n, 0)                AS launches
+		FROM days
+		LEFT JOIN ev ON ev.day = days.day
+		LEFT JOIN lc ON lc.day = days.day
+		ORDER BY days.day
 	`;
 
 	const shapeAgent = (r) => ({
@@ -334,6 +406,10 @@ async function handleStats(network) {
 		usd: r.usd != null ? Number(r.usd) : undefined,
 	});
 
+	const trades = Number(tempo24?.trades || 0);
+	const snipes = Number(tempo24?.snipes || 0);
+	const payments = Number(tempo24?.payments || 0);
+
 	return {
 		network,
 		tips_24h: {
@@ -342,7 +418,38 @@ async function handleStats(network) {
 			usd: Number(tip24?.usd || 0),
 		},
 		launches_24h: Number(launch24?.count || 0),
-		trades_24h: Number(trade24?.count || 0),
+		// Kept for backward-compat: the combined swap/snipe/payment count.
+		trades_24h: trades + snipes + payments,
+		trades_only_24h: trades,
+		snipes_24h: snipes,
+		payments_24h: payments,
+		active_wallets_24h: Number(tempo24?.active_wallets || 0),
+		volume_24h: {
+			sol: Number(tempo24?.lamports || 0) / 1e9,
+			usd: Number(tempo24?.usd || 0),
+		},
+		biggest_tip_24h: bigTip
+			? {
+					agent: shapeAgent(bigTip),
+					sol: Number(bigTip.lamports || 0) / 1e9,
+					usd: bigTip.usd != null ? Number(bigTip.usd) : null,
+					ts: bigTip.ts,
+				}
+			: null,
+		series_7d: series.map((r) => ({
+			label: r.label,
+			day: r.day,
+			events: Number(r.events || 0),
+			launches: Number(r.launches || 0),
+		})),
+		recent_launches: recentLaunches.map((r) => ({
+			mint: r.mint,
+			symbol: r.symbol || null,
+			coin_name: r.coin_name || null,
+			ts: r.ts,
+			mint_explorer: r.mint ? explorerAccountUrl(r.mint, network) : null,
+			agent: shapeAgent(r),
+		})),
 		top_earners: topEarners.map(shapeAgent),
 		busiest_wallets: busiest.map(shapeAgent),
 	};

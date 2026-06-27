@@ -76,6 +76,9 @@
 		"api/cron/pulse-tick.js": {
 			"maxDuration": 120
 		},
+		"api/cron/launcher-tick.js": {
+			"maxDuration": 120
+		},
 		"api/cron/avaturn-seed-cron.js": {
 			"maxDuration": 300
 		},
@@ -725,6 +728,10 @@
 		{
 			"src": "/pulse/?",
 			"dest": "/pulse.html"
+		},
+		{
+			"src": "/deployments/?",
+			"dest": "/deployments.html"
 		},
 		{
 			"src": "/watchlist/?",
@@ -2488,6 +2495,10 @@
 		{
 			"src": "/api/pulse",
 			"dest": "/api/pulse.js"
+		},
+		{
+			"src": "/api/deployments",
+			"dest": "/api/deployments.js"
 		},
 		{
 			"src": "/api/trades/feed",
@@ -4598,6 +4609,10 @@
 		{
 			"path": "/api/cron/pulse-tick",
 			"schedule": "*/2 * * * *"
+		},
+		{
+			"path": "/api/cron/launcher-tick",
+			"schedule": "* * * * *"
 		},
 		{
 			"path": "/api/cron/reflect-sweep",

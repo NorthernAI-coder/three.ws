@@ -64,12 +64,39 @@ async function loadStats() {
 	}
 }
 
+function fmtNum(n) {
+	const v = Number(n) || 0;
+	if (v >= 10000) return `${(v / 1000).toFixed(1)}k`;
+	return String(v);
+}
+
+function timeAgo(iso) {
+	const t = new Date(iso).getTime();
+	if (!Number.isFinite(t)) return '';
+	const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+	if (s < 60) return 'just now';
+	const m = Math.round(s / 60);
+	if (m < 60) return `${m}m ago`;
+	const h = Math.round(m / 60);
+	if (h < 24) return `${h}h ago`;
+	return `${Math.round(h / 24)}d ago`;
+}
+
 function renderStats(d) {
 	// Headline counters.
+	const vol = d.volume_24h || {};
+	$('px-c-vol').textContent = vol.usd > 0 ? fmtUsd(vol.usd) : fmtSol(vol.sol);
+	$('px-c-vol-sub').textContent = vol.usd > 0 ? `${fmtSol(vol.sol)} on-chain` : 'on-chain flow';
 	$('px-c-tips').textContent = String(d.tips_24h?.count ?? 0);
 	$('px-c-tips-sub').textContent = `${fmtSol(d.tips_24h?.sol)} · ${fmtUsd(d.tips_24h?.usd)}`;
 	$('px-c-launches').textContent = String(d.launches_24h ?? 0);
-	$('px-c-trades').textContent = String(d.trades_24h ?? 0);
+	$('px-c-trades').textContent = String(d.trades_only_24h ?? 0);
+	$('px-c-trades-sub').textContent = (d.snipes_24h ?? 0) > 0 ? `+${d.snipes_24h} snipe${d.snipes_24h === 1 ? '' : 's'}` : 'swaps';
+	$('px-c-pays').textContent = String(d.payments_24h ?? 0);
+	$('px-c-active').textContent = String(d.active_wallets_24h ?? 0);
+
+	renderSparkline(d.series_7d);
+	renderBigTip(d.biggest_tip_24h);
 
 	// Top earners (7d tips).
 	const earners = $('px-earners');
@@ -92,6 +119,69 @@ function renderStats(d) {
 	} else {
 		busy.innerHTML = `<p class="px-lb-empty">No wallet activity in the last 24 hours yet.</p>`;
 	}
+
+	renderLaunches(d.recent_launches);
+}
+
+// 7-day activity sparkline. Bars scale to the busiest day; today is highlighted.
+function renderSparkline(series) {
+	const host = $('px-spark-bars');
+	const totalEl = $('px-spark-total');
+	if (!host) return;
+	const days = Array.isArray(series) ? series : [];
+	const total = days.reduce((s, d) => s + (d.events || 0) + (d.launches || 0), 0);
+	if (totalEl) totalEl.textContent = `${fmtNum(total)} event${total === 1 ? '' : 's'}`;
+	if (!days.length) { host.innerHTML = `<p class="px-lb-empty">No activity yet.</p>`; return; }
+	const peak = Math.max(1, ...days.map((d) => (d.events || 0) + (d.launches || 0)));
+	host.innerHTML = days
+		.map((d, i) => {
+			const n = (d.events || 0) + (d.launches || 0);
+			const h = Math.max(4, Math.round((n / peak) * 100));
+			const today = i === days.length - 1;
+			return (
+				`<div class="px-spark-col${today ? ' px-spark-col--now' : ''}" title="${esc(d.day)}: ${n} event${n === 1 ? '' : 's'}">` +
+				`<div class="px-spark-bar" style="height:${h}%"></div>` +
+				`<span class="px-spark-lbl">${esc(d.label)}</span>` +
+				`</div>`
+			);
+		})
+		.join('');
+}
+
+function renderBigTip(t) {
+	const card = $('px-bigtip-card');
+	const host = $('px-bigtip');
+	if (!card || !host) return;
+	if (!t || !t.agent) { card.hidden = true; return; }
+	card.hidden = false;
+	const metric = `${t.usd > 0 ? fmtUsd(t.usd) : fmtSol(t.sol)} <small>${esc(timeAgo(t.ts))}</small>`;
+	host.innerHTML = agentCardHTML(t.agent, metric);
+	wireWalletChips(host);
+}
+
+function renderLaunches(list) {
+	const host = $('px-launches');
+	if (!host) return;
+	if (!list?.length) {
+		host.innerHTML = `<p class="px-lb-empty">No coins launched yet. <a href="/launch">Launch one.</a></p>`;
+		return;
+	}
+	host.innerHTML = list
+		.map((c) => {
+			const a = c.agent || {};
+			const av = a.avatar_thumbnail_url
+				? `<img class="px-lb-av" src="${esc(a.avatar_thumbnail_url)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />`
+				: `<span class="px-lb-av px-lb-av--mono" aria-hidden="true">${esc((c.symbol || c.coin_name || '?').charAt(0).toUpperCase())}</span>`;
+			const title = c.symbol ? `$${esc(c.symbol)}` : esc(c.coin_name || 'Coin');
+			return (
+				`<a class="px-lb-row" href="/launches/${esc(c.mint)}">` +
+				av +
+				`<span class="px-lb-name">${title}<small>by ${esc(a.name || 'agent')}</small></span>` +
+				`<span class="px-lb-metric">${esc(timeAgo(c.ts))}</span>` +
+				`</a>`
+			);
+		})
+		.join('');
 }
 
 function mountFeed() {

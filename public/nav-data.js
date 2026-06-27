@@ -124,6 +124,12 @@ export const NAV_GROUPS = [
 				desc: 'Live, platform-wide feed of real agent wallet activity — tips, launches, trades & payments',
 			},
 			{
+				title: 'On-chain Deployments',
+				href: '/deployments',
+				badge: 'New',
+				desc: 'Live cross-chain feed of every agent registered on the ERC-8004 Identity Registry, as it lands on-chain',
+			},
+			{
 				title: 'Copy Trading',
 				href: '/mirror',
 				badge: 'New',
