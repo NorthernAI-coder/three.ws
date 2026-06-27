@@ -248,6 +248,14 @@
 			"dest": "/aws/index.html"
 		},
 		{
+			"src": "/billing/keys",
+			"dest": "/billing/keys.html"
+		},
+		{
+			"src": "/billing/keys/",
+			"dest": "/billing/keys.html"
+		},
+		{
 			"src": "/agent-economy",
 			"dest": "/agent-economy.html"
 		},
@@ -1542,6 +1550,14 @@
 			"dest": "/dashboard-next/sniper.html"
 		},
 		{
+			"src": "/dashboard/capabilities/?",
+			"dest": "/dashboard-next/capabilities.html"
+		},
+		{
+			"src": "/dashboard/prelaunch-radar/?",
+			"dest": "/dashboard-next/prelaunch-radar.html"
+		},
+		{
 			"src": "/dashboard/settings/?",
 			"dest": "/dashboard-next/settings.html"
 		},
@@ -2431,6 +2447,10 @@
 			"dest": "/api/agent-screen-active.js"
 		},
 		{
+			"src": "/api/agent-task",
+			"dest": "/api/agent-task.js"
+		},
+		{
 			"src": "/api/sniper/radar",
 			"dest": "/api/sniper/radar.js"
 		},
@@ -2877,6 +2897,10 @@
 		{
 			"src": "/api/user/provider-keys",
 			"dest": "/api/user/provider-keys.js"
+		},
+		{
+			"src": "/api/user/x402-subscriptions",
+			"dest": "/api/user/x402-subscriptions.js"
 		},
 		{
 			"src": "/api/users/me/earnings",

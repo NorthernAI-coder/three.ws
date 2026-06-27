@@ -1,39 +1,58 @@
 // dashboard-next — Capabilities command center.
 //
-// Live status for all 4 autonomous agent capabilities:
-//   1. Alpha Hunt   — intel scores, signal feed, last buys triggered
-//   2. Coin Launcher— schedule status, launched coins, fee totals
-//   3. Auto-Claim   — per-coin claimable fees, claim history
-//   4. Market Maker — active markets, spread P&L, inventory
+// Live status + interactive controls for all 4 autonomous agent capabilities:
+//   1. Alpha Hunt   — smart-money signal scoring, armed strategies
+//   2. Coin Launcher— scheduled pump.fun launches with "Launch Now" trigger
+//   3. Auto-Claim   — per-coin creator fee harvesting with "Claim Now"
+//   4. Market Maker — range-based Jito liquidity provision
 //
-// Polls every 30s. SSE from /api/sniper/stream drives live positions.
+// Polls every 30s. Buttons are fire-and-forget with toast feedback.
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, esc, relTime, ApiError } from '../api.js';
 
 const POLL_MS = 30_000;
-const fmtSol = (n) => (n == null || isNaN(Number(n)) ? '—' : `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(4)} ◎`);
+const fmtSol    = (n) => (n == null || isNaN(Number(n)) ? '—' : `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(4)} ◎`);
 const fmtSolAbs = (n) => (n == null || isNaN(Number(n)) ? '—' : `${Number(n).toFixed(4)} ◎`);
-const fmtPct = (n) => (n == null || isNaN(Number(n)) ? '—' : `${Number(n).toFixed(1)}%`);
-const clr = (n) => (Number(n) >= 0 ? 'cp-pos' : 'cp-neg');
+const clr       = (n) => (Number(n) >= 0 ? 'cp-pos' : 'cp-neg');
 
 const STYLE = `<style>
 .cp-page { display: flex; flex-direction: column; gap: 24px; }
+
+/* Worker status bar */
+.cp-status-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: var(--nxt-radius); background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); font-size: 12.5px; }
+.cp-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cp-status-dot.alive  { background: #34d399; box-shadow: 0 0 6px #34d39980; animation: cpblink 2s ease infinite; }
+.cp-status-dot.dead   { background: #f87171; }
+.cp-status-dot.degraded { background: #fbbf24; box-shadow: 0 0 6px #fbbf2480; animation: cpblink 1.2s ease infinite; }
+.cp-status-dot.unknown { background: var(--nxt-ink-faint); }
+.cp-status-label { font-weight: 600; }
+.cp-status-meta  { color: var(--nxt-ink-dim); }
+.cp-status-spacer { flex: 1; }
+.cp-status-link { color: #60a5fa; text-decoration: none; font-weight: 600; }
+.cp-status-link:hover { text-decoration: underline; }
+
+/* Sections */
 .cp-section { background: var(--nxt-panel); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); overflow: hidden; }
 .cp-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--nxt-line); }
 .cp-head-left { display: flex; align-items: center; gap: 10px; }
 .cp-head-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
 .cp-head-sub { font-size: 12px; color: var(--nxt-ink-dim); }
 .cp-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid; }
-.cp-badge.on  { color: var(--nxt-success,#34d399); border-color: color-mix(in srgb, var(--nxt-success,#34d399) 40%, transparent); background: color-mix(in srgb, var(--nxt-success,#34d399) 8%, transparent); }
-.cp-badge.off { color: var(--nxt-ink-dim); border-color: var(--nxt-stroke); }
-.cp-badge.live { color: #60a5fa; border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.07); animation: cpblink 2s ease infinite; }
+.cp-badge.on      { color: #34d399; border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+.cp-badge.off     { color: var(--nxt-ink-dim); border-color: var(--nxt-stroke); background: transparent; }
+.cp-badge.live    { color: #60a5fa; border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.07); animation: cpblink 2s ease infinite; }
+.cp-badge.warning { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.07); }
 @keyframes cpblink { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+/* KPIs */
 .cp-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0; }
 .cp-kpi { padding: 12px 18px; border-right: 1px solid var(--nxt-line); }
 .cp-kpi:last-child { border-right: none; }
 .cp-kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--nxt-ink-faint); margin-bottom: 5px; }
 .cp-kpi-val { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* Table */
 .cp-body { padding: 0; }
 .cp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .cp-table th { padding: 8px 14px; text-align: left; font: 600 10px/1 monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--nxt-ink-faint); border-bottom: 1px solid var(--nxt-line); white-space: nowrap; }
@@ -41,34 +60,78 @@ const STYLE = `<style>
 .cp-table td { padding: 10px 14px; border-bottom: 1px solid var(--nxt-line); vertical-align: middle; }
 .cp-table tr:last-child td { border-bottom: none; }
 .cp-table tr:hover td { background: rgba(255,255,255,.025); }
-.cp-mono { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-.cp-pos { color: var(--nxt-success,#34d399); }
-.cp-neg { color: var(--nxt-danger,#f87171); }
+.cp-mono  { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.cp-pos   { color: #34d399; }
+.cp-neg   { color: #f87171; }
 .cp-muted { color: var(--nxt-ink-dim); }
 .cp-empty { text-align: center; padding: 2.5rem 1rem; color: var(--nxt-ink-dim); font-size: 13px; }
+.cp-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: .5; }
+
+/* Skeleton */
 .cp-sk { height: 52px; border-radius: 6px; background: var(--nxt-bg-2); animation: cp-sk 1.4s ease infinite; margin: 10px 14px; }
 @keyframes cp-sk { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+/* Misc */
 .cp-agent-chip { display: inline-flex; align-items: center; gap: 6px; }
 .cp-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: var(--nxt-bg-2); }
 .cp-score-bar { display: inline-flex; align-items: center; gap: 6px; }
 .cp-score-fill { height: 4px; border-radius: 2px; background: linear-gradient(90deg, #3b82f6, #34d399); }
-.cp-spread-bar { display: inline-flex; align-items: center; gap: 6px; }
-.cp-buy-side  { height: 4px; border-radius: 2px; background: #34d399; }
-.cp-sell-side { height: 4px; border-radius: 2px; background: #f87171; }
-.cp-inv-bar { display: flex; align-items: center; gap: 6px; }
+.cp-inv-bar  { display: flex; align-items: center; gap: 6px; }
 .cp-inv-fill { height: 6px; border-radius: 3px; background: #60a5fa; }
 .cp-inv-track { height: 6px; border-radius: 3px; background: var(--nxt-bg-2); flex: 1; overflow: hidden; }
+
+/* Tabs */
 .cp-tabs { display: flex; gap: 2px; padding: 10px 14px 0; border-bottom: 1px solid var(--nxt-line); }
 .cp-tab { padding: 6px 12px; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 600; color: var(--nxt-ink-dim); cursor: pointer; border: none; background: none; transition: color .12s, background .12s; }
 .cp-tab:hover { color: var(--nxt-ink); background: rgba(255,255,255,.04); }
 .cp-tab.active { color: var(--nxt-ink); background: var(--nxt-bg-2); }
 .cp-tab-panel { display: none; }
 .cp-tab-panel.active { display: block; }
-.cp-action-row { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--nxt-line); }
+
+/* Links + action buttons */
 .cp-link { font-size: 12px; color: #60a5fa; text-decoration: none; padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(96,165,250,.3); transition: background .12s; }
 .cp-link:hover { background: rgba(96,165,250,.1); }
-@media (max-width: 600px) { .cp-kpi-row { grid-template-columns: 1fr 1fr; } .cp-table th.hide-sm, .cp-table td.hide-sm { display: none; } }
+.cp-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 6px; font-size: 11.5px; font-weight: 700; cursor: pointer; border: 1px solid; transition: all .12s; white-space: nowrap; }
+.cp-btn-go { color: #34d399; border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.07); }
+.cp-btn-go:hover { background: rgba(52,211,153,.16); }
+.cp-btn-claim { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.07); }
+.cp-btn-claim:hover { background: rgba(251,191,36,.14); }
+.cp-btn:disabled { opacity: .4; cursor: default; pointer-events: none; }
+
+/* Toast */
+.cp-toast-wrap { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 9999; pointer-events: none; }
+.cp-toast { padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; backdrop-filter: blur(8px); border: 1px solid; animation: cptoast .2s ease; pointer-events: none; max-width: 320px; }
+.cp-toast.ok  { color: #34d399; border-color: rgba(52,211,153,.4); background: rgba(12,18,14,.9); }
+.cp-toast.err { color: #f87171; border-color: rgba(248,113,113,.4); background: rgba(18,10,10,.9); }
+@keyframes cptoast { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+@media (max-width: 600px) {
+  .cp-kpi-row { grid-template-columns: 1fr 1fr; }
+  .cp-table th.hide-sm, .cp-table td.hide-sm { display: none; }
+  .cp-status-bar { flex-wrap: wrap; }
+}
 </style>`;
+
+// ── Toast system ──────────────────────────────────────────────────────────────
+
+function ensureToastContainer() {
+	let wrap = document.querySelector('.cp-toast-wrap');
+	if (!wrap) {
+		wrap = document.createElement('div');
+		wrap.className = 'cp-toast-wrap';
+		document.body.appendChild(wrap);
+	}
+	return wrap;
+}
+
+function toast(msg, type = 'ok') {
+	const wrap = ensureToastContainer();
+	const el = document.createElement('div');
+	el.className = `cp-toast ${type}`;
+	el.textContent = msg;
+	wrap.appendChild(el);
+	setTimeout(() => el.remove(), 4000);
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
@@ -79,12 +142,13 @@ const STYLE = `<style>
 
 		main.innerHTML = `
 			<h1 class="dn-h1">Capabilities</h1>
-			<p class="dn-h1-sub">Live status across all 4 autonomous capabilities — Alpha Hunt, Launcher, Auto-Claim, and Market Maker.</p>
+			<p class="dn-h1-sub">Live command center for all 4 autonomous capabilities — Alpha Hunt, Launcher, Auto-Claim, and Market Maker.</p>
 			<div id="cp-root" class="cp-page">
-				<div class="cp-sk"></div>
-				<div class="cp-sk"></div>
-				<div class="cp-sk"></div>
-				<div class="cp-sk"></div>
+				<div class="cp-sk" style="height:44px;margin:0"></div>
+				<div class="cp-sk" style="height:180px;margin:0"></div>
+				<div class="cp-sk" style="height:180px;margin:0"></div>
+				<div class="cp-sk" style="height:180px;margin:0"></div>
+				<div class="cp-sk" style="height:180px;margin:0"></div>
 			</div>
 		`;
 		main.insertAdjacentHTML('beforeend', STYLE);
@@ -104,16 +168,17 @@ const STYLE = `<style>
 // ── Data + render ─────────────────────────────────────────────────────────────
 
 async function refresh(root, me) {
-	const [agentsRes, strategiesRes] = await Promise.allSettled([
+	const [agentsRes, strategiesRes, statusRes] = await Promise.allSettled([
 		get('/api/agents?limit=50'),
 		get('/api/sniper/strategy'),
+		get('/api/sniper/status'),
 	]);
 
-	const agents = agentsRes.status === 'fulfilled' ? (agentsRes.value?.agents ?? []) : [];
+	const agents     = agentsRes.status === 'fulfilled'    ? (agentsRes.value?.agents ?? []) : [];
 	const strategies = strategiesRes.status === 'fulfilled' ? (strategiesRes.value?.strategies ?? []) : [];
-	const agentMap = new Map(agents.map((a) => [a.id, a]));
+	const workerStatus = statusRes.status === 'fulfilled'  ? statusRes.value : null;
+	const agentMap   = new Map(agents.map((a) => [a.id, a]));
 
-	// Load per-agent capability data in parallel
 	const agentIds = agents.map((a) => a.id);
 	const [launcherResults, mmResults] = await Promise.allSettled([
 		Promise.all(agentIds.map((id) => get(`/api/agent/launcher?agentId=${id}`).catch(() => null))),
@@ -121,20 +186,19 @@ async function refresh(root, me) {
 	]);
 
 	const launcherData = launcherResults.status === 'fulfilled' ? launcherResults.value : [];
-	const mmData = mmResults.status === 'fulfilled' ? mmResults.value : [];
+	const mmData       = mmResults.status === 'fulfilled'       ? mmResults.value       : [];
 
-	// Flatten across all agents
 	const allLauncherConfigs = [], allCoins = [], allMMConfigs = [], allMMTrades = [];
 	agentIds.forEach((id, i) => {
 		const ag = agentMap.get(id);
 		const ld = launcherData[i];
 		if (ld) {
 			(ld.configs || []).forEach((c) => allLauncherConfigs.push({ ...c, _agent: ag }));
-			(ld.coins || []).forEach((c) => allCoins.push({ ...c, _agent: ag }));
+			(ld.coins   || []).forEach((c) => allCoins.push({ ...c, _agent: ag }));
 		}
 		const md = mmData[i];
 		if (md) {
-			(md.configs || []).forEach((c) => allMMConfigs.push({ ...c, _agent: ag }));
+			(md.configs       || []).forEach((c) => allMMConfigs.push({ ...c, _agent: ag }));
 			(md.recent_trades || []).forEach((t) => allMMTrades.push({ ...t, _agent: ag }));
 		}
 	});
@@ -142,6 +206,7 @@ async function refresh(root, me) {
 	const alphaStrategies = strategies.filter((s) => s.trigger === 'alpha_hunt');
 
 	root.innerHTML = [
+		renderWorkerStatus(workerStatus),
 		renderAlphaHunt(alphaStrategies, agentMap),
 		renderLauncher(allLauncherConfigs, allCoins),
 		renderAutoClaim(allCoins),
@@ -149,28 +214,73 @@ async function refresh(root, me) {
 	].join('');
 
 	wireTabSwitchers(root);
+	wireLaunchNow(root, agentIds, agentMap);
+	wireClaimNow(root);
+}
+
+// ── Worker Status ──────────────────────────────────────────────────────────────
+
+function renderWorkerStatus(s) {
+	if (!s) {
+		return `<div class="cp-status-bar">
+			<div class="cp-status-dot unknown"></div>
+			<span class="cp-status-label">Worker status unknown</span>
+			<span class="cp-status-meta">Could not reach /api/sniper/status</span>
+		</div>`;
+	}
+
+	const state = s.state ?? 'unknown';
+	const dotClass = state === 'alive' ? 'alive' : state === 'degraded' ? 'degraded' : state === 'dead' ? 'dead' : 'unknown';
+	const label = {
+		alive:    '● Worker online',
+		degraded: '● Feed degraded',
+		dead:     '● Worker offline',
+		unknown:  '○ Not yet started',
+	}[state] ?? '○ Unknown';
+	const detail = {
+		alive:    `Sniper worker is live${s.feedLive ? ' · feed connected' : ' · feed reconnecting'}`,
+		degraded: 'Worker alive but pump.fun feed is stale — possible connection issue',
+		dead:     'No heartbeat within 90s — worker may be down or not deployed yet',
+		unknown:  'Worker has never started. Deploy workers/agent-sniper to begin.',
+	}[state] ?? '';
+
+	const strats  = s.activeStrategies ?? 0;
+	const pos     = s.openPositions    ?? 0;
+	const mode    = s.mode ? ` · ${s.mode}` : '';
+
+	return `<div class="cp-status-bar">
+		<div class="cp-status-dot ${dotClass}"></div>
+		<span class="cp-status-label">${esc(label)}</span>
+		<span class="cp-status-meta">${esc(detail)}</span>
+		<div class="cp-status-spacer"></div>
+		${strats ? `<span class="cp-muted" style="font-size:12px">${strats} strategies · ${pos} positions open${esc(mode)}</span>` : ''}
+		<a class="cp-status-link" href="/dashboard/sniper">Sniper ↗</a>
+	</div>`;
 }
 
 // ── Alpha Hunt ────────────────────────────────────────────────────────────────
 
 function renderAlphaHunt(strategies, agentMap) {
-	const armed = strategies.filter((s) => s.enabled && !s.kill_switch);
+	const armed       = strategies.filter((s) => s.enabled && !s.kill_switch);
 	const totalBudget = strategies.reduce((sum, s) => sum + (lamportsToSol(s.daily_budget_lamports) || 0), 0);
-	const totalPnl = strategies.reduce((sum, s) => sum + (lamportsToSol(s.summary?.realized_pnl_lamports) || 0), 0);
-	const totalWins = strategies.reduce((sum, s) => sum + (s.summary?.wins || 0), 0);
+	const totalPnl    = strategies.reduce((sum, s) => sum + (lamportsToSol(s.summary?.realized_pnl_lamports) || 0), 0);
+	const totalWins   = strategies.reduce((sum, s) => sum + (s.summary?.wins || 0), 0);
 	const totalClosed = strategies.reduce((sum, s) => sum + (s.summary?.closed_positions || 0), 0);
-	const wr = totalClosed > 0 ? Math.round((totalWins / totalClosed) * 100) : null;
+	const wr          = totalClosed > 0 ? Math.round((totalWins / totalClosed) * 100) : null;
+
+	const badgeClass = armed.length ? 'live' : 'off';
+	const badgeLabel = armed.length ? `${armed.length} Armed` : 'Disarmed';
 
 	return `<div class="cp-section">
 		<div class="cp-head">
 			<div class="cp-head-left">
 				<div>
 					<div class="cp-head-title">Alpha Hunt</div>
-					<div class="cp-head-sub">Smart-money signal scoring across all agents</div>
+					<div class="cp-head-sub">Smart-money signal scoring — buys when quality signals converge</div>
 				</div>
 			</div>
 			<div style="display:flex;align-items:center;gap:8px">
-				<span class="cp-badge ${armed.length ? 'live' : 'off'}">${armed.length ? `${armed.length} Armed` : 'Disarmed'}</span>
+				<span class="cp-badge ${badgeClass}">${badgeLabel}</span>
 				<a class="cp-link" href="/dashboard/sniper">Configure ↗</a>
 			</div>
 		</div>
@@ -183,6 +293,7 @@ function renderAlphaHunt(strategies, agentMap) {
 		<div class="cp-body">
 			${strategies.length === 0 ? `
 				<div class="cp-empty">
+					<div class="cp-empty-icon">🎯</div>
 					No Alpha Hunt strategies yet.<br>
 					<a class="cp-link" href="/dashboard/sniper" style="margin-top:10px;display:inline-block">Create a strategy →</a>
 				</div>` : `
@@ -200,11 +311,11 @@ function renderAlphaHunt(strategies, agentMap) {
 				</thead>
 				<tbody>
 					${strategies.map((s) => {
-						const ag = agentMap.get(s.agent_id);
-						const pnl = lamportsToSol(s.summary?.realized_pnl_lamports);
+						const ag     = agentMap.get(s.agent_id);
+						const pnl    = lamportsToSol(s.summary?.realized_pnl_lamports);
 						const closed = s.summary?.closed_positions || 0;
-						const wins = s.summary?.wins || 0;
-						const wr = closed > 0 ? Math.round((wins / closed) * 100) : null;
+						const wins   = s.summary?.wins || 0;
+						const wr     = closed > 0 ? Math.round((wins / closed) * 100) : null;
 						return `<tr>
 							<td>
 								<div class="cp-agent-chip">
@@ -229,10 +340,12 @@ function renderAlphaHunt(strategies, agentMap) {
 // ── Coin Launcher ─────────────────────────────────────────────────────────────
 
 function renderLauncher(configs, coins) {
-	const enabled = configs.filter((c) => c.enabled);
+	const enabled       = configs.filter((c) => c.enabled);
 	const totalLaunches = configs.reduce((sum, c) => sum + (Number(c.launches_count) || 0), 0);
-	const totalClaimed = coins.reduce((sum, c) => sum + (Number(c.total_claimed_lamports) || 0), 0);
-	const graduated = coins.filter((c) => c.is_graduated).length;
+	const totalClaimed  = coins.reduce((sum, c)   => sum + (Number(c.total_claimed_lamports) || 0), 0);
+	const graduated     = coins.filter((c) => c.is_graduated).length;
+	const badgeClass    = enabled.length ? 'live' : 'off';
+	const badgeLabel    = enabled.length ? `${enabled.length} Active` : 'Inactive';
 
 	return `<div class="cp-section">
 		<div class="cp-head">
@@ -243,8 +356,8 @@ function renderLauncher(configs, coins) {
 				</div>
 			</div>
 			<div style="display:flex;align-items:center;gap:8px">
-				<span class="cp-badge ${enabled.length ? 'live' : 'off'}">${enabled.length ? `${enabled.length} Active` : 'Inactive'}</span>
-				<a class="cp-link" href="/agent-edit" style="display:${configs.length ? 'inline-flex' : 'none'}">Configure ↗</a>
+				<span class="cp-badge ${badgeClass}">${badgeLabel}</span>
+				<a class="cp-link" href="/agent/${configs[0]?.agent_id || ''}/edit#section-launcher" style="display:${configs.length ? 'inline-flex' : 'none'}">Configure ↗</a>
 			</div>
 		</div>
 		<div class="cp-kpi-row">
@@ -253,13 +366,40 @@ function renderLauncher(configs, coins) {
 			<div class="cp-kpi"><div class="cp-kpi-label">Graduated</div><div class="cp-kpi-val">${graduated}</div></div>
 			<div class="cp-kpi"><div class="cp-kpi-label">Fees Claimed</div><div class="cp-kpi-val cp-mono">${fmtSolAbs(totalClaimed / 1e9)}</div></div>
 		</div>
-		${coins.length > 0 ? `
+		${configs.length > 0 ? `
 		<div class="cp-body">
 			<div class="cp-tabs">
-				<button class="cp-tab active" data-tab-group="launcher" data-tab="coins">Launched Coins</button>
-				<button class="cp-tab" data-tab-group="launcher" data-tab="schedule">Schedule</button>
+				<button class="cp-tab active" data-tab-group="launcher" data-tab="schedule">Schedule</button>
+				<button class="cp-tab" data-tab-group="launcher" data-tab="coins">Launched Coins (${coins.length})</button>
 			</div>
-			<div class="cp-tab-panel active" data-tab-group="launcher" data-panel="coins">
+			<div class="cp-tab-panel active" data-tab-group="launcher" data-panel="schedule">
+				<table class="cp-table">
+					<thead>
+						<tr>
+							<th>Agent</th>
+							<th>Symbol</th>
+							<th class="hide-sm">Interval</th>
+							<th class="r">Launches</th>
+							<th class="r">Next Launch</th>
+							<th class="r">Action</th>
+						</tr>
+					</thead>
+					<tbody>
+						${configs.map((c) => `<tr>
+							<td>${esc(c._agent?.name || c.agent_id?.slice(0, 8) || '—')}</td>
+							<td class="cp-mono" style="font-weight:700">$${esc(c.symbol || '—')}</td>
+							<td class="hide-sm cp-muted">${c.interval_hours != null ? `Every ${c.interval_hours}h` : 'Manual'}</td>
+							<td class="r">${c.launches_count || 0}${c.max_launches ? ` / ${c.max_launches}` : ''}</td>
+							<td class="r cp-muted">${c.next_launch_at ? relTime(c.next_launch_at) : c.enabled ? 'Ready' : '—'}</td>
+							<td class="r">
+								${c.enabled ? `<button class="cp-btn cp-btn-go" data-launch-now data-agent-id="${esc(c.agent_id)}" data-config-id="${esc(c.id)}" data-network="${esc(c.network || 'mainnet')}">Launch Now</button>` : '<span class="cp-muted">—</span>'}
+							</td>
+						</tr>`).join('')}
+					</tbody>
+				</table>
+			</div>
+			<div class="cp-tab-panel" data-tab-group="launcher" data-panel="coins">
+				${coins.length === 0 ? `<div class="cp-empty">No coins launched yet — use Launch Now or wait for the next scheduled slot.</div>` : `
 				<table class="cp-table">
 					<thead>
 						<tr>
@@ -272,7 +412,7 @@ function renderLauncher(configs, coins) {
 						</tr>
 					</thead>
 					<tbody>
-						${coins.slice(0, 20).map((c) => `<tr>
+						${coins.slice(0, 30).map((c) => `<tr>
 							<td class="cp-mono" style="font-weight:700">$${esc(c.symbol || '—')}</td>
 							<td class="cp-muted">${esc(c.name || '—')}</td>
 							<td class="hide-sm">${esc(c._agent?.name || c.agent_id?.slice(0, 8) || '—')}</td>
@@ -281,33 +421,13 @@ function renderLauncher(configs, coins) {
 							<td class="r">${c.is_graduated ? '<span class="cp-pos">Yes</span>' : '<span class="cp-muted">No</span>'}</td>
 						</tr>`).join('')}
 					</tbody>
-				</table>
-			</div>
-			<div class="cp-tab-panel" data-tab-group="launcher" data-panel="schedule">
-				<table class="cp-table">
-					<thead>
-						<tr>
-							<th>Agent</th>
-							<th>Symbol</th>
-							<th class="hide-sm">Interval</th>
-							<th class="r">Launches</th>
-							<th class="r">Next Launch</th>
-						</tr>
-					</thead>
-					<tbody>
-						${configs.map((c) => `<tr>
-							<td>${esc(c._agent?.name || c.agent_id?.slice(0, 8) || '—')}</td>
-							<td class="cp-mono" style="font-weight:700">$${esc(c.symbol || '—')}</td>
-							<td class="hide-sm cp-muted">${c.interval_hours != null ? `Every ${c.interval_hours}h` : 'Manual'}</td>
-							<td class="r">${c.launches_count || 0}${c.max_launches ? ` / ${c.max_launches}` : ''}</td>
-							<td class="r cp-muted">${c.next_launch_at ? relTime(c.next_launch_at) : c.enabled ? 'Now' : '—'}</td>
-						</tr>`).join('')}
-					</tbody>
-				</table>
+				</table>`}
 			</div>
 		</div>` : `
 		<div class="cp-empty">
-			No launcher configs yet — enable Coin Launcher in Agent Edit to start.
+			<div class="cp-empty-icon">🚀</div>
+			No launcher configs yet.<br>
+			<a class="cp-link" href="/dashboard/agents" style="margin-top:10px;display:inline-block">Set up a launcher on your agent →</a>
 		</div>`}
 	</div>`;
 }
@@ -315,21 +435,24 @@ function renderLauncher(configs, coins) {
 // ── Auto-Claim ────────────────────────────────────────────────────────────────
 
 function renderAutoClaim(coins) {
-	const claimable = coins.filter((c) => c.auto_claim_enabled);
+	const claimable      = coins.filter((c) => c.auto_claim_enabled);
 	const totalClaimable = claimable.reduce((sum, c) => sum + (Number(c.claimable_lamports) || 0), 0);
-	const totalEarned = claimable.reduce((sum, c) => sum + (Number(c.total_claimed_lamports) || 0), 0);
-	const runners = claimable.filter((c) => Number(c.claimable_lamports) > 0.1e9);
+	const totalEarned    = claimable.reduce((sum, c) => sum + (Number(c.total_claimed_lamports) || 0), 0);
+	const runners        = claimable.filter((c) => Number(c.claimable_lamports) > 0.1e9);
+
+	const badgeClass = runners.length ? 'warning' : claimable.length ? 'on' : 'off';
+	const badgeLabel = runners.length ? `${runners.length} Ready to Claim` : claimable.length ? `${claimable.length} Watching` : 'Inactive';
 
 	return `<div class="cp-section">
 		<div class="cp-head">
 			<div class="cp-head-left">
 				<div>
 					<div class="cp-head-title">Creator Auto-Claim</div>
-					<div class="cp-head-sub">Automatically harvest creator fees when coins run</div>
+					<div class="cp-head-sub">Auto-harvests creator fees when coins run — runs every 5 min</div>
 				</div>
 			</div>
 			<div style="display:flex;align-items:center;gap:8px">
-				<span class="cp-badge ${runners.length ? 'live' : claimable.length ? 'on' : 'off'}">${runners.length ? `${runners.length} Ready to Claim` : claimable.length ? `${claimable.length} Watching` : 'Inactive'}</span>
+				<span class="cp-badge ${badgeClass}">${badgeLabel}</span>
 			</div>
 		</div>
 		<div class="cp-kpi-row">
@@ -347,28 +470,32 @@ function renderAutoClaim(coins) {
 						<th class="hide-sm">Agent</th>
 						<th class="r">Claimable</th>
 						<th class="r">Total Claimed</th>
-						<th class="r">Graduated</th>
 						<th class="r hide-sm">Last Checked</th>
+						<th class="r">Action</th>
 					</tr>
 				</thead>
 				<tbody>
 					${claimable.map((c) => {
-						const claimSol = Number(c.claimable_lamports || 0) / 1e9;
+						const claimSol  = Number(c.claimable_lamports || 0) / 1e9;
 						const earnedSol = Number(c.total_claimed_lamports || 0) / 1e9;
+						const canClaim  = claimSol >= Number(c.auto_claim_threshold_sol || 0);
 						return `<tr>
 							<td class="cp-mono" style="font-weight:700">$${esc(c.symbol || '—')}</td>
 							<td class="hide-sm">${esc(c._agent?.name || c.agent_id?.slice(0, 8) || '—')}</td>
 							<td class="r cp-mono ${claimSol > 0 ? 'cp-pos' : 'cp-muted'}">${fmtSolAbs(claimSol)}</td>
 							<td class="r cp-mono">${fmtSolAbs(earnedSol)}</td>
-							<td class="r">${c.is_graduated ? '<span class="cp-pos">Yes</span>' : '<span class="cp-muted">No</span>'}</td>
 							<td class="r hide-sm cp-muted">${c.last_fee_check_at ? relTime(c.last_fee_check_at) : 'Never'}</td>
+							<td class="r">
+								${canClaim && claimSol > 0 ? `<button class="cp-btn cp-btn-claim" data-claim-now data-agent-id="${esc(c.agent_id)}" data-mint="${esc(c.mint)}" data-network="${esc(c.network || 'mainnet')}">Claim ${fmtSolAbs(claimSol)}</button>` : '<span class="cp-muted">Below threshold</span>'}
+							</td>
 						</tr>`;
 					}).join('')}
 				</tbody>
 			</table>
 		</div>` : `
 		<div class="cp-empty">
-			No coins being watched for fees yet. Launch a coin and enable Auto-Claim to start.
+			<div class="cp-empty-icon">💰</div>
+			No coins being watched for fees yet.<br>Launch a coin and enable Auto-Claim to start harvesting creator rewards.
 		</div>`}
 	</div>`;
 }
@@ -376,11 +503,11 @@ function renderAutoClaim(coins) {
 // ── Market Maker ──────────────────────────────────────────────────────────────
 
 function renderMarketMaker(configs, trades) {
-	const active = configs.filter((c) => c.enabled);
-	const totalPnl = configs.reduce((sum, c) => sum + (Number(c.total_pnl_sol) || 0), 0);
-	const totalVol = configs.reduce((sum, c) => sum + (Number(c.total_volume_sol) || 0), 0);
-	const totalBuys = configs.reduce((sum, c) => sum + (Number(c.total_buys) || 0), 0);
-	const totalSells = configs.reduce((sum, c) => sum + (Number(c.total_sells) || 0), 0);
+	const active     = configs.filter((c) => c.enabled);
+	const totalPnl   = configs.reduce((sum, c) => sum + (Number(c.total_pnl_sol)    || 0), 0);
+	const totalVol   = configs.reduce((sum, c) => sum + (Number(c.total_volume_sol) || 0), 0);
+	const totalBuys  = configs.reduce((sum, c) => sum + (Number(c.total_buys)       || 0), 0);
+	const totalSells = configs.reduce((sum, c) => sum + (Number(c.total_sells)      || 0), 0);
 
 	return `<div class="cp-section">
 		<div class="cp-head">
@@ -404,7 +531,7 @@ function renderMarketMaker(configs, trades) {
 		<div class="cp-body">
 			<div class="cp-tabs">
 				<button class="cp-tab active" data-tab-group="mm" data-tab="markets">Active Markets</button>
-				<button class="cp-tab" data-tab-group="mm" data-tab="trades">Recent Trades</button>
+				<button class="cp-tab" data-tab-group="mm" data-tab="trades">Recent Trades (${trades.length})</button>
 			</div>
 			<div class="cp-tab-panel active" data-tab-group="mm" data-panel="markets">
 				<table class="cp-table">
@@ -416,12 +543,12 @@ function renderMarketMaker(configs, trades) {
 							<th class="hide-sm">Order Size</th>
 							<th>Inventory</th>
 							<th class="r">P&L</th>
-							<th class="r hide-sm">MEV Tip</th>
+							<th class="r hide-sm">MEV</th>
 						</tr>
 					</thead>
 					<tbody>
 						${active.map((c) => {
-							const inv = Number(c.current_inventory_sol) || 0;
+							const inv    = Number(c.current_inventory_sol) || 0;
 							const maxInv = Number(c.max_inventory_sol) || 1;
 							const invPct = Math.min(100, Math.round((inv / maxInv) * 100));
 							return `<tr>
@@ -443,12 +570,12 @@ function renderMarketMaker(configs, trades) {
 				</table>
 			</div>
 			<div class="cp-tab-panel" data-tab-group="mm" data-panel="trades">
-				${trades.length === 0 ? `<div class="cp-empty">No trades yet.</div>` : `
+				${trades.length === 0 ? `<div class="cp-empty">No trades yet — MM will start trading when price enters the configured spread.</div>` : `
 				<table class="cp-table">
 					<thead>
 						<tr>
 							<th>Side</th>
-							<th>Symbol</th>
+							<th>Token</th>
 							<th class="hide-sm">Agent</th>
 							<th class="r">Size (SOL)</th>
 							<th class="r">P&L</th>
@@ -459,9 +586,9 @@ function renderMarketMaker(configs, trades) {
 						${trades.slice(0, 30).map((t) => {
 							const pnl = Number(t.realized_pnl_lamports || 0) / 1e9;
 							return `<tr>
-								<td><span class="cp-badge ${t.side === 'buy' ? 'on' : 'off'}" style="font-size:10px">${esc(t.side || '—').toUpperCase()}</span></td>
-								<td class="cp-mono" style="font-weight:600">${esc(t._agent?.name || t.agent_id?.slice(0, 8) || '—')}</td>
-								<td class="hide-sm cp-muted">${esc(t._agent?.name || '—')}</td>
+								<td><span class="cp-badge ${t.side === 'buy' ? 'on' : 'off'}" style="font-size:10px">${esc((t.side || '—').toUpperCase())}</span></td>
+								<td class="cp-mono" style="font-weight:600">${esc(t.symbol || t.mint?.slice(0, 6) || '—')}</td>
+								<td class="hide-sm cp-muted">${esc(t._agent?.name || t.agent_id?.slice(0, 8) || '—')}</td>
 								<td class="r cp-mono">${fmtSolAbs(Number(t.quote_lamports || 0) / 1e9)}</td>
 								<td class="r cp-mono ${clr(pnl)}">${t.side === 'sell' ? fmtSol(pnl) : '—'}</td>
 								<td class="r hide-sm">${t.sig ? `<a class="cp-muted" href="https://solscan.io/tx/${esc(t.sig)}" target="_blank" rel="noopener" style="font-size:10px;font-family:monospace">${t.sig.slice(0, 8)}…</a>` : '—'}</td>
@@ -472,9 +599,55 @@ function renderMarketMaker(configs, trades) {
 			</div>
 		</div>` : `
 		<div class="cp-empty">
-			No active markets. Add a market in Agent Edit → Market Maker to start.
+			<div class="cp-empty-icon">📊</div>
+			No active markets.<br>Add a market in Agent Edit → Market Maker to start providing liquidity.
 		</div>`}
 	</div>`;
+}
+
+// ── Interactive buttons ───────────────────────────────────────────────────────
+
+function wireLaunchNow(root, agentIds, agentMap) {
+	root.querySelectorAll('[data-launch-now]').forEach((btn) => {
+		btn.addEventListener('click', async () => {
+			const agentId  = btn.dataset.agentId;
+			const configId = btn.dataset.configId;
+			const network  = btn.dataset.network || 'mainnet';
+			btn.disabled = true;
+			btn.textContent = 'Launching…';
+			try {
+				const res = await post('/api/agent/launcher', { action: 'trigger', agentId, configId, network });
+				toast(res?.message ?? 'Launch queued — worker will fire within 60s');
+			} catch (e) {
+				toast(e?.message || 'Launch failed', 'err');
+			} finally {
+				btn.disabled = false;
+				btn.textContent = 'Launch Now';
+			}
+		});
+	});
+}
+
+function wireClaimNow(root) {
+	root.querySelectorAll('[data-claim-now]').forEach((btn) => {
+		btn.addEventListener('click', async () => {
+			const agentId = btn.dataset.agentId;
+			const mint    = btn.dataset.mint;
+			const network = btn.dataset.network || 'mainnet';
+			btn.disabled = true;
+			const orig = btn.textContent;
+			btn.textContent = 'Claiming…';
+			try {
+				const res = await post('/api/pump?action=collect-creator-fee-agent', { agentId, mint, network });
+				toast(res?.message ?? `Claimed successfully · tx: ${res?.sig?.slice(0, 8) ?? '?'}…`);
+			} catch (e) {
+				toast(e?.message || 'Claim failed', 'err');
+			} finally {
+				btn.disabled = false;
+				btn.textContent = orig;
+			}
+		});
+	});
 }
 
 // ── Tab switchers ─────────────────────────────────────────────────────────────

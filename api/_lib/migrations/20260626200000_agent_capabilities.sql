@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS agent_launcher_configs (
     last_launched_at         TIMESTAMPTZ DEFAULT NULL,
     next_launch_at           TIMESTAMPTZ DEFAULT NULL,
     created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
+    updated_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (agent_id, network)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_launcher_agent ON agent_launcher_configs(agent_id);
 CREATE INDEX IF NOT EXISTS idx_agent_launcher_next ON agent_launcher_configs(next_launch_at) WHERE enabled = true;
