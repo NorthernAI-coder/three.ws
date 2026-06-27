@@ -119,6 +119,14 @@
 			<description>New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&amp;L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.</description>
 		</item>
 		<item>
+			<title>CAPTCHA relief for rate-limited sign-ins</title>
+			<link>https://three.ws/login</link>
+			<guid isPermaLink="false">2026-06-27:CAPTCHA relief for rate-limited sign-ins</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Users who hit the sign-in rate limit (e.g. shared office/home network) now see a lightweight proof-of-work puzzle instead of a hard countdown. Solve it in a second or two and you can keep signing in immediately — no waiting, no support ticket. Built on Altcha (open source, MIT-licensed, no tracking or third-party service).</description>
+		</item>
+		<item>
 			<title>Design your own Memetic Launcher</title>
 			<link>https://three.ws/launcher</link>
 			<guid isPermaLink="false">2026-06-27:Design your own Memetic Launcher</guid>
@@ -237,6 +245,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>New /partners page showing all active technology partnerships — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, and Oracle — with what each powers on the platform, tier badges, and links to partner-specific pages and MCP servers.</description>
+		</item>
+		<item>
+			<title>Production stability fixes — genome lineage, screen streaming, and x402 seeder</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Production stability fixes — genome lineage, screen streaming, and x402 seeder</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Several reliability issues addressed: the agent genome breeding lineage page (/genome/lineage) was returning errors for all visitors due to a missing database table — now resolved. The live agent screen-streaming panel now correctly finds agents and loads their names. The x402 dance-tip seeder cron no longer floods the platform with thousands of failed payment attempts when Redis is temporarily unavailable — it detects the outage and skips the tick gracefully. Forge error logs now include the full vendor message from Replicate for faster ops triage.</description>
 		</item>
 		<item>
 			<title>Production stability fixes — payment sessions, Redis error handling, infra resilience</title>
