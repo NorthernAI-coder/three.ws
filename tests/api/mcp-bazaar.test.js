@@ -90,6 +90,7 @@ describe('x402 Bazaar MCP', () => {
 			'search_services',
 			'browse_services',
 			'get_service',
+			'bazaar_service_details',
 		]);
 	});
 
@@ -146,6 +147,35 @@ describe('x402 Bazaar MCP', () => {
 		bazState.get.mockResolvedValue(null);
 		const r = await call('get_service', { resource_url: 'https://nope.test' });
 		expect(r.result.isError).toBe(true);
+	});
+
+	it('bazaar_service_details returns the live cheapest price across networks', async () => {
+		bazState.get.mockResolvedValue(
+			item({
+				accepts: [
+					{ network: 'eip155:8453', priceLabel: '$0.002', amountAtomic: 2000, asset: '0xUSDC', payTo: '0xR', scheme: 'exact' },
+					{ network: 'solana:mainnet', priceLabel: '$0.001', amountAtomic: 1000, asset: 'SolUSDC', payTo: 'SoR', scheme: 'exact' },
+				],
+			}),
+		);
+		const r = await call('bazaar_service_details', { resource_url: 'https://api.weather.test/now' });
+		const sc = r.result.structuredContent;
+		expect(sc.available).toBe(true);
+		expect(sc.service_key).toBe('https://api.weather.test/now');
+		expect(sc.min_price_atomic).toBe(1000);
+		expect(sc.prices).toHaveLength(2);
+		expect(sc.prices[1]).toMatchObject({ network: 'solana:mainnet', amount_atomic: 1000, price: '$0.001' });
+	});
+
+	it('bazaar_service_details reports an unlisted service as available:false (not an error)', async () => {
+		bazState.get.mockResolvedValue(null);
+		const r = await call('bazaar_service_details', { resource_url: 'https://gone.test', tool_name: 'x' });
+		const sc = r.result.structuredContent;
+		expect(r.result.isError).toBeUndefined();
+		expect(sc.available).toBe(false);
+		expect(sc.service_key).toBe('https://gone.test#x');
+		expect(sc.min_price_atomic).toBeNull();
+		expect(sc.prices).toEqual([]);
 	});
 
 	it('honors the rate limit', async () => {

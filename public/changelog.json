@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T23:16:44.088Z",
+	"generated_at": "2026-06-27T23:37:46.077Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -153,6 +153,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "API Key Bypass Security Test — the platform audits its own paywall for free-access leaks every day",
+			"summary": "Some callers are allowed to skip the per-call payment on three.ws's paid APIs: internal services and partners who hold a valid API key. That bypass is a trapdoor — if a code change ever widened it so a missing or wrong key also slipped through, anyone could drain the paid endpoints for free, and nobody would notice. The platform now watches that trapdoor continuously. Once a day an autonomous agent runs a full bypass drill against the live payment endpoints: it mints a real, short-lived partner key and confirms it grants free access exactly as intended; it presents a made-up invalid key and confirms access is denied; it knocks with no key at all and confirms the normal payment wall still appears; then it revokes its test key and confirms that very same key is now rejected. It runs the drill against two endpoints that share the bypass logic but invoke it differently, so a change that breaks one path can't hide behind the other. To close the loop it makes one real on-chain $0.001 payment through the no-key wall to prove that paying still works end to end. If the wall ever lets a missing or invalid key through, that's a free-access leak: the platform records it, raises a critical operations alert, and flags it on the internal health check so it can be shut immediately. The test key always self-expires within minutes and is revoked the moment the drill finishes, so the audit can never leave a live key behind.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Autonomous agent reputation refresh — trust scores that keep themselves current",
 			"summary": "The platform now refreshes the on-chain reputation of registered Solana agents on its own. A scheduled pipeline pays the agent-reputation service per agent over x402, recomputes each agent's verified feedback score, dispute rate and validation record from on-chain attestations, and flags any agent whose verified trust score drops below threshold. These scores power the agent reputation leaderboard and the trust badges on agent profiles, so you can vet a counterparty before paying it, trading with it, or composing skills with it — and a score that slips is caught automatically rather than going stale.",
 			"link": null,
@@ -196,6 +207,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Builder Code Attribution Tracker — the platform proves every paid endpoint earns it on-chain credit",
+			"summary": "When another agent pays a three.ws endpoint, the network can credit that volume back to three.ws as a builder reward — but only if the endpoint stamps its on-chain attribution code on the payment. If a single paid endpoint ever quietly drops that stamp, every dollar it settles still works for the buyer yet earns three.ws nothing, and until now nothing would have noticed. The platform now watches for exactly that. Every six hours an autonomous agent walks a representative set of paid endpoints and, for each, makes a free request to read its payment terms and confirm the attribution code is present and correct. Any endpoint missing or mismatching its code is flagged as a gap — real revenue at risk of going uncredited. The tracker then goes one step further and makes one real $0.001 payment to the cheapest endpoint with its own attribution stamp attached, confirming end-to-end that an attributed payment actually settles on-chain — the very transaction the reward program reads. The results feed the platform's internal health check, so operators are alerted to a lost-rewards gap within hours instead of discovering it when a payout comes up short. The whole sweep costs a fraction of a cent a day.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
 			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
 			"link": "/dashboard/capabilities",
@@ -218,6 +240,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Cross-Chain Payment Cost Comparison — the platform measures which network is cheaper to pay on, live",
+			"summary": "three.ws settles agent payments on both Solana and Base, and the cheaper rail isn't always obvious — gas prices move all day. The platform now measures it directly. Every hour an autonomous agent makes one real on-chain $0.001 USDC payment on Solana and reads the actual fee that transaction paid, then prices the exact same payment on Base from the live Base gas price and the real cost of a USDC transfer there. It converts both to dollars using live SOL and ETH prices, works out the all-in cost on each network, and tracks the gas premium between them over time — how many times more (or less) expensive Base is than Solana right now. The latest reading and a rolling average are published at /api/x402/network-cost, along with a clear recommendation of the cheaper network to settle on, so the platform can steer payments to the cheaper rail and keep default pricing honest. Each measurement settles on Solana with a real transaction signature and is logged like every other autonomous payment; the hourly pace keeps the cost to a few cents a day.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Cross-Network Payment Circuit Breaker — hourly proof the payment stack is alive",
 			"summary": "Every hour an autonomous agent runs the cheapest possible end-to-end test of the platform's payment rails. It reads the live payment challenge from a $0.001 endpoint and confirms a valid settlement route is still advertised on all three supported networks — Solana, Base, and BSC — then makes one real $0.001 USDC payment on Solana to prove the full build → verify → settle → receipt path actually completes on-chain, not just that the route exists. The per-network result is stored (x402_circuit_breaker) and folded into the internal health dashboard, so the moment a facilitator route goes dark or settlement breaks, it trips and shows up immediately instead of being discovered by a failed user payment.",
 			"link": null,
@@ -233,6 +266,17 @@
 			"link": "/launcher",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "External Service Uptime Monitor — the platform checks every outside service is alive before it pays one",
+			"summary": "three.ws doesn't only get paid by other agents — it also pays outside x402 services for things like market data and intelligence. Those services live in a registry the platform builds automatically as it discovers them. If one quietly goes dark, a payment pipeline can waste a turn — or worse, start a payment — on a dead endpoint. The platform now guards against that. Every 15 minutes an autonomous agent walks the full list of external services it depends on and gives each a quick, free knock on the door: a lightweight request that asks 'are you there?' without ever sending money. A service that answers with a payment request is live and healthy; one that's reachable but answering oddly is flagged; one returning server errors or failing to respond at all is marked down. The platform tracks how many checks in a row each service has failed, and when something has been down long enough, paying pipelines automatically skip it instead of throwing good money at a dead address — then start using it again the moment it recovers. The whole sweep is free and never touches the payment wallet, and every check is logged so operations can see at a glance which outside services are up, which are flaky, and which have gone away.",
+			"link": null,
+			"tags": [
+				"infra",
+				"improvement"
 			]
 		},
 		{
@@ -519,6 +563,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Rig Complexity Scorer — the platform pays to grade how heavy each avatar is to run",
+			"summary": "A 3D avatar that looks identical to another can be ten times heavier to render — more bones, more geometry, bigger textures — and that difference is invisible until it stutters on someone's phone. three.ws now measures it. An autonomous agent works through the avatars in the gallery, and for each one makes one real on-chain x402 payment to the platform's own model-inspection service to read the avatar's actual structure: bone count, vertex and triangle counts, texture sizes, and file weight. From those it computes a single 0-100 complexity score and a tier — light, standard, heavy, or extreme — plus a performance warning flag that trips when any one dimension (a half-million vertices, an 8K texture, a 75 MB file) is heavy enough to hurt on mobile. Each result is stored against the avatar so the marketplace can tier listing prices by how demanding a model is and show a 'performance-heavy' badge before a buyer commits. It only scores avatars it hasn't seen or that changed since the last check, so once the gallery is graded the ongoing cost falls to nearly nothing; every paid call settles on Solana with a real transaction signature and is logged like every other autonomous payment.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Scene Capture auto-processing — upload a video, get a 3D point cloud back",
 			"summary": "Videos uploaded on /capture are now reconstructed into 3D point clouds automatically, with no waiting on the page. Each upload joins a processing queue that an autonomous agent drains on a 2-minute cadence: it pays a $0.01 USDC processing credit via x402, hands the video to the LingBot-Map GPU worker, then polls until the .ply point cloud is ready and stores the result on the job. When you come back, the finished cloud renders directly in the /capture viewer. Every run — submit, poll, success or failure — is recorded for full auditability, and the pipeline degrades cleanly when the GPU worker or wallet isn't configured.",
 			"link": "/capture",
@@ -561,6 +616,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Sniper Intel Enrichment — the trading engine pays its own intelligence feed to sharpen every snipe",
+			"summary": "The platform's auto-sniper decides whether to buy a freshly launched coin in milliseconds, and it now pays for a better read before it commits. On a 15-minute cycle an autonomous agent takes the coins the sniper is actively watching — the ones it currently holds and the freshest high-conviction candidates — and, for each, makes one real on-chain x402 payment to the platform's own Crypto Intel feed for a live market signal: bullish, bearish, or neutral, with a confidence and a headline. That signal becomes a small, capped adjustment to the bar a coin must clear to get bought: a bearish read makes the sniper more cautious, a bullish read slightly more willing, and a neutral read changes nothing. It's the platform's most direct self-loop — the trading engine paying the platform's intelligence API to make better decisions, every payment settling on Solana with a real transaction signature. There's a built-in honesty guard: the intelligence feed only answers for coins it can actually price, so a brand-new memecoin with no real market simply returns no data and is never charged or given a borrowed signal. The adjustment is always small and fails open, so it can only ever nudge a decision — never block a trade on its own.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Solana Agent Registration Health Check — the on-chain identity rails watch themselves",
 			"summary": "Registering an agent on Solana is one of three.ws's core promises: the platform mints the agent's on-chain Metaplex identity and enrols it in the Agent Registry, custodially, so the agent's own wallet never has to sign. Now that whole path is watched automatically. Four times a day an autonomous agent pays a real x402 canary call that resolves a known registered agent's on-chain record — both its Identity registry account and its Core identity asset — and confirms they still exist on the live chain through the platform's failover RPC pool. A healthy result resets the counter; a sustained failure escalates to an alert so registration outages are caught before the next agent tries to register and fails. Every probe is recorded with its on-chain check results and RPC latency, giving the status surface a continuous read on whether agent registration is actually working end-to-end.",
 			"link": null,
@@ -585,6 +651,17 @@
 			"title": "Status page goes monochrome — with a fleet summary and an embeddable status badge",
 			"summary": "The platform status page now leads with three at-a-glance numbers — 90-day uptime, services operational, and average response time — above the per-service history, and reads in clean monochrome that matches the rest of three.ws (a single red is reserved for a genuine outage so it's impossible to miss). The public status feed now also serves an embeddable status badge: drop https://three.ws/api/status?format=svg into any README or dashboard to show whether the platform is operational, and agents reading /api/status get the same fleet summary as a ready-made object.",
 			"link": "/status",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Subscription Status Health Check — the platform warns API subscribers before their key expires",
+			"summary": "Partners and agents who pay for ongoing access to three.ws's paid APIs hold a subscription key that lets them skip the per-call payment until it expires or is revoked. When one of those keys quietly lapses, the integration on the other side suddenly starts getting charged per call or rejected outright — a surprise outage that looks like our fault. The platform now prevents that. Once a day an autonomous agent enumerates every active subscription, checks each one's status, and works out how many days are left before it expires. Any key inside its final week triggers a heads-up email to the subscriber — once per expiry window, so a renewal re-arms the warning rather than spamming — telling them exactly when access ends and how to renew before it does. Every subscription's current state (active, expiring soon, expired, or revoked) is recorded so the admin dashboard can badge keys that need attention and operations can catch a lapse before it interrupts anyone. The whole sweep is read-only and runs on the platform's own internal access, so it costs nothing and never touches the payment wallet.",
+			"link": null,
 			"tags": [
 				"feature",
 				"improvement"

@@ -34,6 +34,11 @@
 //                    discovery warmup sweeping 15 categories per run).
 
 import { run as bazaarDiscoveryWarmup } from './pipelines/bazaar-warmup.js';
+import {
+	run as bazaarCatalogRefresh,
+	BAZAAR_CATALOG_REFRESH,
+} from './pipelines/bazaar-catalog-refresh.js';
+import { run as x402PricingTracker } from './pipelines/x402-pricing-tracker.js';
 import { run as avatarSearchWarmup } from './pipelines/avatar-search-warmup.js';
 import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
 import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
@@ -41,9 +46,13 @@ import { run as sniperIntelEnrich } from './pipelines/sniper-intel-enrich.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
 import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
 import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
+import { run as crossChainCostComparison } from './pipelines/cross-chain-cost.js';
+import { run as charitySplitAudit } from './pipelines/charity-split-audit.js';
 import { classifyThreeSignal, insertThreeSignal } from './three-signal-store.js';
 import { run as cosmeticPricingAudit } from './pipelines/cosmetic-pricing-audit.js';
+import { run as builderCodeAttribution } from './pipelines/builder-code-attribution.js';
 import { run as paymentProofIdempotencyAudit } from './pipelines/payment-proof-idempotency-audit.js';
+import { run as apiKeyBypassAudit } from './pipelines/api-key-bypass-audit.js';
 import { run as modelMetadataEnrichment } from './pipelines/model-metadata-enrichment.js';
 import { run as forgeContentGeneration } from './pipelines/forge-content.js';
 import { run as runAnimationRetargetQa, hasCanaryClips as hasAnimationQaCanaries } from './pipelines/animation-retarget-qa.js';
@@ -65,6 +74,12 @@ import {
 	SCENE_CAPTURE_PRICE_ATOMIC,
 } from './scene-capture-processor.js';
 import { run as runRigComplexityScorer } from './pipelines/rig-complexity.js';
+import { run as runReservationLeakDetector } from './pipelines/spend-reservation-leak-detector.js';
+import { run as runSubscriptionHealth } from './pipelines/subscription-health.js';
+import {
+	run as runServiceUptimeMonitor,
+	SERVICE_UPTIME_ENDPOINT,
+} from './pipelines/service-uptime-monitor.js';
 import {
 	runThumbnailRegen,
 	THUMBNAIL_REGEN_ENDPOINT,
@@ -265,6 +280,35 @@ const SELF_ENDPOINTS = [
 		pipeline: 'security',
 		enabled: true,
 		run: paymentProofIdempotencyAudit,
+		extractSignal: null,
+	},
+
+	// ── API Key Bypass Security Test (free-access canary) ─────────────────────
+	// Daily security canary for the X-API-Key bypass lane (access-control.js →
+	// installAccessControl). run() probes a bypass matrix against both the hand-
+	// rolled (/api/x402/model-check) and paidEndpoint-factory (/api/x402/dance-tip)
+	// access-control paths: a VALID key must grant free access (200 + x-payment-
+	// bypass), an INVALID key must be denied (403/402), and NO key must hit the 402
+	// paywall — any free 200 on the deny/no-key paths is a LEAK. It mints an
+	// ephemeral, self-expiring subscription key (revoked in a finally) to exercise
+	// the partner lane, then makes ONE real $0.001 payment against the no-key
+	// model-check 402 to prove the paywall→verify→settle path is intact end-to-end.
+	// Verdict lands in x402_api_key_bypass_audit; a confirmed leak raises a CRITICAL
+	// ops alert. Daily cadence → one paid probe/day ≈ $0.001/day. Downstream
+	// consumer: api/ops/health.js folds a bypass leak / broken bypass into the
+	// platform health verdict.
+	{
+		id: 'api-key-bypass-audit',
+		name: 'API Key Bypass Security Test',
+		// path is informational — the pipeline probes the bypass matrix + pays itself.
+		path: '/api/x402/model-check',
+		method: 'GET',
+		price_atomic: 1000, // the bypass is free; the lone paywall-proof payment is $0.001
+		cooldown_s: 86400, // daily — catches a refactor-introduced bypass within 24h
+		priority: 84,
+		pipeline: 'security',
+		enabled: true,
+		run: apiKeyBypassAudit,
 		extractSignal: null,
 	},
 
@@ -882,6 +926,75 @@ const SELF_ENDPOINTS = [
 		run: (ctx) => bazaarDiscoveryWarmup(ctx),
 	},
 
+	// -- Bazaar Service Catalog Daily Refresh -----------------------------------
+	// A full-catalog census, distinct from the category-search warmup above. Once
+	// a day it browses EVERY service on the bazaar (browse_services for http + mcp
+	// via /api/mcp-bazaar at $0.001/call), then pays get_service ($0.001/call) for
+	// each newly-appeared service to capture its full payment requirements -- the
+	// bazaar_search_services + bazaar_service_details pair. run() owns the census,
+	// the day-over-day diff, and per-call recording; it sets recorded:true so the
+	// loop adds no summary row. The diff is the value: new services (opportunity
+	// alerts) and removed services (pipeline-dependency alerts) land in the daily
+	// snapshot + the durable bazaar_service_index, and removed resources are
+	// cross-checked against active EXTERNAL_ENDPOINTS to raise a dependency alert.
+	// Cooldown 86400s (daily) -> ~2 census + <=8 enrichment calls/day ~= $0.01/day.
+	// Value sinks: bazaar_catalog_snapshots (daily snapshot + diff) and
+	// bazaar_service_index (per-service registry). Downstream consumer: external
+	// onboarding reads bazaar_service_index WHERE status='active' (the opportunity
+	// feed) and ops reads the Redis dependency-alert before a dead external entry
+	// starts erroring.
+	{
+		id: 'bazaar-catalog-refresh',
+		name: 'Bazaar Service Catalog Daily Refresh',
+		path: BAZAAR_CATALOG_REFRESH.endpoint,
+		endpoint: BAZAAR_CATALOG_REFRESH.endpoint,
+		method: 'POST',
+		body: null,
+		price_atomic: BAZAAR_CATALOG_REFRESH.priceAtomic,
+		cooldown_s: BAZAAR_CATALOG_REFRESH.cooldownSeconds,
+		cooldown_seconds: BAZAAR_CATALOG_REFRESH.cooldownSeconds,
+		priority: 34,
+		pipeline: 'discovery',
+		enabled: true,
+		run: (ctx) => bazaarCatalogRefresh(ctx),
+		extractSignal: null,
+	},
+
+	// ── x402 Service Pricing Tracker (USE: cost-model price history) ───────────
+	// Tracks the PRICE HISTORY of the external x402 services we depend on so our
+	// cost models stay honest (distinct from the catalog census above, which
+	// tracks service presence). Each run pays $0.001/call to /api/mcp-bazaar
+	// (bazaar_service_details) for the stalest tracked services and reads each
+	// one's current live cheapest price. run() compares to the last recorded price,
+	// appends to x402_service_price_history, and upserts x402_service_price_current
+	// with the % change + alert flags — raising a cost-model alert when a price
+	// jumped > 20% and flagging a drop opportunity when it fell ≥ 15%. The tracked
+	// set is built from the live priced resources the Bazaar Discovery Warmup
+	// snapshots into x402_bazaar_catalog (no hardcoded list). run() self-records one
+	// x402_autonomous_log row per call (value_extracted = price + change), so it
+	// sets recorded:true and the loop adds no summary row. Cooldown 21600s (6h) with
+	// a 5-service batch → ≤ $0.005/run, rotating the catalog ≈ daily, well under the
+	// loop's daily cap. Downstream consumer: GET /api/x402/service-pricing-report
+	// surfaces the tracked catalog, active increase alerts, and drop opportunities.
+	{
+		id: 'x402-pricing-tracker',
+		name: 'x402 Service Pricing Tracker',
+		// path/endpoint are informational — run() builds the bazaar_service_details
+		// JSON-RPC body and pays the live $0.001 challenge itself, per service.
+		path: '/api/mcp-bazaar',
+		endpoint: '/api/mcp-bazaar',
+		method: 'POST',
+		body: null,
+		price_atomic: 1000, // $0.001 USDC — bazaar_service_details per-call price
+		cooldown_s: 21600,
+		cooldown_seconds: 21600,
+		priority: 33,
+		pipeline: 'discovery',
+		enabled: true,
+		run: (ctx) => x402PricingTracker(ctx),
+		extractSignal: null,
+	},
+
 	// ── Avatar Search Index Warmup (USE-003) ───────────────────────────────────
 	// Fires ~20 common gallery queries (human, robot, anime, warrior, …) through
 	// the MCP server (/api/mcp → search_public_avatars) at $0.001/call, proving the
@@ -1116,6 +1229,42 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		run: (ctx) => revenueReconciliation(ctx),
 	},
+	// Builder Code Attribution Tracker (Finance) — watchdog over ERC-8021
+	// builder-code attribution, the mechanism Coinbase builder rewards / x402scan
+	// use to credit on-chain x402 volume to the app that exposed the paid endpoint
+	// (X402_BUILDER_CODE_APP = three_d_agent). run() sweeps a representative set of
+	// priced /api/x402/* endpoints, verifying each declares the builder-code
+	// extension (a = three_d_agent) on its live 402 challenge — any priced endpoint
+	// that drops the declaration earns ZERO rewards on every dollar it settles, the
+	// attribution gap this tracker alerts on. It then makes ONE real $0.001 USDC
+	// payment to the cheapest declaring endpoint (dance-tip) with the builder-code
+	// echo ATTACHED to the X-PAYMENT envelope (a/w/s), reads the X-PAYMENT-RESPONSE
+	// settlement, and confirms an attributed payment settles end-to-end (the
+	// resource server rejects a non-echoing payment with builder_code_tampered, so a
+	// settled tx is proof). Per-endpoint verdicts upsert to builder_code_attribution
+	// (keyed by endpoint); a summary (value_extracted = gap list + settle proof)
+	// goes to x402_autonomous_log. Cooldown 21600 s (6h, ~$0.004/day) — attribution
+	// config only changes on deploy/env, the live settle catches drift within hours.
+	// Downstream consumer: api/ops/health.js -> loadBuilderAttribution() folds an
+	// attribution gap (or a failed attributed settlement) into the platform health
+	// verdict so on-call sees lost-rewards risk before a billing cycle closes.
+	{
+		id: 'builder-code-attribution',
+		name: 'Builder Code Attribution Tracker',
+		// path is informational — run() owns the multi-endpoint sweep + settle.
+		path: '/api/x402/*',
+		endpoint: '/api/x402/*',
+		method: 'POST',
+		body: null,
+		price_atomic: 1000, // the single settlement proof pays $0.001 (dance-tip)
+		cooldown_s: 21600,
+		cooldown_seconds: 21600,
+		priority: 31,
+		pipeline: 'finance',
+		enabled: true,
+		run: (ctx) => builderCodeAttribution(ctx),
+		extractSignal: null,
+	},
 	// ── Fee Calculation Validator (USE-028, Finance) ──────────────────────────
 	// Fee-integrity probe over the platform's atomic↔decimal conversion — the
 	// arithmetic that turns every USDC price into an x402 challenge amount and back
@@ -1146,6 +1295,76 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		run: (ctx) => feeCalculationValidator(ctx),
 	},
+	// ── Charity Split Audit (Finance) ─────────────────────────────────────────
+	// Giving-integrity audit — "ensures donation promises are kept." Weekly, it
+	// (1) sweeps every charity-enabled merchant in x402_merchant_settings (free,
+	// read-only) and flags any whose donation promise is unroutable (missing /
+	// malformed cause address, zero share, cause == payout — a tip the checkout
+	// silently drops), then (2) makes ONE real on-chain payment WITH a charity
+	// split through the PRODUCTION checkout code (/api/x402-checkout prepare →
+	// sign → encode → settle the $0.001 dance-tip, facilitator-sponsored fee) and
+	// reads the settled tx back from chain to assert the cause wallet's
+	// transferChecked leg landed with the EXACT computed atomics
+	// (floor(amount × bps / 10000)). run() owns the sweep/pay/verify and writes
+	// per-merchant + canary rows to charity_split_audit (value sink) and its own
+	// x402_autonomous_log summary; the loop adds the billed row. The canary cause
+	// wallet defaults to the seed wallet (safe self-route, zero net outflow);
+	// X402_CHARITY_AUDIT_ADDRESS_SOLANA points it at a platform cause wallet.
+	// Cooldown 604800 s (weekly) → ~$0.001/week. Downstream consumer: ops reads
+	// charity_split_audit WHERE NOT config_valid OR charity_routed = false to alert
+	// before a buyer is told their payment gave to a cause that never received it.
+	{
+		id: 'charity-split-audit',
+		// path/endpoint are informational — run() probes + pays + verifies itself.
+		path: '/api/x402-merchant',
+		endpoint: '/api/x402-merchant',
+		method: 'POST',
+		price_atomic: 1000, // the canary settles the $0.001 dance-tip base; split rides along
+		cooldown_s: 604800, // weekly — donation promises are a slow-changing config
+		cooldown_seconds: 604800,
+		priority: 31,
+		pipeline: 'finance',
+		enabled: true,
+		run: (ctx) => charitySplitAudit(ctx),
+		extractSignal: null,
+	},
+	// ── Cross-Chain Payment Cost Comparison (USE-029, Finance) ────────────────
+	// Measures the real all-in cost of an identical $0.001 USDC payment on Solana
+	// vs Base and tracks the gas premium between the rails over time. run() probes
+	// the cheapest idempotent $0.001 endpoint (/api/x402/model-check) for the live
+	// multi-network challenge (both networks quote the same amount, so the
+	// comparison is apples to apples), settles the REAL Solana leg and reads its
+	// actual on-chain meta.fee, prices the equivalent Base settlement from the live
+	// Base gas price × the documented USDC ERC-3009 transferWithAuthorization gas
+	// units, and converts both to USD with live SOL/ETH prices. Base outbound
+	// settlement isn't attempted (no autonomous EVM payer is provisioned — same
+	// boundary the circuit breaker hits); its gas figure is real live network data.
+	// Per-run snapshots (amount + per-network gas/total USD + gas_premium_ratio +
+	// cheapest_network) land in cross_chain_cost_comparison; the loop records the
+	// paid Solana settlement to x402_autonomous_log (value_extracted = the cost
+	// summary). Cooldown 3600 s (hourly — gas prices drift, one paid probe/hr ≈
+	// $0.024/day) keeps a fresh premium trend well inside the daily cap.
+	// Downstream consumer: GET /api/x402/network-cost surfaces the latest snapshot,
+	// a rolling gas-premium average, and the recommended cheapest settlement
+	// network — used to steer users to the cheaper rail and inform default pricing.
+	{
+		id: 'cross-chain-cost-comparison',
+		name: 'Cross-Chain Payment Cost Comparison (Base + Solana)',
+		// path/endpoint are informational — run() probes /api/x402/model-check and
+		// settles the Solana leg itself. Real price is the live $0.001 challenge.
+		path: '/api/x402-pay',
+		endpoint: '/api/x402-pay',
+		method: 'GET',
+		price_atomic: 1000, // $0.001 USDC — the identical amount both rails quote
+		cooldown_s: 3600,
+		cooldown_seconds: 3600,
+		priority: 34,
+		pipeline: 'finance',
+		enabled: true,
+		run: (ctx) => crossChainCostComparison(ctx),
+		extractSignal: null,
+	},
+
 	// ── IBM Granite Inference Health Check (USE-007) ──────────────────────────
 	// Pays ONE real x402 batch call to /api/ibm-mcp that invokes all five paid
 	// IBM Granite tools (chat, code, embed, analyze, forecast) with tiny canary
@@ -1205,6 +1424,116 @@ const SELF_ENDPOINTS = [
 		pipeline: '3d',
 		enabled: true,
 		run: (ctx) => runRigComplexityScorer(ctx),
+		extractSignal: null,
+	},
+
+	// ── Subscription Status Health Check (Commerce) ───────────────────────────
+	// Daily integrity sweep over every paying x402 subscriber. run() enumerates all
+	// subscriptions via the real admin endpoint GET /api/x402/admin/subscriptions
+	// (authenticated as an internal service with INTERNAL_API_KEY — the GET-only
+	// read bypass added to that route), falling back to the canonical
+	// listSubscriptions() lib read if the HTTP path is unavailable. It classifies
+	// each key (active | expiring_soon | expired | revoked), emails the subscriber
+	// 7 days before expiry (once per expiry window), and upserts every verdict into
+	// x402_subscription_health. Free + read-only: the admin endpoint owes no payment,
+	// so this never moves funds (amountAtomic 0) and runs even without a spend
+	// wallet. run() writes its own canonical x402_autonomous_log row (recorded:true)
+	// with the per-run summary in value_extracted. Cooldown 86400 s (daily) → the
+	// 7-day warning window is re-evaluated across ~7 runs so no expiry is missed.
+	// Downstream consumer: the admin subscription-management surface badges
+	// expiring/expired keys off x402_subscription_health, and ops alerting watches
+	// status IN ('expired','expiring_soon') to catch a lapse before a partner's
+	// integration breaks.
+	{
+		id: 'subscription-status-health-check',
+		name: 'Subscription Status Health Check',
+		// path/endpoint informational — run() owns the internal-service HTTP call.
+		path: '/api/x402/admin/subscriptions',
+		endpoint: '/api/x402/admin/subscriptions',
+		method: 'GET',
+		body: null,
+		price_atomic: 0, // free internal endpoint — no payment owed
+		cooldown_s: 86_400,
+		cooldown_seconds: 86_400,
+		priority: 34,
+		pipeline: 'self',
+		enabled: true,
+		run: (ctx) => runSubscriptionHealth(ctx),
+		extractSignal: null,
+	},
+
+	// ── External x402 Service Uptime Monitor (USE-038, Reliability) ────────────
+	// Liveness gate in front of every external x402 service we depend on. The
+	// registered external services live in x402_bazaar_catalog (snapshotted by the
+	// Bazaar Discovery Warmup) plus any directly-registered EXTERNAL_ENDPOINTS;
+	// production pipelines pay those endpoints, so a dead one wastes a tick (and
+	// risks a half-settled payment). run() collects every distinct external URL and
+	// probes each with a cheap, UNPAID HEAD request (falling back to OPTIONS then
+	// GET when a server rejects HEAD): a 402 means the x402 endpoint is live, 2xx/3xx
+	// is reachable, and 5xx or a network timeout means DOWN. Because the probe never
+	// attaches an X-PAYMENT header, reading a 402 challenge is free — this pipeline
+	// moves no funds (price_atomic 0, amountAtomic always 0). Each verdict upserts
+	// into x402_service_uptime (consecutive_failures / last_seen_live tracked) and
+	// run() records one x402_autonomous_log row per probe (value_extracted = the
+	// verdict). Cooldown 900 s (15 min) catches an outage within minutes while a
+	// Redis cursor rotates the per-run probe budget across a large catalog.
+	// Downstream consumer: any pipeline paying an external endpoint calls
+	// isServiceLive(sql, url) to skip a confirmed-dead service; listServiceUptime()
+	// backs an ops reliability surface.
+	{
+		id: 'external-service-uptime-monitor',
+		name: 'External x402 Service Uptime Monitor',
+		// path/endpoint are informational — run() fans HEAD probes across the
+		// external service registry itself; it owns no single URL.
+		path: SERVICE_UPTIME_ENDPOINT,
+		endpoint: SERVICE_UPTIME_ENDPOINT,
+		method: 'HEAD',
+		body: null,
+		price_atomic: 0, // free probe — never pays
+		cooldown_s: 900, // 15 min — catch outages fast; probes are free
+		cooldown_seconds: 900,
+		priority: 58, // reliability gate protects every paying external pipeline
+		pipeline: 'reliability',
+		enabled: true,
+		run: (ctx) => runServiceUptimeMonitor(ctx),
+		extractSignal: null,
+	},
+
+	// ── Spend Reservation Leak Detector (Finance) ─────────────────────────────
+	// Liveness guard on the agent spend caps themselves. Every autonomous spend
+	// reserves cap headroom first, then finalizes or releases it after settlement.
+	// A crash between reserve and finalize/release orphans the reservation — it
+	// holds headroom forever against money that never moved, silently exhausting
+	// the agent's rolling-24h cap until every real spend fails `daily_exceeded`.
+	// run() sweeps both reservation books for entries older than 1h that were never
+	// finalized: USD reservations (agent_custody_events, status 'pending') released
+	// via releaseSpendReservation() → marked 'failed', and SOL reservations
+	// (agent_actions, payload.status 'reserved') recorded-then-released via
+	// releaseSpend() (which deletes, so the evidence is captured first). Free DB
+	// maintenance — no x402 challenge, no payment, amountAtomic always 0 — so it runs
+	// even without the spend wallet (exactly when the cap most needs freeing). run()
+	// writes its own canonical x402_autonomous_log row (recorded:true) with the sweep
+	// summary in value_extracted. Cooldown 900 s (15 min) keeps the caps clean and
+	// drains any backlog across runs. Value sink: spend_reservation_leaks (one row
+	// per swept leak) + Redis x402:reservation-leak:{latest,alert}. Downstream
+	// consumer: api/ops/health.js loadReservationLeaks() folds a spike in freshly
+	// swept leaks into the platform health verdict (a sustained leak rate means a
+	// reserve→finalize path is crashing and quietly starving agent spend caps).
+	{
+		id: 'spend-reservation-leak-detector',
+		name: 'Spend Reservation Leak Detector',
+		// path/endpoint are informational — run() owns the DB sweep + cleanup itself.
+		path: '/api/_lib/agent-trade-guards',
+		endpoint: '/api/_lib/agent-trade-guards',
+		method: 'POST',
+		body: null,
+		price_atomic: 0, // free DB maintenance — no payment owed
+		cooldown_s: 900, // 15 min — keep spend caps clean; the sweep is free
+		cooldown_seconds: 900,
+		priority: 62, // protects every autonomous spend path from a starved cap
+		pipeline: 'finance',
+		enabled: true,
+		run: (ctx) => runReservationLeakDetector(ctx),
 		extractSignal: null,
 	},
 ];

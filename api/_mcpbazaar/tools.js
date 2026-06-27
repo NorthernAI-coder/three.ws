@@ -222,4 +222,76 @@ export const toolDefs = [
 			};
 		},
 	},
+	{
+		name: 'bazaar_service_details',
+		title: 'Live price details for one x402 service',
+		annotations: DISCOVERY_ANNOTATIONS,
+		description:
+			"Resolve the current live price of a single x402 service by its resource URL (and tool_name for MCP services). Returns the cheapest price across networks plus a per-network breakdown (amount in atomic units, asset, recipient) and whether the service is still listed and payable. Purpose-built for price tracking and cost-model maintenance — call it on a schedule to watch a dependency's price over time and detect hikes or drops. Use get_service instead when you also need the input/output schema and a ready pay link.",
+		inputSchema: {
+			type: 'object',
+			properties: {
+				resource_url: { type: 'string', format: 'uri', description: 'The service resource URL.' },
+				tool_name: { type: 'string', description: 'For MCP services, the tool name on that resource.' },
+			},
+			required: ['resource_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(auth);
+			const baz = new Bazaar({});
+			const item = await baz.get(args.resource_url, { toolName: args.tool_name });
+			const service_key = args.tool_name ? `${args.resource_url}#${args.tool_name}` : args.resource_url;
+
+			// A service that has dropped off every facilitator is itself a tracking
+			// signal (a dependency went away / was unpriced) — return available:false
+			// with a stable shape rather than an error so the tracker records the gap.
+			if (!item) {
+				return {
+					content: [
+						{ type: 'text', text: `x402 service ${service_key} is not currently listed on any facilitator.` },
+					],
+					structuredContent: {
+						service_key,
+						resource: args.resource_url,
+						tool_name: args.tool_name || undefined,
+						available: false,
+						networks: [],
+						prices: [],
+						min_price_atomic: null,
+						min_price_label: null,
+					},
+				};
+			}
+
+			const prices = item.accepts.map((a) => ({
+				network: a.network,
+				amount_atomic: a.amountAtomic ?? null,
+				price: a.priceLabel || null,
+				asset: a.asset || null,
+				pay_to: a.payTo || null,
+				scheme: a.scheme || null,
+			}));
+			const lines = [
+				`${item.serviceName || item.resource}`,
+				`Current price: ${item.minPriceLabel || 'see options'}`,
+				...prices.map((p) => `  • ${p.price || `${p.amount_atomic} atomic`} on ${p.network}`),
+			];
+			return {
+				content: [{ type: 'text', text: lines.join('\n') }],
+				structuredContent: {
+					service_key,
+					type: item.type,
+					resource: item.resource,
+					tool_name: item.toolName || undefined,
+					name: item.serviceName || undefined,
+					available: true,
+					networks: item.networks,
+					min_price_atomic: item.minPriceAtomic ?? null,
+					min_price_label: item.minPriceLabel || undefined,
+					prices,
+				},
+			};
+		},
+	},
 ];

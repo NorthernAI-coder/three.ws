@@ -158,6 +158,24 @@ export default wrap(async (req, res) => {
 	// A confirmed double-settlement means the x402 anti-replay guard is broken.
 	const idempotencyAudit = await loadIdempotencyAudit();
 
+	// API-key bypass security test — latest verdict written daily by the autonomous
+	// loop (api/_lib/x402/pipelines/api-key-bypass-audit.js). A confirmed leak means
+	// the X-API-Key bypass lane is granting free access to a missing/invalid key —
+	// paid endpoints can be drained for free.
+	const apiKeyBypassAudit = await loadApiKeyBypassAudit();
+
+	// Builder-code attribution — latest per-endpoint verdict written every 6h by the
+	// autonomous loop (api/_lib/x402/pipelines/builder-code-attribution.js). A gap
+	// (a priced endpoint that stopped declaring three_d_agent, or a failed attributed
+	// settlement) means on-chain volume is settling UNATTRIBUTED — lost builder rewards.
+	const builderAttribution = await loadBuilderAttribution();
+
+	// Spend-reservation leak rate — swept count written every 15 min by the
+	// autonomous loop (api/_lib/x402/pipelines/spend-reservation-leak-detector.js).
+	// A sustained rate of orphaned reservations means a reserve→finalize path is
+	// crashing and silently starving agent spend caps.
+	const reservationLeaks = await loadReservationLeaks();
+
 	// Categorize probe results
 	const byCategory = {};
 	for (const r of probeResults) {
@@ -177,7 +195,18 @@ export default wrap(async (req, res) => {
 	// A confirmed double-settlement (ok:false) degrades health; a never-run audit
 	// (ok:null) is unknown, not failing.
 	const idempotencyOk = idempotencyAudit.ok !== false;
-	const overallOk = allProbesOk && allCronsOk && breakerOk && walletOk && idempotencyOk;
+	// An attribution gap (ok:false) degrades health — lost builder rewards; a
+	// never-run/stale tracker (ok:null) is unknown, not failing.
+	const attributionOk = builderAttribution.ok !== false;
+	// A confirmed bypass leak / broken bypass (ok:false) degrades health — the
+	// paywall is granting free access or rejecting valid keys; a never-run/stale
+	// audit (ok:null) is unknown, not failing.
+	const apiKeyBypassOk = apiKeyBypassAudit.ok !== false;
+	// A systemic reservation-leak rate (ok:false) degrades health — agent spend caps
+	// are being starved by orphaned reservations; a never-run/clean sweep (ok:null/
+	// ok:true) is fine.
+	const reservationLeaksOk = reservationLeaks.ok !== false;
+	const overallOk = allProbesOk && allCronsOk && breakerOk && walletOk && idempotencyOk && attributionOk && apiKeyBypassOk && reservationLeaksOk;
 
 	const failingProbes = probeResults.filter((r) => !r.ok);
 	const failingCrons = heartbeats.filter((h) => h.stale || h.ok === false);
@@ -199,8 +228,56 @@ export default wrap(async (req, res) => {
 		circuitBreaker,
 		walletBalance,
 		idempotencyAudit,
+		apiKeyBypassAudit,
+		builderAttribution,
+		reservationLeaks,
 	});
 });
+
+// Read the latest builder-code attribution verdict written every 6h by the
+// autonomous loop (api/_lib/x402/pipelines/builder-code-attribution.js). ok:false
+// when a priced endpoint is currently missing/mismatched on its three_d_agent
+// declaration (a gap, so its settled volume earns no rewards) or the attributed
+// settlement proof failed. A stale or never-run tracker is unknown (ok:null) so
+// health doesn't trip on a cold or paused feature.
+const ATTRIBUTION_STALE_AFTER_MS = 8 * 60 * 60 * 1000; // 8h (6h cadence + slack)
+
+async function loadBuilderAttribution() {
+	try {
+		const rows = await sql`
+			SELECT endpoint, challenged, matches, gap, declared_code, expected_code,
+			       settled, echo_accepted, tx_signature, error,
+			       extract(epoch FROM checked_at) * 1000 AS checked_at_ms
+			FROM builder_code_attribution
+			ORDER BY checked_at DESC
+		`;
+		if (!rows.length) return { ok: null, reason: 'no_data' };
+		const now = Date.now();
+		const newest = Math.max(...rows.map((r) => Number(r.checked_at_ms) || 0));
+		const stale = !newest || now - newest > ATTRIBUTION_STALE_AFTER_MS;
+		const gaps = rows.filter((r) => r.gap);
+		// A settlement proof row (settled column true on the endpoint we pay) that
+		// flipped echo_accepted=false means an attributed payment failed to settle.
+		const settleRow = rows.find((r) => r.settled || /dance-tip/.test(r.endpoint));
+		const settleFailed = settleRow ? settleRow.settled && settleRow.echo_accepted === false : false;
+		const ok = stale ? null : gaps.length === 0 && !settleFailed;
+		return {
+			ok,
+			expectedCode: rows[0]?.expected_code || null,
+			endpointsChallenged: rows.filter((r) => r.challenged).length,
+			attributed: rows.filter((r) => r.matches).length,
+			gaps: gaps.map((g) => ({ endpoint: g.endpoint, declaredCode: g.declared_code, error: g.error })),
+			settleTx: settleRow?.tx_signature || null,
+			lastChecked: newest || null,
+			stale,
+		};
+	} catch (err) {
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent' };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}` };
+	}
+}
 
 // Read the latest payment-proof idempotency audit verdict written daily by the
 // autonomous loop (api/_lib/x402/pipelines/payment-proof-idempotency-audit.js).
@@ -247,6 +324,54 @@ async function loadIdempotencyAudit() {
 	}
 }
 
+// Read the latest API-key bypass security-test verdict written daily by the
+// autonomous loop (api/_lib/x402/pipelines/api-key-bypass-audit.js). ok:false ONLY
+// on a confirmed bypass leak (free access granted to a missing/invalid key) or a
+// broken bypass (valid keys rejected); a stale, never-run, or inconclusive audit
+// is unknown (ok:null), not failing, so health doesn't trip on a cold/paused feature.
+const API_KEY_BYPASS_STALE_AFTER_MS = 48 * 60 * 60 * 1000; // 48h (daily cadence + slack)
+
+async function loadApiKeyBypassAudit() {
+	try {
+		const [row] = await sql`
+			SELECT route, verdict, pass, leak, leaks, valid_key_source,
+			       paid_settled, amount_atomic,
+			       extract(epoch FROM ts) * 1000 AS checked_at_ms
+			FROM x402_api_key_bypass_audit
+			ORDER BY ts DESC
+			LIMIT 1
+		`;
+		if (!row) return { ok: null, reason: 'no_data' };
+		const checkedAt = row.checked_at_ms ? Number(row.checked_at_ms) : null;
+		const stale = checkedAt === null || Date.now() - checkedAt > API_KEY_BYPASS_STALE_AFTER_MS;
+		// A confirmed leak or broken bypass fails health. A stale/inconclusive audit
+		// is unknown (loop paused, or a valid key couldn't be acquired) → ok:null.
+		const ok =
+			row.verdict === 'bypass_leak' || row.verdict === 'bypass_broken'
+				? false
+				: stale || row.verdict === 'inconclusive'
+					? null
+					: true;
+		return {
+			ok,
+			verdict: row.verdict,
+			pass: row.pass,
+			leak: row.leak,
+			leaks: row.leaks,
+			route: row.route,
+			validKeySource: row.valid_key_source,
+			paidSettled: row.paid_settled,
+			lastChecked: checkedAt,
+			stale,
+		};
+	} catch (err) {
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent' };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}` };
+	}
+}
+
 // Read the latest agent-wallet balance sample written every 10 min by the
 // autonomous loop (api/_lib/x402/wallet-balance-monitor.js). A sample older than
 // the staleness window means the monitor stopped writing; ok:null when it has
@@ -281,6 +406,53 @@ async function loadWalletBalance() {
 			spendRateUsdcHr: row.spend_rate_usdc_hr != null ? Number(row.spend_rate_usdc_hr) : null,
 			lastChecked: checkedAt,
 			stale,
+		};
+	} catch (err) {
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent' };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}` };
+	}
+}
+
+// Read the spend-reservation leak rate written every 15 min by the autonomous
+// loop (api/_lib/x402/pipelines/spend-reservation-leak-detector.js). A reservation
+// claims agent spend-cap headroom that a crash between reserve and finalize/release
+// can orphan; the detector sweeps and frees them. A few swept leaks is normal noise
+// (an occasional crashed request), but a SUSTAINED rate means a reserve→finalize
+// path is breaking and silently starving agent spend caps — that degrades health.
+// Never-run / table-absent → ok:null so health doesn't fail on a cold feature.
+const LEAK_WINDOW_MS = 60 * 60 * 1000; // count leaks swept in the last hour
+// At/above this many leaks swept in the window, treat it as a systemic leak.
+const LEAK_DEGRADE_THRESHOLD = Math.max(
+	1,
+	Number(process.env.X402_RESERVATION_LEAK_HEALTH_THRESHOLD || 25),
+);
+
+async function loadReservationLeaks() {
+	try {
+		const [row] = await sql`
+			SELECT count(*)::int AS swept_recent,
+			       coalesce(sum(usd), 0)::float8 AS usd_freed,
+			       coalesce(sum(sol_amount), 0)::float8 AS sol_freed,
+			       count(DISTINCT agent_id)::int AS agents_affected,
+			       extract(epoch FROM max(swept_at)) * 1000 AS last_swept_ms
+			FROM spend_reservation_leaks
+			WHERE swept_at > now() - ${`${Math.round(LEAK_WINDOW_MS / 1000)} seconds`}::interval
+		`;
+		const sweptRecent = Number(row?.swept_recent || 0);
+		const lastSwept = row?.last_swept_ms ? Number(row.last_swept_ms) : null;
+		// Below threshold (including zero) is healthy; at/above is a systemic leak.
+		const ok = sweptRecent >= LEAK_DEGRADE_THRESHOLD ? false : true;
+		return {
+			ok,
+			sweptRecent,
+			windowHours: Math.round(LEAK_WINDOW_MS / 3600000),
+			threshold: LEAK_DEGRADE_THRESHOLD,
+			usdFreed: Number(row?.usd_freed || 0),
+			solFreed: Number(row?.sol_freed || 0),
+			agentsAffected: Number(row?.agents_affected || 0),
+			lastSwept,
 		};
 	} catch (err) {
 		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
