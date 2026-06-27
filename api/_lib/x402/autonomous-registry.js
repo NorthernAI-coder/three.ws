@@ -34,6 +34,7 @@
 //                    discovery warmup sweeping 15 categories per run).
 
 import { run as bazaarDiscoveryWarmup } from './pipelines/bazaar-warmup.js';
+import { run as avatarSearchWarmup } from './pipelines/avatar-search-warmup.js';
 import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
 import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
@@ -658,6 +659,27 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ count: r?.audits?.length, top_score: r?.audits?.[0]?.score }),
 	},
+	// Token Intel Pre-Snipe Gate (USE-023) — pays the $0.01 USDC Token Oracle
+	// (/api/x402/token-intel) for the freshest pump.fun mints the sniper is about
+	// to consider, turning the due-diligence risk.score into a 0..100 rugpull
+	// sub-score. run() owns the batch sequence + per-mint recording; the loop
+	// records one summary row. Verdicts upsert to token_intel_risk keyed by
+	// (mint, network). Cooldown 1200s (20 min) → ~3 batches/hour, ~$0.09/hr at the
+	// default batch of 3 — bounded again by the loop's daily cap.
+	// Downstream consumer: workers/agent-sniper/oracle-gate.js auto-rejects any
+	// mint with a fresh `rejected = true` verdict before committing SOL.
+	{
+		id: 'token-intel-presnipe-gate',
+		name: 'Token Intel Pre-Snipe Gate',
+		path: '/api/x402/token-intel',
+		method: 'GET',
+		body: null,
+		cooldown_s: 1200,
+		priority: 78,
+		pipeline: 'sniper',
+		enabled: true,
+		run: (ctx) => tokenIntelPreSnipeGate(ctx),
+	},
 
 	// ── Identity / DID ─────────────────────────────────────────────────────────
 	{
@@ -800,6 +822,28 @@ const SELF_ENDPOINTS = [
 		run: (ctx) => bazaarDiscoveryWarmup(ctx),
 	},
 
+	// ── Avatar Search Index Warmup (USE-003) ───────────────────────────────────
+	// Fires ~20 common gallery queries (human, robot, anime, warrior, …) through
+	// the MCP server (/api/mcp → search_public_avatars) at $0.001/call, proving the
+	// full search path returns ranked results WITH resolved thumbnails on a cold
+	// start. run() owns the 20-call sequence and per-call recording; the loop
+	// records one summary row. Cooldown 21600s (every 6h) → ~20 calls/run ≈
+	// $0.08/day. Each query's ranked, thumbnail-resolved slice is upserted into
+	// avatar_search_warm_cache; GET /api/avatars/popular-searches reads it to power
+	// the gallery's popular-search chips and instant cached results.
+	{
+		id: 'avatar-search-index-warmup',
+		name: 'Avatar Search Index Warmup',
+		path: '/api/mcp',
+		method: 'POST',
+		body: null,
+		cooldown_s: 21600,
+		priority: 38,
+		pipeline: 'discovery',
+		enabled: true,
+		run: (ctx) => avatarSearchWarmup(ctx),
+	},
+
 	// ── Agent Reputation Score Refresh (USE-005) ───────────────────────────────
 	// Refreshes the on-chain attestation reputation of the stalest registered
 	// Solana agents by paying the /api/mcp tool solana_agent_reputation
@@ -849,6 +893,36 @@ const SELF_ENDPOINTS = [
 		pipeline: 'volume',
 		enabled: true,
 		run: (ctx) => volumeBootstrapLoop(ctx),
+	},
+
+	// ── Live Payment Feed Seeder (USE-025) ─────────────────────────────────────
+	// Keeps the homepage "live payment feed" (the /pay page, the in-world
+	// jumbotron and the exchange NPCs — all polling GET /api/x402-pay?feed=1)
+	// populated with recent activity. The Redis ring that feed renders
+	// (x402:pay:feed) is written ONLY by real /api/x402-pay demo payments, so
+	// with no organic traffic it goes stale and a visitor sees a dead system.
+	// run() makes ONE real on-chain $0.001 USDC demo payment per tick through the
+	// platform-wallet demo flow (signed by X402_AGENT_SOLANA_SECRET_BASE58
+	// server-side), rotating across MCP tools (avatar search / model inspect /
+	// validate / optimize / capability discovery) so the feed shows variety, not
+	// one repeated call. The demo call pushes the receipt onto the Redis ring
+	// (the hot path) and run() mirrors it durably into x402_demo_feed. Cooldown
+	// 300s → one fresh feed entry every 5-min tick ≈ $0.29/day, bounded again by
+	// the loop's daily cap. Value sink: x402_demo_feed (durable activity history +
+	// Redis-eviction backstop). Downstream consumer: the homepage/jumbotron/NPC
+	// live feed via /api/x402-pay?feed=1.
+	{
+		id: 'live-feed-seeder',
+		name: 'Live Payment Feed Seeder',
+		// path is informational — run() rotates the demo-call set against /api/x402-pay.
+		path: '/api/x402-pay',
+		method: 'POST',
+		body: null,
+		cooldown_s: 300,
+		priority: 72,
+		pipeline: 'feed',
+		enabled: true,
+		run: (ctx) => liveFeedSeeder(ctx),
 	},
 
 	// ── Model Metadata Enrichment (USE-016) ────────────────────────────────────

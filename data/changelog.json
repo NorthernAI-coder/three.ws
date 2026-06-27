@@ -9,6 +9,12 @@
 		},
 		{
 			"date": "2026-06-27",
+			"title": "Volume Bootstrap Loop — continuous real on-chain payments across every paid endpoint",
+			"summary": "The platform now drives its own agent-to-agent payment volume. Every 5 minutes an autonomous agent round-robins through the full catalog of paid x402 endpoints — dance tips, crypto and token intel, fact-checks, symbol lookups, reputation, club covers and more — and settles a real $0.001–$0.01 USDC payment to the next batch, on a capped daily budget. Each call simultaneously proves the endpoint is live and grows genuine on-chain transaction volume, the metric agent marketplaces rank payment facilitators on. A per-endpoint volume ledger (x402_volume_metrics) tracks total settled calls, USDC spent, success rate and last-seen status for every endpoint, and every individual call is recorded for full auditability. Spend is bounded by both the loop's daily cap and a self-imposed per-run cap, and the loop degrades cleanly when the wallet isn't configured.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "MCP Tool Latency Monitor — live SLA health for every MCP tool",
 			"summary": "The platform now continuously watches the responsiveness of its MCP server — the interface AI agents use to render avatars, inspect models, read live market data, and more. Every 5 minutes an autonomous agent makes one real USDC payment to exercise the full paid path end-to-end, then sweeps every advertised tool and times the response each one returns to a caller. Rolling p50/p95/p99 latencies are recorded per tool, and any tool whose p95 exceeds 2 seconds raises an alert — so a slowdown is caught and surfaced on the internal ops dashboard before agents feel it.",
 			"tags": ["feature", "infra"]

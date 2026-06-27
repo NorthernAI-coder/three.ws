@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T23:09:05.881Z",
+	"generated_at": "2026-06-27T23:09:27.459Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -514,6 +514,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Volume Bootstrap Loop — continuous real on-chain payments across every paid endpoint",
+			"summary": "The platform now drives its own agent-to-agent payment volume. Every 5 minutes an autonomous agent round-robins through the full catalog of paid x402 endpoints — dance tips, crypto and token intel, fact-checks, symbol lookups, reputation, club covers and more — and settles a real $0.001–$0.01 USDC payment to the next batch, on a capped daily budget. Each call simultaneously proves the endpoint is live and grows genuine on-chain transaction volume, the metric agent marketplaces rank payment facilitators on. A per-endpoint volume ledger (x402_volume_metrics) tracks total settled calls, USDC spent, success rate and last-seen status for every endpoint, and every individual call is recorded for full auditability. Spend is bounded by both the loop's daily cap and a self-imposed per-run cap, and the loop degrades cleanly when the wallet isn't configured.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{
