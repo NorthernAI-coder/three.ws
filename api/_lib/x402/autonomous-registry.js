@@ -13,10 +13,134 @@
 //   body           — request body (for POST), can be a function(ctx) => object
 //   cooldown_s     — minimum seconds between calls (enforced via Redis)
 //   priority       — 1-100; higher = more likely selected when multiple are ready
-//   pipeline       — tag: 'oracle' | 'health' | 'volume' | 'sniper' | 'external'
+//   pipeline       — tag: 'oracle' | 'health' | 'volume' | 'sniper' | 'qa' | 'external'
 //   enabled        — boolean; set false to pause without removing
 //   extractSignal  — optional fn(responseBody) => object stored in x402_autonomous_log.signal_data
 //                    For oracle pipeline entries, return { mint?, signal, confidence, headline }
+//   resolveTarget  — optional async fn(ctx) => { path, targetUrl } that computes the
+//                    request path dynamically per call (ctx: { redis, origin, runId }).
+//                    For pipelines that rotate over a set of resources.
+//   storeValue     — optional async fn(ctx) that persists extracted value to a
+//                    dedicated table (ctx: { sql, redis, responseBody, signalData,
+//                    runId, targetUrl, endpointUrl }). The loop wraps it in try/catch
+//                    so a DB failure can never crash the tick.
+
+// Canary clip the Animation Retargeting QA probe pays to download. Designate a
+// stable, paid, listed marketplace clip (an animation that exercises the
+// retarget/canonicalize delivery path) via this env var. Unset → the probe stays
+// disabled instead of paying for a non-existent id. Mirrors the well-known-mint
+// canary pattern used by the token-intel health check.
+const ANIM_QA_CLIP_ID = (process.env.X402_ANIMATION_QA_CLIP_ID || '').trim();
+
+// ── GLB Canonicalization Pipeline (USE-011) ──────────────────────────────────
+// Real rig-reference avatars served from three.ws/avatars/*.glb. Each covers a
+// distinct skeleton convention that src/glb-canonicalize.js maps onto the
+// canonical bone set (Mixamo, Daz/Genesis, glTF reference, photoreal scan,
+// rigged non-humanoid). The autonomous loop rotates through them so every known
+// rig type is continuously re-validated against /api/x402/model-check. The day a
+// glTF-Transform bump — or a brand-new rig added to the rotation — regresses
+// skin/animation detection (the signal that would otherwise silently drop an
+// avatar to a bind-pose T-pose), the verdict flips and lands in
+// glb_canonicalization_results keyed by model URL for the avatar pipeline to read.
+const RIG_REFERENCE_AVATARS = [
+	'michelle.glb',       // Mixamo humanoid (mixamorig:* bones)
+	'xbot.glb',           // Mixamo X-Bot
+	'cz.glb',             // Daz/Genesis-style rig
+	'cesium-man.glb',     // glTF reference skinned rig
+	'realistic-male.glb', // photoreal scanned humanoid
+	'dancing-twerk.glb',  // Mixamo clip-baked rig
+	'brainstem.glb',      // glTF reference skinned (non-humanoid joints)
+	'fox.glb',            // rigged non-humanoid (animal) — exercises the fallback gate
+];
+
+export { RIG_REFERENCE_AVATARS };
+
+// Derive the canonicalization verdict from a /api/x402/model-check response.
+// Shared by extractSignal (→ x402_autonomous_log.signal_data) and storeValue
+// (→ glb_canonicalization_results) so both always agree on the classification.
+export function classifyCanonicalization(r) {
+	const model = (r && r.model) || {};
+	const c = model.counts || {};
+	const ext = [
+		...(Array.isArray(model.extensionsUsed) ? model.extensionsUsed : []),
+		...(Array.isArray(model.extensionsRequired) ? model.extensionsRequired : []),
+	];
+	const isVrm = ext.some((x) => typeof x === 'string' && /^VRM/i.test(x));
+	const skins = Number(c.skins || 0);
+	const animations = Number(c.animations || 0);
+	const isSkinned = skins > 0;
+	// supportsCanonicalClips() gate (AnimationManager): only skeleton-driven rigs
+	// can retarget the pre-baked idle/walk library. A skin-less model uses the
+	// default-rig fallback rather than collapsing to a T-pose.
+	const rigType = isVrm
+		? 'vrm'
+		: isSkinned
+			? 'skinned'
+			: animations > 0
+				? 'node-animated'
+				: 'static';
+	return {
+		model_url: (r && r.url) || null,
+		container: model.container || null,
+		generator: model.generator || null,
+		rig_type: rigType,
+		is_skinned: isSkinned,
+		vrm: isVrm,
+		skins,
+		animations,
+		nodes: Number(c.nodes || 0),
+		canonical_ready: isSkinned,
+		extensions: ext,
+		suggestion_count: Array.isArray(r && r.suggestions) ? r.suggestions.length : 0,
+		fetched_bytes: Number((r && r.fetchedBytes) || 0),
+	};
+}
+
+// One-time DDL guard per warm instance (mirrors the loop's ensureSchema idiom).
+let _canonSchemaReady = false;
+async function ensureCanonicalSchema(sql) {
+	if (_canonSchemaReady) return;
+	await sql`
+		CREATE TABLE IF NOT EXISTS glb_canonicalization_results (
+			model_url       text PRIMARY KEY,
+			container       text,
+			generator       text,
+			rig_type        text,
+			is_skinned      boolean,
+			vrm             boolean,
+			skins           int,
+			animations      int,
+			nodes           int,
+			canonical_ready boolean,
+			extensions      jsonb,
+			suggestions     jsonb,
+			run_id          uuid,
+			checked_at      timestamptz DEFAULT now()
+		)
+	`;
+	_canonSchemaReady = true;
+}
+
+// Round-robin cursor over the reference avatars (per warm instance; Redis-backed
+// when available so rotation is stable across instances).
+let _canonCursor = 0;
+async function nextCanonicalTarget(ctx) {
+	const list = RIG_REFERENCE_AVATARS;
+	let idx;
+	if (ctx?.redis) {
+		try {
+			const n = await ctx.redis.incr('x402:auto:glb-canon:cursor');
+			idx = (Number(n) - 1) % list.length;
+		} catch {
+			idx = _canonCursor++ % list.length;
+		}
+	} else {
+		idx = _canonCursor++ % list.length;
+	}
+	const origin = ctx?.origin || 'https://three.ws';
+	const targetUrl = `${origin}/avatars/${list[idx]}`;
+	return { path: `/api/x402/model-check?url=${encodeURIComponent(targetUrl)}`, targetUrl };
+}
 
 const SELF_ENDPOINTS = [
 	// ── Oracle / Intelligence (highest priority — feeds sniper decisions) ─────
@@ -229,6 +353,65 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ alive: !!r?.verdict, verdict: r?.verdict }),
 	},
+	// MCP Model Validation Sweep — picks the longest-unvalidated public GLB from
+	// the avatars table, runs glTF-Transform inspection, and upserts a quality
+	// score row to model_quality_scores. Each tick advances the sweep by one avatar.
+	// Cooldown 300 s → 12 models/hour; a library of 100 models is fully covered
+	// within ~8 hours and re-validated on a 24-hour rolling basis.
+	// Downstream consumer: model_quality_scores → explore quality badges and
+	// curation pipelines that surface models needing attention.
+	{
+		id: 'mcp-model-validation-sweep',
+		name: 'MCP Model Validation Sweep',
+		path: '/api/x402/model-validation-sweep',
+		method: 'POST',
+		body: {},
+		cooldown_s: 300,
+		priority: 45,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			avatar_id: r?.avatar_id || null,
+			score: r?.score ?? null,
+			has_errors: r?.has_errors ?? null,
+			missing_bones: r?.missing_bones ?? null,
+			skipped: r?.skipped ?? false,
+		}),
+	},
+
+	// ── MCP Health: Solana agent registration canary ──────────────────────────
+	// Verifies the server-custodial Solana registration subsystem end-to-end by
+	// resolving a known canary agent's on-chain Metaplex Agent Registry record
+	// (Identity PDA + Core asset) and confirming both accounts still exist
+	// on-chain. The endpoint owns the verification + persists the canonical
+	// health row to mcp_health_canary; this loop pays the $0.001 canary fee,
+	// records the call to x402_autonomous_log, and respects the 6h cooldown
+	// (4 probes/day). extractSignal lifts the health verdict into signal_data so
+	// a status dashboard can read it straight off the autonomous log too.
+	{
+		id: 'mcp-solana-register-health',
+		name: 'MCP Health: Solana agent registration',
+		path: '/api/x402/solana-register-health',
+		method: 'GET',
+		body: null,
+		cooldown_s: 21600, // 6h — registration is a slow-changing subsystem
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			alive: r?.healthy === true,
+			tool: r?.tool || 'solana_register',
+			network: r?.network || null,
+			canary_agent_id: r?.canary_agent_id || null,
+			asset: r?.asset || null,
+			identity_pda: r?.identity_pda || null,
+			registry_enrolled: r?.checks?.registry_enrolled === true,
+			asset_onchain: r?.checks?.asset_onchain === true,
+			identity_pda_onchain: r?.checks?.identity_pda_onchain === true,
+			consecutive_failures: r?.consecutive_failures ?? null,
+			rpc_latency_ms: r?.rpc_latency_ms ?? null,
+		}),
+	},
 
 	// ── Sniper Pipeline Support ────────────────────────────────────────────────
 	{
@@ -258,6 +441,98 @@ const SELF_ENDPOINTS = [
 		extractSignal: (r) => ({ alive: !!r }),
 	},
 
+	// ── 3D Pipeline QA ─────────────────────────────────────────────────────────
+	// Animation Retargeting QA: pays $0.005 USDC to download a canary animation
+	// clip through the full paid-delivery path (402 paywall → R2 presign → GLB).
+	// That delivery path ships clips produced by the retarget/canonicalize
+	// pipeline (src/glb-canonicalize.js, src/animation-retarget.js), so a
+	// regression that yields a missing, zero-byte, or non-GLB artifact surfaces
+	// here as pass:false. The verdict is stored to x402_autonomous_log.signal_data
+	// (queryable QA history); world-health / uptime dashboards consume it.
+	// Gated on X402_ANIMATION_QA_CLIP_ID — disabled (no spend) until a canary
+	// clip is designated. Cooldown 6h → ≤4 paid probes/day ≈ $0.02/day.
+	{
+		id: 'anim-retarget-qa',
+		name: 'Animation Retargeting QA',
+		path: `/api/x402/animation-download?id=${ANIM_QA_CLIP_ID}`,
+		method: 'GET',
+		body: null,
+		cooldown_s: 21600,
+		priority: 45,
+		pipeline: 'qa',
+		enabled: Boolean(ANIM_QA_CLIP_ID),
+		extractSignal: (r) => {
+			const sizeBytes = Number(r?.sizeBytes ?? 0);
+			const mime = String(r?.mimeType || '');
+			const hasDownload = !!r?.downloadUrl;
+			const isGlb = /gltf-binary|\bglb\b/i.test(mime);
+			return {
+				clip: r?.slug || r?.id || null,
+				name: r?.name || null,
+				size_bytes: sizeBytes,
+				mime,
+				has_download: hasDownload,
+				// All three must hold for the delivery path to be regression-free.
+				pass: r?.ok === true && hasDownload && sizeBytes > 0 && isGlb,
+			};
+		},
+	},
+	// GLB Canonicalization: pays $0.001 USDC to run a rig-reference avatar
+	// through /api/x402/model-check, validating that its skeleton still inspects
+	// as a skinned/animated rig (the precondition for canonical-clip retargeting).
+	// resolveTarget rotates the avatar set so every rig convention is re-checked
+	// over time; storeValue upserts the verdict into glb_canonicalization_results
+	// (consumed by the avatar upload + animation retarget pipeline to gate T-pose
+	// fallback). Cooldown 300s → one avatar every 5 min, full ~8-rig cycle ≈ 40 min.
+	{
+		id: 'glb-canonicalize',
+		name: 'GLB Canonicalization Check',
+		// Stable fallback path; resolveTarget overrides it per call (rotation).
+		path: `/api/x402/model-check?url=${encodeURIComponent('https://three.ws/avatars/xbot.glb')}`,
+		method: 'GET',
+		body: null,
+		cooldown_s: 300,
+		priority: 55,
+		pipeline: 'canonicalize',
+		enabled: true,
+		resolveTarget: (ctx) => nextCanonicalTarget(ctx),
+		extractSignal: (r) => classifyCanonicalization(r),
+		storeValue: async ({ sql, responseBody, signalData, runId, targetUrl }) => {
+			if (!sql) return;
+			const v = signalData || classifyCanonicalization(responseBody);
+			const url = v.model_url || targetUrl;
+			if (!url) return;
+			await ensureCanonicalSchema(sql);
+			await sql`
+				INSERT INTO glb_canonicalization_results
+					(model_url, container, generator, rig_type, is_skinned, vrm,
+					 skins, animations, nodes, canonical_ready, extensions, suggestions,
+					 run_id, checked_at)
+				VALUES
+					(${url}, ${v.container}, ${v.generator}, ${v.rig_type},
+					 ${v.is_skinned}, ${v.vrm}, ${v.skins}, ${v.animations}, ${v.nodes},
+					 ${v.canonical_ready},
+					 ${JSON.stringify(v.extensions || [])},
+					 ${JSON.stringify((responseBody && responseBody.suggestions) || [])},
+					 ${runId}, now())
+				ON CONFLICT (model_url) DO UPDATE SET
+					container       = EXCLUDED.container,
+					generator       = EXCLUDED.generator,
+					rig_type        = EXCLUDED.rig_type,
+					is_skinned      = EXCLUDED.is_skinned,
+					vrm             = EXCLUDED.vrm,
+					skins           = EXCLUDED.skins,
+					animations      = EXCLUDED.animations,
+					nodes           = EXCLUDED.nodes,
+					canonical_ready = EXCLUDED.canonical_ready,
+					extensions      = EXCLUDED.extensions,
+					suggestions     = EXCLUDED.suggestions,
+					run_id          = EXCLUDED.run_id,
+					checked_at      = now()
+			`;
+		},
+	},
+
 	// ── Club Cover Charge (social economy test) ────────────────────────────────
 	{
 		id: 'club-cover-health',
@@ -270,6 +545,29 @@ const SELF_ENDPOINTS = [
 		pipeline: 'health',
 		enabled: true,
 		extractSignal: null,
+	},
+
+	// ── Avatar Optimization Pipeline (nightly MCP Health) ─────────────────────
+	// Pays $0.001 USDC to run optimize_model analysis on the top 50 most-viewed
+	// public avatars. Results upserted to avatar_optimization_results per avatar_id.
+	// Downstream consumer: avatar owner notifications + model quality dashboard.
+	// Cooldown: 86400 s (nightly — keeps daily spend to $0.001).
+	{
+		id: 'avatar-optimize-batch',
+		name: 'Avatar Optimization Pipeline',
+		path: '/api/x402/avatar-optimize-batch',
+		method: 'POST',
+		body: { limit: 50 },
+		cooldown_s: 86400,
+		priority: 30,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			analyzed: r?.analyzed,
+			critical_count: r?.critical_count,
+			warn_count: r?.warn_count,
+			total_size_bytes: r?.total_size_bytes,
+		}),
 	},
 ];
 

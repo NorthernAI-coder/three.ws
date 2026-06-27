@@ -1688,6 +1688,43 @@ CREATE TABLE IF NOT EXISTS paid_assets (
 );
 CREATE INDEX IF NOT EXISTS paid_assets_slug_idx ON paid_assets (slug);
 
+-- Avatar thumbnail regeneration freshness tracking + queue.
+-- Mirror of api/_lib/migrations/2026-06-27-avatar-thumbnail-regen.sql. The
+-- autonomous x402 loop pays asset-download for the stalest listing and queues a
+-- re-render; the drainer cron (api/cron/avatar-thumbnail-render.js) renders the
+-- current GLB to a fresh PNG and writes it back so listings show current state.
+ALTER TABLE paid_assets ADD COLUMN IF NOT EXISTS thumbnail_r2_key       text;
+ALTER TABLE paid_assets ADD COLUMN IF NOT EXISTS thumbnail_generated_at timestamptz;
+ALTER TABLE paid_assets ADD COLUMN IF NOT EXISTS source_updated_at      timestamptz;
+ALTER TABLE paid_assets ADD COLUMN IF NOT EXISTS avatar_id              uuid REFERENCES avatars(id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS avatar_thumbnail_regen_jobs (
+    id                 bigserial   PRIMARY KEY,
+    asset_id           uuid        REFERENCES paid_assets(id) ON DELETE CASCADE,
+    asset_slug         text        NOT NULL,
+    avatar_id          uuid        REFERENCES avatars(id) ON DELETE SET NULL,
+    r2_key             text        NOT NULL,
+    run_id             uuid,
+    x402_tx_signature  text,
+    amount_atomic      bigint      NOT NULL DEFAULT 0,
+    status             text        NOT NULL DEFAULT 'queued'
+                                   CHECK (status IN ('queued','rendering','done','failed')),
+    thumbnail_r2_key   text,
+    width              int         NOT NULL DEFAULT 768,
+    height             int         NOT NULL DEFAULT 768,
+    attempts           int         NOT NULL DEFAULT 0,
+    error              text,
+    reason             text,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now(),
+    rendered_at        timestamptz
+);
+CREATE INDEX IF NOT EXISTS avatar_thumbnail_regen_jobs_status_idx
+    ON avatar_thumbnail_regen_jobs (status, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS avatar_thumbnail_regen_jobs_open_uniq
+    ON avatar_thumbnail_regen_jobs (asset_slug)
+    WHERE status IN ('queued','rendering');
+
 -- ── siwx_payments + siwx_nonces — Sign-In-With-X (CAIP-122) payment history ─
 -- Mirror of api/_lib/migrations/2026-05-21-siwx.sql. A wallet that paid for a
 -- resource can re-access it by signing CAIP-122 instead of re-paying. Stored

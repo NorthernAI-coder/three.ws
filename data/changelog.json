@@ -3,6 +3,18 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "MCP Model Validation Sweep — proactive GLB quality scoring",
+			"summary": "The platform now runs a continuous quality sweep across every public 3D avatar in the database. Every 5 minutes the autonomous agent picks the longest-unvalidated GLB, inspects it with the glTF-Transform engine, and records a 0-100 quality score covering rig completeness, geometry health, texture sizing, triangle budget, and unsupported extensions. Results are stored in a time-series table (model_quality_scores) that will power quality badges and curation tools — surfacing models that need attention before users encounter errors in the viewer. The sweep is driven by the x402 autonomous spend loop at $0.001 USDC per call.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Avatar Optimization Pipeline — nightly analysis of top avatars",
+			"summary": "The platform now runs a nightly optimization sweep across the 50 most-viewed public avatars. Each model is analyzed for geometry and texture inefficiencies — Draco/Meshopt compression opportunities, oversized textures ready for KTX2 transcoding, non-indexed primitives, and redundant materials. Results are stored per-avatar so we can surface actionable improvement suggestions to creators. The pipeline runs autonomously via the x402 agent spend loop, paying $0.001 USDC per nightly batch.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Production stability fixes — genome lineage, screen streaming, and x402 seeder",
 			"summary": "Several reliability issues addressed: the agent genome breeding lineage page (/genome/lineage) was returning errors for all visitors due to a missing database table — now resolved. The live agent screen-streaming panel now correctly finds agents and loads their names. The x402 dance-tip seeder cron no longer floods the platform with thousands of failed payment attempts when Redis is temporarily unavailable — it detects the outage and skips the tick gracefully. Forge error logs now include the full vendor message from Replicate for faster ops triage.",
 			"tags": ["fix", "infra"]

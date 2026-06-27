@@ -32,6 +32,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { isUuid } from '../_lib/validate.js';
 import { hasSkillAccess } from '../_lib/skill-access.js';
 import { publishUserEvent } from '../_lib/feed.js';
+import { attestReview } from '../_lib/review-attest.js';
 
 const SKILL_MAX = 200;
 
@@ -182,7 +183,7 @@ async function handleUpsert(req, res) {
 	const reviewBody = (parsed.data.body || '').trim() || null;
 
 	const [agent] = await sql`
-		SELECT id, user_id, name FROM agent_identities
+		SELECT id, user_id, name, erc8004_agent_id, chain_id FROM agent_identities
 		WHERE id = ${agentId} AND deleted_at IS NULL
 	`;
 	if (!agent) return error(res, 404, 'not_found', 'agent not found');
@@ -236,6 +237,19 @@ async function handleUpsert(req, res) {
 		});
 	}
 
+	// Anchor the review on Solana — fire-and-forget, never blocks the response.
+	attestReview({
+		reviewId: row.id,
+		updatedAt: row.updated_at,
+		agentId,
+		rating,
+		body: reviewBody,
+		reviewType: 'skill',
+		skill,
+	}).catch((err) => {
+		console.error('[review-attest] skill review anchor failed:', err.message);
+	});
+
 	return json(res, isNew ? 201 : 200, {
 		data: {
 			review: row,
@@ -243,6 +257,10 @@ async function handleUpsert(req, res) {
 				rating_avg: Number(summary?.rating_avg || 0),
 				rating_count: summary?.rating_count || 0,
 			},
+			// Returned so the client can offer ERC-8004 user-signed anchoring.
+			erc8004: agent.erc8004_agent_id
+				? { agent_id: String(agent.erc8004_agent_id), chain_id: agent.chain_id }
+				: null,
 		},
 	});
 }

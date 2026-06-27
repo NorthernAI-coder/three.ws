@@ -124,9 +124,9 @@ export async function loadAgentReputation(agentId) {
 	const [attRow] = agentRow.agent_asset
 		? await sql`
 			select
-				count(*) filter (where kind like 'threews.feedback%')::int   as feedback_count,
-				count(*) filter (where kind like 'threews.validation%')::int as validation_count,
-				max(block_time)                                              as latest_attested_at
+				count(*) filter (where kind like 'threews.feedback%' or kind = 'threews.review.v1')::int as feedback_count,
+				count(*) filter (where kind like 'threews.validation%')::int                            as validation_count,
+				max(block_time)                                                                          as latest_attested_at
 			  from solana_attestations
 			 where agent_asset = ${agentRow.agent_asset}
 			   and revoked = false

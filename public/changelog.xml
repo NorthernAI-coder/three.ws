@@ -111,6 +111,14 @@
 			<description>The memetic launcher now auto-claims pump.fun creator fees from every coin it mints, routing the configured share toward $THREE. The admin console at /admin/launcher gains a live revenue panel (total creator fees claimed, $THREE allocated), agent-name visibility in the run feed, a Force Tick button for instant testing, and a cleaner 8-column stat grid. Know Your Meme is wired as a live trend source alongside Hacker News, Reddit, and Wikipedia — so the launcher reads what the internet is actually minting.</description>
 		</item>
 		<item>
+			<title>Avatar Optimization Pipeline — nightly analysis of top avatars</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Avatar Optimization Pipeline — nightly analysis of top avatars</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform now runs a nightly optimization sweep across the 50 most-viewed public avatars. Each model is analyzed for geometry and texture inefficiencies — Draco/Meshopt compression opportunities, oversized textures ready for KTX2 transcoding, non-indexed primitives, and redundant materials. Results are stored per-avatar so we can surface actionable improvement suggestions to creators. The pipeline runs autonomously via the x402 agent spend loop, paying $0.001 USDC per nightly batch.</description>
+		</item>
+		<item>
 			<title>Capabilities dashboard — live command center for all 4 autonomous features</title>
 			<link>https://three.ws/dashboard/capabilities</link>
 			<guid isPermaLink="false">2026-06-27:Capabilities dashboard — live command center for all 4 autonomous features</guid>
@@ -205,6 +213,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.</description>
+		</item>
+		<item>
+			<title>MCP Model Validation Sweep — proactive GLB quality scoring</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:MCP Model Validation Sweep — proactive GLB quality scoring</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform now runs a continuous quality sweep across every public 3D avatar in the database. Every 5 minutes the autonomous agent picks the longest-unvalidated GLB, inspects it with the glTF-Transform engine, and records a 0-100 quality score covering rig completeness, geometry health, texture sizing, triangle budget, and unsupported extensions. Results are stored in a time-series table (model_quality_scores) that will power quality badges and curation tools — surfacing models that need attention before users encounter errors in the viewer. The sweep is driven by the x402 autonomous spend loop at $0.001 USDC per call.</description>
 		</item>
 		<item>
 			<title>Money Pulse now shows whether agent trading is viable</title>
