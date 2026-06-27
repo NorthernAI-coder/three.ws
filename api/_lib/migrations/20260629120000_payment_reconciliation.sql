@@ -37,6 +37,29 @@ CREATE INDEX IF NOT EXISTS payment_reconciliation_open_idx
 CREATE INDEX IF NOT EXISTS payment_reconciliation_sig_idx
     ON payment_reconciliation (tx_signature);
 
+-- The autonomous log is created lazily by api/cron/x402-autonomous-loop.js on
+-- first run; mirror its canonical definition here so this migration is
+-- self-contained on a fresh env (matches the file header's intent). Idempotent.
+CREATE TABLE IF NOT EXISTS x402_autonomous_log (
+    id              bigserial PRIMARY KEY,
+    run_id          uuid NOT NULL,
+    ts              timestamptz DEFAULT now(),
+    endpoint_type   text NOT NULL CHECK (endpoint_type IN ('self', 'external')),
+    service_name    text NOT NULL,
+    endpoint_url    text NOT NULL,
+    network         text NOT NULL DEFAULT 'solana:mainnet',
+    amount_atomic   bigint NOT NULL DEFAULT 0,
+    asset           text,
+    tx_signature    text,
+    response_data   jsonb,
+    signal_data     jsonb,
+    value_extracted jsonb,
+    duration_ms     int,
+    success         boolean NOT NULL,
+    error_msg       text,
+    pipeline        text
+);
+
 -- The autonomous log predates the value_extracted column the reconciliation
 -- summary is written into (shared across run()-style pipelines; idempotent).
 ALTER TABLE x402_autonomous_log ADD COLUMN IF NOT EXISTS value_extracted jsonb;

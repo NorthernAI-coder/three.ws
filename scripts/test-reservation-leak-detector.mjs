@@ -99,7 +99,14 @@ async function main() {
 		}];
 		const { sql, captured } = makeSqlStub({ solRows });
 		const redis = makeRedisStub();
-		const out = await run({ sql, redis, runId: randomUUID() });
+		const releasedSol = [];
+		const out = await run({
+			sql, redis, runId: randomUUID(),
+			// Inject no-op releasers so the offline path doesn't hit the module DB.
+			releaseSpend: async (id) => { releasedSol.push(id); },
+			releaseSpendReservation: async () => {},
+		});
+		check('releaseSpend called for the leaked id', releasedSol.includes(4242));
 		check('success true', out.success === true);
 		check('leaked_total 1', out.valueExtracted.leaked_total === 1, String(out.valueExtracted.leaked_total));
 		check('sol_freed 0.25', out.valueExtracted.sol_freed === 0.25, String(out.valueExtracted.sol_freed));

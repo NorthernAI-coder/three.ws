@@ -339,8 +339,8 @@ export async function run(ctx = {}) {
 	// Each source sweep is independently guarded — a failure in one (e.g. a table
 	// that doesn't exist in this env) degrades to "scanned 0" and never blocks the
 	// other, and never crashes the tick.
-	const custody = await sweepCustodyLeaks(db, runId);
-	const solActions = await sweepSolActionLeaks(db, runId);
+	const custody = await sweepCustodyLeaks(db, runId, releaseUsd);
+	const solActions = await sweepSolActionLeaks(db, runId, releaseSol);
 
 	const allSwept = [...custody.swept, ...solActions.swept];
 	const agents = new Set(allSwept.map((l) => l.agent_id).filter(Boolean));

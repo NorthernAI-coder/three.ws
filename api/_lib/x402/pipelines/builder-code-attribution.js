@@ -379,6 +379,9 @@ export async function run(ctx = {}) {
 	let amountAtomic = 0;
 	let txSig = null;
 	let settleResp = null;
+	// settleExecuted = we actually had a wallet and ran the attributed payment.
+	// Distinguishes "couldn't run the proof (no wallet)" from "proof failed".
+	let settleExecuted = false;
 
 	if (settleRow) {
 		let solana = null;
@@ -395,6 +398,7 @@ export async function run(ctx = {}) {
 		}
 
 		if (solana) {
+			settleExecuted = true;
 			const r = await settleAttributed({
 				row: settleRow,
 				buyer: solana.buyer,
@@ -423,11 +427,13 @@ export async function run(ctx = {}) {
 	const challenged = rows.filter((r) => r.challenged);
 	const gaps = challenged.filter((r) => r.gap);
 	const attributionOk = gaps.length === 0;
-	// The settlement proof is meaningful only when we had a declaring endpoint to
-	// pay. echoAccepted=false there means an attributed payment FAILED to settle.
+	// The settlement proof is meaningful only when we actually ran it (had a
+	// declaring endpoint AND a wallet). A run that couldn't even attempt the proof
+	// (no wallet, no declaring endpoint to pay) isn't a failure — only an executed
+	// proof that came back echo_accepted=false is an attributed-settle FAILURE.
 	const settleAttempted = !!settleRow;
 	const settleProven = !!(settleRow && settleRow.echo_accepted);
-	const proofOk = !settleAttempted || settleProven;
+	const proofOk = !settleExecuted || settleProven;
 
 	await writeAlert(redis, attributionOk && proofOk ? null : {
 		run_id: runId,
@@ -459,7 +465,7 @@ export async function run(ctx = {}) {
 	}
 
 	const note = attributionOk
-		? `${signalData.attributed}/${challenged.length} attributed${settleProven ? `, settle ${txSig ? 'proven' : 'ok'}` : settleAttempted ? ', SETTLE_FAILED' : ''}`
+		? `${signalData.attributed}/${challenged.length} attributed${settleProven ? `, settle ${txSig ? 'proven' : 'ok'}` : settleExecuted ? ', SETTLE_FAILED' : ''}`
 		: `ATTRIBUTION_GAP ${gaps.length}: ${signalData.gap_endpoints.join(',')}`;
 
 	return {
