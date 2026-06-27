@@ -187,7 +187,11 @@ describe('normalizeSkill', () => {
 describe('interleave', () => {
 	it('round-robins across lanes so types alternate', () => {
 		expect(interleave([['a1', 'a2'], ['b1', 'b2'], ['c1']])).toEqual([
-			'a1', 'b1', 'c1', 'a2', 'b2',
+			'a1',
+			'b1',
+			'c1',
+			'a2',
+			'b2',
 		]);
 	});
 
