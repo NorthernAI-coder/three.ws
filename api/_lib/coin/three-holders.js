@@ -65,9 +65,8 @@ function ensureTables() {
 		`;
 		return true;
 	})().catch((err) => {
-		console.error('[three-holders] ensureTables failed:', err?.message || err);
 		_ensured = null; // allow a retry on the next call
-		return false;
+		throw err; // surface the original error — callers log it in their context
 	});
 	return _ensured;
 }
@@ -75,8 +74,13 @@ function ensureTables() {
 /**
  * Run a full $THREE holder scan and atomically refresh the snapshot table.
  * Called by the cron only. Returns { holders, scannedAt } for logging.
+ *
+ * ensureTables() is preflighted here so a DB-down condition aborts BEFORE
+ * the expensive Helius DAS scan — avoiding wasted API credits every cron tick
+ * when the database is unreachable.
  */
 export async function refreshThreeHolderSnapshot() {
+	await ensureTables();
 	const balances = await fetchHolderBalances({ mint: THREE_MINT });
 	return persistThreeHolderSnapshot(balances);
 }
@@ -87,7 +91,7 @@ export async function refreshThreeHolderSnapshot() {
  * scan for BOTH the response and self-healing the cache — never scanning twice.
  */
 export async function persistThreeHolderSnapshot(balances) {
-	if (!(await ensureTables())) throw new Error('three_holder_snapshot table unavailable');
+	await ensureTables();
 
 	const wallets = [...balances.keys()].filter((w) => balances.get(w) > 0n);
 	const now = new Date();

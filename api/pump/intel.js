@@ -19,7 +19,7 @@
 // yet, so the dashboard can render its "engine warming up" state instead of 500ing.
 
 import { cors, json, method, wrap } from '../_lib/http.js';
-import { sql } from '../_lib/db.js';
+import { sql, isDbUnavailableError } from '../_lib/db.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
@@ -465,7 +465,8 @@ export default wrap(async (req, res) => {
 			return json(res, 200, { view, network, degraded: true, reason: 'engine_tables_pending', ts: Date.now() },
 				{ 'cache-control': 'no-store' });
 		}
-		console.error('[pump/intel] query failed', err);
+		if (isDbUnavailableError(err)) console.warn('[pump/intel] db unavailable:', err?.message);
+		else console.error('[pump/intel] query failed', err);
 		return json(res, 200, { view, network, degraded: true, reason: 'query_failed', ts: Date.now() },
 			{ 'cache-control': 'no-store' });
 	}

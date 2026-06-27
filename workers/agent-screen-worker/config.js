@@ -15,6 +15,7 @@ export function loadConfig() {
 		AGENT_ID: process.env.AGENT_ID,
 		AGENT_JWT: process.env.AGENT_JWT,
 		PUSH_URL: process.env.PUSH_URL || 'https://three.ws/api/agent-screen-push',
+		TASK_URL: process.env.TASK_URL || 'https://three.ws/api/agent-task',
 		BROWSERBASE_API_KEY,
 		BROWSERBASE_PROJECT_ID,
 		CYCLE_MS: Number(process.env.CYCLE_MS || 30_000),

@@ -6,6 +6,7 @@ import { env } from './env.js';
 import { captureException } from './sentry.js';
 import { sendOpsAlert } from './alerts.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
+import { isDbUnavailableError } from './db.js';
 
 // Secure-by-default caching: emit `no-store` UNLESS the handler already set a
 // Cache-Control header (e.g. `res.setHeader('cache-control', 'public, s-maxage=…')`
@@ -378,21 +379,34 @@ export function wrap(handler) {
 		try {
 			await handler(req, res, ...rest);
 		} catch (err) {
-			const status = err.status || 500;
+			const dbDown = isDbUnavailableError(err);
+			const status = dbDown ? 503 : (err.status || 500);
 			if (status >= 500) {
 				const ref = correlationId();
 				// Redact coordinates / device tokens so a 5xx on a geolocated read never
 				// spills the caller's position or credential to an off-box sink.
 				console.error(`[api] unhandled [ref ${ref}]`, err);
 				captureException(err, { ref, url: redactUrl(req.url), method: req.method });
-				sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, `${err?.message || String(err)}\nref ${ref}`, {
-					signature: `unhandled:${redactUrl(req.url)}:${err?.message}`,
-				});
+				if (dbDown) {
+					// During a DB outage every endpoint fails — fire a single shared alert
+					// rather than one per endpoint per hour to avoid alert fatigue.
+					sendOpsAlert('database unavailable', `${err?.message || String(err)}\nref ${ref}`, {
+						signature: 'db:unavailable',
+					});
+				} else {
+					sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, `${err?.message || String(err)}\nref ${ref}`, {
+						signature: `unhandled:${redactUrl(req.url)}:${err?.message}`,
+					});
+				}
 				// Never echo a raw upstream message in a 5xx body — Solana/web3.js
 				// network errors embed the keyed RPC URL (…helius-rpc.com/?api-key=…),
 				// so err.message would leak HELIUS_API_KEY to the client. Hand back a
 				// sanitized envelope keyed to the same ref we just logged.
 				if (!res.headersSent && !res.writableEnded) {
+					if (dbDown) {
+						// 503 with Retry-After so clients and CDNs know to back off.
+						res.setHeader('retry-after', '30');
+					}
 					if (wantsHtmlNavigation(req)) {
 						// A human navigated into this 5xx — send them to the branded
 						// error page with their ref instead of a raw JSON blob. API and
@@ -400,8 +414,10 @@ export function wrap(handler) {
 						redirect(res, serverErrorPageLocation(ref, req), 303);
 					} else {
 						json(res, status, {
-							error: err.code || 'internal_error',
-							error_description: `internal error — quote ref ${ref} to support`,
+							error: dbDown ? 'service_unavailable' : (err.code || 'internal_error'),
+							error_description: dbDown
+								? 'database temporarily unavailable — retry shortly'
+								: `internal error — quote ref ${ref} to support`,
 							ref,
 						}, { 'cache-control': 'no-store' });
 					}

@@ -52,6 +52,7 @@ packages/avatar-agent-mcp/    → @three-ws/avatar-agent-mcp  (MCP server — av
 packages/pumpfun-mcp/         → @three-ws/pumpfun-mcp       (MCP server — pump.fun launch tools)
 packages/ibm-watsonx-mcp/     → @three-ws/ibm-watsonx-mcp   (MCP server — IBM watsonx.ai)
 packages/ibm-x402-mcp/        → @three-ws/ibm-x402-mcp      (MCP server — IBM x402 payments)
+packages/alibaba-cloud-mcp/   → @three-ws/alibaba-cloud-mcp  (MCP server — Alibaba Cloud DashScope: Qwen chat, embeddings, model discovery)
 packages/three-token-mcp/     → @three-ws/three-token-mcp   (MCP server — $THREE token tools)
 packages/threews-avatar-mcp/  → @three-ws/threews-avatar-mcp (MCP server — three.ws avatar ops)
 packages/scene-mcp/           → @three-ws/scene-mcp         (MCP server — text→3D diorama scenes)
