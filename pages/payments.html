@@ -17,129 +17,226 @@
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<link rel="stylesheet" href="/mobile.css" />
 		<style>
-			.pay-wrap { max-width: 1040px; margin: 0 auto; padding: clamp(1.25rem, 4vw, 3rem) 1.25rem 4rem; }
-			.pay-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-			.pay-head h1 { font-size: clamp(1.6rem, 3.5vw, 2.2rem); margin: 0 0 0.3rem; letter-spacing: -0.02em; }
-			.pay-head p { margin: 0; color: var(--text-secondary, #9aa3b2); max-width: 58ch; line-height: 1.55; font-size: 15px; }
+			/* ── Layout ──────────────────────────────────────────────── */
+			.pw { max-width: 1100px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 1.25rem 5rem; }
 
-			/* Stats row */
-			.pay-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
-			.pay-stat { border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 1.1rem 1.25rem; background: rgba(10,10,10,0.7); }
-			.pay-stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.45); font-weight: 600; margin-bottom: 0.5rem; }
-			.pay-stat .value { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
-			.pay-stat .value.green { color: #2fbf71; }
-			.pay-stat .value.purple { color: #a78bfa; }
-			.pay-stat .sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 0.2rem; }
+			/* ── Page header ─────────────────────────────────────────── */
+			.pw-hero { position: relative; padding: 2.5rem 2.5rem 2rem; border-radius: 20px; margin-bottom: 2.25rem; overflow: hidden; background: linear-gradient(135deg, rgba(124,92,255,0.12) 0%, rgba(47,191,113,0.06) 60%, transparent 100%); border: 1px solid rgba(255,255,255,0.1); }
+			.pw-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at top right, rgba(124,92,255,0.18) 0%, transparent 60%); pointer-events: none; }
+			.pw-hero-inner { position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
+			.pw-hero h1 { font-size: clamp(1.65rem, 3vw, 2.1rem); margin: 0 0 0.5rem; letter-spacing: -0.025em; font-weight: 700; }
+			.pw-hero p { margin: 0; color: rgba(255,255,255,0.55); max-width: 52ch; line-height: 1.6; font-size: 14.5px; }
+			.pw-hero-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: rgba(47,191,113,0.9); background: rgba(47,191,113,0.1); border: 1px solid rgba(47,191,113,0.25); border-radius: 99px; padding: 4px 12px; margin-bottom: 0.85rem; }
+			.pw-hero-tag svg { width: 8px; height: 8px; fill: #2fbf71; border-radius: 50%; }
+			.pw-hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+			.btn-primary { font: inherit; font-size: 13.5px; font-weight: 600; padding: 10px 20px; border-radius: 10px; border: none; background: linear-gradient(135deg, #7c5cff, #6144e0); color: #fff; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: opacity .15s, transform .1s; box-shadow: 0 2px 12px rgba(124,92,255,0.3); white-space: nowrap; }
+			.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+			.btn-primary:active { transform: translateY(0); }
+			.btn-primary:disabled { opacity: 0.45; cursor: default; transform: none; }
+			.btn-ghost { font: inherit; font-size: 13px; font-weight: 500; padding: 9px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background .15s, color .15s; white-space: nowrap; }
+			.btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
 
-			/* Toolbar */
-			.pay-toolbar { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-			.pay-filter { display: flex; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden; }
-			.pay-filter button { font: inherit; font-size: 13px; font-weight: 500; padding: 8px 14px; background: transparent; border: none; color: rgba(255,255,255,0.55); cursor: pointer; transition: color .15s, background .15s; }
-			.pay-filter button:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06); }
-			.pay-filter button.active { color: #fff; background: rgba(255,255,255,0.12); }
-			.btn-new { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 18px; border-radius: 10px; border: none; background: var(--accent, #7c5cff); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: opacity .15s; margin-left: auto; }
-			.btn-new:hover { opacity: 0.85; }
-			.btn-new:disabled { opacity: 0.5; cursor: default; }
+			/* ── Stats row ───────────────────────────────────────────── */
+			.pw-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+			.pw-stat { border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 1.1rem 1.25rem 1rem; background: rgba(255,255,255,0.025); position: relative; overflow: hidden; transition: border-color .2s; }
+			.pw-stat::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; border-radius: 14px 14px 0 0; }
+			.pw-stat.s-active::after { background: linear-gradient(90deg, #2fbf71, #52e89a); }
+			.pw-stat.s-budget::after { background: linear-gradient(90deg, #7c5cff, #a78bfa); }
+			.pw-stat.s-paid::after { background: linear-gradient(90deg, #3b82f6, #7dd3fc); }
+			.pw-stat.s-endpoints::after { background: linear-gradient(90deg, #f0a93b, #ffd280); }
+			.pw-stat .lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); font-weight: 600; margin-bottom: 0.55rem; }
+			.pw-stat .val { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+			.pw-stat .val.c-green { color: #2fbf71; }
+			.pw-stat .val.c-purple { color: #a78bfa; }
+			.pw-stat .val.c-blue { color: #7dd3fc; }
+			.pw-stat .val.c-amber { color: #fbbf24; }
+			.pw-stat .sub { font-size: 11.5px; color: rgba(255,255,255,0.35); margin-top: 0.35rem; }
 
-			/* Session cards */
-			.pay-list { display: flex; flex-direction: column; gap: 1rem; }
-			.sess-card { border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; background: rgba(10,10,10,0.8); overflow: hidden; transition: border-color .2s; }
-			.sess-card:hover { border-color: rgba(255,255,255,0.22); }
-			.sess-card-head { display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.25rem; cursor: pointer; }
-			.sess-badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; }
-			.sess-badge.active { background: rgba(47,191,113,0.18); color: #2fbf71; border: 1px solid rgba(47,191,113,0.3); }
-			.sess-badge.exhausted { background: rgba(240,169,59,0.15); color: #f0a93b; border: 1px solid rgba(240,169,59,0.28); }
-			.sess-badge.expired { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.12); }
-			.sess-badge.cancelled { background: rgba(255,80,80,0.1); color: #ff6b6b; border: 1px solid rgba(255,80,80,0.2); }
-			.sess-label { font-weight: 600; font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-			.sess-amounts { display: flex; align-items: center; gap: 1.5rem; font-variant-numeric: tabular-nums; font-size: 14px; }
-			.sess-remaining { font-weight: 700; font-size: 16px; }
-			.sess-remaining.green { color: #2fbf71; }
-			.sess-remaining.yellow { color: #f0a93b; }
-			.sess-remaining.grey { color: rgba(255,255,255,0.35); }
-			.sess-budget-dim { color: rgba(255,255,255,0.4); font-size: 13px; }
-			.sess-expand { font-size: 18px; color: rgba(255,255,255,0.3); transition: transform .2s; }
-			.sess-card.open .sess-expand { transform: rotate(180deg); }
+			/* Skeleton loader */
+			.skel { border-radius: 14px; background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+			@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+			@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+			/* ── Toolbar ─────────────────────────────────────────────── */
+			.pw-toolbar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+			.pw-filters { display: flex; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+			.pw-filters button { font: inherit; font-size: 13px; font-weight: 500; padding: 7px 14px; background: transparent; border: none; color: rgba(255,255,255,0.5); cursor: pointer; transition: color .15s, background .15s; border-right: 1px solid rgba(255,255,255,0.07); }
+			.pw-filters button:last-child { border-right: none; }
+			.pw-filters button:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.06); }
+			.pw-filters button.on { color: #fff; background: rgba(255,255,255,0.11); }
+			.pw-count { font-size: 12px; color: rgba(255,255,255,0.35); margin-left: auto; }
+			.pw-shortcut { font-size: 11px; color: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 2px 7px; font-family: monospace; }
+
+			/* ── Session list ────────────────────────────────────────── */
+			.pw-list { display: flex; flex-direction: column; gap: 0.875rem; }
+
+			/* ── Session card ────────────────────────────────────────── */
+			.sc { border: 1px solid rgba(255,255,255,0.09); border-radius: 16px; background: rgba(255,255,255,0.02); overflow: hidden; transition: border-color .2s, background .2s; }
+			.sc:hover { border-color: rgba(255,255,255,0.17); background: rgba(255,255,255,0.035); }
+			.sc.open { border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
+			.sc-head { display: flex; align-items: center; gap: 0.875rem; padding: 1rem 1.125rem; cursor: pointer; user-select: none; }
+			.sc-badge { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.06em; flex-shrink: 0; }
+			.sc-badge.active { background: rgba(47,191,113,0.15); color: #2fbf71; border: 1px solid rgba(47,191,113,0.28); }
+			.sc-badge.exhausted { background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+			.sc-badge.expired { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
+			.sc-badge.cancelled { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+			.sc-net { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+			.sc-net.sol { background: rgba(153,69,255,0.12); color: #c084fc; border: 1px solid rgba(153,69,255,0.2); }
+			.sc-net.base { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+			.sc-label { font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.sc-label-unnamed { color: rgba(255,255,255,0.4); font-style: italic; font-weight: 400; }
+			.sc-amounts { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+			.sc-remain { font-size: 15.5px; font-weight: 700; }
+			.sc-remain.g { color: #2fbf71; }
+			.sc-remain.y { color: #fbbf24; }
+			.sc-remain.r { color: #f87171; }
+			.sc-remain.d { color: rgba(255,255,255,0.3); }
+			.sc-total { font-size: 13px; color: rgba(255,255,255,0.35); }
+			.sc-chevron { font-size: 16px; color: rgba(255,255,255,0.25); transition: transform .2s; flex-shrink: 0; }
+			.sc.open .sc-chevron { transform: rotate(180deg); }
 
 			/* Budget bar */
-			.sess-bar-wrap { padding: 0 1.25rem; }
-			.sess-bar-track { height: 5px; border-radius: 99px; background: rgba(255,255,255,0.08); overflow: hidden; }
-			.sess-bar-fill { height: 100%; border-radius: 99px; transition: width .4s; }
-			.sess-bar-fill.green { background: linear-gradient(90deg, #2fbf71, #52e89a); }
-			.sess-bar-fill.yellow { background: linear-gradient(90deg, #f0a93b, #ffd280); }
-			.sess-bar-fill.red { background: linear-gradient(90deg, #ff5050, #ff8f70); }
+			.sc-bar { padding: 0 1.125rem 1rem; display: flex; align-items: center; gap: 0.75rem; }
+			.sc-bar-track { flex: 1; height: 4px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; }
+			.sc-bar-fill { height: 100%; border-radius: 99px; transition: width .5s cubic-bezier(0.16,1,0.3,1); }
+			.sc-bar-fill.g { background: linear-gradient(90deg, #2fbf71, #4ade80); }
+			.sc-bar-fill.y { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
+			.sc-bar-fill.r { background: linear-gradient(90deg, #ef4444, #f87171); }
+			.sc-bar-pct { font-size: 11.5px; color: rgba(255,255,255,0.35); font-variant-numeric: tabular-nums; min-width: 32px; text-align: right; }
+			.sc-expiry { font-size: 11px; color: rgba(255,255,255,0.3); white-space: nowrap; }
+			.sc-expiry.warn { color: #fbbf24; }
+			.sc-expiry.danger { color: #f87171; }
 
 			/* Expanded detail */
-			.sess-detail { display: none; padding: 1.1rem 1.25rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.07); }
-			.sess-card.open .sess-detail { display: block; }
-			.sess-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem 1.5rem; margin-bottom: 1rem; font-size: 13px; }
-			.sess-meta-item .k { color: rgba(255,255,255,0.45); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
-			.sess-meta-item .v { font-weight: 500; word-break: break-all; }
-			.sess-meta-item .v code { font-family: monospace; font-size: 12px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
+			.sc-body { display: none; padding: 1.25rem 1.125rem; border-top: 1px solid rgba(255,255,255,0.07); }
+			.sc.open .sc-body { display: block; }
 
-			/* Executions mini-table */
-			.exec-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-			.exec-table th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); font-weight: 600; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.07); text-align: left; }
+			/* Meta grid */
+			.sc-meta { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.6rem 1.25rem; margin-bottom: 1.25rem; }
+			.sc-mi .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.38); font-weight: 600; margin-bottom: 3px; }
+			.sc-mi .v { font-size: 13px; font-weight: 500; word-break: break-all; display: flex; align-items: center; gap: 6px; }
+			.sc-mi .v code { font-family: monospace; font-size: 11.5px; background: rgba(255,255,255,0.07); padding: 2px 6px; border-radius: 5px; cursor: pointer; transition: background .15s; }
+			.sc-mi .v code:hover { background: rgba(255,255,255,0.14); }
+			.sc-mi .v.muted { color: rgba(255,255,255,0.45); }
+			.sc-mi .copy-icon { width: 13px; height: 13px; opacity: 0.35; cursor: pointer; transition: opacity .15s; flex-shrink: 0; }
+			.sc-mi .copy-icon:hover { opacity: 0.8; }
+
+			/* Action bar */
+			.sc-actions { display: flex; gap: 0.625rem; margin-bottom: 1.25rem; flex-wrap: wrap; }
+			.sc-act { font: inherit; font-size: 12px; font-weight: 600; padding: 6px 13px; border-radius: 8px; cursor: pointer; transition: opacity .15s, background .15s; display: inline-flex; align-items: center; gap: 5px; border: 1px solid transparent; }
+			.sc-act.danger { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.22); color: #f87171; }
+			.sc-act.danger:hover { opacity: 0.8; }
+			.sc-act.copy { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.22); color: #c4b5fd; }
+			.sc-act.copy:hover { background: rgba(167,139,250,0.18); }
+			.sc-act.edit { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+			.sc-act.edit:hover { background: rgba(255,255,255,0.12); }
+
+			/* MCP snippet box */
+			.mcp-box { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 0.875rem 1rem; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; color: #a78bfa; line-height: 1.65; word-break: break-all; display: none; margin-bottom: 1rem; position: relative; }
+			.mcp-box.show { display: block; }
+			.mcp-copy-btn { position: absolute; top: 0.6rem; right: 0.6rem; font: inherit; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(167,139,250,0.3); background: rgba(167,139,250,0.12); color: #c4b5fd; cursor: pointer; transition: background .15s; }
+			.mcp-copy-btn:hover { background: rgba(167,139,250,0.22); }
+
+			/* Executions section */
+			.exec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+			.exec-head h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.45); font-weight: 700; margin: 0; }
+			.exec-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+			.exec-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.35); font-weight: 700; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.07); text-align: left; }
 			.exec-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); vertical-align: middle; }
 			.exec-table tr:last-child td { border-bottom: none; }
-			.exec-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; }
-			.exec-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; }
-			.exec-status.settled::before { background: #2fbf71; }
-			.exec-status.failed::before { background: #ff5050; }
-			.exec-status.pending::before { background: #f0a93b; }
-			.exec-url { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.65); font-family: monospace; font-size: 12px; }
-			.exec-tx a { color: var(--accent, #7c5cff); text-decoration: none; font-family: monospace; font-size: 11px; }
-			.exec-tx a:hover { text-decoration: underline; }
+			.exec-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+			.exec-dot.settled { background: #2fbf71; }
+			.exec-dot.failed { background: #f87171; }
+			.exec-dot.pending { background: #fbbf24; }
+			.exec-url { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,255,255,0.6); }
+			.exec-tx-link { color: #818cf8; text-decoration: none; font-family: monospace; font-size: 11px; }
+			.exec-tx-link:hover { text-decoration: underline; }
+			.exec-ts { color: rgba(255,255,255,0.35); font-size: 11px; }
+			.exec-amt { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px; }
+			.exec-none { color: rgba(255,255,255,0.3); font-size: 13px; padding: 0.75rem 0; }
 
-			/* Actions */
-			.sess-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
-			.sess-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: opacity .15s; }
-			.sess-btn.cancel { background: rgba(255,80,80,0.12); border: 1px solid rgba(255,80,80,0.25); color: #ff7070; }
-			.sess-btn.cancel:hover { opacity: 0.75; }
+			/* ── Empty state ─────────────────────────────────────────── */
+			.pw-empty { text-align: center; padding: 5rem 1rem; }
+			.pw-empty-icon { width: 64px; height: 64px; background: linear-gradient(135deg, rgba(124,92,255,0.15), rgba(47,191,113,0.1)); border-radius: 18px; margin: 0 auto 1.5rem; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.1); }
+			.pw-empty h2 { font-size: 1.3rem; margin: 0 0 0.6rem; letter-spacing: -0.02em; }
+			.pw-empty p { color: rgba(255,255,255,0.5); margin: 0 auto 2rem; max-width: 38ch; line-height: 1.6; font-size: 14.5px; }
 
-			/* Empty / loading states */
-			.pay-empty { text-align: center; padding: 4rem 1rem; color: rgba(255,255,255,0.5); }
-			.pay-empty h2 { font-size: 1.25rem; color: rgba(255,255,255,0.85); margin: 0 0 0.6rem; }
-			.pay-empty p { margin: 0 0 1.4rem; max-width: 42ch; margin-left: auto; margin-right: auto; line-height: 1.6; }
-			.pay-skel { height: 88px; border-radius: 16px; background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.1), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: payShimmer 1.3s infinite; margin-bottom: 1rem; }
-			@keyframes payShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-			@media (prefers-reduced-motion: reduce) { .pay-skel { animation: none; } }
-
-			/* Create session modal */
-			.modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
+			/* ── Create modal ────────────────────────────────────────── */
+			.modal-bg { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.75); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity .2s; }
 			.modal-bg.show { opacity: 1; pointer-events: auto; }
-			.modal { background: #111; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; padding: 1.75rem; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
-			.modal h2 { margin: 0 0 0.3rem; font-size: 1.2rem; }
-			.modal .modal-sub { color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 1.5rem; }
-			.form-row { margin-bottom: 1.1rem; }
-			.form-row label { display: block; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.65); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
-			.form-row input, .form-row select, .form-row textarea { width: 100%; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; transition: border-color .15s; box-sizing: border-box; }
-			.form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: var(--accent, #7c5cff); }
-			.form-row .hint { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 5px; line-height: 1.45; }
-			.form-row select option { background: #1a1a1a; }
-			.modal-actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
-			.modal-actions button { flex: 1; font: inherit; font-weight: 600; font-size: 14px; padding: 11px; border-radius: 10px; border: none; cursor: pointer; transition: opacity .15s; }
-			.modal-actions .primary { background: var(--accent, #7c5cff); color: #fff; }
-			.modal-actions .primary:hover { opacity: 0.85; }
-			.modal-actions .primary:disabled { opacity: 0.45; cursor: default; }
-			.modal-actions .secondary { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.12); }
+			.modal { background: #0f0f0f; border: 1px solid rgba(255,255,255,0.14); border-radius: 22px; padding: 1.75rem; width: 100%; max-width: 500px; max-height: 92vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03) inset; }
+			.modal-hd { margin-bottom: 1.5rem; }
+			.modal-hd h2 { font-size: 1.2rem; margin: 0 0 0.3rem; letter-spacing: -0.02em; }
+			.modal-hd p { color: rgba(255,255,255,0.5); font-size: 13.5px; margin: 0; line-height: 1.5; }
+
+			/* Templates */
+			.tpl-row { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+			.tpl-btn { flex: 1; font: inherit; font-size: 12px; font-weight: 600; padding: 8px 6px; border-radius: 9px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.65); cursor: pointer; transition: border-color .15s, background .15s, color .15s; text-align: center; line-height: 1.3; }
+			.tpl-btn:hover { border-color: rgba(124,92,255,0.5); background: rgba(124,92,255,0.08); color: #fff; }
+			.tpl-btn.on { border-color: rgba(124,92,255,0.6); background: rgba(124,92,255,0.14); color: #c4b5fd; }
+			.tpl-btn .tpl-price { display: block; font-size: 14px; font-weight: 800; color: inherit; margin-bottom: 2px; }
+			.tpl-btn .tpl-desc { display: block; font-size: 10.5px; font-weight: 500; opacity: 0.7; }
+
+			/* Form fields */
+			.f-row { margin-bottom: 1rem; }
+			.f-row label { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.55); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.06em; }
+			.f-row label span { font-size: 11px; color: rgba(255,255,255,0.3); text-transform: none; letter-spacing: 0; font-weight: 400; }
+			.f-row input, .f-row select, .f-row textarea { width: 100%; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; background: rgba(255,255,255,0.04); color: #fff; transition: border-color .15s, background .15s; box-sizing: border-box; }
+			.f-row input:focus, .f-row select:focus, .f-row textarea:focus { outline: none; border-color: rgba(124,92,255,0.6); background: rgba(124,92,255,0.05); }
+			.f-row select option { background: #1a1a1a; }
+			.f-hint { font-size: 11.5px; color: rgba(255,255,255,0.35); margin-top: 5px; line-height: 1.45; }
+			.f-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+			/* Budget preview */
+			.budget-preview { display: flex; align-items: center; justify-content: space-between; background: rgba(47,191,113,0.07); border: 1px solid rgba(47,191,113,0.2); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 13px; }
+			.budget-preview .bp-label { color: rgba(255,255,255,0.55); }
+			.budget-preview .bp-val { font-weight: 700; color: #2fbf71; font-size: 15px; }
+
+			/* Modal actions */
+			.modal-footer { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+			.modal-footer button { flex: 1; font: inherit; font-weight: 600; font-size: 14px; padding: 11px; border-radius: 11px; border: none; cursor: pointer; transition: opacity .15s; }
+			.modal-footer .f-primary { background: linear-gradient(135deg, #7c5cff, #6144e0); color: #fff; box-shadow: 0 2px 12px rgba(124,92,255,0.3); }
+			.modal-footer .f-primary:hover { opacity: 0.88; }
+			.modal-footer .f-primary:disabled { opacity: 0.4; cursor: default; }
+			.modal-footer .f-cancel { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); }
 
 			/* Token reveal */
-			.token-box { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 1rem; margin-top: 1rem; word-break: break-all; font-family: monospace; font-size: 12.5px; color: #a78bfa; }
-			.token-copy { font: inherit; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 7px; border: 1px solid rgba(167,139,250,0.3); background: rgba(167,139,250,0.1); color: #a78bfa; cursor: pointer; margin-top: 0.6rem; }
-			.token-copy:hover { background: rgba(167,139,250,0.18); }
-			.token-warn { display: flex; align-items: flex-start; gap: 0.5rem; background: rgba(240,169,59,0.1); border: 1px solid rgba(240,169,59,0.3); border-radius: 10px; padding: 0.85rem 1rem; font-size: 13px; color: #f3c478; margin-top: 0.75rem; }
+			.token-reveal { margin-top: 1.25rem; }
+			.token-warn { display: flex; align-items: flex-start; gap: 0.625rem; background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); border-radius: 10px; padding: 0.875rem 1rem; font-size: 13px; color: #fcd34d; margin-bottom: 1rem; line-height: 1.5; }
 			.token-warn svg { flex-shrink: 0; margin-top: 1px; }
+			.token-box { background: rgba(124,92,255,0.07); border: 1px solid rgba(124,92,255,0.25); border-radius: 10px; padding: 1rem; word-break: break-all; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #c4b5fd; line-height: 1.65; position: relative; }
+			.token-env { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11.5px; color: rgba(255,255,255,0.55); margin-top: 0.5rem; }
+			.token-env span { color: #86efac; }
+			.token-actions { display: flex; gap: 0.625rem; margin-top: 0.875rem; }
+			.token-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: opacity .15s, background .15s; display: inline-flex; align-items: center; gap: 6px; }
+			.token-btn.copy { background: rgba(124,92,255,0.18); border: 1px solid rgba(124,92,255,0.3); color: #c4b5fd; }
+			.token-btn.copy:hover { background: rgba(124,92,255,0.28); }
+			.token-btn.env { background: rgba(134,239,172,0.1); border: 1px solid rgba(134,239,172,0.22); color: #86efac; }
+			.token-btn.env:hover { background: rgba(134,239,172,0.18); }
 
-			/* Toast */
-			.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: #222; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 10px 18px; font-size: 14px; z-index: 2000; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
-			.toast.show { opacity: 1; }
-			.toast { opacity: 0; }
+			/* ── Edit label modal ────────────────────────────────────── */
+			.edit-modal { background: #0f0f0f; border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); }
+			.edit-modal h3 { margin: 0 0 1rem; font-size: 1.05rem; }
 
-			@media (max-width: 640px) {
-				.pay-stats { grid-template-columns: 1fr 1fr; }
-				.sess-amounts { gap: 0.75rem; }
-				.sess-meta { grid-template-columns: 1fr 1fr; }
+			/* ── Toast ───────────────────────────────────────────────── */
+			.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(8px); background: #1c1c1e; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px; padding: 10px 18px; font-size: 13.5px; z-index: 3000; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; box-shadow: 0 8px 32px rgba(0,0,0,0.5); opacity: 0; }
+			.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+			.toast.ok { border-color: rgba(47,191,113,0.3); }
+			.toast.err { border-color: rgba(248,113,113,0.3); color: #fca5a5; }
+
+			/* ── Responsive ──────────────────────────────────────────── */
+			@media (max-width: 768px) {
+				.pw-stats { grid-template-columns: 1fr 1fr; }
+				.pw-hero { padding: 1.75rem 1.5rem 1.5rem; }
+				.f-row-2 { grid-template-columns: 1fr; }
+				.tpl-row { gap: 0.4rem; }
+				.tpl-btn .tpl-price { font-size: 13px; }
+			}
+			@media (max-width: 480px) {
+				.pw-stats { grid-template-columns: 1fr 1fr; }
+				.sc-head { gap: 0.6rem; padding: 0.875rem 1rem; }
+				.sc-net { display: none; }
+				.modal { padding: 1.25rem; }
 			}
 		</style>
 	</head>
@@ -148,100 +245,177 @@
 		<header><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 
-		<main id="main-content" class="pay-wrap">
-			<div class="pay-head">
-				<div>
-					<h1>Agent Payment Sessions</h1>
-					<p>Fund spend envelopes for AI agents. No private key required — agents pay x402 APIs via session token. Governance enforces budget limits, URL allowlists, and expiry.</p>
+		<main id="main-content" class="pw">
+			<!-- Hero header -->
+			<div class="pw-hero">
+				<div class="pw-hero-inner">
+					<div>
+						<div class="pw-hero-tag">
+							<svg viewBox="0 0 8 8"><circle cx="4" cy="4" r="4"/></svg>
+							Governance-first · no private key required
+						</div>
+						<h1>Agent Payment Sessions</h1>
+						<p>Fund spend envelopes from your credits. Agents call paid x402 endpoints using a session token — the platform wallet signs. Budget, URL allowlists, and per-tx limits are enforced atomically.</p>
+					</div>
+					<div class="pw-hero-actions">
+						<button class="btn-ghost" id="btnDocs" onclick="window.open('https://three.ws/docs/payments','_blank')">
+							<svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="2" width="14" height="16" rx="2"/><path d="M7 6h6M7 10h6M7 14h4"/></svg>
+							Docs
+						</button>
+						<button class="btn-primary" id="btnNew">
+							<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+							New Session
+							<span class="pw-shortcut" style="font-size:10px;opacity:0.6;margin-left:2px">N</span>
+						</button>
+					</div>
 				</div>
 			</div>
 
 			<!-- Stats -->
-			<div class="pay-stats" id="payStats">
-				<div class="pay-skel"></div>
-				<div class="pay-skel" style="height:72px"></div>
-				<div class="pay-skel" style="height:72px"></div>
-				<div class="pay-skel" style="height:72px"></div>
+			<div class="pw-stats" id="pwStats">
+				<div class="skel" style="height:88px"></div>
+				<div class="skel" style="height:88px"></div>
+				<div class="skel" style="height:88px"></div>
+				<div class="skel" style="height:88px"></div>
 			</div>
 
 			<!-- Toolbar -->
-			<div class="pay-toolbar">
-				<div class="pay-filter" id="filterRow">
-					<button class="active" data-f="all">All</button>
+			<div class="pw-toolbar">
+				<div class="pw-filters" id="pwFilters">
+					<button class="on" data-f="all">All</button>
 					<button data-f="active">Active</button>
 					<button data-f="exhausted">Exhausted</button>
 					<button data-f="expired">Expired</button>
 					<button data-f="cancelled">Cancelled</button>
 				</div>
-				<button class="btn-new" id="btnNew">
-					<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-					New Session
-				</button>
+				<span class="pw-count" id="pwCount"></span>
 			</div>
 
 			<!-- Session list -->
-			<div id="payList" class="pay-list">
-				<div class="pay-skel"></div>
-				<div class="pay-skel"></div>
-				<div class="pay-skel"></div>
+			<div id="pwList" class="pw-list">
+				<div class="skel" style="height:82px"></div>
+				<div class="skel" style="height:82px;opacity:.7"></div>
+				<div class="skel" style="height:82px;opacity:.45"></div>
 			</div>
 		</main>
 
 		<!-- Create session modal -->
-		<div class="modal-bg" id="createModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+		<div class="modal-bg" id="createModal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
 			<div class="modal" id="modalInner">
-				<h2 id="modalTitle">New Payment Session</h2>
-				<p class="modal-sub">Fund a spend envelope from your credits. The agent uses the returned token — no wallet key needed.</p>
-				<div class="form-row">
-					<label>Budget (USD)</label>
-					<input type="number" id="fBudget" min="0.001" max="1000" step="0.001" value="1.00" />
-					<div class="hint">Drawn from your credit balance. Un-spent budget is refunded on cancel/expiry.</div>
+				<div class="modal-hd">
+					<h2 id="mTitle">New Payment Session</h2>
+					<p>Budget is drawn from your credits. Un-spent balance refunds automatically on cancel or expiry.</p>
 				</div>
-				<div class="form-row">
-					<label>Label</label>
-					<input type="text" id="fLabel" maxlength="120" placeholder="Research run, data fetch, etc." />
-				</div>
-				<div class="form-row">
-					<label>Expiry</label>
-					<select id="fExpiry">
-						<option value="900">15 minutes</option>
-						<option value="3600" selected>1 hour</option>
-						<option value="21600">6 hours</option>
-						<option value="86400">24 hours</option>
-						<option value="604800">7 days</option>
-					</select>
-				</div>
-				<div class="form-row">
-					<label>Max per transaction (USD, optional)</label>
-					<input type="number" id="fMaxTx" min="0.000001" max="1000" step="0.0001" placeholder="No limit" />
-					<div class="hint">Rejects any single payment above this amount before signing.</div>
-				</div>
-				<div class="form-row">
-					<label>Allowed hosts (optional, comma-separated)</label>
-					<input type="text" id="fHosts" placeholder="api.example.com, data.provider.io" />
-					<div class="hint">If set, the agent can only pay endpoints at these domains. Empty = any host.</div>
-				</div>
-				<div class="form-row">
-					<label>Network</label>
-					<select id="fNetwork">
-						<option value="solana" selected>Solana</option>
-						<option value="base">Base</option>
-					</select>
+
+				<div id="createForm">
+					<!-- Preset templates -->
+					<div class="tpl-row" id="tplRow">
+						<button class="tpl-btn" data-tpl="test"><span class="tpl-price">$0.10</span><span class="tpl-desc">Quick test · 15 min</span></button>
+						<button class="tpl-btn on" data-tpl="standard"><span class="tpl-price">$1.00</span><span class="tpl-desc">Standard · 1 hr</span></button>
+						<button class="tpl-btn" data-tpl="research"><span class="tpl-price">$5.00</span><span class="tpl-desc">Research · 6 hrs</span></button>
+						<button class="tpl-btn" data-tpl="sprint"><span class="tpl-price">$20.00</span><span class="tpl-desc">Sprint · 24 hrs</span></button>
+					</div>
+
+					<div class="f-row">
+						<label>Label <span>optional</span></label>
+						<input type="text" id="fLabel" maxlength="120" placeholder="e.g. Research agent — June sprint" autocomplete="off" />
+					</div>
+
+					<div class="f-row-2">
+						<div class="f-row">
+							<label>Budget (USD)</label>
+							<input type="number" id="fBudget" min="0.001" max="1000" step="0.001" value="1.00" />
+						</div>
+						<div class="f-row">
+							<label>Expiry</label>
+							<select id="fExpiry">
+								<option value="900">15 minutes</option>
+								<option value="3600" selected>1 hour</option>
+								<option value="21600">6 hours</option>
+								<option value="86400">24 hours</option>
+								<option value="604800">7 days</option>
+								<option value="2592000">30 days</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="f-row-2">
+						<div class="f-row">
+							<label>Network</label>
+							<select id="fNetwork">
+								<option value="solana" selected>Solana USDC</option>
+								<option value="base">Base USDC</option>
+							</select>
+						</div>
+						<div class="f-row">
+							<label>Max per tx <span>optional</span></label>
+							<input type="number" id="fMaxTx" min="0.000001" max="1000" step="0.0001" placeholder="No limit" />
+						</div>
+					</div>
+
+					<div class="f-row">
+						<label>Allowed hosts <span>optional — comma-separated</span></label>
+						<input type="text" id="fHosts" placeholder="api.example.com, data.provider.io" autocomplete="off" />
+						<div class="f-hint">If set, the session can only pay endpoints at these domains. Empty = any host.</div>
+					</div>
+
+					<div class="budget-preview" id="budgetPreview">
+						<span class="bp-label">Credit charge</span>
+						<span class="bp-val" id="previewVal">$1.0000</span>
+					</div>
+
+					<div class="modal-footer">
+						<button class="f-cancel" id="mClose">Cancel</button>
+						<button class="f-primary" id="mCreate">Create session →</button>
+					</div>
 				</div>
 
 				<!-- Token reveal (shown after creation) -->
 				<div id="tokenReveal" style="display:none">
-					<div class="token-warn">
-						<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 2L2 17h16L10 2z" stroke="#f0a93b" stroke-width="1.5"/><path d="M10 8v4M10 14.5v.5" stroke="#f0a93b" stroke-width="1.5" stroke-linecap="round"/></svg>
-						This token is shown <strong>once</strong>. Copy it now and set it as <code>PAYMENT_SESSION_TOKEN</code> in your agent.
+					<div class="token-reveal">
+						<div class="token-warn">
+							<svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 2L2 17h16L10 2z" stroke="#fbbf24" stroke-width="1.6"/><path d="M10 8v4M10 14.5v.5" stroke="#fbbf24" stroke-width="1.6" stroke-linecap="round"/></svg>
+							This token is shown <strong>once</strong>. Copy and store it before closing.
+						</div>
+						<div class="token-box" id="tokenVal"></div>
+						<div class="token-env">Set as: <span>PAYMENT_SESSION_TOKEN</span>=<em id="tokenEnvVal" style="color:#c4b5fd"></em></div>
+						<div class="token-actions">
+							<button class="token-btn copy" id="tCopy">
+								<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2"/></svg>
+								Copy token
+							</button>
+							<button class="token-btn env" id="tEnvCopy">
+								<svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="2" y="3" width="16" height="12" rx="2"/><path d="M5 7l3 3-3 3M11 13h4"/></svg>
+								Copy env line
+							</button>
+						</div>
 					</div>
-					<div class="token-box" id="tokenVal"></div>
-					<button class="token-copy" id="tokenCopyBtn">Copy token</button>
+					<div class="modal-footer" style="margin-top:1.25rem">
+						<button class="f-primary" id="mDone">Done</button>
+					</div>
 				</div>
+			</div>
+		</div>
 
-				<div class="modal-actions" id="modalActions">
-					<button class="secondary" id="modalClose">Cancel</button>
-					<button class="primary" id="modalCreate">Create session</button>
+		<!-- Edit session modal -->
+		<div class="modal-bg" id="editModal" role="dialog" aria-modal="true">
+			<div class="edit-modal">
+				<h3>Edit Session</h3>
+				<div class="f-row">
+					<label>Label</label>
+					<input type="text" id="editLabel" maxlength="120" placeholder="Session label" />
+				</div>
+				<div class="f-row">
+					<label>Allowed hosts <span style="text-transform:none;letter-spacing:0;font-weight:400;font-size:11px;color:rgba(255,255,255,.3)">comma-separated</span></label>
+					<input type="text" id="editHosts" placeholder="Any host (leave empty)" />
+				</div>
+				<div class="f-row">
+					<label>Max per tx (USD)</label>
+					<input type="number" id="editMaxTx" min="0.000001" step="0.0001" placeholder="No limit" />
+				</div>
+				<div class="modal-footer">
+					<button class="f-cancel" id="editClose">Cancel</button>
+					<button class="f-primary" id="editSave">Save changes</button>
 				</div>
 			</div>
 		</div>
@@ -253,95 +427,111 @@
 
 		<script type="module">
 			const $ = id => document.getElementById(id);
-			let sessions = [];
-			let activeFilter = 'all';
-			let stats = null;
+			let sessions = [], stats = null, activeFilter = 'all', editingId = null;
 
-			// ── API helpers ─────────────────────────────────────────
-			async function apiFetch(path, opts = {}) {
+			// ── Utilities ──────────────────────────────────────────────
+			function esc(s) {
+				return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+			}
+
+			async function api(path, opts = {}) {
 				const res = await fetch(path, {
 					credentials: 'include',
 					headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
 					...opts,
 				});
-				const data = await res.json().catch(() => ({}));
-				if (!res.ok) throw Object.assign(new Error(data.message || data.error || `HTTP ${res.status}`), { code: data.code, status: res.status });
-				return data;
+				const d = await res.json().catch(() => ({}));
+				if (!res.ok) throw Object.assign(new Error(d.message || d.error || `HTTP ${res.status}`), { status: res.status, code: d.code });
+				return d;
 			}
 
-			// ── Toast ───────────────────────────────────────────────
-			function toast(msg, duration = 2800) {
+			let toastTimer;
+			function toast(msg, kind = '') {
 				const el = $('toast');
 				el.textContent = msg;
-				el.classList.add('show');
-				setTimeout(() => el.classList.remove('show'), duration);
+				el.className = `toast show${kind ? ' ' + kind : ''}`;
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
 			}
 
-			// ── Stats render ────────────────────────────────────────
+			async function copy(text, label = 'Copied') {
+				try {
+					await navigator.clipboard.writeText(text);
+					toast(label, 'ok');
+				} catch {
+					toast('Copy failed — select manually.', 'err');
+				}
+			}
+
+			function fmtUsd(n) { return `$${Number(n).toFixed(4)}`; }
+			function fmtUsdShort(n) { return `$${Number(n).toFixed(2)}`; }
+
+			function fmtExpiry(s) {
+				const diff = new Date(s.expires_at) - Date.now();
+				if (diff <= 0) return { text: 'Expired', cls: 'danger' };
+				const h = Math.floor(diff / 3600000);
+				const m = Math.floor((diff % 3600000) / 60000);
+				if (h > 72) return { text: `${Math.floor(h/24)}d left`, cls: '' };
+				if (h > 0) return { text: `${h}h ${m}m left`, cls: h < 2 ? 'warn' : '' };
+				return { text: `${m}m left`, cls: m < 10 ? 'danger' : 'warn' };
+			}
+
+			function fmtDate(iso) {
+				return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+			}
+
+			function pct(s) { return s.budget_usd ? Math.min(100, (s.spent_usd / s.budget_usd) * 100) : 0; }
+
+			function barCls(p, status) {
+				if (status === 'exhausted' || p >= 95) return 'r';
+				if (p >= 70) return 'y';
+				return 'g';
+			}
+
+			function remainCls(s) {
+				if (s.status !== 'active') return 'd';
+				const p = pct(s);
+				if (p >= 95) return 'r';
+				if (p >= 70) return 'y';
+				return 'g';
+			}
+
+			// ── Stats render ───────────────────────────────────────────
 			function renderStats(s) {
-				const el = $('payStats');
-				el.innerHTML = `
-					<div class="pay-stat">
-						<div class="label">Active</div>
-						<div class="value green">${s.sessions.active}</div>
-						<div class="sub">${s.sessions.exhausted} exhausted</div>
+				$('pwStats').innerHTML = `
+					<div class="pw-stat s-active">
+						<div class="lbl">Active sessions</div>
+						<div class="val c-green">${s.sessions.active}</div>
+						<div class="sub">${s.sessions.exhausted} exhausted · ${s.sessions.expired} expired</div>
 					</div>
-					<div class="pay-stat">
-						<div class="label">Total budget</div>
-						<div class="value purple">$${s.sessions.total_budget_usd.toFixed(2)}</div>
+					<div class="pw-stat s-budget">
+						<div class="lbl">Total budget</div>
+						<div class="val c-purple">$${s.sessions.total_budget_usd.toFixed(2)}</div>
 						<div class="sub">$${s.sessions.total_spent_usd.toFixed(4)} spent</div>
 					</div>
-					<div class="pay-stat">
-						<div class="label">Payments settled</div>
-						<div class="value">${s.executions.settled}</div>
-						<div class="sub">${s.executions.failed} failed</div>
+					<div class="pw-stat s-paid">
+						<div class="lbl">Payments settled</div>
+						<div class="val c-blue">${s.executions.settled}</div>
+						<div class="sub">${s.executions.failed} failed · $${s.executions.settled_usd.toFixed(4)} moved</div>
 					</div>
-					<div class="pay-stat">
-						<div class="label">Unique endpoints</div>
-						<div class="value">${s.executions.unique_endpoints}</div>
-						<div class="sub">$${s.executions.settled_usd.toFixed(4)} moved</div>
+					<div class="pw-stat s-endpoints">
+						<div class="lbl">Unique endpoints</div>
+						<div class="val c-amber">${s.executions.unique_endpoints}</div>
+						<div class="sub">across all sessions</div>
 					</div>
 				`;
 			}
 
-			// ── Session card render ─────────────────────────────────
-			function pct(s) {
-				if (!s.budget_usd) return 0;
-				return Math.min(100, (s.spent_usd / s.budget_usd) * 100);
+			// ── Execution table ────────────────────────────────────────
+			function explorerHref(txHash, network) {
+				if (!txHash) return null;
+				if (String(network).startsWith('solana')) return `https://solscan.io/tx/${txHash}`;
+				if (network === 'eip155:8453' || network === 'base') return `https://basescan.org/tx/${txHash}`;
+				return null;
 			}
 
-			function barColor(s) {
-				const p = pct(s);
-				if (p >= 95 || s.status === 'exhausted') return 'red';
-				if (p >= 70) return 'yellow';
-				return 'green';
-			}
-
-			function remainColor(s) {
-				const p = pct(s);
-				if (s.status !== 'active') return 'grey';
-				if (p >= 70) return 'yellow';
-				return 'green';
-			}
-
-			function fmtExpiry(s) {
-				const d = new Date(s.expires_at);
-				const now = new Date();
-				const diff = d - now;
-				if (diff <= 0) return 'Expired';
-				const h = Math.floor(diff / 3600000);
-				const m = Math.floor((diff % 3600000) / 60000);
-				if (h > 48) return `${Math.floor(h/24)}d remaining`;
-				if (h > 0) return `${h}h ${m}m remaining`;
-				return `${m}m remaining`;
-			}
-
-			function fmtDate(iso) {
-				return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-			}
-
-			function renderExecs(execs) {
-				if (!execs || !execs.length) return '<div style="color:rgba(255,255,255,0.35);font-size:13px;padding:8px 0">No payments yet.</div>';
+			function renderExecs(items) {
+				if (!items?.length) return '<div class="exec-none">No payments yet.</div>';
 				return `
 					<table class="exec-table">
 						<thead><tr>
@@ -352,226 +542,420 @@
 							<th>Time</th>
 						</tr></thead>
 						<tbody>
-							${execs.map(e => `
-								<tr>
-									<td><div class="exec-url" title="${escHtml(e.endpoint_url)}">${escHtml(e.endpoint_host)}</div></td>
-									<td style="font-variant-numeric:tabular-nums">$${e.amount_usd.toFixed(6)}</td>
-									<td><span class="exec-status ${e.status}">${e.status}</span></td>
-									<td class="exec-tx">${e.tx_hash ? `<a href="https://solscan.io/tx/${escHtml(e.tx_hash)}" target="_blank" rel="noopener">${e.tx_hash.slice(0,8)}…</a>` : '—'}</td>
-									<td style="color:rgba(255,255,255,0.45);font-size:12px">${fmtDate(e.created_at)}</td>
-								</tr>
-							`).join('')}
+							${items.map(e => {
+								const href = explorerHref(e.tx_hash, e.network);
+								return `<tr>
+									<td><div class="exec-url" title="${esc(e.endpoint_url)}">${esc(e.endpoint_host || e.endpoint_url)}</div></td>
+									<td><span class="exec-amt">${fmtUsd(e.amount_usd)}</span></td>
+									<td><span class="exec-dot ${e.status}"></span>${e.status}</td>
+									<td>${href ? `<a class="exec-tx-link" href="${esc(href)}" target="_blank" rel="noopener">${e.tx_hash.slice(0,8)}…</a>` : '—'}</td>
+									<td class="exec-ts">${fmtDate(e.created_at)}</td>
+								</tr>`;
+							}).join('')}
 						</tbody>
 					</table>
 				`;
 			}
 
-			function escHtml(s) {
-				return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+			// ── MCP config snippet ─────────────────────────────────────
+			function mcpSnippet(sessionId) {
+				return JSON.stringify({
+					mcpServers: {
+						'three-ws-payments': {
+							command: 'npx',
+							args: ['-y', '@three-ws/agentcore-payments-mcp'],
+							env: {
+								THREE_WS_SESSION: '__Host-sid=<your-cookie>',
+								PAYMENT_SESSION_TOKEN: `pss_${sessionId.slice(0,8)}…`,
+							},
+						},
+					},
+				}, null, 2);
 			}
 
+			// ── Session card ───────────────────────────────────────────
 			function renderCard(s) {
 				const p = pct(s);
-				const bc = barColor(s);
-				const rc = remainColor(s);
+				const bc = barCls(p, s.status);
+				const rc = remainCls(s);
+				const exp = s.status === 'active' ? fmtExpiry(s) : { text: '', cls: '' };
+				const netCls = s.network === 'base' ? 'base' : 'sol';
+				const netLabel = s.network === 'base' ? 'Base' : 'Solana';
 				const hosts = s.allowed_hosts?.length ? s.allowed_hosts.join(', ') : 'Any host';
 				const maxTx = s.max_per_tx_usd != null ? `$${s.max_per_tx_usd}` : 'No limit';
-				const network = s.network === 'base' ? 'Base' : 'Solana';
 
 				return `
-					<div class="sess-card" data-id="${s.id}">
-						<div class="sess-card-head" role="button" tabindex="0" aria-expanded="false">
-							<span class="sess-badge ${s.status}">${s.status}</span>
-							<span class="sess-label">${escHtml(s.label || 'Unnamed session')}</span>
-							<div class="sess-amounts">
-								<span class="sess-remaining ${rc}">$${s.remaining_usd.toFixed(4)}</span>
-								<span class="sess-budget-dim">/ $${s.budget_usd.toFixed(4)}</span>
+					<div class="sc" data-id="${s.id}">
+						<div class="sc-head" role="button" tabindex="0" aria-expanded="false">
+							<span class="sc-badge ${s.status}">${s.status}</span>
+							<span class="sc-net ${netCls}">${netLabel}</span>
+							<span class="sc-label ${s.label ? '' : 'sc-label-unnamed'}">${s.label ? esc(s.label) : 'Unnamed session'}</span>
+							<div class="sc-amounts">
+								<span class="sc-remain ${rc}">${fmtUsd(s.remaining_usd)}</span>
+								<span class="sc-total"> / ${fmtUsdShort(s.budget_usd)}</span>
 							</div>
-							<span class="sess-expand">⌄</span>
+							<span class="sc-chevron">⌄</span>
 						</div>
-						<div class="sess-bar-wrap">
-							<div class="sess-bar-track"><div class="sess-bar-fill ${bc}" style="width:${p}%"></div></div>
+						<div class="sc-bar">
+							<div class="sc-bar-track"><div class="sc-bar-fill ${bc}" style="width:${p.toFixed(1)}%"></div></div>
+							<span class="sc-bar-pct">${p.toFixed(0)}%</span>
+							${exp.text ? `<span class="sc-expiry ${exp.cls}">${exp.text}</span>` : ''}
 						</div>
-						<div class="sess-detail">
-							<div class="sess-meta">
-								<div class="sess-meta-item"><div class="k">Session ID</div><div class="v"><code>${escHtml(s.id.slice(0,13))}…</code></div></div>
-								<div class="sess-meta-item"><div class="k">Spent</div><div class="v">$${s.spent_usd.toFixed(6)}</div></div>
-								<div class="sess-meta-item"><div class="k">Network</div><div class="v">${network}</div></div>
-								<div class="sess-meta-item"><div class="k">Max per tx</div><div class="v">${maxTx}</div></div>
-								<div class="sess-meta-item"><div class="k">Allowed hosts</div><div class="v" style="font-size:12px">${escHtml(hosts)}</div></div>
-								<div class="sess-meta-item"><div class="k">Expiry</div><div class="v">${fmtExpiry(s)}</div></div>
-								<div class="sess-meta-item"><div class="k">Created</div><div class="v">${fmtDate(s.created_at)}</div></div>
-							</div>
-							<div class="exec-section" data-exec-session="${s.id}">
-								<div style="color:rgba(255,255,255,0.35);font-size:13px">Loading payments…</div>
-							</div>
-							${s.status === 'active' ? `
-								<div class="sess-actions">
-									<button class="sess-btn cancel" data-cancel="${s.id}">Cancel &amp; refund</button>
+						<div class="sc-body">
+							<!-- Meta -->
+							<div class="sc-meta">
+								<div class="sc-mi">
+									<div class="k">Session ID</div>
+									<div class="v"><code data-copy="${esc(s.id)}" title="Click to copy">${s.id.slice(0,13)}…</code></div>
 								</div>
-							` : ''}
+								<div class="sc-mi">
+									<div class="k">Spent</div>
+									<div class="v">${fmtUsd(s.spent_usd)}</div>
+								</div>
+								<div class="sc-mi">
+									<div class="k">Max per tx</div>
+									<div class="v ${maxTx === 'No limit' ? 'muted' : ''}">${maxTx}</div>
+								</div>
+								<div class="sc-mi">
+									<div class="k">Allowed hosts</div>
+									<div class="v muted" style="font-size:12px">${esc(hosts)}</div>
+								</div>
+								<div class="sc-mi">
+									<div class="k">Created</div>
+									<div class="v muted">${fmtDate(s.created_at)}</div>
+								</div>
+								${s.expires_at ? `<div class="sc-mi">
+									<div class="k">Expires</div>
+									<div class="v muted">${fmtDate(s.expires_at)}</div>
+								</div>` : ''}
+							</div>
+
+							<!-- Actions -->
+							<div class="sc-actions">
+								<button class="sc-act copy" data-mcp="${esc(s.id)}">
+									<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 7V5a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2"/></svg>
+									Copy MCP config
+								</button>
+								${s.status === 'active' ? `
+									<button class="sc-act edit" data-edit="${esc(s.id)}">
+										<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.5 3.5a2.12 2.12 0 013 3L6 18l-4 1 1-4 11.5-11.5z"/></svg>
+										Edit
+									</button>
+									<button class="sc-act danger" data-cancel="${esc(s.id)}">
+										<svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="7.5"/><path d="M7 10h6"/></svg>
+										Cancel &amp; refund
+									</button>
+								` : ''}
+							</div>
+
+							<!-- MCP snippet (toggled) -->
+							<div class="mcp-box" id="mcp-${s.id}">
+								<button class="mcp-copy-btn" data-mcp-copy="${esc(s.id)}">Copy</button>
+								<pre style="margin:0;white-space:pre-wrap;padding-right:3.5rem">${esc(mcpSnippet(s.id))}</pre>
+							</div>
+
+							<!-- Executions -->
+							<div class="exec-head">
+								<h4>Recent payments</h4>
+							</div>
+							<div class="exec-section" data-exec="${s.id}">
+								<div class="exec-none" style="opacity:.5">Loading…</div>
+							</div>
 						</div>
 					</div>
 				`;
 			}
 
-			// ── Render session list ─────────────────────────────────
+			// ── Render list ────────────────────────────────────────────
 			function renderList() {
-				const listEl = $('payList');
+				const list = $('pwList');
 				const filtered = activeFilter === 'all' ? sessions : sessions.filter(s => s.status === activeFilter);
+				$('pwCount').textContent = `${filtered.length} session${filtered.length !== 1 ? 's' : ''}`;
+
 				if (!filtered.length) {
-					listEl.innerHTML = `
-						<div class="pay-empty">
+					list.innerHTML = `
+						<div class="pw-empty">
+							<div class="pw-empty-icon">
+								<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.8)" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/><circle cx="6.5" cy="14" r="1" fill="rgba(167,139,250,0.8)" stroke="none"/><path d="M10 14h7"/></svg>
+							</div>
 							<h2>${activeFilter === 'all' ? 'No payment sessions yet' : `No ${activeFilter} sessions`}</h2>
-							<p>Create a session to fund an AI agent's payments from your credits — no private key required.</p>
-							${activeFilter === 'all' ? `<button class="btn-new" onclick="openModal()">New Session</button>` : ''}
+							<p>${activeFilter === 'all' ? 'Create a session to let an AI agent pay x402 endpoints without holding a private key.' : `Switch to "All" to see sessions with other statuses.`}</p>
+							${activeFilter === 'all' ? `<button class="btn-primary" id="emptyNew"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> New Session</button>` : ''}
 						</div>
 					`;
+					if (activeFilter === 'all') {
+						document.getElementById('emptyNew')?.addEventListener('click', openCreate);
+					}
 					return;
 				}
-				listEl.innerHTML = filtered.map(renderCard).join('');
 
-				// Expand/collapse
-				listEl.querySelectorAll('.sess-card-head').forEach(head => {
-					head.addEventListener('click', () => toggleCard(head.closest('.sess-card')));
-					head.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(head.closest('.sess-card')); } });
+				list.innerHTML = filtered.map(renderCard).join('');
+
+				// Card expand/collapse
+				list.querySelectorAll('.sc-head').forEach(head => {
+					const card = head.closest('.sc');
+					head.addEventListener('click', () => toggleCard(card));
+					head.addEventListener('keydown', e => {
+						if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCard(card); }
+					});
 				});
 
-				// Cancel buttons
-				listEl.querySelectorAll('[data-cancel]').forEach(btn => {
-					btn.addEventListener('click', e => { e.stopPropagation(); cancelSession(btn.dataset.cancel); });
+				// Copy session ID on code click
+				list.querySelectorAll('[data-copy]').forEach(el => {
+					el.addEventListener('click', e => { e.stopPropagation(); copy(el.dataset.copy, 'Session ID copied'); });
+				});
+
+				// MCP config toggle
+				list.querySelectorAll('[data-mcp]').forEach(btn => {
+					btn.addEventListener('click', e => {
+						e.stopPropagation();
+						const id = btn.dataset.mcp;
+						const box = document.getElementById(`mcp-${id}`);
+						if (!box) return;
+						const showing = box.classList.contains('show');
+						box.classList.toggle('show', !showing);
+						btn.textContent = showing ? '📋 Copy MCP config' : '✕ Close';
+					});
+				});
+
+				// Copy MCP snippet content
+				list.querySelectorAll('[data-mcp-copy]').forEach(btn => {
+					btn.addEventListener('click', e => {
+						e.stopPropagation();
+						const id = btn.dataset.mcpCopy;
+						const s = sessions.find(x => x.id === id);
+						if (s) copy(mcpSnippet(s.id), 'MCP config copied');
+					});
+				});
+
+				// Edit
+				list.querySelectorAll('[data-edit]').forEach(btn => {
+					btn.addEventListener('click', e => {
+						e.stopPropagation();
+						openEdit(btn.dataset.edit);
+					});
+				});
+
+				// Cancel
+				list.querySelectorAll('[data-cancel]').forEach(btn => {
+					btn.addEventListener('click', e => {
+						e.stopPropagation();
+						doCancel(btn.dataset.cancel);
+					});
 				});
 			}
 
 			async function toggleCard(card) {
 				const wasOpen = card.classList.contains('open');
 				card.classList.toggle('open');
-				const head = card.querySelector('.sess-card-head');
-				head.setAttribute('aria-expanded', card.classList.contains('open') ? 'true' : 'false');
+				card.querySelector('.sc-head').setAttribute('aria-expanded', String(!wasOpen));
 
 				if (!wasOpen) {
-					const execSection = card.querySelector('.exec-section');
-					const sessionId = execSection?.dataset.execSession;
-					if (sessionId && execSection) {
+					const sid = card.dataset.id;
+					const execEl = card.querySelector('[data-exec]');
+					if (execEl && sid) {
 						try {
-							const data = await apiFetch(`/api/pay/session/${sessionId}/executions?limit=10`);
-							execSection.innerHTML = renderExecs(data.items);
+							const d = await api(`/api/pay/session/${sid}/executions?limit=10`);
+							execEl.innerHTML = renderExecs(d.items);
 						} catch {
-							execSection.innerHTML = '<div style="color:rgba(255,80,80,0.7);font-size:13px">Could not load payments.</div>';
+							execEl.innerHTML = '<div class="exec-none" style="color:#f87171">Could not load payment history.</div>';
 						}
 					}
 				}
 			}
 
-			async function cancelSession(id) {
-				if (!confirm('Cancel this session? Un-spent budget will be refunded to your credits.')) return;
+			async function doCancel(id) {
+				if (!confirm('Cancel this session? Any un-spent budget will be refunded to your credits immediately.')) return;
 				try {
-					const data = await apiFetch(`/api/pay/session/${id}`, { method: 'DELETE' });
-					toast(`Cancelled. $${data.refunded_usd?.toFixed(4) ?? '0'} refunded to credits.`);
+					const d = await api(`/api/pay/session/${id}`, { method: 'DELETE' });
+					toast(`Session cancelled. ${fmtUsd(d.refunded_usd ?? 0)} refunded to credits.`, 'ok');
 					await load();
 				} catch (err) {
-					toast(err.message || 'Failed to cancel session.');
+					toast(err.message || 'Cancel failed.', 'err');
 				}
 			}
 
-			// ── Load data ───────────────────────────────────────────
+			// ── Edit modal ─────────────────────────────────────────────
+			function openEdit(id) {
+				const s = sessions.find(x => x.id === id);
+				if (!s) return;
+				editingId = id;
+				$('editLabel').value = s.label || '';
+				$('editHosts').value = (s.allowed_hosts || []).join(', ');
+				$('editMaxTx').value = s.max_per_tx_usd != null ? s.max_per_tx_usd : '';
+				$('editModal').classList.add('show');
+				setTimeout(() => $('editLabel').focus(), 50);
+			}
+
+			$('editClose').addEventListener('click', () => $('editModal').classList.remove('show'));
+			$('editModal').addEventListener('click', e => { if (e.target === $('editModal')) $('editModal').classList.remove('show'); });
+			$('editSave').addEventListener('click', async () => {
+				if (!editingId) return;
+				const label = $('editLabel').value.trim();
+				const hostsRaw = $('editHosts').value.trim();
+				const maxTxRaw = $('editMaxTx').value.trim();
+				const body = {
+					label,
+					allowed_hosts: hostsRaw ? hostsRaw.split(/[\s,]+/).map(h => h.trim()).filter(Boolean) : [],
+					max_per_tx_usd: maxTxRaw ? parseFloat(maxTxRaw) : null,
+				};
+				try {
+					$('editSave').disabled = true;
+					$('editSave').textContent = 'Saving…';
+					await api(`/api/pay/session/${editingId}`, { method: 'PATCH', body: JSON.stringify(body) });
+					toast('Session updated.', 'ok');
+					$('editModal').classList.remove('show');
+					await load();
+				} catch (err) {
+					toast(err.message || 'Update failed.', 'err');
+				} finally {
+					$('editSave').disabled = false;
+					$('editSave').textContent = 'Save changes';
+				}
+			});
+
+			// ── Load data ──────────────────────────────────────────────
 			async function load() {
 				try {
-					const data = await apiFetch('/api/pay/session');
-					sessions = data.items || [];
-					stats = data.stats;
+					const d = await api('/api/pay/session?limit=50');
+					sessions = d.items || [];
+					stats = d.stats;
 					if (stats) renderStats(stats);
 					renderList();
 				} catch (err) {
 					if (err.status === 401) {
-						$('payList').innerHTML = `
-							<div class="pay-empty">
+						$('pwList').innerHTML = `
+							<div class="pw-empty">
+								<div class="pw-empty-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(167,139,250,0.7)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
 								<h2>Sign in to manage sessions</h2>
 								<p>Payment sessions are account-scoped. Sign in to create and manage them.</p>
-								<a href="/login?r=/payments" class="btn-new" style="display:inline-flex;text-decoration:none">Sign in</a>
+								<a href="/login?r=/payments" class="btn-primary" style="text-decoration:none;display:inline-flex">Sign in →</a>
 							</div>
 						`;
-						$('payStats').innerHTML = '';
+						$('pwStats').innerHTML = '';
 					} else {
-						$('payList').innerHTML = `<div class="pay-empty"><h2>Could not load sessions</h2><p>${err.message}</p></div>`;
+						$('pwList').innerHTML = `<div class="pw-empty"><h2>Could not load sessions</h2><p>${esc(err.message)}</p></div>`;
 					}
 				}
 			}
 
-			// ── Filter ──────────────────────────────────────────────
-			$('filterRow').addEventListener('click', e => {
+			// ── Filters ────────────────────────────────────────────────
+			$('pwFilters').addEventListener('click', e => {
 				const btn = e.target.closest('button[data-f]');
 				if (!btn) return;
-				$('filterRow').querySelectorAll('button').forEach(b => b.classList.remove('active'));
-				btn.classList.add('active');
+				$('pwFilters').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+				btn.classList.add('on');
 				activeFilter = btn.dataset.f;
 				renderList();
 			});
 
-			// ── Create modal ────────────────────────────────────────
-			function openModal() {
-				$('tokenReveal').style.display = 'none';
-				$('modalActions').style.display = 'flex';
-				$('modalCreate').disabled = false;
-				$('modalCreate').textContent = 'Create session';
-				$('createModal').classList.add('show');
-				$('fBudget').focus();
+			// ── Create modal ───────────────────────────────────────────
+			const TEMPLATES = {
+				test:     { budget: 0.10, expiry: 900, label: 'Quick test' },
+				standard: { budget: 1.00, expiry: 3600, label: '' },
+				research: { budget: 5.00, expiry: 21600, label: 'Research run' },
+				sprint:   { budget: 20.00, expiry: 86400, label: 'Agent sprint' },
+			};
+
+			function applyTemplate(key) {
+				const t = TEMPLATES[key];
+				$('fBudget').value = t.budget.toFixed(key === 'test' ? 2 : 2);
+				$('fExpiry').value = String(t.expiry);
+				if (t.label && !$('fLabel').value) $('fLabel').value = t.label;
+				updateBudgetPreview();
 			}
 
-			window.openModal = openModal;
+			function updateBudgetPreview() {
+				const v = parseFloat($('fBudget').value) || 0;
+				$('previewVal').textContent = `$${v.toFixed(4)}`;
+			}
 
-			$('btnNew').addEventListener('click', openModal);
-			$('modalClose').addEventListener('click', () => {
+			$('tplRow').addEventListener('click', e => {
+				const btn = e.target.closest('[data-tpl]');
+				if (!btn) return;
+				$('tplRow').querySelectorAll('.tpl-btn').forEach(b => b.classList.remove('on'));
+				btn.classList.add('on');
+				applyTemplate(btn.dataset.tpl);
+			});
+
+			$('fBudget').addEventListener('input', updateBudgetPreview);
+
+			function openCreate() {
+				$('createForm').style.display = '';
+				$('tokenReveal').style.display = 'none';
+				$('mCreate').disabled = false;
+				$('mCreate').textContent = 'Create session →';
+				$('createModal').classList.add('show');
+				setTimeout(() => $('fLabel').focus(), 50);
+			}
+
+			function closeCreate() {
 				$('createModal').classList.remove('show');
 				load();
-			});
-			$('createModal').addEventListener('click', e => {
-				if (e.target === $('createModal')) { $('createModal').classList.remove('show'); load(); }
-			});
+			}
 
-			$('modalCreate').addEventListener('click', async () => {
+			$('btnNew').addEventListener('click', openCreate);
+			$('mClose').addEventListener('click', closeCreate);
+			$('createModal').addEventListener('click', e => { if (e.target === $('createModal')) closeCreate(); });
+
+			$('mCreate').addEventListener('click', async () => {
 				const budget = parseFloat($('fBudget').value);
-				if (!budget || budget <= 0) { toast('Enter a budget amount.'); return; }
+				if (!budget || budget <= 0) { toast('Enter a valid budget.', 'err'); return; }
 
 				const hostsRaw = $('fHosts').value.trim();
-				const allowed_hosts = hostsRaw ? hostsRaw.split(/[\s,]+/).map(h => h.trim()).filter(Boolean) : [];
-
 				const maxTxRaw = $('fMaxTx').value.trim();
-				const max_per_tx_usd = maxTxRaw ? parseFloat(maxTxRaw) : null;
 
-				$('modalCreate').disabled = true;
-				$('modalCreate').textContent = 'Creating…';
+				$('mCreate').disabled = true;
+				$('mCreate').textContent = 'Creating…';
 
 				try {
-					const data = await apiFetch('/api/pay/session', {
+					const d = await api('/api/pay/session', {
 						method: 'POST',
 						body: JSON.stringify({
 							budget_usd: budget,
 							label: $('fLabel').value.trim(),
 							expiry_seconds: parseInt($('fExpiry').value, 10),
-							max_per_tx_usd,
-							allowed_hosts,
+							max_per_tx_usd: maxTxRaw ? parseFloat(maxTxRaw) : null,
+							allowed_hosts: hostsRaw ? hostsRaw.split(/[\s,]+/).map(h => h.trim()).filter(Boolean) : [],
 							network: $('fNetwork').value,
 						}),
 					});
 
-					// Show the token
-					$('tokenVal').textContent = data.token;
+					// Show token reveal
+					$('createForm').style.display = 'none';
+					$('tokenVal').textContent = d.token;
+					$('tokenEnvVal').textContent = d.token;
 					$('tokenReveal').style.display = 'block';
-					$('modalActions').innerHTML = `<button class="secondary" id="modalDone">Done</button>`;
-					$('modalDone').addEventListener('click', () => { $('createModal').classList.remove('show'); load(); });
 
-					$('tokenCopyBtn').addEventListener('click', () => {
-						navigator.clipboard.writeText(data.token).then(() => toast('Token copied to clipboard.')).catch(() => {});
-					});
+					$('tCopy').onclick = () => copy(d.token, 'Token copied to clipboard');
+					$('tEnvCopy').onclick = () => copy(`PAYMENT_SESSION_TOKEN=${d.token}`, 'Env line copied');
+					$('mDone').onclick = closeCreate;
 
 				} catch (err) {
-					toast(err.message || 'Failed to create session.');
-					$('modalCreate').disabled = false;
-					$('modalCreate').textContent = 'Create session';
+					toast(err.code === 'insufficient_credits'
+						? `Not enough credits — ${err.message}`
+						: err.message || 'Failed to create session.', 'err');
+					$('mCreate').disabled = false;
+					$('mCreate').textContent = 'Create session →';
 				}
 			});
 
+			// ── Keyboard shortcut: N → new session ────────────────────
+			document.addEventListener('keydown', e => {
+				if (e.key === 'n' || e.key === 'N') {
+					const tag = document.activeElement?.tagName.toLowerCase();
+					if (['input', 'textarea', 'select'].includes(tag)) return;
+					if ($('createModal').classList.contains('show')) return;
+					e.preventDefault();
+					openCreate();
+				}
+				if (e.key === 'Escape') {
+					$('createModal').classList.remove('show');
+					$('editModal').classList.remove('show');
+				}
+			});
+
+			// ── Init ───────────────────────────────────────────────────
 			load();
 		</script>
 	</body>
