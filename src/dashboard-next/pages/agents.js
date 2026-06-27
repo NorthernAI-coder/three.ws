@@ -300,6 +300,14 @@ function renderAgents(host, agents, avatars, root) {
 		});
 	});
 
+	host.querySelectorAll('[data-action="screen-caster"]').forEach((btn) => {
+		btn.addEventListener('click', () => {
+			const id = btn.dataset.id;
+			const agent = agents.find((a) => a.id === id);
+			if (agent) openCasterModal(agent);
+		});
+	});
+
 	loadInlineReviewStats(host, agents);
 	enrichAgentTradingStatus(host, agents);
 }
@@ -504,6 +512,9 @@ function agentCard(a, avatars) {
 					<button class="dn-btn ghost" data-action="view-reputation" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Reputation</button>
 					${onchain ? '' : `<button class="dn-btn ghost" data-action="deploy-onchain" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Deploy onchain</button>`}
 					${pumpMint ? '' : `<button class="dn-btn ghost" data-action="deploy-pump" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Deploy Pump.fun</button>`}
+					<button class="dn-btn ghost" data-action="screen-caster" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px" title="Get screen caster credentials">
+						<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:-1px"><rect x="1" y="2.5" width="14" height="9" rx="1.5"/><path d="M5.5 13.5h5M8 11.5v2"/></svg>Screen
+					</button>
 					<button class="dn-btn ghost danger" data-action="delete-agent" data-id="${esc(a.id)}" style="padding:5px 10px;font-size:12px">Delete</button>
 				</div>
 			</div>
@@ -1143,6 +1154,183 @@ function openPersonaModal(host, agent, allAgents, avatars) {
 		.addEventListener('click', () => seedAction('seed-farcaster'));
 }
 
+// ── Screen Caster setup modal ──────────────────────────────────────────────
+
+async function openCasterModal(agent) {
+	const overlay = makeOverlay();
+	const name = esc(agent.name || agent.display_name || 'Agent');
+
+	overlay.innerHTML = `
+		<div role="dialog" aria-modal="true" aria-label="Screen Caster setup" style="
+			width:min(580px,100%);
+			background:linear-gradient(180deg,rgba(22,24,32,0.98),rgba(14,15,22,0.98));
+			border:1px solid var(--nxt-stroke-strong);border-radius:16px;padding:28px;
+			box-shadow:0 24px 80px rgba(0,0,0,0.7);
+		">
+			<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px">
+				<div>
+					<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+						<svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="color:var(--nxt-accent,#c4b5fd);flex-shrink:0"><rect x="1" y="3" width="18" height="12" rx="2"/><path d="M7 17h6M10 15v2"/><circle cx="7" cy="9" r="1.2" fill="currentColor" stroke="none"/><path d="M9.2 9h5.8M9.2 11.5h4"/></svg>
+						<span style="font-size:17px;font-weight:600">Screen Caster</span>
+					</div>
+					<p style="font-size:13px;color:var(--nxt-ink-dim);margin:0">
+						Run a Playwright browser that streams live screenshots for <strong style="color:var(--nxt-ink)">${name}</strong>.
+						Generate credentials once, deploy anywhere Docker runs.
+					</p>
+				</div>
+				<button data-action="close" aria-label="Close" style="
+					flex-shrink:0;background:none;border:none;cursor:pointer;
+					color:var(--nxt-ink-fade);padding:4px;border-radius:6px;
+					transition:color 120ms ease;
+				" onmouseenter="this.style.color='var(--nxt-ink)'" onmouseleave="this.style.color='var(--nxt-ink-fade)'">
+					<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+				</button>
+			</div>
+
+			<div data-slot="body">
+				<div style="
+					display:flex;align-items:center;justify-content:center;gap:10px;
+					padding:32px;color:var(--nxt-ink-dim);font-size:13px;
+				">
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="animation:dn-spin 1s linear infinite;flex-shrink:0"><path d="M21 12a9 9 0 11-9-9c2.01 0 3.86.67 5.36 1.8"/></svg>
+					Generating credentials…
+				</div>
+			</div>
+		</div>
+	`;
+
+	document.body.appendChild(overlay);
+
+	const close = () => overlay.remove();
+	overlay.querySelector('[data-action="close"]').addEventListener('click', close);
+	overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+	document.addEventListener('keydown', function onKey(e) {
+		if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+	});
+
+	const bodySlot = overlay.querySelector('[data-slot="body"]');
+
+	try {
+		const resp = await post('/api/agent/caster-config', { agentId: agent.id });
+		const { envBlock, dockerCmd, prefix } = resp;
+
+		bodySlot.innerHTML = `
+			<div style="
+				display:flex;align-items:center;gap:8px;padding:10px 14px;
+				border-radius:8px;background:rgba(52,211,153,0.08);
+				border:1px solid rgba(52,211,153,0.2);margin-bottom:18px;
+			">
+				<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polyline points="2.5 8.5 6 12 13.5 4.5"/></svg>
+				<span style="font-size:12.5px;color:#34d399">API key created</span>
+				<code style="
+					margin-left:auto;font-size:11px;padding:2px 8px;
+					background:rgba(52,211,153,0.1);border-radius:4px;
+					color:#34d399;letter-spacing:0.03em;
+				">${esc(prefix)}…</code>
+			</div>
+
+			<div style="margin-bottom:16px">
+				<div style="
+					display:flex;align-items:center;justify-content:space-between;
+					margin-bottom:6px;
+				">
+					<span style="font-size:12px;font-weight:600;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">.env</span>
+					<button data-copy="env" style="
+						background:none;border:1px solid var(--nxt-stroke);border-radius:6px;
+						color:var(--nxt-ink-dim);font:inherit;font-size:11.5px;cursor:pointer;
+						padding:3px 10px;transition:color 120ms,border-color 120ms;
+					">Copy</button>
+				</div>
+				<pre data-block="env" style="
+					margin:0;padding:14px 16px;border-radius:10px;overflow-x:auto;
+					background:rgba(0,0,0,0.35);border:1px solid var(--nxt-stroke);
+					font-size:12px;line-height:1.7;color:#e2e8f0;
+					font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+					white-space:pre;
+				">${esc(envBlock)}</pre>
+			</div>
+
+			<div style="margin-bottom:20px">
+				<div style="
+					display:flex;align-items:center;justify-content:space-between;
+					margin-bottom:6px;
+				">
+					<span style="font-size:12px;font-weight:600;color:var(--nxt-ink-fade);text-transform:uppercase;letter-spacing:0.06em">Docker run</span>
+					<button data-copy="docker" style="
+						background:none;border:1px solid var(--nxt-stroke);border-radius:6px;
+						color:var(--nxt-ink-dim);font:inherit;font-size:11.5px;cursor:pointer;
+						padding:3px 10px;transition:color 120ms,border-color 120ms;
+					">Copy</button>
+				</div>
+				<pre data-block="docker" style="
+					margin:0;padding:14px 16px;border-radius:10px;overflow-x:auto;
+					background:rgba(0,0,0,0.35);border:1px solid var(--nxt-stroke);
+					font-size:12px;line-height:1.7;color:#e2e8f0;
+					font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+					white-space:pre;
+				">${esc(dockerCmd)}</pre>
+			</div>
+
+			<div style="
+				display:flex;flex-direction:column;gap:6px;padding:12px 14px;
+				border-radius:8px;background:rgba(255,255,255,0.02);
+				border:1px solid var(--nxt-stroke);font-size:12.5px;color:var(--nxt-ink-dim);
+			">
+				<div style="font-weight:600;color:var(--nxt-ink-fade);margin-bottom:2px;font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em">Deploy anywhere Docker runs</div>
+				<div style="display:flex;align-items:baseline;gap:6px"><span style="color:var(--nxt-ink);font-weight:500;min-width:80px">Railway</span><span><a href="https://railway.app" target="_blank" rel="noopener" style="color:var(--nxt-accent,#c4b5fd)">railway.app</a> → New Project → Deploy Docker Image</span></div>
+				<div style="display:flex;align-items:baseline;gap:6px"><span style="color:var(--nxt-ink);font-weight:500;min-width:80px">Fly.io</span><span><code style="font-size:11px">fly launch --image three-ws/agent-screen-caster</code></span></div>
+				<div style="display:flex;align-items:baseline;gap:6px"><span style="color:var(--nxt-ink);font-weight:500;min-width:80px">Cloud Run</span><span>Container → set env vars → deploy</span></div>
+				<div style="display:flex;align-items:baseline;gap:6px"><span style="color:var(--nxt-ink);font-weight:500;min-width:80px">Local</span><span><code style="font-size:11px">npm install && npm start</code> inside <code style="font-size:11px">services/agent-screen-caster/</code></span></div>
+			</div>
+
+			<div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:12px;flex-wrap:wrap">
+				<a href="/dashboard-next/watch?agentId=${encodeURIComponent(agent.id)}" target="_blank" rel="noopener" style="
+					font-size:12.5px;color:var(--nxt-accent,#c4b5fd);text-decoration:none;
+					display:inline-flex;align-items:center;gap:5px;
+				">
+					<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3C4.5 3 1.5 6 1.5 8s3 5 6.5 5 6.5-3 6.5-5-3-5-6.5-5z"/><circle cx="8" cy="8" r="2"/></svg>
+					Preview watch panel ↗
+				</a>
+				<button data-action="close-done" class="dn-btn primary" style="font-size:13px;padding:7px 18px">Done</button>
+			</div>
+		`;
+
+		bodySlot.querySelector('[data-action="close-done"]').addEventListener('click', close);
+
+		bodySlot.querySelectorAll('[data-copy]').forEach((btn) => {
+			const key = btn.dataset.copy;
+			const pre = bodySlot.querySelector(`[data-block="${key}"]`);
+			btn.addEventListener('click', async () => {
+				try {
+					await navigator.clipboard.writeText(pre.textContent);
+					btn.textContent = 'Copied!';
+					btn.style.color = '#34d399';
+					btn.style.borderColor = 'rgba(52,211,153,0.4)';
+					setTimeout(() => {
+						btn.textContent = 'Copy';
+						btn.style.color = '';
+						btn.style.borderColor = '';
+					}, 1800);
+				} catch {
+					toast('Copy failed — select and copy manually');
+				}
+			});
+		});
+
+	} catch (err) {
+		bodySlot.innerHTML = `
+			<div style="
+				padding:16px;border-radius:8px;background:rgba(248,113,113,0.08);
+				border:1px solid rgba(248,113,113,0.2);color:#f87171;font-size:13px;
+			">${esc(err?.body?.error || err?.message || 'Failed to generate credentials. Try again.')}</div>
+			<div style="display:flex;justify-content:flex-end;margin-top:14px">
+				<button data-action="close" class="dn-btn ghost" style="font-size:13px">Close</button>
+			</div>
+		`;
+		bodySlot.querySelector('[data-action="close"]').addEventListener('click', close);
+	}
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function makeOverlay() {
@@ -1236,6 +1424,7 @@ function injectStyles() {
 			white-space: nowrap;
 			font-variant-numeric: tabular-nums;
 		}
+		@keyframes dn-spin { to { transform: rotate(360deg); } }
 		@media (max-width: 600px) {
 			.dn-agents-filter-bar { flex-direction: column; align-items: stretch; }
 			.dn-agents-sort-wrap { justify-content: space-between; }

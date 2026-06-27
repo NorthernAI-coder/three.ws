@@ -7923,6 +7923,7 @@ function init() {
 	loadList(true);
 	loadTheme();
 	loadOracleStats();
+	loadTopPerformers();
 	initPlugins();
 	fetchUserPurchases();
 	loadCurrentUser();
@@ -8558,6 +8559,69 @@ async function loadOracleStats() {
 		strip.hidden = false;
 	} catch {
 		// non-fatal — strip stays hidden
+	}
+}
+
+const TOP_RANK_COLORS = ['#f59e0b', '#94a3b8', '#cd7c4f'];
+const TOP_RANK_LABELS = ['#1', '#2', '#3'];
+
+async function loadTopPerformers() {
+	const section = $('mkt-top-section');
+	const podium = $('mkt-top-podium');
+	if (!section || !podium) return;
+
+	// Show skeleton cards immediately so there's no layout jump when data arrives.
+	podium.innerHTML = [0, 1, 2].map((i) => `
+		<div class="mkt-top-card mkt-skel" style="--rank-color:${TOP_RANK_COLORS[i]}">
+			<span class="mkt-top-rank">${TOP_RANK_LABELS[i]}</span>
+			<div class="mkt-top-av-wrap"></div>
+			<div class="mkt-top-name" style="width:70%;height:12px">&nbsp;</div>
+			<div class="mkt-top-wr" style="width:60%;height:28px;margin-top:8px">&nbsp;</div>
+			<div class="mkt-top-wr-lbl" style="width:50%;height:10px">&nbsp;</div>
+			<div class="mkt-top-meta" style="width:80%;height:10px">&nbsp;</div>
+		</div>`).join('');
+	section.hidden = false;
+
+	try {
+		const r = await fetch('/api/oracle/leaderboard?limit=3&min_actions=3', {
+			headers: { accept: 'application/json' },
+		});
+		if (!r.ok) { section.hidden = true; return; }
+		const data = await r.json();
+		const agents = data.agents || [];
+		if (agents.length === 0) { section.hidden = true; return; }
+
+		podium.innerHTML = agents.map((a, i) => {
+			const color = TOP_RANK_COLORS[i] || '#6b7280';
+			const label = TOP_RANK_LABELS[i] || `#${i + 1}`;
+			const winRate = a.win_rate != null ? `${a.win_rate}%` : '—';
+			const pnl = a.realized_pnl_sol != null
+				? `${a.realized_pnl_sol >= 0 ? '+' : ''}${Number(a.realized_pnl_sol).toFixed(3)} SOL`
+				: null;
+			const pnlClass = a.realized_pnl_sol != null
+				? (a.realized_pnl_sol >= 0 ? 'pos' : 'neg')
+				: '';
+			const avatarHtml = a.image_url
+				? `<img src="${escapeHtml(a.image_url)}" alt="" class="mkt-top-avatar" loading="lazy" onerror="this.style.display='none'">`
+				: `<span class="mkt-top-avatar-fallback">${escapeHtml((a.name || '?')[0].toUpperCase())}</span>`;
+
+			return `<a class="mkt-top-card" href="/agents/${encodeURIComponent(a.agent_id)}"
+					style="--rank-color:${color}"
+					title="${escapeHtml(a.name || a.agent_id)}"
+					aria-label="${escapeHtml(a.name || 'Agent')} — rank ${i + 1}, ${winRate} oracle win rate">
+				<span class="mkt-top-rank">${label}</span>
+				<div class="mkt-top-av-wrap">${avatarHtml}</div>
+				<div class="mkt-top-name">${escapeHtml(a.name || 'Agent')}</div>
+				<div class="mkt-top-wr">${escapeHtml(winRate)}</div>
+				<div class="mkt-top-wr-lbl">Win rate</div>
+				<div class="mkt-top-meta">
+					<span>${a.wins}W / ${a.losses}L${a.open > 0 ? ` / ${a.open} open` : ''}</span>
+					${pnl ? `<span class="mkt-top-pnl ${pnlClass}">${escapeHtml(pnl)}</span>` : ''}
+				</div>
+			</a>`;
+		}).join('');
+	} catch {
+		section.hidden = true;
 	}
 }
 

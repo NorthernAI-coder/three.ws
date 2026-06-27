@@ -15,7 +15,7 @@
 
 import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
-import { sql } from './db.js';
+import { sql, isDbUnavailableError } from './db.js';
 import { putObject, publicUrl } from './r2.js';
 import { recordGenerationEvent } from './forge-events.js';
 
@@ -103,7 +103,8 @@ export async function createCreation({
 		await recordGenerationEvent({ phase: 'start', backend, tier, path, source: 'create' });
 		return id;
 	} catch (err) {
-		console.error('[forge-store] createCreation failed:', err?.message);
+		if (isDbUnavailableError(err)) console.warn('[forge-store] createCreation skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] createCreation failed:', err?.message);
 		return null;
 	}
 }
@@ -123,7 +124,8 @@ export async function findByJob({ replicateJobId, clientKey }) {
 		`;
 		return rows[0] ?? null;
 	} catch (err) {
-		console.error('[forge-store] findByJob failed:', err?.message);
+		if (isDbUnavailableError(err)) console.warn('[forge-store] findByJob skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] findByJob failed:', err?.message);
 		return null;
 	}
 }
@@ -522,7 +524,8 @@ export async function listCreations({ clientKey, limit = 24 }) {
 			created_at: r.created_at,
 		}));
 	} catch (err) {
-		console.error('[forge-store] listCreations failed:', err?.message);
+		if (isDbUnavailableError(err)) console.warn('[forge-store] listCreations skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] listCreations failed:', err?.message);
 		return [];
 	}
 }
@@ -564,7 +567,8 @@ export async function listShowcase({ limit = 12 } = {}) {
 			created_at: r.created_at,
 		}));
 	} catch (err) {
-		console.error('[forge-store] listShowcase failed:', err?.message);
+		if (isDbUnavailableError(err)) console.warn('[forge-store] listShowcase skipped (db unavailable):', err?.message);
+		else console.error('[forge-store] listShowcase failed:', err?.message);
 		return [];
 	}
 }

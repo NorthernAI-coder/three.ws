@@ -49,6 +49,7 @@ const IGNORE = new Set([
 	'/deploy', // post-create deploy step, reached in-flow
 	'/demos', // internal demo index
 	'/x402', // authenticated x402 checkout, not a discovery page
+	'/billing/keys', // authenticated x402 subscription-key management, reached in-flow from AWS welcome + dashboard
 	'/cz', // internal alias
 	'/app-classic', // legacy build of /app, superseded by the current viewer
 	'/create/studio', // editor shell reached in-flow from /create, not a landing

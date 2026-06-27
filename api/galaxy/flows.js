@@ -29,7 +29,7 @@
 //   GET /api/galaxy/flows?type=tips|trades|payments|launches|all
 //   GET /api/galaxy/flows?network=mainnet|devnet&limit=<n>
 
-import { sql } from '../_lib/db.js';
+import { sql, isDbUnavailableError } from '../_lib/db.js';
 import { cors, json, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
@@ -285,7 +285,9 @@ export default async function handler(req, res) {
 		return json(res, 200, { data: body });
 	} catch (e) {
 		const timedOut = e instanceof FeedDeadline;
-		console.error('[api/galaxy/flows] failed', timedOut ? 'soft-deadline' : e?.message, timedOut ? '' : e?.stack);
+		const dbDown = !timedOut && isDbUnavailableError(e);
+		if (dbDown) console.warn('[api/galaxy/flows] degraded (db unavailable):', e?.message);
+		else console.error('[api/galaxy/flows] failed', timedOut ? 'soft-deadline' : e?.message, timedOut ? '' : e?.stack);
 		// Degrade gracefully: a delta poll (`since`) returns nothing new rather than
 		// erroring the live map; any view falls back to its last-good snapshot when
 		// one exists, else an empty window. All are valid 200s.

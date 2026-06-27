@@ -344,7 +344,7 @@
 			.asc-activity-icon { font-size: 0.9rem; flex: none; }
 			#asc-current-activity { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-			/* ── no-agent state ── */
+			/* ── no-agent / setup state ── */
 			.asc-no-agent {
 				flex: 1;
 				display: flex;
@@ -374,17 +374,409 @@
 			}
 			.asc-no-agent a:hover { opacity: 0.88; }
 
+			/* ── Worker Setup panel ── */
+			.ws-setup {
+				flex: 1;
+				overflow-y: auto;
+				padding: 2.5rem 1rem 3rem;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				animation: asc-fadein 0.3s ease both;
+			}
+			.ws-setup-inner {
+				width: 100%;
+				max-width: 680px;
+				display: flex;
+				flex-direction: column;
+				gap: 1.5rem;
+			}
+			.ws-setup-hero {
+				text-align: center;
+				margin-bottom: 0.5rem;
+			}
+			.ws-setup-hero h1 {
+				margin: 0 0 0.5rem;
+				font-size: 1.6rem;
+				font-weight: 760;
+				color: #eef2fa;
+				letter-spacing: -0.03em;
+				background: linear-gradient(135deg, #fff 30%, #8a9fff);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
+			.ws-setup-hero p {
+				margin: 0;
+				color: rgba(255,255,255,0.45);
+				font-size: 0.9rem;
+				line-height: 1.55;
+			}
+			.ws-setup-step {
+				background: rgba(255,255,255,0.035);
+				border: 1px solid rgba(255,255,255,0.08);
+				border-radius: 14px;
+				overflow: hidden;
+			}
+			.ws-setup-step-head {
+				display: flex;
+				align-items: center;
+				gap: 0.75rem;
+				padding: 0.95rem 1.1rem;
+				border-bottom: 1px solid rgba(255,255,255,0.07);
+			}
+			.ws-step-num {
+				width: 26px;
+				height: 26px;
+				border-radius: 50%;
+				background: rgba(91,143,255,0.18);
+				border: 1.5px solid rgba(91,143,255,0.4);
+				color: #7aabff;
+				font-size: 0.78rem;
+				font-weight: 760;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex: none;
+			}
+			.ws-step-num.done {
+				background: rgba(61,220,132,0.15);
+				border-color: rgba(61,220,132,0.4);
+				color: #3ddc84;
+			}
+			.ws-setup-step-head h3 {
+				margin: 0;
+				font-size: 0.92rem;
+				font-weight: 680;
+				color: #dce6ff;
+				letter-spacing: -0.01em;
+			}
+			.ws-setup-step-head p {
+				margin: 0;
+				font-size: 0.8rem;
+				color: rgba(255,255,255,0.4);
+			}
+			.ws-setup-step-body { padding: 1.1rem; }
+
+			/* agent picker */
+			.ws-agent-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+				gap: 0.65rem;
+			}
+			.ws-agent-card {
+				display: flex;
+				align-items: center;
+				gap: 0.65rem;
+				padding: 0.65rem 0.8rem;
+				border-radius: 10px;
+				border: 1.5px solid rgba(255,255,255,0.09);
+				background: rgba(255,255,255,0.04);
+				cursor: pointer;
+				transition: border-color 0.15s, background 0.15s;
+				text-align: left;
+			}
+			.ws-agent-card:hover { border-color: rgba(91,143,255,0.35); background: rgba(91,143,255,0.07); }
+			.ws-agent-card.selected { border-color: #5b8fff; background: rgba(91,143,255,0.12); }
+			.ws-agent-avatar {
+				width: 36px;
+				height: 36px;
+				border-radius: 8px;
+				object-fit: cover;
+				flex: none;
+				background: rgba(91,143,255,0.15);
+				border: 1px solid rgba(91,143,255,0.2);
+			}
+			.ws-agent-avatar-placeholder {
+				width: 36px;
+				height: 36px;
+				border-radius: 8px;
+				flex: none;
+				background: linear-gradient(135deg, rgba(91,143,255,0.2), rgba(130,96,255,0.2));
+				border: 1px solid rgba(91,143,255,0.2);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 1rem;
+			}
+			.ws-agent-info { min-width: 0; }
+			.ws-agent-name {
+				font-size: 0.82rem;
+				font-weight: 660;
+				color: #dce6ff;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.ws-agent-uuid {
+				font-size: 0.7rem;
+				color: rgba(255,255,255,0.3);
+				font-family: monospace;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.ws-agent-empty {
+				color: rgba(255,255,255,0.35);
+				font-size: 0.85rem;
+				padding: 1rem 0;
+				text-align: center;
+			}
+			.ws-agent-empty a { color: #7aabff; }
+
+			/* API key area */
+			.ws-key-row {
+				display: flex;
+				gap: 0.65rem;
+				align-items: center;
+			}
+			.ws-key-display {
+				flex: 1;
+				background: rgba(0,0,0,0.3);
+				border: 1px solid rgba(255,255,255,0.1);
+				border-radius: 8px;
+				padding: 0.6rem 0.85rem;
+				font-family: 'Courier New', monospace;
+				font-size: 0.8rem;
+				color: #a8c2ff;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				min-width: 0;
+			}
+			.ws-key-display.placeholder { color: rgba(255,255,255,0.2); font-style: italic; font-family: inherit; }
+			.ws-btn {
+				appearance: none;
+				border: none;
+				border-radius: 9px;
+				padding: 0.55rem 1rem;
+				font: inherit;
+				font-size: 0.82rem;
+				font-weight: 660;
+				cursor: pointer;
+				transition: opacity 0.15s, transform 0.1s;
+				white-space: nowrap;
+				flex: none;
+			}
+			.ws-btn:active { transform: scale(0.97); }
+			.ws-btn-primary {
+				background: linear-gradient(135deg, #4a7fff, #8260ff);
+				color: #fff;
+			}
+			.ws-btn-primary:hover { opacity: 0.88; }
+			.ws-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+			.ws-btn-ghost {
+				background: rgba(255,255,255,0.07);
+				border: 1px solid rgba(255,255,255,0.12);
+				color: rgba(255,255,255,0.7);
+			}
+			.ws-btn-ghost:hover { background: rgba(255,255,255,0.11); color: #fff; }
+			.ws-btn-copy {
+				background: rgba(255,255,255,0.07);
+				border: 1px solid rgba(255,255,255,0.12);
+				color: rgba(255,255,255,0.6);
+				padding: 0.55rem 0.75rem;
+				border-radius: 8px;
+				font-size: 0.8rem;
+			}
+			.ws-btn-copy.copied { background: rgba(61,220,132,0.12); border-color: rgba(61,220,132,0.3); color: #3ddc84; }
+			.ws-key-note {
+				font-size: 0.78rem;
+				color: rgba(255,255,255,0.35);
+				margin-top: 0.6rem;
+				line-height: 1.5;
+			}
+			.ws-key-note strong { color: rgba(255,200,80,0.8); }
+
+			/* Command block */
+			.ws-cmd-tabs {
+				display: flex;
+				gap: 0.4rem;
+				margin-bottom: 0.8rem;
+			}
+			.ws-cmd-tab {
+				appearance: none;
+				border: 1px solid rgba(255,255,255,0.1);
+				background: rgba(255,255,255,0.04);
+				color: rgba(255,255,255,0.5);
+				border-radius: 7px;
+				padding: 0.3rem 0.7rem;
+				font: inherit;
+				font-size: 0.78rem;
+				font-weight: 640;
+				cursor: pointer;
+				transition: all 0.15s;
+			}
+			.ws-cmd-tab.active {
+				background: rgba(91,143,255,0.15);
+				border-color: rgba(91,143,255,0.4);
+				color: #8aabff;
+			}
+			.ws-cmd-block {
+				position: relative;
+				background: rgba(0,0,0,0.4);
+				border: 1px solid rgba(255,255,255,0.09);
+				border-radius: 10px;
+				padding: 1rem 1rem 1rem 1.1rem;
+			}
+			.ws-cmd-copy {
+				position: absolute;
+				top: 0.6rem;
+				right: 0.6rem;
+			}
+			.ws-cmd-block pre {
+				margin: 0;
+				font-family: 'Courier New', monospace;
+				font-size: 0.78rem;
+				line-height: 1.65;
+				color: #c5d5ff;
+				overflow-x: auto;
+				white-space: pre;
+				padding-right: 3rem;
+			}
+			.ws-cmd-block pre .cmd-comment { color: rgba(255,255,255,0.3); }
+			.ws-cmd-block pre .cmd-key { color: #7aabff; }
+			.ws-cmd-block pre .cmd-val { color: #a8e6cf; }
+			.ws-cmd-block pre .cmd-run { color: #ffcc66; }
+			.ws-cmd-block pre .cmd-dim { color: rgba(255,255,255,0.25); }
+
+			.ws-status-ok {
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+				font-size: 0.82rem;
+				color: #3ddc84;
+				margin-top: 0.9rem;
+				padding: 0.55rem 0.85rem;
+				background: rgba(61,220,132,0.08);
+				border: 1px solid rgba(61,220,132,0.2);
+				border-radius: 8px;
+			}
+			.ws-watch-link {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.45rem;
+				margin-top: 0.75rem;
+				background: linear-gradient(135deg, #4a7fff, #8260ff);
+				color: #fff;
+				border-radius: 9px;
+				padding: 0.6rem 1.2rem;
+				font-size: 0.88rem;
+				font-weight: 660;
+				text-decoration: none;
+				transition: opacity 0.15s;
+				width: fit-content;
+			}
+			.ws-watch-link:hover { opacity: 0.88; }
+			.ws-not-signed-in {
+				display: flex;
+				align-items: center;
+				gap: 0.6rem;
+				font-size: 0.85rem;
+				color: rgba(255,255,255,0.5);
+				padding: 0.8rem 1rem;
+				background: rgba(255,200,80,0.06);
+				border: 1px solid rgba(255,200,80,0.15);
+				border-radius: 8px;
+			}
+			.ws-not-signed-in a { color: #ffcc66; }
+			.ws-spinner {
+				display: inline-block;
+				width: 14px;
+				height: 14px;
+				border: 2px solid rgba(91,143,255,0.3);
+				border-top-color: #5b8fff;
+				border-radius: 50%;
+				animation: ws-spin 0.7s linear infinite;
+				flex: none;
+			}
+			@keyframes ws-spin { to { transform: rotate(360deg); } }
+
 			/* ── animations ── */
 			@keyframes asc-pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
 			@keyframes asc-ring { 0%{transform:scale(1);opacity:0.8}100%{transform:scale(1.6);opacity:0} }
 			@keyframes asc-inner { 0%{opacity:0.5}100%{opacity:0} }
 			@keyframes asc-fadein { from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none} }
 
+			/* ── task input bar ── */
+			.asc-task-bar {
+				flex: none;
+				border-top: 1px solid rgba(255,255,255,0.06);
+				background: rgba(4, 6, 15, 0.95);
+				backdrop-filter: blur(8px);
+				padding: 0.6rem 0.8rem;
+				display: flex;
+				flex-direction: column;
+				gap: 0.35rem;
+			}
+			.asc-task-form {
+				display: flex;
+				align-items: center;
+				gap: 0.55rem;
+				background: rgba(255,255,255,0.04);
+				border: 1px solid rgba(255,255,255,0.1);
+				border-radius: 10px;
+				padding: 0.45rem 0.55rem 0.45rem 0.7rem;
+				transition: border-color 0.15s, box-shadow 0.15s;
+			}
+			.asc-task-form:focus-within {
+				border-color: rgba(91,143,255,0.55);
+				box-shadow: 0 0 0 3px rgba(91,143,255,0.12);
+			}
+			.asc-task-icon {
+				color: rgba(91,143,255,0.6);
+				font-size: 0.72rem;
+				flex: none;
+				user-select: none;
+			}
+			.asc-task-input {
+				flex: 1;
+				min-width: 0;
+				background: transparent;
+				border: none;
+				outline: none;
+				color: rgba(255,255,255,0.9);
+				font: inherit;
+				font-size: 0.85rem;
+				caret-color: #5b8fff;
+			}
+			.asc-task-input::placeholder { color: rgba(255,255,255,0.28); }
+			.asc-task-input:disabled { opacity: 0.5; }
+			.asc-task-send {
+				flex: none;
+				appearance: none;
+				border: none;
+				background: linear-gradient(135deg, #4a7fff, #8260ff);
+				color: #fff;
+				border-radius: 7px;
+				width: 30px;
+				height: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: pointer;
+				transition: opacity 0.15s, transform 0.1s;
+			}
+			.asc-task-send:hover { opacity: 0.88; }
+			.asc-task-send:active { transform: scale(0.93); }
+			.asc-task-send:disabled { opacity: 0.35; cursor: not-allowed; }
+			.asc-task-send.sending { opacity: 0.6; animation: asc-pulse 0.8s ease-in-out infinite; }
+			.asc-task-status {
+				font-size: 0.75rem;
+				min-height: 1rem;
+				padding-left: 0.2rem;
+				color: rgba(255,255,255,0.4);
+				transition: opacity 0.2s;
+			}
+			.asc-task-status.ok { color: var(--screen-live); }
+			.asc-task-status.err { color: #ff6b6b; }
+
 			/* ── fullscreen mode ── */
 			.asc-screen-panel:fullscreen { background: #000; }
 			.asc-screen-panel:fullscreen .asc-screen-label { display: none; }
 			.asc-screen-panel:fullscreen .asc-screen-wrap { align-items: stretch; }
 			.asc-screen-panel:fullscreen #asc-screen-canvas { max-height: 100%; border-radius: 0; }
+			.asc-screen-panel:fullscreen .asc-task-bar { display: none; }
 
 			/* ── responsive ── */
 			@media (max-width: 700px) {
@@ -417,9 +809,7 @@
 		<div class="asc-main" id="asc-main">
 			<!-- populated by agent-screen.js -->
 			<div id="asc-no-agent" class="asc-no-agent" style="display:flex">
-				<h2>No agent selected</h2>
-				<p>Open this page from an agent's profile to watch them work in real time.</p>
-				<a href="/agents">Browse agents →</a>
+				<div class="ws-spinner"></div>
 			</div>
 		</div>
 

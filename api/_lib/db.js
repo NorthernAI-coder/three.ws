@@ -135,6 +135,34 @@ export function sqlValues(rows) {
 	return makeFragment(strings, values);
 }
 
+// Returns true when the error is a Neon connectivity failure that is
+// transient and credential-level — password auth failures, TCP connection
+// refused, SSL handshake errors. These map to HTTP 503 (not 500): the server
+// is temporarily unable to service the request, not broken internally.
+// Callers should not emit per-endpoint ops alerts on these; a single
+// DB-unavailable alert per hour is enough.
+export function isDbUnavailableError(err) {
+	if (!err) return false;
+	const name = err.constructor?.name ?? '';
+	const msg = String(err.message ?? '');
+	if (name === 'NeonDbError' || name === 'DatabaseError') {
+		return (
+			msg.includes('password authentication failed') ||
+			msg.includes('connection refused') ||
+			msg.includes('ECONNREFUSED') ||
+			msg.includes('SSL connection') ||
+			msg.includes('endpoint is disabled') ||
+			msg.includes('Control plane request failed')
+		);
+	}
+	// Network-level fetch failure wrapping a Neon request (rare but happens when
+	// the Neon HTTP gateway is unreachable).
+	if (name === 'FetchError' || name === 'TypeError') {
+		return msg.includes('ECONNREFUSED') || msg.includes('fetch failed');
+	}
+	return false;
+}
+
 export const sql = new Proxy(function () {}, {
 	apply(_t, _this, args) {
 		// Neon dispatches on the first argument: a string is the ordinary
