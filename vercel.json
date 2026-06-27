@@ -2233,6 +2233,38 @@
 			"dest": "/api/auth/session/[action]?action=$1"
 		},
 		{
+			"src": "/api/agents/onchain/([^/]+)",
+			"dest": "/api/agents/onchain/[action]?action=$1"
+		},
+		{
+			"src": "/api/agents/payments/([^/]+)",
+			"dest": "/api/agents/payments/[action]?action=$1"
+		},
+		{
+			"src": "/api/agents/tokens/([^/]+)",
+			"dest": "/api/agents/tokens/[action]?action=$1"
+		},
+		{
+			"src": "/api/payments/solana/([^/]+)",
+			"dest": "/api/payments/solana/[action]?action=$1"
+		},
+		{
+			"src": "/api/payments/evm/([^/]+)",
+			"dest": "/api/payments/evm/[action]?action=$1"
+		},
+		{
+			"src": "/api/tx/solana/([^/]+)",
+			"dest": "/api/tx/solana/[action]?action=$1"
+		},
+		{
+			"src": "/api/walk/control/([^/]+)",
+			"dest": "/api/walk/control/[action]?action=$1"
+		},
+		{
+			"src": "/api/admin/news/([^/]+)",
+			"dest": "/api/admin/news/[action]?action=$1"
+		},
+		{
 			"src": "/api/onboarding/avaturn-session",
 			"dest": "/api/onboarding/[action]?action=avaturn-session"
 		},
