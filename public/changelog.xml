@@ -255,6 +255,14 @@
 			<description>Fixed a class of missing API route mappings that left several backend endpoints unreachable in production: token launch (quote, prep, confirm), agent-to-agent payments, on-chain transaction prep/confirm, Solana and EVM checkout, and live-walk session control. The handlers were deployed but never wired to their public paths; they now respond correctly. Part of a wider audit that also restored wallet sign-in.</description>
 		</item>
 		<item>
+			<title>Sign-in cooldown is now exact — and there's more headroom before it trips</title>
+			<link>https://three.ws/login</link>
+			<guid isPermaLink="false">2026-06-27:Sign-in cooldown is now exact — and there's more headroom before it trips</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>If you ever hit &quot;too many attempts&quot; while signing in, the form now shows the real countdown the server hands back — a live timer on the button that ticks down and re-arms the form the instant you can try again, instead of a vague &quot;try later&quot;. We also raised the per-network attempt allowance, so people signing in from shared office or campus connections are far less likely to be told to wait at all. Wrong-password and network-drop messages are now clearer and distinct, too.</description>
+		</item>
+		<item>
 			<title>Sign-in restored during rate-limiter outages</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-27:Sign-in restored during rate-limiter outages</guid>
