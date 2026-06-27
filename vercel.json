@@ -839,6 +839,14 @@
 			"dest": "/bulk-launch.html"
 		},
 		{
+			"src": "/admin/ops/?",
+			"dest": "/admin/ops.html"
+		},
+		{
+			"src": "/api/ops/health",
+			"dest": "/api/ops/health"
+		},
+		{
 			"src": "/admin/sdp/?",
 			"dest": "/admin/sdp.html"
 		},

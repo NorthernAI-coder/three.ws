@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<script>/* three.ws theme boot */(function(){document.documentElement.classList.add('js');try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Ops Health · three.ws</title>
+	<meta name="robots" content="noindex, nofollow" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="stylesheet" href="/style.css" />
+	<link rel="stylesheet" href="/nav.css" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<style>
+		body { background: #0a0a0f; color: #e2e8f0; min-height: 100vh; }
+		.ops-wrap { max-width: 1200px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 3rem) 1.25rem 5rem; }
+
+		/* Header */
+		.ops-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+		.ops-title { font-size: clamp(1.4rem, 3vw, 1.85rem); font-weight: 800; letter-spacing: -0.025em; margin: 0; }
+		.ops-meta { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+		.ops-checked { font-size: 12px; color: rgba(255,255,255,0.35); }
+		.ops-refresh { font: inherit; font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); cursor: pointer; transition: all .15s; }
+		.ops-refresh:hover { background: rgba(255,255,255,0.1); color: #fff; }
+		.auto-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; background: rgba(47,191,113,0.12); color: #2fbf71; border: 1px solid rgba(47,191,113,0.2); }
+
+		/* Auth gate */
+		.auth-gate { max-width: 440px; margin: 5rem auto; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 2rem; }
+		.auth-gate h2 { font-size: 1.1rem; margin: 0 0 1.25rem; }
+		.auth-gate input { width: 100%; font: inherit; font-size: 13.5px; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #fff; box-sizing: border-box; margin-bottom: 0.75rem; }
+		.auth-gate input:focus { outline: none; border-color: rgba(124,92,255,0.5); }
+		.auth-gate button { width: 100%; font: inherit; font-size: 13.5px; font-weight: 600; padding: 11px; border-radius: 10px; border: none; background: linear-gradient(135deg,#7c5cff,#6144e0); color: #fff; cursor: pointer; }
+		.auth-err { font-size: 12.5px; color: #f87171; margin-top: 0.5rem; }
+
+		/* Overall status banner */
+		.ops-banner { border-radius: 14px; padding: 1.1rem 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; border: 1px solid; }
+		.ops-banner.ok { background: rgba(47,191,113,0.08); border-color: rgba(47,191,113,0.2); }
+		.ops-banner.warn { background: rgba(240,169,59,0.08); border-color: rgba(240,169,59,0.2); }
+		.ops-banner.down { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.2); }
+		.banner-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+		.ok .banner-dot { background: #2fbf71; box-shadow: 0 0 8px rgba(47,191,113,0.6); }
+		.warn .banner-dot { background: #f0a93b; box-shadow: 0 0 8px rgba(240,169,59,0.6); }
+		.down .banner-dot { background: #f87171; box-shadow: 0 0 8px rgba(248,113,113,0.6); }
+		.banner-text { font-size: 14.5px; font-weight: 600; }
+		.banner-sub { font-size: 12.5px; color: rgba(255,255,255,0.45); margin-left: auto; }
+
+		/* Summary cards */
+		.ops-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+		.sum-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 1rem 1.1rem; }
+		.sum-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.35); margin-bottom: 0.4rem; }
+		.sum-card .val { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; }
+		.sum-card .val.ok { color: #2fbf71; }
+		.sum-card .val.warn { color: #f0a93b; }
+		.sum-card .val.bad { color: #f87171; }
+		.sum-card .sub { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 2px; }
+
+		/* Sections */
+		.ops-section { margin-bottom: 2.5rem; }
+		.ops-section-hd { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; color: rgba(255,255,255,0.3); margin-bottom: 0.85rem; }
+
+		/* Probe grid */
+		.probe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.6rem; }
+		.probe-row { display: flex; align-items: center; gap: 0.65rem; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 0.65rem 0.9rem; transition: border-color .2s; }
+		.probe-row.p-ok { border-left: 2px solid rgba(47,191,113,0.5); }
+		.probe-row.p-warn { border-left: 2px solid rgba(240,169,59,0.5); }
+		.probe-row.p-bad { border-left: 2px solid rgba(248,113,113,0.5); }
+		.probe-row.p-loading { opacity: 0.45; }
+		.p-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+		.p-ok .p-dot { background: #2fbf71; }
+		.p-warn .p-dot { background: #f0a93b; }
+		.p-bad .p-dot { background: #f87171; animation: pulse-red 1.5s ease-in-out infinite; }
+		.p-loading .p-dot { background: rgba(255,255,255,0.2); }
+		@keyframes pulse-red { 0%,100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.4); } 50% { box-shadow: 0 0 0 4px rgba(248,113,113,0); } }
+		.p-label { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.p-status { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+		.p-ok .p-status { color: #2fbf71; }
+		.p-bad .p-status { color: #f87171; }
+		.p-warn .p-status { color: #f0a93b; }
+		.p-ms { font-size: 10.5px; color: rgba(255,255,255,0.25); flex-shrink: 0; }
+
+		/* Cron table */
+		.cron-table { width: 100%; border-collapse: collapse; }
+		.cron-table th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.3); padding: 0 0.75rem 0.6rem; text-align: left; font-weight: 600; }
+		.cron-table td { padding: 0.55rem 0.75rem; border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+		.cron-table tr:hover td { background: rgba(255,255,255,0.02); }
+		.cron-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 6px; }
+		.cron-badge.ok { background: rgba(47,191,113,0.1); color: #2fbf71; border: 1px solid rgba(47,191,113,0.2); }
+		.cron-badge.fail { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
+		.cron-badge.stale { background: rgba(240,169,59,0.1); color: #f0a93b; border: 1px solid rgba(240,169,59,0.2); }
+		.cron-badge.never { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.08); }
+		.cron-ago { color: rgba(255,255,255,0.4); font-size: 12px; }
+		.cron-err { color: #f87171; font-size: 11.5px; font-family: monospace; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+		/* Failing spotlight */
+		.fail-section { background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15); border-radius: 14px; padding: 1.25rem 1.5rem; margin-bottom: 2rem; }
+		.fail-section-hd { font-size: 12px; font-weight: 700; color: #f87171; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+		.fail-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+		.fail-item { display: flex; align-items: baseline; gap: 0.75rem; font-size: 13px; }
+		.fail-item-label { font-weight: 600; min-width: 180px; }
+		.fail-item-reason { color: rgba(255,255,255,0.4); font-size: 12px; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+		/* Loading skeleton */
+		.skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 6px; height: 14px; }
+		@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+
+		/* Category headings inside probe grid */
+		.cat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: rgba(255,255,255,0.25); margin: 1.25rem 0 0.5rem; grid-column: 1 / -1; }
+		.cat-label:first-child { margin-top: 0; }
+	</style>
+</head>
+<body>
+<div id="nav-root"></div>
+<script type="module">
+import '/nav.js';
+</script>
+
+<div class="ops-wrap">
+	<div class="ops-header">
+		<h1 class="ops-title">Platform Health</h1>
+		<div class="ops-meta">
+			<span class="auto-badge" id="autoLabel">Auto-refresh: 30s</span>
+			<span class="ops-checked" id="checkedAt">—</span>
+			<button class="ops-refresh" id="refreshBtn" onclick="load()">Refresh now</button>
+		</div>
+	</div>
+
+	<!-- Auth gate -->
+	<div class="auth-gate" id="authGate" style="display:none">
+		<h2>Ops access required</h2>
+		<input type="password" id="secretInput" placeholder="OPS_SECRET / CRON_SECRET" onkeydown="if(event.key==='Enter')tryAuth()" autocomplete="current-password" />
+		<button onclick="tryAuth()">View health dashboard</button>
+		<div class="auth-err" id="authErr"></div>
+	</div>
+
+	<!-- Dashboard -->
+	<div id="dashboard" style="display:none">
+		<div id="banner" class="ops-banner ok">
+			<div class="banner-dot"></div>
+			<div class="banner-text" id="bannerText">Checking…</div>
+			<div class="banner-sub" id="bannerSub"></div>
+		</div>
+
+		<div class="ops-summary" id="summaryCards"></div>
+
+		<!-- Failing spotlight -->
+		<div class="fail-section" id="failSection" style="display:none">
+			<div class="fail-section-hd">⚠ Failing right now</div>
+			<ul class="fail-list" id="failList"></ul>
+		</div>
+
+		<!-- Live probes -->
+		<div class="ops-section">
+			<div class="ops-section-hd">Live endpoint probes</div>
+			<div class="probe-grid" id="probeGrid">
+				<div class="skeleton" style="height:38px;grid-column:1/-1"></div>
+			</div>
+		</div>
+
+		<!-- Cron heartbeats -->
+		<div class="ops-section">
+			<div class="ops-section-hd">Cron heartbeats</div>
+			<table class="cron-table">
+				<thead><tr>
+					<th>Cron</th>
+					<th>Status</th>
+					<th>Last ran</th>
+					<th>Duration</th>
+					<th>Error</th>
+				</tr></thead>
+				<tbody id="cronBody">
+					<tr><td colspan="5"><div class="skeleton" style="height:14px;width:60%"></div></td></tr>
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+let _secret = sessionStorage.getItem('ops_secret') || '';
+let _timer = null;
+const CAT_ORDER = ['core','x402','trading','agents','marketplace','ai','social','avatars','auth','payments'];
+const CAT_LABELS = { core:'Core', x402:'x402 / Payments', trading:'Trading & Oracle', agents:'Agents', marketplace:'Marketplace', ai:'AI / Forge', social:'Tips & Social', avatars:'Avatars', auth:'Auth', payments:'Payment Sessions' };
+
+function fmtAgo(ms) {
+	if (!ms) return '—';
+	const s = Math.floor(ms / 1000);
+	if (s < 60) return `${s}s ago`;
+	if (s < 3600) return `${Math.floor(s/60)}m ago`;
+	if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+	return `${Math.floor(s/86400)}d ago`;
+}
+
+function fmtMs(ms) {
+	if (!ms) return '—';
+	if (ms < 1000) return `${ms}ms`;
+	return `${(ms/1000).toFixed(1)}s`;
+}
+
+function cronCls(h) {
+	if (!h.lastRan) return 'never';
+	if (h.stale) return 'stale';
+	if (h.ok === false) return 'fail';
+	return 'ok';
+}
+function cronLabel(h) {
+	if (!h.lastRan) return 'Never ran';
+	if (h.stale) return 'Stale';
+	if (h.ok === false) return 'Failed';
+	return 'OK';
+}
+
+async function load() {
+	if (!_secret) { showAuth(); return; }
+	$('refreshBtn').textContent = 'Refreshing…';
+	$('refreshBtn').disabled = true;
+	try {
+		const r = await fetch('/api/ops/health', { headers: { 'x-ops-secret': _secret } });
+		if (r.status === 401) { sessionStorage.removeItem('ops_secret'); _secret = ''; showAuth(); return; }
+		const data = await r.json();
+		render(data);
+		$('authGate').style.display = 'none';
+		$('dashboard').style.display = 'block';
+	} catch(e) {
+		$('bannerText').textContent = 'Failed to load health data: ' + e.message;
+	} finally {
+		$('refreshBtn').textContent = 'Refresh now';
+		$('refreshBtn').disabled = false;
+	}
+}
+
+function render(d) {
+	// Banner
+	const banner = $('banner');
+	const failCount = (d.summary?.probes?.failing || 0) + (d.summary?.crons?.failing || 0);
+	banner.className = 'ops-banner ' + (d.ok ? 'ok' : failCount > 5 ? 'down' : 'warn');
+	$('bannerText').textContent = d.ok ? 'All systems operational' : `${failCount} system${failCount!==1?'s':''} need attention`;
+	$('checkedAt').textContent = d.checkedAt ? 'Checked ' + new Date(d.checkedAt).toLocaleTimeString() : '';
+	$('bannerSub').textContent = `${fmtMs(d.durationMs)} to check`;
+
+	// Summary cards
+	const ps = d.summary?.probes || {}, cs = d.summary?.crons || {};
+	$('summaryCards').innerHTML = [
+		{ lbl:'Endpoints', val: ps.ok + '/' + ps.total, cls: ps.failing ? 'warn' : 'ok', sub: ps.failing ? `${ps.failing} failing` : 'all healthy' },
+		{ lbl:'Cron jobs', val: cs.ok + '/' + cs.total, cls: cs.failing ? 'warn' : 'ok', sub: cs.failing ? `${cs.failing} stale/failing` : 'all healthy' },
+		{ lbl:'Probes checked', val: ps.total, cls:'', sub:'live this request' },
+		{ lbl:'Check latency', val: fmtMs(d.durationMs), cls:'', sub:'total probe time' },
+	].map(c => `<div class="sum-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div><div class="sub">${c.sub}</div></div>`).join('');
+
+	// Failing spotlight
+	const allFailing = [
+		...(d.failing?.probes || []).map(p => ({ label: p.label, reason: `HTTP ${p.status || 'timeout'} (expected ok)`, err: p.err || '' })),
+		...(d.failing?.crons || []).map(c => ({ label: c.label, reason: c.lastRan ? (c.stale ? 'Stale — last ran ' + fmtAgo(c.msSince) : 'Last run failed') : 'Never ran', err: c.lastErr || '' })),
+	];
+	if (allFailing.length) {
+		$('failSection').style.display = 'block';
+		$('failList').innerHTML = allFailing.map(f => `
+			<li class="fail-item">
+				<span class="fail-item-label">${f.label}</span>
+				<span class="fail-item-reason">${f.reason}${f.err ? ' · ' + f.err : ''}</span>
+			</li>`).join('');
+	} else {
+		$('failSection').style.display = 'none';
+	}
+
+	// Probes by category
+	const probes = d.probes || {};
+	let html = '';
+	for (const cat of CAT_ORDER) {
+		const items = probes[cat];
+		if (!items?.length) continue;
+		html += `<div class="cat-label">${CAT_LABELS[cat] || cat}</div>`;
+		for (const p of items) {
+			const cls = p.ok ? 'p-ok' : (p.status === 0 ? 'p-bad' : 'p-warn');
+			html += `<div class="probe-row ${cls}">
+				<div class="p-dot"></div>
+				<div class="p-label">${p.label}</div>
+				<div class="p-status">${p.ok ? p.status : '✕ ' + (p.status || 'timeout')}</div>
+				<div class="p-ms">${p.ms ? p.ms + 'ms' : ''}</div>
+			</div>`;
+		}
+	}
+	$('probeGrid').innerHTML = html;
+
+	// Cron table
+	const crons = d.crons || [];
+	$('cronBody').innerHTML = crons.map(h => {
+		const cls = cronCls(h);
+		return `<tr>
+			<td>${h.label}</td>
+			<td><span class="cron-badge ${cls}">${cronLabel(h)}</span></td>
+			<td class="cron-ago">${h.lastRan ? fmtAgo(h.msSince) : '—'}</td>
+			<td class="cron-ago">${fmtMs(h.durationMs)}</td>
+			<td class="cron-err" title="${h.lastErr || ''}">${h.lastErr ? h.lastErr.slice(0, 80) : ''}</td>
+		</tr>`;
+	}).join('');
+}
+
+function showAuth() {
+	$('authGate').style.display = 'block';
+	$('dashboard').style.display = 'none';
+	setTimeout(() => $('secretInput').focus(), 50);
+}
+
+async function tryAuth() {
+	const val = $('secretInput').value.trim();
+	if (!val) return;
+	_secret = val;
+	$('authErr').textContent = '';
+	const r = await fetch('/api/ops/health', { headers: { 'x-ops-secret': _secret } });
+	if (r.status === 401) { $('authErr').textContent = 'Invalid secret.'; _secret = ''; return; }
+	sessionStorage.setItem('ops_secret', _secret);
+	$('secretInput').value = '';
+	const data = await r.json();
+	render(data);
+	$('authGate').style.display = 'none';
+	$('dashboard').style.display = 'block';
+	startAutoRefresh();
+}
+
+function startAutoRefresh() {
+	clearInterval(_timer);
+	_timer = setInterval(load, 30_000);
+}
+
+function $(id) { return document.getElementById(id); }
+
+// Boot
+if (_secret) {
+	$('dashboard').style.display = 'block';
+	load().then(startAutoRefresh);
+} else {
+	showAuth();
+}
+</script>
+</body>
+</html>

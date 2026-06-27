@@ -449,9 +449,19 @@ export function wrap(handler) {
 // bugs still surface through normal alerting.
 export function wrapCron(handler) {
 	return wrap(async (req, res, ...rest) => {
+		// Derive cron name from the request URL for heartbeat tracking.
+		const cronName = (req.url || '').replace(/^\/api\/cron\//, '').split('?')[0] || 'unknown';
+		const t0 = Date.now();
 		try {
 			await handler(req, res, ...rest);
+			// Write heartbeat after success — fire-and-forget, never blocks.
+			import('./cache.js').then(({ cacheSet }) => {
+				cacheSet(`cron:heartbeat:${cronName}`, { ok: true, t: t0, ms: Date.now() - t0 }, 7 * 24 * 60 * 60).catch(() => {});
+			}).catch(() => {});
 		} catch (err) {
+			import('./cache.js').then(({ cacheSet }) => {
+				cacheSet(`cron:heartbeat:${cronName}`, { ok: false, t: t0, ms: Date.now() - t0, err: err?.message?.slice(0, 200) }, 7 * 24 * 60 * 60).catch(() => {});
+			}).catch(() => {});
 			if (isDbUnavailableError(err)) {
 				console.warn('[cron] db unavailable — skipping tick:', err.message);
 				if (!res.headersSent && !res.writableEnded) {
