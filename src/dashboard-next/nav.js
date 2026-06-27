@@ -61,6 +61,7 @@ export const NAV = [
 	{ path: '/radar',                 label: 'Coin Radar',      icon: 'live',      group: 'Explore',    tags: ['intelligence', 'bundle', 'organic', 'rug', 'risk', 'score', 'pump.fun', 'launch', 'snipe', 'concentration'], external: true },
 
 	// ── Account ─────────────────────────────────────────────────────────
+	{ path: '/dashboard/systems',     label: 'Systems',         icon: 'pulse',     group: 'Account',    tags: ['health', 'status', 'monitoring', 'workers', 'crons', 'x402', 'pump', 'agents', 'seeding', 'all systems'] },
 	{ path: '/dashboard/account',     label: 'Account',         icon: 'user',      group: 'Account',    tags: ['wallets', 'sns', 'delegation', 'profile', 'action log', 'provider keys'] },
 	{ path: '/dashboard/referrals',   label: 'Referrals',       icon: 'gift',      group: 'Account',    tags: ['referral', 'invite', 'membership', 'card', 'refer a friend', 'share', 'rewards', 'position', 'score'] },
 	{ path: '/dashboard/wallet-grinder', label: 'Wallet Grinder', icon: 'sparkle',  group: 'Account',    tags: ['vanity', 'grind', 'keypair', 'wallet', 'solana', 'evm', 'ethereum', 'base', 'polygon', 'address', 'prefix', 'suffix'] },
@@ -107,6 +108,7 @@ export const ICONS = {
 	pin:       '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2a5 5 0 015 5c0 3.5-5 11-5 11S5 10.5 5 7a5 5 0 015-5z"/><circle cx="10" cy="7" r="1.8"/></svg>',
 	receipt:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10v15l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2V2.5z"/><path d="M8 6.5h4M8 9.5h4M8 12.5h2.5"/></svg>',
 	paysess:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="16" height="10" rx="2"/><path d="M2 8.5h16"/><circle cx="6" cy="12" r="1.2" fill="currentColor" stroke="none"/><path d="M9.5 12h5"/></svg>',
+	pulse:     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10h3l2-5 3 10 2-7 2 2h4"/></svg>',
 };
 
 /** Resolve the route for the current pathname (exact match wins; falls back to startsWith). */
