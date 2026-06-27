@@ -76,6 +76,10 @@
 		"api/cron/x402-autonomous-loop.js": {
 			"maxDuration": 120
 		},
+		"api/cron/avatar-thumbnail-render.js": {
+			"maxDuration": 120,
+			"memory": 1024
+		},
 		"api/cron/pulse-tick.js": {
 			"maxDuration": 120
 		},
@@ -4661,6 +4665,10 @@
 		{
 			"path": "/api/cron/x402-autonomous-loop",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/avatar-thumbnail-render",
+			"schedule": "*/10 * * * *"
 		},
 		{
 			"path": "/api/cron/pulse-tick",

@@ -68,7 +68,7 @@ export function parseSolanaAccept(challenge) {
 	) || null;
 }
 
-export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAtaExists }) {
+export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAtaExists, nonce = 0 }) {
 	const mint = new PublicKey(accept.asset);
 	const payTo = new PublicKey(accept.payTo);
 	const feePayer = new PublicKey(accept.extra.feePayer);
@@ -81,9 +81,15 @@ export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAta
 		mint, payTo, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
 	);
 
+	// `nonce` perturbs the priority fee so a batch pipeline firing several
+	// identical-amount payments (same payer/payTo/mint) against the one shared
+	// blockhash produces a DISTINCT signature per call. Two byte-identical
+	// transfers compile to the same message → same signature → the second is
+	// rejected as already-processed. Single-call/inline callers leave nonce at 0
+	// and pay the unchanged baseline of 5 µlamports.
 	const ixs = [
 		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
-		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5 }),
+		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5 + (Number(nonce) % 997) }),
 	];
 	if (!receiverAtaExists) {
 		ixs.push(createAssociatedTokenAccountIdempotentInstruction(
