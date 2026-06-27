@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T22:51:18.622Z",
+	"generated_at": "2026-06-27T23:01:09.161Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -143,6 +143,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Avatar Optimization Pipeline — nightly analysis of top avatars",
+			"summary": "The platform now runs a nightly optimization sweep across the 50 most-viewed public avatars. Each model is analyzed for geometry and texture inefficiencies — Draco/Meshopt compression opportunities, oversized textures ready for KTX2 transcoding, non-indexed primitives, and redundant materials. Results are stored per-avatar so we can surface actionable improvement suggestions to creators. The pipeline runs autonomously via the x402 agent spend loop, paying $0.001 USDC per nightly batch.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
 			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
 			"link": "/dashboard/capabilities",
@@ -268,6 +279,17 @@
 			"link": "/billing/keys",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "MCP Model Validation Sweep — proactive GLB quality scoring",
+			"summary": "The platform now runs a continuous quality sweep across every public 3D avatar in the database. Every 5 minutes the autonomous agent picks the longest-unvalidated GLB, inspects it with the glTF-Transform engine, and records a 0-100 quality score covering rig completeness, geometry health, texture sizing, triangle budget, and unsupported extensions. Results are stored in a time-series table (model_quality_scores) that will power quality badges and curation tools — surfacing models that need attention before users encounter errors in the viewer. The sweep is driven by the x402 autonomous spend loop at $0.001 USDC per call.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

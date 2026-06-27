@@ -18,6 +18,7 @@ export const KIND_MAP = {
 	revoke:     'threews.revoke.v1',
 	dispute:    'threews.dispute.v1',
 	stake:      'threews.stake.v1',
+	review:     'threews.review.v1',
 };
 export const KINDS_ALL = Object.values(KIND_MAP);
 export const MIN_STAKE_LAMPORTS = 1_000_000n; // 0.001 SOL
@@ -52,6 +53,9 @@ export function validatePayload(p) {
 			return typeof p.target_signature === 'string';
 		case 'threews.stake.v1':
 			return Number.isInteger(p.score) && p.score >= 1 && p.score <= 5;
+		case 'threews.review.v1':
+			return Number.isInteger(p.rating) && p.rating >= 1 && p.rating <= 5
+				&& typeof p.review_id === 'string' && p.review_id.length > 0;
 		default:
 			return false;
 	}

@@ -24,16 +24,10 @@
 //   X402_AUTONOMOUS_DAILY_CAP_ATOMIC   daily USDC cap in atomics (default: 5000000 = $5)
 //   CRON_SECRET                        required Vercel cron auth
 
-import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import bs58 from 'bs58';
+import { PublicKey } from '@solana/web3.js';
 import {
-	Connection, PublicKey, Keypair, TransactionMessage, VersionedTransaction,
-	ComputeBudgetProgram,
-} from '@solana/web3.js';
-import {
-	getAssociatedTokenAddressSync, createTransferCheckedInstruction,
-	createAssociatedTokenAccountIdempotentInstruction,
+	getAssociatedTokenAddressSync,
 	TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getMint,
 } from '@solana/spl-token';
 
@@ -45,6 +39,12 @@ import { sql } from '../_lib/db.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { logger } from '../_lib/usage.js';
 import {
+	loadSeedKeypair,
+	fetchWithTimeout,
+	parseSolanaAccept,
+	buildPaymentTx,
+} from '../_lib/x402/pay.js';
+import {
 	getFullRegistry,
 	MAX_PER_TICK,
 	DAILY_CAP_ATOMIC,
@@ -55,7 +55,6 @@ const log = logger('x402-autonomous-loop');
 const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
 const USDC_MINT = env.X402_ASSET_MINT_SOLANA;
 const SOLANA_RPC = env.SOLANA_RPC_URL;
-const FETCH_TIMEOUT_MS = 20_000;
 
 // Redis key prefix for cooldown tracking.
 const COOLDOWN_PREFIX = 'x402:auto:last:';
@@ -71,81 +70,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-function loadSeedKeypair() {
-	const b58 = process.env.X402_SEED_SOLANA_SECRET_BASE58
-		|| process.env.X402_AGENT_SOLANA_SECRET_BASE58;
-	if (b58) {
-		const raw = bs58.decode(b58);
-		if (raw.length !== 64) throw new Error(`seed keypair: expected 64 bytes, got ${raw.length}`);
-		return Keypair.fromSecretKey(raw);
-	}
-	if (process.env.NODE_ENV !== 'production') {
-		try {
-			const arr = JSON.parse(readFileSync('/home/codespace/.config/x402-test-wallets/solana.json', 'utf8'));
-			return Keypair.fromSecretKey(Uint8Array.from(arr));
-		} catch { /* fall through */ }
-	}
-	throw new Error('autonomous loop: seed keypair not configured (set X402_SEED_SOLANA_SECRET_BASE58)');
-}
-
-async function fetchWithTimeout(url, opts = {}) {
-	const ctrl = new AbortController();
-	const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-	try {
-		const res = await fetch(url, { ...opts, signal: ctrl.signal, redirect: 'manual' });
-		let body = null;
-		try { body = await res.json(); } catch { try { body = await res.text(); } catch { body = null; } }
-		return { ok: res.ok, status: res.status, headers: res.headers, body };
-	} finally {
-		clearTimeout(t);
-	}
-}
-
-function parseSolanaAccept(challenge) {
-	if (!challenge || !Array.isArray(challenge.accepts)) return null;
-	return challenge.accepts.find(
-		(a) => typeof a?.network === 'string' && a.network.startsWith('solana'),
-	) || null;
-}
-
-function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAtaExists }) {
-	const mint = new PublicKey(accept.asset);
-	const payTo = new PublicKey(accept.payTo);
-	const feePayer = new PublicKey(accept.extra.feePayer);
-	const amount = BigInt(accept.amount);
-
-	const senderAta = getAssociatedTokenAddressSync(
-		mint, buyer.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
-	);
-	const receiverAta = getAssociatedTokenAddressSync(
-		mint, payTo, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
-	);
-
-	const ixs = [
-		ComputeBudgetProgram.setComputeUnitLimit({ units: 60_000 }),
-		ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5 }),
-	];
-	if (!receiverAtaExists) {
-		ixs.push(createAssociatedTokenAccountIdempotentInstruction(
-			feePayer, receiverAta, payTo, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID,
-		));
-	}
-	ixs.push(createTransferCheckedInstruction(
-		senderAta, mint, receiverAta, buyer.publicKey,
-		amount, mintInfo.decimals, [], TOKEN_PROGRAM_ID,
-	));
-
-	const msg = new TransactionMessage({
-		payerKey: feePayer,
-		recentBlockhash: blockhash,
-		instructions: ixs,
-	}).compileToV0Message();
-	const vtx = new VersionedTransaction(msg);
-	vtx.sign([buyer]);
-	return Buffer.from(vtx.serialize()).toString('base64');
-}
-
-async function recordLog(runId, entry, { amountAtomic, txSig, responseData, durationMs, success, errorMsg, signalData }) {
+async function recordLog(runId, entry, { amountAtomic, txSig, responseData, durationMs, success, errorMsg, signalData, endpointUrl }) {
 	try {
 		await sql`
 			INSERT INTO x402_autonomous_log
@@ -154,7 +79,7 @@ async function recordLog(runId, entry, { amountAtomic, txSig, responseData, dura
 				 response_data, signal_data, duration_ms, success, error_msg, pipeline)
 			VALUES
 				(${runId}, ${entry.url ? 'external' : 'self'},
-				 ${entry.name}, ${entry.url || entry.path},
+				 ${entry.name}, ${endpointUrl || entry.url || entry.path},
 				 ${'solana:mainnet'}, ${amountAtomic || 0},
 				 ${USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'},
 				 ${txSig || null},
@@ -272,6 +197,18 @@ async function setCooldown(redis, entry) {
 	} catch { /* non-fatal */ }
 }
 
+// Optional per-entry value-store hook. Lets a pipeline persist its extracted
+// value into a dedicated table (beyond the generic signal_data column). Wrapped
+// so a DB failure inside the hook can never crash the tick.
+async function runStoreValue(entry, ctx) {
+	if (typeof entry.storeValue !== 'function') return;
+	try {
+		await entry.storeValue(ctx);
+	} catch (err) {
+		log.warn('store_value_failed', { id: entry.id, message: err?.message });
+	}
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export default wrapCron(async (req, res) => {
@@ -345,7 +282,8 @@ export default wrapCron(async (req, res) => {
 	for (const entry of ready) {
 		if (remainingCap <= 0) break;
 
-		const endpointUrl = entry.url || `${origin}${entry.path}`;
+		let endpointUrl = entry.url || `${origin}${entry.path}`;
+		let targetUrl = null;
 		const t0 = Date.now();
 		let amountAtomic = 0;
 		let txSig = null;
@@ -353,6 +291,61 @@ export default wrapCron(async (req, res) => {
 		let errorMsg = null;
 		let responseBody = null;
 		let signalData = null;
+
+		// run()-style entries own their full call sequence (queue scans, worker
+		// polling, multi-row fan-out). They pay via the shared payX402 client and
+		// hand back a structured outcome; the loop records it exactly like an
+		// inline call. A thrown run() never crashes the tick — it lands as a
+		// recorded failure with the cooldown still applied to avoid hot-looping.
+		if (typeof entry.run === 'function') {
+			let outcome = null;
+			try {
+				outcome = await entry.run({
+					origin, buyer, conn, blockhash, mintInfo,
+					redis, sql, log, runId, remainingCap,
+				});
+			} catch (err) {
+				errorMsg = err?.message || 'run_error';
+			}
+			outcome = outcome || {};
+			amountAtomic = Number(outcome.amountAtomic) || 0;
+			txSig = outcome.txSig || null;
+			success = outcome.success ?? false;
+			errorMsg = outcome.errorMsg || errorMsg;
+			responseBody = outcome.responseData ?? null;
+			signalData = outcome.signalData ?? null;
+
+			if (success && amountAtomic > 0) {
+				remainingCap -= amountAtomic;
+				await incrementDailySpend(redis, amountAtomic);
+			}
+			await setCooldown(redis, entry);
+
+			results.push({
+				id: entry.id,
+				status: outcome.skipped ? 'skip' : (success ? (amountAtomic > 0 ? 'paid' : 'ok') : 'error'),
+				amount_usdc: amountAtomic / 1e6,
+				tx: txSig,
+				...(outcome.note ? { note: outcome.note } : {}),
+			});
+			await recordLog(runId, entry, {
+				amountAtomic, txSig, responseData: responseBody,
+				durationMs: Date.now() - t0, success, errorMsg, signalData,
+			});
+			continue;
+		}
+
+		// Dynamic target resolution (rotation pipelines, e.g. GLB canonicalization):
+		// resolveTarget computes the per-call path and the resource URL being checked.
+		if (typeof entry.resolveTarget === 'function') {
+			try {
+				const resolved = await entry.resolveTarget({ redis, origin, runId });
+				if (resolved?.path) endpointUrl = entry.url || `${origin}${resolved.path}`;
+				if (resolved?.targetUrl) targetUrl = resolved.targetUrl;
+			} catch (err) {
+				log.warn('resolve_target_failed', { id: entry.id, message: err?.message });
+			}
+		}
 
 		try {
 			// Step 1: probe for 402 challenge
@@ -368,8 +361,9 @@ export default wrapCron(async (req, res) => {
 				responseBody = probeRes.body;
 				if (entry.extractSignal) signalData = entry.extractSignal(responseBody);
 				results.push({ id: entry.id, status: 'free', success });
-				await recordLog(runId, entry, { amountAtomic: 0, txSig: null, responseData: responseBody, durationMs: Date.now() - t0, success, signalData });
+				await recordLog(runId, entry, { amountAtomic: 0, txSig: null, responseData: responseBody, durationMs: Date.now() - t0, success, signalData, endpointUrl });
 				if (signalData) await upsertOracleSignal(entry, signalData);
+				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, endpointUrl });
 				await setCooldown(redis, entry);
 				continue;
 			}
@@ -449,6 +443,7 @@ export default wrapCron(async (req, res) => {
 				if (entry.extractSignal) signalData = entry.extractSignal(responseBody);
 				await setCooldown(redis, entry);
 				if (signalData) await upsertOracleSignal(entry, signalData);
+				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, endpointUrl });
 			} else {
 				errorMsg = `http_${paidRes.status}`;
 			}
@@ -467,6 +462,7 @@ export default wrapCron(async (req, res) => {
 			success,
 			errorMsg,
 			signalData,
+			endpointUrl,
 		});
 	}
 

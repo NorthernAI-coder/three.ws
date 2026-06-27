@@ -31,6 +31,12 @@ export const TOOL_PRICING = Object.freeze({
 	// region edit only inpaints one masked patch, so it is priced well below it.
 	retexture_model: { amount_usdc: 0.1, description: 'Per full retexture' },
 	retexture_region: { amount_usdc: 0.03, description: 'Per region edit (magic brush)' },
+	// Public gallery search — a real DB query that ranks the whole public avatar
+	// corpus and resolves a signed thumbnail per hit. Priced as the cheapest
+	// metered call so anonymous x402 agents (and the autonomous warmup loop) pay
+	// per search; authenticated OAuth callers bypass payment entirely (they hold a
+	// bearer token, so authenticateRequest never issues the x402 challenge).
+	search_public_avatars: { amount_usdc: 0.001, description: 'Per call — public avatar gallery search' },
 	// Discovery / lookups (incl. list_animations) — free
 });
 
