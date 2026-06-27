@@ -64,7 +64,7 @@ async function ensureSchema() {
 			enabled boolean not null default false,
 			dry_run boolean not null default true,
 			mode text not null default 'hybrid' check (mode in ('off','trend','meme','random','hybrid')),
-			sources jsonb not null default '["coin_intel","trending","x"]'::jsonb,
+			sources jsonb not null default '["coin_intel","trending","knowyourmeme","x"]'::jsonb,
 			categories jsonb not null default '[]'::jsonb,
 			target_cadence_seconds integer not null default 60,
 			max_per_hour integer not null default 30,

@@ -25,7 +25,7 @@ function isCronAuth(req) {
 }
 
 const MODES = ['off', 'trend', 'meme', 'random', 'hybrid'];
-const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'hackernews', 'reddit', 'wikipedia'];
+const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'knowyourmeme', 'hackernews', 'reddit', 'wikipedia'];
 
 async function ensureGlobalRow() {
 	await sql`
