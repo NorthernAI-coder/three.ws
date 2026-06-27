@@ -33,7 +33,7 @@ import { env } from '../../env.js';
 import { publicUrl } from '../../r2.js';
 import { solanaConnection } from '../../solana/connection.js';
 import { logger } from '../../usage.js';
-import { loadSeedKeypair, payX402 } from '../solana-payer.js';
+import { loadSeedKeypair, payX402 } from '../pay.js';
 
 const log = logger('x402-rig-complexity');
 
@@ -373,11 +373,14 @@ export async function run(ctx = {}) {
 		let result;
 		try {
 			result = await payX402({
-				endpointUrl,
+				url: endpointUrl,
 				method: 'POST',
 				body: inspectBody(modelUrl, i + 1),
-				conn, buyer, blockhash, mintInfo, usdcMint,
-				maxAmountAtomic: remainingCap,
+				conn, buyer, blockhash, mintInfo,
+				remainingCap,
+				// Distinct priority fee per avatar so several same-amount payments on
+				// the one shared blockhash compile to distinct signatures.
+				nonce: i + 1,
 			});
 		} catch (err) {
 			// Network failure / abort — record the attempt, never crash the loop.
@@ -391,7 +394,9 @@ export async function run(ctx = {}) {
 			continue;
 		}
 
-		if (result.status === 'paid') {
+		// payX402 returns booleans (paid/free/skipped); derive a label for logging.
+		const statusLabel = result.paid ? 'paid' : result.free ? 'free' : result.skipped ? 'skip' : 'error';
+		if (result.paid) {
 			spentAtomic += result.amountAtomic;
 			remainingCap -= result.amountAtomic;
 			paid += 1;
@@ -424,7 +429,7 @@ export async function run(ctx = {}) {
 			summaries.push({ avatar: a.slug || a.id, ...valueExtracted });
 		} else {
 			if (!errorMsg) errorMsg = rpcError ? 'rpc_error' : 'no_inspect_data';
-			summaries.push({ avatar: a.slug || a.id, status: result.status, error: errorMsg });
+			summaries.push({ avatar: a.slug || a.id, status: statusLabel, error: errorMsg });
 		}
 
 		await recordCall(runId, {
@@ -433,8 +438,8 @@ export async function run(ctx = {}) {
 			amountAtomic: result.amountAtomic,
 			txSig: result.txSig,
 			// Keep the log row slim — the parsed score lives in value_extracted.
-			responseData: { model_url: modelUrl, status: result.status, rpc_error: result.responseBody?.error || null },
-			durationMs: result.durationMs ?? (Date.now() - t0),
+			responseData: { model_url: modelUrl, status: statusLabel, rpc_error: result.responseBody?.error || null },
+			durationMs: Date.now() - t0,
 			success: result.success && !!info && !errorMsg,
 			errorMsg: result.success && info && !errorMsg ? null : errorMsg,
 			valueExtracted,

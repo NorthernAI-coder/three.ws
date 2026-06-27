@@ -36,7 +36,7 @@
 // module owns the probe, the cross-network verification, the payment, and the
 // value extraction/storage.
 
-import { fetchWithTimeout, parseSolanaAccept, payX402, USDC_MINT } from './pay.js';
+import { fetchWithTimeout, payX402 } from '../pay.js';
 
 // Stable network identifiers — source of truth is api/_lib/x402-spec.js
 // (NETWORK_SOLANA_MAINNET / NETWORK_BASE_MAINNET / NETWORK_BSC_MAINNET). Matched

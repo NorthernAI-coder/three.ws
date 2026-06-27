@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T23:09:27.459Z",
+	"generated_at": "2026-06-27T23:16:44.088Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -89,6 +89,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "$THREE Signal Feed — the platform pays its own oracle to keep a live $THREE price on hand",
+			"summary": "three.ws now keeps a continuously fresh read on $THREE. Every 15 minutes an autonomous agent makes a real on-chain x402 payment to the platform's own $THREE Town Oracle and records the result — price, 24h change, market cap, liquidity, 24h volume, and a bullish/bearish/neutral signal — into a time-series history. That history powers a new public, no-cost feed at /api/three-signal that returns the latest snapshot plus a short sparkline, so any $THREE price widget can render a live, recently-paid-for price without charging the viewer per glance. The same latest price also lets the platform quote endpoint fees in $THREE terms. Failed or incomplete fetches are never stored, the feed flags when its newest point is stale, and every paid call is logged with its real Solana transaction signature.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "60 live x402 payments per minute",
 			"summary": "A new per-minute cron fires 60 parallel real Solana USDC micropayments each tick via the x402 protocol, seeding the platform's payment activity feed and club stage with continuous on-chain traffic. Each payment is a signed SPL TransferChecked transaction broadcast via the Solana facilitator — not simulated. Configure the batch size or pause it with X402_SEED_BATCH_SIZE / X402_SEED_ENABLED.",
 			"link": "/pay",
@@ -122,9 +133,29 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Agent Wallet Balance Monitor — the autonomous payment engine watches its own fuel gauge",
+			"summary": "The wallet that funds every autonomous x402 payment now monitors itself. Every 10 minutes the platform reads the agent wallet's live USDC and SOL balance, records a time-series sample, and works out the burn rate since the last reading so operators can see exactly how fast funds are being spent. The moment USDC drops below the $5 top-up line it raises a low-balance alert that folds straight into the internal health dashboard — so the wallet gets refilled before autonomous calls start failing on insufficient funds, instead of after. The check reads a free endpoint, so the monitoring itself costs nothing.",
+			"link": null,
+			"tags": [
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp",
 			"summary": "three.ws joins the Alibaba Cloud Partner Network. Qwen-Max, Qwen-Plus, Qwen-Turbo, and Qwen-Long are now available as agent brain options via DashScope. Ships with @three-ws/alibaba-cloud-mcp — a new MCP server for chat, embeddings, and model discovery using your own Alibaba Cloud API key. Set DASHSCOPE_API_KEY in Vercel to activate.",
 			"link": "/blog/three-ws-alibaba-cloud-partnership",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Autonomous agent reputation refresh — trust scores that keep themselves current",
+			"summary": "The platform now refreshes the on-chain reputation of registered Solana agents on its own. A scheduled pipeline pays the agent-reputation service per agent over x402, recomputes each agent's verified feedback score, dispute rate and validation record from on-chain attestations, and flags any agent whose verified trust score drops below threshold. These scores power the agent reputation leaderboard and the trust badges on agent profiles, so you can vet a counterparty before paying it, trading with it, or composing skills with it — and a score that slips is caught automatically rather than going stale.",
+			"link": null,
 			"tags": [
 				"feature"
 			]
@@ -217,6 +248,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "GLB Size Optimizer — heavy avatars audited and slimmed down automatically",
+			"summary": "Big 3D avatars are the slowest thing to load on three.ws, so the platform now hunts them down on its own. Every six hours an autonomous agent finds the heaviest public avatar over the 5 MB web-delivery budget that hasn't been checked recently and pays a real x402 call to the optimize_model service to inspect it. From the model's actual measured geometry and textures it works out exactly how much smaller the file could be — Draco geometry compression, 4K textures resized to 2K, PNG textures transcoded to KTX2 — and projects the resulting download-time improvement at typical mobile bandwidth. Each result is stored with the original size, the projected optimized size, and the load-time saving, then swept across the whole catalog so the gallery can show a 'save ~N%' hint per model and the platform can track its average load-time improvement. The new public report at /api/x402/glb-optimization-report surfaces the catalog-wide savings and the remaining backlog of heavy models.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Hardened how the platform reads its rate-limit store credentials",
 			"summary": "Fixed a configuration failure mode where the rate-limiter and cache store's address and access token could be drawn from two different sources and silently mismatch, which made every limiter and cache fall back to a weaker local mode and caused intermittent 'too many requests' errors and failed paid calls. The credentials are now always read together as one pair (and trimmed of stray whitespace), so a mismatch can't happen — keeping rate limits, paid endpoints, and caching reliable.",
 			"link": "/status",
@@ -233,6 +275,17 @@
 			"link": null,
 			"tags": [
 				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "IBM Granite Inference Health Check — the watsonx AI backend pays to test itself",
+			"summary": "three.ws hosts an IBM Granite AI service over the x402 protocol — five paid tools (chat, code, embeddings, document analysis, and time-series forecasting) running on IBM watsonx.ai, payable per call in USDC with no IBM Cloud account. Now the platform continuously proves that backend is actually working. Every six hours an autonomous agent makes one real on-chain x402 payment that exercises all five Granite tools at once with tiny canary inputs, checks that each one answered in its expected shape, and tracks how many tokens flowed through. The verdict — which tools are healthy, whether watsonx is responding, and the token throughput — is recorded over time and exposed at a new public, no-cost feed at /api/x402/granite-health, so a model outage or a broken tool is caught within hours instead of when a paying agent hits it. Every probe settles on Solana with a real transaction signature and is logged like every other autonomous payment; a single batched call keeps the cost to roughly a few cents a day.",
+			"link": null,
+			"tags": [
+				"feature",
 				"infra"
 			]
 		},
@@ -290,6 +343,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Live Payment Feed Seeder — the homepage activity feed always shows real, recent payments",
+			"summary": "The live payment feed on the homepage proves three.ws is a working agent-to-agent payment network at a glance — but it only ever showed activity when someone happened to run a demo payment. Now the platform keeps it alive itself. Every few minutes an autonomous agent makes one real on-chain $0.001 USDC payment through the platform's own demo flow, rotating across a variety of services — avatar searches, model inspections, validations, optimizations, and capability discovery — so the feed reflects genuine, varied agent activity rather than one call repeated. Each payment is a real settlement on Solana with a real transaction signature, pushed straight onto the feed and also mirrored into a durable history so the record survives beyond the live ring. A first-time visitor now always lands on a feed that's transacting, not an empty box.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{
@@ -373,6 +437,38 @@
 			"title": "Partner ecosystem page",
 			"summary": "New /partners page showing all active technology partnerships — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, and Oracle — with what each powers on the platform, tier badges, and links to partner-specific pages and MCP servers.",
 			"link": "/partners",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Payment Proof Idempotency Audit — the platform pays to prove it can't be charged twice",
+			"summary": "A core safety promise of an agent-to-agent payment network is that the same payment proof can never settle twice. three.ws now verifies that promise on itself, daily, with real money. Once a day an autonomous agent makes one real $0.001 USDC payment to a live priced endpoint, then deliberately resubmits the exact same signed payment proof a second time — and confirms the platform's idempotency store replays the original result (or rejects the duplicate) instead of charging again. The audit passes only when no second on-chain settlement occurs; a genuine double-settlement trips the platform health status and pages on-call immediately. Every audit is recorded with both submissions' outcomes and the verdict, so anyone watching platform health can see the anti-replay guard being proven, not just assumed.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Payment Revenue Reconciliation — every settlement on the books is verified on-chain daily",
+			"summary": "The platform now audits its own money trail. Once a day an autonomous agent cross-checks every payment our records claim was settled — both the platform's own outbound x402 spend and inbound agent revenue — against the actual transaction on the Solana chain. Each settlement signature is looked up on-chain and graded: confirmed, reverted, never landed, or recorded without a signature at all. Any record where the books say settled but the chain disagrees is flagged as a financial-integrity discrepancy for ops to review before it can corrupt revenue accounting. The check is read-only and runs even when the spend wallet is offline, so the books are watched continuously.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Popular avatar searches — the gallery now suggests what to look for",
+			"summary": "The public avatar gallery now surfaces popular search suggestions — the queries that actually return the most characters (human, robot, anime, warrior, dragon and more), each with a sample thumbnail. The list is kept honest by a new autonomous pipeline: every few hours the platform's x402 seed wallet pays per call to run ~20 common searches through the avatar search service, proving the whole pipeline returns ranked results with working thumbnails end-to-end, and caches each query's top hits. The gallery reads that cache to render instant suggestion chips and pre-painted results, so a first-time visitor always has a great place to start instead of an empty search box.",
+			"link": null,
 			"tags": [
 				"feature"
 			]
@@ -465,6 +561,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Solana Agent Registration Health Check — the on-chain identity rails watch themselves",
+			"summary": "Registering an agent on Solana is one of three.ws's core promises: the platform mints the agent's on-chain Metaplex identity and enrols it in the Agent Registry, custodially, so the agent's own wallet never has to sign. Now that whole path is watched automatically. Four times a day an autonomous agent pays a real x402 canary call that resolves a known registered agent's on-chain record — both its Identity registry account and its Core identity asset — and confirms they still exist on the live chain through the platform's failover RPC pool. A healthy result resets the counter; a sustained failure escalates to an alert so registration outages are caught before the next agent tries to register and fails. Every probe is recorded with its on-chain check results and RPC latency, giving the status surface a continuous read on whether agent registration is actually working end-to-end.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly",
 			"summary": "Every five minutes an autonomous agent makes one real paid call to the platform's MCP server in streaming (SSE) mode and reads the response back as a live stream instead of a single buffered blob. It measures how fast the first byte arrives, the gaps between chunks, the chunk count and total bytes, and confirms the on-chain payment actually settled — then classifies the stream as clean, stalled, or dropped. A hung server, a half-delivered response, or broken chunked encoding now trips immediately and pages ops, with the full streaming-integrity history stored (mcp_stream_health) for the status surface, instead of being discovered by a paying agent whose tool call never finished. It runs on the x402 autonomous spend loop using the platform's own wallet.",
 			"link": null,
@@ -508,6 +615,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Token Intel Pre-Snipe Gate — the sniper pays for due diligence before it buys",
+			"summary": "Before the agent sniper commits SOL to a fresh launch, the platform now buys it a second opinion. An autonomous pipeline pays the platform's own $0.01 Token Oracle over x402 for the most active new mints the sniper is about to consider, turning the live due-diligence read — liquidity depth, pair age, float-to-liquidity, and 24h buy/sell flow — into a 0–100 rugpull-risk score per mint. Any mint that scores high or critical is auto-rejected at the pre-snipe gate across every entry path (new-mint, first-claim, intel-confirmed, prelaunch radar), so the trading engine never commits funds to a launch its own oracle has flagged as a likely rug. The check is fail-open and cached: a missing or stale verdict never blocks a trade, it only ever adds a safety floor.",
+			"link": "/oracle",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Top Performers podium on marketplace — oracle-ranked agent leaderboard",
 			"summary": "The marketplace now surfaces the top 3 oracle-performing agents in trophy-style cards above the agent grid. Each card shows oracle win rate, W/L record, and realized PnL. Rank 1 gets gold, rank 2 silver, rank 3 bronze. Cards shimmer while loading and disappear cleanly when no oracle data exists. Links directly to each agent's profile.",
 			"link": "/marketplace",
@@ -521,6 +639,17 @@
 			"type": "update",
 			"title": "Volume Bootstrap Loop — continuous real on-chain payments across every paid endpoint",
 			"summary": "The platform now drives its own agent-to-agent payment volume. Every 5 minutes an autonomous agent round-robins through the full catalog of paid x402 endpoints — dance tips, crypto and token intel, fact-checks, symbol lookups, reputation, club covers and more — and settles a real $0.001–$0.01 USDC payment to the next batch, on a capped daily budget. Each call simultaneously proves the endpoint is live and grows genuine on-chain transaction volume, the metric agent marketplaces rank payment facilitators on. A per-endpoint volume ledger (x402_volume_metrics) tracks total settled calls, USDC spent, success rate and last-seen status for every endpoint, and every individual call is recorded for full auditability. Spend is bounded by both the loop's daily cap and a self-imposed per-run cap, and the loop degrades cleanly when the wallet isn't configured.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "VRM 1.0 Compatibility Checker — the platform pays to tell you which avatars can upgrade",
+			"summary": "VRM is the open standard for 3D avatars, and the spec recently moved from 0.x to 1.0 — a breaking change in how avatars store their forward axis, facial expressions, spring-bone physics, and toon materials. three.ws now works out, on its own, which uploaded avatars are still on the old format and whether they can be upgraded. Every half hour an autonomous agent picks a VRM avatar that hasn't been checked recently and makes one real on-chain x402 payment to the platform's own model-inspection service to read its actual structure. From that it produces a per-avatar migration report: is this a VRM, which version, can it be upgraded to 1.0, and a checklist of exactly what an upgrade has to fix (axis flip, expression remap, spring-bone re-authoring, MToon material migration). Each report is stored against the avatar so the gallery can show a 'VRM 1.0 ready' badge and an upgrade prompt, and so avatar pricing can factor in spec compliance. Every check settles on Solana with a real transaction signature and is logged like every other autonomous payment; the half-hour spacing keeps the cost to well under a dollar a day.",
 			"link": null,
 			"tags": [
 				"feature",

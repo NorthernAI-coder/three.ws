@@ -70,13 +70,13 @@ function requireCron(req, res) {
 	return true;
 }
 
-async function recordLog(runId, entry, { amountAtomic, txSig, responseData, durationMs, success, errorMsg, signalData, endpointUrl }) {
+async function recordLog(runId, entry, { amountAtomic, txSig, responseData, durationMs, success, errorMsg, signalData, valueExtracted, endpointUrl }) {
 	try {
 		await sql`
 			INSERT INTO x402_autonomous_log
 				(run_id, endpoint_type, service_name, endpoint_url,
 				 network, amount_atomic, asset, tx_signature,
-				 response_data, signal_data, duration_ms, success, error_msg, pipeline)
+				 response_data, signal_data, value_extracted, duration_ms, success, error_msg, pipeline)
 			VALUES
 				(${runId}, ${entry.url ? 'external' : 'self'},
 				 ${entry.name}, ${endpointUrl || entry.url || entry.path},
@@ -85,6 +85,7 @@ async function recordLog(runId, entry, { amountAtomic, txSig, responseData, dura
 				 ${txSig || null},
 				 ${responseData ? JSON.stringify(responseData) : null},
 				 ${signalData ? JSON.stringify(signalData) : null},
+				 ${valueExtracted ? JSON.stringify(valueExtracted) : null},
 				 ${durationMs || 0}, ${success}, ${errorMsg || null},
 				 ${entry.pipeline || 'unknown'})
 		`;
@@ -138,6 +139,7 @@ async function ensureSchema() {
 				tx_signature    text,
 				response_data   jsonb,
 				signal_data     jsonb,
+				value_extracted jsonb,
 				duration_ms     int,
 				success         boolean NOT NULL,
 				error_msg       text,
@@ -145,6 +147,12 @@ async function ensureSchema() {
 			)
 		`;
 	} catch { /* already exists or migration system handles it */ }
+
+	// value_extracted predates some installs (the table may already exist without
+	// it); ensure it before any recordLog INSERT references the column. Idempotent.
+	try {
+		await sql`ALTER TABLE x402_autonomous_log ADD COLUMN IF NOT EXISTS value_extracted jsonb`;
+	} catch { /* column already present */ }
 
 	// oracle_intel_signals: deduped latest signal per source+topic.
 	// The sniper oracle gate queries this to enrich conviction scores.
@@ -337,6 +345,7 @@ export default wrapCron(async (req, res) => {
 				await recordLog(runId, entry, {
 					amountAtomic, txSig, responseData: responseBody,
 					durationMs: Date.now() - t0, success, errorMsg, signalData,
+					valueExtracted: outcome.valueExtracted ?? null,
 				});
 			}
 			continue;

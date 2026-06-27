@@ -38,26 +38,27 @@
 // catalog says" check.
 
 import { randomUUID } from 'node:crypto';
-import { PublicKey } from '@solana/web3.js';
-import { getMint } from '@solana/spl-token';
 
 import { sql } from '../../db.js';
 import { env } from '../../env.js';
-import { solanaConnection } from '../../solana/connection.js';
 import { logger } from '../../usage.js';
 import { buildCatalog } from '../../cosmetics.js';
 import { normalizeAccountId } from '../../cosmetics-ownership.js';
 import {
 	loadSeedKeypair,
 	payX402,
+	bootstrapSolanaContext,
 	fetchWithTimeout,
 	parseSolanaAccept,
+	USDC_MINT,
 } from '../pay.js';
 
 const log = logger('x402-cosmetic-pricing-audit');
 
 const ROUTE = '/api/x402/cosmetic-purchase';
-const USDC_MINT = () => env.X402_ASSET_MINT_SOLANA || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+// USDC_MINT from pay.js is env-derived and may be unset; fall back to the
+// canonical mainnet USDC mint for the log row's asset column.
+const ASSET = () => USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 // Stable, synthetic account the audit grants the one real purchase to. Guest id
 // form, never a real buyer — ownership here is an artifact of the probe, not a sale.
 const AUDIT_ACCOUNT = normalizeAccountId('g_pricing_audit') || 'g_pricing_audit';
@@ -134,7 +135,7 @@ async function recordSummary(runId, { amountAtomic, txSig, responseData, duratio
 				 response_data, value_extracted, duration_ms, success, error_msg, pipeline)
 			VALUES
 				(${runId}, ${'self'}, ${'Avatar Marketplace Dynamic Pricing'}, ${ROUTE},
-				 ${'solana:mainnet'}, ${amountAtomic || 0}, ${USDC_MINT()}, ${txSig || null},
+				 ${'solana:mainnet'}, ${amountAtomic || 0}, ${ASSET()}, ${txSig || null},
 				 ${responseData ? JSON.stringify(responseData) : null},
 				 ${valueExtracted ? JSON.stringify(valueExtracted) : null},
 				 ${durationMs || 0}, ${success}, ${errorMsg || null}, ${'commerce'})
@@ -232,33 +233,25 @@ export async function run(ctx = {}) {
 	let spentAtomic = 0;
 	let purchase = null; // payX402 result for the target item
 	if (buyer && remainingCap >= target.expectedAtomic) {
-		// Build / reuse the Solana payment context.
-		let conn = ctx.conn;
-		let blockhash = ctx.blockhash;
-		let mintInfo = ctx.mintInfo;
 		try {
+			// Reuse the loop's shared Solana context when handed one; otherwise
+			// bootstrap our own (standalone / manual test).
+			let { conn, blockhash, mintInfo } = ctx;
 			if (!conn || !blockhash || !mintInfo) {
-				conn = conn || solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
-				const [bh, mi] = await Promise.all([
-					blockhash ? Promise.resolve({ blockhash }) : conn.getLatestBlockhash('confirmed'),
-					mintInfo ? Promise.resolve(mintInfo) : getMint(conn, new PublicKey(USDC_MINT())),
-				]);
-				blockhash = blockhash || bh.blockhash;
-				mintInfo = mintInfo || mi;
+				({ conn, blockhash, mintInfo } = await bootstrapSolanaContext({ buyer }));
 			}
 			const url = `${origin}${ROUTE}?id=${encodeURIComponent(target.id)}&account=${encodeURIComponent(AUDIT_ACCOUNT)}`;
 			purchase = await payX402({
-				endpointUrl: url,
+				url,
 				method: 'GET',
 				conn, buyer, blockhash, mintInfo,
-				usdcMint: USDC_MINT(),
-				maxAmountAtomic: remainingCap,
+				remainingCap,
 			});
-			if (purchase.status === 'paid') spentAtomic += purchase.amountAtomic;
+			if (purchase.paid) spentAtomic += purchase.amountAtomic;
 		} catch (err) {
 			// Infra fault (RPC/preflight). Record it against the target; keep the
 			// sweep findings — they're already valuable.
-			purchase = { status: 'error', success: false, amountAtomic: 0, txSig: null, responseBody: null, errorMsg: err?.message || 'purchase_failed' };
+			purchase = { paid: false, success: false, amountAtomic: 0, txSig: null, responseBody: null, errorMsg: err?.message || 'purchase_failed' };
 		}
 	} else if (!buyer) {
 		log.info('cosmetic_pricing_audit_no_wallet', { reason: walletReason });
@@ -268,7 +261,7 @@ export async function run(ctx = {}) {
 	if (purchase) {
 		const f = findings.find((x) => x.id === target.id);
 		if (f) {
-			f.settledAtomic = purchase.status === 'paid' ? purchase.amountAtomic : null;
+			f.settledAtomic = purchase.paid ? purchase.amountAtomic : null;
 			f.txSig = purchase.txSig || null;
 			if (purchase.errorMsg) f.error = f.error || purchase.errorMsg;
 			// A settled amount that disagrees with the quote is itself drift.
@@ -299,8 +292,9 @@ export async function run(ctx = {}) {
 
 	const driftCount = findings.filter((f) => f.drift).length;
 	const underpricedCount = findings.filter((f) => f.underpriced).length;
-	const quoteConsistent = purchase?.status === 'paid'
-		? (findings.find((x) => x.id === target.id)?.settledAtomic === findings.find((x) => x.id === target.id)?.quotedAtomic)
+	const targetFinding = findings.find((x) => x.id === target.id);
+	const quoteConsistent = purchase?.paid
+		? (targetFinding?.settledAtomic === targetFinding?.quotedAtomic)
 		: null;
 
 	// ── 4) Summary row in x402_autonomous_log (always, success or skip) ───────
@@ -308,8 +302,8 @@ export async function run(ctx = {}) {
 		items: findings.length,
 		drift_count: driftCount,
 		underpriced_count: underpricedCount,
-		purchased_id: purchase?.status === 'paid' ? target.id : null,
-		settled_atomic: purchase?.status === 'paid' ? purchase.amountAtomic : null,
+		purchased_id: purchase?.paid ? target.id : null,
+		settled_atomic: purchase?.paid ? purchase.amountAtomic : null,
 		quote_consistent: quoteConsistent,
 		// Surface the offending items so an alert has them without a re-query.
 		underpriced_ids: findings.filter((f) => f.underpriced).map((f) => f.id),
@@ -328,7 +322,11 @@ export async function run(ctx = {}) {
 	await recordSummary(runId, {
 		amountAtomic: 0,
 		txSig: purchase?.txSig || null,
-		responseData: { target: target.id, purchase_status: purchase?.status || 'not_attempted', spent_atomic: spentAtomic },
+		responseData: {
+			target: target.id,
+			purchase_status: !purchase ? 'not_attempted' : (purchase.paid ? 'paid' : (purchase.free ? 'free' : 'failed')),
+			spent_atomic: spentAtomic,
+		},
 		durationMs: Date.now() - t0,
 		success: summarySuccess,
 		errorMsg: summaryError,

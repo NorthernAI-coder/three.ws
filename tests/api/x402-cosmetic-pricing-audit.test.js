@@ -51,27 +51,25 @@ let loadSeedKeypairImpl = () => ({ publicKey: { toBase58: () => 'PAYER' } });
 const loadSeedKeypair = vi.fn(() => loadSeedKeypairImpl());
 
 let payX402Impl = async () => ({
-	status: 'paid', success: true, amountAtomic: Number(CHEAPEST.priceUsdcAtomics),
-	txSig: 'sig_123', responseBody: { ok: true }, errorMsg: null,
+	paid: true, success: true, free: false, skipped: false,
+	amountAtomic: Number(CHEAPEST.priceUsdcAtomics),
+	txSig: 'sig_123', status: 200, responseBody: { ok: true }, errorMsg: null,
 });
 const payX402 = vi.fn((...a) => payX402Impl(...a));
+const bootstrapSolanaContext = vi.fn(async () => ({ buyer: {}, conn: {}, blockhash: 'bh', mintInfo: { decimals: 6 } }));
 
 vi.mock('../../api/_lib/db.js', () => ({ sql: (...a) => sql(...a) }));
 vi.mock('../../api/_lib/env.js', () => ({
 	env: { APP_ORIGIN: 'https://three.ws', X402_ASSET_MINT_SOLANA: 'USDCmint', SOLANA_RPC_URL: 'http://rpc' },
 }));
 vi.mock('../../api/_lib/usage.js', () => ({ logger: () => ({ info() {}, warn() {} }) }));
-vi.mock('../../api/_lib/solana/connection.js', () => ({
-	solanaConnection: () => ({
-		getLatestBlockhash: async () => ({ blockhash: 'bh' }),
-		getAccountInfo: async () => null,
-	}),
-}));
-vi.mock('../../api/_lib/x402/solana-payer.js', () => ({
+vi.mock('../../api/_lib/x402/pay.js', () => ({
 	loadSeedKeypair: (...a) => loadSeedKeypair(...a),
 	payX402: (...a) => payX402(...a),
+	bootstrapSolanaContext: (...a) => bootstrapSolanaContext(...a),
 	fetchWithTimeout: (...a) => fetchWithTimeout(...a),
 	parseSolanaAccept: (...a) => parseSolanaAccept(...a),
+	USDC_MINT: 'USDCmint',
 }));
 
 import { run } from '../../api/_lib/x402/pipelines/cosmetic-pricing-audit.js';
@@ -85,8 +83,9 @@ beforeEach(() => {
 	probeThrowsForId = null;
 	loadSeedKeypairImpl = () => ({ publicKey: { toBase58: () => 'PAYER' } });
 	payX402Impl = async () => ({
-		status: 'paid', success: true, amountAtomic: Number(CHEAPEST.priceUsdcAtomics),
-		txSig: 'sig_123', responseBody: { ok: true }, errorMsg: null,
+		paid: true, success: true, free: false, skipped: false,
+		amountAtomic: Number(CHEAPEST.priceUsdcAtomics),
+		txSig: 'sig_123', status: 200, responseBody: { ok: true }, errorMsg: null,
 	});
 	vi.clearAllMocks();
 });
@@ -129,7 +128,7 @@ describe('cosmetic pricing audit pipeline', () => {
 		expect(payX402).toHaveBeenCalledTimes(1);
 		const arg = payX402.mock.calls[0][0];
 		expect(arg.method).toBe('GET');
-		expect(arg.endpointUrl).toContain(`id=${encodeURIComponent(CHEAPEST.id)}`);
+		expect(arg.url).toContain(`id=${encodeURIComponent(CHEAPEST.id)}`);
 	});
 
 	it('underpricing detected: a too-low quote is flagged', async () => {
