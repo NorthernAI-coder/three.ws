@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T03:38:53.553Z",
+	"generated_at": "2026-06-27T03:52:19.729Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -28,6 +28,36 @@
 		},
 		{
 			"date": "2026-06-27",
+			"type": "launch",
+			"title": "Partner Ecosystem",
+			"summary": "three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.",
+			"link": "/partners",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "launch",
+			"title": "three.ws Joins the Alibaba Cloud Partner Network",
+			"summary": "three.ws is now an Alibaba Cloud Partner, bringing Qwen foundation models and Asia-Pacific cloud infrastructure to the three.ws 3D AI agent platform.",
+			"link": "/blog/three-ws-alibaba-cloud-partnership",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp",
+			"summary": "three.ws joins the Alibaba Cloud Partner Network. Qwen-Max, Qwen-Plus, Qwen-Turbo, and Qwen-Long are now available as agent brain options via DashScope. Ships with @three-ws/alibaba-cloud-mcp — a new MCP server for chat, embeddings, and model discovery using your own Alibaba Cloud API key. Set DASHSCOPE_API_KEY in Vercel to activate.",
+			"link": "/blog/three-ws-alibaba-cloud-partnership",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
 			"type": "update",
 			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
 			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
@@ -35,6 +65,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Improved resilience during database outages",
+			"summary": "API endpoints now return HTTP 503 (Service Unavailable) with a Retry-After header instead of 500 when the database is temporarily unreachable, so clients and caches know to back off and retry rather than treating it as a permanent error. Background crons skip their tick gracefully and log a warning instead of firing repeated alert storms. A single deduped ops alert now covers the whole outage.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
@@ -53,6 +94,16 @@
 			"title": "Manage your AWS Marketplace API key — new keys & usage page",
 			"summary": "AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.",
 			"link": "/billing/keys",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Partner ecosystem page",
+			"summary": "New /partners page showing all active technology partnerships — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, and Oracle — with what each powers on the platform, tier badges, and links to partner-specific pages and MCP servers.",
+			"link": "/partners",
 			"tags": [
 				"feature"
 			]

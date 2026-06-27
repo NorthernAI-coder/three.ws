@@ -31,7 +31,7 @@ import { baseSepolia, base } from 'viem/chains';
 
 import { sql } from '../_lib/db.js';
 import { submitProtected } from '../_lib/execution-engine.js';
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { llmComplete } from '../_lib/llm.js';
 import { CHAINS } from '../_lib/erc8004-chains.js';
@@ -173,7 +173,7 @@ async function handleIrlDropsRefund(req, res) {
 	return json(res, 200, report);
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	const name = req.query?.name;
 	const handler = typeof name === 'string' ? HANDLERS[name] : null;
 	if (!handler) return error(res, 404, 'not_found', 'unknown cron');

@@ -21,7 +21,7 @@
 // Signer secrets themselves are optional: an unconfigured signer is skipped, not
 // flagged — only configured-but-underfunded signers alert.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
@@ -44,7 +44,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

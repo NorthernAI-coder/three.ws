@@ -10,7 +10,7 @@
 // Only fires for watches with telegram_chat_id set. Fire-and-forget per
 // subscriber — one failure never blocks others. Respects CRON_SECRET auth.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
@@ -210,7 +210,7 @@ function buildMessage(watch, stats, coins) {
 	return lines.join('\n');
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

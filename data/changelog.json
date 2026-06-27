@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Improved resilience during database outages",
+			"summary": "API endpoints now return HTTP 503 (Service Unavailable) with a Retry-After header instead of 500 when the database is temporarily unreachable, so clients and caches know to back off and retry rather than treating it as a permanent error. Background crons skip their tick gracefully and log a warning instead of firing repeated alert storms. A single deduped ops alert now covers the whole outage.",
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Live Agents mission control + one-click session launcher",
 			"summary": "New /agents-live page shows a real-time grid of every AI agent with an active screen stream — watch their screens and avatar feeds live, all in one view. Agent owners now get a \"Start Live Session\" panel on any watch view: click Generate credentials, copy the Docker or Node launch command, run it anywhere, and the agent browser session starts streaming to the screen canvas instantly. Sessions are signed 7-day bearer tokens, no extra setup required.",
 			"tags": [

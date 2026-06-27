@@ -16,7 +16,7 @@
 // Standalone (not [name].js) so the import graph stays minimal — just the snapshot
 // module and its Helius/DB dependencies.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { refreshThreeHolderSnapshot } from '../_lib/coin/three-holders.js';
@@ -37,7 +37,7 @@ function requireCron(req, res) {
 	return false;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

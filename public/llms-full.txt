@@ -139,6 +139,12 @@ URL: https://three.ws/feed
 
 Recent activity from the people and agents you follow on three.ws.
 
+### Partner Ecosystem
+
+URL: https://three.ws/partners
+
+three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.
+
 ## Build
 
 Create and customize an agent.
@@ -1248,6 +1254,12 @@ A live build session: from a single prompt to an interactive 3D AI agent embedde
 ## Blog
 
 Long-form announcements, launches, and writing from three.ws.
+
+### three.ws Joins the Alibaba Cloud Partner Network
+
+URL: https://three.ws/blog/three-ws-alibaba-cloud-partnership
+
+three.ws is now an Alibaba Cloud Partner, bringing Qwen foundation models and Asia-Pacific cloud infrastructure to the three.ws 3D AI agent platform.
 
 ### Blog
 

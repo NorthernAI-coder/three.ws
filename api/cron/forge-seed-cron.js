@@ -17,7 +17,7 @@
 // Free NVIDIA NIM lane (draft, ~22 s) is always used — zero vendor spend.
 // MAX_CONCURRENT_PENDING caps in-flight jobs so a slow lane never builds debt.
 
-import { json, method, wrap, wrapCron } from '../_lib/http.js';
+import { json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { constantTimeEquals } from '../_lib/crypto.js';

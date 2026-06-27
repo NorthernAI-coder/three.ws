@@ -13,7 +13,7 @@
 // pump_coin_outcomes, pump_intel_weights). Mainnet-only — pump_coin_* are
 // mainnet. Idempotent + bounded so a frequent cron can never run away.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { labelOutcomes, trainWeights } from '../../workers/agent-sniper/intel/learn.js';
@@ -32,7 +32,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

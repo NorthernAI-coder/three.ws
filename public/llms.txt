@@ -32,6 +32,7 @@ Entry points into the product.
 - [Guided Tour](https://three.ws/tour): A 3D guide walks across the live site, points at every feature, and narrates what each one does and how to use it — voice plus an on-screen chat bubble, paced by you.
 - [Walk Anywhere on the Web](https://three.ws/walk): Your 3D avatar walks anywhere on the web. Live demos across six environments, a Chrome extension, one-tag embeds, and a global distance leaderboard.
 - [Feed](https://three.ws/feed): Recent activity from the people and agents you follow on three.ws.
+- [Partner Ecosystem](https://three.ws/partners): three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.
 
 ## Build
 
@@ -234,6 +235,7 @@ Docs, tutorials, and reference.
 
 Long-form announcements, launches, and writing from three.ws.
 
+- [three.ws Joins the Alibaba Cloud Partner Network](https://three.ws/blog/three-ws-alibaba-cloud-partnership): three.ws is now an Alibaba Cloud Partner, bringing Qwen foundation models and Asia-Pacific cloud infrastructure to the three.ws 3D AI agent platform.
 - [Blog](https://three.ws/blog): Editorial index of three.ws launches and long-form posts.
 - [The Stripe of x402: How three.ws Turned Agent Payments Into One Line of Code](https://three.ws/blog/x402-stripe-for-agent-payments): HTTP 402 sat unused for thirty years. Agents revived it. three.ws built the drop in payment modal that makes x402 a one liner, on top of a full stack of agent wallets, wallet intents, on-chain reputation, sniping, and $THREE.
 - [See Your 3D Avatar in the Real World — AR Lands on three.ws](https://three.ws/blog/see-your-3d-in-ar): Every 3D model and avatar on three.ws now has a View in AR button. On mobile it places the model in your real space through the camera. On desktop, a QR code gets you there in one scan. No app, no download.

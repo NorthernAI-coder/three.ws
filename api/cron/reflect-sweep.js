@@ -15,7 +15,7 @@
 
 import { sql } from '../_lib/db.js';
 import { env } from '../_lib/env.js';
-import { cors, error, json, method, wrap } from '../_lib/http.js';
+import { cors, error, json, method, wrapCron } from '../_lib/http.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { runReflection } from '../_lib/reflection.js';
 
@@ -41,7 +41,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;

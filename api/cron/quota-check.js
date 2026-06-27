@@ -18,7 +18,7 @@
 // Kept as a concrete file to keep the import graph tiny — this cron must not
 // share a cold start with the heavy SDK bundles.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
@@ -167,7 +167,7 @@ async function checkUsageBufferBacklog() {
 	}
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 

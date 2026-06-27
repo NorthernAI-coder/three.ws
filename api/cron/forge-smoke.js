@@ -27,7 +27,7 @@
 // Failures page the ops Telegram channel; recovery is announced once. Like
 // uptime-check, a concrete file keeps the import graph tiny.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { cacheGet, cacheSet } from '../_lib/cache.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
@@ -249,7 +249,7 @@ async function runRedisQuotaCheck() {
 	return burn;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 

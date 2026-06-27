@@ -9,7 +9,7 @@
 // (ATTEST_AGENT_SECRET_KEY) the cron is authoritative as a DRY RUN — it reports
 // exactly which wallets WOULD be attested and why it skipped — rather than 500ing.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { getLeaderboard, getTraderStats } from '../_lib/trader-stats.js';
@@ -27,7 +27,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

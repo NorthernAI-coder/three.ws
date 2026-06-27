@@ -11,7 +11,7 @@
 // Idempotent + bounded so a frequent cron can never run away. Mainnet-only
 // (pump_coin_* live on mainnet). Reads/writes only the graph's own tables.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { recomputeWalletGraph } from '../../workers/agent-sniper/recompute-wallet-graph.js';
@@ -30,7 +30,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

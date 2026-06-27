@@ -19,7 +19,7 @@
 // sets ORACLE_MODE=live (gated again by a hard per-trade SOL cap in the
 // executor) and a watch is itself armed in live mode.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { loadConfig } from '../../workers/oracle/config.js';
@@ -46,7 +46,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 
