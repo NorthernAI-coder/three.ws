@@ -347,7 +347,12 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		labelTex.colorSpace = SRGBColorSpace;
 		const label = new Mesh(
 			new PlaneGeometry(1.7, 0.58),
-			new MeshBasicMaterial({ map: labelTex, transparent: true, toneMapped: false, side: DoubleSide }),
+			new MeshBasicMaterial({
+				map: labelTex,
+				transparent: true,
+				toneMapped: false,
+				side: DoubleSide,
+			}),
 		);
 		label.position.set(0, 3.5, 0);
 		label.rotation.y = faceYaw;
@@ -355,7 +360,12 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 
 		const ring = new Mesh(
 			new RingGeometry(0.74, 0.92, 40),
-			new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: DoubleSide }),
+			new MeshBasicMaterial({
+				color: 0xffffff,
+				transparent: true,
+				opacity: 0.9,
+				side: DoubleSide,
+			}),
 		);
 		ring.rotation.x = -Math.PI / 2;
 		ring.position.y = 0.05;
@@ -475,9 +485,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 	}
 
 	function activeSources() {
-		return filter === 'all'
-			? ['agent', 'avatar', 'skill']
-			: [filter];
+		return filter === 'all' ? ['agent', 'avatar', 'skill'] : [filter];
 	}
 
 	function allDone() {
@@ -506,7 +514,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 			}
 			loadError = false;
 			hideToast();
-		} catch (err) {
+		} catch {
 			loadError = true;
 			showToast(`Couldn't load listings`, 'Retry', () => {
 				loadError = false;
@@ -810,7 +818,10 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		}
 		if (listing.uses) {
 			const c = fmtCount(listing.uses.count);
-			if (c) stats.push(`<span class="mwg-panel-stat"><b>${c}</b> ${escapeHtml(listing.uses.label)}</span>`);
+			if (c)
+				stats.push(
+					`<span class="mwg-panel-stat"><b>${c}</b> ${escapeHtml(listing.uses.label)}</span>`,
+				);
 		}
 		const statsRow = stats.length ? `<div class="mwg-panel-stats">${stats.join('')}</div>` : '';
 
@@ -857,7 +868,9 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 			e.preventDefault();
 			navigateActive();
 		});
-		panel.querySelector('.mwg-panel-share')?.addEventListener('click', (e) => shareListing(e.currentTarget, listing));
+		panel
+			.querySelector('.mwg-panel-share')
+			?.addEventListener('click', (e) => shareListing(e.currentTarget, listing));
 		panel.setAttribute('data-show', '1');
 		prompt.querySelector('.mwg-prompt-text').textContent = listing.name;
 		prompt.setAttribute('data-show', '1');
@@ -937,7 +950,8 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 	async function setFilter(next) {
 		if (next === filter) return;
 		filter = next;
-		for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+		for (const b of chips.children)
+			b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
 		syncUrl();
 		resetStream();
 		await loadPage();
@@ -989,8 +1003,9 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 }
 
 function escapeHtml(s) {
-	return String(s ?? '').replace(/[&<>"']/g, (c) =>
-		({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]),
+	return String(s ?? '').replace(
+		/[&<>"']/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
 	);
 }
 function escapeAttr(s) {
