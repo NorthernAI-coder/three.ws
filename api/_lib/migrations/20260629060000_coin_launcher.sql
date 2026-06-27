@@ -38,8 +38,8 @@ create table if not exists launcher_config (
     mode                text not null default 'hybrid'
                         check (mode in ('off', 'trend', 'meme', 'random', 'hybrid')),
     -- Which trend providers feed 'trend'/'hybrid' mode, e.g.
-    -- ["coin_intel","trending","x"]. Empty ⇒ all configured providers.
-    sources             jsonb not null default '["coin_intel","trending","x"]'::jsonb,
+    -- ["coin_intel","trending","knowyourmeme","x"]. Empty ⇒ all configured providers.
+    sources             jsonb not null default '["coin_intel","trending","knowyourmeme","x"]'::jsonb,
     -- Restrict trend picks to these pump_coin_intel categories (meme/culture/...).
     -- Empty ⇒ no category filter.
     categories          jsonb not null default '[]'::jsonb,

@@ -39,9 +39,12 @@ const EXTERNAL_TIMEOUT_MS = 6_000;
 const MAX_TERMS = 32;
 
 // Source weights — internal venue signals dominate; culture sources broaden.
+// knowyourmeme is the single best PURE-meme external feed (entries are literally
+// catalogued memes), so it outranks the general culture/news sources.
 const SOURCE_WEIGHT = {
 	coin_intel: 3.0,
 	trending: 2.6,
+	knowyourmeme: 2.0,
 	x: 1.4,
 	hackernews: 1.2,
 	reddit: 1.2,
@@ -50,8 +53,10 @@ const SOURCE_WEIGHT = {
 
 // External providers are opt-in via the config `sources` array; internal ones run
 // whenever named. These ids are the vocabulary an operator enables.
-const EXTERNAL_SOURCES = new Set(['hackernews', 'reddit', 'wikipedia']);
-const DEFAULT_SOURCES = ['coin_intel', 'trending', 'x'];
+const EXTERNAL_SOURCES = new Set(['knowyourmeme', 'hackernews', 'reddit', 'wikipedia']);
+// knowyourmeme rides in the default set: it's the freshest stream of named memes
+// entering culture — exactly what the launcher exists to mint into.
+const DEFAULT_SOURCES = ['coin_intel', 'trending', 'knowyourmeme', 'x'];
 
 // ── text hygiene ────────────────────────────────────────────────────────────────
 const STOPWORDS = new Set([
@@ -165,6 +170,55 @@ async function fetchJson(url, { timeoutMs = EXTERNAL_TIMEOUT_MS, headers } = {})
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/** Like fetchJson, but for text/XML payloads (RSS). Key-less, time-bounded, never throws. */
+async function fetchText(url, { timeoutMs = EXTERNAL_TIMEOUT_MS, headers } = {}) {
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+	try {
+		const res = await fetch(url, {
+			signal: ctrl.signal,
+			headers: {
+				'user-agent': 'three.ws-launcher/1.0 (+https://three.ws)',
+				accept: 'application/rss+xml, application/xml, text/xml, */*',
+				...headers,
+			},
+		});
+		if (!res.ok) return null;
+		return await res.text();
+	} catch {
+		return null;
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+// Minimal, dependency-free RSS reader: pull each <item>'s <title> and <link>.
+// Handles CDATA wrappers and the channel-level title (which we skip by reading
+// inside <item> blocks only). Good enough for the well-formed feeds we consume.
+function decodeEntities(s) {
+	return String(s || '')
+		.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+		.replace(/&(?:amp|#0*38);/gi, '&')
+		.replace(/&(?:lt|#0*60);/gi, '<')
+		.replace(/&(?:gt|#0*62);/gi, '>')
+		.replace(/&(?:quot|#0*34);/gi, '"')
+		.replace(/&(?:#0*39|apos|#x0*27);/gi, "'")
+		.replace(/&#x?[0-9a-f]+;|&[a-z]+;/gi, ' ');
+}
+function parseRssItems(xml) {
+	const items = [];
+	const blocks = String(xml || '').match(/<item\b[\s\S]*?<\/item>/gi) || [];
+	for (const b of blocks) {
+		const title = b.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+		const link = b.match(/<link\b[^>]*>([\s\S]*?)<\/link>/i);
+		items.push({
+			title: title ? decodeEntities(title[1]).trim() : '',
+			link: link ? decodeEntities(link[1]).trim() : '',
+		});
+	}
+	return items;
 }
 
 /** Memoise a provider's raw signals so a 60s tick never re-hits an external API. */
@@ -343,9 +397,57 @@ async function wikipediaSignals() {
 	});
 }
 
+/**
+ * Know Your Meme — the canonical catalogue of memes entering culture. Two feeds:
+ *   confirmed.rss — entries newly CONFIRMED by KYM editors; each <title> IS the
+ *                   meme's name ("Drooling Cat", "Train Dog"), so it's the single
+ *                   cleanest "fresh named meme" signal anywhere.
+ *   newsfeed.rss  — active meme news; the meme is the /memes/<slug> in each link,
+ *                   which we de-slug into a theme.
+ *
+ * Both are reduced to generic THEME words (the $THREE rule): the downstream LLM
+ * riffs on the culture and invents an original identity — KYM names are never
+ * minted verbatim. Recency-decayed (feeds are newest-first), key-less, cached.
+ * @returns {Promise<Array<{term:string, weight:number, kind:string}>>}
+ */
+async function knowYourMemeSignals() {
+	return cached('launcher:trend:kym', PROVIDER_CACHE_TTL_S, async () => {
+		const [confirmedXml, newsXml] = await Promise.all([
+			fetchText('https://knowyourmeme.com/memes/confirmed.rss'),
+			fetchText('https://knowyourmeme.com/newsfeed.rss'),
+		]);
+		const out = [];
+
+		// Confirmed entries: the title is the meme name. Titles often carry alt
+		// spellings as "Primary / Variant" — take the first clean variant.
+		const confirmed = parseRssItems(confirmedXml).slice(0, 25);
+		confirmed.forEach((item, i) => {
+			const variant = item.title.split(/\s*\/\s*/).map((v) => normTerm(v)).find(Boolean);
+			if (!variant) return;
+			const weight = Math.max(0.6, 1.5 - i * 0.04); // newest-first decay
+			out.push({ term: variant.toLowerCase(), weight, kind: 'meme' });
+		});
+
+		// Newsfeed: de-slug the /memes/<slug> link into a theme phrase.
+		const news = parseRssItems(newsXml).slice(0, 25);
+		news.forEach((item, i) => {
+			const m = item.link.match(/\/memes\/(?:[a-z-]+\/)?([a-z0-9-]+)\b/i);
+			if (!m) return;
+			const phrase = m[1].replace(/-/g, ' ').trim();
+			const n = normTerm(phrase);
+			if (!n) return;
+			const weight = Math.max(0.5, 1.1 - i * 0.03);
+			out.push({ term: n.toLowerCase(), weight, kind: 'meme' });
+		});
+
+		return out;
+	});
+}
+
 const PROVIDERS = {
 	coin_intel: coinIntelSignals,
 	trending: oracleSignals,
+	knowyourmeme: knowYourMemeSignals,
 	x: xSignals,
 	hackernews: hackerNewsSignals,
 	reddit: redditSignals,
@@ -445,3 +547,5 @@ export async function rankNarratives({ network = 'mainnet', sources, categories 
 }
 
 export { EXTERNAL_SOURCES, DEFAULT_SOURCES };
+// Exported for unit tests (pure, network-free).
+export { decodeEntities, parseRssItems, extractThemes, normTerm };
