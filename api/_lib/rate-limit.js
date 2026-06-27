@@ -72,6 +72,11 @@ function failClosedLimiter({ limit, window }) {
  *   fallback. Non-critical buckets keep the permissive in-memory fallback so a
  *   missing-Redis misconfig degrades read endpoints gracefully rather than
  *   taking the whole site down.
+ *   `degradeToMemory: true` overrides the critical fail-closed disposition on a
+ *   Redis outage: instead of denying, the bucket falls back to the per-instance
+ *   memory limiter. For sensitive-but-availability-critical buckets (auth/login)
+ *   where a total lockout is worse than a weaker per-instance cap. Never use it
+ *   for money-moving buckets — there, denying is the correct safety posture.
  *   `local: true` deliberately enforces per-instance, in-memory only — never a
  *   Redis command. For high-frequency, cheap-read buckets (status polling) whose
  *   only job is to bound poll floods, per-instance caps bound throughput just as
@@ -88,7 +93,12 @@ function getLimiter(name, opts) {
 		return lim;
 	}
 	if (!redis) {
-		const lim = opts.critical && IS_PRODUCTION ? failClosedLimiter(opts) : memoryLimiter(opts);
+		// degradeToMemory wins over critical: an auth bucket must stay usable on a
+		// Redis outage (degraded per-instance cap) rather than lock everyone out.
+		const lim =
+			opts.degradeToMemory || !(opts.critical && IS_PRODUCTION)
+				? memoryLimiter(opts)
+				: failClosedLimiter(opts);
 		limiters.set(key, lim);
 		return lim;
 	}
@@ -128,12 +138,22 @@ function warnDegradedOnce(name, err) {
 function resilientLimiter(rl, name, opts) {
 	const ms = parseWindowMs(opts.window);
 	const failClosed = Boolean(opts.critical) && IS_PRODUCTION;
+	// Auth buckets (degradeToMemory) fall back to a per-instance memory limiter on
+	// a Redis outage instead of failing closed. A total auth lockout — nobody can
+	// log in — is a worse outcome than a weaker, per-instance brute-force cap, and
+	// bcrypt already bounds per-request cost on the credential path. Money-moving
+	// buckets keep failing closed: there, unbounded spend is worse than a 503.
+	const memFallback = opts.degradeToMemory ? memoryLimiter(opts) : null;
 	return {
 		async limit(id) {
 			try {
 				return await rl.limit(id);
 			} catch (err) {
 				warnDegradedOnce(name, err);
+				if (memFallback) {
+					const r = await memFallback.limit(id);
+					return { ...r, reason: 'rate_limiter_degraded_memory' };
+				}
 				if (failClosed) {
 					return {
 						success: false,
@@ -204,13 +224,16 @@ function parseWindowMs(w) {
 
 // Preset limiters. Tune once viral traffic shape is known.
 export const limits = {
-	// Auth-critical buckets gate credential guessing / account-creation spam.
-	// Marked critical so a Redis outage in prod fails closed (deny) instead of
-	// degrading to the per-instance memory map — across serverless fan-out that
-	// fallback is effectively no limit at all on a brute-force attempt.
-	authIp: (ip) => getLimiter('auth:ip', { limit: 30, window: '10 m', critical: true }).limit(ip),
+	// Auth buckets gate credential guessing / account-creation spam. They are
+	// sensitive (critical) but use degradeToMemory: on a Redis outage they fall
+	// back to the per-instance memory limiter rather than failing closed. Failing
+	// closed here locks every user out of login — a self-inflicted outage strictly
+	// worse than the brute-force window a degraded per-instance cap leaves open,
+	// especially with bcrypt already throttling the credential path per request.
+	authIp: (ip) =>
+		getLimiter('auth:ip', { limit: 30, window: '10 m', critical: true, degradeToMemory: true }).limit(ip),
 	registerIp: (ip) =>
-		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true }).limit(ip),
+		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true, degradeToMemory: true }).limit(ip),
 	// NL→strategy compile (api/sniper/compile.js) runs a real LLM call per request,
 	// so it gets a dedicated, tighter-than-trading bucket: enough to iterate on a
 	// strategy a few times, bounded so it can't be turned into a free LLM relay.

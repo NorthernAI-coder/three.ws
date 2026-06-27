@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T04:29:30.856Z",
+	"generated_at": "2026-06-27T09:28:30.904Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,6 +49,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "60 live x402 payments per minute",
+			"summary": "A new per-minute cron fires 60 parallel real Solana USDC micropayments each tick via the x402 protocol, seeding the platform's payment activity feed and club stage with continuous on-chain traffic. Each payment is a signed SPL TransferChecked transaction broadcast via the Solana facilitator — not simulated. Configure the batch size or pause it with X402_SEED_BATCH_SIZE / X402_SEED_ENABLED.",
+			"link": "/pay",
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp",
 			"summary": "three.ws joins the Alibaba Cloud Partner Network. Qwen-Max, Qwen-Plus, Qwen-Turbo, and Qwen-Long are now available as agent brain options via DashScope. Ships with @three-ws/alibaba-cloud-mcp — a new MCP server for chat, embeddings, and model discovery using your own Alibaba Cloud API key. Set DASHSCOPE_API_KEY in Vercel to activate.",
 			"link": "/blog/three-ws-alibaba-cloud-partnership",
@@ -65,6 +76,17 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Hardened Redis credentials against dashboard paste errors",
+			"summary": "A trailing newline or stray space on the Upstash Redis token — the kind that creeps in when pasting into a dashboard — was being sent verbatim in the auth header and rejected as WRONGPASS, while the URL still resolved. The result was thousands of failures an hour: paid endpoints denying, the payments feed not loading, usage telemetry and caches going dark. Redis credentials are now trimmed at the source (matching how wallet addresses, RPC URLs, and certificates are already sanitized), so a single stray character can never silently take the limiter, feed, and caches offline.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
@@ -106,6 +128,28 @@
 			"link": "/partners",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Production stability fixes — payment sessions, Redis error handling, infra resilience",
+			"summary": "Fixed a SQL syntax error that blocked payment session expiry and refunds (PostgreSQL does not allow LIMIT directly in UPDATE — now uses a CTE with FOR UPDATE SKIP LOCKED). Fixed esbuild class-name minification breaking NeonDB error detection in production — infrastructure errors (wrong DB credentials, Redis auth) now correctly return 503 and suppress alert storms instead of crashing every endpoint with 500. Added graceful Redis-unavailable handling to the usage flush buffer and the bounty board API. Fixed Express-style response methods in pulse-tick cron.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Sign-in restored during rate-limiter outages",
+			"summary": "Fixed an issue where a temporary outage of the distributed rate limiter could block every sign-in attempt platform-wide. The login and registration limiters now degrade gracefully to a local per-instance cap during such an outage — keeping sign-in available while still throttling brute-force attempts — instead of denying everyone. Money-moving limits are unchanged and still fail safe.",
+			"link": null,
+			"tags": [
+				"fix",
+				"security"
 			]
 		},
 		{

@@ -526,7 +526,7 @@ POST  /api/x402-merchant?action=rotate-key mint a fresh API key</span></div>
 		<form class="modal-body" id="prodForm">
 			<div class="row-2">
 				<label class="field">Name<input name="action_name" required maxlength="80" placeholder="Reputation report" /></label>
-				<label class="field">URL slug<input name="slug" required class="mono" pattern="^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$" placeholder="reputation-report" /></label>
+				<label class="field">URL slug<input name="slug" required class="mono" pattern="^[a-z0-9][a-z0-9\-]{1,62}[a-z0-9]$" placeholder="reputation-report" /></label>
 			</div>
 			<label class="field">Description<textarea name="description" maxlength="2000" placeholder="What does this charge for?"></textarea></label>
 			<label class="field">Paid endpoint (returns 402)<input name="target_endpoint" type="url" required class="mono" placeholder="https://api.acme.com/paid/report" /></label>

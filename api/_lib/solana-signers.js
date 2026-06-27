@@ -40,6 +40,17 @@ export const SOLANA_SIGNERS = [
 		network: 'mainnet',
 	},
 	{
+		name: 'coin-launcher-master',
+		env: 'LAUNCHER_MASTER_SECRET_KEY_B64',
+		fallbackEnv: 'PUMP_X402_LAUNCHER_SECRET_KEY_B64',
+		// Funds many autonomous launches per day — keep a higher floor than a
+		// single-flow relayer so the autonomous launcher does not stall mid-run.
+		minSol: 1,
+		purpose:
+			'master wallet for the autonomous coin launcher: tops up the next agent in the rotation with the per-launch SOL (deploy cost + dev-buy) just before it signs its own pump.fun create',
+		network: 'mainnet',
+	},
+	{
 		name: 'sns-parent-owner',
 		env: 'THREEWS_SOL_PARENT_SECRET_BASE58',
 		minSol: 0.05,
