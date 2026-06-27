@@ -38,9 +38,11 @@ import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js
 import { run as cosmeticPricingAudit } from './pipelines/cosmetic-pricing-audit.js';
 import { run as modelMetadataEnrichment } from './pipelines/model-metadata-enrichment.js';
 import { run as forgeContentGeneration } from './pipelines/forge-content.js';
+import { run as runAnimationRetargetQa, hasCanaryClips as hasAnimationQaCanaries } from './pipelines/animation-retarget-qa.js';
 import { runCircuitBreaker } from './circuit-breaker.js';
 import { mcpLatencySweep } from './mcp-latency-sweep.js';
 import { runStreamingMcpHealth } from './pipelines/streaming-mcp-health.js';
+import { publicUrl } from '../r2.js';
 import {
 	runSceneCaptureProcessor,
 	SCENE_CAPTURE_ENDPOINT,
@@ -64,13 +66,6 @@ import {
 const MCP_PERF_CANARY_MODEL =
 	(process.env.X402_MCP_PERF_CANARY_MODEL || '').trim() ||
 	'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Box/glTF-Binary/Box.glb';
-
-// Canary clip the Animation Retargeting QA probe pays to download. Designate a
-// stable, paid, listed marketplace clip (an animation that exercises the
-// retarget/canonicalize delivery path) via this env var. Unset → the probe stays
-// disabled instead of paying for a non-existent id. Mirrors the well-known-mint
-// canary pattern used by the token-intel health check.
-const ANIM_QA_CLIP_ID = (process.env.X402_ANIMATION_QA_CLIP_ID || '').trim();
 
 // ── GLB Canonicalization Pipeline (USE-011) ──────────────────────────────────
 // Real rig-reference avatars served from three.ws/avatars/*.glb. Each covers a
