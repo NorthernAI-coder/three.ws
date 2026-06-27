@@ -7,7 +7,7 @@
 // useful on your own agents dashboard).
 
 import { mountWatchPanel } from '../../shared/agent-watch-panel.js';
-import { mountDashboardShell } from '../shell.js';
+import { mountShell as mountDashboardShell } from '../shell.js';
 
 const params  = new URLSearchParams(location.search);
 const agentId = params.get('agentId');
