@@ -416,7 +416,18 @@ function renderTrading(d) {
 
 	// One honest, plain-language readout of the week — what ran, what it cost, and
 	// whether anything has closed yet. Sells carry no SOL out, so cost is over buys.
-	const insight = $('px-trade-insight');
+	// The element is created once, just after the KPI grid, if the markup omits it.
+	let insight = $('px-trade-insight');
+	if (!insight) {
+		const kpis = panel.querySelector('.px-market-kpis');
+		if (kpis) {
+			insight = document.createElement('p');
+			insight.id = 'px-trade-insight';
+			insight.className = 'px-trade-insight';
+			insight.hidden = true;
+			kpis.insertAdjacentElement('afterend', insight);
+		}
+	}
 	if (insight) {
 		if ((w7.trades || 0) > 0) {
 			let line = `Agents ran ${fmtNum(w7.trades)} trade${w7.trades === 1 ? '' : 's'} this week, deploying ${fmtSol(w7.deployed_sol)} into buys (${fmtSol(w7.avg_trade_sol)} avg).`;
@@ -431,7 +442,9 @@ function renderTrading(d) {
 	}
 
 	// Reveal the in-panel "show trades in feed" action only when there's something to
-	// show. It carries data-filter="trades", so the shared counter wiring drives it.
+	// show. It carries data-filter="trades" so the shared counter wiring drives it —
+	// matching the headline Trades counter exactly (both count category='trade' and
+	// reveal the trades+snipes feed slice, the platform-wide "Trades" convention).
 	const filterBtn = $('px-trade-filter');
 	if (filterBtn) filterBtn.hidden = !((w24.trades || 0) > 0 || (w7.trades || 0) > 0);
 
@@ -457,6 +470,9 @@ function renderTradeSpark(series) {
 	const days = Array.isArray(series) ? series : [];
 	const total = days.reduce((s, d) => s + (d.trades || 0), 0);
 	if (totalEl) totalEl.textContent = `${fmtNum(total)} trade${total === 1 ? '' : 's'}`;
+	// Fold the live total into the chart's accessible name so a screen reader hears
+	// the number, not just "Daily trade count" — the bars themselves are decorative.
+	host.setAttribute('aria-label', `Daily trades, last 7 days — ${total} total`);
 	if (!days.length) { host.innerHTML = `<p class="px-lb-empty">No activity yet.</p>`; return; }
 	const peak = Math.max(1, ...days.map((d) => d.trades || 0));
 	host.innerHTML = days

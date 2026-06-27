@@ -238,6 +238,11 @@ function wireWalkMode(agent) {
 	const cta = document.getElementById('ad-walk-link');
 	if (cta) cta.href = walkAppHref(agent);
 
+	// Watch-live CTA → the agent's dedicated live screen viewer (self-handles the
+	// idle/offline state when the agent isn't currently broadcasting).
+	const watch = document.getElementById('ad-watch-live');
+	if (watch && agent?.id) watch.href = `/agent-screen?agentId=${encodeURIComponent(agent.id)}`;
+
 	const card = document.getElementById('ad-walk-card');
 	const frame = document.getElementById('ad-walk-frame');
 	const skeleton = document.getElementById('ad-walk-skeleton');

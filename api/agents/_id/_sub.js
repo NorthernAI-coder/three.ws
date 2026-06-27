@@ -291,6 +291,21 @@ export const handleManifest = wrap(async (req, res, id) => {
 		await sql`select a.id, a.name, a.description, a.avatar_id, a.skills, a.meta, a.chain_id, a.erc8004_agent_id, a.erc8004_registry, a.registration_cid, a.created_at, a.voice_provider, a.voice_id, a.persona_prompt_hash, a.persona_tone_tags, a.persona_extracted_at, av.id as avatar_db_id, av.storage_key, av.content_type from agent_identities a left join avatars av on av.id = a.avatar_id and av.deleted_at is null where a.id = ${id} and a.deleted_at is null limit 1`;
 	if (!row) return error(res, 404, 'not_found', 'agent not found');
 
+	// Live signal: whether the agent has claimed its activation grant (funded +
+	// on the Money Pulse). Lets other agents/SDKs prefer live counterparts. Cheap
+	// indexed PK lookup; tolerant of the table not being migrated yet.
+	let activated = false;
+	let activatedAt = null;
+	try {
+		const [act] = await sql`select confirmed_at from agent_activations where agent_id = ${id} and status = 'confirmed' limit 1`;
+		if (act) {
+			activated = true;
+			activatedAt = act.confirmed_at;
+		}
+	} catch (e) {
+		if (e?.code !== '42P01') console.warn('[manifest] activation lookup failed', e?.message);
+	}
+
 	let bodyUri = '';
 	if (row.avatar_db_id) {
 		try {
@@ -334,6 +349,9 @@ export const handleManifest = wrap(async (req, res, id) => {
 			tone_tags: row.persona_tone_tags || [],
 			extracted_at: row.persona_extracted_at || null,
 		},
+		// Live signal — funded + active on the Money Pulse via the activation grant.
+		activated,
+		activatedAt,
 		createdAt: row.created_at,
 	};
 

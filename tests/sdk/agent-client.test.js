@@ -197,3 +197,42 @@ describe('AgentClient.invokeSkill', () => {
 		).rejects.toThrow(/paid intent id/);
 	});
 });
+
+describe('AgentClient.activate', () => {
+	it('POSTs to /api/agents/:id/activate with the bearer header and unwraps { data }', async () => {
+		const data = { ok: true, signature: 'sig123', explorer: 'https://x/sig123', sol: 0.004, network: 'mainnet' };
+		const fetchImpl = makeFetch([res(200, { data })]);
+		const client = new AgentClient({ baseUrl: 'https://three.ws', apiKey: 'sk_live', fetch: fetchImpl });
+
+		const out = await client.activate('agent_1');
+
+		expect(out).toEqual(data);
+		const call = fetchImpl.calls[0];
+		expect(call.url).toBe('https://three.ws/api/agents/agent_1/activate');
+		expect(call.opts.method).toBe('POST');
+		expect(call.opts.headers.authorization).toBe('Bearer sk_live');
+	});
+
+	it('resolves the existing receipt when already live (idempotent)', async () => {
+		const data = { ok: true, already: true, signature: 'sigOld', sol: 0.004 };
+		const client = new AgentClient({ fetch: makeFetch([res(200, { data })]) });
+		expect(await client.activate('agent_1')).toEqual(data);
+	});
+
+	it('throws a clear error when activation is not configured (503)', async () => {
+		const client = new AgentClient({ fetch: makeFetch([res(503, { error: 'not_configured' })]) });
+		await expect(client.activate('agent_1')).rejects.toThrow(/activate failed: 503/);
+	});
+
+	it('reads activation status via GET and unwraps { data }', async () => {
+		const data = { enabled: true, eligible: true, activated: false, pending: false, grant_sol: 0.004, network: 'mainnet' };
+		const fetchImpl = makeFetch([res(200, { data })]);
+		const client = new AgentClient({ baseUrl: 'https://three.ws', fetch: fetchImpl });
+
+		const out = await client.getActivationStatus('agent_1');
+
+		expect(out).toEqual(data);
+		expect(fetchImpl.calls[0].url).toBe('https://three.ws/api/agents/agent_1/activate');
+		expect(fetchImpl.calls[0].opts.method).toBeUndefined(); // GET
+	});
+});

@@ -32,6 +32,7 @@ const KIND_META = {
 	trade:   { glyph: '⇄', label: 'Trade',   verb: 'traded',          cls: 'mp-k-trade' },
 	snipe:   { glyph: '⚡', label: 'Snipe',   verb: 'sniped',          cls: 'mp-k-snipe' },
 	payment: { glyph: '→', label: 'Payment', verb: 'paid',            cls: 'mp-k-pay' },
+	purchase:{ glyph: '⊕', label: 'Purchase',verb: 'bought a skill',  cls: 'mp-k-purchase' },
 	launch:  { glyph: '✦', label: 'Launch',  verb: 'launched',        cls: 'mp-k-launch' },
 };
 
@@ -41,6 +42,7 @@ const FILTERS = [
 	{ id: 'launches', label: 'Launches' },
 	{ id: 'trades', label: 'Trades' },
 	{ id: 'payments', label: 'Payments' },
+	{ id: 'purchases', label: 'Purchases' },
 ];
 
 let _stylesInjected = false;
@@ -88,6 +90,7 @@ function injectStyles() {
 .mp-k-launch .mp-glyph { color: var(--mp-accent); }
 .mp-k-snipe .mp-glyph { color: var(--warn, #fbbf24); }
 .mp-k-trade .mp-glyph, .mp-k-pay .mp-glyph { color: var(--ink-dim, #9aa); }
+.mp-k-purchase .mp-glyph { color: var(--mp-accent); }
 .mp-body { flex: 1 1 auto; min-width: 0; }
 .mp-line { font-size: var(--text-md, .84rem); line-height: 1.3; color: var(--ink, #e8e8e8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-name { font-weight: 600; color: var(--ink-bright, #fff); }
@@ -160,7 +163,13 @@ function fmtAmount(ev) {
 		return `◎${s}`;
 	}
 	if (ev.amount_raw != null) {
-		// USDC (6dp) is the only non-SOL asset we record a price for; show $ when priced.
+		// $THREE-denominated rows (skill purchases) show the token amount, compacted.
+		if (ev.asset === 'THREE' || ev.kind === 'purchase') {
+			const t = Number(ev.amount_raw) / 1e6;
+			const s = t >= 1000 ? `${(t / 1000).toFixed(1)}k` : (t >= 1 ? String(Math.round(t)) : t.toFixed(2));
+			return `${s} $THREE`;
+		}
+		// USDC (6dp) is the only other non-SOL asset we price; show $ when priced.
 		if (ev.usd != null) return `$${Number(ev.usd).toFixed(2)}`;
 		return `${(Number(ev.amount_raw) / 1e6).toFixed(2)}`;
 	}
@@ -191,6 +200,10 @@ function sentenceHTML(ev) {
 			return `<span class="mp-name">${name}</span> sniped${amtHTML}${usdHTML}`;
 		case 'payment':
 			return `<span class="mp-name">${name}</span> paid${amtHTML}${usdHTML}`;
+		case 'purchase': {
+			const skill = ev.skill ? `<span class="mp-amount">${esc(ev.skill)}</span>` : 'a skill';
+			return `<span class="mp-name">${name}</span> bought ${skill}${amtHTML ? ` for${amtHTML}` : ''}`;
+		}
 		case 'trade':
 		default:
 			return `<span class="mp-name">${name}</span> traded${amtHTML}${usdHTML}`;

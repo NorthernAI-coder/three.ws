@@ -107,6 +107,11 @@
 		.pl-subs li { display: flex; justify-content: space-between; gap: 8px; font-size: 0.7rem; color: var(--ink-dim, #888); }
 		.pl-subs b { font-family: var(--font-mono, monospace); font-weight: 500; color: var(--ink, #e8e8e8); }
 		.pl-stage-dot { margin-left: auto; }
+		/* stage cards are links into each surface's detail view */
+		a.pl-stage { text-decoration: none; color: inherit; cursor: pointer; }
+		a.pl-stage:focus-visible { outline: 2px solid var(--ink-bright, #fff); outline-offset: 2px; }
+		.pl-stage-go { position: absolute; right: 12px; bottom: 11px; font-size: 0.82rem; color: var(--ink-faint, rgba(255,255,255,0.45)); opacity: 0; transform: translateX(-3px); transition: opacity .18s, transform .18s, color .18s; }
+		a.pl-stage:hover .pl-stage-go, a.pl-stage:focus-visible .pl-stage-go { opacity: 1; transform: none; color: var(--ink-bright, #fff); }
 
 		/* ── Skeleton + error ────────────────────────────────────────── */
 		.pl-skel { min-height: 158px; border-radius: var(--radius-lg, 14px); border: 1px solid var(--stroke, rgba(255,255,255,0.08)); background: linear-gradient(90deg, var(--surface-1, rgba(255,255,255,0.03)), var(--surface-3, rgba(255,255,255,0.08)), var(--surface-1, rgba(255,255,255,0.03))); background-size: 200% 100%; animation: pl-shimmer 1.4s linear infinite; }
@@ -255,7 +260,9 @@
 
 		function stageCard(m, i) {
 			const subs = m.subs.map(([k, v]) => `<li><span>${esc(k)}</span><b>${esc(v)}</b></li>`).join('');
-			return `<article class="pl-stage s-${m.state}" style="animation-delay:${i * 45}ms">
+			const tail = m.external ? ' target="_blank" rel="noopener"' : '';
+			const aria = `aria-label="${esc(m.label)} — ${esc(m.vlabel)}. Open details"`;
+			return `<a class="pl-stage s-${m.state}" href="${esc(m.href)}"${tail} ${aria} style="animation-delay:${i * 45}ms">
 				<div class="pl-stage-top">
 					<span class="pl-stage-n">${m.n}</span>
 					<h2 class="pl-stage-label">${esc(m.label)}</h2>
@@ -267,7 +274,8 @@
 					<div class="pl-stat-l">${esc(m.vlabel)}</div>
 				</div>
 				<ul class="pl-subs">${subs}</ul>
-			</article>`;
+				<span class="pl-stage-go" aria-hidden="true">${m.external ? '↗' : '→'}</span>
+			</a>`;
 		}
 
 		function renderHealth(data) {
@@ -285,7 +293,16 @@
 				? 'The worker is up but its feed has gone silent — no new launches are being recorded.'
 				: 'The pipeline is idle. Once the recorder worker starts, every downstream stage activates.';
 			metaEl.textContent = `${data.network} · updated ${new Date(data.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-			ctaEl.hidden = !(rec.state === 'offline' || rec.state === 'down' || rec.state === 'unknown');
+			// Drive the call-to-action straight from the endpoint's own guidance so
+			// the page and any agent reading /api/pipeline tell the same story.
+			const na = data.next_action || {};
+			const actionable = na.step && !['running', 'accumulate', 'await_training'].includes(na.step);
+			if (actionable) {
+				ctaEl.innerHTML = `<h3>${esc(na.label)}</h3><p>${esc(na.detail)}${na.command ? ` <code>${esc(na.command)}</code>` : ''}</p>`;
+				ctaEl.hidden = false;
+			} else {
+				ctaEl.hidden = true;
+			}
 		}
 
 		async function load() {

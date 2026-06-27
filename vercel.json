@@ -79,6 +79,9 @@
 		"api/cron/launcher-tick.js": {
 			"maxDuration": 120
 		},
+		"api/cron/launcher-claimer.js": {
+			"maxDuration": 60
+		},
 		"api/cron/avaturn-seed-cron.js": {
 			"maxDuration": 300
 		},
@@ -732,6 +735,10 @@
 		{
 			"src": "/deployments/?",
 			"dest": "/deployments.html"
+		},
+		{
+			"src": "/launcher/?",
+			"dest": "/launcher.html"
 		},
 		{
 			"src": "/watchlist/?",
@@ -4681,6 +4688,10 @@
 		{
 			"path": "/api/cron/cosmetic-splits-sweep",
 			"schedule": "15 * * * *"
+		},
+		{
+			"path": "/api/cron/launcher-claimer",
+			"schedule": "*/5 * * * *"
 		}
 	]
 }

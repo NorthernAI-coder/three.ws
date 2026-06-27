@@ -4629,6 +4629,7 @@ function renderCard(a) {
 		</div>
 		<div class="desc">${escapeHtml(a.description || '')}</div>
 		<div class="stats">
+			${a.activated ? '<span class="stat-pill live-badge" title="Live — funded and active on the Money Pulse">◉ Live</span>' : ''}
 			${onchainBadge}
 			${pedigreeBadge}
 			${coinChipHTML(a)}

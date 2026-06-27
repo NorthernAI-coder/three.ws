@@ -96,7 +96,6 @@ export async function dailySpentSol(scope, userId = null) {
  * @param {number} p.sol               SOL to move (per_launch_sol)
  * @param {number} p.perLaunchCapSol   hard ceiling for a single launch
  * @param {number} p.dailyCapSol       remaining daily allowance already computed by caller
- * @param {'global'|'user'} [p.scope]
  * @param {'mainnet'|'devnet'} [p.network]
  * @param {string} [p.memo]
  * @returns {Promise<FundResult>}

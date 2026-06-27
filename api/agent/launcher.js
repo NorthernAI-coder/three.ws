@@ -96,8 +96,6 @@ async function getConfigs(req, res, userId) {
 	return json(res, 200, { configs, coins });
 }
 
-// ── POST — upsert ────────────────────────────────────────────────────────────
-
 // ── POST action=trigger — fire now ───────────────────────────────────────────
 
 async function triggerNow(req, res, userId, body) {

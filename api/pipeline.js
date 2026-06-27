@@ -25,6 +25,7 @@
 import { cors, json, method, wrap, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { sql } from './_lib/db.js';
+import { summarize } from './_lib/pipeline-summary.js';
 
 const WORKER = 'agent-sniper';
 // 2× the 30s heartbeat cadence + slack: one skipped beat under load must not
@@ -211,10 +212,10 @@ export default wrap(async (req, res) => {
 		}, { strategies_armed: 0, open_positions: 0, snipes_24h: 0, trades_24h: 0 }),
 	]);
 
-	// A coarse one-word health for the page header + any external monitor.
-	const recording = recorder.state === 'live';
-	const flowing = intel.observed_1h > 0;
-	const health = recording && flowing ? 'flowing' : recording ? 'recording' : 'idle';
+	const stages = { recorder, intel, outcomes, oracle, reputation, learning, trading };
+	// Health, one-line summary, and the single most useful next action — derived
+	// by a shared pure module so the page, agents, and tests read one truth.
+	const { health, summary, next_action } = summarize(network, stages);
 
 	return json(
 		res,
@@ -223,7 +224,10 @@ export default wrap(async (req, res) => {
 			ok: true,
 			network,
 			health,
-			stages: { recorder, intel, outcomes, oracle, reputation, learning, trading },
+			summary,
+			next_action,
+			stages,
+			docs: 'https://three.ws/pipeline',
 			t: Date.now(),
 		},
 		// Heartbeat + crons refresh on the order of seconds-to-minutes; a short

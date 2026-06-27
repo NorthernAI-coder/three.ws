@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { activationConfig } from '../api/_lib/agent-activation.js';
+import { activationConfig, evaluateActivation } from '../api/_lib/agent-activation.js';
 
 const SOL = 1_000_000_000;
 
@@ -59,5 +59,44 @@ describe('activationConfig', () => {
 		expect(activationConfig({ CIRCULATION_NETWORK: 'devnet' }).network).toBe('devnet');
 		expect(activationConfig({ CIRCULATION_NETWORK: 'mainnet' }).network).toBe('mainnet');
 		expect(activationConfig({ CIRCULATION_NETWORK: 'whatever' }).network).toBe('mainnet');
+	});
+});
+
+describe('evaluateActivation (pure decision matrix)', () => {
+	const base = { owner: true, circulation: false, status: null, enabled: true, configured: true };
+
+	it('proceeds for a real, owned, eligible agent on a live platform', () => {
+		expect(evaluateActivation(base)).toEqual({ decision: 'proceed', reason: null });
+	});
+
+	it('blocks a non-owner before anything else', () => {
+		// non-owner outranks every other condition, including already-activated
+		expect(evaluateActivation({ ...base, owner: false, status: 'confirmed' }))
+			.toEqual({ decision: 'forbidden', reason: 'not_owner' });
+	});
+
+	it('treats circulation (platform) agents as already live', () => {
+		expect(evaluateActivation({ ...base, circulation: true }))
+			.toEqual({ decision: 'platform_agent', reason: 'platform_agent' });
+	});
+
+	it('is idempotent — confirmed returns "already", never re-grants', () => {
+		expect(evaluateActivation({ ...base, status: 'confirmed' }))
+			.toEqual({ decision: 'already', reason: 'already_activated' });
+	});
+
+	it('reports an in-flight pending claim rather than racing a second grant', () => {
+		expect(evaluateActivation({ ...base, status: 'pending' }))
+			.toEqual({ decision: 'pending', reason: 'in_progress' });
+	});
+
+	it('is not_configured when disabled OR when no treasury is set', () => {
+		expect(evaluateActivation({ ...base, enabled: false }).decision).toBe('not_configured');
+		expect(evaluateActivation({ ...base, configured: false }).decision).toBe('not_configured');
+	});
+
+	it('orders checks so ownership and idempotency win over config', () => {
+		// already-confirmed beats not_configured (don't tell an activated owner it's off)
+		expect(evaluateActivation({ ...base, status: 'confirmed', enabled: false }).decision).toBe('already');
 	});
 });

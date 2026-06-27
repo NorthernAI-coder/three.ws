@@ -73,11 +73,14 @@
 				width: 12px;
 				height: 12px;
 			}
+			/* Monochrome by design: a healthy platform reads in ink, not green.
+			   --danger (red) is reserved as the SINGLE exception for a genuine
+			   outage so it's unmistakable precisely because nothing else is colored. */
 			.st-banner[data-state='ok'] {
-				border-color: rgba(74, 222, 128, 0.35);
+				border-color: var(--ink);
 			}
 			.st-banner[data-state='down'] {
-				border-color: rgba(248, 113, 113, 0.45);
+				border-color: var(--danger);
 			}
 
 			.st-dot {
@@ -89,18 +92,63 @@
 				transition: background 0.3s ease;
 			}
 			.st-dot[data-state='ok'] {
-				background: var(--success);
-				box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+				background: var(--ink);
+				box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 14%, transparent);
 			}
 			.st-dot[data-state='down'] {
 				background: var(--danger);
-				box-shadow: 0 0 8px rgba(248, 113, 113, 0.5);
+				box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent);
 			}
 
 			.st-meta {
 				color: var(--ink-dim);
 				font: var(--text-sm) var(--font-body);
 				margin: 0 0 calc(var(--space-md) * 1.5);
+			}
+
+			/* Fleet KPI band — three monochrome stats so the headline numbers are
+			   readable at a glance before scanning the per-service cards. */
+			.st-summary {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 1px;
+				background: var(--stroke);
+				border: 1px solid var(--stroke);
+				border-radius: var(--radius-lg);
+				overflow: hidden;
+				margin-bottom: calc(var(--space-md) * 1.5);
+			}
+			.st-kpi {
+				background: var(--surface-1);
+				padding: 0.9rem 1.1rem;
+				transition: background 0.2s ease;
+			}
+			.st-kpi:hover {
+				background: var(--surface-2);
+			}
+			.st-kpi-val {
+				font-family: var(--font-mono, monospace);
+				font-size: clamp(1.25rem, 3.2vw, 1.7rem);
+				line-height: 1.1;
+				color: var(--ink);
+				font-variant-numeric: tabular-nums;
+			}
+			.st-kpi-label {
+				font: var(--text-sm) var(--font-body);
+				color: var(--ink-dim);
+				margin-top: 0.3rem;
+			}
+			.st-summary.st-skel .st-kpi-val,
+			.st-summary.st-skel .st-kpi-label {
+				color: transparent;
+				background: var(--surface-2);
+				border-radius: var(--radius-md);
+				animation: st-pulse 1.4s ease-in-out infinite;
+			}
+			@media (max-width: 480px) {
+				.st-summary {
+					grid-template-columns: 1fr;
+				}
 			}
 
 			.st-card {
@@ -160,14 +208,16 @@
 				outline: none;
 			}
 			.st-cell[data-band='up'] {
-				background: var(--success);
-				opacity: 0.85;
+				background: var(--ink);
+				opacity: 0.9;
 			}
 			.st-cell[data-band='degraded'] {
-				background: var(--warn);
+				background: var(--ink);
+				opacity: 0.34;
 			}
 			.st-cell[data-band='down'] {
 				background: var(--danger);
+				opacity: 0.92;
 			}
 			.st-bar-labels {
 				display: flex;
@@ -251,9 +301,16 @@
 				<span class="st-dot" id="st-banner-dot" aria-hidden="true"></span>
 				<span id="st-banner-text">Checking platform status…</span>
 			</div>
+			<div class="st-summary st-skel" id="st-summary" aria-label="Fleet summary">
+				<div class="st-kpi"><div class="st-kpi-val" id="st-kpi-uptime">—</div><div class="st-kpi-label">90-day uptime</div></div>
+				<div class="st-kpi"><div class="st-kpi-val" id="st-kpi-services">—</div><div class="st-kpi-label">services operational</div></div>
+				<div class="st-kpi"><div class="st-kpi-val" id="st-kpi-latency">—</div><div class="st-kpi-label">avg response</div></div>
+			</div>
+
 			<p class="st-meta" id="st-meta">
 				Probed every 5 minutes from outside our infrastructure.
 				<a href="/api/status" style="color: inherit">JSON feed</a> ·
+				<a href="/api/status?format=svg" style="color: inherit">status badge</a> ·
 				<a href="/changelog" style="color: inherit">Changelog</a>
 			</p>
 
@@ -280,12 +337,43 @@
 			const bannerText = document.getElementById('st-banner-text');
 			const meta = document.getElementById('st-meta');
 			const list = document.getElementById('st-services');
+			const summaryEl = document.getElementById('st-summary');
+			const kpiUptime = document.getElementById('st-kpi-uptime');
+			const kpiServices = document.getElementById('st-kpi-services');
+			const kpiLatency = document.getElementById('st-kpi-latency');
 
 			const fmtPct = (v) => (v == null ? '—' : `${v}%`);
 			const band = (uptime) =>
 				uptime == null ? null : uptime >= 99.5 ? 'up' : uptime >= 95 ? 'degraded' : 'down';
+			const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+
+			function renderSummary(data) {
+				const services = data.services || [];
+				// Prefer the server-computed summary (single source of truth shared
+				// with agents reading the JSON); fall back to a client-side roll-up so
+				// the band still fills if an older API shape omits it.
+				const s =
+					data.summary ||
+					(() => {
+						const probed = services.filter((x) => x.operational !== null);
+						const lat = services.map((x) => x.avgLatency24hMs).filter((n) => n != null);
+						const u90 = services.map((x) => x.uptime90d).filter((n) => n != null);
+						const a = avg(u90);
+						return {
+							operational: probed.filter((x) => x.operational).length,
+							total: services.length,
+							avgLatencyMs: lat.length ? Math.round(avg(lat)) : null,
+							fleetUptime90d: a == null ? null : Math.round(a * 100) / 100,
+						};
+					})();
+				summaryEl.classList.remove('st-skel');
+				kpiUptime.textContent = s.fleetUptime90d == null ? '—' : `${s.fleetUptime90d}%`;
+				kpiServices.textContent = `${s.operational}/${s.total}`;
+				kpiLatency.textContent = s.avgLatencyMs == null ? '—' : `${s.avgLatencyMs}ms`;
+			}
 
 			function render(data) {
+				renderSummary(data);
 				const probed = data.services.filter((s) => s.operational !== null);
 				const down = probed.filter((s) => !s.operational);
 				if (data.monitoring === 'warming-up') {
@@ -344,6 +432,10 @@
 
 			function renderError() {
 				bannerText.textContent = 'Could not load status data.';
+				summaryEl.classList.remove('st-skel');
+				kpiUptime.textContent = '—';
+				kpiServices.textContent = '—';
+				kpiLatency.textContent = '—';
 				list.innerHTML = `<div class="st-note st-error">
 					The status feed at <a href="/api/status">/api/status</a> did not respond.
 					That can itself indicate an incident — try again in a minute, or check

@@ -1302,6 +1302,14 @@
 		     instant scripts run (it lives in <noscript>), so it never touches the
 		     interactive experience. -->
 		<noscript>
+			<!-- With JS off, the 3D stage never boots and the loading overlay never
+			     clears — both would otherwise sit on top of this fallback forever.
+			     A <noscript> may carry its own styles: hide the JS-only chrome so the
+			     fallback is what a no-JS visitor (and many crawlers) actually see. -->
+			<style>
+				#walk-loading, #walk-stage, .walk-site-header { display: none !important; }
+				html, body { overflow: auto !important; height: auto !important; background: #0a0a0a !important; }
+			</style>
 			<div style="max-width:640px;margin:12vh auto;padding:0 24px;font-family:'Inter',system-ui,sans-serif;color:#fafafa;text-align:center;">
 				<h1 style="font-size:26px;font-weight:700;letter-spacing:-0.01em;margin:0 0 12px;">Walk-Browse the Marketplace</h1>
 				<p style="font-size:15px;line-height:1.6;color:#a1a1aa;margin:0 0 24px;">

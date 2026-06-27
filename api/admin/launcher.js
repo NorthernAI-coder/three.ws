@@ -2,9 +2,11 @@
 // (System B: the platform trend firehose driven by api/_lib/launcher-engine.js).
 //
 //   GET  → the global launcher_config, the live console (recent launcher_runs),
-//          today's spend/throughput stats, master-wallet balance, queue size.
+//          today's spend/throughput stats, master-wallet balance, queue size,
+//          revenue rollup (claimed creator fees, $THREE buyback allocated).
 //   POST → upsert the global config (mode, sources, cadence, caps, arm/disarm),
-//          or { action: 'resume' } to clear a tripped circuit breaker.
+//          { action: 'resume' } to clear a tripped circuit breaker, or
+//          { action: 'force_tick' } to immediately run one launcher tick.
 //
 // Auth: a real admin session OR `Bearer $CRON_SECRET` (for ops tooling). The
 // launcher ships disabled + dry_run; this is the only supported way to arm it,
@@ -18,6 +20,7 @@ import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { masterBalanceSol, dailySpentSol } from '../_lib/launcher-funding.js';
 import { rankNarratives } from '../_lib/launcher-trends.js';
+import { runLauncherTick } from '../_lib/launcher-engine.js';
 
 function isCronAuth(req) {
 	const auth = req.headers.authorization || '';
@@ -26,7 +29,7 @@ function isCronAuth(req) {
 }
 
 const MODES = ['off', 'trend', 'meme', 'random', 'hybrid'];
-const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'knowyourmeme', 'googletrends', 'hackernews', 'reddit', 'wikipedia'];
+const KNOWN_SOURCES = ['coin_intel', 'trending', 'knowyourmeme', 'googletrends', 'x', 'hackernews', 'reddit', 'wikipedia'];
 
 // jsonb columns arrive as arrays or (depending on driver) JSON strings — coerce.
 function coerceArr(v) {
@@ -63,12 +66,16 @@ async function getState(res) {
 	const network = config?.network || 'mainnet';
 
 	const [recent, stats, queue, master] = await Promise.all([
+		// Include agent_name so the console can show who launched what.
 		sql`
-			select id, agent_id, kind, trigger_source, trigger_detail, name, symbol, mint, network,
-			       sol_spent, status, dry_run, tx_signature, error, created_at
-			from launcher_runs
-			where scope = 'global'
-			order by created_at desc
+			select lr.id, lr.agent_id, lr.kind, lr.trigger_source, lr.trigger_detail,
+			       lr.name, lr.symbol, lr.mint, lr.network,
+			       lr.sol_spent, lr.status, lr.dry_run, lr.tx_signature, lr.error, lr.created_at,
+			       ai.name as agent_name
+			from launcher_runs lr
+			left join agent_identities ai on ai.id = lr.agent_id
+			where lr.scope = 'global'
+			order by lr.created_at desc
 			limit 50
 		`,
 		sql`
@@ -87,6 +94,18 @@ async function getState(res) {
 	]);
 
 	const spentToday = await dailySpentSol('global', null).catch(() => 0);
+
+	// Creator-fee revenue rollup — absent until the claimer has run at least once.
+	const revenueRollup = await sql`
+		select
+			coalesce(sum(claimed_sol), 0)::float8 as total_claimed_sol,
+			coalesce(sum(buyback_sol), 0)::float8 as total_buyback_sol,
+			coalesce(sum(claimed_sol) filter (where created_at >= date_trunc('day', now())), 0)::float8 as claimed_sol_today,
+			coalesce(sum(claimed_sol) filter (where created_at > now() - interval '7 days'), 0)::float8 as claimed_sol_7d,
+			count(*) filter (where claimed_sol > 0)::int as claim_count
+		from launcher_claims
+		where scope = 'global'
+	`.catch(() => null);
 
 	// Live narratives preview — the exact ranked cultural currents the launcher
 	// would ride right now, using the SAVED config's sources so the preview matches
@@ -109,6 +128,15 @@ async function getState(res) {
 		},
 		queue_enabled: queue[0]?.enabled ?? 0,
 		master_balance_sol: master,
+		revenue: revenueRollup
+			? {
+				total_claimed_sol: revenueRollup[0]?.total_claimed_sol ?? 0,
+				total_buyback_sol: revenueRollup[0]?.total_buyback_sol ?? 0,
+				claimed_sol_today: revenueRollup[0]?.claimed_sol_today ?? 0,
+				claimed_sol_7d: revenueRollup[0]?.claimed_sol_7d ?? 0,
+				claim_count: revenueRollup[0]?.claim_count ?? 0,
+			}
+			: null,
 		narratives: narratives
 			? { terms: narratives.terms || [], top: narratives.top || null, providers: narratives.providers || [] }
 			: null,
@@ -126,6 +154,12 @@ async function postConfig(req, res) {
 			where scope = 'global' returning *
 		`;
 		return json(res, 200, { ok: true, config: row });
+	}
+
+	// Force an immediate tick (bypasses the cron schedule — useful for testing).
+	if (body.action === 'force_tick') {
+		const result = await runLauncherTick().catch((err) => ({ ok: false, error: err?.message }));
+		return json(res, 200, { ok: true, tick: result });
 	}
 
 	// Validate everything before writing.

@@ -260,7 +260,7 @@ function buildWorkerRequest(request) {
 		}
 		for (const key of [
 			'mode', 'fps', 'keyframe_interval', 'num_scale_frames',
-			'window_size', 'overlap_size', 'conf_percentile', 'max_points',
+			'window_size', 'overlap_size', 'conf_percentile', 'max_points', 'voxel_size',
 		]) {
 			if (params?.[key] !== undefined && params[key] !== null) body[key] = params[key];
 		}

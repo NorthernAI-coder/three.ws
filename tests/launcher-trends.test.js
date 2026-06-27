@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decodeEntities, parseRssItems, normTerm } from '../api/_lib/launcher-trends.js';
+import { decodeEntities, parseRssItems, normTerm, parseGoogleTrends, isSensitive } from '../api/_lib/launcher-trends.js';
 
 describe('decodeEntities', () => {
 	it('unwraps CDATA', () => {
@@ -62,5 +62,57 @@ describe('KYM theme extraction shape', () => {
 		const m = 'https://knowyourmeme.com/memes/subcultures/chimptopia'
 			.match(/\/memes\/(?:[a-z-]+\/)?([a-z0-9-]+)\b/i);
 		expect(normTerm(m[1].replace(/-/g, ' '))).toBe('chimptopia');
+	});
+});
+
+describe('parseGoogleTrends', () => {
+	const item = (title, traffic, news) => `
+		<item>
+			<title>${title}</title>
+			<ht:approx_traffic>${traffic}</ht:approx_traffic>
+			${(news || []).map((n) => `<ht:news_item><ht:news_item_title>${n}</ht:news_item_title></ht:news_item>`).join('')}
+		</item>`;
+	const wrap = (items) => `<?xml version="1.0"?><rss xmlns:ht="https://trends.google.com/trending/rss"><channel><title>Daily Search Trends</title>${items}</channel></rss>`;
+
+	it('extracts clean trends as lowercased event themes', () => {
+		const rows = parseGoogleTrends(wrap(item('Labubu Craze', '50,000+', ['Labubu dolls sell out worldwide'])));
+		expect(rows).toHaveLength(1);
+		expect(rows[0]).toMatchObject({ term: 'labubu craze', kind: 'event' });
+		expect(rows[0].weight).toBeGreaterThan(0.6);
+		expect(rows[0].weight).toBeLessThanOrEqual(1.6);
+	});
+
+	it('weights higher traffic above lower traffic', () => {
+		const hi = parseGoogleTrends(wrap(item('Big Wave', '2,000,000+', ['Big Wave goes viral'])))[0];
+		const lo = parseGoogleTrends(wrap(item('Small Wave', '1,000+', ['Small Wave noticed'])))[0];
+		expect(hi.weight).toBeGreaterThan(lo.weight);
+	});
+
+	it('drops a trend whose NEWS context is sensitive even when the term is clean', () => {
+		// Bare "John Smith" passes normTerm; the news reveals a tragedy → must be dropped.
+		const rows = parseGoogleTrends(wrap(item('John Smith', '20,000+', ['John Smith dies in fatal car crash'])));
+		expect(rows).toHaveLength(0);
+	});
+
+	it('drops sensitive bare terms', () => {
+		const rows = parseGoogleTrends(wrap(item('Earthquake', '100,000+', ['Magnitude 7 earthquake hits'])));
+		expect(rows).toHaveLength(0);
+	});
+
+	it('returns [] for empty / malformed input, never throws', () => {
+		expect(parseGoogleTrends('')).toEqual([]);
+		expect(parseGoogleTrends(null)).toEqual([]);
+	});
+});
+
+describe('isSensitive', () => {
+	it('catches death/disaster words and naive plurals', () => {
+		expect(isSensitive('a deadly shooting')).toBe(true);
+		expect(isSensitive('earthquakes today')).toBe(true);
+		expect(isSensitive('celebrity dies')).toBe(true);
+	});
+	it('passes ordinary culture terms', () => {
+		expect(isSensitive('drooling cat')).toBe(false);
+		expect(isSensitive('labubu craze')).toBe(false);
 	});
 });

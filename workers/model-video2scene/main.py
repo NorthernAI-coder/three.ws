@@ -206,16 +206,46 @@ def _to_np(x) -> np.ndarray:
     return np.asarray(x)
 
 
+def _voxel_downsample(
+    pts: np.ndarray, cols: np.ndarray, voxel: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Merge points sharing a voxel cell into one averaged, colour-averaged point.
+
+    Far higher quality than blind stride subsampling: it removes the redundant
+    overlap where many frames re-observe the same surface, evens out density, and
+    suppresses single-frame noise — while preserving the true shape. Deterministic
+    (no RNG). ``voxel`` is the cell edge length in world units.
+    """
+    if voxel <= 0 or pts.shape[0] == 0:
+        return pts, cols
+    keys = np.floor(pts / voxel).astype(np.int64)
+    # Order points by voxel cell, then reduce each contiguous run to its mean.
+    order = np.lexsort((keys[:, 2], keys[:, 1], keys[:, 0]))
+    keys, pts, cols = keys[order], pts[order], cols[order]
+    boundaries = np.any(np.diff(keys, axis=0) != 0, axis=1)
+    starts = np.concatenate(([0], np.nonzero(boundaries)[0] + 1))
+    ends = np.concatenate((starts[1:], [pts.shape[0]]))
+    out_pts = np.empty((starts.shape[0], 3), dtype=np.float32)
+    out_cols = np.empty((starts.shape[0], 3), dtype=np.uint8)
+    colf = cols.astype(np.float32)
+    for i, (s, e) in enumerate(zip(starts, ends)):
+        out_pts[i] = pts[s:e].mean(axis=0)
+        out_cols[i] = np.clip(colf[s:e].mean(axis=0), 0, 255).astype(np.uint8)
+    return out_pts, out_cols
+
+
 def _fuse_point_cloud(
     predictions: dict,
     conf_percentile: float,
     max_points: int,
+    voxel_size: float = 0.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Flatten per-frame world points + RGB into one coloured cloud.
 
     LingBot-Map returns world_points (..., 3) in a shared world frame, an aligned
     world_points_conf, and the source images. We drop the low-confidence tail,
-    colour each surviving point from its pixel, and cap the total at max_points.
+    colour each surviving point from its pixel, optionally voxel-downsample to
+    de-duplicate overlapping observations, and cap the total at max_points.
     """
     pts = _to_np(predictions["world_points"]).reshape(-1, 3)
 
@@ -242,6 +272,10 @@ def _fuse_point_cloud(
             thresh = np.percentile(conf[np.isfinite(conf)], conf_percentile)
             mask &= conf >= thresh
     pts, cols = pts[mask], cols[mask]
+
+    # Voxel-merge overlapping observations first (quality), then hard-cap.
+    if voxel_size > 0:
+        pts, cols = _voxel_downsample(pts.astype(np.float32), cols, voxel_size)
 
     if pts.shape[0] > max_points:
         # Deterministic stride subsample — preserves spatial spread without RNG.
@@ -311,7 +345,9 @@ def _run(req: "InferRequest", dst_dir: str) -> tuple[bytes, int, int]:
             )
     predictions, _ = postprocess(predictions, images.to("cpu"))
 
-    pts, cols = _fuse_point_cloud(predictions, req.conf_percentile, req.max_points)
+    pts, cols = _fuse_point_cloud(
+        predictions, req.conf_percentile, req.max_points, req.voxel_size
+    )
     if pts.shape[0] == 0:
         raise ValueError("reconstruction produced no points above the confidence floor")
     return _write_ply(pts, cols), pts.shape[0], frames
@@ -378,6 +414,7 @@ class InferRequest(BaseModel):
     mask_sky: bool = True
     conf_percentile: float = Field(default=30.0, ge=0.0, le=95.0)
     max_points: int = Field(default=1_500_000, ge=10_000, le=MAX_POINT_BUDGET)
+    voxel_size: float = Field(default=0.0, ge=0.0, le=10.0)
     job_id: str | None = None
 
 

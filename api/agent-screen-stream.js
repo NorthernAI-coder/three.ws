@@ -117,8 +117,10 @@ export default async function handleAgentScreenStream(req, res) {
 							wasDark = false;
 							send('frame', frame);
 						}
-					} else if (!wasDark && lastTs > 0) {
-						// Frame TTL expired — agent went dark
+					} else if (!wasDark) {
+						// No frame in Redis — agent is dark. Emit once, including on the
+						// very first poll (a viewer who connects to an already-offline
+						// agent must get the "offline" state, not hang on "Connecting…").
 						wasDark = true;
 						send('dark', {});
 					}

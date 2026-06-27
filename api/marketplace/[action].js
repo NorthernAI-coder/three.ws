@@ -592,6 +592,7 @@ async function handleList(req, res, url) {
 
 	const hasMore = rows.length > limit;
 	const items = rows.slice(0, limit).map(toCard);
+	await decorateActivated(items);
 
 	return json(
 		res,
@@ -604,6 +605,27 @@ async function handleList(req, res, url) {
 		},
 		{ 'cache-control': 'public, max-age=15' },
 	);
+}
+
+// Flag which of these cards are "live" (claimed their activation grant — funded +
+// on the Money Pulse) in one batched, indexed lookup. Kept OUT of the main browse
+// query on purpose: referencing agent_activations there would force the whole list
+// onto its degraded fallback on any deploy where the table isn't migrated yet. As
+// a standalone, fully table-tolerant step it can only ever add a badge, never
+// break the listing. Mutates each card in place.
+async function decorateActivated(items) {
+	if (!items.length) return;
+	try {
+		const ids = items.map((c) => c.id);
+		const rows = await sql`
+			SELECT agent_id FROM agent_activations
+			WHERE agent_id = ANY(${ids}) AND status = 'confirmed'
+		`;
+		const live = new Set(rows.map((r) => r.agent_id));
+		for (const card of items) card.activated = live.has(card.id);
+	} catch (e) {
+		if (e?.code !== '42P01') console.warn('[marketplace/list] activation flags skipped', e?.message);
+	}
 }
 
 // ── Detail ─────────────────────────────────────────────────────────────────

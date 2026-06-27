@@ -51,20 +51,9 @@ export function createAgentScreenClient(agentId, handlers = {}) {
 			} catch { /* malformed event */ }
 		});
 
-		es.addEventListener('open-info', (e) => {
-			// Note: 'open' is a native EventSource event; we use 'open-info' for our
-			// custom payload but the SSE sends event: open — handle both.
-			try {
-				onOpen?.(JSON.parse(e.data));
-			} catch { /* malformed event */ }
-		});
-
-		// The SSE spec fires 'open' for the HTTP connection; we name our custom
-		// open-metadata event 'open' in the stream. EventSource conflates them, so
-		// we listen on the 'message' handler for untyped events and on named event
-		// listeners for typed ones. The server sends `event: open` for our custom
-		// metadata — this will NOT fire the native 'open' listener, it fires the
-		// named 'open' listener below.
+		// The server sends `event: open` carrying { agentId, agentName, ts }. The
+		// native EventSource 'open' (connection established) has no `.data`, so the
+		// `if (e.data)` guard below distinguishes the two on the same listener.
 		es.addEventListener('open', (e) => {
 			if (e.data) {
 				try { onOpen?.(JSON.parse(e.data)); } catch { /* ok */ }

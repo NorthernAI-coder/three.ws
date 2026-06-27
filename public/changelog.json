@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T21:42:54.736Z",
+	"generated_at": "2026-06-27T22:01:30.566Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -110,6 +110,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Autonomous coin launcher — creator fees, revenue tracking, and admin console upgrades",
+			"summary": "The memetic launcher now auto-claims pump.fun creator fees from every coin it mints, routing the configured share toward $THREE. The admin console at /admin/launcher gains a live revenue panel (total creator fees claimed, $THREE allocated), agent-name visibility in the run feed, a Force Tick button for instant testing, and a cleaner 8-column stat grid. Know Your Meme is wired as a live trend source alongside Hacker News, Reddit, and Wikipedia — so the launcher reads what the internet is actually minting.",
+			"link": "/admin/launcher",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
 			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
 			"link": "/dashboard/capabilities",
@@ -121,11 +132,32 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Design your own Memetic Launcher",
+			"summary": "Every account now has a personal Memetic Launcher at /launcher — your own autonomous coin-launch strategy designer. Pick a mode (ride live cultural trends, coin original memes, or pure random volume), choose which sources it mines (Coin Intel, Trending, Know Your Meme, X, Reddit, Hacker News, Wikipedia and more), set a cadence, and turn it on. It then rotates through your own agents and, every tick, picks exactly the coin it would mint — riding the strongest live narrative — and records it. A live narratives panel shows the cultural currents ranked in real time, and a one-tap Synthesize button coins a sample on demand. It runs in preview: it designs and shows your rotation without minting or moving any SOL, so you can perfect a strategy risk-free. Find it under Launch in the main menu.",
+			"link": "/launcher",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Fixed /play getting stuck on \"too many requests\"",
 			"summary": "Opening /play could dead-end on a \"Something went wrong — too many requests\" screen, especially from a shared network or after a couple of reloads. The wallet sign-in step was sharing the same strict rate limit as login and trading, so a small burst of page loads exhausted it. Sign-in now has its own generous limit sized for a busy world, and if that check ever can't be reached, /play opens anyway instead of blocking — the game server still verifies token-gated worlds on entry.",
 			"link": "/play",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Hardened how the platform reads its rate-limit store credentials",
+			"summary": "Fixed a configuration failure mode where the rate-limiter and cache store's address and access token could be drawn from two different sources and silently mismatch, which made every limiter and cache fall back to a weaker local mode and caused intermittent 'too many requests' errors and failed paid calls. The credentials are now always read together as one pair (and trimmed of stray whitespace), so a mismatch can't happen — keeping rate limits, paid endpoints, and caching reliable.",
+			"link": "/status",
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{
@@ -164,6 +196,19 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Live Agents is now everywhere it should be — and steadier under the hood",
+			"summary": "Watching agents work is far easier to find and more reliable. Live Agents now has its own spot in the Discover menu, every agent profile has a Watch live button, the embedded watch panel links straight to the full-screen viewer, and the viewer has a one-tap path back to the whole live grid. Under the hood: the live roster no longer accumulates stale agents, queuing a task no longer blanks the screen image, a viewer landing on an offline agent now sees a clear offline state instead of hanging on 'connecting', and screen frames are restricted to safe image formats. The browser agent's idle behaviour is also neutral now — when it has no task it simply stands by on its three.ws home rather than wandering, and it never surfaces third-party tokens.",
+			"link": "/agents-live",
+			"tags": [
+				"feature",
+				"improvement",
+				"fix",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Live Agents mission control + one-click session launcher",
 			"summary": "New /agents-live page shows a real-time grid of every AI agent with an active screen stream — watch their screens and avatar feeds live, all in one view. Agent owners now get a \"Start Live Session\" panel on any watch view: click Generate credentials, copy the Docker or Node launch command, run it anywhere, and the agent browser session starts streaming to the screen canvas instantly. Sessions are signed 7-day bearer tokens, no extra setup required.",
 			"link": "/agents-live",
@@ -175,7 +220,7 @@
 			"date": "2026-06-27",
 			"type": "update",
 			"title": "Live cultural narratives — now public, and now powered by Google Trends",
-			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/narratives: any agent (or builder) can ask what's trending right now, with the sources confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
+			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/trends: any agent (or builder) can ask what's trending right now — optionally filtered to specific sources — with the signals confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
 			"link": null,
 			"tags": [
 				"feature",
@@ -280,6 +325,27 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Sign-up and 3D avatar reliability fixes",
+			"summary": "Two fixes to the front door. The 3D avatar on the sign-up page — and on roughly fifty other pages that show a preview model — now loads reliably the first time, instead of occasionally staying blank until you reloaded; a timing race meant the model viewer could start loading a compressed avatar before its decoder was ready. Separately, the sign-up username field again enforces its rules (3–30 characters; letters, numbers, underscore and hyphen) as you type in the latest Chrome, where a stricter pattern-matching mode had quietly switched that live validation off. No action needed — both are automatic.",
+			"link": "/register",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Status page goes monochrome — with a fleet summary and an embeddable status badge",
+			"summary": "The platform status page now leads with three at-a-glance numbers — 90-day uptime, services operational, and average response time — above the per-service history, and reads in clean monochrome that matches the rest of three.ws (a single red is reserved for a genuine outage so it's impossible to miss). The public status feed now also serves an embeddable status badge: drop https://three.ws/api/status?format=svg into any README or dashboard to show whether the platform is operational, and agents reading /api/status get the same fleet summary as a ready-made object.",
+			"link": "/status",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Task input on Agent Screen — send your agent a task and watch it work",
 			"summary": "You can now type any task directly into the Agent Screen page and your agent picks it up in real time. The live screen panel has a new command bar at the bottom: type what you want your agent to do (research, browse, shop, monitor, trade) and hit send. The task is queued via /api/agent-task and the running worker executes it with Stagehand, streaming every browser action back to the live screen as it happens. The worker automatically checks for new tasks every 3 seconds and runs them in priority order, falling back to its autonomous loop when the queue is empty.",
 			"link": "/agent-screen",
@@ -307,6 +373,16 @@
 			"link": "/marketplace",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Walk-Browse the Marketplace is now monochrome and agent-readable",
+			"summary": "The 3D marketplace hall now reads as one cohesive monochrome material — type identity (agent/avatar/skill) is carried by brightness and clear labels instead of off-system brand colours, matching the rest of three.ws. And because the hall needs WebGL, the page now ships a no-script fallback: search crawlers, AI agents, and any visitor without JavaScript get a clean page with real, followable links into the agents, avatars, and skills catalogues instead of a blank loading spinner.",
+			"link": "/marketplace-walk",
+			"tags": [
 				"improvement"
 			]
 		},

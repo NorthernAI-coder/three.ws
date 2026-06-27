@@ -37,6 +37,7 @@ import { recordCustodyEvent } from './agent-trade-guards.js';
 import { solUsdPrice, explorerTxUrl } from './avatar-wallet.js';
 import { publishFeedEvent } from './feed.js';
 import { insertNotification } from './notify.js';
+import { markActivated } from './activation.js';
 
 // Env override so a flow can point activation at its own funded wallet; otherwise
 // the shared operator treasury (CIRCULATION_TREASURY_SECRET) funds the grant.
@@ -109,6 +110,26 @@ function receipt(row, network) {
 }
 
 /**
+ * Pure activation decision. Given the loaded facts, return the single next move —
+ * no DB, no I/O — so the full branch matrix is exhaustively unit-testable and the
+ * status reader and the mutating path can never drift apart. The rolling daily cap
+ * is the one check left to the caller (it needs a live count) and only matters once
+ * this returns `proceed`.
+ *
+ * @param {{ owner: boolean, circulation: boolean, status: 'confirmed'|'pending'|null,
+ *   enabled: boolean, configured: boolean }} facts
+ * @returns {{ decision: 'forbidden'|'platform_agent'|'already'|'pending'|'not_configured'|'proceed', reason: string|null }}
+ */
+export function evaluateActivation({ owner, circulation, status, enabled, configured }) {
+	if (!owner) return { decision: 'forbidden', reason: 'not_owner' };
+	if (circulation) return { decision: 'platform_agent', reason: 'platform_agent' };
+	if (status === 'confirmed') return { decision: 'already', reason: 'already_activated' };
+	if (status === 'pending') return { decision: 'pending', reason: 'in_progress' };
+	if (!enabled || !configured) return { decision: 'not_configured', reason: 'not_configured' };
+	return { decision: 'proceed', reason: null };
+}
+
+/**
  * Read-only activation status for an agent, from the owner's perspective. Used by
  * the wallet hub to decide which state to render. Never mutates, never throws on
  * infra trouble (degrades to a safe "can't determine" shape).
@@ -118,32 +139,25 @@ function receipt(row, network) {
 export async function getActivationStatus({ agent, isOwner }) {
 	const cfg = activationConfig();
 	const row = await loadActivationRow(agent.id).catch(() => null);
-	const activated = !!row && row.status === 'confirmed';
-	const pending = !!row && row.status === 'pending';
-	const circulation = isCirculationAgent(agent);
-	const hasWallet = !!(agent.solana_address || agent.meta?.solana_address);
-
-	// Eligibility = a real, owned, not-yet-activated agent on a configured+enabled
-	// platform. A missing wallet is NOT a blocker — activation provisions it.
-	let eligible = false;
-	let reason = null;
-	if (!isOwner) reason = 'not_owner';
-	else if (circulation) reason = 'platform_agent';
-	else if (activated) reason = 'already_activated';
-	else if (pending) reason = 'in_progress';
-	else if (!cfg.enabled || !cfg.configured) reason = 'not_configured';
-	else eligible = true;
+	const status = row?.status === 'confirmed' ? 'confirmed' : row?.status === 'pending' ? 'pending' : null;
+	const { decision, reason } = evaluateActivation({
+		owner: isOwner,
+		circulation: isCirculationAgent(agent),
+		status,
+		enabled: cfg.enabled,
+		configured: cfg.configured,
+	});
 
 	return {
 		enabled: cfg.enabled && cfg.configured,
 		network: cfg.network,
 		grant_sol: cfg.grantSol,
-		activated,
-		pending,
-		eligible,
+		activated: status === 'confirmed',
+		pending: status === 'pending',
+		eligible: decision === 'proceed',
 		reason,
-		has_wallet: hasWallet,
-		receipt: activated ? receipt(row, cfg.network) : null,
+		has_wallet: !!(agent.solana_address || agent.meta?.solana_address),
+		receipt: status === 'confirmed' ? receipt(row, cfg.network) : null,
 	};
 }
 
@@ -199,28 +213,35 @@ export async function activateAgent({ agentId, userId }) {
 		where id = ${agentId} and deleted_at is null limit 1
 	`;
 	if (!agent) return { ok: false, code: 'not_found', message: 'agent not found' };
-	if (agent.user_id !== userId) return { ok: false, code: 'forbidden', message: 'not your agent' };
-	if (isCirculationAgent(agent)) {
-		return { ok: false, code: 'platform_agent', message: 'platform agents are already live' };
-	}
 
 	const cfg = activationConfig();
-
-	// Already activated? Return the existing receipt — idempotent, no second grant.
 	const existing = await loadActivationRow(agentId).catch(() => null);
-	if (existing?.status === 'confirmed') {
-		const r = receipt(existing, cfg.network);
-		return { ok: true, already: true, ...r };
-	}
-	if (existing?.status === 'pending') {
-		return { ok: true, already: true, pending: true, network: existing.network || cfg.network };
+	const status = existing?.status === 'confirmed' ? 'confirmed' : existing?.status === 'pending' ? 'pending' : null;
+
+	// One shared decision — identical matrix to the read-only status reader.
+	const { decision } = evaluateActivation({
+		owner: agent.user_id === userId,
+		circulation: isCirculationAgent(agent),
+		status,
+		enabled: cfg.enabled,
+		configured: cfg.configured,
+	});
+	switch (decision) {
+		case 'forbidden':
+			return { ok: false, code: 'forbidden', message: 'not your agent' };
+		case 'platform_agent':
+			return { ok: false, code: 'platform_agent', message: 'platform agents are already live' };
+		case 'already': // idempotent — return the existing receipt, never a second grant
+			return { ok: true, already: true, ...receipt(existing, cfg.network) };
+		case 'pending':
+			return { ok: true, already: true, pending: true, network: existing.network || cfg.network };
+		case 'not_configured':
+			return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
+		// 'proceed' falls through
 	}
 
-	if (!cfg.enabled || !cfg.configured) {
-		return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
-	}
-
-	// Rolling daily cap — a soft global spend bound.
+	// Rolling daily cap — a soft global spend bound (live count, so outside the
+	// pure decision above).
 	if ((await confirmedToday()) >= cfg.dailyCap) {
 		return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
 	}
@@ -348,12 +369,31 @@ export async function activateAgent({ agentId, userId }) {
 		signature,
 	}).catch(() => {});
 
+	// Ramp value: make the agent able to EARN the moment it's live. Register its
+	// custodial wallet as the default payout destination so any skill it lists
+	// resolves a recipient and the marketplace demand loop (circulation real-seller
+	// demand) can route real $THREE to it. Best-effort — never blocks the grant.
+	sql`
+		insert into agent_payout_wallets (user_id, agent_id, address, chain, is_default, preferred_network)
+		values (${userId}, ${agentId}, ${address}, 'solana', true, 'mainnet')
+		on conflict (user_id, agent_id, chain) do update set address = excluded.address, is_default = true
+	`.catch((e) => console.warn('[agent-activation] payout wallet upsert failed', e?.message));
+
+	// Cross-system milestone: funding your first agent IS a "first win" — stamp the
+	// owner's user-activation milestone, which fires the two-sided referral reward
+	// when they were referred. Best-effort, never blocks the grant return.
+	markActivated(userId, {
+		source: 'agent_activation',
+		meta: { agentId, grantSol: cfg.grantSol },
+	}).catch(() => {});
+
 	return {
 		ok: true,
 		signature,
 		explorer: explorerTxUrl(signature, cfg.network),
 		sol: lamports / SOL,
 		usd,
+		activated_at: new Date().toISOString(),
 		network: cfg.network,
 	};
 }
