@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T01:36:42.881Z",
+	"generated_at": "2026-06-27T03:38:53.492Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -299,6 +299,16 @@
 					"added": "2026-06-26",
 					"auth": "required",
 					"indexable": false,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/agents-live",
+					"title": "Live Agents",
+					"description": "Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.",
+					"added": "2026-06-27",
+					"auth": null,
+					"indexable": true,
 					"tags": [],
 					"showcase": false
 				},

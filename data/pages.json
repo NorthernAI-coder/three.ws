@@ -181,6 +181,14 @@
 					"priority": 0.6,
 					"changefreq": "daily",
 					"added": "2026-06-21"
+				},
+				{
+					"path": "/partners",
+					"title": "Partner Ecosystem",
+					"description": "three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.",
+					"priority": 0.8,
+					"changefreq": "monthly",
+					"added": "2026-06-27"
 				}
 			]
 		},
@@ -249,6 +257,13 @@
 					"auth": "required",
 					"indexable": false,
 					"added": "2026-06-26"
+				},
+				{
+					"path": "/agents-live",
+					"title": "Live Agents",
+					"description": "Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.",
+					"indexable": true,
+					"added": "2026-06-27"
 				},
 				{
 					"path": "/agent-studio",
@@ -1620,6 +1635,15 @@
 			"title": "Blog",
 			"description": "Long-form announcements, launches, and writing from three.ws.",
 			"pages": [
+				{
+					"path": "/blog/three-ws-alibaba-cloud-partnership",
+					"title": "three.ws Joins the Alibaba Cloud Partner Network",
+					"description": "three.ws is now an Alibaba Cloud Partner, bringing Qwen foundation models and Asia-Pacific cloud infrastructure to the three.ws 3D AI agent platform.",
+					"priority": 0.6,
+					"changefreq": "monthly",
+					"lastmod": "2026-06-27",
+					"added": "2026-06-27"
+				},
 				{
 					"path": "/blog",
 					"title": "Blog",
