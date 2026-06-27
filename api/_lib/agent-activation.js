@@ -25,12 +25,10 @@
 
 import { sql } from './db.js';
 import {
-	isConfigured,
 	getTreasuryKeypair,
 	transferSol,
 	lamportBalance,
 	treasuryConnection,
-	treasuryNetwork,
 	FEE_BUFFER,
 	SOL,
 } from './platform-treasury.js';
@@ -50,18 +48,26 @@ function clampNumber(v, dflt, lo, hi) {
 	return Math.min(hi, Math.max(lo, n));
 }
 
-/** Resolved activation configuration from env. Cheap + side-effect free. */
-export function activationConfig() {
-	const enabledRaw = String(process.env.AGENT_ACTIVATION_ENABLED ?? '').toLowerCase();
+/**
+ * Resolved activation configuration. Cheap + side-effect free. Reads from `env`
+ * (process.env by default) so it can be unit-tested without globals.
+ * @param {Record<string, any>} [env]
+ */
+export function activationConfig(env = process.env) {
+	const enabledRaw = String(env.AGENT_ACTIVATION_ENABLED ?? '').toLowerCase();
 	const enabled = enabledRaw === '1' || enabledRaw === 'true' || enabledRaw === 'yes';
 	// Grant size in SOL. Small on purpose: enough to fund a first real action +
 	// fees, not a faucet to farm. 0.0001–0.05 SOL hard-bounded.
-	const grantSol = clampNumber(process.env.AGENT_ACTIVATION_GRANT_SOL, 0.004, 0.0001, 0.05);
-	const dailyCap = clampNumber(process.env.AGENT_ACTIVATION_DAILY_CAP, 500, 1, 100_000);
+	const grantSol = clampNumber(env.AGENT_ACTIVATION_GRANT_SOL, 0.004, 0.0001, 0.05);
+	const dailyCap = clampNumber(env.AGENT_ACTIVATION_DAILY_CAP, 500, 1, 100_000);
+	const configured = !!(
+		String(env[TREASURY_ENV_OVERRIDE] || '').trim() ||
+		String(env.CIRCULATION_TREASURY_SECRET || '').trim()
+	);
 	return {
 		enabled,
-		configured: isConfigured(TREASURY_ENV_OVERRIDE),
-		network: treasuryNetwork(),
+		configured,
+		network: env.CIRCULATION_NETWORK === 'devnet' ? 'devnet' : 'mainnet',
 		grantSol,
 		grantLamports: Math.round(grantSol * SOL),
 		dailyCap,

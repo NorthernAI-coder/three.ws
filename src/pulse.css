@@ -99,13 +99,19 @@
 .px-market-sub { flex: 1 1 100%; font-size: var(--text-2xs, .66rem); color: var(--ink-dim, #888); line-height: 1.4; }
 .px-market-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-sm, 10px); margin-bottom: var(--space-md, 16px); }
 .px-kpi { background: var(--surface-2, rgba(255,255,255,.05)); border: 1px solid var(--stroke, rgba(255,255,255,.07));
-	border-radius: var(--radius-md, 10px); padding: 10px 12px; }
+	border-radius: var(--radius-md, 10px); padding: 10px 12px; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.px-kpi:hover { border-color: var(--stroke-strong, rgba(255,255,255,.14)); background: var(--surface-3, rgba(255,255,255,.07)); transform: translateY(-1px); }
 .px-kpi dt { font-size: var(--text-2xs, .62rem); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-dim, #888); margin-bottom: 5px; }
 .px-kpi dd { margin: 0; font-family: var(--font-mono, monospace); font-size: clamp(1.05rem, 2.4vw, 1.4rem); font-weight: 700; color: var(--ink-bright, #fff); line-height: 1.05; }
 .px-kpi-sub { display: block; margin-top: 3px; font-size: var(--text-2xs, .6rem); color: var(--ink-faint, #666); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.px-market-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-md, 16px); align-items: start; }
-.px-market-spark .px-spark-bar--mkt { background: rgba(255,255,255,.28); }
-.px-market-spark .px-spark-col:hover .px-spark-bar--mkt { background: var(--ink, #e8e8e8); }
+/* Take-rate is the revenue KPI — give it a hairline accent so the eye lands on it. */
+.px-kpi--take { border-color: var(--stroke-strong, rgba(255,255,255,.16)); background: var(--surface-3, rgba(255,255,255,.07)); }
+.px-market-body { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--space-sm, 12px); align-items: stretch; }
+.px-market-spark, .px-market-skills { background: var(--surface-2, rgba(255,255,255,.05)); border: 1px solid var(--stroke, rgba(255,255,255,.07));
+	border-radius: var(--radius-md, 10px); padding: var(--space-sm, 12px) var(--space-md, 14px); }
+.px-market-spark .px-spark-bar--mkt { background: rgba(255,255,255,.30); }
+.px-market-spark .px-spark-col:hover .px-spark-bar--mkt { background: var(--ink-bright, #fff); }
+.px-skill-row + .px-skill-row { border-top: 1px solid var(--stroke, rgba(255,255,255,.06)); }
 /* Trading panel: a touch dimmer than the marketplace bars so the two read distinct
    in the same monochrome ramp; today's bar still resolves to full ink. */
 .px-trading .px-spark-bar--trade { background: rgba(255,255,255,.22); }
@@ -163,11 +169,13 @@
 	.px-grid { grid-template-columns: 1fr; }
 	.px-rail { position: static; flex-direction: column; }
 	.px-counters { grid-template-columns: repeat(3, 1fr); }
+	.px-counter--lead { grid-column: span 3; }
 	.px-market-kpis { grid-template-columns: repeat(3, 1fr); }
 	.px-market-body { grid-template-columns: 1fr; }
 }
 @media (max-width: 520px) {
 	.px-counters { grid-template-columns: repeat(2, 1fr); }
+	.px-counter--lead { grid-column: span 2; }
 	.px-market-kpis { grid-template-columns: repeat(2, 1fr); }
 	.px-spark-lbl { font-size: 0.55rem; }
 }

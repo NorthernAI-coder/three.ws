@@ -223,6 +223,14 @@
 			<description>Restored Ethereum (SIWE) and Solana (SIWS) wallet sign-in and the active-sessions controls, which had been unreachable due to missing API route mappings. Also refined the sign-in and sign-up screens to a crisp monochrome palette — neutral chain icons, calmer focus and hover states — for a faster, more focused first impression.</description>
 		</item>
 		<item>
+			<title>x402 payments dashboards refined to the monochrome system</title>
+			<link>https://three.ws/dashboard/x402</link>
+			<guid isPermaLink="false">2026-06-27:x402 payments dashboards refined to the monochrome system</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The x402 Checkout dashboard and Merchant Console now use the platform's monochrome design language end to end — the off-system blue accent is gone, replaced by clean white-on-black with crisp focus rings, toggles, and hover states. New checkout storefronts default to a neutral monochrome look while merchants can still pick any brand color. Verified rendering across the payments page, dashboard, and console.</description>
+		</item>
+		<item>
 			<title>Agent Payment Sessions</title>
 			<link>https://three.ws/payments</link>
 			<guid isPermaLink="false">2026-06-26:Agent Payment Sessions</guid>
