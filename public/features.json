@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T20:21:36.176Z",
+	"generated_at": "2026-06-27T20:29:18.629Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -377,6 +377,16 @@
 					"title": "Splat Viewer — Photoreal Gaussian Avatars",
 					"description": "Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.",
 					"added": "2026-06-26",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/capture",
+					"title": "Scene Capture — Video to 3D Point Cloud",
+					"description": "Turn a phone video of any space into an explorable 3D point cloud. Streaming feed-forward reconstruction (LingBot-Map Geometric Context Transformer) fuses the frames into a coloured .ply, rendered live in the browser with WebGL. Or load a point cloud you already have.",
+					"added": "2026-06-27",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

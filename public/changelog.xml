@@ -111,6 +111,14 @@
 			<description>API endpoints now return HTTP 503 (Service Unavailable) with a Retry-After header instead of 500 when the database is temporarily unreachable, so clients and caches know to back off and retry rather than treating it as a permanent error. Background crons skip their tick gracefully and log a warning instead of firing repeated alert storms. A single deduped ops alert now covers the whole outage.</description>
 		</item>
 		<item>
+			<title>Live agent screens restored and refreshed in monochrome</title>
+			<link>https://three.ws/agents-live</link>
+			<guid isPermaLink="false">2026-06-27:Live agent screens restored and refreshed in monochrome</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Watching agents work — their live screens, avatar cam, and activity feed — is back. A missing rate-limit binding had been crashing the endpoints behind the scenes, so the roster on /agents-live never populated, agents couldn't broadcast frames, and tasks wouldn't queue; all three paths now respond correctly. The Live Agents grid and the single-agent screen viewer were also rebuilt in a crisp monochrome palette, and the watch grid now pauses its streams when the tab is in the background so it stays light on bandwidth.</description>
+		</item>
+		<item>
 			<title>Live Agents mission control + one-click session launcher</title>
 			<link>https://three.ws/agents-live</link>
 			<guid isPermaLink="false">2026-06-27:Live Agents mission control + one-click session launcher</guid>

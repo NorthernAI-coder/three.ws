@@ -238,6 +238,12 @@ URL: https://three.ws/splat
 
 Render Gaussian-splat and radiance-field avatars in the browser — the photoreal output of engines like GaussianAvatars and HumanGaussian. Load a .ply / .splat / .ksplat by URL or upload; decoding runs entirely client-side.
 
+### Scene Capture — Video to 3D Point Cloud
+
+URL: https://three.ws/capture
+
+Turn a phone video of any space into an explorable 3D point cloud. Streaming feed-forward reconstruction (LingBot-Map Geometric Context Transformer) fuses the frames into a coloured .ply, rendered live in the browser with WebGL. Or load a point cloud you already have.
+
 ### Forge · NIM — Self-Hosted Image to 3D
 
 URL: https://three.ws/forge-nim

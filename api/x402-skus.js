@@ -43,7 +43,7 @@ const createSchema = z.object({
 	accent_color: z
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
-		.default('#0a84ff'),
+		.default('#111111'),
 	success_url: httpsUrl.optional(),
 	// Storefront display fields — optional, never block a paid call.
 	price_atomics: z

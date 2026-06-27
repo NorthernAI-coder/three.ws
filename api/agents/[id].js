@@ -62,6 +62,11 @@ export default wrap(async function handler(req, res) {
 		return mod.default(req, res, id, action);
 	}
 
+	if (sub === 'activate') {
+		const mod = await import('./_id/activate.js');
+		return mod.default(req, res, id, action);
+	}
+
 	if (sub === 'recovery') {
 		const mod = await import('./recovery.js');
 		return mod.default(req, res, id, action, parts);

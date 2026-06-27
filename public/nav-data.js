@@ -85,6 +85,12 @@ export const NAV_GROUPS = [
 				desc: 'Render photoreal Gaussian-splat avatars in the browser — load a .ply / .splat by URL or upload',
 			},
 			{
+				title: 'Scene Capture',
+				href: '/capture',
+				badge: 'New',
+				desc: 'Video → 3D scene — reconstruct any space into an explorable point cloud, rendered live in the browser',
+			},
+			{
 				title: 'CA → x402',
 				href: '/ca2x402',
 				badge: 'New',
