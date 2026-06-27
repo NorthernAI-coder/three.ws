@@ -111,6 +111,14 @@
 			<description>The memetic launcher now auto-claims pump.fun creator fees from every coin it mints, routing the configured share toward $THREE. The admin console at /admin/launcher gains a live revenue panel (total creator fees claimed, $THREE allocated), agent-name visibility in the run feed, a Force Tick button for instant testing, and a cleaner 8-column stat grid. Know Your Meme is wired as a live trend source alongside Hacker News, Reddit, and Wikipedia — so the launcher reads what the internet is actually minting.</description>
 		</item>
 		<item>
+			<title>Autonomous x402 Spend Loop — platform pays its own endpoints and learns from every call</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Autonomous x402 Spend Loop — platform pays its own endpoints and learns from every call</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform's x402 seed wallet now actively participates in the agent economy on a 5-minute cron cycle. Every tick it selects up to 8 endpoints from a priority-ranked registry (oracle intel, sniper support, health checks, volume) and makes real USDC payments to each — recording every transaction to x402_autonomous_log with the full signal payload. Oracle-pipeline calls (crypto-intel for SOL/BTC/ETH/pump, $THREE signal feed) feed a new oracle_intel_signals table that the agent sniper reads directly: bullish macro signals lower the conviction threshold so the sniper fires more freely; bearish signals raise it. The loop also enforces a daily spend cap (default $5/day) and per-entry Redis cooldowns. This is the first time three.ws earns intelligence through payments and uses it to make better autonomous trading decisions.</description>
+		</item>
+		<item>
 			<title>Avatar Optimization Pipeline — nightly analysis of top avatars</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-27:Avatar Optimization Pipeline — nightly analysis of top avatars</guid>
@@ -231,6 +239,14 @@
 			<description>The platform now runs a continuous quality sweep across every public 3D avatar in the database. Every 5 minutes the autonomous agent picks the longest-unvalidated GLB, inspects it with the glTF-Transform engine, and records a 0-100 quality score covering rig completeness, geometry health, texture sizing, triangle budget, and unsupported extensions. Results are stored in a time-series table (model_quality_scores) that will power quality badges and curation tools — surfacing models that need attention before users encounter errors in the viewer. The sweep is driven by the x402 autonomous spend loop at $0.001 USDC per call.</description>
 		</item>
 		<item>
+			<title>MCP Tool Latency Monitor — live SLA health for every MCP tool</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:MCP Tool Latency Monitor — live SLA health for every MCP tool</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform now continuously watches the responsiveness of its MCP server — the interface AI agents use to render avatars, inspect models, read live market data, and more. Every 5 minutes an autonomous agent makes one real USDC payment to exercise the full paid path end-to-end, then sweeps every advertised tool and times the response each one returns to a caller. Rolling p50/p95/p99 latencies are recorded per tool, and any tool whose p95 exceeds 2 seconds raises an alert — so a slowdown is caught and surfaced on the internal ops dashboard before agents feel it.</description>
+		</item>
+		<item>
 			<title>Money Pulse now shows whether agent trading is viable</title>
 			<link>https://three.ws/pulse</link>
 			<guid isPermaLink="false">2026-06-27:Money Pulse now shows whether agent trading is viable</guid>
@@ -303,6 +319,14 @@
 			<description>Every agent and skill review is now permanently anchored on Solana via a platform-signed SPL-Memo attestation (threews.review.v1) the moment it's submitted. The review's rating and a SHA-256 hash of the text go on-chain — tamper-evident, publicly verifiable on Solscan. These attestations feed directly into the agent reputation score's on-chain identity pillar, so a well-reviewed agent earns higher trust points automatically. Users with MetaMask connected can also add a second, user-signed anchor on Base via the ERC-8004 ReputationRegistry for cross-chain provenance — a one-click &quot;Anchor on Base&quot; step appears after submitting a review. Both layers together make every review a real, verifiable act — not just a database row.</description>
 		</item>
 		<item>
+			<title>Scene Capture auto-processing — upload a video, get a 3D point cloud back</title>
+			<link>https://three.ws/capture</link>
+			<guid isPermaLink="false">2026-06-27:Scene Capture auto-processing — upload a video, get a 3D point cloud back</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Videos uploaded on /capture are now reconstructed into 3D point clouds automatically, with no waiting on the page. Each upload joins a processing queue that an autonomous agent drains on a 2-minute cadence: it pays a $0.01 USDC processing credit via x402, hands the video to the LingBot-Map GPU worker, then polls until the .ply point cloud is ready and stores the result on the job. When you come back, the finished cloud renders directly in the /capture viewer. Every run — submit, poll, success or failure — is recorded for full auditability, and the pipeline degrades cleanly when the GPU worker or wallet isn't configured.</description>
+		</item>
+		<item>
 			<title>Sign-in cooldown is now exact — and there's more headroom before it trips</title>
 			<link>https://three.ws/login</link>
 			<guid isPermaLink="false">2026-06-27:Sign-in cooldown is now exact — and there's more headroom before it trips</guid>
@@ -325,6 +349,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Two fixes to the front door. The 3D avatar on the sign-up page — and on roughly fifty other pages that show a preview model — now loads reliably the first time, instead of occasionally staying blank until you reloaded; a timing race meant the model viewer could start loading a compressed avatar before its decoder was ready. Separately, the sign-up username field again enforces its rules (3–30 characters; letters, numbers, underscore and hyphen) as you type in the latest Chrome, where a stricter pattern-matching mode had quietly switched that live validation off. No action needed — both are automatic.</description>
+		</item>
+		<item>
+			<title>SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>Every five minutes an autonomous agent makes one real paid call to the platform's MCP server in streaming (SSE) mode and reads the response back as a live stream instead of a single buffered blob. It measures how fast the first byte arrives, the gaps between chunks, the chunk count and total bytes, and confirms the on-chain payment actually settled — then classifies the stream as clean, stalled, or dropped. A hung server, a half-delivered response, or broken chunked encoding now trips immediately and pages ops, with the full streaming-integrity history stored (mcp_stream_health) for the status surface, instead of being discovered by a paying agent whose tool call never finished. It runs on the x402 autonomous spend loop using the platform's own wallet.</description>
 		</item>
 		<item>
 			<title>Status page goes monochrome — with a fleet summary and an embeddable status badge</title>

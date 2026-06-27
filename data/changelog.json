@@ -3,6 +3,31 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Autonomous x402 Spend Loop — platform pays its own endpoints and learns from every call",
+			"summary": "The platform's x402 seed wallet now actively participates in the agent economy on a 5-minute cron cycle. Every tick it selects up to 8 endpoints from a priority-ranked registry (oracle intel, sniper support, health checks, volume) and makes real USDC payments to each — recording every transaction to x402_autonomous_log with the full signal payload. Oracle-pipeline calls (crypto-intel for SOL/BTC/ETH/pump, $THREE signal feed) feed a new oracle_intel_signals table that the agent sniper reads directly: bullish macro signals lower the conviction threshold so the sniper fires more freely; bearish signals raise it. The loop also enforces a daily spend cap (default $5/day) and per-entry Redis cooldowns. This is the first time three.ws earns intelligence through payments and uses it to make better autonomous trading decisions.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-27",
+			"title": "MCP Tool Latency Monitor — live SLA health for every MCP tool",
+			"summary": "The platform now continuously watches the responsiveness of its MCP server — the interface AI agents use to render avatars, inspect models, read live market data, and more. Every 5 minutes an autonomous agent makes one real USDC payment to exercise the full paid path end-to-end, then sweeps every advertised tool and times the response each one returns to a caller. Rolling p50/p95/p99 latencies are recorded per tool, and any tool whose p95 exceeds 2 seconds raises an alert — so a slowdown is caught and surfaced on the internal ops dashboard before agents feel it.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-27",
+			"title": "SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly",
+			"summary": "Every five minutes an autonomous agent makes one real paid call to the platform's MCP server in streaming (SSE) mode and reads the response back as a live stream instead of a single buffered blob. It measures how fast the first byte arrives, the gaps between chunks, the chunk count and total bytes, and confirms the on-chain payment actually settled — then classifies the stream as clean, stalled, or dropped. A hung server, a half-delivered response, or broken chunked encoding now trips immediately and pages ops, with the full streaming-integrity history stored (mcp_stream_health) for the status surface, instead of being discovered by a paying agent whose tool call never finished. It runs on the x402 autonomous spend loop using the platform's own wallet.",
+			"tags": ["infra"]
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Scene Capture auto-processing — upload a video, get a 3D point cloud back",
+			"summary": "Videos uploaded on /capture are now reconstructed into 3D point clouds automatically, with no waiting on the page. Each upload joins a processing queue that an autonomous agent drains on a 2-minute cadence: it pays a $0.01 USDC processing credit via x402, hands the video to the LingBot-Map GPU worker, then polls until the .ply point cloud is ready and stores the result on the job. When you come back, the finished cloud renders directly in the /capture viewer. Every run — submit, poll, success or failure — is recorded for full auditability, and the pipeline degrades cleanly when the GPU worker or wallet isn't configured.",
+			"tags": ["feature", "infra"],
+			"link": "/capture"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Cross-Network Payment Circuit Breaker — hourly proof the payment stack is alive",
 			"summary": "Every hour an autonomous agent runs the cheapest possible end-to-end test of the platform's payment rails. It reads the live payment challenge from a $0.001 endpoint and confirms a valid settlement route is still advertised on all three supported networks — Solana, Base, and BSC — then makes one real $0.001 USDC payment on Solana to prove the full build → verify → settle → receipt path actually completes on-chain, not just that the route exists. The per-network result is stored (x402_circuit_breaker) and folded into the internal health dashboard, so the moment a facilitator route goes dark or settlement breaks, it trips and shows up immediately instead of being discovered by a failed user payment.",
 			"tags": ["infra"]

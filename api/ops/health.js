@@ -148,6 +148,11 @@ export default wrap(async (req, res) => {
 	// route or failed Solana settlement means the payment stack is degraded.
 	const circuitBreaker = await loadCircuitBreaker();
 
+	// Agent wallet balance — latest sample written every 10 min by the autonomous
+	// loop (api/_lib/x402/wallet-balance-monitor.js). A low/unconfigured wallet
+	// means autonomous calls are about to start failing on insufficient funds.
+	const walletBalance = await loadWalletBalance();
+
 	// Categorize probe results
 	const byCategory = {};
 	for (const r of probeResults) {
@@ -161,7 +166,10 @@ export default wrap(async (req, res) => {
 	// don't fail health on a feature that hasn't booted. Only a present-and-degraded
 	// breaker folds into the verdict.
 	const breakerOk = circuitBreaker.ok !== false;
-	const overallOk = allProbesOk && allCronsOk && breakerOk;
+	// A low or unconfigured wallet degrades health (autonomous spend will fail);
+	// a never-run monitor (ok:null) is unknown, not failing.
+	const walletOk = walletBalance.ok !== false;
+	const overallOk = allProbesOk && allCronsOk && breakerOk && walletOk;
 
 	const failingProbes = probeResults.filter((r) => !r.ok);
 	const failingCrons = heartbeats.filter((h) => h.stale || h.ok === false);
@@ -181,8 +189,52 @@ export default wrap(async (req, res) => {
 		probes: byCategory,
 		crons: heartbeats,
 		circuitBreaker,
+		walletBalance,
 	});
 });
+
+// Read the latest agent-wallet balance sample written every 10 min by the
+// autonomous loop (api/_lib/x402/wallet-balance-monitor.js). A sample older than
+// the staleness window means the monitor stopped writing; ok:null when it has
+// never run (table absent / no rows) so health doesn't fail on a cold feature.
+const WALLET_STALE_AFTER_MS = 30 * 60 * 1000; // 30m (10-min cadence + slack)
+
+async function loadWalletBalance() {
+	try {
+		const [row] = await sql`
+			SELECT address, configured, usdc, sol, low_balance, threshold_usdc,
+			       usdc_delta, spend_rate_usdc_hr,
+			       extract(epoch FROM ts) * 1000 AS checked_at_ms
+			FROM agent_wallet_balance_log
+			ORDER BY ts DESC
+			LIMIT 1
+		`;
+		if (!row) return { ok: null, reason: 'no_data' };
+		const checkedAt = row.checked_at_ms ? Number(row.checked_at_ms) : null;
+		const stale = checkedAt === null || Date.now() - checkedAt > WALLET_STALE_AFTER_MS;
+		// Degraded when the wallet is below threshold or unconfigured. A stale
+		// sample is unknown (monitor stopped), not a balance failure → ok:null.
+		const ok = stale ? null : !(row.low_balance || row.configured === false);
+		return {
+			ok,
+			configured: row.configured,
+			address: row.address,
+			usdc: row.usdc != null ? Number(row.usdc) : null,
+			sol: row.sol != null ? Number(row.sol) : null,
+			lowBalance: row.low_balance,
+			thresholdUsdc: row.threshold_usdc != null ? Number(row.threshold_usdc) : null,
+			usdcDelta: row.usdc_delta != null ? Number(row.usdc_delta) : null,
+			spendRateUsdcHr: row.spend_rate_usdc_hr != null ? Number(row.spend_rate_usdc_hr) : null,
+			lastChecked: checkedAt,
+			stale,
+		};
+	} catch (err) {
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent' };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}` };
+	}
+}
 
 // Read the latest per-network circuit-breaker snapshot. The hourly breaker
 // upserts one row per network into x402_circuit_breaker; a row older than the

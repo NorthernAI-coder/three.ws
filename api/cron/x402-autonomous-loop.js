@@ -329,10 +329,16 @@ export default wrapCron(async (req, res) => {
 				tx: txSig,
 				...(outcome.note ? { note: outcome.note } : {}),
 			});
-			await recordLog(runId, entry, {
-				amountAtomic, txSig, responseData: responseBody,
-				durationMs: Date.now() - t0, success, errorMsg, signalData,
-			});
+			// A pipeline that records its own granular per-call rows (one per
+			// resource it fanned across) sets outcome.recorded so the loop does not
+			// add a duplicate summary row. Entries that don't self-record still get
+			// the single canonical row here.
+			if (!outcome.recorded) {
+				await recordLog(runId, entry, {
+					amountAtomic, txSig, responseData: responseBody,
+					durationMs: Date.now() - t0, success, errorMsg, signalData,
+				});
+			}
 			continue;
 		}
 

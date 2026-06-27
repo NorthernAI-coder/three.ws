@@ -34,12 +34,20 @@
 //                    discovery warmup sweeping 15 categories per run).
 
 import { run as bazaarDiscoveryWarmup } from './pipelines/bazaar-warmup.js';
+import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
+import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
+import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
+import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
+import { classifyThreeSignal, insertThreeSignal } from './three-signal-store.js';
 import { run as cosmeticPricingAudit } from './pipelines/cosmetic-pricing-audit.js';
 import { run as modelMetadataEnrichment } from './pipelines/model-metadata-enrichment.js';
 import { run as forgeContentGeneration } from './pipelines/forge-content.js';
 import { run as runAnimationRetargetQa, hasCanaryClips as hasAnimationQaCanaries } from './pipelines/animation-retarget-qa.js';
 import { runCircuitBreaker } from './circuit-breaker.js';
+import { run as runGlbSizeOptimizer } from './glb-size-optimizer.js';
+import { run as walletBalanceMonitor } from './wallet-balance-monitor.js';
+import { run as revenueReconciliation } from './revenue-reconciliation.js';
 import { mcpLatencySweep } from './mcp-latency-sweep.js';
 import { runStreamingMcpHealth } from './pipelines/streaming-mcp-health.js';
 import { publicUrl } from '../r2.js';
@@ -178,6 +186,34 @@ async function nextCanonicalTarget(ctx) {
 }
 
 const SELF_ENDPOINTS = [
+	// ── 3D Pipeline: GLB Size Optimizer (USE-018) ─────────────────────────────
+	// Picks the heaviest public avatar GLB over the 5 MB web-delivery budget that
+	// has not been analyzed in the last 14 days, then pays one real x402 call to
+	// /api/mcp (optimize_model) to inspect it and surface Draco/Meshopt geometry
+	// compression, 4K→2K texture downscaling, and PNG→KTX2 transcoding. run()
+	// projects the post-optimization size from the model's measured stats and
+	// persists original + projected-optimized bytes and load-time improvement to
+	// glb_optimizations (+ a detailed x402_autonomous_log row with value_extracted).
+	// 6h pacing sweeps the heavy backlog one model per run, biggest/stalest first,
+	// well under the daily cap. Downstream consumer: GET /api/x402/glb-optimization
+	// -report aggregates the catalog-wide average size + load-time improvement and
+	// the remaining heavy-GLB backlog.
+	{
+		id: 'glb-size-optimizer',
+		name: 'GLB Size Optimizer (>5MB catalog sweep)',
+		// path is informational — runGlbSizeOptimizer() selects the target GLB and
+		// pays the optimize_model call against /api/mcp itself. Real price is read
+		// from the live 402 challenge (optimize_model is $0.05/call).
+		path: '/api/mcp',
+		method: 'POST',
+		cooldown_s: 21_600, // 6h — gradual catalog sweep, one heavy model per run
+		priority: 37,
+		pipeline: 'self',
+		enabled: true,
+		run: runGlbSizeOptimizer,
+		extractSignal: null,
+	},
+
 	// ── Circuit Breaker (cheapest end-to-end proof the payment stack is alive) ─
 	{
 		id: 'circuit-breaker-cross-network',
@@ -192,6 +228,29 @@ const SELF_ENDPOINTS = [
 		pipeline: 'circuit-breaker',
 		enabled: true,
 		run: runCircuitBreaker,
+		extractSignal: null,
+	},
+
+	// ── Agent Wallet Balance Monitor (self) ───────────────────────────────────
+	// Polls the seed/agent wallet balance (the wallet that funds every other
+	// autonomous call) via the free GET /api/x402-pay?balance=1 every 10 minutes.
+	// run() records a time-series sample to agent_wallet_balance_log, derives the
+	// USDC burn rate vs the previous sample, and raises a low-balance alert (USDC
+	// < $5, env-tunable) to Redis + the logs so operators can top up before the
+	// loop is starved. Free read → moves no funds (amountAtomic always 0).
+	// Downstream consumer: api/ops/health.js folds a low/unconfigured wallet into
+	// the internal health verdict so the status dashboard flags it early.
+	{
+		id: 'agent-wallet-balance-monitor',
+		name: 'Agent Wallet Balance Monitor',
+		// path is informational — walletBalanceMonitor() owns the free GET call.
+		path: '/api/x402-pay?balance=1',
+		method: 'GET',
+		cooldown_s: 600, // every 10 minutes
+		priority: 92, // high: a starved wallet breaks every other pipeline
+		pipeline: 'health',
+		enabled: true,
+		run: walletBalanceMonitor,
 		extractSignal: null,
 	},
 
@@ -271,16 +330,32 @@ const SELF_ENDPOINTS = [
 		extractSignal: (r) => ({ topic: r?.topic, signal: r?.signal, headline: r?.headline, confidence: r?.confidence }),
 	},
 	{
+		// ── $THREE Signal Feed (USE: $THREE market oracle) ─────────────
+		// Pays $0.01 USDC every 15 min to /api/x402/three-intel for the live $THREE
+		// market snapshot (price, 24 h change, mcap, liquidity, volume, signal). As an
+		// `oracle` entry the latest snapshot also dedups into oracle_intel_signals
+		// (topic 'three') for the sniper gate; storeValue appends every snapshot to the
+		// three_market_signals time series. Downstream consumers of that series:
+		//   • the public $THREE price widget — GET /api/three-signal (latest + sparkline)
+		//   • $THREE-denominated x402 pricing — usdToThreeTokens() reads the latest price
 		id: 'three-intel',
 		name: '$THREE Signal Feed',
 		path: '/api/x402/three-intel',
-		method: 'POST',
-		body: {},
-		cooldown_s: 900,
+		method: 'GET', // three-intel is a GET endpoint (query input, no request body)
+		body: null,
+		cooldown_s: 900, // 15 min
 		priority: 99,
 		pipeline: 'oracle',
 		enabled: true,
-		extractSignal: (r) => ({ signal: r?.signal, headline: r?.headline, confidence: r?.confidence, price_usd: r?.price_usd }),
+		// classifyThreeSignal carries the full market shape into signal_data so the
+		// oracle dedup + the autonomous-log row both hold the complete snapshot.
+		extractSignal: (r) => ({ topic: 'three', ...classifyThreeSignal(r) }),
+		storeValue: async ({ sql, responseBody, signalData, runId }) => {
+			if (!sql) return;
+			const v = classifyThreeSignal(responseBody || signalData);
+			if (v.price_usd == null) return; // never persist an empty/failed snapshot
+			await insertThreeSignal(sql, v, { runId, source: 'x402-autonomous' });
+		},
 	},
 	{
 		id: 'fact-check-sol',
@@ -598,41 +673,33 @@ const SELF_ENDPOINTS = [
 		extractSignal: (r) => ({ alive: !!r }),
 	},
 
-	// ── 3D Pipeline QA ─────────────────────────────────────────────────────────
-	// Animation Retargeting QA: pays $0.005 USDC to download a canary animation
-	// clip through the full paid-delivery path (402 paywall → R2 presign → GLB).
-	// That delivery path ships clips produced by the retarget/canonicalize
-	// pipeline (src/glb-canonicalize.js, src/animation-retarget.js), so a
-	// regression that yields a missing, zero-byte, or non-GLB artifact surfaces
-	// here as pass:false. The verdict is stored to x402_autonomous_log.signal_data
-	// (queryable QA history); world-health / uptime dashboards consume it.
-	// Gated on X402_ANIMATION_QA_CLIP_ID — disabled (no spend) until a canary
-	// clip is designated. Cooldown 6h → ≤4 paid probes/day ≈ $0.02/day.
+	// ── Animation Retargeting QA (USE-012) ──────────────────────────────────────
+	// Pays $0.005 USDC to download a representative set of canary animation clips
+	// (one per rig convention — Mixamo, VRM, Avaturn, Daz) through the real
+	// paid-delivery path (402 paywall → R2 presign → animated GLB), then fetches
+	// each presigned GLB and inspects the actual bytes with inspectGlb(): the file
+	// must be a valid, non-zero binary glTF whose animation track survived. An
+	// empty/truncated/non-GLB artifact, or one whose animation channels vanished —
+	// the regression a glb-canonicalize.js / animation-retarget.js break produces —
+	// flips the verdict to passed:false. run() owns the per-clip pay/fetch/inspect
+	// and per-clip recording; the loop records one summary row (verdict in
+	// signal_data), and run() upserts each verdict into animation_qa_results keyed
+	// by clip_id (the sink the animation marketplace + retarget-regression alerting
+	// read). Gated on X402_ANIMATION_QA_CLIP_IDS / X402_ANIMATION_QA_CLIP_ID —
+	// disabled (no spend) until canary clips are designated. Cooldown 6h → at
+	// $0.005 per clip, a 4-rig sweep ≈ $0.08/day.
 	{
 		id: 'anim-retarget-qa',
 		name: 'Animation Retargeting QA',
-		path: `/api/x402/animation-download?id=${ANIM_QA_CLIP_ID}`,
+		// path is informational — runAnimationRetargetQa() probes + settles each clip.
+		path: '/api/x402/animation-download',
 		method: 'GET',
 		body: null,
 		cooldown_s: 21600,
 		priority: 45,
 		pipeline: 'qa',
-		enabled: Boolean(ANIM_QA_CLIP_ID),
-		extractSignal: (r) => {
-			const sizeBytes = Number(r?.sizeBytes ?? 0);
-			const mime = String(r?.mimeType || '');
-			const hasDownload = !!r?.downloadUrl;
-			const isGlb = /gltf-binary|\bglb\b/i.test(mime);
-			return {
-				clip: r?.slug || r?.id || null,
-				name: r?.name || null,
-				size_bytes: sizeBytes,
-				mime,
-				has_download: hasDownload,
-				// All three must hold for the delivery path to be regression-free.
-				pass: r?.ok === true && hasDownload && sizeBytes > 0 && isGlb,
-			};
-		},
+		enabled: hasAnimationQaCanaries(),
+		run: (ctx) => runAnimationRetargetQa(ctx),
 	},
 	// GLB Canonicalization: pays $0.001 USDC to run a rig-reference avatar
 	// through /api/x402/model-check, validating that its skeleton still inspects
@@ -731,6 +798,31 @@ const SELF_ENDPOINTS = [
 		pipeline: 'discovery',
 		enabled: true,
 		run: (ctx) => bazaarDiscoveryWarmup(ctx),
+	},
+
+	// ── Agent Reputation Score Refresh (USE-005) ───────────────────────────────
+	// Refreshes the on-chain attestation reputation of the stalest registered
+	// Solana agents by paying the /api/mcp tool solana_agent_reputation
+	// ($0.001/call) for each. run() owns the full per-agent sweep and per-call
+	// recording; the loop records one summary row. Cooldown 21600s (6h) →
+	// ≤25 agents/run ≈ $0.025/run, bounded again by the loop's daily cap; stalest
+	// agents sort first so coverage rotates. Value sink: agent_solana_reputation
+	// (per-agent score + flag) — read by the agent-profile trust badge, the
+	// reputation leaderboard, and the moderation flagged feed (see
+	// getStoredSolanaReputation / listSolanaReputationLeaderboard /
+	// listFlaggedSolanaAgents in pipelines/reputation-refresh.js).
+	{
+		id: 'reputation-score-refresh',
+		name: 'Agent Reputation Score Refresh',
+		// path is informational — run() fans the call across registered agents.
+		path: '/api/mcp',
+		method: 'POST',
+		body: null,
+		cooldown_s: 21600,
+		priority: 45,
+		pipeline: 'self',
+		enabled: true,
+		run: (ctx) => reputationRefresh(ctx),
 	},
 
 	// ── Volume Bootstrap Loop (USE-026) ────────────────────────────────────────
@@ -861,6 +953,34 @@ const SELF_ENDPOINTS = [
 		pipeline: 'commerce',
 		enabled: true,
 		run: (ctx) => cosmeticPricingAudit(ctx),
+	},
+	// ── Payment Revenue Reconciliation (USE-027, Finance) ─────────────────────
+	// Daily financial-integrity sweep. Probes the free /api/x402-status endpoint to
+	// confirm payment wiring is live, then cross-checks every settlement our books
+	// claim (outbound x402_autonomous_log paid rows + inbound agent_payment_intents)
+	// against the actual on-chain transaction via getSignatureStatuses. Flags any
+	// row where the DB says settled but no tx exists on-chain, the tx reverted, or
+	// no signature was kept. run()-style entry — owns the full probe → load → verify
+	// → upsert sequence (revenue-reconciliation.js); read-only, so it runs even when
+	// the spend wallet is absent. Per-record verdicts land in payment_reconciliation;
+	// a summary (value_extracted = discrepancy counts) goes to x402_autonomous_log.
+	// Cooldown 86400 s (daily). Downstream consumer: the financial-integrity surface
+	// reads payment_reconciliation WHERE NOT reconciled to alert ops on unsettled or
+	// failed payments before they corrupt revenue accounting.
+	{
+		id: 'revenue-reconciliation',
+		name: 'Payment Revenue Reconciliation',
+		path: '/api/x402-status',
+		endpoint: '/api/x402-status',
+		method: 'GET',
+		body: null,
+		price_atomic: 0, // /api/x402-status is free; reconciliation owes no payment
+		cooldown_s: 86400,
+		cooldown_seconds: 86400,
+		priority: 28,
+		pipeline: 'reconciliation',
+		enabled: true,
+		run: (ctx) => revenueReconciliation(ctx),
 	},
 ];
 
