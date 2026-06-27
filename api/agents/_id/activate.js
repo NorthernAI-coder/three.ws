@@ -14,10 +14,9 @@ import {
 	extractBearer,
 	hasScope,
 } from '../../_lib/auth.js';
-import { cors, json, method, error } from '../../_lib/http.js';
+import { cors, json, method, error, rateLimited } from '../../_lib/http.js';
 import { requireCsrf } from '../../_lib/csrf.js';
 import { limits, clientIp } from '../../_lib/rate-limit.js';
-import { rateLimited } from '../../_lib/http.js';
 import { activateAgent, getActivationStatus } from '../../_lib/agent-activation.js';
 
 async function resolveAuth(req) {
