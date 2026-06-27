@@ -67,21 +67,29 @@ async function main() {
 		console.warn(`\ncould not record log row: ${err?.message}`);
 	}
 
-	const queue = await sql`
-		SELECT id, status, job_id, result_url, num_points, frames, tx_signature, amount_atomic, error_msg, updated_at
-		  FROM scene_capture_queue ORDER BY updated_at DESC LIMIT 5
-	`.catch((e) => { console.warn('queue read failed:', e?.message); return []; });
-	console.log('\nscene_capture_queue (latest 5):');
-	console.table(queue);
+	try {
+		const queue = await sql`
+			SELECT id, status, job_id, result_url, num_points, frames, tx_signature, amount_atomic, error_msg, updated_at
+			  FROM scene_capture_queue ORDER BY updated_at DESC LIMIT 5
+		`;
+		console.log('\nscene_capture_queue (latest 5):');
+		console.table(queue);
+	} catch (err) {
+		console.warn('\nqueue read failed:', err?.message);
+	}
 
-	const logRows = await sql`
-		SELECT service_name, amount_atomic, tx_signature, success, error_msg, signal_data, ts
-		  FROM x402_autonomous_log
-		 WHERE service_name = 'Scene Capture Video Queue Processor'
-		 ORDER BY ts DESC LIMIT 3
-	`.catch(() => []);
-	console.log('\nx402_autonomous_log (latest 3 for this pipeline):');
-	console.dir(logRows, { depth: 6 });
+	try {
+		const logRows = await sql`
+			SELECT service_name, amount_atomic, tx_signature, success, error_msg, signal_data, ts
+			  FROM x402_autonomous_log
+			 WHERE service_name = 'Scene Capture Video Queue Processor'
+			 ORDER BY ts DESC LIMIT 3
+		`;
+		console.log('\nx402_autonomous_log (latest 3 for this pipeline):');
+		console.dir(logRows, { depth: 6 });
+	} catch (err) {
+		console.warn('\nlog read failed:', err?.message);
+	}
 }
 
 main().then(() => process.exit(0)).catch((err) => {

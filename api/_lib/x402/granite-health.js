@@ -26,8 +26,16 @@
 
 import { sql } from '../db.js';
 import { logger } from '../usage.js';
+import { payX402, bootstrapSolanaContext } from './pay.js';
 
 const log = logger('granite-health');
+
+// One paid batch covers all five tools; this is the advertised sum the IBM MCP
+// server charges (chat 0.02 + code 0.025 + embed 0.005 + analyze 0.04 +
+// forecast 0.05 = 0.14 USDC). The real amount paid still comes from the live 402
+// challenge — this is the budgeting/expectation value the registry advertises.
+export const GRANITE_HEALTH_PRICE_ATOMIC = 140_000;
+export const GRANITE_HEALTH_ENDPOINT = '/api/ibm-mcp';
 
 export const GRANITE_SERVER = 'ibm-x402-mcp';
 
@@ -120,6 +128,96 @@ function graniteHealthMessage(toolName) {
 
 // The full batch body the autonomous-loop entry sends as its `body`. Built once.
 export const GRANITE_HEALTH_BATCH = GRANITE_HEALTH_TOOLS.map(graniteHealthMessage);
+
+/**
+ * Run the IBM Granite inference health check: pay ONE real x402 batch call to
+ * /api/ibm-mcp exercising all five Granite tools, summarise the response, and
+ * persist the verdict to granite_inference_health.
+ *
+ * Wired as the `granite-inference-health` registry entry's run(). The autonomous
+ * loop hands it { origin, buyer, conn, blockhash, mintInfo, redis, sql, log,
+ * runId, remainingCap } and records the returned aggregate to x402_autonomous_log.
+ * Also directly invocable for manual testing: with no Solana context in ctx it
+ * bootstraps its own (loads the seed keypair, fetches a blockhash + mint).
+ *
+ * Never throws — every failure mode (wallet unconfigured, network timeout, 402
+ * rejection, DB error) is caught and returned as a structured, recorded outcome
+ * so the loop tick cannot crash.
+ *
+ * @param {object} [ctx] loop run() ctx (all fields optional for standalone use)
+ * @returns {Promise<object>} { success, skipped, amountAtomic, txSig, errorMsg,
+ *                              responseData, signalData, note }
+ */
+export async function runGraniteHealth(ctx = {}) {
+	const ctxLog = ctx.log || log;
+	const origin = ctx.origin || 'https://three.ws';
+	const url = `${origin}${GRANITE_HEALTH_ENDPOINT}`;
+	const dbClient = ctx.sql || sql;
+
+	// Resolve the Solana payment context — reuse the loop's shared one, or
+	// bootstrap a fresh context for a standalone/manual call. A missing seed
+	// keypair surfaces here as a graceful skip (never a thrown tick).
+	let { buyer, conn, blockhash, mintInfo } = ctx;
+	if (!buyer || !conn || !blockhash || !mintInfo) {
+		try {
+			const boot = await bootstrapSolanaContext({ buyer });
+			({ buyer, conn, blockhash, mintInfo } = boot);
+		} catch (err) {
+			ctxLog.warn('granite_health_wallet_unconfigured', { message: err?.message });
+			return {
+				success: false, skipped: true, amountAtomic: 0, txSig: null,
+				errorMsg: err?.message || 'wallet_unconfigured',
+				note: 'granite-health skipped: payer wallet not configured',
+			};
+		}
+	}
+
+	const t0 = Date.now();
+	let pay;
+	try {
+		pay = await payX402({
+			url, method: 'POST', body: GRANITE_HEALTH_BATCH,
+			buyer, conn, blockhash, mintInfo,
+			remainingCap: ctx.remainingCap ?? Infinity,
+		});
+	} catch (err) {
+		// Network timeout / RPC failure / transport error.
+		ctxLog.warn('granite_health_call_failed', { message: err?.message });
+		return {
+			success: false, skipped: false, amountAtomic: 0, txSig: null,
+			errorMsg: err?.message || 'granite_call_failed',
+			note: 'granite-health call failed before settlement',
+		};
+	}
+	const durationMs = Date.now() - t0;
+
+	const summary = summarizeGraniteHealth(pay.responseBody);
+
+	// Extract + store value only when the call actually settled (or was free).
+	if (pay.success) {
+		try {
+			await storeGraniteHealth({
+				sql: dbClient, responseBody: pay.responseBody,
+				signalData: summary, runId: ctx.runId, durationMs,
+			});
+		} catch (err) {
+			// DB failure must not fail the paid call — it already succeeded on-chain.
+			ctxLog.warn('granite_health_store_failed', { message: err?.message });
+		}
+	}
+
+	const degraded = pay.success && summary.tools_failed > 0;
+	return {
+		success: pay.success,
+		skipped: pay.skipped || false,
+		amountAtomic: pay.success ? pay.amountAtomic : 0,
+		txSig: pay.txSig || null,
+		errorMsg: pay.errorMsg || (degraded ? `granite_tools_failed:${summary.tools_failed}` : null),
+		responseData: { granite_health: summary, http_status: pay.status },
+		signalData: summary,
+		note: `granite ${summary.tools_ok}/${summary.tools_total} ok · ${summary.total_tokens} tok · ${durationMs}ms`,
+	};
+}
 
 // Token usage is OpenAI-shaped on watsonx chat (prompt_tokens/completion_tokens/
 // total_tokens). Read defensively in case a model returns the older

@@ -45,7 +45,7 @@ import { sql } from '../../db.js';
 import { env } from '../../env.js';
 import { solanaConnection } from '../../solana/connection.js';
 import { logger } from '../../usage.js';
-import { buildCatalog, getCosmetic, priceUsdcAtomicsOf, priceOf } from '../../cosmetics.js';
+import { buildCatalog } from '../../cosmetics.js';
 import { normalizeAccountId } from '../../cosmetics-ownership.js';
 import {
 	loadSeedKeypair,

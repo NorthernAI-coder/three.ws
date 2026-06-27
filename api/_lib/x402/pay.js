@@ -139,6 +139,7 @@ export async function payX402({
 	buyer, conn, blockhash, mintInfo,
 	remainingCap = Infinity,
 	userAgent = 'threews-x402-autonomous/1.0',
+	nonce = 0,
 }) {
 	const reqInit = {
 		method,
@@ -185,6 +186,7 @@ export async function payX402({
 	const txBase64 = buildPaymentTx({
 		accept, buyer, blockhash, mintInfo,
 		receiverAtaExists: receiverAtaInfo !== null,
+		nonce,
 	});
 	const xPayment = Buffer.from(JSON.stringify({
 		x402Version: 2,

@@ -222,7 +222,7 @@ export async function mcpLatencySweep(ctx = {}) {
 		const rows = await sql`
 			SELECT tool_name, sample_ms
 			FROM x402_perf_log
-			WHERE ts > now() - (${WINDOW_HOURS} || ' hours')::interval
+			WHERE ts > now() - make_interval(hours => ${WINDOW_HOURS})
 		`;
 		for (const r of rows) {
 			const arr = history.get(r.tool_name) || [];
@@ -297,13 +297,14 @@ export async function mcpLatencySweep(ctx = {}) {
  */
 export async function readPerfHealth({ windowHours = WINDOW_HOURS } = {}) {
 	await ensurePerfSchema();
+	const hours = Math.max(1, Math.floor(Number(windowHours) || WINDOW_HOURS));
 	// Latest row per tool (most recent percentile snapshot).
 	const rows = await sql`
 		SELECT DISTINCT ON (tool_name)
 			tool_name, ts, sample_ms, observed_status, priced,
 			p50_ms, p95_ms, p99_ms, sample_count, sla_breach, error
 		FROM x402_perf_log
-		WHERE ts > now() - (${windowHours} || ' hours')::interval
+		WHERE ts > now() - make_interval(hours => ${hours})
 		ORDER BY tool_name, ts DESC
 	`;
 	const tools = rows.map((r) => ({
@@ -324,7 +325,7 @@ export async function readPerfHealth({ windowHours = WINDOW_HOURS } = {}) {
 		ok: true,
 		healthy: breaches.length === 0,
 		sla_p95_ms: PERF_SLA_P95_MS,
-		window_hours: windowHours,
+		window_hours: hours,
 		tool_count: tools.length,
 		breach_count: breaches.length,
 		breaches: breaches.map((b) => ({ tool: b.tool, p95_ms: b.p95_ms, samples: b.samples })),
