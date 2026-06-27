@@ -62,7 +62,12 @@
 				</div>
 			</section>
 
-			<dl class="px-counters">
+			<dl class="px-counters" id="px-counters">
+				<div class="px-counter px-counter--lead">
+					<dt>Volume · 24h</dt>
+					<dd id="px-c-vol">—</dd>
+					<span class="px-counter-sub" id="px-c-vol-sub">on-chain flow</span>
+				</div>
 				<div class="px-counter">
 					<dt>Tips · 24h</dt>
 					<dd id="px-c-tips">—</dd>
@@ -74,11 +79,29 @@
 					<span class="px-counter-sub">coins minted</span>
 				</div>
 				<div class="px-counter">
-					<dt>Trades &amp; pays · 24h</dt>
+					<dt>Trades · 24h</dt>
 					<dd id="px-c-trades">—</dd>
-					<span class="px-counter-sub">wallet moves</span>
+					<span class="px-counter-sub" id="px-c-trades-sub">swaps</span>
+				</div>
+				<div class="px-counter">
+					<dt>Payments · 24h</dt>
+					<dd id="px-c-pays">—</dd>
+					<span class="px-counter-sub">agent → agent</span>
+				</div>
+				<div class="px-counter">
+					<dt>Active wallets · 24h</dt>
+					<dd id="px-c-active">—</dd>
+					<span class="px-counter-sub">agents moving</span>
 				</div>
 			</dl>
+
+			<section class="px-spark" aria-label="Platform activity, last 7 days">
+				<div class="px-spark-h">
+					<span class="px-spark-title">Last 7 days</span>
+					<span class="px-spark-total" id="px-spark-total">—</span>
+				</div>
+				<div class="px-spark-bars" id="px-spark-bars" role="img" aria-label="Daily activity, last 7 days"></div>
+			</section>
 
 			<div class="px-grid">
 				<div class="px-main">
@@ -86,6 +109,10 @@
 					<div id="px-feed"></div>
 				</div>
 				<aside class="px-rail" aria-label="Money intelligence">
+					<section class="px-card px-card--hl" id="px-bigtip-card" hidden>
+						<div class="px-card-h">Biggest tip <small>24h</small></div>
+						<div id="px-bigtip"></div>
+					</section>
 					<section class="px-card">
 						<div class="px-card-h">Top earners <small>tips · 7d</small></div>
 						<div id="px-earners"><p class="px-lb-empty">Loading…</p></div>
@@ -94,8 +121,12 @@
 						<div class="px-card-h">Busiest wallets <small>events · 24h</small></div>
 						<div id="px-busiest"><p class="px-lb-empty">Loading…</p></div>
 					</section>
+					<section class="px-card">
+						<div class="px-card-h">Fresh launches <small>newest coins</small></div>
+						<div id="px-launches"><p class="px-lb-empty">Loading…</p></div>
+					</section>
 					<div id="px-stats"></div>
-					<p class="px-sub" style="font-size:var(--text-2xs,.68rem);text-align:left;margin:0;color:var(--ink-faint,#666)">
+					<p class="px-sub px-fineprint">
 						Network: <strong id="px-net-label">mainnet</strong>. Private withdrawals and custody events are never shown — only already-public activity.
 					</p>
 				</aside>

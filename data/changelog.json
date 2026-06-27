@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Money Pulse redesign — monochrome, with far more live data",
+			"summary": "The live activity page at /pulse got a full pass. It's now proper monochrome to match the rest of the site — the violet accent and green/amber feed colors give way to a single clean ink ramp. And it carries a lot more real signal: 24h on-chain volume (SOL + USD), distinct active wallets, and split counters for trades, snipes, and agent-to-agent payments, plus a 7-day activity sparkline, the day's single biggest tip, and a fresh-launches feed alongside the existing top-earners and busiest-wallets boards. Every number is a real on-chain or launch record — never synthetic.",
+			"tags": ["improvement", "feature"],
+			"link": "/pulse"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Hardened Redis credentials against dashboard paste errors",
 			"summary": "A trailing newline or stray space on the Upstash Redis token — the kind that creeps in when pasting into a dashboard — was being sent verbatim in the auth header and rejected as WRONGPASS, while the URL still resolved. The result was thousands of failures an hour: paid endpoints denying, the payments feed not loading, usage telemetry and caches going dark. Redis credentials are now trimmed at the source (matching how wallet addresses, RPC URLs, and certificates are already sanitized), so a single stray character can never silently take the limiter, feed, and caches offline.",
 			"tags": ["fix", "infra"]

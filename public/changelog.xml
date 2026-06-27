@@ -23,6 +23,14 @@
 			<description>Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.</description>
 		</item>
 		<item>
+			<title>On-chain Deployments</title>
+			<link>https://three.ws/deployments</link>
+			<guid isPermaLink="false">2026-06-27:On-chain Deployments</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live, cross-chain feed of every agent registered on the ERC-8004 Identity Registry — the moment each registration lands on-chain. Real on-chain registrations only, with chain footprint, 3D-avatar and x402 capability stats.</description>
+		</item>
+		<item>
 			<title>Partner Ecosystem</title>
 			<link>https://three.ws/partners</link>
 			<guid isPermaLink="false">2026-06-27:Partner Ecosystem</guid>
@@ -93,6 +101,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.</description>
+		</item>
+		<item>
+			<title>Money Pulse redesign — monochrome, with far more live data</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-06-27:Money Pulse redesign — monochrome, with far more live data</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The live activity page at /pulse got a full pass. It's now proper monochrome to match the rest of the site — the violet accent and green/amber feed colors give way to a single clean ink ramp. And it carries a lot more real signal: 24h on-chain volume (SOL + USD), distinct active wallets, and split counters for trades, snipes, and agent-to-agent payments, plus a 7-day activity sparkline, the day's single biggest tip, and a fresh-launches feed alongside the existing top-earners and busiest-wallets boards. Every number is a real on-chain or launch record — never synthetic.</description>
 		</item>
 		<item>
 			<title>Partner ecosystem page</title>

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>On-chain Deployments · three.ws</title>
+		<meta
+			name="description"
+			content="A live feed of every agent registered on the ERC-8004 Identity Registry, the moment it lands on-chain — across every supported chain. Real on-chain registrations only."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/deployments" />
+		<meta property="og:title" content="On-chain Deployments · three.ws" />
+		<meta
+			property="og:description"
+			content="A live, cross-chain stream of every agent registered on the ERC-8004 Identity Registry — the moment each registration lands on-chain."
+		/>
+		<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=On-chain+Deployments&amp;d=A+live%2C+cross-chain+feed+of+every+agent+registered+on+the+ERC-8004+Identity+Registry+%E2%80%94+the+moment+each+registration+lands+on-chain.&amp;p=%2Fdeployments" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="On-chain Deployments · three.ws" />
+		<meta
+			name="twitter:description"
+			content="A live, cross-chain stream of every agent registered on the ERC-8004 Identity Registry — the moment it lands on-chain."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=On-chain+Deployments&amp;d=A+live%2C+cross-chain+feed+of+every+agent+registered+on+the+ERC-8004+Identity+Registry+%E2%80%94+the+moment+each+registration+lands+on-chain.&amp;p=%2Fdeployments" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/deployments.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<link rel="canonical" href="https://three.ws/deployments" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"On-chain Deployments","description":"A live, cross-chain feed of every agent registered on the ERC-8004 Identity Registry.","url":"https://three.ws/deployments","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<meta property="og:locale" content="en_US" />
+		<meta property="og:image:alt" content="On-chain Deployments — three.ws" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="dp-shell">
+			<section class="dp-hero">
+				<p class="dp-kicker"><span class="dp-live-dot" aria-hidden="true"></span> Live on-chain registry</p>
+				<h1 class="dp-title">On-chain <em>Deployments</em></h1>
+				<p class="dp-sub">
+					Every agent registered on the <strong>ERC-8004 Identity Registry</strong> — the moment it lands on-chain,
+					across every supported chain. Real registrations only, crawled straight from chain logs.
+				</p>
+				<div class="dp-net" role="tablist" aria-label="Network">
+					<button type="button" class="dp-net-btn active" data-network="mainnet" role="tab" aria-selected="true">Mainnet</button>
+					<button type="button" class="dp-net-btn" data-network="testnet" role="tab" aria-selected="false">Testnet</button>
+				</div>
+			</section>
+
+			<dl class="dp-counters" id="dp-counters">
+				<div class="dp-counter dp-counter--lead">
+					<dt>Agents registered</dt>
+					<dd id="dp-c-total">—</dd>
+					<span class="dp-counter-sub">on-chain identities</span>
+				</div>
+				<div class="dp-counter">
+					<dt>Chains live</dt>
+					<dd id="dp-c-chains">—</dd>
+					<span class="dp-counter-sub">with registrations</span>
+				</div>
+				<div class="dp-counter">
+					<dt>Deployed · 24h</dt>
+					<dd id="dp-c-d24">—</dd>
+					<span class="dp-counter-sub">new registrations</span>
+				</div>
+				<div class="dp-counter">
+					<dt>Deployed · 7d</dt>
+					<dd id="dp-c-d7">—</dd>
+					<span class="dp-counter-sub">new registrations</span>
+				</div>
+				<div class="dp-counter">
+					<dt>With 3D avatar</dt>
+					<dd id="dp-c-3d">—</dd>
+					<span class="dp-counter-sub" id="dp-c-3d-sub">rigged agents</span>
+				</div>
+				<div class="dp-counter">
+					<dt>x402-enabled</dt>
+					<dd id="dp-c-x402">—</dd>
+					<span class="dp-counter-sub" id="dp-c-x402-sub">accept payments</span>
+				</div>
+			</dl>
+
+			<section class="dp-spark" aria-label="Registrations, last 7 days">
+				<div class="dp-spark-h">
+					<span class="dp-spark-title">Last 7 days</span>
+					<span class="dp-spark-total" id="dp-spark-total">—</span>
+				</div>
+				<div class="dp-spark-bars" id="dp-spark-bars" role="img" aria-label="Daily registrations, last 7 days"></div>
+			</section>
+
+			<div class="dp-grid">
+				<div class="dp-main">
+					<div class="dp-feed-head">
+						<h2 class="dp-section-h">Live feed</h2>
+						<div class="dp-filters" role="tablist" aria-label="Filter deployments">
+							<button type="button" class="dp-filter active" data-kind="all" aria-pressed="true">All</button>
+							<button type="button" class="dp-filter" data-kind="3d" aria-pressed="false">3D avatar</button>
+							<button type="button" class="dp-filter" data-kind="x402" aria-pressed="false">x402</button>
+						</div>
+					</div>
+					<div id="dp-feed" aria-live="polite"></div>
+					<button type="button" class="dp-more" id="dp-more" hidden>Load older</button>
+				</div>
+				<aside class="dp-rail" aria-label="Registry intelligence">
+					<section class="dp-card">
+						<div class="dp-card-h">Top chains <small>by agents</small></div>
+						<div id="dp-chains"><p class="dp-lb-empty">Loading…</p></div>
+					</section>
+					<section class="dp-card dp-about">
+						<div class="dp-card-h">About this feed</div>
+						<p class="dp-about-body">
+							ERC-8004 is the open standard for portable on-chain agent identity. Every agent here is registered on
+							an Identity Registry deployed at the same address on each chain. Deploy yours from
+							<a href="/app">the studio</a> or explore the <a href="/showcase">3D agent directory</a>.
+						</p>
+					</section>
+					<p class="dp-sub dp-fineprint">
+						Network: <strong id="dp-net-label">mainnet</strong>. Source: <code>erc8004_agents_index</code>, crawled from chain logs. Registrations without a confirmed block time are counted in totals but not placed in the timeline.
+					</p>
+				</aside>
+			</div>
+		</main>
+
+		<script type="module" src="/src/deployments.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

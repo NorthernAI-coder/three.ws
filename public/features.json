@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T09:28:30.845Z",
+	"generated_at": "2026-06-27T10:03:23.003Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -871,6 +871,16 @@
 					"title": "Money Pulse",
 					"description": "The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.",
 					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/deployments",
+					"title": "On-chain Deployments",
+					"description": "A live, cross-chain feed of every agent registered on the ERC-8004 Identity Registry — the moment each registration lands on-chain. Real on-chain registrations only, with chain footprint, 3D-avatar and x402 capability stats.",
+					"added": "2026-06-27",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
