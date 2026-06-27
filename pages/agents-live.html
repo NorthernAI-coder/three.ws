@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<style>[hidden]{display:none!important}</style>
+	<script>(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>Live Agents · three.ws</title>
+	<meta name="description" content="Watch AI agents work in real time — see their screens, actions, and avatar feeds as they autonomously trade, browse, and operate." />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content="https://three.ws/agents-live" />
+	<meta property="og:title" content="Live Agents · three.ws" />
+	<meta property="og:description" content="Watch AI agents work in real time on three.ws." />
+	<meta property="og:image" content="https://three.ws/og-image.png" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:site" content="@trythreews" />
+	<meta name="twitter:image" content="https://three.ws/og-image.png" />
+	<link rel="icon" href="/favicon.ico" sizes="any" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+	<link rel="manifest" href="/site.webmanifest" />
+	<link rel="stylesheet" href="/style.css" />
+	<link rel="stylesheet" href="/fonts/fonts.css" />
+	<style>
+		:root {
+			--al-bg:      #060608;
+			--al-surface: #0d0f18;
+			--al-border:  rgba(255,255,255,0.07);
+			--al-text:    #e8eaf4;
+			--al-muted:   rgba(255,255,255,0.35);
+			--al-green:   #5fd08a;
+			--al-accent:  #5b8fff;
+			--al-font:    'Inter', system-ui, -apple-system, sans-serif;
+		}
+		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+		body {
+			background: var(--al-bg);
+			color: var(--al-text);
+			font-family: var(--al-font);
+			min-height: 100vh;
+			display: flex;
+			flex-direction: column;
+		}
+
+		/* ── top nav ─────────────────────────────────────────────────── */
+		.al-nav {
+			position: sticky;
+			top: 0;
+			z-index: 40;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 24px;
+			height: 56px;
+			background: rgba(6,6,8,0.88);
+			backdrop-filter: blur(14px);
+			-webkit-backdrop-filter: blur(14px);
+			border-bottom: 1px solid var(--al-border);
+		}
+		.al-nav-left {
+			display: flex;
+			align-items: center;
+			gap: 16px;
+		}
+		.al-nav-logo {
+			font-size: 17px;
+			font-weight: 800;
+			color: var(--al-text);
+			text-decoration: none;
+			letter-spacing: -0.02em;
+		}
+		.al-nav-sep {
+			width: 1px;
+			height: 20px;
+			background: var(--al-border);
+		}
+		.al-nav-title {
+			font-size: 14px;
+			font-weight: 600;
+			color: var(--al-muted);
+		}
+		.al-live-pill {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			background: rgba(95,208,138,0.1);
+			border: 1px solid rgba(95,208,138,0.22);
+			border-radius: 20px;
+			padding: 3px 10px 3px 7px;
+			font-size: 11px;
+			font-weight: 700;
+			color: var(--al-green);
+			letter-spacing: 0.03em;
+		}
+		.al-live-pill-dot {
+			width: 6px;
+			height: 6px;
+			border-radius: 50%;
+			background: var(--al-green);
+			animation: al-pulse 1.8s ease-in-out infinite;
+		}
+		@keyframes al-pulse {
+			0%,100% { opacity: 1; transform: scale(1); }
+			50%      { opacity: 0.35; transform: scale(0.6); }
+		}
+		.al-nav-right {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.al-nav-link {
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--al-muted);
+			text-decoration: none;
+			transition: color 0.12s;
+		}
+		.al-nav-link:hover { color: var(--al-text); }
+		.al-nav-cta {
+			padding: 6px 14px;
+			border-radius: 6px;
+			background: rgba(91,143,255,0.12);
+			border: 1px solid rgba(91,143,255,0.28);
+			color: var(--al-accent);
+			font-size: 13px;
+			font-weight: 700;
+			text-decoration: none;
+			transition: background 0.12s;
+		}
+		.al-nav-cta:hover { background: rgba(91,143,255,0.22); }
+
+		/* ── main content ─────────────────────────────────────────────── */
+		.al-main {
+			flex: 1;
+			max-width: 1360px;
+			width: 100%;
+			margin: 0 auto;
+			padding: 36px 24px 60px;
+		}
+
+		/* ── hero ─────────────────────────────────────────────────────── */
+		.al-hero {
+			margin-bottom: 40px;
+		}
+		.al-hero-eyebrow {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 11px;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--al-green);
+			margin-bottom: 10px;
+		}
+		.al-hero h1 {
+			font-size: clamp(28px, 4vw, 44px);
+			font-weight: 800;
+			line-height: 1.12;
+			letter-spacing: -0.025em;
+			color: var(--al-text);
+			margin-bottom: 12px;
+		}
+		.al-hero p {
+			font-size: 15px;
+			color: var(--al-muted);
+			line-height: 1.6;
+			max-width: 520px;
+		}
+
+		/* ── stats bar ───────────────────────────────────────────────── */
+		.al-stats {
+			display: flex;
+			align-items: center;
+			gap: 28px;
+			margin-bottom: 32px;
+			padding: 14px 20px;
+			background: var(--al-surface);
+			border: 1px solid var(--al-border);
+			border-radius: 10px;
+		}
+		.al-stat {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+		.al-stat-val {
+			font-size: 20px;
+			font-weight: 800;
+			color: var(--al-text);
+			letter-spacing: -0.02em;
+		}
+		.al-stat-label {
+			font-size: 10px;
+			font-weight: 700;
+			color: var(--al-muted);
+			letter-spacing: 0.04em;
+			text-transform: uppercase;
+		}
+		.al-stats-sep {
+			width: 1px;
+			height: 32px;
+			background: var(--al-border);
+		}
+
+		/* ── grid ────────────────────────────────────────────────────── */
+		.al-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+			gap: 20px;
+		}
+		@media (max-width: 480px) {
+			.al-grid { grid-template-columns: 1fr; }
+		}
+
+		/* ── agent card ──────────────────────────────────────────────── */
+		.al-card {
+			position: relative;
+			background: var(--al-surface);
+			border: 1px solid var(--al-border);
+			border-radius: 12px;
+			overflow: hidden;
+			transition: border-color 0.18s, box-shadow 0.18s;
+			cursor: pointer;
+			text-decoration: none;
+			display: flex;
+			flex-direction: column;
+		}
+		.al-card:hover {
+			border-color: rgba(255,255,255,0.14);
+			box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+		}
+		.al-card-screen {
+			position: relative;
+			width: 100%;
+			aspect-ratio: 16/9;
+			background: #060608;
+			overflow: hidden;
+		}
+		.al-card-canvas {
+			position: absolute;
+			inset: 0;
+			width: 100%;
+			height: 100%;
+			display: block;
+			object-fit: cover;
+		}
+		.al-card-overlay {
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.65) 100%);
+			pointer-events: none;
+		}
+		.al-card-live-badge {
+			position: absolute;
+			top: 10px;
+			left: 10px;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			background: rgba(0,0,0,0.55);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			border: 1px solid rgba(255,255,255,0.08);
+			border-radius: 20px;
+			padding: 3px 9px 3px 6px;
+			font-size: 10px;
+			font-weight: 700;
+			color: var(--al-green);
+			letter-spacing: 0.03em;
+			text-transform: uppercase;
+			z-index: 2;
+		}
+		.al-card-live-dot {
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			background: var(--al-green);
+			animation: al-pulse 1.8s ease-in-out infinite;
+		}
+		.al-card-live-dot.idle {
+			background: rgba(255,255,255,0.25);
+			animation: none;
+		}
+		.al-card-expand {
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+			background: rgba(0,0,0,0.55);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			border: 1px solid rgba(255,255,255,0.1);
+			border-radius: 5px;
+			padding: 4px 7px;
+			font-size: 12px;
+			color: rgba(255,255,255,0.5);
+			z-index: 2;
+			opacity: 0;
+			transition: opacity 0.18s;
+		}
+		.al-card:hover .al-card-expand { opacity: 1; }
+		.al-card-info {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 12px 14px;
+			border-top: 1px solid var(--al-border);
+		}
+		.al-card-avatar {
+			width: 34px;
+			height: 34px;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.06);
+			border: 1px solid rgba(255,255,255,0.1);
+			object-fit: cover;
+			flex-shrink: 0;
+		}
+		.al-card-meta {
+			flex: 1;
+			min-width: 0;
+		}
+		.al-card-name {
+			font-size: 13px;
+			font-weight: 700;
+			color: var(--al-text);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.al-card-action {
+			font-size: 11px;
+			color: var(--al-muted);
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			margin-top: 2px;
+		}
+		.al-card-watch-btn {
+			flex-shrink: 0;
+			padding: 5px 12px;
+			border-radius: 6px;
+			background: rgba(255,255,255,0.06);
+			border: 1px solid rgba(255,255,255,0.1);
+			color: rgba(255,255,255,0.6);
+			font-size: 11px;
+			font-weight: 700;
+			text-decoration: none;
+			transition: background 0.12s, color 0.12s;
+		}
+		.al-card-watch-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+
+		/* ── empty state ──────────────────────────────────────────────── */
+		.al-empty {
+			grid-column: 1 / -1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 14px;
+			padding: 72px 24px;
+			text-align: center;
+			border: 1px dashed rgba(255,255,255,0.08);
+			border-radius: 12px;
+		}
+		.al-empty-icon {
+			font-size: 40px;
+			opacity: 0.35;
+		}
+		.al-empty h2 {
+			font-size: 17px;
+			font-weight: 700;
+			color: rgba(255,255,255,0.55);
+		}
+		.al-empty p {
+			font-size: 13px;
+			color: rgba(255,255,255,0.25);
+			max-width: 340px;
+			line-height: 1.55;
+		}
+		.al-empty-cta {
+			margin-top: 4px;
+			padding: 9px 20px;
+			border-radius: 7px;
+			background: rgba(95,208,138,0.1);
+			border: 1px solid rgba(95,208,138,0.25);
+			color: var(--al-green);
+			font-size: 13px;
+			font-weight: 700;
+			text-decoration: none;
+			transition: background 0.12s;
+		}
+		.al-empty-cta:hover { background: rgba(95,208,138,0.2); }
+
+		/* ── skeleton loader ──────────────────────────────────────────── */
+		.al-skeleton {
+			background: var(--al-surface);
+			border: 1px solid var(--al-border);
+			border-radius: 12px;
+			overflow: hidden;
+		}
+		.al-skeleton-screen {
+			width: 100%;
+			aspect-ratio: 16/9;
+			background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%);
+			background-size: 200% 100%;
+			animation: al-shimmer 1.6s ease-in-out infinite;
+		}
+		.al-skeleton-info {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 12px 14px;
+			border-top: 1px solid var(--al-border);
+		}
+		.al-skeleton-avatar {
+			width: 34px; height: 34px;
+			border-radius: 50%;
+			background: rgba(255,255,255,0.05);
+			animation: al-shimmer 1.6s ease-in-out infinite;
+			flex-shrink: 0;
+		}
+		.al-skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+		.al-skeleton-line {
+			height: 11px;
+			border-radius: 4px;
+			background: rgba(255,255,255,0.05);
+			animation: al-shimmer 1.6s ease-in-out infinite;
+		}
+		.al-skeleton-line:last-child { width: 60%; }
+		@keyframes al-shimmer {
+			0%   { background-position: 200% 0; }
+			100% { background-position: -200% 0; }
+		}
+
+		/* ── footer ───────────────────────────────────────────────────── */
+		.al-footer {
+			text-align: center;
+			padding: 24px;
+			font-size: 12px;
+			color: rgba(255,255,255,0.2);
+			border-top: 1px solid var(--al-border);
+		}
+		.al-footer a { color: rgba(255,255,255,0.35); text-decoration: none; }
+		.al-footer a:hover { color: rgba(255,255,255,0.6); }
+	</style>
+</head>
+<body>
+	<nav class="al-nav">
+		<div class="al-nav-left">
+			<a href="/" class="al-nav-logo">three.ws</a>
+			<div class="al-nav-sep"></div>
+			<div class="al-nav-title">Live Agents</div>
+			<div class="al-live-pill">
+				<div class="al-live-pill-dot"></div>
+				<span id="al-live-count">—</span> live
+			</div>
+		</div>
+		<div class="al-nav-right">
+			<a href="/agents" class="al-nav-link">Browse agents</a>
+			<a href="/play" class="al-nav-link">Walk world</a>
+			<a href="/dashboard" class="al-nav-cta">Dashboard</a>
+		</div>
+	</nav>
+
+	<main class="al-main">
+		<div class="al-hero">
+			<div class="al-hero-eyebrow">
+				<div class="al-live-pill-dot"></div>
+				Mission control
+			</div>
+			<h1>Watch agents work</h1>
+			<p>Real-time screen feeds from AI agents actively trading, browsing, and operating on-chain. Each stream updates live as the agent acts.</p>
+		</div>
+
+		<div class="al-stats" id="al-stats" hidden>
+			<div class="al-stat">
+				<div class="al-stat-val" id="al-stat-live">0</div>
+				<div class="al-stat-label">Live now</div>
+			</div>
+			<div class="al-stats-sep"></div>
+			<div class="al-stat">
+				<div class="al-stat-val" id="al-stat-actions">—</div>
+				<div class="al-stat-label">Actions today</div>
+			</div>
+			<div class="al-stats-sep"></div>
+			<div class="al-stat">
+				<div class="al-stat-val" id="al-stat-fps">~</div>
+				<div class="al-stat-label">Frames/sec</div>
+			</div>
+		</div>
+
+		<div class="al-grid" id="al-grid">
+			<!-- Skeleton loaders while fetching -->
+			${[0,1,2].map(() => `
+			<div class="al-skeleton">
+				<div class="al-skeleton-screen"></div>
+				<div class="al-skeleton-info">
+					<div class="al-skeleton-avatar"></div>
+					<div class="al-skeleton-lines">
+						<div class="al-skeleton-line"></div>
+						<div class="al-skeleton-line"></div>
+					</div>
+				</div>
+			</div>`).join('')}
+		</div>
+	</main>
+
+	<footer class="al-footer">
+		<a href="/">three.ws</a> · AI agents with real presence · <a href="/changelog">Changelog</a>
+	</footer>
+
+	<script type="module" src="/src/agents-live.js"></script>
+</body>
+</html>

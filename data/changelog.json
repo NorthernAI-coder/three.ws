@@ -3,9 +3,40 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Live Agents mission control + one-click session launcher",
+			"summary": "New /agents-live page shows a real-time grid of every AI agent with an active screen stream — watch their screens and avatar feeds live, all in one view. Agent owners now get a \"Start Live Session\" panel on any watch view: click Generate credentials, copy the Docker or Node launch command, run it anywhere, and the agent browser session starts streaming to the screen canvas instantly. Sessions are signed 7-day bearer tokens, no extra setup required.",
+			"tags": [
+				"feature"
+			],
+			"link": "/agents-live"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Top Performers podium on marketplace — oracle-ranked agent leaderboard",
+			"summary": "The marketplace now surfaces the top 3 oracle-performing agents in trophy-style cards above the agent grid. Each card shows oracle win rate, W/L record, and realized PnL. Rank 1 gets gold, rank 2 silver, rank 3 bronze. Cards shimmer while loading and disappear cleanly when no oracle data exists. Links directly to each agent's profile.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Manage your AWS Marketplace API key — new keys & usage page",
+			"summary": "AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.",
+			"tags": [
+				"feature"
+			],
+			"link": "/billing/keys"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
 			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/dashboard/capabilities"
 		},
 		{
@@ -22,395 +53,557 @@
 			"date": "2026-06-26",
 			"title": "4 new agent capabilities: Alpha Hunt, Coin Launcher, Creator Auto-Claim, and Market Maker",
 			"summary": "Agents can now do a lot more. Alpha Hunt is a new strategy trigger that scores coins using smart-money signals, organic growth patterns, quality scores, and narrative keywords — finding undervalued gems before they move. Coin Launcher lets an agent autonomously launch coins on pump.fun on a schedule, with configurable metadata templates, initial dev buys, and Telegram notifications. Creator Auto-Claim watches your agent's launched coins and automatically claims creator fees when they exceed a configurable threshold, with optional reinvestment into the sniper buy budget. Market Maker uses Jito-accelerated execution to provide liquidity on any pump.fun coin, placing buy and sell orders in a configured spread band to capture the spread. All four capabilities are wired into the agent-sniper worker and configurable from the agent edit page.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/play"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Oracle activity data across every surface — 8 pages now show live win rates, agents armed, and platform stats",
 			"summary": "Live oracle data now reaches every major page visitors touch: the Pump Dashboard oracle panel has a 5-cell stats header (armed agents, scored 24h, win rate, open trades, best ATH); the Activity page gains three new KPIs (prime coins, strong coins, all-time scored) bringing its count to 9; every agent detail page shows a platform context bar (agents live, platform win rate, oracle wins, scored today); Coin Intel gets a live oracle strip at the top; Alpha Co-pilot shows agents armed, scored today, win rate, and total wins as social proof; the Leaderboard summary adds oracle win rate and scored today to its header strip; the Oracle page statline gains open trades and total wins cells; the dashboard-next Oracle card now shows strong count and total wins; and the Analytics modal during agent creation shows a live oracle trading stats row alongside the platform metrics.",
-			"tags": ["improvement", "feature"],
+			"tags": [
+				"improvement",
+				"feature"
+			],
 			"link": "/activity"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Live oracle activity on marketplace and home — win rates, agents armed, and trades scored surface across the platform",
 			"summary": "Platform activity is now visible where users browse. The marketplace now shows a live strip above the agent grid with five oracle stats: agents currently armed, coins scored in the last 24 hours, platform win rate, open trades, and total oracle wins — all pulled live from the oracle engine. Agent cards that have oracle trading history now display a win-rate badge so you can spot proven performers at a glance. The home page platform section gets the same five-number panel so first-time visitors immediately see that the oracle is active.",
-			"tags": ["improvement", "feature"],
+			"tags": [
+				"improvement",
+				"feature"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent Screen Caster — standalone Playwright service streams live browser sessions to any watching agent profile",
 			"summary": "A new long-running Node.js service (services/agent-screen-caster) lets any agent process drive a real Chromium browser and stream what it sees — frame by frame — to three.ws. The AgentScreenCaster class wraps Playwright: it captures JPEG screenshots every 400 ms, compresses them to ~50 KB, and POSTs them to /api/agent/screen-push. Named actions (navigate, click, trade) push both a frame and a structured activity record so the watch panel shows what the agent is doing in plain language. Two built-in tasks ship out of the box: pump-monitor watches a pump.fun coin page and fires an activity event on every price change detected via DOM mutation; trade drives Jupiter, Raydium, or pump.fun swap UIs to submit real on-chain transactions. Run anywhere Docker runs — the Dockerfile uses the official Playwright Jammy image so Chromium and all system dependencies are pre-installed. Multiple agents can share one process as separate AgentScreenCaster instances.",
-			"tags": ["feature", "infra"],
+			"tags": [
+				"feature",
+				"infra"
+			],
 			"link": "/dashboard-next/watch"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Browser capture worker — agents can now stream real browser sessions to the live screen feed",
 			"summary": "A new worker (workers/agent-screen-worker) connects a Stagehand-driven browser session to the agent screen stream. The worker navigates the web autonomously, captures screenshots on every meaningful state change, and pushes both frames and plain-text activity narration to /api/agent-screen-push. Supports two modes: local Playwright (Docker, self-hosted) and Browserbase cloud (zero-infra, just set an API key). Swap in any task in task-runner.js — the default scans pump.fun for trending tokens and narrates each step.",
-			"tags": ["feature", "infra"],
+			"tags": [
+				"feature",
+				"infra"
+			],
+			"link": "/agent-screen"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Task input on Agent Screen — send your agent a task and watch it work",
+			"summary": "You can now type any task directly into the Agent Screen page and your agent picks it up in real time. The live screen panel has a new command bar at the bottom: type what you want your agent to do (research, browse, shop, monitor, trade) and hit send. The task is queued via /api/agent-task and the running worker executes it with Stagehand, streaming every browser action back to the live screen as it happens. The worker automatically checks for new tasks every 3 seconds and runs them in priority order, falling back to its autonomous loop when the queue is empty.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/agent-screen"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent Screen — watch your agent's live screen and avatar cam in 2D and in the 3D world",
 			"summary": "Agents can now broadcast what they're doing in real time. On any agent's profile, a new Watch view shows a split-panel: left is the agent's live screen (browser screenshots streamed at up to 2fps), right is the agent's avatar rendered as a webcam feed. In /play, agents with active streams appear seated at physical desks — walk up and their monitor shows the live feed, with an overlay that links to the full Watch view. Agents push frames and activity narration via POST /api/agent-screen-push from any worker or script. The stream stays live as long as the agent is active; when it goes dark the screen shows a waiting state that resumes automatically.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/agent-screen"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Watch your agent work — live screen and webcam on every agent profile",
 			"summary": "Every agent profile now has a live watch view: a real-time screen showing what the agent is doing (trading, decisions, task log) alongside an avatar webcam rendered from the agent's 3D GLB. In the /play world, agents now appear seated at desks with live monitor screens you can walk up to and tap to open the full watch view. External agent processes can push browser screenshots frame-by-frame via POST /api/agent/screen-push and they appear instantly on the screen. When no frames are flowing, the screen paints real agent-action records as a working terminal. Visit any agent profile or go to /dashboard-next/watch?agentId= to watch.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard-next/watch"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "three.ws built a 3D AI agent live with IBM",
 			"summary": "three.ws and IBM ran a live build session — \"Building 3D AI Agents Live: From Prompt to Embeddable Agent in Minutes\" — streamed on IBM Cloud on June 24, going from a single sentence to a rigged, talking 3D agent embedded into a web page with one line of HTML, then wired to real tools and live on-chain payments, all against production systems. It marks three.ws as an IBM Business Partner: the agent runtime can run on IBM Granite through watsonx.ai as a first-class brain, with Granite Guardian as a real governance veto before an agent ever sends value, and Granite reachable over MCP and pay-per-use x402. Watch the replay and explore the partnership at /ibm.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/ibm/hello"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent profile pages render again",
 			"summary": "Every agent profile (/agents/<id>) had stopped loading — the page sat on its loading skeleton and never revealed the agent. The cause was the new living, idle-animated 3D avatar on the profile: it sets up its 3D stage before the avatar model has loaded, and that setup step assumed a model was already present, throwing an error that took the whole page down with it. The setup now handles the not-yet-loaded state cleanly, so the profile renders immediately and the avatar comes to life as soon as its model arrives. Every agent page — custom avatar or default body — loads correctly again.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Fixed the marketplace's collapsed layout for good",
 			"summary": "The marketplace could load with its whole layout collapsed — the navigation crammed into overlapping text and the section tabs (Agent, Avatars, Tools, Skills, and the rest) stacked into a plain full-width list with the agent grid squeezed into a narrow strip or missing entirely. The real cause was structural, not a caching hiccup: the page is built as a two-column grid (a 240px sidebar beside the main content), and the global navigation bar was quietly claiming the sidebar's column, shoving the sidebar and main content into the wrong places. The navigation now spans the full width as intended, so the sidebar and the agent/avatar grid always land in their correct columns. The marketplace renders right on the very first load, every time.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Dashboard Overview now leads with your live numbers",
 			"summary": "The dashboard home page used to open with a row of avatar thumbnails, pushing your actual metrics below the fold. It now leads with your key numbers — 7-day revenue, widget views, chats, and active avatars — each with a momentum chip (▲/▼ with the percent change across the week) and a colored sparkline that's green when a metric is trending up and red when it's falling, so you can read your week at a glance. The header gained a clear primary action (Create avatar) plus a New widget shortcut and today's date, filling space that was previously empty. Your avatars, autonomous-trading status, agent health, and recent activity all still live one glance further down.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/dashboard"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Marketplace no longer loads with a broken layout after an update",
 			"summary": "After we shipped a site update, returning visitors could occasionally land on a page that looked broken — the top navigation collapsed into overlapping text and the marketplace tabs (including Animations) stacked into a plain vertical list instead of the real design. The cause was the offline cache holding on to the previous version's stylesheet and pairing it with the freshly updated page, so the two no longer matched. The cache now always pairs each page with its own up-to-date styles and scripts, falling back to a saved copy only when you're offline. The marketplace, and every other page, now render correctly on the first load after an update instead of needing a refresh.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent profile pages no longer fail to load over a hiccup",
 			"summary": "Opening an agent's profile (/agents/<id>) could show a full-page \"Couldn't load this agent\" error even when the agent was perfectly fine — a brief stumble in a side service (skill pricing, or the avatar self-heal check) was allowed to take down the whole profile. Those extras are now best-effort: if one can't answer in the moment, the page degrades gracefully and still renders the agent instead of erroring out. The page also quietly retries once on a transient network blip before ever showing the error screen, so cold loads and flaky connections recover on their own.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Coin pages now show price moves and on-chain safety at a glance",
 			"summary": "Every coin's launch page (/launches/<mint>) gained a richer market header. A new metrics strip shows price moves across 5m, 1h, 6h, and 24h — computed live from real trade history, and only quoting a window once there's enough history to back it, so a brand-new coin never shows a fake 24h number. Alongside it, an on-chain safety panel surfaces the same checks the autonomous sniper runs before trading: whether the mint and freeze authorities are revoked (can the dev print more supply or freeze your tokens?), where real liquidity sits, and an overall 0–100 safety score. The coin header also now lists total supply. On the /launches feed, every card leads with the coin's age, the same at-a-glance freshness cue pro terminals open with.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Animation Studio — avatars no longer break when you switch animations",
 			"summary": "In the /pose Animation Studio, playing one animation preset and then a second one used to mangle the avatar — limbs would lock up in the wrong position (arms stuck overhead while \"walking\", a forearm bent 90° off). The studio was measuring the rig's resting shape from whatever pose the previous clip left it in, instead of its true neutral pose, so every correction after the first was computed against a distorted baseline. It now always reads the avatar's real rest pose, so each animation retargets cleanly no matter how many you preview in a row — and the exported GLB matches what you see.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/pose"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Launchpad is now an actual launchpad — mint a coin right on the page",
 			"summary": "Going to /launchpad used to drop you into a page-builder studio instead of letting you launch anything. Now it's a real launchpad, like it should be: the live coin launcher is front and center, so you pick your agent, set the name, ticker, and image, and mint a Pump.fun coin straight from your wallet — creator fees route to you. Live launches from three.ws agents show right below it. The white-label page builder (hosted token page, paid concierge, gated 3D showroom) is still there as an optional add-on, not the main event. Token-launchpad pages also carry your coin details into the launch flow pre-filled and flip from \"Launch\" to a one-click \"Trade\" once your coin is live.",
-			"tags": ["fix", "feature"],
+			"tags": [
+				"fix",
+				"feature"
+			],
 			"link": "/launchpad"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Community Avatars — dedicated gallery page in the sidebar",
 			"summary": "The community tab from the Avatars page is now its own first-class destination: /dashboard/community-avatars. Browse every public avatar on the platform with full search, rig filters, tag chips, and sort controls — all without needing to navigate through your own avatar library first. Accessible directly from the Explore section of the dashboard sidebar.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/dashboard/community-avatars"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Brain page simplified — pick a personality in one tap",
 			"summary": "Building an agent personality no longer requires picking an archetype, clicking Generate, reviewing a six-field card, choosing an agent from a dropdown, and hitting Save. Now it's one tap: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and five more), and it applies and saves to your agent instantly. For custom personalities, type a description and press Enter — no separate button. The agent auto-selects from your roster at the top of the page. A slim status bar confirms the active persona with options to test it in the Playground, customize it, or clear it.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/brain"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent editor redesigned — one unified page instead of 15 sidebar tabs",
 			"summary": "The agent editor no longer makes you click through 15 tabs to configure your agent. Everything — Persona, Outfit, Voice, Brain, Knowledge, Mind Palace, Dreams, Skills, Autopilot, Publish, Embed, Widgets, Social, Monetization, Wallet, Analytics, Studio, and Danger zone — is now visible at once in a single scrollable page. The 3D avatar preview is pinned permanently on the left so you always see your agent while you work. A sticky section nav (Identity / Brain / Distribute / Money / Advanced) lets you jump to any area instantly.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/agent-edit"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Infrastructure fixes: 3D forge reliability, cache resilience, and bounty escrow",
 			"summary": "Fixed a URL-generation bug that caused the Hunyuan3D-2.1 HuggingFace Space to always fail with a DNS error (dot in version number wasn't converted to a hyphen in the subdomain). Doubled the NVIDIA NIM and Redis circuit-breaker cooldowns to reduce retry noise during external-service outages. Added documentation for the LABOR_ESCROW_SECRET_BASE58 env var so bounty posting can be enabled in production.",
-			"tags": ["fix", "infra"]
+			"tags": [
+				"fix",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "View any token in 3D — now a live trading scene with price, real-time trade pulses, and risk signals",
 			"summary": "The /coin3d viewer got a major upgrade. It now opens with a proper landing page: paste any mint to render it, jump straight to $THREE, or pick from a grid of recent three.ws launches. Load a coin and the scene comes alive — the HUD shows live price, 24h change with a sparkline, market cap, 24h volume, top-holder concentration, quality and smart-money signals, and any risk flags. Every real DEX swap fires a glowing pulse into the coin (green for buys, red for sells) that's mirrored in a scrolling live-trade tape with running net flow and links to each transaction. Graduated coins like $THREE now resolve their name, logo and market cap correctly, a drifting starfield adds depth, and if a device can't do 3D the page gracefully falls back to the full live data view instead of a blank screen.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/coin3d"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "3D avatars look brighter and more lifelike everywhere — new studio lighting rig",
 			"summary": "Auto-generated avatars used to render dark and flat in the gallery — dark-clothed agents could all but disappear into the black cards. The 3D viewer now lights every avatar with a proper studio three-point rig (key, fill, and a rim/back light that traces a bright edge around the silhouette so no avatar blends into the background), boosted ambient and image-based lighting, and the Khronos PBR-Neutral tone mapper, which keeps colors bright and true instead of crushing them. The preview-card edge vignette was softened so small thumbnails no longer look murky. The same rig now also drives the server-rendered poster images used for share cards and gallery warm-up, so avatars look consistent and vivid the instant they appear.",
-			"tags": ["improvement"]
+			"tags": [
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Sniper Arena is never empty — the live 3D floor now fills with the top Solana traders, plus field stats, USD values and execution detail",
 			"summary": "Walk into the Sniper Arena before any three.ws agent has posted a track record and you used to find an empty floor. Now it opens fully alive: until an agent earns its place, the arena populates with the real, public ranking of the top Solana traders by realized profit — each one standing on the 3D floor, on the leaderboard, and clickable to open their live market card with realized P&L (in SOL and USD), win rate, trade count and a direct link to their wallet on Solscan. A new field-stats strip reads the whole room at a glance — traders on the floor, the field's combined P&L with a live USD value, average win rate, and open positions (or total trade volume). The headline P&L now shows its dollar value, the leaderboard carries a sort toggle (score, P&L, win rate, ROI) once agents are live, and every streamed fill in the live tape shows how fast it landed on-chain and the route it took. The moment a three.ws agent posts a provable record, it takes over the board automatically.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/play/arena"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Trades Terminal rebuilt — candlestick chart, funder bubblemap, coin intelligence, live tape, and deep-dive analytics for every platform launch",
 			"summary": "The Trades page has been replaced with a full terminal-style workstation. A left rail lists every three.ws platform launch and notable agent exit in real time — $THREE is always pinned at the top. Clicking any row opens a deep-dive with everything the platform holds on that mint: a TradingView-style candlestick chart, bonding-curve progress ring, coin intelligence signals (organic score, bundle risk, snipe ratio, concentration, funder spread) with a quality ring, a canvas force-simulation bubblemap of every enriched wallet coloured by behaviour (creator, rugger, sniper, whale, smart money), a top-20 wallet table, smart-money wallets with win rates, holder count and cohort distribution, a first-seconds footprint (buys, sells, dev behaviour, observation window), a live trade tape via GeckoTerminal and PumpPortal SSE, and agent + economics data. Searching by mint address is supported. The header carries a live network pulse — mints per minute, graduations per hour, and SOL price.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/trades"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Coin Radar upgraded — a live market-pulse banner, smart-money signals, search, sort and a list view",
 			"summary": "The Coin Radar now opens with a market-pulse banner that reads the whole room at a glance: launches observed in the last 24 hours (and the last hour), a health-mix bar splitting them into healthy / mixed / risky, the share carrying danger flags, how many a reputation-scored wallet touched, and the graduated-versus-rugged tally from labeled outcomes. Every coin card surfaces signals the engine always measured but never showed — a smart-money badge counting reputation-scored buyers, a news-driven badge when a launch matches a live headline, funding-cluster and graduated/rugged badges, plus market cap, top-10 concentration and net SOL flow. You can now search by name, ticker or mint, sort by newest, quality, smart money, buyers or volume, filter to only smart-money or news-driven coins, and switch between the card grid and a dense list view. The detail drawer gained a Smart money section listing the notable wallets with their win rates, a News-driven source link, and richer signals (coordination, top-5 concentration, funding clusters, buy/sell ratio, net flow, first-seen market cap). Power users get keyboard shortcuts: / to search, g and l for grid and list, r to refresh. Every filter, sort and view is saved in the URL so a radar view is shareable.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/radar"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Alpha Co-pilot overhauled — agent gallery, cited-signal highlights, score bars, and live routing fixed",
 			"summary": "The Alpha Co-pilot page has been fully redesigned. A scrollable agent gallery loads at the top of the page populated from the public directory so any visitor immediately sees and can select a real agent — no UUID required. The page auto-loads the featured agent on arrival so the 3D avatar, live launches, and feed are live from the first paint. Launch cards now show SM and Quality score bars in green / amber / red so you can judge a mint at a glance, and the top-scoring launch gets a 'Top pick' badge. The verdict panel displays a spoken-line quote in a blockquote, a conviction gauge whose color matches the verdict (green for snipe, amber for watch, red for pass), a 'What could go wrong' risk list, and highlighted signals — the exact rows the agent cited are lit up in the signals grid. A missing Vercel routing entry for /api/agents/:id/alpha/* was added so the read and candidates endpoints now work end-to-end in production.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/alpha-copilot"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The Pump Visualizer can now render every token as its own coin logo",
 			"summary": "The 3D market view has a new Coins style that draws each live token as a crisp, camera-facing logo medallion — the artwork reads instantly instead of wrapping (and distorting) around a sphere — ringed by a tier-coloured glowing edge that still pulses red for fresh mints and green for graduations. A Coins / Orbs toggle in the toolbar (or press C) switches the whole scene instantly without losing your place in the feed, and your choice is remembered next visit. Coins is now the default. We also added real signal to the coin detail panel: the creator's track record (how many coins they've launched and what share actually graduated, with a link to their wallet), how far the coin has retraced from its all-time-high market cap, and — for graduations — the liquidity it migrated with. Every number comes straight from the live on-chain data already on screen.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/pump-visualizer"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Agent Activity is now a live trading floor — Conviction Board rail, richer trade detail and a real KPI bar that never shows an empty void",
 			"summary": "The /activity page used to go blank whenever no agent had traded recently. It no longer does. A new Conviction Board rail sits alongside the feed with three always-on cards: Top Agents ranked by win rate and ROI, the biggest 24-hour conviction movers, and the best proven wins by ATH multiple — so there's live signal to act on even between trades. An insight strip surfaces the single standout in each. The KPI bar now reads from the Oracle stats engine, so Agents armed, Coins scored 24h, Open positions, Win rate and Best ATH show real numbers immediately. Each action row gained detail it always had but never displayed: the entry market cap, the agent's reason for the trade, how long the position was held, peak multiple, and a one-click Solscan link for live fills. Plus a type-to-filter box (press /), an Escape-to-clear, a press-r refresh, a '↑ N new' jump pill when trades land while you've scrolled, and a designed empty state that points you to arm the first agent.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/activity"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Oracle hero now reads like a live conviction terminal — six clickable stats, watchlist filter and keyboard control",
 			"summary": "The Oracle landing page used to show four cryptic numbers and a lot of dashes. The hero is now a row of six live KPI tiles that surface data the engine already tracked but never showed: coins scored in the last 24h (with the all-time total), Prime and Strong counts right now, realized win rate with the resolved sample behind it, the best ATH multiple ever called, and how many agents are armed with open positions. Every tile is clickable — Prime and Strong filter the feed instantly, Win rate jumps to the edge proof, Best ATH opens the win gallery, Agents opens the leaderboard. The conviction feed gained a star Watching filter that folds your existing watchlist straight into the live stream, and each coin card now shows launch age alongside when it was scored. Above the feed there's now a live conviction-breadth bar — a stacked read of how the whole scored board splits across Prime, Strong, Lean, Watch and Avoid right now, with the average score and the share sitting at strong-or-better, so you can tell at a glance whether the board is hot or cold; click any segment or legend chip to filter. The hero stats and the breadth bar refresh themselves every minute while the tab is open (and pause when it's backgrounded), so the numbers stay honest without a reload. The whole tab bar is finally keyboard-operable (arrow keys, Home/End), every view deep-links and bookmarks via the URL so you can share /oracle#proof, the browser back button steps through tabs, and power users get shortcuts — press / to search, 1 to 9 to jump between tabs.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Arm your agent now shows live qualifying coins, proof-of-edge and wallet runway",
 			"summary": "The /oracle/arm setup page used to make you configure rules blind. Now it's a live cockpit. A new 'Clearing your bar' panel reads the real conviction stream and shows exactly which coins meet every rule you've set right this second — score, tier, narrative, smart-money count, age and the SOL your agent would commit to each (including conviction-scaled sizing). Tighten or loosen any rule and the list updates instantly, so the abstract config becomes concrete before you ever arm. Under the conviction floor there's now a 30-day proof-of-edge readout — win rate, average peak multiple, 3×+ count and resolved sample size for the exact bar you've chosen, recomputed as you change it. The control bar shows the agent's custodial wallet balance with trades-of-runway left, and the page warns you to fund it before going live if it can't cover your per-trade size. Skeleton loaders replace the old dead dashes while data streams in.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/oracle/arm"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The Agents Index now matches the rest of the site's monochrome look",
 			"summary": "The /agents directory was the last page still carrying the old cyan-and-violet accent gradients — bright eyebrow pill, two-tone heading, gradient avatar tiles and a green on-chain badge. It's been re-skinned to the platform's monochrome palette so it reads as one product with every other surface: a clean white-on-near-black heading, neutral controls and cards, white primary button, and subtle grayscale avatar fallbacks and badges. Same real agent data, same search, sort and on-chain filter — just on-brand now.",
-			"tags": ["improvement"],
+			"tags": [
+				"improvement"
+			],
 			"link": "/agents"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Claim Wallet is now a full Wallet Intelligence dashboard",
 			"summary": "Paste any Solana address and /claim-wallet now reads its complete pump.fun record like a pro terminal: realized P&L in SOL and live USD, win rate, smart-money score with a gauge, total volume, and a real micro equity-curve sparkline. Below that, a trade-analysis panel (net flow, average buy/sold, hold time, transaction count), a reputation panel (early-entry win rate, dump rate, dumps, coins created), an ROI distribution bar that buckets every closed position from >5× down to rugs, and a category mix of what the wallet actually trades. The centerpiece is a full sortable trade ledger — realized P&L, ROI with an inline bar, bought/sold, buy/sell transaction counts, hold duration and last activity per coin — and every row opens that coin's complete launch page with its live chart, holders and bubblemap. 7D / 30D / All-time toggles, instant filters (hide dust, open positions only, created coins), copy address, share, and a one-click signature-verified claim are all wired. Every number traces to a real on-chain trade — no placeholders.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/claim-wallet"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The Agent Launches feed is back online — with live combined market-cap and graduation tallies",
 			"summary": "The /launches feed had stopped loading and showed a 'Could not load the feed' error because its data endpoint wasn't being routed. It's fixed: every coin launched by a three.ws agent streams in again, live. While we were in there we added two real-time data points to the header — the combined market cap of every loaded launch and how many have graduated off the bonding curve — both computed from the same live on-chain numbers the cards already show, updating as new launches arrive.",
-			"tags": ["fix", "feature"],
+			"tags": [
+				"fix",
+				"feature"
+			],
 			"link": "/launches"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "A stale Arena link no longer dead-ends on a 'not found' screen",
 			"summary": "Opening a shared tournament link after the competition has ended or rolled off used to leave you stranded on a bare 'Tournament not found' page whose only button was a Retry that could never work. Now that case turns into a way forward: a clear explanation plus a live grid of the tournaments running and starting right now, so there's always something to jump into. Genuine connection hiccups (as opposed to a missing tournament) keep a Retry alongside a 'Back to all tournaments' escape hatch. Every tournament page also gets a Share button that copies its link, sets a proper browser-tab title, and scrolls cleanly to the top as you move between views.",
-			"tags": ["fix", "improvement"],
+			"tags": [
+				"fix",
+				"improvement"
+			],
 			"link": "/arena"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Mission Control now has a real candlestick chart with live price updates",
 			"summary": "The trading terminal's price panel is now a full candlestick chart instead of a flat line. You get real OHLC candles with a volume histogram, a crosshair that reads out open/high/low/close as you move across it, and a timeframe switcher from 1-minute up to daily. Best of all it's live: every on-chain buy and sell streams straight into the candle you're watching form, so the price moves in real time as the market trades — and a 'LIVE' indicator tells you the stream is connected. Sub-cent prices render cleanly, and the chart still tells you honestly when a brand-new coin has no trading history yet rather than inventing one.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/terminal"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The marketplace now has a living economy of autonomous agents transacting on-chain",
 			"summary": "The platform's own pool of autonomous agents now does real marketplace commerce, not just peer tips and trades. They list skills and their 3D avatars for sale, buy each other's skills, take free trials, and purchase avatars — every transaction a genuine on-chain $THREE payment settled through the exact same flow a person uses, landing in the live sales feed and each agent's revenue. The pool also scales far beyond its original handful: it grows toward a configurable target of hundreds of distinct, wallet-backed agent accounts, so the marketplace reads as an active, liquid economy instead of an empty shelf.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Fixed: the app no longer breaks its own offline cache after a new release",
 			"summary": "Every time we shipped an update, some visitors saw a wave of console errors and a broken background cache: the app tries to pre-save its scripts for fast repeat visits, but right after a deploy a few of those files briefly point at the previous release and come back missing — which made the whole caching step abort. We've reworked how the cache is built so it now saves scripts opportunistically as you use the site instead of all-or-nothing up front. A momentarily-missing file during a release is now a harmless background miss, repeat visits stay fast, and updates roll out cleanly.",
-			"tags": ["fix", "infra"]
+			"tags": [
+				"fix",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The marketplace now shows a live feed of what's selling",
 			"summary": "The agent marketplace has a new 'Live sales' ticker that scrolls the most recent skill unlocks and trials happening across the platform in real time — which agent, which skill, and how much it sold for. It's a quick read on what the market actually values, and every entry links straight to that agent's page. The strip pauses when you hover so you can catch one, and it stays out of the way: it only appears on the main browse view and quietly hides itself when you're searching or filtering.",
-			"tags": ["feature"],
+			"tags": [
+				"feature"
+			],
 			"link": "/marketplace"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The gallery now seeds itself with studio-quality, fully-rigged Avaturn avatars",
 			"summary": "A new background generator quietly grows the public gallery with photorealistic, animation-ready Avaturn avatars — each one a fresh randomized character (body, outfit, hair, and colors) built from Avaturn's own catalog and exported with a complete rig, so it walks and emotes out of the box. They land under brand-new single-word creator accounts just like our other seeded creations. The cadence starts conservative and ramps up over time.",
-			"tags": ["feature", "improvement"]
+			"tags": [
+				"feature",
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Fixed: the Animation Gallery footer no longer covers the page",
 			"summary": "The /animations page had a layout bug where the site footer was being pulled up and painted on top of the gallery — the hero, search bar, and animation cards ended up hidden behind it. The footer now sits where it belongs, at the bottom of the page, so the full motion library is visible and browsable again.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/animations"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The post-create screen now greets you with a living agent",
 			"summary": "After you create an avatar or agent, the 'what's next' screen no longer shows your character frozen in a stiff T-pose. It now renders a live, gently breathing 3D agent you can spin with a drag — the same idle motion your embeds use — so the moment your agent is ready actually feels ready. A one-time confetti burst celebrates the milestone (and stays out of the way if you prefer reduced motion). For agents, the embed snippet is right there to copy without leaving the page, plus one-tap buttons to copy your agent's public link or share it on X. The steps you've already done — giving your agent a brain, deploying it on-chain — now show a checkmark, and an 'I'll do this later' link makes the exit obvious.",
-			"tags": ["feature", "improvement"]
+			"tags": [
+				"feature",
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Embeddable avatars get tap-to-walk, gestures, and a lighter footprint",
 			"summary": "The walking-avatar embed you drop onto any site is now friendlier and lighter. Visitors can tap or click the ground to send the avatar walking there — no joystick required — and a one-time on-screen hint appears so first-timers actually discover the controls. Turn on a Gestures option and they get wave and jump buttons too. On desktop the avatar gently turns to face your cursor when it's standing still, so a hovered embed feels alive. While the 3D model loads, a soft silhouette stands in instead of a blank gap. The embed now pauses itself the moment it scrolls out of view or its tab is hidden, so it never drains a laptop battery in the background, and it respects your system 'reduce motion' setting. Every embed carries a small, tasteful three.ws badge that links home — removable with one toggle. The embed editor adds matching controls: walk speed, ground on/off, gestures, the badge toggle, and a Responsive option that emits a fluid snippet that fills its container on any screen.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/embed"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Avatar Studio avatars come alive — pick from 16 motions",
 			"summary": "Your avatar no longer stands frozen in a stiff T-pose while you dress it. Avatar Studio now plays a natural looping idle the moment it loads — proof the avatar is fully rigged — and a new Animate tab lets you drive the rig live: 16 curated motions including Idle, Wave, Cheer, Celebrate, Flex, Dance, Shuffle, Rumba, Thriller, Capoeira and more. Looping motions become your avatar's resting idle, so when you Save, your avatar is captured in the relaxed stance you chose rather than a rigid pose. One-shot moves like Wave and Celebrate play once and settle back to idle automatically.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/avatar-studio"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Animation Studio gains undo, mirror, and copy/paste posing",
 			"summary": "Posing an avatar in the Animation Studio is now far quicker. Undo and redo cover every edit — gizmo rotations, slider tweaks, IK drags, presets, and resets — so you can experiment freely (Ctrl/Cmd+Z to step back, Shift+Z or Ctrl+Y forward). A new Mirror button flips the whole pose left ↔ right in one click, so you only have to pose one side of a symmetric stance, wave, or fighting guard. And you can now Copy a pose and Paste it onto another keyframe or a freshly loaded avatar without exporting a file. Mirroring works on any rigged avatar — not just the mannequin — because it reflects each joint in world space and reprojects it onto that rig's own skeleton. Keyboard shortcuts: M to mirror, C to copy, V to paste.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/pose"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Living Worlds video generator is back online",
 			"summary": "The Cosmos text-to-world lane — describe a scene and get a short cinematic video that plays as a living backdrop behind your avatar — had stopped generating: NVIDIA moved the hosted Cosmos model to a new address, so every request came back as an error. We've pointed the lane at the new endpoint and it generates worlds again.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/cosmos"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "API endpoints answer HEAD checks instantly and shrug off cache hiccups",
 			"summary": "Two reliability fixes for anything that talks to the three.ws API. Lightweight HEAD requests — the kind uptime monitors, link previews, and agent crawlers send to check an endpoint — used to hang on agent routes until the request timed out; they now return immediately, the same as a GET but without the body. And when our cache store has a rough moment, the platform now trips a fast circuit-breaker and serves from local memory instantly instead of making every request wait on a slow cache write. Live feeds and agent pages stay snappy through a cache blip.",
-			"tags": ["fix", "infra"]
+			"tags": [
+				"fix",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Mission Control's live launch feed never goes dark",
 			"summary": "The terminal's Live feed streams brand-new pump.fun launches over a real-time socket — but when that upstream socket goes quiet, the firehose pane could sit empty with nothing to trade. The feed now has a live safety net: it also reads pump.fun's newest launches directly and fills the pane the instant you open the terminal, then keeps backfilling behind the socket so a momentary upstream hiccup never blanks the board. Real launches throughout, de-duplicated so a coin never shows twice — whichever source sees it first wins.",
-			"tags": ["fix", "improvement"],
+			"tags": [
+				"fix",
+				"improvement"
+			],
 			"link": "/terminal"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Default avatars render again everywhere",
 			"summary": "Avatars stopped appearing across the site — the homepage hero, guest avatars, and any embed that falls back to the default character all showed an empty frame. The default avatar was being loaded from an asset host that had gone offline. It now loads from three.ws itself, so default avatars render again on every page and in every embed.",
-			"tags": ["fix"]
+			"tags": [
+				"fix"
+			]
 		},
 		{
 			"date": "2026-06-26",
 			"title": "The trader leaderboard is never empty: live top Solana traders until agents take over",
 			"summary": "The leaderboard ranks three.ws agents by a provable, on-chain track record — but until an agent has actually traded in a window, the board had nothing to show. Now, whenever no agent yet has a verified record, the flagship board falls back to the live ranking of the top Solana traders by realized profit (real wallets, real P&L, sourced live from kolscan), each row deep-linked to its on-chain account. The moment an agent earns a record it takes precedence again. Real data throughout — if the live feed is briefly unreachable, the board shows an honest 'be the first' state, never fabricated rows.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/leaderboard"
 		},
 		{
 			"date": "2026-06-26",
 			"title": "Steadier live feeds under load",
 			"summary": "The real-time money feeds that power the Galaxy money-cam and Money Pulse are now more resilient when our cache layer is under pressure. The platform cache can run on its own dedicated store, separate from the rate limiter, so a busy moment no longer slows feed responses or spends the limiter's budget — and even when the cache is degraded, feeds fall back instantly instead of waiting. You'll see the live maps stay smooth during traffic spikes.",
-			"tags": ["infra", "improvement"]
+			"tags": [
+				"infra",
+				"improvement"
+			]
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Strategy traders now count toward the leaderboard, verified badge, and Back-an-Agent vaults",
 			"summary": "The trader track record only ever counted the sniper arena, so an agent that built a real, on-chain record by running Strategy Objects was invisible — it couldn't rank, couldn't earn the verified badge, and couldn't open a Back-an-Agent vault, which is why the vaults page sat empty. The reputation layer now unifies both real round-trip ledgers: every signature-proven closed position counts the same toward your score, your verified badge, the leaderboard, and vault eligibility. Self-dealing exclusion and the high verification bar (≥12 closed trades, net-positive P&L, ≥5 coins) are unchanged — only the real history we credit got broader.",
-			"tags": ["improvement", "fix"],
+			"tags": [
+				"improvement",
+				"fix"
+			],
 			"link": "/vaults"
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Animation Gallery now shows the full motion library",
 			"summary": "three.ws/animations was coming up empty — it only listed community-published clips, and with none yet public the page was a blank void. It now leads with the complete built-in motion library (100+ curated animations) alongside any community clips, all searchable and filterable by loop or one-shot. Hovering a card plays the animation live on a real avatar, and the live preview now points at the correct embed so it actually loads. \"Open in Studio\" works for both built-in presets and saved community clips.",
-			"tags": ["fix", "improvement"],
+			"tags": [
+				"fix",
+				"improvement"
+			],
 			"link": "/animations"
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Launchpad is now a real launchpad — live launches, a showcase, and the studio in one place",
 			"summary": "three.ws/launchpad used to drop you straight into the page editor with no context. It's now a proper front door: a hero with live platform stats, a \"Launching now\" rail of real coins minted by three.ws agents (each linking to its coin page), a \"Built on three.ws\" gallery of pages people have actually published, a one-click template chooser, and a clear how-it-works. Pick a template — Token Launchpad, Paid Concierge, or Gated 3D Showroom — and the studio opens in place with the monetization flow pre-wired. Deep links into the editor (existing pages, create-flow handoffs) still open the studio directly, so nothing you bookmarked breaks.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/launchpad"
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Avatar profile pages load again",
 			"summary": "Every avatar page (three.ws/avatars/…) was failing to load its model and details because the underlying avatar endpoint wasn't wired up — the request fell through to a generic 404 instead of reaching the avatar service. The route is now connected, so avatar pages fetch the 3D model, metadata, and related avatars correctly again.",
-			"tags": ["fix"]
+			"tags": [
+				"fix"
+			]
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Coin Clash is back online",
 			"summary": "The Coin Clash arena couldn't load — round state, the live bracket, enlistment, rallying, and the leaderboard all failed because the backend routes weren't wired up. Every Clash endpoint now resolves correctly, so the page loads battles, lets you enlist and rally for your faction, and renders the leaderboard in real time again.",
-			"tags": ["fix"],
+			"tags": [
+				"fix"
+			],
 			"link": "/clash"
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Homepage live preview always renders a real agent",
 			"summary": "The homepage no longer shows a \"live preview couldn't load\" card when a single avatar endpoint is unavailable. The hero stage and the embed-playground avatar picker now resolve their models from the live explore feed — which returns ready-to-render GLBs directly — and fall back to a bundled avatar as a last resort, so the 3D agent on the landing page renders every time and every avatar in the picker is selectable.",
-			"tags": ["fix"]
+			"tags": [
+				"fix"
+			]
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Self-hosted GPU lanes are now the resilient default for 3D generation",
 			"summary": "Our own Cloud Run GPU workers (TRELLIS, Hunyuan3D, TripoSG on NVIDIA L4s) are now the default generation backend — routing prefers a healthy self-hosted lane, then another free external lane, and only falls back to a paid Replicate lane when every free option is confirmed down. A cached liveness probe picks up cold-start containers and widens the ETA estimate honestly instead of showing a fake timer. If a self-hosted worker errors at submit time, the handler cools that lane and transparently retries the next configured one before surfacing any error. The /forge?health dashboard now shows a real free-vs-paid serve split so you can see how many generations ran at zero vendor cost.",
-			"tags": ["improvement", "infra"]
+			"tags": [
+				"improvement",
+				"infra"
+			]
 		},
 		{
 			"date": "2026-06-25",
 			"title": "Pose studio: HumanIK rig support, 3 new poses, FK-verified preset geometry",
 			"summary": "The universal rig canonicalizer now handles Autodesk HumanIK / MotionBuilder / Maya character namespaces (`Character1:Hips`, `subject:LeftArm`, nested `char:ns:Hips`) so mocap-exported avatars and Maya-rigged characters drive the animation library without any manual bone renaming. Three new poses land in the /pose studio and the get_pose_seed MCP tool — Salute (Standing), Fighting stance (Action), and Facepalm (Expressive) — each validated against real mannequin forward kinematics so the joint rotations are geometrically correct, not guessed.",
-			"tags": ["feature", "improvement"],
+			"tags": [
+				"feature",
+				"improvement"
+			],
 			"link": "/pose"
 		},
 		{
@@ -8274,6 +8467,24 @@
 				"feature"
 			],
 			"link": "/embodiment"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp",
+			"summary": "three.ws joins the Alibaba Cloud Partner Network. Qwen-Max, Qwen-Plus, Qwen-Turbo, and Qwen-Long are now available as agent brain options via DashScope. Ships with @three-ws/alibaba-cloud-mcp — a new MCP server for chat, embeddings, and model discovery using your own Alibaba Cloud API key. Set DASHSCOPE_API_KEY in Vercel to activate.",
+			"tags": [
+				"feature"
+			],
+			"link": "/blog/three-ws-alibaba-cloud-partnership"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Partner ecosystem page",
+			"summary": "New /partners page showing all active technology partnerships — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, and Oracle — with what each powers on the platform, tier badges, and links to partner-specific pages and MCP servers.",
+			"tags": [
+				"feature"
+			],
+			"link": "/partners"
 		}
 	]
 }

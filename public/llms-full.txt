@@ -188,6 +188,12 @@ Indexable: no (excluded from sitemap)
 
 Watch your agent work in real time — split view with the agent's live screen on the left and their 3D avatar rendered as a webcam on the right.
 
+### Live Agents
+
+URL: https://three.ws/agents-live
+
+Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.
+
 ### Agent Studio
 
 URL: https://three.ws/agent-studio

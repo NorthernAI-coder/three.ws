@@ -23,8 +23,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 
 // Top-level endpoint — this is the real-time frame+log SSE stream.
-const STREAM_URL  = (id) => `/api/agent-screen-stream?agentId=${encodeURIComponent(id)}`;
-const ACTIONS_URL = (id) => `/api/agent-actions?agent_id=${encodeURIComponent(id)}&limit=20`;
+const STREAM_URL   = (id) => `/api/agent-screen-stream?agentId=${encodeURIComponent(id)}`;
+const ACTIONS_URL  = (id) => `/api/agent-actions?agent_id=${encodeURIComponent(id)}&limit=20`;
+const SESSION_URL  = () => `/api/agent/session`;
 
 // Canvas dimensions for the activity screen (no-frame fallback).
 const CW = 1280, CH = 720;
@@ -311,6 +312,261 @@ function injectStyles() {
 	text-align: center;
 	font-style: italic;
 }
+
+/* ── Session launcher (owner-only) ───────────────────────────────── */
+.wp-launch {
+	width: 100%;
+	border: 1px dashed rgba(95,208,138,0.22);
+	border-radius: 8px;
+	background: rgba(95,208,138,0.03);
+	overflow: hidden;
+	transition: border-color 0.2s;
+}
+.wp-launch:hover { border-color: rgba(95,208,138,0.38); }
+.wp-launch-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 10px 14px;
+	cursor: pointer;
+	user-select: none;
+}
+.wp-launch-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: rgba(95,208,138,0.75);
+}
+.wp-launch-icon {
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: rgba(95,208,138,0.15);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 10px;
+	line-height: 1;
+	color: #5fd08a;
+	flex-shrink: 0;
+}
+.wp-launch-chevron {
+	font-size: 10px;
+	color: rgba(255,255,255,0.25);
+	transition: transform 0.2s;
+}
+.wp-launch.open .wp-launch-chevron { transform: rotate(180deg); }
+.wp-launch-body {
+	display: none;
+	padding: 0 14px 14px;
+	flex-direction: column;
+	gap: 10px;
+}
+.wp-launch.open .wp-launch-body { display: flex; }
+.wp-launch-desc {
+	font-size: 12px;
+	color: rgba(255,255,255,0.45);
+	line-height: 1.5;
+	margin: 0;
+}
+.wp-launch-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 8px 16px;
+	border-radius: 6px;
+	background: rgba(95,208,138,0.12);
+	border: 1px solid rgba(95,208,138,0.28);
+	color: #5fd08a;
+	font-size: 12px;
+	font-weight: 700;
+	cursor: pointer;
+	transition: background 0.12s, border-color 0.12s;
+	align-self: flex-start;
+}
+.wp-launch-btn:hover { background: rgba(95,208,138,0.22); border-color: rgba(95,208,138,0.5); }
+.wp-launch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.wp-launch-btn .spinner {
+	width: 12px; height: 12px;
+	border: 2px solid rgba(95,208,138,0.3);
+	border-top-color: #5fd08a;
+	border-radius: 50%;
+	animation: wp-spin 0.7s linear infinite;
+	display: none;
+}
+.wp-launch-btn.loading .spinner { display: block; }
+.wp-launch-btn.loading .btn-label { opacity: 0.5; }
+@keyframes wp-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* ── Session modal ───────────────────────────────────────────────── */
+.wp-modal-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	background: rgba(0,0,0,0.72);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	animation: wp-fade-in 0.18s ease;
+}
+@keyframes wp-fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+.wp-modal {
+	width: 100%;
+	max-width: 620px;
+	background: #0d0f18;
+	border: 1px solid rgba(255,255,255,0.1);
+	border-radius: 14px;
+	overflow: hidden;
+	box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+	animation: wp-slide-up 0.2s ease;
+}
+@keyframes wp-slide-up {
+	from { transform: translateY(12px); opacity: 0; }
+	to   { transform: translateY(0);    opacity: 1; }
+}
+.wp-modal-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 18px 20px;
+	border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.wp-modal-title {
+	font-size: 15px;
+	font-weight: 700;
+	color: rgba(255,255,255,0.9);
+}
+.wp-modal-close {
+	width: 28px; height: 28px;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.07);
+	border: none;
+	color: rgba(255,255,255,0.5);
+	font-size: 14px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.12s, color 0.12s;
+}
+.wp-modal-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.wp-modal-body { padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.wp-modal-section-label {
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.3);
+	margin-bottom: 6px;
+}
+.wp-modal-token-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.wp-modal-token {
+	flex: 1;
+	background: rgba(255,255,255,0.04);
+	border: 1px solid rgba(255,255,255,0.08);
+	border-radius: 6px;
+	padding: 8px 12px;
+	font-family: 'SF Mono', 'Fira Code', monospace;
+	font-size: 11px;
+	color: rgba(255,255,255,0.55);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: text;
+	user-select: all;
+}
+.wp-copy-btn {
+	flex-shrink: 0;
+	padding: 7px 12px;
+	border-radius: 6px;
+	background: rgba(255,255,255,0.07);
+	border: 1px solid rgba(255,255,255,0.1);
+	color: rgba(255,255,255,0.6);
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s;
+	white-space: nowrap;
+}
+.wp-copy-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.wp-copy-btn.copied { background: rgba(95,208,138,0.15); border-color: rgba(95,208,138,0.3); color: #5fd08a; }
+.wp-modal-code-block {
+	position: relative;
+	background: #050508;
+	border: 1px solid rgba(255,255,255,0.07);
+	border-radius: 8px;
+	padding: 14px 14px 10px;
+	font-family: 'SF Mono', 'Fira Code', monospace;
+	font-size: 11px;
+	line-height: 1.65;
+	color: rgba(255,255,255,0.7);
+	white-space: pre;
+	overflow-x: auto;
+}
+.wp-modal-code-copy {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+}
+.wp-modal-tabs {
+	display: flex;
+	gap: 2px;
+	background: rgba(255,255,255,0.04);
+	border-radius: 6px;
+	padding: 3px;
+}
+.wp-modal-tab {
+	flex: 1;
+	padding: 5px 0;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 700;
+	text-align: center;
+	cursor: pointer;
+	color: rgba(255,255,255,0.4);
+	transition: background 0.12s, color 0.12s;
+}
+.wp-modal-tab.active {
+	background: rgba(255,255,255,0.1);
+	color: rgba(255,255,255,0.85);
+}
+.wp-modal-footer {
+	padding: 12px 20px 16px;
+	border-top: 1px solid rgba(255,255,255,0.05);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+}
+.wp-modal-footer-note {
+	font-size: 11px;
+	color: rgba(255,255,255,0.28);
+	line-height: 1.45;
+}
+.wp-modal-watch-link {
+	font-size: 12px;
+	font-weight: 600;
+	color: #5fd08a;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.wp-modal-watch-link:hover { text-decoration: underline; }
 `;
 	document.head.appendChild(s);
 }
@@ -576,6 +832,26 @@ class WatchPanel {
       <div class="wp-log-empty">Loading…</div>
     </div>
   </div>
+  ${this.isOwner ? `
+  <div class="wp-launch" id="wp-launch">
+    <div class="wp-launch-head" id="wp-launch-head">
+      <div class="wp-launch-title">
+        <div class="wp-launch-icon">▶</div>
+        Start Live Session
+      </div>
+      <div class="wp-launch-chevron">▾</div>
+    </div>
+    <div class="wp-launch-body">
+      <p class="wp-launch-desc">
+        Connect a Playwright browser to this agent's screen stream.
+        Generate credentials then run the caster anywhere — locally, on Docker, or Cloud Run.
+      </p>
+      <button class="wp-launch-btn" id="wp-launch-btn">
+        <div class="spinner"></div>
+        <span class="btn-label">Generate credentials</span>
+      </button>
+    </div>
+  </div>` : ''}
 </div>`;
 
 		this._canvas   = this.el.querySelector('#wp-canvas');
@@ -590,6 +866,117 @@ class WatchPanel {
 		this.el.querySelector('.wp-screen-expand').addEventListener('click', () => {
 			const wrap = this.el.querySelector('.wp-screen-wrap');
 			(wrap.requestFullscreen || wrap.webkitRequestFullscreen || (() => {})).call(wrap);
+		});
+
+		if (this.isOwner) {
+			this.el.querySelector('#wp-launch-head').addEventListener('click', () => {
+				this.el.querySelector('#wp-launch').classList.toggle('open');
+			});
+			this.el.querySelector('#wp-launch-btn').addEventListener('click', () => this._generateSession());
+		}
+	}
+
+	// ── Session launcher ──────────────────────────────────────────────────────
+
+	async _generateSession() {
+		const btn = this.el.querySelector('#wp-launch-btn');
+		if (!btn || btn.disabled) return;
+		btn.disabled = true;
+		btn.classList.add('loading');
+		try {
+			const res = await fetch(SESSION_URL(), {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ agentId: this.agentId }),
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err.message || `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			this._showSessionModal(data);
+		} catch (err) {
+			alert('Could not generate session: ' + err.message);
+		} finally {
+			btn.disabled = false;
+			btn.classList.remove('loading');
+		}
+	}
+
+	_showSessionModal({ token, agentName, expiresAt, streamUrl, commands }) {
+		const expires = new Date(expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+		const backdrop = document.createElement('div');
+		backdrop.className = 'wp-modal-backdrop';
+		backdrop.innerHTML = `
+<div class="wp-modal" role="dialog" aria-modal="true" aria-label="Launch session">
+  <div class="wp-modal-head">
+    <div class="wp-modal-title">Launch screen session — ${esc(agentName || 'Agent')}</div>
+    <button class="wp-modal-close" aria-label="Close">✕</button>
+  </div>
+  <div class="wp-modal-body">
+    <div>
+      <div class="wp-modal-section-label">Bearer token (valid until ${expires})</div>
+      <div class="wp-modal-token-row">
+        <div class="wp-modal-token" title="${esc(token)}">${esc(token.slice(0, 48))}…</div>
+        <button class="wp-copy-btn" data-copy="${esc(token)}">Copy</button>
+      </div>
+    </div>
+    <div>
+      <div class="wp-modal-section-label">Launch command</div>
+      <div class="wp-modal-tabs">
+        <div class="wp-modal-tab active" data-tab="node">Node</div>
+        <div class="wp-modal-tab" data-tab="docker">Docker</div>
+      </div>
+      <div id="wp-modal-code-wrap">
+        <div class="wp-modal-code-block" id="wp-modal-code">${esc(commands.node)}<button class="wp-copy-btn wp-modal-code-copy" data-copy="${esc(commands.node)}">Copy</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="wp-modal-footer">
+    <div class="wp-modal-footer-note">
+      Runs a Playwright browser that streams frames here in real-time.<br>
+      Swap <code>TASK_ARG</code> for any token address or task target.
+    </div>
+    <a class="wp-modal-watch-link" href="${esc(streamUrl)}" target="_blank" rel="noopener">Open full screen →</a>
+  </div>
+</div>`;
+
+		document.body.appendChild(backdrop);
+
+		const close = () => backdrop.remove();
+		backdrop.querySelector('.wp-modal-close').addEventListener('click', close);
+		backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+		document.addEventListener('keydown', function esc(e) {
+			if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+		});
+
+		// Tab switching
+		const tabs   = backdrop.querySelectorAll('.wp-modal-tab');
+		const codeEl = backdrop.querySelector('#wp-modal-code');
+		tabs.forEach((tab) => {
+			tab.addEventListener('click', () => {
+				tabs.forEach((t) => t.classList.remove('active'));
+				tab.classList.add('active');
+				const cmd = tab.dataset.tab === 'docker' ? commands.docker : commands.node;
+				codeEl.innerHTML = `${esc(cmd)}<button class="wp-copy-btn wp-modal-code-copy" data-copy="${esc(cmd)}">Copy</button>`;
+				codeEl.querySelector('.wp-copy-btn').addEventListener('click', (e) => copyHandler(e.currentTarget));
+			});
+		});
+
+		// Copy buttons
+		const copyHandler = (btn) => {
+			const text = btn.dataset.copy;
+			navigator.clipboard.writeText(text).then(() => {
+				const orig = btn.textContent;
+				btn.textContent = 'Copied!';
+				btn.classList.add('copied');
+				setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+			});
+		};
+		backdrop.querySelectorAll('.wp-copy-btn').forEach((b) => {
+			b.addEventListener('click', () => copyHandler(b));
 		});
 	}
 
