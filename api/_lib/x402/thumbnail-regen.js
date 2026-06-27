@@ -18,6 +18,15 @@
 // spend-loop bundle stays lean.
 
 import { sql } from '../db.js';
+import { payX402 } from './pay.js';
+
+// The x402 endpoint this pipeline pays to fetch the current model bytes.
+export const THUMBNAIL_REGEN_ENDPOINT = '/api/x402/asset-download';
+
+// Reference price for the use case ($0.005). The real charge is per-listing
+// (paid_assets.price_atomics); the loop's daily cap + payX402's remainingCap
+// guard bound actual spend. Kept for registry documentation/analytics.
+export const THUMBNAIL_REGEN_PRICE_ATOMIC = 5_000;
 
 // A thumbnail is stale once it is this many days old (or never rendered, or the
 // underlying model bytes changed after the last render).
@@ -199,4 +208,113 @@ export function thumbnailKeyFor(slug, runId) {
 	const safeSlug = String(slug).replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 80);
 	const suffix = runId ? String(runId).slice(0, 8) : 'r';
 	return `thumbnails/assets/${safeSlug}-${suffix}.png`;
+}
+
+// run(ctx) — the autonomous-loop entry point (USE-015 Avatar Thumbnail
+// Regeneration). Selects the stalest listing, pays asset-download for its
+// current GLB with a real on-chain USDC payment, and queues a re-render. The
+// loop records the returned outcome as one summary row in x402_autonomous_log.
+//
+// Returns the standard run() outcome:
+//   { success, skipped?, amountAtomic, txSig, network, responseData, signalData, errorMsg, note }
+//
+// Never throws — selection, payment, and enqueue faults all degrade into a
+// recorded outcome so a single bad listing can't crash the tick.
+export async function runThumbnailRegen(ctx = {}) {
+	const { origin, buyer, conn, blockhash, mintInfo, remainingCap, log, runId } = ctx;
+
+	// Wallet not configured / no Solana context → exit gracefully. The loop only
+	// invokes run() after loading the seed keypair, but a standalone/manual call
+	// (the documented test path) may not have one.
+	if (!buyer || !conn || !blockhash || !mintInfo) {
+		return { success: false, skipped: true, amountAtomic: 0, note: 'solana_context_unavailable', errorMsg: 'solana_context_unavailable' };
+	}
+
+	let asset;
+	try {
+		asset = await selectStaleAsset();
+	} catch (err) {
+		log?.warn?.('thumbnail_regen_select_failed', { run_id: runId, message: err?.message });
+		return { success: false, skipped: true, amountAtomic: 0, note: 'select_error', errorMsg: `select_failed:${err?.message || 'unknown'}` };
+	}
+
+	if (!asset) {
+		return { success: true, skipped: true, amountAtomic: 0, note: 'no_stale_assets' };
+	}
+
+	const base = origin || 'https://three.ws';
+	const url = `${base}${THUMBNAIL_REGEN_ENDPOINT}?slug=${encodeURIComponent(asset.slug)}`;
+
+	let r;
+	try {
+		r = await payX402({
+			url, method: 'GET', body: null,
+			buyer, conn, blockhash, mintInfo,
+			remainingCap: remainingCap ?? Infinity,
+			userAgent: 'threews-x402-thumbnail-regen/1.0',
+		});
+	} catch (err) {
+		log?.warn?.('thumbnail_regen_pay_failed', { run_id: runId, slug: asset.slug, message: err?.message });
+		return {
+			success: false, amountAtomic: 0, txSig: null, network: 'solana:mainnet',
+			responseData: { slug: asset.slug }, errorMsg: `pay_failed:${err?.message || 'unknown'}`,
+			note: `pay_error slug=${asset.slug}`,
+		};
+	}
+
+	const downloaded = !!(r.success && r.responseBody && r.responseBody.ok);
+
+	// Queue the re-render only after we hold a valid download confirmation.
+	let jobId = null;
+	let enqueueErr = null;
+	if (downloaded) {
+		try {
+			jobId = await enqueueRegenJob({
+				asset, runId, txSig: r.txSig,
+				amountAtomic: r.amountAtomic, responseBody: r.responseBody,
+			});
+		} catch (err) {
+			enqueueErr = err?.message || 'enqueue_failed';
+			log?.warn?.('thumbnail_regen_enqueue_failed', { run_id: runId, slug: asset.slug, message: enqueueErr });
+		}
+	}
+
+	const signalData = {
+		slug: asset.slug,
+		asset_id: asset.id || null,
+		avatar_id: asset.avatar_id || null,
+		downloaded,
+		job_id: jobId,
+		size_bytes: r.responseBody?.sizeBytes ?? null,
+		tx: r.txSig || null,
+	};
+
+	log?.info?.('thumbnail_regen_complete', {
+		run_id: runId, slug: asset.slug, downloaded, job_id: jobId,
+		tx: r.txSig, paid_usdc: (r.amountAtomic || 0) / 1e6,
+	});
+
+	return {
+		success: downloaded && !enqueueErr,
+		// Only count what actually moved on-chain so the loop's spend accounting
+		// stays exact (free/guard-skipped responses contribute 0).
+		amountAtomic: r.paid ? (r.amountAtomic || 0) : 0,
+		txSig: r.txSig || null,
+		network: 'solana:mainnet',
+		// NB: the presigned downloadUrl is a short-lived R2 credential — never
+		// persist it verbatim into the log; record a marker instead.
+		responseData: {
+			slug: asset.slug,
+			title: asset.title,
+			download_ok: downloaded,
+			download_url: r.responseBody?.downloadUrl ? '[presigned]' : null,
+			size_bytes: r.responseBody?.sizeBytes ?? null,
+			job_id: jobId,
+		},
+		signalData,
+		errorMsg: enqueueErr
+			? `enqueue_failed:${enqueueErr}`
+			: (downloaded ? null : (r.errorMsg || `download_failed:status_${r.status || 0}`)),
+		note: downloaded ? `queued regen slug=${asset.slug} job=${jobId ?? 'dup'}` : `download_failed slug=${asset.slug}`,
+	};
 }

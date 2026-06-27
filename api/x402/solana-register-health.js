@@ -45,9 +45,9 @@ import { logger } from '../_lib/usage.js';
 import { explorerUrl } from '../_lib/onchain-deploy.js';
 
 const ROUTE = '/api/x402/solana-register-health';
-const TOOL_NAME = 'solana_register';
+export const TOOL_NAME = 'solana_register';
 // Consecutive failures before the canary escalates from a warn to an alert log.
-const ALERT_THRESHOLD = 3;
+export const ALERT_THRESHOLD = 3;
 
 const log = logger('x402-solana-register-health');
 
@@ -153,7 +153,7 @@ async function resolveCanaryAgent() {
 }
 
 // Pull the registration coordinates out of an agent's meta for either network.
-function readRegistration(meta) {
+export function readRegistration(meta) {
 	const m = meta || {};
 	const mainnet = m.sol_mint_address
 		? { network: 'mainnet', asset: m.sol_mint_address, registry: m.agent_registry || null }
@@ -162,6 +162,17 @@ function readRegistration(meta) {
 		? { network: 'devnet', asset: m.devnet.sol_mint_address, registry: m.devnet.agent_registry || null }
 		: null;
 	return mainnet || devnet || { network: 'mainnet', asset: null, registry: null };
+}
+
+// The canary is healthy only when the agent is enrolled in the registry AND both
+// the Core asset and the Identity PDA accounts currently resolve on-chain. Pure
+// so the verdict is unit-testable without a DB or RPC.
+export function evaluateHealthy(checks) {
+	return (
+		checks?.registry_enrolled === true &&
+		checks?.asset_onchain === true &&
+		checks?.identity_pda_onchain === true
+	);
 }
 
 // Confirm an account exists on-chain. Returns false on a malformed pubkey or any
@@ -287,7 +298,7 @@ export default paidEndpoint({
 		checks.identity_pda_onchain = pdaOk;
 
 		// Healthy = enrolled in the registry AND both on-chain accounts resolve.
-		const healthy = checks.registry_enrolled && checks.asset_onchain && checks.identity_pda_onchain;
+		const healthy = evaluateHealthy(checks);
 
 		const detail = {
 			source, network: reg.network, agent_id: agent.id, asset, identity_pda: identityPda, checks, rpc_latency_ms: rpcLatencyMs,

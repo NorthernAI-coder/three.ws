@@ -9,6 +9,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { cacheGet } from '../_lib/cache.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
+import { sql } from '../_lib/db.js';
 
 const PROBE_TIMEOUT_MS = 8_000;
 const ORIGIN = env.APP_ORIGIN || 'https://three.ws';
@@ -142,6 +143,11 @@ export default wrap(async (req, res) => {
 		}),
 	);
 
+	// Cross-network payment circuit breaker — latest per-network status written
+	// hourly by the autonomous loop (api/_lib/x402/circuit-breaker.js). A tripped
+	// route or failed Solana settlement means the payment stack is degraded.
+	const circuitBreaker = await loadCircuitBreaker();
+
 	// Categorize probe results
 	const byCategory = {};
 	for (const r of probeResults) {
@@ -151,7 +157,11 @@ export default wrap(async (req, res) => {
 
 	const allProbesOk = probeResults.every((r) => r.ok);
 	const allCronsOk = heartbeats.every((h) => !h.stale && h.ok !== false);
-	const overallOk = allProbesOk && allCronsOk;
+	// A missing breaker row (never run / table absent) is unknown, not failing —
+	// don't fail health on a feature that hasn't booted. Only a present-and-degraded
+	// breaker folds into the verdict.
+	const breakerOk = circuitBreaker.ok !== false;
+	const overallOk = allProbesOk && allCronsOk && breakerOk;
 
 	const failingProbes = probeResults.filter((r) => !r.ok);
 	const failingCrons = heartbeats.filter((h) => h.stale || h.ok === false);
@@ -170,5 +180,62 @@ export default wrap(async (req, res) => {
 		},
 		probes: byCategory,
 		crons: heartbeats,
+		circuitBreaker,
 	});
 });
+
+// Read the latest per-network circuit-breaker snapshot. The hourly breaker
+// upserts one row per network into x402_circuit_breaker; a row older than the
+// staleness window means the loop stopped writing. Returns ok:null when the
+// feature has never run (table absent / no rows) so health doesn't fail on it.
+const BREAKER_STALE_AFTER_MS = 2 * 60 * 60 * 1000; // 2h (hourly cadence + slack)
+
+async function loadCircuitBreaker() {
+	try {
+		const rows = await sql`
+			SELECT network, label, scheme, advertised, route_ok, settled,
+			       receipt_valid, tx_signature, error,
+			       extract(epoch FROM checked_at) * 1000 AS checked_at_ms
+			FROM x402_circuit_breaker
+			ORDER BY label ASC
+		`;
+		if (!rows.length) return { ok: null, reason: 'no_data', networks: [] };
+		const now = Date.now();
+		const networks = rows.map((r) => {
+			const checkedAt = r.checked_at_ms ? Number(r.checked_at_ms) : null;
+			const stale = checkedAt === null || now - checkedAt > BREAKER_STALE_AFTER_MS;
+			return {
+				network: r.network,
+				label: r.label,
+				scheme: r.scheme,
+				advertised: r.advertised,
+				routeOk: r.route_ok,
+				settled: r.settled,
+				receiptValid: r.receipt_valid,
+				txSignature: r.tx_signature,
+				error: r.error,
+				lastChecked: checkedAt,
+				stale,
+			};
+		});
+		const routesOk = networks.every((n) => n.routeOk && !n.stale);
+		// Solana is the network we actually settle on; its settlement is the
+		// end-to-end proof. Base/BSC are route-verify only.
+		const solana = networks.find((n) => /solana/i.test(n.label) || /solana/i.test(n.network));
+		const settlementOk = solana ? solana.settled && !solana.stale : false;
+		const ok = routesOk && settlementOk;
+		return {
+			ok,
+			routesOk,
+			settlementOk,
+			solanaTx: solana?.txSignature || null,
+			networks,
+		};
+	} catch (err) {
+		// Table not yet created (first boot before the loop runs) → unknown, not failing.
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent', networks: [] };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}`, networks: [] };
+	}
+}

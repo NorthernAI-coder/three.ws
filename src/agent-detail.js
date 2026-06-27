@@ -1501,6 +1501,104 @@ async function loadReviews(agentId, agentRec) {
 	body.appendChild(list);
 }
 
+/**
+ * Show an inline "Anchor on Base?" prompt in the review form actions area.
+ * The user can sign the review with MetaMask for an ERC-8004 on-chain record, or skip.
+ * Resolves when the user makes a choice (either way).
+ */
+async function offerErc8004Anchor({ erc8004, rating, reviewId, statusEl, actions }) {
+	return new Promise((resolve) => {
+		// Replace the save button row with anchor / skip options.
+		const prev = Array.from(actions.children);
+		prev.forEach((c) => c.remove());
+
+		statusEl.textContent = '';
+
+		const anchorBtn = el('button', {
+			class: 'ad-review-submit',
+			type: 'button',
+			text: 'Anchor on Base',
+			style: 'font-size:0.85em',
+		});
+		const skipLink = el('button', {
+			class: 'ad-review-delete',
+			type: 'button',
+			text: 'Skip',
+			style: 'font-size:0.85em',
+		});
+
+		const hint = el('span', {
+			class: 'ad-review-char-count',
+			style: 'color:var(--ad-muted);font-size:0.8em',
+			text: 'Immutable on-chain record via MetaMask',
+		});
+
+		actions.appendChild(hint);
+		actions.appendChild(skipLink);
+		actions.appendChild(anchorBtn);
+
+		skipLink.addEventListener('click', () => resolve());
+
+		anchorBtn.addEventListener('click', async () => {
+			anchorBtn.disabled = true;
+			skipLink.disabled = true;
+			anchorBtn.textContent = 'Connecting…';
+			statusEl.textContent = '';
+
+			try {
+				const [{ BrowserProvider }, { submitFeedback }, { REGISTRY_DEPLOYMENTS }] = await Promise.all([
+					import('ethers'),
+					import('./erc8004/reputation.js'),
+					import('./erc8004/abi.js'),
+				]);
+
+				const chainId = erc8004.chain_id ? Number(erc8004.chain_id) : 8453; // default to Base
+				const deployment = REGISTRY_DEPLOYMENTS[chainId];
+				if (!deployment?.reputationRegistry) {
+					statusEl.textContent = 'Registry not deployed on this chain';
+					statusEl.style.color = '#ff8a80';
+					resolve();
+					return;
+				}
+
+				// Switch MetaMask to the correct network before requesting signature.
+				try {
+					await window.ethereum.request({
+						method: 'wallet_switchEthereumChain',
+						params: [{ chainId: `0x${chainId.toString(16)}` }],
+					});
+				} catch {
+					// Non-fatal — the provider may already be on the right chain.
+				}
+
+				anchorBtn.textContent = 'Sign in wallet…';
+				const provider = new BrowserProvider(window.ethereum);
+				const signer = await provider.getSigner();
+
+				const txHash = await submitFeedback({
+					agentId: BigInt(erc8004.agent_id),
+					score: rating,
+					comment: reviewId ? `threews:review:${reviewId}` : '',
+					signer,
+					chainId,
+				});
+
+				statusEl.innerHTML = `Anchored on-chain — <a href="https://basescan.org/tx/${txHash}" target="_blank" rel="noopener" style="color:var(--ad-violet)">view tx</a>`;
+				statusEl.style.color = 'var(--ad-muted)';
+			} catch (err) {
+				if (err?.code === 4001 || err?.code === 'ACTION_REJECTED') {
+					statusEl.textContent = 'Signature declined';
+				} else {
+					statusEl.textContent = err?.shortMessage || err?.message || 'Anchor failed';
+				}
+				statusEl.style.color = '#ff8a80';
+			}
+
+			resolve();
+		});
+	});
+}
+
 function buildReviewForm(agentId, existing, onSuccess) {
 	let selectedRating = existing?.rating || 0;
 	let submitting = false;
@@ -1619,6 +1717,23 @@ function buildReviewForm(agentId, existing, onSuccess) {
 				submitting = false;
 				return;
 			}
+
+			submitBtn.textContent = 'Saved!';
+
+			// If the agent has an ERC-8004 on-chain identity and the browser has an
+			// injected wallet, offer a user-signed anchor on Base for stronger
+			// provenance. The platform already anchored on Solana server-side.
+			const erc8004 = json.data?.erc8004;
+			if (erc8004?.agent_id && typeof window !== 'undefined' && window.ethereum) {
+				await offerErc8004Anchor({
+					erc8004,
+					rating: selectedRating,
+					reviewId: json.data.review?.id,
+					statusEl,
+					actions,
+				});
+			}
+
 			onSuccess(json.data);
 		} catch (e) {
 			statusEl.textContent = 'Network error';
