@@ -1974,6 +1974,10 @@
 			"dest": "/api/agents/[id]"
 		},
 		{
+			"src": "/api/agents/([^/]+)/activate",
+			"dest": "/api/agents/[id]"
+		},
+		{
 			"src": "/api/agents/([^/]+)/alpha/([^/]+)",
 			"dest": "/api/agents/[id]"
 		},

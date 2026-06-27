@@ -55,8 +55,10 @@
 .px-net-btn.active { color: var(--ink-bright, #fff); background: var(--surface-3, rgba(255,255,255,.08)); }
 .px-net-btn:focus-visible { outline: 2px solid var(--ink-bright, #fff); outline-offset: 2px; }
 
-/* Headline counters — a tidy 3×2 grid; the volume lead is emphasised, not wider. */
-.px-counters { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm, 10px); margin: var(--space-xl, 40px) 0 var(--space-md, 16px); }
+/* Headline counters — a 4-col grid where the volume lead spans two cells, so the
+   seven counters tile evenly (4 + 3 with the lead double-wide) with no orphan. */
+.px-counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-sm, 10px); margin: var(--space-xl, 40px) 0 var(--space-md, 16px); }
+.px-counter--lead { grid-column: span 2; }
 .px-counter { background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke, rgba(255,255,255,.07));
 	border-radius: var(--radius-lg, 14px); padding: var(--space-md, 16px) var(--space-sm, 14px); text-align: center;
 	transition: border-color .16s ease, background .16s ease; }

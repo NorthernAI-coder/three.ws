@@ -199,7 +199,7 @@ async function renderSetup() {
 					<div class="ws-step-num${step2Done ? ' done' : ''}">${step2Done ? '✓' : '2'}</div>
 					<div>
 						<h3>Generate an API key</h3>
-						<p>Used as <code style="font-size:0.78rem;color:#8a9fff">AGENT_JWT</code> — authenticates the worker as you</p>
+						<p>Used as <code style="font-size:0.78rem;color:#d4d4d8">AGENT_JWT</code> — authenticates the worker as you</p>
 					</div>
 				</div>
 				<div class="ws-setup-step-body">
@@ -214,7 +214,7 @@ async function renderSetup() {
 					</div>
 					${apiKey
 						? `<p class="ws-key-note"><strong>Save this key now.</strong> It won't be shown again. It grants access to your account — treat it like a password.</p>`
-						: `<p class="ws-key-note">Creates a new <code style="font-size:0.78rem">agents:write</code>-scoped API key. You can manage keys at <a href="/dashboard-next/developers" style="color:#7aabff">Developers →</a></p>`
+						: `<p class="ws-key-note">Creates a new <code style="font-size:0.78rem">agents:write</code>-scoped API key. You can manage keys at <a href="/dashboard-next/developers" style="color:#d4d4d8">Developers →</a></p>`
 					}
 				</div>
 			</div>
@@ -225,7 +225,7 @@ async function renderSetup() {
 					<div class="ws-step-num">${step1Done && step2Done ? '3' : '3'}</div>
 					<div>
 						<h3>Run the worker</h3>
-						<p>Copy and run in your terminal from the <code style="font-size:0.78rem;color:#8a9fff">workers/agent-screen-worker/</code> directory</p>
+						<p>Copy and run in your terminal from the <code style="font-size:0.78rem;color:#d4d4d8">workers/agent-screen-worker/</code> directory</p>
 					</div>
 				</div>
 				<div class="ws-setup-step-body">
@@ -238,7 +238,7 @@ async function renderSetup() {
 						<button class="ws-btn ws-btn-copy ws-cmd-copy" id="ws-copy-cmd">Copy</button>
 						<pre id="ws-cmd-pre">${buildCommand()}</pre>
 					</div>
-					${activeTab === 'bb' ? `<p class="ws-key-note" style="margin-top:0.7rem">Get your Browserbase key + project ID at <a href="https://browserbase.com" target="_blank" rel="noopener" style="color:#7aabff">browserbase.com</a> — no Docker needed, the browser runs in their cloud.</p>` : ''}
+					${activeTab === 'bb' ? `<p class="ws-key-note" style="margin-top:0.7rem">Get your Browserbase key + project ID at <a href="https://browserbase.com" target="_blank" rel="noopener" style="color:#d4d4d8">browserbase.com</a> — no Docker needed, the browser runs in their cloud.</p>` : ''}
 					${selectedAgent && apiKey ? `
 					<div class="ws-status-ok">
 						<span>✓</span>
@@ -610,7 +610,7 @@ async function boot(id) {
 				setTimeout(() => { taskStatus.textContent = ''; taskStatus.className = 'asc-task-status'; }, 5000);
 			} else if (res.status === 401) {
 				taskStatus.className = 'asc-task-status err';
-				taskStatus.innerHTML = 'Sign in to send tasks. <a href="/login" style="color:#7aabff">Sign in →</a>';
+				taskStatus.innerHTML = 'Sign in to send tasks. <a href="/login" style="color:#d4d4d8">Sign in →</a>';
 			} else {
 				taskStatus.className = 'asc-task-status err';
 				taskStatus.textContent = j.message || j.error_description || 'Could not queue task — try again';

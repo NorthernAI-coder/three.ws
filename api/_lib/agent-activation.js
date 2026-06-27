@@ -1,0 +1,353 @@
+// @ts-check
+// Agent activation — the onboarding "Go Live" welcome grant.
+//
+// Distinct from USER activation (api/_lib/activation.js, the first-3D-win
+// milestone): this is the AGENT-wallet cold-start fix.
+//
+// The cold-start problem: a freshly created agent gets a custodial wallet, but on
+// mainnet that wallet starts at ◎0. With no funds it can never make its first
+// transaction, so it never appears on the Money Pulse and never counts as an
+// active wallet. The funnel dead-ends at "wallet created".
+//
+// Activation fixes that with a real, one-time, on-chain platform grant: the
+// treasury sends a small amount of SOL to the agent's wallet and the transfer is
+// recorded as a genuine `tip` custody event. The agent is now BOTH funded (it can
+// transact) AND active (it shows on the Pulse, in tips, and in active-wallet
+// counts) — from a single, honest, explorer-verifiable transaction the owner can
+// see. It is a welcome bonus, framed as exactly that; there is nothing synthetic.
+//
+// Guarantees:
+//   · Exactly one grant per agent — enforced by the agent_activations primary key
+//     and a pending→confirmed status mutex, so concurrent POSTs can't double-spend.
+//   · Owner-only, real agents only (platform circulation agents are excluded).
+//   · A rolling daily cap bounds spend; per-IP/user rate limiting lives at the route.
+//   · Fully inert + graceful when no treasury is configured (status: not_configured).
+
+import { sql } from './db.js';
+import {
+	isConfigured,
+	getTreasuryKeypair,
+	transferSol,
+	lamportBalance,
+	treasuryConnection,
+	treasuryNetwork,
+	FEE_BUFFER,
+	SOL,
+} from './platform-treasury.js';
+import { ensureAgentWallet } from './agent-wallet.js';
+import { recordCustodyEvent } from './agent-trade-guards.js';
+import { solUsdPrice, explorerTxUrl } from './avatar-wallet.js';
+import { publishFeedEvent } from './feed.js';
+import { insertNotification } from './notify.js';
+
+// Env override so a flow can point activation at its own funded wallet; otherwise
+// the shared operator treasury (CIRCULATION_TREASURY_SECRET) funds the grant.
+const TREASURY_ENV_OVERRIDE = 'AGENT_ACTIVATION_TREASURY_SECRET';
+
+function clampNumber(v, dflt, lo, hi) {
+	const n = Number(v);
+	if (!Number.isFinite(n)) return dflt;
+	return Math.min(hi, Math.max(lo, n));
+}
+
+/** Resolved activation configuration from env. Cheap + side-effect free. */
+export function activationConfig() {
+	const enabledRaw = String(process.env.AGENT_ACTIVATION_ENABLED ?? '').toLowerCase();
+	const enabled = enabledRaw === '1' || enabledRaw === 'true' || enabledRaw === 'yes';
+	// Grant size in SOL. Small on purpose: enough to fund a first real action +
+	// fees, not a faucet to farm. 0.0001–0.05 SOL hard-bounded.
+	const grantSol = clampNumber(process.env.AGENT_ACTIVATION_GRANT_SOL, 0.004, 0.0001, 0.05);
+	const dailyCap = clampNumber(process.env.AGENT_ACTIVATION_DAILY_CAP, 500, 1, 100_000);
+	return {
+		enabled,
+		configured: isConfigured(TREASURY_ENV_OVERRIDE),
+		network: treasuryNetwork(),
+		grantSol,
+		grantLamports: Math.round(grantSol * SOL),
+		dailyCap,
+	};
+}
+
+/** True when this agent is platform-operated (circulation) rather than a real user's. */
+function isCirculationAgent(agent) {
+	return String(agent?.meta?.circulation ?? '') === 'true';
+}
+
+// Load the activation ledger row for an agent (or null). Tolerates the table not
+// existing yet (pre-migration) so status reads never 500 a profile.
+async function loadActivationRow(agentId) {
+	try {
+		const [row] = await sql`
+			select agent_id, user_id, network, status, signature, lamports, usd, created_at, confirmed_at
+			from agent_activations where agent_id = ${agentId} limit 1
+		`;
+		return row || null;
+	} catch (err) {
+		if (err?.code === '42P01') return null; // table not migrated yet
+		throw err;
+	}
+}
+
+// Shape a confirmed ledger row into the public activation receipt.
+function receipt(row, network) {
+	if (!row || row.status !== 'confirmed') return null;
+	const sol = row.lamports != null ? Number(row.lamports) / SOL : null;
+	return {
+		signature: row.signature,
+		explorer: row.signature ? explorerTxUrl(row.signature, row.network || network) : null,
+		sol,
+		usd: row.usd != null ? Number(row.usd) : null,
+		activated_at: row.confirmed_at || row.created_at,
+		network: row.network || network,
+	};
+}
+
+/**
+ * Read-only activation status for an agent, from the owner's perspective. Used by
+ * the wallet hub to decide which state to render. Never mutates, never throws on
+ * infra trouble (degrades to a safe "can't determine" shape).
+ *
+ * @param {{ agent: any, isOwner: boolean }} args
+ */
+export async function getActivationStatus({ agent, isOwner }) {
+	const cfg = activationConfig();
+	const row = await loadActivationRow(agent.id).catch(() => null);
+	const activated = !!row && row.status === 'confirmed';
+	const pending = !!row && row.status === 'pending';
+	const circulation = isCirculationAgent(agent);
+	const hasWallet = !!(agent.solana_address || agent.meta?.solana_address);
+
+	// Eligibility = a real, owned, not-yet-activated agent on a configured+enabled
+	// platform. A missing wallet is NOT a blocker — activation provisions it.
+	let eligible = false;
+	let reason = null;
+	if (!isOwner) reason = 'not_owner';
+	else if (circulation) reason = 'platform_agent';
+	else if (activated) reason = 'already_activated';
+	else if (pending) reason = 'in_progress';
+	else if (!cfg.enabled || !cfg.configured) reason = 'not_configured';
+	else eligible = true;
+
+	return {
+		enabled: cfg.enabled && cfg.configured,
+		network: cfg.network,
+		grant_sol: cfg.grantSol,
+		activated,
+		pending,
+		eligible,
+		reason,
+		has_wallet: hasWallet,
+		receipt: activated ? receipt(row, cfg.network) : null,
+	};
+}
+
+// Count confirmed grants in the last 24h for the rolling daily cap.
+async function confirmedToday() {
+	try {
+		const [r] = await sql`
+			select count(*)::int as count from agent_activations
+			where status = 'confirmed' and created_at > now() - interval '24 hours'
+		`;
+		return r?.count ?? 0;
+	} catch (err) {
+		if (err?.code === '42P01') return 0;
+		throw err;
+	}
+}
+
+// Ensure the ledger table exists even if the migration hasn't run yet (mirrors the
+// circulation engine's self-healing schema guard). Idempotent + cheap.
+let _ensured = false;
+async function ensureSchema() {
+	if (_ensured) return;
+	await sql`
+		create table if not exists agent_activations (
+			agent_id     uuid primary key,
+			user_id      uuid,
+			network      text        not null default 'mainnet',
+			status       text        not null default 'pending',
+			signature    text,
+			lamports     bigint,
+			usd          numeric,
+			created_at   timestamptz not null default now(),
+			confirmed_at timestamptz
+		)
+	`;
+	await sql`create index if not exists agent_activations_confirmed on agent_activations (created_at desc) where status = 'confirmed'`;
+	_ensured = true;
+}
+
+/**
+ * Activate an agent: send the one-time on-chain welcome grant and record it as a
+ * real tip custody event. Idempotent and concurrency-safe. Never throws for an
+ * expected condition — returns a typed `{ ok, code }` the route maps to HTTP.
+ *
+ * @param {{ agentId: string, userId: string }} args
+ * @returns {Promise<{ ok: boolean, code?: string, message?: string, already?: boolean,
+ *   pending?: boolean, signature?: string, explorer?: string|null, sol?: number,
+ *   usd?: number|null, network?: string }>}
+ */
+export async function activateAgent({ agentId, userId }) {
+	const [agent] = await sql`
+		select id, user_id, name, meta from agent_identities
+		where id = ${agentId} and deleted_at is null limit 1
+	`;
+	if (!agent) return { ok: false, code: 'not_found', message: 'agent not found' };
+	if (agent.user_id !== userId) return { ok: false, code: 'forbidden', message: 'not your agent' };
+	if (isCirculationAgent(agent)) {
+		return { ok: false, code: 'platform_agent', message: 'platform agents are already live' };
+	}
+
+	const cfg = activationConfig();
+
+	// Already activated? Return the existing receipt — idempotent, no second grant.
+	const existing = await loadActivationRow(agentId).catch(() => null);
+	if (existing?.status === 'confirmed') {
+		const r = receipt(existing, cfg.network);
+		return { ok: true, already: true, ...r };
+	}
+	if (existing?.status === 'pending') {
+		return { ok: true, already: true, pending: true, network: existing.network || cfg.network };
+	}
+
+	if (!cfg.enabled || !cfg.configured) {
+		return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
+	}
+
+	// Rolling daily cap — a soft global spend bound.
+	if ((await confirmedToday()) >= cfg.dailyCap) {
+		return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
+	}
+
+	await ensureSchema();
+
+	// Provision the wallet if it isn't already (lazy-mint path), then resolve the
+	// destination address.
+	let address = agent.meta?.solana_address || null;
+	try {
+		const w = await ensureAgentWallet(agentId, userId, { reason: 'activation' });
+		if (w?.address) address = w.address;
+	} catch (err) {
+		console.error('[agent-activation] wallet provision failed', err?.message);
+		return { ok: false, code: 'wallet_unavailable', message: 'could not prepare the agent wallet' };
+	}
+	if (!address) {
+		return { ok: false, code: 'wallet_unavailable', message: 'agent has no wallet to fund' };
+	}
+
+	// Claim the single grant slot. ON CONFLICT DO NOTHING is the mutex: if a
+	// concurrent request already inserted, we get no row back and bail as "pending".
+	const [claim] = await sql`
+		insert into agent_activations (agent_id, user_id, network, status)
+		values (${agentId}, ${userId}, ${cfg.network}, 'pending')
+		on conflict (agent_id) do nothing
+		returning agent_id
+	`;
+	if (!claim) {
+		const row = await loadActivationRow(agentId).catch(() => null);
+		if (row?.status === 'confirmed') return { ok: true, already: true, ...receipt(row, cfg.network) };
+		return { ok: true, already: true, pending: true, network: cfg.network };
+	}
+
+	// From here a failure must release the claim so the owner can retry.
+	const releaseClaim = () =>
+		sql`delete from agent_activations where agent_id = ${agentId} and status = 'pending'`.catch(
+			() => {},
+		);
+
+	let treasuryKp;
+	try {
+		treasuryKp = await getTreasuryKeypair(TREASURY_ENV_OVERRIDE);
+	} catch (err) {
+		await releaseClaim();
+		return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
+	}
+
+	const conn = treasuryConnection(cfg.network);
+	const lamports = cfg.grantLamports;
+
+	// Confirm the treasury can cover the grant + a fee buffer before sending, so a
+	// dry treasury yields a clean message instead of a raw RPC failure.
+	try {
+		const have = await lamportBalance(conn, treasuryKp.publicKey.toBase58());
+		if (have < BigInt(lamports) + BigInt(FEE_BUFFER)) {
+			await releaseClaim();
+			return { ok: false, code: 'treasury_low', message: 'activation is temporarily paused' };
+		}
+	} catch {
+		/* balance probe is best-effort; the transfer below is the real gate */
+	}
+
+	let signature;
+	try {
+		signature = await transferSol(conn, treasuryKp, address, lamports);
+	} catch (err) {
+		console.error('[agent-activation] grant transfer failed', err?.message);
+		await releaseClaim();
+		return { ok: false, code: 'transfer_failed', message: 'the grant could not be sent — try again' };
+	}
+
+	// Price the grant in USD (best-effort) so the Pulse can value it.
+	let usd = null;
+	try {
+		const px = await solUsdPrice();
+		if (px) usd = (lamports / SOL) * px;
+	} catch {
+		/* usd is decoration */
+	}
+
+	// Record the grant as a real inbound tip — this is what lands the agent on the
+	// Money Pulse and in active-wallet / tip counts. Idempotent on (agent, key).
+	await recordCustodyEvent({
+		agentId,
+		userId: null,
+		eventType: 'tip',
+		category: 'tip',
+		network: cfg.network,
+		asset: 'SOL',
+		amountLamports: lamports,
+		usd,
+		destination: address,
+		signature,
+		status: 'confirmed',
+		idempotencyKey: `activation:${agentId}`,
+		meta: {
+			source: 'activation_grant',
+			from: 'three.ws',
+			label: 'Activation welcome grant',
+			block_time: new Date().toISOString(),
+			decimals: 9,
+		},
+	}).catch((e) => console.warn('[agent-activation] custody event failed', e?.message));
+
+	await sql`
+		update agent_activations
+		set status = 'confirmed', signature = ${signature}, lamports = ${String(lamports)},
+		    usd = ${usd}, confirmed_at = now()
+		where agent_id = ${agentId}
+	`;
+
+	// Announce on the live ticker + notify the owner. Fire-and-forget — never block.
+	publishFeedEvent({
+		type: 'agent-activated',
+		ts: Date.now(),
+		actor: agent.name,
+		agentId,
+		name: agent.name,
+	}).catch(() => {});
+	insertNotification(userId, 'agent_activated', {
+		agent_id: agentId,
+		agent_name: agent.name,
+		sol: lamports / SOL,
+		signature,
+	}).catch(() => {});
+
+	return {
+		ok: true,
+		signature,
+		explorer: explorerTxUrl(signature, cfg.network),
+		sol: lamports / SOL,
+		usd,
+		network: cfg.network,
+	};
+}
