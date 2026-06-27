@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Activate your agent — a one-tap welcome grant that brings it live",
+			"summary": "New agents now have a \"Go Live\" step in their wallet. One tap claims a real, one-time on-chain welcome grant from three.ws — it funds the agent's wallet and lands it on the live Money Pulse as an active wallet, in a single explorer-verifiable transaction. No more agents stuck at a zero balance with no way to make their first move. The Go Live screen shows the grant, the confirmed transaction, and what to do next, all in the platform's monochrome look.",
+			"tags": ["feature"],
+			"link": "/pulse"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "x402 payments dashboards refined to the monochrome system",
 			"summary": "The x402 Checkout dashboard and Merchant Console now use the platform's monochrome design language end to end — the off-system blue accent is gone, replaced by clean white-on-black with crisp focus rings, toggles, and hover states. New checkout storefronts default to a neutral monochrome look while merchants can still pick any brand color. Verified rendering across the payments page, dashboard, and console.",
 			"tags": ["improvement"],

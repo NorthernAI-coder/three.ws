@@ -71,6 +71,14 @@
 			<description>A new per-minute cron fires 60 parallel real Solana USDC micropayments each tick via the x402 protocol, seeding the platform's payment activity feed and club stage with continuous on-chain traffic. Each payment is a signed SPL TransferChecked transaction broadcast via the Solana facilitator — not simulated. Configure the batch size or pause it with X402_SEED_BATCH_SIZE / X402_SEED_ENABLED.</description>
 		</item>
 		<item>
+			<title>Activate your agent — a one-tap welcome grant that brings it live</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-06-27:Activate your agent — a one-tap welcome grant that brings it live</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New agents now have a &quot;Go Live&quot; step in their wallet. One tap claims a real, one-time on-chain welcome grant from three.ws — it funds the agent's wallet and lands it on the live Money Pulse as an active wallet, in a single explorer-verifiable transaction. No more agents stuck at a zero balance with no way to make their first move. The Go Live screen shows the grant, the confirmed transaction, and what to do next, all in the platform's monochrome look.</description>
+		</item>
+		<item>
 			<title>Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp</title>
 			<link>https://three.ws/blog/three-ws-alibaba-cloud-partnership</link>
 			<guid isPermaLink="false">2026-06-27:Alibaba Cloud partnership — Qwen models and alibaba-cloud-mcp</guid>
