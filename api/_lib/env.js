@@ -126,6 +126,42 @@ function cred(value) {
 	return v || undefined;
 }
 
+// Resolve a URL+token credential as an ATOMIC PAIR from the same source. Each
+// `sources` entry is [urlVarName, tokenVarName] in priority order; the first
+// entry where BOTH halves are present (after cred() trimming) wins, and its url
+// AND token are returned together. Resolving the two halves through independent
+// `||` chains (the prior shape) let a URL set on one alias (Upstash store A) pair
+// with a token that fell through to a different alias (store B) — URL-A + token-B
+// authenticates as "WRONGPASS invalid or missing auth token" even though both
+// vars are individually "set". That cross-store mismatch is indistinguishable
+// from a stale token in the logs and degraded the limiter/cache/usage/x402-feed
+// to memory fallback fleet-wide. Pairing by source makes a mismatch impossible:
+// a token can never be matched against a different store's URL. Returns
+// { url, token } with undefined halves when no source is fully configured.
+function pickPair(sources) {
+	for (const [urlVar, tokenVar] of sources) {
+		const url = cred(opt(urlVar));
+		const token = cred(opt(tokenVar));
+		if (url && token) return { url, token };
+	}
+	return { url: undefined, token: undefined };
+}
+
+// Upstash REST credential sources for the shared rate-limiter/usage store, in
+// priority order. Manual UPSTASH_* first, then the Vercel-KV marketplace
+// integration's prefixed (`three_`) and bare (`KV_`) injected names.
+const REDIS_REST_SOURCES = [
+	['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
+	['three_KV_REST_API_URL', 'three_KV_REST_API_TOKEN'],
+	['KV_REST_API_URL', 'KV_REST_API_TOKEN'],
+];
+
+// Optional dedicated cache store (api/_lib/cache.js), same atomic-pairing rule.
+const REDIS_CACHE_SOURCES = [
+	['UPSTASH_CACHE_REST_URL', 'UPSTASH_CACHE_REST_TOKEN'],
+	['cache_KV_REST_API_URL', 'cache_KV_REST_API_TOKEN'],
+];
+
 export const env = {
 	get APP_ORIGIN() {
 		return normalizeAppOrigin(opt('PUBLIC_APP_ORIGIN'));
@@ -162,21 +198,13 @@ export const env = {
 		return trimSlash(req('S3_PUBLIC_DOMAIN'));
 	},
 
+	// Resolved as an atomic pair (see pickPair) so URL and token always come from
+	// the SAME Upstash store — never a store-A URL with a store-B token (WRONGPASS).
 	get UPSTASH_REDIS_REST_URL() {
-		// cred() each candidate (not the coalesced result) so a whitespace-only
-		// primary falls through to the next alias instead of masking it.
-		return (
-			cred(opt('UPSTASH_REDIS_REST_URL')) ||
-			cred(opt('three_KV_REST_API_URL')) ||
-			cred(opt('KV_REST_API_URL'))
-		);
+		return pickPair(REDIS_REST_SOURCES).url;
 	},
 	get UPSTASH_REDIS_REST_TOKEN() {
-		return (
-			cred(opt('UPSTASH_REDIS_REST_TOKEN')) ||
-			cred(opt('three_KV_REST_API_TOKEN')) ||
-			cred(opt('KV_REST_API_TOKEN'))
-		);
+		return pickPair(REDIS_REST_SOURCES).token;
 	},
 
 	// Optional dedicated cache store, separate from the rate-limiter store above.
@@ -190,10 +218,10 @@ export const env = {
 	// back to the shared store, then to in-memory — no behavior change. The Vercel-KV
 	// marketplace names for a second store prefixed `cache` are accepted too.
 	get UPSTASH_CACHE_REST_URL() {
-		return cred(opt('UPSTASH_CACHE_REST_URL')) || cred(opt('cache_KV_REST_API_URL'));
+		return pickPair(REDIS_CACHE_SOURCES).url;
 	},
 	get UPSTASH_CACHE_REST_TOKEN() {
-		return cred(opt('UPSTASH_CACHE_REST_TOKEN')) || cred(opt('cache_KV_REST_API_TOKEN'));
+		return pickPair(REDIS_CACHE_SOURCES).token;
 	},
 
 	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────

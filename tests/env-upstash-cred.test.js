@@ -61,9 +61,13 @@ describe('env Upstash credential trimming', () => {
 		expect(env.UPSTASH_REDIS_REST_TOKEN).toBeUndefined();
 	});
 
-	it('falls through to the Vercel-KV alias when the primary is whitespace-only', () => {
+	it('falls through to the Vercel-KV alias pair when the primary pair is incomplete', () => {
+		// Primary source has a whitespace-only token (→ incomplete pair); the KV
+		// marketplace alias supplies a complete url+token pair and wins.
 		process.env.UPSTASH_REDIS_REST_TOKEN = '   ';
+		process.env.KV_REST_API_URL = 'https://alias.upstash.io';
 		process.env.KV_REST_API_TOKEN = 'alias-token\n';
+		expect(env.UPSTASH_REDIS_REST_URL).toBe('https://alias.upstash.io');
 		expect(env.UPSTASH_REDIS_REST_TOKEN).toBe('alias-token');
 	});
 
@@ -75,8 +79,45 @@ describe('env Upstash credential trimming', () => {
 		expect(env.UPSTASH_CACHE_REST_TOKEN).toBe('cache-tok');
 	});
 
-	it('leaves a clean token untouched', () => {
+	it('leaves a clean url+token pair untouched', () => {
+		process.env.UPSTASH_REDIS_REST_URL = 'https://example.upstash.io';
 		process.env.UPSTASH_REDIS_REST_TOKEN = 'AX1sclean';
+		expect(env.UPSTASH_REDIS_REST_URL).toBe('https://example.upstash.io');
 		expect(env.UPSTASH_REDIS_REST_TOKEN).toBe('AX1sclean');
+	});
+});
+
+describe('env Upstash atomic credential pairing (cross-store WRONGPASS guard)', () => {
+	it('never pairs a URL from one source with a token from another', () => {
+		// The exact prod failure: a manual URL (store A) + an integration-injected
+		// token (store B). Independent `||` chains would emit url-A + token-B, which
+		// Upstash rejects as WRONGPASS. Atomic pairing must reject the incomplete
+		// primary and fall to the only fully-configured source instead.
+		process.env.UPSTASH_REDIS_REST_URL = 'https://store-a.upstash.io';
+		process.env.KV_REST_API_TOKEN = 'store-b-token';
+		// Primary pair: url set, token missing → incomplete. KV pair: token set, url
+		// missing → incomplete. No complete source → both halves undefined (so
+		// getRedis() skips cleanly instead of authenticating as WRONGPASS).
+		expect(env.UPSTASH_REDIS_REST_URL).toBeUndefined();
+		expect(env.UPSTASH_REDIS_REST_TOKEN).toBeUndefined();
+	});
+
+	it('returns a matched pair from the same source when one is complete', () => {
+		process.env.UPSTASH_REDIS_REST_URL = 'https://store-a.upstash.io';
+		process.env.three_KV_REST_API_URL = 'https://store-b.upstash.io';
+		process.env.three_KV_REST_API_TOKEN = 'store-b-token';
+		// Primary pair incomplete (no token); the `three_` source is complete and
+		// its URL and token travel together.
+		expect(env.UPSTASH_REDIS_REST_URL).toBe('https://store-b.upstash.io');
+		expect(env.UPSTASH_REDIS_REST_TOKEN).toBe('store-b-token');
+	});
+
+	it('prefers the highest-priority complete source', () => {
+		process.env.UPSTASH_REDIS_REST_URL = 'https://primary.upstash.io';
+		process.env.UPSTASH_REDIS_REST_TOKEN = 'primary-token';
+		process.env.KV_REST_API_URL = 'https://alias.upstash.io';
+		process.env.KV_REST_API_TOKEN = 'alias-token';
+		expect(env.UPSTASH_REDIS_REST_URL).toBe('https://primary.upstash.io');
+		expect(env.UPSTASH_REDIS_REST_TOKEN).toBe('primary-token');
 	});
 });

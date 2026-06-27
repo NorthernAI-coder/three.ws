@@ -1295,6 +1295,29 @@
 	<meta name="twitter:site" content="@trythreews">
 </head>
 	<body>
+		<!-- No-JS / no-WebGL / crawler & agent fallback. The 3D hall needs
+		     JavaScript + WebGL; without it this page would be blank. This block
+		     gives search crawlers and AI agents real, followable links into the
+		     marketplace and tells a no-JS visitor exactly where to go. Hidden the
+		     instant scripts run (it lives in <noscript>), so it never touches the
+		     interactive experience. -->
+		<noscript>
+			<div style="max-width:640px;margin:12vh auto;padding:0 24px;font-family:'Inter',system-ui,sans-serif;color:#fafafa;text-align:center;">
+				<h1 style="font-size:26px;font-weight:700;letter-spacing:-0.01em;margin:0 0 12px;">Walk-Browse the Marketplace</h1>
+				<p style="font-size:15px;line-height:1.6;color:#a1a1aa;margin:0 0 24px;">
+					This is an interactive 3D hall of real three.ws marketplace listings — agents, avatars, and skills you walk up to and open. It needs JavaScript and WebGL.
+				</p>
+				<p style="font-size:15px;margin:0 0 20px;">
+					<a href="/marketplace" style="color:#fafafa;font-weight:600;">Browse the full marketplace as a grid →</a>
+				</p>
+				<nav aria-label="Marketplace categories" style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;font-size:14px;">
+					<a href="/marketplace" style="color:#c8c8d0;">Agents</a>
+					<a href="/marketplace?tab=avatars" style="color:#c8c8d0;">Avatars</a>
+					<a href="/marketplace?tab=skills" style="color:#c8c8d0;">Skills</a>
+				</nav>
+			</div>
+		</noscript>
+
 		<header class="walk-site-header" id="walk-header"><div id="nav-container"></div></header>
 		<script src="/nav.js"></script>
 

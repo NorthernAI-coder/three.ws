@@ -7,7 +7,11 @@
  *      and executes it with Stagehand.
  *
  *   2. Autonomous loop — when no queued task is waiting, the worker falls back
- *      to the default mission (scan pump.fun for trending tokens and narrate).
+ *      to a neutral idle mission: it sits on the agent's three.ws home presence
+ *      and narrates that it is standing by for a task. The idle loop is
+ *      deliberately content-agnostic — it never surfaces, scans, ranks, or
+ *      narrates third-party tokens or markets. All real work is user-directed
+ *      via the queued-task path.
  *
  * Callers: index.js passes { page, context, cfg, push } and runs this forever.
  * push() signature: ({ agentId, page, activity, type }) → Promise<void>
@@ -16,18 +20,7 @@
 import { z } from 'zod';
 import fetch from 'node-fetch';
 
-const PUMP_FUN_URL = 'https://pump.fun';
 const TASK_POLL_MS = 3_000; // how often to check for a user-queued task
-
-const TokenListSchema = z.object({
-	tokens: z.array(
-		z.object({
-			name: z.string(),
-			symbol: z.string().optional(),
-			marketCap: z.string().optional(),
-		})
-	),
-});
 
 // ── main export ───────────────────────────────────────────────────────────────
 
@@ -139,7 +132,6 @@ function pickStartUrl(taskText, taskType) {
 	if (t.includes('recipe') || t.includes('cook') || t.includes('food')) {
 		return 'https://www.allrecipes.com';
 	}
-	if (taskType === 'trade') return 'https://pump.fun';
 	return `https://www.google.com/search?q=${encodeURIComponent(taskText)}`;
 }
 

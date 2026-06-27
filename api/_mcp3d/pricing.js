@@ -37,6 +37,10 @@ export const TOOL_PRICING = Object.freeze({
 		amount_usdc: 0.05,
 		description: 'Per call — add an animation-ready skeleton to a GLB',
 	},
+	capture_scene: {
+		amount_usdc: 0.05,
+		description: 'Per call — video → 3D scene reconstruction (coloured .ply point cloud)',
+	},
 	retexture_model: {
 		amount_usdc: 0.05,
 		description: 'Per call — repaint a full mesh from a text prompt',

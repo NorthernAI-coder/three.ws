@@ -11,6 +11,8 @@ const INSTRUCTIONS = [
 	'Pipeline: optionally direct_prompt(idea) to sharpen a vague prompt, then text_to_3d(prompt) or',
 	'image_to_3d(image_url) to generate (tier=draft|standard|high, path=image|geometry); poll',
 	'generation_status(job_id) until it returns a GLB and an inline <model-viewer> artifact.',
+	'capture_scene(video_url) reconstructs a REAL space from a video into an explorable 3D point cloud',
+	'(poll generation_status for the .ply + an inline point-cloud viewer artifact).',
 	'auto_rig_model(glb_url) adds a skeleton; apply_animation(model_url, animation) and pose_model(prompt)',
 	'drive the rigged result; list_animations enumerates clips. Mesh ops: remesh_model, stylize_model,',
 	'segment_model, retexture_model, retexture_region, generate_material. preview_3d(glb_url) renders any',

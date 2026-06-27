@@ -22,6 +22,7 @@
 //   GET /api/pulse?agent_id=<id>         — one agent's public "wallet story"
 //   GET /api/pulse?view=stats            — aggregate money intelligence
 //   GET /api/pulse?view=marketplace      — marketplace commerce viability metrics
+//   GET /api/pulse?view=trading          — trading viability: activity, cost, realized P&L
 //   GET /api/pulse?view=agent-summary&agent_id=<id> — one wallet's lifetime summary
 //
 // Filters: type=all|tips|launches|trades|payments, network=mainnet|devnet.
@@ -34,6 +35,7 @@ import { publicUrl as r2PublicUrl } from './_lib/r2.js';
 import { explorerTxUrl, explorerAccountUrl } from './_lib/avatar-wallet.js';
 import { cacheGet, cacheSet } from './_lib/cache.js';
 import { marketplaceFeeBps } from './_lib/marketplace-platform-fee.js';
+import { shapeTradingWindow, shapeTradingPnl, shapeTradingSeries, solFromLamports } from './_lib/pulse-trading.js';
 
 // The custody categories that are safe to surface publicly. Everything else
 // (withdraw, vanity_swap, limit_change, key_recover) is owner-private and is
@@ -736,18 +738,7 @@ async function handleTrading(network) {
 			  AND ce.status IN ('ok', 'confirmed')
 			  AND ce.created_at > now() - ${interval}::interval
 		`;
-		const trades = Number(r?.trades || 0);
-		const buys = Number(r?.buys || 0);
-		const deployedSol = Number(r?.deployed_lamports || 0) / 1e9;
-		return {
-			trades,
-			buys,
-			sells: Number(r?.sells || 0),
-			deployed_sol: deployedSol,
-			deployed_usd: Number(r?.deployed_usd || 0),
-			traders: Number(r?.traders || 0),
-			avg_trade_sol: buys > 0 ? deployedSol / buys : 0,
-		};
+		return shapeTradingWindow(r);
 	};
 
 	// Realized P&L over 7d from CLOSED positions across both real position tables.
@@ -829,26 +820,12 @@ async function handleTrading(network) {
 		seriesPromise,
 	]);
 
-	const closedCount = Number(pnl?.closed_count || 0);
-	const wins = Number(pnl?.wins || 0);
-	const netPnlSol = Number(pnl?.net_lamports || 0) / 1e9;
-
 	return {
 		network,
 		window_24h: d24,
 		window_7d: d7,
-		realized_pnl_7d: {
-			net_sol: netPnlSol,
-			closed_positions: closedCount,
-			wins,
-			win_rate: closedCount > 0 ? wins / closedCount : null,
-		},
-		series_7d: series.map((r) => ({
-			label: r.label,
-			day: r.day,
-			trades: Number(r.trades || 0),
-			deployed_sol: Number(r.deployed_lamports || 0) / 1e9,
-		})),
+		realized_pnl_7d: shapeTradingPnl(pnl),
+		series_7d: shapeTradingSeries(series),
 		top_traders: topTraders.map((r) => ({
 			id: r.agent_id,
 			name: r.agent_name || 'Agent',
@@ -856,7 +833,7 @@ async function handleTrading(network) {
 			avatar_thumbnail_url: r2Url(r.thumb_key, r.avatar_vis === 'public' || r.avatar_vis === 'unlisted'),
 			solana_address: r.agent_addr || null,
 			trades: Number(r.trades || 0),
-			deployed_sol: Number(r.deployed_lamports || 0) / 1e9,
+			deployed_sol: solFromLamports(r.deployed_lamports),
 		})),
 	};
 }

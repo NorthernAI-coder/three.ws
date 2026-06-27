@@ -46,6 +46,7 @@ const SOURCE_WEIGHT = {
 	trending: 2.6,
 	knowyourmeme: 2.0,
 	x: 1.4,
+	googletrends: 1.3,
 	hackernews: 1.2,
 	reddit: 1.2,
 	wikipedia: 1.0,
@@ -53,10 +54,11 @@ const SOURCE_WEIGHT = {
 
 // External providers are opt-in via the config `sources` array; internal ones run
 // whenever named. These ids are the vocabulary an operator enables.
-const EXTERNAL_SOURCES = new Set(['knowyourmeme', 'hackernews', 'reddit', 'wikipedia']);
-// knowyourmeme rides in the default set: it's the freshest stream of named memes
-// entering culture — exactly what the launcher exists to mint into.
-const DEFAULT_SOURCES = ['coin_intel', 'trending', 'knowyourmeme', 'x'];
+const EXTERNAL_SOURCES = new Set(['knowyourmeme', 'googletrends', 'hackernews', 'reddit', 'wikipedia']);
+// knowyourmeme + googletrends ride in the default set: the freshest stream of
+// named memes (KYM) and the broadest real-time attention signal (Google Trends) —
+// exactly what the launcher exists to mint into.
+const DEFAULT_SOURCES = ['coin_intel', 'trending', 'knowyourmeme', 'googletrends', 'x'];
 
 // ── text hygiene ────────────────────────────────────────────────────────────────
 const STOPWORDS = new Set([
@@ -444,11 +446,54 @@ async function knowYourMemeSignals() {
 	});
 }
 
+/**
+ * Google Daily Search Trends — the broadest real-time "what is the world looking
+ * up right now" signal. Each item is a trending search term with approximate
+ * traffic and the news driving it. Weighted by traffic and, crucially, gated on
+ * the news context for brand-safety: a term trending BECAUSE of a tragedy (whose
+ * own words look clean) is dropped before it can become a coin theme — the news
+ * headlines are scanned with isSensitive, belt-and-braces with the LLM prompt.
+ * Reduced to generic themes (the $THREE rule). Key-less, cached, never throws.
+ * @returns {Promise<Array<{term:string, weight:number, kind:string}>>}
+ */
+// Pure parse of a Google Trends RSS body → safe, weighted theme rows. Exported
+// for unit tests (network-free); the provider just wraps this in fetch + cache.
+function parseGoogleTrends(xml) {
+	const blocks = String(xml || '').match(/<item\b[\s\S]*?<\/item>/gi) || [];
+	const out = [];
+	for (const b of blocks.slice(0, 25)) {
+		const titleM = b.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+		const term = normTerm(decodeEntities(titleM ? titleM[1] : ''));
+		if (!term) continue;
+		// Read the news headlines driving the trend; skip anything sensitive even
+		// when the bare term is clean (e.g. a name trending after a death).
+		const news = (b.match(/<ht:news_item_title>([\s\S]*?)<\/ht:news_item_title>/gi) || [])
+			.map((m) => decodeEntities(m.replace(/<\/?ht:news_item_title>/gi, '')))
+			.join(' ');
+		if (isSensitive(`${term} ${news}`)) continue;
+		const trafM = b.match(/<ht:approx_traffic>([\s\S]*?)<\/ht:approx_traffic>/i);
+		const traffic = trafM ? Number(String(trafM[1]).replace(/[^\d]/g, '')) || 0 : 0;
+		// 1k searches → ~0.78, 100k → ~1.3, capped — log-scaled so a viral spike
+		// outranks routine chatter without swamping the cross-source signal.
+		const weight = Math.max(0.6, Math.min(1.6, 0.6 + Math.log10(Math.max(10, traffic)) / 5));
+		out.push({ term: term.toLowerCase(), weight, kind: 'event' });
+	}
+	return out;
+}
+
+async function googleTrendsSignals() {
+	return cached('launcher:trend:gtrends', PROVIDER_CACHE_TTL_S, async () => {
+		const xml = await fetchText('https://trends.google.com/trending/rss?geo=US');
+		return parseGoogleTrends(xml);
+	});
+}
+
 const PROVIDERS = {
 	coin_intel: coinIntelSignals,
 	trending: oracleSignals,
 	knowyourmeme: knowYourMemeSignals,
 	x: xSignals,
+	googletrends: googleTrendsSignals,
 	hackernews: hackerNewsSignals,
 	reddit: redditSignals,
 	wikipedia: wikipediaSignals,
@@ -548,4 +593,4 @@ export async function rankNarratives({ network = 'mainnet', sources, categories 
 
 export { EXTERNAL_SOURCES, DEFAULT_SOURCES };
 // Exported for unit tests (pure, network-free).
-export { decodeEntities, parseRssItems, extractThemes, normTerm };
+export { decodeEntities, parseRssItems, extractThemes, normTerm, parseGoogleTrends, isSensitive };
