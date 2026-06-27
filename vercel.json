@@ -73,6 +73,9 @@
 		"api/cron/{forge-seed-cron,x402-seed-cron}.js": {
 			"maxDuration": 70
 		},
+		"api/cron/x402-autonomous-loop.js": {
+			"maxDuration": 120
+		},
 		"api/cron/pulse-tick.js": {
 			"maxDuration": 120
 		},
@@ -4654,6 +4657,10 @@
 		{
 			"path": "/api/cron/x402-seed-cron",
 			"schedule": "* * * * *"
+		},
+		{
+			"path": "/api/cron/x402-autonomous-loop",
+			"schedule": "*/5 * * * *"
 		},
 		{
 			"path": "/api/cron/pulse-tick",
