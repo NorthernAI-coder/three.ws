@@ -61,7 +61,10 @@ export default wrap(async (req, res) => {
 
 	if (req.method === 'GET') return getConfigs(req, res, userId);
 	if (req.method === 'DELETE') return deleteConfig(req, res, userId);
-	return upsertConfig(req, res, userId);
+	// POST with action=trigger fires an immediate launch by advancing next_launch_at
+	const body0 = await readJson(req).catch(() => ({}));
+	if (body0?.action === 'trigger') return triggerNow(req, res, userId, body0);
+	return upsertConfig(req, res, userId, body0);
 });
 
 // ── GET ──────────────────────────────────────────────────────────────────────
@@ -95,8 +98,42 @@ async function getConfigs(req, res, userId) {
 
 // ── POST — upsert ────────────────────────────────────────────────────────────
 
-async function upsertConfig(req, res, userId) {
-	const body = await readJson(req);
+// ── POST action=trigger — fire now ───────────────────────────────────────────
+
+async function triggerNow(req, res, userId, body) {
+	const { agentId, configId, network } = body || {};
+	if (!agentId) return error(res, 400, 'missing_agent_id', 'agentId is required');
+	if (!(await assertOwnsAgent(userId, agentId))) {
+		return error(res, 404, 'not_found', 'agent not found or not owned by you');
+	}
+	const net = network === 'devnet' ? 'devnet' : 'mainnet';
+
+	// Advance next_launch_at to now — worker will fire on its next poll cycle
+	let query;
+	if (configId) {
+		query = sql`
+			UPDATE agent_launcher_configs
+			SET next_launch_at = now(), updated_at = now()
+			WHERE id = ${configId} AND agent_id = ${agentId}
+			RETURNING *
+		`;
+	} else {
+		query = sql`
+			UPDATE agent_launcher_configs
+			SET next_launch_at = now(), updated_at = now()
+			WHERE agent_id = ${agentId} AND network = ${net}
+			RETURNING *
+		`;
+	}
+	const [config] = await query;
+	if (!config) return error(res, 404, 'not_found', 'launcher config not found');
+	return json(res, 200, { ok: true, config, message: 'Launch scheduled — worker will fire within 60s' });
+}
+
+// ── POST — upsert ────────────────────────────────────────────────────────────
+
+async function upsertConfig(req, res, userId, body) {
+	body = body ?? (await readJson(req));
 
 	const { agentId } = body || {};
 	if (!agentId || typeof agentId !== 'string') {
