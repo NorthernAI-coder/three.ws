@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Restored token-launch, agent payments, and on-chain endpoints",
+			"summary": "Fixed a class of missing API route mappings that left several backend endpoints unreachable in production: token launch (quote, prep, confirm), agent-to-agent payments, on-chain transaction prep/confirm, Solana and EVM checkout, and live-walk session control. The handlers were deployed but never wired to their public paths; they now respond correctly. Part of a wider audit that also restored wallet sign-in.",
+			"tags": ["fix"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Wallet sign-in fixed and a cleaner, monochrome login",
 			"summary": "Restored Ethereum (SIWE) and Solana (SIWS) wallet sign-in and the active-sessions controls, which had been unreachable due to missing API route mappings. Also refined the sign-in and sign-up screens to a crisp monochrome palette — neutral chain icons, calmer focus and hover states — for a faster, more focused first impression.",
 			"tags": ["fix", "improvement"]

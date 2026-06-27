@@ -47,6 +47,14 @@
 			<description>One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.</description>
 		</item>
 		<item>
+			<title>Scene Capture — Video to 3D Point Cloud</title>
+			<link>https://three.ws/capture</link>
+			<guid isPermaLink="false">2026-06-27:Scene Capture — Video to 3D Point Cloud</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Turn a phone video of any space into an explorable 3D point cloud. Streaming feed-forward reconstruction (LingBot-Map Geometric Context Transformer) fuses the frames into a coloured .ply, rendered live in the browser with WebGL. Or load a point cloud you already have.</description>
+		</item>
+		<item>
 			<title>three.ws Joins the Alibaba Cloud Partner Network</title>
 			<link>https://three.ws/blog/three-ws-alibaba-cloud-partnership</link>
 			<guid isPermaLink="false">2026-06-27:three.ws Joins the Alibaba Cloud Partner Network</guid>
@@ -157,6 +165,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Fixed a SQL syntax error that blocked payment session expiry and refunds (PostgreSQL does not allow LIMIT directly in UPDATE — now uses a CTE with FOR UPDATE SKIP LOCKED). Fixed esbuild class-name minification breaking NeonDB error detection in production — infrastructure errors (wrong DB credentials, Redis auth) now correctly return 503 and suppress alert storms instead of crashing every endpoint with 500. Added graceful Redis-unavailable handling to the usage flush buffer and the bounty board API. Fixed Express-style response methods in pulse-tick cron.</description>
+		</item>
+		<item>
+			<title>Restored token-launch, agent payments, and on-chain endpoints</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Restored token-launch, agent payments, and on-chain endpoints</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a class of missing API route mappings that left several backend endpoints unreachable in production: token launch (quote, prep, confirm), agent-to-agent payments, on-chain transaction prep/confirm, Solana and EVM checkout, and live-walk session control. The handlers were deployed but never wired to their public paths; they now respond correctly. Part of a wider audit that also restored wallet sign-in.</description>
 		</item>
 		<item>
 			<title>Sign-in restored during rate-limiter outages</title>
