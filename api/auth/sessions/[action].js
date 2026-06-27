@@ -16,7 +16,7 @@ import { limits, clientIp } from '../../_lib/rate-limit.js';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 
 	if (action === undefined || action === '' || action === null) {
 		return handleIndex(req, res);

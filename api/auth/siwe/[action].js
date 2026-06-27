@@ -22,7 +22,7 @@ const verifyBody = z.object({
 });
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 	if (action === 'nonce') return handleNonce(req, res);
 	if (action === 'verify') return handleVerify(req, res);
 	return error(res, 404, 'not_found', 'unknown siwe action');

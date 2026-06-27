@@ -248,7 +248,7 @@ async function handleCallback(req, res) {
 // ── dispatch ──────────────────────────────────────────────────────────────────
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 	if (action === 'connect') return handleConnect(req, res);
 	if (action === 'callback') return handleCallback(req, res);
 	return error(res, 404, 'not_found', 'unknown action');

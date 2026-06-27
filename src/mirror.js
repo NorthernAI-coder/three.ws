@@ -35,7 +35,7 @@ function leaderRow(l) {
 			<div class="mp-lname"><a href="/agent/${esc(l.agent_id)}">${esc(l.name || short(l.agent_id))}</a></div>
 			<div class="mp-lstats">${stats}</div>
 		</div>
-		<button class="mp-mirror-btn" data-id="${esc(l.agent_id)}" data-name="${esc(l.name || '')}">⚡ Mirror</button>
+		<button class="mp-mirror-btn" data-id="${esc(l.agent_id)}" data-name="${esc(l.name || '')}">Mirror</button>
 	</div>`;
 }
 
@@ -46,7 +46,7 @@ async function loadBoard() {
 		if (!res.ok) throw new Error('load failed');
 		const leaders = (await res.json()).data?.leaders || [];
 		if (!leaders.length) {
-			board.innerHTML = `<div class="mp-empty"><strong>No leaders yet</strong>Once agents start trading, the best ones rank here by their real track record. <a href="/create-agent" style="color:var(--wallet-accent,#c4b5fd)">Launch a trader →</a></div>`;
+			board.innerHTML = `<div class="mp-empty"><strong>No leaders yet</strong>Once agents start trading, the best ones rank here by their real track record. <a href="/create-agent" style="color:rgba(255,255,255,.6);text-decoration:underline">Launch a trader →</a></div>`;
 			return;
 		}
 		board.innerHTML = leaders.map(leaderRow).join('');
@@ -80,11 +80,11 @@ async function mirrorLeader(leaderId, leaderName) {
 	// Multi-agent picker.
 	const back = document.createElement('div');
 	back.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(4px);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
-	back.innerHTML = `<div style="width:min(420px,96vw);background:var(--bg-1,#141414);border:1px solid var(--wallet-stroke,rgba(139,92,246,.3));border-radius:14px;padding:22px">
-		<h3 style="margin:0 0 4px;font-family:var(--font-display,inherit);color:var(--ink-bright,#fff)">Which agent should mirror?</h3>
-		<p style="font-size:.72rem;color:var(--ink-dim,#9a9a9a);margin:0 0 14px">Pick the agent whose wallet copies ${esc(leaderName || 'this leader')}.</p>
-		<div style="display:flex;flex-direction:column;gap:6px">${candidates.map((a) => `<button type="button" data-id="${esc(a.id)}" data-name="${esc(a.name || '')}" style="display:flex;align-items:center;gap:10px;text-align:left;padding:10px;border-radius:10px;border:1px solid var(--stroke,rgba(255,255,255,.08));background:var(--surface-1,rgba(255,255,255,.03));color:var(--ink,#ddd);cursor:pointer">${a.avatar_url || a.profile_image_url ? `<img loading="lazy" decoding="async" src="${esc(a.avatar_url || a.profile_image_url)}" style="width:32px;height:32px;border-radius:50%;object-fit:cover">` : '<span style="width:32px;height:32px;border-radius:50%;background:var(--surface-2,rgba(255,255,255,.05));display:inline-block"></span>'}<span style="font-weight:600;color:var(--ink-bright,#fff)">${esc(a.name || short(a.id))}</span></button>`).join('')}</div>
-		<div style="text-align:right;margin-top:14px"><button id="mp-pf-cancel" style="font:inherit;font-size:.8rem;padding:8px 16px;border-radius:8px;border:1px solid var(--stroke-strong,rgba(255,255,255,.14));background:transparent;color:var(--ink,#ddd);cursor:pointer">Cancel</button></div>
+	back.innerHTML = `<div style="width:min(400px,96vw);background:#111;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:22px">
+		<h3 style="margin:0 0 4px;font-family:var(--font-display,inherit);font-size:1rem;color:#fff;font-weight:600;letter-spacing:-.01em">Which agent should mirror?</h3>
+		<p style="font-size:.75rem;color:rgba(255,255,255,.35);margin:0 0 16px;line-height:1.5">Pick the agent whose wallet copies ${esc(leaderName || 'this leader')}.</p>
+		<div style="display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);border-radius:3px;overflow:hidden">${candidates.map((a) => `<button type="button" data-id="${esc(a.id)}" data-name="${esc(a.name || '')}" style="display:flex;align-items:center;gap:10px;text-align:left;padding:11px 12px;border:none;background:#111;color:#fff;cursor:pointer;transition:background .12s">${a.avatar_url || a.profile_image_url ? `<img loading="lazy" decoding="async" src="${esc(a.avatar_url || a.profile_image_url)}" style="width:30px;height:30px;border-radius:3px;object-fit:cover;flex:0 0 auto">` : '<span style="width:30px;height:30px;border-radius:3px;background:rgba(255,255,255,.06);display:inline-block;flex:0 0 auto"></span>'}<span style="font-weight:500;color:#fff;font-size:.85rem">${esc(a.name || short(a.id))}</span></button>`).join('')}</div>
+		<div style="text-align:right;margin-top:14px"><button id="mp-pf-cancel" style="font:inherit;font-size:.78rem;padding:7px 16px;border-radius:3px;border:1px solid rgba(255,255,255,.12);background:transparent;color:rgba(255,255,255,.5);cursor:pointer;transition:color .12s,border-color .12s">Cancel</button></div>
 	</div>`;
 	const close = () => back.remove();
 	back.addEventListener('click', (e) => { if (e.target === back) close(); });

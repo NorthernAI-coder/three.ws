@@ -283,7 +283,7 @@ async function handleMe(req, res) {
 }
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 	if (action === 'issue') return handleIssue(req, res);
 	if (action === 'verify') return handleVerify(req, res);
 	if (action === 'me') return handleMe(req, res);
