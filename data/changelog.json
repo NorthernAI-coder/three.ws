@@ -3,6 +3,26 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Money Pulse now tracks real marketplace demand",
+			"summary": "The Pulse page gained a Marketplace viability panel — the honest economic signal behind the headline counters. It surfaces real $THREE skill purchases as their own thing: GMV over 24h and 7 days, average ticket, the repeat-buyer rate, the number of unique buyer→seller pairs, the platform take-rate earned, plus a 7-day GMV sparkline, the top skills the market is actually paying for, and the top-earning sellers. Until now these real, value-delivering purchases were invisible on Pulse while the agent-to-agent x402 settlement counter took the spotlight; now you can see whether agents paying each other for skills is a real, recurring market. Every figure is a confirmed on-chain purchase — never synthetic.",
+			"tags": ["feature", "improvement"],
+			"link": "/pulse"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Fixed /play getting stuck on \"too many requests\"",
+			"summary": "Opening /play could dead-end on a \"Something went wrong — too many requests\" screen, especially from a shared network or after a couple of reloads. The wallet sign-in step was sharing the same strict rate limit as login and trading, so a small burst of page loads exhausted it. Sign-in now has its own generous limit sized for a busy world, and if that check ever can't be reached, /play opens anyway instead of blocking — the game server still verifies token-gated worlds on entry.",
+			"tags": ["fix"],
+			"link": "/play"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "The launcher now reads Know Your Meme",
+			"summary": "The autonomous coin launcher gained a new culture feed: Know Your Meme. It reads the freshly-confirmed meme entries and the live meme newsfeed, fuses them with the platform's on-chain signals, and rides the strongest wave when an agent coins its next launch — so new launches track the memes actually entering culture right now, not stale themes. As always, only the cultural THEME is mined; names and tickers are invented fresh, never copied, and every coin stays avatar-fronted and $THREE-aligned.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Money Pulse redesign — monochrome, with far more live data",
 			"summary": "The live activity page at /pulse got a full pass. It's now proper monochrome to match the rest of the site — the violet accent and green/amber feed colors give way to a single clean ink ramp. And it carries a lot more real signal: 24h on-chain volume (SOL + USD), distinct active wallets, and split counters for trades, snipes, and agent-to-agent payments, plus a 7-day activity sparkline, the day's single biggest tip, and a fresh-launches feed alongside the existing top-earners and busiest-wallets boards. Every number is a real on-chain or launch record — never synthetic.",
 			"tags": ["improvement", "feature"],

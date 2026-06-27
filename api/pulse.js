@@ -21,6 +21,7 @@
 //   GET /api/pulse?since=<cursor>        — delta poll: only events newer than cursor
 //   GET /api/pulse?agent_id=<id>         — one agent's public "wallet story"
 //   GET /api/pulse?view=stats            — aggregate money intelligence
+//   GET /api/pulse?view=marketplace      — marketplace commerce viability metrics
 //   GET /api/pulse?view=agent-summary&agent_id=<id> — one wallet's lifetime summary
 //
 // Filters: type=all|tips|launches|trades|payments, network=mainnet|devnet.
@@ -32,11 +33,21 @@ import { isUuid } from './_lib/validate.js';
 import { publicUrl as r2PublicUrl } from './_lib/r2.js';
 import { explorerTxUrl, explorerAccountUrl } from './_lib/avatar-wallet.js';
 import { cacheGet, cacheSet } from './_lib/cache.js';
+import { marketplaceFeeBps } from './_lib/marketplace-platform-fee.js';
 
 // The custody categories that are safe to surface publicly. Everything else
 // (withdraw, vanity_swap, limit_change, key_recover) is owner-private and is
 // excluded by the WHERE clauses below — never add those here.
 const PUBLIC_SPEND_CATEGORIES = ['trade', 'snipe', 'x402'];
+
+// $THREE is the only coin the marketplace prices in. Real skill purchases settle
+// in $THREE (6 decimals), so marketplace GMV is denominated here. A purchase is
+// "paid" only when status='confirmed' and it's not a free trial.
+const THREE_MINT = process.env.THREE_TOKEN_MINT || 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
+const THREE_DECIMALS = 6;
+const MARKET_PAID_KINDS = ['purchase', 'time_pass'];
+// atomic $THREE → whole-token float (keeps the fractional part Number-division gives).
+const threeFromAtomic = (atomic) => Number(atomic || 0) / 10 ** THREE_DECIMALS;
 
 // type= query param → the set of `kind`s it admits.
 const TYPE_KINDS = {
@@ -326,6 +337,23 @@ async function handleStats(network) {
 		  AND ce.created_at > now() - interval '24 hours'
 	`;
 
+	// 24h marketplace demand — REAL skill purchases settled in $THREE. This is the
+	// honest viability signal: value is delivered AND the platform earns a take-rate,
+	// unlike the x402 counter which only measures agent-to-agent settlement plumbing.
+	// Sourced from skill_purchases (the same table /marketplace confirms against).
+	const [mkt24] = await sql`
+		SELECT
+			COUNT(*) FILTER (WHERE sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS}))::int AS purchases,
+			COUNT(*) FILTER (WHERE sp.kind = 'trial')::int                                              AS trials,
+			COALESCE(SUM(sp.amount) FILTER (WHERE sp.status = 'confirmed'), 0)::text                     AS gmv_atomic,
+			COUNT(DISTINCT sp.user_id) FILTER (WHERE sp.status = 'confirmed')::int                       AS buyers,
+			COUNT(DISTINCT sp.agent_id) FILTER (WHERE sp.status = 'confirmed')::int                      AS sellers
+		FROM skill_purchases sp
+		JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+		WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+		  AND sp.created_at > now() - interval '24 hours'
+	`;
+
 	// The single biggest tip of the last 24h — the day's headline moment.
 	const [bigTip] = await sql`
 		SELECT ai.id AS agent_id, ai.name AS agent_name,
@@ -423,6 +451,15 @@ async function handleStats(network) {
 		trades_only_24h: trades,
 		snipes_24h: snipes,
 		payments_24h: payments,
+		// Real marketplace demand — paid skill purchases settled in $THREE. The honest
+		// counterpart to payments_24h: every unit here delivered value and earned a fee.
+		marketplace_24h: {
+			purchases: Number(mkt24?.purchases || 0),
+			trials: Number(mkt24?.trials || 0),
+			gmv_three: threeFromAtomic(mkt24?.gmv_atomic),
+			buyers: Number(mkt24?.buyers || 0),
+			sellers: Number(mkt24?.sellers || 0),
+		},
 		active_wallets_24h: Number(tempo24?.active_wallets || 0),
 		volume_24h: {
 			sol: Number(tempo24?.lamports || 0) / 1e9,
@@ -507,6 +544,163 @@ async function handleAgentSummary(network, agentId) {
 	};
 }
 
+// ── marketplace viability dashboard ────────────────────────────────────────────
+// The numbers that actually answer "is agent-to-agent commerce viable?" — not raw
+// payment count (vanity) but GMV, repeat-buyer rate, unique trading pairs, average
+// ticket and the platform take-rate. All sourced from real, confirmed skill_purchases
+// rows (each backed by an on-chain $THREE transfer), gated to public seller agents.
+async function handleMarketplace(network) {
+	const pubAgent = sql`ai.deleted_at IS NULL AND ai.is_public = true
+		AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false`;
+	const feeBps = marketplaceFeeBps();
+
+	// One windowed aggregate, reused for 24h and 7d so both cards read identically.
+	const windowAgg = async (interval) => {
+		const [r] = await sql`
+			SELECT
+				COUNT(*) FILTER (WHERE sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS}))::int AS purchases,
+				COUNT(*) FILTER (WHERE sp.kind = 'trial')::int                                              AS trials,
+				COALESCE(SUM(sp.amount) FILTER (WHERE sp.status = 'confirmed'), 0)::text                     AS gmv_atomic,
+				COUNT(DISTINCT sp.user_id) FILTER (WHERE sp.status = 'confirmed')::int                       AS buyers,
+				COUNT(DISTINCT sp.agent_id) FILTER (WHERE sp.status = 'confirmed')::int                      AS sellers,
+				COUNT(DISTINCT (sp.user_id, sp.agent_id)) FILTER (WHERE sp.status = 'confirmed')::int        AS pairs
+			FROM skill_purchases sp
+			JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+			WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+			  AND sp.created_at > now() - ${interval}::interval
+		`;
+		const purchases = Number(r?.purchases || 0);
+		const gmv = threeFromAtomic(r?.gmv_atomic);
+		return {
+			purchases,
+			trials: Number(r?.trials || 0),
+			gmv_three: gmv,
+			buyers: Number(r?.buyers || 0),
+			sellers: Number(r?.sellers || 0),
+			pairs: Number(r?.pairs || 0),
+			avg_ticket_three: purchases > 0 ? gmv / purchases : 0,
+			take_rate_three: feeBps > 0 ? (gmv * feeBps) / 10_000 : 0,
+		};
+	};
+
+	// Repeat-buyer rate (7d): the single strongest viability signal — do buyers come
+	// back, or is every purchase a one-off? Counts buyers with ≥2 paid purchases.
+	const repeatPromise = sql`
+		WITH b AS (
+			SELECT sp.user_id, COUNT(*) AS n
+			FROM skill_purchases sp
+			JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+			WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+			  AND sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS})
+			  AND sp.created_at > now() - interval '7 days'
+			GROUP BY sp.user_id
+		)
+		SELECT COUNT(*)::int AS buyers, COUNT(*) FILTER (WHERE n >= 2)::int AS repeat_buyers FROM b
+	`;
+
+	// Top skills by 7d GMV — what is the market actually paying for?
+	const topSkillsPromise = sql`
+		SELECT sp.skill,
+		       COUNT(*)::int                       AS purchases,
+		       COALESCE(SUM(sp.amount), 0)::text    AS gmv_atomic,
+		       COUNT(DISTINCT sp.user_id)::int      AS buyers
+		FROM skill_purchases sp
+		JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+		WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+		  AND sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS})
+		  AND sp.created_at > now() - interval '7 days'
+		GROUP BY sp.skill
+		ORDER BY SUM(sp.amount) DESC NULLS LAST
+		LIMIT 6
+	`;
+
+	// Top sellers by 7d earnings — the supply side that's actually clearing.
+	const topSellersPromise = sql`
+		SELECT ai.id AS agent_id, ai.name AS agent_name,
+		       av.thumbnail_key AS thumb_key, av.visibility AS avatar_vis,
+		       ai.meta->>'solana_address' AS agent_addr,
+		       COUNT(*)::int AS sales, COALESCE(SUM(sp.amount), 0)::text AS gmv_atomic
+		FROM skill_purchases sp
+		JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+		WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+		  AND sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS})
+		  AND sp.created_at > now() - interval '7 days'
+		GROUP BY ai.id, ai.name, av.thumbnail_key, av.visibility, ai.meta->>'solana_address'
+		ORDER BY SUM(sp.amount) DESC NULLS LAST
+		LIMIT 6
+	`;
+
+	// 7-day GMV + purchase sparkline, zero-filled per UTC day.
+	const seriesPromise = sql`
+		WITH days AS (
+			SELECT generate_series(
+				date_trunc('day', now()) - interval '6 days',
+				date_trunc('day', now()),
+				interval '1 day'
+			) AS day
+		),
+		ev AS (
+			SELECT date_trunc('day', sp.created_at) AS day,
+			       COUNT(*) FILTER (WHERE sp.status = 'confirmed' AND sp.kind = ANY(${MARKET_PAID_KINDS}))::int AS purchases,
+			       COALESCE(SUM(sp.amount) FILTER (WHERE sp.status = 'confirmed'), 0)::text                    AS gmv_atomic
+			FROM skill_purchases sp
+			JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+			WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
+			  AND sp.created_at > date_trunc('day', now()) - interval '6 days'
+			GROUP BY 1
+		)
+		SELECT to_char(days.day, 'Dy') AS label, to_char(days.day, 'YYYY-MM-DD') AS day,
+		       COALESCE(ev.purchases, 0) AS purchases, COALESCE(ev.gmv_atomic, '0') AS gmv_atomic
+		FROM days LEFT JOIN ev ON ev.day = days.day
+		ORDER BY days.day
+	`;
+
+	const [d24, d7, [repeat], topSkills, topSellers, series] = await Promise.all([
+		windowAgg('24 hours'),
+		windowAgg('7 days'),
+		repeatPromise,
+		topSkillsPromise,
+		topSellersPromise,
+		seriesPromise,
+	]);
+
+	const buyers7 = Number(repeat?.buyers || 0);
+	const repeatBuyers7 = Number(repeat?.repeat_buyers || 0);
+
+	return {
+		network,
+		fee_bps: feeBps,
+		fee_pct: feeBps / 100,
+		window_24h: d24,
+		window_7d: d7,
+		repeat_buyer_rate_7d: buyers7 > 0 ? repeatBuyers7 / buyers7 : 0,
+		repeat_buyers_7d: repeatBuyers7,
+		buyers_7d: buyers7,
+		series_7d: series.map((r) => ({
+			label: r.label,
+			day: r.day,
+			purchases: Number(r.purchases || 0),
+			gmv_three: threeFromAtomic(r.gmv_atomic),
+		})),
+		top_skills: topSkills.map((r) => ({
+			skill: r.skill,
+			purchases: Number(r.purchases || 0),
+			buyers: Number(r.buyers || 0),
+			gmv_three: threeFromAtomic(r.gmv_atomic),
+		})),
+		top_sellers: topSellers.map((r) => ({
+			id: r.agent_id,
+			name: r.agent_name || 'Agent',
+			url: `/agent/${r.agent_id}`,
+			avatar_thumbnail_url: r2Url(r.thumb_key, r.avatar_vis === 'public' || r.avatar_vis === 'unlisted'),
+			solana_address: r.agent_addr || null,
+			sales: Number(r.sales || 0),
+			gmv_three: threeFromAtomic(r.gmv_atomic),
+		})),
+	};
+}
+
 export default async function handler(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -530,6 +724,17 @@ export default async function handler(req, res) {
 			let body = await cacheGet(cacheKey);
 			if (body === null) {
 				body = await handleStats(network);
+				await cacheSet(cacheKey, body, STATS_TTL_S);
+			}
+			res.setHeader('cache-control', 'public, max-age=20');
+			return json(res, 200, { data: body });
+		}
+
+		if (view === 'marketplace') {
+			const cacheKey = `pulse:marketplace:${network}`;
+			let body = await cacheGet(cacheKey);
+			if (body === null) {
+				body = await handleMarketplace(network);
 				await cacheSet(cacheKey, body, STATS_TTL_S);
 			}
 			res.setHeader('cache-control', 'public, max-age=20');

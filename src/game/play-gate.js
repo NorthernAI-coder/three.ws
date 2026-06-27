@@ -55,8 +55,15 @@ class Gate {
 		try {
 			cfg = await fetchPlayConfig();
 		} catch (err) {
-			this._mount();
-			this._render({ state: 'error', error: err?.message || 'Could not reach sign-in. Check your connection.', onRetry: () => this._start() });
+			// Fail OPEN, never closed: when we can't even read the gate config we don't
+			// know whether a token is pinned, and /play is almost always open. Bricking
+			// the world with a blocking error overlay on a transient blip (a 429 from a
+			// shared NAT, a network hiccup) would dead-end the 99% case. The server is
+			// the real authority — a genuinely-gated world refuses any unsigned room
+			// join, so the worst case here is an honest bounce at join, not free entry.
+			// This honors the self-healing contract documented at _ensurePlayAccess.
+			console.warn('[play-gate] gate probe failed, opening /play:', err?.message || err);
+			this._finish({ required: false });
 			return;
 		}
 		this.cfg = cfg;

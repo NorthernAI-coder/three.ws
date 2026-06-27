@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T10:03:23.024Z",
+	"generated_at": "2026-06-27T10:26:19.972Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -91,6 +91,16 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Fixed /play getting stuck on \"too many requests\"",
+			"summary": "Opening /play could dead-end on a \"Something went wrong — too many requests\" screen, especially from a shared network or after a couple of reloads. The wallet sign-in step was sharing the same strict rate limit as login and trading, so a small burst of page loads exhausted it. Sign-in now has its own generous limit sized for a busy world, and if that check ever can't be reached, /play opens anyway instead of blocking — the game server still verifies token-gated worlds on entry.",
+			"link": "/play",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Hardened Redis credentials against dashboard paste errors",
 			"summary": "A trailing newline or stray space on the Upstash Redis token — the kind that creeps in when pasting into a dashboard — was being sent verbatim in the auth header and rejected as WRONGPASS, while the URL still resolved. The result was thousands of failures an hour: paid endpoints denying, the payments feed not loading, usage telemetry and caches going dark. Redis credentials are now trimmed at the source (matching how wallet addresses, RPC URLs, and certificates are already sanitized), so a single stray character can never silently take the limiter, feed, and caches offline.",
 			"link": null,
@@ -128,6 +138,17 @@
 			"link": "/billing/keys",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "Money Pulse now tracks real marketplace demand",
+			"summary": "The Pulse page gained a Marketplace viability panel — the honest economic signal behind the headline counters. It surfaces real $THREE skill purchases as their own thing: GMV over 24h and 7 days, average ticket, the repeat-buyer rate, the number of unique buyer→seller pairs, the platform take-rate earned, plus a 7-day GMV sparkline, the top skills the market is actually paying for, and the top-earning sellers. Until now these real, value-delivering purchases were invisible on Pulse while the agent-to-agent x402 settlement counter took the spotlight; now you can see whether agents paying each other for skills is a real, recurring market. Every figure is a confirmed on-chain purchase — never synthetic.",
+			"link": "/pulse",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -179,6 +200,17 @@
 			"title": "Task input on Agent Screen — send your agent a task and watch it work",
 			"summary": "You can now type any task directly into the Agent Screen page and your agent picks it up in real time. The live screen panel has a new command bar at the bottom: type what you want your agent to do (research, browse, shop, monitor, trade) and hit send. The task is queued via /api/agent-task and the running worker executes it with Stagehand, streaming every browser action back to the live screen as it happens. The worker automatically checks for new tasks every 3 seconds and runs them in priority order, falling back to its autonomous loop when the queue is empty.",
 			"link": "/agent-screen",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "The launcher now reads Know Your Meme",
+			"summary": "The autonomous coin launcher gained a new culture feed: Know Your Meme. It reads the freshly-confirmed meme entries and the live meme newsfeed, fuses them with the platform's on-chain signals, and rides the strongest wave when an agent coins its next launch — so new launches track the memes actually entering culture right now, not stale themes. As always, only the cultural THEME is mined; names and tickers are invented fresh, never copied, and every coin stays avatar-fronted and $THREE-aligned.",
+			"link": null,
 			"tags": [
 				"feature",
 				"improvement"

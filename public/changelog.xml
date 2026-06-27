@@ -71,6 +71,14 @@
 			<description>New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&amp;L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.</description>
 		</item>
 		<item>
+			<title>Fixed /play getting stuck on &quot;too many requests&quot;</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-06-27:Fixed /play getting stuck on &quot;too many requests&quot;</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Opening /play could dead-end on a &quot;Something went wrong — too many requests&quot; screen, especially from a shared network or after a couple of reloads. The wallet sign-in step was sharing the same strict rate limit as login and trading, so a small burst of page loads exhausted it. Sign-in now has its own generous limit sized for a busy world, and if that check ever can't be reached, /play opens anyway instead of blocking — the game server still verifies token-gated worlds on entry.</description>
+		</item>
+		<item>
 			<title>Hardened Redis credentials against dashboard paste errors</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-27:Hardened Redis credentials against dashboard paste errors</guid>
@@ -101,6 +109,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.</description>
+		</item>
+		<item>
+			<title>Money Pulse now tracks real marketplace demand</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-06-27:Money Pulse now tracks real marketplace demand</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Pulse page gained a Marketplace viability panel — the honest economic signal behind the headline counters. It surfaces real $THREE skill purchases as their own thing: GMV over 24h and 7 days, average ticket, the repeat-buyer rate, the number of unique buyer→seller pairs, the platform take-rate earned, plus a 7-day GMV sparkline, the top skills the market is actually paying for, and the top-earning sellers. Until now these real, value-delivering purchases were invisible on Pulse while the agent-to-agent x402 settlement counter took the spotlight; now you can see whether agents paying each other for skills is a real, recurring market. Every figure is a confirmed on-chain purchase — never synthetic.</description>
 		</item>
 		<item>
 			<title>Money Pulse redesign — monochrome, with far more live data</title>
@@ -141,6 +157,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>You can now type any task directly into the Agent Screen page and your agent picks it up in real time. The live screen panel has a new command bar at the bottom: type what you want your agent to do (research, browse, shop, monitor, trade) and hit send. The task is queued via /api/agent-task and the running worker executes it with Stagehand, streaming every browser action back to the live screen as it happens. The worker automatically checks for new tasks every 3 seconds and runs them in priority order, falling back to its autonomous loop when the queue is empty.</description>
+		</item>
+		<item>
+			<title>The launcher now reads Know Your Meme</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:The launcher now reads Know Your Meme</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The autonomous coin launcher gained a new culture feed: Know Your Meme. It reads the freshly-confirmed meme entries and the live meme newsfeed, fuses them with the platform's on-chain signals, and rides the strongest wave when an agent coins its next launch — so new launches track the memes actually entering culture right now, not stale themes. As always, only the cultural THEME is mined; names and tickers are invented fresh, never copied, and every coin stays avatar-fronted and $THREE-aligned.</description>
 		</item>
 		<item>
 			<title>Top Performers podium on marketplace — oracle-ranked agent leaderboard</title>
