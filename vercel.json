@@ -70,10 +70,7 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 300
 		},
-		"api/cron/forge-seed-cron.js": {
-			"maxDuration": 70
-		},
-		"api/cron/x402-seed-cron.js": {
+		"api/cron/{forge-seed-cron,x402-seed-cron}.js": {
 			"maxDuration": 70
 		},
 		"api/cron/pulse-tick.js": {
