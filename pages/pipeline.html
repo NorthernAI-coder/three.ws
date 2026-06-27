@@ -123,6 +123,20 @@
 		.pl-legend span { display: inline-flex; align-items: center; gap: 7px; }
 		@media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; } .pl-stage { opacity: 1 !important; transform: none !important; } }
 	</style>
+
+	<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+	<meta property="og:site_name" content="three.ws">
+	<meta property="og:locale" content="en_US">
+	<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Recording+Pipeline+%E2%80%94+the+data+loop%2C+live&amp;d=One-glance+health+of+the+closed+loop+that+turns+every+pump.fun+launch+into+a+trade+signal%3A+the+launch+recorder%2C+signal+intel%2C+ground-truth+outcomes%2C+Oracle+conv&amp;p=%2Fpipeline">
+	<meta property="og:image:width" content="1200">
+	<meta property="og:image:height" content="630">
+	<meta property="og:image:type" content="image/png">
+	<meta property="og:image:alt" content="Recording Pipeline — the data loop, live — three.ws">
+	<meta name="twitter:site" content="@trythreews">
+	<meta name="twitter:title" content="Recording Pipeline — the data loop, live · three.ws">
+	<meta name="twitter:description" content="One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.">
+	<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Recording+Pipeline+%E2%80%94+the+data+loop%2C+live&amp;d=One-glance+health+of+the+closed+loop+that+turns+every+pump.fun+launch+into+a+trade+signal%3A+the+launch+recorder%2C+signal+intel%2C+ground-truth+outcomes%2C+Oracle+conv&amp;p=%2Fpipeline">
+	<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","name":"Recording Pipeline — the data loop, live","description":"One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.","url":"https://three.ws/pipeline","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"},"primaryImageOfPage":"https://three.ws/api/page-og?s=crypto&t=Recording+Pipeline+%E2%80%94+the+data+loop%2C+live&d=One-glance+health+of+the+closed+loop+that+turns+every+pump.fun+launch+into+a+trade+signal%3A+the+launch+recorder%2C+signal+intel%2C+ground-truth+outcomes%2C+Oracle+conv&p=%2Fpipeline"}]}</script>
 </head>
 <body>
 	<header class="site-header"><div id="nav-container"></div></header>
@@ -199,40 +213,40 @@
 			const on = (v) => (v > 0 ? 'active' : 'idle');
 			return [
 				{
-					n: '01', label: 'Recorder', tag: 'pump.fun feed', state: recState,
+					n: '01', label: 'Recorder', tag: 'pump.fun feed', state: recState, href: '/api/sniper/status', external: true,
 					value: rec.state === 'live' ? 'LIVE' : rec.state === 'degraded' ? 'STALL' : rec.state === 'down' ? 'DOWN' : 'OFF',
 					vdim: rec.state !== 'live', vlabel: rec.mode ? rec.mode + ' · ' + (rec.feedLive ? 'feed up' : 'feed down') : 'not reporting',
 					subs: [['Heartbeat', ago(rec.heartbeatAgeMs)], ['Last event', ago(rec.lastEventAgeMs)], ['Reconnects', rec.reconnects ?? '—']],
 				},
 				{
-					n: '02', label: 'Intel', tag: 'launch signals', state: on(s.intel.observed_24h),
+					n: '02', label: 'Intel', tag: 'launch signals', state: on(s.intel.observed_24h), href: '/radar',
 					value: fmt(s.intel.observed_24h), vdim: !s.intel.observed_24h, vlabel: 'launches recorded · 24h',
 					subs: [['Last hour', fmt(s.intel.observed_1h)], ['Avg quality', s.intel.avg_quality ?? '—'], ['Smart-money seen', fmt(s.intel.smart_money_touched)]],
 				},
 				{
-					n: '03', label: 'Outcomes', tag: 'ground truth', state: on(s.outcomes.labeled),
+					n: '03', label: 'Outcomes', tag: 'ground truth', state: on(s.outcomes.labeled), href: '/coin-intel',
 					value: fmt(s.outcomes.labeled), vdim: !s.outcomes.labeled, vlabel: 'coins labeled',
 					subs: [['Graduated', fmt(s.outcomes.graduated)], ['Pumped ≥3×', fmt(s.outcomes.pumped)], ['Rugged', fmt(s.outcomes.rugged)]],
 				},
 				{
-					n: '04', label: 'Oracle', tag: 'conviction', state: on(s.oracle.scored_total),
+					n: '04', label: 'Oracle', tag: 'conviction', state: on(s.oracle.scored_total), href: '/oracle',
 					value: fmt(s.oracle.scored_total), vdim: !s.oracle.scored_total, vlabel: 'coins scored',
 					subs: [['Scored · 24h', fmt(s.oracle.scored_24h)], ['Prime tier', fmt(s.oracle.prime)], ['Strong tier', fmt(s.oracle.strong)]],
 				},
 				{
-					n: '05', label: 'Reputation', tag: 'wallet graph', state: on(s.reputation.wallets),
+					n: '05', label: 'Reputation', tag: 'wallet graph', state: on(s.reputation.wallets), href: '/smart-money',
 					value: fmt(s.reputation.wallets), vdim: !s.reputation.wallets, vlabel: 'wallets profiled',
 					subs: [['Smart money', fmt(s.reputation.smart_money)]],
 				},
 				{
-					n: '06', label: 'Learning', tag: 'trained weights', state: on(s.learning.sample_size),
+					n: '06', label: 'Learning', tag: 'trained weights', state: on(s.learning.sample_size), href: '/coin-intel',
 					value: fmt(s.learning.sample_size), vdim: !s.learning.sample_size, vlabel: s.learning.sample_size >= 50 ? 'samples trained' : 'samples · needs ≥50',
 					subs: s.learning.weights.length
 						? s.learning.weights.slice(0, 3).map((w) => [w.signal.replace(/_/g, ' '), (w.weight >= 0 ? '+' : '') + w.weight.toFixed(2)])
 						: [['Trained', since(s.learning.trained_at)]],
 				},
 				{
-					n: '07', label: 'Trading', tag: 'armed agents', state: (s.trading.snipes_24h + s.trading.trades_24h) > 0 ? 'active' : on(s.trading.strategies_armed),
+					n: '07', label: 'Trading', tag: 'armed agents', state: (s.trading.snipes_24h + s.trading.trades_24h) > 0 ? 'active' : on(s.trading.strategies_armed), href: '/activity',
 					value: fmt(s.trading.snipes_24h + s.trading.trades_24h), vdim: !(s.trading.snipes_24h + s.trading.trades_24h), vlabel: 'snipes + trades · 24h',
 					subs: [['Armed', fmt(s.trading.strategies_armed)], ['Open positions', fmt(s.trading.open_positions)], ['Snipes · 24h', fmt(s.trading.snipes_24h)]],
 				},

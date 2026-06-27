@@ -144,6 +144,7 @@
 					<div class="px-market-htxt">
 						<span class="px-market-title">Trading viability</span>
 						<span class="px-market-tag" id="px-trade-pnl-tag">—</span>
+						<button type="button" class="px-market-action" id="px-trade-filter" hidden>Show trades in feed →</button>
 					</div>
 					<span class="px-market-sub">Real, fully-guarded coin trades through agent wallets — what's flowing, what it costs, and the realized P&amp;L on positions that have closed. The honest signal behind the Trades counter.</span>
 				</div>
@@ -153,7 +154,7 @@
 					<div class="px-kpi"><dt>SOL deployed · 7d</dt><dd id="px-trade-dep7">—</dd><span class="px-kpi-sub" id="px-trade-dep7-sub">into buys</span></div>
 					<div class="px-kpi"><dt>Avg trade · 7d</dt><dd id="px-trade-avg">—</dd><span class="px-kpi-sub">SOL per buy</span></div>
 					<div class="px-kpi"><dt>Active traders · 24h</dt><dd id="px-trade-act">—</dd><span class="px-kpi-sub">wallets trading</span></div>
-					<div class="px-kpi"><dt>Realized P&amp;L · 7d</dt><dd id="px-trade-pnl">—</dd><span class="px-kpi-sub" id="px-trade-pnl-sub">closed positions</span></div>
+					<div class="px-kpi px-kpi--pnl"><dt>Realized P&amp;L · 7d</dt><dd id="px-trade-pnl">—</dd><span class="px-kpi-sub" id="px-trade-pnl-sub">closed positions</span></div>
 				</div>
 				<div class="px-market-body">
 					<div class="px-market-spark">
@@ -164,7 +165,7 @@
 						<div class="px-spark-bars" id="px-trade-spark" role="img" aria-label="Daily trade count, last 7 days"></div>
 					</div>
 					<div class="px-market-skills">
-						<div class="px-card-h">Top traders <small>trades · 7d</small></div>
+						<div class="px-card-h"><span>Top traders</span><small>trades · 7d</small></div>
 						<div id="px-trade-traders"><p class="px-lb-empty">Loading…</p></div>
 					</div>
 				</div>

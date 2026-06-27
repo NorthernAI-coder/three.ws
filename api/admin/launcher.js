@@ -26,7 +26,7 @@ function isCronAuth(req) {
 }
 
 const MODES = ['off', 'trend', 'meme', 'random', 'hybrid'];
-const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'knowyourmeme', 'hackernews', 'reddit', 'wikipedia'];
+const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'knowyourmeme', 'googletrends', 'hackernews', 'reddit', 'wikipedia'];
 
 // jsonb columns arrive as arrays or (depending on driver) JSON strings — coerce.
 function coerceArr(v) {

@@ -121,6 +121,24 @@ async function ensureSchema() {
 	await sql`create index if not exists launcher_runs_spend_idx on launcher_runs (created_at) where status in ('funded','launched','confirmed')`;
 	await sql`create unique index if not exists launcher_runs_mint_uniq on launcher_runs (mint) where mint is not null`;
 	await sql`
+		create table if not exists launcher_claims (
+			id uuid primary key default gen_random_uuid(),
+			run_id uuid references launcher_runs(id) on delete set null,
+			agent_id uuid,
+			mint text not null,
+			claimed_lamports bigint not null default 0,
+			claimed_sol float8 not null default 0,
+			buyback_sol float8 not null default 0,
+			buyback_sig text,
+			claim_sig text,
+			network text not null default 'mainnet',
+			scope text not null default 'global',
+			created_at timestamptz not null default now()
+		)
+	`;
+	await sql`create index if not exists launcher_claims_run_idx on launcher_claims (run_id, created_at desc)`;
+	await sql`create index if not exists launcher_claims_created_idx on launcher_claims (created_at desc)`;
+	await sql`
 		insert into launcher_config (scope, enabled, dry_run, mode)
 		values ('global', false, true, 'hybrid')
 		on conflict do nothing

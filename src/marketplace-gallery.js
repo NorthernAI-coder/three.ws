@@ -50,7 +50,11 @@ const RELEASE_RANGE = 3.4; // step past this → dismiss (hysteresis stops flick
 const REBASE_AT = 500; // fold belt offset back near 0 to preserve float precision
 
 const PAGE_SIZE = 18;
-const TYPE_ACCENT = { agent: '#8b5cf6', avatar: '#22d3ee', skill: '#34d399' };
+// Monochrome brightness tiers — matches the platform's monochrome design system
+// (public/tokens.css). Type identity is carried by brightness (and the explicit
+// TYPE_LABEL text drawn on every plinth + the panel badge), never a brand hue, so
+// the hall reads as one cohesive material rather than three colour-coded zones.
+const TYPE_ACCENT = { agent: '#fafafa', avatar: '#c8c8d0', skill: '#9a9aa3' };
 const TYPE_LABEL = { agent: 'Agent', avatar: 'Avatar', skill: 'Skill' };
 
 const FILTERS = [
@@ -129,7 +133,7 @@ function ensureStyles() {
 	border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
 	color:#fafafa;font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.5);max-width:min(420px,calc(100vw - 32px));}
 .mwg-toast[data-show="1"]{display:inline-flex;}
-.mwg-toast a,.mwg-toast button{color:#8b5cf6;font-weight:700;text-decoration:none;background:none;
+.mwg-toast a,.mwg-toast button{color:#fafafa;font-weight:700;text-decoration:underline;background:none;
 	border:0;font:inherit;cursor:pointer;padding:0;white-space:nowrap;}
 
 @media (hover:none),(max-width:640px){
@@ -741,7 +745,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 					<span class="mwg-panel-price" style="color:${accent}">${escapeHtml(listing.price)}</span>
 					${listing.category ? `<span class="mwg-panel-cat">${escapeHtml(listing.category)}</span>` : ''}
 				</div>
-				<button class="mwg-panel-cta" type="button" style="background:${accent}">View listing →</button>
+				<button class="mwg-panel-cta" type="button" style="background:#fafafa">View listing →</button>
 				<p class="mwg-panel-hint">Press <kbd>E</kbd> to open</p>
 			</div>`;
 		panel.querySelector('.mwg-panel-cta')?.addEventListener('click', navigateActive);

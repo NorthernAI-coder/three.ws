@@ -185,6 +185,23 @@ function viewerArtifact({ glbUrl, name, options = {} }) {
 	};
 }
 
+// Inline artifact for a captured point cloud (.ply). model-viewer can't render a
+// raw point cloud, so we embed the three.ws WebGL point-cloud viewer (/capture in
+// chrome-less embed mode) pointed at the .ply via its ?src= deep link.
+function pointCloudArtifact({ plyUrl, name }) {
+	const viewer = `${env.APP_ORIGIN}/capture?embed=1&src=${encodeURIComponent(plyUrl)}`;
+	const safeName = String(name || 'Captured 3D scene').replace(/[&<>"]/g, (c) =>
+		({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+	const html =
+		`<!doctype html><html><head><meta charset="utf-8"><title>${safeName}</title>` +
+		`<style>html,body{margin:0;height:100%;background:#0a0a0a}iframe{border:0;width:100%;height:100%;display:block}</style>` +
+		`</head><body><iframe src="${viewer}" allow="fullscreen" title="${safeName}"></iframe></body></html>`;
+	return {
+		type: 'resource',
+		resource: { uri: plyUrl, mimeType: 'text/html', text: html },
+	};
+}
+
 // The Apps SDK template URL the embodiment component is served from. A persona
 // tool result references this so a host (ChatGPT/Claude) renders the LIVING body
 // inline — the same hosted page the local demo harness drives.
@@ -896,6 +913,34 @@ export const toolDefs = [
 				};
 			}
 
+			// Scene-capture jobs (capture_scene) finish as a .ply point cloud, not a
+			// GLB mesh — return the cloud URL + an inline point-cloud viewer artifact.
+			if (result.status === 'done' && result.resultPointCloudUrl) {
+				const plyUrl = result.resultPointCloudUrl;
+				const pts = result.numPoints ? `${result.numPoints.toLocaleString('en-US')} points` : 'point cloud';
+				const frames = result.frames ? ` from ${result.frames} frames` : '';
+				return {
+					content: [
+						{
+							type: 'text',
+							text:
+								`Your 3D scene is ready — ${pts}${frames}.\nPoint cloud (.ply): ${plyUrl}\n` +
+								`Explore it: ${env.APP_ORIGIN}/capture?src=${encodeURIComponent(plyUrl)}\n` +
+								'Display the attached text/html resource as an inline 3D point-cloud viewer.',
+						},
+						pointCloudArtifact({ plyUrl, name: 'Captured 3D scene' }),
+					],
+					structuredContent: {
+						job_id: args.job_id,
+						status: 'done',
+						point_cloud_url: plyUrl,
+						num_points: result.numPoints ?? null,
+						frames: result.frames ?? null,
+						viewer_url: `${env.APP_ORIGIN}/capture?src=${encodeURIComponent(plyUrl)}`,
+					},
+				};
+			}
+
 			if (result.status === 'failed') {
 				return {
 					content: [
@@ -921,6 +966,111 @@ export const toolDefs = [
 					},
 				],
 				structuredContent: { job_id: args.job_id, status: result.status },
+			};
+		},
+	},
+	{
+		name: 'capture_scene',
+		title: 'Reconstruct a 3D scene from a video',
+		annotations: GENERATIVE_ANNOTATIONS,
+		description:
+			'Turn a video of a real space (a room, a street, an object walkaround) into an explorable 3D ' +
+			'point cloud. A feed-forward streaming reconstructor (LingBot-Map) grounds coordinates, reads ' +
+			'dense geometry, and corrects drift across the whole clip, then returns a coloured .ply point ' +
+			'cloud. Pass a public https video URL (mp4/mov/webm). Returns a job_id — poll generation_status; ' +
+			'when finished it returns the point-cloud URL and an inline viewer artifact. Best with steady, ' +
+			'well-lit footage that orbits or walks through the space. This is geometry capture of a REAL ' +
+			'scene — distinct from text_to_3d/image_to_3d, which synthesize a single object mesh.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				video_url: {
+					type: 'string',
+					format: 'uri',
+					description: 'Public https URL of the source video (mp4, mov, or webm).',
+				},
+				mode: {
+					type: 'string',
+					enum: ['streaming', 'windowed'],
+					default: 'streaming',
+					description: 'streaming = default; windowed = for very long clips (>3000 frames).',
+				},
+				fps: {
+					type: 'integer',
+					minimum: 1,
+					maximum: 30,
+					default: 8,
+					description: 'Frames per second to sample from the video.',
+				},
+				keyframe_interval: {
+					type: 'integer',
+					minimum: 1,
+					maximum: 64,
+					default: 4,
+					description: 'Cache every N-th frame as a keyframe — lower is denser/slower.',
+				},
+				mask_sky: {
+					type: 'boolean',
+					default: true,
+					description: 'Drop sky points from the reconstruction.',
+				},
+				max_points: {
+					type: 'integer',
+					minimum: 50000,
+					maximum: 3000000,
+					default: 1500000,
+					description: 'Cap on the total points in the output cloud.',
+				},
+			},
+			required: ['video_url'],
+			additionalProperties: false,
+		},
+		async handler(args, auth) {
+			await enforce(limits.mcp3dGenerate, auth);
+			if (!(await isPublicHttpsUrl(args.video_url))) {
+				return {
+					content: [{ type: 'text', text: 'Error: video_url must be a public https URL.' }],
+					isError: true,
+				};
+			}
+			let provider;
+			try {
+				provider = regenProvider('video2scene');
+			} catch {
+				provider = null;
+			}
+			if (!provider || !provider.supportsMode('video2scene')) {
+				return {
+					content: [{
+						type: 'text',
+						text: 'Scene capture is not configured on this server (set GCP_VIDEO2SCENE_URL and GCP_RECONSTRUCTION_KEY).',
+					}],
+					isError: true,
+				};
+			}
+			const params = {
+				mode: args.mode === 'windowed' ? 'windowed' : 'streaming',
+				fps: args.fps || 8,
+				keyframe_interval: args.keyframe_interval || 4,
+				mask_sky: args.mask_sky !== false,
+				max_points: args.max_points || 1_500_000,
+			};
+			const job = await provider.submit({ mode: 'video2scene', sourceUrl: args.video_url, params });
+			return {
+				content: [{
+					type: 'text',
+					text:
+						`Started reconstructing a 3D scene from the video (${params.mode}).\n` +
+						`Job ID: ${job.extJobId}\n` +
+						'Poll with generation_status. Reconstruction typically takes a few minutes for a longer clip.',
+				}],
+				structuredContent: {
+					job_id: job.extJobId,
+					status: 'queued',
+					source_video_url: args.video_url,
+					mode: params.mode,
+					eta_seconds: job.eta,
+				},
 			};
 		},
 	},

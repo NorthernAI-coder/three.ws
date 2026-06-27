@@ -21,7 +21,7 @@ const SOURCES = [
 	{ id: 'trending', label: 'Trending' },
 	{ id: 'knowyourmeme', label: 'Know Your Meme' },
 	{ id: 'x', label: 'X' },
-	{ id: 'oracle', label: 'Oracle' },
+	{ id: 'googletrends', label: 'Google Trends' },
 	{ id: 'hackernews', label: 'Hacker News' },
 	{ id: 'reddit', label: 'Reddit' },
 	{ id: 'wikipedia', label: 'Wikipedia' },
