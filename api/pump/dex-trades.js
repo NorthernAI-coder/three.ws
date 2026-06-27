@@ -53,6 +53,13 @@ class RateLimitError extends Error {
 	}
 }
 
+class NotFoundError extends Error {
+	constructor() {
+		super('GeckoTerminal 404');
+		this.code = 'not_found';
+	}
+}
+
 async function gtFetch(path) {
 	const ctrl = new AbortController();
 	const tid = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -66,6 +73,7 @@ async function gtFetch(path) {
 			_cooldownUntil = Date.now() + RATELIMIT_COOLDOWN_MS;
 			throw new RateLimitError();
 		}
+		if (r.status === 404) throw new NotFoundError();
 		if (!r.ok) throw new Error(`GeckoTerminal ${r.status}`);
 		return await r.json();
 	} finally {
@@ -198,7 +206,18 @@ export default wrap(async (req, res) => {
 		// window) over a blank one so the tape survives a rate-limit/timeout blip;
 		// fall back to empty only when we have nothing cached.
 		const isRateLimit = err?.code === 'rate_limited';
-		if (!isRateLimit) console.error('[pump/dex-trades]', err?.message || err);
+		// 404 = token has no listed pools on GeckoTerminal — not an error, just an
+		// unlisted coin. Log nothing; the caller gets an empty trades array.
+		const isNotFound = err?.code === 'not_found';
+		if (!isRateLimit && !isNotFound) console.error('[pump/dex-trades]', err?.message || err);
+		if (isNotFound) {
+			return json(
+				res,
+				200,
+				{ mint, pool: null, trades: [] },
+				{ 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' },
+			);
+		}
 		const hit = _tradesCache.get(mint);
 		if (hit && Date.now() - hit.at < TRADES_STALE_MS) {
 			return json(

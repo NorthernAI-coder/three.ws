@@ -200,22 +200,41 @@ async function transferSol(conn, fromKp, toAddress, lamports) {
 		ComputeBudgetProgram,
 	} = await import('@solana/web3.js');
 	const toPk = new PublicKey(toAddress);
-	const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
-	const message = new TransactionMessage({
-		payerKey: fromKp.publicKey,
-		recentBlockhash: blockhash,
-		instructions: [
-			ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 60_000 }),
-			ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000 }),
-			SystemProgram.transfer({ fromPubkey: fromKp.publicKey, toPubkey: toPk, lamports }),
-		],
-	}).compileToV0Message();
-	const tx = new VersionedTransaction(message);
-	tx.sign([fromKp]);
-	const signature = await conn.sendTransaction(tx, { maxRetries: 5 });
-	const conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-	if (conf.value?.err) throw new Error('transfer failed on-chain: ' + JSON.stringify(conf.value.err));
-	return signature;
+
+	// Retry once on "Blockhash not found" — the blockhash can expire between
+	// getLatestBlockhash and sendTransaction if there is any delay (RPC round-trips,
+	// key decryption, etc.). A single retry with a fresh blockhash is sufficient
+	// because the new hash is guaranteed valid for ~150 blocks (~60s).
+	const MAX_ATTEMPTS = 2;
+	let lastErr;
+	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+		const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash('confirmed');
+		const message = new TransactionMessage({
+			payerKey: fromKp.publicKey,
+			recentBlockhash: blockhash,
+			instructions: [
+				ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 60_000 }),
+				ComputeBudgetProgram.setComputeUnitLimit({ units: 1_000 }),
+				SystemProgram.transfer({ fromPubkey: fromKp.publicKey, toPubkey: toPk, lamports }),
+			],
+		}).compileToV0Message();
+		const tx = new VersionedTransaction(message);
+		tx.sign([fromKp]);
+		try {
+			const signature = await conn.sendTransaction(tx, { maxRetries: 5 });
+			const conf = await conn.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+			if (conf.value?.err) throw new Error('transfer failed on-chain: ' + JSON.stringify(conf.value.err));
+			return signature;
+		} catch (err) {
+			const msg = err?.message || '';
+			if (attempt < MAX_ATTEMPTS - 1 && /Blockhash not found|BlockhashNotFound/i.test(msg)) {
+				lastErr = err;
+				continue;
+			}
+			throw err;
+		}
+	}
+	throw lastErr;
 }
 
 async function solBalance(conn, address) {

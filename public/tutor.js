@@ -48,7 +48,10 @@ function clearEmpty() {
 	if (empty && empty.parentNode) empty.remove();
 }
 function scrollDown() {
-	requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+	requestAnimationFrame(() => {
+		const h = document.body?.scrollHeight ?? document.documentElement.scrollHeight;
+		window.scrollTo({ top: h, behavior: 'smooth' });
+	});
 }
 
 function setTab(totalAtomics, count) {
