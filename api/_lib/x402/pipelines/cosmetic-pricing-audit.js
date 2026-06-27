@@ -52,7 +52,7 @@ import {
 	payX402,
 	fetchWithTimeout,
 	parseSolanaAccept,
-} from '../solana-payer.js';
+} from '../pay.js';
 
 const log = logger('x402-cosmetic-pricing-audit');
 

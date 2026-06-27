@@ -37,6 +37,10 @@ export const TOOL_PRICING = Object.freeze({
 	// per search; authenticated OAuth callers bypass payment entirely (they hold a
 	// bearer token, so authenticateRequest never issues the x402 challenge).
 	search_public_avatars: { amount_usdc: 0.001, description: 'Per call — public avatar gallery search' },
+	// On-chain agent reputation summary — a cheap indexed read, priced so the
+	// autonomous reputation-refresh pipeline exercises it as a real x402 call and
+	// external agents pay the going rate to vet a counterparty.
+	solana_agent_reputation: { amount_usdc: 0.001, description: 'Per call — on-chain agent reputation summary' },
 	// Discovery / lookups (incl. list_animations) — free
 });
 
