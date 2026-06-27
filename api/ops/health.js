@@ -258,8 +258,13 @@ async function loadBuilderAttribution() {
 		const gaps = rows.filter((r) => r.gap);
 		// A settlement proof row (settled column true on the endpoint we pay) that
 		// flipped echo_accepted=false means an attributed payment failed to settle.
-		const settleRow = rows.find((r) => r.settled || /dance-tip/.test(r.endpoint));
-		const settleFailed = settleRow ? settleRow.settled && settleRow.echo_accepted === false : false;
+		// The settlement-proof target is the dance-tip row. It FAILED only when the
+		// tracker matched its attribution (so it actually attempted an attributed
+		// payment) yet the echo was not accepted for a reason other than a missing
+		// wallet — i.e. the attributed payment was rejected/never settled on-chain.
+		const settleRow = rows.find((r) => /dance-tip/.test(r.endpoint));
+		const settleFailed = !!(settleRow && settleRow.matches && settleRow.echo_accepted === false
+			&& !/^wallet_unconfigured/.test(settleRow.error || ''));
 		const ok = stale ? null : gaps.length === 0 && !settleFailed;
 		return {
 			ok,

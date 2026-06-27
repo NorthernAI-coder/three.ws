@@ -183,6 +183,14 @@
 			<description>Users who hit the sign-in rate limit (e.g. shared office/home network) now see a lightweight proof-of-work puzzle instead of a hard countdown. Solve it in a second or two and you can keep signing in immediately — no waiting, no support ticket. Built on Altcha (open source, MIT-licensed, no tracking or third-party service).</description>
 		</item>
 		<item>
+			<title>Charity Split Audit — the platform proves donation promises are actually kept on-chain</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Charity Split Audit — the platform proves donation promises are actually kept on-chain</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Merchants on the three.ws payment console can pledge a charity split: a set share of every payment they take is donated to a cause, added automatically to the buyer's transaction at checkout. That's a promise made to buyers — and a promise nobody was checking. The platform now audits it every week. First it reviews every merchant who has turned on giving and confirms the promise is actually deliverable: a real, correctly-formatted cause wallet for the chosen network, a non-zero share, a place for the merchant's own funds to land, and a cause wallet that isn't accidentally set to the merchant's own payout (a misconfiguration that would silently cancel the donation). Any broken setup is flagged before a buyer is ever told their payment gave to a cause that could never receive it. Then it proves the giving machinery itself still works end to end: an autonomous agent makes one real payment through the exact same checkout code a buyer uses, with a charity split attached, and reads the settled transaction back from the blockchain to confirm the cause's cut landed — to the exact amount the split formula promised. If a code change ever caused the donation to be dropped, mis-sized, or mis-routed, the audit catches it and alerts operations. The canary donation routes to a platform-controlled wallet, so the check costs a fraction of a cent and never sends funds astray.</description>
+		</item>
+		<item>
 			<title>Cross-Chain Payment Cost Comparison — the platform measures which network is cheaper to pay on, live</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-27:Cross-Chain Payment Cost Comparison — the platform measures which network is cheaper to pay on, live</guid>
@@ -479,6 +487,14 @@
 			<description>Registering an agent on Solana is one of three.ws's core promises: the platform mints the agent's on-chain Metaplex identity and enrols it in the Agent Registry, custodially, so the agent's own wallet never has to sign. Now that whole path is watched automatically. Four times a day an autonomous agent pays a real x402 canary call that resolves a known registered agent's on-chain record — both its Identity registry account and its Core identity asset — and confirms they still exist on the live chain through the platform's failover RPC pool. A healthy result resets the counter; a sustained failure escalates to an alert so registration outages are caught before the next agent tries to register and fails. Every probe is recorded with its on-chain check results and RPC latency, giving the status surface a continuous read on whether agent registration is actually working end-to-end.</description>
 		</item>
 		<item>
+			<title>Spend Reservation Leak Detector — the platform keeps agent spending caps from silently starving</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:Spend Reservation Leak Detector — the platform keeps agent spending caps from silently starving</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Every autonomous payment an agent makes first sets aside room under its own daily spending limit, then settles the payment and either confirms or releases that reservation. If the process is interrupted between those two steps — a crash, a timeout, an error on a path that forgot to clean up — the reservation is orphaned: it keeps holding spending room against money that never actually moved. Enough orphans and an agent's daily cap is quietly exhausted by ghosts, so genuine payments start getting rejected for 'daily limit reached' even though the wallet is full and barely anything was spent. The platform now sweeps for these leaks automatically. Every fifteen minutes an autonomous agent scans both spending ledgers — USD payment caps and SOL trading caps — for any reservation older than an hour that was never finalized (in a healthy system reservations clear in seconds, so an hour is unmistakably stuck), frees the wrongly-held headroom through the same release path a correct cleanup would have used, and records exactly what it reclaimed so there's a permanent audit trail. A sudden spike in leaks is surfaced to the platform's health check, pointing operators straight at whichever code path is failing to clean up after itself. The sweep is a free database maintenance pass — it moves no funds and runs even when the spend wallet is offline, which is precisely when a starved cap most needs unsticking.</description>
+		</item>
+		<item>
 			<title>SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-27:SSE Streaming MCP Health — continuous proof the paid MCP transport delivers cleanly</guid>
@@ -573,6 +589,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The x402 Checkout dashboard and Merchant Console now use the platform's monochrome design language end to end — the off-system blue accent is gone, replaced by clean white-on-black with crisp focus rings, toggles, and hover states. New checkout storefronts default to a neutral monochrome look while merchants can still pick any brand color. Verified rendering across the payments page, dashboard, and console.</description>
+		</item>
+		<item>
+			<title>x402 Service Pricing Tracker — the platform watches its suppliers' prices and flags every hike</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-27:x402 Service Pricing Tracker — the platform watches its suppliers' prices and flags every hike</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws pays other agents' paid APIs over the x402 protocol to do real work — discovery, data, inference — and those services can quietly change their prices. The platform now tracks them. Every six hours an autonomous agent takes the external services we've actually discovered and depend on, and for each one makes a real on-chain $0.001 payment to read its current live price across every payment network, settling on the cheapest. It compares that to the last price it recorded and keeps a running history per service, so a supplier's cost is never a mystery. If a service's cheapest price jumps more than 20%, it raises a cost-model alert so we can revisit our own pricing or switch to a cheaper alternative; if a price drops, it flags an opportunity to lean on that service more. The full tracked catalog — current prices, recent changes, active hike alerts, and price-drop opportunities — is published at a new public, no-cost feed at /api/x402/service-pricing-report. It rotates through the suppliers a few at a time, so the whole catalog refreshes about daily for a fraction of a cent, and every check settles on Solana with a real transaction signature and is logged like every other autonomous payment.</description>
 		</item>
 		<item>
 			<title>Agent Payment Sessions</title>
