@@ -138,7 +138,13 @@ export async function flushUsageBuffer({ limit = 500, deadlineMs = 45_000 } = {}
 		if (Date.now() - startedAt > deadlineMs) { timedOut = true; break; }
 		const take = Math.min(BATCH, limit - flushed);
 		// Read the front of the list, then atomically trim those entries.
-		const raw = await r.lrange(BUFFER_KEY, 0, take - 1);
+		let raw;
+		try {
+			raw = await r.lrange(BUFFER_KEY, 0, take - 1);
+		} catch (err) {
+			console.warn('[usage-flush] redis unavailable on lrange:', err?.message);
+			return { flushed, remaining: -1, errors, skipped: 'redis_unavailable' };
+		}
 		if (!raw || raw.length === 0) break;
 
 		const events = raw.map((item) => {

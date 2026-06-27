@@ -263,6 +263,7 @@ async function handleGet(req, res, url) {
 
 	const view = (url.searchParams.get('view') || 'board').toLowerCase();
 
+	// quote and config are pure computation — no Redis, no try-catch needed.
 	if (view === 'quote') {
 		const pattern = normalizeBountyPattern({
 			prefix: url.searchParams.get('prefix') || '',
@@ -290,38 +291,50 @@ async function handleGet(req, res, url) {
 		}, { 'cache-control': READ_CACHE });
 	}
 
-	if (view === 'get') {
-		const id = (url.searchParams.get('id') || '').trim();
-		if (!/^[0-9a-f]{8,32}$/.test(id)) return error(res, 400, 'validation_error', 'id must be a hex bounty id');
-		const bounty = await getBounty(id);
-		if (!bounty) return error(res, 404, 'not_found', 'no bounty with that id');
-		return json(res, 200, { bounty }, { 'cache-control': READ_CACHE });
-	}
+	// All remaining views hit the Redis-backed store. A single try-catch converts
+	// an Upstash auth failure (WRONGPASS) into a 503 rather than an unhandled 500.
+	try {
+		if (view === 'get') {
+			const id = (url.searchParams.get('id') || '').trim();
+			if (!/^[0-9a-f]{8,32}$/.test(id)) return error(res, 400, 'validation_error', 'id must be a hex bounty id');
+			const bounty = await getBounty(id);
+			if (!bounty) return error(res, 404, 'not_found', 'no bounty with that id');
+			return json(res, 200, { bounty }, { 'cache-control': READ_CACHE });
+		}
 
-	if (view === 'open') {
-		const limit = Number(url.searchParams.get('limit')) || 30;
-		const bounties = await listClaimable(limit);
-		return json(res, 200, { bounties, count: bounties.length }, { 'cache-control': 'no-store' });
-	}
+		if (view === 'open') {
+			const limit = Number(url.searchParams.get('limit')) || 30;
+			const bounties = await listClaimable(limit);
+			return json(res, 200, { bounties, count: bounties.length }, { 'cache-control': 'no-store' });
+		}
 
-	if (view === 'stats') {
-		const stats = await bountyStats();
-		return json(res, 200, stats, { 'cache-control': READ_CACHE });
-	}
+		if (view === 'stats') {
+			const stats = await bountyStats();
+			return json(res, 200, stats, { 'cache-control': READ_CACHE });
+		}
 
-	if (view === 'leaderboard') {
-		const limit = Number(url.searchParams.get('limit')) || 10;
-		const grinders = await topGrinders(limit);
-		return json(res, 200, { grinders, count: grinders.length }, { 'cache-control': READ_CACHE });
-	}
+		if (view === 'leaderboard') {
+			const limit = Number(url.searchParams.get('limit')) || 10;
+			const grinders = await topGrinders(limit);
+			return json(res, 200, { grinders, count: grinders.length }, { 'cache-control': READ_CACHE });
+		}
 
-	// Default: paginated board.
-	const status = (url.searchParams.get('status') || 'open').toLowerCase();
-	const sort = (url.searchParams.get('sort') || 'recency').toLowerCase();
-	const limit = Number(url.searchParams.get('limit')) || 24;
-	const offset = Number(url.searchParams.get('offset')) || 0;
-	const result = await queryBounties({ status, sort, limit, offset });
-	return json(res, 200, { ...result, status, sort }, { 'cache-control': READ_CACHE });
+		// Default: paginated board.
+		const status = (url.searchParams.get('status') || 'open').toLowerCase();
+		const sort = (url.searchParams.get('sort') || 'recency').toLowerCase();
+		const limit = Number(url.searchParams.get('limit')) || 24;
+		const offset = Number(url.searchParams.get('offset')) || 0;
+		const result = await queryBounties({ status, sort, limit, offset });
+		return json(res, 200, { ...result, status, sort }, { 'cache-control': READ_CACHE });
+	} catch (err) {
+		const isRedisAuth = err?.constructor?.name === 'UpstashError' &&
+			(err.message?.includes('WRONGPASS') || err.message?.includes('invalid or missing auth token'));
+		if (isRedisAuth) {
+			console.warn('[vanity/bounties] redis unavailable:', err.message);
+			return error(res, 503, 'store_unavailable', 'the bounty store is temporarily unavailable');
+		}
+		throw err;
+	}
 }
 
 function escrowNetworks() {

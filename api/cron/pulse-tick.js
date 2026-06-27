@@ -5,7 +5,7 @@
 // agent pool and has those agents transact with one another on-chain, so the live
 // money feed reflects real wallet activity.
 
-import { json, method, wrapCron } from '../_lib/http.js';
+import { json, error, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { runCirculationTick } from '../_lib/circulation.js';
@@ -13,13 +13,13 @@ import { runCirculationTick } from '../_lib/circulation.js';
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
 	if (!secret) {
-		res.status(503).json({ error: 'not_configured', message: 'CRON_SECRET unset' });
+		error(res, 503, 'not_configured', 'CRON_SECRET unset');
 		return false;
 	}
 	const auth = req.headers['authorization'] || '';
 	const presented = auth.startsWith('Bearer ') ? auth.slice(7) : '';
 	if (!constantTimeEquals(presented, secret)) {
-		res.status(401).json({ error: 'unauthorized' });
+		error(res, 401, 'unauthorized', 'invalid cron secret');
 		return false;
 	}
 	return true;

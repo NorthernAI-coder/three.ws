@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Production stability fixes — payment sessions, Redis error handling, infra resilience",
+			"summary": "Fixed a SQL syntax error that blocked payment session expiry and refunds (PostgreSQL does not allow LIMIT directly in UPDATE — now uses a CTE with FOR UPDATE SKIP LOCKED). Fixed esbuild class-name minification breaking NeonDB error detection in production — infrastructure errors (wrong DB credentials, Redis auth) now correctly return 503 and suppress alert storms instead of crashing every endpoint with 500. Added graceful Redis-unavailable handling to the usage flush buffer and the bounty board API. Fixed Express-style response methods in pulse-tick cron.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "60 live x402 payments per minute",
 			"summary": "A new per-minute cron fires 60 parallel real Solana USDC micropayments each tick via the x402 protocol, seeding the platform's payment activity feed and club stage with continuous on-chain traffic. Each payment is a signed SPL TransferChecked transaction broadcast via the Solana facilitator — not simulated. Configure the batch size or pause it with X402_SEED_BATCH_SIZE / X402_SEED_ENABLED.",
 			"tags": ["infra", "feature"],
