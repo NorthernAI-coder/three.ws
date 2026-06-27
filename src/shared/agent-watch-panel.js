@@ -150,6 +150,31 @@ function injectStyles() {
 }
 .wp-screen-wrap:hover .wp-screen-expand { opacity: 1; }
 .wp-screen-expand:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.wp-screen-fullview {
+	position: absolute;
+	bottom: 10px;
+	right: 50px;
+	z-index: 4;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: rgba(0,0,0,0.52);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border: 1px solid rgba(255,255,255,0.1);
+	border-radius: 6px;
+	color: rgba(255,255,255,0.6);
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 1;
+	padding: 6px 9px;
+	text-decoration: none;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.2s, background 0.12s, color 0.12s;
+}
+.wp-screen-wrap:hover .wp-screen-fullview { opacity: 1; }
+.wp-screen-fullview:hover { background: rgba(255,255,255,0.14); color: #fff; }
 
 /* ── Webcam pane ──────────────────────────────────────────────── */
 .wp-cam-wrap {
@@ -813,6 +838,7 @@ class WatchPanel {
         <div class="wp-screen-badge-dot offline" id="wp-dot"></div>
         <span id="wp-badge-label">Connecting</span>
       </div>
+      <a class="wp-screen-fullview" href="/agent-screen?agentId=${encodeURIComponent(this.agentId)}" aria-label="Open the full live viewer" title="Open full view">⤢ Full view</a>
       <button class="wp-screen-expand" aria-label="Fullscreen">⛶</button>
     </div>
     <div class="wp-cam-wrap" id="wp-cw">

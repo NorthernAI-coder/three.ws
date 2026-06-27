@@ -7,14 +7,15 @@
 // POST body: { agentId: string, task: string, type?: string }
 // GET  resp: { task: { text, type, ts, userId } | null }
 
-import { cors, error, json, method, rateLimited } from './_lib/http.js';
+import { cors, error, json, method, rateLimited, readJson } from './_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getRedis } from './_lib/redis.js';
 import { sql } from './_lib/db.js';
 
 const TASK_KEY = (id) => `agent:task:${id}`;
-const FRAME_KEY = (id) => `agent:screen:${id}:frame`;
+const LOG_KEY = (id) => `agent:screen:${id}:log`;
+const LOG_CAP = 50; // mirrors agent-screen-push.js
 const MAX_QUEUE = 20;
 const TASK_TTL = 60 * 60 * 6; // 6h — tasks expire if worker never shows up
 const TASK_MAX_LEN = 1000;
@@ -72,13 +73,7 @@ export default async function handleAgentTask(req, res) {
 
 		let body;
 		try {
-			const raw = await new Promise((resolve, reject) => {
-				const chunks = [];
-				req.on('data', (c) => chunks.push(c));
-				req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-				req.on('error', reject);
-			});
-			body = JSON.parse(raw);
+			body = await readJson(req, 64_000);
 		} catch {
 			return error(res, 400, 'invalid_body', 'request body must be valid JSON');
 		}
@@ -107,15 +102,15 @@ export default async function handleAgentTask(req, res) {
 
 		// Push task to queue; trim to MAX_QUEUE
 		const len = await r.lpush(TASK_KEY(agentId), record);
+		const logEntry = JSON.stringify({ ts: now, activity: `Task queued: ${text}`, type: 'analysis' });
 		await Promise.all([
 			r.expire(TASK_KEY(agentId), TASK_TTL),
 			len > MAX_QUEUE ? r.ltrim(TASK_KEY(agentId), 0, MAX_QUEUE - 1) : Promise.resolve(),
-			// Immediately notify the live stream so the watch panel shows the task
-			r.set(
-				FRAME_KEY(agentId),
-				JSON.stringify({ ts: now, activity: `Task queued: ${text}`, type: 'analysis' }),
-				{ ex: 90 },
-			),
+			// Surface the task in the activity log WITHOUT clobbering the live frame:
+			// append to the log list (which the stream backfills) rather than
+			// overwriting the screenshot frame, which would blank the viewer's image.
+			r.lpush(LOG_KEY(agentId), logEntry).then(() => r.ltrim(LOG_KEY(agentId), 0, LOG_CAP - 1)),
+			r.expire(LOG_KEY(agentId), 60 * 8),
 		]);
 
 		return json(res, 200, { ok: true, queued: Math.min(len, MAX_QUEUE) });

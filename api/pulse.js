@@ -42,6 +42,12 @@ import { shapeTradingWindow, shapeTradingPnl, shapeTradingSeries, solFromLamport
 // excluded by the WHERE clauses below — never add those here.
 const PUBLIC_SPEND_CATEGORIES = ['trade', 'snipe', 'x402'];
 
+// The live FEED additionally surfaces marketplace skill purchases (category
+// 'marketplace') as 'purchase' beats — real, value-delivering commerce. This is a
+// feed-only superset: the aggregate money math above stays on PUBLIC_SPEND_CATEGORIES
+// so marketplace's $THREE-denominated rows never distort the SOL volume counters.
+const FEED_SPEND_CATEGORIES = [...PUBLIC_SPEND_CATEGORIES, 'marketplace'];
+
 // $THREE is the only coin the marketplace prices in. Real skill purchases settle
 // in $THREE (6 decimals), so marketplace GMV is denominated here. A purchase is
 // "paid" only when status='confirmed' and it's not a free trial.
@@ -53,10 +59,11 @@ const threeFromAtomic = (atomic) => Number(atomic || 0) / 10 ** THREE_DECIMALS;
 
 // type= query param → the set of `kind`s it admits.
 const TYPE_KINDS = {
-	all: ['tip', 'trade', 'snipe', 'payment', 'launch'],
+	all: ['tip', 'trade', 'snipe', 'payment', 'purchase', 'launch'],
 	tips: ['tip'],
 	trades: ['trade', 'snipe'],
 	payments: ['payment'],
+	purchases: ['purchase'],
 	launches: ['launch'],
 };
 
@@ -121,6 +128,7 @@ function shapeEvent(r) {
 		mint: r.mint || null,
 		symbol: r.symbol || null,
 		coin_name: r.coin_name || null,
+		skill: r.skill || null,            // marketplace 'purchase' beats carry the skill name
 		mint_explorer: r.mint ? explorerAccountUrl(r.mint, r.network) : null,
 		// the counterparty of a tip / payment, when public on-chain
 		counterparty: r.counterparty || null,
@@ -150,9 +158,10 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 		SELECT
 			ce.created_at                        AS ts,
 			(CASE
-				WHEN ce.event_type = 'tip'        THEN 'tip'
-				WHEN ce.category   = 'x402'       THEN 'payment'
-				WHEN ce.category   = 'snipe'      THEN 'snipe'
+				WHEN ce.event_type = 'tip'         THEN 'tip'
+				WHEN ce.category   = 'x402'        THEN 'payment'
+				WHEN ce.category   = 'snipe'       THEN 'snipe'
+				WHEN ce.category   = 'marketplace' THEN 'purchase'
 				ELSE 'trade'
 			END)                                  AS kind,
 			'c' || ce.id::text                    AS row_id,
@@ -172,6 +181,7 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 			NULL::text                            AS mint,
 			NULL::text                            AS symbol,
 			NULL::text                            AS coin_name,
+			NULLIF(ce.meta->>'skill', '')         AS skill,
 			NULLIF(ce.meta->>'from', '')          AS counterparty
 		FROM agent_custody_events ce
 		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${visGate}
@@ -180,7 +190,7 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 		  AND ce.status IN ('ok', 'confirmed')
 		  AND (
 			ce.event_type = 'tip'
-			OR (ce.event_type = 'spend' AND ce.category = ANY(${PUBLIC_SPEND_CATEGORIES}))
+			OR (ce.event_type = 'spend' AND ce.category = ANY(${FEED_SPEND_CATEGORIES}))
 		  )
 		  ${agentFilterCe}
 
@@ -206,6 +216,7 @@ async function handleFeed(req, res, { network, type, agentId, cursor, since }) {
 			pam.mint                              AS mint,
 			pam.symbol                            AS symbol,
 			pam.name                              AS coin_name,
+			NULL::text                            AS skill,
 			NULL::text                            AS counterparty
 		FROM pump_agent_mints pam
 		JOIN agent_identities ai ON ai.id = pam.agent_id AND ${visGate}

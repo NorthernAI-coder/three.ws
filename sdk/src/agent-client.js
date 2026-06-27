@@ -107,6 +107,46 @@ export class AgentClient {
 	}
 
 	/**
+	 * Bring an agent live in one call: claim its one-time on-chain activation grant.
+	 * `POST /api/agents/:id/activate`. The platform funds the agent's wallet and the
+	 * agent immediately appears on the Money Pulse as an active, funded wallet.
+	 *
+	 * Requires a bearer token with `avatars:write` for the agent's owner. Idempotent
+	 * — if the agent is already live it resolves to the existing receipt
+	 * (`already: true`) rather than granting twice.
+	 *
+	 * @param {string} agentId
+	 * @returns {Promise<{ ok:boolean, already?:boolean, pending?:boolean, signature?:string,
+	 *   explorer?:string|null, sol?:number, usd?:number|null, network?:string }>}
+	 */
+	async activate(agentId) {
+		const res = await this._fetch(
+			`${this.baseUrl}/api/agents/${encodeURIComponent(agentId)}/activate`,
+			{ method: 'POST', headers: this._headers() },
+		);
+		const body = await this._json(res, 'activate');
+		return body?.data ?? body;
+	}
+
+	/**
+	 * Read an agent's activation status (which "Go Live" state it's in). Owner view.
+	 * `GET /api/agents/:id/activate`.
+	 *
+	 * @param {string} agentId
+	 * @returns {Promise<{ enabled:boolean, eligible:boolean, activated:boolean,
+	 *   pending:boolean, reason:string|null, grant_sol:number, network:string,
+	 *   receipt:object|null }>}
+	 */
+	async getActivationStatus(agentId) {
+		const res = await this._fetch(
+			`${this.baseUrl}/api/agents/${encodeURIComponent(agentId)}/activate`,
+			{ headers: this._headers() },
+		);
+		const body = await this._json(res, 'getActivationStatus');
+		return body?.data ?? body;
+	}
+
+	/**
 	 * Invoke a priced skill, settling x402 payment automatically when required.
 	 *
 	 * Pass a `payIntent` callback (or `signer.payIntent`) that, given the 402

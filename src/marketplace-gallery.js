@@ -37,6 +37,17 @@ import {
 	MathUtils,
 } from 'three';
 
+import {
+	PAGE_SIZE,
+	FILTERS,
+	normalizeFilterKey,
+	normalizeAgent,
+	normalizeAvatar,
+	normalizeSkill,
+	interleave,
+	fmtCount,
+} from './marketplace-gallery-data.js';
+
 // ── Layout (metres) ─────────────────────────────────────────────────────────
 const SPACING = 4; // a plinth every 4m down the hall
 const START_Z = 4; // first plinth sits 4m ahead of the anchor
@@ -49,20 +60,12 @@ const ENTER_RANGE = 2.0; // step within 2m → reveal the listing
 const RELEASE_RANGE = 3.4; // step past this → dismiss (hysteresis stops flicker)
 const REBASE_AT = 500; // fold belt offset back near 0 to preserve float precision
 
-const PAGE_SIZE = 18;
 // Monochrome brightness tiers — matches the platform's monochrome design system
 // (public/tokens.css). Type identity is carried by brightness (and the explicit
 // TYPE_LABEL text drawn on every plinth + the panel badge), never a brand hue, so
 // the hall reads as one cohesive material rather than three colour-coded zones.
 const TYPE_ACCENT = { agent: '#fafafa', avatar: '#c8c8d0', skill: '#9a9aa3' };
 const TYPE_LABEL = { agent: 'Agent', avatar: 'Avatar', skill: 'Skill' };
-
-const FILTERS = [
-	{ key: 'all', label: 'All' },
-	{ key: 'agent', label: 'Agents' },
-	{ key: 'avatar', label: 'Avatars' },
-	{ key: 'skill', label: 'Skills' },
-];
 
 const STYLE_ID = 'marketplace-gallery-styles';
 
@@ -71,8 +74,10 @@ function ensureStyles() {
 	const s = document.createElement('style');
 	s.id = STYLE_ID;
 	s.textContent = `
-.mwg-chips{position:fixed;top:calc(env(safe-area-inset-top,0) + 116px);left:50%;
-	transform:translateX(-50%);z-index:6;display:flex;gap:6px;padding:5px;border-radius:999px;
+.mwg-top{position:fixed;top:calc(env(safe-area-inset-top,0) + 110px);left:50%;
+	transform:translateX(-50%);z-index:6;display:flex;flex-direction:column;align-items:center;
+	gap:8px;max-width:calc(100vw - 24px);}
+.mwg-chips{display:flex;gap:6px;padding:5px;border-radius:999px;
 	background:rgba(10,10,12,.72);border:1px solid rgba(255,255,255,.1);
 	backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 28px rgba(0,0,0,.4);}
 .mwg-chip{appearance:none;border:0;background:transparent;color:#a1a1aa;font:inherit;font-size:13px;
@@ -81,6 +86,21 @@ function ensureStyles() {
 .mwg-chip:hover{color:#fafafa;background:rgba(255,255,255,.06);}
 .mwg-chip[aria-pressed="true"]{color:#0a0a0a;background:#fafafa;}
 .mwg-chip:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:2px;}
+
+.mwg-search{display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;border-radius:999px;
+	background:rgba(10,10,12,.72);border:1px solid rgba(255,255,255,.1);width:min(340px,72vw);
+	backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 8px 28px rgba(0,0,0,.4);
+	transition:border-color .15s ease;}
+.mwg-search:focus-within{border-color:rgba(255,255,255,.35);}
+.mwg-search svg{flex:0 0 auto;color:#a1a1aa;}
+.mwg-search input{flex:1;min-width:0;appearance:none;border:0;background:transparent;color:#fafafa;
+	font:inherit;font-size:13px;outline:none;}
+.mwg-search input::placeholder{color:#71717a;}
+.mwg-search-clear{flex:0 0 auto;appearance:none;border:0;background:transparent;color:#a1a1aa;
+	font:inherit;font-size:16px;line-height:1;cursor:pointer;padding:2px 4px;display:none;border-radius:50%;}
+.mwg-search-clear:hover{color:#fafafa;}
+.mwg-search[data-has-query="1"] .mwg-search-clear{display:block;}
+.mwg-search-clear:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:1px;}
 
 .mwg-panel{position:fixed;top:50%;right:max(16px,env(safe-area-inset-right,0));
 	transform:translate(calc(100% + 32px),-50%);z-index:7;width:min(340px,calc(100vw - 32px));
@@ -103,16 +123,33 @@ function ensureStyles() {
 .mwg-panel-author{margin:0 0 10px;font-size:12px;color:#a1a1aa;}
 .mwg-panel-desc{margin:0 0 14px;font-size:13px;line-height:1.5;color:#c8c8d0;
 	display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;}
+.mwg-panel-stats{display:flex;flex-wrap:wrap;align-items:center;gap:5px 14px;margin:0 0 12px;
+	font-size:12.5px;color:#a1a1aa;}
+.mwg-panel-stat{display:inline-flex;align-items:center;gap:5px;}
+.mwg-panel-stat b{color:#fafafa;font-weight:700;font-variant-numeric:tabular-nums;}
+.mwg-panel-stat .star{color:#fafafa;font-size:13px;line-height:1;}
+.mwg-panel-tags{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;}
+.mwg-panel-tag{font-size:11px;color:#c8c8d0;background:rgba(255,255,255,.06);
+	border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:3px 9px;white-space:nowrap;}
 .mwg-panel-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;}
 .mwg-panel-price{font-size:17px;font-weight:700;}
 .mwg-panel-cat{font-size:11px;font-weight:600;color:#a1a1aa;text-transform:capitalize;
 	padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.06);}
-.mwg-panel-cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+.mwg-panel-actions{display:flex;gap:8px;align-items:stretch;}
+.mwg-panel-cta{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;
 	appearance:none;border:0;border-radius:12px;padding:12px 16px;font:inherit;font-size:14px;
-	font-weight:700;color:#0a0a0a;cursor:pointer;transition:filter .15s ease,transform .1s ease;}
+	font-weight:700;color:#0a0a0a;background:#fafafa;text-decoration:none;cursor:pointer;
+	transition:filter .15s ease,transform .1s ease;}
 .mwg-panel-cta:hover{filter:brightness(1.08);}
 .mwg-panel-cta:active{transform:scale(.98);}
 .mwg-panel-cta:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.mwg-panel-share{flex:0 0 auto;display:flex;align-items:center;justify-content:center;width:44px;
+	appearance:none;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:rgba(255,255,255,.04);
+	color:#fafafa;cursor:pointer;transition:background .15s ease,border-color .15s ease;}
+.mwg-panel-share:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3);}
+.mwg-panel-share:active{transform:scale(.96);}
+.mwg-panel-share:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+.mwg-panel-share[data-copied="1"]{color:#0a0a0a;background:#fafafa;border-color:#fafafa;}
 .mwg-panel-hint{margin:9px 0 0;text-align:center;font-size:11px;color:#71717a;}
 .mwg-panel-hint kbd{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;padding:1px 5px;
 	border-radius:4px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.14);}
@@ -137,67 +174,19 @@ function ensureStyles() {
 	border:0;font:inherit;cursor:pointer;padding:0;white-space:nowrap;}
 
 @media (hover:none),(max-width:640px){
-	.mwg-chips{top:calc(env(safe-area-inset-top,0) + 104px);}
+	.mwg-top{top:calc(env(safe-area-inset-top,0) + 100px);}
+	.mwg-search{width:min(340px,82vw);}
 	.mwg-panel{top:auto;bottom:calc(150px + env(safe-area-inset-bottom,0));right:50%;
 		transform:translate(50%,calc(100% + 40px));width:min(360px,calc(100vw - 24px));max-height:46vh;}
 	.mwg-panel[data-show="1"]{transform:translate(50%,0);}
 	.mwg-prompt{bottom:calc(150px + env(safe-area-inset-bottom,0));}
 }
 @media (prefers-reduced-motion:reduce){
-	.mwg-panel,.mwg-prompt,.mwg-chip,.mwg-panel-cta{transition:none;}
+	.mwg-panel,.mwg-prompt,.mwg-chip,.mwg-panel-cta,.mwg-search,.mwg-panel-share{transition:none;}
 }
-body.is-zen .mwg-chips,body.is-zen .mwg-panel,body.is-zen .mwg-prompt,body.is-zen .mwg-toast{display:none !important;}
+body.is-zen .mwg-top,body.is-zen .mwg-panel,body.is-zen .mwg-prompt,body.is-zen .mwg-toast{display:none !important;}
 `;
 	document.head.appendChild(s);
-}
-
-// ── Listing normalisation ───────────────────────────────────────────────────
-function fmtTokenPrice(price) {
-	if (!price || price.amount == null) return 'Free';
-	const dec = Number(price.mint_decimals ?? 6);
-	const v = Number(price.amount) / Math.pow(10, dec);
-	if (!Number.isFinite(v) || v <= 0) return 'Free';
-	return `$${v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toFixed(2)}`;
-}
-
-function normalizeAgent(a) {
-	return {
-		type: 'agent',
-		name: a.name || 'Untitled agent',
-		description: a.description || '',
-		image: a.thumbnail_url || null,
-		price: fmtTokenPrice(a.price),
-		category: a.category || '',
-		author: null,
-		href: `/marketplace/agents/${encodeURIComponent(a.id)}`,
-	};
-}
-
-function normalizeAvatar(a) {
-	return {
-		type: 'avatar',
-		name: a.name || 'Untitled avatar',
-		description: a.description || '',
-		image: a.image || null,
-		price: fmtTokenPrice(a.price),
-		category: a.modelCategory || 'avatar',
-		author: a.author?.displayName || a.author?.handle || null,
-		href: `/marketplace/avatars/${encodeURIComponent(a.avatarId)}`,
-	};
-}
-
-function normalizeSkill(s) {
-	const usd = Number(s.price_per_call_usd);
-	return {
-		type: 'skill',
-		name: s.name || 'Untitled skill',
-		description: s.description || '',
-		image: null,
-		price: usd > 0 ? `$${usd}/call` : 'Free',
-		category: s.category || '',
-		author: s.author?.display_name || null,
-		href: `/marketplace/skills/${encodeURIComponent(s.slug || s.id)}`,
-	};
 }
 
 /**
@@ -298,14 +287,17 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		}
 		if (name !== (listing.name || '')) name = name.trimEnd() + '…';
 		ctx.fillText(name, 36, H * 0.36);
-		// price + type
+		// price (left) + rating·type (right) — rating only when it carries votes,
+		// so an unrated plinth simply reads its type.
 		ctx.font = '700 44px Inter, system-ui, sans-serif';
 		ctx.fillStyle = accentHex;
 		ctx.fillText(listing.price, 36, H * 0.74);
 		ctx.font = '600 32px Inter, system-ui, sans-serif';
 		ctx.fillStyle = '#a1a1aa';
 		ctx.textAlign = 'right';
-		ctx.fillText(TYPE_LABEL[listing.type] || '', W - 36, H * 0.74);
+		const typeText = TYPE_LABEL[listing.type] || '';
+		const rightText = listing.rating ? `★ ${listing.rating.avg}  ·  ${typeText}` : typeText;
+		ctx.fillText(rightText, W - 36, H * 0.74);
 	}
 
 	function coverFit(tex, imgW, imgH, planeAspect) {
@@ -391,7 +383,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 	function assignListing(slot, listing) {
 		slot.listing = listing;
 		slot.group.visible = true;
-		const accent = TYPE_ACCENT[listing.type] || '#8b5cf6';
+		const accent = TYPE_ACCENT[listing.type] || '#fafafa';
 		slot.ring.material.color.set(accent);
 		drawLabel(slot.labelCanvas, listing, accent);
 		slot.labelTex.needsUpdate = true;
@@ -430,7 +422,12 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		avatar: { cursor: null, done: false, fetch: fetchAvatars },
 		skill: { cursor: null, done: false, fetch: fetchSkills },
 	};
-	let filter = 'all';
+	// Deep-link state: ?type=skill (or skills/agent/avatar) picks the opening
+	// filter, ?q= seeds an in-hall search — so a shared link lands on exactly the
+	// slice of the marketplace it points at.
+	const bootParams = new URLSearchParams(location.search);
+	let filter = normalizeFilterKey(bootParams.get('type') || bootParams.get('filter')) || 'all';
+	let query = (bootParams.get('q') || '').trim().slice(0, 80);
 	let buffer = []; // normalised listings waiting for a plinth
 	let served = []; // everything seen this filter — replayed once pages run out
 	let loading = false;
@@ -441,6 +438,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		const u = new URL('/api/marketplace/agents', location.origin);
 		u.searchParams.set('limit', String(PAGE_SIZE));
 		u.searchParams.set('sort', 'recommended');
+		if (query) u.searchParams.set('q', query);
 		if (cursor) u.searchParams.set('cursor', cursor);
 		const r = await fetch(u);
 		if (!r.ok) throw new Error(`agents ${r.status}`);
@@ -454,6 +452,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		u.searchParams.set('source', 'avatar');
 		u.searchParams.set('quality', 'high');
 		u.searchParams.set('limit', String(PAGE_SIZE));
+		if (query) u.searchParams.set('q', query);
 		if (cursor) u.searchParams.set('cursor', cursor);
 		const r = await fetch(u);
 		if (!r.ok) throw new Error(`avatars ${r.status}`);
@@ -466,6 +465,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		const u = new URL('/api/skills', location.origin);
 		u.searchParams.set('limit', String(PAGE_SIZE));
 		u.searchParams.set('sort', 'popular');
+		if (query) u.searchParams.set('q', query);
 		if (cursor) u.searchParams.set('cursor', cursor);
 		const r = await fetch(u);
 		if (!r.ok) throw new Error(`skills ${r.status}`);
@@ -498,10 +498,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 				if (!res.next) sources[k].done = true;
 				return res.items;
 			});
-			const merged = [];
-			for (let i = 0; lanes.some((l) => i < l.length); i++) {
-				for (const lane of lanes) if (i < lane.length) merged.push(lane[i]);
-			}
+			const merged = interleave(lanes);
 			if (merged.length) {
 				loadedAny = true;
 				buffer.push(...merged);
@@ -667,7 +664,52 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		location.href = activeSlot.listing.href;
 	}
 
-	// ── DOM: chips, panel, prompt, toast ────────────────────────────────────────
+	// ── DOM: search + chips (top bar), panel, prompt, toast ──────────────────────
+	const top = document.createElement('div');
+	top.className = 'mwg-top';
+
+	// Search field — jump straight to a named skill/agent/avatar instead of
+	// walking the whole hall. Debounced; each source filters server-side on ?q.
+	const search = document.createElement('div');
+	search.className = 'mwg-search';
+	search.innerHTML = `
+		<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5l3 3"/></svg>
+		<input type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off"
+			spellcheck="false" maxlength="80" aria-label="Search the marketplace"
+			placeholder="Search agents, avatars, skills…" />
+		<button type="button" class="mwg-search-clear" aria-label="Clear search" title="Clear">&times;</button>`;
+	const searchInput = search.querySelector('input');
+	const searchClear = search.querySelector('.mwg-search-clear');
+	searchInput.value = query;
+	if (query) search.setAttribute('data-has-query', '1');
+	let searchTimer = 0;
+	function flushSearch() {
+		clearTimeout(searchTimer);
+		applyQuery(searchInput.value);
+	}
+	searchInput.addEventListener('input', () => {
+		search.toggleAttribute('data-has-query', !!searchInput.value.trim());
+		clearTimeout(searchTimer);
+		searchTimer = setTimeout(flushSearch, 300);
+	});
+	searchInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			flushSearch();
+		} else if (e.key === 'Escape' && searchInput.value) {
+			e.preventDefault();
+			searchInput.value = '';
+			search.removeAttribute('data-has-query');
+			flushSearch();
+		}
+	});
+	searchClear.addEventListener('click', () => {
+		searchInput.value = '';
+		search.removeAttribute('data-has-query');
+		flushSearch();
+		searchInput.focus();
+	});
+
 	const chips = document.createElement('div');
 	chips.className = 'mwg-chips';
 	chips.setAttribute('role', 'tablist');
@@ -678,11 +720,26 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		b.type = 'button';
 		b.textContent = f.label;
 		b.dataset.filter = f.key;
+		b.setAttribute('role', 'tab');
 		b.setAttribute('aria-pressed', String(f.key === filter));
 		b.addEventListener('click', () => setFilter(f.key));
 		chips.appendChild(b);
 	}
-	document.body.appendChild(chips);
+	// Roving arrow-key navigation across the filter tablist (auto-activates).
+	chips.addEventListener('keydown', (e) => {
+		if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+		const btns = [...chips.children];
+		const i = btns.indexOf(document.activeElement);
+		if (i === -1) return;
+		e.preventDefault();
+		const ni = (i + (e.key === 'ArrowRight' ? 1 : -1) + btns.length) % btns.length;
+		btns[ni].focus();
+		setFilter(btns[ni].dataset.filter);
+	});
+
+	top.appendChild(search);
+	top.appendChild(chips);
+	document.body.appendChild(top);
 
 	const panel = document.createElement('aside');
 	panel.className = 'mwg-panel';
@@ -722,36 +779,115 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 	function maybeShowEmpty() {
 		if (loadedAny || loading || !allDone()) return;
 		const label = FILTERS.find((f) => f.key === filter)?.label || 'listings';
+		if (query) {
+			showToast(`No ${label.toLowerCase()} match “${query}”.`, 'Clear search', () => {
+				searchInput.value = '';
+				search.removeAttribute('data-has-query');
+				flushSearch();
+				searchInput.focus();
+			});
+			return;
+		}
 		showToast(`No ${label.toLowerCase()} listed yet.`, 'Browse the grid →', () => {
 			location.href = '/marketplace';
 		});
 	}
 
 	function showPanel(listing) {
-		const accent = TYPE_ACCENT[listing.type] || '#8b5cf6';
+		const accent = TYPE_ACCENT[listing.type] || '#fafafa';
 		const media = listing.image
 			? `<img src="${escapeAttr(listing.image)}" alt="" loading="lazy" />`
 			: `<div class="mwg-panel-fallback" style="background:linear-gradient(160deg,${accent},#0c0c0e)">${escapeHtml((listing.name || '?').charAt(0).toUpperCase())}</div>`;
+
+		// Trust signals — ratings + adoption counts pulled straight from the same
+		// listing rows the grid uses, so a number never disagrees across surfaces.
+		const stats = [];
+		if (listing.rating) {
+			const votes = fmtCount(listing.rating.count) || String(listing.rating.count);
+			stats.push(
+				`<span class="mwg-panel-stat"><span class="star">★</span><b>${listing.rating.avg}</b> <span>(${votes})</span></span>`,
+			);
+		}
+		if (listing.uses) {
+			const c = fmtCount(listing.uses.count);
+			if (c) stats.push(`<span class="mwg-panel-stat"><b>${c}</b> ${escapeHtml(listing.uses.label)}</span>`);
+		}
+		const statsRow = stats.length ? `<div class="mwg-panel-stats">${stats.join('')}</div>` : '';
+
+		const tagsRow = listing.tags?.length
+			? `<div class="mwg-panel-tags">${listing.tags
+					.slice(0, 3)
+					.map((t) => `<span class="mwg-panel-tag">${escapeHtml(t)}</span>`)
+					.join('')}</div>`
+			: '';
+
+		const featuredBadge = listing.featured
+			? `<span class="mwg-panel-badge" style="background:${accent};left:auto;right:12px">Featured</span>`
+			: '';
+
 		panel.innerHTML = `
 			<div class="mwg-panel-media">
 				${media}
 				<span class="mwg-panel-badge" style="background:${accent}">${TYPE_LABEL[listing.type] || ''}</span>
+				${featuredBadge}
 			</div>
 			<div class="mwg-panel-body">
 				<h2 class="mwg-panel-title">${escapeHtml(listing.name)}</h2>
 				${listing.author ? `<p class="mwg-panel-author">by ${escapeHtml(listing.author)}</p>` : ''}
+				${statsRow}
 				${listing.description ? `<p class="mwg-panel-desc">${escapeHtml(listing.description)}</p>` : ''}
+				${tagsRow}
 				<div class="mwg-panel-meta">
 					<span class="mwg-panel-price" style="color:${accent}">${escapeHtml(listing.price)}</span>
 					${listing.category ? `<span class="mwg-panel-cat">${escapeHtml(listing.category)}</span>` : ''}
 				</div>
-				<button class="mwg-panel-cta" type="button" style="background:#fafafa">View listing →</button>
+				<div class="mwg-panel-actions">
+					<a class="mwg-panel-cta" href="${escapeAttr(listing.href)}">View listing →</a>
+					<button class="mwg-panel-share" type="button" aria-label="Copy link to this listing" title="Copy link">
+						<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 9.5l3-3"/><path d="M7.2 4.3l.9-.9a2.4 2.4 0 0 1 3.4 3.4l-.9.9"/><path d="M8.8 11.7l-.9.9a2.4 2.4 0 0 1-3.4-3.4l.9-.9"/></svg>
+					</button>
+				</div>
 				<p class="mwg-panel-hint">Press <kbd>E</kbd> to open</p>
 			</div>`;
-		panel.querySelector('.mwg-panel-cta')?.addEventListener('click', navigateActive);
+
+		// Plain left-click routes through the shared nav guard; modified clicks
+		// (⌘/ctrl/middle → new tab) fall through to the native anchor.
+		panel.querySelector('.mwg-panel-cta')?.addEventListener('click', (e) => {
+			if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+			e.preventDefault();
+			navigateActive();
+		});
+		panel.querySelector('.mwg-panel-share')?.addEventListener('click', (e) => shareListing(e.currentTarget, listing));
 		panel.setAttribute('data-show', '1');
 		prompt.querySelector('.mwg-prompt-text').textContent = listing.name;
 		prompt.setAttribute('data-show', '1');
+	}
+
+	let shareResetTimer = 0;
+	async function shareListing(btn, listing) {
+		const url = new URL(listing.href, location.origin).href;
+		try {
+			if (navigator.clipboard?.writeText) {
+				await navigator.clipboard.writeText(url);
+			} else {
+				const ta = document.createElement('textarea');
+				ta.value = url;
+				ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+				document.body.appendChild(ta);
+				ta.select();
+				document.execCommand('copy');
+				ta.remove();
+			}
+			btn.setAttribute('data-copied', '1');
+			btn.setAttribute('title', 'Link copied');
+			clearTimeout(shareResetTimer);
+			shareResetTimer = setTimeout(() => {
+				btn.removeAttribute('data-copied');
+				btn.setAttribute('title', 'Copy link');
+			}, 1600);
+		} catch {
+			showToast('Copy failed — long-press the link to copy it.');
+		}
 	}
 
 	function hidePanel() {
@@ -759,11 +895,9 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		prompt.removeAttribute('data-show');
 	}
 
-	async function setFilter(next) {
-		if (next === filter) return;
-		filter = next;
-		for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
-		// Reset the stream and the hall, then rebuild from the live position.
+	// Tear the stream + hall back to a clean slate so a new filter or query
+	// rebuilds the catalogue from the avatar's live position.
+	function resetStream() {
 		buffer = [];
 		served = [];
 		loadedAny = false;
@@ -781,6 +915,41 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		}
 		belt.position.z = 0;
 		hideToast();
+	}
+
+	// Reflect the current filter + query back into the address bar so the hall is
+	// always shareable/bookmarkable at exactly what's on screen. Default state
+	// (All, no query) keeps the URL clean.
+	function syncUrl() {
+		try {
+			const u = new URL(location.href);
+			if (filter && filter !== 'all') u.searchParams.set('type', filter);
+			else u.searchParams.delete('type');
+			u.searchParams.delete('filter');
+			if (query) u.searchParams.set('q', query);
+			else u.searchParams.delete('q');
+			history.replaceState(null, '', u.pathname + u.search + u.hash);
+		} catch {
+			/* replaceState can throw in sandboxed frames — non-fatal */
+		}
+	}
+
+	async function setFilter(next) {
+		if (next === filter) return;
+		filter = next;
+		for (const b of chips.children) b.setAttribute('aria-pressed', String(b.dataset.filter === filter));
+		syncUrl();
+		resetStream();
+		await loadPage();
+		fillEmptySlots();
+	}
+
+	async function applyQuery(next) {
+		const v = (next || '').trim().slice(0, 80);
+		if (v === query) return;
+		query = v;
+		syncUrl();
+		resetStream();
 		await loadPage();
 		fillEmptySlots();
 	}
@@ -799,6 +968,7 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 	window.addEventListener('keydown', onKeyDown, true);
 
 	// ── Boot ────────────────────────────────────────────────────────────────────
+	syncUrl(); // canonicalise a deep-linked URL (?type=skills → ?type=skill, etc.)
 	for (let i = 0; i < SLOT_COUNT; i++) slots.push(buildSlot(i));
 	loadPage().then(fillEmptySlots);
 
@@ -806,7 +976,9 @@ export function createMarketplaceGallery({ scene, getLocalPosition }) {
 		update,
 		destroy() {
 			window.removeEventListener('keydown', onKeyDown, true);
-			chips.remove();
+			clearTimeout(searchTimer);
+			clearTimeout(shareResetTimer);
+			top.remove();
 			panel.remove();
 			prompt.remove();
 			toast.remove();

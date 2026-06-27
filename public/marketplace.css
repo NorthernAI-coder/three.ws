@@ -1388,6 +1388,13 @@ body.market-page > header {
 	font-weight: 600;
 }
 
+.live-badge {
+	background: color-mix(in srgb, var(--success, #4ade80) 12%, transparent);
+	color: var(--success, #4ade80);
+	font-weight: 600;
+	border-color: color-mix(in srgb, var(--success, #4ade80) 30%, transparent);
+}
+
 .skill-price-badge {
 	background: rgba(74, 222, 128, 0.12);
 	color: var(--success);

@@ -19,9 +19,26 @@ const STAGE = () => $('#pc-stage');
 const HOST = () => $('#pc-host');
 
 // ── viewer lifecycle ──────────────────────────────────────────────────────────
+const COLOR_LABELS = { rgb: 'Colour', mono: 'Mono', height: 'Height', depth: 'Depth' };
+let baseLabel = '';
+
 function ensureViewer() {
-	if (!viewer) viewer = new PointCloudViewer(HOST(), { background: '#0a0a0a' });
+	if (!viewer) {
+		viewer = new PointCloudViewer(HOST(), { background: '#0a0a0a' });
+		viewer.onFps(() => refreshStats());
+	}
 	return viewer;
+}
+
+function refreshStats() {
+	if (!viewer || !baseLabel) return;
+	const s = viewer.stats();
+	const bits = [baseLabel];
+	// fps is only meaningful under continuous render (auto-rotate); render-on-demand
+	// idles by design, so a static reading would misrepresent performance.
+	if (s.autoRotate && s.fps) bits.push(`${s.fps} fps`);
+	if (s.colorMode && s.colorMode !== 'rgb') bits.push(COLOR_LABELS[s.colorMode]);
+	$('#pc-hud-label').textContent = bits.join(' · ');
 }
 
 // ── overlay states ────────────────────────────────────────────────────────────
@@ -43,9 +60,13 @@ function setError(title, sub) {
 	showOnly('pc-error');
 }
 function setLive(label) {
+	baseLabel = label;
 	$('#pc-hud-label').textContent = label;
 	$('#pc-hud').hidden = false;
 	for (const k of ['pc-idle', 'pc-loading', 'pc-error']) $(`#${k}`).hidden = true;
+	for (const id of ['pc-size', 'pc-color', 'pc-rotate', 'pc-shot', 'pc-recenter']) {
+		const el = $(`#${id}`); if (el) el.disabled = false;
+	}
 }
 
 function setDownload(url, filename) {
@@ -100,6 +121,15 @@ async function loadFromFile(file) {
 	}
 }
 
+function saveScreenshot() {
+	const url = viewer?.screenshot();
+	if (!url) return;
+	const a = document.createElement('a');
+	a.href = url;
+	a.download = `scene-${Date.now()}.png`;
+	a.click();
+}
+
 function loadSample() {
 	setLoading('Building sample cloud…', 'Synthetic interior · monochrome');
 	const v = ensureViewer();
@@ -123,6 +153,48 @@ function processingCopy(seconds, eta) {
 		: 'Fusing world points into a dense cloud…';
 	const etaTxt = eta ? ` · ~${eta}s typical` : '';
 	setLoading(`Reconstructing · ${seconds}s`, `${stage}${etaTxt}`);
+}
+
+// Upload a local video to R2 via a presigned PUT, then return its public URL so
+// the capture job can be submitted with it. Mirrors the forge-upload flow.
+async function uploadVideo(file) {
+	setLoading('Uploading video…', `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`);
+	const presignRes = await fetch('/api/scene-upload', {
+		method: 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ content_type: file.type, size_bytes: file.size }),
+	});
+	const presign = await presignRes.json().catch(() => ({}));
+	if (presignRes.status === 503) {
+		throw new Error(presign.message || 'Video upload is not configured here. Paste a public video URL instead.');
+	}
+	if (!presignRes.ok) throw new Error(presign.message || `Upload could not start (HTTP ${presignRes.status}).`);
+
+	const put = await fetch(presign.upload_url, {
+		method: 'PUT',
+		headers: presign.headers || { 'content-type': file.type },
+		body: file,
+	});
+	if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status}).`);
+	return presign.public_url;
+}
+
+async function startCaptureFromFile(file) {
+	stopPolling();
+	$('#pc-run').disabled = true;
+	$('#pc-video-pick').disabled = true;
+	let url;
+	try {
+		url = await uploadVideo(file);
+	} catch (err) {
+		setError('Couldn’t upload that video', err.message);
+		$('#pc-run').disabled = false;
+		$('#pc-video-pick').disabled = false;
+		return;
+	}
+	$('#pc-url').value = url;
+	$('#pc-video-pick').disabled = false;
+	startCapture();
 }
 
 async function startCapture() {
@@ -204,6 +276,12 @@ function init() {
 
 	$('#pc-run').addEventListener('click', startCapture);
 	$('#pc-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') startCapture(); });
+	$('#pc-video-pick').addEventListener('click', () => $('#pc-video-file').click());
+	$('#pc-video-file').addEventListener('change', (e) => {
+		const file = e.target.files?.[0];
+		if (file) startCaptureFromFile(file);
+		e.target.value = '';
+	});
 
 	$('#pc-load-url').addEventListener('click', () => {
 		const u = $('#pc-ply-url').value.trim();
@@ -225,6 +303,29 @@ function init() {
 	$('#pc-error-retry').addEventListener('click', loadSample);
 	$('#pc-recenter').addEventListener('click', () => viewer?.recenter());
 	$('#pc-size').addEventListener('input', (e) => viewer?.setPointScale(Number(e.target.value)));
+	$('#pc-color').addEventListener('click', () => { viewer?.cycleColorMode(); refreshStats(); });
+	$('#pc-rotate').addEventListener('click', () => {
+		const on = viewer?.toggleAutoRotate();
+		$('#pc-rotate').classList.toggle('is-active', !!on);
+	});
+	$('#pc-shot').addEventListener('click', saveScreenshot);
+
+	// Keyboard shortcuts (ignored while typing in an input/select).
+	window.addEventListener('keydown', (e) => {
+		const tag = (e.target.tagName || '').toLowerCase();
+		if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.metaKey || e.ctrlKey) return;
+		if (!viewer || $('#pc-hud').hidden) return;
+		const k = e.key.toLowerCase();
+		if (k === 'r') viewer.recenter();
+		else if (k === ' ') { e.preventDefault(); $('#pc-rotate').click(); }
+		else if (k === 'c') $('#pc-color').click();
+		else if (k === 's') saveScreenshot();
+		else if (k === '[' || k === ']') {
+			const s = $('#pc-size');
+			s.value = String(Math.min(4, Math.max(0.25, Number(s.value) + (k === ']' ? 0.25 : -0.25))));
+			s.dispatchEvent(new Event('input', { bubbles: true }));
+		}
+	});
 
 	// Drag & drop a .ply onto the stage.
 	const stage = STAGE();
@@ -239,7 +340,9 @@ function init() {
 	});
 
 	// Deep links: ?src=<ply-url> renders directly; ?video=<url> pre-fills capture.
+	// ?embed=1 strips the chrome for the MCP / agent point-cloud artifact iframe.
 	const p = new URLSearchParams(location.search);
+	if (p.get('embed') === '1') document.body.classList.add('pc-embed');
 	if (p.get('src')) { $('#pc-ply-url').value = p.get('src'); loadFromUrl(p.get('src'), p.get('name') || undefined); }
 	if (p.get('video')) $('#pc-url').value = p.get('video');
 

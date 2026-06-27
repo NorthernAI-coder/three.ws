@@ -592,5 +592,10 @@ export async function rankNarratives({ network = 'mainnet', sources, categories 
 }
 
 export { EXTERNAL_SOURCES, DEFAULT_SOURCES };
+// The canonical set of narrative provider ids — the single source of truth for
+// every consumer that validates a requested `sources` list (admin config, public
+// API). Derived from PROVIDERS so it can never drift out of sync again.
+export const PROVIDER_IDS = Object.freeze(Object.keys(PROVIDERS));
+
 // Exported for unit tests (pure, network-free).
 export { decodeEntities, parseRssItems, extractThemes, normTerm, parseGoogleTrends, isSensitive };

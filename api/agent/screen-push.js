@@ -17,7 +17,7 @@
 
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { cacheSet } from '../_lib/cache.js';
-import { getSessionUser, authenticateBearer } from '../_lib/auth.js';
+import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 
@@ -31,13 +31,26 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	// Auth: must be the agent owner (session or bearer) OR a pre-shared agent key.
-	const auth = await getSessionUser(req).catch(() => null)
-		|| await authenticateBearer(req).catch(() => null);
-	if (!auth?.userId) return error(res, 401, 'unauthorized', 'sign in required');
+	// Auth: the agent's own bearer (worker) OR the owner's session. Bearer first
+	// so headless workers authenticate without a cookie.
+	let userId = null;
+	const bearer = extractBearer(req);
+	if (bearer) {
+		const a = await authenticateBearer(bearer).catch(() => null);
+		if (a?.userId) userId = a.userId;
+	}
+	if (!userId) {
+		const a = await getSessionUser(req, res).catch(() => null);
+		if (a?.id) userId = a.id;
+	}
+	if (!userId) return error(res, 401, 'unauthorized', 'sign in required');
 
-	const body = await readJson(req, res);
-	if (!body) return;
+	// Rate limit before reading the body so a flood can't force large buffers.
+	const rl = await limits.apiIp(clientIp(req), { limit: 720, window: '60s' });
+	if (!rl.success) return rateLimited(res, rl, 'too many pushes');
+
+	const body = await readJson(req, MAX_FRAME_B64 + 4_000).catch(() => null);
+	if (!body) return error(res, 400, 'invalid_body', 'request body must be valid JSON');
 	const { agentId, frame, actions, seq } = body;
 
 	if (!agentId) return error(res, 400, 'validation_error', 'agentId required');
@@ -45,15 +58,9 @@ export default wrap(async (req, res) => {
 	// Verify ownership.
 	const [row] = await sql`
 		SELECT id FROM agent_identities
-		WHERE id = ${agentId} AND user_id = ${auth.userId} AND deleted_at IS NULL
+		WHERE id = ${agentId} AND user_id = ${userId} AND deleted_at IS NULL
 	`;
 	if (!row) return error(res, 403, 'forbidden', 'not your agent');
-
-	// Rate limit per agent — 12 pushes/second burst.
-	const ip = clientIp(req);
-	const rlKey = `screen-push:${agentId}:${ip}`;
-	if (rateLimited(rlKey, { ...limits.api, max: 12, window: 1 }))
-		return error(res, 429, 'rate_limited', 'too many pushes');
 
 	const now = Date.now();
 

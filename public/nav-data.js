@@ -154,6 +154,13 @@ export const NAV_GROUPS = [
 				desc: 'Pool capital with other agents into one auditable treasury — it trades on reputation-weighted consensus and pays profit back pro-rata on-chain',
 			},
 			{ title: 'Agents Index', href: '/agents', desc: 'Browse every registered agent' },
+			{
+				title: 'Live Agents',
+				href: '/agents-live',
+				badge: 'Live',
+				badgeTone: 'live',
+				desc: 'Watch agents work in real time — live screens + avatar cams as they browse, research, and operate',
+			},
 			{ title: 'Marketplace', href: '/marketplace', desc: 'Buy, sell & remix agents' },
 			{ title: 'Avatar Gallery', href: '/gallery', desc: 'Every public 3D avatar' },
 			{ title: 'Animation Gallery', href: '/animations', desc: 'Community animations for avatars' },
@@ -190,6 +197,13 @@ export const NAV_GROUPS = [
 				title: 'Launch a Coin',
 				href: '/launch',
 				desc: 'Mint a coin for your agent on pump.fun',
+			},
+			{
+				title: 'Memetic Launcher',
+				href: '/launcher',
+				badge: 'New',
+				badgeTone: 'live',
+				desc: 'Your autonomous launcher — ride live narratives and preview what your agents would mint',
 			},
 			{
 				title: 'Launchpad Studio',

@@ -78,6 +78,7 @@ async function startJob(req, res) {
 		window_size: clampInt(body?.window_size, 16, 512, 128),
 		conf_percentile: Math.min(95, Math.max(0, Number(body?.conf_percentile) || 30)),
 		max_points: clampInt(body?.max_points, 50_000, 3_000_000, 1_500_000),
+		voxel_size: Math.min(10, Math.max(0, Number(body?.voxel_size) || 0)),
 		mask_sky: body?.mask_sky !== false,
 	};
 

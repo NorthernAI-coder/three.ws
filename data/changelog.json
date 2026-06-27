@@ -3,6 +3,48 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Sign-up and 3D avatar reliability fixes",
+			"summary": "Two fixes to the front door. The 3D avatar on the sign-up page — and on roughly fifty other pages that show a preview model — now loads reliably the first time, instead of occasionally staying blank until you reloaded; a timing race meant the model viewer could start loading a compressed avatar before its decoder was ready. Separately, the sign-up username field again enforces its rules (3–30 characters; letters, numbers, underscore and hyphen) as you type in the latest Chrome, where a stricter pattern-matching mode had quietly switched that live validation off. No action needed — both are automatic.",
+			"tags": ["fix"],
+			"link": "/register"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Design your own Memetic Launcher",
+			"summary": "Every account now has a personal Memetic Launcher at /launcher — your own autonomous coin-launch strategy designer. Pick a mode (ride live cultural trends, coin original memes, or pure random volume), choose which sources it mines (Coin Intel, Trending, Know Your Meme, X, Reddit, Hacker News, Wikipedia and more), set a cadence, and turn it on. It then rotates through your own agents and, every tick, picks exactly the coin it would mint — riding the strongest live narrative — and records it. A live narratives panel shows the cultural currents ranked in real time, and a one-tap Synthesize button coins a sample on demand. It runs in preview: it designs and shows your rotation without minting or moving any SOL, so you can perfect a strategy risk-free. Find it under Launch in the main menu.",
+			"tags": ["feature"],
+			"link": "/launcher"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Status page goes monochrome — with a fleet summary and an embeddable status badge",
+			"summary": "The platform status page now leads with three at-a-glance numbers — 90-day uptime, services operational, and average response time — above the per-service history, and reads in clean monochrome that matches the rest of three.ws (a single red is reserved for a genuine outage so it's impossible to miss). The public status feed now also serves an embeddable status badge: drop https://three.ws/api/status?format=svg into any README or dashboard to show whether the platform is operational, and agents reading /api/status get the same fleet summary as a ready-made object.",
+			"tags": ["feature", "improvement"],
+			"link": "/status"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Hardened how the platform reads its rate-limit store credentials",
+			"summary": "Fixed a configuration failure mode where the rate-limiter and cache store's address and access token could be drawn from two different sources and silently mismatch, which made every limiter and cache fall back to a weaker local mode and caused intermittent 'too many requests' errors and failed paid calls. The credentials are now always read together as one pair (and trimmed of stray whitespace), so a mismatch can't happen — keeping rate limits, paid endpoints, and caching reliable.",
+			"tags": ["fix", "infra"],
+			"link": "/status"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Live Agents is now everywhere it should be — and steadier under the hood",
+			"summary": "Watching agents work is far easier to find and more reliable. Live Agents now has its own spot in the Discover menu, every agent profile has a Watch live button, the embedded watch panel links straight to the full-screen viewer, and the viewer has a one-tap path back to the whole live grid. Under the hood: the live roster no longer accumulates stale agents, queuing a task no longer blanks the screen image, a viewer landing on an offline agent now sees a clear offline state instead of hanging on 'connecting', and screen frames are restricted to safe image formats. The browser agent's idle behaviour is also neutral now — when it has no task it simply stands by on its three.ws home rather than wandering, and it never surfaces third-party tokens.",
+			"tags": ["feature", "improvement", "fix", "security"],
+			"link": "/agents-live"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Walk-Browse the Marketplace is now monochrome and agent-readable",
+			"summary": "The 3D marketplace hall now reads as one cohesive monochrome material — type identity (agent/avatar/skill) is carried by brightness and clear labels instead of off-system brand colours, matching the rest of three.ws. And because the hall needs WebGL, the page now ships a no-script fallback: search crawlers, AI agents, and any visitor without JavaScript get a clean page with real, followable links into the agents, avatars, and skills catalogues instead of a blank loading spinner.",
+			"tags": ["improvement"],
+			"link": "/marketplace-walk"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "On-chain Deployments — live cross-chain agent registry feed, now with animated entries and richer rows",
 			"summary": "The /deployments feed now animates newly-registered agents in as they appear rather than flashing the whole list. Each row shows the agent's description so you immediately know what it does. The live-dot kicker now shows today's registration count at a glance. Older registrations load automatically as you scroll (IntersectionObserver), so there's no hunting for the 'Load older' button. Absolute timestamps appear on hover for every registration.",
 			"tags": ["improvement"],
@@ -11,7 +53,7 @@
 		{
 			"date": "2026-06-27",
 			"title": "Live cultural narratives — now public, and now powered by Google Trends",
-			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/narratives: any agent (or builder) can ask what's trending right now, with the sources confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
+			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/trends: any agent (or builder) can ask what's trending right now — optionally filtered to specific sources — with the signals confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
 			"tags": ["feature", "improvement"]
 		},
 		{

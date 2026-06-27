@@ -10,8 +10,8 @@
 
 export const PAGE_SIZE = 18;
 
-export const TYPE_ACCENT = { agent: '#8b5cf6', avatar: '#22d3ee', skill: '#34d399' };
-export const TYPE_LABEL = { agent: 'Agent', avatar: 'Avatar', skill: 'Skill' };
+// TYPE_ACCENT / TYPE_LABEL live in marketplace-gallery.js: they are presentation
+// (the monochrome brightness tiers of the platform design system), not data.
 
 export const FILTERS = [
 	{ key: 'all', label: 'All' },

@@ -137,7 +137,10 @@ function createDesk(scene, opts = {}) {
 		new MeshBasicMaterial({ map: tex, side: DoubleSide, toneMapped: false }),
 	);
 	screen.position.set(0, monY, -DESK_D / 2 + 0.15 + 0.023);
-	screen.userData.agentScreen = true; // raycast tag
+	// Raycast tags — carry the agentId so a crosshair/raycast hit can deep-link
+	// straight to /agent-screen?agentId=… (the proximity HUD already does this).
+	screen.userData.agentScreen = true;
+	screen.userData.agentId = agentId;
 	group.add(screen);
 
 	// ── avatar seated behind desk ────────────────────────────────────────

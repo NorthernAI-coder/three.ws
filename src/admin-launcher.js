@@ -20,8 +20,8 @@ const SOURCES = [
 	{ id: 'coin_intel', label: 'Coin intel' },
 	{ id: 'trending', label: 'Trending' },
 	{ id: 'knowyourmeme', label: 'Know Your Meme' },
-	{ id: 'x', label: 'X' },
 	{ id: 'googletrends', label: 'Google Trends' },
+	{ id: 'x', label: 'X' },
 	{ id: 'hackernews', label: 'Hacker News' },
 	{ id: 'reddit', label: 'Reddit' },
 	{ id: 'wikipedia', label: 'Wikipedia' },
@@ -218,6 +218,30 @@ function buildStaticControls() {
 	$('ml-save').addEventListener('click', save);
 	$('ml-discard').addEventListener('click', () => { draft = { ...loaded }; renderForm(); updateDirty(); });
 	$('ml-resume').addEventListener('click', resumeBreaker);
+
+	// Force-tick: run one launcher tick immediately without waiting for cron.
+	const forceTick = $('ml-force-tick');
+	if (forceTick) {
+		forceTick.addEventListener('click', async () => {
+			forceTick.disabled = true;
+			forceTick.textContent = 'Ticking…';
+			try {
+				const r = await api('POST', { action: 'force_tick' });
+				const res = r.tick?.results?.[0];
+				if (res?.mint) toast(`Launched ${res.name} (${res.symbol})`);
+				else if (res?.dry_run) toast(`Dry run: ${res.name} (${res.symbol})`);
+				else if (res?.skipped) toast(`Skipped: ${res.skipped}`);
+				else toast('Tick complete');
+				refresh();
+			} catch (err) {
+				if (err.message !== 'unauthorized') toast(err.message, true);
+			} finally {
+				forceTick.disabled = false;
+				forceTick.textContent = 'Force tick';
+			}
+		});
+	}
+
 	wireModal();
 }
 
@@ -299,6 +323,12 @@ function renderState(state) {
 	$('ml-s-queue').textContent = num(state.queue_enabled);
 	$('ml-s-fail').textContent = `${num(s.failed_today)} / ${num(s.skipped_today)}`;
 
+	const rev = state.revenue || {};
+	const feesEl = $('ml-s-fees');
+	const buyEl = $('ml-s-buyback');
+	if (feesEl) feesEl.textContent = rev.total_claimed_sol != null ? `${fmtSol(rev.total_claimed_sol)} ◎` : '—';
+	if (buyEl) buyEl.textContent = rev.total_buyback_sol != null ? `${fmtSol(rev.total_buyback_sol)} ◎` : '—';
+
 	$('ml-master-bal').textContent = state.master_balance_sol == null ? 'n/a' : `${fmtSol(state.master_balance_sol)} ◎`;
 
 	const breaker = $('ml-breaker');
@@ -362,9 +392,10 @@ function runRowHtml(r, network) {
 		? `<a href="${solscan(r.mint, network)}" target="_blank" rel="noopener">${esc(r.name || r.symbol || 'coin')}</a>`
 		: esc(r.name || r.symbol || '—');
 	const rode = topNarrative(r.trigger_detail);
+	const agentTag = r.agent_name ? `<span class="ml-run-agent">${esc(trunc(r.agent_name, 16))}</span> · ` : '';
 	const meta = r.status === 'failed' && r.error
-		? `<span class="ml-run-err">${esc(trunc(r.error, 64))}</span>`
-		: `<span class="ml-kind">${esc(r.kind || '')}</span>${rode ? ' · rode ' + esc(rode) : (r.trigger_source ? ' · ' + esc(r.trigger_source) : '')}`;
+		? `${agentTag}<span class="ml-run-err">${esc(trunc(r.error, 60))}</span>`
+		: `${agentTag}<span class="ml-kind">${esc(r.kind || '')}</span>${rode ? ' · ' + esc(rode) : (r.trigger_source ? ' · ' + esc(r.trigger_source) : '')}`;
 	const sol = Number(r.sol_spent) > 0 ? `${fmtSol(r.sol_spent)} ◎` : (r.dry_run ? 'dry' : '—');
 	return (
 		`<span class="ml-pill s-${esc(status)}">${esc(statusLabel(status))}</span>` +

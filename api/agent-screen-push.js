@@ -19,7 +19,7 @@
 // agent:screen:{agentId}:log holds the last 50 activity entries (no image data)
 // for the activity log panel.
 
-import { cors, error, json, method, wrap, rateLimited } from './_lib/http.js';
+import { cors, error, json, method, rateLimited, readJson } from './_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getRedis } from './_lib/redis.js';
@@ -29,6 +29,15 @@ const FRAME_TTL = 90; // seconds — stream goes dark if agent stops pushing
 const LOG_CAP = 50; // activity log entries kept per agent
 const DATA_MAX = 800_000; // ~600 KB base64 PNG max (approx 450 KB PNG)
 const ACTIVITY_MAX = 320; // chars
+
+// Accept only raster image data URLs. SVG is rejected on purpose: it can carry
+// active content (scripts, external fetches) that would execute the moment a
+// viewer ever inline-rendered a frame instead of using <img src>. Anything that
+// isn't a base64 raster image is dropped to text-only.
+const RASTER_DATA_URL = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+export function isRasterDataUrl(s) {
+	return typeof s === 'string' && RASTER_DATA_URL.test(s);
+}
 
 export default async function handleAgentScreenPush(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
@@ -51,17 +60,13 @@ export default async function handleAgentScreenPush(req, res) {
 	const rl = await limits.apiIp(clientIp(req), { limit: 360, window: '60s' });
 	if (!rl.success) return rateLimited(res, rl, 'frame rate limit exceeded');
 
+	// Cap the body so a client can't force us to buffer tens of MB before we slice
+	// the frame down to DATA_MAX. 1 MB comfortably holds a ~600 KB base64 frame.
 	let body;
 	try {
-		const raw = await new Promise((resolve, reject) => {
-			const chunks = [];
-			req.on('data', (c) => chunks.push(c));
-			req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-			req.on('error', reject);
-		});
-		body = JSON.parse(raw);
+		body = await readJson(req, 1_100_000);
 	} catch {
-		return error(res, 400, 'invalid_body', 'request body must be valid JSON');
+		return error(res, 400, 'invalid_body', 'request body must be valid JSON under 1 MB');
 	}
 
 	const { agentId, frame } = body || {};
@@ -75,8 +80,8 @@ export default async function handleAgentScreenPush(req, res) {
 	const activity = String(frame.activity || '').slice(0, ACTIVITY_MAX);
 	const type = ['screenshot', 'activity', 'trade', 'analysis'].includes(frame.type)
 		? frame.type : 'activity';
-	const data = typeof frame.data === 'string' && frame.data.startsWith('data:image/')
-		? frame.data.slice(0, DATA_MAX) : null;
+	const sliced = typeof frame.data === 'string' ? frame.data.slice(0, DATA_MAX) : null;
+	const data = sliced && isRasterDataUrl(sliced) ? sliced : null;
 
 	// Verify the calling user owns this agent
 	const [agentRow] = await sql`
@@ -104,6 +109,9 @@ export default async function handleAgentScreenPush(req, res) {
 		// Track active agents in a sorted set (score = timestamp) so the walk
 		// scene can discover which agents have live streams to show desks for.
 		r.zadd('agent:screen:active', { score: now, member: agentId }),
+		// Evict agents that haven't pushed in 120s so the set can't grow unbounded
+		// under continuous traffic (the read side filters by score, but never removes).
+		r.zremrangebyscore('agent:screen:active', 0, now - 120_000),
 		r.expire('agent:screen:active', FRAME_TTL * 3),
 	]);
 

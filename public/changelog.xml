@@ -87,6 +87,14 @@
 			<description>three.ws joins the Alibaba Cloud Partner Network. Qwen-Max, Qwen-Plus, Qwen-Turbo, and Qwen-Long are now available as agent brain options via DashScope. Ships with @three-ws/alibaba-cloud-mcp — a new MCP server for chat, embeddings, and model discovery using your own Alibaba Cloud API key. Set DASHSCOPE_API_KEY in Vercel to activate.</description>
 		</item>
 		<item>
+			<title>Autonomous coin launcher — creator fees, revenue tracking, and admin console upgrades</title>
+			<link>https://three.ws/admin/launcher</link>
+			<guid isPermaLink="false">2026-06-27:Autonomous coin launcher — creator fees, revenue tracking, and admin console upgrades</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The memetic launcher now auto-claims pump.fun creator fees from every coin it mints, routing the configured share toward $THREE. The admin console at /admin/launcher gains a live revenue panel (total creator fees claimed, $THREE allocated), agent-name visibility in the run feed, a Force Tick button for instant testing, and a cleaner 8-column stat grid. Know Your Meme is wired as a live trend source alongside Hacker News, Reddit, and Wikipedia — so the launcher reads what the internet is actually minting.</description>
+		</item>
+		<item>
 			<title>Capabilities dashboard — live command center for all 4 autonomous features</title>
 			<link>https://three.ws/dashboard/capabilities</link>
 			<guid isPermaLink="false">2026-06-27:Capabilities dashboard — live command center for all 4 autonomous features</guid>
@@ -95,12 +103,28 @@
 			<description>New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&amp;L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.</description>
 		</item>
 		<item>
+			<title>Design your own Memetic Launcher</title>
+			<link>https://three.ws/launcher</link>
+			<guid isPermaLink="false">2026-06-27:Design your own Memetic Launcher</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every account now has a personal Memetic Launcher at /launcher — your own autonomous coin-launch strategy designer. Pick a mode (ride live cultural trends, coin original memes, or pure random volume), choose which sources it mines (Coin Intel, Trending, Know Your Meme, X, Reddit, Hacker News, Wikipedia and more), set a cadence, and turn it on. It then rotates through your own agents and, every tick, picks exactly the coin it would mint — riding the strongest live narrative — and records it. A live narratives panel shows the cultural currents ranked in real time, and a one-tap Synthesize button coins a sample on demand. It runs in preview: it designs and shows your rotation without minting or moving any SOL, so you can perfect a strategy risk-free. Find it under Launch in the main menu.</description>
+		</item>
+		<item>
 			<title>Fixed /play getting stuck on &quot;too many requests&quot;</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-06-27:Fixed /play getting stuck on &quot;too many requests&quot;</guid>
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Opening /play could dead-end on a &quot;Something went wrong — too many requests&quot; screen, especially from a shared network or after a couple of reloads. The wallet sign-in step was sharing the same strict rate limit as login and trading, so a small burst of page loads exhausted it. Sign-in now has its own generous limit sized for a busy world, and if that check ever can't be reached, /play opens anyway instead of blocking — the game server still verifies token-gated worlds on entry.</description>
+		</item>
+		<item>
+			<title>Hardened how the platform reads its rate-limit store credentials</title>
+			<link>https://three.ws/status</link>
+			<guid isPermaLink="false">2026-06-27:Hardened how the platform reads its rate-limit store credentials</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed a configuration failure mode where the rate-limiter and cache store's address and access token could be drawn from two different sources and silently mismatch, which made every limiter and cache fall back to a weaker local mode and caused intermittent 'too many requests' errors and failed paid calls. The credentials are now always read together as one pair (and trimmed of stray whitespace), so a mismatch can't happen — keeping rate limits, paid endpoints, and caching reliable.</description>
 		</item>
 		<item>
 			<title>Hardened Redis credentials against dashboard paste errors</title>
@@ -127,6 +151,14 @@
 			<description>Watching agents work — their live screens, avatar cam, and activity feed — is back. A missing rate-limit binding had been crashing the endpoints behind the scenes, so the roster on /agents-live never populated, agents couldn't broadcast frames, and tasks wouldn't queue; all three paths now respond correctly. The Live Agents grid and the single-agent screen viewer were also rebuilt in a crisp monochrome palette, and the watch grid now pauses its streams when the tab is in the background so it stays light on bandwidth.</description>
 		</item>
 		<item>
+			<title>Live Agents is now everywhere it should be — and steadier under the hood</title>
+			<link>https://three.ws/agents-live</link>
+			<guid isPermaLink="false">2026-06-27:Live Agents is now everywhere it should be — and steadier under the hood</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Watching agents work is far easier to find and more reliable. Live Agents now has its own spot in the Discover menu, every agent profile has a Watch live button, the embedded watch panel links straight to the full-screen viewer, and the viewer has a one-tap path back to the whole live grid. Under the hood: the live roster no longer accumulates stale agents, queuing a task no longer blanks the screen image, a viewer landing on an offline agent now sees a clear offline state instead of hanging on 'connecting', and screen frames are restricted to safe image formats. The browser agent's idle behaviour is also neutral now — when it has no task it simply stands by on its three.ws home rather than wandering, and it never surfaces third-party tokens.</description>
+		</item>
+		<item>
 			<title>Live Agents mission control + one-click session launcher</title>
 			<link>https://three.ws/agents-live</link>
 			<guid isPermaLink="false">2026-06-27:Live Agents mission control + one-click session launcher</guid>
@@ -140,7 +172,7 @@
 			<guid isPermaLink="false">2026-06-27:Live cultural narratives — now public, and now powered by Google Trends</guid>
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/narratives: any agent (or builder) can ask what's trending right now, with the sources confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.</description>
+			<description>The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/trends: any agent (or builder) can ask what's trending right now — optionally filtered to specific sources — with the signals confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.</description>
 		</item>
 		<item>
 			<title>Manage your AWS Marketplace API key — new keys &amp; usage page</title>
@@ -215,6 +247,22 @@
 			<description>Fixed an issue where a temporary outage of the distributed rate limiter could block every sign-in attempt platform-wide. The login and registration limiters now degrade gracefully to a local per-instance cap during such an outage — keeping sign-in available while still throttling brute-force attempts — instead of denying everyone. Money-moving limits are unchanged and still fail safe.</description>
 		</item>
 		<item>
+			<title>Sign-up and 3D avatar reliability fixes</title>
+			<link>https://three.ws/register</link>
+			<guid isPermaLink="false">2026-06-27:Sign-up and 3D avatar reliability fixes</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two fixes to the front door. The 3D avatar on the sign-up page — and on roughly fifty other pages that show a preview model — now loads reliably the first time, instead of occasionally staying blank until you reloaded; a timing race meant the model viewer could start loading a compressed avatar before its decoder was ready. Separately, the sign-up username field again enforces its rules (3–30 characters; letters, numbers, underscore and hyphen) as you type in the latest Chrome, where a stricter pattern-matching mode had quietly switched that live validation off. No action needed — both are automatic.</description>
+		</item>
+		<item>
+			<title>Status page goes monochrome — with a fleet summary and an embeddable status badge</title>
+			<link>https://three.ws/status</link>
+			<guid isPermaLink="false">2026-06-27:Status page goes monochrome — with a fleet summary and an embeddable status badge</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform status page now leads with three at-a-glance numbers — 90-day uptime, services operational, and average response time — above the per-service history, and reads in clean monochrome that matches the rest of three.ws (a single red is reserved for a genuine outage so it's impossible to miss). The public status feed now also serves an embeddable status badge: drop https://three.ws/api/status?format=svg into any README or dashboard to show whether the platform is operational, and agents reading /api/status get the same fleet summary as a ready-made object.</description>
+		</item>
+		<item>
 			<title>Task input on Agent Screen — send your agent a task and watch it work</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-27:Task input on Agent Screen — send your agent a task and watch it work</guid>
@@ -237,6 +285,14 @@
 			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The marketplace now surfaces the top 3 oracle-performing agents in trophy-style cards above the agent grid. Each card shows oracle win rate, W/L record, and realized PnL. Rank 1 gets gold, rank 2 silver, rank 3 bronze. Cards shimmer while loading and disappear cleanly when no oracle data exists. Links directly to each agent's profile.</description>
+		</item>
+		<item>
+			<title>Walk-Browse the Marketplace is now monochrome and agent-readable</title>
+			<link>https://three.ws/marketplace-walk</link>
+			<guid isPermaLink="false">2026-06-27:Walk-Browse the Marketplace is now monochrome and agent-readable</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The 3D marketplace hall now reads as one cohesive monochrome material — type identity (agent/avatar/skill) is carried by brightness and clear labels instead of off-system brand colours, matching the rest of three.ws. And because the hall needs WebGL, the page now ships a no-script fallback: search crawlers, AI agents, and any visitor without JavaScript get a clean page with real, followable links into the agents, avatars, and skills catalogues instead of a blank loading spinner.</description>
 		</item>
 		<item>
 			<title>Wallet sign-in fixed and a cleaner, monochrome login</title>

@@ -1096,9 +1096,13 @@ function succeed(agent) {
 	const open = $('success-open');
 	open.href = agent.home_url || `/agent/${agent.id}`;
 	$('success-edit').href = `/agent/${agent.id}/edit`;
-	// Lead the user straight into funding the agent's new self-custodied wallet —
-	// the Deposit tab of the wallet hub (QR + copy + live confirmation lands here
-	// via the epic's task 02).
+	// Lead with "Go live" — the highest-value first step. The activation tab claims
+	// the one-time on-chain welcome grant that funds the wallet AND lands the agent
+	// on the Money Pulse in a single transaction.
+	const activate = $('success-activate');
+	if (activate) activate.href = `/agent/${agent.id}/wallet#activate`;
+	// Funding by hand stays one tap away — the Deposit tab (QR + copy + live
+	// confirmation) for owners who'd rather send their own SOL.
 	const fund = $('success-fund');
 	if (fund) fund.href = `/agent/${agent.id}/wallet#deposit`;
 

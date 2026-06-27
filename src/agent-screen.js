@@ -496,8 +496,12 @@ async function boot(id) {
 		if (!frame?.data) return;
 		const img = new Image();
 		img.onload = () => {
-			screenCanvas.width = img.naturalWidth || 1280;
-			screenCanvas.height = img.naturalHeight || 720;
+			const w = img.naturalWidth || 1280;
+			const h = img.naturalHeight || 720;
+			// Reassigning canvas dimensions clears + reallocates the backing store;
+			// only do it when the frame size actually changes.
+			if (screenCanvas.width !== w) screenCanvas.width = w;
+			if (screenCanvas.height !== h) screenCanvas.height = h;
 			screenCtx.drawImage(img, 0, 0);
 			lastFrameImg = img;
 		};

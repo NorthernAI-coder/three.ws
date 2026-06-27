@@ -16,6 +16,9 @@ export function loadConfig() {
 		AGENT_JWT: process.env.AGENT_JWT,
 		PUSH_URL: process.env.PUSH_URL || 'https://three.ws/api/agent-screen-push',
 		TASK_URL: process.env.TASK_URL || 'https://three.ws/api/agent-task',
+		// Neutral home the agent rests on while idle (no task queued). Coin-agnostic
+		// by design — defaults to the platform home.
+		HOME_URL: process.env.HOME_URL || 'https://three.ws',
 		BROWSERBASE_API_KEY,
 		BROWSERBASE_PROJECT_ID,
 		CYCLE_MS: Number(process.env.CYCLE_MS || 30_000),

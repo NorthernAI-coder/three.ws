@@ -147,17 +147,6 @@ function breakTaskIntoSteps(taskText, taskType) {
 		];
 	}
 
-	if (taskType === 'trade') {
-		return [
-			{ action: 'observe', narration: 'Scanning trending tokens', instruction: 'Look at the trending tokens on this page' },
-			{
-				action: 'extract',
-				narration: 'Reading token data',
-				instruction: 'Extract the top trending token names, symbols, and market caps visible',
-			},
-		];
-	}
-
 	return [
 		{ action: 'observe', narration: `Looking for: ${taskText}`, instruction: taskText },
 		{
@@ -173,84 +162,37 @@ function breakTaskIntoSteps(taskText, taskType) {
 	];
 }
 
-// ── Autonomous cycle (default: pump.fun scan) ─────────────────────────────────
+// ── Autonomous idle cycle ─────────────────────────────────────────────────────
+//
+// Default behaviour when no user task is queued. Intentionally neutral: the
+// agent rests on its three.ws home presence and signals that it is standing by.
+// It performs NO market/token discovery and narrates NO third-party assets —
+// every real action is user-directed through the queued-task path above.
 
 async function runAutonomousCycle({ page, cfg, push }) {
-	const { agentId } = cfg;
+	const { agentId, HOME_URL } = cfg;
 
 	try {
-		await push({ agentId, page, activity: 'Navigating to pump.fun…', type: 'activity' });
-		await page.goto(PUMP_FUN_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-		await push({ agentId, page, activity: 'Scanning pump.fun for trending tokens', type: 'screenshot' });
+		// Only (re)navigate home if we've drifted away during a prior task, so the
+		// idle loop doesn't reload every cycle and burn bandwidth.
+		const onHome = (() => {
+			try { return new URL(page.url()).origin === new URL(HOME_URL).origin; }
+			catch { return false; }
+		})();
 
-		let trending = { tokens: [] };
-		try {
-			trending = await page.extract({
-				instruction: 'Extract the top 5 trending token names, symbols, and market caps visible on this page',
-				schema: TokenListSchema,
-			});
-		} catch (err) {
-			console.warn('[task] extract failed:', err.message);
-		}
-
-		const count = trending.tokens?.length ?? 0;
-		await push({
-			agentId,
-			page,
-			activity:
-				count > 0
-					? `Found ${count} trending token${count !== 1 ? 's' : ''}: ${trending.tokens
-							.slice(0, 3)
-							.map((t) => (t.symbol ? `$${t.symbol}` : t.name))
-							.join(', ')}`
-					: 'No trending tokens extracted — page may still be loading',
-			type: 'analysis',
-		});
-
-		if (trending.tokens.length > 0) {
-			const pick = trending.tokens[0];
-			const label = pick.symbol ? `$${pick.symbol}` : pick.name;
-			await push({
-				agentId,
-				page,
-				activity: `Evaluating ${label} — market cap ${pick.marketCap || 'unknown'}`,
-				type: 'analysis',
-			});
-
-			try {
-				await page.act({ action: `Click on the token named "${pick.name}"` });
-				await push({ agentId, page, activity: `Opened ${label} detail page`, type: 'screenshot' });
-
-				const DetailSchema = z.object({
-					price: z.string().optional(),
-					holders: z.string().optional(),
-					volume: z.string().optional(),
-				});
-				const detail = await page.extract({
-					instruction: 'Extract price, holder count, and recent transaction volume if visible',
-					schema: DetailSchema,
-				});
-
-				const parts = [];
-				if (detail.price) parts.push(`price ${detail.price}`);
-				if (detail.holders) parts.push(`${detail.holders} holders`);
-				if (detail.volume) parts.push(`vol ${detail.volume}`);
-				if (parts.length) {
-					await push({ agentId, page, activity: `${label}: ${parts.join(' · ')}`, type: 'trade' });
-				}
-			} catch {
-				await push({ agentId, page, activity: `Could not open token detail page`, type: 'activity' });
-			}
+		if (!onHome) {
+			await push({ agentId, page, activity: 'Returning to three.ws home', type: 'activity' });
+			await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
 		}
 
 		await push({
 			agentId,
 			page,
-			activity: `Cycle complete — checking for new tasks in ${TASK_POLL_MS / 1000}s`,
-			type: 'activity',
+			activity: 'Standing by — send a task to put this agent to work',
+			type: 'screenshot',
 		});
 	} catch (err) {
-		console.error('[task] autonomous cycle error:', err);
+		console.error('[task] idle cycle error:', err);
 		await push({ agentId, page: null, activity: `Error: ${err.message}`, type: 'activity' });
 		await sleep(5_000);
 	}
