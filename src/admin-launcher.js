@@ -149,6 +149,13 @@ function startRefresh() { stopRefresh(); refreshTimer = setInterval(refresh, REF
 function stopRefresh() { if (refreshTimer) clearInterval(refreshTimer); refreshTimer = null; }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 
+// Power-user: ⌘/Ctrl+S saves when there are pending edits (and a panel is up).
+document.addEventListener('keydown', (e) => {
+	if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+		if (loaded && !$('ml-panel').hidden && isDirty()) { e.preventDefault(); save(); }
+	}
+});
+
 // ── static controls (modes, chips, network) built once ────────────────────────
 let built = false;
 function buildStaticControls() {
@@ -302,37 +309,115 @@ function renderState(state) {
 
 	renderConsole(state.console || [], state.config?.network || draft.network);
 	$('ml-console-meta').textContent = `updated ${new Date().toLocaleTimeString()}`;
+
+	renderNarratives(state.narratives);
 }
 
-function renderConsole(runs, network) {
-	const list = $('ml-runs');
-	const empty = $('ml-runs-empty');
-	if (!runs.length) { list.innerHTML = ''; empty.hidden = false; return; }
+// ── live narratives (what the launcher would ride right now) ─────────────────────
+function renderNarratives(narr) {
+	const list = $('ml-narr-list');
+	const empty = $('ml-narr-empty');
+	const lead = $('ml-narr-lead');
+	const meta = $('ml-narr-meta');
+	const terms = (narr && Array.isArray(narr.terms)) ? narr.terms : [];
+
+	if (!terms.length) {
+		list.innerHTML = '';
+		empty.hidden = false;
+		lead.hidden = true;
+		meta.textContent = (draft.mode === 'trend' || draft.mode === 'hybrid') ? 'no signal' : 'trend off';
+		return;
+	}
 	empty.hidden = true;
-	list.innerHTML = runs
-		.map((r) => {
-			const status = String(r.status || 'pending');
-			const mint = r.mint
-				? `<a href="${solscan(r.mint, network)}" target="_blank" rel="noopener">${esc(r.name || r.symbol || 'coin')}</a>`
-				: esc(r.name || r.symbol || '—');
-			const meta = r.status === 'failed' && r.error
-				? `<span class="ml-run-err">${esc(trunc(r.error, 64))}</span>`
-				: `<span class="ml-kind">${esc(r.kind || '')}</span>${r.trigger_source ? ' · ' + esc(r.trigger_source) : ''}`;
-			const sol = Number(r.sol_spent) > 0 ? `${fmtSol(r.sol_spent)} ◎` : (r.dry_run ? 'dry' : '—');
+	meta.textContent = `${terms.length} live · ${(narr.providers || []).length} sources`;
+
+	if (narr.top) {
+		lead.hidden = false;
+		lead.innerHTML = `Riding <strong>${esc(narr.top.term)}</strong>${narr.top.kind ? ` <span class="ml-narr-kind">${esc(narr.top.kind)}</span>` : ''} next.`;
+	} else {
+		lead.hidden = true;
+	}
+
+	const max = terms[0]?.score || 1;
+	list.innerHTML = terms
+		.slice(0, 12)
+		.map((t) => {
+			const pct = Math.max(6, Math.round((Number(t.score) / max) * 100));
+			const srcs = Array.isArray(t.sources) ? t.sources.length : 0;
 			return `
-			<li class="ml-run">
-				<span class="ml-pill s-${esc(status)}">${esc(statusLabel(status))}</span>
-				<span class="ml-run-main">
-					<span class="ml-run-name">${mint} <span class="ml-run-sym">${esc(r.symbol || '')}</span></span>
-					<span class="ml-run-meta">${meta}</span>
-				</span>
-				<span class="ml-run-r">
-					<span class="ml-run-sol">${esc(sol)}</span>
-					<span class="ml-run-time">${esc(reltime(r.created_at))}</span>
-				</span>
+			<li class="ml-narr-row" title="${esc((t.sources || []).join(', '))}">
+				<span class="ml-narr-bar" style="width:${pct}%"></span>
+				<span class="ml-narr-term">${esc(t.term)}</span>
+				<span class="ml-narr-tags">${t.kind ? `<span class="ml-narr-kind">${esc(t.kind)}</span>` : ''}${srcs > 1 ? `<span class="ml-narr-conf">×${srcs}</span>` : ''}</span>
 			</li>`;
 		})
 		.join('');
+}
+
+// Inner markup for one run row (without the <li> wrapper) — shared by the keyed
+// renderer so a row can be created once and patched in place.
+function runRowHtml(r, network) {
+	const status = String(r.status || 'pending');
+	const mint = r.mint
+		? `<a href="${solscan(r.mint, network)}" target="_blank" rel="noopener">${esc(r.name || r.symbol || 'coin')}</a>`
+		: esc(r.name || r.symbol || '—');
+	const rode = topNarrative(r.trigger_detail);
+	const meta = r.status === 'failed' && r.error
+		? `<span class="ml-run-err">${esc(trunc(r.error, 64))}</span>`
+		: `<span class="ml-kind">${esc(r.kind || '')}</span>${rode ? ' · rode ' + esc(rode) : (r.trigger_source ? ' · ' + esc(r.trigger_source) : '')}`;
+	const sol = Number(r.sol_spent) > 0 ? `${fmtSol(r.sol_spent)} ◎` : (r.dry_run ? 'dry' : '—');
+	return (
+		`<span class="ml-pill s-${esc(status)}">${esc(statusLabel(status))}</span>` +
+		`<span class="ml-run-main">` +
+			`<span class="ml-run-name">${mint} <span class="ml-run-sym">${esc(r.symbol || '')}</span></span>` +
+			`<span class="ml-run-meta">${meta}</span>` +
+		`</span>` +
+		`<span class="ml-run-r">` +
+			`<span class="ml-run-sol">${esc(sol)}</span>` +
+			`<span class="ml-run-time">${esc(reltime(r.created_at))}</span>` +
+		`</span>`
+	);
+}
+
+// A run is "the same" until its status/cost/mint/error changes — only then do we
+// touch the DOM for it. Keeps the 5s refresh cheap and flicker-free.
+function runSig(r) { return `${r.status}|${r.sol_spent}|${r.mint || ''}|${r.error || ''}|${reltime(r.created_at)}`; }
+
+const _rows = new Map(); // run id → { el, sig }
+
+// Keyed/incremental render: create new rows (animated in), patch changed rows in
+// place, reorder to match newest-first, and drop rows that fell off the window.
+function renderConsole(runs, network) {
+	const list = $('ml-runs');
+	const empty = $('ml-runs-empty');
+	if (!runs.length) { list.replaceChildren(); _rows.clear(); empty.hidden = false; return; }
+	empty.hidden = true;
+
+	const seen = new Set();
+	let prev = null;
+	for (const r of runs.slice(0, 50)) {
+		const id = String(r.id);
+		seen.add(id);
+		const sig = runSig(r);
+		let entry = _rows.get(id);
+		if (!entry) {
+			const li = document.createElement('li');
+			li.className = 'ml-run ml-run--new';
+			li.innerHTML = runRowHtml(r, network);
+			setTimeout(() => li.classList.remove('ml-run--new'), 1100);
+			entry = { el: li, sig };
+			_rows.set(id, entry);
+		} else if (entry.sig !== sig) {
+			entry.el.innerHTML = runRowHtml(r, network);
+			entry.sig = sig;
+		}
+		const ref = prev ? prev.nextSibling : list.firstChild;
+		if (entry.el !== ref) list.insertBefore(entry.el, ref);
+		prev = entry.el;
+	}
+	for (const [id, entry] of _rows) {
+		if (!seen.has(id)) { entry.el.remove(); _rows.delete(id); }
+	}
 }
 
 // ── dirty + save ───────────────────────────────────────────────────────────────
@@ -421,6 +506,12 @@ function round(n, d) { const p = 10 ** d; return Math.round(Number(n) * p) / p; 
 function fmtSol(n) { const v = Number(n || 0); return v === 0 ? '0' : v < 0.001 ? v.toExponential(1) : round(v, 4).toString(); }
 function trunc(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
 function statusLabel(s) { return { dry_run: 'dry', confirmed: 'live', launched: 'live' }[s] || s; }
+function topNarrative(detail) {
+	let d = detail;
+	if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return ''; } }
+	const t = d && typeof d === 'object' ? d.top_narrative : '';
+	return t ? trunc(String(t), 28) : '';
+}
 function solscan(mint, network) { return `https://solscan.io/token/${encodeURIComponent(mint)}${network === 'devnet' ? '?cluster=devnet' : ''}`; }
 function reltime(iso) {
 	if (!iso) return '';

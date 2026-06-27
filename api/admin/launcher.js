@@ -17,6 +17,7 @@ import { cors, json, error, method, readJson, wrap } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { masterBalanceSol, dailySpentSol } from '../_lib/launcher-funding.js';
+import { rankNarratives } from '../_lib/launcher-trends.js';
 
 function isCronAuth(req) {
 	const auth = req.headers.authorization || '';
@@ -26,6 +27,13 @@ function isCronAuth(req) {
 
 const MODES = ['off', 'trend', 'meme', 'random', 'hybrid'];
 const KNOWN_SOURCES = ['coin_intel', 'trending', 'x', 'oracle', 'knowyourmeme', 'hackernews', 'reddit', 'wikipedia'];
+
+// jsonb columns arrive as arrays or (depending on driver) JSON strings — coerce.
+function coerceArr(v) {
+	if (Array.isArray(v)) return v;
+	if (typeof v === 'string') { try { const p = JSON.parse(v); return Array.isArray(p) ? p : []; } catch { return []; } }
+	return [];
+}
 
 async function ensureGlobalRow() {
 	await sql`
@@ -56,7 +64,7 @@ async function getState(res) {
 
 	const [recent, stats, queue, master] = await Promise.all([
 		sql`
-			select id, agent_id, kind, trigger_source, name, symbol, mint, network,
+			select id, agent_id, kind, trigger_source, trigger_detail, name, symbol, mint, network,
 			       sol_spent, status, dry_run, tx_signature, error, created_at
 			from launcher_runs
 			where scope = 'global'
@@ -80,6 +88,18 @@ async function getState(res) {
 
 	const spentToday = await dailySpentSol('global', null).catch(() => 0);
 
+	// Live narratives preview — the exact ranked cultural currents the launcher
+	// would ride right now, using the SAVED config's sources so the preview matches
+	// what a real tick would coin. Cached upstream (so this is cheap on the 5s
+	// admin refresh) and never throws — degrades to null if intelligence is dark.
+	const cfgSources = coerceArr(config?.sources);
+	const narratives = await rankNarratives({
+		network,
+		sources: cfgSources.length ? cfgSources : undefined,
+		categories: coerceArr(config?.categories),
+		limit: 16,
+	}).catch(() => null);
+
 	return json(res, 200, {
 		config: config || null,
 		console: recent,
@@ -89,6 +109,9 @@ async function getState(res) {
 		},
 		queue_enabled: queue[0]?.enabled ?? 0,
 		master_balance_sol: master,
+		narratives: narratives
+			? { terms: narratives.terms || [], top: narratives.top || null, providers: narratives.providers || [] }
+			: null,
 		armed: !!(config?.enabled && !config?.dry_run && !config?.paused),
 	});
 }

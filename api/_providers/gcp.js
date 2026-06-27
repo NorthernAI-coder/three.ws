@@ -19,6 +19,9 @@
 //   segment      → GCP_SEGMENT_URL          (workers/segment)
 //   sketch       → GCP_TRIPOSG_URL          (workers/model-triposg, scribble mode)
 //   rerig        → GCP_RECONSTRUCTION_URL   (avatar-pipeline-controller, /rig endpoint)
+//   video2scene  → GCP_VIDEO2SCENE_URL      (workers/model-video2scene, LingBot-Map)
+//                  Streaming video → 3D point cloud. Standard /infer + /tasks/:id
+//                  shape; the result is a .ply point cloud, not a GLB mesh.
 //
 // All workers share the same bearer secret (GCP_RECONSTRUCTION_KEY).
 // Each worker exposes the same task shape:
@@ -81,6 +84,10 @@ function serviceUrlForMode(mode) {
 			return readEnv('MODEL_TRELLIS_URL');
 		case 'text2motion':
 			return readEnv('GCP_TEXT2MOTION_URL');
+		case 'video2scene':
+			// Streaming video → 3D point-cloud worker (workers/model-video2scene,
+			// LingBot-Map). Standard /infer + /tasks/:id task shape; result is a PLY.
+			return readEnv('GCP_VIDEO2SCENE_URL');
 		case 'rerig':
 			// Rigging is handled by the pipeline controller via its /rig endpoint.
 			return readEnv('GCP_RECONSTRUCTION_URL');
@@ -240,6 +247,31 @@ function buildWorkerRequest(request) {
 		};
 	}
 
+	if (mode === 'video2scene') {
+		// Streaming video → 3D point cloud (workers/model-video2scene, LingBot-Map).
+		// The source is a public video URL; an `images` array of frames is the
+		// alternate input. Reconstruction params (sampling/quality) ride in `params`
+		// and are forwarded only when set so the worker's defaults stand otherwise.
+		const body = {};
+		if (Array.isArray(params?.images) && params.images.length) {
+			body.images = params.images;
+		} else {
+			body.video_url = sourceUrl;
+		}
+		for (const key of [
+			'mode', 'fps', 'keyframe_interval', 'num_scale_frames',
+			'window_size', 'overlap_size', 'conf_percentile', 'max_points',
+		]) {
+			if (params?.[key] !== undefined && params[key] !== null) body[key] = params[key];
+		}
+		if (params?.mask_sky !== undefined) body.mask_sky = Boolean(params.mask_sky);
+		return {
+			path: '/infer',
+			resultKey: 'result_gcs_url',
+			body,
+		};
+	}
+
 	if (mode === 'rerig') {
 		return {
 			path: '/rig',
@@ -282,6 +314,7 @@ const MODE_ETA = {
 	sketch: 45,
 	text2motion: 30,
 	rerig: 45,
+	video2scene: 240,
 };
 
 // `reconstructUrl` overrides where `reconstruct` jobs go — the forge Hunyuan3D
@@ -431,6 +464,13 @@ export function createRegenProvider({ reconstructUrl } = {}) {
 					result.resultClipUrl = url;
 					if (typeof data.frames === 'number') result.frames = data.frames;
 					if (typeof data.fps === 'number') result.fps = data.fps;
+				} else if (mode === 'video2scene') {
+					// The result is a .ply point cloud, not a GLB mesh. Surface the
+					// reconstruction telemetry so the client can show point/frame counts.
+					result.resultPointCloudUrl = url;
+					if (typeof data.num_points === 'number') result.numPoints = data.num_points;
+					if (typeof data.frames === 'number') result.frames = data.frames;
+					if (typeof data.bytes === 'number') result.bytes = data.bytes;
 				} else {
 					result.resultGlbUrl = url;
 				}

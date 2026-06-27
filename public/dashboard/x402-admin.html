@@ -19,8 +19,13 @@
 		--text: #f0f2f8;
 		--muted: #8a90a8;
 		--muted-2: #6b7088;
-		--accent: #0a84ff;
-		--accent-2: #60a5fa;
+		/* Monochrome accent — matches the platform design system (public/tokens.css).
+		   Emphasis is pure white/ink; the only chromatic tokens are the functional
+		   green/amber/red below, mirroring --success/--warn/--danger. */
+		--accent: #ffffff;
+		--accent-2: #e8e8e8;
+		--accent-tint: rgba(255,255,255,0.10);
+		--accent-tint-strong: rgba(255,255,255,0.18);
 		--green: #4ade80;
 		--amber: #fbbf24;
 		--red: #ef4444;
@@ -33,7 +38,7 @@
 		-webkit-font-smoothing: antialiased; line-height: 1.5; min-height: 100dvh;
 	}
 	a { color: var(--accent-2); text-decoration: none; }
-	a:hover { color: #93c5fd; }
+	a:hover { color: #ffffff; text-decoration: underline; }
 
 	/* ── Header ── */
 	header {
@@ -43,7 +48,7 @@
 		position: sticky; top: 0; z-index: 30;
 	}
 	header .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
-	header .brand .dot { width: 22px; height: 22px; background: conic-gradient(from 200deg, #ffffff, #60a5fa); border-radius: 6px; }
+	header .brand .dot { width: 22px; height: 22px; background: conic-gradient(from 200deg, #ffffff, #4a4a4a); border-radius: 6px; }
 	header .crumb { color: var(--muted); }
 	header .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
 	header .save-state { font-size: 12px; color: var(--muted); font-family: var(--mono); min-width: 90px; text-align: right; }
@@ -110,7 +115,7 @@
 		padding: 11px 13px; border-radius: 9px; font-size: 14px; font-family: inherit;
 		text-transform: none; letter-spacing: 0; font-weight: 400; outline: none; transition: border-color 0.12s, box-shadow 0.12s;
 	}
-	label.field input:focus, label.field select:focus, label.field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(10,132,255,0.15); }
+	label.field input:focus, label.field select:focus, label.field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-tint); }
 	label.field input.mono { font-family: var(--mono); font-size: 12.5px; }
 	label.field input.invalid { border-color: #7f1d1d; box-shadow: 0 0 0 3px rgba(239,68,68,0.12); }
 	label.field input.valid { border-color: #1c5f3a; }
@@ -130,8 +135,8 @@
 	.switch input { opacity: 0; width: 0; height: 0; }
 	.switch .slider { position: absolute; inset: 0; background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 99px; cursor: pointer; transition: background 0.15s; }
 	.switch .slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px; background: var(--muted); border-radius: 50%; transition: transform 0.15s, background 0.15s; }
-	.switch input:checked + .slider { background: rgba(10,132,255,0.25); border-color: var(--accent); }
-	.switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent-2); }
+	.switch input:checked + .slider { background: var(--accent-tint-strong); border-color: var(--accent); }
+	.switch input:checked + .slider::before { transform: translateX(18px); background: var(--accent); }
 
 	/* network segmented */
 	.seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; }
@@ -202,7 +207,7 @@
 	.palette .pal-block .pico { width: 16px; height: 16px; opacity: 0.8; }
 
 	.canvas { background: var(--bg-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; min-height: 280px; }
-	.canvas.drag-over { border-color: var(--accent); box-shadow: inset 0 0 0 2px rgba(10,132,255,0.2); }
+	.canvas.drag-over { border-color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent-tint-strong); }
 	.canvas-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: 13.5px; }
 
 	.cblock {
@@ -357,7 +362,7 @@
 					</div>
 					<div class="row-2">
 						<label class="field">Logo URL<input id="logo_url" class="mono" placeholder="https://acme.com/logo.png" spellcheck="false" /></label>
-						<label class="field">Accent color<input id="accent_color" type="color" value="#0a84ff" style="height:44px;padding:5px" /></label>
+						<label class="field">Accent color<input id="accent_color" type="color" value="#111111" style="height:44px;padding:5px" /></label>
 					</div>
 				</div>
 			</section>
@@ -624,7 +629,7 @@ function hydrate(){
 	$('business_name').value = s.business_name || '';
 	$('support_email').value = s.support_email || '';
 	$('logo_url').value = s.logo_url || '';
-	$('accent_color').value = s.accent_color || '#0a84ff';
+	$('accent_color').value = s.accent_color || '#111111';
 	setNetSeg(s.default_network || 'solana');
 	$('webhook_url').value = s.webhook_url || '';
 	$('facilitator').value = s.facilitator || '';
@@ -664,7 +669,7 @@ function collect(){
 		business_name: $('business_name').value.trim() || null,
 		support_email: $('support_email').value.trim() || null,
 		logo_url: $('logo_url').value.trim() || null,
-		accent_color: $('accent_color').value || '#0a84ff',
+		accent_color: $('accent_color').value || '#111111',
 		default_network: currentNet,
 		agent_wallets: agentWallets,
 		facilitator: $('facilitator').value.trim() || null,
@@ -804,7 +809,7 @@ function renderWallets(){
 		const ok = ADDR_RE[w.chain]?.test(w.address);
 		const caps = [w.per_call_cap_atomics?`≤ ${fmtUsdc(w.per_call_cap_atomics)}/call`:null, w.daily_cap_atomics?`≤ ${fmtUsdc(w.daily_cap_atomics)}/day`:null].filter(Boolean).join(' · ') || 'no caps';
 		return `<div class="prod-card ${w.enabled===false?'inactive':''}" data-i="${i}">
-			<div class="pc-img" style="background:${w.role==='payer'?'linear-gradient(135deg,#fbbf24,#f59e0b)':'linear-gradient(135deg,#0a84ff,#60a5fa)'};font-size:12px">${w.role==='payer'?'PAY':'IN'}</div>
+			<div class="pc-img" style="background:${w.role==='payer'?'linear-gradient(135deg,#fbbf24,#f59e0b)':'linear-gradient(135deg,#5a5a5a,#2e2e2e)'};font-size:12px">${w.role==='payer'?'PAY':'IN'}</div>
 			<div><div class="pc-name">${esc(w.label)} ${ok?'':'<span style="color:var(--red);font-size:11px">⚠ invalid</span>'}</div><div class="pc-meta">${esc(w.chain)} · ${esc(shortAddr(w.address))} · ${esc(caps)}</div></div>
 			<div class="pc-price" style="color:var(--muted);font-size:11px;text-transform:uppercase">${w.enabled===false?'off':w.role}</div>
 			<div class="pc-actions"><button class="btn ghost sm" data-act="edit">Edit</button><button class="btn ghost sm" data-act="del">Remove</button></div>
@@ -1130,7 +1135,7 @@ $('store_published').addEventListener('change', updateHandlePreview);
 // the preview and the live page render identically.
 function renderStoreHtml(data, isPreview){
 	const s = data.store, prods = data.products || [];
-	const accent = (s.store_theme && s.store_theme.accent) || s.accent_color || '#0a84ff';
+	const accent = (s.store_theme && s.store_theme.accent) || s.accent_color || '#111111';
 	const byId = (id)=> prods.find((p)=> p.id===id);
 	const priceLabel = (p)=> p.price_atomics ? `${(Number(p.price_atomics)/1e6).toString()} USDC` : 'Pay-per-call';
 	const card = (p)=> p ? `<div class="p-card">
@@ -1166,7 +1171,7 @@ function renderStoreHtml(data, isPreview){
 .p-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
 .p-card{border:1px solid #e6e8ee;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px;background:#fff;transition:box-shadow .15s,transform .08s}
 .p-card:hover{box-shadow:0 12px 32px rgba(0,0,0,.07);transform:translateY(-2px)}
-.p-img{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#60a5fa);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;overflow:hidden}.p-img img{width:100%;height:100%;object-fit:cover}
+.p-img{width:52px;height:52px;border-radius:13px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;overflow:hidden}.p-img img{width:100%;height:100%;object-fit:cover}
 .p-name{font-weight:700;font-size:17px;letter-spacing:-.01em}.p-desc{color:#667;font-size:13.5px;flex:1;min-height:36px}
 .p-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px}.p-price{font-weight:700;color:#0a7d3a;font-size:14px}
 .p-buy{background:#111;color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:600;font-size:14px;cursor:pointer;font-family:inherit}.p-buy:hover:not(:disabled){background:#000}.p-buy:disabled{opacity:.5;cursor:default}

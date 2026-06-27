@@ -504,6 +504,12 @@ URL: https://three.ws/activity
 
 The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.
 
+### Recording Pipeline — the data loop, live
+
+URL: https://three.ws/pipeline
+
+One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.
+
 ### Guardian console — recover & inherit agent wallets
 
 URL: https://three.ws/guardian

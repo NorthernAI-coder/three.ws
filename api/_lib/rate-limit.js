@@ -343,6 +343,13 @@ export const limits = {
 		getLimiter('vanity:gallery:read:ip', { limit: 240, window: '5 m' }).limit(ip),
 	mcpUser: (userId) => getLimiter('mcp:user', { limit: 1200, window: '1 m' }).limit(userId),
 	mcpIp: (ip) => getLimiter('mcp:ip', { limit: 600, window: '1 m' }).limit(ip),
+	// Generic per-IP bucket for authenticated app endpoints (agent screen feed,
+	// task queue, etc.). Callers pass an override to size the bucket to their
+	// traffic shape — a screenshot push stream needs hundreds/min, a roster poll
+	// only a handful. getLimiter keys its cache by name+limit+window, so each
+	// distinct override gets its own isolated bucket under the rl:api:ip prefix.
+	apiIp: (ip, opts = {}) =>
+		getLimiter('api:ip', { limit: 120, window: '1 m', ...opts }).limit(ip),
 	// Free, unauthenticated 3D Studio (api/mcp-studio.js) abuse protection. The
 	// studio runs generation operator-funded for anonymous ChatGPT users, so each
 	// generation call costs the platform real GPU/provider spend. These are the

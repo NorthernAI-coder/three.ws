@@ -197,15 +197,19 @@ async function refresh() {
 		return;
 	}
 
-	// Add new cards.
+	// Add new cards — and re-attach streams to existing cards whose stream was
+	// torn down (e.g. after the tab was backgrounded via suspendStreams()).
 	for (const agent of agents) {
 		const id = agent.agentId || agent.id;
-		if (!grid.querySelector(`[data-agent-id="${CSS.escape(id)}"]`)) {
-			const card = buildCard(agent);
+		let card = grid.querySelector(`[data-agent-id="${CSS.escape(id)}"]`);
+		if (!card) {
+			card = buildCard(agent);
 			// Remove skeleton loaders once we have real cards.
 			grid.querySelectorAll('.al-skeleton').forEach((s) => s.remove());
 			grid.querySelector('.al-empty')?.remove();
 			grid.appendChild(card);
+			attachStream(card, id);
+		} else if (!_streams.has(id)) {
 			attachStream(card, id);
 		}
 	}
@@ -221,8 +225,36 @@ function startFpsTicker() {
 	}, 1000);
 }
 
+// Tear down every live stream (used when the tab goes to the background — no
+// point decoding frames nobody is watching). Cards stay in the DOM showing
+// their last frame; refresh() re-attaches streams when the tab returns.
+function suspendStreams() {
+	for (const [id, es] of _streams) {
+		try { es.close(); } catch { /* */ }
+		_streams.delete(id);
+		const card = grid.querySelector(`[data-agent-id="${CSS.escape(id)}"]`);
+		card?.querySelector('[data-status]')?.replaceChildren(document.createTextNode('Paused'));
+		card?.querySelector('[data-dot]')?.classList.add('idle');
+	}
+}
+
 // ── boot ──────────────────────────────────────────────────────────────────────
+
+let _refreshTimer = null;
+function startRefreshLoop() {
+	clearInterval(_refreshTimer);
+	_refreshTimer = setInterval(() => { if (!document.hidden) refresh(); }, 30_000);
+}
 
 await refresh();
 startFpsTicker();
-setInterval(refresh, 30_000);
+startRefreshLoop();
+
+// Pause all decoding while the tab is hidden; reconnect the moment it's visible.
+document.addEventListener('visibilitychange', () => {
+	if (document.hidden) {
+		suspendStreams();
+	} else {
+		refresh(); // re-discovers the roster and re-attaches streams to existing cards
+	}
+});

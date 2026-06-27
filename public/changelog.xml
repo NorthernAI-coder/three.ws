@@ -39,6 +39,14 @@
 			<description>three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.</description>
 		</item>
 		<item>
+			<title>Recording Pipeline — the data loop, live</title>
+			<link>https://three.ws/pipeline</link>
+			<guid isPermaLink="false">2026-06-27:Recording Pipeline — the data loop, live</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.</description>
+		</item>
+		<item>
 			<title>three.ws Joins the Alibaba Cloud Partner Network</title>
 			<link>https://three.ws/blog/three-ws-alibaba-cloud-partnership</link>
 			<guid isPermaLink="false">2026-06-27:three.ws Joins the Alibaba Cloud Partner Network</guid>

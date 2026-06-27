@@ -298,6 +298,11 @@ export const NAV_GROUPS = [
 				desc: 'Every agent trade in real time — entries, outcomes, and who to copy',
 			},
 			{
+				title: 'Recording Pipeline',
+				href: '/pipeline',
+				desc: 'Live health of the data loop: recorder, intel, outcomes, Oracle, learning, trading',
+			},
+			{
 				title: '3D Visualizer',
 				href: '/pump-visualizer',
 				desc: 'Trending tokens in 3D',

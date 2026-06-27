@@ -149,17 +149,33 @@
 						</section>
 					</form>
 
-					<!-- Live console -->
-					<section class="ml-console" aria-label="Live launch console">
-						<div class="ml-console-h">
-							<h2 class="ml-card-h">Live console</h2>
-							<span class="ml-console-meta" id="ml-console-meta">—</span>
-						</div>
-						<ol class="ml-runs" id="ml-runs"></ol>
-						<div class="ml-runs-empty" id="ml-runs-empty" hidden>
-							<p>No launches yet. Arm the launcher to see live activity here.</p>
-						</div>
-					</section>
+					<!-- Right column: live intelligence + console -->
+					<div class="ml-rail">
+						<!-- Live narratives the launcher would ride right now -->
+						<section class="ml-narr" aria-label="Live narratives">
+							<div class="ml-console-h">
+								<h2 class="ml-card-h">Live narratives</h2>
+								<span class="ml-console-meta" id="ml-narr-meta">—</span>
+							</div>
+							<p class="ml-narr-lead" id="ml-narr-lead" hidden></p>
+							<ol class="ml-narr-list" id="ml-narr-list"></ol>
+							<div class="ml-narr-empty" id="ml-narr-empty" hidden>
+								<p>No live narrative yet. Enable trend sources (Know Your Meme, Coin intel…) to surface the currents the launcher would ride.</p>
+							</div>
+						</section>
+
+						<!-- Live console -->
+						<section class="ml-console" aria-label="Live launch console">
+							<div class="ml-console-h">
+								<h2 class="ml-card-h">Live console</h2>
+								<span class="ml-console-meta" id="ml-console-meta">—</span>
+							</div>
+							<ol class="ml-runs" id="ml-runs"></ol>
+							<div class="ml-runs-empty" id="ml-runs-empty" hidden>
+								<p>No launches yet. Arm the launcher to see live activity here.</p>
+							</div>
+						</section>
+					</div>
 				</div>
 			</div>
 		</main>

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T20:20:01.960Z",
+	"generated_at": "2026-06-27T20:21:36.214Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -42,6 +42,16 @@
 			"title": "Partner Ecosystem",
 			"summary": "three.ws partner ecosystem — AWS, IBM, Google Cloud, Alibaba Cloud, Intel, NVIDIA, Microsoft, Oracle. The cloud and AI platforms powering 3D AI agents at enterprise scale.",
 			"link": "/partners",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "launch",
+			"title": "Recording Pipeline — the data loop, live",
+			"summary": "One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.",
+			"link": "/pipeline",
 			"tags": [
 				"launch"
 			]

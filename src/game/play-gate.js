@@ -214,8 +214,8 @@ class Gate {
 	_html(view) {
 		const card = (inner) => `
 			<div class="pg-backdrop"></div>
-			<div class="pg-card">
-				<div class="pg-brand"><img loading="lazy" decoding="async" src="/three.svg" alt="" width="30" height="30"><span>COIN COMMUNITIES</span></div>
+			<div class="pg-card" data-state="${esc(view.state)}">
+				<div class="pg-brand"><img loading="eager" decoding="async" src="/three.svg" alt="" width="30" height="30"><span>COIN COMMUNITIES</span></div>
 				${inner}
 			</div>`;
 
@@ -228,7 +228,7 @@ class Gate {
 				return card(`
 					<div class="pg-icon">${SVG.wallet}</div>
 					<h1 class="pg-title">Install a Solana wallet</h1>
-					<p class="pg-sub">Your wallet is your account — no email, no password. Install Phantom, then come back and retry.</p>
+					<p class="pg-sub">Your wallet is your account — no email, no password. Install <strong>Phantom</strong>, then come back and retry.</p>
 					<a class="pg-btn pg-btn-primary" href="${PHANTOM_INSTALL}" target="_blank" rel="noopener noreferrer">Get Phantom</a>
 					<button class="pg-btn pg-btn-ghost" data-act="retry">I've installed it — retry</button>`);
 
@@ -236,19 +236,34 @@ class Gate {
 				return card(`
 					<div class="pg-icon">${SVG.key}</div>
 					<h1 class="pg-title">Sign in to play</h1>
-					<p class="pg-sub">Connect your Solana wallet and approve a signature to prove it's yours. You'll need at least <strong>${esc(String(min))} ${tokenLabel}</strong> to enter. This never moves any funds.</p>
+					<p class="pg-sub">Connect your wallet and sign a message to prove ownership. You'll need at least <strong>${esc(String(min))} ${tokenLabel}</strong>. Nothing moves on-chain.</p>
 					${view.error ? `<p class="pg-error" role="alert">${esc(view.error)}</p>` : ''}
 					<button class="pg-btn pg-btn-primary" data-act="connect">Connect wallet</button>
 					${view.onSwitch ? `<button class="pg-link" data-act="switch">Use a different wallet</button>` : ''}
 					<p class="pg-fine">We will never ask for your seed phrase.</p>`);
 
 			case 'working': {
-				const labels = { connecting: 'Connecting your wallet…', signing: 'Approve the signature in your wallet…', verifying: 'Checking your token balance on-chain…' };
+				const stageIndex = { connecting: 0, signing: 1, verifying: 2 }[view.stage] ?? 0;
+				const dots = [0, 1, 2].map((i) => {
+					const cls = i < stageIndex ? 'pg-dot pg-dot-done' : i === stageIndex ? 'pg-dot pg-dot-active' : 'pg-dot';
+					return `<span class="${cls}" aria-hidden="true"></span>`;
+				}).join('');
+				const labels = {
+					connecting: 'Connecting your wallet…',
+					signing: 'Approve the signature…',
+					verifying: 'Checking your balance…',
+				};
+				const subs = {
+					connecting: 'Opening your wallet — this only takes a moment.',
+					signing: 'Your wallet is waiting for your approval.',
+					verifying: 'Reading on-chain balance — almost there.',
+				};
 				const label = labels[view.stage] || 'Working…';
 				return card(`
+					<div class="pg-steps" aria-label="Step ${stageIndex + 1} of 3">${dots}</div>
 					<div class="pg-spinner" aria-live="polite" aria-label="${esc(label)}"></div>
 					<h1 class="pg-title">${esc(label)}</h1>
-					<p class="pg-sub">${view.stage === 'signing' ? 'Check your wallet — it is waiting for your approval.' : 'This only takes a moment.'}</p>`);
+					<p class="pg-sub">${esc(subs[view.stage] || 'This only takes a moment.')}</p>`);
 			}
 
 			case 'low': {
@@ -259,31 +274,31 @@ class Gate {
 				return card(`
 					<div class="pg-icon">${SVG.ticket}</div>
 					<h1 class="pg-title">Not enough ${displaySym}</h1>
-					<p class="pg-sub">Entry requires <strong>${need} ${displaySym}</strong>. Your wallet has <strong>${bal} ${displaySym}</strong>. Top up then recheck — no need to sign again.</p>
+					<p class="pg-sub">You need <strong>${need} ${displaySym}</strong> to enter. Top up, then recheck — no need to sign again.</p>
 					<div class="pg-balance" aria-label="Balance comparison">
-						<div><span class="pg-balance-k">You have</span><span class="pg-balance-v">${bal}</span></div>
+						<div><span class="pg-balance-k">You have</span><span class="pg-balance-v pg-balance-low">${bal}</span></div>
 						<div class="pg-balance-sep" aria-hidden="true">→</div>
 						<div><span class="pg-balance-k">Required</span><span class="pg-balance-v pg-balance-need">${need}</span></div>
 					</div>
 					${view.onAcquire ? `<button class="pg-btn pg-btn-primary" data-act="acquire">Get ${displaySym}</button>` : ''}
 					<button class="pg-btn ${view.onAcquire ? 'pg-btn-ghost' : 'pg-btn-primary'}" data-act="recheck">Recheck balance</button>
-					${view.onSwitch ? `<button class="pg-link" data-act="switch">Use a different wallet</button>` : ''}`);
+					${view.onSwitch ? `<button class="pg-link" data-act="switch">Try a different wallet</button>` : ''}`);
 			}
 
 			case 'granted':
 				return card(`
 					<div class="pg-check" aria-label="Access granted">✓</div>
 					<h1 class="pg-title">You're in</h1>
-					<p class="pg-sub">Wallet verified${view.balance != null ? ` — ${fmt(view.balance)} ${view.symbol ? '$' + esc(view.symbol) : tokenLabel}` : ''}. Entering the world…</p>`);
+					<p class="pg-sub">Verified${view.balance != null ? ` · ${fmt(view.balance)} ${view.symbol ? '$' + esc(view.symbol) : tokenLabel}` : ''}. Entering the world…</p>`);
 
 			case 'error':
 			default:
 				return card(`
 					<div class="pg-icon">${SVG.warn}</div>
-					<h1 class="pg-title">Something went wrong</h1>
+					<h1 class="pg-title">Sign-in failed</h1>
 					<p class="pg-sub" role="alert">${esc(view.error || 'Please try again.')}</p>
 					<button class="pg-btn pg-btn-primary" data-act="retry">Try again</button>
-					${view.onSwitch ? `<button class="pg-link" data-act="switch">Use a different wallet</button>` : ''}`);
+					${view.onSwitch ? `<button class="pg-link" data-act="switch">Try a different wallet</button>` : ''}`);
 		}
 	}
 }
