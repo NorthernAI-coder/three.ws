@@ -17,7 +17,7 @@
  * Routed via vercel.json — see top of file path patterns.
  */
 
-import { sql } from '../_lib/db.js';
+import { sql, isDbUnavailableError } from '../_lib/db.js';
 import { authenticateBearer, extractBearer, getSessionUser } from '../_lib/auth.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { publicUrl } from '../_lib/r2.js';
@@ -581,6 +581,9 @@ async function handleList(req, res, url) {
 					LIMIT ${limit + 1}::int OFFSET ${offset}::int
 				`,
 			]);
+		} else if (isDbUnavailableError(err)) {
+			console.warn('[marketplace/list] db unavailable:', err?.message);
+			return error(res, 503, 'service_unavailable', 'Database temporarily unavailable — retry shortly');
 		} else {
 			console.error('[marketplace/list]', err?.code, err?.message || err);
 			return error(res, 500, 'db_error', 'Failed to load marketplace listing');

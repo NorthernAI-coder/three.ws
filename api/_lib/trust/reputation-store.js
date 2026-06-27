@@ -18,7 +18,7 @@
 // The score is ALWAYS the same pure computation (computeReputation) over real
 // inputs — this module only persists and schedules it, never invents a number.
 
-import { sql } from '../db.js';
+import { sql, isDbUnavailableError } from '../db.js';
 import { getAgentReputation, REPUTATION_VERSION } from './wallet-reputation.js';
 
 // A stored score older than this is treated as stale by the access layer's fast
@@ -52,7 +52,8 @@ function ensureTable() {
 		await sql`create index if not exists agent_reputation_scores_computed_idx on agent_reputation_scores (computed_at asc)`;
 		return true;
 	})().catch((err) => {
-		console.error('[reputation-store] ensureTable failed:', err?.message || err);
+		if (isDbUnavailableError(err)) console.warn('[reputation-store] ensureTable deferred (db unavailable):', err?.message || err);
+		else console.error('[reputation-store] ensureTable failed:', err?.message || err);
 		_ensured = null;
 		return false;
 	});

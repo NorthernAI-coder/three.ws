@@ -5,7 +5,7 @@
 // agent pool and has those agents transact with one another on-chain, so the live
 // money feed reflects real wallet activity.
 
-import { json, method, wrap } from '../_lib/http.js';
+import { json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { runCirculationTick } from '../_lib/circulation.js';
@@ -25,7 +25,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 
