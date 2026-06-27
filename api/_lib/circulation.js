@@ -33,6 +33,7 @@ import { CHAIN_BY_ID } from './erc8004-chains.js';
 import { publicUrl as r2PublicUrl } from './r2.js';
 import { pinToIPFS } from './ipfs-pin.js';
 import { confirmSkillPurchase, resolvePayoutAddress } from './purchase-confirm.js';
+import { resolveMarketplaceFee } from './marketplace-platform-fee.js';
 import { submitProtected } from './execution-engine.js';
 import { insertNotification } from './notify.js';
 import { invalidateSkillPriceCache } from './skill-price-cache.js';
@@ -501,7 +502,12 @@ async function ensureThree(ctx, agent, needAtomic) {
 // to `toAddress`, tagging it with a Solana-Pay `referenceKey` so confirm/validate
 // can find it on-chain. Buyer pays the seller-ATA rent idempotently. Returns the
 // confirmed signature.
-async function transferThreeWithReference(conn, fromKp, toAddress, atomic, referenceKey, network) {
+// Transfer $THREE to a recipient, tagging the leg with a Solana-Pay reference so
+// confirmSkillPurchase can find it. When `feeLeg` is supplied ({ wallet, atomics }),
+// a SECOND transferChecked routes the platform fee to the treasury in the SAME
+// transaction — the exact split confirmSkillPurchase verifies. `atomic` is the
+// CREATOR leg (price − fee); pass the full price with no feeLeg for a plain transfer.
+async function transferThreeWithReference(conn, fromKp, toAddress, atomic, referenceKey, network, feeLeg = null) {
 	const { PublicKey } = await import('@solana/web3.js');
 	const {
 		getAssociatedTokenAddressSync,
@@ -525,6 +531,16 @@ async function transferThreeWithReference(conn, fromKp, toAddress, atomic, refer
 		createAssociatedTokenAccountIdempotentInstruction(fromKp.publicKey, toAta, recipKey, mintKey),
 		transferIx,
 	];
+
+	if (feeLeg && feeLeg.atomics > 0n && feeLeg.wallet) {
+		const feeKey = new PublicKey(feeLeg.wallet);
+		const feeAta = getAssociatedTokenAddressSync(mintKey, feeKey);
+		ixs.push(createAssociatedTokenAccountIdempotentInstruction(fromKp.publicKey, feeAta, feeKey, mintKey));
+		ixs.push(createTransferCheckedInstruction(
+			fromAta, mintKey, feeAta, fromKp.publicKey, feeLeg.atomics, mintInfo.decimals,
+		));
+	}
+
 	const { signature } = await submitProtected({ network, connection: conn, payer: fromKp, instructions: ixs });
 	return signature;
 }
@@ -847,24 +863,47 @@ async function actionBuySkill(ctx) {
 	const recipient = await resolvePayoutAddress(listing.agent_id, 'solana').catch(() => null);
 	if (!recipient) throw new Skip('seller payout wallet missing');
 
+	// Platform fee — the same take-rate the real /marketplace purchase path charges,
+	// so the demo loop validates true unit economics. When the fee is OFF (default)
+	// resolveMarketplaceFee returns 0 and this degrades to a plain full-price transfer
+	// (today's behaviour, no risk). When ON, the buyer's single tx splits creator-net
+	// to the seller and the fee to the treasury — exactly what confirmSkillPurchase
+	// verifies — and the fee is persisted so the Pulse take-rate reads real on-chain fees.
+	let feeAtomics = 0n;
+	let feeWallet = null;
+	try {
+		const fee = await resolveMarketplaceFee({ grossAtomics: amountAtomic });
+		if (fee?.feeAtomics > 0n && fee.recipient && fee.feeAtomics < amountAtomic) {
+			feeAtomics = fee.feeAtomics;
+			feeWallet = fee.recipient.toBase58();
+		}
+	} catch { /* fee is best-effort; a resolution miss never blocks the sale */ }
+	const creatorAtomic = amountAtomic - feeAtomics;
+
 	const { Keypair } = await import('@solana/web3.js');
 	const referenceKp = Keypair.generate();
 	const reference = referenceKp.publicKey.toBase58();
 
 	const [pur] = await sql`
 		insert into skill_purchases
-			(user_id, agent_id, skill, status, reference, amount, currency_mint, chain, expires_at, kind)
+			(user_id, agent_id, skill, status, reference, amount, currency_mint, chain, expires_at, kind,
+			 platform_fee_amount, platform_fee_wallet)
 		values
 			(${buyer.userId}, ${listing.agent_id}, ${listing.skill}, 'pending', ${reference},
-			 ${listing.amount}, ${THREE_MINT()}, 'solana', now() + interval '15 minutes', 'purchase')
-		returning id, user_id, agent_id, skill, status, amount, currency_mint, chain, reference, expires_at
+			 ${listing.amount}, ${THREE_MINT()}, 'solana', now() + interval '15 minutes', 'purchase',
+			 ${feeAtomics.toString()}, ${feeWallet})
+		returning id, user_id, agent_id, skill, status, amount, currency_mint, chain, reference, expires_at,
+		          platform_fee_amount, platform_fee_wallet
 	`;
 	pur.mint_decimals = THREE_DECIMALS;
 
 	const buyerKp = await senderKeypair(buyer, 'circulation_skill_purchase');
 	let txSig;
 	try {
-		txSig = await transferThreeWithReference(conn, buyerKp, recipient, amountAtomic, referenceKp.publicKey, network);
+		txSig = await transferThreeWithReference(
+			conn, buyerKp, recipient, creatorAtomic, referenceKp.publicKey, network,
+			feeAtomics > 0n ? { wallet: feeWallet, atomics: feeAtomics } : null,
+		);
 	} catch (e) {
 		await sql`update skill_purchases set status = 'failed' where id = ${pur.id} and status = 'pending'`.catch(() => {});
 		throw new Skip(`skill payment failed: ${e?.message?.slice(0, 160)}`);
@@ -1204,19 +1243,24 @@ async function planActions(cfg, poolSize) {
 		where ap.is_active = true and ap.currency_mint = ${THREE_MINT()} and ap.item_type = 'avatar'
 		  and exists (select 1 from agent_identities ai where ai.user_id = ap.owner_user_id and (ai.meta->>'circulation') = 'true')
 	`;
-	if (listedSkillCount < poolSize * 2) plan.push('list_skill');
+	// Keep marketplace inventory ahead of demand — buy_skill is now the dominant
+	// action, so each agent should average ~3 active listings so a buyer can always
+	// find a fresh skill it doesn't already own.
+	if (listedSkillCount < poolSize * 3) plan.push('list_skill');
 	if (listedAssetCount < Math.floor(poolSize / 2)) plan.push('list_asset');
 
-	// Fill the remaining budget with light actions — including real marketplace
-	// purchases, trials, and asset buys alongside the p2p tip/pay/trade/review mix.
+	// Fill the remaining budget with light actions. Weighted HARD toward real
+	// marketplace purchases (value delivered + take-rate earned) — the honest signal
+	// we want to grow — and away from the bare p2p `payment` transfer, which moves
+	// SOL but delivers nothing and only padded the x402 counter.
 	const weighted = [
-		['tip', 26],
-		['buy_skill', 22],
-		['payment', 12],
+		['buy_skill', 34],
+		['tip', 18],
 		['trade', 12],
-		['trial', 10],
+		['trial', 12],
 		['buy_asset', 8],
-		['review', 10],
+		['review', 8],
+		['payment', 6],
 	];
 	const total = weighted.reduce((s, [, w]) => s + w, 0);
 	while (plan.length < cfg.actionsPerTick) {

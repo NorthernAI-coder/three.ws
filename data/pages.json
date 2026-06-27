@@ -314,6 +314,14 @@
 					"added": "2026-06-26"
 				},
 				{
+					"path": "/capture",
+					"title": "Scene Capture — Video to 3D Point Cloud",
+					"description": "Turn a phone video of any space into an explorable 3D point cloud. Streaming feed-forward reconstruction (LingBot-Map Geometric Context Transformer) fuses the frames into a coloured .ply, rendered live in the browser with WebGL. Or load a point cloud you already have.",
+					"priority": 0.7,
+					"changefreq": "monthly",
+					"added": "2026-06-27"
+				},
+				{
 					"path": "/forge-nim",
 					"title": "Forge · NIM — Self-Hosted Image to 3D",
 					"description": "Drive a self-hosted TRELLIS NIM (nvcr.io/nim/microsoft/trellis) directly: drop a photo, hit /v1/infer, and get the textured GLB back synchronously as base64 — rendered live and downloadable.",
@@ -674,6 +682,14 @@
 					"priority": 0.8,
 					"changefreq": "realtime",
 					"added": "2026-06-16"
+				},
+				{
+					"path": "/pipeline",
+					"title": "Recording Pipeline — the data loop, live",
+					"description": "One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.",
+					"priority": 0.7,
+					"changefreq": "realtime",
+					"added": "2026-06-27"
 				},
 				{
 					"path": "/guardian",

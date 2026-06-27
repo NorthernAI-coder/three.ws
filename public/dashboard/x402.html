@@ -17,8 +17,11 @@
 		--text: #f0f2f8;
 		--muted: #8a90a8;
 		--muted-2: #6b7088;
-		--accent: #0a84ff;
-		--accent-2: #60a5fa;
+		/* Monochrome accent — matches the platform design system (public/tokens.css).
+		   Emphasis is carried by pure white/ink, never a brand hue. Functional
+		   green/red below are the only chromatic tokens, mirroring --success/--danger. */
+		--accent: #ffffff;
+		--accent-2: #e8e8e8;
 		--green: #4ade80;
 		--red: #ef4444;
 		--mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
@@ -32,7 +35,7 @@
 		min-height: 100dvh;
 	}
 	a { color: var(--accent-2); text-decoration: none; }
-	a:hover { color: #93c5fd; }
+	a:hover { color: #ffffff; text-decoration: underline; }
 
 	header {
 		display: flex; align-items: center; gap: 16px;
@@ -48,7 +51,7 @@
 	}
 	header .brand .dot {
 		width: 22px; height: 22px;
-		background: conic-gradient(from 200deg, #ffffff, #60a5fa);
+		background: conic-gradient(from 200deg, #ffffff, #4a4a4a);
 		border-radius: 6px;
 	}
 	header .crumb { color: var(--muted); margin-left: 4px; }

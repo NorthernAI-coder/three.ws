@@ -563,7 +563,8 @@ async function handleMarketplace(network) {
 				COALESCE(SUM(sp.amount) FILTER (WHERE sp.status = 'confirmed'), 0)::text                     AS gmv_atomic,
 				COUNT(DISTINCT sp.user_id) FILTER (WHERE sp.status = 'confirmed')::int                       AS buyers,
 				COUNT(DISTINCT sp.agent_id) FILTER (WHERE sp.status = 'confirmed')::int                      AS sellers,
-				COUNT(DISTINCT (sp.user_id, sp.agent_id)) FILTER (WHERE sp.status = 'confirmed')::int        AS pairs
+				COUNT(DISTINCT (sp.user_id, sp.agent_id)) FILTER (WHERE sp.status = 'confirmed')::int        AS pairs,
+				COALESCE(SUM(sp.platform_fee_amount) FILTER (WHERE sp.status = 'confirmed'), 0)::text         AS fee_atomic
 			FROM skill_purchases sp
 			JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
 			WHERE sp.currency_mint = ${THREE_MINT} AND sp.chain = 'solana'
@@ -571,6 +572,9 @@ async function handleMarketplace(network) {
 		`;
 		const purchases = Number(r?.purchases || 0);
 		const gmv = threeFromAtomic(r?.gmv_atomic);
+		// Take-rate is the fee ACTUALLY charged on-chain (persisted per row by the
+		// purchase splitter), never a GMV × rate estimate — so the number is real
+		// even when some purchases predate the fee or skipped it.
 		return {
 			purchases,
 			trials: Number(r?.trials || 0),
@@ -579,7 +583,7 @@ async function handleMarketplace(network) {
 			sellers: Number(r?.sellers || 0),
 			pairs: Number(r?.pairs || 0),
 			avg_ticket_three: purchases > 0 ? gmv / purchases : 0,
-			take_rate_three: feeBps > 0 ? (gmv * feeBps) / 10_000 : 0,
+			take_rate_three: threeFromAtomic(r?.fee_atomic),
 		};
 	};
 
@@ -701,6 +705,162 @@ async function handleMarketplace(network) {
 	};
 }
 
+// ── trading viability dashboard ────────────────────────────────────────────────
+// The numbers that answer "is funded agent trading actually happening, what does it
+// cost, and is it making money?" Activity + cost come from agent_custody_events
+// (category='trade' — the exact source the headline Trades counter reconciles with,
+// so the panel can never drift from it). Realized P&L comes from CLOSED positions in
+// the strategy + sniper position tables, where exit-minus-entry is computed against
+// real fills. Heartbeat buys that never close show up as cost with no P&L — which is
+// the honest story: profitability lives in positions that round-trip, not in volume.
+async function handleTrading(network) {
+	const pubAgent = sql`ai.deleted_at IS NULL AND ai.is_public = true
+		AND COALESCE((ai.meta->>'pulse_opt_out')::boolean, false) = false`;
+
+	// One windowed aggregate over the custody ledger, reused for 24h + 7d. Buys carry
+	// SOL out in amount_lamports (asset='SOL'); sells carry only token base units, so
+	// "SOL deployed" = SUM(amount_lamports) is exactly the SOL spent acquiring coins.
+	const windowAgg = async (interval) => {
+		const [r] = await sql`
+			SELECT
+				COUNT(*)::int                                                AS trades,
+				COUNT(*) FILTER (WHERE ce.amount_lamports IS NOT NULL)::int  AS buys,
+				COUNT(*) FILTER (WHERE ce.amount_lamports IS NULL)::int      AS sells,
+				COALESCE(SUM(ce.amount_lamports), 0)::text                   AS deployed_lamports,
+				COALESCE(SUM(ce.usd), 0)::float8                             AS deployed_usd,
+				COUNT(DISTINCT ce.agent_id)::int                             AS traders
+			FROM agent_custody_events ce
+			JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+			WHERE ce.network = ${network}
+			  AND ce.event_type = 'spend' AND ce.category = 'trade'
+			  AND ce.status IN ('ok', 'confirmed')
+			  AND ce.created_at > now() - ${interval}::interval
+		`;
+		const trades = Number(r?.trades || 0);
+		const buys = Number(r?.buys || 0);
+		const deployedSol = Number(r?.deployed_lamports || 0) / 1e9;
+		return {
+			trades,
+			buys,
+			sells: Number(r?.sells || 0),
+			deployed_sol: deployedSol,
+			deployed_usd: Number(r?.deployed_usd || 0),
+			traders: Number(r?.traders || 0),
+			avg_trade_sol: buys > 0 ? deployedSol / buys : 0,
+		};
+	};
+
+	// Realized P&L over 7d from CLOSED positions across both real position tables.
+	// `realized_pnl_lamports` is signed (exit − entry); a win is strictly positive.
+	const pnlPromise = sql`
+		WITH closed AS (
+			SELECT sp.realized_pnl_lamports AS pnl
+			FROM agent_strategy_positions sp
+			JOIN agent_identities ai ON ai.id = sp.agent_id AND ${pubAgent}
+			WHERE sp.network = ${network} AND sp.status = 'closed'
+			  AND sp.realized_pnl_lamports IS NOT NULL
+			  AND sp.closed_at > now() - interval '7 days'
+			UNION ALL
+			SELECT snp.realized_pnl_lamports AS pnl
+			FROM agent_sniper_positions snp
+			JOIN agent_identities ai ON ai.id = snp.agent_id AND ${pubAgent}
+			WHERE snp.network = ${network} AND snp.status = 'closed'
+			  AND snp.realized_pnl_lamports IS NOT NULL
+			  AND snp.closed_at > now() - interval '7 days'
+		)
+		SELECT COUNT(*)::int                              AS closed_count,
+		       COUNT(*) FILTER (WHERE pnl > 0)::int       AS wins,
+		       COALESCE(SUM(pnl), 0)::text                AS net_lamports
+		FROM closed
+	`;
+
+	// Top trading agents (7d) by trade count, then SOL deployed — the wallets actually
+	// putting capital to work. Same public-agent gate as every other rail.
+	const topTradersPromise = sql`
+		SELECT ai.id AS agent_id, ai.name AS agent_name,
+		       av.thumbnail_key AS thumb_key, av.visibility AS avatar_vis,
+		       ai.meta->>'solana_address' AS agent_addr,
+		       COUNT(*)::int AS trades,
+		       COALESCE(SUM(ce.amount_lamports), 0)::text AS deployed_lamports
+		FROM agent_custody_events ce
+		JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+		WHERE ce.network = ${network}
+		  AND ce.event_type = 'spend' AND ce.category = 'trade'
+		  AND ce.status IN ('ok', 'confirmed')
+		  AND ce.created_at > now() - interval '7 days'
+		GROUP BY ai.id, ai.name, av.thumbnail_key, av.visibility, ai.meta->>'solana_address'
+		ORDER BY COUNT(*) DESC, SUM(ce.amount_lamports) DESC NULLS LAST
+		LIMIT 6
+	`;
+
+	// 7-day trade-count + SOL-deployed sparkline, zero-filled per UTC day.
+	const seriesPromise = sql`
+		WITH days AS (
+			SELECT generate_series(
+				date_trunc('day', now()) - interval '6 days',
+				date_trunc('day', now()),
+				interval '1 day'
+			) AS day
+		),
+		ev AS (
+			SELECT date_trunc('day', ce.created_at) AS day,
+			       COUNT(*)::int AS trades,
+			       COALESCE(SUM(ce.amount_lamports), 0)::text AS deployed_lamports
+			FROM agent_custody_events ce
+			JOIN agent_identities ai ON ai.id = ce.agent_id AND ${pubAgent}
+			WHERE ce.network = ${network}
+			  AND ce.event_type = 'spend' AND ce.category = 'trade'
+			  AND ce.status IN ('ok', 'confirmed')
+			  AND ce.created_at > date_trunc('day', now()) - interval '6 days'
+			GROUP BY 1
+		)
+		SELECT to_char(days.day, 'Dy') AS label, to_char(days.day, 'YYYY-MM-DD') AS day,
+		       COALESCE(ev.trades, 0) AS trades, COALESCE(ev.deployed_lamports, '0') AS deployed_lamports
+		FROM days LEFT JOIN ev ON ev.day = days.day
+		ORDER BY days.day
+	`;
+
+	const [d24, d7, [pnl], topTraders, series] = await Promise.all([
+		windowAgg('24 hours'),
+		windowAgg('7 days'),
+		pnlPromise,
+		topTradersPromise,
+		seriesPromise,
+	]);
+
+	const closedCount = Number(pnl?.closed_count || 0);
+	const wins = Number(pnl?.wins || 0);
+	const netPnlSol = Number(pnl?.net_lamports || 0) / 1e9;
+
+	return {
+		network,
+		window_24h: d24,
+		window_7d: d7,
+		realized_pnl_7d: {
+			net_sol: netPnlSol,
+			closed_positions: closedCount,
+			wins,
+			win_rate: closedCount > 0 ? wins / closedCount : null,
+		},
+		series_7d: series.map((r) => ({
+			label: r.label,
+			day: r.day,
+			trades: Number(r.trades || 0),
+			deployed_sol: Number(r.deployed_lamports || 0) / 1e9,
+		})),
+		top_traders: topTraders.map((r) => ({
+			id: r.agent_id,
+			name: r.agent_name || 'Agent',
+			url: `/agent/${r.agent_id}`,
+			avatar_thumbnail_url: r2Url(r.thumb_key, r.avatar_vis === 'public' || r.avatar_vis === 'unlisted'),
+			solana_address: r.agent_addr || null,
+			trades: Number(r.trades || 0),
+			deployed_sol: Number(r.deployed_lamports || 0) / 1e9,
+		})),
+	};
+}
+
 export default async function handler(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -735,6 +895,17 @@ export default async function handler(req, res) {
 			let body = await cacheGet(cacheKey);
 			if (body === null) {
 				body = await handleMarketplace(network);
+				await cacheSet(cacheKey, body, STATS_TTL_S);
+			}
+			res.setHeader('cache-control', 'public, max-age=20');
+			return json(res, 200, { data: body });
+		}
+
+		if (view === 'trading') {
+			const cacheKey = `pulse:trading:${network}`;
+			let body = await cacheGet(cacheKey);
+			if (body === null) {
+				body = await handleTrading(network);
 				await cacheSet(cacheKey, body, STATS_TTL_S);
 			}
 			res.setHeader('cache-control', 'public, max-age=20');

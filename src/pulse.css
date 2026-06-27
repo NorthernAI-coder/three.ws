@@ -104,6 +104,15 @@
 .px-market-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-md, 16px); align-items: start; }
 .px-market-spark .px-spark-bar--mkt { background: rgba(255,255,255,.28); }
 .px-market-spark .px-spark-col:hover .px-spark-bar--mkt { background: var(--ink, #e8e8e8); }
+/* Trading panel: a touch dimmer than the marketplace bars so the two read distinct
+   in the same monochrome ramp; today's bar still resolves to full ink. */
+.px-trading .px-spark-bar--trade { background: rgba(255,255,255,.22); }
+.px-trading .px-spark-col:hover .px-spark-bar--trade { background: var(--ink, #e8e8e8); }
+.px-trading .px-spark-col--now .px-spark-bar--trade { background: var(--ink-bright, #fff); }
+/* Realized P&L sign — monochrome: the glyph and weight carry direction, never colour.
+   A gain reads bright + tight; a loss reads dim. No green/red anywhere. */
+.px-pnl--up { color: var(--ink-bright, #fff); letter-spacing: -.01em; }
+.px-pnl--down { color: var(--ink-dim, #9a9a9a); }
 .px-skill-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 8px; border-radius: var(--radius-md, 9px); }
 .px-skill-row:hover { background: var(--surface-2, rgba(255,255,255,.05)); }
 .px-skill-name { font-size: var(--text-sm, .8rem); font-weight: 600; color: var(--ink, #e8e8e8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

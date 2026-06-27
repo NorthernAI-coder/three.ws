@@ -236,8 +236,12 @@ function renderMarketplace(d) {
 	$('px-mkt-repeat').textContent = fmtPct(d.repeat_buyer_rate_7d);
 	$('px-mkt-repeat-sub').textContent = `${d.repeat_buyers_7d || 0}/${d.buyers_7d || 0} buyers · 7d`;
 	$('px-mkt-pairs').textContent = String(w7.pairs || 0);
-	$('px-mkt-take').textContent = d.fee_bps > 0 ? fmtThree(w7.take_rate_three) : '—';
-	$('px-mkt-take-sub').textContent = d.fee_bps > 0 ? `$THREE earned · 7d` : 'fee disabled';
+	// Take-rate = fees ACTUALLY charged on-chain (real, persisted per purchase).
+	const take7 = w7.take_rate_three || 0;
+	$('px-mkt-take').textContent = take7 > 0 ? fmtThree(take7) : '—';
+	$('px-mkt-take-sub').textContent = take7 > 0
+		? '$THREE earned · 7d'
+		: (d.fee_bps > 0 ? 'no fees yet · 7d' : 'fee off');
 
 	renderMarketSpark(d.series_7d);
 
@@ -297,6 +301,109 @@ function renderMarketSpark(series) {
 		.join('');
 }
 
+async function loadTrading() {
+	try {
+		const res = await fetch(`/api/pulse?view=trading&network=${state.network}`, { headers: { accept: 'application/json' } });
+		if (!res.ok) throw new Error(`trading ${res.status}`);
+		const { data } = await res.json();
+		renderTrading(data);
+	} catch (e) {
+		log.warn('trading failed', e?.message);
+		// Supplementary panel — never block the page; just hide it on failure.
+		$('px-trading')?.setAttribute('hidden', '');
+	}
+}
+
+// Signed SOL → compact ledger label with an explicit sign and direction glyph.
+// Monochrome by design: the arrow carries the sign, never colour.
+function fmtSignedSol(n) {
+	const v = Number(n) || 0;
+	if (v === 0) return '◎0';
+	const mag = Math.abs(v);
+	const body = mag >= 1 ? mag.toFixed(2) : mag.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+	return `${v > 0 ? '▲ +' : '▼ −'}◎${body}`;
+}
+
+function renderTrading(d) {
+	const panel = $('px-trading');
+	if (!panel) return;
+	// Guard against a deploy-skew response (e.g. an older backend answering this view
+	// with the feed shape): without the windowed aggregates there's nothing honest to
+	// show, so hide rather than render a panel full of em-dashes.
+	if (!d || (!d.window_24h && !d.window_7d)) { panel.hidden = true; return; }
+	const w24 = d.window_24h || {};
+	const w7 = d.window_7d || {};
+	const pnl = d.realized_pnl_7d || {};
+	panel.hidden = false;
+
+	$('px-trade-c24').textContent = fmtNum(w24.trades);
+	$('px-trade-c24-sub').textContent = `${w24.traders || 0} wallet${w24.traders === 1 ? '' : 's'}`;
+	$('px-trade-c7').textContent = fmtNum(w7.trades);
+	$('px-trade-c7-sub').textContent = `${w7.buys || 0} buy · ${w7.sells || 0} sell`;
+	$('px-trade-dep7').textContent = fmtSol(w7.deployed_sol);
+	$('px-trade-dep7-sub').textContent = w7.deployed_usd > 0 ? `${fmtUsd(w7.deployed_usd)} · into buys` : 'into buys';
+	$('px-trade-avg').textContent = fmtSol(w7.avg_trade_sol);
+	$('px-trade-act').textContent = fmtNum(w24.traders);
+
+	// Realized P&L — only meaningful once positions have closed. Until then it's an
+	// honest "—" rather than a fake zero, so a fresh pilot reads as "no closes yet".
+	const pnlEl = $('px-trade-pnl');
+	const pnlSub = $('px-trade-pnl-sub');
+	const pnlTag = $('px-trade-pnl-tag');
+	if (pnl.closed_positions > 0) {
+		pnlEl.textContent = fmtSignedSol(pnl.net_sol);
+		pnlEl.classList.toggle('px-pnl--up', pnl.net_sol > 0);
+		pnlEl.classList.toggle('px-pnl--down', pnl.net_sol < 0);
+		pnlSub.textContent = `${pnl.closed_positions} closed · ${fmtPct(pnl.win_rate)} win`;
+		pnlTag.textContent = `${pnl.closed_positions} closed · 7d`;
+		pnlTag.classList.remove('px-market-tag--off');
+	} else {
+		pnlEl.textContent = '—';
+		pnlEl.classList.remove('px-pnl--up', 'px-pnl--down');
+		pnlSub.textContent = 'no closes yet';
+		pnlTag.textContent = 'no closes · 7d';
+		pnlTag.classList.add('px-market-tag--off');
+	}
+
+	renderTradeSpark(d.series_7d);
+
+	// Top traders — the wallets actually putting capital to work.
+	const host = $('px-trade-traders');
+	if (d.top_traders?.length) {
+		host.innerHTML = d.top_traders
+			.map((a) => agentCardHTML(a, `${a.trades} <small>trade${a.trades === 1 ? '' : 's'} · ${fmtSol(a.deployed_sol)}</small>`))
+			.join('');
+		wireWalletChips(host);
+	} else {
+		host.innerHTML = `<p class="px-lb-empty">No agent trades in the last 7 days. Fund a treasury and enable circulation to start the loop. <a href="/admin/launcher">Open controls.</a></p>`;
+	}
+}
+
+// 7-day trade-count sparkline; today highlighted, bars scale to the busiest day.
+function renderTradeSpark(series) {
+	const host = $('px-trade-spark');
+	const totalEl = $('px-trade-spark-total');
+	if (!host) return;
+	const days = Array.isArray(series) ? series : [];
+	const total = days.reduce((s, d) => s + (d.trades || 0), 0);
+	if (totalEl) totalEl.textContent = `${fmtNum(total)} trade${total === 1 ? '' : 's'}`;
+	if (!days.length) { host.innerHTML = `<p class="px-lb-empty">No activity yet.</p>`; return; }
+	const peak = Math.max(1, ...days.map((d) => d.trades || 0));
+	host.innerHTML = days
+		.map((d, i) => {
+			const n = d.trades || 0;
+			const h = n > 0 ? Math.max(6, Math.round((n / peak) * 100)) : 2;
+			const today = i === days.length - 1;
+			return (
+				`<div class="px-spark-col${today ? ' px-spark-col--now' : ''}" title="${esc(d.day)}: ${n} trade${n === 1 ? '' : 's'} · ${fmtSol(d.deployed_sol)}">` +
+				`<div class="px-spark-bar px-spark-bar--trade" style="height:${h}%"></div>` +
+				`<span class="px-spark-lbl">${esc(d.label)}</span>` +
+				`</div>`
+			);
+		})
+		.join('');
+}
+
 function mountFeed() {
 	const host = $('px-feed');
 	if (state.pulse) state.pulse.destroy();
@@ -323,6 +430,7 @@ function wireNetworkToggle() {
 			$('px-net-label').textContent = net;
 			state.pulse?.setNetwork(net);
 			loadStats();
+			loadTrading();
 			loadMarketplace();
 		});
 	}
@@ -332,9 +440,10 @@ function init() {
 	wireNetworkToggle();
 	mountFeed();
 	loadStats();
+	loadTrading();
 	loadMarketplace();
 	// Refresh stats on a slow cadence; the feed has its own live delta polling.
-	setInterval(() => { if (!document.hidden) { loadStats(); loadMarketplace(); } }, 60_000);
+	setInterval(() => { if (!document.hidden) { loadStats(); loadTrading(); loadMarketplace(); } }, 60_000);
 }
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

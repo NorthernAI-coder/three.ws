@@ -24,14 +24,30 @@
 	<link rel="stylesheet" href="/fonts/fonts.css" />
 	<style>
 		:root {
-			--al-bg:      #060608;
-			--al-surface: #0d0f18;
-			--al-border:  rgba(255,255,255,0.07);
-			--al-text:    #e8eaf4;
-			--al-muted:   rgba(255,255,255,0.35);
-			--al-green:   #5fd08a;
-			--al-accent:  #5b8fff;
-			--al-font:    'Inter', system-ui, -apple-system, sans-serif;
+			--al-bg:        #0a0a0b;
+			--al-surface:   #141416;
+			--al-surface-2: #1b1b1e;
+			--al-border:    rgba(255,255,255,0.08);
+			--al-border-hi: rgba(255,255,255,0.18);
+			--al-text:      #f4f4f5;
+			--al-muted:     rgba(255,255,255,0.44);
+			--al-faint:     rgba(255,255,255,0.22);
+			/* Monochrome: "live" reads as pure white against the near-black field. */
+			--al-green:     #ffffff;
+			--al-accent:    #f4f4f5;
+			--al-font:      'Inter', system-ui, -apple-system, sans-serif;
+		}
+		[data-theme='light'] {
+			--al-bg:        #f6f6f7;
+			--al-surface:   #ffffff;
+			--al-surface-2: #f0f0f1;
+			--al-border:    rgba(0,0,0,0.1);
+			--al-border-hi: rgba(0,0,0,0.2);
+			--al-text:      #18181b;
+			--al-muted:     rgba(0,0,0,0.5);
+			--al-faint:     rgba(0,0,0,0.3);
+			--al-green:     #18181b;
+			--al-accent:    #18181b;
 		}
 		*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -85,13 +101,13 @@
 			display: flex;
 			align-items: center;
 			gap: 5px;
-			background: rgba(95,208,138,0.1);
-			border: 1px solid rgba(95,208,138,0.22);
+			background: rgba(255,255,255,0.06);
+			border: 1px solid var(--al-border-hi);
 			border-radius: 20px;
 			padding: 3px 10px 3px 7px;
 			font-size: 11px;
 			font-weight: 700;
-			color: var(--al-green);
+			color: var(--al-text);
 			letter-spacing: 0.03em;
 		}
 		.al-live-pill-dot {
@@ -121,15 +137,15 @@
 		.al-nav-cta {
 			padding: 6px 14px;
 			border-radius: 6px;
-			background: rgba(91,143,255,0.12);
-			border: 1px solid rgba(91,143,255,0.28);
-			color: var(--al-accent);
+			background: rgba(255,255,255,0.06);
+			border: 1px solid var(--al-border-hi);
+			color: var(--al-text);
 			font-size: 13px;
 			font-weight: 700;
 			text-decoration: none;
-			transition: background 0.12s;
+			transition: background 0.12s, border-color 0.12s;
 		}
-		.al-nav-cta:hover { background: rgba(91,143,255,0.22); }
+		.al-nav-cta:hover { background: rgba(255,255,255,0.12); border-color: var(--al-text); }
 
 		/* ── main content ─────────────────────────────────────────────── */
 		.al-main {
@@ -383,15 +399,15 @@
 			margin-top: 4px;
 			padding: 9px 20px;
 			border-radius: 7px;
-			background: rgba(95,208,138,0.1);
-			border: 1px solid rgba(95,208,138,0.25);
-			color: var(--al-green);
+			background: var(--al-text);
+			border: 1px solid var(--al-text);
+			color: var(--al-bg);
 			font-size: 13px;
 			font-weight: 700;
 			text-decoration: none;
-			transition: background 0.12s;
+			transition: opacity 0.12s;
 		}
-		.al-empty-cta:hover { background: rgba(95,208,138,0.2); }
+		.al-empty-cta:hover { opacity: 0.85; }
 
 		/* ── skeleton loader ──────────────────────────────────────────── */
 		.al-skeleton {
@@ -492,8 +508,8 @@
 		</div>
 
 		<div class="al-grid" id="al-grid">
-			<!-- Skeleton loaders while fetching -->
-			${[0,1,2].map(() => `
+			<!-- Static skeleton loaders shown until the roster resolves; src/agents-live.js
+			     removes these once real cards (or the empty state) render. -->
 			<div class="al-skeleton">
 				<div class="al-skeleton-screen"></div>
 				<div class="al-skeleton-info">
@@ -503,7 +519,27 @@
 						<div class="al-skeleton-line"></div>
 					</div>
 				</div>
-			</div>`).join('')}
+			</div>
+			<div class="al-skeleton">
+				<div class="al-skeleton-screen"></div>
+				<div class="al-skeleton-info">
+					<div class="al-skeleton-avatar"></div>
+					<div class="al-skeleton-lines">
+						<div class="al-skeleton-line"></div>
+						<div class="al-skeleton-line"></div>
+					</div>
+				</div>
+			</div>
+			<div class="al-skeleton">
+				<div class="al-skeleton-screen"></div>
+				<div class="al-skeleton-info">
+					<div class="al-skeleton-avatar"></div>
+					<div class="al-skeleton-lines">
+						<div class="al-skeleton-line"></div>
+						<div class="al-skeleton-line"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 	</main>
 

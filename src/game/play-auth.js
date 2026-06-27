@@ -60,8 +60,16 @@ export function hasWallet() {
  * @returns {Promise<{ nonce: string, expiresAt: string, required: boolean, mint: string, minBalance: number }>}
  */
 export async function fetchPlayConfig() {
-	const res = await fetch(NONCE_URL, { credentials: 'include', headers: { accept: 'application/json' } });
-	const body = await res.json().catch(() => null);
+	let res, body;
+	try {
+		res = await fetch(NONCE_URL, { credentials: 'include', headers: { accept: 'application/json' } });
+		body = await res.json().catch(() => null);
+	} catch {
+		throw new PlayAuthError('nonce_unavailable', 'Cannot reach the server. Check your connection and try again.');
+	}
+	if (res.status === 429) {
+		throw new PlayAuthError('nonce_unavailable', 'Server is busy — try again in a moment.');
+	}
 	if (!res.ok || !body?.data?.nonce) {
 		throw new PlayAuthError('nonce_unavailable', body?.error_description || 'Could not start sign-in. Try again.');
 	}

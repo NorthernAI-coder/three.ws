@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T10:26:19.957Z",
+	"generated_at": "2026-06-27T20:21:36.176Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -821,6 +821,16 @@
 					"title": "Agent Activity — Oracle conviction in real time",
 					"description": "The trading floor: every Oracle conviction action from every autonomous 3D agent on pump.fun, live. Filter by tier and mode, track outcomes, and copy the winners.",
 					"added": "2026-06-16",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/pipeline",
+					"title": "Recording Pipeline — the data loop, live",
+					"description": "One-glance health of the closed loop that turns every pump.fun launch into a trade signal: the launch recorder, signal intel, ground-truth outcomes, Oracle conviction, the wallet reputation graph, trained weights, and the agents trading on the result — every stage, in real time.",
+					"added": "2026-06-27",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

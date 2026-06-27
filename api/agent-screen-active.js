@@ -43,11 +43,15 @@ export default async function handleAgentScreenActive(req, res) {
 	// absent so cold starts don't error.
 	let agentIds = [];
 	try {
-		// ZRANGEBYSCORE on active set — agents that pushed a frame in the last 120s
+		// ZRANGE … BYSCORE on the active set — agents that pushed a frame in the
+		// last 120s. (@upstash/redis exposes range-by-score as zrange with the
+		// byScore option, not a zrangebyscore method.)
 		const now = Date.now();
 		const minScore = now - 120_000;
-		const raw = await r.zrangebyscore('agent:screen:active', minScore, now, {
-			limit: { offset: 0, count: MAX_DESKS },
+		const raw = await r.zrange('agent:screen:active', minScore, now, {
+			byScore: true,
+			offset: 0,
+			count: MAX_DESKS,
 		});
 		agentIds = Array.isArray(raw) ? raw.slice(0, MAX_DESKS) : [];
 	} catch {
