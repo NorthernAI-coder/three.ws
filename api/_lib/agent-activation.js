@@ -268,151 +268,165 @@ export async function activateAgent({ agentId, userId }) {
 			() => {},
 		);
 
-	// Rolling daily cap — checked AFTER claiming so this request's own pending row
-	// is counted; a concurrent burst can overshoot only by the read-skew window.
-	if ((await recentActivationCount()) > cfg.dailyCap) {
-		await releaseClaim();
-		return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
-	}
-
-	// Provision the wallet if it isn't already (lazy-mint path), then resolve the
-	// destination address.
-	let address = agent.meta?.solana_address || null;
+	// Everything from here can fail. The invariant: release the claim ONLY when no
+	// grant could have left the treasury. `transferStarted` flips true the instant
+	// before we broadcast — after that, an unexpected throw must leave the row
+	// `pending` (which blocks any re-grant) rather than release it and risk a
+	// double-spend. The outer catch is the backstop for any fail-able call (e.g. the
+	// cap query, an RPC hiccup) that isn't already handled inline below.
+	let transferStarted = false;
 	try {
-		const w = await ensureAgentWallet(agentId, userId, { reason: 'activation' });
+		// Rolling daily cap — checked AFTER claiming so this request's own pending row
+		// is counted; a concurrent burst can overshoot only by the read-skew window.
+		if ((await recentActivationCount()) > cfg.dailyCap) {
+			await releaseClaim();
+			return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
+		}
+
+		// Provision the wallet if it isn't already (lazy-mint path), then resolve the
+		// destination address.
+		let address = agent.meta?.solana_address || null;
+		const w = await ensureAgentWallet(agentId, userId, { reason: 'activation' }).catch((err) => {
+			console.error('[agent-activation] wallet provision failed', err?.message);
+			return null;
+		});
 		if (w?.address) address = w.address;
-	} catch (err) {
-		console.error('[agent-activation] wallet provision failed', err?.message);
-		await releaseClaim();
-		return { ok: false, code: 'wallet_unavailable', message: 'could not prepare the agent wallet' };
-	}
-	if (!address) {
-		await releaseClaim();
-		return { ok: false, code: 'wallet_unavailable', message: 'agent has no wallet to fund' };
-	}
-
-	let treasuryKp;
-	try {
-		treasuryKp = await getTreasuryKeypair(TREASURY_ENV_OVERRIDE);
-	} catch (err) {
-		await releaseClaim();
-		return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
-	}
-
-	const conn = treasuryConnection(cfg.network);
-	const lamports = cfg.grantLamports;
-
-	// Confirm the treasury can cover the grant + a fee buffer before sending, so a
-	// dry treasury yields a clean message instead of a raw RPC failure.
-	try {
-		const have = await lamportBalance(conn, treasuryKp.publicKey.toBase58());
-		if (have < BigInt(lamports) + BigInt(FEE_BUFFER)) {
+		if (!address) {
 			await releaseClaim();
-			return { ok: false, code: 'treasury_low', message: 'activation is temporarily paused' };
+			return { ok: false, code: 'wallet_unavailable', message: 'could not prepare the agent wallet' };
 		}
-	} catch {
-		/* balance probe is best-effort; the transfer below is the real gate */
-	}
 
-	let signature;
-	try {
-		signature = await transferSol(conn, treasuryKp, address, lamports);
-	} catch (err) {
-		console.error('[agent-activation] grant transfer failed', err?.message);
-		// A confirmation timeout can throw even though the transfer actually landed
-		// on-chain (common under RPC congestion). transferSol attaches the broadcast
-		// signature to the error; before releasing the claim — which would let the
-		// owner retry and DOUBLE-SPEND the treasury — probe the chain. If the grant
-		// already landed, treat it as success; only release when it provably did not.
-		const broadcastSig = err?.signature || null;
-		const landed = broadcastSig ? await signatureLanded(conn, broadcastSig).catch(() => false) : false;
-		if (!landed) {
+		let treasuryKp;
+		try {
+			treasuryKp = await getTreasuryKeypair(TREASURY_ENV_OVERRIDE);
+		} catch (err) {
 			await releaseClaim();
-			return { ok: false, code: 'transfer_failed', message: 'the grant could not be sent — try again' };
+			return { ok: false, code: 'not_configured', message: 'activation is not available right now' };
 		}
-		signature = broadcastSig;
+
+		const conn = treasuryConnection(cfg.network);
+		const lamports = cfg.grantLamports;
+
+		// Confirm the treasury can cover the grant + a fee buffer before sending, so a
+		// dry treasury yields a clean message instead of a raw RPC failure.
+		try {
+			const have = await lamportBalance(conn, treasuryKp.publicKey.toBase58());
+			if (have < BigInt(lamports) + BigInt(FEE_BUFFER)) {
+				await releaseClaim();
+				return { ok: false, code: 'treasury_low', message: 'activation is temporarily paused' };
+			}
+		} catch {
+			/* balance probe is best-effort; the transfer below is the real gate */
+		}
+
+		let signature;
+		transferStarted = true; // past this point, never auto-release the claim
+		try {
+			signature = await transferSol(conn, treasuryKp, address, lamports);
+		} catch (err) {
+			console.error('[agent-activation] grant transfer failed', err?.message);
+			// A confirmation timeout can throw even though the transfer actually landed
+			// on-chain (common under RPC congestion). transferSol attaches the broadcast
+			// signature to the error; before releasing the claim — which would let the
+			// owner retry and DOUBLE-SPEND the treasury — probe the chain. Release only
+			// when the grant provably did NOT land.
+			const broadcastSig = err?.signature || null;
+			const landed = broadcastSig ? await signatureLanded(conn, broadcastSig).catch(() => false) : false;
+			if (!landed) {
+				await releaseClaim();
+				return { ok: false, code: 'transfer_failed', message: 'the grant could not be sent — try again' };
+			}
+			signature = broadcastSig;
+		}
+
+		// Price the grant in USD (best-effort) so the Pulse can value it.
+		let usd = null;
+		try {
+			const px = await solUsdPrice();
+			if (px) usd = (lamports / SOL) * px;
+		} catch {
+			/* usd is decoration */
+		}
+
+		// Record the grant as a real inbound tip — this is what lands the agent on the
+		// Money Pulse and in active-wallet / tip counts. Idempotent on (agent, key).
+		await recordCustodyEvent({
+			agentId,
+			userId: null,
+			eventType: 'tip',
+			category: 'tip',
+			network: cfg.network,
+			asset: 'SOL',
+			amountLamports: lamports,
+			usd,
+			destination: address,
+			signature,
+			status: 'confirmed',
+			idempotencyKey: `activation:${agentId}`,
+			meta: {
+				source: 'activation_grant',
+				from: 'three.ws',
+				label: 'Activation welcome grant',
+				block_time: new Date().toISOString(),
+				decimals: 9,
+			},
+		}).catch((e) => console.warn('[agent-activation] custody event failed', e?.message));
+
+		await sql`
+			update agent_activations
+			set status = 'confirmed', signature = ${signature}, lamports = ${String(lamports)},
+			    usd = ${usd}, confirmed_at = now()
+			where agent_id = ${agentId}
+		`;
+
+		// Announce on the live ticker + notify the owner. Fire-and-forget — never block.
+		publishFeedEvent({
+			type: 'agent-activated',
+			ts: Date.now(),
+			actor: agent.name,
+			agentId,
+			name: agent.name,
+		}).catch(() => {});
+		insertNotification(userId, 'agent_activated', {
+			agent_id: agentId,
+			agent_name: agent.name,
+			sol: lamports / SOL,
+			signature,
+		}).catch(() => {});
+
+		// Ramp value: make the agent able to EARN the moment it's live. Register its
+		// custodial wallet as the default payout destination so any skill it lists
+		// resolves a recipient and the marketplace demand loop (circulation real-seller
+		// demand) can route real $THREE to it. Best-effort — never blocks the grant.
+		sql`
+			insert into agent_payout_wallets (user_id, agent_id, address, chain, is_default, preferred_network)
+			values (${userId}, ${agentId}, ${address}, 'solana', true, 'mainnet')
+			on conflict (user_id, agent_id, chain) do update set address = excluded.address, is_default = true
+		`.catch((e) => console.warn('[agent-activation] payout wallet upsert failed', e?.message));
+
+		// Cross-system milestone: funding your first agent IS a "first win" — stamp the
+		// owner's user-activation milestone, which fires the two-sided referral reward
+		// when they were referred. Best-effort, never blocks the grant return.
+		markActivated(userId, {
+			source: 'agent_activation',
+			meta: { agentId, grantSol: cfg.grantSol },
+		}).catch(() => {});
+
+		return {
+			ok: true,
+			signature,
+			explorer: explorerTxUrl(signature, cfg.network),
+			sol: lamports / SOL,
+			usd,
+			activated_at: new Date().toISOString(),
+			network: cfg.network,
+		};
+	} catch (err) {
+		console.error('[agent-activation] unexpected failure', err?.message);
+		// Safe backstop: only release before any broadcast. After a transfer may have
+		// gone out, leave the row `pending` — it blocks a re-grant (no double-spend);
+		// if the grant did land, the custody event already marked the agent live.
+		if (!transferStarted) await releaseClaim();
+		return { ok: false, code: 'transfer_failed', message: 'activation could not complete — try again' };
 	}
-
-	// Price the grant in USD (best-effort) so the Pulse can value it.
-	let usd = null;
-	try {
-		const px = await solUsdPrice();
-		if (px) usd = (lamports / SOL) * px;
-	} catch {
-		/* usd is decoration */
-	}
-
-	// Record the grant as a real inbound tip — this is what lands the agent on the
-	// Money Pulse and in active-wallet / tip counts. Idempotent on (agent, key).
-	await recordCustodyEvent({
-		agentId,
-		userId: null,
-		eventType: 'tip',
-		category: 'tip',
-		network: cfg.network,
-		asset: 'SOL',
-		amountLamports: lamports,
-		usd,
-		destination: address,
-		signature,
-		status: 'confirmed',
-		idempotencyKey: `activation:${agentId}`,
-		meta: {
-			source: 'activation_grant',
-			from: 'three.ws',
-			label: 'Activation welcome grant',
-			block_time: new Date().toISOString(),
-			decimals: 9,
-		},
-	}).catch((e) => console.warn('[agent-activation] custody event failed', e?.message));
-
-	await sql`
-		update agent_activations
-		set status = 'confirmed', signature = ${signature}, lamports = ${String(lamports)},
-		    usd = ${usd}, confirmed_at = now()
-		where agent_id = ${agentId}
-	`;
-
-	// Announce on the live ticker + notify the owner. Fire-and-forget — never block.
-	publishFeedEvent({
-		type: 'agent-activated',
-		ts: Date.now(),
-		actor: agent.name,
-		agentId,
-		name: agent.name,
-	}).catch(() => {});
-	insertNotification(userId, 'agent_activated', {
-		agent_id: agentId,
-		agent_name: agent.name,
-		sol: lamports / SOL,
-		signature,
-	}).catch(() => {});
-
-	// Ramp value: make the agent able to EARN the moment it's live. Register its
-	// custodial wallet as the default payout destination so any skill it lists
-	// resolves a recipient and the marketplace demand loop (circulation real-seller
-	// demand) can route real $THREE to it. Best-effort — never blocks the grant.
-	sql`
-		insert into agent_payout_wallets (user_id, agent_id, address, chain, is_default, preferred_network)
-		values (${userId}, ${agentId}, ${address}, 'solana', true, 'mainnet')
-		on conflict (user_id, agent_id, chain) do update set address = excluded.address, is_default = true
-	`.catch((e) => console.warn('[agent-activation] payout wallet upsert failed', e?.message));
-
-	// Cross-system milestone: funding your first agent IS a "first win" — stamp the
-	// owner's user-activation milestone, which fires the two-sided referral reward
-	// when they were referred. Best-effort, never blocks the grant return.
-	markActivated(userId, {
-		source: 'agent_activation',
-		meta: { agentId, grantSol: cfg.grantSol },
-	}).catch(() => {});
-
-	return {
-		ok: true,
-		signature,
-		explorer: explorerTxUrl(signature, cfg.network),
-		sol: lamports / SOL,
-		usd,
-		activated_at: new Date().toISOString(),
-		network: cfg.network,
-	};
 }

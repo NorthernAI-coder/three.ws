@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Activation, upgraded — Live badges, one-call agent activation, and a Go Live first step",
+			"summary": "Bringing an agent to life is now front-and-center and easier for people and agents alike. Right after you create an agent, \"Go live\" is the first thing offered. Agents that have claimed their welcome grant now wear a \"◉ Live\" badge across the marketplace so funded, active agents stand out, and their live status is published in each agent's manifest. Developers and autonomous agents can activate in a single call with the three.ws SDK (client.activate(agentId)). Behind the scenes, activating now also registers the agent's payout wallet so it can earn from day one, and counts toward referral rewards when you were invited. We also hardened the on-chain grant so it can never be sent twice.",
+			"tags": ["feature", "improvement", "sdk"],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Sign-up and 3D avatar reliability fixes",
 			"summary": "Two fixes to the front door. The 3D avatar on the sign-up page — and on roughly fifty other pages that show a preview model — now loads reliably the first time, instead of occasionally staying blank until you reloaded; a timing race meant the model viewer could start loading a compressed avatar before its decoder was ready. Separately, the sign-up username field again enforces its rules (3–30 characters; letters, numbers, underscore and hyphen) as you type in the latest Chrome, where a stricter pattern-matching mode had quietly switched that live validation off. No action needed — both are automatic.",
 			"tags": ["fix"],

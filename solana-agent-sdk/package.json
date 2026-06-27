@@ -38,6 +38,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "build:dist": "tsup --no-dts",
     "build:prod": "TSUP_SOURCEMAP=false tsup --minify",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
