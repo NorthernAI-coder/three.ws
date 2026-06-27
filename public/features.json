@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-26T21:04:17.961Z",
+	"generated_at": "2026-06-27T01:36:42.881Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -921,6 +921,16 @@
 					"title": "Signal Marketplace — paid alpha feeds, ranked by proven edge",
 					"description": "Verified traders publish their live entry/exit signals as x402-metered feeds. Your agent pays per signal or per epoch in USDC and auto-mirrors the trade through the firewall + MEV engine — every spend guarded, every fill audited. Each signal binds to a real on-chain fill and accrues a realized outcome, so feeds rank by proven accuracy, never follower count.",
 					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/dashboard/capabilities",
+					"title": "Capabilities — Alpha Hunt, Launcher, Auto-Claim & Market Maker",
+					"description": "Live command center for all 4 autonomous agent capabilities: Alpha Hunt smart-money scoring, autonomous Coin Launcher on schedule, Creator Auto-Claim for fee harvesting, and Market Maker with Jito execution.",
+					"added": "2026-06-27",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

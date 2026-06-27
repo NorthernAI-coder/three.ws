@@ -42,6 +42,7 @@ export const NAV = [
 	{ path: '/dashboard/tokens',      label: 'Tokens',          icon: 'token',     group: 'Monetize',   tags: ['pump.fun', 'launch', 'bonding curve', 'royalties', 'trade'] },
 	{ path: '/dashboard/copy',        label: 'Copy Trading',    icon: 'live',      group: 'Monetize',   tags: ['copy', 'copy-trade', 'mirror', 'leader', 'follow', 'traders', 'intents', 'pump.fun', 'sniper'] },
 	{ path: '/dashboard/sniper',      label: 'Sniper Strategies', icon: 'live',    group: 'Monetize',   tags: ['sniper', 'autonomous', 'strategy', 'pump.fun', 'auto-trade', 'budget', 'positions', 'pnl', 'kill-switch'] },
+	{ path: '/dashboard/capabilities', label: 'Capabilities',   icon: 'live',      group: 'Monetize',   tags: ['alpha hunt', 'launcher', 'coin launcher', 'auto-claim', 'creator fees', 'market maker', 'jito', 'autonomous', 'capabilities'] },
 	{ path: '/dashboard/prelaunch-radar', label: 'Pre-Launch Radar', icon: 'live', group: 'Monetize',   tags: ['radar', 'pre-launch', 'precursor', 'block-zero', 'snipe', 'creator', 'smart-money', 'pump.fun', 'pre-cog', 'watchlist'] },
 	{ path: '/oracle',                label: 'Oracle',          icon: 'oracle',    group: 'Monetize',   tags: ['conviction', 'score', 'tier', 'pump.fun', 'signal', 'ai', 'trade intelligence', 'wins', 'proof', 'leaderboard'], external: true },
 	{ path: '/dashboard/portfolio',   label: 'Portfolio',        icon: 'portfolio', group: 'Monetize',  tags: ['nft', 'holdings', 'balances', 'wallet', 'collection', 'crypto', 'tokens', 'chart', 'send'] },

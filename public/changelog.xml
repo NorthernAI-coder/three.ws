@@ -7,6 +7,22 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Capabilities — Alpha Hunt, Launcher, Auto-Claim &amp; Market Maker</title>
+			<link>https://three.ws/dashboard/capabilities</link>
+			<guid isPermaLink="false">2026-06-27:Capabilities — Alpha Hunt, Launcher, Auto-Claim &amp; Market Maker</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Live command center for all 4 autonomous agent capabilities: Alpha Hunt smart-money scoring, autonomous Coin Launcher on schedule, Creator Auto-Claim for fee harvesting, and Market Maker with Jito execution.</description>
+		</item>
+		<item>
+			<title>Capabilities dashboard — live command center for all 4 autonomous features</title>
+			<link>https://three.ws/dashboard/capabilities</link>
+			<guid isPermaLink="false">2026-06-27:Capabilities dashboard — live command center for all 4 autonomous features</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&amp;L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.</description>
+		</item>
+		<item>
 			<title>Agent Payment Sessions</title>
 			<link>https://three.ws/payments</link>
 			<guid isPermaLink="false">2026-06-26:Agent Payment Sessions</guid>

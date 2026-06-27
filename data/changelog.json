@@ -2,6 +2,13 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-27",
+			"title": "Capabilities dashboard — live command center for all 4 autonomous features",
+			"summary": "New /dashboard/capabilities page surfaces live status for Alpha Hunt, Coin Launcher, Auto-Claim, and Market Maker in one view. KPI strips show daily budget, total volume, claimable fees, and net P&L per capability. Tabbed tables show launched coins, schedule status, per-market inventory bars, and recent MM trades. Alpha Hunt trigger is now also configurable directly from the Sniper Strategies dashboard — full field set including min smart-money count, quality score, organic score, max market cap, and narrative keywords.",
+			"tags": ["feature", "improvement"],
+			"link": "/dashboard/capabilities"
+		},
+		{
 			"date": "2026-06-26",
 			"title": "Agent Payment Sessions — governed x402 spend without private keys",
 			"summary": "Agents can now pay x402 APIs without holding a private key. Create a Payment Session with a budget (drawn from credits), hand the token to an agent, and the platform signs every Solana USDC transfer. Five governance checks fire before any money moves: token auth, session status, URL allowlist, per-tx ceiling, and atomic budget reservation. Sessions expire automatically; un-spent budget is refunded on cancel. Also ships: a /payments dashboard to manage sessions and view payment history, and the @three-ws/agentcore-payments-mcp MCP server with create_payment_session, pay_with_session, check_payment_session, list_payment_sessions, and cancel_payment_session tools.",
