@@ -184,4 +184,42 @@ export declare class AgentClient {
 		args?: Record<string, unknown>,
 		options?: InvokeSkillOptions,
 	): Promise<unknown>;
+	/**
+	 * Bring an agent live in one call — claim its one-time on-chain activation grant.
+	 * Requires a bearer token with `avatars:write` for the agent's owner. Idempotent.
+	 */
+	activate(agentId: string): Promise<AgentActivationResult>;
+	/** Read an agent's activation status (the "Go Live" state it's in). */
+	getActivationStatus(agentId: string): Promise<AgentActivationStatus>;
+}
+
+export interface AgentActivationResult {
+	ok: boolean;
+	already?: boolean;
+	pending?: boolean;
+	signature?: string;
+	explorer?: string | null;
+	sol?: number;
+	usd?: number | null;
+	activated_at?: string;
+	network?: string;
+}
+
+export interface AgentActivationStatus {
+	enabled: boolean;
+	eligible: boolean;
+	activated: boolean;
+	pending: boolean;
+	reason: string | null;
+	grant_sol: number;
+	network: string;
+	has_wallet: boolean;
+	receipt: {
+		signature: string;
+		explorer: string | null;
+		sol: number | null;
+		usd: number | null;
+		activated_at: string;
+		network: string;
+	} | null;
 }
