@@ -10,7 +10,22 @@ import { cors, json, error, method, readJson, wrap } from '../../_lib/http.js';
 import { requireAdmin } from '../../_lib/admin.js';
 import { parse } from '../../_lib/validate.js';
 import { logAudit } from '../../_lib/audit.js';
+import { constantTimeEquals } from '../../_lib/crypto.js';
 import { createSubscription, listSubscriptions } from '../../_lib/x402/api-keys.js';
+
+// Internal-service read access. Server-side jobs (the x402 autonomous loop's
+// Subscription Status Health Check) enumerate subscriptions over HTTP with the
+// shared INTERNAL_API_KEY rather than a browser session. The bypass is GET-only
+// (read), constant-time compared, and never grants the mutating POST path —
+// issuing a key still requires a real admin session. Returns false (no bypass)
+// when the header is absent or the key is unconfigured, so the requireAdmin gate
+// always runs for ordinary callers.
+function isInternalServiceRequest(req) {
+	const provided = req.headers['x-api-key'] || req.headers['X-API-Key'];
+	const expected = process.env.INTERNAL_API_KEY;
+	if (!provided || !expected) return false;
+	return constantTimeEquals(String(provided), String(expected));
+}
 
 const createSchema = z.object({
 	name: z.string().trim().min(1).max(120),
@@ -27,6 +42,14 @@ const createSchema = z.object({
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['GET', 'POST'])) return;
+
+	// Internal-service read bypass (GET only) — see isInternalServiceRequest.
+	if (req.method === 'GET' && isInternalServiceRequest(req)) {
+		const includeInactive =
+			req.query?.includeInactive === '1' || req.query?.includeInactive === 'true';
+		const rows = await listSubscriptions({ includeInactive });
+		return json(res, 200, { data: rows, caller: 'internal-service' });
+	}
 
 	const admin = await requireAdmin(req, res);
 	if (!admin) return;
