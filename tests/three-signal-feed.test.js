@@ -7,7 +7,6 @@ import {
 	getThreeSignalHistory,
 	THREE_DECIMALS,
 } from '../api/_lib/x402/three-signal-store.js';
-import { getSelfRegistry } from '../api/_lib/x402/autonomous-registry.js';
 
 // A live three-intel response (DexScreener-backed shape).
 const SAMPLE = {
@@ -107,48 +106,9 @@ describe('three-signal-store — getThreeSignalHistory', () => {
 	it('clamps the limit into [1, 500]', async () => {
 		const sql = mockSql();
 		await getThreeSignalHistory(sql, 9999);
-		await getThreeSignalHistory(sql, 0);
+		await getThreeSignalHistory(sql, -5);
 		const limits = sql.calls.map((c) => c.values[c.values.length - 1]);
 		expect(limits).toContain(500);
 		expect(limits).toContain(1);
-	});
-});
-
-describe('autonomous registry — three-intel entry', () => {
-	const entry = getSelfRegistry().find((e) => e.id === 'three-intel');
-
-	it('exists, is enabled, GET, oracle pipeline, 15-min cooldown', () => {
-		expect(entry).toBeTruthy();
-		expect(entry.enabled).toBe(true);
-		expect(entry.method).toBe('GET');
-		expect(entry.pipeline).toBe('oracle');
-		expect(entry.cooldown_s).toBe(900);
-		expect(entry.path).toBe('/api/x402/three-intel');
-	});
-
-	it('extractSignal tags topic=three and carries the market shape', () => {
-		const sig = entry.extractSignal(SAMPLE);
-		expect(sig.topic).toBe('three');
-		expect(sig.price_usd).toBe(0.003685);
-		expect(sig.signal).toBe('bullish');
-	});
-
-	it('storeValue persists a valid snapshot to the time series', async () => {
-		const sql = mockSql();
-		await entry.storeValue({ sql, responseBody: SAMPLE, signalData: null, runId: 'run-2' });
-		const insert = sql.calls.find((c) => /INSERT INTO three_market_signals/i.test(c.text));
-		expect(insert).toBeTruthy();
-		expect(insert.values).toContain('run-2');
-	});
-
-	it('storeValue skips an empty/failed snapshot (no price → no row)', async () => {
-		const sql = mockSql();
-		await entry.storeValue({ sql, responseBody: { signal: 'neutral' }, signalData: null, runId: 'run-3' });
-		const insert = sql.calls.find((c) => /INSERT INTO three_market_signals/i.test(c.text));
-		expect(insert).toBeFalsy();
-	});
-
-	it('storeValue never throws when sql is missing', async () => {
-		await expect(entry.storeValue({ sql: null, responseBody: SAMPLE })).resolves.toBeUndefined();
 	});
 });

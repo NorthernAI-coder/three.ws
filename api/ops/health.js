@@ -153,6 +153,11 @@ export default wrap(async (req, res) => {
 	// means autonomous calls are about to start failing on insufficient funds.
 	const walletBalance = await loadWalletBalance();
 
+	// Payment-proof idempotency audit — latest verdict written daily by the
+	// autonomous loop (api/_lib/x402/pipelines/payment-proof-idempotency-audit.js).
+	// A confirmed double-settlement means the x402 anti-replay guard is broken.
+	const idempotencyAudit = await loadIdempotencyAudit();
+
 	// Categorize probe results
 	const byCategory = {};
 	for (const r of probeResults) {
@@ -169,7 +174,10 @@ export default wrap(async (req, res) => {
 	// A low or unconfigured wallet degrades health (autonomous spend will fail);
 	// a never-run monitor (ok:null) is unknown, not failing.
 	const walletOk = walletBalance.ok !== false;
-	const overallOk = allProbesOk && allCronsOk && breakerOk && walletOk;
+	// A confirmed double-settlement (ok:false) degrades health; a never-run audit
+	// (ok:null) is unknown, not failing.
+	const idempotencyOk = idempotencyAudit.ok !== false;
+	const overallOk = allProbesOk && allCronsOk && breakerOk && walletOk && idempotencyOk;
 
 	const failingProbes = probeResults.filter((r) => !r.ok);
 	const failingCrons = heartbeats.filter((h) => h.stale || h.ok === false);
@@ -190,8 +198,54 @@ export default wrap(async (req, res) => {
 		crons: heartbeats,
 		circuitBreaker,
 		walletBalance,
+		idempotencyAudit,
 	});
 });
+
+// Read the latest payment-proof idempotency audit verdict written daily by the
+// autonomous loop (api/_lib/x402/pipelines/payment-proof-idempotency-audit.js).
+// ok:false ONLY on a confirmed double-settlement (the anti-replay guard failed);
+// a stale or never-run audit is unknown (ok:null), not failing, so health doesn't
+// trip on a cold or paused feature.
+const IDEMPOTENCY_STALE_AFTER_MS = 48 * 60 * 60 * 1000; // 48h (daily cadence + slack)
+
+async function loadIdempotencyAudit() {
+	try {
+		const [row] = await sql`
+			SELECT route, verdict, double_settled, pass, first_tx, second_tx,
+			       second_marker, payment_id,
+			       extract(epoch FROM ts) * 1000 AS checked_at_ms
+			FROM x402_idempotency_audit
+			ORDER BY ts DESC
+			LIMIT 1
+		`;
+		if (!row) return { ok: null, reason: 'no_data' };
+		const checkedAt = row.checked_at_ms ? Number(row.checked_at_ms) : null;
+		const stale = checkedAt === null || Date.now() - checkedAt > IDEMPOTENCY_STALE_AFTER_MS;
+		// Only a confirmed double-settlement fails health. A stale audit is unknown
+		// (loop stopped writing), and an inconclusive run (first call never settled)
+		// is not evidence of a broken guard → ok:null.
+		const ok = row.double_settled ? false : stale ? null : row.verdict === 'inconclusive' ? null : true;
+		return {
+			ok,
+			verdict: row.verdict,
+			doubleSettled: row.double_settled,
+			pass: row.pass,
+			route: row.route,
+			firstTx: row.first_tx,
+			secondTx: row.second_tx,
+			secondMarker: row.second_marker,
+			paymentId: row.payment_id,
+			lastChecked: checkedAt,
+			stale,
+		};
+	} catch (err) {
+		if (/does not exist|relation .* does not exist/i.test(err?.message || '')) {
+			return { ok: null, reason: 'table_absent' };
+		}
+		return { ok: null, reason: `query_failed:${err?.message || 'unknown'}` };
+	}
+}
 
 // Read the latest agent-wallet balance sample written every 10 min by the
 // autonomous loop (api/_lib/x402/wallet-balance-monitor.js). A sample older than

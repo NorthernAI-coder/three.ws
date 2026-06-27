@@ -110,7 +110,7 @@ export const toolDefs = [
 		title: 'Get Solana agent reputation',
 		annotations: ATTESTATION_READ_ANNOTATIONS,
 		description:
-			'Computed reputation summary for a Solana-registered three.ws agent. Returns total/verified feedback counts, score averages (raw + verified-only), validation pass/fail, task acceptance, and dispute counts. Verified score only includes feedback whose task was acknowledged on-chain by the agent owner. Public; no auth required.',
+			'Computed reputation summary for a Solana-registered three.ws agent. Returns total/verified feedback counts, score averages (raw + verified-only), validation pass/fail, task acceptance, and dispute counts. Verified score only includes feedback whose task was acknowledged on-chain by the agent owner. Priced at $0.001 USDC/call via x402 (pay-per-call; an OAuth bearer token bypasses payment).',
 		inputSchema: {
 			type: 'object',
 			properties: {

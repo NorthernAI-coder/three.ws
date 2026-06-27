@@ -9,6 +9,11 @@
 // Macro signal adjustment: reads oracle_intel_signals (populated by the
 // x402 autonomous loop) to widen or tighten the min_oracle_score threshold
 // based on current SOL/BTC/pump market sentiment.
+//
+// Per-coin sentiment adjustment: reads sniper_coin_sentiment (populated by the
+// x402 Sniper Intel Enrichment loop, which pays /api/x402/crypto-intel for the
+// coins the sniper is actively watching) to nudge the same threshold by THIS
+// coin's own live market read. Both layers are clamped and fail-open.
 
 import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
@@ -16,10 +21,24 @@ import { log } from './log.js';
 const _cache = new Map(); // key → { score, ts }
 const CACHE_TTL_MS = 30_000;
 
+// Rugpull verdict cache (separate from the conviction cache).
+const _rugCache = new Map(); // key → { rejected, score, level, ts }
+const RUG_CACHE_TTL_MS = 30_000;
+// A verdict only vetoes while it is this fresh — new mints move fast and the x402
+// gate re-checks on its own cooldown, so a stale "rejected" must not block forever.
+const RUG_FRESH_MINUTES = Number(process.env.SNIPER_RUGPULL_FRESH_MIN || 60);
+
 // Macro signal cache — shared across all gate calls, refreshed every 2 min.
 let _macroCache = null;
 let _macroCacheTs = 0;
 const MACRO_TTL_MS = 120_000;
+
+// Per-coin sentiment cache (separate from the conviction cache).
+const _sentCache = new Map(); // key → { adj, ts }
+const SENT_CACHE_TTL_MS = 30_000;
+// A per-coin sentiment delta only applies while this fresh — the x402 enrichment
+// loop re-reads on its own cooldown, so a stale read must not keep moving the bar.
+const SENT_FRESH_MINUTES = Number(process.env.SNIPER_SENTIMENT_FRESH_MIN || 30);
 
 function n(v) {
 	const x = Number(v);
@@ -91,12 +110,95 @@ async function getMacroAdjustment() {
 }
 
 /**
+ * Pre-snipe rugpull veto — platform-wide safety floor. Looks up the latest x402
+ * Token Intel verdict for a mint (token_intel_risk, populated by
+ * api/_lib/x402/pipelines/token-intel-gate.js) and rejects the snipe when a FRESH
+ * high/critical verdict says rug. Fail-open: any error, a missing verdict, or a
+ * stale one returns { reject: false }, so this can only ever make the sniper safer.
+ *
+ * @param {string} mint
+ * @param {string} network
+ * @returns {Promise<{ reject: boolean, score?: number, level?: string }>}
+ */
+export async function rugpullVeto(mint, network) {
+	const cacheKey = `${network}:${mint}`;
+	const cached = _rugCache.get(cacheKey);
+	if (cached && Date.now() - cached.ts < RUG_CACHE_TTL_MS) {
+		return cached.rejected ? { reject: true, score: cached.score, level: cached.level } : { reject: false };
+	}
+	try {
+		const [row] = await sql`
+			select rugpull_score, risk_level, rejected
+			from token_intel_risk
+			where mint = ${mint} and network = ${network}
+			  and checked_at > now() - make_interval(mins => ${RUG_FRESH_MINUTES})
+			limit 1
+		`;
+		const rejected = row?.rejected === true;
+		const score = row?.rugpull_score != null ? n(row.rugpull_score) : null;
+		const level = row?.risk_level || null;
+		_rugCache.set(cacheKey, { rejected, score, level, ts: Date.now() });
+		if (_rugCache.size > 2000) {
+			const cutoff = Date.now() - RUG_CACHE_TTL_MS;
+			for (const [k, v] of _rugCache) if (v.ts < cutoff) _rugCache.delete(k);
+		}
+		return rejected ? { reject: true, score, level } : { reject: false };
+	} catch (err) {
+		// Table not present yet, or a transient DB fault — never block a snipe on it.
+		if (!err?.message?.includes('does not exist')) {
+			log.warn('rugpull veto db error — allowing snipe', { mint, err: err?.message });
+		}
+		return { reject: false };
+	}
+}
+
+/**
+ * Per-coin sentiment delta — folds the live Crypto Intel read into the snipe
+ * threshold. Looks up the latest x402 sentiment for a mint (sniper_coin_sentiment,
+ * populated by api/_lib/x402/pipelines/sniper-intel-enrich.js) and returns a
+ * clamped score-point delta: positive raises the bar (bearish coin), negative
+ * lowers it (bullish coin). Fail-open: any error, a missing row, or a stale one
+ * returns 0, so this can only ever nudge — never block — a snipe.
+ *
+ * @param {string} mint
+ * @param {string} network
+ * @returns {Promise<number>}
+ */
+export async function coinSentimentAdjustment(mint, network) {
+	const cacheKey = `${network}:${mint}`;
+	const cached = _sentCache.get(cacheKey);
+	if (cached && Date.now() - cached.ts < SENT_CACHE_TTL_MS) return cached.adj;
+	try {
+		const [row] = await sql`
+			select sentiment_adj
+			from sniper_coin_sentiment
+			where mint = ${mint} and network = ${network}
+			  and checked_at > now() - make_interval(mins => ${SENT_FRESH_MINUTES})
+			limit 1
+		`;
+		const adj = row?.sentiment_adj != null ? (n(row.sentiment_adj) ?? 0) : 0;
+		const clamped = Math.max(-10, Math.min(10, adj));
+		_sentCache.set(cacheKey, { adj: clamped, ts: Date.now() });
+		if (_sentCache.size > 2000) {
+			const cutoff = Date.now() - SENT_CACHE_TTL_MS;
+			for (const [k, v] of _sentCache) if (v.ts < cutoff) _sentCache.delete(k);
+		}
+		return clamped;
+	} catch (err) {
+		if (!err?.message?.includes('does not exist')) {
+			log.warn('coin sentiment db error — no adjustment', { mint, err: err?.message });
+		}
+		return 0;
+	}
+}
+
+/**
  * Look up the Oracle conviction score for a mint and decide whether the
  * strategy's min_oracle_score threshold is met.
  *
- * The effective threshold = min_oracle_score + macro_adjustment, where
- * macro_adjustment is derived from oracle_intel_signals (populated by
- * the x402 autonomous spend loop every 5 minutes).
+ * The effective threshold = min_oracle_score + macro_adjustment + coin_sentiment,
+ * where macro_adjustment is derived from oracle_intel_signals and coin_sentiment
+ * from sniper_coin_sentiment (both populated by the x402 autonomous spend loop).
  *
  * Returns:
  *   { pass: true }                         — scored and above threshold (or no threshold)
@@ -109,6 +211,13 @@ async function getMacroAdjustment() {
  * @param {object} strat   agent_sniper_strategies row
  */
 export async function oracleGate(mint, network, strat) {
+	// Rugpull pre-snipe veto runs FIRST and unconditionally — a fresh high/critical
+	// token-intel verdict auto-rejects the mint regardless of strategy settings.
+	const rug = await rugpullVeto(mint, network);
+	if (rug.reject) {
+		return { pass: false, reason: `rugpull_risk:${rug.level || 'high'}:${rug.score ?? '?'}`, rugpull: rug };
+	}
+
 	const minScore = strat.min_oracle_score != null ? n(strat.min_oracle_score) : null;
 	if (minScore == null) return { pass: true };
 
@@ -142,17 +251,26 @@ export async function oracleGate(mint, network, strat) {
 		return { pass: true, skipped: true };
 	}
 
-	// Apply macro signal adjustment from x402 autonomous loop intel.
-	const macroAdj = await getMacroAdjustment();
-	const effectiveMin = minScore + macroAdj;
+	// Apply macro signal + per-coin sentiment adjustments from x402 autonomous loop
+	// intel. Macro is market-wide (SOL/BTC/pump); coinAdj is this coin's own read.
+	const [macroAdj, coinAdj] = await Promise.all([
+		getMacroAdjustment(),
+		coinSentimentAdjustment(mint, network),
+	]);
+	const effectiveMin = minScore + macroAdj + coinAdj;
 
 	if (score < effectiveMin) {
+		const parts = [];
+		if (macroAdj !== 0) parts.push(`macro:${macroAdj}`);
+		if (coinAdj !== 0) parts.push(`coin:${coinAdj}`);
+		const breakdown = parts.length ? `(base:${minScore}+${parts.join('+')})` : '';
 		return {
 			pass: false,
-			reason: `oracle_below_min:${score}<${effectiveMin}${macroAdj !== 0 ? `(base:${minScore}+macro:${macroAdj})` : ''}`,
+			reason: `oracle_below_min:${score}<${effectiveMin}${breakdown}`,
 			macro_adjustment: macroAdj,
+			coin_adjustment: coinAdj,
 		};
 	}
 
-	return { pass: true, macro_adjustment: macroAdj };
+	return { pass: true, macro_adjustment: macroAdj, coin_adjustment: coinAdj };
 }

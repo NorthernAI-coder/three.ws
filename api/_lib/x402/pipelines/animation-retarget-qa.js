@@ -48,7 +48,7 @@ import { env } from '../../env.js';
 import { logger } from '../../usage.js';
 import { inspectGlb } from '../../glb-inspect.js';
 import {
-	payX402, bootstrapSolanaContext, fetchWithTimeout, USDC_MINT, FETCH_TIMEOUT_MS,
+	payX402, bootstrapSolanaContext, USDC_MINT, FETCH_TIMEOUT_MS,
 } from '../pay.js';
 
 const log = logger('x402-animation-qa');
@@ -364,10 +364,11 @@ export async function run(ctx = {}) {
 
 	const summary = { clips: clips.length, checked: verdicts.length, paid, passed, failed, verdicts };
 	return {
-		// success reflects that the probe ran and every checked clip passed QA; a
-		// retarget regression (failed > 0) lands as success:false so the loop's
-		// summary row flags it, with per-clip detail in animation_qa_results.
-		success: verdicts.length > 0 && failed === 0,
+		// success means the sweep ran and settled — kept independent of QA pass/fail
+		// so the loop always accounts the USDC actually spent against the daily cap.
+		// A retarget regression surfaces via errorMsg + the per-clip success=false
+		// log rows + animation_qa_results.passed=false, not by zeroing this flag.
+		success: verdicts.length > 0,
 		amountAtomic: spentAtomic,
 		txSig: lastTxSig,
 		errorMsg: failed > 0 ? `animation_qa_failed:${failed}/${verdicts.length}` : null,

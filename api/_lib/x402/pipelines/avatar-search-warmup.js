@@ -233,6 +233,7 @@ export async function run(ctx = {}) {
 	// Aggregate outcome for the loop's single summary row. success=true when at
 	// least one query warmed the cache; per-call detail lives in the rows above.
 	return {
+		runId,
 		success: warmed > 0,
 		amountAtomic: spentAtomic,
 		txSig: lastTxSig,

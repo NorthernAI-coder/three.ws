@@ -25,6 +25,25 @@
 // row in `mcp_health_canary` (shared by all MCP-Health canaries — see
 // agents/x402-buildout/self/) and emits an alert log when the subsystem trips.
 //
+// Data stored (requirement 3 + 4):
+//   • x402_autonomous_log         — written by the autonomous loop on every call:
+//       response_data = this endpoint's full JSON snapshot;
+//       signal_data   = the entry's extractSignal() verdict
+//       { alive, registry_enrolled, asset_onchain, identity_pda_onchain, … }.
+//   • mcp_health_canary[tool_name='solana_register'] — written HERE, server-side:
+//       healthy, last_checked_at, last_ok_at, consecutive_failures, last_error,
+//       detail (jsonb: source/network/asset/identity_pda/checks/latency),
+//       last_tx_signature.
+//
+// Downstream consumers:
+//   • This endpoint's own alert escalation reads consecutive_failures from
+//     mcp_health_canary to decide warn-vs-error logging (sustained-outage alert).
+//   • mcp_health_canary is the shared MCP-Health read-model (keyed by tool_name)
+//     that the platform status surface renders alongside the other canaries
+//     (granite_inference_health, mcp_stream_health, x402_perf_log).
+//   • The x402 admin activity/analytics views read x402_autonomous_log, so the
+//     signal_data verdict is visible there per autonomous tick.
+//
 // Canary selection (real data only — never a mock):
 //   X402_CANARY_AGENT_ID    a known three.ws agent_id (uuid) registered on Solana
 //   X402_CANARY_AGENT_ASSET a known Core asset pubkey (skips the agent_id lookup)

@@ -172,6 +172,10 @@ export async function runIdempotencyAudit(ctx = {}) {
 	const sql = ctx.sql || defaultSql;
 	const remainingCap = ctx.remainingCap ?? Number.POSITIVE_INFINITY;
 	const endpointUrl = `${origin}${AUDIT_ROUTE}?url=${encodeURIComponent(CANARY_GLB)}`;
+	// Replay cadence is tunable (ctx overrides) so the loop keeps its propagation-
+	// tolerant defaults while tests can drive the sequence without real wait time.
+	const replayAttempts = Number.isFinite(ctx.replayAttempts) ? ctx.replayAttempts : REPLAY_ATTEMPTS;
+	const replayBackoffMs = Number.isFinite(ctx.replayBackoffMs) ? ctx.replayBackoffMs : REPLAY_BACKOFF_MS;
 	const t0 = Date.now();
 
 	const fail = (errorMsg, extra = {}) => ({
@@ -313,10 +317,10 @@ export async function runIdempotencyAudit(ctx = {}) {
 	let secondMarker = null;
 	let doubleSettled = false;
 	let attempts = 0;
-	for (let i = 0; i < REPLAY_ATTEMPTS; i++) {
+	for (let i = 0; i < replayAttempts; i++) {
 		attempts = i + 1;
 		// Let the first call's cross-replica cache write land before each attempt.
-		await sleep(REPLAY_BACKOFF_MS);
+		await sleep(replayBackoffMs);
 		try {
 			second = await fetchWithTimeout(endpointUrl, { method: 'GET', headers: paidHeaders });
 		} catch (err) {

@@ -37,26 +37,34 @@ import { run as bazaarDiscoveryWarmup } from './pipelines/bazaar-warmup.js';
 import { run as avatarSearchWarmup } from './pipelines/avatar-search-warmup.js';
 import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
 import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
+import { run as sniperIntelEnrich } from './pipelines/sniper-intel-enrich.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
 import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
 import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
 import { classifyThreeSignal, insertThreeSignal } from './three-signal-store.js';
 import { run as cosmeticPricingAudit } from './pipelines/cosmetic-pricing-audit.js';
+import { run as paymentProofIdempotencyAudit } from './pipelines/payment-proof-idempotency-audit.js';
 import { run as modelMetadataEnrichment } from './pipelines/model-metadata-enrichment.js';
 import { run as forgeContentGeneration } from './pipelines/forge-content.js';
 import { run as runAnimationRetargetQa, hasCanaryClips as hasAnimationQaCanaries } from './pipelines/animation-retarget-qa.js';
-import { runCircuitBreaker } from './circuit-breaker.js';
+import { runCircuitBreaker } from './pipelines/circuit-breaker.js';
 import { run as runGlbSizeOptimizer } from './glb-size-optimizer.js';
 import { run as walletBalanceMonitor } from './wallet-balance-monitor.js';
 import { run as revenueReconciliation } from './revenue-reconciliation.js';
 import { mcpLatencySweep } from './mcp-latency-sweep.js';
 import { runStreamingMcpHealth } from './pipelines/streaming-mcp-health.js';
-import { publicUrl } from '../r2.js';
+import {
+	runGraniteHealth,
+	GRANITE_HEALTH_ENDPOINT,
+	GRANITE_HEALTH_PRICE_ATOMIC,
+} from './granite-health.js';
+import { vrmCompatEntry } from './pipelines/vrm-compat-checker.js';
 import {
 	runSceneCaptureProcessor,
 	SCENE_CAPTURE_ENDPOINT,
 	SCENE_CAPTURE_PRICE_ATOMIC,
 } from './scene-capture-processor.js';
+import { run as runRigComplexityScorer } from './pipelines/rig-complexity.js';
 import {
 	runThumbnailRegen,
 	THUMBNAIL_REGEN_ENDPOINT,
@@ -187,6 +195,12 @@ async function nextCanonicalTarget(ctx) {
 }
 
 const SELF_ENDPOINTS = [
+	// ── 3D Pipeline: VRM 1.0 Compatibility Checker (USE-019) ──────────────────
+	// Pays a real $0.01 x402 call to /api/mcp (inspect_model) per avatar, derives a
+	// VRM 0.x → 1.0 migration report, and upserts it into avatar_vrm_compat. Full
+	// implementation in ./pipelines/vrm-compat-checker.js.
+	vrmCompatEntry,
+
 	// ── 3D Pipeline: GLB Size Optimizer (USE-018) ─────────────────────────────
 	// Picks the heaviest public avatar GLB over the 5 MB web-delivery budget that
 	// has not been analyzed in the last 14 days, then pays one real x402 call to
@@ -229,6 +243,28 @@ const SELF_ENDPOINTS = [
 		pipeline: 'circuit-breaker',
 		enabled: true,
 		run: runCircuitBreaker,
+		extractSignal: null,
+	},
+
+	// ── Payment Proof Idempotency Audit (anti-fraud) ──────────────────────────
+	// Daily anti-replay canary. Pays ONE real $0.001 USDC call to the idempotent
+	// /api/x402/model-check, then resubmits the IDENTICAL signed X-PAYMENT proof
+	// and confirms the idempotency store returns a replay/conflict (never a second
+	// on-chain settlement). run() owns the two-call sequence + payment; the verdict
+	// lands in x402_idempotency_audit and a confirmed double-settle raises an ops
+	// alert. Daily cadence → one paid audit/day ≈ $0.001/day. Downstream consumer:
+	// api/ops/health.js folds a double-settlement into the platform health verdict.
+	{
+		id: 'payment-proof-idempotency-audit',
+		name: 'Payment Proof Idempotency Audit',
+		// path is informational — the pipeline probes + pays + replays itself.
+		path: '/api/x402/model-check',
+		method: 'GET',
+		cooldown_s: 86400, // daily — critical anti-fraud check
+		priority: 86,
+		pipeline: 'security',
+		enabled: true,
+		run: paymentProofIdempotencyAudit,
 		extractSignal: null,
 	},
 
@@ -680,6 +716,30 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		run: (ctx) => tokenIntelPreSnipeGate(ctx),
 	},
+	// Sniper Intel Enrichment (USE-024) — the trading engine pays the platform's
+	// own $0.01 USDC Crypto Intel feed (/api/x402/crypto-intel) for live market
+	// sentiment on the coins the sniper is actively watching (open positions +
+	// freshest high-conviction Oracle candidates), turning the headline signal
+	// into a clamped per-coin gate modifier. run() owns the batch sequence +
+	// per-coin recording; the loop records one summary row. Verdicts upsert to
+	// sniper_coin_sentiment keyed by (mint, network). Crypto Intel 503s (un-charged)
+	// for any coin CoinGecko can't resolve, so a memecoin never gets a wrong-coin
+	// signal. Cooldown 900s (15 min) → ~4 batches/hour, ≤$0.08/batch at the default
+	// batch of 8 — bounded again by the loop's daily cap.
+	// Downstream consumer: workers/agent-sniper/oracle-gate.js folds the fresh
+	// per-coin delta into the effective min_oracle_score before committing SOL.
+	{
+		id: 'sniper-intel-enrich',
+		name: 'Sniper Intel Enrichment',
+		path: '/api/x402/crypto-intel',
+		method: 'POST',
+		body: null,
+		cooldown_s: 900,
+		priority: 77,
+		pipeline: 'sniper',
+		enabled: true,
+		run: (ctx) => sniperIntelEnrich(ctx),
+	},
 
 	// ── Identity / DID ─────────────────────────────────────────────────────────
 	{
@@ -1055,6 +1115,97 @@ const SELF_ENDPOINTS = [
 		pipeline: 'reconciliation',
 		enabled: true,
 		run: (ctx) => revenueReconciliation(ctx),
+	},
+	// ── Fee Calculation Validator (USE-028, Finance) ──────────────────────────
+	// Fee-integrity probe over the platform's atomic↔decimal conversion — the
+	// arithmetic that turns every USDC price into an x402 challenge amount and back
+	// into a displayed dollar figure. run() exercises the REAL production
+	// converters (usdcToAtomics / atomicsToUsdc) at the boundary atomics where
+	// rounding bugs hide (1, 999, 1000, 1001, 999999), asserting exact render +
+	// round-trip at each, then makes ONE real on-chain payment to the $0.001
+	// dance-tip (1000 atomics — a boundary) to prove the deployed quote and the
+	// settled amount agree with the local fee math end-to-end. Per-boundary
+	// findings land in fee_calculation_audit; a summary (value_extracted = mismatch
+	// counts) goes to x402_autonomous_log. Cooldown 21600 s (6h → ≤4 paid probes/day
+	// ≈ $0.004/day) — fee math only changes on deploy, the live settle catches
+	// deploy/env skew. Downstream consumer: ops gates releases on a mismatch=true
+	// row (alongside cosmetic_pricing_audit) so an off-by-one in fee conversion
+	// never ships and mis-bills buyers.
+	{
+		id: 'fee-calculation-validator',
+		name: 'Fee Calculation Validator',
+		path: '/api/x402/dance-tip',
+		endpoint: '/api/x402/dance-tip',
+		method: 'POST',
+		body: null,
+		price_atomic: 1000, // the live boundary settles $0.001; math sweep is free
+		cooldown_s: 21600,
+		cooldown_seconds: 21600,
+		priority: 30,
+		pipeline: 'finance',
+		enabled: true,
+		run: (ctx) => feeCalculationValidator(ctx),
+	},
+	// ── IBM Granite Inference Health Check (USE-007) ──────────────────────────
+	// Pays ONE real x402 batch call to /api/ibm-mcp that invokes all five paid
+	// IBM Granite tools (chat, code, embed, analyze, forecast) with tiny canary
+	// arguments. The IBM MCP server prices the whole request, so one on-chain
+	// payment (~0.14 USDC) exercises the full watsonx.ai inference surface. run()
+	// summarises the batch — verifying each tool answered with its expected schema
+	// and tallying token throughput — and stores the verdict to
+	// granite_inference_health (downstream consumer: GET /api/x402/granite-health,
+	// the watsonx backend SLA + token-throughput dashboard feed). The paid
+	// round-trip is recorded to x402_autonomous_log like every loop call.
+	// Cooldown 21600 s (every 6 h → 4 paid sweeps/day ≈ $0.56/day) keeps an
+	// expensive inference probe well inside the autonomous daily cap while still
+	// catching a watsonx outage or a tool-schema regression within hours.
+	{
+		id: 'granite-inference-health',
+		name: 'IBM Granite Inference Health Check',
+		path: GRANITE_HEALTH_ENDPOINT,
+		endpoint: GRANITE_HEALTH_ENDPOINT,
+		method: 'POST',
+		price_atomic: GRANITE_HEALTH_PRICE_ATOMIC,
+		cooldown_s: 21600,
+		cooldown_seconds: 21600,
+		priority: 42,
+		pipeline: 'health',
+		enabled: true,
+		run: (ctx) => runGraniteHealth(ctx),
+		extractSignal: null,
+	},
+
+	// ── Rig Complexity Scorer (USE-017) ───────────────────────────────────────
+	// Pays to call inspect_model on POST /api/mcp for a small batch of avatars
+	// that have never been scored or whose GLB changed since the last score. From
+	// each inspection it derives a 0-100 complexity score (bone count, vertices,
+	// triangles, texture bytes, file size) and a tier (light/standard/heavy/
+	// extreme), and upserts the result into avatar_complexity (keyed by avatar_id).
+	// run() owns the per-avatar probe/pay/store and records one x402_autonomous_log
+	// row per call with the parsed score in value_extracted (so it sets
+	// outcome.recorded — the loop adds no duplicate summary row). Downstream
+	// consumer: the Avatar Pricing Engine (USE-020) tiers marketplace listing
+	// prices on avatar_complexity.tier, and the marketplace gallery raises a
+	// "performance-heavy" badge when perf_warning is set. The MCP server prices
+	// inspect_model at $0.01/call (no $0.001 tool exists), so each scored avatar
+	// costs ~$0.01; cooldown 3600 s (hourly) with a 4-avatar batch drains any
+	// backlog at ≤ $0.04/run and idles to ~zero spend once every avatar is scored.
+	{
+		id: 'rig-complexity-scorer',
+		name: 'Rig Complexity Scorer',
+		// path/endpoint are informational — run() builds the JSON-RPC body itself.
+		path: '/api/mcp',
+		endpoint: '/api/mcp',
+		method: 'POST',
+		body: null,
+		price_atomic: 10_000, // $0.01 USDC — inspect_model's advertised per-call price
+		cooldown_s: 3600,
+		cooldown_seconds: 3600,
+		priority: 48,
+		pipeline: '3d',
+		enabled: true,
+		run: (ctx) => runRigComplexityScorer(ctx),
+		extractSignal: null,
 	},
 ];
 

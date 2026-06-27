@@ -51,3 +51,14 @@ Identifies GLBs > 5MB and calls optimize_model to apply Draco compression and te
 ## Related Use Cases
 
 See other files in `agents/x402-buildout/self/` for related autonomous loop entries. Coordinate on shared DB schemas and avoid duplicate table creation.
+
+## Implementation (shipped)
+
+- **Module:** `api/_lib/x402/glb-size-optimizer.js` — exports `run(ctx)`, `projectOptimization()`, `pickTarget()`, `readCatalogOptimizationSummary()`, `ensureOptimizationSchema()`.
+- **Registry entry:** `glb-size-optimizer` in `api/_lib/x402/autonomous-registry.js` — `POST /api/mcp`, `pipeline: 'self'`, `cooldown_s: 21_600` (6h), `priority: 37`, `run: runGlbSizeOptimizer`.
+- **Selection:** `pickTarget()` queries `avatars` for the heaviest public, non-deleted GLB with `size_bytes > 5 MB` not analyzed within 14 days (`LEFT JOIN glb_optimizations`). One model per run — gradual catalog sweep, biggest/stalest first.
+- **Payment:** real x402 USDC via the shared `payX402()` client (`api/_lib/x402/pay.js`) using the seed/agent keypair. `optimize_model` is `$0.05/call`; the amount is read from the live 402 challenge, not hardcoded. Wallet/RPC unconfigured → graceful logged skip, no throw.
+- **Value extracted → stored to `glb_optimizations`:** one row per model with `original_bytes`, `estimated_optimized_bytes`, `estimated_savings_bytes`, `savings_pct`, `load_ms_before`/`load_ms_after`, `load_improvement_pct`, `suggestion_ids`, full `suggestions` + `info` JSON, `run_id`, `tx_signature`, `amount_atomic`. `optimize_model` returns measured stats + advice (not a re-encoded GLB), so `projectOptimization()` computes a grounded projection from the model's real vertex count and per-texture dimensions/bytes using the compression ratios the suggestions cite (Draco ~70% geometry, exact 4K→2K area downscale, KTX2 over PNG/JPEG).
+- **Recording:** a detailed `x402_autonomous_log` row (`pipeline='3d'`, `value_extracted` = savings summary) is written on every call (success or failure); the loop additionally records its standard summary row from the returned outcome.
+- **Downstream consumer:** `GET /api/x402/glb-optimization-report` (`api/x402/glb-optimization-report.js`) reads `glb_optimizations` via `readCatalogOptimizationSummary()` to report catalog-wide average size + load-time improvement, total bytes shed, and remaining heavy-GLB backlog. Per-model "save ~N%" hints feed the avatar gallery.
+- **Tests:** `tests/x402-glb-size-optimizer.test.js` — projection math (heavy/already-compressed/empty/floor) + registry wiring.
