@@ -13,6 +13,7 @@ import { randomToken, randomDigits, sha256 } from '../_lib/crypto.js';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+import { verifyBypassToken } from './captcha.js';
 import { parse, loginBody, registerBody, usernameRegisterBody, username as usernameValidator, displayName, email, password, bio as bioValidator, profileLocation, httpUrl } from '../_lib/validate.js';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../_lib/email.js';
 import { referralCodeCandidates, normalizeReferralCode } from '../_lib/referrals.js';
@@ -34,8 +35,18 @@ async function handleLogin(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 	const ip = clientIp(req);
-	const rl = await limits.authIp(ip);
-	if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later');
+	// A solved CAPTCHA (api/auth/captcha) issues a short-lived HMAC-signed bypass
+	// token. When present and valid, route through the captcha-specific bucket so
+	// real humans who solved the puzzle aren't stuck behind the same counter as
+	// the bots that triggered the limit in the first place.
+	const captchaToken = req.headers['x-captcha-token'];
+	if (captchaToken && verifyBypassToken(ip, captchaToken)) {
+		const rl = await limits.authIpCaptcha(ip);
+		if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later', { captcha_available: true });
+	} else {
+		const rl = await limits.authIp(ip);
+		if (!rl.success) return rateLimited(res, rl, 'too many attempts; try again later', { captcha_available: true });
+	}
 	const body = parse(loginBody, await readJson(req));
 	const isEmail = body.email.includes('@');
 	const rows = isEmail

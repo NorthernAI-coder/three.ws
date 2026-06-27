@@ -3,6 +3,12 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Production stability fixes — genome lineage, screen streaming, and x402 seeder",
+			"summary": "Several reliability issues addressed: the agent genome breeding lineage page (/genome/lineage) was returning errors for all visitors due to a missing database table — now resolved. The live agent screen-streaming panel now correctly finds agents and loads their names. The x402 dance-tip seeder cron no longer floods the platform with thousands of failed payment attempts when Redis is temporarily unavailable — it detects the outage and skips the tick gracefully. Forge error logs now include the full vendor message from Replicate for faster ops triage.",
+			"tags": ["fix", "infra"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Sign-in cooldown is now exact — and there's more headroom before it trips",
 			"summary": "If you ever hit \"too many attempts\" while signing in, the form now shows the real countdown the server hands back — a live timer on the button that ticks down and re-arms the form the instant you can try again, instead of a vague \"try later\". We also raised the per-network attempt allowance, so people signing in from shared office or campus connections are far less likely to be told to wait at all. Wrong-password and network-drop messages are now clearer and distinct, too.",
 			"tags": ["improvement"],
@@ -8665,6 +8671,16 @@
 				"improvement"
 			],
 			"link": "/admin/launcher"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "CAPTCHA relief for rate-limited sign-ins",
+			"summary": "Users who hit the sign-in rate limit (e.g. shared office/home network) now see a lightweight proof-of-work puzzle instead of a hard countdown. Solve it in a second or two and you can keep signing in immediately — no waiting, no support ticket. Built on Altcha (open source, MIT-licensed, no tracking or third-party service).",
+			"tags": [
+				"improvement",
+				"security"
+			],
+			"link": "/login"
 		}
 	]
 }

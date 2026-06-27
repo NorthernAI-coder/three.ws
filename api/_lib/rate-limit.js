@@ -238,6 +238,14 @@ export const limits = {
 		getLimiter('auth:ip', { limit: 50, window: '10 m', critical: true, degradeToMemory: true }).limit(ip),
 	registerIp: (ip) =>
 		getLimiter('register:ip', { limit: 5, window: '1 h', critical: true, degradeToMemory: true }).limit(ip),
+	// CAPTCHA-verified login bucket. When a user solves the Altcha proof-of-work
+	// puzzle (api/auth/captcha.js) they receive a signed bypass token that routes
+	// their login through this separate bucket instead of authIp. It is intentionally
+	// generous — a real human who solved a puzzle can retry freely — while still
+	// bounding bot runs that automate puzzle solving. degradeToMemory so a Redis
+	// outage never locks out a user who already solved the CAPTCHA.
+	authIpCaptcha: (ip) =>
+		getLimiter('auth:ip:captcha', { limit: 20, window: '10 m', critical: true, degradeToMemory: true }).limit(ip),
 	// NL→strategy compile (api/sniper/compile.js) runs a real LLM call per request,
 	// so it gets a dedicated, tighter-than-trading bucket: enough to iterate on a
 	// strategy a few times, bounded so it can't be turned into a free LLM relay.

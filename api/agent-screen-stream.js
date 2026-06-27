@@ -42,7 +42,7 @@ export default async function handleAgentScreenStream(req, res) {
 
 	// Resolve agent name for the open event
 	const [agentRow] = await sql`
-		SELECT name FROM agents WHERE id = ${agentId} LIMIT 1
+		SELECT name FROM agent_identities WHERE id = ${agentId} LIMIT 1
 	`.catch(() => []);
 	if (!agentRow) {
 		res.writeHead(404, { 'Content-Type': 'application/json' });
