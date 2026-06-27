@@ -437,6 +437,33 @@ export function wrap(handler) {
 	};
 }
 
+// Wrap cron handlers with DB-unavailability awareness.
+//
+// When the database is unreachable (wrong credentials, connection refused, etc.)
+// every cron invocation would otherwise bubble a NeonDbError to wrap(), which
+// logs `[api] unhandled` and fires a sendOpsAlert per invocation — turning a
+// single misconfigured DATABASE_URL into a sustained ops-alert storm. wrapCron
+// intercepts DB-unavailable errors before they reach wrap(), logs a single warn,
+// and returns 200 { ok: false, reason: 'db_unavailable' } so Vercel doesn't
+// count the cron as a hard failure. Non-DB errors re-throw to wrap() so genuine
+// bugs still surface through normal alerting.
+export function wrapCron(handler) {
+	return wrap(async (req, res, ...rest) => {
+		try {
+			await handler(req, res, ...rest);
+		} catch (err) {
+			if (isDbUnavailableError(err)) {
+				console.warn('[cron] db unavailable — skipping tick:', err.message);
+				if (!res.headersSent && !res.writableEnded) {
+					json(res, 200, { ok: false, reason: 'db_unavailable' });
+				}
+				return;
+			}
+			throw err;
+		}
+	});
+}
+
 export function method(req, res, allowed) {
 	const m = req.method || 'GET';
 	// HEAD must be allowed wherever GET is allowed (RFC 9110 §9.3.2).

@@ -20,7 +20,7 @@
 // lane. Gated behind AVATURN_SEED_ENABLED so it's a no-op until an operator
 // opts in (cadence is set by the cron schedule in vercel.json — start at 1/min).
 
-import { json, method, wrap } from '../_lib/http.js';
+import { json, method, wrap, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { sql } from '../_lib/db.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
@@ -148,7 +148,7 @@ async function runOnce() {
 	}
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
