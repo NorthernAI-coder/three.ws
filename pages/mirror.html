@@ -32,49 +32,53 @@
 			body { background: var(--bg-0, #0a0a0a); color: var(--ink, #e8e8e8); margin: 0; font-family: var(--font-body, system-ui); }
 			.mp-shell { max-width: 920px; margin: 0 auto; padding: var(--space-lg, 24px) var(--space-md, 16px) var(--space-2xl, 64px); }
 			.mp-hero { text-align: center; padding: var(--space-xl, 42px) 0 var(--space-lg, 24px); }
-			.mp-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-2xs, .66rem); text-transform: uppercase; letter-spacing: .1em; color: var(--wallet-accent, #c4b5fd); margin: 0 0 12px; }
-			.mp-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success, #4ade80); box-shadow: 0 0 0 0 rgba(74,222,128,.5); animation: mp-pulse 1.8s ease infinite; }
-			@keyframes mp-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); } 70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); } }
-			.mp-title { font-family: var(--font-display, system-ui); font-size: clamp(1.8rem, 5vw, 2.8rem); margin: 0 0 12px; color: var(--ink-bright, #fff); letter-spacing: -.02em; }
-			.mp-sub { max-width: 620px; margin: 0 auto; font-size: var(--text-md, .95rem); line-height: 1.6; color: var(--ink-dim, #aaa); }
-			.mp-sub b { color: var(--wallet-accent, #c4b5fd); }
-			.mp-section { margin-top: var(--space-xl, 42px); }
-			.mp-section h2 { font-family: var(--font-display, system-ui); font-size: var(--text-lg, 1.15rem); color: var(--ink-bright, #fff); margin: 0 0 4px; }
-			.mp-section .mp-desc { font-size: var(--text-sm, .82rem); color: var(--ink-dim, #9a9a9a); margin: 0 0 var(--space-md, 16px); }
-			.mp-controls { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--space-md, 16px); }
-			.mp-seg { display: inline-flex; gap: 4px; background: var(--surface-1, rgba(255,255,255,.03)); padding: 4px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); }
-			.mp-seg button { font: inherit; font-size: var(--text-2xs, .68rem); padding: 6px 14px; border-radius: 999px; border: none; background: transparent; color: var(--ink-dim, #aaa); cursor: pointer; transition: all .15s; }
-			.mp-seg button[aria-pressed="true"] { background: var(--wallet-accent, #c4b5fd); color: #1a1340; font-weight: 700; }
-			.mp-board { display: flex; flex-direction: column; gap: 8px; }
-			.mp-lrow { display: flex; align-items: center; gap: var(--space-md, 14px); padding: var(--space-sm, 12px) var(--space-md, 14px); border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-lg, 14px); background: var(--surface-1, rgba(255,255,255,.025)); transition: border-color .18s, transform .18s; }
-			.mp-lrow:hover { border-color: var(--wallet-stroke, rgba(139,92,246,.35)); transform: translateY(-1px); }
-			.mp-rank { font-family: var(--font-mono, monospace); font-size: var(--text-md, .9rem); color: var(--ink-dim, #888); width: 28px; text-align: center; flex: 0 0 auto; }
-			.mp-rank.top { color: var(--wallet-accent, #c4b5fd); font-weight: 700; }
-			.mp-av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: var(--surface-2, rgba(255,255,255,.05)); flex: 0 0 auto; }
+			.mp-kicker { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-2xs, .66rem); text-transform: uppercase; letter-spacing: .12em; color: rgba(255,255,255,.4); margin: 0 0 12px; }
+			.mp-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: .5; }
+			.mp-title { font-family: var(--font-display, system-ui); font-size: clamp(1.8rem, 5vw, 2.8rem); margin: 0 0 14px; color: #fff; letter-spacing: -.03em; font-weight: 700; }
+			.mp-sub { max-width: 580px; margin: 0 auto; font-size: var(--text-md, .95rem); line-height: 1.65; color: rgba(255,255,255,.45); }
+			.mp-sub b { color: rgba(255,255,255,.8); font-weight: 500; }
+			.mp-section { margin-top: 48px; }
+			.mp-section-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+			.mp-section h2 { font-family: var(--font-display, system-ui); font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.4); margin: 0; font-weight: 500; }
+			.mp-section .mp-desc { font-size: var(--text-sm, .82rem); color: rgba(255,255,255,.3); margin: 0 0 16px; }
+			.mp-controls { display: flex; gap: 0; flex-wrap: wrap; margin-bottom: 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; width: fit-content; }
+			.mp-seg { display: inline-flex; gap: 0; }
+			.mp-seg button { font: inherit; font-size: .72rem; padding: 7px 14px; border-radius: 0; border: none; border-right: 1px solid rgba(255,255,255,.08); background: transparent; color: rgba(255,255,255,.35); cursor: pointer; transition: color .12s, background .12s; letter-spacing: .02em; }
+			.mp-seg button:last-child { border-right: none; }
+			.mp-seg button[aria-pressed="true"] { background: rgba(255,255,255,.06); color: #fff; font-weight: 600; }
+			.mp-seg button:hover:not([aria-pressed="true"]) { color: rgba(255,255,255,.65); background: rgba(255,255,255,.03); }
+			.mp-board { display: flex; flex-direction: column; gap: 1px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+			.mp-lrow { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #0a0a0a; transition: background .14s; }
+			.mp-lrow:hover { background: rgba(255,255,255,.03); }
+			.mp-rank { font-family: var(--font-mono, monospace); font-size: .78rem; color: rgba(255,255,255,.25); width: 24px; text-align: right; flex: 0 0 auto; }
+			.mp-rank.top { color: rgba(255,255,255,.7); font-weight: 600; }
+			.mp-av { width: 36px; height: 36px; border-radius: 3px; object-fit: cover; background: rgba(255,255,255,.06); flex: 0 0 auto; }
 			.mp-lbody { flex: 1 1 auto; min-width: 0; }
-			.mp-lname { font-weight: 600; color: var(--ink-bright, #fff); font-size: var(--text-md, .9rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			.mp-lname { font-weight: 600; color: #fff; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 			.mp-lname a { color: inherit; text-decoration: none; }
-			.mp-lname a:hover { color: var(--wallet-accent, #c4b5fd); }
-			.mp-lstats { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-2xs, .68rem); color: var(--ink-dim, #9a9a9a); font-family: var(--font-mono, monospace); }
-			.mp-lstats .pos { color: var(--success, #4ade80); }
-			.mp-lstats .neg { color: var(--danger, #f87171); }
-			.mp-mirror-btn { flex: 0 0 auto; font: inherit; font-size: var(--text-2xs, .7rem); font-weight: 700; padding: 8px 16px; border-radius: var(--radius-pill, 999px); border: none; background: var(--wallet-accent, #c4b5fd); color: #1a1340; cursor: pointer; transition: background .15s; white-space: nowrap; }
-			.mp-mirror-btn:hover { background: var(--wallet-accent-strong, #a78bfa); }
-			.mp-mirror-btn:focus-visible { outline: 2px solid var(--wallet-focus, rgba(139,92,246,.7)); outline-offset: 2px; }
-			.mp-sk { height: 68px; border-radius: var(--radius-lg, 14px); background: linear-gradient(90deg, var(--surface-1, rgba(255,255,255,.03)) 25%, var(--surface-2, rgba(255,255,255,.05)) 50%, var(--surface-1, rgba(255,255,255,.03)) 75%); background-size: 200% 100%; animation: mp-sh 1.3s infinite; }
-			@keyframes mp-sh { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-			.mp-empty { text-align: center; padding: var(--space-xl, 42px) var(--space-md, 16px); color: var(--ink-dim, #9a9a9a); font-size: var(--text-sm, .82rem); line-height: 1.6; }
-			.mp-empty strong { display: block; color: var(--ink-bright, #fff); font-family: var(--font-display, inherit); margin-bottom: 6px; }
-			.mp-agent-card { border: 1px solid var(--stroke, rgba(255,255,255,.08)); border-radius: var(--radius-lg, 14px); background: var(--surface-1, rgba(255,255,255,.025)); padding: var(--space-md, 16px); margin-bottom: var(--space-md, 16px); }
-			.mp-agent-head { display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-sm, 12px); }
+			.mp-lname a:hover { color: rgba(255,255,255,.7); }
+			.mp-lstats { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 3px; font-size: .68rem; color: rgba(255,255,255,.3); font-family: var(--font-mono, monospace); }
+			.mp-lstats .pos { color: rgba(255,255,255,.7); }
+			.mp-lstats .neg { color: rgba(255,255,255,.35); }
+			.mp-mirror-btn { flex: 0 0 auto; font: inherit; font-size: .7rem; font-weight: 600; padding: 7px 16px; border-radius: 3px; border: 1px solid rgba(255,255,255,.15); background: transparent; color: rgba(255,255,255,.7); cursor: pointer; transition: border-color .12s, color .12s, background .12s; white-space: nowrap; letter-spacing: .02em; }
+			.mp-mirror-btn:hover { border-color: rgba(255,255,255,.4); color: #fff; background: rgba(255,255,255,.04); }
+			.mp-mirror-btn:focus-visible { outline: 1px solid rgba(255,255,255,.4); outline-offset: 2px; }
+			.mp-sk { height: 62px; background: rgba(255,255,255,.025); animation: mp-sh 1.4s infinite; }
+			@keyframes mp-sh { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
+			.mp-empty { text-align: center; padding: 48px 16px; color: rgba(255,255,255,.3); font-size: .82rem; line-height: 1.6; }
+			.mp-empty strong { display: block; color: rgba(255,255,255,.7); margin-bottom: 6px; font-weight: 500; }
+			.mp-agent-card { border: 1px solid rgba(255,255,255,.07); border-radius: 4px; background: rgba(255,255,255,.02); padding: 16px; margin-bottom: 8px; }
+			.mp-agent-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 			.mp-agent-head .mp-lname { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-			.mp-agent-head .mp-lname a { font-size: var(--text-md, .95rem); }
+			.mp-agent-head .mp-lname a { font-size: .92rem; }
 			.mp-agent-chip { display: flex; }
-			.mp-signin { text-align: center; padding: var(--space-lg, 24px); border: 1px dashed var(--stroke-strong, rgba(255,255,255,.14)); border-radius: var(--radius-lg, 14px); color: var(--ink-dim, #9a9a9a); font-size: var(--text-sm, .82rem); }
-			.mp-signin a { color: var(--wallet-accent, #c4b5fd); font-weight: 600; text-decoration: none; }
-			.mp-safety { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: var(--space-md, 18px); }
-			.mp-safety span { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-2xs, .68rem); color: var(--ink-dim, #9a9a9a); }
-			.mp-safety b { color: var(--wallet-accent, #c4b5fd); }
+			.mp-signin { text-align: center; padding: 24px; border: 1px solid rgba(255,255,255,.07); border-radius: 4px; color: rgba(255,255,255,.3); font-size: .82rem; }
+			.mp-signin a { color: rgba(255,255,255,.7); font-weight: 500; text-decoration: none; }
+			.mp-signin a:hover { color: #fff; }
+			.mp-safety { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; margin-top: 20px; border-top: 1px solid rgba(255,255,255,.06); padding-top: 20px; }
+			.mp-safety span { display: inline-flex; align-items: center; gap: 6px; font-size: .68rem; color: rgba(255,255,255,.3); letter-spacing: .02em; }
+			.mp-safety b { color: rgba(255,255,255,.55); font-weight: 500; }
+			.mp-divider { height: 1px; background: rgba(255,255,255,.06); margin: 48px 0 0; }
 		</style>
 	</head>
 	<body>
@@ -85,23 +89,23 @@
 			<section class="mp-hero">
 				<p class="mp-kicker"><span class="mp-live-dot" aria-hidden="true"></span> Leashed autonomy · live on-chain</p>
 				<h1 class="mp-title">Copy a character, not an address</h1>
-				<p class="mp-sub">Follow a high-performing agent and <b>your</b> agent mirrors its real trades — proportionally, and strictly inside your spend policy. The leader isn't an anonymous wallet; it's an ownable agent with a face, a voice, and a verifiable track record. Your avatar trades while you sleep — and you can stop it instantly.</p>
+				<p class="mp-sub">Follow a high-performing agent and <b>your</b> agent mirrors its real trades — proportionally, and strictly inside your spend policy. The leader has a face, a voice, and a verifiable on-chain record. Your agent trades while you sleep — stop it anytime.</p>
 				<div class="mp-safety">
-					<span>🔒 <b>Spend-policy gated</b> — every trade</span>
-					<span>⚡ <b>Real on-chain</b> — no simulation</span>
-					<span>⛔ <b>Kill switch</b> — stop anytime</span>
+					<span><b>Spend-policy gated</b> — every trade</span>
+					<span><b>Real on-chain</b> — no simulation</span>
+					<span><b>Kill switch</b> — stop anytime</span>
 				</div>
 			</section>
 
 			<section class="mp-section" id="mp-mine-section" hidden>
-				<h2>Your copy-trading</h2>
-				<p class="mp-desc">Manage which leaders your agents mirror. The leash — kill switch and per-trade caps — is right here.</p>
+				<div class="mp-section-header"><h2>Your copy-trading</h2></div>
+				<p class="mp-desc">Manage which leaders your agents mirror. Kill switch and per-trade caps are right here.</p>
 				<div id="mp-mine"></div>
 			</section>
 
 			<section class="mp-section">
-				<h2>Discover leaders</h2>
-				<p class="mp-desc">Ranked by a real, on-chain-derived track record — losers included. Every number traces to a transaction.</p>
+				<div class="mp-section-header"><h2>Discover leaders</h2></div>
+				<p class="mp-desc">Ranked by a real, on-chain track record — losers included. Every number traces to a transaction.</p>
 				<div class="mp-controls">
 					<div class="mp-seg" role="tablist" aria-label="Sort leaders" id="mp-sort">
 						<button data-sort="score" aria-pressed="true">Top</button>

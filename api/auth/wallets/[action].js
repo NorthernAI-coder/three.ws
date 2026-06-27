@@ -40,7 +40,7 @@ const nonceBody = z.object({
 });
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 
 	// /api/auth/wallets — list (GET) or link (POST)
 	if (action === undefined || action === '' || action === null) {

@@ -6,6 +6,8 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { parse, isUuid } from '../_lib/validate.js';
 import skillReviewHandler from './review.js';
 
+const SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,59}$/;
+
 const updateSchema = z.object({
 	name: z.string().trim().min(2).max(80).optional(),
 	description: z.string().trim().max(500).optional(),
@@ -35,9 +37,16 @@ export default wrap(async (req, res) => {
 	if (!method(req, res, ['GET', 'PUT', 'DELETE'])) return;
 
 	const id = req.query?.id;
-	if (!id || !isUuid(id)) return error(res, 404, 'not_found', 'skill not found');
+	if (!id) return error(res, 404, 'not_found', 'skill not found');
 
-	if (req.method === 'GET') return handleGet(req, res, id);
+	const isId = isUuid(id);
+	const isSlug = SLUG_RE.test(id);
+	// GET supports both UUID and slug for deep-linking; mutations require UUID
+	if (req.method === 'GET') {
+		if (!isId && !isSlug) return error(res, 404, 'not_found', 'skill not found');
+		return handleGet(req, res, id, isId);
+	}
+	if (!isId) return error(res, 404, 'not_found', 'skill not found');
 	if (req.method === 'PUT') return handleUpdate(req, res, id);
 	return handleDelete(req, res, id);
 });
@@ -72,31 +81,50 @@ function toSkill(row, { includeInstalled = false } = {}) {
 	return skill;
 }
 
-async function handleGet(req, res, id) {
+async function handleGet(req, res, id, isId = true) {
 	const rl = await limits.publicIp(clientIp(req));
 	if (!rl.success) return rateLimited(res, rl);
 
 	const auth = await resolveOptionalAuth(req);
 	const userId = auth?.userId ?? null;
 
-	const [row] = await sql`
-		SELECT
-			ms.*,
-			u.display_name AS author_display_name,
-			ROUND(COALESCE(AVG(sr.rating), 0)::numeric, 1)::float AS avg_rating,
-			COUNT(sr.rating)::int AS rating_count,
-			CASE WHEN ${userId}::uuid IS NOT NULL
-				THEN EXISTS(
-					SELECT 1 FROM skill_installs si
-					WHERE si.skill_id = ms.id AND si.user_id = ${userId}::uuid
-				)
-				ELSE NULL END AS installed
-		FROM marketplace_skills ms
-		LEFT JOIN users u ON u.id = ms.author_id AND u.deleted_at IS NULL
-		LEFT JOIN skill_ratings sr ON sr.skill_id = ms.id
-		WHERE ms.id = ${id} AND ms.is_public = true
-		GROUP BY ms.id, ms.author_id, u.display_name
-	`;
+	const [row] = isId
+		? await sql`
+			SELECT
+				ms.*,
+				u.display_name AS author_display_name,
+				ROUND(COALESCE(AVG(sr.rating), 0)::numeric, 1)::float AS avg_rating,
+				COUNT(sr.rating)::int AS rating_count,
+				CASE WHEN ${userId}::uuid IS NOT NULL
+					THEN EXISTS(
+						SELECT 1 FROM skill_installs si
+						WHERE si.skill_id = ms.id AND si.user_id = ${userId}::uuid
+					)
+					ELSE NULL END AS installed
+			FROM marketplace_skills ms
+			LEFT JOIN users u ON u.id = ms.author_id AND u.deleted_at IS NULL
+			LEFT JOIN skill_ratings sr ON sr.skill_id = ms.id
+			WHERE ms.id = ${id} AND ms.is_public = true
+			GROUP BY ms.id, ms.author_id, u.display_name
+		`
+		: await sql`
+			SELECT
+				ms.*,
+				u.display_name AS author_display_name,
+				ROUND(COALESCE(AVG(sr.rating), 0)::numeric, 1)::float AS avg_rating,
+				COUNT(sr.rating)::int AS rating_count,
+				CASE WHEN ${userId}::uuid IS NOT NULL
+					THEN EXISTS(
+						SELECT 1 FROM skill_installs si
+						WHERE si.skill_id = ms.id AND si.user_id = ${userId}::uuid
+					)
+					ELSE NULL END AS installed
+			FROM marketplace_skills ms
+			LEFT JOIN users u ON u.id = ms.author_id AND u.deleted_at IS NULL
+			LEFT JOIN skill_ratings sr ON sr.skill_id = ms.id
+			WHERE ms.slug = ${id} AND ms.is_public = true
+			GROUP BY ms.id, ms.author_id, u.display_name
+		`;
 
 	if (!row) return error(res, 404, 'not_found', 'skill not found');
 

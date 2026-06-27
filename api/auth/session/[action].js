@@ -14,7 +14,7 @@ function readCookieToken(req) {
 }
 
 export default wrap(async (req, res) => {
-	const action = req.query?.action;
+	const action = req.query?.action ?? new URL(req.url, 'http://x').pathname.split('/').filter(Boolean).pop();
 
 	if (action === 'list') {
 		if (cors(req, res, { methods: 'GET,OPTIONS', credentials: true })) return;
