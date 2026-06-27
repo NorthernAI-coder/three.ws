@@ -18,7 +18,7 @@ import { createLogger } from './shared/log.js';
 
 const log = createLogger('pulse');
 
-const state = { network: 'mainnet', pulse: null };
+const state = { network: 'mainnet', pulse: null, filter: 'all', lastUpdated: 0 };
 
 const $ = (id) => document.getElementById(id);
 
@@ -50,6 +50,52 @@ function agentCardHTML(a, metricHTML) {
 	);
 }
 
+// Map of data-filter values → the feed type string the component understands.
+const FILTER_TO_TYPE = { all: 'all', tips: 'tips', launches: 'launches', trades: 'trades', payments: 'payments', purchases: 'purchases' };
+const FILTER_LABEL = { tips: 'Tips', launches: 'Launches', trades: 'Trades', payments: 'Payments', purchases: 'Marketplace' };
+
+function setFeedFilter(filter) {
+	const f = FILTER_TO_TYPE[filter] || 'all';
+	state.filter = f;
+	state.pulse?.setType(f);
+
+	// Highlight the active counter; un-highlight all others.
+	for (const el of document.querySelectorAll('[data-filter]')) {
+		el.classList.toggle('px-counter--active', el.dataset.filter === f);
+	}
+
+	// Show / hide the filter bar.
+	const bar = $('px-filter-bar');
+	const label = $('px-filter-label');
+	if (bar && label) {
+		if (f === 'all') {
+			bar.hidden = true;
+			label.textContent = '';
+		} else {
+			label.textContent = `Showing: ${FILTER_LABEL[f] || f}`;
+			bar.hidden = false;
+		}
+	}
+
+	// Scroll the feed into view smoothly on filter change.
+	if (f !== 'all') $('px-feed')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// "Updated X ago" ticker — stamps time on each stats load, ticks every 15s.
+function startUpdatedTick() {
+	const el = $('px-updated');
+	if (!el) return;
+	function tick() {
+		if (!state.lastUpdated) { el.textContent = ''; return; }
+		const s = Math.round((Date.now() - state.lastUpdated) / 1000);
+		if (s < 10) el.textContent = 'just now';
+		else if (s < 60) el.textContent = `updated ${s}s ago`;
+		else el.textContent = `updated ${Math.round(s / 60)}m ago`;
+	}
+	tick();
+	setInterval(tick, 15_000);
+}
+
 async function loadStats() {
 	const host = $('px-stats');
 	try {
@@ -57,6 +103,9 @@ async function loadStats() {
 		if (!res.ok) throw new Error(`stats ${res.status}`);
 		const { data } = await res.json();
 		renderStats(data);
+		state.lastUpdated = Date.now();
+		const updEl = $('px-updated');
+		if (updEl) updEl.textContent = 'just now';
 	} catch (e) {
 		log.warn('stats failed', e?.message);
 		// The stats panel is supplementary — degrade quietly, never block the feed.
@@ -365,6 +414,27 @@ function renderTrading(d) {
 		pnlTag.classList.add('px-market-tag--off');
 	}
 
+	// One honest, plain-language readout of the week — what ran, what it cost, and
+	// whether anything has closed yet. Sells carry no SOL out, so cost is over buys.
+	const insight = $('px-trade-insight');
+	if (insight) {
+		if ((w7.trades || 0) > 0) {
+			let line = `Agents ran ${fmtNum(w7.trades)} trade${w7.trades === 1 ? '' : 's'} this week, deploying ${fmtSol(w7.deployed_sol)} into buys (${fmtSol(w7.avg_trade_sol)} avg).`;
+			line += pnl.closed_positions > 0
+				? ` ${pnl.closed_positions} position${pnl.closed_positions === 1 ? '' : 's'} closed for ${fmtSignedSol(pnl.net_sol)} realized — ${fmtPct(pnl.win_rate)} win rate.`
+				: ` No positions have closed yet, so realized P&L is still pending.`;
+			insight.textContent = line;
+			insight.hidden = false;
+		} else {
+			insight.hidden = true;
+		}
+	}
+
+	// Reveal the in-panel "show trades in feed" action only when there's something to
+	// show. It carries data-filter="trades", so the shared counter wiring drives it.
+	const filterBtn = $('px-trade-filter');
+	if (filterBtn) filterBtn.hidden = !((w24.trades || 0) > 0 || (w7.trades || 0) > 0);
+
 	renderTradeSpark(d.series_7d);
 
 	// Top traders — the wallets actually putting capital to work.
@@ -436,12 +506,22 @@ function wireNetworkToggle() {
 	}
 }
 
+function wireCounterClicks() {
+	for (const el of document.querySelectorAll('[data-filter]')) {
+		el.addEventListener('click', () => setFeedFilter(el.dataset.filter));
+		el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setFeedFilter(el.dataset.filter); } });
+	}
+	$('px-filter-clear')?.addEventListener('click', () => setFeedFilter('all'));
+}
+
 function init() {
 	wireNetworkToggle();
+	wireCounterClicks();
 	mountFeed();
 	loadStats();
 	loadTrading();
 	loadMarketplace();
+	startUpdatedTick();
 	// Refresh stats on a slow cadence; the feed has its own live delta polling.
 	setInterval(() => { if (!document.hidden) { loadStats(); loadTrading(); loadMarketplace(); } }, 60_000);
 }

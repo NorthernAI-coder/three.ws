@@ -56,39 +56,42 @@
 					Every tip, launch, trade and payment moving through three.ws agent wallets —
 					the moment it lands on-chain. Real events only. Click any beat to meet the agent behind it.
 				</p>
-				<div class="px-net" role="tablist" aria-label="Network">
-					<button type="button" class="px-net-btn active" data-network="mainnet" role="tab" aria-selected="true">Mainnet</button>
-					<button type="button" class="px-net-btn" data-network="devnet" role="tab" aria-selected="false">Devnet</button>
+				<div class="px-hero-row">
+					<div class="px-net" role="tablist" aria-label="Network">
+						<button type="button" class="px-net-btn active" data-network="mainnet" role="tab" aria-selected="true">Mainnet</button>
+						<button type="button" class="px-net-btn" data-network="devnet" role="tab" aria-selected="false">Devnet</button>
+					</div>
+					<span class="px-updated" id="px-updated" aria-live="polite"></span>
 				</div>
 			</section>
 
 			<dl class="px-counters" id="px-counters">
-				<div class="px-counter px-counter--lead">
+				<div class="px-counter px-counter--lead" data-filter="all" role="button" tabindex="0" aria-label="Show all events in feed">
 					<dt>Volume · 24h</dt>
 					<dd id="px-c-vol">—</dd>
 					<span class="px-counter-sub" id="px-c-vol-sub">on-chain flow</span>
 				</div>
-				<div class="px-counter">
+				<div class="px-counter" data-filter="tips" role="button" tabindex="0" aria-label="Filter feed to tips">
 					<dt>Tips · 24h</dt>
 					<dd id="px-c-tips">—</dd>
 					<span class="px-counter-sub" id="px-c-tips-sub">—</span>
 				</div>
-				<div class="px-counter">
+				<div class="px-counter" data-filter="launches" role="button" tabindex="0" aria-label="Filter feed to launches">
 					<dt>Launches · 24h</dt>
 					<dd id="px-c-launches">—</dd>
 					<span class="px-counter-sub">coins minted</span>
 				</div>
-				<div class="px-counter">
+				<div class="px-counter" data-filter="trades" role="button" tabindex="0" aria-label="Filter feed to trades">
 					<dt>Trades · 24h</dt>
 					<dd id="px-c-trades">—</dd>
 					<span class="px-counter-sub" id="px-c-trades-sub">swaps</span>
 				</div>
-				<div class="px-counter">
+				<div class="px-counter" data-filter="payments" role="button" tabindex="0" aria-label="Filter feed to payments">
 					<dt>Payments · 24h</dt>
 					<dd id="px-c-pays">—</dd>
 					<span class="px-counter-sub">agent → agent x402</span>
 				</div>
-				<div class="px-counter">
+				<div class="px-counter" data-filter="purchases" role="button" tabindex="0" aria-label="Filter feed to marketplace purchases">
 					<dt>Marketplace · 24h</dt>
 					<dd id="px-c-market">—</dd>
 					<span class="px-counter-sub" id="px-c-market-sub">paid skill buys</span>
@@ -144,7 +147,7 @@
 					<div class="px-market-htxt">
 						<span class="px-market-title">Trading viability</span>
 						<span class="px-market-tag" id="px-trade-pnl-tag">—</span>
-						<button type="button" class="px-market-action" id="px-trade-filter" hidden>Show trades in feed →</button>
+						<button type="button" class="px-market-action" id="px-trade-filter" data-filter="trades" hidden>Show trades in feed →</button>
 					</div>
 					<span class="px-market-sub">Real, fully-guarded coin trades through agent wallets — what's flowing, what it costs, and the realized P&amp;L on positions that have closed. The honest signal behind the Trades counter.</span>
 				</div>
@@ -173,7 +176,13 @@
 
 			<div class="px-grid">
 				<div class="px-main">
-					<h2 class="px-section-h">Live feed</h2>
+					<div class="px-feed-header">
+						<h2 class="px-section-h">Live feed</h2>
+						<div class="px-filter-bar" id="px-filter-bar" hidden>
+							<span class="px-filter-label" id="px-filter-label"></span>
+							<button type="button" class="px-filter-clear" id="px-filter-clear" aria-label="Clear feed filter">× clear</button>
+						</div>
+					</div>
 					<div id="px-feed"></div>
 				</div>
 				<aside class="px-rail" aria-label="Money intelligence">
