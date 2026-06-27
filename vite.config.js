@@ -334,6 +334,7 @@ const appConfig = {
 				embed: resolve(__dirname, 'pages/embed.html'),
 				'embed-demo': resolve(__dirname, 'pages/embed-demo.html'),
 				integrations: resolve(__dirname, 'pages/integrations.html'),
+				partners: resolve(__dirname, 'pages/partners.html'),
 				widget: resolve(__dirname, 'pages/widget.html'),
 				launchpad: resolve(__dirname, 'pages/launchpad.html'),
 				launch: resolve(__dirname, 'pages/launch.html'),
