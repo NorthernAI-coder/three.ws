@@ -10,7 +10,7 @@
 // Bounded so a 2-minute cron can never run away: only edges with a leader trade
 // in the recent window are scanned, and each edge processes at most N events.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
@@ -68,7 +68,7 @@ async function fanout(network, stats) {
 	}
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

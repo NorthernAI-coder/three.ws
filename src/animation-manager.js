@@ -265,7 +265,11 @@ export class AnimationManager {
 		if (this._fallen.has(name)) return false;
 		const clip = action?.getClip?.();
 		const tiltDeg = measureHipsTiltDeg(clip, this.model, this._canonicalToNode);
-		if (tiltDeg == null || tiltDeg <= CATASTROPHE_TILT_DEG) return true;
+		// NaN means the measurement couldn't complete (degenerate world matrix, missing
+		// bone quaternion, etc.) — treat as safe rather than incorrectly flagging the
+		// clip as fallen. NaN comparisons are always false, so without this check a NaN
+		// would fall through the guard and falsely reject the clip.
+		if (tiltDeg == null || !Number.isFinite(tiltDeg) || tiltDeg <= CATASTROPHE_TILT_DEG) return true;
 
 		// Reject: stop and disable the action, drop it so it can't be selected
 		// again, and fall back to the authored bind pose (do not play the broken

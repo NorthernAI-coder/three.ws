@@ -19,7 +19,7 @@
 //   (subscription_id, leader_position_id,      direction) when leader_position_id      is not null
 //   (subscription_id, leader_oracle_action_id, direction) when leader_oracle_action_id is not null
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
@@ -382,7 +382,7 @@ async function fanoutOracleBuys(network, stats) {
 	}
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

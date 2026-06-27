@@ -14,7 +14,7 @@
 // changes agent_identities.user_id. Owner activity (a login, a trade, an explicit
 // check-in) cancels everything — the switch is always defeatable by being alive.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { runDeadManSweep } from '../_lib/agent-recovery.js';
@@ -34,7 +34,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

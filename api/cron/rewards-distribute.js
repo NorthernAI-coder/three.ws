@@ -16,7 +16,7 @@
 // Standalone (not [name].js) so the import graph stays minimal — just the token
 // config, the holder snapshot reader, and the pure distribution math.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { TOKEN_MINT, ATOMICS_PER_TOKEN, treasuryWalletOrNull, rewardsWalletOrNull } from '../_lib/token/config.js';
@@ -53,7 +53,7 @@ async function readPoolAtomics(poolWallet) {
 	}
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

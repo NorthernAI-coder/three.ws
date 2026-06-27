@@ -25,7 +25,7 @@
 //
 // Filters: type=all|tips|launches|trades|payments, network=mainnet|devnet.
 
-import { sql } from './_lib/db.js';
+import { sql, isDbUnavailableError } from './_lib/db.js';
 import { cors, json, method, error, serverError, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { isUuid } from './_lib/validate.js';
@@ -455,6 +455,10 @@ export default async function handler(req, res) {
 		const body = await handleFeed(req, res, { network, type, agentId, cursor, since });
 		return json(res, 200, { data: body });
 	} catch (e) {
+		if (isDbUnavailableError(e)) {
+			console.warn('[api/pulse] db unavailable:', e?.message);
+			return serverError(res, 503, 'service_unavailable', e);
+		}
 		console.error('[api/pulse] failed', e?.message, e?.stack);
 		return serverError(res, 502, 'pulse_failed', e);
 	}

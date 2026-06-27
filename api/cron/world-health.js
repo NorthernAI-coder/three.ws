@@ -14,7 +14,7 @@
 // concrete handler so its import graph stays tiny — a monitor must not share a
 // cold start with the heavy generation/pump SDKs behind the [name].js dispatcher.
 
-import { json, method, wrap } from '../_lib/http.js';
+import { json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
@@ -68,7 +68,7 @@ async function headAll(urls, concurrency) {
 	return results;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 

@@ -11,7 +11,7 @@
 // Nothing here exposes a key: the engine decrypts only at signing, audit-logs
 // every recovery, and writes a custody event stamped with the intent_id.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { runIntentSweep } from '../_lib/wallet-intents.js';
@@ -31,7 +31,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

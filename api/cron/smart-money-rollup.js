@@ -17,7 +17,7 @@
 // (pump_coin_wallets / pumpfun_graduations are mainnet). Idempotent + bounded so
 // a 5-minute cron can never run away.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
@@ -47,7 +47,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET', 'POST'])) return;
 	if (!requireCron(req, res)) return;
 

@@ -17,7 +17,7 @@
 import { sql } from '../_lib/db.js';
 import { creditAccount } from '../_lib/credits.js';
 import { atomicsToUsd } from '../_lib/pay/spend-governor.js';
-import { cors, json, wrap } from '../_lib/http.js';
+import { cors, json, wrapCron } from '../_lib/http.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 
 export const maxDuration = 30;
@@ -36,7 +36,7 @@ function requireCron(req, res) {
 	return false;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	cors(req, res, { methods: 'GET,POST,OPTIONS' });
 	if (req.method?.toUpperCase() === 'OPTIONS') return;
 	if (requireCron(req, res)) return;

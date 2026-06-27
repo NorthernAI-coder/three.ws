@@ -10,7 +10,7 @@
 // Kept as a concrete file (not [name].js) so the import graph stays minimal —
 // no shared SDK, skills, or data bundles needed for a telemetry flush.
 
-import { error, json, method, wrap } from '../_lib/http.js';
+import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { flushUsageBuffer } from '../_lib/usage.js';
@@ -31,7 +31,7 @@ function requireCron(req, res) {
 	return true;
 }
 
-export default wrap(async (req, res) => {
+export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
