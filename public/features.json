@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T22:01:30.398Z",
+	"generated_at": "2026-06-27T22:06:13.554Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -900,6 +900,16 @@
 					"path": "/deployments",
 					"title": "On-chain Deployments",
 					"description": "A live, cross-chain feed of every agent registered on the ERC-8004 Identity Registry — the moment each registration lands on-chain. Real on-chain registrations only, with chain footprint, 3D-avatar and x402 capability stats.",
+					"added": "2026-06-27",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/launcher",
+					"title": "Memetic Launcher",
+					"description": "Design your personal autonomous coin launcher — set your mode (trend, meme, hybrid, random), pick trend sources, tune your cadence, and preview exactly what your agents would mint next. Preview mode: no SOL moves until you fund a live launch.",
 					"added": "2026-06-27",
 					"auth": null,
 					"indexable": true,

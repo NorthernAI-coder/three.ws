@@ -28,6 +28,7 @@ import {
 	getTreasuryKeypair,
 	transferSol,
 	lamportBalance,
+	signatureLanded,
 	treasuryConnection,
 	FEE_BUFFER,
 	SOL,
@@ -161,12 +162,15 @@ export async function getActivationStatus({ agent, isOwner }) {
 	};
 }
 
-// Count confirmed grants in the last 24h for the rolling daily cap.
-async function confirmedToday() {
+// Count grants in the last 24h for the rolling daily cap. Counts BOTH pending and
+// confirmed so in-flight claims reserve a slot — checked AFTER this request has
+// inserted its own pending row, so a concurrent burst can overshoot the cap by at
+// most the read-skew window rather than the full burst width.
+async function recentActivationCount() {
 	try {
 		const [r] = await sql`
 			select count(*)::int as count from agent_activations
-			where status = 'confirmed' and created_at > now() - interval '24 hours'
+			where status in ('pending', 'confirmed') and created_at > now() - interval '24 hours'
 		`;
 		return r?.count ?? 0;
 	} catch (err) {
@@ -240,29 +244,9 @@ export async function activateAgent({ agentId, userId }) {
 		// 'proceed' falls through
 	}
 
-	// Rolling daily cap — a soft global spend bound (live count, so outside the
-	// pure decision above).
-	if ((await confirmedToday()) >= cfg.dailyCap) {
-		return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
-	}
-
 	await ensureSchema();
 
-	// Provision the wallet if it isn't already (lazy-mint path), then resolve the
-	// destination address.
-	let address = agent.meta?.solana_address || null;
-	try {
-		const w = await ensureAgentWallet(agentId, userId, { reason: 'activation' });
-		if (w?.address) address = w.address;
-	} catch (err) {
-		console.error('[agent-activation] wallet provision failed', err?.message);
-		return { ok: false, code: 'wallet_unavailable', message: 'could not prepare the agent wallet' };
-	}
-	if (!address) {
-		return { ok: false, code: 'wallet_unavailable', message: 'agent has no wallet to fund' };
-	}
-
-	// Claim the single grant slot. ON CONFLICT DO NOTHING is the mutex: if a
+	// Claim the single grant slot FIRST. ON CONFLICT DO NOTHING is the mutex: if a
 	// concurrent request already inserted, we get no row back and bail as "pending".
 	const [claim] = await sql`
 		insert into agent_activations (agent_id, user_id, network, status)
@@ -276,11 +260,36 @@ export async function activateAgent({ agentId, userId }) {
 		return { ok: true, already: true, pending: true, network: cfg.network };
 	}
 
-	// From here a failure must release the claim so the owner can retry.
+	// Release the claim so the owner can retry — but ONLY for failures that prove
+	// the grant never went on-chain. A send/confirm ambiguity must keep the claim
+	// (see the transfer catch), or a timed-out-but-landed tx would be re-granted.
 	const releaseClaim = () =>
 		sql`delete from agent_activations where agent_id = ${agentId} and status = 'pending'`.catch(
 			() => {},
 		);
+
+	// Rolling daily cap — checked AFTER claiming so this request's own pending row
+	// is counted; a concurrent burst can overshoot only by the read-skew window.
+	if ((await recentActivationCount()) > cfg.dailyCap) {
+		await releaseClaim();
+		return { ok: false, code: 'cap_reached', message: 'daily activation cap reached — try again tomorrow' };
+	}
+
+	// Provision the wallet if it isn't already (lazy-mint path), then resolve the
+	// destination address.
+	let address = agent.meta?.solana_address || null;
+	try {
+		const w = await ensureAgentWallet(agentId, userId, { reason: 'activation' });
+		if (w?.address) address = w.address;
+	} catch (err) {
+		console.error('[agent-activation] wallet provision failed', err?.message);
+		await releaseClaim();
+		return { ok: false, code: 'wallet_unavailable', message: 'could not prepare the agent wallet' };
+	}
+	if (!address) {
+		await releaseClaim();
+		return { ok: false, code: 'wallet_unavailable', message: 'agent has no wallet to fund' };
+	}
 
 	let treasuryKp;
 	try {
@@ -310,8 +319,18 @@ export async function activateAgent({ agentId, userId }) {
 		signature = await transferSol(conn, treasuryKp, address, lamports);
 	} catch (err) {
 		console.error('[agent-activation] grant transfer failed', err?.message);
-		await releaseClaim();
-		return { ok: false, code: 'transfer_failed', message: 'the grant could not be sent — try again' };
+		// A confirmation timeout can throw even though the transfer actually landed
+		// on-chain (common under RPC congestion). transferSol attaches the broadcast
+		// signature to the error; before releasing the claim — which would let the
+		// owner retry and DOUBLE-SPEND the treasury — probe the chain. If the grant
+		// already landed, treat it as success; only release when it provably did not.
+		const broadcastSig = err?.signature || null;
+		const landed = broadcastSig ? await signatureLanded(conn, broadcastSig).catch(() => false) : false;
+		if (!landed) {
+			await releaseClaim();
+			return { ok: false, code: 'transfer_failed', message: 'the grant could not be sent — try again' };
+		}
+		signature = broadcastSig;
 	}
 
 	// Price the grant in USD (best-effort) so the Pulse can value it.

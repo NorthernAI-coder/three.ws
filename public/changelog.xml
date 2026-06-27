@@ -23,6 +23,14 @@
 			<description>Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.</description>
 		</item>
 		<item>
+			<title>Memetic Launcher</title>
+			<link>https://three.ws/launcher</link>
+			<guid isPermaLink="false">2026-06-27:Memetic Launcher</guid>
+			<pubDate>Sat, 27 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Design your personal autonomous coin launcher — set your mode (trend, meme, hybrid, random), pick trend sources, tune your cadence, and preview exactly what your agents would mint next. Preview mode: no SOL moves until you fund a live launch.</description>
+		</item>
+		<item>
 			<title>On-chain Deployments</title>
 			<link>https://three.ws/deployments</link>
 			<guid isPermaLink="false">2026-06-27:On-chain Deployments</guid>

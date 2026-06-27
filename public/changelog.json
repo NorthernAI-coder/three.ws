@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T22:01:30.566Z",
+	"generated_at": "2026-06-27T22:06:13.568Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "Live Agents",
 			"summary": "Mission control — real-time grid of all AI agents with active screen streams. Watch their screens and avatar feeds live.",
 			"link": "/agents-live",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "launch",
+			"title": "Memetic Launcher",
+			"summary": "Design your personal autonomous coin launcher — set your mode (trend, meme, hybrid, random), pick trend sources, tune your cadence, and preview exactly what your agents would mint next. Preview mode: no SOL moves until you fund a live launch.",
+			"link": "/launcher",
 			"tags": [
 				"launch"
 			]

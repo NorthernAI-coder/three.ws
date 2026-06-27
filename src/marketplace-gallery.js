@@ -99,7 +99,7 @@ function ensureStyles() {
 .mwg-search-clear{flex:0 0 auto;appearance:none;border:0;background:transparent;color:#a1a1aa;
 	font:inherit;font-size:16px;line-height:1;cursor:pointer;padding:2px 4px;display:none;border-radius:50%;}
 .mwg-search-clear:hover{color:#fafafa;}
-.mwg-search[data-has-query="1"] .mwg-search-clear{display:block;}
+.mwg-search[data-has-query] .mwg-search-clear{display:block;}
 .mwg-search-clear:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:1px;}
 
 .mwg-panel{position:fixed;top:50%;right:max(16px,env(safe-area-inset-right,0));
