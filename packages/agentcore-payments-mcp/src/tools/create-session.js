@@ -33,8 +33,8 @@ export const def = {
 			.describe('If set, only allow payments to endpoints at these hosts (e.g. ["api.weather.com"]). Empty = any host.'),
 		agent_id: z.string().uuid().optional()
 			.describe('Optional: restrict this session token to a specific agent identity UUID.'),
-		network: z.enum(['solana', 'base']).default('solana')
-			.describe('Settlement network for x402 payments. Default: solana.'),
+		network: z.literal('solana').default('solana')
+			.describe('Settlement network for x402 payments. Solana USDC only.'),
 		metadata: z.record(z.any()).optional()
 			.describe('Optional arbitrary metadata to attach to this session for bookkeeping.'),
 	},

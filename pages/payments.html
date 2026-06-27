@@ -82,7 +82,6 @@
 			.sc-badge.cancelled { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
 			.sc-net { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
 			.sc-net.sol { background: rgba(153,69,255,0.12); color: #c084fc; border: 1px solid rgba(153,69,255,0.2); }
-			.sc-net.base { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
 			.sc-label { font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 			.sc-label-unnamed { color: rgba(255,255,255,0.4); font-style: italic; font-weight: 400; }
 			.sc-amounts { display: flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
@@ -362,7 +361,6 @@
 							<label>Network</label>
 							<select id="fNetwork">
 								<option value="solana" selected>Solana USDC</option>
-								<option value="base">Base USDC</option>
 							</select>
 						</div>
 						<div class="f-row">
@@ -541,11 +539,9 @@
 			}
 
 			// ── Execution table ────────────────────────────────────────
-			function explorerHref(txHash, network) {
+			function explorerHref(txHash) {
 				if (!txHash) return null;
-				if (String(network).startsWith('solana')) return `https://solscan.io/tx/${txHash}`;
-				if (network === 'eip155:8453' || network === 'base') return `https://basescan.org/tx/${txHash}`;
-				return null;
+				return `https://solscan.io/tx/${txHash}`;
 			}
 
 			function renderExecs(items) {
@@ -561,7 +557,7 @@
 						</tr></thead>
 						<tbody>
 							${items.map(e => {
-								const href = explorerHref(e.tx_hash, e.network);
+								const href = explorerHref(e.tx_hash);
 								return `<tr>
 									<td><div class="exec-url" title="${esc(e.endpoint_url)}">${esc(e.endpoint_host || e.endpoint_url)}</div></td>
 									<td><span class="exec-amt">${fmtUsd(e.amount_usd)}</span></td>
@@ -597,8 +593,8 @@
 				const bc = barCls(p, s.status);
 				const rc = remainCls(s);
 				const exp = s.status === 'active' ? fmtExpiry(s) : { text: '', cls: '' };
-				const netCls = s.network === 'base' ? 'base' : 'sol';
-				const netLabel = s.network === 'base' ? 'Base' : 'Solana';
+				const netCls = 'sol';
+				const netLabel = 'Solana';
 				const hosts = s.allowed_hosts?.length ? s.allowed_hosts.join(', ') : 'Any host';
 				const maxTx = s.max_per_tx_usd != null ? `$${s.max_per_tx_usd}` : 'No limit';
 

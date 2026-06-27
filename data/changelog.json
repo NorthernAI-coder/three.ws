@@ -3,6 +3,13 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "60 live x402 payments per minute",
+			"summary": "A new per-minute cron fires 60 parallel real Solana USDC micropayments each tick via the x402 protocol, seeding the platform's payment activity feed and club stage with continuous on-chain traffic. Each payment is a signed SPL TransferChecked transaction broadcast via the Solana facilitator — not simulated. Configure the batch size or pause it with X402_SEED_BATCH_SIZE / X402_SEED_ENABLED.",
+			"tags": ["infra", "feature"],
+			"link": "/pay"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Improved resilience during database outages",
 			"summary": "API endpoints now return HTTP 503 (Service Unavailable) with a Retry-After header instead of 500 when the database is temporarily unreachable, so clients and caches know to back off and retry rather than treating it as a permanent error. Background crons skip their tick gracefully and log a warning instead of firing repeated alert storms. A single deduped ops alert now covers the whole outage.",
 			"tags": [
