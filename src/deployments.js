@@ -55,6 +55,18 @@ function timeAgo(iso) {
 	return `${Math.round(mo / 12)}y ago`;
 }
 
+function truncate(s, max) {
+	const str = String(s || '').trim();
+	if (!str) return '';
+	if (str.length <= max) return str;
+	return str.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
+function absDate(iso) {
+	const t = new Date(iso);
+	return Number.isFinite(t.getTime()) ? t.toLocaleString() : '';
+}
+
 // ── stats ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
 	try {
@@ -77,6 +89,11 @@ function renderStats(d) {
 	$('dp-c-x402').textContent = `${d.x402_pct ?? 0}%`;
 	$('dp-c-x402-sub').textContent = `${fmtNum(d.x402 ?? 0)} accept payments`;
 
+	const todayEl = $('dp-today');
+	if (todayEl) {
+		const n = d.deployed_24h || 0;
+		todayEl.textContent = n > 0 ? ` · ${n} today` : '';
+	}
 	renderSparkline(d.series_7d);
 	renderTopChains(d.top_chains);
 }
@@ -168,6 +185,7 @@ function skeleton() {
 }
 
 function rowHTML(r) {
+	const dpId = `${r.chain_id}:${esc(r.agent_id)}`;
 	const av = r.image
 		? `<img class="dp-av" src="${esc(r.image)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'" />`
 		: `<span class="dp-av dp-av--mono" aria-hidden="true">${esc((r.name || '#').charAt(0).toUpperCase())}</span>`;
@@ -178,18 +196,22 @@ function rowHTML(r) {
 	const tags =
 		(r.has_3d ? `<span class="dp-tag dp-tag--3d" title="Ships a 3D avatar">3D</span>` : '') +
 		(r.x402_support ? `<span class="dp-tag dp-tag--x402" title="Accepts x402 payments">x402</span>` : '');
+	const desc = r.description ? `<span class="dp-row-desc">${esc(truncate(r.description, 110))}</span>` : '';
 	const tx = r.tx_explorer ? `<a class="dp-tx" href="${esc(r.tx_explorer)}" target="_blank" rel="noopener" title="Registration transaction">tx ↗</a>` : '';
 	const owner = r.owner
-		? `<a class="dp-owner" href="${esc(r.owner_explorer)}" target="_blank" rel="noopener" title="Owner">${esc(shortAddr(r.owner))}</a>`
+		? `<a class="dp-owner" href="${esc(r.owner_explorer)}" target="_blank" rel="noopener" title="Owner address">${esc(shortAddr(r.owner))}</a>`
 		: '';
+	const timeLabel = timeAgo(r.registered_at);
+	const timeTitle = absDate(r.registered_at);
 	return (
-		`<div class="dp-row">` +
+		`<div class="dp-row" data-dp-id="${dpId}">` +
 		av +
 		`<span class="dp-row-body">` +
 		`<span class="dp-row-top">${nameEl}${tags}</span>` +
+		desc +
 		`<span class="dp-row-meta"><span class="dp-chip">${esc(r.chain)}</span>${owner}</span>` +
 		`</span>` +
-		`<span class="dp-row-side"><span class="dp-time">${esc(timeAgo(r.registered_at))}</span>${tx}</span>` +
+		`<span class="dp-row-side"><span class="dp-time" title="${esc(timeTitle)}">${esc(timeLabel)}</span>${tx}</span>` +
 		`</div>`
 	);
 }
@@ -204,7 +226,28 @@ function renderFeed() {
 			`<p class="dp-empty-sub">Nothing registered on ${esc(state.network)} for this filter. <a href="/app">Deploy the first one.</a></p></div>`;
 		return;
 	}
-	host.innerHTML = state.items.map(rowHTML).join('');
+
+	// Diff against what's already rendered — prepend only genuinely new rows with
+	// the dp-land animation so the live 45s refresh feels like a stream, not a flash.
+	const renderedIds = new Set([...host.querySelectorAll('[data-dp-id]')].map(el => el.dataset.dpId));
+	const newItems = renderedIds.size > 0
+		? state.items.filter(r => !renderedIds.has(`${r.chain_id}:${r.agent_id}`))
+		: null;
+
+	if (newItems?.length) {
+		// Prepend newest-first (items are already sorted desc, so prepend in reverse
+		// to keep the display order: newest at top)
+		[...newItems].reverse().forEach(r => {
+			const wrap = document.createElement('div');
+			wrap.innerHTML = rowHTML(r);
+			const row = wrap.firstElementChild;
+			row.classList.add('dp-row--new');
+			host.prepend(row);
+		});
+	} else if (!renderedIds.size) {
+		// Initial render or after full reset
+		host.innerHTML = state.items.map(rowHTML).join('');
+	}
 }
 
 // ── controls ────────────────────────────────────────────────────────────────────
@@ -242,10 +285,29 @@ function wireFilters() {
 	}
 }
 
+function wireLoadMore() {
+	const more = $('dp-more');
+	if (!more) return;
+	more.addEventListener('click', () => { state.paged = true; loadFeed(false); });
+	// Trigger load-more automatically when the button scrolls into view, removing
+	// the need to click. Once paged, live refresh is paused (user is browsing history).
+	if ('IntersectionObserver' in window) {
+		new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && !more.hidden && !state.loading) {
+					state.paged = true;
+					loadFeed(false);
+				}
+			},
+			{ rootMargin: '0px 0px 160px 0px' },
+		).observe(more);
+	}
+}
+
 function init() {
 	wireNetworkToggle();
 	wireFilters();
-	$('dp-more')?.addEventListener('click', () => { state.paged = true; loadFeed(false); });
+	wireLoadMore();
 	loadStats();
 	loadFeed(true);
 	// Live cadence: refresh stats, and reload the top of the feed only while the

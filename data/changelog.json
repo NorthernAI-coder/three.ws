@@ -3,6 +3,19 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "On-chain Deployments — live cross-chain agent registry feed, now with animated entries and richer rows",
+			"summary": "The /deployments feed now animates newly-registered agents in as they appear rather than flashing the whole list. Each row shows the agent's description so you immediately know what it does. The live-dot kicker now shows today's registration count at a glance. Older registrations load automatically as you scroll (IntersectionObserver), so there's no hunting for the 'Load older' button. Absolute timestamps appear on hover for every registration.",
+			"tags": ["improvement"],
+			"link": "/deployments"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Live cultural narratives — now public, and now powered by Google Trends",
+			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/narratives: any agent (or builder) can ask what's trending right now, with the sources confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
+			"tags": ["feature", "improvement"]
+		},
+		{
+			"date": "2026-06-27",
 			"title": "Activate your agent — a one-tap welcome grant that brings it live",
 			"summary": "New agents now have a \"Go Live\" step in their wallet. One tap claims a real, one-time on-chain welcome grant from three.ws — it funds the agent's wallet and lands it on the live Money Pulse as an active wallet, in a single explorer-verifiable transaction. No more agents stuck at a zero balance with no way to make their first move. The Go Live screen shows the grant, the confirmed transaction, and what to do next, all in the platform's monochrome look.",
 			"tags": ["feature"],
@@ -8586,6 +8599,16 @@
 				"feature"
 			],
 			"link": "/partners"
+		},
+		{
+			"date": "2026-06-27",
+			"title": "Autonomous coin launcher — creator fees, revenue tracking, and admin console upgrades",
+			"summary": "The memetic launcher now auto-claims pump.fun creator fees from every coin it mints, routing the configured share toward $THREE. The admin console at /admin/launcher gains a live revenue panel (total creator fees claimed, $THREE allocated), agent-name visibility in the run feed, a Force Tick button for instant testing, and a cleaner 8-column stat grid. Know Your Meme is wired as a live trend source alongside Hacker News, Reddit, and Wikipedia — so the launcher reads what the internet is actually minting.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/admin/launcher"
 		}
 	]
 }

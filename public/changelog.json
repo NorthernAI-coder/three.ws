@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-27T21:08:07.009Z",
+	"generated_at": "2026-06-27T21:42:54.736Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -174,6 +174,17 @@
 		{
 			"date": "2026-06-27",
 			"type": "update",
+			"title": "Live cultural narratives — now public, and now powered by Google Trends",
+			"summary": "The autonomous launcher's trend intelligence got broader and more open. Alongside Know Your Meme, it now reads Google Daily Search Trends — the broadest real-time signal of what the world is paying attention to — with a brand-safety gate that reads the news behind each trend and drops anything tied to tragedy before it can ever become a coin theme. And the ranked narratives are now a public, read-only feed at /api/launcher/narratives: any agent (or builder) can ask what's trending right now, with the sources confirming each wave, and ride a real current instead of guessing. Themes only — names and tickers are always invented fresh, never copied.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
 			"title": "Manage your AWS Marketplace API key — new keys & usage page",
 			"summary": "AWS Marketplace subscribers (and anyone with an x402 subscription key) now have a home for it at /billing/keys. See every key with its billing source — AWS Marketplace or on-chain — live status, rate limit, total calls, and when it was last used. Rotate a key to get a fresh secret in one click (AWS-billed keys stay linked to your AWS account and keep metering correctly), or revoke a native key outright. The post-subscribe welcome flow now points here, so a lost key is always recoverable by rotating instead of being stuck.",
 			"link": "/billing/keys",
@@ -212,6 +223,16 @@
 			"tags": [
 				"improvement",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-27",
+			"type": "update",
+			"title": "On-chain Deployments — live cross-chain agent registry feed, now with animated entries and richer rows",
+			"summary": "The /deployments feed now animates newly-registered agents in as they appear rather than flashing the whole list. Each row shows the agent's description so you immediately know what it does. The live-dot kicker now shows today's registration count at a glance. Older registrations load automatically as you scroll (IntersectionObserver), so there's no hunting for the 'Load older' button. Absolute timestamps appear on hover for every registration.",
+			"link": "/deployments",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
