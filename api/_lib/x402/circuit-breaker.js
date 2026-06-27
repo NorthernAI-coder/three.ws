@@ -3,8 +3,8 @@
 // Cross-Network Payment Circuit Breaker — the cheapest possible end-to-end
 // proof that the entire x402 payment stack is alive.
 //
-// Once per hour the autonomous loop calls runCircuitBreaker() via the registry
-// entry's run() hook. It:
+// A run()-style registry entry (autonomous-registry.js → `circuit-breaker-cross-network`).
+// Once per hour the autonomous loop calls runCircuitBreaker(ctx). It:
 //
 //   1. Probes a real $0.001 402-gated three.ws endpoint (dance-tip) for a live
 //      payment challenge.
@@ -14,24 +14,29 @@
 //      or malformed accept means a facilitator/config route has gone dark: the
 //      breaker trips for that network.
 //   3. Settles a REAL $0.001 USDC payment on Solana — the only network with a
-//      configured autonomous outbound keypair (X402_AGENT_SOLANA_SECRET_BASE58)
-//      — to prove that build → verify → settle → receipt works end-to-end, not
-//      just that the route is advertised. Base/BSC outbound settlement is not
-//      attempted because no autonomous EVM signing wallet is provisioned; their
-//      route health is verified from the live challenge instead (real data, no
-//      mock). The moment an autonomous EVM payer is configured, settlement for
-//      those networks can be switched on here without touching the loop.
+//      configured autonomous outbound keypair (X402_SEED/AGENT_SOLANA_SECRET_BASE58)
+//      — via the shared payX402() client, proving build → verify → settle →
+//      receipt works end-to-end, not just that the route is advertised.
+//      Base/BSC outbound settlement is not attempted because no autonomous EVM
+//      signing wallet is provisioned; their route health is verified from the
+//      live challenge instead (real data, no mock). The day an autonomous EVM
+//      payer is configured, settlement for those networks switches on here
+//      without touching the loop.
 //   4. Upserts per-network status into `x402_circuit_breaker` (latest snapshot
-//      keyed by network) and returns a compact summary the loop records to
-//      `x402_autonomous_log`.
+//      keyed by network) and returns a compact outcome the loop records to
+//      `x402_autonomous_log` (response_data + signal_data).
 //
 // Downstream consumer: api/ops/health.js reads `x402_circuit_breaker` and
-// surfaces the payment-stack liveness (per-network route + Solana settlement)
-// in the internal health dashboard, and folds a tripped breaker into the
-// overall `ok` verdict. The status page / on-call alerting consume that.
+// surfaces payment-stack liveness (per-network route + Solana settlement) in the
+// internal health dashboard, folding a tripped breaker into the overall `ok`
+// verdict. On-call alerting / the status page consume that verdict.
 //
 // No mocks. Every check reads live challenge data or makes a real on-chain
-// payment. If the Solana settlement fails the breaker is recorded as tripped.
+// payment. The loop owns recording, cooldown, and daily-spend accounting; this
+// module owns the probe, the cross-network verification, the payment, and the
+// value extraction/storage.
+
+import { fetchWithTimeout, parseSolanaAccept, payX402, USDC_MINT } from './pay.js';
 
 // Stable network identifiers — source of truth is api/_lib/x402-spec.js
 // (NETWORK_SOLANA_MAINNET / NETWORK_BASE_MAINNET / NETWORK_BSC_MAINNET). Matched
@@ -41,11 +46,11 @@ const NET_BASE = 'eip155:8453';
 const NET_BSC = 'eip155:56';
 
 // The probe target: the cheapest real 402-gated endpoint on the platform
-// ($0.001 USDC). A successful pay books one dance on the club stage — the same
-// real side effect the volume entries already produce, so an hourly breaker tip
-// is consistent with existing traffic.
+// ($0.001 USDC). A settled pay books one dance on the club stage — the same real
+// side effect the volume entries already produce, so an hourly breaker tip is
+// consistent with existing traffic. A 402 challenge alone (the probe) books
+// nothing; the ticket is created only after payment settles.
 const PROBE_PATH = '/api/x402/dance-tip';
-const PROBE_METHOD = 'POST';
 const PROBE_BODY = { dancer: '4', dance: 'hiphop' };
 
 // Networks the breaker expects the platform to advertise. `settle` flags the one
@@ -80,9 +85,7 @@ const TARGET_NETWORKS = [
 ];
 
 function validateAccept(target, accept) {
-	if (!accept) {
-		return { advertised: false, route_ok: false, reason: 'route_not_advertised' };
-	}
+	if (!accept) return { advertised: false, route_ok: false, reason: 'route_not_advertised', amount_atomic: null };
 	const reasons = [];
 	if (accept.scheme !== target.scheme) reasons.push(`scheme:${accept.scheme || 'none'}`);
 	if (!accept.payTo) reasons.push('missing_payTo');
@@ -93,18 +96,35 @@ function validateAccept(target, accept) {
 	return {
 		advertised: true,
 		route_ok: reasons.length === 0,
-		network: accept.network,
-		scheme: accept.scheme,
-		asset: accept.asset,
-		pay_to: accept.payTo,
 		amount_atomic: Number.isFinite(amount) ? amount : null,
 		reason: reasons.length ? reasons.join(',') : null,
 	};
 }
 
-async function upsertStatus(ctx, runId, row) {
-	// Latest-status-per-network table consumed by api/ops/health.js.
-	await ctx.sql`
+async function ensureTable(sql) {
+	try {
+		await sql`
+			CREATE TABLE IF NOT EXISTS x402_circuit_breaker (
+				network        text PRIMARY KEY,
+				label          text NOT NULL,
+				scheme         text NOT NULL,
+				advertised     boolean NOT NULL DEFAULT false,
+				route_ok       boolean NOT NULL DEFAULT false,
+				settled        boolean NOT NULL DEFAULT false,
+				receipt_valid  boolean NOT NULL DEFAULT false,
+				tx_signature   text,
+				amount_atomic  bigint,
+				error          text,
+				run_id         uuid,
+				checked_at     timestamptz DEFAULT now()
+			)
+		`;
+	} catch { /* already exists or migration system handles it */ }
+}
+
+async function upsertStatus(sql, runId, row) {
+	// Latest-status-per-network snapshot consumed by api/ops/health.js.
+	await sql`
 		INSERT INTO x402_circuit_breaker
 			(network, label, scheme, advertised, route_ok, settled,
 			 receipt_valid, tx_signature, amount_atomic, error, run_id, checked_at)
@@ -128,31 +148,57 @@ async function upsertStatus(ctx, runId, row) {
 	`;
 }
 
+// Persist every per-network row, never crashing the loop on a DB fault.
+async function persist(sql, log, runId, rows) {
+	try {
+		await ensureTable(sql);
+		for (const row of rows) await upsertStatus(sql, runId, row);
+	} catch (err) {
+		log?.warn?.('circuit_breaker_persist_failed', { message: err?.message });
+	}
+}
+
+function tripResult(errorMsg, stage) {
+	return {
+		success: false,
+		amountAtomic: 0,
+		txSig: null,
+		network: 'multi',
+		responseData: { stage },
+		signalData: { tripped: true, reason: errorMsg },
+		errorMsg,
+		note: errorMsg,
+	};
+}
+
 /**
  * Cross-network payment circuit breaker executor.
  *
- * @param {object} ctx  Capabilities injected by the autonomous loop:
- *   - runId            string
- *   - origin           string (e.g. 'https://three.ws')
- *   - sql              db tagged-template
- *   - log              logger
- *   - fetchWithTimeout (url, opts) => { ok, status, headers, body }
- *   - parseSolanaAccept(challenge) => accept | null
- *   - settleSolana(accept, endpointUrl, entry) =>
- *         { success, txSig, amountAtomic, responseBody, errorMsg, status }
- *   - remainingCap     number (atomics still spendable under the daily cap)
- * @returns result consumed by the loop for x402_autonomous_log:
- *   { success, amountAtomic, txSig, responseData, errorMsg, signalData, network, summary }
+ * @param {object} ctx — supplied by the autonomous loop:
+ *   { origin, buyer, conn, blockhash, mintInfo, remainingCap, sql, log, runId }
+ * @returns outcome recorded by the loop to x402_autonomous_log:
+ *   { success, amountAtomic, txSig, responseData, signalData, errorMsg, note }
  */
 export async function runCircuitBreaker(ctx) {
-	const { runId, origin, fetchWithTimeout, parseSolanaAccept, settleSolana, log } = ctx;
+	const { origin, buyer, conn, blockhash, mintInfo, remainingCap, sql, log, runId } = ctx;
 	const endpointUrl = `${origin}${PROBE_PATH}`;
+
+	// Wallet guard (defence in depth — the loop pre-flights the keypair).
+	if (!buyer) {
+		const rows = TARGET_NETWORKS.map((t) => ({
+			network: t.label.toLowerCase(), label: t.label, scheme: t.scheme,
+			advertised: false, route_ok: false, settled: false, receipt_valid: false,
+			tx_signature: null, amount_atomic: null, error: 'wallet_unconfigured',
+		}));
+		await persist(sql, log, runId, rows);
+		return { ...tripResult('wallet_unconfigured', 'preflight'), cooldown: false };
+	}
 
 	// ── Step 1: probe for the live multi-network challenge ─────────────────────
 	let challenge;
 	try {
 		const probe = await fetchWithTimeout(endpointUrl, {
-			method: PROBE_METHOD,
+			method: 'POST',
 			headers: {
 				'content-type': 'application/json',
 				'user-agent': 'threews-x402-circuit-breaker/1.0',
@@ -162,43 +208,34 @@ export async function runCircuitBreaker(ctx) {
 		if (probe.status !== 402) {
 			// A $0.001 paid endpoint that does NOT challenge is itself a stack fault.
 			const errorMsg = `probe_not_402:http_${probe.status}`;
-			await safeUpsertTrip(ctx, runId, errorMsg);
-			return {
-				success: false,
-				amountAtomic: 0,
-				errorMsg,
-				network: 'multi',
-				responseData: { stage: 'probe', status: probe.status },
-				signalData: { tripped: true, reason: errorMsg },
-				summary: errorMsg,
-			};
+			await persist(sql, log, runId, TARGET_NETWORKS.map((t) => ({
+				network: t.label.toLowerCase(), label: t.label, scheme: t.scheme,
+				advertised: false, route_ok: false, settled: false, receipt_valid: false,
+				tx_signature: null, amount_atomic: null, error: errorMsg,
+			})));
+			return tripResult(errorMsg, 'probe');
 		}
 		challenge = probe.body;
 	} catch (err) {
-		const errorMsg = `probe_failed:${err?.message || 'unknown'}`;
-		await safeUpsertTrip(ctx, runId, errorMsg);
-		return {
-			success: false,
-			amountAtomic: 0,
-			errorMsg,
-			network: 'multi',
-			responseData: { stage: 'probe' },
-			signalData: { tripped: true, reason: errorMsg },
-			summary: errorMsg,
-		};
+		const errorMsg = `probe_failed:${err?.message || 'network'}`;
+		await persist(sql, log, runId, TARGET_NETWORKS.map((t) => ({
+			network: t.label.toLowerCase(), label: t.label, scheme: t.scheme,
+			advertised: false, route_ok: false, settled: false, receipt_valid: false,
+			tx_signature: null, amount_atomic: null, error: errorMsg,
+		})));
+		return tripResult(errorMsg, 'probe');
 	}
 
 	const accepts = Array.isArray(challenge?.accepts) ? challenge.accepts : [];
 
 	// ── Step 2: verify each network route from the live challenge ──────────────
-	const networks = [];
-	let solanaTarget = null;
+	const rows = [];
+	let solanaRow = null;
 	let solanaAccept = null;
 	for (const target of TARGET_NETWORKS) {
 		const accept = accepts.find((a) => target.match(a)) || null;
 		const v = validateAccept(target, accept);
 		const row = {
-			key: target.key,
 			network: accept?.network || target.label.toLowerCase(),
 			label: target.label,
 			scheme: target.scheme,
@@ -207,12 +244,12 @@ export async function runCircuitBreaker(ctx) {
 			settled: false,
 			receipt_valid: false,
 			tx_signature: null,
-			amount_atomic: v.amount_atomic || null,
+			amount_atomic: v.amount_atomic,
 			error: v.reason,
 		};
-		networks.push(row);
+		rows.push(row);
 		if (target.settle && accept && v.route_ok) {
-			solanaTarget = row;
+			solanaRow = row;
 			solanaAccept = accept;
 		}
 	}
@@ -222,45 +259,38 @@ export async function runCircuitBreaker(ctx) {
 	let txSig = null;
 	let settleResp = null;
 	if (solanaAccept) {
-		if (ctx.remainingCap != null && Number(solanaAccept.amount || 0) > ctx.remainingCap) {
-			solanaTarget.error = 'daily_cap_would_exceed';
-		} else {
-			try {
-				const r = await settleSolana(solanaAccept, endpointUrl, {
-					method: PROBE_METHOD,
-					body: PROBE_BODY,
-				});
-				amountAtomic = r.amountAtomic || 0;
-				txSig = r.txSig || null;
-				settleResp = r.responseBody || null;
-				solanaTarget.settled = !!r.success;
-				solanaTarget.receipt_valid = !!(r.success && r.txSig);
-				solanaTarget.tx_signature = txSig;
-				solanaTarget.amount_atomic = amountAtomic || solanaTarget.amount_atomic;
-				if (!r.success) solanaTarget.error = r.errorMsg || `settle_http_${r.status || '0'}`;
-			} catch (err) {
-				solanaTarget.error = `settle_threw:${err?.message || 'unknown'}`;
-			}
+		try {
+			const r = await payX402({
+				url: endpointUrl,
+				method: 'POST',
+				body: PROBE_BODY,
+				buyer, conn, blockhash, mintInfo,
+				remainingCap: remainingCap ?? Infinity,
+				userAgent: 'threews-x402-circuit-breaker/1.0',
+			});
+			amountAtomic = r.paid ? (r.amountAtomic || 0) : 0;
+			txSig = r.txSig || null;
+			settleResp = r.responseBody || null;
+			solanaRow.settled = !!r.paid;
+			solanaRow.receipt_valid = !!(r.paid && r.txSig);
+			solanaRow.tx_signature = txSig;
+			if (r.amountAtomic) solanaRow.amount_atomic = r.amountAtomic;
+			if (!r.paid) solanaRow.error = r.errorMsg || `settle_status_${r.status || 0}`;
+		} catch (err) {
+			// Tx-build / RPC faults (malformed account, blockhash, RPC down) must not
+			// crash the loop or skip the DB write — record the settlement as failed.
+			solanaRow.error = `settle_threw:${err?.message || 'unknown'}`;
 		}
 	}
 
 	// ── Step 4: persist per-network status (downstream: ops/health) ────────────
-	for (const row of networks) {
-		try {
-			await upsertStatus(ctx, runId, row);
-		} catch (err) {
-			// Table may not exist before its migration runs — the loop's ensureSchema
-			// creates it, so this is only a first-boot race. Never crash the loop.
-			if (!err?.message?.includes('does not exist')) {
-				log?.warn?.('circuit_breaker_upsert_failed', { network: row.network, message: err?.message });
-			}
-		}
-	}
+	await persist(sql, log, runId, rows);
 
-	const routesOk = networks.filter((n) => n.route_ok).length;
+	const routesOk = rows.filter((n) => n.route_ok).length;
 	const allRoutesOk = routesOk === TARGET_NETWORKS.length;
-	const solanaSettled = !!(solanaTarget && solanaTarget.settled);
+	const solanaSettled = !!(solanaRow && solanaRow.settled);
 	const tripped = !allRoutesOk || !solanaSettled;
+	const summary = `routes ${routesOk}/${TARGET_NETWORKS.length} ok, solana ${solanaSettled ? 'settled' : 'FAILED'}`;
 
 	const signalData = {
 		tripped,
@@ -269,47 +299,24 @@ export async function runCircuitBreaker(ctx) {
 		routes_total: TARGET_NETWORKS.length,
 		solana_settled: solanaSettled,
 		solana_tx: txSig,
-		networks: networks.map((n) => ({ network: n.network, route_ok: n.route_ok, settled: n.settled, error: n.error })),
+		networks: rows.map((n) => ({ network: n.network, route_ok: n.route_ok, settled: n.settled, error: n.error })),
 	};
 
-	const summary = `routes ${routesOk}/${TARGET_NETWORKS.length} ok, solana ${solanaSettled ? 'settled' : 'FAILED'}`;
 	log?.info?.('circuit_breaker_complete', { run_id: runId, ...signalData, tx: txSig });
 
 	return {
 		// success = the breaker's job (proving liveness) completed: all routes
-		// advertised + the real Solana settlement landed. A trip => success:false
-		// so the loop records it as a failure row and does not cool down — the
-		// breaker retries next tick instead of waiting the full hour.
+		// advertised + the real Solana settlement landed. amountAtomic reflects
+		// only what actually moved on-chain so the loop's spend accounting is exact.
 		success: !tripped,
 		amountAtomic,
 		txSig,
 		network: 'multi',
-		responseData: { challenge_resource: challenge?.resource || endpointUrl, networks, settle_response: settleResp },
-		errorMsg: tripped ? `breaker_tripped:${summary}` : null,
+		responseData: { challenge_resource: challenge?.resource || endpointUrl, networks: rows, settle_response: settleResp },
 		signalData,
-		summary,
+		errorMsg: tripped ? `breaker_tripped:${summary}` : null,
+		note: summary,
 	};
 }
 
-// Record a trip across all networks when we never reached the per-network stage
-// (e.g. the probe itself failed) so ops/health still sees a fresh, failing row.
-async function safeUpsertTrip(ctx, runId, error) {
-	for (const target of TARGET_NETWORKS) {
-		try {
-			await upsertStatus(ctx, runId, {
-				network: target.label.toLowerCase(),
-				label: target.label,
-				scheme: target.scheme,
-				advertised: false,
-				route_ok: false,
-				settled: false,
-				receipt_valid: false,
-				tx_signature: null,
-				amount_atomic: null,
-				error,
-			});
-		} catch { /* table may not exist yet — non-fatal */ }
-	}
-}
-
-export const CIRCUIT_BREAKER_PROBE = Object.freeze({ path: PROBE_PATH, method: PROBE_METHOD, body: PROBE_BODY });
+export const CIRCUIT_BREAKER_PROBE = Object.freeze({ path: PROBE_PATH, body: PROBE_BODY });

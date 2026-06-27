@@ -49,7 +49,7 @@ const ASSET = USDC_MINT || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 // A bazaar listing is "live + priced" only when an agent could actually pay it:
 // it must carry a resource URL, a price (atomic units or label), and a network.
-function isLivePricedService(s) {
+export function isLivePricedService(s) {
 	if (!s || typeof s.resource !== 'string' || !s.resource) return false;
 	const hasPrice = s.price_atomic != null || (typeof s.price === 'string' && s.price.length > 0);
 	const hasNetwork = Array.isArray(s.networks) && s.networks.length > 0;
@@ -58,13 +58,13 @@ function isLivePricedService(s) {
 
 // Stable identifier for a service within a category — resource plus the MCP tool
 // name when present (one resource can expose many priced tools).
-function serviceKey(s) {
+export function serviceKey(s) {
 	return s.tool_name ? `${s.resource}#${s.tool_name}` : s.resource;
 }
 
 // Deterministic hash of the live catalog for a category, used for drift
 // detection. Includes price so a reprice registers as drift, not just add/remove.
-function catalogHash(services) {
+export function catalogHash(services) {
 	const lines = services
 		.map((s) => `${serviceKey(s)}|${s.price_atomic ?? s.price ?? ''}`)
 		.sort();
@@ -84,7 +84,7 @@ function jsonRpcSearch(category, id) {
 }
 
 // Pull the search_services structuredContent out of a JSON-RPC tools/call body.
-function extractServices(responseBody) {
+export function extractServices(responseBody) {
 	const sc = responseBody?.result?.structuredContent;
 	if (!sc || !Array.isArray(sc.services)) return { services: [], sources: null, errors: null, hasResult: !!responseBody?.result };
 	return { services: sc.services, sources: sc.sources || null, errors: sc.errors || null, hasResult: true };

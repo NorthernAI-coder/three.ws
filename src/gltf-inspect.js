@@ -54,6 +54,12 @@ export async function inspectModel(bytes, opts = {}) {
 	let nonIndexedPrimitives = 0;
 	const primitiveModes = new Set();
 
+	// Bone count = total skin joints across every skin. The honest measure of rig
+	// weight (skins.length only says "is it rigged"), consumed by the rig
+	// complexity scorer to tier marketplace pricing and flag heavy avatars.
+	let totalJoints = 0;
+	for (const skin of skins) totalJoints += skin.listJoints().length;
+
 	for (const mesh of meshes) {
 		for (const prim of mesh.listPrimitives()) {
 			const pos = prim.getAttribute('POSITION');
@@ -111,6 +117,7 @@ export async function inspectModel(bytes, opts = {}) {
 			textures: textures.length,
 			animations: animations.length,
 			skins: skins.length,
+			totalJoints,
 			totalVertices,
 			totalTriangles,
 			indexedPrimitives,

@@ -284,6 +284,7 @@ export default wrapCron(async (req, res) => {
 
 		let endpointUrl = entry.url || `${origin}${entry.path}`;
 		let targetUrl = null;
+		let targetContext = null;
 		const t0 = Date.now();
 		let amountAtomic = 0;
 		let txSig = null;
@@ -339,12 +340,27 @@ export default wrapCron(async (req, res) => {
 		// resolveTarget computes the per-call path and the resource URL being checked.
 		if (typeof entry.resolveTarget === 'function') {
 			try {
-				const resolved = await entry.resolveTarget({ redis, origin, runId });
+				const resolved = await entry.resolveTarget({ redis, sql, origin, runId });
 				if (resolved?.path) endpointUrl = entry.url || `${origin}${resolved.path}`;
 				if (resolved?.targetUrl) targetUrl = resolved.targetUrl;
+				if (resolved?.context) targetContext = resolved.context;
 			} catch (err) {
 				log.warn('resolve_target_failed', { id: entry.id, message: err?.message });
 			}
+		}
+
+		// Resolve the request body. Most entries carry a static `body`. Pipeline
+		// entries provide `body` as a function of the resolved target — e.g. the VRM
+		// compatibility checker embeds the selected avatar's public GLB URL into an
+		// MCP inspect_model tools/call. A function body that returns null means
+		// "no target to process this tick": skip without probing or paying.
+		const requestBody = typeof entry.body === 'function'
+			? entry.body({ targetUrl, targetContext, origin, endpointUrl })
+			: entry.body;
+		if (typeof entry.body === 'function' && requestBody == null) {
+			results.push({ id: entry.id, status: 'skip', reason: 'no_target' });
+			await setCooldown(redis, entry); // back off so we don't re-query every tick
+			continue;
 		}
 
 		try {
@@ -352,7 +368,7 @@ export default wrapCron(async (req, res) => {
 			const probeRes = await fetchWithTimeout(endpointUrl, {
 				method: entry.method || 'POST',
 				headers: { 'content-type': 'application/json', 'user-agent': 'threews-x402-autonomous/1.0' },
-				...(entry.body != null ? { body: JSON.stringify(entry.body) } : {}),
+				...(requestBody != null ? { body: JSON.stringify(requestBody) } : {}),
 			});
 
 			if (probeRes.status !== 402) {
@@ -363,7 +379,7 @@ export default wrapCron(async (req, res) => {
 				results.push({ id: entry.id, status: 'free', success });
 				await recordLog(runId, entry, { amountAtomic: 0, txSig: null, responseData: responseBody, durationMs: Date.now() - t0, success, signalData, endpointUrl });
 				if (signalData) await upsertOracleSignal(entry, signalData);
-				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, endpointUrl });
+				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, targetContext, endpointUrl, origin, durationMs: Date.now() - t0, success, amountAtomic, txSig });
 				await setCooldown(redis, entry);
 				continue;
 			}
@@ -422,7 +438,7 @@ export default wrapCron(async (req, res) => {
 					'user-agent': 'threews-x402-autonomous/1.0',
 					'x-payment': xPayment,
 				},
-				...(entry.body != null ? { body: JSON.stringify(entry.body) } : {}),
+				...(requestBody != null ? { body: JSON.stringify(requestBody) } : {}),
 			});
 
 			responseBody = paidRes.body;
@@ -443,7 +459,7 @@ export default wrapCron(async (req, res) => {
 				if (entry.extractSignal) signalData = entry.extractSignal(responseBody);
 				await setCooldown(redis, entry);
 				if (signalData) await upsertOracleSignal(entry, signalData);
-				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, endpointUrl });
+				await runStoreValue(entry, { sql, redis, responseBody, signalData, runId, targetUrl, targetContext, endpointUrl, origin, durationMs: Date.now() - t0, success, amountAtomic, txSig });
 			} else {
 				errorMsg = `http_${paidRes.status}`;
 			}

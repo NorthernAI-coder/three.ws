@@ -3,6 +3,16 @@
 	"entries": [
 		{
 			"date": "2026-06-27",
+			"title": "Reviews anchored on-chain — Solana attestations + ERC-8004 reputation",
+			"summary": "Every agent and skill review is now permanently anchored on Solana via a platform-signed SPL-Memo attestation (threews.review.v1) the moment it's submitted. The review's rating and a SHA-256 hash of the text go on-chain — tamper-evident, publicly verifiable on Solscan. These attestations feed directly into the agent reputation score's on-chain identity pillar, so a well-reviewed agent earns higher trust points automatically. Users with MetaMask connected can also add a second, user-signed anchor on Base via the ERC-8004 ReputationRegistry for cross-chain provenance — a one-click \"Anchor on Base\" step appears after submitting a review. Both layers together make every review a real, verifiable act — not just a database row.",
+			"tags": [
+				"feature",
+				"improvement"
+			],
+			"link": "/marketplace"
+		},
+		{
+			"date": "2026-06-27",
 			"title": "MCP Model Validation Sweep — proactive GLB quality scoring",
 			"summary": "The platform now runs a continuous quality sweep across every public 3D avatar in the database. Every 5 minutes the autonomous agent picks the longest-unvalidated GLB, inspects it with the glTF-Transform engine, and records a 0-100 quality score covering rig completeness, geometry health, texture sizing, triangle budget, and unsupported extensions. Results are stored in a time-series table (model_quality_scores) that will power quality badges and curation tools — surfacing models that need attention before users encounter errors in the viewer. The sweep is driven by the x402 autonomous spend loop at $0.001 USDC per call.",
 			"tags": ["feature", "infra"]
