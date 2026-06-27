@@ -194,6 +194,22 @@ export default wrapCron(async (req, res) => {
 
 	const origin = ORIGIN();
 
+	// ── Pre-flight: verify Redis is reachable ─────────────────────────────────
+	// The dance-tip payment handler uses the x402VerifyIp rate-limiter which is
+	// CRITICAL (fails closed when Redis is unavailable). If Redis is down, every
+	// payment in the batch will return 429 — generating thousands of useless
+	// errors and burning Solana RPC calls. Skip the tick entirely when Redis is
+	// unhealthy so the cron stays silent rather than flooding logs.
+	const redis = getRedis();
+	if (redis) {
+		try {
+			await redis.ping();
+		} catch (err) {
+			log.warn('redis_unavailable_skip', { message: err?.message });
+			return json(res, 200, { ok: false, skipped: true, reason: `redis_unavailable: ${err?.message}` });
+		}
+	}
+
 	// ── Step 1: probe dance-tip for live payment requirements ─────────────────
 	const probeUrl = `${origin}/api/x402/dance-tip?dancer=1&dance=hiphop`;
 	const probe = await fetchJson(probeUrl);

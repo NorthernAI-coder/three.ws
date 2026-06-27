@@ -65,15 +65,10 @@ export default async function handleAgentScreenActive(req, res) {
 	// Resolve agent metadata from DB
 	let agents = [];
 	try {
-		// DISTINCT ON guards against the avatars join fanning out to multiple rows
-		// per agent (which would assign two desks to one agent and silently drop a
-		// different live agent under the MAX_DESKS cap).
 		agents = await sql`
-			SELECT DISTINCT ON (a.id) a.id, a.name, av.image_url AS avatar_url
-			FROM agents a
-			LEFT JOIN avatars av ON av.agent_id = a.id
+			SELECT a.id, a.name, a.avatar_url
+			FROM agent_identities a
 			WHERE a.id = ANY(${agentIds})
-			ORDER BY a.id, av.created_at ASC NULLS LAST
 			LIMIT ${MAX_DESKS}
 		`;
 	} catch {

@@ -301,6 +301,7 @@
 		"ai": "^6.0.200",
 		"ajv": "^8.20.0",
 		"ajv-formats": "^3.0.1",
+		"altcha-lib": "^2.2.0",
 		"axios": "^1.16.0",
 		"bcryptjs": "^3.0.3",
 		"bignumber.js": "^9.3.1",

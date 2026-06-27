@@ -85,7 +85,7 @@ export default async function handleAgentScreenPush(req, res) {
 
 	// Verify the calling user owns this agent
 	const [agentRow] = await sql`
-		SELECT id FROM agents WHERE id = ${agentId} AND user_id = ${userId} LIMIT 1
+		SELECT id FROM agent_identities WHERE id = ${agentId} AND user_id = ${userId} LIMIT 1
 	`;
 	if (!agentRow) return error(res, 403, 'forbidden', 'agent not owned by this user');
 

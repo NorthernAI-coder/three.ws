@@ -1627,8 +1627,9 @@ async function startJob(req, res) {
 		// with an honest, generic unavailable state instead of leaking it. (BYOK lanes
 		// kept their actionable account message via the insufficient_credits branch.)
 		if (!BACKENDS[backendId]?.byok && isPaidCreditFailure(err)) {
+			const creditDetail = err?.providerDetail ? ` — vendor: ${err.providerDetail}` : '';
 			console.warn(
-				`[forge] paid reconstruct lane out of credit and no free lane available: ${err?.message || err}`,
+				`[forge] paid reconstruct lane out of credit and no free lane available: ${err?.message || err}${creditDetail}`,
 			);
 			res.setHeader('retry-after', '30');
 			return json(res, 503, {
