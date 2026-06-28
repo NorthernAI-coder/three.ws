@@ -70,6 +70,11 @@ export default wrap(async (req, res) => {
 		if (!burst.success) return rateLimited(res, burst, 'generation rate limit — slow down and try again shortly');
 		const hourly = await limits.studioGenHourly(ip);
 		if (!hourly.success) return rateLimited(res, hourly, 'hourly generation limit reached — try again later');
+		// Platform-wide circuit breaker across ALL free-studio callers — backstops
+		// the shared GPU/provider budget when many distinct IPs, each under their
+		// own hourly cap, would collectively drain it. Fails closed in prod.
+		const global = await limits.studioGenerateGlobal();
+		if (!global.success) return rateLimited(res, global, 'the free 3D studio is at capacity right now — please try again later');
 	}
 
 	// Anonymous principal — no auth, no scope. rateKey carries the IP for usage logs.
