@@ -18,15 +18,14 @@
  *        mountBrainStudio(container, { studio });
  */
 
-import { BrainGraphView } from './brain-graph.js';
+import { BrainFormView } from './brain-form.js';
 import { compileBrain } from './brain-compile.js';
 import { BrainRuntime } from './brain-runtime.js';
-import { NODE_TYPES, normalizeGraph, defaultGraph } from './brain-nodes.js';
+import { normalizeGraph, defaultGraph } from './brain-nodes.js';
 import { TEMPLATES } from './brain-templates.js';
 import { apiFetch } from '../../api.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const PALETTE = ['persona', 'model', 'memory', 'skill', 'market', 'output'];
 
 export function mountBrainStudio(container, { studio }) {
 	if (container.dataset.brainMounted) return;
@@ -47,11 +46,13 @@ class BrainStudio {
 	}
 
 	async _init() {
-		// Providers power the Model node's picker — real availability from the proxy.
+		// Providers power the Model section's picker — real availability from the proxy.
 		try {
 			const resp = await apiFetch('/api/brain/chat', { allowAnonymous: true });
 			if (resp.ok) this.providers = (await resp.json()).providers || [];
 		} catch { /* picker falls back to a static list of model ids */ }
+		// If the editor mounted before providers arrived, fill the Model picker in now.
+		this.graph?.setProviders();
 
 		// Don't overwrite a graph the user started editing during the async provider
 		// fetch above (e.g. they clicked a template while we were awaiting). Only
@@ -83,9 +84,11 @@ class BrainStudio {
 
 				<div class="brainstudio__editor" id="bsEditor" hidden>
 					<div class="brainstudio__toolbar">
-						<div class="brainstudio__palette" id="bsPalette" role="toolbar" aria-label="Add node"></div>
+						<div class="brainstudio__toolbar-title">
+							<span class="brainstudio__toolbar-name">Your agent's mind</span>
+							<span class="brainstudio__toolbar-sub">Fill these in — it wires itself.</span>
+						</div>
 						<div class="brainstudio__tools">
-							<button class="studio__btn" id="bsFit" title="Frame the graph">Fit</button>
 							<button class="studio__btn" id="bsDiff" title="See how this brain reads">Behavior</button>
 							<button class="studio__btn" id="bsTpl" title="Fork a template">Templates</button>
 							<button class="studio__btn" id="bsSave" title="Save now (⌘/Ctrl + S)">Save</button>
@@ -93,9 +96,8 @@ class BrainStudio {
 						</div>
 					</div>
 					<div class="brainstudio__main">
-						<div class="brainstudio__canvas" id="bsCanvas"></div>
+						<div class="brainstudio__form" id="bsForm"></div>
 						<aside class="brainstudio__side">
-							<div class="brainstudio__inspector" id="bsInspector"></div>
 							<div class="brainstudio__test" id="bsTest">
 								<div class="brainstudio__test-head">Test chat <span class="brainstudio__test-model" id="bsTestModel"></span></div>
 								<div class="brainstudio__transcript" id="bsTranscript"></div>
@@ -120,9 +122,7 @@ class BrainStudio {
 
 		this.root = this.el.querySelector('.brainstudio');
 		this._renderTemplateGrid(this.el.querySelector('#bsTplGrid'));
-		this._renderPalette();
 		this.el.querySelector('#bsBlank').addEventListener('click', () => this._start(defaultGraph()));
-		this.el.querySelector('#bsFit').addEventListener('click', () => this.graph?.fit());
 		this.el.querySelector('#bsDiff').addEventListener('click', () => this._showBehavior());
 		this.el.querySelector('#bsTpl').addEventListener('click', () => this._showTemplateModal());
 		this.el.querySelector('#bsSave').addEventListener('click', () => this._saveNow());
@@ -235,15 +235,6 @@ class BrainStudio {
 		document.dispatchEvent(new CustomEvent('studio:exit'));
 	}
 
-	_renderPalette() {
-		const pal = this.el.querySelector('#bsPalette');
-		pal.innerHTML = PALETTE.map((t) => `<button class="brainstudio__chip brainstudio__chip--${NODE_TYPES[t].accent}" data-add="${t}" title="Add ${NODE_TYPES[t].title}">+ ${esc(NODE_TYPES[t].title)}</button>`).join('');
-		pal.addEventListener('click', (e) => {
-			const t = e.target.closest('[data-add]')?.dataset.add;
-			if (t) this.graph?.addNode(t);
-		});
-	}
-
 	_renderTemplateGrid(host) {
 		host.innerHTML = TEMPLATES.map((t) => `
 			<button class="brainstudio__tpl brainstudio__tpl--${t.accent}" data-tpl="${t.id}">
@@ -266,20 +257,12 @@ class BrainStudio {
 		this.el.querySelector('#bsOnboard').hidden = true;
 		this.el.querySelector('#bsEditor').hidden = false;
 		if (!this.graph) {
-			const canvas = this.el.querySelector('#bsCanvas');
-			this.graph = new BrainGraphView(canvas, {
+			const form = this.el.querySelector('#bsForm');
+			this.graph = new BrainFormView(form, {
 				onChange: (g) => this._onGraphChange(g),
-				onSelect: (n) => this._renderInspector(n),
+				getProviders: () => this.providers,
+				getSkills: () => this.studio.agent?.skills || [],
 			});
-			// The Brain tab may be mounted while hidden (zero size), so the initial
-			// fit() no-ops. Re-frame once the panel first gains a real size.
-			if (typeof ResizeObserver !== 'undefined') {
-				let framed = false;
-				const ro = new ResizeObserver(() => {
-					if (!framed && canvas.clientWidth > 0) { framed = true; this.graph.fit(); ro.disconnect(); }
-				});
-				ro.observe(canvas);
-			}
 			this.runtime = new BrainRuntime({
 				graphView: this.graph,
 				studio: this.studio,
@@ -293,7 +276,6 @@ class BrainStudio {
 		this._showEditor();
 		this.graph.load(normalizeGraph(graph));
 		this._onGraphChange(this.graph.toGraph(), { immediate: true });
-		this._renderInspector(null);
 	}
 
 	// ── Persistence ─────────────────────────────────────────────────────────
@@ -310,79 +292,6 @@ class BrainStudio {
 		};
 		if (immediate) persist();
 		else this._saveTimer = setTimeout(persist, 400);
-	}
-
-	// ── Inspector ─────────────────────────────────────────────────────────────
-
-	_renderInspector(node) {
-		const host = this.el.querySelector('#bsInspector');
-		if (!node) {
-			host.innerHTML = `<div class="brainstudio__inspector-empty"><h3>Inspector</h3><p>Select a node to edit it, or drag from a node's right-hand port to wire it into another.</p></div>`;
-			return;
-		}
-		const spec = NODE_TYPES[node.type];
-		host.innerHTML = `<div class="brainstudio__insp-head"><span class="brainstudio__insp-dot brainstudio__insp-dot--${spec.accent}"></span><h3>${esc(spec.title)}</h3></div>
-			<div class="brainstudio__fields">${spec.fields.map((f) => this._fieldHtml(f, node.data[f.key])).join('')}</div>`;
-		host.querySelectorAll('[data-field]').forEach((inp) => {
-			const key = inp.dataset.field;
-			const field = spec.fields.find((f) => f.key === key);
-			const handler = () => this.graph.updateNodeData(node.id, { [key]: this._readField(field, inp) });
-			inp.addEventListener(inp.tagName === 'SELECT' || inp.type === 'checkbox' ? 'change' : 'input', handler);
-		});
-	}
-
-	_fieldHtml(field, value) {
-		const id = `f_${field.key}`;
-		const label = `<label class="brainstudio__field-label" for="${id}">${esc(field.label)}</label>`;
-		let control = '';
-		switch (field.type) {
-			case 'textarea':
-				control = `<textarea class="brainstudio__input" id="${id}" data-field="${field.key}" rows="2">${esc(value || '')}</textarea>`;
-				break;
-			case 'number':
-				control = `<input class="brainstudio__input" id="${id}" data-field="${field.key}" type="number" min="${field.min ?? ''}" max="${field.max ?? ''}" step="${field.step ?? 1}" value="${esc(value ?? '')}" />`;
-				break;
-			case 'toggle':
-				control = `<label class="brainstudio__toggle"><input id="${id}" data-field="${field.key}" type="checkbox" ${value ? 'checked' : ''} /><span></span></label>`;
-				break;
-			case 'select':
-				control = `<select class="brainstudio__input" id="${id}" data-field="${field.key}">${field.options.map((o) => `<option value="${esc(o)}" ${o === value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
-				break;
-			case 'provider':
-				control = this._providerSelect(id, field.key, value);
-				break;
-			case 'skill':
-				control = this._skillSelect(id, field.key, value);
-				break;
-			case 'tags':
-				control = `<input class="brainstudio__input" id="${id}" data-field="${field.key}" type="text" value="${esc((value || []).join(', '))}" placeholder="comma, separated" />`;
-				break;
-			default:
-				control = `<input class="brainstudio__input" id="${id}" data-field="${field.key}" type="text" value="${esc(value ?? '')}" placeholder="${esc(field.placeholder || '')}" />`;
-		}
-		return `<div class="brainstudio__field">${label}${control}</div>`;
-	}
-
-	_providerSelect(id, key, value) {
-		const list = this.providers.length ? this.providers : [{ key: value || 'claude-sonnet-4-6', label: value || 'Claude Sonnet 4.6', available: true, tier: '', network: '' }];
-		const opts = list.map((p) => `<option value="${esc(p.key)}" ${p.key === value ? 'selected' : ''} ${p.available ? '' : 'disabled'}>${esc(p.label)}${p.available ? '' : ' (no key)'}${p.tier ? ` · ${esc(p.tier)}` : ''}</option>`).join('');
-		return `<select class="brainstudio__input" id="${id}" data-field="${key}">${opts}</select>`;
-	}
-
-	_skillSelect(id, key, value) {
-		const skills = this.studio.agent?.skills || [];
-		if (!skills.length) return `<input class="brainstudio__input" id="${id}" data-field="${key}" type="text" value="${esc(value || '')}" placeholder="no skills enabled yet" />`;
-		const opts = ['<option value="">— pick a skill —</option>', ...skills.map((s) => `<option value="${esc(s)}" ${s === value ? 'selected' : ''}>${esc(s)}</option>`)].join('');
-		return `<select class="brainstudio__input" id="${id}" data-field="${key}">${opts}</select>`;
-	}
-
-	_readField(field, inp) {
-		switch (field.type) {
-			case 'number': return Number(inp.value);
-			case 'toggle': return inp.checked;
-			case 'tags': return inp.value.split(',').map((s) => s.trim()).filter(Boolean);
-			default: return inp.value;
-		}
 	}
 
 	// ── Test chat ───────────────────────────────────────────────────────────

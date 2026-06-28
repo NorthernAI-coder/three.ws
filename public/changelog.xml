@@ -63,6 +63,14 @@
 			<description>Every Forge job that reconstructs a 3D mesh starts with a text-to-image call. If the image provider chain is down or hung, every paid Forge generation silently fails — before users even hit the paywall. The platform now detects this automatically. Every five minutes an autonomous agent makes a real on-chain $0.001 USDC payment to /api/x402/forge with body { mode: &quot;health_check&quot;, type: &quot;image&quot;, prompt: &quot;A simple blue circle.&quot; }. The endpoint runs one real text-to-image call through the free-first provider chain (NIM FLUX → Vertex Imagen → Replicate backstop) and uploads the result to R2 CDN — proving the full image generation and CDN upload path end-to-end. The extracted signal { generated, url, latency_ms } lands in x402_autonomous_log.signal_data. When generation fails or latency exceeds 30 seconds, a Redis alert (x402:forge-image-health:alert) is raised so ops can investigate before users see broken generations. The image alert key is separate from the existing text LLM canary alert so both lanes can degrade independently.</description>
 		</item>
 		<item>
+			<title>Forge no longer dead-ends on &quot;Generator not configured&quot; when a free lane is live</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-06-28:Forge no longer dead-ends on &quot;Generator not configured&quot; when a free lane is live</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When the free NVIDIA text→3D lane was briefly down, Forge could return &quot;Generator not configured&quot; even on deployments where the free Hugging Face lane was fully set up — because the degrade step looked for a paid Replicate key that wasn't required. Forge now falls through to whichever free engine is configured (Hugging Face Spaces) instead of stopping, so a single free key keeps text and photo generation working through upstream blips.</description>
+		</item>
+		<item>
 			<title>LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds</guid>

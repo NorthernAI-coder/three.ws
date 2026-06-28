@@ -155,11 +155,36 @@ export function getRegenProviderByName(name, key) {
 	}
 }
 
-let _regenProviderCache = null;
-let _regenProviderName = null;
+// Per-process provider instances, keyed by canonical name. A Map (not a single
+// slot) so the failover path can hold several platform providers live at once
+// without thrashing the cache between them.
+const _platformProviderCache = new Map();
+
+// Canonical platform provider names in paid → free precedence. Used both to
+// resolve the single primary and to enumerate failover candidates.
+const PLATFORM_PROVIDER_ORDER = Object.freeze(['replicate', 'gcp', 'huggingface']);
+
+function canonicalProviderName(name) {
+	const n = (name || '').trim().toLowerCase();
+	return n === 'hf' ? 'huggingface' : n;
+}
+
+// True when the named platform provider has its required credentials present.
+function platformProviderConfigured(name) {
+	switch (canonicalProviderName(name)) {
+		case 'replicate':
+			return Boolean(process.env.REPLICATE_API_TOKEN);
+		case 'gcp':
+			return Boolean(process.env.GCP_RECONSTRUCTION_URL);
+		case 'huggingface':
+			return Boolean(process.env.HF_TOKEN);
+		default:
+			return false;
+	}
+}
 
 export function resolveProviderName() {
-	const explicit = (process.env.AVATAR_REGEN_PROVIDER || '').trim().toLowerCase();
+	const explicit = canonicalProviderName(process.env.AVATAR_REGEN_PROVIDER);
 	if (explicit) return explicit;
 	// Auto-detect order is paid → free: prefer Replicate's pinned-version
 	// reliability, then our own GCP Cloud Run service, then the HF Spaces queue
@@ -170,34 +195,69 @@ export function resolveProviderName() {
 	return 'none';
 }
 
+// Load (and cache) a single named platform provider instance. Dynamic-imports
+// the adapter so an unused provider's SDK never loads. Throws with a classified
+// code for an unknown name; provider constructors themselves throw when their
+// credentials are missing.
+async function loadPlatformProvider(rawName) {
+	const name = canonicalProviderName(rawName);
+	if (name === 'none' || !name) return { name: 'none', instance: null };
+	if (_platformProviderCache.has(name)) {
+		return { name, instance: _platformProviderCache.get(name) };
+	}
+	let instance;
+	if (name === 'replicate') {
+		instance = (await import('../_providers/replicate.js')).createRegenProvider();
+	} else if (name === 'huggingface') {
+		instance = (await import('../_providers/huggingface.js')).createRegenProvider();
+	} else if (name === 'gcp') {
+		instance = (await import('../_providers/gcp.js')).createRegenProvider();
+	} else {
+		throw Object.assign(new Error(`unknown AVATAR_REGEN_PROVIDER: ${name}`), {
+			code: 'regen_provider_unknown',
+			status: 501,
+		});
+	}
+	_platformProviderCache.set(name, instance);
+	return { name, instance };
+}
+
 export async function getRegenProvider() {
 	const name = resolveProviderName();
 	if (name === 'none' || !name) return { name, instance: null };
-	if (_regenProviderCache && _regenProviderName === name) {
-		return { name, instance: _regenProviderCache };
+	return loadPlatformProvider(name);
+}
+
+// Enumerate every configured platform provider in priority order so the submit
+// path can fail over from one to the next. The explicit AVATAR_REGEN_PROVIDER
+// (if set and credentialed) leads; the credential-inferred order fills in the
+// rest, de-duplicated. A provider whose constructor throws (bad config) is
+// logged and skipped rather than blocking the others. Returns [] when nothing
+// is configured.
+export async function getRegenProviderCandidates() {
+	const order = [];
+	const seen = new Set();
+	const push = (rawName) => {
+		const name = canonicalProviderName(rawName);
+		if (name && name !== 'none' && !seen.has(name) && platformProviderConfigured(name)) {
+			seen.add(name);
+			order.push(name);
+		}
+	};
+
+	push(process.env.AVATAR_REGEN_PROVIDER);
+	for (const name of PLATFORM_PROVIDER_ORDER) push(name);
+
+	const out = [];
+	for (const name of order) {
+		try {
+			const resolved = await loadPlatformProvider(name);
+			if (resolved.instance) out.push(resolved);
+		} catch (err) {
+			console.warn('[regen] platform provider load failed:', name, '—', err?.message);
+		}
 	}
-	if (name === 'replicate') {
-		const mod = await import('../_providers/replicate.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	if (name === 'huggingface' || name === 'hf') {
-		const mod = await import('../_providers/huggingface.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	if (name === 'gcp') {
-		const mod = await import('../_providers/gcp.js');
-		_regenProviderCache = mod.createRegenProvider();
-		_regenProviderName = name;
-		return { name, instance: _regenProviderCache };
-	}
-	throw Object.assign(new Error(`unknown AVATAR_REGEN_PROVIDER: ${name}`), {
-		code: 'regen_provider_unknown',
-		status: 501,
-	});
+	return out;
 }
 
 // Resolve the provider for a job that's already in flight, routing by the

@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Forge no longer dead-ends on \"Generator not configured\" when a free lane is live",
+      "summary": "When the free NVIDIA text→3D lane was briefly down, Forge could return \"Generator not configured\" even on deployments where the free Hugging Face lane was fully set up — because the degrade step looked for a paid Replicate key that wasn't required. Forge now falls through to whichever free engine is configured (Hugging Face Spaces) instead of stopping, so a single free key keeps text and photo generation working through upstream blips.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/forge"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Agent Reputation Leaderboard — top agents promoted in marketplace by on-chain trust score",
       "summary": "The platform now autonomously ranks the top 10 three.ws agents by behavioral trust score every 30 minutes via a real x402 payment to the agent-reputation endpoint. Scores are synthesized from real on-chain pump.fun agent-payments activity, distribution/buyback success, and signed Solana attestations — not a subjective rating. The top 10 are promoted to the front of the marketplace recommended feed and marked with a ◈ Top Trust badge. The ranking is also stored as an oracle signal (topic: agent_reputation_leaderboard) for downstream systems to query. Full snapshot history is written to agent_reputation_leaderboard_snapshots so trust trends are auditable over time.",
       "tags": [

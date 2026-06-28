@@ -262,7 +262,8 @@ describe('getTokenPriceUsd', () => {
 		expect(p.priceUsd).toBe(0.000307);
 		expect(p.source).toBe('jupiter');
 		expect(p.mint).toBe(TOKEN_MINT);
-		expect(cacheSet).toHaveBeenCalledOnce();
+		// Writes the live cache AND the long-lived last-known-good entry.
+		expect(cacheSet).toHaveBeenCalledTimes(2);
 	});
 
 	it('falls back to Birdeye when Jupiter returns null price', async () => {
@@ -301,6 +302,52 @@ describe('getTokenPriceUsd', () => {
 		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // birdeye
 		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // dexscreener
 		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // geckoterminal
+		await expect(getTokenPriceUsd({ fresh: true })).rejects.toMatchObject({
+			code: 'price_unavailable',
+		});
+		if (priorKey !== undefined) process.env.BIRDEYE_API_KEY = priorKey;
+		else delete process.env.BIRDEYE_API_KEY;
+	});
+
+	it('serves a recent last-known-good price when every live feed misses', async () => {
+		const priorKey = process.env.BIRDEYE_API_KEY;
+		process.env.BIRDEYE_API_KEY = 'test-key';
+		// All four live feeds miss this request...
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // jupiter
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // birdeye
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // dexscreener
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // geckoterminal
+		// ...but a 60s-old last-known-good is in cache (live key miss, last-good hit).
+		cacheGet.mockResolvedValueOnce(null); // live PRICE_CACHE_KEY (skipped on fresh, harmless)
+		cacheGet.mockResolvedValueOnce({
+			priceUsd: 0.00042,
+			source: 'jupiter',
+			mint: TOKEN_MINT,
+			at: new Date(Date.now() - 60_000).toISOString(),
+		});
+		const p = await getTokenPriceUsd({ fresh: true });
+		expect(p.priceUsd).toBe(0.00042);
+		expect(p.stale).toBe(true);
+		expect(p.source).toBe('jupiter-stale');
+		if (priorKey !== undefined) process.env.BIRDEYE_API_KEY = priorKey;
+		else delete process.env.BIRDEYE_API_KEY;
+	});
+
+	it('rejects a last-known-good price older than the staleness window', async () => {
+		const priorKey = process.env.BIRDEYE_API_KEY;
+		process.env.BIRDEYE_API_KEY = 'test-key';
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // jupiter
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // birdeye
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // dexscreener
+		fetchResponses.push({ ok: false, status: 503, body: 'down' }); // geckoterminal
+		// A 10-minute-old price is beyond the 5-minute window → still fail rather
+		// than price a payment off a stale number.
+		cacheGet.mockResolvedValue({
+			priceUsd: 0.00042,
+			source: 'jupiter',
+			mint: TOKEN_MINT,
+			at: new Date(Date.now() - 600_000).toISOString(),
+		});
 		await expect(getTokenPriceUsd({ fresh: true })).rejects.toMatchObject({
 			code: 'price_unavailable',
 		});
