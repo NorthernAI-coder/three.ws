@@ -6,6 +6,7 @@ import {
 	registerInFlight,
 	acquireBlockingSlot,
 	providerSubmitAllowed,
+	reserveProviderRateSlot,
 	dailyPaidAllowed,
 	circuitState,
 	circuitRecordFailure,
@@ -81,6 +82,16 @@ describe('fail-open behavior without Redis', () => {
 		expect(await providerSubmitAllowed('replicate', { limit: 1, windowS: 10 })).toBe(true);
 	});
 
+	it('reserveProviderRateSlot grants an immediate, zero-wait slot', async () => {
+		// No Redis → no shared bucket to pace against, so the gate must never queue or
+		// reject: every caller proceeds instantly (a paced lane beats a blocked one).
+		const a = await reserveProviderRateSlot('replicate', { ratePerMin: 6, burst: 1, maxWaitMs: 15_000 });
+		expect(a).toEqual({ ok: true, waitMs: 0 });
+		// A second back-to-back reserve also clears — there is no store to count against.
+		const b = await reserveProviderRateSlot('replicate', { ratePerMin: 6, burst: 1, maxWaitMs: 15_000 });
+		expect(b).toEqual({ ok: true, waitMs: 0 });
+	});
+
 	it('dailyPaidAllowed allows and reports the limit', async () => {
 		const r = await dailyPaidAllowed('client-abc', { limit: 60 });
 		expect(r.ok).toBe(true);
@@ -116,5 +127,9 @@ describe('SCALE_LIMITS', () => {
 		expect(SCALE_LIMITS.hfSlotTtlMs).toBeGreaterThanOrEqual(300_000);
 		expect(SCALE_LIMITS.replicateSubmitLimit).toBeGreaterThan(0);
 		expect(SCALE_LIMITS.replicateSubmitWindowS).toBeGreaterThan(0);
+		// The text→image queue paces to Replicate's reduced-rate ceiling: 6/min, burst 1.
+		expect(SCALE_LIMITS.replicateRatePerMin).toBe(6);
+		expect(SCALE_LIMITS.replicateRateBurst).toBe(1);
+		expect(SCALE_LIMITS.replicateQueueMaxMs).toBeGreaterThan(0);
 	});
 });

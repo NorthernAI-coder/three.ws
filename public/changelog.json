@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T19:49:27.976Z",
+	"generated_at": "2026-06-28T20:53:56.395Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/three-token",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "A free, no-login 3D Studio you can add to ChatGPT",
+			"summary": "We shipped a brand-new connector that turns any chat into a 3D modeling studio — completely free, with no account, no payment, and nothing to install on your end. It exposes five tools: generate a textured 3D model from a text prompt, build a 3D avatar from text or a reference image, forge an art-directed mesh, auto-rig a static model so it's ready to animate, and do prompt-to-rigged-avatar in a single step. Every result comes back as a downloadable GLB plus an interactive viewer link you can rotate and inspect right in the conversation. It runs entirely on our own model infrastructure — we cover the generation cost — with built-in rate limits so it stays fast and available for everyone. This is a separate, self-contained server from our existing tools, purpose-built so anyone can add prompt-to-3D to their assistant in one click.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -103,6 +113,17 @@
 		{
 			"date": "2026-06-28",
 			"type": "update",
+			"title": "Avatar API no longer stalls when usage logging hits a slow database",
+			"summary": "Behind the scenes we record lightweight usage events for things like avatar fetches and uploads. When our fast in-memory buffer was unavailable, each event fell back to writing directly to the database — and a slow database spell could hold that write open for up to 15 seconds, dragging out avatar requests and filling the logs with deadline errors. Those background writes are now strictly time-boxed and fully detached from your request, so a sluggish database can never delay an avatar response. Telemetry stays best-effort; your request always comes first.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
 			"title": "Avatar generation rides out engine outages by failing over between backends",
 			"summary": "Describe-it-to-3D and Instant Agent Genesis no longer dead-end with \"the avatar engine rejected this job\" when one 3D backend has a hiccup. A request now tries every configured engine in turn — and your own Meshy or Tripo key as a backstop — before giving up, so a single provider's cold start, throttle, or outage is invisible to you. On the rare moment every engine is down at once, the error now points you straight to the selfie scanner and offers a one-tap retry instead of stranding the build.",
 			"link": "/create/prompt",
@@ -179,6 +200,16 @@
 			"title": "Five pages that were returning 404 are reachable again",
 			"summary": "The Gaussian-splat viewer (/splat), the capture tool (/capture), the integrations directory (/integrations), partners (/partners), and the live-agents board (/agents-live) were all returning a 404 in production even though the pages existed and were linked from the nav. Our routing pins every clean URL explicitly, and these five were missing their entry, so the request fell through to the not-found page. We added the missing routes and tightened the route audit so a new page can no longer ship without one.",
 			"link": "/splat",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Fixed strategy backtesting failing to find candidate coins",
+			"summary": "Running a strategy backtest (and live strategy runs) could fail with a server error while scanning for candidate coins. The scan and trading steps rely on several bundled trading skills, but only one of them was being shipped to production — so the moment a backtest tried to pull trending or new coins, it hit a missing-module error. All of the required skills now deploy together, and backtests source their candidate coins and replay normally again.",
+			"link": null,
 			"tags": [
 				"fix"
 			]
@@ -414,6 +445,17 @@
 			"link": "/pulse",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The multiplayer world now refuses to start unprotected",
+			"summary": "The three.ws world (world.three.ws) is locked down so only admins can build, move, or delete scene content — everyone else explores freely. Previously, if a world deploy ever went out missing its admin secret, the underlying engine quietly handed every visitor full build rights, which is how the world could get wiped. We closed that gap at the source: a production world build now refuses to boot at all unless the admin secret is present, so a misconfigured deploy can never silently expose build rights — the last known-good, protected version keeps serving instead. Our automated world-health monitor continues to watch for this every 15 minutes.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra"
 			]
 		},
 		{

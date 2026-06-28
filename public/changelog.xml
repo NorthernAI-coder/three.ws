@@ -15,6 +15,14 @@
 			<description>Paid actions priced in $THREE (Forge high tier, spins, marketplace) no longer fail when every live price feed happens to miss on the same request. The price layer now keeps a recent last-known-good price and serves it through a momentary simultaneous outage of Jupiter and the backup feeds, so a quote is never rejected over a transient blip. Prices older than five minutes are still refused — a payment is never priced off a stale number. And on the rare moment the payment rail genuinely is catching its breath, you now see a clear &quot;briefly unavailable — try again&quot; message instead of a raw &quot;internal error&quot; support code.</description>
 		</item>
 		<item>
+			<title>A free, no-login 3D Studio you can add to ChatGPT</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:A free, no-login 3D Studio you can add to ChatGPT</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>We shipped a brand-new connector that turns any chat into a 3D modeling studio — completely free, with no account, no payment, and nothing to install on your end. It exposes five tools: generate a textured 3D model from a text prompt, build a 3D avatar from text or a reference image, forge an art-directed mesh, auto-rig a static model so it's ready to animate, and do prompt-to-rigged-avatar in a single step. Every result comes back as a downloadable GLB plus an interactive viewer link you can rotate and inspect right in the conversation. It runs entirely on our own model infrastructure — we cover the generation cost — with built-in rate limits so it stays fast and available for everyone. This is a separate, self-contained server from our existing tools, purpose-built so anyone can add prompt-to-3D to their assistant in one click.</description>
+		</item>
+		<item>
 			<title>A quiet Money Pulse now points you to the live feed instead of a dead end</title>
 			<link>https://three.ws/pulse</link>
 			<guid isPermaLink="false">2026-06-28:A quiet Money Pulse now points you to the live feed instead of a dead end</guid>
@@ -79,6 +87,14 @@
 			<description>A broken auth subsystem — a JWT signer that stops working, a verifier that accepts expired tokens, or a misconfigured issuer — can lock users out silently or, worse, leave a security hole open. The platform now detects both within 30 minutes. Every half-hour an autonomous agent makes a real on-chain payment to a new /api/x402/auth-health endpoint and runs a four-step session lifecycle canary: mint a canary access token, verify it with the full JWT verifier, issue a replacement token and re-verify it (the rotation path), and confirm that an already-expired token is rejected. Each step is timed independently; a failure names exactly which step broke and why. The result — all_pass, failed_step, and per-step latency — is recorded as an actionable signal so ops can read auth health off a single log row without a separate query.</description>
 		</item>
 		<item>
+			<title>Avatar API no longer stalls when usage logging hits a slow database</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Avatar API no longer stalls when usage logging hits a slow database</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Behind the scenes we record lightweight usage events for things like avatar fetches and uploads. When our fast in-memory buffer was unavailable, each event fell back to writing directly to the database — and a slow database spell could hold that write open for up to 15 seconds, dragging out avatar requests and filling the logs with deadline errors. Those background writes are now strictly time-boxed and fully detached from your request, so a sluggish database can never delay an avatar response. Telemetry stays best-effort; your request always comes first.</description>
+		</item>
+		<item>
 			<title>Avatar generation rides out engine outages by failing over between backends</title>
 			<link>https://three.ws/create/prompt</link>
 			<guid isPermaLink="false">2026-06-28:Avatar generation rides out engine outages by failing over between backends</guid>
@@ -141,6 +157,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The Gaussian-splat viewer (/splat), the capture tool (/capture), the integrations directory (/integrations), partners (/partners), and the live-agents board (/agents-live) were all returning a 404 in production even though the pages existed and were linked from the nav. Our routing pins every clean URL explicitly, and these five were missing their entry, so the request fell through to the not-found page. We added the missing routes and tightened the route audit so a new page can no longer ship without one.</description>
+		</item>
+		<item>
+			<title>Fixed strategy backtesting failing to find candidate coins</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Fixed strategy backtesting failing to find candidate coins</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Running a strategy backtest (and live strategy runs) could fail with a server error while scanning for candidate coins. The scan and trading steps rely on several bundled trading skills, but only one of them was being shipped to production — so the moment a backtest tried to pull trending or new coins, it hit a missing-module error. All of the required skills now deploy together, and backtests source their candidate coins and replay normally again.</description>
 		</item>
 		<item>
 			<title>Fixed: &quot;Generate API key&quot; in the Agent Screen worker setup</title>
@@ -317,6 +341,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The Money Pulse page (/pulse) now renders on a true black background in every theme, so the live feed of tips, launches, trades and agent-to-agent payments reads as one calm, high-contrast field. Previously the page could pick up a lighter surface or near-black tone depending on your theme; it's now consistently black with the monochrome ink ramp pinned for readability.</description>
+		</item>
+		<item>
+			<title>The multiplayer world now refuses to start unprotected</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:The multiplayer world now refuses to start unprotected</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>security</category>
+			<description>The three.ws world (world.three.ws) is locked down so only admins can build, move, or delete scene content — everyone else explores freely. Previously, if a world deploy ever went out missing its admin secret, the underlying engine quietly handed every visitor full build rights, which is how the world could get wiped. We closed that gap at the source: a production world build now refuses to boot at all unless the admin secret is present, so a misconfigured deploy can never silently expose build rights — the last known-good, protected version keeps serving instead. Our automated world-health monitor continues to watch for this every 15 minutes.</description>
 		</item>
 		<item>
 			<title>The shared 3D world stays in sync through server updates</title>

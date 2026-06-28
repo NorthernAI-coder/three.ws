@@ -96,15 +96,32 @@ const POLL_TIMEOUT_MS = 60_000;
 
 // NVCF can answer a cold model — or a momentary capacity/routing blip at the
 // gateway — with a transient 502/503/504, or drop the socket before a worker is
-// warm. None of these is terminal: a single short retry usually lands once the
-// model spins up, which keeps the FREE lane from dead-ending straight to the
-// (often equally throttled) paid Replicate lane and surfacing to the user as a
-// hard 502. Bounded to one retry so a genuinely-down upstream still fails over
-// fast rather than burning the whole serverless budget on a dead provider.
+// warm. None of these is terminal: a short retry usually lands once the model
+// spins up, which keeps the FREE lane from dead-ending straight to the (often
+// equally throttled) paid Replicate lane and surfacing to the user as a hard 502.
+// A hosted-preview 504 is the single most common blip (the gateway gives up on a
+// slow worker), and it returns FAST — so retrying it a couple of times with
+// spaced-out backoff is cheap and lands most of them on a warmed node, which is
+// the main lever that stops a transient 504 from tripping the lane cooldown and
+// dumping the request on the paid lane. Bounded to MAX_INVOKE_ATTEMPTS so a
+// genuinely-down upstream still fails over fast rather than burning the whole
+// serverless budget on a dead provider.
 const GATEWAY_RETRY_STATUSES = new Set([502, 503, 504]);
-const MAX_INVOKE_ATTEMPTS = 2;
-const INVOKE_RETRY_DELAY_MS = 1_500;
+const MAX_INVOKE_ATTEMPTS = 3;
+const INVOKE_RETRY_BASE_MS = 1_000;
+const INVOKE_RETRY_MAX_MS = 6_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Backoff between invoke retries: exponential (base · 2^(n-1), capped) with full
+// jitter so concurrent retries don't resynchronize into a thundering herd against
+// a single warming node. When the gateway hands back a Retry-After we honour it
+// (capped) instead of guessing.
+function invokeRetryDelayMs(attempt, retryAfterSeconds) {
+	const hinted = Number(retryAfterSeconds);
+	if (Number.isFinite(hinted) && hinted > 0) return Math.min(hinted * 1000, INVOKE_RETRY_MAX_MS);
+	const ceiling = Math.min(INVOKE_RETRY_BASE_MS * 2 ** (attempt - 1), INVOKE_RETRY_MAX_MS);
+	return Math.floor(ceiling / 2 + Math.random() * (ceiling / 2));
+}
 
 // Sampling steps per quality tier. TRELLIS accepts 10–50, but the NVIDIA HOSTED
 // preview at this endpoint only returns within the gateway's synchronous window
@@ -321,7 +338,7 @@ export function createNvidiaProvider() {
 				// retry, so a single dropped connection doesn't fail the whole free lane.
 				const timedOut = err?.name === 'TimeoutError' || err?.name === 'AbortError';
 				if (!timedOut && attempt < MAX_INVOKE_ATTEMPTS) {
-					await sleep(INVOKE_RETRY_DELAY_MS);
+					await sleep(invokeRetryDelayMs(attempt));
 					continue;
 				}
 				throw lastErr;
@@ -364,8 +381,9 @@ export function createNvidiaProvider() {
 			// surfaced as a normalized provider error the forge layer routes around.
 			if (GATEWAY_RETRY_STATUSES.has(res.status) && attempt < MAX_INVOKE_ATTEMPTS) {
 				await res.text().catch(() => {});
-				lastErr = providerError(res.status, undefined, res.headers.get('retry-after'));
-				await sleep(INVOKE_RETRY_DELAY_MS);
+				const retryAfter = res.headers.get('retry-after');
+				lastErr = providerError(res.status, undefined, retryAfter);
+				await sleep(invokeRetryDelayMs(attempt, retryAfter));
 				continue;
 			}
 

@@ -160,7 +160,7 @@ function circuitAllows() {
 }
 
 function circuitRecordSuccess() {
-	if (circuitOpenUntil !== 0) console.warn('[cache] redis recovered — circuit closed');
+	if (circuitOpenUntil !== 0) warnThrottled('circuit', '[cache] redis recovered — circuit closed');
 	circuitFailures = 0;
 	circuitOpenUntil = 0;
 	circuitTrialInFlight = false;
@@ -176,7 +176,8 @@ function circuitRecordFailure() {
 	circuitFailures++;
 	if (circuitFailures >= CIRCUIT_FAIL_THRESHOLD) {
 		circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
-		console.warn(
+		warnThrottled(
+			'circuit',
 			`[cache] redis degraded — circuit opened for ${CIRCUIT_COOLDOWN_MS / 1000}s after ${circuitFailures} consecutive failures; serving from memory`,
 		);
 	}
@@ -270,7 +271,7 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 	try {
 		const payload = JSON.stringify(value);
 		await redisCmd(['SET', key, payload, 'EX', String(ttlSeconds)]);
-		if (setSuppressedUntil !== 0) console.warn('[cache] redis SET recovered — resuming cache writes');
+		if (setSuppressedUntil !== 0) warnThrottled('set-gate', '[cache] redis SET recovered — resuming cache writes');
 		setFailures = 0;
 		setSuppressedUntil = 0;
 		memoPut(key, value); // keep the memo coherent with what we just wrote
@@ -286,7 +287,8 @@ export async function cacheSet(key, value, ttlSeconds = 60) {
 		setFailures++;
 		if (setFailures >= SET_FAIL_THRESHOLD) {
 			setSuppressedUntil = now + SET_SUPPRESS_MS;
-			console.warn(
+			warnThrottled(
+				'set-gate',
 				`[cache] redis SET degraded — suppressing cache writes for ${SET_SUPPRESS_MS / 1000}s after ${setFailures} consecutive failures; serving from memory`,
 			);
 		} else {

@@ -8,8 +8,10 @@
 // Invariants under test:
 //   • With object storage configured, the returned resultGlbUrl is the durable
 //     R2 URL, not the raw Space URL, and the mesh was uploaded exactly once.
-//   • A 404 on the (already-expired) Space file fails soft to the raw URL — the
-//     result is never worse than handing back the Space URL.
+//   • With storage configured, a 404 on the (already-expired) Space file must NOT
+//     leak the ephemeral URL downstream: the provider fails over to the next
+//     Space and regenerates, and if none remain it throws a designed error
+//     instead of handing back a URL guaranteed to 404 in materializeCreation.
 //   • Without storage configured, re-host is skipped entirely (no fetch of the
 //     mesh, no upload) and the raw Space URL is returned, unchanged behavior.
 
@@ -106,7 +108,45 @@ describe('huggingface provider — durable GLB re-host', () => {
 		expect(putObject.mock.calls[0][0]).toMatchObject({ contentType: 'model/gltf-binary' });
 	});
 
-	it('fails soft to the raw Space URL when the ephemeral file already 404s', async () => {
+	it('regenerates on the next Space when the first Space\'s mesh already 404s, never leaking the ephemeral URL', async () => {
+		setS3();
+		// foo/A produces a GLB whose temp file is already gone (404 on rehost); bar/B
+		// produces a live one. The doomed foo/A URL must never escape — we expect a
+		// durable bar/B copy instead.
+		process.env.HF_RECONSTRUCT_SPACES = 'foo/A,bar/B';
+		const fetchMock = vi.fn(async (url, opts) => {
+			if (url === `${spaceUrl('foo/A')}/call/generation_all`) return jsonResp({ event_id: 'evt-A' });
+			if (url === `${spaceUrl('foo/A')}/call/generation_all/evt-A`) {
+				return sseStream([{ url: 'https://files.hf/tmp/gradio/gone/model.glb' }]);
+			}
+			if (url === 'https://files.hf/tmp/gradio/gone/model.glb') return new Response('', { status: 404 });
+			if (url === `${spaceUrl('bar/B')}/call/generation_all`) return jsonResp({ event_id: 'evt-B' });
+			if (url === `${spaceUrl('bar/B')}/call/generation_all/evt-B`) {
+				return sseStream([{ url: 'https://files.hf/tmp/gradio/live/model.glb' }]);
+			}
+			if (url === 'https://files.hf/tmp/gradio/live/model.glb') {
+				expect(opts?.headers?.authorization).toBe('Bearer hf_test_token');
+				return new Response(glbBytes(), { status: 200, headers: { 'content-type': 'model/gltf-binary' } });
+			}
+			throw new Error(`unexpected url ${url}`);
+		});
+		globalThis.fetch = fetchMock;
+
+		const { createRegenProvider } = await import('../../api/_providers/huggingface.js');
+		const out = await createRegenProvider().submit({
+			mode: 'reconstruct',
+			params: { images: ['data:image/jpeg;base64,AAA'] },
+		});
+
+		const decoded = JSON.parse(Buffer.from(out.extJobId, 'base64url').toString('utf8'));
+		expect(decoded.resultGlbUrl).toMatch(/^https:\/\/cdn\.example\/hf-recon\/[0-9a-f-]+\.glb$/);
+		expect(decoded.resultGlbUrl).not.toContain('files.hf');
+		expect(decoded.space).toBe('bar/B');
+		expect(decoded.fellBackFrom).toEqual(['foo/A']);
+		expect(putObject).toHaveBeenCalledTimes(1);
+	});
+
+	it('throws a designed error rather than returning the ephemeral URL when every Space\'s mesh 404s', async () => {
 		setS3();
 		const fetchMock = vi.fn(async (url) => {
 			if (url === `${spaceUrl('foo/A')}/call/generation_all`) return jsonResp({ event_id: 'evt-A' });
@@ -119,13 +159,16 @@ describe('huggingface provider — durable GLB re-host', () => {
 		globalThis.fetch = fetchMock;
 
 		const { createRegenProvider } = await import('../../api/_providers/huggingface.js');
-		const out = await createRegenProvider().submit({
-			mode: 'reconstruct',
-			params: { images: ['data:image/jpeg;base64,AAA'] },
+		await expect(
+			createRegenProvider().submit({
+				mode: 'reconstruct',
+				params: { images: ['data:image/jpeg;base64,AAA'] },
+			}),
+		).rejects.toMatchObject({
+			code: 'all_providers_failed',
+			message: expect.stringMatching(/not persistable/),
 		});
-
-		const decoded = JSON.parse(Buffer.from(out.extJobId, 'base64url').toString('utf8'));
-		expect(decoded.resultGlbUrl).toBe('https://files.hf/tmp/gradio/gone/model.glb');
+		// The doomed ephemeral URL was never persisted.
 		expect(putObject).not.toHaveBeenCalled();
 	});
 
