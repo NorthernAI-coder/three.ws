@@ -233,9 +233,14 @@ export const env = {
 	// legitimately exceed it and surface as "operation aborted due to timeout".
 	// Exposed as an env knob so ops can raise it (region latency) or lower it
 	// (fail faster to memory) without a code deploy. Clamped to [500, 30000];
-	// anything unparseable falls back to the default.
+	// anything blank or unparseable falls back to the default (a blank
+	// `CACHE_REDIS_CMD_TIMEOUT_MS=` in the dashboard must NOT become 0 → clamped to
+	// the 500ms floor, which would make timeouts WORSE — the opposite of the knob's
+	// intent).
 	get CACHE_REDIS_CMD_TIMEOUT_MS() {
-		const n = Number(opt('CACHE_REDIS_CMD_TIMEOUT_MS'));
+		const raw = opt('CACHE_REDIS_CMD_TIMEOUT_MS');
+		if (raw == null || String(raw).trim() === '') return 3000;
+		const n = Number(raw);
 		if (!Number.isFinite(n)) return 3000;
 		return Math.min(30_000, Math.max(500, Math.round(n)));
 	},

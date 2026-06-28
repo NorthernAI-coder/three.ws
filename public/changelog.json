@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T21:09:09.730Z",
+	"generated_at": "2026-06-28T21:20:14.117Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,17 @@
 			"link": "/three-token",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "$THREE price and market stats stay live even when data providers throttle us",
+			"summary": "The $THREE price, market cap, holders and supply panels — plus the holder leaderboard percentages — pull from outside market-data providers. Under heavy traffic every page load used to ask those providers directly, and when they all hit their free rate limits at once the stats would briefly fall back to a slightly older snapshot. Now a background job refreshes the numbers once a minute into a shared cache that every page reads from, and when the cache does need a refresh only one request fetches while the rest wait for it — instead of a thundering herd that trips every provider's limit at once. The result: market stats stay fresh and populated, and the 'all providers throttled' fallback almost never triggers.",
+			"link": "/three-token",
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{
@@ -414,6 +425,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The Agents directory now lists every on-chain agent, not just ours",
+			"summary": "Until now /agents showed the agents launched on three.ws plus the ones registered through ERC-8004 on EVM chains. We've expanded it to the whole Solana agent ecosystem: a new background crawler indexes the Metaplex Agent Registry and the AgenC coordination protocol every half hour, so agents created anywhere on Solana — not only on three.ws — appear in the directory automatically. The page now opens on one unified feed with quick filters for All sources, Solana, and EVM, and every card carries a coloured badge showing where the agent came from (Metaplex, AgenC, an EVM chain, or three.ws). Agents we launched that are also registered upstream are de-duplicated so they only show once, with their richer three.ws profile.",
+			"link": "/agents",
+			"tags": [
+				"feature",
+				"infra"
 			]
 		},
 		{

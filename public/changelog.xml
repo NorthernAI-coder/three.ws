@@ -15,6 +15,14 @@
 			<description>Paid actions priced in $THREE (Forge high tier, spins, marketplace) no longer fail when every live price feed happens to miss on the same request. The price layer now keeps a recent last-known-good price and serves it through a momentary simultaneous outage of Jupiter and the backup feeds, so a quote is never rejected over a transient blip. Prices older than five minutes are still refused — a payment is never priced off a stale number. And on the rare moment the payment rail genuinely is catching its breath, you now see a clear &quot;briefly unavailable — try again&quot; message instead of a raw &quot;internal error&quot; support code.</description>
 		</item>
 		<item>
+			<title>$THREE price and market stats stay live even when data providers throttle us</title>
+			<link>https://three.ws/three-token</link>
+			<guid isPermaLink="false">2026-06-28:$THREE price and market stats stay live even when data providers throttle us</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The $THREE price, market cap, holders and supply panels — plus the holder leaderboard percentages — pull from outside market-data providers. Under heavy traffic every page load used to ask those providers directly, and when they all hit their free rate limits at once the stats would briefly fall back to a slightly older snapshot. Now a background job refreshes the numbers once a minute into a shared cache that every page reads from, and when the cache does need a refresh only one request fetches while the rest wait for it — instead of a thundering herd that trips every provider's limit at once. The result: market stats stay fresh and populated, and the 'all providers throttled' fallback almost never triggers.</description>
+		</item>
+		<item>
 			<title>A free, no-login 3D Studio you can add to ChatGPT</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:A free, no-login 3D Studio you can add to ChatGPT</guid>
@@ -317,6 +325,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>On pages with a white accent color, the &quot;⑂ Save to my avatars&quot; button (shown on any avatar you don't own) rendered white text on a white background — effectively invisible. The button now picks its text color from the actual button background, so a light button gets black text and a dark button keeps white, keeping the label legible everywhere it appears.</description>
+		</item>
+		<item>
+			<title>The Agents directory now lists every on-chain agent, not just ours</title>
+			<link>https://three.ws/agents</link>
+			<guid isPermaLink="false">2026-06-28:The Agents directory now lists every on-chain agent, not just ours</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Until now /agents showed the agents launched on three.ws plus the ones registered through ERC-8004 on EVM chains. We've expanded it to the whole Solana agent ecosystem: a new background crawler indexes the Metaplex Agent Registry and the AgenC coordination protocol every half hour, so agents created anywhere on Solana — not only on three.ws — appear in the directory automatically. The page now opens on one unified feed with quick filters for All sources, Solana, and EVM, and every card carries a coloured badge showing where the agent came from (Metaplex, AgenC, an EVM chain, or three.ws). Agents we launched that are also registered upstream are de-duplicated so they only show once, with their richer three.ws profile.</description>
 		</item>
 		<item>
 			<title>The Avatar Engines Atlas page is now reachable</title>

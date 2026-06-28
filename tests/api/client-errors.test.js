@@ -165,6 +165,30 @@ describe('api/client-errors', () => {
 				'injected webview global (Chrome/FF)',
 				{ type: 'error', name: 'ReferenceError', message: 'gCrWeb is not defined' },
 			],
+			[
+				'injected-overlay hideIndicator (WebKit)',
+				{
+					type: 'unhandledrejection',
+					name: 'TypeError',
+					message: "undefined is not an object (evaluating 'e.hideIndicator')",
+				},
+			],
+			[
+				'injected-overlay hideIndicator (Chromium)',
+				{
+					type: 'unhandledrejection',
+					name: 'TypeError',
+					message: "Cannot read properties of undefined (reading 'hideIndicator')",
+				},
+			],
+			[
+				'stackless colorSpace null-read (injected canvas wrapper)',
+				{
+					type: 'unhandledrejection',
+					name: 'TypeError',
+					message: "Cannot read properties of null (reading 'colorSpace')",
+				},
+			],
 		];
 		for (const [label, event] of cases) {
 			it(`drops ${label} — no log, no Sentry, no page`, async () => {
@@ -179,6 +203,47 @@ describe('api/client-errors', () => {
 				expect(sendOpsAlert).not.toHaveBeenCalled();
 			});
 		}
+
+		it('still reports a colorSpace null-read that carries a first-party stack', async () => {
+			// A genuine three-core fault (our bundle) keeps its /assets/* stack — only
+			// the unattributable stackless variant is injected noise we drop.
+			const { body } = await invoke({
+				body: {
+					page: 'https://three.ws/walk',
+					events: [
+						{
+							type: 'unhandledrejection',
+							name: 'TypeError',
+							message: "Cannot read properties of null (reading 'colorSpace')",
+							stack: 'TypeError\n    at applyEnv (https://three.ws/assets/walk-abc123.js:9:42)',
+							ts: 1,
+						},
+					],
+				},
+			});
+			expect(body.received).toBe(1);
+			expect(body.dropped).toBe(0);
+			expect(captureException).toHaveBeenCalledTimes(1);
+		});
+
+		it('still reports a real TypeError that dereferences one of our own symbols', async () => {
+			const { body } = await invoke({
+				body: {
+					page: 'https://three.ws/walk',
+					events: [
+						{
+							type: 'unhandledrejection',
+							name: 'TypeError',
+							message: "undefined is not an object (evaluating 'viewer.renderScene')",
+							ts: 1,
+						},
+					],
+				},
+			});
+			expect(body.received).toBe(1);
+			expect(body.dropped).toBe(0);
+			expect(captureException).toHaveBeenCalledTimes(1);
+		});
 
 		it('still reports a real ReferenceError that names one of our own variables', async () => {
 			const { body } = await invoke({

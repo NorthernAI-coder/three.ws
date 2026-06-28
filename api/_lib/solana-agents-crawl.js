@@ -13,6 +13,15 @@
 
 import { sql } from './db.js';
 import { solanaRpcEndpoints } from './solana/connection.js';
+import {
+	truncate,
+	resolveGateway,
+	normalizeDasAsset,
+	agencStatusLabel,
+	agencActive,
+	MAX_NAME,
+	MAX_DESC,
+} from './solana-agents-normalize.js';
 
 // Metaplex Agent Registry identity program. The mpl-agent-registry generated
 // client bakes this default in, but we pin it here too so a getProgramAccounts
@@ -20,8 +29,6 @@ import { solanaRpcEndpoints } from './solana/connection.js';
 const MPL_AGENT_IDENTITY_PROGRAM = '1DREGFgysWYxLnRnKQnwrxnJQeSMk2HmGaC6whw2B2p';
 
 const FETCH_TIMEOUT_MS = 6_000;
-const MAX_NAME = 200;
-const MAX_DESC = 1000;
 
 // Pick the best available mainnet RPC. solanaRpcEndpoints prefers Helius (which
 // also answers DAS getAsset on the same URL), falling back to public nodes.
@@ -29,25 +36,6 @@ function mainnetRpc() {
 	const [url] = solanaRpcEndpoints('mainnet');
 	if (!url) throw new Error('no Solana mainnet RPC configured (set SOLANA_RPC_URL or HELIUS_API_KEY)');
 	return url;
-}
-
-export function truncate(s, max) {
-	if (s == null) return null;
-	const str = String(s).trim();
-	if (!str) return null;
-	return str.length > max ? str.slice(0, max) : str;
-}
-
-// Resolve ipfs:// and bare-CID metadata pointers to an HTTPS gateway so a fetch
-// can actually retrieve them. Leaves https/http URLs untouched.
-export function resolveGateway(uri) {
-	if (!uri) return null;
-	const s = String(uri).trim();
-	if (!s) return null;
-	if (s.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${s.slice(7).replace(/^ipfs\//, '')}`;
-	if (s.startsWith('ar://')) return `https://arweave.net/${s.slice(5)}`;
-	if (/^[a-zA-Z0-9]{46,59}$/.test(s) && !s.includes('.')) return `https://ipfs.io/ipfs/${s}`;
-	return s;
 }
 
 async function fetchJsonWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -70,26 +58,6 @@ async function fetchJsonWithTimeout(url, timeoutMs = FETCH_TIMEOUT_MS) {
 }
 
 // Pure normalization of a DAS getAsset result into the index fields. Extracted
-// so the field-picking logic (image source priority, GLB detection, owner) is
-// unit-testable without a live RPC.
-export function normalizeDasAsset(a) {
-	if (!a) return null;
-	const meta = a.content?.metadata || {};
-	const files = a.content?.files || [];
-	const links = a.content?.links || {};
-	const image = links.image || files.find((f) => /image/i.test(f?.mime || ''))?.uri || null;
-	// A glTF/GLB file attached to the asset means it carries a 3D model.
-	const glb = files.find((f) => /model\/gltf|\.glb($|\?)|\.gltf($|\?)/i.test(`${f?.mime || ''} ${f?.uri || ''}`))?.uri || null;
-	return {
-		name: truncate(meta.name, MAX_NAME),
-		description: truncate(meta.description, MAX_DESC),
-		image: image || null,
-		glb_url: glb || null,
-		metadata_uri: a.content?.json_uri || null,
-		owner: a.ownership?.owner || null,
-	};
-}
-
 // Single Helius/DAS getAsset call. Returns the normalized fields the index needs.
 async function dasGetAsset(rpcUrl, assetId) {
 	const ctrl = new AbortController();
@@ -162,14 +130,19 @@ export async function crawlMetaplexAgents({ deadline } = {}) {
 		const { publicKey } = await import('@metaplex-foundation/umi');
 		const reg = await import('@metaplex-foundation/mpl-agent-registry');
 		umi = createUmi(rpcUrl);
-		// Pin the program address so the GPA scan targets the identity program
-		// regardless of the SDK's bundled default.
-		const programId = publicKey(MPL_AGENT_IDENTITY_PROGRAM);
+		// The GPA builder reads the identity program id from umi via
+		// context.programs.getPublicKey('mplAgentIdentity', <default>); the SDK's
+		// baked-in default is MPL_AGENT_IDENTITY_PROGRAM, so an unmodified umi scans
+		// the right program. Register it explicitly too, in case a future SDK build
+		// drops the default — then getPublicKey resolves it from the registry.
+		try {
+			umi.programs.add({ name: 'mplAgentIdentity', publicKey: publicKey(MPL_AGENT_IDENTITY_PROGRAM), getErrorFromCode: () => null, getErrorFromName: () => null, isOnCluster: () => true });
+		} catch { /* already registered or registry shape differs — default still applies */ }
 		gpaV2 = typeof reg.getAgentIdentityV2GpaBuilder === 'function'
-			? reg.getAgentIdentityV2GpaBuilder({ ...umi, programs: { ...umi.programs, getPublicKey: () => programId } })
+			? reg.getAgentIdentityV2GpaBuilder(umi)
 			: null;
 		gpaV1 = typeof reg.getAgentIdentityV1GpaBuilder === 'function'
-			? reg.getAgentIdentityV1GpaBuilder({ ...umi, programs: { ...umi.programs, getPublicKey: () => programId } })
+			? reg.getAgentIdentityV1GpaBuilder(umi)
 			: null;
 	} catch (err) {
 		report.errors.push({ stage: 'init', error: err.message || String(err) });
@@ -222,15 +195,6 @@ export async function crawlMetaplexAgents({ deadline } = {}) {
 }
 
 // ── AgenC coordination protocol ────────────────────────────────────────────
-
-const AGENC_STATUS = { 0: 'pending', 1: 'active', 2: 'inactive', 3: 'suspended' };
-
-// Map an AgenC on-chain status (numeric code, or Anchor enum object like
-// {active:{}}) to a human label. Exported for unit coverage of the enum decoding.
-export function agencStatusLabel(raw) {
-	const code = typeof raw === 'object' && raw ? Object.keys(raw)[0] : raw;
-	return AGENC_STATUS[Number(code)] || (typeof code === 'string' ? code : null);
-}
 
 function bytesToBase58(bytes, bs58) {
 	try {
@@ -320,7 +284,7 @@ export async function crawlAgencAgents({ deadline } = {}) {
 				image,
 				glb_url: glb || null,
 				x402_support: !!(meta?.x402Support || meta?.x402),
-				active: status !== 'suspended' && status !== 'inactive',
+				active: agencActive(status),
 				enriched: !!meta,
 				metadata_error: metadataUri && !meta ? 'metadata fetch failed' : null,
 			});
