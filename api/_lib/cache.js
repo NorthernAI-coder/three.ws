@@ -96,8 +96,14 @@ function redisConfigured() {
 // endpoint whose whole point in calling us was to be fast. Cap every command so a
 // degraded Redis fails fast into the in-memory fallback instead of stalling the
 // request. 3s is far longer than a healthy REST GET/SET yet well under any caller's
-// budget.
-const REDIS_CMD_TIMEOUT_MS = 3_000;
+// budget. Tunable per deploy via CACHE_REDIS_CMD_TIMEOUT_MS (resolved + clamped in
+// _lib/env.js) so a cache store in a region far from the function region — the
+// cause of legitimate "operation aborted due to timeout" SET failures — can be
+// given more headroom without a code change. Read per command (a cheap env get) so
+// the knob takes effect on the next request, not only on cold start.
+function redisCmdTimeoutMs() {
+	return env.CACHE_REDIS_CMD_TIMEOUT_MS;
+}
 
 // Circuit breaker around the Upstash REST call. A degraded store (commands
 // timing out at REDIS_CMD_TIMEOUT_MS rather than rejecting promptly) otherwise
@@ -214,7 +220,7 @@ async function redisCmd(args) {
 				'content-type': 'application/json',
 			},
 			body: JSON.stringify(args),
-			signal: AbortSignal.timeout(REDIS_CMD_TIMEOUT_MS),
+			signal: AbortSignal.timeout(redisCmdTimeoutMs()),
 		});
 		if (!r.ok) throw new Error(`upstash ${r.status}: ${await r.text().catch(() => '')}`);
 		const json = await r.json();

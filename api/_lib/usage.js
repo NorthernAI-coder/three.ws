@@ -27,6 +27,15 @@ const BUFFER_MAX = 10_000;          // safety cap — drop oldest when exceeded
 const BUFFER_TTL_S = 7200;          // 2h — events should never sit this long
 const FLUSH_DEDUP_WINDOW_MS = 60_000; // one QStash flush job per minute
 
+// Per-event budget for the direct-insert fallback (Redis buffer down/absent).
+// Far below the 15s default DB budget on purpose: when the buffer is unavailable
+// every usage event takes this path, and a slow Neon spell must never hold a
+// serverless invocation open for 15s per event — that storm of 15000ms-deadline
+// writes was stalling the avatar API. Telemetry is best-effort, so a bounded miss
+// beats a wedged request. The batch flusher (flushUsageBuffer) keeps the default
+// budget — it owns its own deadline and isn't on the request path.
+const DIRECT_INSERT_TIMEOUT_MS = 2_500;
+
 function normalizeEvt(evt) {
 	return {
 		userId: evt.userId ?? null,
@@ -48,7 +57,7 @@ function normalizeEvt(evt) {
 	};
 }
 
-async function insertEvent(evt) {
+async function insertEvent(evt, opts) {
 	await withDbRetry(() => sql`
 		insert into usage_events (user_id, api_key_id, client_id, avatar_id, agent_id, kind, tool, status, bytes, latency_ms, meta, provider, model, input_tokens, output_tokens, cost_micro_usd)
 		values (
@@ -69,7 +78,7 @@ async function insertEvent(evt) {
 			${evt.outputTokens},
 			${evt.costMicroUsd}
 		)
-	`);
+	`, opts);
 }
 
 function triggerFlushJob() {
@@ -105,9 +114,11 @@ export function recordEvent(evt) {
 				console.warn('[usage] buffer push failed, falling back to direct insert', err?.message);
 			}
 		}
-		// Direct-insert fallback when Redis is absent or the push fails.
+		// Direct-insert fallback when Redis is absent or the push fails. Bounded by
+		// a short per-event timeout so a slow DB can't stall the (already-detached)
+		// request work for 15s — the buffer-down path must stay cheap.
 		try {
-			await insertEvent(normalizeEvt(evt));
+			await insertEvent(normalizeEvt(evt), { timeoutMs: DIRECT_INSERT_TIMEOUT_MS });
 		} catch (err) {
 			console.warn('[usage] write failed', err?.message);
 		}

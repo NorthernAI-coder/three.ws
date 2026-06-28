@@ -24,7 +24,17 @@ specs
 examples/*
 !examples/skills
 examples/skills/*
+# Keep every skill that api/_lib/skill-runtime.js can dynamically import(). The
+# import paths are computed from SKILL_MAP, so Vercel's static tracer cannot see
+# them; includeFiles bundles them, but ONLY if they survive this upload filter.
+# pump-fun-strategy alone is not enough — it invokes pump-fun / pump-fun-trade /
+# solana-wallet at runtime (strategy-backtest scan, live trades). Dropping any
+# of these reintroduces "Cannot find module .../<skill>/handlers.js" 502s.
 !examples/skills/pump-fun-strategy
+!examples/skills/pump-fun
+!examples/skills/pump-fun-trade
+!examples/skills/pump-fun-compose
+!examples/skills/solana-wallet
 prompts
 contracts
 sdk

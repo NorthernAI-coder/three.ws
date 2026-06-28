@@ -224,6 +224,22 @@ export const env = {
 		return pickPair(REDIS_CACHE_SOURCES).token;
 	},
 
+	// Per-command timeout (ms) for the best-effort cache's Upstash REST calls
+	// (api/_lib/cache.js). A cache round-trip must be fast or fall back to memory;
+	// the cap stops a TCP stall from hanging a fast endpoint until its hard
+	// maxDuration. The default (3000) is far longer than a healthy REST GET/SET,
+	// but when the cache store sits in a region far from the function region
+	// (e.g. Upstash not co-located with iad1) large best-effort SETs can
+	// legitimately exceed it and surface as "operation aborted due to timeout".
+	// Exposed as an env knob so ops can raise it (region latency) or lower it
+	// (fail faster to memory) without a code deploy. Clamped to [500, 30000];
+	// anything unparseable falls back to the default.
+	get CACHE_REDIS_CMD_TIMEOUT_MS() {
+		const n = Number(opt('CACHE_REDIS_CMD_TIMEOUT_MS'));
+		if (!Number.isFinite(n)) return 3000;
+		return Math.min(30_000, Math.max(500, Math.round(n)));
+	},
+
 	// ── Upstash quota-burn visibility (api/_lib/redis-usage.js) ──────────────
 	// The free plan ceils at 500k commands/month; when it is exhausted every
 	// critical limiter fails closed and all paid forge + x402 flows 503 (the
