@@ -24,6 +24,7 @@ import {
 	findBan,
 	visitsFor,
 	tierFor,
+	membershipSnapshot,
 } from '../_lib/club/cover-pass.js';
 
 const ROUTE = '/api/x402/club-cover';
@@ -107,7 +108,7 @@ const BAZAAR = {
 
 export const BAZAAR_SCHEMA = BAZAAR;
 
-export default paidEndpoint({
+const doorEndpoint = paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('club-cover', '10000'), // $0.01 USDC

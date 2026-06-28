@@ -60,6 +60,109 @@ export function tierFor(visits) {
 	return 'newcomer';
 }
 
+// ── Membership snapshot ─────────────────────────────────────────────────────
+//
+// The cover-charge endpoint also sells a *membership snapshot* of the club: a
+// paid read of who actually shows up. There is a single club ledger (club_tips —
+// every settled door/dance payment writes one row), so the snapshot is computed
+// over that ledger and the requested `club` label (e.g. "three_holders") is
+// carried through for the caller's bookkeeping. Three real, growth/churn-
+// actionable counts come straight out of the ledger:
+//
+//   member_count   — distinct wallets that have ever paid into the club (the
+//                    all-time membership base).
+//   active_last_7d — distinct wallets with a settled payment in the last 7 days
+//                    (this week's active members).
+//   new_this_week  — distinct wallets whose FIRST-EVER payment landed in the
+//                    last 7 days (genuinely new members, not returning ones).
+//
+// One round-trip: group the ledger by wallet to get each wallet's first/last
+// activity, then tally over those per-wallet extents.
+//
+// Fails HARD (throws 503) on a query error so the paid endpoint never charges
+// for a snapshot it couldn't actually compute — a genuinely empty club returns
+// all zeros, which is a real answer and is fine to bill.
+export async function membershipSnapshot(club = 'three_holders') {
+	let row;
+	try {
+		const rows = await sql`
+			with firsts as (
+				select
+					lower(payer)     as wallet,
+					min(created_at)  as first_seen,
+					max(created_at)  as last_seen
+				from club_tips
+				where payer is not null and payer <> ''
+				group by lower(payer)
+			)
+			select
+				count(*)::int                                                            as member_count,
+				count(*) filter (where last_seen  >= now() - interval '7 days')::int     as active_last_7d,
+				count(*) filter (where first_seen >= now() - interval '7 days')::int     as new_this_week
+			from firsts
+		`;
+		row = rows?.[0] || {};
+	} catch (err) {
+		throw Object.assign(
+			new Error(`club membership ledger is temporarily unavailable: ${err?.message || err}`),
+			{ status: 503, code: 'membership_unavailable' },
+		);
+	}
+	return classifyMembership({
+		club,
+		member_count: Number(row.member_count) || 0,
+		active_last_7d: Number(row.active_last_7d) || 0,
+		new_this_week: Number(row.new_this_week) || 0,
+	});
+}
+
+// Turn the three raw counts into a classified growth/churn signal. Pure — the
+// snapshot endpoint embeds the result in the paid response and the autonomous
+// loop's extractSignal lifts the same fields, so writer and reader never drift.
+//
+// @param {{ club?: string, member_count: number, active_last_7d: number, new_this_week: number }} s
+export function classifyMembership(s) {
+	const member_count = Math.max(0, Math.round(Number(s?.member_count) || 0));
+	const active_last_7d = Math.max(0, Math.round(Number(s?.active_last_7d) || 0));
+	const new_this_week = Math.max(0, Math.round(Number(s?.new_this_week) || 0));
+
+	// Share of the base that is new this week / active this week.
+	const growth_rate = member_count > 0 ? new_this_week / member_count : 0;
+	const active_rate = member_count > 0 ? active_last_7d / member_count : 0;
+
+	let signal, headline;
+	if (member_count === 0) {
+		signal = 'empty';
+		headline = 'No club members yet — the door has seen no settled activity.';
+	} else if (new_this_week >= 1 && growth_rate >= 0.1) {
+		signal = 'growing';
+		headline = `Club growing — ${new_this_week} new member${new_this_week === 1 ? '' : 's'} this week (${Math.round(growth_rate * 100)}% of the base).`;
+	} else if (active_rate < 0.1) {
+		signal = 'churning';
+		headline = `Club churning — only ${active_last_7d} of ${member_count} members active in the last 7 days.`;
+	} else {
+		signal = 'stable';
+		headline = `Club stable — ${active_last_7d} of ${member_count} members active this week, ${new_this_week} new.`;
+	}
+
+	// Confidence grows with the membership base: a 1-member club is a weak
+	// read, a 50+ member club is a confident one. Clamped to [0.3, 0.95].
+	const confidence =
+		member_count === 0 ? 0.3 : Math.min(0.95, Math.max(0.3, member_count / 50));
+
+	return {
+		club: String(s?.club || 'three_holders'),
+		member_count,
+		active_last_7d,
+		new_this_week,
+		growth_rate: Number(growth_rate.toFixed(4)),
+		active_rate: Number(active_rate.toFixed(4)),
+		signal,
+		headline,
+		confidence: Number(confidence.toFixed(2)),
+	};
+}
+
 /**
  * Run the bouncer over a paid wallet and return its entry pass. The payment is
  * assumed already settled on-chain by the caller — this only decides admission

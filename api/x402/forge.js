@@ -72,6 +72,7 @@ import {
 	preferFreeReconstruct,
 	buildCatalog,
 } from '../_lib/forge-tiers.js';
+import { llmComplete } from '../_lib/llm.js';
 
 const ROUTE = '/api/x402/forge';
 const REQUIRED_SCOPE = 'x402:bypass';
@@ -84,6 +85,20 @@ const MAX_VIEWS = 4;
 // The reconstruct lane: serves image→3D (NVIDIA's hosted preview can't take user
 // photos) and the text→3D fallback when the free NVIDIA NIM lane is unavailable.
 const BACKEND = 'trellis';
+
+// ── Content-generation health probe (mode:"health_check", type:"text") ─────────
+// A full text→3D job is slow ($0.05, tens of seconds) — too heavy to canary on a
+// tight schedule. This lightweight mode instead exercises the generative AI lane
+// every forge job depends on (the free-first LLM provider chain that drives
+// prompt understanding) with one fast, real text completion. It proves content
+// generation is alive and within its latency budget, returning a measured
+// { generated, latency_ms, token_count } verdict the autonomous loop alerts on.
+// Priced at the floor ($0.001) since it does no reconstruction.
+const HEALTH_CHECK_PRICE_ATOMIC = 1000; // $0.001 USDC
+// The latency SLA the probe asserts. A completion slower than this (or a failure)
+// flips within_budget:false and raises a forge performance alert downstream.
+const HEALTH_CHECK_BUDGET_MS = 5000;
+const HEALTH_CHECK_DEFAULT_PROMPT = 'Write one sentence about Solana.';
 
 const ROUTE_DESCRIPTION =
 	'three.ws Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up ' +
@@ -119,6 +134,18 @@ const INPUT_SCHEMA = {
 		},
 		tier: { type: 'string', enum: [...TIER_IDS], default: DEFAULT_TIER },
 		aspect_ratio: { type: 'string', enum: [...VALID_ASPECT], default: '1:1' },
+		mode: {
+			type: 'string',
+			enum: ['generate', 'health_check'],
+			default: 'generate',
+			description: 'health_check runs a fast text content-generation canary ($0.001) instead of a 3D job — returns { generated, latency_ms, token_count }.',
+		},
+		type: {
+			type: 'string',
+			enum: ['text'],
+			default: 'text',
+			description: 'Content type for health_check mode (text generation canary).',
+		},
 	},
 };
 
@@ -425,6 +452,56 @@ async function submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, ti
 	};
 }
 
+// Run the content-generation health probe: one fast, real LLM text completion
+// over the platform's free-first provider chain (the same generative lane forge
+// relies on). Measures end-to-end latency and the generated token count, and
+// never throws — a provider outage is the very signal this probe exists to catch,
+// so it returns a settled verdict (generated:false) rather than failing the paid
+// call. The caller paid for a verdict; it always gets one.
+async function runForgeHealthCheck({ prompt }) {
+	const probePrompt = (prompt && prompt.length >= 3 ? prompt : HEALTH_CHECK_DEFAULT_PROMPT);
+	const t0 = Date.now();
+	try {
+		const { text, provider, model, usage } = await llmComplete({
+			system: 'You are a concise assistant. Reply in a single short sentence.',
+			user: probePrompt,
+			maxTokens: 64,
+			// Bound each provider attempt to the SLA so a hung upstream can't stall the
+			// probe; latency_ms still reports the real measured round-trip.
+			timeoutMs: HEALTH_CHECK_BUDGET_MS,
+			track: { tool: 'forge-health-check' },
+		});
+		const latencyMs = Date.now() - t0;
+		const out = (text || '').trim();
+		// Prefer the provider-reported output token count; fall back to a coarse
+		// char/4 estimate only if usage is missing so the field is always populated.
+		const tokenCount = usage?.output ?? Math.ceil(out.length / 4);
+		return {
+			mode: 'health_check',
+			type: 'text',
+			generated: out.length > 0,
+			latency_ms: latencyMs,
+			token_count: tokenCount,
+			within_budget: latencyMs <= HEALTH_CHECK_BUDGET_MS,
+			provider,
+			model,
+			sample: out.slice(0, 200),
+		};
+	} catch (err) {
+		const latencyMs = Date.now() - t0;
+		console.warn(`[x402/forge] health_check generation failed: ${err?.message || err}`);
+		return {
+			mode: 'health_check',
+			type: 'text',
+			generated: false,
+			latency_ms: latencyMs,
+			token_count: 0,
+			within_budget: false,
+			error: err?.code || 'generation_failed',
+		};
+	}
+}
+
 // Map a submitGeneration failure onto the right HTTP response. A provider 429 is
 // a transient throttle (Replicate's create-prediction limit, tightest when the
 // account runs low on credit). Because submit runs BEFORE settle, the payment
@@ -543,7 +620,9 @@ export default wrap(async (req, res) => {
 	}
 
 	const resourceUrl = resolveResourceUrl(req, ROUTE);
-	const priceAtomics = priceAtomicsForTier(parsed.tier);
+	// The health-check probe does no reconstruction, so it is priced at the floor
+	// ($0.001) rather than the tier price the 3D generation lanes quote.
+	const priceAtomics = parsed.isHealthCheck ? HEALTH_CHECK_PRICE_ATOMIC : priceAtomicsForTier(parsed.tier);
 	const requirements = buildRequirements(resourceUrl, priceAtomics);
 	const service = withService({
 		serviceName: 'three.ws Forge — text/image → 3D',
@@ -574,10 +653,14 @@ export default wrap(async (req, res) => {
 	}
 	if (acResult?.grantAccess) {
 		let result;
-		try {
-			result = await submitGeneration(parsed);
-		} catch (err) {
-			return respondGenerationError(res, err);
+		if (parsed.isHealthCheck) {
+			result = await runForgeHealthCheck(parsed);
+		} else {
+			try {
+				result = await submitGeneration(parsed);
+			} catch (err) {
+				return respondGenerationError(res, err);
+			}
 		}
 		if (acResult.headers)
 			for (const [k, v] of Object.entries(acResult.headers)) res.setHeader(k, v);
@@ -628,11 +711,18 @@ export default wrap(async (req, res) => {
 	}
 
 	// Submit AFTER verify but BEFORE settle so a failed submit never charges.
+	// The health-check probe is the exception: it never throws and always returns a
+	// verdict (a generator outage is the signal the caller paid for), so it settles
+	// unconditionally rather than refunding on a failed completion.
 	let result;
-	try {
-		result = await submitGeneration(parsed);
-	} catch (err) {
-		return respondGenerationError(res, err);
+	if (parsed.isHealthCheck) {
+		result = await runForgeHealthCheck(parsed);
+	} else {
+		try {
+			result = await submitGeneration(parsed);
+		} catch (err) {
+			return respondGenerationError(res, err);
+		}
 	}
 
 	let settled;
@@ -684,6 +774,16 @@ async function parseRequestFromObject(body) {
 	const isImageMode = imageUrls.length > 0;
 
 	const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+
+	// Health-check mode: a lightweight, real content-generation canary that never
+	// reconstructs a mesh (see runForgeHealthCheck). It supplies its own default
+	// prompt, so it is never an empty "probe" and bypasses the 3–1000 char prompt
+	// rule that gates the 3D lanes. Only the documented type:"text" is supported.
+	const isHealthCheck = body.mode === 'health_check';
+	if (isHealthCheck) {
+		return { prompt, imageUrls: [], isImageMode: false, isProbe: false, isHealthCheck: true, healthType: 'text', tier, aspect };
+	}
+
 	const isProbe = !prompt && !isImageMode;
 
 	if (!isImageMode && !isProbe && (prompt.length < 3 || prompt.length > 1000)) {

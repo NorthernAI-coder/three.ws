@@ -20,7 +20,11 @@ import { priceFor } from '../_lib/x402-prices.js';
 import { isUuid } from '../_lib/validate.js';
 // Shared with /api/x402/agent-bouncer so the raw reputation snapshot and the
 // admit/refuse verdict are computed from one source of truth.
-import { loadAgentReputation } from '../_lib/trust/solana-bouncer.js';
+import {
+	loadAgentReputation,
+	sweepAgentReputation,
+	REPUTATION_FLAG_THRESHOLD,
+} from '../_lib/trust/solana-bouncer.js';
 
 const ROUTE = '/api/x402/agent-reputation';
 
