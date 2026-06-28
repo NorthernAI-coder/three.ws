@@ -12,6 +12,7 @@ const state = {
 	me: false,
 	agents: [], // the signed-in user's agents
 	tab: 'all',
+	sort: 'perf',
 	feed: [],
 	vault: null, // current detail vault
 	pollTimer: null,
@@ -55,6 +56,96 @@ async function readErr(res, fallback) {
 	try { const j = await res.json(); return j.error_description || j.message || fallback; } catch { return fallback; }
 }
 
+// ── visual helpers ───────────────────────────────────────────────────────────
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Animated count-up for headline stats. fmt maps a raw number to display text.
+function countUp(el, to, fmt, dur = 700) {
+	if (!el) return;
+	if (reduceMotion || !(to > 0)) { el.textContent = fmt(to); return; }
+	const start = performance.now();
+	const step = (now) => {
+		const t = Math.min(1, (now - start) / dur);
+		const eased = 1 - Math.pow(1 - t, 3);
+		el.textContent = fmt(to * eased);
+		if (t < 1) requestAnimationFrame(step);
+	};
+	requestAnimationFrame(step);
+}
+
+function sumBig(items, key) {
+	return items.reduce((acc, it) => acc + (it[key] != null ? BigInt(it[key]) : 0n), 0n);
+}
+
+// Inline SVG sparkline from a real series of {p} price points (chronological).
+function sparkline(points, { w = 320, h = 64, pad = 4, tone = 'pos' } = {}) {
+	if (!points || points.length < 2) return '';
+	const ys = points.map((p) => p.p);
+	const min = Math.min(...ys), max = Math.max(...ys);
+	const span = max - min || 1;
+	const stepX = (w - pad * 2) / (points.length - 1);
+	const coords = points.map((p, i) => {
+		const x = pad + i * stepX;
+		const y = pad + (h - pad * 2) * (1 - (p.p - min) / span);
+		return [x, y];
+	});
+	const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+	const area = `${line} L${coords[coords.length - 1][0].toFixed(1)} ${h - pad} L${coords[0][0].toFixed(1)} ${h - pad} Z`;
+	const stroke = tone === 'neg' ? 'var(--danger)' : tone === 'flat' ? 'var(--ink-dim)' : 'var(--success)';
+	const gid = `vxg-${tone}`;
+	const [lx, ly] = coords[coords.length - 1];
+	return `<svg class="vx-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Share price history">
+		<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0%" stop-color="${stroke}" stop-opacity="0.28"/>
+			<stop offset="100%" stop-color="${stroke}" stop-opacity="0"/>
+		</linearGradient></defs>
+		<path d="${area}" fill="url(#${gid})"/>
+		<path d="${line}" fill="none" stroke="${stroke}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+		<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3" fill="${stroke}"/>
+	</svg>`;
+}
+
+// Real drawdown gauge: how much of the drawdown budget is currently used.
+function drawdownGauge(peakE6, curE6, stopBps) {
+	const peak = Number(BigInt(peakE6 || 1_000_000));
+	const cur = Number(BigInt(curE6 || 1_000_000));
+	const ddBps = peak > cur ? Math.round(((peak - cur) / peak) * 10000) : 0;
+	const stop = Math.max(1, Number(stopBps || 2500));
+	const ratio = Math.max(0, Math.min(1, ddBps / stop));
+	const tone = ratio < 0.5 ? 'ok' : ratio < 0.85 ? 'warn' : 'crit';
+	const used = (ddBps / 100).toFixed(1);
+	const cap = (stop / 100).toFixed(0);
+	return `<div class="vx-gauge">
+		<div class="vx-gauge-head">
+			<span class="vx-gauge-l">Drawdown from peak</span>
+			<span class="vx-gauge-v ${ddBps > 0 ? (tone === 'crit' ? 'is-neg' : '') : 'is-pos'}">${ddBps > 0 ? `−${used}%` : 'At peak'}</span>
+		</div>
+		<div class="vx-gauge-track"><div class="vx-gauge-fill is-${tone}" style="width:${(ratio * 100).toFixed(1)}%"></div></div>
+		<div class="vx-gauge-cap">Circuit breaker halts trading at −${cap}% · ${(100 - ratio * 100).toFixed(0)}% of buffer left</div>
+	</div>`;
+}
+
+// Real backer capital distribution from the public roster (stake size only).
+function backerDist(backers) {
+	const rows = (backers || []).filter((b) => BigInt(b.deposited_atomics || 0) > 0n);
+	if (!rows.length) return '';
+	const total = rows.reduce((a, b) => a + Number(BigInt(b.deposited_atomics)), 0) || 1;
+	const sorted = [...rows].sort((a, b) => Number(BigInt(b.deposited_atomics)) - Number(BigInt(a.deposited_atomics)));
+	const palette = ['#8b5cf6', '#a78bfa', '#7c6fe8', '#6d6bd6', '#5b6cc4', '#4a6bb2'];
+	let ci = 0;
+	const seg = sorted.slice(0, 6).map((b) => {
+		const pct = (Number(BigInt(b.deposited_atomics)) / total) * 100;
+		const color = b.is_me ? '' : palette[ci++ % palette.length];
+		return { pct, me: b.is_me, color };
+	});
+	const restPct = 100 - seg.reduce((a, s) => a + s.pct, 0);
+	const bars = seg.map((s) => `<i class="${s.me ? 'is-me' : ''}" style="width:${s.pct.toFixed(1)}%${s.me ? '' : `;background:${s.color}`}" title="${s.pct.toFixed(1)}%"></i>`).join('') +
+		(restPct > 0.5 ? `<i style="width:${restPct.toFixed(1)}%;background:var(--surface-3)"></i>` : '');
+	const mine = seg.find((s) => s.me);
+	const legend = `${mine ? `<span><span class="vx-dist-dot" style="background:var(--wallet-accent-strong)"></span>You · ${mine.pct.toFixed(1)}%</span>` : ''}<span><span class="vx-dist-dot" style="background:${palette[0]}"></span>${rows.length} backer${rows.length === 1 ? '' : 's'}</span>`;
+	return `<div class="vx-distbar">${bars}</div><div class="vx-dist-legend">${legend}</div>`;
+}
+
 // ── auth + agents ──────────────────────────────────────────────────────────────
 async function loadMe() {
 	try {
@@ -95,10 +186,67 @@ function skeletonCards(n) {
 	return Array.from({ length: n }, () => '<div class="vx-card vx-card--skel"><div class="vx-skel-line"></div><div class="vx-skel-line short"></div><div class="vx-skel-stats"></div></div>').join('');
 }
 
+const navNum = (v) => (v.last_nav_atomics != null ? Number(BigInt(v.last_nav_atomics)) : 0);
+
+function sortFeed(items) {
+	const by = {
+		perf: (a, b) => (b.roi_bps || 0) - (a.roi_bps || 0),
+		capital: (a, b) => navNum(b) - navNum(a),
+		backers: (a, b) => (b.backer_count || 0) - (a.backer_count || 0),
+		rep: (a, b) => {
+			const av = a.reputation?.verified ? 1 : 0, bv = b.reputation?.verified ? 1 : 0;
+			if (av !== bv) return bv - av;
+			return (b.reputation?.score ?? 0) - (a.reputation?.score ?? 0);
+		},
+	};
+	return [...items].sort(by[state.sort] || by.perf);
+}
+
+function renderStats() {
+	const host = $('#vx-stats');
+	if (!host) return;
+	if (!state.feed.length) { host.hidden = true; return; }
+	host.hidden = false;
+	if (state.tab === 'mine') {
+		const deposited = sumBig(state.feed, 'deposited_atomics');
+		const realized = state.feed.reduce((a, v) => a + (v.realized_gain_atomics != null ? BigInt(v.realized_gain_atomics) : 0n), 0n);
+		const tiles = [
+			{ l: 'Positions', to: state.feed.length, fmt: (n) => Math.round(n).toLocaleString() },
+			{ l: 'Total deposited', to: Number(deposited) / ATOMICS, fmt: (n) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 }) },
+			{ l: 'Realized P&L', to: Number(realized) / ATOMICS, fmt: (n) => (realized >= 0n ? '+' : '−') + '$' + Math.abs(n).toLocaleString('en-US', { maximumFractionDigits: 0 }), pos: realized >= 0n },
+			{ l: 'Active vaults', to: state.feed.filter((v) => v.status === 'open').length, fmt: (n) => Math.round(n).toLocaleString() },
+		];
+		paintStats(host, tiles);
+		return;
+	}
+	const capital = sumBig(state.feed, 'last_nav_atomics');
+	const backers = state.feed.reduce((a, v) => a + (v.backer_count || 0), 0);
+	const best = state.feed.reduce((m, v) => Math.max(m, v.roi_bps || 0), 0);
+	const verified = state.feed.filter((v) => v.reputation?.verified).length;
+	const tiles = [
+		{ l: 'Open vaults', to: state.feed.length, fmt: (n) => Math.round(n).toLocaleString(), sub: `${verified} reputation-verified` },
+		{ l: 'Capital backed', to: Number(capital) / ATOMICS, fmt: (n) => '$' + n.toLocaleString('en-US', { maximumFractionDigits: 0 }) },
+		{ l: 'Backers', to: backers, fmt: (n) => Math.round(n).toLocaleString() },
+		{ l: 'Best return', to: best / 100, fmt: (n) => (best > 0 ? '+' : '') + n.toFixed(1) + '%', pos: best > 0 },
+	];
+	paintStats(host, tiles);
+}
+
+function paintStats(host, tiles) {
+	host.innerHTML = tiles.map((t) => `<div class="vx-stat-tile${t.pos ? ' is-pos' : ''}">
+		<span class="vx-stat-tile-l">${t.l}</span>
+		<span class="vx-stat-tile-v">${esc(t.fmt(0))}</span>
+		${t.sub ? `<span class="vx-stat-tile-s">${esc(t.sub)}</span>` : ''}
+	</div>`).join('');
+	$$('.vx-stat-tile-v', host).forEach((el, i) => countUp(el, tiles[i].to, tiles[i].fmt));
+}
+
 function renderFeed() {
 	const grid = $('#vx-grid');
+	renderStats();
 	if (state.tab === 'mine') return renderMine();
 	if (!state.feed.length) {
+		$('#vx-feed-count').textContent = '';
 		grid.innerHTML = `<div class="vx-empty">
 			<p class="vx-empty-t">No open vaults yet</p>
 			<p class="vx-empty-d">Be the first. If your agent has a verified trading track record, open a vault and let backers stake behind it.</p>
@@ -107,17 +255,23 @@ function renderFeed() {
 		$('#vx-empty-open')?.addEventListener('click', openVaultModal);
 		return;
 	}
-	grid.innerHTML = state.feed.map(cardHtml).join('');
+	$('#vx-feed-count').textContent = `${state.feed.length} ${state.feed.length === 1 ? 'vault' : 'vaults'}`;
+	const items = sortFeed(state.feed);
+	const maxNav = items.reduce((m, v) => Math.max(m, navNum(v)), 0);
+	const topIds = [...state.feed].filter((v) => (v.roi_bps || 0) > 0).sort((a, b) => (b.roi_bps || 0) - (a.roi_bps || 0)).slice(0, 3).map((v) => v.id);
+	grid.innerHTML = items.map((v) => cardHtml(v, maxNav, topIds.indexOf(v.id))).join('');
 	$$('.vx-card[data-id]', grid).forEach((c) => c.addEventListener('click', () => openDetail(c.dataset.id)));
 }
 
 function renderMine() {
 	const grid = $('#vx-grid');
 	if (!state.feed.length) {
+		$('#vx-feed-count').textContent = '';
 		grid.innerHTML = `<div class="vx-empty"><p class="vx-empty-t">You haven't backed any agent</p><p class="vx-empty-d">Browse open vaults and stake behind a verified trader.</p><button class="vx-btn vx-btn--primary" id="vx-go-all" type="button">Browse vaults</button></div>`;
 		$('#vx-go-all')?.addEventListener('click', () => setTab('all'));
 		return;
 	}
+	$('#vx-feed-count').textContent = `${state.feed.length} ${state.feed.length === 1 ? 'position' : 'positions'}`;
 	grid.innerHTML = state.feed.map(mineCardHtml).join('');
 	$$('.vx-card[data-id]', grid).forEach((c) => c.addEventListener('click', () => openDetail(c.dataset.id)));
 }
@@ -128,29 +282,46 @@ function repBadge(rep) {
 	return `<span class="vx-rep vx-rep--warn">Unverified · ${rep.closed_count} trades</span>`;
 }
 
-function cardHtml(v) {
+function avatar(src, cls) {
+	return src ? `<img class="vx-card-av ${cls || ''}" src="${esc(src)}" alt="" loading="lazy" />` : `<div class="vx-card-av vx-card-av--ph ${cls || ''}" aria-hidden="true"></div>`;
+}
+
+function cardHtml(v, maxNav, rank) {
 	const roi = v.roi_bps || 0;
-	const img = v.agent_image ? `<img class="vx-card-av" src="${esc(v.agent_image)}" alt="" loading="lazy" />` : '<div class="vx-card-av vx-card-av--ph" aria-hidden="true"></div>';
+	const sc = signClass(roi);
 	const navLine = v.last_nav_atomics ? usdCompact(v.last_nav_atomics) : '—';
+	const ringTone = v.status === 'paused' ? 'is-paused' : v.status === 'open' ? 'is-open' : '';
 	const statusChip = v.status === 'paused' ? '<span class="vx-chip vx-chip--warn">Paused</span>' : '';
+	const rankBadge = rank >= 0 ? `<span class="vx-card-rank rank-${rank}">${rank + 1}</span>` : '';
+	const capPct = maxNav > 0 ? Math.max(3, (navNum(v) / maxNav) * 100) : 0;
+	const arrow = roi > 0 ? '▲' : roi < 0 ? '▼' : '•';
 	return `<button class="vx-card" data-id="${esc(v.id)}" type="button">
+		<span class="vx-card-accent ${sc}" aria-hidden="true"></span>
 		<div class="vx-card-head">
-			${img}
+			<div class="vx-card-avwrap ${ringTone}">${rankBadge}${avatar(v.agent_image)}</div>
 			<div class="vx-card-id">
 				<span class="vx-card-name">${esc(v.agent_name || 'Agent')}</span>
 				${repBadge(v.reputation)}
 			</div>
 			${statusChip}
 		</div>
+		<div class="vx-card-return ${sc}">
+			<span class="vx-card-return-arrow" aria-hidden="true">${arrow}</span>
+			<span class="vx-card-return-v">${roiText(roi)}</span>
+			<span class="vx-card-return-l">return</span>
+		</div>
 		<div class="vx-card-stats">
 			<div class="vx-stat"><span class="vx-stat-l">Vault NAV</span><span class="vx-stat-v">${navLine}</span></div>
 			<div class="vx-stat"><span class="vx-stat-l">Share price</span><span class="vx-stat-v">${priceE6(v.share_price_e6)}</span></div>
-			<div class="vx-stat"><span class="vx-stat-l">Return</span><span class="vx-stat-v ${signClass(roi)}">${roiText(roi)}</span></div>
+		</div>
+		<div class="vx-card-cap">
+			<div class="vx-card-cap-bar"><i style="width:${capPct.toFixed(1)}%"></i></div>
+			<div class="vx-card-cap-meta"><span>${navLine} backed</span><span>${v.backer_count} ${v.backer_count === 1 ? 'backer' : 'backers'}</span></div>
 		</div>
 		<div class="vx-card-foot">
 			<span title="Performance fee">${pctBps(v.performance_fee_bps)} fee</span>
 			<span title="Drawdown circuit breaker">${pctBps(v.max_drawdown_bps)} stop</span>
-			<span title="Backers">${v.backer_count} ${v.backer_count === 1 ? 'backer' : 'backers'}</span>
+			<span class="vx-card-cta">View vault →</span>
 		</div>
 	</button>`;
 }
@@ -158,15 +329,23 @@ function cardHtml(v) {
 function mineCardHtml(v) {
 	const deposited = BigInt(v.deposited_atomics || 0);
 	const realized = BigInt(v.realized_gain_atomics || 0);
-	const img = v.agent_image ? `<img class="vx-card-av" src="${esc(v.agent_image)}" alt="" loading="lazy" />` : '<div class="vx-card-av vx-card-av--ph" aria-hidden="true"></div>';
+	const realizedPos = realized >= 0n;
+	const ringTone = v.status === 'paused' ? 'is-paused' : v.status === 'open' ? 'is-open' : '';
 	return `<button class="vx-card" data-id="${esc(v.id)}" type="button">
-		<div class="vx-card-head">${img}<div class="vx-card-id"><span class="vx-card-name">${esc(v.agent_name || 'Agent')}</span><span class="vx-rep vx-rep--muted">${v.status}</span></div></div>
+		<span class="vx-card-accent ${signClass(Number(realized))}" aria-hidden="true"></span>
+		<div class="vx-card-head">
+			<div class="vx-card-avwrap ${ringTone}">${avatar(v.agent_image)}</div>
+			<div class="vx-card-id"><span class="vx-card-name">${esc(v.agent_name || 'Agent')}</span><span class="vx-rep vx-rep--muted">${esc(v.status)}</span></div>
+		</div>
+		<div class="vx-card-return ${signClass(Number(realized))}">
+			<span class="vx-card-return-v" style="font-size:var(--text-xl)">${realizedPos ? '+' : '−'}${usdCompact(realizedPos ? realized : -realized)}</span>
+			<span class="vx-card-return-l">realized P&amp;L</span>
+		</div>
 		<div class="vx-card-stats">
 			<div class="vx-stat"><span class="vx-stat-l">Your shares</span><span class="vx-stat-v">${shares(v.shares)}</span></div>
 			<div class="vx-stat"><span class="vx-stat-l">Deposited</span><span class="vx-stat-v">${usdCompact(deposited)}</span></div>
-			<div class="vx-stat"><span class="vx-stat-l">Realized P&L</span><span class="vx-stat-v ${signClass(Number(realized))}">${Number(realized) >= 0 ? '+' : ''}${usdCompact(realized < 0n ? -realized : realized).replace('$', '$')}</span></div>
 		</div>
-		<div class="vx-card-foot"><span>${pctBps(v.performance_fee_bps)} fee</span><span>Tap to manage →</span></div>
+		<div class="vx-card-foot"><span>${pctBps(v.performance_fee_bps)} fee</span><span class="vx-card-cta">Manage →</span></div>
 	</button>`;
 }
 
@@ -206,6 +385,27 @@ function renderDetail(v, ledger) {
 	const agentImg = v.agent?.image ? `<img class="vx-d-av" src="${esc(v.agent.image)}" alt="" loading="lazy" decoding="async" />` : '<div class="vx-d-av vx-d-av--ph" aria-hidden="true"></div>';
 	const halted = v.status === 'paused';
 	const closed = v.status === 'closing' || v.status === 'closed';
+
+	// Real share-price history straight from the audit ledger (newest-first → chronological).
+	const sparkPoints = (ledger || []).filter((e) => e.share_price_e6 != null).map((e) => ({ p: Number(BigInt(e.share_price_e6)) / ATOMICS })).reverse();
+	const sparkTone = sparkPoints.length >= 2 ? (sparkPoints[sparkPoints.length - 1].p > sparkPoints[0].p ? 'pos' : sparkPoints[sparkPoints.length - 1].p < sparkPoints[0].p ? 'neg' : 'flat') : 'flat';
+	const chartHtml = sparkPoints.length >= 2
+		? sparkline(sparkPoints, { tone: sparkTone })
+		: '<div class="vx-spark-empty">Share-price history appears once the vault records its first trades.</div>';
+	const inPositions = BigInt(nav.nav_atomics) - BigInt(nav.usdc_atomics);
+	const gaugeHtml = drawdownGauge(nav.peak_share_price_e6, nav.share_price_e6, t.max_drawdown_bps);
+	const distHtml = backerDist(v.backers);
+	const navHero = `<div class="vx-navhero">
+		<div class="vx-navhero-main">
+			<span class="vx-navhero-l">Vault NAV · live</span>
+			<span class="vx-navhero-v">${usd(nav.nav_atomics)}</span>
+			<span class="vx-navhero-roi ${signClass(roi)}">${roi > 0 ? '▲' : roi < 0 ? '▼' : '•'} ${roiText(roi)} all-time</span>
+		</div>
+		<div class="vx-navhero-chart">
+			<div class="vx-chart-head"><span class="vx-chart-t">Share price</span><span class="vx-chart-now">${priceE6(nav.share_price_e6)}</span></div>
+			${chartHtml}
+		</div>
+	</div>`;
 
 	const statusBanner = halted
 		? `<div class="vx-banner vx-banner--warn">⚠ Trading halted${v.halt_reason === 'drawdown' ? ' by the drawdown circuit breaker' : v.halt_reason === 'owner_pause' ? ' by the owner' : ''}. Backers can still redeem.</div>`
@@ -252,11 +452,12 @@ function renderDetail(v, ledger) {
 			</div>
 		</div>
 
+		${navHero}
+
 		<div class="vx-d-metrics">
-			<div class="vx-metric"><span class="vx-metric-l">Vault NAV</span><span class="vx-metric-v">${usd(nav.nav_atomics)}</span></div>
-			<div class="vx-metric"><span class="vx-metric-l">Share price</span><span class="vx-metric-v">${priceE6(nav.share_price_e6)}</span></div>
-			<div class="vx-metric"><span class="vx-metric-l">Return</span><span class="vx-metric-v ${signClass(roi)}">${roiText(roi)}</span></div>
 			<div class="vx-metric"><span class="vx-metric-l">Liquid USDC</span><span class="vx-metric-v">${usd(nav.usdc_atomics)}</span></div>
+			<div class="vx-metric"><span class="vx-metric-l">In positions</span><span class="vx-metric-v">${usd(inPositions < 0n ? 0n : inPositions)}</span></div>
+			<div class="vx-metric"><span class="vx-metric-l">Share price</span><span class="vx-metric-v">${priceE6(nav.share_price_e6)}</span></div>
 			<div class="vx-metric"><span class="vx-metric-l">Backers</span><span class="vx-metric-v">${v.backer_count}</span></div>
 		</div>
 
@@ -280,8 +481,10 @@ function renderDetail(v, ledger) {
 						<div><span>Per-backer cap</span><b>${t.per_backer_cap_atomics ? usd(t.per_backer_cap_atomics) : 'None'}</b></div>
 						<div><span>Network</span><b>${esc(v.network)}</b></div>
 					</div>
+					${gaugeHtml}
 					<p class="vx-fineprint">Funds live in a dedicated, segregated wallet. Trading is hard-capped and halts automatically on a ${pctBps(t.max_drawdown_bps)} drawdown. Not investment advice; you can lose principal.</p>
 				</div>
+				${distHtml ? `<div class="vx-panel"><h3 class="vx-panel-h">Capital distribution <span class="vx-panel-sub">${v.backer_count} backer${v.backer_count === 1 ? '' : 's'}</span></h3>${distHtml}</div>` : ''}
 				<div class="vx-panel">
 					<h3 class="vx-panel-h">Audit trail</h3>
 					<ul class="vx-ledger" id="vx-ledger">${ledger.map(ledgerRow).join('') || '<li class="vx-muted">No activity yet.</li>'}</ul>
@@ -521,6 +724,8 @@ function setTab(tab) {
 	state.tab = tab;
 	state.feed = [];
 	$$('.vx-tab').forEach((b) => { const on = b.dataset.tab === tab; b.classList.toggle('is-active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+	const sortEl = $('.vx-sort');
+	if (sortEl) sortEl.style.display = tab === 'mine' ? 'none' : '';
 	loadFeed();
 }
 
@@ -536,6 +741,7 @@ function stopPoll() { if (state.pollTimer) { clearInterval(state.pollTimer); sta
 
 function wireGlobal() {
 	$('#vx-open-cta')?.addEventListener('click', openVaultModal);
+	$('#vx-sort')?.addEventListener('change', (e) => { state.sort = e.target.value; if (state.feed.length) renderFeed(); });
 	$('#vx-back')?.addEventListener('click', backToFeed);
 	$('#vx-open-form')?.addEventListener('submit', submitOpen);
 	$$('.vx-tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));

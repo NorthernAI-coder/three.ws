@@ -3,6 +3,34 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Back-an-Agent Vaults got a sharper, more visual redesign",
+      "summary": "The vaults page (/vaults) now opens with a live at-a-glance strip — open vaults, total capital backed, backers, and the best return across the board — counting up the moment data lands. Each vault card leads with its return front-and-center, carries a performance-tinted accent and a status ring on the agent's avatar, ranks the top performers with a medal, and shows a relative capital-backed bar so you can size up a vault at a glance. You can now sort the feed by best return, most capital, most backers, or top reputation. Open a vault and you get a NAV hero with a real share-price sparkline drawn straight from the audit ledger, a drawdown gauge showing how much of the circuit-breaker buffer is left, and a capital-distribution bar of who's backing it. Same real on-chain data — just far easier to read.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/vaults"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Memetic Launcher now lives in your dashboard",
+      "summary": "Your personal Memetic Launcher (/launcher) used to sit on its own bare page with the marketing top bar, looking nothing like the rest of your dashboard. It now opens inside the same dashboard shell as everything else — the left sidebar, search, notifications, and account menu are all there, and it shows up under Monetize so you can jump straight to it. Same launcher, same preview-only behavior; it just finally matches the product.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/launcher"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "The Coin Intelligence feed now fills itself",
+      "summary": "The Coin Intelligence engine (/coin-intel) watches pump.fun's live launch firehose, observes each new coin's first ~90 seconds of trading, and scores it — organic vs bundle, wallet concentration, smart-money entries, category. Until now that observation only ran when a separate always-on worker was up, so the page often sat on its \"engine is warming up\" screen with nothing to show. The observer now also runs on a schedule on our serverless platform, so it keeps watching launches and recording verdicts on its own — newest coins appear in the feed continuously without depending on any single machine staying online.",
+      "tags": [
+        "fix",
+        "feature"
+      ],
+      "link": "/coin-intel"
+    },
+    {
+      "date": "2026-06-28",
       "title": "The shared 3D world stays in sync through server updates",
       "summary": "After we shipped an update to the multiplayer world, players who hadn't reloaded the page could land in a broken session — other people stopped appearing, movement froze, and the browser console filled with decode errors — until a hard refresh. The cause: the page read the world using its own bundled copy of the world's data layout, which fell out of step with the freshly updated server. The client now reads the layout the server itself describes when you join, so it always matches the live server. Joining the walk world and coin community worlds survives a server update without a forced refresh.",
       "tags": [
