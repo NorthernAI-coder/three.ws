@@ -25,20 +25,6 @@ export const WIN_RATE_ALERT_THRESHOLD = 0.4; // 40%
 // Don't alert on noise: a single losing trade is 0% win rate but says nothing.
 export const MIN_ALERT_SAMPLE = 5;
 
-// Whitelisted reporting windows → Postgres interval literals. `all` = no time
-// filter (lifetime). Keeping this a fixed map keeps the interval out of user
-// input entirely.
-export const PERIOD_INTERVALS = {
-	'1h': '1 hour',
-	'6h': '6 hours',
-	'24h': '24 hours',
-	'7d': '7 days',
-	'30d': '30 days',
-	all: null,
-};
-
-export const DEFAULT_PERIOD = '24h';
-
 function num(v) {
 	const n = typeof v === 'string' ? parseFloat(v) : v;
 	return Number.isFinite(n) ? n : 0;
@@ -98,7 +84,7 @@ export function buildSniperAnalytics(agg = {}, opts = {}) {
 
 	return {
 		report: opts.report || 'sniper_trades',
-		period: opts.period || DEFAULT_PERIOD,
+		period: opts.period || '24h',
 		network: opts.network || 'mainnet',
 		sample_size: sample,
 		wins,

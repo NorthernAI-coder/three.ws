@@ -839,6 +839,41 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ alive: !!r }),
 	},
+	// ── DID Verification Canary (USE-069) ────────────────────────────────────
+	// Pays a real $0.001 USDC POST to /api/x402/did, which resolves three.ws's
+	// published W3C DID document over its real public route (/.well-known/did.json
+	// — the same path an external x402 counterparty hits to resolve our
+	// offer/receipt signing key), structurally validates it, and measures
+	// end-to-end resolution latency. The verdict { verified, latency_ms } is the
+	// actionable signal: verified flips false when the document is unreachable,
+	// malformed, or slower than 1500ms — exactly the failure that would make a
+	// partner's signature verification silently fail. extractSignal lifts the
+	// verdict into x402_autonomous_log.signal_data so the status surface can read
+	// the DID subsystem's health straight off the autonomous log. Distinct from
+	// the free GET liveness probe above: this paid canary proves correctness +
+	// latency, not just reachability. Cooldown 600s (10 min) → ~$0.006/hr, well
+	// under the loop's daily cap, while sampling latency often enough to catch a
+	// degraded resolver quickly.
+	{
+		id: 'did-verification-canary',
+		name: 'DID Verification Canary',
+		path: '/api/x402/did',
+		method: 'POST',
+		body: { did: 'did:three:canary', mode: 'verify' },
+		cooldown_s: 600,
+		priority: 50,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			verified: r?.verified ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			resolved_did: r?.resolved_did ?? null,
+			http_status: r?.http_status ?? null,
+			malformed: r?.malformed ?? null,
+			within_latency: r?.within_latency ?? null,
+			configured: r?.configured ?? null,
+		}),
+	},
 
 	// ── Animation Retargeting QA (USE-012) ──────────────────────────────────────
 	// Pays $0.005 USDC to download a representative set of canary animation clips
@@ -1056,6 +1091,40 @@ const SELF_ENDPOINTS = [
 		pipeline: 'discovery',
 		enabled: true,
 		run: (ctx) => avatarSearchWarmup(ctx),
+	},
+
+	// ── MCP Tool Discovery (USE-062) ───────────────────────────────────────────
+	// Pays $0.001 USDC every 2h to /api/x402/mcp-tool-catalog (mode:discover),
+	// which fingerprints the MCP server's live tool catalog (api/_mcp/catalog.js →
+	// TOOL_CATALOG, the exact list /api/mcp returns from tools/list) and diffs it
+	// against the durable mcp_tool_registry. The endpoint persists the new catalog
+	// state itself, so a newly-shipped MCP tool (or a price/shape change, or a
+	// removal) is captured in mcp_tool_registry the moment it ships — the
+	// feature-flag source agents read to light up a new capability without polling
+	// tools/list and diffing by hand. extractSignal lifts the diff
+	// (new_tools / total_tools / changed / removed counts) into
+	// x402_autonomous_log.signal_data so the autonomous log alone proves what
+	// changed each probe. Cooldown 7200s (2h) → ≤12 probes/day ≈ $0.012/day,
+	// bounded again by the loop's daily cap.
+	{
+		id: 'mcp-tool-discovery',
+		name: 'MCP Tool Discovery',
+		path: '/api/x402/mcp-tool-catalog',
+		method: 'POST',
+		body: { mode: 'discover' },
+		cooldown_s: 7200, // 2h — matches the use case's described schedule
+		priority: 36, // discovery tier (33–38)
+		pipeline: 'discovery',
+		enabled: true,
+		extractSignal: (r) => ({
+			total_tools: r?.total_tools ?? null,
+			priced_tools: r?.priced_tools ?? null,
+			free_tools: r?.free_tools ?? null,
+			new_tools: Array.isArray(r?.new_tools) ? r.new_tools.map((t) => t?.name).filter(Boolean) : [],
+			new_count: Array.isArray(r?.new_tools) ? r.new_tools.length : 0,
+			changed_count: Array.isArray(r?.changed_tools) ? r.changed_tools.length : 0,
+			removed_tools: Array.isArray(r?.removed_tools) ? r.removed_tools : [],
+		}),
 	},
 
 	// ── Agent Reputation Score Refresh (USE-005) ───────────────────────────────

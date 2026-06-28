@@ -175,3 +175,148 @@ const doorEndpoint = paidEndpoint({
 		};
 	},
 });
+
+// ── Membership Snapshot (POST) ──────────────────────────────────────────────
+//
+// The same $0.01 cover charge, but instead of issuing a door pass it sells a
+// growth/churn snapshot of the club's membership. Pay, and you get back the
+// live member counts read off the club ledger:
+//   { member_count, active_last_7d, new_this_week } plus a classified signal
+//   (growing / stable / churning / empty) and a headline.
+//
+// This is the read the x402 autonomous loop pays daily to monitor the
+// three_holders club for growth or churn (registry: club-membership-snapshot).
+// POST body: { club?: string (default "three_holders"), mode?: "snapshot" }.
+
+const SNAPSHOT_INPUT_EXAMPLE = { club: 'three_holders', mode: 'snapshot' };
+
+const SNAPSHOT_INPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	properties: {
+		club: { type: 'string', description: 'Club label to snapshot.', default: 'three_holders' },
+		mode: { type: 'string', enum: ['snapshot'], default: 'snapshot' },
+	},
+};
+
+const SNAPSHOT_OUTPUT_EXAMPLE = {
+	ok: true,
+	club: 'three_holders',
+	mode: 'snapshot',
+	member_count: 128,
+	active_last_7d: 34,
+	new_this_week: 9,
+	growth_rate: 0.0703,
+	active_rate: 0.2656,
+	signal: 'growing',
+	headline: 'Club growing — 9 new members this week (7% of the base).',
+	confidence: 0.95,
+	snapshot_at: '2026-06-28T18:42:09.000Z',
+	payer: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
+	network: 'solana',
+	amountAtomics: '10000',
+	asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+};
+
+const SNAPSHOT_OUTPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['ok', 'club', 'mode', 'member_count', 'active_last_7d', 'new_this_week', 'signal'],
+	properties: {
+		ok: { type: 'boolean', const: true },
+		club: { type: 'string' },
+		mode: { type: 'string', const: 'snapshot' },
+		member_count: { type: 'integer', minimum: 0, description: 'Distinct wallets that ever paid into the club.' },
+		active_last_7d: { type: 'integer', minimum: 0, description: 'Distinct wallets active in the last 7 days.' },
+		new_this_week: { type: 'integer', minimum: 0, description: 'Distinct wallets whose first payment landed in the last 7 days.' },
+		growth_rate: { type: 'number', description: 'new_this_week / member_count.' },
+		active_rate: { type: 'number', description: 'active_last_7d / member_count.' },
+		signal: { type: 'string', enum: ['growing', 'stable', 'churning', 'empty'] },
+		headline: { type: 'string' },
+		confidence: { type: 'number', minimum: 0, maximum: 1 },
+		snapshot_at: { type: 'string', format: 'date-time' },
+		payer: { type: ['string', 'null'] },
+		network: { type: ['string', 'null'] },
+		amountAtomics: { type: ['string', 'null'] },
+		asset: { type: ['string', 'null'] },
+	},
+};
+
+const SNAPSHOT_BAZAAR = {
+	// Not separately discoverable — the GET door is the catalog entry for this
+	// route; the POST snapshot is the same resource sold a second way, so it
+	// must not register a duplicate route in the bazaar census.
+	discoverable: false,
+	info: {
+		input: { type: 'json', method: 'POST', example: SNAPSHOT_INPUT_EXAMPLE },
+		output: { type: 'json', example: SNAPSHOT_OUTPUT_EXAMPLE },
+	},
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodySchema: SNAPSHOT_INPUT_SCHEMA,
+		outputSchema: SNAPSHOT_OUTPUT_SCHEMA,
+	}),
+};
+
+const snapshotEndpoint = paidEndpoint({
+	route: ROUTE,
+	method: 'POST',
+	priceAtomics: priceFor('club-cover', '10000'), // $0.01 USDC — same cover charge
+	networks: ['solana'],
+	description:
+		'three.ws Pole Club — pay $0.01 USDC for a live membership snapshot of the ' +
+		'club: all-time member count, members active in the last 7 days, and members ' +
+		'new this week, with a growth/churn signal. Pay-per-call in USDC on Solana mainnet.',
+	bazaar: SNAPSHOT_BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Club Membership',
+		tags: ['3d', 'club', 'membership', 'analytics', 'growth', 'reputation'],
+	}),
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+	async handler({ req, requirement, payer, bypass }) {
+		let club = 'three_holders';
+		try {
+			const chunks = [];
+			for await (const c of req) chunks.push(c);
+			const raw = Buffer.concat(chunks).toString('utf8');
+			if (raw) {
+				const body = JSON.parse(raw);
+				if (body && typeof body.club === 'string' && body.club.trim()) {
+					club = body.club.trim().slice(0, 64);
+				}
+			}
+		} catch {
+			/* default club — a malformed body just snapshots the default ledger */
+		}
+
+		// Throws 503 on a ledger error → no settlement, caller not charged.
+		const snap = await membershipSnapshot(club);
+
+		return {
+			ok: true,
+			mode: 'snapshot',
+			...snap,
+			snapshot_at: new Date().toISOString(),
+			payer: payer ?? (bypass ? bypass.callerId : null),
+			network: requirement?.network ?? null,
+			amountAtomics: requirement?.amount ?? null,
+			asset: requirement?.asset ?? null,
+			...(bypass ? { bypass: bypass.reason } : {}),
+		};
+	},
+});
+
+// One route, two methods. paidEndpoint is single-method, so we dispatch here:
+// GET/HEAD → the door pass (unchanged), POST → the membership snapshot. An
+// OPTIONS preflight is routed to whichever endpoint matches the requested
+// method so the CORS allow-list advertises the right verb.
+export default function clubCover(req, res) {
+	const method = String(req.method || '').toUpperCase();
+	if (method === 'POST') return snapshotEndpoint(req, res);
+	if (method === 'OPTIONS') {
+		const want = String(req.headers['access-control-request-method'] || '').toUpperCase();
+		if (want === 'POST') return snapshotEndpoint(req, res);
+	}
+	return doorEndpoint(req, res);
+}

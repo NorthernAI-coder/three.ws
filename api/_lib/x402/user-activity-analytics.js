@@ -56,57 +56,62 @@ const round = (n, d = 2) => {
 export async function computeUserActivity(sql, period = DEFAULT_PERIOD) {
 	const key = normalizePeriod(period);
 	const interval = PERIODS[key];
-	const actor = ACTOR_KEY();
 
 	// All aggregates run concurrently against the same logical "now()" window.
 	// Each query is independently null-safe so a sparse table returns zeros.
+	// The actor key is a trusted constant; the window interval is bound as a
+	// parameter. Uses the explicit sql(text, params) form so the COALESCE actor
+	// expression and FILTER clauses compose cleanly.
 	const [activeRows, eventRows, featureRows, sessionRows] = await Promise.all([
 		// DAU (last 24h) and WAU (last 7d) — distinct identifiable actors. These
 		// two are fixed windows by definition regardless of the report period.
-		sql`
-			SELECT
-				COUNT(DISTINCT ${sql.unsafe(actor)})
+		sql(
+			`SELECT
+				COUNT(DISTINCT ${ACTOR_KEY})
 					FILTER (WHERE created_at >= now() - interval '24 hours') AS dau,
-				COUNT(DISTINCT ${sql.unsafe(actor)})
+				COUNT(DISTINCT ${ACTOR_KEY})
 					FILTER (WHERE created_at >= now() - interval '7 days')  AS wau
 			FROM usage_events
-			WHERE created_at >= now() - interval '7 days'
-		`,
+			WHERE created_at >= now() - interval '7 days'`,
+		),
 		// Volume + active-actor totals across the requested window.
-		sql`
-			SELECT
-				COUNT(*)                                   AS total_events,
-				COUNT(*) FILTER (WHERE status <> 'ok')     AS error_events,
-				COUNT(DISTINCT ${sql.unsafe(actor)})       AS active_actors
+		sql(
+			`SELECT
+				COUNT(*)                              AS total_events,
+				COUNT(*) FILTER (WHERE status <> 'ok') AS error_events,
+				COUNT(DISTINCT ${ACTOR_KEY})          AS active_actors
 			FROM usage_events
-			WHERE created_at >= now() - ${interval}::interval
-		`,
+			WHERE created_at >= now() - $1::interval`,
+			[interval],
+		),
 		// Top features by event volume over the window. For tool_call rows the
 		// specific MCP tool is the feature; otherwise the coarse kind is.
-		sql`
-			SELECT
+		sql(
+			`SELECT
 				CASE WHEN kind = 'tool_call' AND tool IS NOT NULL AND tool <> ''
 					THEN tool ELSE kind END AS feature,
 				COUNT(*)                   AS events,
-				COUNT(DISTINCT ${sql.unsafe(actor)}) AS actors
+				COUNT(DISTINCT ${ACTOR_KEY}) AS actors
 			FROM usage_events
-			WHERE created_at >= now() - ${interval}::interval
+			WHERE created_at >= now() - $1::interval
 			GROUP BY 1
 			ORDER BY events DESC
-			LIMIT 10
-		`,
+			LIMIT 10`,
+			[interval],
+		),
 		// Session-length distribution from web auth sessions active in the window.
-		// Duration = last_seen_at - created_at, clamped to non-negative.
-		sql`
-			SELECT
+		// Duration = last_seen_at - created_at, only non-negative durations.
+		sql(
+			`SELECT
 				COUNT(*) AS count,
 				AVG(EXTRACT(EPOCH FROM (last_seen_at - created_at)))                              AS avg_seconds,
-				PERCENTILE_CONT(0.5)  WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (last_seen_at - created_at))) AS median_seconds,
-				PERCENTILE_CONT(0.9)  WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (last_seen_at - created_at))) AS p90_seconds
+				PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (last_seen_at - created_at))) AS median_seconds,
+				PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (last_seen_at - created_at))) AS p90_seconds
 			FROM sessions
-			WHERE last_seen_at >= now() - ${interval}::interval
-			  AND last_seen_at >= created_at
-		`,
+			WHERE last_seen_at >= now() - $1::interval
+			  AND last_seen_at >= created_at`,
+			[interval],
+		),
 	]);
 
 	const active = activeRows[0] || {};

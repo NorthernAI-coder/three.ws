@@ -12,12 +12,19 @@
 // path: if a backing table is missing in an environment the metric folds to a
 // real zero rather than a fabricated value.
 //
-// Body: { report: "clubs", period: "1h" | "24h" | "7d" | "30d" | "all" }
-// Response: { ok, report, period, generated_at, metrics, top_clubs }
+// Reports:
+//   • clubs            — Pole Club social economy (active stages, patrons, tips,
+//                        cover charges, fastest-growing stages).
+//       Body: { report: "clubs", period: "1h"|"24h"|"7d"|"30d"|"all" }
+//   • agent_leaderboard — top agents by USDC spend over a trailing window, read
+//                        live from the real agent-to-agent hire ledger
+//                        (agent_hires + agent_identities). Surfaces high-value
+//                        paying agents for partnership / outreach.
+//       Body: { report: "agent_leaderboard", limit?: 1-100, window_days?: 1-90 }
 //
 // The endpoint is consumed by the autonomous x402 loop (see
-// autonomous-registry.js → 'analytics-club-social') to monitor social-economy
-// health over time and surface growing clubs.
+// autonomous-registry.js → 'analytics-club-social' for the clubs report and
+// 'agent-spend-leaderboard' for the agent_leaderboard report).
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
@@ -39,7 +46,7 @@ const DESCRIPTION =
 // Supported reports + period windows. Both are strict whitelists — a value
 // outside the set is rejected BEFORE settlement (the buyer is never charged for
 // a report we can't produce).
-const REPORTS = new Set(['clubs']);
+const REPORTS = new Set(['clubs', 'agent_leaderboard']);
 
 // period → window in seconds (null = all-time, no time filter).
 const PERIODS = {
@@ -56,7 +63,7 @@ const INPUT_SCHEMA = {
 	properties: {
 		report: {
 			type: 'string',
-			enum: ['clubs'],
+			enum: ['clubs', 'agent_leaderboard'],
 			default: 'clubs',
 			description: 'Which analytics report to return.',
 		},
@@ -64,7 +71,21 @@ const INPUT_SCHEMA = {
 			type: 'string',
 			enum: ['1h', '24h', '7d', '30d', 'all'],
 			default: '24h',
-			description: 'Aggregation window.',
+			description: 'Aggregation window (clubs report).',
+		},
+		limit: {
+			type: 'integer',
+			minimum: 1,
+			maximum: 100,
+			default: 10,
+			description: 'Max ranked agents to return (agent_leaderboard report).',
+		},
+		window_days: {
+			type: 'integer',
+			minimum: 1,
+			maximum: 90,
+			default: 7,
+			description: 'Trailing window in days (agent_leaderboard report).',
 		},
 	},
 };
@@ -217,7 +238,7 @@ async function clubsReport(seconds) {
 				count(*)::int                              as tips
 			from club_tips t
 			left join club_dancer_wallets w on w.dancer = t.dancer
-			where ${tipsWindow}
+			where ${topWindow}
 			group by t.dancer, w.display_name
 			order by sum(t.amount_atomics) desc nulls last, t.dancer asc
 			limit 5
