@@ -1,0 +1,69 @@
+# agent-screen-pool
+
+On-demand live-browser caster for the [agent wall](https://three.ws/agents-live).
+
+## Why this exists
+
+Every agent on three.ws has a **live screen 24/7 at zero cost** already: the wall
+streams each agent's real `agent_actions` activity from the database and renders
+it as a live terminal. No browser required.
+
+This worker adds the *optional* layer on top: a **real Chromium browser feed** for
+the agents people are **actively watching right now**. It does not run a browser
+per agent forever (that doesn't scale and isn't free) — it casts only what's on
+someone's screen, and tears each browser down when the last viewer leaves. Cost
+scales with concurrent viewers, not with the number of agents.
+
+## How it works
+
+```
+viewer (browser)                  this worker                      three.ws API
+─────────────────                 ────────────                     ────────────
+POST /api/agent/watch-intent ──▶  GET /api/agent/watch-wanted ──▶  { agents:[…] }
+   (every ~20s per card)            (poll every POLL_MS)
+                                  launch ≤ MAX_BROWSERS pages
+                                  screenshot each every FRAME_MS
+                                  POST /api/agent-screen-push  ──▶  Redis frame
+viewer SSE  ◀── /api/agent-screen-stream  ◀────────────────────────  live frames
+```
+
+Authentication is a single shared secret, `SCREEN_WORKER_SECRET`, set on both the
+API (Vercel env) and this worker. With it the worker may push frames for **any**
+agent (it casts on viewers' behalf, it doesn't own the agents).
+
+## Run it
+
+```bash
+cd workers/agent-screen-pool
+npm install
+npx playwright install chromium      # local only; the Docker image bakes it in
+SCREEN_WORKER_SECRET=<same-as-api> node index.js
+```
+
+Docker:
+
+```bash
+docker build -t three-ws/agent-screen-pool .
+docker run --rm -e SCREEN_WORKER_SECRET=<secret> three-ws/agent-screen-pool
+```
+
+## Config (env)
+
+| Var | Default | Notes |
+| --- | --- | --- |
+| `SCREEN_WORKER_SECRET` | — | **Required.** Must match the API. ≥16 chars. |
+| `BASE_URL` | `https://three.ws` | API + page origin. |
+| `WANTED_URL` | `$BASE_URL/api/agent/watch-wanted` | Watch-set source. |
+| `PUSH_URL` | `$BASE_URL/api/agent-screen-push` | Frame sink (wall convention). |
+| `MAX_BROWSERS` | `6` | Concurrency cap = max simultaneous casts. |
+| `POLL_MS` | `3000` | How often to reconcile the watch set. |
+| `FRAME_MS` | `700` | Screenshot cadence per page (~1.4 fps). |
+| `JPEG_QUALITY` | `58` | Frame quality vs. bandwidth. |
+
+## Where to run it
+
+- **Best:** a small always-on VM / Fly.io / Railway container (one process is
+  plenty; raise `MAX_BROWSERS` with RAM — budget ~350 MB per concurrent page).
+- **Bursts:** the bundled GitHub Actions workflow
+  (`.github/workflows/agent-screen-pool.yml`) runs it for up to ~5.5h per
+  dispatch — fine for demos and events, not a 24/7 host (Actions caps job time).
