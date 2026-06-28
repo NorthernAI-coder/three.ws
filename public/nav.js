@@ -251,8 +251,14 @@ function renderGroup(group) {
 	const badge = group.badge
 		? `<span class="nav-pill-sm" aria-hidden="true">${escHtml(group.badge)}</span>`
 		: '';
-	const popClass =
-		group.layout === 'mega' ? 'nav-pop mega' : group.layout === 'wide' ? 'nav-pop wide' : 'nav-pop';
+	let popClass = 'nav-pop';
+	if (group.layout === 'mega') {
+		popClass += ' mega';
+		if (group.columns) popClass += ` cols-${group.columns.length}`;
+		if (group.align === 'right') popClass += ' anchor-right';
+	} else if (group.layout === 'wide') {
+		popClass += ' wide';
+	}
 	const note = group.note ? `<div class="nav-pop-note">${escHtml(group.note)}</div>` : '';
 	const body = group.columns
 		? group.columns
@@ -350,10 +356,23 @@ function initDropdowns(root) {
 	if (!groups.length) return;
 	const hoverCapable = window.matchMedia('(hover: hover)').matches;
 
+	// Keep a left-anchored popover inside the viewport. The wide mega menus
+	// (Launch is four columns) can extend past the right edge on smaller
+	// desktops; nudge them left by the overflow so the last column stays
+	// clickable. Right-anchored menus already hug the right edge — leave them.
+	function clampPopover(pop, on) {
+		pop.style.marginLeft = '';
+		if (!on || pop.classList.contains('anchor-right')) return;
+		const overflow = pop.getBoundingClientRect().right - (window.innerWidth - 12);
+		if (overflow > 0) pop.style.marginLeft = `-${Math.ceil(overflow)}px`;
+	}
+
 	function setOpen(grp, on) {
 		grp.classList.toggle('open', on);
 		const t = grp.querySelector('.nav-trigger');
 		if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false');
+		const pop = grp.querySelector('.nav-pop');
+		if (pop) clampPopover(pop, on);
 	}
 	function closeAll(except) {
 		groups.forEach((g) => {

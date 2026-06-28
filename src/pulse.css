@@ -6,6 +6,29 @@
    reads as one calm, high-contrast surface. The scoped overrides at the bottom
    re-skin the shared feed component for this page only. */
 
+/* Pure-black page surface — the pulse reads as one calm, high-contrast field
+   regardless of the active theme. We force #000 and pin the dark ink/surface
+   ramp on the body so light mode can't paint dark text on a black background. */
+html[data-theme="dark"],
+html[data-theme="light"] {
+	background: #000;
+}
+body {
+	background: #000;
+	color-scheme: dark;
+	--bg-0: #0a0a0a;
+	--bg-1: #1a1a1a;
+	--ink: #e8e8e8;
+	--ink-bright: #ffffff;
+	--ink-dim: #888888;
+	--ink-faint: rgba(255, 255, 255, 0.45);
+	--surface-1: rgba(255, 255, 255, 0.03);
+	--surface-2: rgba(255, 255, 255, 0.05);
+	--surface-3: rgba(255, 255, 255, 0.08);
+	--stroke: rgba(255, 255, 255, 0.08);
+	--stroke-strong: rgba(255, 255, 255, 0.14);
+}
+
 .px-shell {
 	max-width: 1080px;
 	margin: 0 auto;

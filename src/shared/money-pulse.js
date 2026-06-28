@@ -111,6 +111,12 @@ function injectStyles() {
 .mp-empty-title { color: var(--ink-bright, #fff); font-weight: 600; margin: 10px 0 4px; }
 .mp-empty-sub { font-size: var(--text-sm, .8rem); }
 .mp-empty-sub a { color: var(--mp-accent); }
+.mp-empty-switch { margin-top: 14px; }
+.mp-empty-cta { appearance: none; font: inherit; font-size: var(--text-sm, .8rem); font-weight: 600; cursor: pointer;
+	color: var(--ink-bright, #fff); background: var(--mp-accent-soft); border: 1px solid var(--mp-accent);
+	border-radius: var(--radius-pill, 999px); padding: 8px 16px; transition: background .14s ease, transform .14s ease; }
+.mp-empty-cta:hover { background: var(--wallet-accent, #c4b5fd); color: #1a1320; transform: translateY(-1px); }
+.mp-empty-cta:focus-visible { outline: 2px solid var(--mp-accent); outline-offset: 2px; }
 .mp-more { display: block; width: 100%; margin-top: var(--space-md,16px); appearance: none; font: inherit; font-weight: 600;
 	background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke, rgba(255,255,255,.08)); color: var(--ink, #e8e8e8);
 	border-radius: var(--radius-md,10px); padding: 11px; cursor: pointer; transition: background .14s ease; }
@@ -379,6 +385,8 @@ async function fetchPulse(params) {
  * @param {boolean} [o.controls]   show the filter/sound toolbar (default: full only)
  * @param {number} [o.pageSize=30]
  * @param {string} [o.emptyHint]   override empty-state CTA copy
+ * @param {(n:string)=>void} [o.onRequestNetwork]  host-owned network switch (empty-state self-heal)
+ * @param {(t:string)=>void} [o.onRequestType]     host-owned filter switch (empty-state self-heal)
  * @returns {{ destroy(): void, setType(t:string): void, setNetwork(n:string): void, refresh(): void }}
  */
 export function mountMoneyPulse({
@@ -391,6 +399,8 @@ export function mountMoneyPulse({
 	controls,
 	pageSize = 30,
 	emptyHint,
+	onRequestNetwork = null,
+	onRequestType = null,
 } = {}) {
 	if (!mount) throw new Error('mountMoneyPulse requires { mount }');
 	injectStyles();
@@ -508,14 +518,80 @@ export function mountMoneyPulse({
 	function renderEmpty() {
 		if (variant === 'ticker') { mount.style.display = 'none'; return; }
 		listEl.innerHTML = '';
+		const onDevnet = state.network === 'devnet';
+		const filtered = !agentId && state.type !== 'all';
+		const typeLabel = (FILTERS.find((f) => f.id === state.type)?.label || 'activity').toLowerCase();
+		// A filtered view that's empty is NOT "all quiet" — the platform may be busy
+		// with other kinds of money. Tell the honest truth for the active filter; the
+		// self-heal probe below adds the right one-click escape (clear filter / switch
+		// network) once it confirms where the activity actually is.
+		const title = filtered ? `No ${typeLabel} yet` : 'No money moving — yet';
 		const hint = emptyHint
 			|| (agentId
 				? 'This wallet has no public activity yet.'
-				: 'All quiet on three.ws right now. <a href="/agents">Tip an agent</a> and be the first beat.');
+				: filtered
+					? `No ${typeLabel} on ${onDevnet ? 'devnet' : 'three.ws'} in this window.`
+					: onDevnet
+						? 'Devnet is a test network — most live money moves on mainnet. Switch to see the real feed.'
+						: 'All quiet on three.ws right now. <a href="/agents">Tip an agent</a> and be the first beat.');
 		statusHost.innerHTML =
 			`<div class="mp-empty"><div class="mp-empty-icon" aria-hidden="true">◎</div>` +
-			`<div class="mp-empty-title">No money moving — yet</div>` +
-			`<div class="mp-empty-sub">${hint}</div></div>`;
+			`<div class="mp-empty-title">${esc(title)}</div>` +
+			`<div class="mp-empty-sub">${hint}</div>` +
+			`<div class="mp-empty-switch" hidden></div></div>`;
+		// Self-heal: a quiet feed shouldn't look like a broken one. If activity exists
+		// just behind a filter or on the other network, surface a one-click escape
+		// instead of a dead end. Scoped to the global feed (an agent's own story is
+		// genuinely per-network and per-type).
+		if (!agentId) probeForActivity();
+	}
+
+	// Add the self-heal escape button to the empty state. Re-validates we're still
+	// empty before touching the DOM (the live poll may have landed a row meanwhile).
+	function addEmptyCta(label, onClick) {
+		if (state.destroyed || state.events.length) return;
+		const slot = statusHost.querySelector('.mp-empty-switch');
+		if (!slot) return;
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'mp-empty-cta';
+		btn.textContent = label;
+		btn.addEventListener('click', onClick);
+		slot.appendChild(btn);
+		slot.hidden = false;
+	}
+
+	// Cheap "is there anything here?" probe (limit 1). Never throws.
+	async function hasActivity(params) {
+		try {
+			const data = await fetchPulse({ ...params, limit: 1 });
+			return (data.events?.length || 0) > 0;
+		} catch { return false; }
+	}
+
+	// Background self-heal for the global feed. Prefers clearing an empty FILTER (the
+	// platform is busy, just not with this kind) over switching NETWORK, because the
+	// active network is the one the user chose. Falls back to the network switch when
+	// even the unfiltered feed on this network is quiet.
+	async function probeForActivity() {
+		// 1. Empty filter, but this network's full feed has activity → offer to clear it.
+		if (state.type !== 'all' && await hasActivity({ network: state.network, type: 'all' })) {
+			addEmptyCta('View all activity →', () => {
+				if (typeof onRequestType === 'function') onRequestType('all');
+				else api.setType('all');
+			});
+			return;
+		}
+		// 2. This network is quiet (with the active filter); the OTHER network isn't.
+		const other = state.network === 'devnet' ? 'mainnet' : 'devnet';
+		if (await hasActivity({ network: other, type: state.type })) {
+			addEmptyCta(other === 'mainnet' ? 'See live activity on mainnet →' : 'View devnet activity →', () => {
+				// Defer to the host page when it owns the network toggle (so its stat
+				// panels follow too); otherwise switch this component directly.
+				if (typeof onRequestNetwork === 'function') onRequestNetwork(other);
+				else api.setNetwork(other);
+			});
+		}
 	}
 
 	function renderError(keepRows) {
