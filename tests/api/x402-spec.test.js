@@ -31,6 +31,7 @@ vi.mock('@coinbase/x402', () => ({
 vi.mock('@x402/extensions', () => ({
 	EIP2612_GAS_SPONSORING: { key: 'eip2612GasSponsoring' },
 	ERC20_APPROVAL_GAS_SPONSORING: { key: 'erc20ApprovalGasSponsoring' },
+	OFFER_RECEIPT: 'offer-receipt',
 	declareEip2612GasSponsoringExtension: () => ({
 		eip2612GasSponsoring: {
 			info: { description: 'EIP-2612 gas sponsoring', version: '1' },
@@ -53,6 +54,12 @@ vi.mock('../../api/_lib/x402-builder-code.js', () => ({
 	BUILDER_CODE: 'three.ws',
 	declareBuilderCodeExtension: () => ({ builderCode: { code: 'three.ws' } }),
 	verifyClientEcho: vi.fn(() => true),
+}));
+vi.mock('../../api/_lib/x402/offer-receipt-server.js', () => ({
+	buildOffersExtension: vi.fn(async () => null),
+}));
+vi.mock('../../api/_lib/x402-offer-receipt.js', () => ({
+	offerReceiptDeclaration: vi.fn(() => null),
 }));
 
 vi.setConfig({ testTimeout: 10_000, hookTimeout: 60_000 });
@@ -298,7 +305,7 @@ describe('build402Body extensions', () => {
 
 	it('emits only the bazaar extension when no accept opts into Permit2', async () => {
 		const { build402Body } = await loadSpec();
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/foo',
 			accepts: [baseAccept],
 		});
@@ -308,7 +315,7 @@ describe('build402Body extensions', () => {
 	it('auto-declares eip2612GasSponsoring + erc20ApprovalGasSponsoring when a Permit2 accept is present', async () => {
 		const { build402Body, EIP2612_EXTENSION_KEY, ERC20_APPROVAL_EXTENSION_KEY } =
 			await loadSpec();
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/foo',
 			accepts: [baseAccept, permit2Accept],
 		});
@@ -319,7 +326,7 @@ describe('build402Body extensions', () => {
 
 	it('passes caller-supplied extensions through (last-write-wins)', async () => {
 		const { build402Body } = await loadSpec();
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/foo',
 			accepts: [baseAccept],
 			extensions: { customSentinel: { hello: 'world' } },
@@ -330,7 +337,7 @@ describe('build402Body extensions', () => {
 
 	it('emits the v2 envelope shape required by the spec', async () => {
 		const { build402Body, X402_VERSION } = await loadSpec();
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/foo',
 			accepts: [baseAccept],
 			description: 'demo',
@@ -479,7 +486,7 @@ describe('send402 PAYMENT-REQUIRED header', () => {
 		const { send402, paymentRequirements, EIP2612_EXTENSION_KEY } = await loadSpec();
 		const res = makeRes();
 		const accepts = paymentRequirements('https://three.ws/api/x402/foo');
-		send402(res, {
+		await send402(res, {
 			resourceUrl: 'https://three.ws/api/x402/foo',
 			accepts,
 			description: 'demo',
