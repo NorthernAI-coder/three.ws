@@ -261,7 +261,7 @@ function buildCard(clip) {
 		if (!iframeLoaded) {
 			iframeLoaded = true;
 			const iframe = document.createElement('iframe');
-			iframe.src = `/embed/avatar?model=${encodeURIComponent(PREVIEW_MODEL)}&anim=${encodeURIComponent(clip.id)}&animPicker=0&idle=off&bg=transparent&name=0`;
+			iframe.src = `/embed/avatar?model=${encodeURIComponent(PREVIEW_MODEL)}&anim=${encodeURIComponent(clip.id)}&hide-chrome=1&idle=off&bg=transparent`;
 			iframe.title = `Preview: ${clip.name || 'animation'}`;
 			iframe.setAttribute('loading', 'lazy');
 			iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');

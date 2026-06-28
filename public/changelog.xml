@@ -47,6 +47,14 @@
 			<description>Designing your agent's mind no longer means dragging wires around a flow-chart. The Brain tab is now an ordered stack of cards — Persona, Memory, Skills, Market signals, Model, and Avatar output — that you simply fill in. The wiring happens automatically: a card that's present is part of your agent's reasoning; remove it and it's gone. Templates, the live test chat, the behavior preview, and the 'watch it think' highlight all carry over unchanged, and everything you already built loads straight into the new editor.</description>
 		</item>
 		<item>
+			<title>Animation previews no longer show the emote hotkey bar</title>
+			<link>https://three.ws/animations</link>
+			<guid isPermaLink="false">2026-06-28:Animation previews no longer show the emote hotkey bar</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Hovering an animation in the gallery (/animations) plays the clip on a live avatar. That preview was overlaying the streamer emote hotkey bar (1–9 smile/wink/surprised…) along the bottom, cluttering the shot and distracting from the animation itself. Previews now load chrome-free — just the avatar performing the clip. The emote bar still appears where it belongs, on full embeds and overlays.</description>
+		</item>
+		<item>
 			<title>API Key Validity Health — the platform verifies its own access keys every hour</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:API Key Validity Health — the platform verifies its own access keys every hour</guid>
