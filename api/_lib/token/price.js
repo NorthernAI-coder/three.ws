@@ -14,6 +14,17 @@ import { TOKEN_MINT, TOKEN_DECIMALS, ATOMICS_PER_TOKEN } from './config.js';
 const PRICE_TTL_S = 30;
 const PRICE_CACHE_KEY = `token:price:${TOKEN_MINT}`;
 
+// Last-known-good price, held far longer than the live cache. When EVERY feed
+// (Jupiter + the Birdeye→DexScreener→GeckoTerminal chain) misses on a single
+// request — a momentary simultaneous blip, not a real outage — falling back to a
+// recent price keeps a paid quote alive instead of 503-ing the user's action.
+// Bounded by STALE_PRICE_MAX_S: beyond that window a pump.fun token can have
+// moved enough that pricing a payment off it is worse than failing, so we still
+// throw. The quote's own short `exp` remains the hard guard on acting downstream.
+const LAST_GOOD_KEY = `token:price:last:${TOKEN_MINT}`;
+const LAST_GOOD_TTL_S = 3_600;
+const STALE_PRICE_MAX_S = 300;
+
 async function fetchJson(url, opts = {}) {
 	const r = await fetch(url, opts);
 	if (!r.ok) {
@@ -64,6 +75,19 @@ export async function getTokenPriceUsd({ fresh = false } = {}) {
 		}
 	}
 	if (!priceUsd) {
+		// Every live feed missed on this one request. Before failing a paid action,
+		// fall back to the last-known-good price if it's recent enough to price a
+		// payment honestly. `at` is the ISO time it was observed live.
+		const lastGood = await cacheGet(LAST_GOOD_KEY).catch(() => null);
+		if (lastGood?.priceUsd && lastGood.at) {
+			const ageS = (Date.now() - Date.parse(lastGood.at)) / 1000;
+			if (Number.isFinite(ageS) && ageS >= 0 && ageS <= STALE_PRICE_MAX_S) {
+				console.warn(
+					`[token] all live price feeds missed — serving last-known-good (${Math.round(ageS)}s old)`,
+				);
+				return { ...lastGood, source: `${lastGood.source || 'cache'}-stale`, stale: true };
+			}
+		}
 		throw Object.assign(new Error('live token price unavailable'), {
 			status: 503,
 			code: 'price_unavailable',
@@ -71,7 +95,9 @@ export async function getTokenPriceUsd({ fresh = false } = {}) {
 	}
 
 	const value = { priceUsd, source, mint: TOKEN_MINT, at: new Date().toISOString() };
+	// Live cache (smooths bursts) + the long-lived last-known-good (outage fallback).
 	await cacheSet(PRICE_CACHE_KEY, value, PRICE_TTL_S);
+	await cacheSet(LAST_GOOD_KEY, value, LAST_GOOD_TTL_S);
 	return value;
 }
 

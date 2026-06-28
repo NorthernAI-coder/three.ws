@@ -51,6 +51,7 @@ import {
 	estimateEtaSeconds,
 	estimateCredits,
 	preferFreeReconstruct,
+	backendIsConfigured,
 	buildCatalog,
 } from './_lib/forge-tiers.js';
 import { laneHealthSnapshot, markLaneUnhealthy } from './_lib/forge-lane-health.js';
@@ -1162,7 +1163,19 @@ async function startJob(req, res) {
 					});
 				}
 				if (backendId === 'replicate_byok') return needsKey(res, backendId);
-				return unconfigured(res);
+				// The default TRELLIS (Replicate) provider couldn't be built — no
+				// REPLICATE_API_TOKEN. That alone is NOT "unconfigured" when the free
+				// HuggingFace Spaces lane is live: a degraded-from-NVIDIA text prompt, or
+				// a photo→3D request, must still reconstruct on the free lane rather than
+				// dead-ending at a 503. Leave `provider` undefined and fall through — the
+				// free-first HF block below serves it, and the `!provider` guard further
+				// down raises a designed unavailable state only if every free lane is gone
+				// too. Mirrors the self-host TRELLIS failover (provider = undefined) above.
+				if (backendId === 'trellis' && backendIsConfigured('huggingface')) {
+					provider = undefined;
+				} else {
+					return unconfigured(res);
+				}
 		}
 
 		// In-flight coalescing: if an identical (path, tier, backend, prompt, images)

@@ -15,7 +15,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { isValidGlbHeader } from '../_lib/glb-inspect.js';
-import { getRegenProvider, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
+import { getRegenProvider, getRegenProviderCandidates, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
 import { resolveProviderKey } from '../_lib/forge-provider-key.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
@@ -1004,49 +1004,23 @@ const handleReconstruct = wrap(async (req, res) => {
 	const body = parse(reconstructSchema, await readJson(req));
 
 	// ── Provider resolution ──────────────────────────────────────────────────
-	let provider;
-	try {
-		provider = await getRegenProvider();
-	} catch (err) {
-		return maskSubmitError(res, err);
-	}
+	// Build the ordered list of providers to try. Every configured platform
+	// provider leads (primary first), then the caller's BYOK keys (inline, then
+	// stored) backstop them — so a single provider outage, throttle, or credit
+	// exhaustion fails over to the next instead of dead-ending the job. Each
+	// entry is { name, instance }; names are de-duplicated.
+	const candidates = await resolveReconstructCandidates(req, body);
 
-	// Platform provider not configured — try BYOK fallback.
-	if (provider.name === 'none') {
-		// 1. Inline key supplied by the client (provider_name + provider_key).
-		if (body.provider_key && body.provider_name) {
-			try {
-				provider = getRegenProviderByName(body.provider_name, body.provider_key);
-			} catch (err) {
-				return maskSubmitError(res, err);
-			}
-		}
-
-		// 2. User's stored BYOK key — iterate preferred providers in order.
-		if (provider.name === 'none') {
-			for (const pName of BYOK_REGEN_PROVIDERS) {
-				try {
-					const key = await resolveProviderKey(req, null, pName);
-					if (key) {
-						provider = getRegenProviderByName(pName, key);
-						break;
-					}
-				} catch {
-					// resolveProviderKey can fail when there is no DB session — skip.
-				}
-			}
-		}
-
-		// 3. Still nothing — tell the client which BYOK providers are accepted.
-		if (provider.name === 'none') {
-			return json(res, 402, {
-				ok: false,
-				code: 'regen_needs_byok',
-				message:
-					'Avatar reconstruction requires an API key. Add your Meshy or Tripo key in settings, or pass provider_key + provider_name in this request.',
-				providers: BYOK_REGEN_PROVIDERS,
-			});
-		}
+	// Nothing configured anywhere — tell the client which BYOK providers are
+	// accepted (unchanged 402 contract the client branches on).
+	if (candidates.length === 0) {
+		return json(res, 402, {
+			ok: false,
+			code: 'regen_needs_byok',
+			message:
+				'Avatar reconstruction requires an API key. Add your Meshy or Tripo key in settings, or pass provider_key + provider_name in this request.',
+			providers: BYOK_REGEN_PROVIDERS,
+		});
 	}
 
 	// Text → avatar: turn the prompt into a frontal reference image, then treat
@@ -1106,19 +1080,53 @@ const handleReconstruct = wrap(async (req, res) => {
 		}
 	}
 
-	let submission;
-	try {
-		submission = await provider.instance.submit({
-			userId,
-			mode: 'reconstruct',
-			params: { ...(body.params ?? {}), images: photos, name: body.name },
-			sourceUrl: photos[0],
-		});
-	} catch (err) {
-		return maskSubmitError(res, err);
+	// ── Submit with provider failover ─────────────────────────────────────────
+	// Try each candidate in turn. A submit() only spends provider credits on
+	// success (the prediction/task is created server-side after the call
+	// returns), so advancing past a thrown error never double-charges. We keep
+	// the most actionable classified error to surface if every provider fails.
+	let submission = null;
+	let usedProvider = null;
+	let bestError = null;
+	const attempts = [];
+	for (const provider of candidates) {
+		try {
+			submission = await provider.instance.submit({
+				userId,
+				mode: 'reconstruct',
+				params: { ...(body.params ?? {}), images: photos, name: body.name },
+				sourceUrl: photos[0],
+			});
+			usedProvider = provider;
+			break;
+		} catch (err) {
+			const classified = classifyProviderError(err);
+			attempts.push(`${provider.name}:${err?.code || err?.status || classified.code}`);
+			console.warn(
+				'[avatars] reconstruct submit failed on',
+				provider.name,
+				'—',
+				err?.code || err?.status || 'unknown',
+				'-',
+				err?.message,
+			);
+			// Prefer the first error that points to a concrete, user-fixable cause
+			// (bad key, no credits, bad request) over a generic retry — that is the
+			// most useful thing to tell the user if nothing succeeds.
+			if (!bestError || (isGenericProviderError(bestError) && !isGenericProviderError(err))) {
+				bestError = err;
+			}
+		}
 	}
 
-	const jobId = `${provider.name}-${randomUUID()}`;
+	if (!submission || !usedProvider) {
+		if (attempts.length > 1) {
+			console.warn('[avatars] all reconstruct providers failed:', attempts.join(', '));
+		}
+		return maskSubmitError(res, bestError || new Error('no reconstruct provider available'));
+	}
+
+	const jobId = `${usedProvider.name}-${randomUUID()}`;
 	const params = {
 		images: photos,
 		name: body.name,
@@ -1132,16 +1140,67 @@ const handleReconstruct = wrap(async (req, res) => {
 		insert into avatar_regen_jobs
 			(job_id, user_id, source_avatar_id, mode, params, status, provider, ext_job_id, created_at, updated_at)
 		values
-			(${jobId}, ${userId}, ${null}, ${'reconstruct'}, ${JSON.stringify(params)}, 'queued', ${provider.name}, ${submission.extJobId ?? null}, now(), now())
+			(${jobId}, ${userId}, ${null}, ${'reconstruct'}, ${JSON.stringify(params)}, 'queued', ${usedProvider.name}, ${submission.extJobId ?? null}, now(), now())
 	`;
 	return json(res, 202, {
 		ok: true,
 		jobId,
 		status: 'queued',
 		eta: submission.eta ?? null,
-		provider: provider.name,
+		provider: usedProvider.name,
 	});
 });
+
+// Assemble the ordered provider candidate list for a reconstruct submit:
+// configured platform providers (primary first) followed by the caller's BYOK
+// keys (inline body key, then stored keys), de-duplicated by provider name.
+async function resolveReconstructCandidates(req, body) {
+	const candidates = [];
+	const seen = new Set();
+	const add = (resolved) => {
+		if (resolved?.instance && !seen.has(resolved.name)) {
+			seen.add(resolved.name);
+			candidates.push(resolved);
+		}
+	};
+
+	// 1. Every configured platform provider, in precedence order.
+	try {
+		for (const p of await getRegenProviderCandidates()) add(p);
+	} catch (err) {
+		console.warn('[avatars] platform provider enumeration failed:', err?.message);
+	}
+
+	// 2. Inline BYOK key supplied by the client (provider_name + provider_key).
+	if (body.provider_key && body.provider_name) {
+		try {
+			add(getRegenProviderByName(body.provider_name, body.provider_key));
+		} catch (err) {
+			console.warn('[avatars] inline BYOK provider load failed:', err?.message);
+		}
+	}
+
+	// 3. User's stored BYOK keys — iterate preferred providers in order.
+	for (const pName of BYOK_REGEN_PROVIDERS) {
+		if (seen.has(pName)) continue;
+		try {
+			const key = await resolveProviderKey(req, null, pName);
+			if (key) add(getRegenProviderByName(pName, key));
+		} catch {
+			// resolveProviderKey can fail when there is no DB session — skip.
+		}
+	}
+
+	return candidates;
+}
+
+// A "generic" provider error is the catch-all 502 (unreachable / unclassified
+// provider_error) — i.e. one that doesn't name a concrete, user-fixable cause.
+// Used to prefer the most actionable error when reporting an all-providers-failed
+// outcome.
+function isGenericProviderError(err) {
+	return classifyProviderError(err).code === 'regen_provider_error';
+}
 
 // ── dispatcher ────────────────────────────────────────────────────────────────
 

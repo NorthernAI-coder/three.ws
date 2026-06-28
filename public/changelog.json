@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T04:47:25.943Z",
+	"generated_at": "2026-06-28T05:53:38.609Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -81,6 +81,16 @@
 			"tags": [
 				"infra",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Forge no longer dead-ends on \"Generator not configured\" when a free lane is live",
+			"summary": "When the free NVIDIA text→3D lane was briefly down, Forge could return \"Generator not configured\" even on deployments where the free Hugging Face lane was fully set up — because the degrade step looked for a paid Replicate key that wasn't required. Forge now falls through to whichever free engine is configured (Hugging Face Spaces) instead of stopping, so a single free key keeps text and photo generation working through upstream blips.",
+			"link": "/forge",
+			"tags": [
+				"fix"
 			]
 		},
 		{
