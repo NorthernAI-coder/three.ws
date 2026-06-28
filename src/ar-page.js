@@ -173,12 +173,32 @@ async function shareAvatar(avatar) {
 	}
 }
 
+// Tell the user how to actually get into AR when this device can't. Desktop
+// browsers and embedded webviews report canActivateAR === false; calling
+// activateAR() there just logs model-viewer's "No AR Mode can be activated"
+// warning and does nothing visible. A copy-link CTA gets them onto a phone,
+// where WebXR / Scene Viewer / Quick Look take over.
+async function offerArOnPhone() {
+	const statusEl = $('ar-status');
+	statusEl.classList.remove('is-error');
+	try {
+		await navigator.clipboard.writeText(location.href);
+		setStatus('AR needs a phone — link copied. Open it on your iPhone or Android.');
+	} catch {
+		setStatus('AR needs a phone — open this page on your iPhone or Android device.');
+	}
+	setTimeout(() => setStatus(null), 6000);
+}
+
 // Wire the "Place in your space" button to model-viewer's activateAR()
 document.addEventListener('DOMContentLoaded', () => {
 	$('ar-launch-btn').addEventListener('click', () => {
 		const viewer = $('ar-viewer');
-		if (viewer.activateAR) {
+		// canActivateAR is true only when the device exposes a usable AR mode.
+		if (viewer?.canActivateAR) {
 			viewer.activateAR();
+		} else {
+			offerArOnPhone();
 		}
 	});
 

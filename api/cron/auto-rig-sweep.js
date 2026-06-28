@@ -13,15 +13,16 @@
 // fails) them. It deliberately ignores jobs touched in the last few minutes so
 // it never races the webhook for a job that's completing normally.
 //
-// Auto-rig only ever runs on the platform Replicate provider (rerig is the only
-// mode it supports), so a single getRegenProvider() resolves every job here —
-// no per-job BYOK key juggling.
+// Every job here is a rerig job, so resolve the first platform provider that
+// actually supports rerig (Replicate with a rerig model, or the self-hosted GCP
+// UniRig pipeline) — deterministic precedence means it matches the provider the
+// submit path chose. No per-job BYOK key juggling.
 
 import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sql } from '../_lib/db.js';
-import { getRegenProvider } from '../_lib/regen-provider.js';
+import { getRegenProviderForMode } from '../_lib/regen-provider.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
 import { isAllowedProviderResultUrl } from '../_lib/provider-result-url.js';
 
@@ -140,7 +141,7 @@ export default wrapCron(async (req, res) => {
 		if (!providerResolved) {
 			providerResolved = true;
 			try {
-				provider = await getRegenProvider();
+				provider = await getRegenProviderForMode('rerig');
 			} catch (err) {
 				console.warn('[auto-rig-sweep] provider resolve failed', { error: err?.message });
 				provider = null;

@@ -32,6 +32,9 @@ vi.mock('../../api/_lib/webhook-dispatch.js', () => ({ dispatchWebhooks: async (
 const providerMock = { name: 'replicate', instance: null };
 vi.mock('../../api/_lib/regen-provider.js', () => ({
 	getRegenProvider: async () => providerMock,
+	// Mirror the real resolver: return the provider only when it supports the mode.
+	getRegenProviderForMode: async (mode) =>
+		providerMock.instance?.supportsMode?.(mode) ? providerMock : { name: 'none', instance: null },
 }));
 
 // Provider/result GLBs (the reconstruct output, the rigged result, and the bare
@@ -104,7 +107,7 @@ describe('pollRiggingStage', () => {
 
 	it('materializes the rigged GLB when the rig job completes', async () => {
 		inspectGlbMock.mockReturnValue(RIGGED);
-		providerMock.instance = { status: vi.fn(async () => ({ status: 'done', resultGlbUrl: 'https://x/rigged.glb' })) };
+		providerMock.instance = { supportsMode: (m) => m === 'rerig', status: vi.fn(async () => ({ status: 'done', resultGlbUrl: 'https://x/rigged.glb' })) };
 		const out = await pollRiggingStage({ userId: 'u1', jobId: 'j1', job: rigJob });
 		expect(out).toEqual({ status: 'done', resultAvatarId: 'avatar-1' });
 		expect(createAvatarMock.mock.calls[0][0].input.source_meta.rigged).toBe(true);
@@ -112,14 +115,14 @@ describe('pollRiggingStage', () => {
 
 	it('falls back to the bare mesh when the rig job fails', async () => {
 		inspectGlbMock.mockReturnValue(UNRIGGED);
-		providerMock.instance = { status: vi.fn(async () => ({ status: 'failed', error: 'rig oom' })) };
+		providerMock.instance = { supportsMode: (m) => m === 'rerig', status: vi.fn(async () => ({ status: 'failed', error: 'rig oom' })) };
 		const out = await pollRiggingStage({ userId: 'u1', jobId: 'j1', job: rigJob });
 		expect(out.status).toBe('done');
 		expect(createAvatarMock.mock.calls[0][0].input.tags).toContain('unrigged');
 	});
 
 	it('stays in rigging while the rig job is still running', async () => {
-		providerMock.instance = { status: vi.fn(async () => ({ status: 'running' })) };
+		providerMock.instance = { supportsMode: (m) => m === 'rerig', status: vi.fn(async () => ({ status: 'running' })) };
 		const out = await pollRiggingStage({ userId: 'u1', jobId: 'j1', job: rigJob });
 		expect(out).toEqual({ status: 'rigging' });
 		expect(createAvatarMock).not.toHaveBeenCalled();

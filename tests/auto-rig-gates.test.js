@@ -31,6 +31,10 @@ vi.mock('../api/_lib/regen-provider.js', () => ({
 		name: 'replicate',
 		instance: { supportsMode: (m) => m === 'rerig', submit },
 	}),
+	getRegenProviderForMode: async (mode) =>
+		mode === 'rerig'
+			? { name: 'replicate', instance: { supportsMode: (m) => m === 'rerig', submit } }
+			: { name: 'none', instance: null },
 }));
 
 // In-memory limiter, each bucket independently togglable.

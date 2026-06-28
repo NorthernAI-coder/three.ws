@@ -12,12 +12,91 @@
 import { apiFetch } from './api.js';
 import {
 	esc, shortAddr, fmtSol, timeAgo, toast, configSummary,
-	openStrategyEditor, openEquipPicker,
+	mountStrategyComposer, openEquipPicker,
 } from './shared/strategy-forms.js';
 
 const grid = document.getElementById('sp-grid');
 const scopeSeg = document.getElementById('sp-scope');
 const searchInput = document.getElementById('sp-search');
+
+// ── full-page builder ──────────────────────────────────────────────────────────
+// The "New strategy" / "Edit" flow renders the builder inline as a page (not a
+// modal) — a multi-section form deserves room. State lives in the URL (?editor=new
+// or ?editor=<id>) so it survives reload and works with the back button.
+const shell = document.querySelector('.sp-shell');
+const heroEl = shell?.querySelector('.sp-hero');
+const barEl = shell?.querySelector('.sp-bar');
+let composeHost = null;
+let composing = false;
+let lastStrategy = null; // cache so editing from a card needs no extra fetch
+
+function showLibraryChrome(on) {
+	if (heroEl) heroEl.hidden = !on;
+	if (barEl) barEl.hidden = !on;
+	if (grid) grid.hidden = !on;
+}
+
+function enterCompose(existing) {
+	composing = true;
+	if (!composeHost) {
+		composeHost = document.createElement('section');
+		composeHost.id = 'sp-compose';
+		shell?.appendChild(composeHost);
+	}
+	showLibraryChrome(false);
+	composeHost.hidden = false;
+	window.scrollTo({ top: 0 });
+	mountStrategyComposer(composeHost, {
+		existing,
+		onSaved: () => exitCompose({ toScope: 'mine' }),
+		onCancel: () => exitCompose({}),
+	});
+}
+
+function leaveComposeView() {
+	composing = false;
+	if (composeHost) { composeHost.hidden = true; composeHost.innerHTML = ''; }
+	showLibraryChrome(true);
+}
+
+// Return to the library, cleaning ?editor from the URL (replaceState — no junk
+// history entry). toScope optionally switches the active tab (e.g. to "mine"
+// after a create so the new strategy is visible).
+function exitCompose({ toScope } = {}) {
+	const u = new URL(location.href);
+	u.searchParams.delete('editor');
+	if (toScope) u.searchParams.set('scope', toScope);
+	history.replaceState(null, '', u);
+	leaveComposeView();
+	if (toScope) { scope = toScope; syncSeg(); }
+	load();
+}
+
+async function fetchStrategy(id) {
+	try {
+		const res = await apiFetch(`/api/strategies/${encodeURIComponent(id)}`, { allowAnonymous: true });
+		if (!res.ok) return null;
+		return (await res.json()).data;
+	} catch { return null; }
+}
+
+// Reconcile the view with the URL — runs on first load and on every back/forward.
+async function syncFromUrl() {
+	const editor = new URL(location.href).searchParams.get('editor');
+	if (!editor) { if (composing) leaveComposeView(); load(); return; }
+	if (composing) return; // already on the builder for this URL
+	if (!(await ensureAuthed())) { location.href = `/login?next=${encodeURIComponent('/strategies?editor=' + editor)}`; return; }
+	let existing = null;
+	if (editor !== 'new') {
+		existing = lastStrategy && lastStrategy.id === editor ? lastStrategy : await fetchStrategy(editor);
+		if (!existing) {
+			toast('That strategy is no longer available');
+			const u = new URL(location.href); u.searchParams.delete('editor'); history.replaceState(null, '', u);
+			leaveComposeView(); load(); return;
+		}
+	}
+	enterCompose(existing);
+}
 
 let scope = new URL(location.href).searchParams.get('scope') || 'published';
 let query = '';
@@ -143,9 +222,10 @@ async function doFork(s, btn) {
 	finally { btn.disabled = false; btn.textContent = '🍴 Fork'; }
 }
 
-async function doEdit(s) {
-	const updated = await openStrategyEditor({ existing: s });
-	if (updated) load();
+function doEdit(s) {
+	lastStrategy = s;
+	const u = new URL(location.href); u.searchParams.set('editor', s.id); history.pushState(null, '', u);
+	enterCompose(s);
 }
 
 async function doPublish(s, btn) {
@@ -170,9 +250,9 @@ async function doDelete(s) {
 }
 
 async function createNew() {
-	if (!(await ensureAuthed())) { location.href = `/login?next=${encodeURIComponent('/strategies')}`; return; }
-	const created = await openStrategyEditor({});
-	if (created) { scope = 'mine'; syncSeg(); load(); }
+	if (!(await ensureAuthed())) { location.href = `/login?next=${encodeURIComponent('/strategies?editor=new')}`; return; }
+	const u = new URL(location.href); u.searchParams.set('editor', 'new'); history.pushState(null, '', u);
+	enterCompose(null);
 }
 
 async function ensureAuthed() {
@@ -205,5 +285,7 @@ searchInput?.addEventListener('input', () => {
 
 document.getElementById('sp-new')?.addEventListener('click', createNew);
 
+window.addEventListener('popstate', () => { syncFromUrl(); });
+
 syncSeg();
-load();
+syncFromUrl();

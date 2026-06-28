@@ -23,7 +23,7 @@ import {
 	Scene,
 } from 'three';
 
-import { _bakeSkinnedMeshesForExport } from '../src/usdz-pipeline.js';
+import { _bakeSkinnedMeshesForExport, _ensureNormals } from '../src/usdz-pipeline.js';
 
 function buildSkinnedTriangle() {
 	const geo = new BufferGeometry();
@@ -84,5 +84,42 @@ describe('_bakeSkinnedMeshesForExport', () => {
 
 		expect(() => _bakeSkinnedMeshesForExport(scene)).not.toThrow();
 		expect(scene.children).toContain(plain);
+	});
+});
+
+describe('_ensureNormals', () => {
+	it('computes normals for a position-only mesh so USDZExporter does not warn', () => {
+		const geo = new BufferGeometry();
+		geo.setAttribute('position', new Float32BufferAttribute([0, 1, 0, 1, 0, 0, 0, 0, 1], 3));
+		expect(geo.getAttribute('normal')).toBeUndefined();
+
+		const scene = new Scene();
+		scene.add(new Mesh(geo, new MeshStandardMaterial()));
+
+		_ensureNormals(scene);
+
+		const normal = geo.getAttribute('normal');
+		expect(normal).toBeDefined();
+		expect(normal.count).toBe(3);
+	});
+
+	it('leaves an existing normal attribute untouched', () => {
+		const geo = new BufferGeometry();
+		geo.setAttribute('position', new Float32BufferAttribute([0, 1, 0, 1, 0, 0, 0, 0, 1], 3));
+		const authored = new Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1], 3);
+		geo.setAttribute('normal', authored);
+
+		const scene = new Scene();
+		scene.add(new Mesh(geo, new MeshStandardMaterial()));
+
+		_ensureNormals(scene);
+
+		expect(geo.getAttribute('normal')).toBe(authored);
+	});
+
+	it('ignores meshes without a position attribute', () => {
+		const scene = new Scene();
+		scene.add(new Mesh(new BufferGeometry(), new MeshStandardMaterial()));
+		expect(() => _ensureNormals(scene)).not.toThrow();
 	});
 });

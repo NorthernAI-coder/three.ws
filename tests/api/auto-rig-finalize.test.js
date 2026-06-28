@@ -107,7 +107,7 @@ vi.mock('../../api/_lib/glb-inspect.js', () => ({
 }));
 
 vi.mock('../../api/_lib/webhook-dispatch.js', () => ({ dispatchWebhooks: vi.fn(async () => {}) }));
-vi.mock('../../api/_lib/regen-provider.js', () => ({ getRegenProvider: async () => ({ name: 'replicate', instance: null }) }));
+vi.mock('../../api/_lib/regen-provider.js', () => ({ getRegenProvider: async () => ({ name: 'replicate', instance: null }), getRegenProviderForMode: async () => ({ name: 'replicate', instance: null }) }));
 
 // The rigged-GLB fetch now flows through the shared provider-result-url guard
 // (host allowlist + IP-pinned SSRF connect), which uses raw node http — not the

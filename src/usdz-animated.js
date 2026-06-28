@@ -25,6 +25,7 @@ import {
 	_loadGlbBlob,
 	_bakedLocalPositions,
 	_coerceMaterialsToStandard,
+	_ensureNormals,
 } from './usdz-pipeline.js';
 import { retargetClipToObject } from './animation-retarget.js';
 
@@ -274,6 +275,9 @@ export async function glbBlobToAnimatedUsdzBlob(glbBlob, opts = {}) {
 
 	const animated = buildFrame0Scene(scene, framesByMesh);
 	_coerceMaterialsToStandard(scene);
+	// Cover any non-skinned meshes (static props/accessories) that ship without
+	// normals so the base export doesn't warn or render them flat in Quick Look.
+	_ensureNormals(scene);
 
 	// Base export: proven materials / textures / alignment from the static path.
 	const exporter = new USDZExporter();

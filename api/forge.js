@@ -1699,25 +1699,54 @@ async function startRigJob(req, res) {
 		});
 	}
 
-	let provider;
-	try {
-		provider = createRegenProvider();
-	} catch {
-		return unconfigured(res);
+	// Prefer the self-hosted GCP UniRig pipeline when it's configured — it supports
+	// rerig out of the box via its /rig endpoint — and fall back to Replicate when
+	// a REPLICATE_RERIG_MODEL is set. Mirrors the gcp-first resolution the MCP
+	// studio path uses, so rigging works whenever ANY rerig-capable lane exists,
+	// not only when the highest-precedence provider happens to be the rigger.
+	let provider = null;
+	let providerName = 'replicate';
+	if (process.env.GCP_RECONSTRUCTION_KEY) {
+		try {
+			const gcp = createGcpProvider();
+			if (gcp.supportsMode('rerig')) {
+				provider = gcp;
+				providerName = 'gcp';
+			}
+		} catch {
+			// fall through to Replicate
+		}
+	}
+	if (!provider) {
+		try {
+			const rep = createRegenProvider();
+			if (rep.supportsMode('rerig')) {
+				provider = rep;
+				providerName = 'replicate';
+			}
+		} catch {
+			return unconfigured(res);
+		}
 	}
 
-	// Rigging stays dormant until a rerig model is configured — surface a clean
+	// Rigging stays dormant until a rerig lane is configured — surface a clean
 	// 501 rather than a generic provider error so callers can branch on it.
-	if (!provider.supportsMode('rerig')) {
+	if (!provider) {
 		return json(res, 501, {
 			error: 'rig_unconfigured',
 			message:
-				'Auto-rigging is not configured on this deployment (REPLICATE_RERIG_MODEL is not set).',
+				'Auto-rigging is not configured on this deployment (set GCP_RECONSTRUCTION_URL + GCP_RECONSTRUCTION_KEY, or REPLICATE_RERIG_MODEL).',
 		});
 	}
 
 	try {
 		const job = await provider.submit({ mode: 'rerig', sourceUrl: glbUrl, params: {} });
+		// GCP rig jobs poll through a token-encoded handle so /api/forge?action=status
+		// routes back to the GCP worker; Replicate jobs use the bare prediction id.
+		const jobToken =
+			providerName === 'gcp'
+				? encodeJobToken({ provider: 'gcp', kind: null, taskId: job.extJobId })
+				: job.extJobId;
 		const creationId = await createCreation({
 			clientKey: clientKeyFrom(req),
 			ipHash: hashIp(ip),
@@ -1728,7 +1757,7 @@ async function startRigJob(req, res) {
 			textToImageModel: null,
 		});
 		return json(res, 200, {
-			job_id: job.extJobId,
+			job_id: jobToken,
 			creation_id: creationId,
 			status: 'queued',
 			mode: 'rig',
