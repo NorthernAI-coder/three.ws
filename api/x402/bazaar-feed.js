@@ -1,25 +1,26 @@
 // POST /api/x402/bazaar-feed
 //
-// Bazaar Price Trend Monitor — $0.001 USDC per call on Solana or Base.
+// Bazaar Feed — $0.001 USDC per call on Solana or Base. One endpoint, two
+// live views over the x402 service marketplace selected by the `filter` field:
 //
-// The x402 Bazaar is the agent-service marketplace three.ws transacts on. Every
-// 6 hours the `x402-pricing-tracker` autonomous-loop pipeline pays a real
-// $0.001 call to the Bazaar MCP server and records each tracked service's live
-// cheapest price into x402_service_price_history (an append-only time series).
-// This endpoint reads that series and turns it into a market-sentiment signal:
-// over the requested window it computes, per service, the price move from the
-// first to the last observation, then classifies each as trending up / down /
-// stable and derives the net price pressure across the whole bazaar.
+//   • filter "new" / "active" — New-Listing Feed (USE-059)
+//     Returns the newest service listings from the canonical bazaar_service_index
+//     registry the daily catalog-refresh pipeline maintains: id, name, price,
+//     networks, tags and first_seen, plus a category rollup and a listing-velocity
+//     signal (spike / active / quiet). Poll it to keep a local catalog warm and to
+//     catch fresh agent marketing activity the moment new services appear.
+//     Body: { filter: "new" | "active", limit?: 1..50 }
 //
-// Body: { filter: "price_trends", period: "24h" | "7d" | "1h" | "30m" }
-// Response: { filter, period, trending_up:[], trending_down:[], stable_count,
-//             total_tracked, net_pressure, avg_change_pct, signal, headline,
-//             confidence, ts }
+//   • filter "price_trends" — Price Trend Monitor (USE-060)
+//     Reads the x402_service_price_history time series (populated by the
+//     x402-pricing-tracker pipeline) and, over the requested window, classifies
+//     each tracked service as trending up / down / stable and derives the net
+//     price pressure as a bullish / bearish / neutral signal.
+//     Body: { filter: "price_trends", period: "24h" | "7d" | "1h" | "30m" }
 //
-// Data is live: derived from the platform's own x402_service_price_history.
-// No mock path — when the tracker has not yet accumulated two observations for
-// any service in the window, the trend lists are empty and the signal is a
-// genuine "neutral / no movement", not fabricated data.
+// Data is live in both modes — derived from the platform's own bazaar registry
+// and price-history tables. No mock path: a cold install with no data yet returns
+// a genuine empty feed / neutral signal, never fabricated rows.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';

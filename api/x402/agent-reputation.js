@@ -160,7 +160,7 @@ const BAZAAR = {
 	}),
 };
 
-export default paidEndpoint({
+const singleEndpoint = paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('agent-reputation', '10000'),
@@ -198,3 +198,193 @@ export default paidEndpoint({
 		return loadAgentReputation(agentId);
 	},
 });
+
+// ── Sweep mode (POST) ────────────────────────────────────────────────────────
+// A single $0.01 call returns scored reputation for the N most recently active
+// three.ws agents instead of one. Built for fleet-level trust monitoring: a
+// vetting agent (or our own autonomous loop) gets the live average trust score
+// and the set of low-reputation agents (score < REPUTATION_FLAG_THRESHOLD)
+// flagged for review, without paying per agent.
+
+const SWEEP_DEFAULT_LIMIT = 20;
+const SWEEP_MAX_LIMIT = 50;
+
+const SWEEP_DESCRIPTION =
+	'three.ws Agent Reputation (Active Sweep) — POST {"mode":"sweep","limit":N} ' +
+	'to score the N most recently active three.ws agents in one call. Returns the ' +
+	'fleet average trust score (0..100) and the agents flagged for review ' +
+	`(score < ${REPUTATION_FLAG_THRESHOLD}). Each score is synthesized from real ` +
+	'on-chain pump.fun agent-payments activity, distribute/buyback success history, ' +
+	'and signed Solana memo attestations — not a subjective rating. Use to monitor ' +
+	'counterparty trust across the platform before composing skills or routing payments.';
+
+const SWEEP_INPUT_EXAMPLE = { mode: 'sweep', limit: 20 };
+
+const SWEEP_INPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	properties: {
+		mode: { type: 'string', enum: ['sweep'], description: 'Must be "sweep".' },
+		limit: {
+			type: 'integer',
+			minimum: 1,
+			maximum: SWEEP_MAX_LIMIT,
+			description: `Agents to sweep (default ${SWEEP_DEFAULT_LIMIT}, max ${SWEEP_MAX_LIMIT}).`,
+		},
+	},
+};
+
+const SWEEP_OUTPUT_EXAMPLE = {
+	mode: 'sweep',
+	count: 20,
+	avg_score: 64,
+	flagged_count: 3,
+	flagged: [
+		{
+			agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+			name: 'Newcomer',
+			score: 12,
+			reasons: ['no confirmed payments on record', 'no signed attestations'],
+		},
+	],
+	agents: [
+		{
+			agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+			name: 'Helios',
+			wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+			deployed_mints: 2,
+			score: 88,
+			flagged: false,
+			reasons: [],
+			breakdown: { payments: 40, distributions: 14, buybacks: 15, attestations: 19 },
+			last_active_at: '2026-06-26T17:00:00Z',
+		},
+	],
+	swept_at: '2026-06-27T17:00:00Z',
+};
+
+const SWEEP_OUTPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['mode', 'count', 'avg_score', 'flagged_count', 'agents'],
+	properties: {
+		mode: { type: 'string', enum: ['sweep'] },
+		count: { type: 'integer', minimum: 0 },
+		avg_score: { type: 'integer', minimum: 0, maximum: 100 },
+		flagged_count: { type: 'integer', minimum: 0 },
+		flagged: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					agent_id: { type: 'string', format: 'uuid' },
+					name: { type: ['string', 'null'] },
+					score: { type: 'integer', minimum: 0, maximum: 100 },
+					reasons: { type: 'array', items: { type: 'string' } },
+				},
+			},
+		},
+		agents: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					agent_id: { type: 'string', format: 'uuid' },
+					name: { type: ['string', 'null'] },
+					wallet_address: { type: ['string', 'null'] },
+					deployed_mints: { type: 'integer', minimum: 0 },
+					score: { type: 'integer', minimum: 0, maximum: 100 },
+					flagged: { type: 'boolean' },
+					reasons: { type: 'array', items: { type: 'string' } },
+					breakdown: { type: 'object' },
+					last_active_at: { type: ['string', 'null'] },
+				},
+			},
+		},
+		swept_at: { type: 'string', format: 'date-time' },
+	},
+};
+
+const SWEEP_BAZAAR = {
+	discoverable: true,
+	info: {
+		input: {
+			type: 'http',
+			method: 'POST',
+			bodyType: 'json',
+			body: SWEEP_INPUT_EXAMPLE,
+		},
+		output: { type: 'json', example: SWEEP_OUTPUT_EXAMPLE },
+	},
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodySchema: SWEEP_INPUT_SCHEMA,
+		outputSchema: SWEEP_OUTPUT_SCHEMA,
+	}),
+};
+
+// Read + parse the JSON body off the raw request stream (same idiom as the
+// other POST x402 endpoints — req.body is not pre-parsed in this runtime).
+async function readJsonBody(req) {
+	const chunks = [];
+	for await (const c of req) chunks.push(c);
+	if (!chunks.length) return {};
+	return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+}
+
+const sweepEndpoint = paidEndpoint({
+	route: ROUTE,
+	method: 'POST',
+	priceAtomics: priceFor('agent-reputation', '10000'),
+	networks: ['base', 'solana'],
+	description: SWEEP_DESCRIPTION,
+	bazaar: SWEEP_BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Agent Reputation (Active Sweep)',
+		tags: ['reputation', 'agent', 'solana', 'attestation', 'trust', 'monitoring'],
+	}),
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+	authHints: {
+		oauth2: { requiredScope: 'read:agent-reputation', tokenType: 'Bearer' },
+		siwx: true,
+	},
+	async handler({ req }) {
+		let body;
+		try {
+			body = await readJsonBody(req);
+		} catch {
+			const err = new Error('request body must be valid JSON');
+			err.status = 400;
+			err.code = 'invalid_json';
+			throw err;
+		}
+		if (body.mode !== 'sweep') {
+			const err = new Error('mode must be "sweep"');
+			err.status = 400;
+			err.code = 'invalid_mode';
+			throw err;
+		}
+		const limit = body.limit == null ? SWEEP_DEFAULT_LIMIT : Number(body.limit);
+		if (!Number.isFinite(limit) || limit < 1) {
+			const err = new Error('limit must be a positive integer');
+			err.status = 400;
+			err.code = 'invalid_limit';
+			throw err;
+		}
+		return sweepAgentReputation({ limit: Math.min(SWEEP_MAX_LIMIT, Math.floor(limit)) });
+	},
+});
+
+// Route by method so one path serves both the single-agent lookup (GET) and the
+// active-agent sweep (POST). OPTIONS preflight is dispatched by the requested
+// method so each mode advertises the correct Access-Control-Allow-Methods.
+export default function agentReputationRouter(req, res) {
+	const method = String(req.method || 'GET').toUpperCase();
+	if (method === 'POST') return sweepEndpoint(req, res);
+	if (method === 'OPTIONS') {
+		const requested = String(req.headers['access-control-request-method'] || '').toUpperCase();
+		return requested === 'POST' ? sweepEndpoint(req, res) : singleEndpoint(req, res);
+	}
+	return singleEndpoint(req, res);
+}
