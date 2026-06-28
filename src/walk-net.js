@@ -13,7 +13,6 @@
 //     (handled in walk.js).
 
 import { Client, getStateCallbacks } from 'colyseus.js';
-import { WalkState } from '../multiplayer/src/schemas.js';
 import { log } from './shared/log.js';
 import { joinRoomWithTimeout } from './shared/colyseus-connect.js';
 
@@ -188,7 +187,10 @@ export class WalkNet {
 				coinImage: this.coinImage,
 				cosmetics: this.cosmetics,
 				...(presence ? { presence } : {}),
-			}, WalkState);
+				// No root-schema class passed on purpose: decode state from the server's
+				// reflected schema (handshake) so the client never desyncs when a deployed
+				// server adds an append-only field this bundle predates. See joinRoomWithTimeout.
+			});
 			if (this._destroyed || gen !== this._connectGen) {
 				try { room.leave(); } catch {}
 				return;

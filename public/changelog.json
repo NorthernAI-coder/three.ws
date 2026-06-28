@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T10:12:31.380Z",
+	"generated_at": "2026-06-28T10:29:00.826Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -350,6 +350,16 @@
 			"link": "/pulse",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The shared 3D world stays in sync through server updates",
+			"summary": "After we shipped an update to the multiplayer world, players who hadn't reloaded the page could land in a broken session — other people stopped appearing, movement froze, and the browser console filled with decode errors — until a hard refresh. The cause: the page read the world using its own bundled copy of the world's data layout, which fell out of step with the freshly updated server. The client now reads the layout the server itself describes when you join, so it always matches the live server. Joining the walk world and coin community worlds survives a server update without a forced refresh.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

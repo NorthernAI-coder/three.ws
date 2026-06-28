@@ -271,6 +271,14 @@
 			<description>The Money Pulse page (/pulse) now renders on a true black background in every theme, so the live feed of tips, launches, trades and agent-to-agent payments reads as one calm, high-contrast field. Previously the page could pick up a lighter surface or near-black tone depending on your theme; it's now consistently black with the monochrome ink ramp pinned for readability.</description>
 		</item>
 		<item>
+			<title>The shared 3D world stays in sync through server updates</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:The shared 3D world stays in sync through server updates</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>After we shipped an update to the multiplayer world, players who hadn't reloaded the page could land in a broken session — other people stopped appearing, movement froze, and the browser console filled with decode errors — until a hard refresh. The cause: the page read the world using its own bundled copy of the world's data layout, which fell out of step with the freshly updated server. The client now reads the layout the server itself describes when you join, so it always matches the live server. Joining the walk world and coin community worlds survives a server update without a forced refresh.</description>
+		</item>
+		<item>
 			<title>Trending and the agent directory now actually show agents</title>
 			<link>https://three.ws/trending</link>
 			<guid isPermaLink="false">2026-06-28:Trending and the agent directory now actually show agents</guid>

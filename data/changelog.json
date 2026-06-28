@@ -3,6 +3,14 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "The shared 3D world stays in sync through server updates",
+      "summary": "After we shipped an update to the multiplayer world, players who hadn't reloaded the page could land in a broken session — other people stopped appearing, movement froze, and the browser console filled with decode errors — until a hard refresh. The cause: the page read the world using its own bundled copy of the world's data layout, which fell out of step with the freshly updated server. The client now reads the layout the server itself describes when you join, so it always matches the live server. Joining the walk world and coin community worlds survives a server update without a forced refresh.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-06-28",
       "title": "Animation previews no longer show the emote hotkey bar",
       "summary": "Hovering an animation in the gallery (/animations) plays the clip on a live avatar. That preview was overlaying the streamer emote hotkey bar (1–9 smile/wink/surprised…) along the bottom, cluttering the shot and distracting from the animation itself. Previews now load chrome-free — just the avatar performing the clip. The emote bar still appears where it belongs, on full embeds and overlays.",
       "tags": [
