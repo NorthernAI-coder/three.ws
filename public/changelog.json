@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T10:53:01.477Z",
+	"generated_at": "2026-06-28T11:05:56.657Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -139,6 +139,17 @@
 			"tags": [
 				"infra",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Cinematic FX — one-tap film looks for any 3D avatar",
+			"summary": "The 3D viewer now ships a full cinematic post-processing pipeline behind a new Cinematic FX panel. Pick a look — Studio, Cinematic, Portrait, Vivid, Neon, or Noir — and the avatar instantly gains the matching grade: soft ambient-occlusion contact shadows, depth-of-field focus falloff, bloom, colour grade (saturation, contrast, brightness, hue), chromatic aberration, and animated film grain. Every effect is also exposed as a live slider so you can dial in your own look, and your chosen preset is remembered per agent. The default Studio look is unchanged, so existing gallery thumbnails and embeds render exactly as before unless you opt into a richer style.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
@@ -361,6 +372,17 @@
 			"tags": [
 				"fix",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The Live Agents wall now shows every agent, 24/7",
+			"summary": "The Live Agents page (/agents-live) used to show only the handful of agents that happened to have a browser actively streaming — usually none, so the page sat empty. Now it shows every agent on the platform, each with a live screen, and a screen is never blank: when no live browser is attached, the card streams the agent's real activity as a live terminal straight from its on-chain and skill history. Scroll to load more, and watch the live/total counts update in real time. Open any agent any time — and when you're actually watching one, an on-demand caster spins a real browser feed up for it (and tears it down when you leave), so live pixels are available for any agent without anything running idle. The same activity feed now also powers the screens on the agent desks in the 3D world.",
+			"link": "/agents-live",
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{

@@ -31,8 +31,12 @@ import { chromium } from 'playwright';
 
 const BASE_URL   = (process.env.BASE_URL || 'https://three.ws').replace(/\/$/, '');
 const WANTED_URL = process.env.WANTED_URL || `${BASE_URL}/api/agent/watch-wanted`;
-const PUSH_URL   = process.env.PUSH_URL   || `${BASE_URL}/api/agent-screen-push`;
-const SECRET     = process.env.SCREEN_WORKER_SECRET || '';
+// Two render surfaces consume two frame conventions: the live wall + 2D watch
+// panel read the "dashed" push; the in-world 3D desk reads the "slashed" push.
+// We publish to both so a watched agent goes live everywhere at once.
+const PUSH_URL      = process.env.PUSH_URL      || `${BASE_URL}/api/agent-screen-push`;  // wall + watch panel
+const PUSH_URL_DESK = process.env.PUSH_URL_DESK || `${BASE_URL}/api/agent/screen-push`;  // 3D desk
+const SECRET        = process.env.SCREEN_WORKER_SECRET || '';
 
 const MAX_BROWSERS = Number(process.env.MAX_BROWSERS || 6);
 const POLL_MS      = Number(process.env.POLL_MS || 3000);
@@ -92,19 +96,30 @@ async function pushFrame(entry) {
 	entry.pushing = true;
 	try {
 		const buf = await entry.page.screenshot({ type: 'jpeg', quality: JPEG_QUALITY, fullPage: false });
-		const data = `data:image/jpeg;base64,${buf.toString('base64')}`;
-		const res = await fetch(PUSH_URL, {
-			method: 'POST',
-			headers: { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` },
-			body: JSON.stringify({
-				agentId: entry.agentId,
-				frame: { data, activity: `Live view · ${entry.name}`, type: 'screenshot' },
+		const b64 = buf.toString('base64');
+		const seq = ++entry.seq;
+		const headers = { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` };
+		// Publish to both render surfaces. Failures are independent — the wall
+		// shouldn't go dark because the desk endpoint hiccuped, and vice versa.
+		const [wall, desk] = await Promise.allSettled([
+			fetch(PUSH_URL, {
+				method: 'POST', headers,
+				body: JSON.stringify({
+					agentId: entry.agentId,
+					frame: { data: `data:image/jpeg;base64,${b64}`, activity: `Live view · ${entry.name}`, type: 'screenshot' },
+				}),
 			}),
-		});
-		if (!res.ok && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+			fetch(PUSH_URL_DESK, {
+				method: 'POST', headers,
+				body: JSON.stringify({ agentId: entry.agentId, frame: b64, seq }),
+			}),
+		]);
+		const wallBad = wall.status === 'fulfilled' && !wall.value.ok;
+		if (wallBad && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
 			entry.lastErrorAt = Date.now();
-			log('push failed', entry.agentId, res.status, (await res.text().catch(() => '')).slice(0, 120));
+			log('wall push failed', entry.agentId, wall.value.status, (await wall.value.text().catch(() => '')).slice(0, 120));
 		}
+		void desk;
 	} catch (err) {
 		if (Date.now() - (entry.lastErrorAt || 0) > 30_000) {
 			entry.lastErrorAt = Date.now();
@@ -119,7 +134,7 @@ async function startCasting(agent) {
 	await ensureBrowser();
 	const agentId = agent.agentId;
 	const page = await context.newPage();
-	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0 };
+	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0, seq: 0 };
 	pool.set(agentId, entry);
 	const url = resolveUrl(agent.homeUrl, agentId);
 	try {

@@ -348,6 +348,23 @@ export function createAgentDesk(scene, agent, opts = {}) {
 		}
 	}
 
+	// Signal that this desk's agent is being watched so the on-demand caster pool
+	// upgrades it to a live browser feed. Throttled; fired while the player is near.
+	let lastWatchPing = 0;
+	function pingWatchIntent() {
+		const now = Date.now();
+		if (now - lastWatchPing < 20_000) return;
+		lastWatchPing = now;
+		try {
+			fetch('/api/agent/watch-intent', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: agent.agentId }),
+				keepalive: true,
+			}).catch(() => {});
+		} catch { /* */ }
+	}
+
 	connectSSE();
 	fetchActivity();
 
@@ -376,6 +393,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 					// Screen emissive boost.
 					screenMat.opacity = near ? 1.0 : 0.92;
 				}
+				if (near) pingWatchIntent();
 			}
 
 			if (acc < REDRAW_MS / 1000) return;

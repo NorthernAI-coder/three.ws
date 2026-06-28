@@ -23,9 +23,6 @@ const statTotal  = document.getElementById('al-stat-total');
 // Per-agent runtime state. agentId → { es, card, entries, lastFrameAt, live }
 const _cards = new Map();
 const _fpsMap = new Map();   // agentId → frames since last tick
-let   _totalFrames = 0;
-let   _fpsInterval = null;
-let   _idleRepaint = null;
 
 // Roster pagination cursor (created_at of the last public agent loaded).
 let   _cursor = null;
@@ -215,7 +212,6 @@ function attachStream(state) {
 			img.src = src.startsWith('data:') ? src : 'data:image/png;base64,' + src;
 			state.lastFrameAt = Date.now();
 			setLive(true);
-			_totalFrames++;
 			_fpsMap.set(agentId, (_fpsMap.get(agentId) || 0) + 1);
 			if (msg.activity && state.action) state.action.textContent = msg.activity;
 		} catch { /* malformed */ }

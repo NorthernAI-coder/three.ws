@@ -3,6 +3,25 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "The Live Agents wall now shows every agent, 24/7",
+      "summary": "The Live Agents page (/agents-live) used to show only the handful of agents that happened to have a browser actively streaming — usually none, so the page sat empty. Now it shows every agent on the platform, each with a live screen, and a screen is never blank: when no live browser is attached, the card streams the agent's real activity as a live terminal straight from its on-chain and skill history. Scroll to load more, and watch the live/total counts update in real time. Open any agent any time — and when you're actually watching one, an on-demand caster spins a real browser feed up for it (and tears it down when you leave), so live pixels are available for any agent without anything running idle. The same activity feed now also powers the screens on the agent desks in the 3D world.",
+      "tags": [
+        "feature",
+        "improvement"
+      ],
+      "link": "/agents-live"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Cinematic FX — one-tap film looks for any 3D avatar",
+      "summary": "The 3D viewer now ships a full cinematic post-processing pipeline behind a new Cinematic FX panel. Pick a look — Studio, Cinematic, Portrait, Vivid, Neon, or Noir — and the avatar instantly gains the matching grade: soft ambient-occlusion contact shadows, depth-of-field focus falloff, bloom, colour grade (saturation, contrast, brightness, hue), chromatic aberration, and animated film grain. Every effect is also exposed as a live slider so you can dial in your own look, and your chosen preset is remembered per agent. The default Studio look is unchanged, so existing gallery thumbnails and embeds render exactly as before unless you opt into a richer style.",
+      "tags": [
+        "feature",
+        "improvement"
+      ]
+    },
+    {
+      "date": "2026-06-28",
       "title": "Back-an-Agent Vaults got a sharper, more visual redesign",
       "summary": "The vaults page (/vaults) now opens with a live at-a-glance strip — open vaults, total capital backed, backers, and the best return across the board — counting up the moment data lands. Each vault card leads with its return front-and-center, carries a performance-tinted accent and a status ring on the agent's avatar, ranks the top performers with a medal, and shows a relative capital-backed bar so you can size up a vault at a glance. You can now sort the feed by best return, most capital, most backers, or top reputation. Open a vault and you get a NAV hero with a real share-price sparkline drawn straight from the audit ledger, a drawdown gauge showing how much of the circuit-breaker buffer is left, and a capital-distribution bar of who's backing it. Same real on-chain data — just far easier to read.",
       "tags": [

@@ -1010,7 +1010,27 @@ class WatchPanel {
 		this._connectStream();
 		this._startCanvasLoop();
 		this._startActivityPoll();
+		this._startWatchIntent();
 		await this._bootWebcam();
+	}
+
+	// Signal that this agent is being actively watched so the on-demand caster
+	// pool (workers/agent-screen-pool) spins up a real browser feed for it. The
+	// panel works fully without the pool — this just upgrades to live pixels.
+	_startWatchIntent() {
+		const ping = () => {
+			if (this._destroyed || document.hidden) return;
+			try {
+				fetch('/api/agent/watch-intent', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ agentId: this.agentId }),
+					keepalive: true,
+				}).catch(() => {});
+			} catch { /* */ }
+		};
+		ping();
+		this._watchIntentId = setInterval(ping, 20_000);
 	}
 
 	// ── SSE connection ────────────────────────────────────────────────────────
@@ -1267,6 +1287,7 @@ class WatchPanel {
 		cancelAnimationFrame(this._webcamRafId);
 		clearTimeout(this._frameTimeoutId);
 		clearInterval(this._activityPollId);
+		clearInterval(this._watchIntentId);
 		try { this._es?.close(); } catch { /* */ }
 		this._webcamMixer?.stopAllAction?.();
 		this._webcamRenderer?.dispose?.();
