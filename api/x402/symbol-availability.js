@@ -1,10 +1,12 @@
-// GET /api/x402/symbol-availability?ticker=<symbol>&network=<mainnet|devnet>
+// GET  /api/x402/symbol-availability?ticker=<symbol>&network=<mainnet|devnet>
+// POST /api/x402/symbol-availability  { symbols: string[], network?: string }
 //
-// Paid endpoint cataloged by the CDP x402 Bazaar. For $0.001 USDC the server
-// checks whether a pump.fun token ticker collides with any mint deployed
-// through three.ws's agent-payments pipeline. Returns exact matches plus
-// trigram-similar tickers so launch agents can pick a name that won't
-// trip user confusion or get filtered by aggregator search.
+// GET: single-ticker collision check ($0.001 USDC) — original endpoint.
+// POST: batch scan of up to 10 symbols ($0.005 USDC) — returns
+//   { scanned_count, available_count, taken_count, available_list,
+//     taken_list, signal, headline, results[] }.
+//   Used by the autonomous oracle loop (USE-053) to track high-demand
+//   meme symbol availability as a launch-opportunity market signal.
 //
 // Why this is defensible: three.ws indexes every mint deployed through its
 // own launch pipeline (pump_agent_mints). Pre-launch collision checks are
@@ -151,7 +153,9 @@ async function checkSymbol({ ticker, network }) {
 	};
 }
 
-export default paidEndpoint({
+// ── Single-ticker endpoint (GET) ─────────────────────────────────────────────
+
+const singleEndpoint = paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('symbol-availability', '1000'),
@@ -188,3 +192,163 @@ export default paidEndpoint({
 		return checkSymbol({ ticker, network });
 	},
 });
+
+// ── Batch scan (POST) ────────────────────────────────────────────────────────
+// Accepts { symbols: string[], network?: string } and checks all symbols in
+// parallel. Returns counts + available/taken lists plus an oracle-compatible
+// { signal, headline } so the autonomous loop can upsert into
+// oracle_intel_signals (topic: 'symbol_availability').
+
+const BATCH_MAX = 10;
+
+const BATCH_DESCRIPTION =
+	'three.ws Symbol Availability Batch Scan — POST { symbols: string[], network? } ' +
+	'to check up to 10 candidate ticker symbols for exact and fuzzy collisions in a ' +
+	'single call. Returns available_count, taken_count, available_list, taken_list, ' +
+	'and an oracle signal (bullish/bearish/neutral) reflecting remaining launch opportunity.';
+
+const BATCH_INPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['symbols'],
+	properties: {
+		symbols: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: BATCH_MAX },
+		network: { type: 'string', enum: ['mainnet', 'devnet'], default: 'mainnet' },
+	},
+};
+
+const BATCH_OUTPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['scanned_count', 'available_count', 'taken_count', 'available_list', 'taken_list', 'signal', 'headline', 'results'],
+	properties: {
+		scanned_count: { type: 'number' },
+		available_count: { type: 'number' },
+		taken_count: { type: 'number' },
+		available_list: { type: 'array', items: { type: 'string' } },
+		taken_list: { type: 'array', items: { type: 'string' } },
+		signal: { type: 'string', enum: ['bullish', 'neutral', 'bearish'] },
+		headline: { type: 'string' },
+		results: { type: 'array', items: { type: 'object' } },
+	},
+};
+
+const BATCH_BAZAAR = {
+	discoverable: true,
+	info: {
+		input: {
+			type: 'http',
+			method: 'POST',
+			bodyExample: { symbols: ['MOON', 'ROCKET', 'FROG'], network: 'mainnet' },
+		},
+		output: { type: 'json' },
+	},
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodySchema: BATCH_INPUT_SCHEMA,
+		outputSchema: BATCH_OUTPUT_SCHEMA,
+	}),
+};
+
+async function readJsonBody(req) {
+	const chunks = [];
+	for await (const c of req) chunks.push(c);
+	if (!chunks.length) return {};
+	return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+}
+
+function classifyScanSignal({ availableCount, scannedCount }) {
+	const ratio = scannedCount > 0 ? availableCount / scannedCount : 0;
+	if (ratio >= 0.6) return 'bullish';
+	if (ratio >= 0.3) return 'neutral';
+	return 'bearish';
+}
+
+const batchEndpoint = paidEndpoint({
+	route: ROUTE,
+	method: 'POST',
+	priceAtomics: priceFor('symbol-availability-batch', '5000'),
+	networks: ['base', 'solana'],
+	description: BATCH_DESCRIPTION,
+	bazaar: BATCH_BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Symbol Batch Scan',
+		tags: ['ticker', 'pump.fun', 'collision', 'launch', 'solana', 'batch', 'oracle'],
+	}),
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+	async handler({ req }) {
+		let body;
+		try {
+			body = await readJsonBody(req);
+		} catch {
+			const err = new Error('request body must be valid JSON');
+			err.status = 400;
+			err.code = 'invalid_json';
+			throw err;
+		}
+
+		const rawSymbols = Array.isArray(body?.symbols) ? body.symbols : [];
+		if (rawSymbols.length === 0) {
+			const err = new Error('symbols array is required and must not be empty');
+			err.status = 400;
+			err.code = 'missing_symbols';
+			throw err;
+		}
+		if (rawSymbols.length > BATCH_MAX) {
+			const err = new Error(`symbols array may contain at most ${BATCH_MAX} entries`);
+			err.status = 400;
+			err.code = 'too_many_symbols';
+			throw err;
+		}
+
+		const network = String(body?.network || 'mainnet').trim();
+		if (network !== 'mainnet' && network !== 'devnet') {
+			const err = new Error('network must be "mainnet" or "devnet"');
+			err.status = 400;
+			err.code = 'invalid_network';
+			throw err;
+		}
+
+		const symbols = rawSymbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+
+		const results = await Promise.all(symbols.map((ticker) => checkSymbol({ ticker, network })));
+
+		const availableList = results.filter((r) => !r.exact_collision).map((r) => r.ticker);
+		const takenList = results.filter((r) => r.exact_collision).map((r) => r.ticker);
+		const availableCount = availableList.length;
+		const takenCount = takenList.length;
+		const signal = classifyScanSignal({ availableCount, scannedCount: symbols.length });
+
+		const headline =
+			availableCount === symbols.length
+				? `All ${symbols.length} high-demand symbols are available to launch`
+				: availableCount === 0
+					? `All ${symbols.length} scanned symbols are already taken`
+					: `${availableCount}/${symbols.length} symbols available — taken: ${takenList.join(', ')}`;
+
+		return {
+			scanned_count: symbols.length,
+			available_count: availableCount,
+			taken_count: takenCount,
+			available_list: availableList,
+			taken_list: takenList,
+			signal,
+			headline,
+			network,
+			results,
+			scanned_at: new Date().toISOString(),
+		};
+	},
+});
+
+// Route by method: GET → single ticker, POST → batch scan.
+export default function symbolAvailabilityRouter(req, res) {
+	const method = String(req.method || 'GET').toUpperCase();
+	if (method === 'POST') return batchEndpoint(req, res);
+	if (method === 'OPTIONS') {
+		const requested = String(req.headers['access-control-request-method'] || '').toUpperCase();
+		return requested === 'POST' ? batchEndpoint(req, res) : singleEndpoint(req, res);
+	}
+	return singleEndpoint(req, res);
+}

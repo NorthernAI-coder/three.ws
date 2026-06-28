@@ -339,6 +339,132 @@ export async function sweepAgentReputation({
 }
 
 /**
+ * Rank the most recently active agents by Solana behavioral reputation score,
+ * highest first. Returns the top N agents with rank assignments so marketplace
+ * promotion, partnership outreach, and skill-routing pipelines have a single
+ * canonical leaderboard without querying per-agent.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.limit=10]
+ * @param {(id:string)=>Promise<object>} [opts.read]
+ * @param {(limit:number)=>Promise<Array>} [opts.list]
+ */
+export async function leaderboardAgentReputation({
+	limit = 10,
+	read = loadAgentReputation,
+	list = listRecentlyActiveAgents,
+} = {}) {
+	const n = Math.min(50, Math.max(1, Math.floor(Number(limit) || 10)));
+	const active = await list(n);
+
+	const scored = await Promise.all(
+		active.map(async (row) => {
+			const rep = await read(row.id);
+			const s = scoreAgentReputation(rep);
+			return {
+				agent_id: rep.agent_id || row.id,
+				name: rep.name ?? row.name ?? null,
+				wallet_address: rep.wallet_address || row.wallet_address || null,
+				deployed_mints: rep.deployed_mints || 0,
+				score: s.score,
+				flagged: s.flagged,
+				reasons: s.reasons,
+				breakdown: s.breakdown,
+				last_active_at: row.last_active_at || null,
+			};
+		}),
+	);
+
+	scored.sort((a, b) => b.score - a.score);
+	const ranked = scored.map((agent, i) => ({ ...agent, rank: i + 1 }));
+
+	const count = ranked.length;
+	const avgScore = count
+		? Math.round(ranked.reduce((sum, a) => sum + a.score, 0) / count)
+		: 0;
+
+	return {
+		mode: 'leaderboard',
+		count,
+		avg_score: avgScore,
+		agents: ranked,
+		generated_at: new Date().toISOString(),
+	};
+}
+
+/**
+ * Report agents whose behavioral reputation score has declined by more than 10
+ * points since the last stored snapshot. Detects coordinated abuse, score
+ * manipulation, or legitimately degrading on-chain track records.
+ *
+ * Compares current live scores against the most recent row in
+ * agent_reputation_leaderboard_snapshots. When no prior snapshot exists (first
+ * run), returns an empty report — there is no baseline to compare against.
+ *
+ * @param {object} [opts]
+ * @param {(id:string)=>Promise<object>} [opts.read]
+ * @param {(limit:number)=>Promise<Array>} [opts.list]
+ */
+export async function decayReportAgentReputation({
+	read = loadAgentReputation,
+	list = listRecentlyActiveAgents,
+} = {}) {
+	const active = await list(50);
+
+	// Load prior snapshot from agent_reputation_leaderboard_snapshots (if any).
+	let priorByAgent = {};
+	let hasBaseline = false;
+	try {
+		const [snapshot] = await sql`
+			SELECT leaderboard FROM agent_reputation_leaderboard_snapshots
+			ORDER BY ts DESC LIMIT 1
+		`;
+		if (snapshot?.leaderboard) {
+			const rows = Array.isArray(snapshot.leaderboard) ? snapshot.leaderboard : [];
+			for (const r of rows) {
+				if (r?.agent_id) priorByAgent[r.agent_id] = r.score ?? 0;
+			}
+			hasBaseline = rows.length > 0;
+		}
+	} catch { /* table may not exist yet — no prior baseline */ }
+
+	const scored = await Promise.all(
+		active.map(async (row) => {
+			const rep = await read(row.id);
+			const s = scoreAgentReputation(rep);
+			const prior = priorByAgent[rep.agent_id || row.id] ?? null;
+			const decay = prior !== null ? prior - s.score : null;
+			return {
+				agent_id: rep.agent_id || row.id,
+				name: rep.name ?? row.name ?? null,
+				score: s.score,
+				prior_score: prior,
+				decay,
+			};
+		}),
+	);
+
+	const decayed = scored.filter((a) => a.decay !== null && a.decay > 10);
+	decayed.sort((a, b) => b.decay - a.decay);
+	const top = decayed[0] || null;
+
+	return {
+		mode: 'decay_report',
+		has_baseline: hasBaseline,
+		decayed_count: decayed.length,
+		fastest_decline_agent: top
+			? { agent_id: top.agent_id, name: top.name, decay: top.decay }
+			: null,
+		avg_decay:
+			decayed.length
+				? Math.round(decayed.reduce((s, a) => s + a.decay, 0) / decayed.length)
+				: 0,
+		agents: decayed,
+		report_at: new Date().toISOString(),
+	};
+}
+
+/**
  * Door tier from Solana behavioral reputation. Mirrors club/cover-pass.tierFor
  * but reads the whole platform's record instead of club_tips alone. Never
  * returns 'banned' — exclusion is decided by vetSolanaAgent (club_bans).

@@ -655,6 +655,46 @@ const SELF_ENDPOINTS = [
 		extractSignal: (r) => classifyVolumeAnomaly(r),
 	},
 
+	// ── Pump.fun Whale Wallet Activity Oracle (USE-049) ───────────────────────
+	// Pays $0.02 USDC every 15 min to POST /api/x402/pump-agent-audit with
+	// body { mode:'whale_activity', limit:5 }. The endpoint fetches recent trades
+	// across the top 5 pump.fun coins by market cap and identifies wallets that
+	// bought ≥5 SOL in the current sweep window — the large buyers whose entries
+	// signal genuine conviction (vs bot dust). extractSignal lifts
+	// { wallets, total_sol_moved, whale_count } plus the bullish/bearish/neutral
+	// verdict into x402_autonomous_log.signal_data; as an `oracle` entry the loop
+	// upserts into oracle_intel_signals (topic 'whale_activity') so the sniper
+	// gate can: (a) avoid front-running when whale_count > 3 on a target coin,
+	// (b) boost conviction score when total_sol_moved is high on a fresh launch.
+	// Cooldown 900s (15 min) — whale positions evolve over minutes, not seconds.
+	// Spend: $0.02/call × 4/hr ≈ $0.08/hr, well under the loop's daily cap.
+	{
+		id: 'pump-whale-activity',
+		name: 'Pump.fun Whale Wallet Activity Oracle',
+		path: '/api/x402/pump-agent-audit',
+		method: 'POST',
+		body: { mode: 'whale_activity', limit: 5 },
+		cooldown_s: 900,
+		priority: 87,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'whale_activity',
+			signal: r?.signal ?? null,
+			headline: r?.headline ?? null,
+			confidence: r?.confidence ?? null,
+			whale_count: r?.whale_count ?? 0,
+			total_sol_moved: r?.total_sol_moved ?? 0,
+			wallets: Array.isArray(r?.wallets)
+				? r.wallets.slice(0, 5).map((w) => ({
+					wallet: w.wallet,
+					total_sol: w.total_sol,
+					buy_count: w.buy_count,
+				}))
+				: [],
+		}),
+	},
+
 	{
 		// ── $THREE Signal Feed (USE: $THREE market oracle) ─────────────
 		// Pays $0.01 USDC every 15 min to /api/x402/three-intel for the live $THREE
@@ -738,6 +778,42 @@ const SELF_ENDPOINTS = [
 	},
 
 
+	// ── Symbol Availability Common Scan (USE-053) ────────────────────────────
+	// Pays $0.005 USDC every 30 min to POST /api/x402/symbol-availability with
+	// the 5 highest-demand meme token symbols: MOON, ROCKET, FROG, CAT, DOG.
+	// The batch endpoint checks each against pump_agent_mints for exact collisions
+	// and returns { available_count, taken_count, available_list, signal, headline }.
+	// As an `oracle` entry the signal (bullish/neutral/bearish) + headline dedup
+	// into oracle_intel_signals (topic 'symbol_availability') — actionable for the
+	// sniper gate: many available high-demand names = underexploited launch window;
+	// all taken = market saturated, raise launch-entry threshold. Cooldown 1800s
+	// (30 min) — symbol availability changes slowly as new mints land; 48
+	// calls/day × $0.005 = $0.24/day, well under the loop's $5/day cap.
+	// Downstream: oracle_intel_signals WHERE topic = 'symbol_availability' + the
+	// full batch breakdown in x402_autonomous_log.signal_data.
+	{
+		id: 'symbol-scan-common',
+		name: 'Symbol Availability: Common Meme Scan',
+		path: '/api/x402/symbol-availability',
+		method: 'POST',
+		body: { symbols: ['MOON', 'ROCKET', 'FROG', 'CAT', 'DOG'] },
+		cooldown_s: 1800,
+		priority: 86,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'symbol_availability',
+			signal: r?.signal ?? null,
+			headline: r?.headline ?? null,
+			confidence: r?.signal === 'bullish' ? 0.85 : r?.signal === 'neutral' ? 0.65 : 0.80,
+			available_count: r?.available_count ?? null,
+			taken_count: r?.taken_count ?? null,
+			scanned_count: r?.scanned_count ?? null,
+			available_list: Array.isArray(r?.available_list) ? r.available_list : [],
+			taken_list: Array.isArray(r?.taken_list) ? r.taken_list : [],
+		}),
+	},
+
 	// ── Bazaar New-Listing Feed (USE-059) ──────────────────────────────────────
 	// Pays $0.001 USDC to /api/x402/bazaar-feed every 30 min (filter "new", limit 10)
 	// to retrieve the 10 newest service listings from the platform's own
@@ -774,6 +850,93 @@ const SELF_ENDPOINTS = [
 				newest_price: newest ? newest.price_atomic : null,
 				categories: categories.slice(0, 5).map((c) => c.tag),
 			};
+		},
+	},
+
+	// ── Skill Marketplace Price Distribution (USE-056) ───────────────────────────
+	// Pays $0.001 USDC every 5 min to POST /api/x402/skill-marketplace with body
+	// { mode: "price_distribution" }. Computes marketplace-wide pricing statistics
+	// from all active agent_skill_prices listings: min, max, and median active
+	// listing price (USDC float + atomics) plus total listing count and distinct
+	// skill count. As an `oracle` entry the latest snapshot dedups into
+	// oracle_intel_signals (topic 'skill_marketplace_prices') so the sniper gate
+	// and ops can query a single row for current marketplace health.
+	// storeValue runs a week-over-week price floor erosion check: it queries the
+	// most recent x402_autonomous_log oracle snapshot from ≥6 days ago and, if the
+	// median has dropped >20%, raises a Redis alert (x402:skill-market:price-floor-
+	// alert, 24h TTL) so ops can investigate a race to zero before it collapses
+	// the marketplace. Cooldown 300s → 288 reads/day × $0.001 = $0.288/day.
+	{
+		id: 'skill-marketplace-price-distribution',
+		name: 'Skill Marketplace Price Distribution',
+		path: '/api/x402/skill-marketplace',
+		method: 'POST',
+		body: { mode: 'price_distribution' },
+		cooldown_s: 300,
+		priority: 85,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const skillCount = r?.skill_count ?? 0;
+			const medianPrice = typeof r?.median_price === 'number' ? r.median_price : null;
+			const signal = skillCount >= 10 ? 'healthy' : skillCount > 0 ? 'thin' : 'empty';
+			const medianDisplay = medianPrice != null ? `$${medianPrice.toFixed(4)}` : '?';
+			const headline = skillCount > 0
+				? `Skill market: ${skillCount} active listings, median ${medianDisplay} USDC`
+				: 'No active skill listings in marketplace';
+			return {
+				topic: 'skill_marketplace_prices',
+				signal,
+				headline,
+				confidence: 1.0,
+				min_price: r?.min_price ?? null,
+				max_price: r?.max_price ?? null,
+				median_price: medianPrice,
+				skill_count: skillCount,
+				distinct_skills: r?.distinct_skills ?? null,
+			};
+		},
+		storeValue: async ({ sql: sqlClient, redis, signalData }) => {
+			if (!sqlClient || typeof signalData?.median_price !== 'number') return;
+			const currentMedian = signalData.median_price;
+			if (currentMedian <= 0) return;
+			try {
+				const [prev] = await sqlClient`
+					SELECT (signal_data->>'median_price')::numeric AS prev_median
+					  FROM x402_autonomous_log
+					 WHERE endpoint_url LIKE '%/api/x402/skill-marketplace'
+					   AND pipeline = 'oracle'
+					   AND ts < now() - interval '6 days'
+					 ORDER BY ts DESC
+					 LIMIT 1
+				`;
+				if (!prev?.prev_median) return;
+				const prevMedian = Number(prev.prev_median);
+				if (!prevMedian || prevMedian <= 0) return;
+				const changePct = (currentMedian - prevMedian) / prevMedian;
+				const ALERT_KEY = 'x402:skill-market:price-floor-alert';
+				if (changePct < -0.20 && redis) {
+					await redis.set(
+						ALERT_KEY,
+						JSON.stringify({
+							current_median: currentMedian,
+							prev_median: prevMedian,
+							change_pct: changePct,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: 86400 },
+					);
+					console.warn(
+						`[x402/skill-market] ALERT: price floor erosion detected ` +
+						`(median $${currentMedian.toFixed(4)} vs $${prevMedian.toFixed(4)} ` +
+						`week-ago, ${(changePct * 100).toFixed(1)}% change)`,
+					);
+				} else if (redis) {
+					await redis.del(ALERT_KEY).catch(() => {});
+				}
+			} catch (err) {
+				console.warn(`[x402/skill-market] floor-erosion check failed: ${err?.message || err}`);
+			}
 		},
 	},
 
@@ -901,6 +1064,30 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ alive: Array.isArray(r?.skills), count: r?.skills?.length }),
 	},
+	// ── Skill Marketplace: Canary Execute (USE-058) ───────────────────────────
+	// Pays $0.001 USDC every 5 minutes to POST /api/x402/skill-marketplace with
+	// mode:"canary_execute" / skill_id:"echo_test". The endpoint exercises the
+	// skill execution path in-process (no external I/O) and returns within the
+	// 2-second SLA. If executed===false or latency_ms > 2000, the slow flag
+	// fires and ops can investigate skill execution performance before users do.
+	{
+		id: 'skill-marketplace-canary-execute',
+		name: 'Skill Marketplace: Canary Execute (echo_test)',
+		path: '/api/x402/skill-marketplace',
+		method: 'POST',
+		body: { mode: 'canary_execute', skill_id: 'echo_test' },
+		cooldown_s: 300,
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			executed: r?.executed === true,
+			skill_id: r?.skill_id ?? 'echo_test',
+			latency_ms: r?.latency_ms ?? null,
+			output: r?.output ?? null,
+			slow: typeof r?.latency_ms === 'number' && r.latency_ms > 2000,
+		}),
+	},
 	// ── Pay-By-Name Resolution Health (USE-054) ───────────────────────────────
 	// Canary in front of the name → on-chain address resolver that every "send
 	// USDC to a name" flow depends on (SDK payByName(), /pay studio, profile pay
@@ -929,6 +1116,39 @@ const SELF_ENDPOINTS = [
 		run: (ctx) => runPayByNameResolution(ctx),
 		extractSignal: null,
 	},
+
+	// ── Pay-By-Name x402 Registry Canary (USE-054) ────────────────────────────
+	// Pays $0.001 USDC every 10 min to POST /api/x402/pay-by-name with
+	// { name: 'three.ws' } — a real x402 call through the paid name-resolution
+	// mode. The endpoint resolves 'three.ws' through the username registry, SNS
+	// domain chain, and raw-address pass-through in order, then returns
+	// { data: { name, address, verified, source } }. verified=true confirms the
+	// resolved address is a valid on-curve Solana wallet. This is the PAID
+	// complement to the free GET health check above: the free check verifies the
+	// resolver returns a result; this paid call validates the entire
+	// 402→verify→settle→resolve pipeline is live end-to-end with a real on-chain
+	// USDC payment. extractSignal lifts { name, address, verified, source } into
+	// x402_autonomous_log.signal_data — the actionable signal that confirms the
+	// registry is both alive and resolving to the correct wallet. Cooldown 600s
+	// → 144 calls/day ≈ $0.144/day, bounded by the loop's daily cap.
+	{
+		id: 'pay-by-name-resolve-three-ws',
+		name: 'Pay-By-Name: Resolve three.ws (paid canary)',
+		path: '/api/x402/pay-by-name',
+		method: 'POST',
+		body: { name: 'three.ws' },
+		cooldown_s: 600, // every 10 min — health check cadence
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			name: r?.data?.name ?? null,
+			address: r?.data?.address ?? null,
+			verified: r?.data?.verified ?? false,
+			source: r?.data?.source ?? null,
+		}),
+	},
+
 	{
 		id: 'health-agent-reputation',
 		name: 'Health: agent-reputation',
@@ -974,6 +1194,63 @@ const SELF_ENDPOINTS = [
 		}),
 	},
 
+	// ── Reputation Score Decay Monitor (USE-070) ──────────────────────────────
+	// Pays $0.01 USDC every 30 min to POST /api/x402/agent-reputation with
+	// { mode: 'decay_report' }. The endpoint snapshots current trust scores
+	// (from agent_reputation_scores) into agent_reputation_score_history, then
+	// finds agents whose score dropped >10 points vs their baseline >= 5 days ago.
+	// A spike in decayed_count or a sharp fastest_decline_agent.decay indicates
+	// coordinated abuse, score manipulation, or a systemic failure in the
+	// distribution/buyback pipeline. As an 'oracle' entry the signal upserts into
+	// oracle_intel_signals (topic 'reputation_decay_monitor') so any downstream
+	// trust consumer can read the latest decay verdict without re-querying.
+	// extractSignal lifts { decayed_count, fastest_decline_agent, avg_decay } into
+	// x402_autonomous_log.signal_data. Meaningful comparisons emerge after 5 days
+	// of history; until then has_baseline=false is recorded. Cooldown 1800s -> 48
+	// snapshots/day ~= $0.48/day, well within the loop's daily cap.
+	{
+		id: 'reputation-decay-monitor',
+		name: 'Reputation Score Decay Monitor',
+		path: '/api/x402/agent-reputation',
+		method: 'POST',
+		body: { mode: 'decay_report' },
+		cooldown_s: 1800,
+		priority: 85,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const decayedCount = r?.decayed_count ?? 0;
+			const avgDecay = r?.avg_decay ?? 0;
+			const top = r?.fastest_decline_agent ?? null;
+			const hasBaseline = r?.has_baseline ?? false;
+			const signal = !hasBaseline
+				? 'neutral'
+				: decayedCount > 5
+					? 'alert'
+					: decayedCount > 0
+						? 'warning'
+						: 'normal';
+			const headline = !hasBaseline
+				? 'Reputation decay monitor: building 5-day baseline'
+				: decayedCount > 0
+					? decayedCount + ' agent(s) with >10pt score decay; avg drop ' + avgDecay + 'pts' +
+					  (top ? '; worst: ' + (top.name || top.agent_id) + ' (-' + top.decay + 'pts)' : '')
+					: 'No significant reputation decay detected';
+			return {
+				topic: 'reputation_decay_monitor',
+				signal,
+				headline,
+				confidence: hasBaseline ? 0.9 : 0.3,
+				decayed_count: decayedCount,
+				avg_decay: avgDecay,
+				fastest_decline_agent: top
+					? { agent_id: top.agent_id, name: top.name || null, decay: top.decay }
+					: null,
+				has_baseline: hasBaseline,
+			};
+		},
+	},
+
 	{
 		id: 'health-symbol-avail',
 		name: 'Health: symbol-availability',
@@ -997,6 +1274,36 @@ const SELF_ENDPOINTS = [
 		pipeline: 'health',
 		enabled: true,
 		extractSignal: (r) => ({ alive: !!r?.verdict, verdict: r?.verdict }),
+	},
+
+	// ── Spend Session Canary (USE-065) ──────────────────────────────────────────
+	// The most important health check for the x402 governance layer. Pays $0.01
+	// USDC to /api/x402/spend-session (mode:canary) every 5 min. The x402 payment
+	// proves the settlement path is alive; the handler writes a canary row to
+	// spend_session_health_log and immediately marks it consumed — exercising the
+	// full DB create→consume lifecycle. extractSignal lifts { created, consumed,
+	// latency_ms } into x402_autonomous_log.signal_data. A created:false means the
+	// DB write path is down; a consumed:false means the update path is down. Either
+	// is a governance-layer alert. Cooldown 300s → 12 probes/hr × $0.01 = $0.12/hr
+	// at full pace; in practice the loop budget keeps spend well under the cap.
+	// Health pipeline — not oracle (no sniper signal; this is platform infra health).
+	{
+		id: 'spend-session-canary',
+		name: 'Spend Session Canary',
+		path: '/api/x402/spend-session',
+		method: 'POST',
+		body: { mode: 'canary', budget: 0.01 },
+		cooldown_s: 300,
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			created: r?.created ?? null,
+			consumed: r?.consumed ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			session_id: r?.session_id ?? null,
+			budget: r?.budget ?? null,
+		}),
 	},
 	// MCP Model Validation Sweep — picks the longest-unvalidated public GLB from
 	// the avatars table, runs glTF-Transform inspection, and upserts a quality
@@ -1206,11 +1513,12 @@ const SELF_ENDPOINTS = [
 	// Pump Launch Monitor: Recent Launches (USE-046) ─────────────────────────
 	// Pays $0.02 USDC to GET /api/x402/pump-agent-audit?limit=10&sort=newest for
 	// the 10 freshest pump.fun bonding-curve tokens. extractSignal distills the
-	// live cohort into { count, newest_mint, newest_name, newest_symbol,
-	// avg_initial_liquidity, max_initial_liquidity, agent_token_count }. As a
-	// `sniper` pipeline entry the signal lands in oracle_intel_signals (topic
-	// 'pump-launch-monitor') so the oracle gate can compare any candidate mint's
-	// initial liquidity against the running cohort baseline. storeValue appends
+	// live cohort into { topic, signal, headline, confidence, count, newest_mint,
+	// newest_name, newest_symbol, avg_initial_liquidity, max_initial_liquidity,
+	// agent_token_count }. As an `oracle` pipeline entry the loop upserts the
+	// verdict into oracle_intel_signals (topic 'pump_launch_monitor') so the
+	// sniper gate and any downstream consumer can compare any candidate mint's
+	// initial liquidity against the rolling cohort baseline. storeValue appends
 	// the full cohort to pump_launch_snapshots for the sniper-screening surface.
 	// Cooldown 300 s (5 min) — fast enough to catch the earliest sniping window
 	// on new launches. At $0.02/call → $5.76/day at continuous pace, well below
@@ -1224,7 +1532,7 @@ const SELF_ENDPOINTS = [
 		body: null,
 		cooldown_s: 300,
 		priority: 88,
-		pipeline: 'sniper',
+		pipeline: 'oracle',
 		enabled: true,
 		extractSignal: (r) => classifyLaunchMonitor(r),
 		storeValue: (ctx) => storePumpLaunchSnapshot(ctx),
@@ -1397,6 +1705,166 @@ const SELF_ENDPOINTS = [
 		},
 	},
 
+
+	// ── Cross-Chain Bridge Status Monitor (USE-078) ────────────────────────────
+	// Pays $0.005 USDC every 5 min to POST /api/x402/cross-chain {mode:"bridge_status"},
+	// which probes Wormhole, Li.Fi, and deBridge health endpoints in parallel and
+	// returns { bridges: [{chain, status, latency_ms}], down_count, signal }. A
+	// bridge with status=down is a platform risk — cross-chain settlement on that
+	// provider may silently fail. As an `oracle` entry the loop upserts the verdict
+	// into oracle_intel_signals (topic 'bridge_status') so the sniper gate can factor
+	// cross-chain ecosystem health into conviction: all-down is bearish (settlement
+	// risk blocks exits), all-up is bullish (liquidity paths open). storeValue raises
+	// a Redis alert (x402:bridge-status:alert) when any bridge is down so ops can
+	// investigate before a user's cross-chain transfer fails. Cooldown 300s → 12
+	// probes/hr ≈ $0.06/hr, well under the loop's daily cap.
+	{
+		id: 'cross-chain-bridge-status',
+		name: 'Cross-Chain Bridge Status Monitor',
+		path: '/api/x402/cross-chain',
+		method: 'POST',
+		body: { mode: 'bridge_status' },
+		cooldown_s: 300,
+		priority: 58,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic:      'bridge_status',
+			signal:     r?.signal ?? null,
+			headline:   r?.headline ?? null,
+			confidence: r?.confidence ?? null,
+			down_count: r?.down_count ?? 0,
+			bridges:    Array.isArray(r?.bridges)
+				? r.bridges.map(({ chain, status, latency_ms }) => ({ chain, status, latency_ms }))
+				: [],
+		}),
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const BRIDGE_ALERT_KEY = 'x402:bridge-status:alert';
+			const BRIDGE_ALERT_TTL_SECONDS = 10 * 60;
+			const hasDown = typeof v.down_count === 'number' && v.down_count > 0;
+			try {
+				if (hasDown) {
+					const downBridges = Array.isArray(v.bridges)
+						? v.bridges.filter((b) => b.status === 'down').map((b) => b.chain)
+						: [];
+					await redis.set(
+						BRIDGE_ALERT_KEY,
+						JSON.stringify({
+							down_count:   v.down_count,
+							down_bridges: downBridges,
+							headline:     v.headline ?? null,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: BRIDGE_ALERT_TTL_SECONDS },
+					);
+					console.warn(
+						\`[x402/bridge-status] ALERT: \${v.down_count} bridge(s) down — \${downBridges.join(', ')}\`,
+					);
+				} else if (typeof v.down_count === 'number') {
+					await redis.del(BRIDGE_ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(\`[x402/bridge-status] alert write failed: \${err?.message || err}\`);
+			}
+		},
+	},
+	// ── Wallet Connect Session Health (USE-063) ───────────────────────────────
+	// Pays $0.001 USDC every 5 min to POST /api/x402/wallet-connect with
+	// { mode: "health" }, which probes the SIWS (Sign-In With Solana) session
+	// initiation path end-to-end: fires a real GET to /api/auth/siws/nonce,
+	// validates the returned 22-char alphanumeric nonce, and measures the
+	// roundtrip latency. session_created:true means wallet connect handshakes
+	// CAN be initiated right now (auth gateway + DB nonce write + CSRF layer all
+	// alive). A false verdict or a latency > 1s (slow:true) surfaces as an ops
+	// alert via Redis x402:wallet-connect:alert (TTL 25 min), mirroring the
+	// forge-health and DID-sweep alert convention. Cooldown 300s → 288 probes/day
+	// ≈ $0.288/day, well under the loop's daily cap. Health pipeline — not oracle.
+	{
+		id: 'wallet-connect-health',
+		name: 'Wallet Connect Session Health',
+		path: '/api/x402/wallet-connect',
+		method: 'POST',
+		body: { mode: 'health' },
+		cooldown_s: 300,
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			session_created: r?.session_created ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			slow: r?.slow ?? null,
+			nonce_valid: r?.nonce_valid ?? null,
+			domain: r?.domain ?? null,
+			reason: r?.reason ?? null,
+		}),
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const ALERT_KEY = 'x402:wallet-connect:alert';
+			const ALERT_TTL_SECONDS = 25 * 60;
+			const degraded = v.session_created === false || v.slow === true;
+			try {
+				if (degraded) {
+					await redis.set(
+						ALERT_KEY,
+						JSON.stringify({
+							reason: v.session_created === false
+								? (v.reason || 'session_creation_failed')
+								: 'latency_budget_exceeded',
+							session_created: v.session_created === true,
+							latency_ms: v.latency_ms ?? null,
+							domain: v.domain ?? null,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: ALERT_TTL_SECONDS },
+					);
+					console.warn(
+						`[x402/wallet-connect-health] ALERT: ` +
+						`session_created=${v.session_created}, latency_ms=${v.latency_ms}, reason=${v.reason}`,
+					);
+				} else if (v.session_created === true) {
+					await redis.del(ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(`[x402/wallet-connect-health] alert write failed: ${err?.message || err}`);
+			}
+		},
+	},
+
+
+	// ── RSS Feed: Changelog XML Validity (USE-081) ───────────────────────────────
+	// Pays $0.001 USDC every 5 minutes to POST /api/x402/feed-health with body
+	// { feed: "changelog_rss" } to validate the public changelog RSS feed at
+	// three.ws/changelog.xml end-to-end. The endpoint fetches the live XML, parses
+	// it with fast-xml-parser, counts <item> elements, and cross-checks the latest
+	// item title against public/changelog.json (the canonical build output). A
+	// broken XML document, an unreachable URL, or a title divergence (feed went
+	// stale after a deploy that skipped the build step) each flip valid:false.
+	// extractSignal lifts { valid, item_count, latest_title } into
+	// x402_autonomous_log.signal_data so the status surface can read feed health
+	// off the autonomous log without a separate query. Health pipeline. Cooldown
+	// 300s → 288 probes/day ≈ $0.288/day, well under the loop's $5/day cap.
+	{
+		id: 'changelog-rss-health',
+		name: 'RSS Feed: Changelog XML Validity',
+		path: '/api/x402/feed-health',
+		method: 'POST',
+		body: { feed: 'changelog_rss' },
+		cooldown_s: 300,
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			valid: r?.valid ?? false,
+			item_count: r?.item_count ?? null,
+			latest_title: r?.latest_title ?? null,
+			title_match: r?.title_match ?? false,
+			fetch_ms: r?.fetch_ms ?? null,
+		}),
+	},
+
 	// ── Changelog JSON Schema Conformance Check (USE-082) ─────────────────────
 	// Pays $0.001 USDC every 30 min to POST /api/x402/schema-check with
 	// { api: "changelog_json" }, which fetches the public /changelog.json feed and
@@ -1425,6 +1893,40 @@ const SELF_ENDPOINTS = [
 			version: r?.version ?? null,
 			entry_count: r?.entry_count ?? 0,
 			schema_errors: Array.isArray(r?.schema_errors) ? r.schema_errors : [],
+		}),
+	},
+
+	// ── Changelog Telegram Bot Health (USE-080) ───────────────────────────────
+	// Pays $0.001 USDC every 5 min to POST /api/x402/telegram-health with
+	// { bot: "changelog" }. The endpoint calls Telegram's getMe API with the
+	// configured TELEGRAM_BOT_TOKEN, measuring reachability and latency in one
+	// round-trip. When unreachable ($THREE holders would silently miss new
+	// changelog entries), the endpoint writes a Redis alert key
+	// `x402:telegram-health:alert` (TTL 25 min) so the ops dashboard and the
+	// changelog-push script can detect a degraded channel without a DB query.
+	// extractSignal lifts { reachable, bot_id, latency_ms } into
+	// x402_autonomous_log.signal_data — the actionable signal proves the
+	// changelog delivery channel is alive on every tick. Health pipeline
+	// (not oracle — delivery-channel health is platform telemetry, not a
+	// trading signal). Cooldown 300s → 288 probes/day ≈ $0.288/day, well
+	// within the loop's $5/day cap. A sustained outage flips reachable=false
+	// across multiple signal_data rows, which ops alerting reads directly.
+	{
+		id: 'telegram-changelog-health',
+		name: 'Changelog Telegram Bot Health',
+		path: '/api/x402/telegram-health',
+		method: 'POST',
+		body: { bot: 'changelog' },
+		cooldown_s: 300, // 5 min — delivery-channel health changes fast on degradation
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			reachable: r?.reachable ?? false,
+			bot_id: r?.bot_id ?? null,
+			bot_username: r?.bot_username ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			reason: r?.reason ?? null,
 		}),
 	},
 
@@ -2557,6 +3059,158 @@ const SELF_ENDPOINTS = [
 				? r.underused_endpoints.map((e) => e?.route).filter(Boolean)
 				: [],
 		}),
+	},
+
+	// ── Skill Marketplace: Most-Used Skills (USE-057) ─────────────────────────
+	// Pays $0.001 USDC every 30 min to POST /api/x402/skill-marketplace with
+	// { mode: "popular", limit: 5 }, which queries the real agent_hires ledger
+	// (completed hires, last 7 days) grouped by skill_name and returns the 5
+	// most-purchased capabilities on the platform. extractSignal lifts the
+	// actionable signal — { top_skill_id, top_skill_name, top_skill_purchases }
+	// plus the full ranked list — into x402_autonomous_log.signal_data so the
+	// featured-listings curator can promote high-demand skills without a separate
+	// query. A change in top_skill_id between runs signals an emerging workflow
+	// trend worth surfacing in the marketplace. Volume pipeline (not oracle —
+	// skill popularity is a lagging demand metric, not a real-time price feed).
+	// Cooldown 1800s → 48 reads/day ≈ $0.048/day, inside the $5/day cap.
+	{
+		id: 'skill-marketplace-popular',
+		name: 'Skill Marketplace: Most-Used Skills',
+		path: '/api/x402/skill-marketplace',
+		method: 'POST',
+		body: { mode: 'popular', limit: 5 },
+		cooldown_s: 1800, // 30 min — hire-ledger demand signal changes slowly
+		priority: 67,     // volume pipeline (65–75)
+		pipeline: 'volume',
+		enabled: true,
+		extractSignal: (r) => {
+			const skills = Array.isArray(r?.skills) ? r.skills : [];
+			const top = skills[0] || null;
+			return {
+				top_skill_id: top?.id ?? null,
+				top_skill_name: top?.name ?? null,
+				top_skill_purchases: top?.purchases ?? null,
+				skill_count: skills.length,
+				period: r?.period ?? '7d',
+				skills: skills.map((s) => ({
+					id: s.id,
+					name: s.name,
+					purchases: s.purchases,
+				})),
+			};
+		},
+	},
+
+	// ── Rate-Limit Capacity Probe (USE-074) ────────────────────────────────────
+	// Pays $0.001 USDC every 5 min to POST /api/x402/rate-limit-probe with
+	// body { endpoint: '/api/x402/crypto-intel' }. The probe reads the autonomous
+	// loop's own Redis telemetry — daily spend vs cap, plus per-entry cooldown
+	// TTLs for all registry entries that call crypto-intel — and returns:
+	//   { remaining_calls, reset_at, limit, daily_cap_atomic, daily_spent_atomic,
+	//     remaining_capacity_atomic, price_atomic, cooldown_active, cooldown_ttl_seconds }
+	// extractSignal lifts the actionable fields into x402_autonomous_log.signal_data
+	// so the loop can dynamically throttle: when remaining_calls falls below a
+	// threshold, lower-priority entries yield their slot so oracle calls keep going.
+	// 'health' pipeline — platform telemetry, not a market signal, so not upserting
+	// to oracle_intel_signals. Cooldown 300s → 12 reads/hour → $0.288/day.
+	{
+		id: 'rate-limit-probe-crypto-intel',
+		name: 'Rate-Limit Capacity Probe: crypto-intel',
+		path: '/api/x402/rate-limit-probe',
+		method: 'POST',
+		body: { endpoint: '/api/x402/crypto-intel' },
+		cooldown_s: 300,
+		priority: 60,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			remaining_calls:           r?.remaining_calls           ?? null,
+			reset_at:                  r?.reset_at                  ?? null,
+			limit:                     r?.limit                     ?? null,
+			daily_spent_atomic:        r?.daily_spent_atomic        ?? null,
+			remaining_capacity_atomic: r?.remaining_capacity_atomic ?? null,
+			price_atomic:              r?.price_atomic              ?? null,
+			cooldown_active:           r?.cooldown_active           ?? null,
+			cooldown_ttl_seconds:      r?.cooldown_ttl_seconds      ?? null,
+		}),
+	},
+
+	// ── API Key Validity Health Check (USE-075) ───────────────────────────────
+	// Pays $0.001 USDC every hour to POST /api/x402/api-key-health with
+	// { scope: "autonomous_loop" }. Confirms the platform has a valid, non-expired
+	// access key (subscription or INTERNAL_API_KEY) covering the autonomous loop
+	// scope. extractSignal lifts { valid, scopes, expires_at, hours_until_expiry,
+	// expiry_warning } into x402_autonomous_log.signal_data. storeValue raises a
+	// Redis alert (x402:api-key-health:expiry-alert, TTL 1h) when hours_until_expiry
+	// < 24 — giving the ops surface a 24-hour window to renew before the loop's
+	// bypass lane lapses and every endpoint in the tick starts getting 402'd.
+	// Hourly cadence → 24 calls/day × $0.001 = $0.024/day, negligible against the
+	// $5 cap. Health pipeline. Priority 55 (mid-range health tier).
+	{
+		id: 'api-key-validity-check',
+		name: 'API Key Validity Health Check',
+		path: '/api/x402/api-key-health',
+		method: 'POST',
+		body: { scope: 'autonomous_loop' },
+		cooldown_s: 3600, // hourly — key expiry is slow-changing; 24h warning window is ample
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => {
+			const expiresAt = r?.expires_at ? new Date(r.expires_at).getTime() : null;
+			const hoursUntilExpiry =
+				expiresAt != null ? Math.round((expiresAt - Date.now()) / 3_600_000) : null;
+			return {
+				valid: r?.valid === true,
+				scopes: Array.isArray(r?.scopes) ? r.scopes : [],
+				expires_at: r?.expires_at || null,
+				key_type: r?.key_type || null,
+				source: r?.source || null,
+				hours_until_expiry: hoursUntilExpiry,
+				expiry_warning: hoursUntilExpiry !== null && hoursUntilExpiry < 24,
+			};
+		},
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis || !signalData) return;
+			const ALERT_KEY = 'x402:api-key-health:expiry-alert';
+			const ALERT_TTL = 3600; // 1h — re-alerts each hourly tick while warning persists
+			try {
+				if (!signalData.valid) {
+					await redis.set(
+						ALERT_KEY,
+						JSON.stringify({
+							valid: false,
+							scopes: signalData.scopes,
+							expires_at: signalData.expires_at,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: ALERT_TTL },
+					);
+					console.warn('[x402/api-key-health] ALERT: no valid key found for scope autonomous_loop');
+				} else if (signalData.expiry_warning) {
+					await redis.set(
+						ALERT_KEY,
+						JSON.stringify({
+							valid: true,
+							hours_until_expiry: signalData.hours_until_expiry,
+							expires_at: signalData.expires_at,
+							key_type: signalData.key_type,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: ALERT_TTL },
+					);
+					console.warn(
+						`[x402/api-key-health] ALERT: autonomous_loop key expires in ` +
+						`${signalData.hours_until_expiry}h (expires_at: ${signalData.expires_at})`,
+					);
+				} else {
+					// Healthy — clear any lingering alert flag.
+					await redis.del(ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(`[x402/api-key-health] alert write failed: ${err?.message || err}`);
+			}
+		},
 	},
 
 ];

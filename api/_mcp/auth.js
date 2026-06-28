@@ -155,7 +155,7 @@ export async function authenticateRequest(
 				x402Ctx,
 			};
 		} catch (err) {
-			sendX402Error(res, { resourceUrl, accepts: requirements }, err);
+			await sendX402Error(res, { resourceUrl, accepts: requirements }, err);
 			return null;
 		}
 	}

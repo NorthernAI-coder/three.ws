@@ -540,7 +540,7 @@ export function paidEndpoint(spec) {
 					});
 				} catch (err) {
 					if (err instanceof X402Error && err.status === 402) {
-						return send402(res, { ...challenge, error: err.message });
+						return await send402(res, { ...challenge, error: err.message });
 					}
 					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
@@ -608,7 +608,7 @@ export function paidEndpoint(spec) {
 					});
 				} catch (err) {
 					if (err instanceof X402Error && err.status === 402) {
-						return send402(res, { ...challenge, error: err.message });
+						return await send402(res, { ...challenge, error: err.message });
 					}
 					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
@@ -656,7 +656,7 @@ export function paidEndpoint(spec) {
 					});
 				} catch (err) {
 					if (err instanceof X402Error && err.status === 402) {
-						return send402(res, { ...challenge, error: err.message });
+						return await send402(res, { ...challenge, error: err.message });
 					}
 					return respondError(res, err.status || 500, err.code || 'internal_error', err);
 				}
@@ -682,14 +682,14 @@ export function paidEndpoint(spec) {
 				// challenge so the client can fall back to paying. Anything else
 				// (parse / signature failure) is a hard client error.
 				if (auth.status === 402) {
-					return send402(res, { ...challenge, error: auth.error });
+					return await send402(res, { ...challenge, error: auth.error });
 				}
 				return error(res, auth.status, auth.code, auth.error);
 			}
 			// auth === null → no SIGN-IN-WITH-X header → fall through to 402.
 		}
 
-		if (!paymentHeader) return send402(res, challenge);
+		if (!paymentHeader) return await send402(res, challenge);
 
 		// Abuse guard, tier 2 — only requests carrying an X-PAYMENT header reach the
 		// facilitator /verify round-trip below, so this is where a junk-payment flood
@@ -801,7 +801,7 @@ export function paidEndpoint(spec) {
 				reason: err.code || (err.status === 402 ? 'verify_rejected' : 'verify_failed'),
 			});
 			if (ownsReservation) await releaseSlot({ route, paymentId });
-			if (err.status === 402) return send402(res, { ...challenge, error: err.message });
+			if (err.status === 402) return await send402(res, { ...challenge, error: err.message });
 			return respondError(res, err.status || 502, err.code || 'verify_failed', err);
 		}
 
@@ -816,7 +816,7 @@ export function paidEndpoint(spec) {
 		} catch (err) {
 			if (ownsReservation) await releaseSlot({ route, paymentId });
 			if (err instanceof X402Error && err.status === 402) {
-				return send402(res, { ...challenge, error: err.message });
+				return await send402(res, { ...challenge, error: err.message });
 			}
 			return respondError(res, err.status || 500, err.code || 'internal_error', err);
 		}

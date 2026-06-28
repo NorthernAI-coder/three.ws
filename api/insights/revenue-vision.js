@@ -206,7 +206,7 @@ export default wrap(async (req, res) => {
 	};
 
 	const paymentHeader = req.headers['x-payment'] || req.headers['payment-signature'];
-	if (!paymentHeader) return send402(res, challenge);
+	if (!paymentHeader) return await send402(res, challenge);
 
 	// USE-15: idempotency cache lookup before paying for /verify.
 	const paymentId = extractIdFromHeader(paymentHeader);
@@ -233,7 +233,7 @@ export default wrap(async (req, res) => {
 	try {
 		verified = await verifyPayment({ paymentHeader, requirements });
 	} catch (err) {
-		if (err.status === 402) return send402(res, { ...challenge, error: err.message });
+		if (err.status === 402) return await send402(res, { ...challenge, error: err.message });
 		return error(res, err.status || 502, err.code || 'verify_failed', err.message);
 	}
 

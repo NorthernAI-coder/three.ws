@@ -24,10 +24,12 @@ import { env } from './env.js';
 
 /**
  * Returns the `extensions["offer-receipt"]` declaration fragment for the 402
- * body when a signing key is configured, null otherwise.
+ * body when a signing key is configured, null otherwise. Checks both the legacy
+ * OFFER_RECEIPT_SIGNING_PRIVATE_KEY/OFFER_RECEIPT_JWK vars (used by the
+ * offer-receipt-server stack) and the new X402_RECEIPT_SIGNING_KEY (issuer).
  */
 export function offerReceiptDeclaration() {
-	if (!env.OFFER_RECEIPT_SIGNING_PRIVATE_KEY && !env.OFFER_RECEIPT_JWK) return null;
+	if (!env.OFFER_RECEIPT_SIGNING_PRIVATE_KEY && !env.OFFER_RECEIPT_JWK && !issuer) return null;
 	return declareOfferReceiptExtension({
 		includeTxHash: false,
 		offerValiditySeconds: 60,

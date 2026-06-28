@@ -208,7 +208,7 @@ export default wrap(async (req, res) => {
 
 	// ── Unpaid: issue the real 402 challenge ───────────────────────────────────
 	if (!paymentHeader) {
-		send402(res, {
+		await send402(res, {
 			resourceUrl,
 			accepts: [accept],
 			error: 'X-PAYMENT header is required',
