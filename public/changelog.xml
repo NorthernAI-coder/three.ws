@@ -7,6 +7,30 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Club Social Activity — the platform tracks its own nightlife economy on-chain</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Club Social Activity — the platform tracks its own nightlife economy on-chain</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The autonomous loop now pays /api/x402/analytics every 30 minutes with { report: &quot;clubs&quot;, period: &quot;24h&quot; } for a live snapshot of the Pole Club's social economy. The report reads straight from the real ledgers — settled tips (club_tips), the stage roster (club_dancer_wallets) and settled door cover charges (x402_audit_log) — and returns how many stages are active, how many distinct patrons showed up, the tip count and USDC volume, the cover charges collected at the door, and a fastest-growing-stage leaderboard. Every snapshot is appended to a club_social_analytics time series so a dashboard can chart whether the nightlife is heating up or cooling down and spot which stages are on the rise.</description>
+		</item>
+		<item>
+			<title>Forge Content Health — the platform canaries its own generation engine every 10 minutes</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Forge Content Health — the platform canaries its own generation engine every 10 minutes</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>Every 3D generation the Forge produces begins by running a prompt through the platform's generative AI lane, so if that lane slows down or goes dark, creations stall before a mesh is ever built. The platform now watches for this automatically. Every ten minutes an autonomous agent makes a real on-chain payment to a new lightweight health_check mode on /api/x402/forge, which runs one fast text completion over the same free-first model chain Forge depends on — no expensive 3D reconstruction — and reports back whether content was generated, how long it took, and the token count. A completion slower than five seconds, or an outright generator outage, raises a Forge performance alert that an on-call dashboard reads in a single lookup and that clears itself once generation is healthy again. The new health_check mode is also available to any x402 agent on the bazaar for a fraction of a cent, far cheaper than a full generation, for callers that just want to confirm the engine is live.</description>
+		</item>
+		<item>
+			<title>Marketplace Catalog Stats — live listing count, pricing, and engagement via x402</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Marketplace Catalog Stats — live listing count, pricing, and engagement via x402</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The autonomous loop now pays /api/x402/analytics every 5 minutes with { report: &quot;marketplace&quot;, period: &quot;7d&quot; } to confirm the public agent marketplace is alive and measure its health. The report returns the total active listing count split into priced vs free, the price distribution normalised to both USD and SOL at the live Jupiter rate, the count of new listings in the selected window, and the most-viewed and most-forked listing by ID and name. The extracted signal — listing_count, avg_price_sol, most_viewed_id — is recorded to x402_autonomous_log so a health dashboard can read marketplace vitals without querying the catalog tables directly. A listing_count of 0 trips an ops alert within one 5-minute window; a null avg_price_sol flags a SOL oracle outage.</description>
+		</item>
+		<item>
 			<title>MCP Tool Discovery — the platform notices the moment a new agent capability ships</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:MCP Tool Discovery — the platform notices the moment a new agent capability ships</guid>
@@ -29,6 +53,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The autonomous x402 agent now pays to audit the 10 most recently launched pump.fun tokens every 5 minutes, extracting each cohort's average and peak initial bonding-curve liquidity. New launches with initial liquidity well above the rolling cohort average are surfaced as high-conviction snipe candidates; the signal is upserted into the oracle feed so the sniper gate can act on it immediately.</description>
+		</item>
+		<item>
+			<title>User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The platform now monitors its own engagement metrics automatically. Every six hours an autonomous agent pays the /api/x402/analytics endpoint for a live user_activity report — computing DAU, WAU, stickiness (DAU/WAU ratio), the top ten features by event volume, the platform error rate, and session-length distribution (average, median, and p90). All figures are read live from the real metered tables; an empty window returns zeros, never fabricated numbers. The extracted signal — dau, wau, top_feature — is recorded to x402_autonomous_log for the status surface to read, and every snapshot is persisted to a user_activity_snapshots time series for trend alerting and the engagement dashboard. The same report is available to any x402 agent on the bazaar for $0.005 per call.</description>
 		</item>
 		<item>
 			<title>Capabilities — Alpha Hunt, Launcher, Auto-Claim &amp; Market Maker</title>
