@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-06-28T03:15:21.465Z",
+	"generated_at": "2026-06-28T04:47:25.943Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Agent Reputation Leaderboard — top agents promoted in marketplace by on-chain trust score",
+			"summary": "The platform now autonomously ranks the top 10 three.ws agents by behavioral trust score every 30 minutes via a real x402 payment to the agent-reputation endpoint. Scores are synthesized from real on-chain pump.fun agent-payments activity, distribution/buyback success, and signed Solana attestations — not a subjective rating. The top 10 are promoted to the front of the marketplace recommended feed and marked with a ◈ Top Trust badge. The ranking is also stored as an oracle signal (topic: agent_reputation_leaderboard) for downstream systems to query. Full snapshot history is written to agent_reputation_leaderboard_snapshots so trust trends are auditable over time.",
+			"link": "/marketplace",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-28",
 			"type": "update",
@@ -55,6 +66,39 @@
 			"type": "update",
 			"title": "Forge Content Health — the platform canaries its own generation engine every 10 minutes",
 			"summary": "Every 3D generation the Forge produces begins by running a prompt through the platform's generative AI lane, so if that lane slows down or goes dark, creations stall before a mesh is ever built. The platform now watches for this automatically. Every ten minutes an autonomous agent makes a real on-chain payment to a new lightweight health_check mode on /api/x402/forge, which runs one fast text completion over the same free-first model chain Forge depends on — no expensive 3D reconstruction — and reports back whether content was generated, how long it took, and the token count. A completion slower than five seconds, or an outright generator outage, raises a Forge performance alert that an on-call dashboard reads in a single lookup and that clears itself once generation is healthy again. The new health_check mode is also available to any x402 agent on the bazaar for a fraction of a cent, far cheaper than a full generation, for callers that just want to confirm the engine is live.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Forge Image Generation Canary — the platform validates its own image pipeline every 5 minutes",
+			"summary": "Every Forge job that reconstructs a 3D mesh starts with a text-to-image call. If the image provider chain is down or hung, every paid Forge generation silently fails — before users even hit the paywall. The platform now detects this automatically. Every five minutes an autonomous agent makes a real on-chain $0.001 USDC payment to /api/x402/forge with body { mode: \"health_check\", type: \"image\", prompt: \"A simple blue circle.\" }. The endpoint runs one real text-to-image call through the free-first provider chain (NIM FLUX → Vertex Imagen → Replicate backstop) and uploads the result to R2 CDN — proving the full image generation and CDN upload path end-to-end. The extracted signal { generated, url, latency_ms } lands in x402_autonomous_log.signal_data. When generation fails or latency exceeds 30 seconds, a Redis alert (x402:forge-image-health:alert) is raised so ops can investigate before users see broken generations. The image alert key is separate from the existing text LLM canary alert so both lanes can degrade independently.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds",
+			"summary": "The autonomous loop now benchmarks LLM inference latency every 10 minutes by making a real $0.005 USDC x402 payment to /api/x402/llm-proxy with a minimal 'Count to 3.' prompt. Each run records { latency_ms, tokens_used, model, provider } to x402_autonomous_log. After 3+ samples accumulate, the platform computes rolling p95 latency from the last 20 successful calls and raises a Redis alert (x402:llm-proxy-latency:p95-alert) when p95 exceeds 3 seconds — giving ops a heads-up on provider degradation before end users notice slow AI responses.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "LLM Proxy Output Quality Probe — the platform verifies its own AI inference returns correct answers",
+			"summary": "Every agent that calls /api/x402/llm-proxy pays for a completion it trusts to be correct. Silent LLM degradation — garbled output, hallucinated answers, truncated responses — is invisible without a correctness check. The platform now catches this automatically. Every ten minutes an autonomous agent makes a real on-chain $0.005 USDC payment to /api/x402/llm-proxy with body { model: \"reasoning\", prompt: \"What is 7 + 8? Reply with only the number.\", max_tokens: 5 }. The extracted signal { output, correct, provider, latency_ms } lands in x402_autonomous_log.signal_data. When the response is anything other than \"15\", a Redis alert (x402:llm-proxy:quality-alert) is raised immediately so ops can investigate model degradation before downstream agents experience silent failures.",
 			"link": null,
 			"tags": [
 				"infra",

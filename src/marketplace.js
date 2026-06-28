@@ -4552,6 +4552,16 @@ function renderAvatarCard(a, spotlight = false) {
 	</div>`;
 }
 
+// Reputation-leaderboard badge — marks agents in the autonomous x402 top-10 trust
+// ranking (agent-reputation-leaderboard loop entry). Score is synthesized from real
+// on-chain pump.fun agent-payments activity, distribution/buyback success, and
+// signed Solana attestations — not a subjective rating. Only shown when the
+// autonomous loop has run and the field is set by the marketplace API.
+function repFeaturedBadgeHTML(a) {
+	if (!a.rep_featured) return '';
+	return `<span class="stat-pill rep-featured-badge" title="Top 10 by on-chain trust score — ranked by the x402 reputation oracle">◈ Top Trust</span>`;
+}
+
 // Rare-pedigree badge — marks a bred agent by its lineage tier. Uncommon and up
 // only, so the badge stays a genuine signal of scarcity (deep pedigree, emergent
 // skills) rather than noise on every card. Links into the agent's lineage.
@@ -4616,6 +4626,7 @@ function renderCard(a) {
 	const starBtn = `<button type="button" class="card-star${bmOn ? ' on' : ''}" data-agent-bm="${escapeHtml(a.id)}" aria-label="Bookmark agent" aria-pressed="${bmOn}" title="${bmOn ? 'Remove bookmark' : 'Bookmark agent'}">${bmOn ? '★' : '☆'}</button>`;
 	const onchainBadge = onchainBadgeHTML(a);
 	const pedigreeBadge = pedigreeBadgeHTML(a);
+	const repBadge = repFeaturedBadgeHTML(a);
 	return `<div class="card card--interactive market-card-agent" role="link" tabindex="0" data-id="${a.id}">
 		${previewStrip}
 		${priceBadge}
@@ -4630,6 +4641,7 @@ function renderCard(a) {
 		<div class="desc">${escapeHtml(a.description || '')}</div>
 		<div class="stats">
 			${a.activated ? '<span class="stat-pill live-badge" title="Live — funded and active on the Money Pulse">◉ Live</span>' : ''}
+			${repBadge}
 			${onchainBadge}
 			${pedigreeBadge}
 			${coinChipHTML(a)}

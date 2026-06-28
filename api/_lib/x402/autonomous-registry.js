@@ -265,6 +265,49 @@ async function recordForgeHealthAlert({ redis, signalData }) {
 	}
 }
 
+// ── Forge Image Generation Health helpers (USE-073) ──────────────────────────
+// The latency SLA the forge image-generation probe asserts (mirrors
+// HEALTH_CHECK_IMAGE_BUDGET_MS in api/x402/forge.js). Image generation is
+// slower than text — >30s means the image provider chain is hung.
+const FORGE_IMAGE_HEALTH_BUDGET_MS = 30_000;
+const FORGE_IMAGE_HEALTH_ALERT_KEY = 'x402:forge-image-health:alert';
+const FORGE_IMAGE_HEALTH_ALERT_TTL_SECONDS = 25 * 60;
+
+// storeValue sink for the forge image-generation health probe. Raises (or clears)
+// the image performance alert based on the extracted verdict. Uses a separate Redis
+// key from the text-health alert so the two lanes can degrade independently.
+async function recordForgeImageHealthAlert({ redis, signalData }) {
+	if (!redis) return;
+	const v = signalData || {};
+	const degraded = v.generated === false || v.slow === true;
+	try {
+		if (degraded) {
+			await redis.set(
+				FORGE_IMAGE_HEALTH_ALERT_KEY,
+				JSON.stringify({
+					reason: v.generated === false ? 'generation_failed' : 'latency_budget_exceeded',
+					generated: v.generated === true,
+					latency_ms: v.latency_ms ?? null,
+					budget_ms: FORGE_IMAGE_HEALTH_BUDGET_MS,
+					url: v.url ?? null,
+					model: v.model ?? null,
+					error: v.error ?? null,
+					ts: new Date().toISOString(),
+				}),
+				{ ex: FORGE_IMAGE_HEALTH_ALERT_TTL_SECONDS },
+			);
+			console.warn(
+				`[x402/forge-image-health] ALERT: image generation degraded (` +
+					`generated=${v.generated}, latency_ms=${v.latency_ms}, budget=${FORGE_IMAGE_HEALTH_BUDGET_MS}ms)`,
+			);
+		} else if (v.generated === true) {
+			await redis.del(FORGE_IMAGE_HEALTH_ALERT_KEY);
+		}
+	} catch (err) {
+		console.warn(`[x402/forge-image-health] alert write failed: ${err?.message || err}`);
+	}
+}
+
 // ── Club Social Activity Analytics (USE-045) ─────────────────────────────
 // Derives the social-economy signal from a /api/x402/analytics {report:'clubs'}
 // response. Shared by extractSignal (→ x402_autonomous_log.signal_data) and
@@ -1322,6 +1365,123 @@ const SELF_ENDPOINTS = [
 		},
 	},
 
+	// ── Agent Reputation Leaderboard (USE-071) ─────────────────────────────────
+	// Pays $0.01 USDC every 30 min to POST /api/x402/agent-reputation with
+	// { mode: 'leaderboard', limit: 10 }. The endpoint ranks the 10 most recently
+	// active three.ws agents by on-chain behavioral trust score (synthesized from
+	// pump.fun agent-payments activity, distribution/buyback success, and signed
+	// Solana attestations). As an `oracle` entry the loop upserts the verdict into
+	// oracle_intel_signals (topic 'agent_reputation_leaderboard') for any downstream
+	// consumer — marketplace promotion, partnership outreach, skill routing.
+	// storeValue appends the full ranked list to agent_reputation_leaderboard_snapshots
+	// (time-series for trend analysis) and writes the top agent IDs to Redis key
+	// x402:rep-leaderboard:top-agent-ids (TTL 2h) so the marketplace recommended sort
+	// can promote them without a DB round-trip. extractSignal lifts
+	// { count, avg_score, top_agent_id, top_score, agents } into
+	// x402_autonomous_log.signal_data. Cooldown 1800s → 48 snapshots/day ≈ $0.48/day,
+	// well under the loop's daily cap. Reputation is slow-moving (audit-style);
+	// 30-min cadence gives fresh signal without over-spending.
+	{
+		id: 'agent-reputation-leaderboard',
+		name: 'Agent Reputation Leaderboard (Top 10)',
+		path: '/api/x402/agent-reputation',
+		method: 'POST',
+		body: { mode: 'leaderboard', limit: 10 },
+		cooldown_s: 1800,
+		priority: 87,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const agents = Array.isArray(r?.agents) ? r.agents : [];
+			const top = agents[0] ?? null;
+			const count = r?.count ?? agents.length;
+			const avgScore = r?.avg_score ?? null;
+			const topScore = top?.score ?? null;
+			const topName = top?.name ?? null;
+			const topId = top?.agent_id ?? null;
+			const signal = count > 0 ? 'live' : 'quiet';
+			const headline = top
+				? `${topName || 'Agent'} leads reputation at score ${topScore} (${count} ranked)`
+				: 'No agents in reputation leaderboard';
+			return {
+				topic: 'agent_reputation_leaderboard',
+				signal,
+				headline,
+				confidence: count > 0 ? 0.95 : 0.5,
+				count,
+				avg_score: avgScore,
+				top_agent_id: topId,
+				top_agent_name: topName,
+				top_score: topScore,
+				agents: agents.slice(0, 10).map((a) => ({
+					agent_id: a.agent_id,
+					name: a.name ?? null,
+					score: a.score,
+					rank: a.rank,
+					flagged: a.flagged ?? false,
+				})),
+			};
+		},
+		storeValue: async ({ sql: sqlClient, redis, signalData, runId }) => {
+			if (!sqlClient) return;
+			const v = signalData || {};
+			const agents = Array.isArray(v.agents) ? v.agents : [];
+			// Ensure snapshot table (idempotent DDL guard, one-per-warm-instance).
+			try {
+				await sqlClient`
+					CREATE TABLE IF NOT EXISTS agent_reputation_leaderboard_snapshots (
+						id              bigserial PRIMARY KEY,
+						ts              timestamptz NOT NULL DEFAULT now(),
+						run_id          uuid,
+						count           int,
+						avg_score       numeric(5,1),
+						top_agent_id    uuid,
+						top_agent_name  text,
+						top_score       numeric(5,1),
+						agents          jsonb NOT NULL DEFAULT '[]'::jsonb
+					)
+				`;
+				await sqlClient`
+					CREATE INDEX IF NOT EXISTS arls_ts_desc
+						ON agent_reputation_leaderboard_snapshots (ts DESC)
+				`;
+			} catch (err) {
+				console.warn('[x402/rep-leaderboard] schema ensure failed:', err?.message);
+				return;
+			}
+			// Insert snapshot row.
+			try {
+				const topId = typeof v.top_agent_id === 'string' && v.top_agent_id
+					? v.top_agent_id
+					: null;
+				await sqlClient`
+					INSERT INTO agent_reputation_leaderboard_snapshots
+						(run_id, count, avg_score, top_agent_id, top_agent_name, top_score, agents)
+					VALUES
+						(${runId || null}, ${v.count ?? 0}, ${v.avg_score ?? null},
+						 ${topId}, ${v.top_agent_name ?? null}, ${v.top_score ?? null},
+						 ${JSON.stringify(agents)}::jsonb)
+				`;
+			} catch (err) {
+				console.warn('[x402/rep-leaderboard] snapshot insert failed:', err?.message);
+			}
+			// Cache top agent IDs in Redis for marketplace promotion (2h TTL,
+			// refreshed every 30min by this entry's cooldown cadence).
+			if (redis && agents.length > 0) {
+				try {
+					const topIds = agents.map((a) => a.agent_id).filter(Boolean);
+					await redis.set(
+						'x402:rep-leaderboard:top-agent-ids',
+						JSON.stringify(topIds),
+						{ ex: 7200 },
+					);
+				} catch (err) {
+					console.warn('[x402/rep-leaderboard] redis write failed:', err?.message);
+				}
+			}
+		},
+	},
+
 	{
 		id: 'health-symbol-avail',
 		name: 'Health: symbol-availability',
@@ -1376,6 +1536,68 @@ const SELF_ENDPOINTS = [
 			budget: r?.budget ?? null,
 		}),
 	},
+
+	// ── Spend Session Active Audit (USE-064) ─────────────────────────────────────
+	// Pays $0.01 USDC every 15 min to /api/x402/spend-session (mode:audit) for a
+	// live aggregate snapshot of all payment sessions: active count, total remaining
+	// budget, exhausted count, and expired sessions in the last 24h. extractSignal
+	// lifts { active_count, total_budget_remaining_usdc, expired_count_24h } into
+	// x402_autonomous_log.signal_data. A spike in expired_count_24h signals that
+	// something is preventing session cleanup (background sweep not running, DB lock,
+	// etc.) and a Redis alert is raised so ops can investigate before sessions
+	// accumulate as zombie rows. Cooldown 900s → 4 probes/hr × $0.01 = $0.04/hr,
+	// well under the loop's daily cap. Health pipeline — this is governance telemetry,
+	// not a trading signal, so it does not upsert into oracle_intel_signals.
+	{
+		id: 'spend-session-active-audit',
+		name: 'Spend Session Active Audit',
+		path: '/api/x402/spend-session',
+		method: 'POST',
+		body: { mode: 'audit' },
+		cooldown_s: 900, // 15 min — session state is slow-moving governance telemetry
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			active_count: r?.active_count ?? null,
+			exhausted_count: r?.exhausted_count ?? null,
+			expired_count_24h: r?.expired_count_24h ?? null,
+			total_budget_remaining_usdc: r?.total_budget_remaining_usdc ?? null,
+			avg_budget_remaining_usd: r?.avg_budget_remaining_usd ?? null,
+			total_spent_usdc: r?.total_spent_usdc ?? null,
+		}),
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const EXPIRED_SPIKE_KEY = 'x402:spend-session:expired-spike-alert';
+			const EXPIRED_SPIKE_TTL_S = 25 * 60;
+			const EXPIRED_SPIKE_THRESHOLD = 10;
+			const expiredCount = typeof v.expired_count_24h === 'number' ? v.expired_count_24h : null;
+			try {
+				if (expiredCount !== null && expiredCount >= EXPIRED_SPIKE_THRESHOLD) {
+					await redis.set(
+						EXPIRED_SPIKE_KEY,
+						JSON.stringify({
+							expired_count_24h: expiredCount,
+							active_count: v.active_count ?? null,
+							exhausted_count: v.exhausted_count ?? null,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: EXPIRED_SPIKE_TTL_S },
+					);
+					console.warn(
+						`[x402/spend-session-audit] ALERT: expired_count_24h=${expiredCount} ` +
+							`(threshold ${EXPIRED_SPIKE_THRESHOLD}) — session cleanup may be failing`,
+					);
+				} else if (expiredCount !== null) {
+					await redis.del(EXPIRED_SPIKE_KEY).catch(() => {});
+				}
+			} catch (err) {
+				console.warn(`[x402/spend-session-audit] alert write failed: ${err?.message || err}`);
+			}
+		},
+	},
+
 	// MCP Model Validation Sweep — picks the longest-unvalidated public GLB from
 	// the avatars table, runs glTF-Transform inspection, and upserts a quality
 	// score row to model_quality_scores. Each tick advances the sweep by one avatar.
@@ -2177,6 +2399,47 @@ const SELF_ENDPOINTS = [
 			};
 		},
 		storeValue: (ctx) => recordForgeHealthAlert(ctx),
+	},
+
+	// ── Forge: Image Generation Canary (USE-073) ───────────────────────────────
+	// Pays the floor $0.001 to /api/x402/forge in health_check+image mode every
+	// 5 min. Unlike the text health probe (which exercises the LLM completion
+	// lane), this canary runs a real text→image call through the platform's
+	// free-first image provider chain (NIM FLUX → Vertex Imagen → Replicate
+	// backstop) and uploads the result to R2 CDN — proving the FULL image
+	// generation + CDN upload path is alive. A `generated:false` means the image
+	// provider chain is down or unconfigured; `slow:true` (>30s) means a hung
+	// provider is degrading response times before users notice. storeValue raises
+	// or clears the image-specific Redis alert key (x402:forge-image-health:alert)
+	// which is distinct from the text alert so both lanes can degrade independently
+	// and the on-call surface can pinpoint which part of the pipeline is affected.
+	// extractSignal lifts { generated, url, latency_ms } into
+	// x402_autonomous_log.signal_data. Health pipeline — not oracle. Cooldown 300s
+	// → 288 probes/day ≈ $0.288/day, well under the loop's daily cap.
+	{
+		id: 'forge-image-generation-canary',
+		name: 'Forge: Image Generation Canary',
+		path: '/api/x402/forge',
+		method: 'POST',
+		body: { mode: 'health_check', type: 'image', prompt: 'A simple blue circle.' },
+		price_atomic: 1000, // $0.001 — health_check floor price
+		cooldown_s: 300, // 5 min — image provider chain can degrade fast
+		priority: 50,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => {
+			const latencyMs = typeof r?.latency_ms === 'number' ? r.latency_ms : null;
+			return {
+				generated: r?.generated === true,
+				url: r?.url ?? null,
+				latency_ms: latencyMs,
+				within_budget: r?.within_budget ?? null,
+				model: r?.model ?? null,
+				slow: latencyMs != null ? latencyMs > FORGE_IMAGE_HEALTH_BUDGET_MS : null,
+				error: r?.error ?? null,
+			};
+		},
+		storeValue: (ctx) => recordForgeImageHealthAlert(ctx),
 	},
 
 	// ── Bazaar Discovery Warmup (USE-008) ──────────────────────────────────────
@@ -3206,6 +3469,83 @@ const SELF_ENDPOINTS = [
 		}),
 	},
 
+
+	// ── LLM Proxy Latency Benchmark (USE-076) ─────────────────────────────────
+	// Pays $0.005 USDC every 10 min to POST /api/x402/llm-proxy with the
+	// minimal "Count to 3." canary prompt. Measures wall-clock latency across
+	// the platform's free-first provider chain (Groq → OpenRouter → NVIDIA NIM
+	// → Anthropic). extractSignal lifts { latency_ms, tokens_used, model,
+	// provider, slow } into x402_autonomous_log.signal_data. storeValue computes
+	// rolling p95 latency from the last 20 successful samples and raises a Redis
+	// alert (x402:llm-proxy-latency:p95-alert, 25-min TTL) when p95 > 3 seconds
+	// so ops can investigate provider degradation before end users notice.
+	// Cooldown 600s → 6 probes/hr × $0.005 = $0.03/hr, well under the daily cap.
+	// Health pipeline — not oracle (platform infra health, not a trading signal).
+	{
+		id: 'llm-proxy-latency',
+		name: 'LLM Proxy Latency Benchmark',
+		path: '/api/x402/llm-proxy',
+		method: 'POST',
+		body: { model: 'fast', prompt: 'Count to 3.', max_tokens: 10 },
+		cooldown_s: 600, // 10 min — latency benchmark cadence
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			latency_ms: r?.latency_ms ?? null,
+			tokens_used: r?.tokens_used ?? null,
+			model: r?.model ?? null,
+			provider: r?.provider ?? null,
+			slow: typeof r?.latency_ms === 'number' && r.latency_ms > 3000,
+		}),
+		storeValue: async ({ sql: sqlClient, redis, signalData }) => {
+			if (!sqlClient || signalData?.latency_ms == null) return;
+			const P95_ALERT_KEY = 'x402:llm-proxy-latency:p95-alert';
+			const P95_ALERT_TTL = 25 * 60; // 25 min — covers 2.5 missed ticks
+			const P95_THRESHOLD_MS = 3000;
+			try {
+				const rows = await sqlClient`
+					SELECT (signal_data->>'latency_ms')::numeric AS latency_ms
+					  FROM x402_autonomous_log
+					 WHERE endpoint_url LIKE '%/api/x402/llm-proxy'
+					   AND success = true
+					   AND signal_data->>'latency_ms' IS NOT NULL
+					 ORDER BY ts DESC
+					 LIMIT 20
+				`;
+				if (rows.length < 3) return; // not enough samples yet
+				const latencies = rows
+					.map((row) => Number(row.latency_ms))
+					.filter((n) => n > 0)
+					.sort((a, b) => a - b);
+				const p95idx = Math.ceil(latencies.length * 0.95) - 1;
+				const p95 = latencies[Math.max(0, p95idx)];
+				if (p95 > P95_THRESHOLD_MS) {
+					if (redis) {
+						await redis.set(
+							P95_ALERT_KEY,
+							JSON.stringify({
+								p95_ms: p95,
+								sample_count: latencies.length,
+								threshold_ms: P95_THRESHOLD_MS,
+								ts: new Date().toISOString(),
+							}),
+							{ ex: P95_ALERT_TTL },
+						);
+					}
+					console.warn(
+						`[x402/llm-proxy-latency] ALERT: p95 latency ${p95}ms exceeds ` +
+						`${P95_THRESHOLD_MS}ms threshold (${latencies.length} samples)`,
+					);
+				} else if (redis) {
+					await redis.del(P95_ALERT_KEY).catch(() => {});
+				}
+			} catch (err) {
+				console.warn(`[x402/llm-proxy-latency] p95 check failed: ${err?.message || err}`);
+			}
+		},
+	},
+
 	// ── API Key Validity Health Check (USE-075) ───────────────────────────────
 	// Pays $0.001 USDC every hour to POST /api/x402/api-key-health with
 	// { scope: "autonomous_loop" }. Confirms the platform has a valid, non-expired
@@ -3280,6 +3620,76 @@ const SELF_ENDPOINTS = [
 				}
 			} catch (err) {
 				console.warn(`[x402/api-key-health] alert write failed: ${err?.message || err}`);
+			}
+		},
+	},
+
+	// ── LLM Proxy: Output Quality Probe (USE-077) ─────────────────────────────
+	// Pays $0.005 USDC every 10 min to POST /api/x402/llm-proxy with a minimal
+	// arithmetic prompt ("What is 7 + 8? Reply with only the number.") to verify
+	// the LLM proxy returns a correct, deterministic response. A correct answer of
+	// "15" confirms the provider chain is producing valid output — not garbled, not
+	// truncated, not hallucinating on trivial math. extractSignal lifts { output,
+	// correct, provider, latency_ms } into x402_autonomous_log.signal_data.
+	// correct:false triggers an immediate quality_failure Redis alert
+	// (x402:llm-proxy:quality-alert, TTL 25 min) so ops can investigate model
+	// degradation before agents downstream experience silent LLM failures. Health
+	// pipeline — not oracle (output correctness is platform telemetry, not a
+	// trading signal). Cooldown 600s → 144 probes/day × $0.005 = $0.72/day,
+	// well under the loop's daily cap.
+	{
+		id: 'llm-proxy-output-quality',
+		name: 'LLM Proxy: Output Quality Probe',
+		path: '/api/x402/llm-proxy',
+		method: 'POST',
+		body: { model: 'reasoning', prompt: 'What is 7 + 8? Reply with only the number.', max_tokens: 5 },
+		cooldown_s: 600,
+		priority: 56,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => {
+			const raw = typeof r?.content === 'string' ? r.content.trim() : null;
+			const correct = raw === '15';
+			return {
+				output: raw,
+				correct,
+				quality_failure: !correct,
+				provider: r?.provider ?? null,
+				model: r?.model ?? null,
+				latency_ms: r?.latency_ms ?? null,
+				tokens_used: r?.tokens_used ?? null,
+			};
+		},
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const ALERT_KEY = 'x402:llm-proxy:quality-alert';
+			const ALERT_TTL_SECONDS = 25 * 60;
+			const failed = v.quality_failure === true;
+			try {
+				if (failed) {
+					await redis.set(
+						ALERT_KEY,
+						JSON.stringify({
+							output: v.output ?? null,
+							expected: '15',
+							provider: v.provider ?? null,
+							model: v.model ?? null,
+							latency_ms: v.latency_ms ?? null,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: ALERT_TTL_SECONDS },
+					);
+					console.warn(
+						`[x402/llm-proxy-quality] ALERT: quality_failure — ` +
+						`output="${v.output}" expected "15" ` +
+						`(provider=${v.provider}, model=${v.model})`,
+					);
+				} else if (v.correct === true) {
+					await redis.del(ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(`[x402/llm-proxy-quality] alert write failed: ${err?.message || err}`);
 			}
 		},
 	},

@@ -5053,3 +5053,14 @@ body.market-page > header {
 .stat-pill.pedigree-badge[data-tier='rare']      { color: #7aa2ff; border-color: #2c4a8f; background: rgba(122,162,255,0.12); }
 .stat-pill.pedigree-badge[data-tier='legendary'] { color: #ffd479; border-color: #7a5e1f; background: linear-gradient(135deg, rgba(255,212,121,0.18), rgba(255,140,80,0.10)); }
 @media (prefers-reduced-motion: reduce) { .stat-pill.pedigree-badge { transition: none; } }
+
+/* Reputation leaderboard badge — top-10 on-chain trust score from the x402
+   autonomous oracle (agent-reputation-leaderboard loop entry). Matches the
+   platform's monochrome design language: bright gold text on a near-black bg. */
+.stat-pill.rep-featured-badge {
+	color: #ffd479;
+	border-color: #7a5e1f;
+	background: rgba(255,212,121,0.10);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+}
