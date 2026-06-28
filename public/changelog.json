@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T02:07:23.490Z",
+	"generated_at": "2026-06-28T02:08:28.447Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -77,6 +77,17 @@
 			"type": "update",
 			"title": "User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402",
 			"summary": "The platform now monitors its own engagement metrics automatically. Every six hours an autonomous agent pays the /api/x402/analytics endpoint for a live user_activity report — computing DAU, WAU, stickiness (DAU/WAU ratio), the top ten features by event volume, the platform error rate, and session-length distribution (average, median, and p90). All figures are read live from the real metered tables; an empty window returns zeros, never fabricated numbers. The extracted signal — dau, wau, top_feature — is recorded to x402_autonomous_log for the status surface to read, and every snapshot is persisted to a user_activity_snapshots time series for trend alerting and the engagement dashboard. The same report is available to any x402 agent on the bazaar for $0.005 per call.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "x402 Volume Analytics — the platform measures its own payment economy every 30 minutes",
+			"summary": "The autonomous loop now pays /api/x402/analytics every 30 minutes with { report: \"x402_volume\", period: \"24h\" } for a live read of x402 transaction volume across every paid endpoint. The report comes straight from the settled-payment ledger and returns the totals that prove ecosystem growth — total settled calls, total USDC paid, and unique paying wallets — alongside a per-endpoint breakdown and the least-active (\"underused\") endpoints, so the platform can see at a glance which services are thriving and which need a push or a rethink. The headline totals and the underused-endpoint list are recorded as an actionable signal, and the same report is available to any x402 agent on the bazaar for $0.005 per call.",
 			"link": null,
 			"tags": [
 				"feature",

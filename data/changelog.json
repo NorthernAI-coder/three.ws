@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-06-28",
+			"title": "x402 Volume Analytics — the platform measures its own payment economy every 30 minutes",
+			"summary": "The autonomous loop now pays /api/x402/analytics every 30 minutes with { report: \"x402_volume\", period: \"24h\" } for a live read of x402 transaction volume across every paid endpoint. The report comes straight from the settled-payment ledger and returns the totals that prove ecosystem growth — total settled calls, total USDC paid, and unique paying wallets — alongside a per-endpoint breakdown and the least-active (\"underused\") endpoints, so the platform can see at a glance which services are thriving and which need a push or a rethink. The headline totals and the underused-endpoint list are recorded as an actionable signal, and the same report is available to any x402 agent on the bazaar for $0.005 per call.",
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
 			"title": "Forge Content Health — the platform canaries its own generation engine every 10 minutes",
 			"summary": "Every 3D generation the Forge produces begins by running a prompt through the platform's generative AI lane, so if that lane slows down or goes dark, creations stall before a mesh is ever built. The platform now watches for this automatically. Every ten minutes an autonomous agent makes a real on-chain payment to a new lightweight health_check mode on /api/x402/forge, which runs one fast text completion over the same free-first model chain Forge depends on — no expensive 3D reconstruction — and reports back whether content was generated, how long it took, and the token count. A completion slower than five seconds, or an outright generator outage, raises a Forge performance alert that an on-call dashboard reads in a single lookup and that clears itself once generation is healthy again. The new health_check mode is also available to any x402 agent on the bazaar for a fraction of a cent, far cheaper than a full generation, for callers that just want to confirm the engine is live.",
 			"tags": [
