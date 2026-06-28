@@ -38,17 +38,124 @@ import {
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { submitProtected } from '../_lib/execution-engine.js';
 import { sql } from '../_lib/db.js';
+import { env } from '../_lib/env.js';
 import { cors, error, json, method, readJson, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { solanaConnection, loadAgentForSigning } from '../_lib/agent-pumpfun.js';
 import { getSpendLimits } from '../_lib/agent-trade-guards.js';
 import { PARENT_LABEL } from '../_lib/threews-sns.js';
+import {
+	NETWORK_SOLANA_MAINNET,
+	encodePaymentResponseHeader,
+	resolveResourceUrl,
+	send402,
+	settlePayment,
+	verifyPayment,
+} from '../_lib/x402-spec.js';
+import { logPaymentEvent } from '../_lib/x402/audit-log.js';
 
 const USDC_MINT = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 const USDC_DECIMALS = 6;
 const ADDR_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const HANDLE_RE = /^@?[a-z0-9_-]{3,30}$/i;
 const SOL_DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)*\.sol$/i;
+
+// ── Paid name resolution (x402 paywall) ──────────────────────────────────────
+// POST {"name":"<name>"} without payer_wallet/amount_usdc triggers the 402
+// paywall. On payment, resolves the name to an on-chain address and returns
+// { data: { name, address, verified, source } }. Used by the autonomous loop
+// health check (registry id: pay-by-name-resolve-three-ws) to continuously
+// verify the pay-by-name registry is functioning with a real paid call.
+const PAID_RESOLVE_ROUTE = '/api/x402/pay-by-name';
+const PAID_RESOLVE_PRICE_ATOMIC = 1000; // $0.001 USDC
+
+function buildSolanaAccepts(priceAtomics, resourceUrl) {
+	const solTo = env.X402_PAY_TO_SOLANA;
+	const feePayer = env.X402_FEE_PAYER_SOLANA;
+	const mint = env.X402_ASSET_MINT_SOLANA;
+	if (!solTo || !feePayer || !mint) return null;
+	return [{
+		scheme: 'exact',
+		amount: String(priceAtomics),
+		maxTimeoutSeconds: 60,
+		resource: resourceUrl,
+		network: NETWORK_SOLANA_MAINNET,
+		payTo: solTo,
+		asset: mint,
+		extra: { name: 'USDC', decimals: 6, feePayer },
+	}];
+}
+
+function isOnCurveAddress(addr) {
+	try {
+		return typeof addr === 'string' && PublicKey.isOnCurve(new PublicKey(addr).toBytes());
+	} catch {
+		return false;
+	}
+}
+
+async function handlePaidNameResolve(req, res, body) {
+	const name = String(body?.name || '').trim();
+	if (!name) return error(res, 400, 'validation_error', 'name required');
+
+	const resourceUrl = resolveResourceUrl(req, PAID_RESOLVE_ROUTE);
+	const accepts = buildSolanaAccepts(PAID_RESOLVE_PRICE_ATOMIC, resourceUrl);
+	if (!accepts) {
+		return error(res, 503, 'not_configured', 'Solana pay-by-name resolution is not configured');
+	}
+
+	const paymentHeader = req.headers?.['x-payment'];
+	if (!paymentHeader) {
+		return send402(res, {
+			resourceUrl,
+			accepts,
+			description: 'Resolve a wallet name to an on-chain Solana address via the three.ws pay-by-name registry',
+			serviceName: 'Pay-By-Name Resolution',
+			tags: ['identity', 'resolution', 'solana'],
+		});
+	}
+
+	let verified;
+	try {
+		verified = await verifyPayment({ paymentHeader, requirements: accepts });
+	} catch (err) {
+		return send402(res, {
+			resourceUrl,
+			accepts,
+			error: err?.message || 'invalid payment',
+		});
+	}
+
+	const resolved = await resolveName(name);
+
+	let settleResult;
+	try {
+		settleResult = await settlePayment({ verified });
+	} catch (err) {
+		return error(res, 502, 'settle_failed', err?.message || 'settlement failed');
+	}
+
+	logPaymentEvent({
+		eventType: 'payment_settled',
+		route: PAID_RESOLVE_ROUTE,
+		resourceUrl,
+		payer: verified.payer || null,
+		network: verified.requirement?.network || null,
+		amount: verified.requirement?.amount || null,
+		txHash: settleResult?.transaction || null,
+	});
+
+	res.setHeader('x-payment-response', encodePaymentResponseHeader(settleResult, {}));
+
+	return json(res, 200, {
+		data: {
+			name,
+			address: resolved?.address ?? null,
+			verified: isOnCurveAddress(resolved?.address),
+			source: resolved?.source ?? null,
+		},
+	});
+}
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -317,6 +424,15 @@ export default wrap(async (req, res) => {
 	if (req.method === 'GET') return handleResolve(req, res);
 
 	const body = await readJson(req).catch(() => ({}));
+
+	// Paid name resolution — body has `name` but no payer_wallet/amount_usdc and
+	// no explicit prep/send mode. Returns 402 challenge; on payment resolves the
+	// name and returns { data: { name, address, verified, source } }.
+	if (body?.name && !body?.payer_wallet && !body?.amount_usdc &&
+		body?.mode !== 'send' && body?.mode !== 'prep') {
+		return handlePaidNameResolve(req, res, body);
+	}
+
 	const mode = body?.mode === 'send' ? 'send' : 'prep';
 
 	if (mode === 'prep') return handlePrep(req, res, body);

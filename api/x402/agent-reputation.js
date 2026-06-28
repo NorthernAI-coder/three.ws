@@ -23,6 +23,8 @@ import { isUuid } from '../_lib/validate.js';
 import {
 	loadAgentReputation,
 	sweepAgentReputation,
+	leaderboardAgentReputation,
+	decayReportAgentReputation,
 	REPUTATION_FLAG_THRESHOLD,
 } from '../_lib/trust/solana-bouncer.js';
 
@@ -208,15 +210,17 @@ const singleEndpoint = paidEndpoint({
 
 const SWEEP_DEFAULT_LIMIT = 20;
 const SWEEP_MAX_LIMIT = 50;
+const LEADERBOARD_DEFAULT_LIMIT = 10;
 
 const SWEEP_DESCRIPTION =
-	'three.ws Agent Reputation (Active Sweep) — POST {"mode":"sweep","limit":N} ' +
-	'to score the N most recently active three.ws agents in one call. Returns the ' +
-	'fleet average trust score (0..100) and the agents flagged for review ' +
-	`(score < ${REPUTATION_FLAG_THRESHOLD}). Each score is synthesized from real ` +
-	'on-chain pump.fun agent-payments activity, distribute/buyback success history, ' +
-	'and signed Solana memo attestations — not a subjective rating. Use to monitor ' +
-	'counterparty trust across the platform before composing skills or routing payments.';
+	'three.ws Agent Reputation (Sweep / Leaderboard / Decay Report) — ' +
+	'POST {"mode":"sweep","limit":N} to score the N most recently active three.ws agents. ' +
+	'POST {"mode":"leaderboard","limit":N} to get the top N agents ranked by trust score (highest first). ' +
+	'POST {"mode":"decay_report"} to get agents whose score dropped >10 points since the last snapshot. ' +
+	`Sweep: fleet avg score + flagged agents (score < ${REPUTATION_FLAG_THRESHOLD}). ` +
+	'Leaderboard: ranked list with { agent_id, score, rank }. ' +
+	'Decay report: decayed_count, fastest_decline_agent, avg_decay. ' +
+	'All scores are derived from real on-chain pump.fun activity — not subjective ratings.';
 
 const SWEEP_INPUT_EXAMPLE = { mode: 'sweep', limit: 20 };
 
@@ -224,12 +228,16 @@ const SWEEP_INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
 	properties: {
-		mode: { type: 'string', enum: ['sweep'], description: 'Must be "sweep".' },
+		mode: {
+			type: 'string',
+			enum: ['sweep', 'leaderboard', 'decay_report'],
+			description: '"sweep" scores recent agents; "leaderboard" ranks by score desc; "decay_report" finds score declines >10 pts.',
+		},
 		limit: {
 			type: 'integer',
 			minimum: 1,
 			maximum: SWEEP_MAX_LIMIT,
-			description: `Agents to sweep (default ${SWEEP_DEFAULT_LIMIT}, max ${SWEEP_MAX_LIMIT}).`,
+			description: `Agents to sweep/rank (sweep mode default ${SWEEP_DEFAULT_LIMIT}, leaderboard default ${LEADERBOARD_DEFAULT_LIMIT}, max ${SWEEP_MAX_LIMIT}).`,
 		},
 	},
 };
@@ -359,8 +367,21 @@ const sweepEndpoint = paidEndpoint({
 			err.code = 'invalid_json';
 			throw err;
 		}
+		if (body.mode === 'decay_report') {
+			return decayReportAgentReputation();
+		}
+		if (body.mode === 'leaderboard') {
+			const limit = body.limit == null ? LEADERBOARD_DEFAULT_LIMIT : Number(body.limit);
+			if (!Number.isFinite(limit) || limit < 1) {
+				const err = new Error('limit must be a positive integer');
+				err.status = 400;
+				err.code = 'invalid_limit';
+				throw err;
+			}
+			return leaderboardAgentReputation({ limit: Math.min(SWEEP_MAX_LIMIT, Math.floor(limit)) });
+		}
 		if (body.mode !== 'sweep') {
-			const err = new Error('mode must be "sweep"');
+			const err = new Error('mode must be "sweep", "leaderboard", or "decay_report"');
 			err.status = 400;
 			err.code = 'invalid_mode';
 			throw err;

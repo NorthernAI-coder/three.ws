@@ -11,9 +11,10 @@
 // can feature-flag a new capability the moment it ships without polling
 // tools/list and diffing it by hand.
 //
-// Body: { mode?: "discover" | "list" }   (default "discover")
-//   discover — diff the live catalog against the durable registry, persist the
-//              new state, return { new_tools, changed_tools, removed_tools, ... }.
+// Body: { mode?: "discover" | "sync" | "list" }   (default "discover")
+//   discover / sync — diff the live catalog against the durable registry, persist
+//              the new state, return { new_tools, changed_tools, removed_tools, ... }.
+//              "sync" is an alias for "discover" used by the autonomous loop.
 //   list     — return the live catalog snapshot only (no diff, no persistence).
 //
 // Response: { ok, mode, total_tools, new_tools[], changed_tools[],
@@ -47,10 +48,11 @@ const INPUT_SCHEMA = {
 	properties: {
 		mode: {
 			type: 'string',
-			enum: ['discover', 'list'],
+			enum: ['discover', 'sync', 'list'],
 			description:
-				'"discover" (default) diffs the live catalog against the durable registry and ' +
-				'persists the new state. "list" returns the live catalog snapshot only.',
+				'"discover" / "sync" (default "discover") diffs the live catalog against the ' +
+				'durable registry and persists the new state. "list" returns the live catalog ' +
+				'snapshot only (no diff, no persistence). "sync" is an alias for "discover".',
 			default: 'discover',
 		},
 	},
@@ -193,6 +195,8 @@ export default paidEndpoint({
 			for await (const c of req) chunks.push(c);
 			const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 			if (body.mode === 'list') mode = 'list';
+			// 'sync' is the autonomous loop alias for 'discover' (catalog diff + persist)
+			// else: any unrecognised value also defaults to 'discover'
 		} catch { /* default mode */ }
 
 		const current = projectCatalog();

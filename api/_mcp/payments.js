@@ -7,9 +7,9 @@ import { reportServerError } from '../_lib/http.js';
 // this module. See payment-identifier-server.js for the full rationale.
 export { reservePaymentProof } from '../_lib/x402/payment-identifier-server.js';
 
-export function sendX402Error(res, { resourceUrl, accepts }, err) {
+export async function sendX402Error(res, { resourceUrl, accepts }, err) {
 	if (err instanceof X402Error) {
-		if (err.status === 402) return send402(res, { resourceUrl, accepts, error: err.message });
+		if (err.status === 402) return await send402(res, { resourceUrl, accepts, error: err.message });
 		res.statusCode = err.status;
 		res.setHeader('content-type', 'application/json; charset=utf-8');
 		res.end(JSON.stringify({ error: err.code, error_description: err.message }));

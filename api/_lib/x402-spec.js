@@ -37,6 +37,7 @@ import { createCdpAuthHeaders } from '@coinbase/x402';
 import {
 	EIP2612_GAS_SPONSORING,
 	ERC20_APPROVAL_GAS_SPONSORING,
+	OFFER_RECEIPT,
 	declareEip2612GasSponsoringExtension,
 	declareErc20ApprovalGasSponsoringExtension,
 } from '@x402/extensions';
@@ -54,6 +55,8 @@ import {
 	declareBuilderCodeExtension,
 	verifyClientEcho as verifyBuilderCodeEcho,
 } from './x402-builder-code.js';
+import { buildOffersExtension } from './x402/offer-receipt-server.js';
+import { offerReceiptDeclaration } from './x402-offer-receipt.js';
 
 export { X402Error };
 // Re-export both gas-sponsoring declarators together so callers building 402
@@ -1184,7 +1187,7 @@ function hasPermit2Accept(accepts) {
 // per the Bazaar spec. Facilitators apply soft-drop validation so silently
 // invalid fields are skipped, but we keep them within limits here too —
 // printable-ASCII, ≤32 chars (serviceName/tag), ≤5 tags, absolute https URL.
-export function build402Body({
+export async function build402Body({
 	resourceUrl,
 	accepts,
 	error = 'X-PAYMENT header is required',
@@ -1209,8 +1212,36 @@ export function build402Body({
 			a: env.X402_BUILDER_CODE_APP,
 		});
 	}
+	// Sign one offer per accepts[] entry (when issuer is configured and the
+	// caller hasn't already provided signed offers in extraExtensions). The
+	// x402-paid-endpoint.js wrapper pre-signs and passes offers via
+	// extraExtensions to avoid signing twice; hand-rolled callers (launchpad,
+	// vanity, etc.) get offers here automatically. Signing failure is silently
+	// absorbed — the protocol stays valid without the extension.
+	if (!extraExtensions?.[OFFER_RECEIPT]) {
+		try {
+			const offersFragment = await buildOffersExtension(
+				resourceUrl,
+				Array.isArray(accepts) ? accepts : [accepts],
+			);
+			if (offersFragment) Object.assign(extensions, offersFragment);
+		} catch (err) {
+			console.error('[build402Body] buildOffersExtension failed:', err?.message || err);
+		}
+	}
 	if (extraExtensions && typeof extraExtensions === 'object') {
 		Object.assign(extensions, extraExtensions);
+	}
+	// Merge static capability declaration into the offer-receipt extension slot.
+	// Declaration fields (includeTxHash, offerValiditySeconds) sit alongside the
+	// per-request signed offers (info.offers) so crawlers see both at once. The
+	// declaration spreads first so existing offer data is never overwritten.
+	const decl = offerReceiptDeclaration();
+	if (decl) {
+		const existing = extensions[OFFER_RECEIPT];
+		extensions[OFFER_RECEIPT] = existing
+			? { ...decl[OFFER_RECEIPT], ...existing }
+			: decl[OFFER_RECEIPT];
 	}
 	const resource = { url: resourceUrl, description, mimeType };
 	if (typeof serviceName === 'string' && serviceName.length) {
@@ -1231,7 +1262,7 @@ export function build402Body({
 	};
 }
 
-export function send402(res, opts = {}) {
+export async function send402(res, opts = {}) {
 	res.statusCode = 402;
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
@@ -1241,7 +1272,7 @@ export function send402(res, opts = {}) {
 	// the `PAYMENT-REQUIRED` HTTP header — agentic.market's Bazaar validator
 	// pulls discovery off the header during its probe and rejects entries
 	// where the two differ.
-	const body = build402Body(opts);
+	const body = await build402Body(opts);
 	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
 	res.end(JSON.stringify(body));
 }

@@ -1,16 +1,19 @@
-// GET /api/x402/pump-agent-audit?mint=<base58-spl-mint>
+// /api/x402/pump-agent-audit
 //
-// Paid endpoint cataloged by the CDP x402 Bazaar. For $0.02 USDC the server
-// audits a pump.fun agent-payments token: total acceptPayment volume in,
-// distribute/buyback success/failure history, recent failure errors, and
-// risk flags (e.g. "no distribution ever run", "high distribute failure rate").
+// Two HTTP methods:
+//   GET  — audit a single pump.fun agent-payments token or list recent launches
+//   POST — whale wallet activity oracle (mode:"whale_activity")
 //
-// Why this is defensible: three.ws is the canonical off-chain index for
-// every acceptPayment + distributePayments + agentBuyback we built. The
-// on-chain TokenAgentPaymentInCurrency PDA is the receipt, but the failure
-// modes (distribute errors, buyback skips, expired claims) only live here.
-// Token investors and counterparty agents need this before trading or
-// trusting a pump-agent token; otherwise they're flying blind on op risk.
+// GET: For $0.02 USDC the server audits a pump.fun agent-payments token:
+// total acceptPayment volume in, distribute/buyback success/failure history,
+// recent failure errors, and risk flags. Also supports list mode (omit mint)
+// for the live bonding-curve launch feed with per-launch initial liquidity.
+//
+// POST (mode:"whale_activity"): For $0.02 USDC, identifies the top whale
+// wallets active on pump.fun right now (wallets that bought ≥5 SOL across
+// any coin in the last sweep). Returns { wallets, total_sol_moved } plus a
+// bullish/bearish/neutral signal so the sniper gate can avoid front-running
+// and confirm genuine large-buyer interest before committing.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
@@ -358,7 +361,8 @@ async function loadRecentLaunches({ limit, sort }) {
 	};
 }
 
-export default paidEndpoint({
+// ── GET endpoint (single audit + list mode) ───────────────────────────────────
+const getEndpoint = paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
 	priceAtomics: priceFor('pump-agent-audit', '20000'),
@@ -397,3 +401,299 @@ export default paidEndpoint({
 		return loadAudit(mint);
 	},
 });
+
+// ── Whale Activity Oracle (POST mode:"whale_activity") ────────────────────────
+// Identifies the top pump.fun whale wallets active right now by scanning recent
+// trades across the top-ranked bonding-curve coins. A whale is any wallet that
+// bought ≥ WHALE_SOL_THRESHOLD SOL in the current sweep window. Returns the
+// top wallets by volume plus an aggregate bullish/bearish/neutral verdict so
+// the sniper gate can avoid front-running and confirm genuine large-buyer
+// conviction before entering a position.
+
+const PUMP_FRONTEND_BASE_AUDIT =
+	process.env.PUMP_FRONTEND_BASE || 'https://frontend-api-v3.pump.fun';
+const PUMP_SWAP_BASE_AUDIT =
+	process.env.PUMP_SWAP_BASE || 'https://swap-api.pump.fun';
+
+// Minimum SOL in a single transaction to qualify as a whale buy.
+const WHALE_SOL_THRESHOLD = Number(process.env.PUMP_WHALE_SOL_THRESHOLD || 5);
+
+// How many top-market-cap coins to pull trades from per sweep.
+const WHALE_TRADE_COINS = 5;
+
+// Max wallets returned per call.
+const WHALE_LIMIT_DEFAULT = 5;
+const WHALE_LIMIT_MAX = 25;
+
+async function fetchTopCoins(limit) {
+	const url = `${PUMP_FRONTEND_BASE_AUDIT}/coins?offset=0&limit=${limit}&sort=market_cap&order=DESC&includeNsfw=false`;
+	const r = await fetch(url, {
+		headers: { accept: 'application/json', 'user-agent': 'three.ws-whale-oracle/1' },
+		signal: AbortSignal.timeout(7000),
+	});
+	if (!r.ok) return [];
+	const body = await r.json().catch(() => null);
+	const coins = Array.isArray(body) ? body : Array.isArray(body?.coins) ? body.coins : [];
+	return coins.filter((c) => c && typeof c.mint === 'string' && c.mint.length >= 32);
+}
+
+async function fetchCoinTrades(mint) {
+	try {
+		const r = await fetch(
+			`${PUMP_SWAP_BASE_AUDIT}/v2/coins/${mint}/trades?limit=50`,
+			{
+				headers: { accept: 'application/json', 'user-agent': 'three.ws-whale-oracle/1' },
+				signal: AbortSignal.timeout(6000),
+			},
+		);
+		if (!r.ok) return [];
+		const body = await r.json().catch(() => null);
+		return Array.isArray(body) ? body : Array.isArray(body?.trades) ? body.trades : [];
+	} catch {
+		return [];
+	}
+}
+
+function parseNum(v) {
+	const n = typeof v === 'string' ? parseFloat(v) : Number(v);
+	return Number.isFinite(n) ? n : null;
+}
+
+async function detectWhaleActivity(limit) {
+	const topCoins = await fetchTopCoins(20).catch(() => []);
+	if (!topCoins.length) {
+		throw Object.assign(
+			new Error('pump.fun coin feed is temporarily unavailable'),
+			{ status: 503, code: 'data_unavailable' },
+		);
+	}
+
+	// Fetch trades for the top WHALE_TRADE_COINS concurrently.
+	const tradeResults = await Promise.allSettled(
+		topCoins.slice(0, WHALE_TRADE_COINS).map((c) => fetchCoinTrades(c.mint)),
+	);
+
+	// Aggregate buys by wallet across all coins.
+	const walletMap = new Map();
+	topCoins.slice(0, WHALE_TRADE_COINS).forEach((coin, i) => {
+		const trades = tradeResults[i].status === 'fulfilled' ? tradeResults[i].value : [];
+		for (const t of trades) {
+			const isBuy = String(t.type ?? t.txType ?? '').toLowerCase() === 'buy';
+			if (!isBuy) continue;
+			const sol = parseNum(t.amountSol) ?? 0;
+			if (sol < WHALE_SOL_THRESHOLD) continue;
+			const wallet = t.userAddress ?? t.user ?? null;
+			if (!wallet) continue;
+			const existing = walletMap.get(wallet) || { wallet, total_sol: 0, buy_count: 0, coins: [] };
+			existing.total_sol += sol;
+			existing.buy_count += 1;
+			if (!existing.coins.includes(coin.mint)) existing.coins.push(coin.mint);
+			walletMap.set(wallet, existing);
+		}
+	});
+
+	// Sort by total SOL descending, take top limit.
+	const allWhales = Array.from(walletMap.values())
+		.sort((a, b) => b.total_sol - a.total_sol);
+	const whales = allWhales.slice(0, limit).map((w) => ({
+		wallet: w.wallet,
+		total_sol: Math.round(w.total_sol * 1000) / 1000,
+		buy_count: w.buy_count,
+		coins: w.coins.slice(0, 5),
+	}));
+
+	const whale_count = allWhales.length;
+	const total_sol_moved = Math.round(
+		allWhales.reduce((s, w) => s + w.total_sol, 0) * 1000,
+	) / 1000;
+
+	let signal, headline, confidence;
+	if (whale_count >= 5 && total_sol_moved >= 50) {
+		signal = 'bullish';
+		headline = `${whale_count} whale wallets moved ${total_sol_moved} SOL on pump.fun — strong buyer conviction`;
+		confidence = Math.min(0.92, 0.72 + (whale_count * 0.02) + (total_sol_moved / 500));
+	} else if (whale_count >= 2 || total_sol_moved >= 10) {
+		signal = 'neutral';
+		headline = `${whale_count} whale wallet${whale_count !== 1 ? 's' : ''} moved ${total_sol_moved} SOL on pump.fun — moderate activity`;
+		confidence = 0.62;
+	} else {
+		signal = 'bearish';
+		headline = `Low whale activity on pump.fun — only ${total_sol_moved} SOL moved by large buyers`;
+		confidence = 0.55;
+	}
+	confidence = Math.round(Math.min(0.95, confidence) * 100) / 100;
+
+	return {
+		mode: 'whale_activity',
+		wallets: whales,
+		whale_count,
+		total_sol_moved,
+		signal,
+		headline,
+		confidence,
+		ts: new Date().toISOString(),
+	};
+}
+
+// Read + parse the JSON body off the raw request stream (same idiom as the
+// other POST x402 endpoints — req.body is not pre-parsed in this runtime).
+async function readJsonBody(req) {
+	const chunks = [];
+	for await (const c of req) chunks.push(c);
+	if (!chunks.length) return {};
+	return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+}
+
+const WHALE_DESCRIPTION =
+	'three.ws Pump Whale Activity Oracle — POST {"mode":"whale_activity","limit":N} ' +
+	'to identify the top N whale wallets currently active on pump.fun (default 5, max 25). ' +
+	'A whale is any wallet that bought ≥5 SOL in one transaction across the top bonding-curve coins. ' +
+	'Returns { wallets, whale_count, total_sol_moved } plus a bullish/bearish/neutral signal and ' +
+	'confidence score. Use to avoid front-running (whale already in = price moving) and to confirm ' +
+	'genuine large-buyer interest before committing a sniper position.';
+
+const WHALE_INPUT_EXAMPLE = { mode: 'whale_activity', limit: 5 };
+
+const WHALE_INPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['mode'],
+	properties: {
+		mode: { type: 'string', enum: ['whale_activity'], description: 'Must be "whale_activity".' },
+		limit: {
+			type: 'integer',
+			minimum: 1,
+			maximum: WHALE_LIMIT_MAX,
+			description: `Top whale wallets to return (default ${WHALE_LIMIT_DEFAULT}, max ${WHALE_LIMIT_MAX}).`,
+		},
+	},
+};
+
+const WHALE_OUTPUT_EXAMPLE = {
+	mode: 'whale_activity',
+	wallets: [
+		{
+			wallet: 'AbcDEF12345GHJKLMNopqrstuvwxyZabcdefghijk1',
+			total_sol: 34.5,
+			buy_count: 3,
+			coins: ['PepeGoMint111111111111111111111111111111111'],
+		},
+	],
+	whale_count: 5,
+	total_sol_moved: 187.3,
+	signal: 'bullish',
+	headline: '5 whale wallets moved 187.3 SOL on pump.fun — strong buyer conviction',
+	confidence: 0.82,
+	ts: '2026-06-28T00:00:00Z',
+};
+
+const WHALE_OUTPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['mode', 'wallets', 'whale_count', 'total_sol_moved', 'signal', 'headline', 'confidence', 'ts'],
+	properties: {
+		mode: { type: 'string', enum: ['whale_activity'] },
+		wallets: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					wallet: { type: 'string' },
+					total_sol: { type: 'number' },
+					buy_count: { type: 'integer' },
+					coins: { type: 'array', items: { type: 'string' } },
+				},
+			},
+		},
+		whale_count: { type: 'integer', minimum: 0 },
+		total_sol_moved: { type: 'number', minimum: 0 },
+		signal: { type: 'string', enum: ['bullish', 'bearish', 'neutral'] },
+		headline: { type: 'string' },
+		confidence: { type: 'number', minimum: 0, maximum: 1 },
+		ts: { type: 'string', format: 'date-time' },
+	},
+};
+
+const WHALE_BAZAAR = {
+	discoverable: true,
+	info: {
+		input: {
+			type: 'http',
+			method: 'POST',
+			bodyType: 'json',
+			body: WHALE_INPUT_EXAMPLE,
+		},
+		output: { type: 'json', example: WHALE_OUTPUT_EXAMPLE },
+	},
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodySchema: WHALE_INPUT_SCHEMA,
+		outputSchema: WHALE_OUTPUT_SCHEMA,
+	}),
+};
+
+const whaleEndpoint = paidEndpoint({
+	route: ROUTE,
+	method: 'POST',
+	priceAtomics: priceFor('pump-agent-audit', '20000'),
+	networks: ['base', 'solana'],
+	description: WHALE_DESCRIPTION,
+	bazaar: WHALE_BAZAAR,
+	service: withService({
+		serviceName: 'three.ws Pump Whale Activity Oracle',
+		tags: ['pump.fun', 'whale', 'oracle', 'sniper', 'solana'],
+	}),
+	requiredScope: 'x402:bypass',
+	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
+	async handler({ req }) {
+		let body;
+		try {
+			body = await readJsonBody(req);
+		} catch {
+			const err = new Error('request body must be valid JSON');
+			err.status = 400;
+			err.code = 'invalid_json';
+			throw err;
+		}
+		if (body.mode !== 'whale_activity') {
+			const err = new Error('mode must be "whale_activity"');
+			err.status = 400;
+			err.code = 'invalid_mode';
+			throw err;
+		}
+		const limit = body.limit == null ? WHALE_LIMIT_DEFAULT : Number(body.limit);
+		if (!Number.isFinite(limit) || limit < 1) {
+			const err = new Error('limit must be a positive integer');
+			err.status = 400;
+			err.code = 'invalid_limit';
+			throw err;
+		}
+		return detectWhaleActivity(Math.min(WHALE_LIMIT_MAX, Math.floor(limit)));
+	},
+});
+
+// Route by method: GET → single audit / list mode, POST → whale activity oracle.
+// OPTIONS preflight is dispatched to GET (its CORS headers cover read-only callers)
+// or to the POST handler when the preflight explicitly targets POST.
+export default function pumpAgentAuditRouter(req, res) {
+	const httpMethod = String(req.method || 'GET').toUpperCase();
+	if (httpMethod === 'POST') {
+		// Buffer the body once so readJsonBody inside the paidEndpoint handler can
+		// drain it as if the stream was never touched (same idiom as agent-reputation.js).
+		return new Promise((resolve) => {
+			const chunks = [];
+			req.on('data', (c) => chunks.push(c));
+			req.on('end', () => {
+				const raw = Buffer.concat(chunks);
+				req[Symbol.asyncIterator] = async function* () { yield raw; };
+				resolve(whaleEndpoint(req, res));
+			});
+			req.on('error', () => resolve(whaleEndpoint(req, res)));
+		});
+	}
+	if (httpMethod === 'OPTIONS') {
+		const requested = String(req.headers['access-control-request-method'] || '').toUpperCase();
+		return requested === 'POST' ? whaleEndpoint(req, res) : getEndpoint(req, res);
+	}
+	return getEndpoint(req, res);
+}

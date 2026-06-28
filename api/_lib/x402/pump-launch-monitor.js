@@ -25,13 +25,22 @@ function num(v) {
 	return Number.isFinite(n) ? n : null;
 }
 
+// SOL liquidity above this average → bullish cohort signal (enough capital to
+// move price; below this floor the cohort is noise-level activity).
+const HIGH_LIQ_SOL = 20;
+
 /**
- * Project a /api/x402/pump-agent-audit LIST response into the screening signal.
+ * Project a /api/x402/pump-agent-audit LIST response into the oracle signal.
+ * Includes all sniper-screening fields plus the oracle envelope
+ * (topic / signal / headline / confidence) so the autonomous loop can upsert
+ * the result into oracle_intel_signals as well as x402_autonomous_log.signal_data.
+ *
  * Tolerant of partial/empty payloads (feed outage → count 0, null fields) so it
  * never throws inside the loop's extractSignal call.
  *
  * @param {object|null} r raw list-mode JSON response
  * @returns {{
+ *   topic: string, signal: string, headline: string, confidence: number,
  *   count: number, newest_mint: string|null, newest_name: string|null,
  *   newest_symbol: string|null, avg_initial_liquidity: number|null,
  *   max_initial_liquidity: number|null, agent_token_count: number
@@ -44,15 +53,37 @@ export function classifyLaunchMonitor(r) {
 	const avg = liq.length ? liq.reduce((a, b) => a + b, 0) / liq.length : null;
 	const max = liq.length ? Math.max(...liq) : null;
 	const agentTokens = launches.reduce((acc, l) => acc + (l?.is_agent_token ? 1 : 0), 0);
+
+	const count = Number.isFinite(o.count) ? o.count : launches.length;
+	const avgLiq = num(o.avg_initial_liquidity_sol) ?? avg;
+	const maxLiq = num(o.max_initial_liquidity_sol) ?? max;
+	const newestMint = o.newest_mint || launches[0]?.mint || null;
+	const newestName = o.newest_name || launches[0]?.name || null;
+	const newestSymbol = o.newest_symbol || launches[0]?.symbol || null;
+
+	// Oracle signal: a cohort with high average liquidity is a bullish environment
+	// for new launches — more capital on the bonding curve means more room for price
+	// movement and a wider snipe window. A thin or empty cohort is neutral.
+	const signal = count > 0 && avgLiq != null && avgLiq >= HIGH_LIQ_SOL ? 'bullish' : 'neutral';
+	const solFmt = (v) => v != null ? `${Math.round(v * 10) / 10} SOL` : 'n/a';
+	const headline = count > 0
+		? `${count} new pump.fun launch${count !== 1 ? 'es' : ''} — avg ${solFmt(avgLiq)} liquidity, peak ${solFmt(maxLiq)}`
+		: 'No recent pump.fun launches detected';
+	// Confidence scales with cohort size: a single launch is uncertain (0.5),
+	// 10+ launches give a reliable baseline (0.9 cap).
+	const confidence = count > 0 ? Math.min(0.9, 0.5 + count * 0.04) : 0.3;
+
 	return {
-		count: Number.isFinite(o.count) ? o.count : launches.length,
-		newest_mint: o.newest_mint || launches[0]?.mint || null,
-		newest_name: o.newest_name || launches[0]?.name || null,
-		newest_symbol: o.newest_symbol || launches[0]?.symbol || null,
-		// Endpoint pre-computes the cohort average; recompute defensively when an
-		// older/partial payload omits it so the signal is never silently null.
-		avg_initial_liquidity: num(o.avg_initial_liquidity_sol) ?? avg,
-		max_initial_liquidity: num(o.max_initial_liquidity_sol) ?? max,
+		topic: 'pump_launch_monitor',
+		signal,
+		headline,
+		confidence,
+		count,
+		newest_mint: newestMint,
+		newest_name: newestName,
+		newest_symbol: newestSymbol,
+		avg_initial_liquidity: avgLiq,
+		max_initial_liquidity: maxLiq,
 		agent_token_count: agentTokens,
 	};
 }
