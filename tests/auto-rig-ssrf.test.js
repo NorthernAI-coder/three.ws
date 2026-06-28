@@ -67,6 +67,7 @@ vi.mock('../api/_lib/auth.js', () => ({
 const providerInstance = { status: vi.fn(async () => state.statusReturn) };
 vi.mock('../api/_lib/regen-provider.js', () => ({
 	getRegenProvider: async () => ({ name: 'replicate', instance: providerInstance }),
+	getRegenProviderForMode: async () => ({ name: 'replicate', instance: providerInstance }),
 	getRegenProviderForJob: async () => ({ name: 'replicate', instance: providerInstance }),
 	getRegenProviderByName: async () => ({ name: 'replicate', instance: providerInstance }),
 	BYOK_REGEN_PROVIDERS: [],

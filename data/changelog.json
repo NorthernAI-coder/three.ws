@@ -3,6 +3,33 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Forged avatars get auto-rigged whenever a rigging lane is available",
+      "summary": "Avatars you forge are meant to come out animation-ready — rigged with a skeleton so they can idle, walk, and play poses. The auto-rig step was only ever asking the single highest-priority generation provider whether it could rig; when that provider handled mesh generation but not rigging, the step gave up and shipped a static, un-rigged mesh — even though a capable rigging service was configured and ready. The pipeline now looks across every configured provider and routes rigging to the first one that actually supports it, so a forged avatar is rigged whenever any rigging lane exists. The same fix applies to selfie/prompt reconstruction, saved uploads, and the background backfill that rigs older avatars.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Building a strategy is now a real page, not a cramped pop-up",
+      "summary": "Creating or editing a Strategy Object on the Strategies page (/strategies) opened a small modal that squeezed a long, multi-section form — entry rules, sizing, take-profit, stop-loss, risk — into a scrolling box. It now opens as a full builder page with room to work: the rules on the left and a sticky \"Your strategy\" panel on the right that shows a plain-language summary of your plan as you type, the safety guarantees, and the Create button always in reach. The builder is shareable and reload-safe (it lives at /strategies?editor=new) and the browser back button returns you to the library. Editing a strategy in-context from an agent's profile still uses the quick inline editor.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/strategies"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "AR avatars look right on iPhone, and AR tells you what to do on a desktop",
+      "summary": "Two fixes to the \"View in AR\" experience. Avatars with position-only props or accessories were exported to iOS Quick Look without surface normals, so those parts showed up flat and mis-lit; every mesh now gets correct normals before the USDZ is built, so avatars are shaded properly in your room. And on a desktop or any device that can't do AR, the \"Place in your space\" button used to do nothing when clicked — it now copies the page link and tells you to open it on your iPhone or Android, where AR actually works.",
+      "tags": [
+        "fix",
+        "improvement"
+      ],
+      "link": "/features/ar"
+    },
+    {
+      "date": "2026-06-28",
       "title": "The \"Save to my avatars\" button is readable on every theme",
       "summary": "On pages with a white accent color, the \"⑂ Save to my avatars\" button (shown on any avatar you don't own) rendered white text on a white background — effectively invisible. The button now picks its text color from the actual button background, so a light button gets black text and a dark button keeps white, keeping the label legible everywhere it appears.",
       "tags": [

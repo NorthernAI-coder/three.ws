@@ -55,6 +55,14 @@
 			<description>A lapsed or missing access key for the autonomous loop means every self-call in the pipeline hits the paywall cold — legitimate tool calls start failing, recovery is manual, and the outage is invisible until someone investigates why the spend log went quiet. The platform now detects this automatically. Every hour an autonomous agent makes a real on-chain payment to a new /api/x402/api-key-health endpoint with body { scope: &quot;autonomous_loop&quot; }. The endpoint checks whether any active subscription key covers the requested scope, falling back to the INTERNAL_API_KEY env var, and returns { valid, scopes, expires_at }. The extracted signal surfaces hours_until_expiry in x402_autonomous_log.signal_data. When expiry is within 24 hours the storeValue hook writes a Redis alert (x402:api-key-health:expiry-alert) so the ops surface can surface the warning before the key lapses.</description>
 		</item>
 		<item>
+			<title>AR avatars look right on iPhone, and AR tells you what to do on a desktop</title>
+			<link>https://three.ws/features/ar</link>
+			<guid isPermaLink="false">2026-06-28:AR avatars look right on iPhone, and AR tells you what to do on a desktop</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Two fixes to the &quot;View in AR&quot; experience. Avatars with position-only props or accessories were exported to iOS Quick Look without surface normals, so those parts showed up flat and mis-lit; every mesh now gets correct normals before the USDZ is built, so avatars are shaded properly in your room. And on a desktop or any device that can't do AR, the &quot;Place in your space&quot; button used to do nothing when clicked — it now copies the page link and tells you to open it on your iPhone or Android, where AR actually works.</description>
+		</item>
+		<item>
 			<title>Auth Session Lifecycle Health — the platform canaries its own JWT auth pipeline every 30 minutes</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:Auth Session Lifecycle Health — the platform canaries its own JWT auth pipeline every 30 minutes</guid>
@@ -69,6 +77,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Describe-it-to-3D and Instant Agent Genesis no longer dead-end with &quot;the avatar engine rejected this job&quot; when one 3D backend has a hiccup. A request now tries every configured engine in turn — and your own Meshy or Tripo key as a backstop — before giving up, so a single provider's cold start, throttle, or outage is invisible to you. On the rare moment every engine is down at once, the error now points you straight to the selfie scanner and offers a one-tap retry instead of stranding the build.</description>
+		</item>
+		<item>
+			<title>Building a strategy is now a real page, not a cramped pop-up</title>
+			<link>https://three.ws/strategies</link>
+			<guid isPermaLink="false">2026-06-28:Building a strategy is now a real page, not a cramped pop-up</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Creating or editing a Strategy Object on the Strategies page (/strategies) opened a small modal that squeezed a long, multi-section form — entry rules, sizing, take-profit, stop-loss, risk — into a scrolling box. It now opens as a full builder page with room to work: the rules on the left and a sticky &quot;Your strategy&quot; panel on the right that shows a plain-language summary of your plan as you type, the safety guarantees, and the Create button always in reach. The builder is shareable and reload-safe (it lives at /strategies?editor=new) and the browser back button returns you to the library. Editing a strategy in-context from an agent's profile still uses the quick inline editor.</description>
 		</item>
 		<item>
 			<title>Changelog Telegram bot health check</title>
@@ -125,6 +141,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>When the free NVIDIA text→3D lane was briefly down, Forge could return &quot;Generator not configured&quot; even on deployments where the free Hugging Face lane was fully set up — because the degrade step looked for a paid Replicate key that wasn't required. Forge now falls through to whichever free engine is configured (Hugging Face Spaces) instead of stopping, so a single free key keeps text and photo generation working through upstream blips.</description>
+		</item>
+		<item>
+			<title>Forged avatars get auto-rigged whenever a rigging lane is available</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Forged avatars get auto-rigged whenever a rigging lane is available</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Avatars you forge are meant to come out animation-ready — rigged with a skeleton so they can idle, walk, and play poses. The auto-rig step was only ever asking the single highest-priority generation provider whether it could rig; when that provider handled mesh generation but not rigging, the step gave up and shipped a static, un-rigged mesh — even though a capable rigging service was configured and ready. The pipeline now looks across every configured provider and routes rigging to the first one that actually supports it, so a forged avatar is rigged whenever any rigging lane exists. The same fix applies to selfie/prompt reconstruction, saved uploads, and the background backfill that rigs older avatars.</description>
 		</item>
 		<item>
 			<title>LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds</title>

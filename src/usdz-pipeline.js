@@ -127,6 +127,26 @@ export function _coerceMaterialsToStandard(scene) {
 	});
 }
 
+/**
+ * Guarantee every renderable mesh in the scene carries a `normal` attribute.
+ * three's USDZExporter logs "USDZExporter: Normals missing." and writes flat,
+ * lighting-broken geometry for any mesh without normals — common for procedural
+ * or decimated props that ship position-only. The skinned-mesh bake already
+ * recomputes normals on the geometry it replaces; this covers everything else
+ * (static meshes, accessories) right before export. Shared by both USDZ paths.
+ *
+ * @param {import('three').Object3D} scene
+ */
+export function _ensureNormals(scene) {
+	scene.traverse((obj) => {
+		if (!obj.isMesh || !obj.geometry) return;
+		const geom = obj.geometry;
+		if (geom.getAttribute('normal')) return;
+		if (!geom.getAttribute('position')) return;
+		geom.computeVertexNormals();
+	});
+}
+
 export function _bakeSkinnedMeshesForExport(scene) {
 	scene.updateMatrixWorld(true);
 
@@ -186,6 +206,10 @@ export async function glbBlobToUsdzBlob(glbBlob) {
 	// Quick Look refuses Unlit/Phong/Toon materials; coerce to standard. The
 	// visual result is close-to-identical for the typical avatar PBR setup.
 	_coerceMaterialsToStandard(scene);
+
+	// Position-only meshes (props, decimated accessories) would export flat-shaded
+	// and trigger the exporter's "Normals missing" warning — fill them in first.
+	_ensureNormals(scene);
 
 	const exporter = new USDZExporter();
 	const usdzBytes = await exporter.parseAsync(scene);
