@@ -12,11 +12,7 @@
 //   sniper and the /radar feed read instantly.
 
 import WebSocket from 'ws';
-import { computeSignals } from './signals.js';
-import { classifyCoin } from './classify.js';
-import { persistIntel } from './store.js';
-import { resolveWalletFunders, buildClusters } from '../../../api/_lib/pump-intel/funder-graph.js';
-import { crossReferenceSmartMoney } from '../../../api/_lib/pump-intel/smart-money-xref.js';
+import { finalizeObservation } from './finalize.js';
 import { log } from '../log.js';
 
 const PUMPPORTAL_WS = 'wss://pumpportal.fun/api/data';
