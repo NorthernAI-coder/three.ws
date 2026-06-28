@@ -59,7 +59,14 @@ export default wrap(async (req, res) => {
 	const mint = (p.get('mint') || '').trim();
 	if (mint) {
 		if (!MINT_RE.test(mint)) return error(res, 400, 'validation_error', 'invalid mint');
-		const scored = await scoreCoin(mint, { network, classify: true, persist: true }).catch(() => null);
+		let scored;
+		try {
+			scored = await scoreCoin(mint, { network, classify: true, persist: true });
+		} catch {
+			// Downstream intel store / DB outage — not a true "not observed". 503 so
+			// the transient failure isn't cached by clients as a permanent 404.
+			return error(res, 503, 'scoring_unavailable', 'signal scoring is temporarily unavailable — retry shortly');
+		}
 		if (!scored) return error(res, 404, 'not_found', 'mint not observed yet');
 		const v = scored.verdict;
 		return json(res, 200, {

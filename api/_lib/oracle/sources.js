@@ -46,7 +46,14 @@ async function tryRows(fn) {
  * @returns {Promise<object|null>} CoinIntel, or null if the coin is unknown
  */
 export async function assembleIntel(mint, network = 'mainnet') {
-	const coin = await tryRow(() => sql`
+	// The primary existence lookup does NOT use tryRow: a swallowed DB error here
+	// is indistinguishable from "coin not observed", which makes every caller
+	// return a misleading 404 during a database/connection outage — a transient
+	// failure clients and the CDN then cache as an authoritative "doesn't exist".
+	// Let a query failure throw (callers map it to 503); only an empty result set
+	// is a true "unknown coin" → null. The secondary enrichment queries below stay
+	// on tryRow, since partial intel is an acceptable degradation.
+	const coinRows = await sql`
 		select mint, symbol, name, image_uri, category, narrative, classify_confidence,
 		       created_at, first_seen_at,
 		       dev_buy_lamports, dev_sold, dev_sell_lamports,
@@ -55,7 +62,8 @@ export async function assembleIntel(mint, network = 'mainnet') {
 		       bundle_score, organic_score, concentration_top10, bubblemap_connectivity,
 		       quality_score, risk_flags
 		from pump_coin_intel where mint = ${mint} and network = ${network} limit 1
-	`);
+	`;
+	const coin = coinRows[0] || null;
 	if (!coin) return null;
 
 	const [smart, narr, topBuyers] = await Promise.all([
