@@ -28,6 +28,7 @@ import { getSkillPrices, skillPriceMap } from '../_lib/skill-price-cache.js';
 import { viewerNftGatedSkills } from '../_lib/nft-gate.js';
 import { z } from 'zod';
 import { isUuid } from '../_lib/validate.js';
+import { getRedis } from '../_lib/redis.js';
 
 const CATEGORIES = [
 	'academic',
@@ -593,6 +594,7 @@ async function handleList(req, res, url) {
 	const hasMore = rows.length > limit;
 	const items = rows.slice(0, limit).map(toCard);
 	await decorateActivated(items);
+	await decorateRepFeatured(items, sort, offset);
 
 	return json(
 		res,
@@ -605,6 +607,33 @@ async function handleList(req, res, url) {
 		},
 		{ 'cache-control': 'public, max-age=15' },
 	);
+}
+
+// Flag which of these cards are "rep_featured" (in the latest autonomous x402
+// reputation leaderboard snapshot). Top agent IDs are written to Redis by the
+// agent-reputation-leaderboard autonomous loop entry every 30 min. On the first
+// page of a recommended sort those agents are floated to the top so visitors see
+// the highest-trust agents first. Mutates each card in place; never throws.
+async function decorateRepFeatured(items, sort, offset) {
+	if (!items.length) return;
+	try {
+		const redis = await getRedis();
+		if (!redis) return;
+		const raw = await redis.get('x402:rep-leaderboard:top-agent-ids');
+		if (!raw) return;
+		const topIds = JSON.parse(typeof raw === 'string' ? raw : JSON.stringify(raw));
+		if (!Array.isArray(topIds) || topIds.length === 0) return;
+		const topSet = new Set(topIds);
+		for (const card of items) {
+			if (topSet.has(card.id)) card.rep_featured = true;
+		}
+		// Float rep-featured agents to the top on the first page of recommended.
+		if (sort === 'recommended' && offset === 0) {
+			items.sort((a, b) => (b.rep_featured ? 1 : 0) - (a.rep_featured ? 1 : 0));
+		}
+	} catch {
+		// Redis miss or parse error — degrade gracefully, never block the listing.
+	}
 }
 
 // Flag which of these cards are "live" (claimed their activation grant — funded +
