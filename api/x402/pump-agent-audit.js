@@ -18,28 +18,79 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import { recentPumpLaunches } from '../_lib/pump-launch-feed.js';
 
 const ROUTE = '/api/x402/pump-agent-audit';
 
 const DESCRIPTION =
-	'three.ws Pump-Agent Audit — given a pump.fun SPL mint address, return a ' +
-	'full operational audit of its agent-payments lifecycle: total USDC paid in, ' +
-	'unique payer count, distribute run history with success/failure breakdown, ' +
-	'buyback runs with burn totals, recent error reasons, and risk flags ' +
-	'(e.g. "never distributed", "high failure rate"). Use to evaluate ' +
-	'counterparty operational risk before trading or paying.';
+	'three.ws Pump-Agent Audit — two modes. SINGLE (pass ?mint=<spl-mint>): a ' +
+	'full operational audit of one pump.fun agent-payments token — total USDC ' +
+	'paid in, unique payer count, distribute run history with success/failure ' +
+	'breakdown, buyback runs with burn totals, recent error reasons, and risk ' +
+	'flags ("never distributed", "high failure rate"). LIST (omit mint, pass ' +
+	'?limit=&sort=newest|liquidity): the N most-recently launched pump.fun ' +
+	'tokens (live bonding-curve feed) with each one\'s initial SOL liquidity, ' +
+	'market cap and whether it is a three.ws agent-payments token, plus the ' +
+	'cohort\'s average/peak initial liquidity. Use SINGLE to evaluate ' +
+	'counterparty risk before trading; use LIST to screen fresh launches for ' +
+	'snipe candidates.';
 
 const INPUT_EXAMPLE = { mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi' };
 
 const INPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['mint'],
+	// `mint` selects SINGLE mode; omitting it selects LIST mode. Neither field is
+	// unconditionally required, so the schema documents both inputs without
+	// forcing a mint on the list path.
 	properties: {
-		mint: { type: 'string', description: 'Solana SPL mint pubkey (base58).' },
+		mint: {
+			type: 'string',
+			description: 'Solana SPL mint pubkey (base58). Present → single-mint audit.',
+		},
+		limit: {
+			type: 'integer',
+			minimum: 1,
+			maximum: 25,
+			description: 'LIST mode: number of recent launches to return (default 10).',
+		},
+		sort: {
+			type: 'string',
+			enum: ['newest', 'liquidity'],
+			description: 'LIST mode: order — newest-first (default) or by initial liquidity.',
+		},
 	},
 };
 
+// LIST mode example (omit mint → recent launches)
+const OUTPUT_EXAMPLE_LIST = {
+	network: 'mainnet',
+	sort: 'newest',
+	count: 2,
+	newest_mint: 'AbcDEFGHJKLMNopqrstuvwxyZ12345abcdefghi1234',
+	newest_name: 'PepeGo',
+	newest_symbol: 'PEPEGO',
+	avg_initial_liquidity_sol: 28.4,
+	max_initial_liquidity_sol: 45.1,
+	launches: [
+		{
+			mint: 'AbcDEFGHJKLMNopqrstuvwxyZ12345abcdefghi1234',
+			name: 'PepeGo',
+			symbol: 'PEPEGO',
+			created_at: 1748908800000,
+			market_cap_usd: 6500,
+			liquidity_sol: 45.1,
+			creator: '5oo1g...',
+			twitter: null,
+			telegram: null,
+			website: null,
+			is_agent_token: false,
+		},
+	],
+	queried_at: '2026-05-14T17:00:00Z',
+};
+
+// SINGLE mode example (pass ?mint=)
 const OUTPUT_EXAMPLE = {
 	mint: 'C3vQABCDEFGHJKLMNopqrstuvwxyZ12345abcdefghi',
 	network: 'mainnet',
@@ -77,22 +128,44 @@ const OUTPUT_EXAMPLE = {
 
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	type: 'object',
-	required: ['mint', 'payments', 'distributions', 'buybacks', 'risk_flags'],
-	properties: {
-		mint: { type: 'string' },
-		network: { type: ['string', 'null'] },
-		name: { type: ['string', 'null'] },
-		symbol: { type: ['string', 'null'] },
-		agent_id: { type: ['string', 'null'] },
-		pump_agent_pda: { type: ['string', 'null'] },
-		deployed_at: { type: ['string', 'null'] },
-		payments: { type: 'object' },
-		distributions: { type: 'object' },
-		buybacks: { type: 'object' },
-		risk_flags: { type: 'array', items: { type: 'string' } },
-		indexed_at: { type: 'string', format: 'date-time' },
-	},
+	oneOf: [
+		{
+			title: 'List mode',
+			type: 'object',
+			required: ['count', 'launches', 'queried_at'],
+			properties: {
+				network: { type: 'string' },
+				sort: { type: 'string' },
+				count: { type: 'integer' },
+				newest_mint: { type: ['string', 'null'] },
+				newest_name: { type: ['string', 'null'] },
+				newest_symbol: { type: ['string', 'null'] },
+				avg_initial_liquidity_sol: { type: ['number', 'null'] },
+				max_initial_liquidity_sol: { type: ['number', 'null'] },
+				launches: { type: 'array', items: { type: 'object' } },
+				queried_at: { type: 'string', format: 'date-time' },
+			},
+		},
+		{
+			title: 'Single mode',
+			type: 'object',
+			required: ['mint', 'payments', 'distributions', 'buybacks', 'risk_flags'],
+			properties: {
+				mint: { type: 'string' },
+				network: { type: ['string', 'null'] },
+				name: { type: ['string', 'null'] },
+				symbol: { type: ['string', 'null'] },
+				agent_id: { type: ['string', 'null'] },
+				pump_agent_pda: { type: ['string', 'null'] },
+				deployed_at: { type: ['string', 'null'] },
+				payments: { type: 'object' },
+				distributions: { type: 'object' },
+				buybacks: { type: 'object' },
+				risk_flags: { type: 'array', items: { type: 'string' } },
+				indexed_at: { type: 'string', format: 'date-time' },
+			},
+		},
+	],
 };
 
 const BAZAAR = {
@@ -101,9 +174,10 @@ const BAZAAR = {
 		input: {
 			type: 'http',
 			method: 'GET',
-			queryParams: INPUT_EXAMPLE,
+			// Show list-mode query params as the primary example (common caller path)
+			queryParams: { limit: 10, sort: 'newest' },
 		},
-		output: { type: 'json', example: OUTPUT_EXAMPLE },
+		output: { type: 'json', example: OUTPUT_EXAMPLE_LIST },
 	},
 	schema: buildBazaarSchema({
 		method: 'GET',
@@ -237,6 +311,53 @@ async function loadAudit(mint) {
 	};
 }
 
+// Cross-reference the live pump.fun launches against pump_agent_mints so each
+// list entry gains an `is_agent_token` flag without N per-launch DB queries.
+async function markAgentTokens(launches) {
+	if (!launches.length) return launches;
+	const mints = launches.map((l) => l.mint).filter(Boolean);
+	if (!mints.length) return launches;
+	try {
+		const rows = await sql`
+			select mint from pump_agent_mints where mint = any(${mints})
+		`;
+		const agentSet = new Set(rows.map((r) => r.mint));
+		return launches.map((l) => ({ ...l, is_agent_token: agentSet.has(l.mint) }));
+	} catch {
+		// Non-fatal — caller still gets the live launches, just without the flag.
+		return launches.map((l) => ({ ...l, is_agent_token: false }));
+	}
+}
+
+async function loadRecentLaunches({ limit, sort }) {
+	const n = Math.min(25, Math.max(1, Number(limit) || 10));
+	const raw = await recentPumpLaunches({ network: 'mainnet', limit: n });
+	const launches = await markAgentTokens(raw);
+
+	// sort='liquidity' re-ranks by initial bonding-curve SOL reserves, highest first.
+	if (sort === 'liquidity') {
+		launches.sort((a, b) => (b.liquidity_sol ?? 0) - (a.liquidity_sol ?? 0));
+	}
+
+	const liq = launches.map((l) => l.liquidity_sol).filter((v) => v != null && v > 0);
+	const avgLiq = liq.length ? liq.reduce((a, b) => a + b, 0) / liq.length : null;
+	const maxLiq = liq.length ? Math.max(...liq) : null;
+	const newest = launches[sort === 'liquidity' ? 0 : 0]; // feed is newest-first from source
+
+	return {
+		network: 'mainnet',
+		sort: sort || 'newest',
+		count: launches.length,
+		newest_mint: newest?.mint || null,
+		newest_name: newest?.name || null,
+		newest_symbol: newest?.symbol || null,
+		avg_initial_liquidity_sol: avgLiq != null ? Math.round(avgLiq * 1e4) / 1e4 : null,
+		max_initial_liquidity_sol: maxLiq != null ? Math.round(maxLiq * 1e4) / 1e4 : null,
+		launches,
+		queried_at: new Date().toISOString(),
+	};
+}
+
 export default paidEndpoint({
 	route: ROUTE,
 	method: 'GET',
@@ -252,12 +373,21 @@ export default paidEndpoint({
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req }) {
 		const mint = String(req.query?.mint || '').trim();
+
+		// LIST MODE — no mint supplied
 		if (!mint) {
-			const err = new Error('query param "mint" is required');
-			err.status = 400;
-			err.code = 'missing_mint';
-			throw err;
+			const limit = req.query?.limit;
+			const sort = String(req.query?.sort || 'newest').trim();
+			if (sort !== 'newest' && sort !== 'liquidity') {
+				const err = new Error('sort must be "newest" or "liquidity"');
+				err.status = 400;
+				err.code = 'invalid_sort';
+				throw err;
+			}
+			return loadRecentLaunches({ limit, sort });
 		}
+
+		// SINGLE MODE — validate mint then audit
 		if (!BASE58_RE.test(mint)) {
 			const err = new Error('mint must be a base58 Solana pubkey');
 			err.status = 400;

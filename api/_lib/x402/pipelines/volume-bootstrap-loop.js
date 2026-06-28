@@ -74,7 +74,7 @@ export const VOLUME_ENDPOINTS = [
 	{ key: 'token-intel',         name: 'Token Intel',          path: '/api/x402/token-intel',         method: 'POST', body: { mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', network: 'mainnet' } },
 	{ key: 'fact-check',          name: 'Fact Check',           path: '/api/x402/fact-check',          method: 'POST', body: { claim: 'The sky is blue' } },
 	{ key: 'symbol-availability', name: 'Symbol Availability',  path: '/api/x402/symbol-availability', method: 'POST', body: { symbol: 'HEALTH' } },
-	{ key: 'pay-by-name',         name: 'Pay By Name',          path: '/api/x402/pay-by-name',         method: 'POST', body: { name: 'three.ws' } },
+	{ key: 'pay-by-name',         name: 'Pay By Name',          path: '/api/x402/pay-by-name?name=threews.sol', method: 'GET',  body: null },
 	{ key: 'skill-marketplace',   name: 'Skill Marketplace',    path: '/api/x402/skill-marketplace',   method: 'GET',  body: null },
 	{ key: 'agent-reputation',    name: 'Agent Reputation',     path: '/api/x402/agent-reputation',    method: 'GET',  body: null },
 	{ key: 'club-cover',          name: 'Club Cover Charge',    path: '/api/x402/club-cover',          method: 'POST', body: { club: 'canary_test' } },

@@ -26,6 +26,7 @@ import {
 	tierFor,
 	membershipSnapshot,
 } from '../_lib/club/cover-pass.js';
+import { coverRevenueSummary } from '../_lib/club/cover-revenue.js';
 
 const ROUTE = '/api/x402/club-cover';
 
@@ -275,34 +276,53 @@ const snapshotEndpoint = paidEndpoint({
 	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 	async handler({ req, requirement, payer, bypass }) {
+		let mode = 'snapshot';
 		let club = 'three_holders';
+		let period = '7d';
 		try {
 			const chunks = [];
 			for await (const c of req) chunks.push(c);
 			const raw = Buffer.concat(chunks).toString('utf8');
 			if (raw) {
 				const body = JSON.parse(raw);
+				if (body && typeof body.mode === 'string') {
+					mode = body.mode.trim().toLowerCase().slice(0, 32);
+				}
 				if (body && typeof body.club === 'string' && body.club.trim()) {
 					club = body.club.trim().slice(0, 64);
 				}
+				if (body && typeof body.period === 'string' && body.period.trim()) {
+					period = body.period.trim().slice(0, 8);
+				}
 			}
 		} catch {
-			/* default club — a malformed body just snapshots the default ledger */
+			/* default mode/club — a malformed body snapshots the default ledger */
 		}
 
-		// Throws 503 on a ledger error → no settlement, caller not charged.
-		const snap = await membershipSnapshot(club);
-
-		return {
-			ok: true,
-			mode: 'snapshot',
-			...snap,
-			snapshot_at: new Date().toISOString(),
+		const meta = {
 			payer: payer ?? (bypass ? bypass.callerId : null),
 			network: requirement?.network ?? null,
 			amountAtomics: requirement?.amount ?? null,
 			asset: requirement?.asset ?? null,
 			...(bypass ? { bypass: bypass.reason } : {}),
+		};
+
+		// mode:"revenue" — 7-day cover-charge + floor revenue summary.
+		// The autonomous loop pays this mode to monitor social-economy health.
+		if (mode === 'revenue') {
+			// Throws 503 on a ledger error → no settlement, caller not charged.
+			const summary = await coverRevenueSummary({ period });
+			return { ...summary, ...meta };
+		}
+
+		// Default: mode:"snapshot" (membership growth/churn).
+		const snap = await membershipSnapshot(club);
+		return {
+			ok: true,
+			mode: 'snapshot',
+			...snap,
+			snapshot_at: new Date().toISOString(),
+			...meta,
 		};
 	},
 });

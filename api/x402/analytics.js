@@ -32,25 +32,31 @@ import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
 import { sql } from '../_lib/db.js';
+import { solUsdPrice } from '../_lib/avatar-wallet.js';
+import { buildRevenueReport } from '../_lib/x402/revenue-analytics.js';
+import { buildSniperAnalytics } from '../_lib/x402/sniper-analytics-store.js';
 
 const ROUTE = '/api/x402/analytics';
 
 const DESCRIPTION =
-	'three.ws Social-Economy Analytics — pay $0.005 USDC per call for a live, ' +
-	'aggregated view of platform social activity. The "clubs" report returns the ' +
-	'Pole Club economy over the requested window: active stages, distinct patron ' +
-	'members, tip count + USDC volume, cover charges collected at the door, and a ' +
-	'fastest-growing-stage leaderboard. Read live from the on-chain-settled tip + ' +
-	'cover ledgers. Pay-per-call in USDC on Solana mainnet or Base.';
+	'three.ws Economy Analytics — pay $0.005 USDC per call for a live, aggregated ' +
+	'view of platform activity. "clubs": Pole Club economy — active stages, patrons, ' +
+	'tip volume, cover charges, fastest-growing leaderboard. "agent_leaderboard": top ' +
+	'agents by USDC spend over a trailing window. "marketplace": catalog stats — ' +
+	'active listing count, price distribution normalised to USD + SOL at the live ' +
+	'rate, new listings in the window, and the most-viewed / most-forked listing. ' +
+	'All numbers are read live from the real ledgers and catalog tables.';
 
 // Supported reports + period windows. Both are strict whitelists — a value
 // outside the set is rejected BEFORE settlement (the buyer is never charged for
 // a report we can't produce).
-const REPORTS = new Set(['clubs', 'agent_leaderboard']);
+const REPORTS = new Set(['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades']);
 
 // period → window in seconds (null = all-time, no time filter).
+// '6h' is used by the revenue report (matches its resolvePeriod keys).
 const PERIODS = {
 	'1h': 3600,
+	'6h': 21600,
 	'24h': 86400,
 	'7d': 604800,
 	'30d': 2592000,
@@ -63,15 +69,15 @@ const INPUT_SCHEMA = {
 	properties: {
 		report: {
 			type: 'string',
-			enum: ['clubs', 'agent_leaderboard'],
+			enum: ['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades'],
 			default: 'clubs',
 			description: 'Which analytics report to return.',
 		},
 		period: {
 			type: 'string',
-			enum: ['1h', '24h', '7d', '30d', 'all'],
+			enum: ['1h', '6h', '24h', '7d', '30d', 'all'],
 			default: '24h',
-			description: 'Aggregation window (clubs report).',
+			description: 'Aggregation window (clubs + revenue reports).',
 		},
 		limit: {
 			type: 'integer',
@@ -86,6 +92,12 @@ const INPUT_SCHEMA = {
 			maximum: 90,
 			default: 7,
 			description: 'Trailing window in days (agent_leaderboard report).',
+		},
+		network: {
+			type: 'string',
+			enum: ['mainnet', 'devnet', 'all'],
+			default: 'mainnet',
+			description: 'Network filter (sniper_trades report).',
 		},
 	},
 };
@@ -274,6 +286,265 @@ async function clubsReport(seconds) {
 	};
 }
 
+function clampInt(v, { min, max, fallback }) {
+	const n = Math.floor(Number(v));
+	if (!Number.isFinite(n)) return fallback;
+	return Math.max(min, Math.min(max, n));
+}
+
+// Top agents by completed x402 spend (as the hiring/paying side) over a trailing
+// window, read live from the real agent-to-agent hire ledger. `usd` is the human
+// dollar value recorded at settle time; when absent we fall back to
+// amount_atomics (USDC 6-decimal) so spend is never under-counted. window_days is
+// bound, never interpolated. Returns the actionable shape partnership outreach
+// consumes: the ranked agents with their hire counts + payout addresses.
+async function agentLeaderboardReport(limit, windowDays) {
+	const rows = await sql`
+		select
+			h.hirer_agent_id                                      as agent_id,
+			coalesce(ai.name, 'Agent')                            as name,
+			ai.meta->>'solana_address'                            as solana_address,
+			sum(coalesce(h.usd, h.amount_atomics::numeric / 1e6)) as spend_usdc,
+			count(*)::int                                         as hires,
+			max(h.created_at)                                     as last_hire_at
+		from agent_hires h
+		left join agent_identities ai on ai.id = h.hirer_agent_id
+		where h.status = 'completed'
+		  and h.created_at >= now() - (${windowDays}::int * interval '1 day')
+		group by h.hirer_agent_id, ai.name, ai.meta->>'solana_address'
+		order by spend_usdc desc nulls last, last_hire_at desc
+		limit ${limit}
+	`.catch(() => []);
+
+	const leaderboard = (rows || []).map((r, i) => ({
+		rank: i + 1,
+		agent_id: r.agent_id,
+		name: r.name || 'Agent',
+		solana_address: r.solana_address || null,
+		spend_usdc: Number(Number(r.spend_usdc || 0).toFixed(6)),
+		hires: Number(r.hires || 0),
+		last_hire_at: r.last_hire_at instanceof Date
+			? r.last_hire_at.toISOString()
+			: (r.last_hire_at || null),
+	}));
+
+	const total_spend_usdc = Number(
+		leaderboard.reduce((s, a) => s + a.spend_usdc, 0).toFixed(6),
+	);
+
+	return {
+		agent_count: leaderboard.length,
+		total_spend_usdc,
+		leaderboard,
+	};
+}
+
+// Auto-named / stub agent names excluded from the public marketplace listing
+// count — kept in sync with api/marketplace/[action].js so the numbers match
+// exactly what a visitor browsing /marketplace sees.
+const AGENT_AUTONAMED_RE =
+	'^(Agent|My Agent|My First Agent|Demo Agent|Untitled.*|TEST|Test|test|mo[a-z0-9]{4,}|draft-[a-z0-9]+|new_project_[0-9]+|Avatar[ ]*#[0-9a-f]{4,}([ ]*agent)?|https?://.+)$';
+
+// Mints we can normalise to USD at query time.
+// Keys are lower-cased for comparison; display form preserved per-row via currencyLabel().
+const USDC_MINTS = new Set([
+	'epjfwdd5aufqssqem2qn1xzybapC8G4wEGGkZwyTDt1v', // Solana mainnet USDC
+	'0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',   // Base USDC
+]);
+const SOL_MINTS = new Set(['native', 'so11111111111111111111111111111111111111112']);
+
+function currencyLabel(mint) {
+	const m = String(mint || '').toLowerCase();
+	if (USDC_MINTS.has(m)) return 'USDC';
+	if (SOL_MINTS.has(m)) return 'SOL';
+	return mint && mint.length > 10 ? `${mint.slice(0, 4)}…${mint.slice(-4)}` : String(mint || 'unknown');
+}
+
+function roundNum(n, dp) {
+	if (n == null || !Number.isFinite(Number(n))) return null;
+	const f = 10 ** dp;
+	return Math.round(Number(n) * f) / f;
+}
+
+// Marketplace catalog stats for the public agent marketplace.
+// seconds: null → all-time for new_in_period; integer → published_at window.
+async function marketplaceReport(seconds) {
+	const publishWindow =
+		seconds == null ? sql`true` : sql`ai.published_at >= now() - (${seconds}::int * interval '1 second')`;
+
+	const [[summary], priceRows, [mostViewed], [mostForked]] = await Promise.all([
+		sql`
+			SELECT
+				COUNT(*)::int AS listing_count,
+				COUNT(*) FILTER (WHERE ${publishWindow})::int AS new_in_period,
+				COALESCE(SUM(ai.views_count), 0)::bigint AS total_views,
+				COALESCE(SUM(ai.forks_count), 0)::bigint AS total_forks
+			FROM agent_identities ai
+			WHERE ai.is_published = true
+			  AND ai.deleted_at IS NULL
+			  AND ai.name !~* ${AGENT_AUTONAMED_RE}
+		`.catch(() => [{}]),
+		sql`
+			SELECT
+				ap.currency_mint,
+				ap.mint_decimals,
+				ap.chain,
+				COUNT(*)::int           AS cnt,
+				SUM(ap.amount)::numeric AS sum_amount,
+				MIN(ap.amount)::numeric AS min_amount,
+				MAX(ap.amount)::numeric AS max_amount
+			FROM asset_prices ap
+			JOIN agent_identities ai ON ai.id = ap.item_id
+			WHERE ap.item_type = 'agent'
+			  AND ap.is_active = true
+			  AND ai.is_published = true
+			  AND ai.deleted_at IS NULL
+			  AND ai.name !~* ${AGENT_AUTONAMED_RE}
+			GROUP BY ap.currency_mint, ap.mint_decimals, ap.chain
+			ORDER BY cnt DESC
+		`.catch(() => []),
+		sql`
+			SELECT id, name, category, COALESCE(views_count, 0)::int AS views_count
+			FROM agent_identities
+			WHERE is_published = true AND deleted_at IS NULL AND name !~* ${AGENT_AUTONAMED_RE}
+			ORDER BY views_count DESC NULLS LAST LIMIT 1
+		`.catch(() => [null]),
+		sql`
+			SELECT id, name, category, COALESCE(forks_count, 0)::int AS forks_count
+			FROM agent_identities
+			WHERE is_published = true AND deleted_at IS NULL AND name !~* ${AGENT_AUTONAMED_RE}
+			ORDER BY forks_count DESC NULLS LAST LIMIT 1
+		`.catch(() => [null]),
+	]);
+
+	// SOL/USD for price normalisation — fail-soft; SOL listings omitted from the
+	// USD average if the price oracle is transiently unavailable.
+	let solUsd = null;
+	try { solUsd = await solUsdPrice(); } catch { /* decoration only */ }
+
+	let pricedCount = 0;
+	let totalUsd = 0;
+	let minUsd = null;
+	let maxUsd = null;
+
+	const byCurrency = (priceRows || []).map((r) => {
+		const decimals = Number(r.mint_decimals ?? 6);
+		const scale = 10 ** decimals;
+		const cnt = Number(r.cnt);
+		const m = String(r.currency_mint || '').toLowerCase();
+		const isUsdc = USDC_MINTS.has(m);
+		const isSol = SOL_MINTS.has(m);
+		const rate = isUsdc ? 1 : (isSol && solUsd ? solUsd : null);
+		const avgHuman = Number(r.sum_amount) / cnt / scale;
+
+		if (rate != null) {
+			pricedCount += cnt;
+			totalUsd += (Number(r.sum_amount) / scale) * rate;
+			const lo = (Number(r.min_amount) / scale) * rate;
+			const hi = (Number(r.max_amount) / scale) * rate;
+			minUsd = minUsd == null ? lo : Math.min(minUsd, lo);
+			maxUsd = maxUsd == null ? hi : Math.max(maxUsd, hi);
+		}
+
+		return {
+			currency: currencyLabel(r.currency_mint),
+			currency_mint: r.currency_mint,
+			chain: r.chain,
+			count: cnt,
+			avg_price: roundNum(avgHuman, 6),
+			priceable: rate != null,
+		};
+	});
+
+	const totalPriced = byCurrency.reduce((n, c) => n + c.count, 0);
+	const avgUsd = pricedCount > 0 ? totalUsd / pricedCount : null;
+	const avgSol = avgUsd != null && solUsd ? avgUsd / solUsd : null;
+	const listingCount = Number(summary?.listing_count ?? 0);
+
+	return {
+		catalog: {
+			listing_count: listingCount,
+			priced_listings: totalPriced,
+			free_listings: Math.max(0, listingCount - totalPriced),
+			new_in_period: Number(summary?.new_in_period ?? 0),
+		},
+		pricing: {
+			avg_price_usd: roundNum(avgUsd, 4),
+			avg_price_sol: roundNum(avgSol, 6),
+			min_price_usd: roundNum(minUsd, 4),
+			max_price_usd: roundNum(maxUsd, 4),
+			priceable_count: pricedCount,
+			sol_usd_price: roundNum(solUsd, 2),
+			by_currency: byCurrency,
+		},
+		engagement: {
+			total_views: Number(summary?.total_views ?? 0),
+			total_forks: Number(summary?.total_forks ?? 0),
+			most_viewed_id: mostViewed?.id ?? null,
+			most_viewed_name: mostViewed?.name ?? null,
+			most_viewed_count: mostViewed ? Number(mostViewed.views_count) : 0,
+			most_forked_id: mostForked?.id ?? null,
+			most_forked_name: mostForked?.name ?? null,
+			most_forked_count: mostForked ? Number(mostForked.forks_count) : 0,
+		},
+	};
+}
+
+
+// Aggregate closed positions from the autonomous sniper's real trade ledger.
+// All SOL amounts are stored as lamports (numeric(40,0)); we aggregate in SQL to
+// keep bigint precision before dividing. interval is a Postgres interval literal
+// (e.g. '24 hours'); null means all-time (no time filter). network is 'mainnet',
+// 'devnet', or 'all'. Parameters are bound — never interpolated.
+const PERIOD_INTERVALS = {
+	'1h': '1 hour',
+	'6h': '6 hours',
+	'24h': '24 hours',
+	'7d': '7 days',
+	'30d': '30 days',
+	all: null,
+};
+const NETWORKS_SNIPER = new Set(['mainnet', 'devnet', 'all']);
+
+async function sniperTradesReport({ interval, network, period }) {
+	const networkClause =
+		network && network !== 'all' ? sql\`AND network = \${network}\` : sql\`\`;
+	const periodClause =
+		interval ? sql\`AND closed_at >= now() - \${interval}::interval\` : sql\`\`;
+
+	const [row] = await sql\`
+		SELECT
+			COUNT(*)                                                       AS closed,
+			COUNT(*) FILTER (WHERE realized_pnl_lamports > 0)              AS wins,
+			COUNT(*) FILTER (WHERE realized_pnl_lamports < 0)              AS losses,
+			COUNT(*) FILTER (WHERE realized_pnl_lamports = 0)              AS breakeven,
+			COALESCE(SUM(entry_quote_lamports), 0)                         AS volume_lamports,
+			COALESCE(SUM(realized_pnl_lamports), 0)                        AS total_pnl_lamports,
+			COALESCE(AVG(realized_pnl_lamports), 0)                        AS avg_pnl_lamports,
+			COALESCE(MIN(realized_pnl_lamports), 0)                        AS worst_loss_lamports,
+			COALESCE(MAX(realized_pnl_lamports), 0)                        AS best_win_lamports,
+			COALESCE(AVG(realized_pnl_pct), 0)                             AS avg_pnl_pct
+		FROM agent_sniper_positions
+		WHERE status = 'closed'
+		  AND realized_pnl_lamports IS NOT NULL
+		  \${periodClause}
+		  \${networkClause}
+	\`.catch(() => [{}]);
+
+	let solUsd = null;
+	try { solUsd = await solUsdPrice(); } catch { solUsd = null; }
+
+	const result = buildSniperAnalytics(row || {}, {
+		solUsd,
+		period,
+		network: network || 'mainnet',
+		report: 'sniper_trades',
+		generatedAt: new Date().toISOString(),
+	});
+
+	return { ok: true, ...result };
+}
+
 export default paidEndpoint({
 	route: ROUTE,
 	method: 'POST',
@@ -307,6 +578,49 @@ export default paidEndpoint({
 			});
 		}
 
+		// ── Revenue report — platform x402 earnings from the settled ledger. ────
+		if (report === 'revenue') {
+			return buildRevenueReport({ period });
+		}
+
+		// ── Agent leaderboard — top spenders from the hire ledger. ──────────────
+		if (report === 'agent_leaderboard') {
+			const limit = clampInt(body.limit, { min: 1, max: 100, fallback: 10 });
+			const windowDays = clampInt(body.window_days, { min: 1, max: 90, fallback: 7 });
+			const data = await agentLeaderboardReport(limit, windowDays);
+			return {
+				ok: true,
+				report,
+				period,
+				generated_at: new Date().toISOString(),
+				...data,
+			};
+		}
+
+		// ── Marketplace report — live catalog stats for the public agent market. ──
+		if (report === 'marketplace') {
+			const seconds = PERIODS[period];
+			const data = await marketplaceReport(seconds);
+			return {
+				ok: true,
+				report,
+				period,
+				generated_at: new Date().toISOString(),
+				...data,
+			};
+		}
+
+		// ── Sniper trades report — autonomous sniper performance from real ledger. ──
+		if (report === 'sniper_trades') {
+			const network = NETWORKS_SNIPER.has(body.network) ? body.network : 'mainnet';
+			return sniperTradesReport({
+				interval: PERIOD_INTERVALS[period],
+				network,
+				period,
+			});
+		}
+
+		// ── Clubs report (default) — Pole Club social economy. ──────────────────
 		const seconds = PERIODS[period];
 		const { metrics, top_clubs } = await clubsReport(seconds);
 
