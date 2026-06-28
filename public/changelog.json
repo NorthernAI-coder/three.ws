@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T22:56:12.840Z",
+	"generated_at": "2026-06-28T23:30:20.151Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -231,6 +231,16 @@
 			"title": "Fixed strategy backtesting failing to find candidate coins",
 			"summary": "Running a strategy backtest (and live strategy runs) could fail with a server error while scanning for candidate coins. The scan and trading steps rely on several bundled trading skills, but only one of them was being shipped to production — so the moment a backtest tried to pull trending or new coins, it hit a missing-module error. All of the required skills now deploy together, and backtests source their candidate coins and replay normally again.",
 			"link": null,
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Fixed the live agents wall crashing on load",
+			"summary": "The /agents-live page — the wall of agents working in real time — was throwing an error the moment it tried to start its frames-per-second ticker, which froze the live counters and stat bar. The page now starts cleanly and the live FPS, active, and total counts update every second as agents stream in.",
+			"link": "/agents-live",
 			"tags": [
 				"fix"
 			]

@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Fixed the live agents wall crashing on load",
+      "summary": "The /agents-live page — the wall of agents working in real time — was throwing an error the moment it tried to start its frames-per-second ticker, which froze the live counters and stat bar. The page now starts cleanly and the live FPS, active, and total counts update every second as agents stream in.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/agents-live"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Coin worlds now have a billboard you can feature content on",
       "summary": "Every 3D coin world now stands a billboard behind the spawn point — a framed panel on posts, like a real-world hoarding. By default it shows the world's own image so the space isn't bare. Anyone can feature their own content on it: walk into a world, tap 'Feature your content', drop in an image and caption, and pay the slot fee in USDC or $THREE over x402 to hold the board for everyone who visits, for six hours. It's a content slot, not an ad — nothing is targeted or tracked, your avatar can walk right under it, and the slot frees itself when the time's up. Agents can place content too, straight from the x402 Bazaar.",
       "tags": [

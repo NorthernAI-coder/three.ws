@@ -145,7 +145,6 @@ function createDesk(scene, opts = {}) {
 
 	// ── avatar seated behind desk ────────────────────────────────────────
 	let avatar = null;
-	let avatarMixer = null;
 	let avatarManager = null;
 
 	if (avatarUrl) {
@@ -166,12 +165,26 @@ function createDesk(scene, opts = {}) {
 			group.add(model);
 			avatar = model;
 
-			avatarManager = new AnimationManager(model, { loop: true });
-			if (gltf.animations?.length) {
-				avatarMixer = avatarManager.init(gltf.animations);
-				// Try sit clip, fall back to idle
-				const hasSit = gltf.animations.some((a) => /sit/i.test(a.name));
-				avatarManager.play(hasSit ? 'sit' : 'idle');
+			// Drive idle via the universal canonical clip library, which retargets the
+			// pre-baked idle onto ANY humanoid rig (Mixamo, Avaturn, VRM, …). The GLB's
+			// own gltf.animations are intentionally ignored — most avatars ship without
+			// animation, so the shared clip is what gives the desk figure presence. A rig
+			// that can't be skeleton-driven keeps its authored bind pose.
+			avatarManager = new AnimationManager();
+			avatarManager.attach(model, { avatarUrl });
+			if (avatarManager.supportsCanonicalClips()) {
+				fetch('/animations/manifest.json', { cache: 'force-cache' })
+					.then((r) => {
+						if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
+						return r.json();
+					})
+					.then((manifest) => {
+						const needed = manifest.filter((d) => d.name === 'idle');
+						if (!needed.length) return;
+						avatarManager.setAnimationDefs(needed);
+						return avatarManager.loadAll().then(() => avatarManager.play('idle'));
+					})
+					.catch((err) => log.warn('[agent-desk] idle clip load failed:', err));
 			}
 		}).catch((err) => log.warn('[agent-desk] avatar load failed:', err));
 	}
@@ -272,7 +285,7 @@ function createDesk(scene, opts = {}) {
 	// ── public interface ──────────────────────────────────────────────────
 	function update(dt, playerPos) {
 		if (destroyed) return;
-		if (avatarMixer) avatarMixer.update(dt);
+		if (avatarManager) avatarManager.update(dt);
 		if (!isDark && canvasAnimFrame) {
 			cancelAnimationFrame(canvasAnimFrame);
 			canvasAnimFrame = null;
@@ -287,6 +300,7 @@ function createDesk(scene, opts = {}) {
 		client.disconnect();
 		hideLabel();
 		if (canvasAnimFrame) cancelAnimationFrame(canvasAnimFrame);
+		avatarManager?.detach();
 		scene.remove(group);
 		// Dispose geometries, materials, textures
 		group.traverse((o) => {
