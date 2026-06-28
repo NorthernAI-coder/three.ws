@@ -1281,6 +1281,58 @@ const SELF_ENDPOINTS = [
 			configured: r?.configured ?? null,
 		}),
 	},
+	// DID Registry Health Sweep (USE-068) — pays $0.001 USDC to POST /api/x402/did
+	// in sweep mode, which queries the 10 most recently created agent_identities,
+	// checks each for cryptographic key material (wallet_address → resolvable DID),
+	// and returns { count, resolvable_count, failed_count }. An agent without a
+	// wallet_address has no key material for claim signing or counterparty
+	// verification. storeValue raises a Redis alert (x402:did-sweep:alert) when
+	// failed_count > 0 so ops can investigate before agents silently fail to produce
+	// verifiable credentials. Cooldown 600s → ~144 sweeps/day ≈ $0.144/day.
+	{
+		id: 'did-registry-sweep',
+		name: 'DID Registry Health Sweep',
+		path: '/api/x402/did',
+		method: 'POST',
+		body: { mode: 'sweep', limit: 10 },
+		cooldown_s: 600,
+		priority: 50,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			count: r?.count ?? null,
+			resolvable_count: r?.resolvable_count ?? null,
+			failed_count: r?.failed_count ?? null,
+		}),
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const DID_SWEEP_ALERT_KEY = 'x402:did-sweep:alert';
+			const DID_SWEEP_ALERT_TTL_SECONDS = 25 * 60;
+			const failed = typeof v.failed_count === 'number' && v.failed_count > 0;
+			try {
+				if (failed) {
+					await redis.set(
+						DID_SWEEP_ALERT_KEY,
+						JSON.stringify({
+							count: v.count ?? null,
+							failed_count: v.failed_count,
+							resolvable_count: v.resolvable_count ?? null,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: DID_SWEEP_ALERT_TTL_SECONDS },
+					);
+					console.warn(
+						`[x402/did-sweep] ALERT: ${v.failed_count} of ${v.count} agent DIDs unresolvable`,
+					);
+				} else if (typeof v.count === 'number') {
+					await redis.del(DID_SWEEP_ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(`[x402/did-sweep] alert write failed: ${err?.message || err}`);
+			}
+		},
+	},
 
 	// ── Animation Retargeting QA (USE-012) ──────────────────────────────────────
 	// Pays $0.005 USDC to download a representative set of canary animation clips
