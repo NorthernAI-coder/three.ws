@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T21:20:14.117Z",
+	"generated_at": "2026-06-28T22:56:12.840Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -193,6 +193,16 @@
 			"tags": [
 				"feature",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Coin worlds now have a billboard you can feature content on",
+			"summary": "Every 3D coin world now stands a billboard behind the spawn point — a framed panel on posts, like a real-world hoarding. By default it shows the world's own image so the space isn't bare. Anyone can feature their own content on it: walk into a world, tap 'Feature your content', drop in an image and caption, and pay the slot fee in USDC or $THREE over x402 to hold the board for everyone who visits, for six hours. It's a content slot, not an ad — nothing is targeted or tracked, your avatar can walk right under it, and the slot frees itself when the time's up. Agents can place content too, straight from the x402 Bazaar.",
+			"link": null,
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -457,6 +467,16 @@
 			"tags": [
 				"fix",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The live Agent Screen now shows the agent's avatar cam again",
+			"summary": "When you open an agent's live screen, the right-hand 'Avatar Cam' renders that agent's 3D avatar so it feels like you're watching someone work, not just a screen. A bug was stopping the avatar from loading — the cam fell back to an 'Avatar unavailable' placeholder on every agent. It now loads the avatar correctly and plays the idle animation on any humanoid rig, so the cam is live again next to the screen and activity log.",
+			"link": "/agent-screen",
+			"tags": [
+				"fix"
 			]
 		},
 		{

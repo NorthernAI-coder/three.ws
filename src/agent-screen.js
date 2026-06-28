@@ -428,7 +428,6 @@ async function boot(id) {
 	webcamCamera.position.set(0, 1.62, 0.9);
 	webcamCamera.lookAt(0, 1.55, 0);
 
-	let webcamMixer = null;
 	let webcamAnimManager = null;
 	let webcamAvatar = null;
 	let webcamRafId = null;
@@ -448,11 +447,31 @@ async function boot(id) {
 			webcamCamera.position.set(0, h - 0.12, 0.72);
 			webcamCamera.lookAt(0, h - 0.18, 0);
 
-			// Drive idle animation
-			webcamAnimManager = new AnimationManager(model, { loop: true });
-			if (gltf.animations?.length) {
-				webcamMixer = webcamAnimManager.init(gltf.animations);
-				webcamAnimManager.play('idle');
+			// Drive idle animation via the universal canonical clip library, which
+			// retargets the pre-baked idle onto ANY humanoid rig (Mixamo, Avaturn,
+			// VRM, …). The GLB's own gltf.animations are intentionally ignored — most
+			// avatars ship without animation, so the shared clip is what gives every
+			// agent presence on the cam. A rig that can't be skeleton-driven falls
+			// back to its authored bind pose (supportsCanonicalClips() gate).
+			webcamAnimManager = new AnimationManager();
+			webcamAnimManager.attach(model, { avatarUrl: glbUrl || '/avatars/default.glb' });
+			if (webcamAnimManager.supportsCanonicalClips()) {
+				try {
+					const manifest = await fetch('/animations/manifest.json', { cache: 'force-cache' })
+						.then((r) => {
+							if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
+							return r.json();
+						});
+					const needed = manifest.filter((d) => d.name === 'idle');
+					if (needed.length) {
+						webcamAnimManager.setAnimationDefs(needed);
+						await webcamAnimManager.loadAll();
+						webcamAnimManager.play('idle');
+					}
+				} catch (err) {
+					// Non-fatal: a frozen bind-pose avatar still gives presence.
+					console.warn('[agent-screen] idle clip load failed:', err);
+				}
 			}
 
 			// Size the renderer to match the bezel
@@ -473,7 +492,7 @@ async function boot(id) {
 				webcamRafId = requestAnimationFrame(webcamTick);
 				const dt = Math.min((t - last) / 1000, 0.1);
 				last = t;
-				if (webcamMixer) webcamMixer.update(dt);
+				webcamAnimManager?.update(dt);
 				webcamRenderer.render(webcamScene, webcamCamera);
 			}
 			webcamRafId = requestAnimationFrame(webcamTick);
@@ -647,6 +666,7 @@ async function boot(id) {
 	window.addEventListener('beforeunload', () => {
 		client.disconnect();
 		if (webcamRafId) cancelAnimationFrame(webcamRafId);
+		webcamAnimManager?.detach();
 		webcamRenderer.dispose();
 	});
 }
