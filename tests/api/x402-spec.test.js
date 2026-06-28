@@ -242,13 +242,16 @@ describe('paymentRequirements', () => {
 		}
 	});
 
-	it('advertises only USDC on Solana by default (no THREE accept)', async () => {
+	it('advertises USDC and THREE on Solana by default when fee payer is configured', async () => {
+		// X402_ACCEPT_THREE_SOLANA defaults to true — $THREE is the platform token
+		// and is always offered alongside USDC on the Solana rail.
 		const { paymentRequirements } = await loadSpec();
 		const solana = paymentRequirements('https://three.ws/api/foo').filter((r) =>
 			r.network.startsWith('solana:'),
 		);
-		expect(solana.length).toBe(1);
+		expect(solana.length).toBe(2);
 		expect(solana[0].extra.name).toBe('USDC');
+		expect(solana[1].extra.name).toBe('THREE');
 	});
 
 	it('adds a THREE Solana accept after USDC when X402_ACCEPT_THREE_SOLANA is on', async () => {
@@ -264,8 +267,8 @@ describe('paymentRequirements', () => {
 		expect(solana[1].asset).toBe('FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump');
 		expect(solana[1].payTo).toBe(solana[0].payTo);
 		expect(solana[1].extra.feePayer).toBe(solana[0].extra.feePayer);
-		// Default: reuses the USDC atomic price.
-		expect(solana[1].amount).toBe(solana[0].amount);
+		// Default: X402_THREE_AMOUNT_SOLANA defaults to 10_000_000 (10 THREE).
+		expect(solana[1].amount).toBe('10000000');
 	});
 
 	it('lets X402_THREE_AMOUNT_SOLANA price the THREE accept independently', async () => {
