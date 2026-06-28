@@ -2395,6 +2395,43 @@ const SELF_ENDPOINTS = [
 		},
 	},
 
+	// ── x402 Volume Analytics (USE-042, Volume) ───────────────────────────────
+	// Pays $0.005 USDC every 30 min to POST /api/x402/analytics with
+	// { report: "x402_volume", period: "24h" }. Reads the platform's settled
+	// payment ledger (x402_audit_log via getPaymentStats) and returns x402
+	// transaction volume across EVERY endpoint: total settled calls, total USDC
+	// paid, unique payers, the per-endpoint breakdown, and the least-active
+	// ("underused") endpoints. extractSignal lifts the headline totals + the
+	// underused-endpoint list into x402_autonomous_log.signal_data — the
+	// actionable signal proves ecosystem growth over time and flags endpoints to
+	// promote or retire. 'volume' pipeline. Cooldown 1800s → 48 reads/day ≈
+	// $0.24/day, well inside the $5/day cap.
+	{
+		id: 'analytics-x402-volume',
+		name: 'x402 Volume Analytics',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'x402_volume', period: '24h' },
+		cooldown_s: 1800, // 30 min — aggregate volume is a slow-moving signal
+		priority: 68, // volume pipeline (65–75)
+		pipeline: 'volume',
+		enabled: true,
+		extractSignal: (r) => ({
+			report: r?.report || 'x402_volume',
+			period: r?.period || null,
+			total_calls: r?.total_calls ?? 0,
+			total_usdc_paid: r?.total_usdc_paid ?? '0',
+			unique_payers: r?.unique_payers ?? 0,
+			total_failed: r?.total_failed ?? 0,
+			endpoint_count:
+				r?.endpoint_count ?? (Array.isArray(r?.by_endpoint) ? r.by_endpoint.length : 0),
+			top_endpoint: r?.by_endpoint?.[0]?.route ?? null,
+			underused_endpoints: Array.isArray(r?.underused_endpoints)
+				? r.underused_endpoints.map((e) => e?.route).filter(Boolean)
+				: [],
+		}),
+	},
+
 ];
 
 // ── External registry ─────────────────────────────────────────────────────────

@@ -7,17 +7,33 @@
 // the autonomous registry entry that lifts the verdict into signal_data and
 // raises/clears the forge performance alert.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
-// Mock the LLM chain so the probe is deterministic and offline (no provider keys
-// required in CI). Each test sets the mock's behavior before calling the probe.
-const llmComplete = vi.fn();
+// State-driven mock of the LLM chain (mirrors the pattern in
+// x402-thumbnail-regen.test.js): a single vi.fn impl defined in the factory,
+// mutated per test via `llmState`. When `llmState.error` is set the completion
+// rejects (generator outage); otherwise it resolves with `llmState.result` after
+// an optional delay. The single awaiting consumer in runForgeHealthCheck handles
+// the rejection, so vitest never sees an unhandled one.
+const llmState = { result: null, error: null, delayMs: 0, lastArgs: null };
 vi.mock('../api/_lib/llm.js', () => ({
-	llmComplete: (...args) => llmComplete(...args),
+	llmComplete: vi.fn(async (args) => {
+		llmState.lastArgs = args;
+		if (llmState.delayMs) await new Promise((r) => setTimeout(r, llmState.delayMs));
+		if (llmState.error) throw llmState.error;
+		return llmState.result;
+	}),
 }));
 
 const { runForgeHealthCheck } = await import('../api/x402/forge.js');
 const { getSelfRegistry } = await import('../api/_lib/x402/autonomous-registry.js');
+
+function setLlm({ result = null, error = null, delayMs = 0 }) {
+	llmState.result = result;
+	llmState.error = error;
+	llmState.delayMs = delayMs;
+	llmState.lastArgs = null;
+}
 
 function forgeHealthEntry() {
 	const entry = getSelfRegistry().find((e) => e.id === 'forge-content-health');
@@ -26,15 +42,8 @@ function forgeHealthEntry() {
 }
 
 describe('runForgeHealthCheck — content-generation verdict', () => {
-	beforeEach(() => llmComplete.mockReset());
-
 	it('returns a generated verdict with the provider token count', async () => {
-		llmComplete.mockResolvedValue({
-			text: 'Solana is a high-throughput proof-of-stake blockchain.',
-			provider: 'groq',
-			model: 'llama-3.3-70b-versatile',
-			usage: { input: 12, output: 11 },
-		});
+		setLlm({ result: { text: 'Solana is a high-throughput proof-of-stake blockchain.', provider: 'groq', model: 'llama-3.3-70b-versatile', usage: { input: 12, output: 11 } } });
 
 		const r = await runForgeHealthCheck({ prompt: 'Write one sentence about Solana.' });
 
@@ -49,24 +58,20 @@ describe('runForgeHealthCheck — content-generation verdict', () => {
 	});
 
 	it('falls back to a char/4 token estimate when usage is absent', async () => {
-		llmComplete.mockResolvedValue({ text: 'abcdefgh', provider: 'nvidia', model: 'x', usage: undefined });
+		setLlm({ result: { text: 'abcdefgh', provider: 'nvidia', model: 'x', usage: undefined } });
 		const r = await runForgeHealthCheck({});
 		expect(r.generated).toBe(true);
 		expect(r.token_count).toBe(2); // ceil(8/4)
 	});
 
 	it('supplies its own default prompt when none is given', async () => {
-		llmComplete.mockResolvedValue({ text: 'ok', provider: 'groq', model: 'x', usage: { output: 1 } });
+		setLlm({ result: { text: 'ok', provider: 'groq', model: 'x', usage: { output: 1 } } });
 		await runForgeHealthCheck({});
-		expect(llmComplete).toHaveBeenCalledTimes(1);
-		expect(llmComplete.mock.calls[0][0].user).toBe('Write one sentence about Solana.');
+		expect(llmState.lastArgs.user).toBe('Write one sentence about Solana.');
 	});
 
 	it('flips within_budget false when the completion exceeds the 5s SLA', async () => {
-		// Resolve only after the budget window so the measured latency exceeds it.
-		llmComplete.mockImplementation(
-			() => new Promise((res) => setTimeout(() => res({ text: 'slow', provider: 'groq', model: 'x', usage: { output: 1 } }), 5010)),
-		);
+		setLlm({ result: { text: 'slow', provider: 'groq', model: 'x', usage: { output: 1 } }, delayMs: 5010 });
 		const r = await runForgeHealthCheck({});
 		expect(r.generated).toBe(true);
 		expect(r.within_budget).toBe(false);
@@ -74,13 +79,7 @@ describe('runForgeHealthCheck — content-generation verdict', () => {
 	}, 10_000);
 
 	it('never throws — a generator outage settles as generated:false', async () => {
-		// A rejected provider chain (no key configured / all upstreams down). Pre-
-		// attach a no-op catch so vitest's unhandled-rejection detector sees the
-		// promise as handled; the probe's own await still receives the rejection and
-		// routes it through its try/catch (the behavior under test).
-		const rejected = Promise.reject(Object.assign(new Error('no provider'), { code: 'llm_unavailable' }));
-		rejected.catch(() => {});
-		llmComplete.mockReturnValue(rejected);
+		setLlm({ error: Object.assign(new Error('no provider'), { code: 'llm_unavailable' }) });
 		const r = await runForgeHealthCheck({ prompt: 'Write one sentence about Solana.' });
 		expect(r.generated).toBe(false);
 		expect(r.token_count).toBe(0);
@@ -91,8 +90,7 @@ describe('runForgeHealthCheck — content-generation verdict', () => {
 
 describe('registry entry — extractSignal lifts the verdict into signal_data', () => {
 	it('marks a healthy fast probe', () => {
-		const entry = forgeHealthEntry();
-		const sig = entry.extractSignal({
+		const sig = forgeHealthEntry().extractSignal({
 			mode: 'health_check', type: 'text', generated: true,
 			latency_ms: 820, token_count: 14, within_budget: true,
 			provider: 'groq', model: 'llama-3.3-70b-versatile',
@@ -101,14 +99,12 @@ describe('registry entry — extractSignal lifts the verdict into signal_data', 
 	});
 
 	it('flags a slow probe (>5s) as slow', () => {
-		const entry = forgeHealthEntry();
-		const sig = entry.extractSignal({ generated: true, latency_ms: 6200, token_count: 9, within_budget: false });
+		const sig = forgeHealthEntry().extractSignal({ generated: true, latency_ms: 6200, token_count: 9, within_budget: false });
 		expect(sig.slow).toBe(true);
 	});
 
 	it('carries the failure verdict through', () => {
-		const entry = forgeHealthEntry();
-		const sig = entry.extractSignal({ generated: false, latency_ms: 4100, token_count: 0, error: 'generation_failed' });
+		const sig = forgeHealthEntry().extractSignal({ generated: false, latency_ms: 4100, token_count: 0, error: 'generation_failed' });
 		expect(sig.generated).toBe(false);
 		expect(sig.error).toBe('generation_failed');
 		expect(sig.slow).toBe(false); // 4.1s is within budget; failure is signalled by generated:false
@@ -135,9 +131,8 @@ describe('registry entry — storeValue raises/clears the forge performance aler
 	}
 
 	it('sets the alert key when the probe is slow', async () => {
-		const entry = forgeHealthEntry();
 		const redis = mockRedis();
-		await entry.storeValue({ redis, signalData: { generated: true, slow: true, latency_ms: 6100, provider: 'groq' } });
+		await forgeHealthEntry().storeValue({ redis, signalData: { generated: true, slow: true, latency_ms: 6100, provider: 'groq' } });
 		expect(redis.set).toHaveBeenCalledTimes(1);
 		const [key, payload, opts] = redis.set.mock.calls[0];
 		expect(key).toBe('x402:forge-health:alert');
@@ -146,23 +141,20 @@ describe('registry entry — storeValue raises/clears the forge performance aler
 	});
 
 	it('sets the alert key when generation failed', async () => {
-		const entry = forgeHealthEntry();
 		const redis = mockRedis();
-		await entry.storeValue({ redis, signalData: { generated: false, slow: false, error: 'llm_unavailable' } });
+		await forgeHealthEntry().storeValue({ redis, signalData: { generated: false, slow: false, error: 'llm_unavailable' } });
 		expect(redis.set).toHaveBeenCalledTimes(1);
 		expect(JSON.parse(redis.set.mock.calls[0][1]).reason).toBe('generation_failed');
 	});
 
 	it('clears the alert key when healthy again', async () => {
-		const entry = forgeHealthEntry();
 		const redis = mockRedis();
-		await entry.storeValue({ redis, signalData: { generated: true, slow: false, latency_ms: 700 } });
+		await forgeHealthEntry().storeValue({ redis, signalData: { generated: true, slow: false, latency_ms: 700 } });
 		expect(redis.del).toHaveBeenCalledWith('x402:forge-health:alert');
 		expect(redis.set).not.toHaveBeenCalled();
 	});
 
 	it('never throws without a redis client', async () => {
-		const entry = forgeHealthEntry();
-		await expect(entry.storeValue({ redis: null, signalData: { generated: false } })).resolves.toBeUndefined();
+		await expect(forgeHealthEntry().storeValue({ redis: null, signalData: { generated: false } })).resolves.toBeUndefined();
 	});
 });
