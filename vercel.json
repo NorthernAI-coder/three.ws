@@ -83,6 +83,9 @@
 		"api/cron/pulse-tick.js": {
 			"maxDuration": 120
 		},
+		"api/cron/coin-intel-observe.js": {
+			"maxDuration": 120
+		},
 		"api/cron/launcher-tick.js": {
 			"maxDuration": 120
 		},
@@ -4779,6 +4782,10 @@
 		},
 		{
 			"path": "/api/cron/pulse-tick",
+			"schedule": "*/2 * * * *"
+		},
+		{
+			"path": "/api/cron/coin-intel-observe",
 			"schedule": "*/2 * * * *"
 		},
 		{
