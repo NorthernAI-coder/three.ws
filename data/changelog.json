@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Submitted three.ws to the Claude Connectors Directory",
+      "summary": "three.ws is now in the queue for Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect remote MCP servers. We submitted our flagship server (the Avatars & Agents connector at /api/mcp): 35 tools that let Claude manage your three.ws avatars, validate and inspect glTF/GLB models, read on-chain agent reputation and identity, recall agent memory, and surface live $THREE-era market data — connected securely with OAuth, with pay-per-call tools settling in USDC over x402. Once it's approved, you'll be able to add three.ws to Claude straight from the directory.",
+      "tags": [
+        "feature",
+        "infra"
+      ],
+      "link": "/docs/mcp"
+    },
+    {
+      "date": "2026-06-28",
       "title": "The Live Agents wall now shows every agent, 24/7",
       "summary": "The Live Agents page (/agents-live) used to show only the handful of agents that happened to have a browser actively streaming — usually none, so the page sat empty. Now it shows every agent on the platform, each with a live screen, and a screen is never blank: when no live browser is attached, the card streams the agent's real activity as a live terminal straight from its on-chain and skill history. Scroll to load more, and watch the live/total counts update in real time. Open any agent any time — and when you're actually watching one, an on-demand caster spins a real browser feed up for it (and tears it down when you leave), so live pixels are available for any agent without anything running idle. The same activity feed now also powers the screens on the agent desks in the 3D world.",
       "tags": [

@@ -1,10 +1,12 @@
 # Claude Connectors Directory — Submission Answer Sheet
 
 **Status:** copy-paste-ready. Fields the operator must supply privately are marked `[HUMAN: fill in]`.
-**Generated for:** three.ws MCP servers. **Date:** 2026-06-25.
-**Sources:** live checklist re-fetched 2026-06-25 from
-`claude.com/docs/connectors/building/submission` and `.../review-criteria`;
-tool data read directly from `api/_mcp/tools/*.js` and `api/_mcp3d/tools/studio.js`.
+**Generated for:** three.ws MCP servers. **Date:** 2026-06-28.
+**Sources:** live checklist re-fetched 2026-06-28 from
+`claude.com/docs/connectors/building/submission` (the `support.claude.com` guide now redirects
+there); tool data read from the prompt-01 artifacts `_generated/tool-inventory.md` and
+`_generated/remote-tools-list.json` (the captured `tools/list` wire payload), cross-checked
+against source `api/_mcp/tools/*.js` and `api/_mcp3d/`. Production re-verified 2026-06-28 (§1).
 
 ---
 
@@ -47,15 +49,20 @@ form fields; they are judgment calls only the operator can make.
    **must connect via OAuth** to see `tools/list`. Confirm the reviewer OAuth account works
    end-to-end (see §6). `[HUMAN: verify in the portal's Connection step.]`
 
-5. **Prerequisite artifacts.** The `_generated/tool-inventory.md` (prompt 01) and
-   `claude-reviewer-guide.md` (prompt 02) were **not present** in the repo when this sheet was
-   built; the tool list below was rebuilt directly from source, and §6 is a self-contained
-   reviewer guide. If prompt 02's funded/bypass review wallet was never provisioned, do that
-   before submitting. `[HUMAN: confirm a working reviewer access path exists.]`
+5. **Prerequisite artifacts (present & reconciled).** `_generated/tool-inventory.md` (prompt 01,
+   with `_generated/remote-tools-list.json` — the captured `tools/list` wire payload) and
+   `_generated/claude-reviewer-guide.md` (prompt 02) **are** in the repo; §4 below is now taken
+   verbatim from them. **Caveat:** the prompt-02 `claude-reviewer-guide.md` documents the
+   **separate stdio npm connector** (`@three-ws/mcp-server`, 17 tools) — a *different* submission
+   path — not the remote `/api/mcp` server this sheet submits. So §6 here is the **remote-server
+   (OAuth) reviewer guide** and is self-contained; cite the stdio guide only if/when the npm
+   package is submitted as a local connector. `[HUMAN: confirm the remote reviewer OAuth account
+   (and operator-funded paid-tool entitlement) is provisioned before submitting.]`
 
-6. **Privacy edits pending deploy.** This sheet adds an MCP/AI/payments section to
-   `public/legal/privacy.html`. It must be **deployed** before submitting so the live
-   `https://three.ws/legal/privacy` reflects it.
+6. **Privacy is live (no action).** The MCP/AI/payments section
+   (`public/legal/privacy.html` §10) is **already deployed** — verified 2026-06-28 that
+   `https://three.ws/legal/privacy` returns 200 and contains the "MCP Connectors, AI Processing &
+   Payments" section. No pending privacy deploy.
 
 ---
 
@@ -73,16 +80,20 @@ Why:
 Optionally submit **`https://three.ws/api/mcp-3d` (three.ws 3D Studio)** as a **second** listing
 once the media-generation question (§0.2) is settled.
 
-**Production verification (run 2026-06-25):**
+**Production verification (run 2026-06-28):**
 ```
-POST https://three.ws/api/mcp  (no auth)
-→ 402, WWW-Authenticate: Bearer resource_metadata="https://three.ws/.well-known/oauth-protected-resource"
-→ x402 PaymentRequired body (USDC on Solana; $THREE accepted; both advertised)
+POST https://three.ws/api/mcp  (no auth, body = tools/list)
+→ 401, WWW-Authenticate: Bearer resource_metadata="https://three.ws/.well-known/oauth-protected-resource",
+       resource="https://three.ws/api/mcp"
+→ also emits the x402 PAYMENT-REQUIRED header (pay-per-call fallback for unauthenticated callers)
 GET  https://three.ws/.well-known/oauth-protected-resource
-→ 200, scopes: avatars:read/write/delete, profile, memory:read/write, agents:read/write
-https://three.ws/legal/privacy  → 200    https://three.ws/docs/mcp → 200
+→ 200, authorization_servers:["https://three.ws"], resource_documentation:"https://three.ws/docs/mcp",
+       scopes_supported: avatars:read/write/delete, profile, memory:read/write, agents:read/write
+https://three.ws/legal/privacy → 200   https://three.ws/docs/mcp → 200   https://three.ws/three-ws-mcp-icon.svg → 200
 ```
-Discovery/`tools/list` returns results **after OAuth** (anonymous discovery is x402-gated — §0.4).
+Discovery/`tools/list` returns results **after OAuth** (anonymous discovery is OAuth-challenged +
+x402-gated — §0.4). The captured authenticated payload is `_generated/remote-tools-list.json`
+(35 tools for `/api/mcp`).
 
 ---
 
