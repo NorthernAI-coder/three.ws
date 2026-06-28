@@ -223,6 +223,14 @@
 			<description>The Money Pulse page (/pulse) now renders on a true black background in every theme, so the live feed of tips, launches, trades and agent-to-agent payments reads as one calm, high-contrast field. Previously the page could pick up a lighter surface or near-black tone depending on your theme; it's now consistently black with the monochrome ink ramp pinned for readability.</description>
 		</item>
 		<item>
+			<title>Trending and the agent directory now actually show agents</title>
+			<link>https://three.ws/trending</link>
+			<guid isPermaLink="false">2026-06-28:Trending and the agent directory now actually show agents</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Trending leaderboard (/trending) and the public agent directory were coming up empty no matter how busy the platform was — every list rendered &quot;No trending agents yet.&quot; Both feeds ranked agents by chat activity using a column that doesn't exist in the database, so the query failed silently and returned nothing. They now count real chat activity (LLM usage events) the same way the rest of the site does, so the 24h, 7d, and all-time rankings — and the directory's &quot;popular&quot; sort — populate with the agents people are actually using.</description>
+		</item>
+		<item>
 			<title>User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402</guid>

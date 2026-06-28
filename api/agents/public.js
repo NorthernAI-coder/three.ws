@@ -45,7 +45,10 @@ export default wrap(async (req, res) => {
 			i.description,
 			i.skills,
 			i.home_url,
-			i.chat_count,
+			coalesce((
+				select count(*)::int from usage_events ue
+				where ue.agent_id = i.id and ue.kind = 'llm'
+			), 0) as chat_count,
 			i.created_at,
 			i.meta,
 			i.erc8004_agent_id,
@@ -69,7 +72,7 @@ export default wrap(async (req, res) => {
 		order by
 			${sort === 'newest' ? sql`i.created_at desc` :
 			  sort === 'name'   ? sql`i.name asc` :
-			                      sql`i.chat_count desc nulls last, i.created_at desc`}
+			                      sql`chat_count desc nulls last, i.created_at desc`}
 		limit ${limit + 1}
 	`.catch(() => []);
 
