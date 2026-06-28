@@ -10,7 +10,6 @@
 // untouched.
 
 import { Client, getStateCallbacks } from 'colyseus.js';
-import { WalkState } from '../../multiplayer/src/schemas.js';
 import { log } from '../shared/log.js';
 import { joinRoomWithTimeout } from '../shared/colyseus-connect.js';
 
@@ -256,7 +255,10 @@ export class CommunityNet {
 			// room, proxy holding the upgrade) would otherwise strand us in 'connecting'
 			// forever — joinOrCreate has no timeout of its own. On timeout this throws
 			// 'connect_timeout', falling through to the catch → reconnect with backoff.
-			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, options, WalkState);
+			// No root-schema class passed on purpose: decode from the server's reflected
+			// schema (handshake) so the client never desyncs when a deployed server adds an
+			// append-only field this bundle predates. See joinRoomWithTimeout for the why.
+			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, options);
 			if (this._destroyed || gen !== this._connectGen) {
 				try { room.leave(); } catch {}
 				return;

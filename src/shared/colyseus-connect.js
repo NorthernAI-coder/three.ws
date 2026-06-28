@@ -37,7 +37,16 @@ export const CONNECT_TIMEOUT_MS = 15_000;
  * @param {import('colyseus.js').Client} client  a live Colyseus client
  * @param {string} roomName                       matchmaking room name
  * @param {Record<string, unknown>} options       join options (filterBy keys, identity…)
- * @param {T} schema                              the room state schema class
+ * @param {T} [schema]                            optional concrete root-state schema class.
+ *   Prefer omitting it: when absent, colyseus.js decodes state from the schema the
+ *   SERVER reflects during the join handshake (SchemaSerializer.handshake →
+ *   Reflection.decode), so the client's field layout always tracks the running
+ *   server. Passing a statically-bundled class instead forces the client to decode
+ *   with its own copy — which silently desyncs the instant the deployed server adds
+ *   an (append-only) field the bundle predates, flooding the console with
+ *   `@colyseus/schema: field not defined` / `definition mismatch` / `Invalid byte`
+ *   and rendering a broken world until the front-end is redeployed. Reflection has
+ *   no such failure mode; the field-name callbacks (getStateCallbacks) work either way.
  * @param {number} [timeoutMs]                    join deadline; defaults to CONNECT_TIMEOUT_MS
  * @returns {Promise<import('colyseus.js').Room>} the joined room
  * @throws {Error} `connect_timeout` if the handshake doesn't complete in time
