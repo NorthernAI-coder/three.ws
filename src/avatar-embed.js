@@ -584,7 +584,7 @@ async function main() {
 
 	// In non-overlay mode the panel is visible by default. In overlay mode
 	// the user opts in via space, matching the OBS Browser Source workflow.
-	if (!overlayMode) document.body.classList.add('panel-open');
+	if (!overlayMode && !hideChrome) document.body.classList.add('panel-open');
 
 	// ── Veadotube-style state machine ──────────────────────────────────────
 	// State = {expression, talking}. Expression is one of the hotkey labels

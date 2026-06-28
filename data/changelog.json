@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Animation previews no longer show the emote hotkey bar",
+      "summary": "Hovering an animation in the gallery (/animations) plays the clip on a live avatar. That preview was overlaying the streamer emote hotkey bar (1–9 smile/wink/surprised…) along the bottom, cluttering the shot and distracting from the animation itself. Previews now load chrome-free — just the avatar performing the clip. The emote bar still appears where it belongs, on full embeds and overlays.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/animations"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Fixed: \"Generate API key\" in the Agent Screen worker setup",
       "summary": "The Launch your browser agent wizard (/agent-screen) has a Generate button that mints the API key the worker uses to authenticate. The button was failing with a permission error because it wasn't attaching the security token the server requires, so you couldn't get past step 2. It now reads and sends that token correctly, so generating the key — and starting a live agent screen stream — works again. The same token-handling fix was applied to one-click agent wallet provisioning.",
       "tags": [
