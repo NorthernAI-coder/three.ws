@@ -204,7 +204,14 @@ function mapSubmitError(status, data) {
 	if (code === 'txt2img_billing') return 'The image engine is temporarily unavailable (provider billing). Try again later.';
 	if (code === 'txt2img_unreachable') return 'Couldn\'t reach the image engine. Check your connection and try again.';
 	if (code === 'txt2img_error') return 'Couldn\'t render a reference image from that prompt. Try rewording it.';
-	if (code === 'regen_provider_error') return 'The avatar engine rejected this job. Try again in a moment.';
+	if (code === 'regen_needs_byok')
+		return 'Avatar generation needs a 3D engine key on this deployment. Add a Meshy or Tripo key in <a href="/settings">settings</a>, or try the <a href="/create/selfie">selfie scanner</a>.';
+	// Reached only after the server has tried every configured backend (platform
+	// providers + your BYOK keys) and all of them failed — so this is a genuine
+	// transient outage, not a single-provider hiccup. Offer the photo path as an
+	// immediate alternative rather than leaving the user to guess.
+	if (code === 'regen_provider_error')
+		return 'The avatar engines are all busy right now. Try again in a moment, or use the <a href="/create/selfie">selfie scanner</a> instead.';
 	return description || `The avatar engine returned ${status}. Try again.`;
 }
 
@@ -388,9 +395,17 @@ function failBuild(err) {
 	log.error('[create-prompt]', err);
 	const message =
 		err instanceof ApiError ? err.message : 'Something went wrong. Try again.';
-	setError(buildError, `<span>${message}</span> <button type="button" id="build-retry" class="cancel-build" style="margin-left:10px">Edit prompt</button>`);
-	const retry = document.getElementById('build-retry');
-	if (retry) retry.addEventListener('click', resetToCompose);
+	// Two recovery paths: "Try again" re-submits the same prompt in place (the
+	// textarea still holds it) for transient engine outages; "Edit prompt" returns
+	// to compose to reword. Both keep the user moving instead of stranding them.
+	setError(
+		buildError,
+		`<span>${message}</span>` +
+			` <button type="button" id="build-retry-now" class="cancel-build" style="margin-left:10px">Try again</button>` +
+			` <button type="button" id="build-edit" class="cancel-build" style="margin-left:8px">Edit prompt</button>`,
+	);
+	document.getElementById('build-retry-now')?.addEventListener('click', () => start());
+	document.getElementById('build-edit')?.addEventListener('click', resetToCompose);
 }
 
 // ── Elapsed clock ────────────────────────────────────────────────────────────

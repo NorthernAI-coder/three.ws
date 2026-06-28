@@ -31,10 +31,6 @@ import { NODE_TYPES, makeNode, edge } from './brain-nodes.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// Pipeline order the cards render in. Skill / market are repeatable groups; the
-// rest are single structural nodes.
-const SINGLE_ORDER = ['persona', 'memory', 'model', 'output'];
-
 export class BrainComposer {
 	constructor(host, { onChange, getProviders, getSkills } = {}) {
 		this.host = host;
@@ -258,9 +254,21 @@ export class BrainComposer {
 
 	_skillSelect(id, key, value) {
 		const skills = this.getSkills();
-		if (!skills.length) return `<input class="bcard__input" id="${id}" data-field="${key}" type="text" value="${esc(value || '')}" placeholder="no skills enabled yet" />`;
+		if (!skills.length) return `<input class="bcard__input" id="${id}" data-field="${key}" type="text" value="${esc(value || '')}" placeholder="no skills enabled yet — turn some on in the Skills tab" />`;
 		const opts = ['<option value="">— pick a skill —</option>', ...skills.map((s) => `<option value="${esc(s)}" ${s === value ? 'selected' : ''}>${esc(s)}</option>`)].join('');
 		return `<select class="bcard__input" id="${id}" data-field="${key}">${opts}</select>`;
+	}
+
+	// Model availability is fetched async (GET /api/brain/chat) and can land after the
+	// composer first renders. Refresh the Model card's picker in place — targeted, so a
+	// user mid-edit on another card keeps focus and unsaved text.
+	setProviders() {
+		const model = this.nodes.find((n) => n.type === 'model');
+		const sel = model && this._cardEls.get(model.id)?.querySelector('[data-field="provider"]');
+		if (!sel) return;
+		const fresh = document.createRange().createContextualFragment(this._providerSelect(sel.id, 'provider', model.data.provider)).firstElementChild;
+		fresh.addEventListener('change', () => this.updateNodeData(model.id, { provider: fresh.value }));
+		sel.replaceWith(fresh);
 	}
 
 	_readField(field, inp) {

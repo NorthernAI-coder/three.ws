@@ -22,7 +22,7 @@ import { getNodeRunner } from './brain-nodes.js';
 export class BrainRuntime {
 	/**
 	 * @param {object} o
-	 * @param {import('./brain-graph.js').BrainGraphView} o.graphView
+	 * @param {import('./brain-composer.js').BrainComposer} o.graphView
 	 * @param {import('../agent-studio-store.js').default} o.studio
 	 * @param {() => object} o.getCompiled   returns compileBrain() of the live graph
 	 * @param {() => object} o.getGraph       returns the raw graph (node ids for animation)

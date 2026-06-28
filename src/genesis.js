@@ -419,7 +419,8 @@ function mapReconstructError(status, data) {
 	const code = typeof data?.error === 'string' ? data.error : data?.code;
 	if (status === 429 || code === 'txt2img_rate_limited') return 'The avatar engine is busy. Wait a moment and try again.';
 	if (code === 'txt2img_error') return "Couldn't render from that prompt. Try rewording it.";
-	if (code === 'regen_provider_error') return 'The avatar engine rejected this job. Try again shortly.';
+	if (code === 'regen_needs_byok') return 'Avatar generation needs a 3D engine key on this deployment. Add a Meshy or Tripo key in settings, or use the selfie scanner.';
+	if (code === 'regen_provider_error') return 'The avatar engines are all busy right now. Try again shortly.';
 	if (status === 413) return 'That photo is too large. Try a smaller image.';
 	return apiError(data, `The avatar engine returned ${status}. Try again.`);
 }

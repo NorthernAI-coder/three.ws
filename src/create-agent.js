@@ -119,6 +119,10 @@ const state = {
 const $ = (id) => document.getElementById(id);
 const el = {};
 
+// Set by wireTagInput so the magic generator can repaint the tag chips after it
+// rewrites state.tags wholesale (the per-keystroke renderer lives in a closure).
+let tagRenderer = () => {};
+
 // ── Boot ────────────────────────────────────────────────────────────────────
 
 async function boot() {

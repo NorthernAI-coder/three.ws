@@ -1756,6 +1756,14 @@
 			"dest": "/avatar-studio.html"
 		},
 		{
+			"src": "/avatar-engines",
+			"dest": "/avatar-engines.html"
+		},
+		{
+			"src": "/avatar-engines/",
+			"dest": "/avatar-engines.html"
+		},
+		{
 			"src": "/cosmos",
 			"dest": "/cosmos.html"
 		},
@@ -2163,6 +2171,10 @@
 		{
 			"src": "/api/agents/check-name",
 			"dest": "/api/agents/check-name"
+		},
+		{
+			"src": "/api/agents/suggest-spec",
+			"dest": "/api/agents/suggest-spec"
 		},
 		{
 			"src": "/api/agents/identity-check",
