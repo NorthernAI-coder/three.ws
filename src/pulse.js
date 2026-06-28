@@ -499,26 +499,37 @@ function mountFeed() {
 		network: state.network,
 		type: new URLSearchParams(location.search).get('type') || 'all',
 		live: true,
+		// When the feed's empty state offers "see live activity on mainnet", route it
+		// through the page switch so the stat panels follow the feed in lockstep.
+		onRequestNetwork: switchNetwork,
+		// When an empty FILTER offers "view all activity", route it through the page so
+		// the counter chips + filter bar reset in lockstep with the feed.
+		onRequestType: setFeedFilter,
 	});
+}
+
+// Switch the whole page (feed + every stats panel) to a network. Reused by the
+// toolbar toggle and the feed's self-healing empty-state CTA. No-op if unchanged.
+function switchNetwork(net) {
+	const target = net === 'devnet' ? 'devnet' : 'mainnet';
+	if (target === state.network) return;
+	state.network = target;
+	for (const b of document.querySelectorAll('[data-network]')) {
+		const on = b.dataset.network === target;
+		b.classList.toggle('active', on);
+		b.setAttribute('aria-selected', String(on));
+	}
+	const label = $('px-net-label');
+	if (label) label.textContent = target;
+	state.pulse?.setNetwork(target);
+	loadStats();
+	loadTrading();
+	loadMarketplace();
 }
 
 function wireNetworkToggle() {
 	for (const btn of document.querySelectorAll('[data-network]')) {
-		btn.addEventListener('click', () => {
-			const net = btn.dataset.network === 'devnet' ? 'devnet' : 'mainnet';
-			if (net === state.network) return;
-			state.network = net;
-			for (const b of document.querySelectorAll('[data-network]')) {
-				const on = b.dataset.network === net;
-				b.classList.toggle('active', on);
-				b.setAttribute('aria-selected', String(on));
-			}
-			$('px-net-label').textContent = net;
-			state.pulse?.setNetwork(net);
-			loadStats();
-			loadTrading();
-			loadMarketplace();
-		});
+		btn.addEventListener('click', () => switchNetwork(btn.dataset.network));
 	}
 }
 

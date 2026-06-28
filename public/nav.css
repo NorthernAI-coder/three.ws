@@ -392,15 +392,21 @@
 	min-width: 540px;
 	max-width: calc(100vw - 24px);
 }
-/* Labs mega menu — categorized columns, right-anchored (it's the last group).
+/* Categorized mega menu — intent-named columns. Left-anchored by default;
+   add .anchor-right for the rightmost groups so they don't run off the viewport.
+   Column count comes from .cols-N (set by the renderer from columns.length).
    The viewport cap + scroll are inherited from .nav-pop. */
 .nav-pop.mega {
-	left: auto; right: 0;
-	transform-origin: top right;
-	min-width: 632px;
 	max-width: calc(100vw - 24px);
 	grid-template-columns: repeat(3, 1fr);
 	gap: 2px 6px; padding: 8px;
+}
+.nav-pop.mega.cols-2 { grid-template-columns: repeat(2, 1fr); min-width: 460px; }
+.nav-pop.mega.cols-3 { grid-template-columns: repeat(3, 1fr); min-width: 632px; }
+.nav-pop.mega.cols-4 { grid-template-columns: repeat(4, 1fr); min-width: 824px; }
+.nav-pop.mega.anchor-right {
+	left: auto; right: 0;
+	transform-origin: top right;
 }
 .nav-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .nav-col-h {

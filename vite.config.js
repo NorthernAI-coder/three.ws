@@ -1593,20 +1593,24 @@ support: resolve(__dirname, 'pages/support.html'),
 								'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
 							injectTo: 'head',
 						},
-						// /_vercel/insights/script.js only exists on a Vercel deploy. Under
-						// the Vite dev server (ctx.server present) it 404s with an empty MIME
-						// type, which strict MIME checking surfaces as a console error on every
-						// page. Inject it only at build time; the `va` queue stub above still
-						// no-ops any track() calls fired in dev.
-						...(ctx.server
-							? []
-							: [
+						// /_vercel/insights/script.js is only served by the platform on a
+						// real Vercel deploy (process.env.VERCEL is set there). Off-Vercel —
+						// the Vite dev server, the push-only 3D-Agent mirror, any static
+						// preview host — both the script and its /_vercel/insights/view ingest
+						// beacon 404, surfacing as a console error on every page. Gate
+						// injection on VERCEL to match the Speed Insights injector below; the
+						// `va` queue stub above still no-ops any track() calls everywhere else.
+						// (On Vercel, the /view beacon still 404s until Web Analytics is
+						// enabled in the project dashboard — that's a dashboard toggle.)
+						...(process.env.VERCEL
+							? [
 									{
 										tag: 'script',
 										attrs: { defer: true, src: '/_vercel/insights/script.js' },
 										injectTo: 'head',
 									},
-								]),
+								]
+							: []),
 					];
 				},
 			},

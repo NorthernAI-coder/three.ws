@@ -105,6 +105,9 @@
 		"api/cron/recompute-reputation.js": {
 			"maxDuration": 300
 		},
+		"api/cron/erc8004-autopublish.js": {
+			"maxDuration": 120
+		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -2879,7 +2882,55 @@
 			"dest": "/api/agents/networth"
 		},
 		{
-			"src": "/api/agents/([^/]+)",
+			"src": "/api/agents/([^/]+)/mirror(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/trade(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/copilot(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/alpha(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/portfolio(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/autopilot(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/intents(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/strategies(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/orders(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/capabilities(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/unlocks(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)/registration(/.*)?",
+			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/([^/]+)(?:/.*)?",
 			"dest": "/api/agents/[id]"
 		},
 		{
@@ -4597,6 +4648,10 @@
 		{
 			"path": "/api/cron/erc8004-crawl",
 			"schedule": "*/15 * * * *"
+		},
+		{
+			"path": "/api/cron/erc8004-autopublish",
+			"schedule": "*/10 * * * *"
 		},
 		{
 			"path": "/api/cron/solana-attestations-crawl",

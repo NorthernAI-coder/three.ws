@@ -3,6 +3,50 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "The main menu is now organized — no more walls of links",
+      "summary": "The top navigation kept everything but had become hard to scan: the Launch menu alone listed 25 features in one long single-column drop-down, and nearly every item shouted a \"New\" badge, so the badge meant nothing. Each menu — Build, Discover, Launch, Learn — is now split into clearly labelled columns grouped by what you're trying to do (Launch, for example, splits into Launch / Terminal & trade / Intelligence / Compete & earn). Every feature is still one click away, on desktop and in the mobile drawer; nothing was removed or moved off-platform. The only badge left is the green \"Live\" dot, which now genuinely means the page is running right now.",
+      "tags": [
+        "improvement"
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Your agents now deploy themselves on-chain — no wallet popup",
+      "summary": "The On-chain Deployments page (/deployments) tracks every agent that lands on the ERC-8004 Identity Registry. Until now three.ws only read other people's registrations; putting one of your own agents on-chain meant signing a transaction yourself in a browser wallet. Agents now register themselves: every public agent with a 3D body gets deployed to the Base Identity Registry from its own built-in wallet, with the platform covering the few cents of gas. The registration includes the agent's GLB avatar and x402 payment support, so it shows up immediately in the live feed counted as a 3D, payment-ready on-chain identity — no human in the loop.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/deployments"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "A quiet Money Pulse now points you to the live feed instead of a dead end",
+      "summary": "When the Money Pulse (/pulse) showed \"No money moving — yet,\" it gave no hint that the silence was just the network you were on — or the filter you'd clicked. The feed has no time limit, so mainnet — where the real tips, launches, trades and payments flow — is effectively never empty; almost every empty view was the devnet test network, or a filter (like Trades or Marketplace) that happened to be quiet while the platform was busy with other money. The empty state now reads the situation honestly: a quiet filter says \"No trades yet\" instead of \"all quiet\" and offers a one-click \"View all activity\" that clears the filter, while a quiet network checks the other one in the background and offers \"See live activity on mainnet\" — either switch flips the whole page, feed and every stat panel, in lockstep. On devnet the copy now explains it's a test network and most money moves on mainnet, so a quiet feed reads as honest, not broken.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/pulse"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Agent mirror (copy-trading) panel loads again",
+      "summary": "Opening an agent's mirror panel — the copy-trading social graph where your agent follows a proven leader within your spend policy — was failing with a 404. The endpoints that power it (your following list, a leader's public track record and follower count, the recent-fills feed, and the follow/unfollow/pause/sync controls) all live under /api/agents/:id/mirror, but our production routing only recognised single-segment agent paths, so every mirror request fell through to the not-found page. We widened the route so the agent dispatcher receives these sub-paths, restoring the mirror panel and its sibling agent endpoints.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/mirror"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "The Money Pulse now sits on a pure-black canvas",
+      "summary": "The Money Pulse page (/pulse) now renders on a true black background in every theme, so the live feed of tips, launches, trades and agent-to-agent payments reads as one calm, high-contrast field. Previously the page could pick up a lighter surface or near-black tone depending on your theme; it's now consistently black with the monochrome ink ramp pinned for readability.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/pulse"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Five pages that were returning 404 are reachable again",
       "summary": "The Gaussian-splat viewer (/splat), the capture tool (/capture), the integrations directory (/integrations), partners (/partners), and the live-agents board (/agents-live) were all returning a 404 in production even though the pages existed and were linked from the nav. Our routing pins every clean URL explicitly, and these five were missing their entry, so the request fell through to the not-found page. We added the missing routes and tightened the route audit so a new page can no longer ship without one.",
       "tags": [

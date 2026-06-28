@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T06:12:23.647Z",
+	"generated_at": "2026-06-28T06:38:15.853Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,26 @@
 			"title": "$THREE payments ride out brief price-feed blips instead of failing",
 			"summary": "Paid actions priced in $THREE (Forge high tier, spins, marketplace) no longer fail when every live price feed happens to miss on the same request. The price layer now keeps a recent last-known-good price and serves it through a momentary simultaneous outage of Jupiter and the backup feeds, so a quote is never rejected over a transient blip. Prices older than five minutes are still refused — a payment is never priced off a stale number. And on the rare moment the payment rail genuinely is catching its breath, you now see a clear \"briefly unavailable — try again\" message instead of a raw \"internal error\" support code.",
 			"link": "/three-token",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "A quiet Money Pulse now points you to the live feed instead of a dead end",
+			"summary": "When the Money Pulse (/pulse) showed \"No money moving — yet,\" it gave no hint that the silence was just the network you were on — or the filter you'd clicked. The feed has no time limit, so mainnet — where the real tips, launches, trades and payments flow — is effectively never empty; almost every empty view was the devnet test network, or a filter (like Trades or Marketplace) that happened to be quiet while the platform was busy with other money. The empty state now reads the situation honestly: a quiet filter says \"No trades yet\" instead of \"all quiet\" and offers a one-click \"View all activity\" that clears the filter, while a quiet network checks the other one in the background and offers \"See live activity on mainnet\" — either switch flips the whole page, feed and every stat panel, in lockstep. On devnet the copy now explains it's a test network and most money moves on mainnet, so a quiet feed reads as honest, not broken.",
+			"link": "/pulse",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Agent mirror (copy-trading) panel loads again",
+			"summary": "Opening an agent's mirror panel — the copy-trading social graph where your agent follows a proven leader within your spend policy — was failing with a 404. The endpoints that power it (your following list, a leader's public track record and follower count, the recent-fills feed, and the follow/unfollow/pause/sync controls) all live under /api/agents/:id/mirror, but our production routing only recognised single-segment agent paths, so every mirror request fell through to the not-found page. We widened the route so the agent dispatcher receives these sub-paths, restoring the mirror panel and its sibling agent endpoints.",
+			"link": "/mirror",
 			"tags": [
 				"fix"
 			]
@@ -254,6 +274,26 @@
 		{
 			"date": "2026-06-28",
 			"type": "update",
+			"title": "The main menu is now organized — no more walls of links",
+			"summary": "The top navigation kept everything but had become hard to scan: the Launch menu alone listed 25 features in one long single-column drop-down, and nearly every item shouted a \"New\" badge, so the badge meant nothing. Each menu — Build, Discover, Launch, Learn — is now split into clearly labelled columns grouped by what you're trying to do (Launch, for example, splits into Launch / Terminal & trade / Intelligence / Compete & earn). Every feature is still one click away, on desktop and in the mobile drawer; nothing was removed or moved off-platform. The only badge left is the green \"Live\" dot, which now genuinely means the page is running right now.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The Money Pulse now sits on a pure-black canvas",
+			"summary": "The Money Pulse page (/pulse) now renders on a true black background in every theme, so the live feed of tips, launches, trades and agent-to-agent payments reads as one calm, high-contrast field. Previously the page could pick up a lighter surface or near-black tone depending on your theme; it's now consistently black with the monochrome ink ramp pinned for readability.",
+			"link": "/pulse",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
 			"title": "User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402",
 			"summary": "The platform now monitors its own engagement metrics automatically. Every six hours an autonomous agent pays the /api/x402/analytics endpoint for a live user_activity report — computing DAU, WAU, stickiness (DAU/WAU ratio), the top ten features by event volume, the platform error rate, and session-length distribution (average, median, and p90). All figures are read live from the real metered tables; an empty window returns zeros, never fabricated numbers. The extracted signal — dau, wau, top_feature — is recorded to x402_autonomous_log for the status surface to read, and every snapshot is persisted to a user_activity_snapshots time series for trend alerting and the engagement dashboard. The same report is available to any x402 agent on the bazaar for $0.005 per call.",
 			"link": null,
@@ -271,6 +311,16 @@
 			"tags": [
 				"feature",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Your agents now deploy themselves on-chain — no wallet popup",
+			"summary": "The On-chain Deployments page (/deployments) tracks every agent that lands on the ERC-8004 Identity Registry. Until now three.ws only read other people's registrations; putting one of your own agents on-chain meant signing a transaction yourself in a browser wallet. Agents now register themselves: every public agent with a 3D body gets deployed to the Base Identity Registry from its own built-in wallet, with the platform covering the few cents of gas. The registration includes the agent's GLB avatar and x402 payment support, so it shows up immediately in the live feed counted as a 3D, payment-ready on-chain identity — no human in the loop.",
+			"link": "/deployments",
+			"tags": [
+				"feature"
 			]
 		},
 		{
