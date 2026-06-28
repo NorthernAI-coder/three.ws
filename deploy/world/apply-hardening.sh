@@ -44,12 +44,25 @@ gcloud builds submit --config deploy/world/cloudbuild.yaml deploy/world/
 # Apply the service config: ADMIN_CODE + PUBLIC_MAX_UPLOAD_SIZE=16.
 gcloud run services replace deploy/world/cloudrun.yaml --region="$REGION"
 
-echo "Waiting for the new revision to serve..."
-sleep 20
-STATUS=$(curl -fsS https://world.three.ws/status)
+echo "Waiting for the new revision to serve and report protected:true..."
+# A min-instance service swaps traffic to the new revision only after it passes
+# its startup probe, so poll rather than guessing with a fixed sleep. The
+# fail-closed patch (patches/0003) makes a secret-less revision refuse to boot,
+# so if protected never flips, the previous revision is still serving and the
+# rollout needs a look — don't exit 0 on a silent failure.
+STATUS=""
+for attempt in $(seq 1 30); do
+  STATUS=$(curl -fsS --max-time 10 https://world.three.ws/status 2>/dev/null || echo '{}')
+  case "$STATUS" in
+    *'"protected":true'*) break ;;
+  esac
+  sleep 5
+done
 echo "live /status: $STATUS"
 case "$STATUS" in
   *'"protected":true'*) echo "OK — world is protected. Visitors can no longer build." ;;
-  *) echo "WARNING — /status does not report protected:true yet. Check the revision rollout:"
-     echo "  gcloud run revisions list --service=$SERVICE --region=$REGION" ;;
+  *) echo "WARNING — /status does not report protected:true after ~150s. Check the rollout:"
+     echo "  gcloud run revisions list --service=$SERVICE --region=$REGION"
+     echo "  gcloud run services logs read $SERVICE --region=$REGION --limit=50"
+     exit 1 ;;
 esac

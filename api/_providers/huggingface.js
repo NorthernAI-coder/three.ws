@@ -314,51 +314,68 @@ function r2Configured() {
 }
 
 // Pull the freshly-produced GLB and re-host it to durable storage, returning the
-// public URL. Returns null on any failure (storage unconfigured, fetch error,
-// oversize) so the caller falls back to the raw Space URL — the result is never
-// worse than today, and on a configured deployment the ephemeral URL never
-// escapes this provider. The HF bearer token is forwarded so private Spaces'
-// file endpoints authorize the read; public Spaces ignore it.
+// public URL. The HF bearer token is forwarded so private Spaces' file endpoints
+// authorize the read; public Spaces ignore it.
+//
+// Two terminal outcomes, deliberately distinct:
+//   • Storage unconfigured → return null. There is nowhere durable to put the
+//     mesh, so the caller keeps the raw Space URL exactly as before. Nothing
+//     regresses on storage-less deployments.
+//   • Storage configured but the rehost can't complete (the temp file already
+//     404'd, the fetch errored after retries, the body was empty/oversize, or
+//     the upload failed) → THROW. Returning the raw gradio /tmp URL here would
+//     be worse than failing: that URL is ephemeral and *will* 404 when a later
+//     consumer (the forge poll, materializeCreation, model-viewer's loader)
+//     fetches it — the exact "materializeCreation failed: ...glb 404" this
+//     function exists to prevent. Throwing lets the failover loop regenerate on
+//     the next Space, and if the chain is exhausted the caller surfaces a
+//     designed error instead of a doomed URL.
 async function rehostGlbToR2(glbUrl, token) {
 	if (!r2Configured()) return null;
 
 	let buf = null;
+	let lastErr = null;
 	for (let attempt = 1; attempt <= REHOST_MAX_ATTEMPTS; attempt++) {
 		try {
 			const resp = await fetch(glbUrl, { headers: { authorization: `Bearer ${token}` } });
 			if (!resp.ok) {
+				lastErr = Object.assign(new Error(`GLB fetch ${resp.status}`), { status: resp.status });
 				// 404/410 = the temp file is already gone; retrying can't recover it.
-				if (resp.status === 404 || resp.status === 410) return null;
-				if (attempt >= REHOST_MAX_ATTEMPTS) return null;
+				if (resp.status === 404 || resp.status === 410) break;
 			} else {
 				const bytes = Buffer.from(await resp.arrayBuffer());
-				if (bytes.length > REHOST_MAX_GLB_BYTES) return null;
-				if (bytes.length === 0) return null;
+				if (bytes.length === 0) { lastErr = new Error('GLB body was empty'); break; }
+				if (bytes.length > REHOST_MAX_GLB_BYTES) {
+					lastErr = new Error(`GLB too large: ${bytes.length} bytes`);
+					break;
+				}
 				buf = bytes;
 				break;
 			}
-		} catch (_) {
-			if (attempt >= REHOST_MAX_ATTEMPTS) return null;
+		} catch (err) {
+			lastErr = err;
 		}
-		await new Promise((r) => setTimeout(r, REHOST_RETRY_BASE_MS * attempt));
+		if (attempt < REHOST_MAX_ATTEMPTS) {
+			await new Promise((r) => setTimeout(r, REHOST_RETRY_BASE_MS * attempt));
+		}
 	}
-	if (!buf) return null;
+	if (!buf) {
+		throw Object.assign(
+			new Error(`GLB rehost failed: ${lastErr?.message || 'unknown error'}`),
+			{ code: 'rehost_failed', status: lastErr?.status, cause: lastErr },
+		);
+	}
 
-	try {
-		const { putObject, publicUrl } = await import('../_lib/r2.js');
-		const { randomUUID } = await import('node:crypto');
-		const key = `hf-recon/${randomUUID()}.glb`;
-		await putObject({
-			key,
-			body: buf,
-			contentType: 'model/gltf-binary',
-			metadata: { source: 'huggingface-reconstruct' },
-		});
-		return publicUrl(key);
-	} catch (err) {
-		console.warn(`[huggingface] GLB re-host to R2 failed: ${err?.message || err}`);
-		return null;
-	}
+	const { putObject, publicUrl } = await import('../_lib/r2.js');
+	const { randomUUID } = await import('node:crypto');
+	const key = `hf-recon/${randomUUID()}.glb`;
+	await putObject({
+		key,
+		body: buf,
+		contentType: 'model/gltf-binary',
+		metadata: { source: 'huggingface-reconstruct' },
+	});
+	return publicUrl(key);
 }
 
 // Try one Space end-to-end: enqueue → consume SSE → extract GLB url.
@@ -424,9 +441,21 @@ async function runOnSpace({ token, target, photos, params }) {
 	else if (!/^https?:\/\//i.test(glbUrl)) glbUrl = `${spaceUrl}/file=${glbUrl}`;
 
 	// Re-host the ephemeral gradio temp file to durable storage right now, while
-	// it's freshest. A successful re-host means no consumer ever sees the expiring
-	// Space URL; a miss leaves the raw URL untouched (fail-soft).
-	const durableUrl = await rehostGlbToR2(glbUrl, token);
+	// it's freshest, so no consumer ever re-fetches the expiring Space URL. When
+	// storage is configured this returns a durable URL or throws (the asset is
+	// already gone / unwritable). A throw is tagged as this Space's failure so the
+	// failover loop advances to the next Space and regenerates rather than handing
+	// back a URL that will 404 downstream. When storage is unconfigured it returns
+	// null and we keep the raw URL — the only option where there's nowhere durable.
+	let durableUrl;
+	try {
+		durableUrl = await rehostGlbToR2(glbUrl, token);
+	} catch (err) {
+		throw tag(Object.assign(
+			new Error(`GLB produced but not persistable: ${err?.message}`),
+			{ code: 'rehost_failed', status: err?.status || 502, cause: err },
+		));
+	}
 
 	return { resultGlbUrl: durableUrl || glbUrl, space, api };
 }

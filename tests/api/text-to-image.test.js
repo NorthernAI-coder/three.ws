@@ -28,6 +28,16 @@ vi.mock('../../api/_lib/r2.js', () => ({
 	publicUrl: (key) => `https://cdn.example/${key}`,
 }));
 
+// The Replicate text→image submit is paced through forge-scale's rate gate. The
+// gate itself fails open without Redis (its own unit tests cover that); here we
+// drive it deterministically so we can assert the queue/shed behavior of the
+// caller. Defaults to "slot granted, no wait" so every other test is unaffected.
+const rateState = { result: { ok: true, waitMs: 0 } };
+vi.mock('../../api/_lib/forge-scale.js', async (importOriginal) => {
+	const actual = await importOriginal();
+	return { ...actual, reserveProviderRateSlot: vi.fn(async () => rateState.result) };
+});
+
 const ORIGINAL_FETCH = globalThis.fetch;
 const ENV_KEYS = ['NVIDIA_API_KEY', 'GOOGLE_CLOUD_PROJECT', 'GCP_SERVICE_ACCOUNT_JSON', 'REPLICATE_API_TOKEN'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
@@ -79,6 +89,7 @@ beforeEach(async () => {
 	vertexState.configured = false;
 	vertexState.generate = null;
 	r2State.puts.length = 0;
+	rateState.result = { ok: true, waitMs: 0 };
 	for (const k of ENV_KEYS) delete process.env[k];
 	// The NIM FLUX circuit breaker persists a short cooldown in the shared in-memory
 	// cache; clear it between tests so one test's induced NIM failure doesn't make a
@@ -354,6 +365,54 @@ describe('textToImage — Vertex → Replicate fallback', () => {
 		expect(caught.providerDetail).toBe(RAW_DETAIL); // retained for server logs
 		expect(caught.message).toBe('Image generation is briefly busy upstream — please retry in a few seconds.');
 		expect(caught.message).not.toMatch(/credit|\$5|throttl|rate limit/i);
+	});
+
+	it('queues against the Replicate rate gate and waits for the reserved slot before submitting', async () => {
+		// Under the reduced-rate account state Replicate paces creation to 6/min; the
+		// gate reserves the next slot and tells us to hold for it. We must wait out
+		// that slot, THEN submit — never fire early into a throttle 429.
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		rateState.result = { ok: true, waitMs: 5_000 };
+		const calls = stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
+
+		vi.useFakeTimers();
+		try {
+			const textToImage = await freshTextToImage();
+			const p = textToImage('a red teapot');
+			// Mid-wait: the reserved slot has not opened, so no prediction is created yet.
+			await vi.advanceTimersByTimeAsync(4_000);
+			expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(false);
+			// Slot opens — the submit fires and resolves.
+			await vi.advanceTimersByTimeAsync(2_000);
+			const result = await p;
+			expect(result.imageUrl).toBe('https://replicate.delivery/out.png');
+			expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('sheds to a queued rate-limit (no submit) when the queue is deeper than the wait budget', async () => {
+		// The gate reports the next slot is further out than we will block a worker for.
+		// We must NOT fire the prediction (that would just earn a throttle 429); instead
+		// surface a retryable, queued rate-limit carrying the time until the slot opens.
+		process.env.REPLICATE_API_TOKEN = 'r8_test_token';
+		rateState.result = { ok: false, waitMs: 12_000 };
+		const calls = stubFetch([['api.replicate.com', () => replicateSuccessResponse()]]);
+
+		const textToImage = await freshTextToImage();
+		const caught = await textToImage('a red teapot').then(
+			() => null,
+			(e) => e,
+		);
+		expect(caught).toBeTruthy();
+		expect(caught.code).toBe('rate_limited');
+		expect(caught.queued).toBe(true);
+		expect(caught.retryAfter).toBe(12); // ceil(12000ms / 1000)
+		// The Replicate prediction was never created — we shed before firing.
+		expect(calls.some((c) => c.url.includes('api.replicate.com'))).toBe(false);
+		// The buyer-facing message names the queue, not the account's rate state.
+		expect(caught.message).not.toMatch(/credit|\$|throttl|rate limit/i);
 	});
 
 	it('masks a Replicate 402 out-of-credit failure as a buyer-safe billing error', async () => {

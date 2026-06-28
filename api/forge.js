@@ -104,7 +104,39 @@ import { sanitizeJobError } from './_lib/provider-job-error.js';
 // working one; it expires on its own so a recovered lane is retried promptly.
 // Best-effort via the shared cache — a miss just means "not cooling".
 const NIM_TRELLIS_COOLDOWN_KEY = 'forge-nim-trellis';
+// Sideline the free NIM lane after a failure. The cooldown exists to avoid
+// re-paying the expensive submit-timeout HANG, so a socket timeout / unreachable
+// host (no HTTP status came back) earns the full window. A fast gateway 5xx (a
+// 504/503 the gateway returned promptly — a cold-start/capacity blip the
+// in-provider retry already rode) only earns a short window, so a single transient
+// 504 doesn't sideline the free lane for two minutes and dump every text prompt on
+// the paid lane. See nimCooldownSeconds().
 const NIM_FORGE_COOLDOWN_SECONDS = 120;
+const NIM_FORGE_GATEWAY_COOLDOWN_SECONDS = 30;
+
+// The platform-keyed paid reconstruct lane (Replicate TRELLIS) recorded as down.
+// Set only on an out-of-credit/billing failure — which won't self-heal until ops
+// tops the account up, so the window is long (reason 'auth'). The NIM-cooldown
+// router reads it to avoid skipping the free lane in favour of a dead paid lane.
+const REPLICATE_PAID_COOLDOWN_KEY = 'forge-replicate-paid';
+const REPLICATE_PAID_COOLDOWN_SECONDS = 300;
+
+// Pick how long to cool the free NIM lane after a failure. A Retry-After hint
+// (429) is honoured within bounds; an HTTP status that came back at all means the
+// gateway answered (a fast fail) and earns the short window; no status means our
+// socket timed out / the host was unreachable (the expensive hang) and earns the
+// full window.
+function nimCooldownSeconds(err) {
+	const retryAfter = Number(err?.retryAfter);
+	if (Number.isFinite(retryAfter) && retryAfter > 0) {
+		return Math.min(
+			Math.max(Math.ceil(retryAfter), NIM_FORGE_GATEWAY_COOLDOWN_SECONDS),
+			NIM_FORGE_COOLDOWN_SECONDS,
+		);
+	}
+	if (typeof err?.providerStatus === 'number') return NIM_FORGE_GATEWAY_COOLDOWN_SECONDS;
+	return NIM_FORGE_COOLDOWN_SECONDS;
+}
 
 // Holder perk (Lever 2): a presented, verified $THREE tier pass lifts the free
 // generation ceiling by that tier's multiplier. The pass is pure-HMAC verifiable
@@ -260,7 +292,7 @@ async function runNvidiaTextLane({ req, res, ip, prompt, aspect, tier, path }) {
 		// down so the next request skips the submit-timeout gamble and fails over
 		// fast. A 4xx (bad input / key) is not a lane-health fault, so it never cools.
 		if (isUpstreamUnavailable(err)) {
-			markProviderCooldown(NIM_TRELLIS_COOLDOWN_KEY, NIM_FORGE_COOLDOWN_SECONDS).catch(() => {});
+			markProviderCooldown(NIM_TRELLIS_COOLDOWN_KEY, nimCooldownSeconds(err)).catch(() => {});
 		}
 		console.warn(`[forge] free NVIDIA NIM lane unavailable: ${err?.message || err}`);
 		return false;
@@ -1100,10 +1132,19 @@ async function startJob(req, res) {
 				nvidiaTried = true;
 				// Skip the submit-timeout gamble when the lane is in a recent-failure
 				// cooldown — go straight to the reconstruct lane instead of re-hanging.
-				const trellisCooling = (await providersInCooldown([NIM_TRELLIS_COOLDOWN_KEY])).has(
+				// BUT only when that reconstruct lane is a real destination: it free-firsts
+				// to HuggingFace and then the paid Replicate account, so it's viable when HF
+				// is configured OR the paid account isn't itself recorded out-of-credit. When
+				// both are gone, skipping NIM would route straight into a dead paid lane and
+				// 503 the user — so we ignore the cooldown and give the free lane a real shot.
+				const cooldowns = await providersInCooldown([
 					NIM_TRELLIS_COOLDOWN_KEY,
-				);
-				if (trellisCooling) {
+					REPLICATE_PAID_COOLDOWN_KEY,
+				]);
+				const trellisCooling = cooldowns.has(NIM_TRELLIS_COOLDOWN_KEY);
+				const reconstructLaneViable =
+					backendIsConfigured('huggingface') || !cooldowns.has(REPLICATE_PAID_COOLDOWN_KEY);
+				if (trellisCooling && reconstructLaneViable) {
 					console.warn('[forge] NVIDIA NIM TRELLIS lane in cooldown; routing to reconstruct lane');
 					nimGatewayDegraded = true;
 					backendId = 'trellis';
@@ -1596,15 +1637,26 @@ async function startJob(req, res) {
 			});
 		}
 		// Last-resort free fallback: when the paid image-intermediate TRELLIS lane
-		// (Replicate) is throttled, over-quota, or unreachable, a text prompt must
-		// never dead-end — degrade to the free NVIDIA NIM lane so the default
-		// "type a prompt → get a model" flow always returns something. Honors the
-		// free-first "AI must never fail" policy; provenance reports backend:nvidia
-		// so the downgrade is visible, not silent. Image uploads have no free
-		// reconstruct fallback (NVCF is text-only), so they fall through to the
-		// designed states below. `nvidiaTried` guards against re-running a lane that
-		// already failed this request (the draft nvidia→trellis→nvidia loop).
-		if (isUpstreamUnavailable(err) && !isImageMode && !nvidiaTried && prompt) {
+		// (Replicate) is throttled, over-quota, unreachable, OR out of credit, a text
+		// prompt must never dead-end — degrade to the free NVIDIA NIM lane so the
+		// default "type a prompt → get a model" flow always returns something. The
+		// credit-exhaustion case matters most here: the failure is the paid FLUX
+		// synthesis step (textToImage throws code:'billing'/402, which is NOT
+		// upstream-unavailable), but the NIM TRELLIS lane is native text→mesh and
+		// needs no FLUX intermediate at all — so a dry Replicate account should hand
+		// the prompt to the healthy free lane rather than skip straight to the 503.
+		// Honors the free-first "AI must never fail" policy; provenance reports
+		// backend:nvidia so the downgrade is visible, not silent. Image uploads have
+		// no free reconstruct fallback here (NVCF is text-only — the HF lane already
+		// absorbed them above), so they fall through to the designed states below.
+		// `nvidiaTried` guards against re-running a lane that already failed this
+		// request (the draft nvidia→trellis→nvidia loop).
+		if (
+			(isUpstreamUnavailable(err) || isPaidCreditFailure(err)) &&
+			!isImageMode &&
+			!nvidiaTried &&
+			prompt
+		) {
 			nvidiaTried = true;
 			// Don't degrade to NIM when it's already in a recent-failure cooldown — that
 			// would just re-pay the submit timeout on a lane we know is down right now.
@@ -1628,9 +1680,16 @@ async function startJob(req, res) {
 		if (err?.code === 'rate_limited' || err?.providerStatus === 429) {
 			const retryAfter = typeof err?.retryAfter === 'number' ? err.retryAfter : 10;
 			res.setHeader('retry-after', String(retryAfter));
+			// A `queued` throttle is our own rate gate pacing the request to the
+			// upstream limit (not an upstream rejection) — tell the user it's in line so
+			// a retry reads as "your turn is coming up", not "the system is failing".
+			const queued = Boolean(err?.queued);
 			return json(res, 429, {
 				error: 'rate_limited',
-				message: 'The 3D generator is busy right now. Try again in a few seconds.',
+				queued,
+				message: queued
+					? `Your generation is queued behind a few others — retry in ~${retryAfter}s to pick it up.`
+					: 'The 3D generator is busy right now. Try again in a few seconds.',
 				retry_after: retryAfter,
 			});
 		}
@@ -1644,6 +1703,15 @@ async function startJob(req, res) {
 			console.warn(
 				`[forge] paid reconstruct lane out of credit and no free lane available: ${err?.message || err}${creditDetail}`,
 			);
+			// Record the paid lane as down (reason 'auth' — a billing fault that won't
+			// self-heal until ops tops the account up). The NIM-cooldown router reads this
+			// so the next text prompt keeps the free NIM lane in play instead of skipping
+			// it to route into this now-known-dead paid lane.
+			markProviderCooldown(
+				REPLICATE_PAID_COOLDOWN_KEY,
+				REPLICATE_PAID_COOLDOWN_SECONDS,
+				'auth',
+			).catch(() => {});
 			res.setHeader('retry-after', '30');
 			return json(res, 503, {
 				error: 'generation_unavailable',

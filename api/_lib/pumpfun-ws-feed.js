@@ -109,11 +109,35 @@ export function connectPumpFunFeed({ onEvent, signal, kind = 'all', mints = [] }
 		return true;
 	}
 
+	// WebSocket.CONNECTING. A socket torn down before its handshake completes is
+	// the common serverless case here: collectLiveMints (and the request abort
+	// signal) fire on a short timer, often before the upstream open lands.
+	const WS_CONNECTING = 0;
+
 	function stop() {
 		active = false;
 		clearTimeout(reconnectTimer);
 		clearInterval(fallbackTimer);
-		if (ws) try { ws.close(); } catch {}
+		const sock = ws;
+		ws = null;
+		if (!sock) return;
+		try {
+			if (sock.readyState === WS_CONNECTING) {
+				// Closing a socket mid-handshake makes `ws` emit a benign
+				// "WebSocket was closed before the connection was established"
+				// error. This teardown is intentional, so drop our listeners and
+				// swallow that one error rather than logging it as a failure —
+				// terminate() still aborts the pending request and frees the socket.
+				sock.removeAllListeners?.('open');
+				sock.removeAllListeners?.('message');
+				sock.removeAllListeners?.('close');
+				sock.removeAllListeners?.('error');
+				sock.on?.('error', () => {});
+				(sock.terminate ?? sock.close).call(sock);
+			} else {
+				sock.close();
+			}
+		} catch {}
 	}
 
 	signal?.addEventListener('abort', stop);
@@ -208,7 +232,12 @@ export function connectPumpFunFeed({ onEvent, signal, kind = 'all', mints = [] }
 			}
 		});
 
-		ws.on('error', (err) => console.warn('[pumpportal-ws] error:', err?.message));
+		ws.on('error', (err) => {
+			// A handshake aborted during teardown is expected, not a failure — don't
+			// surface it as an error (stop() already silences the common path).
+			if (!active && /closed before the connection was established/i.test(err?.message || '')) return;
+			console.warn('[pumpportal-ws] error:', err?.message);
+		});
 
 		ws.on('close', () => {
 			if (!active || reconnects >= MAX_RECONNECTS) return;

@@ -19,6 +19,7 @@
 // Replicate backstop: black-forest-labs/flux-schnell — same family, $0.003/run.
 
 import { markProviderCooldown, providersInCooldown } from '../_lib/provider-health.js';
+import { reserveProviderRateSlot, SCALE_LIMITS } from '../_lib/forge-scale.js';
 
 const REPLICATE_BASE = 'https://api.replicate.com/v1';
 const DEFAULT_TXT2IMG_MODEL = 'black-forest-labs/flux-schnell';
@@ -365,6 +366,26 @@ export async function textToImage(prompt, { aspectRatio = '1:1', skipNim = false
 	} else {
 		throw new Error(`invalid REPLICATE_TXT2IMG_MODEL reference: ${modelRef}`);
 	}
+
+	// Pace creation to the platform account's rate before firing. On a reduced-rate
+	// (low-credit) Replicate account this caps at 6/min, burst 1 — and this paid
+	// backstop has no further free lane to shed to, so we QUEUE for the next slot
+	// rather than stampede the limit into account-wide throttle 429s. Reserve the
+	// slot; if it opens within the bounded wait, hold this worker until then; if the
+	// queue is deeper than the budget, surface a retryable rate-limit the forge
+	// boundary maps to a "queued — retry shortly" 429 (with an accurate Retry-After).
+	const slot = await reserveProviderRateSlot('replicate', {
+		ratePerMin: SCALE_LIMITS.replicateRatePerMin,
+		burst: SCALE_LIMITS.replicateRateBurst,
+		maxWaitMs: SCALE_LIMITS.replicateQueueMaxMs,
+	});
+	if (!slot.ok) {
+		throw Object.assign(
+			new Error('Image generation is queued behind other requests — please retry in a few seconds.'),
+			{ code: 'rate_limited', queued: true, retryAfter: Math.max(1, Math.ceil(slot.waitMs / 1000)) },
+		);
+	}
+	if (slot.waitMs > 0) await sleep(slot.waitMs);
 
 	let res;
 	try {

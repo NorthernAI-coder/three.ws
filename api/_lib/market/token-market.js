@@ -12,7 +12,7 @@
 // they can and never crash on a single upstream blip. This is the market-data
 // analogue of the RPC failover layer.
 
-import { cacheGet, cacheSet, cacheDel } from '../cache.js';
+import { cacheGet, cacheSet, cacheDel, acquireLock, releaseLock } from '../cache.js';
 
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
 const DEXSCREENER_BASE = 'https://api.dexscreener.com/latest/dex/tokens';
@@ -20,7 +20,12 @@ const GECKOTERMINAL_BASE = 'https://api.geckoterminal.com/api/v2/networks/solana
 
 const FETCH_TIMEOUT_MS = 6000;
 const DEFAULT_TTL_MS = 30_000;
-const STALE_MAX_MS = 5 * 60_000;
+// Last-good window served when EVERY source is simultaneously down. With the
+// single-flight + background-refresh defenses below, the only path to stale is a
+// total upstream outage (all three rate-limited at once — TASK-10), so we hold
+// the last price far longer: a 25-minute-old price keeps the panel populated
+// through a transient outage, which beats blanking it ("all sources failed").
+const STALE_MAX_MS = 30 * 60_000;
 
 // L2 (shared, cross-instance) cache TTL. Scaling defense: Vercel runs many
 // stateless lambda instances; the per-instance L1 Map below is wiped on every
@@ -28,9 +33,30 @@ const STALE_MAX_MS = 5 * 60_000;
 // fan out to all three upstreams. The L2 Upstash cache lets a cold lambda serve
 // a sibling's recent fetch instead, collapsing fleet-wide upstream load to ~1
 // call per key per window — the difference between "holds at 100x" and "every
-// instance rate-limits Birdeye at once". Short window keeps a token price fresh.
-const SHARED_TTL_S = 15;
+// instance rate-limits Birdeye at once".
+//
+// 60s window (was 15s): the background refresh cron (api/cron/three-market-
+// refresh) re-fetches $THREE once a minute, so this TTL is sized to outlive one
+// cron cadence — on-demand reads serve the cron's warm write and almost never
+// touch an upstream. 15s forced ~4× the necessary fan-out (a fresh cascade every
+// time the window lapsed); 60s staleness is invisible on a token price panel and
+// the cron keeps the real age ≤ one minute regardless.
+const SHARED_TTL_S = 60;
 const sharedKey = (mint) => `mktdata:v1:${mint}`;
+
+// Fleet-wide single-flight lock for the live upstream fetch. When L1+L2 both
+// miss (cold start, or the brief gap between cron refreshes) a traffic spike
+// would otherwise have every concurrent lambda run the full Birdeye→DexScreener→
+// GeckoTerminal cascade at once — the exact pattern that exhausts all three free
+// quotas simultaneously. One instance wins this lock and does the real fetch;
+// the losers serve last-good or briefly await the winner's L2 write instead of
+// piling onto the upstreams. TTL covers a worst-case full cascade (3 × timeout)
+// so the lock never expires mid-fetch and lets a second instance double-fetch.
+const lockKey = (mint) => `mktlock:v1:${mint}`;
+const LOCK_TTL_S = 20;
+const LOCK_WAIT_TRIES = 4;
+const LOCK_WAIT_STEP_MS = 250;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const _cache = new Map(); // mint → { value, expires, fetchedAt }
 const _warnedAt = new Map();
@@ -206,6 +232,32 @@ async function fromGeckoTerminal(mint) {
 
 const SOURCES = [fromBirdeye, fromDexScreener, fromGeckoTerminal];
 
+// Store a value in the per-instance L1 cache (with the bounded-size eviction the
+// fetch path uses) and return it. Shared by the live, L2-hit, and lock-loser
+// paths so they all keep L1 coherent the same way.
+function storeL1(mint, value, now, ttlMs) {
+	_cache.set(mint, { value, expires: now + ttlMs, fetchedAt: now });
+	if (_cache.size > 256) _cache.delete(_cache.keys().next().value);
+	return value;
+}
+
+// Lock-loser path: another instance holds the single-flight lock and is fetching
+// live right now. Poll the shared cache a few times for its write rather than
+// firing our own redundant upstream cascade. Returns the freshly-published value
+// or null if the winner hasn't landed within the short wait budget.
+async function waitForSharedWrite(mint, ttlMs) {
+	for (let i = 0; i < LOCK_WAIT_TRIES; i++) {
+		await sleep(LOCK_WAIT_STEP_MS);
+		try {
+			const shared = await cacheGet(sharedKey(mint));
+			if (shared && shared.price_usd > 0) return storeL1(mint, shared, Date.now(), ttlMs);
+		} catch {
+			/* keep waiting, then fall through */
+		}
+	}
+	return null;
+}
+
 /**
  * Normalized market data for a mint, with multi-source failover and a stale
  * cache. Returns null only when every source fails and no recent value exists.
@@ -235,32 +287,59 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 		}
 	}
 
+	// Single-flight the live fetch across the fleet. A cold/expired cache under a
+	// traffic spike would otherwise have every concurrent lambda run the full
+	// source cascade at once — the pattern that rate-limits all three upstreams
+	// simultaneously (TASK-10). One instance wins the lock and fetches; the losers
+	// serve last-good immediately, or briefly await the winner's L2 write, instead
+	// of duplicating the upstream calls. fresh:true (the background cron, explicit
+	// quote refreshes) deliberately bypasses this — those callers want live data
+	// and don't fan out. When Redis is unconfigured acquireLock returns true, so
+	// dev/tests keep the direct path.
+	let locked = false;
+	if (!fresh) {
+		locked = await acquireLock(lockKey(mint), LOCK_TTL_S);
+		if (!locked) {
+			if (hit && now - hit.fetchedAt < STALE_MAX_MS) {
+				hit.expires = now + Math.min(ttlMs, 5_000); // re-check soon for the winner's write
+				return hit.value;
+			}
+			const shared = await waitForSharedWrite(mint, ttlMs);
+			if (shared) return shared;
+			// Winner never landed (its lambda may have died) — fall through and
+			// fetch ourselves, trading one extra cascade for correctness in a rare
+			// cold-and-contended corner.
+		}
+	}
+
 	// Live fetch ahead — inherit the fleet's circuit-breaker state so a cold
 	// lambda skips a source another instance already found exhausted.
 	await hydrateCooldowns(now);
 
-	for (const src of SOURCES) {
-		if ((_sourceCooldown.get(src.name) || 0) > now) continue;
-		try {
-			const result = await src(mint);
-			if (result && result.price_usd > 0) {
-				_cache.set(mint, { value: result, expires: now + ttlMs, fetchedAt: now });
-				if (_cache.size > 256) _cache.delete(_cache.keys().next().value);
-				// Publish to the shared cache for sibling instances (best-effort).
-				cacheSet(sharedKey(mint), result, SHARED_TTL_S).catch(() => {});
-				return result;
-			}
-		} catch (err) {
-			const cooldown = cooldownFor(err);
-			if (cooldown) {
-				_sourceCooldown.set(src.name, now + cooldown);
-				// Broadcast the verdict so sibling lambdas skip this dead source too.
-				publishCooldowns(now);
-				warnThrottled(`${src.name}:cooldown`, `[market] ${src.name} quota/rate-limited — skipping it for ${Math.round(cooldown / 60_000)}min: ${err?.message}`);
-			} else {
-				warnThrottled(`${mint}:${src.name}`, `[market] ${src.name} failed for ${mint.slice(0, 6)}…: ${err?.message}`);
+	try {
+		for (const src of SOURCES) {
+			if ((_sourceCooldown.get(src.name) || 0) > now) continue;
+			try {
+				const result = await src(mint);
+				if (result && result.price_usd > 0) {
+					// Publish to the shared cache for sibling instances (best-effort).
+					cacheSet(sharedKey(mint), result, SHARED_TTL_S).catch(() => {});
+					return storeL1(mint, result, now, ttlMs);
+				}
+			} catch (err) {
+				const cooldown = cooldownFor(err);
+				if (cooldown) {
+					_sourceCooldown.set(src.name, now + cooldown);
+					// Broadcast the verdict so sibling lambdas skip this dead source too.
+					publishCooldowns(now);
+					warnThrottled(`${src.name}:cooldown`, `[market] ${src.name} quota/rate-limited — skipping it for ${Math.round(cooldown / 60_000)}min: ${err?.message}`);
+				} else {
+					warnThrottled(`${mint}:${src.name}`, `[market] ${src.name} failed for ${mint.slice(0, 6)}…: ${err?.message}`);
+				}
 			}
 		}
+	} finally {
+		if (locked) releaseLock(lockKey(mint)); // best-effort; lock also auto-expires
 	}
 
 	// Every source failed — serve the last good value if it's still fresh enough.

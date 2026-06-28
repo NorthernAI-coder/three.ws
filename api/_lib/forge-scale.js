@@ -153,6 +153,80 @@ export async function providerSubmitAllowed(provider, { limit, windowS }) {
 	}
 }
 
+// ── Per-provider rate slot (queue, not shed) ──────────────────────────────────
+// A leaky-bucket / GCRA gate that PACES submissions to a hard upstream rate
+// instead of shedding over-cap traffic. Where providerSubmitAllowed() drops a
+// burst to a free lane, this reserves the next free slot and tells the caller how
+// long to wait for it — so a lane with no free fallback (the paid Replicate
+// text→image backstop) queues gracefully behind the rate rather than firing
+// straight into a throttle 429. Replicate holds a reduced-rate account to "6
+// requests per minute with a burst of 1"; under an influx every text→3D request
+// that falls past the free NIM/Vertex lanes lands here, and without pacing they
+// stampede that limit (106× "Request was throttled" in one window). The gate is
+// account-wide per provider key, so concurrent serverless instances all reserve
+// from the same bucket.
+//
+// GCRA: one emission every `interval` ms; a `burst`-deep allowance (τ) lets an
+// idle bucket admit up to `burst` immediately. The reservation (advancing the
+// theoretical-arrival-time) and the wait computation run as one Lua script so
+// concurrent reservers can't both claim the same slot. A reservation is only
+// taken when the wait fits the caller's budget — an over-budget request leaves
+// the bucket untouched and is told to retry, so a rejected caller never steals a
+// slot from one that will actually wait for it. Fail-OPEN without Redis (dev /
+// outage): no bucket to coordinate, so every caller proceeds immediately.
+
+const RATE_PREFIX = 'fc:rate:';
+
+// KEYS[1] = bucket; ARGV = now, interval(ms), tau(ms), maxWait(ms). Returns
+// {allowed(0|1), waitMs}. `base` is the time this request would be served: the
+// later of the stored TAT and (now - tau) — the τ slack is what permits a burst
+// out of an idle bucket. We reserve (push TAT to base+interval) only when the
+// wait is within budget; the key's TTL tracks the live reservation horizon so an
+// idle bucket self-clears.
+const RATE_RESERVE_LUA = `local now = tonumber(ARGV[1])
+local interval = tonumber(ARGV[2])
+local tau = tonumber(ARGV[3])
+local maxWait = tonumber(ARGV[4])
+local tat = tonumber(redis.call('GET', KEYS[1]))
+if not tat then tat = now end
+local base = tat
+if base < now - tau then base = now - tau end
+local waitMs = base - now
+if waitMs < 0 then waitMs = 0 end
+if waitMs > maxWait then
+  return {0, math.floor(waitMs)}
+end
+local newTat = base + interval
+redis.call('SET', KEYS[1], tostring(newTat), 'PX', math.floor(newTat - now + 5000))
+return {1, math.floor(waitMs)}`;
+
+// Reserve the next submission slot for `provider`, pacing to `ratePerMin`
+// (`burst`-deep). Returns { ok, waitMs }: when ok, the caller sleeps `waitMs`
+// (0..maxWaitMs) then submits — the slot is reserved. When !ok the queue is
+// deeper than maxWaitMs; no slot is taken and `waitMs` is the time until one
+// would open, so the caller can surface a retry hint. Fail-open (ok, 0) on a
+// missing or erroring Redis — pacing is a protective throttle, never a gate.
+export async function reserveProviderRateSlot(
+	provider,
+	{ ratePerMin, burst = 1, maxWaitMs, now = Date.now() },
+) {
+	if (!redis) return { ok: true, waitMs: 0 };
+	const interval = Math.max(1, Math.floor(60_000 / Math.max(1, ratePerMin)));
+	const tau = Math.max(0, (Math.max(1, burst) - 1) * interval);
+	try {
+		const r = await redis.eval(
+			RATE_RESERVE_LUA,
+			[`${RATE_PREFIX}${provider}`],
+			[String(now), String(interval), String(tau), String(Math.max(0, Math.floor(maxWaitMs)))],
+		);
+		const ok = Array.isArray(r) && Number(r[0]) === 1;
+		const waitMs = Array.isArray(r) ? Math.max(0, Number(r[1]) || 0) : 0;
+		return { ok, waitMs };
+	} catch {
+		return { ok: true, waitMs: 0 };
+	}
+}
+
 // Tunables, overridable per-deployment via env. Defaults are conservative ceilings
 // chosen to protect the worker pool / provider quota without throttling normal use.
 function intEnv(name, fallback) {
@@ -169,6 +243,14 @@ export const SCALE_LIMITS = Object.freeze({
 	// Platform Replicate submits per 10s window before we shed to the free lane.
 	replicateSubmitLimit: intEnv('FORGE_REPLICATE_SUBMIT_LIMIT', 40),
 	replicateSubmitWindowS: 10,
+	// Account-wide rate the platform Replicate token is paced to by the text→image
+	// backstop queue. Mirrors the reduced-rate state Replicate imposes when account
+	// credit is low: 6 predictions/min, burst of 1 (no fallback lane to shed to, so
+	// we queue instead — see reserveProviderRateSlot). A request whose slot is more
+	// than replicateQueueMaxMs out is told to retry rather than blocking a worker.
+	replicateRatePerMin: intEnv('FORGE_REPLICATE_RATE_PER_MIN', 6),
+	replicateRateBurst: intEnv('FORGE_REPLICATE_RATE_BURST', 1),
+	replicateQueueMaxMs: intEnv('FORGE_REPLICATE_QUEUE_MAX_MS', 15_000),
 	// Max PLATFORM-keyed paid generations one identity (browser client) may run per
 	// UTC day — the layer per-IP and the global hourly cap don't cover.
 	paidDailyPerClient: intEnv('FORGE_PAID_DAILY_CAP', 60),
