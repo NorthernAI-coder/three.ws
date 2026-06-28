@@ -6,7 +6,7 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot}.js": {
+		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot,x402-autonomous-loop,pulse-tick,coin-intel-observe,launcher-tick,reflect-sweep,solana-autodeploy}.js": {
 			"maxDuration": 120
 		},
 		"api/cron/{strategy-fanout,gmgn-seed}.js": {
@@ -73,30 +73,15 @@
 		"api/cron/{forge-seed-cron,x402-seed-cron}.js": {
 			"maxDuration": 70
 		},
-		"api/cron/x402-autonomous-loop.js": {
-			"maxDuration": 120
-		},
 		"api/cron/avatar-thumbnail-render.js": {
 			"maxDuration": 120,
 			"memory": 1024
-		},
-		"api/cron/pulse-tick.js": {
-			"maxDuration": 120
-		},
-		"api/cron/coin-intel-observe.js": {
-			"maxDuration": 120
-		},
-		"api/cron/launcher-tick.js": {
-			"maxDuration": 120
 		},
 		"api/cron/launcher-claimer.js": {
 			"maxDuration": 60
 		},
 		"api/cron/avaturn-seed-cron.js": {
 			"maxDuration": 300
-		},
-		"api/cron/reflect-sweep.js": {
-			"maxDuration": 120
 		},
 		"api/cron/payment-session-sweep.js": {
 			"maxDuration": 30
@@ -107,9 +92,6 @@
 		},
 		"api/cron/recompute-reputation.js": {
 			"maxDuration": 300
-		},
-		"api/cron/solana-autodeploy.js": {
-			"maxDuration": 120
 		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
