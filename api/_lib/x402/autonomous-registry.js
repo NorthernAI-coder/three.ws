@@ -526,6 +526,41 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ topic: r?.topic, signal: r?.signal, headline: r?.headline, confidence: r?.confidence, price_usd: r?.price_usd }),
 	},
+
+	// ── Token Intel: SOL Price Feed (USE-050) ─────────────────────────────────
+	// Pays $0.01 USDC every 300s to /api/x402/token-intel for the live SOL
+	// (wrapped Solana) market snapshot: price_usd, 24h change, volume, market cap,
+	// bullish/bearish/neutral signal. The mint is the canonical wrapped-SOL address
+	// (So11111111111111111111111111111111111111112), resolved via DexScreener.
+	// extractSignal lifts { price_usd, change_24h } plus the full signal/headline
+	// into x402_autonomous_log.signal_data; as an `oracle` entry the loop upserts
+	// the verdict into oracle_intel_signals (topic 'solana_price') so the sniper
+	// gate and any downstream SOL price consumer can query it from a single row.
+	// Cooldown 300s → 12 reads/hour; SOL price moves fast, 5-min granularity is
+	// appropriate. Spend: $0.01/call × 12/hr ≈ $0.12/hr, bounded by the daily cap.
+	{
+		id: 'token-intel-sol-price',
+		name: 'Token Intel: SOL Price Feed',
+		path: '/api/x402/token-intel?mint=So11111111111111111111111111111111111111112',
+		method: 'GET',
+		body: null,
+		cooldown_s: 300,
+		priority: 88,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'solana_price',
+			signal: r?.signal ?? null,
+			headline: r?.headline ?? null,
+			confidence: r?.confidence ?? null,
+			price_usd: r?.price_usd ?? null,
+			change_24h: r?.change_24h ?? null,
+			volume_24h_usd: r?.volume_24h_usd ?? null,
+			market_cap_usd: r?.market_cap_usd ?? null,
+			symbol: r?.symbol ?? null,
+			mint: r?.mint ?? null,
+		}),
+	},
 	{
 		id: 'crypto-intel-btc',
 		name: 'Crypto Intel: Bitcoin',
@@ -1026,6 +1061,34 @@ const SELF_ENDPOINTS = [
 		}),
 	},
 
+	// ── Notification Delivery Probe (USE-079) ────────────────────────────────
+	// Pays $0.001 USDC every 5 min to POST /api/x402/notify with a `canary`
+	// channel heartbeat message. The endpoint records the notification to
+	// canary_notification_log, measuring time-to-DB-insert as the delivery
+	// latency. extractSignal lifts { delivered, channel, latency_ms } into
+	// x402_autonomous_log.signal_data — the actionable signal that confirms the
+	// notification subsystem is alive within a 2-second SLA. delivered=false or
+	// latency_ms > 2000 indicates a degraded delivery path. Cooldown 300s →
+	// 288 probes/day ≈ $0.288/day, well inside the loop's daily cap.
+	{
+		id: 'notify-delivery-probe',
+		name: 'Notification Delivery Probe (canary heartbeat)',
+		path: '/api/x402/notify',
+		method: 'POST',
+		body: { channel: 'canary', message: 'x402 loop heartbeat', priority: 'low' },
+		cooldown_s: 300, // 5 min — frequent enough to catch delivery regressions fast
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			delivered: r?.delivered ?? false,
+			channel: r?.channel ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			notification_id: r?.notification_id ?? null,
+			within_sla: typeof r?.latency_ms === 'number' ? r.latency_ms <= 2000 : null,
+		}),
+	},
+
 	// ── MCP Health: Solana agent registration canary ──────────────────────────
 	// Verifies the server-custodial Solana registration subsystem end-to-end by
 	// resolving a known canary agent's on-chain Metaplex Agent Registry record
@@ -1332,6 +1395,70 @@ const SELF_ENDPOINTS = [
 				console.warn(`[x402/did-sweep] alert write failed: ${err?.message || err}`);
 			}
 		},
+	},
+
+	// ── Changelog JSON Schema Conformance Check (USE-082) ─────────────────────
+	// Pays $0.001 USDC every 30 min to POST /api/x402/schema-check with
+	// { api: "changelog_json" }, which fetches the public /changelog.json feed and
+	// validates its schema: generated_at (ISO datetime), site.name, site.url, and
+	// entries (non-empty array with each entry having date/title/summary/tags). A
+	// schema break here means every $THREE holder, RSS reader, and downstream parser
+	// depending on the changelog feed is silently broken — this catches it before
+	// they notice. extractSignal lifts { valid, version, entry_count } into
+	// x402_autonomous_log.signal_data; valid=false is the actionable alarm (a
+	// breaking schema change or a failed fetch). Cooldown 1800s (30 min) → 48
+	// checks/day ≈ $0.048/day, well under the loop's daily cap. Health pipeline —
+	// not oracle, this is feed-integrity telemetry not a trading signal.
+	{
+		id: 'changelog-schema-check',
+		name: 'Changelog JSON Schema Conformance Check',
+		path: '/api/x402/schema-check',
+		method: 'POST',
+		body: { api: 'changelog_json' },
+		cooldown_s: 1800, // 30 min — changelog updates infrequently; catches breakage within one window
+		priority: 52,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			api: r?.api ?? 'changelog_json',
+			valid: r?.valid ?? false,
+			version: r?.version ?? null,
+			entry_count: r?.entry_count ?? 0,
+			schema_errors: Array.isArray(r?.schema_errors) ? r.schema_errors : [],
+		}),
+	},
+
+	// ── Auth Session Lifecycle Health (USE-083) ──────────────────────────────────
+	// Security-critical canary that exercises the full JWT auth session lifecycle
+	// every 30 minutes: create (mint canary access token), validate (verify it with
+	// the full verifier), refresh (issue a replacement and re-verify), expire
+	// (craft an already-expired token and confirm it is rejected). A failed_step
+	// means that stage of the auth subsystem is broken — a verifier that accepts
+	// expired tokens, or a signer that can't produce a valid JWT, is a security
+	// incident. extractSignal lifts { all_pass, failed_step, latency_ms } into
+	// x402_autonomous_log.signal_data so ops and the status surface can read auth
+	// health off the autonomous log without a separate DB query. Health pipeline —
+	// not oracle (auth health is not a trading signal). Cooldown 1800s → 48
+	// probes/day ≈ $0.048/day, well under the loop's daily cap.
+	{
+		id: 'auth-session-lifecycle',
+		name: 'Auth Session Lifecycle Health',
+		path: '/api/x402/auth-health',
+		method: 'POST',
+		body: { mode: 'session_lifecycle' },
+		cooldown_s: 1800, // 30 min — security-critical; auth is fast-changing
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			all_pass: r?.all_pass ?? null,
+			failed_step: r?.failed_step ?? null,
+			latency_ms: r?.latency_ms ?? null,
+			create_ms: r?.steps?.create?.latency_ms ?? null,
+			validate_ms: r?.steps?.validate?.latency_ms ?? null,
+			refresh_ms: r?.steps?.refresh?.latency_ms ?? null,
+			expire_ms: r?.steps?.expire?.latency_ms ?? null,
+		}),
 	},
 
 	// ── Animation Retargeting QA (USE-012) ──────────────────────────────────────
