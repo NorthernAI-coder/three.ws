@@ -894,18 +894,33 @@ export function paidEndpoint(spec) {
 		// surfaces as a 5xx on a payment that already settled on-chain.
 		let responseExtensions;
 		if (offerReceipt !== false) {
-			const receiptBuilt = await buildReceiptExtension(
-				resourceUrl,
-				settled,
-				offerReceipt || {},
-			);
-			if (receiptBuilt) {
-				responseExtensions = receiptBuilt.extensionFragment;
-				recordReceipt({
+			try {
+				// Facilitators may omit payer/network from the settle response (backward-
+				// compat). Fall back to verified context so the receipt is still issued.
+				// BSC `direct` flows have verified.payer = null (contract event, no signed
+				// payload) — buildReceiptExtension returns null in that case gracefully.
+				const receiptSettled = {
+					...settled,
+					payer: settled.payer || verified.payer || null,
+					network: settled.network || verified.requirement?.network || null,
+				};
+				const receiptBuilt = await buildReceiptExtension(
 					resourceUrl,
-					signedReceipt: receiptBuilt.signedReceipt,
-					settled,
-				});
+					receiptSettled,
+					offerReceipt || {},
+				);
+				if (receiptBuilt) {
+					responseExtensions = receiptBuilt.extensionFragment;
+					recordReceipt({
+						resourceUrl,
+						signedReceipt: receiptBuilt.signedReceipt,
+						settled,
+					});
+				}
+			} catch (err) {
+				// A receipt sign failure must not break the 200 — the payment settled
+				// and the work ran. Log and continue with an unsigned response.
+				console.error('x402_receipt_sign_failed', err);
 			}
 		}
 

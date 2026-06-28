@@ -86,19 +86,22 @@ const MAX_VIEWS = 4;
 // photos) and the text→3D fallback when the free NVIDIA NIM lane is unavailable.
 const BACKEND = 'trellis';
 
-// ── Content-generation health probe (mode:"health_check", type:"text") ─────────
+// ── Content-generation health probe (mode:"health_check") ───────────────────────
 // A full text→3D job is slow ($0.05, tens of seconds) — too heavy to canary on a
-// tight schedule. This lightweight mode instead exercises the generative AI lane
-// every forge job depends on (the free-first LLM provider chain that drives
-// prompt understanding) with one fast, real text completion. It proves content
-// generation is alive and within its latency budget, returning a measured
-// { generated, latency_ms, token_count } verdict the autonomous loop alerts on.
-// Priced at the floor ($0.001) since it does no reconstruction.
+// tight schedule. This lightweight mode exercises the generative AI lanes at the
+// floor price ($0.001) without reconstruction:
+//   type:"text"  — one real LLM text completion; proves prompt understanding alive.
+//   type:"image" — one real text→image call through the provider chain (NIM FLUX →
+//                  Vertex Imagen → Replicate backstop) and persists the result to
+//                  R2 CDN, proving the full image generation + CDN upload path.
+// Both types return a measured verdict the autonomous loop alerts on.
 const HEALTH_CHECK_PRICE_ATOMIC = 1000; // $0.001 USDC
-// The latency SLA the probe asserts. A completion slower than this (or a failure)
-// flips within_budget:false and raises a forge performance alert downstream.
+// Text latency SLA: LLM completion is fast; >5s means the provider is degraded.
 const HEALTH_CHECK_BUDGET_MS = 5000;
+// Image latency SLA: image generation takes longer; >30s means a hung provider.
+const HEALTH_CHECK_IMAGE_BUDGET_MS = 30_000;
 const HEALTH_CHECK_DEFAULT_PROMPT = 'Write one sentence about Solana.';
+const HEALTH_CHECK_IMAGE_DEFAULT_PROMPT = 'A simple blue circle.';
 
 const ROUTE_DESCRIPTION =
 	'three.ws Forge — pay-per-call text→3D and image→3D. Submit a prompt (or up ' +
@@ -142,9 +145,9 @@ const INPUT_SCHEMA = {
 		},
 		type: {
 			type: 'string',
-			enum: ['text'],
+			enum: ['text', 'image'],
 			default: 'text',
-			description: 'Content type for health_check mode (text generation canary).',
+			description: 'Content type for health_check mode: "text" (LLM completion canary) or "image" (text→image + CDN upload canary).',
 		},
 	},
 };
@@ -452,13 +455,17 @@ async function submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, ti
 	};
 }
 
-// Run the content-generation health probe: one fast, real LLM text completion
-// over the platform's free-first provider chain (the same generative lane forge
-// relies on). Measures end-to-end latency and the generated token count, and
-// never throws — a provider outage is the very signal this probe exists to catch,
-// so it returns a settled verdict (generated:false) rather than failing the paid
-// call. The caller paid for a verdict; it always gets one.
-export async function runForgeHealthCheck({ prompt }) {
+// Run the content-generation health probe. Never throws — a provider outage is
+// the very signal this probe exists to catch, so it always returns a settled
+// verdict (generated:false) rather than failing the paid call.
+//   healthType:"text"  — one fast LLM text completion, proves the prompt-
+//                        understanding lane is alive within HEALTH_CHECK_BUDGET_MS.
+//   healthType:"image" — one real text→image call through the free-first provider
+//                        chain (NIM FLUX → Vertex Imagen → Replicate), uploads the
+//                        result to R2 CDN, and returns the durable url — proving
+//                        the full image generation + CDN upload path is alive.
+export async function runForgeHealthCheck({ prompt, healthType = 'text' }) {
+	if (healthType === 'image') return runForgeImageHealthCheck(prompt);
 	const probePrompt = (prompt && prompt.length >= 3 ? prompt : HEALTH_CHECK_DEFAULT_PROMPT);
 	const t0 = Date.now();
 	try {
@@ -496,6 +503,40 @@ export async function runForgeHealthCheck({ prompt }) {
 			generated: false,
 			latency_ms: latencyMs,
 			token_count: 0,
+			within_budget: false,
+			error: err?.code || 'generation_failed',
+		};
+	}
+}
+
+// Image generation health probe: one real text→image call through the free-first
+// provider chain (NIM FLUX → Vertex Imagen → Replicate backstop), persisting the
+// result to R2 CDN. The returned url proves the full generation + upload path is
+// alive; a missing url means the image provider chain is down or unconfigured.
+async function runForgeImageHealthCheck(prompt) {
+	const probePrompt = prompt && prompt.length >= 3 ? prompt : HEALTH_CHECK_IMAGE_DEFAULT_PROMPT;
+	const t0 = Date.now();
+	try {
+		const { imageUrl, model } = await textToImage(probePrompt, { aspectRatio: '1:1' });
+		const latencyMs = Date.now() - t0;
+		return {
+			mode: 'health_check',
+			type: 'image',
+			generated: !!imageUrl,
+			url: imageUrl || null,
+			latency_ms: latencyMs,
+			within_budget: latencyMs <= HEALTH_CHECK_IMAGE_BUDGET_MS,
+			model: model || null,
+		};
+	} catch (err) {
+		const latencyMs = Date.now() - t0;
+		console.warn(`[x402/forge] health_check image generation failed: ${err?.message || err}`);
+		return {
+			mode: 'health_check',
+			type: 'image',
+			generated: false,
+			url: null,
+			latency_ms: latencyMs,
 			within_budget: false,
 			error: err?.code || 'generation_failed',
 		};
@@ -778,10 +819,12 @@ async function parseRequestFromObject(body) {
 	// Health-check mode: a lightweight, real content-generation canary that never
 	// reconstructs a mesh (see runForgeHealthCheck). It supplies its own default
 	// prompt, so it is never an empty "probe" and bypasses the 3–1000 char prompt
-	// rule that gates the 3D lanes. Only the documented type:"text" is supported.
+	// rule that gates the 3D lanes. Supported types: "text" (LLM completion) and
+	// "image" (text→image + CDN upload).
 	const isHealthCheck = body.mode === 'health_check';
 	if (isHealthCheck) {
-		return { prompt, imageUrls: [], isImageMode: false, isProbe: false, isHealthCheck: true, healthType: 'text', tier, aspect };
+		const healthType = body.type === 'image' ? 'image' : 'text';
+		return { prompt, imageUrls: [], isImageMode: false, isProbe: false, isHealthCheck: true, healthType, tier, aspect };
 	}
 
 	const isProbe = !prompt && !isImageMode;
