@@ -95,6 +95,7 @@ import {
 	classifyLaunchMonitor,
 	storePumpLaunchSnapshot,
 } from './pump-launch-monitor.js';
+import { extractActivitySignal } from './user-activity-analytics.js';
 
 // ── MCP Tool Latency Monitor (USE-006) ───────────────────────────────────────
 // The canary the loop pays every 5 min to exercise the MCP paid path end-to-end
@@ -699,6 +700,46 @@ const SELF_ENDPOINTS = [
 			total_tracked: r?.total_tracked ?? 0,
 			period: r?.period || '24h',
 		}),
+	},
+
+
+	// ── Bazaar New-Listing Feed (USE-059) ──────────────────────────────────────
+	// Pays $0.001 USDC to /api/x402/bazaar-feed every 30 min (filter "new", limit 10)
+	// to retrieve the 10 newest service listings from the platform's own
+	// bazaar_service_index registry. Extracts { count, newest_id, newest_price,
+	// categories } for the signal log. As an `oracle` entry the listing-velocity
+	// signal (spike/active/quiet) + category rollup dedup into oracle_intel_signals
+	// (topic 'bazaar_new_listings') so downstream consumers can detect agent
+	// marketing bursts. Cooldown 1800s (30 min) — matches the task spec and the
+	// signal's update frequency. Spend: $0.001 x 48/day = $0.048/day.
+	{
+		id: 'bazaar-new-listings',
+		name: 'Bazaar New-Listing Feed',
+		path: '/api/x402/bazaar-feed',
+		method: 'POST',
+		body: { filter: 'new', limit: 10 },
+		cooldown_s: 1800, // 30 min — listing-spike detection cadence
+		priority: 72,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const newest = r && r.newest;
+			const activity = (r && r.activity) || {};
+			const categories = Array.isArray(r && r.categories) ? r.categories : [];
+			return {
+				topic: 'bazaar_new_listings',
+				signal: activity.signal || null,
+				headline: activity.headline || null,
+				confidence: activity.confidence ?? null,
+				count: r && typeof r.count === 'number' ? r.count : null,
+				new_24h: activity.new_24h ?? null,
+				new_7d: activity.new_7d ?? null,
+				daily_avg_7d: activity.daily_avg_7d ?? null,
+				newest_id: newest ? newest.id : null,
+				newest_price: newest ? newest.price_atomic : null,
+				categories: categories.slice(0, 5).map((c) => c.tag),
+			};
+		},
 	},
 
 	// ── Club Membership Snapshot (USE-066) ─────────────────────────────────────
@@ -2168,6 +2209,140 @@ const SELF_ENDPOINTS = [
 			await insertSniperAnalytics(sql, report, { runId, source: 'x402-autonomous' });
 		},
 	},
+
+	// ── Agent x402 Spend Leaderboard (USE-043, Oracle pipeline) ──────────────────
+	// Pays $0.005 USDC every 30 min to POST /api/x402/analytics
+	// ({ report:"agent_leaderboard", limit:10 }) and pulls the top 10 agents by
+	// completed x402 USDC spend in the trailing 7-day window from the real
+	// agent-to-agent hire ledger (agent_hires JOIN agent_identities). The extracted
+	// signal surfaces the highest-value paying agents — the actionable intelligence
+	// partnership outreach uses to prioritize engagement: top_agent_id,
+	// top_agent_name, top_agent_spend_usdc (the #1 spender), and the full ranked
+	// leaderboard. As an `oracle` pipeline entry the signal is also upserted into
+	// oracle_intel_signals (topic 'agent_leaderboard') with a signal
+	// ('live'|'quiet') and a human headline. storeValue appends every snapshot to
+	// agent_spend_leaderboard_snapshots (the partnership-outreach time series).
+	// Agent-economy spend changes at most daily, so cooldown 1800s (30 min) is fine
+	// — 48 calls/day × $0.005 ≈ $0.24/day, bounded by the loop's daily cap.
+	{
+		id: 'agent-spend-leaderboard',
+		name: 'Agent x402 Spend Leaderboard',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'agent_leaderboard', limit: 10 },
+		cooldown_s: 1800, // 30 min — hire ledger changes are slow; $0.24/day
+		priority: 72,     // oracle tier, below macro signals (85-99) but above volume (65-75)
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => classifyLeaderboard(r),
+		storeValue: async ({ sql, responseBody, signalData, runId }) => {
+			if (!sql) return;
+			const v = signalData || classifyLeaderboard(responseBody);
+			if (v.agent_count == null) return;
+			await insertLeaderboardSnapshot(sql, v, { runId, source: 'x402-autonomous' });
+		},
+	},
+
+	// ── Marketplace Catalog Stats (USE-044, Health) ───────────────────────────
+	// Pays $0.005 USDC to POST /api/x402/analytics { report:"marketplace", period:"7d" }
+	// every 5 minutes. Confirms the public agent marketplace is alive and measures
+	// catalog depth + pricing health: listing_count > 0 means the catalog table is
+	// reachable and populated; avg_price_sol tracks whether pricing is in a sane range
+	// (null = SOL oracle outage; a sudden spike = mis-configurations); most_viewed_id
+	// anchors a deep-link to the top listing without a follow-up query. Lives in the
+	// 'health' pipeline — signal_data feeds the platform-status surface and the
+	// autonomous-log time series so ops can detect a dead catalog within minutes.
+	// Cooldown 300s → 12 reads/hour ≈ $0.06/hr, well inside the $5/day cap.
+	{
+		id: 'marketplace-catalog-stats',
+		name: 'Marketplace Catalog Stats',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'marketplace', period: '7d' },
+		cooldown_s: 300,
+		priority: 55,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			listing_count: r?.catalog?.listing_count ?? null,
+			priced_listings: r?.catalog?.priced_listings ?? null,
+			free_listings: r?.catalog?.free_listings ?? null,
+			new_in_period: r?.catalog?.new_in_period ?? null,
+			avg_price_usd: r?.pricing?.avg_price_usd ?? null,
+			avg_price_sol: r?.pricing?.avg_price_sol ?? null,
+			sol_usd_price: r?.pricing?.sol_usd_price ?? null,
+			total_views: r?.engagement?.total_views ?? null,
+			most_viewed_id: r?.engagement?.most_viewed_id ?? null,
+			most_viewed_name: r?.engagement?.most_viewed_name ?? null,
+		}),
+	},
+	// ── User Activity Analytics (USE-040) ─────────────────────────────────────
+	// Pays $0.005 USDC every 6h to POST /api/x402/analytics with
+	// { report: "user_activity", period: "7d" }. Computes DAU, WAU, stickiness
+	// (DAU/WAU), top features by usage_events volume, platform error rate, and
+	// session-length distribution (avg / median / p90) from the real metered
+	// tables — usage_events + sessions. extractSignal lifts { dau, wau,
+	// top_feature } into x402_autonomous_log.signal_data. storeValue upserts each
+	// snapshot into user_activity_snapshots (DDL-guarded time series) for the
+	// engagement dashboard and trend alerting. Cooldown 21600s (6h) → 4
+	// snapshots/day ≈ $0.02/day, well within the cap.
+	{
+		id: 'user-activity-analytics',
+		name: 'User Activity Analytics (DAU/WAU)',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'user_activity', period: '7d' },
+		cooldown_s: 21600, // 6h — engagement is a slow-moving signal
+		priority: 58,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => extractActivitySignal(r),
+		storeValue: async ({ sql: sqlClient, responseBody, signalData, runId }) => {
+			if (!sqlClient) return;
+			const r = responseBody || {};
+			const sig = signalData || extractActivitySignal(r);
+			await sqlClient`
+				CREATE TABLE IF NOT EXISTS user_activity_snapshots (
+					id            bigserial PRIMARY KEY,
+					run_id        uuid,
+					period        text NOT NULL DEFAULT '7d',
+					dau           int NOT NULL DEFAULT 0,
+					wau           int NOT NULL DEFAULT 0,
+					stickiness    numeric(6,3),
+					active_actors int,
+					total_events  bigint,
+					error_rate    numeric(8,4),
+					top_feature   text,
+					top_features  jsonb,
+					session_avg_s numeric(10,1),
+					session_p90_s numeric(10,1),
+					ts            timestamptz NOT NULL DEFAULT now()
+				)
+			`.catch(() => {});
+			await sqlClient`
+				INSERT INTO user_activity_snapshots
+					(run_id, period, dau, wau, stickiness, active_actors,
+					 total_events, error_rate, top_feature, top_features,
+					 session_avg_s, session_p90_s, ts)
+				VALUES (
+					${runId},
+					${r.period || '7d'},
+					${sig.dau || 0},
+					${sig.wau || 0},
+					${r.stickiness ?? null},
+					${r.active_actors ?? null},
+					${r.total_events ?? null},
+					${r.error_rate ?? null},
+					${sig.top_feature || null},
+					${JSON.stringify(r.top_features || [])},
+					${r.session_length?.avg_seconds ?? null},
+					${r.session_length?.p90_seconds ?? null},
+					now()
+				)
+			`.catch(() => {});
+		},
+	},
+
 ];
 
 // ── External registry ─────────────────────────────────────────────────────────

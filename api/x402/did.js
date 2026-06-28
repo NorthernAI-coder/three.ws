@@ -32,6 +32,7 @@ import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
+import { sql } from '../_lib/db.js';
 import { priceFor } from '../_lib/x402-prices.js';
 
 const ROUTE = '/api/x402/did';
@@ -247,6 +248,9 @@ const BAZAAR = {
 };
 
 async function readBody(req) {
+	// req.body is pre-parsed by Vercel; fall back to manual stream read for
+	// edge / test environments that hand a raw IncomingMessage.
+	if (req.body && typeof req.body === 'object') return req.body;
 	try {
 		const chunks = [];
 		for await (const c of req) chunks.push(c);
@@ -257,6 +261,87 @@ async function readBody(req) {
 	}
 }
 
+async function runVerify({ did }) {
+	const url = `${publicOrigin()}/.well-known/did.json`;
+	const t0 = Date.now();
+	let httpStatus = 0;
+	let doc = null;
+	let fetchError = null;
+	try {
+		const r = await fetch(url, {
+			headers: { accept: 'application/did+json, application/json', 'user-agent': 'threews-did-canary/1.0' },
+			signal: AbortSignal.timeout(5000),
+		});
+		httpStatus = r.status;
+		const text = await r.text();
+		try { doc = JSON.parse(text); } catch { doc = null; }
+	} catch (err) {
+		fetchError = err?.message || 'fetch_failed';
+	}
+	const latency_ms = Date.now() - t0;
+	const configured = httpStatus !== 404;
+	const checks = validateDidDocument(doc);
+	const malformed = httpStatus !== 200 || !checks.valid;
+	const within_latency = latency_ms <= MAX_LATENCY_MS;
+	const verified = !malformed && within_latency;
+
+	return {
+		verified,
+		latency_ms,
+		did,
+		mode: 'verify',
+		resolved_did: typeof doc?.id === 'string' ? doc.id : null,
+		http_status: httpStatus,
+		within_latency,
+		malformed,
+		configured,
+		checks,
+		...(fetchError ? { fetch_error: fetchError } : {}),
+		ts: new Date().toISOString(),
+	};
+}
+
+// Sweep the N most recently created agent identities and check each for
+// resolvable key material. An agent without wallet_address has no cryptographic
+// material to build a DID from — it cannot sign claims or be verified by
+// counterparties. failed_count > 0 is the alert signal.
+async function runSweep({ limit }) {
+	const rows = await sql`
+		SELECT id, wallet_address, created_at
+		FROM agent_identities
+		WHERE deleted_at IS NULL
+		ORDER BY created_at DESC
+		LIMIT ${limit}
+	`;
+
+	const dids = rows.map((r) => {
+		const resolvable = typeof r.wallet_address === 'string' && r.wallet_address.length > 0;
+		const did = resolvable
+			? `did:pkh:solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:${r.wallet_address}`
+			: `did:web:three.ws/agents/${r.id}`;
+		return {
+			did,
+			agent_id: r.id,
+			resolvable,
+			wallet_address: r.wallet_address || null,
+			created_at: r.created_at ? new Date(r.created_at).toISOString() : null,
+		};
+	});
+
+	const count = dids.length;
+	const resolvable_count = dids.filter((d) => d.resolvable).length;
+	const failed_count = count - resolvable_count;
+
+	return {
+		mode: 'sweep',
+		count,
+		resolvable_count,
+		failed_count,
+		dids,
+		ts: new Date().toISOString(),
+	};
+}
+
 const verifyCanary = paidEndpoint({
 	route: ROUTE,
 	method: 'POST',
@@ -265,8 +350,8 @@ const verifyCanary = paidEndpoint({
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
-		serviceName: 'three.ws DID Verification Canary',
-		tags: ['did', 'identity', 'health', 'verification', 'x402'],
+		serviceName: 'three.ws DID Health',
+		tags: ['did', 'identity', 'health', 'verification', 'registry', 'x402'],
 	}),
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 
@@ -274,50 +359,10 @@ const verifyCanary = paidEndpoint({
 		const body = await readBody(req);
 		const did = typeof body.did === 'string' && body.did.trim() ? body.did.trim().slice(0, 200) : 'did:three:canary';
 		const mode = typeof body.mode === 'string' && body.mode.trim() ? body.mode.trim().slice(0, 32) : 'verify';
+		const limit = Math.min(Math.max(Number(body.limit || 10), 1), 50);
 
-		const url = `${publicOrigin()}/.well-known/did.json`;
-		const t0 = Date.now();
-		let httpStatus = 0;
-		let doc = null;
-		let fetchError = null;
-		try {
-			const r = await fetch(url, {
-				headers: { accept: 'application/did+json, application/json', 'user-agent': 'threews-did-canary/1.0' },
-				signal: AbortSignal.timeout(5000),
-			});
-			httpStatus = r.status;
-			const text = await r.text();
-			try {
-				doc = JSON.parse(text);
-			} catch {
-				doc = null;
-			}
-		} catch (err) {
-			fetchError = err?.message || 'fetch_failed';
-		}
-		const latency_ms = Date.now() - t0;
-
-		// http 404 = issuer not configured (a distinct, known state, not a regression).
-		const configured = httpStatus !== 404;
-		const checks = validateDidDocument(doc);
-		const malformed = httpStatus !== 200 || !checks.valid;
-		const within_latency = latency_ms <= MAX_LATENCY_MS;
-		const verified = !malformed && within_latency;
-
-		return {
-			verified,
-			latency_ms,
-			did,
-			mode,
-			resolved_did: typeof doc?.id === 'string' ? doc.id : null,
-			http_status: httpStatus,
-			within_latency,
-			malformed,
-			configured,
-			checks,
-			...(fetchError ? { fetch_error: fetchError } : {}),
-			ts: new Date().toISOString(),
-		};
+		if (mode === 'sweep') return runSweep({ limit });
+		return runVerify({ did });
 	},
 });
 
