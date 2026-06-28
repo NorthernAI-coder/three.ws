@@ -1,11 +1,44 @@
 {
-	"generated_at": "2026-06-28T02:08:28.447Z",
+	"generated_at": "2026-06-28T03:15:21.465Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "API Key Validity Health — the platform verifies its own access keys every hour",
+			"summary": "A lapsed or missing access key for the autonomous loop means every self-call in the pipeline hits the paywall cold — legitimate tool calls start failing, recovery is manual, and the outage is invisible until someone investigates why the spend log went quiet. The platform now detects this automatically. Every hour an autonomous agent makes a real on-chain payment to a new /api/x402/api-key-health endpoint with body { scope: \"autonomous_loop\" }. The endpoint checks whether any active subscription key covers the requested scope, falling back to the INTERNAL_API_KEY env var, and returns { valid, scopes, expires_at }. The extracted signal surfaces hours_until_expiry in x402_autonomous_log.signal_data. When expiry is within 24 hours the storeValue hook writes a Redis alert (x402:api-key-health:expiry-alert) so the ops surface can surface the warning before the key lapses.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Auth Session Lifecycle Health — the platform canaries its own JWT auth pipeline every 30 minutes",
+			"summary": "A broken auth subsystem — a JWT signer that stops working, a verifier that accepts expired tokens, or a misconfigured issuer — can lock users out silently or, worse, leave a security hole open. The platform now detects both within 30 minutes. Every half-hour an autonomous agent makes a real on-chain payment to a new /api/x402/auth-health endpoint and runs a four-step session lifecycle canary: mint a canary access token, verify it with the full JWT verifier, issue a replacement token and re-verify it (the rotation path), and confirm that an already-expired token is rejected. Each step is timed independently; a failure names exactly which step broke and why. The result — all_pass, failed_step, and per-step latency — is recorded as an actionable signal so ops can read auth health off a single log row without a separate query.",
+			"link": null,
+			"tags": [
+				"infra",
+				"security"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Changelog Telegram bot health check",
+			"summary": "The autonomous x402 loop now pings the changelog Telegram bot every 5 minutes by paying $0.001 USDC to the new /api/x402/telegram-health endpoint. It verifies the bot can reach the Telegram API, measures round-trip latency, and raises a Redis alert when it can't — so ops knows immediately when $THREE holders would miss a changelog entry.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
 		{
 			"date": "2026-06-28",
 			"type": "update",
@@ -66,6 +99,28 @@
 			"type": "update",
 			"title": "Pump Launch Monitor: live snipe-candidate screening",
 			"summary": "The autonomous x402 agent now pays to audit the 10 most recently launched pump.fun tokens every 5 minutes, extracting each cohort's average and peak initial bonding-curve liquidity. New launches with initial liquidity well above the rolling cohort average are surfaced as high-conviction snipe candidates; the signal is upserted into the oracle feed so the sniper gate can act on it immediately.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "RSS Feed Health — the platform validates its own changelog XML feed every 5 minutes",
+			"summary": "A broken RSS feed is invisible — the feed URL returns 200, but the XML inside is malformed, the item count drifted after a skipped build step, or the latest entry title diverged from the canonical record. The platform now catches all three failure modes automatically. Every five minutes an autonomous agent makes a real on-chain payment to a new /api/x402/feed-health endpoint with body { feed: \"changelog_rss\" }. The endpoint fetches three.ws/changelog.xml, parses it as RSS 2.0 with fast-xml-parser, counts the <item> elements, and cross-checks the latest item title against the canonical public/changelog.json compiled output. If any of those checks fail — invalid XML, unreachable URL, title mismatch — the { valid: false } verdict is recorded as an actionable signal in x402_autonomous_log.signal_data so the status surface can read feed health in a single lookup. The same endpoint is available on the x402 bazaar for $0.001 per check.",
+			"link": null,
+			"tags": [
+				"infra",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Skill Marketplace: most-purchased skills signal",
+			"summary": "The autonomous x402 loop now pays every 30 minutes to retrieve the 5 most-purchased agent skills over the past 7 days from the real hire ledger. The top skill and full ranked list land in the autonomous log as actionable signal for featured-listing curation — a shift in the top skill across runs surfaces emerging high-demand capabilities automatically.",
 			"link": null,
 			"tags": [
 				"feature",

@@ -755,6 +755,14 @@ export const env = {
 		// receiver contract address must be set explicitly per deploy.
 		return addr(opt('X402_PAY_TO_BSC'));
 	},
+	// Dedicated EIP-712 signing key for the offer-receipt extension (USE-17).
+	// MUST NOT be any X402_PAY_TO_* key — those receive funds; this one only
+	// signs off-chain commitments. When unset, api/_lib/x402-offer-receipt.js
+	// exports a no-op issuer (null) and signed offers/receipts are not emitted.
+	// Unset is the rollback toggle — no redeploy needed.
+	get X402_RECEIPT_SIGNING_KEY() {
+		return opt('X402_RECEIPT_SIGNING_KEY');
+	},
 	// ── AWS Marketplace ──────────────────────────────────────────────────────
 	// IAM credentials with marketplaceMetering:ResolveCustomer,
 	// marketplaceMetering:MeterUsage, and aws-marketplace:GetEntitlements.

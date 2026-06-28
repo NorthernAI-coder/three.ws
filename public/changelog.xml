@@ -7,6 +7,30 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>API Key Validity Health — the platform verifies its own access keys every hour</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:API Key Validity Health — the platform verifies its own access keys every hour</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>A lapsed or missing access key for the autonomous loop means every self-call in the pipeline hits the paywall cold — legitimate tool calls start failing, recovery is manual, and the outage is invisible until someone investigates why the spend log went quiet. The platform now detects this automatically. Every hour an autonomous agent makes a real on-chain payment to a new /api/x402/api-key-health endpoint with body { scope: &quot;autonomous_loop&quot; }. The endpoint checks whether any active subscription key covers the requested scope, falling back to the INTERNAL_API_KEY env var, and returns { valid, scopes, expires_at }. The extracted signal surfaces hours_until_expiry in x402_autonomous_log.signal_data. When expiry is within 24 hours the storeValue hook writes a Redis alert (x402:api-key-health:expiry-alert) so the ops surface can surface the warning before the key lapses.</description>
+		</item>
+		<item>
+			<title>Auth Session Lifecycle Health — the platform canaries its own JWT auth pipeline every 30 minutes</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Auth Session Lifecycle Health — the platform canaries its own JWT auth pipeline every 30 minutes</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>A broken auth subsystem — a JWT signer that stops working, a verifier that accepts expired tokens, or a misconfigured issuer — can lock users out silently or, worse, leave a security hole open. The platform now detects both within 30 minutes. Every half-hour an autonomous agent makes a real on-chain payment to a new /api/x402/auth-health endpoint and runs a four-step session lifecycle canary: mint a canary access token, verify it with the full JWT verifier, issue a replacement token and re-verify it (the rotation path), and confirm that an already-expired token is rejected. Each step is timed independently; a failure names exactly which step broke and why. The result — all_pass, failed_step, and per-step latency — is recorded as an actionable signal so ops can read auth health off a single log row without a separate query.</description>
+		</item>
+		<item>
+			<title>Changelog Telegram bot health check</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Changelog Telegram bot health check</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The autonomous x402 loop now pings the changelog Telegram bot every 5 minutes by paying $0.001 USDC to the new /api/x402/telegram-health endpoint. It verifies the bot can reach the Telegram API, measures round-trip latency, and raises a Redis alert when it can't — so ops knows immediately when $THREE holders would miss a changelog entry.</description>
+		</item>
+		<item>
 			<title>Club Social Activity — the platform tracks its own nightlife economy on-chain</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:Club Social Activity — the platform tracks its own nightlife economy on-chain</guid>
@@ -53,6 +77,22 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The autonomous x402 agent now pays to audit the 10 most recently launched pump.fun tokens every 5 minutes, extracting each cohort's average and peak initial bonding-curve liquidity. New launches with initial liquidity well above the rolling cohort average are surfaced as high-conviction snipe candidates; the signal is upserted into the oracle feed so the sniper gate can act on it immediately.</description>
+		</item>
+		<item>
+			<title>RSS Feed Health — the platform validates its own changelog XML feed every 5 minutes</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:RSS Feed Health — the platform validates its own changelog XML feed every 5 minutes</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>A broken RSS feed is invisible — the feed URL returns 200, but the XML inside is malformed, the item count drifted after a skipped build step, or the latest entry title diverged from the canonical record. The platform now catches all three failure modes automatically. Every five minutes an autonomous agent makes a real on-chain payment to a new /api/x402/feed-health endpoint with body { feed: &quot;changelog_rss&quot; }. The endpoint fetches three.ws/changelog.xml, parses it as RSS 2.0 with fast-xml-parser, counts the &lt;item&gt; elements, and cross-checks the latest item title against the canonical public/changelog.json compiled output. If any of those checks fail — invalid XML, unreachable URL, title mismatch — the { valid: false } verdict is recorded as an actionable signal in x402_autonomous_log.signal_data so the status surface can read feed health in a single lookup. The same endpoint is available on the x402 bazaar for $0.001 per check.</description>
+		</item>
+		<item>
+			<title>Skill Marketplace: most-purchased skills signal</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Skill Marketplace: most-purchased skills signal</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The autonomous x402 loop now pays every 30 minutes to retrieve the 5 most-purchased agent skills over the past 7 days from the real hire ledger. The top skill and full ranked list land in the autonomous log as actionable signal for featured-listing curation — a shift in the top skill across runs surfaces emerging high-demand capabilities automatically.</description>
 		</item>
 		<item>
 			<title>User Activity Analytics — DAU, WAU, and top features now tracked every 6 hours via x402</title>
