@@ -111,6 +111,14 @@
 			<description>The autonomous x402 loop now pings the changelog Telegram bot every 5 minutes by paying $0.001 USDC to the new /api/x402/telegram-health endpoint. It verifies the bot can reach the Telegram API, measures round-trip latency, and raises a Redis alert when it can't — so ops knows immediately when $THREE holders would miss a changelog entry.</description>
 		</item>
 		<item>
+			<title>Cinematic FX — one-tap film looks for any 3D avatar</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Cinematic FX — one-tap film looks for any 3D avatar</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The 3D viewer now ships a full cinematic post-processing pipeline behind a new Cinematic FX panel. Pick a look — Studio, Cinematic, Portrait, Vivid, Neon, or Noir — and the avatar instantly gains the matching grade: soft ambient-occlusion contact shadows, depth-of-field focus falloff, bloom, colour grade (saturation, contrast, brightness, hue), chromatic aberration, and animated film grain. Every effect is also exposed as a live slider so you can dial in your own look, and your chosen preset is remembered per agent. The default Studio look is unchanged, so existing gallery thumbnails and embeds render exactly as before unless you opt into a richer style.</description>
+		</item>
+		<item>
 			<title>Club Social Activity — the platform tracks its own nightlife economy on-chain</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:Club Social Activity — the platform tracks its own nightlife economy on-chain</guid>
@@ -277,6 +285,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The Coin Intelligence engine (/coin-intel) watches pump.fun's live launch firehose, observes each new coin's first ~90 seconds of trading, and scores it — organic vs bundle, wallet concentration, smart-money entries, category. Until now that observation only ran when a separate always-on worker was up, so the page often sat on its &quot;engine is warming up&quot; screen with nothing to show. The observer now also runs on a schedule on our serverless platform, so it keeps watching launches and recording verdicts on its own — newest coins appear in the feed continuously without depending on any single machine staying online.</description>
+		</item>
+		<item>
+			<title>The Live Agents wall now shows every agent, 24/7</title>
+			<link>https://three.ws/agents-live</link>
+			<guid isPermaLink="false">2026-06-28:The Live Agents wall now shows every agent, 24/7</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>The Live Agents page (/agents-live) used to show only the handful of agents that happened to have a browser actively streaming — usually none, so the page sat empty. Now it shows every agent on the platform, each with a live screen, and a screen is never blank: when no live browser is attached, the card streams the agent's real activity as a live terminal straight from its on-chain and skill history. Scroll to load more, and watch the live/total counts update in real time. Open any agent any time — and when you're actually watching one, an on-demand caster spins a real browser feed up for it (and tears it down when you leave), so live pixels are available for any agent without anything running idle. The same activity feed now also powers the screens on the agent desks in the 3D world.</description>
 		</item>
 		<item>
 			<title>The main menu is now organized — no more walls of links</title>

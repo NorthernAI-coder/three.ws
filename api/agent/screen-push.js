@@ -15,11 +15,22 @@
 // agent's own bearer token (AGENT_BEARER environment variable on the worker).
 // Rate: 12 frame pushes/second per agentId (burst) to prevent flooding.
 
+import { timingSafeEqual } from 'node:crypto';
 import { cors, json, method, readJson, wrap, error, rateLimited } from '../_lib/http.js';
 import { cacheSet } from '../_lib/cache.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
+
+// First-party on-demand caster pool authenticates with a shared secret and may
+// push frames for ANY agent (it casts whichever agents viewers are watching).
+const WORKER_SECRET = process.env.SCREEN_WORKER_SECRET || '';
+function isPoolWorker(bearer) {
+	if (!bearer || !WORKER_SECRET || WORKER_SECRET.length < 16) return false;
+	const a = Buffer.from(bearer);
+	const b = Buffer.from(WORKER_SECRET);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
 
 const FRAME_TTL_S    = 10;
 const ACTIVITY_TTL_S = 30;
@@ -31,19 +42,25 @@ export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	// Auth: the agent's own bearer (worker) OR the owner's session. Bearer first
-	// so headless workers authenticate without a cookie.
+	// Auth: first-party pool worker (shared secret, any agent), the agent's own
+	// bearer (worker), OR the owner's session. Bearer first so headless workers
+	// authenticate without a cookie.
 	let userId = null;
+	let isWorker = false;
 	const bearer = extractBearer(req);
-	if (bearer) {
-		const a = await authenticateBearer(bearer).catch(() => null);
-		if (a?.userId) userId = a.userId;
+	if (isPoolWorker(bearer)) {
+		isWorker = true;
+	} else {
+		if (bearer) {
+			const a = await authenticateBearer(bearer).catch(() => null);
+			if (a?.userId) userId = a.userId;
+		}
+		if (!userId) {
+			const a = await getSessionUser(req, res).catch(() => null);
+			if (a?.id) userId = a.id;
+		}
+		if (!userId) return error(res, 401, 'unauthorized', 'sign in required');
 	}
-	if (!userId) {
-		const a = await getSessionUser(req, res).catch(() => null);
-		if (a?.id) userId = a.id;
-	}
-	if (!userId) return error(res, 401, 'unauthorized', 'sign in required');
 
 	// Rate limit before reading the body so a flood can't force large buffers.
 	const rl = await limits.apiIp(clientIp(req), { limit: 720, window: '60s' });
@@ -55,12 +72,11 @@ export default wrap(async (req, res) => {
 
 	if (!agentId) return error(res, 400, 'validation_error', 'agentId required');
 
-	// Verify ownership.
-	const [row] = await sql`
-		SELECT id FROM agent_identities
-		WHERE id = ${agentId} AND user_id = ${userId} AND deleted_at IS NULL
-	`;
-	if (!row) return error(res, 403, 'forbidden', 'not your agent');
+	// Ownership: the pool worker may cast any existing agent; owners only their own.
+	const [row] = isWorker
+		? await sql`SELECT id FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL`
+		: await sql`SELECT id FROM agent_identities WHERE id = ${agentId} AND user_id = ${userId} AND deleted_at IS NULL`;
+	if (!row) return error(res, isWorker ? 404 : 403, isWorker ? 'not_found' : 'forbidden', isWorker ? 'agent not found' : 'not your agent');
 
 	const now = Date.now();
 
