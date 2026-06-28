@@ -388,8 +388,8 @@ class BrainStudio {
 		// The brain canvas mounts lazily (see _showEditor), so #bsDiff can be
 		// clicked before this.graph exists — e.g. during the async provider fetch
 		// in _init, or a stray click while onboarding is still showing. Lazily
-		// mount the editor first so there's always a graph to compile; an empty
-		// graph renders the "(empty — wire a Persona node)" diff rather than
+		// mount the editor first so there's always a brain to compile; an empty
+		// brain renders the "(empty — fill in the Persona card)" diff rather than
 		// throwing "undefined is not an object (evaluating 'this.graph.toGraph')".
 		if (!this.graph) this._showEditor();
 		const current = compileBrain(this.graph.toGraph(), { agentName: this.studio.agent?.name });
@@ -419,7 +419,7 @@ class BrainStudio {
 		const out = [];
 		for (const line of a) if (!bSet.has(line) && line.trim()) out.push(`<span class="diff-del">- ${esc(line)}</span>`);
 		for (const line of b) out.push(bSet.has(line) && !aSet.has(line) ? `<span class="diff-add">+ ${esc(line)}</span>` : esc(line));
-		return out.join('\n') || '<span class="diff-muted">(empty — wire a Persona node)</span>';
+		return out.join('\n') || '<span class="diff-muted">(empty — fill in the Persona card)</span>';
 	}
 
 	_closeModal() {

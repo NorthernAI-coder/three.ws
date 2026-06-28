@@ -136,12 +136,16 @@ describe('token config', () => {
 		if (prior !== undefined) process.env.THREE_TREASURY_WALLET = prior;
 	});
 
-	it('treasuryWallet throws in production when unset', () => {
+	it('treasuryWallet throws a typed 503 in production when unset', () => {
 		const priorNode = process.env.NODE_ENV;
 		const priorWallet = process.env.THREE_TREASURY_WALLET;
 		process.env.NODE_ENV = 'production';
 		delete process.env.THREE_TREASURY_WALLET;
+		// The quote endpoint translates this exact code into an honest 503; lock it.
 		expect(() => treasuryWallet()).toThrow(/THREE_TREASURY_WALLET/);
+		expect(() => treasuryWallet()).toThrowError(
+			expect.objectContaining({ status: 503, code: 'treasury_unavailable' }),
+		);
 		process.env.NODE_ENV = priorNode;
 		if (priorWallet !== undefined) process.env.THREE_TREASURY_WALLET = priorWallet;
 	});

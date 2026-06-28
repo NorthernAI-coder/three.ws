@@ -105,6 +105,31 @@ function classifyError(err) {
 			cta: { label: 'Try again', retry: true },
 		};
 	}
+	if (code === 'quote_expired') {
+		return {
+			title: 'Quote expired',
+			detail: 'That price quote timed out before the payment confirmed. Try again — no $THREE was spent.',
+			cta: { label: 'Try again', retry: true },
+		};
+	}
+	// The server fails closed on a transient back-end gap (treasury/rewards routing
+	// not ready, generation lane down) with a typed, safe-to-show code. Recognize
+	// that family so the user sees an honest, reassuring retry state. A genuinely
+	// unexpected fault (code 'internal_error') falls through to the generic branch
+	// below, which keeps the support ref the user can quote.
+	if (
+		code === 'service_unavailable' ||
+		code === 'treasury_unavailable' ||
+		code === 'rewards_unavailable' ||
+		code === 'allowance_unavailable' ||
+		code === 'generation_unavailable'
+	) {
+		return {
+			title: 'Payments briefly unavailable',
+			detail: 'The $THREE payment rail is catching its breath. Try again in a moment — no $THREE was spent.',
+			cta: { label: 'Try again', retry: true },
+		};
+	}
 	// Settlement / verification or any other transient failure.
 	return {
 		title: 'Payment didn’t go through',
