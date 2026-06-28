@@ -3,6 +3,14 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "A free, no-login 3D Studio you can add to ChatGPT",
+      "summary": "We shipped a brand-new connector that turns any chat into a 3D modeling studio — completely free, with no account, no payment, and nothing to install on your end. It exposes five tools: generate a textured 3D model from a text prompt, build a 3D avatar from text or a reference image, forge an art-directed mesh, auto-rig a static model so it's ready to animate, and do prompt-to-rigged-avatar in a single step. Every result comes back as a downloadable GLB plus an interactive viewer link you can rotate and inspect right in the conversation. It runs entirely on our own model infrastructure — we cover the generation cost — with built-in rate limits so it stays fast and available for everyone. This is a separate, self-contained server from our existing tools, purpose-built so anyone can add prompt-to-3D to their assistant in one click.",
+      "tags": [
+        "feature"
+      ]
+    },
+    {
+      "date": "2026-06-28",
       "title": "Submitted three.ws to the Claude Connectors Directory",
       "summary": "three.ws is now in the queue for Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect remote MCP servers. We submitted our flagship server (the Avatars & Agents connector at /api/mcp): 35 tools that let Claude manage your three.ws avatars, validate and inspect glTF/GLB models, read on-chain agent reputation and identity, recall agent memory, and surface live $THREE-era market data — connected securely with OAuth, with pay-per-call tools settling in USDC over x402. Once it's approved, you'll be able to add three.ws to Claude straight from the directory.",
       "tags": [
@@ -1506,15 +1514,6 @@
         "sdk"
       ],
       "link": "/"
-    },
-    {
-      "date": "2026-06-25",
-      "title": "three.ws submitted to the Claude Connectors Directory",
-      "summary": "We packaged the three.ws MCP servers for review by Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect tools. The submission covers our main avatars-and-agents connector and the 3D Studio connector, with every tool carrying a human-readable title, an updated privacy policy that spells out exactly what AI tool calls collect and which model providers they touch, and a reviewer guide so anyone can verify the server end to end. Once approved, Claude users will be able to add three.ws as a connector and generate avatars, validate 3D models, and read live on-chain agent data straight from their chat.",
-      "tags": [
-        "feature",
-        "infra"
-      ]
     },
     {
       "date": "2026-06-25",

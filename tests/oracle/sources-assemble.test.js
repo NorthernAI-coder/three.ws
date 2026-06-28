@@ -26,6 +26,13 @@ describe('assembleIntel — outage vs unknown', () => {
 
 	it('throws when the primary lookup fails (DB outage) — never a silent null', async () => {
 		sqlMock.mockRejectedValue(new Error('db query exceeded 15000ms deadline'));
-		await expect(assembleIntel('MintXYZ', 'mainnet')).rejects.toThrow(/deadline/);
+		let caught = null;
+		try {
+			await assembleIntel('MintXYZ', 'mainnet');
+		} catch (err) {
+			caught = err;
+		}
+		expect(caught).toBeInstanceOf(Error);
+		expect(caught.message).toMatch(/deadline/);
 	});
 });
