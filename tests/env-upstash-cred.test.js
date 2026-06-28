@@ -87,6 +87,42 @@ describe('env Upstash credential trimming', () => {
 	});
 });
 
+describe('env CACHE_REDIS_CMD_TIMEOUT_MS (cache command timeout knob)', () => {
+	const saveTimeout = () => process.env.CACHE_REDIS_CMD_TIMEOUT_MS;
+	let savedTimeout;
+	beforeEach(() => {
+		savedTimeout = saveTimeout();
+		delete process.env.CACHE_REDIS_CMD_TIMEOUT_MS;
+	});
+	afterEach(() => {
+		if (savedTimeout === undefined) delete process.env.CACHE_REDIS_CMD_TIMEOUT_MS;
+		else process.env.CACHE_REDIS_CMD_TIMEOUT_MS = savedTimeout;
+	});
+
+	it('defaults to 3000ms when unset', () => {
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(3000);
+	});
+
+	it('honors a valid override (region-latency headroom)', () => {
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '8000';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(8000);
+	});
+
+	it('clamps to the [500, 30000] band and rounds', () => {
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '100';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(500);
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '999999';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(30000);
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '4500.7';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(4501);
+	});
+
+	it('falls back to the default for an unparseable value', () => {
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = 'not-a-number';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(3000);
+	});
+});
+
 describe('env Upstash atomic credential pairing (cross-store WRONGPASS guard)', () => {
 	it('never pairs a URL from one source with a token from another', () => {
 		// The exact prod failure: a manual URL (store A) + an integration-injected

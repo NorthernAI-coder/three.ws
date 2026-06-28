@@ -61,6 +61,14 @@
 		.btn-ghost { background: rgba(255,255,255,0.05); color: var(--ink); }
 		.btn-ghost:hover { background: rgba(255,255,255,0.1); }
 
+		/* source chips */
+		.src-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+		.chip { padding: 7px 15px; border-radius: 999px; font: 600 13px/1 inherit;
+			background: var(--panel); border: 1px solid var(--line); color: var(--muted); transition: all .16s; }
+		.chip:hover { color: var(--ink); border-color: color-mix(in srgb, var(--cyan) 30%, var(--line)); }
+		.chip.is-active { color: #050610; background: linear-gradient(135deg, var(--cyan), var(--violet)); border-color: transparent; }
+		.chip:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
 		/* controls */
 		.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
 		.search-wrap { flex: 1; min-width: 200px; position: relative; }
@@ -93,7 +101,12 @@
 			white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.ag-badge-onchain { display: inline-flex; align-items: center; gap: 4px; font: 600 10.5px/1 var(--mono);
 			color: var(--up); padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--up) 12%, transparent);
-			border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); }
+			border: 1px solid color-mix(in srgb, var(--up) 30%, transparent); white-space: nowrap; }
+		/* per-source badge tints */
+		.ag-badge-onchain[data-src="evm"]      { color: var(--cyan);   background: color-mix(in srgb, var(--cyan) 12%, transparent);   border-color: color-mix(in srgb, var(--cyan) 30%, transparent); }
+		.ag-badge-onchain[data-src="metaplex"] { color: var(--gold);   background: color-mix(in srgb, var(--gold) 12%, transparent);   border-color: color-mix(in srgb, var(--gold) 30%, transparent); }
+		.ag-badge-onchain[data-src="agenc"]    { color: var(--violet); background: color-mix(in srgb, var(--violet) 14%, transparent); border-color: color-mix(in srgb, var(--violet) 32%, transparent); }
+		.ag-badge-onchain[data-src="threews"]  { color: var(--up);     background: color-mix(in srgb, var(--up) 12%, transparent);     border-color: color-mix(in srgb, var(--up) 30%, transparent); }
 		.ag-desc { font-size: 13px; color: var(--muted); line-height: 1.45;
 			overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 		.ag-footer { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
@@ -141,12 +154,18 @@
 			<section class="hero">
 				<div class="eyebrow">3D AI Agents</div>
 				<h1>Agent <span>Index</span></h1>
-				<p>Every agent registered on three.ws, across every supported chain. Browse the directory, inspect their services, and bring any of them into 3D.</p>
+				<p>Every on-chain agent — across Solana and every EVM chain, not just the ones launched on three.ws. We crawl the Metaplex Agent Registry, the AgenC protocol and ERC-8004 registries so the whole ecosystem lives in one place. Inspect their services and bring any of them into 3D.</p>
 				<div class="hero-ctas">
 					<a class="btn btn-primary" href="/create-agent">Create an agent</a>
 					<a class="btn btn-ghost" href="/marketplace">Marketplace</a>
 				</div>
 			</section>
+
+			<div class="src-chips" role="tablist" aria-label="Filter by source">
+				<button class="chip is-active" data-src="agents" role="tab" aria-selected="true">All sources</button>
+				<button class="chip" data-src="solana" role="tab" aria-selected="false">Solana</button>
+				<button class="chip" data-src="onchain" role="tab" aria-selected="false">EVM</button>
+			</div>
 
 			<div class="controls">
 				<div class="search-wrap">
@@ -170,9 +189,10 @@
 		</main>
 
 		<script type="module">
-		// Source: the server-crawled ERC-8004 registry (/api/explore, fed by the
-		// erc8004-crawl cron) — the same populated feed /discover and the embed
-		// use. Matches this page's nav promise: "browse every registered agent".
+		// One unified feed across every registry we crawl: ERC-8004 (EVM, via the
+		// erc8004-crawl cron), the Metaplex Agent Registry + AgenC protocol (Solana,
+		// via the solana-agents-crawl cron), and three.ws's own agents. The
+		// source=agents meta-source returns every on-chain agent and no avatars.
 		const API = '/api/explore';
 		const $ = (id) => document.getElementById(id);
 		const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -183,7 +203,7 @@
 		const moreWrap = $('ag-more-wrap');
 		const moreBtn  = $('ag-more');
 
-		const state = { q: '', sort: 'newest', cursor: null, loading: false, items: [] };
+		const state = { q: '', sort: 'newest', source: 'agents', cursor: null, loading: false, items: [] };
 
 		function skeletons(n = 8) {
 			return Array.from({length: n}, () => `
@@ -198,7 +218,27 @@
 		}
 
 		function initial(name) {
-			return (name || '?').trim()[0].toUpperCase();
+			const n = (name || '?').trim();
+			return (n[0] || '?').toUpperCase();
+		}
+
+		// Label + tint key for the source badge, derived from kind/source/chain.
+		function badge(a) {
+			if (a.kind === 'onchain') return { label: a.chainShortName || 'EVM', src: 'evm' };
+			if (a.source === 'metaplex') return { label: 'Metaplex', src: 'metaplex' };
+			if (a.source === 'agenc') return { label: 'AgenC', src: 'agenc' };
+			if (a.source === 'three.ws') return { label: 'three.ws', src: 'threews' };
+			return { label: 'Solana', src: 'metaplex' };
+		}
+
+		// Each kind links to its natural detail surface: EVM → /a/<chain>/<id>,
+		// our Solana agents → their profile, external Solana → the 3D viewer or
+		// the on-chain explorer when there's nothing else to open.
+		function hrefFor(a) {
+			if (a.kind === 'onchain') return `/a/${encodeURIComponent(a.chainId)}/${encodeURIComponent(a.agentId)}`;
+			if (a.source === 'three.ws') return `/agent/${encodeURIComponent(a.agentId)}`;
+			if (a.viewerUrl) return a.viewerUrl;
+			return a.explorerUrl || '#';
 		}
 
 		function cardHtml(a) {
@@ -209,17 +249,19 @@
 			const avatar = img
 				? `<img class="ag-avatar" src="${esc(img)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="ag-avatar-fallback" style="display:none">${esc(initial(a.name))}</div>`
 				: `<div class="ag-avatar-fallback">${esc(initial(a.name))}</div>`;
-			const services = (a.services || []).map((s) => s && s.name).filter(Boolean).slice(0, 3);
+			const services = (a.services || []).map((s) => s && s.name).filter(Boolean)
+				.concat(a.skills || []).slice(0, 3);
 			const x402 = a.x402Support ? `<span class="ag-skill" title="Accepts x402 payments">x402</span>` : '';
-			const chain = a.chainShortName || 'on-chain';
-			const href = `/a/${esc(a.chainId)}/${esc(a.agentId)}`;
+			const b = badge(a);
+			const href = hrefFor(a);
+			const ext = a.kind === 'onchain' || a.source === 'three.ws' ? '' : ' target="_blank" rel="noopener"';
 
 			return `<div class="ag-card">
-				<a class="ag-card-link" href="${href}" aria-label="${esc(a.name)}"></a>
+				<a class="ag-card-link" href="${esc(href)}"${ext} aria-label="${esc(a.name)}"></a>
 				<div class="ag-top">
 					<div style="display:flex;flex-direction:column;gap:6px;align-items:center">
 						${avatar}
-						<span class="ag-badge-onchain">✦ ${esc(chain)}</span>
+						<span class="ag-badge-onchain" data-src="${esc(b.src)}">✦ ${esc(b.label)}</span>
 					</div>
 					<div class="ag-meta">
 						<div class="ag-name">${esc(a.name)}</div>
@@ -239,15 +281,16 @@
 				items = [...items].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 			}
 			grid.innerHTML = items.map(cardHtml).join('');
+			grid.setAttribute('aria-busy', 'false');
 		}
 
 		async function load(reset = false) {
 			if (state.loading) return;
 			state.loading = true;
-			if (reset) { state.cursor = null; state.items = []; grid.innerHTML = skeletons(); stateEl.hidden = true; }
+			if (reset) { state.cursor = null; state.items = []; grid.innerHTML = skeletons(); grid.setAttribute('aria-busy', 'true'); stateEl.hidden = true; }
 
 			const url = new URL(API, location.origin);
-			url.searchParams.set('source', 'onchain');
+			url.searchParams.set('source', state.source);
 			url.searchParams.set('limit', '24');
 			if (state.q) url.searchParams.set('q', state.q);
 			if (state.cursor) url.searchParams.set('cursor', state.cursor);
@@ -256,7 +299,9 @@
 				const r = await fetch(url, { headers: { accept: 'application/json' } });
 				if (!r.ok) throw new Error('HTTP ' + r.status);
 				const data = await r.json();
-				const items = (data.items || []).filter((it) => it.kind === 'onchain');
+				// Defensive: source=agents never returns avatars, but filter anyway so
+				// a future server change can't leak non-agent rows into this view.
+				const items = (data.items || []).filter((it) => it.kind === 'onchain' || it.kind === 'solana');
 
 				state.items.push(...items);
 				state.cursor = data.nextCursor || null;
@@ -269,7 +314,7 @@
 				if (!state.items.length) {
 					stateEl.innerHTML = state.q
 						? `<b>No agents found</b>Search found nothing for "${esc(state.q)}". Try a different term.`
-						: `<b>No registered agents yet</b><a href="/create-agent">Register the first one →</a>`;
+						: `<b>No agents in this source yet</b>The on-chain registries are crawled continuously — check back shortly, or <a href="/create-agent">create the first one →</a>`;
 					stateEl.hidden = false;
 				}
 			} catch {
@@ -277,6 +322,7 @@
 					stateEl.innerHTML = `<b>Couldn't load agents</b>Try refreshing the page.`;
 					stateEl.hidden = false;
 					grid.innerHTML = '';
+					grid.setAttribute('aria-busy', 'false');
 				}
 				moreWrap.hidden = true;
 			}
@@ -290,6 +336,18 @@
 		});
 		$('ag-sort').addEventListener('change', (e) => { state.sort = e.target.value; renderList(); });
 		moreBtn.addEventListener('click', () => load(false));
+
+		document.querySelectorAll('.src-chips .chip').forEach((chip) => {
+			chip.addEventListener('click', () => {
+				if (chip.classList.contains('is-active')) return;
+				document.querySelectorAll('.src-chips .chip').forEach((c) => {
+					c.classList.toggle('is-active', c === chip);
+					c.setAttribute('aria-selected', c === chip ? 'true' : 'false');
+				});
+				state.source = chip.dataset.src;
+				load(true);
+			});
+		});
 
 		load(true);
 		</script>

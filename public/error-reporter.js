@@ -122,6 +122,24 @@
 	// double-counted, transient noise. A genuine bug in our own fetch code rejects
 	// with a stack (or a descriptive message) and still reports.
 	const NETWORK_ERROR_MESSAGE = /^(load failed|failed to fetch|networkerror\b.*|the network connection was lost\.?|cancelled|load cancelled)$/i;
+	// Property-access TypeErrors naming a symbol that exists NOWHERE in our code,
+	// our bundled dependencies, or any third-party script we load at runtime — so
+	// the throw comes from a script a browser extension or in-app wallet browser
+	// injected directly into the page context. Those injected scripts run with a
+	// page-origin (or anonymous/blob) stack, not a chrome-extension:// one, so they
+	// slip past the extension-source filters above and surface as top-ranked
+	// unhandledrejections that no three.ws deploy can fix.
+	//   • `hideIndicator` — a loading-overlay teardown method from an injected
+	//     extension overlay ("undefined is not an object (evaluating
+	//     'e.hideIndicator')"). We define no such symbol anywhere; verified by an
+	//     exhaustive grep of src/, public/, the lib bundle, node_modules, and every
+	//     CDN script the pages load.
+	// Whole-word match so a genuine first-party method is never swallowed.
+	const INJECTED_OVERLAY_SYMBOL = /\bhideIndicator\b/;
+	// WebKit and Chromium phrasings for "read property `prop` of null/undefined".
+	// Capture group 1 is the property name in both engines.
+	const PROP_ACCESS_TYPEERROR =
+		/(?:undefined|null) is not an object \(evaluating '[^']*\.([A-Za-z_$][\w$]*)'\)|cannot read propert(?:y|ies) of (?:undefined|null) \(reading '([A-Za-z_$][\w$]*)'\)/i;
 
 	const truncate = (value, max) => {
 		if (typeof value !== 'string' || !value) return undefined;
@@ -270,6 +288,23 @@
 			NETWORK_ERROR_MESSAGE.test(report.message.trim())
 		) {
 			return true;
+		}
+		// Property-access TypeErrors thrown by extension/wallet-injected page
+		// scripts. The symbol `hideIndicator` belongs to no first-party or bundled
+		// code, so any error evaluating `<x>.hideIndicator` is injected noise — drop
+		// it regardless of stack. `colorSpace` IS a real three.js symbol we use, but
+		// our own code only ever reads it off a guaranteed-non-null target (or via
+		// `?.`); a stackless "reading 'colorSpace' of null" is therefore an
+		// unattributable cross-realm/injected read (e.g. an extension wrapping the
+		// page's canvas/ImageData), never our renderer — a genuine three-core fault
+		// carries a first-party /assets/* stack and still reports.
+		if (report.type === 'unhandledrejection' || report.type === 'error') {
+			const m = report.message && PROP_ACCESS_TYPEERROR.exec(report.message);
+			const prop = m && (m[1] || m[2]);
+			if (prop) {
+				if (INJECTED_OVERLAY_SYMBOL.test(prop)) return true;
+				if (prop === 'colorSpace' && !report.stack) return true;
+			}
 		}
 		// A promise rejected with a bare DOM Event rather than an Error — the reason
 		// IS the event object, so it carries no message and no stack, serializing to

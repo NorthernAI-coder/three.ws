@@ -85,6 +85,7 @@ function requireCron(req, res) {
 
 const HANDLERS = {
 	'erc8004-crawl': handleErc8004Crawl,
+	'solana-agents-crawl': handleSolanaAgentsCrawl,
 	'index-delegations': handleIndexDelegations,
 	'process-subscriptions': handleProcessSubscriptions,
 	'pump-agent-stats': handlePumpAgentStats,
@@ -179,6 +180,40 @@ export default wrapCron(async (req, res) => {
 	if (!handler) return error(res, 404, 'not_found', 'unknown cron');
 	return handler(req, res);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// solana-agents-crawl — index external Solana agents (Metaplex + AgenC)
+// ═══════════════════════════════════════════════════════════════════════════
+// Enumerates every agent in the Metaplex Agent Registry and the AgenC
+// coordination protocol into solana_agents_index, so /agents lists the whole
+// Solana ecosystem — not just three.ws-launched agents. Each source is isolated:
+// a failing registry (RPC disables getProgramAccounts, IDL drift) is reported in
+// its own block and never aborts the other.
+async function handleSolanaAgentsCrawl(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+	if (!requireCron(req, res)) return;
+
+	const { crawlMetaplexAgents, crawlAgencAgents } = await import('../_lib/solana-agents-crawl.js');
+
+	// Hard budget split across the two registries so a slow first scan can't
+	// starve the second before Vercel's function limit.
+	const start = Date.now();
+	const BUDGET_MS = 240_000;
+	const report = { metaplex: null, agenc: null, errors: [] };
+
+	try {
+		report.metaplex = await crawlMetaplexAgents({ deadline: start + BUDGET_MS / 2 });
+	} catch (err) {
+		report.errors.push({ source: 'metaplex', error: err.message || String(err) });
+	}
+	try {
+		report.agenc = await crawlAgencAgents({ deadline: start + BUDGET_MS });
+	} catch (err) {
+		report.errors.push({ source: 'agenc', error: err.message || String(err) });
+	}
+
+	return json(res, 200, report);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // erc8004-crawl

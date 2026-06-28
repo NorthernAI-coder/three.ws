@@ -139,6 +139,52 @@ describe('nvidia provider — text→3D submit', () => {
 	});
 });
 
+describe('nvidia provider — transient 504 retry/backoff', () => {
+	// The hosted preview's most common blip is a fast gateway 504 (it gives up on a
+	// slow/cold worker). Retrying a couple of times with backoff lands most of them
+	// on a warmed node — the lever that stops a transient 504 from tripping the free
+	// lane's cooldown and dumping the request on the (often dry) paid lane.
+	it('rides out two 504s and then succeeds on the third attempt', async () => {
+		let attempts = 0;
+		globalThis.fetch = vi.fn(async () => {
+			attempts += 1;
+			if (attempts < 3) return new Response('gateway timeout', { status: 504 });
+			return jsonResponse({}, 202, { 'nvcf-reqid': 'req-after-retry' });
+		});
+		const provider = createNvidiaProvider();
+		const job = await provider.textTo3d({ prompt: 'a brass teapot', tier: 'draft' });
+		expect(attempts).toBe(3);
+		expect(job).toEqual({ kind: 'text-to-3d', taskId: 'req-after-retry' });
+	});
+
+	it('recovers from a single 504 with one retry (the common cold-start case)', async () => {
+		let attempts = 0;
+		globalThis.fetch = vi.fn(async () => {
+			attempts += 1;
+			return attempts < 2 ? new Response('t', { status: 504 }) : jsonResponse({}, 202, { 'nvcf-reqid': 'r2' });
+		});
+		const provider = createNvidiaProvider();
+		const job = await provider.textTo3d({ prompt: 'orb' });
+		expect(attempts).toBe(2);
+		expect(job.taskId).toBe('r2');
+	});
+
+	it('fails over fast after a bounded number of attempts when 504s persist', async () => {
+		let attempts = 0;
+		globalThis.fetch = vi.fn(async () => {
+			attempts += 1;
+			return new Response('gateway timeout', { status: 504 });
+		});
+		const provider = createNvidiaProvider();
+		await expect(provider.textTo3d({ prompt: 'cube' })).rejects.toMatchObject({
+			code: 'provider_error',
+			providerStatus: 504,
+		});
+		// Bounded: it does not hammer a dead gateway indefinitely.
+		expect(attempts).toBe(3);
+	});
+});
+
 describe('nvidia provider — image input is not part of the contract', () => {
 	// NVIDIA's hosted TRELLIS preview rejects every user-image input form (only
 	// example_id 0–3 sample references are accepted — verified live 2026-06-11,

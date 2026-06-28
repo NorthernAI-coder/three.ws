@@ -12,7 +12,7 @@
 // they can and never crash on a single upstream blip. This is the market-data
 // analogue of the RPC failover layer.
 
-import { cacheGet, cacheSet, cacheDel, acquireLock, releaseLock } from '../cache.js';
+import { cacheGet, cacheGetFresh, cacheSet, cacheDel, acquireLock, releaseLock } from '../cache.js';
 
 const BIRDEYE_BASE = 'https://public-api.birdeye.so';
 const DEXSCREENER_BASE = 'https://api.dexscreener.com/latest/dex/tokens';
@@ -249,7 +249,9 @@ async function waitForSharedWrite(mint, ttlMs) {
 	for (let i = 0; i < LOCK_WAIT_TRIES; i++) {
 		await sleep(LOCK_WAIT_STEP_MS);
 		try {
-			const shared = await cacheGet(sharedKey(mint));
+			// Bypass the read-memo: the winner's write is expected momentarily and a
+			// freshly-memoized miss would make every poll see stale absence.
+			const shared = await cacheGetFresh(sharedKey(mint));
 			if (shared && shared.price_usd > 0) return storeL1(mint, shared, Date.now(), ttlMs);
 		} catch {
 			/* keep waiting, then fall through */

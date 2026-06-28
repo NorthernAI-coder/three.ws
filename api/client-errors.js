@@ -83,6 +83,23 @@ function isNonActionableNoise(event) {
 	}
 	// A ReferenceError naming a known injected bridge global — their script, not ours.
 	if (/can't find variable:|is not defined/i.test(msg) && INJECTED_GLOBALS.test(msg)) return true;
+	// Property-access TypeErrors from extension/wallet-injected page scripts. These
+	// run in the page context (page-origin/anonymous stack), so they evade the
+	// extension-source filters in the client reporter and reach us from clients
+	// holding an older cached reporter. `hideIndicator` is a symbol no first-party
+	// or bundled code defines — any "<x>.hideIndicator" throw is injected noise.
+	// `colorSpace` is a real three.js symbol we use, but only ever off a non-null
+	// target; a stackless "reading 'colorSpace' of null" is an unattributable
+	// cross-realm/injected read, while a genuine three-core fault keeps its
+	// first-party stack and still reports. Mirrors public/error-reporter.js.
+	const prop = (() => {
+		const m = PROP_ACCESS_TYPEERROR.exec(msg);
+		return m ? m[1] || m[2] : null;
+	})();
+	if (prop) {
+		if (/\bhideIndicator\b/.test(prop)) return true;
+		if (prop === 'colorSpace' && !event.stack) return true;
+	}
 	return false;
 }
 

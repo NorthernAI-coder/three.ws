@@ -207,6 +207,14 @@
 			<description>Avatars you forge are meant to come out animation-ready — rigged with a skeleton so they can idle, walk, and play poses. The auto-rig step was only ever asking the single highest-priority generation provider whether it could rig; when that provider handled mesh generation but not rigging, the step gave up and shipped a static, un-rigged mesh — even though a capable rigging service was configured and ready. The pipeline now looks across every configured provider and routes rigging to the first one that actually supports it, so a forged avatar is rigged whenever any rigging lane exists. The same fix applies to selfie/prompt reconstruction, saved uploads, and the background backfill that rigs older avatars.</description>
 		</item>
 		<item>
+			<title>Free text-to-3D rides out NVIDIA gateway hiccups instead of stalling</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Free text-to-3D rides out NVIDIA gateway hiccups instead of stalling</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The free, no-login text-to-3D lane runs on NVIDIA's hosted model gateway, which occasionally answers a request with a momentary timeout while a model node warms up. Before, a single one of those blips could sideline the free lane for two full minutes and shove every prompt onto our paid backup — which, if it was low on credit, meant you'd see a 'temporarily unavailable' message. Now those transient timeouts are retried with smart spacing so most of them clear on their own, and when the lane does need a brief rest it's a short one, not a long sidelining. We also stopped the system from ever routing prompts into a backup lane that's already known to be down, so the free generator keeps serving instead of dead-ending.</description>
+		</item>
+		<item>
 			<title>LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds</guid>
@@ -293,6 +301,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>three.ws is now in the queue for Anthropic's Claude Connectors Directory — the in-app catalog where Claude users browse and one-click-connect remote MCP servers. We submitted our flagship server (the Avatars &amp; Agents connector at /api/mcp): 35 tools that let Claude manage your three.ws avatars, validate and inspect glTF/GLB models, read on-chain agent reputation and identity, recall agent memory, and surface live $THREE-era market data — connected securely with OAuth, with pay-per-call tools settling in USDC over x402. Once it's approved, you'll be able to add three.ws to Claude straight from the directory.</description>
+		</item>
+		<item>
+			<title>Text-to-3D falls back to the free engine when the paid one runs dry</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Text-to-3D falls back to the free engine when the paid one runs dry</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Typing a prompt to generate a 3D model first paints a quick reference image, and on higher-quality tiers that step ran on a paid image service. If that account was out of credit, the whole request used to stop at a 'temporarily unavailable' message — even though our free NVIDIA engine builds a model straight from your words and never needed that paid step at all. Now a dry paid account automatically hands your prompt to the free engine instead of giving up, so 'type a prompt, get a model' keeps working. If every engine is genuinely down, you still get an honest 'try again shortly' rather than a hard error or a confusing billing message.</description>
 		</item>
 		<item>
 			<title>The &quot;Save to my avatars&quot; button is readable on every theme</title>

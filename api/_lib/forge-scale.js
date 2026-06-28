@@ -178,25 +178,27 @@ export async function providerSubmitAllowed(provider, { limit, windowS }) {
 const RATE_PREFIX = 'fc:rate:';
 
 // KEYS[1] = bucket; ARGV = now, interval(ms), tau(ms), maxWait(ms). Returns
-// {allowed(0|1), waitMs}. `base` is the time this request would be served: the
-// later of the stored TAT and (now - tau) — the τ slack is what permits a burst
-// out of an idle bucket. We reserve (push TAT to base+interval) only when the
-// wait is within budget; the key's TTL tracks the live reservation horizon so an
-// idle bucket self-clears.
+// {allowed(0|1), waitMs}. Virtual-scheduling GCRA: `tat` is the theoretical
+// arrival time of the next conforming request. This request is served at the
+// later of `now` and `tat - tau` — the τ slack ( (burst-1)·interval ) is what
+// lets an idle bucket admit a burst back-to-back. The reservation advances tat to
+// max(now, tat) + interval, and is only taken when the wait fits the budget; the
+// key's TTL tracks the live reservation horizon so an idle bucket self-clears.
 const RATE_RESERVE_LUA = `local now = tonumber(ARGV[1])
 local interval = tonumber(ARGV[2])
 local tau = tonumber(ARGV[3])
 local maxWait = tonumber(ARGV[4])
 local tat = tonumber(redis.call('GET', KEYS[1]))
 if not tat then tat = now end
-local base = tat
-if base < now - tau then base = now - tau end
-local waitMs = base - now
-if waitMs < 0 then waitMs = 0 end
+local serveAt = tat - tau
+if serveAt < now then serveAt = now end
+local waitMs = serveAt - now
 if waitMs > maxWait then
   return {0, math.floor(waitMs)}
 end
-local newTat = base + interval
+local newTat = tat
+if now > newTat then newTat = now end
+newTat = newTat + interval
 redis.call('SET', KEYS[1], tostring(newTat), 'PX', math.floor(newTat - now + 5000))
 return {1, math.floor(waitMs)}`;
 
