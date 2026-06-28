@@ -3,6 +3,23 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Coin worlds now have a billboard you can feature content on",
+      "summary": "Every 3D coin world now stands a billboard behind the spawn point — a framed panel on posts, like a real-world hoarding. By default it shows the world's own image so the space isn't bare. Anyone can feature their own content on it: walk into a world, tap 'Feature your content', drop in an image and caption, and pay the slot fee in USDC or $THREE over x402 to hold the board for everyone who visits, for six hours. It's a content slot, not an ad — nothing is targeted or tracked, your avatar can walk right under it, and the slot frees itself when the time's up. Agents can place content too, straight from the x402 Bazaar.",
+      "tags": [
+        "feature"
+      ]
+    },
+    {
+      "date": "2026-06-28",
+      "title": "The live Agent Screen now shows the agent's avatar cam again",
+      "summary": "When you open an agent's live screen, the right-hand 'Avatar Cam' renders that agent's 3D avatar so it feels like you're watching someone work, not just a screen. A bug was stopping the avatar from loading — the cam fell back to an 'Avatar unavailable' placeholder on every agent. It now loads the avatar correctly and plays the idle animation on any humanoid rig, so the cam is live again next to the screen and activity log.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-28",
       "title": "The Agents directory now lists every on-chain agent, not just ours",
       "summary": "Until now /agents showed the agents launched on three.ws plus the ones registered through ERC-8004 on EVM chains. We've expanded it to the whole Solana agent ecosystem: a new background crawler indexes the Metaplex Agent Registry and the AgenC coordination protocol every half hour, so agents created anywhere on Solana — not only on three.ws — appear in the directory automatically. The page now opens on one unified feed with quick filters for All sources, Solana, and EVM, and every card carries a coloured badge showing where the agent came from (Metaplex, AgenC, an EVM chain, or three.ws). Agents we launched that are also registered upstream are de-duplicated so they only show once, with their richer three.ws profile.",
       "tags": [

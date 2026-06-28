@@ -2928,6 +2928,7 @@ const marketplaceGallery = GALLERY_MODE
 let net = null;
 let netConnected = false;
 let coinTotem = null; // CoinTotem instance when in a coin community world
+let contentBillboard = null; // ContentBillboard instance — a static content panel in-world
 
 // Remote-avatar template cache. Each distinct GLB URL is fetched once and
 // reused (via SkeletonUtils.clone) for every player wearing it, so a room full
@@ -3652,6 +3653,9 @@ function buildCollidersFromMeta(meta) {
 			});
 		}
 	}
+	// The content billboard is a persistent prop, not part of any environment's
+	// manifest — re-add its post colliders on every swap (this array is reset above).
+	if (contentBillboard) worldObstacles.push(...contentBillboard.colliders());
 }
 
 // Kickable physics props — beach balls and crates that fall, roll, and get
@@ -3721,6 +3725,7 @@ function applyEnvironmentMeta(meta) {
 	applySky(meta, stage);
 	clearDynamicMeshes();
 	buildCollidersFromMeta(meta);
+	contentBillboard?.placeOnTerrain();
 	buildDynamicProps(meta);
 	rebuildPhysicsWorld();
 	try {
@@ -4977,6 +4982,389 @@ if (import.meta.env?.DEV) {
 			/[<>&"]/g,
 			(c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c],
 		);
+	}
+}
+
+// ── Content billboard ────────────────────────────────────────────────────────
+// A cheap, static billboard you can drop content onto — a framed panel on two
+// posts standing as a backdrop behind spawn. It is decoration, not an ad unit:
+// no targeting, no tracking, no network of its own. It just shows one image (or
+// a short caption) so a space has something on its walls.
+//
+//   /temporary?board=<image-url>   put your own content on it
+//   /temporary?boardText=<text>    caption strip under the image (or use it alone)
+//   /temporary?board=off           hide it entirely
+//
+// With no params it falls back to the coin's own image in a coin world, or the
+// three.ws cover image on the mainland, so the panel is never blank.
+{
+	const params = new URLSearchParams(location.search);
+	const boardParam = (params.get('board') || '').trim();
+	const boardText = (params.get('boardText') || '').slice(0, 80).trim();
+
+	// Resolve the content image: explicit param → the coin's image → cover image.
+	function resolveContentImage() {
+		if (boardParam && boardParam !== 'off') {
+			try {
+				const u = new URL(boardParam, location.origin);
+				if (u.protocol === 'http:' || u.protocol === 'https:') return u.href;
+			} catch {
+				/* not a URL — treated as no image, caption-only is still valid */
+			}
+		}
+		if (COIN_PARAMS.image) return COIN_PARAMS.image;
+		return new URL('/og-image.png', location.origin).href;
+	}
+
+	// 16:9 content surface painted to a canvas → CanvasTexture. The image is
+	// cover-fit; a tinted gradient + caption stands in until (or unless) it loads,
+	// so cross-origin taint or a 404 degrades to something legible, never blank.
+	// Parameterized so the same painter draws the world default and any paid
+	// placement that streams in later (see ContentBillboard.setContent).
+	function paintContentTexture({ imageSrc, caption } = {}) {
+		const W = 1024;
+		const H = 576;
+		const cv = document.createElement('canvas');
+		cv.width = W;
+		cv.height = H;
+		const ctx = cv.getContext('2d');
+		const tex = new CanvasTexture(cv);
+		tex.anisotropy = 8;
+
+		const label = caption || (COIN_PARAMS.symbol ? `$${COIN_PARAMS.symbol}` : 'three.ws');
+
+		const drawCaptionStrip = () => {
+			if (!caption) return;
+			const stripH = Math.round(H * 0.16);
+			ctx.fillStyle = 'rgba(8,9,14,0.72)';
+			ctx.fillRect(0, H - stripH, W, stripH);
+			ctx.fillStyle = 'rgba(255,255,255,0.96)';
+			ctx.font = `600 ${Math.round(stripH * 0.46)}px system-ui, sans-serif`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText(caption, W / 2, H - stripH / 2, W - 48);
+		};
+
+		const drawFallback = () => {
+			const grad = ctx.createLinearGradient(0, 0, W, H);
+			grad.addColorStop(0, '#12141f');
+			grad.addColorStop(1, '#05060a');
+			ctx.fillStyle = grad;
+			ctx.fillRect(0, 0, W, H);
+			ctx.fillStyle = 'rgba(255,255,255,0.92)';
+			ctx.font = `700 ${Math.round(H * 0.18)}px system-ui, sans-serif`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText(label, W / 2, H / 2, W - 64);
+		};
+
+		drawFallback();
+		tex.needsUpdate = true;
+
+		if (imageSrc) {
+			const img = new Image();
+			img.crossOrigin = 'anonymous';
+			img.referrerPolicy = 'no-referrer';
+			img.onload = () => {
+				try {
+					ctx.clearRect(0, 0, W, H);
+					const s = Math.max(W / img.width, H / img.height);
+					const w = img.width * s;
+					const h = img.height * s;
+					ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+					drawCaptionStrip();
+					tex.needsUpdate = true;
+				} catch {
+					drawFallback();
+					tex.needsUpdate = true;
+				}
+			};
+			// On error we keep the fallback that's already painted — no handler needed.
+			img.src = imageSrc;
+		}
+		return tex;
+	}
+
+	// Footprint and proportions (metres). Panel rides above head height on two
+	// posts so the avatar can pass beneath it; only the posts are solid.
+	const PANEL_W = 8;
+	const PANEL_H = 4.5;
+	const PANEL_BOTTOM = 2.4; // clearance from ground to the underside of the frame
+	const POST_HALF = 0.14; // post half-thickness
+	const POST_X = PANEL_W / 2 - 0.7; // inset from the panel edges
+	const FOOT = { x: 0, z: -17 }; // behind spawn (origin) and the coin totem (z=-7)
+
+	class ContentBillboard {
+		constructor() {
+			this.group = new Group();
+			const panelCenterY = PANEL_BOTTOM + PANEL_H / 2;
+
+			const postMat = new MeshStandardMaterial({
+				color: 0x2a2d38,
+				roughness: 0.7,
+				metalness: 0.2,
+			});
+			const postGeo = new BoxGeometry(POST_HALF * 2, PANEL_BOTTOM + 0.2, POST_HALF * 2);
+			for (const sx of [-1, 1]) {
+				const post = new Mesh(postGeo, postMat);
+				post.position.set(sx * POST_X, (PANEL_BOTTOM + 0.2) / 2, 0);
+				post.castShadow = true;
+				post.receiveShadow = true;
+				this.group.add(post);
+			}
+
+			// Backing frame — a thin dark slab a touch larger than the screen so the
+			// panel reads as a solid board from any angle and the back isn't see-through.
+			const frame = new Mesh(
+				new BoxGeometry(PANEL_W + 0.4, PANEL_H + 0.4, 0.16),
+				new MeshStandardMaterial({ color: 0x16181f, roughness: 0.85, metalness: 0.1 }),
+			);
+			frame.position.set(0, panelCenterY, 0);
+			frame.castShadow = true;
+			this.group.add(frame);
+
+			// Content screen — unlit so the artwork is always legible and cheap to
+			// draw, sitting just proud of the frame's front face. Starts on the world
+			// default; a paid placement (if any) swaps in via setContent() once the
+			// /api/billboard fetch resolves.
+			this.screen = new Mesh(
+				new PlaneGeometry(PANEL_W, PANEL_H),
+				new MeshBasicMaterial({
+					map: paintContentTexture({ imageSrc: resolveContentImage(), caption: boardText }),
+					toneMapped: false,
+				}),
+			);
+			this.screen.position.set(0, panelCenterY, 0.09);
+			this.group.add(this.screen);
+
+			scene.add(this.group);
+			this.placeOnTerrain();
+		}
+
+		// Swap the panel's artwork. Repaints a fresh texture and disposes the old
+		// one. A placement with no image but a caption shows the caption full-bleed;
+		// an empty placement reverts to the world default.
+		setContent({ image, caption } = {}) {
+			const imageSrc = image || (caption ? null : resolveContentImage());
+			const tex = paintContentTexture({ imageSrc, caption });
+			const prev = this.screen.material.map;
+			this.screen.material.map = tex;
+			this.screen.material.needsUpdate = true;
+			prev?.dispose();
+		}
+
+		// Sit the structure on the live terrain — re-called on every environment
+		// swap so the billboard tracks the new ground instead of floating or sinking.
+		placeOnTerrain() {
+			const y = terrain ? terrain.heightAt(FOOT.x, FOOT.z) : 0;
+			this.group.position.set(FOOT.x, y, FOOT.z);
+		}
+
+		// Static box colliders for the two posts (panel sits above head height, so
+		// it is intentionally walk-through). Y is resolved against the live terrain.
+		colliders() {
+			const gy = terrain ? terrain.heightAt(FOOT.x, FOOT.z) : 0;
+			const hy = (PANEL_BOTTOM + 0.2) / 2;
+			return [-1, 1].map((sx) => ({
+				type: 'box',
+				position: { x: FOOT.x + sx * POST_X, y: gy + hy, z: FOOT.z },
+				halfExtents: { x: POST_HALF, y: hy, z: POST_HALF },
+				rotationY: 0,
+			}));
+		}
+	}
+
+	if (boardParam !== 'off') {
+		contentBillboard = new ContentBillboard();
+
+		// In a coin world, the billboard is a paid community canvas: fetch whoever
+		// currently holds the board and show their content (unless the visitor
+		// passed an explicit ?board= preview override, which wins locally).
+		const hasLocalOverride = boardParam && boardParam !== 'off';
+		if (COIN_PARAMS.coin && !hasLocalOverride) {
+			fetch(`/api/billboard?coin=${encodeURIComponent(COIN_PARAMS.coin)}`, {
+				headers: { accept: 'application/json' },
+			})
+				.then((r) => (r.ok ? r.json() : null))
+				.then((data) => {
+					const p = data?.placement;
+					if (p && (p.image || p.caption)) {
+						contentBillboard.setContent({ image: p.image, caption: p.caption });
+					}
+				})
+				.catch(() => {
+					/* offline / not configured — the world default stays on the panel */
+				});
+
+			buildBillboardPublisher();
+		}
+	}
+
+	// ── Publish flow ─────────────────────────────────────────────────────────
+	// A compact "Feature your content" button + dialog that takes an image URL
+	// and caption and pays for the slot over x402 (window.X402.pay, loaded from
+	// /x402.js). On a settled payment the panel updates immediately for this
+	// viewer; everyone else picks it up from /api/billboard on their next load.
+	function buildBillboardPublisher() {
+		const SLOT_LABEL = '$0.05 · 6 hours';
+		const btn = document.createElement('button');
+		btn.id = 'walk-billboard-publish';
+		btn.type = 'button';
+		btn.textContent = '📢 Feature your content';
+		btn.title = 'Put your image on this world’s billboard';
+		btn.style.cssText = [
+			'position:fixed',
+			'z-index:7',
+			'left:16px',
+			'bottom:calc(env(safe-area-inset-bottom, 0) + 128px)',
+			'display:inline-flex',
+			'align-items:center',
+			'gap:6px',
+			'padding:8px 12px',
+			'border-radius:999px',
+			'border:1px solid rgba(255,255,255,0.16)',
+			'background:rgba(14,16,24,0.78)',
+			'backdrop-filter:blur(8px)',
+			'-webkit-backdrop-filter:blur(8px)',
+			'color:#fff',
+			'font:600 13px/1 system-ui, sans-serif',
+			'cursor:pointer',
+			'transition:transform .12s ease, border-color .12s ease, background .12s ease',
+		].join(';');
+		btn.addEventListener('pointerenter', () => {
+			btn.style.transform = 'translateY(-1px)';
+			btn.style.borderColor = 'rgba(255,255,255,0.32)';
+		});
+		btn.addEventListener('pointerleave', () => {
+			btn.style.transform = '';
+			btn.style.borderColor = 'rgba(255,255,255,0.16)';
+		});
+		btn.addEventListener('click', openPublishDialog);
+		document.body.appendChild(btn);
+
+		let overlay = null;
+
+		function closeDialog() {
+			overlay?.remove();
+			overlay = null;
+		}
+
+		function openPublishDialog() {
+			if (overlay) return;
+			overlay = document.createElement('div');
+			overlay.style.cssText = [
+				'position:fixed',
+				'inset:0',
+				'z-index:60',
+				'display:flex',
+				'align-items:center',
+				'justify-content:center',
+				'padding:20px',
+				'background:rgba(4,5,9,0.6)',
+				'backdrop-filter:blur(4px)',
+				'-webkit-backdrop-filter:blur(4px)',
+			].join(';');
+			overlay.addEventListener('click', (e) => {
+				if (e.target === overlay) closeDialog();
+			});
+
+			const card = document.createElement('div');
+			card.setAttribute('role', 'dialog');
+			card.setAttribute('aria-label', 'Feature your content on the billboard');
+			card.style.cssText = [
+				'width:min(420px, 100%)',
+				'background:#0e1018',
+				'border:1px solid rgba(255,255,255,0.12)',
+				'border-radius:16px',
+				'padding:20px',
+				'box-shadow:0 24px 60px rgba(0,0,0,0.55)',
+				'color:#fff',
+				'font-family:system-ui, sans-serif',
+			].join(';');
+			card.innerHTML = `
+				<div style="font:700 16px/1.2 system-ui;margin-bottom:4px">Feature your content</div>
+				<div style="font:400 13px/1.45 system-ui;color:rgba(255,255,255,0.6);margin-bottom:16px">
+					Hold this world’s billboard for everyone who walks in. ${SLOT_LABEL}. It’s a content
+					slot, not an ad — nothing is tracked.
+				</div>
+				<label style="display:block;font:600 12px/1 system-ui;color:rgba(255,255,255,0.7);margin-bottom:6px">Image URL</label>
+				<input id="bb-image" type="url" inputmode="url" placeholder="https://…/art.png"
+					style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:#05060a;color:#fff;font:400 14px system-ui" />
+				<label style="display:block;font:600 12px/1 system-ui;color:rgba(255,255,255,0.7);margin-bottom:6px">Caption <span style="font-weight:400;color:rgba(255,255,255,0.4)">(optional)</span></label>
+				<input id="bb-caption" type="text" maxlength="80" placeholder="gm from the gallery"
+					style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:#05060a;color:#fff;font:400 14px system-ui" />
+				<div id="bb-msg" role="status" style="min-height:18px;font:500 12px/1.4 system-ui;color:#ffb4b4;margin-bottom:10px"></div>
+				<div style="display:flex;gap:8px;justify-content:flex-end">
+					<button id="bb-cancel" type="button" style="padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:transparent;color:rgba(255,255,255,0.8);font:600 13px system-ui;cursor:pointer">Cancel</button>
+					<button id="bb-pay" type="button" style="padding:9px 16px;border-radius:10px;border:0;background:#5a8dee;color:#fff;font:700 13px system-ui;cursor:pointer">Feature — pay</button>
+				</div>`;
+			overlay.appendChild(card);
+			document.body.appendChild(overlay);
+
+			const imageEl = card.querySelector('#bb-image');
+			const captionEl = card.querySelector('#bb-caption');
+			const msgEl = card.querySelector('#bb-msg');
+			const payBtn = card.querySelector('#bb-pay');
+			card.querySelector('#bb-cancel').addEventListener('click', closeDialog);
+			imageEl.focus();
+
+			const setMsg = (t) => {
+				msgEl.textContent = t || '';
+			};
+
+			payBtn.addEventListener('click', async () => {
+				const image = imageEl.value.trim();
+				const caption = captionEl.value.trim();
+				if (!image && !caption) {
+					setMsg('Add an image URL or a caption.');
+					return;
+				}
+				if (image && !/^https?:\/\//i.test(image)) {
+					setMsg('Image URL must start with http:// or https://');
+					return;
+				}
+				if (!window.X402?.pay) {
+					setMsg('Wallet widget still loading — try again in a second.');
+					return;
+				}
+				setMsg('');
+				payBtn.disabled = true;
+				payBtn.textContent = 'Open wallet…';
+				try {
+					const qs = new URLSearchParams({ coin: COIN_PARAMS.coin });
+					if (image) qs.set('image', image);
+					if (caption) qs.set('caption', caption);
+					const out = await window.X402.pay({
+						endpoint: `/api/x402/billboard?${qs.toString()}`,
+						method: 'GET',
+						merchant: 'three.ws Coin-World Billboard',
+						action: 'Feature your content on this world’s billboard',
+						autoConnect: true,
+					});
+					const res = out?.result;
+					if (!res?.ok) throw new Error(res?.error || 'placement did not settle');
+					contentBillboard.setContent({ image: res.image, caption: res.caption });
+					closeDialog();
+				} catch (err) {
+					if (err?.code === 'cancelled') {
+						payBtn.disabled = false;
+						payBtn.textContent = 'Feature — pay';
+						return;
+					}
+					setMsg(err?.message || 'Payment failed — please try again.');
+					payBtn.disabled = false;
+					payBtn.textContent = 'Feature — pay';
+				}
+			});
+
+			const onKey = (e) => {
+				if (e.key === 'Escape') {
+					closeDialog();
+					window.removeEventListener('keydown', onKey);
+				}
+			};
+			window.addEventListener('keydown', onKey);
+		}
 	}
 }
 

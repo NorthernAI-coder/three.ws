@@ -151,6 +151,14 @@
 			<description>The autonomous loop now pays /api/x402/analytics every 30 minutes with { report: &quot;clubs&quot;, period: &quot;24h&quot; } for a live snapshot of the Pole Club's social economy. The report reads straight from the real ledgers — settled tips (club_tips), the stage roster (club_dancer_wallets) and settled door cover charges (x402_audit_log) — and returns how many stages are active, how many distinct patrons showed up, the tip count and USDC volume, the cover charges collected at the door, and a fastest-growing-stage leaderboard. Every snapshot is appended to a club_social_analytics time series so a dashboard can chart whether the nightlife is heating up or cooling down and spot which stages are on the rise.</description>
 		</item>
 		<item>
+			<title>Coin worlds now have a billboard you can feature content on</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Coin worlds now have a billboard you can feature content on</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every 3D coin world now stands a billboard behind the spawn point — a framed panel on posts, like a real-world hoarding. By default it shows the world's own image so the space isn't bare. Anyone can feature their own content on it: walk into a world, tap 'Feature your content', drop in an image and caption, and pay the slot fee in USDC or $THREE over x402 to hold the board for everyone who visits, for six hours. It's a content slot, not an ad — nothing is targeted or tracked, your avatar can walk right under it, and the slot frees itself when the time's up. Agents can place content too, straight from the x402 Bazaar.</description>
+		</item>
+		<item>
 			<title>Create an agent by describing it — the wizard now builds itself</title>
 			<link>https://three.ws/create-agent</link>
 			<guid isPermaLink="false">2026-06-28:Create an agent by describing it — the wizard now builds itself</guid>
@@ -349,6 +357,14 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The Coin Intelligence engine (/coin-intel) watches pump.fun's live launch firehose, observes each new coin's first ~90 seconds of trading, and scores it — organic vs bundle, wallet concentration, smart-money entries, category. Until now that observation only ran when a separate always-on worker was up, so the page often sat on its &quot;engine is warming up&quot; screen with nothing to show. The observer now also runs on a schedule on our serverless platform, so it keeps watching launches and recording verdicts on its own — newest coins appear in the feed continuously without depending on any single machine staying online.</description>
+		</item>
+		<item>
+			<title>The live Agent Screen now shows the agent's avatar cam again</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-28:The live Agent Screen now shows the agent's avatar cam again</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When you open an agent's live screen, the right-hand 'Avatar Cam' renders that agent's 3D avatar so it feels like you're watching someone work, not just a screen. A bug was stopping the avatar from loading — the cam fell back to an 'Avatar unavailable' placeholder on every agent. It now loads the avatar correctly and plays the idle animation on any humanoid rig, so the cam is live again next to the screen and activity log.</description>
 		</item>
 		<item>
 			<title>The Live Agents wall now shows every agent, 24/7</title>

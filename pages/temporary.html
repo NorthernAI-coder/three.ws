@@ -1470,6 +1470,10 @@
 		</div>
 
 		<script type="module" src="/src/walk.js"></script>
+		<!-- x402 payment widget — powers the in-world "Feature your content"
+		     billboard publish flow (window.X402.pay). Defer-loaded; walk.js polls
+		     for it before letting the pay button run. -->
+		<script src="/x402.js" defer></script>
 		<!-- Coin-world social layer: lobby (no ?coin=) or Town (live community
 		     feed + realtime bubbles) bound to the current coin. Self-contained;
 		     the 3D scene above is walk.js's, the multiplayer join is walk-net's. -->
