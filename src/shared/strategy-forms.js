@@ -122,6 +122,26 @@ export function ensureStrategyStyles() {
 .so-pick:hover { border-color: var(--wallet-stroke, rgba(139,92,246,.35)); }
 .so-pick img, .so-pick .so-av { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; background: var(--surface-2, rgba(255,255,255,.06)); flex: 0 0 auto; }
 .so-pick .so-pname { font-size: var(--text-sm, .82rem); font-weight: 600; color: var(--ink-bright, #fff); }
+.so-compose { max-width: 1040px; margin: 0 auto; }
+.so-compose-head { margin-bottom: var(--space-lg, 22px); }
+.so-compose-back { background: none; border: none; color: var(--ink-dim, #9a9a9a); font: inherit; font-size: var(--text-sm, .82rem); cursor: pointer; padding: 4px 0; display: inline-flex; align-items: center; gap: 6px; transition: color .16s; }
+.so-compose-back:hover { color: var(--ink-bright, #fff); }
+.so-compose-back:focus-visible { outline: 2px solid var(--wallet-focus, rgba(139,92,246,.7)); outline-offset: 3px; border-radius: 4px; }
+.so-compose-title { font-family: var(--font-display, inherit); font-size: clamp(1.5rem, 4vw, 2.1rem); color: var(--ink-bright, #fff); letter-spacing: -.02em; margin: 10px 0 8px; }
+.so-compose-lead { max-width: 620px; color: var(--ink-dim, #9a9a9a); font-size: var(--text-sm, .84rem); line-height: 1.6; margin: 0; }
+.so-compose-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-lg, 20px); }
+@media (min-width: 880px) { .so-compose-grid { grid-template-columns: minmax(0, 1fr) 296px; align-items: start; } }
+@media (min-width: 880px) { .so-compose-side { position: sticky; top: 84px; } }
+.so-side-card { border: 1px solid var(--wallet-stroke, rgba(139,92,246,.3)); border-radius: var(--radius-lg, 14px); background: var(--bg-1, #141414); padding: var(--space-lg, 18px); box-shadow: var(--shadow-2, 0 12px 32px rgba(0,0,0,.4)); }
+.so-side-h { font-size: var(--text-2xs, .64rem); text-transform: uppercase; letter-spacing: .08em; color: var(--ink-dim, #9a9a9a); font-weight: 700; margin-bottom: 8px; }
+.so-side-card .so-preview { margin-top: 0; }
+.so-side-points { list-style: none; padding: 0; margin: 12px 0 4px; display: flex; flex-direction: column; gap: 7px; }
+.so-side-points li { font-size: var(--text-2xs, .66rem); color: var(--ink-dim, #999); padding-left: 15px; position: relative; line-height: 1.45; }
+.so-side-points li::before { content: ''; position: absolute; left: 0; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: ${VIOLET}; }
+.so-side-points b { color: var(--ink, #ccc); font-weight: 600; }
+.so-side-save { width: 100%; justify-content: center; margin-top: 14px; }
+.so-side-cancel { width: 100%; justify-content: center; margin-top: 7px; background: transparent; border-color: transparent; }
+.so-side-cancel:hover { background: var(--surface-2, rgba(255,255,255,.05)); }
 `;
 	document.head.appendChild(s);
 }
@@ -136,158 +156,239 @@ const DEFAULTS = {
 
 const numOrNull = (v) => { const s = String(v ?? '').trim(); if (s === '') return null; const n = Number(s); return Number.isFinite(n) ? n : null; };
 
-// ── the strategy editor ────────────────────────────────────────────────────────
-// existing: a strategy object to edit (PATCH); null → create (POST). Resolves the
-// saved strategy object, or null if cancelled.
+// ── shared editor internals ────────────────────────────────────────────────────
+// One source of truth for the strategy form, used by both the modal editor
+// (openStrategyEditor — in-context editing on an agent profile) and the full-page
+// builder (mountStrategyComposer — the /strategies "New strategy" flow). The field
+// markup, parsing, live preview, and save all live here so the two surfaces can
+// never drift apart.
+function makeState(existing) {
+	const cfg = existing?.config ? structuredCloneSafe(existing.config) : structuredCloneSafe(DEFAULTS);
+	return {
+		name: existing?.name || '',
+		description: existing?.description || '',
+		network: cfg.network || 'mainnet',
+		entry: { ...DEFAULTS.entry, ...(cfg.entry || {}) },
+		sizing: { ...DEFAULTS.sizing, ...(cfg.sizing || {}) },
+		exits: { ...DEFAULTS.exits, ...(cfg.exits || {}) },
+		risk: { ...DEFAULTS.risk, ...(cfg.risk || {}) },
+	};
+}
+
+const numVal = (v) => (v == null ? '' : v);
+
+function previewText(state) {
+	const c = { entry: state.entry, sizing: state.sizing, exits: state.exits, risk: state.risk };
+	return configSummary(c) || 'Define your rules above.';
+}
+
+// The form fields, without any chrome. `preview` controls whether the inline
+// preview/error block is emitted here (the modal wants it inline; the page hosts
+// them in its sticky side panel instead).
+function strategyFieldsHTML(state, { preview = true } = {}) {
+	return `<div class="so-field"><label>Name</label><input id="so-name" maxlength="80" placeholder="e.g. Fresh-launch sniper" value="${esc(state.name)}"></div>
+		<div class="so-field"><label>Description <span style="color:var(--ink-faint,#777)">(optional)</span></label><input id="so-desc" maxlength="2000" placeholder="What edge does this capture?" value="${esc(state.description)}"></div>
+
+		<fieldset class="so-group"><legend>Entry — when to buy</legend>
+			<div class="so-grid">
+				<div class="so-field"><label>Max launch age (min)</label><input type="number" min="1" max="10080" id="so-age" value="${numVal(state.entry.max_age_minutes)}"><div class="so-hint">only act on launches newer than this</div></div>
+				<div class="so-field"><label>Min liquidity (◎ SOL)</label><input type="number" min="0" step="0.1" id="so-liq" value="${numVal(state.entry.min_liquidity_sol)}"></div>
+				<div class="so-field"><label>Min market cap (USD)</label><input type="number" min="0" id="so-mcmin" value="${numVal(state.entry.min_market_cap_usd)}"></div>
+				<div class="so-field"><label>Max market cap (USD)</label><input type="number" min="0" id="so-mcmax" value="${numVal(state.entry.max_market_cap_usd)}"></div>
+				<div class="so-field"><label>Max creator launches</label><input type="number" min="0" id="so-claunch" value="${numVal(state.entry.max_creator_launches)}"><div class="so-hint">skip serial deployers</div></div>
+				<div class="so-field"><label>Min creator graduations</label><input type="number" min="0" id="so-cgrad" value="${numVal(state.entry.min_creator_graduated)}"></div>
+			</div>
+			<label class="so-checkrow"><input type="checkbox" id="so-socials" ${state.entry.require_socials ? 'checked' : ''}> Require socials (X / Telegram / site)</label>
+		</fieldset>
+
+		<fieldset class="so-group"><legend>Sizing</legend>
+			<div class="so-grid">
+				<div class="so-field"><label>Per-trade size (◎ SOL)</label><input type="number" min="0.0001" step="0.01" id="so-size" value="${numVal(state.sizing.amount_sol)}"><div class="so-hint">still capped by your agent's spend policy</div></div>
+				<div class="so-field"><label>Max slippage (bps)</label><input type="number" min="0" max="10000" id="so-slip" value="${numVal(state.sizing.max_slippage_bps)}"><div class="so-hint">500 = 5%</div></div>
+			</div>
+		</fieldset>
+
+		<fieldset class="so-group"><legend>Exits — at least one upside exit + a stop-loss</legend>
+			<div class="so-grid">
+				<div class="so-field"><label>Take-profit (%)</label><input type="number" min="1" id="so-tp" value="${numVal(state.exits.take_profit_pct)}"><div class="so-hint">100 = sell at 2×</div></div>
+				<div class="so-field"><label>Stop-loss (%) — required</label><input type="number" min="1" max="99" id="so-sl" value="${numVal(state.exits.stop_loss_pct)}"></div>
+				<div class="so-field"><label>Trailing stop (%)</label><input type="number" min="1" max="99" id="so-trail" value="${numVal(state.exits.trailing_stop_pct)}"><div class="so-hint">% drop from peak</div></div>
+				<div class="so-field"><label>Max hold (min)</label><input type="number" min="1" id="so-hold" value="${numVal(state.exits.max_hold_minutes)}"></div>
+			</div>
+		</fieldset>
+
+		<fieldset class="so-group"><legend>Risk</legend>
+			<div class="so-grid">
+				<div class="so-field"><label>Max concurrent positions</label><input type="number" min="1" max="50" id="so-conc" value="${numVal(state.risk.max_concurrent_positions)}"></div>
+				<div class="so-field"><label>Cooldown between entries (min)</label><input type="number" min="0" id="so-cool" value="${numVal(state.risk.cooldown_minutes)}"></div>
+				<div class="so-field"><label>Network</label><select id="so-net"><option value="mainnet" ${state.network === 'mainnet' ? 'selected' : ''}>Mainnet</option><option value="devnet" ${state.network === 'devnet' ? 'selected' : ''}>Devnet</option></select></div>
+			</div>
+		</fieldset>${preview ? `
+
+		<div class="so-preview" id="so-preview">${previewText(state)}</div>
+		<div class="so-err" id="so-err" hidden></div>` : ''}`;
+}
+
+// Read every field in `root` back into `state` (root is the modal or composer).
+function readInputs(root, state) {
+	const q = (id) => root.querySelector(id);
+	state.name = q('#so-name')?.value || '';
+	state.description = q('#so-desc')?.value || '';
+	state.network = q('#so-net')?.value || 'mainnet';
+	state.entry.max_age_minutes = numOrNull(q('#so-age')?.value);
+	state.entry.min_liquidity_sol = numOrNull(q('#so-liq')?.value);
+	state.entry.min_market_cap_usd = numOrNull(q('#so-mcmin')?.value);
+	state.entry.max_market_cap_usd = numOrNull(q('#so-mcmax')?.value);
+	state.entry.max_creator_launches = numOrNull(q('#so-claunch')?.value);
+	state.entry.min_creator_graduated = numOrNull(q('#so-cgrad')?.value);
+	state.entry.require_socials = !!q('#so-socials')?.checked;
+	state.sizing.amount_sol = numOrNull(q('#so-size')?.value);
+	state.sizing.max_slippage_bps = numOrNull(q('#so-slip')?.value);
+	state.exits.take_profit_pct = numOrNull(q('#so-tp')?.value);
+	state.exits.stop_loss_pct = numOrNull(q('#so-sl')?.value);
+	state.exits.trailing_stop_pct = numOrNull(q('#so-trail')?.value);
+	state.exits.max_hold_minutes = numOrNull(q('#so-hold')?.value);
+	state.risk.max_concurrent_positions = numOrNull(q('#so-conc')?.value);
+	state.risk.cooldown_minutes = numOrNull(q('#so-cool')?.value);
+}
+
+// Live-update the preview as any field changes.
+function wireFormFields(root, state) {
+	root.querySelectorAll('input,select').forEach((el) => el.addEventListener('input', () => {
+		readInputs(root, state);
+		const p = root.querySelector('#so-preview'); if (p) p.innerHTML = previewText(state);
+	}));
+}
+
+function buildConfig(state) {
+	return {
+		network: state.network,
+		entry: { trigger: 'new_launch', ...state.entry },
+		sizing: state.sizing,
+		exits: state.exits,
+		risk: state.risk,
+	};
+}
+
+function showFieldErr(root, m) { const e = root.querySelector('#so-err'); if (e) { e.textContent = m; e.hidden = false; } }
+
+// POST (create) or PATCH (edit). Returns the saved strategy, or throws.
+async function submitStrategy(state, existing) {
+	const payload = { name: state.name.trim(), description: state.description.trim() || null, config: buildConfig(state) };
+	const res = await apiFetch(existing ? `/api/strategies/${existing.id}` : '/api/strategies', {
+		method: existing ? 'PATCH' : 'POST',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(payload),
+	});
+	const j = await res.json().catch(() => ({}));
+	if (!res.ok) {
+		const fieldErrs = j?.error?.errors || j?.errors;
+		if (Array.isArray(fieldErrs) && fieldErrs.length) throw new Error(fieldErrs.map((e) => e.message).join(' '));
+		throw new Error(j?.error?.message || j?.message || 'Could not save');
+	}
+	return j.data;
+}
+
+// ── the strategy editor (modal) ────────────────────────────────────────────────
+// In-context editing on an agent profile, where navigating to a full page would
+// lose the surrounding context. The /strategies library uses the full-page
+// builder below instead. existing: a strategy to edit (PATCH); null → create
+// (POST). Resolves the saved strategy object, or null if cancelled.
 export function openStrategyEditor({ existing = null } = {}) {
 	ensureStrategyStyles();
-	const cfg = existing?.config ? structuredCloneSafe(existing.config) : structuredCloneSafe(DEFAULTS);
+	const state = makeState(existing);
 	return new Promise((resolve) => {
 		const back = document.createElement('div');
 		back.className = 'so-modal-back';
-		const state = {
-			name: existing?.name || '',
-			description: existing?.description || '',
-			network: cfg.network || 'mainnet',
-			entry: { ...DEFAULTS.entry, ...(cfg.entry || {}) },
-			sizing: { ...DEFAULTS.sizing, ...(cfg.sizing || {}) },
-			exits: { ...DEFAULTS.exits, ...(cfg.exits || {}) },
-			risk: { ...DEFAULTS.risk, ...(cfg.risk || {}) },
-		};
-
-		function num(v) { return v == null ? '' : v; }
-		function previewText() {
-			const c = { entry: state.entry, sizing: state.sizing, exits: state.exits, risk: state.risk };
-			return configSummary(c) || 'Define your rules above.';
-		}
-		function render() {
-			back.innerHTML = `<div class="so-modal" role="dialog" aria-modal="true" aria-label="${existing ? 'Edit' : 'New'} strategy">
-				<h3>${existing ? 'Edit strategy' : 'New strategy'}</h3>
-				<p class="so-sub">A strategy is a real, rule-based plan. When equipped, your agent evaluates real launches and executes on-chain — always inside your spend policy.</p>
-
-				<div class="so-field"><label>Name</label><input id="so-name" maxlength="80" placeholder="e.g. Fresh-launch sniper" value="${esc(state.name)}"></div>
-				<div class="so-field"><label>Description <span style="color:var(--ink-faint,#777)">(optional)</span></label><input id="so-desc" maxlength="2000" placeholder="What edge does this capture?" value="${esc(state.description)}"></div>
-
-				<fieldset class="so-group"><legend>Entry — when to buy</legend>
-					<div class="so-grid">
-						<div class="so-field"><label>Max launch age (min)</label><input type="number" min="1" max="10080" id="so-age" value="${num(state.entry.max_age_minutes)}"><div class="so-hint">only act on launches newer than this</div></div>
-						<div class="so-field"><label>Min liquidity (◎ SOL)</label><input type="number" min="0" step="0.1" id="so-liq" value="${num(state.entry.min_liquidity_sol)}"></div>
-						<div class="so-field"><label>Min market cap (USD)</label><input type="number" min="0" id="so-mcmin" value="${num(state.entry.min_market_cap_usd)}"></div>
-						<div class="so-field"><label>Max market cap (USD)</label><input type="number" min="0" id="so-mcmax" value="${num(state.entry.max_market_cap_usd)}"></div>
-						<div class="so-field"><label>Max creator launches</label><input type="number" min="0" id="so-claunch" value="${num(state.entry.max_creator_launches)}"><div class="so-hint">skip serial deployers</div></div>
-						<div class="so-field"><label>Min creator graduations</label><input type="number" min="0" id="so-cgrad" value="${num(state.entry.min_creator_graduated)}"></div>
-					</div>
-					<label class="so-checkrow"><input type="checkbox" id="so-socials" ${state.entry.require_socials ? 'checked' : ''}> Require socials (X / Telegram / site)</label>
-				</fieldset>
-
-				<fieldset class="so-group"><legend>Sizing</legend>
-					<div class="so-grid">
-						<div class="so-field"><label>Per-trade size (◎ SOL)</label><input type="number" min="0.0001" step="0.01" id="so-size" value="${num(state.sizing.amount_sol)}"><div class="so-hint">still capped by your agent's spend policy</div></div>
-						<div class="so-field"><label>Max slippage (bps)</label><input type="number" min="0" max="10000" id="so-slip" value="${num(state.sizing.max_slippage_bps)}"><div class="so-hint">500 = 5%</div></div>
-					</div>
-				</fieldset>
-
-				<fieldset class="so-group"><legend>Exits — at least one upside exit + a stop-loss</legend>
-					<div class="so-grid">
-						<div class="so-field"><label>Take-profit (%)</label><input type="number" min="1" id="so-tp" value="${num(state.exits.take_profit_pct)}"><div class="so-hint">100 = sell at 2×</div></div>
-						<div class="so-field"><label>Stop-loss (%) — required</label><input type="number" min="1" max="99" id="so-sl" value="${num(state.exits.stop_loss_pct)}"></div>
-						<div class="so-field"><label>Trailing stop (%)</label><input type="number" min="1" max="99" id="so-trail" value="${num(state.exits.trailing_stop_pct)}"><div class="so-hint">% drop from peak</div></div>
-						<div class="so-field"><label>Max hold (min)</label><input type="number" min="1" id="so-hold" value="${num(state.exits.max_hold_minutes)}"></div>
-					</div>
-				</fieldset>
-
-				<fieldset class="so-group"><legend>Risk</legend>
-					<div class="so-grid">
-						<div class="so-field"><label>Max concurrent positions</label><input type="number" min="1" max="50" id="so-conc" value="${num(state.risk.max_concurrent_positions)}"></div>
-						<div class="so-field"><label>Cooldown between entries (min)</label><input type="number" min="0" id="so-cool" value="${num(state.risk.cooldown_minutes)}"></div>
-						<div class="so-field"><label>Network</label><select id="so-net"><option value="mainnet" ${state.network === 'mainnet' ? 'selected' : ''}>Mainnet</option><option value="devnet" ${state.network === 'devnet' ? 'selected' : ''}>Devnet</option></select></div>
-					</div>
-				</fieldset>
-
-				<div class="so-preview" id="so-preview">${previewText()}</div>
-				<div class="so-err" id="so-err" hidden></div>
-				<div class="so-actions">
-					<button type="button" class="so-btn" id="so-cancel">Cancel</button>
-					<button type="button" class="so-btn so-btn-primary" id="so-save">${existing ? 'Save changes' : 'Create strategy'}</button>
-				</div>
-			</div>`;
-			wire();
-		}
-		function readInputs() {
-			const q = (id) => back.querySelector(id);
-			state.name = q('#so-name')?.value || '';
-			state.description = q('#so-desc')?.value || '';
-			state.network = q('#so-net')?.value || 'mainnet';
-			state.entry.max_age_minutes = numOrNull(q('#so-age')?.value);
-			state.entry.min_liquidity_sol = numOrNull(q('#so-liq')?.value);
-			state.entry.min_market_cap_usd = numOrNull(q('#so-mcmin')?.value);
-			state.entry.max_market_cap_usd = numOrNull(q('#so-mcmax')?.value);
-			state.entry.max_creator_launches = numOrNull(q('#so-claunch')?.value);
-			state.entry.min_creator_graduated = numOrNull(q('#so-cgrad')?.value);
-			state.entry.require_socials = !!q('#so-socials')?.checked;
-			state.sizing.amount_sol = numOrNull(q('#so-size')?.value);
-			state.sizing.max_slippage_bps = numOrNull(q('#so-slip')?.value);
-			state.exits.take_profit_pct = numOrNull(q('#so-tp')?.value);
-			state.exits.stop_loss_pct = numOrNull(q('#so-sl')?.value);
-			state.exits.trailing_stop_pct = numOrNull(q('#so-trail')?.value);
-			state.exits.max_hold_minutes = numOrNull(q('#so-hold')?.value);
-			state.risk.max_concurrent_positions = numOrNull(q('#so-conc')?.value);
-			state.risk.cooldown_minutes = numOrNull(q('#so-cool')?.value);
-		}
-		function wire() {
-			back.querySelectorAll('input,select').forEach((el) => el.addEventListener('input', () => {
-				readInputs();
-				const p = back.querySelector('#so-preview'); if (p) p.innerHTML = previewText();
-			}));
-			back.querySelector('#so-cancel').addEventListener('click', () => close(null));
-			back.querySelector('#so-save').addEventListener('click', save);
-		}
-		function buildConfig() {
-			return {
-				network: state.network,
-				entry: { trigger: 'new_launch', ...state.entry },
-				sizing: state.sizing,
-				exits: state.exits,
-				risk: state.risk,
-			};
-		}
-		async function save() {
-			readInputs();
-			const errEl = back.querySelector('#so-err');
-			const btn = back.querySelector('#so-save');
-			if (!state.name.trim()) { showErr('Give your strategy a name.'); return; }
+		back.innerHTML = `<div class="so-modal" role="dialog" aria-modal="true" aria-label="${existing ? 'Edit' : 'New'} strategy">
+			<h3>${existing ? 'Edit strategy' : 'New strategy'}</h3>
+			<p class="so-sub">A strategy is a real, rule-based plan. When equipped, your agent evaluates real launches and executes on-chain — always inside your spend policy.</p>
+			${strategyFieldsHTML(state)}
+			<div class="so-actions">
+				<button type="button" class="so-btn" id="so-cancel">Cancel</button>
+				<button type="button" class="so-btn so-btn-primary" id="so-save">${existing ? 'Save changes' : 'Create strategy'}</button>
+			</div>
+		</div>`;
+		const modal = back.firstElementChild;
+		wireFormFields(modal, state);
+		modal.querySelector('#so-cancel').addEventListener('click', () => close(null));
+		const btn = modal.querySelector('#so-save');
+		btn.addEventListener('click', async () => {
+			readInputs(modal, state);
+			if (!state.name.trim()) { showFieldErr(modal, 'Give your strategy a name.'); return; }
 			btn.disabled = true; btn.textContent = 'Saving…';
 			try {
-				const payload = { name: state.name.trim(), description: state.description.trim() || null, config: buildConfig() };
-				const res = await apiFetch(existing ? `/api/strategies/${existing.id}` : '/api/strategies', {
-					method: existing ? 'PATCH' : 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify(payload),
-				});
-				const j = await res.json().catch(() => ({}));
-				if (!res.ok) {
-					const fieldErrs = j?.error?.errors || j?.errors;
-					if (Array.isArray(fieldErrs) && fieldErrs.length) throw new Error(fieldErrs.map((e) => e.message).join(' '));
-					throw new Error(j?.error?.message || j?.message || 'Could not save');
-				}
+				const saved = await submitStrategy(state, existing);
 				toast(existing ? 'Strategy updated' : 'Strategy created');
-				close(j.data);
+				close(saved);
 			} catch (e) {
 				if (e?.redirected) return;
 				btn.disabled = false; btn.textContent = existing ? 'Save changes' : 'Create strategy';
-				showErr(e.message || 'Could not save');
+				showFieldErr(modal, e.message || 'Could not save');
 			}
-			function showErr(m) { if (errEl) { errEl.textContent = m; errEl.hidden = false; } }
-		}
-		function showErr(m) { const e = back.querySelector('#so-err'); if (e) { e.textContent = m; e.hidden = false; } }
+		});
 		function close(result) { document.removeEventListener('keydown', onKey); back.remove(); resolve(result); }
 		function onKey(e) { if (e.key === 'Escape') close(null); }
 		back.addEventListener('click', (e) => { if (e.target === back) close(null); });
 		document.addEventListener('keydown', onKey);
-		render();
 		document.body.appendChild(back);
-		back.querySelector('#so-name')?.focus();
+		modal.querySelector('#so-name')?.focus();
 	});
+}
+
+// ── the strategy builder (full page) ───────────────────────────────────────────
+// Renders the whole builder into `host` as a page — a two-column workspace with
+// the rules on the left and a sticky live summary + Create button on the right.
+// This is the /strategies "New strategy" surface: a complex, multi-section form
+// deserves room to breathe, not a cramped modal. onSaved(saved) fires after a
+// successful create/edit; onCancel() fires on the back link.
+export function mountStrategyComposer(host, { existing = null, onSaved, onCancel } = {}) {
+	ensureStrategyStyles();
+	const state = makeState(existing);
+	host.innerHTML = `<div class="so-compose">
+		<div class="so-compose-head">
+			<button type="button" class="so-compose-back" id="so-back">← Strategies</button>
+			<h1 class="so-compose-title">${existing ? 'Edit strategy' : 'New strategy'}</h1>
+			<p class="so-compose-lead">A strategy is a real, rule-based plan. When equipped, your agent evaluates real launches and executes on-chain — always inside your spend policy.</p>
+		</div>
+		<div class="so-compose-grid">
+			<div class="so-compose-main">${strategyFieldsHTML(state, { preview: false })}</div>
+			<aside class="so-compose-side">
+				<div class="so-side-card">
+					<div class="so-side-h">Your strategy</div>
+					<div class="so-preview" id="so-preview">${previewText(state)}</div>
+					<ul class="so-side-points">
+						<li><b>Spend-policy gated</b> — every trade is capped by your agent</li>
+						<li><b>Real on-chain</b> — no backtested fiction</li>
+						<li><b>Kill switch</b> — halt everything at once</li>
+					</ul>
+					<div class="so-err" id="so-err" hidden></div>
+					<button type="button" class="so-btn so-btn-primary so-side-save" id="so-save">${existing ? 'Save changes' : 'Create strategy'}</button>
+					<button type="button" class="so-btn so-side-cancel" id="so-cancel">Cancel</button>
+				</div>
+			</aside>
+		</div>
+	</div>`;
+	const root = host.firstElementChild;
+	wireFormFields(root, state);
+	root.querySelector('#so-back').addEventListener('click', () => onCancel?.());
+	root.querySelector('#so-cancel').addEventListener('click', () => onCancel?.());
+	const btn = root.querySelector('#so-save');
+	btn.addEventListener('click', async () => {
+		readInputs(root, state);
+		if (!state.name.trim()) { showFieldErr(root, 'Give your strategy a name.'); root.querySelector('#so-name')?.focus(); return; }
+		btn.disabled = true; btn.textContent = 'Saving…';
+		try {
+			const saved = await submitStrategy(state, existing);
+			toast(existing ? 'Strategy updated' : 'Strategy created');
+			onSaved?.(saved);
+		} catch (e) {
+			if (e?.redirected) return;
+			btn.disabled = false; btn.textContent = existing ? 'Save changes' : 'Create strategy';
+			showFieldErr(root, e.message || 'Could not save');
+		}
+	});
+	root.querySelector('#so-name')?.focus();
 }
 
 function structuredCloneSafe(o) {
