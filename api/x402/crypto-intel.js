@@ -17,6 +17,16 @@ import { buildBazaarSchema } from '../_lib/x402-spec.js';
 import { installAccessControl } from '../_lib/x402/access-control.js';
 import { withService } from '../_lib/x402/bazaar-helpers.js';
 import { priceFor } from '../_lib/x402-prices.js';
+import { detectPumpVolumeAnomaly } from '../_lib/x402/pump-volume-anomaly.js';
+import { detectPumpTrending } from '../_lib/x402/pump-trending-score.js';
+
+// Special topics resolved by a dedicated data engine rather than the CoinGecko
+// price path. `pump_volume_anomaly` scans the live pump.fun trade feed for a coin
+// whose trailing-hour volume is a statistical outlier vs its peers.
+// `pump_trending` returns the live pump.fun trending board with buy/sell pressure
+// scores and whale activity across the top ranked coins.
+const PUMP_VOLUME_ANOMALY = 'pump_volume_anomaly';
+const PUMP_TRENDING = 'pump_trending';
 
 const ROUTE = '/api/x402/crypto-intel';
 
@@ -158,6 +168,21 @@ export default paidEndpoint({
 				topic = body.topic.toLowerCase().trim().slice(0, 30);
 			}
 		} catch { /* default topic */ }
+
+		// pump.fun volume-anomaly oracle — live trade-feed analytics, not a price
+		// lookup. detectPumpVolumeAnomaly() throws a 503-tagged error when the
+		// upstream feed is down, so the paidEndpoint wrapper refunds (never settles
+		// for an empty verdict), matching the price-path behaviour below.
+		if (topic === PUMP_VOLUME_ANOMALY) {
+			return await detectPumpVolumeAnomaly();
+		}
+
+		// pump.fun trending score feed — fetches the live market-cap leaderboard,
+		// derives buy/sell pressure from real swap-api trade feeds, and surfaces
+		// whale buys (≥5 SOL). Throws 503 if the board is unavailable (no charge).
+		if (topic === PUMP_TRENDING) {
+			return await detectPumpTrending();
+		}
 
 		const coinId = ALIASES[topic] || topic;
 		let live = null;

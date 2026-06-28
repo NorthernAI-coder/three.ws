@@ -49,6 +49,8 @@ import { run as feeCalculationValidator } from './pipelines/fee-calculation-vali
 import { run as crossChainCostComparison } from './pipelines/cross-chain-cost.js';
 import { run as charitySplitAudit } from './pipelines/charity-split-audit.js';
 import { classifyThreeSignal, insertThreeSignal } from './three-signal-store.js';
+import { classifySniperSignal, insertSniperAnalytics } from './sniper-analytics-store.js';
+import { classifyLeaderboard, insertLeaderboardSnapshot } from './agent-leaderboard-store.js';
 import { run as cosmeticPricingAudit } from './pipelines/cosmetic-pricing-audit.js';
 import { run as builderCodeAttribution } from './pipelines/builder-code-attribution.js';
 import { run as paymentProofIdempotencyAudit } from './pipelines/payment-proof-idempotency-audit.js';
@@ -74,8 +76,10 @@ import {
 	SCENE_CAPTURE_PRICE_ATOMIC,
 } from './scene-capture-processor.js';
 import { run as runRigComplexityScorer } from './pipelines/rig-complexity.js';
+import { extractCoverRevenueSignal } from '../club/cover-revenue.js';
 import { run as runReservationLeakDetector } from './pipelines/spend-reservation-leak-detector.js';
 import { run as runSubscriptionHealth } from './pipelines/subscription-health.js';
+import { run as runPayByNameResolution } from './pipelines/pay-by-name-resolver.js';
 import {
 	run as runServiceUptimeMonitor,
 	SERVICE_UPTIME_ENDPOINT,
@@ -86,6 +90,11 @@ import {
 	THUMBNAIL_REGEN_PRICE_ATOMIC,
 	STALE_DAYS as THUMBNAIL_STALE_DAYS,
 } from './thumbnail-regen.js';
+import { classifyVolumeAnomaly } from './pump-volume-anomaly.js';
+import {
+	classifyLaunchMonitor,
+	storePumpLaunchSnapshot,
+} from './pump-launch-monitor.js';
 
 // ── MCP Tool Latency Monitor (USE-006) ───────────────────────────────────────
 // The canary the loop pays every 5 min to exercise the MCP paid path end-to-end
@@ -207,6 +216,52 @@ async function nextCanonicalTarget(ctx) {
 	const origin = ctx?.origin || 'https://three.ws';
 	const targetUrl = `${origin}/avatars/${list[idx]}`;
 	return { path: `/api/x402/model-check?url=${encodeURIComponent(targetUrl)}`, targetUrl };
+}
+
+// ── Forge Content Generation Health helpers (USE-072) ─────────────────────────
+// The latency SLA the forge content-generation probe asserts (mirrors
+// HEALTH_CHECK_BUDGET_MS in api/x402/forge.js). A completion slower than this — or
+// an outright generator failure — is a forge performance alert.
+const FORGE_HEALTH_BUDGET_MS = 5000;
+// Redis key the on-call surface reads to detect a degraded content-generation
+// lane in one GET, mirroring the wallet-balance alert convention.
+const FORGE_HEALTH_ALERT_KEY = 'x402:forge-health:alert';
+const FORGE_HEALTH_ALERT_TTL_SECONDS = 25 * 60;
+
+// storeValue sink for the forge content-generation health probe. Raises (or
+// clears) the forge performance alert based on the extracted verdict, and never
+// throws — the loop wraps it in try/catch, but a health canary must not be able
+// to crash the tick over an alerting hiccup.
+async function recordForgeHealthAlert({ redis, signalData }) {
+	if (!redis) return;
+	const v = signalData || {};
+	const degraded = v.generated === false || v.slow === true;
+	try {
+		if (degraded) {
+			await redis.set(
+				FORGE_HEALTH_ALERT_KEY,
+				JSON.stringify({
+					reason: v.generated === false ? 'generation_failed' : 'latency_budget_exceeded',
+					generated: v.generated === true,
+					latency_ms: v.latency_ms ?? null,
+					budget_ms: FORGE_HEALTH_BUDGET_MS,
+					provider: v.provider ?? null,
+					error: v.error ?? null,
+					ts: new Date().toISOString(),
+				}),
+				{ ex: FORGE_HEALTH_ALERT_TTL_SECONDS },
+			);
+			console.warn(
+				`[x402/forge-health] ALERT: content generation degraded (` +
+					`generated=${v.generated}, latency_ms=${v.latency_ms}, budget=${FORGE_HEALTH_BUDGET_MS}ms)`,
+			);
+		} else if (v.generated === true) {
+			// Healthy again — drop any lingering alert flag.
+			await redis.del(FORGE_HEALTH_ALERT_KEY);
+		}
+	} catch (err) {
+		console.warn(`[x402/forge-health] alert write failed: ${err?.message || err}`);
+	}
 }
 
 const SELF_ENDPOINTS = [
@@ -410,6 +465,28 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ topic: r?.topic, signal: r?.signal, headline: r?.headline, confidence: r?.confidence }),
 	},
+
+	// ── Pump.fun Volume Anomaly Oracle (USE-048) ──────────────────────────────
+	// Pays $0.01 USDC every 5 minutes to /api/x402/crypto-intel with topic
+	// pump_volume_anomaly. The endpoint scans the live pump.fun currently-trading
+	// set, fetches trailing-1h trade volumes from the swap API, and flags any coin
+	// whose hourly USD volume is >=3x the peer-coin median as an anomaly. A ratio
+	// > 5 is tagged high-conviction; as an `oracle` entry the loop upserts the
+	// verdict into oracle_intel_signals (topic 'pump_volume_anomaly') for the
+	// sniper gate. Cooldown 300s -> 12 scans/hr; $0.01/scan ~= $0.12/hr.
+	{
+		id: 'pump-volume-anomaly',
+		name: 'Pump.fun Volume Anomaly Oracle',
+		path: '/api/x402/crypto-intel',
+		method: 'POST',
+		body: { topic: 'pump_volume_anomaly' },
+		cooldown_s: 300,
+		priority: 88,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => classifyVolumeAnomaly(r),
+	},
+
 	{
 		// ── $THREE Signal Feed (USE: $THREE market oracle) ─────────────
 		// Pays $0.01 USDC every 15 min to /api/x402/three-intel for the live $THREE
@@ -489,6 +566,42 @@ const SELF_ENDPOINTS = [
 			stable_count: r?.stable_count ?? 0,
 			total_tracked: r?.total_tracked ?? 0,
 			period: r?.period || '24h',
+		}),
+	},
+
+	// ── Club Membership Snapshot (USE-066) ─────────────────────────────────────
+	// Pays the $0.01 USDC club cover (POST snapshot mode) once a day to take a
+	// growth/churn snapshot of the three_holders club, read live off the club
+	// ledger: { member_count, active_last_7d, new_this_week } plus a classified
+	// signal (growing / stable / churning / empty). As an `oracle` entry the
+	// latest snapshot dedups into oracle_intel_signals under topic
+	// 'club:three_holders' — a club-membership topic the sniper macro gate ignores
+	// (it reads only solana/bitcoin/pump) so it never pollutes trade decisions —
+	// giving any dashboard a single queryable row for current club health. The
+	// full snapshot also lands in x402_autonomous_log.signal_data every run, so
+	// the day-over-day growth/churn trend is reconstructable from the log alone.
+	// Daily cadence → one paid snapshot/day ≈ $0.01/day, well under the loop cap.
+	{
+		id: 'club-membership-snapshot',
+		name: 'Club Membership Snapshot (three_holders)',
+		path: '/api/x402/club-cover',
+		method: 'POST',
+		body: { club: 'three_holders', mode: 'snapshot' },
+		cooldown_s: 86400, // daily — membership growth/churn is a slow-moving signal
+		priority: 86,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'club:three_holders',
+			club: r?.club ?? 'three_holders',
+			member_count: r?.member_count ?? null,
+			active_last_7d: r?.active_last_7d ?? null,
+			new_this_week: r?.new_this_week ?? null,
+			growth_rate: r?.growth_rate ?? null,
+			active_rate: r?.active_rate ?? null,
+			signal: r?.signal ?? null,
+			headline: r?.headline ?? null,
+			confidence: r?.confidence ?? null,
 		}),
 	},
 
@@ -580,17 +693,33 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ alive: Array.isArray(r?.skills), count: r?.skills?.length }),
 	},
+	// ── Pay-By-Name Resolution Health (USE-054) ───────────────────────────────
+	// Canary in front of the name → on-chain address resolver that every "send
+	// USDC to a name" flow depends on (SDK payByName(), /pay studio, profile pay
+	// button). Every 10 min run() resolves a KNOWN name — the platform's own SNS
+	// parent domain (<PARENT_LABEL>.sol) via the FREE GET resolve path — and
+	// asserts the registry returns a valid, on-curve Solana wallet (and, when
+	// X402_PAY_BY_NAME_EXPECTED_ADDRESS is set, that it MATCHES that wallet — an
+	// anti-poisoning check that catches the domain repointing between deploys).
+	// The resolve path is free, so this moves no funds (amountAtomic always 0);
+	// run() owns the OK/verified classification so a 404 is recorded as unhealthy
+	// rather than the generic loop's false "free success". Value sink:
+	// pay_by_name_resolution_log (time-series) + Redis x402:pay-by-name:{latest,
+	// alert}. Full implementation in ./pipelines/pay-by-name-resolver.js.
 	{
-		id: 'health-pay-by-name',
-		name: 'Health: pay-by-name',
+		id: 'pay-by-name-resolution',
+		name: 'Pay-By-Name Resolution Health',
+		// path is informational — run() owns the free GET resolve call itself.
 		path: '/api/x402/pay-by-name',
-		method: 'POST',
-		body: { name: 'three.ws' },
-		cooldown_s: 600,
+		method: 'GET',
+		body: null,
+		price_atomic: 0, // free resolve-only read — never pays
+		cooldown_s: 600, // every 10 min
 		priority: 45,
 		pipeline: 'health',
 		enabled: true,
-		extractSignal: (r) => ({ alive: !!r?.address, address: r?.address }),
+		run: (ctx) => runPayByNameResolution(ctx),
+		extractSignal: null,
 	},
 	{
 		id: 'health-agent-reputation',
@@ -604,6 +733,39 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ alive: r !== null }),
 	},
+
+	// ── Active Agent Reputation Sweep (USE-055) ───────────────────────────────
+	// Pays one real $0.01 USDC call to the POST sweep mode of
+	// /api/x402/agent-reputation, scoring the 20 most recently active three.ws
+	// agents in a single request (vs paying per agent). The endpoint synthesizes
+	// each 0..100 trust score from real on-chain pump.fun agent-payments activity,
+	// distribute/buyback success, and signed Solana attestations. extractSignal
+	// lifts { count, avg_score, flagged_count } + the flagged agent ids into
+	// x402_autonomous_log.signal_data so platform-trust monitoring (and ops) can
+	// watch the fleet's average reputation and catch a spike in low-trust agents
+	// (score < 30) straight off the autonomous log. Cooldown 1800s (30 min) →
+	// reputation is a slow-moving, audit-style signal; ≤ $0.48/day, well under
+	// the loop's daily cap.
+	{
+		id: 'agent-reputation-active-sweep',
+		name: 'Active Agent Reputation Sweep',
+		path: '/api/x402/agent-reputation',
+		method: 'POST',
+		body: { mode: 'sweep', limit: 20 },
+		cooldown_s: 1800,
+		priority: 58,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			count: r?.count ?? 0,
+			avg_score: r?.avg_score ?? null,
+			flagged_count: r?.flagged_count ?? 0,
+			flagged_agent_ids: Array.isArray(r?.flagged)
+				? r.flagged.map((a) => a?.agent_id).filter(Boolean)
+				: [],
+		}),
+	},
+
 	{
 		id: 'health-symbol-avail',
 		name: 'Health: symbol-availability',
@@ -651,6 +813,43 @@ const SELF_ENDPOINTS = [
 			has_errors: r?.has_errors ?? null,
 			missing_bones: r?.missing_bones ?? null,
 			skipped: r?.skipped ?? false,
+		}),
+	},
+
+	// ── MCP Tool Catalog Sync Probe (USE-061) ────────────────────────────────
+	// Pays $0.001 USDC hourly to POST /api/x402/mcp-tool-catalog with
+	// body { mode: 'sync' }, which runs the live catalog diff/persist logic
+	// (the endpoint defaults 'sync' to discover mode) and returns
+	// { total_tools, removed_tools[], new_tools[], changed_tools[], ts }.
+	// extractSignal maps to { tool_count, missing_count, last_sync }:
+	//   tool_count    = live advertised catalog size
+	//   missing_count = count of registered-but-vanished tools (the
+	//                   degradation signal — endpoint logged + deactivated
+	//                   them in mcp_tool_registry)
+	//   last_sync     = the sync timestamp
+	// A non-zero missing_count means a deploy silently dropped a capability
+	// agents may already depend on. Hourly cadence → ≤24 probes/day ≈
+	// $0.024/day, bounded by the daily cap.
+	// Downstream: mcp_tool_registry — feature-flag source agents read to
+	// discover newly-shipped MCP capabilities.
+	{
+		id: 'mcp-tool-catalog-sync',
+		name: 'MCP Tool Catalog Sync Probe',
+		path: '/api/x402/mcp-tool-catalog',
+		method: 'POST',
+		body: { mode: 'sync' },
+		cooldown_s: 3600, // hourly — MCP catalog changes only on deploy
+		priority: 54,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => ({
+			tool_count: r?.total_tools ?? null,
+			missing_count: Array.isArray(r?.removed_tools) ? r.removed_tools.length : 0,
+			last_sync: r?.ts ?? null,
+			new_count: Array.isArray(r?.new_tools) ? r.new_tools.length : 0,
+			changed_count: Array.isArray(r?.changed_tools) ? r.changed_tools.length : 0,
+			priced_tools: r?.priced_tools ?? null,
+			removed_tools: Array.isArray(r?.removed_tools) ? r.removed_tools : [],
 		}),
 	},
 
@@ -768,17 +967,52 @@ const SELF_ENDPOINTS = [
 	},
 
 	// ── Sniper Pipeline Support ────────────────────────────────────────────────
+	// Pump Launch Monitor: Recent Launches (USE-046) ─────────────────────────
+	// Pays $0.02 USDC to GET /api/x402/pump-agent-audit?limit=10&sort=newest for
+	// the 10 freshest pump.fun bonding-curve tokens. extractSignal distills the
+	// live cohort into { count, newest_mint, newest_name, newest_symbol,
+	// avg_initial_liquidity, max_initial_liquidity, agent_token_count }. As a
+	// `sniper` pipeline entry the signal lands in oracle_intel_signals (topic
+	// 'pump-launch-monitor') so the oracle gate can compare any candidate mint's
+	// initial liquidity against the running cohort baseline. storeValue appends
+	// the full cohort to pump_launch_snapshots for the sniper-screening surface.
+	// Cooldown 300 s (5 min) — fast enough to catch the earliest sniping window
+	// on new launches. At $0.02/call → $5.76/day at continuous pace, well below
+	// the loop's daily cap (the cooldown keeps actual spend much lower).
+	{
+		id: 'pump-launch-monitor',
+		name: 'Pump Launch Monitor: Recent Launches',
+		// GET with query params; the autonomous loop appends them to the URL.
+		path: '/api/x402/pump-agent-audit?limit=10&sort=newest',
+		method: 'GET',
+		body: null,
+		cooldown_s: 300,
+		priority: 88,
+		pipeline: 'sniper',
+		enabled: true,
+		extractSignal: (r) => classifyLaunchMonitor(r),
+		storeValue: (ctx) => storePumpLaunchSnapshot(ctx),
+	},
+	// Legacy entry kept for backwards-compat with existing cooldown keys, but
+	// corrected to use the real GET interface and extractSignal shape.
+	// Now superseded by pump-launch-monitor above (which has priority 88 vs 75
+	// so the loop will run the new one first on each tick). Consider removing
+	// this entry once pump-launch-monitor has several days of clean logs.
 	{
 		id: 'sniper-pump-audit-latest',
-		name: 'Pump Agent Audit: latest 5',
-		path: '/api/x402/pump-agent-audit',
-		method: 'POST',
-		body: { limit: 5 },
+		name: 'Pump Agent Audit: latest 5 (legacy)',
+		path: '/api/x402/pump-agent-audit?limit=5&sort=newest',
+		method: 'GET',
+		body: null,
 		cooldown_s: 600,
 		priority: 75,
 		pipeline: 'sniper',
 		enabled: true,
-		extractSignal: (r) => ({ count: r?.audits?.length, top_score: r?.audits?.[0]?.score }),
+		extractSignal: (r) => ({
+			count: r?.count ?? r?.launches?.length ?? null,
+			newest_mint: r?.newest_mint ?? null,
+			avg_initial_liquidity: r?.avg_initial_liquidity_sol ?? null,
+		}),
 	},
 	// Token Intel Pre-Snipe Gate (USE-023) — pays the $0.01 USDC Token Oracle
 	// (/api/x402/token-intel) for the freshest pump.fun mints the sniper is about
@@ -978,6 +1212,46 @@ const SELF_ENDPOINTS = [
 		pipeline: 'forge',
 		enabled: true,
 		run: (ctx) => forgeContentGeneration(ctx),
+	},
+
+	// ── Forge: Content Generation Health (USE-072) ─────────────────────────────
+	// A lightweight liveness+latency canary for the generative AI lane every Forge
+	// job depends on, distinct from the hourly prop generator above. Pays the floor
+	// ($0.001) to /api/x402/forge in health_check mode, which runs ONE fast, real
+	// text completion over the platform's free-first LLM provider chain (no mesh
+	// reconstruction) and returns a measured { generated, latency_ms, token_count }
+	// verdict. extractSignal lifts that verdict into x402_autonomous_log.signal_data;
+	// storeValue raises a forge performance alert (Redis x402:forge-health:alert,
+	// mirroring the wallet-balance alert convention) whenever the probe is slow
+	// (>5s) or the generator failed, and clears it once healthy — the on-call
+	// surface reads that key to know the content path degraded before users do.
+	// Cooldown 600s -> one probe every 10 min ~= $0.144/day, well under the loop cap.
+	{
+		id: 'forge-content-health',
+		name: 'Forge: Content Generation Health',
+		path: '/api/x402/forge',
+		method: 'POST',
+		body: { mode: 'health_check', type: 'text', prompt: 'Write one sentence about Solana.' },
+		price_atomic: 1000, // $0.001 — the health_check floor price the endpoint quotes
+		cooldown_s: 600, // 10 min
+		priority: 50,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => {
+			const latencyMs = typeof r?.latency_ms === 'number' ? r.latency_ms : null;
+			return {
+				generated: r?.generated === true,
+				latency_ms: latencyMs,
+				token_count: r?.token_count ?? null,
+				within_budget: r?.within_budget ?? null,
+				provider: r?.provider ?? null,
+				model: r?.model ?? null,
+				// Performance verdict consumed by storeValue + the status surface.
+				slow: latencyMs != null ? latencyMs > FORGE_HEALTH_BUDGET_MS : null,
+				error: r?.error ?? null,
+			};
+		},
+		storeValue: (ctx) => recordForgeHealthAlert(ctx),
 	},
 
 	// ── Bazaar Discovery Warmup (USE-008) ──────────────────────────────────────
@@ -1243,6 +1517,34 @@ const SELF_ENDPOINTS = [
 		pipeline: 'health',
 		enabled: true,
 		extractSignal: null,
+	},
+
+	// ── Club Cover Charge Revenue Summary (USE-067) ───────────────────────────
+	// Pays $0.01 USDC every 15 min to POST /api/x402/club-cover with mode:"revenue"
+	// to read the 7-day cover-charge and floor revenue across all clubs. The
+	// response aggregates:
+	//   • door revenue — every settled payment_settled event on the club-cover route,
+	//     queried from x402_audit_log (the canonical settlement ledger)
+	//   • floor revenue per act — settled dance tips in club_tips grouped by dancer,
+	//     each act being one identifiable "club" in the venue
+	// extractSignal lifts { total_usdc, top_club_id, top_club_revenue } into
+	// x402_autonomous_log.signal_data so dashboards can read social-economy health
+	// off the autonomous log directly. The `volume` pipeline tag keeps it out of
+	// the oracle dedup path — cover revenue is a lagging metric, not a real-time
+	// oracle price signal. Cooldown 900 s → 96 reads/day ≈ $0.96/day, well under
+	// the loop's $5/day cap. The data source is the live DB (never cached), so
+	// a drop in total_usdc within one 15-min window surfaces a revenue anomaly.
+	{
+		id: 'club-cover-revenue-summary',
+		name: 'Club Cover Charge Revenue Summary',
+		path: '/api/x402/club-cover',
+		method: 'POST',
+		body: { mode: 'revenue', period: '7d' },
+		cooldown_s: 900,
+		priority: 68,
+		pipeline: 'volume',
+		enabled: true,
+		extractSignal: (r) => extractCoverRevenueSignal(r),
 	},
 
 	// ── Avatar Optimization Pipeline (nightly MCP Health) ─────────────────────
@@ -1645,6 +1947,94 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		run: (ctx) => runReservationLeakDetector(ctx),
 		extractSignal: null,
+	},
+
+	// ── Platform Revenue Analytics (USE-039, Oracle pipeline) ─────────────────
+	// Pays $0.001 USDC every 15 min to POST /api/x402/analytics
+	// ({ report:"revenue", period:"24h" }) and pulls the last 24 hours of real
+	// platform revenue from the settled-payment ledger (x402_audit_log) plus the
+	// measured settlement fee from cross_chain_cost_comparison. extractSignal lifts
+	// { total_usd, top_endpoint, fee_collected } into oracle_intel_signals with
+	// topic 'platform-revenue' so the sniper gate sees live platform health data.
+	// The oracle upsert carries signal ('healthy'|'active'|'quiet') and a human
+	// headline so the status dashboard can render it without re-querying.
+	// Cooldown 900s (15 min) → 96 calls/day ≈ $0.096/day, well inside the loop cap.
+	// Downstream consumers:
+	//   • oracle_intel_signals WHERE topic = 'platform-revenue' — sniper gate health
+	//   • x402_autonomous_log signal_data — autonomous loop status view
+	{
+		id: 'platform-revenue-analytics',
+		name: 'Platform Revenue Analytics',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'revenue', period: '24h' },
+		cooldown_s: 900,
+		priority: 87,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const grossUsd = parseFloat(r?.totals?.gross_usd || '0');
+			const feeUsd = parseFloat(r?.fee_splits?.settlement_fee_usd || '0');
+			const payments = r?.totals?.total_payments ?? 0;
+			const topEndpoint = r?.top_endpoint?.endpoint ?? null;
+			const topCount = r?.top_endpoint?.count ?? 0;
+			const topGross = r?.top_endpoint?.gross_usd ?? '0';
+			const signal = grossUsd >= 0.10 ? 'healthy' : payments > 0 ? 'active' : 'quiet';
+			const headline = payments > 0
+				? `Platform earned $${grossUsd.toFixed(4)} gross in 24h across ${payments} payments${topEndpoint ? `; top: ${topEndpoint}` : ''}`
+				: 'No settled payments in the last 24h';
+			return {
+				topic: 'platform-revenue',
+				signal,
+				headline,
+				confidence: 1.0,
+				price_usd: grossUsd,
+				total_usd: grossUsd.toFixed(6),
+				top_endpoint: topEndpoint,
+				top_endpoint_count: topCount,
+				top_endpoint_gross: topGross,
+				fee_collected: feeUsd.toFixed(6),
+				net_platform_usd: r?.totals?.net_platform_usd ?? null,
+				total_payments: payments,
+				unique_payers: r?.totals?.unique_payers ?? 0,
+				period: r?.period ?? '24h',
+				generated_at: r?.generated_at ?? null,
+			};
+		},
+	},
+	// ── Sniper Trade Performance Analytics (USE-041) ──────────────────────────
+	// Pays $0.005 USDC every 5 minutes to POST /api/x402/analytics with
+	// { report: "sniper_trades", period: "24h" } to fetch the autonomous sniper's
+	// real trade performance from the closed agent_sniper_positions ledger: win rate,
+	// average profit (SOL + USDC at the live SOL/USD quote), worst loss, and total
+	// SOL volume snipped. The extracted signal is actionable: if win_rate drops below
+	// 40% across ≥ 5 closed trades the endpoint itself raises a low-win-rate alert
+	// in signal_data.alert — the strategy auto-tuner reads that field to pull back
+	// sizing or tighten entry filters before the next snipe. extractSignal lifts the
+	// headline metrics into x402_autonomous_log.signal_data; storeValue appends every
+	// snapshot to the sniper_trade_analytics time series (used by the performance
+	// dashboard). As a `sniper` pipeline entry the signal is NOT upserted into
+	// oracle_intel_signals (win rate is a trailing metric, not a real-time oracle
+	// price feed). Cooldown 300s → 288 reads/day ≈ $1.44/day, well under the loop cap.
+	// Downstream consumers: sniper_trade_analytics time series + the alert field in
+	// x402_autonomous_log.signal_data (strategy auto-tuner, ops dashboard).
+	{
+		id: 'sniper-trade-analytics',
+		name: 'Sniper Trade Performance Analytics',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'sniper_trades', period: '24h' },
+		cooldown_s: 300,
+		priority: 72,
+		pipeline: 'sniper',
+		enabled: true,
+		extractSignal: (r) => classifySniperSignal(r),
+		storeValue: async ({ sql, responseBody, signalData, runId }) => {
+			if (!sql) return;
+			const report = responseBody || signalData;
+			if (!report || report.sample_size == null) return;
+			await insertSniperAnalytics(sql, report, { runId, source: 'x402-autonomous' });
+		},
 	},
 ];
 

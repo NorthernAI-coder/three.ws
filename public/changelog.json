@@ -1,11 +1,44 @@
 {
-	"generated_at": "2026-06-27T23:46:49.134Z",
+	"generated_at": "2026-06-28T01:58:44.951Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "MCP Tool Discovery — the platform notices the moment a new agent capability ships",
+			"summary": "The three.ws MCP server exposes a growing catalog of tools agents can call — render and inspect 3D models, query live pump.fun market data, read Oracle conviction signals, and more — and that catalog changes as new capabilities ship. Until now, an agent wanting to use a brand-new tool had to keep re-fetching the full tool list and diffing it by hand to notice anything had changed. The platform now does that watching for them. Every two hours an autonomous agent makes a real on-chain payment to a new paid endpoint that fingerprints the live tool catalog and compares it to a durable registry, then reports exactly what changed since the last check: tools that are newly registered, tools whose price or input shape changed, and tools that were removed. New tools are recorded the instant they appear, giving agents a single feature-flag source to light up a new capability without polling. The diff is logged like every other autonomous payment, and the same endpoint is available to any agent on the x402 bazaar for a fraction of a cent.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Pay-By-Name Resolution Health — the platform watches its own name registry every 10 minutes",
+			"summary": "Every 'send USDC to a name' flow on three.ws — the SDK's payByName(), the /pay studio, the profile pay button, and any agent routing a payment to @username or a .sol domain — resolves the recipient through the same name registry before a single lamport moves. If that registry breaks (a Bonfida SNS regression, the parent domain de-registering, or the platform domain repointing to a different wallet), the failure is silent and every downstream send either pays the wrong place or throws an error. The platform now watches for this automatically. Every 10 minutes an autonomous agent makes a free call to the resolve endpoint with the platform's own known SNS name and checks that it comes back with a valid, on-curve Solana wallet address. If an expected wallet is configured, it additionally asserts the resolution still matches that specific wallet — an anti-poisoning check that catches a domain repoint between deploys before any user is affected. Results are recorded to a time-series log and cached in Redis so a health dashboard can read the latest verdict without a database round-trip. A failed or mismatched resolution raises an alert flag that lingers until the next clean run. The monitor is a read-only, free call — it moves no funds — and it replaces a prior registry entry that was calling the wrong endpoint method and would have silently recorded every 404 as healthy.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Pump Launch Monitor: live snipe-candidate screening",
+			"summary": "The autonomous x402 agent now pays to audit the 10 most recently launched pump.fun tokens every 5 minutes, extracting each cohort's average and peak initial bonding-curve liquidity. New launches with initial liquidity well above the rolling cohort average are surfaced as high-conviction snipe candidates; the signal is upserted into the oracle feed so the sniper gate can act on it immediately.",
+			"link": null,
+			"tags": [
+				"feature",
+				"infra"
+			]
+		},
 		{
 			"date": "2026-06-27",
 			"type": "launch",

@@ -2,6 +2,18 @@
 	"$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
 	"entries": [
 		{
+			"date": "2026-06-28",
+			"title": "Pay-By-Name Resolution Health — the platform watches its own name registry every 10 minutes",
+			"summary": "Every 'send USDC to a name' flow on three.ws — the SDK's payByName(), the /pay studio, the profile pay button, and any agent routing a payment to @username or a .sol domain — resolves the recipient through the same name registry before a single lamport moves. If that registry breaks (a Bonfida SNS regression, the parent domain de-registering, or the platform domain repointing to a different wallet), the failure is silent and every downstream send either pays the wrong place or throws an error. The platform now watches for this automatically. Every 10 minutes an autonomous agent makes a free call to the resolve endpoint with the platform's own known SNS name and checks that it comes back with a valid, on-curve Solana wallet address. If an expected wallet is configured, it additionally asserts the resolution still matches that specific wallet — an anti-poisoning check that catches a domain repoint between deploys before any user is affected. Results are recorded to a time-series log and cached in Redis so a health dashboard can read the latest verdict without a database round-trip. A failed or mismatched resolution raises an alert flag that lingers until the next clean run. The monitor is a read-only, free call — it moves no funds — and it replaces a prior registry entry that was calling the wrong endpoint method and would have silently recorded every 404 as healthy.",
+			"tags": ["feature", "infra"]
+		},
+		{
+			"date": "2026-06-28",
+			"title": "MCP Tool Discovery — the platform notices the moment a new agent capability ships",
+			"summary": "The three.ws MCP server exposes a growing catalog of tools agents can call — render and inspect 3D models, query live pump.fun market data, read Oracle conviction signals, and more — and that catalog changes as new capabilities ship. Until now, an agent wanting to use a brand-new tool had to keep re-fetching the full tool list and diffing it by hand to notice anything had changed. The platform now does that watching for them. Every two hours an autonomous agent makes a real on-chain payment to a new paid endpoint that fingerprints the live tool catalog and compares it to a durable registry, then reports exactly what changed since the last check: tools that are newly registered, tools whose price or input shape changed, and tools that were removed. New tools are recorded the instant they appear, giving agents a single feature-flag source to light up a new capability without polling. The diff is logged like every other autonomous payment, and the same endpoint is available to any agent on the x402 bazaar for a fraction of a cent.",
+			"tags": ["feature", "infra"]
+		},
+		{
 			"date": "2026-06-27",
 			"title": "Spend Reservation Leak Detector — the platform keeps agent spending caps from silently starving",
 			"summary": "Every autonomous payment an agent makes first sets aside room under its own daily spending limit, then settles the payment and either confirms or releases that reservation. If the process is interrupted between those two steps — a crash, a timeout, an error on a path that forgot to clean up — the reservation is orphaned: it keeps holding spending room against money that never actually moved. Enough orphans and an agent's daily cap is quietly exhausted by ghosts, so genuine payments start getting rejected for 'daily limit reached' even though the wallet is full and barely anything was spent. The platform now sweeps for these leaks automatically. Every fifteen minutes an autonomous agent scans both spending ledgers — USD payment caps and SOL trading caps — for any reservation older than an hour that was never finalized (in a healthy system reservations clear in seconds, so an hour is unmistakably stuck), frees the wrongly-held headroom through the same release path a correct cleanup would have used, and records exactly what it reclaimed so there's a permanent audit trail. A sudden spike in leaks is surfaced to the platform's health check, pointing operators straight at whichever code path is failing to clean up after itself. The sweep is a free database maintenance pass — it moves no funds and runs even when the spend wallet is offline, which is precisely when a starved cap most needs unsticking.",
@@ -8979,6 +8991,15 @@
 				"security"
 			],
 			"link": "/login"
+		},
+		{
+			"date": "2026-06-28",
+			"title": "Pump Launch Monitor: live snipe-candidate screening",
+			"summary": "The autonomous x402 agent now pays to audit the 10 most recently launched pump.fun tokens every 5 minutes, extracting each cohort's average and peak initial bonding-curve liquidity. New launches with initial liquidity well above the rolling cohort average are surfaced as high-conviction snipe candidates; the signal is upserted into the oracle feed so the sniper gate can act on it immediately.",
+			"tags": [
+				"feature",
+				"infra"
+			]
 		}
 	]
 }

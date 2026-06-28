@@ -40,27 +40,32 @@ const PRESSURE_PCT = Math.max(0.05, Number(process.env.X402_BAZAAR_TREND_PRESSUR
 // Cap on how many movers to return per side (the long tail isn't actionable).
 const TOP_N = 25;
 
-const DESCRIPTION =
-	'Bazaar Price Trend Monitor — pay $0.001 USDC per call for a 24h (or custom ' +
-	'period) read of price movement across the x402 service marketplace: which ' +
-	'tracked services got more expensive, which got cheaper, how many held steady, ' +
-	'and the net price pressure as a bullish / bearish / neutral market signal. ' +
-	'Derived from three.ws’ own live service price history.';
+// eslint-disable-next-line quotes
+const DESCRIPTION = `Bazaar Feed - pay $0.001 USDC per call for two live views of the x402 service marketplace. filter "new"/"active": newest service listings (id, name, price, networks, tags, first_seen) plus category rollup and listing-velocity signal (spike/active/quiet). filter "price_trends": 24h price-movement across all tracked services - trending up/down/stable and net market pressure as bullish/bearish/neutral. Live data from the platform bazaar index.`;
 
 const INPUT_SCHEMA = {
-	$schema: 'https://json-schema.org/draft/2020-12/schema',
-	type: 'object',
+	$schema: ‘https://json-schema.org/draft/2020-12/schema’,
+	type: ‘object’,
 	properties: {
 		filter: {
-			type: 'string',
-			description: 'Feed filter. Only "price_trends" is supported.',
-			enum: ['price_trends'],
-			default: 'price_trends',
+			type: ‘string’,
+			description:
+				‘"new"/"active" → newest-listing feed (default "new"); ‘ +
+				‘"price_trends" → price-movement monitor.’,
+			enum: [‘new’, ‘active’, ‘price_trends’],
+			default: ‘new’,
+		},
+		limit: {
+			type: ‘integer’,
+			minimum: 1,
+			maximum: 50,
+			default: 10,
+			description: ‘Max listings to return (filter "new"/"active" only).’,
 		},
 		period: {
-			type: 'string',
-			description: 'Lookback window: <n><unit> where unit is m/h/d/w (e.g. 24h, 7d).',
-			default: '24h',
+			type: ‘string’,
+			description: ‘Lookback window: <n><unit>, unit m/h/d/w (e.g. 24h, 7d). filter "price_trends" only.’,
+			default: ‘24h’,
 		},
 	},
 };
@@ -85,9 +90,11 @@ const TREND_ITEM_SCHEMA = {
 const OUTPUT_SCHEMA = {
 	$schema: 'https://json-schema.org/draft/2020-12/schema',
 	type: 'object',
-	required: ['filter', 'period', 'trending_up', 'trending_down', 'stable_count', 'signal', 'ts'],
+	required: ['filter'],
 	properties: {
+		// Shared
 		filter:        { type: 'string' },
+		// price_trends mode
 		period:        { type: 'string' },
 		trending_up:   { type: 'array', items: TREND_ITEM_SCHEMA },
 		trending_down: { type: 'array', items: TREND_ITEM_SCHEMA },
@@ -95,10 +102,18 @@ const OUTPUT_SCHEMA = {
 		total_tracked: { type: 'integer' },
 		net_pressure:  { type: 'number' },
 		avg_change_pct:{ type: ['number', 'null'] },
-		signal:        { type: 'string', enum: ['bullish', 'bearish', 'neutral'] },
+		signal:        { type: 'string' },
 		headline:      { type: 'string' },
 		confidence:    { type: 'number', minimum: 0, maximum: 1 },
 		ts:            { type: 'string', format: 'date-time' },
+		// new / active mode
+		limit:         { type: 'integer' },
+		count:         { type: 'integer' },
+		listings:      { type: 'array', items: { type: 'object' } },
+		newest:        { type: ['object', 'null'] },
+		categories:    { type: 'array', items: { type: 'object' } },
+		activity:      { type: 'object' },
+		generated_at:  { type: 'string', format: 'date-time' },
 	},
 };
 
@@ -260,22 +275,182 @@ export async function readBazaarPriceTrends(periodRaw) {
 	};
 }
 
+// ── New-Listing Feed helpers (USE-059) ────────────────────────────────────────
+
+let _indexSchemaReady = false;
+async function ensureIndexSchema() {
+	if (_indexSchemaReady) return;
+	await sql`
+		CREATE TABLE IF NOT EXISTS bazaar_service_index (
+			service_key  text PRIMARY KEY,
+			resource     text NOT NULL,
+			tool_name    text,
+			type         text,
+			name         text,
+			description  text,
+			price_atomic bigint,
+			price        text,
+			networks     text[] NOT NULL DEFAULT '{}',
+			tags         jsonb  NOT NULL DEFAULT '[]'::jsonb,
+			details      jsonb,
+			status       text   NOT NULL DEFAULT 'active',
+			first_seen   timestamptz NOT NULL DEFAULT now(),
+			last_seen    timestamptz NOT NULL DEFAULT now(),
+			removed_at   timestamptz,
+			last_run_id  uuid
+		)
+	`;
+	await sql`CREATE INDEX IF NOT EXISTS bazaar_service_index_status_first ON bazaar_service_index (status, first_seen DESC)`;
+	_indexSchemaReady = true;
+}
+
+function asTags(raw) {
+	if (Array.isArray(raw)) return raw.filter((t) => typeof t === 'string');
+	if (typeof raw === 'string') {
+		try {
+			const p = JSON.parse(raw);
+			return Array.isArray(p) ? p.filter((t) => typeof t === 'string') : [];
+		} catch { return []; }
+	}
+	return [];
+}
+
+function rowToListing(r) {
+	return {
+		id: r.service_key,
+		resource: r.resource,
+		tool_name: r.tool_name || null,
+		type: r.type || null,
+		name: r.name || null,
+		price_atomic: r.price_atomic != null ? String(r.price_atomic) : null,
+		price: r.price || null,
+		networks: Array.isArray(r.networks) ? r.networks : [],
+		tags: asTags(r.tags),
+		first_seen: new Date(r.first_seen).toISOString(),
+		last_seen: new Date(r.last_seen).toISOString(),
+	};
+}
+
+function rollupCategories(listings) {
+	const counts = new Map();
+	for (const l of listings) {
+		for (const tag of l.tags) counts.set(tag, (counts.get(tag) || 0) + 1);
+	}
+	return [...counts.entries()]
+		.map(([tag, count]) => ({ tag, count }))
+		.sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+		.slice(0, 10);
+}
+
+function classifyListingActivity(new24h, new7d) {
+	const dailyAvg7d = new7d / 7;
+	let signal, headline, confidence;
+	if (new24h === 0) {
+		signal = 'quiet';
+		headline = 'No new bazaar listings in the last 24 h';
+		confidence = 0.6;
+	} else if (new24h >= 3 && dailyAvg7d > 0 && new24h >= dailyAvg7d * 2) {
+		signal = 'spike';
+		headline = `${new24h} new bazaar listings in 24 h — above the ${dailyAvg7d.toFixed(1)}/day trend`;
+		confidence = Math.min(0.95, 0.6 + Math.min(new24h / 20, 0.35));
+	} else {
+		signal = 'active';
+		headline = `${new24h} new bazaar listing${new24h === 1 ? '' : 's'} in 24 h`;
+		confidence = 0.65;
+	}
+	return {
+		new_24h: new24h,
+		new_7d: new7d,
+		daily_avg_7d: Number(dailyAvg7d.toFixed(2)),
+		signal,
+		headline,
+		confidence,
+	};
+}
+
+export async function readBazaarNewListings({ filter, limit }) {
+	await ensureIndexSchema();
+
+	const rows = filter === 'active'
+		? await sql`
+			SELECT service_key, resource, tool_name, type, name,
+			       price_atomic, price, networks, tags, first_seen, last_seen
+			  FROM bazaar_service_index
+			 WHERE status = 'active'
+			 ORDER BY last_seen DESC
+			 LIMIT ${limit}
+		`
+		: await sql`
+			SELECT service_key, resource, tool_name, type, name,
+			       price_atomic, price, networks, tags, first_seen, last_seen
+			  FROM bazaar_service_index
+			 WHERE status = 'active'
+			 ORDER BY first_seen DESC
+			 LIMIT ${limit}
+		`;
+
+	const [velocity] = await sql`
+		SELECT
+			COUNT(*) FILTER (WHERE first_seen >= now() - interval '24 hours') AS new_24h,
+			COUNT(*) FILTER (WHERE first_seen >= now() - interval '7 days')   AS new_7d
+		  FROM bazaar_service_index
+		 WHERE status = 'active'
+	`;
+
+	const listings = rows.map(rowToListing);
+	const newestByDate = listings.length
+		? listings.reduce((a, b) => (a.first_seen >= b.first_seen ? a : b))
+		: null;
+	const newest = newestByDate ? {
+		id: newestByDate.id,
+		name: newestByDate.name,
+		price_atomic: newestByDate.price_atomic,
+		price: newestByDate.price,
+		type: newestByDate.type,
+		networks: newestByDate.networks,
+		first_seen: newestByDate.first_seen,
+	} : null;
+
+	return {
+		filter,
+		limit,
+		count: listings.length,
+		listings,
+		newest,
+		categories: rollupCategories(listings),
+		activity: classifyListingActivity(
+			Number(velocity?.new_24h || 0),
+			Number(velocity?.new_7d || 0),
+		),
+		generated_at: new Date().toISOString(),
+	};
+}
+
+// ── paidEndpoint ──────────────────────────────────────────────────────────────
+
 export default paidEndpoint({
 	route: ROUTE,
 	method: 'POST',
-	priceAtomics: priceFor('bazaar_feed', '1000'), // $0.001 USDC — lightweight read
+	priceAtomics: priceFor('bazaar-feed', '1000'), // $0.001 USDC — lightweight read
 	networks: ['solana', 'base'],
 	description: DESCRIPTION,
 	bazaar: BAZAAR,
 	service: withService({
 		serviceName: 'three.ws Bazaar Feed',
-		tags: ['bazaar', 'price', 'trends', 'market', 'x402'],
+		tags: ['bazaar', 'listings', 'discovery', 'market', 'x402'],
 	}),
+	siwx: {
+		statement: 'Sign in to refresh the three.ws bazaar feed without re-paying.',
+		ttlSeconds: 24 * 3600,
+		expirationSeconds: 300,
+	},
+	requiredScope: 'x402:bypass',
 	accessControl: installAccessControl({ requiredScope: 'x402:bypass' }),
 
 	async handler({ req }) {
-		let filter = 'price_trends';
+		let filter = 'new';
 		let period = '24h';
+		let limit = 10;
 		try {
 			const chunks = [];
 			for await (const c of req) chunks.push(c);
@@ -286,17 +461,16 @@ export default paidEndpoint({
 			if (typeof body.period === 'string' && body.period.trim()) {
 				period = body.period.trim();
 			}
+			const limitRaw = parseInt(body.limit, 10);
+			if (Number.isFinite(limitRaw)) limit = Math.min(Math.max(limitRaw, 1), 50);
 		} catch { /* defaults */ }
 
-		if (filter !== 'price_trends') {
-			// Reject before settlement so the buyer is not charged for an
-			// unsupported filter.
-			throw Object.assign(new Error(`unsupported filter "${filter}"; only "price_trends" is available`), {
-				status: 400,
-				code: 'unsupported_filter',
-			});
-		}
+		if (filter === 'price_trends') return readBazaarPriceTrends(period);
+		if (filter === 'new' || filter === 'active') return readBazaarNewListings({ filter, limit });
 
-		return readBazaarPriceTrends(period);
+		throw Object.assign(
+			new Error(`unsupported filter "${filter}"; use "new", "active", or "price_trends"`),
+			{ status: 400, code: 'unsupported_filter' },
+		);
 	},
 });

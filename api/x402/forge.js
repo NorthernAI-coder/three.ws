@@ -458,7 +458,7 @@ async function submitViaReconstruct({ prompt, imageUrls, isImageMode, aspect, ti
 // never throws — a provider outage is the very signal this probe exists to catch,
 // so it returns a settled verdict (generated:false) rather than failing the paid
 // call. The caller paid for a verdict; it always gets one.
-async function runForgeHealthCheck({ prompt }) {
+export async function runForgeHealthCheck({ prompt }) {
 	const probePrompt = (prompt && prompt.length >= 3 ? prompt : HEALTH_CHECK_DEFAULT_PROMPT);
 	const t0 = Date.now();
 	try {
