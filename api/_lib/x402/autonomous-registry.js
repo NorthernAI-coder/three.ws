@@ -264,7 +264,103 @@ async function recordForgeHealthAlert({ redis, signalData }) {
 	}
 }
 
+// ── Club Social Activity Analytics (USE-045) ─────────────────────────────
+// Derives the social-economy signal from a /api/x402/analytics {report:'clubs'}
+// response. Shared by extractSignal (→ x402_autonomous_log.signal_data) and
+// storeValue (→ club_social_analytics time series) so both always agree on the
+// snapshot they record.
+export function classifyClubAnalytics(r) {
+	const m = (r && r.metrics) || {};
+	const tips = m.tips || {};
+	const cover = m.cover_charges || {};
+	const top = Array.isArray(r && r.top_clubs) ? r.top_clubs[0] : null;
+	return {
+		report: (r && r.report) || 'clubs',
+		period: (r && r.period) || null,
+		active_clubs: m.active_clubs ?? null,
+		total_clubs: m.total_clubs ?? null,
+		members: m.members ?? null,
+		tip_count: tips.count ?? null,
+		tip_volume_atomics: tips.volume_atomics ?? null,
+		tip_volume_usdc: tips.volume_usdc ?? null,
+		cover_count: cover.count ?? null,
+		cover_atomics: cover.atomics ?? null,
+		cover_usdc: cover.usdc ?? null,
+		top_club: top ? (top.display_name || top.dancer || null) : null,
+		top_club_volume_atomics: top ? (top.volume_atomics ?? null) : null,
+		top_club_volume_usdc: top ? (top.volume_usdc ?? null) : null,
+	};
+}
+
+// Time-series sink for the club social-economy snapshot. One row per autonomous
+// run so a dashboard can chart active stages / members / tip + cover volume over
+// time and spot growth or decline. Created lazily on first write (per warm
+// instance), mirroring the ensureCanonicalSchema idiom above.
+let _clubAnalyticsSchemaReady = false;
+async function ensureClubAnalyticsSchema(sql) {
+	if (_clubAnalyticsSchemaReady) return;
+	await sql`
+		CREATE TABLE IF NOT EXISTS club_social_analytics (
+			id                       bigserial PRIMARY KEY,
+			ts                       timestamptz DEFAULT now(),
+			period                   text NOT NULL,
+			active_clubs             int,
+			total_clubs              int,
+			members                  int,
+			tip_count                int,
+			tip_volume_atomics       numeric,
+			cover_count              int,
+			cover_atomics            numeric,
+			top_club                 text,
+			top_club_volume_atomics  numeric,
+			run_id                   uuid
+		)
+	`;
+	await sql`CREATE INDEX IF NOT EXISTS club_social_analytics_ts_desc ON club_social_analytics (ts desc)`;
+	_clubAnalyticsSchemaReady = true;
+}
+
 const SELF_ENDPOINTS = [
+	// ── Club Social Activity Analytics (USE-045) ──────────────────────
+	// Pays $0.005 USDC every 30 min to /api/x402/analytics {report:'clubs',
+	// period:'24h'} for a live snapshot of the Pole Club social economy — active
+	// stages, distinct patron members, tip count + USDC volume, cover charges
+	// collected, and the fastest-growing stages. extractSignal lifts the snapshot
+	// into x402_autonomous_log.signal_data; storeValue appends it to the
+	// club_social_analytics time series so a dashboard can track social-economy
+	// health and surface growing clubs over time. Health pipeline (not oracle —
+	// this is platform telemetry, not a sniper trading signal). Cooldown 1800s →
+	// ~48 snapshots/day ≈ $0.24/day, well under the loop's daily cap.
+	{
+		id: 'analytics-club-social',
+		name: 'Analytics: Club Social Activity',
+		path: '/api/x402/analytics',
+		method: 'POST',
+		body: { report: 'clubs', period: '24h' },
+		cooldown_s: 1800,
+		priority: 48,
+		pipeline: 'health',
+		enabled: true,
+		extractSignal: (r) => classifyClubAnalytics(r),
+		storeValue: async ({ sql, responseBody, signalData, runId }) => {
+			if (!sql) return;
+			const v = signalData || classifyClubAnalytics(responseBody);
+			if (!v || v.report !== 'clubs') return;
+			await ensureClubAnalyticsSchema(sql);
+			await sql`
+				INSERT INTO club_social_analytics
+					(period, active_clubs, total_clubs, members, tip_count,
+					 tip_volume_atomics, cover_count, cover_atomics, top_club,
+					 top_club_volume_atomics, run_id)
+				VALUES
+					(${v.period || '24h'}, ${v.active_clubs}, ${v.total_clubs},
+					 ${v.members}, ${v.tip_count}, ${v.tip_volume_atomics || 0},
+					 ${v.cover_count}, ${v.cover_atomics || 0}, ${v.top_club},
+					 ${v.top_club_volume_atomics || 0}, ${runId})
+			`;
+		},
+	},
+
 	// ── 3D Pipeline: VRM 1.0 Compatibility Checker (USE-019) ──────────────────
 	// Pays a real $0.01 x402 call to /api/mcp (inspect_model) per avatar, derives a
 	// VRM 0.x → 1.0 migration report, and upserts it into avatar_vrm_compat. Full
@@ -464,6 +560,42 @@ const SELF_ENDPOINTS = [
 		pipeline: 'oracle',
 		enabled: true,
 		extractSignal: (r) => ({ topic: r?.topic, signal: r?.signal, headline: r?.headline, confidence: r?.confidence }),
+	},
+	// ── Pump.fun Trending Score Feed (USE-047) ─────────────────────────────────
+	// Pays $0.01 USDC every 5 min to /api/x402/crypto-intel (topic=pump_trending)
+	// for the live pump.fun trending leaderboard enriched with real buy/sell
+	// pressure and whale activity. The engine fetches the top 20 coins by market
+	// cap from frontend-api-v3, then pulls recent swap-api trades for the top 5
+	// to derive: aggregate buy pressure (ratio of buy txns by count), total SOL
+	// volume, and individual whale buys (≥5 SOL). The bullish/bearish/neutral
+	// verdict + confidence score land in oracle_intel_signals (topic=pump_trending)
+	// so the sniper gate can consume them via the standard oracle query. The full
+	// trending_mints list (top 10 with market cap) and whale_buys array land in
+	// x402_autonomous_log.signal_data for downstream analytics. Cooldown 300s →
+	// 12 reads/hour; pump.fun trending refreshes frequently, fast-moving mints
+	// can reverse in minutes. Spend: $0.01/call, bounded by the loop's daily cap.
+	{
+		id: 'crypto-intel-pump-trending',
+		name: 'Crypto Intel: Pump.fun Trending Score Feed',
+		path: '/api/x402/crypto-intel',
+		method: 'POST',
+		body: { topic: 'pump_trending' },
+		cooldown_s: 300,
+		priority: 88,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'pump_trending',
+			signal: r?.signal ?? null,
+			headline: r?.headline ?? null,
+			confidence: r?.confidence ?? null,
+			buy_pressure: r?.buy_pressure ?? null,
+			total_volume_sol: r?.total_volume_sol ?? null,
+			whale_buy_count: r?.whale_buy_count ?? 0,
+			top_mint: r?.top_mint ?? null,
+			trending_mints: Array.isArray(r?.trending_mints) ? r.trending_mints.slice(0, 5) : [],
+			whale_buys: Array.isArray(r?.whale_buys) ? r.whale_buys.slice(0, 5) : [],
+		}),
 	},
 
 	// ── Pump.fun Volume Anomaly Oracle (USE-048) ──────────────────────────────
