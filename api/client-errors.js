@@ -64,6 +64,11 @@ function isDevOriginPage(page) {
 const INJECTED_GLOBALS =
 	/\b(currentInset|gCrWeb|__gCrWeb|__firefox__|_AutofillCallbackHandler|instantSearchSDKJSBridgeClearHighlight|webkitStorageInfo|bannerNight|ceCurrentVideo|isHighlightingEnabled|zaloJSV2|MyAppGetLinkProperties)\b/;
 
+// "Read property `prop` of null/undefined" in both WebKit and Chromium phrasings.
+// Capture group 1 (WebKit) or 2 (Chromium) is the dereferenced property name.
+const PROP_ACCESS_TYPEERROR =
+	/(?:undefined|null) is not an object \(evaluating '[^']*\.([A-Za-z_$][\w$]*)'\)|cannot read propert(?:y|ies) of (?:undefined|null) \(reading '([A-Za-z_$][\w$]*)'\)/i;
+
 // Errors that originate outside our code and are never actionable from a deploy.
 // Dropping them at the boundary keeps the prod error logs, Sentry, and ops paging
 // focused on genuine first-party faults. Clients running a freshly-cached

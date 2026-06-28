@@ -279,11 +279,7 @@ export async function fetchTokenMarketData(mint, { fresh = false, ttlMs = DEFAUL
 	if (!fresh) {
 		try {
 			const shared = await cacheGet(sharedKey(mint));
-			if (shared && shared.price_usd > 0) {
-				_cache.set(mint, { value: shared, expires: now + ttlMs, fetchedAt: now });
-				if (_cache.size > 256) _cache.delete(_cache.keys().next().value);
-				return shared;
-			}
+			if (shared && shared.price_usd > 0) return storeL1(mint, shared, now, ttlMs);
 		} catch {
 			/* fall through to live fetch */
 		}

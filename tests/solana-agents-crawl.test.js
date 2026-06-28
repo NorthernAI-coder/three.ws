@@ -4,7 +4,8 @@ import {
 	resolveGateway,
 	normalizeDasAsset,
 	agencStatusLabel,
-} from '../api/_lib/solana-agents-crawl.js';
+	agencActive,
+} from '../api/_lib/solana-agents-normalize.js';
 
 describe('solana-agents-crawl helpers', () => {
 	describe('truncate', () => {

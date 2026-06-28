@@ -121,6 +121,16 @@ describe('env CACHE_REDIS_CMD_TIMEOUT_MS (cache command timeout knob)', () => {
 		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = 'not-a-number';
 		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(3000);
 	});
+
+	it('falls back to the default for a blank value (must NOT clamp 0 → 500ms)', () => {
+		// A dashboard key left empty (`CACHE_REDIS_CMD_TIMEOUT_MS=`) must not become
+		// Number('')===0 clamped up to the 500ms floor — that would make timeouts
+		// worse, the opposite of the knob's intent.
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(3000);
+		process.env.CACHE_REDIS_CMD_TIMEOUT_MS = '   ';
+		expect(env.CACHE_REDIS_CMD_TIMEOUT_MS).toBe(3000);
+	});
 });
 
 describe('env Upstash atomic credential pairing (cross-store WRONGPASS guard)', () => {
