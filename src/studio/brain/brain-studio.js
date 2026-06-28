@@ -3,7 +3,7 @@
  * ==============================
  * The visible, programmable agent brain. Mounts into the studio shell's Brain tab
  * container and wires together:
- *   • BrainGraphView      — the visual node-graph editor
+ *   • BrainComposer       — the card-stack brain editor (persona → … → output)
  *   • compileBrain        — graph → real persona_prompt + provider/tool config
  *   • BrainRuntime        — streaming test chat against the real LLM proxy + live
  *                           memory + active-path animation + avatar reactions
@@ -18,7 +18,7 @@
  *        mountBrainStudio(container, { studio });
  */
 
-import { BrainFormView } from './brain-form.js';
+import { BrainComposer } from './brain-composer.js';
 import { compileBrain } from './brain-compile.js';
 import { BrainRuntime } from './brain-runtime.js';
 import { normalizeGraph, defaultGraph } from './brain-nodes.js';
@@ -76,7 +76,7 @@ class BrainStudio {
 				<div class="brainstudio__onboard" id="bsOnboard">
 					<div class="brainstudio__onboard-inner">
 						<h1>Build your agent's mind</h1>
-						<p>Wire persona, model, memory, skills and trading reasoning into a living circuit. Watch it light up as it thinks.</p>
+						<p>Fill in persona, model, memory, skills and market reasoning. It wires itself — watch it light up as it thinks.</p>
 						<div class="brainstudio__templates" id="bsTplGrid"></div>
 						<button class="studio__btn studio__btn-primary" id="bsBlank">Start from blank</button>
 					</div>
@@ -258,7 +258,7 @@ class BrainStudio {
 		this.el.querySelector('#bsEditor').hidden = false;
 		if (!this.graph) {
 			const form = this.el.querySelector('#bsForm');
-			this.graph = new BrainFormView(form, {
+			this.graph = new BrainComposer(form, {
 				onChange: (g) => this._onGraphChange(g),
 				getProviders: () => this.providers,
 				getSkills: () => this.studio.agent?.skills || [],
@@ -338,9 +338,9 @@ class BrainStudio {
 
 	_friendlyError(err) {
 		const m = err?.message || 'stream error';
-		if (/sign in/i.test(m)) return 'Sign in to use this model, or pick a free one in the Model node.';
+		if (/sign in/i.test(m)) return 'Sign in to use this model, or pick a free one in the Model card.';
 		if (/rate|429|too many/i.test(m)) return 'Rate limited — slow down a moment and try again.';
-		if (/not_configured|no api key/i.test(m)) return 'That model has no API key configured. Pick another in the Model node.';
+		if (/not_configured|no api key/i.test(m)) return 'That model has no API key configured. Pick another in the Model card.';
 		return `Couldn't reach the model: ${m}`;
 	}
 
@@ -374,7 +374,7 @@ class BrainStudio {
 	_showTemplateModal() {
 		const card = this.el.querySelector('#bsModalCard');
 		card.innerHTML = `<div class="brainstudio__modal-head"><h2>Fork a brain</h2><button class="brainstudio__modal-x" aria-label="Close">×</button></div>
-			<p class="brainstudio__modal-sub">Replaces the current graph. Your current brain is saved until you save over it.</p>
+			<p class="brainstudio__modal-sub">Replaces the current brain. Your current brain is saved until you save over it.</p>
 			<div class="brainstudio__templates" id="bsModalTpl"></div>`;
 		this._renderTemplateGrid(card.querySelector('#bsModalTpl'));
 		card.querySelector('.brainstudio__modal-x').addEventListener('click', () => this._closeModal());

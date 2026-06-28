@@ -3,6 +3,24 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Avatar generation rides out engine outages by failing over between backends",
+      "summary": "Describe-it-to-3D and Instant Agent Genesis no longer dead-end with \"the avatar engine rejected this job\" when one 3D backend has a hiccup. A request now tries every configured engine in turn — and your own Meshy or Tripo key as a backstop — before giving up, so a single provider's cold start, throttle, or outage is invisible to you. On the rare moment every engine is down at once, the error now points you straight to the selfie scanner and offers a one-tap retry instead of stranding the build.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/create/prompt"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "$THREE payments ride out brief price-feed blips instead of failing",
+      "summary": "Paid actions priced in $THREE (Forge high tier, spins, marketplace) no longer fail when every live price feed happens to miss on the same request. The price layer now keeps a recent last-known-good price and serves it through a momentary simultaneous outage of Jupiter and the backup feeds, so a quote is never rejected over a transient blip. Prices older than five minutes are still refused — a payment is never priced off a stale number.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/three-token"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Forge no longer dead-ends on \"Generator not configured\" when a free lane is live",
       "summary": "When the free NVIDIA text→3D lane was briefly down, Forge could return \"Generator not configured\" even on deployments where the free Hugging Face lane was fully set up — because the degrade step looked for a paid Replicate key that wasn't required. Forge now falls through to whichever free engine is configured (Hugging Face Spaces) instead of stopping, so a single free key keeps text and photo generation working through upstream blips.",
       "tags": [

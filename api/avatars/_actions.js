@@ -15,7 +15,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { isValidGlbHeader } from '../_lib/glb-inspect.js';
-import { getRegenProvider, getRegenProviderCandidates, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
+import { getRegenProviderCandidates, getRegenProviderByName, getRegenProviderForJob, BYOK_REGEN_PROVIDERS } from '../_lib/regen-provider.js';
 import { resolveProviderKey } from '../_lib/forge-provider-key.js';
 import { finalizeReconstructStage, pollRiggingStage } from '../_lib/reconstruct-finalize.js';
 import { finalizeAutoRigStage } from '../_lib/auto-rig.js';
@@ -431,14 +431,16 @@ const handleRegenerate = wrap(async (req, res) => {
 	const rows = await sql`select id, name, storage_key from avatars where id = ${body.sourceAvatarId} and owner_id = ${userId} and deleted_at is null limit 1`;
 	if (!rows[0]) return error(res, 404, 'not_found', 'source avatar not found or not owned');
 
-	let provider;
+	// Platform provider failover: try every configured provider (primary first),
+	// retrying transient faults, so a single outage / throttle / cold start
+	// doesn't dead-end the job. Mirrors the reconstruct submit path.
+	let candidates;
 	try {
-		provider = await getRegenProvider();
+		candidates = await getRegenProviderCandidates();
 	} catch (err) {
 		return maskSubmitError(res, err);
 	}
-
-	if (provider.name === 'none') {
+	if (candidates.length === 0) {
 		return error(
 			res,
 			501,
@@ -447,35 +449,60 @@ const handleRegenerate = wrap(async (req, res) => {
 		);
 	}
 
-	// Real provider — submit the job, persist the external id.
 	const sourceUrl = publicUrl(rows[0].storage_key);
-	let submission;
-	try {
-		submission = await provider.instance.submit({
-			userId,
-			sourceAvatarId: body.sourceAvatarId,
-			mode: body.mode,
-			params: body.params ?? {},
-			sourceUrl,
-			sourceStorageKey: rows[0].storage_key,
-		});
-	} catch (err) {
-		return maskSubmitError(res, err);
+	let submission = null;
+	let usedProvider = null;
+	let bestError = null;
+	const attempts = [];
+	for (const provider of candidates) {
+		try {
+			submission = await submitWithTransientRetry(provider.instance, {
+				userId,
+				sourceAvatarId: body.sourceAvatarId,
+				mode: body.mode,
+				params: body.params ?? {},
+				sourceUrl,
+				sourceStorageKey: rows[0].storage_key,
+			});
+			usedProvider = provider;
+			break;
+		} catch (err) {
+			attempts.push(`${provider.name}:${err?.code || err?.status || classifyProviderError(err).code}`);
+			console.warn(
+				'[avatars] regenerate submit failed on',
+				provider.name,
+				'—',
+				err?.code || err?.status || 'unknown',
+				'-',
+				err?.message,
+			);
+			// Keep the most actionable error to surface if every provider fails.
+			if (!bestError || (isGenericProviderError(bestError) && !isGenericProviderError(err))) {
+				bestError = err;
+			}
+		}
 	}
 
-	const jobId = `${provider.name}-${randomUUID()}`;
+	if (!submission || !usedProvider) {
+		if (attempts.length > 1) {
+			console.warn('[avatars] all regenerate providers failed:', attempts.join(', '));
+		}
+		return maskSubmitError(res, bestError || new Error('no regenerate provider available'));
+	}
+
+	const jobId = `${usedProvider.name}-${randomUUID()}`;
 	await sql`
 		insert into avatar_regen_jobs
 			(job_id, user_id, source_avatar_id, mode, params, status, provider, ext_job_id, created_at, updated_at)
 		values
-			(${jobId}, ${userId}, ${body.sourceAvatarId}, ${body.mode}, ${JSON.stringify(body.params ?? {})}, 'queued', ${provider.name}, ${submission.extJobId ?? null}, now(), now())
+			(${jobId}, ${userId}, ${body.sourceAvatarId}, ${body.mode}, ${JSON.stringify(body.params ?? {})}, 'queued', ${usedProvider.name}, ${submission.extJobId ?? null}, now(), now())
 	`;
 	return json(res, 202, {
 		ok: true,
 		jobId,
 		status: 'queued',
 		eta: submission.eta ?? null,
-		provider: provider.name,
+		provider: usedProvider.name,
 	});
 });
 
@@ -1091,7 +1118,7 @@ const handleReconstruct = wrap(async (req, res) => {
 	const attempts = [];
 	for (const provider of candidates) {
 		try {
-			submission = await provider.instance.submit({
+			submission = await submitWithTransientRetry(provider.instance, {
 				userId,
 				mode: 'reconstruct',
 				params: { ...(body.params ?? {}), images: photos, name: body.name },
@@ -1200,6 +1227,43 @@ async function resolveReconstructCandidates(req, body) {
 // outcome.
 function isGenericProviderError(err) {
 	return classifyProviderError(err).code === 'regen_provider_error';
+}
+
+// Infra faults worth one quick retry against the *same* provider before failing
+// over or giving up: transport errors and upstream 5xx. These are the cold-start
+// and transient-network failures behind most "engine rejected the job" 502s — a
+// single bounded retry clears them without the user noticing, and on a
+// single-provider deployment it's the only second chance there is. Deterministic
+// faults (bad key, no credits, bad input, throttle, a provider 4xx) are never
+// retried here: an identical second call won't change the outcome.
+export function isTransientProviderError(err) {
+	if (!err) return false;
+	if (err.code === 'provider_unreachable' || err.code === 'provider_timeout') return true;
+	const upstream = Number(err.providerStatus) || 0;
+	if (err.code === 'provider_error') {
+		// No upstream status (couldn't even parse a response) or a 5xx → transient.
+		// A concrete provider 4xx (e.g. 422 bad image) is deterministic — don't retry.
+		return upstream === 0 || upstream >= 500;
+	}
+	const status = Number(err.status) || 0;
+	return status === 503 || status === 504;
+}
+
+const SUBMIT_RETRY_DELAY_MS = 1500;
+
+// Submit one provider job, retrying once on a transient infra fault. The retry
+// is safe against double-charging: a provider only spends credits / creates the
+// upstream prediction on a successful return, so a thrown error means nothing
+// was queued. Non-transient errors propagate immediately for the caller to
+// classify (and, in the failover loop, fail over to the next provider).
+export async function submitWithTransientRetry(instance, request) {
+	try {
+		return await instance.submit(request);
+	} catch (err) {
+		if (!isTransientProviderError(err)) throw err;
+		await new Promise((resolve) => setTimeout(resolve, SUBMIT_RETRY_DELAY_MS));
+		return instance.submit(request);
+	}
 }
 
 // ── dispatcher ────────────────────────────────────────────────────────────────

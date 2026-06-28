@@ -175,7 +175,10 @@ function platformProviderConfigured(name) {
 		case 'replicate':
 			return Boolean(process.env.REPLICATE_API_TOKEN);
 		case 'gcp':
-			return Boolean(process.env.GCP_RECONSTRUCTION_URL);
+			// The gcp adapter needs both the service URL (endpoint) and the auth
+			// key — requiring both here keeps a URL-only deploy out of the failover
+			// rotation instead of enumerating a provider whose constructor throws.
+			return Boolean(process.env.GCP_RECONSTRUCTION_URL && process.env.GCP_RECONSTRUCTION_KEY);
 		case 'huggingface':
 			return Boolean(process.env.HF_TOKEN);
 		default:

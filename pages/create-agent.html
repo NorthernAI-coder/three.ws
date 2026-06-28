@@ -395,6 +395,210 @@
 				display: block;
 			}
 
+			/* ── Magic generator (zero-typing entry) ───────────────────────── */
+			.magic {
+				position: relative;
+				border-radius: 14px;
+				padding: 18px 18px 16px;
+				margin: 0 0 26px;
+				background:
+					radial-gradient(120% 140% at 0% 0%, rgba(255, 255, 255, 0.06), transparent 55%),
+					var(--panel-2);
+				border: 1px solid var(--border-strong);
+				overflow: hidden;
+			}
+			.magic::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				border-radius: 14px;
+				padding: 1px;
+				background: linear-gradient(120deg, rgba(255, 255, 255, 0.28), transparent 40%, transparent 60%, rgba(255, 255, 255, 0.18));
+				-webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+				-webkit-mask-composite: xor;
+				mask-composite: exclude;
+				pointer-events: none;
+				opacity: 0.55;
+			}
+			.magic-head {
+				display: flex;
+				align-items: center;
+				gap: 9px;
+				margin: 0 0 4px;
+			}
+			.magic-head svg {
+				width: 17px;
+				height: 17px;
+				color: var(--text);
+				flex: none;
+			}
+			.magic-title {
+				font-family: var(--font-display);
+				font-size: 15px;
+				font-weight: 600;
+				margin: 0;
+				letter-spacing: -0.01em;
+			}
+			.magic-sub {
+				color: var(--muted);
+				font-size: 12.5px;
+				margin: 0 0 13px;
+				line-height: 1.5;
+			}
+			.magic-row {
+				display: flex;
+				gap: 9px;
+				align-items: stretch;
+			}
+			.magic-input {
+				flex: 1;
+				background: #0c0c0c;
+				border: 1px solid var(--border-strong);
+				border-radius: 10px;
+				color: var(--text);
+				font: inherit;
+				font-size: 14px;
+				padding: 11px 13px;
+				resize: none;
+				min-height: 46px;
+				line-height: 1.45;
+				transition: border-color 0.16s, box-shadow 0.16s;
+				outline: none;
+			}
+			.magic-input:focus {
+				border-color: rgba(255, 255, 255, 0.5);
+				box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06);
+			}
+			.magic-input::placeholder {
+				color: #555;
+			}
+			.magic-go {
+				flex: none;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 7px;
+				padding: 0 18px;
+				min-width: 128px;
+				border-radius: 10px;
+				border: 0;
+				background: var(--accent);
+				color: var(--accent-ink);
+				font: inherit;
+				font-size: 13.5px;
+				font-weight: 600;
+				cursor: pointer;
+				transition: transform 0.12s, opacity 0.16s, box-shadow 0.16s;
+			}
+			.magic-go svg {
+				width: 15px;
+				height: 15px;
+			}
+			.magic-go:hover {
+				box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+			}
+			.magic-go:active {
+				transform: translateY(1px);
+			}
+			.magic-go:disabled {
+				opacity: 0.6;
+				cursor: default;
+				box-shadow: none;
+			}
+			.magic-spin {
+				width: 14px;
+				height: 14px;
+				border: 2px solid rgba(0, 0, 0, 0.25);
+				border-top-color: var(--accent-ink);
+				border-radius: 50%;
+				animation: magic-rot 0.7s linear infinite;
+				display: none;
+			}
+			.magic-go[aria-busy='true'] .magic-spin {
+				display: inline-block;
+			}
+			.magic-go[aria-busy='true'] .magic-go-icon {
+				display: none;
+			}
+			@keyframes magic-rot {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+			.magic-chips {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 7px;
+				margin: 12px 0 0;
+				align-items: center;
+			}
+			.magic-chips .lead {
+				font-size: 11.5px;
+				color: var(--faint);
+				margin-right: 1px;
+			}
+			.magic-chip {
+				background: rgba(255, 255, 255, 0.04);
+				border: 1px solid var(--border-strong);
+				border-radius: 999px;
+				color: var(--muted);
+				font: inherit;
+				font-size: 12px;
+				padding: 5px 11px;
+				cursor: pointer;
+				transition: color 0.14s, border-color 0.14s, background 0.14s;
+			}
+			.magic-chip:hover {
+				color: var(--text);
+				border-color: rgba(255, 255, 255, 0.4);
+				background: rgba(255, 255, 255, 0.07);
+			}
+			.magic-chip.surprise {
+				margin-left: auto;
+				color: var(--text);
+			}
+			.magic-msg {
+				font-size: 12.5px;
+				margin: 11px 0 0;
+				min-height: 1px;
+				line-height: 1.5;
+			}
+			.magic-msg.err {
+				color: var(--err);
+			}
+			.magic-msg.ok {
+				color: var(--ok);
+			}
+			.magic-divider {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				margin: 0 0 22px;
+				color: var(--faint);
+				font-size: 11.5px;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+			}
+			.magic-divider::before,
+			.magic-divider::after {
+				content: '';
+				flex: 1;
+				height: 1px;
+				background: var(--border);
+			}
+			@media (max-width: 560px) {
+				.magic-row {
+					flex-direction: column;
+				}
+				.magic-go {
+					min-width: 0;
+					padding: 11px 18px;
+				}
+				.magic-chip.surprise {
+					margin-left: 0;
+				}
+			}
+
 			/* ── Tag / chip input ───────────────────────────────────────────── */
 			.tagbox {
 				display: flex;
@@ -1108,9 +1312,53 @@
 							<p class="panel-eyebrow">Step 1 of 5</p>
 							<h2 class="panel-title">The basics</h2>
 							<p class="panel-help">
-								Give your agent a name and a short description. This is what people
-								see first in the marketplace and on its profile.
+								Describe your agent in a sentence and we'll fill in everything —
+								name, skills, body, personality. Then review and ship.
 							</p>
+
+							<div class="magic">
+								<div class="magic-head">
+									<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+										<path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5L13 3z" />
+									</svg>
+									<h3 class="magic-title">Build it for me</h3>
+								</div>
+								<p class="magic-sub">
+									One line is enough. No idea? Tap an example or “Surprise me”.
+								</p>
+								<div class="magic-row">
+									<textarea
+										class="magic-input"
+										id="magic-input"
+										rows="1"
+										maxlength="600"
+										autocomplete="off"
+										placeholder="e.g. a witty crypto market analyst that explains charts in plain English"
+										aria-label="Describe your agent"
+									></textarea>
+									<button type="button" class="magic-go" id="magic-go">
+										<span class="magic-go-icon" aria-hidden="true">
+											<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M5 3v4M3 5h4M13 4l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" />
+											</svg>
+										</span>
+										<span class="magic-spin" aria-hidden="true"></span>
+										<span class="magic-go-label">Generate</span>
+									</button>
+								</div>
+								<div class="magic-chips" id="magic-chips">
+									<span class="lead">Try:</span>
+									<button type="button" class="magic-chip" data-example="a calm meditation and breathing coach that guides short sessions">Meditation coach</button>
+									<button type="button" class="magic-chip" data-example="a sharp Solana market analyst that reads bonding curves and flags rug risk">Market analyst</button>
+									<button type="button" class="magic-chip" data-example="a playful 3D art critic that reviews glTF models and gives honest feedback">3D art critic</button>
+									<button type="button" class="magic-chip" data-example="an upbeat onboarding host that welcomes newcomers and shows them around">Onboarding host</button>
+									<button type="button" class="magic-chip surprise" id="magic-surprise">✦ Surprise me</button>
+								</div>
+								<p class="magic-msg" id="magic-msg" role="status" aria-live="polite"></p>
+							</div>
+
+							<div class="magic-divider">or build it by hand</div>
+
 
 							<div class="field">
 								<label class="field-label" for="f-name">
