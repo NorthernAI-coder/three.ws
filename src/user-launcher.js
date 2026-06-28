@@ -26,6 +26,163 @@ const SOURCES = [
 ];
 const EDITABLE = ['enabled', 'mode', 'sources', 'target_cadence_seconds', 'max_per_hour', 'network'];
 
+// Page markup — injected into the dashboard-next shell's <main> slot by
+// src/dashboard-next/pages/launcher.js. Kept here so the controller and the
+// DOM it drives live together (every element id below is wired in this file).
+export const LAUNCHER_MARKUP = `
+	<div id="ul-root" aria-busy="true">
+		<!-- Sign-in gate -->
+		<section class="ml-gate" id="ul-gate" hidden>
+			<div class="ml-gate-card">
+				<div class="ml-gate-mark" aria-hidden="true">◎</div>
+				<h1 class="ml-gate-title">Memetic Launcher</h1>
+				<p class="ml-gate-sub">Sign in to design your own autonomous launcher.</p>
+				<a class="ml-btn ml-btn-primary ml-gate-btn" id="ul-signin" href="/login?next=/launcher">Sign in</a>
+			</div>
+		</section>
+
+		<div id="ul-panel" hidden>
+			<!-- Hero -->
+			<header class="ml-hero">
+				<div class="ml-hero-l">
+					<p class="ml-kicker"><span class="ml-dot" id="ul-status-dot"></span> Your autonomous launcher</p>
+					<h1 class="ml-title">Memetic <em>Launcher</em></h1>
+					<p class="ml-sub" id="ul-status-line">Loading…</p>
+				</div>
+				<div class="ml-hero-r">
+					<span class="ul-badge" id="ul-badge" title="Preview only — no SOL moves">Preview</span>
+					<button class="ml-btn ml-armswitch" id="ul-enable" aria-pressed="false">
+						<span class="ml-armswitch-track"><span class="ml-armswitch-knob"></span></span>
+						<span class="ml-armswitch-lbl" id="ul-enable-lbl">Off</span>
+					</button>
+				</div>
+			</header>
+
+			<!-- Honest explainer -->
+			<div class="ul-note" id="ul-note">
+				<span class="ul-note-ico" aria-hidden="true">◑</span>
+				<p>
+					<strong>Preview mode.</strong> Your launcher rides live cultural narratives and picks coins from your own
+					agents on a schedule — recording each pick — but it mints nothing and moves no SOL. It is a strategy
+					designer: tune it, watch what it would launch, and ship a great rotation. Real on-chain launches are
+					funded separately and arrive next.
+				</p>
+			</div>
+
+			<!-- Breaker (rare, but designed) -->
+			<div class="ml-breaker" id="ul-breaker" hidden role="alert">
+				<span class="ml-breaker-ico" aria-hidden="true">⚠</span>
+				<span class="ml-breaker-txt" id="ul-breaker-txt">Paused.</span>
+				<button class="ml-btn ml-btn-ghost" id="ul-resume">Resume</button>
+			</div>
+
+			<!-- Stats -->
+			<dl class="ml-stats ul-stats">
+				<div class="ml-stat ml-stat--lead"><dt>Coins previewed today</dt><dd id="ul-s-dry">—</dd></div>
+				<div class="ml-stat"><dt>Agents in rotation</dt><dd id="ul-s-queue">—</dd></div>
+				<div class="ml-stat"><dt>Launch-ready agents</dt><dd id="ul-s-eligible">—</dd></div>
+				<div class="ml-stat"><dt>Mode</dt><dd id="ul-s-mode" class="ul-s-mode">—</dd></div>
+			</dl>
+
+			<div class="ml-grid">
+				<!-- Config -->
+				<form class="ml-config" id="ul-config" aria-label="Launcher configuration">
+					<section class="ml-card">
+						<h2 class="ml-card-h">Mode</h2>
+						<p class="ml-card-help">What your launcher coins each tick.</p>
+						<div class="ml-modes" id="ul-modes" role="radiogroup" aria-label="Launch mode"></div>
+					</section>
+
+					<section class="ml-card" id="ul-sources-card">
+						<h2 class="ml-card-h">Trend sources</h2>
+						<p class="ml-card-help">Culture mined to ride live narratives. Themes only — never clones a ticker.</p>
+						<div class="ml-chips" id="ul-sources"></div>
+					</section>
+
+					<section class="ml-card">
+						<h2 class="ml-card-h">Cadence &amp; network</h2>
+						<div class="ml-fields">
+							<label class="ml-field">
+								<span class="ml-field-lbl">Target cadence <em>seconds</em></span>
+								<input type="number" min="60" max="86400" step="1" id="ul-cadence" class="ml-input" />
+								<span class="ml-field-hint" id="ul-cadence-hint"></span>
+							</label>
+							<label class="ml-field">
+								<span class="ml-field-lbl">Max / hour <em>ceiling</em></span>
+								<input type="number" min="0" max="60" step="1" id="ul-maxhour" class="ml-input" />
+							</label>
+						</div>
+						<div class="ml-net ul-net-row">
+							<span class="ml-net-lbl">Network</span>
+							<div class="ml-seg" id="ul-network" role="radiogroup" aria-label="Network">
+								<button type="button" class="ml-seg-btn" data-net="mainnet" role="radio">Mainnet</button>
+								<button type="button" class="ml-seg-btn" data-net="devnet" role="radio">Devnet</button>
+							</div>
+						</div>
+					</section>
+
+					<!-- Preview a coin -->
+					<section class="ml-card ul-preview-card">
+						<div class="ml-console-h">
+							<h2 class="ml-card-h">Preview a coin</h2>
+							<button type="button" class="ml-btn ml-btn-ghost ul-preview-btn" id="ul-preview-btn">Synthesize</button>
+						</div>
+						<p class="ml-card-help">See exactly what your launcher would mint next, riding the currents on the right.</p>
+						<div class="ul-sample" id="ul-sample" hidden>
+							<div class="ul-sample-head">
+								<span class="ul-sample-name" id="ul-sample-name"></span>
+								<span class="ul-sample-sym" id="ul-sample-sym"></span>
+							</div>
+							<p class="ul-sample-desc" id="ul-sample-desc"></p>
+							<div class="ul-sample-meta" id="ul-sample-meta"></div>
+						</div>
+						<div class="ul-sample-empty" id="ul-sample-empty">
+							<p>No preview yet. Hit <strong>Synthesize</strong> to coin one from the live narratives.</p>
+						</div>
+					</section>
+				</form>
+
+				<!-- Right rail -->
+				<div class="ml-rail">
+					<section class="ml-narr" aria-label="Live narratives">
+						<div class="ml-console-h">
+							<h2 class="ml-card-h">Live narratives</h2>
+							<span class="ml-console-meta" id="ul-narr-meta">—</span>
+						</div>
+						<p class="ml-narr-lead" id="ul-narr-lead" hidden></p>
+						<ol class="ml-narr-list" id="ul-narr-list"></ol>
+						<div class="ml-narr-empty" id="ul-narr-empty" hidden>
+							<p>No live narrative yet. Enable trend sources (Know Your Meme, Coin intel…) to surface the currents your launcher would ride.</p>
+						</div>
+					</section>
+
+					<section class="ml-console" aria-label="Preview console">
+						<div class="ml-console-h">
+							<h2 class="ml-card-h">Preview console</h2>
+							<span class="ml-console-meta" id="ul-console-meta">—</span>
+						</div>
+						<ol class="ml-runs" id="ul-runs"></ol>
+						<div class="ml-runs-empty" id="ul-runs-empty" hidden>
+							<p>No previews yet. Turn your launcher <strong>On</strong> to watch it pick coins every cadence.</p>
+						</div>
+					</section>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Sticky save bar -->
+	<div class="ml-savebar" id="ul-savebar" hidden role="region" aria-label="Unsaved changes">
+		<span class="ml-savebar-txt" id="ul-savebar-txt">Unsaved changes</span>
+		<div class="ml-savebar-actions">
+			<button class="ml-btn ml-btn-ghost" id="ul-discard">Discard</button>
+			<button class="ml-btn ml-btn-primary" id="ul-save">Save changes</button>
+		</div>
+	</div>
+
+	<div class="ml-toast" id="ul-toast" hidden aria-live="polite"></div>
+`;
+
 let loaded = null;
 let draft = null;
 let refreshTimer = null;
@@ -386,6 +543,7 @@ function reltime(iso) {
 }
 
 // ── boot ───────────────────────────────────────────────────────────────────────
-(async function boot() {
+// Called by the page module after LAUNCHER_MARKUP is in the DOM.
+export async function initLauncher() {
 	try { await load(); } catch (err) { if (err.message !== 'unauthorized') showGate(); }
-})();
+}

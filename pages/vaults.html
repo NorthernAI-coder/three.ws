@@ -67,11 +67,27 @@
 					</div>
 				</section>
 
+				<div class="vx-stats" id="vx-stats" aria-label="Vaults at a glance" hidden></div>
+
 				<div class="vx-feed-head">
-					<h2 class="vx-h2">Backable agents</h2>
-					<div class="vx-tabs" role="tablist" aria-label="Vault filter">
-						<button class="vx-tab is-active" role="tab" aria-selected="true" data-tab="all" type="button">All vaults</button>
-						<button class="vx-tab" role="tab" aria-selected="false" data-tab="mine" type="button" data-auth="in" hidden>My positions</button>
+					<div class="vx-feed-head-l">
+						<h2 class="vx-h2">Backable agents</h2>
+						<span class="vx-feed-count" id="vx-feed-count" aria-live="polite"></span>
+					</div>
+					<div class="vx-feed-head-r">
+						<label class="vx-sort">
+							<span class="vx-sort-l">Sort</span>
+							<select class="vx-sort-sel" id="vx-sort" aria-label="Sort vaults">
+								<option value="perf">Best return</option>
+								<option value="capital">Most capital</option>
+								<option value="backers">Most backers</option>
+								<option value="rep">Top reputation</option>
+							</select>
+						</label>
+						<div class="vx-tabs" role="tablist" aria-label="Vault filter">
+							<button class="vx-tab is-active" role="tab" aria-selected="true" data-tab="all" type="button">All vaults</button>
+							<button class="vx-tab" role="tab" aria-selected="false" data-tab="mine" type="button" data-auth="in" hidden>My positions</button>
+						</div>
 					</div>
 				</div>
 
