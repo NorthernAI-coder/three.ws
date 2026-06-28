@@ -65,15 +65,10 @@ export function summarizeWindowUsd(trades, nowMs, windowSec = DEFAULTS.windowSec
 	for (const t of trades) {
 		const tMs = tradeTimeMs(t);
 		if (tMs == null || tMs < floor || tMs > nowMs) continue;
-		// swap-api reports the USD notional on amountUsd; fall back to sol*priceUsd.
-		let v = num(t.amountUsd ?? t.usd_amount);
-		if (v == null) {
-			const sol = num(t.amountSol ?? t.sol_amount);
-			const px = num(t.priceUsd ?? t.price_usd);
-			// priceUsd is per-base-token; the sol notional already carries the trade
-			// size, so only fall back to it when there is no USD figure at all.
-			if (sol != null && px != null && sol > 0) v = sol * 0; // avoid wrong-unit math
-		}
+		// swap-api reports the per-trade USD notional directly on amountUsd. Only
+		// real USD figures count toward the volume sum — a trade without one is
+		// skipped rather than guessed from mismatched units.
+		const v = num(t.amountUsd ?? t.usd_amount);
 		if (v == null || v <= 0) continue;
 		usd += v;
 		count += 1;
