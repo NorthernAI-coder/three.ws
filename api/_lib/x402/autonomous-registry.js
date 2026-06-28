@@ -585,6 +585,77 @@ const SELF_ENDPOINTS = [
 		enabled: true,
 		extractSignal: (r) => ({ topic: r?.topic, signal: r?.signal, headline: r?.headline, confidence: r?.confidence, price_usd: r?.price_usd }),
 	},
+	// ── USDC Peg Monitor (USE-052) ─────────────────────────────────────────────────────
+	// Pays $0.01 USDC every 10 min to /api/x402/token-intel for the live USDC
+	// market price on Solana. A stablecoin deviation >0.5% from $1.00 is a
+	// payment-ecosystem health event: every x402 price is quoted in USDC, so a
+	// depeg skews all atomic amounts and settlement math. extractSignal returns
+	// { depeg, price_usd, deviation_pct } plus a bearish signal when depegged;
+	// storeValue raises/clears a Redis alert (x402:usdc-peg:alert) so the
+	// status surface can surface the anomaly before it corrupts payments.
+	// As an oracle entry the signal upserts into oracle_intel_signals under
+	// topic 'usdc_peg' for the sniper macro gate to consume. Cooldown 600s
+	// 6 reads/hr; free read when DexScreener has no live pair (503 before
+	// settlement -- never charged). Mint: USDC on Solana (EPjFWdd5...).
+	{
+		id: 'usdc-peg-monitor',
+		name: 'USDC Peg Monitor',
+		path: '/api/x402/token-intel?mint=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+		method: 'GET',
+		body: null,
+		cooldown_s: 600,
+		priority: 87,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => {
+			const price = typeof r?.price_usd === 'number' ? r.price_usd : null;
+			const deviation = price != null ? Math.abs(price - 1.0) * 100 : null;
+			const depeg = deviation != null && deviation > 0.5;
+			return {
+				topic: 'usdc_peg',
+				signal: depeg ? 'bearish' : 'neutral',
+				headline: price != null
+					? depeg
+						? `USDC depegged: $${price.toFixed(6)} (${deviation.toFixed(3)}% from $1.00)`
+						: `USDC stable at $${price.toFixed(6)}`
+					: 'USDC price unavailable',
+				confidence: price != null ? 0.95 : 0,
+				price_usd: price,
+				depeg,
+				deviation_pct: deviation != null ? Math.round(deviation * 1000) / 1000 : null,
+				symbol: r?.symbol ?? null,
+				change_24h: r?.change_24h ?? null,
+			};
+		},
+		storeValue: async ({ redis, signalData }) => {
+			if (!redis) return;
+			const v = signalData || {};
+			const USDC_PEG_ALERT_KEY = 'x402:usdc-peg:alert';
+			const USDC_PEG_ALERT_TTL_SECONDS = 25 * 60;
+			try {
+				if (v.depeg) {
+					await redis.set(
+						USDC_PEG_ALERT_KEY,
+						JSON.stringify({
+							price_usd: v.price_usd,
+							deviation_pct: v.deviation_pct,
+							headline: v.headline,
+							ts: new Date().toISOString(),
+						}),
+						{ ex: USDC_PEG_ALERT_TTL_SECONDS },
+					);
+					console.warn(
+						`[x402/usdc-peg] DEPEG ALERT: USDC at $${v.price_usd} (${v.deviation_pct}% from $1.00)`,
+					);
+				} else if (v.depeg === false) {
+					await redis.del(USDC_PEG_ALERT_KEY);
+				}
+			} catch (err) {
+				console.warn(`[x402/usdc-peg] alert write failed: ${err?.message || err}`);
+			}
+		},
+	},
+
 	{
 		id: 'crypto-intel-pump',
 		name: 'Crypto Intel: Pump.fun Meme',
