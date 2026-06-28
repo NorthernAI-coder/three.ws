@@ -192,6 +192,9 @@ class SpinWheel {
 			case 'token_unavailable': return 'Paid spins are unavailable right now.';
 			case 'no_wallet': return 'Connect a Solana wallet to buy a spin.';
 			case 'price_unavailable': return 'Live token price unavailable — try again in a moment.';
+			case 'service_unavailable':
+			case 'treasury_unavailable':
+			case 'rewards_unavailable': return 'Paid spins are briefly unavailable — try again in a moment.';
 			case 'build_failed': return 'Could not prepare the payment. Try again.';
 			case 'no_signature': return 'No transaction signature received.';
 			case 'already_settled': return 'That payment was already used for a spin.';

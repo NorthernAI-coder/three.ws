@@ -108,7 +108,14 @@ function fileServes(path) {
 	const clean = path.replace(/^\//, '').split('?')[0];
 	if (clean === '') return served.has('home.html') || served.has('index.html');
 	if (served.has(clean)) return true;
-	if (served.has(clean + '.html')) return true;
+	// NOTE: no bare-`.html` extension resolution here. This project pins routing
+	// with a legacy `routes` array in vercel.json, which opts out of Vercel's
+	// `cleanUrls` — the filesystem handler does NOT serve `splat.html` for a
+	// request to `/splat`. Each flat page needs an explicit `/x → /x.html`
+	// route. Modeling the extension fallback here would mask pages that are
+	// missing that route (they 404 in production while the audit stays green —
+	// exactly how /splat, /capture, /integrations, /partners, /agents-live
+	// slipped through). Directory indexes are still served by the filesystem.
 	if (served.has(clean + '/index.html')) return true;
 	if (clean.endsWith('/') && served.has(clean + 'index.html')) return true;
 	return false;

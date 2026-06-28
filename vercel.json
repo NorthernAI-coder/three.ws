@@ -1764,6 +1764,46 @@
 			"dest": "/avatar-engines.html"
 		},
 		{
+			"src": "/splat",
+			"dest": "/splat.html"
+		},
+		{
+			"src": "/splat/",
+			"dest": "/splat.html"
+		},
+		{
+			"src": "/capture",
+			"dest": "/capture.html"
+		},
+		{
+			"src": "/capture/",
+			"dest": "/capture.html"
+		},
+		{
+			"src": "/integrations",
+			"dest": "/integrations.html"
+		},
+		{
+			"src": "/integrations/",
+			"dest": "/integrations.html"
+		},
+		{
+			"src": "/partners",
+			"dest": "/partners.html"
+		},
+		{
+			"src": "/partners/",
+			"dest": "/partners.html"
+		},
+		{
+			"src": "/agents-live",
+			"dest": "/agents-live.html"
+		},
+		{
+			"src": "/agents-live/",
+			"dest": "/agents-live.html"
+		},
+		{
 			"src": "/cosmos",
 			"dest": "/cosmos.html"
 		},

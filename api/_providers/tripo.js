@@ -60,6 +60,24 @@ function imageTypeFor(url) {
 	return ext === 'jpeg' ? 'jpg' : ext;
 }
 
+// Parse a data:image/...;base64,... URI into its raw bytes, mime, and the file
+// extension Tripo expects. Returns null for anything that isn't a base64 image
+// data URI (e.g. a plain http(s) URL), so callers can branch on it.
+function parseImageDataUri(s) {
+	const m = /^data:(image\/(?:png|jpe?g|webp));base64,(.+)$/is.exec(String(s || ''));
+	if (!m) return null;
+	const mime = m[1].toLowerCase();
+	const ext = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+	let bytes;
+	try {
+		bytes = Buffer.from(m[2], 'base64');
+	} catch {
+		return null;
+	}
+	if (!bytes.length) return null;
+	return { bytes, mime, ext };
+}
+
 export function createTripoProvider(apiKey) {
 	if (!apiKey) {
 		throw Object.assign(new Error('Tripo API key is required'), { code: 'missing_key' });
@@ -121,6 +139,67 @@ export function createTripoProvider(apiKey) {
 		return String(taskId);
 	}
 
+	// Tripo's image_to_model `file` accepts a public http(s) `url` or an uploaded
+	// `file_token` — never an inline data: URI. Selfies arrive as base64 data
+	// URIs, so push the raw bytes through Tripo's multipart /upload endpoint and
+	// hand the task the returned token. Mirrors createTask's error classification
+	// so a bad key / no credits / throttle surfaces the same actionable code.
+	async function uploadImage({ bytes, mime, ext }) {
+		const form = new FormData();
+		form.append('file', new Blob([bytes], { type: mime }), `selfie.${ext}`);
+		let res;
+		try {
+			// Let fetch set the multipart content-type (with boundary) itself — only
+			// forward the bearer, never the JSON content-type from `headers`.
+			res = await fetch(`${TRIPO_BASE}/upload`, {
+				method: 'POST',
+				headers: { authorization: headers.authorization },
+				body: form,
+			});
+		} catch (err) {
+			throw Object.assign(new Error(`tripo upload unreachable: ${err?.message}`), {
+				code: 'provider_unreachable',
+				status: 502,
+			});
+		}
+		const data = await res.json().catch(() => ({}));
+		if (res.status === 401 || res.status === 403) {
+			throw Object.assign(new Error('Tripo rejected the API key.'), {
+				code: 'invalid_key',
+				status: 401,
+				providerStatus: res.status,
+			});
+		}
+		if (res.status === 402 || data?.code === 2000) {
+			throw Object.assign(new Error('Tripo account is out of credits.'), {
+				code: 'insufficient_credits',
+				status: 402,
+			});
+		}
+		if (res.status === 429) {
+			throw Object.assign(new Error('Tripo is rate limiting this key.'), {
+				code: 'rate_limited',
+				status: 429,
+				providerStatus: 429,
+			});
+		}
+		if (!res.ok || data?.code !== 0) {
+			throw Object.assign(
+				new Error(data?.message || `tripo upload returned ${res.status} (code ${data?.code})`),
+				{ code: 'provider_error', status: 502, providerStatus: res.status },
+			);
+		}
+		// Upload returns the handle as image_token; older responses use file_token.
+		const token = data?.data?.image_token || data?.data?.file_token;
+		if (!token) {
+			throw Object.assign(new Error('tripo upload returned no image token'), {
+				code: 'provider_error',
+				status: 502,
+			});
+		}
+		return String(token);
+	}
+
 	return {
 		async textToGeometry({ prompt, tier }) {
 			const taskId = await createTask({
@@ -135,9 +214,15 @@ export function createTripoProvider(apiKey) {
 		},
 
 		async imageTo3d({ imageUrl, tier }) {
+			// Data URI (selfie) → upload first and reference the token; a real
+			// http(s) URL passes straight through as `file.url`.
+			const parsed = parseImageDataUri(imageUrl);
+			const file = parsed
+				? { type: parsed.ext, file_token: await uploadImage(parsed) }
+				: { type: imageTypeFor(imageUrl), url: imageUrl };
 			const taskId = await createTask({
 				type: 'image_to_model',
-				file: { type: imageTypeFor(imageUrl), url: imageUrl },
+				file,
 				model_version: modelVersion(),
 				face_limit: clampFaces(tier.polycount),
 				texture: true,

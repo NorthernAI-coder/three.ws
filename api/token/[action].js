@@ -47,6 +47,17 @@ const PURPOSES = {
 
 const SOLANA_ADDRESS = z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, 'invalid Solana address');
 
+// Typed failures from the pricing / fund-routing layer that mean "briefly
+// unavailable", not "internal fault". Their messages carry no secrets, so we
+// answer them with an honest 503 + retry hint here — before they reach wrap()'s
+// generic sanitizer, which would otherwise flatten them into the scary
+// "internal error — quote ref …" support dump and strip the actionable code.
+const QUOTE_UNAVAILABLE_DETAIL = {
+	price_unavailable: 'Live $THREE price is briefly unavailable. Try again in a moment.',
+	treasury_unavailable: 'The $THREE payment rail is briefly unavailable. Try again shortly.',
+	rewards_unavailable: 'The $THREE payment rail is briefly unavailable. Try again shortly.',
+};
+
 function isAdmin(user) {
 	if (!user) return false;
 	if (user.is_admin) return true;
@@ -119,15 +130,28 @@ async function handleQuote(req, res) {
 		return error(res, 400, 'seller_required', 'seller_wallet is required for this purpose');
 	}
 
-	const { token, quote, expiresAt } = await issueQuote({
-		purpose: body.purpose,
-		usd: body.usd,
-		splitPolicy: purpose.policy,
-		sellerWallet: body.seller_wallet ?? null,
-		network: body.network,
-		refType: body.ref_type ?? null,
-		refId: body.ref_id ?? null,
-	});
+	let issued;
+	try {
+		issued = await issueQuote({
+			purpose: body.purpose,
+			usd: body.usd,
+			splitPolicy: purpose.policy,
+			sellerWallet: body.seller_wallet ?? null,
+			network: body.network,
+			refType: body.ref_type ?? null,
+			refId: body.ref_id ?? null,
+		});
+	} catch (err) {
+		const detail = QUOTE_UNAVAILABLE_DETAIL[err?.code];
+		if (detail) {
+			// Honest, safe-to-show 503 with the actionable code preserved + a back-off
+			// hint, so the client renders a clean "try again shortly" retry state.
+			res.setHeader('retry-after', '15');
+			return error(res, 503, err.code, detail, { retry_after: 15 });
+		}
+		throw err; // genuine fault → wrap() logs, alerts, and sanitizes it.
+	}
+	const { token, quote, expiresAt } = issued;
 
 	return json(res, 201, {
 		quote_token: token,

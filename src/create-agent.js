@@ -16,7 +16,7 @@ import { apiFetch } from './api.js';
 import { getMe, saveRemoteGlbToAccount } from './account.js';
 import { log } from './shared/log.js';
 import { isValidGlbMagic } from './shared/glb-magic.js';
-import { trackFunnelStep, trackError, ANALYTICS_EVENTS } from './analytics.js';
+import { track, trackFunnelStep, trackError, ANALYTICS_EVENTS } from './analytics.js';
 
 const TOTAL_STEPS = 5;
 const STEP_LABELS = ['Basics', 'Model', 'Skills', 'Personality', 'Review'];
@@ -134,6 +134,7 @@ async function boot() {
 	wireBasics();
 	wireModel();
 	wirePersonality();
+	wireMagic();
 	wireNav();
 
 	// Resolve auth. The whole flow requires an account (the agent gets a wallet),
@@ -166,6 +167,9 @@ function cacheEls() {
 	el.authGate = $('auth-gate');
 	el.preview = $('model-preview');
 	el.previewEmpty = $('model-preview-empty');
+	el.magicInput = $('magic-input');
+	el.magicGo = $('magic-go');
+	el.magicMsg = $('magic-msg');
 }
 
 function showAuthGate() {
@@ -392,7 +396,164 @@ function wireTagInput() {
 		});
 		box.insertBefore(frag, input);
 	}
-	// expose for the personality step's reuse — not needed elsewhere now.
+	// Expose so the magic generator can repaint after replacing state.tags.
+	tagRenderer = renderTags;
+}
+
+// ── Magic generator: describe it, we build it ───────────────────────────────
+
+let generating = false;
+
+function wireMagic() {
+	const input = el.magicInput;
+	const go = el.magicGo;
+	if (!input || !go) return;
+
+	// Auto-grow the brief box so longer ideas stay fully visible.
+	const grow = () => {
+		input.style.height = 'auto';
+		input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+	};
+	input.addEventListener('input', grow);
+	// Enter generates; Shift+Enter inserts a newline.
+	input.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			generateSpec(input.value);
+		}
+	});
+
+	go.addEventListener('click', () => generateSpec(input.value));
+
+	// Example chips fill the brief (one-click, zero typing) and generate at once.
+	document.querySelectorAll('#magic-chips .magic-chip[data-example]').forEach((chip) => {
+		chip.addEventListener('click', () => {
+			input.value = chip.dataset.example || '';
+			grow();
+			generateSpec(input.value);
+		});
+	});
+	// "Surprise me" — generate with no brief at all.
+	$('magic-surprise')?.addEventListener('click', () => generateSpec(''));
+}
+
+function setMagicMsg(text, kind) {
+	if (!el.magicMsg) return;
+	el.magicMsg.textContent = text || '';
+	el.magicMsg.className = 'magic-msg' + (kind ? ' ' + kind : '');
+}
+
+function setMagicBusy(busy) {
+	generating = busy;
+	if (el.magicGo) {
+		el.magicGo.setAttribute('aria-busy', busy ? 'true' : 'false');
+		el.magicGo.disabled = busy;
+		const label = el.magicGo.querySelector('.magic-go-label');
+		if (label) label.textContent = busy ? 'Building…' : 'Generate';
+	}
+	if (el.magicInput) el.magicInput.disabled = busy;
+	document
+		.querySelectorAll('#magic-chips .magic-chip')
+		.forEach((c) => (c.disabled = busy));
+}
+
+async function generateSpec(rawPrompt) {
+	if (generating) return;
+	const prompt = (rawPrompt || '').trim();
+	setMagicBusy(true);
+	setMagicMsg('Designing your agent…', '');
+	try {
+		const res = await apiFetch('/api/agents/suggest-spec', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ prompt }),
+		});
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok || !data.spec) {
+			const msg =
+				data.error_description ||
+				(res.status === 401
+					? 'Please sign in first, then generate.'
+					: res.status === 429
+						? 'You’re generating quickly — give it a few seconds and try again.'
+						: 'Couldn’t generate that one. Try a different description or fill the form by hand.');
+			setMagicMsg(msg, 'err');
+			setMagicBusy(false);
+			return;
+		}
+		applySpec(data.spec);
+		track(ANALYTICS_EVENTS.CTA_CLICKED, {
+			cta: 'ai_generate_spec',
+			location: 'create-agent',
+			had_prompt: prompt.length > 0,
+		});
+		setMagicBusy(false);
+		setMagicMsg('', '');
+		// Drop the user on Review with everything filled — read it over and ship,
+		// or jump back to any step via the pips to tweak.
+		showStep(TOTAL_STEPS - 1);
+		setMsg(`“${state.name}” is ready to review. Tweak anything, then create.`, 'ok');
+	} catch (err) {
+		log.warn('[create-agent] generate failed', err?.message);
+		trackError('create_agent.generate', err);
+		setMagicMsg('Network hiccup — try again in a moment.', 'err');
+		setMagicBusy(false);
+	}
+}
+
+// Pour a generated spec into the wizard's real state + DOM, reusing the same
+// fields and selection paths a manual fill would touch — nothing bypasses the
+// existing validation or submit flow.
+function applySpec(spec) {
+	// Step 1 — name, description, tags.
+	state.name = spec.name || '';
+	$('f-name').value = state.name;
+	$('name-count').textContent = `${state.name.length} / 60`;
+	$('f-name').classList.remove('is-invalid');
+	$('name-error').classList.remove('show');
+
+	state.description = spec.description || '';
+	$('f-description').value = state.description;
+	$('desc-count').textContent = `${state.description.length} / 280`;
+
+	state.tags = Array.isArray(spec.tags) ? spec.tags.slice(0, MAX_TAGS) : [];
+	tagRenderer();
+
+	// Step 2 — pick the suggested starter body.
+	const starter = STARTERS.find((s) => s.id === spec.avatar_starter) || DEFAULT_AVATAR;
+	const starterTab = document.querySelector('.model-tab[data-pane="starter"]');
+	if (starterTab && !starterTab.classList.contains('is-active')) starterTab.click();
+	selectStarter(starter.id);
+
+	// Step 3 — optional skills (core stay locked on).
+	state.skills = new Set(CORE_SKILLS.map((s) => s.id));
+	(Array.isArray(spec.skills) ? spec.skills : []).forEach((id) => {
+		if (OPTIONAL_SKILLS.some((s) => s.id === id)) state.skills.add(id);
+	});
+	renderSkills();
+
+	// Step 4 — category, greeting, persona, voice.
+	state.category = CATEGORIES.includes(spec.category) ? spec.category : '';
+	$('f-category').value = state.category;
+
+	state.greeting = spec.greeting || '';
+	$('f-greeting').value = state.greeting;
+	$('greet-count').textContent = `${state.greeting.length} / 200`;
+
+	state.persona = spec.persona || '';
+	$('f-persona').value = state.persona;
+	$('persona-count').textContent = `${state.persona.length} / 2000`;
+
+	state.voice = spec.voice === 'custom' ? 'custom' : 'browser';
+	document.querySelectorAll('[data-voice]').forEach((b) => {
+		const on = b.dataset.voice === state.voice;
+		b.classList.toggle('is-selected', on);
+		b.setAttribute('aria-pressed', on ? 'true' : 'false');
+	});
+
+	// Publishing needs a category + persona; the generator supplies both, so
+	// default the marketplace listing on — the review step lets them opt out.
+	state.publish = Boolean(state.category && state.persona.trim());
 }
 
 // ── Step 2: Model ───────────────────────────────────────────────────────────
