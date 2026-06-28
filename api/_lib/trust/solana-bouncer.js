@@ -175,6 +175,169 @@ function attestationTotal(rep) {
 	return (a.feedback_count || 0) + (a.validation_count || 0);
 }
 
+// Agents scoring below this are flagged for trust review by the active-agent
+// sweep (api/x402/agent-reputation POST mode → x402_autonomous_log).
+export const REPUTATION_FLAG_THRESHOLD = 30;
+
+/**
+ * Collapse a reputation snapshot into a single 0..100 trust score, derived
+ * purely from settled on-chain behavior. Unproven / inactive agents score low
+ * (and are flagged); agents with real paid demand, honored distribution and
+ * buyback obligations, and signed attestations score high. Deterministic — the
+ * same snapshot always yields the same score, so it is safe to unit-test and to
+ * compare across sweeps.
+ *
+ * Weights (max 100): payments 45 (volume 25 + distinct payers 10 + reliability
+ * 10), distributions 15, buybacks 15, attestations 25.
+ *
+ * @param {object} rep  snapshot from loadAgentReputation
+ * @returns {{score:number, flagged:boolean, reasons:string[], breakdown:object}}
+ */
+export function scoreAgentReputation(rep) {
+	const p = (rep && rep.payments) || {};
+	const d = (rep && rep.distributions) || {};
+	const b = (rep && rep.buybacks) || {};
+	const a = (rep && rep.attestations) || {};
+
+	const confirmed = Math.max(0, Number(p.confirmed_count) || 0);
+	const payers = Math.max(0, Number(p.distinct_payers) || 0);
+	const failureRate = Math.min(1, Math.max(0, Number(p.failure_rate) || 0));
+
+	// Payments — proven demand + reliability (45 pts).
+	const volumePts = (Math.min(confirmed, 50) / 50) * 25;
+	const payerPts = (Math.min(payers, 10) / 10) * 10;
+	const reliabilityPts = confirmed > 0 ? (1 - failureRate) * 10 : 0;
+
+	// Distributions — honored payout obligations (15 pts). Neutral when none ran.
+	const distTotal = (Number(d.confirmed) || 0) + (Number(d.failed) || 0);
+	const distPts = distTotal > 0 ? (Number(d.success_rate) || 0) * 15 : 0;
+
+	// Buybacks — follow-through on burn commitments (15 pts).
+	const buyConfirmed = Number(b.confirmed) || 0;
+	const buyTotal = buyConfirmed + (Number(b.failed) || 0);
+	const buyPts = buyTotal > 0 ? (buyConfirmed / buyTotal) * 15 : 0;
+
+	// Attestations — signed peer/validator vouches (25 pts).
+	const attTotal = (Number(a.feedback_count) || 0) + (Number(a.validation_count) || 0);
+	const attPts = (Math.min(attTotal, 10) / 10) * 25;
+
+	const score = Math.round(
+		Math.min(100, Math.max(0, volumePts + payerPts + reliabilityPts + distPts + buyPts + attPts)),
+	);
+
+	const reasons = [];
+	if (confirmed === 0) reasons.push('no confirmed payments on record');
+	if (attTotal === 0) reasons.push('no signed attestations');
+	if (confirmed > 0 && failureRate > 0.2) {
+		reasons.push(`elevated payment failure rate ${(failureRate * 100).toFixed(0)}%`);
+	}
+	if (distTotal > 0 && (Number(d.success_rate) || 0) < 0.5) {
+		reasons.push('distribution success rate below 50%');
+	}
+
+	return {
+		score,
+		flagged: score < REPUTATION_FLAG_THRESHOLD,
+		reasons,
+		breakdown: {
+			payments: Math.round(volumePts + payerPts + reliabilityPts),
+			distributions: Math.round(distPts),
+			buybacks: Math.round(buyPts),
+			attestations: Math.round(attPts),
+		},
+	};
+}
+
+/**
+ * The most recently active three.ws agents — ordered by latest settled payment,
+ * falling back to mint creation for agents that deployed a token but have not
+ * been paid yet. Only agents with at least one pump_agent_mints row qualify
+ * (an agent with no token has no Solana track record to score).
+ *
+ * @param {number} limit  rows to return (already clamped by the caller)
+ * @returns {Promise<Array<{id:string,name:string,wallet_address:string,last_active_at:string|null}>>}
+ */
+async function listRecentlyActiveAgents(limit) {
+	const rows = await sql`
+		select ai.id, ai.name, ai.wallet_address,
+		       max(coalesce(p.confirmed_at, p.created_at, m.created_at)) as last_active_at
+		  from agent_identities ai
+		  join pump_agent_mints m on m.agent_id = ai.id
+		  left join pump_agent_payments p on p.mint_id = m.id
+		 where ai.deleted_at is null
+		 group by ai.id, ai.name, ai.wallet_address
+		 order by last_active_at desc nulls last
+		 limit ${limit}
+	`;
+	return rows.map((r) => ({
+		id: r.id,
+		name: r.name,
+		wallet_address: r.wallet_address || null,
+		last_active_at: r.last_active_at ? new Date(r.last_active_at).toISOString() : null,
+	}));
+}
+
+/**
+ * Sweep the most recently active agents and score each one's Solana behavioral
+ * reputation. Powers the autonomous platform-trust monitor: it returns the live
+ * average trust score and flags low-reputation agents (score <
+ * REPUTATION_FLAG_THRESHOLD) for review. The reads are injectable so the
+ * aggregate logic is unit-testable without a database.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.limit=20]  agents to sweep (clamped 1..50)
+ * @param {(id:string)=>Promise<object>} [opts.read]  reputation reader (override in tests)
+ * @param {(limit:number)=>Promise<Array>} [opts.list]  active-agent lister (override in tests)
+ * @returns {Promise<object>} aggregate sweep result
+ */
+export async function sweepAgentReputation({
+	limit = 20,
+	read = loadAgentReputation,
+	list = listRecentlyActiveAgents,
+} = {}) {
+	const n = Math.min(50, Math.max(1, Math.floor(Number(limit) || 20)));
+	const active = await list(n);
+
+	const scored = await Promise.all(
+		active.map(async (row) => {
+			const rep = await read(row.id);
+			const s = scoreAgentReputation(rep);
+			return {
+				agent_id: rep.agent_id || row.id,
+				name: rep.name ?? row.name ?? null,
+				wallet_address: rep.wallet_address || row.wallet_address || null,
+				deployed_mints: rep.deployed_mints || 0,
+				score: s.score,
+				flagged: s.flagged,
+				reasons: s.reasons,
+				breakdown: s.breakdown,
+				last_active_at: row.last_active_at || null,
+			};
+		}),
+	);
+
+	const count = scored.length;
+	const flagged = scored.filter((agent) => agent.flagged);
+	const avgScore = count
+		? Math.round(scored.reduce((sum, agent) => sum + agent.score, 0) / count)
+		: 0;
+
+	return {
+		mode: 'sweep',
+		count,
+		avg_score: avgScore,
+		flagged_count: flagged.length,
+		flagged: flagged.map((agent) => ({
+			agent_id: agent.agent_id,
+			name: agent.name,
+			score: agent.score,
+			reasons: agent.reasons,
+		})),
+		agents: scored,
+		swept_at: new Date().toISOString(),
+	};
+}
+
 /**
  * Door tier from Solana behavioral reputation. Mirrors club/cover-pass.tierFor
  * but reads the whole platform's record instead of club_tips alone. Never

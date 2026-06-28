@@ -451,6 +451,47 @@ const SELF_ENDPOINTS = [
 		extractSignal: (r) => ({ verdict: r?.verdict, confidence: r?.confidence, sources: r?.sources }),
 	},
 
+	// ── Bazaar Price Trend Monitor (USE-060) ──────────────────────────────────
+	// Pays $0.001 USDC to /api/x402/bazaar-feed for a 24h read of price movement
+	// across the x402 service marketplace, derived from the platform's own
+	// x402_service_price_history time series (populated by the x402-pricing-tracker
+	// pipeline). The endpoint classifies each tracked service as trending up /
+	// down / stable over the window and derives the net price pressure as a
+	// bullish / bearish / neutral signal. As an `oracle` entry the latest verdict
+	// dedups into oracle_intel_signals (topic 'bazaar_price_trends') so the sniper
+	// gate can fold marketplace cost sentiment into conviction. extractSignal lifts
+	// the directional signal + the mover counts into x402_autonomous_log.signal_data.
+	// Cooldown 900s (15 min) → matches the price feed's volatility without re-reading
+	// the same window every tick; spend ≈ $0.10/day, well under the loop's daily cap.
+	{
+		id: 'bazaar-price-trends',
+		name: 'Bazaar Price Trend Monitor',
+		path: '/api/x402/bazaar-feed',
+		method: 'POST',
+		body: { filter: 'price_trends', period: '24h' },
+		cooldown_s: 900, // 15 min — price-pressure signal volatility
+		priority: 82,
+		pipeline: 'oracle',
+		enabled: true,
+		extractSignal: (r) => ({
+			topic: 'bazaar_price_trends',
+			signal: r?.signal || null,
+			headline: r?.headline || null,
+			confidence: r?.confidence ?? null,
+			net_pressure: r?.net_pressure ?? null,
+			avg_change_pct: r?.avg_change_pct ?? null,
+			trending_up: Array.isArray(r?.trending_up)
+				? r.trending_up.map((s) => ({ service_key: s.service_key, pct_change: s.pct_change }))
+				: [],
+			trending_down: Array.isArray(r?.trending_down)
+				? r.trending_down.map((s) => ({ service_key: s.service_key, pct_change: s.pct_change }))
+				: [],
+			stable_count: r?.stable_count ?? 0,
+			total_tracked: r?.total_tracked ?? 0,
+			period: r?.period || '24h',
+		}),
+	},
+
 	// ── Volume / Activity Feed (keep the live feed alive) ─────────────────────
 	{
 		id: 'dance-tip-vol-1',
