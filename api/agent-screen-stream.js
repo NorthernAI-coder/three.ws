@@ -7,9 +7,15 @@
 // Events:
 //   event: open   — { agentId, agentName, ts }  emitted once on connect
 //   event: frame  — { ts, data?, activity, type, agentId }  when a new frame arrives
-//   event: log    — { entries: [{ts, activity, type}] }  initial activity history
+//   event: log    — { entries: [{ts, activity, type}] }  activity history (Redis or DB)
 //   event: dark   — {}  emitted when the agent's frame TTL expires (stream gone dark)
 //   event: ping   — {}  keepalive every 15s
+//
+// Activity backfill order: a live caster's pushed log (Redis `agent:screen:*:log`)
+// takes priority; when none exists the stream falls back to the agent's real
+// `agent_actions` DB rows and re-polls them every ACTIVITY_REFRESH_MS. This is
+// what lets EVERY agent show a meaningful, always-fresh screen 24/7 even when no
+// Playwright caster is running — the zero-cost baseline behind the live wall.
 //
 // The stream runs for up to 280s (Vercel limit 300s — budget for setup/teardown).
 // Clients reconnect automatically via EventSource's built-in retry.
@@ -24,6 +30,30 @@ export const maxDuration = 300;
 const MAX_DURATION_MS = 280_000;
 const PING_INTERVAL_MS = 15_000;
 const POLL_INTERVAL_MS = 500;
+const ACTIVITY_REFRESH_MS = 8_000; // re-poll DB activity for dark agents
+
+// Map an agent_actions DB row to the SSE log entry shape { ts, activity, type }.
+function rowToEntry(row) {
+	return {
+		ts: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+		activity: row.summary || row.action_type || 'action',
+		type: row.action_type || 'action',
+	};
+}
+
+// Fetch the agent's most recent real activity from the database. Used as the
+// always-available fallback when no live caster is pushing a structured log.
+async function fetchDbActivity(agentId) {
+	const rows = await sql`
+		SELECT action_type, summary, created_at
+		FROM agent_actions
+		WHERE agent_id = ${agentId}
+		ORDER BY id DESC
+		LIMIT 50
+	`.catch(() => []);
+	// oldest-first for display, matching the Redis log ordering.
+	return rows.map(rowToEntry).reverse();
+}
 
 export default async function handleAgentScreenStream(req, res) {
 	if (cors(req, res, { methods: 'GET,OPTIONS' })) return;
@@ -75,16 +105,29 @@ export default async function handleAgentScreenStream(req, res) {
 	// Emit open event immediately
 	send('open', { agentId, agentName: agentRow.name, ts: Date.now() });
 
-	// Emit activity log backfill
+	// Emit activity log backfill. A live caster's pushed Redis log wins; otherwise
+	// fall back to the agent's real DB activity so the screen is never blank.
+	let hasRedisLog = false;
 	if (r) {
 		try {
 			const logKey = `agent:screen:${agentId}:log`;
 			const raw = await r.lrange(logKey, 0, 49);
 			if (raw?.length) {
+				hasRedisLog = true;
 				const entries = raw
 					.map((s) => { try { return JSON.parse(s); } catch { return null; } })
 					.filter(Boolean)
 					.reverse(); // oldest-first for display
+				send('log', { entries });
+			}
+		} catch { /* non-fatal */ }
+	}
+	let lastDbActivityTs = 0;
+	if (!hasRedisLog) {
+		try {
+			const entries = await fetchDbActivity(agentId);
+			if (entries.length) {
+				lastDbActivityTs = entries[entries.length - 1].ts;
 				send('log', { entries });
 			}
 		} catch { /* non-fatal */ }
@@ -95,6 +138,7 @@ export default async function handleAgentScreenStream(req, res) {
 	let wasDark = false;
 	let deadline = Date.now() + MAX_DURATION_MS;
 	let pingAt = Date.now() + PING_INTERVAL_MS;
+	let activityAt = Date.now() + ACTIVITY_REFRESH_MS;
 
 	const loop = async () => {
 		while (active && Date.now() < deadline) {
@@ -104,6 +148,23 @@ export default async function handleAgentScreenStream(req, res) {
 			if (now >= pingAt) {
 				send('ping', {});
 				pingAt = now + PING_INTERVAL_MS;
+			}
+
+			// Refresh DB activity for agents with no live caster log, so an idle
+			// agent's screen keeps reflecting real on-chain/skill activity as it
+			// happens. Skipped entirely once a caster is pushing its own log.
+			if (!hasRedisLog && now >= activityAt) {
+				activityAt = now + ACTIVITY_REFRESH_MS;
+				try {
+					const entries = await fetchDbActivity(agentId);
+					if (entries.length) {
+						const newestTs = entries[entries.length - 1].ts;
+						if (newestTs > lastDbActivityTs) {
+							lastDbActivityTs = newestTs;
+							send('log', { entries });
+						}
+					}
+				} catch { /* non-fatal */ }
 			}
 
 			// Poll for new frame

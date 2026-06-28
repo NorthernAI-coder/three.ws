@@ -19,11 +19,24 @@
 // agent:screen:{agentId}:log holds the last 50 activity entries (no image data)
 // for the activity log panel.
 
+import { timingSafeEqual } from 'node:crypto';
 import { cors, error, json, method, rateLimited, readJson } from './_lib/http.js';
 import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getRedis } from './_lib/redis.js';
 import { sql } from './_lib/db.js';
+
+// First-party on-demand caster pool (workers/agent-screen-pool) authenticates
+// with a single shared secret and may push frames for ANY agent — it casts
+// whichever agents viewers are currently watching, not agents it "owns". The
+// secret is never optional-by-default: an unset/blank env disables the path.
+const WORKER_SECRET = process.env.SCREEN_WORKER_SECRET || '';
+function isPoolWorker(bearer) {
+	if (!bearer || !WORKER_SECRET || WORKER_SECRET.length < 16) return false;
+	const a = Buffer.from(bearer);
+	const b = Buffer.from(WORKER_SECRET);
+	return a.length === b.length && timingSafeEqual(a, b);
+}
 
 const FRAME_TTL = 90; // seconds — stream goes dark if agent stops pushing
 const LOG_CAP = 50; // activity log entries kept per agent
@@ -43,18 +56,24 @@ export default async function handleAgentScreenPush(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
 
-	// Auth: bearer OR session
+	// Auth: first-party pool worker (shared secret, casts any agent) OR the
+	// agent owner (bearer JWT / session, casts only their own agents).
 	let userId = null;
+	let isWorker = false;
 	const bearer = extractBearer(req);
-	if (bearer) {
-		const auth = await authenticateBearer(bearer).catch(() => null);
-		if (auth?.userId) userId = auth.userId;
+	if (isPoolWorker(bearer)) {
+		isWorker = true;
+	} else {
+		if (bearer) {
+			const auth = await authenticateBearer(bearer).catch(() => null);
+			if (auth?.userId) userId = auth.userId;
+		}
+		if (!userId) {
+			const auth = await getSessionUser(req, res);
+			if (auth?.id) userId = auth.id;
+		}
+		if (!userId) return error(res, 401, 'unauthorized', 'authentication required');
 	}
-	if (!userId) {
-		const auth = await getSessionUser(req, res);
-		if (auth?.id) userId = auth.id;
-	}
-	if (!userId) return error(res, 401, 'unauthorized', 'authentication required');
 
 	// Rate limit: 6 frames/second per IP (generous for screenshot streams)
 	const rl = await limits.apiIp(clientIp(req), { limit: 360, window: '60s' });
@@ -83,11 +102,12 @@ export default async function handleAgentScreenPush(req, res) {
 	const sliced = typeof frame.data === 'string' ? frame.data.slice(0, DATA_MAX) : null;
 	const data = sliced && isRasterDataUrl(sliced) ? sliced : null;
 
-	// Verify the calling user owns this agent
-	const [agentRow] = await sql`
-		SELECT id FROM agent_identities WHERE id = ${agentId} AND user_id = ${userId} LIMIT 1
-	`;
-	if (!agentRow) return error(res, 403, 'forbidden', 'agent not owned by this user');
+	// Ownership: the pool worker may cast any existing agent; owners are limited
+	// to their own agents.
+	const [agentRow] = isWorker
+		? await sql`SELECT id FROM agent_identities WHERE id = ${agentId} AND deleted_at IS NULL LIMIT 1`
+		: await sql`SELECT id FROM agent_identities WHERE id = ${agentId} AND user_id = ${userId} LIMIT 1`;
+	if (!agentRow) return error(res, isWorker ? 404 : 403, isWorker ? 'not_found' : 'forbidden', isWorker ? 'agent not found' : 'agent not owned by this user');
 
 	const r = getRedis();
 	if (!r) return error(res, 503, 'redis_unavailable', 'frame store offline');

@@ -53,7 +53,12 @@ import { computeFramingExtent, computeFramingWidth } from './viewer/framing.js';
 import { LightProbeGrid } from './light-probe-grid.js';
 import { AnimationManager } from './animation-manager.js';
 import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
-import { EffectComposer, RenderPass, BloomEffect, VignetteEffect, EffectPass } from 'postprocessing';
+import {
+	CinematicPipeline,
+	CINEMATIC_PRESET_NAMES,
+	CINEMATIC_DEFAULTS,
+	DEFAULT_CINEMATIC_PRESET,
+} from './viewer/cinematic.js';
 import { log } from './shared/log.js';
 
 // Install BVH-accelerated raycasting on Three.js prototypes. This must happen
@@ -234,26 +239,19 @@ export class Viewer {
 
 		this.el.appendChild(this.renderer.domElement);
 
-		// Post-processing: a single merged fullscreen pass (postprocessing lib)
-		// gives a subtle vignette that focuses attention on the avatar, plus mild
-		// bloom on bright specular highlights. The luminance threshold keeps normal
-		// surfaces from blooming. Screenshot capture bypasses this — see screenshot.js.
-		this._composer = new EffectComposer(this.renderer);
-		this._renderPass = new RenderPass(this.scene, this.activeCamera);
-		this._composer.addPass(this._renderPass);
-		// Gentle vignette — pulls focus to the avatar without darkening the small
-		// gallery thumbnails. Lower darkness + wider offset keeps the body lit.
-		const vignetteEffect = new VignetteEffect({ offset: 0.5, darkness: 0.22 });
-		const bloomEffect = new BloomEffect({
-			intensity: 0.6,
-			luminanceThreshold: 0.8,
-			luminanceSmoothing: 0.05,
-			mipmapBlur: true,
+		// Post-processing: the CinematicPipeline owns the full post chain (SSAO,
+		// depth-of-field, bloom, colour grade, chromatic aberration, film grain,
+		// vignette) behind selectable presets. The default 'Studio' preset
+		// reproduces the historical look exactly — subtle bloom + vignette, nothing
+		// else — so gallery thumbnails and embeds are unchanged unless a user opts
+		// into a richer look. Screenshot capture bypasses this — see screenshot.js.
+		this.state.cinematicPreset = options.cinematicPreset ?? DEFAULT_CINEMATIC_PRESET;
+		this._cinematic = new CinematicPipeline(this.renderer, this.scene, this.activeCamera, {
+			width: el.clientWidth,
+			height: el.clientHeight,
+			preset: this.state.cinematicPreset,
 		});
-		this._effectPass = new EffectPass(this.activeCamera, bloomEffect, vignetteEffect);
-		this._effectPass.renderToScreen = true;
-		this._composer.addPass(this._effectPass);
-		this._composer.setSize(el.clientWidth, el.clientHeight);
+		this._composer = this._cinematic.composer;
 
 		this.cameraCtrl = null;
 		this.cameraFolder = null;
@@ -439,6 +437,7 @@ export class Viewer {
 					'autoRotate',
 					'exposure',
 					'environment',
+					'cinematicPreset',
 				];
 				let touched = false;
 				for (const key of KEYS) {
@@ -453,6 +452,7 @@ export class Viewer {
 					this.updateEnvironment();
 					this.updateDisplay();
 					this.updateBackground();
+					this._cinematic?.applyPreset(this.state.cinematicPreset);
 					this.updateGUI?.();
 				}
 			}
@@ -470,6 +470,7 @@ export class Viewer {
 					autoRotate: this.state.autoRotate,
 					exposure: this.state.exposure,
 					environment: this.state.environment,
+					cinematicPreset: this.state.cinematicPreset,
 				};
 				localStorage.setItem(this._prefsKey, JSON.stringify(snapshot));
 			} catch {
@@ -660,7 +661,7 @@ export class Viewer {
 			}
 		}
 
-		this.render();
+		this.render(dt);
 		this._needsRender = false;
 
 		if (this._animating && this._visible && this._tabVisible && !this._disposed) {
@@ -696,7 +697,7 @@ export class Viewer {
 		};
 	}
 
-	render() {
+	render(deltaTime = 0) {
 		// Additive bloom bleeds bright highlights into neighbouring pixels —
 		// including the alpha-0 background. Over a transparent canvas that halo
 		// composites onto the host page as a washed-out "box" around the avatar
@@ -706,7 +707,7 @@ export class Viewer {
 		if (this.state.transparentBg) {
 			this.renderer.render(this.scene, this.activeCamera);
 		} else {
-			this._composer.render();
+			this._cinematic.render(deltaTime);
 		}
 		if (this.state.grid) {
 			this._ensureAxesRenderer();
@@ -1229,8 +1230,7 @@ export class Viewer {
 			});
 		}
 		// Keep the post-processing passes pointed at the live camera.
-		if (this._renderPass) this._renderPass.mainCamera = this.activeCamera;
-		if (this._effectPass) this._effectPass.mainCamera = this.activeCamera;
+		if (this._cinematic) this._cinematic.setCamera(this.activeCamera);
 		this.invalidate();
 	}
 
@@ -1604,6 +1604,54 @@ export class Viewer {
 			lightFolder.add(this.state, 'rimRatio', 0, 1.5).name('rim'),
 			lightFolder.addColor(this.state, 'rimColor'),
 		].forEach((ctrl) => ctrl.onChange(() => this.updateLights()));
+
+		// Cinematic FX — selectable post-processing looks plus live per-effect
+		// tuning. Preset picker rewrites every slider; sliders write straight into
+		// the live pipeline so the canvas updates as you drag.
+		const fxFolder = gui.addFolder('Cinematic FX');
+		const fx = this._cinematic;
+		const presetHolder = { preset: this.state.cinematicPreset };
+		const fxCtrls = [];
+		const syncFxCtrls = () => fxCtrls.forEach((c) => c.updateDisplay());
+
+		fxFolder
+			.add(presetHolder, 'preset', CINEMATIC_PRESET_NAMES)
+			.name('preset')
+			.onChange((name) => {
+				fx.applyPreset(name);
+				this.state.cinematicPreset = name;
+				syncFxCtrls();
+				this.invalidate();
+				this.notifyScenePrefChange();
+			});
+
+		// Each slider mutates fx.params[key] in place, then re-pushes the whole
+		// param set so the canvas updates live as you drag.
+		const onFxChange = () => {
+			fx.apply();
+			this.invalidate();
+		};
+		const addFx = (key, min, max, step, label) => {
+			const c = fxFolder.add(fx.params, key, min, max, step).name(label).onChange(onFxChange);
+			fxCtrls.push(c);
+			return c;
+		};
+
+		addFx('bloom', 0, 3, 0.01, 'bloom');
+		addFx('bloomThreshold', 0, 1, 0.01, 'bloom threshold');
+		addFx('vignette', 0, 1, 0.01, 'vignette');
+		addFx('ssao', 0, 1, 1, 'ambient occlusion');
+		addFx('ssaoIntensity', 0, 4, 0.05, 'AO strength');
+		addFx('dof', 0, 1, 1, 'depth of field');
+		addFx('dofFocusDistance', 0.2, 12, 0.1, 'focus distance');
+		addFx('dofBokeh', 0, 6, 0.1, 'bokeh');
+		addFx('saturation', -1, 1, 0.01, 'saturation');
+		addFx('contrast', -1, 1, 0.01, 'contrast');
+		addFx('brightness', -1, 1, 0.01, 'brightness');
+		addFx('hue', 0, Math.PI * 2, 0.01, 'hue shift');
+		addFx('chromaticAberration', 0, 0.01, 0.0001, 'chromatic ab.');
+		addFx('grain', 0, 0.5, 0.01, 'film grain');
+		fxFolder.close();
 
 		// Light Probe Grid controls.
 		const probeFolder = gui.addFolder('Light Probes');
@@ -2248,11 +2296,10 @@ export class Viewer {
 		this.axesScene = null;
 		this.axesCamera = null;
 
-		if (this._composer) {
-			this._composer.dispose();
+		if (this._cinematic) {
+			this._cinematic.dispose();
+			this._cinematic = null;
 			this._composer = null;
-			this._renderPass = null;
-			this._effectPass = null;
 		}
 
 		if (this.renderer) {

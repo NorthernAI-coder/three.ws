@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T10:29:00.826Z",
+	"generated_at": "2026-06-28T10:53:01.477Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -108,6 +108,16 @@
 			"link": "/create/prompt",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Back-an-Agent Vaults got a sharper, more visual redesign",
+			"summary": "The vaults page (/vaults) now opens with a live at-a-glance strip — open vaults, total capital backed, backers, and the best return across the board — counting up the moment data lands. Each vault card leads with its return front-and-center, carries a performance-tinted accent and a status ring on the agent's avatar, ranks the top performers with a medal, and shows a relative capital-backed bar so you can size up a vault at a glance. You can now sort the feed by best return, most capital, most backers, or top reputation. Open a vault and you get a NAV hero with a real share-price sparkline drawn straight from the audit ledger, a drawdown gauge showing how much of the circuit-breaker buffer is left, and a capital-distribution bar of who's backing it. Same real on-chain data — just far easier to read.",
+			"link": "/vaults",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -261,6 +271,16 @@
 		{
 			"date": "2026-06-28",
 			"type": "update",
+			"title": "Memetic Launcher now lives in your dashboard",
+			"summary": "Your personal Memetic Launcher (/launcher) used to sit on its own bare page with the marketing top bar, looking nothing like the rest of your dashboard. It now opens inside the same dashboard shell as everything else — the left sidebar, search, notifications, and account menu are all there, and it shows up under Monetize so you can jump straight to it. Same launcher, same preview-only behavior; it just finally matches the product.",
+			"link": "/launcher",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
 			"title": "Pay-By-Name Resolution Health — the platform watches its own name registry every 10 minutes",
 			"summary": "Every 'send USDC to a name' flow on three.ws — the SDK's payByName(), the /pay studio, the profile pay button, and any agent routing a payment to @username or a .sol domain — resolves the recipient through the same name registry before a single lamport moves. If that registry breaks (a Bonfida SNS regression, the parent domain de-registering, or the platform domain repointing to a different wallet), the failure is silent and every downstream send either pays the wrong place or throws an error. The platform now watches for this automatically. Every 10 minutes an autonomous agent makes a free call to the resolve endpoint with the platform's own known SNS name and checks that it comes back with a valid, on-curve Solana wallet address. If an expected wallet is configured, it additionally asserts the resolution still matches that specific wallet — an anti-poisoning check that catches a domain repoint between deploys before any user is affected. Results are recorded to a time-series log and cached in Redis so a health dashboard can read the latest verdict without a database round-trip. A failed or mismatched resolution raises an alert flag that lingers until the next clean run. The monitor is a read-only, free call — it moves no funds — and it replaces a prior registry entry that was calling the wrong endpoint method and would have silently recorded every 404 as healthy.",
 			"link": null,
@@ -330,6 +350,17 @@
 			"link": "/avatar-engines",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The Coin Intelligence feed now fills itself",
+			"summary": "The Coin Intelligence engine (/coin-intel) watches pump.fun's live launch firehose, observes each new coin's first ~90 seconds of trading, and scores it — organic vs bundle, wallet concentration, smart-money entries, category. Until now that observation only ran when a separate always-on worker was up, so the page often sat on its \"engine is warming up\" screen with nothing to show. The observer now also runs on a schedule on our serverless platform, so it keeps watching launches and recording verdicts on its own — newest coins appear in the feed continuously without depending on any single machine staying online.",
+			"link": "/coin-intel",
+			"tags": [
+				"fix",
+				"feature"
 			]
 		},
 		{
