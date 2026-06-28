@@ -517,7 +517,7 @@ async function handleCreateWallet(btn) {
 		let token = null;
 		try {
 			const cr = await fetch('/api/csrf-token', { credentials: 'include' });
-			if (cr.ok) token = (await cr.json()).token || null;
+			if (cr.ok) { const j = await cr.json(); token = j.data?.token || j.token || null; }
 		} catch { /* token optional — endpoint still rejects without it */ }
 		const r = await fetch(`/api/agents/${encodeURIComponent(agentId)}/wallet/provision`, {
 			method: 'POST',

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T07:03:01.292Z",
+	"generated_at": "2026-06-28T09:40:54.055Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -148,6 +148,16 @@
 			"title": "Five pages that were returning 404 are reachable again",
 			"summary": "The Gaussian-splat viewer (/splat), the capture tool (/capture), the integrations directory (/integrations), partners (/partners), and the live-agents board (/agents-live) were all returning a 404 in production even though the pages existed and were linked from the nav. Our routing pins every clean URL explicitly, and these five were missing their entry, so the request fell through to the not-found page. We added the missing routes and tightened the route audit so a new page can no longer ship without one.",
 			"link": "/splat",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Fixed: \"Generate API key\" in the Agent Screen worker setup",
+			"summary": "The Launch your browser agent wizard (/agent-screen) has a Generate button that mints the API key the worker uses to authenticate. The button was failing with a permission error because it wasn't attaching the security token the server requires, so you couldn't get past step 2. It now reads and sends that token correctly, so generating the key — and starting a live agent screen stream — works again. The same token-handling fix was applied to one-click agent wallet provisioning.",
+			"link": "/agent-screen",
 			"tags": [
 				"fix"
 			]
