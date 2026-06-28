@@ -11,17 +11,15 @@
  *
  * Cross-origin by design (Access-Control-Allow-Origin: *). Cached aggressively
  * at the edge so an embed loading in 10k pages doesn't hammer the DB.
+ *
+ * Resolution logic lives in api/_lib/embed-asset.js so the token-gate verifier
+ * can resolve the same shape behind an on-chain balance check.
  */
 
-import { sql } from '../_lib/db.js';
 import { cors, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
-import { CHAIN_BY_ID } from '../_lib/erc8004-chains.js';
-import { publicUrl } from '../_lib/r2.js';
-import { isUuid } from '../_lib/validate.js';
+import { resolveEmbedAsset, isEmbedAssetRef } from '../_lib/embed-asset.js';
 
-const ONCHAIN_RE = /^(?:eip155:)?(\d{1,9})[:/](\d{1,12})$/;
-const AVATAR_RE = /^avatar:([a-zA-Z0-9_-]{3,64})$/;
 export default wrap(async (req, res) => {
 	if (cors(req, res, { methods: 'GET,OPTIONS', origins: '*' })) return;
 	if (!method(req, res, ['GET'])) return;
@@ -33,71 +31,19 @@ export default wrap(async (req, res) => {
 	const id = (url.searchParams.get('id') || '').trim();
 	if (!id) return error(res, 400, 'validation_error', 'id is required');
 
-	const onchain = id.match(ONCHAIN_RE);
-	if (onchain) {
-		const chainId = parseInt(onchain[1], 10);
-		const agentId = parseInt(onchain[2], 10);
-		const rows = await sql`
-			SELECT chain_id, agent_id, name, description, image, glb_url, has_3d, x402_support
-			FROM erc8004_agents_index
-			WHERE active = true AND chain_id = ${chainId} AND agent_id = ${agentId}
-			LIMIT 1
-		`;
-		if (!rows.length) return error(res, 404, 'not_found', 'agent not found');
-
-		const r = rows[0];
-		const chain = CHAIN_BY_ID[r.chain_id];
-		return embedJson(res, {
-			kind: 'onchain',
-			id: `${r.chain_id}:${r.agent_id}`,
-			chainId: r.chain_id,
-			chainName: chain?.name || `Chain ${r.chain_id}`,
-			agentId: r.agent_id,
-			name: r.name || `Agent #${r.agent_id}`,
-			description: r.description || '',
-			glbUrl: r.glb_url || null,
-			poster: r.image || null,
-			has3d: !!r.has_3d,
-			x402: !!r.x402_support,
-			passportUrl: `/discover/a/${r.chain_id}/${r.agent_id}`,
-		});
+	if (!isEmbedAssetRef(id)) {
+		return error(
+			res,
+			400,
+			'validation_error',
+			'id must be "<chainId>:<agentId>", "eip155:<chainId>:<agentId>", or "avatar:<uuid>"',
+		);
 	}
 
-	const avatar = id.match(AVATAR_RE);
-	if (avatar) {
-		const avatarId = avatar[1];
-		// avatars.id is a uuid column — a non-UUID id here raises Postgres 22P02
-		// (invalid input syntax) and surfaces as a 500. Treat it as not-found.
-		if (!isUuid(avatarId)) return error(res, 404, 'not_found', 'avatar not found');
+	const payload = await resolveEmbedAsset(id);
+	if (!payload) return error(res, 404, 'not_found', 'asset not found');
 
-		const rows = await sql`
-			SELECT id, name, description, storage_key, thumbnail_key
-			FROM avatars
-			WHERE deleted_at IS NULL AND visibility = 'public' AND id = ${avatarId}
-			LIMIT 1
-		`;
-		if (!rows.length) return error(res, 404, 'not_found', 'avatar not found');
-
-		const r = rows[0];
-		return embedJson(res, {
-			kind: 'avatar',
-			id: `avatar:${r.id}`,
-			name: r.name,
-			description: r.description || '',
-			glbUrl: publicUrl(r.storage_key),
-			poster: r.thumbnail_key ? publicUrl(r.thumbnail_key) : null,
-			has3d: true,
-			x402: false,
-			passportUrl: `/avatars/${r.id}`,
-		});
-	}
-
-	return error(
-		res,
-		400,
-		'validation_error',
-		'id must be "<chainId>:<agentId>", "eip155:<chainId>:<agentId>", or "avatar:<uuid>"',
-	);
+	return embedJson(res, payload);
 });
 
 function embedJson(res, payload) {

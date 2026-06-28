@@ -273,6 +273,9 @@ responses may reference.
 ## 6. Reviewer access & test instructions (portal "Test & launch" step)
 
 > Paste this into the reviewer-instructions box. Replace the `[HUMAN: ...]` credentials privately.
+> This is the **remote-server (OAuth)** reviewer guide. The repo's
+> `_generated/claude-reviewer-guide.md` covers the **separate stdio npm connector**
+> (`@three-ws/mcp-server`) — use that one only if the npm package is submitted as a local connector.
 
 **Server:** `https://three.ws/api/mcp` (Streamable HTTP). 3D Studio: `https://three.ws/api/mcp-3d`.
 
@@ -358,8 +361,9 @@ Verified clean:
 
 ## 9. Privacy policy — coverage confirmation
 
-`https://three.ws/legal/privacy` covers (✓ after this change set):
+`https://three.ws/legal/privacy` (live, HTTP 200 — verified 2026-06-28) covers:
 data collection ✓ · usage/storage ✓ · third-party sharing ✓ (infra + **AI model providers**:
 NVIDIA NIM/TRELLIS, Meshy, Replicate, Stability, Hugging Face, OpenAI, Anthropic, IBM Granite) ✓ ·
-retention ✓ · contact (`privacy@three.ws`) ✓ · **MCP tool inputs, x402 payment/wallet data, OAuth
-scope limits** ✓ (new "MCP Connectors, AI Processing & Payments" section). **Deploy before submitting.**
+retention ✓ (90-day usage data; saved content until deleted) · contact (`privacy@three.ws`) ✓ ·
+**MCP tool inputs, x402 payment/wallet data, OAuth scope limits** ✓ (live §10 "MCP Connectors, AI
+Processing & Payments" section — confirmed present on the deployed page). No pending privacy deploy.

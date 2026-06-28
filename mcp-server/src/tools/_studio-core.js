@@ -285,18 +285,37 @@ export async function runForgeFree({ prompt, tier }) {
 	// reviewer even during a NIM outage. Raise FORGE_FREE_ATTEMPTS to trade
 	// latency for a better shot at landing the durable lane.
 	const maxAttempts = Math.max(1, Math.min(4, Number(env('FORGE_FREE_ATTEMPTS', '2')) || 2));
+	// The free lane is shared and rate-limited, so a reviewer (or any first caller
+	// during a busy window) can hit a transient `rate_limited` instead of a model.
+	// That single response should NOT bounce them: it carries a `retryAfter`, so a
+	// short, bounded backoff lands a real result on the next slot. Budgeted
+	// separately from the durable-attempt loop so a pure backoff never burns an
+	// attempt. Genuine failures stay terminal (see the catch below).
+	const maxRateRetries = Math.max(0, Math.min(6, Number(env('FORGE_FREE_RATE_RETRIES', '4')) || 4));
 
 	let liveFallback = null; // first reachable-but-non-durable result, used only if no durable one appears
+	let rateRetries = 0;
 
 	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 		let gen;
 		try {
 			gen = await forgeFreeOnce({ base, prompt: trimmed, tierId });
 		} catch (err) {
-			// A generation error is surfaced immediately — terminal failures
-			// (generation_failed, rate_limited, not_configured, timeout) must not
-			// trigger a wasteful re-generation, and this preserves the tool's
-			// original error contract. The ONLY exception: if an earlier attempt
+			// Transient contention on the shared free lane (the generator is busy):
+			// honor the server's retryAfter (capped 1–8s), back off, and retry
+			// WITHOUT consuming a durable attempt. This is what keeps the free
+			// smoke-test reliable for a reviewer during a busy window. Only
+			// rate_limited is retried here — every OTHER error (generation_failed,
+			// not_configured, invalid_input, timeout) stays terminal and is surfaced
+			// immediately, preserving the tool's original error contract.
+			if (err.code === 'rate_limited' && rateRetries < maxRateRetries) {
+				rateRetries++;
+				const waitMs = Math.min(8000, Math.max(1000, (Number(err.retryAfter) || 2) * 1000));
+				await sleep(waitMs);
+				attempt--; // a pure backoff must not count against the durable-attempt budget
+				continue;
+			}
+			// The ONLY exception to surfacing immediately: if an earlier attempt
 			// already produced a reachable result, keep it rather than losing a
 			// usable model to a later attempt's transient error.
 			if (liveFallback) break;
@@ -304,6 +323,7 @@ export async function runForgeFree({ prompt, tier }) {
 				...(err.extra || {}),
 				...(err.retryAfter ? { retryAfter: err.retryAfter } : {}),
 				...(attempt > 1 ? { attempts: attempt } : {}),
+				...(rateRetries ? { rateRetries } : {}),
 				durationMs: Date.now() - startedAt,
 			});
 		}
