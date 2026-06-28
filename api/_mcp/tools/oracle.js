@@ -154,7 +154,15 @@ export const toolDefs = [
 			const rl = await limits.mcpIp(auth.rateKey || 'anon');
 			if (!rl.success) return mcpErr('Rate limit exceeded — try again in a moment.');
 
-			const scored = await scoreCoin(mint, { network, classify: true, persist: true }).catch(() => null);
+			let scored;
+			try {
+				scored = await scoreCoin(mint, { network, classify: true, persist: true });
+			} catch {
+				// Intel store / DB degraded — distinct from "coin unknown". Tell the
+				// agent it's transient so it retries rather than concluding the coin
+				// doesn't exist.
+				return mcpErr(`Oracle is temporarily unavailable for ${mint} — the intel store is degraded. Retry shortly.`);
+			}
 			if (!scored) {
 				return mcpErr(`Coin ${mint} not found in Oracle — it may not have been observed on pump.fun yet.`);
 			}

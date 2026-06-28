@@ -141,10 +141,11 @@ x402-gated — §0.4). The captured authenticated payload is `_generated/remote-
 - **Reads:** avatars (own + public search), glTF/GLB validation & inspection, animation presets,
   agent registry & reputation / attestations / passport, agent memory recall, pump.fun market data,
   Oracle signals, trader leaderboard & profiles, copy-subscription status, embed-code generation.
-- **Writes:** save/render avatar assets, **delete avatar** (the one destructive op), register an
-  agent on-chain, call another agent, remember/forget memory, arm an Oracle watch, subscribe to
-  copy a trader. Writes that touch a chain or external API carry `openWorldHint: true`.
-- **Destructive:** only `delete_avatar` (`destructiveHint: true`). All others set
+- **Writes:** save/render avatar assets, delete avatar, register an agent on-chain, call another
+  agent, remember/forget memory, arm an Oracle watch, subscribe to copy a trader. Writes that
+  touch a chain or external API carry `openWorldHint: true`.
+- **Destructive:** two tools carry `destructiveHint: true` on the wire — `delete_avatar`
+  (deletes an avatar) and `forget` (deletes a stored memory). Every other tool sets
   `destructiveHint: false` explicitly.
 - **Payments:** paid tools return a structured x402 `PaymentRequired` (not an error) when
   unauthenticated and unpaid; OAuth-connected account tools are operator-funded for the user.
@@ -163,68 +164,84 @@ x402-gated — §0.4). The captured authenticated payload is `_generated/remote-
 
 ## 4. Full tool list (with titles)
 
-> Pulled from source. `free*` = no payment when called with an OAuth account (operator-funded) or
-> when the tool is inherently free; `x402` = pay-per-call in USDC for unauthenticated callers.
-> Read-only tools carry `readOnlyHint: true`; only `delete_avatar` is `destructiveHint: true`.
+> Taken verbatim from `_generated/remote-tools-list.json` (the captured `tools/list` wire payload)
+> and `_generated/tool-inventory.md` (prices). **R/O** = `readOnlyHint: true`; **Dx** =
+> `destructiveHint: true`. **Price** = pay-per-call in USDC via x402 for unauthenticated callers;
+> *free* tools never charge. OAuth-connected account tools are operator-funded for the user.
 
-### `https://three.ws/api/mcp` — three.ws Avatars & Agents
-| Tool name | Title | Kind |
-|---|---|---|
-| `getting_started` | Getting started with three.ws | free, read-only |
-| `list_my_avatars` | List my avatars | OAuth, read |
-| `get_avatar` | Get avatar | OAuth, read |
-| `search_public_avatars` | Search public avatars | read |
-| `render_avatar` | Render avatar | x402 |
-| `render_avatar_image` | Render an avatar to an image | x402, generative |
-| `delete_avatar` | Delete avatar | OAuth, **destructive** |
-| `validate_model` | Validate glTF/GLB model | x402, read |
-| `inspect_model` | Inspect glTF/GLB model | x402, read |
-| `optimize_model` | Suggest optimizations for a glTF/GLB model | x402, read |
-| `list_animations` | List animation presets | free, read |
-| `apply_animation` | Apply an animation preset to a rigged model | write |
-| `text_to_animation` | Generate an animation from a text prompt and retarget it onto a model | write, generative |
-| `get_embed_code` | Get embed code | read |
-| `call_agent` | Call agent | write, open-world |
-| `register_agent` | Register an agent on-chain | write, open-world |
-| `identity_check` | Screen an agent identity for impersonation | read, open-world |
-| `remember` | Remember | OAuth, write |
-| `recall` | Recall | OAuth, read |
-| `forget` | Forget | OAuth, write |
-| `solana_agent_reputation` | Get Solana agent reputation | read, open-world |
-| `solana_agent_attestations` | List Solana agent attestations | read, open-world |
-| `solana_agent_passport` | Get Solana agent passport | read, open-world |
-| `pumpfun_recent_claims` | Recent pump.fun claims | read, open-world |
-| `pumpfun_token_intel` | Pump.fun token intel | read, open-world |
-| `pumpfun_creator_intel` | Pump.fun creator intel | read, open-world |
-| `pumpfun_recent_graduations` | Recent pump.fun graduations | read, open-world |
-| `oracle_top_plays` | Oracle top conviction plays | read |
-| `oracle_coin` | Oracle verdict for one coin | read |
-| `oracle_arm_watch` | Arm agent Oracle watch | write |
-| `oracle_watch_status` | Oracle watch status + track record | read |
-| `trader_leaderboard` | Top pump.fun traders | read |
-| `trader_profile` | Full track record for one agent | read |
-| `copy_subscribe` | Subscribe to copy a trader | write |
-| `copy_status` | My copy subscriptions | read |
+### `https://three.ws/api/mcp` — three.ws Avatars & Agents (35 tools)
+| Tool name | Title | R/O | Dx | Price |
+|---|---|:--:|:--:|---|
+| `getting_started` | Getting Started (free) | ✅ | — | free |
+| `list_my_avatars` | List my avatars | ✅ | — | free |
+| `get_avatar` | Get avatar | ✅ | — | free |
+| `search_public_avatars` | Search public avatars | ✅ | — | free |
+| `render_avatar` | Render avatar | ✅ | — | $0.005 |
+| `render_avatar_image` | Render an avatar to an image | — | — | free |
+| `delete_avatar` | Delete avatar | — | ✅ | free |
+| `get_embed_code` | Get embed code | ✅ | — | free |
+| `validate_model` | Validate glTF/GLB model | ✅ | — | $0.01 |
+| `inspect_model` | Inspect glTF/GLB model | ✅ | — | $0.01 |
+| `optimize_model` | Suggest optimizations for a glTF/GLB model | ✅ | — | $0.05 |
+| `list_animations` | List animation presets | ✅ | — | free |
+| `apply_animation` | Apply an animation preset to a rigged model | — | — | $0.02 |
+| `text_to_animation` | Generate an animation from a text prompt and retarget it onto a model | — | — | free |
+| `solana_agent_reputation` | Get Solana agent reputation | ✅ | — | free |
+| `solana_agent_attestations` | List Solana agent attestations | ✅ | — | free |
+| `solana_agent_passport` | Get Solana agent passport | ✅ | — | free |
+| `pumpfun_recent_claims` | Recent pump.fun claims | ✅ | — | free |
+| `pumpfun_token_intel` | Pump.fun token intel | ✅ | — | free |
+| `pumpfun_creator_intel` | Pump.fun creator intel | ✅ | — | free |
+| `pumpfun_recent_graduations` | Recent pump.fun graduations | ✅ | — | free |
+| `call_agent` | Call agent | — | — | free |
+| `register_agent` | Register an agent on-chain | — | — | free |
+| `identity_check` | Screen an agent identity for impersonation | ✅ | — | free |
+| `remember` | Remember | — | — | free |
+| `recall` | Recall | ✅ | — | free |
+| `forget` | Forget | — | ✅ | free |
+| `oracle_top_plays` | Oracle top conviction plays | ✅ | — | free |
+| `oracle_coin` | Oracle verdict for one coin | ✅ | — | free |
+| `oracle_arm_watch` | Arm agent Oracle watch | — | — | free |
+| `oracle_watch_status` | Oracle watch status + track record | ✅ | — | free |
+| `trader_leaderboard` | Top pump.fun traders | ✅ | — | free |
+| `trader_profile` | Full track record for one agent | ✅ | — | free |
+| `copy_subscribe` | Subscribe to copy a trader | — | — | free |
+| `copy_status` | My copy subscriptions | ✅ | — | free |
 
 ### `https://three.ws/api/mcp-3d` — three.ws 3D Studio (optional second listing)
-| Tool name | Title | Kind |
-|---|---|---|
-| `getting_started` | Getting started with three.ws 3D Studio | free, read-only |
-| `text_to_3d` | Generate a 3D model from a text prompt | x402, generative |
-| `image_to_3d` | Reconstruct a 3D model from one or more images | x402, generative |
-| `generation_status` | Check a 3D generation job | free, read |
-| `preview_3d` | Preview any GLB as an interactive 3D artifact | free, read |
-| `remove_background` | Remove the background from an image | generative |
-| `remesh_model` | Remesh, simplify, repair, or convert a 3D model | x402 |
-| `stylize_model` | Apply a one-click geometric stylization filter to a 3D model | x402, generative |
-| `segment_model` | Split a 3D model into named, separable parts | x402 |
-| `retexture_model` | Paint a new texture onto a 3D model from a text prompt | x402, generative |
-| `retexture_region` | Repaint one masked region of a model's texture (magic brush) | x402, generative |
-| `auto_rig_model` | Auto-rig a static 3D model (skeleton + skin weights) | x402 |
-| `pose_model` | Resolve a text prompt to a pose-studio seed + joint rotations | read |
-| `direct_prompt` | Optimize a rough idea into a 3D-generation prompt (IBM Granite) | x402 |
-| `generate_material` | Generate a glTF PBR material from a description (IBM Granite) | x402, generative |
-| `save_avatar` | Save a generated GLB as a durable, named avatar | OAuth, write |
+> **Re-snapshot before this separate, later submission.** The captured wire payload
+> (`remote-tools-list.json`) shows **21** tools; the live catalog has since grown
+> (`capture_scene` plus the living-persona tools `create_agent_persona` / `get_agent_persona` /
+> `persona_say`), so the current count is **24**. Regenerate `tool-inventory.md` /
+> `remote-tools-list.json` at submission time and paste the fresh list here. Core tools below.
+> Note the media-generation review risk in §0.2 applies to this server first.
+
+| Tool name | Title | R/O | Dx | Price |
+|---|---|:--:|:--:|---|
+| `getting_started` | Getting Started (free) | ✅ | — | free |
+| `text_to_3d` | Generate a 3D model from a text prompt | — | — | $0.15 |
+| `image_to_3d` | Reconstruct a 3D model from one or more images | — | — | $0.15 |
+| `generation_status` | Check a 3D generation job | ✅ | — | free |
+| `preview_3d` | Preview any GLB as an interactive 3D artifact | ✅ | — | free |
+| `remove_background` | Remove the background from an image | — | — | $0.01 |
+| `remesh_model` | Remesh, simplify, repair, or convert a 3D model | — | — | $0.02 |
+| `stylize_model` | Apply a one-click geometric stylization filter to a 3D model | — | — | $0.02 |
+| `segment_model` | Split a 3D model into named, separable parts | — | — | $0.02 |
+| `retexture_model` | Paint a new texture onto a 3D model from a text prompt | — | — | $0.05 |
+| `retexture_region` | Repaint one masked region of a model's texture (magic brush) | — | — | $0.05 |
+| `auto_rig_model` | Auto-rig a static 3D model (skeleton + skin weights) | — | — | $0.05 |
+| `pose_model` | Resolve a text prompt to a pose-studio seed + joint rotations | ✅ | — | $0.01 |
+| `direct_prompt` | Optimize a rough idea into a 3D-generation prompt (IBM Granite) | — | — | $0.01 |
+| `generate_material` | Generate a glTF PBR material from a description (IBM Granite) | — | — | $0.01 |
+| `save_avatar` | Save a generated GLB as a durable, named avatar | — | — | free |
+| `inspect_model` | Inspect glTF/GLB model | ✅ | — | free |
+| `optimize_model` | Suggest optimizations for a glTF/GLB model | ✅ | — | free |
+| `list_animations` | List animation presets | ✅ | — | free |
+| `apply_animation` | Apply an animation preset to a rigged model | — | — | $0.01 |
+| `text_to_animation` | Generate an animation from a text prompt and retarget it onto a model | — | — | free |
+| `create_agent_persona` | Mint a persistent, living agent persona from a rigged GLB | — | — | free |
+| `get_agent_persona` | Reload a persisted persona by id (continuity across sessions) | ✅ | — | free |
+| `persona_say` | Speak a reply through a persona — lip-sync + emotion + gesture | — | — | free |
 
 ---
 

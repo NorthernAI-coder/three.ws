@@ -34,12 +34,32 @@ export default wrap(async (req, res) => {
 
 	// Cache miss (no verdict yet) → score it now, with a real narrative read.
 	if (!coin || !coin.conviction) {
-		const scored = await scoreCoin(mint, { network, classify: true, persist: true }).catch(() => null);
+		let scored;
+		try {
+			scored = await scoreCoin(mint, { network, classify: true, persist: true });
+		} catch {
+			// Scoring threw — the intel store / DB is degraded, NOT "coin unknown".
+			// A 404 here would let clients and the CDN cache a transient outage as an
+			// authoritative "this mint doesn't exist". Surface 503 so callers retry.
+			return error(res, 503, 'scoring_unavailable', 'coin scoring is temporarily unavailable — retry shortly');
+		}
 		if (!scored) {
-			// The coin is unknown to the data brain (never observed).
-			return error(res, 404, 'not_found', 'this mint has not been observed yet');
+			// Clean empty result — the coin is genuinely unknown to the data brain.
+			// This is a stable, idempotent fact (coins are ingested by the always-on
+			// observer, never inline here), so cache the negative answer briefly at the
+			// CDN. The always-on polling surfaces (coin page, oracle UI) would otherwise
+			// re-spin this function and re-run assembleIntel on every poll for a mint the
+			// brain has never seen — one such mint produced hundreds of redundant
+			// invocations. The window is short enough that a coin becoming known surfaces
+			// within seconds.
+			return json(res, 404, { error: 'not_found', error_description: 'this mint has not been observed yet', mint, network }, {
+				'cache-control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
+			});
 		}
 		coin = await safeReadCoin(mint, network);
+		// Scoring succeeded but the warm re-read came back empty (read-path blip) —
+		// don't return a hollow 200; treat it as transient.
+		if (!coin) return error(res, 503, 'scoring_unavailable', 'coin scoring is temporarily unavailable — retry shortly');
 	}
 
 	return json(res, 200, { network, mint, ...coin }, {
