@@ -94,38 +94,39 @@ async function readFeed(limit = 25) {
 		if (feedReadCache && Date.now() - feedReadCache.at < FEED_CACHE_TTL_MS) {
 			return feedReadCache.rows.slice(0, limit);
 		}
-		if (feedReadInflight) {
-			const rows = await feedReadInflight;
-			return rows.slice(0, limit);
-		}
-		feedReadInflight = (async () => {
-			try {
-				const raw = await r.lrange(FEED_KEY, 0, FEED_MAX - 1);
-				const rows = raw
-					.map((row) => {
-						if (typeof row === 'string') {
-							try {
-								return JSON.parse(row);
-							} catch (parseErr) {
-								log.warn('feed_row_parse_failed', { message: parseErr?.message });
-								return null;
+		// The inflight promise must never reject: both the originating call and any
+		// coalesced waiters await it, and an unhandled rejection on a Redis outage
+		// (e.g. WRONGPASS) would otherwise surface as a 500 instead of degrading to
+		// the in-memory feed. Catch inside and fall back here.
+		if (!feedReadInflight) {
+			feedReadInflight = (async () => {
+				try {
+					const raw = await r.lrange(FEED_KEY, 0, FEED_MAX - 1);
+					const rows = raw
+						.map((row) => {
+							if (typeof row === 'string') {
+								try {
+									return JSON.parse(row);
+								} catch (parseErr) {
+									log.warn('feed_row_parse_failed', { message: parseErr?.message });
+									return null;
+								}
 							}
-						}
-						return row;
-					})
-					.filter(Boolean);
-				feedReadCache = { at: Date.now(), rows };
-				return rows;
-			} finally {
-				feedReadInflight = null;
-			}
-		})();
-		try {
-			const rows = await feedReadInflight;
-			return rows.slice(0, limit);
-		} catch (err) {
-			log.warn('feed_read_failed', { message: err?.message });
+							return row;
+						})
+						.filter(Boolean);
+					feedReadCache = { at: Date.now(), rows };
+					return rows;
+				} catch (err) {
+					log.warn('feed_read_failed', { message: err?.message });
+					return memFeed.slice();
+				} finally {
+					feedReadInflight = null;
+				}
+			})();
 		}
+		const rows = await feedReadInflight;
+		return rows.slice(0, limit);
 	}
 	return memFeed.slice(0, limit);
 }
