@@ -29,6 +29,10 @@ let   _cursor = null;
 let   _hasMore = true;
 let   _loading = false;
 
+// Interval handles for the FPS ticker and idle repaint loops.
+let   _fpsInterval = null;
+let   _idleRepaint = null;
+
 const FRAME_STALE_MS = 6000;       // no frame within this window ⇒ fall back to activity
 const WATCH_PING_MS  = 20000;      // re-assert watch intent while a card is on screen
 

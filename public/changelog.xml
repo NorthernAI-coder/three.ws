@@ -183,6 +183,14 @@
 			<description>Running a strategy backtest (and live strategy runs) could fail with a server error while scanning for candidate coins. The scan and trading steps rely on several bundled trading skills, but only one of them was being shipped to production — so the moment a backtest tried to pull trending or new coins, it hit a missing-module error. All of the required skills now deploy together, and backtests source their candidate coins and replay normally again.</description>
 		</item>
 		<item>
+			<title>Fixed the live agents wall crashing on load</title>
+			<link>https://three.ws/agents-live</link>
+			<guid isPermaLink="false">2026-06-28:Fixed the live agents wall crashing on load</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The /agents-live page — the wall of agents working in real time — was throwing an error the moment it tried to start its frames-per-second ticker, which froze the live counters and stat bar. The page now starts cleanly and the live FPS, active, and total counts update every second as agents stream in.</description>
+		</item>
+		<item>
 			<title>Fixed: &quot;Generate API key&quot; in the Agent Screen worker setup</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-28:Fixed: &quot;Generate API key&quot; in the Agent Screen worker setup</guid>
