@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T20:53:56.395Z",
+	"generated_at": "2026-06-28T21:09:09.730Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -269,6 +269,17 @@
 		{
 			"date": "2026-06-28",
 			"type": "update",
+			"title": "Free text-to-3D rides out NVIDIA gateway hiccups instead of stalling",
+			"summary": "The free, no-login text-to-3D lane runs on NVIDIA's hosted model gateway, which occasionally answers a request with a momentary timeout while a model node warms up. Before, a single one of those blips could sideline the free lane for two full minutes and shove every prompt onto our paid backup — which, if it was low on credit, meant you'd see a 'temporarily unavailable' message. Now those transient timeouts are retried with smart spacing so most of them clear on their own, and when the lane does need a brief rest it's a short one, not a long sidelining. We also stopped the system from ever routing prompts into a backup lane that's already known to be down, so the free generator keeps serving instead of dead-ending.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
 			"title": "LLM Proxy Latency Benchmark — p95 alerting when inference exceeds 3 seconds",
 			"summary": "The autonomous loop now benchmarks LLM inference latency every 10 minutes by making a real $0.005 USDC x402 payment to /api/x402/llm-proxy with a minimal 'Count to 3.' prompt. Each run records { latency_ms, tokens_used, model, provider } to x402_autonomous_log. After 3+ samples accumulate, the platform computes rolling p95 latency from the last 20 successful calls and raises a Redis alert (x402:llm-proxy-latency:p95-alert) when p95 exceeds 3 seconds — giving ops a heads-up on provider degradation before end users notice slow AI responses.",
 			"link": null,
@@ -383,6 +394,16 @@
 			"tags": [
 				"feature",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Text-to-3D falls back to the free engine when the paid one runs dry",
+			"summary": "Typing a prompt to generate a 3D model first paints a quick reference image, and on higher-quality tiers that step ran on a paid image service. If that account was out of credit, the whole request used to stop at a 'temporarily unavailable' message — even though our free NVIDIA engine builds a model straight from your words and never needed that paid step at all. Now a dry paid account automatically hands your prompt to the free engine instead of giving up, so 'type a prompt, get a model' keeps working. If every engine is genuinely down, you still get an honest 'try again shortly' rather than a hard error or a confusing billing message.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{

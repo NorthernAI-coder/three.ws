@@ -4796,6 +4796,10 @@
 		{
 			"path": "/api/cron/launcher-claimer",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/solana-agents-crawl",
+			"schedule": "*/30 * * * *"
 		}
 	]
 }

@@ -88,9 +88,15 @@ export default wrap(async (req, res) => {
 	}
 
 	// Setting a chainId implicitly excludes avatars (they're off-chain).
-	const includeOnchain = sourceFilter === 'all' || sourceFilter === 'onchain';
+	// `source=agents` is the agent-directory meta-source: every on-chain agent
+	// (EVM + Solana, ours and external) but no avatars — what /agents renders.
+	const agentsView = sourceFilter === 'agents';
+	const includeOnchain = sourceFilter === 'all' || sourceFilter === 'onchain' || agentsView;
 	const includeAvatars = (sourceFilter === 'all' || sourceFilter === 'avatar') && !Number.isFinite(chainId);
-	const includeSolana = sourceFilter === 'all' || sourceFilter === 'solana';
+	const includeSolana = sourceFilter === 'all' || sourceFilter === 'solana' || agentsView;
+	// External Solana agents (Metaplex Agent Registry + AgenC) are off the EVM
+	// chains entirely, so a chainId filter excludes them.
+	const includeExternalSolana = (sourceFilter === 'all' || sourceFilter === 'solana' || agentsView) && !Number.isFinite(chainId);
 
 	// Filter construction via template fragments kept inline because Neon's
 	// tagged-template driver doesn't compose them the way pg.Client does; a
@@ -99,7 +105,7 @@ export default wrap(async (req, res) => {
 	// endpoint's DB time is the slowest single query, not the sum of all three.
 	// A leading-wildcard ILIKE scan on one source no longer serializes in front of
 	// the others, which is what pushed slow searches past the function budget → 504.
-	const [onchainRows, avatarRows, solanaRows] = await Promise.all([
+	const [onchainRows, avatarRows, solanaRows, externalSolanaRows] = await Promise.all([
 		includeOnchain
 			? sql`
 		SELECT chain_id, agent_id, owner, name, description, image, glb_url,
@@ -166,6 +172,22 @@ export default wrap(async (req, res) => {
 		LIMIT ${limit + 1}
 	`
 			: [],
+		includeExternalSolana
+			? sql`
+		SELECT source, ref, owner, asset, agent_id, name, description, image, glb_url,
+		       endpoint, capabilities, reputation, status, has_3d, x402_support,
+		       registered_at
+		FROM solana_agents_index
+		WHERE active = true
+		  AND (${q || null}::text IS NULL OR (
+		       coalesce(name,'') ILIKE ${'%' + q + '%'}
+		    OR coalesce(description,'') ILIKE ${'%' + q + '%'}
+		  ))
+		  AND (${cursorDate ? cursorDate.toISOString() : null}::timestamptz IS NULL OR registered_at < ${cursorDate ? cursorDate.toISOString() : null}::timestamptz)
+		ORDER BY registered_at DESC NULLS LAST
+		LIMIT ${limit + 1}
+	`
+			: [],
 	]);
 
 	const onchainItems = onchainRows.map((r) => {
@@ -202,8 +224,10 @@ export default wrap(async (req, res) => {
 		const thumb = r.avatar_thumb ? publicUrl(r.avatar_thumb) : null;
 		return {
 			kind: 'solana',
+			source: 'three.ws',
 			sortDate: r.created_at,
 			asset,
+			agentId: r.id,
 			name: r.name || 'Solana Agent',
 			description: r.description || '',
 			image: thumb,
@@ -212,11 +236,48 @@ export default wrap(async (req, res) => {
 			owner: r.wallet_address,
 			ownerShort: shortAddr(r.wallet_address),
 			createdAt: r.created_at,
+			viewerUrl: `/agent/${r.id}`,
 			explorerUrl: asset ? `https://solscan.io/token/${asset}` : null,
 			ownerExplorerUrl: r.wallet_address ? `https://solscan.io/account/${r.wallet_address}` : null,
 			network: r.meta?.network || 'mainnet',
 		};
 	});
+
+	// External Solana agents crawled from the Metaplex Agent Registry + AgenC.
+	// Dedup against our own Solana agents by Core-asset pubkey so an agent we
+	// launched AND registered upstream doesn't appear twice (ours wins — it has
+	// the richer profile + chat history).
+	const ownSolanaAssets = new Set(solanaItems.map((s) => s.asset).filter(Boolean));
+	const externalSolanaItems = externalSolanaRows
+		.filter((r) => !(r.asset && ownSolanaAssets.has(r.asset)))
+		.map((r) => {
+			const ref = r.asset || r.ref;
+			const explorerTarget = r.asset || r.ref;
+			return {
+				kind: 'solana',
+				source: r.source, // 'metaplex' | 'agenc'
+				sortDate: r.registered_at,
+				asset: r.asset || null,
+				agentId: ref,
+				name: r.name || (r.source === 'agenc' ? 'AgenC Agent' : 'Metaplex Agent'),
+				description: r.description || '',
+				image: r.image || null,
+				glbUrl: r.glb_url || null,
+				has3d: !!r.has_3d,
+				x402Support: !!r.x402_support,
+				endpoint: r.endpoint || null,
+				reputation: r.reputation ?? null,
+				skills: [],
+				owner: r.owner || null,
+				ownerShort: shortAddr(r.owner),
+				createdAt: r.registered_at,
+				viewerUrl: r.glb_url ? `/app#model=${encodeURIComponent(r.glb_url)}` : null,
+				explorerUrl: explorerTarget ? `https://solscan.io/account/${explorerTarget}` : null,
+				ownerExplorerUrl: r.owner ? `https://solscan.io/account/${r.owner}` : null,
+				network: r.network || 'mainnet',
+				external: true,
+			};
+		});
 
 	let avatarItems = avatarRows.map((r) => {
 		const glb = publicUrl(r.storage_key);
@@ -271,7 +332,7 @@ export default wrap(async (req, res) => {
 	// Cap to requested limit after filtering (we overfetch above).
 	if (avatarItems.length > limit + 1) avatarItems = avatarItems.slice(0, limit + 1);
 
-	const merged = [...onchainItems, ...solanaItems, ...avatarItems].sort(
+	const merged = [...onchainItems, ...solanaItems, ...externalSolanaItems, ...avatarItems].sort(
 		(a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime(),
 	);
 
@@ -282,8 +343,8 @@ export default wrap(async (req, res) => {
 	// Directory totals are four full-table COUNT(*) scans that are identical for
 	// every visitor and change slowly — cache them for 60s so the discover page
 	// doesn't re-scan four growing tables on every request.
-	const { onchainTotal, onchain3d, avatarTotal, solanaTotal } = await cacheWrap(
-		'explore:totals:v1',
+	const { onchainTotal, onchain3d, avatarTotal, solanaTotal, externalSolanaTotal } = await cacheWrap(
+		'explore:totals:v2',
 		60,
 		async () => {
 			const [{ total: onchainTotal }] = await sql`
@@ -299,12 +360,16 @@ export default wrap(async (req, res) => {
 				SELECT count(*)::text as total FROM agent_identities
 				WHERE deleted_at IS NULL AND meta->>'chain_type' = 'solana' AND meta->>'network' = 'mainnet'
 			`;
-			return { onchainTotal, onchain3d, avatarTotal, solanaTotal };
+			const [{ total: externalSolanaTotal }] = await sql`
+				SELECT count(*)::text as total FROM solana_agents_index WHERE active = true
+			`.catch(() => [{ total: '0' }]);
+			return { onchainTotal, onchain3d, avatarTotal, solanaTotal, externalSolanaTotal };
 		},
 	);
 	const avatarCount = Number(avatarTotal);
 	const solCount = Number(solanaTotal);
-	const allTotal = Number(onchainTotal) + solCount + avatarCount;
+	const extSolCount = Number(externalSolanaTotal || 0);
+	const allTotal = Number(onchainTotal) + solCount + extSolCount + avatarCount;
 	const threeDTotal = Number(onchain3d) + avatarCount;
 
 	return json(
@@ -317,7 +382,8 @@ export default wrap(async (req, res) => {
 				all: allTotal,
 				threeD: threeDTotal,
 				onchain: Number(onchainTotal),
-				solana: solCount,
+				solana: solCount + extSolCount,
+				solanaExternal: extSolCount,
 				avatars: avatarCount,
 			},
 		},

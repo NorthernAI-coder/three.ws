@@ -234,10 +234,9 @@ async function redisCmd(args) {
 	}
 }
 
-export async function cacheGet(key) {
-	if (!redisConfigured()) return memGet(key);
-	const memo = memoGet(key);
-	if (memo !== undefined) return memo;
+// Redis read-through with in-flight GET coalescing, no read-memo in front.
+// Shared by cacheGet (memo-checked) and cacheGetFresh (memo bypassed).
+function redisGetThrough(key) {
 	// Join an in-flight GET for this key rather than issuing a duplicate.
 	const pending = inflightGets.get(key);
 	if (pending) return pending;
@@ -256,6 +255,26 @@ export async function cacheGet(key) {
 	})();
 	inflightGets.set(key, p);
 	return p;
+}
+
+export async function cacheGet(key) {
+	if (!redisConfigured()) return memGet(key);
+	const memo = memoGet(key);
+	if (memo !== undefined) return memo;
+	return redisGetThrough(key);
+}
+
+/**
+ * Like cacheGet, but bypasses the short read-memo. For callers that poll for a
+ * value they expect to appear within the next second or two — e.g. a single-
+ * flight loser awaiting the lock winner's write — where a freshly-memoized
+ * "miss" (held for MEMO_TTL_MS) would otherwise make every poll see stale
+ * absence and defeat the wait. Still coalesces concurrent GETs.
+ * @param {string} key
+ */
+export async function cacheGetFresh(key) {
+	if (!redisConfigured()) return memGet(key);
+	return redisGetThrough(key);
 }
 
 export async function cacheSet(key, value, ttlSeconds = 60) {

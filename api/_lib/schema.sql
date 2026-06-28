@@ -906,6 +906,50 @@ create table if not exists erc8004_crawl_cursor (
     updated_at     timestamptz not null default now()
 );
 
+-- ── solana_agents_index — crawled directory of every on-chain Solana agent ──
+-- External agents (NOT three.ws's own agent_identities) from two registries,
+-- folded into one table via `source`:
+--   'metaplex' → Metaplex Agent Registry (1DREGFgysWYxLnRnKQnwrxnJQeSMk2HmGaC6whw2B2p)
+--   'agenc'    → AgenC coordination protocol (Tetsuo Corp)
+-- Populated by api/cron/[name].js → handleSolanaAgentsCrawl. Served by
+-- /api/explore?source=agents next to erc8004_agents_index (EVM) so /agents lists
+-- the whole ecosystem. Mirrors api/_lib/migrations/20260628140000_solana_agents_index.sql.
+create table if not exists solana_agents_index (
+    source           text        not null,
+    ref              text        not null,
+    network          text        not null default 'mainnet',
+    owner            text,
+    asset            text,
+    agent_id         text,
+    name             text,
+    description      text,
+    image            text,
+    glb_url          text,
+    metadata_uri     text,
+    endpoint         text,
+    capabilities     text,
+    reputation       integer,
+    status           text,
+    has_3d           boolean     not null default false,
+    x402_support     boolean     not null default false,
+    active           boolean     not null default true,
+    registered_at    timestamptz,
+    last_metadata_at timestamptz,
+    metadata_error   text,
+    last_seen_at     timestamptz not null default now(),
+    primary key (source, ref)
+);
+create index if not exists solana_agents_active_time
+    on solana_agents_index(registered_at desc) where active;
+create index if not exists solana_agents_source_time
+    on solana_agents_index(source, registered_at desc) where active;
+create index if not exists solana_agents_owner
+    on solana_agents_index(owner) where active;
+create index if not exists solana_agents_asset
+    on solana_agents_index(asset) where asset is not null;
+create index if not exists solana_agents_metadata_stale
+    on solana_agents_index(last_metadata_at nulls first);
+
 -- ── Solana on-chain attestations (ERC-8004 analog, no deployed program) ─────
 -- Each row is one signed SPL Memo tx referencing an agent's Metaplex Core
 -- asset pubkey. Schemas: threews.{feedback,validation,task,accept,revoke,dispute}.v1

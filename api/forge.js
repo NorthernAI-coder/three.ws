@@ -126,7 +126,7 @@ const REPLICATE_PAID_COOLDOWN_SECONDS = 300;
 // gateway answered (a fast fail) and earns the short window; no status means our
 // socket timed out / the host was unreachable (the expensive hang) and earns the
 // full window.
-function nimCooldownSeconds(err) {
+export function nimCooldownSeconds(err) {
 	const retryAfter = Number(err?.retryAfter);
 	if (Number.isFinite(retryAfter) && retryAfter > 0) {
 		return Math.min(
