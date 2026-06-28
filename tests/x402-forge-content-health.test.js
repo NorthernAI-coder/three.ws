@@ -74,9 +74,13 @@ describe('runForgeHealthCheck — content-generation verdict', () => {
 	}, 10_000);
 
 	it('never throws — a generator outage settles as generated:false', async () => {
-		llmComplete.mockImplementation(async () => {
-			throw Object.assign(new Error('no provider'), { code: 'llm_unavailable' });
-		});
+		// A rejected provider chain (no key configured / all upstreams down). Pre-
+		// attach a no-op catch so vitest's unhandled-rejection detector sees the
+		// promise as handled; the probe's own await still receives the rejection and
+		// routes it through its try/catch (the behavior under test).
+		const rejected = Promise.reject(Object.assign(new Error('no provider'), { code: 'llm_unavailable' }));
+		rejected.catch(() => {});
+		llmComplete.mockReturnValue(rejected);
 		const r = await runForgeHealthCheck({ prompt: 'Write one sentence about Solana.' });
 		expect(r.generated).toBe(false);
 		expect(r.token_count).toBe(0);

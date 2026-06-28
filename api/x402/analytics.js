@@ -35,6 +35,8 @@ import { sql } from '../_lib/db.js';
 import { solUsdPrice } from '../_lib/avatar-wallet.js';
 import { buildRevenueReport } from '../_lib/x402/revenue-analytics.js';
 import { buildSniperAnalytics } from '../_lib/x402/sniper-analytics-store.js';
+import { computeUserActivity, normalizePeriod } from '../_lib/x402/user-activity-analytics.js';
+import { getPaymentStats } from '../_lib/x402/audit-log.js';
 
 const ROUTE = '/api/x402/analytics';
 
@@ -50,7 +52,7 @@ const DESCRIPTION =
 // Supported reports + period windows. Both are strict whitelists — a value
 // outside the set is rejected BEFORE settlement (the buyer is never charged for
 // a report we can't produce).
-const REPORTS = new Set(['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades']);
+const REPORTS = new Set(['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades', 'user_activity', 'x402_volume']);
 
 // period → window in seconds (null = all-time, no time filter).
 // '6h' is used by the revenue report (matches its resolvePeriod keys).
@@ -69,7 +71,7 @@ const INPUT_SCHEMA = {
 	properties: {
 		report: {
 			type: 'string',
-			enum: ['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades'],
+			enum: ['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades', 'user_activity', 'x402_volume'],
 			default: 'clubs',
 			description: 'Which analytics report to return.',
 		},
@@ -508,11 +510,11 @@ const NETWORKS_SNIPER = new Set(['mainnet', 'devnet', 'all']);
 
 async function sniperTradesReport({ interval, network, period }) {
 	const networkClause =
-		network && network !== 'all' ? sql\`AND network = \${network}\` : sql\`\`;
+		network && network !== 'all' ? sql`AND network = ${network}` : sql``;
 	const periodClause =
-		interval ? sql\`AND closed_at >= now() - \${interval}::interval\` : sql\`\`;
+		interval ? sql`AND closed_at >= now() - ${interval}::interval` : sql``;
 
-	const [row] = await sql\`
+	const [row] = await sql`
 		SELECT
 			COUNT(*)                                                       AS closed,
 			COUNT(*) FILTER (WHERE realized_pnl_lamports > 0)              AS wins,
@@ -527,9 +529,9 @@ async function sniperTradesReport({ interval, network, period }) {
 		FROM agent_sniper_positions
 		WHERE status = 'closed'
 		  AND realized_pnl_lamports IS NOT NULL
-		  \${periodClause}
-		  \${networkClause}
-	\`.catch(() => [{}]);
+		  ${periodClause}
+		  ${networkClause}
+	`.catch(() => [{}]);
 
 	let solUsd = null;
 	try { solUsd = await solUsdPrice(); } catch { solUsd = null; }
@@ -543,6 +545,41 @@ async function sniperTradesReport({ interval, network, period }) {
 	});
 
 	return { ok: true, ...result };
+}
+
+// How many of the least-active endpoints to surface as the "underused" signal.
+const UNDERUSED_LIMIT = 5;
+
+// x402 transaction volume across every endpoint over the window, read live from
+// the durable settled-payment ledger (x402_audit_log via getPaymentStats — the
+// same ledger the admin analytics dashboard reads). Returns total settled calls,
+// total USDC paid, unique payers, the per-endpoint breakdown, and the
+// least-active endpoints (the actionable "underused" signal for surfacing
+// endpoints to promote, investigate, or retire). `seconds` null → all-time.
+async function volumeReport(seconds) {
+	const since = seconds == null ? null : new Date(Date.now() - seconds * 1000).toISOString();
+	const stats = await getPaymentStats({ since });
+
+	const byEndpoint = (stats.by_route || [])
+		.filter((r) => r.route)
+		.map((r) => ({ route: r.route, count: r.count, volume: r.volume }));
+
+	// Ascending by settled-call count, ties broken by lower volume.
+	const underused = [...byEndpoint]
+		.sort((a, b) => a.count - b.count || Number(a.volume) - Number(b.volume))
+		.slice(0, UNDERUSED_LIMIT);
+
+	return {
+		total_calls: stats.total_payments || 0,
+		total_usdc_paid: stats.total_volume_usdc || '0.000000',
+		unique_payers: stats.unique_payers || 0,
+		total_failed: stats.total_failed || 0,
+		avg_payment_usdc: stats.avg_payment_usdc || '0.000000',
+		endpoint_count: byEndpoint.length,
+		by_endpoint: byEndpoint,
+		by_network: stats.by_network || [],
+		underused_endpoints: underused,
+	};
 }
 
 export default paidEndpoint({
@@ -618,6 +655,38 @@ export default paidEndpoint({
 				network,
 				period,
 			});
+		}
+
+
+		// ── User activity — DAU/WAU/stickiness, top features, session lengths. ──
+		if (report === 'user_activity') {
+			// normalizePeriod maps to usage_events query windows (24h, 7d, 30d);
+			// unsupported values like 1h/6h/all fall back to 7d.
+			const activityPeriod = normalizePeriod(period);
+			let data;
+			try {
+				data = await computeUserActivity(sql, activityPeriod);
+			} catch (err) {
+				throw Object.assign(new Error('analytics store is temporarily unavailable'), {
+					status: 503,
+					code: 'data_unavailable',
+					cause: err,
+				});
+			}
+			return data;
+		}
+
+		// ── x402 volume — transaction volume across every endpoint. ─────────────
+		if (report === 'x402_volume') {
+			const seconds = PERIODS[period];
+			const data = await volumeReport(seconds);
+			return {
+				ok: true,
+				report,
+				period,
+				generated_at: new Date().toISOString(),
+				...data,
+			};
 		}
 
 		// ── Clubs report (default) — Pole Club social economy. ──────────────────

@@ -40,32 +40,37 @@ const PRESSURE_PCT = Math.max(0.05, Number(process.env.X402_BAZAAR_TREND_PRESSUR
 // Cap on how many movers to return per side (the long tail isn't actionable).
 const TOP_N = 25;
 
-// eslint-disable-next-line quotes
-const DESCRIPTION = `Bazaar Feed - pay $0.001 USDC per call for two live views of the x402 service marketplace. filter "new"/"active": newest service listings (id, name, price, networks, tags, first_seen) plus category rollup and listing-velocity signal (spike/active/quiet). filter "price_trends": 24h price-movement across all tracked services - trending up/down/stable and net market pressure as bullish/bearish/neutral. Live data from the platform bazaar index.`;
+const DESCRIPTION =
+	'Bazaar Feed - pay $0.001 USDC per call for two live views of the x402 service' +
+	' marketplace. filter "new"/"active": newest service listings (id, name, price,' +
+	' networks, tags, first_seen) plus category rollup and listing-velocity signal' +
+	' (spike/active/quiet). filter "price_trends": 24h price-movement across all' +
+	' tracked services - trending up/down/stable and net market pressure as' +
+	' bullish/bearish/neutral. Live data from the platform bazaar index.';
 
 const INPUT_SCHEMA = {
-	$schema: ‘https://json-schema.org/draft/2020-12/schema’,
-	type: ‘object’,
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
 	properties: {
 		filter: {
-			type: ‘string’,
+			type: 'string',
 			description:
-				‘"new"/"active" → newest-listing feed (default "new"); ‘ +
-				‘"price_trends" → price-movement monitor.’,
-			enum: [‘new’, ‘active’, ‘price_trends’],
-			default: ‘new’,
+				'"new"/"active" returns newest-listing feed (default "new");' +
+				' "price_trends" returns price-movement monitor.',
+			enum: ['new', 'active', 'price_trends'],
+			default: 'new',
 		},
 		limit: {
-			type: ‘integer’,
+			type: 'integer',
 			minimum: 1,
 			maximum: 50,
 			default: 10,
-			description: ‘Max listings to return (filter "new"/"active" only).’,
+			description: 'Max listings to return (filter "new"/"active" only).',
 		},
 		period: {
-			type: ‘string’,
-			description: ‘Lookback window: <n><unit>, unit m/h/d/w (e.g. 24h, 7d). filter "price_trends" only.’,
-			default: ‘24h’,
+			type: 'string',
+			description: 'Lookback window: <n><unit>, unit m/h/d/w (e.g. 24h, 7d). filter "price_trends" only.',
+			default: '24h',
 		},
 	},
 };
@@ -119,21 +124,19 @@ const OUTPUT_SCHEMA = {
 
 const BAZAAR = {
 	description: DESCRIPTION,
-	useCases: ['bazaar price trends', 'service cost monitoring', 'market sentiment', 'agent-to-agent intel'],
+	useCases: ['bazaar listings', 'bazaar price trends', 'service cost monitoring', 'market sentiment', 'agent-to-agent intel'],
 	input: {
 		type: 'json',
-		example: { filter: 'price_trends', period: '24h' },
+		example: { filter: 'new', limit: 10 },
 		schema: INPUT_SCHEMA,
 	},
 	output: {
 		type: 'json',
 		example: {
-			filter: 'price_trends', period: '24h',
-			trending_up: [{ service_key: 'https://svc.example/api#tool', name: 'Example Oracle', pct_change: 33.3, price_atomic: 2000, price_usdc: 0.002, first_price_atomic: 1500, observations: 4 }],
-			trending_down: [], stable_count: 12, total_tracked: 13,
-			net_pressure: 0.08, avg_change_pct: 2.4, signal: 'neutral',
-			headline: 'Bazaar prices steady — 1 up, 0 down, 12 stable over 24h',
-			confidence: 0.66, ts: '2026-06-27T10:00:00Z',
+			filter: 'new', limit: 10, count: 3,
+			listings: [{ id: 'http:https://svc.example/x402', name: 'Example Feed', price: '0.001 USDC', first_seen: '2026-06-28T00:00:00Z' }],
+			activity: { new_24h: 3, new_7d: 9, daily_avg_7d: 1.29, signal: 'active', headline: '3 new bazaar listings in 24 h', confidence: 0.65 },
+			generated_at: '2026-06-28T10:00:00Z',
 		},
 	},
 	schema: buildBazaarSchema({
