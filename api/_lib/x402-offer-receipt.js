@@ -42,7 +42,7 @@ export function offerReceiptDeclaration() {
 let _sdkIssuer = null;
 
 function buildIssuer() {
-	const raw = process.env.X402_RECEIPT_SIGNING_KEY;
+	const raw = env.X402_RECEIPT_SIGNING_KEY;
 	if (!raw) return null;
 
 	const trimmed = raw.trim();

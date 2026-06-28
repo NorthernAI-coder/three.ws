@@ -392,74 +392,166 @@ export async function leaderboardAgentReputation({
 	};
 }
 
+// ── Reputation Score History (for decay detection) ───────────────────────────
+// Snapshots each agent's current trust score into agent_reputation_score_history
+// on every decay_report call. The decay query compares the latest snapshot
+// against the most recent baseline that is ≥ 5 days old. Meaningful decay
+// comparisons are only possible once 5 days of history exist; earlier calls
+// return decayed_count: 0 with has_baseline: false.
+
+let _decayHistorySchemaReady = false;
+async function ensureDecayHistorySchema() {
+	if (_decayHistorySchemaReady) return;
+	await sql`
+		CREATE TABLE IF NOT EXISTS agent_reputation_score_history (
+			id             bigserial PRIMARY KEY,
+			agent_id       uuid NOT NULL,
+			score          numeric(5,1) NOT NULL,
+			snapshotted_at timestamptz NOT NULL DEFAULT now()
+		)
+	`;
+	await sql`
+		CREATE INDEX IF NOT EXISTS arshl_agent_snap
+			ON agent_reputation_score_history (agent_id, snapshotted_at DESC)
+	`;
+	await sql`
+		CREATE INDEX IF NOT EXISTS arshl_snapshotted
+			ON agent_reputation_score_history (snapshotted_at DESC)
+	`;
+	_decayHistorySchemaReady = true;
+}
+
+// Copy rows from agent_reputation_scores (fresh within 24 h) into the history
+// table so the decay query has a time series to compare against. Silently
+// skips when the source table doesn't exist yet (cold deploy before the cron
+// has run for the first time).
+async function snapshotCurrentScores() {
+	try {
+		await sql`
+			INSERT INTO agent_reputation_score_history (agent_id, score)
+			SELECT agent_id, score
+			FROM agent_reputation_scores
+			WHERE computed_at >= now() - INTERVAL '24 hours'
+		`;
+	} catch (err) {
+		if (!err?.message?.includes('does not exist')) {
+			console.warn('[solana-bouncer] snapshotCurrentScores failed:', err?.message || err);
+		}
+	}
+}
+
 /**
  * Report agents whose behavioral reputation score has declined by more than 10
  * points since the last stored snapshot. Detects coordinated abuse, score
  * manipulation, or legitimately degrading on-chain track records.
  *
- * Compares current live scores against the most recent row in
- * agent_reputation_leaderboard_snapshots. When no prior snapshot exists (first
- * run), returns an empty report — there is no baseline to compare against.
+ * Each call snapshots current scores into agent_reputation_score_history and
+ * compares against the most recent baseline ≥ 5 days old. Returns
+ * has_baseline: false until that window is filled (typically after 5 days).
  *
- * @param {object} [opts]
- * @param {(id:string)=>Promise<object>} [opts.read]
- * @param {(limit:number)=>Promise<Array>} [opts.list]
+ * @returns {Promise<object>} decay report
  */
-export async function decayReportAgentReputation({
-	read = loadAgentReputation,
-	list = listRecentlyActiveAgents,
-} = {}) {
-	const active = await list(50);
+export async function decayReportAgentReputation() {
+	await ensureDecayHistorySchema();
+	await snapshotCurrentScores();
 
-	// Load prior snapshot from agent_reputation_leaderboard_snapshots (if any).
-	let priorByAgent = {};
 	let hasBaseline = false;
 	try {
-		const [snapshot] = await sql`
-			SELECT leaderboard FROM agent_reputation_leaderboard_snapshots
-			ORDER BY ts DESC LIMIT 1
+		const [bc] = await sql`
+			SELECT count(*)::int AS cnt
+			FROM agent_reputation_score_history
+			WHERE snapshotted_at <= now() - INTERVAL '5 days'
 		`;
-		if (snapshot?.leaderboard) {
-			const rows = Array.isArray(snapshot.leaderboard) ? snapshot.leaderboard : [];
-			for (const r of rows) {
-				if (r?.agent_id) priorByAgent[r.agent_id] = r.score ?? 0;
-			}
-			hasBaseline = rows.length > 0;
-		}
-	} catch { /* table may not exist yet — no prior baseline */ }
+		hasBaseline = (bc?.cnt || 0) > 0;
+	} catch { /* table not yet visible on this instance */ }
 
-	const scored = await Promise.all(
-		active.map(async (row) => {
-			const rep = await read(row.id);
-			const s = scoreAgentReputation(rep);
-			const prior = priorByAgent[rep.agent_id || row.id] ?? null;
-			const decay = prior !== null ? prior - s.score : null;
-			return {
-				agent_id: rep.agent_id || row.id,
-				name: rep.name ?? row.name ?? null,
-				score: s.score,
-				prior_score: prior,
-				decay,
-			};
-		}),
-	);
+	if (!hasBaseline) {
+		return {
+			mode: 'decay_report',
+			decayed_count: 0,
+			fastest_decline_agent: null,
+			avg_decay: 0,
+			agents: [],
+			has_baseline: false,
+			report_at: new Date().toISOString(),
+		};
+	}
 
-	const decayed = scored.filter((a) => a.decay !== null && a.decay > 10);
-	decayed.sort((a, b) => b.decay - a.decay);
-	const top = decayed[0] || null;
+	// h_now = latest snapshot within 2 h (current score after this call's snapshot).
+	// h_old = nearest baseline that is ≥ 5 days old.
+	// decay = baseline_score − current_score (positive = score dropped).
+	let rows = [];
+	try {
+		rows = await sql`
+			SELECT
+				h_now.agent_id,
+				ai.name,
+				h_now.score    AS current_score,
+				h_old.score    AS baseline_score,
+				(h_old.score - h_now.score)::numeric(5,1) AS decay,
+				h_old.snapshotted_at AS baseline_at
+			FROM (
+				SELECT DISTINCT ON (agent_id) agent_id, score
+				FROM agent_reputation_score_history
+				WHERE snapshotted_at >= now() - INTERVAL '2 hours'
+				ORDER BY agent_id, snapshotted_at DESC
+			) h_now
+			JOIN agent_identities ai ON ai.id = h_now.agent_id AND ai.deleted_at IS NULL
+			JOIN LATERAL (
+				SELECT score, snapshotted_at
+				FROM agent_reputation_score_history h
+				WHERE h.agent_id = h_now.agent_id
+				  AND h.snapshotted_at <= now() - INTERVAL '5 days'
+				ORDER BY h.snapshotted_at DESC
+				LIMIT 1
+			) h_old ON true
+			WHERE (h_old.score - h_now.score) > 10
+			ORDER BY decay DESC
+		`;
+	} catch (err) {
+		console.warn('[solana-bouncer] decayReport query failed:', err?.message || err);
+	}
+
+	const decayedCount = rows.length;
+	if (!decayedCount) {
+		return {
+			mode: 'decay_report',
+			decayed_count: 0,
+			fastest_decline_agent: null,
+			avg_decay: 0,
+			agents: [],
+			has_baseline: true,
+			report_at: new Date().toISOString(),
+		};
+	}
+
+	const top = rows[0];
+	const avg_decay =
+		Math.round(
+			(rows.reduce((s, r) => s + Number(r.decay), 0) / decayedCount) * 10,
+		) / 10;
 
 	return {
 		mode: 'decay_report',
-		has_baseline: hasBaseline,
-		decayed_count: decayed.length,
-		fastest_decline_agent: top
-			? { agent_id: top.agent_id, name: top.name, decay: top.decay }
-			: null,
-		avg_decay:
-			decayed.length
-				? Math.round(decayed.reduce((s, a) => s + a.decay, 0) / decayed.length)
-				: 0,
-		agents: decayed,
+		decayed_count: decayedCount,
+		fastest_decline_agent: {
+			agent_id: top.agent_id,
+			name: top.name || null,
+			current_score: Number(top.current_score),
+			baseline_score: Number(top.baseline_score),
+			decay: Number(top.decay),
+		},
+		avg_decay,
+		agents: rows.map((r) => ({
+			agent_id: r.agent_id,
+			name: r.name || null,
+			current_score: Number(r.current_score),
+			baseline_score: Number(r.baseline_score),
+			decay: Number(r.decay),
+			baseline_at:
+				r.baseline_at instanceof Date ? r.baseline_at.toISOString() : r.baseline_at,
+		})),
+		has_baseline: true,
 		report_at: new Date().toISOString(),
 	};
 }

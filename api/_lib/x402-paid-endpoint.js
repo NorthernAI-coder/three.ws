@@ -66,6 +66,7 @@ import {
 import { authenticateSiwx, declareSiwxExtensionFor, recordSiwxPayment } from './siwx-server.js';
 import { normalizeAddress } from './siwx-storage.js';
 import { buildOffersExtension, buildReceiptExtension } from './x402/offer-receipt-server.js';
+import { signReceipt } from './x402-offer-receipt.js';
 import { recordReceipt } from './x402/receipt-storage.js';
 import {
 	authenticateAuthHintsRequest,
@@ -922,6 +923,29 @@ export function paidEndpoint(spec) {
 				// and the work ran. Log and continue with an unsigned response.
 				console.error('x402_receipt_sign_failed', err);
 			}
+		}
+
+		// New-stack receipt: keyed by X402_RECEIPT_SIGNING_KEY. Returns null when
+		// unset (byte-identical to current behaviour) or when payer/network absent
+		// (e.g. BSC direct with no decoded event payer). Merged as `signedReceipt`
+		// alongside any `info.receipt` produced by the old-stack above.
+		try {
+			const sr = await signReceipt({
+				resourceUrl,
+				payer: settled.payer || verified.payer || null,
+				network: settled.network || verified.requirement?.network || null,
+				txHash: settled.transaction,
+				includeTxHash: offerReceipt?.includeTxHash === true,
+			});
+			if (sr) {
+				responseExtensions = responseExtensions ?? {};
+				const existing = responseExtensions['offer-receipt'];
+				responseExtensions['offer-receipt'] = existing
+					? { ...existing, signedReceipt: sr }
+					: { signedReceipt: sr };
+			}
+		} catch (err) {
+			console.error('x402_receipt_sign_failed', err);
 		}
 
 		const paymentResponseHeader = encodePaymentResponseHeader(settled, responseExtensions);
