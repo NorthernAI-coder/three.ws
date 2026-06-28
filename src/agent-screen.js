@@ -278,7 +278,7 @@ async function renderSetup() {
 		try {
 			const csrf = await fetch('/api/csrf-token', { credentials: 'include' })
 				.then((r) => r.json())
-				.then((j) => j.token || '')
+				.then((j) => j.data?.token || j.token || '')
 				.catch(() => '');
 
 			const r = await fetch('/api/api-keys', {

@@ -90,7 +90,8 @@ async function csrfToken() {
 	if (_csrf) return _csrf;
 	try {
 		const r = await fetch('/api/csrf-token', { credentials: 'include' });
-		const { token } = await asJson(r);
+		const j = await asJson(r);
+		const token = j?.data?.token || j?.token || null;
 		_csrf = token;
 		return token;
 	} catch {

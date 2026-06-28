@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Fixed: \"Generate API key\" in the Agent Screen worker setup",
+      "summary": "The Launch your browser agent wizard (/agent-screen) has a Generate button that mints the API key the worker uses to authenticate. The button was failing with a permission error because it wasn't attaching the security token the server requires, so you couldn't get past step 2. It now reads and sends that token correctly, so generating the key — and starting a live agent screen stream — works again. The same token-handling fix was applied to one-click agent wallet provisioning.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-28",
       "title": "Forged avatars get auto-rigged whenever a rigging lane is available",
       "summary": "Avatars you forge are meant to come out animation-ready — rigged with a skeleton so they can idle, walk, and play poses. The auto-rig step was only ever asking the single highest-priority generation provider whether it could rig; when that provider handled mesh generation but not rigging, the step gave up and shipped a static, un-rigged mesh — even though a capable rigging service was configured and ready. The pipeline now looks across every configured provider and routes rigging to the first one that actually supports it, so a forged avatar is rigged whenever any rigging lane exists. The same fix applies to selfie/prompt reconstruction, saved uploads, and the background backfill that rigs older avatars.",
       "tags": [

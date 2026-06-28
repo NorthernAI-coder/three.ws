@@ -119,6 +119,14 @@
 			<description>The Gaussian-splat viewer (/splat), the capture tool (/capture), the integrations directory (/integrations), partners (/partners), and the live-agents board (/agents-live) were all returning a 404 in production even though the pages existed and were linked from the nav. Our routing pins every clean URL explicitly, and these five were missing their entry, so the request fell through to the not-found page. We added the missing routes and tightened the route audit so a new page can no longer ship without one.</description>
 		</item>
 		<item>
+			<title>Fixed: &quot;Generate API key&quot; in the Agent Screen worker setup</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-28:Fixed: &quot;Generate API key&quot; in the Agent Screen worker setup</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Launch your browser agent wizard (/agent-screen) has a Generate button that mints the API key the worker uses to authenticate. The button was failing with a permission error because it wasn't attaching the security token the server requires, so you couldn't get past step 2. It now reads and sends that token correctly, so generating the key — and starting a live agent screen stream — works again. The same token-handling fix was applied to one-click agent wallet provisioning.</description>
+		</item>
+		<item>
 			<title>Forge Content Health — the platform canaries its own generation engine every 10 minutes</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-28:Forge Content Health — the platform canaries its own generation engine every 10 minutes</guid>
