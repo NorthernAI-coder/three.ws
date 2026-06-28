@@ -199,6 +199,14 @@
 			<description>The autonomous x402 loop now pays every 30 minutes to retrieve the 5 most-purchased agent skills over the past 7 days from the real hire ledger. The top skill and full ranked list land in the autonomous log as actionable signal for featured-listing curation — a shift in the top skill across runs surfaces emerging high-demand capabilities automatically.</description>
 		</item>
 		<item>
+			<title>The &quot;Save to my avatars&quot; button is readable on every theme</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:The &quot;Save to my avatars&quot; button is readable on every theme</guid>
+			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On pages with a white accent color, the &quot;⑂ Save to my avatars&quot; button (shown on any avatar you don't own) rendered white text on a white background — effectively invisible. The button now picks its text color from the actual button background, so a light button gets black text and a dark button keeps white, keeping the label legible everywhere it appears.</description>
+		</item>
+		<item>
 			<title>The Avatar Engines Atlas page is now reachable</title>
 			<link>https://three.ws/avatar-engines</link>
 			<guid isPermaLink="false">2026-06-28:The Avatar Engines Atlas page is now reachable</guid>
@@ -247,12 +255,12 @@
 			<description>The autonomous loop now pays /api/x402/analytics every 30 minutes with { report: &quot;x402_volume&quot;, period: &quot;24h&quot; } for a live read of x402 transaction volume across every paid endpoint. The report comes straight from the settled-payment ledger and returns the totals that prove ecosystem growth — total settled calls, total USDC paid, and unique paying wallets — alongside a per-endpoint breakdown and the least-active (&quot;underused&quot;) endpoints, so the platform can see at a glance which services are thriving and which need a push or a rethink. The headline totals and the underused-endpoint list are recorded as an actionable signal, and the same report is available to any x402 agent on the bazaar for $0.005 per call.</description>
 		</item>
 		<item>
-			<title>Your agents now deploy themselves on-chain — no wallet popup</title>
-			<link>https://three.ws/deployments</link>
-			<guid isPermaLink="false">2026-06-28:Your agents now deploy themselves on-chain — no wallet popup</guid>
+			<title>Your agents now deploy themselves on-chain on Solana — automatically</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-28:Your agents now deploy themselves on-chain on Solana — automatically</guid>
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
-			<description>The On-chain Deployments page (/deployments) tracks every agent that lands on the ERC-8004 Identity Registry. Until now three.ws only read other people's registrations; putting one of your own agents on-chain meant signing a transaction yourself in a browser wallet. Agents now register themselves: every public agent with a 3D body gets deployed to the Base Identity Registry from its own built-in wallet, with the platform covering the few cents of gas. The registration includes the agent's GLB avatar and x402 payment support, so it shows up immediately in the live feed counted as a 3D, payment-ready on-chain identity — no human in the loop.</description>
+			<description>Putting an agent on-chain used to be a manual step. Now it's continuous and hands-off: every undeployed agent is minted as a real Metaplex Core asset inside the three.ws Agents collection and enrolled in the Metaplex Agent Registry, on a recurring schedule, with the platform's collection authority signing and paying the small Solana mint cost. Your agent owns its own on-chain identity through its built-in Solana wallet — and never has to sign or hold SOL to get there. No admin run, no wallet popup, no human in the loop.</description>
 		</item>
 		<item>
 			<title>Capabilities — Alpha Hunt, Launcher, Auto-Claim &amp; Market Maker</title>

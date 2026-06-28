@@ -3,6 +3,14 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "The \"Save to my avatars\" button is readable on every theme",
+      "summary": "On pages with a white accent color, the \"⑂ Save to my avatars\" button (shown on any avatar you don't own) rendered white text on a white background — effectively invisible. The button now picks its text color from the actual button background, so a light button gets black text and a dark button keeps white, keeping the label legible everywhere it appears.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-06-28",
       "title": "Trending and the agent directory now actually show agents",
       "summary": "The Trending leaderboard (/trending) and the public agent directory were coming up empty no matter how busy the platform was — every list rendered \"No trending agents yet.\" Both feeds ranked agents by chat activity using a column that doesn't exist in the database, so the query failed silently and returned nothing. They now count real chat activity (LLM usage events) the same way the rest of the site does, so the 24h, 7d, and all-time rankings — and the directory's \"popular\" sort — populate with the agents people are actually using.",
       "tags": [
@@ -20,12 +28,11 @@
     },
     {
       "date": "2026-06-28",
-      "title": "Your agents now deploy themselves on-chain — no wallet popup",
-      "summary": "The On-chain Deployments page (/deployments) tracks every agent that lands on the ERC-8004 Identity Registry. Until now three.ws only read other people's registrations; putting one of your own agents on-chain meant signing a transaction yourself in a browser wallet. Agents now register themselves: every public agent with a 3D body gets deployed to the Base Identity Registry from its own built-in wallet, with the platform covering the few cents of gas. The registration includes the agent's GLB avatar and x402 payment support, so it shows up immediately in the live feed counted as a 3D, payment-ready on-chain identity — no human in the loop.",
+      "title": "Your agents now deploy themselves on-chain on Solana — automatically",
+      "summary": "Putting an agent on-chain used to be a manual step. Now it's continuous and hands-off: every undeployed agent is minted as a real Metaplex Core asset inside the three.ws Agents collection and enrolled in the Metaplex Agent Registry, on a recurring schedule, with the platform's collection authority signing and paying the small Solana mint cost. Your agent owns its own on-chain identity through its built-in Solana wallet — and never has to sign or hold SOL to get there. No admin run, no wallet popup, no human in the loop.",
       "tags": [
         "feature"
-      ],
-      "link": "/deployments"
+      ]
     },
     {
       "date": "2026-06-28",

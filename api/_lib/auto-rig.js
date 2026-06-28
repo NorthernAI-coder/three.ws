@@ -40,7 +40,7 @@ import { randomUUID, createHash } from 'crypto';
 import { sql } from './db.js';
 import { putObject, publicUrl, presignGet } from './r2.js';
 import { storageKeyFor, createAvatar } from './avatars.js';
-import { getRegenProvider } from './regen-provider.js';
+import { getRegenProviderForMode } from './regen-provider.js';
 import { inspectGlb, isValidGlbHeader } from './glb-inspect.js';
 import { dispatchWebhooks } from './webhook-dispatch.js';
 import { limits } from './rate-limit.js';
@@ -153,15 +153,11 @@ export async function maybeAutoRigAvatar({
 
 		let provider;
 		try {
-			provider = await getRegenProvider();
+			provider = await getRegenProviderForMode('rerig');
 		} catch {
 			return { queued: false, skipped: 'no_provider' };
 		}
-		const canRig =
-			provider?.instance &&
-			typeof provider.instance.supportsMode === 'function' &&
-			provider.instance.supportsMode('rerig');
-		if (!canRig) return { queued: false, skipped: 'no_rig_model' };
+		if (!provider?.instance) return { queued: false, skipped: 'no_rig_model' };
 
 		// Idempotency: never stack a second auto-rig job on the same avatar. A
 		// retry or a double-create would otherwise race two rigged siblings off the

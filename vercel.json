@@ -105,7 +105,7 @@
 		"api/cron/recompute-reputation.js": {
 			"maxDuration": 300
 		},
-		"api/cron/erc8004-autopublish.js": {
+		"api/cron/solana-autodeploy.js": {
 			"maxDuration": 120
 		},
 		"api/cron/[name].js": {
@@ -4650,7 +4650,7 @@
 			"schedule": "*/15 * * * *"
 		},
 		{
-			"path": "/api/cron/erc8004-autopublish",
+			"path": "/api/cron/solana-autodeploy",
 			"schedule": "*/10 * * * *"
 		},
 		{

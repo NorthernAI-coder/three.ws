@@ -20,7 +20,7 @@ import { putObject, publicUrl } from './r2.js';
 import { storageKeyFor, createAvatar } from './avatars.js';
 import { inspectGlb, isValidGlbHeader } from './glb-inspect.js';
 import { dispatchWebhooks } from './webhook-dispatch.js';
-import { getRegenProvider } from './regen-provider.js';
+import { getRegenProviderForMode } from './regen-provider.js';
 // Every provider-returned GLB fetched here — the reconstruct output, the rigged
 // result, and our own stored bare mesh (rig.unriggedUrl) — goes through the
 // shared guard: host allowlist + IP-pinned SSRF connect + 64 MB ceiling. No bare
@@ -140,17 +140,11 @@ export async function finalizeReconstructStage({ userId, jobId, job, glbUrl }) {
 
 	let provider = null;
 	try {
-		provider = await getRegenProvider();
+		provider = await getRegenProviderForMode('rerig');
 	} catch (_) {
 		provider = null;
 	}
-	const canRig = !!(
-		info &&
-		!info.isRigged &&
-		provider?.instance &&
-		typeof provider.instance.supportsMode === 'function' &&
-		provider.instance.supportsMode('rerig')
-	);
+	const canRig = !!(info && !info.isRigged && provider?.instance);
 
 	if (!canRig) {
 		const avatar = await materializeReconstructAvatar({ userId, jobId, job, glbBuf, glbInfo: info, storageKey, slug });
@@ -219,7 +213,7 @@ export async function pollRiggingStage({ userId, jobId, job }) {
 
 	let provider = null;
 	try {
-		provider = await getRegenProvider();
+		provider = await getRegenProviderForMode('rerig');
 	} catch (_) {
 		provider = null;
 	}

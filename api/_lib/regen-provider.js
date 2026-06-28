@@ -231,6 +231,26 @@ export async function getRegenProvider() {
 	return loadPlatformProvider(name);
 }
 
+// Resolve the first configured provider (in paid → free precedence) that
+// actually supports `mode`. The plain getRegenProvider() returns only the single
+// highest-precedence provider, which breaks rigging on the common production
+// setup where Replicate is primary for `reconstruct` (its built-in TRELLIS
+// default) but has no rerig model — meanwhile the self-hosted GCP UniRig pipeline
+// CAN rig. Without this failover, every forged avatar comes out un-rigged because
+// the rig gate asks Replicate (which can't) and gives up. Mirrors the MCP studio
+// path's regenProvider(mode). Returns { name, instance } or { name:'none' }.
+export async function getRegenProviderForMode(mode) {
+	const candidates = await getRegenProviderCandidates();
+	for (const candidate of candidates) {
+		try {
+			if (candidate.instance && candidate.instance.supportsMode(mode)) return candidate;
+		} catch {
+			// A provider whose supportsMode throws is treated as not-capable.
+		}
+	}
+	return { name: 'none', instance: null };
+}
+
 // Enumerate every configured platform provider in priority order so the submit
 // path can fail over from one to the next. The explicit AVATAR_REGEN_PROVIDER
 // (if set and credentialed) leads; the credential-inferred order fills in the

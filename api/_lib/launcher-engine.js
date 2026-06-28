@@ -49,6 +49,20 @@ const FAIL_BREAK = 5;
 // skip (operator tops up the master), never a breaker trip.
 const MASTER_FEE_BUFFER_SOL = 0.01;
 
+// House-ownership guarantee. When LAUNCHER_OWNER_USER_IDS is set (a comma-separated
+// list of user uuids we control), the GLOBAL rotation is HARD-restricted to agents
+// owned by exactly those accounts — an auditable promise that only house-owned
+// agents ever sign a launch. Unset → the self-growing circulation pool, whose
+// agents are themselves platform-created bot accounts (*@agents.three.ws), never
+// real end users. Either way the launcher never borrows a user's agent.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function ownerAllowlist() {
+	return String(process.env.LAUNCHER_OWNER_USER_IDS || '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter((s) => UUID_RE.test(s));
+}
+
 // ── schema guard ────────────────────────────────────────────────────────────────
 // Self-contained so the engine runs whether or not 20260629060000_coin_launcher.sql
 // has been applied. Mirrors that migration; CREATE … IF NOT EXISTS is idempotent.
@@ -192,16 +206,27 @@ async function ensureQueue(cfg) {
 	`;
 	if (c >= MIN_QUEUE) return c;
 
+	const owners = cfg.scope === 'global' ? ownerAllowlist() : [];
 	const candidates = cfg.scope === 'global'
-		? await sql`
-			select ai.id from agent_identities ai
-			where ai.deleted_at is null and ai.is_public = true
-			  and ai.avatar_id is not null
-			  and (ai.meta->>'circulation') = 'true'
-			  and ai.meta->>'solana_address' is not null
-			  and not exists (select 1 from launcher_queue q where q.agent_id = ai.id)
-			limit ${ENROLL_BATCH}
-		`
+		? (owners.length
+			? await sql`
+				select ai.id from agent_identities ai
+				where ai.deleted_at is null
+				  and ai.user_id = any(${owners}::uuid[])
+				  and ai.avatar_id is not null
+				  and ai.meta->>'solana_address' is not null
+				  and not exists (select 1 from launcher_queue q where q.agent_id = ai.id)
+				limit ${ENROLL_BATCH}
+			`
+			: await sql`
+				select ai.id from agent_identities ai
+				where ai.deleted_at is null and ai.is_public = true
+				  and ai.avatar_id is not null
+				  and (ai.meta->>'circulation') = 'true'
+				  and ai.meta->>'solana_address' is not null
+				  and not exists (select 1 from launcher_queue q where q.agent_id = ai.id)
+				limit ${ENROLL_BATCH}
+			`)
 		: await sql`
 			select ai.id from agent_identities ai
 			where ai.deleted_at is null and ai.user_id = ${cfg.user_id}
@@ -224,6 +249,8 @@ async function ensureQueue(cfg) {
 // The next agent up: enabled, avatar-bearing, with a wallet, least-recently-used
 // first (weighted, with a touch of jitter so ties don't always resolve the same).
 async function pickAgent(cfg) {
+	const owners = cfg.scope === 'global' ? ownerAllowlist() : [];
+	const ownerGate = owners.length ? sql`and ai.user_id = any(${owners}::uuid[])` : sql``;
 	const [agent] = await sql`
 		select q.agent_id as id, ai.user_id, ai.name, ai.avatar_id,
 		       ai.meta->>'solana_address' as solana_address
@@ -232,6 +259,7 @@ async function pickAgent(cfg) {
 		where q.scope = ${cfg.scope} and q.enabled = true
 		  and ai.avatar_id is not null
 		  and ai.meta->>'solana_address' is not null
+		  ${ownerGate}
 		order by q.last_launched_at asc nulls first, q.weight desc, random()
 		limit 1
 	`;
