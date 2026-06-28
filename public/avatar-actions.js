@@ -330,8 +330,32 @@ class AvatarActions extends HTMLElement {
 			.querySelector('[data-act="create-wallet"]')
 			?.addEventListener('click', () => this._createWallet());
 
+		// Keep primary buttons (incl. "Save to my avatars") legible regardless of the
+		// host's --accent: a light/white accent gets black text, a dark one keeps white.
+		this._applyAccentContrast();
+
 		// Fill live balances after the addresses are on screen (owner + has wallet).
 		if (this.isOwner && this._agent && root.querySelector('.bal')) this._loadBalances();
+	}
+
+	// Pick black or white button text from the *rendered* accent background so a
+	// white/light accent never produces invisible white-on-white text. Reads the
+	// resolved background color of each primary button (CSS vars already applied)
+	// and sets the contrasting foreground inline.
+	_applyAccentContrast() {
+		const btns = this.shadowRoot.querySelectorAll('button.primary');
+		if (!btns.length) return;
+		for (const btn of btns) {
+			const bg = getComputedStyle(btn).backgroundColor;
+			const m = bg.match(/rgba?\(([^)]+)\)/);
+			if (!m) continue;
+			const [r, g, b, a = '1'] = m[1].split(',').map((v) => parseFloat(v));
+			// Fully transparent backgrounds inherit the surface — leave default text.
+			if (a === 0) continue;
+			// Relative luminance (sRGB) → light backgrounds read black, dark read white.
+			const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+			btn.style.color = lum > 0.6 ? '#000' : '#fff';
+		}
 	}
 
 	async _loadBalances() {

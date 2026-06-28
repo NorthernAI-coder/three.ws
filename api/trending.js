@@ -6,7 +6,11 @@
  *
  * Agent ranking:
  *   24h / 7d  — count of usage_events (kind='llm') in the window, per public agent
- *   all time  — agent_identities.chat_count (pre-aggregated) + views_count
+ *   all time  — total count of usage_events (kind='llm') per public agent
+ *
+ * `chat_count` is NOT a stored column on agent_identities — it is derived with a
+ * correlated COUNT(*) over usage_events, the same pattern used by galaxy.js,
+ * agents.js, and characters.js.
  *
  * Coin ranking:
  *   always    — oracle_conviction.score desc, filtered to recent scored_at (<24h stale)
@@ -36,37 +40,47 @@ export default wrap(async (req, res) => {
 	// ── Agents ─────────────────────────────────────────────────────────────
 	let agentRows;
 	if (win === 'all') {
-		// Use pre-aggregated columns for all-time (fast, indexed)
+		// Total real LLM usage events per public agent. chat_count is derived
+		// (no stored column) so it is filtered/ordered via the outer alias.
 		agentRows = await sql`
-			select
-				i.id,
-				i.name,
-				i.description,
-				i.chat_count,
-				i.meta,
-				a.thumbnail_key as avatar_thumbnail_key,
-				a.visibility    as avatar_visibility
-			from agent_identities i
-			left join avatars a on a.id = i.avatar_id and a.deleted_at is null
-			where i.deleted_at is null
-			  and i.is_public = true
-			  and i.chat_count > 0
-			order by i.chat_count desc nulls last
+			select * from (
+				select
+					i.id,
+					i.name,
+					i.description,
+					i.meta,
+					a.thumbnail_key as avatar_thumbnail_key,
+					a.visibility    as avatar_visibility,
+					coalesce((
+						select count(*)::int from usage_events ue
+						where ue.agent_id = i.id and ue.kind = 'llm'
+					), 0) as chat_count
+				from agent_identities i
+				left join avatars a on a.id = i.avatar_id and a.deleted_at is null
+				where i.deleted_at is null
+				  and i.is_public = true
+			) t
+			where t.chat_count > 0
+			order by t.chat_count desc
 			limit ${limit}
 		`.catch(() => []);
 	} else {
-		// Count real LLM usage events in the time window per public agent
+		// Count real LLM usage events in the time window per public agent. The
+		// all-time chat_count is derived via a correlated subquery (no stored col).
 		const interval = WINDOW_INTERVAL[win];
 		agentRows = await sql`
 			select
 				i.id,
 				i.name,
 				i.description,
-				i.chat_count,
 				i.meta,
 				a.thumbnail_key as avatar_thumbnail_key,
 				a.visibility    as avatar_visibility,
-				count(u.id)::int as window_chats
+				count(u.id)::int as window_chats,
+				coalesce((
+					select count(*)::int from usage_events ue
+					where ue.agent_id = i.id and ue.kind = 'llm'
+				), 0) as chat_count
 			from usage_events u
 			join agent_identities i on i.id = u.agent_id
 			left join avatars a on a.id = i.avatar_id and a.deleted_at is null
@@ -74,7 +88,7 @@ export default wrap(async (req, res) => {
 			  and u.created_at >= now() - ${interval}::interval
 			  and i.deleted_at is null
 			  and i.is_public = true
-			group by i.id, i.name, i.description, i.chat_count, i.meta,
+			group by i.id, i.name, i.description, i.meta,
 			         a.thumbnail_key, a.visibility
 			order by window_chats desc
 			limit ${limit}

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-28T06:38:15.853Z",
+	"generated_at": "2026-06-28T06:47:38.055Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -289,6 +289,16 @@
 			"link": "/pulse",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Trending and the agent directory now actually show agents",
+			"summary": "The Trending leaderboard (/trending) and the public agent directory were coming up empty no matter how busy the platform was — every list rendered \"No trending agents yet.\" Both feeds ranked agents by chat activity using a column that doesn't exist in the database, so the query failed silently and returned nothing. They now count real chat activity (LLM usage events) the same way the rest of the site does, so the 24h, 7d, and all-time rankings — and the directory's \"popular\" sort — populate with the agents people are actually using.",
+			"link": "/trending",
+			"tags": [
+				"fix"
 			]
 		},
 		{

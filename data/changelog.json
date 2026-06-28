@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-28",
+      "title": "Trending and the agent directory now actually show agents",
+      "summary": "The Trending leaderboard (/trending) and the public agent directory were coming up empty no matter how busy the platform was — every list rendered \"No trending agents yet.\" Both feeds ranked agents by chat activity using a column that doesn't exist in the database, so the query failed silently and returned nothing. They now count real chat activity (LLM usage events) the same way the rest of the site does, so the 24h, 7d, and all-time rankings — and the directory's \"popular\" sort — populate with the agents people are actually using.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/trending"
+    },
+    {
+      "date": "2026-06-28",
       "title": "The main menu is now organized — no more walls of links",
       "summary": "The top navigation kept everything but had become hard to scan: the Launch menu alone listed 25 features in one long single-column drop-down, and nearly every item shouted a \"New\" badge, so the badge meant nothing. Each menu — Build, Discover, Launch, Learn — is now split into clearly labelled columns grouped by what you're trying to do (Launch, for example, splits into Launch / Terminal & trade / Intelligence / Compete & earn). Every feature is still one click away, on desktop and in the mobile drawer; nothing was removed or moved off-platform. The only badge left is the green \"Live\" dot, which now genuinely means the page is running right now.",
       "tags": [
