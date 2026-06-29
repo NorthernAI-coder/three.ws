@@ -160,10 +160,15 @@ function ensureStyles() {
  * @param {HTMLElement} opts.bodyEl
  * @returns {{ refresh():void, observeHire():void, destroy():void }}
  */
-export function createReputationPanel({ agentId, bodyEl }) {
+export function createReputationPanel({ agentId, bodyEl, onNewReceipt = null }) {
 	ensureReputationStyles();
 	ensureStyles();
 	bodyEl.classList.add('ascrep-body');
+
+	// Receipt ids seen so far, so a refresh can tell a genuinely NEW hire from the
+	// ones already on screen and fire the live nudge only for real new activity.
+	const _seen = new Set();
+	let _initialized = false;
 
 	// Layer 1: the shared trust breakdown (loads its own real data).
 	const breakdown = reputationPanelEl(agentId, { unlocks: false });
@@ -196,6 +201,7 @@ export function createReputationPanel({ agentId, bodyEl }) {
 			const { data } = await res.json();
 			const hires = Array.isArray(data?.hires) ? data.hires : [];
 			_loaded = true;
+			detectNew(hires);
 			render(hires);
 		} catch {
 			receipts.innerHTML =
@@ -206,6 +212,21 @@ export function createReputationPanel({ agentId, bodyEl }) {
 		} finally {
 			_loading = false;
 		}
+	}
+
+	// Compare against the receipts we've already shown and, after the first load,
+	// surface the newest genuinely-new hire as a live nudge. The very first load
+	// only seeds the baseline so we never replay history as "new".
+	function detectNew(hires) {
+		const fresh = hires.filter((h) => h.id && !_seen.has(h.id));
+		for (const h of hires) if (h.id) _seen.add(h.id);
+		if (!_initialized) {
+			_initialized = true;
+			return;
+		}
+		if (!fresh.length || typeof onNewReceipt !== 'function') return;
+		// hires are newest-first; the first fresh one is the most recent.
+		onNewReceipt(fresh[0]);
 	}
 
 	function render(hires) {
@@ -225,6 +246,13 @@ export function createReputationPanel({ agentId, bodyEl }) {
 
 	load();
 
+	// Reputation moves slowly, and the receipts that earn it (this agent being
+	// hired) arrive without a frame on this screen — so poll on a calm cadence to
+	// pick them up. Pauses while the tab is hidden; detectNew() fires the nudge.
+	const _poll = setInterval(() => {
+		if (typeof document === 'undefined' || !document.hidden) load();
+	}, 60_000);
+
 	// Refresh the receipts when this agent settles a new hire (an a2a_hire frame
 	// reaches the screen log). Debounced so a burst of frames is one refetch.
 	let _hireT = null;
@@ -238,6 +266,7 @@ export function createReputationPanel({ agentId, bodyEl }) {
 		observeHire,
 		destroy() {
 			clearTimeout(_hireT);
+			clearInterval(_poll);
 		},
 	};
 }

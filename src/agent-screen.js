@@ -2991,6 +2991,15 @@ async function boot(id) {
 	reputationPanel = createReputationPanel({
 		agentId: id,
 		bodyEl: document.getElementById('asc-reputation-body'),
+		// Live nudge: a genuinely new hire receipt is real reputation movement —
+		// surface it in the activity log (type:'analysis') and as a toast so the
+		// climb shows even if the panel is closed.
+		onNewReceipt(h) {
+			const skill = truncMid(h.skill_name || h.service_slug || 'a hire', 22);
+			const stars = h.rating != null ? `${h.rating}★ ` : '';
+			addLogEntry({ ts: Date.now(), activity: `New ${stars}feedback on ${skill} — reputation climbing`, type: 'analysis' });
+			toast(`New ${stars}hire receipt · reputation +`);
+		},
 	});
 
 	function setPanelHidden(name, hidden) {
