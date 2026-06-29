@@ -575,6 +575,25 @@ function loadLayout() {
 	return base;
 }
 
+// Detect a Team Task command in the task bar. A lead agent splits the goal,
+// delegates sub-tasks and hires teammates over x402 (api/agent-collab). Matches
+// an explicit `team:` prefix or natural phrasings; returns the cleaned goal or
+// null. The owner gate and hard spend cap live server-side — this only routes.
+export function parseTeamCommand(raw) {
+	const text = String(raw == null ? '' : raw).trim();
+	if (!text) return null;
+	// Explicit prefix: "team: <goal>" / "team task: <goal>".
+	const prefix = text.match(/^team(?:\s+task)?\s*[:\-—]\s*(.+)$/is);
+	if (prefix && prefix[1].trim()) return prefix[1].trim();
+	// Natural phrasing: "assemble a team to …", "lead a team to …",
+	// "delegate to your team: …", "with your team, …".
+	const natural = text.match(
+		/^(?:assemble|lead|gather|rally|build)\s+(?:a|your|the)?\s*team\b[\s,:to-]*([\s\S]+)$/i,
+	) || text.match(/^delegate\s+to\s+(?:your|the)\s+team\b[\s,:-]*([\s\S]+)$/i);
+	if (natural && natural[1].trim()) return natural[1].trim();
+	return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function boot(id) {
@@ -1778,6 +1797,7 @@ async function boot(id) {
 			const forgeHit = parseForgeFrame(frame);
 			if (forgeHit) loadForgedAvatar(forgeHit);
 			if (frame.meta?.kind === 'a2a_hire') hireViz?.ingest(frame.meta, { live: true });
+			if (frame.meta?.collab) teamTask.ingest(frame.meta.collab);
 			if (frame.type === 'trade') {
 				const delta = ingestTrade(frame);
 				if (delta) emoteForTrade(delta);
@@ -1802,6 +1822,9 @@ async function boot(id) {
 			// Replay any hire phases in order so a reconnect re-syncs to the latest
 			// phase (no coin animation — this is history, not a fresh settle).
 			entries.forEach((e) => { if (e.meta?.kind === 'a2a_hire') hireViz?.ingest(e.meta, { live: false }); });
+			// Resync the Team Task graph to the latest pushed snapshot on reconnect.
+			const lastCollab = [...entries].reverse().find((e) => e?.meta?.collab);
+			if (lastCollab) teamTask.ingest(lastCollab.meta.collab);
 		},
 		onDark() { setDark(); },
 		onError() {

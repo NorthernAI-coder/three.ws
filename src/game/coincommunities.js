@@ -29,9 +29,9 @@ import { mountOracleRibbon } from './oracle-ribbon.js';
 import { MarketReactor } from './market-reactor.js';
 import {
 	VoxelWorld, createBuildHud, parseKey, keyOf, MAX_BLOCKS, BLOCK,
-	COMPOSITE_PIECES, compositeCells, MAX_COMPOSITE_CELLS,
+	COMPOSITE_PIECES, compositeCells,
 } from './build-voxels.js';
-import { WorldObjects, PropGhost, PROP_CATALOG, DEFAULT_PROP, propDef } from './world-objects.js';
+import { WorldObjects, PropGhost, propDef } from './world-objects.js';
 import { normalizeGatewayURL } from '../ipfs.js';
 import {
 	loadManifest, getEmoteDefs, getAllEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
@@ -39,7 +39,7 @@ import {
 } from './avatar-rig.js';
 import { GUEST_SENTINEL, uploadPendingGuestAvatar, getPlayCosmetics, setPlayCosmetics } from './play-handoff.js';
 import { applyLoadout } from './cosmetics-loadout.js';
-import { serializeLoadout } from '../../multiplayer/src/cosmetics-catalog.js';
+import { serializeLoadout, getCosmetic } from '../../multiplayer/src/cosmetics-catalog.js';
 import { AccessoryManager } from '../agent-accessories.js';
 import { CosmeticsShop } from './cosmetics-shop.js';
 import { CosmeticsWardrobe } from './cosmetics-wardrobe.js';
@@ -1591,8 +1591,11 @@ export class CoinCommunities {
 	// Equip `id` durably: send to the server (authoritative validation + persistence)
 	// so the fit survives logout, world switches, and is visible to peers immediately.
 	// The server echoes a fresh profile which updates the wardrobe and local avatar.
+	// Only forward ids the rig can actually wear — a purchase of an item outside the
+	// worn-cosmetics catalog (its ownership still records server-side) must not fire
+	// a spurious "that cosmetic doesn't exist" notice from the equip authority.
 	_equipCosmeticDurable(id) {
-		if (this.net) this.net.equipCosmetic(id);
+		if (this.net && getCosmetic(id)) this.net.equipCosmetic(id);
 	}
 
 	// Revert the active preview, leaving the avatar exactly as it was.

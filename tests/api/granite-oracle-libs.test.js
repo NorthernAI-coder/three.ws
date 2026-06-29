@@ -90,4 +90,36 @@ describe('GeckoTerminal OHLCV lib', () => {
 	it('resolves a token to its top pool', async () => {
 		expect(await topPoolForToken('MINTX')).toBe('TOPPOOL');
 	});
+
+	it('retries a transient 429 with backoff, then succeeds', async () => {
+		let calls = 0;
+		global.fetch = vi.fn(async () => {
+			calls += 1;
+			if (calls === 1) return mres({ status: { error_code: 429 } }, false, 429);
+			return mres({ data: [{ id: 'solana_TOPPOOL', attributes: { address: 'TOPPOOL' } }] });
+		});
+		// Use a fresh pool id so the in-module 20s cache can't serve a prior value.
+		expect(await topPoolForToken('MINTX-429-once')).toBe('TOPPOOL');
+		expect(calls).toBe(2); // first 429 retried, second call served
+	});
+
+	it('throws a 429-tagged error once retries are exhausted', async () => {
+		let calls = 0;
+		global.fetch = vi.fn(async () => {
+			calls += 1;
+			return mres({ status: { error_code: 429 } }, false, 429);
+		});
+		await expect(topPoolForToken('MINTX-429-always')).rejects.toMatchObject({ status: 429 });
+		expect(calls).toBe(3); // MAX_ATTEMPTS exhausted, status preserved as 429
+	});
+
+	it('does not retry a 404 (fail fast)', async () => {
+		let calls = 0;
+		global.fetch = vi.fn(async () => {
+			calls += 1;
+			return mres({}, false, 404);
+		});
+		await expect(topPoolForToken('MINTX-404')).rejects.toMatchObject({ status: 404 });
+		expect(calls).toBe(1); // client error is not retried
+	});
 });

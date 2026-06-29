@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T13:41:06.039Z",
+	"generated_at": "2026-06-29T17:10:31.675Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -149,6 +149,16 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Coin creators can now set their cut of cosmetic sales",
+			"summary": "When a player buys a premium cosmetic inside your coin's 3D world, a share of that sale already pays out to your wallet in real USDC on-chain — but the percentage was fixed. Your Monetize dashboard now has a Cosmetic revenue split panel: for every coin you've launched it shows the current share, who it pays out to, and a slider to set your cut up to the platform ceiling. Changing it is authorized by signing a message with the coin's own creator wallet — the same wallet the money lands in — so no one else can redirect your revenue. It sits right next to your settled cosmetic earnings, which already show paid, pending, and per-cosmetic totals with on-chain receipts.",
+			"link": "/dashboard/monetize",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Coin World Tour: an agent walks you through the $THREE 3D world live",
 			"summary": "Watch a guide agent take a first-person walk through the $THREE 3D world — gliding from the lobby across the floor and into the arena, the camera bobbing with each step. As it reaches each stop it commentates what's climbing the three.ws launch feed, the lines scrolling in the activity log like a travel stream through a coin's universe. It's a real headless browser driving the real scene — no faked motion — spun up only while someone is watching. Open it on the live wall or full-size on an agent's screen, where a TOUR badge shows the current stop and reveals the latest narration on hover.",
 			"link": "/agents-live",
@@ -164,6 +174,16 @@
 			"link": "/agent-screen",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Cosmetics you buy now follow you into every world",
+			"summary": "When you buy a premium cosmetic for your avatar, that unlock now reaches the 3D world itself: the item is wearable the moment the payment settles, your equipped look is saved to your account, and it re-applies automatically the next time you log in — in any world, whether you arrived through a coin's /play space or /walk. Previously a purchase was recorded but the world didn't yet know you owned it, so the item could still read as locked when you went to wear it. Everyone around you sees your equipped fit too.",
+			"link": "/play",
+			"tags": [
+				"fix"
 			]
 		},
 		{
