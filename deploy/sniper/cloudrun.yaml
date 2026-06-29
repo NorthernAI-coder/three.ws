@@ -86,6 +86,29 @@ spec:
             # Liveness heartbeat cadence (ms) → bot_heartbeat → /api/sniper/status.
             - name: SNIPER_HEARTBEAT_MS
               value: "30000"
+            # Buy-side auto-funding: keep each armed agent's own wallet topped from
+            # the launcher master so a live sniper never silently runs out of SOL.
+            # Only moves real SOL in live mode AND when the master wallet is set
+            # (LAUNCHER_MASTER_SECRET_KEY_B64 / PUMP_X402_LAUNCHER_SECRET_KEY_B64);
+            # otherwise it logs intent and refuses. Caps below are SOL.
+            - name: SNIPER_AUTO_FUND
+              value: "1"
+            - name: SNIPER_AUTO_FUND_MIN_SOL      # refill when balance drops under this
+              value: "0.02"
+            - name: SNIPER_AUTO_FUND_TARGET_SOL   # refill back up to this reserve
+              value: "0.05"
+            - name: SNIPER_AUTO_FUND_PER_TX_SOL   # hard cap on a single top-up
+              value: "0.1"
+            - name: SNIPER_AUTO_FUND_DAILY_SOL    # hard cap on total top-ups per UTC day
+              value: "1.0"
+            # Sentiment-flip exit: let the per-coin x402 sentiment the worker already
+            # pays for cut an UNDERWATER position early on a confident bearish flip,
+            # ahead of the hard stop-loss. Off by default — never overrides
+            # stop-loss / take-profit / a winning position. Flip to "1" to arm.
+            - name: SNIPER_EXIT_ON_BEARISH
+              value: "0"
+            - name: SNIPER_EXIT_BEARISH_MIN_CONFIDENCE  # 0..1 confidence floor
+              value: "0.7"
             # Required: Neon Postgres (strategies + position ledger + heartbeat).
             - name: DATABASE_URL
               valueFrom:
