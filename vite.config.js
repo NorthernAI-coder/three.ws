@@ -1560,63 +1560,6 @@ support: resolve(__dirname, 'pages/support.html'),
 			},
 		},
 		{
-			// Vercel Web Analytics. The script is auto-served at
-			// /_vercel/insights/script.js by Vercel once Web Analytics is enabled
-			// for the project; it auto-captures pageviews (incl. client-side nav
-			// via the History API). No npm dependency or React component is needed —
-			// this is the framework-agnostic install for a vanilla multipage site,
-			// injected the same way as the PostHog snippet above so every
-			// Vite-processed page gets it. The `va` queue stub buffers any track()
-			// calls fired before the deferred script loads. Embed pages (iframes)
-			// are skipped to match PostHog's coverage and avoid double-counting
-			// host-page traffic. In dev the script 404s harmlessly (defer, no thrown
-			// error) — analytics only land in prod once enabled in the dashboard.
-			name: 'vercel-analytics',
-			transformIndexHtml: {
-				order: 'pre',
-				handler(_html, ctx) {
-					const EMBED_FILES = new Set([
-						'widget.html',
-						'embed.html',
-						'avatar-embed.html',
-						'agent-embed.html',
-						'a-embed.html',
-					]);
-					const filename = (ctx.filename || ctx.path || '')
-						.replace(/\\/g, '/')
-						.split('/')
-						.pop();
-					if (EMBED_FILES.has(filename)) return [];
-					return [
-						{
-							tag: 'script',
-							children:
-								'window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};',
-							injectTo: 'head',
-						},
-						// /_vercel/insights/script.js is only served by the platform on a
-						// real Vercel deploy (process.env.VERCEL is set there). Off-Vercel —
-						// the Vite dev server, the push-only 3D-Agent mirror, any static
-						// preview host — both the script and its /_vercel/insights/view ingest
-						// beacon 404, surfacing as a console error on every page. Gate
-						// injection on VERCEL to match the Speed Insights injector below; the
-						// `va` queue stub above still no-ops any track() calls everywhere else.
-						// (On Vercel, the /view beacon still 404s until Web Analytics is
-						// enabled in the project dashboard — that's a dashboard toggle.)
-						...(process.env.VERCEL
-							? [
-									{
-										tag: 'script',
-										attrs: { defer: true, src: '/_vercel/insights/script.js' },
-										injectTo: 'head',
-									},
-								]
-							: []),
-					];
-				},
-			},
-		},
-		{
 			// First-party client-side error reporting on every page (embeds
 			// included — errors inside third-party iframe placements are exactly
 			// the ones nobody's DevTools ever sees). The inline bootstrap installs

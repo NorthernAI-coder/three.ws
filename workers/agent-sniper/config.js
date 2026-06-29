@@ -133,6 +133,12 @@ export function loadConfig() {
 		launcher: bool('SNIPER_LAUNCHER', !!process.env.AGENT_JWT),
 		// How often to check for due launcher configs (ms).
 		launcherPollMs: Math.max(30_000, num('SNIPER_LAUNCHER_POLL_MS', 60_000)),
+		// ── buy-side auto-funding ───────────────────────────────────────────────
+		// Keeps each armed agent's own wallet topped up from the launcher master so
+		// a hot sniper never silently runs dry and starts failing every buy. On by
+		// default; disable with SNIPER_AUTO_FUND=0. Per-transfer / daily caps and
+		// the floor/target are read in auto-funder.js (SNIPER_AUTO_FUND_*).
+		autoFund: bool('SNIPER_AUTO_FUND', true),
 		// ── creator auto-claim ──────────────────────────────────────────────────
 		// Polls claimable creator fees on agent-launched coins and auto-claims them.
 		// On by default when AGENT_JWT is set; disable with SNIPER_AUTO_CLAIM=0.

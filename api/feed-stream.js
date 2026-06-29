@@ -35,7 +35,7 @@
 
 import { cors, method } from './_lib/http.js';
 import { env } from './_lib/env.js';
-import { getRedis as _getSharedRedis } from './_lib/redis.js';
+import { getRedis as _getSharedRedis, isRedisAuthError } from './_lib/redis.js';
 
 const FEED_KEY = 'feed:events';
 const HEARTBEAT_MS = 15_000;
@@ -143,6 +143,16 @@ async function runPoll() {
 			breakerUntil = Date.now() + BREAKER_COOLDOWN_MS;
 			if (!breakerLogged) {
 				console.error('[feed-stream] Redis quota exhausted — pausing poll for', BREAKER_COOLDOWN_MS, 'ms');
+				breakerLogged = true;
+			}
+		} else if (err?.circuitOpen || isRedisAuthError(err)) {
+			// Invalid/stale UPSTASH_REDIS_REST_TOKEN — a config failure the shared auth
+			// breaker (api/_lib/redis.js) already logged once and is fast-failing. Pause
+			// the poll on the same back-off as a quota trip and log once, rather than
+			// emitting a poll-failed line every tick across every warm SSE Lambda.
+			breakerUntil = Date.now() + BREAKER_COOLDOWN_MS;
+			if (!breakerLogged) {
+				console.error('[feed-stream] Redis auth failure (invalid/stale token) — pausing poll for', BREAKER_COOLDOWN_MS, 'ms');
 				breakerLogged = true;
 			}
 		} else {

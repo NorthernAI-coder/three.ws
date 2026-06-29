@@ -11,6 +11,8 @@
 //   pump_coin_intel    — coin record + precomputed structural/narrative signals
 //   coin_smart_money   — pedigree: proven-money score + notable wallets
 //   oracle_narrative   — Oracle's own cultural read (virality), if classified
+//   pump_coin_wallets  — per-wallet ledger (funder clusters, proven-wallet flow)
+//   wallet_reputation  — the coin creator's own launch track record
 //   pump_coin_outcomes — ground-truth outcome (for the conviction backtest)
 
 import { sql } from '../db.js';
@@ -60,18 +62,20 @@ export async function assembleIntel(mint, network = 'mainnet') {
 	// on tryRow, since partial intel is an acceptable degradation.
 	const coinRows = await sql`
 		select mint, symbol, name, image_uri, category, narrative, classify_confidence,
+		       creator, bonding_curve, description, twitter, telegram, website, tags,
 		       created_at, first_seen_at,
 		       dev_buy_lamports, dev_sold, dev_sell_lamports,
 		       buy_count, sell_count, buy_volume_lamports, sell_volume_lamports,
-		       unique_buyers, largest_buy_lamports,
-		       bundle_score, organic_score, concentration_top10, bubblemap_connectivity,
+		       unique_buyers, unique_sellers, largest_buy_lamports,
+		       bundle_score, organic_score, snipe_ratio, fresh_wallet_ratio,
+		       concentration_top10, bubblemap_connectivity,
 		       quality_score, risk_flags
 		from pump_coin_intel where mint = ${mint} and network = ${network} limit 1
 	`;
 	const coin = coinRows[0] || null;
 	if (!coin) return null;
 
-	const [smart, narr, topBuyers] = await Promise.all([
+	const [smart, narr, topBuyers, funder, provenFlow, creatorRep] = await Promise.all([
 		tryRow(() => sql`
 			select smart_money_score, smart_wallet_count, proven_buy_lamports, total_buy_lamports, notable
 			from coin_smart_money where mint = ${mint} and network = ${network} limit 1
@@ -85,11 +89,64 @@ export async function assembleIntel(mint, network = 'mainnet') {
 			from pump_coin_wallets where mint = ${mint}
 			order by buy_lamports desc limit 25
 		`),
+		// Funder clustering: among real buyers (creator excluded), how concentrated
+		// is the funding source? A big single-funder cluster is a bundle wearing a
+		// wide-base costume. Coverage-gated downstream so sparse enrichment never
+		// fabricates a penalty.
+		tryRow(() => sql`
+			with buyers as (
+				select wallet, funder
+				from pump_coin_wallets
+				where mint = ${mint} and buy_lamports > 0 and coalesce(is_creator, false) = false
+			),
+			clusters as (
+				select funder, count(*)::int as sz from buyers where funder is not null group by funder
+			)
+			select (select count(*) from buyers)::int                 as total_buyers,
+			       (select coalesce(sum(sz), 0) from clusters)::int    as funded_buyers,
+			       (select coalesce(max(sz), 0) from clusters)::int    as largest_cluster
+		`),
+		// Proven-wallet flow on THIS coin: are the smart wallets that bought also
+		// already selling? coin_smart_money gives the buy side; this adds the exit.
+		tryRow(() => sql`
+			select coalesce(sum(w.buy_lamports), 0)::numeric  as proven_buy,
+			       coalesce(sum(w.sell_lamports), 0)::numeric as proven_sell,
+			       count(*)::int                              as proven_wallets
+			from pump_coin_wallets w
+			join wallet_reputation r on r.wallet = w.wallet and r.network = ${network}
+			where w.mint = ${mint}
+			  and (r.label in ('smart_money', 'kol') or r.smart_money_score >= 70)
+		`),
+		// The creator's own track record — a serial rugger and a proven shipper
+		// launch identically without this. Null for first-time / unjudged creators.
+		coin.creator
+			? tryRow(() => sql`
+				select label, win_rate, dump_rate, smart_money_score,
+				       creator_count, creator_wins, coins_traded
+				from wallet_reputation where wallet = ${coin.creator} and network = ${network} limit 1
+			`)
+			: Promise.resolve(null),
 	]);
 
-	const intel = toCoinIntel({ coin, smart, narr });
+	const intel = toCoinIntel({ coin, smart, narr, funder, provenFlow, creatorRep });
 	enrichWithKnownWallets(intel, topBuyers);
 	return intel;
+}
+
+/**
+ * Funder-cluster concentration as a 0..100 share of the buyer book, or null when
+ * funder enrichment is too sparse to be trustworthy. Pure, exported for testing.
+ *
+ * @param {object|null} funder { total_buyers, funded_buyers, largest_cluster }
+ */
+export function funderClusterPct(funder) {
+	if (!funder) return null;
+	const total = n(funder.total_buyers) || 0;
+	const funded = n(funder.funded_buyers) || 0;
+	const largest = n(funder.largest_cluster) || 0;
+	// Need a real book and real funder coverage before a cluster means anything.
+	if (total < 8 || funded < 5 || funded / total < 0.3) return null;
+	return Math.max(0, Math.min(100, (largest / total) * 100));
 }
 
 /**
@@ -136,7 +193,7 @@ export function enrichWithKnownWallets(intel, topBuyers = []) {
  * Map raw brain rows → normalized CoinIntel. Pure given its inputs (exported so
  * it can be unit-tested without a DB).
  */
-export function toCoinIntel({ coin, smart, narr }) {
+export function toCoinIntel({ coin, smart, narr, funder, provenFlow, creatorRep } = {}) {
 	const riskFlags = Array.isArray(coin.risk_flags) ? coin.risk_flags : [];
 	const devBuy = n(coin.dev_buy_lamports);
 	const buyVol = n(coin.buy_volume_lamports) || 0;
@@ -152,6 +209,8 @@ export function toCoinIntel({ coin, smart, narr }) {
 
 	const bundleScore = pct01(coin.bundle_score);          // 0..100
 	const organicScore = pct01(coin.organic_score);
+	const snipeRatio = pct01(coin.snipe_ratio);            // 0..100, buy vol in first seconds
+	const freshWalletRatio = pct01(coin.fresh_wallet_ratio); // 0..100, farmed-wallet share
 	const top10Pct = pct01(coin.concentration_top10);
 	const connectivity = pct01(coin.bubblemap_connectivity);
 	const bundleFlag = riskFlags.includes('bundle_launch') || (bundleScore != null && bundleScore >= 60);
@@ -169,6 +228,14 @@ export function toCoinIntel({ coin, smart, narr }) {
 	const notable = Array.isArray(smart?.notable) ? smart.notable
 		: (typeof smart?.notable === 'string' ? safeJson(smart.notable) : []);
 
+	// Proven-wallet flow observed on this coin (smart money's actual buy AND sell
+	// here). Prefer coin_smart_money's precomputed buy total; the join below adds
+	// the exit side and backfills the buy total when smart-money hasn't run yet.
+	const provenBuy = n(smart?.proven_buy_lamports) || n(provenFlow?.proven_buy) || 0;
+	const provenSell = n(provenFlow?.proven_sell) || 0;
+
+	const uniqueSellers = n(coin.unique_sellers) || 0;
+
 	return {
 		mint: coin.mint,
 		symbol: coin.symbol,
@@ -177,20 +244,47 @@ export function toCoinIntel({ coin, smart, narr }) {
 		category: narrative.category,
 		createdAt: coin.created_at || coin.first_seen_at,
 
+		// Off-chain signal the classifier weighs (link presence lifts virality) and
+		// the API surfaces. Previously never threaded through — a dead input.
+		social: {
+			description: coin.description || null,
+			twitter: coin.twitter || null,
+			telegram: coin.telegram || null,
+			website: coin.website || null,
+			tags: Array.isArray(coin.tags) ? coin.tags : [],
+		},
+
+		// The wallet that launched the coin and its own track record. Null history
+		// for a first-time or not-yet-judged creator (treated as neutral, not bad).
+		creator: {
+			wallet: coin.creator || null,
+			label: creatorRep?.label || null,
+			winRate: n(creatorRep?.win_rate),
+			dumpRate: n(creatorRep?.dump_rate),
+			smartMoneyScore: n(creatorRep?.smart_money_score),
+			launches: n(creatorRep?.creator_count) || 0,
+			launchWins: n(creatorRep?.creator_wins) || 0,
+		},
+
 		smartMoney: {
 			score: n(smart?.smart_money_score),
 			smartWalletCount: n(smart?.smart_wallet_count) || (Array.isArray(notable) ? notable.length : 0),
-			provenBuyLamports: n(smart?.proven_buy_lamports) || 0,
+			provenBuyLamports: provenBuy,
+			provenSellLamports: provenSell,
 			totalBuyLamports: n(smart?.total_buy_lamports) || buyVol,
 			notable: Array.isArray(notable) ? notable : [],
 		},
 		structure: {
 			uniqueBuyers: n(coin.unique_buyers) || 0,
+			uniqueSellers,
 			topHolderPct,
 			creatorHoldPct,
 			devSoldPct,
 			organicScore,
 			bundleScore,
+			snipeRatio,
+			freshWalletRatio,
+			funderClusterPct: funderClusterPct(funder),
 			top10Pct,
 			bubblemapConnectivity: connectivity,
 			bundleFlag,
@@ -203,6 +297,7 @@ export function toCoinIntel({ coin, smart, narr }) {
 			buyVolSol: buyVol / LAMPORTS,
 			sellVolSol: (n(coin.sell_volume_lamports) || 0) / LAMPORTS,
 			earlyBuyerCount: n(coin.unique_buyers) || 0,
+			uniqueSellers,
 		},
 		riskFlags,
 		qualityScore: n(coin.quality_score),

@@ -34,7 +34,7 @@ import {
 import { json, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
-import { getRedis } from '../_lib/redis.js';
+import { getRedis, isRedisAuthError } from '../_lib/redis.js';
 import { solanaConnection } from '../_lib/solana/connection.js';
 import { logger } from '../_lib/usage.js';
 
@@ -205,7 +205,7 @@ export default wrapCron(async (req, res) => {
 		try {
 			await redis.ping();
 		} catch (err) {
-			if (!err?.circuitOpen) log.warn('redis_unavailable_skip', { message: err?.message });
+			if (!err?.circuitOpen && !isRedisAuthError(err)) log.warn('redis_unavailable_skip', { message: err?.message });
 			return json(res, 200, { ok: false, skipped: true, reason: `redis_unavailable: ${err?.message}` });
 		}
 	}

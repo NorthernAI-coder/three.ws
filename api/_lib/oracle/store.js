@@ -10,7 +10,7 @@ import { classifyNarrative } from './narrative.js';
 import { convict } from './conviction.js';
 import { summarizeActions } from './settle.js';
 import { knownWallet } from './known-wallets.js';
-import { QUOTE_MINT_LIST } from '../quote-mints.js';
+import { QUOTE_MINT_LIST, isQuoteMint } from '../quote-mints.js';
 
 /** Persist a narrative classification. */
 export async function upsertNarrative(mint, network, narr) {
@@ -184,6 +184,11 @@ function rowToFeedItem(r) {
 
 /** Full intel for one coin: cached verdict + live who's-in trader breakdown. */
 export async function readCoin(mint, network = 'mainnet') {
+	// Quote/stablecoin/LST mints are not coins — never serve a conviction read for
+	// one, even if a stale row lingers before the next purge sweep.
+	if (isQuoteMint(mint)) {
+		return { conviction: null, reasons: [], components: null, structure_cap: null, narrative: null, outcome: null, whos_in: [] };
+	}
 	const cached = await sql`
 		select * from oracle_conviction where mint = ${mint} and network = ${network} limit 1
 	`.then((r) => r[0]).catch(() => null);
