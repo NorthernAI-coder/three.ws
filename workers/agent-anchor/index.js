@@ -23,9 +23,13 @@ import { screenPush } from './screen-push.js';
 const CADENCE_MS = Math.max(15_000, Number(process.env.ANCHOR_CADENCE_MS) || 90_000);
 const BOOT_AT = new Date().toISOString();
 
+// One JSON line per event to stdout/stderr — matches workers/agent-sniper/log.js
+// so the worker's output drops straight into log search without a parser, and
+// without tripping the no-console lint rule.
 function log(level, msg, meta) {
-	const line = { t: new Date().toISOString(), level, msg, ...(meta || {}) };
-	(level === 'error' ? console.error : console.log)(JSON.stringify(line));
+	const line = { t: new Date().toISOString(), level, tag: 'agent-anchor', msg, ...(meta || {}) };
+	const out = level === 'error' ? process.stderr : process.stdout;
+	out.write(JSON.stringify(line) + '\n');
 }
 
 // Run one full bulletin: gather → script → split → publish → push. Each stage

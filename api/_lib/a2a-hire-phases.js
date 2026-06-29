@@ -45,8 +45,11 @@ export function explorerTxUrl(sig, network = 'mainnet') {
 	return `${SOLSCAN_TX}${sig}${cluster}`;
 }
 
-// Round to USDC precision (6 decimals) and reject non-finite input.
+// Round to USDC precision (6 decimals); null/undefined/non-finite → null (an
+// absent limit means "no ceiling", and Number(null) === 0 would silently invent
+// a zero cap that blocks every hire).
 function money(n) {
+	if (n == null) return null;
 	const v = Number(n);
 	if (!Number.isFinite(v)) return null;
 	return Math.round(v * 1e6) / 1e6;

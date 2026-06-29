@@ -117,6 +117,8 @@ export function createTreasuryCockpit({ agentId, bodyEl, toast, network = 'mainn
 			data.coins = mine;
 			const host = bodyEl.querySelector('#ast-coins');
 			if (host) host.innerHTML = renderCoins(mine);
+			const wrap = bodyEl.querySelector('#ast-coins-wrap');
+			if (wrap) wrap.hidden = !mine.length;
 			bindCoinToggles();
 		} catch { /* non-fatal */ }
 	}

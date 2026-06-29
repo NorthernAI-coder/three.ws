@@ -35,12 +35,14 @@ import { makeGltfRig, poseFromMannequinPreset } from './pose-rig.js';
 import { matchPose, presetPoseById, POSE_QUICK_PICKS } from './pose-match.js';
 import { StageShow } from './agent-screen-stage.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
+import { mountAgentReactions } from './agent-reactions.js';
 import { handleTourFrame } from './agent-screen-tour.js';
 import { buildRunCommand, buildRunCommandHtml, RUNTIME_LABELS } from './agent-screen-runcmd.js';
 import { createNewsroomAnchor } from './agent-screen-anchor.js';
 import { createTreasuryCockpit } from './agent-screen-treasury.js';
 import { MirrorPanel } from './agent-screen-mirror.js';
 import { createHireVisualizer } from './agent-screen-hire.js';
+import { createDiaryPanel } from './agent-screen-diary.js';
 import {
 	parsePnlDelta, accumulatePnl, emptyPnlState, unrealizedTotalUsd, emoteForExit, formatSol, formatUsd,
 } from './shared/trade-pnl.js';
@@ -50,6 +52,14 @@ import {
 	renderLaunchHud, truncMid,
 } from './launch-director.js';
 import { parseGrindCommand } from './vanity-grind-director.js';
+import {
+	clampPrompt,
+	validatePrompt,
+	forgeStageNarration,
+	finalForgeFrame,
+	parseForgeFrame,
+	viewerLinkFor,
+} from './shared/forge-frames.js';
 import { agentAvatarGlb } from './shared/agent-3d.js';
 import { getMeshoptDecoder } from './viewer/internal.js';
 import { ScreenshotModal } from './components/screenshot-modal.js';
@@ -540,8 +550,9 @@ function defaultLayout() {
 			treasury: { hidden: false, min: false, x: null, y: null, w: 344, h: null },
 			mirror:   { hidden: true,  min: false, x: null, y: null, w: 380, h: null },
 			stage:    { hidden: false, min: false, x: null, y: null, w: 320, h: null },
-			heatmap:  { hidden: false, min: false, x: null, y: null, w: 460, h: 340 },
+			heatmap:  { hidden: true,  min: false, x: null, y: null, w: 460, h: 340 },
 			hud:      { hidden: false, min: false, x: null, y: null, w: 288, h: null },
+			diary:    { hidden: true,  min: false, x: null, y: null, w: 360, h: 332 },
 			hire:     { hidden: false, min: false, x: null, y: null, w: 340, h: null },
 		},
 	};
@@ -799,19 +810,34 @@ async function boot(id) {
 				<div class="asc-resize" data-resize="wh"></div>
 			</div>
 
+		<!-- Memory Diary panel -->
+		<div class="asc-panel asc-panel--diary" id="asc-panel-diary" data-panel="diary">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Diary</span>
+				<div class="asc-panel-btns">
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (D)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body" id="asc-diary-body"></div>
+			<div class="asc-resize" data-resize="wh"></div>
+		</div>
+
 		<!-- Task input -->
 		<div class="asc-task-bar" id="asc-task-bar">
 			<form class="asc-task-form" id="asc-task-form" autocomplete="off">
-				<div class="asc-task-icon">▶</div>
+				<button class="asc-task-mode" id="asc-task-mode" type="button" hidden aria-pressed="false" title="Asking live — click to queue a background task">Ask</button>
 				<input
 					class="asc-task-input"
 					id="asc-task-input"
 					type="text"
-					placeholder="Give your agent a task… (research, browse, or: launch a coin named … ticker … uri https://…)"
+					placeholder="Ask this agent anything…"
 					maxlength="1000"
 					spellcheck="false"
 				>
-				<button class="asc-task-send" id="asc-task-send" type="submit" title="Send task">
+				<button class="asc-task-voice" id="asc-task-voice" type="button" aria-pressed="false" title="Voice on — click to mute">🔊</button>
+				<button class="asc-task-send" id="asc-task-send" type="submit" title="Send">
 					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<path d="M14.5 8L1.5 1.5L5 8L1.5 14.5L14.5 8Z" fill="currentColor"/>
 					</svg>
@@ -859,6 +885,7 @@ async function boot(id) {
 
 	// ── resolve agent metadata ─────────────────────────────────────────────
 	let agentName = 'Agent';
+	let agentRecord = null; // freshest agent record, for the tip modal's wallet resolution
 	let avatarGlbUrl = null;
 	// Q&A concierge state: whether this viewer owns the agent (unlocks the
 	// queue-a-task mode) and the agent's configured TTS voice for spoken answers.
@@ -871,6 +898,7 @@ async function boot(id) {
 		if (res.ok) {
 			const j = await res.json();
 			const agent = j.agent || j;
+			agentRecord = agent;
 			agentName = agent.name || 'Agent';
 			agentNameEl.textContent = agentName;
 			document.title = `${agentName} · Agent Screen · three.ws`;
@@ -1018,12 +1046,102 @@ async function boot(id) {
 			webcamBezel.appendChild(webcamCanvas);
 			webcamBadge.style.display = 'flex';
 
+			// ── pose performance helpers (Pose Studio Live) ──────────────────
+			const POSE_IN_MS = 420, POSE_HOLD_MS = 2600, POSE_OUT_MS = 640;
+			// Head-and-shoulders cam: skip lower-body bones so a pose never tips the
+			// framed avatar. Upper-body joints carry every pose that reads on a webcam.
+			const POSE_SKIP = new Set(['Hips', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase']);
+			const easeInOut = (x) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
+
+			// Tween from the avatar's current displayed pose to the preset's joint map,
+			// hold, then blend back into the live idle. Re-derives the rig from the
+			// current model so it keeps working after a Live-Forge avatar swap.
+			function startPoseDriver(poseMap, label) {
+				if (webcamAvatar && (!poseRig || poseRig.root !== webcamAvatar)) {
+					poseRig = makeGltfRig(webcamAvatar);
+				}
+				if (!poseRig) return false;
+				const canonical = poseFromMannequinPreset(poseMap).bones || {};
+				const targets = [];
+				for (const [key, v] of Object.entries(canonical)) {
+					if (POSE_SKIP.has(key) || !Array.isArray(v) || v.length < 4) continue;
+					const node = poseRig.getNode(key);
+					if (!node) continue;
+					targets.push({ node, from: node.quaternion.clone(), to: new Quaternion(v[0], v[1], v[2], v[3]) });
+				}
+				if (!targets.length) return false;
+				// Keep the mixer's base layer on idle so the pose releases into a live
+				// idle, not a held emote.
+				webcamAnimManager?.crossfadeTo('idle', 0.3);
+				poseClipSettleAt = 0;
+				poseDriver = { targets, t0: performance.now(), label };
+				return true;
+			}
+
+			// Per-frame: apply the active pose tween ON TOP of the idle the mixer just
+			// wrote (called after webcamAnimManager.update). Ease in → hold → ease out.
+			function updatePoseDriver(t) {
+				if (!poseDriver) return;
+				const e = t - poseDriver.t0;
+				const { targets } = poseDriver;
+				if (e <= POSE_IN_MS) {
+					const w = easeInOut(e / POSE_IN_MS);
+					for (const tg of targets) tg.node.quaternion.copy(tg.from).slerp(tg.to, w);
+				} else if (e <= POSE_IN_MS + POSE_HOLD_MS) {
+					for (const tg of targets) tg.node.quaternion.copy(tg.to);
+				} else if (e <= POSE_IN_MS + POSE_HOLD_MS + POSE_OUT_MS) {
+					const w = easeInOut((e - POSE_IN_MS - POSE_HOLD_MS) / POSE_OUT_MS);
+					// node.quaternion holds the live idle frame the mixer just wrote.
+					for (const tg of targets) {
+						_poseTmpQuat.copy(tg.to).slerp(tg.node.quaternion, w);
+						tg.node.quaternion.copy(_poseTmpQuat);
+					}
+				} else {
+					poseDriver = null;
+				}
+			}
+
+			// Perform a resolved pose action: a static pose tween, or a real animated
+			// emote clip with a graceful static fallback (failed load / fallen-pose
+			// guard rejection). Debounced so rapid requests don't stomp a transition.
+			performPose = async function performPoseImpl(action) {
+				if (!action) return;
+				const now = performance.now();
+				if (now - lastPoseAt < 200) return;
+				lastPoseAt = now;
+				addLogEntry({ ts: Date.now(), activity: `Pose: ${action.label}`, type: 'analysis' });
+
+				if (action.kind === 'pose') { startPoseDriver(action.parameters, action.label); return; }
+
+				const fallback = () => {
+					const fb = action.fallbackPreset && presetPoseById(action.fallbackPreset);
+					if (fb) startPoseDriver(fb, action.label);
+				};
+				if (!webcamAnimManager || !webcamAnimManager.supportsCanonicalClips()) { fallback(); return; }
+				const ready = await webcamAnimManager.ensureLoaded(action.clip);
+				if (!ready || !webcamAnimManager.canPlay(action.clip)) { fallback(); return; }
+				poseDriver = null; // the clip drives the whole body
+				const def = webcamAnimManager.getAnimationDefs().find((d) => d.name === action.clip);
+				const looping = def ? def.loop !== false : false;
+				if (looping) {
+					await webcamAnimManager.crossfadeTo(action.clip, 0.4);
+					if (webcamAnimManager.currentName === action.clip) poseClipSettleAt = performance.now() + 3400;
+					else fallback();
+				} else {
+					poseClipSettleAt = 0;
+					await webcamAnimManager.playOnce(action.clip, { settleTo: 'idle', fade: 0.4 });
+					if (webcamAnimManager.currentName !== action.clip) fallback();
+				}
+			};
+
 			let last = 0;
 			function webcamTick(t) {
 				webcamRafId = requestAnimationFrame(webcamTick);
 				const dt = Math.min((t - last) / 1000, 0.1);
 				last = t;
 				webcamAnimManager?.update(dt);
+				// Settle a looping pose-emote back to idle once its hold elapses.
+				if (poseClipSettleAt && t >= poseClipSettleAt) { poseClipSettleAt = 0; webcamAnimManager?.crossfadeTo('idle', 0.5); }
 				anchor?.tick();
 				// Host presence in Ambient mode: a gentle two-frequency yaw so the
 				// avatar reads as glancing around the world it's narrating, not frozen.
@@ -1035,6 +1153,8 @@ async function boot(id) {
 					if (Math.abs(webcamAvatar.rotation.y) < 0.001) webcamAvatar.rotation.y = 0;
 				}
 				lipsyncSampler?.();
+				syncTalkingEmote();
+				updatePoseDriver(t); // apply any active static pose on top of idle
 				webcamRenderer.render(webcamScene, webcamCamera);
 			}
 			webcamRafId = requestAnimationFrame(webcamTick);
@@ -1312,36 +1432,90 @@ async function boot(id) {
 	}
 	setInterval(updateStats, 1000);
 
-	// ── activity log ──────────────────────────────────────────────────────
+	// ── activity log (cinematic) ───────────────────────────────────────────
+	// Each real action renders through classify(): an icon, a colour-graded chip,
+	// and a severity ring (high → amber, celebratory → gold). Consecutive same-
+	// kind actions collapse into one beat with a ×N count instead of flooding the
+	// log. Newest is at the top; a "jump to latest" affordance appears when the
+	// viewer has scrolled away.
 	const MAX_LOG = 120;
 	let logCount = 0;
+	let lastBeat = null; // { key, el, count } — top row, for collapsing
+	const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// Map a classify category onto the existing filter buckets (trade/analysis/
+	// activity) so the filter chips keep working across the richer taxonomy.
+	function filterBucket(category) {
+		if (category === 'buy' || category === 'sell' || category === 'trade') return 'trade';
+		if (category === 'analysis' || category === 'memory') return 'analysis';
+		return 'activity';
+	}
 
 	function fmtTime(ts) {
 		const d = new Date(ts);
 		return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	}
 
-	function addLogEntry({ ts, activity, type, pnl }) {
-		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
-		const entry = document.createElement('div');
-		const typeLabel = type || 'activity';
-		entry.className = `asc-log-entry type-${typeLabel}`;
+	// "Jump to latest" — newest sits at the top, so this scrolls the log home.
+	const jumpBtn = document.createElement('button');
+	jumpBtn.className = 'asc-log-jump';
+	jumpBtn.type = 'button';
+	jumpBtn.hidden = true;
+	jumpBtn.innerHTML = '↑ Latest';
+	jumpBtn.addEventListener('click', () => {
+		logEl.scrollTo({ top: 0, behavior: REDUCED ? 'auto' : 'smooth' });
+	});
+	logEl.parentElement.appendChild(jumpBtn);
+	logEl.addEventListener('scroll', () => { jumpBtn.hidden = logEl.scrollTop < 24; }, { passive: true });
+
+	function renderBeatRow(entry, { ts, activity, type, pnl }, count) {
+		const c = classify({ ts, activity, type });
+		const accent = colorHex(c.colorToken);
+		const bucket = filterBucket(c.category);
+		entry.className = `asc-log-entry type-${bucket} cat-${c.category} sev-${c.severity}`;
+		entry.style.setProperty('--asc-accent', accent);
 		// Tint realized exits by sign so the log reads as a green/red P&L tape.
 		const exitDelta = parsePnlDelta(pnl);
 		if (exitDelta?.phase === 'exit') {
 			const v = exitDelta.solDelta != null ? exitDelta.solDelta : exitDelta.realizedUsd;
-			if (v > 0) entry.classList.add('pnl-pos');
-			else if (v < 0) entry.classList.add('pnl-neg');
+			entry.classList.toggle('pnl-pos', v > 0);
+			entry.classList.toggle('pnl-neg', v < 0);
 		}
+		const badge = count > 1 ? `<span class="asc-log-count">×${count}</span>` : '';
 		entry.innerHTML = `
 			<span class="asc-log-time">${fmtTime(ts || Date.now())}</span>
-			<span class="asc-log-type ${typeLabel}">${typeLabel}</span>
+			<span class="asc-log-icon" aria-hidden="true">${c.icon}</span>
+			<span class="asc-log-type" style="color:${accent}">${esc(c.label)}</span>
 			<span class="asc-log-text">${esc(activity || '')}</span>
+			${badge}
 		`;
+	}
+
+	function addLogEntry(raw) {
+		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
+		const key = classify({ type: raw.type }).category;
+
+		// Collapse a run of same-category actions into the existing top beat.
+		if (lastBeat && lastBeat.key === key && logEl.firstElementChild === lastBeat.el) {
+			lastBeat.count += 1;
+			renderBeatRow(lastBeat.el, raw, lastBeat.count);
+			if (!REDUCED) {
+				lastBeat.el.classList.remove('beat-bump');
+				void lastBeat.el.offsetWidth; // restart the bump animation
+				lastBeat.el.classList.add('beat-bump');
+			}
+			return;
+		}
+
+		const entry = document.createElement('div');
+		renderBeatRow(entry, raw, 1);
 		logEl.prepend(entry);
+		lastBeat = { key, el: entry, count: 1 };
 		logCount++;
 		while (logCount > MAX_LOG) {
-			logEl.lastElementChild?.remove();
+			const removed = logEl.lastElementChild;
+			if (removed === lastBeat?.el) lastBeat = null;
+			removed?.remove();
 			logCount--;
 		}
 	}
@@ -1352,6 +1526,7 @@ async function boot(id) {
 			if (btn.id === 'asc-log-clear') {
 				logEl.querySelectorAll('.asc-log-entry').forEach((e) => e.remove());
 				logCount = 0;
+				lastBeat = null;
 				logEmpty = document.createElement('div');
 				logEmpty.className = 'asc-log-empty';
 				logEmpty.textContent = 'No activity yet';
@@ -1463,6 +1638,61 @@ async function boot(id) {
 		webcamAnimManager.playOnce(clip, { settleTo: 'idle' }).catch(() => {});
 	}
 
+	// ── Q&A concierge avatar emotes ──────────────────────────────────────────
+	// thinking: a waiting pose held while the answer streams.
+	// talking:  an upper-body gesture overlaid (additive) while the agent speaks,
+	//           driven off the anchor's real speaking state so it stays in time
+	//           with the voice — and so bulletins get the same liveliness for free.
+	let qaThinking = false;     // a question is in flight / answer streaming
+	let talkingEmoteOn = false; // additive talking overlay currently playing
+	function emoteCan(name) {
+		return !!webcamAnimManager?.supportsCanonicalClips?.() && webcamAnimManager.canPlay(name);
+	}
+	function avatarThinking() {
+		qaThinking = true;
+		if (emoteCan('av-waiting')) webcamAnimManager.crossfadeTo('av-waiting', 0.35);
+	}
+	function avatarSettle() {
+		qaThinking = false;
+		// If a voice is still playing, the talking overlay owns the body; the
+		// settle-to-idle happens when speech ends (syncTalkingEmote).
+		if (!talkingEmoteOn && emoteCan('idle')) webcamAnimManager.crossfadeTo('idle', 0.4);
+	}
+	// Reconcile the additive talking overlay with whether the agent is actually
+	// speaking. Called every webcam frame.
+	function syncTalkingEmote() {
+		if (!webcamAnimManager?.supportsCanonicalClips?.()) return;
+		const speaking = !!anchor?.isSpeaking?.();
+		if (speaking && !talkingEmoteOn) {
+			talkingEmoteOn = true;
+			if (emoteCan('idle') && webcamAnimManager.currentName === 'av-waiting') {
+				webcamAnimManager.crossfadeTo('idle', 0.3); // drop the thinking pose under the gesture
+			}
+			if (emoteCan('av-vtubing')) {
+				webcamAnimManager.playOverlay('av-vtubing', { loop: true, upperBodyOnly: true, crossfade: 0.3 }).catch(() => {});
+			}
+		} else if (!speaking && talkingEmoteOn) {
+			talkingEmoteOn = false;
+			webcamAnimManager.stopOverlay({ crossfade: 0.3 });
+			if (!qaThinking && emoteCan('idle')) webcamAnimManager.crossfadeTo('idle', 0.4);
+		}
+	}
+
+	// De-dupe the multi-watcher echo: questions/answers we render locally also
+	// arrive back over the SSE log (api/agent-ask echoes them so other watchers
+	// see the exchange). Remember the exact strings we rendered and drop the
+	// matching echo once, so the asker never sees a duplicate.
+	const ECHO_MAX = 240; // within the server-side activity slice
+	const pendingEchoes = new Set();
+	function rememberEcho(text) {
+		pendingEchoes.add(String(text).slice(0, ECHO_MAX));
+	}
+	function isOwnEcho(activity) {
+		const key = String(activity || '').slice(0, ECHO_MAX);
+		if (pendingEchoes.has(key)) { pendingEchoes.delete(key); return true; }
+		return false;
+	}
+
 	// compact ⇄ detailed toggle (click or keyboard focus + Enter/Space on the button)
 	pnlBtn.addEventListener('click', () => {
 		pnlDetailed = !pnlDetailed;
@@ -1473,8 +1703,46 @@ async function boot(id) {
 	let greeted = false; // wave once, on the first live connection only
 	let treasuryCockpit = null; // set once the Treasury panel mounts (below)
 	let mirrorPanel = null;     // set once the Mirror panel mounts (below)
+	let diaryPanel = null;      // set once the Diary panel mounts (below)
 	let pnlHud = null;          // set once the Portfolio HUD panel mounts (below)
 	let hireViz = null;         // set once the Live Hire panel mounts (below)
+
+	// ── spectator reactions + tips ───────────────────────────────────────────
+	// A reaction bar under the stream: tap an emoji and it floats up over the
+	// screen for everyone watching; tip and real value lands in the agent's wallet,
+	// the avatar emotes, and it says thanks in its own voice. $THREE only. The
+	// controller self-subscribes to the stream's reaction events, so it stays
+	// decoupled from the frame client below.
+	let reactions = null;
+	const screenStageEl = stageEl.querySelector('.asc-screen-stage');
+	if (screenStageEl) {
+		if (!document.getElementById('asc-reactions-pos')) {
+			const st = document.createElement('style');
+			st.id = 'asc-reactions-pos';
+			st.textContent =
+				'.asc-reactions{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:7;' +
+				'display:flex;align-items:center;padding:7px 10px;border-radius:14px;' +
+				'background:rgba(10,10,14,.62);backdrop-filter:blur(10px);' +
+				'border:1px solid rgba(255,255,255,.1);box-shadow:0 8px 28px rgba(0,0,0,.4);' +
+				'transition:opacity .2s ease,transform .2s ease;max-width:calc(100% - 24px);}' +
+				'body.asc-zen .asc-reactions{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(8px);}';
+			document.head.appendChild(st);
+		}
+		const reactBar = document.createElement('div');
+		reactBar.className = 'asc-reactions';
+		screenStageEl.appendChild(reactBar);
+		reactions = mountAgentReactions({
+			agentId: id,
+			barHost: reactBar,
+			overlayHost: screenStageEl,
+			subscribe: true,
+			getAgent: () => agentRecord || { id, name: agentName },
+			getAnimManager: () => webcamAnimManager,
+			getAudioContext: () => ensureAudioContext(),
+			voiceId: agentVoice,
+		});
+	}
+
 	const client = createAgentScreenClient(id, {
 		onOpen({ agentName: n }) {
 			if (n) { agentNameEl.textContent = n; agentName = n; webcamName.textContent = n; }
@@ -1485,7 +1753,10 @@ async function boot(id) {
 			recordFrame(frame);
 			if (frame.data) renderFrame(frame);
 			handleTourFrame(frame);
-			if (frame.activity) { addLogEntry(frame); treasuryCockpit?.observeLog([frame]); }
+			if (frame.activity) {
+				if (!isOwnEcho(frame.activity)) addLogEntry(frame);
+				treasuryCockpit?.observeLog([frame]);
+			}
 			const forgeHit = parseForgeFrame(frame);
 			if (forgeHit) loadForgedAvatar(forgeHit);
 			if (frame.meta?.kind === 'a2a_hire') hireViz?.ingest(frame.meta, { live: true });
@@ -1506,7 +1777,7 @@ async function boot(id) {
 		onLog(entries) {
 			// Backfill: render the rows and fold their PnL in (deduped by ts), but
 			// don't emote — these are history, not a fresh fill happening on camera.
-			entries.forEach((e) => { addLogEntry(e); ingestTrade(e); });
+			entries.forEach((e) => { if (!isOwnEcho(e.activity)) addLogEntry(e); ingestTrade(e); });
 			treasuryCockpit?.observeLog(entries);
 			const lastForge = [...entries].reverse().find((e) => parseForgeFrame(e));
 			if (lastForge) loadForgedAvatar(parseForgeFrame(lastForge));
@@ -1698,6 +1969,214 @@ async function boot(id) {
 	const taskStatus = document.getElementById('asc-task-status');
 	const taskSend = document.getElementById('asc-task-send');
 
+	// ── Pose Studio Live: quick-pick chips + free-text pose input ────────────
+	// A chip or a typed phrase resolves through matchPose() (same preset library
+	// as /pose and the get_pose_seed tool) and drives the live avatar via
+	// performPose(). The hint line doubles as transient status.
+	const poseChipsEl = document.getElementById('asc-pose-chips');
+	const poseFormEl = document.getElementById('asc-pose-form');
+	const poseInputEl = document.getElementById('asc-pose-input');
+	const poseHintEl = document.getElementById('asc-pose-hint');
+	const DEFAULT_POSE_HINT = 'Try: wave · bow · warrior';
+	let poseHintTimer = null;
+	function setPoseHint(msg, transient = false) {
+		if (!poseHintEl) return;
+		poseHintEl.textContent = msg;
+		clearTimeout(poseHintTimer);
+		if (transient) poseHintTimer = setTimeout(() => { poseHintEl.textContent = DEFAULT_POSE_HINT; }, 2600);
+	}
+	function runPose(prompt) {
+		const text = String(prompt || '').trim();
+		if (!text) return;
+		if (!performPose) { setPoseHint('Warming up the avatar…', true); return; }
+		const action = matchPose(text);
+		setPoseHint(`${action.icon ? `${action.icon} ` : ''}${action.label}`, true);
+		performPose(action);
+	}
+	if (poseChipsEl) {
+		for (const qp of POSE_QUICK_PICKS) {
+			const b = document.createElement('button');
+			b.type = 'button';
+			b.className = 'asc-pose-chip';
+			b.dataset.prompt = qp.prompt;
+			b.title = `Pose: ${qp.label}`;
+			b.innerHTML = `<span class="asc-pose-chip-ico">${qp.icon}</span>${esc(qp.label)}`;
+			b.addEventListener('click', () => runPose(qp.prompt));
+			poseChipsEl.appendChild(b);
+		}
+	}
+	poseFormEl?.addEventListener('submit', (e) => {
+		e.preventDefault();
+		const v = poseInputEl.value.trim();
+		if (!v) return;
+		runPose(v);
+		poseInputEl.value = '';
+		poseInputEl.blur();
+	});
+
+	// ── Live Q&A concierge ────────────────────────────────────────────────────
+	// The task bar's default action: ask the agent a question and get a live,
+	// spoken, remembered answer. Owners can flip to "Task" to queue a background
+	// job instead (the original behaviour). Answer streams from /api/agent-ask
+	// (persona + session memory + the brain router); voice + lip-sync reuse the
+	// newsroom anchor; the avatar thinks while it streams and gestures while it
+	// speaks.
+	let taskMode = 'ask'; // 'ask' | 'task' (owner only)
+
+	function lockBar(on) {
+		taskInput.disabled = on;
+		taskSend.disabled = on;
+		taskSend.classList.toggle('sending', on);
+	}
+
+	// A live, streaming answer row in the activity log. Shows a typing indicator
+	// until the first token, then fills in word by word.
+	function startAnswerEntry() {
+		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
+		const entry = document.createElement('div');
+		entry.className = 'asc-log-entry type-analysis cat-analysis sev-info asc-qa-answer';
+		entry.innerHTML = `
+			<span class="asc-log-time">${fmtTime(Date.now())}</span>
+			<span class="asc-log-icon" aria-hidden="true">💬</span>
+			<span class="asc-log-type asc-qa-name">${esc(agentName)}</span>
+			<span class="asc-log-text"><span class="asc-typing" aria-label="thinking"><i></i><i></i><i></i></span></span>
+		`;
+		logEl.prepend(entry);
+		lastBeat = null; // never collapse a following beat into this custom row
+		logCount++;
+		while (logCount > MAX_LOG) { logEl.lastElementChild?.remove(); logCount--; }
+		const textEl = entry.querySelector('.asc-log-text');
+		const nameEl = entry.querySelector('.asc-qa-name');
+		return {
+			render(text) {
+				textEl.textContent = text;
+				if (logEl.scrollTop < 24) logEl.scrollTop = 0;
+			},
+			markSpoken() {
+				if (entry.querySelector('.asc-qa-spk')) return;
+				const s = document.createElement('span');
+				s.className = 'asc-qa-spk';
+				s.title = 'Spoken aloud';
+				s.textContent = '🔊';
+				nameEl.after(s);
+			},
+			fail(msg) {
+				entry.classList.add('asc-qa-fail');
+				textEl.textContent = msg;
+			},
+		};
+	}
+
+	async function askQuestion(text) {
+		addLogEntry({ ts: Date.now(), activity: `Asked: ${text}`, type: 'analysis' });
+		rememberEcho(`Asked: ${text}`);
+		const entry = startAnswerEntry();
+		avatarThinking();
+		// The submit is a user gesture — unlock the AudioContext now so the spoken
+		// answer can play even on the first question of the visit.
+		try { ensureAudioContext?.(); } catch { /* no-op */ }
+
+		let answer = '';
+		try {
+			const res = await fetch('/api/agent-ask', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, question: text, sessionId: qaSessionId }),
+			});
+			if (!res.ok || !res.body) {
+				let msg = 'I couldn’t reach my brain just now — try again.';
+				if (res.status === 429) msg = 'I’m getting a lot of questions — give me a moment.';
+				else { try { const j = await res.json(); if (j?.message) msg = j.message; } catch { /* keep default */ } }
+				entry.fail(msg);
+				avatarSettle();
+				return;
+			}
+			const reader = res.body.getReader();
+			const decoder = new TextDecoder();
+			let buf = '';
+			for (;;) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				buf += decoder.decode(value, { stream: true });
+				let idx;
+				while ((idx = buf.indexOf('\n\n')) !== -1) {
+					const ev = buf.slice(0, idx);
+					buf = buf.slice(idx + 2);
+					let evType = 'message';
+					let data = '';
+					for (const line of ev.split('\n')) {
+						if (line.startsWith('event:')) evType = line.slice(6).trim();
+						else if (line.startsWith('data:')) data += line.slice(5).trim();
+					}
+					if (evType === 'message' && data && data !== '[DONE]') {
+						try { const t = JSON.parse(data); if (typeof t === 'string') { answer += t; entry.render(answer); } } catch { /* skip */ }
+					} else if (evType === 'error' && !answer) {
+						let m = 'I hit a snag mid-thought — try again.';
+						try { m = JSON.parse(data).message || m; } catch { /* keep default */ }
+						entry.fail(m);
+					}
+				}
+			}
+		} catch {
+			if (!answer) { entry.fail('Network hiccup — try again.'); avatarSettle(); return; }
+		}
+
+		if (!answer.trim()) { entry.fail('I couldn’t find an answer — try again.'); avatarSettle(); return; }
+		entry.render(answer);
+		rememberEcho(answer);
+		avatarSettle();
+		// Voice is enhancement — a failure leaves the text answer intact. Honours
+		// the anchor's mute (toggle in the task bar / the lower-third / key A).
+		try { const spoke = await anchor?.speak(answer, { voice: agentVoice }); if (spoke) entry.markSpoken(); } catch { /* text stands alone */ }
+	}
+
+	// Ask⇄Task mode toggle (owners only — visitors always ask).
+	const modeBtn = document.getElementById('asc-task-mode');
+	if (modeBtn) {
+		if (!isOwner) {
+			modeBtn.hidden = true;
+			taskInput.placeholder = 'Ask this agent anything…';
+		} else {
+			const paintMode = () => {
+				const task = taskMode === 'task';
+				modeBtn.textContent = task ? 'Task' : 'Ask';
+				modeBtn.classList.toggle('is-task', task);
+				modeBtn.setAttribute('aria-pressed', String(task));
+				modeBtn.title = task
+					? 'Queuing a background task — click to ask live'
+					: 'Asking live — click to queue a background task';
+				taskInput.placeholder = task ? 'Give your agent a background task…' : 'Ask this agent anything…';
+			};
+			modeBtn.addEventListener('click', () => {
+				taskMode = taskMode === 'task' ? 'ask' : 'task';
+				paintMode();
+				taskInput.focus();
+			});
+			paintMode();
+		}
+	}
+
+	// Voice (mute) toggle — mirrors the newsroom anchor's mute so one control
+	// governs every spoken line on the screen.
+	const voiceBtn = document.getElementById('asc-task-voice');
+	if (voiceBtn) {
+		const paintVoice = () => {
+			const m = !!anchor?.isMuted?.();
+			voiceBtn.textContent = m ? '🔇' : '🔊';
+			voiceBtn.classList.toggle('is-muted', m);
+			voiceBtn.setAttribute('aria-pressed', String(!m));
+			voiceBtn.title = m ? 'Voice off — click to let the agent speak aloud' : 'Voice on — click to mute';
+		};
+		voiceBtn.addEventListener('click', () => {
+			const next = !anchor?.isMuted?.(); // true → mute, false → unmute
+			anchor?.setMuted(next, { speakNow: false });
+			if (!next) { try { ensureAudioContext?.(); } catch { /* no-op */ } }
+			paintVoice();
+		});
+		paintVoice();
+	}
+
 	taskForm.addEventListener('submit', async (e) => {
 		e.preventDefault();
 		const text = taskInput.value.trim();
@@ -1720,6 +2199,22 @@ async function boot(id) {
 		if (grindParams) {
 			taskInput.value = '';
 			await runVanityGrind(grindParams);
+			return;
+		}
+
+		// Default action: ask the agent a live question. Owners who flipped the
+		// bar to "Task" mode fall through to the background-task queue below.
+		if (classifyTaskInput({ isOwner, mode: taskMode }) === 'ask') {
+			taskInput.value = '';
+			taskStatus.className = 'asc-task-status';
+			taskStatus.textContent = '';
+			lockBar(true);
+			try {
+				await askQuestion(text);
+			} finally {
+				lockBar(false);
+				taskInput.focus();
+			}
 			return;
 		}
 
@@ -1892,7 +2387,7 @@ async function boot(id) {
 			const msg = String(err && err.message ? err.message : err);
 			addLogEntry({ ts: Date.now(), activity: `Forge failed: ${msg}`, type: 'analysis' });
 			hideForgeOverlay();
-			if (/busy|rate|429/i.test(msg)) forgeStatus('Forge lane busy — try again shortly', 'err');
+			if (/busy|rate|429|unavailable|temporarily|cold|degraded/i.test(msg)) forgeStatus('Forge lane busy — try again shortly', 'err');
 			else if (/reject|invalid|concrete|moderat/i.test(msg)) forgeStatus('Prompt rejected — try a concrete object', 'err');
 			else forgeStatus(`Forge failed: ${msg}`, 'err');
 		} finally {
@@ -2089,7 +2584,7 @@ async function boot(id) {
 			const res = await fetch(`/api/pump/launches?network=${encodeURIComponent(network)}&limit=50`, { credentials: 'include' });
 			if (!res.ok) return false;
 			const j = await res.json().catch(() => ({}));
-			const list = Array.isArray(j?.launches) ? j.launches : Array.isArray(j) ? j : [];
+			const list = j?.data?.launches || j?.launches || (Array.isArray(j) ? j : []);
 			return list.some((l) => l?.mint === mint);
 		} catch {
 			return false;
@@ -2114,6 +2609,117 @@ async function boot(id) {
 			</div>
 			${onFeed ? '' : '<div class="asc-launch-result-note">Indexing on the feed — refresh /launches in a moment.</div>'}
 		`;
+		logEl.prepend(card);
+		logCount++;
+	}
+
+	// ── Vanity Grinder ────────────────────────────────────────────────────────
+	// Trigger a real, server-side ed25519 keyspace grind. The grind streams its
+	// keyspace frames to this screen (and every viewer's) through the same SSE
+	// pipe via /api/agent-vanity-grind; we hold the request open and render the
+	// owner-only reveal (the secret + the launch hand-off) when it resolves.
+	let grindInFlight = false;
+
+	async function runVanityGrind(params) {
+		if (grindInFlight) { setLaunchStatus('err', 'A grind is already running for this agent.'); return; }
+		grindInFlight = true;
+		taskInput.disabled = true;
+		taskSend.disabled = true;
+		taskSend.classList.add('sending');
+
+		const pat = `${esc(params.prefix)}${params.suffix ? '…' + esc(params.suffix) : '…'}`;
+		setLaunchStatus('', `Grinding a wallet · ${pat} — watch the keyspace burn`);
+		addLogEntry({ ts: Date.now(), activity: `Vanity grind started · target ${params.prefix}${params.suffix ? '…' + params.suffix : '…'}`, type: 'analysis' });
+
+		try {
+			const res = await fetch('/api/agent-vanity-grind', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					agentId: id,
+					prefix: params.prefix,
+					suffix: params.suffix || undefined,
+					ignoreCase: params.ignoreCase,
+				}),
+			});
+			const j = await res.json().catch(() => ({}));
+
+			if (res.ok && j?.address) {
+				setLaunchStatus('ok', `Matched ${esc(truncMid(j.address, 6, 4))} in ${Number(j.iterations).toLocaleString()} attempts`);
+				appendGrindResult(j);
+				setTimeout(() => { taskStatus.textContent = ''; taskStatus.className = 'asc-task-status'; }, 9000);
+			} else if (res.status === 401) {
+				setLaunchStatus('err', 'Sign in as the agent owner to grind. <a href="/login" style="color:#d4d4d8">Sign in →</a>');
+			} else if (res.status === 504 || j?.error === 'vanity_capped') {
+				setLaunchStatus('err', esc(j.message || j.error_description || 'No match within the attempt cap — try a shorter prefix.'));
+				addLogEntry({ ts: Date.now(), activity: j.message || 'Grind capped — try a shorter prefix.', type: 'analysis' });
+			} else {
+				setLaunchStatus('err', esc(j.message || j.error_description || 'Grind failed — try again.'));
+			}
+		} catch {
+			setLaunchStatus('err', 'Network error during grind — check your connection.');
+		} finally {
+			grindInFlight = false;
+			taskInput.disabled = false;
+			taskSend.disabled = false;
+			taskSend.classList.remove('sending');
+			taskInput.focus();
+		}
+	}
+
+	// Render the owner-only reveal: the matched PUBLIC address, the secret (shown
+	// once, copy-to-clipboard, never sent anywhere), and the launch hand-off CTA.
+	// This card only ever exists in the triggering owner's own session — the
+	// secret is never part of the live screen stream.
+	function appendGrindResult(result) {
+		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
+		const card = document.createElement('div');
+		card.className = 'asc-log-entry type-analysis asc-grind-result';
+		const addr = String(result.address || '');
+		const launchable = !!result.launchable;
+		const secs = (Math.round(result.durationMs || 0) / 1000).toFixed(1);
+		card.innerHTML = `
+			<div class="asc-launch-result-head">🔑 Vanity match · <span class="asc-launch-mint">${esc(truncMid(addr, 8, 6))}</span></div>
+			<div class="asc-grind-meta">${Number(result.iterations || 0).toLocaleString()} attempts · expected ~${Number(result.estimatedIterations || 0).toLocaleString()} · ${secs}s</div>
+			<div class="asc-grind-secret">
+				<label>Private key (base58) — shown once, store it now</label>
+				<div class="asc-grind-secret-row">
+					<input type="password" readonly value="${esc(result.privateKey64 || '')}" class="asc-grind-secret-input" aria-label="private key" />
+					<button type="button" class="asc-grind-reveal" title="Show or hide the key">show</button>
+					<button type="button" class="asc-grind-copy" title="Copy the key">copy</button>
+				</div>
+			</div>
+			<div class="asc-launch-result-links">
+				${launchable
+					? '<button type="button" class="asc-launch-cta asc-grind-launch">Use this address to launch →</button>'
+					: '<span class="asc-grind-note">Branded wallet ready. A three.ws launch needs a mint carrying the "3ws" mark — grind <code>3ws</code> for a launchable one.</span>'}
+				<a href="https://solscan.io/account/${encodeURIComponent(addr)}" target="_blank" rel="noopener">explorer ↗</a>
+			</div>
+		`;
+
+		const secretInput = card.querySelector('.asc-grind-secret-input');
+		card.querySelector('.asc-grind-reveal').addEventListener('click', (e) => {
+			const show = secretInput.type === 'password';
+			secretInput.type = show ? 'text' : 'password';
+			e.currentTarget.textContent = show ? 'hide' : 'show';
+		});
+		card.querySelector('.asc-grind-copy').addEventListener('click', async (e) => {
+			try {
+				await navigator.clipboard.writeText(result.privateKey64 || '');
+				e.currentTarget.textContent = 'copied';
+				setTimeout(() => { e.currentTarget.textContent = 'copy'; }, 1500);
+			} catch { e.currentTarget.textContent = 'copy failed'; }
+		});
+		const launchBtn = card.querySelector('.asc-grind-launch');
+		if (launchBtn) {
+			launchBtn.addEventListener('click', () => {
+				taskInput.value = `launch a coin mint ${addr} `;
+				taskInput.focus();
+				toast('Mint address staged — add name, ticker, and metadata URI to launch');
+			});
+		}
+
 		logEl.prepend(card);
 		logCount++;
 	}
@@ -2165,6 +2771,7 @@ async function boot(id) {
 		mirror: document.getElementById('asc-panel-mirror'),
 			stage: document.getElementById('asc-panel-stage'),
 		hud: document.getElementById('asc-panel-hud'),
+		diary: document.getElementById('asc-panel-diary'),
 		hire: document.getElementById('asc-panel-hire'),
 		heatmap: document.getElementById('asc-panel-heatmap'),
 	};
@@ -2194,6 +2801,8 @@ async function boot(id) {
 			else if (name === 'heatmap') { x = M; y = sr.height - ph - M; } // heatmap → bottom-left
 				else if (name === 'stage') { x = M; y = sr.height - ph - M; } // stage → bottom-left
 			else if (name === 'hud') { x = M; y = sr.height - ph - M; } // HUD → bottom-left scoreboard
+			else if (name === 'hire') { x = sr.width - pw - M; y = sr.height - ph - M - 8; } // hire → bottom-right above cam
+			else if (name === 'diary') { x = Math.round((sr.width - pw) / 2); y = M + 40; } // diary → centre, beside the log
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
 		}
 		x = clamp(x, 0, Math.max(0, sr.width - pw));
@@ -2312,6 +2921,18 @@ async function boot(id) {
 		agentName,
 		onToast: toast,
 	});
+
+	// ── Memory Diary: the agent reflects on its day from real memory ─────
+	diaryPanel = createDiaryPanel({
+		agentId: id,
+		body: document.getElementById('asc-diary-body'),
+		getAvatar: () => webcamAvatar,
+		pauseOtherNarration: () => { try { anchor?.setMuted?.(true, { speakNow: false }); } catch { /* */ } },
+	});
+	{
+		const _prevDiarySampler = lipsyncSampler;
+		lipsyncSampler = () => { _prevDiarySampler?.(); diaryPanel?.tick(); };
+	}
 
 	// ── Portfolio / PnL HUD: the live scoreboard ─────────────────────────────
 	// Values this agent's wallet live (net worth, 24h delta, sparkline, ranked
@@ -2701,6 +3322,8 @@ async function boot(id) {
 			else if (k === 'g') { togglePanel('stage'); e.preventDefault(); }
 		else if (k === 't') { togglePanel('treasury'); e.preventDefault(); }
 		else if (k === 'm') { togglePanel('mirror'); e.preventDefault(); }
+		else if (k === 'd') { togglePanel('diary'); e.preventDefault(); }
+		else if (k === 'r') { togglePanel('hire'); e.preventDefault(); }
 		else if (k === 'b') { togglePanel('hud'); e.preventDefault(); }
 		else if (k === 's') { screenshot(); e.preventDefault(); }
 		else if (k === 'p') { togglePip(); e.preventDefault(); }
@@ -2736,6 +3359,7 @@ async function boot(id) {
 		mirrorPanel?.destroy();
 		pnlHud?.destroy();
 		anchor?.destroy();
+		diaryPanel?.destroy();
 		if (pnlAnimRaf) cancelAnimationFrame(pnlAnimRaf);
 			stageShow.dispose();
 			sharedAudioCtx?.close?.().catch(() => {});
@@ -2766,6 +3390,7 @@ function buildHelpOverlay() {
 				<div class="asc-help-row"><span>Toggle sentiment heatmap</span><kbd>H</kbd></div>
 					<div class="asc-help-row"><span>Toggle live stage show</span><kbd>G</kbd></div>
 				<div class="asc-help-row"><span>Toggle treasury</span><kbd>T</kbd></div>
+				<div class="asc-help-row"><span>Toggle memory diary</span><kbd>D</kbd></div>
 				<div class="asc-help-row"><span>Toggle portfolio HUD</span><kbd>B</kbd></div>
 				<div class="asc-help-row"><span>Capture screenshot</span><kbd>S</kbd></div>
 				<div class="asc-help-row"><span>Picture-in-picture</span><kbd>P</kbd></div>

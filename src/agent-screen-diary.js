@@ -120,6 +120,23 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 		},
 	});
 
+	// Self-trigger: load + (gesture-permitting) narrate the first time the panel
+	// becomes visible, and keep the graph canvas sized to the panel. This keeps
+	// the heavily co-edited host from having to wire toggle/resize callbacks.
+	const panelRoot = body.closest('.asc-panel');
+	let panelObserver = null;
+	if (panelRoot) {
+		panelObserver = new MutationObserver(() => {
+			if (!panelRoot.hidden && !panelRoot.classList.contains('minimized')) onOpen();
+		});
+		panelObserver.observe(panelRoot, { attributes: true, attributeFilter: ['hidden', 'class'] });
+	}
+	let canvasObserver = null;
+	if (typeof ResizeObserver !== 'undefined') {
+		canvasObserver = new ResizeObserver(() => graph?.resize());
+		canvasObserver.observe(els.canvas);
+	}
+
 	els.narrate.addEventListener('click', () => {
 		if (speaking) stopNarration();
 		else narrate({ userGesture: true });
@@ -292,6 +309,7 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 		analyserData = null;
 		mouthTarget.setMouthShape({ open: 0 });
 		setNarrateUi(false);
+		els.text.classList.remove('is-typing');
 		// Restore the full text in case a reveal was mid-flight.
 		if (digest?.diaryText && els.text.textContent !== digest.diaryText) els.text.textContent = digest.diaryText;
 	}
@@ -346,9 +364,11 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 		const onEnd = () => {
 			if (myToken !== speakToken) return;
 			speaking = false;
+			if (revealRaf) { cancelAnimationFrame(revealRaf); revealRaf = null; }
 			mouthTarget.setMouthShape({ open: 0 });
 			setNarrateUi(false);
 			els.text.textContent = text; // ensure fully shown
+			els.text.classList.remove('is-typing');
 		};
 		audioEl.addEventListener('ended', onEnd, { once: true });
 		audioEl.addEventListener('error', onEnd, { once: true });
@@ -371,6 +391,7 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 		const entities = digest?.entities || [];
 		revealStart = (typeof performance !== 'undefined' ? performance.now() : Date.now());
 		els.text.textContent = '';
+		els.text.classList.add('is-typing');
 		const step = () => {
 			revealRaf = requestAnimationFrame(step);
 			let progress;
@@ -396,6 +417,7 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 			if (progress >= 1 && !audio) {
 				cancelAnimationFrame(revealRaf); revealRaf = null;
 				els.text.textContent = text;
+				els.text.classList.remove('is-typing');
 			}
 		};
 		revealRaf = requestAnimationFrame(step);
@@ -483,6 +505,8 @@ export function createDiaryPanel({ agentId, body, getAvatar, pauseOtherNarration
 		stopNarration();
 		clearTimeout(refreshTimer);
 		try { sse?.disconnect(); } catch { /* */ }
+		try { panelObserver?.disconnect(); } catch { /* */ }
+		try { canvasObserver?.disconnect(); } catch { /* */ }
 		graph?.dispose();
 		mouthTarget.dispose();
 	}

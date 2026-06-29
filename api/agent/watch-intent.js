@@ -45,8 +45,17 @@ export default wrap(async (req, res) => {
 	const agentId = body && typeof body.agentId === 'string' ? body.agentId.trim() : '';
 	if (!isUuid(agentId)) return error(res, 400, 'validation_error', 'valid agentId required');
 
+	// Optional reaction ride-along. A viewer can express intent AND fire a reaction
+	// in the same call. Invalid/absent reactions simply don't react — they never
+	// fail the intent, which is the load-bearing signal for the caster pool.
+	const reaction = normalizeReaction(body?.reaction);
+
 	const r = getRedis();
-	if (!r) return json(res, 200, { ok: true, queued: false }); // no pool without Redis — the activity view still works
+	if (!r) {
+		// No Redis: the wall still works (activity view) and the tapper's own
+		// optimistic burst already acknowledged them — we just can't fan out.
+		return json(res, 200, { ok: true, queued: false, reaction: reaction ? { emoji: reaction, broadcast: false } : null });
+	}
 
 	const now = Date.now();
 	try {
@@ -57,5 +66,38 @@ export default wrap(async (req, res) => {
 		]);
 	} catch { /* non-critical — the wall degrades to the activity view */ }
 
-	return json(res, 200, { ok: true, queued: true });
+	if (!reaction) return json(res, 200, { ok: true, queued: true });
+
+	// Per-IP-per-agent throttle so one viewer can't spam the overlay. SET NX with a
+	// short TTL is the gate — the server is authoritative; client throttling is
+	// cosmetic. A throttled reaction still returns 200 (intent succeeded) with
+	// throttled:true so the bar can show a quiet "give it a sec" cue.
+	try {
+		const ip = clientIp(req);
+		const gate = await r.set(reactionThrottleKey(agentId, ip), '1', { nx: true, px: REACTION_THROTTLE_MS });
+		if (gate !== 'OK' && gate !== true) {
+			return json(res, 200, { ok: true, queued: true, throttled: true });
+		}
+	} catch { /* if the gate read fails, fall through — better to react than to drop */ }
+
+	let total = null;
+	try {
+		const windowSec = Math.ceil(REACTION_WINDOW_MS / 1000);
+		const recentKey = reactionsRecentKey(agentId);
+		const totalKey = reactionsTotalKey(agentId);
+		const [, , incr] = await Promise.all([
+			// Push to the replay list the stream tails, newest-first, capped + TTL'd.
+			r.lpush(recentKey, JSON.stringify({ emoji: reaction, ts: now })),
+			r.ltrim(recentKey, 0, REACTION_RECENT_CAP - 1),
+			// Windowed running total that drives every viewer's live count.
+			r.incr(totalKey),
+		]);
+		await Promise.all([
+			r.expire(recentKey, windowSec),
+			r.expire(totalKey, windowSec),
+		]);
+		total = Number(incr) || null;
+	} catch { /* reaction fan-out is best-effort; intent already succeeded */ }
+
+	return json(res, 200, { ok: true, queued: true, reaction: { emoji: reaction, total, broadcast: true } });
 });
