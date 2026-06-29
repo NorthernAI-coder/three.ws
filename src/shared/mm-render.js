@@ -58,7 +58,7 @@ export function normalizeFloor({ floorSol, priceSol } = {}) {
 export function fmtSizeSol(n) {
 	const v = finite(n);
 	if (v === 0) return '0';
-	if (v >= 1) return v.toFixed(2);
+	if (v >= 0.1) return v.toFixed(2);
 	if (v >= 0.01) return v.toFixed(3);
 	return v.toFixed(4);
 }

@@ -418,6 +418,17 @@
 			color: #eaf1ff;
 			font-weight: 700;
 		}
+		/* fresh Live Avatar Forge result — flag the card so the wall shows new creations */
+		.al-card--forged .al-card-action { color: #fff; font-weight: 700; }
+		.al-card--forged { box-shadow: 0 0 0 1px rgba(255,255,255,0.28), 0 8px 30px rgba(0,0,0,0.4); }
+		/* live agent-to-agent hire settled — flash the card green, link the wall to commerce */
+		.al-card--hired .al-card-action { color: #d8ffe6; font-weight: 700; }
+		.al-card--hired { animation: al-card-hired 1.4s ease; }
+		@keyframes al-card-hired {
+			0% { box-shadow: 0 0 0 0 rgba(74,222,128,0.6), 0 8px 30px rgba(0,0,0,0.4); }
+			100% { box-shadow: 0 0 0 16px rgba(74,222,128,0), 0 8px 30px rgba(0,0,0,0.4); }
+		}
+		@media (prefers-reduced-motion: reduce) { .al-card--hired { animation: none; } }
 		/* live realized-PnL chip — a row of these reads as a wall of trading desks */
 		.al-card-pnl {
 			display: inline-flex;
@@ -436,6 +447,26 @@
 		.al-card-pnl.pos { color: #6ee7a0; background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.3); }
 		.al-card-pnl.neg { color: #f9a8a8; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); }
 		.al-card-pnl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+		/* 24h portfolio-change badge — screen corner of each card (the wall-scale scoreboard) */
+		.al-card-networth {
+			position: absolute; top: 10px; right: 10px;
+			display: inline-flex; align-items: center; gap: 3px;
+			padding: 2px 8px; border-radius: 999px;
+			font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+			background: rgba(0,0,0,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+			border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6);
+			z-index: 2; transition: transform 0.14s ease, border-color 0.14s ease;
+		}
+		.al-card-networth[hidden] { display: none; }
+		.al-card-networth .al-nw-arrow { font-size: 8px; }
+		.al-card-networth[data-tone="up"] { color: #6ee7a0; border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.14); }
+		.al-card-networth[data-tone="down"] { color: #f9a8a8; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.14); }
+		.al-card-networth[data-tone="flat"] { color: rgba(255,255,255,0.55); }
+		.al-card:hover .al-card-networth { transform: translateY(-1px); border-color: rgba(255,255,255,0.22); }
+		@media (prefers-reduced-motion: reduce) {
+			.al-card-networth, .al-card:hover .al-card-networth { transition: none; transform: none; }
+		}
 		.al-card-watch-btn {
 			flex-shrink: 0;
 			padding: 5px 12px;
@@ -743,5 +774,7 @@
 	</footer>
 
 	<script type="module" src="/src/agents-live.js"></script>
+	<!-- Team Task — multi-agent collaboration graph (self-contained, src/agent-team.js). -->
+	<script type="module" src="/src/agent-team.js"></script>
 </body>
 </html>

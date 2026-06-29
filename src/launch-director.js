@@ -312,22 +312,32 @@ export async function renderLaunchHud(state) {
 		railY += rowH;
 	});
 
-	// Narration / result strip at the bottom.
-	const stripY = 600;
+	// Narration / result block — sits in the open right column UNDER the status
+	// rail, clear of the token card on the left.
+	const infoX = railX;
+	const infoW = HUD_W - railX - 56;
+	let infoY = railY + 28;
 	ctx.fillStyle = errored ? '#ff8e8e' : '#aeb8e6';
 	ctx.font = '500 22px ui-sans-serif, system-ui, sans-serif';
 	const line = errored ? state.error || 'Launch failed' : state.narration || '';
-	ctx.fillText(clip(ctx, line, HUD_W - 112), 56, stripY);
-
-	if (state.result?.signature) {
-		ctx.fillStyle = '#7f8bbf';
-		ctx.font = '500 18px ui-monospace, Menlo, monospace';
-		ctx.fillText(`mint ${truncMid(state.result.mint, 6, 6)}`, 56, stripY + 38);
-		ctx.fillText(`pump.fun/coin/${truncMid(state.result.mint, 6, 6)}`, 56, stripY + 66);
-		ctx.fillText(`solscan.io/tx/${truncMid(state.result.signature, 6, 6)}`, 560, stripY + 66);
+	for (const wrapped of wrapText(ctx, line, infoW).slice(0, 2)) {
+		ctx.fillText(wrapped, infoX, infoY);
+		infoY += 30;
 	}
 
-	return canvas.toDataURL('image/png');
+	if (state.result?.signature) {
+		infoY += 8;
+		ctx.fillStyle = '#7f8bbf';
+		ctx.font = '500 18px ui-monospace, Menlo, monospace';
+		ctx.fillText(`mint ${truncMid(state.result.mint, 6, 6)}`, infoX, infoY);
+		ctx.fillText(`pump.fun/coin/${truncMid(state.result.mint, 6, 6)}`, infoX, infoY + 30);
+		ctx.fillText(`solscan.io/tx/${truncMid(state.result.signature, 6, 6)}`, infoX, infoY + 60);
+	}
+
+	// JPEG, not PNG: the screen-push API caps a frame at ~800 KB of base64, and a
+	// 1280×720 PNG with an embedded cover image blows past that and gets truncated
+	// into a corrupt frame. JPEG at 0.85 keeps the same HUD well under the cap.
+	return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 function drawBadge(ctx, text, rightX, baselineY) {
@@ -357,6 +367,24 @@ function clip(ctx, text, maxW) {
 	let t = text;
 	while (t.length > 1 && ctx.measureText(`${t}…`).width > maxW) t = t.slice(0, -1);
 	return `${t}…`;
+}
+
+// Greedy word-wrap into lines no wider than maxW.
+function wrapText(ctx, text, maxW) {
+	const words = String(text || '').split(/\s+/).filter(Boolean);
+	const lines = [];
+	let line = '';
+	for (const w of words) {
+		const candidate = line ? `${line} ${w}` : w;
+		if (ctx.measureText(candidate).width > maxW && line) {
+			lines.push(line);
+			line = w;
+		} else {
+			line = candidate;
+		}
+	}
+	if (line) lines.push(line);
+	return lines.length ? lines : [''];
 }
 
 // Load an image without tainting the canvas. crossOrigin='anonymous' keeps

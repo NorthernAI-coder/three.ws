@@ -14,9 +14,15 @@
 // agent on demand without paying for an idle browser per agent.
 
 import { parsePnlDelta, formatSol, formatUsd } from './shared/trade-pnl.js';
+import { mountAgentReactions } from './agent-reactions.js';
+import { fetchBatchBalances } from './shared/pnl-fetch.js';
+import { formatPnl, formatUsd as formatNetWorthUsd } from './shared/pnl-snapshot.js';
 import { coalesce, timeline, colorHex } from './activity-cinema.js';
 import { connectFeed, loadSnapshot } from './theater-feed.js';
 import { TOUR_PREFIX } from './tour-commentary.js';
+import { sanitizeMmEvent, fmtPriceSol } from './shared/mm-render.js';
+import { parseForgeFrame } from './shared/forge-frames.js';
+import { createArena } from './agents-live-arena.js';
 
 // Subtle accent for a card showing a live Coin World Tour walkthrough.
 (() => {
@@ -24,6 +30,23 @@ import { TOUR_PREFIX } from './tour-commentary.js';
 	const st = document.createElement('style');
 	st.id = 'al-tour-style';
 	st.textContent = '.al-card--tour{box-shadow:0 0 0 1px rgba(154,123,255,.45),0 10px 30px rgba(154,123,255,.12)}';
+	document.head.appendChild(st);
+})();
+
+// Floor Defense badge — surfaces the market-maker floor an agent is defending,
+// pulsing on every dip-buy and ambering when the marker touches the floor line.
+(() => {
+	if (document.getElementById('al-mm-style')) return;
+	const st = document.createElement('style');
+	st.id = 'al-mm-style';
+	st.textContent = `
+.al-card-floor{position:absolute;left:10px;bottom:10px;z-index:5;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font:600 11px/1 var(--font-mono,ui-monospace,monospace);color:#6ee7ff;background:rgba(110,231,255,.1);border:1px solid rgba(110,231,255,.32);backdrop-filter:blur(6px);transition:box-shadow .25s,border-color .25s,color .25s}
+.al-card-floor .al-floor-anchor{font-size:11px;opacity:.85}
+.al-card-floor.touch{color:#34d399;border-color:rgba(52,211,153,.45);background:rgba(52,211,153,.12)}
+.al-card-floor.defend{animation:al-floor-flash .9s ease-out}
+.al-card-floor .al-floor-sim{font-weight:700;letter-spacing:.05em;color:#9a7bff;background:rgba(154,123,255,.16);border-radius:4px;padding:1px 4px;font-size:9px}
+@keyframes al-floor-flash{0%{box-shadow:0 0 0 0 rgba(52,211,153,.6)}100%{box-shadow:0 0 0 10px rgba(52,211,153,0)}}
+@media (prefers-reduced-motion: reduce){.al-card-floor.defend{animation:none}}`;
 	document.head.appendChild(st);
 })();
 
@@ -69,6 +92,11 @@ const REDUCED_MOTION = typeof matchMedia === 'function'
 	&& matchMedia('(prefers-reduced-motion: reduce)').matches;
 const _animating = new Set();
 let _rafId = null;
+
+// Reputation Arena — stamps each card with its real wallet-trust tier/score and
+// reorders the wall so the most-trusted agents rise to the top (see
+// agents-live-arena.js). Refreshed after every roster page and on a slow poll.
+const _arena = createArena({ grid, cards: _cards, reducedMotion: REDUCED_MOTION });
 
 function ensureRaf() {
 	if (_rafId != null) return;
@@ -163,7 +191,14 @@ function buildCard(agent) {
     <div class="al-card-live-dot idle" data-dot></div>
     <span data-status>Connecting</span>
   </div>
+  <div class="al-card-floor" data-mm hidden title="Market-maker floor under defense">
+    <span class="al-floor-anchor">⚓</span>
+    <span data-mm-floor></span>
+    <span class="al-floor-sim" data-mm-sim hidden>SIM</span>
+  </div>
+  <div class="al-card-networth" data-networth hidden title="24h portfolio change"></div>
   <div class="al-card-expand">⛶</div>
+  <div class="al-card-reactions" data-reactions></div>
 </div>
 <div class="al-card-info">
   ${avatar
@@ -177,6 +212,53 @@ function buildCard(agent) {
   <a class="al-card-watch-btn" href="${esc(watchHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>
 </div>`;
 	return el;
+}
+
+// Surface the market-maker floor an agent is defending. `live` flags a real-time
+// event (pulse the badge on a dip-buy) vs a backfill draw (just set the line).
+// Sanitized through the shared mm-render whitelist so a bad push can't poison it.
+function updateMmBadge(state, rawMm, live) {
+	const mm = sanitizeMmEvent(rawMm);
+	if (!mm) return;
+	const badge = state.card.querySelector('[data-mm]');
+	if (!badge) return;
+	badge.hidden = false;
+	const floorEl = badge.querySelector('[data-mm-floor]');
+	if (floorEl) floorEl.textContent = fmtPriceSol(mm.floorSol);
+	const simEl = badge.querySelector('[data-mm-sim]');
+	if (simEl) simEl.hidden = !mm.simulate;
+	const touching = mm.floorSol > 0 && mm.priceSol > 0 && mm.priceSol <= mm.floorSol * 1.02;
+	badge.classList.toggle('touch', touching);
+	if (live && mm.type === 'mm_defend') {
+		badge.classList.remove('defend');
+		// reflow so the animation restarts on a back-to-back defend
+		void badge.offsetWidth;
+		badge.classList.add('defend');
+		if (state.action) state.action.textContent = `🛡 Defended floor at ${fmtPriceSol(mm.priceSol)}`;
+	}
+}
+
+// Surface a live agent-to-agent hire on the card. The hire visualizer lives on
+// /agent-screen; here we just flash the wall card when one settles and label the
+// action line with who got hired, linking the wall to live commerce. `live` gates
+// the flash so backfill replays only set the text.
+function updateHireFlash(state, meta, live) {
+	if (!meta || meta.kind !== 'a2a_hire' || !state.action) return;
+	const provider = String(meta.providerName || 'an agent').slice(0, 22);
+	const usd = typeof meta.usd === 'number' && Number.isFinite(meta.usd) ? `$${meta.usd.toFixed(2)}` : '';
+	if (meta.phase === 'settled' || meta.phase === 'recorded') {
+		state.action.textContent = `⇄ hired ${provider}${usd ? ` · ${usd}` : ''}`;
+		state.action.classList.remove('al-on-air');
+		if (live && meta.phase === 'settled') {
+			state.card.classList.remove('al-card--hired');
+			void state.card.offsetWidth; // restart the flash keyframe
+			state.card.classList.add('al-card--hired');
+		}
+	} else if (meta.phase === 'over_cap') {
+		state.action.textContent = `⚠ hire skipped · over cap`;
+	} else if (meta.phase === 'quote' || meta.phase === 'running' || meta.phase === 'reserved') {
+		state.action.textContent = `⇄ hiring ${provider}${usd ? ` · ${usd}` : ''}…`;
+	}
 }
 
 // Format a beat's age into a compact relative stamp.
@@ -369,6 +451,25 @@ function renderCardPnl(state) {
 	chip.title = `Session realized P&L · ${formatSol(state.realizedSol)}`;
 }
 
+// Vanity Grinder ticker: turn a grind frame into a compact card line. The live
+// grind pushes `analysis` frames whose activity reads "4.18M attempts · 38.9k/sec
+// · expected ~11.3M"; the MATCH frame carries a { kind:'vanity_match', address }
+// meta sidecar. Returns a short string for the card's action line, or null when
+// the frame isn't a grind frame.
+function parseGrindTicker(msg) {
+	if (msg?.meta?.kind === 'vanity_match' && typeof msg.meta.address === 'string') {
+		const a = msg.meta.address;
+		return `🔑 matched ${a.slice(0, 6)}…${a.slice(-4)}`;
+	}
+	const act = typeof msg?.activity === 'string' ? msg.activity : '';
+	if (/\d[\d.,kM]*\s*attempts/i.test(act) && /\/sec/i.test(act)) {
+		const rate = act.match(/·\s*([\d.,kM]+\/sec)/i);
+		return rate ? `⛏ grinding · ${rate[1]}` : `⛏ ${act}`;
+	}
+	if (/^MATCH\b/i.test(act)) return '🔑 vanity match found';
+	return null;
+}
+
 function attachStream(state) {
 	const { card, agentId } = state;
 	if (state.es) { try { state.es.close(); } catch { /* */ } }
@@ -403,13 +504,22 @@ function attachStream(state) {
 			// Anchor bulletin: surface the on-air headline on the card even when the
 			// frame is text-only (no rendered desk image).
 			if (msg.type === 'analysis' && msg.activity && state.action) {
-				if (state.isTour) {
+				const grind = parseGrindTicker(msg);
+				if (grind) {
+					state.action.textContent = grind;
+					state.action.classList.remove('al-on-air');
+				} else if (state.isTour) {
 					state.action.textContent = `🎬 ${msg.activity}`;
 				} else {
 					state.action.textContent = `🔴 ON AIR · ${msg.activity}`;
 					state.action.classList.add('al-on-air');
 				}
 			}
+			// Live hire frames may be text/meta-only — handle before the image gate.
+			if (msg.meta?.kind === 'a2a_hire') updateHireFlash(state, msg.meta, true);
+			// Market-maker frames are text-only (data:null) — drive the floor badge
+			// before the image gate, or the live dip-buy pulse would never fire.
+			if (msg.mm) updateMmBadge(state, msg.mm, true);
 			const src = msg.frame || msg.data;
 			if (!src) return;
 			const img = new Image();
@@ -422,7 +532,13 @@ function attachStream(state) {
 			hideWarming(state);
 			stopStatusPolling(state);
 			_fpsMap.set(agentId, (_fpsMap.get(agentId) || 0) + 1);
-			if (msg.activity && state.action) {
+			const grindTickerImg = parseGrindTicker(msg);
+			if (grindTickerImg && state.action) {
+				// Grind frames carry a rendered keyspace image — keep the compact
+				// attempts/sec ticker rather than the raw activity string.
+				state.action.textContent = grindTickerImg;
+				state.action.classList.remove('al-on-air');
+			} else if (msg.activity && state.action) {
 				if (msg.activity.startsWith(TOUR_PREFIX)) {
 					state.isTour = true;
 					state.card.classList.add('al-card--tour');
@@ -431,6 +547,14 @@ function attachStream(state) {
 				} else {
 					state.action.textContent = msg.activity;
 				}
+			}
+			// Live Avatar Forge: a completed forge rides a `meta` sidecar — surface
+			// the fresh creation on the card so the wall shows what was just built.
+			const forgeHit = parseForgeFrame(msg);
+			if (forgeHit && state.action) {
+				state.action.textContent = forgeHit.prompt ? `\u2726 forged: ${forgeHit.prompt}` : '\u2726 forged a new avatar';
+				state.action.classList.remove('al-on-air');
+				state.card.classList.add('al-card--forged');
 			}
 			if (msg.type === 'trade') ingestCardPnl(state, msg);
 		} catch { /* malformed */ }
@@ -443,12 +567,31 @@ function attachStream(state) {
 				state.entries = entries;
 				// Fold any realized exits in the backfill into the running PnL chip.
 				entries.forEach((entry) => ingestCardPnl(state, entry));
+				// Draw the floor at the last known MM state (no flash — backfill, not live).
+				for (let i = entries.length - 1; i >= 0; i--) {
+					if (entries[i]?.mm) { updateMmBadge(state, entries[i].mm, false); break; }
+				}
+				const lastForge = [...entries].reverse().map(parseForgeFrame).find(Boolean);
+				if (lastForge && state.action) {
+					state.action.textContent = lastForge.prompt ? `\u2726 forged: ${lastForge.prompt}` : '\u2726 forged a new avatar';
+					state.card.classList.add('al-card--forged');
+				}
+				// Reflect the latest hire phase from backfill (no flash — history).
+				const lastHire = [...entries].reverse().find((e) => e?.meta?.kind === 'a2a_hire');
+				if (lastHire) updateHireFlash(state, lastHire.meta, false);
 			}
 			if (!isLiveNow(state)) { paintActivity(state); setLive(false); }
 		} catch { /* */ }
 	});
 
-	es.addEventListener('open', () => { if (statusEl.textContent === 'Connecting') setLive(false); });
+	es.addEventListener('open', () => {
+		if (statusEl.textContent === 'Connecting') setLive(false);
+		state.reactions?.setConnected(true);
+	});
+	// Live spectator reactions for this card — float them over the screen + tick the count.
+	es.addEventListener('reaction', (e) => {
+		try { state.reactions?.onReaction(JSON.parse(e.data)); } catch { /* malformed */ }
+	});
 	es.addEventListener('dark', () => {
 		setLive(false);
 		paintActivity(state);
@@ -568,6 +711,7 @@ function getObserver() {
 			if (entry.isIntersecting) {
 				_inView.add(id);
 				signalWatch(id);
+				scheduleNetworthFlush();
 				if (!isLiveNow(state)) startStatusPolling(state);
 			} else {
 				_inView.delete(id);
@@ -602,8 +746,26 @@ function mountAgent(agent) {
 		realizedUsd: 0,
 		sawUsd: false,
 		seenPnlTs: new Set(),
+		reactions: null,
 	};
 	_cards.set(id, state);
+	// Spectator reactions + tips on the card. The bar posts reactions and opens the
+	// real tip flow; floating emojis rise over the screen and the count ticks the
+	// watch-intent signal. We feed it the card's existing stream (subscribe:false),
+	// so a flood of cards never doubles SSE connections.
+	const reactHost = card.querySelector('[data-reactions]');
+	const screenHost = card.querySelector('.al-card-screen');
+	if (reactHost && screenHost) {
+		state.reactions = mountAgentReactions({
+			agentId: id,
+			barHost: reactHost,
+			overlayHost: screenHost,
+			getAgent: () => agent,
+			compact: true,
+			voice: false, // wall cards have no avatar cam / audio surface — overlay + count only
+			subscribe: false,
+		});
+	}
 	attachStream(state);
 	// Intent + status polling are intersection-driven (getObserver), so the pool
 	// only spins up for cards actually on screen and frees the slot on scroll-away.
@@ -634,6 +796,7 @@ async function loadMore() {
 	}
 	agents.forEach(mountAgent);
 	updateStats();
+	_arena.schedule();
 	_loading = false;
 }
 
@@ -809,12 +972,76 @@ function startTicker() {
 
 // ── boot ──────────────────────────────────────────────────────────────────────
 
+// ── live net-worth badges ─────────────────────────────────────────────────────
+// Each on-screen card carries a compact 24h portfolio-change badge in its top
+// corner — the wall-scale view of the same scoreboard the agent-screen HUD shows.
+// Real on-chain valuation, batched: one POST /api/agents/balances for every
+// visible card (the endpoint exists precisely to avoid an N× request storm),
+// refreshed on a slow cadence and only while the tab is visible. Hidden when a
+// wallet has no value or no 24h history yet — never zeroed, never faked.
+const NETWORTH_POLL_MS = 60_000;
+let _networthFlushTimer = null;
+
+function scheduleNetworthFlush() {
+	if (_networthFlushTimer) return;
+	_networthFlushTimer = setTimeout(() => { _networthFlushTimer = null; hydrateNetworth(); }, 150);
+}
+
+async function hydrateNetworth() {
+	if (document.hidden) return;
+	const ids = [..._inView].filter((id) => _cards.has(id));
+	if (!ids.length) return;
+	let map;
+	try { map = await fetchBatchBalances(ids); } catch { return; }
+	for (const id of ids) {
+		const state = _cards.get(id);
+		if (state) applyNetworthBadge(state, map.get(id));
+	}
+}
+
+function applyNetworthBadge(state, snap) {
+	const badge = state.card.querySelector('[data-networth]');
+	if (!badge) return;
+	if (!snap || !snap.priced || snap.change24hPct == null) { badge.hidden = true; return; }
+	const d = formatPnl(snap.change24hPct);
+	badge.hidden = false;
+	badge.dataset.tone = d.tone;
+	badge.innerHTML = `<span class="al-nw-arrow">${d.arrow}</span>${esc(d.text)}`;
+	const win = snap.windowHours != null && snap.windowHours > 0 ? `${Math.round(snap.windowHours)}h` : '24h';
+	badge.title = `Net worth ${formatNetWorthUsd(snap.netWorthUsd, { compact: false })} · ${d.text} ${win}`;
+}
+
+function startNetworthHydration() {
+	scheduleNetworthFlush();
+	setInterval(() => {
+		if (!document.hidden && _inView.size) hydrateNetworth();
+	}, NETWORTH_POLL_MS);
+}
+
+// Reaction-bar chrome for wall cards: a slim, hover-revealed strip pinned to the
+// bottom of each card's screen, above the floating-emoji overlay. Injected once.
+if (!document.getElementById('al-reactions-style')) {
+	const st = document.createElement('style');
+	st.id = 'al-reactions-style';
+	st.textContent = `
+.al-card-reactions{position:absolute;left:8px;right:8px;bottom:8px;z-index:7;display:flex;justify-content:center;
+	padding:4px 6px;border-radius:12px;background:linear-gradient(180deg,rgba(8,8,12,.18),rgba(8,8,12,.72));
+	backdrop-filter:blur(6px);opacity:0;transform:translateY(6px);pointer-events:none;
+	transition:opacity .18s ease,transform .18s ease;}
+.al-card:hover .al-card-reactions,.al-card:focus-within .al-card-reactions{opacity:1;transform:none;pointer-events:auto;}
+@media (hover:none){.al-card-reactions{opacity:1;transform:none;pointer-events:auto;}}
+@media (prefers-reduced-motion:reduce){.al-card-reactions{transition:none;}}`;
+	document.head.appendChild(st);
+}
+
 await loadMore();
 startTicker();
 startFpsTicker();
 startIdleRepaint();
 startWatchPings();
 startInfiniteScroll();
+startNetworthHydration();
+_arena.start();
 
 document.addEventListener('visibilitychange', () => {
 	if (document.hidden) suspendStreams();

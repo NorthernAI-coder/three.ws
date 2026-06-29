@@ -129,19 +129,21 @@ function ingest(data) {
 
 	// Coin World Tour hook. The on-demand Playwright caster (workers/agent-screen-pool)
 	// detects this API, waits for ready(), then walks the guide agent through the
-	// waypoint loop — driving the REAL camera/avatar — while narrating the live
-	// launch feed. tour-commentary.js owns the pure trending→line mapping; the
-	// caster passes the feed in and renders the result. No faked motion, no mocks.
+	// waypoint loop — driving the REAL camera/avatar — while narrating what's
+	// climbing three.ws's OWN launch feed (/api/pump/launches). tour-commentary.js
+	// owns the pure feed→line mapping; the caster passes the feed in and renders the
+	// result. No faked motion, no mocks. $THREE is the only coin the tour promotes.
 	window.__tour = {
 		ready: () => tourReady,
 		waypoints: () => world?.tourStops?.() || [],
 		location: () => world?.tourLocation?.() || null,
 		goTo: (name) => world?.tourGoTo?.(name) ?? Promise.resolve(false),
-		// Commentary for the stop the guide most recently reached, given a live
-		// /api/pump/trending feed the caster fetched. Returns { line, badge, items, … }.
-		commentary: (trending) => tourCommentary(
+		// Commentary for the stop the guide most recently reached, given the
+		// three.ws launch feed (/api/pump/launches) the caster fetched. Returns
+		// { line, badge, items, … }.
+		commentary: (launches) => tourCommentary(
 			world?.tourLocation?.() || 'lobby',
-			Array.isArray(trending) ? trending : [],
+			Array.isArray(launches) ? launches : [],
 		),
 	};
 

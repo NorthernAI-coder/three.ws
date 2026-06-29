@@ -95,6 +95,8 @@ function ensureStyles() {
  * @param {() => (AudioContext|null)} [opts.getAudioContext]  resumed AudioContext for the thank-you voice
  * @param {boolean} [opts.compact]          tighter sizing for wall cards
  * @param {boolean} [opts.voice=true]       speak a thank-you on tip
+ * @param {string} [opts.voiceId]           TTS voice id for the thank-you
+ * @param {boolean} [opts.subscribe=false]  open the controller's own SSE stream for reaction events
  * @param {'mainnet'|'devnet'} [opts.network='mainnet']
  * @returns {{
  *   onReaction(payload:object):void, onTip(detail?:object):void,
@@ -111,6 +113,8 @@ export function mountAgentReactions(opts = {}) {
 		getAudioContext = () => null,
 		compact = false,
 		voice = true,
+		voiceId = null,
+		subscribe = false,
 		network = 'mainnet',
 	} = opts;
 	if (typeof document === 'undefined' || !agentId || !barHost) {
@@ -264,11 +268,13 @@ export function mountAgentReactions(opts = {}) {
 		const ctx = getAudioContext?.();
 		if (!ctx) return; // no resumed audio context on this surface → emote-only ack
 		try {
+			const body = { text: ackLine(agentNameFromAgent(getAgent())), format: 'mp3' };
+			if (voiceId) body.voice = voiceId;
 			const res = await fetch('/api/tts/speak', {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ text: ackLine(agentNameFromAgent(getAgent())), format: 'mp3' }),
+				body: JSON.stringify(body),
 			});
 			if (!res.ok) return;
 			const buf = await res.arrayBuffer();
@@ -294,21 +300,45 @@ export function mountAgentReactions(opts = {}) {
 	};
 	window.addEventListener('three:patron-support', onPatron);
 
+	// Forward a stream `reaction` event: { bursts:[{emoji,ts}], total }.
+	function onReaction(payload) {
+		if (destroyed || !payload) return;
+		const bursts = Array.isArray(payload.bursts) ? payload.bursts : [];
+		for (const b of bursts) if (b?.emoji) overlay.burst(b.emoji, 1);
+		if (Number.isFinite(payload.total)) setCount(payload.total);
+	}
+
+	// Optional self-managed SSE: surfaces that don't already own a stream client
+	// (the single-agent screen) let the controller subscribe to reaction events
+	// directly. Surfaces that already have a per-agent EventSource (the wall) pass
+	// subscribe:false and forward events into onReaction() instead — no second
+	// connection per card.
+	let es = null;
+	if (subscribe && typeof EventSource !== 'undefined') {
+		try {
+			es = new EventSource(`/api/agent-screen-stream?agentId=${encodeURIComponent(agentId)}`);
+			es.addEventListener('open', () => setConnectedState(true));
+			es.addEventListener('reaction', (e) => { try { onReaction(JSON.parse(e.data)); } catch { /* malformed */ } });
+			es.onerror = () => setConnectedState(false);
+		} catch { /* no stream — the bar still posts reactions and tips work */ }
+	}
+
+	function setConnectedState(connected) {
+		bar.classList.toggle('connecting', !connected);
+	}
+
+	const onPageHide = () => { try { es?.close(); } catch { /* */ } };
+	if (es) window.addEventListener('pagehide', onPageHide);
+
 	return {
-		// Forward a stream `reaction` event: { bursts:[{emoji,ts}], total }.
-		onReaction(payload) {
-			if (destroyed || !payload) return;
-			const bursts = Array.isArray(payload.bursts) ? payload.bursts : [];
-			for (const b of bursts) if (b?.emoji) overlay.burst(b.emoji, 1);
-			if (Number.isFinite(payload.total)) setCount(payload.total);
-		},
+		onReaction,
 		onTip,
-		setConnected(connected) {
-			bar.classList.toggle('connecting', !connected);
-		},
+		setConnected: setConnectedState,
 		destroy() {
 			destroyed = true;
 			window.removeEventListener('three:patron-support', onPatron);
+			window.removeEventListener('pagehide', onPageHide);
+			try { es?.close(); } catch { /* */ }
 			clearTimeout(cueTimer);
 			overlay.destroy();
 			bar.remove();

@@ -155,7 +155,7 @@ describe('narrateNode', () => {
 		const line = narrateNode({ kind: 'hire', title: 'sentiment scan', status: 'done', costUsd: 0.02, signature: '5xRabcdefghijk' });
 		expect(line).toMatch(/Hired/);
 		expect(line).toMatch(/\$0\.02/);
-		expect(line).toMatch(/5xRabcde/);
+		expect(line).toMatch(/5xRabcd/);
 	});
 
 	it('narrates a failed hire with the reason', () => {

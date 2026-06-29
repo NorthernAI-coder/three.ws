@@ -24,6 +24,7 @@ import { cors, method, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getRedis } from './_lib/redis.js';
 import { sql } from './_lib/db.js';
+import { reactionsRecentKey, reactionsTotalKey, REACTION_RECENT_CAP } from './_lib/reaction-rules.js';
 
 export const maxDuration = 300;
 
@@ -153,8 +154,20 @@ export default async function handleAgentScreenStream(req, res) {
 	}
 
 	const frameKey = `agent:screen:${agentId}:frame`;
+	const reactionKey = reactionsRecentKey(agentId);
+	const reactionTotalKey = reactionsTotalKey(agentId);
 	let lastTs = 0;
 	let wasDark = false;
+	// Only replay reactions that arrive AFTER this viewer connects — joining mid
+	// stream shouldn't dump a backlog of bursts. But do send the current windowed
+	// total straight away so the live count is correct the instant the bar mounts.
+	let lastReactionTs = Date.now();
+	if (r) {
+		try {
+			const t = Number(await r.get(reactionTotalKey));
+			if (Number.isFinite(t) && t > 0) send('reaction', { bursts: [], total: t });
+		} catch { /* count will catch up on the first reaction */ }
+	}
 	let deadline = Date.now() + MAX_DURATION_MS;
 	let pingAt = Date.now() + PING_INTERVAL_MS;
 	let activityAt = Date.now() + ACTIVITY_REFRESH_MS;
@@ -205,6 +218,25 @@ export default async function handleAgentScreenStream(req, res) {
 						send('dark', {});
 					}
 				} catch { /* Redis blip — keep polling */ }
+
+				// Poll for new viewer reactions and fan them out to this client. The
+				// list is LPUSH newest-first; we take everything newer than the last
+				// one we forwarded, replay it oldest-first as floating-emoji bursts,
+				// and carry the windowed total so every viewer's count agrees.
+				try {
+					const recent = await r.lrange(reactionKey, 0, REACTION_RECENT_CAP - 1);
+					if (recent?.length) {
+						const fresh = recent
+							.map((s) => { try { return JSON.parse(s); } catch { return null; } })
+							.filter((x) => x && Number(x.ts) > lastReactionTs)
+							.sort((a, b) => a.ts - b.ts);
+						if (fresh.length) {
+							lastReactionTs = fresh[fresh.length - 1].ts;
+							const total = Number(await r.get(reactionTotalKey)) || undefined;
+							send('reaction', { bursts: fresh.map((x) => ({ emoji: x.emoji, ts: x.ts })), total });
+						}
+					}
+				} catch { /* reactions are best-effort — frames are the priority */ }
 			}
 
 			// Yield to event loop before next poll

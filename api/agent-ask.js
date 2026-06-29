@@ -255,7 +255,7 @@ export default async function handleAgentAsk(req, res) {
 
 	const isOwner = !!userId && agent.user_id === userId;
 	const configuredProvider = agent.meta?.brain?.provider ?? null;
-	const providerKey = pickProvider(configuredProvider, { authed: isOwner });
+	let providerKey = pickProvider(configuredProvider, { authed: isOwner });
 
 	const plan = resolveBrain(providerKey);
 	if (!plan.ok) {
@@ -263,8 +263,8 @@ export default async function handleAgentAsk(req, res) {
 		// concierge always answers rather than erroring on a misconfigured agent.
 		const fallback = resolveBrain(DEFAULT_PROVIDER);
 		if (!fallback.ok) return error(res, fallback.status, fallback.code, fallback.message);
-		plan.ok = true;
 		Object.assign(plan, fallback);
+		providerKey = DEFAULT_PROVIDER; // report the route actually used in the meta event
 	}
 
 	const system = buildSystemPrompt(agent);

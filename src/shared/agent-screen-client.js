@@ -10,6 +10,7 @@
 //     onLog(entries)    — called with [{ ts, activity, type }] (backfill)
 //     onOpen(info)      — called with { agentId, agentName }
 //     onDark()          — called when the agent's stream goes dark
+//     onReaction(payload) — called with { bursts: [{emoji, ts}], total } on viewer reactions
 //     onError(err)      — called on connection error (non-fatal, will retry)
 //   });
 //   client.connect();
@@ -20,7 +21,7 @@ const STREAM_URL = (agentId) => `/api/agent-screen-stream?agentId=${encodeURICom
 const RECONNECT_DELAYS = [500, 1000, 2000, 5000, 10000]; // ms
 
 export function createAgentScreenClient(agentId, handlers = {}) {
-	const { onFrame, onLog, onOpen, onDark, onError } = handlers;
+	const { onFrame, onLog, onOpen, onDark, onError, onReaction } = handlers;
 
 	let es = null;
 	let reconnectTimer = null;
@@ -62,6 +63,11 @@ export function createAgentScreenClient(agentId, handlers = {}) {
 
 		es.addEventListener('dark', () => {
 			onDark?.();
+		});
+
+		// Live spectator reactions: { bursts: [{emoji, ts}], total }.
+		es.addEventListener('reaction', (e) => {
+			try { onReaction?.(JSON.parse(e.data)); } catch { /* malformed event */ }
 		});
 
 		es.addEventListener('ping', () => {
