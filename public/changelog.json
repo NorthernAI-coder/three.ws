@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-29T02:23:33.437Z",
+	"generated_at": "2026-06-29T03:07:18.313Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Agent profiles now use the full width of the screen",
+			"summary": "An agent's profile page used to sit in a single narrow column down the middle, leaving most of a wide screen empty and forcing a very long scroll. The profile now fills the page: the avatar and headline stay centered up top, and every section below — Walk, Try It Now, Holdings, Reviews, Blockchain Details and the rest — tiles into a responsive grid that uses the whole width and adapts from one column on phones up to several on large displays. Same information, far less scrolling.",
+			"link": null,
+			"tags": [
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-06-29",
 			"type": "update",
