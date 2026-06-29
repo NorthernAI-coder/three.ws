@@ -9,6 +9,7 @@
 import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { scoreCoin } from '../../api/_lib/oracle/store.js';
+import { QUOTE_MINT_LIST } from '../../api/_lib/quote-mints.js';
 
 /** Mints that need (re)scoring: recent brain coins missing or stale in our cache. */
 async function pendingMints(cfg) {
@@ -18,6 +19,7 @@ async function pendingMints(cfg) {
 		left join oracle_conviction c on c.mint = i.mint and c.network = ${cfg.network}
 		where i.network = ${cfg.network}
 		  and i.first_seen_at > now() - interval '12 hours'
+		  and i.mint <> all(${QUOTE_MINT_LIST})
 		  and (c.mint is null or c.scored_at < now() - (${cfg.rescoreAfterSec} || ' seconds')::interval)
 		order by i.first_seen_at desc
 		limit ${cfg.scoreBatch}
