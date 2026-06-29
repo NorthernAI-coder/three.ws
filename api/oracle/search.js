@@ -14,6 +14,7 @@
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
@@ -38,6 +39,7 @@ export default wrap(async (req, res) => {
 		from oracle_conviction
 		where network = ${network}
 		  and (symbol ilike ${pattern} or name ilike ${pattern})
+		  and mint <> all(${QUOTE_MINT_LIST})
 		order by score desc nulls last
 		limit ${limit}
 	`;

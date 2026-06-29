@@ -26,6 +26,7 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS   = new Set(['mainnet', 'devnet']);
 const DIRECTIONS = new Set(['rising', 'falling', 'all']);
@@ -83,6 +84,7 @@ export default wrap(async (req, res) => {
 		from deduped d
 		join oracle_conviction c on c.mint = d.mint and c.network = d.network
 		where abs(c.score - d.first_score) >= ${minDelta}
+		  and c.mint <> all(${QUOTE_MINT_LIST})
 		  and (
 		        ${direction}::text = 'all'
 		     or (${direction}::text = 'rising'  and c.score > d.first_score)

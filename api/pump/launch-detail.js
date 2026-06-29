@@ -162,7 +162,8 @@ async function buildDetail(mint, network) {
 		       ai.meta->>'solana_address' as agent_solana_address,
 		       ai.meta->>'solana_vanity_prefix' as agent_solana_vanity_prefix,
 		       ai.meta->>'solana_vanity_suffix' as agent_solana_vanity_suffix,
-		       a.thumbnail_key as avatar_thumbnail_key, a.visibility as avatar_visibility
+		       a.thumbnail_key as avatar_thumbnail_key, a.storage_key as avatar_storage_key,
+		       a.visibility as avatar_visibility
 		from pump_agent_mints pam
 		left join agent_identities ai on ai.id = pam.agent_id and ai.deleted_at is null
 		left join avatars a on a.id = ai.avatar_id and a.deleted_at is null
@@ -287,6 +288,10 @@ async function buildDetail(mint, network) {
 					url: `/agents/${reg.agent_id}`,
 					is_public: reg.agent_public,
 					avatar_thumbnail_url: avatarPublic ? safeR2Url(reg.avatar_thumbnail_key) : null,
+					// The launching agent's interactive 3D model — drives the inline
+					// <agent-3d> stage on the coin page. Public/unlisted only; private
+					// avatars fall back to the shared mannequin client-side.
+					avatar_model_url: avatarPublic ? safeR2Url(reg.avatar_storage_key) : null,
 					// Public custodial wallet (+ vanity) of the launching agent, so the
 					// shared wallet chip renders identically here as on the feed/profile.
 					solana_address: reg.agent_solana_address || null,

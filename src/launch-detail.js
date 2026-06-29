@@ -36,6 +36,7 @@ import {
 	verifiedBadge,
 } from './trader-format.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
+import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 
 const GRADUATION_CAP_USD = 69_000; // pump.fun bonding-curve graduation threshold
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

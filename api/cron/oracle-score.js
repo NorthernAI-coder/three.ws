@@ -27,7 +27,7 @@ import { runScorePass } from '../../workers/oracle/score-loop.js';
 import { actOnFreshCoins, freshlyScored } from '../../workers/oracle/agent-loop.js';
 import { runSettlePass } from '../../workers/oracle/settle-loop.js';
 import { alertNewHighConviction } from '../_lib/oracle/alerts.js';
-import { purgeOldHistory } from '../_lib/oracle/store.js';
+import { purgeOldHistory, purgeQuoteMints } from '../_lib/oracle/store.js';
 
 // How far back the agent pass looks for scored coins. Wider than the cron
 // cadence so a missed tick still catches up; the per-(agent,mint) dedup makes
@@ -86,6 +86,10 @@ export default wrapCron(async (req, res) => {
 	// 5) Prune conviction history older than 72 hours — fire-and-forget so a
 	// slow delete never extends the cron response time.
 	purgeOldHistory(cfg.network).catch(() => {});
+
+	// 6) Self-heal: evict any quote/stablecoin/LST mints (USDC, USDT, wSOL, …)
+	// cached before the ingestion guard existed. Fire-and-forget.
+	purgeQuoteMints(cfg.network).catch(() => {});
 
 	return json(res, 200, {
 		ok: true,

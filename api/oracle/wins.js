@@ -23,6 +23,7 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const TIERS    = new Set(['prime', 'strong', 'lean', 'watch', 'avoid', 'all']);
@@ -85,6 +86,7 @@ export default wrap(async (req, res) => {
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)
+		  and c.mint <> all(${QUOTE_MINT_LIST})
 		  ${tierFilter}
 		  ${periodFilter}
 		  ${beforeFilter}
@@ -107,6 +109,7 @@ export default wrap(async (req, res) => {
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)
+		  and c.mint <> all(${QUOTE_MINT_LIST})
 		  ${tierFilter}
 		  ${periodFilter}
 	`.catch(() => [{}]);
