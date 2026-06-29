@@ -13,6 +13,8 @@
 // at, and tear it down when they leave. That keeps live pixels available for any
 // agent on demand without paying for an idle browser per agent.
 
+import { parsePnlDelta, formatSol, formatUsd } from './shared/trade-pnl.js';
+
 const grid       = document.getElementById('al-grid');
 const liveCount  = document.getElementById('al-live-count');
 const statsBar   = document.getElementById('al-stats');
@@ -35,6 +37,16 @@ let   _idleRepaint = null;
 
 const FRAME_STALE_MS = 6000;       // no frame within this window ⇒ fall back to activity
 const WATCH_PING_MS  = 20000;      // re-assert watch intent while a card is on screen
+const WATCH_STATUS_MS = 4000;      // refresh the warming/queued handoff while not yet live
+const STATUS_GRACE_POLLS = 3;      // keep polling this many ticks to cover the intent→status write race
+
+// Cards currently intersecting the viewport. Only these signal watch intent and
+// poll handoff status, so the bounded Chromium pool spins up exactly for the
+// agents a viewer is actually looking at — and frees the slot the instant they
+// scroll away (the worker tears a caster down once its agent leaves the wanted
+// window). IntersectionObserver maintains this set.
+const _inView = new Set();
+let _observer = null;
 
 function esc(s) {
 	return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -102,6 +114,10 @@ function buildCard(agent) {
 <div class="al-card-screen">
   <canvas class="al-card-canvas" width="640" height="360"></canvas>
   <div class="al-card-overlay"></div>
+  <div class="al-card-warming" data-warming hidden>
+    <span class="al-warming-pulse"></span>
+    <span class="al-warming-text" data-warming-text></span>
+  </div>
   <div class="al-card-live-badge">
     <div class="al-card-live-dot idle" data-dot></div>
     <span data-status>Connecting</span>
@@ -115,6 +131,7 @@ function buildCard(agent) {
   <div class="al-card-meta">
     <div class="al-card-name">${esc(name)}</div>
     <div class="al-card-action" data-action>Connecting…</div>
+    <span class="al-card-pnl" data-pnl hidden></span>
   </div>
   <a class="al-card-watch-btn" href="${esc(watchHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>
 </div>`;
@@ -170,13 +187,24 @@ function paintActivity(state) {
 		const latest = i === 0;
 		const age = Math.max(0, Math.round((Date.now() - (a.ts || Date.now())) / 1000));
 		const ts = age < 5 ? 'now' : age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age / 60)}m` : `${Math.round(age / 3600)}h`;
+		// A realized exit tints its line green/red so the terminal reads as a tape.
+		const exit = parsePnlDelta(a.pnl);
+		const exitSign = exit?.phase === 'exit'
+			? (exit.solDelta ?? exit.realizedUsd ?? 0)
+			: null;
 		ctx.font = '600 11px "Courier New", monospace';
 		ctx.fillStyle = latest ? '#5fd08a' : 'rgba(255,255,255,0.2)';
 		const pfx = `[${ts}] `;
 		ctx.fillText(pfx, 16, y + i * lH);
 		const pw = ctx.measureText(pfx).width;
 		ctx.font = `${latest ? '600' : '400'} 12px "Courier New", monospace`;
-		ctx.fillStyle = latest ? '#f0f0f4' : 'rgba(255,255,255,0.4)';
+		if (exitSign != null && exitSign !== 0) {
+			ctx.fillStyle = exitSign > 0
+				? (latest ? '#6ee7a0' : 'rgba(110,231,160,0.55)')
+				: (latest ? '#f9a8a8' : 'rgba(249,168,168,0.55)');
+		} else {
+			ctx.fillStyle = latest ? '#f0f0f4' : 'rgba(255,255,255,0.4)';
+		}
 		ctx.fillText((a.activity || a.type || 'action').slice(0, 64), 16 + pw, y + i * lH);
 	});
 
@@ -185,6 +213,33 @@ function paintActivity(state) {
 
 function isLiveNow(state) {
 	return state.lastFrameAt && (Date.now() - state.lastFrameAt) < FRAME_STALE_MS;
+}
+
+// Fold one trade frame/log entry's realized exit into the card's running PnL and
+// render the colored chip. Deduped by timestamp so the reconnect backfill can't
+// double-count. Returns true when a fresh exit moved the number.
+function ingestCardPnl(state, entry) {
+	const delta = parsePnlDelta(entry?.pnl);
+	if (!delta || delta.phase !== 'exit') return false;
+	const ts = Number(entry.ts) || 0;
+	if (ts && state.seenPnlTs.has(ts)) return false;
+	if (ts) state.seenPnlTs.add(ts);
+	if (delta.realizedUsd != null) { state.realizedUsd += delta.realizedUsd; state.sawUsd = true; }
+	if (delta.solDelta != null) state.realizedSol += delta.solDelta;
+	renderCardPnl(state);
+	return true;
+}
+
+function renderCardPnl(state) {
+	const chip = state.card.querySelector('[data-pnl]');
+	if (!chip) return;
+	const primary = state.sawUsd ? state.realizedUsd : state.realizedSol;
+	if (!Number.isFinite(primary)) { chip.hidden = true; return; }
+	chip.hidden = false;
+	chip.classList.toggle('pos', primary > 1e-9);
+	chip.classList.toggle('neg', primary < -1e-9);
+	chip.textContent = state.sawUsd ? (formatUsd(primary) ?? formatSol(state.realizedSol)) : formatSol(primary);
+	chip.title = `Session realized P&L · ${formatSol(state.realizedSol)}`;
 }
 
 function attachStream(state) {
@@ -199,7 +254,16 @@ function attachStream(state) {
 	function setLive(live) {
 		state.live = live;
 		dot.classList.toggle('idle', !live);
-		statusEl.textContent = live ? 'Live' : (state.entries?.length ? 'Active' : 'Idle');
+		if (live) {
+			statusEl.textContent = 'Live';
+			state.reconnecting = false;
+			clearTimeout(state.reconnectLabelTimer);
+		} else {
+			dot.classList.remove('thin');
+			state.lowFpsSince = 0;
+			// Don't clobber a transient "Reconnecting…" label set by onerror below.
+			if (!state.reconnecting) statusEl.textContent = state.entries?.length ? 'Active' : 'Idle';
+		}
 	}
 	state.setLive = setLive;
 
@@ -216,23 +280,50 @@ function attachStream(state) {
 			img.src = src.startsWith('data:') ? src : 'data:image/png;base64,' + src;
 			state.lastFrameAt = Date.now();
 			setLive(true);
+			// Real pixels are arriving — the handoff is done. Hide the warming overlay
+			// and stop polling status; frames are now the source of truth.
+			hideWarming(state);
+			stopStatusPolling(state);
 			_fpsMap.set(agentId, (_fpsMap.get(agentId) || 0) + 1);
 			if (msg.activity && state.action) state.action.textContent = msg.activity;
+			if (msg.type === 'trade') ingestCardPnl(state, msg);
 		} catch { /* malformed */ }
 	});
 
 	es.addEventListener('log', (e) => {
 		try {
 			const { entries } = JSON.parse(e.data);
-			if (Array.isArray(entries)) state.entries = entries;
+			if (Array.isArray(entries)) {
+				state.entries = entries;
+				// Fold any realized exits in the backfill into the running PnL chip.
+				entries.forEach((entry) => ingestCardPnl(state, entry));
+			}
 			if (!isLiveNow(state)) { paintActivity(state); setLive(false); }
 		} catch { /* */ }
 	});
 
 	es.addEventListener('open', () => { if (statusEl.textContent === 'Connecting') setLive(false); });
-	es.addEventListener('dark', () => { setLive(false); paintActivity(state); });
+	es.addEventListener('dark', () => {
+		setLive(false);
+		paintActivity(state);
+		// Still on screen but no caster — resume the warming/queued handoff poll.
+		if (_inView.has(agentId)) startStatusPolling(state);
+	});
 	es.addEventListener('ping', () => { if (statusEl.textContent === 'Connecting') setLive(false); });
-	es.onerror = () => setLive(false);
+	es.onerror = () => {
+		// Reclaim pool priority immediately on a drop — don't wait for the slow ping
+		// loop — and show a transient "Reconnecting…" (not "Idle") for the first 2s
+		// so a brief blip doesn't read as the agent going quiet.
+		if (_inView.has(agentId)) signalWatch(agentId);
+		state.reconnecting = true;
+		setLive(false);
+		statusEl.textContent = 'Reconnecting…';
+		clearTimeout(state.reconnectLabelTimer);
+		state.reconnectLabelTimer = setTimeout(() => {
+			state.reconnecting = false;
+			if (!isLiveNow(state)) statusEl.textContent = state.entries?.length ? 'Active' : 'Idle';
+		}, 2000);
+	};
 }
 
 // ── watch intent ────────────────────────────────────────────────────────────
@@ -248,6 +339,98 @@ function signalWatch(agentId) {
 			keepalive: true,
 		}).catch(() => {});
 	} catch { /* */ }
+}
+
+// ── handoff status overlay (warming / queued) ────────────────────────────────
+// While a viewer is looking at a card that isn't live yet, the on-demand pool is
+// either spinning a browser up for it (warming) or it's waiting behind others
+// (queued). /api/agent/watch-status resolves which, from Redis only, so the card
+// shows an honest "warming up" / "#N in line" overlay instead of a dead box.
+
+function showWarming(state, text) {
+	const el = state.card.querySelector('[data-warming]');
+	if (!el) return;
+	const txt = el.querySelector('[data-warming-text]');
+	if (txt) txt.textContent = text;
+	// Drop the initial display:none gate once, then drive visibility via opacity so
+	// the overlay can fade in/out (and never blocks the card link — pointer-events:none).
+	el.hidden = false;
+	el.classList.add('is-visible');
+}
+
+function hideWarming(state) {
+	const el = state.card?.querySelector('[data-warming]');
+	if (el) el.classList.remove('is-visible');
+}
+
+function applyWatchStatus(state, data) {
+	if (isLiveNow(state)) { hideWarming(state); return; }
+	if (data?.state === 'warming') showWarming(state, 'Warming up a live view…');
+	else if (data?.state === 'queued') showWarming(state, `Live view queued · #${data.position || 1} in line`);
+	else hideWarming(state);
+}
+
+async function pollWatchStatus(state) {
+	if (isLiveNow(state)) { hideWarming(state); return; }
+	state.statusPolls = (state.statusPolls || 0) + 1;
+	try {
+		const res = await fetch(`/api/agent/watch-status?agentId=${encodeURIComponent(state.agentId)}`, {
+			headers: { accept: 'application/json' },
+		});
+		if (!res.ok) { hideWarming(state); return; }
+		const data = await res.json();
+		state.lastStatus = data.state;
+		applyWatchStatus(state, data);
+	} catch { hideWarming(state); }
+}
+
+// Keep refreshing while the card is on screen and not yet live, but only as long
+// as the pool is actually working on it (warming/queued) — with a short grace
+// window so the watch-intent → watch-status write race can't end polling early.
+function shouldKeepPolling(state) {
+	if (!_inView.has(state.agentId) || isLiveNow(state)) return false;
+	if (state.lastStatus === 'warming' || state.lastStatus === 'queued') return true;
+	return (state.statusPolls || 0) < STATUS_GRACE_POLLS;
+}
+
+function startStatusPolling(state) {
+	stopStatusPolling(state);
+	state.statusPolls = 0;
+	const tick = async () => {
+		await pollWatchStatus(state);
+		state.statusTimer = shouldKeepPolling(state) ? setTimeout(tick, WATCH_STATUS_MS) : null;
+	};
+	tick();
+}
+
+function stopStatusPolling(state) {
+	if (state.statusTimer) { clearTimeout(state.statusTimer); state.statusTimer = null; }
+}
+
+// ── intersection-driven intent ───────────────────────────────────────────────
+// Only cards actually on screen signal watch intent + poll status, so the bounded
+// pool spins up exactly for what's being looked at and frees the slot the instant
+// a viewer scrolls past (the agent falls out of the wanted window; the worker
+// tears its caster down).
+function getObserver() {
+	if (_observer) return _observer;
+	_observer = new IntersectionObserver((entries) => {
+		for (const entry of entries) {
+			const id = entry.target.dataset.agentId;
+			const state = _cards.get(id);
+			if (!state) continue;
+			if (entry.isIntersecting) {
+				_inView.add(id);
+				signalWatch(id);
+				if (!isLiveNow(state)) startStatusPolling(state);
+			} else {
+				_inView.delete(id);
+				stopStatusPolling(state);
+				hideWarming(state);
+			}
+		}
+	}, { threshold: 0.1 });
+	return _observer;
 }
 
 // ── lifecycle ──────────────────────────────────────────────────────────────────
@@ -268,10 +451,17 @@ function mountAgent(agent) {
 		lastFrameAt: 0,
 		live: false,
 		es: null,
+		// running realized PnL for the card chip
+		realizedSol: 0,
+		realizedUsd: 0,
+		sawUsd: false,
+		seenPnlTs: new Set(),
 	};
 	_cards.set(id, state);
 	attachStream(state);
-	signalWatch(id);
+	// Intent + status polling are intersection-driven (getObserver), so the pool
+	// only spins up for cards actually on screen and frees the slot on scroll-away.
+	getObserver().observe(card);
 }
 
 function renderEmpty() {
@@ -311,11 +501,24 @@ function updateStats() {
 	if (statsBar) statsBar.hidden = total === 0;
 }
 
-// FPS + live-count ticker.
+// FPS + live-count ticker. Also surfaces per-card FPS in the live badge tooltip
+// and downgrades the dot to a "thin" amber state when a casting agent's own feed
+// stutters below ~1 fps for >3s — a stalled caster, distinct from a full dark.
 function startFpsTicker() {
 	_fpsInterval = setInterval(() => {
 		let total = 0;
-		for (const c of _fpsMap.values()) total += c;
+		for (const [id, s] of _cards) {
+			const c = _fpsMap.get(id) || 0;
+			total += c;
+			s.fps = c;
+			const live = isLiveNow(s);
+			const statusEl = s.card.querySelector('[data-status]');
+			const dot = s.card.querySelector('[data-dot]');
+			if (statusEl) statusEl.title = live ? (c > 0 ? `${c} fps` : 'stalled — no frames this second') : '';
+			if (live && c < 1) { if (!s.lowFpsSince) s.lowFpsSince = Date.now(); }
+			else s.lowFpsSince = 0;
+			if (dot) dot.classList.toggle('thin', !!(live && s.lowFpsSince && Date.now() - s.lowFpsSince > 3000));
+		}
 		_fpsMap.clear();
 		if (statFps) statFps.textContent = total > 0 ? `${total}/s` : '—';
 		updateStats();
@@ -336,11 +539,13 @@ function startIdleRepaint() {
 	}, 2500);
 }
 
-// Re-assert watch intent for every mounted card on a slow cadence.
+// Re-assert watch intent on a slow cadence — but only for cards currently on
+// screen, so the pool keeps a slot for what a viewer is actually watching and
+// lets it expire for everything they've scrolled past.
 function startWatchPings() {
 	setInterval(() => {
 		if (document.hidden) return;
-		for (const id of _cards.keys()) signalWatch(id);
+		for (const id of _inView) signalWatch(id);
 	}, WATCH_PING_MS);
 }
 
@@ -356,15 +561,29 @@ function suspendStreams() {
 	for (const s of _cards.values()) {
 		try { s.es?.close(); } catch { /* */ }
 		s.es = null;
+		stopStatusPolling(s);
+		clearTimeout(s.reconnectLabelTimer);
+		s.reconnecting = false;
+		hideWarming(s);
 		const statusEl = s.card.querySelector('[data-status]');
-		if (statusEl) statusEl.textContent = 'Paused';
-		s.card.querySelector('[data-dot]')?.classList.add('idle');
+		if (statusEl) { statusEl.textContent = 'Paused'; statusEl.title = ''; }
+		const dot = s.card.querySelector('[data-dot]');
+		dot?.classList.add('idle');
+		dot?.classList.remove('thin');
 	}
 }
 
 function resumeStreams() {
 	for (const s of _cards.values()) {
-		if (!s.es) { attachStream(s); signalWatch(s.agentId); }
+		if (!s.es) attachStream(s);
+	}
+	// IntersectionObserver doesn't re-fire on tab focus, so re-assert intent and
+	// restart the handoff poll for cards that are still on screen.
+	for (const id of _inView) {
+		const s = _cards.get(id);
+		if (!s) continue;
+		signalWatch(id);
+		if (!isLiveNow(s)) startStatusPolling(s);
 	}
 }
 

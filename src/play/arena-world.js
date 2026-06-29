@@ -51,6 +51,19 @@ const PALETTE = {
 	down: 0xf87171,
 };
 
+// Coin World Tour waypoints — the fixed loop the guide agent walks (driven by the
+// Playwright caster via window.__tour, see src/play/arena.js + src/tour-commentary.js).
+// Each is a floor position inside the arena radius (<15) plus the heading to face
+// on arrival. Names are the canonical keys shared with TOUR_WAYPOINTS; geometry
+// lives here because it's a 3D concern.
+const TOUR_STOPS = {
+	lobby:    { x: 0,    z: 6.8,  face: Math.PI },          // entrance, looking into the arena
+	approach: { x: -3.4, z: 2.6,  face: Math.PI * 0.86 },   // crossing the open floor
+	arena:    { x: 0,    z: -0.6, face: 0 },                // centre, among the agents
+	leader:   { x: 0,    z: -3.4, face: 0 },                // up at the #1 leader pad
+	eastwing: { x: 5.6,  z: -0.2, face: -Math.PI / 2 },     // along the east ring, then loop back
+};
+
 export class ArenaWorld {
 	constructor(canvas, { onAgentClick } = {}) {
 		this.canvas = canvas;
@@ -67,6 +80,8 @@ export class ArenaWorld {
 		this._raf = 0;
 		this._labels = new Set();  // ArenaAvatar with DOM labels to project
 		this._focus = null;        // { x, z, dist, until } cinematic agent focus
+		this._tour = null;         // active Coin World Tour goal { name, x, z, face, resolve, deadline }
+		this._tourLoc = 'lobby';   // last waypoint the guide reached
 
 		this._initRenderer();
 		this._initScene();
@@ -489,6 +504,10 @@ export class ArenaWorld {
 		if (this._keys.has('d') || this._keys.has('arrowright')) mx += 1;
 		mx += this._move.x; mz -= this._move.y;
 		const mag = Math.hypot(mx, mz);
+		// Coin World Tour autopilot: with no human at the controls, the guide walks
+		// the waypoint loop. Any real key/joystick input cancels it and takes over.
+		if (mag > 0.08 && this._tour) this.stopTour();
+		else if (this._tour && this._updateTour(dt)) return;
 		const moving = mag > 0.08;
 		if (moving && this._focus) this._focus = null; // walking breaks a focus lock
 		if (moving) {
@@ -523,6 +542,63 @@ export class ArenaWorld {
 	}
 	clearFocus() { this._focus = null; }
 
+	// ── Coin World Tour autopilot ─────────────────────────────────────────────
+	// The guide agent walks a deterministic waypoint loop. The Playwright caster
+	// drives this through window.__tour (src/play/arena.js); a human spectator at a
+	// keyboard never triggers it, and any manual input instantly yields control.
+
+	tourStops() { return Object.keys(TOUR_STOPS); }
+	tourLocation() { return this._tourLoc; }
+
+	// Walk the spectator avatar to a named waypoint. Resolves when it arrives (or a
+	// watchdog fires, so the caster never deadlocks on an unreachable stop). The
+	// real camera + avatar move — no faked motion.
+	tourGoTo(name) {
+		const stop = TOUR_STOPS[name];
+		if (!stop || !this.player) return Promise.resolve(false);
+		// Supersede any in-flight goal (resolve it so its awaiter unblocks).
+		if (this._tour?.resolve) this._tour.resolve(false);
+		return new Promise((resolve) => {
+			this._focus = null; // a moving guide can't hold a cinematic focus lock
+			this._tour = { name, x: stop.x, z: stop.z, face: stop.face ?? 0, resolve, deadline: performance.now() + 9000 };
+		});
+	}
+
+	stopTour() {
+		if (this._tour?.resolve) this._tour.resolve(false);
+		this._tour = null;
+		this.player?.setMoving(false);
+	}
+
+	// Drive the avatar one step toward the active tour goal. Returns true if it
+	// consumed this frame's movement (so manual control is skipped).
+	_updateTour(dt) {
+		const t = this._tour;
+		const p = this.player;
+		if (!t || !p) return false;
+		let dx = t.x - p.root.position.x;
+		let dz = t.z - p.root.position.z;
+		const dist = Math.hypot(dx, dz);
+		const arrived = dist < 0.25;
+		const timedOut = performance.now() > t.deadline;
+		if (arrived || timedOut) {
+			this._tourLoc = t.name;
+			p.root.rotation.y = dampAngle(p.root.rotation.y, t.face, 10 * dt);
+			p.setMoving(false);
+			this._tour = null;
+			t.resolve?.(true);
+			return true;
+		}
+		dx /= dist; dz /= dist;
+		const speed = 2.7 * dt;
+		p.root.position.x += dx * speed;
+		p.root.position.z += dz * speed;
+		p.root.rotation.y = dampAngle(p.root.rotation.y, Math.atan2(dx, dz), 9 * dt);
+		p.setMoving(true);
+		this._cam.bob = (this._cam.bob || 0) + dt * 8.5; // a gentle step-bob while walking
+		return true;
+	}
+
 	_updateCamera(dt) {
 		const c = this._cam;
 		c.yaw = dampAngle(c.yaw, c.targetYaw, 8 * dt);
@@ -539,7 +615,9 @@ export class ArenaWorld {
 		c.dist += (distTarget - c.dist) * Math.min(1, (focusing ? 4 : 8) * dt);
 		const cx = tx + Math.sin(c.yaw) * Math.cos(c.pitch) * c.dist;
 		const cz = tz + Math.cos(c.yaw) * Math.cos(c.pitch) * c.dist;
-		const cy = ty + Math.sin(c.pitch) * c.dist + 1.0;
+		// Subtle step-bob while the guide is mid-tour — reads like a real walk.
+		const bob = this._tour ? Math.sin(c.bob || 0) * 0.06 : 0;
+		const cy = ty + Math.sin(c.pitch) * c.dist + 1.0 + bob;
 		this.camera.position.lerp(_tmpVec.set(cx, cy, cz), Math.min(1, 6 * dt));
 		this.camera.lookAt(tx, ty, tz);
 	}

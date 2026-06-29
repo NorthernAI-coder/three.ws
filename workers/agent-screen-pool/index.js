@@ -28,6 +28,8 @@
 //   VIEWPORT_W=1280  VIEWPORT_H=720
 
 import { chromium } from 'playwright';
+import { pickTask } from './tasks/index.js';
+import { generateNarration, runTaskSteps } from './task-runner.js';
 
 const BASE_URL   = (process.env.BASE_URL || 'https://three.ws').replace(/\/$/, '');
 const WANTED_URL = process.env.WANTED_URL || `${BASE_URL}/api/agent/watch-wanted`;
@@ -42,7 +44,49 @@ const MAX_BROWSERS = Number(process.env.MAX_BROWSERS || 6);
 const POLL_MS      = Number(process.env.POLL_MS || 3000);
 const FRAME_MS     = Number(process.env.FRAME_MS || 700);
 const JPEG_QUALITY = Number(process.env.JPEG_QUALITY || 58);
+const LEAD_MS      = Number(process.env.LEAD_MS || 900);   // how long narration leads the action
+const DWELL_MS     = Number(process.env.DWELL_MS || 6000); // hold on the result between task runs
 const VIEWPORT     = { width: Number(process.env.VIEWPORT_W || 1280), height: Number(process.env.VIEWPORT_H || 720) };
+
+// Coin World Tour config. When a cast page exposes window.__tour, the worker walks
+// the guide through the waypoint loop, dwelling at each stop and narrating the live
+// /api/pump/trending feed. Trending is cached so a fleet of tours doesn't hammer it.
+const TOUR_DWELL_MS     = Number(process.env.TOUR_DWELL_MS || 6500);   // pause per waypoint
+const TOUR_READY_MS     = Number(process.env.TOUR_READY_MS || 30_000); // max wait for scene-ready
+const TRENDING_URL      = process.env.TRENDING_URL || `${BASE_URL}/api/pump/trending?limit=8`;
+const TRENDING_TTL_MS   = Number(process.env.TRENDING_TTL_MS || 20_000);
+let _trending = { at: 0, data: [] };
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Live trending feed, cached ~20s and shared across every concurrent tour. Returns
+// [] on any failure so commentary degrades to world-only narration, never throws.
+async function getTrending() {
+	if (Date.now() - _trending.at < TRENDING_TTL_MS) return _trending.data;
+	try {
+		const res = await fetch(TRENDING_URL, { headers: { accept: 'application/json' } });
+		if (!res.ok) { _trending = { at: Date.now(), data: [] }; return []; }
+		const body = await res.json();
+		const data = Array.isArray(body?.data) ? body.data : [];
+		_trending = { at: Date.now(), data };
+		return data;
+	} catch {
+		_trending = { at: Date.now(), data: [] };
+		return [];
+	}
+}
+
+// Push a text-only commentary line (type:'analysis') to the wall + watch panel.
+async function pushAnalysis(entry, line) {
+	if (!line) return;
+	try {
+		await fetch(PUSH_URL, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` },
+			body: JSON.stringify({ agentId: entry.agentId, frame: { activity: String(line).slice(0, 300), type: 'analysis' } }),
+		});
+	} catch { /* a dropped commentary line never breaks the tour */ }
+}
 
 if (!SECRET || SECRET.length < 16) {
 	console.error('[pool] SCREEN_WORKER_SECRET is required (>= 16 chars) and must match the API. Exiting.');
@@ -106,7 +150,10 @@ async function pushFrame(entry) {
 				method: 'POST', headers,
 				body: JSON.stringify({
 					agentId: entry.agentId,
-					frame: { data: `data:image/jpeg;base64,${b64}`, activity: `Live view · ${entry.name}`, type: 'screenshot' },
+					// On a Coin World Tour the frame is stamped with the current waypoint
+						// (entry.activityOverride, e.g. "Tour · Into the arena") so the wall +
+						// watch panel light up the TOUR badge; otherwise it's the live view.
+						frame: { data: `data:image/jpeg;base64,${b64}`, activity: entry.activityOverride || `Live view · ${entry.name}`, type: 'screenshot' },
 				}),
 			}),
 			fetch(PUSH_URL_DESK, {
@@ -134,7 +181,7 @@ async function startCasting(agent) {
 	await ensureBrowser();
 	const agentId = agent.agentId;
 	const page = await context.newPage();
-	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0, seq: 0 };
+	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0, seq: 0, controller: new AbortController() };
 	pool.set(agentId, entry);
 	const url = resolveUrl(agent.homeUrl, agentId);
 	try {
@@ -143,8 +190,222 @@ async function startCasting(agent) {
 		log('goto failed', agentId, err?.message || err);
 	}
 	await pushFrame(entry);
-	entry.timer = setInterval(() => pushFrame(entry), FRAME_MS);
-	log('casting', agentId, agent.name, '→', url, `(${pool.size}/${MAX_BROWSERS})`);
+
+	// If the page is a walkable world exposing window.__tour, run the guided world
+	// tour alongside the continuous frame capture (which streams the walkthrough).
+	const isTour = await page.evaluate(() => !!(window.__tour && typeof window.__tour.goTo === 'function')).catch(() => false);
+	if (isTour) {
+		entry.timer = setInterval(() => pushFrame(entry), FRAME_MS);
+		entry.tour = true;
+		log('casting (tour)', agentId, agent.name, '→', url, `(${pool.size}/${MAX_BROWSERS})`);
+		runTour(entry).catch((err) => log('tour error', agentId, err?.message || err));
+		return;
+	}
+
+	// Otherwise run a real, multi-step web task on this page (the "watch an agent
+	// do real web work" moment). The task loop is the sole frame writer here — no
+	// continuous timer — so its narration and screenshots stay in step.
+	log('casting (task)', agentId, agent.name, `(${pool.size}/${MAX_BROWSERS})`);
+	runCastTask(entry).catch((err) => log('cast task crashed', agentId, err?.message || err));
+}
+
+// Walk a guide agent through the world's waypoint loop, narrating live trending
+// data at each stop. Runs until the agent leaves the pool (nobody watching) or the
+// worker shuts down. Drives the real camera/avatar via window.__tour — no faking.
+async function runTour(entry) {
+	const { page, agentId } = entry;
+	// Wait for the scene to become walkable (bounded so a stuck load can't hang us).
+	const ready = await page.evaluate((ms) => Promise.race([
+		window.__tour.ready().then(() => true),
+		new Promise((r) => setTimeout(() => r(false), ms)),
+	]), TOUR_READY_MS).catch(() => false);
+	if (!ready) { log('tour not ready', agentId); return; }
+
+	const stops = await page.evaluate(() => window.__tour.waypoints()).catch(() => []);
+	if (!Array.isArray(stops) || !stops.length) { log('tour: no waypoints', agentId); return; }
+
+	let i = 0;
+	while (!stopping && pool.has(agentId) && !page.isClosed()) {
+		const name = stops[i % stops.length];
+		i++;
+		try {
+			await page.evaluate((n) => window.__tour.goTo(n), name);
+			const trending = await getTrending();
+			const c = await page.evaluate((t) => window.__tour.commentary(t), trending).catch(() => null);
+			if (c) {
+				entry.activityOverride = c.badge;      // stamps screenshot frames with the waypoint
+				await pushAnalysis(entry, c.line);     // narrates the stop in the activity log
+			}
+		} catch (err) {
+			if (page.isClosed()) break;
+			log('tour step', agentId, err?.message || err);
+		}
+		await sleep(TOUR_DWELL_MS);
+	}
+	entry.activityOverride = null;
+}
+
+// ── task-driven web-work mode ──────────────────────────────────────────────────
+//
+// For an agent whose home page is NOT a walkable world, the caster runs a real,
+// multi-step web task (see tasks/) instead of just screenshotting a static page:
+// it navigates to a real public site, fills a real form, submits, waits for real
+// results, and reads them back — narrating each action a beat before it happens
+// and landing a screenshot after. This is the "watch an agent do real web work"
+// moment. Single writer per page (this loop), so its pushes don't collide with the
+// continuous-frame timer used by the tour/static path.
+
+// Push one frame for the task path. A narration push carries activity text + a
+// fresh shot; a pixels-only push (empty activity) keeps the stream live during
+// typing/waits/dwell WITHOUT spamming the activity log (the API logs only frames
+// that carry activity).
+async function pushTaskFrame(entry, { activity = '', type = 'screenshot', shoot = true } = {}) {
+	if (!entry.page || entry.page.isClosed()) return;
+	let b64 = null;
+	if (shoot) {
+		try {
+			const buf = await entry.page.screenshot({ type: 'jpeg', quality: JPEG_QUALITY, fullPage: false });
+			b64 = buf.toString('base64');
+		} catch { /* page navigating — push the narration line without pixels */ }
+	}
+	const dataUrl = b64 ? `data:image/jpeg;base64,${b64}` : null;
+	const seq = ++entry.seq;
+	const headers = { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` };
+	const [wall] = await Promise.allSettled([
+		fetch(PUSH_URL, {
+			method: 'POST', headers,
+			body: JSON.stringify({ agentId: entry.agentId, frame: { data: dataUrl, activity, type } }),
+		}),
+		b64
+			? fetch(PUSH_URL_DESK, { method: 'POST', headers, body: JSON.stringify({ agentId: entry.agentId, frame: b64, seq }) })
+			: Promise.resolve(),
+	]);
+	const wallBad = wall.status === 'fulfilled' && !wall.value.ok;
+	if (wallBad && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+		entry.lastErrorAt = Date.now();
+		log('task push failed', entry.agentId, wall.value.status, (await wall.value.text().catch(() => '')).slice(0, 120));
+	}
+}
+
+// Keep pixels flowing through the slow parts of a task (typing, waiting, dwell),
+// all as empty-activity frames so the log stays clean.
+async function typeWithFrames(entry, selector, value) {
+	const field = entry.page.locator(selector).first();
+	await field.click({ timeout: 8_000 }).catch(() => {});
+	await field.fill('').catch(() => {});
+	let typed = 0;
+	for (const ch of value) {
+		if (entry.controller.signal.aborted) return;
+		await field.pressSequentially(ch, { delay: 45 }).catch(() => {});
+		typed++;
+		if (typed % 2 === 0 || typed === value.length) await pushTaskFrame(entry, {});
+	}
+}
+
+async function waitWithFrames(entry, selector, { timeout = 15_000, fallbackUrl = null } = {}) {
+	const page = entry.page;
+	const deadline = Date.now() + timeout;
+	while (Date.now() < deadline) {
+		if (entry.controller.signal.aborted) return false;
+		const visible = await page.locator(selector).first().isVisible().catch(() => false);
+		await pushTaskFrame(entry, {});
+		if (visible) return true;
+		await sleep(FRAME_MS);
+	}
+	if (fallbackUrl && !entry.controller.signal.aborted) {
+		await page.goto(fallbackUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 }).catch(() => {});
+		await pushTaskFrame(entry, {});
+		return await page.locator(selector).first().isVisible().catch(() => false);
+	}
+	return false;
+}
+
+async function dwellTask(entry, ms) {
+	const deadline = Date.now() + ms;
+	while (Date.now() < deadline) {
+		if (entry.controller.signal.aborted) return;
+		await pushTaskFrame(entry, {});
+		await sleep(FRAME_MS);
+	}
+}
+
+async function readText(entry, step) {
+	const loc = entry.page.locator(step.selector);
+	if (step.multi) {
+		const texts = (await loc.allInnerTexts().catch(() => []))
+			.map((t) => t.replace(/\s+/g, ' ').trim())
+			.filter(Boolean);
+		return texts.slice(0, step.limit || 5).join('  ·  ');
+	}
+	const t = await loc.first().innerText({ timeout: 8_000 }).catch(() => '');
+	return t.replace(/\s+/g, ' ').trim();
+}
+
+// The executor the sequencer (task-runner.js) drives: narrate → perform → shot.
+// narrate() pushes the line + a shot, then lets it lead by LEAD_MS (no further
+// pushes, so the narration frame is reliably delivered before the result lands —
+// the "one beat ahead" feel that makes it look like thinking).
+function makeExecutor(entry) {
+	return {
+		async narrate(line) {
+			await pushTaskFrame(entry, { activity: line, type: 'analysis' });
+			const deadline = Date.now() + LEAD_MS;
+			while (Date.now() < deadline && !entry.controller.signal.aborted) await sleep(Math.min(LEAD_MS, 150));
+		},
+		async perform(step) {
+			const page = entry.page;
+			switch (step.kind) {
+				case 'goto': await page.goto(step.url, { waitUntil: 'domcontentloaded', timeout: 30_000 }); return null;
+				case 'type': await typeWithFrames(entry, step.selector, step.value); return null;
+				case 'submit': await page.locator(step.selector).first().press(step.key || 'Enter'); return null;
+				case 'waitResult': await waitWithFrames(entry, step.selector, { timeout: 15_000, fallbackUrl: step.fallbackUrl }); return null;
+				case 'read': return await readText(entry, step);
+				default: return null;
+			}
+		},
+		async shot(step, result) {
+			if (step.kind === 'read' && result) {
+				await pushTaskFrame(entry, { activity: `Found: ${String(result).slice(0, 200)}`, type: 'analysis' });
+			} else {
+				await pushTaskFrame(entry, {}); // pixels only — land the result, no log spam
+			}
+		},
+		async fail(step, err) {
+			await pushTaskFrame(entry, {
+				activity: `${step.narration} — hit a snag (${(err?.message || 'error').slice(0, 60)}), recovering`,
+				type: 'activity',
+			});
+		},
+		async done(task) {
+			await pushTaskFrame(entry, { activity: `Done — researched ${task.topic}`, type: 'analysis' });
+		},
+	};
+}
+
+// One agent's full lifetime as a task cast: pick its task, fetch its narration plan
+// (cached per task), then run the task on a loop — dwelling on the result between
+// runs — until the controller aborts (nobody watching) or the page dies.
+async function runCastTask(entry) {
+	const task = pickTask(entry.agentId);
+	entry.task = task;
+	let narration = null;
+	try { narration = await generateNarration(task, { baseUrl: BASE_URL }); }
+	catch { /* fall back to the task's own declarative narration */ }
+
+	const executor = makeExecutor(entry);
+	while (!entry.controller.signal.aborted && entry.page && !entry.page.isClosed()) {
+		try {
+			const { aborted } = await runTaskSteps({ task, narration, executor, signal: entry.controller.signal });
+			if (aborted) break;
+		} catch (err) {
+			if (Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+				entry.lastErrorAt = Date.now();
+				log('cast task error', entry.agentId, err?.message || err);
+			}
+			await sleep(2_000);
+		}
+		await dwellTask(entry, DWELL_MS);
+	}
 }
 
 async function stopCasting(agentId) {
@@ -152,6 +413,7 @@ async function stopCasting(agentId) {
 	if (!entry) return;
 	pool.delete(agentId);
 	if (entry.timer) clearInterval(entry.timer);
+	entry.controller?.abort(); // stop a task-driven cast loop promptly
 	try { await entry.page?.close(); } catch { /* */ }
 	log('stopped', agentId, `(${pool.size}/${MAX_BROWSERS})`);
 }

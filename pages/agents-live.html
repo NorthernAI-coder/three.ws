@@ -300,6 +300,66 @@
 			background: rgba(255,255,255,0.25);
 			animation: none;
 		}
+		/* Stuttering caster: live, but its own feed dropped below ~1fps for >3s.
+		   Amber + slow pulse reads as "live but degraded", distinct from dark. */
+		.al-card-live-dot.thin {
+			background: #f5a623;
+			animation: al-pulse 2.6s ease-in-out infinite;
+		}
+
+		/* ── warming / queued handoff overlay ─────────────────────────────
+		   Sits above the canvas, below the live badge. Pure ambiance — never
+		   blocks the card link (pointer-events:none) and never claims real
+		   progress; the pulse is a CSS ring, not a loading bar. */
+		.al-card-warming {
+			position: absolute;
+			inset: 0;
+			z-index: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			padding: 16px;
+			text-align: center;
+			background: radial-gradient(ellipse at center, rgba(8,8,12,0.55), rgba(6,6,8,0.78));
+			backdrop-filter: blur(2px);
+			-webkit-backdrop-filter: blur(2px);
+			pointer-events: none;
+			opacity: 0;
+			transform: translateY(4px);
+			transition: opacity 0.28s ease, transform 0.28s ease;
+		}
+		.al-card-warming.is-visible {
+			opacity: 1;
+			transform: none;
+		}
+		.al-warming-pulse {
+			width: 22px;
+			height: 22px;
+			border-radius: 50%;
+			border: 2px solid rgba(255,255,255,0.85);
+			will-change: transform, opacity;
+			animation: al-warming-ring 1.5s ease-out infinite;
+		}
+		@keyframes al-warming-ring {
+			0%   { transform: scale(0.5); opacity: 0.9; }
+			70%  { transform: scale(1.25); opacity: 0; }
+			100% { transform: scale(1.25); opacity: 0; }
+		}
+		.al-warming-text {
+			font-size: 11px;
+			font-weight: 700;
+			letter-spacing: 0.02em;
+			color: rgba(255,255,255,0.82);
+			max-width: 80%;
+			line-height: 1.4;
+		}
+		/* Reduced motion: no expanding ring, just a steady dot + the honest text. */
+		@media (prefers-reduced-motion: reduce) {
+			.al-card-warming { transition: opacity 0.28s ease; transform: none; }
+			.al-warming-pulse { animation: none; opacity: 1; transform: none; }
+		}
 		.al-card-expand {
 			position: absolute;
 			bottom: 10px;
@@ -353,6 +413,24 @@
 			text-overflow: ellipsis;
 			margin-top: 2px;
 		}
+		/* live realized-PnL chip — a row of these reads as a wall of trading desks */
+		.al-card-pnl {
+			display: inline-flex;
+			align-items: center;
+			gap: 3px;
+			margin-top: 3px;
+			padding: 1px 7px;
+			border-radius: 999px;
+			font-size: 11px;
+			font-weight: 800;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: -0.01em;
+			border: 1px solid transparent;
+		}
+		.al-card-pnl[hidden] { display: none; }
+		.al-card-pnl.pos { color: #6ee7a0; background: rgba(74,222,128,0.1); border-color: rgba(74,222,128,0.3); }
+		.al-card-pnl.neg { color: #f9a8a8; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); }
+		.al-card-pnl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 		.al-card-watch-btn {
 			flex-shrink: 0;
 			padding: 5px 12px;

@@ -7,6 +7,7 @@
 // pinned over each agent's head. All data is real — no placeholders.
 
 import { ArenaWorld } from './arena-world.js';
+import { tourCommentary } from '../tour-commentary.js';
 import { createLogger } from '../shared/log.js';
 import { fetchReputationBatch } from '../shared/agent-reputation.js';
 import { fetchUnlocks } from '../shared/wallet-access.js';
@@ -43,6 +44,10 @@ const shortWallet = (a) => { const s = String(a || ''); return s.length > 10 ? `
 
 let world = null;
 let labelLayer = null;
+// Resolves once the scene + spectator avatar are live, so the tour caster knows
+// the world is walkable before it issues the first goTo().
+let _tourReadyResolve;
+const tourReady = new Promise((res) => { _tourReadyResolve = res; });
 const labelEls = new Map(); // agentId -> { el, pos }
 const rowsById = new Map(); // world id -> normalized row (for click routing)
 
@@ -120,6 +125,24 @@ function ingest(data) {
 	world = new ArenaWorld(canvas, { onAgentClick: focusAgent });
 	window.__arenaWorld = world; // debug/support hook
 
+	// Coin World Tour hook. The on-demand Playwright caster (workers/agent-screen-pool)
+	// detects this API, waits for ready(), then walks the guide agent through the
+	// waypoint loop — driving the REAL camera/avatar — while narrating the live
+	// launch feed. tour-commentary.js owns the pure trending→line mapping; the
+	// caster passes the feed in and renders the result. No faked motion, no mocks.
+	window.__tour = {
+		ready: () => tourReady,
+		waypoints: () => world?.tourStops?.() || [],
+		location: () => world?.tourLocation?.() || null,
+		goTo: (name) => world?.tourGoTo?.(name) ?? Promise.resolve(false),
+		// Commentary for the stop the guide most recently reached, given a live
+		// /api/pump/trending feed the caster fetched. Returns { line, badge, items, … }.
+		commentary: (trending) => tourCommentary(
+			world?.tourLocation?.() || 'lobby',
+			Array.isArray(trending) ? trending : [],
+		),
+	};
+
 	// Spin up the render loop immediately so the floor + lights are alive while
 	// avatars stream in (perceived performance).
 	setLoading('Building the arena…');
@@ -142,6 +165,9 @@ function ingest(data) {
 	await loadAndPlace();
 	connectStream();
 	setLoading(null);
+
+	// World is walkable — release the tour caster.
+	_tourReadyResolve?.();
 
 	// Periodic board refresh (realized P&L only changes on a close; SSE also nudges this).
 	setInterval(loadBoardOnly, 30_000);

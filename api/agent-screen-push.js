@@ -25,6 +25,7 @@ import { getSessionUser, authenticateBearer, extractBearer } from './_lib/auth.j
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { getRedis } from './_lib/redis.js';
 import { sql } from './_lib/db.js';
+import { sanitizeFrameMeta } from '../src/shared/forge-frames.js';
 
 // First-party on-demand caster pool (workers/agent-screen-pool) authenticates
 // with a single shared secret and may push frames for ANY agent — it casts
@@ -50,6 +51,22 @@ const ACTIVITY_MAX = 320; // chars
 const RASTER_DATA_URL = /^data:image\/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
 export function isRasterDataUrl(s) {
 	return typeof s === 'string' && RASTER_DATA_URL.test(s);
+}
+
+// Whitelist + coerce a trade PnL ride-along payload. Keeps only known fields,
+// drops non-finite numbers, and bounds the strings so an agent can't smuggle
+// arbitrary data through the frame's `pnl` slot. Returns null when unusable.
+const PNL_PHASES = ['scored', 'buy', 'hold', 'exit'];
+export function sanitizePnl(pnl) {
+	if (!pnl || typeof pnl !== 'object' || !PNL_PHASES.includes(pnl.phase)) return null;
+	const out = { phase: pnl.phase };
+	if (typeof pnl.mint === 'string') out.mint = pnl.mint.slice(0, 64);
+	if (typeof pnl.symbol === 'string') out.symbol = pnl.symbol.slice(0, 32);
+	for (const k of ['solDelta', 'pct', 'realizedUsd', 'unrealizedUsd']) {
+		const n = Number(pnl[k]);
+		if (Number.isFinite(n)) out[k] = n;
+	}
+	return out;
 }
 
 export default async function handleAgentScreenPush(req, res) {
@@ -101,6 +118,16 @@ export default async function handleAgentScreenPush(req, res) {
 		? frame.type : 'activity';
 	const sliced = typeof frame.data === 'string' ? frame.data.slice(0, DATA_MAX) : null;
 	const data = sliced && isRasterDataUrl(sliced) ? sliced : null;
+	// Optional structured PnL ride-along on 'trade' frames (Live Trading Desk).
+	// Drives the viewer's PnL ticker + avatar emote; sanitized so a malformed
+	// push can't poison the stream. Persisted on the frame AND the log entry so
+	// the ticker survives a reconnect's backfill.
+	const pnl = sanitizePnl(frame.pnl);
+	// Optional forge sidecar on the final 'analysis' frame of a Live Avatar Forge
+	// run: carries the durable GLB url + viewer link so every connected viewer can
+	// load and animate the freshly-forged avatar. Sanitized + http(s)-gated so a
+	// push can't smuggle a junk or javascript: url to the viewer's loader.
+	const meta = sanitizeFrameMeta(frame.meta);
 
 	// Ownership: the pool worker may cast any existing agent; owners are limited
 	// to their own agents.
@@ -117,10 +144,10 @@ export default async function handleAgentScreenPush(req, res) {
 	const logKey = `agent:screen:${agentId}:log`;
 
 	// Full frame record (includes image data when present)
-	const frameRecord = JSON.stringify({ ts: now, data, activity, type, agentId });
+	const frameRecord = JSON.stringify({ ts: now, data, activity, type, agentId, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}) });
 
 	// Log entry (no image — the activity log only needs text + metadata)
-	const logEntry = JSON.stringify({ ts: now, activity, type });
+	const logEntry = JSON.stringify({ ts: now, activity, type, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}) });
 
 	await Promise.all([
 		r.set(frameKey, frameRecord, { ex: FRAME_TTL }),
