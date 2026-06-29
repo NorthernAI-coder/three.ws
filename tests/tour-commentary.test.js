@@ -13,7 +13,7 @@ import {
 	TOUR_PREFIX,
 	TOUR_WAYPOINTS,
 	waypointByName,
-	normalizeTrending,
+	normalizeLaunches,
 	tourCommentary,
 } from '../src/tour-commentary.js';
 
@@ -24,34 +24,34 @@ const FEED = [
 	{ symbol: 'DELTA', rank: 4, mint: 'DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD' },
 ];
 
-describe('normalizeTrending', () => {
+describe('normalizeLaunches', () => {
 	it('takes the top-N, defaults to 3', () => {
-		const items = normalizeTrending(FEED);
+		const items = normalizeLaunches(FEED);
 		expect(items).toHaveLength(3);
 		expect(items.map((i) => i.symbol)).toEqual(['$ALPHA', '$BETA', '$GAMMA']);
 		expect(items.map((i) => i.rank)).toEqual([1, 2, 3]);
 	});
 
 	it('respects an explicit limit', () => {
-		expect(normalizeTrending(FEED, { limit: 1 })).toHaveLength(1);
-		expect(normalizeTrending(FEED, { limit: 10 })).toHaveLength(4);
+		expect(normalizeLaunches(FEED, { limit: 1 })).toHaveLength(1);
+		expect(normalizeLaunches(FEED, { limit: 10 })).toHaveLength(4);
 	});
 
 	it('normalizes symbols to a single leading $ and never carries a mint', () => {
-		const [a, b] = normalizeTrending(FEED, { limit: 2 });
+		const [a, b] = normalizeLaunches(FEED, { limit: 2 });
 		expect(a.symbol).toBe('$ALPHA'); // bare symbol gains a $
 		expect(b.symbol).toBe('$BETA');  // pre-$'d symbol is not doubled
 		expect(a).not.toHaveProperty('mint');
 	});
 
 	it('truncates a pathologically long symbol', () => {
-		const [it0] = normalizeTrending([{ symbol: 'SUPERCALIFRAGILISTIC', rank: 1 }]);
+		const [it0] = normalizeLaunches([{ symbol: 'SUPERCALIFRAGILISTIC', rank: 1 }]);
 		expect(it0.symbol.length).toBeLessThanOrEqual(13); // $ + 12 chars incl. ellipsis
 		expect(it0.symbol.endsWith('…')).toBe(true);
 	});
 
 	it('falls back to feed position when rank is missing/invalid', () => {
-		const items = normalizeTrending([
+		const items = normalizeLaunches([
 			{ symbol: 'NORANK' },
 			{ symbol: 'BADRANK', rank: -5 },
 		]);
@@ -59,9 +59,9 @@ describe('normalizeTrending', () => {
 	});
 
 	it('drops empty/junk entries and tolerates non-arrays', () => {
-		expect(normalizeTrending([{ symbol: '' }, { symbol: '$' }, {}])).toEqual([]);
-		expect(normalizeTrending(null)).toEqual([]);
-		expect(normalizeTrending(undefined)).toEqual([]);
+		expect(normalizeLaunches([{ symbol: '' }, { symbol: '$' }, {}])).toEqual([]);
+		expect(normalizeLaunches(null)).toEqual([]);
+		expect(normalizeLaunches(undefined)).toEqual([]);
 	});
 });
 

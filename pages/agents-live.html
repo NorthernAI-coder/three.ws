@@ -413,6 +413,11 @@
 			text-overflow: ellipsis;
 			margin-top: 2px;
 		}
+		/* anchor bulletin headline — reads as a live news ticker on the card */
+		.al-card-action.al-on-air {
+			color: #eaf1ff;
+			font-weight: 700;
+		}
 		/* live realized-PnL chip — a row of these reads as a wall of trading desks */
 		.al-card-pnl {
 			display: inline-flex;
@@ -538,6 +543,104 @@
 		}
 		.al-footer a { color: rgba(255,255,255,0.35); text-decoration: none; }
 		.al-footer a:hover { color: rgba(255,255,255,0.6); }
+
+		/* ── platform-wide ticker ─────────────────────────────────────── */
+		.al-ticker {
+			position: sticky;
+			top: 56px;
+			z-index: 30;
+			display: flex;
+			align-items: stretch;
+			height: 34px;
+			background: rgba(8,8,10,0.92);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
+			border-bottom: 1px solid var(--al-border);
+			overflow: hidden;
+		}
+		.al-ticker-label {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			flex: none;
+			padding: 0 14px;
+			font-size: 10px;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--al-muted);
+			background: linear-gradient(90deg, rgba(8,8,10,0.95) 70%, transparent);
+			border-right: 1px solid var(--al-border);
+			z-index: 2;
+		}
+		.al-ticker-label-dot {
+			width: 6px; height: 6px;
+			border-radius: 50%;
+			background: var(--al-green);
+			animation: al-pulse 1.8s ease-in-out infinite;
+		}
+		.al-ticker-status { color: var(--al-faint); font-weight: 700; text-transform: none; letter-spacing: 0; }
+		.al-ticker-viewport {
+			position: relative;
+			flex: 1;
+			overflow: hidden;
+			display: flex;
+			align-items: center;
+		}
+		.al-ticker-viewport::after {
+			content: '';
+			position: absolute;
+			inset: 0 0 0 auto;
+			width: 48px;
+			background: linear-gradient(90deg, transparent, var(--al-bg));
+			pointer-events: none;
+		}
+		.al-ticker-track {
+			display: flex;
+			align-items: center;
+			gap: 0;
+			white-space: nowrap;
+			will-change: transform;
+		}
+		.al-ticker-track.is-scrolling {
+			animation: al-ticker-scroll 40s linear infinite;
+		}
+		.al-ticker-track.is-paused { animation-play-state: paused; }
+		@keyframes al-ticker-scroll {
+			from { transform: translateX(0); }
+			to   { transform: translateX(-50%); }
+		}
+		.al-ticker-item {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			padding: 0 16px;
+			height: 34px;
+			font-size: 12px;
+			color: var(--al-muted);
+			text-decoration: none;
+			border-right: 1px solid var(--al-border);
+			transition: background 0.12s, color 0.12s;
+		}
+		a.al-ticker-item:hover, a.al-ticker-item:focus-visible {
+			background: rgba(255,255,255,0.05);
+			color: var(--al-text);
+			outline: none;
+		}
+		a.al-ticker-item:focus-visible { box-shadow: inset 0 -2px 0 var(--al-text); }
+		.al-ticker-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+		.al-ticker-title { font-weight: 700; color: var(--al-text); }
+		.al-ticker-sub { color: var(--al-muted); font-variant-numeric: tabular-nums; }
+		.al-ticker-quiet { color: var(--al-faint); font-weight: 600; border-right: none; }
+		.al-ticker.is-loading .al-ticker-track { opacity: 0.5; }
+		@media (prefers-reduced-motion: reduce) {
+			.al-ticker-track.is-scrolling { animation: none; }
+			.al-ticker-viewport { overflow-x: auto; scrollbar-width: none; }
+			.al-ticker-viewport::-webkit-scrollbar { display: none; }
+		}
+		@media (max-width: 600px) {
+			.al-ticker-sub { display: none; }
+		}
 	</style>
 </head>
 <body>
@@ -557,6 +660,20 @@
 			<a href="/dashboard" class="al-nav-cta">Dashboard</a>
 		</div>
 	</nav>
+
+	<!-- Platform-wide ticker — tails the real site feed (src/agents-live.js). -->
+	<div class="al-ticker" id="al-ticker" aria-label="Platform activity ticker">
+		<div class="al-ticker-label">
+			<span class="al-ticker-label-dot"></span>
+			Live
+			<span class="al-ticker-status" data-ticker-status></span>
+		</div>
+		<div class="al-ticker-viewport">
+			<div class="al-ticker-track">
+				<span class="al-ticker-item al-ticker-quiet">Connecting to the platform feed…</span>
+			</div>
+		</div>
+	</div>
 
 	<main class="al-main">
 		<div class="al-hero">

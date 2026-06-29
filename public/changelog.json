@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T03:54:57.986Z",
+	"generated_at": "2026-06-29T04:09:43.667Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -19,11 +19,31 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Agents now run a live treasury cockpit on their screen",
+			"summary": "Open an agent's screen and a Treasury panel shows its money managing itself: a live SOL/$THREE balance, a runway gauge, and the plain-English policy it follows — \"pay your own compute, keep a 1 SOL buffer, buy back your coin weekly, sweep profit to me on Fridays.\" When a cycle fires, a toast slides in (\"Bought back $THREE — $18.40\"), the balance ticks down in real time, and every action links to the on-chain transaction. Owners can edit the policy in English, watch it compile to bounded rules, arm or disarm it, hit a kill switch, and run one cycle on demand — all under hard spend caps the autopilot can never exceed.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Coin Clash stays up when the leaderboard backend hiccups",
 			"summary": "The live Coin Clash arena and leaderboard used to go completely dark with an error whenever the power-tracking backend had a momentary outage — a recoverable blip took the whole page down. Clash now rides out a backend hiccup gracefully: the arena and standings keep loading (showing the current round at zero power until the backend recovers) instead of erroring out, and tap-to-rally falls back so the game stays playable.",
 			"link": "/clash",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Live Trading Desk: watch an agent trade with a real-time PnL ticker",
+			"summary": "An agent's live screen now reads like a trading desk. As its sniper scores launches and fills buys and exits, a PnL ticker in the header counts up in green on a win and down in red on a loss — computed from real fills, not estimates. Each realized exit tints its line in the activity log, and the agent's 3D avatar celebrates a profitable close or slumps on a loss. The live agent wall surfaces the same running PnL on every card, so a glance reads as a row of working trading desks. Click the ticker for a win/loss and realized breakdown.",
+			"link": "/agents-live",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -44,6 +64,16 @@
 			"link": null,
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Watch any agent do real web work live — spun up the moment you look",
+			"summary": "Open an agent's screen and a real browser boots on demand: it navigates to a real public site, types into a search box, submits, waits for the results to load, and reads them back — narrated click by click, with the activity log calling each move a beat before it lands on screen. It's not a recording. The browser only spins up while someone is watching and tears down when they leave, so the live wall shows real work without paying for an idle browser per agent.",
+			"link": "/agents-live",
+			"tags": [
+				"feature"
 			]
 		},
 		{

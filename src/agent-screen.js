@@ -26,20 +26,37 @@ import {
 	AmbientLight,
 	DirectionalLight,
 	Box3,
+	Quaternion,
 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from './animation-manager.js';
+import { makeGltfRig, poseFromMannequinPreset } from './pose-rig.js';
+import { matchPose, presetPoseById, POSE_QUICK_PICKS } from './pose-match.js';
+import { StageShow } from './agent-screen-stage.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
+import { handleTourFrame } from './agent-screen-tour.js';
 import { buildRunCommand, buildRunCommandHtml, RUNTIME_LABELS } from './agent-screen-runcmd.js';
 import { createTreasuryCockpit } from './agent-screen-treasury.js';
 import { MirrorPanel } from './agent-screen-mirror.js';
+import { createHireVisualizer } from './agent-screen-hire.js';
 import {
 	parsePnlDelta, accumulatePnl, emptyPnlState, unrealizedTotalUsd, emoteForExit, formatSol, formatUsd,
 } from './shared/trade-pnl.js';
+import {
+	parseLaunchCommand, validateLaunchParams, narrate as narrateLaunch,
+	renderLaunchHud, truncMid,
+} from './launch-director.js';
 import { agentAvatarGlb } from './shared/agent-3d.js';
 import { getMeshoptDecoder } from './viewer/internal.js';
 import { ScreenshotModal } from './components/screenshot-modal.js';
+import { SentimentHeatmap3D } from './sentiment-heatmap-3d.js';
+import { createHeatmapPoller, buildNarrationContext } from './sentiment-heatmap-data.js';
+import { createPnlHud } from './agent-screen-pnl-hud.js';
+import { createAmbientWorld, phaseLabel } from './agent-screen-world.js';
+import { createDjScript } from './agent-screen-dj.js';
+import { LipSyncAnalyser } from './lip-sync-analyser.js';
+import { createVisemeDriver } from './runtime/lipsync.js';
 
 // One meshopt-aware loader, built once. Optimized agent avatars ship with
 // EXT_meshopt_compression, so the decoder must be wired before the loader can
@@ -100,8 +117,8 @@ if (!agentId) {
 //   3. Copy the exact run command
 
 async function renderSetup() {
-	document.title = 'Launch Worker · Agent Screen · three.ws';
-	agentNameEl.textContent = 'Worker Setup';
+	document.title = 'Deploy to the wall · Agent Screen · three.ws';
+	agentNameEl.textContent = 'Deploy to wall';
 	liveBadgeEl.style.display = 'none';
 	controlsEl.style.display = 'none';
 
@@ -109,9 +126,20 @@ async function renderSetup() {
 	container.className = 'ws-setup';
 	container.style.display = 'flex';
 
-	let selectedAgent = null; // { id, name }
-	let apiKey = null;        // 'sk_live_...'
-	let activeTab = 'local';
+	// ── wizard state (persists across re-renders for the session) ────────────
+	let selectedAgent = null;   // { id, name }
+	let apiKey = null;          // 'sk_live_...' — the real minted key, shown once
+	let activeTab = 'local';    // 'local' | 'docker' | 'bb'
+	let agentSearch = '';       // step-1 filter (overflow: 100s of agents)
+	let keyError = '';          // inline error from the mint call
+
+	// ── go-live detector state ───────────────────────────────────────────────
+	// liveState drives step 4. The SSE first-frame is ground truth for "live";
+	// the public directory check is a secondary signal that surfaces the most
+	// common silent failure (agent is private → never shows on the wall).
+	let liveState = 'idle';     // 'idle' | 'watching' | 'live'
+	let privateWarning = false; // agent not found in the public directory
+	const detector = { client: null, pollTimer: null, started: false };
 
 	// ── Check auth ─────────────────────────────────────────────────────────
 	let agents = [];
@@ -127,54 +155,15 @@ async function renderSetup() {
 		}
 	} catch { /* network error — treat as signed-out */ }
 
-	function buildCommand() {
-		const id = selectedAgent?.id || '<AGENT_ID>';
-		const key = apiKey || '<AGENT_JWT>';
-		const url = location.origin;
-		if (activeTab === 'local') {
-			return [
-				`<span class="cmd-comment"># workers/agent-screen-worker/</span>`,
-				`<span class="cmd-key">AGENT_ID</span>=<span class="cmd-val">${esc(id)}</span> \\`,
-				`<span class="cmd-key">AGENT_JWT</span>=<span class="cmd-val">${esc(key)}</span> \\`,
-				`<span class="cmd-key">PUSH_URL</span>=<span class="cmd-val">${esc(url)}/api/agent-screen-push</span> \\`,
-				`<span class="cmd-run">npm start</span>`,
-			].join('\n');
-		}
-		if (activeTab === 'docker') {
-			return [
-				`<span class="cmd-comment"># from workers/agent-screen-worker/</span>`,
-				`<span class="cmd-run">docker build</span> -t agent-screen-worker . && \\`,
-				`<span class="cmd-run">docker run</span> \\`,
-				`  -e <span class="cmd-key">AGENT_ID</span>=<span class="cmd-val">${esc(id)}</span> \\`,
-				`  -e <span class="cmd-key">AGENT_JWT</span>=<span class="cmd-val">${esc(key)}</span> \\`,
-				`  -e <span class="cmd-key">PUSH_URL</span>=<span class="cmd-val">${esc(url)}/api/agent-screen-push</span> \\`,
-				`  agent-screen-worker`,
-			].join('\n');
-		}
-		// browserbase
-		return [
-			`<span class="cmd-comment"># workers/agent-screen-worker/ — no Docker needed</span>`,
-			`<span class="cmd-key">AGENT_ID</span>=<span class="cmd-val">${esc(id)}</span> \\`,
-			`<span class="cmd-key">AGENT_JWT</span>=<span class="cmd-val">${esc(key)}</span> \\`,
-			`<span class="cmd-key">PUSH_URL</span>=<span class="cmd-val">${esc(url)}/api/agent-screen-push</span> \\`,
-			`<span class="cmd-key">BROWSERBASE_API_KEY</span>=<span class="cmd-val">&lt;your-bb-key&gt;</span> \\`,
-			`<span class="cmd-key">BROWSERBASE_PROJECT_ID</span>=<span class="cmd-val">&lt;your-bb-project&gt;</span> \\`,
-			`<span class="cmd-run">npm start</span>`,
-		].join('\n');
-	}
-
-	function buildRawCommand() {
-		const id = selectedAgent?.id || '';
-		const key = apiKey || '';
-		const url = location.origin;
-		if (activeTab === 'local') {
-			return `AGENT_ID=${id} AGENT_JWT=${key} PUSH_URL=${url}/api/agent-screen-push npm start`;
-		}
-		if (activeTab === 'docker') {
-			return `docker build -t agent-screen-worker . && docker run -e AGENT_ID=${id} -e AGENT_JWT=${key} -e PUSH_URL=${url}/api/agent-screen-push agent-screen-worker`;
-		}
-		return `AGENT_ID=${id} AGENT_JWT=${key} PUSH_URL=${url}/api/agent-screen-push BROWSERBASE_API_KEY=<key> BROWSERBASE_PROJECT_ID=<id> npm start`;
-	}
+	// Command builders pull from the shared, unit-tested module so the copied
+	// command and the highlighted display can never drift. Placeholders are only
+	// shown before an agent/key exist; once both are real, so is the command.
+	const cmdOpts = () => ({
+		runtime: activeTab,
+		agentId: selectedAgent?.id || '<AGENT_ID>',
+		agentJwt: apiKey || '<AGENT_JWT>',
+		origin: location.origin,
+	});
 
 	function agentCardHTML(a) {
 		const initials = (a.name || '?').slice(0, 2).toUpperCase();
@@ -192,16 +181,94 @@ async function renderSetup() {
 		</button>`;
 	}
 
+	function filteredAgents() {
+		const q = agentSearch.trim().toLowerCase();
+		if (!q) return agents;
+		return agents.filter((a) =>
+			(a.name || '').toLowerCase().includes(q) || (a.id || '').toLowerCase().includes(q));
+	}
+
+	function agentGridHTML() {
+		const list = filteredAgents();
+		if (agents.length === 0) {
+			return `<div class="ws-agent-empty">
+				${isSignedIn
+					? `No agents yet. <a href="/agents/new">Create one →</a>`
+					: `<a href="/login">Sign in</a> to see your agents.`}
+			</div>`;
+		}
+		if (list.length === 0) {
+			return `<div class="ws-agent-empty">No agents match “${esc(agentSearch)}”.</div>`;
+		}
+		return list.map(agentCardHTML).join('');
+	}
+
+	function progressHTML() {
+		const currentStep = liveState === 'live' ? 4 : apiKey ? 3 : selectedAgent ? 2 : 1;
+		const labels = ['Pick agent', 'Generate key', 'Run command', 'Go live'];
+		return labels.map((label, i) => {
+			const n = i + 1;
+			const done = n < currentStep || (n === 4 && liveState === 'live');
+			const active = n === currentStep && !done;
+			return `<div class="ws-prog-node${done ? ' done' : active ? ' active' : ''}">
+				<span class="ws-prog-dot">${done ? '✓' : n}</span>
+				<span class="ws-prog-label">${label}</span>
+			</div>`;
+		}).join('<span class="ws-prog-line"></span>');
+	}
+
+	function goLiveHTML() {
+		const watchLink = selectedAgent ? `/agent-screen?agentId=${encodeURIComponent(selectedAgent.id)}` : '#';
+		const privateNote = privateWarning ? `
+			<div class="ws-golive-note">
+				This agent isn't in the public directory yet. Make it public so viewers can find it on the wall —
+				<a href="${selectedAgent ? `/agents/${encodeURIComponent(selectedAgent.id)}` : '/agents'}">agent settings →</a>
+			</div>` : '';
+
+		if (liveState === 'live') {
+			return `
+				<div class="ws-golive live">
+					<span class="ws-golive-check">✓</span>
+					<div>
+						<strong>You're live on the wall</strong>
+						<span>${esc(selectedAgent?.name || 'Your agent')} is broadcasting — it's now on the public live wall.</span>
+					</div>
+				</div>
+				<div class="ws-golive-actions">
+					<a class="ws-watch-link" href="/agents-live">See it on the wall →</a>
+					<a class="ws-btn ws-btn-ghost ws-golive-open" href="${watchLink}">Open your screen</a>
+				</div>`;
+		}
+		if (liveState === 'watching') {
+			return `
+				<div class="ws-golive watching">
+					<span class="ws-golive-pulse"></span>
+					<div>
+						<strong>Watching for your agent's first frame…</strong>
+						<span>Run the command above. The moment your caster pushes a frame, this flips to live.</span>
+					</div>
+				</div>
+				${privateNote}`;
+		}
+		return `<div class="ws-golive idle">
+			<span class="ws-golive-dot"></span>
+			<div><span>Generate a key and copy the command — go-live detection starts automatically.</span></div>
+		</div>`;
+	}
+
 	function render() {
 		const step1Done = !!selectedAgent;
 		const step2Done = !!apiKey;
+		const showSearch = agents.length > 8;
 
 		container.innerHTML = `
 		<div class="ws-setup-inner">
 			<div class="ws-setup-hero">
-				<h1>Launch your browser agent</h1>
-				<p>Three steps to get a live browser stream running on your agent's screen.</p>
+				<h1>Deploy your agent to the wall</h1>
+				<p>Pick an agent, generate its key, copy one command — and watch it go live on the public wall.</p>
 			</div>
+
+			<div class="ws-progress" aria-hidden="true">${progressHTML()}</div>
 
 			${!isSignedIn ? `
 			<div class="ws-not-signed-in">
@@ -221,17 +288,8 @@ async function renderSetup() {
 				</div>
 				${!step1Done ? `
 				<div class="ws-setup-step-body">
-					<div class="ws-agent-grid" id="ws-agent-grid">
-						${agents.length > 0
-							? agents.map(agentCardHTML).join('')
-							: `<div class="ws-agent-empty">
-								${isSignedIn
-									? `No agents yet. <a href="/agents/new">Create one →</a>`
-									: `<a href="/login">Sign in</a> to see your agents.`
-								}
-							</div>`
-						}
-					</div>
+					${showSearch ? `<input class="ws-agent-search" id="ws-agent-search" type="search" placeholder="Search your agents…" value="${esc(agentSearch)}" spellcheck="false">` : ''}
+					<div class="ws-agent-grid" id="ws-agent-grid">${agentGridHTML()}</div>
 				</div>` : ''}
 			</div>
 
@@ -250,10 +308,12 @@ async function renderSetup() {
 							${apiKey ? esc(apiKey) : 'Click Generate to create a key'}
 						</div>
 						${apiKey
-							? `<button class="ws-btn ws-btn-copy" id="ws-copy-key">Copy</button>`
+							? `<button class="ws-btn ws-btn-copy" id="ws-copy-key">Copy</button>
+							   <button class="ws-btn ws-btn-ghost" id="ws-regen-key" title="Generate a fresh key" style="font-size:0.78rem;">New</button>`
 							: `<button class="ws-btn ws-btn-primary" id="ws-gen-key" ${!isSignedIn ? 'disabled' : ''}>Generate</button>`
 						}
 					</div>
+					${keyError ? `<p class="ws-key-error">${esc(keyError)} <button class="ws-link-btn" id="ws-retry-key">Try again</button></p>` : ''}
 					${apiKey
 						? `<p class="ws-key-note"><strong>Save this key now.</strong> It won't be shown again. It grants access to your account — treat it like a password.</p>`
 						: `<p class="ws-key-note">Creates a new <code style="font-size:0.78rem">agents:write</code>-scoped API key. You can manage keys at <a href="/dashboard-next/developers" style="color:#d4d4d8">Developers →</a></p>`
@@ -264,7 +324,7 @@ async function renderSetup() {
 			<!-- Step 3: Run command -->
 			<div class="ws-setup-step" ${!step1Done ? 'style="opacity:0.45;pointer-events:none"' : ''}>
 				<div class="ws-setup-step-head">
-					<div class="ws-step-num">3</div>
+					<div class="ws-step-num${liveState === 'live' ? ' done' : ''}">${liveState === 'live' ? '✓' : '3'}</div>
 					<div>
 						<h3>Run the worker</h3>
 						<p>Copy and run in your terminal from the <code style="font-size:0.78rem;color:#d4d4d8">workers/agent-screen-worker/</code> directory</p>
@@ -272,50 +332,82 @@ async function renderSetup() {
 				</div>
 				<div class="ws-setup-step-body">
 					<div class="ws-cmd-tabs">
-						<button class="ws-cmd-tab${activeTab === 'local' ? ' active' : ''}" data-tab="local">Local (npm)</button>
-						<button class="ws-cmd-tab${activeTab === 'docker' ? ' active' : ''}" data-tab="docker">Docker</button>
-						<button class="ws-cmd-tab${activeTab === 'bb' ? ' active' : ''}" data-tab="bb">Browserbase</button>
+						${['local', 'docker', 'bb'].map((t) => `<button class="ws-cmd-tab${activeTab === t ? ' active' : ''}" data-tab="${t}">${esc(RUNTIME_LABELS[t])}</button>`).join('')}
 					</div>
 					<div class="ws-cmd-block">
 						<button class="ws-btn ws-btn-copy ws-cmd-copy" id="ws-copy-cmd">Copy</button>
-						<pre id="ws-cmd-pre">${buildCommand()}</pre>
+						<pre id="ws-cmd-pre">${buildRunCommandHtml(cmdOpts())}</pre>
 					</div>
 					${activeTab === 'bb' ? `<p class="ws-key-note" style="margin-top:0.7rem">Get your Browserbase key + project ID at <a href="https://browserbase.com" target="_blank" rel="noopener" style="color:#d4d4d8">browserbase.com</a> — no Docker needed, the browser runs in their cloud.</p>` : ''}
-					${selectedAgent && apiKey ? `
-					<div class="ws-status-ok">
-						<span>✓</span>
-						<span>Ready. Once the worker starts, your stream will appear live below.</span>
+					<p class="ws-key-note" style="margin-top:0.7rem">The worker authenticates with your <code style="font-size:0.78rem">AGENT_JWT</code> alone — no other secret to set.</p>
+				</div>
+			</div>
+
+			<!-- Step 4: Go live -->
+			<div class="ws-setup-step" ${!step2Done ? 'style="opacity:0.45;pointer-events:none"' : ''}>
+				<div class="ws-setup-step-head">
+					<div class="ws-step-num${liveState === 'live' ? ' done' : ''}">${liveState === 'live' ? '✓' : '4'}</div>
+					<div>
+						<h3>${liveState === 'live' ? "You're live on the wall" : 'Go live'}</h3>
+						<p>${liveState === 'live' ? 'Your agent is broadcasting to viewers' : "We watch for your agent's first frame and confirm it's live"}</p>
 					</div>
-					<a class="ws-watch-link" href="/agent-screen?agentId=${esc(selectedAgent.id)}">
-						Watch live stream →
-					</a>` : ''}
+				</div>
+				<div class="ws-setup-step-body">
+					${goLiveHTML()}
+					<details class="ws-trouble">
+						<summary>Not appearing? Common fixes</summary>
+						<ul>
+							<li><strong>Worker not started</strong> — run the command above; frames land within seconds.</li>
+							<li><strong>Wrong directory</strong> — run it from <code>workers/agent-screen-worker/</code> after <code>npm install</code>.</li>
+							<li><strong>Key revoked or wrong</strong> — generate a fresh key in step 2 and recopy the command.</li>
+							<li><strong>Agent is private</strong> — public visibility is required to appear on <a href="/agents-live">/agents-live</a>.</li>
+						</ul>
+					</details>
 				</div>
 			</div>
 		</div>`;
 
-		container.querySelectorAll('.ws-agent-card').forEach((card) => {
-			card.addEventListener('click', () => {
-				selectedAgent = { id: card.dataset.id, name: card.dataset.name };
-				render();
+		bindAgentCards();
+		const searchEl = container.querySelector('#ws-agent-search');
+		if (searchEl) {
+			searchEl.addEventListener('input', () => {
+				agentSearch = searchEl.value;
+				const grid = container.querySelector('#ws-agent-grid');
+				if (grid) { grid.innerHTML = agentGridHTML(); bindAgentCards(); }
 			});
-		});
+		}
 		container.querySelector('#ws-change-agent')?.addEventListener('click', () => {
 			selectedAgent = null;
+			resetDetector();
 			render();
 		});
 		container.querySelector('#ws-gen-key')?.addEventListener('click', generateKey);
+		container.querySelector('#ws-regen-key')?.addEventListener('click', generateKey);
+		container.querySelector('#ws-retry-key')?.addEventListener('click', generateKey);
 		container.querySelector('#ws-copy-key')?.addEventListener('click', () => copyText(apiKey, 'ws-copy-key'));
-		container.querySelector('#ws-copy-cmd')?.addEventListener('click', () => copyText(buildRawCommand(), 'ws-copy-cmd'));
+		container.querySelector('#ws-copy-cmd')?.addEventListener('click', () => copyText(buildRunCommand(cmdOpts()), 'ws-copy-cmd'));
 		container.querySelectorAll('.ws-cmd-tab').forEach((tab) => {
 			tab.addEventListener('click', () => { activeTab = tab.dataset.tab; render(); });
+		});
+
+		// Everything needed to go live exists → start watching for the first frame.
+		if (selectedAgent && apiKey) startGoLiveDetector();
+	}
+
+	function bindAgentCards() {
+		container.querySelectorAll('.ws-agent-card').forEach((card) => {
+			card.addEventListener('click', () => {
+				selectedAgent = { id: card.dataset.id, name: card.dataset.name };
+				resetDetector();
+				render();
+			});
 		});
 	}
 
 	async function generateKey() {
-		const btn = container.querySelector('#ws-gen-key');
-		if (!btn) return;
-		btn.disabled = true;
-		btn.innerHTML = '<span class="ws-spinner"></span>';
+		keyError = '';
+		const btn = container.querySelector('#ws-gen-key') || container.querySelector('#ws-regen-key');
+		if (btn) { btn.disabled = true; btn.innerHTML = '<span class="ws-spinner"></span>'; }
 		try {
 			const csrf = await fetch('/api/csrf-token', { credentials: 'include' })
 				.then((r) => r.json())
@@ -326,34 +418,104 @@ async function renderSetup() {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json', 'x-csrf-token': csrf },
-				body: JSON.stringify({ name: 'Agent Screen Worker', scope: 'agents:write agents:read' }),
+				body: JSON.stringify({ name: `agent-screen:${selectedAgent?.name || 'worker'}`, scope: 'agents:write agents:read' }),
 			});
-			const j = await r.json();
+			const j = await r.json().catch(() => ({}));
 			if (r.ok && (j.data?.token || j.token)) {
 				apiKey = j.data?.token || j.token;
+				resetDetector();
+				render();
+			} else if (r.status === 429) {
+				keyError = 'Rate limited — wait a moment before generating another key.';
 				render();
 			} else {
-				btn.disabled = false;
-				btn.textContent = 'Generate';
-				console.error('[setup] key gen failed:', j);
+				keyError = j.message || j.error_description || 'Could not generate a key. Check you are signed in and try again.';
+				render();
 			}
-		} catch (err) {
-			btn.disabled = false;
-			btn.textContent = 'Generate';
-			console.error('[setup] key gen error:', err);
+		} catch {
+			keyError = 'Network error while generating the key — check your connection.';
+			render();
 		}
 	}
 
-	function copyText(text, btnId) {
-		navigator.clipboard.writeText(text).then(() => {
-			const el = container.querySelector(`#${btnId}`);
-			if (!el) return;
-			const orig = el.textContent;
-			el.textContent = 'Copied!';
-			el.classList.add('copied');
-			setTimeout(() => { el.textContent = orig; el.classList.remove('copied'); }, 1800);
-		}).catch(() => {});
+	// ── go-live detector ─────────────────────────────────────────────────────
+	function startGoLiveDetector() {
+		if (detector.started || !selectedAgent || !apiKey) return;
+		detector.started = true;
+		liveState = 'watching';
+
+		detector.client = createAgentScreenClient(selectedAgent.id, {
+			onFrame() {
+				if (liveState === 'live') return;
+				liveState = 'live';
+				stopDetectorConnections();
+				render();
+			},
+		});
+		detector.client.connect();
+
+		// Secondary signal: is the agent indexed in the public directory? Surfaces
+		// the "agent is private" failure mode while we wait for the first frame.
+		checkDirectory();
+		detector.pollTimer = setInterval(checkDirectory, 8000);
+		render();
 	}
+
+	function stopDetectorConnections() {
+		detector.client?.disconnect();
+		detector.client = null;
+		if (detector.pollTimer) { clearInterval(detector.pollTimer); detector.pollTimer = null; }
+	}
+
+	function resetDetector() {
+		stopDetectorConnections();
+		detector.started = false;
+		liveState = 'idle';
+		privateWarning = false;
+	}
+
+	async function checkDirectory() {
+		if (!selectedAgent) return;
+		try {
+			const r = await fetch(`/api/agents/public?q=${encodeURIComponent(selectedAgent.name || '')}&limit=48`);
+			if (!r.ok) return;
+			const j = await r.json();
+			const list = j.agents || j.data || [];
+			const found = list.some((a) => a.id === selectedAgent.id);
+			if (privateWarning !== !found) {
+				privateWarning = !found;
+				if (liveState !== 'live') render();
+			}
+		} catch { /* non-fatal — the SSE frame is the authoritative signal */ }
+	}
+
+	async function copyText(text, btnId) {
+		let ok = false;
+		try {
+			await navigator.clipboard.writeText(text);
+			ok = true;
+		} catch {
+			// Clipboard API blocked (insecure context / permissions) → textarea fallback.
+			try {
+				const ta = document.createElement('textarea');
+				ta.value = text;
+				ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+				document.body.appendChild(ta);
+				ta.focus(); ta.select();
+				ok = document.execCommand('copy');
+				ta.remove();
+			} catch { ok = false; }
+		}
+		const el = container.querySelector(`#${btnId}`);
+		if (!el) return;
+		const orig = el.dataset.label || el.textContent;
+		el.dataset.label = orig;
+		el.textContent = ok ? 'Copied!' : 'Press ⌘C';
+		el.classList.toggle('copied', ok);
+		setTimeout(() => { el.textContent = orig; el.classList.remove('copied'); }, 1800);
+	}
+
+	window.addEventListener('beforeunload', stopDetectorConnections);
 
 	render();
 }
@@ -373,6 +535,10 @@ function defaultLayout() {
 			stats:    { hidden: true,  min: false, x: null, y: null, w: 218 },
 			treasury: { hidden: false, min: false, x: null, y: null, w: 344, h: null },
 			mirror:   { hidden: true,  min: false, x: null, y: null, w: 380, h: null },
+			stage:    { hidden: false, min: false, x: null, y: null, w: 320, h: null },
+			heatmap:  { hidden: false, min: false, x: null, y: null, w: 460, h: 340 },
+			hud:      { hidden: false, min: false, x: null, y: null, w: 288, h: null },
+			hire:     { hidden: false, min: false, x: null, y: null, w: 340, h: null },
 		},
 	};
 }
@@ -409,6 +575,21 @@ async function boot(id) {
 	stageEl.innerHTML = `
 		<div class="asc-screen-stage">
 			<canvas id="asc-screen-canvas"></canvas>
+			<!-- Newsroom Anchor lower-third (slides up on a bulletin) -->
+			<div class="asc-lt" id="asc-lowerthird" aria-live="polite">
+				<div class="asc-lt-bar"></div>
+				<div class="asc-lt-body">
+					<span class="asc-lt-eyebrow"><span class="asc-lt-dot"></span>MARKET ANCHOR</span>
+					<div class="asc-lt-headline" id="asc-lt-headline"></div>
+					<div class="asc-lt-note" id="asc-lt-note" style="display:none"></div>
+				</div>
+				<button class="asc-lt-mute" id="asc-lt-mute" type="button" aria-pressed="false" title="Unmute anchor — A">🔇</button>
+			</div>
+			<!-- One-tap unmute CTA (audio is muted by default) -->
+			<button class="asc-anchor-unmute" id="asc-anchor-unmute" type="button" style="display:none">
+				<span class="asc-anchor-unmute-icon">🔊</span>
+				<span>Tap to hear the anchor</span>
+			</button>
 		</div>
 		<div class="asc-screen-overlay" id="asc-screen-overlay">
 			<div class="pulse-ring"></div>
@@ -433,6 +614,15 @@ async function boot(id) {
 						<span class="cam-dot"></span>
 						<span id="asc-webcam-name">—</span>
 					</div>
+				</div>
+				<!-- Pose Studio Live: call out a pose, the avatar performs it -->
+				<div class="asc-pose" id="asc-pose">
+					<form class="asc-pose-form" id="asc-pose-form" autocomplete="off">
+						<input class="asc-pose-input" id="asc-pose-input" type="text" maxlength="120" spellcheck="false" placeholder="Pose the avatar… try “take a bow”">
+						<button class="asc-pose-go" id="asc-pose-go" type="submit" title="Perform pose">Pose</button>
+					</form>
+					<div class="asc-pose-chips" id="asc-pose-chips"></div>
+					<div class="asc-pose-hint" id="asc-pose-hint">Try: wave · bow · warrior</div>
 				</div>
 			</div>
 			<div class="asc-resize" data-resize="w"></div>
@@ -514,6 +704,97 @@ async function boot(id) {
 			<div class="asc-resize" data-resize="wh"></div>
 		</div>
 
+		<!-- Sentiment heatmap panel -->
+		<div class="asc-panel asc-panel--heatmap" id="asc-panel-heatmap" data-panel="heatmap">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Sentiment Heatmap</span>
+				<div class="asc-panel-btns">
+					<button class="asc-hm-focus" id="asc-hm-focus" title="Center on $THREE">◎ $THREE</button>
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (H)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body asc-hm-body">
+				<canvas id="asc-heatmap-canvas"></canvas>
+				<div class="asc-hm-overlay" id="asc-hm-overlay">
+					<div class="pulse-ring"></div>
+					<p>Reading the market…</p>
+				</div>
+				<div class="asc-hm-stale" id="asc-hm-stale" hidden>
+					<span>stale — retrying</span>
+					<button id="asc-hm-retry">Retry</button>
+				</div>
+				<div class="asc-hm-tooltip" id="asc-hm-tooltip" hidden></div>
+				<div class="asc-hm-legend" id="asc-hm-legend">
+					<span class="asc-hm-legend-label">cold</span>
+					<span class="asc-hm-legend-ramp"></span>
+					<span class="asc-hm-legend-label">hot</span>
+					<span class="asc-hm-legend-meta" id="asc-hm-meta">—</span>
+				</div>
+			</div>
+			<div class="asc-resize" data-resize="wh"></div>
+		</div>
+
+		<!-- Portfolio / PnL HUD panel -->
+		<div class="asc-panel asc-panel--hud" id="asc-panel-hud" data-panel="hud">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Portfolio</span>
+				<div class="asc-panel-btns">
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (B)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body" id="asc-hud-body"></div>
+			<div class="asc-resize" data-resize="wh"></div>
+		</div>
+
+		<!-- Live agent-to-agent hire visualizer (Moonshot 03) -->
+		<div class="asc-panel asc-panel--hire" id="asc-panel-hire" data-panel="hire">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Live Hire</span>
+				<div class="asc-panel-btns">
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (H)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body" id="asc-hire-body"></div>
+			<div class="asc-resize" data-resize="wh"></div>
+		</div>
+
+			<!-- Live stage show panel (Moonshot 08) -->
+			<div class="asc-panel asc-panel--stage" id="asc-panel-stage" data-panel="stage">
+				<div class="asc-panel-head" data-drag>
+					<span class="asc-panel-grip">⠿</span>
+					<span class="asc-panel-title">Live Show</span>
+					<div class="asc-panel-btns">
+						<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+						<button class="asc-panel-btn" data-act="close" title="Hide (G)">✕</button>
+					</div>
+				</div>
+				<div class="asc-panel-body asc-stage-body">
+					<div class="asc-stage-status">
+						<span class="asc-stage-dot is-ready" id="asc-stage-dot"></span>
+						<span class="asc-stage-state" id="asc-stage-state">Stage ready</span>
+						<span class="asc-stage-beat" id="asc-stage-beat"></span>
+					</div>
+					<div class="asc-stage-now" id="asc-stage-now">Press Start to bring the host on stage.</div>
+					<button class="asc-stage-start" id="asc-stage-start" type="button">▶ Start the show</button>
+					<div class="asc-stage-lead">
+						<div class="asc-stage-lead-head">Top tippers · $THREE</div>
+						<ol class="asc-stage-lead-list" id="asc-stage-lead-list"></ol>
+					</div>
+					<form class="asc-stage-ask" id="asc-stage-ask" autocomplete="off">
+						<input class="asc-stage-ask-input" id="asc-stage-ask-input" type="text" maxlength="240" placeholder="Ask the host a question…" spellcheck="false">
+						<button class="asc-stage-ask-send" type="submit" title="Ask the host">Ask</button>
+					</form>
+					<div class="asc-stage-ask-status" id="asc-stage-ask-status"></div>
+				</div>
+				<div class="asc-resize" data-resize="wh"></div>
+			</div>
+
 		<!-- Task input -->
 		<div class="asc-task-bar" id="asc-task-bar">
 			<form class="asc-task-form" id="asc-task-form" autocomplete="off">
@@ -594,7 +875,28 @@ async function boot(id) {
 	let webcamAnimManager = null;
 	let webcamAvatar = null;
 	let webcamRafId = null;
+	let anchor = null;
 	let webcamCanvas = null;
+
+		// Shared AudioContext for stage-show TTS playback + lip-sync analysis. Created
+		// lazily and resumed on a user gesture (the Start button) per autoplay policy.
+		let sharedAudioCtx = null;
+		function ensureAudioContext() {
+			try {
+				if (!sharedAudioCtx) {
+					const AC = window.AudioContext || window.webkitAudioContext;
+					if (!AC) return null;
+					sharedAudioCtx = new AC();
+				}
+				if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+				return sharedAudioCtx;
+			} catch { return null; }
+		}
+	// Ambient-mode host: a subtle idle look-around (the avatar glances around like
+	// a host) and a live lipsync sampler the TTS path installs while speaking.
+	let hostLookActive = false;
+	let hostLookT = 0;
+	let lipsyncSampler = null;
 
 	function sizeWebcam() {
 		if (!webcamCanvas) return;
@@ -662,6 +964,17 @@ async function boot(id) {
 				const dt = Math.min((t - last) / 1000, 0.1);
 				last = t;
 				webcamAnimManager?.update(dt);
+				anchor?.tick();
+				// Host presence in Ambient mode: a gentle two-frequency yaw so the
+				// avatar reads as glancing around the world it's narrating, not frozen.
+				if (hostLookActive && webcamAvatar) {
+					hostLookT += dt;
+					webcamAvatar.rotation.y = Math.sin(hostLookT * 0.32) * 0.34 + Math.sin(hostLookT * 0.11) * 0.12;
+				} else if (webcamAvatar && webcamAvatar.rotation.y !== 0) {
+					webcamAvatar.rotation.y *= 0.9;
+					if (Math.abs(webcamAvatar.rotation.y) < 0.001) webcamAvatar.rotation.y = 0;
+				}
+				lipsyncSampler?.();
 				webcamRenderer.render(webcamScene, webcamCamera);
 			}
 			webcamRafId = requestAnimationFrame(webcamTick);
@@ -672,6 +985,25 @@ async function boot(id) {
 	}
 
 	mountAvatarWebcam(avatarGlbUrl || '/avatars/default.glb');
+
+	// ── newsroom anchor (lower-third + spoken bulletins + lip-sync) ─────────
+	anchor = createNewsroomAnchor({
+		agentId: id,
+		els: {
+			lowerthird: document.getElementById('asc-lowerthird'),
+			headline: document.getElementById('asc-lt-headline'),
+			note: document.getElementById('asc-lt-note'),
+			muteBtn: document.getElementById('asc-lt-mute'),
+			unmute: document.getElementById('asc-anchor-unmute'),
+		},
+		getAvatar: () => webcamAvatar,
+	});
+	// 'A' toggles anchor audio. ('M' is the mirror panel.) Own listener so this
+	// stays out of the shared shortcut block.
+	window.addEventListener('keydown', (e) => {
+		if (e.target.matches('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+		if (e.key.toLowerCase() === 'a') { anchor?.toggleMute(); e.preventDefault(); }
+	});
 
 	// ── screen canvas rendering ────────────────────────────────────────────
 	let lastFrameImg = null;
@@ -694,6 +1026,8 @@ async function boot(id) {
 		liveBadgeEl.classList.remove('dark');
 		badgeTextEl.textContent = 'LIVE';
 		screenOverlay.style.display = 'none';
+		liveNow = true;
+		stopWatchStatus(); // real pixels — the handoff is done
 	}
 
 	function setDark() {
@@ -705,6 +1039,76 @@ async function boot(id) {
 			<p>Agent is offline</p>
 			<small>Stream will resume when the agent reconnects</small>
 		`;
+		liveNow = false;
+		// Still on this agent — ask the pool to cast and reflect the warming/queued
+		// handoff honestly while we wait for the first frame.
+		startWatchStatus();
+	}
+
+	// ── on-demand caster handoff (parity with the live wall) ─────────────────
+	// Signal that this viewer is actively watching this agent so the bounded pool
+	// (workers/agent-screen-pool) spins a real browser up for it, then poll
+	// /api/agent/watch-status so the stage shows the same honest "warming up" /
+	// "queued · #N in line" copy as the wall instead of a flat "offline".
+	let liveNow = false;
+	let watchStatusTimer = null;
+	let watchStatusPolls = 0;
+	let lastWatchState = null;
+
+	function signalWatch() {
+		try {
+			fetch('/api/agent/watch-intent', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id }),
+				keepalive: true,
+			}).catch(() => {});
+		} catch { /* the activity baseline works regardless */ }
+	}
+
+	function showWarmingOverlay(text, sub) {
+		screenOverlay.style.display = 'flex';
+		screenOverlay.innerHTML = `
+			<div class="pulse-ring"></div>
+			<p>${esc(text)}</p>
+			<small>${esc(sub)}</small>
+		`;
+	}
+
+	async function pollWatchStatus() {
+		if (liveNow || document.hidden) return;
+		watchStatusPolls++;
+		try {
+			const res = await fetch(`/api/agent/watch-status?agentId=${encodeURIComponent(id)}`, {
+				headers: { accept: 'application/json' },
+			});
+			if (!res.ok) return;
+			const data = await res.json();
+			lastWatchState = data.state;
+			if (data.state === 'warming') {
+				showWarmingOverlay('Warming up a live view…', 'A real browser is spinning up for this agent');
+			} else if (data.state === 'queued') {
+				showWarmingOverlay(`Live view queued · #${data.position || 1} in line`, 'The live pool is full — you’ll go live the moment a slot frees');
+			}
+			// casting/activity → leave the existing waiting/offline overlay in place.
+		} catch { /* degrade silently to the offline overlay */ }
+	}
+
+	function startWatchStatus() {
+		stopWatchStatus();
+		watchStatusPolls = 0;
+		const tick = async () => {
+			await pollWatchStatus();
+			const working = lastWatchState === 'warming' || lastWatchState === 'queued';
+			watchStatusTimer = (!liveNow && (working || watchStatusPolls < 3))
+				? setTimeout(tick, 4000)
+				: null;
+		};
+		tick();
+	}
+
+	function stopWatchStatus() {
+		if (watchStatusTimer) { clearTimeout(watchStatusTimer); watchStatusTimer = null; }
 	}
 
 	// ── live stream stats (all real, derived from the SSE frames) ───────────
@@ -852,7 +1256,10 @@ async function boot(id) {
 		if (pnlDetailed) {
 			pnlDetailEl.hidden = false;
 			const wl = `${pnlState.wins}W · ${pnlState.losses}L`;
-			const realized = sawUsd ? formatSol(pnlState.realizedSol) : (formatUsd(pnlState.realizedUsd) ?? null);
+			// Secondary unit = the one NOT used as the primary. With USD pricing the
+			// primary is USD, so show SOL here; without it the primary is already SOL,
+			// so there's no meaningful USD secondary to show.
+			const realized = sawUsd ? formatSol(pnlState.realizedSol) : null;
 			const unreal = unrealizedTotalUsd(pnlState);
 			const unrealStr = sawUsd && Math.abs(unreal) > 1e-9 ? ` · unreal ${formatUsd(unreal)}` : '';
 			pnlDetailEl.textContent = `${wl}${realized ? ` · ${realized}` : ''}${unrealStr}`;
@@ -923,6 +1330,7 @@ async function boot(id) {
 	let greeted = false; // wave once, on the first live connection only
 	let treasuryCockpit = null; // set once the Treasury panel mounts (below)
 	let mirrorPanel = null;     // set once the Mirror panel mounts (below)
+	let pnlHud = null;          // set once the Portfolio HUD panel mounts (below)
 	const client = createAgentScreenClient(id, {
 		onOpen({ agentName: n }) {
 			if (n) { agentNameEl.textContent = n; agentName = n; webcamName.textContent = n; }
@@ -932,11 +1340,14 @@ async function boot(id) {
 			setLive();
 			recordFrame(frame);
 			if (frame.data) renderFrame(frame);
+			handleTourFrame(frame);
 			if (frame.activity) { addLogEntry(frame); treasuryCockpit?.observeLog([frame]); }
 			if (frame.type === 'trade') {
 				const delta = ingestTrade(frame);
 				if (delta) emoteForTrade(delta);
 			}
+			// A bulletin headline — slide up the lower-third and speak it on air.
+			if (frame.type === 'analysis') anchor?.handleFrame(frame);
 			// Greet on the first live frame if onOpen's metadata event was missed.
 			if (!greeted) {
 				greeted = true;
@@ -960,6 +1371,12 @@ async function boot(id) {
 
 	client.connect();
 
+	// Ask the on-demand pool to cast this agent and keep re-asserting while the tab
+	// is open, so a viewer who lands here (not just the wall) gets a real browser
+	// feed on demand. Status polling is kicked off by setDark() on the first poll.
+	signalWatch();
+	const watchPingTimer = setInterval(() => { if (!document.hidden) signalWatch(); }, 20000);
+
 	// ── task input ──────────────────────────────────────────────────────────
 	const taskForm = document.getElementById('asc-task-form');
 	const taskInput = document.getElementById('asc-task-input');
@@ -970,6 +1387,16 @@ async function boot(id) {
 		e.preventDefault();
 		const text = taskInput.value.trim();
 		if (!text) return;
+
+		// Launch Director: a "launch a coin named … ticker … uri https://…" command
+		// runs a real, narrated coin launch on this screen instead of queuing a
+		// browser task. Owner-gated by the launch endpoint itself.
+		const launchParams = parseLaunchCommand(text);
+		if (launchParams) {
+			taskInput.value = '';
+			await runLaunchDirector(launchParams);
+			return;
+		}
 
 		taskInput.disabled = true;
 		taskSend.disabled = true;
@@ -1010,6 +1437,44 @@ async function boot(id) {
 		}
 	});
 
+		// ── live stage show (Moonshot 08) ────────────────────────────────────────
+		// The avatar-cam host performs an always-live show: opener → banter → answer
+		// audience questions → shout out fresh $THREE tippers → run a game round, on
+		// loop, never silent. Real brain (api/brain/chat), real voice (api/tts/speak),
+		// real settled tips (api/stage/tip). Audio needs a user gesture, so the show
+		// arms on the panel's Start button.
+		const stageShow = new StageShow({
+			agentId: id,
+			getHostName: () => agentName,
+			getAvatar: () => webcamAvatar,
+			getAnimManager: () => webcamAnimManager,
+			ensureAudioContext,
+			addLog: addLogEntry,
+			toast,
+			els: {
+				dot: document.getElementById('asc-stage-dot'),
+				state: document.getElementById('asc-stage-state'),
+				beat: document.getElementById('asc-stage-beat'),
+				now: document.getElementById('asc-stage-now'),
+				startBtn: document.getElementById('asc-stage-start'),
+				leaderboard: document.getElementById('asc-stage-lead-list'),
+				qForm: document.getElementById('asc-stage-ask'),
+				qInput: document.getElementById('asc-stage-ask-input'),
+				qStatus: document.getElementById('asc-stage-ask-status'),
+			},
+		});
+		// Pause the show when the tab is hidden (stops burning brain/TTS budget while
+		// nobody's watching) and resume it when the viewer returns.
+		let stagePausedByHide = false;
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) {
+				if (stageShow.running) { stagePausedByHide = true; stageShow.pause(); }
+			} else if (stagePausedByHide) {
+				stagePausedByHide = false;
+				stageShow.start();
+			}
+		});
+
 	// ── panels: drag / resize / minimize / hide + persistence ────────────────
 	const panelEls = {
 		cam: document.getElementById('asc-panel-cam'),
@@ -1017,6 +1482,9 @@ async function boot(id) {
 		stats: document.getElementById('asc-panel-stats'),
 		treasury: document.getElementById('asc-panel-treasury'),
 		mirror: document.getElementById('asc-panel-mirror'),
+			stage: document.getElementById('asc-panel-stage'),
+		hud: document.getElementById('asc-panel-hud'),
+		hire: document.getElementById('asc-panel-hire'),
 	};
 	let zTop = 30;
 
@@ -1030,7 +1498,7 @@ async function boot(id) {
 		const sr = stageEl.getBoundingClientRect();
 		// width / height
 		if (p.w) el.style.width = `${p.w}px`;
-		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror')) el.style.height = `${p.h}px`;
+		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror' || name === 'hud' || name === 'stage' || name === 'hire')) el.style.height = `${p.h}px`;
 		// default position if none saved yet
 		const pw = el.offsetWidth || p.w || 240;
 		const ph = el.offsetHeight || 200;
@@ -1041,6 +1509,8 @@ async function boot(id) {
 			else if (name === 'treasury') { x = M; y = M + 6; } // treasury → top-left cockpit
 			else if (name === 'mirror') { x = M; y = sr.height - ph - M; } // mirror → bottom-left
 			else if (name === 'log') { x = sr.width - pw - M; y = M; }
+				else if (name === 'stage') { x = M; y = sr.height - ph - M; } // stage → bottom-left
+			else if (name === 'hud') { x = M; y = sr.height - ph - M; } // HUD → bottom-left scoreboard
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
 		}
 		x = clamp(x, 0, Math.max(0, sr.width - pw));
@@ -1159,11 +1629,25 @@ async function boot(id) {
 		onToast: toast,
 	});
 
+	// ── Portfolio / PnL HUD: the live scoreboard ─────────────────────────────
+	// Values this agent's wallet live (net worth, 24h delta, sparkline, ranked
+	// holdings with $THREE featured). Polls the public balances endpoint; the
+	// owner additionally gets pushed portfolio snapshots. Polling pauses while the
+	// panel is hidden (setPanelHidden → setActive) or the tab is backgrounded.
+	pnlHud = createPnlHud({
+		bodyEl: document.getElementById('asc-hud-body'),
+		agentId: id,
+		network: 'mainnet',
+	});
+	pnlHud.start();
+	pnlHud.setActive(!layout.panels.hud.hidden);
+
 	function setPanelHidden(name, hidden) {
 		layout.panels[name].hidden = hidden;
 		const el = panelEls[name];
 		el.hidden = hidden;
 		if (!hidden) { placePanel(name); focusPanel(el); sizeWebcam(); }
+		if (name === 'hud') pnlHud?.setActive(!hidden);
 		updateToggleButtons();
 		saveLayout();
 	}
@@ -1289,6 +1773,221 @@ async function boot(id) {
 		fsBtn.classList.toggle('active', !!document.fullscreenElement);
 	});
 
+	// ── Ambient World DJ mode (Brief 22) ─────────────────────────────────────
+	// An alternate "calm channel": the agent stops trading and hosts a living 3D
+	// world — seeded biome, deterministic day/night, wandering NPCs — narrating it
+	// as host, optionally in its own voice over a soft synthesized ambient pad.
+	const ambientBtn = document.getElementById('asc-ambient-btn');
+	const audioBtn = document.getElementById('asc-audio-btn');
+	const todReadout = document.getElementById('asc-tod');
+	const screenStage = stageEl.querySelector('.asc-screen-stage');
+
+	let ambientWorld = null;
+	let ambientDj = null;
+	let ambientHost = null;
+	let djTimer = null;
+	let todTimer = null;
+	let ambientOn = false;
+
+	let audioOn = false;
+	let audioCtx = null;
+	let ambientPad = null;
+	let ttsAudio = null;
+	let lipAnalyser = null;
+	let visemeDriver = null;
+
+	const TOD_ICON = { sunrise: '🌅', day: '☀️', dusk: '🌇', night: '🌙' };
+
+	function updateTod() {
+		if (!todReadout || !ambientWorld) return;
+		const label = phaseLabel(ambientWorld.getState().phase);
+		todReadout.textContent = `${TOD_ICON[label] || '·'} ${label}`;
+	}
+
+	// Owners (and the first-party caster) land each host line in the live log +
+	// stream backfill so late joiners replay it; for a non-owner viewer the push
+	// 403s and we swallow it — the channel still hosts locally.
+	async function pushNarration(text) {
+		try {
+			await fetch('/api/agent-screen-push', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, frame: { activity: text, type: 'activity' } }),
+			});
+		} catch { /* local-only narration is fine */ }
+	}
+
+	function tickDj() {
+		if (!ambientOn || !ambientWorld || !ambientDj || document.hidden) return;
+		const line = ambientDj.observe(ambientWorld.getState(), Date.now());
+		if (!line) return;
+		addLogEntry({ ts: Date.now(), activity: line.text, type: 'activity' });
+		pushNarration(line.text);
+		if (audioOn) speakLine(line.text);
+	}
+
+	// A soft, fully-synthesized ambient bed: two detuned oscillators under a slow
+	// cutoff LFO. Real WebAudio (no asset, no fake loop); ducks while the host
+	// speaks so narration sits on top.
+	function createAmbientPad(ctx) {
+		const out = ctx.createGain(); out.gain.value = 0.0;
+		const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 620;
+		lp.connect(out); out.connect(ctx.destination);
+		const oscA = ctx.createOscillator(); oscA.type = 'sine'; oscA.frequency.value = 110;
+		const oscB = ctx.createOscillator(); oscB.type = 'sine'; oscB.frequency.value = 165; oscB.detune.value = -6;
+		const mix = ctx.createGain(); mix.gain.value = 0.5;
+		oscA.connect(mix); oscB.connect(mix); mix.connect(lp);
+		const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.05;
+		const lfoGain = ctx.createGain(); lfoGain.gain.value = 160;
+		lfo.connect(lfoGain); lfoGain.connect(lp.frequency);
+		oscA.start(); oscB.start(); lfo.start();
+		const FULL = 0.05;
+		out.gain.linearRampToValueAtTime(FULL, ctx.currentTime + 4);
+		return {
+			duck() { out.gain.cancelScheduledValues(ctx.currentTime); out.gain.linearRampToValueAtTime(FULL * 0.35, ctx.currentTime + 0.3); },
+			restore() { out.gain.cancelScheduledValues(ctx.currentTime); out.gain.linearRampToValueAtTime(FULL, ctx.currentTime + 1.2); },
+			dispose() { try { oscA.stop(); oscB.stop(); lfo.stop(); } catch { /* already stopped */ } try { out.disconnect(); } catch { /* detached */ } },
+		};
+	}
+
+	function stopTts() {
+		lipsyncSampler = null;
+		if (visemeDriver) { try { visemeDriver.reset(); } catch { /* no morphs */ } visemeDriver = null; }
+		if (lipAnalyser) { try { lipAnalyser.disconnect(); } catch { /* already closed */ } lipAnalyser = null; }
+		if (ttsAudio) {
+			try { ttsAudio.pause(); } catch { /* not playing */ }
+			if (ttsAudio.src && ttsAudio.src.startsWith('blob:')) URL.revokeObjectURL(ttsAudio.src);
+			ttsAudio = null;
+		}
+		ambientPad?.restore();
+	}
+
+	// Speak one host line with real TTS and drive the avatar's mouth from the live
+	// audio. Missing/!ok TTS → silent text-only narration; never a synthesized
+	// fake voice.
+	async function speakLine(text) {
+		if (!audioOn || !audioCtx) return;
+		try {
+			if (audioCtx.state === 'suspended') await audioCtx.resume();
+			stopTts();
+			const r = await fetch('/api/tts/speak', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ text, format: 'mp3' }),
+			});
+			if (!r.ok) return;
+			const blob = await r.blob();
+			const url = URL.createObjectURL(blob);
+			ttsAudio = new Audio(url);
+			ambientPad?.duck();
+			lipAnalyser = new LipSyncAnalyser();
+			visemeDriver = webcamAvatar ? createVisemeDriver(webcamAvatar) : null;
+			ttsAudio.addEventListener('playing', () => {
+				try { lipAnalyser?.connect(ttsAudio); } catch { /* autoplay/CORS — stay silent-mouthed */ }
+				if (visemeDriver) {
+					lipsyncSampler = () => {
+						const out = lipAnalyser?.sample();
+						if (!out || !visemeDriver) return;
+						let best = '', bestW = 0;
+						for (const k in out) if (out[k] > bestW) { bestW = out[k]; best = k; }
+						visemeDriver.step(bestW > 0.04 ? best : '');
+					};
+				}
+			});
+			ttsAudio.addEventListener('ended', stopTts);
+			ttsAudio.addEventListener('error', stopTts);
+			await ttsAudio.play().catch(() => {});
+		} catch (err) {
+			console.warn('[agent-screen] ambient TTS failed:', err);
+		}
+	}
+
+	function setAudio(on) {
+		if (on === audioOn) return;
+		if (on) {
+			try {
+				const AC = window.AudioContext || window.webkitAudioContext;
+				if (!AC) { toast('Audio unavailable on this device'); return; }
+				audioCtx = audioCtx || new AC();
+				if (audioCtx.state === 'suspended') audioCtx.resume();
+				ambientPad = createAmbientPad(audioCtx);
+				audioOn = true;
+				audioBtn?.classList.add('active');
+				toast('Voice on — your agent will narrate aloud');
+			} catch { toast('Audio unavailable on this device'); }
+		} else {
+			audioOn = false;
+			audioBtn?.classList.remove('active');
+			stopTts();
+			ambientPad?.dispose(); ambientPad = null;
+		}
+	}
+
+	function enterAmbient() {
+		if (ambientOn) return;
+		const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false;
+		ambientHost = document.createElement('div');
+		ambientHost.className = 'asc-ambient-host';
+		screenStage.appendChild(ambientHost);
+		try {
+			ambientWorld = createAmbientWorld({ agentId: id, container: ambientHost, reducedMotion });
+		} catch (err) {
+			console.warn('[agent-screen] ambient world unavailable:', err);
+			toast('3D world unavailable on this device');
+			ambientHost.remove(); ambientHost = null;
+			return;
+		}
+		ambientWorld.start();
+		const st0 = ambientWorld.getState();
+		ambientDj = createDjScript({ place: st0.biomeLabel, landmark: st0.landmark });
+		ambientOn = true;
+		hostLookActive = true;
+		screenStage.classList.add('ambient');
+		screenOverlay.style.display = 'none';
+		ambientBtn?.classList.add('active');
+		if (audioBtn) audioBtn.hidden = false;
+		if (todReadout) todReadout.hidden = false;
+		badgeTextEl.textContent = 'AMBIENT';
+		liveBadgeEl.classList.remove('dark');
+		addLogEntry({ ts: Date.now(), activity: `${agentName} is hosting the ambient world — ${st0.biomeLabel}`, type: 'activity' });
+		djTimer = setInterval(tickDj, 4000);
+		todTimer = setInterval(updateTod, 1000);
+		updateTod();
+		toast('Ambient mode — your agent is hosting the world');
+	}
+
+	function exitAmbient() {
+		if (!ambientOn) return;
+		ambientOn = false;
+		hostLookActive = false;
+		clearInterval(djTimer); djTimer = null;
+		clearInterval(todTimer); todTimer = null;
+		setAudio(false);
+		ambientWorld?.dispose(); ambientWorld = null;
+		ambientDj = null;
+		ambientHost?.remove(); ambientHost = null;
+		screenStage.classList.remove('ambient');
+		ambientBtn?.classList.remove('active');
+		if (audioBtn) { audioBtn.hidden = true; audioBtn.classList.remove('active'); }
+		if (todReadout) todReadout.hidden = true;
+		// Hand the surface back to the live stream.
+		if (liveBadgeEl.classList.contains('dark')) setDark();
+		else { badgeTextEl.textContent = 'LIVE'; screenOverlay.style.display = lastFrameImg ? 'none' : 'flex'; }
+	}
+
+	function toggleAmbient() { if (ambientOn) exitAmbient(); else enterAmbient(); }
+
+	ambientBtn?.addEventListener('click', toggleAmbient);
+	audioBtn?.addEventListener('click', () => setAudio(!audioOn));
+
+	// Pause the world + DJ while the tab is hidden; resume on return — a calm
+	// channel must never burn GPU in the background.
+	document.addEventListener('visibilitychange', () => {
+		if (!ambientOn) return;
+		if (document.hidden) ambientWorld?.stop();
+		else ambientWorld?.start();
+	});
+
 	// ── keyboard shortcuts ───────────────────────────────────────────────────
 	const help = buildHelpOverlay();
 	window.addEventListener('keydown', (e) => {
@@ -1298,25 +1997,49 @@ async function boot(id) {
 		else if (k === 'c') { if (layout.zen) { layout.zenCam = !layout.zenCam; applyZen(); saveLayout(); } else togglePanel('cam'); e.preventDefault(); }
 		else if (k === 'l') { togglePanel('log'); e.preventDefault(); }
 		else if (k === 'i') { togglePanel('stats'); e.preventDefault(); }
+			else if (k === 'g') { togglePanel('stage'); e.preventDefault(); }
+		else if (k === 't') { togglePanel('treasury'); e.preventDefault(); }
+		else if (k === 'm') { togglePanel('mirror'); e.preventDefault(); }
 		else if (k === 's') { screenshot(); e.preventDefault(); }
 		else if (k === 'p') { togglePip(); e.preventDefault(); }
 		else if (k === 'v') { toggleFit(); e.preventDefault(); }
 		else if (k === 'f') { fsBtn.click(); e.preventDefault(); }
+		else if (k === 'a') { toggleAmbient(); e.preventDefault(); }
 		else if (k === '?' || (k === '/' && e.shiftKey)) { help.toggle(); e.preventDefault(); }
 		else if (k === 'escape') {
 			if (help.isOpen()) help.close();
 			else if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+			else if (ambientOn) exitAmbient();
 			else if (layout.zen) setZen(false);
 		}
+	});
+
+	// Resume the caster handoff when the tab regains focus: re-assert intent and,
+	// if we're not already live, restart status polling (it may have settled while
+	// hidden). IntersectionObserver-style re-fire doesn't apply to this single page.
+	document.addEventListener('visibilitychange', () => {
+		if (document.hidden) return;
+		signalWatch();
+		if (!liveNow) startWatchStatus();
 	});
 
 	// Cleanup on unload
 	window.addEventListener('beforeunload', () => {
 		client.disconnect();
+		clearInterval(watchPingTimer);
+		stopWatchStatus();
+		treasuryCockpit?.destroy();
+		mirrorPanel?.destroy();
+		pnlHud?.destroy();
+		anchor?.destroy();
 		if (pnlAnimRaf) cancelAnimationFrame(pnlAnimRaf);
+			stageShow.dispose();
+			sharedAudioCtx?.close?.().catch(() => {});
 		if (webcamRafId) cancelAnimationFrame(webcamRafId);
 		webcamAnimManager?.detach();
 		webcamRenderer.dispose();
+		exitAmbient();
+		audioCtx?.close?.().catch(() => {});
 		if (pipVideo?.srcObject) pipVideo.srcObject.getTracks().forEach((t) => t.stop());
 	});
 }
@@ -1336,6 +2059,8 @@ function buildHelpOverlay() {
 				<div class="asc-help-row"><span>Toggle avatar cam</span><kbd>C</kbd></div>
 				<div class="asc-help-row"><span>Toggle activity log</span><kbd>L</kbd></div>
 				<div class="asc-help-row"><span>Toggle stream stats</span><kbd>I</kbd></div>
+					<div class="asc-help-row"><span>Toggle live stage show</span><kbd>G</kbd></div>
+				<div class="asc-help-row"><span>Toggle treasury</span><kbd>T</kbd></div>
 				<div class="asc-help-row"><span>Capture screenshot</span><kbd>S</kbd></div>
 				<div class="asc-help-row"><span>Picture-in-picture</span><kbd>P</kbd></div>
 				<div class="asc-help-row"><span>Fit / fill screen</span><kbd>V</kbd></div>
