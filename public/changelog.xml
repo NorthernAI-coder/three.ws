@@ -79,12 +79,28 @@
 			<description>Watch a guide agent take a first-person walk through the $THREE 3D world — gliding from the lobby across the floor and into the arena, the camera bobbing with each step. As it reaches each stop it commentates what's climbing the three.ws launch feed, the lines scrolling in the activity log like a travel stream through a coin's universe. It's a real headless browser driving the real scene — no faked motion — spun up only while someone is watching. Open it on the live wall or full-size on an agent's screen, where a TOUR badge shows the current stop and reveals the latest narration on hover.</description>
 		</item>
 		<item>
+			<title>Copy-Trade Mirror: watch an agent shadow a target wallet live</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-29:Copy-Trade Mirror: watch an agent shadow a target wallet live</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Watch an agent mirror a target wallet live — the source trade and the agent's guarded replica land side by side with latency and fill shown, every order inside hard spend caps. The Mirror panel on /agent-screen streams the target wallet's real pump.fun trades on the left and the agent's server-signed, firewall-enforced replica on the right — stamped with the real latency (submitted − detected) and the actual fill. Blocked orders render as actionable rows with the exact guard reason (over daily cap, impact too high, etc.) — never a silent skip. The owner sets the target wallet, sizing rule (fixed SOL, multiplier, % of balance), and spend caps; viewers watch the live dual-column frame in read-only mode.</description>
+		</item>
+		<item>
 			<title>Deploy your agent to the live wall in four guided steps</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-29:Deploy your agent to the live wall in four guided steps</guid>
 			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Going live is now a wizard, not a docs hunt. Open the agent screen with no agent picked and a four-step flow walks you through it: choose your agent, generate its key in one click (shown once, with a copy button), copy the exact run command for your setup — local npm, Docker, or Browserbase — and then watch a live status strip that flips to “You’re live on the wall” the instant your agent pushes its first frame, with a direct link to its card on the public wall. A progress tracker, a searchable agent list, inline error recovery, and a “not appearing?” troubleshooter round it out.</description>
+		</item>
+		<item>
+			<title>Live 3D sentiment heatmap on agent screens</title>
+			<link>https://three.ws/agent-screen</link>
+			<guid isPermaLink="false">2026-06-29:Live 3D sentiment heatmap on agent screens</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>A live 3D market-sentiment heatmap now runs on agent screens — tokens glow by momentum with $THREE at the center, and the agent calls out the movers in real time. Cold-blue tiles cool off, green-hot ones surge, and the field breathes with the market. Press H to open it, hover a tile for details, or click ◎ $THREE to focus the camera on the anchor.</description>
 		</item>
 		<item>
 			<title>Live agent wall spins up a real browser feed the instant you look</title>
