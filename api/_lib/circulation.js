@@ -496,7 +496,7 @@ async function ensureThree(ctx, agent, needAtomic) {
 		},
 		source: 'discretionary',
 	});
-	if (!result.ok) throw new Skip(`could not acquire $THREE: ${result.code || 'trade_error'}`);
+	if (!result.ok) throw new Skip(`could not acquire $THREE: ${result.code || 'trade_error'}${result.message ? ` — ${result.message}` : ''}`);
 
 	// Give the buy a moment to settle, then re-read.
 	for (let i = 0; i < 6; i++) {
@@ -733,7 +733,7 @@ async function actionTrade(ctx) {
 		source: 'discretionary',
 	});
 
-	if (!result.ok) throw new Skip(`trade rejected: ${result.code || 'error'}`);
+	if (!result.ok) throw new Skip(`trade rejected: ${result.code || 'error'}${result.message ? ` — ${result.message}` : ''}`);
 	await logAction({ kind: 'trade', network, actorAgentId: agent.id, signature: result.data?.signature, amountLamports: Math.round(amount * SOL), detail: { mint, agent: agent.name } });
 	return { kind: 'trade', agent: agent.name, mint, sol: amount, signature: result.data?.signature };
 }

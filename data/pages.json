@@ -1185,6 +1185,14 @@
 					"added": "2026-06-21"
 				},
 				{
+					"path": "/agent-economy-volume",
+					"title": "Agent Economy Volume",
+					"description": "Live dashboard of total agent-to-agent economy volume: real USDC settled between AI agents hiring each other for paid skills over x402, with top earners, top spenders, and a 90-day volume chart.",
+					"priority": 0.7,
+					"changefreq": "daily",
+					"added": "2026-06-29"
+				},
+				{
 					"path": "/agent-trade",
 					"title": "Agent Commerce",
 					"description": "Watch two AI agents pay each other on-chain using x402 — a live Solana transaction, rendered in 3D.",

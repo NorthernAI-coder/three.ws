@@ -374,3 +374,203 @@ export async function agentEconomySummary(agentId) {
 		net_usdc: Number(row?.income_usd || 0) - Number(row?.outlay_usd || 0),
 	};
 }
+
+// ── Platform-wide roll-ups ──────────────────────────────────────────────────
+
+// A fresh environment may not have run the agent_hires migration yet. Treat the
+// missing table as a real, honest zero instead of a 500 — the dashboard then
+// renders its empty state rather than an error.
+function isMissingTable(err) {
+	return err?.code === '42P01';
+}
+
+// Empty shape returned when the ledger is unmigrated/empty, so every caller gets
+// a stable contract regardless of DB state.
+function emptyPlatformStats(windowDays) {
+	return {
+		totals: {
+			volume_usd: 0,
+			hires: 0,
+			unique_hirers: 0,
+			unique_providers: 0,
+			avg_hire_usd: 0,
+			volume_24h_usd: 0,
+			hires_24h: 0,
+			volume_7d_usd: 0,
+			hires_7d: 0,
+			pending_hires: 0,
+			last_hire_at: null,
+		},
+		daily: [],
+		top_providers: [],
+		top_hirers: [],
+		recent: [],
+		window_days: windowDays,
+	};
+}
+
+/**
+ * Platform-wide agent-to-agent economy roll-up — the single read behind the
+ * public A2A volume dashboard. Every number is a live aggregate over the real
+ * `agent_hires` ledger (completed hires = settled USDC moved from one agent to
+ * another over the x402 rails). No mock path: an unmigrated ledger folds to a
+ * real zero, never a fabricated value.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.windowDays]  — trailing window for the daily series + leaderboards (default 30, max 365)
+ * @param {number} [opts.topLimit]    — ranked agents per leaderboard (default 10, max 50)
+ * @param {number} [opts.recentLimit] — recent settled hires in the feed (default 12, max 50)
+ */
+export async function platformEconomyStats({
+	windowDays = 30,
+	topLimit = 10,
+	recentLimit = 12,
+} = {}) {
+	const win = Math.min(365, Math.max(1, Math.floor(Number(windowDays) || 30)));
+	const top = Math.min(50, Math.max(1, Math.floor(Number(topLimit) || 10)));
+	const recent = Math.min(50, Math.max(1, Math.floor(Number(recentLimit) || 12)));
+
+	try {
+		const [totalsRow] = await sql`
+			SELECT
+				COALESCE(SUM(usd) FILTER (WHERE status = 'completed'), 0)                       AS volume_usd,
+				COUNT(*) FILTER (WHERE status = 'completed')                                    AS hires,
+				COUNT(DISTINCT hirer_agent_id) FILTER (WHERE status = 'completed')              AS unique_hirers,
+				COUNT(DISTINCT provider_agent_id) FILTER (WHERE status = 'completed' AND provider_agent_id IS NOT NULL) AS unique_providers,
+				AVG(usd) FILTER (WHERE status = 'completed')                                    AS avg_hire_usd,
+				COALESCE(SUM(usd) FILTER (WHERE status = 'completed' AND completed_at > now() - interval '24 hours'), 0) AS volume_24h_usd,
+				COUNT(*) FILTER (WHERE status = 'completed' AND completed_at > now() - interval '24 hours')             AS hires_24h,
+				COALESCE(SUM(usd) FILTER (WHERE status = 'completed' AND completed_at > now() - interval '7 days'), 0)  AS volume_7d_usd,
+				COUNT(*) FILTER (WHERE status = 'completed' AND completed_at > now() - interval '7 days')               AS hires_7d,
+				COUNT(*) FILTER (WHERE status = 'pending')                                      AS pending_hires,
+				MAX(completed_at) FILTER (WHERE status = 'completed')                           AS last_hire_at
+			FROM agent_hires
+		`;
+
+		const dailyRows = await sql`
+			SELECT
+				to_char(date_trunc('day', completed_at), 'YYYY-MM-DD') AS day,
+				COALESCE(SUM(usd), 0)                                  AS volume_usd,
+				COUNT(*)                                              AS hires
+			FROM agent_hires
+			WHERE status = 'completed'
+			  AND completed_at > now() - (${win} || ' days')::interval
+			GROUP BY 1
+			ORDER BY 1 ASC
+		`;
+
+		const providerRows = await sql`
+			SELECT
+				h.provider_agent_id                                        AS agent_id,
+				COALESCE(ai.name, 'Agent')                                 AS name,
+				ai.is_public                                               AS is_public,
+				av.thumbnail_key                                           AS thumb_key,
+				av.visibility                                              AS avatar_vis,
+				COALESCE(SUM(h.usd), 0)                                    AS earned_usd,
+				COUNT(*)                                                  AS hires,
+				AVG(h.rating) FILTER (WHERE h.rating IS NOT NULL)          AS avg_rating
+			FROM agent_hires h
+			LEFT JOIN agent_identities ai ON ai.id = h.provider_agent_id AND ai.deleted_at IS NULL
+			LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+			WHERE h.status = 'completed'
+			  AND h.provider_agent_id IS NOT NULL
+			  AND h.completed_at > now() - (${win} || ' days')::interval
+			GROUP BY h.provider_agent_id, ai.name, ai.is_public, av.thumbnail_key, av.visibility
+			ORDER BY earned_usd DESC
+			LIMIT ${top}
+		`;
+
+		const hirerRows = await sql`
+			SELECT
+				h.hirer_agent_id                                           AS agent_id,
+				COALESCE(ai.name, 'Agent')                                 AS name,
+				ai.is_public                                               AS is_public,
+				av.thumbnail_key                                           AS thumb_key,
+				av.visibility                                              AS avatar_vis,
+				COALESCE(SUM(h.usd), 0)                                    AS spent_usd,
+				COUNT(*)                                                  AS hires
+			FROM agent_hires h
+			LEFT JOIN agent_identities ai ON ai.id = h.hirer_agent_id AND ai.deleted_at IS NULL
+			LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+			WHERE h.status = 'completed'
+			  AND h.completed_at > now() - (${win} || ' days')::interval
+			GROUP BY h.hirer_agent_id, ai.name, ai.is_public, av.thumbnail_key, av.visibility
+			ORDER BY spent_usd DESC
+			LIMIT ${top}
+		`;
+
+		const recentRows = await sql`
+			SELECT
+				h.id, h.skill_name, h.service_slug, h.usd, h.amount_atomics,
+				h.currency, h.network, h.payment_signature, h.completed_at,
+				h.hirer_agent_id, h.provider_agent_id,
+				hr.name AS hirer_name, pr.name AS provider_name
+			FROM agent_hires h
+			LEFT JOIN agent_identities hr ON hr.id = h.hirer_agent_id
+			LEFT JOIN agent_identities pr ON pr.id = h.provider_agent_id
+			WHERE h.status = 'completed'
+			ORDER BY h.completed_at DESC NULLS LAST
+			LIMIT ${recent}
+		`;
+
+		return {
+			totals: {
+				volume_usd: Number(totalsRow?.volume_usd || 0),
+				hires: Number(totalsRow?.hires || 0),
+				unique_hirers: Number(totalsRow?.unique_hirers || 0),
+				unique_providers: Number(totalsRow?.unique_providers || 0),
+				avg_hire_usd: totalsRow?.avg_hire_usd != null ? Number(totalsRow.avg_hire_usd) : 0,
+				volume_24h_usd: Number(totalsRow?.volume_24h_usd || 0),
+				hires_24h: Number(totalsRow?.hires_24h || 0),
+				volume_7d_usd: Number(totalsRow?.volume_7d_usd || 0),
+				hires_7d: Number(totalsRow?.hires_7d || 0),
+				pending_hires: Number(totalsRow?.pending_hires || 0),
+				last_hire_at: totalsRow?.last_hire_at || null,
+			},
+			daily: dailyRows.map((r) => ({
+				day: r.day,
+				volume_usd: Number(r.volume_usd || 0),
+				hires: Number(r.hires || 0),
+			})),
+			top_providers: providerRows.map((r) => ({
+				agent_id: r.agent_id,
+				name: r.name || 'Agent',
+				url: r.is_public !== false ? `/agent/${r.agent_id}` : null,
+				avatar_thumbnail_url: avatarThumb(r.thumb_key, r.avatar_vis),
+				earned_usd: Number(r.earned_usd || 0),
+				hires: Number(r.hires || 0),
+				avg_rating: r.avg_rating != null ? Number(r.avg_rating) : null,
+			})),
+			top_hirers: hirerRows.map((r) => ({
+				agent_id: r.agent_id,
+				name: r.name || 'Agent',
+				url: r.is_public !== false ? `/agent/${r.agent_id}` : null,
+				avatar_thumbnail_url: avatarThumb(r.thumb_key, r.avatar_vis),
+				spent_usd: Number(r.spent_usd || 0),
+				hires: Number(r.hires || 0),
+			})),
+			recent: recentRows.map((r) => ({
+				id: r.id,
+				skill_name: r.skill_name,
+				service_slug: r.service_slug,
+				usd: r.usd != null ? Number(r.usd) : atomicsToUsdc(r.amount_atomics),
+				currency: r.currency,
+				network: r.network,
+				payment_signature: r.payment_signature || null,
+				completed_at: r.completed_at,
+				hirer: {
+					agent_id: r.hirer_agent_id,
+					name: r.hirer_name || 'Agent',
+				},
+				provider: {
+					agent_id: r.provider_agent_id,
+					name: r.provider_name || 'Agent',
+				},
+			})),
+			window_days: win,
+		};
+	} catch (err) {
+		if (isMissingTable(err)) return emptyPlatformStats(win);
+		throw err;
+	}
+}

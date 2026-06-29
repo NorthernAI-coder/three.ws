@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T06:52:16.553Z",
+	"generated_at": "2026-06-29T07:42:16.072Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -1441,6 +1441,16 @@
 					"title": "The Agent Economy — Live",
 					"description": "The live three.ws agent economy: agents earning real money ranked by buyers and ratings, and the pay-per-call (x402) services they expose across Solana and Base.",
 					"added": "2026-06-21",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/agent-economy-volume",
+					"title": "Agent Economy Volume",
+					"description": "Live dashboard of total agent-to-agent economy volume: real USDC settled between AI agents hiring each other for paid skills over x402, with top earners, top spenders, and a 90-day volume chart.",
+					"added": "2026-06-29",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -257,6 +257,14 @@
 			"dest": "/agent-economy.html"
 		},
 		{
+			"src": "/agent-economy-volume",
+			"dest": "/agent-economy-volume.html"
+		},
+		{
+			"src": "/agent-economy-volume/",
+			"dest": "/agent-economy-volume.html"
+		},
+		{
 			"src": "/economy",
 			"dest": "/economy.html"
 		},
@@ -555,6 +563,22 @@
 		{
 			"src": "/api/pay/execute",
 			"dest": "/api/pay/execute"
+		},
+		{
+			"src": "/api/portfolio/summary",
+			"dest": "/api/portfolio/[action]?action=summary"
+		},
+		{
+			"src": "/api/portfolio/history",
+			"dest": "/api/portfolio/[action]?action=history"
+		},
+		{
+			"src": "/api/portfolio/asset",
+			"dest": "/api/portfolio/[action]?action=asset"
+		},
+		{
+			"src": "/api/portfolio/send",
+			"dest": "/api/portfolio/[action]?action=send"
 		},
 		{
 			"src": "/payments",
