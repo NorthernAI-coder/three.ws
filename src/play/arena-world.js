@@ -13,7 +13,7 @@ import {
 	Scene, PerspectiveCamera, WebGLRenderer, Group,
 	AmbientLight, DirectionalLight, PointLight, HemisphereLight,
 	PMREMGenerator, Color, Fog, Vector3, Box3,
-	CircleGeometry, RingGeometry, TorusGeometry, CylinderGeometry,
+	CircleGeometry, RingGeometry, TorusGeometry, CylinderGeometry, BoxGeometry, PlaneGeometry,
 	MeshStandardMaterial, MeshBasicMaterial, Mesh, DoubleSide,
 	BufferGeometry, BufferAttribute, Points, PointsMaterial, AdditiveBlending,
 	Sprite, SpriteMaterial, CanvasTexture, MathUtils, LoopOnce, LoopRepeat,
@@ -23,6 +23,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from '../animation-manager.js';
 import { gltfLoader } from '../loaders/gltf.js';
+import { normalizeFloor } from '../shared/mm-render.js';
 
 const MANIFEST_URL = '/animations/manifest.json';
 
@@ -79,6 +80,7 @@ export class ArenaWorld {
 		this._running = false;
 		this._raf = 0;
 		this._labels = new Set();  // ArenaAvatar with DOM labels to project
+		this._floors = new Map();  // agentId -> market-maker floor-defense viz
 		this._focus = null;        // { x, z, dist, until } cinematic agent focus
 		this._tour = null;         // active Coin World Tour goal { name, x, z, face, resolve, deadline }
 		this._tourLoc = 'lobby';   // last waypoint the guide reached
@@ -333,6 +335,7 @@ export class ArenaWorld {
 	_removeAvatar(avatar) {
 		if (!avatar) return;
 		this._labels.delete(avatar);
+		if (avatar.id) this._removeFloor(avatar.id);
 		if (avatar.root) this.scene.remove(avatar.root);
 		avatar.dispose();
 		if (avatar.id) this.agents.delete(avatar.id);
@@ -448,6 +451,170 @@ export class ArenaWorld {
 				return false;
 			},
 		});
+	}
+
+	// ── Market-Maker Floor Defense ────────────────────────────────────────────
+	// A glowing horizontal line in front of an agent draws the coin's price floor;
+	// a marker rides above it at a height set by price/floor and descends to touch
+	// the line as the price approaches the floor. Driven entirely by mm events the
+	// agent-mm worker publishes — the render layer never signs or moves funds.
+
+	// Height (world Y) the price marker should sit at for a given floor/price. At
+	// or below the floor it touches the line (LINE_Y); above it floats up.
+	_markerHeight(floorSol, priceSol) {
+		const LINE_Y = 0.07;
+		if (!(floorSol > 0) || !(priceSol > 0)) return LINE_Y + 1.0; // unknown — hover mid
+		const up = Math.max(0, priceSol / floorSol - 1); // 0 = exactly at the floor
+		return LINE_Y + Math.min(2.2, up * 6);
+	}
+
+	_buildFloorViz(avatar, { floorSol, priceSol }, simulate) {
+		const grp = new Group();
+		const at = avatar.root.position;
+		grp.position.set(at.x, 0, at.z + 1.7); // just in front of the avatar, toward the viewer
+
+		// Soft glow pad beneath the line.
+		const glow = new Mesh(
+			new PlaneGeometry(3.4, 0.6),
+			new MeshBasicMaterial({ color: PALETTE.cyan, transparent: true, opacity: 0.12, side: DoubleSide, blending: AdditiveBlending, depthWrite: false }),
+		);
+		glow.rotation.x = -Math.PI / 2;
+		glow.position.y = 0.05;
+		grp.add(glow);
+
+		// The floor line itself — a thin emissive bar lying across the deck.
+		const line = new Mesh(
+			new BoxGeometry(3.0, 0.016, 0.06),
+			new MeshBasicMaterial({ color: PALETTE.cyan, transparent: true, opacity: 0.7, blending: AdditiveBlending, depthWrite: false }),
+		);
+		line.position.y = 0.07;
+		grp.add(line);
+
+		// The price marker — a glowing coin that dances above the line.
+		const marker = new Sprite(new SpriteMaterial({ map: makeLabelTexture('◎', PALETTE.gold), transparent: true, depthTest: false, blending: AdditiveBlending }));
+		marker.scale.set(0.5, 0.5, 1);
+		marker.position.set(0, this._markerHeight(floorSol, priceSol), 0);
+		marker.renderOrder = 11;
+		grp.add(marker);
+
+		// SIM badge — so a dry-run is never mistaken for a real fill.
+		const simBadge = new Sprite(new SpriteMaterial({ map: makeLabelTexture('SIM', PALETTE.violet), transparent: true, depthTest: false }));
+		simBadge.scale.set(0.7, 0.35, 1);
+		simBadge.position.set(1.55, 0.2, 0);
+		simBadge.visible = !!simulate;
+		simBadge.renderOrder = 11;
+		grp.add(simBadge);
+
+		this.scene.add(grp);
+		return {
+			group: grp, glow, line, marker, simBadge,
+			floorSol: floorSol || 0, priceSol: priceSol || 0, simulate: !!simulate,
+			targetY: this._markerHeight(floorSol, priceSol), flash: 0, amber: 0,
+		};
+	}
+
+	// Create or update an agent's floor line + price marker. Lazily builds the viz
+	// the first time it's called for a spawned agent; later calls lerp the marker.
+	setFloor(agentId, { floorSol, priceSol, simulate = false } = {}) {
+		const a = this.agents.get(agentId);
+		if (!a || !a.root) return;
+		const norm = normalizeFloor({ floorSol, priceSol });
+		let f = this._floors.get(agentId);
+		if (!f) {
+			f = this._buildFloorViz(a, norm, simulate);
+			this._floors.set(agentId, f);
+		}
+		if (norm.floorSol > 0) f.floorSol = norm.floorSol;
+		if (norm.priceSol > 0) f.priceSol = norm.priceSol;
+		f.simulate = !!simulate;
+		if (f.simBadge) f.simBadge.visible = !!simulate;
+		f.targetY = this._markerHeight(f.floorSol, f.priceSol);
+		// A fresh quote clears the "re-quoting" amber state.
+		f.amber = 0;
+		return f;
+	}
+
+	// Amber the floor line while a quote/RPC read is failing (the line holds the
+	// last known price; the consumer calls this on a stream error and clears it on
+	// the next good event via setFloor).
+	markFloorReQuoting(agentId) {
+		const f = this._floors.get(agentId);
+		if (f) f.amber = 1;
+	}
+
+	// Route one MM event onto an agent: update the floor/marker, then play the
+	// reaction — defend lunges into a buy + flashes the line, recycle sweeps both
+	// sides, graduate celebrates with a big-win + LP burst.
+	onMmEvent(agentId, ev = {}) {
+		if (!ev) return;
+		const type = ev.type || ev.actionType;
+		const f = this.setFloor(agentId, { floorSol: ev.floorSol, priceSol: ev.priceSol, simulate: ev.simulate });
+		const a = this.agents.get(agentId);
+		const at = a ? a.worldHead() : new Vector3(0, 2, 0);
+		switch (type) {
+			case 'mm_defend':
+				if (a) a.emote('buy');
+				this._spawnCoin(at, { text: 'DEFEND', color: PALETTE.up, dir: 1 });
+				this._ringPulse(a?.root?.position, PALETTE.up);
+				if (f) f.flash = 0.7;
+				break;
+			case 'mm_recycle':
+				this._spawnCoin(at, { text: 'RECYCLE', color: PALETTE.cyan, dir: 1 });
+				this._spawnCoin(at, { text: '◎', color: PALETTE.violet, dir: -1 });
+				if (f) f.flash = 0.4;
+				break;
+			case 'mm_rebalance':
+				this._spawnCoin(at, { text: 'TRIM', color: PALETTE.violet, dir: -1 });
+				break;
+			case 'mm_seed':
+				this._spawnCoin(at, { text: 'SEED', color: PALETTE.cyan, dir: 1 });
+				if (f) f.flash = 0.4;
+				break;
+			case 'mm_graduate':
+				this.reactGraduate(agentId, at);
+				if (f) f.flash = 0.9;
+				break;
+			default:
+				break; // mm_quote — floor/marker already updated, no emote
+		}
+	}
+
+	// Graduation celebration: the big-win backflip (lazy-loaded) + an LP-deposit burst.
+	async reactGraduate(agentId, at) {
+		const a = this.agents.get(agentId);
+		const pos = at || (a ? a.worldHead() : new Vector3(0, 2, 0));
+		if (a) { await this.ensureLibClip(CLIPS.bigWin); a.emote('bigWin'); }
+		this._confetti(pos, true);
+		this._spawnCoin(pos, { text: 'LP', color: PALETTE.gold, dir: 1 });
+		this._ringPulse(a?.root?.position, PALETTE.gold);
+	}
+
+	// Advance every floor's marker lerp + line shimmer. Called from _tick.
+	_tickFloors(dt, t) {
+		for (const f of this._floors.values()) {
+			f.marker.position.y += (f.targetY - f.marker.position.y) * Math.min(1, 4 * dt);
+			f.marker.position.x = Math.sin(t * 1.5 + f.group.position.x) * 0.06;
+			const touching = f.floorSol > 0 && f.priceSol > 0 && f.priceSol <= f.floorSol * 1.02;
+			const pulse = 0.65 + 0.35 * Math.sin(t * 3 + f.group.position.x);
+			const col = f.amber > 0 ? PALETTE.gold : (touching ? PALETTE.up : PALETTE.cyan);
+			f.line.material.color.set(col);
+			f.glow.material.color.set(col);
+			const base = (touching ? 0.95 : 0.6);
+			f.line.material.opacity = Math.min(1, base * pulse + (f.flash > 0 ? f.flash : 0));
+			f.glow.material.opacity = 0.1 + (f.flash > 0 ? f.flash * 0.4 : 0) + (touching ? 0.08 : 0);
+			if (f.flash > 0) f.flash = Math.max(0, f.flash - dt * 1.6);
+		}
+	}
+
+	_removeFloor(agentId) {
+		const f = this._floors.get(agentId);
+		if (!f) return;
+		this.scene.remove(f.group);
+		f.group.traverse?.((o) => {
+			if (o.isMesh) { o.geometry?.dispose?.(); o.material?.dispose?.(); }
+			if (o.isSprite) { o.material?.map?.dispose?.(); o.material?.dispose?.(); }
+		});
+		this._floors.delete(agentId);
 	}
 
 	// ── Controls (third-person follow) ────────────────────────────────────────
@@ -665,6 +832,8 @@ export class ArenaWorld {
 			const halo = a.pad?.userData?.halo;
 			if (halo) halo.material.opacity = (a.leader ? 0.9 : 0.6) * (0.7 + 0.3 * Math.sin(t * 2 + (a.headHeight || 0)));
 		}
+		// Market-maker floor lines + price markers.
+		if (this._floors.size) this._tickFloors(dt, t);
 		if (this._onLabels) this._onLabels();
 	}
 

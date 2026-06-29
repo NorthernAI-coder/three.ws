@@ -324,6 +324,10 @@ export function createPnlHud({ bodyEl, agentId, network = 'mainnet', onNetWorth 
 		destroyed = true;
 		if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
 		if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+		if (onVisibility && typeof document !== 'undefined') {
+			document.removeEventListener('visibilitychange', onVisibility);
+			onVisibility = null;
+		}
 	}
 
 	return { start, destroy, setActive, refresh };

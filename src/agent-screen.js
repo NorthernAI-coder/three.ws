@@ -37,16 +37,19 @@ import { StageShow } from './agent-screen-stage.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
 import { handleTourFrame } from './agent-screen-tour.js';
 import { buildRunCommand, buildRunCommandHtml, RUNTIME_LABELS } from './agent-screen-runcmd.js';
+import { createNewsroomAnchor } from './agent-screen-anchor.js';
 import { createTreasuryCockpit } from './agent-screen-treasury.js';
 import { MirrorPanel } from './agent-screen-mirror.js';
 import { createHireVisualizer } from './agent-screen-hire.js';
 import {
 	parsePnlDelta, accumulatePnl, emptyPnlState, unrealizedTotalUsd, emoteForExit, formatSol, formatUsd,
 } from './shared/trade-pnl.js';
+import { classify, colorHex } from './activity-cinema.js';
 import {
 	parseLaunchCommand, validateLaunchParams, narrate as narrateLaunch,
 	renderLaunchHud, truncMid,
 } from './launch-director.js';
+import { parseGrindCommand } from './vanity-grind-director.js';
 import { agentAvatarGlb } from './shared/agent-3d.js';
 import { getMeshoptDecoder } from './viewer/internal.js';
 import { ScreenshotModal } from './components/screenshot-modal.js';
@@ -57,6 +60,7 @@ import { createAmbientWorld, phaseLabel } from './agent-screen-world.js';
 import { createDjScript } from './agent-screen-dj.js';
 import { LipSyncAnalyser } from './lip-sync-analyser.js';
 import { createVisemeDriver } from './runtime/lipsync.js';
+import { classifyTaskInput, ensureSessionId } from './shared/ask-routing.js';
 
 // One meshopt-aware loader, built once. Optimized agent avatars ship with
 // EXT_meshopt_compression, so the decoder must be wired before the loader can
@@ -757,7 +761,7 @@ async function boot(id) {
 				<span class="asc-panel-title">Live Hire</span>
 				<div class="asc-panel-btns">
 					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
-					<button class="asc-panel-btn" data-act="close" title="Hide (H)">✕</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (R)">✕</button>
 				</div>
 			</div>
 			<div class="asc-panel-body" id="asc-hire-body"></div>
@@ -803,7 +807,7 @@ async function boot(id) {
 					class="asc-task-input"
 					id="asc-task-input"
 					type="text"
-					placeholder="Give your agent a task… (research, browse, monitor anything)"
+					placeholder="Give your agent a task… (research, browse, or: launch a coin named … ticker … uri https://…)"
 					maxlength="1000"
 					spellcheck="false"
 				>
@@ -814,6 +818,26 @@ async function boot(id) {
 				</button>
 			</form>
 			<div class="asc-task-status" id="asc-task-status"></div>
+			<!-- Live Avatar Forge: type a prompt → watch a 3D avatar get built, rigged, animated -->
+			<form class="asc-forge-form" id="asc-forge-form" autocomplete="off">
+				<div class="asc-forge-icon" title="Free TRELLIS text→3D">✦</div>
+				<input
+					class="asc-forge-input"
+					id="asc-forge-input"
+					type="text"
+					placeholder="Forge an avatar — describe it (e.g. a glossy white robot mascot)"
+					maxlength="1000"
+					spellcheck="false"
+				>
+				<button class="asc-forge-btn" id="asc-forge-btn" type="submit" title="Forge a 3D avatar — free">
+					<span class="asc-forge-btn-label">Forge</span>
+					<span class="asc-forge-btn-spin" aria-hidden="true"></span>
+				</button>
+			</form>
+			<div class="asc-forge-result" id="asc-forge-result" hidden>
+				<a class="asc-forge-view" id="asc-forge-view" target="_blank" rel="noopener">Open in viewer ↗</a>
+				<button class="asc-forge-use" id="asc-forge-use" type="button">Use as agent avatar</button>
+			</div>
 		</div>
 
 		<!-- Zen exit hint -->
@@ -836,8 +860,14 @@ async function boot(id) {
 	// ── resolve agent metadata ─────────────────────────────────────────────
 	let agentName = 'Agent';
 	let avatarGlbUrl = null;
+	// Q&A concierge state: whether this viewer owns the agent (unlocks the
+	// queue-a-task mode) and the agent's configured TTS voice for spoken answers.
+	let isOwner = false;
+	let agentVoice = 'nova';
 	try {
-		const res = await fetch(`/api/agents/${encodeURIComponent(id)}`);
+		// credentials:'include' so the server can tell whether this viewer owns the
+		// agent — owners get the ask⇄task toggle; everyone else can still ask.
+		const res = await fetch(`/api/agents/${encodeURIComponent(id)}`, { credentials: 'include' });
 		if (res.ok) {
 			const j = await res.json();
 			const agent = j.agent || j;
@@ -848,11 +878,16 @@ async function boot(id) {
 			backEl.href = `/agents/${id}`;
 			agentLinkEl.href = `/agents/${id}`;
 			agentLinkEl.innerHTML = `${esc(agentName)} →`;
+			isOwner = !!agent.is_owner;
+			if (agent.voice_id) agentVoice = agent.voice_id;
 			try {
 				avatarGlbUrl = await agentAvatarGlb(agent);
 			} catch { /* fall through to default */ }
 		}
 	} catch { /* non-fatal */ }
+
+	// A per-tab Q&A session id gives follow-up questions memory continuity.
+	const qaSessionId = ensureSessionId();
 
 	// ── avatar webcam ──────────────────────────────────────────────────────
 	const webcamRenderer = new WebGLRenderer({ antialias: true, alpha: true });
@@ -898,6 +933,19 @@ async function boot(id) {
 	let hostLookT = 0;
 	let lipsyncSampler = null;
 
+	// ── Pose Studio Live ─────────────────────────────────────────────────────
+	// A viewer calls out a pose ("wave hello", "take a bow", "warrior stance")
+	// and the live avatar performs it: animated emotes drive a real canonical
+	// clip through the AnimationManager; static poses tween the joint-rotation
+	// map onto the same canonical bones the /pose studio uses, then settle back
+	// to the live idle. Universal across rigs — no allowlist, never a T-pose.
+	let poseRig = null;          // canonical rig over the loaded model (null ⇒ not skeleton-driveable)
+	let poseDriver = null;       // active static-pose tween, or null
+	let poseClipSettleAt = 0;    // perf-clock ms to settle a looping emote back to idle (0 ⇒ none)
+	let lastPoseAt = 0;          // debounce: drop requests that would stomp a transition
+	let performPose = null;      // assigned once the avatar + rig are mounted
+	const _poseTmpQuat = new Quaternion();
+
 	function sizeWebcam() {
 		if (!webcamCanvas) return;
 		const bw = webcamBezel.clientWidth || 256;
@@ -925,6 +973,10 @@ async function boot(id) {
 			// falls back to its authored bind pose (supportsCanonicalClips() gate).
 			webcamAnimManager = new AnimationManager();
 			webcamAnimManager.attach(model, { avatarUrl: glbUrl || '/avatars/default.glb' });
+			// Canonical pose-rig over the SAME model so viewer-requested static poses
+			// land on exactly the bones /pose drives. null ⇒ not skeleton-driveable
+			// (poses then no-op gracefully — never a forced bind-pose T-pose).
+			poseRig = makeGltfRig(model);
 			if (webcamAnimManager.supportsCanonicalClips()) {
 				try {
 					const manifest = await fetch('/animations/manifest.json', { cache: 'force-cache' })
@@ -936,7 +988,15 @@ async function boot(id) {
 					// avatar can celebrate a win, slump on a loss, and wave on session
 					// start. The one-shots load lazily on first playOnce — only `idle`
 					// is forced up front so the head is alive immediately.
-					const REACTION_CLIPS = ['idle', 'celebrate', 'defeated', 'wave'];
+					const REACTION_CLIPS = [
+						'idle', 'celebrate', 'defeated', 'wave',
+						// Live Pose Studio emotes — load lazily on first viewer request.
+						'pray', 'dance', 'kiss', 'taunt', 'jump', 'facepalm',
+						'av-cheering', 'av-brag-claps', 'av-arm-flex',
+						// Q&A concierge: a "thinking" waiting pose while the answer streams
+						// and a "talking" upper-body gesture overlaid while the agent speaks.
+						'av-waiting', 'av-vtubing',
+					];
 					const defs = manifest.filter((d) => REACTION_CLIPS.includes(d.name));
 					const idleDef = defs.filter((d) => d.name === 'idle');
 					if (defs.length) {
@@ -982,6 +1042,89 @@ async function boot(id) {
 			console.warn('[agent-screen] avatar webcam load failed:', err);
 			webcamIdle.textContent = 'Avatar unavailable';
 		}
+	}
+
+	// ── Live Avatar Forge: swap the cam to a forged GLB ─────────────────────
+	// Dispose the current model, load the forged GLB, retarget the canonical clip
+	// library, then play idle → wave. Returns { animated } — false for a
+	// non-riggable GLB (shown static, never a forced T-pose), gated on
+	// AnimationManager.supportsCanonicalClips().
+	function disposeForgeMaterial(m) {
+		for (const k in m) { const v = m[k]; if (v && v.isTexture) v.dispose?.(); }
+		m.dispose?.();
+	}
+	function disposeForgeObject(rootObj) {
+		rootObj.traverse((o) => {
+			if (o.geometry) o.geometry.dispose?.();
+			const m = o.material;
+			if (Array.isArray(m)) m.forEach(disposeForgeMaterial);
+			else if (m) disposeForgeMaterial(m);
+		});
+	}
+	async function swapWebcamAvatar(glbUrl, { wave = false } = {}) {
+		const loader = await getAvatarLoader();
+		const gltf = await loader.loadAsync(glbUrl);
+		const model = cloneSkinnedScene(gltf.scene);
+
+		webcamAnimManager?.detach();
+		webcamAnimManager = null;
+		if (webcamAvatar) {
+			webcamScene.remove(webcamAvatar);
+			disposeForgeObject(webcamAvatar);
+		}
+		webcamAvatar = model;
+		webcamScene.add(model);
+
+		const box = new Box3().setFromObject(model);
+		const h = box.max.y || 1.6;
+		webcamCamera.position.set(0, h - 0.12, 0.72);
+		webcamCamera.lookAt(0, h - 0.18, 0);
+
+		webcamAnimManager = new AnimationManager();
+		webcamAnimManager.attach(model, { avatarUrl: glbUrl });
+		let animated = false;
+		if (webcamAnimManager.supportsCanonicalClips()) {
+			try {
+				const manifest = await fetch('/animations/manifest.json', { cache: 'force-cache' })
+					.then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`); return r.json(); });
+				const defs = manifest.filter((d) => ['idle', 'wave'].includes(d.name));
+				if (defs.length) {
+					webcamAnimManager.setAnimationDefs(defs);
+					await webcamAnimManager.ensureLoaded('idle');
+					webcamAnimManager.play('idle');
+					animated = true;
+					if (wave) {
+						await webcamAnimManager.ensureLoaded('wave').catch(() => {});
+						webcamAnimManager.playOnce('wave', { settleTo: 'idle' }).catch(() => {});
+					}
+				}
+			} catch (err) {
+				console.warn('[agent-screen] forged clip load failed:', err);
+			}
+		}
+
+		// First forge before any avatar mounted (default mount failed): bring the
+		// cam canvas + a minimal render tick online so the forged model is visible.
+		if (!webcamCanvas) {
+			webcamCanvas = webcamRenderer.domElement;
+			webcamCanvas.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+			webcamBezel.appendChild(webcamCanvas);
+		}
+		sizeWebcam();
+		if (!webcamRafId) {
+			let last = 0;
+			const tick = (t) => {
+				webcamRafId = requestAnimationFrame(tick);
+				const dt = Math.min((t - last) / 1000, 0.1);
+				last = t;
+				webcamAnimManager?.update(dt);
+				webcamRenderer.render(webcamScene, webcamCamera);
+			};
+			webcamRafId = requestAnimationFrame(tick);
+		}
+		webcamIdle.style.display = 'none';
+		webcamBadge.style.display = 'flex';
+		return { animated };
 	}
 
 	mountAvatarWebcam(avatarGlbUrl || '/avatars/default.glb');
@@ -1331,6 +1474,7 @@ async function boot(id) {
 	let treasuryCockpit = null; // set once the Treasury panel mounts (below)
 	let mirrorPanel = null;     // set once the Mirror panel mounts (below)
 	let pnlHud = null;          // set once the Portfolio HUD panel mounts (below)
+	let hireViz = null;         // set once the Live Hire panel mounts (below)
 	const client = createAgentScreenClient(id, {
 		onOpen({ agentName: n }) {
 			if (n) { agentNameEl.textContent = n; agentName = n; webcamName.textContent = n; }
@@ -1342,6 +1486,9 @@ async function boot(id) {
 			if (frame.data) renderFrame(frame);
 			handleTourFrame(frame);
 			if (frame.activity) { addLogEntry(frame); treasuryCockpit?.observeLog([frame]); }
+			const forgeHit = parseForgeFrame(frame);
+			if (forgeHit) loadForgedAvatar(forgeHit);
+			if (frame.meta?.kind === 'a2a_hire') hireViz?.ingest(frame.meta, { live: true });
 			if (frame.type === 'trade') {
 				const delta = ingestTrade(frame);
 				if (delta) emoteForTrade(delta);
@@ -1361,6 +1508,11 @@ async function boot(id) {
 			// don't emote — these are history, not a fresh fill happening on camera.
 			entries.forEach((e) => { addLogEntry(e); ingestTrade(e); });
 			treasuryCockpit?.observeLog(entries);
+			const lastForge = [...entries].reverse().find((e) => parseForgeFrame(e));
+			if (lastForge) loadForgedAvatar(parseForgeFrame(lastForge));
+			// Replay any hire phases in order so a reconnect re-syncs to the latest
+			// phase (no coin animation — this is history, not a fresh settle).
+			entries.forEach((e) => { if (e.meta?.kind === 'a2a_hire') hireViz?.ingest(e.meta, { live: false }); });
 		},
 		onDark() { setDark(); },
 		onError() {
@@ -1370,6 +1522,169 @@ async function boot(id) {
 	});
 
 	client.connect();
+
+	// ── sentiment heatmap (live 3D market field + narration) ─────────────────
+	// A glowing 3D field of tokens — $THREE pinned at the centre — pulsing by 24h
+	// momentum, with the agent calling out the movers. Real data via
+	// /api/intel/heatmap; real narration via /api/brain/chat.
+	const heatmapCanvas = document.getElementById('asc-heatmap-canvas');
+	const hmOverlay = document.getElementById('asc-hm-overlay');
+	const hmStale = document.getElementById('asc-hm-stale');
+	const hmTooltip = document.getElementById('asc-hm-tooltip');
+	const hmMeta = document.getElementById('asc-hm-meta');
+	let heatmap = null;
+	let heatmapPoller = null;
+	let hmHasData = false;
+	let hmCanPush = true;       // disabled after a 401/403 (viewer, not owner)
+	let lastNarrationAt = 0;
+	let lastPushAt = 0;
+	const NARRATION_COOLDOWN_MS = 60_000;
+	const PUSH_COOLDOWN_MS = 18_000;
+
+	function sizeHeatmap() { heatmap?.resize(); }
+
+	function showHmTooltip(token, x, y) {
+		if (!token) { hmTooltip.hidden = true; return; }
+		const pct = (n) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${Number(n).toFixed(1)}%`);
+		const vol = token.volume24h ? `$${Intl.NumberFormat('en', { notation: 'compact' }).format(token.volume24h)}` : '—';
+		const sent = token.sentiment && Number.isFinite(token.sentiment.score)
+			? `<div class="asc-hm-tip-row"><span>sentiment</span><b>${token.sentiment.posPct}% bullish</b></div>` : '';
+		hmTooltip.innerHTML = `
+			<div class="asc-hm-tip-head">${esc(token.label)}${token.featured ? ' <span class="asc-hm-tip-anchor">$THREE</span>' : ''}</div>
+			<div class="asc-hm-tip-row"><span>momentum</span><b>${pct(token.change24h)}</b></div>
+			<div class="asc-hm-tip-row"><span>24h vol</span><b>${vol}</b></div>
+			${sent}`;
+		hmTooltip.hidden = false;
+		const r = heatmapCanvas.getBoundingClientRect();
+		let lx = Math.min(x - r.left + 14, r.width - hmTooltip.offsetWidth - 8);
+		let ly = Math.min(y - r.top + 14, r.height - hmTooltip.offsetHeight - 8);
+		hmTooltip.style.left = `${Math.max(6, lx)}px`;
+		hmTooltip.style.top = `${Math.max(6, ly)}px`;
+	}
+
+	function startHeatmap() {
+		if (heatmap || !heatmapCanvas) return;
+		heatmap = new SentimentHeatmap3D(heatmapCanvas, { onHover: showHmTooltip });
+		heatmap.showLoadingLattice();
+		requestAnimationFrame(() => sizeHeatmap());
+		heatmapPoller = createHeatmapPoller({
+			onUpdate({ tokens, spikes, movers, stale }) {
+				if (!heatmap) return;
+				hmHasData = tokens.length > 0;
+				heatmap.setData(tokens);
+				hmOverlay.hidden = hmHasData;
+				if (tokens.length <= 1) {
+					hmOverlay.hidden = false;
+					hmOverlay.querySelector('p').textContent = 'Market quiet — watching $THREE.';
+				}
+				hmStale.hidden = !stale;
+				const climate = movers.avgMomentum > 0.08 ? 'heating' : movers.avgMomentum < -0.08 ? 'cooling' : 'mixed';
+				hmMeta.textContent = `${tokens.length} tokens · ${climate}`;
+				maybeNarrate({ spikes, movers });
+				maybePushWall(movers);
+			},
+			onError() {
+				if (!hmHasData) {
+					hmOverlay.hidden = false;
+					hmOverlay.querySelector('p').textContent = 'Market feed unavailable — retrying…';
+				} else {
+					hmStale.hidden = false;
+				}
+			},
+		});
+		heatmapPoller.start();
+	}
+
+	// Narrate movers through the brain. Anonymous viewers get the free model; the
+	// line names only $THREE and never recommends other tokens. Throttled so the
+	// log never floods.
+	async function maybeNarrate({ spikes, movers }) {
+		const now = Date.now();
+		if (now - lastNarrationAt < NARRATION_COOLDOWN_MS) return;
+		const firstRun = lastNarrationAt === 0;
+		if (!firstRun && !spikes.length) return;
+		lastNarrationAt = now;
+		const context = buildNarrationContext({ spikes, movers });
+		const system = 'You are a terse live market-sentiment narrator on a trading wall. Given a snapshot of token momentum, say ONE punchy sentence (max 22 words) calling the moment. $THREE is the featured coin and the only one you may name approvingly; never recommend, endorse, or shill any other token — refer to others only by ticker as market data. No emojis, no hashtags, no financial advice.';
+		try {
+			const line = await narrateOnce(system, context);
+			if (line) {
+				addLogEntry({ ts: Date.now(), activity: line, type: 'analysis' });
+				pushNarration(line);
+			}
+		} catch { /* narration is best-effort */ }
+	}
+
+	async function narrateOnce(system, content) {
+		const res = await fetch('/api/brain/chat', {
+			method: 'POST',
+			credentials: 'include',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ provider: 'gpt-oss-120b', system, messages: [{ role: 'user', content }], maxTokens: 80 }),
+		});
+		if (!res.ok || !res.body) return '';
+		const reader = res.body.getReader();
+		const dec = new TextDecoder();
+		let buf = '';
+		let out = '';
+		while (true) {
+			const { value, done } = await reader.read();
+			if (done) break;
+			buf += dec.decode(value, { stream: true });
+			const lines = buf.split('\n');
+			buf = lines.pop();
+			for (const l of lines) {
+				const s = l.trim();
+				if (!s.startsWith('data:')) continue;
+				const raw = s.slice(5).trim();
+				if (!raw || raw === '[DONE]') continue;
+				try { const chunk = JSON.parse(raw); if (typeof chunk === 'string') out += chunk; } catch { /* meta/first/done events */ }
+			}
+		}
+		return out.trim().replace(/^["']|["']$/g, '').slice(0, 220);
+	}
+
+	// Push the narration line to the wall (owners only). A 401/403 means this
+	// viewer doesn't own the agent — disable further pushes silently.
+	async function pushNarration(line) {
+		if (!hmCanPush) return;
+		try {
+			const res = await fetch('/api/agent-screen-push', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, frame: { activity: line, type: 'activity' } }),
+			});
+			if (res.status === 401 || res.status === 403) hmCanPush = false;
+		} catch { /* best-effort */ }
+	}
+
+	// Snapshot the heatmap onto the wall when the agent's screen is otherwise dark
+	// — fills a blank stream rather than overriding an active browser stream.
+	// Owners only; throttled.
+	async function maybePushWall(movers) {
+		if (!hmCanPush || !heatmap || !hmHasData) return;
+		const now = Date.now();
+		if (now - lastPushAt < PUSH_COOLDOWN_MS) return;
+		const streamLive = !liveBadgeEl.classList.contains('dark') && lastFrameAt && (now - lastFrameAt < 80_000);
+		if (streamLive) return;
+		const data = heatmap.captureFrame(720);
+		if (!data || data.length > 760_000) return;
+		lastPushAt = now;
+		const climate = movers.avgMomentum > 0.08 ? 'heating' : movers.avgMomentum < -0.08 ? 'cooling' : 'mixed';
+		try {
+			const res = await fetch('/api/agent-screen-push', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, frame: { data, activity: `Sentiment heatmap — market ${climate}`, type: 'analysis' } }),
+			});
+			if (res.status === 401 || res.status === 403) hmCanPush = false;
+		} catch { /* best-effort */ }
+	}
+
+	document.getElementById('asc-hm-focus')?.addEventListener('click', () => heatmap?.focusThree());
+	document.getElementById('asc-hm-retry')?.addEventListener('click', () => { hmStale.hidden = true; heatmapPoller?.refresh(); });
+
+	if (!layout.panels.heatmap.hidden) startHeatmap();
 
 	// Ask the on-demand pool to cast this agent and keep re-asserting while the tab
 	// is open, so a viewer who lands here (not just the wall) gets a real browser
@@ -1395,6 +1710,16 @@ async function boot(id) {
 		if (launchParams) {
 			taskInput.value = '';
 			await runLaunchDirector(launchParams);
+			return;
+		}
+
+		// Vanity Grinder: "grind a wallet starting with pump" runs a real, live
+		// keyspace search streamed to this screen instead of queuing a task. The
+		// keypair is generated server-side; the secret is returned only to the owner.
+		const grindParams = parseGrindCommand(text);
+		if (grindParams) {
+			taskInput.value = '';
+			await runVanityGrind(grindParams);
 			return;
 		}
 
@@ -1436,6 +1761,362 @@ async function boot(id) {
 			taskInput.focus();
 		}
 	});
+
+	// ── Live Avatar Forge: in-browser driver ────────────────────────────────
+	// The viewer types a prompt; we drive the FREE NVIDIA NIM (Microsoft TRELLIS)
+	// text→3D lane (POST/poll /api/forge — no payment, no key, no wallet), narrate
+	// each REAL pipeline stage, broadcast the staged frames to every viewer via
+	// screenPush, and on completion load + rig + animate the GLB in the Avatar Cam.
+	const forgeForm = document.getElementById('asc-forge-form');
+	const forgeInput = document.getElementById('asc-forge-input');
+	const forgeBtn = document.getElementById('asc-forge-btn');
+	const forgeResult = document.getElementById('asc-forge-result');
+	const forgeView = document.getElementById('asc-forge-view');
+	const forgeUse = document.getElementById('asc-forge-use');
+	const forgeQueue = [];
+	let forgeInFlight = false;
+	let lastForgedGlb = '';
+	let forgeOverlayEl = null;
+
+	function ensureForgeOverlay() {
+		if (!forgeOverlayEl) {
+			forgeOverlayEl = document.createElement('div');
+			forgeOverlayEl.className = 'asc-forge-cam-note';
+			webcamBezel.appendChild(forgeOverlayEl);
+		}
+		return forgeOverlayEl;
+	}
+	function showForgeStage(text) { const el = ensureForgeOverlay(); el.textContent = text; el.dataset.show = '1'; }
+	function hideForgeOverlay() { if (forgeOverlayEl) forgeOverlayEl.dataset.show = '0'; }
+	function forgeStatus(msg, cls = '') {
+		taskStatus.className = 'asc-task-status' + (cls ? ' ' + cls : '');
+		taskStatus.textContent = msg;
+		if (cls !== 'err' && msg) {
+			setTimeout(() => {
+				if (taskStatus.textContent === msg) { taskStatus.textContent = ''; taskStatus.className = 'asc-task-status'; }
+			}, 5000);
+		}
+	}
+	function setForgeBusy(b) {
+		forgeInFlight = b;
+		if (forgeBtn) forgeBtn.disabled = b;
+		if (forgeInput) forgeInput.disabled = b;
+		forgeBtn?.classList.toggle('forging', b);
+	}
+	async function screenPushForge(frame) {
+		try {
+			await fetch('/api/agent-screen-push', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, frame }),
+			});
+		} catch { /* best-effort broadcast — a non-owner viewer simply can't push */ }
+	}
+	async function pollForgeJob(jobId, narrate) {
+		const deadline = Date.now() + 180000;
+		let lastStatus = 'queued';
+		while (Date.now() < deadline) {
+			await new Promise((r) => setTimeout(r, 3000)); // real poll interval, not fake progress
+			let res;
+			try {
+				res = await fetch(`/api/forge?job=${encodeURIComponent(jobId)}`, { headers: { accept: 'application/json' } });
+			} catch { continue; }
+			const data = await res.json().catch(() => ({}));
+			if (!res.ok) { if (res.status >= 500) continue; throw new Error(data.message || `forge poll returned ${res.status}`); }
+			if (data.status && data.status !== lastStatus) { lastStatus = data.status; narrate(data); }
+			if (data.status === 'done' && data.glb_url) return data;
+			if (data.status === 'failed') throw new Error(data.error || 'generation failed');
+		}
+		throw new Error('generation timed out — try again');
+	}
+	async function loadForgedAvatar(forge, opts = {}) {
+		const fromDriver = opts.fromDriver === true;
+		if (!forge || !forge.glbUrl) return;
+		if (!fromDriver && forge.glbUrl === lastForgedGlb) return; // already on screen
+		lastForgedGlb = forge.glbUrl;
+		const viewerUrl = forge.viewerUrl || viewerLinkFor(forge.glbUrl, location.origin);
+		showForgeStage('Loading model…');
+		let result;
+		try {
+			result = await swapWebcamAvatar(forge.glbUrl, { wave: true });
+		} catch (err) {
+			console.warn('[agent-screen] forged GLB load failed:', err);
+			showForgeStage('model produced but failed to load — open in viewer');
+			if (forgeView) forgeView.href = viewerUrl;
+			if (forgeUse) forgeUse.dataset.glb = forge.glbUrl;
+			if (forgeResult) forgeResult.hidden = false;
+			return;
+		}
+		if (result.animated) hideForgeOverlay();
+		else showForgeStage('static model — no rig to animate');
+		if (forgeView) forgeView.href = viewerUrl;
+		if (forgeUse) forgeUse.dataset.glb = forge.glbUrl;
+		if (forgeResult) forgeResult.hidden = false;
+	}
+	async function driveForge(rawPrompt) {
+		const valid = validatePrompt(rawPrompt);
+		if (!valid.ok) { forgeStatus(valid.reason, 'err'); return; }
+		const clamped = clampPrompt(rawPrompt);
+		const prompt = clamped.prompt;
+		setForgeBusy(true);
+		if (forgeResult) forgeResult.hidden = true;
+		if (clamped.trimmed) forgeStatus('Prompt trimmed to the TRELLIS conditioning window', '');
+		const narrate = (state) => {
+			const line = forgeStageNarration(state);
+			addLogEntry({ ts: Date.now(), activity: line, type: 'analysis' });
+			showForgeStage(line);
+			screenPushForge({ activity: line, type: 'analysis' });
+		};
+		narrate({ status: 'submitting' });
+		try {
+			const submitRes = await fetch('/api/forge', {
+				method: 'POST', credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ prompt, tier: 'draft', backend: 'nvidia', path: 'image' }),
+			});
+			const submit = await submitRes.json().catch(() => ({}));
+			if (submitRes.status === 503) throw new Error(submit.message || 'the free 3D lane is not configured');
+			if (submitRes.status === 429) throw new Error(submit.message || 'forge lane busy — try again shortly');
+			let done = null;
+			if (submit.status === 'done' && submit.glb_url) done = submit;
+			else if (!submitRes.ok || !submit.job_id) throw new Error(submit.message || `forge returned ${submitRes.status}`);
+			else { narrate({ status: 'queued', eta_seconds: submit.eta_seconds }); done = await pollForgeJob(submit.job_id, narrate); }
+
+			const glbUrl = done.glb_url;
+			const viewerUrl = viewerLinkFor(glbUrl, location.origin);
+			lastForgedGlb = glbUrl; // ignore the SSE echo of our own final frame
+			screenPushForge(finalForgeFrame({ prompt, glbUrl, viewerUrl, tier: done.tier, backend: done.backend, durable: done.durable }));
+			await loadForgedAvatar({ glbUrl, viewerUrl, prompt }, { fromDriver: true });
+			forgeStatus('Forged — breathing in idle, then a wave', 'ok');
+		} catch (err) {
+			const msg = String(err && err.message ? err.message : err);
+			addLogEntry({ ts: Date.now(), activity: `Forge failed: ${msg}`, type: 'analysis' });
+			hideForgeOverlay();
+			if (/busy|rate|429/i.test(msg)) forgeStatus('Forge lane busy — try again shortly', 'err');
+			else if (/reject|invalid|concrete|moderat/i.test(msg)) forgeStatus('Prompt rejected — try a concrete object', 'err');
+			else forgeStatus(`Forge failed: ${msg}`, 'err');
+		} finally {
+			setForgeBusy(false);
+			const next = forgeQueue.shift();
+			if (next) driveForge(next);
+		}
+	}
+	if (forgeForm) {
+		forgeForm.addEventListener('submit', (e) => {
+			e.preventDefault();
+			const raw = forgeInput.value.trim();
+			if (!raw) { forgeInput.focus(); return; }
+			forgeInput.value = '';
+			if (forgeInFlight) { forgeQueue.push(raw); forgeStatus('Queued — one forge at a time', ''); return; }
+			driveForge(raw);
+		});
+	}
+	if (forgeUse) {
+		forgeUse.addEventListener('click', () => {
+			const glb = forgeUse.dataset.glb;
+			if (!glb) return;
+			navigator.clipboard?.writeText(glb).catch(() => {});
+			toast('Forged model URL copied — set it on your agent');
+			window.open(`/agents/${encodeURIComponent(id)}`, '_blank', 'noopener');
+		});
+	}
+
+	// ── Launch Director ───────────────────────────────────────────────────────
+	// Run a real coin launch as a narrated, staged console on this agent's screen.
+	// Every stage is a real operation; each one paints a launch-console HUD and a
+	// narration line, pushed to /api/agent-screen-push so the owner AND every
+	// remote viewer watch the same live "go live" moment. Success renders only
+	// after a real on-chain signature returns.
+	let launchInFlight = false;
+
+	// Push one HUD frame (image + narration) to the live stream. The owner and all
+	// viewers receive it back through the same SSE pipe, so we never render locally
+	// — one source of truth, no double-counting.
+	async function pushLaunchFrame({ data, activity, type = 'analysis' }) {
+		try {
+			await fetch('/api/agent-screen-push', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ agentId: id, frame: { data, activity, type } }),
+			});
+		} catch { /* a dropped frame is non-fatal — the on-chain tx is the truth */ }
+	}
+
+	function setLaunchStatus(kind, html) {
+		taskStatus.className = `asc-task-status ${kind}`;
+		taskStatus.innerHTML = html;
+	}
+
+	async function runLaunchDirector(params) {
+		if (launchInFlight) { setLaunchStatus('err', 'A launch is already in progress.'); return; }
+
+		const { ok, errors } = validateLaunchParams(params);
+		if (!ok) {
+			setLaunchStatus('err', esc(errors[0]));
+			addLogEntry({ ts: Date.now(), activity: `Launch rejected — ${errors.join(' ')}`, type: 'analysis' });
+			return;
+		}
+
+		launchInFlight = true;
+		taskInput.disabled = true;
+		taskSend.disabled = true;
+		taskSend.classList.add('sending');
+		setLaunchStatus('', `Launching ${esc(params.symbol ? `$${params.symbol}` : params.name)}…`);
+
+		const ctx = { name: params.name, symbol: params.symbol, network: params.network, solBuyIn: params.sol_buy_in };
+		const token = { name: params.name, symbol: params.symbol, imageUrl: null };
+
+		// Paint one stage: render the HUD, narrate, push.
+		const paint = async (stageKey, status = 'active') => {
+			const narration = narrateLaunch(stageKey, ctx);
+			const data = await renderLaunchHud({ params, token, stageKey, status, narration });
+			await pushLaunchFrame({ data, activity: narration, type: 'analysis' });
+			return narration;
+		};
+
+		const fail = async (stageKey, message) => {
+			const data = await renderLaunchHud({ params, token, stageKey, status: 'error', error: message });
+			await pushLaunchFrame({ data, activity: `Launch failed — ${message}`, type: 'analysis' });
+			setLaunchStatus('err', esc(message));
+		};
+
+		try {
+			// 1 ── Prepare ────────────────────────────────────────────────────────
+			await paint('prepare');
+
+			// 2 ── Metadata: read the real token metadata to assemble the card ──────
+			try {
+				const metaRes = await fetch(params.uri, { headers: { accept: 'application/json' } });
+				if (metaRes.ok) {
+					const meta = await metaRes.json().catch(() => null);
+					if (meta && typeof meta === 'object' && typeof meta.image === 'string') {
+						token.imageUrl = meta.image;
+					}
+				}
+			} catch { /* metadata read is best-effort; the URI is what lands on-chain */ }
+			try { ctx.metaHost = new URL(params.uri).hostname; } catch { /* ignore */ }
+			await paint('metadata');
+
+			// 3 ── Spend policy: surface the agent's real SOL ceiling ───────────────
+			try {
+				const limRes = await fetch(
+					`/api/agents/${encodeURIComponent(id)}/solana/limits?network=${params.network}`,
+					{ credentials: 'include' },
+				);
+				if (limRes.ok) {
+					const lj = await limRes.json().catch(() => ({}));
+					const sp = lj?.data?.spend_policy;
+					if (sp && Number.isFinite(sp.max_sol_per_tx)) ctx.ceilingSol = sp.max_sol_per_tx;
+				}
+			} catch { /* non-fatal — the endpoint enforces the real cap regardless */ }
+			if (ctx.ceilingSol != null && params.sol_buy_in > ctx.ceilingSol) {
+				await fail('policy', `Dev buy ${params.sol_buy_in} SOL exceeds the agent's ${ctx.ceilingSol} SOL/tx ceiling — lower it or raise the policy.`);
+				return;
+			}
+			await paint('policy');
+
+			// 4 ── Broadcast: real launch via the agent custodial wallet ────────────
+			await paint('broadcast');
+			const launchRes = await fetch('/api/pump/launch-agent', {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					agent_id: id,
+					name: params.name,
+					symbol: params.symbol,
+					uri: params.uri,
+					network: params.network,
+					buyback_bps: params.buyback_bps,
+					sol_buy_in: params.sol_buy_in,
+				}),
+			});
+			const lr = await launchRes.json().catch(() => ({}));
+			if (!launchRes.ok || !lr?.signature) {
+				const msg = launchRes.status === 401
+					? 'Sign in as the agent owner to launch.'
+					: launchRes.status === 404
+						? "You don't own this agent — only the owner can launch."
+						: (lr.message || lr.error_description || 'Launch broadcast failed.');
+				await fail('broadcast', msg);
+				if (launchRes.status === 401) {
+					setLaunchStatus('err', 'Sign in as the agent owner to launch. <a href="/login" style="color:#d4d4d8">Sign in →</a>');
+				}
+				return;
+			}
+
+			// 5 ── Confirmed: real signature in hand ───────────────────────────────
+			const result = {
+				mint: lr.mint,
+				signature: lr.signature,
+				pumpfunUrl: lr.pumpfun_url || `https://pump.fun/coin/${lr.mint}`,
+				explorerUrl: lr.explorer || `https://solscan.io/tx/${lr.signature}${params.network === 'devnet' ? '?cluster=devnet' : ''}`,
+			};
+			ctx.mint = result.mint;
+			ctx.signature = result.signature;
+			{
+				const narration = narrateLaunch('confirm', ctx);
+				const data = await renderLaunchHud({ params, token, stageKey: 'confirm', status: 'active', narration, result });
+				await pushLaunchFrame({ data, activity: narration, type: 'analysis' });
+			}
+
+			// 6 ── Live feed: verify the coin surfaced on /launches ─────────────────
+			ctx.onFeed = await verifyOnLaunchesFeed(result.mint, params.network);
+			{
+				const narration = narrateLaunch('feed', ctx);
+				const data = await renderLaunchHud({ params, token, stageKey: 'feed', status: 'done', narration, result: { ...result, onFeed: ctx.onFeed } });
+				await pushLaunchFrame({ data, activity: narration, type: 'analysis' });
+			}
+
+			appendLaunchResult({ ...result, params, onFeed: ctx.onFeed });
+			setLaunchStatus('ok', `Launched ${esc(params.symbol ? `$${params.symbol}` : params.name)} — live on-chain`);
+			setTimeout(() => { taskStatus.textContent = ''; taskStatus.className = 'asc-task-status'; }, 8000);
+		} catch (err) {
+			await fail('broadcast', err?.message || 'Unexpected launch error.');
+		} finally {
+			launchInFlight = false;
+			taskInput.disabled = false;
+			taskSend.disabled = false;
+			taskSend.classList.remove('sending');
+			taskInput.focus();
+		}
+	}
+
+	// Confirm the freshly launched mint shows on the public /launches feed.
+	async function verifyOnLaunchesFeed(mint, network) {
+		try {
+			const res = await fetch(`/api/pump/launches?network=${encodeURIComponent(network)}&limit=50`, { credentials: 'include' });
+			if (!res.ok) return false;
+			const j = await res.json().catch(() => ({}));
+			const list = Array.isArray(j?.launches) ? j.launches : Array.isArray(j) ? j : [];
+			return list.some((l) => l?.mint === mint);
+		} catch {
+			return false;
+		}
+	}
+
+	// Append the clickable result card to the activity log — the real explorer +
+	// pump.fun links and the "View on /launches" CTA. Built as DOM (anchors) since
+	// the canvas HUD can only paint the URLs, not make them clickable.
+	function appendLaunchResult({ mint, signature, pumpfunUrl, explorerUrl, params, onFeed }) {
+		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
+		const card = document.createElement('div');
+		card.className = 'asc-log-entry type-analysis asc-launch-result';
+		const sym = params.symbol ? `$${esc(params.symbol)}` : esc(params.name || 'coin');
+		const feedHref = `/launches?mint=${encodeURIComponent(mint)}`;
+		card.innerHTML = `
+			<div class="asc-launch-result-head">🚀 ${sym} launched · <span class="asc-launch-mint">${esc(truncMid(mint, 6, 6))}</span></div>
+			<div class="asc-launch-result-links">
+				<a href="${esc(pumpfunUrl)}" target="_blank" rel="noopener">pump.fun ↗</a>
+				<a href="${esc(explorerUrl)}" target="_blank" rel="noopener">explorer ↗</a>
+				<a href="${esc(feedHref)}" class="asc-launch-cta">View on /launches →</a>
+			</div>
+			${onFeed ? '' : '<div class="asc-launch-result-note">Indexing on the feed — refresh /launches in a moment.</div>'}
+		`;
+		logEl.prepend(card);
+		logCount++;
+	}
 
 		// ── live stage show (Moonshot 08) ────────────────────────────────────────
 		// The avatar-cam host performs an always-live show: opener → banter → answer
@@ -1485,6 +2166,7 @@ async function boot(id) {
 			stage: document.getElementById('asc-panel-stage'),
 		hud: document.getElementById('asc-panel-hud'),
 		hire: document.getElementById('asc-panel-hire'),
+		heatmap: document.getElementById('asc-panel-heatmap'),
 	};
 	let zTop = 30;
 
@@ -1498,7 +2180,7 @@ async function boot(id) {
 		const sr = stageEl.getBoundingClientRect();
 		// width / height
 		if (p.w) el.style.width = `${p.w}px`;
-		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror' || name === 'hud' || name === 'stage' || name === 'hire')) el.style.height = `${p.h}px`;
+		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror' || name === 'hud' || name === 'stage' || name === 'hire' || name === 'heatmap')) el.style.height = `${p.h}px`;
 		// default position if none saved yet
 		const pw = el.offsetWidth || p.w || 240;
 		const ph = el.offsetHeight || 200;
@@ -1509,6 +2191,7 @@ async function boot(id) {
 			else if (name === 'treasury') { x = M; y = M + 6; } // treasury → top-left cockpit
 			else if (name === 'mirror') { x = M; y = sr.height - ph - M; } // mirror → bottom-left
 			else if (name === 'log') { x = sr.width - pw - M; y = M; }
+			else if (name === 'heatmap') { x = M; y = sr.height - ph - M; } // heatmap → bottom-left
 				else if (name === 'stage') { x = M; y = sr.height - ph - M; } // stage → bottom-left
 			else if (name === 'hud') { x = M; y = sr.height - ph - M; } // HUD → bottom-left scoreboard
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
@@ -1585,11 +2268,12 @@ async function boot(id) {
 				const h = clamp(sh + (e.clientY - sy), 150, Math.max(150, maxH));
 				el.style.height = `${h}px`;
 				layout.panels[name].h = Math.round(h);
+				if (name === 'heatmap') sizeHeatmap();
 			} else {
 				sizeWebcam(); // cam: keep renderer matched to new width
 			}
 		});
-		const end = () => { if (resizing) { resizing = false; saveLayout(); sizeWebcam(); } };
+		const end = () => { if (resizing) { resizing = false; saveLayout(); sizeWebcam(); sizeHeatmap(); } };
 		handle.addEventListener('pointerup', end);
 		handle.addEventListener('pointercancel', end);
 	}
@@ -1642,11 +2326,25 @@ async function boot(id) {
 	pnlHud.start();
 	pnlHud.setActive(!layout.panels.hud.hidden);
 
+	// ── Live Hire visualizer (Moonshot 03) ───────────────────────────────────
+	// Consumes the a2a-hire phase frames (kind: 'a2a_hire') this agent emits when
+	// it hires another over x402: quote → reserve (cap badge) → settle (coin flies)
+	// → on-chain receipt. On a live settle we auto-reveal the panel so the watchable
+	// moment isn't missed, and flash it.
+	hireViz = createHireVisualizer(document.getElementById('asc-hire-body'), {
+		onSettled(meta) {
+			if (layout.panels.hire?.hidden) setPanelHidden('hire', false);
+			const el = panelEls.hire;
+			if (el) { focusPanel(el); el.classList.remove('asc-hire-flash'); void el.offsetWidth; el.classList.add('asc-hire-flash'); }
+			toast(`Hired ${truncMid(meta.providerName || 'provider', 18)}${meta.usd != null ? ' · $' + Number(meta.usd).toFixed(2) : ''}`);
+		},
+	});
+
 	function setPanelHidden(name, hidden) {
 		layout.panels[name].hidden = hidden;
 		const el = panelEls[name];
 		el.hidden = hidden;
-		if (!hidden) { placePanel(name); focusPanel(el); sizeWebcam(); }
+		if (!hidden) { placePanel(name); focusPanel(el); sizeWebcam(); sizeHeatmap(); if (name === 'heatmap') startHeatmap(); }
 		if (name === 'hud') pnlHud?.setActive(!hidden);
 		updateToggleButtons();
 		saveLayout();
@@ -1667,6 +2365,7 @@ async function boot(id) {
 	requestAnimationFrame(() => {
 		for (const name of Object.keys(panelEls)) placePanel(name);
 		sizeWebcam();
+		sizeHeatmap();
 	});
 
 	// keep panels inside the stage on resize
@@ -1675,6 +2374,7 @@ async function boot(id) {
 			if (!layout.panels[name].hidden) placePanel(name);
 		}
 		sizeWebcam();
+		sizeHeatmap();
 	});
 
 	// ── fit / fill ───────────────────────────────────────────────────────────
@@ -1997,9 +2697,11 @@ async function boot(id) {
 		else if (k === 'c') { if (layout.zen) { layout.zenCam = !layout.zenCam; applyZen(); saveLayout(); } else togglePanel('cam'); e.preventDefault(); }
 		else if (k === 'l') { togglePanel('log'); e.preventDefault(); }
 		else if (k === 'i') { togglePanel('stats'); e.preventDefault(); }
+		else if (k === 'h') { togglePanel('heatmap'); e.preventDefault(); }
 			else if (k === 'g') { togglePanel('stage'); e.preventDefault(); }
 		else if (k === 't') { togglePanel('treasury'); e.preventDefault(); }
 		else if (k === 'm') { togglePanel('mirror'); e.preventDefault(); }
+		else if (k === 'b') { togglePanel('hud'); e.preventDefault(); }
 		else if (k === 's') { screenshot(); e.preventDefault(); }
 		else if (k === 'p') { togglePip(); e.preventDefault(); }
 		else if (k === 'v') { toggleFit(); e.preventDefault(); }
@@ -2026,6 +2728,8 @@ async function boot(id) {
 	// Cleanup on unload
 	window.addEventListener('beforeunload', () => {
 		client.disconnect();
+		heatmapPoller?.stop();
+		heatmap?.dispose();
 		clearInterval(watchPingTimer);
 		stopWatchStatus();
 		treasuryCockpit?.destroy();
@@ -2059,8 +2763,10 @@ function buildHelpOverlay() {
 				<div class="asc-help-row"><span>Toggle avatar cam</span><kbd>C</kbd></div>
 				<div class="asc-help-row"><span>Toggle activity log</span><kbd>L</kbd></div>
 				<div class="asc-help-row"><span>Toggle stream stats</span><kbd>I</kbd></div>
+				<div class="asc-help-row"><span>Toggle sentiment heatmap</span><kbd>H</kbd></div>
 					<div class="asc-help-row"><span>Toggle live stage show</span><kbd>G</kbd></div>
 				<div class="asc-help-row"><span>Toggle treasury</span><kbd>T</kbd></div>
+				<div class="asc-help-row"><span>Toggle portfolio HUD</span><kbd>B</kbd></div>
 				<div class="asc-help-row"><span>Capture screenshot</span><kbd>S</kbd></div>
 				<div class="asc-help-row"><span>Picture-in-picture</span><kbd>P</kbd></div>
 				<div class="asc-help-row"><span>Fit / fill screen</span><kbd>V</kbd></div>

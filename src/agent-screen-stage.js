@@ -353,7 +353,8 @@ export class StageShow {
 		const name = BEAT_EMOTE[kind];
 		if (!mgr || !name || !mgr.supportsCanonicalClips?.()) return;
 		// Upper-body overlay so the legs keep idling; one-shot, settles back to idle.
-		mgr.playOverlay?.(name, { loop: false, upperBodyOnly: true, crossfade: 0.22 }).catch?.(() => {});
+		const p = mgr.playOverlay?.(name, { loop: false, upperBodyOnly: true, crossfade: 0.22 });
+		if (p && typeof p.catch === 'function') p.catch(() => { /* clip missing on this rig — no-op */ });
 	}
 
 	// ── tips: real, settled $THREE off the show ledger ─────────────────────────
