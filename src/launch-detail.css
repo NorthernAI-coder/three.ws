@@ -383,7 +383,36 @@ body {
 /* ── Chart ────────────────────────────────────────────────────────────────── */
 
 .ld-chart { display: flex; flex-direction: column; gap: var(--space-sm); }
+.ld-chart-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; }
+.ld-chart-views { display: flex; gap: 4px; }
 .ld-chart-bar { display: flex; gap: 4px; }
+.ld-chart-open {
+	font-family: var(--font-mono);
+	font-size: var(--text-2xs);
+	color: var(--ink-dim);
+	text-decoration: none;
+	transition: color var(--duration-fast);
+}
+.ld-chart-open:hover { color: var(--ink-bright); }
+.ld-dex-wrap {
+	position: relative;
+	min-height: 460px;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	background: var(--surface-2);
+}
+.ld-dex-frame {
+	width: 100%;
+	height: 460px;
+	border: 0;
+	display: block;
+	opacity: 0;
+	transition: opacity var(--duration-base) ease;
+}
+.ld-dex-wrap .ld-skel-chart { position: absolute; inset: 0; height: 100%; border-radius: 0; }
+.ld-dex-ready .ld-dex-frame { opacity: 1; }
+.ld-dex-ready .ld-skel-chart { display: none; }
 .ld-int-btn {
 	font-family: var(--font-mono);
 	font-size: var(--text-2xs);

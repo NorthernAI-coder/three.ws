@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T07:42:16.090Z",
+	"generated_at": "2026-06-29T08:48:45.712Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -144,6 +144,16 @@
 			"link": "/agent-screen",
 			"tags": [
 				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Full interactive trading chart on every coin page",
+			"summary": "Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal — candlesticks, zoom, on-chart trades and liquidity — embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.",
+			"link": "/launches",
+			"tags": [
 				"improvement"
 			]
 		},
