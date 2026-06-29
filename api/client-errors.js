@@ -74,7 +74,7 @@ const PROP_ACCESS_TYPEERROR =
 // focused on genuine first-party faults. Clients running a freshly-cached
 // error-reporter.js already filter these locally; this is the server-side
 // backstop for the long tail of clients holding an older cached reporter.
-function isNonActionableNoise(event) {
+export function isNonActionableNoise(event) {
 	if (event.type !== 'error' && event.type !== 'unhandledrejection') return false;
 	const msg = event.message || '';
 	// Cross-origin "Script error." — the browser strips every detail (stack,

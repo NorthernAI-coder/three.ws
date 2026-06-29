@@ -14,6 +14,8 @@
 // real token). $THREE is the only coin Agora promotes; on mainnet the reward
 // label is '$THREE'. See docs/agora.md and CLAUDE.md.
 
+import { resolveDatabaseUrl } from '../../api/_lib/env.js';
+
 function req(name) {
 	const v = process.env[name];
 	if (!v || !String(v).trim()) throw new Error(`[agora-citizens] missing required env var: ${name}`);
@@ -40,8 +42,13 @@ export function loadConfig() {
 
 	// DATABASE_URL is the projection sink. A dry run reads the board + plans but
 	// never writes, so it can run without a DB — handy for inspecting the loop
-	// with zero side effects.
-	const databaseUrl = dryRun ? opt('DATABASE_URL', '') : req('DATABASE_URL');
+	// with zero side effects. Resolve from DATABASE_URL or any standard
+	// Vercel-Postgres/Neon alias (POSTGRES_URL, NEON_DATABASE_URL, …) so the worker
+	// connects wherever the integration injected the string — matching db.js.
+	const databaseUrl = resolveDatabaseUrl() || '';
+	if (!dryRun && !databaseUrl) {
+		throw new Error('[agora-citizens] missing required env var: DATABASE_URL (or a POSTGRES_URL/NEON_DATABASE_URL alias)');
+	}
 
 	const cluster = (opt('AGORA_CLUSTER', 'devnet')).toLowerCase();
 	if (cluster !== 'devnet' && cluster !== 'mainnet') {
