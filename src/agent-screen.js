@@ -42,6 +42,7 @@ import { createNewsroomAnchor } from './agent-screen-anchor.js';
 import { createTreasuryCockpit } from './agent-screen-treasury.js';
 import { MirrorPanel } from './agent-screen-mirror.js';
 import { createHireVisualizer } from './agent-screen-hire.js';
+import { createReputationPanel } from './agent-screen-reputation.js';
 import { createDiaryPanel } from './agent-screen-diary.js';
 import {
 	parsePnlDelta, accumulatePnl, emptyPnlState, unrealizedTotalUsd, emoteForExit, formatSol, formatUsd,
@@ -554,6 +555,7 @@ function defaultLayout() {
 			hud:      { hidden: false, min: false, x: null, y: null, w: 288, h: null },
 			diary:    { hidden: true,  min: false, x: null, y: null, w: 360, h: 332 },
 			hire:     { hidden: false, min: false, x: null, y: null, w: 340, h: null },
+			reputation: { hidden: false, min: false, x: null, y: null, w: 320, h: null },
 		},
 	};
 }
@@ -778,6 +780,20 @@ async function boot(id) {
 			<div class="asc-panel-body" id="asc-hire-body"></div>
 			<div class="asc-resize" data-resize="wh"></div>
 		</div>
+
+			<!-- Reputation arena panel (Moonshot 12): trust breakdown + the a2a-hire receipts that earned it -->
+			<div class="asc-panel asc-panel--reputation" id="asc-panel-reputation" data-panel="reputation">
+				<div class="asc-panel-head" data-drag>
+					<span class="asc-panel-grip">⠿</span>
+					<span class="asc-panel-title">Reputation</span>
+					<div class="asc-panel-btns">
+						<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+						<button class="asc-panel-btn" data-act="close" title="Hide (E)">✕</button>
+					</div>
+				</div>
+				<div class="asc-panel-body" id="asc-reputation-body"></div>
+				<div class="asc-resize" data-resize="wh"></div>
+			</div>
 
 			<!-- Live stage show panel (Moonshot 08) -->
 			<div class="asc-panel asc-panel--stage" id="asc-panel-stage" data-panel="stage">
@@ -1706,6 +1722,7 @@ async function boot(id) {
 	let diaryPanel = null;      // set once the Diary panel mounts (below)
 	let pnlHud = null;          // set once the Portfolio HUD panel mounts (below)
 	let hireViz = null;         // set once the Live Hire panel mounts (below)
+	let reputationPanel = null; // set once the Reputation panel mounts (below)
 
 	// ── spectator reactions + tips ───────────────────────────────────────────
 	// A reaction bar under the stream: tap an emoji and it floats up over the
@@ -2773,6 +2790,7 @@ async function boot(id) {
 		hud: document.getElementById('asc-panel-hud'),
 		diary: document.getElementById('asc-panel-diary'),
 		hire: document.getElementById('asc-panel-hire'),
+		reputation: document.getElementById('asc-panel-reputation'),
 		heatmap: document.getElementById('asc-panel-heatmap'),
 	};
 	let zTop = 30;
@@ -2787,7 +2805,7 @@ async function boot(id) {
 		const sr = stageEl.getBoundingClientRect();
 		// width / height
 		if (p.w) el.style.width = `${p.w}px`;
-		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror' || name === 'hud' || name === 'stage' || name === 'hire' || name === 'heatmap')) el.style.height = `${p.h}px`;
+		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror' || name === 'hud' || name === 'stage' || name === 'hire' || name === 'heatmap' || name === 'reputation')) el.style.height = `${p.h}px`;
 		// default position if none saved yet
 		const pw = el.offsetWidth || p.w || 240;
 		const ph = el.offsetHeight || 200;
@@ -2803,6 +2821,7 @@ async function boot(id) {
 			else if (name === 'hud') { x = M; y = sr.height - ph - M; } // HUD → bottom-left scoreboard
 			else if (name === 'hire') { x = sr.width - pw - M; y = sr.height - ph - M - 8; } // hire → bottom-right above cam
 			else if (name === 'diary') { x = Math.round((sr.width - pw) / 2); y = M + 40; } // diary → centre, beside the log
+			else if (name === 'reputation') { x = sr.width - pw * 2 - M * 2; y = M; } // reputation → top-right, just left of the log
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
 		}
 		x = clamp(x, 0, Math.max(0, sr.width - pw));
@@ -2958,7 +2977,20 @@ async function boot(id) {
 			const el = panelEls.hire;
 			if (el) { focusPanel(el); el.classList.remove('asc-hire-flash'); void el.offsetWidth; el.classList.add('asc-hire-flash'); }
 			toast(`Hired ${truncMid(meta.providerName || 'provider', 18)}${meta.usd != null ? ' · $' + Number(meta.usd).toFixed(2) : ''}`);
+			// A settled hire is a new receipt for whichever side this screen shows —
+			// refresh the reputation panel so the timeline picks it up.
+			reputationPanel?.observeHire();
 		},
+	});
+
+	// ── Reputation arena panel (Moonshot 12) ─────────────────────────────────
+	// The trust story beside the avatar: the full wallet-trust breakdown (real,
+	// server-computed score + pillars + on-chain evidence) stacked over the
+	// a2a-hire receipts that earned it, each a verifiable USDC settlement with an
+	// explorer link and the 1–5★ the hirer gave. Self-loads its own real data.
+	reputationPanel = createReputationPanel({
+		agentId: id,
+		bodyEl: document.getElementById('asc-reputation-body'),
 	});
 
 	function setPanelHidden(name, hidden) {
@@ -3325,6 +3357,7 @@ async function boot(id) {
 		else if (k === 'd') { togglePanel('diary'); e.preventDefault(); }
 		else if (k === 'r') { togglePanel('hire'); e.preventDefault(); }
 		else if (k === 'b') { togglePanel('hud'); e.preventDefault(); }
+		else if (k === 'e') { togglePanel('reputation'); e.preventDefault(); }
 		else if (k === 's') { screenshot(); e.preventDefault(); }
 		else if (k === 'p') { togglePip(); e.preventDefault(); }
 		else if (k === 'v') { toggleFit(); e.preventDefault(); }
@@ -3392,6 +3425,7 @@ function buildHelpOverlay() {
 				<div class="asc-help-row"><span>Toggle treasury</span><kbd>T</kbd></div>
 				<div class="asc-help-row"><span>Toggle memory diary</span><kbd>D</kbd></div>
 				<div class="asc-help-row"><span>Toggle portfolio HUD</span><kbd>B</kbd></div>
+				<div class="asc-help-row"><span>Toggle reputation</span><kbd>E</kbd></div>
 				<div class="asc-help-row"><span>Capture screenshot</span><kbd>S</kbd></div>
 				<div class="asc-help-row"><span>Picture-in-picture</span><kbd>P</kbd></div>
 				<div class="asc-help-row"><span>Fit / fill screen</span><kbd>V</kbd></div>
