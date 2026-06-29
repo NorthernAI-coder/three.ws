@@ -167,7 +167,7 @@ Applying clips in the Studio is the **authoring** side. On a *running* agent, th
 
 **Gesture slots** ([src/runtime/animation-slots.js](../../src/runtime/animation-slots.js)) — a fixed emotional vocabulary the agent plays in conversation: `idle`, `wave`, `nod`, `shake`, `think`, `celebrate`, `concern`, `bow`, `point`, `shrug`, `dance`. Each slot resolves to a concrete library clip at runtime (e.g. `celebrate` → the `celebrate` clip, `think` → `pray`). An agent picks a slot when the moment calls for it; the clip retargets onto that agent's avatar exactly as in the Studio. You can override any slot per agent via `meta.edits.animations` — point `wave` at a different clip, or map a slot to a motion you authored yourself.
 
-**Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — independent of the skeleton. If your avatar carries ARKit-52 blendshapes (most modern exports do — RPM, Avaturn, VRoid), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
+**Facial expression** ([src/runtime/arkit52.js](../../src/runtime/arkit52.js)) — independent of the skeleton. If your avatar carries ARKit-52 blendshapes (most modern avatar-platform exports do, as do VRoid models), the runtime resolves those morph targets and drives expression and lip-sync directly on the face. A skeletal clip plays the body; the blendshape layer plays the eyes, brows, and mouth on top.
 
 The division of labor: **clips move the body, blendshapes move the face, slots choose *which* body motion fits the emotion.** All three ride the same universal-rig foundation — name your bones (and your blendshapes) in a convention the resolvers know, and everything just works.
 
@@ -177,7 +177,7 @@ The division of labor: **clips move the body, blendshapes move the face, slots c
 
 - **The Animation section says "Load a rigged avatar to animate."** You're on the built-in mannequin. The mannequin has no skinned skeleton to retarget or export — click **Load avatar** in the top bar (or open `/pose?avatar=<id>`).
 
-- **"This rig can't be retargeted — only N recognizable humanoid bones."** The model exposes fewer than 8 canonical bones. It's likely non-humanoid, a static prop, or a rig whose bone names the canonicalizer doesn't recognize. Re-export it as a standard humanoid (Mixamo, RPM, Avaturn, VRM all work), or auto-rig a rig-less mesh first.
+- **"This rig can't be retargeted — only N recognizable humanoid bones."** The model exposes fewer than 8 canonical bones. It's likely non-humanoid, a static prop, or a rig whose bone names the canonicalizer doesn't recognize. Re-export it as a standard humanoid (Mixamo, VRM, or any common avatar-platform export all work), or auto-rig a rig-less mesh first.
 
 - **A clip won't apply: "can't retarget to this rig — only X/Y tracks mapped."** Coverage fell below 50%. The rig is missing too many of the clip's bones (often a stripped-down skeleton with no spine subdivisions or no fingers). Try a clip that uses fewer bones, or use a more complete humanoid rig. The fix for a recurring convention is to add its bone-name mapping in [src/glb-canonicalize.js](../../src/glb-canonicalize.js) — never a hardcoded allowlist.
 

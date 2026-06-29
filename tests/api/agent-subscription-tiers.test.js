@@ -63,7 +63,7 @@ const sqlMock = vi.fn((strings, ...values) => {
 	return Promise.resolve([]);
 });
 sqlMock.transaction = (queries) => Promise.all(queries);
-vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false }));
 
 let sessionUser = null;
 vi.mock('../../api/_lib/auth.js', () => ({

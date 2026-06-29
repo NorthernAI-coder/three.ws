@@ -1,6 +1,6 @@
 # Import an avatar by URL
 
-You already have an avatar living somewhere else — a Ready Player Me model on a CloudFront link, a GLB on Arweave, an export sitting in your own storage. You don't need to download it, convert it, or re-host it. Paste the URL into [three.ws/import/rpm](/import/rpm) and the platform fetches it server-side, normalizes its skeleton, auto-rigs it so it can move, and saves it to your account as an avatar an agent can wear.
+You already have an avatar living somewhere else — a model exported from an external avatar platform on a CloudFront link, a GLB on Arweave, an export sitting in your own storage. You don't need to download it, convert it, or re-host it. Paste the URL into [three.ws/import/rpm](/import/rpm) and the platform fetches it server-side, normalizes its skeleton, auto-rigs it so it can move, and saves it to your account as an avatar an agent can wear.
 
 This tutorial walks the URL-import path end to end. It's the sibling of [Upload a custom GLB](/docs/tutorials/upload-custom-glb) — that one covers pushing a file from your disk; this one covers pulling one in from a link. Same destination, different on-ramp.
 
@@ -11,7 +11,7 @@ This tutorial walks the URL-import path end to end. It's the sibling of [Upload 
 ## What you're building
 
 ```
-You:    paste  https://models.readyplayer.me/64c3….glb   into /import/rpm
+You:    paste  https://models.example-cdn.com/64c3….glb   into /import/rpm
    ↓    server fetches the file (no CORS to fight)
    ↓    humanoid bones canonicalized → idle/walk clips will play
    ↓    stored on the three.ws CDN as an avatar record
@@ -28,7 +28,7 @@ The end result is identical to creating an avatar from a selfie or building one 
 
 The import page offers two tabs — **Paste URL** and **Upload GLB**. This tutorial is the URL tab. Here's why it exists as a separate path from a plain file upload.
 
-Most avatar hosts (Ready Player Me's CloudFront CDN, Arweave gateways, arbitrary object storage) serve their GLBs **without CORS headers**. A browser `fetch()` to those URLs is blocked before a single byte arrives. So the importer doesn't rely on your browser reaching the file at all:
+Most avatar hosts (external avatar platforms behind a CloudFront CDN, Arweave gateways, arbitrary object storage) serve their GLBs **without CORS headers**. A browser `fetch()` to those URLs is blocked before a single byte arrives. So the importer doesn't rely on your browser reaching the file at all:
 
 1. The browser tries a direct CORS fetch first (works for the rare host that allows it).
 2. When that's blocked — the common case — it falls back to a **server-side proxy fetch**. The three.ws API pulls the file on your behalf. No CORS to satisfy, and the server applies SSRF guards (it refuses loopback, private, link-local, and cloud-metadata addresses, follows a bounded number of redirects, and caps the download size) so a pasted URL can't be turned into a request against internal infrastructure.
@@ -47,9 +47,9 @@ You don't trigger any of this. Pasting the URL is enough.
 
 The importer needs a direct link to a `.glb` file — the URL must end at the model itself, not a viewer page wrapped around it.
 
-**Ready Player Me.** RPM gives you a model URL of the form `https://models.readyplayer.me/<id>.glb`. If you only have the avatar's web page, append `.glb` to the avatar ID, or open the page, then DevTools → **Network**, filter by `.glb`, and copy the request URL. RPM serves these from a CloudFront CDN with no CORS headers — exactly the case the server-side fetch is built for.
+**External avatar platforms.** Many avatar builders hand you a model URL of the form `https://models.<host>/<id>.glb`. If you only have the avatar's web page, append `.glb` to the avatar ID, or open the page, then DevTools → **Network**, filter by `.glb`, and copy the request URL. These hosts typically serve files from a CloudFront CDN with no CORS headers — exactly the case the server-side fetch is built for.
 
-**Any other hosted glTF/GLB.** The importer accepts any GLB URL, not just RPM:
+**Any other hosted glTF/GLB.** The importer accepts any GLB URL, not just builder exports:
 
 - A CDN link (CloudFront, Cloudflare, Bunny, etc.)
 - An Arweave or IPFS gateway URL ending in `.glb`
@@ -145,7 +145,7 @@ From here you can give the agent a brain and a voice: see [Give your agent a per
 
 You imported an existing avatar by URL, no download or conversion required:
 
-- **Paste a `.glb` URL** at [/import/rpm](/import/rpm) — Ready Player Me, any CDN, Arweave, or your own storage all work.
+- **Paste a `.glb` URL** at [/import/rpm](/import/rpm) — external avatar platforms, any CDN, Arweave, or your own storage all work.
 - **The server fetches it for you**, so CORS-restricted hosts are a non-issue, with SSRF guards on the pasted URL.
 - **Humanoid bones are canonicalized** ([src/glb-canonicalize.js](../../src/glb-canonicalize.js)) so the pre-baked animation library plays out of the box.
 - **Static meshes are auto-rigged** in place after save — the platform guarantees an avatar that can move, never a frozen T-pose.

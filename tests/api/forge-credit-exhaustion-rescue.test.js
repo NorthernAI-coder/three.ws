@@ -49,6 +49,20 @@ vi.mock('../../api/_providers/nvidia.js', () => ({
 	createNvidiaProvider: () => ({ textTo3d: nvidiaTextTo3d }),
 }));
 
+// Mirror the prod symptom precisely: the cached lane-health snapshot has the
+// free NVIDIA NIM lane marked DOWN (a cold/cooled NVCF gateway), so a standard
+// text prompt is health-routed AROUND NIM to the paid image-intermediate
+// (TRELLIS/FLUX) lane up front — which is exactly where the out-of-credit FLUX
+// synthesis below detonates. NIM is then the LAST-RESORT rescue, not the first
+// lane: with the gateway healthy again by the time the rescue runs, the prompt
+// is recovered natively (no FLUX needed). Without this the request would resolve
+// on NIM immediately and never reach paid synthesis at all.
+const laneHealthSnapshot = vi.fn(async () => ({ byId: { nvidia: { id: 'nvidia', status: 'down' } }, statusMap: { nvidia: 'down' } }));
+vi.mock('../../api/_lib/forge-lane-health.js', () => ({
+	laneHealthSnapshot,
+	markLaneUnhealthy: vi.fn(async () => {}),
+}));
+
 // FLUX reference-image synthesis is OUT OF CREDIT — the exact prod symptom. This
 // throws the billing envelope textToImage tags (code:'billing', providerStatus:402),
 // which is NOT upstream-unavailable.
@@ -133,9 +147,10 @@ describe('forge credit-exhaustion rescue', () => {
 		replicateSubmit.mockClear();
 		textToImage.mockClear();
 
-		// Standard tier text→3D: NIM is NOT the first-choice lane (draft-only), so the
-		// request reaches the paid FLUX synthesis — which is dry — and must fail OVER
-		// to the native free NIM text→mesh lane rather than dead-end.
+		// Standard tier text→3D with the NIM lane health-routed AROUND (snapshot
+		// reports it down above), so the request reaches the paid FLUX synthesis —
+		// which is dry — and must fail OVER to the native free NIM text→mesh lane
+		// (healthy again by rescue time) rather than dead-end.
 		const req = makeReq({ prompt: 'a red ceramic mug', tier: 'standard', path: 'image' });
 		const res = makeRes();
 		await handler(req, res);

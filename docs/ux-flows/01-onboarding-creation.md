@@ -40,7 +40,7 @@
   5. (optional) Editor/Customize path: the in-page `AvatarCreator` produces a GLB blob → `stageAndReview` → `/create-review`.
   6. (optional) Remix strip: click a saved avatar thumbnail → `handleFork(av.id)` (same fork path as step 2).
 - **Decision points / branches:** fork vs fresh; six creation methods (editor / customize / studio / selfie / prompt / video / upload); anonymous (stage→review) vs signed-in (direct save/fork); video flag on/off; avatar-quota reached vs not.
-- **External calls / dependencies:** `GET /api/config`; `GET /api/avatars`; `GET /api/usage/summary`; `POST /api/avatars/fork`; `GET /api/avatars/:id` + raw GLB fetch (guest fork). Avaturn / Ready Player Me iframes loaded by `AvatarCreator`.
+- **External calls / dependencies:** `GET /api/config`; `GET /api/avatars`; `GET /api/usage/summary`; `POST /api/avatars/fork`; `GET /api/avatars/:id` + raw GLB fetch (guest fork). External avatar-platform iframes loaded by `AvatarCreator`.
 - **Success state:** A staged or owned avatar; the user is forwarded to `/create-review` (anonymous) or `/avatars/<id>` (forked) — onward to agent creation.
 - **Empty / error states:** `status-toast` for invalid GLB, fork failure, quota-limit; video card shows "coming soon" when flag off; save overlay (`#save-loading`) covers staging. Remix strip stays hidden for anonymous users / users with no avatars.
 - **Step count:** 2 required (land → pick a method) + ~4 optional (fork, upload, editor produce, remix).

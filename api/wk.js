@@ -531,6 +531,35 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 			'Shift 30% of paid acquisition to builder-focused onboarding this sprint.',
 		confidence: 'high',
 	},
+	'/api/x402/token-intel': {
+		mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+		symbol: 'THREE',
+		name: 'three.ws',
+		chain: 'solana',
+		price_usd: 0.003685,
+		change_24h: 12.4,
+		market_cap_usd: 3685000,
+		liquidity_usd: 412000,
+		volume_24h_usd: 1268079,
+		momentum: { m5: 0.3, h1: 1.8, h6: 6.1, h24: 12.4 },
+		signal: 'bullish',
+		headline: 'THREE climbs +12.40% — moderate upside',
+		rationale:
+			'THREE is up +12.40% over 24 h, trading at $0.003685. Volume is healthy against liquidity; participation is real. Buyers dominate the tape. The last hour confirms the trend.',
+		confidence: 0.86,
+		risk: {
+			score: 8,
+			level: 'low',
+			summary: 'THREE clears the basic depth, age, and flow checks.',
+			factors: [
+				{ label: 'Liquidity', status: 'low', detail: '$412,000 pooled — healthy depth.' },
+				{ label: 'Age', status: 'low', detail: 'Pair is 240d old — established.' },
+				{ label: 'Float', status: 'low', detail: 'Cap is 8.9× liquidity — well backed.' },
+				{ label: 'Flow', status: 'low', detail: '63% of 24 h trades are buys — net accumulation.' },
+			],
+		},
+		ts: '2026-06-12T10:00:00Z',
+	},
 	'/api/x402/agent-reputation': {
 		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 		name: 'Helios',
@@ -886,6 +915,29 @@ const MCP_TOOL_OUTPUT_SUMMARIES = Object.freeze({
 	pose_model: { ok: true, glb_url: 'https://three.ws/cdn/posed.glb', pose: 't-pose' },
 	direct_prompt: { job_id: 'f1.eyJkIjoiZXhhbXBsZSJ9.sig', status: 'queued', poll_url: '/api/forge?job=f1.eyJkIjoiZXhhbXBsZSJ9.sig' },
 	generate_material: { ok: true, material_url: 'https://three.ws/cdn/material.glb' },
+	search_public_avatars: {
+		count: 2,
+		avatars: [
+			{ id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55', slug: 'midnight-robot', name: 'Midnight Robot', tags: ['robot', 'sci-fi'], thumbnail_url: 'https://three.ws/cdn/avatars/midnight-robot.png' },
+			{ id: 'c1e8a902-5b44-4f0a-8e21-7d3f0c2b1a90', slug: 'anime-dancer', name: 'Anime Dancer', tags: ['anime', 'dancer'], thumbnail_url: 'https://three.ws/cdn/avatars/anime-dancer.png' },
+		],
+	},
+	solana_agent_reputation: {
+		asset: 'AgEntWa11etExamp1eDoNotUse111111111111111111',
+		network: 'mainnet',
+		feedback: { total: 142, verified: 118 },
+		score: { average: 4.6, verified_average: 4.8 },
+		validation: { passed: 8, failed: 1 },
+		tasks: { accepted: 96, disputed: 2 },
+		indexed_at: '2026-05-14T17:00:00Z',
+	},
+	capture_scene: {
+		job_id: 'v2s.eyJ2IjoiZXhhbXBsZSJ9.sig',
+		status: 'queued',
+		source_video_url: 'https://three.ws/cdn/sample-room-walkthrough.mp4',
+		mode: 'streaming',
+		eta_seconds: 180,
+	},
 });
 
 // Wrap a tool result summary in the JSON-RPC CallToolResult envelope.

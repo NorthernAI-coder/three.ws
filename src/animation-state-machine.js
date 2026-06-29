@@ -101,15 +101,6 @@ const GESTURES = Object.freeze({
 	agree:    { clip: 'xbot-agree',      label: 'Agree',    icon: '✅', loop: false, layer: 'upper', crossfade: 0.2  },
 	disagree: { clip: 'xbot-head-shake', label: 'Disagree', icon: '🙅', loop: false, layer: 'upper', crossfade: 0.2  },
 	talking:  { clip: 'av-vtubing',      label: 'Talking',  icon: '💬', loop: true,  layer: 'upper', crossfade: 0.3  },
-	// Conversational + locomotion gestures. `nod` reuses the agree clip as an
-	// upper-body affirm; `shrug` borrows the full-body `defeated` clip the agent
-	// slot registry already designates for the shrug slot; `jog` is a full-body
-	// run loop; `celebrate` a one-shot whole-body cheer. All clip names are baked
-	// in public/animations/manifest.json (covered by the gesture-manifest test).
-	nod:      { clip: 'xbot-agree',      label: 'Nod',      icon: '🙂', loop: false, layer: 'upper', crossfade: 0.2  },
-	shrug:    { clip: 'defeated',        label: 'Shrug',    icon: '🤷', loop: false, layer: 'full',  crossfade: 0.3  },
-	jog:      { clip: 'xbot-run',        label: 'Jog',      icon: '🏃', loop: true,  layer: 'full',  crossfade: 0.3  },
-	celebrate:{ clip: 'av-celebrating',  label: 'Celebrate',icon: '🎉', loop: false, layer: 'full',  crossfade: 0.3  },
 });
 
 const GESTURE_NAMES = Object.freeze(Object.keys(GESTURES));

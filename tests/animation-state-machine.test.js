@@ -213,7 +213,6 @@ describe('AnimationStateMachine — gesture slot', () => {
 	it('exposes the built-in gestures', () => {
 		expect(GESTURE_NAMES).toEqual([
 			'wave', 'dance', 'sit', 'point', 'cheer', 'agree', 'disagree', 'talking',
-			'nod', 'shrug', 'jog', 'celebrate',
 		]);
 		for (const name of GESTURE_NAMES) {
 			const g = GESTURES[name];

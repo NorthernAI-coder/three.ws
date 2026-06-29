@@ -33,7 +33,7 @@ Verified June 2026. Use this before building anything in `docs/roadmap/*` — pr
 |---|---|---|---|
 | Real-time browser (primary) | wass08/wawa-lipsync · `wawa-lipsync` | ✅ MIT | 100% in-browser Web Audio, zero deps. `connectAudio()`+`processAudio()` in RAF → morph targets. |
 | Real-time MFCC-accurate | mrxz/wLipSync · `wlipsync` | ✅ MIT | WASM uLipSync port; renderer-agnostic viseme weights. |
-| Turnkey talking-avatar | met4citizen/TalkingHead (+HeadTTS) | ✅ MIT | Full Oculus OVR + ARKit viseme pipeline on RPM/Mixamo GLB. |
+| Turnkey talking-avatar | met4citizen/TalkingHead (+HeadTTS) | ✅ MIT | Full Oculus OVR + ARKit viseme pipeline on standard humanoid/Mixamo GLB. |
 | Precomputed | DanielSWolf/rhubarb-lip-sync · `rhubarb-lip-sync-wasm` | ✅ MIT-equiv | WASM in a Vercel fn on TTS audio → viseme JSON track for deterministic playback. |
 
 ## 5. Text/image-to-3D hosted APIs — for roadmap 02, 06, 07 (TRELLIS already powers `forge_free`)

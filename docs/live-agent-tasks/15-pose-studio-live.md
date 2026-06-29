@@ -3,7 +3,7 @@
 > **Mission (one line):** Viewers call out a pose or emote and the agent's 3D avatar performs it live on screen — wave, warrior stance, victory — on any rig, no allowlist.
 
 ## The watchable moment
-On `/agent-screen?agentId=…` the avatar panel becomes a stage. Type or say *"wave hello"* and the head-and-shoulders avatar lifts an arm and waves; *"warrior stance"* and it drops into a wide, grounded pose; *"take a bow"* and it bows. The motion retargets cleanly onto whatever rig the agent is wearing — a Mixamo export, a VRoid model, an Avaturn head — because the canonical clip library drives them all. Each request lands in the activity log as a tagged pose, the avatar transitions smoothly (no T-pose snap), and viewers start daring it with weirder prompts. The emotion: playful disbelief — "it actually did it."
+On `/agent-screen?agentId=…` the avatar panel becomes a stage. Type or say *"wave hello"* and the head-and-shoulders avatar lifts an arm and waves; *"warrior stance"* and it drops into a wide, grounded pose; *"take a bow"* and it bows. The motion retargets cleanly onto whatever rig the agent is wearing — a Mixamo export, a VRoid model, an imported avatar-platform head — because the canonical clip library drives them all. Each request lands in the activity log as a tagged pose, the avatar transitions smoothly (no T-pose snap), and viewers start daring it with weirder prompts. The emotion: playful disbelief — "it actually did it."
 
 ## Who benefits
 - **Viewer:** direct, tactile control over a live 3D character — the most interactive, replayable thing on the screen.

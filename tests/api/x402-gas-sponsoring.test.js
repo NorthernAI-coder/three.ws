@@ -36,12 +36,12 @@ beforeAll(() => {
 });
 
 describe('build402Body — gas-sponsoring extension advertisement', () => {
-	it('advertises both eip2612 + erc20-approval when a Permit2 accept is present', () => {
+	it('advertises both eip2612 + erc20-approval when a Permit2 accept is present', async () => {
 		const accepts = paymentRequirements('https://three.ws/api/x402/example');
 		const permit2 = accepts.find((a) => a?.extra?.assetTransferMethod === 'permit2');
 		expect(permit2, 'expected paymentRequirements to emit a Permit2 sibling').toBeTruthy();
 
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/example',
 			accepts,
 		});
@@ -50,7 +50,7 @@ describe('build402Body — gas-sponsoring extension advertisement', () => {
 		expect(body.extensions[ERC20_APPROVAL_EXTENSION_KEY]).toBeTruthy();
 	});
 
-	it('does NOT advertise either extension when only EIP-3009 accepts are offered', () => {
+	it('does NOT advertise either extension when only EIP-3009 accepts are offered', async () => {
 		const eip3009Only = {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
@@ -60,7 +60,7 @@ describe('build402Body — gas-sponsoring extension advertisement', () => {
 			maxTimeoutSeconds: 60,
 			extra: { name: 'USD Coin', version: '2', decimals: 6 },
 		};
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/example',
 			accepts: [eip3009Only],
 		});
@@ -69,7 +69,7 @@ describe('build402Body — gas-sponsoring extension advertisement', () => {
 		expect(body.extensions[ERC20_APPROVAL_EXTENSION_KEY]).toBeUndefined();
 	});
 
-	it('permit2VariantOf returns an accept whose Permit2 hint triggers both extensions', () => {
+	it('permit2VariantOf returns an accept whose Permit2 hint triggers both extensions', async () => {
 		const base = {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
@@ -84,7 +84,7 @@ describe('build402Body — gas-sponsoring extension advertisement', () => {
 		expect(sibling.extra.assetTransferMethod).toBe('permit2');
 		expect(sibling.extra.supportsEip2612).toBe(true);
 
-		const body = build402Body({
+		const body = await build402Body({
 			resourceUrl: 'https://three.ws/api/x402/example',
 			accepts: [base, sibling],
 		});
