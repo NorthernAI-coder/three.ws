@@ -4717,16 +4717,22 @@ async function handleCollectCreatorFeeAgent(req, res) {
 		const { OnlinePumpSdk } = await import('@pump-fun/pump-sdk');
 		const onlineSdk = new OnlinePumpSdk(connection);
 		const creatorPk = ctx.loaded.keypair.publicKey;
+		// Snapshot the creator's SOL before the sweep so we can report the exact
+		// lamports the claim delivered (net of tx fee) — callers (the launcher
+		// claimer, the studio) need the real figure, not a boolean.
+		const balanceBefore = await connection.getBalance(creatorPk).catch(() => null);
 		const ixs = await onlineSdk.collectCoinCreatorFeeInstructions(creatorPk, creatorPk);
 		const signature = await signSendWithAgent({
 			network: body.network,
 			agentKeypair: ctx.loaded.keypair,
 			instructions: Array.isArray(ixs) ? ixs : [ixs],
 		});
+		const balanceAfter = balanceBefore == null ? null : await connection.getBalance(creatorPk).catch(() => null);
+		const lamports = balanceBefore != null && balanceAfter != null ? Math.max(0, balanceAfter - balanceBefore) : null;
 		await sql`
 			insert into agent_actions (agent_id, type, payload, source_skill)
 			values (${ctx.agent.id}, ${'pumpfun.collect_creator_fee'},
-				${JSON.stringify({ mint: body.mint, network: body.network, signature, source: 'studio_agent_wallet' })}::jsonb,
+				${JSON.stringify({ mint: body.mint, network: body.network, signature, lamports, source: 'studio_agent_wallet' })}::jsonb,
 				${'pumpfun'})
 		`.catch((e) => console.error('[pump/collect-creator-fee-agent] log failed', e?.message));
 		return json(res, 201, {
@@ -4734,6 +4740,8 @@ async function handleCollectCreatorFeeAgent(req, res) {
 			mint: body.mint,
 			network: body.network,
 			signature,
+			lamports,
+			sol: lamports == null ? null : lamports / LAMPORTS_PER_SOL,
 			explorer: `https://solscan.io/tx/${signature}${body.network === 'devnet' ? '?cluster=devnet' : ''}`,
 		});
 	} catch (e) {
