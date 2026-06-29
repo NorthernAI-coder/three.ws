@@ -14,19 +14,36 @@ const UA = 'three.ws-granite-oracle/1.0';
 const cache = new Map(); // url → { value, expiresAt }
 const TTL_MS = 20_000;
 
+// Bounded exponential backoff with jitter for transient upstream throttling.
+// GeckoTerminal's free tier (~30 req/min) bursts into 429s and occasional 5xx;
+// a couple of short, jittered waits clear most of them. Bounded so the total
+// added latency (≈0.4s + ≈0.8s worst case, ~1.8s with jitter) never approaches
+// the function time budget. 404 and other client errors are NOT retried.
+const MAX_ATTEMPTS = 3;
+const BACKOFF_BASE_MS = 400;
+const BACKOFF_CAP_MS = 1200;
+const RETRYABLE = new Set([429, 502, 503, 504]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// attempt is 0-based: delay grows 400ms, 800ms, … capped, with ±50% jitter so a
+// fleet of lambdas throttled together don't all retry on the same beat.
+function backoffMs(attempt) {
+	const exp = Math.min(BACKOFF_CAP_MS, BACKOFF_BASE_MS * 2 ** attempt);
+	return Math.round(exp * (0.5 + Math.random() * 0.5));
+}
+
 async function gecko(path) {
 	const url = `${BASE}${path}`;
 	const now = Date.now();
 	const hit = cache.get(url);
 	if (hit && hit.expiresAt > now) return hit.value;
 
-	// One bounded retry on a 429 with backoff before giving up — GeckoTerminal's
-	// free tier throttles bursts, and a short wait usually clears it well within
-	// the function budget. Preserves 429 as the thrown status (not a generic 502)
-	// so the caller can map it to a retryable response instead of a hard error.
+	// Retry transient throttles (429/5xx) with bounded jittered backoff before
+	// giving up. Preserves the real status (esp. 429) on the thrown error so the
+	// caller maps it to a retryable response instead of a generic 502/500.
 	let res;
 	let lastStatus = 502;
-	for (let attempt = 0; attempt < 2; attempt++) {
+	for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
 		try {
 			res = await fetch(url, {
 				headers: { accept: 'application/json', 'user-agent': UA },
@@ -40,9 +57,9 @@ async function gecko(path) {
 		if (res.ok) break;
 		lastStatus = res.status;
 		const text = await res.text();
-		if (res.status === 429 && attempt === 0) {
-			await new Promise((r) => setTimeout(r, 600));
-			continue; // retry once
+		if (RETRYABLE.has(res.status) && attempt < MAX_ATTEMPTS - 1) {
+			await sleep(backoffMs(attempt));
+			continue; // retry with backoff
 		}
 		throw Object.assign(new Error(`GeckoTerminal ${res.status}: ${text.slice(0, 160)}`), {
 			status: res.status === 404 ? 404 : res.status === 429 ? 429 : 502,

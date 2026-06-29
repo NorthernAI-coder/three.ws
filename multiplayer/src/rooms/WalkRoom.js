@@ -26,12 +26,13 @@ import {
 	addItem, hasRoomFor, resolveSlot, grantXp, consumeSlot,
 	countItem, removeItem,
 	dropCarried, reviveProfile, bankTransfer,
-	equipCosmetic, ownedCosmeticSet,
+	equipCosmetic, ownedCosmeticSet, mergeOwnedFromLedger,
 	HOTBAR_SIZE,
 } from '../economy.js';
 import {
 	serializeLoadout, getCosmetic, canWear, DEFAULT_LOADOUT,
 } from '../cosmetics-catalog.js';
+import { readOwnedCosmetics } from '../cosmetics-ownership.js';
 import {
 	itemLabel, fishCatchChance, fishDoubleChance,
 	gatherChance, gatherDoubleChance, coalBonusChance, cookBurnChance,
@@ -158,7 +159,18 @@ const PROTECTED_RADIUS_CELLS = 3;    // keep this many cells clear around each p
 // client's BLOCK size (1.5 m). The spawn point is the origin; the coin totem
 // renders at world z = -12 → grid z = round(-12 / 1.5) = -8. Protect both columns
 // at every height so neither can be buried or walled in.
+const BLOCK_SIZE_M = 1.5;             // client BLOCK: one grid cell ↔ metres
 const PROTECTED_POINTS = [{ x: 0, z: 0 }, { x: 0, z: -8 }];
+// The prop/object build channel (obj:spawn kind:'block') works in world METRES, not
+// grid cells, so its grief guard has its own protected discs and density tile. The
+// protected world points are the spawn (origin) and the rendered totem (world z=-12);
+// the radius matches the voxel discs (PROTECTED_RADIUS_CELLS cells). PER_TILE_PROP_CAP
+// stops a builder piling props onto one spot to bury a landmark or wall an area off —
+// the per-player count (MAX_OBJECTS_PER_PLAYER) and world cap bound the rest.
+const PROTECTED_POINTS_M = [{ x: 0, z: 0 }, { x: 0, z: -12 }];
+const PROTECTED_RADIUS_M = PROTECTED_RADIUS_CELLS * BLOCK_SIZE_M;
+const PROP_TILE_M = BLOCK_SIZE_M;     // density tile size for props, in metres
+const PER_TILE_PROP_CAP = 4;          // durable props allowed on one tile
 // Creator moderation: a clear-area sweep is bounded to this radius (cells) so even
 // the creator's broad-brush tool can't nuke a whole world in one malformed call;
 // 'all' is the explicit full-clear path.
@@ -668,6 +680,20 @@ export class WalkRoom extends Room {
 		profile.quests = restoreQuestState(saved?.profile?.quests, utcDayKey());
 		profile._zone = null; // last quest zone the player was inside (enter-zone edge detect)
 		this.econ.set(client.sessionId, profile);
+		// Cosmetics ownership (R22 → R23): fold the premium cosmetics this account
+		// bought over the x402 rail into its unlocked set, so a purchase persists and
+		// equips in EVERY world the account joins — not just the one it was bought in.
+		// The ledger is keyed by the same account id as the profile (playerId), reads
+		// fail-open (own nothing extra) and never block the join. Persist only when a
+		// new unlock actually landed so a returning player keeps it across restarts.
+		try {
+			const newlyOwned = mergeOwnedFromLedger(profile, await readOwnedCosmetics(playerId));
+			if (newlyOwned > 0) this._persistEcon(client.sessionId);
+		} catch (err) {
+			console.warn(`[walk_world] cosmetics ledger seed failed for ${playerId}:`, err?.message);
+		}
+		// A slower-arriving leave could have fired while we awaited the ledger.
+		if (!this.state.players.has(client.sessionId)) return;
 		// Cosmetics (W03): apply any loadout the player chose pre-join (in the
 		// character creator) on top of their persisted one, validating each id
 		// against what they own — free cosmetics always pass, premium only when
@@ -1337,7 +1363,7 @@ export class WalkRoom extends Room {
 	// the owner a fresh profile (inventory reflects the new equipped state), and
 	// persist to the account so it survives logout and applies in every world.
 	// Unequip is just equipping the slot's `none` default (always free).
-	_handleEquipCosmetic(client, payload) {
+	async _handleEquipCosmetic(client, payload) {
 		const profile = this.econ.get(client.sessionId);
 		if (!profile) return;
 		if (!this._actionOk(client.sessionId, 'equip')) return;
@@ -1346,7 +1372,23 @@ export class WalkRoom extends Room {
 			client.send('notice', { kind: 'cosmetic', text: 'That cosmetic doesn’t exist.' });
 			return;
 		}
-		const equipped = equipCosmetic(profile, id);
+		let equipped = equipCosmetic(profile, id);
+		// Owned-miss on a premium item: the player may have JUST bought it over the
+		// x402 rail this session, before the profile's unlocked set was refreshed.
+		// Re-read the R22 ledger once and retry, so a fresh purchase equips without a
+		// rejoin. (Free items never miss; a genuinely-unowned premium id still falls
+		// through to the honest rejection below.)
+		if (!equipped && getCosmetic(id)?.tier === 'premium') {
+			try {
+				if (mergeOwnedFromLedger(profile, await readOwnedCosmetics(profile.playerId)) > 0) {
+					// The await could have outlived the session — bail if they left.
+					if (!this.econ.has(client.sessionId)) return;
+					equipped = equipCosmetic(profile, id);
+				}
+			} catch (err) {
+				console.warn('[walk_world] cosmetics ledger recheck failed:', err?.message);
+			}
+		}
 		if (!equipped) {
 			client.send('notice', { kind: 'cosmetic', text: 'You don’t own that cosmetic yet.' });
 			return;
@@ -1817,6 +1859,14 @@ export class WalkRoom extends Room {
 		obj.scale = objClamp(objNum(payload.scale, 1), OBJ_SCALE_MIN, OBJ_SCALE_MAX);
 		obj.yaw = objNum(payload.yaw, 0);
 		this._clampObjPos(obj, payload);
+		// Grief guard (R19): a durable build prop may not bury the spawn or totem, nor
+		// pile onto a tile past the density cap so it can't wall an area off. Checked on
+		// the clamped position so a client can't dodge it with an out-of-bounds value.
+		// Transient kinds (ball, fx) and server objects are exempt — only build props.
+		if (this._objectIsPersistent(obj)) {
+			const reason = this._propPlacementBlock(obj.x, obj.z);
+			if (reason) { client.send('obj:reject', { reason }); return; }
+		}
 		obj.vx = objNum(payload.vx, 0);
 		obj.vy = objNum(payload.vy, 0);
 		obj.vz = objNum(payload.vz, 0);
@@ -1976,10 +2026,24 @@ export class WalkRoom extends Room {
 			blockStore.delete(this.worldKey, key);
 			cleared++;
 		}
-		client.send('build-cleared', { count: cleared, all });
+		// Durable props (obj:spawn build pieces) live in the objects map, not the voxel
+		// grid, so a sweep that only touched blocks would leave a prop-griefed area
+		// untouched. Clear them on the same disc — mapped from grid cells to world metres
+		// (the centre/radius arrive in cells) — and never the ball or transient fx.
+		let clearedObjs = 0;
+		const wx = cx * BLOCK_SIZE_M, wz = cz * BLOCK_SIZE_M, wr = r * BLOCK_SIZE_M;
+		for (const [id, o] of [...this.state.objects]) {
+			if (!this._objectIsPersistent(o)) continue;
+			if (!all && Math.hypot(o.x - wx, o.z - wz) > wr) continue;
+			this.state.objects.delete(id);
+			clearedObjs++;
+		}
+		if (clearedObjs) this._persistObjects();
+		client.send('build-cleared', { count: cleared, objects: clearedObjs, all });
 		this._sendBuildPerms(client); // the creator's own tally may have changed
-		if (cleared) {
-			console.log(`[walk_world ${this.roomId}] creator cleared ${cleared} block(s)${all ? ' (all)' : ` near ${cx},${cz} r=${r}`}`);
+		if (cleared || clearedObjs) {
+			const where = all ? ' (all)' : ` near ${cx},${cz} r=${r}`;
+			console.log(`[walk_world ${this.roomId}] creator cleared ${cleared} block(s) + ${clearedObjs} prop(s)${where}`);
 		}
 	}
 
@@ -2027,6 +2091,25 @@ export class WalkRoom extends Room {
 		if (this._isProtectedColumn(x, z)) return 'protected';
 		if ((this.blockCounts.get(owner) || 0) + extraOwner >= PER_PLAYER_BLOCK_CAP) return 'playercap';
 		if ((this.columnCounts.get(`${x},${z}`) || 0) + extraColumn >= COLUMN_CAP) return 'dense';
+		return null;
+	}
+
+	// Grief guard for the prop/object build channel (obj:spawn), mirroring the voxel
+	// guard but in world metres: keep durable props off the spawn/totem discs and cap
+	// how many may pile onto one tile so a builder can't bury a landmark or wall a spot
+	// off. Returns an obj:reject reason, or null when the placement is allowed.
+	_propPlacementBlock(x, z) {
+		for (const p of PROTECTED_POINTS_M) {
+			if (Math.hypot(x - p.x, z - p.z) <= PROTECTED_RADIUS_M) return 'protected';
+		}
+		const tx = Math.round(x / PROP_TILE_M);
+		const tz = Math.round(z / PROP_TILE_M);
+		let here = 0;
+		for (const [, o] of this.state.objects) {
+			if (!this._objectIsPersistent(o)) continue;
+			if (Math.round(o.x / PROP_TILE_M) === tx && Math.round(o.z / PROP_TILE_M) === tz) here++;
+		}
+		if (here >= PER_TILE_PROP_CAP) return 'dense';
 		return null;
 	}
 

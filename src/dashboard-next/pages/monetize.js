@@ -179,6 +179,7 @@ async function loadAndRender(host, me, agents) {
 	host.appendChild(renderWithdrawals({ withdrawals, wallets, available, host, me, agents }));
 	host.appendChild(renderLegacyPayoutWallets({ wallets, host, me, agents }));
 	host.appendChild(renderCosmeticEarnings({ wallets }));
+	host.appendChild(renderCosmeticSplit({ agents }));
 	host.appendChild(renderPlanUsage(summary));
 	host.appendChild(renderTokensPanel(agents));
 }
@@ -1748,6 +1749,225 @@ async function loadCosmeticEarnings(body, wallet) {
 				</table>
 			</div>` : ''}
 	`;
+}
+
+// -- Cosmetic revenue split (R25) --
+//
+// Set how much of each premium-cosmetic sale tied to one of your coins pays out to
+// your wallet. The share is real: it's the % of the settled USDC sent on-chain to
+// the coin's creator wallet at sale time (the rest funds the worlds the cosmetic is
+// worn in). Changing it is authorized by signing a message with the coin's creator
+// wallet — the same wallet the payout goes to — so no one else can redirect it.
+
+/** The creator's launched coins, from their agents' token metadata (mint+symbol). */
+function launchedCoins(agents) {
+	const seen = new Set();
+	const coins = [];
+	for (const a of agents || []) {
+		const m = a?.meta?.pumpfun || a?.meta?.token;
+		const mint = m?.mint || m?.address || m?.ca;
+		if (!mint || !SOLANA_ADDR_RE.test(String(mint)) || seen.has(String(mint))) continue;
+		seen.add(String(mint));
+		const sym = String(m.symbol || m.ticker || a.name || 'COIN').toUpperCase().replace(/^\$+/, '');
+		coins.push({ mint: String(mint), symbol: sym });
+	}
+	return coins;
+}
+
+/** Connect a Solana wallet and sign `message`, returning { signer, signature }.
+ *  Mirrors the link/sign flow in community/town-auth.js — ed25519 over the UTF-8
+ *  bytes, base58-encoded, exactly how the server (verifySiwsSignature) expects. */
+async function signSolanaMessage(message) {
+	const provider = window.phantom?.solana || window.solana;
+	if (!provider?.connect) throw new Error('No Solana wallet found — install Phantom to sign.');
+	const resp = await provider.connect();
+	const signer = (resp?.publicKey || provider.publicKey)?.toString();
+	if (!signer) throw new Error('Could not read wallet address.');
+	const encoded = new TextEncoder().encode(message);
+	const signed = await provider.signMessage(encoded, 'utf8');
+	const sigBytes = signed?.signature ?? signed;
+	const bs58 = (await import('bs58')).default;
+	return { signer, signature: bs58.encode(sigBytes) };
+}
+
+function renderCosmeticSplit({ agents }) {
+	const panel = document.createElement('div');
+	panel.className = 'dn-panel';
+
+	const coins = launchedCoins(agents);
+
+	panel.innerHTML = `
+		<div style="margin-bottom:6px">
+			<div class="dn-panel-title">Cosmetic revenue split</div>
+			<div class="dn-panel-sub" style="margin:2px 0 0">
+				Your share of premium cosmetics sold inside your coins’ worlds — paid out in USDC
+				on-chain. The platform keeps the rest to fund the worlds they’re worn in.
+			</div>
+		</div>
+		<div data-slot="split-list"></div>
+	`;
+
+	const list = panel.querySelector('[data-slot="split-list"]');
+
+	if (!coins.length) {
+		list.innerHTML = `
+			<div style="text-align:center;padding:24px 12px;color:var(--nxt-ink-fade)">
+				<div style="font-size:28px;opacity:.5" aria-hidden="true">✦</div>
+				<div style="font-weight:600;color:var(--nxt-ink);margin-top:6px">No coins launched yet</div>
+				<div style="font-size:13px;margin-top:6px;max-width:48ch;margin-inline:auto;line-height:1.5">
+					Launch a coin from one of your agents to open its 3D world. You’ll then set
+					your share of every premium cosmetic players buy inside it.
+				</div>
+				<a class="dn-btn primary" href="/dashboard/agents" style="margin-top:14px;display:inline-block">Go to Agents</a>
+			</div>`;
+		return panel;
+	}
+
+	list.innerHTML = coins.map((c) => `
+		<div data-mint="${esc(c.mint)}" style="border:1px solid var(--nxt-stroke);border-radius:12px;padding:14px 16px;margin-bottom:10px">
+			<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+				<div style="display:flex;align-items:center;gap:8px;min-width:0">
+					<span style="font-weight:700">$${esc(c.symbol)}</span>
+					<a href="/play?coin=${encodeURIComponent(c.mint)}" target="_blank" rel="noopener"
+						style="font-size:11.5px;color:var(--nxt-ink-fade);text-decoration:none">
+						${esc(c.mint.slice(0, 4) + '…' + c.mint.slice(-4))} ↗</a>
+				</div>
+			</div>
+			<div data-slot="split-body" style="margin-top:10px">
+				<div style="color:var(--nxt-ink-fade);font-size:13px">Loading split…</div>
+			</div>
+		</div>`).join('');
+
+	for (const c of coins) {
+		const row = list.querySelector(`[data-mint="${CSS.escape(c.mint)}"] [data-slot="split-body"]`);
+		loadSplitRow(row, c.mint, c.symbol);
+	}
+
+	return panel;
+}
+
+async function loadSplitRow(body, mint, symbol) {
+	body.innerHTML = `<div style="color:var(--nxt-ink-fade);font-size:13px">Loading split…</div>`;
+	let cfg;
+	try {
+		cfg = await get(`/api/cosmetics/split?mint=${encodeURIComponent(mint)}`);
+	} catch {
+		body.innerHTML = `<div style="color:var(--nxt-danger);font-size:13px">
+			Couldn’t load split. <button class="dn-btn" data-slot="sp-retry" style="margin-left:8px;padding:4px 10px;font-size:12px">Retry</button></div>`;
+		body.querySelector('[data-slot="sp-retry"]')?.addEventListener('click', () => loadSplitRow(body, mint, symbol));
+		return;
+	}
+	renderSplitRow(body, mint, symbol, cfg);
+}
+
+function renderSplitRow(body, mint, symbol, cfg) {
+	const maxBps = Number.isFinite(Number(cfg?.maxBps)) ? Number(cfg.maxBps) : 9000;
+	const maxPct = Math.round(maxBps / 100);
+	const curBps = Math.max(0, Math.min(maxBps, Math.round(Number(cfg?.splitBps) || 0)));
+	const curPct = Math.round(curBps / 100);
+	const creator = cfg?.creatorWallet || null;
+
+	// No resolvable creator wallet → nothing to pay out to yet. Honest, designed state.
+	if (!creator) {
+		body.innerHTML = `
+			<div style="font-size:13px;color:var(--nxt-ink-fade);line-height:1.5">
+				We couldn’t resolve this coin’s creator wallet on-chain yet, so there’s no
+				payout target to split to. Once the coin’s creator is established, set your
+				share here.
+			</div>`;
+		return;
+	}
+
+	const creatorShort = creator.slice(0, 4) + '…' + creator.slice(-4);
+	const defaultTag = cfg?.isDefault
+		? `<span class="dn-tag" style="margin-left:8px">Default</span>`
+		: `<span class="dn-tag success" style="margin-left:8px">Custom</span>`;
+
+	body.innerHTML = `
+		<div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+			<div style="flex:1 1 260px;min-width:220px">
+				<label style="display:flex;align-items:center;font-size:12px;color:var(--nxt-ink-fade);margin-bottom:6px">
+					Your share ${defaultTag}
+				</label>
+				<div style="display:flex;align-items:center;gap:10px">
+					<input type="range" data-slot="sp-range" min="0" max="${maxPct}" step="1" value="${curPct}"
+						aria-label="Your share of cosmetic sales (percent)" style="flex:1;accent-color:var(--nxt-accent,#8aa0ff)">
+					<div style="display:flex;align-items:center;gap:4px">
+						<input type="number" data-slot="sp-num" min="0" max="${maxPct}" step="1" value="${curPct}"
+							class="mon-select" style="width:70px;text-align:right" aria-label="Your share percent">
+						<span style="color:var(--nxt-ink-fade);font-size:13px">%</span>
+					</div>
+				</div>
+				<div data-slot="sp-hint" style="font-size:11.5px;color:var(--nxt-ink-fade);margin-top:6px"></div>
+			</div>
+			<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+				<button class="dn-btn primary" data-slot="sp-save" style="padding:7px 16px" disabled>Save share</button>
+				<div style="font-size:11px;color:var(--nxt-ink-fade)">Pays to ${esc(creatorShort)}</div>
+			</div>
+		</div>
+		<div data-slot="sp-status" role="status" style="font-size:12.5px;margin-top:10px;min-height:16px"></div>
+	`;
+
+	const range = body.querySelector('[data-slot="sp-range"]');
+	const num = body.querySelector('[data-slot="sp-num"]');
+	const hint = body.querySelector('[data-slot="sp-hint"]');
+	const saveBtn = body.querySelector('[data-slot="sp-save"]');
+	const status = body.querySelector('[data-slot="sp-status"]');
+
+	const clampPct = (v) => Math.max(0, Math.min(maxPct, Math.round(Number(v) || 0)));
+	const paint = (pct) => {
+		hint.textContent = `Platform keeps ${100 - pct}% · max your share ${maxPct}%`;
+		saveBtn.disabled = pct === curPct;
+	};
+	const sync = (pct, from) => {
+		const v = clampPct(pct);
+		if (from !== 'range') range.value = String(v);
+		if (from !== 'num') num.value = String(v);
+		paint(v);
+	};
+
+	range.addEventListener('input', () => sync(range.value, 'range'));
+	num.addEventListener('input', () => sync(num.value, 'num'));
+	sync(curPct);
+
+	saveBtn.addEventListener('click', async () => {
+		const pct = clampPct(num.value);
+		const bps = pct * 100;
+		saveBtn.disabled = true;
+		status.style.color = 'var(--nxt-ink-fade)';
+		status.textContent = 'Approve the signature in your wallet…';
+		const ts = Math.floor(Date.now() / 1000);
+		// Rebuild the exact message the server re-derives + verifies (see
+		// splitConfigMessage in api/_lib/cosmetics-economy.js). bps is already clamped.
+		const message = `three.ws cosmetic revenue split\nmint: ${mint}\nshare: ${bps} bps\nts: ${ts}`;
+		let signer, signature;
+		try {
+			({ signer, signature } = await signSolanaMessage(message));
+		} catch (err) {
+			status.style.color = 'var(--nxt-danger)';
+			status.textContent = err?.message || 'Could not sign with your wallet.';
+			saveBtn.disabled = false;
+			return;
+		}
+		status.textContent = 'Saving…';
+		try {
+			const next = await post('/api/cosmetics/split', { mint, bps, ts, signature, signer });
+			renderSplitRow(body, mint, symbol, next);
+			const ok = body.querySelector('[data-slot="sp-status"]');
+			if (ok) { ok.style.color = 'var(--nxt-success)'; ok.textContent = `Saved — you now take ${Math.round((next.splitBps || 0) / 100)}% of $${symbol} cosmetic sales.`; }
+		} catch (err) {
+			status.style.color = 'var(--nxt-danger)';
+			status.textContent =
+				err?.code === 'not_creator'
+					? `This coin pays out to ${creatorShort}. Connect that wallet to change the split.`
+					: err?.code === 'bad_signature'
+						? 'Signature didn’t verify — make sure you signed with the creator wallet, then try again.'
+						: err?.code === 'no_creator'
+							? 'No creator wallet is established for this coin yet.'
+							: err?.message || 'Couldn’t save the split. Try again.';
+			saveBtn.disabled = false;
+		}
+	});
 }
 
 // -- Token earnings --

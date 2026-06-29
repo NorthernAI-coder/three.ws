@@ -3,6 +3,24 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Cosmetics you buy now follow you into every world",
+      "summary": "When you buy a premium cosmetic for your avatar, that unlock now reaches the 3D world itself: the item is wearable the moment the payment settles, your equipped look is saved to your account, and it re-applies automatically the next time you log in — in any world, whether you arrived through a coin's /play space or /walk. Previously a purchase was recorded but the world didn't yet know you owned it, so the item could still read as locked when you went to wear it. Everyone around you sees your equipped fit too.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/play"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Coin creators can now set their cut of cosmetic sales",
+      "summary": "When a player buys a premium cosmetic inside your coin's 3D world, a share of that sale already pays out to your wallet in real USDC on-chain — but the percentage was fixed. Your Monetize dashboard now has a Cosmetic revenue split panel: for every coin you've launched it shows the current share, who it pays out to, and a slider to set your cut up to the platform ceiling. Changing it is authorized by signing a message with the coin's own creator wallet — the same wallet the money lands in — so no one else can redirect your revenue. It sits right next to your settled cosmetic earnings, which already show paid, pending, and per-cosmetic totals with on-chain receipts.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/dashboard/monetize"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Splat viewer now loads GitHub and Hugging Face links directly",
       "summary": "Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address — the one that allows in-browser loading — so the most common places people publish splat scenes just work.",
       "tags": [

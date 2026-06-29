@@ -109,6 +109,20 @@ export function grantCosmetic(profile, id) {
 	return true;
 }
 
+// Bridge the R22 ownership ledger (real x402 purchases, keyed by account in
+// Redis) into a profile's unlocked set. `ledgerIds` is the raw SMEMBERS of
+// `cosmetics:owned:<account>`; only ids that are premium cosmetics in THIS
+// catalog are granted (the ledger may also hold ids from a sibling catalog the
+// rig can't render — those are ignored, never errored). Idempotent via
+// grantCosmetic. Returns the count newly unlocked, so a caller can skip a persist
+// when nothing changed.
+export function mergeOwnedFromLedger(profile, ledgerIds) {
+	if (!Array.isArray(ledgerIds) || !ledgerIds.length) return 0;
+	let granted = 0;
+	for (const id of ledgerIds) if (grantCosmetic(profile, id)) granted++;
+	return granted;
+}
+
 // Equip `id` into its slot if the profile is allowed to wear it. Returns the new
 // equipped map on success, or null when the id is unknown or unowned (the server
 // then rejects the equip). Mutates profile.cosmetics.equipped.
