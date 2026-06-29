@@ -29,7 +29,7 @@ export default wrap(async (req, res) => {
 	if (!auth) return;
 	const { userId } = auth;
 
-	const rl = await limits.mcpAgentPay(userId || 'anon');
+	const rl = await limits.laborPost(userId || 'anon');
 	if (!rl.success) return rateLimited(res, rl, 'bounty rate limit exceeded');
 
 	const body = (await readJson(req)) || {};

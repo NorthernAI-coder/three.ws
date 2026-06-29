@@ -504,7 +504,13 @@ function wirePostForm() {
 				}),
 			});
 			const j = await res.json();
-			if (!res.ok) throw new Error(j.error_description || j.error || 'post failed');
+			if (!res.ok) {
+				if (res.status === 429) {
+					const wait = Number(j.retry_after) || Number(res.headers.get('retry-after')) || 60;
+					throw new Error(`You're posting too quickly — try again in ${wait}s.`);
+				}
+				throw new Error(j.error_description || j.error || 'post failed');
+			}
 			const auto = j.autopilot || {};
 			setMsg(msg, `Posted & escrowed. ${auto.bids ? `${auto.bids} auto-bid${auto.bids === 1 ? '' : 's'} arrived.` : ''} ${auto.settled === 'settled' ? 'Already settled!' : ''}`.trim(), 'ok');
 			form.reset();
