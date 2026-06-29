@@ -1,6 +1,34 @@
 import { defineConfig } from 'vitest/config';
 import os from 'node:os';
 
+// @three-ws/solana-agent (the symlinked `file:solana-agent-sdk` workspace SDK)
+// is only ever loaded LAZILY — every importer (api/_lib/agora-human.js,
+// api/agora/[action].js) reaches it via `await import()` so the module loads
+// even where the SDK's dist/ isn't built yet. Vite's import-analysis still
+// resolves that dynamic specifier's package entry at transform time, so when
+// dist/ is transiently absent (fresh checkout before postinstall, or a
+// concurrent `tsup --clean` rebuild) an import-only test like
+// tests/agora-humans.test.js dies with "Failed to resolve entry for package"
+// before any test runs. Marking the package external short-circuits that
+// transform-time entry resolution: the lazy import resolves natively at runtime
+// instead, and only when a test actually exercises an on-chain path (the
+// pure-logic suites never do). server.deps.external alone doesn't cover this —
+// import-analysis resolves the importing source regardless — so we intercept at
+// the resolver.
+function externalizeSolanaAgentSdk() {
+	const PKG = '@three-ws/solana-agent';
+	return {
+		name: 'externalize-solana-agent-sdk',
+		enforce: 'pre',
+		resolveId(source) {
+			if (source === PKG || source.startsWith(`${PKG}/`)) {
+				return { id: source, external: true };
+			}
+			return null;
+		},
+	};
+}
+
 // Cold dynamic `import()` of API handlers that pull in heavy SDKs (@coinbase/x402,
 // neon-serverless, jsdom, the Solana toolchain, etc.) routinely takes 5–30s on
 // the first hit in constrained CI/Codespace environments. Individual tests that
@@ -20,6 +48,7 @@ const _cpus = Math.max(1, (os.availableParallelism?.() ?? os.cpus().length) - 1)
 const MAX_FORKS = _cpus <= 3 ? 2 : Math.min(6, _cpus);
 
 export default defineConfig({
+	plugins: [externalizeSolanaAgentSdk()],
 	// packages/avatar-agent-mcp ships its own nested @grpc/* copies (it is a
 	// standalone publishable package). Without deduping, the package's lazy
 	// `import('@grpc/grpc-js')` resolves to that nested copy while a test's

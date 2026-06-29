@@ -291,7 +291,11 @@ export async function runForgeFree({ prompt, tier }) {
 	// short, bounded backoff lands a real result on the next slot. Budgeted
 	// separately from the durable-attempt loop so a pure backoff never burns an
 	// attempt. Genuine failures stay terminal (see the catch below).
-	const maxRateRetries = Math.max(0, Math.min(6, Number(env('FORGE_FREE_RATE_RETRIES', '4')) || 4));
+	const _rateRetriesRaw = Number(env('FORGE_FREE_RATE_RETRIES', '4'));
+	// `|| 4` would swallow an explicit, valid 0 (0 is falsy) — making the rate
+	// backoff impossible to disable. Honor 0; only fall back to the default when
+	// the env value is non-numeric.
+	const maxRateRetries = Math.max(0, Math.min(6, Number.isFinite(_rateRetriesRaw) ? _rateRetriesRaw : 4));
 
 	let liveFallback = null; // first reachable-but-non-durable result, used only if no durable one appears
 	let rateRetries = 0;

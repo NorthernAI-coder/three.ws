@@ -58,12 +58,19 @@ describe('forge_free — handler', () => {
 		vi.stubGlobal('fetch', fetchMock);
 		// Tighten the poll cadence so the queued-job test doesn't wait seconds.
 		process.env.FORGE_FREE_POLL_MS = '1';
+		// Disable the shared-lane rate-limit backoff loop: with retries on, a single
+		// stubbed 429 is retried (against a fetch mock primed for one call) and the
+		// follow-up miss reclassifies the error. With 0 retries the busy lane
+		// surfaces its terminal `rate_limited` contract immediately, which is what
+		// these unit tests assert. The backoff itself is covered by the live lane.
+		process.env.FORGE_FREE_RATE_RETRIES = '0';
 		tool = buildForgeFreeTool();
 	});
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 		delete process.env.FORGE_FREE_POLL_MS;
+		delete process.env.FORGE_FREE_RATE_RETRIES;
 	});
 
 	it('rejects a too-short prompt without hitting the network', async () => {
