@@ -28,6 +28,26 @@ function getSql() {
 	return _sql;
 }
 
+// Resolve the Neon client without letting a construction failure escape as a
+// SYNCHRONOUS throw. A missing/empty/malformed DATABASE_URL makes the env
+// accessor (`Missing required env var: DATABASE_URL`) or neon() throw the first
+// time the lazy client is built — and that throw fires inside a fragment's
+// `.then`/`.catch`/`.finally`, i.e. while a caller is *attaching* a handler.
+// `.catch(fn)` only runs `fn` on a REJECTION, never on a throw from `.catch()`
+// itself, so a sync throw there bypasses a per-query guard entirely and 500s an
+// endpoint that explicitly degraded the query (e.g. oracle/stats' `.catch(() =>
+// [{}])`). Funnelling the failure into the rejection channel makes every
+// thenable consumer — `await`, `.then`, `.catch`, `Promise.all` — observe a
+// normal rejection, which `isDbUnavailableError` then classifies as a graceful
+// 503 instead of a 500 storm.
+function getSqlSafe() {
+	try {
+		return { sql: getSql(), err: null };
+	} catch (err) {
+		return { sql: null, err };
+	}
+}
+
 // Postgres text/varchar/jsonb columns cannot store a NUL byte (U+0000) — any
 // parameter containing one makes the driver throw
 // `invalid byte sequence for encoding "UTF8": 0x00` (SQLSTATE 22021) and 500s
@@ -84,9 +104,25 @@ function makeFragment(strings, values) {
 	const toNative = () => {
 		if (!native) {
 			const { query, params } = composeFragment(strings, values);
-			native = getSql()(query, params);
+			const { sql: client, err } = getSqlSafe();
+			if (err) throw err;
+			native = client(query, params);
 		}
 		return native;
+	};
+	// Settle into a thenable for the consumer paths. If the Neon client can't be
+	// built (DB unconfigured) we hand back a rejected promise rather than throwing
+	// synchronously, so a caller's `.catch()`/`.then(_, onRejected)` actually runs
+	// and `Promise.all` rejects normally instead of throwing during array build.
+	// The `parameterizedQuery`/`opts` getters keep throwing synchronously — they
+	// are inspection-only seams (transaction prep, tests) where a sync throw is the
+	// expected contract, not a dropped guard.
+	const settle = () => {
+		try {
+			return toNative();
+		} catch (err) {
+			return Promise.reject(err);
+		}
 	};
 	return {
 		[FRAGMENT]: true,
@@ -95,9 +131,9 @@ function makeFragment(strings, values) {
 		values,
 		get parameterizedQuery() { return toNative().parameterizedQuery; },
 		get opts() { return toNative().opts; },
-		then(onFulfilled, onRejected) { return toNative().then(onFulfilled, onRejected); },
-		catch(onRejected) { return toNative().catch(onRejected); },
-		finally(onFinally) { return toNative().finally(onFinally); },
+		then(onFulfilled, onRejected) { return settle().then(onFulfilled, onRejected); },
+		catch(onRejected) { return settle().catch(onRejected); },
+		finally(onFinally) { return settle().finally(onFinally); },
 	};
 }
 
@@ -149,12 +185,32 @@ export function isDbUnavailableError(err) {
 	// which survives minification. Fall back to constructor.name for dev builds.
 	const name = String(err.name || err.constructor?.name || '');
 	const msg = String(err.message ?? '');
+	// Construction/configuration failures: a missing, empty, or malformed
+	// DATABASE_URL makes the env accessor (`Missing required env var:
+	// DATABASE_URL`) or neon() (`No database connection string was provided…`,
+	// `Database connection string provided to \`neon()\` is not a valid URL`) throw
+	// a PLAIN Error the first time the lazy client is built — no NeonDbError name to
+	// match on. Operationally this is "DB unavailable", not an internal bug: without
+	// this branch every DB-backed read 500s (internal_error) and fires a per-endpoint
+	// ops alert instead of degrading to a single shared 503 + Retry-After. Matched by
+	// message since the thrown error carries the generic `Error` name.
+	if (
+		msg.includes('Missing required env var: DATABASE_URL') ||
+		msg.includes('No database connection string was provided') ||
+		msg.includes('Database connection string provided to')
+	) {
+		return true;
+	}
 	if (name === 'NeonDbError' || name === 'DatabaseError') {
 		return (
 			msg.includes('password authentication failed') ||
 			msg.includes('connection refused') ||
 			msg.includes('ECONNREFUSED') ||
 			msg.includes('SSL connection') ||
+			// Neon phrases a suspended compute as "The endpoint has been disabled.
+			// Enable it using Neon API and retry." Keep the older 'is disabled'
+			// variant too so either phrasing classifies as unavailable.
+			msg.includes('endpoint has been disabled') ||
 			msg.includes('endpoint is disabled') ||
 			msg.includes('Control plane request failed')
 		);
@@ -181,7 +237,12 @@ export const sql = new Proxy(function () {}, {
 		if (typeof args[0] === 'string') {
 			const [queryText, params, opts] = args;
 			const safeParams = Array.isArray(params) ? params.map(stripNul) : params;
-			return getSql()(queryText, safeParams, opts);
+			// Surface a construction failure as a rejection, not a sync throw, so
+			// `sql(q, p).catch(...)` (handler attached before the first await) degrades
+			// the same way the tagged-template fragment path does.
+			const { sql: client, err } = getSqlSafe();
+			if (err) return Promise.reject(err);
+			return client(queryText, safeParams, opts);
 		}
 		return makeFragment(args[0], args.slice(1));
 	},

@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Pages stay graceful when the database has a hiccup",
+      "summary": "If the platform's database ever becomes briefly unreachable, pages now degrade cleanly instead of throwing hard errors. Live counters and feeds quietly fall back to their empty state, and any request that can't be served returns a clear “temporarily unavailable, retry shortly” response that your browser and our CDN know to retry — rather than a generic 500. Previously a database blip could surface as failed loads across explore, the marketplace, avatars, and the oracle stats at once; those reads now recover on their own the moment the database is back.",
+      "tags": [
+        "fix",
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-06-29",
       "title": "Cosmetics you buy now follow you into every world",
       "summary": "When you buy a premium cosmetic for your avatar, that unlock now reaches the 3D world itself: the item is wearable the moment the payment settles, your equipped look is saved to your account, and it re-applies automatically the next time you log in — in any world, whether you arrived through a coin's /play space or /walk. Previously a purchase was recorded but the world didn't yet know you owned it, so the item could still read as locked when you went to wear it. Everyone around you sees your equipped fit too.",
       "tags": [
