@@ -79,6 +79,15 @@ shared ops-alert credentials and may already exist for other workers — reuse t
 | `SNIPER_FEED_WATCHDOG_MS` | `180000` | Re-subscribe + alert if the feed is silent this long. |
 | `SNIPER_ERROR_ALERT_THRESHOLD` / `_WINDOW_MS` | `5` / `600000` | Executor/RPC errors in the window that trip an ops alert. |
 | `SNIPER_ANNOUNCE` | `1` | Announce boot/shutdown to the ops channel. |
+| `SNIPER_AUTO_FUND` | `1` | Keep each armed agent's own wallet topped from the launcher master so a live sniper never silently runs dry. Only moves SOL in **live** mode and when the master wallet is configured. |
+| `SNIPER_AUTO_FUND_MIN_SOL` / `_TARGET_SOL` | `0.02` / `0.05` | Refill when an agent's balance drops under MIN, back up to TARGET. |
+| `SNIPER_AUTO_FUND_PER_TX_SOL` / `_DAILY_SOL` | `0.1` / `1.0` | Hard caps: per single top-up, and total per UTC day across all agents (summed from the on-chain funding ledger, so a restart can't bypass it). |
+| `SNIPER_EXIT_ON_BEARISH` | `0` | Arm the sentiment-flip exit: cut an **underwater** position early when its x402-bought sentiment flips confidently bearish, ahead of the hard stop-loss. Never overrides stop-loss / take-profit / a winner. |
+| `SNIPER_EXIT_BEARISH_MIN_CONFIDENCE` | `0.7` | Confidence floor (0..1) a bearish read must clear before it can exit. |
+
+The treasury → agent funding flow is visible on `GET /api/sniper/status` under
+`funding` (SOL fueled today + all-time, last fund time), so you can confirm the
+auto-funder is actually moving money without reading logs.
 
 Full per-trade knobs (budget caps, throttles, intel/first-claim) are documented
 in [`workers/agent-sniper/README.md`](../../workers/agent-sniper/README.md). The
