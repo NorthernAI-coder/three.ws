@@ -125,3 +125,55 @@ describe('show standings + audience', () => {
 		expect(tip.label).toBe('A d a'); // newline collapsed to a single space
 	});
 });
+
+// The /agent-screen Stage Show (Moonshot 08) drives this director on a fixed
+// cadence and relies on three guarantees: the loop NEVER returns an empty beat
+// (the show never goes dead), a fresh tip pre-empts a waiting question, and
+// queued questions are answered first-in-first-out across successive ANSWER beats.
+describe('agent-screen stage loop guarantees', () => {
+	it('never goes dead — 200 ticks of pure filler always yield a valid, non-repeating beat', () => {
+		const d = liveDirector();
+		let last = null;
+		for (let i = 0; i < 200; i++) {
+			const beat = d.nextBeat();
+			expect([BEAT.GAME, BEAT.BANTER]).toContain(beat.kind); // always something to perform
+			expect(beat.kind).not.toBe(last); // two identical fillers never run back to back
+			d.markSpoken(beat.kind);
+			last = beat.kind;
+		}
+	});
+
+	it('a fresh tip pre-empts a queued question, then the question is answered next', () => {
+		const d = liveDirector();
+		d.queueQuestion({ id: 'q1', from: 'Lin', text: 'how are you?', ts: 1 });
+		d.ingestTip({ tipperId: 'u1', label: 'Ada', amount: 5_000_000, signature: 'sig1', ts: 2 });
+
+		const first = d.nextBeat();
+		expect(first.kind).toBe(BEAT.TIP_SHOUTOUT); // money jumps the line
+		d.markSpoken(first.kind);
+
+		const second = d.nextBeat();
+		expect(second.kind).toBe(BEAT.ANSWER); // the waiting question is still served
+		expect(second.question.text).toBe('how are you?');
+	});
+
+	it('answers multiple queued questions in FIFO order across answer beats', () => {
+		const d = liveDirector();
+		d.queueQuestion({ id: 'q1', from: 'A', text: 'first?', ts: 1 });
+		d.queueQuestion({ id: 'q2', from: 'B', text: 'second?', ts: 2 });
+
+		const a = d.nextBeat();
+		expect(a.kind).toBe(BEAT.ANSWER);
+		expect(a.question.text).toBe('first?');
+		d.markSpoken(a.kind);
+
+		const b = d.nextBeat();
+		expect(b.kind).toBe(BEAT.ANSWER);
+		expect(b.question.text).toBe('second?');
+		d.markSpoken(b.kind);
+
+		// Both drained → the director falls straight back to filler, never null.
+		const c = d.nextBeat();
+		expect([BEAT.GAME, BEAT.BANTER]).toContain(c.kind);
+	});
+});

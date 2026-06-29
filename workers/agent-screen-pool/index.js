@@ -40,6 +40,10 @@ const PUSH_URL      = process.env.PUSH_URL      || `${BASE_URL}/api/agent-screen
 const PUSH_URL_DESK = process.env.PUSH_URL_DESK || `${BASE_URL}/api/agent/screen-push`;  // 3D desk
 const SECRET        = process.env.SCREEN_WORKER_SECRET || '';
 
+// Hard cap on concurrent Chromium casters. The API's /api/agent/watch-status
+// reports queue position against SCREEN_POOL_MAX (same default, 6) — keep the two
+// in sync per deploy so a viewer's "queued · #N in line" matches reality: the
+// worker casts the first MAX_BROWSERS wanted agents, the API queues the rest.
 const MAX_BROWSERS = Number(process.env.MAX_BROWSERS || 6);
 const POLL_MS      = Number(process.env.POLL_MS || 3000);
 const FRAME_MS     = Number(process.env.FRAME_MS || 700);
@@ -49,29 +53,34 @@ const DWELL_MS     = Number(process.env.DWELL_MS || 6000); // hold on the result
 const VIEWPORT     = { width: Number(process.env.VIEWPORT_W || 1280), height: Number(process.env.VIEWPORT_H || 720) };
 
 // Coin World Tour config. When a cast page exposes window.__tour, the worker walks
-// the guide through the waypoint loop, dwelling at each stop and narrating the live
-// /api/pump/trending feed. Trending is cached so a fleet of tours doesn't hammer it.
-const TOUR_DWELL_MS     = Number(process.env.TOUR_DWELL_MS || 6500);   // pause per waypoint
-const TOUR_READY_MS     = Number(process.env.TOUR_READY_MS || 30_000); // max wait for scene-ready
-const TRENDING_URL      = process.env.TRENDING_URL || `${BASE_URL}/api/pump/trending?limit=8`;
-const TRENDING_TTL_MS   = Number(process.env.TRENDING_TTL_MS || 20_000);
-let _trending = { at: 0, data: [] };
+// the guide through the waypoint loop, dwelling at each stop and narrating the
+// platform's OWN launch feed (coins launched THROUGH three.ws). Cached so a fleet
+// of concurrent tours doesn't hammer it.
+//
+// Coin rule: the source is /api/pump/launches (the three.ws launch directory over
+// pump_agent_mints — the blessed launch-records exception), NOT a global market /
+// trending feed. The guide narrates what's climbing OUR launch feed, factually.
+const TOUR_DWELL_MS      = Number(process.env.TOUR_DWELL_MS || 6500);   // pause per waypoint
+const TOUR_READY_MS      = Number(process.env.TOUR_READY_MS || 30_000); // max wait for scene-ready
+const LAUNCH_FEED_URL    = process.env.LAUNCH_FEED_URL || `${BASE_URL}/api/pump/launches?limit=8`;
+const LAUNCH_FEED_TTL_MS = Number(process.env.LAUNCH_FEED_TTL_MS || 20_000);
+let _launchFeed = { at: 0, data: [] };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Live trending feed, cached ~20s and shared across every concurrent tour. Returns
-// [] on any failure so commentary degrades to world-only narration, never throws.
-async function getTrending() {
-	if (Date.now() - _trending.at < TRENDING_TTL_MS) return _trending.data;
+// three.ws launch feed, cached ~20s and shared across every concurrent tour.
+// Returns [] on any failure so commentary degrades to world-only narration.
+async function getLaunchFeed() {
+	if (Date.now() - _launchFeed.at < LAUNCH_FEED_TTL_MS) return _launchFeed.data;
 	try {
-		const res = await fetch(TRENDING_URL, { headers: { accept: 'application/json' } });
-		if (!res.ok) { _trending = { at: Date.now(), data: [] }; return []; }
+		const res = await fetch(LAUNCH_FEED_URL, { headers: { accept: 'application/json' } });
+		if (!res.ok) { _launchFeed = { at: Date.now(), data: [] }; return []; }
 		const body = await res.json();
-		const data = Array.isArray(body?.data) ? body.data : [];
-		_trending = { at: Date.now(), data };
+		const data = Array.isArray(body?.data?.launches) ? body.data.launches : [];
+		_launchFeed = { at: Date.now(), data };
 		return data;
 	} catch {
-		_trending = { at: Date.now(), data: [] };
+		_launchFeed = { at: Date.now(), data: [] };
 		return [];
 	}
 }
@@ -230,8 +239,8 @@ async function runTour(entry) {
 		i++;
 		try {
 			await page.evaluate((n) => window.__tour.goTo(n), name);
-			const trending = await getTrending();
-			const c = await page.evaluate((t) => window.__tour.commentary(t), trending).catch(() => null);
+			const launches = await getLaunchFeed();
+			const c = await page.evaluate((t) => window.__tour.commentary(t), launches).catch(() => null);
 			if (c) {
 				entry.activityOverride = c.badge;      // stamps screenshot frames with the waypoint
 				await pushAnalysis(entry, c.line);     // narrates the stop in the activity log

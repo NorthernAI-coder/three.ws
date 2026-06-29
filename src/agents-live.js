@@ -14,6 +14,18 @@
 // agent on demand without paying for an idle browser per agent.
 
 import { parsePnlDelta, formatSol, formatUsd } from './shared/trade-pnl.js';
+import { coalesce, timeline, colorHex } from './activity-cinema.js';
+import { connectFeed, loadSnapshot } from './theater-feed.js';
+import { TOUR_PREFIX } from './tour-commentary.js';
+
+// Subtle accent for a card showing a live Coin World Tour walkthrough.
+(() => {
+	if (document.getElementById('al-tour-style')) return;
+	const st = document.createElement('style');
+	st.id = 'al-tour-style';
+	st.textContent = '.al-card--tour{box-shadow:0 0 0 1px rgba(154,123,255,.45),0 10px 30px rgba(154,123,255,.12)}';
+	document.head.appendChild(st);
+})();
 
 const grid       = document.getElementById('al-grid');
 const liveCount  = document.getElementById('al-live-count');
@@ -47,6 +59,35 @@ const STATUS_GRACE_POLLS = 3;      // keep polling this many ticks to cover the 
 // window). IntersectionObserver maintains this set.
 const _inView = new Set();
 let _observer = null;
+
+// ── cinematic terminal: typed-reveal animation clock ──────────────────────────
+// A card's fallback terminal types its newest beat in, character by character,
+// driven by a single shared rAF (not per-card timers). Cards mid-reveal live in
+// _animating; the loop repaints them off a real frame clock and drops each one
+// the moment its reveal + hold window elapses, so an idle wall costs nothing.
+const REDUCED_MOTION = typeof matchMedia === 'function'
+	&& matchMedia('(prefers-reduced-motion: reduce)').matches;
+const _animating = new Set();
+let _rafId = null;
+
+function ensureRaf() {
+	if (_rafId != null) return;
+	const tick = () => {
+		if (_animating.size === 0) { _rafId = null; return; }
+		for (const s of _animating) {
+			if (isLiveNow(s)) { _animating.delete(s); continue; }
+			paintActivity(s);
+		}
+		_rafId = _animating.size ? requestAnimationFrame(tick) : null;
+	};
+	_rafId = requestAnimationFrame(tick);
+}
+
+// A stable signature for the newest beat so we restart the typed reveal only when
+// the agent genuinely does something new (not on every idle repaint).
+function beatSig(beat) {
+	return beat ? `${beat.key}:${beat.ts ?? 0}:${beat.count}` : '';
+}
 
 function esc(s) {
 	return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -138,8 +179,18 @@ function buildCard(agent) {
 	return el;
 }
 
-// Render the agent's recent activity as a live terminal onto the card canvas.
-// This is the always-available view shown whenever live pixels aren't arriving.
+// Format a beat's age into a compact relative stamp.
+function fmtAge(ts) {
+	const age = Math.max(0, Math.round((Date.now() - (ts || Date.now())) / 1000));
+	return age < 5 ? 'now' : age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age / 60)}m` : `${Math.round(age / 3600)}h`;
+}
+
+// Render the agent's recent activity as a CINEMATIC live terminal onto the card
+// canvas — the always-available view shown whenever live pixels aren't arriving.
+// Each real action becomes a typed, colour-graded, icon-led line; consecutive
+// same-kind actions collapse into one beat ("Defended floor ×3"); the newest
+// beat reveals character by character off a real frame clock and the high/
+// celebratory ones carry a severity glow. Honors prefers-reduced-motion.
 function paintActivity(state) {
 	const { card, entries, name } = state;
 	const canvas = card.querySelector('canvas');
@@ -152,6 +203,7 @@ function paintActivity(state) {
 	g.addColorStop(1, '#070708');
 	ctx.fillStyle = g;
 	ctx.fillRect(0, 0, W, H);
+	ctx.shadowBlur = 0;
 
 	// header
 	ctx.fillStyle = 'rgba(255,255,255,0.03)';
@@ -166,49 +218,124 @@ function paintActivity(state) {
 	ctx.textBaseline = 'middle';
 	ctx.fillText(`${(name || 'Agent').slice(0, 28)} · activity`, 28, 15);
 
-	const lines = (entries || []).slice().reverse(); // newest-first
-	if (!lines.length) {
+	// Empty → a designed standby card, not a blank void.
+	if (!entries || !entries.length) {
 		ctx.font = '500 12px "Courier New", monospace';
+		ctx.fillStyle = 'rgba(255,255,255,0.32)';
+		ctx.fillText('Standing by', 16, 60);
+		ctx.font = '400 11px "Courier New", monospace';
 		ctx.fillStyle = 'rgba(255,255,255,0.18)';
-		const msg = '> standing by — no recorded actions yet';
-		ctx.fillText(msg, 16, 56);
-		if (Math.sin(t * 4) > 0) {
-			ctx.fillStyle = 'rgba(255,255,255,0.18)';
-			ctx.fillRect(16 + ctx.measureText(msg).width + 4, 48, 7, 14);
+		ctx.fillText('No actions yet — this agent will narrate', 16, 84);
+		ctx.fillText('here the moment it acts.', 16, 102);
+		if (!REDUCED_MOTION && Math.sin(t * 4) > 0) {
+			ctx.fillStyle = 'rgba(255,255,255,0.22)';
+			ctx.fillRect(16 + ctx.measureText('Standing by').width + 4, 53, 7, 13);
 		}
 		if (state.action) state.action.textContent = 'Standing by';
 		return;
 	}
 
-	const lH = 26;
-	const y = 52;
-	const max = Math.floor((H - 52) / lH);
-	lines.slice(0, max).forEach((a, i) => {
-		const latest = i === 0;
-		const age = Math.max(0, Math.round((Date.now() - (a.ts || Date.now())) / 1000));
-		const ts = age < 5 ? 'now' : age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age / 60)}m` : `${Math.round(age / 3600)}h`;
-		// A realized exit tints its line green/red so the terminal reads as a tape.
-		const exit = parsePnlDelta(a.pnl);
-		const exitSign = exit?.phase === 'exit'
-			? (exit.solDelta ?? exit.realizedUsd ?? 0)
-			: null;
-		ctx.font = '600 11px "Courier New", monospace';
-		ctx.fillStyle = latest ? '#5fd08a' : 'rgba(255,255,255,0.2)';
-		const pfx = `[${ts}] `;
-		ctx.fillText(pfx, 16, y + i * lH);
-		const pw = ctx.measureText(pfx).width;
-		ctx.font = `${latest ? '600' : '400'} 12px "Courier New", monospace`;
-		if (exitSign != null && exitSign !== 0) {
-			ctx.fillStyle = exitSign > 0
-				? (latest ? '#6ee7a0' : 'rgba(110,231,160,0.55)')
-				: (latest ? '#f9a8a8' : 'rgba(249,168,168,0.55)');
-		} else {
-			ctx.fillStyle = latest ? '#f0f0f4' : 'rgba(255,255,255,0.4)';
+	// Beats: oldest-first from coalesce → reverse for newest-first display.
+	const beats = coalesce(entries);
+	const newest = beats[beats.length - 1];
+	const newestSig = beatSig(newest);
+
+	// New beat detected → (re)start the typed reveal on a real frame clock.
+	if (newestSig && newestSig !== state.lastBeatSig) {
+		state.lastBeatSig = newestSig;
+		if (!REDUCED_MOTION) {
+			const tl = timeline(newest, beats[beats.length - 2]);
+			state.typed = { sig: newestSig, startedAt: performance.now(), charMs: tl.charMs, typeMs: tl.typeMs, holdMs: tl.holdMs };
+			_animating.add(state);
+			ensureRaf();
 		}
-		ctx.fillText((a.activity || a.type || 'action').slice(0, 64), 16 + pw, y + i * lH);
+	}
+
+	const display = beats.slice().reverse(); // newest-first
+	const lH = 26;
+	const y = 54;
+	const max = Math.floor((H - 50) / lH);
+
+	display.slice(0, max).forEach((beat, i) => {
+		const latest = i === 0;
+		const lineY = y + i * lH;
+		const cls = beat; // coalesce already carries icon/colorToken/severity/label
+		const base = colorHex(cls.colorToken);
+
+		// A realized exit tints its line green/red so the terminal reads as a tape,
+		// overriding the category colour for that line only.
+		const exitDelta = parsePnlDelta(beat.members?.[beat.members.length - 1]?.pnl);
+		const exitSign = exitDelta?.phase === 'exit' ? (exitDelta.solDelta ?? exitDelta.realizedUsd ?? 0) : null;
+		const lineColor = (exitSign != null && exitSign !== 0)
+			? (exitSign > 0 ? '#6ee7a0' : '#f9a8a8')
+			: base;
+
+		// timestamp prefix
+		ctx.shadowBlur = 0;
+		ctx.font = '600 11px "Courier New", monospace';
+		ctx.fillStyle = latest ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.2)';
+		const pfx = `[${fmtAge(beat.ts)}] `;
+		ctx.fillText(pfx, 16, lineY);
+		let x = 16 + ctx.measureText(pfx).width;
+
+		// icon glyph (graded to the line colour)
+		ctx.font = '13px "Apple Color Emoji","Segoe UI Emoji",system-ui,sans-serif';
+		ctx.globalAlpha = latest ? 1 : 0.5;
+		ctx.fillText(cls.icon, x, lineY);
+		ctx.globalAlpha = 1;
+		x += 20;
+
+		// severity glow on the newest beat (pulses while animating, static after)
+		if (latest && cls.severity !== 'normal') {
+			let intensity = 0.7;
+			if (!REDUCED_MOTION) intensity = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 5));
+			ctx.shadowColor = base;
+			ctx.shadowBlur = 14 * intensity;
+		}
+
+		// body text — newest beat is typed in; older beats render whole
+		const full = (beat.activity || beat.type || 'action');
+		let text = full;
+		let typing = false;
+		if (latest && state.typed && state.typed.sig === newestSig && !REDUCED_MOTION) {
+			const elapsed = performance.now() - state.typed.startedAt;
+			const n = Math.floor(elapsed / state.typed.charMs);
+			if (n < full.length) { text = full.slice(0, n); typing = true; }
+		}
+
+		ctx.font = `${latest ? '600' : '400'} 12px "Courier New", monospace`;
+		ctx.fillStyle = latest ? lineColor : (cls.severity === 'normal' ? 'rgba(255,255,255,0.4)' : `${base}88`);
+		const room = Math.floor((W - x - 30) / 7);
+		ctx.fillText(text.slice(0, room), x, lineY);
+		ctx.shadowBlur = 0;
+
+		// count badge for a collapsed beat: "×3"
+		if (beat.count > 1) {
+			const tw = ctx.measureText(text.slice(0, room)).width;
+			ctx.font = '700 10px "Courier New", monospace';
+			ctx.fillStyle = latest ? base : 'rgba(255,255,255,0.35)';
+			ctx.fillText(`×${beat.count}`, Math.min(x + tw + 8, W - 28), lineY);
+		}
+
+		// blinking caret at the end of the line while typing
+		if (typing && Math.sin(performance.now() / 140) > 0) {
+			const tw = ctx.measureText(text.slice(0, room)).width;
+			ctx.fillStyle = base;
+			ctx.fillRect(x + tw + 2, lineY - 6, 6, 12);
+		}
 	});
 
-	if (state.action) state.action.textContent = lines[0].activity || lines[0].type || 'active';
+	// Reveal complete (+ hold window) → drop out of the rAF set; idle repaint keeps
+	// the relative stamps fresh from here on.
+	if (state.typed && !REDUCED_MOTION) {
+		const elapsed = performance.now() - state.typed.startedAt;
+		if (elapsed >= state.typed.typeMs + state.typed.holdMs) {
+			state.typed = null;
+			_animating.delete(state);
+		}
+	}
+
+	if (state.action) state.action.textContent = newest.activity || newest.label || 'active';
 }
 
 function isLiveNow(state) {
@@ -273,6 +400,16 @@ function attachStream(state) {
 	es.addEventListener('frame', (e) => {
 		try {
 			const msg = JSON.parse(e.data);
+			// Anchor bulletin: surface the on-air headline on the card even when the
+			// frame is text-only (no rendered desk image).
+			if (msg.type === 'analysis' && msg.activity && state.action) {
+				if (state.isTour) {
+					state.action.textContent = `🎬 ${msg.activity}`;
+				} else {
+					state.action.textContent = `🔴 ON AIR · ${msg.activity}`;
+					state.action.classList.add('al-on-air');
+				}
+			}
 			const src = msg.frame || msg.data;
 			if (!src) return;
 			const img = new Image();
@@ -285,7 +422,16 @@ function attachStream(state) {
 			hideWarming(state);
 			stopStatusPolling(state);
 			_fpsMap.set(agentId, (_fpsMap.get(agentId) || 0) + 1);
-			if (msg.activity && state.action) state.action.textContent = msg.activity;
+			if (msg.activity && state.action) {
+				if (msg.activity.startsWith(TOUR_PREFIX)) {
+					state.isTour = true;
+					state.card.classList.add('al-card--tour');
+					state.action.classList.remove('al-on-air');
+					state.action.textContent = `🎬 TOUR · ${msg.activity.slice(TOUR_PREFIX.length).trim()}`;
+				} else {
+					state.action.textContent = msg.activity;
+				}
+			}
 			if (msg.type === 'trade') ingestCardPnl(state, msg);
 		} catch { /* malformed */ }
 	});
@@ -587,9 +733,84 @@ function resumeStreams() {
 	}
 }
 
+// ── platform-wide ticker ──────────────────────────────────────────────────────
+// A thin strip under the nav tailing the real site-wide feed (api/feed-stream via
+// theater-feed.js). It cross-links activity across every agent/coin so even an
+// idle wall has a pulse — clicking an event routes to its agent or coin where a
+// link exists. Pause on hover, resume on leave; honors prefers-reduced-motion.
+
+const TICKER_MAX = 30;
+const KIND_TOKEN = { buy: 'green', launch: 'gold', verify: 'cyan', pay: 'violet', win: 'gold', loss: 'red', misc: 'neutral' };
+
+function tickerItemHTML(ev) {
+	const token = KIND_TOKEN[ev.kind] || 'neutral';
+	const dot = `<span class="al-ticker-dot" style="background:${colorHex(token)}"></span>`;
+	const title = esc(ev.title || ev.type || 'Event');
+	const sub = ev.sub ? `<span class="al-ticker-sub">${esc(ev.sub)}</span>` : '';
+	const inner = `${dot}<span class="al-ticker-title">${title}</span>${sub}`;
+	return ev.href
+		? `<a class="al-ticker-item" href="${esc(ev.href)}">${inner}</a>`
+		: `<span class="al-ticker-item">${inner}</span>`;
+}
+
+function startTicker() {
+	const strip = document.getElementById('al-ticker');
+	if (!strip) return;
+	const track = strip.querySelector('.al-ticker-track');
+	const statusEl = strip.querySelector('[data-ticker-status]');
+	let events = [];
+
+	function render() {
+		if (!events.length) {
+			track.classList.remove('is-scrolling');
+			track.innerHTML = `<span class="al-ticker-item al-ticker-quiet">All quiet — activity across the platform will scroll here.</span>`;
+			return;
+		}
+		const items = events.map(tickerItemHTML).join('');
+		// Two copies → a seamless CSS marquee (animates 0 → -50%). Reduced motion
+		// drops the animation and lets the strip scroll on overflow instead.
+		track.innerHTML = REDUCED_MOTION ? items : items + items;
+		track.classList.toggle('is-scrolling', !REDUCED_MOTION);
+		if (!REDUCED_MOTION) {
+			const dur = Math.max(24, events.length * 4);
+			track.style.animationDuration = `${dur}s`;
+		}
+	}
+
+	function addEvent(ev) {
+		if (!ev || !ev.id) return;
+		if (events.some((e) => e.id === ev.id)) return;
+		events = [ev, ...events].slice(0, TICKER_MAX);
+		render();
+	}
+
+	// Prime with a real snapshot for first paint, then live-tail the stream.
+	strip.classList.add('is-loading');
+	loadSnapshot(TICKER_MAX).then((snap) => {
+		strip.classList.remove('is-loading');
+		events = (snap || []).slice(0, TICKER_MAX);
+		render();
+	}).catch(() => { strip.classList.remove('is-loading'); render(); });
+
+	connectFeed({
+		onEvent: addEvent,
+		onStatus: (s) => {
+			strip.dataset.status = s;
+			if (statusEl) statusEl.textContent = s === 'reconnecting' ? 'reconnecting…' : '';
+		},
+	});
+
+	// Pause on hover / focus within, resume on leave.
+	strip.addEventListener('pointerenter', () => track.classList.add('is-paused'));
+	strip.addEventListener('pointerleave', () => track.classList.remove('is-paused'));
+	strip.addEventListener('focusin', () => track.classList.add('is-paused'));
+	strip.addEventListener('focusout', () => track.classList.remove('is-paused'));
+}
+
 // ── boot ──────────────────────────────────────────────────────────────────────
 
 await loadMore();
+startTicker();
 startFpsTicker();
 startIdleRepaint();
 startWatchPings();

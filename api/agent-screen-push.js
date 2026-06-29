@@ -69,6 +69,26 @@ export function sanitizePnl(pnl) {
 	return out;
 }
 
+// Whitelist + coerce a market-maker `mm` ride-along (Floor Defense). Same shape
+// the agent-mm worker writes directly to Redis, accepted here so any first-party
+// pusher (or a JWT-authed owner) can drive the arena floor line through the HTTP
+// transport too. Bounds the strings + drops non-finite numbers so a malformed
+// push can't poison the stream. Returns null when unusable.
+const MM_TYPES = ['mm_seed', 'mm_defend', 'mm_recycle', 'mm_rebalance', 'mm_graduate', 'mm_quote'];
+export function sanitizeMm(mm) {
+	if (!mm || typeof mm !== 'object' || !MM_TYPES.includes(mm.type)) return null;
+	const out = { type: mm.type };
+	for (const k of ['floorSol', 'priceSol', 'sizeSol']) {
+		const n = Number(mm[k]);
+		out[k] = Number.isFinite(n) && n >= 0 ? n : 0;
+	}
+	out.sideBuy = mm.sideBuy === true ? true : mm.sideBuy === false ? false : null;
+	out.simulate = !!mm.simulate;
+	if (typeof mm.mint === 'string') out.mint = mm.mint.slice(0, 64);
+	if (typeof mm.signature === 'string') out.signature = mm.signature.slice(0, 96);
+	return out;
+}
+
 export default async function handleAgentScreenPush(req, res) {
 	if (cors(req, res, { methods: 'POST,OPTIONS' })) return;
 	if (!method(req, res, ['POST'])) return;
@@ -128,6 +148,9 @@ export default async function handleAgentScreenPush(req, res) {
 	// load and animate the freshly-forged avatar. Sanitized + http(s)-gated so a
 	// push can't smuggle a junk or javascript: url to the viewer's loader.
 	const meta = sanitizeFrameMeta(frame.meta);
+	// Optional market-maker ride-along (Floor Defense): the structured floor/price
+	// + fill context the arena reads to draw the floor line and route emotes.
+	const mm = sanitizeMm(frame.mm);
 
 	// Ownership: the pool worker may cast any existing agent; owners are limited
 	// to their own agents.
@@ -144,10 +167,10 @@ export default async function handleAgentScreenPush(req, res) {
 	const logKey = `agent:screen:${agentId}:log`;
 
 	// Full frame record (includes image data when present)
-	const frameRecord = JSON.stringify({ ts: now, data, activity, type, agentId, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}) });
+	const frameRecord = JSON.stringify({ ts: now, data, activity, type, agentId, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}), ...(mm ? { mm } : {}) });
 
 	// Log entry (no image — the activity log only needs text + metadata)
-	const logEntry = JSON.stringify({ ts: now, activity, type, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}) });
+	const logEntry = JSON.stringify({ ts: now, activity, type, ...(pnl ? { pnl } : {}), ...(meta ? { meta } : {}), ...(mm ? { mm } : {}) });
 
 	await Promise.all([
 		r.set(frameKey, frameRecord, { ex: FRAME_TTL }),

@@ -48,17 +48,33 @@ export async function runPolicy({ cfg, policy, agent }) {
 	const simulate = !(cfg.mode === 'live' && policy.mode === 'live');
 	const tag = { policy: policy.id, mint, mode: simulate ? 'simulate' : 'live' };
 
+	// Read-only render collector: the helpers below mutate it as they size + fill,
+	// and runPolicy returns it merged with the outcome tag. NONE of these reads
+	// touch the decision/guard logic — they only describe what was decided so the
+	// arena can draw the floor line and route emotes off the same numbers.
+	const render = {
+		mint,
+		simulate,
+		floorSol: Number(policy.floor_price_sol) || 0,
+		priceSol: null,
+		sizeSol: 0,
+		sideBuy: null,
+		signature: null,
+	};
+	const out = (t) => ({ tag: t, ...render });
+
 	if (!owner || !agent.meta?.encrypted_solana_secret) {
 		await markEvaluated(policy.id, { error: 'no_wallet' });
-		return 'no_wallet';
+		return out('no_wallet');
 	}
 
 	const market = await quoteMarket({ network, mint });
 	if (!market || !(market.price_sol > 0)) {
 		await markEvaluated(policy.id, { error: 'no_price' });
-		return 'no_price';
+		return out('no_price');
 	}
 	const price = market.price_sol; // SOL per whole token
+	render.priceSol = price;
 
 	const holding = await getHolding({ network, mint, owner });
 	const inventoryWhole = holding?.whole ?? 0;
@@ -70,7 +86,7 @@ export async function runPolicy({ cfg, policy, agent }) {
 
 	// ── graduation transition (once) ──────────────────────────────────────────
 	if (market.graduated && !policy.graduation_done_at) {
-		return runGraduation({ cfg, policy, agent, price, inventoryWhole, inventoryRaw, solBal, simulate, tag });
+		return out(await runGraduation({ cfg, policy, agent, price, inventoryWhole, inventoryRaw, solBal, simulate, tag, render }));
 	}
 
 	// ── decide intent (priority: seed → defend → recycle → rebalance) ─────────
@@ -101,17 +117,17 @@ export async function runPolicy({ cfg, policy, agent }) {
 		intent = { kind: 'rebalance_trim', side: 'sell', tokens, reason: `inventory ${inventoryWhole.toFixed(2)} > ceiling ${maxInv.toFixed(2)}` };
 	}
 
-	if (!intent) return 'in_band'; // nothing to do — markEvaluated already recorded the heartbeat
+	if (!intent) return out('in_band'); // nothing to do — markEvaluated already recorded the heartbeat
 
 	// ── anti-manipulation: interval + side-flip gate ──────────────────────────
 	const interval = Number(policy.min_action_interval_seconds) || 60;
 	const lastAt = policy.last_action_at ? new Date(policy.last_action_at).getTime() : 0;
 	const sinceSec = lastAt ? (Date.now() - lastAt) / 1000 : Infinity;
 	if (sinceSec < interval) {
-		return skip({ policy, intent, price, status: 'skipped', detail: `interval guard — ${Math.ceil(interval - sinceSec)}s until next action allowed`, reason: 'interval_guard' });
+		return out(await skip({ policy, intent, price, status: 'skipped', detail: `interval guard — ${Math.ceil(interval - sinceSec)}s until next action allowed`, reason: 'interval_guard' }));
 	}
 	if (policy.last_action_side && policy.last_action_side !== intent.side && sinceSec < interval * GUARDS.SIDE_FLIP_INTERVAL_MULTIPLE) {
-		return skip({ policy, intent, price, status: 'blocked', detail: `anti-wash guard — a ${intent.side} cannot follow a ${policy.last_action_side} within ${interval * GUARDS.SIDE_FLIP_INTERVAL_MULTIPLE}s`, reason: 'anti_wash_guard' });
+		return out(await skip({ policy, intent, price, status: 'blocked', detail: `anti-wash guard — a ${intent.side} cannot follow a ${policy.last_action_side} within ${interval * GUARDS.SIDE_FLIP_INTERVAL_MULTIPLE}s`, reason: 'anti_wash_guard' }));
 	}
 
 	// ── anti-manipulation: live-volume cap (lamports per action) ──────────────
@@ -123,13 +139,13 @@ export async function runPolicy({ cfg, policy, agent }) {
 
 	// ── size + execute ────────────────────────────────────────────────────────
 	if (intent.side === 'buy') {
-		return doBuy({ cfg, policy, agent, intent, price, inventoryWhole, maxInv, solBal, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag });
+		return out(await doBuy({ cfg, policy, agent, intent, price, inventoryWhole, maxInv, solBal, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag, render }));
 	}
-	return doSell({ cfg, policy, agent, intent, price, inventoryWhole, inventoryRaw, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag });
+	return out(await doSell({ cfg, policy, agent, intent, price, inventoryWhole, inventoryRaw, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag, render }));
 }
 
 // ── buys (seed + defend) ──────────────────────────────────────────────────────
-async function doBuy({ cfg, policy, agent, intent, price, inventoryWhole, maxInv, solBal, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag }) {
+async function doBuy({ cfg, policy, agent, intent, price, inventoryWhole, maxInv, solBal, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag, render }) {
 	let size = intent.lamports;
 
 	// Daily budget (all buys) and dip budget (defense only), measured rolling-24h.
@@ -171,11 +187,11 @@ async function doBuy({ cfg, policy, agent, intent, price, inventoryWhole, maxInv
 	}
 
 	const body = { mint: policy.mint, network: policy.network, side: 'buy', amount: Number(size) / SOL, slippageBps };
-	return execute({ cfg, policy, agent, intent, price, body, sizeLamports: size, simulate, tag });
+	return execute({ cfg, policy, agent, intent, price, body, sizeLamports: size, simulate, tag, render });
 }
 
 // ── sells (recycle + rebalance) ──────────────────────────────────────────────
-async function doSell({ cfg, policy, agent, intent, price, inventoryWhole, inventoryRaw, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag }) {
+async function doSell({ cfg, policy, agent, intent, price, inventoryWhole, inventoryRaw, volumeCapLamports, volumeUnmeasured, slippageBps, simulate, tag, render }) {
 	let tokens = Math.min(intent.tokens, inventoryWhole);
 	if (!(tokens > 0)) return skip({ policy, intent, price, status: 'skipped', detail: 'no inventory to sell', reason: 'no_inventory' });
 
@@ -191,11 +207,11 @@ async function doSell({ cfg, policy, agent, intent, price, inventoryWhole, inven
 
 	// Sell whole tokens (executeAgentTrade resolves the base units + venue).
 	const body = { mint: policy.mint, network: policy.network, side: 'sell', amount: tokens, slippageBps };
-	return execute({ cfg, policy, agent, intent, price, body, sizeLamports, tokens, simulate, tag });
+	return execute({ cfg, policy, agent, intent, price, body, sizeLamports, tokens, simulate, tag, render });
 }
 
 // ── execute through the shared, audited trade path ────────────────────────────
-async function execute({ cfg, policy, agent, intent, price, body, sizeLamports, tokens = null, simulate, tag }) {
+async function execute({ cfg, policy, agent, intent, price, body, sizeLamports, tokens = null, simulate, tag, render }) {
 	const tradeLimits = getTradeLimits(agent.meta);
 	let input;
 	try {
@@ -251,12 +267,19 @@ async function execute({ cfg, policy, agent, intent, price, body, sizeLamports, 
 		effect: { solLamports: solMoved },
 	});
 	if (intent.kind === 'seed') await markSeedDone(policy.id);
+	// Render enrichment (read-only): the actual SOL moved + side + on-chain sig so
+	// the arena renders the real fill, not the pre-size estimate.
+	if (render) {
+		render.sizeSol = Math.max(0, solMoved) / SOL;
+		render.sideBuy = body.side === 'buy';
+		render.signature = d.signature && d.signature !== 'SIMULATED' ? d.signature : null;
+	}
 	log.trade('mm action', { ...tag, kind: intent.kind, side: body.side, status, sol: solMoved / SOL, sig: d.signature || null, impact: d.price_impact_pct ?? null });
 	return intent.kind;
 }
 
 // ── graduation transition (provide_lp | distribute | hold) ────────────────────
-async function runGraduation({ cfg, policy, agent, price, inventoryWhole, inventoryRaw, solBal, simulate, tag }) {
+async function runGraduation({ cfg, policy, agent, price, inventoryWhole, inventoryRaw, solBal, simulate, tag, render }) {
 	const action = policy.graduation_action || 'hold';
 	const slippagePct = (Number(policy.slippage_bps) || 500) / 100;
 	log.info('graduation transition', { ...tag, action });
@@ -289,6 +312,11 @@ async function runGraduation({ cfg, policy, agent, price, inventoryWhole, invent
 				},
 			});
 			await markGraduation(policy.id, { status: 'done', signature: lp.signature, terminal: true });
+			if (render) {
+				render.sizeSol = Math.max(0, Number(lp.quoteLamports) || 0) / SOL;
+				render.sideBuy = null; // an LP deposit is two-sided, neither a buy nor a sell
+				render.signature = lp.signature && lp.signature !== 'SIMULATED' ? lp.signature : null;
+			}
 			log.trade('graduation lp', { ...tag, sig: lp.signature, base: lp.baseDeposited, quote: lp.quoteLamports, simulated: lp.simulated });
 			return 'graduation_lp';
 		} catch (e) {
@@ -337,6 +365,11 @@ async function runGraduation({ cfg, policy, agent, price, inventoryWhole, invent
 		effect: { solLamports: Number(solMoved) },
 	});
 	await markGraduation(policy.id, { status: 'done', signature: d.signature || null, terminal: true });
+	if (render) {
+		render.sizeSol = Math.max(0, Number(solMoved) || 0) / SOL;
+		render.sideBuy = false;
+		render.signature = d.signature && d.signature !== 'SIMULATED' ? d.signature : null;
+	}
 	return 'graduation_distribute';
 }
 

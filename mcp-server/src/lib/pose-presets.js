@@ -453,6 +453,21 @@ export const PRESETS = [
 			elbowL: { x: -0.30, y: 0, z: 0 },
 		},
 	},
+	{
+		id: 'bow',
+		label: 'Take a bow',
+		group: 'Expressive',
+		pose: {
+			spine: { x: 0.40, y: 0, z: 0 },
+			chest: { x: 0.55, y: 0, z: 0 },
+			neck: { x: 0.18, y: 0, z: 0 },
+			head: { x: 0.22, y: 0, z: 0 },
+			shoulderL: { x: -0.12, y: 0, z: 0.14 },
+			shoulderR: { x: -0.12, y: 0, z: -0.14 },
+			elbowL: { x: -0.28, y: 0, z: 0 },
+			elbowR: { x: -0.28, y: 0, z: 0 },
+		},
+	},
 ];
 
 export function getPresetById(id) {

@@ -176,9 +176,13 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 	}
 
 	// Synthesize + play one read. Tries the combined A2F text path first (audio +
-	// blendshapes in one call), then plain TTS + RMS, then text-only.
-	async function speak(text) {
-		if (!text || muted) return;
+	// blendshapes in one call), then plain TTS + RMS, then text-only. `voice`
+	// overrides the default anchor voice so a caller (e.g. the live Q&A concierge)
+	// can speak in the agent's own configured voice. Returns true once audio
+	// playback has started, false when muted or every audio lane failed — the
+	// caller uses this to decide whether to show a "spoken aloud" affordance.
+	async function speak(text, { voice = ANCHOR_VOICE } = {}) {
+		if (!text || muted) return false;
 		stopSpeaking();
 		const myToken = speakToken;
 
@@ -189,7 +193,7 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 					method: 'POST',
 					credentials: 'include',
 					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ text, voice: ANCHOR_VOICE }),
+					body: JSON.stringify({ text, voice }),
 				});
 				if (r.status === 503) {
 					a2fSupported = false; // not configured — don't keep trying this lane
@@ -199,12 +203,12 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 					if (j?.audio?.base64 && j?.animation) {
 						a2fSupported = true;
 						await playClip(b64ToBlob(j.audio.base64, j.audio.contentType), { track: j.animation });
-						return;
+						return true;
 					}
 				}
 			} catch { /* fall through to TTS-only */ }
 		}
-		if (myToken !== speakToken) return;
+		if (myToken !== speakToken) return false;
 
 		// Path 2: /api/tts/speak → audio bytes, lip-synced by RMS amplitude.
 		try {
@@ -212,19 +216,20 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ text, voice: ANCHOR_VOICE, format: 'mp3' }),
+				body: JSON.stringify({ text, voice, format: 'mp3' }),
 			});
 			if (!r.ok) throw new Error(`tts ${r.status}`);
 			const blob = await r.blob();
-			if (myToken !== speakToken) return;
+			if (myToken !== speakToken) return false;
 			await playClip(blob, { track: null });
-			return;
+			return true;
 		} catch {
 			// Path 3: text-only — the lower-third stays up with an honest note.
 			if (myToken === speakToken && els.note) {
 				els.note.textContent = 'audio unavailable';
 				els.note.style.display = 'block';
 			}
+			return false;
 		}
 	}
 
@@ -304,5 +309,13 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 
 	init();
 
-	return { handleFrame, tick, toggleMute, setMuted, isMuted: () => muted, destroy };
+	return {
+		handleFrame, tick, toggleMute, setMuted, isMuted: () => muted, destroy,
+		// Speak arbitrary text in the agent's voice (the live Q&A concierge drives
+		// this with each answer). Honours the same mute pref as bulletins.
+		speak,
+		// True while an utterance is actively playing — lets the screen drive a
+		// body "talking" gesture in time with the voice.
+		isSpeaking: () => mode !== 'idle' && !!audioEl,
+	};
 }

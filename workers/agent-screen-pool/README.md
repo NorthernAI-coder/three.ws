@@ -14,6 +14,28 @@ per agent forever (that doesn't scale and isn't free) — it casts only what's o
 someone's screen, and tears each browser down when the last viewer leaves. Cost
 scales with concurrent viewers, not with the number of agents.
 
+## What the browser actually does
+
+A watched agent isn't just screenshotted on a static page — it does **real,
+multi-step web work** you can watch happen:
+
+- **Task-driven mode (default).** For a normal agent the caster runs a real task
+  from [`tasks/`](./tasks/index.js): it navigates to a real public site
+  (Wikipedia, Hacker News, MDN), types into a real search box, submits, waits for
+  the real results to load, and reads them back. Each action is **narrated a beat
+  before it happens** and a screenshot lands **after** it — the lead-then-land
+  cadence ([`task-runner.js`](./task-runner.js)) is what makes it feel like the
+  agent is thinking. Narration lines are written by the real LLM router
+  (`/api/brain/chat`, free anon tier) so the words match the page, with the task's
+  own declarative lines as a guaranteed fallback when the brain is unreachable.
+  The plan is cached per task, so a fleet of casts costs one brain call per task.
+- **Coin World Tour mode.** When the cast page is a walkable world exposing
+  `window.__tour`, the caster instead walks the guide through the world's waypoint
+  loop, narrating the platform's own launch feed at each stop.
+
+$THREE is the only coin. The task library researches neutral public topics — it
+never browses to, names, or transacts any token.
+
 ## How it works
 
 ```
@@ -59,6 +81,8 @@ docker run --rm -e SCREEN_WORKER_SECRET=<secret> three-ws/agent-screen-pool
 | `POLL_MS` | `3000` | How often to reconcile the watch set. |
 | `FRAME_MS` | `700` | Screenshot cadence per page (~1.4 fps). |
 | `JPEG_QUALITY` | `58` | Frame quality vs. bandwidth. |
+| `LEAD_MS` | `900` | How long a narration line leads its action. |
+| `DWELL_MS` | `6000` | How long to hold on the result between task runs. |
 
 ## Where to run it
 

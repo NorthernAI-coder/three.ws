@@ -63,11 +63,11 @@ function cleanSymbol(raw) {
 // just { symbol, rank } — the minimum the narration needs, never a mint (coin
 // addresses are deliberately not spoken or rendered). Missing ranks fall back to
 // feed position so the order is always meaningful.
-export function normalizeTrending(trending, { limit = DEFAULT_LIMIT } = {}) {
-	if (!Array.isArray(trending)) return [];
+export function normalizeLaunches(launches, { limit = DEFAULT_LIMIT } = {}) {
+	if (!Array.isArray(launches)) return [];
 	const out = [];
-	for (let i = 0; i < trending.length; i++) {
-		const t = trending[i] || {};
+	for (let i = 0; i < launches.length; i++) {
+		const t = launches[i] || {};
 		const symbol = cleanSymbol(t.symbol);
 		if (!symbol || symbol === '$') continue;
 		const rank = Number.isFinite(t.rank) && t.rank > 0 ? Math.floor(t.rank) : out.length + 1;
@@ -89,9 +89,9 @@ function listPhrase(items) {
 //   { name, where, label, badge, line, items }
 // `line` is the spoken/logged commentary (type:'analysis'); `badge` is the
 // screenshot frame's activity stamp; `items` backs the overlay's trending list.
-export function tourCommentary(waypointName, trending, { limit = DEFAULT_LIMIT } = {}) {
+export function tourCommentary(waypointName, launches, { limit = DEFAULT_LIMIT } = {}) {
 	const wp = waypointByName(waypointName) || TOUR_WAYPOINTS[0];
-	const items = normalizeTrending(trending, { limit });
+	const items = normalizeLaunches(launches, { limit });
 	const label = wp.label;
 	const badge = `${TOUR_PREFIX}${label}`;
 

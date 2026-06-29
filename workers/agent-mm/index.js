@@ -19,6 +19,8 @@ import { sql } from '../../api/_lib/db.js';
 import { loadConfig } from './config.js';
 import { getActivePolicies, loadAgent } from './store.js';
 import { runPolicy } from './engine.js';
+import { publishMmFrame } from './screen.js';
+import { mmEventFromOutcome, isFiredKind } from '../../src/shared/mm-render.js';
 import { log } from './log.js';
 
 const BOOT_AT = new Date().toISOString();
@@ -52,6 +54,35 @@ async function withAgentLock(agentId, fn) {
 	finally { release(); if (_locks.get(agentId) === next) _locks.delete(agentId); }
 }
 
+// Mirror a sweep outcome onto the agent's live screen. Real fills (defend /
+// recycle / graduate) earn a permanent agent_actions row AND a pushed log entry
+// so the activity panel + arena emote survive a reconnect; quote/guard outcomes
+// only refresh the live frame so the floor marker tracks price without flooding
+// the ledger. Every numeric is normalized through mm-render before it leaves the
+// worker. Best-effort: a screen/DB hiccup never affects the trade path.
+async function publishMmOutcome(agent, policy, outcome) {
+	if (!outcome || outcome.priceSol == null) return; // nothing observed (no_wallet / no_price)
+	const ev = mmEventFromOutcome(outcome);
+	const fired = isFiredKind(outcome.tag);
+
+	if (fired) {
+		try {
+			await sql`
+				INSERT INTO agent_actions (agent_id, type, payload, source_skill, signature)
+				VALUES (
+					${agent.id}, ${ev.actionType},
+					${JSON.stringify({ summary: ev.summary, ...ev.context, policy_id: policy.id })}::jsonb,
+					'agent-mm', ${ev.context.signature}
+				)
+			`;
+		} catch (err) {
+			log.warn('mm agent_actions write failed', { policy: policy.id, err: err?.message });
+		}
+	}
+
+	await publishMmFrame(agent.id, { actionType: ev.actionType, summary: ev.summary, context: ev.context, fired });
+}
+
 /** Run one full sweep over all active policies, grouped by agent. */
 async function runSweep(cfg) {
 	let policies;
@@ -79,7 +110,8 @@ async function runSweep(cfg) {
 				for (const policy of byAgent.get(agentId)) {
 					try {
 						const outcome = await runPolicy({ cfg, policy, agent });
-						outcomes.push(outcome);
+						outcomes.push(outcome?.tag);
+						await publishMmOutcome(agent, policy, outcome);
 					} catch (err) {
 						log.error('policy eval failed', { policy: policy.id, mint: policy.mint, err: err?.message });
 					}
