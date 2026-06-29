@@ -235,6 +235,13 @@ async function main() {
 		log.info('auto-claimer armed', { network: cfg.network, pollMs: cfg.autoClaimPollMs });
 	}
 
+	// Buy-side auto-funding — keeps each armed agent's wallet topped from the
+	// launcher master so a live sniper never silently runs out of SOL mid-run.
+	let stopAutoFunder = () => {};
+	if (cfg.autoFund) {
+		stopAutoFunder = startAutoFunderWatch({ cfg, signal: abort.signal });
+	}
+
 	// Market maker — range-based liquidity provisioning with Jito execution.
 	let stopMarketMaker = () => {};
 	if (cfg.marketMaker) {
@@ -355,6 +362,7 @@ async function main() {
 		try { stopIntel?.(); } catch {}
 		try { stopLauncher?.(); } catch {}
 		try { stopAutoClaimer?.(); } catch {}
+		try { stopAutoFunder?.(); } catch {}
 		try { stopMarketMaker?.(); } catch {}
 		abort.abort();
 		// Give in-flight buys a moment to settle (Neon HTTP is stateless — nothing
