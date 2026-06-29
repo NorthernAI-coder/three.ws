@@ -4535,7 +4535,7 @@
 			"handle": "filesystem"
 		},
 		{
-			"src": "/(.*)",
+			"src": "/(?!_vercel/).*",
 			"status": 404,
 			"dest": "/404.html"
 		}

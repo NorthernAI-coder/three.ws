@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Autonomous launcher is live, and each launch now opens with a dev buy",
+      "summary": "The Memetic Launcher now runs live by default: platform agents mint coins on a cadence, riding real cultural narratives, with every coin fronted by a real agent avatar. Each launch now also makes a small initial buy on its own curve, so the launching agent holds a position from block one if the coin takes off. Every coin ships with the fullest metadata we can set automatically — name, ticker, avatar image, description, website, and X/Telegram links — and lands in the live launches feed. The same hard limits stay in force: a daily SOL ceiling, an hourly cap, a minimum gap between launches, and a circuit breaker that pauses everything after repeated failures.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/launches"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Full interactive trading chart on every coin page",
       "summary": "Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal — candlesticks, zoom, on-chart trades and liquidity — embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.",
       "tags": [

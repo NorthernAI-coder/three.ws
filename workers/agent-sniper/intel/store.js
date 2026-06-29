@@ -6,6 +6,8 @@
 // blocks the feed). Cross-process consumers (the API, other workers) read from
 // Postgres. The DB import is lazy so dev/test without DATABASE_URL still loads.
 
+import { isQuoteMint } from '../../../api/_lib/quote-mints.js';
+
 let _sqlPromise = null;
 async function getSql() {
 	if (_sqlPromise) return _sqlPromise;
@@ -52,6 +54,9 @@ const big = (v) => (v == null ? null : String(BigInt(Math.round(Number(v) || 0))
  * @param {Map} walletAgg  wallet -> aggregate (from computeSignals)
  */
 export async function persistIntel(rec, walletAgg) {
+	// Quote/stablecoin/LST mints (USDC, USDT, wSOL, …) are the swap counter-side,
+	// never a launched coin. Drop them at the root so they never pollute the brain.
+	if (isQuoteMint(rec.mint)) return;
 	cacheSet(rec.mint, rec);
 	const sql = await getSql();
 	if (!sql) return;

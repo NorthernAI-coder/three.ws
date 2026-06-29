@@ -886,6 +886,12 @@ const buildMetadataSchema = z.object({
 	description: z.string().trim().max(500).default(''),
 	avatar_id: z.string().uuid().optional(),
 	agent_id: z.string().uuid().optional(),
+	// Social links surfaced on the coin page (pump.fun reads twitter/telegram/
+	// website; explorers read external_url). Omit any to fall back to the agent
+	// profile page (website) and the three.ws X/Telegram.
+	twitter: z.string().trim().max(200).optional(),
+	website: z.string().trim().max(200).optional(),
+	telegram: z.string().trim().max(200).optional(),
 	// Base64 data URL: "data:image/png;base64,..." — max 4 MB raw.
 	// Cap the string at 6 MB chars to safely cover 4 MB raw (base64 inflates ~4/3 → ~5.59 M)
 	// plus the data URL header. Raw-byte ceiling is re-checked after decode.
@@ -989,6 +995,9 @@ async function handleBuildMetadata(req, res) {
 		description: body.description,
 		image: imageUrl || '',
 		...(agentHomeUrl ? { agentUrl: agentHomeUrl } : {}),
+		...(body.twitter ? { twitter: body.twitter } : {}),
+		...(body.website ? { website: body.website } : {}),
+		...(body.telegram ? { telegram: body.telegram } : {}),
 		createdAt: new Date().toISOString(),
 	});
 

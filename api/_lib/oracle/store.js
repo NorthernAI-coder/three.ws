@@ -10,6 +10,7 @@ import { classifyNarrative } from './narrative.js';
 import { convict } from './conviction.js';
 import { summarizeActions } from './settle.js';
 import { knownWallet } from './known-wallets.js';
+import { QUOTE_MINT_LIST } from '../quote-mints.js';
 
 /** Persist a narrative classification. */
 export async function upsertNarrative(mint, network, narr) {
@@ -128,6 +129,7 @@ export async function readFeed({ network = 'mainnet', limit = 50, minScore = 0, 
 		  and score >= ${Number(minScore) || 0}
 		  and (${tier}::text is null or tier = ${tier})
 		  and (${category}::text is null or category = ${category})
+		  and mint <> all(${QUOTE_MINT_LIST})
 		  and scored_at > now() - (${sinceSeconds} || ' seconds')::interval
 		order by score desc, scored_at desc
 		limit ${lim}
@@ -142,6 +144,7 @@ export async function feedSince({ network = 'mainnet', sinceIso, limit = 40 } = 
 		       badges, category, smart_wallet_count, scored_at, coin_first_seen_at
 		from oracle_conviction
 		where network = ${network} and scored_at > ${sinceIso}::timestamptz
+		  and mint <> all(${QUOTE_MINT_LIST})
 		order by scored_at asc
 		limit ${Math.min(100, Math.max(1, limit))}
 	`;
@@ -327,6 +330,25 @@ export async function purgeOldHistory(network = 'mainnet') {
 		where scored_at < now() - interval '72 hours'
 		  and network = ${network}
 	`.catch(() => { /* non-fatal */ });
+}
+
+/**
+ * Remove any quote/stablecoin/LST mints (USDC, USDT, wSOL, …) that were cached
+ * before the ingestion guard existed. The read paths already filter them out,
+ * but this self-heals the stored data so they stop wasting rows. Called by the
+ * score cron. Returns the number of conviction rows deleted.
+ */
+export async function purgeQuoteMints(network = 'mainnet') {
+	const deleted = await sql`
+		delete from oracle_conviction
+		where network = ${network} and mint = any(${QUOTE_MINT_LIST})
+		returning mint
+	`.then((r) => r.length).catch(() => 0);
+	await Promise.all([
+		sql`delete from oracle_conviction_history where network = ${network} and mint = any(${QUOTE_MINT_LIST})`.catch(() => {}),
+		sql`delete from oracle_narrative where network = ${network} and mint = any(${QUOTE_MINT_LIST})`.catch(() => {}),
+	]);
+	return deleted;
 }
 
 export async function recentActions(agentId, network = 'mainnet', limit = 50) {

@@ -16,9 +16,11 @@
 //   4. the agent builds metadata + signs its own create  (postAs → /api/pump)
 //   5. record the run + advance the rotation             (launcher_runs / _queue)
 //
-// SAFE BY CONSTRUCTION. The engine is fully inert unless a launcher_config row is
-// enabled (the seeded global row ships disabled + dry_run). dry_run selects a coin
-// + agent and records the run but never moves SOL or submits a create. Hard caps
+// LIVE BY DEFAULT, BOUNDED BY CONSTRUCTION. The seeded global row ships enabled +
+// real (dry_run=false) with a standing per-launch dev buy, so the platform mints
+// on a cadence out of the box. The engine is still fully inert for any scope whose
+// launcher_config row is disabled, and dry_run (set per scope) selects a coin +
+// agent and records the run without moving SOL or submitting a create. Hard caps
 // (per-launch SOL, daily SOL, hourly count, target cadence) and an auto-tripping
 // circuit breaker bound the blast radius. Never throws — every failure is contained
 // and recorded.
@@ -74,15 +76,15 @@ async function ensureSchema() {
 			id uuid primary key default gen_random_uuid(),
 			scope text not null check (scope in ('global','user')),
 			user_id uuid,
-			enabled boolean not null default false,
-			dry_run boolean not null default true,
+			enabled boolean not null default true,
+			dry_run boolean not null default false,
 			mode text not null default 'hybrid' check (mode in ('off','trend','meme','random','hybrid')),
 			sources jsonb not null default '["coin_intel","trending","knowyourmeme","googletrends","x"]'::jsonb,
 			categories jsonb not null default '[]'::jsonb,
 			target_cadence_seconds integer not null default 60,
 			max_per_hour integer not null default 30,
-			per_launch_sol numeric(20,9) not null default 0.03,
-			dev_buy_sol numeric(20,9) not null default 0,
+			per_launch_sol numeric(20,9) not null default 0.04,
+			dev_buy_sol numeric(20,9) not null default 0.01,
 			daily_sol_cap numeric(20,9) not null default 1,
 			buyback_bps integer not null default 5000,
 			network text not null default 'mainnet',
@@ -152,8 +154,8 @@ async function ensureSchema() {
 	await sql`create index if not exists launcher_claims_run_idx on launcher_claims (run_id, created_at desc)`;
 	await sql`create index if not exists launcher_claims_created_idx on launcher_claims (created_at desc)`;
 	await sql`
-		insert into launcher_config (scope, enabled, dry_run, mode)
-		values ('global', false, true, 'hybrid')
+		insert into launcher_config (scope, enabled, dry_run, mode, per_launch_sol, dev_buy_sol)
+		values ('global', true, false, 'hybrid', 0.04, 0.01)
 		on conflict do nothing
 	`;
 	_ensured = true;
@@ -253,7 +255,10 @@ async function pickAgent(cfg) {
 	const ownerGate = owners.length ? sql`and ai.user_id = any(${owners}::uuid[])` : sql``;
 	const [agent] = await sql`
 		select q.agent_id as id, ai.user_id, ai.name, ai.avatar_id,
-		       ai.meta->>'solana_address' as solana_address
+		       ai.meta->>'solana_address' as solana_address,
+		       ai.meta->>'twitter' as twitter,
+		       ai.meta->>'website' as website,
+		       ai.meta->>'telegram' as telegram
 		from launcher_queue q
 		join agent_identities ai on ai.id = q.agent_id and ai.deleted_at is null
 		where q.scope = ${cfg.scope} and q.enabled = true
@@ -291,12 +296,18 @@ async function postAs(ownerUserId, path, body, timeoutMs = 55_000) {
 }
 
 async function launchCoin(cfg, agent, coin) {
+	// Forward the agent's own socials when it has them; the metadata builder falls
+	// back to the agent profile page (website) and the three.ws X/Telegram otherwise,
+	// so every coin carries the fullest set of links we can supply autonomously.
 	const meta = await postAs(agent.user_id, '/api/pump?action=build-metadata', {
 		name: coin.name,
 		symbol: coin.symbol,
 		description: coin.description,
 		agent_id: agent.id,
 		avatar_id: agent.avatar_id,
+		...(agent.twitter ? { twitter: agent.twitter } : {}),
+		...(agent.website ? { website: agent.website } : {}),
+		...(agent.telegram ? { telegram: agent.telegram } : {}),
 	});
 	if (meta.timedOut) throw new Error('metadata build timed out');
 	if (meta.status !== 200 || !meta.body?.metadata_url) {

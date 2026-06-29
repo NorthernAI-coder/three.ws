@@ -15,6 +15,7 @@
 
 import { sql } from '../db.js';
 import { knownWallet, knownIsProven } from './known-wallets.js';
+import { isQuoteMint, QUOTE_MINT_LIST } from '../quote-mints.js';
 
 const LAMPORTS = 1e9;
 const n = (v) => (v == null ? null : Number(v));
@@ -46,6 +47,10 @@ async function tryRows(fn) {
  * @returns {Promise<object|null>} CoinIntel, or null if the coin is unknown
  */
 export async function assembleIntel(mint, network = 'mainnet') {
+	// Quote/stablecoin/LST mints are never a tradeable coin — refuse to assemble
+	// intel for them so they can never be scored or cached. This is the choke point
+	// every scoring + lazy-score path flows through, so one guard covers them all.
+	if (isQuoteMint(mint)) return null;
 	// The primary existence lookup does NOT use tryRow: a swallowed DB error here
 	// is indistinguishable from "coin not observed", which makes every caller
 	// return a misleading 404 during a database/connection outage — a transient
@@ -221,6 +226,7 @@ export async function recentMints({ network = 'mainnet', limit = 100, sinceSecon
 		select mint from pump_coin_intel
 		where network = ${network}
 		  and first_seen_at > now() - (${sinceSeconds} || ' seconds')::interval
+		  and mint <> all(${QUOTE_MINT_LIST})
 		order by first_seen_at desc
 		limit ${Math.min(500, Math.max(1, limit))}
 	`);
