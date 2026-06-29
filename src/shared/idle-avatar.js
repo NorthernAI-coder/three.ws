@@ -20,6 +20,7 @@
 
 import { Viewer } from '../viewer.js';
 import { IdleAnimation } from '../idle-animation.js';
+import { playAllClips } from '../viewer/animation.js';
 import { log } from './log.js';
 
 // The clip manifest is identical for every avatar and never changes within a
@@ -104,6 +105,18 @@ export function mountIdleAvatar(container, glbUrl, opts = {}) {
 		.load(glbUrl, '', new Map())
 		.then(async () => {
 			if (disposed) return;
+			const mgr = viewer.animationManager;
+			// A humanoid rig is driven by the pre-baked canonical clip library
+			// (idle/walk retargeted onto its skeleton). A quadruped, prop, or any
+			// model that ships its OWN baked animation (the three.js galloping horse,
+			// a flapping bird, a spinning logo) cannot accept those clips, so
+			// retargeting no-ops and it would freeze in bind pose. Play its native
+			// clips on the viewer mixer instead. supportsCanonicalClips() is valid
+			// here: the model attached during viewer.load() above.
+			if (typeof mgr.supportsCanonicalClips === 'function' && !mgr.supportsCanonicalClips()) {
+				if (viewer.clips?.length) playAllClips(viewer);
+				return;
+			}
 			const defs = await loadAnimationDefs();
 			if (disposed || !Array.isArray(defs) || defs.length === 0) return;
 			viewer.animationManager.setAnimationDefs(defs);
