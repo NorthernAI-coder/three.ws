@@ -15,6 +15,7 @@
  * /api/agents/:id/registration    — public EIP-8004 registry document (Metaplex Agent Registry URI)
  * /api/agents/:id/sign            — owner-only: sign message with server wallet
  * /api/agents/:id/usage           — owner-only: LLM usage stats
+ * /api/agents/:id/achievements    — public: earned + locked achievements from real platform data
  *
  * /api/agents/:id/livekit-token     — GET short-lived LiveKit room JWT
  * /api/agents/:id/embed             — POST text → 1024-dim embedding vector
@@ -235,6 +236,11 @@ export default wrap(async function handler(req, res) {
 	if (sub === 'reputation') {
 		const mod = await import('./_id/reputation.js');
 		return mod.handleReputation(req, res, id);
+	}
+
+	if (sub === 'achievements') {
+		const mod = await import('./_id/achievements.js');
+		return mod.handleAchievements(req, res, id);
 	}
 
 	if (sub === 'unlocks') {
