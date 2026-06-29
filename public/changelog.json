@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T10:17:35.476Z",
+	"generated_at": "2026-06-29T10:42:54.816Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -14,6 +14,16 @@
 			"link": "/agent-economy-volume",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Agent profile layout fixed on laptops and tablets",
+			"summary": "On mid-width screens — laptops, tablets, and split-screen windows — agent profile pages were collapsing into a single cramped column hugging the sidebar, with a stray horizontal scrollbar and the \"Walk with this agent\" card wrapping its text one word per line. The page now lays its cards out in a balanced multi-column grid across the full width, the sidebar steps aside when there isn't room for it, the horizontal scroll is gone, and every card adapts cleanly to the width it's given.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -316,6 +326,17 @@
 			"link": "/smart-money",
 			"tags": [
 				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Sniper agents keep their wallets fueled automatically",
+			"summary": "A live sniper agent spends SOL on every coin it buys, and once its wallet ran dry it would quietly fail every snipe while still looking healthy. Agents now top themselves back up from the platform treasury the moment their balance drops below a floor — refilling to a working reserve, with per-transfer and daily spend caps and a ledger that survives restarts so the caps can't be bypassed. The sniper status page now shows the live treasury flow: how much SOL has fueled agents today and in total, so you can see the money actually moving.",
+			"link": null,
+			"tags": [
+				"feature",
 				"infra"
 			]
 		},

@@ -44,6 +44,7 @@ export default wrap(async (req, res) => {
 	let beat = null;
 	let strategies = null;
 	let openPositions = null;
+	let funding = null;
 	try {
 		[beat] = await sql`
 			SELECT mode, last_beat_at, meta FROM bot_heartbeat
@@ -61,6 +62,29 @@ export default wrap(async (req, res) => {
 			WHERE status IN ('opening', 'open', 'closing')
 		`;
 		openPositions = posRow?.n ?? null;
+		// Treasury → agent money flow (buy-side auto-funder). DB-only so it never
+		// adds an RPC hop to the public liveness path. Reported as 'live' rows only
+		// so simulate top-ups don't inflate the real-spend number. Absent table
+		// (pre-migration) degrades to null, not a 500.
+		try {
+			const [f] = await sql`
+				SELECT
+					coalesce(sum(lamports) FILTER (WHERE created_at >= date_trunc('day', now())), 0)::float8 / 1e9 AS funded_today_sol,
+					count(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int AS events_today,
+					coalesce(sum(lamports), 0)::float8 / 1e9 AS funded_total_sol,
+					max(created_at) AS last_fund_at
+				FROM sniper_funding_events
+				WHERE mode = 'live'
+			`;
+			funding = {
+				fundedTodaySol: Number(f?.funded_today_sol || 0),
+				eventsToday: f?.events_today ?? 0,
+				fundedTotalSol: Number(f?.funded_total_sol || 0),
+				lastFundAt: f?.last_fund_at ?? null,
+			};
+		} catch {
+			funding = null;
+		}
 	} catch (err) {
 		// DB unreachable: report unknown rather than a misleading green/red. This
 		// endpoint's own answering is NOT proof the separate worker is alive.
@@ -82,6 +106,7 @@ export default wrap(async (req, res) => {
 				reason: 'no heartbeat reported yet',
 				strategies,
 				openPositions,
+				funding,
 			},
 			{ 'cache-control': 'public, max-age=10' },
 		);
@@ -121,6 +146,7 @@ export default wrap(async (req, res) => {
 			bootAt: meta.bootAt ?? null,
 			strategies: meta.strategies ?? strategies,
 			openPositions,
+			funding,
 		},
 		// Heartbeat refreshes every ~30s; a short shared cache absorbs status-page
 		// bursts without meaningfully staling the liveness answer.
