@@ -36,11 +36,14 @@
   "files": [
     "dist"
   ],
+  "config": {
+    "entries": "src/index.ts src/wallet/index.ts src/x402-exact/index.ts src/solana-agent-kit/index.ts src/vanity/index.ts --format cjs,esm --tsconfig tsconfig.build.json --no-splitting"
+  },
   "scripts": {
-    "build": "tsup",
-    "build:dist": "tsup --no-dts",
-    "build:prod": "TSUP_SOURCEMAP=false tsup --minify",
-    "dev": "tsup --watch",
+    "build": "tsup $npm_package_config_entries --no-config --dts --clean",
+    "build:dist": "tsup $npm_package_config_entries --no-config --no-dts --clean",
+    "build:prod": "TSUP_SOURCEMAP=false tsup $npm_package_config_entries --no-config --dts --clean --minify --no-sourcemap",
+    "dev": "tsup $npm_package_config_entries --no-config --dts --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run typecheck && npm run build:prod",

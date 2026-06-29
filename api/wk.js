@@ -560,6 +560,276 @@ const REST_OUTPUT_EXAMPLES = Object.freeze({
 		},
 		ts: '2026-06-12T10:00:00Z',
 	},
+	'/api/x402/analytics': {
+		ok: true,
+		report: 'clubs',
+		period: '24h',
+		generated_at: '2026-06-27T18:42:09.000Z',
+		metrics: {
+			active_clubs: 3,
+			total_clubs: 4,
+			members: 27,
+			tips: { count: 41, volume_atomics: '410000', volume_usdc: 0.41 },
+			cover_charges: { count: 12, atomics: '120000', usdc: 0.12 },
+		},
+		top_clubs: [
+			{ dancer: '1', display_name: 'Nyx', volume_atomics: '190000', volume_usdc: 0.19, tips: 19 },
+		],
+	},
+	'/api/x402/api-key-health': {
+		valid: true,
+		scopes: ['internal', 'autonomous_loop', 'bypass_x402'],
+		expires_at: null,
+		key_type: 'internal',
+		source: 'env',
+		key_prefix: null,
+		rate_limit_per_minute: null,
+		checked_at: '2026-06-28T12:00:00Z',
+	},
+	'/api/x402/auth-health': {
+		all_pass: true,
+		failed_step: null,
+		latency_ms: 38,
+		steps: {
+			create: { pass: true, latency_ms: 8 },
+			validate: { pass: true, latency_ms: 3 },
+			refresh: { pass: true, latency_ms: 11 },
+			expire: { pass: true, latency_ms: 2 },
+		},
+		ts: '2026-06-28T00:00:00Z',
+	},
+	'/api/x402/avatar-optimize-batch': {
+		analyzed: 50,
+		critical_count: 12,
+		warn_count: 38,
+		info_count: 91,
+		total_size_bytes: 82000000,
+		avatars: [
+			{
+				id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+				name: 'My Avatar',
+				size_bytes: 2100000,
+				critical_count: 1,
+				warn_count: 3,
+				info_count: 5,
+				top_suggestion: 'Apply Draco compression to reduce geometry size by ~60%',
+			},
+		],
+	},
+	'/api/x402/bazaar-feed': {
+		filter: 'new',
+		limit: 10,
+		count: 3,
+		listings: [
+			{
+				id: 'http:https://svc.example/x402',
+				name: 'Example Feed',
+				price: '0.001 USDC',
+				first_seen: '2026-06-28T00:00:00Z',
+			},
+		],
+		activity: {
+			new_24h: 3,
+			new_7d: 9,
+			daily_avg_7d: 1.29,
+			signal: 'active',
+			headline: '3 new bazaar listings in 24 h',
+			confidence: 0.65,
+		},
+		generated_at: '2026-06-28T10:00:00Z',
+	},
+	'/api/x402/billboard': {
+		ok: true,
+		coin: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+		image: 'https://three.ws/og-image.png',
+		caption: 'gm from the gallery',
+		slotHours: 6,
+		startsAt: '2026-06-28T18:42:09.000Z',
+		endsAt: '2026-06-29T00:42:09.000Z',
+		payer: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
+		network: 'solana',
+		amountAtomics: '50000',
+		asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	},
+	'/api/x402/cross-chain': {
+		mode: 'bridge_status',
+		bridges: [
+			{ chain: 'wormhole', status: 'operational', latency_ms: 210, provider: 'wormholescan' },
+			{ chain: 'lifi', status: 'operational', latency_ms: 334, provider: 'li.fi' },
+			{ chain: 'debridge', status: 'degraded', latency_ms: 1870, provider: 'dln.trade' },
+		],
+		down_count: 0,
+		signal: 'neutral',
+		headline: 'All Solana bridges operational',
+		confidence: 0.82,
+		ts: '2026-06-28T12:00:00Z',
+	},
+	'/api/x402/did': {
+		verified: true,
+		latency_ms: 142,
+		did: 'did:three:canary',
+		mode: 'verify',
+		resolved_did: 'did:web:three.ws',
+		http_status: 200,
+		within_latency: true,
+		malformed: false,
+		configured: true,
+		checks: {
+			is_object: true,
+			has_did_context: true,
+			has_did_id: true,
+			has_verification_method: true,
+			assertion_resolves: true,
+			has_x402_service: true,
+			valid: true,
+		},
+		ts: '2026-06-27T10:00:00Z',
+	},
+	'/api/x402/feed-health': {
+		feed: 'changelog_rss',
+		valid: true,
+		item_count: 1241,
+		latest_title: 'x402 Volume Analytics — the platform measures its own payment economy',
+		title_match: true,
+		fetch_ms: 312,
+		checked_at: '2026-06-28T12:00:00.000Z',
+	},
+	'/api/x402/llm-proxy': {
+		content: '1, 2, 3.',
+		model: 'llama-3.3-70b-versatile',
+		provider: 'groq',
+		latency_ms: 312,
+		tokens_used: 11,
+		input_tokens: 5,
+		output_tokens: 6,
+	},
+	'/api/x402/mcp-tool-catalog': {
+		ok: true,
+		mode: 'discover',
+		total_tools: 24,
+		priced_tools: 11,
+		free_tools: 13,
+		new_tools: [
+			{ name: 'segment_model', description: 'Split a mesh into named parts', priced: true, price_usdc: 0.04, input_fields: 2 },
+		],
+		changed_tools: [
+			{ name: 'render_avatar', change: 'price', price_usdc: 0.005, prev_price_usdc: 0.003 },
+		],
+		removed_tools: [],
+		ts: '2026-06-27T10:00:00.000Z',
+	},
+	'/api/x402/model-validation-sweep': {
+		ok: true,
+		avatar_id: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
+		avatar_name: 'Realistic Male',
+		score: 82,
+		has_errors: false,
+		missing_bones: false,
+		counts: {
+			scenes: 1,
+			nodes: 22,
+			meshes: 4,
+			materials: 3,
+			textures: 5,
+			animations: 12,
+			skins: 1,
+			totalVertices: 8432,
+			totalTriangles: 14200,
+			indexedPrimitives: 4,
+			nonIndexedPrimitives: 0,
+		},
+		extensions_used: ['KHR_draco_mesh_compression'],
+		file_size_bytes: 1572864,
+		inspected_at: '2026-06-27T10:00:00.000Z',
+	},
+	'/api/x402/notify': {
+		delivered: true,
+		channel: 'canary',
+		latency_ms: 18,
+		notification_id: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
+		message: 'x402 loop heartbeat',
+		priority: 'low',
+		payer: null,
+		ts: '2026-06-28T10:00:00Z',
+	},
+	'/api/x402/pay-by-name': {
+		data: {
+			name: 'nich.threews.sol',
+			address: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
+			verified: true,
+			source: 'sns',
+		},
+	},
+	'/api/x402/rate-limit-probe': {
+		endpoint: '/api/x402/crypto-intel',
+		remaining_calls: 42,
+		reset_at: '2026-06-29T00:00:00.000Z',
+		limit: 500,
+		daily_cap_atomic: 5000000,
+		daily_spent_atomic: 4580000,
+		remaining_capacity_atomic: 420000,
+		price_atomic: 10000,
+		cooldown_active: false,
+		cooldown_ttl_seconds: null,
+	},
+	'/api/x402/schema-check': {
+		ok: true,
+		api: 'changelog_json',
+		valid: true,
+		version: '2026-06-28',
+		entry_count: 42,
+		schema_errors: [],
+		fetched_at: '2026-06-28T12:00:00.000Z',
+	},
+	'/api/x402/solana-register-health': {
+		tool: 'solana_register',
+		healthy: true,
+		network: 'mainnet',
+		canary_agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
+		asset: 'THREEsynthetic1111111111111111111111111111',
+		identity_pda: 'AgentRegyPDA11111111111111111111111111111111',
+		registration_uri: 'https://three.ws/api/agents/7b9a4f30/registration.json',
+		checks: {
+			indexed: true,
+			registry_enrolled: true,
+			asset_onchain: true,
+			identity_pda_onchain: true,
+		},
+		rpc_latency_ms: 184,
+		checked_at: '2026-06-27T18:00:00Z',
+	},
+	'/api/x402/spend-session': {
+		ok: true,
+		mode: 'canary',
+		created: true,
+		consumed: true,
+		latency_ms: 12,
+		session_id: 'a3f3d6c2-1f1b-4f10-9b6c-1b1f5e0c9c34',
+		budget: 0.01,
+		payer: 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV',
+		network: 'solana',
+		amountAtomics: '10000',
+		asset: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+	},
+	'/api/x402/telegram-health': {
+		bot: 'changelog',
+		reachable: true,
+		bot_id: 7234567890,
+		bot_username: 'three_ws_bot',
+		latency_ms: 142,
+		reason: null,
+		checked_at: '2026-06-28T12:00:00.000Z',
+	},
+	'/api/x402/wallet-connect': {
+		mode: 'health',
+		session_created: true,
+		latency_ms: 83,
+		slow: false,
+		nonce_valid: true,
+		domain: 'three.ws',
+		reason: null,
+		checked_at: '2026-06-28T00:00:00Z',
+	},
 	'/api/x402/agent-reputation': {
 		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 		name: 'Helios',
@@ -1199,6 +1469,86 @@ async function handleX402Discovery(req, res) {
 		forge: withService({
 			serviceName: 'three.ws Forge: text/image to 3D',
 			tags: ['3d', 'generation', 'text-to-3d', 'image-to-3d', 'glb', 'mesh'],
+		}),
+		analytics: withService({
+			serviceName: 'three.ws Social Analytics',
+			tags: ['analytics', 'club', 'social', 'metrics', 'solana'],
+		}),
+		apiKeyHealth: withService({
+			serviceName: 'three.ws API Key Health Check',
+			tags: ['health', 'api-key', 'autonomous', 'access-control'],
+		}),
+		authHealth: withService({
+			serviceName: 'three.ws Auth Session Health',
+			tags: ['auth', 'session', 'jwt', 'health', 'security'],
+		}),
+		avatarOptimizeBatch: withService({
+			serviceName: 'three.ws Avatar Optimizer',
+			tags: ['3d', 'avatar', 'optimization', 'glb', 'batch'],
+		}),
+		bazaarFeed: withService({
+			serviceName: 'three.ws Bazaar Feed',
+			tags: ['bazaar', 'listings', 'discovery', 'market', 'x402'],
+		}),
+		billboard: withService({
+			serviceName: 'three.ws Coin-World Billboard',
+			tags: ['3d', 'world', 'billboard', 'content', 'placement'],
+		}),
+		crossChain: withService({
+			serviceName: 'three.ws Bridge Status',
+			tags: ['bridge', 'cross-chain', 'health', 'solana', 'wormhole'],
+		}),
+		did: withService({
+			serviceName: 'three.ws DID Health',
+			tags: ['did', 'identity', 'health', 'verification', 'x402'],
+		}),
+		feedHealth: withService({
+			serviceName: 'three.ws Feed Health',
+			tags: ['rss', 'feed', 'health', 'changelog', 'validation'],
+		}),
+		llmProxy: withService({
+			serviceName: 'three.ws LLM Inference Proxy',
+			tags: ['llm', 'inference', 'completion', 'proxy', 'benchmark'],
+		}),
+		mcpToolCatalog: withService({
+			serviceName: 'three.ws MCP Tool Discovery',
+			tags: ['mcp', 'discovery', 'tools', 'catalog', 'agent'],
+		}),
+		modelValidationSweep: withService({
+			serviceName: 'three.ws Model Validation Sweep',
+			tags: ['3d', 'gltf', 'glb', 'validation', 'quality'],
+		}),
+		notify: withService({
+			serviceName: 'three.ws Notification Delivery',
+			tags: ['notification', 'canary', 'health', 'delivery', 'ops'],
+		}),
+		payByName: withService({
+			serviceName: 'Pay-By-Name Resolution',
+			tags: ['identity', 'resolution', 'solana'],
+		}),
+		rateLimitProbe: withService({
+			serviceName: 'three.ws Rate-Limit Probe',
+			tags: ['rate-limit', 'capacity', 'health', 'oracle', 'agent'],
+		}),
+		schemaCheck: withService({
+			serviceName: 'three.ws JSON API Schema Check',
+			tags: ['schema', 'validation', 'changelog', 'health', 'api'],
+		}),
+		solanaRegisterHealth: withService({
+			serviceName: 'three.ws Solana Reg Health',
+			tags: ['health', 'solana', 'registration', 'agent', 'canary'],
+		}),
+		spendSession: withService({
+			serviceName: 'three.ws Spend Session Health',
+			tags: ['health', 'governance', 'payment-session', 'canary', 'x402'],
+		}),
+		telegramHealth: withService({
+			serviceName: 'three.ws Telegram Bot Health',
+			tags: ['health', 'telegram', 'bot', 'changelog', 'canary'],
+		}),
+		walletConnect: withService({
+			serviceName: 'three.ws Wallet Connect Health',
+			tags: ['health', 'wallet', 'siws', 'session', 'auth'],
 		}),
 	};
 
@@ -2261,6 +2611,552 @@ async function handleX402Discovery(req, res) {
 							discoverable: true,
 							input: {},
 							inputSchema: { type: 'object', properties: {} },
+						}),
+					};
+				})(),
+				// Platform-operations + autonomous-loop paid endpoints. Each is a
+				// real x402-gated route (paidEndpoint / send402) that powers the
+				// self-running platform — health canaries, analytics oracles, the
+				// LLM proxy, the bazaar/feed monitors. Cataloged here so x402
+				// indexers (CDP Bazaar / agentic.market / x402scan) can find them.
+				(() => {
+					const url = `${origin}/api/x402/analytics`;
+					const accepts = acceptsForPrice('5000', url);
+					return {
+						path: '/api/x402/analytics',
+						url,
+						method: 'POST',
+						description:
+							'three.ws Economy Analytics — pay $0.005 USDC per call for a live, aggregated view of platform activity. "clubs": Pole Club economy — active stages, patrons, tip volume, cover charges, fastest-growing leaderboard. "agent_leaderboard": top agents by USDC spend over a trailing window. "marketplace": catalog stats — active listing count, price distribution normalised to USD + SOL at the live rate, new listings in the window, and the most-viewed / most-forked listing. All numbers are read live from the real ledgers and catalog tables.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.analytics.serviceName,
+						tags: routeMeta.analytics.tags,
+						iconUrl: routeMeta.analytics.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { report: 'clubs', period: '24h' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									report: {
+										type: 'string',
+										enum: ['clubs', 'agent_leaderboard', 'marketplace', 'revenue', 'sniper_trades', 'user_activity', 'x402_volume'],
+										default: 'clubs',
+									},
+									period: { type: 'string', enum: ['1h', '6h', '24h', '7d', '30d', 'all'], default: '24h' },
+									limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+									window_days: { type: 'integer', minimum: 1, maximum: 90, default: 7 },
+									network: { type: 'string', enum: ['mainnet', 'devnet', 'all'], default: 'mainnet' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/api-key-health`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/api-key-health',
+						url,
+						method: 'POST',
+						description:
+							'API Key Validity Health Check — verifies that the platform has a valid, non-expired access key covering a given scope. Checks x402 subscription keys and the internal service key. Returns valid, scopes, expires_at, and key_type. Used by the autonomous loop to confirm its access lane is healthy before each tick. Pay-per-call in USDC on Solana or Base mainnet.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.apiKeyHealth.serviceName,
+						tags: routeMeta.apiKeyHealth.tags,
+						iconUrl: routeMeta.apiKeyHealth.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { scope: 'autonomous_loop' },
+							inputSchema: {
+								type: 'object',
+								properties: { scope: { type: 'string', default: 'autonomous_loop' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/auth-health`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/auth-health',
+						url,
+						method: 'POST',
+						description:
+							'Auth Session Lifecycle Health — pay $0.001 USDC to exercise the full JWT auth session lifecycle: create, validate, refresh, and expiry-rejection. Returns { all_pass, failed_step, latency_ms } so a monitoring loop can detect a broken auth subsystem before users do.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.authHealth.serviceName,
+						tags: routeMeta.authHealth.tags,
+						iconUrl: routeMeta.authHealth.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { mode: 'session_lifecycle' },
+							inputSchema: {
+								type: 'object',
+								properties: { mode: { type: 'string', enum: ['session_lifecycle'], default: 'session_lifecycle' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/avatar-optimize-batch`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/avatar-optimize-batch',
+						url,
+						method: 'POST',
+						description:
+							'three.ws Avatar Optimization Pipeline — pay $0.001 USDC to trigger a batch glTF/GLB analysis of the top most-viewed public avatars. Returns a ranked list of optimization suggestions (Draco/Meshopt compression, oversized textures, non-indexed primitives) and stores results per-avatar so owners can be notified of actionable improvements.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.avatarOptimizeBatch.serviceName,
+						tags: routeMeta.avatarOptimizeBatch.tags,
+						iconUrl: routeMeta.avatarOptimizeBatch.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { limit: 50 },
+							inputSchema: {
+								type: 'object',
+								properties: { limit: { type: 'integer', minimum: 1, maximum: 50, default: 50 } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/bazaar-feed`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/bazaar-feed',
+						url,
+						method: 'POST',
+						description:
+							'Bazaar Feed — pay $0.001 USDC per call for two live views of the x402 service marketplace. filter "new"/"active": newest service listings (id, name, price, networks, tags, first_seen) plus category rollup and listing-velocity signal (spike/active/quiet). filter "price_trends": 24h price-movement across all tracked services — trending up/down/stable and net market pressure as bullish/bearish/neutral. Live data from the platform bazaar index.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.bazaarFeed.serviceName,
+						tags: routeMeta.bazaarFeed.tags,
+						iconUrl: routeMeta.bazaarFeed.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { filter: 'new', limit: 10 },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									filter: { type: 'string', enum: ['new', 'active', 'price_trends'], default: 'new' },
+									limit: { type: 'integer', minimum: 1, maximum: 50, default: 10 },
+									period: { type: 'string', default: '24h' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/billboard`;
+					const accepts = acceptsForPrice('50000', url);
+					return {
+						path: '/api/x402/billboard',
+						url,
+						method: 'GET',
+						description:
+							'three.ws coin worlds — feature your content on a 3D world’s billboard. Pay once to hold the framed panel behind spawn: pass the coin-world mint plus an image URL and/or a short caption. The coin world renders your placement in place of its default content for everyone who walks in until the slot expires. It is a paid content canvas, not an ad unit — nothing is targeted or tracked.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.billboard.serviceName,
+						tags: routeMeta.billboard.tags,
+						iconUrl: routeMeta.billboard.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: {
+								coin: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
+								image: 'https://three.ws/og-image.png',
+								caption: 'gm from the gallery',
+							},
+							inputSchema: {
+								type: 'object',
+								required: ['coin'],
+								properties: {
+									coin: { type: 'string', pattern: '^[1-9A-HJ-NP-Za-km-z]{32,44}$' },
+									image: { type: 'string', format: 'uri' },
+									caption: { type: 'string', maxLength: 80 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/cross-chain`;
+					const accepts = acceptsForPrice('5000', url);
+					return {
+						path: '/api/x402/cross-chain',
+						url,
+						method: 'POST',
+						description:
+							'Cross-Chain Bridge Status Monitor — pay $0.005 USDC to receive the live operational status and latency of major Solana bridge providers (Wormhole, Li.Fi, deBridge). Any bridge with status=down is flagged as a platform risk.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.crossChain.serviceName,
+						tags: routeMeta.crossChain.tags,
+						iconUrl: routeMeta.crossChain.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { mode: 'bridge_status' },
+							inputSchema: {
+								type: 'object',
+								properties: { mode: { type: 'string', enum: ['bridge_status'], default: 'bridge_status' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/did`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/did',
+						url,
+						method: 'POST',
+						description:
+							"DID Verification Canary — pay $0.001 USDC to resolve three.ws's published W3C DID document over its real public route, structurally validate it, and measure end-to-end resolution latency. Returns { verified, latency_ms } plus a per-check breakdown. verified=false when the document is unreachable, malformed, or slower than 1500ms — the same failure an external x402 verifier would hit resolving our offer/receipt signing key.",
+						mimeType: 'application/json',
+						serviceName: routeMeta.did.serviceName,
+						tags: routeMeta.did.tags,
+						iconUrl: routeMeta.did.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { did: 'did:three:canary', mode: 'verify' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									did: { type: 'string', default: 'did:three:canary' },
+									mode: { type: 'string', enum: ['verify'], default: 'verify' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/feed-health`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/feed-health',
+						url,
+						method: 'POST',
+						description:
+							'three.ws Feed Health Validator — fetches a named public feed (changelog RSS, sitemap, etc.) and returns a structural health verdict: { valid, item_count, latest_title }. Pays $0.001 USDC per check. Supported feeds: changelog_rss. The latest_title is cross-checked against the canonical changelog record so both a broken XML feed and a stale/diverged feed surface as valid:false.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.feedHealth.serviceName,
+						tags: routeMeta.feedHealth.tags,
+						iconUrl: routeMeta.feedHealth.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { feed: 'changelog_rss' },
+							inputSchema: {
+								type: 'object',
+								required: ['feed'],
+								properties: { feed: { type: 'string', enum: ['changelog_rss'] } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/llm-proxy`;
+					const accepts = acceptsForPrice('5000', url);
+					return {
+						path: '/api/x402/llm-proxy',
+						url,
+						method: 'POST',
+						description:
+							"three.ws LLM Inference Proxy — pay per completion with no API key required. Runs one-shot text prompts through the platform's free-first provider chain. Response includes measured latency, token counts, and the provider actually used. Ideal for latency benchmarking, agent pipelines, and one-off completions. Model aliases: \"fast\" (sub-second) · \"smart\" (quality backstop). Price: $0.005 USDC per completion on Base or Solana.",
+						mimeType: 'application/json',
+						serviceName: routeMeta.llmProxy.serviceName,
+						tags: routeMeta.llmProxy.tags,
+						iconUrl: routeMeta.llmProxy.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { model: 'fast', prompt: 'Count to 3.', max_tokens: 10 },
+							inputSchema: {
+								type: 'object',
+								required: ['prompt'],
+								properties: {
+									model: { type: 'string', default: 'fast' },
+									prompt: { type: 'string', minLength: 1, maxLength: 4000 },
+									max_tokens: { type: 'integer', minimum: 1, maximum: 2048, default: 256 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/mcp-tool-catalog`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/mcp-tool-catalog',
+						url,
+						method: 'POST',
+						description:
+							'three.ws MCP Tool Discovery — pay $0.001 USDC to discover MCP tools that were registered (or whose price/shape changed, or that were removed) on the three.ws MCP server since you last probed. Returns the diff against a durable tool registry so agents can feature-flag new capabilities the moment they ship instead of re-fetching and diffing tools/list themselves.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.mcpToolCatalog.serviceName,
+						tags: routeMeta.mcpToolCatalog.tags,
+						iconUrl: routeMeta.mcpToolCatalog.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { mode: 'discover' },
+							inputSchema: {
+								type: 'object',
+								additionalProperties: false,
+								properties: { mode: { type: 'string', enum: ['discover', 'sync', 'list'], default: 'discover' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/model-validation-sweep`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/model-validation-sweep',
+						url,
+						method: 'POST',
+						description:
+							'three.ws model quality sweep — picks the next public GLB avatar in the database that has never been inspected (or whose inspection is older than 24 hours), downloads the file, runs the glTF-Transform inspector, computes a 0-100 quality score, and records a time-series row. Use to proactively detect geometry errors, missing rigs, and unsupported features before users encounter them in the viewer.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.modelValidationSweep.serviceName,
+						tags: routeMeta.modelValidationSweep.tags,
+						iconUrl: routeMeta.modelValidationSweep.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: {},
+							inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/notify`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/notify',
+						url,
+						method: 'POST',
+						description:
+							'Notification Delivery Probe — pay $0.001 USDC to send a canary message through the platform notification channel and confirm delivery. Returns { delivered, channel, latency_ms } so the autonomous loop can assert the notification subsystem is alive within a 2-second SLA. Channel "canary" is the x402 loop heartbeat lane; "ops" and "system" route to the ops alert surface.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.notify.serviceName,
+						tags: routeMeta.notify.tags,
+						iconUrl: routeMeta.notify.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { channel: 'canary', message: 'x402 loop heartbeat', priority: 'low' },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									channel: { type: 'string', enum: ['canary', 'ops', 'system'], default: 'canary' },
+									message: { type: 'string', maxLength: 500, default: 'x402 loop heartbeat' },
+									priority: { type: 'string', enum: ['low', 'normal', 'high'], default: 'low' },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/pay-by-name`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/pay-by-name',
+						url,
+						method: 'POST',
+						description:
+							'Pay-By-Name Resolution — pay $0.001 USDC to resolve a wallet name (@username, a *.sol name, or a raw base58 address) to a verified on-chain Solana address via the three.ws pay-by-name registry. Returns the resolved address, an on-curve verification flag, and the resolution source.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.payByName.serviceName,
+						tags: routeMeta.payByName.tags,
+						iconUrl: routeMeta.payByName.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { name: 'nich.threews.sol' },
+							inputSchema: {
+								type: 'object',
+								required: ['name'],
+								properties: { name: { type: 'string', description: '@username, a *.sol name, or a base58 address.' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/rate-limit-probe`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/rate-limit-probe',
+						url,
+						method: 'POST',
+						description:
+							'Rate-Limit Capacity Probe — pay $0.001 USDC to learn how many more calls the x402 autonomous loop can make to a target endpoint today before hitting its daily USDC spend cap. Returns remaining_calls, reset_at, and cooldown_active so agents can throttle dynamically instead of discovering the cap by failure.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.rateLimitProbe.serviceName,
+						tags: routeMeta.rateLimitProbe.tags,
+						iconUrl: routeMeta.rateLimitProbe.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { endpoint: '/api/x402/crypto-intel' },
+							inputSchema: {
+								type: 'object',
+								required: ['endpoint'],
+								properties: { endpoint: { type: 'string', pattern: '^/api/' } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/schema-check`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/schema-check',
+						url,
+						method: 'POST',
+						description:
+							'three.ws JSON API schema conformance checker — pay $0.001 USDC to fetch a named three.ws public API and validate its response against the declared schema. Surfaces breaking schema changes before users notice a broken feed. Current target: changelog_json — the /changelog.json feed holders and RSS consumers depend on. Returns { valid, version, entry_count, schema_errors }.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.schemaCheck.serviceName,
+						tags: routeMeta.schemaCheck.tags,
+						iconUrl: routeMeta.schemaCheck.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { api: 'changelog_json' },
+							inputSchema: {
+								type: 'object',
+								required: ['api'],
+								additionalProperties: false,
+								properties: { api: { type: 'string', enum: ['changelog_json'] } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/solana-register-health`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/solana-register-health',
+						url,
+						method: 'GET',
+						description:
+							"Solana Agent Registration Health Check — verifies three.ws's server-custodial Solana agent-registration subsystem end-to-end by resolving a known canary agent's on-chain Metaplex Agent Registry record (Identity PDA + Core asset) and confirming both accounts exist on-chain right now. Returns a health snapshot with latency and the checked asset. Pay-per-call in USDC on Solana or Base mainnet.",
+						mimeType: 'application/json',
+						serviceName: routeMeta.solanaRegisterHealth.serviceName,
+						tags: routeMeta.solanaRegisterHealth.tags,
+						iconUrl: routeMeta.solanaRegisterHealth.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'GET',
+							discoverable: true,
+							input: {},
+							inputSchema: { type: 'object', properties: {} },
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/spend-session`;
+					const accepts = acceptsForPrice('10000', url);
+					return {
+						path: '/api/x402/spend-session',
+						url,
+						method: 'POST',
+						description:
+							'three.ws Spend Session Health — pay $0.01 USDC to probe the Agent Payment Sessions governance layer. mode:"canary" creates a canary session row and immediately consumes it, returning { created, consumed, latency_ms } — the most important health check for the x402 governance layer. mode:"audit" returns a live aggregate snapshot of all payment sessions (active count, remaining budget, expired_count_24h). Pay-per-call in USDC on Solana mainnet.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.spendSession.serviceName,
+						tags: routeMeta.spendSession.tags,
+						iconUrl: routeMeta.spendSession.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { mode: 'canary', budget: 0.01 },
+							inputSchema: {
+								type: 'object',
+								properties: {
+									mode: { type: 'string', enum: ['canary', 'audit'], default: 'canary' },
+									budget: { type: 'number', minimum: 0 },
+								},
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/telegram-health`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/telegram-health',
+						url,
+						method: 'POST',
+						description:
+							'Changelog Telegram Bot Health Check — pays $0.001 USDC to verify that the three.ws platform bot can reach the Telegram API and is alive. Returns { reachable, bot_id, bot_username, latency_ms }. If unreachable, new changelog entries will not reach $THREE holders until the bot is restored.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.telegramHealth.serviceName,
+						tags: routeMeta.telegramHealth.tags,
+						iconUrl: routeMeta.telegramHealth.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { bot: 'changelog' },
+							inputSchema: {
+								type: 'object',
+								required: ['bot'],
+								additionalProperties: false,
+								properties: { bot: { type: 'string', enum: ['changelog'] } },
+							},
+						}),
+					};
+				})(),
+				(() => {
+					const url = `${origin}/api/x402/wallet-connect`;
+					const accepts = acceptsForPrice('1000', url);
+					return {
+						path: '/api/x402/wallet-connect',
+						url,
+						method: 'POST',
+						description:
+							'Wallet Connection Session Health Check — probes the SIWS (Sign-In With Solana) session initiation path: issues a real nonce challenge against the platform auth gateway, validates its structure and expiry, and measures roundtrip latency. Returns { session_created, latency_ms }. Pay-per-call in USDC on Solana or Base mainnet.',
+						mimeType: 'application/json',
+						serviceName: routeMeta.walletConnect.serviceName,
+						tags: routeMeta.walletConnect.tags,
+						iconUrl: routeMeta.walletConnect.iconUrl,
+						accepts,
+						extensions: extensionsForAccepts(accepts, {
+							method: 'POST',
+							discoverable: true,
+							input: { mode: 'health' },
+							inputSchema: {
+								type: 'object',
+								required: ['mode'],
+								properties: { mode: { type: 'string', enum: ['health'] } },
+							},
 						}),
 					};
 				})(),

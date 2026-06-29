@@ -25,14 +25,14 @@ describe('assembleIntel — outage vs unknown', () => {
 	});
 
 	it('throws when the primary lookup fails (DB outage) — never a silent null', async () => {
-		sqlMock.mockRejectedValue(new Error('db query exceeded 15000ms deadline'));
-		let caught = null;
-		try {
-			await assembleIntel('MintXYZ', 'mainnet');
-		} catch (err) {
-			caught = err;
-		}
-		expect(caught).toBeInstanceOf(Error);
-		expect(caught.message).toMatch(/deadline/);
+		// Model the outage as an async rejection created lazily inside the mock
+		// implementation (an async fn that throws). A pre-built `mockRejectedValue`
+		// Error leaks its rejected promise to Vitest's worker-level unhandled-
+		// rejection tracker once this file has >1 test sharing the module mock,
+		// which fails the run even though the production code propagates correctly.
+		sqlMock.mockImplementationOnce(async () => {
+			throw new Error('db query exceeded 15000ms deadline');
+		});
+		await expect(assembleIntel('MintXYZ', 'mainnet')).rejects.toThrow(/deadline/);
 	});
 });
