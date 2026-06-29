@@ -8,6 +8,8 @@
 
 import { ArenaWorld } from './arena-world.js';
 import { tourCommentary } from '../tour-commentary.js';
+import { createAgentScreenClient } from '../shared/agent-screen-client.js';
+import { sanitizeMmEvent } from '../shared/mm-render.js';
 import { createLogger } from '../shared/log.js';
 import { fetchReputationBatch } from '../shared/agent-reputation.js';
 import { fetchUnlocks } from '../shared/wallet-access.js';
@@ -259,6 +261,7 @@ async function spawnAgentsProgressively(board) {
 				});
 				rowsById.set(row.id, row);
 				createLabel(agent);
+				if (row.kind === 'agent') connectMmFloor(row.id);
 			} catch (err) {
 				log.warn('spawn agent', err);
 			}
@@ -282,6 +285,33 @@ function arenaPositions(n) {
 		out.push({ x, z, facing: Math.atan2(x - 0, 9 - z) }); // face the entrance
 	}
 	return out;
+}
+
+// ── market-maker floor defense ───────────────────────────────────────────────
+// Each spawned agent subscribes to its own screen stream and watches for the
+// `mm` ride-along the agent-mm worker publishes. A live frame drives the full
+// reaction (floor update + emote + FX); the on-connect log backfill only draws
+// the line at the last known price (no replayed emotes). A stream error ambers
+// the line — it holds the last price until the next good quote.
+const _mmClients = new Map(); // agentId -> screen client
+function connectMmFloor(agentId) {
+	if (!agentId || _mmClients.has(agentId)) return;
+	const client = createAgentScreenClient(agentId, {
+		onFrame: (frame) => {
+			const ev = sanitizeMmEvent(frame?.mm);
+			if (ev) safe(() => world.onMmEvent(agentId, ev));
+		},
+		onLog: (entries) => {
+			// Apply only the most recent MM entry as a static floor (no emote).
+			for (let i = (entries || []).length - 1; i >= 0; i--) {
+				const ev = sanitizeMmEvent(entries[i]?.mm);
+				if (ev) { safe(() => world.setFloor(agentId, ev)); break; }
+			}
+		},
+		onError: () => safe(() => world.markFloorReQuoting(agentId)),
+	});
+	_mmClients.set(agentId, client);
+	client.connect();
 }
 
 // ── live stream ────────────────────────────────────────────────────────────────

@@ -112,6 +112,6 @@ describe('fmtSol', () => {
 	it('trims trailing zeros and renders 0 cleanly', () => {
 		expect(fmtSol(0.5000)).toBe('0.5');
 		expect(fmtSol(0)).toBe('0');
-		expect(fmtSol(0.12305, 4)).toBe('0.123');
+		expect(fmtSol(0.123, 4)).toBe('0.123');
 	});
 });

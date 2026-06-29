@@ -3,6 +3,52 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Watch an agent mirror a target wallet — source and replica, side by side",
+      "summary": "Open an agent's screen and arm the new Mirror panel on a target wallet. The moment that wallet trades, the source order flashes in on the left and the agent re-quotes and lands its own guarded replica on the right — stamped with the real latency (the gap between detecting the source trade and submitting the copy) and the actual fill it got. Size each copy as a fixed amount, a multiple of the source, or a percent of the agent's balance. Every order passes the same hard firewall as a manual trade — per-trade cap, daily budget, price-impact breaker, kill switch — and an order a guard blocks shows up as a clear BLOCKED row with the reason and how to adjust, never a silent skip. The dual-column view streams to the live wall so the agent's card shows the mirror in motion.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Newsroom Anchor: agents read the market to you, live and on air",
+      "summary": "Open an agent's screen and it becomes a live market-news anchor. Every ~90 seconds it pulls real intel — narrative momentum, sentiment, and flow — scripts a tight bulletin, and reads it aloud in a real synthesized voice while its 3D avatar lip-syncs to the words. The headline slides up as a broadcast lower-third, and the live wall shows what each anchor is reporting with a red ON AIR ticker. Audio is muted by default with one-tap unmute (press A); if a feed is down the anchor reports only what's live instead of going silent, and a rig without face morphs still talks via a jaw-bob driven by the real audio.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Talk to any live agent — it answers out loud and remembers the conversation",
+      "summary": "Type a question into the bar on any agent's screen and it answers you live — in its own persona and voice. The avatar shifts to a thinking pose, a typing indicator pulses in the activity log, and the answer streams in word by word while the agent speaks it aloud and its mouth and gestures react. Ask a follow-up and it answers in context, because it remembers what you just talked about for the rest of your visit. Voice has a one-tap mute, and everyone watching the same screen sees the exchange in the log. Owners can still flip the bar to queue a background task for their worker.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Live agent wall spins up a real browser feed the instant you look",
+      "summary": "Scroll the live agent wall and the card you're actually looking at now spins up a real browser feed within seconds — no more waiting on every agent at once. While it warms up the card shows an honest \"Warming up a live view…\" pulse, and if the live pool is busy it tells you exactly where you stand: \"Live view queued · #3 in line\". Scroll past and the slot quietly frees for the next viewer. The single-agent screen shows the same honest handoff, the live dot turns amber when a feed stutters, and a dropped connection reconnects and reclaims its place automatically.",
+      "tags": [
+        "feature",
+        "improvement"
+      ],
+      "link": "/agents-live"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Agents now host live stage shows on their screen",
+      "summary": "Open an agent's screen and tap Start: the host comes on stage and performs a show that never goes quiet. It opens, riffs between segments, reads questions you type into the Live Show panel and answers them by name, shouts out the night's top $THREE tipper the moment a real tip settles, and runs quick game rounds — looping forever. Every word is generated in the agent's own voice and spoken aloud while its avatar lip-syncs and gestures to the beat. A top-tippers leaderboard tracks real, on-chain $THREE tips, and a fresh tip jumps the line for an instant shoutout. Press G to toggle the panel.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Coin World Tour: an agent walks you through the $THREE 3D world live",
       "summary": "Watch a guide agent take a first-person walk through the $THREE 3D world — gliding from the lobby across the floor and into the arena, the camera bobbing with each step. As it reaches each stop it commentates what's climbing the three.ws launch feed, the lines scrolling in the activity log like a travel stream through a coin's universe. It's a real headless browser driving the real scene — no faked motion — spun up only while someone is watching. Open it on the live wall or full-size on an agent's screen, where a TOUR badge shows the current stop and reveals the latest narration on hover.",
       "tags": [

@@ -38,6 +38,9 @@ import {
 	describePolicyRules, backtestPolicy, syntheticProbes, normalizePolicyRules, MAX_RULES,
 } from '../_lib/spend-policy-rules.js';
 import { compilePolicyFromText } from '../_lib/spend-policy-compiler.js';
+// SOL-outflow spend policy enforced on agent-signed launches/buys/swaps. Exposed
+// read-only on the limits GET so the launch console can show the real ceiling.
+import { resolveSpendPolicy } from '../_lib/agent-spend-policy.js';
 import { getBalances, walletUsdTotal } from '../_lib/balances.js';
 import {
 	THREE_MINT, computeLook, computeMarks, normalizePrefs,
@@ -1045,13 +1048,13 @@ async function handleLimits(req, res, id) {
 		}
 		const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
 		const spentLamports = await getDailySpendLamports(id, network).catch(() => 0n);
-		return json(res, 200, { data: { limits: limitsOut, trade_limits: tradeLimitsOut, spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
+		return json(res, 200, { data: { limits: limitsOut, trade_limits: tradeLimitsOut, spend_policy: resolveSpendPolicy(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
 	}
 
 	const limitsOut = getSpendLimits(meta);
 	const spentUsd = await getDailySpendUsd(id, network).catch(() => 0);
 	const spentLamports = await getDailySpendLamports(id, network).catch(() => 0n);
-	return json(res, 200, { data: { limits: limitsOut, trade_limits: getTradeLimits(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
+	return json(res, 200, { data: { limits: limitsOut, trade_limits: getTradeLimits(meta), spend_policy: resolveSpendPolicy(meta), spent_today_usd: spentUsd, spent_today_sol: Number(spentLamports) / 1e9 } });
 }
 
 // ── natural-language spend policy ─────────────────────────────────────────────

@@ -151,6 +151,10 @@ export function buildTaskTree({ taskId, leadAgentId, leadName = null, goal, maxU
 			name: null,
 			kind: s.kind,
 			title: s.title,
+			// Carried for execution (the delegate message / hire input); stripped
+			// from the compact graph snapshot that reaches the client.
+			instruction: s.instruction || s.title,
+			input: s.kind === 'hire' ? (s.input || null) : null,
 			serviceSlug: s.serviceSlug || null,
 			status: 'queued',
 			maxUsd: slices[i],

@@ -19,6 +19,15 @@ import { cors, json, method, error, readJson, wrap, rateLimited } from '../_lib/
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { getRedis } from '../_lib/redis.js';
 import { isUuid } from '../_lib/validate.js';
+import {
+	normalizeReaction,
+	REACTION_THROTTLE_MS,
+	REACTION_WINDOW_MS,
+	REACTION_RECENT_CAP,
+	reactionsRecentKey,
+	reactionsTotalKey,
+	reactionThrottleKey,
+} from '../_lib/reaction-rules.js';
 
 export const WANTED_KEY = 'screen:wanted';
 const PRUNE_WINDOW_MS = 120_000; // drop intents older than 2 minutes

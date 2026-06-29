@@ -49,6 +49,14 @@ export function parseLaunchCommand(input) {
 	const text = input.trim();
 	// Must start with "launch", but never hijack "launchpad …".
 	if (!/^launch(?!pad)\b/i.test(text)) return null;
+	// Only intercept when it actually reads like a coin launch — otherwise
+	// ("launch the research report") fall through to the normal task path.
+	const looksLikeLaunch =
+		/\b(coin|token|meme(?:coin)?)\b/i.test(text) ||
+		/\bhttps?:\/\//i.test(text) ||
+		/\b(?:ticker|symbol)\b/i.test(text) ||
+		/(?:^|\s)\$[A-Za-z]/.test(text);
+	if (!looksLikeLaunch) return null;
 
 	// Metadata URI — first http(s) URL in the command, trailing punctuation trimmed.
 	const urlMatch = text.match(/\bhttps?:\/\/\S+/i);
@@ -86,7 +94,7 @@ export function parseLaunchCommand(input) {
 	if (quoted) name = quoted[1].trim();
 	if (!name) {
 		const nameKw = text.match(
-			/(?:named|name|called)\s+(.+?)(?=\s+(?:ticker|symbol|uri|metadata|on\s+(?:dev|main)net|devnet|mainnet|buyback|dev\s+buy|buy(?:[-\s]?in)?\b|with\b|https?:\/\/)|$)/i,
+			/(?:named|name|called)\s+(.+?)(?=\s+(?:ticker|symbol|uri|metadata|on\s+(?:dev|main)net|devnet|mainnet|buyback|dev\s+buy|buy(?:[-\s]?in)?\b|with\b|https?:\/\/|\$[A-Za-z])|$)/i,
 		);
 		if (nameKw) name = nameKw[1].trim().replace(/[.,]+$/, '');
 	}
