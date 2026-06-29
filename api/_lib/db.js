@@ -185,6 +185,23 @@ export function isDbUnavailableError(err) {
 	// which survives minification. Fall back to constructor.name for dev builds.
 	const name = String(err.name || err.constructor?.name || '');
 	const msg = String(err.message ?? '');
+	// Neon wraps the underlying transport failure: a NeonDbError carries the real
+	// cause on `.sourceError` (and sometimes `.cause`), e.g. a `fetch failed`
+	// TypeError. Fold those in so a connection-level failure is recognized even
+	// when Neon's own message is the generic "Error connecting to database: …".
+	const deepMsg = `${msg} ${err.sourceError?.message ?? ''} ${err.cause?.message ?? ''}`;
+	// Connection-level transport failures shared across error classes — the
+	// request never reached Postgres (DNS/TLS/socket/cold-compute wake) or the
+	// connection was dropped mid-flight. All are transient "temporarily
+	// unavailable, retry" conditions (→ 503 + Retry-After), never deterministic
+	// SQL bugs. Mirrors isTransientConnError() in db-retry.js so the graceful-503
+	// classifier and the write-retry guard agree on what counts as a blip. NOTE:
+	// deliberately excludes statement-level errors (syntax, constraint, undefined
+	// table/column, 22021 NUL) — those are real faults that must keep 500ing.
+	const isConnLevel =
+		/Error connecting to database|fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|socket hang up|Connection terminated|terminating connection|too many connections|remaining connection slots|Client has encountered a connection error/i.test(
+			deepMsg,
+		);
 	// Construction/configuration failures: a missing, empty, or malformed
 	// DATABASE_URL makes the env accessor (`Missing required env var:
 	// DATABASE_URL`) or neon() (`No database connection string was provided…`,
@@ -203,9 +220,8 @@ export function isDbUnavailableError(err) {
 	}
 	if (name === 'NeonDbError' || name === 'DatabaseError') {
 		return (
+			isConnLevel ||
 			msg.includes('password authentication failed') ||
-			msg.includes('connection refused') ||
-			msg.includes('ECONNREFUSED') ||
 			msg.includes('SSL connection') ||
 			// Neon phrases a suspended compute as "The endpoint has been disabled.
 			// Enable it using Neon API and retry." Keep the older 'is disabled'
@@ -215,10 +231,12 @@ export function isDbUnavailableError(err) {
 			msg.includes('Control plane request failed')
 		);
 	}
-	// Network-level fetch failure wrapping a Neon request (rare but happens when
-	// the Neon HTTP gateway is unreachable).
+	// Network-level fetch failure wrapping a Neon request (happens when the Neon
+	// HTTP gateway is unreachable, or a cold compute is waking from scale-to-zero —
+	// the driver surfaces a bare TypeError: fetch failed before it ever becomes a
+	// NeonDbError).
 	if (name === 'FetchError' || name === 'TypeError') {
-		return msg.includes('ECONNREFUSED') || msg.includes('fetch failed');
+		return isConnLevel;
 	}
 	// Upstash Redis auth failure — WRONGPASS means the token is wrong or rotated.
 	// Same "infra misconfigured" class as a DB auth failure: a single bad env var
