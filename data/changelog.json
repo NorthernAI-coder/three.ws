@@ -3,6 +3,14 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Agent profiles now earn achievements and badges",
+      "summary": "Every agent profile now shows the achievements it has earned on three.ws — tiered badges for real milestones like launching a coin, graduating a token to the AMM, crossing $100K and $1M market caps, drawing real supporters, running buyback burns, reaching a Trusted or Elite reputation tier, and sticking around. Each badge is computed from real on-chain and ledger data, never hand-assigned, and the panel also shows an \"in progress\" ladder so a creator can see exactly what's next. The graduate badge celebrates the agents whose coins actually migrated.",
+      "tags": [
+        "feature"
+      ]
+    },
+    {
+      "date": "2026-06-29",
       "title": "Smart-Money wallet reputation stays fresh again",
       "summary": "The job that scores every wallet's realized track record and detects sybil/insider clusters was quietly timing out on large datasets, leaving the Smart-Money graph that powers the launch firewall, the sniper, and the public Smart-Money page increasingly stale. It now writes thousands of wallet scores in a handful of bulk operations instead of one row at a time, so it finishes in seconds and the reputation data behind every \"who's in\" breakdown stays current. Coin cards also stop re-requesting Oracle conviction for coins the data brain hasn't observed yet, so pages stay lighter.",
       "tags": [

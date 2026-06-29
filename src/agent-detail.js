@@ -24,6 +24,7 @@ import { mountStagePanel } from './shared/stage-link.js';
 import { mountLaborPanel } from './shared/labor-link.js';
 import { mountAlphaPanel } from './shared/alpha-copilot-link.js';
 import { mountWatchPanel } from './shared/agent-watch-panel.js';
+import { mountAchievements } from './shared/agent-achievements-panel.js';
 import { renderError as renderAsyncError } from './shared/async-state.js';
 import { skeletonHTML } from './shared/state-kit.js';
 import { openCoinLaunch } from './shared/agent-coin.js';
@@ -49,6 +50,7 @@ let _strategyHandle = null;
 let _cardHandle = null;
 let _patronageHandle = null;
 let _watchHandle = null;
+let _achievementsHandle = null;
 // Live WebGL avatar mounts (hero + fullscreen modal). Disposed on re-render so a
 // fresh render() doesn't stack a second renderer onto the same container.
 let _heroAvatarHandle = null;
@@ -126,6 +128,7 @@ if (typeof window !== 'undefined') {
 		try { _streamHandle?.destroy?.(); } catch { /* idempotent */ } _streamHandle = null;
 		try { _cardHandle?.destroy?.(); } catch { /* idempotent */ } _cardHandle = null;
 		try { _watchHandle?.destroy?.(); } catch { /* idempotent */ } _watchHandle = null;
+		try { _achievementsHandle?.destroy?.(); } catch { /* idempotent */ } _achievementsHandle = null;
 		// Release the WebGL contexts so they don't count against the browser's
 		// hard context budget once the user navigates away.
 		try { _heroAvatarHandle?.dispose(); } catch { /* idempotent */ } _heroAvatarHandle = null;
@@ -1162,6 +1165,24 @@ function render(agent) {
 	// Full launch history from the pump_agent_mints registry — fire-and-forget;
 	// renders nothing extra when the agent has no launches beyond the chip above.
 	renderLaunchHistory($('ad-token-body'), agent);
+
+	// Achievements — earned badges + in-progress ladder from real platform data
+	// (launches, graduations/migrations, market caps, supporters, burns,
+	// reputation, tenure). The panel hides its own card for visitors on a blank
+	// profile and shows the owner an encouraging empty state.
+	{
+		const achBody = $('ad-achievements-body');
+		const achCard = $('ad-achievements-card');
+		if (_achievementsHandle) { try { _achievementsHandle.destroy(); } catch { /* idempotent */ } _achievementsHandle = null; }
+		if (achBody && agent.id) {
+			_achievementsHandle = mountAchievements({
+				mount: achBody,
+				agentId: agent.id,
+				isOwner: !!agent.isOwner,
+				card: achCard,
+			});
+		}
+	}
 
 	// Agent Genome lineage — parents (if bred), children (if a parent), and a
 	// one-click re-derivation verify. Fire-and-forget; reveals the card only when
