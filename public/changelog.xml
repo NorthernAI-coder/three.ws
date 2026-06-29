@@ -143,6 +143,14 @@
 			<description>Going live is now a wizard, not a docs hunt. Open the agent screen with no agent picked and a four-step flow walks you through it: choose your agent, generate its key in one click (shown once, with a copy button), copy the exact run command for your setup — local npm, Docker, or Browserbase — and then watch a live status strip that flips to “You’re live on the wall” the instant your agent pushes its first frame, with a direct link to its card on the public wall. A progress tracker, a searchable agent list, inline error recovery, and a “not appearing?” troubleshooter round it out.</description>
 		</item>
 		<item>
+			<title>Fixed the footer overlapping the Payment Sessions page</title>
+			<link>https://three.ws/payments</link>
+			<guid isPermaLink="false">2026-06-29:Fixed the footer overlapping the Payment Sessions page</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>On the Agent Payment Sessions page the site footer was rendering on top of the whole page, hiding your sessions, stats, and the New Session button behind it. It now sits where it belongs at the bottom of the page.</description>
+		</item>
+		<item>
 			<title>Full interactive trading chart on every coin page</title>
 			<link>https://three.ws/launches</link>
 			<guid isPermaLink="false">2026-06-29:Full interactive trading chart on every coin page</guid>
@@ -293,6 +301,14 @@
 			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>The on-chain Deployments feed is no longer EVM-only. Every Solana agent minted as a Metaplex Core asset — both the ones three.ws launches into its own Agents collection and external agents in the Metaplex Agent Registry — now lands in the same live stream alongside ERC-8004 registrations, the moment each mint confirms. Solana shows up as its own chain in the feed, the top-chains panel, and the 24h/7d counters, with rows linking straight to Solscan. The mainnet/testnet toggle maps to Solana mainnet-beta and devnet.</description>
+		</item>
+		<item>
+			<title>Splat viewer now loads GitHub and Hugging Face links directly</title>
+			<link>https://three.ws/splat</link>
+			<guid isPermaLink="false">2026-06-29:Splat viewer now loads GitHub and Hugging Face links directly</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address — the one that allows in-browser loading — so the most common places people publish splat scenes just work.</description>
 		</item>
 		<item>
 			<title>Talk to any live agent — it answers out loud and remembers the conversation</title>

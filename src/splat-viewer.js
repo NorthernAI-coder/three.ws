@@ -125,10 +125,39 @@ function recenter() {
 	if (_lastRender) renderBuffer(_lastRender.buffer, _lastRender);
 }
 
+// Rewrite the page/redirect URLs of common asset hosts to their CORS-enabled
+// raw form. GitHub and Hugging Face host most public .ply/.splat scenes, but
+// their human-facing URLs (github.com/.../raw, .../blob, HF /blob) 302-redirect
+// or serve HTML, and the redirect target's CORS headers break a browser fetch.
+// The canonical raw hosts (raw.githubusercontent.com, HF /resolve) send
+// `Access-Control-Allow-Origin: *`, so the same file loads cleanly.
+function normalizeAssetUrl(parsed) {
+	const host = parsed.hostname.toLowerCase();
+	if (host === 'github.com') {
+		// /<owner>/<repo>/(raw|blob)/<ref>/<path…>  →  raw.githubusercontent.com/<owner>/<repo>/<ref>/<path…>
+		const m = parsed.pathname.match(/^\/([^/]+)\/([^/]+)\/(?:raw|blob)\/(.+)$/);
+		if (m) return new URL(`https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}${parsed.search}`);
+	}
+	if (host === 'huggingface.co' || host === 'www.huggingface.co') {
+		// .../blob/<ref>/<path>  →  .../resolve/<ref>/<path>  (raw bytes, with CORS)
+		if (parsed.pathname.includes('/blob/')) {
+			return new URL(`https://huggingface.co${parsed.pathname.replace('/blob/', '/resolve/')}${parsed.search}`);
+		}
+	}
+	if (host === 'www.dropbox.com' || host === 'dropbox.com') {
+		// Force a direct download instead of the HTML preview page.
+		const direct = new URL(parsed.href);
+		direct.searchParams.set('dl', '1');
+		return direct;
+	}
+	return parsed;
+}
+
 async function loadFromUrl(url, label) {
 	if (!url) return;
 	let parsed;
 	try { parsed = new URL(url, location.href); } catch { setError('That doesn’t look like a URL', url); return; }
+	parsed = normalizeAssetUrl(parsed);
 	setLoading('Fetching splat…', parsed.hostname);
 	const GS = await loadSplatLib();
 	let buffer;

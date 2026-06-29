@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T10:50:45.768Z",
+	"generated_at": "2026-06-29T13:41:06.039Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -175,6 +175,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Fixed the footer overlapping the Payment Sessions page",
+			"summary": "On the Agent Payment Sessions page the site footer was rendering on top of the whole page, hiding your sessions, stats, and the New Session button behind it. It now sits where it belongs at the bottom of the page.",
+			"link": "/payments",
+			"tags": [
+				"fix"
 			]
 		},
 		{
@@ -369,6 +379,16 @@
 			"link": "/deployments",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Splat viewer now loads GitHub and Hugging Face links directly",
+			"summary": "Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address — the one that allows in-browser loading — so the most common places people publish splat scenes just work.",
+			"link": "/splat",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

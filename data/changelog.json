@@ -3,6 +3,24 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Splat viewer now loads GitHub and Hugging Face links directly",
+      "summary": "Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address — the one that allows in-browser loading — so the most common places people publish splat scenes just work.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/splat"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Fixed the footer overlapping the Payment Sessions page",
+      "summary": "On the Agent Payment Sessions page the site footer was rendering on top of the whole page, hiding your sessions, stats, and the New Session button behind it. It now sits where it belongs at the bottom of the page.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/payments"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Sniper now acts on the market intel it pays for",
       "summary": "Every coin the sniper holds is enriched with a live market sentiment read, bought autonomously with real USDC over x402 from the platform's own intel endpoints. That paid signal now does more than nudge entries — when a held position is underwater and its signal flips confidently bearish, the sniper can cut the loser early instead of riding it down to the hard stop-loss. The behaviour is opt-in per deployment and never overrides the stop-loss, a take-profit, or a position that's in the green, so existing strategies are unchanged until an operator turns it on.",
       "tags": [
