@@ -248,11 +248,21 @@ function renderWorkerStatus(s) {
 	const pos     = s.openPositions    ?? 0;
 	const mode    = s.mode ? ` · ${s.mode}` : '';
 
+	// Treasury → agent funding flow: shown only once the auto-funder has actually
+	// moved SOL, so it reads as proof the money pump is working rather than a zero.
+	const f = s.funding;
+	const fundedToday = Number(f?.fundedTodaySol) || 0;
+	const fundedTotal = Number(f?.fundedTotalSol) || 0;
+	const fundingMeta = fundedTotal > 0
+		? `<span class="cp-muted" style="font-size:12px" title="SOL the treasury has auto-funded into sniper agents">⛽ ${fundedToday.toFixed(3)} SOL today · ${fundedTotal.toFixed(3)} SOL total</span>`
+		: '';
+
 	return `<div class="cp-status-bar">
 		<div class="cp-status-dot ${dotClass}"></div>
 		<span class="cp-status-label">${esc(label)}</span>
 		<span class="cp-status-meta">${esc(detail)}</span>
 		<div class="cp-status-spacer"></div>
+		${fundingMeta}
 		${strats ? `<span class="cp-muted" style="font-size:12px">${strats} strategies · ${pos} positions open${esc(mode)}</span>` : ''}
 		<a class="cp-status-link" href="/dashboard/sniper">Sniper ↗</a>
 	</div>`;
