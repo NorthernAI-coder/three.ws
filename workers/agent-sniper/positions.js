@@ -43,7 +43,15 @@ async function tickPosition(cfg, pos) {
 	const sym = (pos.symbol || pos.mint.slice(0, 6)).toUpperCase();
 	screenPush(`$${sym}: ${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(1)}% P&L — monitoring`, 'trade');
 
-	const reason = decideExit(pos, value, peak);
+	// Optional paid-intel exit: only read the (already-bought) x402 sentiment when
+	// the operator has armed it AND the position is underwater — the one case
+	// signal_flip can fire. A read failure degrades to the normal exit math.
+	let sentiment = null;
+	if (cfg.exitOnBearish && value < entry) {
+		sentiment = await readCoinSentiment(cfg, pos.mint);
+	}
+
+	const reason = decideExit(pos, value, peak, Date.now(), sentiment);
 	if (reason) await executeSell({ cfg, position: pos, reason });
 }
 
@@ -86,6 +94,27 @@ async function requoteGraduated(cfg, pos, baseAmount, slippagePct) {
 		return Number(expectedQuoteOut);
 	} catch (err) {
 		log.warn('amm re-quote failed', { mint: pos.mint, code: err?.code, err: err?.message });
+		return null;
+	}
+}
+
+// Read the latest x402-paid sentiment for a held coin, shaped for decideExit.
+// Returns null on any miss/error so the exit math falls back to stop/trailing/TP.
+async function readCoinSentiment(cfg, mint) {
+	try {
+		const [row] = await sql`
+			SELECT signal, confidence FROM sniper_coin_sentiment
+			WHERE mint = ${mint} AND network = ${cfg.network}
+			LIMIT 1
+		`;
+		if (!row) return null;
+		return {
+			signal: row.signal,
+			confidence: row.confidence == null ? null : Number(row.confidence),
+			minConfidence: cfg.exitBearishMinConfidence,
+		};
+	} catch (err) {
+		log.warn('coin sentiment read failed', { mint, err: err?.message });
 		return null;
 	}
 }

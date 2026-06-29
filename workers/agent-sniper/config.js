@@ -133,6 +133,14 @@ export function loadConfig() {
 		launcher: bool('SNIPER_LAUNCHER', !!process.env.AGENT_JWT),
 		// How often to check for due launcher configs (ms).
 		launcherPollMs: Math.max(30_000, num('SNIPER_LAUNCHER_POLL_MS', 60_000)),
+		// ── sentiment-flip exit ─────────────────────────────────────────────────
+		// Let the per-coin x402 sentiment the worker already pays for drive a sell:
+		// cut an underwater position early when its signal flips confidently bearish,
+		// ahead of the hard stop-loss. Off by default — existing strategies keep their
+		// exact stop/trailing/TP behaviour until an operator opts in.
+		exitOnBearish: bool('SNIPER_EXIT_ON_BEARISH', false),
+		// Minimum sentiment confidence (0..1) before a bearish flip can exit.
+		exitBearishMinConfidence: Math.max(0, Math.min(1, num('SNIPER_EXIT_BEARISH_MIN_CONFIDENCE', 0.7))),
 		// ── buy-side auto-funding ───────────────────────────────────────────────
 		// Keeps each armed agent's own wallet topped up from the launcher master so
 		// a hot sniper never silently runs dry and starts failing every buy. On by

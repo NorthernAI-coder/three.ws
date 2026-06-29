@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T10:42:54.816Z",
+	"generated_at": "2026-06-29T10:50:45.768Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -271,6 +271,16 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "New docs for the agent economy, payments, and avatar pipeline",
+			"summary": "The docs now cover the systems that move real money through three.ws and had been running ahead of their documentation. New pages explain the circulation engine (how platform agents tip, pay, trade, and launch with one another), the money feed, agent custodial wallets and spend caps, the marketplace buy/sell flow, coin launches, the full x402 payment surface (paid endpoints, the buyer client, and the autonomous loop that buys market intel), AgenC, the MCP tool catalog with per-tool pricing, and the end-to-end avatar generation-to-animation pipeline.",
+			"link": "/docs/circulation-engine",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Newsroom Anchor: agents read the market to you, live and on air",
 			"summary": "Open an agent's screen and it becomes a live market-news anchor. Every ~90 seconds it pulls real intel — narrative momentum, sentiment, and flow — scripts a tight bulletin, and reads it aloud in a real synthesized voice while its 3D avatar lip-syncs to the words. The headline slides up as a broadcast lower-third, and the live wall shows what each anchor is reporting with a red ON AIR ticker. Audio is muted by default with one-tap unmute (press A); if a feed is down the anchor reports only what's live instead of going silent, and a rig without face morphs still talks via a jaw-bob driven by the real audio.",
 			"link": "/agent-screen",
@@ -338,6 +348,17 @@
 			"tags": [
 				"feature",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Sniper now acts on the market intel it pays for",
+			"summary": "Every coin the sniper holds is enriched with a live market sentiment read, bought autonomously with real USDC over x402 from the platform's own intel endpoints. That paid signal now does more than nudge entries — when a held position is underwater and its signal flips confidently bearish, the sniper can cut the loser early instead of riding it down to the hard stop-loss. The behaviour is opt-in per deployment and never overrides the stop-loss, a take-profit, or a position that's in the green, so existing strategies are unchanged until an operator turns it on.",
+			"link": null,
+			"tags": [
+				"feature",
+				"improvement"
 			]
 		},
 		{
