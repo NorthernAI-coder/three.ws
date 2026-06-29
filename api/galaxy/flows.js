@@ -44,6 +44,15 @@ import {
 
 const FEED_TTL_S = 8; // first-page cache — it's a live feed, keep it short
 const LASTGOOD_TTL_S = 600; // last-good snapshot, served if a build is slow/fails
+// The last-good snapshot is the degraded fallback, not live data, so it does NOT
+// need rewriting on every 8s cache miss. Writing it on every build doubled the
+// large-payload SET volume on this endpoint — the codebase's own named cause of
+// the Upstash cache-SET timeouts (see _lib/env.js UPSTASH_CACHE_REST_* note).
+// Refresh it at most once per window per view; a fallback at most this stale is
+// still a perfectly good calm-degrade snapshot, and SET pressure on the hot path
+// is roughly halved. In-process gate (per warm instance) — best-effort by design.
+const LASTGOOD_REFRESH_MS = 60_000;
+const _lastGoodWrittenAt = new Map();
 const DEFAULT_LIMIT = 80;
 const MAX_LIMIT = 200;
 
@@ -253,8 +262,14 @@ export default async function handler(req, res) {
 		});
 		try {
 			const body = await Promise.race([handleFeed({ network, type, limit, cursor, since }), deadline]);
-			// Retain a long-lived copy for the degraded path on a future slow build.
-			cacheSet(lastGoodKey, body, LASTGOOD_TTL_S).catch(() => {});
+			// Retain a long-lived copy for the degraded path on a future slow build —
+			// but at most once per LASTGOOD_REFRESH_MS per view, so the live-feed cache
+			// miss isn't paired with a second large SET on every request.
+			const now = Date.now();
+			if (now - (_lastGoodWrittenAt.get(lastGoodKey) || 0) >= LASTGOOD_REFRESH_MS) {
+				_lastGoodWrittenAt.set(lastGoodKey, now);
+				cacheSet(lastGoodKey, body, LASTGOOD_TTL_S).catch(() => {});
+			}
 			return body;
 		} finally {
 			clearTimeout(timer);

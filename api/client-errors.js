@@ -86,6 +86,24 @@ function isNonActionableNoise(event) {
 	if (event.name === 'AbortError' || /\bfetch is aborted\b|\bthe operation was aborted\b/i.test(msg)) {
 		return true;
 	}
+	// Injected wallet-provider (window.ethereum / injected Solana) RPC errors and
+	// user-cancellations. An injected EVM provider rejects window.ethereum.request()
+	// with EIP-1474 "Internal JSON-RPC error." when its upstream node errors, or with
+	// a user-cancellation string when the popup is dismissed — both thrown as a plain
+	// object (name "Object"), not an Error. No first-party three.ws code produces
+	// these strings; the wallet extension owns the transport, so they are unfixable
+	// from our deploy and only reach us from pages that co-exist with a wallet
+	// extension (e.g. /trending). Matched exactly so a genuine fault never collides.
+	// Mirrors public/error-reporter.js WALLET_RPC_NOISE_RE.
+	if (
+		/^Internal JSON-RPC error\.?$/i.test(msg) ||
+		/^User rejected( the)? request/i.test(msg) ||
+		/^User denied /i.test(msg) ||
+		/^Already processing eth_requestAccounts/i.test(msg) ||
+		/^Request of type 'wallet_/i.test(msg)
+	) {
+		return true;
+	}
 	// A ReferenceError naming a known injected bridge global — their script, not ours.
 	if (/can't find variable:|is not defined/i.test(msg) && INJECTED_GLOBALS.test(msg)) return true;
 	// Property-access TypeErrors from extension/wallet-injected page scripts. These

@@ -136,6 +136,22 @@
 	//     CDN script the pages load.
 	// Whole-word match so a genuine first-party method is never swallowed.
 	const INJECTED_OVERLAY_SYMBOL = /\bhideIndicator\b/;
+	// Injected wallet-provider (window.ethereum / injected Solana) errors. An
+	// injected EVM provider rejects window.ethereum.request(...) with EIP-1474
+	// "Internal JSON-RPC error." when its upstream node errors, and rejects with a
+	// user-cancellation string when the user dismisses the wallet popup — both as a
+	// plain object (caught name "Object"), not an Error. None of these strings are
+	// produced by any first-party three.ws code: the wallet extension owns the
+	// transport. They reach us from pages that merely co-exist with a wallet
+	// extension (e.g. /trending) and are unfixable from our deploy. Match the
+	// canonical messages exactly so a genuine first-party error can never collide.
+	const WALLET_RPC_NOISE =
+		/^Internal JSON-RPC error\.?$/i.source +
+		'|^User rejected( the)? request' +
+		'|^User denied ' +
+		'|^Already processing eth_requestAccounts' +
+		'|^Request of type \'wallet_';
+	const WALLET_RPC_NOISE_RE = new RegExp(WALLET_RPC_NOISE, 'i');
 	// WebKit and Chromium phrasings for "read property `prop` of null/undefined".
 	// Capture group 1 is the property name in both engines.
 	const PROP_ACCESS_TYPEERROR =
@@ -273,6 +289,15 @@
 		if (
 			report.name === 'AbortError' ||
 			(report.message && /\bfetch is aborted\b|\bthe operation was aborted\b/i.test(report.message))
+		) {
+			return true;
+		}
+		// Injected wallet-provider RPC errors and user-cancellations — the wallet
+		// extension's transport, never our code (see WALLET_RPC_NOISE_RE).
+		if (
+			(report.type === 'unhandledrejection' || report.type === 'error' || report.type === 'manual') &&
+			report.message &&
+			WALLET_RPC_NOISE_RE.test(report.message.trim())
 		) {
 			return true;
 		}

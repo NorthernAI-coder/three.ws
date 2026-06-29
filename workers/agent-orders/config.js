@@ -1,10 +1,20 @@
 // agent-orders — environment + runtime configuration. Validated once at boot so
 // a misconfigured worker fails loudly instead of trading with half a config.
 
+import { databaseConfigured } from '../../api/_lib/env.js';
+
 function req(name) {
 	const v = process.env[name];
 	if (!v || !String(v).trim()) throw new Error(`[agent-orders] missing required env var: ${name}`);
 	return v;
+}
+// The Postgres connection string may arrive under DATABASE_URL or any standard
+// Vercel-Postgres/Neon alias; db.js resolves the live connection from that set,
+// so assert configuration the same way rather than hard-requiring the bare name.
+function requireDatabase(scope) {
+	if (!databaseConfigured()) {
+		throw new Error(`[${scope}] missing required env var: DATABASE_URL (or a POSTGRES_URL/NEON_DATABASE_URL alias)`);
+	}
 }
 function num(name, def) {
 	const raw = process.env[name];
@@ -19,7 +29,7 @@ function bool(name, def = false) {
 }
 
 export function loadConfig() {
-	req('DATABASE_URL');
+	requireDatabase('agent-orders');
 	req('JWT_SECRET');
 
 	const network = (process.env.ORDERS_NETWORK || 'mainnet').trim();

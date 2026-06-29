@@ -70,6 +70,44 @@ describe('env.DATABASE_URL connection-string resolution', () => {
 		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
 	});
 
+	// A connection string pasted WITH its surrounding quotes survives cred()'s
+	// whitespace trim but fails the postgres:// scheme guard (it starts with `"`),
+	// so the alias was silently skipped and resolution reported MISSING even though
+	// a valid URL was present — neon() also throws "is not a valid URL" on the raw
+	// quoted value. Both quote styles must be unwrapped.
+	it('strips surrounding double quotes (dashboard paste)', () => {
+		process.env.DATABASE_URL = '"postgresql://u:p@db.neon.tech/main"';
+		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
+		expect(databaseConfigured()).toBe(true);
+	});
+
+	it('strips surrounding single quotes', () => {
+		process.env.DATABASE_URL = "'postgresql://u:p@db.neon.tech/main'";
+		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
+	});
+
+	it('strips quotes plus surrounding whitespace together', () => {
+		process.env.DATABASE_URL = '  "postgresql://u:p@db.neon.tech/main"  ';
+		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
+	});
+
+	// A value copied straight from a `psql …` connect command keeps the command
+	// prefix; strip it (and an optional `-d`), including when the URL is quoted.
+	it('strips an accidental "psql " shell-copy prefix', () => {
+		process.env.DATABASE_URL = 'psql postgresql://u:p@db.neon.tech/main';
+		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
+	});
+
+	it('strips a "psql -d \'<url>\'" prefix with quotes', () => {
+		process.env.DATABASE_URL = `psql -d 'postgresql://u:p@db.neon.tech/main'`;
+		expect(env.DATABASE_URL).toBe('postgresql://u:p@db.neon.tech/main');
+	});
+
+	it('a quoted alias is recovered when the canonical name is absent', () => {
+		process.env.POSTGRES_URL = '"postgres://u:p@pooler.neon.tech/main"';
+		expect(env.DATABASE_URL).toBe('postgres://u:p@pooler.neon.tech/main');
+	});
+
 	it('ignores a non-postgres value on a higher-priority name and falls through', () => {
 		// A stray/garbage value on DATABASE_URL must not shadow a real URL on an alias.
 		process.env.DATABASE_URL = 'not-a-connection-string';

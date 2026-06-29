@@ -7,6 +7,18 @@
 //   MM_MODE=live      — real floor-defense / recycle fills from agent wallets
 //   MM_GLOBAL_KILL=1  — halt all MM actions (policies untouched; kill/withdraw still work)
 
+import { databaseConfigured } from '../../api/_lib/env.js';
+
+// The Postgres connection string may arrive under DATABASE_URL or any standard
+// Vercel-Postgres/Neon alias (POSTGRES_URL, NEON_DATABASE_URL, …). db.js resolves
+// the live connection from that alias set, so assert configuration the same way
+// rather than hard-requiring the bare DATABASE_URL name at boot.
+function requireDatabase(scope) {
+	if (!databaseConfigured()) {
+		throw new Error(`[${scope}] missing required env var: DATABASE_URL (or a POSTGRES_URL/NEON_DATABASE_URL alias)`);
+	}
+}
+
 function req(name) {
 	const v = process.env[name];
 	if (!v || !String(v).trim()) throw new Error(`[agent-mm] missing required env var: ${name}`);
@@ -26,7 +38,7 @@ function bool(name, def = false) {
 
 export function loadConfig() {
 	// DATABASE_URL + JWT_SECRET are consumed transitively by db.js / agent-wallet.js.
-	req('DATABASE_URL');
+	requireDatabase('agent-mm');
 	req('JWT_SECRET');
 
 	const network = (process.env.MM_NETWORK || 'mainnet').trim();

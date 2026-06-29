@@ -4,12 +4,22 @@
 // REQUIRED vars so a misconfigured worker fails loudly instead of trading with
 // half a config. Optional vars get sane, conservative defaults.
 
+import { databaseConfigured } from '../../api/_lib/env.js';
+
 function req(name) {
 	const v = process.env[name];
 	if (!v || !String(v).trim()) {
 		throw new Error(`[agent-sniper] missing required env var: ${name}`);
 	}
 	return v;
+}
+// The Postgres connection string may arrive under DATABASE_URL or any standard
+// Vercel-Postgres/Neon alias; db.js resolves the live connection from that set,
+// so assert configuration the same way rather than hard-requiring the bare name.
+function requireDatabase(scope) {
+	if (!databaseConfigured()) {
+		throw new Error(`[${scope}] missing required env var: DATABASE_URL (or a POSTGRES_URL/NEON_DATABASE_URL alias)`);
+	}
 }
 
 function num(name, def) {
@@ -29,7 +39,7 @@ export function loadConfig() {
 	// DATABASE_URL + JWT_SECRET are consumed transitively by db.js / agent-wallet.js.
 	// We assert them here so the failure points at config, not a cryptic decrypt
 	// error three layers deep on the first trade.
-	req('DATABASE_URL');
+	requireDatabase('agent-sniper');
 	req('JWT_SECRET');
 
 	const network = (process.env.SNIPER_NETWORK || 'mainnet').trim();

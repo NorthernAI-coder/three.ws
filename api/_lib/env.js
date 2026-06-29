@@ -185,14 +185,42 @@ const DATABASE_URL_SOURCES = [
 	'POSTGRES_PRISMA_URL',
 ];
 
+// Repair the dashboard-paste corruptions that survive a whitespace trim but still
+// break the neon() client. Two shapes, both seen on real Vercel env values (the
+// same class of paste damage normalizeRpcUrl()/addr() already repair for RPC URLs
+// and wallet addresses):
+//   · a single layer of matching surrounding quotes — "postgresql://…" / 'postgresql://…'
+//   · an accidental `psql ` / `psql -d ` shell-copy prefix
+// Either one makes neon() throw SYNCHRONOUSLY at client construction ("is not a
+// valid URL"), and because the lazy Neon client is built inside a query thenable
+// that throw bypasses every per-query `.catch()` guard and 500s every DB-backed
+// read at once. Worse, both also fail the `/^postgres/` scheme guard below, so the
+// alias is silently skipped and resolveDatabaseUrl() reports the connection string
+// as MISSING even though a perfectly good URL is sitting in the env. Stripping the
+// wrappers here turns a fat-fingered paste into a working connection instead of a
+// site-wide outage. Returns undefined for a value that's empty after unwrapping.
+function unwrapDbCandidate(v) {
+	if (!v) return v;
+	// Drop an accidental `psql `/`psql -d ` prefix first (the URL after it may be quoted).
+	let s = v.replace(/^psql\s+(?:-d\s+)?/i, '').trim();
+	// Strip one layer of matching surrounding quotes.
+	if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+		s = s.slice(1, -1).trim();
+	}
+	return s || undefined;
+}
+
 // Resolve the first alias that holds a usable Postgres connection string.
 // Trims dashboard-pasted whitespace/newlines (cred()) — an untrimmed trailing
-// "\n" makes neon() throw "is not a valid URL" — and requires a postgres(ql)://
-// scheme so a stray, unrelated value on one alias can't shadow a real URL on a
-// lower-priority one. Returns undefined when no alias is configured.
-function resolveDatabaseUrl() {
+// "\n" makes neon() throw "is not a valid URL" — unwraps surrounding quotes / a
+// `psql ` prefix (unwrapDbCandidate), and requires a postgres(ql):// scheme so a
+// stray, unrelated value on one alias can't shadow a real URL on a lower-priority
+// one. Returns undefined when no alias is configured. Exported so standalone
+// workers that build their own Neon client (agora-citizens) resolve the
+// connection string from the same alias set the serverless API does.
+export function resolveDatabaseUrl() {
 	for (const name of DATABASE_URL_SOURCES) {
-		const v = cred(opt(name));
+		const v = unwrapDbCandidate(cred(opt(name)));
 		if (v && /^postgres(ql)?:\/\//i.test(v)) return v;
 	}
 	return undefined;
