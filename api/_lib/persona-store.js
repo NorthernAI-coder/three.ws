@@ -26,9 +26,10 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { sql } from './db.js';
+import { databaseConfigured } from './env.js';
 import { putObject, copyObject, publicUrl } from './r2.js';
 
-const dbConfigured = () => !!process.env.DATABASE_URL;
+const dbConfigured = () => databaseConfigured();
 const r2Configured = () => !!(process.env.S3_BUCKET && process.env.S3_PUBLIC_DOMAIN);
 
 // ── pure helpers (no backend — unit-testable on their own) ────────────────────

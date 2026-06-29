@@ -20,6 +20,7 @@ import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { refreshThreeHolderSnapshot } from '../_lib/coin/three-holders.js';
+import { isDbUnavailableError } from '../_lib/db.js';
 
 // Vercel cron invokes with `Authorization: Bearer <CRON_SECRET>`; manual probes
 // may use `X-Cron-Secret: <CRON_SECRET>`. Accept either, constant-time.
@@ -63,7 +64,12 @@ export default wrapCron(async (req, res) => {
 		// it out of alerting; reserve error for unexpected faults (a bug, a bad
 		// schema migration).
 		const msg = err?.message || String(err);
-		const transient = /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|network|password authentication failed|table unavailable/i.test(msg);
+		// A DB outage (missing/rotated DATABASE_URL, suspended Neon compute) is
+		// operationally expected and self-heals on the next tick — classify it with
+		// the same isDbUnavailableError gate the rest of the platform uses so it
+		// warns rather than firing a per-tick error into alerting.
+		const transient = isDbUnavailableError(err)
+			|| /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|network|password authentication failed|table unavailable/i.test(msg);
 		if (transient) console.warn('[three-holders-snapshot] refresh deferred (transient upstream):', msg);
 		else console.error('[three-holders-snapshot] refresh failed:', msg);
 		return json(res, 200, { ok: false, refreshed: false, error: msg });

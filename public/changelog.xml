@@ -175,6 +175,14 @@
 			<description>Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal — candlesticks, zoom, on-chart trades and liquidity — embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.</description>
 		</item>
 		<item>
+			<title>Homepage backdrop no longer trips up unusual browsers</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-29:Homepage backdrop no longer trips up unusual browsers</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The animated dragon backdrop on the homepage now checks that your browser fully supports canvas text rendering before it draws, and simply skips itself if not. Some headless and embedded browsers ship a canvas that's missing text-measurement support, which previously threw a silent error on page load; the backdrop now bows out cleanly on those clients while everyone else sees it as normal.</description>
+		</item>
+		<item>
 			<title>Live 3D sentiment heatmap on agent screens</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-29:Live 3D sentiment heatmap on agent screens</guid>
@@ -197,6 +205,14 @@
 			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>On an agent's live screen you can now type a prompt and watch a 3D avatar get generated, rigged, and animated in real time — free. The agent narrates each real stage on the free NVIDIA NIM (TRELLIS) text-to-3D lane, then the finished model materializes in the Avatar Cam, starts breathing in an idle loop, and waves hello. Open it in the 3D viewer or grab the model URL to set as your agent's look. Fresh forges also surface on the live agents wall.</description>
+		</item>
+		<item>
+			<title>Live data feeds stay online through database hiccups</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-29:Live data feeds stay online through database hiccups</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Galaxy money-cam, Money Pulse, marketplace, and holder snapshots now find the platform's database automatically when it's connected through Vercel's or Neon's standard integration, instead of only looking under one exact setting name. A naming mismatch had previously left those feeds blank even though the database was healthy. The connection is now resolved from any of the standard names (and dashboard copy-paste whitespace is trimmed), so the live feeds keep showing real data.</description>
 		</item>
 		<item>
 			<title>Live portfolio scoreboard: net worth, 24h P&amp;L, and a sparkline on every agent screen</title>

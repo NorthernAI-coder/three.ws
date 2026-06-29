@@ -36,6 +36,7 @@
 import { cors, method } from '../_lib/http.js';
 import { getSessionUser } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
+import { databaseConfigured } from '../_lib/env.js';
 import { readDeviceToken } from '../_lib/irl-auth.js';
 import { createPollBreaker, pruneSeen } from '../_lib/sse-poll-breaker.js';
 
@@ -338,7 +339,7 @@ export default async function handleIrlInteractionsStream(req, res) {
 
 	// No DB configured (e.g. local dev without DATABASE_URL): keep the socket alive
 	// with heartbeats so the client's fallback poll path still runs, emit nothing.
-	if (!process.env.DATABASE_URL) {
+	if (!databaseConfigured()) {
 		const hb = setInterval(() => {
 			if (closed || res.writableEnded) { clearInterval(hb); return; }
 			res.write(':hb\n\n');

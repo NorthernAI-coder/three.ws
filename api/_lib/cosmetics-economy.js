@@ -18,6 +18,7 @@
 import bs58 from 'bs58';
 
 import { sql } from './db.js';
+import { databaseConfigured } from './env.js';
 import { getCosmetic } from './cosmetics.js';
 import { verifySiwsSignature } from './siws.js';
 import { transferSolanaUSDC } from './solana-transfer.js';
@@ -45,7 +46,7 @@ export function isWallet(addr) {
 // True only when a durable economy DB is configured. Recording is best-effort: a
 // missing DB must never block an R22 unlock the buyer already paid for.
 export function economyDbConfigured() {
-	return !!process.env.DATABASE_URL;
+	return databaseConfigured();
 }
 
 // ── Creator resolution ─────────────────────────────────────────────────────

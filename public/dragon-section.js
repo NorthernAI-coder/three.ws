@@ -8,6 +8,13 @@
   canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;';
   container.appendChild(canvas);
   const ctx = canvas.getContext('2d');
+  // Some headless/embedded browsers (e.g. Lightpanda) hand back a 2D context that
+  // omits the text-metrics APIs this decorative backdrop relies on. Bail cleanly
+  // rather than throwing an unhandledrejection out of layoutAllText().
+  if (!ctx || typeof ctx.measureText !== 'function' || typeof ctx.fillText !== 'function') {
+    container.removeChild(canvas);
+    return;
+  }
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
   let W = 0, H = 0, animId = null, initialized = false, paused = false;
