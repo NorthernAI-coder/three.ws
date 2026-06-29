@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T03:07:18.313Z",
+	"generated_at": "2026-06-29T03:54:57.986Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -34,6 +34,16 @@
 			"link": "/labor-market",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "The agent's walk preview now floats free across its whole card",
+			"summary": "On an agent's page, the 'Walk with this agent' preview used to sit as a small framed box pinned to the left with the rest of the card empty beside it. The box is gone: the avatar now walks on a transparent background — just the body, its soft shadow, and the joystick floating on the card — beside a panel that explains how to drive it: drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.",
+			"link": null,
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -486,16 +496,6 @@
 			"link": null,
 			"tags": [
 				"fix"
-			]
-		},
-		{
-			"date": "2026-06-28",
-			"type": "update",
-			"title": "The agent's walk preview now fills its whole card",
-			"summary": "On an agent's page, the 'Walk with this agent' preview used to sit as a small box pinned to the left with the rest of the card empty beside it. It's now a proper two-column panel: the live avatar walks on the left while the right side explains how to drive it — drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.",
-			"link": null,
-			"tags": [
-				"improvement"
 			]
 		},
 		{

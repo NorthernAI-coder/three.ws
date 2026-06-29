@@ -122,6 +122,60 @@
 			}
 			.asc-live-badge.dark .dot { background: var(--screen-dark); animation: none; }
 
+			/* ── live PnL ticker ── */
+			.asc-pnl {
+				display: inline-flex;
+				align-items: baseline;
+				gap: 0.4rem;
+				background: rgba(255,255,255,0.05);
+				border: 1px solid rgba(255,255,255,0.12);
+				border-radius: 999px;
+				padding: 0.22rem 0.6rem;
+				font: inherit;
+				color: #d4d4d8;
+				cursor: pointer;
+				flex: none;
+				transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.2s;
+			}
+			.asc-pnl:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.22); }
+			.asc-pnl:active { transform: scale(0.97); }
+			.asc-pnl:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(120,170,255,0.55); }
+			.asc-pnl-label {
+				font-size: 0.6rem;
+				font-weight: 700;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: rgba(255,255,255,0.4);
+			}
+			.asc-pnl-value {
+				font-size: 0.9rem;
+				font-weight: 720;
+				font-variant-numeric: tabular-nums;
+				letter-spacing: -0.01em;
+				color: #e4e4e7;
+				transition: color 0.2s;
+			}
+			.asc-pnl-detail {
+				font-size: 0.7rem;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+				color: rgba(255,255,255,0.5);
+				padding-left: 0.45rem;
+				border-left: 1px solid rgba(255,255,255,0.14);
+			}
+			.asc-pnl.pos .asc-pnl-value { color: var(--screen-live, #4ade80); }
+			.asc-pnl.neg .asc-pnl-value { color: #f87171; }
+			.asc-pnl.pos { border-color: rgba(74,222,128,0.35); background: rgba(74,222,128,0.08); }
+			.asc-pnl.neg { border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+			/* brief flash when a fresh fill moves the number */
+			.asc-pnl.bump { animation: asc-pnl-bump 0.45s ease; }
+			@keyframes asc-pnl-bump {
+				0% { transform: scale(1); }
+				40% { transform: scale(1.09); }
+				100% { transform: scale(1); }
+			}
+			body.asc-zen .asc-pnl { display: none; }
+
 			.asc-header-right {
 				margin-left: auto;
 				display: flex;
@@ -448,6 +502,11 @@
 			.asc-log-type.analysis { background: rgba(255,255,255,0.10); color: rgba(255,255,255,0.7); box-shadow: inset 2px 0 0 rgba(255,255,255,0.55); }
 			.asc-log-type.activity { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.45); }
 			.asc-log-text { color: rgba(255,255,255,0.78); word-break: break-word; }
+				/* realized-exit lines tint by sign so a green/red scan reads as a P&L tape */
+				.asc-log-entry.pnl-pos .asc-log-text { color: #6ee7a0; }
+				.asc-log-entry.pnl-neg .asc-log-text { color: #f9a8a8; }
+				.asc-log-entry.pnl-pos .asc-log-type.trade { background: rgba(74,222,128,0.18); color: #6ee7a0; box-shadow: inset 2px 0 0 #4ade80; }
+				.asc-log-entry.pnl-neg .asc-log-type.trade { background: rgba(248,113,113,0.18); color: #f9a8a8; box-shadow: inset 2px 0 0 #f87171; }
 			.asc-log-empty {
 				display: flex;
 				align-items: center;
@@ -850,6 +909,13 @@
 					<span class="dot"></span>
 					<span id="asc-badge-text">Connecting</span>
 				</span>
+				<button class="asc-pnl" id="asc-pnl" type="button" hidden
+					title="Session realized + unrealized, from real fills — click for detail"
+					aria-label="Session profit and loss">
+					<span class="asc-pnl-label">PnL</span>
+					<span class="asc-pnl-value" id="asc-pnl-value">—</span>
+					<span class="asc-pnl-detail" id="asc-pnl-detail" hidden></span>
+				</button>
 			</div>
 			<div class="asc-header-right" id="asc-controls">
 				<div class="asc-ctl-group" id="asc-panel-toggles">

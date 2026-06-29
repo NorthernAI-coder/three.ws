@@ -72,7 +72,7 @@ async function listCoins(req, res, userId) {
 	const coins = await sql`
 		select
 			m.id, m.mint, m.network, m.name, m.symbol, m.buyback_bps,
-			m.created_at,
+			m.created_at, m.agent_id,
 			a.name           as agent_name,
 			a.avatar_url     as agent_avatar,
 			a.profile_image_url as agent_image,
@@ -162,6 +162,7 @@ async function listCoins(req, res, userId) {
 			id: c.id,
 			mint: c.mint,
 			network: c.network,
+			agent_id: c.agent_id,
 			name: c.name || c.agent_name,
 			symbol: c.symbol,
 			agent_name: c.agent_name,

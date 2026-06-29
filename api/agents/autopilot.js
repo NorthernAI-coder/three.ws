@@ -24,7 +24,7 @@ import {
 	runAutopilotCycle,
 	computeRunway,
 } from '../_lib/treasury-autopilot.js';
-import { validateSolanaAddress } from '../_lib/agent-trade-guards.js';
+import { validateSolanaAddress, getSpendLimits } from '../_lib/agent-trade-guards.js';
 
 async function resolveAuth(req) {
 	const session = await getSessionUser(req);
@@ -80,9 +80,12 @@ async function handleGet(req, res, id) {
 
 	const network = netOf(req);
 	const policy = getAutopilot(owned.meta);
+	// Surface the hard spend caps (daily/per-tx USD) read-only so the cockpit can
+	// render the ceiling the autopilot can never exceed. Owner-only data already.
+	const spendLimits = getSpendLimits(owned.meta);
 	try {
 		const runway = await computeRunway({ agentId: id, network, meta: owned.meta });
-		return json(res, 200, { data: { policy, runway } });
+		return json(res, 200, { data: { policy, runway, spend_limits: spendLimits } });
 	} catch (e) {
 		return serverError(res, 500, 'runway_failed', e);
 	}

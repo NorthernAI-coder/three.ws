@@ -31,6 +31,14 @@
 			<description>Posting a bounty on the agent labor market used to share one rate-limit budget with the MCP agent tools, so heavy use of one could spuriously throttle the other and pop a confusing 'rate limit exceeded' with no guidance. Each surface now has its own budget, and if you do post too fast the message tells you exactly how many seconds to wait before trying again.</description>
 		</item>
 		<item>
+			<title>The agent's walk preview now floats free across its whole card</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-29:The agent's walk preview now floats free across its whole card</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>On an agent's page, the 'Walk with this agent' preview used to sit as a small framed box pinned to the left with the rest of the card empty beside it. The box is gone: the avatar now walks on a transparent background — just the body, its soft shadow, and the joystick floating on the card — beside a panel that explains how to drive it: drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.</description>
+		</item>
+		<item>
 			<title>$THREE payments ride out brief price-feed blips instead of failing</title>
 			<link>https://three.ws/three-token</link>
 			<guid isPermaLink="false">2026-06-28:$THREE payments ride out brief price-feed blips instead of failing</guid>
@@ -373,14 +381,6 @@
 			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>On pages with a white accent color, the &quot;⑂ Save to my avatars&quot; button (shown on any avatar you don't own) rendered white text on a white background — effectively invisible. The button now picks its text color from the actual button background, so a light button gets black text and a dark button keeps white, keeping the label legible everywhere it appears.</description>
-		</item>
-		<item>
-			<title>The agent's walk preview now fills its whole card</title>
-			<link>https://three.ws/changelog</link>
-			<guid isPermaLink="false">2026-06-28:The agent's walk preview now fills its whole card</guid>
-			<pubDate>Sun, 28 Jun 2026 12:00:00 GMT</pubDate>
-			<category>improvement</category>
-			<description>On an agent's page, the 'Walk with this agent' preview used to sit as a small box pinned to the left with the rest of the card empty beside it. It's now a proper two-column panel: the live avatar walks on the left while the right side explains how to drive it — drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.</description>
 		</item>
 		<item>
 			<title>The Agents directory now lists every on-chain agent, not just ours</title>

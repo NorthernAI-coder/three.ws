@@ -36,7 +36,10 @@ import {
 	releaseSpendReservation,
 	updateCustodyEvent,
 	recordCustodyEvent,
+	getSpendLimits,
 } from '../_lib/agent-trade-guards.js';
+import { writeScreenFrame } from '../_lib/agent-screen-frame.js';
+import { hirePhaseFrame, hireCapMath } from '../_lib/a2a-hire-phases.js';
 import { payExternalX402, resolveSpendEnabled } from '../_lib/x402-user-payer.js';
 import { serviceResourceUrl } from '../_lib/agent-paid-services.js';
 import { recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
@@ -107,6 +110,42 @@ export default wrap(async (req, res) => {
 		return error(res, 409, 'no_wallet', 'this agent has no Solana wallet provisioned to pay from');
 	}
 
+	// ── Live hire visualizer: push one screen frame per real milestone ──────
+	// Viewers on /agent-screen?agentId=<hirer> watch this hire happen. Every push
+	// is fire-and-forget and isolated in its own try/catch by writeScreenFrame —
+	// a frame write must NEVER block or fail a real settlement.
+	let hireRow = null;
+	let baseCtx = {}; // filled once the offer resolves; merged into every phase
+	const limits = getSpendLimits(hirer.meta);
+	const pushPhase = (phase, extra = {}) => {
+		const frame = hirePhaseFrame(phase, {
+			...baseCtx,
+			hireId: hireRow?.id ?? null,
+			hirerId: hirerAgentId,
+			hirerName: hirer.name || null,
+			...extra,
+		});
+		writeScreenFrame(hirerAgentId, frame).catch(() => {});
+	};
+	// Build the badge cap object from the agent's real spend policy.
+	const capBadge = (dailySpentUsd, priceUsd) => {
+		const m = hireCapMath({
+			usd: priceUsd,
+			maxUsd: typeof maxUsd === 'number' ? maxUsd : null,
+			perTxUsd: limits.per_tx_usd,
+			dailyUsd: limits.daily_usd,
+			dailySpentUsd,
+		});
+		return {
+			perCallCap: m.perCallCap,
+			dailyUsd: m.dailyUsd,
+			dailyRemaining: dailySpentUsd != null ? m.dailyRemainingAfter : m.dailyRemainingBefore,
+			overCap: m.overCap,
+		};
+	};
+
+	pushPhase('discover', { slug: serviceSlug });
+
 	// ── Resolve the provider's offer ────────────────────────────────────────
 	const offer = await getOfferBySlug(serviceSlug);
 	if (!offer) return error(res, 404, 'offer_not_found', `no service offer at ${serviceSlug}`);
@@ -121,8 +160,22 @@ export default wrap(async (req, res) => {
 	const usd = atomicsToUsdc(offer.price_atomics);
 	const priceNetwork = offer.network === 'solana' ? 'solana' : 'base';
 
+	// The hire settles USDC on Solana mainnet; explorer links default to that
+	// cluster. Provider/price context is now known — every later phase carries it.
+	baseCtx = {
+		slug: offer.slug,
+		skill: offer.name,
+		providerName: offer.provider.name || null,
+		providerId: offer.provider.id,
+		usd,
+		maxUsd: typeof maxUsd === 'number' ? maxUsd : null,
+		network: 'mainnet',
+	};
+	pushPhase('quote', { cap: capBadge(null, usd) });
+
 	// Owner-set per-call ceiling for this hire (can only lower the price gate).
 	if (typeof maxUsd === 'number' && Number.isFinite(maxUsd) && usd > maxUsd + 1e-9) {
+		pushPhase('over_cap', { cap: capBadge(null, usd) });
 		return error(res, 402, 'over_cap', `this service costs $${usd.toFixed(2)}, above your $${maxUsd.toFixed(2)} per-call limit`, {
 			price_usd: usd,
 			max_usd: maxUsd,
@@ -134,7 +187,6 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── Idempotency: never double-charge a retried hire ─────────────────────
-	let hireRow;
 	try {
 		const { row, existing } = await recordHire({
 			hirerAgentId,
@@ -186,9 +238,18 @@ export default wrap(async (req, res) => {
 		});
 		reservationId = reservation.reservationId;
 		await sql`UPDATE agent_hires SET spend_reservation_id = ${reservationId}, updated_at = now() WHERE id = ${hireRow.id}`;
+		// Spend is held within the agent's caps — show the badge with real headroom.
+		pushPhase('reserved', { cap: capBadge(Number(reservation.dailySpentUsd ?? 0), usd) });
 	} catch (err) {
 		await updateHire(hireRow.id, { status: 'failed', error: err?.message || 'spend policy blocked' });
 		if (err instanceof SpendLimitError) {
+			// A cap/freeze block at reserve time renders as the amber "skipped" card,
+			// not a silent gap. over_cap covers per-tx/daily/owner-cap exceedance.
+			const capCode = err.code === 'per_tx_exceeded' || err.code === 'daily_exceeded';
+			pushPhase(capCode ? 'over_cap' : 'failed', {
+				cap: capBadge(null, usd),
+				error: capCode ? undefined : err.message,
+			});
 			return error(res, err.status || 403, err.code || 'spend_blocked', err.message, err.detail || {});
 		}
 		console.error('[a2a-hire] reserve failed', err?.message || err);
@@ -196,6 +257,9 @@ export default wrap(async (req, res) => {
 	}
 
 	// ── Pay over the real x402 rails (settles to the provider's wallet) ──────
+	// The remote skill runs inside this call (verify → work → settle). Narrate the
+	// "running" beat before it; the coin animation fires only on the settled frame.
+	pushPhase('running');
 	let payment;
 	try {
 		payment = await payExternalX402({
@@ -213,12 +277,20 @@ export default wrap(async (req, res) => {
 		await updateHire(hireRow.id, { status: 'failed', error: err?.message || String(err) });
 		const code = err?.code || 'payment_failed';
 		const status = code === 'spend_disabled' ? 501 : code === 'no_wallet' || code === 'no_solana_wallet' ? 409 : 502;
+		// Verify-then-settle means no funds moved — say so on the screen, no coin.
+		pushPhase('failed', { error: err?.message || code });
 		console.error('[a2a-hire] payment failed', code, err?.message || err);
 		return error(res, status, code, `the hire did not complete — no funds were moved: ${err?.message || code}`);
 	}
 
 	const paymentSignature = receiptSignature(payment.receipt);
 	const payerAddress = payment.payer || hirer.meta.solana_address;
+
+	// Real USDC has settled to the provider — this is the frame the coin animation
+	// fires on. Then the delivery beat with a short summary of the provider's work.
+	pushPhase('settled', { txSig: paymentSignature, cap: capBadge(null, usd) });
+	const deliveredSummary = summarizeResult(payment.result);
+	pushPhase('delivered', { txSig: paymentSignature, resultSummary: deliveredSummary });
 
 	// Finalize the spend reservation as confirmed (real, settled).
 	await updateCustodyEvent(reservationId, {
@@ -268,6 +340,16 @@ export default wrap(async (req, res) => {
 		invocationError = err?.message || String(err);
 		console.error('[a2a-hire] invocation receipt failed', invocationError);
 	}
+
+	// Terminal beat: the receipt card resolves with both real signatures. If the
+	// invocation write failed we still emit `recorded` (without an invocation sig)
+	// so the viewer sees a completed hire, with the settlement proof intact.
+	pushPhase('recorded', {
+		txSig: paymentSignature,
+		invocationSig: invocation?.signature || null,
+		resultSummary: deliveredSummary,
+		error: invocationError || undefined,
+	});
 
 	// ── Finalize the hire ───────────────────────────────────────────────────
 	const finalized = await updateHire(hireRow.id, {

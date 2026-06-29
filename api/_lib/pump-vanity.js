@@ -15,6 +15,11 @@ const BASE58_CHARS = new Set(BASE58_ALPHABET);
 const MAX_PATTERN_LENGTH = 6;
 const DEFAULT_MAX_ITERATIONS = 2_000_000;
 const YIELD_EVERY = 10_000;
+// How often (in attempts) onProgress fires. Aligned to a yield boundary so a
+// sample is emitted right after the loop hands control back to the event loop —
+// the live grind runner turns each sample into one screen frame, then throttles
+// its own pushes (~4/sec) to respect the frame TTL and Redis quota.
+const PROGRESS_EVERY = 25_000;
 // Wall-clock deadline is checked more often than we yield so a maxMs budget
 // overshoots by at most ~this-many keypairs (a fraction of a second) instead of
 // a full YIELD_EVERY block — keeps a serverless grind well inside maxDuration.
@@ -96,7 +101,10 @@ export function estimateAttempts({ prefix, suffix, ignoreCase = false } = {}) {
  * @param {number} [opts.maxMs] — wall-clock budget in ms (default Infinity). Bails
  *   with a `vanity_timeout` error before this elapses so a serverless invocation
  *   returns a clean 504 instead of being hard-killed by the platform's runtime limit.
- * @param {(attempts:number,rate:number)=>void} [opts.onProgress] — every 1k attempts
+ * @param {(sample:{iterations:number,elapsedMs:number,attemptsPerSec:number,sampleAddress:string})=>void} [opts.onProgress]
+ *   — fired every PROGRESS_EVERY (25k) attempts with real, monotonic numbers. iterations
+ *   and elapsedMs only ever increase; attemptsPerSec is the instantaneous windowed rate;
+ *   sampleAddress is the actual candidate just generated (for on-screen texture).
  * @returns {Promise<{ keypair: Keypair, iterations: number, durationMs: number }>}
  */
 export async function grindMintKeypair({
@@ -106,6 +114,7 @@ export async function grindMintKeypair({
 	maxIterations = DEFAULT_MAX_ITERATIONS,
 	maxMs = Infinity,
 	onProgress,
+	progressEvery = PROGRESS_EVERY,
 } = {}) {
 	if (!prefix && !suffix) {
 		const kp = Keypair.generate();
@@ -113,6 +122,7 @@ export async function grindMintKeypair({
 	}
 	if (prefix) validatePattern(prefix, 'prefix');
 	if (suffix) validatePattern(suffix, 'suffix');
+	const sampleEvery = Math.max(1, Math.floor(progressEvery) || PROGRESS_EVERY);
 
 	const targetPrefix = prefix ? (ignoreCase ? prefix.toLowerCase() : prefix) : null;
 	const targetSuffix = suffix ? (ignoreCase ? suffix.toLowerCase() : suffix) : null;
@@ -140,6 +150,24 @@ export async function grindMintKeypair({
 
 		const kp = Keypair.generate();
 		const addr = kp.publicKey.toBase58();
+
+		// Emit a live progress sample from real numbers. attemptsPerSec is the
+		// instantaneous rate over the window since the previous sample, never a
+		// synthetic counter. sampleAddress is the actual candidate just generated,
+		// surfaced purely for on-screen texture (the "almost right" flicker).
+		if (onProgress && i % sampleEvery === 0) {
+			const now = Date.now();
+			const windowMs = now - lastProgressAt;
+			const windowAttempts = i - lastProgressAttempts;
+			const attemptsPerSec = windowMs > 0 ? (windowAttempts / windowMs) * 1000 : 0;
+			lastProgressAt = now;
+			lastProgressAttempts = i;
+			try {
+				onProgress({ iterations: i, elapsedMs: now - start, attemptsPerSec, sampleAddress: addr });
+			} catch {
+				// A misbehaving progress sink must never abort a paid grind.
+			}
+		}
 
 		const head = ignoreCase ? addr.substring(0, pLen).toLowerCase() : addr.substring(0, pLen);
 		if (targetPrefix && head !== targetPrefix) {

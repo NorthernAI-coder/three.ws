@@ -477,7 +477,19 @@ export async function executeSell({ cfg, position, reason }) {
 			`;
 			const pnlSol = lamportsToSol(pnl);
 			log.trade('sell', { ...tag, venue, mode: cfg.mode, sig, pnl_sol: pnlSol, pnl_pct: pnlPct.toFixed(1) });
-			screenPush(`Sold $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()} — ${pnlPct >= 0 ? 'profit' : 'loss'}: ${pnlSol >= 0 ? '+' : ''}${pnlSol.toFixed(4)} SOL`, 'trade');
+			// Price the realized SOL delta into USD best-effort for the live PnL
+			// ticker. A pricing hiccup just omits realizedUsd — the viewer's ticker
+			// falls back to SOL, which is the unit the sell actually returned.
+			let realizedUsd = null;
+			try {
+				const solUsd = await lamportsToUsd(1_000_000_000n);
+				if (Number.isFinite(solUsd)) realizedUsd = pnlSol * solUsd;
+			} catch { /* pricing offline — SOL-only ticker */ }
+			screenPush(
+				`Sold $${(position.symbol || position.mint.slice(0, 6)).toUpperCase()} — ${pnlPct >= 0 ? 'profit' : 'loss'}: ${pnlSol >= 0 ? '+' : ''}${pnlSol.toFixed(4)} SOL`,
+				'trade',
+				{ phase: 'exit', mint: position.mint, symbol: position.symbol || null, solDelta: pnlSol, pct: pnlPct, realizedUsd },
+			);
 			notifySell({ agentName: position.agent_name || position.agent_id, symbol: position.symbol, mint: position.mint, pnlSol, pnlPct, exitReason: reason, mode: cfg.mode, sig, chatId: position.telegram_chat_id || null });
 			return { status: 'closed', sig, pnl: pnl.toString(), venue };
 		} catch (err) {

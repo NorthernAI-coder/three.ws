@@ -27,7 +27,7 @@ import { createReasoningStripper } from '../_lib/strip-reasoning.js';
 // models. Every paid first-party model (Claude, GPT-4o, o3, DashScope, DeepSeek)
 // requires sign-in so an unauthenticated script can't drain the server's billed
 // API keys. Mirrors the anon-provider gate in api/chat.js.
-const ANON_BRAIN_PROVIDERS = new Set([
+export const ANON_BRAIN_PROVIDERS = new Set([
 	'gpt-oss-120b',
 	'nvidia-nemotron-120b',
 	'nvidia-nemotron-super-49b',
@@ -403,7 +403,7 @@ async function streamWatsonx(res, { messages, system, maxTokens, t0 }) {
 	res.end();
 }
 
-function validateMessages(input) {
+export function validateMessages(input) {
 	if (!Array.isArray(input)) {
 		throw Object.assign(new Error('messages must be an array'), { status: 400 });
 	}
@@ -424,7 +424,7 @@ function validateMessages(input) {
 	return out;
 }
 
-function getAvailableProviders() {
+export function getAvailableProviders() {
 	return Object.entries(PROVIDERS).map(([key, spec]) => {
 		const available = Boolean(buildPrimary(spec));
 		return {
@@ -439,71 +439,43 @@ function getAvailableProviders() {
 	});
 }
 
-export default wrap(async function handler(req, res) {
-	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
-
-	if (req.method === 'GET') {
-		const providers = getAvailableProviders();
-		res.setHeader('content-type', 'application/json');
-		res.setHeader('cache-control', 'public, s-maxage=60, stale-while-revalidate=120');
-		res.end(JSON.stringify({ providers }));
-		return;
-	}
-
-	if (!method(req, res, ['POST'])) return;
-
-	// Auth + rate limiting. The paid flagship models run on the server's billed
-	// API keys, so an unmetered, unauthenticated proxy is a direct financial-drain
-	// vector. Authenticated callers get a generous per-user budget; anonymous
-	// callers a tight per-IP one and access only to the free-tier providers.
-	const session = await getSessionUser(req);
-	const bearer = session ? null : await authenticateBearer(extractBearer(req));
-	const userId = session?.id ?? bearer?.userId ?? null;
-	if (userId) {
-		const rl = await limits.brainChatUser(userId);
-		if (!rl.success) return rateLimited(res, rl, 'too many chat requests, slow down');
-	} else {
-		const rl = await limits.brainChatIp(clientIp(req));
-		if (!rl.success) return rateLimited(res, rl, 'too many anonymous chat requests, try again shortly');
-	}
-
-	let body;
-	try {
-		body = await readJson(req, 200_000);
-	} catch (e) {
-		return error(res, e.status || 400, 'bad_request', e.message);
-	}
-
-	const providerKey = String(body.provider || 'gpt-oss-120b');
+// Resolve a provider key into a streamable plan: the spec, its primary route
+// (native key or OpenRouter mirror), and a distinct OpenRouter fallback when one
+// exists. Returns { ok: false, status, code, message, available? } when the key
+// is unknown or no route is configured, so every caller (the brain page handler
+// and the live Q&A concierge) reports the same errors identically.
+export function resolveBrain(providerKey) {
 	const spec = PROVIDERS[providerKey];
 	if (!spec) {
-		return error(res, 400, 'unknown_provider', `unknown provider: ${providerKey}`, {
+		return {
+			ok: false,
+			status: 400,
+			code: 'unknown_provider',
+			message: `unknown provider: ${providerKey}`,
 			available: Object.keys(PROVIDERS),
-		});
+		};
 	}
-	// Paid first-party models are sign-in only — anonymous callers are clamped to
-	// the free tiers so they can't burn the server's billed Anthropic/OpenAI keys.
-	if (!userId && !ANON_BRAIN_PROVIDERS.has(providerKey)) {
-		return error(res, 401, 'unauthorized', 'sign in to use this model');
-	}
-
 	const primary = buildPrimary(spec);
 	if (!primary) {
-		return error(res, 503, 'provider_not_configured',
-			`No API key for ${spec.label}. Add your own key in Account → AI Provider Keys to unlock this model.`);
+		return {
+			ok: false,
+			status: 503,
+			code: 'provider_not_configured',
+			message: `No API key for ${spec.label}. Add your own key in Account → AI Provider Keys to unlock this model.`,
+		};
 	}
-	// OpenRouter escape hatch for a native-provider outage (quota/credits/rate).
-	const fallbackModel = buildFallback(spec, primary);
+	return { ok: true, spec, primary, fallbackModel: buildFallback(spec, primary) };
+}
 
-	let messages;
-	try {
-		messages = validateMessages(body.messages);
-	} catch (e) {
-		return error(res, e.status || 400, 'bad_request', e.message);
-	}
-
-	const system = typeof body.system === 'string' ? body.system.slice(0, 8000) : undefined;
-	const maxTokens = Math.min(Math.max(Number(body.maxTokens) || 4096, 64), spec.maxOutput);
+// Stream a brain completion to an SSE `res`: sets the event-stream headers, emits
+// the `meta` event, then runs the requested route → OpenRouter mirror → free-tier
+// safety-net chain, emitting `first` / chunk / `done` / `error` / `fallback`
+// events. Shared by POST /api/brain/chat and POST /api/agent-ask so both inherit
+// the same tuned timeout budget and never-error-while-a-free-route-can-answer
+// behaviour. The caller owns auth, rate limiting, and message validation; this
+// owns the transport. Resolve `plan` via resolveBrain() first.
+export async function streamBrain(res, { plan, providerKey, messages, system, maxTokens }) {
+	const { spec, primary, fallbackModel } = plan;
 
 	res.statusCode = 200;
 	res.setHeader('content-type', 'text/event-stream; charset=utf-8');
@@ -673,6 +645,73 @@ export default wrap(async function handler(req, res) {
 			}
 		}
 	}
+}
+
+export default wrap(async function handler(req, res) {
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS' })) return;
+
+	if (req.method === 'GET') {
+		const providers = getAvailableProviders();
+		res.setHeader('content-type', 'application/json');
+		res.setHeader('cache-control', 'public, s-maxage=60, stale-while-revalidate=120');
+		res.end(JSON.stringify({ providers }));
+		return;
+	}
+
+	if (!method(req, res, ['POST'])) return;
+
+	// Auth + rate limiting. The paid flagship models run on the server's billed
+	// API keys, so an unmetered, unauthenticated proxy is a direct financial-drain
+	// vector. Authenticated callers get a generous per-user budget; anonymous
+	// callers a tight per-IP one and access only to the free-tier providers.
+	const session = await getSessionUser(req);
+	const bearer = session ? null : await authenticateBearer(extractBearer(req));
+	const userId = session?.id ?? bearer?.userId ?? null;
+	if (userId) {
+		const rl = await limits.brainChatUser(userId);
+		if (!rl.success) return rateLimited(res, rl, 'too many chat requests, slow down');
+	} else {
+		const rl = await limits.brainChatIp(clientIp(req));
+		if (!rl.success) return rateLimited(res, rl, 'too many anonymous chat requests, try again shortly');
+	}
+
+	let body;
+	try {
+		body = await readJson(req, 200_000);
+	} catch (e) {
+		return error(res, e.status || 400, 'bad_request', e.message);
+	}
+
+	const providerKey = String(body.provider || 'gpt-oss-120b');
+	const spec = PROVIDERS[providerKey];
+	if (!spec) {
+		return error(res, 400, 'unknown_provider', `unknown provider: ${providerKey}`, {
+			available: Object.keys(PROVIDERS),
+		});
+	}
+	// Paid first-party models are sign-in only — anonymous callers are clamped to
+	// the free tiers so they can't burn the server's billed Anthropic/OpenAI keys.
+	if (!userId && !ANON_BRAIN_PROVIDERS.has(providerKey)) {
+		return error(res, 401, 'unauthorized', 'sign in to use this model');
+	}
+
+	const plan = resolveBrain(providerKey);
+	if (!plan.ok) {
+		return error(res, plan.status, plan.code, plan.message,
+			plan.available ? { available: plan.available } : undefined);
+	}
+
+	let messages;
+	try {
+		messages = validateMessages(body.messages);
+	} catch (e) {
+		return error(res, e.status || 400, 'bad_request', e.message);
+	}
+
+	const system = typeof body.system === 'string' ? body.system.slice(0, 8000) : undefined;
+	const maxTokens = Math.min(Math.max(Number(body.maxTokens) || 4096, 64), plan.spec.maxOutput);
+
+	await streamBrain(res, { plan, providerKey, messages, system, maxTokens });
 });
 
 // OpenRouter (and some OpenAI-compatible backends) reject a request whose

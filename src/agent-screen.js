@@ -31,6 +31,12 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone as cloneSkinnedScene } from 'three/addons/utils/SkeletonUtils.js';
 import { AnimationManager } from './animation-manager.js';
 import { createAgentScreenClient } from './shared/agent-screen-client.js';
+import { buildRunCommand, buildRunCommandHtml, RUNTIME_LABELS } from './agent-screen-runcmd.js';
+import { createTreasuryCockpit } from './agent-screen-treasury.js';
+import { MirrorPanel } from './agent-screen-mirror.js';
+import {
+	parsePnlDelta, accumulatePnl, emptyPnlState, unrealizedTotalUsd, emoteForExit, formatSol, formatUsd,
+} from './shared/trade-pnl.js';
 import { agentAvatarGlb } from './shared/agent-3d.js';
 import { getMeshoptDecoder } from './viewer/internal.js';
 import { ScreenshotModal } from './components/screenshot-modal.js';
@@ -362,9 +368,11 @@ function defaultLayout() {
 		zenCam: true,          // keep the avatar cam visible in zen by default
 		fit: 'contain',        // 'contain' | 'cover'
 		panels: {
-			cam:   { hidden: false, min: false, x: null, y: null, w: 260 },
-			log:   { hidden: false, min: false, x: null, y: null, w: 320, h: null },
-			stats: { hidden: true,  min: false, x: null, y: null, w: 218 },
+			cam:      { hidden: false, min: false, x: null, y: null, w: 260 },
+			log:      { hidden: false, min: false, x: null, y: null, w: 320, h: null },
+			stats:    { hidden: true,  min: false, x: null, y: null, w: 218 },
+			treasury: { hidden: false, min: false, x: null, y: null, w: 344, h: null },
+			mirror:   { hidden: true,  min: false, x: null, y: null, w: 380, h: null },
 		},
 	};
 }
@@ -476,6 +484,34 @@ async function boot(id) {
 					<div class="asc-stat-row"><span class="asc-stat-key">Uptime</span><span class="asc-stat-val dim" id="st-uptime">—</span></div>
 				</div>
 			</div>
+		</div>
+
+		<!-- Treasury cockpit panel -->
+		<div class="asc-panel asc-panel--treasury" id="asc-panel-treasury" data-panel="treasury">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Treasury</span>
+				<div class="asc-panel-btns">
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (T)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body" id="asc-treasury-body"></div>
+			<div class="asc-resize" data-resize="wh"></div>
+		</div>
+
+		<!-- Copy-trade mirror panel -->
+		<div class="asc-panel asc-panel--mirror" id="asc-panel-mirror" data-panel="mirror">
+			<div class="asc-panel-head" data-drag>
+				<span class="asc-panel-grip">⠿</span>
+				<span class="asc-panel-title">Mirror</span>
+				<div class="asc-panel-btns">
+					<button class="asc-panel-btn" data-act="min" title="Minimize">▁</button>
+					<button class="asc-panel-btn" data-act="close" title="Hide (M)">✕</button>
+				</div>
+			</div>
+			<div class="asc-panel-body" id="asc-mirror-body"></div>
+			<div class="asc-resize" data-resize="wh"></div>
 		</div>
 
 		<!-- Task input -->
@@ -594,11 +630,19 @@ async function boot(id) {
 							if (!r.ok) throw new Error(`HTTP ${r.status} fetching animation manifest`);
 							return r.json();
 						});
-					const needed = manifest.filter((d) => d.name === 'idle');
-					if (needed.length) {
-						webcamAnimManager.setAnimationDefs(needed);
-						await webcamAnimManager.loadAll();
-						webcamAnimManager.play('idle');
+					// Register the idle loop plus the trade-reaction one-shots so the
+					// avatar can celebrate a win, slump on a loss, and wave on session
+					// start. The one-shots load lazily on first playOnce — only `idle`
+					// is forced up front so the head is alive immediately.
+					const REACTION_CLIPS = ['idle', 'celebrate', 'defeated', 'wave'];
+					const defs = manifest.filter((d) => REACTION_CLIPS.includes(d.name));
+					const idleDef = defs.filter((d) => d.name === 'idle');
+					if (defs.length) {
+						webcamAnimManager.setAnimationDefs(defs);
+						if (idleDef.length) {
+							await webcamAnimManager.ensureLoaded('idle');
+							webcamAnimManager.play('idle');
+						}
 					}
 				} catch (err) {
 					console.warn('[agent-screen] idle clip load failed:', err);
@@ -730,11 +774,18 @@ async function boot(id) {
 		return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	}
 
-	function addLogEntry({ ts, activity, type }) {
+	function addLogEntry({ ts, activity, type, pnl }) {
 		if (logEmpty) { logEmpty.remove(); logEmpty = null; }
 		const entry = document.createElement('div');
 		const typeLabel = type || 'activity';
 		entry.className = `asc-log-entry type-${typeLabel}`;
+		// Tint realized exits by sign so the log reads as a green/red P&L tape.
+		const exitDelta = parsePnlDelta(pnl);
+		if (exitDelta?.phase === 'exit') {
+			const v = exitDelta.solDelta != null ? exitDelta.solDelta : exitDelta.realizedUsd;
+			if (v > 0) entry.classList.add('pnl-pos');
+			else if (v < 0) entry.classList.add('pnl-neg');
+		}
 		entry.innerHTML = `
 			<span class="asc-log-time">${fmtTime(ts || Date.now())}</span>
 			<span class="asc-log-type ${typeLabel}">${typeLabel}</span>
@@ -768,7 +819,110 @@ async function boot(id) {
 		});
 	});
 
+	// ── live PnL ticker ───────────────────────────────────────────────────
+	// Folds real 'trade' frames into a running session total (realized +
+	// unrealized, from real fills) and drives a transform-based count-up. Every
+	// number comes from an actual fill — no fake progress. Frames are deduped by
+	// timestamp so the reconnect backfill can't double-count an exit.
+	const pnlBtn = document.getElementById('asc-pnl');
+	const pnlValueEl = document.getElementById('asc-pnl-value');
+	const pnlDetailEl = document.getElementById('asc-pnl-detail');
+	let pnlState = emptyPnlState();
+	const seenPnlTs = new Set();
+	let sawUsd = false;           // at least one fill priced into USD
+	let pnlDetailed = false;      // compact ⇄ detailed toggle
+	let pnlAnimFrom = 0;          // count-up animation origin (primary unit)
+	let pnlAnimTo = 0;
+	let pnlAnimStart = 0;
+	let pnlAnimRaf = null;
+
+	// Primary display number: USD when any fill priced, else realized SOL.
+	function pnlPrimary() {
+		if (sawUsd) return pnlState.realizedUsd + unrealizedTotalUsd(pnlState);
+		return pnlState.realizedSol;
+	}
+
+	function paintPnl(shownPrimary) {
+		const sign = shownPrimary > 1e-9 ? 'pos' : shownPrimary < -1e-9 ? 'neg' : '';
+		pnlBtn.classList.toggle('pos', sign === 'pos');
+		pnlBtn.classList.toggle('neg', sign === 'neg');
+		pnlValueEl.textContent = sawUsd
+			? (formatUsd(shownPrimary) ?? '—')
+			: formatSol(shownPrimary);
+		if (pnlDetailed) {
+			pnlDetailEl.hidden = false;
+			const wl = `${pnlState.wins}W · ${pnlState.losses}L`;
+			const realized = sawUsd ? formatSol(pnlState.realizedSol) : (formatUsd(pnlState.realizedUsd) ?? null);
+			const unreal = unrealizedTotalUsd(pnlState);
+			const unrealStr = sawUsd && Math.abs(unreal) > 1e-9 ? ` · unreal ${formatUsd(unreal)}` : '';
+			pnlDetailEl.textContent = `${wl}${realized ? ` · ${realized}` : ''}${unrealStr}`;
+		} else {
+			pnlDetailEl.hidden = true;
+		}
+	}
+
+	function animatePnl() {
+		const DURATION = 520;
+		const tick = (now) => {
+			const t = Math.min(1, (now - pnlAnimStart) / DURATION);
+			const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+			const shown = pnlAnimFrom + (pnlAnimTo - pnlAnimFrom) * eased;
+			paintPnl(shown);
+			if (t < 1) pnlAnimRaf = requestAnimationFrame(tick);
+			else pnlAnimRaf = null;
+		};
+		if (pnlAnimRaf) cancelAnimationFrame(pnlAnimRaf);
+		pnlAnimRaf = requestAnimationFrame(tick);
+	}
+
+	// Ingest one trade frame/log entry. Returns the parsed exit delta (or null)
+	// so the caller can fire the matching avatar emote on a fresh exit only.
+	function ingestTrade(entry) {
+		const delta = parsePnlDelta(entry?.pnl);
+		if (!delta) return null;
+		const ts = Number(entry.ts) || 0;
+		// Dedupe additive exits by timestamp; idempotent holds may always re-apply.
+		if (delta.phase === 'exit') {
+			if (ts && seenPnlTs.has(ts)) return null;
+			if (ts) seenPnlTs.add(ts);
+		}
+		if (delta.realizedUsd != null) sawUsd = true;
+		pnlState = accumulatePnl(pnlState, delta);
+
+		pnlBtn.hidden = false;
+		pnlAnimFrom = Number.isFinite(pnlAnimTo) ? pnlAnimTo : 0;
+		pnlAnimTo = pnlPrimary();
+		pnlAnimStart = performance.now();
+		animatePnl();
+		// brief bump only on a realized exit (the watchable moment)
+		if (delta.phase === 'exit') {
+			pnlBtn.classList.remove('bump');
+			void pnlBtn.offsetWidth; // restart the keyframe
+			pnlBtn.classList.add('bump');
+		}
+		return delta;
+	}
+
+	// Fire the avatar reaction for a realized exit. Gated on a skeleton-driveable
+	// rig so avatars that can't take canonical clips simply skip the emote (never
+	// a T-pose). Loads the one-shot lazily, then settles back to idle.
+	function emoteForTrade(delta) {
+		const clip = emoteForExit(delta);
+		if (!clip) return;
+		if (!webcamAnimManager || !webcamAnimManager.supportsCanonicalClips()) return;
+		webcamAnimManager.playOnce(clip, { settleTo: 'idle' }).catch(() => {});
+	}
+
+	// compact ⇄ detailed toggle (click or keyboard focus + Enter/Space on the button)
+	pnlBtn.addEventListener('click', () => {
+		pnlDetailed = !pnlDetailed;
+		paintPnl(pnlAnimTo);
+	});
+
 	// ── SSE client ─────────────────────────────────────────────────────────
+	let greeted = false; // wave once, on the first live connection only
+	let treasuryCockpit = null; // set once the Treasury panel mounts (below)
+	let mirrorPanel = null;     // set once the Mirror panel mounts (below)
 	const client = createAgentScreenClient(id, {
 		onOpen({ agentName: n }) {
 			if (n) { agentNameEl.textContent = n; agentName = n; webcamName.textContent = n; }
@@ -778,10 +932,24 @@ async function boot(id) {
 			setLive();
 			recordFrame(frame);
 			if (frame.data) renderFrame(frame);
-			if (frame.activity) addLogEntry(frame);
+			if (frame.activity) { addLogEntry(frame); treasuryCockpit?.observeLog([frame]); }
+			if (frame.type === 'trade') {
+				const delta = ingestTrade(frame);
+				if (delta) emoteForTrade(delta);
+			}
+			// Greet on the first live frame if onOpen's metadata event was missed.
+			if (!greeted) {
+				greeted = true;
+				if (webcamAnimManager?.supportsCanonicalClips()) {
+					webcamAnimManager.playOnce('wave', { settleTo: 'idle' }).catch(() => {});
+				}
+			}
 		},
 		onLog(entries) {
-			entries.forEach(addLogEntry);
+			// Backfill: render the rows and fold their PnL in (deduped by ts), but
+			// don't emote — these are history, not a fresh fill happening on camera.
+			entries.forEach((e) => { addLogEntry(e); ingestTrade(e); });
+			treasuryCockpit?.observeLog(entries);
 		},
 		onDark() { setDark(); },
 		onError() {
@@ -847,6 +1015,8 @@ async function boot(id) {
 		cam: document.getElementById('asc-panel-cam'),
 		log: document.getElementById('asc-panel-log'),
 		stats: document.getElementById('asc-panel-stats'),
+		treasury: document.getElementById('asc-panel-treasury'),
+		mirror: document.getElementById('asc-panel-mirror'),
 	};
 	let zTop = 30;
 
@@ -860,7 +1030,7 @@ async function boot(id) {
 		const sr = stageEl.getBoundingClientRect();
 		// width / height
 		if (p.w) el.style.width = `${p.w}px`;
-		if (p.h && name === 'log') el.style.height = `${p.h}px`;
+		if (p.h && (name === 'log' || name === 'treasury' || name === 'mirror')) el.style.height = `${p.h}px`;
 		// default position if none saved yet
 		const pw = el.offsetWidth || p.w || 240;
 		const ph = el.offsetHeight || 200;
@@ -868,6 +1038,8 @@ async function boot(id) {
 		if (x == null || y == null) {
 			const M = 16;
 			if (name === 'stats') { x = M; y = M; }
+			else if (name === 'treasury') { x = M; y = M + 6; } // treasury → top-left cockpit
+			else if (name === 'mirror') { x = M; y = sr.height - ph - M; } // mirror → bottom-left
 			else if (name === 'log') { x = sr.width - pw - M; y = M; }
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
 		}
@@ -965,6 +1137,27 @@ async function boot(id) {
 		});
 		el.querySelector('[data-act="close"]').addEventListener('click', () => setPanelHidden(name, true));
 	}
+
+	// ── Treasury cockpit: live autonomous-treasury control surface ───────────
+	// Mounts into the Treasury panel body; fetches its own real data (owner-only
+	// GET, 403 ⇒ viewer explainer) and ticks the live balance. The SSE handlers
+	// above forward activity into it via treasuryCockpit?.observeLog(...).
+	treasuryCockpit = createTreasuryCockpit({
+		agentId: id,
+		bodyEl: document.getElementById('asc-treasury-body'),
+		toast,
+	});
+
+	// ── Copy-trade mirror: live source/mirror cockpit ────────────────────────
+	// Owner drives the source-detect → re-quote → guarded-replicate loop and
+	// pushes the dual-column frame to the wall; a viewer sees a read-only armed
+	// state. Owns its own SSE to /api/pump/trades-stream (real PumpPortal feed).
+	mirrorPanel = new MirrorPanel({
+		body: document.getElementById('asc-mirror-body'),
+		agentId: id,
+		agentName,
+		onToast: toast,
+	});
 
 	function setPanelHidden(name, hidden) {
 		layout.panels[name].hidden = hidden;
@@ -1120,6 +1313,7 @@ async function boot(id) {
 	// Cleanup on unload
 	window.addEventListener('beforeunload', () => {
 		client.disconnect();
+		if (pnlAnimRaf) cancelAnimationFrame(pnlAnimRaf);
 		if (webcamRafId) cancelAnimationFrame(webcamRafId);
 		webcamAnimManager?.detach();
 		webcamRenderer.dispose();

@@ -19,6 +19,9 @@ const BASE58_CHARS = new Set(BASE58_ALPHABET);
 const MAX_PATTERN_LENGTH = 6;
 const DEFAULT_MAX_ITERATIONS = 2_000_000;
 const YIELD_EVERY = 10_000;
+// How often (in attempts) onProgress fires — aligned to a yield boundary. Kept
+// in sync with the canonical api/_lib/pump-vanity.js.
+const PROGRESS_EVERY = 25_000;
 
 function validatePattern(pattern, label) {
 	if (typeof pattern !== 'string' || pattern.length === 0) {
@@ -71,7 +74,8 @@ export function estimateAttempts({ prefix, suffix, ignoreCase = false } = {}) {
  * @param {string} [opts.suffix]      — required base58 suffix
  * @param {boolean} [opts.ignoreCase] — case-insensitive match
  * @param {number} [opts.maxIterations] — hard cap (default 2M)
- * @param {(attempts:number,rate:number)=>void} [opts.onProgress] — every 1k attempts
+ * @param {(sample:{iterations:number,elapsedMs:number,attemptsPerSec:number,sampleAddress:string})=>void} [opts.onProgress]
+ *   — fired every PROGRESS_EVERY (25k) attempts with real, monotonic numbers.
  * @returns {Promise<{ keypair: Keypair, iterations: number, durationMs: number }>}
  */
 export async function grindMintKeypair({
@@ -80,6 +84,7 @@ export async function grindMintKeypair({
 	ignoreCase = false,
 	maxIterations = DEFAULT_MAX_ITERATIONS,
 	onProgress,
+	progressEvery = PROGRESS_EVERY,
 } = {}) {
 	if (!prefix && !suffix) {
 		const kp = Keypair.generate();
@@ -87,6 +92,7 @@ export async function grindMintKeypair({
 	}
 	if (prefix) validatePattern(prefix, 'prefix');
 	if (suffix) validatePattern(suffix, 'suffix');
+	const sampleEvery = Math.max(1, Math.floor(progressEvery) || PROGRESS_EVERY);
 
 	const targetPrefix = prefix ? (ignoreCase ? prefix.toLowerCase() : prefix) : null;
 	const targetSuffix = suffix ? (ignoreCase ? suffix.toLowerCase() : suffix) : null;
@@ -100,6 +106,22 @@ export async function grindMintKeypair({
 	for (let i = 1; i <= maxIterations; i++) {
 		const kp = Keypair.generate();
 		const addr = kp.publicKey.toBase58();
+
+		// Emit a live progress sample from real numbers (kept in sync with the
+		// canonical api/_lib/pump-vanity.js).
+		if (onProgress && i % sampleEvery === 0) {
+			const now = Date.now();
+			const windowMs = now - lastProgressAt;
+			const windowAttempts = i - lastProgressAttempts;
+			const attemptsPerSec = windowMs > 0 ? (windowAttempts / windowMs) * 1000 : 0;
+			lastProgressAt = now;
+			lastProgressAttempts = i;
+			try {
+				onProgress({ iterations: i, elapsedMs: now - start, attemptsPerSec, sampleAddress: addr });
+			} catch {
+				// A misbehaving progress sink must never abort a paid grind.
+			}
+		}
 
 		const head = ignoreCase ? addr.substring(0, pLen).toLowerCase() : addr.substring(0, pLen);
 		if (targetPrefix && head !== targetPrefix) {

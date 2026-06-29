@@ -61,11 +61,30 @@ function renderTerminalFrame(newLine) {
 	return 'data:image/png;base64,' + canvas.toBuffer('image/png').toString('base64');
 }
 
-export function screenPush(activity, type = 'activity') {
+// Sanitize a trade PnL payload before it rides along on the frame: keep only
+// the known fields, coerce numbers, and drop NaN/∞ so a bad value can never
+// reach the viewer's ticker. Returns null when there's nothing usable.
+function sanitizePnl(pnl) {
+	if (!pnl || typeof pnl !== 'object') return null;
+	if (!['scored', 'buy', 'hold', 'exit'].includes(pnl.phase)) return null;
+	const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : undefined);
+	const out = { phase: pnl.phase };
+	if (typeof pnl.mint === 'string') out.mint = pnl.mint.slice(0, 64);
+	if (typeof pnl.symbol === 'string') out.symbol = pnl.symbol.slice(0, 32);
+	for (const k of ['solDelta', 'pct', 'realizedUsd', 'unrealizedUsd']) {
+		const n = num(pnl[k]);
+		if (n !== undefined) out[k] = n;
+	}
+	return out;
+}
+
+export function screenPush(activity, type = 'activity', pnl = null) {
 	if (!AGENT_JWT || !AGENT_ID) return;
 	const label = `[${type.toUpperCase()}] ${activity}`;
 	const data = renderTerminalFrame(label);
 	const frame = data ? { data, activity, type } : { activity, type };
+	const cleanPnl = sanitizePnl(pnl);
+	if (cleanPnl) frame.pnl = cleanPnl;
 	fetch(PUSH_URL, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json', authorization: `Bearer ${AGENT_JWT}` },
