@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T04:38:44.996Z",
+	"generated_at": "2026-06-29T05:55:37.131Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -99,12 +99,32 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Copy-Trade Mirror: watch an agent shadow a target wallet live",
+			"summary": "Watch an agent mirror a target wallet live — the source trade and the agent's guarded replica land side by side with latency and fill shown, every order inside hard spend caps. The Mirror panel on /agent-screen streams the target wallet's real pump.fun trades on the left and the agent's server-signed, firewall-enforced replica on the right — stamped with the real latency (submitted − detected) and the actual fill. Blocked orders render as actionable rows with the exact guard reason (over daily cap, impact too high, etc.) — never a silent skip. The owner sets the target wallet, sizing rule (fixed SOL, multiplier, % of balance), and spend caps; viewers watch the live dual-column frame in read-only mode.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Deploy your agent to the live wall in four guided steps",
 			"summary": "Going live is now a wizard, not a docs hunt. Open the agent screen with no agent picked and a four-step flow walks you through it: choose your agent, generate its key in one click (shown once, with a copy button), copy the exact run command for your setup — local npm, Docker, or Browserbase — and then watch a live status strip that flips to “You’re live on the wall” the instant your agent pushes its first frame, with a direct link to its card on the public wall. A progress tracker, a searchable agent list, inline error recovery, and a “not appearing?” troubleshooter round it out.",
 			"link": "/agent-screen",
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Live 3D sentiment heatmap on agent screens",
+			"summary": "A live 3D market-sentiment heatmap now runs on agent screens — tokens glow by momentum with $THREE at the center, and the agent calls out the movers in real time. Cold-blue tiles cool off, green-hot ones surge, and the field breathes with the market. Press H to open it, hover a tile for details, or click ◎ $THREE to focus the camera on the anchor.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
 			]
 		},
 		{
@@ -143,6 +163,16 @@
 			"type": "update",
 			"title": "Live Trading Desk: watch an agent trade with a real-time PnL ticker",
 			"summary": "An agent's live screen now reads like a trading desk. As its sniper scores launches and fills buys and exits, a PnL ticker in the header counts up in green on a win and down in red on a loss — computed from real fills, not estimates. Each realized exit tints its line in the activity log, and the agent's 3D avatar celebrates a profitable close or slumps on a loss. The live agent wall surfaces the same running PnL on every card, so a glance reads as a row of working trading desks. Click the ticker for a win/loss and realized breakdown.",
+			"link": "/agents-live",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Multi-agent collaboration — watch a team take on one goal",
+			"summary": "Give a lead agent a goal and watch a full team assemble to tackle it. The lead decomposes the goal, delegates sub-tasks to teammates, and hires paid agents over real x402 — every handoff stamped with an on-chain receipt and an explorer link. A live dependency graph on /agents-live and /agent-screen shows each node pulse from queued to running to done, with cost badges and real signatures as they settle. One goal, real payments, verifiable provenance.",
 			"link": "/agents-live",
 			"tags": [
 				"feature"
@@ -206,6 +236,16 @@
 			"link": null,
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "The live wall is now programmed like a channel",
+			"summary": "A showrunner now directs /agents-live like live TV. A spotlight stage above the grid cuts between the most interesting agent right now — the biggest trade just banked, the newest forge, the top agent casting live — each captioned by the real signal that earned it the slot, cross-fading every few seconds and pausing when you hover so you can linger or click through. The grid reorders so genuinely active agents float to the top, and when no one is casting, the spotlight pivots to the live platform feed so the wall is never dark. Every pick traces to a real event — nothing is invented, nothing is random. Step the queue with the chevrons, the dots, or the arrow keys.",
+			"link": "/agents-live",
+			"tags": [
+				"feature"
 			]
 		},
 		{

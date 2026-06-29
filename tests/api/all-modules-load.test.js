@@ -3,12 +3,27 @@
 // Catches broken import paths, wrong-stack imports, and placeholder code that
 // throws on module init. If this fails on a file that is intentionally a stub,
 // fix the stub or add it to SKIP_MODULES below with a clear reason.
-import { describe, it, expect } from 'vitest';
-import { readdirSync, statSync } from 'node:fs';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { readdirSync, statSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const API_DIR = join(process.cwd(), 'api');
+
+// api/chat-skills.js and api/skills-manifest.js read data/_generated/skill-metadata.json
+// at import time (a build artifact produced by `prebuild`, gitignored, never written
+// by `npm test`). On a clean checkout the file is absent and those two modules throw
+// ENOENT before their handler runs. Generate it the same way the build does — via the
+// real generator script, no mock — so this smoke test is self-sufficient. Idempotent:
+// skipped when the artifact already exists (e.g. after a prior build).
+beforeAll(() => {
+	const artifact = join(process.cwd(), 'data', '_generated', 'skill-metadata.json');
+	if (existsSync(artifact)) return;
+	execFileSync('node', [join(process.cwd(), 'scripts', 'build-skill-metadata.mjs')], {
+		stdio: 'ignore',
+	});
+}, 60_000);
 
 // Files we know fail because they load env-gated infrastructure not present in the
 // test sandbox (DB, RPC, keypair files). Add only with a clear reason; never to

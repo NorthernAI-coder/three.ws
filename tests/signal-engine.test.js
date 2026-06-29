@@ -8,10 +8,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+// Import from the PURE core (no DB / network / SDK chain) so these logic tests
+// load even when the delivery half's native deps aren't resolvable. signal-engine.js
+// re-exports every one of these, so this is the same surface the product uses.
 import {
 	classifyOutcome, computeSizeMultiple, computeConviction, subscriberOrderSol,
 	feedEdgeScore, rankFeeds, FEED_SORTS,
-} from '../api/_lib/signal-engine.js';
+} from '../api/_lib/signal-engine-core.js';
 
 describe('classifyOutcome', () => {
 	it('classifies clear wins and losses by sign', () => {

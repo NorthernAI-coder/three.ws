@@ -35,12 +35,12 @@ import { getTask, getTaskLifecycleSummary, getTasksByCreator, getAgent, deriveTa
 import { cors, json, method, readJson, wrap, error, rateLimited, serverError } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { Bazaar, filterByExtension, filterByMaxPrice, filterByNetwork } from '../_lib/x402/bazaar-client.js';
-import {
-	createAgenCClient,
-	getCanonicalThreewsAgenCId,
-	buildThreewsMetadataUri,
-	agenCAgentIdToHex,
-} from '@three-ws/solana-agent';
+
+// @three-ws/solana-agent (the symlinked `file:solana-agent-sdk` SDK) is loaded
+// LAZILY at the point of use — every other importer (api/agora/act.js,
+// api/agora/[action].js, api/_lib/agora-human.js) does the same so the module
+// evaluates even where the SDK's dist/ isn't built yet, and so the Vitest
+// resolver doesn't have to externalize a static entry it can't load.
 
 function pickCluster(req) {
 	const c = (req.query?.cluster || '').toString().trim().toLowerCase();
@@ -111,6 +111,7 @@ function agentStatusLabel(status) {
 }
 
 async function clientFor(req) {
+	const { createAgenCClient } = await import('@three-ws/solana-agent');
 	const cluster = pickCluster(req);
 	const rpcUrl = pickRpc(cluster);
 	return createAgenCClient({ cluster, rpcUrl });
@@ -275,6 +276,8 @@ async function handleLink(req, res) {
 		return error(res, 400, 'validation_error', 'invalid json');
 	}
 	const { erc8004AgentId, mplCoreAsset, handle, cluster, baseUrl } = body || {};
+	const { createAgenCClient, getCanonicalThreewsAgenCId, buildThreewsMetadataUri, agenCAgentIdToHex } =
+		await import('@three-ws/solana-agent');
 	let canonical;
 	try {
 		canonical = getCanonicalThreewsAgenCId({
