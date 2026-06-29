@@ -5,16 +5,15 @@
 // been claimed in the last 24 hours:
 //   1. Query live fee-info from the platform pump API
 //   2. Claim via collect-creator-fee-agent (agent signs its own claim, same as the launch)
-//   3. Record in launcher_claims (claimed_sol, buyback_sol allocated, claim_sig)
+//   3. Record in launcher_claims (claimed_sol, buyback_sol earmarked, claim_sig)
 //
 // This closes the creator-fee loop: launch → creator fees accrue → claim → record.
 // buyback_sol records the buyback-earmarked share of those CREATOR fees (the run's
-// buyback_bps) for revenue tracking. It is NOT a pending swap: the on-chain buyback
-// for these agent coins is delivered by the buyback_bps binding baked into each
-// launch (handleLaunchAgent → PumpAgent.create), which routes a share of TRADE fees
-// into the coin's on-chain buyback vault, and the hourly run-buyback cron
-// (api/cron/[name].js) then executes the buyback+burn from that vault. So the
-// $THREE-aligned buy pressure runs through that lane, not this claimer.
+// buyback_bps) for revenue tracking — it is NOT a transfer made here. The on-chain
+// $THREE-aligned buy pressure for these coins comes from the buyback_bps binding baked
+// into each launch (handleLaunchAgent → PumpAgent.create), which routes a share of TRADE
+// fees into the coin's on-chain buyback vault; the hourly run-buyback cron
+// (api/cron/[name].js) then executes the buyback+burn from that vault.
 //
 // Auth: CRON_SECRET Bearer (same pattern as all cron endpoints).
 
@@ -108,9 +107,17 @@ async function processMint(run) {
 	const claimData = await claimRes.json().catch(() => null);
 	if (!claimData?.ok) return { runId, status: 'claim-rejected', error: claimData?.error };
 
-	const claimedLamports = Number(claimData.lamports ?? 0);
+	// The endpoint reports the exact lamports the sweep delivered (balance delta).
+	// Fall back to the pre-claim claimable figure if the node couldn't be sampled,
+	// so the recorded revenue is never silently zeroed (the prior code read a
+	// non-existent `lamports`/`sig` field, storing 0 SOL + a null signature on
+	// every claim — defeating the revenue rollup and the 24h dedup guard).
+	const claimSig = claimData.signature ?? claimData.sig ?? null;
+	const claimedLamports = Number(claimData.lamports ?? Math.round(claimableSol * 1e9));
 	const claimedSol = claimedLamports / 1e9;
 	const buybackBps = Number(buyback_bps ?? 5000);
+	// Earmark only: the on-chain $THREE buy pressure for these coins is delivered by the
+	// buyback_bps binding baked into the launch (see header), not a transfer made here.
 	const buybackSol = Math.round(claimedSol * buybackBps) / 10_000;
 
 	// 3. Record the claim. Multiple claims per run_id are allowed (fees re-accrue).
@@ -120,11 +127,11 @@ async function processMint(run) {
 		values (
 			${runId}, ${agentId}, ${mint},
 			${claimedLamports}, ${claimedSol}, ${buybackSol},
-			${claimData.sig ?? null}, ${network}, 'global'
+			${claimSig}, ${network}, 'global'
 		)
 	`;
 
-	return { runId, status: 'claimed', claimedSol, buybackSol, sig: claimData.sig };
+	return { runId, status: 'claimed', claimedSol, buybackSol, sig: claimSig };
 }
 
 async function runClaimerTick() {
