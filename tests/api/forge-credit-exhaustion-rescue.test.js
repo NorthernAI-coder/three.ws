@@ -63,6 +63,25 @@ vi.mock('../../api/_lib/forge-lane-health.js', () => ({
 	markLaneUnhealthy: vi.fn(async () => {}),
 }));
 
+// Pin the provider-health cooldown boundary to a clean state. The NIM-rescue in
+// the credit-exhaustion path only fires when the free NIM lane is NOT in a
+// recent-failure cooldown — exactly the scenario these tests model ("the gateway
+// healthy again by the time the rescue runs"). That cooldown lives in the SHARED
+// cache (Redis when configured, in-memory otherwise), so without stubbing it a
+// sibling forge test that drove a NIM failure could leave NIM_TRELLIS cooling and
+// suppress the rescue here — a cross-test flake, not a behavior change. Stubbing
+// it makes this file hermetic; the cooldown router itself is covered by
+// tests/api/forge-nim-cooldown.test.js. markProviderCooldown is a no-op so a
+// failure inside one test never pins state for the next.
+vi.mock('../../api/_lib/provider-health.js', async (importActual) => {
+	const actual = await importActual();
+	return {
+		...actual,
+		providersInCooldown: vi.fn(async () => new Map()),
+		markProviderCooldown: vi.fn(async () => {}),
+	};
+});
+
 // FLUX reference-image synthesis is OUT OF CREDIT — the exact prod symptom. This
 // throws the billing envelope textToImage tags (code:'billing', providerStatus:402),
 // which is NOT upstream-unavailable.

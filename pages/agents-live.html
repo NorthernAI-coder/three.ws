@@ -221,6 +221,209 @@
 			background: var(--al-border);
 		}
 
+		/* ── showrunner spotlight stage ──────────────────────────────── */
+		.al-spotlight {
+			margin-bottom: 36px;
+			outline: none;
+		}
+		.al-spot-head {
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			margin-bottom: 12px;
+			flex-wrap: wrap;
+		}
+		.al-spot-eyebrow {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			flex: none;
+			font-size: 11px;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--al-green);
+		}
+		.al-spot-caption {
+			display: flex;
+			align-items: baseline;
+			gap: 8px;
+			min-width: 0;
+			flex: 1 1 200px;
+		}
+		.al-spot-reason {
+			font-size: 13px;
+			font-weight: 700;
+			color: var(--al-muted);
+			white-space: nowrap;
+		}
+		.al-spot-reason:not(:empty)::after {
+			content: '·';
+			margin-left: 8px;
+			color: var(--al-faint);
+		}
+		.al-spot-name {
+			font-size: 15px;
+			font-weight: 800;
+			color: var(--al-text);
+			text-decoration: none;
+			letter-spacing: -0.01em;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			min-width: 0;
+		}
+		.al-spot-name[href]:hover { text-decoration: underline; }
+		.al-spot-controls {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex: none;
+		}
+		.al-spot-nav {
+			width: 28px;
+			height: 28px;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			border-radius: 7px;
+			background: rgba(255,255,255,0.06);
+			border: 1px solid var(--al-border-hi);
+			color: var(--al-text);
+			font-size: 16px;
+			line-height: 1;
+			cursor: pointer;
+			transition: background 0.12s, border-color 0.12s, transform 0.12s;
+		}
+		.al-spot-nav:hover { background: rgba(255,255,255,0.13); border-color: var(--al-text); }
+		.al-spot-nav:active { transform: scale(0.92); }
+		.al-spot-nav:focus-visible { outline: 2px solid var(--al-text); outline-offset: 2px; }
+		.al-spot-dots {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+		.al-spot-dot {
+			width: 7px;
+			height: 7px;
+			padding: 0;
+			border: none;
+			border-radius: 50%;
+			background: var(--al-faint);
+			cursor: pointer;
+			transition: background 0.15s, transform 0.15s;
+		}
+		.al-spot-dot:hover { background: var(--al-muted); }
+		.al-spot-dot.is-active { background: var(--al-text); transform: scale(1.35); }
+		.al-spot-dot:focus-visible { outline: 2px solid var(--al-text); outline-offset: 2px; }
+		.al-spot-screen {
+			position: relative;
+			width: 100%;
+			max-width: 940px;
+			margin: 0 auto;
+			aspect-ratio: 16 / 9;
+			max-height: 540px;
+			background: #060608;
+			border: 1px solid var(--al-border);
+			border-radius: 16px;
+			overflow: hidden;
+			box-shadow: 0 18px 60px rgba(0,0,0,0.5);
+			transition: opacity 0.26s ease;
+		}
+		.al-spot-screen.is-fading { opacity: 0; }
+		/* A promoted grid card fills the stage; its own screen/info/overlay come
+		   along verbatim (same live stream). We just restyle it to hero scale. */
+		.al-spot-screen .al-card--spotlit {
+			position: absolute;
+			inset: 0;
+			margin: 0;
+			border: none;
+			border-radius: 0;
+			background: transparent;
+			box-shadow: none;
+		}
+		.al-spot-screen .al-card--spotlit:hover { box-shadow: none; }
+		.al-card--spotlit .al-card-screen {
+			height: 100%;
+			aspect-ratio: auto;
+			border-radius: 0;
+		}
+		.al-card--spotlit .al-card-info {
+			position: absolute;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			z-index: 3;
+			border-top: none;
+			background: linear-gradient(180deg, transparent, rgba(6,6,8,0.92));
+			padding: 18px 18px 16px;
+		}
+		.al-card--spotlit .al-card-name { font-size: 15px; }
+		.al-card--spotlit .al-card-expand { display: none; }
+		/* skeleton stage while the program resolves */
+		.al-spot-skeleton {
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 100%);
+			background-size: 200% 100%;
+			animation: al-shimmer 1.6s ease-in-out infinite;
+		}
+		.al-spot-skeleton[hidden] { display: none; }
+		/* no-dead-air: platform feed inside the stage when no caster is castable */
+		.al-spot-fallback {
+			position: absolute;
+			inset: 0;
+			z-index: 2;
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+			padding: 22px 24px;
+			overflow: hidden;
+			background: radial-gradient(ellipse at 30% 0%, rgba(20,20,26,0.9), rgba(6,6,8,0.96));
+		}
+		.al-spot-fallback[hidden] { display: none; }
+		.al-spot-fallback-title {
+			font-size: 11px;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			text-transform: uppercase;
+			color: var(--al-green);
+			margin-bottom: 8px;
+		}
+		.al-spot-feed-row {
+			display: flex;
+			align-items: center;
+			gap: 9px;
+			padding: 7px 2px;
+			font-size: 13px;
+			color: var(--al-muted);
+			text-decoration: none;
+			border-bottom: 1px solid rgba(255,255,255,0.05);
+			animation: al-spot-feed-in 0.4s ease both;
+		}
+		a.al-spot-feed-row:hover { color: var(--al-text); }
+		.al-spot-feed-dot {
+			width: 6px; height: 6px;
+			border-radius: 50%;
+			background: var(--al-green);
+			flex: none;
+			animation: al-pulse 1.8s ease-in-out infinite;
+		}
+		.al-spot-feed-title { font-weight: 700; color: var(--al-text); }
+		.al-spot-feed-sub { color: var(--al-muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+		@keyframes al-spot-feed-in {
+			from { opacity: 0; transform: translateY(4px); }
+			to   { opacity: 1; transform: none; }
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.al-spot-screen { transition: none; }
+			.al-spot-skeleton, .al-spot-feed-dot, .al-spot-feed-row { animation: none; }
+		}
+		@media (max-width: 600px) {
+			.al-spot-head { gap: 10px; }
+			.al-spot-controls { order: 3; width: 100%; justify-content: space-between; }
+		}
+
 		/* ── grid ────────────────────────────────────────────────────── */
 		.al-grid {
 			display: grid;
@@ -732,6 +935,28 @@
 				<div class="al-stat-label">Frames/sec</div>
 			</div>
 		</div>
+
+		<!-- Showrunner spotlight stage — programmed like a live channel by
+		     src/agents-live.js + src/showrunner.js. Hidden until the first roster
+		     page mounts, then promotes a real grid card node (live stream and all). -->
+		<section class="al-spotlight" id="al-spotlight" hidden aria-label="Featured live agent" tabindex="-1">
+			<div class="al-spot-head">
+				<span class="al-spot-eyebrow"><span class="al-live-pill-dot"></span>On air</span>
+				<div class="al-spot-caption">
+					<span class="al-spot-reason" data-spot-reason></span>
+					<a class="al-spot-name" data-spot-name>—</a>
+				</div>
+				<div class="al-spot-controls">
+					<button class="al-spot-nav" type="button" data-spot-prev aria-label="Previous featured agent">‹</button>
+					<div class="al-spot-dots" data-spot-dots role="tablist" aria-label="Spotlight queue"></div>
+					<button class="al-spot-nav" type="button" data-spot-next aria-label="Next featured agent">›</button>
+				</div>
+			</div>
+			<div class="al-spot-screen" id="al-spot-screen">
+				<div class="al-spot-skeleton" data-spot-skeleton></div>
+				<div class="al-spot-fallback" data-spot-fallback hidden></div>
+			</div>
+		</section>
 
 		<div class="al-grid" id="al-grid">
 			<!-- Static skeleton loaders shown until the roster resolves; src/agents-live.js
