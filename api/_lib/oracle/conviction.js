@@ -44,16 +44,23 @@ const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 
 /**
- * Pedigree — the quality of the wallets buying. Driven by the data brain's
- * pre-computed coin_smart_money.score when present (it is already pedigree-
- * weighted 0–100), then nudged by the count of proven wallets and dragged down
- * hard by any flagged (rugger/dumper) wallets in the book.
+ * Pedigree — the quality of the wallets buying AND the wallet that launched the
+ * coin. Driven by the data brain's pre-computed coin_smart_money.score when
+ * present (it is already pedigree-weighted 0–100), then nudged by the count of
+ * proven wallets, dragged down hard by any flagged (rugger/dumper) wallets in the
+ * book, by proven money already exiting, and by a creator with a rug history.
+ *
+ * Returns an optional `cap` (≤100): a confirmed serial-rugger creator ceilings the
+ * FINAL score the same way a bundle structure does — pedigree among buyers can't
+ * paper over the dev who shipped a graveyard of dead launches.
  *
  * @param {object} sm smartMoney slice of CoinIntel
- * @returns {{score:number, reasons:string[]}}
+ * @param {object} creator creator slice of CoinIntel { label, launches, launchWins, dumpRate }
+ * @returns {{score:number, reasons:string[], cap:number}}
  */
-export function pedigreeScore(sm = {}) {
+export function pedigreeScore(sm = {}, creator = {}) {
 	const reasons = [];
+	let cap = 100;
 	const notable = Array.isArray(sm.notable) ? sm.notable : [];
 	const provenWallets = notable.filter((w) => isProven(w.label, w.score));
 	const flaggedWallets = notable.filter((w) => isFlagged(w.label));
@@ -92,7 +99,37 @@ export function pedigreeScore(sm = {}) {
 		reasons.push(`${flaggedWallets.length} flagged wallet${flaggedWallets.length > 1 ? 's' : ''} (rugger/dumper) in the book`);
 	}
 
-	return { score: clamp(score), reasons };
+	// Proven money already heading for the exit. If the smart wallets that bought
+	// are selling a meaningful share of what they put in, the pedigree signal is
+	// being unwound in real time — discount it.
+	const provenSell = num(sm.provenSellLamports);
+	if (proven > 0 && provenSell > 0) {
+		const exitShare = provenSell / proven;
+		if (exitShare >= 0.5) { score -= 16; reasons.push(`smart money already sold ${Math.round(exitShare * 100)}% of its position`); }
+		else if (exitShare >= 0.25) { score -= 8; reasons.push(`smart money trimming (${Math.round(exitShare * 100)}% sold)`); }
+	}
+
+	// Creator track record. A proven shipper lifts pedigree; a serial rugger both
+	// drags it and ceilings the final score. First-time / unjudged creators are
+	// neutral — absence of a record is not a red flag.
+	const launches = num(creator?.launches);
+	const launchWins = num(creator?.launchWins);
+	if (isFlagged(creator?.label) || (launches >= 3 && launchWins === 0)) {
+		score -= 22; cap = Math.min(cap, 45);
+		reasons.push(launches >= 3
+			? `creator has ${launches} prior launches, none graduated — rug pattern`
+			: 'creator wallet flagged as a rugger');
+	} else if (launchWins >= 3) {
+		score += 12; reasons.push(`creator has shipped ${launchWins} graduated launches`);
+	} else if (launchWins >= 1) {
+		score += 6; reasons.push(`creator shipped ${launchWins} graduated launch${launchWins > 1 ? 'es' : ''}`);
+	}
+	const creatorDump = num(creator?.dumpRate); // 0..1
+	if (launches >= 2 && creatorDump >= 0.5) {
+		score -= 8; reasons.push(`creator dumps ${Math.round(creatorDump * 100)}% of their launches`);
+	}
+
+	return { score: clamp(score), reasons, cap };
 }
 
 /**
@@ -132,6 +169,23 @@ export function structureScore(st = {}) {
 	if (Number.isFinite(connectivity) && connectivity >= 60) {
 		score -= 10; cap = Math.min(cap, 55);
 		reasons.push(`buyers are heavily interconnected (${Math.round(connectivity)}%)`);
+	}
+
+	// Sniped launch: a large share of buy volume landed in the first seconds — the
+	// open was raced by bots, not discovered organically. High snipe pressure means
+	// a thin, reflexive top that distributes onto later buyers.
+	const snipeRatio = num(st.snipeRatio, NaN);
+	if (Number.isFinite(snipeRatio)) {
+		if (snipeRatio >= 70) { score -= 16; cap = Math.min(cap, 50); reasons.push(`${Math.round(snipeRatio)}% of early volume sniped in the first seconds`); }
+		else if (snipeRatio >= 45) { score -= 8; reasons.push(`${Math.round(snipeRatio)}% sniped at the open`); }
+	}
+
+	// Fresh/farmed-wallet share: a book dominated by brand-new, single-purpose
+	// wallets is a farm, not a crowd — the canonical bundle disguise.
+	const freshWalletRatio = num(st.freshWalletRatio, NaN);
+	if (Number.isFinite(freshWalletRatio)) {
+		if (freshWalletRatio >= 70) { score -= 18; cap = Math.min(cap, 48); reasons.push(`${Math.round(freshWalletRatio)}% of buyers are fresh/farmed wallets`); }
+		else if (freshWalletRatio >= 45) { score -= 9; reasons.push(`${Math.round(freshWalletRatio)}% of buyers are fresh wallets`); }
 	}
 
 	const uniqueBuyers = num(st.uniqueBuyers);

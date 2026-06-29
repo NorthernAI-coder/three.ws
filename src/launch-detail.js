@@ -50,9 +50,31 @@ const state = {
 	coin: null,
 	tape: null, // EventSource handle
 	chartInterval: '15m',
-	chartView: 'native', // 'native' (Birdeye area chart) | 'dexscreener' (interactive embed)
+	chartView: 'native', // 'native' (Birdeye area chart) | 'dexscreener' (interactive embed); hydrated from localStorage in boot()
+	dexFrameTimer: 0, // watchdog for a stalled DexScreener embed
 	priceTimer: 0,
 };
+
+// The chart-source choice is a viewing preference, not coin-specific — persist it
+// so a trader who prefers the full DexScreener terminal keeps it across coins.
+const CHART_VIEW_KEY = 'ld_chart_view';
+
+function readChartView() {
+	try {
+		const v = localStorage.getItem(CHART_VIEW_KEY);
+		return v === 'dexscreener' || v === 'native' ? v : 'native';
+	} catch {
+		return 'native';
+	}
+}
+
+function writeChartView(view) {
+	try {
+		localStorage.setItem(CHART_VIEW_KEY, view);
+	} catch {
+		/* storage full / blocked — non-fatal, the in-memory state still switches */
+	}
+}
 
 // ── Jupiter Terminal lazy loader ─────────────────────────────────────────────
 // We load the Jupiter Terminal script only when the user clicks Buy, so it
@@ -1061,6 +1083,7 @@ function chartViewBar() {
 				onclick: () => {
 					if (state.chartView === value) return;
 					state.chartView = value;
+					writeChartView(value);
 					renderChart();
 				},
 			}),
@@ -1084,31 +1107,47 @@ function dexEmbedUrl() {
 	return `https://dexscreener.com/solana/${encodeURIComponent(state.mint)}?${params}`;
 }
 
-function renderDexChart(target) {
-	const views = chartViewBar();
-	const open = el('a', {
+function dexLink() {
+	return el('a', {
 		class: 'ld-chart-open',
 		href: `https://dexscreener.com/solana/${encodeURIComponent(state.mint)}`,
 		target: '_blank',
 		rel: 'noopener',
 		text: 'Open in DexScreener ↗',
 	});
-	const frame = el('div', { class: 'ld-dex-wrap' }, [
-		el('div', { class: 'ld-skel ld-skel-chart' }),
-		el('iframe', {
-			class: 'ld-dex-frame',
-			src: dexEmbedUrl(),
-			title: 'DexScreener live chart',
-			loading: 'lazy',
-			onload: (e) => e.target.parentElement.classList.add('ld-dex-ready'),
-		}),
-	]);
-	section(
-		target,
-		'Price',
-		el('div', { class: 'ld-chart' }, [el('div', { class: 'ld-chart-controls' }, [views, open]), frame]),
-		{ tag: 'DexScreener · live' },
-	);
+}
+
+function renderDexChart(target) {
+	clearTimeout(state.dexFrameTimer);
+	const controls = el('div', { class: 'ld-chart-controls' }, [chartViewBar(), dexLink()]);
+	const wrap = el('div', { class: 'ld-dex-wrap' });
+	const iframe = el('iframe', {
+		class: 'ld-dex-frame',
+		src: dexEmbedUrl(),
+		title: 'DexScreener live chart',
+		loading: 'lazy',
+		onload: () => {
+			clearTimeout(state.dexFrameTimer);
+			wrap.classList.add('ld-dex-ready');
+		},
+	});
+	wrap.replaceChildren(el('div', { class: 'ld-skel ld-skel-chart' }), iframe);
+	section(target, 'Price', el('div', { class: 'ld-chart' }, [controls, wrap]), { tag: 'DexScreener · live' });
+
+	// Watchdog: if the embed never loads (blocked, offline, sandbox), don't leave a
+	// dead skeleton — surface a recoverable error with a retry and a direct link.
+	state.dexFrameTimer = setTimeout(() => {
+		if (wrap.classList.contains('ld-dex-ready')) return;
+		wrap.replaceChildren(
+			el('div', { class: 'ld-empty ld-empty-sm' }, [
+				el('p', { text: "DexScreener's chart didn't load. It may be blocked or still indexing this coin." }),
+				el('div', { class: 'ld-dex-fallback-actions' }, [
+					el('button', { class: 'ld-btn ld-btn-ghost', type: 'button', text: 'Retry', onclick: () => renderChart() }),
+					dexLink(),
+				]),
+			]),
+		);
+	}, 9000);
 }
 
 async function renderChart() {
@@ -2015,6 +2054,7 @@ function renderCopilot() {
 async function boot() {
 	startParticleField();
 
+	state.chartView = readChartView();
 	state.mint = resolveMint();
 	if (!state.mint) {
 		renderFatal({
