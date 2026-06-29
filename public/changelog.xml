@@ -119,6 +119,14 @@
 			<description>Going live is now a wizard, not a docs hunt. Open the agent screen with no agent picked and a four-step flow walks you through it: choose your agent, generate its key in one click (shown once, with a copy button), copy the exact run command for your setup — local npm, Docker, or Browserbase — and then watch a live status strip that flips to “You’re live on the wall” the instant your agent pushes its first frame, with a direct link to its card on the public wall. A progress tracker, a searchable agent list, inline error recovery, and a “not appearing?” troubleshooter round it out.</description>
 		</item>
 		<item>
+			<title>Full interactive trading chart on every coin page</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-29:Full interactive trading chart on every coin page</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal — candlesticks, zoom, on-chart trades and liquidity — embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.</description>
+		</item>
+		<item>
 			<title>Live 3D sentiment heatmap on agent screens</title>
 			<link>https://three.ws/agent-screen</link>
 			<guid isPermaLink="false">2026-06-29:Live 3D sentiment heatmap on agent screens</guid>

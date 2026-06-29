@@ -48,6 +48,7 @@ const state = {
 	coin: null,
 	tape: null, // EventSource handle
 	chartInterval: '15m',
+	chartView: 'native', // 'native' (Birdeye area chart) | 'dexscreener' (interactive embed)
 	priceTimer: 0,
 };
 
@@ -1036,15 +1037,91 @@ function chartIntervalBar() {
 	);
 }
 
+// View switch — the fast native area chart vs. the full interactive DexScreener
+// terminal (price + depth + trades). Both read the same on-chain mint; the embed
+// is loaded only when chosen so the default view stays lightweight.
+const CHART_VIEWS = [
+	['Native', 'native'],
+	['DexScreener', 'dexscreener'],
+];
+
+function chartViewBar() {
+	return el(
+		'div',
+		{ class: 'ld-chart-views', role: 'tablist', 'aria-label': 'Chart source' },
+		CHART_VIEWS.map(([label, value]) =>
+			el('button', {
+				class: `ld-int-btn${state.chartView === value ? ' active' : ''}`,
+				type: 'button',
+				role: 'tab',
+				'aria-selected': String(state.chartView === value),
+				text: label,
+				onclick: () => {
+					if (state.chartView === value) return;
+					state.chartView = value;
+					renderChart();
+				},
+			}),
+		),
+	);
+}
+
+// DexScreener serves a TradingView-grade embeddable terminal keyed by the Solana
+// mint — it resolves the most-liquid pair itself, so no pair lookup is needed.
+function dexEmbedUrl() {
+	const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+	const params = new URLSearchParams({
+		embed: '1',
+		loadChartSettings: '0',
+		theme,
+		chartTheme: theme,
+		chartType: 'usd',
+		interval: '15',
+		info: '0',
+	});
+	return `https://dexscreener.com/solana/${encodeURIComponent(state.mint)}?${params}`;
+}
+
+function renderDexChart(target) {
+	const views = chartViewBar();
+	const open = el('a', {
+		class: 'ld-chart-open',
+		href: `https://dexscreener.com/solana/${encodeURIComponent(state.mint)}`,
+		target: '_blank',
+		rel: 'noopener',
+		text: 'Open in DexScreener ↗',
+	});
+	const frame = el('div', { class: 'ld-dex-wrap' }, [
+		el('div', { class: 'ld-skel ld-skel-chart' }),
+		el('iframe', {
+			class: 'ld-dex-frame',
+			src: dexEmbedUrl(),
+			title: 'DexScreener live chart',
+			loading: 'lazy',
+			onload: (e) => e.target.parentElement.classList.add('ld-dex-ready'),
+		}),
+	]);
+	section(
+		target,
+		'Price',
+		el('div', { class: 'ld-chart' }, [el('div', { class: 'ld-chart-controls' }, [views, open]), frame]),
+		{ tag: 'DexScreener · live' },
+	);
+}
+
 async function renderChart() {
 	const target = $('ld-chart');
 	if (state.network !== 'mainnet') {
 		section(target, 'Price', el('div', { class: 'ld-empty' }, [el('p', { text: 'No price history for devnet coins.' })]));
 		return;
 	}
-	const bar = chartIntervalBar();
+	if (state.chartView === 'dexscreener') {
+		renderDexChart(target);
+		return;
+	}
+	const controls = el('div', { class: 'ld-chart-controls' }, [chartViewBar(), chartIntervalBar()]);
 	const canvas = el('div', { class: 'ld-chart-canvas' }, [el('div', { class: 'ld-skel ld-skel-chart' })]);
-	section(target, 'Price', el('div', { class: 'ld-chart' }, [bar, canvas]), { tag: 'Birdeye OHLCV' });
+	section(target, 'Price', el('div', { class: 'ld-chart' }, [controls, canvas]), { tag: 'Birdeye OHLCV' });
 
 	const interval = state.chartInterval;
 	const to = Math.floor(Date.now() / 1000);
