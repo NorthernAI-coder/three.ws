@@ -114,7 +114,7 @@ async function query(days, tier, network) {
 	// This pass is unconditional on tier so the baseline is the true market rate.
 	const calRows = await sql`
 		select
-			width_bucket(c.score, 0, 100, 10)                                     as bucket,
+			least(width_bucket(c.score, 0, 100, 10), 10)                          as bucket,
 			count(*)::int                                                         as n,
 			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int       as wins,
 			round(avg(c.score)::numeric, 1)                                       as avg_score
