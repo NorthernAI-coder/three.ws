@@ -162,6 +162,52 @@ const REDIS_CACHE_SOURCES = [
 	['cache_KV_REST_API_URL', 'cache_KV_REST_API_TOKEN'],
 ];
 
+// Postgres connection-string aliases, in priority order. The bare DATABASE_URL
+// is what every consumer expects, but the Vercel Postgres / Neon Marketplace
+// integration injects the live connection string under DIFFERENT names —
+// POSTGRES_URL (pooled), DATABASE_URL_UNPOOLED / POSTGRES_URL_NON_POOLING
+// (direct), POSTGRES_PRISMA_URL (pgbouncer params), NEON_DATABASE_URL — and
+// only mirrors it to DATABASE_URL if you wire that alias by hand. When the
+// integration is connected but DATABASE_URL was never duplicated, every
+// DB-backed read throws "Missing required env var: DATABASE_URL" and the whole
+// data plane (galaxy, pulse, marketplace, holder snapshots) silently degrades
+// to empty — the June 2026 incident. Resolving from the aliases makes the
+// connection work the instant the integration is attached, with no dashboard
+// step, exactly as pickPair() does for the Vercel-KV/Upstash Redis aliases.
+// Pooled URLs come first: the @neondatabase/serverless HTTP driver is
+// serverless-friendly and a pooled endpoint survives request fan-out best.
+const DATABASE_URL_SOURCES = [
+	'DATABASE_URL',
+	'POSTGRES_URL',
+	'DATABASE_URL_UNPOOLED',
+	'POSTGRES_URL_NON_POOLING',
+	'NEON_DATABASE_URL',
+	'POSTGRES_PRISMA_URL',
+];
+
+// Resolve the first alias that holds a usable Postgres connection string.
+// Trims dashboard-pasted whitespace/newlines (cred()) — an untrimmed trailing
+// "\n" makes neon() throw "is not a valid URL" — and requires a postgres(ql)://
+// scheme so a stray, unrelated value on one alias can't shadow a real URL on a
+// lower-priority one. Returns undefined when no alias is configured.
+function resolveDatabaseUrl() {
+	for (const name of DATABASE_URL_SOURCES) {
+		const v = cred(opt(name));
+		if (v && /^postgres(ql)?:\/\//i.test(v)) return v;
+	}
+	return undefined;
+}
+
+// Public predicate for the "is the DB configured?" gates scattered across the
+// store modules (forge-store, persona-store, …). They historically read
+// `process.env.DATABASE_URL` directly, which reports "unconfigured" — silently
+// disabling persistence — whenever the connection string lives under an alias.
+// Routing them through this keeps a single source of truth for what counts as a
+// configured database.
+export function databaseConfigured() {
+	return Boolean(resolveDatabaseUrl());
+}
+
 export const env = {
 	get APP_ORIGIN() {
 		return normalizeAppOrigin(opt('PUBLIC_APP_ORIGIN'));
@@ -178,8 +224,14 @@ export const env = {
 		return opt('VERCEL_ENV');
 	},
 
+	// Resolved from DATABASE_URL or any standard Vercel-Postgres/Neon integration
+	// alias (see DATABASE_URL_SOURCES). Still throws when NONE is set so the
+	// db.js graceful-degradation path (isDbUnavailableError → shared 503) keeps
+	// working — the message is unchanged on purpose so that classifier matches.
 	get DATABASE_URL() {
-		return req('DATABASE_URL');
+		const url = resolveDatabaseUrl();
+		if (!url) throw new Error('Missing required env var: DATABASE_URL');
+		return url;
 	},
 
 	get S3_ENDPOINT() {

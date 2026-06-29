@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto';
 import { randomUUID } from 'node:crypto';
 import { sql, isDbUnavailableError } from './db.js';
+import { databaseConfigured } from './env.js';
 import { putObject, publicUrl } from './r2.js';
 import { recordGenerationEvent } from './forge-events.js';
 
@@ -34,7 +35,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 // deployment degrades to the stateless path instead of throwing on first use.
 export function forgeStoreEnabled() {
 	return Boolean(
-		process.env.DATABASE_URL &&
+		databaseConfigured() &&
 			process.env.S3_ENDPOINT &&
 			process.env.S3_BUCKET &&
 			process.env.S3_PUBLIC_DOMAIN &&

@@ -14,10 +14,11 @@
 
 import { randomUUID } from 'node:crypto';
 import { sql } from './db.js';
+import { databaseConfigured } from './env.js';
 import { normalizeDiorama } from '../../src/diorama/schema.js';
 
 export function dioramaStoreEnabled() {
-	return Boolean(process.env.DATABASE_URL);
+	return databaseConfigured();
 }
 
 let _ensured = null;

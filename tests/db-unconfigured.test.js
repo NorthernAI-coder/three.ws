@@ -16,7 +16,20 @@ import { describe, it, expect, beforeAll } from 'vitest';
 // throws `Missing required env var: DATABASE_URL` on an empty/unset value.
 let sql, sqlValues, isDbUnavailableError;
 beforeAll(async () => {
-	delete process.env.DATABASE_URL;
+	// env.js now resolves the connection string from DATABASE_URL OR any standard
+	// Vercel-Postgres/Neon integration alias, so clearing the bare name alone no
+	// longer guarantees the unconfigured path — a developer's .env.local may set
+	// POSTGRES_URL etc. Clear every source so this regression is honest everywhere.
+	for (const name of [
+		'DATABASE_URL',
+		'POSTGRES_URL',
+		'DATABASE_URL_UNPOOLED',
+		'POSTGRES_URL_NON_POOLING',
+		'NEON_DATABASE_URL',
+		'POSTGRES_PRISMA_URL',
+	]) {
+		delete process.env[name];
+	}
 	// Fresh module instance so the lazy client starts uninitialized.
 	const mod = await import('../api/_lib/db.js?unconfigured');
 	({ sql, sqlValues, isDbUnavailableError } = mod);

@@ -163,6 +163,24 @@ function correlationId() {
 	return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
 
+// Throttle the log line for a database-unavailable outage to one per scope per
+// minute (per warm lambda instance). A missing/rotated DATABASE_URL makes every
+// DB-backed read reject, so without this a single misconfiguration produced
+// thousands of identical `[api] unhandled` error lines + Sentry events in a few
+// minutes — drowning real faults. The outage is already surfaced once via the
+// deduped `db:unavailable` ops alert; here we only need a breadcrumb, at warn.
+const _dbDownLoggedAt = new Map();
+function logDbUnavailableOnce(scope, msg) {
+	const now = Date.now();
+	const last = _dbDownLoggedAt.get(scope) || 0;
+	if (now - last < 60_000) return;
+	_dbDownLoggedAt.set(scope, now);
+	// Bound the map so a high-cardinality scope set (many distinct URLs) can't
+	// grow it unbounded across a long-lived warm instance.
+	if (_dbDownLoggedAt.size > 256) _dbDownLoggedAt.clear();
+	console.warn(`[api] database unavailable — degrading ${scope}: ${msg}`);
+}
+
 // Log + capture + alert a server fault under a fresh correlation id WITHOUT
 // writing a response, and return the ref. The body-writing helpers below build
 // on this, but it's also the seam for handlers that must answer in a non-JSON
@@ -175,6 +193,16 @@ function correlationId() {
 export function reportServerError(err, { code = 'internal_error', status = 500, context = {} } = {}) {
 	const ref = correlationId();
 	const detail = err?.message || String(err ?? 'unknown error');
+	// A DB outage is infrastructure, not a code fault: throttle the log, skip the
+	// Sentry capture, and collapse to the single shared `db:unavailable` alert so a
+	// missing DATABASE_URL degrades quietly instead of flooding error tracking.
+	if (isDbUnavailableError(err)) {
+		logDbUnavailableOnce(code, detail);
+		try {
+			sendOpsAlert('database unavailable', `${detail}\nref ${ref}`, { signature: 'db:unavailable' });
+		} catch { /* alerts best-effort */ }
+		return ref;
+	}
 	console.error(`[server-error ${ref}] ${code} (${status}): ${detail}`);
 	try {
 		captureException(err instanceof Error ? err : new Error(detail), { ref, code, status, ...context });
@@ -194,6 +222,19 @@ export function reportServerError(err, { code = 'internal_error', status = 500, 
 // is logged + captured server-side under a correlation id the caller can quote
 // to support; the client only sees a generic description + the ref.
 export function serverError(res, status, code, err, extra = {}) {
+	// Coerce a DB outage to 503 + Retry-After regardless of the caller's status, so
+	// boundaries that catch internally (sitemap, deployments) advertise "retry
+	// shortly" to clients and CDNs exactly like wrap() does, instead of a hard 500.
+	if (isDbUnavailableError(err)) {
+		const ref = reportServerError(err, { code, status: 503 });
+		if (typeof res.setHeader === 'function') res.setHeader('retry-after', '30');
+		return json(res, 503, {
+			error: 'service_unavailable',
+			error_description: 'database temporarily unavailable — retry shortly',
+			ref,
+			...extra,
+		}, { 'cache-control': 'no-store' });
+	}
 	const ref = reportServerError(err, { code, status });
 	return json(res, status, {
 		error: code,
@@ -383,17 +424,21 @@ export function wrap(handler) {
 			const status = dbDown ? 503 : (err.status || 500);
 			if (status >= 500) {
 				const ref = correlationId();
-				// Redact coordinates / device tokens so a 5xx on a geolocated read never
-				// spills the caller's position or credential to an off-box sink.
-				console.error(`[api] unhandled [ref ${ref}]`, err);
-				captureException(err, { ref, url: redactUrl(req.url), method: req.method });
 				if (dbDown) {
-					// During a DB outage every endpoint fails — fire a single shared alert
-					// rather than one per endpoint per hour to avoid alert fatigue.
+					// During a DB outage EVERY endpoint that doesn't catch internally lands
+					// here. A missing/rotated DATABASE_URL would otherwise emit one
+					// `[api] unhandled` error line + one Sentry event per request — thousands
+					// in minutes. It's infrastructure, not a code bug: throttle the log, skip
+					// the Sentry capture, and fire only the single shared deduped alert.
+					logDbUnavailableOnce(`${req.method} ${redactUrl(req.url)}`, err?.message || String(err));
 					sendOpsAlert('database unavailable', `${err?.message || String(err)}\nref ${ref}`, {
 						signature: 'db:unavailable',
 					});
 				} else {
+					// Redact coordinates / device tokens so a 5xx on a geolocated read never
+					// spills the caller's position or credential to an off-box sink.
+					console.error(`[api] unhandled [ref ${ref}]`, err);
+					captureException(err, { ref, url: redactUrl(req.url), method: req.method });
 					sendOpsAlert(`unhandled 5xx in ${req.method} ${redactUrl(req.url)}`, `${err?.message || String(err)}\nref ${ref}`, {
 						signature: `unhandled:${redactUrl(req.url)}:${err?.message}`,
 					});

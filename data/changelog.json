@@ -3,6 +3,23 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Live data feeds stay online through database hiccups",
+      "summary": "The Galaxy money-cam, Money Pulse, marketplace, and holder snapshots now find the platform's database automatically when it's connected through Vercel's or Neon's standard integration, instead of only looking under one exact setting name. A naming mismatch had previously left those feeds blank even though the database was healthy. The connection is now resolved from any of the standard names (and dashboard copy-paste whitespace is trimmed), so the live feeds keep showing real data.",
+      "tags": [
+        "fix",
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Homepage backdrop no longer trips up unusual browsers",
+      "summary": "The animated dragon backdrop on the homepage now checks that your browser fully supports canvas text rendering before it draws, and simply skips itself if not. Some headless and embedded browsers ship a canvas that's missing text-measurement support, which previously threw a silent error on page load; the backdrop now bows out cleanly on those clients while everyone else sees it as normal.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-06-29",
       "title": "Pages stay graceful when the database has a hiccup",
       "summary": "If the platform's database ever becomes briefly unreachable, pages now degrade cleanly instead of throwing hard errors. Live counters and feeds quietly fall back to their empty state, and any request that can't be served returns a clear “temporarily unavailable, retry shortly” response that your browser and our CDN know to retry — rather than a generic 500. Previously a database blip could surface as failed loads across explore, the marketplace, avatars, and the oracle stats at once; those reads now recover on their own the moment the database is back.",
       "tags": [
