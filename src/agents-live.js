@@ -23,6 +23,7 @@ import { TOUR_PREFIX } from './tour-commentary.js';
 import { sanitizeMmEvent, fmtPriceSol } from './shared/mm-render.js';
 import { parseForgeFrame } from './shared/forge-frames.js';
 import { createArena } from './agents-live-arena.js';
+import { createShowrunner } from './showrunner.js';
 
 // Subtle accent for a card showing a live Coin World Tour walkthrough.
 (() => {
@@ -82,6 +83,14 @@ const STATUS_GRACE_POLLS = 3;      // keep polling this many ticks to cover the 
 // window). IntersectionObserver maintains this set.
 const _inView = new Set();
 let _observer = null;
+
+// Showrunner Director — programs the wall like a live TV channel: a rotating
+// spotlight stage above the grid + a float-the-active-agents-up grid order.
+// Declared here (not in the boot section) so the stream callbacks wired up
+// during loadMore() can safely reference them via optional chaining before the
+// controller is constructed. See the "showrunner / spotlight" section below.
+let _showrunner = null;
+let _feedEvents = [];   // latest normalized ticker events, for the no-dead-air mode
 
 // ── cinematic terminal: typed-reveal animation clock ──────────────────────────
 // A card's fallback terminal types its newest beat in, character by character,
@@ -555,8 +564,9 @@ function attachStream(state) {
 				state.action.textContent = forgeHit.prompt ? `\u2726 forged: ${forgeHit.prompt}` : '\u2726 forged a new avatar';
 				state.action.classList.remove('al-on-air');
 				state.card.classList.add('al-card--forged');
+				_showrunner?.noteCardEvent({ agentId: state.agentId, kind: 'forge', reason: forgeHit.prompt ? `forged ${forgeHit.prompt}` : 'fresh forge', magnitude: 3 });
 			}
-			if (msg.type === 'trade') ingestCardPnl(state, msg);
+			if (msg.type === 'trade' && ingestCardPnl(state, msg)) notifyTrade(state, msg);
 		} catch { /* malformed */ }
 	});
 
@@ -797,6 +807,7 @@ async function loadMore() {
 	agents.forEach(mountAgent);
 	updateStats();
 	_arena.schedule();
+	_showrunner?.refreshLive(); // fold the new page into the program
 	_loading = false;
 }
 
@@ -831,6 +842,9 @@ function startFpsTicker() {
 		_fpsMap.clear();
 		if (statFps) statFps.textContent = total > 0 ? `${total}/s` : '—';
 		updateStats();
+		// Live truth shifts every second (casters come and go) — re-rank the program
+		// off it without a network round-trip so the spotlight tracks who's live now.
+		_showrunner?.refreshLive();
 	}, 1000);
 }
 
@@ -945,6 +959,11 @@ function startTicker() {
 		if (events.some((e) => e.id === ev.id)) return;
 		events = [ev, ...events].slice(0, TICKER_MAX);
 		render();
+		// Feed the showrunner + the no-dead-air fallback off the same stream — one
+		// SSE connection drives both the ticker and the spotlight's program.
+		_feedEvents = events;
+		_showrunner?.onFeedEvent(ev);
+		renderSpotFallback();
 	}
 
 	// Prime with a real snapshot for first paint, then live-tail the stream.
@@ -953,6 +972,11 @@ function startTicker() {
 		strip.classList.remove('is-loading');
 		events = (snap || []).slice(0, TICKER_MAX);
 		render();
+		_feedEvents = events;
+		// Seed the showrunner with the snapshot's attributable events so the program
+		// reflects recent forges/verifications on first paint, not only live ones.
+		for (let i = events.length - 1; i >= 0; i--) _showrunner?.onFeedEvent(events[i]);
+		renderSpotFallback();
 	}).catch(() => { strip.classList.remove('is-loading'); render(); });
 
 	connectFeed({
@@ -1034,6 +1058,242 @@ if (!document.getElementById('al-reactions-style')) {
 	document.head.appendChild(st);
 }
 
+// ── showrunner / spotlight stage ──────────────────────────────────────────────
+// A broadcast "director" above the grid: it cuts between the most interesting
+// agent right now — biggest trade, newest forge, top live caster — captioned by
+// the real signal that earned it the slot, and reorders the grid so genuinely
+// active agents float up. When no caster is casting, it pivots to the platform
+// activity feed so the wall is never dark. The ranking is the unit-tested
+// rankCandidates() merged with the wall's own live truth (see src/showrunner.js).
+
+const spotlight    = document.getElementById('al-spotlight');
+const spotScreen   = document.getElementById('al-spot-screen');
+const spotSkeleton = spotlight?.querySelector('[data-spot-skeleton]');
+const spotFallback = spotlight?.querySelector('[data-spot-fallback]');
+const spotReason   = spotlight?.querySelector('[data-spot-reason]');
+const spotName     = spotlight?.querySelector('[data-spot-name]');
+const spotDots     = spotlight?.querySelector('[data-spot-dots]');
+const spotPrev     = spotlight?.querySelector('[data-spot-prev]');
+const spotNext     = spotlight?.querySelector('[data-spot-next]');
+
+const NOTABLE_FLOAT = new Set(['trade', 'forge', 'verify', 'milestone']);
+const SPOT_DWELL_MS = 13_000;   // how long the spotlight holds before cutting
+const FLOAT_MAX = 12;           // cap on cards floated above the reputation tail
+
+let _spotNode = null;           // the promoted card node (lives inside spotScreen)
+let _spotAgentId = null;
+let _spotPaused = false;
+let _rotTimer = null;
+let _fadeGuard = null;
+let _floated = new Set();        // agentIds currently floated up via CSS order
+let _programCache = [];          // last program list (drives the queue dots)
+
+// Live truth the showrunner merges with the server program: which cards are
+// genuinely casting right now, and each mounted card's display name.
+function liveAgentIds() {
+	const s = new Set();
+	for (const [id, st] of _cards) if (isLiveNow(st)) s.add(id);
+	return s;
+}
+
+// Fold a card's realized trade exit into the program as a "biggest trade" beat —
+// magnitude is the absolute realized move so a bigger bank ranks higher.
+function notifyTrade(state, msg) {
+	const delta = parsePnlDelta(msg?.pnl);
+	if (!delta || delta.phase !== 'exit') return;
+	const usd = delta.realizedUsd;
+	const sol = delta.solDelta;
+	const primary = usd != null ? usd : (sol != null ? sol : 0);
+	const mag = Math.abs(Number(primary)) || 0;
+	let reason = 'banked a trade';
+	if (usd != null) { const f = formatUsd(usd); if (f) reason = `banked ${usd >= 0 ? '+' : ''}${f}`; }
+	else if (sol != null) { const f = formatSol(sol); if (f) reason = `banked ${f}`; }
+	_showrunner?.noteCardEvent({ agentId: state.agentId, kind: 'trade', reason, magnitude: mag });
+}
+
+function ensureSpotVisible() { if (spotlight) spotlight.hidden = false; }
+function hideSpotSkeleton() { if (spotSkeleton) spotSkeleton.hidden = true; }
+function hideSpotFallback() { if (spotFallback) spotFallback.hidden = true; }
+
+// No dead air: render the live platform feed inside the stage when there's no
+// caster to promote. Driven off the SAME feed the ticker tails (one connection).
+function renderSpotFallback() {
+	if (!spotFallback || spotFallback.hidden) return;
+	const rows = _feedEvents.slice(0, 7).map((ev) => {
+		const sub = ev.sub ? `<span class="al-spot-feed-sub">${esc(ev.sub)}</span>` : '';
+		const title = esc(ev.title || ev.type || 'Event');
+		const inner = `<span class="al-spot-feed-dot"></span><span class="al-spot-feed-title">${title}</span>${sub}`;
+		return ev.href
+			? `<a class="al-spot-feed-row" href="${esc(ev.href)}">${inner}</a>`
+			: `<span class="al-spot-feed-row">${inner}</span>`;
+	}).join('');
+	spotFallback.innerHTML = `<div class="al-spot-fallback-title">Live on three.ws</div>${rows ||
+		'<span class="al-spot-feed-row">All quiet — platform activity will surface here.</span>'}`;
+}
+
+function showSpotFallback() {
+	// Only claim the stage with the feed when there's genuinely nothing to promote.
+	// With real feed motion we show it; with neither cards nor feed we hold the
+	// skeleton rather than flashing an empty panel.
+	if (!spotlight || !spotFallback) return;
+	ensureSpotVisible();
+	restoreSpotNode();
+	hideSpotSkeleton();
+	if (spotReason) spotReason.textContent = 'Live on three.ws';
+	if (spotName) { spotName.textContent = 'platform activity'; spotName.removeAttribute('href'); }
+	spotFallback.hidden = false;
+	renderSpotFallback();
+	renderDots();
+}
+
+// Move the promoted card node back into the grid (CSS order repositions it).
+function restoreSpotNode() {
+	if (!_spotNode) return;
+	_spotNode.classList.remove('al-card--spotlit');
+	grid.appendChild(_spotNode);
+	_spotNode = null;
+	_spotAgentId = null;
+}
+
+function updateCaption(candidate) {
+	if (!candidate) return;
+	if (spotReason) spotReason.textContent = candidate.reason || 'live now';
+	if (spotName) {
+		spotName.textContent = candidate.name || _cards.get(candidate.agentId)?.name || 'Agent';
+		spotName.href = `/agent-screen?agentId=${encodeURIComponent(candidate.agentId)}`;
+	}
+	renderDots();
+}
+
+// Promote a real grid card node into the spotlight stage — reusing its live SSE
+// stream, canvas and reactions verbatim (we MOVE the node, never re-stream it),
+// so the hero shows real frames or the card's own activity terminal.
+function promote(state, candidate) {
+	ensureSpotVisible();
+	restoreSpotNode();
+	hideSpotSkeleton();
+	hideSpotFallback();
+	state.card.classList.add('al-card--spotlit');
+	spotScreen.appendChild(state.card);
+	_spotNode = state.card;
+	_spotAgentId = candidate.agentId;
+	// Prioritise a real caster for the spotlit agent (same intent path the grid
+	// cards use), and never leave a frozen frame on the hero.
+	_inView.add(candidate.agentId);
+	signalWatch(candidate.agentId);
+	if (!isLiveNow(state)) { startStatusPolling(state); paintActivity(state); }
+	updateCaption(candidate);
+	applyGridFloat(_programCache);
+	_arena.schedule(); // let the reputation tail re-rank now this card rejoined
+}
+
+// Display a candidate on the stage. `animate` cross-fades (rotation only); a mere
+// program reshuffle swaps instantly so the stage never strobes.
+function display(candidate, animate) {
+	if (!candidate || !spotlight) { showSpotFallback(); return; }
+	const state = _cards.get(candidate.agentId);
+	if (!state) { showSpotFallback(); return; }
+	if (_spotNode === state.card) { updateCaption(candidate); return; }
+
+	const swap = () => promote(state, candidate);
+	if (animate && !REDUCED_MOTION && _spotNode) {
+		spotScreen.classList.add('is-fading');
+		clearTimeout(_fadeGuard);
+		const onEnd = () => {
+			clearTimeout(_fadeGuard);
+			swap();
+			requestAnimationFrame(() => spotScreen.classList.remove('is-fading'));
+		};
+		spotScreen.addEventListener('transitionend', onEnd, { once: true });
+		// Guard: if the opacity transition never reports end (reflow swallowed it),
+		// still complete the swap so the stage can't stick faded. Animation timing,
+		// not a fake loader.
+		_fadeGuard = setTimeout(() => { spotScreen.removeEventListener('transitionend', onEnd); onEnd(); }, 400);
+	} else {
+		swap();
+	}
+}
+
+// Queue dots — one per program head (capped). Current is highlighted; clicking
+// jumps the spotlight straight to that agent.
+function renderDots() {
+	if (!spotDots) return;
+	const list = _programCache.slice(0, 8);
+	const curId = _showrunner?.getCurrent()?.agentId;
+	spotDots.innerHTML = '';
+	for (const c of list) {
+		const b = document.createElement('button');
+		b.type = 'button';
+		b.className = 'al-spot-dot' + (c.agentId === curId ? ' is-active' : '');
+		b.setAttribute('role', 'tab');
+		b.setAttribute('aria-selected', c.agentId === curId ? 'true' : 'false');
+		b.setAttribute('aria-label', `Spotlight ${c.name || 'agent'} — ${c.reason || 'live'}`);
+		b.addEventListener('click', () => { _showrunner.setCurrent(c.agentId); display(_showrunner.getCurrent(), true); });
+		spotDots.appendChild(b);
+	}
+}
+
+// Float the genuinely-active agents above the reputation-sorted tail using CSS
+// `order` only — no DOM reshuffle, so this layers cleanly over the arena (which
+// owns DOM order for the calm tail) instead of fighting it.
+function applyGridFloat(program) {
+	for (const id of _floated) { const s = _cards.get(id); if (s) s.card.style.order = ''; }
+	_floated.clear();
+	let n = 0;
+	for (const c of program || []) {
+		if (n >= FLOAT_MAX) break;
+		if (!(c.live || NOTABLE_FLOAT.has(c.kind))) continue; // popular baseline stays with the arena
+		const s = _cards.get(c.agentId);
+		if (!s || s.card === _spotNode) continue;
+		s.card.style.order = String(-1000 + n);
+		_floated.add(c.agentId);
+		n++;
+	}
+}
+
+// The showrunner calls this whenever the ranked program changes.
+function onProgramChange(program, current) {
+	_programCache = program || [];
+	if (!spotlight) return;
+	applyGridFloat(_programCache);
+	renderDots();
+	if (!current) { showSpotFallback(); return; }
+	hideSpotFallback();
+	display(current, false);
+}
+
+function startRotation() {
+	stopRotation();
+	_rotTimer = setInterval(() => {
+		if (document.hidden || _spotPaused) return;
+		const prog = _showrunner?.getProgram() || [];
+		if (prog.length < 2) return; // a single agent holds the stage — no forced churn
+		display(_showrunner.next(), true);
+	}, SPOT_DWELL_MS);
+}
+function stopRotation() { if (_rotTimer) { clearInterval(_rotTimer); _rotTimer = null; } }
+
+function wireSpotControls() {
+	if (!spotlight) return;
+	spotPrev?.addEventListener('click', () => display(_showrunner.prev(), true));
+	spotNext?.addEventListener('click', () => display(_showrunner.next(), true));
+	// Pause rotation while a viewer lingers so they can read / click.
+	spotlight.addEventListener('pointerenter', () => { _spotPaused = true; });
+	spotlight.addEventListener('pointerleave', () => { _spotPaused = false; });
+	spotlight.addEventListener('focusin', () => { _spotPaused = true; });
+	spotlight.addEventListener('focusout', () => { _spotPaused = false; });
+	spotlight.addEventListener('keydown', (e) => {
+		if (e.key === 'ArrowLeft') { e.preventDefault(); display(_showrunner.prev(), true); }
+		else if (e.key === 'ArrowRight') { e.preventDefault(); display(_showrunner.next(), true); }
+	});
+}
+
+_showrunner = createShowrunner({
+	getLiveIds: liveAgentIds,
+	getCardName: (id) => _cards.get(id)?.name || null,
+	onChange: onProgramChange,
+});
+
 await loadMore();
 startTicker();
 startFpsTicker();
@@ -1043,7 +1303,16 @@ startInfiniteScroll();
 startNetworthHydration();
 _arena.start();
 
+// Boot the director once the first roster page is mounted: show the skeleton
+// stage immediately, then let the program resolve and promote a real card.
+if (spotlight && _cards.size) {
+	spotlight.hidden = false;
+	wireSpotControls();
+	_showrunner.start();
+	startRotation();
+}
+
 document.addEventListener('visibilitychange', () => {
-	if (document.hidden) suspendStreams();
-	else resumeStreams();
+	if (document.hidden) { suspendStreams(); stopRotation(); }
+	else { resumeStreams(); _showrunner?.refreshLive(); if (spotlight && _cards.size) startRotation(); }
 });
