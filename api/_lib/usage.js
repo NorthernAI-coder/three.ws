@@ -111,7 +111,12 @@ export function recordEvent(evt) {
 				if (len % BUFFER_FLUSH_THRESHOLD === 0) triggerFlushJob();
 				return;
 			} catch (err) {
-				console.warn('[usage] buffer push failed, falling back to direct insert', err?.message);
+				// circuitOpen → the shared Redis auth breaker (api/_lib/redis.js) already
+				// logged the credential failure once and is fast-failing; falling back to
+				// a direct insert is the right move, but re-warning per event is noise.
+				if (!err?.circuitOpen) {
+					console.warn('[usage] buffer push failed, falling back to direct insert', err?.message);
+				}
 			}
 		}
 		// Direct-insert fallback when Redis is absent or the push fails. Bounded by
@@ -153,7 +158,7 @@ export async function flushUsageBuffer({ limit = 500, deadlineMs = 45_000 } = {}
 		try {
 			raw = await r.lrange(BUFFER_KEY, 0, take - 1);
 		} catch (err) {
-			console.warn('[usage-flush] redis unavailable on lrange:', err?.message);
+			if (!err?.circuitOpen) console.warn('[usage-flush] redis unavailable on lrange:', err?.message);
 			return { flushed, remaining: -1, errors, skipped: 'redis_unavailable' };
 		}
 		if (!raw || raw.length === 0) break;

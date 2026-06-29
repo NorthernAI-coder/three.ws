@@ -118,7 +118,7 @@ async function readFeed(limit = 25) {
 					feedReadCache = { at: Date.now(), rows };
 					return rows;
 				} catch (err) {
-					log.warn('feed_read_failed', { message: err?.message });
+					if (!err?.circuitOpen) log.warn('feed_read_failed', { message: err?.message });
 					return memFeed.slice();
 				} finally {
 					feedReadInflight = null;
