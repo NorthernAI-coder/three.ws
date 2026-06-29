@@ -44,10 +44,11 @@ import { env } from './env.js';
 let _instance = undefined; // undefined = not yet resolved; null = checked, absent
 
 // --- Auth-failure breaker state (per serverless instance) ---
-const AUTH_BREAKER_COOLDOWN_MS = Math.max(
-	5_000,
-	Number(process.env.REDIS_AUTH_BREAKER_COOLDOWN_MS) || 60_000,
-);
+// Read per use (a cheap env get) so the cooldown can be tuned per deploy without a
+// redeploy, and clamped so a fat-fingered value can't disable the breaker.
+function authBreakerCooldownMs() {
+	return Math.max(1_000, Number(process.env.REDIS_AUTH_BREAKER_COOLDOWN_MS) || 60_000);
+}
 let authOpenUntil = 0; // epoch ms; 0 = closed (commands flow normally)
 let authTrialInFlight = false;
 
@@ -93,11 +94,11 @@ function breakerRecordFailure(err) {
 	const wasTrial = authTrialInFlight;
 	authTrialInFlight = false;
 	const opening = authOpenUntil === 0;
-	authOpenUntil = Date.now() + AUTH_BREAKER_COOLDOWN_MS;
+	authOpenUntil = Date.now() + authBreakerCooldownMs();
 	if (opening && !wasTrial) {
 		console.error(
 			'[redis] AUTH FAILURE — UPSTASH_REDIS_REST_TOKEN is invalid or stale; ' +
-				`fast-failing all Redis commands to in-memory fallbacks for ${AUTH_BREAKER_COOLDOWN_MS / 1000}s ` +
+				`fast-failing all Redis commands to in-memory fallbacks for ${authBreakerCooldownMs() / 1000}s ` +
 				'(rotate the token in the prod env to restore distributed limiters/cache). Cause:',
 			err?.message || err,
 		);
@@ -206,7 +207,7 @@ export function redisAuthBreakerState() {
 	return {
 		open: authOpenUntil !== 0 && Date.now() < authOpenUntil,
 		openUntil: authOpenUntil || null,
-		cooldownMs: AUTH_BREAKER_COOLDOWN_MS,
+		cooldownMs: authBreakerCooldownMs(),
 	};
 }
 
