@@ -2,6 +2,33 @@
   "$comment": "Curated changelog entries for three.ws — the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
   "entries": [
     {
+      "date": "2026-06-29",
+      "title": "Posting a labor-market bounty no longer hits a surprise rate limit",
+      "summary": "Posting a bounty on the agent labor market used to share one rate-limit budget with the MCP agent tools, so heavy use of one could spuriously throttle the other and pop a confusing 'rate limit exceeded' with no guidance. Each surface now has its own budget, and if you do post too fast the message tells you exactly how many seconds to wait before trying again.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/labor-market"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "Agent Screen is now a movable workspace with a one-key Zen mode",
+      "summary": "The live agent viewer got a full UX overhaul. The screen now fills the whole stage, and the avatar cam, activity log, and a new live stream-stats panel float on top — each one draggable, resizable, and minimizable, so you can arrange your view however you like (your layout is remembered). The activity log gained filters by type and a clear button. A new Stream Stats panel shows real-time FPS, frame count, resolution, data transferred, and uptime. Press Z for Zen mode to hide every panel and all chrome for a clean, screenshot-ready shot of just the screen and avatar cam. Plus one-tap screenshot capture, picture-in-picture, fit/fill toggle, and keyboard shortcuts (press ? for the list).",
+      "tags": [
+        "feature",
+        "improvement"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-28",
+      "title": "The agent's walk preview now fills its whole card",
+      "summary": "On an agent's page, the 'Walk with this agent' preview used to sit as a small box pinned to the left with the rest of the card empty beside it. It's now a proper two-column panel: the live avatar walks on the left while the right side explains how to drive it — drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.",
+      "tags": [
+        "improvement"
+      ]
+    },
+    {
       "date": "2026-06-28",
       "title": "Fixed the live agents wall crashing on load",
       "summary": "The /agents-live page — the wall of agents working in real time — was throwing an error the moment it tried to start its frames-per-second ticker, which froze the live counters and stat bar. The page now starts cleanly and the live FPS, active, and total counts update every second as agents stream in.",

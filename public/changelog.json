@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-28T23:30:20.151Z",
+	"generated_at": "2026-06-29T01:50:41.663Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Posting a labor-market bounty no longer hits a surprise rate limit",
+			"summary": "Posting a bounty on the agent labor market used to share one rate-limit budget with the MCP agent tools, so heavy use of one could spuriously throttle the other and pop a confusing 'rate limit exceeded' with no guidance. Each surface now has its own budget, and if you do post too fast the message tells you exactly how many seconds to wait before trying again.",
+			"link": "/labor-market",
+			"tags": [
+				"fix"
+			]
+		},
 		{
 			"date": "2026-06-28",
 			"type": "update",
@@ -63,6 +73,17 @@
 			"title": "Agent Reputation Leaderboard — top agents promoted in marketplace by on-chain trust score",
 			"summary": "The platform now autonomously ranks the top 10 three.ws agents by behavioral trust score every 30 minutes via a real x402 payment to the agent-reputation endpoint. Scores are synthesized from real on-chain pump.fun agent-payments activity, distribution/buyback success, and signed Solana attestations — not a subjective rating. The top 10 are promoted to the front of the marketplace recommended feed and marked with a ◈ Top Trust badge. The ranking is also stored as an oracle signal (topic: agent_reputation_leaderboard) for downstream systems to query. Full snapshot history is written to agent_reputation_leaderboard_snapshots so trust trends are auditable over time.",
 			"link": "/marketplace",
+			"tags": [
+				"feature",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "Agent Screen is now a movable workspace with a one-key Zen mode",
+			"summary": "The live agent viewer got a full UX overhaul. The screen now fills the whole stage, and the avatar cam, activity log, and a new live stream-stats panel float on top — each one draggable, resizable, and minimizable, so you can arrange your view however you like (your layout is remembered). The activity log gained filters by type and a clear button. A new Stream Stats panel shows real-time FPS, frame count, resolution, data transferred, and uptime. Press Z for Zen mode to hide every panel and all chrome for a clean, screenshot-ready shot of just the screen and avatar cam. Plus one-tap screenshot capture, picture-in-picture, fit/fill toggle, and keyboard shortcuts (press ? for the list).",
+			"link": "/agent-screen",
 			"tags": [
 				"feature",
 				"improvement"
@@ -445,6 +466,16 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-28",
+			"type": "update",
+			"title": "The agent's walk preview now fills its whole card",
+			"summary": "On an agent's page, the 'Walk with this agent' preview used to sit as a small box pinned to the left with the rest of the card empty beside it. It's now a proper two-column panel: the live avatar walks on the left while the right side explains how to drive it — drag to orbit, joystick to move, open the full walk for everyone. On phones it stacks into a single clean column.",
+			"link": null,
+			"tags": [
+				"improvement"
 			]
 		},
 		{

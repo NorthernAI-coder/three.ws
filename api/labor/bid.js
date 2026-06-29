@@ -21,7 +21,7 @@ export default wrap(async (req, res) => {
 	if (!auth) return;
 	const { userId } = auth;
 
-	const rl = await limits.mcpAgent(userId || 'anon');
+	const rl = await limits.laborBid(userId || 'anon');
 	if (!rl.success) return rateLimited(res, rl, 'bid rate limit exceeded');
 
 	const body = (await readJson(req)) || {};

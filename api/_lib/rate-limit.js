@@ -479,6 +479,19 @@ export const limits = {
 		getLimiter('mcp:agent', { limit: 60, window: '1 m', critical: true }).limit(key),
 	mcpAgentPay: (key) =>
 		getLimiter('mcp:agent:pay', { limit: 20, window: '1 m', critical: true }).limit(key),
+	// Labor-market write buckets, keyed per user. These had borrowed the MCP agent
+	// buckets above, which coupled two unrelated surfaces: a user actively using the
+	// MCP `pay_and_call`/agent tools could exhaust the shared budget and 429 their
+	// bounty posts (and vice versa). Split out so each surface has its own ceiling.
+	//   · laborPost — posting a bounty escrows real $THREE on-chain, so it's the
+	//     money path: critical (fail closed in prod without Redis). 20/min lets an
+	//     owner post a burst while bounding a runaway client.
+	//   · laborBid  — bids move no money (escrow happens at post), so non-critical;
+	//     60/min mirrors a worker agent placing offers across many open bounties.
+	laborPost: (userId) =>
+		getLimiter('labor:post', { limit: 20, window: '1 m', critical: true }).limit(userId),
+	laborBid: (userId) =>
+		getLimiter('labor:bid', { limit: 60, window: '1 m' }).limit(userId),
 	oauthToken: (clientId) =>
 		getLimiter('oauth:token', { limit: 120, window: '1 m' }).limit(clientId),
 	upload: (userId) => getLimiter('upload', { limit: 60, window: '1 h' }).limit(userId),
