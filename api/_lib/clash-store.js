@@ -20,6 +20,25 @@ const redis = getRedis();
 // then let them lapse. Records (all-time W/L) never expire.
 const ROUND_TTL_S = Math.ceil((EPOCH_MS * 4) / 1000);
 
+// A configured Redis can still fail at call time — an Upstash transport blip
+// ("fetch failed"), an over-quota/billing 4xx, or a rotated token. The shared
+// HTTP wrapper classifies those as "database unavailable" and 503s the whole
+// request, which once took the entire Clash page (state + leaderboard reads)
+// dark for >15h on a recoverable backend hiccup. So every Redis op here is
+// resilient the same way the rate limiters are: on a command error we warn
+// (throttled — a real outage hits every request) and fall through to the
+// in-memory model below. Reads then serve the designed zero/empty round state
+// with a 200 instead of a 5xx; writes degrade to a per-instance tally. Better a
+// briefly non-durable game than a dead feature.
+let _degradedAt = 0;
+function redisDegraded(err) {
+	const now = Date.now();
+	if (now - _degradedAt > 60_000) {
+		_degradedAt = now;
+		console.warn('[clash-store] redis degraded — serving from in-memory fallback:', err?.message || err);
+	}
+}
+
 const K = {
 	factions: (epoch) => `clash:fac:${epoch}`, // ZSET mint → power
 	members: (epoch, mint) => `clash:mem:${epoch}:${mint}`, // ZSET wallet → power
@@ -67,27 +86,31 @@ export async function addPower({ epoch, mint, wallet, amount, walletCap }) {
 	if (amt <= 0) return { added: 0, walletTotal: 0, capped: false };
 
 	if (redis) {
-		const wKey = K.wallet(epoch, mint, wallet);
-		// Reserve against the per-wallet ceiling first. INCRBY returns the running
-		// total; if this push would breach the cap, clamp the credited amount to
-		// whatever headroom remains (possibly zero) and roll the counter back to the
-		// cap so it stays truthful.
-		const after = await redis.incrby(wKey, amt);
-		await redis.expire(wKey, ROUND_TTL_S);
-		let credit = amt;
-		let capped = false;
-		if (after > walletCap) {
-			credit = Math.max(0, amt - (after - walletCap));
-			capped = true;
-			if (credit !== amt) await redis.set(wKey, walletCap, { ex: ROUND_TTL_S });
+		try {
+			const wKey = K.wallet(epoch, mint, wallet);
+			// Reserve against the per-wallet ceiling first. INCRBY returns the running
+			// total; if this push would breach the cap, clamp the credited amount to
+			// whatever headroom remains (possibly zero) and roll the counter back to the
+			// cap so it stays truthful.
+			const after = await redis.incrby(wKey, amt);
+			await redis.expire(wKey, ROUND_TTL_S);
+			let credit = amt;
+			let capped = false;
+			if (after > walletCap) {
+				credit = Math.max(0, amt - (after - walletCap));
+				capped = true;
+				if (credit !== amt) await redis.set(wKey, walletCap, { ex: ROUND_TTL_S });
+			}
+			if (credit > 0) {
+				await redis.zincrby(K.factions(epoch), credit, mint);
+				await redis.expire(K.factions(epoch), ROUND_TTL_S);
+				await redis.zincrby(K.members(epoch, mint), credit, wallet);
+				await redis.expire(K.members(epoch, mint), ROUND_TTL_S);
+			}
+			return { added: credit, walletTotal: Math.min(after, walletCap), capped };
+		} catch (err) {
+			redisDegraded(err);
 		}
-		if (credit > 0) {
-			await redis.zincrby(K.factions(epoch), credit, mint);
-			await redis.expire(K.factions(epoch), ROUND_TTL_S);
-			await redis.zincrby(K.members(epoch, mint), credit, wallet);
-			await redis.expire(K.members(epoch, mint), ROUND_TTL_S);
-		}
-		return { added: credit, walletTotal: Math.min(after, walletCap), capped };
 	}
 
 	// In-memory
@@ -112,15 +135,25 @@ export async function addPower({ epoch, mint, wallet, amount, walletCap }) {
 
 /** A soldier's power so far this round for one faction. */
 export async function walletPower({ epoch, mint, wallet }) {
-	if (redis) return Number((await redis.get(K.wallet(epoch, mint, wallet))) || 0);
+	if (redis) {
+		try {
+			return Number((await redis.get(K.wallet(epoch, mint, wallet))) || 0);
+		} catch (err) {
+			redisDegraded(err);
+		}
+	}
 	return Number(memValid(K.wallet(epoch, mint, wallet)) || 0);
 }
 
 /** Faction → power map for a round. */
 export async function factionPowers(epoch) {
 	if (redis) {
-		const flat = await redis.zrange(K.factions(epoch), 0, -1, { withScores: true });
-		return zflatToMap(flat);
+		try {
+			const flat = await redis.zrange(K.factions(epoch), 0, -1, { withScores: true });
+			return zflatToMap(flat);
+		} catch (err) {
+			redisDegraded(err);
+		}
 	}
 	const out = {};
 	for (const [k, v] of memZ(K.factions(epoch))) out[k] = Number(v) || 0;
@@ -130,11 +163,15 @@ export async function factionPowers(epoch) {
 /** Top soldiers for a faction this round: [{ wallet, power }] descending. */
 export async function topSoldiers({ epoch, mint, limit = 10 }) {
 	if (redis) {
-		const flat = await redis.zrange(K.members(epoch, mint), 0, limit - 1, {
-			rev: true,
-			withScores: true,
-		});
-		return zflatToList(flat);
+		try {
+			const flat = await redis.zrange(K.members(epoch, mint), 0, limit - 1, {
+				rev: true,
+				withScores: true,
+			});
+			return zflatToList(flat);
+		} catch (err) {
+			redisDegraded(err);
+		}
 	}
 	const m = memZ(K.members(epoch, mint));
 	return [...m.entries()]
@@ -147,15 +184,25 @@ export async function topSoldiers({ epoch, mint, limit = 10 }) {
 
 export async function getMomentum(mint) {
 	if (redis) {
-		const v = await redis.get(K.momentum(mint));
-		const n = Number(v);
-		return Number.isFinite(n) && n > 0 ? n : null;
+		try {
+			const v = await redis.get(K.momentum(mint));
+			const n = Number(v);
+			return Number.isFinite(n) && n > 0 ? n : null;
+		} catch (err) {
+			redisDegraded(err);
+		}
 	}
 	const v = memValid(K.momentum(mint));
 	return v == null ? null : Number(v);
 }
 export async function setMomentum(mint, factor, ttlS = 120) {
-	if (redis) return void (await redis.set(K.momentum(mint), factor, { ex: ttlS }));
+	if (redis) {
+		try {
+			return void (await redis.set(K.momentum(mint), factor, { ex: ttlS }));
+		} catch (err) {
+			redisDegraded(err);
+		}
+	}
 	mem.s.set(K.momentum(mint), { value: factor, exp: Date.now() + ttlS * 1000 });
 }
 
@@ -166,11 +213,15 @@ export async function getRecords(mints = []) {
 	const out = {};
 	if (!mints.length) return out;
 	if (redis) {
-		const raw = await redis.hmget(K.record, ...mints);
-		mints.forEach((mint, i) => {
-			out[mint] = parseRecord(raw?.[i]);
-		});
-		return out;
+		try {
+			const raw = await redis.hmget(K.record, ...mints);
+			mints.forEach((mint, i) => {
+				out[mint] = parseRecord(raw?.[i]);
+			});
+			return out;
+		} catch (err) {
+			redisDegraded(err);
+		}
 	}
 	const h = mem.h.get(K.record) || new Map();
 	for (const mint of mints) out[mint] = parseRecord(h.get(mint));
@@ -220,9 +271,13 @@ export async function settleRound(epoch, matchmakeFn) {
 
 async function claimSettle(epoch) {
 	if (redis) {
-		// SET NX — first writer wins the settlement.
-		const ok = await redis.set(K.settled(epoch), Date.now(), { nx: true, ex: ROUND_TTL_S });
-		return ok === 'OK' || ok === true;
+		try {
+			// SET NX — first writer wins the settlement.
+			const ok = await redis.set(K.settled(epoch), Date.now(), { nx: true, ex: ROUND_TTL_S });
+			return ok === 'OK' || ok === true;
+		} catch (err) {
+			redisDegraded(err);
+		}
 	}
 	if (memValid(K.settled(epoch))) return false;
 	mem.s.set(K.settled(epoch), { value: Date.now(), exp: Date.now() + ROUND_TTL_S * 1000 });
@@ -239,15 +294,19 @@ async function bumpRecord(mint, { power, win, loss, draw }) {
 		power: cur.power + Math.round(power),
 	};
 	if (redis) {
-		await redis.hset(K.record, { [mint]: JSON.stringify(next) });
-	} else {
-		let h = mem.h.get(K.record);
-		if (!h) {
-			h = new Map();
-			mem.h.set(K.record, h);
+		try {
+			await redis.hset(K.record, { [mint]: JSON.stringify(next) });
+			return;
+		} catch (err) {
+			redisDegraded(err);
 		}
-		h.set(mint, JSON.stringify(next));
 	}
+	let h = mem.h.get(K.record);
+	if (!h) {
+		h = new Map();
+		mem.h.set(K.record, h);
+	}
+	h.set(mint, JSON.stringify(next));
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

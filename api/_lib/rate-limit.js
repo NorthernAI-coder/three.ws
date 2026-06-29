@@ -118,6 +118,11 @@ function getLimiter(name, opts) {
 const _degradeWarnedAt = new Map();
 const DEGRADE_WARN_COOLDOWN_MS = 60_000;
 function warnDegradedOnce(name, err) {
+	// The shared Redis auth breaker (api/_lib/redis.js) already logged the one
+	// "auth failure" line and is fast-failing every command; its short-circuit
+	// rejections carry `circuitOpen`. Re-warning per limiter per cooldown on top of
+	// that is pure noise — skip it and let the breaker own the signal.
+	if (err?.circuitOpen) return;
 	const last = _degradeWarnedAt.get(name) || 0;
 	const t = Date.now();
 	if (t - last < DEGRADE_WARN_COOLDOWN_MS) return;

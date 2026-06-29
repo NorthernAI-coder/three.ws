@@ -327,10 +327,14 @@ async function handleGet(req, res, url) {
 		const result = await queryBounties({ status, sort, limit, offset });
 		return json(res, 200, { ...result, status, sort }, { 'cache-control': READ_CACHE });
 	} catch (err) {
-		const isRedisAuth = err?.constructor?.name === 'UpstashError' &&
-			(err.message?.includes('WRONGPASS') || err.message?.includes('invalid or missing auth token'));
+		// circuitOpen → the shared Redis auth breaker is fast-failing (it already
+		// logged the credential failure once). Otherwise match a raw Upstash auth
+		// error. Either way the store is unreachable: return 503, don't 500.
+		const isRedisAuth = err?.circuitOpen ||
+			(err?.constructor?.name === 'UpstashError' &&
+				(err.message?.includes('WRONGPASS') || err.message?.includes('invalid or missing auth token')));
 		if (isRedisAuth) {
-			console.warn('[vanity/bounties] redis unavailable:', err.message);
+			if (!err?.circuitOpen) console.warn('[vanity/bounties] redis unavailable:', err.message);
 			return error(res, 503, 'store_unavailable', 'the bounty store is temporarily unavailable');
 		}
 		throw err;

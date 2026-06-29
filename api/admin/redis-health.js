@@ -10,7 +10,7 @@
 
 import { cors, json, error, method, wrap } from '../_lib/http.js';
 import { requireAdmin } from '../_lib/admin.js';
-import { getRedis } from '../_lib/redis.js';
+import { getRedis, redisAuthBreakerState } from '../_lib/redis.js';
 import { env } from '../_lib/env.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 
@@ -67,7 +67,29 @@ export default wrap(async (req, res) => {
 		await redis.ping();
 		pingOk = true;
 	} catch (err) {
-		return json(res, 200, { ok: false, configured: true, latencyMs: Date.now() - t0, error: err?.message });
+		// An auth failure (invalid/stale UPSTASH_REDIS_REST_TOKEN) trips the shared
+		// fast-fail breaker (api/_lib/redis.js): every limiter/cache/usage path is now
+		// on its in-memory fallback platform-wide. That is exactly what ops must be
+		// paged on — distributed rate limits and the cache are blind until the token
+		// is rotated — so fire a deduped ops alert here, on the uptime-cron path.
+		const breaker = redisAuthBreakerState();
+		const authFailing = breaker.open || /WRONGPASS|NOAUTH|NOPERM|invalid or missing auth token|\b401\b|\b403\b/i.test(String(err?.message || ''));
+		if (authFailing) {
+			await sendOpsAlert(
+				'Redis AUTH FAILURE — UPSTASH_REDIS_REST_TOKEN invalid or stale',
+				'Every distributed rate limiter, the cache, the usage buffer and the x402 feed are running on in-memory fallbacks. Rotate UPSTASH_REDIS_REST_TOKEN in the prod env to restore them. ' +
+					`Probe error: ${err?.message || err}`,
+				{ signature: 'redis-auth-failure' },
+			);
+		}
+		return json(res, 200, {
+			ok: false,
+			configured: true,
+			latencyMs: Date.now() - t0,
+			error: err?.message,
+			authBreaker: breaker,
+			authFailing,
+		});
 	}
 	const latencyMs = Date.now() - t0;
 
@@ -110,6 +132,7 @@ export default wrap(async (req, res) => {
 		configured: true,
 		latencyMs,
 		quotaWarningSent,
+		authBreaker: redisAuthBreakerState(),
 		info,
 	});
 });

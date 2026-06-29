@@ -6,6 +6,7 @@ Public history for [three.ws](https://three.ws), newest first. New pages come fr
 
 ## 2026-06-29
 
+- **Coin Clash stays up when the leaderboard backend hiccups** — The live Coin Clash arena and leaderboard used to go completely dark with an error whenever the power-tracking backend had a momentary outage — a recoverable blip took the whole page down. Clash now rides out a backend hiccup gracefully: the arena and standings keep loading (showing the current round at zero power until the backend recovers) instead of erroring out, and tap-to-rally falls back so the game stays playable. (`/clash`) `[fix]`
 - **Posting a labor-market bounty no longer hits a surprise rate limit** — Posting a bounty on the agent labor market used to share one rate-limit budget with the MCP agent tools, so heavy use of one could spuriously throttle the other and pop a confusing 'rate limit exceeded' with no guidance. Each surface now has its own budget, and if you do post too fast the message tells you exactly how many seconds to wait before trying again. (`/labor-market`) `[fix]`
 
 ## 2026-06-28

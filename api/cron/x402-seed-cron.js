@@ -205,7 +205,7 @@ export default wrapCron(async (req, res) => {
 		try {
 			await redis.ping();
 		} catch (err) {
-			log.warn('redis_unavailable_skip', { message: err?.message });
+			if (!err?.circuitOpen) log.warn('redis_unavailable_skip', { message: err?.message });
 			return json(res, 200, { ok: false, skipped: true, reason: `redis_unavailable: ${err?.message}` });
 		}
 	}
