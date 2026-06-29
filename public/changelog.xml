@@ -263,6 +263,14 @@
 			<description>The Oracle's feeds, movers, search, and wins gallery now ignore stablecoins and SOL-type tokens (USDC, USDT, wrapped/staked SOL, and similar). These show up as the other side of every trade but were never launched coins, so one was slipping into the rankings as a junk entry with an absurd multiple. They're now filtered out the moment data is ingested, hidden everywhere they're read, and any that were already cached are cleaned up automatically.</description>
 		</item>
 		<item>
+			<title>Pages stay graceful when the database has a hiccup</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-29:Pages stay graceful when the database has a hiccup</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>If the platform's database ever becomes briefly unreachable, pages now degrade cleanly instead of throwing hard errors. Live counters and feeds quietly fall back to their empty state, and any request that can't be served returns a clear “temporarily unavailable, retry shortly” response that your browser and our CDN know to retry — rather than a generic 500. Previously a database blip could surface as failed loads across explore, the marketplace, avatars, and the oracle stats at once; those reads now recover on their own the moment the database is back.</description>
+		</item>
+		<item>
 			<title>Portfolio dashboard loads your agent balances again</title>
 			<link>https://three.ws/dashboard/portfolio</link>
 			<guid isPermaLink="false">2026-06-29:Portfolio dashboard loads your agent balances again</guid>
