@@ -72,6 +72,7 @@ import { createDjScript } from './agent-screen-dj.js';
 import { LipSyncAnalyser } from './lip-sync-analyser.js';
 import { createVisemeDriver } from './runtime/lipsync.js';
 import { classifyTaskInput, ensureSessionId } from './shared/ask-routing.js';
+import { createCollabGraph } from './shared/collab-graph.js';
 
 // One meshopt-aware loader, built once. Optimized agent avatars ship with
 // EXT_meshopt_compression, so the decoder must be wired before the loader can
