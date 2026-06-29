@@ -117,6 +117,30 @@ vi.mock('../../src/solana/sns.js', () => ({
 	reverseLookupAddress: vi.fn(async () => null),
 }));
 
+// solana-trade.js imports getBuyQuote/getSellQuote from _lib/solana/sdk-bridge.js,
+// which lazily `import('@nirholas/pump-sdk')` for bonding-curve pricing. That
+// package ships an ESM exports map whose `import` condition vite's import-analysis
+// cannot resolve under Vitest unless the postinstall `fix-pump-sdk-esm.mjs` patch
+// has rewritten it (it resolves fine in plain node + the Vercel runtime). vite
+// resolves that dynamic import while *transforming* sdk-bridge.js at collection
+// time — before any module-level mock could intercept it — so the whole suite
+// fails to load with "Failed to resolve entry for package @nirholas/pump-sdk".
+// Mock sdk-bridge.js at the boundary instead: vitest serves the factory and never
+// transforms the real file, so the unresolvable import is never reached. The
+// session-authed gates short-circuit at the CSRF check before any quote is
+// fetched; the one path that does reach a quote (preview:true, which is CSRF-
+// exempt) gets the bridge's documented "no bonding curve" result — null — exactly
+// as production returns for a curve-less mint, so the preview path degrades the
+// same way it would live. Sibling suites handle the same SDK by skipping its
+// static importers (tests/api/all-modules-load.test.js).
+vi.mock('../../api/_lib/solana/sdk-bridge.js', () => ({
+	getBuyQuote: vi.fn(async () => null),
+	getSellQuote: vi.fn(async () => null),
+	getTokenPrice: vi.fn(async () => null),
+	getGraduationProgress: vi.fn(async () => null),
+	getBondingCurveState: vi.fn(async () => null),
+}));
+
 vi.mock('../../api/_lib/notify.js', () => ({
 	insertNotification: vi.fn(() => {}),
 }));
