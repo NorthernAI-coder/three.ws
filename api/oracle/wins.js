@@ -86,7 +86,7 @@ export default wrap(async (req, res) => {
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)
-		  and c.mint <> all(${QUOTE_MINT_LIST})
+		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		  ${tierFilter}
 		  ${periodFilter}
 		  ${beforeFilter}
@@ -109,7 +109,7 @@ export default wrap(async (req, res) => {
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
 		  and (o.graduated or o.ath_multiple >= 2)
-		  and c.mint <> all(${QUOTE_MINT_LIST})
+		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		  ${tierFilter}
 		  ${periodFilter}
 	`.catch(() => [{}]);

@@ -23,16 +23,16 @@
 
 import { scoreWallet, clusterByFunder } from './intel/wallet-graph.js';
 
-let _sqlPromise = null;
-async function getSql() {
-	if (_sqlPromise) return _sqlPromise;
-	_sqlPromise = import('../../api/_lib/db.js')
-		.then((m) => m.sql)
+let _dbPromise = null;
+async function getDb() {
+	if (_dbPromise) return _dbPromise;
+	_dbPromise = import('../../api/_lib/db.js')
+		.then((m) => ({ sql: m.sql, sqlValues: m.sqlValues }))
 		.catch((err) => { console.warn('[wallet-graph] db import failed:', err?.message); return null; });
-	return _sqlPromise;
+	return _dbPromise;
 }
 
-const UPSERT_CHUNK = 200;          // rows per multi-statement upsert batch
+const UPSERT_CHUNK = 500;          // rows per multi-row upsert statement (one round-trip each)
 const MIN_NET_BUY_LAMPORTS = 0;    // a wallet must be a net buyer to be "in" a coin
 const ms = (d) => (d ? new Date(d).getTime() : null);
 
@@ -46,8 +46,9 @@ const ms = (d) => (d ? new Date(d).getTime() : null);
  */
 export async function recomputeWalletGraph({ network = 'mainnet', maxCoins = 4000 } = {}) {
 	const started = Date.now();
-	const sql = await getSql();
-	if (!sql) return { ok: false, wallets: 0, clusters: 0, coins: 0, ms: 0, reason: 'no_db' };
+	const db = await getDb();
+	if (!db) return { ok: false, wallets: 0, clusters: 0, coins: 0, ms: 0, reason: 'no_db' };
+	const { sql, sqlValues } = db;
 	const net = network === 'devnet' ? 'devnet' : 'mainnet';
 
 	// 1) Pull every wallet that net-bought a coin with a FINAL outcome, joined to
@@ -145,12 +146,12 @@ export async function recomputeWalletGraph({ network = 'mainnet', maxCoins = 400
 	let wroteWallets = 0;
 	let wroteClusters = 0;
 	try {
-		wroteWallets = await upsertReputation(sql, repRows);
+		wroteWallets = await upsertReputation(sql, sqlValues, repRows);
 		// Replace this network's clusters wholesale: clustering is global over the
 		// judged set, so a stale membership must be cleared, not left behind.
 		await sql`delete from smart_wallet_clusters where network = ${net}`;
-		wroteClusters = await upsertClusters(sql, clusterRows);
-		await markFolded(sql, net, rows);
+		wroteClusters = await upsertClusters(sql, sqlValues, clusterRows);
+		await markFolded(sql, sqlValues, net, rows);
 	} catch (err) {
 		console.warn('[wallet-graph] persist failed:', err?.message);
 		return { ok: false, wallets: wroteWallets, clusters: wroteClusters, coins: coins.size, ms: Date.now() - started, reason: 'persist_failed' };
@@ -159,74 +160,74 @@ export async function recomputeWalletGraph({ network = 'mainnet', maxCoins = 400
 	return { ok: true, wallets: wroteWallets, clusters: wroteClusters, coins: coins.size, ms: Date.now() - started };
 }
 
-async function upsertReputation(sql, repRows) {
+// One multi-row INSERT … VALUES per chunk (a single Neon round-trip) rather than
+// one statement per row. `scored_at` is omitted from the tuple — the column
+// defaults to now() on insert and is refreshed explicitly in the ON CONFLICT set.
+// Keys are unique within repRows (built from a per-address Map), so a multi-row
+// upsert never trips Postgres' "cannot affect row a second time" guard.
+async function upsertReputation(sql, sqlValues, repRows) {
 	let written = 0;
 	for (let i = 0; i < repRows.length; i += UPSERT_CHUNK) {
 		const chunk = repRows.slice(i, i + UPSERT_CHUNK);
-		for (const r of chunk) {
-			await sql`
-				insert into smart_wallet_reputation (
-					address, network, trades_seen, winners, losers, win_rate,
-					avg_ath_multiple, realized_score, labels, first_seen, last_seen, scored_at
-				) values (
-					${r.address}, ${r.network}, ${r.trades_seen}, ${r.winners}, ${r.losers},
-					${r.win_rate}, ${r.avg_ath_multiple}, ${r.realized_score}, ${r.labels},
-					${r.first_seen}, ${r.last_seen}, now()
-				)
-				on conflict (address, network) do update set
-					trades_seen = excluded.trades_seen, winners = excluded.winners,
-					losers = excluded.losers, win_rate = excluded.win_rate,
-					avg_ath_multiple = excluded.avg_ath_multiple,
-					realized_score = excluded.realized_score, labels = excluded.labels,
-					first_seen = least(smart_wallet_reputation.first_seen, excluded.first_seen),
-					last_seen = greatest(smart_wallet_reputation.last_seen, excluded.last_seen),
-					scored_at = now()
-			`;
-			written++;
-		}
+		const values = chunk.map((r) => [
+			r.address, r.network, r.trades_seen, r.winners, r.losers, r.win_rate,
+			r.avg_ath_multiple, r.realized_score, r.labels, r.first_seen, r.last_seen,
+		]);
+		await sql`
+			insert into smart_wallet_reputation (
+				address, network, trades_seen, winners, losers, win_rate,
+				avg_ath_multiple, realized_score, labels, first_seen, last_seen
+			) values ${sqlValues(values)}
+			on conflict (address, network) do update set
+				trades_seen = excluded.trades_seen, winners = excluded.winners,
+				losers = excluded.losers, win_rate = excluded.win_rate,
+				avg_ath_multiple = excluded.avg_ath_multiple,
+				realized_score = excluded.realized_score, labels = excluded.labels,
+				first_seen = least(smart_wallet_reputation.first_seen, excluded.first_seen),
+				last_seen = greatest(smart_wallet_reputation.last_seen, excluded.last_seen),
+				scored_at = now()
+		`;
+		written += chunk.length;
 	}
 	return written;
 }
 
-async function upsertClusters(sql, clusterRows) {
+async function upsertClusters(sql, sqlValues, clusterRows) {
 	let written = 0;
 	for (let i = 0; i < clusterRows.length; i += UPSERT_CHUNK) {
 		const chunk = clusterRows.slice(i, i + UPSERT_CHUNK);
-		for (const c of chunk) {
-			await sql`
-				insert into smart_wallet_clusters (
-					address, network, cluster_id, funder_root, size, confidence, scored_at
-				) values (
-					${c.address}, ${c.network}, ${c.cluster_id}, ${c.funder_root},
-					${c.size}, ${c.confidence}, now()
-				)
-				on conflict (address, network) do update set
-					cluster_id = excluded.cluster_id, funder_root = excluded.funder_root,
-					size = excluded.size, confidence = excluded.confidence, scored_at = now()
-			`;
-			written++;
-		}
+		const values = chunk.map((c) => [
+			c.address, c.network, c.cluster_id, c.funder_root, c.size, c.confidence,
+		]);
+		await sql`
+			insert into smart_wallet_clusters (
+				address, network, cluster_id, funder_root, size, confidence
+			) values ${sqlValues(values)}
+			on conflict (address, network) do update set
+				cluster_id = excluded.cluster_id, funder_root = excluded.funder_root,
+				size = excluded.size, confidence = excluded.confidence, scored_at = now()
+		`;
+		written += chunk.length;
 	}
 	return written;
 }
 
 // Record the idempotency cursor: every coin folded this run, with the outcome it
 // was folded at. Lets an incremental variant skip already-folded coins; the full
-// recompute above is itself idempotent regardless.
-async function markFolded(sql, net, rows) {
+// recompute above is itself idempotent regardless. One multi-row upsert per chunk.
+async function markFolded(sql, sqlValues, net, rows) {
 	const seen = new Map(); // mint → outcome
 	for (const r of rows) if (!seen.has(r.mint)) seen.set(r.mint, r.outcome);
 	const entries = [...seen.entries()];
 	for (let i = 0; i < entries.length; i += UPSERT_CHUNK) {
 		const chunk = entries.slice(i, i + UPSERT_CHUNK);
-		for (const [mint, outcome] of chunk) {
-			await sql`
-				insert into smart_wallet_folded (mint, network, outcome, folded_at)
-				values (${mint}, ${net}, ${outcome}, now())
-				on conflict (mint, network) do update set
-					outcome = excluded.outcome, folded_at = now()
-			`;
-		}
+		const values = chunk.map(([mint, outcome]) => [mint, net, outcome]);
+		await sql`
+			insert into smart_wallet_folded (mint, network, outcome)
+			values ${sqlValues(values)}
+			on conflict (mint, network) do update set
+				outcome = excluded.outcome, folded_at = now()
+		`;
 	}
 }
 

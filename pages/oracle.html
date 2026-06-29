@@ -154,6 +154,12 @@
 		.t-lean b { color: var(--gold); }
 		.t-watch b { color: var(--muted); }
 		.t-avoid b { color: var(--down); }
+		.coin-spark { display: block; margin-top: 5px; line-height: 0; }
+		.coin-spark svg { display: inline-block; overflow: visible; }
+		/* Oracle's take — one-line synthesized verdict */
+		.coin-take { display: flex; align-items: flex-start; gap: 7px; font-size: 12.5px; line-height: 1.4; color: var(--ink); margin: 2px 0 2px; padding: 9px 11px; border-radius: 10px; background: rgba(255,255,255,0.035); border: 1px solid var(--line); }
+		.coin-take .ct-q { font: 800 13px/1 var(--mono); color: var(--faint); flex-shrink: 0; margin-top: 1px; }
+		.coin-take b { color: var(--ink); font-weight: 700; }
 		.tierpill { display: inline-block; font: 700 9.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; padding: 4px 7px; border-radius: 6px; margin-top: 4px; }
 		.tp-prime, .tp-strong { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
 		.tp-lean { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold); }
@@ -248,6 +254,37 @@
 		.edge-top-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); transition: border-color .14s; }
 		.edge-top-row:hover { border-color: var(--stroke-strong, var(--cyan)); }
 		.edge-ath { margin-left: auto; font: 700 13px/1 var(--mono); color: var(--up); }
+		/* edge verdict hero — the headline proof */
+		.edge-hero { background: linear-gradient(135deg, color-mix(in srgb, var(--up) 8%, var(--panel)), var(--panel)); border: 1px solid color-mix(in srgb, var(--up) 22%, var(--line)); border-radius: var(--r); padding: 22px 22px 20px; margin-bottom: 16px; box-shadow: var(--shadow); }
+		.edge-hero.thin { background: var(--panel); border-color: var(--line); }
+		.edge-hero-claim { font-size: clamp(18px, 3.2vw, 26px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.16; margin: 0; }
+		.edge-hero-claim b.win { background: linear-gradient(100deg, var(--up), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.edge-hero-sub { color: var(--muted); font-size: 13px; margin: 9px 0 0; max-width: 640px; }
+		.edge-hero-metrics { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+		.edge-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 8px 13px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); font: 600 12px/1 var(--mono); }
+		.edge-chip b { font-size: 14px; font-weight: 800; color: var(--ink); } .edge-chip b.up { color: var(--up); }
+		.edge-chip span { color: var(--faint); text-transform: uppercase; letter-spacing: .05em; font-size: 10px; }
+		.edge-chip.ok { border-color: color-mix(in srgb, var(--up) 38%, var(--line)); }
+		/* CI sublabel under a win-rate */
+		.ci { display: block; font: 600 10px/1.2 var(--mono); color: var(--faint); margin-top: 3px; letter-spacing: .02em; }
+		.erow.thin b, .erow.thin .ci { opacity: .5; }
+		/* calibration ladder — realized win rate by score band */
+		.cal { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+		.cal-row { display: grid; grid-template-columns: 76px 1fr 116px; gap: 12px; align-items: center; padding: 11px 18px; border-bottom: 1px solid var(--line); }
+		.cal-row:last-child { border-bottom: none; }
+		.cal-row.empty { opacity: .4; }
+		.cal-band { font: 700 12px/1 var(--mono); color: var(--ink); } .cal-band small { display: block; color: var(--faint); font-weight: 600; font-size: 9.5px; margin-top: 3px; }
+		.cal-track { position: relative; height: 14px; border-radius: 7px; background: rgba(255,255,255,0.05); overflow: hidden; }
+		.cal-real { position: absolute; inset: 0 auto 0 0; height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--down), var(--up)); transition: width .5s cubic-bezier(.2,.7,.2,1); }
+		.cal-pred { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: .85; }
+		.cal-pred::after { content: ''; position: absolute; top: -3px; left: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+		.cal-val { text-align: right; font: 700 13px/1.25 var(--mono); }
+		.cal-val small { display: block; font-weight: 600; font-size: 10px; color: var(--faint); }
+		.cal-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 12px 18px; border-top: 1px solid var(--line); font: 600 11px/1 var(--mono); color: var(--muted); }
+		.cal-legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+		.cal-legend .li-real { width: 14px; height: 8px; border-radius: 3px; background: linear-gradient(90deg, var(--down), var(--up)); }
+		.cal-legend .li-pred { width: 2px; height: 11px; background: var(--ink); }
+		.dr-sec.edge-sec { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 22px 0 10px; }
 
 		/* agent panel */
 		.apanel { display: grid; grid-template-columns: 1fr 1.8fr; gap: 16px; align-items: start; }
@@ -677,8 +714,8 @@
 		</section>
 
 		<section class="view" id="view-edge">
-			<p class="intro">Proof, not promises. Every conviction verdict is checked against ground truth — did the coin actually graduate to Raydium? This is the realized graduation rate by conviction tier across everything Oracle has scored. The edge only counts if the higher tiers win more often.</p>
-			<div class="edge" id="edgeWrap"></div>
+			<p class="intro">Proof, not promises. Every conviction verdict is checked against ground truth — did the coin graduate, rug, or run? We measure the realized win rate by tier, show the 95% confidence band on every number, and plot calibration so you can see the score actually ranks coins by odds. The edge only counts if conviction beats blind buying — and we show it even when it doesn't.</p>
+			<div id="edgeWrap"></div>
 		</section>
 
 		<!-- AGENTS LEADERBOARD -->

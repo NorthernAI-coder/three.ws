@@ -122,16 +122,29 @@ export async function scoreCoin(mint, { network = 'mainnet', classify = true, pe
 export async function readFeed({ network = 'mainnet', limit = 50, minScore = 0, tier = null, category = null, sinceSeconds = 12 * 3600 } = {}) {
 	const lim = Math.min(200, Math.max(1, Number(limit) || 50));
 	const rows = await sql`
-		select mint, symbol, name, image_uri, score, tier, pedigree, structure, narrative, momentum,
-		       badges, category, smart_wallet_count, scored_at, coin_first_seen_at
-		from oracle_conviction
-		where network = ${network}
-		  and score >= ${Number(minScore) || 0}
-		  and (${tier}::text is null or tier = ${tier})
-		  and (${category}::text is null or category = ${category})
-		  and mint <> all(${QUOTE_MINT_LIST})
-		  and scored_at > now() - (${sinceSeconds} || ' seconds')::interval
-		order by score desc, scored_at desc
+		select c.mint, c.symbol, c.name, c.image_uri, c.score, c.tier,
+		       c.pedigree, c.structure, c.narrative, c.momentum,
+		       c.badges, c.category, c.smart_wallet_count, c.scored_at, c.coin_first_seen_at,
+		       hist.spark
+		from oracle_conviction c
+		left join lateral (
+			select array_agg(h.score order by h.scored_at)::int[] as spark
+			from (
+				select score, scored_at
+				from oracle_conviction_history
+				where mint = c.mint and network = c.network
+				  and scored_at > now() - interval '24 hours'
+				order by scored_at desc
+				limit 16
+			) h
+		) hist on true
+		where c.network = ${network}
+		  and c.score >= ${Number(minScore) || 0}
+		  and (${tier}::text is null or c.tier = ${tier})
+		  and (${category}::text is null or c.category = ${category})
+		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
+		  and c.scored_at > now() - (${sinceSeconds} || ' seconds')::interval
+		order by c.score desc, c.scored_at desc
 		limit ${lim}
 	`;
 	return rows.map(rowToFeedItem);
@@ -144,7 +157,7 @@ export async function feedSince({ network = 'mainnet', sinceIso, limit = 40 } = 
 		       badges, category, smart_wallet_count, scored_at, coin_first_seen_at
 		from oracle_conviction
 		where network = ${network} and scored_at > ${sinceIso}::timestamptz
-		  and mint <> all(${QUOTE_MINT_LIST})
+		  and mint <> all(${QUOTE_MINT_LIST}::text[])
 		order by scored_at asc
 		limit ${Math.min(100, Math.max(1, limit))}
 	`;
@@ -152,6 +165,10 @@ export async function feedSince({ network = 'mainnet', sinceIso, limit = 40 } = 
 }
 
 function rowToFeedItem(r) {
+	// Compact conviction trajectory for the inline card sparkline: the recorded
+	// history points (24h, ≤16) with the live score guaranteed as the final point.
+	let spark = Array.isArray(r.spark) ? r.spark.map(Number).filter(Number.isFinite) : [];
+	if (r.score != null && (spark.length === 0 || spark[spark.length - 1] !== r.score)) spark.push(r.score);
 	return {
 		mint: r.mint, symbol: r.symbol, name: r.name, image_uri: r.image_uri,
 		score: r.score, tier: r.tier,
@@ -161,6 +178,7 @@ function rowToFeedItem(r) {
 		smart_wallet_count: r.smart_wallet_count,
 		scored_at: r.scored_at,
 		coin_first_seen_at: r.coin_first_seen_at,
+		spark: spark.length >= 2 ? spark : null,
 	};
 }
 
@@ -341,12 +359,12 @@ export async function purgeOldHistory(network = 'mainnet') {
 export async function purgeQuoteMints(network = 'mainnet') {
 	const deleted = await sql`
 		delete from oracle_conviction
-		where network = ${network} and mint = any(${QUOTE_MINT_LIST})
+		where network = ${network} and mint = any(${QUOTE_MINT_LIST}::text[])
 		returning mint
 	`.then((r) => r.length).catch(() => 0);
 	await Promise.all([
-		sql`delete from oracle_conviction_history where network = ${network} and mint = any(${QUOTE_MINT_LIST})`.catch(() => {}),
-		sql`delete from oracle_narrative where network = ${network} and mint = any(${QUOTE_MINT_LIST})`.catch(() => {}),
+		sql`delete from oracle_conviction_history where network = ${network} and mint = any(${QUOTE_MINT_LIST}::text[])`.catch(() => {}),
+		sql`delete from oracle_narrative where network = ${network} and mint = any(${QUOTE_MINT_LIST}::text[])`.catch(() => {}),
 	]);
 	return deleted;
 }

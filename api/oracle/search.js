@@ -39,7 +39,7 @@ export default wrap(async (req, res) => {
 		from oracle_conviction
 		where network = ${network}
 		  and (symbol ilike ${pattern} or name ilike ${pattern})
-		  and mint <> all(${QUOTE_MINT_LIST})
+		  and mint <> all(${QUOTE_MINT_LIST}::text[])
 		order by score desc nulls last
 		limit ${limit}
 	`;

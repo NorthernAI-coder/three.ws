@@ -2,7 +2,7 @@
 
 import { Ratelimit } from '@upstash/ratelimit';
 import { env } from './env.js';
-import { getRedis } from './redis.js';
+import { getRedis, isRedisAuthError } from './redis.js';
 
 const redis = getRedis();
 
@@ -123,6 +123,13 @@ function warnDegradedOnce(name, err) {
 	// rejections carry `circuitOpen`. Re-warning per limiter per cooldown on top of
 	// that is pure noise — skip it and let the breaker own the signal.
 	if (err?.circuitOpen) return;
+	// @upstash/ratelimit catches the underlying Redis rejection and re-throws its
+	// own UpstashError, dropping the `circuitOpen` tag — so an auth failure reaching
+	// here on the breaker's once-per-cooldown trial command would still log, once per
+	// limiter name. Across dozens of limiter names that recreates the WRONGPASS flood
+	// the breaker exists to silence. The breaker already owns the single auth-failure
+	// line and the rotate-the-token remediation, so suppress auth errors here too.
+	if (isRedisAuthError(err)) return;
 	const last = _degradeWarnedAt.get(name) || 0;
 	const t = Date.now();
 	if (t - last < DEGRADE_WARN_COOLDOWN_MS) return;

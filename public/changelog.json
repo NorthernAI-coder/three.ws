@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T09:28:03.247Z",
+	"generated_at": "2026-06-29T09:42:07.233Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -221,6 +221,16 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Meet the agent behind each coin in interactive 3D",
+			"summary": "Every coin page now shows the launching agent as a live, interactive 3D avatar right on the page — drag to orbit, scroll to zoom — instead of a flat thumbnail. Agents with their own model show it; the rest wear the shared base avatar so the stage is never empty. A \"See in world\" link drops that avatar straight into the walkable $THREE world. The 3D view only loads once it scrolls into view, so pages stay fast, and it falls back gracefully if a model can't load.",
+			"link": "/launches",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Multi-agent collaboration — watch a team take on one goal",
 			"summary": "Give a lead agent a goal and watch a full team assemble to tackle it. The lead decomposes the goal, delegates sub-tasks to teammates, and hires paid agents over real x402 — every handoff stamped with an on-chain receipt and an explorer link. A live dependency graph on /agents-live and /agent-screen shows each node pulse from queued to running to done, with cost badges and real signatures as they settle. One goal, real payments, verifiable provenance.",
 			"link": "/agents-live",
@@ -251,6 +261,16 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Oracle no longer mistakes stablecoins for coins",
+			"summary": "The Oracle's feeds, movers, search, and wins gallery now ignore stablecoins and SOL-type tokens (USDC, USDT, wrapped/staked SOL, and similar). These show up as the other side of every trade but were never launched coins, so one was slipping into the rankings as a junk entry with an absurd multiple. They're now filtered out the moment data is ingested, hidden everywhere they're read, and any that were already cached are cleaned up automatically.",
+			"link": "/oracle",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Portfolio dashboard loads your agent balances again",
 			"summary": "The portfolio page now shows your agents' live balances and value-over-time chart instead of failing to load. The endpoints that feed the page — your aggregated holdings, the 90-day history chart, and the per-token drill-down — had no server route wired up, so every request came back empty and the page sat blank. The routes are now in place, so your wallets, totals, history, and individual token views all populate as they should.",
 			"link": "/dashboard/portfolio",
@@ -276,6 +296,17 @@
 			"link": "/agent-screen",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Smart-Money wallet reputation stays fresh again",
+			"summary": "The job that scores every wallet's realized track record and detects sybil/insider clusters was quietly timing out on large datasets, leaving the Smart-Money graph that powers the launch firewall, the sniper, and the public Smart-Money page increasingly stale. It now writes thousands of wallet scores in a handful of bulk operations instead of one row at a time, so it finishes in seconds and the reputation data behind every \"who's in\" breakdown stays current. Coin cards also stop re-requesting Oracle conviction for coins the data brain hasn't observed yet, so pages stay lighter.",
+			"link": "/smart-money",
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

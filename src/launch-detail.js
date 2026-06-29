@@ -1324,6 +1324,104 @@ function renderEconomics() {
 // AGENT BEHIND THE COIN
 // ════════════════════════════════════════════════════════════════════════════
 
+// Lazy-load the first-party <agent-3d> web component. Tries the CDN, then the
+// same-origin mirror, then the dev bundle — robust across prod and local dev.
+// Resolved once and shared, so a second mount never re-imports.
+let agent3DLibPromise = null;
+function ensureAgent3DLib() {
+	if (customElements.get('agent-3d')) return Promise.resolve(true);
+	if (agent3DLibPromise) return agent3DLibPromise;
+	const candidates = [
+		'https://three.ws/agent-3d/latest/agent-3d.js',
+		'/agent-3d/latest/agent-3d.js',
+		'/dist-lib/agent-3d.js',
+	];
+	agent3DLibPromise = (async () => {
+		for (const url of candidates) {
+			try {
+				await import(/* @vite-ignore */ url);
+				if (customElements.get('agent-3d')) return true;
+			} catch {
+				/* try next candidate */
+			}
+		}
+		return false;
+	})();
+	return agent3DLibPromise;
+}
+
+// The launching agent rendered as its real, interactive 3D avatar. Every agent
+// resolves to a loadable model — its own GLB when public, else the shared
+// mannequin (agentAvatarGlb) — so the stage is never an empty hole. The WebGL
+// context is paid only once the card scrolls into view, and a failed/slow load
+// degrades to the labelled fallback instead of a blank canvas.
+function buildAgentStage(agent) {
+	const glb = agentAvatarGlb(agent);
+	const custom = hasCustomAvatar(agent);
+
+	const stage = el('div', { class: 'ld-agent-stage', 'data-state': 'idle' });
+	const loadEl = el('div', { class: 'ld-agent-stage-load' }, [
+		el('span', { class: 'ld-agent-stage-spin', 'aria-hidden': 'true' }),
+		el('span', { class: 'ld-agent-stage-msg', text: 'Loading 3D…' }),
+	]);
+	stage.appendChild(loadEl);
+
+	const setMsg = (text) => {
+		const m = stage.querySelector('.ld-agent-stage-msg');
+		if (m) m.textContent = text;
+	};
+
+	let mounted = false;
+	const mount = async () => {
+		if (mounted) return;
+		mounted = true;
+		const ok = await ensureAgent3DLib();
+		if (!ok) {
+			stage.dataset.state = 'error';
+			setMsg("Couldn't load the 3D viewer.");
+			return;
+		}
+		const a3d = el('agent-3d', {
+			class: 'ld-agent-3d',
+			alt: `${agent.name || 'Agent'} — 3D avatar`,
+		});
+		a3d.setAttribute('controls', 'orbit');
+		a3d.setAttribute('src', glb);
+		a3d.addEventListener('load', () => {
+			stage.dataset.state = 'ready';
+			loadEl.remove();
+		}, { once: true });
+		a3d.addEventListener('error', () => {
+			stage.dataset.state = 'error';
+			setMsg("Couldn't load the 3D model.");
+		}, { once: true });
+		stage.appendChild(a3d);
+		stage.appendChild(
+			el('div', { class: 'ld-agent-stage-bar' }, [
+				el('span', { class: 'ld-agent-stage-hint', text: custom ? 'Drag to orbit · scroll to zoom' : 'Base avatar · drag to orbit' }),
+				el('a', { class: 'ld-agent-stage-world', href: seeInWorldHref(agent), text: 'See in world →' }),
+			]),
+		);
+	};
+
+	// Pay for the WebGL context only when the card is actually near the viewport.
+	if ('IntersectionObserver' in window) {
+		const io = new IntersectionObserver((entries) => {
+			for (const e of entries) {
+				if (e.isIntersecting) {
+					io.disconnect();
+					mount();
+				}
+			}
+		}, { rootMargin: '240px' });
+		io.observe(stage);
+	} else {
+		mount();
+	}
+
+	return stage;
+}
+
 function renderAgent() {
 	const target = $('ld-agent');
 	const agent = state.detail.agent;
@@ -1334,12 +1432,7 @@ function renderAgent() {
 		return;
 	}
 
-	const avatar = agent.avatar_thumbnail_url
-		? el('img', { class: 'ld-agent-avatar', src: agent.avatar_thumbnail_url, alt: '', loading: 'lazy' })
-		: el('span', { class: 'ld-agent-avatar ld-agent-avatar-fallback', text: (agent.name || '?')[0].toUpperCase() });
-
 	const head = el('a', { class: 'ld-agent-head', href: agent.url, 'aria-label': `View agent ${agent.name}` }, [
-		avatar,
 		el('div', { class: 'ld-agent-id' }, [
 			el('span', { class: 'ld-agent-name', text: agent.name || 'Agent' }),
 			el('span', { class: 'ld-agent-role', text: 'Launching agent' }),
@@ -1347,7 +1440,7 @@ function renderAgent() {
 		el('span', { class: 'ld-agent-go', text: '→' }),
 	]);
 
-	const body = el('div', { class: 'ld-agent-body' }, [head]);
+	const body = el('div', { class: 'ld-agent-body' }, [buildAgentStage(agent), head]);
 
 	// The launching agent's custodial Solana wallet — vanity-aware, copyable,
 	// read-only for visitors. agent_authority (the on-chain signer) backstops the

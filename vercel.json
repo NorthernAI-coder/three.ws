@@ -93,7 +93,7 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
-		"api/cron/recompute-reputation.js": {
+		"api/cron/{recompute-reputation,smart-money-graph}.js": {
 			"maxDuration": 300
 		},
 		"api/cron/[name].js": {

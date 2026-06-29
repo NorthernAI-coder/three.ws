@@ -1902,7 +1902,14 @@
 			if (hit) _oracleCache.delete(mint);
 			try {
 				const r = await fetch(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=mainnet`);
-				if (!r.ok) return null;
+				if (!r.ok) {
+					// 404 = mint not observed yet — a stable negative. Cache it under the
+					// same TTL so a repaint-driven re-render doesn't re-fetch (and re-404)
+					// every frame. A 503 is transient: return null without caching so the
+					// next call retries.
+					if (r.status === 404) _oracleCache.set(mint, { value: null, expires: now + ORACLE_TTL_MS });
+					return null;
+				}
 				const d = await r.json();
 				const cv = d?.conviction ? { score: d.conviction.score, tier: d.conviction.tier } : null;
 				_oracleCache.set(mint, { value: cv, expires: now + ORACLE_TTL_MS });

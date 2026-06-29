@@ -32,6 +32,29 @@ const _cache = new Map(); // key → { data, at }
 
 function cacheKey(period, tier, network) { return `${period}:${tier}:${network}`; }
 
+/**
+ * Wilson score interval — the honest 95% confidence band for a win rate. Unlike
+ * the naive ±√(p(1-p)/n), it stays inside [0,1] and is well-behaved at small n,
+ * which is exactly the regime a young backtest lives in. Returned as integer
+ * percentages so the UI can render "68% (54–80)" without further math.
+ *
+ * @param {number} wins
+ * @param {number} n      resolved sample (wins + losses)
+ * @param {number} z      z-score (1.96 ≈ 95%)
+ * @returns {{lo:number, hi:number, width:number}|null}
+ */
+export function wilson(wins, n, z = 1.96) {
+	if (!n || n <= 0) return null;
+	const p = wins / n;
+	const z2 = z * z;
+	const denom = 1 + z2 / n;
+	const centre = (p + z2 / (2 * n)) / denom;
+	const margin = (z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denom;
+	const lo = Math.max(0, Math.round((centre - margin) * 100));
+	const hi = Math.min(100, Math.round((centre + margin) * 100));
+	return { lo, hi, width: hi - lo };
+}
+
 async function query(days, tier, network) {
 	const key = cacheKey(days, tier, network);
 	const hit = _cache.get(key);
@@ -79,6 +102,83 @@ async function query(days, tier, network) {
 	}
 	const resolved = agg.wins + agg.losses;
 	agg.win_rate = resolved ? Math.round((agg.wins / resolved) * 100) : null;
+	agg.ci = wilson(agg.wins, resolved);
+
+	// ── score-band calibration + Brier score ───────────────────────────────────
+	// The conviction score claims to rank coins by win probability. Calibration is
+	// the proof: bucket every resolved coin by its score band and measure the
+	// REALIZED win rate per band. A trustworthy engine produces a monotonic ladder
+	// (higher band → higher realized rate) that tracks the band's own prediction.
+	// Brier = mean squared error of score/100 (treated as a probability) vs the
+	// 0/1 outcome — one number for "how well-calibrated overall" (lower is better).
+	// This pass is unconditional on tier so the baseline is the true market rate.
+	const calRows = await sql`
+		select
+			width_bucket(c.score, 0, 100, 10)                                     as bucket,
+			count(*)::int                                                         as n,
+			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int       as wins,
+			round(avg(c.score)::numeric, 1)                                       as avg_score
+		from oracle_conviction c
+		join pump_coin_outcomes o on o.mint = c.mint
+		where c.network = ${network}
+		  and (o.graduated or o.rugged or o.ath_multiple is not null)
+		  ${periodFilter}
+		group by 1
+		order by 1
+	`.catch(() => []);
+
+	const calibration = calRows
+		.filter((r) => r.bucket >= 1 && r.bucket <= 10)
+		.map((r) => {
+			const lo = (r.bucket - 1) * 10;
+			const hi = r.bucket * 10;
+			const realized = r.n ? Math.round((r.wins / r.n) * 100) : null;
+			return {
+				band: `${lo}–${hi}`,
+				lo, hi,
+				n: r.n,
+				wins: r.wins,
+				avg_score: r.avg_score != null ? Number(r.avg_score) : (lo + hi) / 2,
+				predicted: Math.round((lo + hi) / 2),       // band midpoint as a % prediction
+				realized,                                    // realized win rate in the band
+				ci: wilson(r.wins, r.n),
+			};
+		});
+
+	// Market baseline: a coin drawn at random from everything Oracle scored.
+	const baseRow = await sql`
+		select
+			count(*)::int                                                   as n,
+			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int as wins,
+			round(avg(power((c.score / 100.0) - (case when o.graduated or o.ath_multiple >= 2 then 1 else 0 end), 2))::numeric, 4) as brier
+		from oracle_conviction c
+		join pump_coin_outcomes o on o.mint = c.mint
+		where c.network = ${network}
+		  and (o.graduated or o.rugged or o.ath_multiple is not null)
+		  ${periodFilter}
+	`.then((r) => r[0] || {}).catch(() => ({}));
+
+	const baselineN = Number(baseRow.n) || 0;
+	const baselineWinRate = baselineN ? Math.round((Number(baseRow.wins) / baselineN) * 100) : null;
+	const brier = baseRow.brier != null ? Number(baseRow.brier) : null;
+
+	// Edge summary: does conviction actually beat blind buying, and does the ladder
+	// climb in the right order?
+	const primeRow = rows.find((r) => r.tier === 'prime');
+	const primeResolved = primeRow ? primeRow.wins + primeRow.losses : 0;
+	const primeWinRate = primeResolved ? Math.round((primeRow.wins / primeResolved) * 100) : null;
+	const orderedRealized = calibration.map((c) => c.realized).filter((v) => v != null);
+	const monotonic = orderedRealized.length >= 2
+		&& orderedRealized.every((v, i) => i === 0 || v >= orderedRealized[i - 1] - 5); // ≤5pt tolerance
+	const edge = {
+		baseline_win_rate: baselineWinRate,
+		baseline_n: baselineN,
+		prime_win_rate: primeWinRate,
+		prime_lift: (primeWinRate != null && baselineWinRate != null) ? primeWinRate - baselineWinRate : null,
+		edge_multiple: (primeWinRate != null && baselineWinRate) ? Number((primeWinRate / baselineWinRate).toFixed(2)) : null,
+		monotonic,
+		brier,
+	};
 
 	// ── top performers in the period ─────────────────────────────────────────
 	const topFilter = days != null ? sql`and c.scored_at >= now() - (${days} || ' days')::interval` : sql``;
@@ -105,6 +205,7 @@ async function query(days, tier, network) {
 			wins: r.wins,
 			losses: r.losses,
 			win_rate: (r.wins + r.losses) > 0 ? Math.round((r.wins / (r.wins + r.losses)) * 100) : null,
+			ci: wilson(r.wins, r.wins + r.losses),
 			avg_ath: r.avg_ath ? Number(r.avg_ath) : null,
 			median_ath: r.median_ath ? Number(r.median_ath) : null,
 			three_x: r.three_x,
@@ -114,6 +215,8 @@ async function query(days, tier, network) {
 			rugged: r.rugged,
 		})),
 		aggregate: agg,
+		calibration,
+		edge,
 		top_performers: top.map((r) => ({
 			mint: r.mint,
 			symbol: r.symbol,

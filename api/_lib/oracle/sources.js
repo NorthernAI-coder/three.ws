@@ -226,7 +226,7 @@ export async function recentMints({ network = 'mainnet', limit = 100, sinceSecon
 		select mint from pump_coin_intel
 		where network = ${network}
 		  and first_seen_at > now() - (${sinceSeconds} || ' seconds')::interval
-		  and mint <> all(${QUOTE_MINT_LIST})
+		  and mint <> all(${QUOTE_MINT_LIST}::text[])
 		order by first_seen_at desc
 		limit ${Math.min(500, Math.max(1, limit))}
 	`);

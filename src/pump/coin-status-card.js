@@ -467,6 +467,12 @@ export function mountCoinStatus(container, mint, opts = {}) {
 	let destroyed = false;
 	let lastCoin = null;
 	let lastConviction = null;
+	// Once the Oracle reports this mint as not-yet-observed (404 not_found), stop
+	// re-requesting conviction on every silent refresh: ingestion happens out of
+	// band (the always-on observer), so the negative is stable for this session and
+	// re-polling it every refreshMs just produces a steady stream of 404s. A 503
+	// (transient scoring outage) is NOT terminal — we keep trying on those.
+	let oracleUnavailable = false;
 
 	const paint = (node) => {
 		if (destroyed || !container) return;
@@ -483,9 +489,16 @@ export function mountCoinStatus(container, mint, opts = {}) {
 
 		try {
 			// Fire coin + oracle fetches in parallel; oracle is best-effort (card only).
-			const oraclePromise = variant === 'card' && wantOracle
+			// Skip it entirely once this mint is known-unobserved (see oracleUnavailable).
+			const oraclePromise = variant === 'card' && wantOracle && !oracleUnavailable
 				? fetch(`${ORACLE_ENDPOINT}?mint=${encodeURIComponent(mint)}`, { signal: sig })
-					.then((r) => (r.ok ? r.json() : null))
+					.then((r) => {
+						// 404 = the data brain hasn't observed this mint; a stable negative
+						// for the session, so stop polling it. Other non-OK (e.g. 503) is
+						// transient — return null and retry on the next refresh.
+						if (r.status === 404) { oracleUnavailable = true; return null; }
+						return r.ok ? r.json() : null;
+					})
 					.catch(() => null)
 				: null;
 

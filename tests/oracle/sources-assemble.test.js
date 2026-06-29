@@ -35,4 +35,13 @@ describe('assembleIntel — outage vs unknown', () => {
 		});
 		await expect(assembleIntel('MintXYZ', 'mainnet')).rejects.toThrow(/deadline/);
 	});
+
+	it('refuses quote/stablecoin mints (USDC) without ever touching the DB', async () => {
+		// USDC is the swap counter-side, never a launched coin. assembleIntel must
+		// short-circuit to null before any query so it can never be scored/cached
+		// (regression: USDC surfaced in the wins gallery as "$EPJFWD" at 32,905,333×).
+		const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+		await expect(assembleIntel(USDC, 'mainnet')).resolves.toBeNull();
+		expect(sqlMock).not.toHaveBeenCalled();
+	});
 });
