@@ -149,16 +149,15 @@
 				align-items: stretch;
 				margin-top: 12px;
 			}
+			/* No frame: the embed runs on a transparent background with the ground
+			   disc hidden, so the avatar + joystick float directly on the card.
+			   The stage is just a transparent, aspect-locked positioning box. */
 			.ad-walk-stage {
 				position: relative;
 				width: 100%;
 				aspect-ratio: 3 / 4;
-				border-radius: 14px;
-				overflow: hidden;
-				background:
-					radial-gradient(ellipse 70% 60% at 50% 35%, rgba(124, 92, 255, 0.16), transparent 70%),
-					var(--surface2, rgba(255, 255, 255, 0.04));
-				border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+				background: transparent;
+				border: 0;
 			}
 			.ad-walk-info {
 				display: flex;
@@ -539,6 +538,8 @@
 						</div>
 					</div>
 				</section>
+
+				<div class="ad-cards">
 
 				<section class="ad-card ad-walk-card" id="ad-walk-card" hidden>
 					<div class="ad-card-head">
@@ -1015,6 +1016,8 @@
 						>
 					</div>
 				</section>
+
+				</div>
 
 				<footer class="ad-foot">
 					<span>© 2026 three.ws</span>

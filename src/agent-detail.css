@@ -95,13 +95,33 @@ a {
 
 .ad-main {
 	padding: 0;
-	max-width: 920px;
+	/* Full-page: fill the 1fr track instead of a narrow centered column.
+	   Cap on ultra-wide so the masonry doesn't sprawl past a comfortable
+	   reading field, but otherwise use the whole width. */
+	max-width: 2400px;
 	margin: 0 auto;
 	width: 100%;
 	/* Grid item: allow the 1fr track to shrink below the content's
 	   min-content width so long monospace URLs / mono blocks can't blow
 	   the page out horizontally on narrow viewports. */
 	min-width: 0;
+}
+
+/* Masonry card field — tile the stacked cards across the full width.
+   column-width auto-fits as many columns as the viewport allows; tall
+   and short cards balance into even columns. The hero stays full-width
+   above this grid; the footer stays below it. */
+.ad-cards {
+	column-width: 440px;
+	column-gap: 16px;
+	padding: 4px 24px 0;
+}
+.ad-cards > .ad-card,
+.ad-cards > details {
+	margin: 0 0 16px;
+	width: 100%;
+	break-inside: avoid;
+	-webkit-column-break-inside: avoid;
 }
 
 .ad-banner {
@@ -784,6 +804,9 @@ div.ad-hero-avatar canvas {
 	}
 	.ad-hero {
 		padding: 0 16px 20px;
+	}
+	.ad-cards {
+		padding: 4px 16px 0;
 	}
 }
 

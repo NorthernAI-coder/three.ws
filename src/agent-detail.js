@@ -219,8 +219,9 @@ function walkAppHref(agent) {
 }
 
 // Source URL for the inline preview iframe. Autoplaying (avatar walks an idle
-// circle), joystick-driven, on the studio environment with a transparent
-// background so the card's own gradient shows through.
+// circle) and joystick-driven, on the studio environment. We force a transparent
+// background and hide the ground disc so the avatar floats free on the page —
+// just the body, its soft contact shadow, and the joystick, with no framed box.
 function walkEmbedSrc(agent) {
 	const sp = new URLSearchParams();
 	if (agent?.avatar_id) sp.set('avatar', agent.avatar_id);
@@ -228,6 +229,8 @@ function walkEmbedSrc(agent) {
 	sp.set('controls', 'joystick');
 	sp.set('autoplay', 'true');
 	sp.set('env', 'studio');
+	sp.set('bg', 'transparent');
+	sp.set('ground', 'false');
 	return `/walk-embed?${sp.toString()}`;
 }
 
