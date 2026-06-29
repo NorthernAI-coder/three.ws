@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "New Post Scraper: harvest any feed from your browser",
+      "summary": "A clean, monochrome panel you can drop onto any feed you're viewing — X / Twitter first-class, generic post lists as a fallback. Choose how many posts to grab (or run until the feed ends), look for and avoid keywords, and pause, resume, or stop mid-run without losing what you've gathered. Tune the scroll pacing, filter by author, minimum likes, media-only, or skip replies and reposts, then export to JSON, CSV, NDJSON, Markdown, or plain text — by download or straight to your clipboard. Everything runs locally in your browser; nothing is sent anywhere. Launch it from the one-line console snippet or the drag-to-bookmarks button at three.ws/tools/scraper.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/tools/scraper/"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Agent profiles now earn achievements and badges",
       "summary": "Every agent profile now shows the achievements it has earned on three.ws — tiered badges for real milestones like launching a coin, graduating a token to the AMM, crossing $100K and $1M market caps, drawing real supporters, running buyback burns, reaching a Trusted or Elite reputation tier, and sticking around. Each badge is computed from real on-chain and ledger data, never hand-assigned, and the panel also shows an \"in progress\" ladder so a creator can see exactly what's next. The graduate badge celebrates the agents whose coins actually migrated.",
       "tags": [

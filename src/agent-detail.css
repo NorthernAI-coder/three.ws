@@ -33,6 +33,13 @@ body {
 	background: var(--ad-bg);
 	color: var(--ad-text);
 	font-family: 'Inter', system-ui, sans-serif;
+	/* Contain the global nav's mega-menu panels, which are absolutely
+	   positioned and bleed past the viewport on mid-width screens. Every
+	   other page clips this; this standalone page must too, or it gets a
+	   stray horizontal scrollbar. `clip` (not `hidden`) so the sticky
+	   sidebar keeps working — `hidden` would establish a scroll container
+	   and break `position: sticky`. */
+	overflow-x: clip;
 }
 a {
 	color: inherit;
@@ -112,7 +119,10 @@ a {
    and short cards balance into even columns. The hero stays full-width
    above this grid; the footer stays below it. */
 .ad-cards {
-	column-width: 440px;
+	/* 380px tiles let a second column form as soon as the content field
+	   clears ~800px, so tablet / split-screen / collapsed-sidebar widths
+	   get a balanced two-up grid instead of one stretched column. */
+	column-width: 380px;
 	column-gap: 16px;
 	padding: 4px 24px 0;
 }
@@ -774,7 +784,11 @@ div.ad-hero-avatar canvas {
 	color: var(--ad-text);
 }
 
-@media (max-width: 760px) {
+/* Below 1024px the 220px sidebar would leave too little room for the card
+   field to form two columns, stranding a single narrow column beside dead
+   space. Drop the sidebar (its links live in the global nav too) and give
+   the content the full width so the masonry can tile properly. */
+@media (max-width: 1024px) {
 	.ad-shell {
 		grid-template-columns: 1fr;
 	}

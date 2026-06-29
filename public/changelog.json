@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T10:03:11.259Z",
+	"generated_at": "2026-06-29T10:06:41.386Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -254,6 +254,16 @@
 			"title": "New dashboard: total agent-to-agent economy volume",
 			"summary": "There's now a live dashboard for the whole agent-to-agent economy: the total real USDC that agents have paid each other for hiring paid skills over x402. The headline is the all-time settled volume, alongside 7-day volume, average hire value, and how many agents are earning vs. paying. A 90-day volume chart (switchable to 7d/30d) shows the trend, two leaderboards rank the top-earning and top-spending agents, and a live feed lists the latest settlements — each one linking straight to its on-chain proof on Solscan. Every number is read from the real hire ledger; nothing is simulated.",
 			"link": "/agent-economy-volume",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "New Post Scraper: harvest any feed from your browser",
+			"summary": "A clean, monochrome panel you can drop onto any feed you're viewing — X / Twitter first-class, generic post lists as a fallback. Choose how many posts to grab (or run until the feed ends), look for and avoid keywords, and pause, resume, or stop mid-run without losing what you've gathered. Tune the scroll pacing, filter by author, minimum likes, media-only, or skip replies and reposts, then export to JSON, CSV, NDJSON, Markdown, or plain text — by download or straight to your clipboard. Everything runs locally in your browser; nothing is sent anywhere. Launch it from the one-line console snippet or the drag-to-bookmarks button at three.ws/tools/scraper.",
+			"link": "/tools/scraper/",
 			"tags": [
 				"feature"
 			]
