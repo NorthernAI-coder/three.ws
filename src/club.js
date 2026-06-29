@@ -1592,6 +1592,10 @@ async function tipDancer({ dancer, dance, button }) {
 			merchant: 'three.ws Pole Club',
 			action: `Tip Dancer ${dancer} — ${dance}`,
 			autoConnect: true,
+			// Clear the checkout the instant the tip settles — the dancer takes the
+			// pole right behind it, and a lingering "Done" receipt at the top
+			// z-layer would hide the very performance the tip just paid for.
+			autoClose: true,
 		});
 		const ticket = out?.result;
 		if (!ticket?.ok) {

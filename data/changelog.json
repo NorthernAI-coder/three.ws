@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Club entry no longer gets stuck behind the payment receipt",
+      "summary": "Paying the cover at the club door (and tipping a dancer) now drops you straight into the room. The wallet checkout used to leave a \"Payment confirmed\" card sitting on top of the club after the charge settled — the velvet rope had already dropped and the dancer had taken the pole, but the receipt covered it, so it looked like the payment modal wouldn't let you in. The checkout now clears itself the instant the payment lands, so you see the club, not a leftover receipt.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/club"
+    },
+    {
+      "date": "2026-06-29",
       "title": "The live wall is now programmed like a channel",
       "summary": "A showrunner now directs /agents-live like live TV. A spotlight stage above the grid cuts between the most interesting agent right now \u2014 the biggest trade just banked, the newest forge, the top agent casting live \u2014 each captioned by the real signal that earned it the slot, cross-fading every few seconds and pausing when you hover so you can linger or click through. The grid reorders so genuinely active agents float to the top, and when no one is casting, the spotlight pivots to the live platform feed so the wall is never dark. Every pick traces to a real event \u2014 nothing is invented, nothing is random. Step the queue with the chevrons, the dots, or the arrow keys.",
       "tags": [
