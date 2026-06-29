@@ -1,0 +1,118 @@
+# x402 Paid Endpoints
+
+three.ws exposes a catalog of HTTP endpoints that charge per call over
+[x402](x402.md): the caller hits the endpoint, receives a `402 Payment Required`
+challenge, settles a small USDC payment, and retries with an `X-PAYMENT` header to
+get the result. This page is the reference for **our own** paid endpoints, their
+prices, and the price-override scheme.
+
+To call these as a buyer, see [x402 buyer client](x402-buyer.md). For the loop
+that calls many of them on a schedule, see [Autonomous x402 loop](autonomous-x402.md).
+
+> Source: handlers under [`api/x402/`](../api/x402/), pricing
+> [`api/_lib/x402-prices.js`](../api/_lib/x402-prices.js), shared handler
+> [`api/_lib/x402-paid-endpoint.js`](../api/_lib/x402-paid-endpoint.js).
+
+---
+
+## Pricing model
+
+Every endpoint declares a default price in **USDC atomics** (6 decimals, so
+`10000` = $0.01). Operators override any price at deploy time:
+
+```
+X402_PRICE_<SLUG>=<atomics>
+```
+
+where `<SLUG>` is the upper-snake-case form of the endpoint slug — e.g.
+`agent-reputation` → `X402_PRICE_AGENT_REPUTATION`, `token-intel` →
+`X402_PRICE_TOKEN_INTEL`. A non-integer value logs a warning and falls back to the
+default. Defaults are intentionally low (a demo/dev curve); production deployments
+should tune them to real unit economics.
+
+## Networks and settlement
+
+Endpoints advertise the networks they accept in the 402 challenge. The platform
+settles **USDC on Solana** (primary) and **USDC on Base** (EVM), via the
+configured facilitators. The relevant config (see [Configuration](configuration.md)):
+
+| Key | Meaning |
+|---|---|
+| `X402_PAY_TO_SOLANA` / `X402_PAY_TO_BASE` | Receiving address per network. |
+| `X402_ASSET_MINT_SOLANA` / `X402_ASSET_ADDRESS_BASE` | USDC mint / contract. |
+| `X402_FACILITATOR_URL_SOLANA` / `_BASE` | Facilitator that verifies + settles. |
+| `X402_RECEIPT_SIGNING_KEY`, `OFFER_RECEIPT_*` | Signed receipt issuance. |
+
+The shared handler in `x402-paid-endpoint.js` builds the challenge
+(`buildRequirements()`), verifies the submitted payment, settles it, runs the
+endpoint logic, and issues a signed receipt.
+
+## Intel & oracle endpoints
+
+These return market/polling information and are the ones the autonomous loop pays
+for to feed the oracle and sniper.
+
+| Endpoint | Default | Returns |
+|---|---|---|
+| `/api/x402/token-intel` | $0.01 | Live market intel for any token (price, 24h change, market cap, liquidity, volume, signal). |
+| `/api/x402/crypto-intel` | $0.01 | Agent-readable crypto market signal (bullish/bearish/neutral) + rationale. |
+| `/api/x402/three-intel` | $0.01 | Intel focused on $THREE. |
+| `/api/x402/fact-check` | per source | Claim fact-check with cited evidence. |
+| `/api/x402/symbol-availability` | $0.001 | Whether a ticker symbol is taken; `-batch` variant $0.005. |
+| `/api/x402/bazaar-feed` | $0.001 | x402 bazaar service listings feed. |
+
+## Agent & reputation endpoints
+
+| Endpoint | Default | Returns |
+|---|---|---|
+| `/api/x402/agent-reputation` | $0.01 | On-chain agent reputation summary. |
+| `/api/x402/agent-bouncer` | $0.01 | Access-gate decision for an agent/wallet. |
+| `/api/x402/onchain-identity-verify` | $0.005 | Verifies an on-chain identity claim. |
+| `/api/x402/skill-marketplace` | $0.001 | Skill listings + pricing. |
+| `/api/x402/skill-call` | per skill | Invoke a listed agent skill. |
+| `/api/x402/pump-agent-audit` | $0.02 | Audit of a pump agent's behavior/holdings. |
+
+## Generation & 3D endpoints
+
+| Endpoint | Default | Returns |
+|---|---|---|
+| `/api/x402/forge` | tiered | Text/image → 3D model (price by tier; GPU-bound). See [Avatar pipeline](avatar-pipeline.md). |
+| `/api/x402/mint-to-mesh` | per call | Token/mint → 3D mesh; `-batch` variant $0.05. |
+| `/api/x402/model-check`, `/api/x402/model-validation-sweep` | $0.001 | Validate a GLB / sweep a batch. |
+| `/api/x402/glb-optimization-report` | per call | GLB size/optimization analysis. |
+| `/api/x402/animation-download`, `/api/x402/asset-download` | per asset | Paid asset/animation delivery. |
+
+## Launch, naming & utility endpoints
+
+| Endpoint | Default | Returns |
+|---|---|---|
+| `/api/x402/pump-launch` | $5.00 | Launch monitoring / a managed launch. |
+| `/api/x402/vanity`, `/api/x402/vanity-verifiable` | per grind | Solana vanity address mining (verifiable variant returns proof). |
+| `/api/x402/pay-by-name` | per call | Resolve and pay an SNS/ENS name (see [Agent wallets](agent-wallets.md)). |
+| `/api/x402/did` | per call | Decentralized identifier resolution. |
+| `/api/x402/billboard` | $0.05 | Post to the on-platform billboard. |
+| `/api/x402/dance-tip` | $0.001 | Tip a club performer. |
+| `/api/x402/cosmetic-purchase` | per item | Buy a cosmetic. |
+| `/api/x402/spend-session` | $0.01 | Open a metered spend session. |
+| `/api/x402/llm-proxy` | per call | Paid LLM proxy. |
+| `/api/x402/cross-chain`, `/api/x402/network-cost` | per call | Cross-chain cost comparison. |
+| `/api/x402/*-health`, `/api/x402/rate-limit-probe`, `/api/x402/schema-check` | $0.001 | Paid health/diagnostic probes used by the autonomous loop. |
+
+> Prices above marked "per call / per tier / per source" are computed by the
+> handler rather than a flat default; check the handler and any
+> `X402_PRICE_<SLUG>` override for the exact figure in your deployment. Every
+> flat default is listed in [`api/_lib/x402-prices.js`](../api/_lib/x402-prices.js)
+> and overridable as described above.
+
+## $THREE only
+
+Any endpoint that references a coin references **$THREE**
+(`FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`). Endpoints that accept an
+arbitrary token (e.g. `token-intel`, `mint-to-mesh`) take the mint as runtime
+input and do not promote any specific token.
+
+## Related
+
+- [x402 protocol](x402.md) — the challenge/settle mechanics.
+- [x402 buyer client](x402-buyer.md) — how to pay these endpoints in code.
+- [MCP tools](mcp-tools.md) — the same capabilities exposed as paid MCP tools.

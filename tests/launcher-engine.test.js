@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // mock factories (hoisted above imports) read/write it.
 const H = vi.hoisted(() => ({
 	configs: [],
-	agent: { id: 'agent-1', user_id: 'user-1', name: 'Nova', avatar_id: 'av-1', solana_address: 'AgentAddr1111' },
+	agent: { id: 'agent-1', user_id: 'user-1', name: 'Nova', avatar_id: 'av-1', solana_address: 'AgentAddr1111', twitter: 'https://x.com/nova_agent', website: 'https://nova.example', telegram: null },
 	queueCount: 5,
 	lastRun: [], // [] ⇒ cadence not gated
 	fund: { ok: true, signature: 'fund-sig', lamports: 30_000_000 },
@@ -122,6 +122,38 @@ describe('runLauncherTick — live', () => {
 		expect(r.symbol).toBe('TURBOTTR');
 		// metadata build + launch = two internal POSTs
 		expect(fetchMock).toHaveBeenCalledTimes(2);
+
+		vi.unstubAllGlobals();
+	});
+
+	it('forwards the dev buy and the agent socials into the real launch', async () => {
+		H.configs = [makeConfig({ dry_run: false, dev_buy_sol: 0.01, per_launch_sol: 0.04 })];
+
+		const bodies = {};
+		const fetchMock = vi.fn(async (url, opts) => {
+			const u = String(url);
+			const body = opts?.body ? JSON.parse(opts.body) : {};
+			if (u.includes('action=build-metadata')) {
+				bodies.meta = body;
+				return { status: 200, json: async () => ({ metadata_url: 'ipfs://meta' }) };
+			}
+			if (u.includes('action=launch-agent')) {
+				bodies.launch = body;
+				return { status: 200, json: async () => ({ mint: 'MINTxyz', signature: 'launch-sig' }) };
+			}
+			return { status: 404, json: async () => ({}) };
+		});
+		vi.stubGlobal('fetch', fetchMock);
+
+		await runLauncherTick();
+
+		// Dev buy rides through to the on-chain initial buy.
+		expect(bodies.launch.sol_buy_in).toBe(0.01);
+		// The agent's own X + site are forwarded; absent telegram is omitted (server
+		// falls back to the three.ws channel).
+		expect(bodies.meta.twitter).toBe('https://x.com/nova_agent');
+		expect(bodies.meta.website).toBe('https://nova.example');
+		expect(bodies.meta).not.toHaveProperty('telegram');
 
 		vi.unstubAllGlobals();
 	});
