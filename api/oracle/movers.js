@@ -84,7 +84,7 @@ export default wrap(async (req, res) => {
 		from deduped d
 		join oracle_conviction c on c.mint = d.mint and c.network = d.network
 		where abs(c.score - d.first_score) >= ${minDelta}
-		  and c.mint <> all(${QUOTE_MINT_LIST})
+		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		  and (
 		        ${direction}::text = 'all'
 		     or (${direction}::text = 'rising'  and c.score > d.first_score)

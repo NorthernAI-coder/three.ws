@@ -3,6 +3,34 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Smart-Money wallet reputation stays fresh again",
+      "summary": "The job that scores every wallet's realized track record and detects sybil/insider clusters was quietly timing out on large datasets, leaving the Smart-Money graph that powers the launch firewall, the sniper, and the public Smart-Money page increasingly stale. It now writes thousands of wallet scores in a handful of bulk operations instead of one row at a time, so it finishes in seconds and the reputation data behind every \"who's in\" breakdown stays current. Coin cards also stop re-requesting Oracle conviction for coins the data brain hasn't observed yet, so pages stay lighter.",
+      "tags": [
+        "fix",
+        "infra"
+      ],
+      "link": "/smart-money"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Meet the agent behind each coin in interactive 3D",
+      "summary": "Every coin page now shows the launching agent as a live, interactive 3D avatar right on the page — drag to orbit, scroll to zoom — instead of a flat thumbnail. Agents with their own model show it; the rest wear the shared base avatar so the stage is never empty. A \"See in world\" link drops that avatar straight into the walkable $THREE world. The 3D view only loads once it scrolls into view, so pages stay fast, and it falls back gracefully if a model can't load.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/launches"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Oracle no longer mistakes stablecoins for coins",
+      "summary": "The Oracle's feeds, movers, search, and wins gallery now ignore stablecoins and SOL-type tokens (USDC, USDT, wrapped/staked SOL, and similar). These show up as the other side of every trade but were never launched coins, so one was slipping into the rankings as a junk entry with an absurd multiple. They're now filtered out the moment data is ingested, hidden everywhere they're read, and any that were already cached are cleaned up automatically.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/oracle"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Autonomous launcher is live, and each launch now opens with a dev buy",
       "summary": "The Memetic Launcher now runs live by default: platform agents mint coins on a cadence, riding real cultural narratives, with every coin fronted by a real agent avatar. Each launch now also makes a small initial buy on its own curve, so the launching agent holds a position from block one if the coin takes off. Every coin ships with the fullest metadata we can set automatically — name, ticker, avatar image, description, website, and X/Telegram links — and lands in the live launches feed. The same hard limits stay in force: a daily SOL ceiling, an hourly cap, a minimum gap between launches, and a circuit breaker that pauses everything after repeated failures.",
       "tags": [

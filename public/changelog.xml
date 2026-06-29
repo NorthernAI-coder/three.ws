@@ -175,6 +175,14 @@
 			<description>An agent's live screen now reads like a trading desk. As its sniper scores launches and fills buys and exits, a PnL ticker in the header counts up in green on a win and down in red on a loss — computed from real fills, not estimates. Each realized exit tints its line in the activity log, and the agent's 3D avatar celebrates a profitable close or slumps on a loss. The live agent wall surfaces the same running PnL on every card, so a glance reads as a row of working trading desks. Click the ticker for a win/loss and realized breakdown.</description>
 		</item>
 		<item>
+			<title>Meet the agent behind each coin in interactive 3D</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-29:Meet the agent behind each coin in interactive 3D</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every coin page now shows the launching agent as a live, interactive 3D avatar right on the page — drag to orbit, scroll to zoom — instead of a flat thumbnail. Agents with their own model show it; the rest wear the shared base avatar so the stage is never empty. A &quot;See in world&quot; link drops that avatar straight into the walkable $THREE world. The 3D view only loads once it scrolls into view, so pages stay fast, and it falls back gracefully if a model can't load.</description>
+		</item>
+		<item>
 			<title>Multi-agent collaboration — watch a team take on one goal</title>
 			<link>https://three.ws/agents-live</link>
 			<guid isPermaLink="false">2026-06-29:Multi-agent collaboration — watch a team take on one goal</guid>
@@ -199,6 +207,14 @@
 			<description>Open an agent's screen and it becomes a live market-news anchor. Every ~90 seconds it pulls real intel — narrative momentum, sentiment, and flow — scripts a tight bulletin, and reads it aloud in a real synthesized voice while its 3D avatar lip-syncs to the words. The headline slides up as a broadcast lower-third, and the live wall shows what each anchor is reporting with a red ON AIR ticker. Audio is muted by default with one-tap unmute (press A); if a feed is down the anchor reports only what's live instead of going silent, and a rig without face morphs still talks via a jaw-bob driven by the real audio.</description>
 		</item>
 		<item>
+			<title>Oracle no longer mistakes stablecoins for coins</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-06-29:Oracle no longer mistakes stablecoins for coins</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Oracle's feeds, movers, search, and wins gallery now ignore stablecoins and SOL-type tokens (USDC, USDT, wrapped/staked SOL, and similar). These show up as the other side of every trade but were never launched coins, so one was slipping into the rankings as a junk entry with an absurd multiple. They're now filtered out the moment data is ingested, hidden everywhere they're read, and any that were already cached are cleaned up automatically.</description>
+		</item>
+		<item>
 			<title>Portfolio dashboard loads your agent balances again</title>
 			<link>https://three.ws/dashboard/portfolio</link>
 			<guid isPermaLink="false">2026-06-29:Portfolio dashboard loads your agent balances again</guid>
@@ -221,6 +237,14 @@
 			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Open an agent's screen and arm the new Sentiment Heatmap panel: a glowing 3D field of tokens that pulses with the market, $THREE pinned at the centre and labelled. Each token is a pillar — colour is its 24h momentum (cold blue → slate → green-hot), height is its 24h volume, and the strongest movers blaze with bloom while the camera drifts slowly around the field. The data is live: trending market data from Dexscreener and pump.fun, with $THREE enriched by a real pump.fun-comment sentiment pulse. As tokens spike, the agent calls the moment in its activity log — &quot;Heating across the board, $THREE up on rising volume&quot; — narrated by the brain and throttled so it never floods. Hover any tile for momentum and volume, hit the ◎ $THREE button to recentre on the anchor, and when the agent's screen is otherwise idle the heatmap casts to the live wall so the card is never blank. Press H to toggle it.</description>
+		</item>
+		<item>
+			<title>Smart-Money wallet reputation stays fresh again</title>
+			<link>https://three.ws/smart-money</link>
+			<guid isPermaLink="false">2026-06-29:Smart-Money wallet reputation stays fresh again</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The job that scores every wallet's realized track record and detects sybil/insider clusters was quietly timing out on large datasets, leaving the Smart-Money graph that powers the launch firewall, the sniper, and the public Smart-Money page increasingly stale. It now writes thousands of wallet scores in a handful of bulk operations instead of one row at a time, so it finishes in seconds and the reputation data behind every &quot;who's in&quot; breakdown stays current. Coin cards also stop re-requesting Oracle conviction for coins the data brain hasn't observed yet, so pages stay lighter.</description>
 		</item>
 		<item>
 			<title>Solana Metaplex agents now appear in the on-chain deployments feed</title>

@@ -54,10 +54,16 @@ let authTrialInFlight = false;
 
 // Auth/permission failures are permanent until the credential changes; only these
 // trip the breaker. Upstash surfaces them in the error message body it returns.
+// Exported (as isRedisAuthError) so per-consumer fallbacks can recognize the same
+// auth failure even when an intermediary library (e.g. @upstash/ratelimit) wraps
+// the underlying rejection and strips our `circuitOpen` tag — those consumers
+// defer the one auth log line to this module's breaker instead of re-logging it
+// per limiter on every cooldown trial.
 function isAuthError(err) {
 	const m = String(err?.message || err || '');
 	return /WRONGPASS|NOAUTH|NOPERM|invalid or missing auth token|\b401\b|\b403\b/i.test(m);
 }
+export { isAuthError as isRedisAuthError };
 
 // Thrown when the breaker is open. Tagged `circuitOpen` so consumers treat it as a
 // normal "Redis unavailable" fallback WITHOUT emitting a per-request warning (the

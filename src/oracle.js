@@ -662,6 +662,72 @@ function pillar(kind, label, val) {
 		<div class="track"><div class="fill" style="width:${Math.max(0, Math.min(100, val || 0))}%"></div></div></div>`;
 }
 
+// Inline conviction trajectory — a tiny SVG sparkline of the score over the last
+// 24h. Trend-colored, with the live point dotted. Renders nothing for <2 points.
+function miniSpark(points) {
+	const pts = (points || []).map(Number).filter(Number.isFinite);
+	if (pts.length < 2) return '';
+	const W = 56, H = 18, pad = 2;
+	const min = Math.min(...pts), max = Math.max(...pts);
+	const span = max - min || 1;
+	const n = pts.length;
+	const xs = pts.map((_, i) => pad + (i / (n - 1)) * (W - pad * 2));
+	const ys = pts.map((v) => pad + (1 - (v - min) / span) * (H - pad * 2));
+	const delta = Math.round(pts[n - 1] - pts[0]);
+	const col = delta > 2 ? 'var(--up)' : delta < -2 ? 'var(--down)' : 'var(--muted)';
+	const poly = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+	const sign = delta > 0 ? '+' : '';
+	return `<span class="coin-spark" title="Conviction ${sign}${delta} pts over the last 24h · ${n} readings">
+		<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-label="Conviction trend ${sign}${delta} points over 24 hours">
+			<polyline points="${poly}" fill="none" stroke="${col}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+			<circle cx="${xs[n - 1].toFixed(1)}" cy="${ys[n - 1].toFixed(1)}" r="1.9" fill="${col}"/>
+		</svg></span>`;
+}
+
+const TAKE_TIER = {
+	prime:  'A prime setup',
+	strong: 'A strong setup',
+	lean:   'A lean call',
+	watch:  'One to watch',
+	avoid:  'Steer clear',
+};
+const TAKE_PILLAR = {
+	pedigree: { hi: 'sharp wallets are already in', lo: 'no real pedigree behind it' },
+	structure:{ hi: 'a clean, distributed launch', lo: 'the launch structure is shaky' },
+	narrative:{ hi: 'a narrative with legs', lo: 'a thin story' },
+	momentum: { hi: 'real buy pressure building', lo: 'momentum hasn\'t shown up' },
+};
+const TAKE_LABEL = { pedigree: 'Who', structure: 'How', narrative: 'What', momentum: 'Move' };
+
+// Oracle's take — a deterministic one-line synthesis grounded in the same pillars
+// the card already shows. Leads with the tier, names the strongest pillar, and is
+// honest about the weakest when conviction isn't high. No LLM, no latency, no spin.
+function oracleTake(it) {
+	const p = it.pillars || {};
+	const entries = ['pedigree', 'structure', 'narrative', 'momentum']
+		.map((k) => ({ k, v: Number(p[k]) }))
+		.filter((e) => Number.isFinite(e.v));
+	if (!entries.length) return '';
+	const strong = entries.reduce((a, b) => (b.v > a.v ? b : a));
+	const weak = entries.reduce((a, b) => (b.v < a.v ? b : a));
+	const tier = it.tier || 'watch';
+	const lead = TAKE_TIER[tier] || 'One to watch';
+
+	let body;
+	if (tier === 'prime' || tier === 'strong') {
+		body = `${TAKE_PILLAR[strong.k].hi}`;
+		if (it.smart_wallet_count >= 3 && strong.k !== 'pedigree') body += `, with ${it.smart_wallet_count} smart-money wallets in`;
+		if ((it.badges || []).includes('structure-flag')) body += ` — but watch the structure flag`;
+	} else if (tier === 'lean') {
+		body = `${TAKE_PILLAR[strong.k].hi}, but ${TAKE_PILLAR[weak.k].lo}`;
+	} else {
+		body = weak.v < 40 ? `${TAKE_PILLAR[weak.k].lo}` : `nothing here stands out yet`;
+		if ((it.badges || []).includes('structure-flag')) body = `the launch structure throws a flag`;
+	}
+	const cat = it.category && it.category !== 'unknown' ? ` Riding a ${esc(it.category)} narrative.` : '';
+	return `<div class="coin-take"><span class="ct-q">“</span><span><b>${lead}</b> — ${body}.${cat}</span></div>`;
+}
+
 function coinCard(it, watched = new Set()) {
 	const p = it.pillars || {};
 	const badges = (it.badges || []).map((b) => {
@@ -687,8 +753,10 @@ function coinCard(it, watched = new Set()) {
 			<div class="dial">
 				<b>${it.score}</b><span>conviction</span>
 				<div class="tierpill ${tierPill(it.tier)}">${esc(it.tier)}</div>
+				${miniSpark(it.spark)}
 			</div>
 		</div>
+		${oracleTake(it)}
 		<div class="pillars">
 			${pillar('ped', 'Who', p.pedigree)}
 			${pillar('str', 'How', p.structure)}
@@ -1155,10 +1223,35 @@ function renderEdge() {
 	}
 
 	const agg = bt?.aggregate;
+	const edge = bt?.edge;
+
+	// ── verdict hero: does conviction beat blind buying? ──────────────────────
+	let hero = '';
+	if (edge && edge.prime_win_rate != null && edge.baseline_win_rate != null) {
+		const lift = edge.prime_lift;
+		const mult = edge.edge_multiple;
+		const beats = lift != null && lift > 0;
+		const mono = edge.monotonic;
+		hero = `
+			<div class="edge-hero${beats ? '' : ' thin'}">
+				<p class="edge-hero-claim">Prime calls win <b class="win">${edge.prime_win_rate}%</b> of the time${beats ? `, vs <b>${edge.baseline_win_rate}%</b> for a coin picked at random` : ''}.</p>
+				<p class="edge-hero-sub">${beats
+					? `That's a <b style="color:var(--ink)">+${lift} point</b> lift over blind buying${mult ? ` — <b style="color:var(--ink)">${mult}×</b> the base rate` : ''}. ${mono ? 'And the win rate climbs with the score at every band — the ranking is calibrated, not noise.' : 'The ladder isn\'t fully monotonic yet — treat lower bands with caution.'}`
+					: `Conviction isn't beating the market over this window yet. We show it anyway — no cherry-picking.`}</p>
+				<div class="edge-hero-metrics">
+					<span class="edge-chip ${beats ? 'ok' : ''}"><b class="${beats ? 'up' : ''}">${lift != null ? (lift >= 0 ? '+' : '') + lift + 'pt' : '—'}</b><span>edge lift</span></span>
+					${mult ? `<span class="edge-chip"><b>${mult}×</b><span>vs base rate</span></span>` : ''}
+					${edge.brier != null ? `<span class="edge-chip" title="Mean squared error of the score (as a probability) vs the real outcome. Lower = better calibrated. 0.25 = a coin-flip."><b>${edge.brier.toFixed(3)}</b><span>brier</span></span>` : ''}
+					<span class="edge-chip ${mono ? 'ok' : ''}"><b class="${mono ? 'up' : ''}">${mono ? 'monotonic' : 'mixed'}</b><span>ranking</span></span>
+					${edge.baseline_n ? `<span class="edge-chip"><b>${edge.baseline_n.toLocaleString()}</b><span>resolved</span></span>` : ''}
+				</div>
+			</div>`;
+	}
+
 	const aggLine = agg && agg.total > 0 ? `
 		<div class="edge-agg">
-			<div class="edge-kpi"><span>Total scored</span><b>${agg.total}</b></div>
-			<div class="edge-kpi"><span>Win rate</span><b class="${(agg.win_rate||0) >= 50 ? 'up' : 'dn'}">${agg.win_rate != null ? agg.win_rate + '%' : '—'}</b></div>
+			<div class="edge-kpi"><span>Total scored</span><b>${agg.total.toLocaleString()}</b></div>
+			<div class="edge-kpi"><span>Win rate</span><b class="${(agg.win_rate||0) >= 50 ? 'up' : 'dn'}">${agg.win_rate != null ? agg.win_rate + '%' : '—'}</b>${agg.ci ? `<span class="ci">95% CI ${agg.ci.lo}–${agg.ci.hi}</span>` : ''}</div>
 			<div class="edge-kpi"><span>Wins</span><b class="up">${agg.wins}</b></div>
 			<div class="edge-kpi"><span>Losses</span><b class="dn">${agg.losses}</b></div>
 			<div class="edge-kpi"><span>Graduated</span><b>${agg.graduated}</b></div>
@@ -1167,9 +1260,22 @@ function renderEdge() {
 			<div class="edge-kpi"><span>≥ 10×</span><b>${agg.ten_x}</b></div>
 		</div>` : '';
 
+	// ── calibration ladder: realized win rate by score band ───────────────────
+	const cal = (bt?.calibration || []).filter((c) => c.n != null);
+	const calHtml = cal.length ? `
+		<div class="dr-sec edge-sec">Calibration — realized win rate by score band</div>
+		<div class="cal">
+			${cal.slice().reverse().map(calRow).join('')}
+			<div class="cal-legend">
+				<span><i class="li-real"></i>Realized win rate (bar fill)</span>
+				<span><i class="li-pred"></i>What the band predicts (midpoint)</span>
+				<span style="color:var(--faint)">A calibrated engine keeps the bar near the marker, climbing band over band.</span>
+			</div>
+		</div>` : '';
+
 	const top = bt?.top_performers?.slice(0, 5) || [];
 	const topHtml = top.length ? `
-		<div class="dr-sec" style="margin-top:20px">Top performers (30d by ATH)</div>
+		<div class="dr-sec edge-sec">Top performers (by ATH)</div>
 		<div class="edge-top">
 			${top.map((t) => `<a class="edge-top-row" href="https://pump.fun/coin/${esc(t.mint)}" target="_blank" rel="noopener">
 				<span class="tierpill ${tierPill(t.tier)}">${esc(t.tier)}</span>
@@ -1179,27 +1285,48 @@ function renderEdge() {
 		</div>` : '';
 
 	wrap.innerHTML = `
+		${hero}
 		${aggLine}
-		<div class="ehead" style="margin-top:${agg ? '20px' : '0'}"><span>Tier</span><span>Win rate</span><span class="colhide">Wins / Losses</span><span>Avg ATH×</span><span>≥ 5×</span></div>
-		${rows.map(edgeRow).join('')}
+		<div class="dr-sec edge-sec">Win rate by conviction tier</div>
+		<div class="edge">
+			<div class="ehead"><span>Tier</span><span>Win rate (95% CI)</span><span class="colhide">Wins / Losses</span><span>Avg ATH×</span><span>≥ 5×</span></div>
+			${rows.map(edgeRow).join('')}
+		</div>
+		${calHtml}
 		${topHtml}
-		<p style="font-size:11px;color:var(--faint);margin-top:18px">Win = graduated OR ATH ≥ 2×. Loss = rugged OR ATH &lt; 1.2×. Open positions excluded. 30-day window.</p>`;
+		<p style="font-size:11px;color:var(--faint);margin-top:18px">Win = graduated OR ATH ≥ 2×. Loss = rugged OR ATH &lt; 1.2×. Open positions excluded. Confidence intervals are Wilson 95% — wide bands mean a thin sample, not a weak edge. 30-day window.</p>`;
 }
 
 function edgeRow(r) {
-	// Support both old format (grad_rate, scored) and new format (win_rate, total, wins, losses)
+	// Support both old format (grad_rate, scored) and new format (win_rate, total, wins, losses, ci)
 	const winRate = r.win_rate ?? r.grad_rate ?? null;
-	const total = r.total || r.scored || 0;
 	const wins = r.wins ?? 0;
 	const losses = r.losses ?? 0;
+	const resolved = wins + losses;
 	const ath = r.avg_ath ? Number(r.avg_ath).toFixed(1) : (r.avg_ath_multiple ? Number(r.avg_ath_multiple).toFixed(1) : null);
 	const fiveX = r.five_x ?? 0;
-	return `<div class="erow">
+	const thin = resolved > 0 && resolved < 8; // too few to trust — dim it, but show it
+	const ci = r.ci && resolved ? `<span class="ci">${r.ci.lo}–${r.ci.hi}${thin ? ' · thin' : ''}</span>` : '';
+	return `<div class="erow${thin ? ' thin' : ''}"${thin ? ' title="Small sample — wide confidence band"' : ''}>
 		<span><span class="tierpill ${tierPill(r.tier)}">${esc(r.tier)}</span></span>
-		<span><div class="gradbar"><i style="width:${winRate ?? 0}%"></i></div><span class="lstat" style="text-align:left"><b>${winRate != null ? winRate + '%' : '—'}</b></span></span>
+		<span><div class="gradbar"><i style="width:${winRate ?? 0}%"></i></div><span class="lstat" style="text-align:left"><b>${winRate != null ? winRate + '%' : '—'}</b>${ci}</span></span>
 		<span class="lstat colhide">${wins} / ${losses}</span>
 		<span class="lstat"><b>${ath ? ath + '×' : '—'}</b></span>
 		<span class="lstat">${fiveX}</span>
+	</div>`;
+}
+
+function calRow(c) {
+	const real = c.realized;
+	const hasData = real != null && c.n > 0;
+	const thin = hasData && c.n < 5;
+	return `<div class="cal-row${hasData ? '' : ' empty'}">
+		<div class="cal-band">${esc(c.band)}<small>n=${c.n || 0}${thin ? ' · thin' : ''}</small></div>
+		<div class="cal-track" role="img" aria-label="band ${esc(c.band)}: realized ${hasData ? real + '%' : 'no data'}, predicted ${c.predicted}%">
+			<div class="cal-real" style="width:${hasData ? real : 0}%"></div>
+			<div class="cal-pred" style="left:${c.predicted}%"></div>
+		</div>
+		<div class="cal-val">${hasData ? `${real}%` : '<span style="color:var(--faint)">—</span>'}<small>pred ${c.predicted}%</small></div>
 	</div>`;
 }
 
@@ -1468,6 +1595,17 @@ function structurePanel(st) {
 }
 
 
+// Oracle's take for the drawer — leads with the tier+score, then weaves the two
+// highest-contribution reasons the engine actually computed into one sentence.
+function drawerTake(d) {
+	const c = d.conviction || {};
+	const lead = TAKE_TIER[c.tier] || 'One to watch';
+	const rs = (d.reasons || []).map((r) => r.text).filter(Boolean);
+	if (!rs.length) return '';
+	const body = rs.slice(0, 2).map((t) => t.replace(/\.$/, '')).join('; ');
+	return `<div class="coin-take" style="font-size:13.5px;margin:10px 0 4px"><span class="ct-q">“</span><span><b>${esc(lead)} at ${c.score}</b> — ${esc(body)}.</span></div>`;
+}
+
 function renderDrawer(d) {
 	const c = d.conviction; const p = c.pillars || {};
 	$('#drTitle').innerHTML = `${esc(c.symbol || '—')} <span style="color:var(--muted);font:600 13px var(--mono)">${esc(c.name || '')}</span>`;
@@ -1488,6 +1626,7 @@ function renderDrawer(d) {
 				${pillar('mom', 'Move', p.momentum)}
 			</div>
 		</div>
+		${drawerTake(d)}
 		<div class="dr-actions">
 			<a class="dr-act" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="dr-act" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>

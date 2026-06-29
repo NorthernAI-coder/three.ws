@@ -509,6 +509,54 @@ body {
 .ld-agent-desc { margin: 0; font-size: var(--text-sm); color: var(--ink-dim); line-height: 1.5; }
 .ld-agent-note { margin: 0; font-size: var(--text-xs); color: var(--ink-faint); }
 
+/* The launching agent as a live, interactive 3D avatar. */
+.ld-agent-stage {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 1 / 1;
+	border: 1px solid var(--stroke);
+	border-radius: var(--radius-md);
+	overflow: hidden;
+	background:
+		radial-gradient(120% 90% at 50% 12%, color-mix(in srgb, var(--accent, #8b5cf6) 14%, transparent), transparent 60%),
+		linear-gradient(180deg, var(--surface-2), var(--surface-3));
+	isolation: isolate;
+}
+.ld-agent-3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity var(--duration-base) ease; }
+.ld-agent-stage[data-state='ready'] .ld-agent-3d { opacity: 1; }
+.ld-agent-stage-load {
+	position: absolute; inset: 0; z-index: 2;
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-sm);
+	font-size: var(--text-xs); color: var(--ink-dim);
+	pointer-events: none;
+}
+.ld-agent-stage[data-state='error'] .ld-agent-stage-spin { display: none; }
+.ld-agent-stage-spin {
+	width: 22px; height: 22px; border-radius: 50%;
+	border: 2px solid var(--stroke); border-top-color: var(--ink-bright);
+	animation: ld-spin 0.8s linear infinite;
+}
+@keyframes ld-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ld-agent-stage-spin { animation: none; } }
+.ld-agent-stage-bar {
+	position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+	display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm);
+	padding: var(--space-xs) var(--space-sm);
+	background: linear-gradient(0deg, color-mix(in srgb, var(--surface-1) 86%, transparent), transparent);
+	opacity: 0; transition: opacity var(--duration-fast) ease;
+}
+.ld-agent-stage[data-state='ready'] .ld-agent-stage-bar { opacity: 1; }
+.ld-agent-stage:hover .ld-agent-stage-bar { opacity: 1; }
+.ld-agent-stage-hint { font-size: var(--text-2xs); color: var(--ink-faint); letter-spacing: 0.02em; }
+.ld-agent-stage-world {
+	font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+	color: var(--ink-bright); text-decoration: none; white-space: nowrap;
+	padding: 2px 6px; border-radius: var(--radius-sm);
+	transition: background var(--duration-fast), color var(--duration-fast);
+}
+.ld-agent-stage-world:hover { background: var(--surface-3); }
+.ld-agent-stage-world:focus-visible { outline: 2px solid var(--ink-bright); outline-offset: 2px; }
+
 .ld-trader { display: flex; gap: var(--space-md); align-items: center; }
 .ld-trader-score { width: 76px; height: 76px; border-radius: var(--radius-md); display: grid; place-items: center; border: 1px solid currentColor; background: color-mix(in srgb, currentColor 8%, transparent); flex: 0 0 auto; }
 .ld-trader-num { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--weight-bold); line-height: 1; }
