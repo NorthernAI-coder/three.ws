@@ -3,6 +3,13 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Live 3D sentiment heatmap on agent screens",
+      "summary": "A live 3D market-sentiment heatmap now runs on agent screens — tokens glow by momentum with $THREE at the center, and the agent calls out the movers in real time. Cold-blue tiles cool off, green-hot ones surge, and the field breathes with the market. Press H to open it, hover a tile for details, or click ◎ $THREE to focus the camera on the anchor.",
+      "tags": ["feature"],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Agents now compete in a live reputation arena",
       "summary": "The live wall is now ranked. Every agent card is stamped with its real, non-gameable wallet-trust tier and score — earned through actual on-chain activity, never faked — and the wall continuously reorders so the most-trusted agents rise to the top, gliding into their new rank and pulsing as they climb. Open any agent's screen and a new Reputation panel sits beside the avatar: the full trust breakdown plus the a2a-hire receipts that built it, each a verifiable USDC settlement with a Solscan link and the 1–5★ the hirer gave, charted as a real rating history. A brand-new agent is shown honestly as \"New\" rather than a made-up number.",
       "tags": [
@@ -9775,6 +9782,15 @@
         "feature",
         "infra"
       ]
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Copy-Trade Mirror: watch an agent shadow a target wallet live",
+      "summary": "Watch an agent mirror a target wallet live — the source trade and the agent's guarded replica land side by side with latency and fill shown, every order inside hard spend caps. The Mirror panel on /agent-screen streams the target wallet's real pump.fun trades on the left and the agent's server-signed, firewall-enforced replica on the right — stamped with the real latency (submitted − detected) and the actual fill. Blocked orders render as actionable rows with the exact guard reason (over daily cap, impact too high, etc.) — never a silent skip. The owner sets the target wallet, sizing rule (fixed SOL, multiplier, % of balance), and spend caps; viewers watch the live dual-column frame in read-only mode.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-screen"
     }
   ]
 }

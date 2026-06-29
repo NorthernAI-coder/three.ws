@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T04:38:44.996Z",
+	"generated_at": "2026-06-29T05:47:16.429Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -99,12 +99,32 @@
 		{
 			"date": "2026-06-29",
 			"type": "update",
+			"title": "Copy-Trade Mirror: watch an agent shadow a target wallet live",
+			"summary": "Watch an agent mirror a target wallet live — the source trade and the agent's guarded replica land side by side with latency and fill shown, every order inside hard spend caps. The Mirror panel on /agent-screen streams the target wallet's real pump.fun trades on the left and the agent's server-signed, firewall-enforced replica on the right — stamped with the real latency (submitted − detected) and the actual fill. Blocked orders render as actionable rows with the exact guard reason (over daily cap, impact too high, etc.) — never a silent skip. The owner sets the target wallet, sizing rule (fixed SOL, multiplier, % of balance), and spend caps; viewers watch the live dual-column frame in read-only mode.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
 			"title": "Deploy your agent to the live wall in four guided steps",
 			"summary": "Going live is now a wizard, not a docs hunt. Open the agent screen with no agent picked and a four-step flow walks you through it: choose your agent, generate its key in one click (shown once, with a copy button), copy the exact run command for your setup — local npm, Docker, or Browserbase — and then watch a live status strip that flips to “You’re live on the wall” the instant your agent pushes its first frame, with a direct link to its card on the public wall. A progress tracker, a searchable agent list, inline error recovery, and a “not appearing?” troubleshooter round it out.",
 			"link": "/agent-screen",
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "update",
+			"title": "Live 3D sentiment heatmap on agent screens",
+			"summary": "A live 3D market-sentiment heatmap now runs on agent screens — tokens glow by momentum with $THREE at the center, and the agent calls out the movers in real time. Cold-blue tiles cool off, green-hot ones surge, and the field breathes with the market. Press H to open it, hover a tile for details, or click ◎ $THREE to focus the camera on the anchor.",
+			"link": "/agent-screen",
+			"tags": [
+				"feature"
 			]
 		},
 		{
