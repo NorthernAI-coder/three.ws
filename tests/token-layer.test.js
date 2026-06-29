@@ -149,6 +149,32 @@ describe('token config', () => {
 		process.env.NODE_ENV = priorNode;
 		if (priorWallet !== undefined) process.env.THREE_TREASURY_WALLET = priorWallet;
 	});
+
+	it('publicConfig never throws in production when treasury/rewards unset — read path stays 200', () => {
+		// Regression: the read-only config endpoint must not 500 just because a
+		// fund-routing env var is unset. The strict treasuryWallet()/rewardsWallet()
+		// guards belong on fund movement only; publicConfig uses the *OrNull lookups.
+		const priorNode = process.env.NODE_ENV;
+		const priorTreasury = process.env.THREE_TREASURY_WALLET;
+		const priorRewards = process.env.THREE_REWARDS_WALLET;
+		process.env.NODE_ENV = 'production';
+		delete process.env.THREE_TREASURY_WALLET;
+		delete process.env.THREE_REWARDS_WALLET;
+		let c;
+		expect(() => {
+			c = publicConfig();
+		}).not.toThrow();
+		expect(c.treasury).toBeNull();
+		expect(c.treasury_configured).toBe(false);
+		expect(c.rewards_wallet).toBeNull();
+		expect(c.rewards_configured).toBe(false);
+		// Non-treasury fields still resolve so the client renders a useful state.
+		expect(c.mint).toBe(TOKEN_MINT);
+		expect(c.split_policies.consumption).toBeDefined();
+		process.env.NODE_ENV = priorNode;
+		if (priorTreasury !== undefined) process.env.THREE_TREASURY_WALLET = priorTreasury;
+		if (priorRewards !== undefined) process.env.THREE_REWARDS_WALLET = priorRewards;
+	});
 });
 
 // ── Split policy ───────────────────────────────────────────────────────────────
