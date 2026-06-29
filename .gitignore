@@ -276,6 +276,10 @@ api/_lib/embodiment.js
 api/embodiment/
 src/embodiment/*
 !src/embodiment/emotion.js
+!src/embodiment/controller.js
+!src/embodiment/face-expression.js
+!src/embodiment/rig-mode.js
+!src/embodiment/text-visemes.js
 src/embody.js
 pages/embody.html
 api/_lib/migrations/20260623170000_agent_bodies.sql

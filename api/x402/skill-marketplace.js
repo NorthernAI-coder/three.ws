@@ -112,6 +112,66 @@ const BAZAAR = {
 	}),
 };
 
+const POST_INPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['mode'],
+	properties: {
+		mode: {
+			type: 'string',
+			enum: ['canary_execute', 'price_distribution', 'popular'],
+			description:
+				'Analytics mode: "canary_execute" smoke-tests a listing, ' +
+				'"price_distribution" returns min/max/median prices, ' +
+				'"popular" returns the most-purchased skills over the last 7 days.',
+		},
+		skill_id: {
+			type: 'string',
+			description: 'Listing id to smoke-test when mode="canary_execute".',
+		},
+		limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+	},
+};
+
+const POST_OUTPUT_EXAMPLE = {
+	mode: 'popular',
+	period: '7d',
+	count: 1,
+	skills: [{ id: 'inspect_model', name: 'inspect_model', purchases: 42 }],
+	indexed_at: '2026-05-14T17:00:00Z',
+};
+
+const POST_OUTPUT_SCHEMA = {
+	$schema: 'https://json-schema.org/draft/2020-12/schema',
+	type: 'object',
+	required: ['mode'],
+	properties: {
+		mode: { type: 'string' },
+		period: { type: 'string' },
+		count: { type: 'integer' },
+		skills: { type: 'array', items: { type: 'object' } },
+		indexed_at: { type: 'string', format: 'date-time' },
+	},
+};
+
+const POST_BAZAAR = {
+	discoverable: true,
+	info: {
+		input: {
+			type: 'http',
+			method: 'POST',
+			bodyType: 'json',
+			body: { mode: 'popular', limit: 10 },
+		},
+		output: { type: 'json', example: POST_OUTPUT_EXAMPLE },
+	},
+	schema: buildBazaarSchema({
+		method: 'POST',
+		bodySchema: POST_INPUT_SCHEMA,
+		outputSchema: POST_OUTPUT_SCHEMA,
+	}),
+};
+
 function rowToListing(r) {
 	return {
 		agent_id: r.agent_id,
@@ -321,6 +381,7 @@ const postEndpoint = paidEndpoint({
 		DESCRIPTION +
 		' POST mode="price_distribution" returns min/max/median price + listing count.' +
 		' POST mode="popular" returns the N most-purchased skills in the last 7 days.',
+	bazaar: POST_BAZAAR,
 	service: withService({
 		serviceName: 'three.ws Skill Market (Analytics)',
 		tags: ['marketplace', 'agent', 'skills', 'pricing', 'analytics'],

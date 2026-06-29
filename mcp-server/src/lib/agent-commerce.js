@@ -45,8 +45,18 @@ export function formatUsd(usd) {
 	const n = Number(usd);
 	if (!Number.isFinite(n)) return '$0.00';
 	// Up to 6 decimals (USDC precision) but trim trailing zeros past 2 places so
-	// common prices read cleanly ("$0.05", not "$0.050000").
-	const fixed = n.toFixed(6).replace(/(\.\d{2}?)0+$/, '$1').replace(/\.0+$/, '');
+	// common prices read cleanly ("$0.05" not "$0.050000", "$0.001" not
+	// "$0.001000", "$1" not "$1.00").
+	let fixed = n.toFixed(6);
+	if (fixed.includes('.')) {
+		// Drop trailing zeros, then re-pad to a minimum of 2 decimals; a whole
+		// number collapses to no decimals at all.
+		fixed = fixed.replace(/0+$/, '');
+		const [whole, frac = ''] = fixed.split('.');
+		fixed = frac.length === 0
+			? whole
+			: `${whole}.${frac.padEnd(2, '0')}`;
+	}
 	return `$${fixed}`;
 }
 

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Mocks ─────────────────────────────────────────────────────────────────
 // `sql` is a tagged template — mock it as a fn that returns a configurable result.
 const sqlMock = vi.fn();
-vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock }));
+vi.mock('../api/_lib/db.js', () => ({ sql: sqlMock, isDbUnavailableError: () => false }));
 
 const getSessionUserMock = vi.fn();
 const authenticateBearerMock = vi.fn();

@@ -52,7 +52,7 @@ export function isMcpProtocolClient(req) {
 // Both shapes ship the x402 payment envelope in the body + PAYMENT-REQUIRED
 // header, and both carry WWW-Authenticate, so either kind of client can
 // recover from a mismatched guess.
-export function sendAuthChallenge(res, { req, resourceUrl, requirements, challenge }) {
+export async function sendAuthChallenge(res, { req, resourceUrl, requirements, challenge }) {
 	const resource = env.MCP_RESOURCE;
 	res.statusCode = isMcpProtocolClient(req) ? 401 : 402;
 	res.setHeader(
@@ -63,7 +63,9 @@ export function sendAuthChallenge(res, { req, resourceUrl, requirements, challen
 	// service metadata + bazaar discovery in the 402 envelope (the Granite
 	// server at /api/ibm-mcp, the 3D Studio at /api/mcp-3d). Omitted →
 	// build402Body's defaults, used by the main /api/mcp server.
-	const body = build402Body({ resourceUrl, accepts: requirements, ...(challenge || {}) });
+	// build402Body is async (it signs per-accept offer receipts), so await it —
+	// stringifying the unresolved Promise shipped an empty `{}` envelope before.
+	const body = await build402Body({ resourceUrl, accepts: requirements, ...(challenge || {}) });
 	res.setHeader('PAYMENT-REQUIRED', Buffer.from(JSON.stringify(body), 'utf8').toString('base64'));
 	res.setHeader('content-type', 'application/json; charset=utf-8');
 	res.setHeader('cache-control', 'no-store');
@@ -160,7 +162,7 @@ export async function authenticateRequest(
 		}
 	}
 
-	sendAuthChallenge(res, { req, resourceUrl, requirements, challenge });
+	await sendAuthChallenge(res, { req, resourceUrl, requirements, challenge });
 	return null;
 }
 
@@ -173,7 +175,7 @@ export async function handleSse(req, res, { resourcePath = '/api/mcp', challenge
 	// bearers also get 401 with WWW-Authenticate so they can re-auth correctly.
 	if (!bearer && !req.headers['x-payment']) {
 		const sseResourceUrl = resolveResourceUrl(req, resourcePath);
-		return sendAuthChallenge(res, {
+		return await sendAuthChallenge(res, {
 			req,
 			resourceUrl: sseResourceUrl,
 			requirements: paymentRequirements(sseResourceUrl),

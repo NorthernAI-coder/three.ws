@@ -191,8 +191,8 @@ describe('AWS Marketplace — MeterUsage call shape (SDK boundary mocked)', () =
 		expect(input.CustomerIdentifier).toBe('cust-1');
 		// Idempotency allocation carries the dedupe key AWS bills against.
 		expect(input.UsageAllocations[0].Tags[0].Value).toBe('alloc-1');
-		vi.dontMock('@aws-sdk/client-marketplace-metering');
-		vi.dontMock('@aws-sdk/client-marketplace-entitlement-service');
-		vi.dontMock('../api/_lib/env.js');
+		vi.doUnmock('@aws-sdk/client-marketplace-metering');
+		vi.doUnmock('@aws-sdk/client-marketplace-entitlement-service');
+		vi.doUnmock('../api/_lib/env.js');
 	});
 });

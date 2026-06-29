@@ -47,7 +47,7 @@ export function computeFramingExtent(bodyHeight, topY, mode = 'full') {
  * extend past the (overflow-hidden) card edges for the moment before the clip
  * settles them in — vastly better than zooming away from the whole avatar. The
  * cap sits well above any natural standing width, so arms-down bodies (cz,
- * default, every Avaturn/RPM rig) are returned unchanged and never re-framed.
+ * default, every standard avatar-platform rig) are returned unchanged and never re-framed.
  * `full` mode is untouched: it shows the whole body, so arms-out is acceptable.
  *
  * @param {number} bbWidth     bounding-box width in world units

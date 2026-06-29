@@ -73,6 +73,12 @@ function isHardSkipped(relPath) {
 	// nature quote the exact brand strings they are cataloguing for removal.
 	// They are not user-facing product copy, so they are out of scope.
 	if (relPath.startsWith(`docs${sep}audit${sep}`)) return true;
+	// public/internal/* are headless automation harnesses (noindex,nofollow),
+	// driven only by server-side puppeteer — the browser twins of the api/_lib
+	// headless helpers that are already out of scope. They carry vendor SDK
+	// identifiers and result-channel globals as code, never product copy that a
+	// user reads, so they are out of scope on the same grounds.
+	if (relPath.startsWith(`public${sep}internal${sep}`)) return true;
 	return false;
 }
 

@@ -164,6 +164,6 @@ Routing recap (from `vercel.json`):
 - **`/widget` shell** is the shared render surface: Studio + gallery previews and the `/embed.js` script-tag embed all point at `/widget#widget=<id>&kiosk=true`.
 - **`embed.js`** (`public/embed.js`) is the script-tag loader: reads `data-widget` / `data-widget-url`, `data-width/height/radius/border`, `data-reveal`, `data-poster`, `data-priority`, `data-motion`, mounts a sandboxed iframe at the script position, and supports multiple embeds per page.
 - **Web component `<agent-3d>`** (`/dist-lib/agent-3d.js`) is the first-class embedding primitive surfaced by SharePanel and AgentEmbedModal; it observes `agent-id`, `background`, `name-plate` attributes.
-- **avatar-embed runtime** (`src/avatar-embed.js`) backs `/embed/avatar/<handle>`, `/a-embed.html`, and the agent embed; exposes the `v1.avatar.*` postMessage bridge (speak, emote, morphs, lookAt, mocap, idle, hotkeys, mic, state) plus RPM-compatible event aliases and a same-origin BroadcastChannel control surface.
+- **avatar-embed runtime** (`src/avatar-embed.js`) backs `/embed/avatar/<handle>`, `/a-embed.html`, and the agent embed; exposes the `v1.avatar.*` postMessage bridge (speak, emote, morphs, lookAt, mocap, idle, hotkeys, mic, state) plus third-party-compatible event aliases and a same-origin BroadcastChannel control surface.
 </content>
 </invoke>

@@ -379,7 +379,11 @@ describe('POST /api/agent-memory', () => {
 		sqlMock.mockImplementation((_strings, ...values) => {
 			call += 1;
 			if (call === 1) return Promise.resolve([{ user_id: 'u1' }]);
-			capturedContent = values.find((v) => typeof v === 'string' && v.length >= 10_000);
+			// The INSERT carries the truncated content; later calls (re-index reset,
+			// brain-sign signature update) must not clobber what we captured.
+			if (capturedContent === undefined) {
+				capturedContent = values.find((v) => typeof v === 'string' && v.length >= 10_000);
+			}
 			return Promise.resolve([
 				{
 					id: 'x',

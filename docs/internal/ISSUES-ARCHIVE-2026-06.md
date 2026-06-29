@@ -8,7 +8,7 @@ Resolved items moved here from [ISSUES.md](../../ISSUES.md). Newest first.
 
 **Context:** The eslint 8→10 upgrade migrated character-studio to flat config
 (`character-studio/eslint.config.mjs`), surfacing pre-existing findings across the
-vendored CharacterStudio fork that all predated the upgrade.
+vendored character-studio fork that all predated the upgrade.
 
 **Runtime `no-undef` bugs — FIXED 2026-06-18** (full table in
 [AUDIT-2026-06-18.md](AUDIT-2026-06-18.md)): twelve references that threw

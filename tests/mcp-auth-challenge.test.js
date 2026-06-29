@@ -40,9 +40,11 @@ const REQUIREMENTS = [
 	},
 ];
 
-function challengeFor(headers) {
+// sendAuthChallenge is async (it awaits build402Body, which signs per-accept
+// offer receipts), so the helper awaits it and every test awaits the helper.
+async function challengeFor(headers) {
 	const res = mkRes();
-	sendAuthChallenge(res, {
+	await sendAuthChallenge(res, {
 		req: { headers },
 		resourceUrl: 'https://three.ws/api/mcp',
 		requirements: REQUIREMENTS,
@@ -51,34 +53,37 @@ function challengeFor(headers) {
 }
 
 describe('sendAuthChallenge status negotiation', () => {
-	it('returns 402 Payment Required to plain x402 clients (no MCP signals)', () => {
-		const res = challengeFor({ accept: 'application/json' });
+	it('returns 402 Payment Required to plain x402 clients (no MCP signals)', async () => {
+		const res = await challengeFor({ accept: 'application/json' });
 		expect(res.statusCode).toBe(402);
 	});
 
-	it('returns 402 when there is no accept header at all (crawlers)', () => {
-		const res = challengeFor({});
+	it('returns 402 when there is no accept header at all (crawlers)', async () => {
+		const res = await challengeFor({});
 		expect(res.statusCode).toBe(402);
 	});
 
-	it('returns 401 to MCP Streamable HTTP clients (Accept includes SSE)', () => {
-		const res = challengeFor({ accept: 'application/json, text/event-stream' });
+	it('returns 401 to MCP Streamable HTTP clients (Accept includes SSE)', async () => {
+		const res = await challengeFor({ accept: 'application/json, text/event-stream' });
 		expect(res.statusCode).toBe(401);
 	});
 
-	it('returns 401 when MCP-Protocol-Version header is present', () => {
-		const res = challengeFor({ accept: 'application/json', 'mcp-protocol-version': '2025-06-18' });
+	it('returns 401 when MCP-Protocol-Version header is present', async () => {
+		const res = await challengeFor({
+			accept: 'application/json',
+			'mcp-protocol-version': '2025-06-18',
+		});
 		expect(res.statusCode).toBe(401);
 	});
 
-	it('returns 401 when Mcp-Session-Id header is present', () => {
-		const res = challengeFor({ 'mcp-session-id': 'abc123' });
+	it('returns 401 when Mcp-Session-Id header is present', async () => {
+		const res = await challengeFor({ 'mcp-session-id': 'abc123' });
 		expect(res.statusCode).toBe(401);
 	});
 
-	it('always ships the x402 envelope and discovery headers, on both statuses', () => {
+	it('always ships the x402 envelope and discovery headers, on both statuses', async () => {
 		for (const headers of [{}, { accept: 'text/event-stream' }]) {
-			const res = challengeFor(headers);
+			const res = await challengeFor(headers);
 			expect(res.getHeader('www-authenticate')).toContain('resource_metadata=');
 			const envelope = JSON.parse(
 				Buffer.from(res.getHeader('payment-required'), 'base64').toString('utf8'),
