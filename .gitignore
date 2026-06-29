@@ -296,3 +296,8 @@ three-ws-prod-log-export-2026-06-25T07-22-45.json
 three-ws-prod-log-export-2026-06-25T19-38-22.json
 three-ws-prod-log-export-2026-06-26T03-40-50.json
 three-ws-prod-log-export-2026-06-26T07-25-42.json
+
+# Transient build/test scratch output and log exports — never commit
+*.tmp
+.vitest-out*
+three-ws-*-log-export-*.json
