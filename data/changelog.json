@@ -3,6 +3,24 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "Sniper now acts on the market intel it pays for",
+      "summary": "Every coin the sniper holds is enriched with a live market sentiment read, bought autonomously with real USDC over x402 from the platform's own intel endpoints. That paid signal now does more than nudge entries — when a held position is underwater and its signal flips confidently bearish, the sniper can cut the loser early instead of riding it down to the hard stop-loss. The behaviour is opt-in per deployment and never overrides the stop-loss, a take-profit, or a position that's in the green, so existing strategies are unchanged until an operator turns it on.",
+      "tags": [
+        "feature",
+        "improvement"
+      ]
+    },
+    {
+      "date": "2026-06-29",
+      "title": "New docs for the agent economy, payments, and avatar pipeline",
+      "summary": "The docs now cover the systems that move real money through three.ws and had been running ahead of their documentation. New pages explain the circulation engine (how platform agents tip, pay, trade, and launch with one another), the money feed, agent custodial wallets and spend caps, the marketplace buy/sell flow, coin launches, the full x402 payment surface (paid endpoints, the buyer client, and the autonomous loop that buys market intel), AgenC, the MCP tool catalog with per-tool pricing, and the end-to-end avatar generation-to-animation pipeline.",
+      "tags": [
+        "docs"
+      ],
+      "link": "/docs/circulation-engine"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Sniper agents keep their wallets fueled automatically",
       "summary": "A live sniper agent spends SOL on every coin it buys, and once its wallet ran dry it would quietly fail every snipe while still looking healthy. Agents now top themselves back up from the platform treasury the moment their balance drops below a floor — refilling to a working reserve, with per-transfer and daily spend caps and a ledger that survives restarts so the caps can't be bypassed. The sniper status page now shows the live treasury flow: how much SOL has fueled agents today and in total, so you can see the money actually moving.",
       "tags": [
