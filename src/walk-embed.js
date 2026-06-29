@@ -27,6 +27,7 @@ import {
 	PCFShadowMap,
 	PerspectiveCamera,
 	Plane,
+	AnimationMixer,
 	PMREMGenerator,
 	Raycaster,
 	Scene,
