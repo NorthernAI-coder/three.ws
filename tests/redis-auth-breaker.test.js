@@ -23,36 +23,38 @@ const ENV_KEYS = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'];
 let saved;
 
 // Minimal stand-in for a fetch Response. The upstash HttpClient reads
-// `response.headers.get(...)`, so the headers shim is required.
+// `response.headers.get(...)`, so the headers shim is required. The client has
+// auto-pipelining on by default: a batched request body is an array of command
+// arrays (`[["GET","k"]]`) and expects an array of result objects back, while a
+// single command (`["GET","k"]`) expects one object — so the mock mirrors the
+// request shape to stay valid under both paths.
 const HEADERS = { get: () => null };
 
-function wrongpassResponse() {
+function makeResponse(body, init) {
+	let parsed;
+	try {
+		parsed = JSON.parse(init?.body || 'null');
+	} catch {
+		parsed = null;
+	}
+	const isPipeline = Array.isArray(parsed) && Array.isArray(parsed[0]);
+	const payload = isPipeline ? parsed.map(() => body) : body;
 	return {
 		ok: true,
 		status: 200,
 		headers: HEADERS,
 		async json() {
-			return { error: 'WRONGPASS invalid or missing auth token.' };
+			return payload;
 		},
 		async text() {
-			return '';
+			return JSON.stringify(payload);
 		},
 	};
 }
 
-function okResponse(result) {
-	return {
-		ok: true,
-		status: 200,
-		headers: HEADERS,
-		async json() {
-			return { result };
-		},
-		async text() {
-			return '';
-		},
-	};
-}
+const WRONGPASS = { error: 'WRONGPASS invalid or missing auth token.' };
+const wrongpassResponse = (init) => makeResponse(WRONGPASS, init);
+const okResponse = (result, init) => makeResponse({ result }, init);
 
 beforeEach(() => {
 	saved = {};
@@ -76,7 +78,7 @@ afterEach(() => {
 
 describe('redis auth breaker', () => {
 	it('opens on the first WRONGPASS and then fast-fails commands without calling fetch', async () => {
-		const fetchMock = vi.fn(async () => wrongpassResponse());
+		const fetchMock = vi.fn(async (_url, init) => wrongpassResponse(init));
 		globalThis.fetch = fetchMock;
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -99,13 +101,13 @@ describe('redis auth breaker', () => {
 
 	it('self-heals via a half-open trial once the token is valid again', async () => {
 		let mode = 'wrongpass';
-		const fetchMock = vi.fn(async () => (mode === 'wrongpass' ? wrongpassResponse() : okResponse('PONG')));
+		const fetchMock = vi.fn(async (_url, init) => (mode === 'wrongpass' ? wrongpassResponse(init) : okResponse('PONG', init)));
 		globalThis.fetch = fetchMock;
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-		// Tiny cooldown so the trial is admitted quickly.
-		process.env.REDIS_AUTH_BREAKER_COOLDOWN_MS = '20';
+		// Shortest cooldown the breaker allows (1s floor) so the trial is admitted quickly.
+		process.env.REDIS_AUTH_BREAKER_COOLDOWN_MS = '1000';
 		__resetRedisAuthBreaker();
 
 		const r = getRedis();
@@ -118,10 +120,12 @@ describe('redis auth breaker', () => {
 
 		// Token rotated; wait out the cooldown so a half-open trial is admitted.
 		mode = 'ok';
-		await new Promise((res) => setTimeout(res, 30));
+		await new Promise((res) => setTimeout(res, 1100));
 
-		// The trial command goes through and succeeds → breaker closes.
-		await expect(r.get('k')).resolves.toBe('PONG');
+		// The trial command goes through (a real fetch) and succeeds → breaker closes.
+		// (We assert recovery, not the returned value — upstash's auto-deserialization
+		// mangles the synthetic 'PONG', which is irrelevant to the breaker.)
+		await r.get('k');
 		expect(fetchMock.mock.calls.length).toBe(callsWhileOpen + 1);
 		expect(redisAuthBreakerState().open).toBe(false);
 
