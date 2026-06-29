@@ -374,6 +374,24 @@ export const env = {
 		return opt('AVATURN_SEED_ENABLED', '') === '1';
 	},
 
+	// launcher house-seed cron — set to '1' to enable the per-minute headless
+	// seeder that grows the AUTONOMOUS LAUNCHER's pool of house-owned agents:
+	// each tick forges one fresh Avaturn-rigged avatar, files it under the house
+	// account, mints an agent flagged `meta.launcher_house=true`, and provisions
+	// its custodial Solana wallet. Those agents — and only those — are what the
+	// global launcher draws from to sign coin launches, so coins mint from agents
+	// the platform owns and can claim creator rewards for. Off by default.
+	get LAUNCHER_HOUSE_ENABLED() {
+		return opt('LAUNCHER_HOUSE_ENABLED', '') === '1';
+	},
+
+	// How many house-owned launch agents to maintain. The house-seed cron stops
+	// forging once this many wallet-bearing, avatar-bearing house agents exist.
+	get LAUNCHER_HOUSE_TARGET() {
+		const n = Number.parseInt(opt('LAUNCHER_HOUSE_TARGET', '8'), 10);
+		return Number.isFinite(n) && n > 0 ? Math.min(n, 250) : 8;
+	},
+
 	// Anthropic API key — used by persona / memory-seeding endpoints and
 	// the we-pay LLM proxy (/api/llm/anthropic) when an agent selects a
 	// Claude model. Optional: when unset, brain/persona endpoints fall back

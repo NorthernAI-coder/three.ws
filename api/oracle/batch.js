@@ -17,6 +17,7 @@
 import { cors, json, method, wrap, error, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const MINT_RE  = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -48,6 +49,7 @@ export default wrap(async (req, res) => {
 		from oracle_conviction
 		where network = ${network}
 		  and mint = any(${mints})
+		  and mint <> all(${QUOTE_MINT_LIST}::text[])
 	`.catch((e) => {
 		throw new Error(`batch query failed: ${e.message}`);
 	});

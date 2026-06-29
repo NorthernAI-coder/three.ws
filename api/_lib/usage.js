@@ -17,7 +17,7 @@
 
 import { sql } from './db.js';
 import { withDbRetry } from './db-retry.js';
-import { getRedis } from './redis.js';
+import { getRedis, isRedisAuthError } from './redis.js';
 import { qstashEnabled, publishJob } from './qstash.js';
 import { env } from './env.js';
 
@@ -114,7 +114,10 @@ export function recordEvent(evt) {
 				// circuitOpen → the shared Redis auth breaker (api/_lib/redis.js) already
 				// logged the credential failure once and is fast-failing; falling back to
 				// a direct insert is the right move, but re-warning per event is noise.
-				if (!err?.circuitOpen) {
+				// isRedisAuthError also catches the raw WRONGPASS the breaker's once-per-
+				// cooldown half-open trial command surfaces (it bypasses the circuitOpen
+				// short-circuit), so the bad-token signal stays owned solely by the breaker.
+				if (!err?.circuitOpen && !isRedisAuthError(err)) {
 					console.warn('[usage] buffer push failed, falling back to direct insert', err?.message);
 				}
 			}
@@ -158,7 +161,7 @@ export async function flushUsageBuffer({ limit = 500, deadlineMs = 45_000 } = {}
 		try {
 			raw = await r.lrange(BUFFER_KEY, 0, take - 1);
 		} catch (err) {
-			if (!err?.circuitOpen) console.warn('[usage-flush] redis unavailable on lrange:', err?.message);
+			if (!err?.circuitOpen && !isRedisAuthError(err)) console.warn('[usage-flush] redis unavailable on lrange:', err?.message);
 			return { flushed, remaining: -1, errors, skipped: 'redis_unavailable' };
 		}
 		if (!raw || raw.length === 0) break;

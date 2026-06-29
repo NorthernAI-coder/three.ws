@@ -69,10 +69,14 @@ spec:
           env:
             - name: NODE_ENV
               value: production
-            # DEFAULT SIMULATE. Flip to "live" ONLY via the documented cutover
-            # (deploy/sniper/README.md) once at least one agent wallet is funded.
+            # LIVE: signs + broadcasts real trades from agent wallets. Requires the
+            # sniper-solana-rpc-url secret set to a real RPC and ≥1 funded agent
+            # wallet with an armed strategy, or the worker crash-loops / every buy
+            # fails. Code guardrails still apply (mandatory stop-loss, price-impact
+            # breaker, daily budget, kill switches). Set back to "simulate" to halt
+            # all spend without touching open positions.
             - name: SNIPER_MODE
-              value: simulate
+              value: live
             - name: SNIPER_NETWORK
               value: mainnet
             # Emergency stop: set to "1" and redeploy to halt all new buys while

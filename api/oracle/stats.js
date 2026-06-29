@@ -22,6 +22,7 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
@@ -45,6 +46,7 @@ export default wrap(async (req, res) => {
 				count(*) filter (where tier = 'strong')                                    as strong_count
 			from oracle_conviction
 			where network = ${network}
+			  and mint <> all(${QUOTE_MINT_LIST}::text[])
 		`.catch(() => [{}]),
 
 		// Open oracle_watch_actions (not yet settled).
@@ -64,6 +66,7 @@ export default wrap(async (req, res) => {
 			from oracle_conviction c
 			join pump_coin_outcomes o on o.mint = c.mint
 			where c.network = ${network}
+			  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		`.catch(() => [{}]),
 
 		// Distinct armed agents.

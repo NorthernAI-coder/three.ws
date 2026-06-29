@@ -17,6 +17,7 @@
 
 import { cors, wrap } from '../_lib/http.js';
 import { sql } from '../_lib/db.js';
+import { isQuoteMint } from '../_lib/quote-mints.js';
 
 const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const PUMP_FRONTEND_V3 = 'https://frontend-api-v3.pump.fun';
@@ -292,7 +293,8 @@ export default wrap(async (req, res) => {
 	const url  = new URL(req.url, 'http://x');
 	const mint = (url.searchParams.get('mint') || '').trim();
 
-	if (!MINT_RE.test(mint)) {
+	if (!MINT_RE.test(mint) || isQuoteMint(mint)) {
+		// Quote/stablecoin/LST mints are not coins — no conviction card for them.
 		res.statusCode = 400;
 		res.setHeader('content-type', 'text/plain');
 		res.end('bad mint');

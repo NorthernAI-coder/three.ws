@@ -37,6 +37,7 @@ import {
 } from './trader-format.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
+import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
 
 const GRADUATION_CAP_USD = 69_000; // pump.fun bonding-curve graduation threshold
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1356,10 +1357,35 @@ function ensureAgent3DLib() {
 // context is paid only once the card scrolls into view, and a failed/slow load
 // degrades to the labelled fallback instead of a blank canvas.
 function buildAgentStage(agent) {
-	const glb = agentAvatarGlb(agent);
+	// resolveDevR2Url is a no-op in production; on localhost / Codespaces it
+	// rewrites the r2.dev GLB to the same-origin Vite proxy so the cross-origin
+	// fetch isn't blocked by CORS. The mannequin fallback is a local path, so it
+	// passes through untouched either way.
+	const glb = resolveDevR2Url(agentAvatarGlb(agent));
 	const custom = hasCustomAvatar(agent);
+	const label = `${agent.name || 'Agent'} — interactive 3D avatar`;
 
-	const stage = el('div', { class: 'ld-agent-stage', 'data-state': 'idle' });
+	const stage = el('div', {
+		class: 'ld-agent-stage',
+		'data-state': 'idle',
+		role: 'img',
+		'aria-label': label,
+	});
+
+	// A blurred thumbnail backdrop fills the stage while the model streams in, so
+	// the loading state reads as "this avatar, arriving" rather than an empty box.
+	// It fades out once the GLB is framed. Falls back to the CSS gradient alone
+	// when the agent has no thumbnail.
+	if (agent.avatar_thumbnail_url) {
+		stage.appendChild(
+			el('div', {
+				class: 'ld-agent-stage-poster',
+				'aria-hidden': 'true',
+				style: `background-image:url('${encodeURI(agent.avatar_thumbnail_url)}')`,
+			}),
+		);
+	}
+
 	const loadEl = el('div', { class: 'ld-agent-stage-load' }, [
 		el('span', { class: 'ld-agent-stage-spin', 'aria-hidden': 'true' }),
 		el('span', { class: 'ld-agent-stage-msg', text: 'Loading 3D…' }),
@@ -1381,17 +1407,21 @@ function buildAgentStage(agent) {
 			setMsg("Couldn't load the 3D viewer.");
 			return;
 		}
-		const a3d = el('agent-3d', {
-			class: 'ld-agent-3d',
-			alt: `${agent.name || 'Agent'} — 3D avatar`,
-		});
+		const a3d = el('agent-3d', { class: 'ld-agent-3d', alt: label });
 		a3d.setAttribute('controls', 'orbit');
 		a3d.setAttribute('src', glb);
+		// A slow R2/CDN read shouldn't leave the spinner spinning forever with no
+		// explanation — after 15s, tell the user it's a big model or slow link.
+		const slowTimer = setTimeout(() => {
+			if (stage.dataset.state === 'idle') setMsg('Still loading — large model or slow connection.');
+		}, 15_000);
 		a3d.addEventListener('load', () => {
+			clearTimeout(slowTimer);
 			stage.dataset.state = 'ready';
 			loadEl.remove();
 		}, { once: true });
 		a3d.addEventListener('error', () => {
+			clearTimeout(slowTimer);
 			stage.dataset.state = 'error';
 			setMsg("Couldn't load the 3D model.");
 		}, { once: true });
@@ -1399,12 +1429,18 @@ function buildAgentStage(agent) {
 		stage.appendChild(
 			el('div', { class: 'ld-agent-stage-bar' }, [
 				el('span', { class: 'ld-agent-stage-hint', text: custom ? 'Drag to orbit · scroll to zoom' : 'Base avatar · drag to orbit' }),
-				el('a', { class: 'ld-agent-stage-world', href: seeInWorldHref(agent), text: 'See in world →' }),
+				el('a', {
+					class: 'ld-agent-stage-world',
+					href: seeInWorldHref(agent),
+					text: 'See in world →',
+					'aria-label': `See ${agent.name || 'this agent'} in the $THREE world`,
+				}),
 			]),
 		);
 	};
 
-	// Pay for the WebGL context only when the card is actually near the viewport.
+	// Pay for the WebGL context only when the card is actually near the viewport,
+	// and tear the observer down once mounted so it can't fire twice.
 	if ('IntersectionObserver' in window) {
 		const io = new IntersectionObserver((entries) => {
 			for (const e of entries) {

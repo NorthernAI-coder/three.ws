@@ -1,10 +1,12 @@
 // @ts-check
 // GET/POST /api/cron/launcher-tick — drives one tick of the autonomous coin
-// launcher engine (api/_lib/launcher-engine.js). Fully inert unless a
-// launcher_config row is enabled; the seeded global row ships disabled + dry_run,
-// so no SOL moves and no coin mints until an operator explicitly arms it. When
-// armed, it makes pool agents mint pump.fun coins riding live cultural narratives
-// — the same real on-chain path a human owner uses.
+// launcher engine (api/_lib/launcher-engine.js). The seeded global row ships LIVE
+// (enabled, real, with a standing dev buy), so pool agents mint pump.fun coins
+// riding live cultural narratives on a cadence — the same real on-chain path a
+// human owner uses. Still inert for any scope whose launcher_config row is
+// disabled, and bounded by per-launch/daily SOL caps, an hourly ceiling, the
+// cadence gate, and the circuit breaker. With no master wallet funded, each tick
+// records a clean 'skipped' run instead of minting.
 
 import { json, error, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';

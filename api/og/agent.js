@@ -25,6 +25,7 @@ import { env } from '../_lib/env.js';
 import { isUuid } from '../_lib/validate.js';
 import { getBalances, walletUsdTotal } from '../_lib/balances.js';
 import { getAgentReputation } from '../_lib/trust/wallet-reputation.js';
+import { loadAgentAchievements } from '../_lib/agent-achievements-data.js';
 import { tierForUsd, NETWORTH_TIERS, THREE_MINT } from '../../src/shared/wallet-networth.js';
 
 const CACHE = 'public, max-age=180, s-maxage=900, stale-while-revalidate=120';
@@ -33,6 +34,24 @@ const CACHE = 'public, max-age=180, s-maxage=900, stale-while-revalidate=120';
 // TIERS in agent-financial-reputation.js so the finish matches on page and image.
 const REP_RANK = { new: 0, emerging: 1, established: 2, trusted: 3, elite: 4 };
 const FINISH_LABELS = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'];
+
+// Achievement tier → accent (mirrors TIER_META in agent-achievements-panel.js so
+// the OG badge matches the on-page badge color).
+const ACH_TIER_COLOR = { bronze: '#cd7f32', silver: '#cbd5e1', gold: '#fbbf24', legendary: '#c084fc' };
+const ACH_TIER_RANK = { bronze: 0, silver: 1, gold: 2, legendary: 3 };
+
+/**
+ * The one achievement worth putting on a shared card: the migration badges first
+ * (graduating a coin is the headline success), otherwise the highest-tier earned.
+ */
+function headlineAchievement(earned = []) {
+	if (!earned.length) return null;
+	const migration = earned.find((a) => a.id === 'migrator') || earned.find((a) => a.id === 'graduate');
+	if (migration) return migration;
+	return earned.reduce((best, a) =>
+		(ACH_TIER_RANK[a.tier] ?? 0) > (ACH_TIER_RANK[best.tier] ?? 0) ? a : best,
+	earned[0]);
+}
 
 const GRADIENTS = [
 	['#6366f1', '#8b5cf6'], ['#06b6d4', '#6366f1'], ['#10b981', '#06b6d4'], ['#f59e0b', '#ef4444'],
@@ -141,11 +160,14 @@ export default wrap(async (req, res) => {
 		: null;
 
 	// ── Real enrichments, each timeout-guarded so the card always renders ──────
-	const [balances, rep, pnl, tipsCount] = await Promise.all([
+	const [balances, rep, pnl, tipsCount, achievements] = await Promise.all([
 		solAddress ? withTimeout(getBalances({ chain: 'solana', address: solAddress }), 3000, null) : null,
 		withTimeout(getAgentReputation(id, { lite: true }), 3000, null),
 		withTimeout(realizedPnlFor(id), 2000, { sol: 0, wins: 0 }),
 		solAddress ? withTimeout(tipsCountFor(id), 1500, 0) : 0,
+		// Best-effort: a warm cache (the profile page just loaded it) makes this
+		// free; a cold miss that overruns the budget just omits the badge.
+		withTimeout(loadAgentAchievements(id), 2500, null),
 	]);
 
 	const usd = balances ? walletUsdTotal(balances) : 0;
@@ -211,8 +233,19 @@ export default wrap(async (req, res) => {
 			<text x="${sx + 18}" y="${STAT_Y + 56}" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="700" letter-spacing=".1em" fill="#6f6889">${x(s.label)}</text>`;
 	}).join('\n');
 
-	// Badge row (reputation tier + $THREE mark), placed under the name.
+	// Badge row (top achievement + reputation tier + $THREE mark), under the name.
+	// The achievement leads — a graduated/elite agent advertises that success on
+	// every shared link. "+N" notes how many more badges it has earned.
 	const badges = [];
+	const topAch = headlineAchievement(achievements?.earned);
+	if (topAch) {
+		const more = (achievements?.summary?.earnedCount || 1) - 1;
+		badges.push({
+			text: `★ ${topAch.title.toUpperCase()}${more > 0 ? ` +${more}` : ''}`,
+			color: ACH_TIER_COLOR[topAch.tier] || '#cbd5e1',
+			bg: true,
+		});
+	}
 	if (repLabel) badges.push({ text: repLabel.toUpperCase(), color: rim, bg: true });
 	if (hasThree) badges.push({ text: '◆ $THREE', color: '#fbbf24', bg: true });
 	let badgeX = 440;

@@ -9,9 +9,10 @@
 //          { action: 'force_tick' } to immediately run one launcher tick.
 //
 // Auth: a real admin session OR `Bearer $CRON_SECRET` (for ops tooling). The
-// launcher ships disabled + dry_run; this is the only supported way to arm it,
-// so a misclick can't move SOL — enabling real launches takes enabled=true AND
-// dry_run=false, set deliberately here.
+// launcher ships LIVE (enabled, real, with a standing dev buy); this is the
+// supported way to retune or pause it — set dry_run=true to record without
+// spending, enabled=false to disarm, or { action: 'resume' } to clear a tripped
+// breaker. Real launches require enabled=true AND dry_run=false AND not paused.
 
 import { sql } from '../_lib/db.js';
 import { requireAdmin } from '../_lib/admin.js';
@@ -40,8 +41,8 @@ function coerceArr(v) {
 
 async function ensureGlobalRow() {
 	await sql`
-		insert into launcher_config (scope, enabled, dry_run, mode)
-		values ('global', false, true, 'hybrid')
+		insert into launcher_config (scope, enabled, dry_run, mode, per_launch_sol, dev_buy_sol)
+		values ('global', true, false, 'hybrid', 0.04, 0.01)
 		on conflict do nothing
 	`;
 }

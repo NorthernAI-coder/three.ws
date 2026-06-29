@@ -34,7 +34,7 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
@@ -161,7 +161,16 @@ function build() {
 }
 
 function deploy() {
-	log('deploying service (minScale=maxScale=1, no CPU throttling, mode=simulate)…');
+	// Read the mode straight from the manifest being applied so the log never
+	// lies about whether this deploy spends real SOL.
+	let mode = 'unknown';
+	try {
+		const yaml = readFileSync(CLOUDRUN, 'utf8');
+		const m = yaml.match(/name:\s*SNIPER_MODE[\s\S]*?value:\s*["']?(live|simulate)/);
+		if (m) mode = m[1];
+	} catch { /* fall back to "unknown" in the log */ }
+	log(`deploying service (minScale=maxScale=1, no CPU throttling, mode=${mode})…`);
+	if (mode === 'live') warn('LIVE mode: this service will sign + broadcast real trades from agent wallets.');
 	const r = gcloud(['run', 'services', 'replace', CLOUDRUN, `--region=${REGION}`]);
 	if (r.status !== 0) die('gcloud run services replace failed');
 	ok('service config applied');

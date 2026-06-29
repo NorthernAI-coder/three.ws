@@ -25,6 +25,7 @@
 import { cors, json, method, wrap, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 
@@ -48,6 +49,7 @@ export default wrap(async (req, res) => {
 			where network = ${network}
 			  and scored_at > now() - (${hours} || ' hours')::interval
 			  and category is not null
+			  and mint <> all(${QUOTE_MINT_LIST}::text[])
 		),
 		agg as (
 			select

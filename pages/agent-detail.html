@@ -139,6 +139,11 @@
 			/* Walk-with-this-agent preview card. Token-styled: reuses the page's
 			   surface/border variables so it reads as one of the agent cards. */
 			.ad-walk-card .ad-preview-hint { margin-left: auto; font-size: 11px; color: var(--ink-dim, #888); }
+			/* The card tiles inside the masonry grid, so its width is set by the
+			   column — not the viewport. Make it a query container so the body
+			   below can stack on the card's own width instead of guessing from the
+			   screen size (which left the copy column at ~80px, one word per line). */
+			.ad-walk-card { container-type: inline-size; }
 			/* Two-column body: avatar stage left, supporting copy + CTA fill the
 			   right so the card reads as one composed unit instead of a small frame
 			   marooned in empty space. */
@@ -194,7 +199,10 @@
 				flex-shrink: 0;
 				color: rgba(124, 92, 255, 0.85);
 			}
-			@media (max-width: 640px) {
+			/* Stack when the card itself (not the screen) is too narrow for a
+			   readable two-up split — covers narrow masonry columns and small
+			   viewports alike. */
+			@container (max-width: 520px) {
 				.ad-walk-body { grid-template-columns: 1fr; }
 				.ad-walk-stage { max-width: 300px; margin: 0 auto; }
 				.ad-walk-info { text-align: center; align-items: center; }

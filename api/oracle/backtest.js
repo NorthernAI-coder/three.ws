@@ -21,6 +21,7 @@
 import { cors, json, method, rateLimited } from '../_lib/http.js';
 import { limits, clientIp } from '../_lib/rate-limit.js';
 import { sql } from '../_lib/db.js';
+import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const PERIODS = { '1d': 1, '7d': 7, '30d': 30, '90d': 90, 'all': null };
 const TIERS = new Set(['prime', 'strong', 'lean', 'watch', 'avoid', 'all']);
@@ -63,6 +64,9 @@ async function query(days, tier, network) {
 	// ── per-tier breakdown ────────────────────────────────────────────────────
 	const tierFilter = tier !== 'all' ? sql`and c.tier = ${tier}` : sql``;
 	const periodFilter = days != null ? sql`and c.scored_at >= now() - (${days} || ' days')::interval` : sql``;
+	// Quote/stablecoin/LST mints are not coins — exclude them from every accuracy
+	// calc so a stray cached USDC row can't poison the win-rate or top performers.
+	const quoteFilter = sql`and c.mint <> all(${QUOTE_MINT_LIST}::text[])`;
 
 	const rows = await sql`
 		select
@@ -82,6 +86,7 @@ async function query(days, tier, network) {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and (o.graduated or o.rugged or o.ath_multiple is not null)
+		  ${quoteFilter}
 		  ${tierFilter}
 		  ${periodFilter}
 		group by c.tier
@@ -122,6 +127,7 @@ async function query(days, tier, network) {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and (o.graduated or o.rugged or o.ath_multiple is not null)
+		  ${quoteFilter}
 		  ${periodFilter}
 		group by 1
 		order by 1
@@ -155,6 +161,7 @@ async function query(days, tier, network) {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and (o.graduated or o.rugged or o.ath_multiple is not null)
+		  ${quoteFilter}
 		  ${periodFilter}
 	`.then((r) => r[0] || {}).catch(() => ({}));
 
@@ -189,6 +196,7 @@ async function query(days, tier, network) {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple is not null
+		  ${quoteFilter}
 		  ${topTierFilter}
 		  ${topFilter}
 		order by o.ath_multiple desc nulls last

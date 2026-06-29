@@ -7,9 +7,14 @@
 //   2. Claim via collect-creator-fee-agent (agent signs its own claim, same as the launch)
 //   3. Record in launcher_claims (claimed_sol, buyback_sol allocated, claim_sig)
 //
-// This closes the money loop: launch → fees accrue → claim → revenue tracking.
-// The buyback_sol column tracks the $THREE-allocated share (buyback_bps from the
-// run's config). The actual swap path wires in once the trade endpoint is confirmed.
+// This closes the creator-fee loop: launch → creator fees accrue → claim → record.
+// buyback_sol records the buyback-earmarked share of those CREATOR fees (the run's
+// buyback_bps) for revenue tracking. It is NOT a pending swap: the on-chain buyback
+// for these agent coins is delivered by the buyback_bps binding baked into each
+// launch (handleLaunchAgent → PumpAgent.create), which routes a share of TRADE fees
+// into the coin's on-chain buyback vault, and the hourly run-buyback cron
+// (api/cron/[name].js) then executes the buyback+burn from that vault. So the
+// $THREE-aligned buy pressure runs through that lane, not this claimer.
 //
 // Auth: CRON_SECRET Bearer (same pattern as all cron endpoints).
 

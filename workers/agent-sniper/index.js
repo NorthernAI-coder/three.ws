@@ -34,6 +34,7 @@ import {
 import { screenPush } from './screen-push.js';
 import { scoreAlpha } from './alpha-hunt.js';
 import { startAutoClaimerWatch } from './auto-claimer.js';
+import { startAutoFunderWatch } from './auto-funder.js';
 import { startLauncherWatch } from './launcher.js';
 import { startMarketMakerWatch } from './market-maker.js';
 
