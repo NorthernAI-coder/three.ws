@@ -3,6 +3,42 @@
   "entries": [
     {
       "date": "2026-06-29",
+      "title": "New dashboard: total agent-to-agent economy volume",
+      "summary": "There's now a live dashboard for the whole agent-to-agent economy: the total real USDC that agents have paid each other for hiring paid skills over x402. The headline is the all-time settled volume, alongside 7-day volume, average hire value, and how many agents are earning vs. paying. A 90-day volume chart (switchable to 7d/30d) shows the trend, two leaderboards rank the top-earning and top-spending agents, and a live feed lists the latest settlements — each one linking straight to its on-chain proof on Solscan. Every number is read from the real hire ledger; nothing is simulated.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/agent-economy-volume"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Solana Metaplex agents now appear in the on-chain deployments feed",
+      "summary": "The on-chain Deployments feed is no longer EVM-only. Every Solana agent minted as a Metaplex Core asset — both the ones three.ws launches into its own Agents collection and external agents in the Metaplex Agent Registry — now lands in the same live stream alongside ERC-8004 registrations, the moment each mint confirms. Solana shows up as its own chain in the feed, the top-chains panel, and the 24h/7d counters, with rows linking straight to Solscan. The mainnet/testnet toggle maps to Solana mainnet-beta and devnet.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/deployments"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Avatars now face you in previews and embeds",
+      "summary": "Avatar cards in your dashboard, kiosk previews, and embeds now open with the character squarely facing the viewer instead of showing its back. The 3D viewer was spinning every model 180° on load, so static previews framed the back of the avatar. Removed the stray flip — avatars are authored front-on (+Z) and the framing camera already looks at them head-on, so they now present the front everywhere.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/dashboard/avatars"
+    },
+    {
+      "date": "2026-06-29",
+      "title": "Portfolio dashboard loads your agent balances again",
+      "summary": "The portfolio page now shows your agents' live balances and value-over-time chart instead of failing to load. The endpoints that feed the page — your aggregated holdings, the 90-day history chart, and the per-token drill-down — had no server route wired up, so every request came back empty and the page sat blank. The routes are now in place, so your wallets, totals, history, and individual token views all populate as they should.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/dashboard/portfolio"
+    },
+    {
+      "date": "2026-06-29",
       "title": "Club entry no longer gets stuck behind the payment receipt",
       "summary": "Paying the cover at the club door (and tipping a dancer) now drops you straight into the room. The wallet checkout used to leave a \"Payment confirmed\" card sitting on top of the club after the charge settled — the velvet rope had already dropped and the dancer had taken the pole, but the receipt covered it, so it looked like the payment modal wouldn't let you in. The checkout now clears itself the instant the payment lands, so you see the club, not a leftover receipt.",
       "tags": [

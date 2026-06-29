@@ -180,6 +180,13 @@ export const NAV_GROUPS = [
 						desc: 'Live price, bonding-curve chart, streaming trades & one-click buy',
 					},
 					{
+						title: 'Agent Economy Volume',
+						href: '/agent-economy-volume',
+						badge: 'Live',
+						badgeTone: 'live',
+						desc: 'Total real USDC settled between agents hiring each other over x402 — top earners, spenders & a 90-day volume chart',
+					},
+					{
 						title: 'Money Pulse',
 						href: '/pulse',
 						desc: 'Live, platform-wide feed of real agent wallet activity — tips, launches, trades & payments',

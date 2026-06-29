@@ -1077,7 +1077,13 @@ export class Viewer {
 		// Add content and build the animation panel BEFORE computing the camera
 		// so the panel's rendered height is available for panel-aware framing.
 		this.scene.add(object);
-		object.rotation.y = Math.PI;
+		// Avatars are authored with +Z as their forward axis (see
+		// _trackBodyToCamera in agent-avatar.js, which faces them via
+		// atan2(dx, dz)). The framing camera sits on +Z looking at origin,
+		// so a zero yaw already presents the front. Do NOT flip 180° here —
+		// that turns every static preview (dashboard card, kiosk embed)
+		// around to show the avatar's back.
+		object.rotation.y = 0;
 		this.content = object;
 
 		// Build BVH acceleration structures for every mesh geometry so raycasting

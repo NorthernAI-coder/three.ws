@@ -1,11 +1,17 @@
-// GET /api/deployments — the on-chain agent deployment feed: every agent
-// registered on the ERC-8004 Identity Registry, the moment it lands on-chain,
-// across every supported EVM chain.
+// GET /api/deployments — the on-chain agent deployment feed: every agent that
+// lands on-chain, the moment it does, across every supported chain.
 //
-// EVERY row is a real registration crawled from chain logs — there are NO
-// synthetic entries. The source is `erc8004_agents_index` (populated by
-// api/cron/erc8004-crawl.js via Etherscan getLogs against the registries in
-// api/_lib/erc8004-chains.js). If a chain is quiet, the feed is honestly empty.
+// Two real on-chain sources are folded into one chronological stream — NO
+// synthetic entries:
+//   • EVM   — ERC-8004 Identity Registry registrations crawled from chain logs
+//             into `erc8004_agents_index` (api/cron/erc8004-crawl.js).
+//   • Solana — Metaplex Core agent mints. Two upstreams:
+//       · three.ws's own mints in `agent_identities` (meta.chain_type='solana'),
+//         minted into the "three.ws Agents" Metaplex collection + Agent Registry
+//         by api/_lib/onchain-deploy.js.
+//       · the external Metaplex Agent Registry crawled into `solana_agents_index`
+//         (source='metaplex'); deduped against our own mints by Core asset pubkey.
+// If a chain is quiet, the feed is honestly empty.
 //
 // Views:
 //   GET /api/deployments                  — live feed, keyset paginated (newest first)
@@ -13,25 +19,67 @@
 //   GET /api/deployments?view=stats       — aggregate registry intelligence
 //
 // Filters: network=mainnet|testnet, chain=<chainId>, kind=all|3d|x402.
+// Solana appears as a chain: mainnet-beta=101, devnet=103 (Solana cluster indices).
 
 import { sql, isDbUnavailableError } from './_lib/db.js';
 import { cors, json, method, error, serverError, rateLimited } from './_lib/http.js';
 import { limits, clientIp } from './_lib/rate-limit.js';
 import { cacheGet, cacheSet } from './_lib/cache.js';
+import { publicUrl } from './_lib/r2.js';
 import { CHAINS, CHAIN_BY_ID, tokenExplorerUrl, addressExplorerUrl } from './_lib/erc8004-chains.js';
 
 const FEED_TTL_S = 20; // feed page cache — registrations land in minutes, not seconds
 const STATS_TTL_S = 60; // aggregate stats cache
 const MAX_LIMIT = 60;
 
+// Solana cluster indices double as our synthetic chain ids so the feed, cursor,
+// network toggle, and top-chains panel treat Solana like any other chain.
+const SOLANA_MAINNET_CHAIN_ID = 101;
+const SOLANA_DEVNET_CHAIN_ID = 103;
+const SOLANA_CHAIN_IDS = new Set([SOLANA_MAINNET_CHAIN_ID, SOLANA_DEVNET_CHAIN_ID]);
+
 // Chain-id sets per network class, derived once from the canonical chain table so
-// the network toggle never drifts from the deployed registries.
+// the network toggle never drifts from the deployed registries. Solana joins each
+// class as an extra id (mainnet-beta on mainnet, devnet on testnet).
 const MAINNET_CHAIN_IDS = CHAINS.filter((c) => !c.testnet).map((c) => c.id);
 const TESTNET_CHAIN_IDS = CHAINS.filter((c) => c.testnet).map((c) => c.id);
 
 function txExplorerUrl(chainId, tx) {
 	const c = CHAIN_BY_ID[chainId];
 	return c && tx ? `${c.explorer}/tx/${tx}` : null;
+}
+
+// ── Solana explorer + chain attribution ──────────────────────────────────────
+function isSolanaChain(chainId) {
+	return SOLANA_CHAIN_IDS.has(chainId);
+}
+function solanaTxUrl(chainId, sig) {
+	if (!sig) return null;
+	return chainId === SOLANA_DEVNET_CHAIN_ID
+		? `https://explorer.solana.com/tx/${sig}?cluster=devnet`
+		: `https://solscan.io/tx/${sig}`;
+}
+function solanaAssetUrl(chainId, asset) {
+	if (!asset) return null;
+	return chainId === SOLANA_DEVNET_CHAIN_ID
+		? `https://explorer.solana.com/address/${asset}?cluster=devnet`
+		: `https://solscan.io/token/${asset}`;
+}
+function solanaAccountUrl(chainId, addr) {
+	if (!addr) return null;
+	return chainId === SOLANA_DEVNET_CHAIN_ID
+		? `https://explorer.solana.com/address/${addr}?cluster=devnet`
+		: `https://solscan.io/account/${addr}`;
+}
+function chainNameFor(chainId) {
+	if (chainId === SOLANA_MAINNET_CHAIN_ID) return 'Solana';
+	if (chainId === SOLANA_DEVNET_CHAIN_ID) return 'Solana Devnet';
+	return CHAIN_BY_ID[chainId]?.name || `Chain ${chainId}`;
+}
+function chainExplorerFor(chainId) {
+	if (chainId === SOLANA_MAINNET_CHAIN_ID) return 'https://solscan.io';
+	if (chainId === SOLANA_DEVNET_CHAIN_ID) return 'https://explorer.solana.com';
+	return CHAIN_BY_ID[chainId]?.explorer || null;
 }
 
 // Keyset cursor = base64("<epoch_ms>|<chain_id>|<agent_id>"). Ordering on
@@ -54,13 +102,35 @@ function decodeCursor(raw) {
 	}
 }
 
-// Shape one index row into the public deployment event the client renders. Pure.
+// Shape one feed row (EVM or Solana) into the public deployment event the client
+// renders. Pure. The `family` discriminator decides explorer-URL construction.
 function shapeRow(r) {
+	if (r.family === 'solana') {
+		const asset = r.asset || r.agent_id;
+		return {
+			chain_id: r.chain_id,
+			chain: chainNameFor(r.chain_id),
+			testnet: r.chain_id === SOLANA_DEVNET_CHAIN_ID,
+			family: 'solana',
+			agent_id: r.agent_id,
+			name: r.name || null,
+			description: r.description || null,
+			image: r.image || (r.image_key ? publicUrl(r.image_key) : null),
+			owner: r.owner || null,
+			has_3d: !!r.has_3d,
+			x402_support: !!r.x402_support,
+			registered_at: r.registered_at,
+			agent_explorer: solanaAssetUrl(r.chain_id, asset),
+			owner_explorer: solanaAccountUrl(r.chain_id, r.owner),
+			tx_explorer: solanaTxUrl(r.chain_id, r.registered_tx),
+		};
+	}
 	const chain = CHAIN_BY_ID[r.chain_id] || null;
 	return {
 		chain_id: r.chain_id,
 		chain: chain ? chain.name : `Chain ${r.chain_id}`,
 		testnet: chain ? !!chain.testnet : false,
+		family: 'evm',
 		agent_id: r.agent_id,
 		name: r.name || null,
 		description: r.description || null,
@@ -75,40 +145,130 @@ function shapeRow(r) {
 	};
 }
 
-function chainIdsFor(network) {
+function evmChainIdsFor(network) {
 	return network === 'testnet' ? TESTNET_CHAIN_IDS : MAINNET_CHAIN_IDS;
+}
+
+// ── source fragments ─────────────────────────────────────────────────────────
+// Each returns a SELECT producing the common feed shape. Composed via UNION ALL
+// into one CTE so the keyset cursor orders a single unified stream. `registered_at`
+// is left nullable here (totals count untimed rows; the feed view filters them).
+function evmSource(evmChainIds) {
+	return sql`
+		SELECT 'evm'::text AS family, e.chain_id, e.agent_id, e.owner,
+		       e.name, e.description, e.image, NULL::text AS image_key,
+		       e.has_3d, e.x402_support, e.registered_at, e.registered_tx,
+		       NULL::text AS asset
+		FROM erc8004_agents_index e
+		WHERE e.active = true
+		  AND e.chain_id = ANY(${evmChainIds})
+	`;
+}
+
+// three.ws's own Metaplex Core mints. Mainnet fields live at the top of `meta`;
+// devnet is isolated under meta.devnet (see api/_lib/onchain-deploy.js).
+function solanaOwnSource(network) {
+	if (network === 'testnet') {
+		return sql`
+			SELECT 'solana'::text AS family, ${SOLANA_DEVNET_CHAIN_ID}::int AS chain_id,
+			       ai.meta->'devnet'->>'sol_mint_address' AS agent_id,
+			       ai.meta->'devnet'->'onchain'->>'owner' AS owner,
+			       ai.name, ai.description, ai.profile_image_url AS image,
+			       av.thumbnail_key AS image_key,
+			       (ai.avatar_id IS NOT NULL) AS has_3d,
+			       ((ai.meta->'payments'->>'configured') = 'true') AS x402_support,
+			       COALESCE((ai.meta->'devnet'->'onchain'->>'confirmed_at')::timestamptz, ai.created_at) AS registered_at,
+			       ai.meta->'devnet'->'onchain'->>'tx_hash' AS registered_tx,
+			       ai.meta->'devnet'->>'sol_mint_address' AS asset
+			FROM agent_identities ai
+			LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+			WHERE ai.deleted_at IS NULL
+			  AND ai.meta->'devnet'->>'sol_mint_address' IS NOT NULL
+		`;
+	}
+	return sql`
+		SELECT 'solana'::text AS family, ${SOLANA_MAINNET_CHAIN_ID}::int AS chain_id,
+		       ai.meta->>'sol_mint_address' AS agent_id,
+		       ai.meta->'onchain'->>'owner' AS owner,
+		       ai.name, ai.description, ai.profile_image_url AS image,
+		       av.thumbnail_key AS image_key,
+		       (ai.avatar_id IS NOT NULL) AS has_3d,
+		       ((ai.meta->'payments'->>'configured') = 'true') AS x402_support,
+		       COALESCE((ai.meta->'onchain'->>'confirmed_at')::timestamptz, ai.created_at) AS registered_at,
+		       ai.meta->'onchain'->>'tx_hash' AS registered_tx,
+		       ai.meta->>'sol_mint_address' AS asset
+		FROM agent_identities ai
+		LEFT JOIN avatars av ON av.id = ai.avatar_id AND av.deleted_at IS NULL
+		WHERE ai.deleted_at IS NULL
+		  AND ai.meta->>'chain_type' = 'solana'
+		  AND ai.meta->>'network' = 'mainnet'
+		  AND ai.meta->>'sol_mint_address' IS NOT NULL
+	`;
+}
+
+// The external Metaplex Agent Registry. Deduped against our own mints by Core
+// asset pubkey — an agent we launched AND registered upstream appears once.
+function solanaExternalSource(network) {
+	const net = network === 'testnet' ? 'devnet' : 'mainnet';
+	const chainId = network === 'testnet' ? SOLANA_DEVNET_CHAIN_ID : SOLANA_MAINNET_CHAIN_ID;
+	return sql`
+		SELECT 'solana'::text AS family, ${chainId}::int AS chain_id,
+		       COALESCE(s.asset, s.ref) AS agent_id, s.owner,
+		       s.name, s.description, s.image, NULL::text AS image_key,
+		       s.has_3d, s.x402_support, s.registered_at, NULL::text AS registered_tx,
+		       s.asset
+		FROM solana_agents_index s
+		WHERE s.active = true
+		  AND s.source = 'metaplex'
+		  AND s.network = ${net}
+		  AND NOT EXISTS (
+		    SELECT 1 FROM agent_identities o
+		    WHERE o.deleted_at IS NULL
+		      AND o.meta->>'sol_mint_address' = s.asset
+		  )
+	`;
+}
+
+// One unified on-chain stream: EVM ⊎ Solana(ours) ⊎ Solana(external Metaplex).
+function unionFor(network) {
+	const evmChainIds = evmChainIdsFor(network);
+	return sql`
+		${evmSource(evmChainIds)}
+		UNION ALL
+		${solanaOwnSource(network)}
+		UNION ALL
+		${solanaExternalSource(network)}
+	`;
 }
 
 // ── feed view ───────────────────────────────────────────────────────────────
 async function handleFeed({ network, chain, kind, cursor }) {
-	const chainIds = chainIdsFor(network);
 	const limit = MAX_LIMIT;
 
-	const chainFilter = chain ? sql`AND e.chain_id = ${chain}` : sql``;
+	const chainFilter = chain ? sql`AND f.chain_id = ${chain}` : sql``;
 	const kindFilter =
-		kind === '3d' ? sql`AND e.has_3d = true` : kind === 'x402' ? sql`AND e.x402_support = true` : sql``;
+		kind === '3d' ? sql`AND f.has_3d = true` : kind === 'x402' ? sql`AND f.x402_support = true` : sql``;
 
 	// Only rows with a known registration time can sit in a chronological feed;
-	// lazily-indexed rows without a timestamp are counted in stats but not placed
-	// in time here (we never invent an order).
+	// untimed rows are counted in stats but never placed in time here (we never
+	// invent an order).
 	const cur = decodeCursor(cursor);
 	const olderBound = cur
-		? sql`AND (e.registered_at < ${cur.ts}
-			OR (e.registered_at = ${cur.ts} AND e.chain_id < ${cur.chainId})
-			OR (e.registered_at = ${cur.ts} AND e.chain_id = ${cur.chainId} AND e.agent_id < ${cur.agentId}))`
+		? sql`AND (f.registered_at < ${cur.ts}
+			OR (f.registered_at = ${cur.ts} AND f.chain_id < ${cur.chainId})
+			OR (f.registered_at = ${cur.ts} AND f.chain_id = ${cur.chainId} AND f.agent_id < ${cur.agentId}))`
 		: sql``;
 
 	const rows = await sql`
-		SELECT e.chain_id, e.agent_id, e.owner, e.name, e.description, e.image,
-		       e.has_3d, e.x402_support, e.registered_at, e.registered_tx
-		FROM erc8004_agents_index e
-		WHERE e.active = true
-		  AND e.registered_at IS NOT NULL
-		  AND e.chain_id = ANY(${chainIds})
+		WITH feed AS (
+			${unionFor(network)}
+		)
+		SELECT f.* FROM feed f
+		WHERE f.registered_at IS NOT NULL
 		  ${chainFilter}
 		  ${kindFilter}
 		  ${olderBound}
-		ORDER BY e.registered_at DESC, e.chain_id DESC, e.agent_id DESC
+		ORDER BY f.registered_at DESC, f.chain_id DESC, f.agent_id DESC
 		LIMIT ${limit + 1}
 	`;
 
@@ -129,10 +289,12 @@ async function handleFeed({ network, chain, kind, cursor }) {
 
 // ── aggregate stats view ──────────────────────────────────────────────────────
 async function handleStats(network) {
-	const chainIds = chainIdsFor(network);
-
-	// Headline totals in one pass: registry size, capability mix, deploy tempo.
+	// Headline totals in one pass over the unified stream: registry size,
+	// capability mix, deploy tempo. Untimed rows still count toward totals.
 	const [totals] = await sql`
+		WITH feed AS (
+			${unionFor(network)}
+		)
 		SELECT
 			COUNT(*)::int                                                              AS total,
 			COUNT(*) FILTER (WHERE has_3d)::int                                        AS with_3d,
@@ -140,15 +302,16 @@ async function handleStats(network) {
 			COUNT(DISTINCT chain_id)::int                                             AS chains,
 			COUNT(*) FILTER (WHERE registered_at > now() - interval '24 hours')::int  AS d24,
 			COUNT(*) FILTER (WHERE registered_at > now() - interval '7 days')::int    AS d7
-		FROM erc8004_agents_index
-		WHERE active = true AND chain_id = ANY(${chainIds})
+		FROM feed
 	`;
 
 	// Most-populated chains — the registry's footprint at a glance.
 	const topChainsRaw = await sql`
+		WITH feed AS (
+			${unionFor(network)}
+		)
 		SELECT chain_id, COUNT(*)::int AS n
-		FROM erc8004_agents_index
-		WHERE active = true AND chain_id = ANY(${chainIds})
+		FROM feed
 		GROUP BY chain_id
 		ORDER BY n DESC
 		LIMIT 8
@@ -156,7 +319,10 @@ async function handleStats(network) {
 
 	// 7-day registration series — a zero-filled daily count for the sparkline.
 	const series = await sql`
-		WITH days AS (
+		WITH feed AS (
+			${unionFor(network)}
+		),
+		days AS (
 			SELECT generate_series(
 				date_trunc('day', now()) - interval '6 days',
 				date_trunc('day', now()),
@@ -165,9 +331,8 @@ async function handleStats(network) {
 		),
 		ev AS (
 			SELECT date_trunc('day', registered_at) AS day, COUNT(*)::int AS n
-			FROM erc8004_agents_index
-			WHERE active = true AND chain_id = ANY(${chainIds})
-			  AND registered_at > date_trunc('day', now()) - interval '6 days'
+			FROM feed
+			WHERE registered_at > date_trunc('day', now()) - interval '6 days'
 			GROUP BY 1
 		)
 		SELECT to_char(days.day, 'Dy')        AS label,
@@ -179,15 +344,12 @@ async function handleStats(network) {
 	`;
 
 	const total = Number(totals?.total || 0);
-	const topChains = topChainsRaw.map((r) => {
-		const c = CHAIN_BY_ID[r.chain_id] || null;
-		return {
-			chain_id: r.chain_id,
-			chain: c ? c.name : `Chain ${r.chain_id}`,
-			count: Number(r.n || 0),
-			explorer: c ? c.explorer : null,
-		};
-	});
+	const topChains = topChainsRaw.map((r) => ({
+		chain_id: r.chain_id,
+		chain: chainNameFor(r.chain_id),
+		count: Number(r.n || 0),
+		explorer: chainExplorerFor(r.chain_id),
+	}));
 
 	return {
 		network,
