@@ -63,6 +63,14 @@
 			<description>On an agent's live screen the Avatar Cam is now a stage. Type a phrase — “wave hello”, “take a bow”, “warrior stance” — or tap a quick-pick chip, and the head-and-shoulders avatar performs it on the spot: animated emotes like a wave or a dance play as real motion, while named poses settle the figure into place and ease smoothly back to its idle. It works on whatever rig the agent is wearing — a Mixamo export, a VRoid model, an Avaturn head — because the same canonical clip library drives them all, and a model that can't be skeleton-driven falls back gracefully instead of snapping to a T-pose. Every request is tagged in the activity log.</description>
 		</item>
 		<item>
+			<title>Club entry no longer gets stuck behind the payment receipt</title>
+			<link>https://three.ws/club</link>
+			<guid isPermaLink="false">2026-06-29:Club entry no longer gets stuck behind the payment receipt</guid>
+			<pubDate>Mon, 29 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Paying the cover at the club door (and tipping a dancer) now drops you straight into the room. The wallet checkout used to leave a &quot;Payment confirmed&quot; card sitting on top of the club after the charge settled — the velvet rope had already dropped and the dancer had taken the pole, but the receipt covered it, so it looked like the payment modal wouldn't let you in. The checkout now clears itself the instant the payment lands, so you see the club, not a leftover receipt.</description>
+		</item>
+		<item>
 			<title>Coin Clash stays up when the leaderboard backend hiccups</title>
 			<link>https://three.ws/clash</link>
 			<guid isPermaLink="false">2026-06-29:Coin Clash stays up when the leaderboard backend hiccups</guid>

@@ -1590,8 +1590,13 @@ class CheckoutModal {
 			const settleHeader = res.headers.get('x-payment-response');
 			const payment = b64decode(settleHeader) || {};
 			this.spendReservation = null;
-			this.renderDone({ result, payment });
 			this.resolve?.({ ok: true, result, payment, response: { status: res.status, headers: headersToObject(res.headers) } });
+			// autoClose (opt-in): a programmatic caller (e.g. the club door) renders
+			// its own success beat over the unlocked content, so the modal must get
+			// out of the way the instant payment settles instead of parking on a
+			// manual "Done" screen that would cover what the caller just revealed.
+			if (this.opts.autoClose) this.close('done');
+			else this.renderDone({ result, payment });
 		} catch (err) {
 			if (this.spendReservation) {
 				browserRollbackReservation(this.spendReservation);
@@ -1730,13 +1735,15 @@ class CheckoutModal {
 				result = text;
 			}
 			const siwx = { address: payload.address, network: chainId };
-			this.renderDone({ result, siwx });
 			this.resolve?.({
 				ok: true,
 				result,
 				siwx,
 				response: { status: res.status, headers: headersToObject(res.headers) },
 			});
+			// See the paid path: a programmatic caller dismisses the modal itself.
+			if (this.opts.autoClose) this.close('done');
+			else this.renderDone({ result, siwx });
 			return;
 		}
 

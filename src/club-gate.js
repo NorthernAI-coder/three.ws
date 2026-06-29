@@ -113,6 +113,10 @@ async function payCover(root, { payBtn, msgEl, tierEl }) {
 			// Skip the checkout's wallet-picker when one wallet is detected — the
 			// SIWX free-re-entry choice and the install/pick cases still surface.
 			autoConnect: true,
+			// Dismiss the checkout the instant cover settles — the door renders its
+			// own admit beat and drops the rope, so the modal must not park on a
+			// "Payment confirmed / Done" screen on top of the club it just unlocked.
+			autoClose: true,
 		});
 		const pass = out?.result;
 		if (!pass?.ok) throw new Error(pass?.error || 'cover did not settle');
