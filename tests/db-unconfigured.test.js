@@ -84,4 +84,45 @@ describe('db.js with an unconfigured DATABASE_URL', () => {
 	it('still surfaces sqlValues build-time validation as a real throw (not masked)', () => {
 		expect(() => sqlValues([])).toThrow();
 	});
+
+	// A live Neon outage / cold-compute wake does NOT surface as a missing env var
+	// — the connection string is present but the HTTP transport fails. Neon's
+	// driver wraps that as `NeonDbError: Error connecting to database: fetch
+	// failed`. This used to fall through every branch (the NeonDbError branch never
+	// checked 'fetch failed'; the TypeError branch never ran for a NeonDbError) and
+	// 500-stormed every DB endpoint at once instead of degrading to a single 503.
+	it('classifies a Neon connection-level transport failure as db-unavailable (→ 503, not 500)', () => {
+		const fetchFailed = Object.assign(new Error('Error connecting to database: fetch failed'), {
+			name: 'NeonDbError',
+		});
+		expect(isDbUnavailableError(fetchFailed)).toBe(true);
+
+		// Same failure when the cause is carried on .sourceError rather than the message.
+		const wrapped = Object.assign(new Error('Error connecting to database'), {
+			name: 'NeonDbError',
+			sourceError: new TypeError('fetch failed'),
+		});
+		expect(isDbUnavailableError(wrapped)).toBe(true);
+
+		for (const m of [
+			'Connection terminated unexpectedly',
+			'terminating connection due to administrator command',
+			'sorry, too many clients already / remaining connection slots are reserved',
+			'read ECONNRESET',
+			'connect ETIMEDOUT',
+		]) {
+			expect(isDbUnavailableError(Object.assign(new Error(m), { name: 'NeonDbError' }))).toBe(true);
+		}
+	});
+
+	it('still 500s on a real SQL fault (syntax / undefined column) — not masked as 503', () => {
+		const syntax = Object.assign(new Error('syntax error at or near "$3"'), { name: 'NeonDbError' });
+		expect(isDbUnavailableError(syntax)).toBe(false);
+		const undefinedCol = Object.assign(new Error('column "nope" does not exist'), { name: 'NeonDbError' });
+		expect(isDbUnavailableError(undefinedCol)).toBe(false);
+	});
+
+	it('classifies a bare `fetch failed` TypeError (pre-wrap transport error)', () => {
+		expect(isDbUnavailableError(new TypeError('fetch failed'))).toBe(true);
+	});
 });

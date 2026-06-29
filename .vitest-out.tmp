@@ -1,0 +1,43 @@
+
+ RUN  v4.1.7 /workspaces/three.ws
+
+······································x··stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 429 when per-agent rate limit exceeded
+{"ts":"2026-06-29T22:44:26.915Z","event":"purchase_as_agent.rate_limited","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro"}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 200 already_owned when confirmed purchase exists
+{"ts":"2026-06-29T22:44:26.952Z","event":"purchase_as_agent.already_owned","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro"}
+
+······stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 402 when daily spend cap would be exceeded
+{"ts":"2026-06-29T22:44:26.969Z","event":"purchase_as_agent.spend_cap_exceeded","buyer_agent_id":"00000000-0000-0000-0000-000000000001","skill":"pro","spent":"500000","amount":1000000,"limit_atomics":"500000"}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 200 confirmed on happy path
+{"ts":"2026-06-29T22:44:26.985Z","event":"purchase_as_agent.pending","purchase_id":"ppp","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","amount":1000000,"is_self_dealing":false}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 200 confirmed on happy path
+{"ts":"2026-06-29T22:44:26.999Z","event":"purchase_as_agent.tx_confirmed","purchase_id":"ppp","tx_signature":"txSig"}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 200 confirmed on happy path
+{"ts":"2026-06-29T22:44:27.008Z","event":"purchase_as_agent.confirmed","purchase_id":"ppp","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","amount":1000000,"tx_signature":"sig123","is_self_dealing":false}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > flags self-dealing but does not block it
+{"ts":"2026-06-29T22:44:27.023Z","event":"purchase_as_agent.self_dealing","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","user_id":"aaaa0000-0000-0000-0000-000000000001"}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > flags self-dealing but does not block it
+{"ts":"2026-06-29T22:44:27.024Z","event":"purchase_as_agent.pending","purchase_id":"ppp","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","amount":1000000,"is_self_dealing":true}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > flags self-dealing but does not block it
+{"ts":"2026-06-29T22:44:27.030Z","event":"purchase_as_agent.tx_confirmed","purchase_id":"ppp","tx_signature":"txSig"}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > flags self-dealing but does not block it
+{"ts":"2026-06-29T22:44:27.035Z","event":"purchase_as_agent.confirmed","purchase_id":"ppp","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","amount":1000000,"tx_signature":"sig123","is_self_dealing":true}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 502 when the on-chain transaction fails
+{"ts":"2026-06-29T22:44:27.045Z","event":"purchase_as_agent.pending","purchase_id":"ppp","buyer_agent_id":"00000000-0000-0000-0000-000000000001","seller_agent_id":"00000000-0000-0000-0000-000000000002","skill":"pro","amount":1000000,"is_self_dealing":false}
+
+stdout | tests/api/purchase-as-agent.test.js > POST /api/marketplace/purchase-as-agent > returns 502 when the on-chain transaction fails
+{"ts":"2026-06-29T22:44:27.045Z","event":"purchase_as_agent.tx_failed","purchase_id":"ppp","error":"insufficient funds","buyer_agent_id":"00000000-0000-0000-0000-000000000001"}
+
+······x········xx······x········stderr | tests/api/providers-nvidia.test.js > nvidia provider — 202-then-poll loop > reports failed when a finished poll carries no GLB artifact
+[nvidia] poll 200 but no GLB artifact — json keys=["artifacts"] artifacts=[]
+
+······································
