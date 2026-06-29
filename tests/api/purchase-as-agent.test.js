@@ -27,6 +27,9 @@ vi.mock('../../api/_lib/db.js', () => ({
 		vi.fn(async () => sqlQueue.length ? sqlQueue.shift() : []),
 		{ transaction: vi.fn(async (fns) => { for (const f of fns) await f; }) },
 	),
+	// http.js wrap() classifies thrown errors via this helper; the on-chain
+	// failures these tests exercise are never DB-unavailable, so return false.
+	isDbUnavailableError: () => false,
 }));
 
 const rlState = { success: true };
