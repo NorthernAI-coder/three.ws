@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseGithubRepo, weightsToBps, validateShareSplit } from '../public/studio/fees-panel.js';
+import { parseGithubRepo, parseGithubAccount, weightsToBps, validateShareSplit } from '../public/studio/fees-panel.js';
 
 // A plausible 44-char base58 Solana address for split validation tests.
 const A = (c) => c.repeat(44);
@@ -18,6 +18,31 @@ describe('parseGithubRepo', () => {
 		expect(parseGithubRepo('')).toBeNull();
 		expect(parseGithubRepo('justaname')).toBeNull();
 		expect(parseGithubRepo('   ')).toBeNull();
+	});
+});
+
+describe('parseGithubAccount', () => {
+	it('parses a bare login', () => {
+		expect(parseGithubAccount('nirholas')).toBe('nirholas');
+	});
+	it('strips a leading @', () => {
+		expect(parseGithubAccount('@nirholas')).toBe('nirholas');
+	});
+	it('parses a profile URL', () => {
+		expect(parseGithubAccount('https://github.com/anza-xyz')).toBe('anza-xyz');
+		expect(parseGithubAccount('github.com/foo-bar/')).toBe('foo-bar');
+	});
+	it('accepts a hyphenated login but rejects leading/trailing/double hyphens', () => {
+		expect(parseGithubAccount('a-b-c')).toBe('a-b-c');
+		expect(parseGithubAccount('-bad')).toBeNull();
+		expect(parseGithubAccount('bad-')).toBeNull();
+		expect(parseGithubAccount('a--b')).toBeNull();
+	});
+	it('rejects empty / over-long / invalid logins', () => {
+		expect(parseGithubAccount('')).toBeNull();
+		expect(parseGithubAccount('   ')).toBeNull();
+		expect(parseGithubAccount('a'.repeat(40))).toBeNull();
+		expect(parseGithubAccount('has space')).toBeNull();
 	});
 });
 

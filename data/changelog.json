@@ -3,6 +3,14 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Reward coins can now send creator fees to a single GitHub account, not just a repo",
+      "summary": "The Fees & rewards panel already let you split a coin's creator fees across a GitHub repo's contributors. Now you can also route rewards to one specific person: type a GitHub @username and it resolves to their three.ws-linked Solana payout wallet, added as a recipient you can give 100% (or any share) of the fees. This is the same mechanism behind $THREE, whose creator rewards flow to @nirholas even though someone else launched the coin. A handle with no linked wallet is flagged so you can paste their address or ask them to link one. The same input still accepts an owner/repo to split across contributors — one field, both intents.",
+      "tags": [
+        "feature"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "Agent Studio's Money tab can now withdraw USDC earnings and shows your total take",
       "summary": "The economic surface of Agent Studio just got more useful. Your agent earns in USDC — and now you can withdraw it: the Withdraw panel has a SOL / USDC toggle, shows the available balance for the asset you pick, and a one-tap Max sweeps the whole balance (a little SOL is kept for the network fee). The Earnings section now opens with a summary — total received, number of payments, and the last 7 days' take — computed from the real payments ledger, and it refreshes on its own, so a new payment appears with its running total updated without a reload. Same no-mocks, real-on-chain wallet underneath.",
       "tags": [
@@ -124,7 +132,7 @@
     {
       "date": "2026-06-30",
       "title": "The homepage now shows the autonomous sniper trading, live",
-      "summary": "There's a new \"Autonomous trading\" section on three.ws that puts the sniper engine front and center. An interactive diagram walks the full trade loop — Watch, Score, Guard, Buy, Exit — and you can click or hover any stage to read exactly what the agent does there, from the pump.fun new-launch feed through the risk guards to the take-profit and stop-loss exits. Beside it, a live tape streams real buys, sells and open positions as they happen, each linking to its Solscan signature, and a status pill shows whether the engine is live along with how many strategies are armed and positions are open. The win rate, best ROI and open-position counts underneath are the platform's real numbers — nothing on the panel is simulated. Honors reduced-motion preferences.",
+      "summary": "There's a new \"Autonomous trading\" section on three.ws that puts the sniper engine front and center. It opens with three headline numbers that count up as you scroll — launches scored today, winning exits all-time, and the best run a scored launch has reached — all real platform figures. Below them, an interactive diagram walks the full trade loop: Watch, Score, Guard, Buy, Exit. Click or hover any stage to read exactly what the agent does there, from the pump.fun new-launch feed through the risk guards to the take-profit and stop-loss exits. Beside it, a live tape streams real buys, sells and open positions as they happen, each linking to its Solscan signature, and a status pill shows whether the engine is live along with how many strategies are armed and positions are open. Nothing on the panel is simulated. Honors reduced-motion preferences.",
       "tags": [
         "feature"
       ],

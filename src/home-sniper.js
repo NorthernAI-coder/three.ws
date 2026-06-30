@@ -231,9 +231,19 @@ function makeStatBand(root) {
 	let values = null;
 	let shown = false;
 
+	function inView() {
+		if (!band) return true;
+		const r = band.getBoundingClientRect();
+		const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+		// Count once ~15% of the way up the viewport so the numbers animate as the
+		// band arrives, not only when fully centered.
+		return r.top < vh * 0.85 && r.bottom > 0;
+	}
+
 	function render() {
-		if (!values || shown) return;
+		if (!values || shown || !inView()) return;
 		shown = true;
+		teardown();
 		fields.forEach(({ el, key, fmt }) => {
 			if (!el) return;
 			const v = Number(values[key]);
@@ -244,23 +254,26 @@ function makeStatBand(root) {
 		});
 	}
 
-	// Count up only once the band scrolls into view — the reveal is the moment.
-	if (band && typeof IntersectionObserver === 'function') {
-		const io = new IntersectionObserver((entries) => {
-			if (entries.some((e) => e.isIntersecting)) { io.disconnect(); render(); }
-		}, { threshold: 0.35 });
-		io.observe(band);
+	// Re-check on scroll/resize (rAF-coalesced) until the count-up fires once. A
+	// plain scroll listener is more robust than IntersectionObserver across
+	// programmatic scrolls; it self-removes the moment the numbers render.
+	let ticking = false;
+	function onScroll() {
+		if (ticking) return;
+		ticking = true;
+		requestAnimationFrame(() => { ticking = false; render(); });
 	}
+	function teardown() {
+		window.removeEventListener('scroll', onScroll);
+		window.removeEventListener('resize', onScroll);
+	}
+	window.addEventListener('scroll', onScroll, { passive: true });
+	window.addEventListener('resize', onScroll, { passive: true });
 
 	return {
 		set(data) {
 			values = data;
-			// If already on screen (short pages / no observer), render immediately.
-			if (!band || typeof IntersectionObserver !== 'function') render();
-			else {
-				const r = band.getBoundingClientRect();
-				if (r.top < (window.innerHeight || 0) && r.bottom > 0) render();
-			}
+			render(); // fires now if already in view; otherwise the scroll handler will
 		},
 	};
 }
