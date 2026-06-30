@@ -22,6 +22,8 @@
  */
 
 import './agent-picker.css';
+import './ui-juice.css';
+import { enterStagger } from './ui-juice.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 
 const PAGE_SIZE = 24;
@@ -350,12 +352,17 @@ export class AgentPicker {
 
 			if (!this._state.firstPageDone) this._els.grid.innerHTML = '';
 
+			const fresh = [];
 			for (const a of agents) {
 				this._state.cardsById.set(a.id, a);
-				this._els.grid.appendChild(this._renderCard(a));
+				const card = this._renderCard(a);
+				this._els.grid.appendChild(card);
+				fresh.push(card);
 				this._state.loaded += 1;
 				for (const s of a.skills || []) this._state.loadedSkills.add(s);
 			}
+			// Stagger the freshly-landed cards in (first page + each lazy-loaded page).
+			enterStagger(fresh);
 
 			this._state.firstPageDone = true;
 			this._state.hasMore = !!data.has_more;

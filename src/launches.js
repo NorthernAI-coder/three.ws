@@ -21,6 +21,7 @@
 import { mountCoinStatus, formatMcap } from './pump/coin-status-card.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { createLogger } from './shared/log.js';
+import { countUp, updateValue, enterStagger, rippleOnce, liveDot, setLiveDot } from './ui-juice.js';
 
 const log = createLogger('launches');
 
@@ -388,8 +389,17 @@ function recomputeAggregates() {
 		}
 		if (coin.graduated) graduated += 1;
 	}
-	if (statMcapEl) statMcapEl.textContent = priced ? formatMcap(totalMcap) : '—';
-	if (statGradEl) statGradEl.textContent = priced ? String(graduated) : '—';
+	// Count between real aggregates so a page of widgets resolving (or a live
+	// launch landing) ticks the hero up instead of snapping. The placeholder
+	// state clears the tracked value so the first real number counts from 0.
+	if (statMcapEl) {
+		if (priced) updateValue(statMcapEl, totalMcap, formatMcap, { flash: false });
+		else { statMcapEl.textContent = '—'; delete statMcapEl.dataset.juiceVal; }
+	}
+	if (statGradEl) {
+		if (priced) updateValue(statGradEl, graduated, (n) => String(Math.round(n)), { flash: false });
+		else { statGradEl.textContent = '—'; delete statGradEl.dataset.juiceVal; }
+	}
 }
 
 function resetAggregates() {
@@ -398,8 +408,8 @@ function resetAggregates() {
 		aggregateRaf = 0;
 	}
 	state.marketByMint = new Map();
-	if (statMcapEl) statMcapEl.textContent = '—';
-	if (statGradEl) statGradEl.textContent = '—';
+	if (statMcapEl) { statMcapEl.textContent = '—'; delete statMcapEl.dataset.juiceVal; }
+	if (statGradEl) { statGradEl.textContent = '—'; delete statGradEl.dataset.juiceVal; }
 }
 
 // ── Oracle conviction batch enrichment ───────────────────────────────────────
@@ -657,7 +667,10 @@ function buildTicker(launches) {
 // ── hero stats ───────────────────────────────────────────────────────────────
 
 function updateStats(firstLaunch) {
-	if (statCountEl) statCountEl.textContent = state.count ? `${state.count}${state.hasMore ? '+' : ''}` : '0';
+	if (statCountEl) updateValue(statCountEl, state.count, (n) => {
+		const v = Math.round(n);
+		return v ? `${v}${state.hasMore ? '+' : ''}` : '0';
+	}, { flash: false });
 	if (statLatestEl) statLatestEl.textContent = firstLaunch ? timeAgo(firstLaunch.created_at) : '—';
 	if (statNetworkEl) statNetworkEl.textContent = state.network;
 }
@@ -854,6 +867,11 @@ async function liveRefresh() {
 		freshCards.push(card);
 	}
 	enrichCardsWithOracle(freshCards);
+	// Slide the just-landed launches in from the top (newest first) and fire a
+	// single restrained ripple on the hero count — a real "new launch shipped"
+	// beat backed by the live poll, not a timer.
+	enterStagger([...freshCards].reverse());
+	rippleOnce(statCountEl);
 	state.count += fresh.length;
 	state.offset += fresh.length;
 	state.latestCreatedAt = fresh[0].created_at;

@@ -17,6 +17,8 @@
  */
 
 import './avatar-gallery-picker.css';
+import './ui-juice.css';
+import { enterStagger } from './ui-juice.js';
 import { onchainBadgeHTML } from './shared/onchain-badge.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
 
@@ -367,12 +369,17 @@ export class AvatarGalleryPicker {
 				this._els.grid.innerHTML = '';
 			}
 
+			const fresh = [];
 			for (const a of avatars) {
 				this._state.cardsById.set(a.id, a);
-				this._els.grid.appendChild(this._renderCard(a));
+				const card = this._renderCard(a);
+				this._els.grid.appendChild(card);
+				fresh.push(card);
 				this._state.totalLoaded += 1;
 				for (const t of a.tags || []) this._state.loadedTags.add(t);
 			}
+			// Stagger the freshly-landed avatar cards in (first page + each lazy page).
+			enterStagger(fresh);
 
 			if (!this._state.firstPageDone) {
 				if (typeof data.total === 'number') this._state.total = data.total;
