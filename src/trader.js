@@ -55,17 +55,13 @@ function solscanAddr(addr) {
 }
 
 // --- Score gauge -------------------------------------------------------------
-function gaugeSvg(score) {
-	const r = 34, c = 2 * Math.PI * r;
-	const pct = Math.max(0, Math.min(100, score)) / 100;
-	const dash = (c * pct).toFixed(1);
-	const hue = Math.round(pct * 130); // red→green
-	return `<svg width="92" height="92" viewBox="0 0 92 92" role="img" aria-label="Trader score ${score}">
-		<circle cx="46" cy="46" r="${r}" fill="none" stroke="var(--surface-3)" stroke-width="7"/>
-		<circle cx="46" cy="46" r="${r}" fill="none" stroke="hsl(${hue} 70% 55%)" stroke-width="7"
-			stroke-linecap="round" stroke-dasharray="${dash} ${c.toFixed(1)}"
-			transform="rotate(-90 46 46)"/>
-	</svg>`;
+// The 0–100 score reads as a "level", so it gets the shared ring gauge: an arc
+// that sweeps to the real score on render (playRings) with threshold colouring.
+// The big numeric label is overlaid by .tp-gauge-val (and counts up separately),
+// so the ring itself renders no inline label. An explicit colour overrides the
+// success/warn/danger thresholds for the wallet smart-score archetype tint.
+function gauge(score, color) {
+	return ring(Math.max(0, Math.min(100, Math.round(score))), { size: 92, stroke: 7, label: '', ...(color ? { color } : {}) });
 }
 
 // --- Equity curve (pure) -----------------------------------------------------
@@ -296,7 +292,7 @@ function render(data) {
 				${a.description ? `<p class="tp-desc">${escapeHtml(a.description)}</p>` : ''}
 			</div>
 			<div class="tp-gauge">
-				${gaugeSvg(m.score)}
+				${gauge(m.score)}
 				<div class="tp-gauge-val" style="margin-top:-58px">${m.score}</div>
 				<div class="tp-gauge-label" style="margin-top:34px">Trader Score</div>
 			</div>
@@ -319,7 +315,7 @@ function render(data) {
 		<div class="tp-curve-wrap">
 			<div class="tp-curve-head">
 				<span class="tp-curve-title">Realized equity · ${WINDOW_LABEL[ctx.window]}</span>
-				<span class="${pnlClass(m.realized_pnl_sol)}" style="font-variant-numeric:tabular-nums;font-weight:var(--weight-semibold)">${fmtSol(m.realized_pnl_sol)}</span>
+				<span id="tp-equity-pnl" class="${pnlClass(m.realized_pnl_sol)}" style="font-variant-numeric:tabular-nums;font-weight:var(--weight-semibold)">${fmtSol(m.realized_pnl_sol)}</span>
 			</div>
 			${equityCurveSvg(data.closed)}
 		</div>
@@ -377,6 +373,18 @@ function render(data) {
 	wireWalletChips(content);
 	const panel = document.getElementById('tp-copy-panel');
 	if (panel) mountCopyPanel(panel, { leaderAgentId: a.id, leaderName: a.name, network: ctx.network });
+
+	// Sweep the score ring to its real fill, and count the headline score + realized
+	// P&L from their previously-shown real values (so switching the window animates
+	// the change instead of snapping; the first paint settles instantly).
+	playRings(content);
+	const scoreEl = content.querySelector('.tp-gauge-val');
+	if (scoreEl) countUp(scoreEl, ctx.prevScore != null ? ctx.prevScore : m.score, m.score, { format: (n) => String(Math.round(n)) });
+	const pnlEl = document.getElementById('tp-equity-pnl');
+	if (pnlEl) countUp(pnlEl, ctx.prevPnl != null ? ctx.prevPnl : m.realized_pnl_sol, m.realized_pnl_sol, { format: fmtSol });
+	ctx.prevScore = m.score;
+	ctx.prevPnl = m.realized_pnl_sol;
+
 	root.setAttribute('aria-busy', 'false');
 }
 
@@ -665,7 +673,7 @@ function renderWalletProfile(data) {
 				${a.blurb ? `<p class="tp-desc">${escapeHtml(a.blurb)}</p>` : ''}
 			</div>
 			<div class="tp-gauge">
-				${r ? gaugeSvg(Math.round(r.score)) : gaugeSvg(0)}
+				${r ? gauge(r.score, color) : gauge(0)}
 				<div class="tp-gauge-val" style="margin-top:-58px;color:${color}">${r ? Math.round(r.score) : '—'}</div>
 				<div class="tp-gauge-label" style="margin-top:34px">Smart Score</div>
 			</div>
@@ -692,6 +700,8 @@ function renderWalletProfile(data) {
 			</table>
 		</div>
 	`;
+
+	playRings(content);
 
 	const shareBtn = content.querySelector('#tp-share-wallet');
 	shareBtn?.addEventListener('click', () => {
