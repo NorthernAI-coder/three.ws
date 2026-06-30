@@ -128,10 +128,23 @@ export default wrap(async (req, res) => {
 
 	let result;
 	try {
-		result = await llmComplete({ system: SYSTEM_PROMPT, user: userMessage, maxTokens: 1024 });
+		// Per-provider timeout well under the function's 60s maxDuration so a slow
+		// or hung upstream falls through to the next provider — and the handler
+		// still returns a clean 502/503 below — instead of the function getting
+		// killed mid-flight and surfacing a raw 504 to the browser.
+		result = await llmComplete({
+			system: SYSTEM_PROMPT,
+			user: userMessage,
+			maxTokens: 1024,
+			timeoutMs: 18_000,
+			track: { userId, tool: 'seed/synthesize' },
+		});
 	} catch (err) {
 		if (err instanceof LlmUnavailableError) {
 			return error(res, 503, 'llm_unavailable', 'synthesis is not available right now');
+		}
+		if (err?.code === 'daily_spend_cap_exceeded') {
+			return error(res, 429, 'daily_spend_cap_exceeded', err.message);
 		}
 		console.error('[seed/synthesize] LLM error', err.status || '', err.message);
 		return error(res, 502, 'upstream_error', 'synthesis failed');

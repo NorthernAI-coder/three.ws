@@ -172,6 +172,9 @@
 		"api/irl/*.js": {
 			"maxDuration": 20
 		},
+		"api/seed/synthesize.js": {
+			"maxDuration": 60
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30

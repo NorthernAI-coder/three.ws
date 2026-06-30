@@ -37,6 +37,27 @@ import { log } from '../shared/log.js';
 
 const MINI_POS_KEY = 'tws:presence:mini:pos';
 
+// The pre-baked clip library every avatar shares (idle/walk/wave/dance/…). The
+// stage Viewer's AnimationManager starts empty, so without registering these defs
+// `ensureLoaded`/`playClip` find no clip and every Body-studio move is a silent
+// no-op. Fetched once and memoized across every <agent-presence> on the page.
+let _animDefsPromise = null;
+async function loadAnimationDefs() {
+	if (_animDefsPromise) return _animDefsPromise;
+	_animDefsPromise = (async () => {
+		const res = await fetch('/animations/manifest.json');
+		if (!res.ok) throw new Error(`animation manifest ${res.status}`);
+		const manifest = await res.json();
+		return Array.isArray(manifest) ? manifest : manifest.clips || manifest.animations || [];
+	})().catch((err) => {
+		// Reset so a transient failure retries on the next avatar boot rather than
+		// poisoning the library for the rest of the session.
+		_animDefsPromise = null;
+		throw err;
+	});
+	return _animDefsPromise;
+}
+
 // Market-event → reaction mapping. Each entry drives the existing emotion system
 // (emote stimulus via the protocol bus) and, optionally, a one-shot gesture clip
 // and a gaze direction. Tunable here; P4/P5 only need to emit the event types.
@@ -177,6 +198,15 @@ class AgentPresenceElement extends HTMLElement {
 	async _loadModel(modelUrl, Viewer, AgentAvatar) {
 		await this._viewer.load(modelUrl, '', new Map());
 		this._currentModelUrl = modelUrl;
+
+		// Register the shared clip library on this Viewer's AnimationManager so the
+		// resting idle, market reactions, and Body-studio previews can actually load
+		// and play. Without it `ensureLoaded` finds no def and every clip is a no-op.
+		try {
+			this._viewer.setAnimationDefs(await loadAnimationDefs());
+		} catch (err) {
+			log.warn('[agent-presence] animation library unavailable', err);
+		}
 
 		// Emotion + idle + lip-sync layer. AgentAvatar.attach() starts the procedural
 		// idle loop and the per-frame empathy tick; we share the SINGLETON protocol so

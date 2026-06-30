@@ -14,6 +14,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render3DAvatar } from '../src/agent-detail-market.js';
+import { normalize } from '../src/agent-detail.js';
+import { agentAvatarGlb, MANNEQUIN_GLB } from '../src/shared/agent-3d.js';
 
 const GLB = 'https://three.ws/cdn/u/abc/draft-x/model.glb';
 const THUMB = 'https://three.ws/cdn/thumb/abc.png';
@@ -61,5 +63,37 @@ describe('render3DAvatar', () => {
 		const hero = document.getElementById('ad-avatar-3d');
 		expect(hero.getAttribute('src')).toBe('/avatars/mannequin.glb');
 		expect(document.getElementById('ad-avatar').style.display).toBe('none');
+	});
+});
+
+// The hero on the live page is a WebGL idle avatar mounted from
+// agentAvatarGlb(normalize(rec)) — NOT render3DAvatar (which targets a
+// <model-viewer> the production markup no longer ships). normalize() once
+// dropped the GLB URL that GET /api/agents/:id returns as `avatar_model_url`,
+// so agentAvatarGlb() saw none of its known fields and fell every such agent
+// back to the mannequin. These lock the URL through the real render seam.
+describe('normalize() preserves the avatar model URL for the hero', () => {
+	it('carries avatar_model_url through so agentAvatarGlb resolves the real GLB', () => {
+		const glb = 'https://cdn.three.ws/u/abc/draft-x/horse.glb';
+		const agent = normalize({ id: 'a1', name: 'bossvernington', avatar_model_url: glb }, null);
+
+		expect(agent.avatar_model_url).toBe(glb);
+		expect(agentAvatarGlb(agent)).toBe(glb);
+		expect(agentAvatarGlb(agent)).not.toBe(MANNEQUIN_GLB);
+	});
+
+	it('carries avatar_glb_url through for on-chain/older record shapes', () => {
+		const glb = 'https://cdn.three.ws/u/abc/draft-x/model.glb';
+		const agent = normalize({ id: 'a2', name: 'knight', avatar_glb_url: glb }, null);
+
+		expect(agent.avatar_glb_url).toBe(glb);
+		expect(agentAvatarGlb(agent)).toBe(glb);
+	});
+
+	it('falls back to the mannequin only when the record truly has no model', () => {
+		const agent = normalize({ id: 'a3', name: 'plain' }, null);
+
+		expect(agent.avatar_model_url).toBeNull();
+		expect(agentAvatarGlb(agent)).toBe(MANNEQUIN_GLB);
 	});
 });

@@ -2537,7 +2537,7 @@ async function fetchAgentRecord(url) {
  * Inflate the /api/agents/:id record into the detail-page shape.
  * `meta.onchain`, `rec.token`, and `rec.payments` are surfaced when present.
  */
-function normalize(rec, avatar) {
+export function normalize(rec, avatar) {
 	const meta = rec.meta || {};
 	const onchain = rec.onchain || meta.onchain || {};
 
@@ -2630,7 +2630,19 @@ function normalize(rec, avatar) {
 		// onchain_id). Resolved for EVM agents only — Solana token agents have no
 		// ValidationRegistry record, so the badge is correctly skipped for them.
 		...erc8004Ids(rec, onchain),
-		glbUrl: rec.avatar_glb_url || onchain?.body_uri || meta.glb_url || null,
+		// Preserve the avatar's loadable model URL under the field names
+		// agentAvatarGlb() reads. GET /api/agents/:id serves it as
+		// `avatar_model_url`; older/on-chain shapes use `avatar_glb_url`. Dropping
+		// these here silently fell every such agent back to the mannequin in the
+		// hero (e.g. a quadruped whose body lives only in avatar_model_url).
+		avatar_glb_url: rec.avatar_glb_url || null,
+		avatar_model_url: rec.avatar_model_url || null,
+		glbUrl:
+			rec.avatar_glb_url ||
+			rec.avatar_model_url ||
+			onchain?.body_uri ||
+			meta.glb_url ||
+			null,
 		rawMetadata: rec,
 	};
 }
@@ -2752,4 +2764,7 @@ async function loadPlatformBar() {
 	} catch { /* non-fatal */ }
 }
 
-runLoad();
+// Only auto-run when the route actually carries an agent id. In the browser the
+// /agents/:id (and /agent/:id) route always does; importing this module without
+// one (e.g. a unit test of normalize()) is a no-op rather than a stray fetch.
+if (id) runLoad();

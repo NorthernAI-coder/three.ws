@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-29T22:48:38.413Z",
+	"generated_at": "2026-06-30T01:23:42.493Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -891,6 +891,16 @@
 					"title": "Money Pulse",
 					"description": "The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.",
 					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/viability",
+					"title": "Viability",
+					"description": "The honest signal behind three.ws — real marketplace and trading viability. Live $THREE skill GMV, take-rate, repeat buyers and trading pairs, plus real guarded coin-trade flow, cost and realized P&L on closed positions. Real on-chain data only.",
+					"added": "2026-06-30",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
