@@ -2850,6 +2850,263 @@
 	</div>
 </section>
 
+<!-- ── AUTONOMOUS SNIPING & TRADING ─────────────────────────────── -->
+<style>
+	#home-sniper .snipe-lede-pill {
+		display: inline-flex; align-items: center; gap: 8px; margin-top: 18px;
+		padding: 6px 12px; border: 1px solid var(--hairline-strong); border-radius: 999px;
+		font-size: 12px; letter-spacing: .02em; color: var(--text-2); background: var(--surface-1);
+	}
+	#home-sniper .snipe-console {
+		margin-top: 40px; border: 1px solid var(--hairline-strong); border-radius: 16px;
+		background: var(--surface-0); overflow: hidden;
+		box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 24px 60px -32px rgba(0,0,0,0.8);
+	}
+	#home-sniper .snipe-console-head {
+		display: flex; align-items: center; justify-content: space-between; gap: 16px;
+		padding: 14px 20px; border-bottom: 1px solid var(--hairline);
+		background: linear-gradient(to bottom, var(--surface-1), var(--surface-0));
+	}
+	#home-sniper .snipe-status { display: flex; align-items: center; gap: 12px; min-width: 0; }
+	#home-sniper .snipe-state {
+		display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600;
+		color: var(--text); white-space: nowrap;
+	}
+	#home-sniper .snipe-dot {
+		width: 8px; height: 8px; border-radius: 50%; background: var(--text-3);
+		box-shadow: 0 0 0 0 rgba(52,211,153,0.5); flex: none;
+	}
+	#home-sniper .snipe-dot.live { background: #34d399; animation: snipe-pulse 2s ease-out infinite; }
+	#home-sniper .snipe-dot.degraded { background: #fbbf24; }
+	#home-sniper .snipe-dot.down { background: #f87171; }
+	@keyframes snipe-pulse {
+		0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.5); }
+		70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+		100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+	}
+	#home-sniper .snipe-substate { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+	#home-sniper .snipe-net {
+		font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3);
+		font-variant-numeric: tabular-nums; white-space: nowrap;
+	}
+	#home-sniper .snipe-body { display: grid; grid-template-columns: 1.35fr 1fr; }
+	@media (max-width: 860px) { #home-sniper .snipe-body { grid-template-columns: 1fr; } }
+
+	/* ── decision pipeline ─────────────────────────────────────── */
+	#home-sniper .snipe-pipeline {
+		position: relative; padding: 34px 26px; border-right: 1px solid var(--hairline);
+		display: flex; flex-direction: column; gap: 20px;
+	}
+	@media (max-width: 860px) { #home-sniper .snipe-pipeline { border-right: none; border-bottom: 1px solid var(--hairline); } }
+	#home-sniper .snipe-flow-label {
+		font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-3);
+	}
+	#home-sniper .snipe-stages { position: relative; display: flex; align-items: stretch; gap: 0; }
+	#home-sniper .snipe-rail {
+		position: absolute; left: 8%; right: 8%; top: 21px; height: 2px;
+		background: var(--hairline-strong); border-radius: 2px; overflow: visible;
+	}
+	#home-sniper .snipe-packet {
+		position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 50%;
+		background: #fff; box-shadow: 0 0 10px 2px rgba(255,255,255,0.7);
+		opacity: 0; transform: translateX(0); will-change: transform, opacity;
+	}
+	#home-sniper .snipe-stage {
+		position: relative; flex: 1; display: flex; flex-direction: column; align-items: center;
+		gap: 10px; text-align: center; background: none; border: none; padding: 0; cursor: pointer;
+		font: inherit; color: inherit; z-index: 1;
+	}
+	#home-sniper .snipe-node {
+		width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+		background: var(--surface-2); border: 1px solid var(--hairline-strong);
+		color: var(--text-2); transition: transform .25s cubic-bezier(.2,.7,.3,1),
+			border-color .25s, color .25s, box-shadow .25s, background .25s;
+	}
+	#home-sniper .snipe-node svg { width: 20px; height: 20px; }
+	#home-sniper .snipe-stage:hover .snipe-node,
+	#home-sniper .snipe-stage:focus-visible .snipe-node {
+		border-color: rgba(255,255,255,0.45); color: var(--text); transform: translateY(-2px);
+	}
+	#home-sniper .snipe-stage.active .snipe-node,
+	#home-sniper .snipe-stage.flow .snipe-node {
+		border-color: #fff; color: #fff; background: var(--surface-3);
+		box-shadow: 0 0 0 4px rgba(255,255,255,0.08), 0 0 18px -2px rgba(255,255,255,0.4);
+		transform: translateY(-2px) scale(1.04);
+	}
+	#home-sniper .snipe-stage-name { font-size: 12px; font-weight: 600; color: var(--text); }
+	#home-sniper .snipe-stage-sub { font-size: 10.5px; color: var(--text-3); line-height: 1.3; }
+	#home-sniper .snipe-explain {
+		min-height: 44px; margin-top: 2px; padding: 12px 14px; border-radius: 10px;
+		background: var(--surface-1); border: 1px solid var(--hairline);
+		font-size: 12.5px; line-height: 1.5; color: var(--text-2);
+		transition: opacity .2s; opacity: 1;
+	}
+	#home-sniper .snipe-explain strong { color: var(--text); font-weight: 600; }
+
+	/* ── live trade tape ───────────────────────────────────────── */
+	#home-sniper .snipe-tape-wrap { display: flex; flex-direction: column; min-width: 0; }
+	#home-sniper .snipe-tape-head {
+		display: flex; align-items: center; justify-content: space-between; gap: 8px;
+		padding: 14px 18px 10px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+		color: var(--text-3);
+	}
+	#home-sniper .snipe-tape {
+		list-style: none; margin: 0; padding: 0 10px 12px; display: flex; flex-direction: column;
+		gap: 4px; overflow: hidden; flex: 1; min-height: 232px;
+	}
+	#home-sniper .snipe-row {
+		display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+		padding: 9px 10px; border-radius: 9px; background: var(--surface-1);
+		border: 1px solid transparent; text-decoration: none; color: inherit;
+		transition: background .2s, border-color .2s;
+	}
+	#home-sniper a.snipe-row:hover { background: var(--surface-2); border-color: var(--hairline-strong); }
+	#home-sniper .snipe-row.enter { animation: snipe-row-in .42s cubic-bezier(.2,.7,.3,1); }
+	@keyframes snipe-row-in {
+		from { opacity: 0; transform: translateY(-8px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+	#home-sniper .snipe-tag {
+		font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 3px 7px; border-radius: 6px;
+		text-transform: uppercase; flex: none;
+	}
+	#home-sniper .snipe-tag.buy { color: #34d399; background: rgba(52,211,153,0.12); }
+	#home-sniper .snipe-tag.sell { color: #cbd5e1; background: rgba(203,213,225,0.1); }
+	#home-sniper .snipe-tag.open { color: #5fe3ff; background: rgba(95,227,255,0.12); }
+	#home-sniper .snipe-rmeta { min-width: 0; }
+	#home-sniper .snipe-rsym { font-size: 13px; font-weight: 600; color: var(--text); }
+	#home-sniper .snipe-ragent {
+		font-size: 11px; color: var(--text-3); white-space: nowrap; overflow: hidden;
+		text-overflow: ellipsis; max-width: 100%;
+	}
+	#home-sniper .snipe-rpnl { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+	#home-sniper .snipe-rpnl.up { color: #34d399; }
+	#home-sniper .snipe-rpnl.down { color: #f87171; }
+	#home-sniper .snipe-rpnl.flat { color: var(--text-3); }
+	#home-sniper .snipe-tape-msg { padding: 40px 16px; text-align: center; color: var(--text-3); font-size: 13px; line-height: 1.5; }
+	#home-sniper .snipe-skel {
+		height: 38px; border-radius: 9px; margin: 0 0 4px;
+		background: linear-gradient(90deg, var(--surface-1) 25%, rgba(255,255,255,0.05) 50%, var(--surface-1) 75%);
+		background-size: 200% 100%; animation: snipe-shimmer 1.3s linear infinite;
+	}
+	@keyframes snipe-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+	/* ── footer: KPIs + CTAs ───────────────────────────────────── */
+	#home-sniper .snipe-foot {
+		display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+		padding: 16px 20px; border-top: 1px solid var(--hairline); background: var(--surface-1);
+	}
+	#home-sniper .snipe-kpis { display: flex; gap: 26px; flex-wrap: wrap; }
+	#home-sniper .snipe-kpi { display: flex; flex-direction: column; gap: 2px; }
+	#home-sniper .snipe-kpi-val { font-size: 18px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1; }
+	#home-sniper .snipe-kpi-val.accent { color: #34d399; }
+	#home-sniper .snipe-kpi-val.loading { color: var(--text-3); animation: snipe-shimmer-text 1.4s ease-in-out infinite; }
+	@keyframes snipe-shimmer-text { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+	#home-sniper .snipe-kpi-lbl { font-size: 11px; color: var(--text-3); letter-spacing: .02em; }
+	#home-sniper .snipe-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+	#home-sniper .snipe-cta {
+		display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px;
+		font-size: 13px; font-weight: 600; text-decoration: none; transition: transform .2s, background .2s, border-color .2s;
+	}
+	#home-sniper .snipe-cta.primary { background: #fff; color: #0b0b0b; }
+	#home-sniper .snipe-cta.primary:hover { transform: translateY(-1px); }
+	#home-sniper .snipe-cta.ghost { background: transparent; color: var(--text); border: 1px solid var(--hairline-strong); }
+	#home-sniper .snipe-cta.ghost:hover { background: var(--surface-2); border-color: rgba(255,255,255,0.4); }
+	@media (prefers-reduced-motion: reduce) {
+		#home-sniper .snipe-dot.live { animation: none; }
+		#home-sniper .snipe-row.enter { animation: none; }
+		#home-sniper .snipe-skel { animation: none; }
+		#home-sniper .snipe-kpi-val.loading { animation: none; }
+	}
+</style>
+<section class="block" id="home-sniper">
+	<div class="wrap-1280">
+		<div class="block-head reveal">
+			<p class="block-eyebrow"><span class="num">03</span>Autonomous trading</p>
+			<h2 class="block-h">Your agents don't just talk. <em>They trade.</em></h2>
+			<p class="block-lede">
+				Every three.ws agent can run an on-chain sniper: it watches new pump.fun launches in
+				real time, scores each one, clears its risk guards, buys, and exits on its own —
+				stop-loss, take-profit, trailing, or timeout. One loop, fully autonomous, provable on-chain.
+			</p>
+			<span class="snipe-lede-pill"><span class="snipe-dot live" aria-hidden="true"></span> Live engine · real positions · no simulation</span>
+		</div>
+
+		<div class="snipe-console reveal reveal-d1">
+			<div class="snipe-console-head">
+				<div class="snipe-status" id="snipe-status">
+					<span class="snipe-state"><span class="snipe-dot" id="snipe-state-dot" aria-hidden="true"></span><span id="snipe-state-text">Connecting to the engine…</span></span>
+					<span class="snipe-substate" id="snipe-substate"></span>
+				</div>
+				<span class="snipe-net">mainnet · pump.fun</span>
+			</div>
+
+			<div class="snipe-body">
+				<!-- decision pipeline -->
+				<div class="snipe-pipeline">
+					<span class="snipe-flow-label">The trade loop</span>
+					<div class="snipe-stages" id="snipe-stages" role="group" aria-label="The autonomous trade loop — select a stage to learn what it does">
+						<div class="snipe-rail">
+							<span class="snipe-packet" id="snipe-packet" aria-hidden="true"></span>
+						</div>
+						<button type="button" class="snipe-stage active" data-stage="watch" aria-pressed="true">
+							<span class="snipe-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/></svg></span>
+							<span class="snipe-stage-name">Watch</span>
+							<span class="snipe-stage-sub">new launches</span>
+						</button>
+						<button type="button" class="snipe-stage" data-stage="score" aria-pressed="false">
+							<span class="snipe-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-4 3 3 5-7"/></svg></span>
+							<span class="snipe-stage-name">Score</span>
+							<span class="snipe-stage-sub">conviction</span>
+						</button>
+						<button type="button" class="snipe-stage" data-stage="guard" aria-pressed="false">
+							<span class="snipe-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></span>
+							<span class="snipe-stage-name">Guard</span>
+							<span class="snipe-stage-sub">risk checks</span>
+						</button>
+						<button type="button" class="snipe-stage" data-stage="buy" aria-pressed="false">
+							<span class="snipe-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span>
+							<span class="snipe-stage-name">Buy</span>
+							<span class="snipe-stage-sub">sign &amp; land</span>
+						</button>
+						<button type="button" class="snipe-stage" data-stage="exit" aria-pressed="false">
+							<span class="snipe-node"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
+							<span class="snipe-stage-name">Exit</span>
+							<span class="snipe-stage-sub">TP / SL / trail</span>
+						</button>
+					</div>
+					<p class="snipe-explain" id="snipe-explain"><strong>Watch.</strong> A PumpPortal feed streams every new pump.fun mint the instant it's created — the agent sees launches the moment they exist.</p>
+				</div>
+
+				<!-- live trade tape -->
+				<div class="snipe-tape-wrap">
+					<div class="snipe-tape-head">
+						<span>Live activity</span>
+						<span class="snipe-state" style="font-size:11px"><span class="snipe-dot live" aria-hidden="true"></span> streaming</span>
+					</div>
+					<ul class="snipe-tape" id="snipe-tape" aria-live="polite" aria-label="Live sniper trades">
+						<li class="snipe-skel"></li><li class="snipe-skel"></li><li class="snipe-skel"></li>
+						<li class="snipe-skel"></li><li class="snipe-skel"></li>
+					</ul>
+				</div>
+			</div>
+
+			<div class="snipe-foot">
+				<div class="snipe-kpis" id="snipe-kpis">
+					<div class="snipe-kpi"><span class="snipe-kpi-val accent loading" id="snipe-kpi-winrate">—</span><span class="snipe-kpi-lbl">Win rate</span></div>
+					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-roi">—</span><span class="snipe-kpi-lbl">Best ROI</span></div>
+					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-open">—</span><span class="snipe-kpi-lbl">Open positions</span></div>
+					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-armed">—</span><span class="snipe-kpi-lbl">Strategies armed</span></div>
+				</div>
+				<div class="snipe-ctas">
+					<a class="snipe-cta primary" href="/arena" data-cta="watch_arena" data-cta-loc="home_sniper">Watch the arena →</a>
+					<a class="snipe-cta ghost" href="/oracle/arm" data-cta="arm_strategy" data-cta-loc="home_sniper">Arm a strategy</a>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
 <!-- ── WHAT YOU GET ──────────────────────────────────────────────── -->
 <section class="block" id="what-you-get">
 	<div class="wrap-1280">

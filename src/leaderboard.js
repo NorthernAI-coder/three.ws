@@ -100,7 +100,7 @@ function rowMarkup(r) {
 		`realized P&L ${fmtSol(r.realized_pnl_sol)}`,
 	].filter(Boolean).join(', ');
 	return `
-		<a class="lb-row" href="${href}" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(rowLabel)}">
+		<a class="lb-row" href="${href}" data-key="${escapeHtml(String(r.agent_id))}" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(rowLabel)}">
 			<span class="lb-rank">${r.rank}</span>
 			<span class="lb-trader">
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
@@ -173,7 +173,7 @@ function liveRowMarkup(r) {
 		`${r.trades} trades`,
 	].filter(Boolean).join(', ');
 	return `
-		<a class="lb-row lb-row--live" href="${escapeHtml(r.account_url)}" target="_blank" rel="noopener" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(label)}">
+		<a class="lb-row lb-row--live" href="${escapeHtml(r.account_url)}" target="_blank" rel="noopener" data-key="${escapeHtml(String(r.wallet))}" data-top="${r.rank <= 3 ? r.rank : ''}" aria-label="${escapeHtml(label)}">
 			<span class="lb-rank">${r.rank}</span>
 			<span class="lb-trader">
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" />
@@ -221,30 +221,44 @@ function summaryLabel(ddId, text) {
 	if (dt) dt.textContent = text;
 }
 
+// Count a summary tile from its previously-shown real value to the new one and
+// flash the direction of change. Non-numeric / missing → static dash, and the
+// tracked value is cleared so the next real number doesn't count from a stale one.
+const intFmt = (n) => String(Math.round(n));
+function setSummaryNum(el, value, format) {
+	if (!el) return;
+	if (value == null || !Number.isFinite(value)) { el.textContent = '—'; delete el.dataset.juiceVal; return; }
+	updateValue(el, value, format);
+}
+function setSummaryStr(el, str) {
+	if (!el) return;
+	el.textContent = str;
+	delete el.dataset.juiceVal;
+}
+
 function renderSummary(data) {
 	const agents = data.leaderboard || [];
 	const live = data.live_traders || [];
 	const isLive = !agents.length && live.length > 0;
-	$('#lb-sum-sol').textContent = data.sol_usd ? `$${Math.round(data.sol_usd)}` : '—';
+	setSummaryNum($('#lb-sum-sol'), data.sol_usd || null, (n) => `$${Math.round(n)}`);
 
 	if (isLive) {
 		const top = live[0];
 		summaryLabel('lb-sum-traders', 'Live traders');
 		summaryLabel('lb-sum-verified', 'Source');
-		$('#lb-sum-traders').textContent = String(live.length);
-		$('#lb-sum-verified').textContent = 'kolscan';
-		$('#lb-sum-top').textContent = top
-			? (top.realized_pnl_sol != null ? fmtSol(top.realized_pnl_sol) : fmtUsd(top.realized_pnl_usd))
-			: '—';
+		setSummaryNum($('#lb-sum-traders'), live.length, intFmt);
+		setSummaryStr($('#lb-sum-verified'), 'kolscan');
+		const topSol = top && top.realized_pnl_sol != null;
+		setSummaryNum($('#lb-sum-top'), top ? (topSol ? top.realized_pnl_sol : top.realized_pnl_usd) : null, topSol ? fmtSol : fmtUsd);
 		return;
 	}
 
 	summaryLabel('lb-sum-traders', 'Ranked traders');
 	summaryLabel('lb-sum-verified', 'Verified');
-	$('#lb-sum-traders').textContent = String(agents.length);
-	$('#lb-sum-verified').textContent = String(agents.filter((r) => r.verified).length);
+	setSummaryNum($('#lb-sum-traders'), agents.length, intFmt);
+	setSummaryNum($('#lb-sum-verified'), agents.filter((r) => r.verified).length, intFmt);
 	const top = agents[0];
-	$('#lb-sum-top').textContent = top ? fmtSol(top.realized_pnl_sol) : '—';
+	setSummaryNum($('#lb-sum-top'), top ? top.realized_pnl_sol : null, fmtSol);
 }
 
 function renderTicker(trades) {
@@ -275,17 +289,25 @@ function renderBoard(data) {
 	const agents = data.leaderboard || [];
 	const live = data.live_traders || [];
 	board.setAttribute('aria-busy', 'false');
+	// First paint staggers rows in; subsequent refreshes/sorts FLIP-animate rows to
+	// their new rank instead of re-flashing the whole board (the --reflow class
+	// suppresses the per-row entrance animation while standings settle in place).
+	const initial = firstLoad;
 
 	// 1. Provable three.ws agent track records take precedence.
 	if (agents.length) {
 		setBoardMode(false);
 		clearLiveBanner();
 		stateEl.innerHTML = '';
+		const flip = initial ? null : flipReorder(rows, (el) => el.dataset.key || '');
+		flip?.capture();
+		rows.classList.toggle('lb-rows--reflow', !initial);
 		rows.innerHTML = agents.map(rowMarkup).join('');
 		// Wire the wallet chips' copy + Tip actions. The board is public — viewers
 		// don't own these traders' agents — so chips render isOwner:false (◎ Tip).
 		wireWalletChips(rows);
-		staggerRows(rows);
+		if (initial) staggerRows(rows);
+		flip?.play();
 		return;
 	}
 
@@ -295,8 +317,12 @@ function renderBoard(data) {
 		setBoardMode(true);
 		showLiveBanner(data);
 		stateEl.innerHTML = '';
+		const flip = initial ? null : flipReorder(rows, (el) => el.dataset.key || '');
+		flip?.capture();
+		rows.classList.toggle('lb-rows--reflow', !initial);
 		rows.innerHTML = sortLive(live, state.sort).map(liveRowMarkup).join('');
-		staggerRows(rows);
+		if (initial) staggerRows(rows);
+		flip?.play();
 		return;
 	}
 
@@ -331,9 +357,11 @@ async function load() {
 		renderTicker(data.trades);
 		firstLoad = false;
 		clearStale();
+		setLiveDot($('#lb-live'), 'live', 'live');
 	} catch (err) {
 		board.setAttribute('aria-busy', 'false');
 		if (firstLoad) {
+			setLiveDot($('#lb-live'), 'error', 'offline');
 			$('#lb-rows').innerHTML = '';
 			$('#lb-state').innerHTML = `
 				<div class="lb-state-title">Couldn’t load the leaderboard</div>
@@ -344,6 +372,7 @@ async function load() {
 			// On a refresh failure we keep the last good board on screen — no
 			// flicker — but flag it as stale so the standings aren't trusted blindly.
 			showStale();
+			setLiveDot($('#lb-live'), 'connecting', 'reconnecting');
 		}
 	}
 }

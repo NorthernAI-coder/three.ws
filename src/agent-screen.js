@@ -878,6 +878,7 @@ async function boot(id) {
 					maxlength="1000"
 					spellcheck="false"
 				>
+				<button class="asc-task-forge-toggle" id="asc-forge-toggle" type="button" aria-pressed="false" aria-controls="asc-forge-form" title="Forge a 3D avatar from text — free">✦</button>
 				<button class="asc-task-voice" id="asc-task-voice" type="button" aria-pressed="false" title="Voice on — click to mute">🔊</button>
 				<button class="asc-task-send" id="asc-task-send" type="submit" title="Send">
 					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
