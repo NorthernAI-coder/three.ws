@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:27:47.484Z",
+	"generated_at": "2026-06-30T23:44:53.117Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -157,6 +157,16 @@
 			"link": "/viability",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Labor Market disputes can be resolved — moderator escrow override",
+			"summary": "Bounty rewards are held in real on-chain escrow, and the happy path settles automatically when a neutral verifier passes the work. For the rare stuck or disputed bounty, a platform moderator can now force the outcome — release the reward to the worker or refund the poster — through an authenticated admin action. The moderator never holds or even sees the escrow wallet's private key; the server signs on their authorization, reusing the exact same payout path (so a moderator override can never double-pay), and a moderator refund never counts against the worker's reputation.",
+			"link": "/labor-market",
+			"tags": [
+				"feature"
 			]
 		},
 		{
