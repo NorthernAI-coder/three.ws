@@ -1,18 +1,19 @@
 #!/usr/bin/env node
-// @three-ws/x402-mcp — MCP server entry point.
+// x402-mcp — MCP server entry point.
 //
 // Gives any AI assistant a self-custodial x402 wallet over stdio:
 //   • x402_wallet     — the wallet's address + SOL/USDC balance (read-only)
-//   • find_services   — search the live x402 bazaar for paid services (read-only)
+//   • find_services   — search an x402 bazaar/discovery API for paid services (read-only)
 //   • inspect_endpoint— read an endpoint's price/requirements without paying (read-only)
 //   • pay_and_call    — pay an x402 endpoint in USDC and return its result (execution)
 //
 // Self-custodial: payments are signed by YOUR Solana key (SOLANA_SECRET_KEY),
-// not a custodial wallet. The read tools work with no key. Real @x402/* libs do
-// the 402 dance + Solana `exact` settlement — nothing is mocked.
+// not a custodial wallet. inspect_endpoint and explicit-address x402_wallet work
+// with no key; find_services needs X402_API_BASE. Real @x402/* libs do the 402
+// dance + Solana `exact` settlement — nothing is mocked.
 //
 // Run standalone:
-//   SOLANA_SECRET_KEY=<base58> node packages/x402-mcp/src/index.js
+//   SOLANA_SECRET_KEY=<base58> node src/index.js
 //
 // Or wire into Claude Code / Cursor — see README.md.
 
@@ -47,10 +48,10 @@ export function buildServer() {
 			capabilities: { tools: {} },
 			instructions:
 				'x402 buyer MCP — give the agent a self-custodial wallet that can pay for anything on the x402 ' +
-				'network. find_services searches the live bazaar (PayAI + Coinbase CDP). inspect_endpoint reads ' +
-				"any endpoint's price/requirements WITHOUT paying. x402_wallet shows the signer wallet's address " +
-				'and SOL/USDC balance. pay_and_call is an EXECUTION ACTION: it pays an x402 endpoint in USDC from ' +
-				'your Solana key (SOLANA_SECRET_KEY or a per-call `secret`) and returns the result, bounded by ' +
+				'network. inspect_endpoint reads any endpoint\'s price/requirements WITHOUT paying. find_services ' +
+				'searches an x402 bazaar/discovery API (set X402_API_BASE). x402_wallet shows the signer wallet\'s ' +
+				'address and SOL/USDC balance. pay_and_call is an EXECUTION ACTION: it pays an x402 endpoint in USDC ' +
+				'from your Solana key (SOLANA_SECRET_KEY or a per-call `secret`) and returns the result, bounded by ' +
 				'MAX_PAY_USD and gated by REQUIRE_CONFIRM. Settlement is the Solana `exact` scheme via the real ' +
 				'@x402 libraries — never a wallet you do not control.',
 		},

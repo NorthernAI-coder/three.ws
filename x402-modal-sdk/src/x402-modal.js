@@ -40,10 +40,11 @@ import {
 const VERSION = '0.2.0';
 
 // ─────────────────────────────────────────────────────────── configuration ───
-// Everything the host wants to brand or repoint lives here. Defaults reproduce
-// three.ws's hosted behaviour exactly, so the drop-in script is unchanged; a
-// standalone deployment overrides them with `configure()` (global) or per-call
-// `pay({ ... })` options (which always win over the global config).
+// Everything the host wants to brand or repoint lives here. The defaults are
+// vendor-neutral — no hardcoded origin, no footer attribution, no builder-code
+// echo — so the modal settles a 402 from ANY origin out of the box. A
+// deployment brands or repoints by overriding them with `configure()` (global)
+// or per-call `pay({ ... })` options (which always win over the global config).
 
 const DEFAULTS = {
 	// Origin that serves the Solana `prepare` / `encode` checkout helpers
@@ -51,12 +52,14 @@ const DEFAULTS = {
 	// payment path uses these — the EVM/EIP-3009 path is fully client-side and
 	// needs no backend. `null` ⇒ resolve from the script's own origin at runtime.
 	apiOrigin: null,
-	// Footer attribution shown at the bottom of the modal.
-	brand: { label: 'Powered by three.ws', href: 'https://three.ws' },
+	// Footer attribution shown at the bottom of the modal. `null` ⇒ no footer
+	// attribution; set `{ label, href? }` to add your own.
+	brand: null,
 	// ERC-8021 builder-code self-attribution echoed back when the 402 challenge
 	// declares a builder code. `wallet` = your wallet code, `service` = your
-	// integration code. Set to null to disable the echo entirely.
-	builderCode: { wallet: '3d_agent', service: '3d_agent_modal' },
+	// integration code. `null` (the default) disables the echo; set your own
+	// codes (each matching `^[a-z0-9_]{1,32}$`) to opt in.
+	builderCode: null,
 	// CDN modules dynamic-imported on demand. Override to self-host / satisfy a
 	// strict Content-Security-Policy.
 	solanaWeb3Url: 'https://esm.sh/@solana/web3.js@1.95.3?bundle',
@@ -65,7 +68,7 @@ const DEFAULTS = {
 
 const config = {
 	apiOrigin: DEFAULTS.apiOrigin,
-	brand: { ...DEFAULTS.brand },
+	brand: DEFAULTS.brand ? { ...DEFAULTS.brand } : null,
 	builderCode: DEFAULTS.builderCode ? { ...DEFAULTS.builderCode } : null,
 	solanaWeb3Url: DEFAULTS.solanaWeb3Url,
 	nobleHashesUrl: DEFAULTS.nobleHashesUrl,
@@ -90,7 +93,8 @@ function resolveScriptOrigin() {
 export function configure(opts = {}) {
 	if (!opts || typeof opts !== 'object') return getConfig();
 	if (opts.apiOrigin !== undefined) config.apiOrigin = opts.apiOrigin;
-	if (opts.brand) config.brand = { ...config.brand, ...opts.brand };
+	if (opts.brand === null) config.brand = null;
+	else if (opts.brand) config.brand = { ...(config.brand || {}), ...opts.brand };
 	if (opts.builderCode === null) config.builderCode = null;
 	else if (opts.builderCode) config.builderCode = { ...(config.builderCode || {}), ...opts.builderCode };
 	if (opts.solanaWeb3Url) config.solanaWeb3Url = opts.solanaWeb3Url;
@@ -101,7 +105,7 @@ export function configure(opts = {}) {
 export function getConfig() {
 	return {
 		apiOrigin: config.apiOrigin,
-		brand: { ...config.brand },
+		brand: config.brand ? { ...config.brand } : null,
 		builderCode: config.builderCode ? { ...config.builderCode } : null,
 		solanaWeb3Url: config.solanaWeb3Url,
 		nobleHashesUrl: config.nobleHashesUrl,

@@ -1,6 +1,6 @@
 // Pay-per-call flow. Pre-checks the 402 to show the exact USD amount, asks for
 // confirmation (honouring the spend cap), then performs the real paid request
-// with @three-ws/x402-fetch and surfaces the settlement receipt.
+// with the bundled x402-fetch wrapper and surfaces the settlement receipt.
 
 import * as vscode from 'vscode';
 import { withX402, privateKeyToWallet } from '../../x402-fetch/src/index.js';
@@ -9,7 +9,7 @@ import { getKey, setKey } from './wallet.js';
 import { inspectEndpoint } from './inspect.js';
 
 function config() {
-	const c = vscode.workspace.getConfiguration('threewsX402');
+	const c = vscode.workspace.getConfiguration('x402');
 	return {
 		maxPaymentUsd: c.get('maxPaymentUsd', 0.1),
 		confirmEachPayment: c.get('confirmEachPayment', true),

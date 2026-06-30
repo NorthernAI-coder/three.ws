@@ -1,8 +1,8 @@
 # @three-ws/x402-fetch
 
 A drop-in `fetch` that silently answers [x402](https://x402.org) payment
-challenges. Wrap a wallet once, then call any paid [three.ws](https://three.ws)
-(or CDP-x402 / agentic.market) endpoint as if it were free.
+challenges. Wrap a wallet once, then call any paid x402 endpoint — CDP-x402 or
+any compatible merchant — as if it were free.
 
 ```bash
 npm install @three-ws/x402-fetch
@@ -10,8 +10,8 @@ npm install @three-ws/x402-fetch
 
 - **Zero production dependencies.** The secp256k1 / keccak256 / EIP-712 signing
   stack is inlined — no `viem`, `ethers`, or `@wagmi/core` pulled into your bundle.
-- **Works in the browser and Node.** MetaMask / EIP-1193 providers, the three.ws
-  agent SDK wallet, or a raw private key all work.
+- **Works in the browser and Node.** MetaMask / EIP-1193 providers, a pre-built
+  signer (e.g. a viem account), or a raw private key all work.
 - **Safe by default.** A `maxPaymentUsd` guard refuses to auto-pay more than you
   authorize. Descriptive errors instead of silent failures.
 - **USDC on Base.** Signs EIP-3009 `transferWithAuthorization` — the same payload
@@ -25,7 +25,7 @@ import { withX402 } from '@three-ws/x402-fetch';
 // Browser: pass the injected wallet provider.
 const pay = withX402(window.ethereum, { maxPaymentUsd: 0.1 });
 
-const res = await pay('https://three.ws/api/mcp', {
+const res = await pay('https://api.example.com/paid', {
 	method: 'POST',
 	headers: { 'content-type': 'application/json' },
 	body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
@@ -55,7 +55,7 @@ import { privateKeyToWallet } from '@three-ws/x402-fetch/wallet';
 const pay = withX402(privateKeyToWallet(process.env.WALLET_PRIVATE_KEY));
 ```
 
-**Pre-built signer (three.ws agent SDK / viem account):**
+**Pre-built signer (any object exposing `{ address, signTypedData }`, e.g. a viem account):**
 
 ```js
 withX402({ address, signTypedData });
@@ -96,4 +96,4 @@ const pay = wrapFetchWithPayment(fetch, wallet);
 
 ## License
 
-MIT © three.ws
+MIT

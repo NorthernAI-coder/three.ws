@@ -35,30 +35,38 @@
 // Everything host-specific (the Solana checkout origin, branding, builder-code
 // attribution, and the esm.sh CDN URLs used for the Solana/EVM crypto helpers)
 // is configurable via `configure({...})` or `data-*` attributes on the script
-// tag — see CONFIG / configure() below and docs/api-reference.md.
+// tag — see CONFIG / configure() below and docs/api-reference.md. With zero
+// configuration the modal settles a 402 challenge from any origin: USDC is the
+// always-on default settlement asset on both Solana and EVM.
 
 const VERSION = '1.2.0';
 
 // ─────────────────────────────────────────────────────────── configuration ───
 // All host-specific knobs live here so the modal runs unchanged on any site.
-// Defaults match the three.ws hosted instance; override with configure() or via
-// `data-*` attributes on the <script> tag (read once at load by readScriptConfig).
+// Every default is host-neutral: the modal settles a 402 challenge from ANY
+// origin out of the box, with no per-host configuration. Override any of these
+// with configure() or via `data-*` attributes on the <script> tag (read once at
+// load by readScriptConfig).
 const CONFIG = {
 	// Origin that serves the Solana checkout endpoints
 	// (`/api/x402-checkout?action=prepare|encode`). `null` → resolve from this
-	// script's own src, falling back to the current page origin. EVM payments
-	// never touch this — the wallet signs EIP-3009 typed-data locally.
+	// script's own src, falling back to the current page origin. So by default the
+	// checkout server is assumed to live on the SAME origin that serves the modal
+	// — set `checkoutOrigin` only if you host the checkout endpoint elsewhere. EVM
+	// payments never touch this — the wallet signs EIP-3009 typed-data locally.
 	checkoutOrigin: null,
 	// Path of the checkout endpoint on `checkoutOrigin`. Override if you mount
 	// the server handler somewhere other than /api/x402-checkout.
 	checkoutPath: '/api/x402-checkout',
-	// Footer attribution shown in the modal.
-	brand: { name: 'three.ws', url: 'https://three.ws' },
+	// Footer attribution shown in the modal. `name: null` (the default) hides the
+	// "Powered by …" link entirely. Set `{ name, url, logo }` to show your own.
+	brand: { name: null, url: null },
 	// Small text on the left of the footer.
 	footerNote: 'x402 · onchain settled',
 	// ERC-8021 builder-code self-attribution echoed back when the 402 challenge
-	// declares a builder-code extension. Set either field to '' to disable it.
-	builderCode: { wallet: '3d_agent', service: '3d_agent_modal' },
+	// declares a builder-code extension. Empty by default (no self-attribution) —
+	// set either field to your own registered builder code to opt in.
+	builderCode: { wallet: '', service: '' },
 	// Color scheme: 'auto' follows the OS; 'light'/'dark' force it.
 	theme: 'auto',
 	// Optional flat map of --x402-* design tokens for brand-matching at runtime.
@@ -167,13 +175,18 @@ function normalizeAccept(accept) {
 // ─────────────────────────────────────────────── Well-known Solana tokens ────
 // Mints the modal recognizes on sight, so a 402 `accept` can omit
 // `extra.name`/`extra.decimals` and still render with the correct symbol,
-// decimals, and branding. Two settlement assets are first-class on Solana:
-//   • USDC — the universal dollar-stable rail.
-//   • THREE — the three.ws utility token. Holders can pay any x402 endpoint
-//     that opts into accepting it, right alongside USDC. See three.ws/three-token.
-// A merchant offers THREE simply by adding a Solana `accept` whose `asset` is
-// THREE_MINT (the server checkout transfers any SPL mint, so no extra wiring).
+// decimals, and branding. USDC is the always-on default settlement asset:
+//   • USDC — the universal dollar-stable rail, used by default everywhere.
+//   • THREE — an OPTIONAL, opt-in token a merchant can additionally accept.
+//     It is never the default; a merchant offers it simply by adding a Solana
+//     `accept` whose `asset` is THREE_MINT (the server checkout transfers any
+//     SPL mint, so no extra wiring), and buyers may then choose it alongside
+//     USDC. Any other SPL mint works the same way via merchant-supplied
+//     `extra.name`/`extra.decimals` — THREE just ships with built-in metadata.
 export const USDC_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+// Optional, recognized-on-sight token. Not a default — opt in by offering it in
+// the 402 challenge. Kept as a convenience so its `accept` renders without
+// merchant-supplied metadata.
 export const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 export const KNOWN_SOLANA_TOKENS = Object.freeze({
@@ -364,10 +377,11 @@ function browserRollbackReservation(reservation) {
 }
 
 // ──────────────────────────────────────────── ERC-8021 builder-code echo ────
-// The server-side x402-spec.js enforces that any client-echoed builder-code
-// `a` matches what the 402 challenge declared (anti-tamper). Builders/wallets
-// can append their own service code in `s` and set their wallet code `w`
-// — for our own demo modal we self-attribute `w: "3d_agent"` and `s: ["3d_agent_modal"]`.
+// A 402 challenge may declare a builder-code extension whose `a` field the
+// server enforces matches on the echoed payload (anti-tamper). Builders/wallets
+// can append their own service code in `s` and set their wallet code `w` by
+// configuring `builderCode: { wallet, service }`. Empty by default — no
+// self-attribution is sent unless you opt in with your own registered code.
 
 const BUILDER_CODE_KEY = 'builder-code';
 const BUILDER_CODE_PATTERN = /^[a-z0-9_]{1,32}$/;
@@ -1486,7 +1500,7 @@ class CheckoutModal {
 			const txBytes = base64ToUint8Array(prep.tx_base64);
 			// Phantom returns a fully-signed VersionedTransaction with the buyer's
 			// signature added. The facilitator's fee-payer signature is added by
-			// PayAI during /settle.
+			// the x402 facilitator during /settle.
 			const SolanaWeb3 = await loadSolanaWeb3();
 			const tx = SolanaWeb3.VersionedTransaction.deserialize(txBytes);
 			const signed = await provider.signTransaction(tx);

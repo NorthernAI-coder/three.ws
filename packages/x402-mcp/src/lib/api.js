@@ -1,10 +1,11 @@
-// Plain HTTP access to the three.ws API (used by find_services). Real network
-// only — no mocks. Errors normalized into one shape.
+// Plain HTTP access to a configured x402 discovery API (used by find_services).
+// Real network only — no mocks. Errors normalized into one shape. The base URL
+// must be supplied via X402_API_BASE; callers pass the resolved base in.
 
-import { THREE_WS_BASE, HTTP_TIMEOUT_MS, USER_AGENT } from '../config.js';
+import { HTTP_TIMEOUT_MS, USER_AGENT } from '../config.js';
 
-export async function apiRequest(path, { method = 'GET', query, body } = {}) {
-	const url = new URL(`${THREE_WS_BASE}${path}`);
+export async function apiRequest(base, path, { method = 'GET', query, body } = {}) {
+	const url = new URL(`${base}${path}`);
 	if (query) {
 		for (const [key, value] of Object.entries(query)) {
 			if (value === undefined || value === null || value === '') continue;
@@ -28,9 +29,9 @@ export async function apiRequest(path, { method = 'GET', query, body } = {}) {
 	} catch (err) {
 		clearTimeout(timer);
 		if (err?.name === 'AbortError') {
-			throw Object.assign(new Error(`three.ws ${path} timed out after ${HTTP_TIMEOUT_MS}ms`), { code: 'timeout' });
+			throw Object.assign(new Error(`${path} timed out after ${HTTP_TIMEOUT_MS}ms`), { code: 'timeout' });
 		}
-		throw Object.assign(new Error(`three.ws ${path} request failed: ${err?.message || err}`), { code: 'network_error' });
+		throw Object.assign(new Error(`${path} request failed: ${err?.message || err}`), { code: 'network_error' });
 	}
 	clearTimeout(timer);
 	const text = await res.text();
@@ -41,7 +42,7 @@ export async function apiRequest(path, { method = 'GET', query, body } = {}) {
 		data = { raw: text };
 	}
 	if (!res.ok) {
-		const message = data?.message || data?.error || `three.ws ${path} returned HTTP ${res.status}`;
+		const message = data?.message || data?.error || `${path} returned HTTP ${res.status}`;
 		throw Object.assign(new Error(message), { code: 'upstream_error', status: res.status, body: data });
 	}
 	return data;

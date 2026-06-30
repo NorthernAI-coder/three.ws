@@ -190,7 +190,10 @@ Bound elements dispatch bubbling `CustomEvent`s:
 
 ## Configuration
 
-All fields are optional; the defaults reproduce the hosted three.ws modal.
+All fields are optional and the defaults are vendor-neutral — no backend origin,
+no footer attribution, no builder-code echo — so the modal settles a `402` from
+any origin with zero configuration. Configure only to brand it or repoint the
+Solana checkout backend.
 
 ```js
 configure({
@@ -296,11 +299,10 @@ fee-payer.
 a React/Vue/Svelte handler, or drop the `/global` script and use `data-*`
 buttons.
 
-**Where does this run in production?** This is the same modal that powers
-payments on [three.ws](https://three.ws); the package is its standalone,
-configurable home.
+**Where does this run in production?** Anywhere you have an x402-protected
+endpoint — the modal is self-contained and needs no vendor backend for the EVM
+path. ([three.ws](https://three.ws) is one deployment that uses it.)
 
 ## License
 
-[Apache-2.0](./LICENSE) © three.ws. Part of the [three.ws](https://three.ws)
-platform for building, animating, rigging, and monetizing 3D AI agents.
+[Apache-2.0](./LICENSE) © three.ws.
