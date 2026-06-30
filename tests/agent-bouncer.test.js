@@ -12,7 +12,7 @@ function snapshot(over = {}) {
 	return {
 		agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 		name: 'Helios',
-		wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+		wallet_address: 'THREEsynthetic1111111111111111111111111PayTo',
 		deployed_mints: over.deployed_mints ?? 0,
 		mints: [],
 		payments: {

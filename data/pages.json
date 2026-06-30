@@ -716,6 +716,14 @@
 					"added": "2026-06-15"
 				},
 				{
+					"path": "/launch-studio",
+					"title": "Launch Studio — 50 ways to mint a coin",
+					"description": "A catalog of 50 coin-launch use cases — reward coins for trending GitHub repos and creators, and coins riding live cultural, news, and onchain narratives. Preview what each would mint right now from live data, then launch on pump.fun in one click.",
+					"priority": 0.8,
+					"changefreq": "weekly",
+					"added": "2026-06-30"
+				},
+				{
 					"path": "/launches",
 					"title": "Agent Launches",
 					"description": "Live public feed of every coin launched by a three.ws agent — market caps, graduation status, and the agent behind each launch.",

@@ -61,7 +61,7 @@ const OUTPUT_EXAMPLE = {
 	evidence: {
 		family: 'solana',
 		tx_hash: '4kHTPp9...',
-		wallet: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+		wallet: 'THREEsynthetic1111111111111111111111111PayTo',
 		metadata_uri: 'https://arweave.net/...',
 		confirmed_at: '2026-04-30T14:08:22Z',
 	},

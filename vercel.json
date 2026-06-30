@@ -1203,6 +1203,10 @@
 			"dest": "/launch.html"
 		},
 		{
+			"src": "/launch-studio/?",
+			"dest": "/launch-studio.html"
+		},
+		{
 			"src": "/next/?",
 			"dest": "/next/index.html"
 		},
@@ -2393,6 +2397,10 @@
 		{
 			"src": "/api/pump/launch-detail",
 			"dest": "/api/pump/launch-detail.js"
+		},
+		{
+			"src": "/api/pump/launch-studio",
+			"dest": "/api/pump/launch-studio.js"
 		},
 		{
 			"src": "/api/pump/coin-intel",

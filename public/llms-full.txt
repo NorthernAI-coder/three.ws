@@ -534,6 +534,12 @@ URL: https://three.ws/launch
 
 Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.
 
+### Launch Studio — 50 ways to mint a coin
+
+URL: https://three.ws/launch-studio
+
+A catalog of 50 coin-launch use cases — reward coins for trending GitHub repos and creators, and coins riding live cultural, news, and onchain narratives. Preview what each would mint right now from live data, then launch on pump.fun in one click.
+
 ### Agent Launches
 
 URL: https://three.ws/launches

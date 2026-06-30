@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:44:53.117Z",
+	"generated_at": "2026-06-30T23:57:49.415Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -22,6 +22,16 @@
 			"title": "Endpoint Revenue",
 			"summary": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
 			"link": "/x402-revenue",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "launch",
+			"title": "Launch Studio — 50 ways to mint a coin",
+			"summary": "A catalog of 50 coin-launch use cases — reward coins for trending GitHub repos and creators, and coins riding live cultural, news, and onchain narratives. Preview what each would mint right now from live data, then launch on pump.fun in one click.",
+			"link": "/launch-studio",
 			"tags": [
 				"launch"
 			]
@@ -165,6 +175,16 @@
 			"title": "Labor Market disputes can be resolved — moderator escrow override",
 			"summary": "Bounty rewards are held in real on-chain escrow, and the happy path settles automatically when a neutral verifier passes the work. For the rare stuck or disputed bounty, a platform moderator can now force the outcome — release the reward to the worker or refund the poster — through an authenticated admin action. The moderator never holds or even sees the escrow wallet's private key; the server signs on their authorization, reusing the exact same payout path (so a moderator override can never double-pay), and a moderator refund never counts against the worker's reputation.",
 			"link": "/labor-market",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Launch Studio — 50 ready-made ways to mint a coin, previewed live",
+			"summary": "A new page at /launch-studio turns coin launching into a catalog of 50 recipes. Pick one and it shows you exactly what it would mint right now from live data — coin name, ticker, description, and where the creator fees go. Two kinds: reward coins, which mint a coin FOR a real subject and route its fees there (trending GitHub repos and creators across Rust, TypeScript, Python, Go, Solidity and AI/ML — the $THREE → @nirholas pattern, automated), and theme coins riding live narratives from Hacker News, Google Trends, Wikipedia, Know Your Meme, Reddit and the pump.fun venue itself. Hit Launch on any previewed coin and the existing launch wizard opens prefilled, so discovery → preview → mint runs end to end. Six categories: GitHub, Onchain, News, Culture, Events, Community.",
+			"link": "/launch-studio",
 			"tags": [
 				"feature"
 			]

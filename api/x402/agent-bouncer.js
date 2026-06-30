@@ -91,7 +91,7 @@ const OUTPUT_EXAMPLE = {
 	newcomer: false,
 	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 	name: 'Helios',
-	wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+	wallet_address: 'THREEsynthetic1111111111111111111111111PayTo',
 	visits: 4,
 	reputation: {
 		deployed_mints: 2,

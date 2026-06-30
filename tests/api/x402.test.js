@@ -36,7 +36,7 @@ function makeAgent(overrides = {}) {
 				configured: true,
 				provider: 'pumpfun',
 				mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-				receiver: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+				receiver: 'THREEsynthetic1111111111111111111111111PayTo',
 				cluster: 'mainnet',
 			},
 			...overrides,
@@ -65,7 +65,7 @@ describe('emit402', () => {
 		expect(body.skill).toBe('summarize');
 		expect(body.amount).toBe('10000');
 		expect(body.currency).toBe('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
-		expect(body.recipient).toBe('wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU');
+		expect(body.recipient).toBe('THREEsynthetic1111111111111111111111111PayTo');
 		expect(body.intent_url).toBe('/api/agents/payments/pay-prep');
 		expect(body.verify_url).toBe('/api/agents/payments/pay-confirm');
 		expect(body.retry_with_header).toBe('x-payment-intent');
@@ -90,7 +90,7 @@ describe('emit402', () => {
 					configured: true,
 					provider: 'pumpfun',
 					mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-					receiver: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+					receiver: 'THREEsynthetic1111111111111111111111111PayTo',
 					cluster: 'mainnet',
 				},
 			}),
@@ -99,7 +99,7 @@ describe('emit402', () => {
 			currency: 'X',
 		});
 		const body = JSON.parse(res.body);
-		expect(body.recipient).toBe('wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU');
+		expect(body.recipient).toBe('THREEsynthetic1111111111111111111111111PayTo');
 		expect(body.recipient_name).toBe('vernington.threews.sol');
 	});
 
@@ -112,7 +112,7 @@ describe('emit402', () => {
 					configured: true,
 					provider: 'pumpfun',
 					mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-					receiver: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+					receiver: 'THREEsynthetic1111111111111111111111111PayTo',
 					cluster: 'mainnet',
 				},
 			}),
