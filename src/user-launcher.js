@@ -357,9 +357,11 @@ function renderStatusFromDraft() {
 // ── server state ────────────────────────────────────────────────────────────────
 function renderState(state) {
 	const s = state.stats || {};
-	$('ul-s-dry').textContent = num(s.dry_runs_today);
-	$('ul-s-queue').textContent = num(state.queue_enabled);
-	$('ul-s-eligible').textContent = num(state.eligible_agents);
+	// Count the live counters between real poll values; the dry-run tally tints up
+	// each time the launcher records a fresh preview pick — a real cadence beat.
+	updateValue($('ul-s-dry'), Number(s.dry_runs_today || 0), num);
+	updateValue($('ul-s-queue'), Number(state.queue_enabled || 0), num, { flash: false });
+	updateValue($('ul-s-eligible'), Number(state.eligible_agents || 0), num, { flash: false });
 
 	const breaker = $('ul-breaker');
 	if (loaded.paused) { breaker.hidden = false; $('ul-breaker-txt').textContent = `Paused: ${loaded.pause_reason || 'too many misses'}.`; }
@@ -443,9 +445,11 @@ function renderConsole(runs, network) {
 		let entry = _rows.get(id);
 		if (!entry) {
 			const li = document.createElement('li');
-			li.className = 'ml-run ml-run--new';
+			li.className = 'ml-run';
 			li.innerHTML = runRowHtml(r, network);
-			setTimeout(() => li.classList.remove('ml-run--new'), 1100);
+			// Slide the freshly-recorded pick in via the shared primitive (replaces a
+			// hand-rolled setTimeout class-toggle; animationend-driven, reduced-motion-safe).
+			enterRow(li);
 			entry = { el: li, sig };
 			_rows.set(id, entry);
 		} else if (entry.sig !== sig) {

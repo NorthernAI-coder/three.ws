@@ -16,6 +16,7 @@ import { mountMoneyPulse } from './shared/money-pulse.js';
 import { wireWalletChips } from './shared/agent-wallet-chip.js';
 import { createLogger } from './shared/log.js';
 import { esc, fmtUsd, fmtSol, fmtNum, fmtThree, agentCardHTML, timeAgo } from './shared/pulse-format.js';
+import { updateValue } from './ui-juice.js';
 
 const log = createLogger('pulse');
 
@@ -86,23 +87,34 @@ async function loadStats() {
 	}
 }
 
+// Count a live counter from its previously-shown real value to the new one and
+// flash the direction of change. The #px-c-* elements persist across the 60s stats
+// refresh, so updateValue counts from the real prior value (never from 0).
+const intFmt = (n) => String(Math.round(n));
+function setCounter(id, value, format) {
+	const el = $(id);
+	if (!el) return;
+	if (value == null || !Number.isFinite(value)) { el.textContent = '—'; delete el.dataset.juiceVal; return; }
+	updateValue(el, value, format);
+}
+
 function renderStats(d) {
 	// Headline counters.
 	const vol = d.volume_24h || {};
-	$('px-c-vol').textContent = vol.usd > 0 ? fmtUsd(vol.usd) : fmtSol(vol.sol);
+	setCounter('px-c-vol', vol.usd > 0 ? vol.usd : (vol.sol || 0), vol.usd > 0 ? fmtUsd : fmtSol);
 	$('px-c-vol-sub').textContent = vol.usd > 0 ? `${fmtSol(vol.sol)} on-chain` : 'on-chain flow';
-	$('px-c-tips').textContent = String(d.tips_24h?.count ?? 0);
+	setCounter('px-c-tips', d.tips_24h?.count ?? 0, intFmt);
 	$('px-c-tips-sub').textContent = `${fmtSol(d.tips_24h?.sol)} · ${fmtUsd(d.tips_24h?.usd)}`;
-	$('px-c-launches').textContent = String(d.launches_24h ?? 0);
-	$('px-c-trades').textContent = String(d.trades_only_24h ?? 0);
+	setCounter('px-c-launches', d.launches_24h ?? 0, intFmt);
+	setCounter('px-c-trades', d.trades_only_24h ?? 0, intFmt);
 	$('px-c-trades-sub').textContent = (d.snipes_24h ?? 0) > 0 ? `+${d.snipes_24h} snipe${d.snipes_24h === 1 ? '' : 's'}` : 'swaps';
-	$('px-c-pays').textContent = String(d.payments_24h ?? 0);
+	setCounter('px-c-pays', d.payments_24h ?? 0, intFmt);
 	const mkt = d.marketplace_24h || {};
-	$('px-c-market').textContent = String(mkt.purchases ?? 0);
+	setCounter('px-c-market', mkt.purchases ?? 0, intFmt);
 	$('px-c-market-sub').textContent = mkt.gmv_three > 0
 		? `${fmtThree(mkt.gmv_three)} $THREE`
 		: (mkt.trials > 0 ? `${mkt.trials} trial${mkt.trials === 1 ? '' : 's'}` : 'paid skill buys');
-	$('px-c-active').textContent = String(d.active_wallets_24h ?? 0);
+	setCounter('px-c-active', d.active_wallets_24h ?? 0, intFmt);
 
 	renderSparkline(d.series_7d);
 	renderBigTip(d.biggest_tip_24h);
