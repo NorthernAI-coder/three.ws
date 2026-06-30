@@ -6,6 +6,8 @@
 // feed of consensus votes + payouts, and the create / join / contribute / exit /
 // kill flows — every money action calls a real on-chain endpoint.
 
+import { flashValue } from './ui-juice.js';
+
 const root = document.getElementById('sw-view');
 const SOL = (n) => (n == null ? '—' : `${Number(n).toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL`);
 const PCT = (n) => (n == null ? '—' : `${(Number(n) * 100).toFixed(0)}%`);
@@ -623,11 +625,12 @@ function subscribeStream(id) {
 	connect();
 }
 
+// Neutral surface-tint settle on a row that just updated. Delegates to the shared
+// ui-juice primitive so the swarms feed speaks the same motion vocabulary as the
+// rest of the platform (and inherits its reduced-motion safety) instead of
+// hand-rolling a one-off transition.
 function flash(el) {
-	if (!el) return;
-	el.style.background = 'var(--surface-3)';
-	el.style.transition = 'background 1.2s ease';
-	requestAnimationFrame(() => { el.style.background = ''; });
+	flashValue(el, 'neutral');
 }
 
 // ── treasury tile juice: count between two real values, flash on change ──────────
