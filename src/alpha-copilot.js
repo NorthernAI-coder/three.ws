@@ -14,6 +14,7 @@
 
 import { agentAvatarGlb } from './shared/agent-3d.js';
 import { previewAgentTrade, executeAgentTrade, TradeError } from './agent-solana-wallet.js';
+import { countUp, enterStagger, rippleOnce, reducedMotion } from './ui-juice.js';
 
 const NETWORK = 'mainnet';
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;

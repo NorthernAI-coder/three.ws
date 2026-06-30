@@ -94,6 +94,10 @@ npx -y @three-ws/signals-mcp       # discover signal feeds by proven edge; rank 
 npx -y @three-ws/alerts-mcp        # pump.fun alert rules across in-app / webhook / Telegram
 npx -y @three-ws/kol-mcp           # per-wallet KOL portfolio + trade analytics
 
+# Autonomous sniper (runs locally against your own wallet/RPC)
+npx -y @three-ws/agent-sniper mcp   # arm pump.fun snipe strategies, fire manual buys, manage positions
+npx -y @three-ws/agent-sniper serve # the same engine as an x402-paid HTTP API (POST /strategies, /snipe)
+
 # Account, inbox & discovery
 npx -y @three-ws/notifications-mcp # inbox, read state, delivery prefs & Web Push devices
 npx -y @three-ws/billing-mcp       # plan quotas, metered usage, invoices & receipts
