@@ -163,6 +163,9 @@ export function mountLaunchCopilot(host, opts = {}) {
 			state.editing = false;
 			if (body.data?.withdraw_url && action === 'withdraw') window.location.href = body.data.withdraw_url;
 			await load();
+			// Configuring the maker (action === null) is the "it shipped" moment — one
+			// restrained ripple on the freshly-rendered panel marks the maker going live.
+			if (!action) rippleOnce(host.firstElementChild);
 			return body.data;
 		} catch (e) {
 			state.busy = false;
@@ -482,7 +485,7 @@ export function mountLaunchCopilot(host, opts = {}) {
 		const wrap = el('div', { class: 'lc-log', id: 'lc-log' });
 		wrap.appendChild(el('div', { class: 'lc-log__head' }, [
 			el('span', { class: 'lc-label', text: 'Live action log' }),
-			el('span', { class: 'lc-live', 'aria-hidden': 'true' }, [el('span', { class: 'lc-live__dot' }), 'live']),
+			el('span', { class: 'lc-log-live', id: 'lc-log-live', html: liveDot(state.es ? 'live' : 'connecting') }),
 		]));
 		wrap.appendChild(buildActionList());
 		return wrap;

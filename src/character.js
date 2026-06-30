@@ -9,6 +9,8 @@
 import { onchainBadgeEl } from './shared/onchain-badge.js';
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { hydrateAvatarWallet } from './shared/wallet-aura.js';
+import './ui-juice.css';
+import { countUp } from './ui-juice.js';
 
 let chNetWorthAura = null;
 
@@ -130,10 +132,10 @@ function renderHero(agent) {
 	handle.textContent = '@' + (authorName.toLowerCase().replace(/\s+/g, ''));
 	creatorEl.appendChild(handle);
 
-	// Stats
-	$('ch-stat-chats').textContent = formatNum(agent.chat_count ?? 0);
+	// Stats — count up from 0 to the real values, keeping the K/M formatting.
+	countUp($('ch-stat-chats'), 0, Number(agent.chat_count ?? 0), { format: formatNum });
 	const holders = agent.token?.holders ?? agent.meta?.token?.holders ?? 0;
-	$('ch-stat-holders').textContent = formatNum(holders);
+	countUp($('ch-stat-holders'), 0, Number(holders), { format: formatNum });
 
 	// Description
 	$('ch-desc').textContent = agent.description || '';

@@ -8,6 +8,7 @@
  */
 
 import { escapeHtml, fmtPct, compact, identicon } from './trader-format.js';
+import { updateValue, flipReorder, setLiveDot } from './ui-juice.js';
 
 const API = '/api/signals/marketplace';
 const SORTS = new Set(['edge', 'roi', 'hitrate', 'subscribers', 'newest']);
@@ -101,7 +102,7 @@ function card(f) {
 		? `<span class="sm-thin" title="Fewer than 10 closed signals — edge is regressed toward neutral until proven">Building track record</span>`
 		: '';
 	return `
-		<a class="sm-card" href="/signals/${encodeURIComponent(f.slug)}" aria-label="${escapeHtml(f.title)} by ${escapeHtml(f.publisher.name)} — edge ${f.edge_score}">
+		<a class="sm-card" href="/signals/${encodeURIComponent(f.slug)}" data-key="${escapeHtml(String(f.slug))}" aria-label="${escapeHtml(f.title)} by ${escapeHtml(f.publisher.name)} — edge ${f.edge_score}">
 			<span class="sm-rank">#${f.rank}</span>
 			<div class="sm-card-head">
 				${avatar}
@@ -136,14 +137,22 @@ function emptyState() {
 		</div>`;
 }
 
+// Count a summary tile from its previously-shown real value to the new one and
+// flash the direction of change; missing → static dash with the tracker cleared.
+function setSummaryNum(el, value, format) {
+	if (!el) return;
+	if (value == null || !Number.isFinite(value)) { el.textContent = '—'; delete el.dataset.juiceVal; return; }
+	updateValue(el, value, format);
+}
+
 function renderSummary(feeds) {
 	const verified = feeds.filter((f) => f.publisher.verified).length;
 	const closed = feeds.reduce((a, f) => a + (f.stats.closed_signals || 0), 0);
 	const topEdge = feeds.reduce((a, f) => Math.max(a, f.edge_score || 0), 0);
-	$('#sm-sum-feeds').textContent = compact(feeds.length);
-	$('#sm-sum-verified').textContent = compact(verified);
-	$('#sm-sum-closed').textContent = compact(closed);
-	$('#sm-sum-edge').textContent = feeds.length ? String(topEdge) : '—';
+	setSummaryNum($('#sm-sum-feeds'), feeds.length, compact);
+	setSummaryNum($('#sm-sum-verified'), verified, compact);
+	setSummaryNum($('#sm-sum-closed'), closed, compact);
+	setSummaryNum($('#sm-sum-edge'), feeds.length ? topEdge : null, (n) => String(Math.round(n)));
 }
 
 async function load() {
@@ -157,16 +166,28 @@ async function load() {
 		setStatus(null);
 		renderSummary(feeds);
 		if (!feeds.length) emptyState();
-		else grid.innerHTML = feeds.map(card).join('');
+		else {
+			// First paint lets cards stagger in; refreshes/re-sorts FLIP cards to
+			// their new rank instead of re-flashing the whole grid (the --reflow
+			// class suppresses the per-card entrance while ranks settle).
+			const flip = firstLoad ? null : flipReorder(grid, (el) => el.dataset.key || '');
+			flip?.capture();
+			grid.classList.toggle('sm-grid--reflow', !firstLoad);
+			grid.innerHTML = feeds.map(card).join('');
+			flip?.play();
+		}
 		grid.setAttribute('aria-busy', 'false');
 		firstLoad = false;
+		setLiveDot($('#sm-live'), 'live', 'live');
 	} catch (err) {
 		if (firstLoad) {
 			grid.innerHTML = '';
 			grid.setAttribute('aria-busy', 'false');
 			setStatus('Could not load the marketplace. Check your connection and try again.', { error: true, retry: true });
+			setLiveDot($('#sm-live'), 'error', 'offline');
 		} else {
 			setStatus('Reconnecting — showing the last known board.', { error: false });
+			setLiveDot($('#sm-live'), 'connecting', 'reconnecting');
 		}
 	}
 }

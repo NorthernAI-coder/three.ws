@@ -17,6 +17,8 @@ import { createStage } from './theater-stage.js';
 import { connectFeed, loadSnapshot } from './theater-feed.js';
 import { fetchWalletBalances } from './shared/agent-wallet-identity.js';
 import { log } from './shared/log.js';
+import './ui-juice.css';
+import { enterRow } from './ui-juice.js';
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const WATCH_KEY = 'theater:watch:v1';
@@ -306,6 +308,7 @@ export function initTheater(root) {
 			el('time', { class: 'th-tick-time', text: timeAgo(n.ts), datetime: new Date(n.ts).toISOString() }),
 		]);
 		refs.ticker.prepend(row);
+		enterRow(row); // slide the freshly-landed live event in (reduced-motion safe)
 		while (refs.ticker.children.length > 40) refs.ticker.lastElementChild.remove();
 		// a real event arrived → dismiss the quiet state
 		if (!refs.quiet.hidden) refs.quiet.hidden = true;

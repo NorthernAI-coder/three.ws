@@ -5,6 +5,8 @@
 // "On" simply lets the cron pick coins from your agents and record them. All
 // API-sourced strings are escaped before they touch the DOM.
 
+import { updateValue, enterRow } from './ui-juice.js';
+
 const API = '/api/launcher/me';
 const REFRESH_MS = 6000;
 
