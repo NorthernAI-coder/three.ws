@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T21:07:43.783Z",
+	"generated_at": "2026-06-30T21:13:02.991Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -158,6 +158,17 @@
 			"link": "/swarms",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "The $THREE holder leaderboard now rides out RPC rate limits instead of stalling",
+			"summary": "The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle — and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.",
+			"link": "/leaderboard",
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

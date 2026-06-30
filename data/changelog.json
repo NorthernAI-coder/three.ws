@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "The $THREE holder leaderboard now rides out RPC rate limits instead of stalling",
+      "summary": "The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle — and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.",
+      "tags": [
+        "fix",
+        "infra"
+      ],
+      "link": "/leaderboard"
+    },
+    {
+      "date": "2026-06-30",
       "title": "AI chat now routes around a dead provider account instead of hammering it",
       "summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
       "tags": [

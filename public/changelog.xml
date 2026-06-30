@@ -127,6 +127,14 @@
 			<description>On a live swarm dashboard, the treasury tiles — balance, realized P&amp;L, open positions and win rate — no longer hard-swap to a new number. When a live update lands, each figure smoothly counts from its current value to the new one and the tile flashes in the direction of the change: green when it rises, red when it drops. A confirmed payout pulses the balance and P&amp;L tiles the instant the money lands. It animates only between two real values, never from zero, and respects reduced-motion preferences (those users get an instant, exact update).</description>
 		</item>
 		<item>
+			<title>The $THREE holder leaderboard now rides out RPC rate limits instead of stalling</title>
+			<link>https://three.ws/leaderboard</link>
+			<guid isPermaLink="false">2026-06-30:The $THREE holder leaderboard now rides out RPC rate limits instead of stalling</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle — and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.</description>
+		</item>
+		<item>
 			<title>The AI surfaces now make the agent's thinking feel alive — the AGI, Alpha Co-pilot and Reasoning Ledger</title>
 			<link>https://three.ws/agi</link>
 			<guid isPermaLink="false">2026-06-30:The AI surfaces now make the agent's thinking feel alive — the AGI, Alpha Co-pilot and Reasoning Ledger</guid>
