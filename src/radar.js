@@ -692,7 +692,9 @@ function renderListRow(coin) {
 	if (coin.net_volume_sol == null) net.textContent = '—';
 	else {
 		net.textContent = (coin.net_volume_sol > 0 ? '+' : '') + fmtSol(coin.net_volume_sol) + ' ◎';
-		net.classList.add(coin.net_volume_sol > 0 ? 'rc-pos' : coin.net_volume_sol < 0 ? 'rc-neg' : '');
+		// Exactly-zero net flow has no directional class — adding '' throws on DOMTokenList.
+		if (coin.net_volume_sol > 0) net.classList.add('rc-pos');
+		else if (coin.net_volume_sol < 0) net.classList.add('rc-neg');
 	}
 
 	// signals (badges + flags, condensed)
@@ -891,7 +893,9 @@ function netStat(net) {
 	if (net == null) { v.textContent = '—'; }
 	else {
 		v.textContent = (net > 0 ? '+' : '') + fmtSol(net) + ' ◎';
-		v.classList.add(net > 0 ? 'rc-pos' : net < 0 ? 'rc-neg' : '');
+		// Exactly-zero net flow has no directional class — adding '' throws on DOMTokenList.
+		if (net > 0) v.classList.add('rc-pos');
+		else if (net < 0) v.classList.add('rc-neg');
 	}
 	s.append(v);
 	return s;
