@@ -21,7 +21,7 @@ Three things make it a real test, not a mock:
    constant for it — you start the server, paste a Solana address into the page,
    and that address becomes the `payTo` in the 402 challenge.
 
-## Run it (inside the three.ws repo)
+## Run it (inside this package's repo)
 
 The server reuses the repo's `express` + `@solana/*` and imports the package's
 checkout helpers from source, so no install is needed:

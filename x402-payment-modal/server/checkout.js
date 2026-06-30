@@ -13,8 +13,9 @@
 // live in ./express.js and ./vercel.js.
 //
 // Runtime deps: @solana/web3.js and @solana/spl-token (declared as optional peer
-// dependencies — install them in the app that mounts this handler). Nothing here
-// imports anything three.ws-specific.
+// dependencies — install them in the app that mounts this handler). This module
+// is fully host-neutral: it has no required configuration and assumes no
+// particular merchant, facilitator, or origin.
 
 import {
 	Connection,

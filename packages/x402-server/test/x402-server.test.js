@@ -12,8 +12,7 @@ import {
 
 // A scripted fetch double: each call shifts the next queued response and records
 // the request. No network, no real facilitator — we assert on request shaping
-// and response parsing, which is all the SDK is responsible for. (Copied
-// verbatim from @three-ws/forge's test harness.)
+// and response parsing, which is all the SDK is responsible for.
 function stubFetch(responses) {
 	const calls = [];
 	const queue = [...responses];
@@ -48,17 +47,17 @@ test('buildChallenge() emits the exact v2 accepts[] envelope', () => {
 		asset: 'usdc',
 		payTo: { solana: SYNTH_SOLANA_PAYTO, base: SYNTH_BASE_PAYTO },
 		feePayer: SYNTH_SOLANA_FEEPAYER,
-		resourceUrl: 'https://three.ws/api/thing',
+		resourceUrl: 'https://api.example.com/api/thing',
 		description: 'Doc summarize',
 	});
 
 	assert.equal(challenge.x402Version, 2);
 	assert.equal(challenge.error, 'X-PAYMENT header is required');
-	assert.equal(challenge.resource.url, 'https://three.ws/api/thing');
+	assert.equal(challenge.resource.url, 'https://api.example.com/api/thing');
 	assert.equal(challenge.resource.description, 'Doc summarize');
 	assert.equal(challenge.accepts.length, 2);
 
-	// Solana leads (platform Solana-first ordering) and carries the fee payer.
+	// Solana leads (Solana-first ordering) and carries the fee payer.
 	const sol = challenge.accepts[0];
 	assert.equal(sol.scheme, 'exact');
 	assert.equal(sol.network, NETWORK_SOLANA_MAINNET);
@@ -245,7 +244,7 @@ test('paid() returns a 402 challenge when no X-PAYMENT header is present', async
 	);
 
 	const captured = { headers: {}, body: null, ended: false };
-	const req = { url: '/api/thing', headers: { host: 'three.ws' } };
+	const req = { url: '/api/thing', headers: { host: 'api.example.com' } };
 	const res = {
 		statusCode: 200,
 		writableEnded: false,
@@ -282,7 +281,7 @@ test('paid() verifies, runs the handler, then settles on a paid call', async () 
 	);
 
 	const header = xPaymentHeader({ network: NETWORK_BASE_MAINNET, payload: { authorization: { value: '10000', to: SYNTH_BASE_PAYTO } } });
-	const req = { url: '/api/thing', headers: { host: 'three.ws', 'x-payment': header } };
+	const req = { url: '/api/thing', headers: { host: 'api.example.com', 'x-payment': header } };
 	const res = { statusCode: 200, writableEnded: false, setHeader() {}, end() { this.writableEnded = true; } };
 	const receipt = await handler(req, res);
 
@@ -301,7 +300,7 @@ test('paid() supports a fetch-style adapter (Request → Response)', async () =>
 		{ price: '5000', payTo: { base: SYNTH_BASE_PAYTO }, network: ['base'], adapter: fetchAdapter },
 		async () => new Response(JSON.stringify({ ok: true })),
 	);
-	const request = new Request('https://three.ws/api/thing');
+	const request = new Request('https://api.example.com/api/thing');
 	const response = await handler(request);
 	assert.equal(response.status, 402);
 	assert.ok(response.headers.get('PAYMENT-REQUIRED'));
