@@ -119,6 +119,38 @@ describe('runSettlement — refund path (verify fail)', () => {
 		expect(setBountyStatus).toHaveBeenCalledWith('b1', 'failed', expect.any(Object));
 		expect(recordInvocationReceipt).not.toHaveBeenCalled();
 	});
+
+	it('a moderator-forced refund marks the job refunded (no worker blame), not failed', async () => {
+		// Forced verdict from POST /api/labor/release — verifier is never consulted.
+		const result = await runSettlement({
+			job, bounty,
+			verdict: { pass: false, score: 0, reason: 'mod refund', moderator: { admin_id: 'm1', wallet: 'MOD' } },
+		});
+
+		expect(result.status).toBe('refunded');
+		expect(verifyDeliverable).not.toHaveBeenCalled(); // forced verdict skips the verifier
+		expect(payFromEscrow).toHaveBeenCalledWith({ toAddress: 'PADDR', amountAtomics: 1_000_000n });
+		expect(markJobFailed).toHaveBeenCalledWith('job1', expect.objectContaining({ status: 'refunded' }));
+		expect(setBountyStatus).toHaveBeenCalledWith('b1', 'refunded', expect.any(Object));
+	});
+});
+
+describe('runSettlement — moderator forced release', () => {
+	it('pays the worker on a forced pass without consulting the verifier', async () => {
+		resolveSkillAuthorPayout.mockResolvedValue(null);
+
+		const result = await runSettlement({
+			job, bounty,
+			verdict: { pass: true, score: 1, reason: 'moderator release by MOD', moderator: { admin_id: 'm1', wallet: 'MOD' } },
+		});
+
+		expect(result.settled).toBe(true);
+		expect(result.status).toBe('settled');
+		expect(verifyDeliverable).not.toHaveBeenCalled();
+		const byTo = Object.fromEntries(payFromEscrow.mock.calls.map(([a]) => [a.toAddress, a.amountAtomics]));
+		expect(byTo.WADDR).toBe(800_000n);
+		expect(byTo.PADDR).toBe(200_000n);
+	});
 });
 
 describe('runSettlement — idempotency', () => {

@@ -51,7 +51,10 @@ export function buildSearchQuery({ since, window = 'new', minStars = 10, languag
 	const dateField = window === 'active' ? 'pushed' : 'created';
 	if (since) parts.push(`${dateField}:>=${since}`);
 	parts.push(`stars:>=${Math.max(0, Math.floor(minStars))}`);
-	if (language) parts.push(`language:${String(language).trim()}`);
+	if (language) {
+		const lang = String(language).trim();
+		parts.push(`language:${/\s/.test(lang) ? `"${lang}"` : lang}`);
+	}
 	// Exclude obvious non-project noise that pollutes star-sorted results.
 	parts.push('is:public');
 	return parts.join(' ');
