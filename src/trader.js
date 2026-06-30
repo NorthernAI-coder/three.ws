@@ -14,6 +14,7 @@ import {
 } from './trader-format.js';
 import { mountCopyPanel } from './copy-panel.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
+import { ring, playRings, countUp } from './ui-juice.js';
 
 const WINDOWS = ['24h', '7d', '30d', 'all'];
 const WINDOW_LABEL = { '24h': '24h', '7d': '7d', '30d': '30d', all: 'All-time' };

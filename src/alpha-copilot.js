@@ -228,8 +228,11 @@ async function mountAvatar(agent) {
 
 // ── candidate launches ──────────────────────────────────────────────────────
 function setCount(n) {
-	if (n > 0) { dom.launchesCount.textContent = n; dom.launchesCount.hidden = false; }
-	else dom.launchesCount.hidden = true;
+	if (n > 0) {
+		const from = parseInt(dom.launchesCount.textContent, 10) || 0;
+		dom.launchesCount.hidden = false;
+		countUp(dom.launchesCount, from, n, { format: (v) => String(Math.round(v)) });
+	} else dom.launchesCount.hidden = true;
 }
 
 async function loadCandidates() {
@@ -259,7 +262,24 @@ async function loadCandidates() {
 	const topMint = pickTopMint(items);
 	dom.launchesList.innerHTML = '';
 	for (const c of items) dom.launchesList.appendChild(launchCard(c, c.mint === topMint));
+	// Fresh feed lands in legible sequence, then each card's score bars grow from 0.
+	enterStagger(dom.launchesList.querySelectorAll('.ac-launch'), { step: 36 });
+	playBars(dom.launchesList);
 	if (state.activeMint) markActiveLaunch(state.activeMint);
+}
+
+// Grow every `.ac-bar-fill` / conviction fill inside `scope` from 0 to its real
+// width via the token-driven CSS transition. Reduced motion → already at target.
+function playBars(scope) {
+	if (!scope) return;
+	const fills = scope.querySelectorAll('.ac-bar-fill[data-w], .ac-conviction-fill[data-w]');
+	fills.forEach((fill) => {
+		const target = fill.getAttribute('data-w');
+		if (reducedMotion()) { fill.style.width = target; return; }
+		fill.style.width = '0%';
+		void fill.getBoundingClientRect();
+		requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = target; }));
+	});
 }
 
 // Rank by the real signals we already have: smart-money + quality, lightly
@@ -281,7 +301,7 @@ function scoreBar(label, v, title) {
 	const n = num(v);
 	const pct = n == null ? 0 : Math.max(0, Math.min(100, n));
 	const cls = n == null ? 'is-empty' : n >= 60 ? 'is-good' : n >= 35 ? 'is-mid' : 'is-low';
-	return `<div class="ac-bar ${cls}" title="${esc(title)}"><span class="ac-bar-k">${label}</span><span class="ac-bar-track"><span class="ac-bar-fill" style="width:${pct}%"></span></span><span class="ac-bar-v">${n == null ? '—' : Math.round(n)}</span></div>`;
+	return `<div class="ac-bar ${cls}" title="${esc(title)}"><span class="ac-bar-k">${label}</span><span class="ac-bar-track"><span class="ac-bar-fill" style="width:${pct}%" data-w="${pct}%"></span></span><span class="ac-bar-v">${n == null ? '—' : Math.round(n)}</span></div>`;
 }
 
 function launchCard(c, isTop) {
@@ -415,8 +435,8 @@ function renderRead(data) {
 			<div class="ac-read-target">${sym}${sig.name ? ` · <span class="ac-read-coinname">${esc(sig.name)}</span>` : ''}</div>
 		</div>
 		<div class="ac-conviction ${vm.cls}" title="How convinced the agent is">
-			<div class="ac-conviction-bar"><span style="width:${Math.max(2, conviction)}%"></span></div>
-			<span class="ac-conviction-val">${conviction}<small>/100 conviction</small></span>
+			<div class="ac-conviction-bar"><span class="ac-conviction-fill" style="width:${Math.max(2, conviction)}%" data-w="${Math.max(2, conviction)}%"></span></div>
+			<span class="ac-conviction-val"><span class="ac-conviction-num" data-to="${conviction}">${conviction}</span><small>/100 conviction</small></span>
 		</div>
 		${read.spoken_line ? `<blockquote class="ac-read-quote">“${esc(read.spoken_line)}”</blockquote>` : ''}
 		${guardNote}
@@ -429,6 +449,18 @@ function renderRead(data) {
 		<div class="ac-action" id="ac-action"></div>`;
 
 	renderAction(data);
+	playRead();
+}
+
+// When a real read lands: the conviction bar fills from 0 and counts up, the
+// signals it cited stagger in, and the verdict gets one accent ripple — a beat
+// that says "the call arrived". All token-driven; reduced motion → final state.
+function playRead() {
+	playBars(dom.readBody);
+	const num = dom.readBody.querySelector('.ac-conviction-num');
+	if (num) countUp(num, 0, Number(num.dataset.to) || 0, { format: (v) => String(Math.round(v)) });
+	enterStagger(dom.readBody.querySelectorAll('.ac-read-signals dl > div'), { step: 26 });
+	rippleOnce(dom.readBody.querySelector('.ac-verdict'));
 }
 
 function renderAction(data) {

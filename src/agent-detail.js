@@ -36,6 +36,7 @@ import { track, trackError, ANALYTICS_EVENTS } from './analytics.js';
 import { mountViewSwitcher } from './view-switcher.js';
 import { mountCoinStatus } from './pump/coin-status-card.js';
 import { consumeCsrfToken } from './api.js';
+import { countUp, updateValue, flashValue, ring, playRings, sparkline, enterStagger } from './ui-juice.js';
 
 // Live coin-status widgets mounted on this page (token chip + launch-history
 // rows). Tracked so a re-render (e.g. avatar refresh) tears down their refresh
@@ -953,7 +954,7 @@ function render(agent) {
 			if (chip) host.appendChild(chip);
 		}
 	}
-	$('ad-holdings-sol').textContent = String(agent.solBalance ?? 0);
+	countUpField($('ad-holdings-sol'), agent.solBalance);
 
 	// Wallet trading card — the agent's living, screenshot-worthy identity object:
 	// avatar, vanity address, live net worth, holdings, P&L, reputation tier, and a
@@ -1189,7 +1190,7 @@ function render(agent) {
 	// there is real descent to show.
 	renderLineage(agent);
 
-	$('ad-rewards').textContent = String(agent.creatorRewards ?? 0);
+	countUpField($('ad-rewards'), agent.creatorRewards);
 
 	const mechs = $('ad-trust-mechs');
 	mechs.innerHTML = '';
@@ -2040,12 +2041,30 @@ function renderStrategy(strategy) {
 	card.style.display = '';
 }
 
+// Count a numeric headline field up from 0, preserving the source's decimal places.
+// Non-numeric values (commas, suffixes) fall back to a plain, un-animated label.
+function countUpField(el, value) {
+	if (!el) return;
+	const raw = String(value ?? 0);
+	const n = Number(raw);
+	if (!Number.isFinite(n)) { el.textContent = raw; return; }
+	const dp = raw.includes('.') ? (raw.split('.')[1] || '').length : 0;
+	countUp(el, 0, n, { format: (x) => x.toFixed(dp) });
+}
+
 function renderReputation(r) {
 	const card = document.getElementById('ad-reputation-card');
-	document.getElementById('ad-rep-avg').textContent = r.average
-		? Number(r.average).toFixed(2)
-		: '0.00';
-	document.getElementById('ad-rep-count').textContent = String(r.count || 0);
+	const avg = r.average ? Number(r.average) : 0;
+	const avgEl = document.getElementById('ad-rep-avg');
+	if (avgEl) updateValue(avgEl, avg, (n) => n.toFixed(2));
+	// Score ring — the 0–5 average as a real fill (avg/5 → %).
+	const repRing = document.getElementById('ad-rep-ring');
+	if (repRing) {
+		repRing.innerHTML = ring((avg / 5) * 100, { size: 30, stroke: 3, label: '' });
+		playRings(repRing);
+	}
+	const countEl = document.getElementById('ad-rep-count');
+	if (countEl) updateValue(countEl, Number(r.count || 0), (n) => String(Math.round(n)));
 	if (r.total_stake_wei && r.total_stake_wei !== '0' && /^\d+$/.test(r.total_stake_wei)) {
 		document.getElementById('ad-rep-stake-row').style.display = '';
 		const wei = BigInt(r.total_stake_wei);
@@ -2118,7 +2137,18 @@ async function renderOracleTrackRecord(agentId) {
 	if (modePill && allSim) modePill.hidden = false;
 
 	const winRateEl = document.getElementById('ad-trade-winrate');
-	if (winRateEl) winRateEl.textContent = s.win_rate != null ? `${s.win_rate}%` : '—';
+	if (winRateEl) {
+		if (s.win_rate != null) updateValue(winRateEl, Number(s.win_rate), (n) => `${Math.round(n)}%`);
+		else winRateEl.textContent = '—';
+	}
+	// Win-rate ring — a real gauge driven by the same win_rate the row shows.
+	const winRing = document.getElementById('ad-trade-winring');
+	if (winRing) {
+		if (s.win_rate != null) {
+			winRing.innerHTML = ring(Number(s.win_rate), { size: 26, stroke: 3, label: '' });
+			playRings(winRing);
+		} else winRing.innerHTML = '';
+	}
 
 	const wlEl = document.getElementById('ad-trade-wl');
 	if (wlEl) wlEl.textContent = `${s.wins}W / ${s.losses}L / ${s.open} open`;
@@ -2126,12 +2156,37 @@ async function renderOracleTrackRecord(agentId) {
 	const pnlEl = document.getElementById('ad-trade-pnl');
 	if (pnlEl) {
 		const pnl = s.realized_pnl_sol;
-		pnlEl.textContent = pnl != null ? `${pnl >= 0 ? '+' : ''}${Number(pnl).toFixed(4)} SOL` : '—';
+		if (pnl != null) updateValue(pnlEl, Number(pnl), (n) => `${n >= 0 ? '+' : ''}${Number(n).toFixed(4)} SOL`);
+		else pnlEl.textContent = '—';
 		pnlEl.className = pnl > 0 ? 'ad-trade-pnl positive' : pnl < 0 ? 'ad-trade-pnl negative' : '';
 	}
 
 	const roiEl = document.getElementById('ad-trade-roi');
-	if (roiEl) roiEl.textContent = s.roi_pct != null ? `${s.roi_pct >= 0 ? '+' : ''}${s.roi_pct}%` : '—';
+	if (roiEl) {
+		if (s.roi_pct != null) updateValue(roiEl, Number(s.roi_pct), (n) => `${n >= 0 ? '+' : ''}${Math.round(n)}%`);
+		else roiEl.textContent = '—';
+	}
+
+	// Cumulative realized-P&L sparkline from the real recent-trade series (oldest→newest).
+	const sparkEl = document.getElementById('ad-trade-spark');
+	if (sparkEl) {
+		const closed = (data.recent_actions || [])
+			.filter((a) => a.realized_pnl_sol != null)
+			.slice()
+			.reverse();
+		if (closed.length >= 2) {
+			let cum = 0;
+			const series = closed.map((a) => (cum += Number(a.realized_pnl_sol)));
+			const net = series[series.length - 1];
+			sparkEl.hidden = false;
+			sparkEl.innerHTML = `<div class="ad-trade-spark-head"><span>CUMULATIVE PnL</span>`
+				+ `<span class="ad-trade-spark-net ${net >= 0 ? 'positive' : 'negative'}">${net >= 0 ? '+' : ''}${net.toFixed(3)} SOL</span></div>`
+				+ sparkline(series, { width: 240, height: 38, fill: true, animate: true });
+		} else {
+			sparkEl.hidden = true;
+			sparkEl.innerHTML = '';
+		}
+	}
 
 	const histEl = document.getElementById('ad-trade-history');
 	if (histEl) {
@@ -2152,6 +2207,7 @@ async function renderOracleTrackRecord(agentId) {
 			row.innerHTML = `<span class="ad-trade-outcome ${outcome}"></span><span class="ad-trade-symbol">$${escapeText((a.symbol || '?').toUpperCase())}</span><span class="ad-trade-tier">${tierE} ${escapeText(a.tier || '')}</span><span class="ad-trade-peak">${peak}</span><span class="ad-trade-pnl ${pnlVal != null && pnlVal >= 0 ? 'positive' : pnlVal != null ? 'negative' : ''}">${pnlText}</span>`;
 			histEl.appendChild(row);
 		}
+		enterStagger(histEl.children);
 	}
 
 	const copyLink = document.getElementById('ad-trade-copy-link');

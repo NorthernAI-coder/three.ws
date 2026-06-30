@@ -65,3 +65,4 @@ If you're here to create and share agents rather than write code, follow this pa
 - **Just exploring?** → Open [Discover](/discover) to browse agents others have built
 - **Creating your first agent** → Go to [/start](/start) — a 5-step wizard walks you through it
 - **Developer docs** → Read the [Introduction](./introduction.md) for the full technical picture
+- **Building UI?** → [ui-juice](./ui-juice.md) is the shared game-feel library (count-ups, sparklines, ring gauges, live dots, the "it shipped" ripple) every surface animates with

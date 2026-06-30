@@ -327,7 +327,9 @@ class TradingBrain {
 			// clobbering a mid-flight scan/backtest in another part of the panel).
 			if (!this.state.loading) {
 				if (touchedPositions) { this._renderPositions(); this._renderHeader(); }
-				if (touchedSpent) { const foot = this._q('.tb-glimits-foot .tb-spent'); if (foot) this._renderGuardrails(); }
+				// Update only the spent line — never re-render the guardrails card on a
+				// poll tick, or we'd clobber an input the owner is mid-edit.
+				if (touchedSpent) this._renderSpent();
 			}
 		} finally {
 			this._polling = false;
@@ -738,6 +740,17 @@ class TradingBrain {
 					<span class="tb-budget-fill" style="width:${pct.toFixed(1)}%"></span>
 				</span>
 			</span>`;
+	}
+
+	// Swap just the spent line in place (used by the live poll) so we never touch
+	// the guardrail inputs the owner might be editing.
+	_renderSpent() {
+		const cur = this._q('.tb-glimits-foot .tb-spent');
+		if (!cur) return;
+		const tmp = document.createElement('div');
+		tmp.innerHTML = this._spentHtml(this.state.tradeLimits || {}).trim();
+		const next = tmp.firstElementChild;
+		if (next) cur.replaceWith(next);
 	}
 
 	_renderActions() {
