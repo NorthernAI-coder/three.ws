@@ -5,6 +5,7 @@
    panels, signal-tinted accents (good=success, warn, danger). Every panel owns
    a designed empty/error state; reduced-motion calms all motion; light theme
    remaps entirely through tokens. */
+@import './ui-juice.css';
 
 body {
 	margin: 0;
@@ -582,6 +583,8 @@ body {
 .ld-live-dot.ld-live-on { background: var(--success); box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 60%, transparent); animation: ld-pulse 1.8s var(--ease-standard) infinite; }
 @keyframes ld-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 55%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .ld-live-dot.ld-live-on { animation: none; } }
+/* Shared live-state indicator in the trade-tape head (see ui-juice liveDot). */
+.ld-tape-live { display: inline-flex; align-items: center; margin-left: var(--space-2); }
 .ld-tape-list { display: flex; flex-direction: column; gap: 2px; max-height: 340px; overflow-y: auto; }
 .ld-trade {
 	display: flex; align-items: center; gap: var(--space-sm);

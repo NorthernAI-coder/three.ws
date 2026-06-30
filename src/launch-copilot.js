@@ -11,6 +11,7 @@
 // this UI only edits the published policy and reads its honest action ledger.
 
 import { apiFetch } from './api.js';
+import { enterRow, flashValue, rippleOnce, liveDot, setLiveDot } from './ui-juice.js';
 import './launch-copilot.css';
 
 const NETWORK_DEFAULT = 'mainnet';
@@ -116,13 +117,18 @@ export function mountLaunchCopilot(host, opts = {}) {
 		try { state.es?.close(); } catch {}
 		const es = new EventSource(`/api/launch/mm/${encodeURIComponent(state.mint)}?network=${state.network}&stream=1`);
 		state.es = es;
-		es.addEventListener('open', () => { /* connected */ });
+		es.addEventListener('open', () => setLogLive('live'));
 		es.addEventListener('action', (ev) => {
 			try {
 				const a = JSON.parse(ev.data);
 				if (!state.data) return;
+				setLogLive('live');
 				state.data.actions = [a, ...(state.data.actions || [])].slice(0, 60);
 				renderActions();
+				// The freshest action slides in and tints in the direction money moved
+				// (a sell returns SOL → success, a buy spends it → danger).
+				const first = host.querySelector('#lc-actions .lc-act');
+				if (first) { enterRow(first); flashValue(first, a.side === 'sell' ? 'up' : 'down'); }
 			} catch { /* ignore frame */ }
 		});
 		es.addEventListener('state', (ev) => {
@@ -131,8 +137,14 @@ export function mountLaunchCopilot(host, opts = {}) {
 				if (state.data?.policy) { state.data.policy = p; renderStats(); renderHeader(); }
 			} catch { /* ignore */ }
 		});
-		es.addEventListener('close', () => { es.close(); state.es = null; if (!state.destroyed) setTimeout(() => { if (state.data?.policy) connectStream(); }, 800); });
-		es.onerror = () => { es.close(); state.es = null; if (!state.destroyed) setTimeout(() => { if (state.data?.policy) connectStream(); }, 2500); };
+		es.addEventListener('close', () => { es.close(); state.es = null; setLogLive('connecting'); if (!state.destroyed) setTimeout(() => { if (state.data?.policy) connectStream(); }, 800); });
+		es.onerror = () => { es.close(); state.es = null; setLogLive('connecting'); if (!state.destroyed) setTimeout(() => { if (state.data?.policy) connectStream(); }, 2500); };
+	}
+
+	// Drive the shared live-state dot in the action-log head (survives re-renders;
+	// no-ops when the log isn't mounted, e.g. the form/empty states).
+	function setLogLive(stateName) {
+		setLiveDot(host.querySelector('#lc-log-live'), stateName);
 	}
 
 	// ── owner actions ───────────────────────────────────────────────────────────
