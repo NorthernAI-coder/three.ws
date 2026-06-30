@@ -7,6 +7,7 @@
 // made visible — honesty is the trust signal.
 
 import { apiFetch } from './api.js';
+import { countUp, enterStagger, sparkline, reducedMotion } from './ui-juice.js';
 
 const root = document.getElementById('rl-root');
 
@@ -42,7 +43,18 @@ const state = {
 	beforeSeq: null,
 	entries: [],
 	loadingMore: false,
+	revealedCount: 0, // entries already animated-in, so only freshly-appended ones stagger
 };
+
+// After a render: sweep the reputation ring, count the score up, and stagger only
+// the timeline rows that haven't entered yet (the freshly-appended page on
+// "load older", or every row on a fresh load / filter change).
+function playLedgerMotion() {
+	playScoreRing();
+	const rows = Array.from(document.querySelectorAll('.rl-timeline .rl-entry'));
+	enterStagger(rows.slice(state.revealedCount));
+	state.revealedCount = rows.length;
+}
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -77,23 +89,59 @@ async function fetchVerify() {
 
 // ── Render: score ring + calibration chart ────────────────────────────────────
 
+function scoreColor(score) {
+	return score >= 70 ? 'var(--rl-green)' : score >= 45 ? 'var(--rl-amber)' : 'var(--rl-red)';
+}
+
 function scoreRing(score) {
 	const r = 56, c = 2 * Math.PI * r;
 	const pct = Math.max(0, Math.min(100, score)) / 100;
-	const dash = (pct * c).toFixed(1);
-	const hue = score >= 70 ? '#4ade80' : score >= 45 ? '#fbbf24' : '#f87171';
+	const off = (c * (1 - pct)).toFixed(1);
+	const hue = scoreColor(score);
+	// The arc starts empty (offset = full circumference) and `playScoreRing` sweeps
+	// it to its real offset after paint; the number counts up in step. Reduced
+	// motion lands on the final frame instantly (see playScoreRing / countUp).
 	return `
 		<div class="rl-score-ring">
 			<svg viewBox="0 0 132 132" role="img" aria-label="Reputation score ${score} of 100">
 				<circle cx="66" cy="66" r="${r}" fill="none" stroke="var(--rl-line)" stroke-width="10" />
-				<circle cx="66" cy="66" r="${r}" fill="none" stroke="${hue}" stroke-width="10"
-					stroke-linecap="round" stroke-dasharray="${dash} ${c.toFixed(1)}" />
+				<circle class="rl-score-arc" cx="66" cy="66" r="${r}" fill="none" stroke="${hue}" stroke-width="10"
+					stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}"
+					stroke-dashoffset="${c.toFixed(1)}" data-target="${off}" />
 			</svg>
 			<div class="rl-score-num">
-				<span class="rl-score-val" style="color:${hue}">${score}</span>
+				<span class="rl-score-val" data-score="${score}" style="color:${hue}">${score}</span>
 				<span class="rl-score-cap">/ 100</span>
 			</div>
 		</div>`;
+}
+
+// Sweep the reputation arc from empty to its real offset and count the number up
+// in lockstep. Reduced motion → jump straight to the final state.
+function playScoreRing() {
+	const arc = document.querySelector('.rl-score-arc');
+	const num = document.querySelector('.rl-score-val');
+	if (arc) {
+		const target = arc.getAttribute('data-target');
+		if (reducedMotion()) arc.style.strokeDashoffset = target;
+		else requestAnimationFrame(() => requestAnimationFrame(() => { arc.style.strokeDashoffset = target; }));
+	}
+	if (num) {
+		const score = Number(num.dataset.score) || 0;
+		countUp(num, 0, score, { format: (n) => String(Math.round(n)) });
+	}
+}
+
+// Cumulative realized P&L across the reconciled decisions in view, oldest→newest —
+// a real "is this agent's judgment paying off" trend. Returns null when there
+// aren't yet two settled, P&L-bearing calls to draw a line between.
+function qualityTrend(entries) {
+	const settled = [...entries]
+		.reverse()
+		.filter((d) => d.outcome?.status === 'reconciled' && d.outcome.pnl_sol != null);
+	if (settled.length < 2) return null;
+	let running = 0;
+	return settled.map((d) => { running += Number(d.outcome.pnl_sol) || 0; return running; });
 }
 
 function calibrationChart(rep) {
@@ -150,6 +198,17 @@ function repCard(rep) {
 				<div class="rl-stat"><dt>Confidence</dt><dd>${(rep.confidence * 100).toFixed(0)}%</dd></div>
 			</dl>
 		</div>
+		${(() => {
+			const trend = qualityTrend(state.entries);
+			if (!trend) return '';
+			const net = trend[trend.length - 1];
+			const cls = net > 0 ? 'pos' : net < 0 ? 'neg' : '';
+			return `<div class="rl-trend">
+				<span class="rl-trend-k">Realized P&amp;L · settled calls in view</span>
+				<span class="rl-trend-spark">${sparkline(trend, { width: 160, height: 32, fill: true, animate: true })}</span>
+				<span class="rl-trend-v ${cls}">${fmtSol(net)}</span>
+			</div>`;
+		})()}
 		<div class="rl-verify-row" id="rl-verify-row"></div>
 		<details class="rl-drill">
 			<summary>How is this score computed?</summary>
@@ -303,6 +362,7 @@ function renderNoDecisions() {
 			<a class="rl-btn" href="/agents/${esc(state.agentId)}">View agent profile →</a>
 		</div></section>`;
 	mountVerify();
+	playLedgerMotion();
 }
 
 function renderAll() {
@@ -315,6 +375,7 @@ function renderAll() {
 		${timelineSection()}`;
 	mountVerify();
 	wireFilters();
+	playLedgerMotion();
 }
 
 // ── Wiring ────────────────────────────────────────────────────────────────────
@@ -346,6 +407,7 @@ function wireFilters() {
 
 async function reloadTimeline() {
 	state.beforeSeq = null;
+	state.revealedCount = 0; // a filter/search change re-renders the whole list — stagger all of it
 	try {
 		await fetchLedger({ append: false });
 		renderAll();

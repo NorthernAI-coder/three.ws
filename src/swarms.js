@@ -608,8 +608,8 @@ function subscribeStream(id) {
 				if (t.open_positions != null) updateTile(document.getElementById('sw-open'), t.open_positions, (v) => String(Math.round(v)));
 				const pnl = document.getElementById('sw-pnl');
 				if (pnl && t.realized_pnl_sol != null) {
-					pnl.className = 'sw-tile-v ' + (t.realized_pnl_sol > 0 ? 'pos' : t.realized_pnl_sol < 0 ? 'neg' : '');
-					updateTile(pnl, t.realized_pnl_sol, (v) => `${v >= 0 ? '+' : ''}${SOL(v)}`);
+					updateTile(pnl, t.realized_pnl_sol, (v) => `${v >= 0 ? '+' : ''}${SOL(v)}`,
+						(v) => { pnl.className = 'sw-tile-v ' + (v > 0 ? 'pos' : v < 0 ? 'neg' : ''); });
 				}
 				if (t.win_rate != null) updateTile(document.getElementById('sw-wr'), t.win_rate * 100, (v) => `${Math.round(v)}%`);
 			} catch {}
@@ -627,27 +627,33 @@ function flash(el) {
 }
 
 // ── treasury tile juice: count between two real values, flash on change ──────────
-const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Skip the motion for reduced-motion users AND for a backgrounded tab — rAF is
+// throttled while hidden, which would otherwise strand a half-finished count and a
+// stuck flash class when the user returns. Both cases just snap to the real value.
+const motionOff = () => document.hidden || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 const countTimers = new WeakMap();
 
 // Animate a tile's number from its previously displayed real value to the new real
 // value, preserving the tile's own formatting. Cancels any in-flight count on the
-// same element. Reduced-motion (or no prior value) → instant set, no animation.
-function countTile(el, to, format) {
+// same element. onValue (optional) fires each frame with the current number so a
+// caller can keep dependent styling (e.g. P&L sign/colour) in lockstep with it.
+function countTile(el, to, format, onValue) {
 	if (!el) return;
 	const prevTimer = countTimers.get(el);
 	if (prevTimer) { cancelAnimationFrame(prevTimer); countTimers.delete(el); }
 	const prevRaw = el.dataset.val;
 	const prev = prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
 	el.dataset.val = to == null ? '' : String(to);
-	if (to == null || prev == null || prev === to || reduceMotion()) { el.textContent = format(to); return; }
+	if (to == null || prev == null || prev === to || motionOff()) { el.textContent = format(to); if (onValue) onValue(to); return; }
 	const dur = 480, start = performance.now(), delta = to - prev;
 	const ease = (x) => 1 - Math.pow(1 - x, 3); // easeOutCubic
 	const step = (now) => {
 		const p = Math.min(1, (now - start) / dur);
-		el.textContent = format(prev + delta * ease(p));
+		const v = p < 1 ? prev + delta * ease(p) : to;
+		el.textContent = format(v);
+		if (onValue) onValue(v);
 		if (p < 1) { countTimers.set(el, requestAnimationFrame(step)); }
-		else { el.textContent = format(to); countTimers.delete(el); }
+		else { countTimers.delete(el); }
 	};
 	countTimers.set(el, requestAnimationFrame(step));
 }
@@ -655,7 +661,7 @@ function countTile(el, to, format) {
 // Direction-aware tile tint: dir > 0 → green, dir < 0 → red/neutral, then settle.
 function flashTile(el, dir) {
 	const tile = el && el.closest && el.closest('.sw-tile');
-	if (!tile || !dir || reduceMotion()) return;
+	if (!tile || !dir || motionOff()) return;
 	tile.classList.remove('sw-tile--up', 'sw-tile--down');
 	void tile.offsetWidth; // restart the animation if it's already mid-flight
 	tile.classList.add(dir > 0 ? 'sw-tile--up' : 'sw-tile--down');
@@ -664,12 +670,12 @@ function flashTile(el, dir) {
 }
 
 // Count to the new value and flash in its direction in one call.
-function updateTile(el, to, format) {
+function updateTile(el, to, format, onValue) {
 	if (!el) return;
 	const prevRaw = el.dataset.val;
 	const prev = prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
 	if (prev != null && to != null && to !== prev) flashTile(el, to - prev);
-	countTile(el, to, format);
+	countTile(el, to, format, onValue);
 }
 
 const prefersReducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

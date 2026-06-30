@@ -14,6 +14,8 @@
 
 import { mountShell } from '../shell.js';
 import { requireUser, get, post, esc, relTime, ApiError } from '../api.js';
+import { StudioAdapter } from '../studio-adapter.js';
+import { mountMoneyStudio } from '../../studio/money/money-studio.js';
 
 const SOL = 1_000_000_000n;
 const lamportsToSol = (l) => Number(BigInt(l || '0')) / 1e9;
