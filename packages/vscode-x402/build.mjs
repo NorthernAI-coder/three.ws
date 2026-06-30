@@ -1,4 +1,4 @@
-// Bundle the extension (and the bundled x402-fetch payment source) into a
+// Bundle the extension (and the bundled @three-ws/x402-fetch source) into a
 // single CJS file VS Code can require. `vscode` is provided by the host and must
 // stay external.
 import esbuild from 'esbuild';

@@ -1,21 +1,19 @@
-// `find_services` — search an x402 bazaar / discovery API for paid services.
-// Read-only.
+// `find_services` — search the live x402 bazaar for paid services. Read-only.
 //
-// Wraps GET /api/bazaar/search on whatever discovery endpoint you point
-// X402_API_BASE at (e.g. https://three.ws, or your own bazaar that merges the
-// public facilitator feeds). Feed a returned `resource` into pay_and_call to use it.
+// Wraps GET /api/bazaar/search, which merges the public facilitator discovery
+// feeds (PayAI + CDP) and ranks them against your query. Feed a returned
+// `resource` into pay_and_call to actually use it.
 
 import { z } from 'zod';
 
 import { apiRequest } from '../lib/api.js';
-import { requireApiBase } from '../config.js';
 
 export const def = {
 	name: 'find_services',
 	title: 'Find paid x402 services the agent can call',
 	annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: true },
 	description:
-		'Search a configured x402 bazaar / discovery API for paid services — HTTP APIs and MCP tools. Returns each match with its price, networks, and resource URL. Pass a resource into pay_and_call to use it. Requires X402_API_BASE to point at a discovery endpoint (e.g. https://three.ws). Read-only.',
+		'Search the live x402 facilitator network (PayAI + Coinbase CDP bazaar) for paid services — HTTP APIs and MCP tools. Returns each match with its price, networks, and resource URL. Pass a resource into pay_and_call to use it. Read-only.',
 	inputSchema: {
 		query: z.string().min(1).describe('What you need, e.g. "weather", "image upscale", "token intel".'),
 		type: z.enum(['http', 'mcp']).default('http').describe('Service kind to search.'),
@@ -24,12 +22,11 @@ export const def = {
 		limit: z.number().int().min(1).max(100).optional().describe('Max results (default 25).'),
 	},
 	async handler(args) {
-		const base = requireApiBase('find_services');
 		const query = String(args?.query ?? '').trim();
 		const type = args?.type === 'mcp' ? 'mcp' : 'http';
 		const maxPrice =
 			args?.max_price_usdc != null ? String(Math.round(Number(args.max_price_usdc) * 1_000_000)) : undefined;
-		const data = await apiRequest(base, '/api/bazaar/search', {
+		const data = await apiRequest('/api/bazaar/search', {
 			query: {
 				query,
 				type,

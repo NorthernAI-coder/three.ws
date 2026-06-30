@@ -2,43 +2,25 @@
 //
 // This server is user-keyed: outgoing payments are signed by a Solana keypair
 // the operator supplies (SOLANA_SECRET_KEY) or a per-call `secret` overrides.
-// We never bake in a key. The core self-custodial pay_and_call works with only a
-// Solana RPC + key — no external API base required. inspect_endpoint and the
-// explicit-address x402_wallet need no key either. Only find_services and the
-// optional session-governed pay path need X402_API_BASE (a discovery endpoint).
+// We never bake in a key. The read tools (x402_wallet with an explicit address,
+// find_services, inspect_endpoint) work with no key at all — only pay_and_call
+// (and x402_wallet defaulting to the signer) needs one.
 
 export function env(key, fallback) {
 	const v = process.env[key];
 	return v !== undefined && String(v).trim() !== '' ? String(v).trim() : fallback;
 }
 
-// Optional base URL of an x402 discovery / bazaar API. Powers find_services
-// (GET /api/bazaar/search) and the optional session-governed pay path. There is
-// NO default — the core self-custodial pay_and_call needs only a Solana RPC + key.
-// Set X402_API_BASE to any compatible discovery endpoint (e.g. https://three.ws).
-// The legacy THREE_WS_BASE name is still honoured as a fallback.
-export const X402_API_BASE = env('X402_API_BASE', env('THREE_WS_BASE', '')).replace(/\/+$/, '');
-
-/** Throw a clear, actionable error when a feature needs X402_API_BASE but it's unset. */
-export function requireApiBase(feature) {
-	if (!X402_API_BASE) {
-		throw Object.assign(
-			new Error(
-				`${feature} needs a discovery endpoint — set X402_API_BASE to an x402 bazaar/discovery URL (e.g. https://three.ws).`,
-			),
-			{ code: 'no_api_base' },
-		);
-	}
-	return X402_API_BASE;
-}
+// Base URL of the three.ws API (serves /api/bazaar/search for find_services).
+export const THREE_WS_BASE = env('THREE_WS_BASE', 'https://three.ws').replace(/\/+$/, '');
 
 // Per-request timeout (ms). Paid calls settle on-chain, so the default is roomy.
 export const HTTP_TIMEOUT_MS = (() => {
-	const raw = env('X402_HTTP_TIMEOUT_MS', env('THREE_WS_TIMEOUT_MS'));
+	const raw = env('THREE_WS_TIMEOUT_MS');
 	if (raw === undefined) return 60000;
 	const n = Number(raw);
 	if (!Number.isFinite(n) || n <= 0) {
-		throw Object.assign(new Error(`X402_HTTP_TIMEOUT_MS must be a positive number (got "${raw}")`), {
+		throw Object.assign(new Error(`THREE_WS_TIMEOUT_MS must be a positive number (got "${raw}")`), {
 			code: 'bad_config',
 		});
 	}
@@ -94,4 +76,4 @@ export const REQUIRE_CONFIRM = (() => {
 // Canonical Solana mainnet USDC mint (6 decimals) — for balance reads.
 export const USDC_MAINNET_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
-export const USER_AGENT = 'x402-mcp';
+export const USER_AGENT = '@three-ws/x402-mcp';

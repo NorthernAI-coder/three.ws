@@ -16,7 +16,7 @@ export async function inspectEndpoint(url, { method = 'GET', preferNetwork } = {
 		method,
 		headers: { accept: 'application/json' },
 		// MCP endpoints expect a body; for inspection a HEAD-ish GET is enough to
-		// trigger the 402 challenge on most x402 merchants.
+		// trigger the 402 on three.ws + CDP merchants.
 	});
 
 	if (res.status !== 402) {

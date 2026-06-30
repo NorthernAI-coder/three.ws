@@ -77,7 +77,8 @@
     "modal",
     "agentic",
     "web3",
-    "402"
+    "402",
+    "three-ws"
   ],
   "author": "three.ws <support@three.ws> (https://three.ws)",
   "license": "Apache-2.0",

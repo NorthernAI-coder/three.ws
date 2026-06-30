@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { privateKeyToWallet } from '../../x402-fetch/src/index.js';
 
-const SECRET_KEY = 'x402.walletPrivateKey';
+const SECRET_KEY = 'threewsX402.walletPrivateKey';
 
 function normalizePk(raw) {
 	const pk = raw.trim();

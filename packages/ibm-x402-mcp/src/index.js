@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @three-ws/ibm-x402-mcp — stdio MCP server: IBM Granite AI tools gated by x402 USDC payments.
 //
-// An x402-enabled MCP server for IBM Granite foundation models.
+// The world's first x402-enabled MCP server on IBM Cloud.
 // End users pay USDC on Solana per call — no IBM Cloud account needed.
 // Server operators supply WATSONX_* credentials and MCP_SVM_PAYMENT_ADDRESS.
 //
@@ -36,7 +36,7 @@ const require = createRequire(import.meta.url);
 const SERVER_VERSION = require('../package.json').version;
 
 const SERVER_INSTRUCTIONS =
-	'x402 pay-per-use IBM Granite AI tools over MCP. Each tool lists its USDC price. ' +
+	'x402 pay-per-use IBM Granite AI tools from three.ws. Each tool lists its USDC price. ' +
 	'New here? Call ibm_granite_getting_started (free, no payment) for an overview, prices, and the payment flow. ' +
 	'Tool calls without an x402 payment payload in _meta return a PaymentRequired envelope ' +
 	'(v2 MCP transport spec). ' +

@@ -10,7 +10,7 @@ import { filterAcceptsByToken, isThreeAccept, isUsdcAccept } from '../src/lib/x4
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const USDC_SOL = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
-// A USDC + $THREE Solana challenge, USDC-first.
+// A USDC + $THREE Solana challenge, USDC-first (the platform's ordering).
 const ACCEPTS = [
 	{ network: 'solana:mainnet', asset: USDC_SOL, amount: '10000', extra: { name: 'USDC', decimals: 6 } },
 	{ network: 'solana:mainnet', asset: THREE_MINT, amount: '10000000', extra: { name: 'THREE', decimals: 6 } },
