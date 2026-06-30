@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:12:30.029Z",
+	"generated_at": "2026-06-30T23:27:47.464Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -901,6 +901,16 @@
 					"title": "Money Pulse",
 					"description": "The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.",
 					"added": "2026-06-23",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/x402-revenue",
+					"title": "Endpoint Revenue",
+					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+					"added": "2026-06-30",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

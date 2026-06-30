@@ -15,6 +15,14 @@
 			<description>Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.</description>
 		</item>
 		<item>
+			<title>Endpoint Revenue</title>
+			<link>https://three.ws/x402-revenue</link>
+			<guid isPermaLink="false">2026-06-30:Endpoint Revenue</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.</description>
+		</item>
+		<item>
 			<title>Oracle Docs — the conviction engine, end to end</title>
 			<link>https://three.ws/oracle/docs</link>
 			<guid isPermaLink="false">2026-06-30:Oracle Docs — the conviction engine, end to end</guid>
@@ -133,6 +141,14 @@
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.</description>
+		</item>
+		<item>
+			<title>More real money cycling through the agent economy — autonomous x402 throughput raised</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-30:More real money cycling through the agent economy — autonomous x402 throughput raised</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day — every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.</description>
 		</item>
 		<item>
 			<title>One shared motion library now powers live game-feel across the platform</title>

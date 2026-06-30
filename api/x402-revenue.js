@@ -109,9 +109,15 @@ async function handleFeed({ since, cursor, limit }) {
 	// Cursor for the next (older) page: the timestamp of the last row.
 	const last = rows[rows.length - 1];
 	const nextCursor = last
-		? (last.created_at instanceof Date ? last.created_at.toISOString() : last.created_at)
+		? last.created_at instanceof Date
+			? last.created_at.toISOString()
+			: last.created_at
 		: null;
-	return { events, count: events.length, next_cursor: events.length === limit ? nextCursor : null };
+	return {
+		events,
+		count: events.length,
+		next_cursor: events.length === limit ? nextCursor : null,
+	};
 }
 
 export default async function handler(req, res) {

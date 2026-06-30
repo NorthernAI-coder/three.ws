@@ -39,7 +39,9 @@ const catalog = readFileSync(CATALOG, 'utf8');
 const undocumented = slugs.filter((slug) => !catalog.includes(slug));
 
 if (undocumented.length) {
-	console.error(`\n✗ ${undocumented.length} x402 endpoint(s) missing from docs/x402-endpoints.md:\n`);
+	console.error(
+		`\n✗ ${undocumented.length} x402 endpoint(s) missing from docs/x402-endpoints.md:\n`,
+	);
 	for (const slug of undocumented) console.error(`  /api/x402/${slug}`);
 	console.error(
 		'\nEvery api/x402/*.js endpoint must be listed in the catalog (docs/x402-endpoints.md).\n' +

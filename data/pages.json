@@ -740,6 +740,14 @@
 					"added": "2026-06-23"
 				},
 				{
+					"path": "/x402-revenue",
+					"title": "Endpoint Revenue",
+					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+					"priority": 0.7,
+					"changefreq": "always",
+					"added": "2026-06-30"
+				},
+				{
 					"path": "/viability",
 					"title": "Viability",
 					"description": "The honest signal behind three.ws — real marketplace and trading viability. Live $THREE skill GMV, take-rate, repeat buyers and trading pairs, plus real guarded coin-trade flow, cost and realized P&L on closed positions. Real on-chain data only.",

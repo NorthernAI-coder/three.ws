@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:12:30.318Z",
+	"generated_at": "2026-06-30T23:27:47.484Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -12,6 +12,16 @@
 			"title": "Docs · x402 Revenue & Receipts",
 			"summary": "Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.",
 			"link": "/docs/x402-revenue",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "launch",
+			"title": "Endpoint Revenue",
+			"summary": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+			"link": "/x402-revenue",
 			"tags": [
 				"launch"
 			]
@@ -167,6 +177,17 @@
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "More real money cycling through the agent economy — autonomous x402 throughput raised",
+			"summary": "The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day — every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.",
+			"link": null,
+			"tags": [
+				"improvement",
+				"infra"
 			]
 		},
 		{
