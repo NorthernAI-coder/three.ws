@@ -19,7 +19,7 @@ import { requireCsrf } from '../_lib/csrf.js';
 import { isUuid } from '../_lib/validate.js';
 import { logAudit } from '../_lib/audit.js';
 import { normalizeStrategyConfig } from '../_lib/strategy-schema.js';
-import { evaluateEquip, recentPumpLaunchesSafe } from '../_lib/agent-strategy-runtime.js';
+import { evaluateEquip, recentPumpLaunchesSafe, closeStrategyPositionNow } from '../_lib/agent-strategy-runtime.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
 const netOf = (v) => (NETWORKS.has(v) ? v : 'mainnet');
@@ -253,6 +253,27 @@ async function handleSweep(req, res, id) {
 		}
 	}
 	return json(res, 200, { data: { evaluated: equips.length, killed, results: out } });
+}
+
+// POST close — owner force-closes ONE open strategy position now ("Sell now").
+async function handleClose(req, res, id) {
+	const owned = await loadOwned(req, res, id);
+	if (!owned) return;
+	const rl = await limits.tradePerUser(owned.auth.userId);
+	if (!rl.success) return rateLimited(res, rl);
+	if (!(await requireCsrf(req, res, owned.auth.userId))) return;
+	const body = await readJson(req).catch(() => ({}));
+	if (!isUuid(body?.position_id)) return error(res, 400, 'validation_error', 'a valid position_id is required');
+
+	let result;
+	try {
+		result = await closeStrategyPositionNow({ positionId: body.position_id, ownerId: owned.auth.userId, agentId: id });
+	} catch (err) {
+		return error(res, 500, 'internal_error', 'unexpected error closing the position');
+	}
+	if (!result.ok) return error(res, result.status || 500, result.code || 'error', result.message || 'could not close the position');
+	logAudit({ userId: owned.auth.userId, action: 'strategy.position_close', resourceId: id, meta: { position_id: body.position_id, pnl_sol: result.data?.pnl_sol ?? null } });
+	return json(res, 200, { data: result.data });
 }
 
 export default async function handler(req, res, id, action) {
