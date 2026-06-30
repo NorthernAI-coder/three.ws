@@ -439,6 +439,23 @@ const SELF_ENDPOINTS = [
 		extractSignal: null,
 	},
 
+	// GLB optimization catalog feed — a zero-param GET that pays for and reads the
+	// full optimization-opportunity report. Broadens real coverage to the
+	// glb-optimization-report endpoint without any fixture: no required params, no
+	// side effects, idempotent. Slow cadence — the catalog moves gradually.
+	{
+		id: 'glb-optimization-report',
+		name: 'GLB Optimization Report (catalog feed)',
+		path: '/api/x402/glb-optimization-report',
+		method: 'GET',
+		body: null,
+		cooldown_s: 21_600, // 6h
+		priority: 36,
+		pipeline: 'self',
+		enabled: true,
+		extractSignal: null,
+	},
+
 	// ── Circuit Breaker (cheapest end-to-end proof the payment stack is alive) ─
 	{
 		id: 'circuit-breaker-cross-network',
@@ -3723,12 +3740,19 @@ const EXTERNAL_ENDPOINTS = [
 	// },
 ];
 
-// Maximum entries the loop processes per tick (prevents runaway spend).
-export const MAX_PER_TICK = Number(process.env.X402_AUTONOMOUS_MAX_PER_TICK || 8);
+// Maximum entries the loop processes per tick (prevents runaway spend). Raised
+// from the original demo curve (8) to serve more of the ready backlog each tick
+// and lift real throughput across the catalog. Per-endpoint cooldowns still gate
+// how often any single endpoint is hit, so a higher per-tick budget broadens
+// volume without hammering one service. Override via env.
+export const MAX_PER_TICK = Number(process.env.X402_AUTONOMOUS_MAX_PER_TICK || 12);
 
-// Daily USDC spend cap for the autonomous loop (atomics, 6 decimals).
-// Default: $5.00 = 5_000_000 atomics. Override via env.
-export const DAILY_CAP_ATOMIC = Number(process.env.X402_AUTONOMOUS_DAILY_CAP_ATOMIC || 5_000_000);
+// Daily USDC spend cap for the autonomous loop (atomics, 6 decimals). Raised from
+// the demo default ($5) to $15 so the higher per-tick throughput isn't money-
+// starved mid-day. Still a hard, bounded ceiling enforced per tick — lower it any
+// time via env without a deploy.
+// Default: $15.00 = 15_000_000 atomics. Override via X402_AUTONOMOUS_DAILY_CAP_ATOMIC.
+export const DAILY_CAP_ATOMIC = Number(process.env.X402_AUTONOMOUS_DAILY_CAP_ATOMIC || 15_000_000);
 
 export function getSelfRegistry() { return SELF_ENDPOINTS; }
 export function getExternalRegistry() { return EXTERNAL_ENDPOINTS; }

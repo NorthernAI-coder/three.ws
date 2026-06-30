@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "More real money cycling through the agent economy — autonomous x402 throughput raised",
+      "summary": "The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day — every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.",
+      "tags": [
+        "improvement",
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "Agent net-worth keeps showing real balances through Solana RPC outages instead of erroring",
       "summary": "An agent's net-worth and wallet look are read live from the chain. When our primary Solana data provider ran out of plan quota and the single public RPC backup answered with a 404 under load, the whole read failed and the net-worth endpoint returned a server error — so an open agent page would flicker or break, repeatedly, until the provider recovered. Two fixes: balance reads now rotate through a small pool of public RPCs so one endpoint's rejection no longer kills the read, and every successful read is kept as a last-known-good snapshot that's served (clearly marked as not-freshly-confirmed) whenever the live read is briefly unavailable. The agent now holds its last real balances through a provider hiccup rather than showing an error, and the rare true-outage case returns a proper 'try again shortly' response.",
       "tags": [
