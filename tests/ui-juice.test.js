@@ -4,55 +4,39 @@
  * The library's primitives are DOM transition helpers, but their geometry/math
  * cores are pure and exported separately so they assert without a DOM:
  * count-up interpolation/formatting, sparkline path generation, ring arc math,
- * and FLIP key diffing. The instant (reduced-motion) path of countUp is also
- * covered against a minimal fake element.
+ * and FLIP key diffing. The instant (no-RAF) path of countUp is also covered
+ * against a minimal fake element. Runs in the default `node` vitest env.
  */
 
 import { describe, it, expect } from 'vitest';
 import {
-	lerp,
-	easeOutCubic,
 	countUp,
-	sparklineGeometry,
+	updateValue,
+	sparklinePath,
 	sparkline,
 	ringGeometry,
 	ring,
-	computeFlipDeltas,
+	reorderedKeys,
 	liveDot,
 } from '../src/ui-juice.js';
 
-describe('interpolation primitives', () => {
-	it('lerp moves linearly between two real values', () => {
-		expect(lerp(0, 100, 0)).toBe(0);
-		expect(lerp(0, 100, 1)).toBe(100);
-		expect(lerp(20, 40, 0.5)).toBe(30);
-		expect(lerp(-10, 10, 0.5)).toBe(0);
-	});
-
-	it('easeOutCubic is clamped to its endpoints and decelerates', () => {
-		expect(easeOutCubic(0)).toBe(0);
-		expect(easeOutCubic(1)).toBe(1);
-		// past the midpoint of progress, output is already well past midpoint (decelerating)
-		expect(easeOutCubic(0.5)).toBeGreaterThan(0.5);
-	});
-});
-
-describe('countUp — instant path (reduced motion / no RAF)', () => {
-	it('sets the final formatted value instantly when duration is 0', () => {
-		const el = { textContent: '' };
-		countUp(el, 1000, 1875, { duration: 0, format: (n) => `$${Math.round(n)}` });
+describe('countUp — instant path (no requestAnimationFrame in node)', () => {
+	it('sets the final formatted value instantly', () => {
+		const el = { textContent: '', dataset: {} };
+		countUp(el, 1000, 1875, { format: (n) => `$${Math.round(n)}` });
 		expect(el.textContent).toBe('$1875');
 	});
 
 	it('preserves caller formatting including sign and units', () => {
-		const el = { textContent: '' };
-		countUp(el, -5, 12.5, { duration: 0, format: (n) => `${n >= 0 ? '+' : ''}${n.toFixed(1)} SOL` });
+		const el = { textContent: '', dataset: {} };
+		countUp(el, -5, 12.5, { format: (n) => `${n >= 0 ? '+' : ''}${n.toFixed(1)} SOL` });
 		expect(el.textContent).toBe('+12.5 SOL');
 	});
 
-	it('jumps to target when from === to', () => {
-		const el = { textContent: 'stale' };
-		countUp(el, 42, 42, { format: (n) => String(n) });
+	it('records the target on dataset for the next updateValue', () => {
+		const el = { textContent: '', dataset: {} };
+		countUp(el, 0, 42, { format: (n) => String(Math.round(n)) });
+		expect(el.dataset.ujVal).toBe('42');
 		expect(el.textContent).toBe('42');
 	});
 
@@ -61,98 +45,109 @@ describe('countUp — instant path (reduced motion / no RAF)', () => {
 	});
 });
 
-describe('sparklineGeometry', () => {
-	it('maps a known rising series to inverted-Y points across the box', () => {
-		const geo = sparklineGeometry([0, 5, 10], 100, 20, 2);
-		expect(geo.points).toHaveLength(3);
-		// first x at pad, last x at width - pad
-		expect(geo.points[0].x).toBe(2);
-		expect(geo.points[2].x).toBe(98);
-		// rising series: first point sits at the BOTTOM (max y), last at the TOP (min y)
-		expect(geo.points[0].y).toBeGreaterThan(geo.points[2].y);
-		expect(geo.rising).toBe(true);
-		expect(geo.d.startsWith('M2 ')).toBe(true);
+describe('updateValue', () => {
+	it('counts from the element\'s last tracked value to the new one', () => {
+		const el = { textContent: '', dataset: { ujVal: '100' } };
+		updateValue(el, 250, (n) => String(Math.round(n)));
+		expect(el.textContent).toBe('250');
+		expect(el.dataset.ujVal).toBe('250');
 	});
 
-	it('flags a net-negative series as not rising', () => {
-		const geo = sparklineGeometry([10, 4, 1], 100, 20);
-		expect(geo.rising).toBe(false);
+	it('starts cold when no prior value is tracked', () => {
+		const el = { textContent: '', dataset: {} };
+		updateValue(el, 7, (n) => String(Math.round(n)));
+		expect(el.textContent).toBe('7');
+	});
+});
+
+describe('sparklinePath', () => {
+	it('maps a known rising series to inverted-Y points across the box', () => {
+		const geo = sparklinePath([0, 5, 10], 100, 20, 2);
+		const pts = geo.points.split(' ');
+		expect(pts).toHaveLength(3);
+		expect(pts[0]).toBe('2.00,18.00'); // first: bottom-left (pad, max-y)
+		expect(pts[2]).toBe('98.00,2.00'); // last: top-right (width-pad, min-y)
+		expect(geo.last).toEqual({ x: 98, y: 2 });
+		expect(geo.net).toBe(10); // net-positive
+	});
+
+	it('reports a net-negative series', () => {
+		expect(sparklinePath([10, 4, 1], 100, 20).net).toBe(-9);
 	});
 
 	it('handles a flat series without dividing by zero', () => {
-		const geo = sparklineGeometry([7, 7, 7], 100, 20, 2);
-		expect(geo.points.every((p) => Number.isFinite(p.y))).toBe(true);
+		const geo = sparklinePath([7, 7, 7], 100, 20, 2);
+		expect(geo.points.split(' ').every((p) => /^[\d.]+,[\d.]+$/.test(p))).toBe(true);
 	});
 
 	it('returns empty geometry for no usable values', () => {
-		expect(sparklineGeometry([], 100, 20).points).toHaveLength(0);
-		expect(sparklineGeometry([NaN, undefined], 100, 20).points).toHaveLength(0);
+		expect(sparklinePath([], 100, 20).points).toBe('');
+		expect(sparklinePath([NaN, undefined], 100, 20).points).toBe('');
 	});
 
-	it('sparkline() emits a valid svg with a path for a real series', () => {
-		const svg = sparkline([1, 2, 3], { width: 80, height: 24, animate: false });
+	it('sparkline() emits a valid svg with a polyline for a real series', () => {
+		const svg = sparkline([1, 2, 3], { width: 80, height: 24 });
 		expect(svg).toContain('<svg');
-		expect(svg).toContain('<path');
-		expect(svg).toContain('var(--success)');
+		expect(svg).toContain('<polyline');
+		expect(svg).toContain('var(--success)'); // rising → success token
+	});
+
+	it('sparkline() colors a falling series with the danger token', () => {
+		expect(sparkline([5, 3, 1])).toContain('var(--danger)');
 	});
 });
 
 describe('ringGeometry', () => {
-	it('computes circumference and dash for a known percentage', () => {
+	it('computes circumference and offset for a known percentage', () => {
 		const g = ringGeometry(50, 56, 5);
-		const r = (56 - 5) / 2;
+		const r = 28 - 2.5;
 		const c = 2 * Math.PI * r;
-		expect(g.radius).toBeCloseTo(r, 2);
-		expect(g.circumference).toBeCloseTo(c, 1);
-		expect(g.dash).toBeCloseTo(c / 2, 1);
-		expect(g.dash + g.gap).toBeCloseTo(g.circumference, 1);
+		expect(g.r).toBeCloseTo(r, 2);
+		expect(g.circumference).toBeCloseTo(c, 2);
+		expect(g.offset).toBeCloseTo(c * 0.5, 2); // 50% → half the ring left empty
+		expect(g.center).toBe(28);
 	});
 
 	it('clamps out-of-range percentages', () => {
-		expect(ringGeometry(-20).dash).toBe(0);
-		const full = ringGeometry(150);
-		expect(full.dash).toBeCloseTo(full.circumference, 1);
+		expect(ringGeometry(-20, 56, 5).pct).toBe(0);
+		expect(ringGeometry(150, 56, 5).pct).toBe(100);
+		// full ring → zero remaining offset
+		expect(ringGeometry(100, 56, 5).offset).toBeCloseTo(0, 5);
 	});
 
 	it('ring() defaults the label to a rounded percentage', () => {
 		expect(ring(72.4)).toContain('>72%<');
 		expect(ring(50, { label: 'GO' })).toContain('>GO<');
-		expect(ring(50, { tone: 'success' })).toContain('var(--success)');
+		expect(ring(80, { color: 'var(--success)' })).toContain('var(--success)');
 	});
 });
 
-describe('computeFlipDeltas', () => {
-	it('returns the inverse offset only for keys that moved', () => {
-		const first = new Map([
-			['a', { x: 0, y: 0 }],
-			['b', { x: 0, y: 40 }],
-		]);
-		const last = new Map([
-			['a', { x: 0, y: 40 }],
-			['b', { x: 0, y: 0 }],
-		]);
-		const deltas = computeFlipDeltas(first, last);
-		expect(deltas.get('a')).toEqual({ dx: 0, dy: -40 });
-		expect(deltas.get('b')).toEqual({ dx: 0, dy: 40 });
+describe('reorderedKeys', () => {
+	it('returns only the keys whose index changed', () => {
+		const moved = reorderedKeys(['a', 'b', 'c'], ['b', 'a', 'c']);
+		expect(moved.sort()).toEqual(['a', 'b']); // c stayed at index 2
 	});
 
-	it('skips unmoved and newly-added keys', () => {
-		const first = new Map([['a', { x: 10, y: 10 }]]);
-		const last = new Map([
-			['a', { x: 10, y: 10 }], // unmoved
-			['new', { x: 0, y: 0 }], // added after capture
-		]);
-		const deltas = computeFlipDeltas(first, last);
-		expect(deltas.size).toBe(0);
+	it('ignores keys that are new or removed', () => {
+		expect(reorderedKeys(['a'], ['a', 'new'])).toEqual([]); // a unmoved, new absent before
+		expect(reorderedKeys(['a', 'b'], ['a'])).toEqual([]); // a unmoved
+	});
+
+	it('reports a full reversal', () => {
+		expect(reorderedKeys(['a', 'b', 'c'], ['c', 'b', 'a']).sort()).toEqual(['a', 'c']);
 	});
 });
 
 describe('liveDot', () => {
 	it('renders the connection state and label', () => {
-		expect(liveDot('live')).toContain("data-state=\"live\"");
-		expect(liveDot('live')).toContain('>live<');
-		expect(liveDot('connecting')).toContain('>connecting<');
-		expect(liveDot('idle')).toContain('>offline<');
-		expect(liveDot('live', 'streaming')).toContain('>streaming<');
+		expect(liveDot('live')).toContain('data-state="live"');
+		expect(liveDot('live')).toContain('>live</span>');
+		expect(liveDot('connecting')).toContain('>connecting</span>');
+		expect(liveDot('idle')).toContain('data-state="idle"');
+		expect(liveDot('live', { label: 'streaming' })).toContain('>streaming</span>');
+	});
+
+	it('escapes a hostile label', () => {
+		expect(liveDot('live', { label: '<x>' })).toContain('&lt;x&gt;');
 	});
 });
