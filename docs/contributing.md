@@ -157,6 +157,33 @@ The `npm run verify` command is what CI runs. If it passes locally, the build ch
 
 ---
 
+## Publishing MCP servers & standalone mirrors
+
+Every MCP server package (any directory with both a `package.json` and a `server.json` — the 35 under `packages/*-mcp`, plus `packages/agent-sniper`, `mcp-server`, and `mcp-bridge`) ships to three destinations. All steps are idempotent and default to a safe dry run.
+
+**1. npm + the official MCP registry** (`registry.modelcontextprotocol.io`):
+
+```bash
+npm run audit:mcp          # validate every server.json (names, versions, ≤100-char descriptions)
+npm run publish:mcp:dry    # report what would publish — no writes
+npm run publish:mcp        # publish any package/version missing from npm or the registry
+```
+
+Auth: npm needs `npm whoami` to succeed or `NPM_TOKEN` set. The registry publishes under the `io.github.nirholas` namespace and needs `MCP_REGISTRY_TOKEN`, or a GitHub token for that account (`GITHUB_TOKEN`, or the PAT on the `origin` remote) — a token for a different account will be rejected for that namespace.
+
+**2. Standalone GitHub mirrors** — each package also lives in its own repo at `github.com/<owner>/<name>` (a read-only mirror; the monorepo stays canonical). Each sync force-pushes one snapshot commit whose message records the source monorepo SHA, and rewrites the mirror's `package.json` / `server.json` `repository` fields to point at the standalone repo:
+
+```bash
+npm run sync:repos:dry     # plan only
+npm run sync:repos         # create missing repos + push snapshots (needs gh auth as the owner)
+# scope to a subset:
+node scripts/sync-standalone-repos.mjs --execute --only agent-sniper,copy-mcp
+```
+
+Auth: `gh` must be authenticated as the target owner (default `nirholas`; override with `--owner`) so it can create and push under that account.
+
+---
+
 ## Writing Tests
 
 - **Unit tests** go in `tests/src/` for pure functions and source modules
