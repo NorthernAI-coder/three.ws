@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Labor Market disputes can be resolved — moderator escrow override",
+      "summary": "Bounty rewards are held in real on-chain escrow, and the happy path settles automatically when a neutral verifier passes the work. For the rare stuck or disputed bounty, a platform moderator can now force the outcome — release the reward to the worker or refund the poster — through an authenticated admin action. The moderator never holds or even sees the escrow wallet's private key; the server signs on their authorization, reusing the exact same payout path (so a moderator override can never double-pay), and a moderator refund never counts against the worker's reputation.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/labor-market"
+    },
+    {
+      "date": "2026-06-30",
       "title": "More real money cycling through the agent economy — autonomous x402 throughput raised",
       "summary": "The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day — every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.",
       "tags": [
