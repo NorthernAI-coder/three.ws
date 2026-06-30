@@ -477,6 +477,43 @@ class TradingBrain {
 		}
 	}
 
+	// Force-close one open position now — the per-position "Sell now" lever. Sells
+	// the agent's full holding through the SAME guarded strategy-exit path the
+	// autonomous take-profit/stop uses (server-side), so manual and automatic exits
+	// can never drift. Selling moves SOL inward, so it works even with the kill
+	// switch on — getting out is always allowed.
+	async _closePosition(positionId) {
+		if (!positionId) return;
+		const btn = this.el.querySelector(`[data-action="close-pos"][data-pos="${CSS.escape(positionId)}"]`);
+		if (btn) { if (btn.disabled) return; btn.disabled = true; btn.textContent = 'Selling…'; }
+		try {
+			const res = await apiFetch(`/api/agents/${this.agentId}/strategies/close`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ position_id: positionId }),
+			});
+			const payload = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(payload?.error?.message || 'Could not close the position.');
+			const d = payload.data || {};
+			const pnl = d.pnl_sol;
+			this.studio.emitMarket?.({ type: 'trade:sell', mint: d.mint });
+			if (d.reconciled) {
+				this._toast(`${d.symbol || 'Position'} was already sold — reconciled`);
+			} else {
+				const pnlStr = pnl != null ? ` · ${pnl >= 0 ? '+' : ''}${fmtSol(pnl)} SOL` : '';
+				this._toast(`Closed ${d.symbol || short(d.mint)}${pnlStr}${d.unconfirmed ? ' (confirming…)' : ''}`);
+			}
+			// Refresh positions + audit so the close shows immediately; live polling
+			// keeps the rest current.
+			await this._refreshStrategies();
+			this._renderPositions();
+			this._fetchAudit().then((a) => { this.state.audit = a; this._renderAudit(); });
+		} catch (err) {
+			this._toast(err.message || 'Close failed', true);
+			if (btn) { btn.disabled = false; btn.textContent = 'Sell now'; }
+		}
+	}
+
 	async _writeTradeMemory(cand, signature) {
 		// Coordinate with P2: record the trade, its rationale, and the outcome so the
 		// agent remembers what it did and why. Best-effort — a memory hiccup never
@@ -886,6 +923,7 @@ class TradingBrain {
 				<span class="tb-pos-state">${live ? `<span class="tb-pos-live">● ${esc(p.status)}</span>` : esc(p.exit_reason || 'closed')}</span>
 				<span class="tb-pos-entry">${fmtSol(p.entry_sol)} SOL in</span>
 				<span class="tb-pos-pnl ${cls}" title="${live ? 'Unrealized — marked to live price' : 'Realized at exit'}">${pnlText}</span>
+				${p.status === 'open' ? `<button class="studio-btn studio-btn-ghost tb-pos-close" data-action="close-pos" data-pos="${esc(p.id)}" title="Sell the full holding now at a real price">Sell now</button>` : `<span class="tb-pos-close-spacer" aria-hidden="true"></span>`}
 			</li>`;
 	}
 
@@ -936,6 +974,7 @@ class TradingBrain {
 			if (a === 'scan') return this._scan();
 			if (a === 'confirm-snipe') return this._confirmSnipe(btn.dataset.mint);
 			if (a === 'save-guardrails') return this._saveGuardrails();
+			if (a === 'close-pos') return this._closePosition(btn.dataset.pos);
 			if (a === 'export-audit') return this._exportAudit();
 		});
 		// Rule edits — live recompute (English + validation) and debounced meta save.
