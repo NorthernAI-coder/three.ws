@@ -228,6 +228,14 @@
 			"dest": "/agent-trade.html"
 		},
 		{
+			"src": "/agent-wallet",
+			"dest": "/agent-wallet.html"
+		},
+		{
+			"src": "/agent-wallet/",
+			"dest": "/agent-wallet.html"
+		},
+		{
 			"src": "/aws-marketplace/welcome",
 			"dest": "/aws-marketplace/welcome.html"
 		},

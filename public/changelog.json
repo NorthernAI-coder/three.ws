@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T02:51:06.573Z",
+	"generated_at": "2026-06-30T03:48:58.716Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -49,9 +49,30 @@
 		{
 			"date": "2026-06-30",
 			"type": "update",
+			"title": "Agent Sniper is now a standalone open-source package",
+			"summary": "The engine that lets three.ws agents snipe pump.fun launches is now its own lightweight, embeddable package: @three-ws/agent-sniper. Run it four ways — as a library, a CLI, an MCP server your AI agent can drive, or a paid x402 API that other agents pay in USDC to use. It ships with pluggable wallet, storage, RPC, and launch-feed adapters, so you can run a fully self-custodial sniper from your own keypair or a multi-tenant hosted service from one engine. Every agent gets its own wallet, its own budget and concurrency caps, a mandatory stop-loss, a price-impact circuit breaker, and a simulate-first default — plus the 3D-agent layer that puts a live trading desk on screen. Multiple agents and multiple users can snipe side by side, each embodied by its own 3D AI agent.",
+			"link": null,
+			"tags": [
+				"sdk",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
 			"title": "Agent Studio movement previews now play on the live avatar",
 			"summary": "On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.",
 			"link": "/agent-studio",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Fixed the agent wallet page returning a 404",
+			"summary": "Opening the agent wallet at /agent-wallet no longer hits a 404. The page was built and shipping, but the clean URL had no route, so it fell through to the not-found page. It now loads correctly and, when opened without a specific agent, shows a clear prompt to pick or create one.",
+			"link": "/agent-wallet",
 			"tags": [
 				"fix"
 			]
@@ -85,6 +106,36 @@
 			"tags": [
 				"docs",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Swarm dashboards now show consensus building and firing live",
+			"summary": "When you watch a trading swarm, you can now see the moment it decides. Every consensus vote animates in and fills a meter toward the swarm's firing threshold in real time. When member consensus clears the line and the treasury actually fires a buy, the meter visibly crosses the threshold with a hot success glow, the vote stamps a pulsing “fire” badge, and a single accent ripple sweeps the panel — so the most important event on the page lands instead of slipping by as a quiet log line. Skips fill toward the line and stop short. Respects reduced-motion preferences.",
+			"link": "/swarms",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Swarm treasury figures now count up and flash when money moves",
+			"summary": "On a live swarm dashboard, the treasury tiles — balance, realized P&L, open positions and win rate — no longer hard-swap to a new number. When a live update lands, each figure smoothly counts from its current value to the new one and the tile flashes in the direction of the change: green when it rises, red when it drops. A confirmed payout pulses the balance and P&L tiles the instant the money lands. It animates only between two real values, never from zero, and respects reduced-motion preferences (those users get an instant, exact update).",
+			"link": "/swarms",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "The swarm members panel is now a live standings board",
+			"summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip that visibly grows with the score, because in a swarm your track record is literally your voting power. The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
+			"link": "/swarms",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
