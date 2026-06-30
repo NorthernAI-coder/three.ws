@@ -5,6 +5,13 @@
    type, an ambient particle field, glass cards lit by the cursor, generative
    identicons seeded from each mint. Every effect degrades gracefully:
    reduced-motion gets a calm static page, light theme remaps via tokens. */
+@import './ui-juice.css';
+
+/* Live-feed status dot sits beside the launch count in the feed header. */
+#lx-count + .juice-live {
+	margin-left: var(--space-2);
+	vertical-align: middle;
+}
 
 body {
 	margin: 0;
