@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T21:13:02.991Z",
+	"generated_at": "2026-06-30T21:48:14.424Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -86,6 +86,16 @@
 			"tags": [
 				"fix",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Documented the full x402 paid-endpoint catalog and where endpoint revenue is recorded",
+			"summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
+			"link": "/docs/x402-endpoints",
+			"tags": [
+				"docs"
 			]
 		},
 		{
