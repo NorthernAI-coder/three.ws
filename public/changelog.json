@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T21:48:14.424Z",
+	"generated_at": "2026-06-30T22:32:33.298Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -262,6 +262,17 @@
 			"link": "/agent-studio",
 			"tags": [
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Wallet balances ride out an exhausted RPC quota instead of hammering it",
+			"summary": "Agent net-worth, portfolios, and the $THREE holder gate all read balances from our primary Solana data provider, with a public RPC as backup. When the primary provider's plan quota was used up, every balance read still tried it first, ate a doomed round-trip, and only then fell back — and logged the same warning on every single request. Now a quota or rate-limit response parks the primary provider for a few minutes and sends reads straight to the backup, so balances resolve faster during an outage and the duplicated warnings collapse to a single line. The repeated 'holding last state' warning on a wallet that keeps failing to read is likewise throttled. No behavior changes for holders — balances were always correct; this just makes them quicker and quieter under provider strain.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
 			]
 		},
 		{

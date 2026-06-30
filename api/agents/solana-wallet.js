@@ -1644,6 +1644,22 @@ async function reputationFor(id) {
 	return { forkCount, tips, pnl };
 }
 
+// Throttle the networth chain-read warning. The networth endpoint is polled
+// (avatar presence "look" refresh), so one agent whose wallet read keeps failing
+// — a stale/exhausted RPC, a wallet the upstream 404s — would otherwise emit one
+// identical warning per poll (18+ for a single agent in one log window). Collapse
+// repeats per agent to one line per minute; a persistent failure stays visible
+// without flooding. The 502 hold-last-state response to the client is unchanged.
+const _networthWarnedAt = new Map();
+const NETWORTH_WARN_COOLDOWN_MS = 60_000;
+function warnNetworthThrottled(agentId, msg) {
+	const now = Date.now();
+	if (now - (_networthWarnedAt.get(agentId) || 0) < NETWORTH_WARN_COOLDOWN_MS) return;
+	if (_networthWarnedAt.size > 1000) _networthWarnedAt.clear(); // bound key cardinality
+	_networthWarnedAt.set(agentId, now);
+	console.warn(msg);
+}
+
 // GET  /api/agents/:id/solana/networth — public read: the agent's net-worth "look"
 //   (presence tier, aura, confidence, regalia marks) derived entirely from real
 //   chain reads + real DB counts, plus the owner's reactivity preferences.

@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Wallet balances ride out an exhausted RPC quota instead of hammering it",
+      "summary": "Agent net-worth, portfolios, and the $THREE holder gate all read balances from our primary Solana data provider, with a public RPC as backup. When the primary provider's plan quota was used up, every balance read still tried it first, ate a doomed round-trip, and only then fell back — and logged the same warning on every single request. Now a quota or rate-limit response parks the primary provider for a few minutes and sends reads straight to the backup, so balances resolve faster during an outage and the duplicated warnings collapse to a single line. The repeated 'holding last state' warning on a wallet that keeps failing to read is likewise throttled. No behavior changes for holders — balances were always correct; this just makes them quicker and quieter under provider strain.",
+      "tags": [
+        "fix",
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "Documented the full x402 paid-endpoint catalog and where endpoint revenue is recorded",
       "summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
       "tags": [
