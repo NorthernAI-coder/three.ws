@@ -1,8 +1,7 @@
-// x402 for VS Code — extension entry. Registers the bazaar tree, the
+// three.ws x402 — VS Code extension entry. Registers the bazaar tree, the
 // inspect/pay/scaffold commands, the wallet status bar, and secret-storage
-// wallet management. Payments use the bundled x402-fetch wrapper; discovery
-// talks to whatever bazaar URL the user configures (x402.bazaarUrl). Inspecting
-// and paying a single endpoint URL works with no bazaar configured. No mocks.
+// wallet management. All payments use @three-ws/x402-fetch; all discovery uses
+// the live three.ws bazaar proxy. No mocks.
 
 import * as vscode from 'vscode';
 import { BazaarProvider } from './tree.js';
@@ -17,43 +16,19 @@ let statusBar;
 export function activate(context) {
 	output = vscode.window.createOutputChannel('x402');
 	const provider = new BazaarProvider();
-	const tree = vscode.window.createTreeView('x402.bazaar', { treeDataProvider: provider });
+	const tree = vscode.window.createTreeView('threewsX402.bazaar', { treeDataProvider: provider });
 
 	statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-	statusBar.command = 'x402.setWalletKey';
+	statusBar.command = 'threewsX402.setWalletKey';
 	context.subscriptions.push(output, tree, statusBar);
 	refreshStatusBar(context);
-
-	// Re-render the tree when the bazaar URL (or filters) change.
-	context.subscriptions.push(
-		vscode.workspace.onDidChangeConfiguration((e) => {
-			if (e.affectsConfiguration('x402.bazaarUrl') || e.affectsConfiguration('x402.filters')) {
-				provider.refresh();
-			}
-		}),
-	);
 
 	const reg = (id, fn) =>
 		context.subscriptions.push(vscode.commands.registerCommand(id, fn));
 
-	reg('x402.refresh', () => provider.refresh());
+	reg('threewsX402.refresh', () => provider.refresh());
 
-	reg('x402.setBazaarUrl', async () => {
-		const cfg = vscode.workspace.getConfiguration('x402');
-		const current = cfg.get('bazaarUrl', '');
-		const url = await vscode.window.showInputBox({
-			title: 'x402 — Bazaar Discovery URL',
-			prompt: 'Base URL of an x402 bazaar (calls <url>/api/bazaar/list & /search). Blank to disable.',
-			placeHolder: 'https://your-bazaar.example.com',
-			value: current,
-			validateInput: (v) => (!v.trim() || isUrl(v.trim()) ? null : 'Enter a valid http(s) URL or leave blank'),
-		});
-		if (url === undefined) return;
-		await cfg.update('bazaarUrl', url.trim(), vscode.ConfigurationTarget.Global);
-		provider.refresh();
-	});
-
-	reg('x402.search', async () => {
+	reg('threewsX402.search', async () => {
 		const q = await vscode.window.showInputBox({
 			title: 'Search the x402 bazaar',
 			prompt: 'Keywords (empty to list everything)',
@@ -62,27 +37,27 @@ export function activate(context) {
 		provider.setQuery(q.trim());
 	});
 
-	reg('x402.setFilters', () => setFilters());
+	reg('threewsX402.setFilters', () => setFilters());
 
-	reg('x402.inspect', async (preset) => {
+	reg('threewsX402.inspect', async (preset) => {
 		const url =
 			typeof preset === 'string'
 				? preset
 				: await vscode.window.showInputBox({
 						title: 'Inspect x402 endpoint',
 						prompt: 'Endpoint URL — decodes its 402 payment challenge',
-						placeHolder: 'https://your-api.example.com/x402/…',
+						placeHolder: 'https://three.ws/api/…',
 						validateInput: (v) => (isUrl(v) ? null : 'Enter a valid http(s) URL'),
 					});
 		if (!url) return;
 		await runInspect(url);
 	});
 
-	reg('x402.openService', (item) => {
+	reg('threewsX402.openService', (item) => {
 		if (item) showService(context, item);
 	});
 
-	reg('x402.pay', async (node) => {
+	reg('threewsX402.pay', async (node) => {
 		// Invoked from the tree inline action (node.command.arguments[0]) or palette.
 		const item = node?.command?.arguments?.[0] || node;
 		if (item?.resource) {
@@ -91,14 +66,13 @@ export function activate(context) {
 			const url = await vscode.window.showInputBox({
 				title: 'Pay & call x402 endpoint',
 				prompt: 'Endpoint URL',
-				placeHolder: 'https://your-api.example.com/x402/…',
 				validateInput: (v) => (isUrl(v) ? null : 'Enter a valid http(s) URL'),
 			});
 			if (url) showService(context, syntheticItem(url));
 		}
 	});
 
-	reg('x402.setWalletKey', async () => {
+	reg('threewsX402.setWalletKey', async () => {
 		const address = await setKey(context);
 		if (address) {
 			vscode.window.showInformationMessage(`x402 wallet set: ${address}`);
@@ -106,13 +80,13 @@ export function activate(context) {
 		}
 	});
 
-	reg('x402.clearWalletKey', async () => {
+	reg('threewsX402.clearWalletKey', async () => {
 		await clearKey(context);
 		vscode.window.showInformationMessage('x402 wallet key cleared.');
 		refreshStatusBar(context);
 	});
 
-	reg('x402.scaffoldEndpoint', () => scaffoldEndpoint());
+	reg('threewsX402.scaffoldEndpoint', () => scaffoldEndpoint());
 
 	provider.refresh();
 }
@@ -133,7 +107,7 @@ async function runInspect(url) {
 	output.clear();
 	output.show(true);
 	output.appendLine(`Inspecting ${url}`);
-	const network = vscode.workspace.getConfiguration('x402').get('network');
+	const network = vscode.workspace.getConfiguration('threewsX402').get('network');
 	try {
 		const result = await inspectEndpoint(url, { preferNetwork: network });
 		summarize(result).forEach((l) => output.appendLine(l));
@@ -143,7 +117,7 @@ async function runInspect(url) {
 }
 
 async function setFilters() {
-	const cfg = vscode.workspace.getConfiguration('x402');
+	const cfg = vscode.workspace.getConfiguration('threewsX402');
 	const current = cfg.get('filters', { type: 'http' });
 
 	const type = await vscode.window.showQuickPick(
@@ -172,7 +146,7 @@ async function setFilters() {
 	if (maxPrice) next.maxPrice = Number(maxPrice);
 	if (tag.trim()) next.tag = tag.trim();
 	await cfg.update('filters', next, vscode.ConfigurationTarget.Global);
-	vscode.commands.executeCommand('x402.refresh');
+	vscode.commands.executeCommand('threewsX402.refresh');
 }
 
 function syntheticItem(url) {

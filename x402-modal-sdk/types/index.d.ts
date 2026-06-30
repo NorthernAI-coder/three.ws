@@ -32,7 +32,7 @@ export interface SpendingCaps {
 	maxPerDay?: number | string;
 }
 
-/** Global configuration. Defaults are vendor-neutral: no origin, brand, or builder-code echo. */
+/** Global configuration. Defaults reproduce three.ws's hosted behaviour. */
 export interface X402Config {
 	/**
 	 * Origin serving the Solana `prepare`/`encode` checkout helpers

@@ -47,7 +47,7 @@ export const NETWORK_SOLANA_DEVNET: string;
 
 /** Solana USDC mint (mainnet). */
 export const USDC_MINT_SOLANA: string;
-/** THREE — an optional, opt-in token mint (not a default; USDC is the default). */
+/** $THREE — the three.ws utility token mint. */
 export const THREE_MINT: string;
 
 export interface WellKnownToken {
