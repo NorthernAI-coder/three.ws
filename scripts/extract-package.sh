@@ -63,6 +63,32 @@ OWNER="$OWNER" REPO_NAME="$REPO_NAME" node -e '
 
 echo "==> [4/5] add npm publish CI workflow"
 mkdir -p .github/workflows
+# A VS Code extension publishes to the Marketplace (vsce) + Open VSX, not npm.
+IS_VSCODE="$(node -p 'require("./package.json").engines?.vscode ? "1" : ""' 2>/dev/null)"
+if [ -n "$IS_VSCODE" ]; then
+cat > .github/workflows/publish.yml <<'YML'
+name: publish
+on:
+  push:
+    tags: ['v*']
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm ci || npm install
+      - run: npm run build --if-present
+      - run: npx --yes @vscode/vsce publish -p "$VSCE_PAT"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - run: npx --yes ovsx publish -p "$OVSX_PAT"
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        continue-on-error: true
+YML
+else
 cat > .github/workflows/publish.yml <<'YML'
 name: publish
 on:
@@ -86,6 +112,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 YML
+fi
 [ -f .gitignore ] || printf 'node_modules\ndist\n*.log\n.DS_Store\n' > .gitignore
 git add -A
 
@@ -93,14 +120,21 @@ echo "==> [5/5] verify publishable (install, build, test, dry-run pack)"
 npm install --no-audit --no-fund >/dev/null 2>&1 || { echo "npm install failed"; exit 1; }
 npm run build --if-present
 npm test --if-present || { echo "tests failed"; exit 1; }
-echo "--- npm publish --dry-run ---"
-DRY="$(npm publish --dry-run --access public 2>&1 || true)"
-echo "$DRY" | tail -20
-if echo "$DRY" | grep -q "cannot publish over"; then
-  echo "NOTE: version already on npm — bump 'version' before the real publish (expected for a migration of an already-published package)."
-elif echo "$DRY" | grep -qiE "npm error|ERR!"; then
-  echo "ERROR: publish dry-run reported a real problem above." >&2
-  exit 1
+if [ -n "$IS_VSCODE" ]; then
+  echo "--- vsce package (VS Code extension — Marketplace target, not npm) ---"
+  npx --yes @vscode/vsce package --no-dependencies -o "/tmp/$REPO_NAME.vsix" 2>&1 | tail -8 \
+    && echo "VSIX OK: publish with 'vsce publish' (Marketplace) + 'ovsx publish' (Open VSX), not npm." \
+    || echo "NOTE: vsce package needs review (Marketplace target)."
+else
+  echo "--- npm publish --dry-run ---"
+  DRY="$(npm publish --dry-run --access public 2>&1 || true)"
+  echo "$DRY" | tail -20
+  if echo "$DRY" | grep -q "cannot publish over"; then
+    echo "NOTE: version already on npm — bump 'version' before the real publish (expected for a migration of an already-published package)."
+  elif echo "$DRY" | grep -qiE "npm error|ERR!"; then
+    echo "ERROR: publish dry-run reported a real problem above." >&2
+    exit 1
+  fi
 fi
 
 git -c user.email="claude@three.ws" -c user.name="three.ws" commit -q -m "chore: standalone repo scaffolding (CI, repository metadata)" || true

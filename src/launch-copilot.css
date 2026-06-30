@@ -1,7 +1,9 @@
 /* Launch Copilot — autonomous market-maker control panel.
    Scoped under .lc; uses the shared design tokens (public/tokens.css). */
+@import './ui-juice.css';
 
 .lc { display: block; width: 100%; }
+.lc-log-live { display: inline-flex; align-items: center; }
 
 .lc-card {
 	background: linear-gradient(165deg, var(--surface-2), transparent 60%), var(--surface-1);
