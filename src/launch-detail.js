@@ -1710,7 +1710,8 @@ async function renderTape() {
 		target.hidden = true;
 		return;
 	}
-	const dot = el('span', { class: 'ld-live-dot', 'aria-hidden': 'true' });
+	// Shared live-state indicator (connecting → live) for the SSE trade tape.
+	const dot = el('span', { class: 'ld-tape-live', html: liveDot('connecting', { label: 'live' }) });
 	const list = el('div', { class: 'ld-tape-list' });
 	const head = el('div', { class: 'ld-sec-head' }, [
 		el('h2', { class: 'ld-sec-title' }, [el('span', { text: 'Live trades' }), dot]),
@@ -2119,10 +2120,22 @@ async function boot() {
 	// Refresh the live market every 30s so price / mcap / graduation stay fresh.
 	state.priceTimer = setInterval(async () => {
 		if (document.hidden) return;
+		const prev = state.coin;
 		const fresh = await loadCoin();
 		if (fresh) {
 			state.coin = fresh;
 			renderHero();
+			// Real-value deltas across the 30s poll drive the game-feel beats: tint the
+			// market-cap stat in the direction it moved, and fire a single ripple the
+			// moment a coin graduates — a genuine "it shipped" milestone, not a timer.
+			const prevMcap = Number(prev?.usd_market_cap);
+			const nextMcap = Number(fresh?.usd_market_cap);
+			if (Number.isFinite(prevMcap) && Number.isFinite(nextMcap) && nextMcap !== prevMcap) {
+				flashValue($('ld-hero')?.querySelector('.ld-stat-mcap dd'), nextMcap > prevMcap ? 'up' : 'down');
+			}
+			if (prev && prev.complete !== true && fresh.complete === true) {
+				rippleOnce($('ld-hero')?.querySelector('.ld-grad'));
+			}
 		}
 	}, 30_000);
 }
