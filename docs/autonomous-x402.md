@@ -40,8 +40,8 @@ Payments are real on chain — no mocks, no simulations.
 | `X402_SEED_SOLANA_SECRET_BASE58` | _(preferred)_ | The seeder keypair that pays for calls. |
 | `X402_AGENT_SOLANA_SECRET_BASE58` | _(fallback)_ | Used if the seeder secret is absent. |
 | `X402_AUTONOMOUS_ENABLED` | enabled | Set to `false` to pause without removing entries. |
-| `X402_AUTONOMOUS_MAX_PER_TICK` | `8` | Max calls per cron tick. |
-| `X402_AUTONOMOUS_DAILY_CAP_ATOMIC` | `5000000` ($5) | Daily USDC cap across the whole loop, in 6-decimal atomics. |
+| `X402_AUTONOMOUS_MAX_PER_TICK` | `12` | Max calls per cron tick. Raised from the original demo curve (8) to serve more of the ready backlog each tick; per-endpoint cooldowns still gate how often any one endpoint is hit. |
+| `X402_AUTONOMOUS_DAILY_CAP_ATOMIC` | `15000000` ($15) | Daily USDC cap across the whole loop, in 6-decimal atomics. Raised from $5 so the higher per-tick throughput isn't money-starved mid-day; still a hard, env-tunable ceiling enforced per tick. |
 | `X402_VOLUME_BATCH_PER_RUN` | `4` | Volume Bootstrap Loop: endpoints swept per run (cursor advances by this). |
 | `X402_VOLUME_PER_RUN_CAP_ATOMIC` | `50000` ($0.05) | Volume Bootstrap Loop: self-imposed per-run cap, on top of the daily cap, so one tick can't drain the day. |
 | `CRON_SECRET` | _(required)_ | Vercel cron authorization. |
