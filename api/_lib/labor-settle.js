@@ -63,8 +63,13 @@ export async function runSettlement({ job, bounty, verdict: providedVerdict = nu
 	const reward = toBig(bounty.reward_atomics);
 	const awarded = toBig(job.price_atomics);
 
-	// ── Failure path: refund poster, mark failed (no release) ─────────────────
+	// ── Failure path: refund poster (no release) ──────────────────────────────
+	// A verifier rejection is the worker's fault → mark the job 'failed' (counts
+	// against reputation). A moderator-administered refund is NOT the worker's
+	// fault → mark it 'refunded' so a dispute resolution never tarnishes a worker.
 	if (!verdict.pass) {
+		const moderated = !!verdict.moderator;
+		const failStatus = moderated ? 'refunded' : 'failed';
 		let refundSig = null;
 		let refundError = null;
 		try {
@@ -76,14 +81,15 @@ export async function runSettlement({ job, bounty, verdict: providedVerdict = nu
 			refundError = e?.message || String(e);
 			console.error('[labor-settle] refund failed', refundError);
 		}
-		await markJobFailed(job.id, { reason: `verification failed: ${verdict.reason}`, refundSig, status: 'failed' });
-		await setBountyStatus(bounty.id, 'failed', { refundSig });
+		const reason = moderated ? `moderator refund: ${verdict.reason}` : `verification failed: ${verdict.reason}`;
+		await markJobFailed(job.id, { reason, refundSig, status: failStatus });
+		await setBountyStatus(bounty.id, failStatus, { refundSig });
 		emitReasoning({
-			agentId: bounty.poster_agent_id, kind: 'labor.refund',
-			summary: `Refunded "${bounty.title}" — work rejected`,
+			agentId: bounty.poster_agent_id, kind: moderated ? 'labor.moderator_refund' : 'labor.refund',
+			summary: moderated ? `Moderator refunded "${bounty.title}"` : `Refunded "${bounty.title}" — work rejected`,
 			detail: { bounty_id: bounty.id, job_id: job.id, verdict, refund_sig: refundSig, refund_error: refundError },
 		});
-		return { settled: false, status: 'failed', verdict, refund_sig: refundSig, refund_error: refundError };
+		return { settled: false, status: failStatus, verdict, refund_sig: refundSig, refund_error: refundError };
 	}
 
 	// ── Pass path: resolve royalty + split ───────────────────────────────────

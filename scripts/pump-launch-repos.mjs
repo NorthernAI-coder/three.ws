@@ -168,7 +168,7 @@ async function confirm(question) {
 }
 
 // ── GitHub repo enumeration (via authed gh CLI) ──────────────────────────────
-function fetchRepos() {
+function fetchReposOnce() {
 	const jq =
 		'.[] | select(.private==false' +
 		(INCLUDE_FORKS ? '' : ' and .fork==false') +
@@ -180,20 +180,22 @@ function fetchRepos() {
 		{ encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
 	);
 	if (res.status !== 0) die(`gh api failed: ${res.stderr || res.stdout}`);
-	const repos = res.stdout
+	return res.stdout
 		.trim()
 		.split('\n')
 		.filter(Boolean)
 		.map((l) => JSON.parse(l));
-	// Dedupe by name, stable order.
-	const seen = new Set();
-	const out = [];
-	for (const r of repos) {
-		if (seen.has(r.name)) continue;
-		seen.add(r.name);
-		out.push(r);
+}
+
+// GitHub's paginated list endpoint can return a short page on a transient hiccup,
+// silently undercounting (this bit us once: 112 instead of 145). Fetch twice and
+// union by repo name so a one-off short page never drops repos.
+function fetchRepos() {
+	const byName = new Map();
+	for (let pass = 0; pass < 2; pass++) {
+		for (const r of fetchReposOnce()) if (!byName.has(r.name)) byName.set(r.name, r);
 	}
-	return out;
+	return [...byName.values()];
 }
 
 // Derive a <=10 char uppercase ticker, unique across the set.
