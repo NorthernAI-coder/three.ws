@@ -9,6 +9,7 @@
 // through the real /api/labor endpoints with CSRF on mutations.
 
 import { apiFetch } from './api.js';
+import { updateValue, setLiveDot } from './ui-juice.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -86,13 +87,16 @@ const ownsAgent = (id) => state.myAgents.some((a) => a.id === id);
 
 function renderSummary() {
 	const t = state.feed?.totals || {};
-	$('#lm-sum-volume').textContent = t.volume_three != null ? fmtThree(t.volume_three) : '0';
-	$('#lm-sum-jobs').textContent = (t.settled_jobs ?? 0).toLocaleString();
-	$('#lm-sum-open').textContent = (t.open_bounties ?? 0).toLocaleString();
+	// Count the headline tiles from their previously-shown real values, flashing the
+	// direction as the market polls (the #lm-sum-* nodes persist across refreshes).
+	updateValue($('#lm-sum-volume'), Number(t.volume_three || 0), fmtThree);
+	updateValue($('#lm-sum-jobs'), Number(t.settled_jobs || 0), (n) => Math.round(n).toLocaleString());
+	updateValue($('#lm-sum-open'), Number(t.open_bounties || 0), (n) => Math.round(n).toLocaleString());
 	const escrow = $('#lm-sum-escrow');
 	escrow.textContent = state.escrowConfigured ? 'Live' : 'Offline';
 	escrow.classList.toggle('lm-bad', !state.escrowConfigured);
 	escrow.classList.toggle('lm-good', state.escrowConfigured);
+	setLiveDot($('#lm-live'), 'live', 'live');
 }
 
 function renderTicker() {
@@ -592,6 +596,7 @@ async function refresh() {
 	} catch {
 		const list = $('#lm-list');
 		if (!state.feed) list.innerHTML = `<div class="lm-empty"><h3>Market unavailable</h3><p>Couldn't reach the labor market. <button type="button" class="lm-btn" data-retry>Retry</button></p></div>`;
+		setLiveDot($('#lm-live'), state.feed ? 'connecting' : 'error', state.feed ? 'reconnecting' : 'offline');
 	}
 }
 
