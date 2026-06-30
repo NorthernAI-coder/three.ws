@@ -1,11 +1,21 @@
 {
-	"generated_at": "2026-06-30T22:32:33.298Z",
+	"generated_at": "2026-06-30T22:33:38.485Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-06-30",
+			"type": "launch",
+			"title": "Docs · x402 Revenue & Receipts",
+			"summary": "Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.",
+			"link": "/docs/x402-revenue",
+			"tags": [
+				"launch"
+			]
+		},
 		{
 			"date": "2026-06-30",
 			"type": "launch",
@@ -292,6 +302,56 @@
 			"title": "Agent Economy Volume",
 			"summary": "Live dashboard of total agent-to-agent economy volume: real USDC settled between AI agents hiring each other for paid skills over x402, with top earners, top spenders, and a 90-day volume chart.",
 			"link": "/agent-economy-volume",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "launch",
+			"title": "Docs · Autonomous x402 Loop",
+			"summary": "The scheduled buyer that pays x402 endpoints on a cadence to feed the oracle and sniper — real USDC, real settlements.",
+			"link": "/docs/autonomous-x402",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "launch",
+			"title": "Docs · Circulation Engine",
+			"summary": "The autonomous agent-to-agent activity loop — a pool of real platform agents tipping, paying, trading, and launching with one another.",
+			"link": "/docs/circulation-engine",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "launch",
+			"title": "Docs · Money Feed",
+			"summary": "The surfaces that show real value moving through three.ws — the live ticker, the custody-spend ledger, and the economy volume dashboard.",
+			"link": "/docs/money-feed",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "launch",
+			"title": "Docs · x402 Buyer Client",
+			"summary": "How to settle a 402 challenge and pay three.ws's paid endpoints from code.",
+			"link": "/docs/x402-buyer",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-06-29",
+			"type": "launch",
+			"title": "Docs · x402 Paid Endpoints",
+			"summary": "The catalog of three.ws's own paid HTTP endpoints — what each charges, the price-override scheme, and what it returns.",
+			"link": "/docs/x402-endpoints",
 			"tags": [
 				"launch"
 			]
@@ -13668,6 +13728,16 @@
 			"title": "Chat",
 			"summary": "Talk to your agent. Voice, text, and tool-use in one interface.",
 			"link": "/chat",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-04-29",
+			"type": "launch",
+			"title": "Docs · x402 Protocol",
+			"summary": "How three.ws implements x402 HTTP 402 paid agent skills — the challenge, verify, and settle mechanics.",
+			"link": "/docs/x402",
 			"tags": [
 				"launch"
 			]

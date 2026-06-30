@@ -202,14 +202,133 @@ so the same on-chain payment can never be replayed against two requests.
 
 ---
 
+## Proof-of-volume — `x402_volume_metrics`
+
+`x402_audit_log` is the per-call ledger (one row per settlement). Alongside it,
+the **Volume Bootstrap Loop** (autonomous registry `self/026`,
+[`pipelines/volume-bootstrap-loop.js`](../api/_lib/x402/pipelines/volume-bootstrap-loop.js))
+maintains a compact **rolling aggregate keyed on endpoint** in
+`x402_volume_metrics`. On each sweep the loop round-robins the catalog of cheap
+paid self endpoints, pays each a real on-chain USDC payment, and upserts one row
+per endpoint — accumulating call / success / fail counts, total + last USDC
+spent, last tx signature, last status, and first/last call timestamps.
+
+```sql
+CREATE TABLE x402_volume_metrics (
+  endpoint_key        text PRIMARY KEY,  -- one row per paid endpoint
+  service_name        text,
+  endpoint_path       text,
+  network             text NOT NULL DEFAULT 'solana:mainnet',
+  asset               text,
+  call_count          bigint NOT NULL DEFAULT 0,
+  success_count       bigint NOT NULL DEFAULT 0,
+  fail_count          bigint NOT NULL DEFAULT 0,
+  total_spent_atomic  bigint NOT NULL DEFAULT 0,   -- USDC atomics, lifetime
+  last_amount_atomic  bigint NOT NULL DEFAULT 0,
+  last_success        boolean,
+  last_status         int,
+  last_tx_signature   text,
+  last_error          text,
+  last_run_id         uuid,
+  first_called_at     timestamptz DEFAULT now(),
+  last_called_at      timestamptz DEFAULT now()
+);
+```
+
+Schema:
+[`api/_lib/migrations/20260629110000_x402_volume_metrics.sql`](../api/_lib/migrations/20260629110000_x402_volume_metrics.sql)
+(the pipeline also creates it lazily via `ensureSchema`). It feeds two things the
+growth + status surfaces read: **proof-of-volume** (total settled calls and USDC
+volume per endpoint — the metric agentic.market ranks facilitators on) and
+**per-endpoint liveness** (`last_success` / `last_called_at` confirm each paid
+endpoint is up). Add an endpoint to `VOLUME_ENDPOINTS` in the pipeline and the
+cursor and ledger pick it up automatically.
+
+> **Synthetic vs organic — do not conflate them.** The Volume Bootstrap Loop pays
+> our **own** endpoints from our **own** seed wallet, and those endpoints settle
+> to the platform's own `X402_PAY_TO_*` treasury. Every transaction is real and
+> on-chain — but the *demand* is synthetic: it is the platform paying itself, a
+> liveness canary, not external buyers. It is legitimate as **synthetic
+> monitoring** (proving every paid endpoint is live) and is bounded small by
+> design (see the budget knobs in [Autonomous x402 loop](autonomous-x402.md)).
+> It is **not** marketplace demand. Any headline "marketplace volume" or
+> facilitator-ranking number we publish must **exclude the seed wallet's own
+> calls** — filter `x402_audit_log` by `payer` to separate organic settlements
+> from the loop's synthetic ones. Reporting self-paid round-trips as organic
+> volume is wash volume: real transactions, fake demand, and trivially detectable
+> by anyone clustering the seed wallet on-chain. The honest path to real volume
+> is external demand (discovery, real `agent_hire` commerce, the
+> [Circulation engine](circulation-engine.md)), not a bigger self-paid sweep.
+
+---
+
+## Reconciliation — `payment_reconciliation`
+
+A live payment platform's books must match the chain. The **Payment Revenue
+Reconciliation** job (autonomous registry `self/027`, runs **daily**,
+[`revenue-reconciliation.js`](../api/_lib/x402/revenue-reconciliation.js)) is the
+financial-integrity watchdog. Each run pulls recent records that claim settlement
+from both books — `x402_autonomous_log` (outbound spend) and
+`agent_payment_intents` (inbound revenue) — verifies each Solana signature
+on-chain via `getSignatureStatuses` (batched, full-history search), and upserts
+one verdict row per record into `payment_reconciliation`.
+
+```sql
+CREATE TABLE payment_reconciliation (
+  id            bigserial   PRIMARY KEY,
+  source        text        NOT NULL,   -- 'autonomous_log' | 'payment_intent'
+  source_ref    text        NOT NULL,   -- row id within that book
+  tx_signature  text,
+  network       text,
+  amount_atomic bigint,
+  db_status     text        NOT NULL,   -- what the book claims
+  chain_status  text        NOT NULL,   -- confirmed | failed_onchain | missing_onchain
+                                        -- | missing_signature | skipped_non_solana | unknown
+  reconciled    boolean     NOT NULL,
+  discrepancy   text,                   -- null when reconciled
+  detail        jsonb,
+  run_id        uuid,
+  first_seen_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+Schema:
+[`api/_lib/migrations/20260629120000_payment_reconciliation.sql`](../api/_lib/migrations/20260629120000_payment_reconciliation.sql).
+The job is **read-only**, so it runs even when the spend wallet is absent (it
+falls back to a keyless RPC connection; the `/api/x402-status` probe it uses is
+free). A row with `reconciled = false` is a financial-integrity alert — the DB
+recorded a settlement the chain does not corroborate. The ops surface watches:
+
+```sql
+-- Unreconciled settlements in the last day — investigate before they corrupt accounting.
+SELECT source, source_ref, tx_signature, db_status, chain_status, discrepancy
+FROM payment_reconciliation
+WHERE reconciled = false
+  AND first_seen_at >= now() - interval '24 hours'
+ORDER BY first_seen_at DESC;
+```
+
+`chain_status` classifies each discrepancy: `failed_onchain` (tx reverted),
+`missing_onchain` (no tx exists), `missing_signature` (settled but no signature
+kept). EVM/Base settlements are `skipped_non_solana` (not verified here).
+
+---
+
 ## Driving volume through these endpoints
 
-Revenue only exists if the endpoints get called. The
-[Autonomous x402 loop](autonomous-x402.md) is the scheduled buyer that pays many
-of these endpoints on a cadence to feed the oracle and sniper, and the
-[Circulation engine](circulation-engine.md) drives real agent-to-agent commerce.
-Both settle **real** USDC through the same flow above — every row in
-`x402_audit_log` is a verifiable settlement, never a synthetic number.
+Revenue only exists if the endpoints get called. Two systems drive **organic**
+calls: the [Circulation engine](circulation-engine.md) drives real
+agent-to-agent commerce, and the [Autonomous x402 loop](autonomous-x402.md)'s
+oracle/sniper pipelines pay our intel endpoints to feed real downstream
+decisions. Both settle **real** USDC through the flow above, from real
+counterparties.
+
+Separately, the **Volume Bootstrap Loop** (above) generates **synthetic**
+liveness traffic by paying our own endpoints from the seed wallet. Every row in
+`x402_audit_log` is a verifiable on-chain settlement — but "verifiable" is not
+"organic." When you report revenue or volume, decide explicitly whether the
+number is meant to represent external demand (exclude the seed wallet) or total
+settled activity (include it), and label it as such.
 
 ---
 
@@ -218,5 +337,5 @@ Both settle **real** USDC through the same flow above — every row in
 - [x402 paid endpoints](x402-endpoints.md) — the catalog of what charges and how much.
 - [x402 protocol](x402.md) — the challenge / verify / settle mechanics.
 - [x402 buyer client](x402-buyer.md) — how to settle a 402 challenge in code.
-- [Autonomous x402 loop](autonomous-x402.md) — the scheduled buyer that drives volume.
+- [Autonomous x402 loop](autonomous-x402.md) — the scheduled buyer that drives volume, including the Volume Bootstrap Loop and the reconciliation job.
 - [Money feed](money-feed.md) — the agent-spend side of the ledger (the Money Pulse), distinct from endpoint revenue.
