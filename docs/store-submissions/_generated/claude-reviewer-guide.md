@@ -95,7 +95,7 @@ payment you get a structured **`PaymentRequired`** — this is the correct, expe
       "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",  // Solana mainnet
       "amount": "1000",                  // atomic USDC (6 decimals) → $0.001
       "asset":  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
-      "payTo":  "BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN"
+      "payTo":  "wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU"
     }]
   },
   "content": [ /* the JSON envelope, plus a plain-language explanation of the price + how to pay */ ]

@@ -259,7 +259,7 @@ describe('buildProvenance — receipt shape', () => {
 		amountUsd: 0.05,
 		latencyMs: 1840,
 		model: 'claude-haiku-4-5-20251001',
-		payTo: 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN',
+		payTo: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
 		task: 'Summarise the latest pump.fun graduations in 3 bullets.',
 	};
 

@@ -394,60 +394,6 @@
 		}
 
 		/* ── THREE DOORS ─────────────────────────────────────────── */
-		/* ── Platform oracle activity strip ─────────────────────── */
-		.home-oracle-strip {
-			display: grid;
-			grid-template-columns: repeat(5, 1fr);
-			gap: 1px;
-			background: var(--hairline);
-			border: 1px solid var(--hairline);
-			border-radius: 12px;
-			overflow: hidden;
-			margin-bottom: 40px;
-		}
-		@media (max-width: 720px) {
-			.home-oracle-strip { grid-template-columns: repeat(3, 1fr); }
-			.home-oracle-strip .home-oracle-kpi:nth-child(n+4) { display: none; }
-		}
-		.home-oracle-kpi {
-			background: var(--surface-0);
-			padding: 18px 20px 16px;
-			display: flex;
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 4px;
-		}
-		.home-oracle-kpi-value {
-			font-size: 22px;
-			font-weight: 700;
-			letter-spacing: -0.03em;
-			color: var(--text);
-			line-height: 1;
-		}
-		.home-oracle-kpi-value.accent { color: #34d399; }
-		.home-oracle-kpi-value.loading { color: var(--text-3); animation: home-oracle-pulse 1.4s ease-in-out infinite; }
-		@keyframes home-oracle-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
-		.home-oracle-kpi-label {
-			font-size: 11px;
-			font-weight: 500;
-			text-transform: uppercase;
-			letter-spacing: 0.07em;
-			color: var(--text-3);
-		}
-		.home-oracle-live-dot {
-			display: inline-block;
-			width: 6px; height: 6px;
-			border-radius: 50%;
-			background: #34d399;
-			margin-right: 4px;
-			vertical-align: middle;
-			animation: home-oracle-dot-blink 2s ease-out infinite;
-		}
-		@keyframes home-oracle-dot-blink {
-			0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.6); }
-			70% { box-shadow: 0 0 0 5px transparent; }
-			100% { box-shadow: 0 0 0 0 transparent; }
-		}
 
 		.doors {
 			display: grid; grid-template-columns: repeat(3, 1fr);
@@ -2780,29 +2726,6 @@
 				A full-stack platform for 3D AI agents: from selfie to published agent, from embed to earning.
 			</p>
 		</div>
-		<!-- Live platform oracle activity stats -->
-		<div class="home-oracle-strip reveal reveal-d1" id="home-oracle-strip" aria-label="Live platform activity">
-			<div class="home-oracle-kpi">
-				<span class="home-oracle-kpi-value loading" id="home-stat-agents">—</span>
-				<span class="home-oracle-kpi-label">Agents live</span>
-			</div>
-			<div class="home-oracle-kpi">
-				<span class="home-oracle-kpi-value loading" id="home-stat-scored">—</span>
-				<span class="home-oracle-kpi-label">Scored today</span>
-			</div>
-			<div class="home-oracle-kpi">
-				<span class="home-oracle-kpi-value accent loading" id="home-stat-winrate">—</span>
-				<span class="home-oracle-kpi-label"><span class="home-oracle-live-dot" aria-hidden="true"></span>Win rate</span>
-			</div>
-			<div class="home-oracle-kpi">
-				<span class="home-oracle-kpi-value loading" id="home-stat-wins">—</span>
-				<span class="home-oracle-kpi-label">Total wins</span>
-			</div>
-			<div class="home-oracle-kpi">
-				<span class="home-oracle-kpi-value loading" id="home-stat-pnl">—</span>
-				<span class="home-oracle-kpi-label">Best ATH</span>
-			</div>
-		</div>
 		<div class="doors reveal reveal-d1">
 			<a class="door" href="/create" data-cta="build_agent" data-cta-loc="doors">
 				<div class="door-num"><span>01</span><span class="lbl">Create</span></div>
@@ -2857,8 +2780,40 @@
 		padding: 6px 12px; border: 1px solid var(--hairline-strong); border-radius: 999px;
 		font-size: 12px; letter-spacing: .02em; color: var(--text-2); background: var(--surface-1);
 	}
+	/* ── aggregate proof band ──────────────────────────────────── */
+	#home-sniper .snipe-stats {
+		margin-top: 40px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+	}
+	@media (max-width: 720px) { #home-sniper .snipe-stats { grid-template-columns: 1fr; gap: 12px; } }
+	#home-sniper .snipe-stat {
+		position: relative; padding: 26px 24px; border-radius: 14px; overflow: hidden;
+		background: var(--surface-0); border: 1px solid var(--hairline-strong);
+		transition: transform .25s cubic-bezier(.2,.7,.3,1), border-color .25s, background .25s;
+	}
+	#home-sniper .snipe-stat::before {
+		content: ""; position: absolute; left: 0; top: 0; height: 2px; width: 100%;
+		background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+		opacity: 0; transition: opacity .3s;
+	}
+	#home-sniper .snipe-stat:hover {
+		transform: translateY(-3px); border-color: rgba(255,255,255,0.4); background: var(--surface-1);
+	}
+	#home-sniper .snipe-stat:hover::before { opacity: 1; }
+	#home-sniper .snipe-stat-val {
+		display: block; font-size: clamp(30px, 4.4vw, 46px); font-weight: 800; line-height: 1;
+		letter-spacing: -.02em; color: var(--text); font-variant-numeric: tabular-nums;
+	}
+	#home-sniper .snipe-stat-val.accent { color: #34d399; }
+	#home-sniper .snipe-stat-val.loading { color: var(--text-3); animation: snipe-shimmer-text 1.4s ease-in-out infinite; }
+	#home-sniper .snipe-stat-lbl {
+		display: block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--text);
+	}
+	#home-sniper .snipe-stat-hint {
+		display: block; margin-top: 5px; font-size: 12px; line-height: 1.45; color: var(--text-3);
+	}
+
 	#home-sniper .snipe-console {
-		margin-top: 40px; border: 1px solid var(--hairline-strong); border-radius: 16px;
+		margin-top: 24px; border: 1px solid var(--hairline-strong); border-radius: 16px;
 		background: var(--surface-0); overflow: hidden;
 		box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 24px 60px -32px rgba(0,0,0,0.8);
 	}
@@ -3032,6 +2987,25 @@
 			<span class="snipe-lede-pill"><span class="snipe-dot live" aria-hidden="true"></span> Live engine · real positions · no simulation</span>
 		</div>
 
+		<!-- Aggregate proof band — real platform numbers from the oracle + trade ledger -->
+		<div class="snipe-stats reveal reveal-d1" id="snipe-stats" aria-label="Autonomous trading — by the numbers">
+			<div class="snipe-stat">
+				<span class="snipe-stat-val loading" id="snipe-stat-scored" data-to="0">—</span>
+				<span class="snipe-stat-lbl">Launches scored today</span>
+				<span class="snipe-stat-hint">Every new pump.fun mint, graded for conviction in the last 24 hours.</span>
+			</div>
+			<div class="snipe-stat">
+				<span class="snipe-stat-val accent loading" id="snipe-stat-wins" data-to="0">—</span>
+				<span class="snipe-stat-lbl">Winning exits</span>
+				<span class="snipe-stat-hint">Profitable trades agents have closed autonomously, all-time.</span>
+			</div>
+			<div class="snipe-stat">
+				<span class="snipe-stat-val loading" id="snipe-stat-ath" data-to="0">—</span>
+				<span class="snipe-stat-lbl">Best run</span>
+				<span class="snipe-stat-hint">Top multiple a scored launch has reached from its entry.</span>
+			</div>
+		</div>
+
 		<div class="snipe-console reveal reveal-d1">
 			<div class="snipe-console-head">
 				<div class="snipe-status" id="snipe-status">
@@ -3093,8 +3067,7 @@
 
 			<div class="snipe-foot">
 				<div class="snipe-kpis" id="snipe-kpis">
-					<div class="snipe-kpi"><span class="snipe-kpi-val accent loading" id="snipe-kpi-winrate">—</span><span class="snipe-kpi-lbl">Win rate</span></div>
-					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-roi">—</span><span class="snipe-kpi-lbl">Best ROI</span></div>
+					<div class="snipe-kpi"><span class="snipe-kpi-val accent loading" id="snipe-kpi-roi">—</span><span class="snipe-kpi-lbl">Best ROI</span></div>
 					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-open">—</span><span class="snipe-kpi-lbl">Open positions</span></div>
 					<div class="snipe-kpi"><span class="snipe-kpi-val loading" id="snipe-kpi-armed">—</span><span class="snipe-kpi-lbl">Strategies armed</span></div>
 				</div>
@@ -7404,40 +7377,5 @@
 	</script>
 	<!-- Runtime i18n: detects locale, swaps annotated copy, mounts <lang-switcher>. -->
 	<script type="module" src="/src/i18n.js"></script>
-	<script>
-		// Live oracle activity stats for "The platform" section.
-		(function () {
-			var IDS = {
-				agents:  'home-stat-agents',
-				scored:  'home-stat-scored',
-				winrate: 'home-stat-winrate',
-				wins:    'home-stat-wins',
-				pnl:     'home-stat-pnl',
-			};
-			function fmt(n) {
-				if (n == null) return '—';
-				if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-				if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-				return String(Math.round(n));
-			}
-			function set(id, val) {
-				var el = document.getElementById(id);
-				if (!el) return;
-				el.textContent = val;
-				el.classList.remove('loading');
-			}
-			fetch('/api/oracle/stats', { headers: { accept: 'application/json' } })
-				.then(function (r) { return r.ok ? r.json() : null; })
-				.then(function (d) {
-					if (!d) return;
-					set(IDS.agents,  fmt(d.agents_armed));
-					set(IDS.scored,  fmt(d.scored_24h));
-					set(IDS.winrate, d.win_rate != null ? Number(d.win_rate).toFixed(0) + '%' : '—');
-					set(IDS.wins,    fmt(d.total_wins));
-					set(IDS.pnl,     d.best_ath != null ? d.best_ath.toFixed(1) + 'x' : '—');
-				})
-				.catch(function () { /* non-fatal — placeholders stay */ });
-		})();
-	</script>
 </body>
 </html>

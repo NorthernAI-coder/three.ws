@@ -317,6 +317,15 @@
 .mny-price-save { margin-top: 0; }
 
 /* Earnings feed */
+.mny-earn-summary { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.mny-earn-stat {
+	flex: 1 1 90px; padding: 10px 12px; border-radius: var(--radius-md, 10px);
+	background: var(--surface-1, rgba(255, 255, 255, 0.03)); border: 1px solid var(--stroke);
+	display: flex; flex-direction: column; gap: 2px;
+}
+.mny-earn-stat b { font-size: var(--text-lg, 1rem); color: var(--ink-bright, #fff); font-variant-numeric: tabular-nums; }
+.mny-earn-stat b.pos { color: var(--success, #4ade80); }
+.mny-earn-stat span { font-size: var(--text-2xs, 0.6875rem); color: var(--ink-dim, #888); }
 .mny-earn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .mny-earn-row {
 	display: flex;
@@ -532,7 +541,16 @@
 	background: var(--surface-1, rgba(255, 255, 255, 0.03));
 	border: 1px solid var(--stroke);
 }
-.mny-withdraw-head { font-weight: var(--weight-semibold, 600); color: var(--ink-bright, #fff); margin-bottom: 10px; }
+.mny-withdraw-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-weight: var(--weight-semibold, 600); color: var(--ink-bright, #fff); margin-bottom: 10px; }
+.mny-asset-toggle { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-2, rgba(255,255,255,0.06)); border: 1px solid var(--stroke); }
+.mny-asset-btn {
+	border: 0; background: transparent; color: var(--ink-dim, #888); cursor: pointer;
+	padding: 3px 12px; border-radius: 999px; font-size: var(--text-2xs, 0.6875rem); font-weight: var(--weight-semibold, 600);
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+.mny-asset-btn:hover { color: var(--ink-bright, #fff); }
+.mny-asset-btn.is-on { background: var(--accent, #6366f1); color: #fff; }
+.mny-withdraw-avail { margin-left: auto; font-size: var(--text-2xs, 0.6875rem); color: var(--ink-dim, #888); font-weight: var(--weight-normal, 400); font-variant-numeric: tabular-nums; }
 .mny-withdraw-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .mny-withdraw-row input {
 	flex: 1 1 140px; min-width: 0;

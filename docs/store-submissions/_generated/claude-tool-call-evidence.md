@@ -56,7 +56,7 @@ Common to every challenge: `isError: true` (required by the @x402/mcp client to
 auto-detect-and-pay — it is the x402 contract, **not** a failure), `x402Version: 2`,
 `asset` = `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (USDC), `network` =
 `solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp` (Solana mainnet), `payTo` =
-`BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN` (platform default — the unsubstituted
+`wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU` (platform default — the unsubstituted
 `${MCP_SVM_PAYMENT_ADDRESS}` placeholder bug is fixed), plus an appended plain-language line:
 *"Payment required — this is the EXPECTED response for a paid tool, not an error…"*.
 
@@ -92,14 +92,14 @@ Representative raw challenge (`text_to_avatar`):
       "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
       "amount": "150000",
       "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-      "payTo": "BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN",
+      "payTo": "wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU",
       "maxTimeoutSeconds": 60,
       "extra": { "name": "USDC", "decimals": 6, "feePayer": "2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4" }
     }]
   },
   "content": [
     { "type": "text", "text": "{…the x402 envelope as JSON…}" },
-    { "type": "text", "text": "Payment required — this is the EXPECTED response for a paid tool, not an error. Calling \"text_to_avatar\" costs $0.15 in USDC on Solana (paid to BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN). To execute it, supply an x402 \"exact\" payment in _meta[\"x402/payment\"] and call again, or set the reviewer entitlement (MCP_REVIEW_MODE) to run it without payment. Full machine-readable requirements are in structuredContent.accepts." }
+    { "type": "text", "text": "Payment required — this is the EXPECTED response for a paid tool, not an error. Calling \"text_to_avatar\" costs $0.15 in USDC on Solana (paid to wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU). To execute it, supply an x402 \"exact\" payment in _meta[\"x402/payment\"] and call again, or set the reviewer entitlement (MCP_REVIEW_MODE) to run it without payment. Full machine-readable requirements are in structuredContent.accepts." }
   ]
 }
 ```

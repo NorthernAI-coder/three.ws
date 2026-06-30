@@ -45,7 +45,7 @@ const env = (key, fallback) => {
 // never set a payout address (e.g. a connector reviewer running
 // `npx @three-ws/mcp-server` with zero env). A real operator overrides it with
 // MCP_SVM_PAYMENT_ADDRESS.
-const DEFAULT_SVM_PAY_TO = 'BUrwd1nK6tFeeJMyzRHDo6AuVbnSfUULfvwq21X93nSN';
+const DEFAULT_SVM_PAY_TO = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
 
 // Base58 Solana address: 32–44 chars, excluding 0 O I l.
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

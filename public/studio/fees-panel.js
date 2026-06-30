@@ -7,8 +7,11 @@
 //   • Claim creator fees — connected-wallet creator signs, or the agent
 //     custodial wallet signs server-side (collect-creator-fee-agent).
 //   • Delegate fees to a team / GitHub contributors (fee-sharing config) — the
-//     "reward coin" mechanism. Import contributors from a GitHub repo, assign a
-//     wallet + share to each, and write the split on-chain.
+//     "reward coin" mechanism. Route rewards to a single GitHub account (the
+//     "$THREE → @nirholas" pattern) or import a whole repo's contributors,
+//     assign a wallet + share to each, and write the split on-chain. A GitHub
+//     handle is resolved to its three.ws-linked Solana payout wallet via
+//     resolve-github-shareholder so the split pays a real, claimable address.
 //   • Distribute / claim-if-delegated — anyone (creator, agent, or a delegated
 //     shareholder) can crank distribution to release accrued shares.
 //
@@ -28,6 +31,19 @@ export function parseGithubRepo(input) {
 	const owner = m[1], repo = m[2];
 	if (!owner || !repo || owner === 'github.com') return null;
 	return { owner, repo };
+}
+
+// Parse a single GitHub account from "@login", "login", or a profile URL into
+// the bare login, or null. GitHub logins are alphanumeric with single internal
+// hyphens, 1–39 chars. Used for the "route rewards to one GitHub user" path;
+// the caller tries parseGithubRepo first, so an "owner/repo" never lands here.
+export function parseGithubAccount(input) {
+	let s = String(input || '').trim().replace(/^@/, '');
+	if (!s) return null;
+	s = s.replace(/^https?:\/\//i, '').replace(/^github\.com\//i, '');
+	const login = s.split('/')[0].replace(/\/+$/, '');
+	if (!/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(login)) return null;
+	return login;
 }
 
 // Convert contributor weights into integer basis points summing to exactly
