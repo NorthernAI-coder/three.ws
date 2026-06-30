@@ -1738,11 +1738,15 @@ async function handleNetWorth(req, res, id) {
 	try {
 		balances = await getBalances({ chain: 'solana', address });
 	} catch (e) {
-		// Hold-last-state contract: when the chain read is briefly unavailable we
-		// return a typed error so the client keeps the agent's last real look
-		// rather than snapping it to a fake baseline.
+		// Hold-last-state contract: getBalances already serves a stale last-known-good
+		// snapshot when the live read fails, so reaching here means we have never read
+		// this wallet successfully AND every RPC path is down right now — genuinely
+		// transient and rare. Return 503 + Retry-After (not 502): the correct
+		// "temporarily unavailable, come back" signal, and the typed error still lets
+		// the client keep its last real look rather than snapping to a fake baseline.
 		warnNetworthThrottled(id, `[agents/networth] balance read failed agentId=${id} ${e?.message}`);
-		return error(res, 502, 'rpc_error', 'could not read the wallet right now — holding last state');
+		res.setHeader('Retry-After', '15');
+		return error(res, 503, 'rpc_unavailable', 'could not read the wallet right now — holding last state');
 	}
 
 	const usd = walletUsdTotal(balances);
@@ -1783,6 +1787,10 @@ async function handleNetWorth(req, res, id) {
 			prefs,
 			is_owner: isOwner,
 			hub_url: hubUrl,
+			// True when balances are a last-known-good snapshot served because the
+			// live chain read was briefly unavailable. The figures are real (the
+			// wallet's last successful read), just not freshly confirmed.
+			stale: balances?.stale === true,
 			updated_at: new Date().toISOString(),
 		},
 	});

@@ -808,6 +808,10 @@
 			"dest": "/swarms.html"
 		},
 		{
+			"src": "/ui-juice/?",
+			"dest": "/ui-juice.html"
+		},
+		{
 			"src": "/api/strategies/(.*)",
 			"dest": "/api/strategies"
 		},
