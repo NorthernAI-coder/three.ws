@@ -24,6 +24,63 @@ const PAGE_LIMIT = 1000;
 const MAX_PAGES = 200; // hard ceiling — 200k holders before we abort, matches Helius limits
 const UPSERT_CHUNK = 2000; // rows per batched upsert — keeps statements under Neon size limits
 
+// Per-page retry policy for the DAS walk. Helius enforces a shared requests/sec
+// rate limit; a multi-page holder scan can trip it mid-walk and the SDK throws a
+// 429. Retrying that page after a short backoff lets the limiter refill and the
+// scan complete, instead of aborting the whole snapshot tick (the production
+// failure mode behind the "[three-holders-snapshot] refresh failed: Solana error
+// #8100002" floods — #8100002 is the @solana/kit HTTP-transport wrapper carrying
+// statusCode 429). Capped well under the cron's 120s budget: at most
+// PAGE_RETRY_MAX backoffs of up to PAGE_RETRY_CAP_MS each, gated by an overall
+// SCAN_BUDGET_MS deadline so a sustained throttle degrades to a deferred tick
+// rather than a function timeout.
+const PAGE_RETRY_MAX = 4;
+const PAGE_RETRY_BASE_MS = 500;
+const PAGE_RETRY_CAP_MS = 6000;
+const SCAN_BUDGET_MS = 90_000;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * True when a thrown RPC error is an upstream rate limit (HTTP 429). Handles the
+ * three shapes Helius/@solana/kit produce: a SolanaError whose `context.statusCode`
+ * is 429 (the structured signal, present at runtime even when the human-readable
+ * message is stripped in prod builds), a plain error with `.status`/`.statusCode`,
+ * and the verbatim provider bodies ("429", "Too Many Requests", "max usage
+ * reached") that surface only as a message string. Exported so the snapshot cron
+ * classifies the same condition as a transient warning, not an error.
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isRpcRateLimited(err) {
+	if (!err || typeof err !== 'object') return false;
+	const e = /** @type {any} */ (err);
+	const ctx = e.context || {};
+	const status = Number(e.statusCode ?? e.status ?? ctx.statusCode ?? NaN);
+	if (status === 429) return true;
+	const msg = String(e.message || err);
+	return /\b429\b|too many requests|rate.?limit|max usage reached/i.test(msg);
+}
+
+// One DAS page with bounded exponential backoff on 429. Non-rate-limit errors
+// (auth, malformed mint, network reset) propagate immediately — retrying them
+// only burns the scan budget. `deadline` is the absolute epoch-ms cutoff for the
+// whole walk; once a backoff would cross it we give up so the cron never runs
+// past its function budget.
+async function getTokenAccountsPage(client, params, deadline) {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await client.getTokenAccounts(params);
+		} catch (err) {
+			if (!isRpcRateLimited(err) || attempt >= PAGE_RETRY_MAX) throw err;
+			const backoff = Math.min(PAGE_RETRY_CAP_MS, PAGE_RETRY_BASE_MS * 2 ** attempt)
+				+ Math.floor(Math.random() * 250); // small jitter so concurrent scanners desync
+			if (Date.now() + backoff > deadline) throw err;
+			await sleep(backoff);
+		}
+	}
+}
+
 let _heliusMainnet = null;
 let _heliusDevnet = null;
 
@@ -50,15 +107,16 @@ function helius(network) {
 export async function fetchHolderBalances({ mint, network = 'mainnet' }) {
 	const client = helius(network);
 	const balances = new Map();
+	const deadline = Date.now() + SCAN_BUDGET_MS;
 
 	let cursor;
 	for (let page = 0; page < MAX_PAGES; page++) {
-		const resp = await client.getTokenAccounts({
+		const resp = await getTokenAccountsPage(client, {
 			mint,
 			limit: PAGE_LIMIT,
 			...(cursor ? { cursor } : {}),
 			options: { showZeroBalance: false },
-		});
+		}, deadline);
 
 		const accounts = resp?.token_accounts || [];
 		for (const acc of accounts) {

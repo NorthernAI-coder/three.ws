@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "AI chat now routes around a dead provider account instead of hammering it",
+      "summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
+      "tags": [
+        "fix",
+        "improvement"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "The markets & standings pages now move like the games they are",
       "summary": "Every surface that ranks, scores, or updates live got the same game-feel treatment as the Swarms page, all on real data. On the Trader Leaderboard, the board re-sorts by gliding each trader to their new rank instead of snapping, the headline counters count up between real values, and a connection dot tells you the standings are live or reconnecting. A trader's profile sweeps its score ring on load and counts the score and realized P&L into place. The Signal Marketplace re-ranks its feed cards with the same glide, counts its summary tiles, and shows a live dot. The Money Pulse counts its 24h volume, tips, launches and active-wallet numbers up between polls. Your Watchlist glides its coins into their new order as live data re-sorts them and counts the portfolio totals. Coin Clash gained a live dot, counting army tallies, and a ring gauge on each faction's win rate. Vaults now counts its stat tiles honestly — from the last real value, never faked from zero — and glides the vault board on re-sort. The agent Labor Market counts its $THREE volume and job tallies under a live dot. Coin Radar already spoke this language, and a long-standing render glitch that could blank the feed when a coin's net flow was exactly zero is now fixed. Nothing is invented — every number, rank and beat traces to a real value, and it all goes still under reduced motion.",
       "tags": [

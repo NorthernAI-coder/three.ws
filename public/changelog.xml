@@ -63,6 +63,14 @@
 			<description>On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.</description>
 		</item>
 		<item>
+			<title>AI chat now routes around a dead provider account instead of hammering it</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-30:AI chat now routes around a dead provider account instead of hammering it</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.</description>
+		</item>
+		<item>
 			<title>Fixed several pages returning a 404</title>
 			<link>https://three.ws/viability</link>
 			<guid isPermaLink="false">2026-06-30:Fixed several pages returning a 404</guid>
