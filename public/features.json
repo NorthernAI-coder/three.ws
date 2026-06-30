@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T01:23:42.493Z",
+	"generated_at": "2026-06-30T02:51:06.552Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -811,6 +811,16 @@
 					"title": "Oracle — AI Conviction Engine",
 					"description": "A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.",
 					"added": "2026-06-16",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/oracle/docs",
+					"title": "Oracle Docs — the conviction engine, end to end",
+					"description": "The complete Oracle reference: the thesis behind fused pump.fun conviction, the four-pillar scoring model and its exact math, the data pipeline and worker loops, the calibration and backtest evidence, the agent action loop, the full API, the data model, limitations, and where it scales next — written for everyone from first-time readers to researchers.",
+					"added": "2026-06-30",
 					"auth": null,
 					"indexable": true,
 					"tags": [],

@@ -668,6 +668,14 @@
 					"added": "2026-06-16"
 				},
 				{
+					"path": "/oracle/docs",
+					"title": "Oracle Docs — the conviction engine, end to end",
+					"description": "The complete Oracle reference: the thesis behind fused pump.fun conviction, the four-pillar scoring model and its exact math, the data pipeline and worker loops, the calibration and backtest evidence, the agent action loop, the full API, the data model, limitations, and where it scales next — written for everyone from first-time readers to researchers.",
+					"priority": 0.75,
+					"changefreq": "weekly",
+					"added": "2026-06-30"
+				},
+				{
 					"path": "/oracle/arm",
 					"title": "Arm your agent — automate Oracle conviction",
 					"description": "Configure your 3D agent to trade Oracle conviction automatically: set the minimum score, position size, daily and open-position caps, narrative filters and Telegram alerts, then arm it in simulate or live mode. Every action is graded against the outcome.",

@@ -39,18 +39,17 @@ Before writing a single line of code, answer these questions internally:
 8. **No "good enough."** If you notice something is mediocre while building, fix it now. Don't leave it for later. Later never comes.
 9. **No errors without solutions.** There is always a correct answer — find it. Never let something fail because finding the fix felt hard. Every error has a root cause; every root cause has a fix. Ship working fallbacks and failsafes. Lazy error propagation is not engineering.
 
-## The only coin — $THREE (absolute, no exceptions)
+## The promoted coin — $THREE (commit gate on every other coin)
 
-**The only coin this platform may ever reference is `$THREE`. Contract address: `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`. There are no other coins. Full stop.**
+**`$THREE` is the only coin this platform promotes. Contract address: `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`. Discussing or building with other coins is allowed — but nothing referencing another crypto project gets committed without explicit owner approval first.**
 
-- **Never mention, name, add, hardcode, link, import, render, recommend, or talk about any other coin or token** — anywhere: code, comments, tests, fixtures, sample data, docs, blog posts, UI copy, metadata, commit messages, PR descriptions, or direct conversation with the user.
-- **This includes any other coin three.ws itself has launched.** $THREE is the one and only. Do not reference or acknowledge past, related, partner, demo, or test launches. If asked, the answer is: $THREE is the only coin.
-- **No third-party or real mainnet mints in tests/fixtures.** If a token address is needed, use `$THREE` (CA above) or a clearly-synthetic placeholder (e.g. `THREEsynthetic1111…`). Never paste a real coin's mint, creator, or holder address.
-- If you find any reference to another coin in the codebase, **remove it** — treat it the same as a leaked secret.
-- Two mechanical exceptions, both runtime-data-only:
+- **Other coins are fine in conversation and in the working tree.** You may discuss, prototype, and write code that references other coins/tokens/projects while building. Do NOT strip existing other-coin references as if they were leaked secrets — that enforcement is retired.
+- **Commit gate (hard rule):** Before any `git commit` whose diff references any crypto project other than `$THREE` — in code, comments, tests, fixtures, sample data, docs, UI copy, metadata, commit messages, or PR text — STOP and ask the owner for explicit approval. No exceptions. Staging/committing is not self-approving here; the owner must say yes to that specific content.
+- **$THREE stays the promoted coin.** Default marketing, recommendations, and "the platform's coin" framing remain $THREE. Other coins are worked-with, not promoted, unless the owner directs otherwise.
+- **No real mainnet mints in tests/fixtures by default.** Prefer `$THREE` (CA above) or a clearly-synthetic placeholder (e.g. `THREEsynthetic1111…`). A real third-party mint, creator, or holder address in committed code falls under the commit gate above — ask first.
+- Two mechanical exceptions that never need the gate, both runtime-data-only (no specific mint hardcoded):
   1. Generic, coin-agnostic plumbing where a mint is supplied at runtime by the user (e.g. the pump.fun launcher accepting an arbitrary mint as input).
   2. Platform launch directories that render coins users launched through three.ws from the platform's own launch records at runtime (the `/launches` feed, agent-profile launch history, `/api/pump/launches` over `pump_agent_mints`). These are product features, not endorsements — do not remove them.
-  In both cases, never hardcode, market, or recommend a specific non-`$THREE` mint anywhere in source, copy, or conversation. $THREE remains the only coin the platform promotes.
 
 ## Engineering excellence
 
@@ -111,6 +110,7 @@ A feature is NOT done until ALL of these are true:
 - [ ] Error state is designed and actionable (tells user what went wrong and how to recover).
 - [ ] Loading state uses real async indicators (skeleton screens preferred over spinners).
 - [ ] Existing tests still pass (`npm test`).
+- [ ] Documentation written and wired (see **Documentation** below) — feature doc/README, `STRUCTURE.md` if a new surface or directory landed, and a `data/changelog.json` entry.
 - [ ] `git diff` reviewed by you before claiming completion — every changed line justified.
 - [ ] You would be proud to demo this feature to a room of senior engineers.
 
@@ -146,6 +146,26 @@ $THREE holders follow the public changelog (three.ws/changelog, RSS, JSON, Teleg
 - `npm run build:pages` regenerates CHANGELOG.md, public/changelog.json, and public/changelog.xml — it also validates your entry and fails the build on a malformed one.
 - After the change is deployed, `npm run changelog:push` posts new entries to the holders' Telegram channel (needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHANGELOG_CHAT_ID`; use `--dry-run` to preview). Skip silently if creds are absent locally.
 - Internal-only chores (CI, lockfiles, refactors with no visible effect) do NOT get entries.
+
+## Documentation: every feature ships with its docs
+
+We have strong product-level docs (README, STRUCTURE.md, changelog) but feature-level docs have drifted — half-built features land with no doc explaining what they are or how to use them. That stops now. **Documentation is part of the feature, not a follow-up.** A feature is not done until someone who didn't build it could find it, understand what it does, and use it from the docs alone.
+
+Match the doc to the kind of work — do every layer that applies, skip the ones that don't:
+
+- **New page or public route** → add it to `data/pages.json` (path, title, description, `added` date). This feeds the sitemap, `llms.txt`, `features.json`, and the changelog automatically. This is the one mandatory step for anything user-reachable.
+- **New SDK, package, worker, service, or top-level directory** → a `README.md` *in that directory* is required: what it does, how to install/use it, its public API/exports, and one runnable example. New package under `packages/*`, new `workers/<name>/`, new SDK — no exceptions. This is the gap we're closing; ~40% of dirs are missing one.
+- **New product surface or directory** → add a row to `STRUCTURE.md` mapping it to its location and status. Nothing enforces this in CI, so it's on you. If you moved or graduated a surface, update its existing row.
+- **New developer-facing capability** (API endpoint, MCP tool, protocol, integration, CLI) → add or update the relevant file in `docs/` (`docs/api-reference.md`, `docs/mcp.md`, `docs/tutorials/*`, etc.). Follow the format of the neighboring docs in that folder. A genuinely new subsystem gets its own `docs/<feature>.md` linked from `docs/start-here.md`.
+- **New load-bearing contract or wire format** (manifest schema, on-chain interface, embed protocol, permission model) → write or update the spec in `specs/`. Specs are contracts other code depends on, not tutorials.
+- **Always** → add the `data/changelog.json` entry per the Changelog section above. Use the `docs` tag when the change *is* documentation.
+
+Rules:
+- **Public, non-obvious surfaces get a doc.** Internal refactors, one-off scripts, and changes with no user- or developer-visible effect do not — don't manufacture filler docs for them.
+- **Write for the reader who has zero context.** No commit jargon, no "see the code." Explain the why, show a working example, link to related surfaces (`STRUCTURE.md`, the page, the spec).
+- **Docs are real implementations too** — the no-mocks, no-placeholders, no-TODO rules apply. Every code sample must actually run. Every link must resolve to a live path. A `// TODO: document` is a failed feature, not a doc.
+- **Update, don't duplicate.** If a doc already covers the area, extend it. Read the neighboring docs before adding a new file so you match their structure and depth.
+- **If you touched a feature and its existing docs are now wrong, fix them in the same change.** Stale docs are worse than none.
 
 ## Commit & push: do it immediately, no questions
 

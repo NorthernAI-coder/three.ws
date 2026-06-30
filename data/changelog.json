@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Oracle now has full documentation",
+      "summary": "Everything behind the conviction score, in one place. The new Oracle docs explain — in plain English and, where you want it, full mathematical detail — how Oracle reads every pump.fun launch: the four pillars (who's buying, how it's structured, what story it rides, how it's moving), exactly how they fuse into a 0–100 score, where the hard caps come from, how the engine is calibrated and backtested against real outcomes, how to arm an agent on it, the full public API, and where it's headed. Real screenshots throughout, a quickstart for traders, builders, and skeptics, and a researcher-level appendix.",
+      "tags": [
+        "docs",
+        "feature"
+      ],
+      "link": "/oracle/docs"
+    },
+    {
+      "date": "2026-06-30",
       "title": "Agent Studio movement previews now play on the live avatar",
       "summary": "On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.",
       "tags": [
