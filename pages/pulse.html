@@ -111,68 +111,13 @@
 				<div class="px-spark-bars" id="px-spark-bars" role="img" aria-label="Daily activity, last 7 days"></div>
 			</section>
 
-			<section class="px-market" id="px-market" aria-label="Marketplace viability" hidden>
-				<div class="px-market-h">
-					<div class="px-market-htxt">
-						<span class="px-market-title">Marketplace viability</span>
-						<span class="px-market-tag" id="px-mkt-fee">—</span>
-					</div>
-					<span class="px-market-sub">Real $THREE skill purchases — value delivered, take-rate earned. The honest signal behind the payments counter.</span>
-				</div>
-				<div class="px-market-kpis">
-					<div class="px-kpi"><dt>GMV · 24h</dt><dd id="px-mkt-gmv24">—</dd><span class="px-kpi-sub" id="px-mkt-gmv24-sub">$THREE</span></div>
-					<div class="px-kpi"><dt>GMV · 7d</dt><dd id="px-mkt-gmv7">—</dd><span class="px-kpi-sub" id="px-mkt-gmv7-sub">$THREE</span></div>
-					<div class="px-kpi"><dt>Avg ticket</dt><dd id="px-mkt-ticket">—</dd><span class="px-kpi-sub">per purchase · 7d</span></div>
-					<div class="px-kpi"><dt>Repeat buyers</dt><dd id="px-mkt-repeat">—</dd><span class="px-kpi-sub" id="px-mkt-repeat-sub">of buyers · 7d</span></div>
-					<div class="px-kpi"><dt>Trading pairs</dt><dd id="px-mkt-pairs">—</dd><span class="px-kpi-sub">unique buyer→seller · 7d</span></div>
-					<div class="px-kpi px-kpi--take"><dt>Take-rate · 7d</dt><dd id="px-mkt-take">—</dd><span class="px-kpi-sub" id="px-mkt-take-sub">platform fee</span></div>
-				</div>
-				<div class="px-market-body">
-					<div class="px-market-spark">
-						<div class="px-spark-h">
-							<span class="px-spark-title">GMV · last 7 days</span>
-							<span class="px-spark-total" id="px-mkt-spark-total">—</span>
-						</div>
-						<div class="px-spark-bars" id="px-mkt-spark" role="img" aria-label="Daily marketplace GMV, last 7 days"></div>
-					</div>
-					<div class="px-market-skills">
-						<div class="px-card-h"><span>Top skills</span><small>GMV · 7d</small></div>
-						<div id="px-mkt-skills"><p class="px-lb-empty">Loading…</p></div>
-					</div>
-				</div>
-			</section>
-
-			<section class="px-market px-trading" id="px-trading" aria-label="Trading viability" hidden>
-				<div class="px-market-h">
-					<div class="px-market-htxt">
-						<span class="px-market-title">Trading viability</span>
-						<span class="px-market-tag" id="px-trade-pnl-tag">—</span>
-						<button type="button" class="px-market-action" id="px-trade-filter" data-filter="trades" hidden>Show trades in feed →</button>
-					</div>
-					<span class="px-market-sub">Real, fully-guarded coin trades through agent wallets — what's flowing, what it costs, and the realized P&amp;L on positions that have closed. The honest signal behind the Trades counter.</span>
-				</div>
-				<div class="px-market-kpis">
-					<div class="px-kpi"><dt>Trades · 24h</dt><dd id="px-trade-c24">—</dd><span class="px-kpi-sub" id="px-trade-c24-sub">swaps</span></div>
-					<div class="px-kpi"><dt>Trades · 7d</dt><dd id="px-trade-c7">—</dd><span class="px-kpi-sub" id="px-trade-c7-sub">swaps</span></div>
-					<div class="px-kpi"><dt>SOL deployed · 7d</dt><dd id="px-trade-dep7">—</dd><span class="px-kpi-sub" id="px-trade-dep7-sub">into buys</span></div>
-					<div class="px-kpi"><dt>Avg trade · 7d</dt><dd id="px-trade-avg">—</dd><span class="px-kpi-sub">SOL per buy</span></div>
-					<div class="px-kpi"><dt>Active traders · 24h</dt><dd id="px-trade-act">—</dd><span class="px-kpi-sub">wallets trading</span></div>
-					<div class="px-kpi px-kpi--pnl"><dt>Realized P&amp;L · 7d</dt><dd id="px-trade-pnl">—</dd><span class="px-kpi-sub" id="px-trade-pnl-sub">closed positions</span></div>
-				</div>
-				<div class="px-market-body">
-					<div class="px-market-spark">
-						<div class="px-spark-h">
-							<span class="px-spark-title">Trades · last 7 days</span>
-							<span class="px-spark-total" id="px-trade-spark-total">—</span>
-						</div>
-						<div class="px-spark-bars" id="px-trade-spark" role="img" aria-label="Daily trade count, last 7 days"></div>
-					</div>
-					<div class="px-market-skills">
-						<div class="px-card-h"><span>Top traders</span><small>trades · 7d</small></div>
-						<div id="px-trade-traders"><p class="px-lb-empty">Loading…</p></div>
-					</div>
-				</div>
-			</section>
+			<a class="px-viability-cta" href="/viability">
+				<span class="px-viability-cta-txt">
+					<strong>Viability</strong>
+					<small>The honest signal — real marketplace GMV &amp; take-rate, real trading flow &amp; realized P&amp;L.</small>
+				</span>
+				<span class="px-viability-cta-go" aria-hidden="true">→</span>
+			</a>
 
 			<div class="px-grid">
 				<div class="px-main">
@@ -197,10 +142,6 @@
 					<section class="px-card">
 						<div class="px-card-h">Busiest wallets <small>events · 24h</small></div>
 						<div id="px-busiest"><p class="px-lb-empty">Loading…</p></div>
-					</section>
-					<section class="px-card" id="px-sellers-card" hidden>
-						<div class="px-card-h">Top sellers <small>earnings · 7d</small></div>
-						<div id="px-sellers"><p class="px-lb-empty">Loading…</p></div>
 					</section>
 					<section class="px-card">
 						<div class="px-card-h">Fresh launches <small>newest coins</small></div>

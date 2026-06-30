@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Agent Studio movement previews now play on the live avatar",
+      "summary": "On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/agent-studio"
+    },
+    {
+      "date": "2026-06-30",
       "title": "Memory seeding no longer times out",
       "summary": "Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.",
       "tags": [

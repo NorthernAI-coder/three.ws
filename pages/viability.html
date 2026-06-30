@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<style>/* three.ws hidden-guard — make the `hidden` attribute authoritative; see scripts/lib/hidden-guard.mjs */[hidden]{display:none!important}</style>
+		<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Viability · three.ws</title>
+		<meta
+			name="description"
+			content="The honest signal behind three.ws — real marketplace and trading viability. Live $THREE skill GMV, take-rate, repeat buyers and trading pairs, plus real guarded coin-trade flow, cost and realized P&L on closed positions. Real on-chain data only."
+		/>
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="three.ws" />
+		<meta property="og:url" content="https://three.ws/viability" />
+		<meta property="og:title" content="Viability · three.ws" />
+		<meta
+			property="og:description"
+			content="The honest signal behind three.ws — real marketplace GMV and take-rate, plus real guarded coin-trade flow, cost and realized P&L. Real on-chain data only."
+		/>
+		<meta property="og:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Viability&amp;d=The+honest+signal+behind+three.ws+%E2%80%94+real+marketplace+GMV+and+take-rate%2C+plus+real+guarded+coin-trade+flow%2C+cost+and+realized+P%26L.&amp;p=%2Fviability" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:site" content="@trythreews" />
+		<meta name="twitter:title" content="Viability · three.ws" />
+		<meta
+			name="twitter:description"
+			content="The honest signal behind three.ws — real marketplace GMV and take-rate, plus real guarded coin-trade flow, cost and realized P&L."
+		/>
+		<meta name="twitter:image" content="https://three.ws/api/page-og?s=crypto&amp;t=Viability&amp;d=The+honest+signal+behind+three.ws+%E2%80%94+real+marketplace+GMV+and+take-rate%2C+plus+real+guarded+coin-trade+flow%2C+cost+and+realized+P%26L.&amp;p=%2Fviability" />
+		<meta name="theme-color" content="#0a0a0a" />
+		<link rel="icon" href="/favicon.ico" sizes="any" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/site.webmanifest" />
+		<link rel="stylesheet" href="/fonts/fonts.css" />
+		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/pulse.css" />
+		<link rel="stylesheet" href="/footer.css" />
+		<script defer src="/footer-newsletter.js"></script>
+		<link rel="canonical" href="https://three.ws/viability" />
+		<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Viability","description":"The honest signal behind three.ws — real marketplace and trading viability, served from live on-chain data.","url":"https://three.ws/viability","isPartOf":{"@type":"WebSite","name":"three.ws","url":"https://three.ws"}}</script>
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+		<meta property="og:locale" content="en_US" />
+		<meta property="og:image:alt" content="Viability — three.ws" />
+	</head>
+	<body>
+		<header><div id="nav-container"></div></header>
+		<script src="/nav.js"></script>
+
+		<main class="px-shell">
+			<section class="px-hero">
+				<p class="px-kicker"><span class="px-live-dot" aria-hidden="true"></span> The honest signal</p>
+				<h1 class="px-title"><em>Viability</em></h1>
+				<p class="px-sub">
+					Is this real? The two money loops behind three.ws — the skill marketplace and agent
+					trading — measured honestly. Real $THREE purchases, real guarded coin trades, real
+					realized P&amp;L. No vanity metrics, no synthetic activity.
+					See every beat as it lands on the <a href="/pulse">Money Pulse →</a>
+				</p>
+				<div class="px-hero-row">
+					<div class="px-net" role="tablist" aria-label="Network">
+						<button type="button" class="px-net-btn active" data-network="mainnet" role="tab" aria-selected="true">Mainnet</button>
+						<button type="button" class="px-net-btn" data-network="devnet" role="tab" aria-selected="false">Devnet</button>
+					</div>
+					<span class="px-updated" id="px-updated" aria-live="polite"></span>
+				</div>
+			</section>
+
+			<section class="px-market" id="px-market" aria-label="Marketplace viability" hidden>
+				<div class="px-market-h">
+					<div class="px-market-htxt">
+						<span class="px-market-title">Marketplace viability</span>
+						<span class="px-market-tag" id="px-mkt-fee">—</span>
+					</div>
+					<span class="px-market-sub">Real $THREE skill purchases — value delivered, take-rate earned. The honest signal behind the payments counter.</span>
+				</div>
+				<div class="px-market-kpis">
+					<div class="px-kpi"><dt>GMV · 24h</dt><dd id="px-mkt-gmv24">—</dd><span class="px-kpi-sub" id="px-mkt-gmv24-sub">$THREE</span></div>
+					<div class="px-kpi"><dt>GMV · 7d</dt><dd id="px-mkt-gmv7">—</dd><span class="px-kpi-sub" id="px-mkt-gmv7-sub">$THREE</span></div>
+					<div class="px-kpi"><dt>Avg ticket</dt><dd id="px-mkt-ticket">—</dd><span class="px-kpi-sub">per purchase · 7d</span></div>
+					<div class="px-kpi"><dt>Repeat buyers</dt><dd id="px-mkt-repeat">—</dd><span class="px-kpi-sub" id="px-mkt-repeat-sub">of buyers · 7d</span></div>
+					<div class="px-kpi"><dt>Trading pairs</dt><dd id="px-mkt-pairs">—</dd><span class="px-kpi-sub">unique buyer→seller · 7d</span></div>
+					<div class="px-kpi px-kpi--take"><dt>Take-rate · 7d</dt><dd id="px-mkt-take">—</dd><span class="px-kpi-sub" id="px-mkt-take-sub">platform fee</span></div>
+				</div>
+				<div class="px-market-body">
+					<div class="px-market-spark">
+						<div class="px-spark-h">
+							<span class="px-spark-title">GMV · last 7 days</span>
+							<span class="px-spark-total" id="px-mkt-spark-total">—</span>
+						</div>
+						<div class="px-spark-bars" id="px-mkt-spark" role="img" aria-label="Daily marketplace GMV, last 7 days"></div>
+					</div>
+					<div class="px-market-skills">
+						<div class="px-card-h"><span>Top skills</span><small>GMV · 7d</small></div>
+						<div id="px-mkt-skills"><p class="px-lb-empty">Loading…</p></div>
+					</div>
+				</div>
+			</section>
+
+			<section class="px-market px-trading" id="px-trading" aria-label="Trading viability" hidden>
+				<div class="px-market-h">
+					<div class="px-market-htxt">
+						<span class="px-market-title">Trading viability</span>
+						<span class="px-market-tag" id="px-trade-pnl-tag">—</span>
+						<a class="px-market-action" id="px-trade-filter" href="/pulse?type=trades" hidden>Show trades in feed →</a>
+					</div>
+					<span class="px-market-sub">Real, fully-guarded coin trades through agent wallets — what's flowing, what it costs, and the realized P&amp;L on positions that have closed. The honest signal behind the Trades counter.</span>
+				</div>
+				<div class="px-market-kpis">
+					<div class="px-kpi"><dt>Trades · 24h</dt><dd id="px-trade-c24">—</dd><span class="px-kpi-sub" id="px-trade-c24-sub">swaps</span></div>
+					<div class="px-kpi"><dt>Trades · 7d</dt><dd id="px-trade-c7">—</dd><span class="px-kpi-sub" id="px-trade-c7-sub">swaps</span></div>
+					<div class="px-kpi"><dt>SOL deployed · 7d</dt><dd id="px-trade-dep7">—</dd><span class="px-kpi-sub" id="px-trade-dep7-sub">into buys</span></div>
+					<div class="px-kpi"><dt>Avg trade · 7d</dt><dd id="px-trade-avg">—</dd><span class="px-kpi-sub">SOL per buy</span></div>
+					<div class="px-kpi"><dt>Active traders · 24h</dt><dd id="px-trade-act">—</dd><span class="px-kpi-sub">wallets trading</span></div>
+					<div class="px-kpi px-kpi--pnl"><dt>Realized P&amp;L · 7d</dt><dd id="px-trade-pnl">—</dd><span class="px-kpi-sub" id="px-trade-pnl-sub">closed positions</span></div>
+				</div>
+				<div class="px-market-body">
+					<div class="px-market-spark">
+						<div class="px-spark-h">
+							<span class="px-spark-title">Trades · last 7 days</span>
+							<span class="px-spark-total" id="px-trade-spark-total">—</span>
+						</div>
+						<div class="px-spark-bars" id="px-trade-spark" role="img" aria-label="Daily trade count, last 7 days"></div>
+					</div>
+					<div class="px-market-skills">
+						<div class="px-card-h"><span>Top traders</span><small>trades · 7d</small></div>
+						<div id="px-trade-traders"><p class="px-lb-empty">Loading…</p></div>
+					</div>
+				</div>
+			</section>
+
+			<section class="px-card" id="px-sellers-card" aria-label="Top sellers" hidden>
+				<div class="px-card-h">Top sellers <small>earnings · 7d</small></div>
+				<div id="px-sellers"><p class="px-lb-empty">Loading…</p></div>
+			</section>
+
+			<p class="px-sub px-fineprint">
+				Network: <strong id="px-net-label">mainnet</strong>. Every figure is computed from real, already-public on-chain
+				activity and platform launch records. Private withdrawals and custody events are never shown.
+			</p>
+		</main>
+
+		<script type="module" src="/src/viability.js"></script>
+		<script src="/brand.js" defer></script>
+		<div id="footer-container"></div>
+		<script src="/footer.js"></script>
+	</body>
+</html>

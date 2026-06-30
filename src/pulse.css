@@ -166,6 +166,20 @@ body {
 .px-market-action:hover { color: var(--ink-bright, #fff); border-color: var(--stroke-strong, rgba(255,255,255,.22)); background: var(--surface-2, rgba(255,255,255,.05)); }
 .px-market-action:active { background: var(--surface-3, rgba(255,255,255,.10)); transform: translateY(0.5px); }
 .px-market-action:focus-visible { outline: 2px solid var(--ink-bright, #fff); outline-offset: 2px; }
+
+/* Viability CTA — the quiet bridge from the live feed to the /viability page where
+   the marketplace + trading "honest signal" panels now live in full. */
+.px-viability-cta { display: flex; align-items: center; gap: var(--space-md, 14px); margin-bottom: var(--space-xl, 32px);
+	padding: var(--space-md, 14px) var(--space-md, 16px); border-radius: var(--radius-lg, 14px);
+	background: var(--surface-1, rgba(255,255,255,.03)); border: 1px solid var(--stroke-strong, rgba(255,255,255,.14));
+	color: inherit; text-decoration: none; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.px-viability-cta:hover { border-color: var(--ink-bright, #fff); background: var(--surface-2, rgba(255,255,255,.05)); transform: translateY(-1px); }
+.px-viability-cta:focus-visible { outline: 2px solid var(--ink-bright, #fff); outline-offset: 2px; }
+.px-viability-cta-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.px-viability-cta-txt strong { font-family: var(--font-display, sans-serif); font-size: var(--text-lg, 1.05rem); font-weight: 600; color: var(--ink-bright, #fff); }
+.px-viability-cta-txt small { font-size: var(--text-2xs, .66rem); color: var(--ink-dim, #888); line-height: 1.4; }
+.px-viability-cta-go { margin-left: auto; font-family: var(--font-mono, monospace); font-size: 1.15rem; color: var(--ink-dim, #aaa); transition: transform .16s ease, color .16s ease; }
+.px-viability-cta:hover .px-viability-cta-go { transform: translateX(3px); color: var(--ink-bright, #fff); }
 /* One-line plain-language readout under the KPIs — the human summary of the week. */
 .px-trade-insight { margin: 0 0 var(--space-md, 16px); font-size: var(--text-sm, .8rem); line-height: 1.45; color: var(--ink-dim, #aaa); }
 .px-skill-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 8px; border-radius: var(--radius-md, 9px); }
