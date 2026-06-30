@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<title>@three-ws/x402-modal — demo</title>
+	<title>x402 payment modal — demo</title>
 	<style>
 		:root { color-scheme: light dark; }
 		* { box-sizing: border-box; }
@@ -39,8 +39,15 @@
 </head>
 <body>
 	<main>
-		<h1>@three-ws/x402-modal</h1>
+		<h1>x402 payment modal</h1>
 		<p class="lede">A drop-in payment modal for any x402 paid endpoint. Two ways to wire it, both below.</p>
+
+		<p class="muted">
+			Set <code>ENDPOINT</code> below to your own x402-protected route, then
+			click a button. With no edit the buttons point at
+			<code>/api/paid/summarize</code> on this same origin — run an x402
+			endpoint there (or anywhere) and the modal settles its 402 for you.
+		</p>
 
 		<h2>1 — Declarative (<code>data-x402-*</code>)</h2>
 		<p>The button below is bound automatically by the global script. Point
@@ -49,10 +56,12 @@
 			<button
 				class="cta"
 				id="declarative"
-				data-x402-endpoint="https://three.ws/api/x402/dance-tip?dancer=1&dance=rumba"
-				data-x402-merchant="three.ws"
-				data-x402-action="Tip a dancer">
-				Pay &amp; tip
+				data-x402-endpoint="/api/paid/summarize"
+				data-x402-method="POST"
+				data-x402-body='{"text":"The quick brown fox jumps over the lazy dog."}'
+				data-x402-merchant="Acme API"
+				data-x402-action="Summarize text">
+				Pay &amp; summarize
 			</button>
 			<pre id="declarative-out" class="muted">result will appear here…</pre>
 		</div>
@@ -67,8 +76,9 @@
 		<p class="muted">
 			This page loads the local build at <code>../dist/x402.global.js</code>.
 			Run <code>npm run build</code> in the package root first, then serve this
-			folder (e.g. <code>npx serve</code>) and open it. The demo endpoint is a
-			live three.ws x402 route; swap it for your own.
+			folder (e.g. <code>npx serve</code>) and open it. Swap
+			<code>ENDPOINT</code> for any live x402 route — the modal needs zero
+			vendor configuration to settle its 402.
 		</p>
 	</main>
 
@@ -78,6 +88,9 @@
 
 	<script type="module">
 		import { pay } from '../dist/x402-modal.mjs';
+
+		// Point this at your own x402-protected route. Both buttons use it.
+		const ENDPOINT = '/api/paid/summarize';
 
 		// Declarative button → listen for the DOM events the global build fires.
 		const dEl = document.getElementById('declarative');
@@ -98,9 +111,11 @@
 			pOut.textContent = 'opening modal…';
 			try {
 				const out = await pay({
-					endpoint: 'https://three.ws/api/x402/dance-tip?dancer=1&dance=rumba',
-					merchant: 'three.ws',
-					action: 'Tip a dancer',
+					endpoint: ENDPOINT,
+					method: 'POST',
+					body: { text: 'The quick brown fox jumps over the lazy dog.' },
+					merchant: 'Acme API',
+					action: 'Summarize text',
 				});
 				pOut.className = '';
 				pOut.textContent = JSON.stringify({ result: out.result, payment: out.payment }, null, 2);
