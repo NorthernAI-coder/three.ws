@@ -67,12 +67,16 @@ class MoneyStudio {
 			activity: null, // recent on-chain signatures
 			provisioning: false,
 			withdrawing: false,
+			wdAsset: 'SOL', // withdraw form: which asset to send (SOL | USDC)
 		};
 		this._render();
 		this._load();
-		// Live balances while the tab is visible.
+		// Live balances + earnings while the tab is visible.
 		this._poll = setInterval(() => {
-			if (document.visibilityState === 'visible' && !this.el.closest('[hidden]')) this._refreshWallet();
+			if (document.visibilityState === 'visible' && !this.el.closest('[hidden]')) {
+				this._refreshWallet();
+				this._refreshEarnings();
+			}
 		}, BALANCE_POLL_MS);
 	}
 
@@ -92,6 +96,7 @@ class MoneyStudio {
 			this.state.wallet = wallet;
 			this.state.prices = prices;
 			this.state.payments = payments;
+			this._earnSig = `${payments.length}:${payments[0]?.tx_hash || payments[0]?.created_at || ''}`;
 			this.state.error = null;
 			// Holdings + activity are real on-chain reads — fetch after the wallet so
 			// we know there's an address; a transient RPC miss never blocks the panel.
@@ -264,15 +269,28 @@ class MoneyStudio {
 	}
 
 	_withdrawForm() {
+		const a = this.state.wdAsset === 'USDC' ? 'USDC' : 'SOL';
+		const w = this.state.wallet || {};
+		const avail = a === 'USDC'
+			? (w.usdc_balance == null ? null : Number(w.usdc_balance))
+			: (w.solana_balance == null ? null : Number(w.solana_balance));
+		const availStr = avail == null ? '' : (a === 'USDC' ? `$${avail.toFixed(2)} available` : `${avail.toFixed(4)} SOL available`);
 		return `
-			<div class="mny-withdraw-head">Withdraw SOL</div>
+			<div class="mny-withdraw-head">
+				<span>Withdraw</span>
+				<span class="mny-asset-toggle" role="tablist" aria-label="Asset to withdraw">
+					<button class="mny-asset-btn ${a === 'SOL' ? 'is-on' : ''}" role="tab" aria-selected="${a === 'SOL'}" data-action="wd-asset" data-asset="SOL">SOL</button>
+					<button class="mny-asset-btn ${a === 'USDC' ? 'is-on' : ''}" role="tab" aria-selected="${a === 'USDC'}" data-action="wd-asset" data-asset="USDC">USDC</button>
+				</span>
+				${availStr ? `<span class="mny-withdraw-avail">${esc(availStr)}</span>` : ''}
+			</div>
 			<div class="mny-withdraw-row">
 				<input type="text" data-wd="destination" placeholder="Destination address" aria-label="Destination Solana address" />
-				<input type="number" min="0" step="any" data-wd="amount" placeholder="Amount" aria-label="Amount in SOL" />
-				<button class="studio-btn studio-btn-ghost" data-action="wd-max" title="Withdraw everything (keeps a little for fees)">Max</button>
+				<input type="number" min="0" step="any" data-wd="amount" placeholder="Amount" aria-label="Amount in ${esc(a)}" />
+				<button class="studio-btn studio-btn-ghost" data-action="wd-max" title="Withdraw everything${a === 'SOL' ? ' (keeps a little for fees)' : ''}">Max</button>
 				<button class="studio-btn studio-btn-primary" data-action="do-withdraw" ${this.state.withdrawing ? 'disabled' : ''}>${this.state.withdrawing ? 'Sending…' : 'Withdraw'}</button>
 			</div>
-			<p class="mny-faint">Real on-chain transfer from the agent's custodial wallet. Double-check the address — Solana transfers are irreversible.</p>
+			<p class="mny-faint">Real on-chain transfer from the agent's custodial wallet${a === 'USDC' ? ' (a little SOL is used for the network fee)' : ''}. Double-check the address — Solana transfers are irreversible.</p>
 			<div class="mny-withdraw-result" data-wd-result hidden></div>`;
 	}
 
@@ -286,6 +304,14 @@ class MoneyStudio {
 		if (host) host.innerHTML = this._activityHtml();
 	}
 
+	_setWdAsset(asset) {
+		const next = asset === 'USDC' ? 'USDC' : 'SOL';
+		if (next === this.state.wdAsset) return;
+		this.state.wdAsset = next;
+		const wrap = this._q('[data-withdraw]');
+		if (wrap && !wrap.hidden) wrap.innerHTML = this._withdrawForm();
+	}
+
 	async _withdraw(useMax = false) {
 		if (this.state.withdrawing) return;
 		const wrap = this._q('[data-withdraw]');
@@ -294,6 +320,11 @@ class MoneyStudio {
 		if (!dest) return this._toast('Enter a destination address', true);
 		const amount = useMax ? 'max' : Number(amtRaw);
 		if (!useMax && (!Number.isFinite(amount) || amount <= 0)) return this._toast('Enter a valid amount', true);
+		// SOL → the native asset; USDC → its SPL mint (the withdraw endpoint resolves
+		// the mint, sweeps the token on "max", and prices USDC 1:1 for the ceiling).
+		const isUsdc = this.state.wdAsset === 'USDC';
+		const asset = isUsdc ? USDC_MINT : 'SOL';
+		const sym = isUsdc ? 'USDC' : 'SOL';
 		this.state.withdrawing = true;
 		const btn = wrap?.querySelector('[data-action="do-withdraw"]');
 		if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
@@ -301,7 +332,7 @@ class MoneyStudio {
 			const res = await apiFetch(`/api/agents/${this.agentId}/wallet/withdraw`, {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ destination: dest, amount, asset: 'SOL', network: 'mainnet' }),
+				body: JSON.stringify({ destination: dest, amount, asset, network: 'mainnet' }),
 			});
 			const payload = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(payload?.error?.message || 'Withdrawal failed.');
@@ -311,7 +342,7 @@ class MoneyStudio {
 				result.hidden = false;
 				result.innerHTML = `✓ Sent. <a href="https://solscan.io/tx/${esc(d.signature)}" target="_blank" rel="noopener">View transaction ↗</a>`;
 			}
-			this._toast('Withdrawal sent');
+			this._toast(`${sym} withdrawal sent`);
 			this._refreshWallet();
 		} catch (err) {
 			this._toast(err.message || 'Withdrawal failed', true);
@@ -383,20 +414,60 @@ class MoneyStudio {
 	// ── Earnings ──────────────────────────────────────────────────────────────
 
 	_earningsSection() {
-		const items = this.state.payments || [];
 		return `
 			<section class="mny-section" aria-labelledby="mny-earn-h">
 				<div class="mny-section-head"><h3 id="mny-earn-h">Earnings</h3>
 					<p>Every payment other agents and users have made to this one.</p></div>
-				${
-					items.length
-						? `<ul class="mny-earn-list">${items.map((p) => this._earnRow(p)).join('')}</ul>`
-						: `<div class="mny-inline-empty">
-							<div class="mny-empty-glyph small" aria-hidden="true">◎</div>
-							<p>No earnings yet. Price a skill and share your agent — payments land here in real time.</p>
-						</div>`
-				}
+				<div data-earnings>${this._earningsBody()}</div>
 			</section>`;
+	}
+
+	_earningsBody() {
+		const items = this.state.payments || [];
+		if (!items.length) {
+			return `<div class="mny-inline-empty">
+				<div class="mny-empty-glyph small" aria-hidden="true">◎</div>
+				<p>No earnings yet. Price a skill and share your agent — payments land here in real time.</p>
+			</div>`;
+		}
+		return `${this._earningsSummary(items)}<ul class="mny-earn-list">${items.map((p) => this._earnRow(p)).join('')}</ul>`;
+	}
+
+	// Roll up the real payments ledger into headline figures — total received, count,
+	// and the trailing-7-day take — so the agent's economic output reads at a glance.
+	_earningsSummary(items) {
+		const weekAgo = Date.now() - 7 * 86400000;
+		let total = 0;
+		let week = 0;
+		for (const p of items) {
+			const amt = fmtUsdc(p.amount_wei);
+			total += amt;
+			if (p.created_at && new Date(p.created_at).getTime() >= weekAgo) week += amt;
+		}
+		return `
+			<div class="mny-earn-summary">
+				<div class="mny-earn-stat"><b>$${total.toFixed(2)}</b><span>total received</span></div>
+				<div class="mny-earn-stat"><b>${items.length}</b><span>payment${items.length === 1 ? '' : 's'}</span></div>
+				<div class="mny-earn-stat"><b class="${week > 0 ? 'pos' : ''}">$${week.toFixed(2)}</b><span>last 7 days</span></div>
+			</div>`;
+	}
+
+	_renderEarnings() {
+		const host = this._q('[data-earnings]');
+		if (host) host.innerHTML = this._earningsBody();
+	}
+
+	async _refreshEarnings() {
+		try {
+			const payments = await this._fetchPayments();
+			// Only re-render when the ledger actually changed (newest tx hash + count) —
+			// avoids churning the DOM every poll tick.
+			const sig = `${payments.length}:${payments[0]?.tx_hash || payments[0]?.created_at || ''}`;
+			if (sig === this._earnSig) return;
+			this._earnSig = sig;
+			this.state.payments = payments;
+			this._renderEarnings();
+		} catch { /* transient — keep last */ }
 	}
 
 	_earnRow(p) {
@@ -434,6 +505,7 @@ class MoneyStudio {
 			if (a === 'toggle-withdraw') { const w = this._q('[data-withdraw]'); if (w) w.hidden = !w.hidden; return; }
 			if (a === 'do-withdraw') return this._withdraw(false);
 			if (a === 'wd-max') return this._withdraw(true);
+			if (a === 'wd-asset') return this._setWdAsset(btn.dataset.asset);
 			if (a === 'go-skills') return document.dispatchEvent(new CustomEvent('studio:navigate', { detail: { tab: 'skills' } }));
 		});
 		this.el.querySelectorAll('[data-price-input]').forEach((inp) =>

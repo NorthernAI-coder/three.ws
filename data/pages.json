@@ -1493,6 +1493,48 @@
 					"added": "2026-06-22"
 				},
 				{
+					"path": "/docs/x402",
+					"title": "Docs · x402 Protocol",
+					"description": "How three.ws implements x402 HTTP 402 paid agent skills — the challenge, verify, and settle mechanics.",
+					"added": "2026-04-29"
+				},
+				{
+					"path": "/docs/x402-endpoints",
+					"title": "Docs · x402 Paid Endpoints",
+					"description": "The catalog of three.ws's own paid HTTP endpoints — what each charges, the price-override scheme, and what it returns.",
+					"added": "2026-06-29"
+				},
+				{
+					"path": "/docs/x402-revenue",
+					"title": "Docs · x402 Revenue & Receipts",
+					"description": "Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.",
+					"added": "2026-06-30"
+				},
+				{
+					"path": "/docs/x402-buyer",
+					"title": "Docs · x402 Buyer Client",
+					"description": "How to settle a 402 challenge and pay three.ws's paid endpoints from code.",
+					"added": "2026-06-29"
+				},
+				{
+					"path": "/docs/autonomous-x402",
+					"title": "Docs · Autonomous x402 Loop",
+					"description": "The scheduled buyer that pays x402 endpoints on a cadence to feed the oracle and sniper — real USDC, real settlements.",
+					"added": "2026-06-29"
+				},
+				{
+					"path": "/docs/circulation-engine",
+					"title": "Docs · Circulation Engine",
+					"description": "The autonomous agent-to-agent activity loop — a pool of real platform agents tipping, paying, trading, and launching with one another.",
+					"added": "2026-06-29"
+				},
+				{
+					"path": "/docs/money-feed",
+					"title": "Docs · Money Feed",
+					"description": "The surfaces that show real value moving through three.ws — the live ticker, the custody-spend ledger, and the economy volume dashboard.",
+					"added": "2026-06-29"
+				},
+				{
 					"path": "/docs/reputation",
 					"title": "Docs · Reputation System",
 					"description": "Leave and read permanent, on-chain reviews for any registered agent via the UI, SDK, or contract.",
