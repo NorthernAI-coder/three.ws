@@ -35,6 +35,7 @@
 		<link rel="manifest" href="/site.webmanifest" />
 		<link rel="stylesheet" href="/fonts/fonts.css" />
 		<link rel="stylesheet" href="/nav.css" />
+		<link rel="stylesheet" href="/src/ui-juice.css" />
 		<link rel="stylesheet" href="/src/leaderboard.css" />
 		<link rel="stylesheet" href="/footer.css" />
 		<style>
@@ -99,8 +100,8 @@
 		<main class="lb-shell" aria-labelledby="lb-title">
 			<section class="lb-hero">
 				<p class="lb-kicker">
-					<span class="lb-live-dot" aria-hidden="true"></span>
-					Provable track records · live on-chain
+					<span id="lb-live" class="juice-live" data-state="connecting"><span class="juice-live-dot" aria-hidden="true"></span><span class="juice-live-txt">connecting</span></span>
+					Provable track records · on-chain
 				</p>
 				<h1 id="lb-title" class="lb-title">Trader Leaderboard</h1>
 				<p class="lb-sub">

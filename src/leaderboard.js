@@ -12,6 +12,7 @@ import {
 	identicon, verifiedBadge,
 } from './trader-format.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
+import { updateValue, flipReorder, setLiveDot } from './ui-juice.js';
 
 const API = '/api/sniper/leaderboard';
 const REFRESH_MS = 20_000;
