@@ -27,16 +27,20 @@ import { priceFor } from '../_lib/x402-prices.js';
 const ROUTE = '/api/x402/my-service';
 
 export default paidEndpoint({
-  route: ROUTE,
-  // Default price in USDC atomics (6 decimals); env-overridable — see below.
-  priceAtomics: priceFor('my-service', '10000'), // $0.01
-  description: 'One line an agent reads to decide whether to buy.',
-  networks: ['solana', 'base'], // accepted networks, in challenge order
-  schema: { /* JSON Schema for input + output, drives Bazaar discovery */ },
-  // Throw BEFORE doing paid work if inputs are bad — the buyer keeps their money.
-  async handler({ req }) {
-    return { /* the JSON result the buyer paid for */ };
-  },
+	route: ROUTE,
+	// Default price in USDC atomics (6 decimals); env-overridable — see below.
+	priceAtomics: priceFor('my-service', '10000'), // $0.01
+	description: 'One line an agent reads to decide whether to buy.',
+	networks: ['solana', 'base'], // accepted networks, in challenge order
+	schema: {
+		/* JSON Schema for input + output, drives Bazaar discovery */
+	},
+	// Throw BEFORE doing paid work if inputs are bad — the buyer keeps their money.
+	async handler({ req }) {
+		return {
+			/* the JSON result the buyer paid for */
+		};
+	},
 });
 ```
 

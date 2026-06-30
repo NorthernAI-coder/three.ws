@@ -552,6 +552,12 @@ URL: https://three.ws/pulse
 
 The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.
 
+### Endpoint Revenue
+
+URL: https://three.ws/x402-revenue
+
+The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.
+
 ### Viability
 
 URL: https://three.ws/viability

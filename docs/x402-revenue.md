@@ -18,16 +18,26 @@ the buyer.
 three.ws records value moving in **two opposite directions**, in two different
 tables. They never overlap, and mixing them up will double-count your numbers.
 
-| Direction | Meaning | Table | Surfaced by |
-|---|---|---|---|
-| **Revenue IN** | Money paid **to** our endpoints for using them | `x402_audit_log` | `/api/x402/analytics?report=revenue` (this page) |
-| **Spend OUT** | Money an agent's wallet **paid out** (tips, trades, agent-to-agent x402) | `agent_custody_events` | The [Money Pulse](money-feed.md) at `/api/pulse` |
+| Direction      | Meaning                                                                  | Table                  | Surfaced by                                      |
+| -------------- | ------------------------------------------------------------------------ | ---------------------- | ------------------------------------------------ |
+| **Revenue IN** | Money paid **to** our endpoints for using them                           | `x402_audit_log`       | `/api/x402/analytics?report=revenue` (this page) |
+| **Spend OUT**  | Money an agent's wallet **paid out** (tips, trades, agent-to-agent x402) | `agent_custody_events` | The [Money Pulse](money-feed.md) at `/api/pulse` |
 
 The [Money Pulse](money-feed.md) shows the agent economy — one agent paying
 another, tips, launches. **This page is the other side of the ledger:** the
 platform's own endpoint revenue. A call to `/api/x402/token-intel` writes a
 **revenue** row in `x402_audit_log`; it is not an `agent_custody_events` spend and
 does not appear in the Money Pulse.
+
+### Live view — `/x402-revenue`
+
+There is a public, live dashboard of this ledger at
+[`/x402-revenue`](https://three.ws/x402-revenue): gross revenue, the top-earning
+endpoints, the settlement success rate, and a real-time feed of each settlement
+(endpoint, amount, network, payer, explorer link) the moment it lands. It is the
+revenue mirror of the [Money Pulse](https://three.ws/pulse) and reads the public,
+unauthenticated `GET /api/x402-revenue` (operational fields like IP and user agent
+are never exposed — only the on-chain-public route, amount, payer, and tx).
 
 ---
 
@@ -136,31 +146,31 @@ The `revenue` report shape
 
 ```json
 {
-  "report": "revenue",
-  "period": "24h",
-  "since": "2026-06-29T00:00:00.000Z",
-  "generated_at": "2026-06-30T00:00:00.000Z",
-  "totals": {
-    "gross_usd": 12.34,
-    "net_platform_usd": 11.90,
-    "settlement_fee_usd": 0.44,
-    "total_payments": 247,
-    "failed_payments": 3,
-    "unique_payers": 18,
-    "avg_payment_usd": 0.05
-  },
-  "fee_splits": {
-    "gross_usd": 12.34,
-    "settlement_fee_usd": 0.44,
-    "net_platform_usd": 11.90,
-    "effective_fee_rate": 0.0357,
-    "fee_per_settlement_usd": 0.0018,
-    "fee_source": "..."
-  },
-  "by_endpoint": [
-    { "endpoint": "/api/x402/token-intel", "count": 120, "gross_usd": 1.20, "share": 0.097 }
-  ],
-  "top_endpoint": { "endpoint": "/api/x402/token-intel", "gross_usd": 1.20 }
+	"report": "revenue",
+	"period": "24h",
+	"since": "2026-06-29T00:00:00.000Z",
+	"generated_at": "2026-06-30T00:00:00.000Z",
+	"totals": {
+		"gross_usd": 12.34,
+		"net_platform_usd": 11.9,
+		"settlement_fee_usd": 0.44,
+		"total_payments": 247,
+		"failed_payments": 3,
+		"unique_payers": 18,
+		"avg_payment_usd": 0.05
+	},
+	"fee_splits": {
+		"gross_usd": 12.34,
+		"settlement_fee_usd": 0.44,
+		"net_platform_usd": 11.9,
+		"effective_fee_rate": 0.0357,
+		"fee_per_settlement_usd": 0.0018,
+		"fee_source": "..."
+	},
+	"by_endpoint": [
+		{ "endpoint": "/api/x402/token-intel", "count": 120, "gross_usd": 1.2, "share": 0.097 }
+	],
+	"top_endpoint": { "endpoint": "/api/x402/token-intel", "gross_usd": 1.2 }
 }
 ```
 
@@ -247,7 +257,7 @@ cursor and ledger pick it up automatically.
 > **Synthetic vs organic — do not conflate them.** The Volume Bootstrap Loop pays
 > our **own** endpoints from our **own** seed wallet, and those endpoints settle
 > to the platform's own `X402_PAY_TO_*` treasury. Every transaction is real and
-> on-chain — but the *demand* is synthetic: it is the platform paying itself, a
+> on-chain — but the _demand_ is synthetic: it is the platform paying itself, a
 > liveness canary, not external buyers. It is legitimate as **synthetic
 > monitoring** (proving every paid endpoint is live) and is bounded small by
 > design (see the budget knobs in [Autonomous x402 loop](autonomous-x402.md)).

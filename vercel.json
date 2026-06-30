@@ -776,6 +776,10 @@
 			"dest": "/pulse.html"
 		},
 		{
+			"src": "/x402-revenue/?",
+			"dest": "/x402-revenue.html"
+		},
+		{
 			"src": "/deployments/?",
 			"dest": "/deployments.html"
 		},
@@ -2657,6 +2661,10 @@
 		{
 			"src": "/api/pulse",
 			"dest": "/api/pulse.js"
+		},
+		{
+			"src": "/api/x402-revenue",
+			"dest": "/api/x402-revenue.js"
 		},
 		{
 			"src": "/api/pipeline",

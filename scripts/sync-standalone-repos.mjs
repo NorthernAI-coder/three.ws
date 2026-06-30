@@ -136,7 +136,16 @@ function pushSnapshot(p, slug, sourceSha) {
 			`Sync from three.ws@${sourceSha.slice(0, 12)}\n\nGenerated mirror of packages path ${p.dir}. Canonical source: https://github.com/nirholas/three.ws`,
 		]);
 		run(['remote', 'add', 'origin', `https://github.com/${slug}.git`]);
-		run(['push', '--force', 'origin', 'main']);
+		// Auth without leaking the token: when GH_PAT is set, a credential helper
+		// reads it from the environment at push time, so the token never lands in a
+		// remote URL, in process args, or in any error message.
+		// The empty `credential.helper=` first RESETS any globally-configured helper
+		// (e.g. gh's, which would otherwise auth as the wrong account); our token
+		// helper is then the only one git consults.
+		const authArgs = process.env.GH_PAT
+			? ['-c', 'credential.helper=', '-c', 'credential.helper=!f() { echo username=x-access-token; echo "password=$GH_PAT"; }; f']
+			: [];
+		run([...authArgs, 'push', '--force', 'origin', 'main']);
 	} finally {
 		rmSync(tmp, { recursive: true, force: true });
 	}
