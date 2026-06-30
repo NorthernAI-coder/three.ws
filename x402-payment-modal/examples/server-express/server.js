@@ -44,8 +44,7 @@ app.use('/api/x402-checkout', x402CheckoutRouter({ rpcUrl: SOLANA_RPC_URL }));
 //
 // IMPORTANT: verifying and settling the X-PAYMENT payload against an x402
 // facilitator is OUT OF SCOPE for this demo. In production you would verify the
-// payment proof (and idempotency) before returning 200. See the docs:
-// https://github.com/three-ws/x402-payment-modal/tree/main/docs
+// payment proof (and idempotency) before returning 200. See the docs in ../../docs.
 //
 // Synthetic placeholders below — replace payTo / feePayer with YOUR addresses.
 const DEMO_PAY_TO = 'So11111111111111111111111111111111111111112'; // replace me
@@ -55,21 +54,22 @@ app.get('/api/paid/hello', (req, res) => {
   const hasPayment = Boolean(req.get('X-PAYMENT'));
 
   if (!hasPayment) {
-    // No payment yet → answer with the x402 v2 challenge. We offer TWO Solana
-    // tokens — USDC and THREE — so the modal shows a token picker and the buyer
-    // chooses which to pay in. `solanaAccept` builds each spec-shaped entry.
+    // No payment yet → answer with the x402 v2 challenge. USDC is the default
+    // settlement asset; `solanaAccept` builds the spec-shaped entry.
     const common = { payTo: DEMO_PAY_TO, feePayer: DEMO_FEE_PAYER, maxTimeoutSeconds: 60 };
     return res.status(402).json({
       x402Version: 2,
       error: 'Payment required',
       resource: {
         url: `${req.protocol}://${req.get('host')}/api/paid/hello`,
-        description: 'A friendly hello — pay in USDC or THREE.',
+        description: 'A friendly hello — pay $0.01 in USDC.',
         mimeType: 'application/json',
       },
       accepts: [
-        solanaAccept({ token: 'usdc', uiAmount: 0.01, ...common }),  // $0.01 in USDC
-        solanaAccept({ token: 'three', uiAmount: 1000, ...common }), // or 1,000 THREE
+        solanaAccept({ token: 'usdc', uiAmount: 0.01, ...common }), // $0.01 in USDC (default)
+        // To additionally accept a second Solana token, push another accept for
+        // any SPL mint and the modal renders a token picker, e.g.:
+        //   solanaAccept({ mint: MY_TOKEN_MINT, uiAmount: 1000, decimals: 6, name: 'MYTOKEN', ...common }),
       ],
     });
   }

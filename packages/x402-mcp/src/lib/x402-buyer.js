@@ -1,7 +1,6 @@
 // x402 buyer wiring — pay any x402 endpoint from a local Solana keypair.
 //
-// Mirrors the canonical three.ws buyer (api/_lib/x402-user-payer.js) but for a
-// self-custodial standalone: the signer is YOUR key (SOLANA_SECRET_KEY or a
+// Fully self-custodial standalone: the signer is YOUR key (SOLANA_SECRET_KEY or a
 // per-call `secret`), not a custodial wallet. Real `@x402/*` libraries do the
 // 402 dance and sign the Solana `exact`-scheme payment — nothing is mocked.
 //
@@ -14,9 +13,9 @@ import bs58 from 'bs58';
 
 import { SOLANA_DEFAULT_SECRET } from '../config.js';
 
-// The two main x402 assets. $THREE is the three.ws platform token (Solana SPL);
-// USDC is canonical on Solana + Base. Used to pick which advertised accept to
-// settle when the caller prefers a specific token.
+// Supported x402 assets. USDC is the always-available default (canonical on
+// Solana + Base). $THREE is a supported optional SPL token (Solana). Used to pick
+// which advertised accept to settle when the caller prefers a specific token.
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 const USDC_MINTS = new Set([
 	'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // Solana

@@ -5,7 +5,7 @@ import {
 	buildChallenge,
 	feeSplit,
 	fetchAdapter,
-	ThreeWsError,
+	X402Error,
 	NETWORK_SOLANA_MAINNET,
 	NETWORK_BASE_MAINNET,
 } from '../src/index.js';
@@ -90,7 +90,7 @@ test('buildChallenge() advertises only the requested lane', () => {
 
 const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
-test('acceptThree adds a $THREE Solana accept after USDC (both main assets)', () => {
+test('acceptThree adds an optional $THREE Solana accept after the default USDC', () => {
 	const challenge = buildChallenge({
 		price: '10000',
 		payTo: { solana: SYNTH_SOLANA_PAYTO, base: SYNTH_BASE_PAYTO },
@@ -137,7 +137,7 @@ test("asset: 'three' pins the $THREE mint on Solana", () => {
 test("asset: 'three' on an EVM lane is rejected (Solana-only)", () => {
 	assert.throws(
 		() => buildChallenge({ price: '10000', asset: 'three', payTo: { base: SYNTH_BASE_PAYTO }, network: ['base'] }),
-		(err) => err instanceof ThreeWsError && err.code === 'invalid_input',
+		(err) => err instanceof X402Error && err.code === 'invalid_input',
 	);
 });
 
@@ -145,7 +145,7 @@ test('a Solana accept without a feePayer is rejected with missing_fee_payer', ()
 	assert.throws(
 		() => buildChallenge({ price: '1000', payTo: { solana: SYNTH_SOLANA_PAYTO } }),
 		(e) => {
-			assert.ok(e instanceof ThreeWsError);
+			assert.ok(e instanceof X402Error);
 			assert.equal(e.code, 'missing_fee_payer');
 			return true;
 		},
@@ -212,7 +212,7 @@ test('a facilitator outage on /verify is a typed 502, never a rejected payment',
 	const accepts = buildChallenge({ price: '1000', payTo: { base: SYNTH_BASE_PAYTO }, network: ['base'] }).accepts;
 	const header = xPaymentHeader({ network: NETWORK_BASE_MAINNET, payload: { authorization: { value: '1000' } } });
 	await assert.rejects(() => server.verifyPayment({ paymentHeader: header, requirements: accepts }), (e) => {
-		assert.ok(e instanceof ThreeWsError);
+		assert.ok(e instanceof X402Error);
 		assert.equal(e.status, 502);
 		return true;
 	});

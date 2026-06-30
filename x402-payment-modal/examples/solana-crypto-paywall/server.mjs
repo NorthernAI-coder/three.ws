@@ -12,7 +12,7 @@
 // The only "config" that isn't runtime is the facilitator's fee-payer sponsor
 // (a PUBLIC Solana account, not a secret) and the CoinGecko/PayAI URLs.
 //
-// Run (from inside the three.ws repo — uses the repo's express + @solana deps):
+// Run (from inside this package's repo — reuses the repo's express + @solana deps):
 //   node x402-payment-modal/examples/solana-crypto-paywall/server.mjs
 //   open http://localhost:4021
 //
@@ -40,10 +40,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 4021;
 
-// PayAI's facilitator co-signs Solana settlements as the fee payer. This is the
-// three.ws default sponsor — a PUBLIC pubkey (it pays the SOL network fee so the
-// buyer needs only USDC), NOT a secret and NOT the payout wallet. Override only
-// if you point X402_FACILITATOR_URL at a facilitator with a different sponsor.
+// The facilitator co-signs Solana settlements as the fee payer. This is the
+// facilitator's PUBLIC sponsor pubkey (it pays the SOL network fee so the buyer
+// needs only USDC), NOT a secret and NOT the payout wallet. Override only if you
+// point X402_FACILITATOR_URL at a facilitator with a different sponsor.
 const FEE_PAYER = process.env.X402_FEE_PAYER_SOLANA || '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
 
 // A public Solana RPC works for a quick try (rate-limited). Pass a dedicated RPC

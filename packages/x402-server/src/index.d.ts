@@ -1,6 +1,6 @@
 // Type definitions for @three-ws/x402-server
 
-export declare class ThreeWsError extends Error {
+export declare class X402Error extends Error {
 	name: string;
 	code: string;
 	status: number | null;
@@ -9,7 +9,7 @@ export declare class ThreeWsError extends Error {
 	body: unknown;
 }
 
-export declare class PaymentRequiredError extends ThreeWsError {
+export declare class PaymentRequiredError extends X402Error {
 	accepts: unknown | null;
 }
 
@@ -42,7 +42,7 @@ export interface Accept {
 	};
 }
 
-/** The split of a platform fee carved OUT of the listed price. */
+/** The split of an optional fee carved OUT of the listed price. */
 export interface FeeSplit {
 	price: string;
 	net: string;
@@ -59,8 +59,9 @@ export interface PayTo {
 }
 
 /**
- * Settlement asset. `'usdc'` resolves canonical USDC per lane; `'three'` resolves
- * the $THREE platform token (Solana-only); or pin explicit addresses per lane.
+ * Settlement asset. `'usdc'` (the default) resolves canonical USDC per lane;
+ * `'three'` resolves the optional $THREE SPL token (Solana-only); or pin
+ * explicit addresses per lane.
  */
 export type Asset = 'usdc' | 'three' | { solana?: string; base?: string };
 
@@ -74,8 +75,8 @@ export interface BuildChallengeOptions {
 	/** The Solana facilitator sponsor account (required for a Solana accept). */
 	feePayer?: string;
 	/**
-	 * Advertise $THREE alongside USDC on the Solana lane (a second accept, pushed
-	 * after USDC). The platform's two main x402 assets in one challenge.
+	 * Optionally advertise $THREE alongside USDC on the Solana lane (a second
+	 * accept, pushed after USDC) so a wallet can settle either. Off by default.
 	 */
 	acceptThree?: boolean;
 	/**
@@ -83,7 +84,7 @@ export interface BuildChallengeOptions {
 	 * the USDC `price` value.
 	 */
 	threeAmount?: string | number;
-	/** Platform fee in basis points, split OUT of price (≤ 1000 / 10%). */
+	/** Optional fee in basis points, split OUT of price (≤ 1000 / 10%). */
 	feeBps?: number;
 	/** Fee recipient. Required when feeBps > 0. */
 	feeTo?: string;
@@ -199,7 +200,7 @@ export declare function settlePayment(args: { verified: Verified } | Verified): 
 export declare function paid(opts: PaidOptions, handler: Function): (...args: any[]) => Promise<unknown>;
 
 /**
- * Split a platform fee OUT of the listed price. Returns null when no fee applies
+ * Split an optional fee OUT of the listed price. Returns null when no fee applies
  * (rate 0, no recipient, or a sub-atomic fee). `bps` is clamped to [0, 1000].
  */
 export declare function feeSplit(priceAtomics: bigint | number | string, bps: number, recipient: string): FeeSplit | null;

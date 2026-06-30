@@ -1,7 +1,3 @@
-<p align="center">
-  <a href="https://three.ws"><img src="https://three.ws/three-ws-mcp-icon.svg" alt="three.ws" width="88" height="88"></a>
-</p>
-
 <h1 align="center">@three-ws/ibm-x402-mcp</h1>
 
 <p align="center"><strong>Pay-per-use IBM Granite AI over MCP — chat, code, embeddings, analysis, and forecasting, billed in USDC on Solana. No IBM account required.</strong></p>
@@ -12,7 +8,6 @@
   <img alt="license" src="https://img.shields.io/npm/l/@three-ws/ibm-x402-mcp?color=3b82f6">
   <img alt="node" src="https://img.shields.io/node/v/@three-ws/ibm-x402-mcp?color=339933&logo=node.js">
   <a href="https://registry.modelcontextprotocol.io/?q=io.github.nirholas"><img alt="MCP Registry" src="https://img.shields.io/badge/MCP%20Registry-io.github.nirholas%2Fibm--x402--mcp-6e56cf"></a>
-  <a href="https://three.ws"><img alt="three.ws" src="https://img.shields.io/badge/built%20by-three.ws-000"></a>
 </p>
 
 <p align="center">
@@ -20,15 +15,14 @@
   <a href="#quick-start">Quick start</a> ·
   <a href="#tools">Tools</a> ·
   <a href="#payment-flow">Payment flow</a> ·
-  <a href="#requirements">Requirements</a> ·
-  <a href="https://three.ws">three.ws</a>
+  <a href="#requirements">Requirements</a>
 </p>
 
 ---
 
 > A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes IBM Granite foundation models as pay-per-use tools via the [x402](https://x402.org) payment protocol. End users pay **USDC on Solana** per call — no IBM Cloud account of their own. The server operator supplies IBM credentials (`WATSONX_*`) and a receiving Solana wallet (`MCP_SVM_PAYMENT_ADDRESS`); callers supply only USDC. One free tool (`ibm_granite_getting_started`) explains prices and the flow before any payment.
 
-> Built by [three.ws](https://three.ws). Community-built and not affiliated with IBM.
+> Community-built and not affiliated with IBM.
 
 ## How it works
 
@@ -186,27 +180,17 @@ ibm-x402-mcp (stdio MCP server)
 | `WATSONX_URL`             | no                                  | `https://us-south.ml.cloud.ibm.com`       |
 | `WATSONX_MODEL_ID`        | no                                  | `ibm/granite-3-8b-instruct`               |
 | `WATSONX_EMBED_MODEL_ID`  | no                                  | `ibm/granite-embedding-278m-multilingual` |
-| `X402_FEE_PAYER_SOLANA`   | no                                  | three.ws fee payer                        |
+| `X402_FEE_PAYER_SOLANA`   | no                                  | unset (facilitator sponsors fees)         |
 | `X402_FACILITATOR_URL`    | no                                  | `https://facilitator.payai.network`       |
+
+The free `ibm_granite_getting_started` tool surfaces project links (homepage, source, support). These default to this package's repository and are overridable via `IBM_X402_MCP_HOMEPAGE_URL`, `IBM_X402_MCP_SOURCE_URL`, and `IBM_X402_MCP_SUPPORT_URL` if you run a branded deployment.
 
 Regional hosts: `us-south`, `eu-de`, `eu-gb`, `jp-tok`, `au-syd`, `ca-tor` — e.g. `https://eu-de.ml.cloud.ibm.com`.
 
-## Related
-
-- [`@three-ws/ibm-watsonx-mcp`](https://www.npmjs.com/package/@three-ws/ibm-watsonx-mcp) — the same IBM Granite tools driven by your own IBM Cloud credentials (no x402, no per-call payment).
-
 ## Links
 
-- Homepage: https://three.ws
-- Changelog: https://three.ws/changelog
-- Issues: https://github.com/nirholas/three.ws/issues
+- npm: https://www.npmjs.com/package/@three-ws/ibm-x402-mcp
+- Source & issues: https://github.com/nirholas/ibm-x402-mcp
+- MCP registry name: `io.github.nirholas/ibm-x402-mcp`
+- x402 protocol: https://x402.org
 - License: Apache-2.0 — see [LICENSE](./LICENSE)
-
----
-
-<p align="center">
-  <sub>
-    Part of the <a href="https://three.ws">three.ws</a> SDK suite — 3D AI agents, on-chain identity, and agent payments.<br/>
-    <a href="https://three.ws">Website</a> · <a href="https://three.ws/changelog">Changelog</a> · <a href="https://github.com/nirholas/three.ws">GitHub</a>
-  </sub>
-</p>

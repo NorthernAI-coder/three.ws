@@ -23,7 +23,10 @@ mkdirSync(distDir, { recursive: true });
 
 const pkg = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8'));
 const source = readFileSync(srcFile, 'utf8');
-const banner = `/*! ${pkg.name} v${pkg.version} — ${pkg.license} — ${pkg.homepage} */\n`;
+// Banner is derived entirely from package metadata — no hardcoded host or
+// branding — so the same build script works for any fork/republish.
+const bannerUrl = pkg.homepage || pkg.repository?.url || '';
+const banner = `/*! ${pkg.name} v${pkg.version} — ${pkg.license}${bannerUrl ? ` — ${bannerUrl}` : ''} */\n`;
 
 // 1. Readable, unminified copy for CDN debugging and source maps in DevTools.
 writeFileSync(join(distDir, 'x402.js'), banner + source);
