@@ -5,6 +5,8 @@
 // in a URL, never logged, cleared on any 401. All API-sourced strings (coin
 // names, symbols, errors) are escaped before they touch the DOM.
 
+import { updateValue, enterRow, rippleOnce } from './ui-juice.js';
+
 const API = '/api/admin/launcher';
 const SECRET_KEY = 'ml_launcher_secret';
 const REFRESH_MS = 5000;
@@ -316,11 +318,20 @@ function renderStatusFromDraft() {
 // ── render server state (stats, console, master, breaker) ──────────────────────
 function renderState(state) {
 	const s = state.stats || {};
-	$('ml-s-launched').textContent = num(s.launched_today);
-	$('ml-s-dry').textContent = num(s.dry_runs_today);
+	// The launched-today tally is the real "it shipped" signal — when the live
+	// firehose mints another coin it counts up, tints green, and the tile ripples
+	// once. Backed entirely by the poll's real numbers, never a timer.
+	const launchedEl = $('ml-s-launched');
+	const prevLaunched = Number(launchedEl?.dataset.juiceVal);
+	const nextLaunched = Number(s.launched_today || 0);
+	updateValue(launchedEl, nextLaunched, num);
+	if (Number.isFinite(prevLaunched) && nextLaunched > prevLaunched) {
+		rippleOnce(launchedEl.closest('.ml-stat') || launchedEl);
+	}
+	updateValue($('ml-s-dry'), Number(s.dry_runs_today || 0), num, { flash: false });
 	$('ml-s-spent').textContent = fmtSol(s.sol_spent_today);
 	$('ml-s-left').textContent = s.sol_remaining_today == null ? '—' : fmtSol(s.sol_remaining_today);
-	$('ml-s-queue').textContent = num(state.queue_enabled);
+	updateValue($('ml-s-queue'), Number(state.queue_enabled || 0), num, { flash: false });
 	$('ml-s-fail').textContent = `${num(s.failed_today)} / ${num(s.skipped_today)}`;
 
 	const rev = state.revenue || {};
@@ -433,9 +444,10 @@ function renderConsole(runs, network) {
 		let entry = _rows.get(id);
 		if (!entry) {
 			const li = document.createElement('li');
-			li.className = 'ml-run ml-run--new';
+			li.className = 'ml-run';
 			li.innerHTML = runRowHtml(r, network);
-			setTimeout(() => li.classList.remove('ml-run--new'), 1100);
+			// Shared enter (replaces a hand-rolled setTimeout class-toggle).
+			enterRow(li);
 			entry = { el: li, sig };
 			_rows.set(id, entry);
 		} else if (entry.sig !== sig) {

@@ -1,6 +1,7 @@
 /* /launcher — personal Memetic Launcher. Additive to admin-launcher.css (shared
    monochrome .ml-* atoms). Only the few user-only pieces live here: the preview
    badge, the explainer note, and the synthesized-coin sample card. */
+@import './ui-juice.css';
 
 /* preview badge in the hero */
 .ul-badge {
