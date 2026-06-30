@@ -808,6 +808,10 @@
 			"dest": "/arm.html"
 		},
 		{
+			"src": "/oracle/docs/?",
+			"dest": "/oracle-docs.html"
+		},
+		{
 			"src": "/oracle/?",
 			"dest": "/oracle.html"
 		},

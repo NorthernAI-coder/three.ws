@@ -498,6 +498,12 @@ URL: https://three.ws/oracle
 
 A fused AI conviction engine for every pump.fun launch: pedigree (who's buying), structure (bundle vs organic), narrative (what story is it riding), and momentum — fused into a single 0–100 conviction score with transparent pillar reasoning.
 
+### Oracle Docs — the conviction engine, end to end
+
+URL: https://three.ws/oracle/docs
+
+The complete Oracle reference: the thesis behind fused pump.fun conviction, the four-pillar scoring model and its exact math, the data pipeline and worker loops, the calibration and backtest evidence, the agent action loop, the full API, the data model, limitations, and where it scales next — written for everyone from first-time readers to researchers.
+
 ### Arm your agent — automate Oracle conviction
 
 URL: https://three.ws/oracle/arm

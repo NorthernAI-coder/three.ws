@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Oracle Docs — the conviction engine, end to end</title>
+			<link>https://three.ws/oracle/docs</link>
+			<guid isPermaLink="false">2026-06-30:Oracle Docs — the conviction engine, end to end</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The complete Oracle reference: the thesis behind fused pump.fun conviction, the four-pillar scoring model and its exact math, the data pipeline and worker loops, the calibration and backtest evidence, the agent action loop, the full API, the data model, limitations, and where it scales next — written for everyone from first-time readers to researchers.</description>
+		</item>
+		<item>
 			<title>Viability</title>
 			<link>https://three.ws/viability</link>
 			<guid isPermaLink="false">2026-06-30:Viability</guid>
@@ -53,6 +61,14 @@
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.</description>
+		</item>
+		<item>
+			<title>Oracle now has full documentation</title>
+			<link>https://three.ws/oracle/docs</link>
+			<guid isPermaLink="false">2026-06-30:Oracle now has full documentation</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>Everything behind the conviction score, in one place. The new Oracle docs explain — in plain English and, where you want it, full mathematical detail — how Oracle reads every pump.fun launch: the four pillars (who's buying, how it's structured, what story it rides, how it's moving), exactly how they fuse into a 0–100 score, where the hard caps come from, how the engine is calibrated and backtested against real outcomes, how to arm an agent on it, the full public API, and where it's headed. Real screenshots throughout, a quickstart for traders, builders, and skeptics, and a researcher-level appendix.</description>
 		</item>
 		<item>
 			<title>Agent Economy Volume</title>
