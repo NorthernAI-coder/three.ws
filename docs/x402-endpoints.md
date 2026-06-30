@@ -77,7 +77,7 @@ for to feed the oracle and sniper.
 | Endpoint | Default | Returns |
 |---|---|---|
 | `/api/x402/forge` | tiered | Text/image → 3D model (price by tier; GPU-bound). See [Avatar pipeline](avatar-pipeline.md). |
-| `/api/x402/mint-to-mesh` | per call | Token/mint → 3D mesh; `-batch` variant $0.05. |
+| `/api/x402/mint-to-mesh`, `/api/x402/mint-to-mesh-batch` | per call | Token/mint → 3D mesh; `mint-to-mesh-batch` runs a set at $0.05. |
 | `/api/x402/model-check`, `/api/x402/model-validation-sweep` | $0.001 | Validate a GLB / sweep a batch. |
 | `/api/x402/glb-optimization-report` | per call | GLB size/optimization analysis. |
 | `/api/x402/avatar-optimize-batch` | $0.001 | Batch optimization pass over the top N avatars. |
@@ -102,7 +102,8 @@ for to feed the oracle and sniper.
 | `/api/x402/wallet-connect` | $0.001 | Wallet-bridge connect probe. |
 | `/api/x402/permit2-paid-demo` | $0.001 | Reference endpoint for the Permit2 / EIP-2612 gasless-approval scheme. |
 | `/api/x402/cross-chain`, `/api/x402/network-cost` | per call | Cross-chain cost comparison. |
-| `/api/x402/*-health`, `/api/x402/rate-limit-probe`, `/api/x402/schema-check` | $0.001 | Paid health/diagnostic probes used by the autonomous loop. |
+| `/api/x402/rate-limit-probe`, `/api/x402/schema-check` | $0.001 | Paid diagnostic probes used by the autonomous loop. |
+| `/api/x402/auth-health`, `/api/x402/api-key-health`, `/api/x402/feed-health`, `/api/x402/granite-health`, `/api/x402/telegram-health`, `/api/x402/solana-register-health` | $0.001 | Paid SLA/health probes for each backend dependency (auth, API keys, the live feed, IBM Granite, Telegram, Solana register). |
 
 > Prices above marked "per call / per tier / per source" are computed by the
 > handler rather than a flat default; check the handler and any

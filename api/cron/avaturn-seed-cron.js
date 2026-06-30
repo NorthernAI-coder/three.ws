@@ -34,6 +34,7 @@ import {
 import { exportRandomAvaturnAvatar } from '../_lib/avaturn-headless.js';
 import { putObject } from '../_lib/r2.js';
 import { inspectGlb } from '../_lib/glb-inspect.js';
+import { isFlagEnabled } from '../_lib/flags.js';
 import { pickBodyType } from '../_lib/avaturn-seed.js';
 import { randomUUID } from 'node:crypto';
 
@@ -173,8 +174,16 @@ export default wrapCron(async (req, res) => {
 	if (!method(req, res, ['GET'])) return;
 	if (!requireCron(req, res)) return;
 
-	if (!env.AVATURN_SEED_ENABLED) {
-		return json(res, 200, { ok: true, skipped: 'disabled', hint: 'set AVATURN_SEED_ENABLED=1 to enable' });
+	// DB flag is the live control (flip it from the admin console with no
+	// redeploy); the AVATURN_SEED_ENABLED env var is the fallback default used
+	// only when no app_flags row exists yet, preserving the prior behavior.
+	const enabled = await isFlagEnabled('avaturn_seed', { fallback: env.AVATURN_SEED_ENABLED });
+	if (!enabled) {
+		return json(res, 200, {
+			ok: true,
+			skipped: 'disabled',
+			hint: 'enable instantly via POST /api/admin/flags { "key":"avaturn_seed","enabled":true } (or set AVATURN_SEED_ENABLED=1)',
+		});
 	}
 
 	// Single headless export in flight at a time, fleet-wide.
