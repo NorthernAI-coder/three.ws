@@ -4,6 +4,7 @@
 // Every number here traces to a real /api/vaults endpoint; nothing is faked.
 
 import { apiFetch } from './api.js';
+import { updateValue, flipReorder } from './ui-juice.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -57,20 +58,16 @@ async function readErr(res, fallback) {
 }
 
 // ── visual helpers ───────────────────────────────────────────────────────────
-const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Animated count-up for headline stats. fmt maps a raw number to display text.
-function countUp(el, to, fmt, dur = 700) {
+// Count a stat tile from its PREVIOUSLY-shown real value to the new one and flash
+// the direction of change. Delegates to the shared game-feel library so the whole
+// platform shares one count-up — and, unlike a from-zero animation, this never
+// fakes activity on a refresh (it counts the real delta or, with no prior value,
+// settles instantly).
+function countUp(el, to, fmt) {
 	if (!el) return;
-	if (reduceMotion || !(to > 0)) { el.textContent = fmt(to); return; }
-	const start = performance.now();
-	const step = (now) => {
-		const t = Math.min(1, (now - start) / dur);
-		const eased = 1 - Math.pow(1 - t, 3);
-		el.textContent = fmt(to * eased);
-		if (t < 1) requestAnimationFrame(step);
-	};
-	requestAnimationFrame(step);
+	updateValue(el, to, fmt);
 }
 
 function sumBig(items, key) {
@@ -233,11 +230,25 @@ function renderStats() {
 }
 
 function paintStats(host, tiles) {
-	host.innerHTML = tiles.map((t) => `<div class="vx-stat-tile${t.pos ? ' is-pos' : ''}">
-		<span class="vx-stat-tile-l">${t.l}</span>
-		<span class="vx-stat-tile-v">${esc(t.fmt(0))}</span>
-		${t.sub ? `<span class="vx-stat-tile-s">${esc(t.sub)}</span>` : ''}
-	</div>`).join('');
+	// Reuse the tile DOM across refreshes (keyed by the label set) so countUp can
+	// animate from the previously-shown real value. Only rebuild when the tile set
+	// changes (e.g. switching the all/mine tab), and render the real value up front
+	// — never a placeholder zero that would fake a count on every refresh.
+	const sig = tiles.map((t) => t.l).join('|');
+	if (host.dataset.sig !== sig) {
+		host.innerHTML = tiles.map((t) => `<div class="vx-stat-tile${t.pos ? ' is-pos' : ''}">
+			<span class="vx-stat-tile-l">${t.l}</span>
+			<span class="vx-stat-tile-v">${esc(t.fmt(t.to))}</span>
+			${t.sub ? `<span class="vx-stat-tile-s">${esc(t.sub)}</span>` : ''}
+		</div>`).join('');
+		host.dataset.sig = sig;
+	} else {
+		$$('.vx-stat-tile', host).forEach((tile, i) => {
+			tile.classList.toggle('is-pos', !!tiles[i].pos);
+			const s = $('.vx-stat-tile-s', tile);
+			if (s && tiles[i].sub != null) s.textContent = tiles[i].sub;
+		});
+	}
 	$$('.vx-stat-tile-v', host).forEach((el, i) => countUp(el, tiles[i].to, tiles[i].fmt));
 }
 
@@ -259,8 +270,13 @@ function renderFeed() {
 	const items = sortFeed(state.feed);
 	const maxNav = items.reduce((m, v) => Math.max(m, navNum(v)), 0);
 	const topIds = [...state.feed].filter((v) => (v.roi_bps || 0) > 0).sort((a, b) => (b.roi_bps || 0) - (a.roi_bps || 0)).slice(0, 3).map((v) => v.id);
+	// FLIP cards to their new rank when the sort changes, so the board glides into
+	// order instead of snapping (same data-id keys map old → new positions).
+	const flip = flipReorder(grid, (el) => el.dataset.id || '');
+	flip.capture();
 	grid.innerHTML = items.map((v) => cardHtml(v, maxNav, topIds.indexOf(v.id))).join('');
 	$$('.vx-card[data-id]', grid).forEach((c) => c.addEventListener('click', () => openDetail(c.dataset.id)));
+	flip.play();
 }
 
 function renderMine() {

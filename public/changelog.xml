@@ -87,6 +87,14 @@
 			<description>Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.</description>
 		</item>
 		<item>
+			<title>One shared motion library now powers live game-feel across the platform</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-30:One shared motion library now powers live game-feel across the platform</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The interaction polish proven on the Swarms page — numbers that count up between real values, directional green/red flashes, live-feed rows that slide in, sparklines, ring gauges, connection dots, and a single restrained it-shipped ripple — now lives in one shared, token-driven, reduced-motion-safe library instead of being re-rolled per page. Every surface that adopts it speaks the same visual vocabulary, and because it's built entirely on the platform's motion tokens, it goes perfectly still the instant you ask your system for reduced motion. The Swarms page is its first consumer; the launch, deploy, markets and AI surfaces follow. It's a foundation, not a faked effect — every animation rides a real value.</description>
+		</item>
+		<item>
 			<title>Oracle now has full documentation</title>
 			<link>https://three.ws/oracle/docs</link>
 			<guid isPermaLink="false">2026-06-30:Oracle now has full documentation</guid>
@@ -133,6 +141,14 @@
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>There's a new &quot;Autonomous trading&quot; section on three.ws that puts the sniper engine front and center. An interactive diagram walks the full trade loop — Watch, Score, Guard, Buy, Exit — and you can click or hover any stage to read exactly what the agent does there, from the pump.fun new-launch feed through the risk guards to the take-profit and stop-loss exits. Beside it, a live tape streams real buys, sells and open positions as they happen, each linking to its Solscan signature, and a status pill shows whether the engine is live along with how many strategies are armed and positions are open. The win rate, best ROI and open-position counts underneath are the platform's real numbers — nothing on the panel is simulated. Honors reduced-motion preferences.</description>
+		</item>
+		<item>
+			<title>The launch &amp; deploy flow now makes shipping feel like shipping</title>
+			<link>https://three.ws/launches</link>
+			<guid isPermaLink="false">2026-06-30:The launch &amp; deploy flow now makes shipping feel like shipping</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every place where you create and ship a coin or agent got the same game-feel polish as the Swarms page, all driven by real data. On /launches, freshly-landed launches slide in at the top of the live feed, the hero market-cap and launch counters count up between real values, and a live-feed dot tells you the registry is syncing, live, or offline. On a coin's detail page, the live trade tape now tints each new trade in the direction money moved — green when SOL comes back, red when it's spent — the market cap ticks as it refreshes, and a coin ripples once the moment it graduates. The Launch Copilot streams its market-maker action log in row-by-row with the same directional tint, lights a live dot when the stream is connected, and gives a single warm beat the moment the maker goes live. The personal and admin Memetic Launchers count their tallies up between polls, and the admin's launched-today tile ripples each time the live firehose actually mints a coin. The deployments registry counts its headline numbers up as new on-chain agents stream in under a live dot. And Instant Agent Genesis gives one restrained beat when your agent is born, and again when its ERC-8004 identity verifies on-chain. Nothing is faked — every number and beat comes from a real request lifecycle, never a timer, and all of it collapses to a clean static state under reduced motion.</description>
 		</item>
 		<item>
 			<title>The Sniper dashboard now carries the full Money Studio — wallet, Trading Brain, pricing and earnings</title>
