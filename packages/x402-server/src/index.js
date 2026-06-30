@@ -473,7 +473,7 @@ async function runSettle({ request, verified, signal }) {
 	}
 
 	// Cross-check the facilitator's claimed network/payer against what we verified
-	// (defense-in-depth, mirrors x402-spec.js settlePayment).
+	// (defense-in-depth against a misbehaving facilitator).
 	if (result.network && requirement.network && result.network !== requirement.network) {
 		throw new X402Error(`facilitator /settle network mismatch: requested ${requirement.network}, got ${result.network}.`, { code: 'facilitator_bad_response', status: 502 });
 	}
