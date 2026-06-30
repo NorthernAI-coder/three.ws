@@ -1,4 +1,4 @@
-// Tool-surface invariants for x402-mcp.
+// Tool-surface invariants for @three-ws/x402-mcp.
 //
 // Importing src/index.js is side-effect-free: the stdio transport only connects
 // when the file is the process entry point, and buildServer() needs no signer.

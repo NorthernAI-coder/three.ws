@@ -13,9 +13,8 @@
 // live in ./express.js and ./vercel.js.
 //
 // Runtime deps: @solana/web3.js and @solana/spl-token (declared as optional peer
-// dependencies — install them in the app that mounts this handler). This module
-// is fully host-neutral: it has no required configuration and assumes no
-// particular merchant, facilitator, or origin.
+// dependencies — install them in the app that mounts this handler). Nothing here
+// imports anything three.ws-specific.
 
 import {
 	Connection,
@@ -44,14 +43,12 @@ const DEFAULT_MAINNET_RPC = 'https://api.mainnet-beta.solana.com';
 const DEFAULT_DEVNET_RPC = 'https://api.devnet.solana.com';
 
 // ─────────────────────────────────────────────── Well-known Solana tokens ────
-// USDC is the always-on default settlement asset on Solana — the universal
-// dollar-stable rail. THREE is an OPTIONAL, opt-in convenience token: a merchant
-// that wants to additionally accept it passes `token: 'three'` (or any explicit
-// `mint`) to `solanaAccept()`. It is never a default. `solanaAccept()` builds the
-// x402 `accept` entry for USDC, THREE, or any other SPL mint — the prepare path
-// already transfers any mint, so offering an extra token needs no further wiring.
+// The two settlement assets the modal treats as first-class on Solana. USDC is
+// the universal dollar-stable rail; THREE is the three.ws utility token, so any
+// endpoint can let holders pay in THREE alongside USDC. `solanaAccept()` builds
+// the x402 `accept` entry for either (or any other SPL mint) — the prepare path
+// already transfers any mint, so offering THREE needs no further wiring.
 export const USDC_MINT_SOLANA = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
-// Optional opt-in token shortcut (not a default).
 export const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 
 export const WELL_KNOWN_SOLANA_TOKENS = Object.freeze({

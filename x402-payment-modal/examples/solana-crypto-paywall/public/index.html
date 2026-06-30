@@ -3,22 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>x402 Crypto Paywall — Solana</title>
+  <title>x402 Crypto Paywall — Solana · three.ws</title>
   <meta name="description" content="Pay $0.01 USDC on Solana to unlock live crypto prices — a demo of the @three-ws/x402-payment-modal npm package." />
 
   <!--
     The payment modal is loaded straight from npm (unpkg) so this page exercises
-    the EXACT artifact published. Pinned to a version per the package's own
-    security guidance; bump it to test a new release. The brand-* attributes below
-    are illustrative — set them to YOUR own merchant name/URL (or omit them to
-    hide the footer link entirely).
+    the EXACT artifact we publish. Pinned to a version per the package's own
+    security guidance; bump it to test a new release.
   -->
   <script
     type="module"
-    src="https://unpkg.com/@three-ws/x402-payment-modal@1.2.0"
-    data-x402-brand-name="Crypto Prices"
-    data-x402-brand-url="https://example.com"
-    data-x402-footer-note="x402 · Solana · settled by a facilitator"></script>
+    src="https://unpkg.com/@three-ws/x402-payment-modal@1.1.0"
+    data-x402-brand-name="three.ws Crypto"
+    data-x402-brand-url="https://three.ws"
+    data-x402-footer-note="x402 · Solana · settled by PayAI"></script>
 
   <style>
     :root {
@@ -195,12 +193,12 @@
     <header class="hero">
       <div class="brandline">
         <span class="dot" aria-hidden="true"></span>
-        <b>Crypto Prices</b>
+        <b>three.ws</b>
         <span class="pill" id="verPill"><span class="live"></span><span id="verText">loading modal…</span></span>
       </div>
       <h1>Pay-per-call <span class="grad">crypto prices</span>,<br/>settled on Solana.</h1>
       <p class="lede">
-        A live demo of <code>@three-ws/x402-payment-modal</code> — the modal published on npm.
+        A live demo of <code>@three-ws/x402-payment-modal</code> — the modal we ship on npm.
         Set a payout wallet, pick coins, and pay $0.01 USDC with Phantom to unlock real
         CoinGecko prices. One click; no wallet code.
       </p>
@@ -218,7 +216,7 @@
       <label class="fld" for="payTo">Solana address (base58)</label>
       <div class="inrow">
         <input id="payTo" type="text" inputmode="text" autocomplete="off" spellcheck="false"
-               placeholder="e.g. 5xY…your Solana wallet…aB1z" aria-describedby="cfgStatus" />
+               placeholder="e.g. 5xY…your Solana wallet…Jpump" aria-describedby="cfgStatus" />
         <button id="saveCfg" class="ghost" type="button">Save</button>
       </div>
       <div class="cfg-status" id="cfgStatus" role="status" aria-live="polite">No payout wallet set yet.</div>
@@ -451,7 +449,7 @@
             endpoint: '/api/paid/crypto',
             method: 'POST',
             body: { ids },
-            merchant: 'Crypto Prices',
+            merchant: 'three.ws Crypto',
             action: 'Live prices · ' + ids.length + ' coin' + (ids.length > 1 ? 's' : ''),
           });
           state.last = { data: out.result, payment: out.payment };
@@ -492,7 +490,7 @@
         // confirm the npm modal is live
         try {
           const X = await whenModalReady();
-          X.configure({ checkoutOrigin: location.origin, brand: { name: 'Crypto Prices', url: 'https://example.com' } });
+          X.configure({ checkoutOrigin: location.origin, brand: { name: 'three.ws Crypto', url: 'https://three.ws' } });
           $('verPill').classList.add('ready');
           $('verText').textContent = 'modal v' + (X.version || '?') + ' · live from npm';
         } catch (err) {
