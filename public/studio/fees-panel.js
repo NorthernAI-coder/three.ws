@@ -198,6 +198,11 @@ const FP_CSS = `
 .fp-gh input::placeholder{color:rgba(255,255,255,.25)}
 .fp-gh-hint{font-size:.63rem;color:rgba(255,255,255,.4);line-height:1.45;margin-top:-.15rem}
 .fp-gh-hint b{color:rgba(255,255,255,.62);font-weight:600}
+.fp-gh-modes{display:flex;gap:.3rem}
+.fp-gh-mode{flex:1;padding:.34rem .5rem;border-radius:7px;cursor:pointer;font-size:.66rem;font-weight:600;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.09);color:rgba(255,255,255,.5);transition:all .15s}
+.fp-gh-mode:hover{color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.18)}
+.fp-gh-mode.on{background:rgba(120,160,240,.12);border-color:rgba(120,160,240,.4);color:#bcd0f5}
 
 .fp-holders{display:flex;flex-direction:column;gap:.3rem}
 .fp-holder{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-radius:8px;
@@ -253,6 +258,7 @@ export function mountFeesPanel(container, opts = {}) {
 		editing: false,
 		rows: [],                      // [{ address, pct, gh?:{login,avatar} }]
 		githubRepo: '', githubBusy: false, githubError: '',
+		ghMode: 'contributors', // 'contributors' = split a repo; 'owner' = repo owner/creator gets 100%
 	};
 
 	let _alive = true;
@@ -470,11 +476,15 @@ export function mountFeesPanel(container, opts = {}) {
 
 	// ── GitHub import ─────────────────────────────────────────────────────────────
 
-	// Dispatch the GitHub input: an "owner/repo" imports a whole repo's
-	// contributors; a bare "@login" routes rewards to that single account.
+	// Dispatch the GitHub input. A bare "@login" always routes to that single
+	// account. An "owner/repo" honours the mode toggle: 'contributors' splits
+	// across the repo's contributors; 'owner' sends 100% to the repo owner/creator.
 	async function importGithub() {
 		const repo = parseGithubRepo(s.githubRepo);
-		if (repo) return importGithubRepo(repo);
+		if (repo) {
+			if (s.ghMode === 'owner') return addGithubAccount(repo.owner);
+			return importGithubRepo(repo);
+		}
 		const login = parseGithubAccount(s.githubRepo);
 		if (login) return addGithubAccount(login);
 		s.githubError = 'Enter a GitHub @username, or a repo as owner/name.';
@@ -730,11 +740,17 @@ export function mountFeesPanel(container, opts = {}) {
 		const busy = !!s.busy;
 		return `<div class="fp-deleg">
 			<div class="fp-deleg-title">🎁 Reward split — delegate creator fees</div>
+			<div class="fp-gh-modes">
+				<button class="fp-gh-mode${s.ghMode === 'contributors' ? ' on' : ''}" data-mode="contributors">Split contributors</button>
+				<button class="fp-gh-mode${s.ghMode === 'owner' ? ' on' : ''}" data-mode="owner">Owner / creator only</button>
+			</div>
 			<div class="fp-gh">
 				<input id="fp-gh-input" placeholder="GitHub @username or owner/repo" value="${esc(s.githubRepo)}" spellcheck="false" />
 				<button class="fp-btn violet${s.githubBusy ? ' busy' : ''}" id="fp-gh-go" ${s.githubBusy ? 'disabled' : ''}>${s.githubBusy ? 'Resolving…' : 'Add'}</button>
 			</div>
-			<div class="fp-gh-hint">A <b>@username</b> routes rewards to one account · an <b>owner/repo</b> splits across its contributors.</div>
+			<div class="fp-gh-hint">${s.ghMode === 'owner'
+				? `An <b>owner/repo</b> (or <b>@username</b>) routes <b>100%</b> to that one account — no contributor split.`
+				: `A <b>@username</b> routes rewards to one account · an <b>owner/repo</b> splits across its contributors.`}</div>
 			${s.githubError ? `<div class="fp-err">${esc(s.githubError)}</div>` : ''}
 			${s.rows.length ? rowsHtml : `<div class="fp-note">Add recipients below or import a GitHub repo's contributors.</div>`}
 			<button class="fp-add" id="fp-add" ${s.rows.length >= 10 ? 'disabled' : ''}>+ Add recipient</button>
@@ -788,6 +804,9 @@ export function mountFeesPanel(container, opts = {}) {
 		q('#fp-gh-go')?.addEventListener('click', importGithub);
 		q('#fp-gh-input')?.addEventListener('input', (e) => { s.githubRepo = e.target.value; });
 		q('#fp-gh-input')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importGithub(); } });
+		container.querySelectorAll('.fp-gh-mode').forEach((el) => {
+			el.addEventListener('click', (e) => { s.ghMode = e.currentTarget.dataset.mode; s.githubError = ''; render(); });
+		});
 
 		container.querySelectorAll('.fp-share-addr').forEach((el) => {
 			el.addEventListener('input', (e) => { s.rows[+e.target.dataset.i].address = e.target.value; });

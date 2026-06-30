@@ -64588,6 +64588,12 @@ sparklines, ring gauges, FLIP reorders, SSE status dots, and the single "it
 shipped" ripple. The vocabulary was proven on the `/swarms` page and extracted so
 every surface animates the same way instead of reinventing it.
 
+**See it run:** [`/ui-juice`](https://three.ws/ui-juice) is a live kitchen-sink that
+exercises every primitive on real, user-driven values (source: `pages/ui-juice.html`
++ `src/ui-juice-demo.js`). It's the fastest way to feel each helper and to verify the
+reduced-motion behaviour — emulate `prefers-reduced-motion: reduce` in DevTools and
+drive any control; everything lands on its static end state with no motion.
+
 Three guarantees hold for every export:
 
 - **Token-driven.** Durations and easings come from the motion ladder in

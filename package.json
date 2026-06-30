@@ -160,6 +160,8 @@
 		"publish:packages:dry": "node scripts/publish-packages.mjs --dry-run",
 		"publish:mcp": "node scripts/publish-mcp-servers.mjs",
 		"publish:mcp:dry": "node scripts/publish-mcp-servers.mjs --dry-run",
+		"sync:repos": "node scripts/sync-standalone-repos.mjs --execute",
+		"sync:repos:dry": "node scripts/sync-standalone-repos.mjs --dry-run",
 		"build:chat": "cd chat && node scripts/ensure-deps.mjs && npm run build && cd .. && mkdir -p dist/chat && cp -rf public/chat/. dist/chat/",
 		"build:avatar-studio": "npm run build --prefix character-studio",
 		"build:fast": "npm run build",

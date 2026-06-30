@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:05:31.948Z",
+	"generated_at": "2026-06-30T23:12:30.318Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -195,7 +195,7 @@
 			"date": "2026-06-30",
 			"type": "update",
 			"title": "Reward coins can now send creator fees to a single GitHub account, not just a repo",
-			"summary": "The Fees & rewards panel already let you split a coin's creator fees across a GitHub repo's contributors. Now you can also route rewards to one specific person: type a GitHub @username and it resolves to their three.ws-linked Solana payout wallet, added as a recipient you can give 100% (or any share) of the fees. This is the same mechanism behind $THREE, whose creator rewards flow to @nirholas even though someone else launched the coin. A handle with no linked wallet is flagged so you can paste their address or ask them to link one. The same input still accepts an owner/repo to split across contributors — one field, both intents.",
+			"summary": "The Fees & rewards panel already let you split a coin's creator fees across a GitHub repo's contributors. Now you can also route rewards to one specific person: type a GitHub @username and it resolves to their three.ws-linked Solana payout wallet, added as a recipient you can give 100% (or any share) of the fees. This is the same mechanism behind $THREE, whose creator rewards flow to @nirholas even though someone else launched the coin. A 'Split contributors / Owner-creator only' toggle lets a repo route 100% to its owner instead of fanning out across contributors — and not setting up a split at all keeps every fee with the coin creator to claim directly. A handle with no linked wallet is flagged so you can paste their address or ask them to link one.",
 			"link": null,
 			"tags": [
 				"feature"
