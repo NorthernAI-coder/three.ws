@@ -306,3 +306,4 @@ three-ws-*-log-export-*.json
 # Private keys + downloadable bundle. NEVER commit. Created under this dir only.
 .pump-launch-wallets/
 pump-launch-wallets*.zip
+.preview/

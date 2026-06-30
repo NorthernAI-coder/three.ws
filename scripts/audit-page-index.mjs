@@ -50,6 +50,7 @@ const IGNORE = new Set([
 	'/create-review', // mid-flow step of /create
 	'/deploy', // post-create deploy step, reached in-flow
 	'/demos', // internal demo index
+	'/ui-juice', // noindex kitchen-sink demo of the ui-juice motion library, not a discovery page
 	'/x402', // authenticated x402 checkout, not a discovery page
 	'/billing/keys', // authenticated x402 subscription-key management, reached in-flow from AWS welcome + dashboard
 	'/cz', // internal alias

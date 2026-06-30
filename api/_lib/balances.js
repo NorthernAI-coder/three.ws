@@ -18,8 +18,24 @@ import { cacheGet, cacheSet, cacheDel } from './cache.js';
 import { getMetadataForMints } from './token-metadata.js';
 
 const BALANCES_TTL_S = 60;
+// Last-known-good snapshot lifetime. A long horizon so a wallet that briefly
+// can't be read (Helius quota out + flaky public RPC) is served its real prior
+// balances — flagged stale — instead of erroring out. Refreshed on every
+// successful read.
+const BALANCES_LKG_TTL_S = 24 * 60 * 60;
 
-const PUBLIC_SOL_RPC = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+// The last-resort public RPCs, tried in order when Helius is absent or quota-
+// exhausted. `api.mainnet-beta.solana.com` aggressively rate-limits and its CDN
+// returns 404/403 under load — a single endpoint is a single point of failure
+// (it was the source of the `upstream 404: Not Found` net-worth 502s), so we
+// rotate a small pool. SOLANA_RPC_URL overrides the primary; SOLANA_RPC_FALLBACKS
+// (comma-separated) appends more. Dedup, drop falsy.
+const PUBLIC_SOL_RPCS = [
+	process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+	...(process.env.SOLANA_RPC_FALLBACKS
+		? process.env.SOLANA_RPC_FALLBACKS.split(',').map((s) => s.trim())
+		: ['https://solana-rpc.publicnode.com']),
+].filter((v, i, a) => v && a.indexOf(v) === i);
 const PUMP_FRONTEND_BASE = process.env.PUMP_FRONTEND_BASE || 'https://frontend-api-v3.pump.fun';
 function heliusRpc() {
 	const key = process.env.HELIUS_API_KEY;
@@ -113,11 +129,21 @@ async function solRpc(body, { allowFallback = true } = {}) {
 			else warnThrottled('helius:fail', `[balances] helius failed, falling back to public RPC: ${err?.message}`);
 		}
 	}
-	return fetchJson(PUBLIC_SOL_RPC, {
-		method: 'POST',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify(body),
-	});
+	// Try each public RPC in turn — one endpoint's 404/403/429 under load must not
+	// fail the whole read. Only when every fallback is exhausted do we throw.
+	let lastErr;
+	for (const url of PUBLIC_SOL_RPCS) {
+		try {
+			return await fetchJson(url, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(body),
+			});
+		} catch (err) {
+			lastErr = err;
+		}
+	}
+	throw lastErr ?? Object.assign(new Error('no Solana RPC configured'), { status: 502 });
 }
 
 // -- Solana price helpers --
@@ -566,9 +592,22 @@ export async function getBalances({ chain, address }) {
 	const key = `bal:${chain}:${address}`;
 	const cached = await cacheGet(key);
 	if (cached) return cached;
-	const value = chain === 'solana' ? await getSolanaBalances(address) : await getEvmBalances(address);
-	await cacheSet(key, value, BALANCES_TTL_S);
-	return value;
+	const lkgKey = `bal:lkg:${chain}:${address}`;
+	try {
+		const value = chain === 'solana' ? await getSolanaBalances(address) : await getEvmBalances(address);
+		await cacheSet(key, value, BALANCES_TTL_S);
+		// Durable last-known-good so a transient upstream outage serves the wallet's
+		// real prior balances (flagged stale) instead of a 502.
+		await cacheSet(lkgKey, value, BALANCES_LKG_TTL_S);
+		return value;
+	} catch (err) {
+		// Stale-on-error: every live RPC path failed. Serve the last-known-good
+		// snapshot tagged `stale` so the caller holds the wallet's last real look.
+		// Only a wallet we have never read successfully re-throws.
+		const lkg = await cacheGet(lkgKey);
+		if (lkg) return { ...lkg, stale: true };
+		throw err;
+	}
 }
 
 export async function invalidateBalances({ chain, address }) {

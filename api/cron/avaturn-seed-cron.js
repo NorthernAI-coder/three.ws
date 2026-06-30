@@ -33,6 +33,7 @@ import {
 } from '../_lib/forge-scale.js';
 import { exportRandomAvaturnAvatar } from '../_lib/avaturn-headless.js';
 import { putObject } from '../_lib/r2.js';
+import { inspectGlb } from '../_lib/glb-inspect.js';
 import { pickBodyType } from '../_lib/avaturn-seed.js';
 import { randomUUID } from 'node:crypto';
 
@@ -120,6 +121,26 @@ async function runOnce() {
 			metadata: { source: 'avaturn-seed' },
 		});
 
+		// Stamp the real skeleton signal so the marketplace/gallery "rigged"
+		// filter and the rig badge recognize these as rigged. Avaturn exports are
+		// always skinned, but the filter keys off source_meta.is_rigged /
+		// skeleton_joint_count (see searchPublicAvatars), not the `rig` label —
+		// without these, genuinely-rigged Avaturn avatars read as "needs rigging".
+		// Inspecting the in-memory bytes adds no I/O; fall back to is_rigged=true
+		// (Avaturn never exports a static mesh) if the parse ever returns null.
+		const rigInfo = inspectGlb(glbBytes);
+		const sourceMeta = {
+			seed: true,
+			avaturn: true,
+			rig: 'avaturn',
+			body_type: bodyType,
+			is_rigged: rigInfo ? rigInfo.isRigged : true,
+			skeleton_joint_count: rigInfo?.skeletonJointCount ?? null,
+			skin_count: rigInfo?.skinCount ?? null,
+			look,
+			export_url: exportUrl,
+		};
+
 		await sql`
 			insert into avatars
 				(owner_id, slug, name, description, storage_key, size_bytes,
@@ -130,7 +151,7 @@ async function runOnce() {
 				${'Fully-rigged Avaturn avatar — forged on three.ws'},
 				${storageKey}, ${glbBytes.length}, 'model/gltf-binary',
 				'avaturn',
-				${JSON.stringify({ seed: true, avaturn: true, rig: 'avaturn', body_type: bodyType, look, export_url: exportUrl })}::jsonb,
+				${JSON.stringify(sourceMeta)}::jsonb,
 				'public',
 				array['avatar', 'avaturn']::text[],
 				'avatar', now(), now()
