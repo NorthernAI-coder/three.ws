@@ -292,6 +292,9 @@
 	animation: lb-row-in var(--duration-base) var(--ease-out) both;
 }
 .lb-row:last-child { border-bottom: 0; }
+/* On refresh/sort we FLIP rows to their new rank (src/ui-juice.js) — suppress the
+   per-row entrance animation so standings settle in place instead of re-flashing. */
+.lb-rows--reflow .lb-row { animation: none; }
 .lb-row:hover { background: var(--surface-2); }
 .lb-row:focus-visible {
 	outline: var(--focus-ring-width) solid var(--focus-ring-color);

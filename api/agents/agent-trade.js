@@ -768,7 +768,24 @@ async function handleLimits(req, res, id) {
 	const { auth, meta } = owned;
 
 	if (req.method === 'GET') {
-		return json(res, 200, { data: { limits: getTradeLimits(meta), defaults: TRADE_LIMIT_DEFAULTS } });
+		// Surface the live daily spend alongside the limits so the owner can see how
+		// much of the daily budget the agent has already burned (mainnet — the
+		// budget guard keys on the same window/network). Best-effort: a spend-query
+		// hiccup must never block reading the limits themselves.
+		const network = normNetwork(new URL(req.url, 'http://x').searchParams.get('network'));
+		let spentLamports = 0n;
+		try { spentLamports = await getDailySpendLamports(id, network); } catch { spentLamports = 0n; }
+		let spentUsd = null;
+		if (spentLamports > 0n) { try { spentUsd = await lamportsToUsd(spentLamports); } catch { spentUsd = null; } }
+		return json(res, 200, {
+			data: {
+				limits: getTradeLimits(meta),
+				defaults: TRADE_LIMIT_DEFAULTS,
+				spent_today_sol: Number(spentLamports) / 1e9,
+				spent_today_usd: spentUsd,
+				network,
+			},
+		});
 	}
 
 	// Relaxing the trade guard rails (per-trade cap, daily budget, kill-switch)

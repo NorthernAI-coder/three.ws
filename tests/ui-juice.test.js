@@ -36,7 +36,7 @@ describe('countUp — instant path (no requestAnimationFrame in node)', () => {
 	it('records the target on dataset for the next updateValue', () => {
 		const el = { textContent: '', dataset: {} };
 		countUp(el, 0, 42, { format: (n) => String(Math.round(n)) });
-		expect(el.dataset.ujVal).toBe('42');
+		expect(el.dataset.juiceVal).toBe('42');
 		expect(el.textContent).toBe('42');
 	});
 
@@ -47,10 +47,11 @@ describe('countUp — instant path (no requestAnimationFrame in node)', () => {
 
 describe('updateValue', () => {
 	it('counts from the element\'s last tracked value to the new one', () => {
-		const el = { textContent: '', dataset: { ujVal: '100' } };
-		updateValue(el, 250, (n) => String(Math.round(n)));
+		// flash:false isolates the count math from the DOM tint pulse
+		const el = { textContent: '', dataset: { juiceVal: '100' } };
+		updateValue(el, 250, (n) => String(Math.round(n)), { flash: false });
 		expect(el.textContent).toBe('250');
-		expect(el.dataset.ujVal).toBe('250');
+		expect(el.dataset.juiceVal).toBe('250');
 	});
 
 	it('starts cold when no prior value is tracked', () => {
