@@ -186,9 +186,11 @@ export async function playFirstMeet({ viewer, agent, onShare, onContinue }) {
 	await delay(800);
 	spawnConfetti();
 
-	// t=2.2 — buttons fade in
+	// t=2.2 — buttons fade in, with a single restrained accent ripple as the
+	// shared "it's done" beat (reduced-motion → no-op, handled inside rippleOnce).
 	await delay(800);
 	actions.classList.add('fm-visible');
+	rippleOnce(actions);
 
 	// ── Wait for user ─────────────────────────────────────────────────────────
 

@@ -30,6 +30,7 @@ import {
 import { setPlayAvatar, setPlayName, setPlayCosmetics, playAs, getPlayAvatar } from './game/play-handoff.js';
 import { purchaseCosmetic, fetchOwnedCosmetics, resolveShopAccount } from './game/cosmetics-purchase.js';
 import { log } from './shared/log.js';
+import { rippleOnce } from './ui-juice.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -214,6 +215,12 @@ class CharacterCreator {
 		veil.hidden = !msg || state === 'loading' ? false : true;
 		veil.classList.toggle('cc-veil--spin', state === 'loading');
 		veil.classList.toggle('cc-veil--error', state === 'error' || state === 'fallback');
+		// Real success beat — a single accent ripple the first time an avatar
+		// actually finishes loading onto the stage (not on every idle re-render).
+		if (state === 'ready' && this._lastStageState && this._lastStageState !== 'ready') {
+			rippleOnce(stage);
+		}
+		this._lastStageState = state;
 	}
 
 	// ── Wardrobe ────────────────────────────────────────────────────────────────

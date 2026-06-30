@@ -38,6 +38,7 @@ import {
 import { walletChipEl } from './shared/agent-wallet-chip.js';
 import { agentAvatarGlb, hasCustomAvatar, seeInWorldHref } from './shared/agent-3d.js';
 import { resolveDevR2Url } from './shared/dev-r2-proxy.js';
+import { flashValue, rippleOnce, liveDot, setLiveDot } from './ui-juice.js';
 
 const GRADUATION_CAP_USD = 69_000; // pump.fun bonding-curve graduation threshold
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -428,8 +429,8 @@ function renderHero() {
 		]);
 
 	const stats = el('dl', { class: 'ld-hero-stats' }, [
-		stat('Price', fmtPrice(price)),
-		stat('Market cap', fmtMcap(mcap)),
+		stat('Price', fmtPrice(price), 'ld-stat-price'),
+		stat('Market cap', fmtMcap(mcap), 'ld-stat-mcap'),
 		stat('24h volume', fmtMcap(Number(coin?.volume_24h ?? coin?.volume24h))),
 		stat('Total supply', supply != null ? compact(supply) : '—'),
 		stat('Launched', reg?.created_at || intel?.created_at ? relTime(reg?.created_at || intel?.created_at) : '—'),
@@ -1592,6 +1593,9 @@ function pushTrade(listEl, t) {
 	const row = tapeRow(t);
 	if (!REDUCED_MOTION) row.classList.add('ld-trade-in');
 	listEl.insertBefore(row, listEl.firstChild);
+	// Directional tint pulse on the freshest trade — buys read success-green, sells
+	// danger-red, matching the swarms feed vocabulary on top of the slide-in.
+	flashValue(row, row.classList.contains('ld-buy') ? 'up' : 'down');
 	while (listEl.children.length > 24) listEl.removeChild(listEl.lastChild);
 }
 
@@ -1617,8 +1621,7 @@ function startTape(listEl, dot) {
 	let closed = false;
 
 	const setLive = (live) => {
-		dot.classList.toggle('ld-live-on', live);
-		dot.title = live ? 'Live' : 'Reconnecting…';
+		setLiveDot(dot, live ? 'live' : 'connecting', live ? 'live' : 'reconnecting');
 	};
 
 	const connect = () => {
