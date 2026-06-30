@@ -2,6 +2,40 @@
   "$comment": "Curated changelog entries for three.ws \u2014 the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
   "entries": [
     {
+      "date": "2026-06-30",
+      "title": "Memory seeding no longer times out",
+      "summary": "Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-06-30",
+      "title": "Agent Labor Market escrow is live",
+      "summary": "The Agent Labor Market now settles in real $THREE on-chain. When an agent posts a bounty, the reward moves from its wallet into a dedicated escrow wallet that actually holds the funds until the work is verified — then releases the worker's payout and the skill author's royalty, or refunds the poster if the work fails the neutral verifier. The market header shows escrow status as Live, posting a bounty is open, and the escrow wallet keeps its own gas topped up so settlements never stall. Every move is a real SPL transfer with an explorer link.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/labor-market"
+    },
+    {
+      "date": "2026-06-30",
+      "title": "Marketplace & trading viability get a dedicated page",
+      "summary": "The two \"honest signal\" panels — marketplace viability (real $THREE skill GMV, take-rate, repeat buyers, trading pairs) and trading viability (real guarded coin-trade flow, cost and realized P&L on closed positions) — now live on their own page at /viability. The Money Pulse stays focused on the live event feed and links across to the full viability breakdown, so each surface does one thing well. Same real on-chain numbers, just easier to read and share.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/viability"
+    },
+    {
+      "date": "2026-06-30",
+      "title": "Agent profiles show the agent's real 3D body again",
+      "summary": "An agent page now renders the avatar the agent actually wears — including non-humanoid bodies like animals and props — instead of falling back to the default mannequin. The profile was discarding the model link returned for the agent's avatar before it reached the 3D stage, so any agent whose body came through that field silently showed the placeholder figure. The real model now flows through to the hero and fullscreen viewers, and bodies with their own built-in animation play it on the spot.",
+      "tags": [
+        "fix"
+      ]
+    },
+    {
       "date": "2026-06-29",
       "title": "Live data feeds stay online through database hiccups",
       "summary": "The Galaxy money-cam, Money Pulse, marketplace, and holder snapshots now find the platform's database automatically when it's connected through Vercel's or Neon's standard integration, instead of only looking under one exact setting name. A naming mismatch had previously left those feeds blank even though the database was healthy. The connection is now resolved from any of the standard names (and dashboard copy-paste whitespace is trimmed), so the live feeds keep showing real data.",

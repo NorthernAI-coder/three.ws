@@ -18,9 +18,26 @@ import bs58 from 'bs58';
 
 import { transferSolanaUSDC } from './solana-transfer.js';
 import { TOKEN_MINT } from './token/config.js';
+import {
+	isConfigured as treasuryConfigured, getTreasuryKeypair,
+	transferSol, lamportBalance, treasuryConnection, SOL,
+} from './platform-treasury.js';
 
 let _escrowKp = null;
 let _escrowWarned = false;
+
+// The escrow wallet pays its own SOL fees when it RELEASES funds (worker payout,
+// royalty, poster refund). Posting only ever credits escrow, so a fresh escrow
+// wallet can hold $THREE without SOL — but it cannot release without gas. Keep a
+// small SOL buffer topped up from the platform treasury so settlements never get
+// stuck waiting on a hand-funded gas balance. A dedicated LABOR_ESCROW_GAS_SECRET
+// overrides the shared treasury when an operator wants the gas to come from its
+// own wallet. With neither configured this is a clean no-op (releases proceed on
+// whatever SOL the escrow already holds; if that is zero the transfer fails loud
+// and the bounty stays in a resumable state).
+const GAS_OVERRIDE_ENV = 'LABOR_ESCROW_GAS_SECRET';
+const GAS_FLOOR_LAMPORTS = BigInt(Math.floor(0.01 * SOL)); // top up when escrow dips below this
+const GAS_TOPUP_LAMPORTS = BigInt(Math.floor(0.04 * SOL)); // amount sent per top-up
 
 /** The base58 secret for the escrow wallet, or null (read paths). */
 function escrowSecretOrNull() {
@@ -99,6 +116,30 @@ export async function fundEscrow({ fromKeypair, amountAtomics }) {
 		amount,
 		mint: TOKEN_MINT,
 	});
+}
+
+/**
+ * Ensure the escrow wallet holds enough SOL to pay release fees, topping it up
+ * from the platform treasury when it dips below the floor. Best-effort: never
+ * throws (a release can still succeed on the escrow's existing balance), and a
+ * no-op when neither a gas wallet nor the shared treasury is configured.
+ * @returns {Promise<{ topped: boolean, reason?: string, sig?: string, balance?: string }>}
+ */
+export async function ensureEscrowGas() {
+	const addr = escrowAddressOrNull();
+	if (!addr) return { topped: false, reason: 'escrow_unconfigured' };
+	if (!treasuryConfigured(GAS_OVERRIDE_ENV)) return { topped: false, reason: 'gas_source_unconfigured' };
+	try {
+		const conn = treasuryConnection('mainnet');
+		const balance = await lamportBalance(conn, addr);
+		if (balance >= GAS_FLOOR_LAMPORTS) return { topped: false, reason: 'sufficient', balance: balance.toString() };
+		const gasKp = await getTreasuryKeypair(GAS_OVERRIDE_ENV);
+		const sig = await transferSol(conn, gasKp, addr, Number(GAS_TOPUP_LAMPORTS));
+		return { topped: true, sig, balance: balance.toString() };
+	} catch (e) {
+		console.error('[labor-escrow] gas top-up failed', e?.message);
+		return { topped: false, reason: 'topup_failed' };
+	}
 }
 
 /**

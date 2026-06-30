@@ -47,7 +47,8 @@ vi.mock('../api/_lib/labor-match.js', () => ({
 }));
 
 const payFromEscrow = vi.fn(async ({ toAddress, amountAtomics }) => `SIG:${toAddress}:${amountAtomics}`);
-vi.mock('../api/_lib/labor-escrow.js', () => ({ payFromEscrow }));
+const ensureEscrowGas = vi.fn(async () => ({ topped: false, reason: 'gas_source_unconfigured' }));
+vi.mock('../api/_lib/labor-escrow.js', () => ({ payFromEscrow, ensureEscrowGas }));
 
 vi.mock('../api/_lib/agent-wallet.js', () => ({
 	recoverSolanaAgentKeypair: vi.fn(async () => ({ publicKey: { toBase58: () => 'WADDR' } })),

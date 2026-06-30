@@ -22,7 +22,7 @@ import {
 	autoBidForBounty, autoAwardIfReady, performJob,
 } from './labor-match.js';
 import { getBounty, getJobByBounty } from './agent-labor.js';
-import { payFromEscrow } from './labor-escrow.js';
+import { payFromEscrow, ensureEscrowGas } from './labor-escrow.js';
 import { recoverSolanaAgentKeypair } from './agent-wallet.js';
 import { recordInvocationReceipt } from './agent-invocation-onchain.js';
 import { recordCustodyEvent } from './agent-trade-guards.js';
@@ -50,6 +50,11 @@ export async function runSettlement({ job, bounty, verdict: providedVerdict = nu
 		const [cur] = await sql`SELECT * FROM agent_jobs WHERE id = ${job.id}`;
 		return { idempotent: true, status: cur?.status || job.status, job: cur || job };
 	}
+
+	// Both terminal paths below release SOL-paying transfers from escrow (payout or
+	// refund). Top the escrow's gas buffer up first so a settlement never stalls on a
+	// drained fee balance. Best-effort — never throws.
+	await ensureEscrowGas().catch((e) => console.warn('[labor-settle] gas ensure failed', e?.message));
 
 	// ── Verify ───────────────────────────────────────────────────────────────
 	const verdict = providedVerdict || (await verifyDeliverable({ bounty, deliverable: claimed.deliverable }));
