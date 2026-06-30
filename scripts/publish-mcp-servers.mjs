@@ -91,6 +91,7 @@ const SERVERS = [
 	{ key: 'clash-mcp', dir: 'packages/clash-mcp', manifest: 'packages/clash-mcp/server.json' },
 	{ key: 'tutor-mcp', dir: 'packages/tutor-mcp', manifest: 'packages/tutor-mcp/server.json' },
 	{ key: 'loom-mcp', dir: 'packages/loom-mcp', manifest: 'packages/loom-mcp/server.json' },
+	{ key: 'agent-sniper', dir: 'packages/agent-sniper', manifest: 'packages/agent-sniper/server.json' },
 	{ key: 'remote-main', manifest: 'server.json' },
 	{ key: 'remote-pumpfun', manifest: 'server-pumpfun.json' },
 	{ key: 'remote-3d', manifest: 'server-3d.json' },

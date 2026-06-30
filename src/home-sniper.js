@@ -23,10 +23,11 @@
  * real even on localhost.
  */
 
-import { reducedMotion } from './ui-juice.js';
+import { reducedMotion, countUp } from './ui-juice.js';
 
 const NETWORK = 'mainnet';
 const STATUS_URL = '/api/sniper/status';
+const STATS_URL = '/api/oracle/stats';
 const BOARD_URL = `/api/sniper/leaderboard?network=${NETWORK}&window=30d`;
 const STREAM_URL = `/api/sniper/stream?network=${NETWORK}`;
 const MAX_ROWS = 7;
@@ -218,6 +219,52 @@ function applyStatus(root, s) {
 	}
 }
 
+// ── aggregate proof band (oracle stats, count-up on reveal) ────────────────────
+
+function makeStatBand(root) {
+	const band = root.querySelector('#snipe-stats');
+	const fields = [
+		{ el: root.querySelector('#snipe-stat-scored'), key: 'scored_24h', fmt: fmtCompact },
+		{ el: root.querySelector('#snipe-stat-wins'), key: 'total_wins', fmt: fmtCompact },
+		{ el: root.querySelector('#snipe-stat-ath'), key: 'best_ath', fmt: (n) => `${Number(n).toFixed(1)}×` },
+	];
+	let values = null;
+	let shown = false;
+
+	function render() {
+		if (!values || shown) return;
+		shown = true;
+		fields.forEach(({ el, key, fmt }) => {
+			if (!el) return;
+			const v = Number(values[key]);
+			el.classList.remove('loading');
+			if (!Number.isFinite(v)) { el.textContent = '—'; return; }
+			if (reducedMotion()) el.textContent = fmt(v);
+			else countUp(el, 0, v, { format: fmt, duration: 1100 });
+		});
+	}
+
+	// Count up only once the band scrolls into view — the reveal is the moment.
+	if (band && typeof IntersectionObserver === 'function') {
+		const io = new IntersectionObserver((entries) => {
+			if (entries.some((e) => e.isIntersecting)) { io.disconnect(); render(); }
+		}, { threshold: 0.35 });
+		io.observe(band);
+	}
+
+	return {
+		set(data) {
+			values = data;
+			// If already on screen (short pages / no observer), render immediately.
+			if (!band || typeof IntersectionObserver !== 'function') render();
+			else {
+				const r = band.getBoundingClientRect();
+				if (r.top < (window.innerHeight || 0) && r.bottom > 0) render();
+			}
+		},
+	};
+}
+
 function setKpi(root, id, val, accent) {
 	const el = root.querySelector(id);
 	if (!el) return;
@@ -234,6 +281,7 @@ export function initHomeSniper() {
 
 	const pipeline = makePipeline(root);
 	const tape = makeTape(root);
+	const statBand = makeStatBand(root);
 
 	// Ambient idle pulse — illustrates the loop while the feed is quiet. Carries
 	// no ticker and never writes to the tape, so it can't be mistaken for a trade.
@@ -246,6 +294,14 @@ export function initHomeSniper() {
 			if (Date.now() - lastEventAt >= IDLE_PULSE_MS) pipeline.idle();
 			idleTimer = setTimeout(tick, IDLE_PULSE_MS);
 		}, IDLE_PULSE_MS);
+	}
+
+	// 0) Aggregate platform stats — feeds the proof band (count-up on reveal).
+	async function loadStats() {
+		try {
+			const r = await fetch(STATS_URL, { headers: { accept: 'application/json' } });
+			if (r.ok) statBand.set(await r.json());
+		} catch { /* non-fatal — placeholders stay */ }
 	}
 
 	// 1) Worker liveness — poll on an interval (cheap, public, no secrets).
@@ -264,13 +320,11 @@ export function initHomeSniper() {
 			const d = await r.json();
 			const board = Array.isArray(d.leaderboard) ? d.leaderboard : [];
 
-			const bestWin = board.reduce((m, a) => Math.max(m, Number(a.win_rate) || 0), 0);
 			const bestRoi = board.reduce((m, a) => (Number(a.roi_pct) > (m ?? -Infinity) ? Number(a.roi_pct) : m), null);
 			const totalOpen = board.reduce((s, a) => s + (Number(a.open_positions) || 0), 0)
 				|| (Array.isArray(d.positions) ? d.positions.length : 0);
 
-			setKpi(root, '#snipe-kpi-winrate', board.length ? `${Math.round(bestWin * 100)}%` : '—', true);
-			setKpi(root, '#snipe-kpi-roi', bestRoi != null ? (fmtPct(bestRoi) || '—') : '—');
+			setKpi(root, '#snipe-kpi-roi', bestRoi != null ? (fmtPct(bestRoi) || '—') : '—', true);
 			setKpi(root, '#snipe-kpi-open', fmtCompact(totalOpen));
 
 			// Seed the tape from real history: most recent closed trades, then open holds.
@@ -335,6 +389,7 @@ export function initHomeSniper() {
 		else if (!es) connectStream();
 	});
 
+	loadStats();
 	pollStatus();
 	loadBoard();
 	connectStream();

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T22:33:38.485Z",
+	"generated_at": "2026-06-30T22:37:39.708Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -90,6 +90,16 @@
 		{
 			"date": "2026-06-30",
 			"type": "update",
+			"title": "Agent Studio's Money tab can now withdraw USDC earnings and shows your total take",
+			"summary": "The economic surface of Agent Studio just got more useful. Your agent earns in USDC — and now you can withdraw it: the Withdraw panel has a SOL / USDC toggle, shows the available balance for the asset you pick, and a one-tap Max sweeps the whole balance (a little SOL is kept for the network fee). The Earnings section now opens with a summary — total received, number of payments, and the last 7 days' take — computed from the real payments ledger, and it refreshes on its own, so a new payment appears with its running total updated without a reload. Same no-mocks, real-on-chain wallet underneath.",
+			"link": "/agent-studio",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
 			"title": "AI chat now routes around a dead provider account instead of hammering it",
 			"summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
 			"link": null,
@@ -104,6 +114,16 @@
 			"title": "Documented the full x402 paid-endpoint catalog and where endpoint revenue is recorded",
 			"summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
 			"link": "/docs/x402-endpoints",
+			"tags": [
+				"docs"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "Documented the x402 volume engine and the daily payment reconciliation job",
+			"summary": "The developer docs now cover the two newest pieces of the x402 money machine. The Volume Bootstrap Loop — the autonomous sweep that pays every cheap paid endpoint a real on-chain micro-payment to prove it is live — is documented with its per-endpoint proof-of-volume ledger (x402_volume_metrics) and its budget knobs. The docs are explicit that this is synthetic liveness traffic — the platform paying its own endpoints from its own seed wallet — and must not be reported as organic marketplace demand; any published volume or facilitator-ranking number has to exclude the seed wallet. The new daily reconciliation job is documented too: it cross-checks every settlement our books claim against the actual Solana transaction and flags any row the chain does not corroborate, so a silently-failed settlement can't drift our accounting.",
+			"link": "/docs/x402-revenue",
 			"tags": [
 				"docs"
 			]

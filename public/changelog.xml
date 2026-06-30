@@ -71,6 +71,14 @@
 			<description>On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.</description>
 		</item>
 		<item>
+			<title>Agent Studio's Money tab can now withdraw USDC earnings and shows your total take</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-06-30:Agent Studio's Money tab can now withdraw USDC earnings and shows your total take</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The economic surface of Agent Studio just got more useful. Your agent earns in USDC — and now you can withdraw it: the Withdraw panel has a SOL / USDC toggle, shows the available balance for the asset you pick, and a one-tap Max sweeps the whole balance (a little SOL is kept for the network fee). The Earnings section now opens with a summary — total received, number of payments, and the last 7 days' take — computed from the real payments ledger, and it refreshes on its own, so a new payment appears with its running total updated without a reload. Same no-mocks, real-on-chain wallet underneath.</description>
+		</item>
+		<item>
 			<title>AI chat now routes around a dead provider account instead of hammering it</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-06-30:AI chat now routes around a dead provider account instead of hammering it</guid>
@@ -85,6 +93,14 @@
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>docs</category>
 			<description>The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.</description>
+		</item>
+		<item>
+			<title>Documented the x402 volume engine and the daily payment reconciliation job</title>
+			<link>https://three.ws/docs/x402-revenue</link>
+			<guid isPermaLink="false">2026-06-30:Documented the x402 volume engine and the daily payment reconciliation job</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>The developer docs now cover the two newest pieces of the x402 money machine. The Volume Bootstrap Loop — the autonomous sweep that pays every cheap paid endpoint a real on-chain micro-payment to prove it is live — is documented with its per-endpoint proof-of-volume ledger (x402_volume_metrics) and its budget knobs. The docs are explicit that this is synthetic liveness traffic — the platform paying its own endpoints from its own seed wallet — and must not be reported as organic marketplace demand; any published volume or facilitator-ranking number has to exclude the seed wallet. The new daily reconciliation job is documented too: it cross-checks every settlement our books claim against the actual Solana transaction and flags any row the chain does not corroborate, so a silently-failed settlement can't drift our accounting.</description>
 		</item>
 		<item>
 			<title>Fixed several pages returning a 404</title>
