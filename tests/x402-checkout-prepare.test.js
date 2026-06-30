@@ -9,7 +9,7 @@ import { acceptSchema, prepareSchema, ataExists, getRecentBlockhash, validateTip
 // "Non-base58 character" inside `new PublicKey()` — an opaque 500 that took down
 // every USDC checkout at the club door. The schema must trim it back to a valid
 // address so the transaction still builds.
-const PAY_TO = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
+const PAY_TO = 'Cta6nRgbTuhM65E3g4UsEed6go9QHGoY75p5HPdHm3J4';
 const FEE_PAYER = '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4';
 const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const BUYER = 'wwwPqsM4N7T9J69tB82nLyzxqsH159j4orftLTQfUGV';

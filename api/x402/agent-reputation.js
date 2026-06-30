@@ -56,7 +56,7 @@ const INPUT_SCHEMA = {
 const OUTPUT_EXAMPLE = {
 	agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 	name: 'Helios',
-	wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+	wallet_address: 'THREEsynthetic1111111111111111111111111PayTo',
 	deployed_mints: 2,
 	mints: [
 		{ mint: 'C3vQ...', network: 'mainnet', symbol: 'HELIO' },
@@ -259,7 +259,7 @@ const SWEEP_OUTPUT_EXAMPLE = {
 		{
 			agent_id: '7b9a4f30-2d11-4e2d-9d12-1cdb1f6a3a55',
 			name: 'Helios',
-			wallet_address: 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU',
+			wallet_address: 'THREEsynthetic1111111111111111111111111PayTo',
 			deployed_mints: 2,
 			score: 88,
 			flagged: false,

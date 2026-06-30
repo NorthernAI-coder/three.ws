@@ -167,7 +167,7 @@ describe('confirmSolanaPayment — static SPL transfer decode', () => {
 		return Buffer.from(vtx.serialize()).toString('base64');
 	}
 
-	const payTo = 'wwwwwDxFWRn7grgr3Esrsg5C6NvDoDHSA4gaCffccrU';
+	const payTo = 'Cta6nRgbTuhM65E3g4UsEed6go9QHGoY75p5HPdHm3J4';
 
 	it('confirms a payment that meets the required amount', () => {
 		const tx = txPaying({ amount: 1000, payTo });

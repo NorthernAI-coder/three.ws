@@ -248,6 +248,7 @@ const appConfig = {
 		rollupOptions: {
 			external: [
 				'/launch/launch.js',
+				'/launch-studio/launch-studio.js',
 				'/studio/launch-panel.js',
 				'/studio/fees-panel.js',
 				'./fees-panel.js',
@@ -338,6 +339,7 @@ const appConfig = {
 				widget: resolve(__dirname, 'pages/widget.html'),
 				launchpad: resolve(__dirname, 'pages/launchpad.html'),
 				launch: resolve(__dirname, 'pages/launch.html'),
+				'launch-studio': resolve(__dirname, 'pages/launch-studio.html'),
 				start: resolve(__dirname, 'pages/start.html'),
 				create: resolve(__dirname, 'pages/create.html'),
 				'create-agent': resolve(__dirname, 'pages/create-agent.html'),

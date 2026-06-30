@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:44:53.101Z",
+	"generated_at": "2026-06-30T23:57:49.394Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -871,6 +871,16 @@
 					"title": "Launch a Coin",
 					"description": "Mint a coin for your 3D AI agent in one flow — pick an agent, set the name, symbol, and image, then launch on pump.fun straight from your wallet with an optional three.ws-branded vanity mint.",
 					"added": "2026-06-15",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/launch-studio",
+					"title": "Launch Studio — 50 ways to mint a coin",
+					"description": "A catalog of 50 coin-launch use cases — reward coins for trending GitHub repos and creators, and coins riding live cultural, news, and onchain narratives. Preview what each would mint right now from live data, then launch on pump.fun in one click.",
+					"added": "2026-06-30",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
