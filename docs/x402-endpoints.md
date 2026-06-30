@@ -80,6 +80,7 @@ for to feed the oracle and sniper.
 | `/api/x402/mint-to-mesh` | per call | Token/mint → 3D mesh; `-batch` variant $0.05. |
 | `/api/x402/model-check`, `/api/x402/model-validation-sweep` | $0.001 | Validate a GLB / sweep a batch. |
 | `/api/x402/glb-optimization-report` | per call | GLB size/optimization analysis. |
+| `/api/x402/avatar-optimize-batch` | $0.001 | Batch optimization pass over the top N avatars. |
 | `/api/x402/animation-download`, `/api/x402/asset-download` | per asset | Paid asset/animation delivery. |
 
 ## Launch, naming & utility endpoints
@@ -92,17 +93,41 @@ for to feed the oracle and sniper.
 | `/api/x402/did` | per call | Decentralized identifier resolution. |
 | `/api/x402/billboard` | $0.05 | Post to the on-platform billboard. |
 | `/api/x402/dance-tip` | $0.001 | Tip a club performer. |
+| `/api/x402/club-cover` | $0.01 | Pole-club door cover charge; a paid wallet re-enters free for the pass window. |
 | `/api/x402/cosmetic-purchase` | per item | Buy a cosmetic. |
+| `/api/x402/tutor` | $0.01 / answer | Paid tutoring; a session accumulates a running tab across answers. |
 | `/api/x402/spend-session` | $0.01 | Open a metered spend session. |
 | `/api/x402/llm-proxy` | per call | Paid LLM proxy. |
+| `/api/x402/notify` | $0.001 | Notification gateway (Telegram + the autonomous loop's `canary` heartbeat lane). |
+| `/api/x402/wallet-connect` | $0.001 | Wallet-bridge connect probe. |
+| `/api/x402/permit2-paid-demo` | $0.001 | Reference endpoint for the Permit2 / EIP-2612 gasless-approval scheme. |
 | `/api/x402/cross-chain`, `/api/x402/network-cost` | per call | Cross-chain cost comparison. |
 | `/api/x402/*-health`, `/api/x402/rate-limit-probe`, `/api/x402/schema-check` | $0.001 | Paid health/diagnostic probes used by the autonomous loop. |
 
 > Prices above marked "per call / per tier / per source" are computed by the
 > handler rather than a flat default; check the handler and any
-> `X402_PRICE_<SLUG>` override for the exact figure in your deployment. Every
-> flat default is listed in [`api/_lib/x402-prices.js`](../api/_lib/x402-prices.js)
-> and overridable as described above.
+> `X402_PRICE_<SLUG>` override for the exact figure in your deployment. Each
+> endpoint declares its own default inline via
+> `priceFor('<slug>', '<atomics>')` (resolver:
+> [`api/_lib/x402-prices.js`](../api/_lib/x402-prices.js)) — grep a handler for
+> `priceAtomics` / `priceFor(` to see its figure — and every default is
+> overridable with `X402_PRICE_<SLUG>` as described above.
+
+## Observability, revenue & ops endpoints
+
+Several endpoints in `api/x402/` report on the platform itself. The paid ones
+charge a token fee (they are real, sellable observability products an agent can
+consume); a few are **free** read surfaces that happen to live in the same
+directory.
+
+| Endpoint | Default | Returns |
+|---|---|---|
+| `/api/x402/analytics` | $0.005 | Platform reports — pick `report=revenue` for the x402 endpoint-revenue summary (see [x402 revenue & receipts](x402-revenue.md)), plus club and listing analytics. |
+| `/api/x402/mcp-tool-catalog` | per call | Snapshot of every MCP tool — name, paid/free, price, input shape — and a diff vs the last snapshot (added / removed / re-priced tools). |
+| **Free read surfaces** | — | — |
+| `/api/x402/my-receipts` | free | A buyer's own settled receipts, gated by a wallet signature (SIWX) rather than a payment. |
+| `/api/x402/mcp-perf` | free | MCP tool latency dashboard data. |
+| `/api/x402/service-pricing-report` | free | Tracked upstream-dependency price catalog + active price-increase/-drop alerts. |
 
 ## $THREE only
 
@@ -115,4 +140,6 @@ input and do not promote any specific token.
 
 - [x402 protocol](x402.md) — the challenge/settle mechanics.
 - [x402 buyer client](x402-buyer.md) — how to pay these endpoints in code.
+- [x402 revenue & receipts](x402-revenue.md) — where settled payments are recorded and how to read endpoint revenue.
+- [Autonomous x402 loop](autonomous-x402.md) — the scheduled buyer that drives volume through these endpoints.
 - [MCP tools](mcp-tools.md) — the same capabilities exposed as paid MCP tools.

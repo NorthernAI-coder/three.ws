@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Documented the full x402 paid-endpoint catalog and where endpoint revenue is recorded",
+      "summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
+      "tags": [
+        "docs"
+      ],
+      "link": "/docs/x402-endpoints"
+    },
+    {
+      "date": "2026-06-30",
       "title": "The $THREE holder leaderboard now rides out RPC rate limits instead of stalling",
       "summary": "The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle — and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.",
       "tags": [
