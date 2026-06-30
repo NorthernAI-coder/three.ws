@@ -59,6 +59,7 @@
 		"packages/intel-mcp",
 		"packages/marketplace-mcp",
 		"packages/x402-mcp",
+		"packages/agent-sniper",
 		"packages/provenance-mcp",
 		"packages/autopilot-mcp",
 		"packages/portfolio-mcp",

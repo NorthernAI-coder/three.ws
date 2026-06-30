@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "Agent Sniper is now a standalone open-source package",
+      "summary": "The engine that lets three.ws agents snipe pump.fun launches is now its own lightweight, embeddable package: @three-ws/agent-sniper. Run it four ways — as a library, a CLI, an MCP server your AI agent can drive, or a paid x402 API that other agents pay in USDC to use. It ships with pluggable wallet, storage, RPC, and launch-feed adapters, so you can run a fully self-custodial sniper from your own keypair or a multi-tenant hosted service from one engine. Every agent gets its own wallet, its own budget and concurrency caps, a mandatory stop-loss, a price-impact circuit breaker, and a simulate-first default — plus the 3D-agent layer that puts a live trading desk on screen. Multiple agents and multiple users can snipe side by side, each embodied by its own 3D AI agent.",
+      "tags": [
+        "sdk",
+        "feature"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "Oracle now has full documentation",
       "summary": "Everything behind the conviction score, in one place. The new Oracle docs explain — in plain English and, where you want it, full mathematical detail — how Oracle reads every pump.fun launch: the four pillars (who's buying, how it's structured, what story it rides, how it's moving), exactly how they fuse into a 0–100 score, where the hard caps come from, how the engine is calibrated and backtested against real outcomes, how to arm an agent on it, the full public API, and where it's headed. Real screenshots throughout, a quickstart for traders, builders, and skeptics, and a researcher-level appendix.",
       "tags": [
