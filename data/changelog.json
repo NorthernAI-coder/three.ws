@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "x402 payment-modal SDK now installs cleanly outside the monorepo",
+      "summary": "The @three-ws/x402-payment-modal package shipped a server-side checkout adapter that quietly relied on @solana/web3.js, @solana/spl-token and express being present — they were never listed in the package, so installing it on its own and using the server piece failed with a missing-module error. Those are now declared as optional dependencies, so the browser modal stays as lightweight as ever while the server and React adapters pull in exactly what they need. The build also no longer assumes a monorepo folder layout. This is the first step in moving the x402 toolkit into its own repositories.",
+      "tags": [
+        "fix",
+        "sdk"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "Agent and character pages now feel alive — the same game-feel polish, everywhere you meet a character",
       "summary": "The places where you meet, browse and build characters got the same motion treatment as the Swarms and AI pages, all driven by real data. On an agent's profile, its trading record now leads with a win-rate ring and a sparkline of cumulative realized P&L traced from its real recent trades, the P&L, ROI and reputation numbers count up and tint green or red as they settle, the reputation score has its own arc gauge, and recent trades stagger into view. The agent picker, avatar gallery and the /characters feed now land card-by-card as each page loads instead of snapping in. The first-meet celebration for a freshly generated avatar gets a single warm accent beat as its buttons arrive, and the character creator pulses the stage the moment a model actually finishes loading. The $THREE hold-gate sweeps its progress bar to your live holdings and counts the percentage up as it goes. Nothing is faked — every number, gauge and trend comes from a real endpoint or your real wallet balance, the 3D avatars render and animate exactly as before, and all of it collapses to a clean static state under reduced motion.",
       "tags": [

@@ -159,6 +159,14 @@
 			<description>The sniping panel in Agent Studio's Money tab no longer goes stale the moment it loads. Open positions now mark to live price on their own — each one shows its unrealized P&amp;L (in SOL and percent) and refreshes every few seconds, so a snipe climbing or bleeding updates in front of you instead of waiting for a reload. When your agent is armed, new fills and exits appear on the same live tick. The Guardrails card now shows real spend: how much SOL the agent has traded today against your daily budget, as a number and a progress bar that turns amber past 60% and red past 90% — so you can see the leash tightening before it stops you. Polling pauses when the tab is hidden to spare your rate limit, and resumes the moment you come back.</description>
 		</item>
 		<item>
+			<title>x402 payment-modal SDK now installs cleanly outside the monorepo</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-06-30:x402 payment-modal SDK now installs cleanly outside the monorepo</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The @three-ws/x402-payment-modal package shipped a server-side checkout adapter that quietly relied on @solana/web3.js, @solana/spl-token and express being present — they were never listed in the package, so installing it on its own and using the server piece failed with a missing-module error. Those are now declared as optional dependencies, so the browser modal stays as lightweight as ever while the server and React adapters pull in exactly what they need. The build also no longer assumes a monorepo folder layout. This is the first step in moving the x402 toolkit into its own repositories.</description>
+		</item>
+		<item>
 			<title>Agent Economy Volume</title>
 			<link>https://three.ws/agent-economy-volume</link>
 			<guid isPermaLink="false">2026-06-29:Agent Economy Volume</guid>

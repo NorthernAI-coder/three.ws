@@ -1,6 +1,7 @@
 /* Instant Agent Genesis — selfie/prompt → 3D agent → funded wallet → on-chain
    identity in under a minute. Styling leans on the shared design tokens
    (public/tokens.css) with safe fallbacks so the page stays portable. */
+@import './ui-juice.css';
 
 :root {
 	--gx-gap: var(--space-md, 16px);
