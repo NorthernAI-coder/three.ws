@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "The autonomous sniper is now an MCP server and an x402 paid API",
+      "summary": "Our autonomous pump.fun trading and sniping engine now speaks three languages at once. As an MCP server, any AI agent — Claude, Cursor, your own — can arm snipe strategies, fire manual buys, and watch positions through plain tool calls. As an x402 paid HTTP API, other agents can pay per call in USDC to arm a strategy or trigger a snipe, with free reads for health, status and positions. And it stays a clean library and CLI you can embed anywhere. It runs against your own wallet and RPC — self-custodial by default — with a mandatory stop-loss on every strategy and simulate mode on unless you explicitly go live. Install it with one command: npx -y @three-ws/agent-sniper.",
+      "tags": [
+        "feature",
+        "sdk"
+      ],
+      "link": "/docs/mcp"
+    },
+    {
+      "date": "2026-06-30",
       "title": "The swarm members panel is now a live standings board",
       "summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip: the chip carries the reputation score with the exact share of the swarm's vote that score commands beneath it, so you can see your track record become voting power (computed the same way the consensus engine does). The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
       "tags": [

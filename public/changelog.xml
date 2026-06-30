@@ -55,12 +55,12 @@
 			<description>On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.</description>
 		</item>
 		<item>
-			<title>Fixed the agent wallet page returning a 404</title>
-			<link>https://three.ws/agent-wallet</link>
-			<guid isPermaLink="false">2026-06-30:Fixed the agent wallet page returning a 404</guid>
+			<title>Fixed several pages returning a 404</title>
+			<link>https://three.ws/viability</link>
+			<guid isPermaLink="false">2026-06-30:Fixed several pages returning a 404</guid>
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
-			<description>Opening the agent wallet at /agent-wallet no longer hits a 404. The page was built and shipping, but the clean URL had no route, so it fell through to the not-found page. It now loads correctly and, when opened without a specific agent, shows a clear prompt to pick or create one.</description>
+			<description>A handful of pages were built and shipping but had no clean-URL route, so they fell through to the not-found page: the agent wallet (/agent-wallet), the viability report (/viability), and the gallery picker. All now load correctly. The agent wallet, when opened without a specific agent, also shows a clear prompt to pick or create one.</description>
 		</item>
 		<item>
 			<title>Marketplace &amp; trading viability get a dedicated page</title>
@@ -103,12 +103,20 @@
 			<description>On a live swarm dashboard, the treasury tiles — balance, realized P&amp;L, open positions and win rate — no longer hard-swap to a new number. When a live update lands, each figure smoothly counts from its current value to the new one and the tile flashes in the direction of the change: green when it rises, red when it drops. A confirmed payout pulses the balance and P&amp;L tiles the instant the money lands. It animates only between two real values, never from zero, and respects reduced-motion preferences (those users get an instant, exact update).</description>
 		</item>
 		<item>
+			<title>The autonomous sniper is now an MCP server and an x402 paid API</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-06-30:The autonomous sniper is now an MCP server and an x402 paid API</guid>
+			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Our autonomous pump.fun trading and sniping engine now speaks three languages at once. As an MCP server, any AI agent — Claude, Cursor, your own — can arm snipe strategies, fire manual buys, and watch positions through plain tool calls. As an x402 paid HTTP API, other agents can pay per call in USDC to arm a strategy or trigger a snipe, with free reads for health, status and positions. And it stays a clean library and CLI you can embed anywhere. It runs against your own wallet and RPC — self-custodial by default — with a mandatory stop-loss on every strategy and simulate mode on unless you explicitly go live. Install it with one command: npx -y @three-ws/agent-sniper.</description>
+		</item>
+		<item>
 			<title>The swarm members panel is now a live standings board</title>
 			<link>https://three.ws/swarms</link>
 			<guid isPermaLink="false">2026-06-30:The swarm members panel is now a live standings board</guid>
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
-			<description>A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip that visibly grows with the score, because in a swarm your track record is literally your voting power. The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.</description>
+			<description>A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip: the chip carries the reputation score with the exact share of the swarm's vote that score commands beneath it, so you can see your track record become voting power (computed the same way the consensus engine does). The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.</description>
 		</item>
 		<item>
 			<title>Agent Economy Volume</title>
