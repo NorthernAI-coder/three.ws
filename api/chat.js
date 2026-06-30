@@ -704,6 +704,27 @@ export default wrap(async (req, res) => {
 		// the next provider would also reject.
 		if ((upstream.status === 429 || upstream.status >= 500) && canFailOver()) {
 			const text = await upstream.text().catch(() => '');
+			// A 429 carrying a billing/quota signal is a deploy-wide wall, not a
+			// transient throttle — give it the long AUTH cooldown + 'auth' reason so the
+			// ladder stops re-routing to a dead-billing account every ~45s, and skip the
+			// failed provider's remaining sibling routes (same account → same wall).
+			const billingWall = upstream.status === 429 && isBillingQuotaError(text);
+			if (billingWall) {
+				void markProviderCooldown(route.name, AUTH_COOLDOWN_SECONDS, 'auth');
+				let next = routeIdx + 1;
+				while (next < fallbackRoutes.length && fallbackRoutes[next].name === route.name) next++;
+				console.warn(
+					`[chat:${route.name}] 429 (billing/quota — account unfunded) — cooling ${AUTH_COOLDOWN_SECONDS}s, failing over to ${fallbackRoutes[next]?.name}/${fallbackRoutes[next]?.model}: ${text.slice(0, 120)}`,
+				);
+				if (next < fallbackRoutes.length && Date.now() < deadline) {
+					routeIdx = next;
+					route = fallbackRoutes[routeIdx];
+					includeTools = true;
+					retriedTransient = false;
+					continue;
+				}
+				break; // every remaining route is the same dead account — surface terminal below
+			}
 			console.warn(
 				`[chat:${route.name}] ${upstream.status} — falling over to ${fallbackRoutes[routeIdx + 1].name}/${fallbackRoutes[routeIdx + 1].model}: ${text.slice(0, 120)}`,
 			);
@@ -778,8 +799,17 @@ export default wrap(async (req, res) => {
 			/provider returned error|rate.?limit|over.?loaded|capacity|temporarily unavailable|quota|exceeded your current/i.test(
 				`${upstreamMessage} ${text}`,
 			);
-		// The final route failed too — cool it down so the next request skips it.
-		if (atCapacity) void markProviderCooldown(route.name);
+		// The final route failed too — cool it down so the next request skips it. A
+		// billing/quota wall gets the long AUTH cooldown (won't recover until ops tops
+		// up) so the dead account isn't re-probed as the final tier every request.
+		if (atCapacity) {
+			const billingWall = isBillingQuotaError(`${upstreamMessage} ${text}`);
+			void markProviderCooldown(
+				route.name,
+				billingWall ? AUTH_COOLDOWN_SECONDS : undefined,
+				billingWall ? 'auth' : 'health',
+			);
+		}
 		if (atCapacity) res.setHeader('Retry-After', '20');
 		return error(
 			res,
@@ -1389,6 +1419,22 @@ function providersTried(attempted) {
 		if (!out.includes(a.provider)) out.push(a.provider);
 	}
 	return out;
+}
+
+// A 429 (or exhausted-chain body) that is really a deploy-wide BILLING/QUOTA wall,
+// not a transient per-minute throttle. OpenAI returns HTTP 429 with
+// `type: "insufficient_quota"` ("You exceeded your current quota…") AND a separate
+// "Your account is not active, please check your billing details" for a dead/unfunded
+// account — both 429s the generic branch would cool for only DEFAULT_COOLDOWN_SECONDS
+// (45s), so the ladder re-routes to the dead provider as its final tier every ~45s and
+// re-hits the same wall (the "OVER QUOTA"/"route(s) exhausted" flood seen in prod).
+// These won't recover until ops tops up billing, so they deserve the long AUTH cooldown
+// and the 'auth' reason (so even an explicit provider request skips the dead account),
+// exactly like a 401/402/403. Replicate/Groq "insufficient credit" reads the same way.
+function isBillingQuotaError(text) {
+	return /insufficient[_\s]?quota|insufficient[_\s]?credit|exceeded your current quota|account is not active|check your billing|billing details|quota.*exceeded|exceeded.*quota|not active.*billing/i.test(
+		text || '',
+	);
 }
 
 function fmt(n) {

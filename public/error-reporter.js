@@ -218,13 +218,55 @@
 		try {
 			const json = JSON.stringify(value);
 			// A real Error (or any object whose useful fields are non-enumerable)
-			// serializes to "{}" — a content-free report that tells us nothing. Fall
-			// back to the value's own string form so we capture at least the class.
-			if (json == null || json === '{}' || json === 'null') return String(value);
+			// serializes to "{}" — a content-free report. Before giving up to
+			// `String(value)` (which yields the diagnostically useless "[object
+			// Object]"), dig the value's OWN property names — these include the
+			// non-enumerable fields JSON.stringify skips, which is exactly where
+			// cross-realm Errors, DOMExceptions, and framework error wrappers hide
+			// `code`/`status`/`message`. That turns an opaque `[object Object]` into a
+			// real signal like `{code:4001,reason:"user rejected"}`.
+			if (json == null || json === '{}' || json === 'null') {
+				const dug = describeOpaqueObject(value);
+				return dug || String(value);
+			}
 			return json;
 		} catch {
 			return String(value);
 		}
+	}
+
+	// Build a `{key:value, …}` summary from an object's own property names,
+	// including the non-enumerable ones JSON.stringify ignores. Only primitive
+	// values are inlined (a getter that throws, or a nested object/function, is
+	// noted by type, never invoked deeply) so this stays exception-proof and
+	// bounded. Returns '' when the object genuinely carries nothing useful, so the
+	// caller can fall back to its own last resort.
+	function describeOpaqueObject(value) {
+		if (!value || typeof value !== 'object') return '';
+		let names;
+		try {
+			names = Object.getOwnPropertyNames(value);
+		} catch {
+			return '';
+		}
+		const parts = [];
+		for (const key of names) {
+			if (key === 'stack' || parts.length >= 12) continue; // stack captured separately
+			let v;
+			try {
+				v = value[key]; // may be a throwing getter — guarded
+			} catch {
+				continue;
+			}
+			const t = typeof v;
+			if (v == null) parts.push(`${key}:${String(v)}`);
+			else if (t === 'string') parts.push(`${key}:${v.length > 120 ? v.slice(0, 120) + '…' : v}`);
+			else if (t === 'number' || t === 'boolean' || t === 'bigint') parts.push(`${key}:${String(v)}`);
+			else if (t === 'object') parts.push(`${key}:[object]`);
+			else if (t === 'function') parts.push(`${key}:[function]`);
+		}
+		if (!parts.length) return '';
+		return `{${parts.join(', ')}}`;
 	}
 
 	// Extract a useful { name, message, stack } from a rejection reason of ANY
@@ -243,15 +285,22 @@
 		}
 		if (reason && typeof reason === 'object') {
 			// Duck-typed / cross-realm errors and common wrapper shapes.
-			const message =
-				(typeof reason.message === 'string' && reason.message) ||
-				(typeof reason.reason === 'string' && reason.reason) ||
-				(reason.error && typeof reason.error.message === 'string' && reason.error.message) ||
-				safeStringify(reason);
 			const name =
 				(typeof reason.name === 'string' && reason.name) ||
 				(reason.constructor && reason.constructor.name) ||
 				undefined;
+			let message =
+				(typeof reason.message === 'string' && reason.message) ||
+				(typeof reason.reason === 'string' && reason.reason) ||
+				(reason.error && typeof reason.error.message === 'string' && reason.error.message) ||
+				safeStringify(reason);
+			// `safeStringify` already digs non-enumerable props, but a genuinely empty
+			// object still collapses to the useless "[object Object]". Replace it with a
+			// marker that at least names the class and flags the empty shape — far more
+			// actionable in [client-error] than a bare "[object Object]".
+			if (message === '[object Object]') {
+				message = `(${name || 'Object'} thrown with no diagnostic fields)`;
+			}
 			const stack = typeof reason.stack === 'string' ? reason.stack : undefined;
 			return { name, message, stack };
 		}

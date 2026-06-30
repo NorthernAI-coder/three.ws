@@ -10,6 +10,7 @@
 //   POST   /api/agents/:id/strategies/toggle     pause/resume one equip { equip_id, active } (owner)
 //   POST   /api/agents/:id/strategies/kill       toggle the per-owner global kill switch (owner)
 //   POST   /api/agents/:id/strategies/sweep      evaluate this agent's equips now (owner "Run now")
+//   POST   /api/agents/:id/strategies/close      force-close ONE open position now { position_id } (owner "Sell now")
 
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { sql } from '../_lib/db.js';
@@ -287,5 +288,6 @@ export default async function handler(req, res, id, action) {
 	if (req.method === 'POST' && action === 'toggle') return handleToggle(req, res, id);
 	if (req.method === 'POST' && action === 'kill') return handleKill(req, res, id);
 	if (req.method === 'POST' && action === 'sweep') return handleSweep(req, res, id);
+	if (req.method === 'POST' && action === 'close') return handleClose(req, res, id);
 	return error(res, 404, 'not_found', `unknown strategies route: ${action || req.method}`);
 }
