@@ -196,6 +196,8 @@ const FP_CSS = `
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);color:#fff;box-sizing:border-box}
 .fp-gh input:focus{border-color:rgba(255,255,255,.28)}
 .fp-gh input::placeholder{color:rgba(255,255,255,.25)}
+.fp-gh-hint{font-size:.63rem;color:rgba(255,255,255,.4);line-height:1.45;margin-top:-.15rem}
+.fp-gh-hint b{color:rgba(255,255,255,.62);font-weight:600}
 
 .fp-holders{display:flex;flex-direction:column;gap:.3rem}
 .fp-holder{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-radius:8px;
@@ -468,9 +470,59 @@ export function mountFeesPanel(container, opts = {}) {
 
 	// ── GitHub import ─────────────────────────────────────────────────────────────
 
+	// Dispatch the GitHub input: an "owner/repo" imports a whole repo's
+	// contributors; a bare "@login" routes rewards to that single account.
 	async function importGithub() {
-		const parsed = parseGithubRepo(s.githubRepo);
-		if (!parsed) { s.githubError = 'Enter a repo as owner/name (e.g. solana-labs/solana).'; render(); return; }
+		const repo = parseGithubRepo(s.githubRepo);
+		if (repo) return importGithubRepo(repo);
+		const login = parseGithubAccount(s.githubRepo);
+		if (login) return addGithubAccount(login);
+		s.githubError = 'Enter a GitHub @username, or a repo as owner/name.';
+		render();
+	}
+
+	// Single GitHub account → one reward recipient. Resolves the handle to its
+	// three.ws-linked Solana payout wallet; if the user hasn't linked one, the
+	// row is added flagged so the creator can paste a wallet or ask them to link.
+	async function addGithubAccount(login) {
+		// Drop blank seed rows (the setup CTA leaves one empty 100% row) so adding
+		// an account doesn't strand a placeholder hogging the split.
+		s.rows = s.rows.filter((r) => r.address?.trim() || r.gh);
+		if (s.rows.some((r) => r.gh?.login?.toLowerCase() === login.toLowerCase())) {
+			s.githubError = `@${login} is already a recipient.`; render(); return;
+		}
+		if (s.rows.length >= 10) { s.githubError = 'Maximum 10 recipients.'; render(); return; }
+		s.githubBusy = true; s.githubError = '';
+		// Optimistic row — immediate feedback while we resolve the wallet. A lone
+		// recipient defaults to 100%; added alongside others it starts at 0% so
+		// the creator rebalances deliberately.
+		const row = {
+			address: '', bps: s.rows.length === 0 ? 10_000 : 0,
+			gh: { login, avatar: `https://github.com/${esc(login)}.png?size=40`, url: `https://github.com/${esc(login)}`, resolving: true },
+		};
+		s.rows.push(row); s.editing = true; render();
+		try {
+			const r = await fetch('/api/pump/resolve-github-shareholder', {
+				method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ github_username: login, network }),
+			});
+			const d = await r.json();
+			if (r.ok && d.mode === 'wallet' && d.address) {
+				row.address = d.address; row.gh.linked = true;
+				s.githubRepo = ''; // clear so another can be added
+			} else {
+				row.gh.unlinked = true;
+				s.githubError = d.note
+					|| `@${login} has no three.ws-linked Solana wallet yet — paste their wallet, or ask them to link one on three.ws to claim directly.`;
+			}
+		} catch (e) {
+			row.gh.unlinked = true; s.githubError = friendlyError(e.message || String(e));
+		}
+		row.gh.resolving = false; s.githubBusy = false;
+		if (_alive) render();
+	}
+
+	async function importGithubRepo(parsed) {
 		s.githubBusy = true; s.githubError = ''; render();
 		try {
 			const r = await fetch(
@@ -679,9 +731,10 @@ export function mountFeesPanel(container, opts = {}) {
 		return `<div class="fp-deleg">
 			<div class="fp-deleg-title">🎁 Reward split — delegate creator fees</div>
 			<div class="fp-gh">
-				<input id="fp-gh-input" placeholder="Import GitHub repo — owner/name" value="${esc(s.githubRepo)}" spellcheck="false" />
-				<button class="fp-btn violet${s.githubBusy ? ' busy' : ''}" id="fp-gh-go" ${s.githubBusy ? 'disabled' : ''}>${s.githubBusy ? 'Loading…' : 'Import'}</button>
+				<input id="fp-gh-input" placeholder="GitHub @username or owner/repo" value="${esc(s.githubRepo)}" spellcheck="false" />
+				<button class="fp-btn violet${s.githubBusy ? ' busy' : ''}" id="fp-gh-go" ${s.githubBusy ? 'disabled' : ''}>${s.githubBusy ? 'Resolving…' : 'Add'}</button>
 			</div>
+			<div class="fp-gh-hint">A <b>@username</b> routes rewards to one account · an <b>owner/repo</b> splits across its contributors.</div>
 			${s.githubError ? `<div class="fp-err">${esc(s.githubError)}</div>` : ''}
 			${s.rows.length ? rowsHtml : `<div class="fp-note">Add recipients below or import a GitHub repo's contributors.</div>`}
 			<button class="fp-add" id="fp-add" ${s.rows.length >= 10 ? 'disabled' : ''}>+ Add recipient</button>

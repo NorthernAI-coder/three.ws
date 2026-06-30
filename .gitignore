@@ -301,3 +301,8 @@ three-ws-prod-log-export-2026-06-26T07-25-42.json
 *.tmp
 .vitest-out*
 three-ws-*-log-export-*.json
+
+# Pump.fun launch wallets — 112 throwaway keypairs + master, one per repo coin.
+# Private keys + downloadable bundle. NEVER commit. Created under this dir only.
+.pump-launch-wallets/
+pump-launch-wallets*.zip
