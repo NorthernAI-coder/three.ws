@@ -12,6 +12,7 @@
 // designed "awakening" state instead of inventing one.
 
 import { apiFetch } from './api.js';
+import { countUp, enterStagger, liveDot, setLiveDot, reducedMotion } from './ui-juice.js';
 
 const root = document.getElementById('agi-root');
 const POLL_MS = 20000;
@@ -22,6 +23,7 @@ const state = {
 	timer: null,
 	el3d: null, // the embodied <agent-3d>
 	embodied: false,
+	lastScore: null, // last reputation value drawn, so the ring only re-sweeps on a real change
 };
 
 // ── utilities ─────────────────────────────────────────────────────────────────
@@ -183,7 +185,10 @@ function renderMind(d) {
 		<section class="agi-card agi-mind">
 			<div class="agi-section-head">
 				<h2>The mind, out loud</h2>
-				<span class="agi-section-sub">every call, tamper-evident</span>
+				<span class="agi-mind-meta">
+					<span class="agi-section-sub">every call, tamper-evident</span>
+					${liveDot('live', { label: 'live' })}
+				</span>
 			</div>
 			${body}
 		</section>`;
@@ -194,15 +199,41 @@ function ring(score) {
 	const r = 40, c = 2 * Math.PI * r;
 	const pct = Math.max(0, Math.min(100, Number(score) || 0));
 	const off = c * (1 - pct / 100);
+	const prev = state.lastScore;
+	const fromOff = prev == null ? c : c * (1 - Math.max(0, Math.min(100, prev)) / 100);
+	// Markup carries the FINAL state (correct without JS / under reduced motion);
+	// playRecord sweeps from `data-from-off` to it and counts the number up.
 	return `
 		<div class="agi-ring">
 			<svg viewBox="0 0 92 92" aria-hidden="true">
 				<circle class="agi-ring-track" cx="46" cy="46" r="${r}" fill="none" stroke-width="6" />
 				<circle class="agi-ring-val" cx="46" cy="46" r="${r}" fill="none" stroke-width="6"
-					stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" />
+					stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"
+					data-from-off="${fromOff.toFixed(1)}" />
 			</svg>
-			<div class="agi-ring-num"><b>${Math.round(pct)}</b><small>reputation</small></div>
+			<div class="agi-ring-num"><b data-score="${Math.round(pct)}" data-from="${prev == null ? 0 : Math.round(prev)}">${Math.round(pct)}</b><small>reputation</small></div>
 		</div>`;
+}
+
+// Sweep the reputation ring from its previous fill to the new one and count the
+// number up in step. Only animates on a real change; reduced motion lands final.
+function playRecord() {
+	const num = root.querySelector('.agi-ring-num b');
+	const arc = root.querySelector('.agi-ring-val');
+	if (num) {
+		const to = Number(num.dataset.score) || 0;
+		const from = Number(num.dataset.from) || 0;
+		countUp(num, from, to, { format: (n) => String(Math.round(n)) });
+	}
+	if (arc && !reducedMotion()) {
+		const fromOff = arc.getAttribute('data-from-off');
+		const finalOff = arc.getAttribute('stroke-dashoffset');
+		if (fromOff != null && fromOff !== finalOff) {
+			arc.style.strokeDashoffset = fromOff;
+			void arc.getBoundingClientRect(); // commit the start frame
+			requestAnimationFrame(() => { arc.style.strokeDashoffset = ''; });
+		}
+	}
 }
 
 function stat(k, v, cls = '') {
@@ -284,6 +315,11 @@ function render(d) {
 	applyAura(d.cognition);
 	mountBody(d.agent);
 	if (state.embodied) applyMood(d.cognition);
+	// Only the decisions newly seen this tick slide in — the rest are already settled.
+	enterStagger(root.querySelectorAll('.agi-thought.agi-fresh'), { step: 60 });
+	playRecord();
+	const drawn = root.querySelector('.agi-ring-num b');
+	if (drawn) state.lastScore = Number(drawn.dataset.score);
 }
 
 function renderLoading() {
@@ -321,7 +357,9 @@ async function refresh() {
 		document.title = d.agent?.name ? `${d.agent.name} · The AGI · three.ws` : 'The AGI · three.ws';
 	} catch (e) {
 		if (!state.data) renderError();
-		// If we already have a render up, keep it and try again next tick.
+		// Keep the last good render up, but mark the live feed as reconnecting so the
+		// "live" dot tells the truth until the next tick recovers.
+		else setLiveDot(root.querySelector('.agi-mind'), 'error', 'reconnecting');
 	}
 }
 

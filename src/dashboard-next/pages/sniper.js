@@ -77,6 +77,17 @@ const STYLE = `<style>
 .sn-card-body { display: none; border-top: 1px solid var(--nxt-line); padding: 16px; }
 .sn-card.open .sn-card-body { display: block; }
 
+/* sub-tab switcher (Strategy ↔ Money Studio) */
+.sn-subtabs { display: inline-flex; gap: 4px; padding: 3px; margin-bottom: 16px; background: var(--nxt-bg-2); border: 1px solid var(--nxt-stroke); border-radius: var(--nxt-radius); }
+.sn-subtab { font-size: 12.5px; font-weight: 600; font-family: inherit; padding: 6px 14px; border-radius: var(--nxt-radius-sm); border: 1px solid transparent; background: transparent; color: var(--nxt-ink-dim); cursor: pointer; transition: color .12s, background .12s; }
+.sn-subtab:hover { color: var(--nxt-ink); }
+.sn-subtab.active { background: var(--nxt-panel); color: var(--nxt-ink); border-color: var(--nxt-stroke); }
+.sn-subtab:focus-visible { outline: 2px solid var(--nxt-accent); outline-offset: 2px; }
+/* host for the embedded Money Studio; re-scope the panel tokens it expects so the
+   wallet accents resolve even though the dashboard theme uses --nxt-* tokens. */
+.sn-money-host { --wallet-accent: var(--nxt-accent, #34d399); --wallet-accent-soft: color-mix(in srgb, var(--nxt-accent, #34d399) 14%, transparent); }
+.sn-money-loading { padding: 28px 16px; text-align: center; color: var(--nxt-ink-faint); font-size: 13px; }
+
 /* toggles row */
 .sn-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .sn-toggle-btn { font-size: 12px; padding: 6px 14px; border-radius: var(--nxt-radius-sm); border: 1px solid var(--nxt-stroke); background: var(--nxt-bg-2); color: var(--nxt-ink); cursor: pointer; transition: border-color .12s, background .12s, transform .12s; }
@@ -229,6 +240,9 @@ let _sseRetry = 0;
 let _positionsMap = new Map();
 
 async function refresh(root) {
+	// Re-render replaces every card's DOM — tear down any mounted Money Studio first
+	// so its 30s balance poll doesn't outlive the node it was rendered into.
+	teardownMoney();
 	const [stratData, agentData] = await Promise.all([
 		get('/api/sniper/strategy').catch(() => ({ strategies: [] })),
 		get('/api/agents').catch(() => ({ agents: [] })),
@@ -328,40 +342,49 @@ function stratCard(s) {
 			<span class="sn-chevron">▼</span>
 		</div>
 		<div class="sn-card-body">
-			<div class="sn-toggles">
-				<button class="sn-toggle-btn ${armed ? 'active' : ''}" data-action="toggle-enabled" data-agent="${esc(s.agent_id)}">
-					${s.enabled ? 'Disarm' : 'Arm strategy'}
-				</button>
-				<button class="sn-toggle-btn ${s.kill_switch ? 'active danger' : 'danger'}" data-action="toggle-kill" data-agent="${esc(s.agent_id)}">
-					${s.kill_switch ? 'Clear kill switch' : 'Kill switch'}
-				</button>
-				<a class="sn-toggle-btn" href="/trader/${esc(s.agent_id)}" target="_blank" rel="noopener">Track record ↗</a>
-				${s.wallet_address ? `<a class="sn-toggle-btn" href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener">Wallet ↗</a>` : ''}
+			<div class="sn-subtabs" role="tablist" aria-label="Strategy views">
+				<button class="sn-subtab active" role="tab" aria-selected="true" data-subtab="strategy" data-agent="${esc(s.agent_id)}">Strategy</button>
+				<button class="sn-subtab" role="tab" aria-selected="false" data-subtab="money" data-agent="${esc(s.agent_id)}">Money Studio</button>
 			</div>
-			${walletWarn ? `<div style="font-size:12px;color:var(--nxt-warn,#f59e0b);padding:4px 0 12px;border-bottom:1px solid var(--nxt-line);margin-bottom:12px;">⚠ Wallet balance (${fmtSol(walletBal)}) may be too low for a trade. Fund ${s.wallet_address ? `<a href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${s.wallet_address.slice(0,8)}…</a>` : 'the agent wallet'} with more SOL before arming.</div>` : ''}
-			<div class="sn-sum">
-				<div class="sn-sum-item">
-					<span class="sn-sum-label">Open</span>
-					<span class="sn-sum-val">${s.summary?.open_positions || 0}</span>
+			<div class="sn-pane" data-pane="strategy" data-agent="${esc(s.agent_id)}">
+				<div class="sn-toggles">
+					<button class="sn-toggle-btn ${armed ? 'active' : ''}" data-action="toggle-enabled" data-agent="${esc(s.agent_id)}">
+						${s.enabled ? 'Disarm' : 'Arm strategy'}
+					</button>
+					<button class="sn-toggle-btn ${s.kill_switch ? 'active danger' : 'danger'}" data-action="toggle-kill" data-agent="${esc(s.agent_id)}">
+						${s.kill_switch ? 'Clear kill switch' : 'Kill switch'}
+					</button>
+					<a class="sn-toggle-btn" href="/trader/${esc(s.agent_id)}" target="_blank" rel="noopener">Track record ↗</a>
+					${s.wallet_address ? `<a class="sn-toggle-btn" href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener">Wallet ↗</a>` : ''}
 				</div>
-				<div class="sn-sum-item">
-					<span class="sn-sum-label">Closed</span>
-					<span class="sn-sum-val">${closed}</span>
+				${walletWarn ? `<div style="font-size:12px;color:var(--nxt-warn,#f59e0b);padding:4px 0 12px;border-bottom:1px solid var(--nxt-line);margin-bottom:12px;">⚠ Wallet balance (${fmtSol(walletBal)}) may be too low for a trade. Fund ${s.wallet_address ? `<a href="https://solscan.io/account/${esc(s.wallet_address)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${s.wallet_address.slice(0,8)}…</a>` : 'the agent wallet'} with more SOL before arming. Open <b>Money Studio</b> above to fund it without leaving the dashboard.</div>` : ''}
+				<div class="sn-sum">
+					<div class="sn-sum-item">
+						<span class="sn-sum-label">Open</span>
+						<span class="sn-sum-val">${s.summary?.open_positions || 0}</span>
+					</div>
+					<div class="sn-sum-item">
+						<span class="sn-sum-label">Closed</span>
+						<span class="sn-sum-val">${closed}</span>
+					</div>
+					<div class="sn-sum-item">
+						<span class="sn-sum-label">Wins</span>
+						<span class="sn-sum-val sn-pos">${wins}</span>
+					</div>
+					<div class="sn-sum-item">
+						<span class="sn-sum-label">Win rate</span>
+						<span class="sn-sum-val ${wr != null && wr >= 50 ? 'sn-pos' : ''}">${wr != null ? `${wr}%` : '—'}</span>
+					</div>
+					<div class="sn-sum-item">
+						<span class="sn-sum-label">Realized PnL</span>
+						<span class="sn-sum-val ${clr(pnlSol)}">${fmtSol(pnlSol)}</span>
+					</div>
 				</div>
-				<div class="sn-sum-item">
-					<span class="sn-sum-label">Wins</span>
-					<span class="sn-sum-val sn-pos">${wins}</span>
-				</div>
-				<div class="sn-sum-item">
-					<span class="sn-sum-label">Win rate</span>
-					<span class="sn-sum-val ${wr != null && wr >= 50 ? 'sn-pos' : ''}">${wr != null ? `${wr}%` : '—'}</span>
-				</div>
-				<div class="sn-sum-item">
-					<span class="sn-sum-label">Realized PnL</span>
-					<span class="sn-sum-val ${clr(pnlSol)}">${fmtSol(pnlSol)}</span>
-				</div>
+				${stratForm(s)}
 			</div>
-			${stratForm(s)}
+			<div class="sn-pane" data-pane="money" data-agent="${esc(s.agent_id)}" hidden>
+				<div class="sn-money-host" data-money-host="${esc(s.agent_id)}"></div>
+			</div>
 		</div>
 	</div>`;
 }
@@ -927,6 +950,19 @@ function newStrategyCta() {
 function wireEvents(root) {
 	// Card expand/collapse
 	root.addEventListener('click', (e) => {
+		// Sub-tab switch (Strategy ↔ Money Studio). Checked before the card-head
+		// toggle so it never collapses the card, and before the action handlers so
+		// money-panel clicks (handled by the mounted Money Studio itself) fall through.
+		const subtab = e.target.closest('[data-subtab]');
+		if (subtab) { switchSubtab(subtab); return; }
+
+		const retryMoney = e.target.closest('[data-action="retry-money"]');
+		if (retryMoney) {
+			const host = retryMoney.closest('.sn-pane')?.querySelector('[data-money-host]');
+			if (host) { host.dataset.mounted = ''; mountAgentMoney(retryMoney.dataset.agent, host); }
+			return;
+		}
+
 		const head = e.target.closest('[data-toggle="card"]');
 		if (head) {
 			head.closest('.sn-card')?.classList.toggle('open');
@@ -956,6 +992,61 @@ function wireEvents(root) {
 		e.preventDefault();
 		await saveForm(form, root);
 	});
+}
+
+// ── Embedded Money Studio (Wallet · Trading Brain · Pricing · Earnings) ─────────
+//
+// The per-agent Money Studio from /agent-studio#money is reused verbatim here:
+// each strategy card's "Money Studio" sub-tab lazily mounts the real module against
+// a per-agent StudioAdapter. Mounted instances are tracked so we can tear down their
+// live balance polls before every re-render (a stale poll would keep hitting the
+// wallet API for a card that no longer exists).
+
+const _moneyMounts = new Map(); // agent_id → { adapter, instance, host }
+
+function teardownMoney() {
+	for (const { adapter, instance } of _moneyMounts.values()) {
+		try { instance?.destroy?.(); } catch { /* noop */ }
+		try { adapter?.destroy?.(); } catch { /* noop */ }
+	}
+	_moneyMounts.clear();
+}
+
+function switchSubtab(btn) {
+	const agentId = btn.dataset.agent;
+	const want = btn.dataset.subtab;
+	const body = btn.closest('.sn-card-body');
+	if (!body) return;
+	body.querySelectorAll('.sn-subtab').forEach((b) => {
+		const on = b.dataset.subtab === want;
+		b.classList.toggle('active', on);
+		b.setAttribute('aria-selected', on ? 'true' : 'false');
+	});
+	body.querySelectorAll('.sn-pane').forEach((p) => { p.hidden = p.dataset.pane !== want; });
+	if (want === 'money') {
+		const host = body.querySelector('[data-money-host]');
+		if (host && !host.dataset.mounted) mountAgentMoney(agentId, host);
+	}
+}
+
+async function mountAgentMoney(agentId, host) {
+	if (!agentId || !host || host.dataset.mounted) return;
+	host.dataset.mounted = '1';
+	host.innerHTML = '<div class="sn-money-loading">Loading Money Studio…</div>';
+	try {
+		// Full record (skills + meta.studio) — the strategy/agents list payloads are
+		// trimmed; the Money Studio + Trading Brain read agent.skills and
+		// agent.meta.studio.trading, so fetch the decorated record.
+		const { agent } = await get(`/api/agents/${encodeURIComponent(agentId)}`);
+		if (!agent) throw new Error('Agent not found');
+		host.innerHTML = '';
+		const adapter = new StudioAdapter(agent);
+		const instance = mountMoneyStudio(host, { studio: adapter });
+		_moneyMounts.set(agentId, { adapter, instance, host });
+	} catch (err) {
+		host.dataset.mounted = '';
+		host.innerHTML = `<div class="sn-empty" style="padding:24px 16px">Couldn't load Money Studio${err?.message ? ` — ${esc(err.message)}` : ''}. <button class="sn-btn ghost" data-action="retry-money" data-agent="${esc(agentId)}" style="margin-left:8px">Retry</button></div>`;
+	}
 }
 
 async function toggleEnabled(btn, root) {

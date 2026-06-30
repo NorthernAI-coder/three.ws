@@ -4,7 +4,7 @@
     {
       "date": "2026-06-30",
       "title": "The swarm members panel is now a live standings board",
-      "summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip that visibly grows with the score, because in a swarm your track record is literally your voting power. The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
+      "summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip: the chip carries the reputation score with the exact share of the swarm's vote that score commands beneath it, so you can see your track record become voting power (computed the same way the consensus engine does). The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
       "tags": [
         "improvement"
       ],
@@ -30,12 +30,12 @@
     },
     {
       "date": "2026-06-30",
-      "title": "Fixed the agent wallet page returning a 404",
-      "summary": "Opening the agent wallet at /agent-wallet no longer hits a 404. The page was built and shipping, but the clean URL had no route, so it fell through to the not-found page. It now loads correctly and, when opened without a specific agent, shows a clear prompt to pick or create one.",
+      "title": "Fixed several pages returning a 404",
+      "summary": "A handful of pages were built and shipping but had no clean-URL route, so they fell through to the not-found page: the agent wallet (/agent-wallet), the viability report (/viability), and the gallery picker. All now load correctly. The agent wallet, when opened without a specific agent, also shows a clear prompt to pick or create one.",
       "tags": [
         "fix"
       ],
-      "link": "/agent-wallet"
+      "link": "/viability"
     },
     {
       "date": "2026-06-30",

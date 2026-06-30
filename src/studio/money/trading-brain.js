@@ -78,6 +78,7 @@ class TradingBrain {
 			positions: [],
 			tradeLimits: null,
 			spentTodaySol: null,
+			spentTodayUsd: null,
 			candidates: null, // null = not scanned; [] = scanned, none
 			scanNote: null,
 			scanning: false,
@@ -115,6 +116,7 @@ class TradingBrain {
 			this.state.positions = strat.positions;
 			this.state.tradeLimits = limits.trade_limits;
 			this.state.spentTodaySol = limits.spent_today_sol;
+			this.state.spentTodayUsd = limits.spent_today_usd;
 			this.state.audit = audit;
 			this.state.error = null;
 		} catch (err) {
@@ -122,6 +124,7 @@ class TradingBrain {
 		} finally {
 			this.state.loading = false;
 			this._renderBody();
+			this._startLivePolling();
 		}
 	}
 
@@ -134,11 +137,12 @@ class TradingBrain {
 
 	async _fetchLimits() {
 		// Canonical, wallet-independent trade-limits endpoint: returns data.limits as
-		// the agent's trade guardrails (works even before a signing wallet exists).
-		const res = await apiFetch(`/api/agents/${this.agentId}/trade/limits`);
-		if (!res.ok) return { trade_limits: null, spent_today_sol: null };
+		// the agent's trade guardrails (works even before a signing wallet exists),
+		// plus the live daily spend so the owner sees budget burn against the cap.
+		const res = await apiFetch(`/api/agents/${this.agentId}/trade/limits?network=${encodeURIComponent(this.rule.network || 'mainnet')}`);
+		if (!res.ok) return { trade_limits: null, spent_today_sol: null, spent_today_usd: null };
 		const { data } = await res.json();
-		return { trade_limits: data.limits, spent_today_sol: null };
+		return { trade_limits: data.limits, spent_today_sol: data.spent_today_sol ?? null, spent_today_usd: data.spent_today_usd ?? null };
 	}
 
 	async _fetchAudit() {
@@ -274,6 +278,67 @@ class TradingBrain {
 		}
 	}
 
+	// ── Live polling ─────────────────────────────────────────────────────────────
+	// Open positions are marked to market server-side by the sniper worker; armed
+	// strategies open and close them on their own. Poll while there's something live
+	// to watch so unrealized P&L, new fills, exits, and today's spend stay current
+	// without a manual reload. Paused while the tab is hidden — no point burning RPC
+	// and rate limit on an unseen panel.
+
+	_hasLiveWork() {
+		return this._armed || (this.state.positions || []).some((p) => p.status === 'open' || p.status === 'closing');
+	}
+
+	_startLivePolling() {
+		if (this._poll || this._destroyed) return;
+		this._onVis = () => { if (!document.hidden) this._pollTick(true); };
+		document.addEventListener('visibilitychange', this._onVis);
+		this._poll = setInterval(() => this._pollTick(), 15000);
+	}
+
+	async _pollTick(force = false) {
+		if (this._destroyed || this._polling) return;
+		if (document.hidden && !force) return;
+		if (!force && !this._hasLiveWork()) return;
+		this._polling = true;
+		try {
+			const [strat, limits] = await Promise.all([
+				this._fetchStrategies().catch(() => null),
+				this._fetchLimits().catch(() => null),
+			]);
+			if (this._destroyed) return;
+			let touchedPositions = false;
+			let touchedSpent = false;
+			if (strat) {
+				this.state.killed = strat.killed;
+				this.state.equips = strat.equips;
+				this.state.positions = strat.positions;
+				touchedPositions = true;
+			}
+			if (limits) {
+				this.state.tradeLimits = limits.trade_limits ?? this.state.tradeLimits;
+				if (limits.spent_today_sol !== this.state.spentTodaySol || limits.spent_today_usd !== this.state.spentTodayUsd) {
+					this.state.spentTodaySol = limits.spent_today_sol;
+					this.state.spentTodayUsd = limits.spent_today_usd;
+					touchedSpent = true;
+				}
+			}
+			// Re-render only the live regions, and only when not loading (avoid
+			// clobbering a mid-flight scan/backtest in another part of the panel).
+			if (!this.state.loading) {
+				if (touchedPositions) { this._renderPositions(); this._renderHeader(); }
+				if (touchedSpent) { const foot = this._q('.tb-glimits-foot .tb-spent'); if (foot) this._renderGuardrails(); }
+			}
+		} finally {
+			this._polling = false;
+		}
+	}
+
+	_stopLivePolling() {
+		if (this._poll) { clearInterval(this._poll); this._poll = null; }
+		if (this._onVis) { document.removeEventListener('visibilitychange', this._onVis); this._onVis = null; }
+	}
+
 	// ── Kill switch ─────────────────────────────────────────────────────────────
 
 	async _toggleKill() {
@@ -331,6 +396,7 @@ class TradingBrain {
 			if (!res.ok) throw new Error('Could not save guardrails.');
 			const { data } = await res.json();
 			this.state.tradeLimits = data.limits;
+			this._renderGuardrails();
 			this._toast('Guardrails saved — enforced server-side on every trade');
 		} catch (err) {
 			this._toast(err.message || 'Save failed', true);
@@ -646,10 +712,32 @@ class TradingBrain {
 					<label class="tb-field"><span class="tb-field-l">Max open positions</span><span class="tb-input-wrap"><input type="number" min="0" step="1" data-glimit="max_concurrent" value="${v(t.max_concurrent)}" placeholder="∞"/></span></label>
 				</div>
 				<div class="tb-glimits-foot">
-					<span class="tb-spent">${this.state.spentTodaySol != null ? `Spent today: ${fmtSol(this.state.spentTodaySol)} SOL` : ''}</span>
+					${this._spentHtml(t)}
 					<button class="studio-btn studio-btn-ghost" data-action="save-guardrails">Save guardrails</button>
 				</div>
 			</div>`;
+	}
+
+	// Daily budget burn — real spend (mainnet trade custody, 24h window) shown
+	// against the daily cap so the owner sees how much leash is left today.
+	_spentHtml(limits) {
+		const spent = this.state.spentTodaySol;
+		if (spent == null) return `<span class="tb-spent"></span>`;
+		const budget = limits?.daily_budget_sol;
+		const usd = this.state.spentTodayUsd;
+		const usdStr = usd != null ? ` · ${fmtUsd(usd)}` : '';
+		if (budget == null || !(budget > 0)) {
+			return `<span class="tb-spent">Spent today: <b>${fmtSol(spent)} SOL</b>${usdStr}</span>`;
+		}
+		const pct = Math.max(0, Math.min(100, (spent / budget) * 100));
+		const warn = pct >= 90 ? ' is-hot' : pct >= 60 ? ' is-warm' : '';
+		return `
+			<span class="tb-spent${warn}">
+				Spent today: <b>${fmtSol(spent)}</b> / ${fmtSol(budget)} SOL${usdStr}
+				<span class="tb-budget-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct.toFixed(0)}" aria-label="Daily budget used">
+					<span class="tb-budget-fill" style="width:${pct.toFixed(1)}%"></span>
+				</span>
+			</span>`;
 	}
 
 	_renderActions() {
@@ -761,9 +849,21 @@ class TradingBrain {
 
 	_posRow(p) {
 		const live = p.status === 'open' || p.status === 'closing';
-		const pnl = live ? null : p.pnl_sol;
-		const pnlPct = live ? null : p.pnl_pct;
+		// Live positions: mark to market — unrealized P&L is current value vs the SOL
+		// staked in. Closed positions: the realized P&L the worker booked at exit.
+		let pnl;
+		let pnlPct;
+		if (live) {
+			pnl = (p.value_sol != null && p.entry_sol != null) ? p.value_sol - p.entry_sol : null;
+			pnlPct = (pnl != null && p.entry_sol > 0) ? (pnl / p.entry_sol) * 100 : null;
+		} else {
+			pnl = p.pnl_sol;
+			pnlPct = p.pnl_pct;
+		}
 		const cls = pnlPct == null ? '' : pnlPct >= 0 ? 'pos' : 'neg';
+		const pnlText = pnl == null
+			? (live ? 'pricing…' : '—')
+			: `${pnl >= 0 ? '+' : ''}${fmtSol(pnl)} SOL${pnlPct != null ? ` (${fmtPct(pnlPct)})` : ''}`;
 		return `
 			<li class="tb-pos-row" data-status="${esc(p.status)}">
 				<span class="tb-pos-id"><b>${esc(p.symbol || p.name || short(p.mint))}</b>
@@ -772,7 +872,7 @@ class TradingBrain {
 				</span>
 				<span class="tb-pos-state">${live ? `<span class="tb-pos-live">● ${esc(p.status)}</span>` : esc(p.exit_reason || 'closed')}</span>
 				<span class="tb-pos-entry">${fmtSol(p.entry_sol)} SOL in</span>
-				<span class="tb-pos-pnl ${cls}">${live ? (p.value_sol != null ? `${fmtSol(p.value_sol)} SOL value` : 'live') : `${pnl >= 0 ? '+' : ''}${fmtSol(pnl)} SOL ${pnlPct != null ? `(${fmtPct(pnlPct)})` : ''}`}</span>
+				<span class="tb-pos-pnl ${cls}" title="${live ? 'Unrealized — marked to live price' : 'Realized at exit'}">${pnlText}</span>
 			</li>`;
 	}
 
@@ -868,6 +968,8 @@ class TradingBrain {
 	}
 
 	destroy() {
+		this._destroyed = true;
+		this._stopLivePolling();
 		clearTimeout(this._metaTimer);
 		clearTimeout(this._toastTimer);
 	}

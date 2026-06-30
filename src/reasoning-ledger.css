@@ -92,8 +92,24 @@
 .rl-score-ring .rl-score-num {
 	position: absolute; inset: 0; display: grid; place-content: center; text-align: center;
 }
-.rl-score-ring .rl-score-val { font-size: 38px; font-weight: 800; line-height: 1; }
+.rl-score-ring .rl-score-val { font-size: 38px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .rl-score-ring .rl-score-cap { font: 600 10px/1 var(--rl-mono); color: var(--rl-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 5px; }
+/* playScoreRing sweeps stroke-dashoffset from full (empty) to its real value. */
+.rl-score-arc { transition: stroke-dashoffset var(--duration-slow) var(--ease-emphasized); }
+
+/* ── Quality trend (real cumulative P&L over settled calls) ─────────────── */
+.rl-trend {
+	display: flex; align-items: center; gap: 14px;
+	margin: 16px 0 0; padding-top: 14px;
+	border-top: 1px solid var(--rl-line-2);
+}
+.rl-trend-k { font: 600 11px/1.3 var(--rl-mono); color: var(--rl-dim); text-transform: uppercase; letter-spacing: 0.06em; flex: 1; min-width: 0; }
+.rl-trend-spark { flex: none; line-height: 0; }
+.rl-trend-v { flex: none; font: 700 15px/1 var(--rl-mono); font-variant-numeric: tabular-nums; }
+@media (max-width: 480px) {
+	.rl-trend { flex-wrap: wrap; gap: 8px; }
+	.rl-trend-k { flex-basis: 100%; }
+}
 
 .rl-rep-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 14px 18px; }
 .rl-stat dt { font: 600 11px/1 var(--rl-mono); color: var(--rl-dim); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 5px; }
@@ -198,4 +214,5 @@
 @media (prefers-reduced-motion: reduce) {
 	.rl-skel, .rl-kicker .rl-dot, .rl-verify.is-checking .rl-vdot { animation: none; }
 	.rl-entry { transition: none; }
+	.rl-score-arc { transition: none; }
 }

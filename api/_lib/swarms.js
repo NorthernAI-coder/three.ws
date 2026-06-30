@@ -849,13 +849,26 @@ export async function getSwarmState(swarmId, { viewerUserId = null } = {}) {
 			realized_pnl_sol: realizedPnl / LAMPORTS_PER_SOL,
 			open_positions: positions.filter((p) => ['open', 'opening', 'closing'].includes(p.status)).length,
 		},
-		members: members.map((m) => ({
-			id: m.id, agent_id: m.agent_id, name: m.agent_name,
-			image: m.profile_image_url || m.avatar_url || null,
-			contribution_sol: (Number(m.contribution_lamports) - Number(m.withdrawn_lamports)) / LAMPORTS_PER_SOL,
-			share_bps: m.share_bps, reputation: m.reputation == null ? null : Number(m.reputation),
-			status: m.status, is_creator: m.is_creator, joined_at: m.joined_at,
-		})),
+		members: (() => {
+			// Vote weight is what consensus actually runs on: max(MIN_VOTE_WEIGHT, rep),
+			// summed over ACTIVE members only (exited members carry none). Surfacing each
+			// member's share of that total turns the abstract reputation score into the
+			// literal "how much of this swarm's vote do you control" number — same formula
+			// as computeConsensus, so the board can't drift from the engine.
+			const voteWeight = (m) => (m.status === 'active' ? Math.max(MIN_VOTE_WEIGHT, Number(m.reputation) || 0) : 0);
+			const totalVoteWeight = members.reduce((sum, m) => sum + voteWeight(m), 0);
+			return members.map((m) => {
+				const weight = voteWeight(m);
+				return {
+					id: m.id, agent_id: m.agent_id, name: m.agent_name,
+					image: m.profile_image_url || m.avatar_url || null,
+					contribution_sol: (Number(m.contribution_lamports) - Number(m.withdrawn_lamports)) / LAMPORTS_PER_SOL,
+					share_bps: m.share_bps, reputation: m.reputation == null ? null : Number(m.reputation),
+					vote_weight: weight, vote_power: totalVoteWeight > 0 ? weight / totalVoteWeight : 0,
+					status: m.status, is_creator: m.is_creator, joined_at: m.joined_at,
+				};
+			});
+		})(),
 		positions: positions.map((p) => ({
 			id: p.id, mint: p.mint, symbol: p.symbol, name: p.name, status: p.status, exit_reason: p.exit_reason,
 			entry_sol: sol(p.entry_quote_lamports), current_sol: sol(p.last_value_lamports),

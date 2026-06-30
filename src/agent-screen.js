@@ -2316,6 +2316,15 @@ async function boot(id) {
 	const forgeResult = document.getElementById('asc-forge-result');
 	const forgeView = document.getElementById('asc-forge-view');
 	const forgeUse = document.getElementById('asc-forge-use');
+	const forgeToggle = document.getElementById('asc-forge-toggle');
+	const taskBarEl = document.getElementById('asc-task-bar');
+	if (forgeToggle && taskBarEl) {
+		forgeToggle.addEventListener('click', () => {
+			const open = taskBarEl.classList.toggle('forge-open');
+			forgeToggle.setAttribute('aria-pressed', open ? 'true' : 'false');
+			if (open && forgeInput) forgeInput.focus();
+		});
+	}
 	const forgeQueue = [];
 	let forgeInFlight = false;
 	let lastForgedGlb = '';

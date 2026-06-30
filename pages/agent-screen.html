@@ -890,7 +890,22 @@
 				.asc-typing i { animation: none; opacity: 0.6; }
 			}
 
-			/* ── Live Avatar Forge controls ── */
+			/* ── Forge toggle: collapses the secondary avatar-forge bar by default ── */
+			.asc-task-forge-toggle {
+				flex: none; appearance: none; border: none; background: transparent;
+				color: rgba(255,255,255,0.45); border-radius: 8px; width: 30px; height: 30px;
+				display: flex; align-items: center; justify-content: center;
+				font-size: 0.95rem; line-height: 1; cursor: pointer;
+				transition: background 0.15s, color 0.15s, transform 0.1s;
+			}
+			.asc-task-forge-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+			.asc-task-forge-toggle:active { transform: scale(0.9); }
+			.asc-task-forge-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(255,255,255,0.4); }
+			.asc-task-forge-toggle[aria-pressed="true"] { color: var(--screen-accent); background: rgba(255,255,255,0.08); }
+
+			/* ── Live Avatar Forge controls (revealed by the ✦ toggle) ── */
+			.asc-task-bar:not(.forge-open) .asc-forge-form,
+			.asc-task-bar:not(.forge-open) .asc-forge-result { display: none; }
 			.asc-forge-form {
 				display: flex; align-items: center; gap: 0.5rem; margin-top: 0.3rem;
 				background: rgba(10,10,12,0.86); backdrop-filter: blur(14px);
@@ -1953,6 +1968,8 @@
 
 			/* ── Memory Diary panel (Task 17) ── */
 			.asc-panel--diary { width: 360px; }
+			/* Reputation packs many sections; scroll the body inside its capped height. */
+			#asc-reputation-body { overflow-y: auto; overscroll-behavior: contain; }
 			.asc-diary-body { padding: 0; }
 			.asc-diary {
 				position: relative;

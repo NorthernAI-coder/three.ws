@@ -236,6 +236,30 @@
 			"dest": "/agent-wallet.html"
 		},
 		{
+			"src": "/viability",
+			"dest": "/viability.html"
+		},
+		{
+			"src": "/viability/",
+			"dest": "/viability.html"
+		},
+		{
+			"src": "/gallery-picker",
+			"dest": "/gallery-picker.html"
+		},
+		{
+			"src": "/gallery-picker/",
+			"dest": "/gallery-picker.html"
+		},
+		{
+			"src": "/admin/launcher",
+			"dest": "/admin/launcher.html"
+		},
+		{
+			"src": "/admin/launcher/",
+			"dest": "/admin/launcher.html"
+		},
+		{
 			"src": "/aws-marketplace/welcome",
 			"dest": "/aws-marketplace/welcome.html"
 		},

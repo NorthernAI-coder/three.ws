@@ -172,10 +172,10 @@
 	border-radius: var(--radius-md);
 	padding: var(--space-sm) var(--space-md);
 	background: var(--surface-1);
-	animation: agi-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+/* Only freshly-streamed decisions enter (via ui-juice enterStagger); already-seen
+   calls are re-rendered each poll and must NOT re-animate. */
 .agi-thought.agi-fresh { border-color: var(--stroke-strong); }
-@keyframes agi-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .agi-thought-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-2xs); }
 .agi-thought-kind {
 	font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: 0.08em; text-transform: uppercase;

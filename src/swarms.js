@@ -265,8 +265,12 @@ function repTier(rep) {
 function memberRowHTML(m, i) {
 	const rep = m.reputation == null ? null : Math.round(m.reputation);
 	const sharePct = Math.min(100, (m.share_bps || 0) / 100);
+	const power = m.vote_power == null ? null : Math.round(m.vote_power * 100);
 	const lead = i === 0;
-	const repTitle = rep == null ? 'Vote weight — unrated track record' : `Vote weight ${rep}/100 — verified track record`;
+	const repLabel = rep == null ? 'unrated track record' : `reputation ${rep}/100`;
+	const repTitle = power == null
+		? `Vote weight — ${repLabel}`
+		: `Carries ${power}% of the swarm's vote · ${repLabel} (weight ${m.vote_weight})`;
 	return `
 		<div class="sw-row sw-member${lead ? ' is-lead' : ''}" data-agent="${esc(m.agent_id)}">
 			<div class="sw-rank">#${i + 1}</div>
@@ -275,12 +279,12 @@ function memberRowHTML(m, i) {
 				<div class="sw-bar"><span style="width:${sharePct}%"></span></div>
 			</div>
 			<div class="sw-member-meta">
-				<div class="mono name">${(m.share_bps / 100).toFixed(1)}%</div>
+				<div class="mono name">${((m.share_bps || 0) / 100).toFixed(1)}%</div>
 				<div class="muted mono" style="font-size:var(--text-2xs)">${SOL(m.contribution_sol)}</div>
 			</div>
 			<div class="sw-rep" data-tier="${repTier(rep)}" style="--rep:${rep == null ? 0 : rep}" title="${esc(repTitle)}" aria-label="${esc(repTitle)}">
 				<span class="sw-rep-v mono">${rep == null ? '—' : rep}</span>
-				<span class="sw-rep-l">wt</span>
+				<span class="sw-rep-l mono">${power == null ? 'wt' : power + '%'}</span>
 			</div>
 		</div>`;
 }
@@ -680,19 +684,63 @@ function updateTile(el, to, format, onValue) {
 
 const prefersReducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Keep the live vote log bounded — an active swarm streams indefinitely, so without
+// a cap the DOM (and its animation listeners) would grow without limit over a session.
+const MAX_VOTE_ROWS = 60;
+function trimVoteLog(box) {
+	if (!box) return;
+	while (box.children.length > MAX_VOTE_ROWS) box.lastElementChild.remove();
+}
+
+// Single live region so the firing moment — the most important event on the page —
+// reaches screen readers, not just sighted users.
+function announce(msg) {
+	let region = document.getElementById('sw-aria-live');
+	if (!region) {
+		region = document.createElement('div');
+		region.id = 'sw-aria-live';
+		region.className = 'sr-only';
+		region.setAttribute('role', 'status');
+		region.setAttribute('aria-live', 'assertive');
+		document.body.appendChild(region);
+	}
+	region.textContent = '';
+	requestAnimationFrame(() => { region.textContent = msg; }); // reset so identical messages re-announce
+}
+
+// Count a percentage readout from 0 → target in lockstep with the meter fill, so the
+// number reads as "consensus building" rather than snapping to its final value.
+function countPercent(el, to) {
+	if (!el) return;
+	const dur = 220, start = performance.now();
+	const step = (now) => {
+		const p = Math.min(1, (now - start) / dur);
+		el.textContent = `${Math.round(to * (1 - Math.pow(1 - p, 3)))}%`;
+		if (p < 1) requestAnimationFrame(step);
+		else el.textContent = `${to}%`;
+	};
+	requestAnimationFrame(step);
+}
+
 // Animate a freshly-streamed vote row: slide in, fill the consensus meter from 0
-// toward the real value, and — on a fire — drive the fill across the threshold
-// tick with a hot gradient, a glow at the line, and a single verdict-badge pulse.
+// toward the real value (the % readout counting alongside), and — on a fire — drive the
+// fill across the threshold tick with a hot gradient, a glow at the line, and a verdict
+// pulse. Fires are announced to assistive tech and the log trimmed regardless of motion.
 function animateVoteRow(row, v) {
 	if (!row) return;
-	const fill = row.querySelector('.sw-meter-fill');
 	const fire = v.decision === 'fire';
+	const fill = row.querySelector('.sw-meter-fill');
+	const pctEl = row.querySelector('.meter span.mono');
+	const target = fill ? fill.style.width || '0%' : '0%';
+	const pct = Math.round(parseFloat(target) || 0);
+	if (fire) announce(`Swarm fired at ${pct}% consensus${v.mint ? ` on ${short(v.mint)}` : ''}.`);
+	trimVoteLog(row.parentElement);
 	if (prefersReducedMotion()) return; // HTML already renders the final state
 	row.classList.add('sw-enter');
 	if (!fill) return;
-	const target = fill.style.width || '0%';
 	if (fire) fill.classList.remove('fire'); // start cool, shift hot as it crosses
 	fill.style.width = '0%';
+	countPercent(pctEl, pct);
 	void fill.offsetWidth; // commit the 0% start before transitioning
 	requestAnimationFrame(() => {
 		fill.style.width = target;
