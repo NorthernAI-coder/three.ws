@@ -65,7 +65,7 @@ async function streamSwarm(req, res, id) {
 		try {
 			const [votes, payouts, posAgg] = await Promise.all([
 				sql`select id, mint, decision, consensus, min_consensus, conviction, size_lamports,
-					   members_long, members_total, smart_money_score, reason, position_id, created_at
+					   members_long, members_total, smart_money_score, breakdown, reason, position_id, created_at
 					from swarm_votes where swarm_id = ${id} and created_at > ${lastVoteAt}
 					order by created_at asc limit 20`,
 				sql`select id, kind, amount_lamports, share_bps, agent_id, signature, status, created_at
@@ -73,6 +73,7 @@ async function streamSwarm(req, res, id) {
 					order by created_at asc limit 20`,
 				sql`select count(*) filter (where status in ('open','opening','closing'))::int as open,
 					   count(*) filter (where status='closed')::int as closed,
+					   count(*) filter (where status='closed' and realized_pnl_lamports > 0)::int as wins,
 					   coalesce(sum(realized_pnl_lamports),0)::numeric as pnl
 					from agent_sniper_positions where agent_id = ${swarm.treasury_agent_id} and network = ${swarm.network}`,
 			]);
@@ -90,12 +91,14 @@ async function streamSwarm(req, res, id) {
 				balanceSol = lam == null ? null : Number(lam) / 1e9;
 			}
 			const cur = await getSwarm(id);
+			const closedCount = posAgg[0]?.closed || 0;
 			send('tick', {
 				status: cur?.status || swarm.status,
 				balance_sol: balanceSol,
 				open_positions: posAgg[0]?.open || 0,
-				closed_trades: posAgg[0]?.closed || 0,
+				closed_trades: closedCount,
 				realized_pnl_sol: Number(String(posAgg[0]?.pnl || '0').split('.')[0]) / 1e9,
+				win_rate: closedCount > 0 ? (posAgg[0]?.wins || 0) / closedCount : null,
 			});
 		} catch {
 			/* transient DB blip — keep the stream open, retry next tick */

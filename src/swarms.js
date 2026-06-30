@@ -165,6 +165,8 @@ function msg(title, body, action, onAction) {
 // ── dashboard ──────────────────────────────────────────────────────────────────
 
 let activeStream = null;
+let pendingMemberAnim = null; // FLIP snapshot captured before a re-render shifts shares
+let paintedSwarmId = null;    // so first paint of a swarm animates bars from 0, re-paints don't
 
 function closeStream() {
 	if (activeStream) { try { activeStream.close(); } catch {} activeStream = null; }
@@ -210,11 +212,11 @@ function paintDashboard(dash, s) {
 		</div>
 
 		<div class="sw-tiles">
-			<div class="sw-tile"><div class="sw-tile-v" id="sw-bal">${tr.balance_sol == null ? '—' : SOL(tr.balance_sol)}</div><div class="sw-tile-l">Treasury (on-chain)</div><a href="${esc(tr.explorer)}" target="_blank" rel="noopener">${short(tr.address)} ↗</a></div>
+			<div class="sw-tile"><div class="sw-tile-v" id="sw-bal" data-val="${tr.balance_sol == null ? '' : tr.balance_sol}">${tr.balance_sol == null ? '—' : SOL(tr.balance_sol)}</div><div class="sw-tile-l">Treasury (on-chain)</div><a href="${esc(tr.explorer)}" target="_blank" rel="noopener">${short(tr.address)} ↗</a></div>
 			<div class="sw-tile"><div class="sw-tile-v">${SOL(tr.net_contributed_sol)}</div><div class="sw-tile-l">Net contributed</div></div>
-			<div class="sw-tile"><div class="sw-tile-v ${pnlCls}" id="sw-pnl">${rec.realized_pnl_sol >= 0 ? '+' : ''}${SOL(rec.realized_pnl_sol)}</div><div class="sw-tile-l">Realized P&amp;L</div></div>
-			<div class="sw-tile"><div class="sw-tile-v" id="sw-open">${rec.open_positions}</div><div class="sw-tile-l">Open positions</div></div>
-			<div class="sw-tile"><div class="sw-tile-v">${rec.win_rate == null ? '—' : Math.round(rec.win_rate * 100) + '%'}</div><div class="sw-tile-l">Win rate · ${rec.closed_trades} closed</div></div>
+			<div class="sw-tile"><div class="sw-tile-v ${pnlCls}" id="sw-pnl" data-val="${rec.realized_pnl_sol}">${rec.realized_pnl_sol >= 0 ? '+' : ''}${SOL(rec.realized_pnl_sol)}</div><div class="sw-tile-l">Realized P&amp;L</div></div>
+			<div class="sw-tile"><div class="sw-tile-v" id="sw-open" data-val="${rec.open_positions}">${rec.open_positions}</div><div class="sw-tile-l">Open positions</div></div>
+			<div class="sw-tile"><div class="sw-tile-v" id="sw-wr" data-val="${rec.win_rate == null ? '' : rec.win_rate * 100}">${rec.win_rate == null ? '—' : Math.round(rec.win_rate * 100) + '%'}</div><div class="sw-tile-l">Win rate · ${rec.closed_trades} closed</div></div>
 		</div>
 
 		<div class="sw-hero-actions" id="sw-actions" style="margin-bottom:var(--space-lg);flex-wrap:wrap"></div>
@@ -230,6 +232,11 @@ function paintDashboard(dash, s) {
 			</div>
 		</div>`;
 
+	const firstPaint = paintedSwarmId !== sw.id;
+	paintedSwarmId = sw.id;
+	animateMembers(pendingMemberAnim, firstPaint);
+	pendingMemberAnim = null;
+
 	renderActions(s);
 }
 
@@ -237,19 +244,50 @@ function panel(title, count, body, bodyId) {
 	return `<div class="sw-panel"><div class="sw-panel-h"><h2>${esc(title)}</h2><span class="count">${count}</span></div><div class="sw-panel-body"${bodyId ? ` id="${bodyId}"` : ''}>${body}</div></div>`;
 }
 
+// Standings order: biggest stake first (share = standing), ties broken by the
+// stronger track record, then name for stability.
+function rankMembers(members) {
+	return [...members].sort((a, b) =>
+		(b.share_bps || 0) - (a.share_bps || 0) ||
+		((b.reputation || 0) - (a.reputation || 0)) ||
+		String(a.name || '').localeCompare(String(b.name || '')));
+}
+
+// Reputation IS vote weight. Bucket it so the chip's prominence reads at a glance.
+function repTier(rep) {
+	if (rep == null) return 0;
+	if (rep >= 75) return 3;
+	if (rep >= 50) return 2;
+	if (rep >= 25) return 1;
+	return 0;
+}
+
+function memberRowHTML(m, i) {
+	const rep = m.reputation == null ? null : Math.round(m.reputation);
+	const sharePct = Math.min(100, (m.share_bps || 0) / 100);
+	const lead = i === 0;
+	const repTitle = rep == null ? 'Vote weight — unrated track record' : `Vote weight ${rep}/100 — verified track record`;
+	return `
+		<div class="sw-row sw-member${lead ? ' is-lead' : ''}" data-agent="${esc(m.agent_id)}">
+			<div class="sw-rank">#${i + 1}</div>
+			<div class="grow">
+				<div class="name">${lead ? '<span class="sw-lead-mark" aria-hidden="true">✦</span>' : ''}${esc(m.name)}${m.is_creator ? ' <span class="sw-pill" style="font-size:9px">creator</span>' : ''}</div>
+				<div class="sw-bar"><span style="width:${sharePct}%"></span></div>
+			</div>
+			<div class="sw-member-meta">
+				<div class="mono name">${(m.share_bps / 100).toFixed(1)}%</div>
+				<div class="muted mono" style="font-size:var(--text-2xs)">${SOL(m.contribution_sol)}</div>
+			</div>
+			<div class="sw-rep" data-tier="${repTier(rep)}" style="--rep:${rep == null ? 0 : rep}" title="${esc(repTitle)}" aria-label="${esc(repTitle)}">
+				<span class="sw-rep-v mono">${rep == null ? '—' : rep}</span>
+				<span class="sw-rep-l">wt</span>
+			</div>
+		</div>`;
+}
+
 function membersHTML(members) {
 	if (!members.length) return emptyRow('No members yet.');
-	return members.map((m) => `
-		<div class="sw-row">
-			<div class="grow">
-				<div class="name">${esc(m.name)}${m.is_creator ? ' <span class="sw-pill" style="font-size:9px">creator</span>' : ''}</div>
-				<div class="sw-bar"><span style="width:${Math.min(100, (m.share_bps || 0) / 100)}%"></span></div>
-			</div>
-			<div style="text-align:right">
-				<div class="mono name">${(m.share_bps / 100).toFixed(1)}%</div>
-				<div class="muted mono" style="font-size:var(--text-2xs)">${SOL(m.contribution_sol)} · rep ${m.reputation == null ? '—' : Math.round(m.reputation)}</div>
-			</div>
-		</div>`).join('');
+	return rankMembers(members).map(memberRowHTML).join('');
 }
 
 function positionsHTML(positions) {
@@ -276,7 +314,7 @@ function voteRowHTML(v) {
 			<span class="muted mono" style="font-size:var(--text-2xs)">${v.members_long}/${v.members_total} long</span>
 		</div>
 		<div class="meter">
-			<div class="sw-meter-track"><div class="sw-meter-fill" style="width:${pct}%"></div><div class="sw-meter-thresh" style="left:${thr}%"></div></div>
+			<div class="sw-meter-track"><div class="sw-meter-fill${v.decision === 'fire' ? ' fire' : ''}" style="width:${pct}%"></div><div class="sw-meter-thresh" style="left:${thr}%"></div></div>
 			<span class="mono muted" style="font-size:var(--text-2xs)">${Math.round(pct)}%</span>
 		</div>
 		<div class="reason">${esc(v.reason || '')}${v.smart_money_score ? ` · smart-money ${Math.round(v.smart_money_score)}` : ''}${v.size_sol ? ` · sized ${SOL(v.size_sol)}` : ''}</div>
@@ -461,6 +499,7 @@ async function openContributeModal(s, mode) {
 		if (!r.ok) { errEl.textContent = r.error || 'Contribution failed.'; btn.disabled = false; btn.textContent = 'Send'; return; }
 		close();
 		toast(`Contributed ${SOL(sol)} — share updated`);
+		pendingMemberAnim = captureMemberState();
 		renderDashboard(sw.id);
 	};
 }
@@ -492,6 +531,7 @@ async function openExitModal(s) {
 		if (!r.ok) { errEl.textContent = r.error || 'Exit failed.'; btn.disabled = false; btn.textContent = 'Exit & redeem'; return; }
 		close();
 		toast(`Redeemed ${SOL(r.data.redeemed_sol)}${r.data.capped ? ' (capped to liquid SOL)' : ''}`);
+		pendingMemberAnim = captureMemberState();
 		renderDashboard(sw.id);
 	};
 }
@@ -541,8 +581,13 @@ function subscribeStream(id) {
 			try {
 				const v = JSON.parse(e.data);
 				const box = document.getElementById('sw-votes');
-				if (box) { if (box.querySelector('.sw-msg, .sw-row')) box.innerHTML = ''; box.insertAdjacentHTML('afterbegin', voteRowHTML(v)); flash(box.firstElementChild); }
-				if (v.decision === 'fire') toast(`Consensus fired · ${short(v.mint)}`);
+				if (box) {
+						if (box.querySelector('.sw-msg, .sw-row')) box.innerHTML = '';
+						box.insertAdjacentHTML('afterbegin', voteRowHTML(v));
+						animateVoteRow(box.firstElementChild, v);
+						if (v.decision === 'fire') ripplePanel(box);
+					}
+					if (v.decision === 'fire') { highlightWinners(v.breakdown); toast(`Consensus fired · ${short(v.mint)}`); }
 			} catch {}
 		});
 		es.addEventListener('payout', (e) => {
@@ -550,14 +595,23 @@ function subscribeStream(id) {
 				const p = JSON.parse(e.data);
 				const box = document.getElementById('sw-payouts');
 				if (box) { if (box.querySelector('.sw-msg, .sw-row[style]')) box.innerHTML = ''; box.insertAdjacentHTML('afterbegin', payoutRowHTML({ ...p, amount_sol: p.amount_sol })); flash(box.firstElementChild); }
+				// Money landed — pulse the treasury and P&L tiles so the change registers
+				// even before the next tick redraws their values.
+				flashTile(document.getElementById('sw-bal'), 1);
+				flashTile(document.getElementById('sw-pnl'), 1);
 			} catch {}
 		});
 		es.addEventListener('tick', (e) => {
 			try {
 				const t = JSON.parse(e.data);
-				const bal = document.getElementById('sw-bal'); if (bal && t.balance_sol != null) bal.textContent = SOL(t.balance_sol);
-				const op = document.getElementById('sw-open'); if (op) op.textContent = t.open_positions;
-				const pnl = document.getElementById('sw-pnl'); if (pnl) { pnl.textContent = `${t.realized_pnl_sol >= 0 ? '+' : ''}${SOL(t.realized_pnl_sol)}`; pnl.className = 'sw-tile-v ' + (t.realized_pnl_sol > 0 ? 'pos' : t.realized_pnl_sol < 0 ? 'neg' : ''); }
+				if (t.balance_sol != null) updateTile(document.getElementById('sw-bal'), t.balance_sol, SOL);
+				if (t.open_positions != null) updateTile(document.getElementById('sw-open'), t.open_positions, (v) => String(Math.round(v)));
+				const pnl = document.getElementById('sw-pnl');
+				if (pnl && t.realized_pnl_sol != null) {
+					pnl.className = 'sw-tile-v ' + (t.realized_pnl_sol > 0 ? 'pos' : t.realized_pnl_sol < 0 ? 'neg' : '');
+					updateTile(pnl, t.realized_pnl_sol, (v) => `${v >= 0 ? '+' : ''}${SOL(v)}`);
+				}
+				if (t.win_rate != null) updateTile(document.getElementById('sw-wr'), t.win_rate * 100, (v) => `${Math.round(v)}%`);
 			} catch {}
 		});
 		es.onerror = () => { fails++; setLive('connecting', 'reconnecting'); try { es.close(); } catch {} activeStream = null; setTimeout(connect, Math.min(20000, 1000 * 2 ** fails)); };
@@ -570,6 +624,149 @@ function flash(el) {
 	el.style.background = 'var(--surface-3)';
 	el.style.transition = 'background 1.2s ease';
 	requestAnimationFrame(() => { el.style.background = ''; });
+}
+
+// ── treasury tile juice: count between two real values, flash on change ──────────
+const reduceMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const countTimers = new WeakMap();
+
+// Animate a tile's number from its previously displayed real value to the new real
+// value, preserving the tile's own formatting. Cancels any in-flight count on the
+// same element. Reduced-motion (or no prior value) → instant set, no animation.
+function countTile(el, to, format) {
+	if (!el) return;
+	const prevTimer = countTimers.get(el);
+	if (prevTimer) { cancelAnimationFrame(prevTimer); countTimers.delete(el); }
+	const prevRaw = el.dataset.val;
+	const prev = prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
+	el.dataset.val = to == null ? '' : String(to);
+	if (to == null || prev == null || prev === to || reduceMotion()) { el.textContent = format(to); return; }
+	const dur = 480, start = performance.now(), delta = to - prev;
+	const ease = (x) => 1 - Math.pow(1 - x, 3); // easeOutCubic
+	const step = (now) => {
+		const p = Math.min(1, (now - start) / dur);
+		el.textContent = format(prev + delta * ease(p));
+		if (p < 1) { countTimers.set(el, requestAnimationFrame(step)); }
+		else { el.textContent = format(to); countTimers.delete(el); }
+	};
+	countTimers.set(el, requestAnimationFrame(step));
+}
+
+// Direction-aware tile tint: dir > 0 → green, dir < 0 → red/neutral, then settle.
+function flashTile(el, dir) {
+	const tile = el && el.closest && el.closest('.sw-tile');
+	if (!tile || !dir || reduceMotion()) return;
+	tile.classList.remove('sw-tile--up', 'sw-tile--down');
+	void tile.offsetWidth; // restart the animation if it's already mid-flight
+	tile.classList.add(dir > 0 ? 'sw-tile--up' : 'sw-tile--down');
+	const onEnd = () => { tile.classList.remove('sw-tile--up', 'sw-tile--down'); tile.removeEventListener('animationend', onEnd); };
+	tile.addEventListener('animationend', onEnd);
+}
+
+// Count to the new value and flash in its direction in one call.
+function updateTile(el, to, format) {
+	if (!el) return;
+	const prevRaw = el.dataset.val;
+	const prev = prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
+	if (prev != null && to != null && to !== prev) flashTile(el, to - prev);
+	countTile(el, to, format);
+}
+
+const prefersReducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Animate a freshly-streamed vote row: slide in, fill the consensus meter from 0
+// toward the real value, and — on a fire — drive the fill across the threshold
+// tick with a hot gradient, a glow at the line, and a single verdict-badge pulse.
+function animateVoteRow(row, v) {
+	if (!row) return;
+	const fill = row.querySelector('.sw-meter-fill');
+	const fire = v.decision === 'fire';
+	if (prefersReducedMotion()) return; // HTML already renders the final state
+	row.classList.add('sw-enter');
+	if (!fill) return;
+	const target = fill.style.width || '0%';
+	if (fire) fill.classList.remove('fire'); // start cool, shift hot as it crosses
+	fill.style.width = '0%';
+	void fill.offsetWidth; // commit the 0% start before transitioning
+	requestAnimationFrame(() => {
+		fill.style.width = target;
+		if (fire) {
+			fill.classList.add('fire');
+			row.querySelector('.sw-meter-thresh')?.classList.add('glow');
+			row.querySelector('.verdict.fire')?.classList.add('sw-pulse');
+		}
+	});
+}
+
+// One accent ripple along the top edge of the votes panel header on a fire.
+function ripplePanel(box) {
+	const header = box?.closest('.sw-panel')?.querySelector('.sw-panel-h');
+	if (!header || prefersReducedMotion()) return;
+	header.classList.remove('sw-fired');
+	void header.offsetWidth; // restart the animation on back-to-back fires
+	header.classList.add('sw-fired');
+	header.addEventListener('animationend', () => header.classList.remove('sw-fired'), { once: true });
+}
+
+// Snapshot each member row's viewport rect + bar width before a re-render, keyed by
+// agent, so the next paint can FLIP rows into their new standings and grow bars from
+// their previous fill instead of snapping. Returns null when there's nothing to track.
+function captureMemberState() {
+	const rows = document.querySelectorAll('.sw-member[data-agent]');
+	if (!rows.length) return null;
+	const map = {};
+	rows.forEach((row) => {
+		const span = row.querySelector('.sw-bar > span');
+		map[row.dataset.agent] = { rect: row.getBoundingClientRect(), width: span ? span.style.width : '0%' };
+	});
+	return map;
+}
+
+// Play the standings transition after a paint: FLIP each row from its old position
+// to its new rank, and animate share bars from their prior fill (or from 0 on first
+// paint). Reduced-motion → leave the final, correctly-ordered state untouched.
+function animateMembers(prev, firstPaint) {
+	if (prefersReducedMotion()) return;
+	document.querySelectorAll('.sw-member[data-agent]').forEach((row) => {
+		const span = row.querySelector('.sw-bar > span');
+		if (!span) return;
+		const finalW = span.style.width;
+		const old = prev && prev[row.dataset.agent];
+		if (old) {
+			const now = row.getBoundingClientRect();
+			const dx = old.rect.left - now.left;
+			const dy = old.rect.top - now.top;
+			if (dx || dy) {
+				row.style.transform = `translate(${dx}px, ${dy}px)`;
+				row.style.transition = 'none';
+				requestAnimationFrame(() => {
+					row.style.transition = 'transform var(--duration-base) var(--ease-emphasized)';
+					row.style.transform = '';
+				});
+				row.addEventListener('transitionend', () => { row.style.transition = ''; row.style.transform = ''; }, { once: true });
+			}
+		}
+		if (old || firstPaint) {
+			span.style.width = old ? old.width : '0%';
+			requestAnimationFrame(() => { span.style.width = finalW; });
+		}
+	});
+}
+
+// On a fired consensus, briefly pulse the rows of members who were on the winning
+// (long) side — straight from the real swarm_votes.breakdown. No breakdown, or no
+// long voter present, lights up nothing. Reduced-motion → no pulse.
+function highlightWinners(breakdown) {
+	if (!Array.isArray(breakdown) || prefersReducedMotion()) return;
+	const longIds = new Set(breakdown.filter((b) => b && b.long).map((b) => String(b.agent_id)));
+	if (!longIds.size) return;
+	document.querySelectorAll('.sw-member[data-agent]').forEach((row) => {
+		if (!longIds.has(String(row.dataset.agent))) return;
+		row.classList.remove('sw-win');
+		void row.offsetWidth; // restart on back-to-back fires
+		row.classList.add('sw-win');
+		row.addEventListener('animationend', () => row.classList.remove('sw-win'), { once: true });
+	});
 }
 
 window.addEventListener('beforeunload', closeStream);

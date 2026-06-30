@@ -538,25 +538,31 @@ async function renderSetup() {
 
 // ── workspace layout persistence ─────────────────────────────────────────────
 
-const LS_KEY = 'twx_asc_workspace_v1';
+// Bumped v1 → v2 to retire the old six-panels-open layout. Returning visitors
+// get the calm two-panel default once, then their re-arrangements persist again.
+const LS_KEY = 'twx_asc_workspace_v2';
 
 function defaultLayout() {
 	return {
 		zen: false,
 		zenCam: true,          // keep the avatar cam visible in zen by default
 		fit: 'contain',        // 'contain' | 'cover'
+		// Calm default: the avatar is the hero, so it owns the whole stage. Only two
+		// panels open on first load — Reputation and Activity Log — docked to a tidy
+		// right rail (reputation top, log bottom, no overlap). Everything else is one
+		// toolbar click away. Bumping LS_KEY resets returning visitors to this baseline.
 		panels: {
-			cam:      { hidden: false, min: false, x: null, y: null, w: 260 },
-			log:      { hidden: false, min: false, x: null, y: null, w: 320, h: null },
+			cam:      { hidden: true,  min: false, x: null, y: null, w: 260 },
+			log:      { hidden: false, min: false, x: null, y: null, w: 320, h: 280 },
 			stats:    { hidden: true,  min: false, x: null, y: null, w: 218 },
-			treasury: { hidden: false, min: false, x: null, y: null, w: 344, h: null },
+			treasury: { hidden: true,  min: false, x: null, y: null, w: 344, h: null },
 			mirror:   { hidden: true,  min: false, x: null, y: null, w: 380, h: null },
-			stage:    { hidden: false, min: false, x: null, y: null, w: 320, h: null },
+			stage:    { hidden: true,  min: false, x: null, y: null, w: 320, h: null },
 			heatmap:  { hidden: true,  min: false, x: null, y: null, w: 460, h: 340 },
-			hud:      { hidden: false, min: false, x: null, y: null, w: 288, h: null },
+			hud:      { hidden: true,  min: false, x: null, y: null, w: 288, h: null },
 			diary:    { hidden: true,  min: false, x: null, y: null, w: 360, h: 332 },
-			hire:     { hidden: false, min: false, x: null, y: null, w: 340, h: null },
-			reputation: { hidden: false, min: false, x: null, y: null, w: 320, h: null },
+			hire:     { hidden: true,  min: false, x: null, y: null, w: 340, h: null },
+			reputation: { hidden: false, min: false, x: null, y: null, w: 320, h: 340 },
 		},
 	};
 }
@@ -2839,13 +2845,17 @@ async function boot(id) {
 			if (name === 'stats') { x = M; y = M; }
 			else if (name === 'treasury') { x = M; y = M + 6; } // treasury → top-left cockpit
 			else if (name === 'mirror') { x = M; y = sr.height - ph - M; } // mirror → bottom-left
-			else if (name === 'log') { x = sr.width - pw - M; y = M; }
+			else if (name === 'log') { // log → right rail, stacked directly under reputation
+				const rep = layout.panels.reputation;
+				const repBottom = (rep && !rep.hidden) ? M + (rep.h || 340) + 12 : sr.height - ph - M;
+				x = sr.width - pw - M; y = repBottom;
+			}
 			else if (name === 'heatmap') { x = M; y = sr.height - ph - M; } // heatmap → bottom-left
 				else if (name === 'stage') { x = M; y = sr.height - ph - M; } // stage → bottom-left
 			else if (name === 'hud') { x = M; y = sr.height - ph - M; } // HUD → bottom-left scoreboard
 			else if (name === 'hire') { x = sr.width - pw - M; y = sr.height - ph - M - 8; } // hire → bottom-right above cam
 			else if (name === 'diary') { x = Math.round((sr.width - pw) / 2); y = M + 40; } // diary → centre, beside the log
-			else if (name === 'reputation') { x = sr.width - pw * 2 - M * 2; y = M; } // reputation → top-right, just left of the log
+			else if (name === 'reputation') { x = sr.width - pw - M; y = M; } // reputation → top-right rail (log sits below)
 			else { x = sr.width - pw - M; y = sr.height - ph - M; } // cam → bottom-right
 		}
 		x = clamp(x, 0, Math.max(0, sr.width - pw));
