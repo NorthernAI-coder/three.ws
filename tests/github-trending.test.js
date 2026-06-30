@@ -28,6 +28,9 @@ describe('buildSearchQuery', () => {
 	it('adds a language qualifier when given', () => {
 		expect(buildSearchQuery({ since: '2026-06-01', language: 'TypeScript' })).toContain('language:TypeScript');
 	});
+	it('quotes a multi-word language', () => {
+		expect(buildSearchQuery({ since: '2026-06-01', language: 'Jupyter Notebook' })).toContain('language:"Jupyter Notebook"');
+	});
 	it('floors and clamps minStars to a non-negative integer', () => {
 		expect(buildSearchQuery({ since: '2026-06-01', minStars: -5 })).toContain('stars:>=0');
 		expect(buildSearchQuery({ since: '2026-06-01', minStars: 12.9 })).toContain('stars:>=12');
