@@ -26,6 +26,60 @@ function heliusRpc() {
 	return key ? `https://mainnet.helius-rpc.com/?api-key=${key}` : null;
 }
 
+// Throttled warnings. The balance helpers are called on every portfolio /
+// holder-gate / networth read; an upstream that is sustainedly degraded (a
+// Helius month-quota exhaustion, a flaky public RPC) would otherwise emit one
+// identical warning per request — exactly the production flood seen in the logs
+// (70+ "[balances] helius failed" / "DAS path failed" lines for a single
+// exhausted-quota window). Collapse repeats of the same category to one line per
+// WARN_COOLDOWN_MS so a real outage stays visible without drowning the logs.
+const _warnedAt = new Map();
+const WARN_COOLDOWN_MS = 60_000;
+function warnThrottled(category, msg) {
+	const now = Date.now();
+	if (now - (_warnedAt.get(category) || 0) < WARN_COOLDOWN_MS) return;
+	_warnedAt.set(category, now);
+	console.warn(msg);
+}
+
+// Helius quota circuit breaker. When Helius reports an exhausted plan quota
+// ("max usage reached", JSON-RPC -32429, or a bare 429), every subsequent
+// request would otherwise still hit Helius first, eat a doomed round-trip, warn,
+// and only then fall back to the public RPC. Helius quota only clears on the
+// provider's billing/usage cycle, so once we see it we skip Helius outright for a
+// cooldown window and go straight to the public-RPC / DAS-fallback path. This is
+// the balance-layer analogue of the market-data source breaker
+// (api/_lib/market/token-market.js). Per-instance + best-effort: a cold lambda
+// re-discovers the exhausted quota once, then skips for the window.
+const HELIUS_QUOTA_COOLDOWN_MS = 10 * 60_000;
+let heliusCooldownUntil = 0; // epoch ms; 0 = available
+
+function heliusAvailable(now = Date.now()) {
+	return heliusCooldownUntil <= now;
+}
+
+// True when an upstream error is a quota/rate-limit signal (vs. a transient blip
+// worth retrying). Covers Helius's -32429 "max usage reached", a bare HTTP 429,
+// and generic "quota/usage limit exceeded" bodies.
+function isQuotaError(err) {
+	const msg = String(err?.message || '');
+	return /max usage reached|-32429|\b429\b|usage limit exceeded|quota exceeded|rate ?limit/i.test(msg);
+}
+
+function tripHeliusCooldown(err, category) {
+	heliusCooldownUntil = Date.now() + HELIUS_QUOTA_COOLDOWN_MS;
+	warnThrottled(
+		category,
+		`[balances] helius quota/rate-limited — skipping it for ${Math.round(HELIUS_QUOTA_COOLDOWN_MS / 60_000)}min, using public RPC: ${err?.message}`,
+	);
+}
+
+/** Test seam: reset the Helius breaker + warn throttle between cases. */
+export function __resetBalancesBreaker() {
+	heliusCooldownUntil = 0;
+	_warnedAt.clear();
+}
+
 async function fetchJson(url, opts = {}) {
 	// A sick upstream (Helius/public RPC, Jupiter, CoinGecko, pump.fun) must never
 	// hang the holder-gate / pricing path indefinitely — bound every request to 6s
@@ -43,7 +97,10 @@ async function fetchJson(url, opts = {}) {
 
 async function solRpc(body, { allowFallback = true } = {}) {
 	const helius = heliusRpc();
-	if (helius) {
+	// Skip Helius entirely while its quota is known-exhausted (breaker open) — no
+	// doomed round-trip, no per-request warning. When fallback isn't allowed the
+	// caller explicitly wants Helius, so we still try (and surface) it.
+	if (helius && (allowFallback ? heliusAvailable() : true)) {
 		try {
 			return await fetchJson(helius, {
 				method: 'POST',
@@ -52,7 +109,8 @@ async function solRpc(body, { allowFallback = true } = {}) {
 			});
 		} catch (err) {
 			if (!allowFallback) throw err;
-			console.warn('[balances] helius failed, falling back to public RPC:', err?.message);
+			if (isQuotaError(err)) tripHeliusCooldown(err, 'helius:quota');
+			else warnThrottled('helius:fail', `[balances] helius failed, falling back to public RPC: ${err?.message}`);
 		}
 	}
 	return fetchJson(PUBLIC_SOL_RPC, {
@@ -165,6 +223,10 @@ export async function solanaMintUsdPrice(mint) {
 async function getSolanaBalancesViaDas(address) {
 	const helius = heliusRpc();
 	if (!helius) return null; // signal caller to take fallback path
+	// Quota exhausted recently — don't even attempt DAS; take the public-RPC
+	// fallback straight away. DAS is Helius-only, so a doomed call here just burns
+	// latency and re-warns.
+	if (!heliusAvailable()) return null;
 
 	let allItems = [];
 	let nativeLamports = 0;
@@ -373,7 +435,10 @@ async function getSolanaBalances(address) {
 		const viaDas = await getSolanaBalancesViaDas(address);
 		if (viaDas) return viaDas;
 	} catch (err) {
-		console.warn('[balances] DAS path failed, using fallback:', err?.message);
+		// A quota error trips the breaker so subsequent reads skip Helius outright
+		// rather than re-discovering the exhausted quota one doomed call at a time.
+		if (isQuotaError(err)) tripHeliusCooldown(err, 'das:quota');
+		else warnThrottled('das:fail', `[balances] DAS path failed, using fallback: ${err?.message}`);
 	}
 	return getSolanaBalancesFallback(address);
 }

@@ -1725,7 +1725,7 @@ async function handleNetWorth(req, res, id) {
 		// Hold-last-state contract: when the chain read is briefly unavailable we
 		// return a typed error so the client keeps the agent's last real look
 		// rather than snapping it to a fake baseline.
-		console.warn(`[agents/networth] balance read failed agentId=${id} ${e?.message}`);
+		warnNetworthThrottled(id, `[agents/networth] balance read failed agentId=${id} ${e?.message}`);
 		return error(res, 502, 'rpc_error', 'could not read the wallet right now — holding last state');
 	}
 
