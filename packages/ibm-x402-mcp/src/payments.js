@@ -11,7 +11,7 @@
 //   MCP_SVM_PAYMENT_ADDRESS  — Solana wallet that receives USDC (required)
 //   X402_PAY_TO_SOLANA       — fallback alias
 //   X402_PAY_TO              — fallback alias
-//   X402_FEE_PAYER_SOLANA    — transaction fee payer (optional, defaults to three.ws fee payer)
+//   X402_FEE_PAYER_SOLANA    — Solana fee payer for settlement (optional; unset lets the facilitator sponsor fees)
 //   X402_FACILITATOR_URL     — PayAI facilitator URL (optional)
 //   X402_FACILITATOR_TOKEN   — Bearer token for facilitator (optional)
 //   X402_ASSET_MINT_SOLANA   — USDC mint override (optional)
@@ -43,8 +43,11 @@ export function assertPaymentEnv() {
 	requireSvmPayTo();
 }
 
+// Optional Solana fee payer. When unset the facilitator sponsors transaction
+// fees, so the server has no vendor-specific default — operators that run their
+// own sponsor set X402_FEE_PAYER_SOLANA to their account.
 function svmFeePayer() {
-	return env('X402_FEE_PAYER_SOLANA', '2wKupLR9q6wXYppw8Gr2NvWxKBUqm4PPJKkQfoxHDBg4');
+	return env('X402_FEE_PAYER_SOLANA');
 }
 
 function buildFacilitator() {
@@ -82,6 +85,7 @@ export function getLastFacilitatorInitError() {
 }
 
 async function buildAccepts({ resourceServer, priceUsd, resourceUrl }) {
+	const feePayer = svmFeePayer();
 	return resourceServer.buildPaymentRequirementsFromOptions(
 		[
 			{
@@ -94,7 +98,7 @@ async function buildAccepts({ resourceServer, priceUsd, resourceUrl }) {
 					name: 'USDC',
 					decimals: 6,
 					asset: env('X402_ASSET_MINT_SOLANA', DEFAULT_SOLANA_USDC),
-					feePayer: svmFeePayer(),
+					...(feePayer ? { feePayer } : {}),
 				},
 			},
 		],

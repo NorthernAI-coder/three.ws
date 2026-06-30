@@ -83,11 +83,20 @@ const SETUP = {
 	},
 };
 
+// Project links. Defaults point at the standalone repo so the server is usable
+// with no operator-specific branding; each is overridable via env so an operator
+// can surface their own homepage/support without forking.
+const env = (key, fallback) => {
+	const v = process.env[key];
+	return v && v.trim() ? v.trim() : fallback;
+};
+
+const REPO_URL = 'https://github.com/nirholas/ibm-x402-mcp';
 const LINKS = {
-	homepage: 'https://three.ws',
+	homepage: env('IBM_X402_MCP_HOMEPAGE_URL', REPO_URL),
 	npm: 'https://www.npmjs.com/package/@three-ws/ibm-x402-mcp',
-	source: 'https://github.com/nirholas/three.ws/tree/main/packages/ibm-x402-mcp',
-	support: 'https://three.ws/support',
+	source: env('IBM_X402_MCP_SOURCE_URL', REPO_URL),
+	support: env('IBM_X402_MCP_SUPPORT_URL', `${REPO_URL}/issues`),
 	x402: 'https://x402.org',
 };
 

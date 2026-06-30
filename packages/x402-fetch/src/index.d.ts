@@ -14,7 +14,7 @@ export interface TypedDataSigner {
  * A wallet accepted by `withX402`. One of:
  *  - a 0x-prefixed private key string (Node),
  *  - an EIP-1193 provider (browser `window.ethereum`),
- *  - a pre-built signer object `{ address, signTypedData }` (three.ws SDK / viem account).
+ *  - a pre-built signer object `{ address, signTypedData }` (e.g. a viem account).
  */
 export type Wallet = string | EIP1193Provider | TypedDataSigner;
 

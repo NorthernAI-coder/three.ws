@@ -3,15 +3,31 @@
 All notable changes to `@three-ws/x402-payment-modal` are documented here. This
 project adheres to [Semantic Versioning](https://semver.org).
 
+## Unreleased
+
+### Changed
+
+- **Host-neutral by default.** The modal now settles a 402 challenge from any
+  origin with zero configuration and **USDC as the always-on default settlement
+  asset**. Branding (`brand`) and ERC-8021 builder-code self-attribution
+  (`builderCode`) now default to empty — the footer "Powered by" link is hidden
+  until you set your own `brand`, and no builder code is echoed unless you opt in.
+  `checkoutOrigin` still resolves to the script's own origin by default. Set any
+  of these via `configure()` or `data-*` attributes.
+- **Token model clarified.** USDC is the default token everywhere. The `THREE`
+  token shortcut remains supported as an **optional, opt-in** convenience
+  (`solanaAccept({ token: 'three' })`, `THREE_MINT`) — recognized on sight but
+  never a default. Any SPL mint works the same way via an explicit `mint`.
+
 ## 1.2.0
 
 Hardening pass for scale and a UX/accessibility overhaul.
 
 ### Fixed
 
-- **$THREE (and any Token-2022 mint) now settles.** `prepareSolanaCheckout`
-  hardcoded the legacy SPL Token program, so building a $THREE payment threw
-  `TokenInvalidAccountOwnerError`. The server now detects each mint's owning
+- **Token-2022 mints now settle.** `prepareSolanaCheckout`
+  hardcoded the legacy SPL Token program, so building a payment in a Token-2022
+  mint threw `TokenInvalidAccountOwnerError`. The server now detects each mint's owning
   program (legacy vs Token-2022) and derives ATAs, the idempotent-create, and
   `transferChecked` against the right one.
 
@@ -69,30 +85,29 @@ Hardening pass for scale and a UX/accessibility overhaul.
 
 ### Added
 
-- **Pay in USDC _or_ THREE on Solana.** When a 402 challenge offers more than one
-  Solana token, the modal renders a token picker so the buyer chooses which to
-  pay in; the headline price and the built transaction follow the choice. USDC
-  and [$THREE](https://three.ws/three-token) (`FeMb…pump`) are recognized by mint
-  — correct symbol, decimals, and branding even when the `accept` omits
-  `extra.name`/`extra.decimals`.
+- **Multiple Solana tokens with a token picker.** When a 402 challenge offers
+  more than one Solana token, the modal renders a token picker so the buyer
+  chooses which to pay in; the headline price and the built transaction follow the
+  choice. USDC is recognized by mint, and an optional `THREE` token shortcut is
+  recognized too — correct symbol, decimals, and branding even when the `accept`
+  omits `extra.name`/`extra.decimals`.
 - **`solanaAccept()` server helper** — build a spec-shaped Solana `accept` from
-  `token: 'usdc' | 'three'` (or an explicit `mint`) with the price as `uiAmount`
-  (human) or `amount` (atomic). Exports `THREE_MINT`, `USDC_MINT_SOLANA`, and
-  `WELL_KNOWN_SOLANA_TOKENS`.
-- **`window.X402.tokens`** + client exports `THREE_MINT`, `USDC_MINT_SOLANA`,
+  `token: 'usdc'` (or an explicit `mint`, or the optional `'three'` shortcut) with
+  the price as `uiAmount` (human) or `amount` (atomic). Exports `USDC_MINT_SOLANA`,
+  `THREE_MINT`, and `WELL_KNOWN_SOLANA_TOKENS`.
+- **`window.X402.tokens`** + client exports `USDC_MINT_SOLANA`, `THREE_MINT`,
   `KNOWN_SOLANA_TOKENS` for inline merchants composing challenges in the browser.
 
 ### Notes
 
-- THREE is a utility token, not a stablecoin: the browser can't dollar-denominate
-  it, so client-side spending caps apply to USDC only — enforce THREE caps
-  server-side. Settlement is unchanged — the checkout endpoint already transfers
-  any SPL mint named by the chosen `accept`.
+- A floating-price (non-stablecoin) token can't be dollar-denominated in the
+  browser, so client-side spending caps apply to stablecoins (USDC) only — enforce
+  other tokens' caps server-side. Settlement is unchanged — the checkout endpoint
+  already transfers any SPL mint named by the chosen `accept`.
 
 ## 1.0.0
 
-Initial public release. Extracted from the three.ws platform as a standalone,
-dependency-free package.
+Initial public release: a standalone, dependency-free package.
 
 ### Added
 

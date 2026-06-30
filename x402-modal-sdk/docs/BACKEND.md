@@ -90,7 +90,9 @@ The modal then re-sends the original request to `resource_url` with
 
 ## Reference implementation
 
-A production implementation backs three.ws at `api/x402-checkout.js`. Its shape:
+A complete, runnable reference lives in [`examples/server.mjs`](../examples/server.mjs).
+A production handler (e.g. a Vercel function at `api/x402-checkout.js`) has the
+same shape:
 
 ```js
 // POST /api/x402-checkout?action=prepare|encode

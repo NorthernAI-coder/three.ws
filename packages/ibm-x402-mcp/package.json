@@ -5,15 +5,14 @@
 	"type": "module",
 	"author": "nirholas",
 	"license": "Apache-2.0",
-	"homepage": "https://three.ws",
+	"homepage": "https://github.com/nirholas/ibm-x402-mcp",
 	"mcpName": "io.github.nirholas/ibm-x402-mcp",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/nirholas/three.ws.git",
-		"directory": "packages/ibm-x402-mcp"
+		"url": "git+https://github.com/nirholas/ibm-x402-mcp.git"
 	},
 	"bugs": {
-		"url": "https://github.com/nirholas/three.ws/issues"
+		"url": "https://github.com/nirholas/ibm-x402-mcp/issues"
 	},
 	"keywords": [
 		"mcp",
@@ -27,7 +26,6 @@
 		"solana",
 		"pay-per-use",
 		"ai-agent",
-		"three.ws",
 		"foundation-models",
 		"embeddings",
 		"time-series"

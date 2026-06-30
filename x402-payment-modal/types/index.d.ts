@@ -116,8 +116,9 @@ export const version: string;
 
 /** Solana USDC mint (mainnet). */
 export const USDC_MINT_SOLANA: string;
-/** $THREE — the three.ws utility token mint. Recognized by the modal so a 402
- *  `accept` using it renders as THREE without merchant-supplied metadata. */
+/** THREE — an optional, opt-in token mint recognized by the modal so a 402
+ *  `accept` using it renders with the right symbol/decimals without
+ *  merchant-supplied metadata. Never a default; USDC is the default asset. */
 export const THREE_MINT: string;
 
 export interface KnownSolanaToken {
