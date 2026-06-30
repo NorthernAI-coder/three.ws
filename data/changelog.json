@@ -3,6 +3,24 @@
   "entries": [
     {
       "date": "2026-06-30",
+      "title": "The launch & deploy flow now makes shipping feel like shipping",
+      "summary": "Every place where you create and ship a coin or agent got the same game-feel polish as the Swarms page, all driven by real data. On /launches, freshly-landed launches slide in at the top of the live feed, the hero market-cap and launch counters count up between real values, and a live-feed dot tells you the registry is syncing, live, or offline. On a coin's detail page, the live trade tape now tints each new trade in the direction money moved — green when SOL comes back, red when it's spent — the market cap ticks as it refreshes, and a coin ripples once the moment it graduates. The Launch Copilot streams its market-maker action log in row-by-row with the same directional tint, lights a live dot when the stream is connected, and gives a single warm beat the moment the maker goes live. The personal and admin Memetic Launchers count their tallies up between polls, and the admin's launched-today tile ripples each time the live firehose actually mints a coin. The deployments registry counts its headline numbers up as new on-chain agents stream in under a live dot. And Instant Agent Genesis gives one restrained beat when your agent is born, and again when its ERC-8004 identity verifies on-chain. Nothing is faked — every number and beat comes from a real request lifecycle, never a timer, and all of it collapses to a clean static state under reduced motion.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/launches"
+    },
+    {
+      "date": "2026-06-30",
+      "title": "One shared motion library now powers live game-feel across the platform",
+      "summary": "The interaction polish proven on the Swarms page — numbers that count up between real values, directional green/red flashes, live-feed rows that slide in, sparklines, ring gauges, connection dots, and a single restrained it-shipped ripple — now lives in one shared, token-driven, reduced-motion-safe library instead of being re-rolled per page. Every surface that adopts it speaks the same visual vocabulary, and because it's built entirely on the platform's motion tokens, it goes perfectly still the instant you ask your system for reduced motion. The Swarms page is its first consumer; the launch, deploy, markets and AI surfaces follow. It's a foundation, not a faked effect — every animation rides a real value.",
+      "tags": [
+        "improvement",
+        "sdk"
+      ]
+    },
+    {
+      "date": "2026-06-30",
       "title": "x402 payment-modal SDK now installs cleanly outside the monorepo",
       "summary": "The @three-ws/x402-payment-modal package shipped a server-side checkout adapter that quietly relied on @solana/web3.js, @solana/spl-token and express being present — they were never listed in the package, so installing it on its own and using the server piece failed with a missing-module error. Those are now declared as optional dependencies, so the browser modal stays as lightweight as ever while the server and React adapters pull in exactly what they need. The build also no longer assumes a monorepo folder layout. This is the first step in moving the x402 toolkit into its own repositories.",
       "tags": [

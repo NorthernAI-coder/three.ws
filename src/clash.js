@@ -12,6 +12,7 @@
 
 import { initWalletButton, getConnectedWallet, getConnectedWalletAddress } from './wallet.js';
 import { log } from './shared/log.js';
+import { updateValue, ring, playRings, setLiveDot } from './ui-juice.js';
 
 const $ = (id) => document.getElementById(id);
 const API = '/api/clash';
@@ -207,6 +208,11 @@ async function renderStandings() {
 	}
 	const frag = document.createDocumentFragment();
 	board.forEach((f, i) => {
+		// Win rate reads as a "level", so it gets the shared ring gauge (swept by
+		// playRings below). Factions with no settled battles show a plain dash.
+		const wr = el('span', { class: 'cl-wr' });
+		if (f.winRate == null) wr.textContent = '—';
+		else wr.innerHTML = ring(f.winRate, { size: 40, stroke: 4 });
 		frag.appendChild(
 			el('div', { class: 'cl-row' }, [
 				el('span', { class: 'cl-rank', text: i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1) }),
@@ -218,11 +224,12 @@ async function renderStandings() {
 					]),
 				]),
 				el('span', { class: 'cl-wl', html: `<b>${f.w}W</b> · <i>${f.l}L</i>${f.d ? ` · ${f.d}D` : ''}` }),
-				el('span', { class: 'cl-wr', text: f.winRate == null ? '—' : `${f.winRate}%` }),
+				wr,
 			]),
 		);
 	});
 	root.replaceChildren(frag);
+	playRings(root);
 }
 
 // ── State polling + round timer ──────────────────────────────────────────────
@@ -231,14 +238,17 @@ async function poll() {
 		const data = await apiGet('state');
 		game.state = data;
 		$('cl-round-no').textContent = `#${data.epoch}`;
-		$('cl-round-armies').textContent = String(data.factionCount || 0);
+		// Count the army tally to its new value and flash the change as the bracket polls.
+		updateValue($('cl-round-armies'), data.factionCount || 0, (n) => String(Math.round(n)));
 		if (game.tab === 'arena') renderArena(data);
 		// Keep the rally dock's army number in sync with the broader poll.
 		if (game.enlist) {
 			const side = findSide(data, game.enlist.token);
-			if (side) $('cl-army-power').textContent = fmtNum(side.power);
+			if (side) updateValue($('cl-army-power'), side.power, fmtNum);
 		}
+		setLiveDot($('cl-live'), 'live', 'live');
 	} catch (err) {
+		setLiveDot($('cl-live'), game.state ? 'connecting' : 'error', game.state ? 'reconnecting' : 'offline');
 		if (game.tab === 'arena' && !game.state) {
 			$('cl-arena').replaceChildren(
 				errorState(
@@ -386,7 +396,7 @@ function updateRallyStats() {
 	fill.style.width = `${pct}%`;
 	fill.classList.toggle('is-full', pct >= 100);
 	const side = game.state && findSide(game.state, e.token);
-	if (side) $('cl-army-power').textContent = fmtNum(side.power);
+	if (side) updateValue($('cl-army-power'), side.power, fmtNum);
 }
 
 // Tap handling — accumulate locally, flush on a cadence.

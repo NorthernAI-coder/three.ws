@@ -331,6 +331,8 @@
 .cl-wl b { color: var(--success); }
 .cl-wl i { color: var(--danger); font-style: normal; }
 .cl-wr { font: 600 var(--text-sm) var(--font-mono); color: var(--ink-dim); text-align: right; min-width: 56px; }
+/* Win-rate ring gauge (src/ui-juice.js) sits flush-right in the standings cell. */
+.cl-wr .juice-ring { margin-left: auto; }
 
 /* ── Rally dock ─────────────────────────────────────────────────────────── */
 .cl-rally {
