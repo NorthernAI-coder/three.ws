@@ -77,18 +77,28 @@ export function validateUseCase(uc) {
 
 /**
  * Resolve a reward spec (what `uc.rewards(candidate)` returns) into a concrete
- * routing the UI can show and the executor can apply. Real DB-backed resolution
- * for GitHub identities; pass-through for explicit addresses.
+ * routing the UI can show and the executor can apply.
+ *
+ * `resolve:false` (the default, used by the PUBLIC preview) returns the routing
+ * INTENT only — it never touches the DB and never reveals whether a GitHub user
+ * has a linked wallet. `resolve:true` (the AUTHED launch path) does the real,
+ * DB-backed resolution to a concrete address.
+ *
  * @param {any} spec
- * @param {{ network: 'mainnet'|'devnet' }} ctx
+ * @param {{ network: 'mainnet'|'devnet', resolve?: boolean }} ctx
  */
-export async function resolveReward(spec, { network }) {
+export async function resolveReward(spec, { network, resolve = false }) {
 	if (!spec || spec.kind === 'creator') {
 		return { kind: 'creator', shareholders: [], claimable_now: true,
 			note: 'Creator fees stay with the launching agent wallet — claim or delegate later from the fees panel.' };
 	}
 
 	if (spec.kind === 'github-owner') {
+		if (!resolve) {
+			return { kind: 'github-owner', github_username: spec.github_username || null, github_user_id: spec.github_user_id || null,
+				mode: 'pending', claimable_now: false, shareholders: [],
+				note: spec.github_username ? `Creator fees route to @${String(spec.github_username).replace(/^@/, '')} — resolved to their wallet (or a social-fee escrow) at launch.` : 'Creator fees route to the GitHub owner at launch.' };
+		}
 		const r = await resolveGithubReward({ githubUsername: spec.github_username, githubUserId: spec.github_user_id, network });
 		const shareholders = r.address ? [{ address: r.address, share_bps: 10_000, github_username: r.github_username, mode: r.mode }] : [];
 		return { kind: 'github-owner', github_username: r.github_username, github_user_id: r.github_user_id,
@@ -97,6 +107,10 @@ export async function resolveReward(spec, { network }) {
 
 	if (spec.kind === 'split') {
 		const rows = Array.isArray(spec.shareholders) ? spec.shareholders : [];
+		if (!resolve) {
+			return { kind: 'split', shareholders: [], claimable_now: false,
+				note: `Split across ${rows.length} recipient${rows.length === 1 ? '' : 's'} — resolved at launch.` };
+		}
 		const resolved = [];
 		for (const row of rows) {
 			if (row.address) { resolved.push({ address: row.address, share_bps: row.share_bps, mode: 'address' }); continue; }
