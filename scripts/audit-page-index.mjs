@@ -45,6 +45,7 @@ const IGNORE = new Set([
 	'/agent/index.html', // internal SPA shell
 	'/avatar-studio', // editor shell reached from /create + /app, not a landing
 	'/avatar-edit', // noindex avatar customizer reached in-flow with an id, not a landing
+	'/agent-wallet', // noindex agent-wallet hub, reached in-flow with an agent id, not a landing
 	'/create-review', // mid-flow step of /create
 	'/deploy', // post-create deploy step, reached in-flow
 	'/demos', // internal demo index
