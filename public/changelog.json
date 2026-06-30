@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T21:06:29.296Z",
+	"generated_at": "2026-06-30T21:07:43.783Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -75,6 +75,17 @@
 			"link": "/agent-studio",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-06-30",
+			"type": "update",
+			"title": "AI chat now routes around a dead provider account instead of hammering it",
+			"summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

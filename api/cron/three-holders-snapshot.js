@@ -20,6 +20,7 @@ import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { refreshThreeHolderSnapshot } from '../_lib/coin/three-holders.js';
+import { isRpcRateLimited } from '../_lib/coin/holders.js';
 import { isDbUnavailableError } from '../_lib/db.js';
 
 // Vercel cron invokes with `Authorization: Bearer <CRON_SECRET>`; manual probes
@@ -68,8 +69,14 @@ export default wrapCron(async (req, res) => {
 		// operationally expected and self-heals on the next tick — classify it with
 		// the same isDbUnavailableError gate the rest of the platform uses so it
 		// warns rather than firing a per-tick error into alerting.
+		// A Helius 429 surfaces as a SolanaError whose human-readable message is
+		// stripped in prod ("Solana error #8100002; Decode this …") — it carries
+		// neither "429" nor "rate limit" as text, so the string regex alone missed
+		// it and fired a per-tick ERROR into alerting. isRpcRateLimited inspects the
+		// structured statusCode, classifying the throttle correctly as transient.
 		const transient = isDbUnavailableError(err)
-			|| /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|network|password authentication failed|table unavailable/i.test(msg);
+			|| isRpcRateLimited(err)
+			|| /terminated|fetch failed|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up|429|rate.?limit|too many requests|network|password authentication failed|table unavailable/i.test(msg);
 		if (transient) console.warn('[three-holders-snapshot] refresh deferred (transient upstream):', msg);
 		else console.error('[three-holders-snapshot] refresh failed:', msg);
 		return json(res, 200, { ok: false, refreshed: false, error: msg });
