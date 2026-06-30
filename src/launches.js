@@ -58,6 +58,20 @@ const statGradEl = document.getElementById('lx-stat-grad');
 
 const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Live-feed status dot — the feed re-polls /api/pump/launches every minute, so
+// this honestly mirrors the request lifecycle (syncing → live → offline) of a
+// real backing feed rather than a decorative pulse.
+let liveStatusEl = null;
+if (countEl) {
+	countEl.insertAdjacentHTML('afterend', liveDot('connecting', { label: 'syncing' }));
+	liveStatusEl = countEl.nextElementSibling;
+}
+function setFeedLive(stateName) {
+	if (!liveStatusEl) return;
+	const label = stateName === 'live' ? 'live feed' : stateName === 'connecting' ? 'syncing' : 'offline';
+	setLiveDot(liveStatusEl, stateName, label);
+}
+
 // ── watchlist helpers (mirrors launch-detail.js & watchlist.js) ──────────────
 
 const WATCH_KEY = 'ld_watchlist';
@@ -795,6 +809,7 @@ async function loadPage({ reset = false } = {}) {
 	}
 	const isFirstPage = state.offset === 0;
 	feedEl.setAttribute('aria-busy', 'true');
+	setFeedLive('connecting');
 	renderSkeletons(reset ? 8 : 4);
 
 	try {
@@ -830,9 +845,11 @@ async function loadPage({ reset = false } = {}) {
 		if (state.count === 0) renderEmpty();
 		renderFooter();
 		updateCount();
+		setFeedLive(state.count ? 'live' : 'idle');
 	} catch (err) {
 		log.error('feed load failed', err);
 		clearSkeletons();
+		setFeedLive('error');
 		if (state.count === 0) renderError(() => loadPage({ reset: true }));
 		else renderFooter();
 	} finally {
@@ -851,8 +868,10 @@ async function liveRefresh() {
 	try {
 		data = await fetchLaunches(0, 12);
 	} catch {
+		setFeedLive('error');
 		return; // next tick will retry
 	}
+	setFeedLive('live');
 	const fresh = (data.launches || []).filter((l) => !state.seenMints.has(l.mint));
 	if (!fresh.length) return;
 

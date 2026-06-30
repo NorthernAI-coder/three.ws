@@ -10,17 +10,25 @@
  */
 import { log } from './shared/log.js';
 import { startTour } from './shared/tour.js';
+import { rippleOnce } from './ui-juice.js';
 export async function playFirstMeet({ viewer, agent, onShare, onContinue }) {
 	const reducedMotion =
 		typeof window !== 'undefined' &&
 		window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-	// Inject stylesheet once
+	// Inject stylesheet(s) once — first-meet's own + the shared game-feel classes.
 	if (!document.querySelector('link[data-fm-css]')) {
 		const link = document.createElement('link');
 		link.rel = 'stylesheet';
 		link.href = new URL('./first-meet.css', import.meta.url).href;
 		link.dataset.fmCss = '1';
+		document.head.appendChild(link);
+	}
+	if (!document.querySelector('link[data-uj-css]')) {
+		const link = document.createElement('link');
+		link.rel = 'stylesheet';
+		link.href = new URL('./ui-juice.css', import.meta.url).href;
+		link.dataset.ujCss = '1';
 		document.head.appendChild(link);
 	}
 

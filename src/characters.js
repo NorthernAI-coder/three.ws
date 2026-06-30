@@ -6,6 +6,8 @@
  */
 
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';
+import './ui-juice.css';
+import { enterStagger } from './ui-juice.js';
 
 let state = { cursor: null, loading: false, sort: 'new', q: '' };
 
@@ -142,8 +144,11 @@ async function fetchCharacters(reset = false) {
 			return;
 		}
 		grid.innerHTML = chars.map(cardHtml).join('');
+		enterStagger(grid.querySelectorAll('.chs-card'));
 	} else {
+		const before = grid.children.length;
 		grid.insertAdjacentHTML('beforeend', chars.map(cardHtml).join(''));
+		enterStagger(Array.from(grid.children).slice(before));
 	}
 
 	// Wire the wallet chips' copy + Tip actions on the freshly-injected cards.
