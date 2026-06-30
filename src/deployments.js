@@ -10,6 +10,7 @@
  */
 
 import { createLogger } from './shared/log.js';
+import { updateValue, enterRow, liveDot, setLiveDot } from './ui-juice.js';
 
 const log = createLogger('deployments');
 
@@ -80,13 +81,15 @@ async function loadStats() {
 }
 
 function renderStats(d) {
-	$('dp-c-total').textContent = fmtNum(d.total_agents ?? 0);
-	$('dp-c-chains').textContent = String(d.active_chains ?? 0);
-	$('dp-c-d24').textContent = fmtNum(d.deployed_24h ?? 0);
-	$('dp-c-d7').textContent = fmtNum(d.deployed_7d ?? 0);
-	$('dp-c-3d').textContent = `${d.with_3d_pct ?? 0}%`;
+	// Count the headline registry counters between real poll values — the total and
+	// 24h tallies tick up as fresh agents deploy on-chain.
+	updateValue($('dp-c-total'), Number(d.total_agents ?? 0), fmtNum, { flash: false });
+	updateValue($('dp-c-chains'), Number(d.active_chains ?? 0), (n) => String(Math.round(n)), { flash: false });
+	updateValue($('dp-c-d24'), Number(d.deployed_24h ?? 0), fmtNum);
+	updateValue($('dp-c-d7'), Number(d.deployed_7d ?? 0), fmtNum, { flash: false });
+	updateValue($('dp-c-3d'), Number(d.with_3d_pct ?? 0), (n) => `${Math.round(n)}%`, { flash: false });
 	$('dp-c-3d-sub').textContent = `${fmtNum(d.with_3d ?? 0)} rigged agents`;
-	$('dp-c-x402').textContent = `${d.x402_pct ?? 0}%`;
+	updateValue($('dp-c-x402'), Number(d.x402_pct ?? 0), (n) => `${Math.round(n)}%`, { flash: false });
 	$('dp-c-x402-sub').textContent = `${fmtNum(d.x402 ?? 0)} accept payments`;
 
 	const todayEl = $('dp-today');
@@ -167,8 +170,10 @@ async function loadFeed(reset) {
 		state.cursor = data.next_cursor;
 		state.hasMore = !!data.has_more;
 		renderFeed();
+		setFeedLive(state.items.length ? 'live' : 'idle');
 	} catch (e) {
 		log.warn('feed failed', e?.message);
+		setFeedLive('error');
 		if (reset && host) {
 			host.innerHTML = `<div class="dp-error"><div class="dp-empty-title">Couldn’t reach the registry</div><p>The deployment feed is reconnecting. <button type="button" class="dp-retry" id="dp-retry">Retry</button></p></div>`;
 			$('dp-retry')?.addEventListener('click', () => loadFeed(true));
@@ -241,8 +246,8 @@ function renderFeed() {
 			const wrap = document.createElement('div');
 			wrap.innerHTML = rowHTML(r);
 			const row = wrap.firstElementChild;
-			row.classList.add('dp-row--new');
 			host.prepend(row);
+			enterRow(row); // shared slide-in so the live refresh reads as a stream
 		});
 	} else if (!renderedIds.size) {
 		// Initial render or after full reset
@@ -304,7 +309,15 @@ function wireLoadMore() {
 	}
 }
 
+// Live-state dot on the "Live feed" head — driven by the real 45s registry poll
+// lifecycle, mirroring the SSE vocabulary used across launch surfaces.
+function setFeedLive(stateName) {
+	setLiveDot(document.querySelector('.dp-feed-head'), stateName);
+}
+
 function init() {
+	const feedHead = document.querySelector('.dp-feed-head .dp-section-h');
+	if (feedHead) feedHead.insertAdjacentHTML('afterend', liveDot('connecting'));
 	wireNetworkToggle();
 	wireFilters();
 	wireLoadMore();

@@ -2,6 +2,10 @@
    palette as the rest of the site: the white --ink / --accent ramp only, no
    brand colour. Mirrors the /pulse chrome so the two live feeds feel like one
    product. */
+@import './ui-juice.css';
+
+/* Shared live-state dot sits beside the "Live feed" heading. */
+.dp-feed-head .juice-live { margin-left: var(--space-2); }
 
 @keyframes dp-land {
   from { opacity: 0; transform: translateY(-6px); }

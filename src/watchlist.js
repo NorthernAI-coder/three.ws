@@ -21,6 +21,7 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import { mountCoinStatus, formatMcap } from './pump/coin-status-card.js';
+import { updateValue, flipReorder } from './ui-juice.js';
 
 const WATCH_KEY        = 'ld_watchlist'; // shared with src/launch-detail.js
 const LAST_TIERS_KEY   = 'wl_last_tiers'; // mint → tier, for upgrade detection
@@ -407,10 +408,12 @@ function updateSummary() {
 	const gradCnt = coins.filter((c) => c.graduated).length;
 	const avgConv = convs.length ? Math.round(convs.reduce((a, c) => a + Number(c.score), 0) / convs.length) : null;
 
-	setText('wl-sum-mcap', coins.length ? formatMcap(sumMcap) : '—');
-	setText('wl-sum-vol',  coins.length ? formatMcap(sumVol)  : '—');
+	// Count the aggregate tiles from their previously-shown real values, flashing
+	// the direction as watched-coin data refreshes (the #wl-sum-* nodes persist).
+	setNum('wl-sum-mcap', coins.length ? sumMcap : null, formatMcap);
+	setNum('wl-sum-vol',  coins.length ? sumVol  : null, formatMcap);
 	setText('wl-sum-grad', `${gradCnt}/${list.length}`);
-	setText('wl-sum-conv', avgConv != null ? String(avgConv) : '—');
+	setNum('wl-sum-conv', avgConv, (n) => String(Math.round(n)));
 
 	const convEl = document.getElementById('wl-sum-conv');
 	if (convEl && avgConv != null) convEl.style.color = TIER_COLOR[tierForScore(avgConv)] || '';
@@ -421,6 +424,15 @@ function updateSummary() {
 function setText(id, text) {
 	const node = document.getElementById(id);
 	if (node) node.textContent = text;
+}
+
+// Count a summary tile from its previously-shown real value to the new one and
+// flash the direction; missing → static dash with the count tracker cleared.
+function setNum(id, value, format) {
+	const node = document.getElementById(id);
+	if (!node) return;
+	if (value == null || !Number.isFinite(value)) { node.textContent = '—'; delete node.dataset.juiceVal; return; }
+	updateValue(node, value, format);
 }
 
 function tierForScore(s) {
@@ -599,6 +611,11 @@ function applySortFilter() {
 		});
 	}
 
+	// FLIP the cards to their new order: capture current positions, move the same
+	// nodes into rank order, then animate the deltas — so live data re-sorts glide
+	// instead of snapping. Same nodes are reused, so this is a true FLIP.
+	const flip = flipReorder(feedEl, (cardEl) => cardEl.dataset.mint || '');
+	flip.capture();
 	let visible = 0;
 	for (const mint of ordered) {
 		const card = cardEls.get(mint);
@@ -615,6 +632,7 @@ function applySortFilter() {
 		card.classList.toggle('wl-hidden', !show);
 		if (show) visible++;
 	}
+	flip.play();
 
 	renderNoMatch(visible === 0, q, tierFilter);
 }

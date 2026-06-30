@@ -280,8 +280,8 @@ class ThreeGate extends HTMLElement {
 			`<span class="tg-meta-v">${escapeHtml(required.label)} · ${fmtUsd(reqMin)}</span></div>` +
 			`</div>` +
 			`<div class="tg-prog">` +
-			`<span class="tg-prog-track"><span class="tg-prog-fill" style="width:0%"></span></span>` +
-			`<span class="tg-prog-cap"><span class="tg-prog-cap-n">0</span>% there</span>` +
+			`<span class="tg-prog-track"><span class="tg-prog-fill tg-prog-fill--grow" style="width:${pct}%"></span></span>` +
+			`<span class="tg-prog-cap"><span class="tg-prog-cap-n">${pct}</span>% there</span>` +
 			`</div>` +
 			`<div class="tg-actions">` +
 			`<a class="tg-btn tg-btn--primary" data-tg-get href="${JUPITER_SWAP_URL}" target="_blank" rel="noopener">Get $THREE</a>` +
@@ -295,12 +295,11 @@ class ThreeGate extends HTMLElement {
 
 		this._wireLocked();
 
-		// Drive the progress toward the required hold from real numbers: sweep the
-		// fill to its live percentage and count the cap up to match. Reduced motion
-		// is handled by the scoped transition reset + countUp's instant-final path.
-		const fill = this._veil.querySelector('.tg-prog-fill');
+		// Count the "% there" cap up to the live percentage. The bar itself is
+		// rendered at its real width (so the static state is correct and assertable)
+		// and grows in with the scoped scaleX sweep; countUp lands on the same real
+		// number and respects reduced motion via its instant-final path.
 		const capN = this._veil.querySelector('.tg-prog-cap-n');
-		if (fill) requestAnimationFrame(() => { fill.style.width = `${pct}%`; });
 		if (capN) countUp(capN, 0, pct, { format: (n) => String(Math.round(n)) });
 	}
 

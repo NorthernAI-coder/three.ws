@@ -19,6 +19,7 @@
 
 import { apiFetch } from './api.js';
 import { getMe } from './account.js';
+import { rippleOnce } from './ui-juice.js';
 // wallet-auth.js and erc8004/agent-registry.js pull in ethers — heavy and only
 // needed when the user actually signs in or registers an identity. They're
 // dynamically imported at those call sites so the initial genesis bundle stays light.
@@ -66,6 +67,9 @@ function showStage(name) {
 		el.hidden = el.dataset.stage !== name;
 	});
 	window.scrollTo({ top: 0, behavior: 'smooth' });
+	// The reveal is the real "it shipped" beat — the agent is born and on screen.
+	// One restrained ripple on the reveal card marks it (reduced-motion-safe).
+	if (name === 'reveal') rippleOnce(document.querySelector('.gx-stage[data-stage="reveal"] .gx-reveal'));
 }
 
 function showError(elId, message, onRetry) {
@@ -687,6 +691,8 @@ function renderIdentity() {
 		body.innerHTML = `
 			<p class="gx-identity-status">ERC-8004 agent #${state.onchain.agentId ?? ''} on Base. Identity tx:</p>
 			<a class="gx-tx" href="${explorer}" target="_blank" rel="noopener">${state.onchain.txHash}</a>`;
+		// A real ERC-8004 record just landed — ripple the badge once to mark it.
+		rippleOnce(badge);
 		return;
 	}
 	badge.textContent = 'Not registered';
