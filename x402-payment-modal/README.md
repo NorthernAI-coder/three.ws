@@ -41,11 +41,10 @@ throttle retries, and the receipt, so you ship a paid endpoint in minutes.
 - **Solana + EVM.** Phantom (Solana) and any injected EVM wallet (Base USDC
   via EIP-3009 `transferWithAuthorization`). The modal picks the right path from
   the 402 challenge.
-- **USDC by default; any SPL token optional.** USDC is the always-on default
-  settlement asset. A merchant can additionally offer a second Solana token (any
-  SPL mint) and the buyer gets a token picker — the headline price and the
-  transaction follow the choice. See
-  [Accepting multiple Solana tokens](#accepting-multiple-solana-tokens).
+- **Pay in USDC _or_ THREE on Solana.** Offer both and the buyer gets a token
+  picker — pay in USDC, or in [$THREE](https://three.ws/three-token), the three.ws
+  utility token, recognized on sight (symbol, decimals, branding). See
+  [Accepting multiple Solana tokens](#accepting-multiple-solana-tokens-usdc--three).
 - **SIWX re-entry.** If a wallet already paid for a resource, it can sign back in
   instead of paying again. See [docs/siwx.md](docs/siwx.md).
 - **Spending caps.** Optional per-call / hourly / daily caps enforced in the
@@ -236,8 +235,8 @@ configure({
 | `checkoutOrigin` | `data-x402-checkout-origin` | the script's own origin |
 | `checkoutPath` | `data-x402-checkout-path` | `/api/x402-checkout` |
 | `footerNote` | `data-x402-footer-note` | `x402 · onchain settled` |
-| `brand.name` / `brand.url` | `data-x402-brand-name` / `-brand-url` | none (footer "Powered by" link hidden) |
-| `builderCode.wallet` / `.service` | `data-x402-builder-wallet` / `-builder-service` | empty (no self-attribution) |
+| `brand.name` / `brand.url` | `data-x402-brand-name` / `-brand-url` | `three.ws` |
+| `builderCode.wallet` / `.service` | `data-x402-builder-wallet` / `-builder-service` | three.ws codes |
 | `esm.solanaWeb3` / `esm.nobleHashesSha3` | — | pinned esm.sh URLs |
 
 Repoint `esm.*` at a self-hosted mirror if a strict Content-Security-Policy
@@ -276,14 +275,13 @@ Lower-level helpers (`prepareSolanaCheckout`, `encodeX402Payment`,
 
 ---
 
-## Accepting multiple Solana tokens
+## Accepting multiple Solana tokens (USDC + THREE)
 
-USDC is the default settlement asset and works with zero extra configuration. An
-x402 challenge can also list more than one accepted payment. List a USDC accept
-**and** a second SPL-token accept on Solana, and the modal renders a token
-picker: the buyer chooses which to pay in, the headline price and the transaction
-follow the choice. No client wiring — the checkout endpoint already builds an SPL
-transfer for whatever mint the chosen accept names.
+An x402 challenge can list more than one accepted payment. List a USDC accept
+**and** a [$THREE](https://three.ws/three-token) accept on Solana, and the modal
+renders a token picker: the buyer chooses which to pay in, the headline price and
+the transaction follow the choice. No client wiring — the checkout endpoint
+already builds an SPL transfer for whatever mint the chosen accept names.
 
 Build the accepts with the `solanaAccept` helper (no hardcoded mints):
 
@@ -291,30 +289,24 @@ Build the accepts with the `solanaAccept` helper (no hardcoded mints):
 import { solanaAccept } from '@three-ws/x402-payment-modal/server';
 
 // feePayer is your facilitator's sponsor account (pays the SOL network fee).
-const usdcOnly = solanaAccept({ token: 'usdc', uiAmount: 0.25, payTo, feePayer }); // $0.25 in USDC
-
-// Want to also accept a second token? Add any SPL mint as another accept entry:
 const accepts = [
-  solanaAccept({ token: 'usdc', uiAmount: 0.25, payTo, feePayer }),            // $0.25 in USDC (default)
-  solanaAccept({ mint: MY_TOKEN_MINT, uiAmount: 1000, decimals: 6, name: 'MYTOKEN', payTo, feePayer }),
+  solanaAccept({ token: 'usdc',  uiAmount: 0.25, payTo, feePayer }), // $0.25 in USDC
+  solanaAccept({ token: 'three', uiAmount: 1000, payTo, feePayer }), // or 1,000 THREE
 ];
 
 // Return them in your 402 body / PAYMENT-REQUIRED envelope:
 //   { x402Version: 2, accepts }
 ```
 
-`solanaAccept` takes `token: 'usdc'` for the default USDC rail, or an explicit
-`mint` (+ `decimals`/`name`) for any other SPL token, the price as `uiAmount`
-(human units) or `amount` (atomic string), and emits a spec-shaped `accept`. The
-constants `USDC_MINT_SOLANA` and `WELL_KNOWN_SOLANA_TOKENS` are exported. As a
-convenience, a `THREE` token shortcut (`token: 'three'`) and its `THREE_MINT`
-constant are also exported and recognized on sight — purely optional, opt in by
-offering it in your challenge. On the client, the same mints are exposed at
-`window.X402.tokens` for inline merchants.
+`solanaAccept` takes `token: 'usdc' | 'three'` (or an explicit `mint` for any
+SPL token), the price as `uiAmount` (human units) or `amount` (atomic string),
+and emits a spec-shaped `accept`. The constants `THREE_MINT`, `USDC_MINT_SOLANA`,
+and `WELL_KNOWN_SOLANA_TOKENS` are exported too. On the client, the same mints
+are exposed at `window.X402.tokens` for inline merchants.
 
-> **Non-stablecoins:** the modal can only dollar-denominate stablecoins (USDC)
-> for browser-side spending caps. A floating-price token's caps must be enforced
-> server-side. USDC caps work in the browser as usual.
+> **THREE is a utility token, not a stablecoin.** Its price floats, so the modal
+> can't dollar-denominate it for browser-side spending caps — enforce caps for
+> THREE server-side. USDC caps work in the browser as usual.
 
 ---
 

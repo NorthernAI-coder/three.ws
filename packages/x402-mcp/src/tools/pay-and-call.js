@@ -3,11 +3,9 @@
 //
 // Two payment modes:
 //   1. Self-custodial (default): signs with SOLANA_SECRET_KEY / `secret` arg.
-//      Needs only a Solana RPC + key — no external API base.
-//   2. Session-governed (optional): when `session_token` is supplied, routes
-//      through a hosted /api/pay/execute endpoint (set X402_API_BASE) — a hosted
-//      wallet signs, and the session's budget/allowlist/per-tx policy is enforced
-//      remotely. No local key needed. Requires X402_API_BASE.
+//   2. Session-governed: when `session_token` is supplied, routes through the
+//      three.ws /api/pay/execute endpoint — the platform wallet signs, and the
+//      session's budget/allowlist/per-tx policy is enforced. No key needed.
 //
 // Guards before any payment: probe the 402 to read the Solana price, refuse if it
 // exceeds max_usd or MAX_PAY_USD, and (when REQUIRE_CONFIRM is on) require an
@@ -16,7 +14,7 @@
 import { z } from 'zod';
 
 import { buildPayingFetch, decodeSettlement, probeChallenge, isThreeAccept, isUsdcAccept } from '../lib/x402-buyer.js';
-import { MAX_PAY_USD, REQUIRE_CONFIRM, SOLANA_DEFAULT_SECRET, requireApiBase, HTTP_TIMEOUT_MS } from '../config.js';
+import { MAX_PAY_USD, REQUIRE_CONFIRM, SOLANA_DEFAULT_SECRET, THREE_WS_BASE, HTTP_TIMEOUT_MS } from '../config.js';
 
 // Split a challenge's Solana accepts into the two main assets so we can price
 // and pay in the caller's chosen token.
@@ -26,7 +24,7 @@ function pickSolanaAccepts(accepts) {
 }
 
 // USD value of a USDC accept (6-decimal atomic, or a "$x" string). Returns null
-// when unknown — a non-USD token accept has no USD price (its amount is a token count).
+// when unknown — $THREE accepts have no USD price (their amount is a token count).
 function usdFromAccept(a) {
 	if (!a) return null;
 	const raw = a.price ?? a.maxAmountRequired ?? a.amount;
@@ -42,7 +40,7 @@ export const def = {
 	// Moves real funds — irreversible transfer.
 	annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
 	description:
-		'Call a paid x402 endpoint and settle the payment automatically, then return the result.\n\nTwo modes:\n• Self-custodial (default): signs with SOLANA_SECRET_KEY or `secret` arg — you hold the key. Needs only a Solana RPC + key.\n• Session-governed (optional): pass `session_token` (a Payment Session token from a hosted x402 wallet service) — that service signs on your behalf and enforces the session\'s budget, allowlist, and per-tx cap. No private key required. Requires X402_API_BASE to point at the hosting service. Supports Solana USDC and Base USDC sessions.\n\nPay in USDC (default) or, when the endpoint advertises it, in another supported token such as $THREE (set token:"three"). Bounded by max_usd and the MAX_PAY_USD cap; refuses before any money moves if the price is over the cap. With REQUIRE_CONFIRM on, the call refuses until re-issued with confirm:true.',
+		'Call a paid x402 endpoint and settle the payment automatically, then return the result.\n\nTwo modes:\n• Self-custodial (default): signs with SOLANA_SECRET_KEY or `secret` arg — you hold the key.\n• Session-governed: pass `session_token` (a three.ws Payment Session token) — the platform wallet signs on your behalf; the session\'s budget, allowlist, and per-tx cap are enforced by the platform. No private key required. Supports Solana USDC and Base USDC sessions.\n\nPay in USDC (default) or, when the endpoint advertises it, in $THREE (set token:"three"). Bounded by max_usd and the MAX_PAY_USD cap; refuses before any money moves if the price is over the cap. With REQUIRE_CONFIRM on, the call refuses until re-issued with confirm:true.',
 	inputSchema: {
 		url: z.string().url().describe('The x402 endpoint to pay and call.'),
 		method: z.enum(['GET', 'POST']).default('GET').describe('HTTP method.'),
@@ -50,11 +48,11 @@ export const def = {
 		session_token: z
 			.string()
 			.optional()
-			.describe('Payment Session token from a hosted x402 wallet service. When provided, that service pays — no local key needed. Requires X402_API_BASE. Overrides `secret`.'),
+			.describe('three.ws Payment Session token (pss_…). When provided, the platform wallet pays — no local key needed. Overrides `secret`.'),
 		token: z
 			.enum(['usdc', 'three'])
 			.default('usdc')
-			.describe('Settlement token. "usdc" (default) or "three" — the $THREE token; the endpoint must advertise it. Ignored when session_token is set.'),
+			.describe('Settlement token. "usdc" (default) or "three" — the $THREE platform token; the endpoint must advertise it. Ignored when session_token is set.'),
 		max_usd: z
 			.number()
 			.positive()
@@ -68,13 +66,12 @@ export const def = {
 		const url = String(args?.url ?? '').trim();
 		const method = args?.method === 'POST' ? 'POST' : 'GET';
 
-		// ── Session-governed mode (optional) ────────────────────────────────
-		// When a session_token is provided, delegate everything to a hosted
-		// /api/pay/execute endpoint (X402_API_BASE): probing, governance, signing,
-		// and settlement. No local wallet needed. Requires X402_API_BASE.
+		// ── Session-governed mode ───────────────────────────────────────────
+		// When a session_token is provided, delegate everything to the three.ws
+		// /api/pay/execute endpoint: probing, governance, signing, and settlement.
+		// No local wallet needed.
 		const sessionToken = args?.session_token || process.env.PAYMENT_SESSION_TOKEN || '';
 		if (sessionToken) {
-			const apiBase = requireApiBase('Session-governed pay_and_call (session_token)');
 			const ceiling = Math.min(MAX_PAY_USD, args?.max_usd ?? Infinity);
 
 			if (REQUIRE_CONFIRM && args?.confirm !== true) {
@@ -92,7 +89,7 @@ export const def = {
 			const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
 			let res, text;
 			try {
-				res = await fetch(`${apiBase}/api/pay/execute`, {
+				res = await fetch(`${THREE_WS_BASE}/api/pay/execute`, {
 					method: 'POST',
 					signal: controller.signal,
 					headers: { 'content-type': 'application/json', accept: 'application/json' },

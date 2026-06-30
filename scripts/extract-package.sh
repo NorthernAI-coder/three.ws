@@ -50,31 +50,14 @@ git filter-repo --force --subdirectory-filter "$PREFIX"
 # Land on a clean `main` branch.
 git branch -m main 2>/dev/null || git checkout -q -b main
 
-# Publishing identity for the standalone package. SCOPE rewrites the npm scope
-# (the monorepo keeps @three-ws so its internal imports don't break); AUTHOR sets
-# the maintainer. Defaults: @nirholas scope, nirholas author.
-SCOPE="${SCOPE:-@nirholas}"
-AUTHOR_NAME="${AUTHOR_NAME:-nirholas}"
-echo "==> [3/5] rewrite package.json identity -> $SCOPE/* author:$AUTHOR_NAME repo:$OWNER/$REPO_NAME"
-OWNER="$OWNER" REPO_NAME="$REPO_NAME" SCOPE="$SCOPE" AUTHOR_NAME="$AUTHOR_NAME" node -e '
+echo "==> [3/5] rewrite package.json repository/bugs -> $OWNER/$REPO_NAME"
+OWNER="$OWNER" REPO_NAME="$REPO_NAME" node -e '
   const fs = require("fs");
   const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const owner = process.env.OWNER, repo = process.env.REPO_NAME;
-  const scope = process.env.SCOPE, author = process.env.AUTHOR_NAME;
-  // Re-scope the npm name: @three-ws/x402-fetch -> @nirholas/x402-fetch.
-  // VS Code extensions cannot be scoped — they use a plain name + publisher.
-  if (typeof p.name === "string") {
-    if (p.engines && p.engines.vscode) {
-      p.name = p.name.replace(/^@[^/]+\//, "");
-      p.publisher = author.replace(/^@/, "");
-    } else if (p.name.startsWith("@")) {
-      p.name = p.name.replace(/^@[^/]+\//, scope + "/");
-    }
-  }
-  p.author = author;
   p.repository = { type: "git", url: `git+https://github.com/${owner}/${repo}.git` };
   p.bugs = { url: `https://github.com/${owner}/${repo}/issues` };
-  p.homepage = `https://github.com/${owner}/${repo}#readme`;
+  if (!p.homepage) p.homepage = `https://github.com/${owner}/${repo}#readme`;
   fs.writeFileSync("package.json", JSON.stringify(p, null, "\t") + "\n");
 '
 

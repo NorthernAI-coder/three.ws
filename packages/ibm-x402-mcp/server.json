@@ -3,10 +3,20 @@
 	"name": "io.github.nirholas/ibm-x402-mcp",
 	"title": "IBM Granite via x402",
 	"description": "x402 pay-per-use IBM Granite AI: chat, code, embeddings, analysis, forecasting. Pay USDC per call.",
-	"websiteUrl": "https://github.com/nirholas/ibm-x402-mcp",
+	"websiteUrl": "https://three.ws",
+	"icons": [
+		{
+			"src": "https://three.ws/three-ws-mcp-icon.svg",
+			"mimeType": "image/svg+xml",
+			"sizes": [
+				"any"
+			]
+		}
+	],
 	"repository": {
-		"url": "https://github.com/nirholas/ibm-x402-mcp",
-		"source": "github"
+		"url": "https://github.com/nirholas/three.ws",
+		"source": "github",
+		"subfolder": "packages/ibm-x402-mcp"
 	},
 	"version": "1.1.0",
 	"packages": [
@@ -65,7 +75,7 @@
 				},
 				{
 					"name": "X402_FEE_PAYER_SOLANA",
-					"description": "Optional Solana account that sponsors transaction fees for x402 payments. Leave unset to let the facilitator sponsor fees.",
+					"description": "Solana account that sponsors transaction fees for x402 payments. Defaults to the three.ws fee payer.",
 					"isRequired": false,
 					"format": "string"
 				},

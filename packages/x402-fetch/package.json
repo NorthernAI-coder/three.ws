@@ -40,10 +40,8 @@
 		"usdc",
 		"base",
 		"eip-3009",
-		"eip-712",
-		"micropayments",
-		"402",
-		"agent"
+		"agent",
+		"three.ws"
 	],
 	"author": "nirholas <support@three.ws>",
 	"homepage": "https://three.ws",
