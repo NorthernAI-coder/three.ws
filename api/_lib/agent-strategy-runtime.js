@@ -499,6 +499,112 @@ async function evaluateExits({ equip, agent, nowMs, killed }) {
 	return results;
 }
 
+// ── public: force-close ONE open position now (owner "Sell now") ──────────────
+// The per-position manual lever behind the Trading Brain's "Sell now". It mirrors
+// the exit branch of evaluateExits exactly — atomically claim (open → closing),
+// size the sell from the REAL on-chain holding, sell through the SAME guarded
+// runStrategyTrade path, then write realized PnL and flip the row to 'closed' — so
+// a manual exit and an automatic take-profit/stop can never drift. Owner-scoped by
+// owner_id. Selling moves SOL inward, so (like every sell path) it is intentionally
+// NOT blocked by the kill switch or spend caps — getting out is always safe.
+export async function closeStrategyPositionNow({ positionId, ownerId, agentId }) {
+	const reopen = (id, errCode) =>
+		sql`UPDATE agent_strategy_positions SET status = 'open', error = ${errCode} WHERE id = ${id} AND status = 'closing'`.catch(() => {});
+
+	// Atomically CLAIM the open position. The flip both authorizes the caller (no
+	// row → not theirs / not open) and serializes against the worker's own sweep:
+	// only the txn that finds it still 'open' wins, so no double-sell of one bag.
+	const [claim] = await sql`
+		UPDATE agent_strategy_positions
+		SET status = 'closing'
+		WHERE id = ${positionId} AND agent_id = ${agentId} AND owner_id = ${ownerId} AND status = 'open'
+		RETURNING id, equip_id, strategy_id, mint, symbol, name, network, entry_lamports
+	`;
+	if (!claim) {
+		const [existing] = await sql`
+			SELECT status FROM agent_strategy_positions
+			WHERE id = ${positionId} AND agent_id = ${agentId} AND owner_id = ${ownerId} LIMIT 1
+		`;
+		if (!existing) return { ok: false, status: 404, code: 'not_found', message: 'no open position found for that agent' };
+		if (existing.status === 'closing') return { ok: false, status: 409, code: 'position_busy', message: 'this position is already being closed — give it a moment' };
+		if (existing.status === 'closed') return { ok: false, status: 409, code: 'already_closed', message: 'this position is already closed' };
+		return { ok: false, status: 409, code: 'not_open', message: 'this position is not open' };
+	}
+
+	const network = netOf(claim.network);
+	const agent = await loadAgent(agentId);
+	if (!agent?.address || !agent.encryptedSecret) {
+		await reopen(claim.id, 'wallet_preparing');
+		return { ok: false, status: 409, code: 'wallet_preparing', message: 'the agent wallet is still provisioning — try again' };
+	}
+
+	// Slippage from the equipping strategy's config — the same value an auto-exit uses.
+	const [equip] = await sql`
+		SELECT e.config_snapshot, e.slug, e.strategy_id, s.name AS strategy_name
+		FROM agent_strategy_equips e JOIN agent_strategies s ON s.id = e.strategy_id
+		WHERE e.id = ${claim.equip_id} LIMIT 1
+	`.catch(() => []);
+	const config = normalizeStrategyConfig(equip?.config_snapshot || {});
+	const slippageBps = config.sizing?.max_slippage_bps ?? 500;
+
+	const conn = solanaConnection(network);
+	let ownerPk; let mintPk;
+	try { ownerPk = new PublicKey(agent.address); mintPk = new PublicKey(claim.mint); }
+	catch { await reopen(claim.id, 'bad_address'); return { ok: false, status: 400, code: 'bad_address', message: 'invalid wallet or mint address' }; }
+
+	const { raw } = await readTokenBalance(conn, ownerPk, mintPk);
+	if (raw <= 0n) {
+		// Nothing to sell — reconcile the row closed against real chain state rather
+		// than stranding it in 'closing'.
+		await sql`UPDATE agent_strategy_positions SET status = 'closed', exit_reason = 'manual', closed_at = now() WHERE id = ${claim.id} AND status = 'closing'`.catch(() => {});
+		return { ok: true, status: 200, data: { status: 'closed', mint: claim.mint, symbol: claim.symbol || null, reconciled: true, pnl_sol: null } };
+	}
+
+	const idem = `strategy:${claim.equip_id}:manual_exit:${claim.mint}:${claim.id}`;
+	const strategyRef = {
+		strategy_id: claim.strategy_id, equip_id: claim.equip_id, slug: equip?.slug || null,
+		strategy_name: equip?.strategy_name || null, action: 'exit', exit_reason: 'manual',
+	};
+
+	let result;
+	try {
+		result = await runStrategyTrade({
+			agent, side: 'sell', mint: claim.mint, network,
+			solAmount: null, tokenAmountRaw: raw.toString(),
+			slippageBps, idempotencyKey: idem, strategyRef,
+		});
+	} catch (e) {
+		await reopen(claim.id, 'manual_close_failed');
+		return { ok: false, status: 502, code: 'sell_failed', message: 'the sell could not be submitted and no funds were moved — try again' };
+	}
+
+	if (result.status === 'executed' || result.status === 'unconfirmed') {
+		const exitLamports = result.quote ? Number(result.quote.outAtomics) : null;
+		const entryLamports = claim.entry_lamports != null ? Number(claim.entry_lamports) : null;
+		const pnl = exitLamports != null && entryLamports != null ? exitLamports - entryLamports : null;
+		const pnlPct = pnl != null && entryLamports > 0 ? (pnl / entryLamports) * 100 : null;
+		await sql`
+			UPDATE agent_strategy_positions
+			SET status = 'closed', exit_reason = 'manual', exit_sig = ${result.signature || null},
+			    exit_lamports = ${exitLamports}, realized_pnl_lamports = ${pnl}, realized_pnl_pct = ${pnlPct}, closed_at = now()
+			WHERE id = ${claim.id}
+		`.catch(() => {});
+		return {
+			ok: true, status: 200,
+			data: {
+				status: 'closed', mint: claim.mint, symbol: claim.symbol || null,
+				pnl_sol: pnl != null ? pnl / 1e9 : null, pnl_pct: pnlPct,
+				signature: result.signature || null, unconfirmed: result.status === 'unconfirmed',
+			},
+		};
+	}
+
+	// Sell didn't land — reopen so the next worker sweep (or a retry) can exit.
+	await reopen(claim.id, result.code || 'exit_failed');
+	if (result.status === 'skipped') return { ok: false, status: 409, code: result.code || 'skipped', message: `the sell was skipped (${result.code || 'unknown'}) — the position is still open` };
+	return { ok: false, status: 502, code: 'sell_failed', message: `the sell did not complete (${result.code || result.status}) — the position is still open` };
+}
+
 // ── public: evaluate one equip (exits first, then entries) ────────────────────
 export async function evaluateEquip(equip, { launches = null, nowMs = null, killed = false, maxEntries = 3 } = {}) {
 	const now = nowMs ?? Date.now();
