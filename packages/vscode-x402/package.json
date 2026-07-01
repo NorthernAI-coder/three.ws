@@ -1,8 +1,8 @@
 {
 	"name": "@three-ws/vscode-x402",
 	"displayName": "three.ws — x402",
-	"description": "Browse the x402 bazaar, decode 402 payment challenges, and pay-per-call paid APIs with USDC — without leaving VS Code. Powered by three.ws.",
-	"version": "0.1.0",
+	"description": "Browse the x402 bazaar, decode 402 payment challenges, and pay per call for paid APIs and MCP tools in USDC or $THREE on Solana and Base, without leaving VS Code. Powered by three.ws.",
+	"version": "0.2.0",
 	"publisher": "three-ws",
 	"license": "Apache-2.0",
 	"homepage": "https://three.ws",
@@ -24,8 +24,12 @@
 		"x402",
 		"payments",
 		"usdc",
+		"three",
+		"solana",
+		"base",
 		"micropayments",
 		"agent",
+		"mcp",
 		"bazaar",
 		"web3"
 	],
@@ -54,7 +58,7 @@
 		"viewsWelcome": [
 			{
 				"view": "threewsX402.bazaar",
-				"contents": "Browse paid x402 APIs and MCP tools from across the bazaar.\n[Refresh services](command:threewsX402.refresh)\n[Set filters](command:threewsX402.setFilters)\n\nTo pay for a service you'll need an EVM wallet key.\n[Set wallet key](command:threewsX402.setWalletKey)"
+				"contents": "Browse paid x402 APIs and MCP tools from across the bazaar.\n[Refresh services](command:threewsX402.refresh)\n[Set filters](command:threewsX402.setFilters)\n\nTo pay you'll need a wallet key. Solana pays USDC or $THREE; EVM pays USDC on Base.\n[Set Solana wallet key](command:threewsX402.setSolanaWalletKey)\n[Set EVM wallet key](command:threewsX402.setWalletKey)"
 			}
 		],
 		"commands": [
@@ -91,7 +95,15 @@
 			},
 			{
 				"command": "threewsX402.clearWalletKey",
-				"title": "x402: Clear Wallet Key"
+				"title": "x402: Clear EVM Wallet Key"
+			},
+			{
+				"command": "threewsX402.setSolanaWalletKey",
+				"title": "x402: Set Solana Wallet Key"
+			},
+			{
+				"command": "threewsX402.clearSolanaWalletKey",
+				"title": "x402: Clear Solana Wallet Key"
 			},
 			{
 				"command": "threewsX402.scaffoldEndpoint",
@@ -144,8 +156,18 @@
 				},
 				"threewsX402.network": {
 					"type": "string",
-					"default": "eip155:8453",
-					"description": "Preferred CAIP-2 network for payment when an endpoint accepts several (default: Base mainnet)."
+					"default": "",
+					"description": "Preferred CAIP-2 network when an endpoint accepts several (e.g. solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp or eip155:8453). Leave empty for auto (prefers USDC on Solana, then Base)."
+				},
+				"threewsX402.preferToken": {
+					"type": "string",
+					"enum": [
+						"auto",
+						"usdc",
+						"three"
+					],
+					"default": "auto",
+					"description": "Which token to pay when a service accepts several. 'auto' prefers USDC (Solana, then Base) and falls back to $THREE; 'three' pays $THREE on Solana when offered; 'usdc' forces USDC."
 				},
 				"threewsX402.filters": {
 					"type": "object",
@@ -161,6 +183,13 @@
 		"build": "node build.mjs",
 		"watch": "node build.mjs --watch",
 		"vscode:prepublish": "node build.mjs --production"
+	},
+	"dependencies": {
+		"@solana/kit": "^6.9.0",
+		"@x402/core": "^2.14.0",
+		"@x402/fetch": "^2.14.0",
+		"@x402/svm": "^2.14.0",
+		"bs58": "^6.0.0"
 	},
 	"devDependencies": {
 		"@types/vscode": "^1.85.0",

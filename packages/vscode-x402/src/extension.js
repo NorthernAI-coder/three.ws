@@ -149,9 +149,15 @@ async function runInspect(url) {
 	output.clear();
 	output.show(true);
 	output.appendLine(`Inspecting ${url}`);
-	const network = vscode.workspace.getConfiguration('threewsX402').get('network');
+	const cfg = vscode.workspace.getConfiguration('threewsX402');
+	const network = cfg.get('network');
+	const preferToken = cfg.get('preferToken', 'auto');
 	try {
-		const result = await inspectEndpoint(url, { preferNetwork: network });
+		const result = await inspectEndpoint(url, {
+			preferNetwork: network || undefined,
+			preferToken,
+			wallets: { evm: true, solana: true },
+		});
 		summarize(result).forEach((l) => output.appendLine(l));
 	} catch (e) {
 		output.appendLine(`Error: ${e?.message || e}`);
