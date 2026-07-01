@@ -14,8 +14,13 @@ html[data-theme="light"] {
 	background: #000;
 }
 body {
+	margin: 0;
 	background: #000;
 	color-scheme: dark;
+	/* Base type: without this the browser default (serif) leaks into every
+	   element that doesn't set its own font-family — kicker, sub, toggles,
+	   feed rows. Pin the brand body font so the page reads as one surface. */
+	font-family: var(--font-body, 'Inter', system-ui, sans-serif);
 	--bg-0: #0a0a0a;
 	--bg-1: #1a1a1a;
 	--ink: #e8e8e8;
