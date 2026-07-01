@@ -307,3 +307,5 @@ three-ws-*-log-export-*.json
 .pump-launch-wallets/
 pump-launch-wallets*.zip
 .preview/
+launch-studio-catalog.png
+launch-studio-preview.png
