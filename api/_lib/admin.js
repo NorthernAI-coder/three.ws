@@ -39,31 +39,37 @@ function isAdminAddress(address) {
 	return false;
 }
 
+/**
+ * Silent admin predicate — resolves the admin decision for an already-loaded
+ * session user WITHOUT writing any response. Shared by requireAdmin (which adds
+ * the 401/403) and read-only probes (e.g. GET /api/labor/release) that only need
+ * to know whether to reveal moderator controls.
+ */
+export async function isAdminUser(user) {
+	if (!user) return false;
+	if (isAdminAddress(user.wallet_address)) return true;
+	if (user.is_admin) return true;
+	if (adminAddressList().length > 0) {
+		const wallets = await sql`select address from user_wallets where user_id = ${user.id}`;
+		for (const w of wallets) {
+			if (isAdminAddress(w.address)) return true;
+		}
+	}
+	return false;
+}
+
+/** True when the request is from a signed-in admin. Never writes a response. */
+export async function isAdminRequest(req) {
+	return isAdminUser(await getSessionUser(req));
+}
+
 export async function requireAdmin(req, res) {
 	const user = await getSessionUser(req);
 	if (!user) {
 		error(res, 401, 'unauthorized', 'sign in required');
 		return null;
 	}
-
-	// Fast path: env-based admin list (wallet address match).
-	if (isAdminAddress(user.wallet_address)) {
-		return user;
-	}
-
-	// DB flag: is_admin column.
-	if (user.is_admin) return user;
-
-	// Check wallet addresses linked to this user against env list.
-	if (adminAddressList().length > 0) {
-		const wallets = await sql`
-			select address from user_wallets where user_id = ${user.id}
-		`;
-		for (const w of wallets) {
-			if (isAdminAddress(w.address)) return user;
-		}
-	}
-
+	if (await isAdminUser(user)) return user;
 	error(res, 403, 'forbidden', 'admin access required');
 	return null;
 }

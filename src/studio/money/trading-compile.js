@@ -47,6 +47,99 @@ function num(v) {
 	return Number.isFinite(n) ? n : null;
 }
 
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+
+/**
+ * Named starting points a trader can apply in one tap, then tune. Each is a full,
+ * valid rule (compiles + validates cleanly) tuned to a real risk posture — from
+ * "protect capital" to "chase fresh launches". These are opinionated defaults, not
+ * advice: every one still runs inside the owner's server-side guardrails.
+ */
+export const PRESETS = Object.freeze([
+	{
+		id: 'guardian', name: 'Guardian', tagline: 'Capital-first. Established coins, tight risk.',
+		rule: {
+			name: 'Guardian', trigger: { max_age_minutes: 120 },
+			filters: { min_market_cap_usd: 30000, max_market_cap_usd: 250000, min_liquidity_sol: 15, require_socials: true, min_creator_graduated: 1, max_creator_launches: null, require_sol_quote: true },
+			buy: { amount_sol: 0.05, max_slippage_bps: 300 },
+			exits: { take_profit_pct: 40, stop_loss_pct: 20, trailing_stop_pct: 15, max_hold_minutes: 240 },
+			risk: { max_concurrent_positions: 2, cooldown_minutes: 10 },
+		},
+	},
+	{
+		id: 'balanced', name: 'Balanced', tagline: 'The sensible default. Fresh but filtered.',
+		rule: {
+			name: 'Balanced', trigger: { max_age_minutes: 30 },
+			filters: { min_market_cap_usd: null, max_market_cap_usd: 60000, min_liquidity_sol: 5, require_socials: true, min_creator_graduated: null, max_creator_launches: null, require_sol_quote: true },
+			buy: { amount_sol: 0.1, max_slippage_bps: 500 },
+			exits: { take_profit_pct: 100, stop_loss_pct: 40, trailing_stop_pct: null, max_hold_minutes: 120 },
+			risk: { max_concurrent_positions: 3, cooldown_minutes: 3 },
+		},
+	},
+	{
+		id: 'hunter', name: 'Hunter', tagline: 'Early entries on brand-new launches.',
+		rule: {
+			name: 'Hunter', trigger: { max_age_minutes: 10 },
+			filters: { min_market_cap_usd: null, max_market_cap_usd: 30000, min_liquidity_sol: null, require_socials: false, min_creator_graduated: null, max_creator_launches: null, require_sol_quote: true },
+			buy: { amount_sol: 0.2, max_slippage_bps: 900 },
+			exits: { take_profit_pct: 200, stop_loss_pct: 45, trailing_stop_pct: 25, max_hold_minutes: 60 },
+			risk: { max_concurrent_positions: 5, cooldown_minutes: 0 },
+		},
+	},
+	{
+		id: 'moonshot', name: 'Moonshot', tagline: 'Highest risk. Tiny caps, big targets.',
+		rule: {
+			name: 'Moonshot', trigger: { max_age_minutes: 5 },
+			filters: { min_market_cap_usd: null, max_market_cap_usd: 15000, min_liquidity_sol: null, require_socials: false, min_creator_graduated: null, max_creator_launches: null, require_sol_quote: true },
+			buy: { amount_sol: 0.25, max_slippage_bps: 1200 },
+			exits: { take_profit_pct: 400, stop_loss_pct: 55, trailing_stop_pct: 30, max_hold_minutes: 45 },
+			risk: { max_concurrent_positions: 6, cooldown_minutes: 0 },
+		},
+	},
+]);
+
+/** Apply a preset id onto a fresh rule, preserving the trader's chosen network. */
+export function applyPreset(id, { network = 'mainnet' } = {}) {
+	const p = PRESETS.find((x) => x.id === id);
+	if (!p) return emptyRule();
+	return normalizeRule({ ...p.rule, network });
+}
+
+/** Which preset (if any) the current rule matches exactly — for highlighting. */
+export function matchingPresetId(rule) {
+	const target = JSON.stringify(stripName(normalizeRule(rule)));
+	for (const p of PRESETS) {
+		if (JSON.stringify(stripName(normalizeRule({ ...p.rule, network: normalizeRule(rule).network }))) === target) return p.id;
+	}
+	return null;
+}
+
+function stripName(r) { const { name, ...rest } = r; return rest; }
+
+/**
+ * Score a rule's aggressiveness on a 0–100 scale from its own parameters — bigger
+ * size, deeper stops, wider slippage, fresher/smaller-cap targets, more concurrent
+ * exposure, and loftier profit targets all push it up. Pure + deterministic so the
+ * meter the UI shows matches what any test asserts. Returns a score, a human label,
+ * and a tone token for styling.
+ */
+export function scoreRisk(rule) {
+	const r = normalizeRule(rule);
+	let s = 0;
+	s += clamp((r.buy.amount_sol / 1) * 25, 0, 25);                       // per-trade size
+	s += clamp(((r.exits.stop_loss_pct ?? 40) / 60) * 18, 0, 18);          // downside tolerated
+	s += clamp((r.buy.max_slippage_bps / 1500) * 15, 0, 15);              // slippage ceiling
+	const mc = r.filters.max_market_cap_usd;                              // cap ceiling: lower = fresher = riskier
+	s += mc == null ? 15 : clamp(15 - (mc / 200000) * 12, 3, 15);
+	if (!r.filters.require_socials) s += 8;                               // no socials gate
+	s += clamp((r.risk.max_concurrent_positions / 8) * 10, 0, 10);        // concurrent exposure
+	s += clamp(((r.exits.take_profit_pct ?? 0) / 300) * 9, 0, 9);         // profit ambition
+	const score = Math.round(clamp(s, 0, 100));
+	const label = score < 25 ? 'Conservative' : score < 50 ? 'Balanced' : score < 75 ? 'Aggressive' : 'Degen';
+	const tone = score < 25 ? 'calm' : score < 50 ? 'balanced' : score < 75 ? 'warm' : 'hot';
+	return { score, label, tone };
+}
+
 /** Deep-clone the default rule (so callers never mutate the frozen template). */
 export function emptyRule() {
 	return structuredClone(DEFAULT_RULE);

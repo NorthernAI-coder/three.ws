@@ -7,6 +7,10 @@ import {
 	configToSniperStrategy,
 	ruleToEnglish,
 	LAMPORTS_PER_SOL,
+	PRESETS,
+	applyPreset,
+	matchingPresetId,
+	scoreRisk,
 } from '../src/studio/money/trading-compile.js';
 import { normalizeStrategyConfig, validateStrategyConfig } from '../api/_lib/strategy-schema.js';
 
@@ -122,5 +126,65 @@ describe('trading-compile: ruleToEnglish', () => {
 		expect(text).toMatch(/When a new coin appears/);
 		expect(text).toMatch(/buy/);
 		expect(text).not.toMatch(/guarantee/i);
+	});
+});
+
+describe('trading-compile: presets', () => {
+	it('every preset compiles + validates cleanly against the live server schema', () => {
+		for (const p of PRESETS) {
+			const rule = applyPreset(p.id);
+			const { valid, errors } = validateRule(rule);
+			expect(valid, `${p.id}: ${JSON.stringify(errors)}`).toBe(true);
+			const cfg = compileRuleToConfig(rule);
+			expect(validateStrategyConfig(normalizeStrategyConfig(cfg)).valid, `${p.id} server`).toBe(true);
+		}
+	});
+
+	it('applyPreset preserves the chosen network', () => {
+		expect(applyPreset('hunter', { network: 'devnet' }).network).toBe('devnet');
+		expect(applyPreset('hunter').network).toBe('mainnet');
+	});
+
+	it('matchingPresetId round-trips a freshly applied preset and ignores the name', () => {
+		for (const p of PRESETS) {
+			const rule = applyPreset(p.id);
+			expect(matchingPresetId(rule)).toBe(p.id);
+			rule.name = 'renamed by the user';
+			expect(matchingPresetId(rule)).toBe(p.id);
+		}
+	});
+
+	it('returns null when the rule matches no preset', () => {
+		const r = applyPreset('balanced');
+		r.buy.amount_sol = 7.77;
+		expect(matchingPresetId(r)).toBeNull();
+	});
+});
+
+describe('trading-compile: scoreRisk', () => {
+	it('orders the presets by ascending aggressiveness', () => {
+		const g = scoreRisk(applyPreset('guardian')).score;
+		const b = scoreRisk(applyPreset('balanced')).score;
+		const h = scoreRisk(applyPreset('hunter')).score;
+		const m = scoreRisk(applyPreset('moonshot')).score;
+		expect(g).toBeLessThan(b);
+		expect(b).toBeLessThan(h);
+		expect(h).toBeLessThan(m);
+	});
+
+	it('always returns a bounded score with a matching label + tone', () => {
+		for (const p of PRESETS) {
+			const { score, label, tone } = scoreRisk(applyPreset(p.id));
+			expect(score).toBeGreaterThanOrEqual(0);
+			expect(score).toBeLessThanOrEqual(100);
+			expect(['Conservative', 'Balanced', 'Aggressive', 'Degen']).toContain(label);
+			expect(['calm', 'balanced', 'warm', 'hot']).toContain(tone);
+		}
+	});
+
+	it('a bigger position with wider slippage on a fresher coin scores higher', () => {
+		const tame = normalizeRule({ buy: { amount_sol: 0.02, max_slippage_bps: 200 }, filters: { max_market_cap_usd: 200000, require_socials: true }, exits: { stop_loss_pct: 20 } });
+		const wild = normalizeRule({ buy: { amount_sol: 0.9, max_slippage_bps: 1400 }, filters: { max_market_cap_usd: null, require_socials: false }, exits: { stop_loss_pct: 55, take_profit_pct: 400 }, risk: { max_concurrent_positions: 6 } });
+		expect(scoreRisk(wild).score).toBeGreaterThan(scoreRisk(tame).score);
 	});
 });

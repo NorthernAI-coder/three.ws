@@ -33,13 +33,35 @@ It's built on the shared [launch use-case engine](../api/_lib/launch/README.md).
 
 ## How a preview works
 
-1. Open `/launch-studio` and pick a recipe.
-2. The studio calls the read API and renders the coins the recipe would mint from
-   **live data** — name, ticker, description, source signal, and the reward
-   routing for each.
+1. Open `/launch-studio`. Search across all 50 recipes, filter by category
+   (colour-themed tabs) or type (Reward / Theme), star favourites, or hit
+   **Surprise me** for a random one. `/` focuses search; `Esc` closes.
+2. Click a recipe to open the **live preview drawer** — the coins it would mint
+   right now from live data, each with an avatar, name, ticker, description, a
+   signal-strength bar, and its reward routing.
 3. Hit **Launch this coin** to open the existing [`/launch`](https://three.ws/launch)
    wizard with the identity prefilled, then mint on-chain from your wallet or an
    agent's custodial wallet.
+
+## Reward routing — to anyone, not just GitHub
+
+The preview drawer has a **reward planner**: route a coin's creator fees to any of
+
+| Target | What it does |
+|---|---|
+| **As designed** | The recipe's built-in routing (e.g. the repo owner). |
+| **Creator** | Fees stay with the launching wallet. |
+| **GitHub @user** | 100% to a GitHub account (pump.fun social platform 2). |
+| **X @handle** | 100% to an X / Twitter account (pump.fun social platform 1). |
+| **Wallet / .sol** | 100% to a fixed Solana address or name. |
+| **Cashback** | Trading fees return to holders. |
+| **Buyback** | Fees auto-buy-back & burn the coin. |
+
+The same generalisation powers the post-launch [fees panel](../public/studio/fees-panel.js):
+its recipient box accepts a **GitHub @user**, an **X handle** (`x:@handle`), a
+raw **Solana wallet**, or an **owner/repo** to split across contributors. All of
+it resolves through one shared resolver ([`api/_lib/github-reward.js`](../api/_lib/github-reward.js),
+`resolveSocialReward`) so GitHub and X route identically.
 
 For reward coins, after the coin graduates you set the GitHub recipient in the
 [fees panel](../public/studio/fees-panel.js) (type a `@username` → 100%, or

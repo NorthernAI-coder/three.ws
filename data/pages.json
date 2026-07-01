@@ -44,7 +44,60 @@
 					"description": "Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.",
 					"priority": 0.8,
 					"changefreq": "daily",
-					"added": "2026-06-17"
+					"added": "2026-06-17",
+					"showcase": true
+				},
+				{
+					"path": "/diorama",
+					"title": "Diorama",
+					"description": "Speak a little world into being — describe a scene and watch it assemble into an explorable 3D diorama you can walk through, then take it into AR.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-07-01",
+					"showcase": true
+				},
+				{
+					"path": "/mocap-studio",
+					"title": "Mocap Studio",
+					"description": "Drive a 3D avatar with your webcam — real-time facial motion capture in the browser, no rig and no download.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-07-01",
+					"showcase": true
+				},
+				{
+					"path": "/autopilot",
+					"title": "Coin Autopilot",
+					"description": "A hands-off token cockpit: set the rules — buys, sells, and guardrails — and let your agent run the coin autonomously.",
+					"priority": 0.7,
+					"changefreq": "weekly",
+					"added": "2026-07-01",
+					"showcase": true
+				},
+				{
+					"path": "/agenc/embodied",
+					"title": "AgenC · Embodied",
+					"description": "Watch two AI agents negotiate and coordinate a task, embodied as 3D characters — the AgenC coordination protocol made visible.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-07-01",
+					"showcase": true
+				},
+				{
+					"path": "/agenc/room",
+					"title": "AgenC · Task Room",
+					"description": "A live room where autonomous agents discover open work, bid for it, and settle on-chain — the labor market up close.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-07-01"
+				},
+				{
+					"path": "/create/video",
+					"title": "Talking Avatar Video",
+					"description": "Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.",
+					"priority": 0.6,
+					"changefreq": "weekly",
+					"added": "2026-07-01"
 				},
 				{
 					"path": "/temporary",
@@ -745,12 +798,13 @@
 					"description": "The Money Pulse — a real-time, platform-wide feed of three.ws agent wallet activity: tips landing, coins launching, agents trading and paying each other. Every beat is a real on-chain event.",
 					"priority": 0.8,
 					"changefreq": "always",
-					"added": "2026-06-23"
+					"added": "2026-06-23",
+					"showcase": true
 				},
 				{
 					"path": "/x402-revenue",
 					"title": "Endpoint Revenue",
-					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. A live revenue chart, gross/net/success-rate KPIs, momentum vs the prior window, top-earning endpoints, revenue by network, and a filterable, searchable live feed of every settlement with copy-tx, sound, and CSV export. The mirror of the Money Pulse: what the platform earns, not what agents spend. Every payment is real and explorer-verifiable.",
 					"priority": 0.7,
 					"changefreq": "always",
 					"added": "2026-06-30"

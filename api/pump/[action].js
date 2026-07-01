@@ -54,6 +54,7 @@
 import { z } from 'zod';
 import { Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { sql } from '../_lib/db.js';
+import { resolveSocialReward } from '../_lib/github-reward.js';
 import { submitProtected } from '../_lib/execution-engine.js';
 import { getSessionUser, authenticateBearer, extractBearer } from '../_lib/auth.js';
 import { cors, json, method, readJson, wrap, error, rateLimited, respondError } from '../_lib/http.js';
@@ -4310,16 +4311,18 @@ const SOCIAL_PLATFORM_ID = { pump: 0, x: 1, github: 2 };
 
 const resolveGithubShareholderSchema = z
 	.object({
+		// Platform is now general: 'github' (default) or 'x' (Twitter). The
+		// github_* fields are kept for back-compat; `username`/`user_id` are the
+		// platform-agnostic inputs the fees panel and Launch Studio use.
+		platform: z.enum(['github', 'x']).default('github'),
+		username: z.string().trim().min(1).max(40).optional(),
+		user_id: z.string().trim().regex(/^\d{1,20}$/).optional(),
 		github_username: z.string().trim().min(1).max(40).optional(),
-		github_user_id: z
-			.string()
-			.trim()
-			.regex(/^\d{1,20}$/)
-			.optional(),
+		github_user_id: z.string().trim().regex(/^\d{1,20}$/).optional(),
 		network: z.enum(['mainnet', 'devnet']).default('mainnet'),
 	})
-	.refine((b) => b.github_username || b.github_user_id, {
-		message: 'github_username or github_user_id required',
+	.refine((b) => b.username || b.user_id || b.github_username || b.github_user_id, {
+		message: 'a username or numeric user id is required',
 	});
 
 async function handleResolveGithubShareholder(req, res) {
@@ -4333,70 +4336,29 @@ async function handleResolveGithubShareholder(req, res) {
 	if (!rl.success) return rateLimited(res, rl);
 
 	const body = parse(resolveGithubShareholderSchema, await readJson(req));
-	const login = body.github_username ? body.github_username.replace(/^@/, '') : null;
 
-	// Look up the GitHub identity in social_connections (written by the existing
-	// /api/auth/github OAuth flow — provider_uid is the numeric GitHub user id).
-	const [conn] = await sql`
-		select user_id, provider_uid, username
-		from social_connections
-		where provider='github' and disconnected_at is null
-		  and (${login}::text is not null and lower(username)=lower(${login})
-		       or ${body.github_user_id}::text is not null and provider_uid=${body.github_user_id})
-		order by connected_at desc
-		limit 1
-	`;
-
-	const { socialFeePda } = await import('@pump-fun/pump-sdk');
-	const platform = SOCIAL_PLATFORM_ID.github;
-
-	if (conn) {
-		// Prefer the recipient's primary linked Solana wallet — fully claimable.
-		const [wallet] = await sql`
-			select address from user_wallets
-			where user_id=${conn.user_id} and chain_type='solana'
-			order by is_primary desc, created_at asc
-			limit 1
-		`;
-		if (wallet) {
-			return json(res, 200, {
-				mode: 'wallet',
-				address: wallet.address,
-				github_username: conn.username,
-				github_user_id: conn.provider_uid,
-				claimable_now: true,
-				note: 'Linked Solana payout wallet — pays out via the permissionless distribute crank.',
-			});
-		}
-		// On three.ws but no Solana wallet linked yet → escrow PDA, claim deferred.
-		return json(res, 200, {
-			mode: 'social_pda',
-			address: socialFeePda(String(conn.provider_uid), platform).toBase58(),
-			github_username: conn.username,
-			github_user_id: conn.provider_uid,
-			claimable_now: false,
-			note: 'This GitHub user has no Solana payout wallet linked yet. Fees accrue in a pump.fun social-fee escrow; ask them to link a Solana wallet on three.ws to claim directly.',
-		});
-	}
-
-	// Not on three.ws. We can only derive the escrow PDA from a numeric id —
-	// pump.fun keys social-fee PDAs by the numeric GitHub user id, not the login.
-	if (body.github_user_id) {
-		return json(res, 200, {
-			mode: 'social_pda',
-			address: socialFeePda(String(body.github_user_id), platform).toBase58(),
-			github_user_id: body.github_user_id,
-			claimable_now: false,
-			note: 'This GitHub user is not on three.ws. Fees accrue in a pump.fun social-fee escrow they can claim once they connect GitHub and link a Solana wallet.',
-		});
-	}
+	// One source of truth for social → reward resolution (github + x), shared with
+	// the launch use-case engine and the fees panel.
+	const r = await resolveSocialReward({
+		platform: body.platform,
+		username: body.username || body.github_username,
+		userId: body.user_id || body.github_user_id,
+		network: body.network,
+	});
 	return json(res, 200, {
-		mode: 'unresolved',
-		github_username: login,
-		claimable_now: false,
-		note: 'No three.ws account found for that GitHub username. Provide the numeric GitHub user id to route into a pump.fun social-fee escrow, or ask them to sign in with GitHub and link a Solana wallet.',
+		platform: r.platform,
+		mode: r.mode,
+		address: r.address,
+		username: r.username,
+		user_id: r.user_id,
+		// Back-compat aliases for existing github callers.
+		github_username: r.platform === 'github' ? r.username : undefined,
+		github_user_id: r.platform === 'github' ? r.user_id : undefined,
+		claimable_now: r.claimable_now,
+		note: r.note,
 	});
 }
+
 
 // ── create-social-fee-pda-prep ─────────────────────────────────────────────
 // Initialises the pump.fun social-fee escrow PDA for a (social_user_id,

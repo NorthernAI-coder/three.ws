@@ -7,7 +7,8 @@
 					var m = localStorage.getItem('twx_theme');
 					var l =
 						m === 'auto'
-							? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+							? window.matchMedia &&
+								window.matchMedia('(prefers-color-scheme: light)').matches
 							: m === 'light';
 					document.documentElement.setAttribute('data-theme', l ? 'light' : 'dark');
 				} catch (e) {
@@ -83,21 +84,56 @@
 			<!-- ── hero ─────────────────────────────────────────────────────── -->
 			<section class="xr-hero">
 				<div class="xr-hero-copy">
-					<p class="xr-kicker"><span class="xr-live-dot" aria-hidden="true"></span> Live revenue layer</p>
+					<p class="xr-kicker">
+						<span class="xr-live-dot" aria-hidden="true"></span> Live revenue layer
+					</p>
 					<h1 class="xr-title">Endpoint <em>Revenue</em></h1>
 					<p class="xr-sub">
-						Real USDC flowing <strong>into</strong> three.ws's own x402 paid endpoints — the moment each
-						settlement lands on-chain. The mirror of the <a href="/pulse">Money Pulse</a>: that feed shows
-						what agents <em>spend</em>; this shows what the platform <em>earns</em>. Every row is real and
-						explorer-verifiable.
+						Real USDC flowing <strong>into</strong> three.ws's own x402 paid endpoints —
+						the moment each settlement lands on-chain. The mirror of the
+						<a href="/pulse">Money Pulse</a>: that feed shows what agents
+						<em>spend</em>; this shows what the platform <em>earns</em>. Every row is
+						real and explorer-verifiable.
 					</p>
 				</div>
 				<div class="xr-hero-controls">
 					<div class="xr-period" role="tablist" aria-label="Time window">
-						<button type="button" class="xr-period-btn active" data-period="24h" role="tab" aria-selected="true">24h</button>
-						<button type="button" class="xr-period-btn" data-period="7d" role="tab" aria-selected="false">7d</button>
-						<button type="button" class="xr-period-btn" data-period="30d" role="tab" aria-selected="false">30d</button>
-						<button type="button" class="xr-period-btn" data-period="all" role="tab" aria-selected="false">All</button>
+						<button
+							type="button"
+							class="xr-period-btn active"
+							data-period="24h"
+							role="tab"
+							aria-selected="true"
+						>
+							24h
+						</button>
+						<button
+							type="button"
+							class="xr-period-btn"
+							data-period="7d"
+							role="tab"
+							aria-selected="false"
+						>
+							7d
+						</button>
+						<button
+							type="button"
+							class="xr-period-btn"
+							data-period="30d"
+							role="tab"
+							aria-selected="false"
+						>
+							30d
+						</button>
+						<button
+							type="button"
+							class="xr-period-btn"
+							data-period="all"
+							role="tab"
+							aria-selected="false"
+						>
+							All
+						</button>
 					</div>
 					<span class="xr-updated" id="xr-updated" aria-live="polite"></span>
 				</div>
@@ -107,7 +143,9 @@
 			<section class="xr-showcase" aria-label="Revenue over time">
 				<div class="xr-showcase-head">
 					<div class="xr-big">
-						<span class="xr-big-label">Gross revenue · <span id="xr-window-label">24h</span></span>
+						<span class="xr-big-label"
+							>Gross revenue · <span id="xr-window-label">24h</span></span
+						>
 						<span class="xr-big-val" id="xr-c-gross">—</span>
 						<span class="xr-big-sub" id="xr-c-gross-sub">settled USDC</span>
 					</div>
@@ -120,9 +158,16 @@
 					</div>
 				</div>
 				<div class="xr-chart-wrap">
-					<div class="xr-chart" id="xr-chart" role="img" aria-label="Revenue over the selected window"></div>
+					<div
+						class="xr-chart"
+						id="xr-chart"
+						role="img"
+						aria-label="Revenue over the selected window"
+					></div>
 					<div class="xr-chart-tip" id="xr-chart-tip" hidden></div>
-					<div class="xr-chart-empty" id="xr-chart-empty" hidden>No revenue in this window yet.</div>
+					<div class="xr-chart-empty" id="xr-chart-empty" hidden>
+						No revenue in this window yet.
+					</div>
 				</div>
 			</section>
 
@@ -156,7 +201,9 @@
 					<div class="xr-toolbar">
 						<div class="xr-toolbar-left">
 							<h2 class="xr-section-h">Live settlements</h2>
-							<span class="xr-feed-state" id="xr-feed-state" data-state="loading">connecting…</span>
+							<span class="xr-feed-state" id="xr-feed-state" data-state="loading"
+								>connecting…</span
+							>
 						</div>
 						<div class="xr-toolbar-right">
 							<div class="xr-search">
@@ -170,49 +217,86 @@
 									autocomplete="off"
 								/>
 							</div>
-							<button type="button" class="xr-icon-btn" id="xr-sound" aria-pressed="false" aria-label="Toggle chime on new settlements" title="Sound on new settlements (s)">
+							<button
+								type="button"
+								class="xr-icon-btn"
+								id="xr-sound"
+								aria-pressed="false"
+								aria-label="Toggle chime on new settlements"
+								title="Sound on new settlements (s)"
+							>
 								<span aria-hidden="true">♪</span>
 							</button>
-							<button type="button" class="xr-icon-btn" id="xr-pause" aria-pressed="false" aria-label="Pause the live feed" title="Pause / resume live feed (p)">
+							<button
+								type="button"
+								class="xr-icon-btn"
+								id="xr-pause"
+								aria-pressed="false"
+								aria-label="Pause the live feed"
+								title="Pause / resume live feed (p)"
+							>
 								<span aria-hidden="true" class="xr-pause-ico">॥</span>
 							</button>
-							<button type="button" class="xr-icon-btn xr-icon-btn--text" id="xr-export" aria-label="Export settlements as CSV" title="Export CSV (e)">
+							<button
+								type="button"
+								class="xr-icon-btn xr-icon-btn--text"
+								id="xr-export"
+								aria-label="Export settlements as CSV"
+								title="Export CSV (e)"
+							>
 								<span aria-hidden="true">↓</span> CSV
 							</button>
 						</div>
 					</div>
 
-					<div class="xr-chips" id="xr-chips" role="group" aria-label="Filter by endpoint or network"></div>
+					<div
+						class="xr-chips"
+						id="xr-chips"
+						role="group"
+						aria-label="Filter by endpoint or network"
+					></div>
 
-					<div class="xr-feed" id="xr-feed" aria-live="polite" aria-label="Live x402 endpoint settlements"></div>
-					<button type="button" class="xr-more" id="xr-more" hidden>Load older settlements</button>
+					<div
+						class="xr-feed"
+						id="xr-feed"
+						aria-live="polite"
+						aria-label="Live x402 endpoint settlements"
+					></div>
+					<button type="button" class="xr-more" id="xr-more" hidden>
+						Load older settlements
+					</button>
 				</div>
 
 				<aside class="xr-rail" aria-label="Revenue intelligence">
 					<section class="xr-card">
-						<div class="xr-card-h">Top earning endpoints <small id="xr-top-window">24h</small></div>
+						<div class="xr-card-h">
+							Top earning endpoints <small id="xr-top-window">24h</small>
+						</div>
 						<div id="xr-top"><p class="xr-empty">Loading…</p></div>
 					</section>
 					<section class="xr-card">
-						<div class="xr-card-h">Revenue by network <small id="xr-net-window">24h</small></div>
+						<div class="xr-card-h">
+							Revenue by network <small id="xr-net-window">24h</small>
+						</div>
 						<div id="xr-networks"><p class="xr-empty">Loading…</p></div>
 					</section>
 					<section class="xr-card xr-card--quiet">
 						<div class="xr-card-h">How this works</div>
 						<p class="xr-note">
-							Each paid endpoint settles a small USDC payment per call. Every settlement is recorded in
-							the revenue ledger and surfaced here — never a simulation. See
+							Each paid endpoint settles a small USDC payment per call. Every
+							settlement is recorded in the revenue ledger and surfaced here — never a
+							simulation. See
 							<a href="/docs/x402-revenue">x402 revenue &amp; receipts</a> and the
 							<a href="/docs/x402-endpoints">endpoint catalog</a>.
 						</p>
 						<p class="xr-hint">
-							<kbd>/</kbd> search · <kbd>p</kbd> pause · <kbd>s</kbd> sound · <kbd>e</kbd> export ·
-							<kbd>1–4</kbd> window
+							<kbd>/</kbd> search · <kbd>p</kbd> pause · <kbd>s</kbd> sound ·
+							<kbd>e</kbd> export · <kbd>1–4</kbd> window
 						</p>
 					</section>
 					<p class="xr-fineprint">
-						Operational fields (IP, user agent) are never exposed — only the on-chain-public route, amount,
-						payer, and transaction. Amounts in USDC.
+						Operational fields (IP, user agent) are never exposed — only the
+						on-chain-public route, amount, payer, and transaction. Amounts in USDC.
 					</p>
 				</aside>
 			</div>

@@ -68,6 +68,24 @@ describe('resolveReward (shallow / public preview — no DB)', () => {
 		expect(r.kind).toBe('split');
 		expect(r.note).toMatch(/2 recipients/);
 	});
+	it('x-owner routes to an X account (intent only)', async () => {
+		const r = await resolveReward({ kind: 'x-owner', username: 'naval' }, ctx);
+		expect(r.kind).toBe('x-owner');
+		expect(r.platform).toBe('x');
+		expect(r.mode).toBe('pending');
+		expect(r.note).toMatch(/@naval on X/);
+	});
+	it('cashback returns holders as the beneficiary', async () => {
+		const r = await resolveReward({ kind: 'cashback' }, ctx);
+		expect(r.kind).toBe('cashback');
+		expect(r.shareholders).toEqual([]);
+	});
+	it('buyback carries its basis points', async () => {
+		const r = await resolveReward({ kind: 'buyback', buyback_bps: 5000 }, ctx);
+		expect(r.kind).toBe('buyback');
+		expect(r.buyback_bps).toBe(5000);
+		expect(r.note).toMatch(/50%/);
+	});
 });
 
 describe('registry integrity', () => {

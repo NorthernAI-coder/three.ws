@@ -32,6 +32,7 @@ import { apiFetch } from '../../api.js';
 import {
 	emptyRule, normalizeRule, validateRule, ruleToEnglish,
 	compileRuleToConfig, configToSniperStrategy,
+	PRESETS, applyPreset, matchingPresetId, scoreRisk,
 } from './trading-compile.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -678,10 +679,17 @@ class TradingBrain {
 		const num = 'type="number" inputmode="decimal" min="0" step="any"';
 
 		host.innerHTML = `
-			<label class="tb-name">
-				<span class="tb-field-l">Rule name</span>
-				<input data-rule="name" value="${esc(r.name)}" maxlength="60" placeholder="My sniper" />
-			</label>
+			<div class="tb-presets" role="group" aria-label="Strategy presets">
+				<span class="tb-presets-l">Start from</span>
+				<div class="tb-preset-chips">${this._presetsHtml()}</div>
+			</div>
+			<div class="tb-topline">
+				<label class="tb-name">
+					<span class="tb-field-l">Rule name</span>
+					<input data-rule="name" value="${esc(r.name)}" maxlength="60" placeholder="My sniper" />
+				</label>
+				${this._riskMeterHtml()}
+			</div>
 			<div class="tb-flow">
 				${this._block('trigger', '◎', 'When', `
 					${field('Launched within (min)', 'trigger.max_age_minutes', r.trigger.max_age_minutes, num, 'min')}
@@ -719,6 +727,52 @@ class TradingBrain {
 				`)}
 			</div>
 			<p class="tb-english"><span aria-hidden="true">🗣</span> ${esc(ruleToEnglish(r))}</p>`;
+	}
+
+	_presetsHtml() {
+		const active = matchingPresetId(this.rule);
+		return PRESETS.map((p) => `
+			<button class="tb-preset ${p.id === active ? 'is-on' : ''}" data-action="preset" data-preset="${esc(p.id)}"
+				aria-pressed="${p.id === active}" title="${esc(p.tagline)}">
+				<span class="tb-preset-name">${esc(p.name)}</span>
+				<span class="tb-preset-tag">${esc(p.tagline)}</span>
+			</button>`).join('');
+	}
+
+	_riskMeterHtml() {
+		const { score, label, tone } = scoreRisk(this.rule);
+		return `
+			<div class="tb-risk tb-risk-${tone}" data-risk title="Aggressiveness scored from your rule — bigger size, deeper stops, wider slippage and fresher targets raise it">
+				<div class="tb-risk-top"><span class="tb-risk-l">Risk profile</span><span class="tb-risk-label">${esc(label)}</span></div>
+				<div class="tb-risk-track"><div class="tb-risk-fill" style="width:${score}%"></div></div>
+			</div>`;
+	}
+
+	_renderRiskMeter() {
+		const host = this._q('[data-risk]');
+		if (!host) return;
+		const tmp = document.createElement('div');
+		tmp.innerHTML = this._riskMeterHtml().trim();
+		const next = tmp.firstElementChild;
+		if (next) host.replaceWith(next);
+	}
+
+	_applyPreset(id) {
+		this.rule = applyPreset(id, { network: this.rule.network });
+		this.state.dirty = true;
+		this._renderBuilder();
+		this._persistMeta();
+		this._toast(`Applied "${PRESETS.find((p) => p.id === id)?.name || id}" — tune it, then backtest`);
+	}
+
+	// Toggle the active preset chip in place (no re-render) as the rule is edited.
+	_syncPresetHighlight() {
+		const active = matchingPresetId(this.rule);
+		this.el.querySelectorAll('.tb-preset').forEach((btn) => {
+			const on = btn.dataset.preset === active;
+			btn.classList.toggle('is-on', on);
+			btn.setAttribute('aria-pressed', String(on));
+		});
 	}
 
 	_block(key, glyph, title, inner) {
@@ -801,10 +855,13 @@ class TradingBrain {
 				? `<button class="studio-btn studio-btn-danger" data-action="disarm" ${arming ? 'disabled' : ''}>${arming ? 'Disarming…' : 'Disarm agent'}</button>`
 				: `<button class="studio-btn studio-btn-primary" data-action="arm" ${arming ? 'disabled' : ''}>${arming ? 'Arming…' : 'Arm agent'}</button>`)
 			: `<button class="studio-btn studio-btn-primary" data-action="scan" ${this.state.scanning ? 'disabled' : ''}>${this.state.scanning ? 'Scanning…' : 'Scan for matches'}</button>`;
+		const mac = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform || navigator.userAgent || '');
+		const mod = mac ? '⌘' : 'Ctrl';
+		const runHint = this.mode === 'autonomous' ? `${mod}↵` : `${mod}↵`;
 		host.innerHTML = `
-			<button class="studio-btn studio-btn-ghost" data-action="save" ${saving ? 'disabled' : ''}>${saving ? 'Saving…' : 'Save rule'}</button>
-			<button class="studio-btn studio-btn-ghost" data-action="backtest" ${this.state.backtesting ? 'disabled' : ''}>${this.state.backtesting ? 'Backtesting…' : 'Backtest'}</button>
-			${modeBtn}`;
+			<button class="studio-btn studio-btn-ghost" data-action="save" ${saving ? 'disabled' : ''}>${saving ? 'Saving…' : 'Save rule'}<kbd class="tb-kbd">${mod}S</kbd></button>
+			<button class="studio-btn studio-btn-ghost" data-action="backtest" ${this.state.backtesting ? 'disabled' : ''}>${this.state.backtesting ? 'Backtesting…' : 'Backtest'}<kbd class="tb-kbd">${mod}B</kbd></button>
+			${modeBtn.replace('</button>', `<kbd class="tb-kbd">${runHint}</kbd></button>`)}`;
 	}
 
 	_renderAssisted() {
@@ -880,7 +937,52 @@ class TradingBrain {
 				<div class="tb-bt-stat"><b>${fmtPct(m.roi_best_pct)}</b><span>best</span></div>
 				<div class="tb-bt-stat"><b class="neg">${fmtPct(m.roi_worst_pct)}</b><span>worst</span></div>
 			</div>
+			${this._distributionHtml(m.outcome_distribution, b.sample_size)}
+			${this._sampleTradesHtml(b.sample_hits, b.sample_misses)}
 			${b.caveats?.items?.length ? `<details class="tb-caveats"><summary>How this is computed (${b.caveats.items.length} caveats)</summary><ul>${b.caveats.items.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></details>` : ''}`;
+	}
+
+	// A single segmented bar of how the matching launches actually resolved — the
+	// honest shape behind the headline win rate (graduated → pumped → flat → rugged).
+	_distributionHtml(dist, total) {
+		if (!dist || !total) return '';
+		const segs = [
+			{ k: 'graduated', label: 'Graduated', cls: 'grad' },
+			{ k: 'pumped', label: 'Pumped', cls: 'pump' },
+			{ k: 'flat', label: 'Flat', cls: 'flat' },
+			{ k: 'rugged', label: 'Rugged', cls: 'rug' },
+		].map((s) => ({ ...s, n: Number(dist[s.k] || 0) })).filter((s) => s.n > 0);
+		if (!segs.length) return '';
+		return `
+			<div class="tb-dist">
+				<div class="tb-dist-l">How ${total} matching launches actually resolved</div>
+				<div class="tb-dist-bar" role="img" aria-label="${esc(segs.map((s) => `${s.n} ${s.label}`).join(', '))}">
+					${segs.map((s) => `<span class="tb-dist-seg tb-dist-${s.cls}" style="flex:${s.n}" title="${s.label}: ${s.n} (${Math.round((s.n / total) * 100)}%)"></span>`).join('')}
+				</div>
+				<div class="tb-dist-legend">${segs.map((s) => `<span class="tb-dist-key"><i class="tb-dist-dot tb-dist-${s.cls}"></i>${esc(s.label)} ${Math.round((s.n / total) * 100)}%</span>`).join('')}</div>
+			</div>`;
+	}
+
+	// A couple of real best/worst sample trades from the replay, so the projection
+	// isn't just aggregate numbers — you see the kind of coin it would have taken.
+	_sampleTradesHtml(hits, misses) {
+		const row = (t, sign) => {
+			const roi = t.roi_pct ?? t.roiPct;
+			const cls = (roi ?? 0) >= 0 ? 'pos' : 'neg';
+			const name = t.symbol || t.name || short(t.mint || '');
+			return `<li class="tb-sample-row"><span class="tb-sample-name">${esc(name)}</span><span class="tb-sample-out">${esc(t.outcome || '')}</span><span class="tb-sample-roi ${cls}">${roi == null ? '—' : fmtPct(roi)}</span></li>`;
+		};
+		const h = (hits || []).slice(0, 3);
+		const m = (misses || []).slice(0, 3);
+		if (!h.length && !m.length) return '';
+		return `
+			<details class="tb-samples">
+				<summary>Sample trades from the replay</summary>
+				<div class="tb-samples-cols">
+					${h.length ? `<div><div class="tb-samples-h pos">Best</div><ul class="tb-sample-list">${h.map((t) => row(t, '+')).join('')}</ul></div>` : ''}
+					${m.length ? `<div><div class="tb-samples-h neg">Worst</div><ul class="tb-sample-list">${m.map((t) => row(t, '−')).join('')}</ul></div>` : ''}
+				</div>
+			</details>`;
 	}
 
 	_renderPositions() {
@@ -974,6 +1076,7 @@ class TradingBrain {
 			if (a === 'scan') return this._scan();
 			if (a === 'confirm-snipe') return this._confirmSnipe(btn.dataset.mint);
 			if (a === 'save-guardrails') return this._saveGuardrails();
+			if (a === 'preset') return this._applyPreset(btn.dataset.preset);
 			if (a === 'close-pos') return this._closePosition(btn.dataset.pos);
 			if (a === 'export-audit') return this._exportAudit();
 		});
@@ -988,6 +1091,17 @@ class TradingBrain {
 			if (!inp) return;
 			this._applyRuleEdit(inp);
 		});
+		// Power-user shortcuts, active only while focus is inside this panel:
+		//   ⌘/Ctrl+S save · ⌘/Ctrl+B backtest · ⌘/Ctrl+Enter run (scan or arm).
+		this._onKey = (e) => {
+			if (!(e.metaKey || e.ctrlKey)) return;
+			if (!this.el.contains(document.activeElement) && !this.el.matches(':hover')) return;
+			const k = e.key.toLowerCase();
+			if (k === 's') { e.preventDefault(); this._saveStrategy(); }
+			else if (k === 'b') { e.preventDefault(); this._backtest(); }
+			else if (k === 'enter') { e.preventDefault(); this.mode === 'autonomous' ? (this._armed ? null : this._arm()) : this._scan(); }
+		};
+		document.addEventListener('keydown', this._onKey);
 	}
 
 	_applyRuleEdit(inp) {
@@ -1002,9 +1116,11 @@ class TradingBrain {
 		obj[path[path.length - 1]] = v;
 		this.state.dirty = true;
 		// Live english + validation refresh without stealing focus: update just the
-		// english line + error spans, not the whole builder.
+		// english line, the risk meter, and the preset highlight — not the whole builder.
 		const eng = this._q('.tb-english');
 		if (eng) eng.innerHTML = `<span aria-hidden="true">🗣</span> ${esc(ruleToEnglish(this.rule))}`;
+		this._renderRiskMeter();
+		this._syncPresetHighlight();
 		clearTimeout(this._metaTimer);
 		this._metaTimer = setTimeout(() => this._persistMeta(), 700);
 	}
@@ -1022,6 +1138,7 @@ class TradingBrain {
 	destroy() {
 		this._destroyed = true;
 		this._stopLivePolling();
+		if (this._onKey) { document.removeEventListener('keydown', this._onKey); this._onKey = null; }
 		clearTimeout(this._metaTimer);
 		clearTimeout(this._toastTimer);
 	}

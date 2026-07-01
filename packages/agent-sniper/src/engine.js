@@ -27,7 +27,23 @@ import { runPositionSweep } from './positions.js';
 export function createSniper(deps) {
 	const cfg = loadConfig(deps.config || {});
 	const log = deps.logger || defaultLog;
-	const hooks = deps.hooks || {};
+
+	// Ring buffer of recent screen events so any face (web console, API) can render
+	// a live activity feed. Wrap the caller's onScreen (copied so we never mutate
+	// their object) — this way events from the engine AND the executor/position
+	// sweep are captured here, then forwarded on to whatever hook they passed.
+	const ACTIVITY_CAP = 250;
+	const activity = [];
+	const hooks = { ...(deps.hooks || {}) };
+	const callerOnScreen = hooks.onScreen;
+	hooks.onScreen = (evt) => {
+		if (evt && typeof evt.text === 'string') {
+			activity.push({ at: Date.now(), text: evt.text, kind: evt.kind || 'info' });
+			if (activity.length > ACTIVITY_CAP) activity.shift();
+		}
+		try { callerOnScreen?.(evt); } catch { /* best-effort */ }
+	};
+
 	const ports = { store: deps.store, wallet: deps.wallet, solana: deps.solana, executor: deps.executor, hooks, log };
 	if (!ports.store || !ports.wallet || !ports.solana || !ports.executor || !deps.feed) {
 		throw new Error('[agent-sniper] createSniper requires store, wallet, solana, executor, and feed adapters');
@@ -94,6 +110,8 @@ export function createSniper(deps) {
 		config: cfg,
 		stats: () => ({ ...stats, strategies: strategies.length, queued: queue.inFlight, lastEventAt }),
 		strategies: () => strategies.slice(),
+		/** Most-recent screen events (newest last), for a live activity feed. */
+		activity: (limit = 50) => activity.slice(-Math.max(1, Math.min(Number(limit) || 50, ACTIVITY_CAP))),
 
 		async start() {
 			log.info('boot', { network: cfg.network, mode: cfg.mode, globalKill: cfg.globalKill, pollMs: cfg.pollMs });

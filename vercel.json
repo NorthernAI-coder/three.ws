@@ -260,6 +260,14 @@
 			"dest": "/admin/launcher.html"
 		},
 		{
+			"src": "/admin/seeder",
+			"dest": "/admin/seeder.html"
+		},
+		{
+			"src": "/admin/seeder/",
+			"dest": "/admin/seeder.html"
+		},
+		{
 			"src": "/aws-marketplace/welcome",
 			"dest": "/aws-marketplace/welcome.html"
 		},
@@ -818,10 +826,6 @@
 		{
 			"src": "/diorama/?",
 			"dest": "/diorama.html"
-		},
-		{
-			"src": "/labs/?",
-			"dest": "/labs.html"
 		},
 		{
 			"src": "/api/strategies/(.*)",

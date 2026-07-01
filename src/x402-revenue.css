@@ -22,8 +22,16 @@
 	inset: -10% -20% auto -20%;
 	height: 420px;
 	background:
-		radial-gradient(60% 80% at 20% 0%, color-mix(in srgb, var(--xr-accent) 20%, transparent), transparent 70%),
-		radial-gradient(50% 70% at 85% 10%, color-mix(in srgb, var(--xr-accent-2) 16%, transparent), transparent 70%);
+		radial-gradient(
+			60% 80% at 20% 0%,
+			color-mix(in srgb, var(--xr-accent) 20%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			50% 70% at 85% 10%,
+			color-mix(in srgb, var(--xr-accent-2) 16%, transparent),
+			transparent 70%
+		);
 	filter: blur(20px);
 	pointer-events: none;
 	z-index: 0;

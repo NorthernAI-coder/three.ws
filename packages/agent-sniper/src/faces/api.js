@@ -13,10 +13,34 @@
 // Zero three.ws backend imports — only local package files, express (optional),
 // and the published @three-ws/x402-server SDK.
 
-import { pathToFileURL } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { paid } from '@three-ws/x402-server';
 import { presets, createMemoryStore } from '../index.js';
+
+// The web console is a single self-contained HTML file shipped with the package.
+// Read it once, lazily, and cache it — a serve() that never gets a browser hit
+// pays nothing; one that does serves from memory.
+const CONSOLE_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web', 'console.html');
+let _consoleHtml = null;
+function consoleHtml() {
+	if (_consoleHtml == null) {
+		try { _consoleHtml = readFileSync(CONSOLE_PATH, 'utf8'); }
+		catch { _consoleHtml = ''; }
+	}
+	return _consoleHtml;
+}
+
+// Constant-time string compare for the admin token — avoids leaking length/prefix
+// through response timing.
+function safeEqual(a, b) {
+	const ab = Buffer.from(String(a));
+	const bb = Buffer.from(String(b));
+	if (ab.length !== bb.length) return false;
+	return timingSafeEqual(ab, bb);
+}
 
 // 1 SOL = 1e9 lamports. The wire takes human SOL amounts; the engine + store
 // speak lamports (string-encoded BigInt, mirroring the Strategy contract).
@@ -28,6 +52,7 @@ const DEFAULT_PRICES = {
 	arm: '10000',     // POST /strategies      → $0.01
 	snipe: '50000',   // POST /snipe           → $0.05
 	disarm: '5000',   // POST /strategies/:id/disarm → $0.005
+	close: '5000',    // POST /positions/:id/close   → $0.005
 };
 
 /**
@@ -67,6 +92,7 @@ function solToLamportsString(sol) {
  * @param {Record<string,string>} [deps.prices]  per-endpoint USDC atomic prices ({ arm, snipe, disarm }).
  * @param {string} [deps.facilitatorUrl]  x402 facilitator base URL for /verify + /settle.
  * @param {string} [deps.feePayer]  Solana facilitator sponsor fee-payer; env fallback X402_FEE_PAYER_SOLANA. The Solana lane self-disables without it.
+ * @param {string} [deps.adminToken]  operator token; env fallback SNIPER_ADMIN_TOKEN. A request carrying it (Authorization: Bearer / X-Admin-Token) bypasses x402 — the owner's own console mutates free while external agents still pay.
  */
 export async function createSniperApiRouter(deps = {}) {
 	const express = await loadExpress();
@@ -106,6 +132,19 @@ export async function createSniperApiRouter(deps = {}) {
 	const prices = { ...DEFAULT_PRICES, ...(deps.prices || {}) };
 	const facilitator = deps.facilitatorUrl || process.env.X402_FACILITATOR_URL || undefined;
 
+	// Operator token. When set, a request presenting it bypasses the x402 gate —
+	// the owner's own web console can arm/snipe/disarm without paying itself, while
+	// unauthenticated external agents still hit the paid path.
+	const adminToken = deps.adminToken || process.env.SNIPER_ADMIN_TOKEN || null;
+	const isAdmin = (req) => {
+		if (!adminToken) return false;
+		const auth = req.headers.authorization;
+		const bearer = typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7).trim() : null;
+		const hdr = typeof req.headers['x-admin-token'] === 'string' ? req.headers['x-admin-token'].trim() : null;
+		const provided = bearer || hdr;
+		return Boolean(provided) && safeEqual(provided, adminToken);
+	};
+
 	const router = express.Router();
 	router.use(express.json({ limit: '64kb' }));
 
@@ -114,38 +153,46 @@ export async function createSniperApiRouter(deps = {}) {
 	router.use((req, res, next) => {
 		res.setHeader('Access-Control-Allow-Origin', '*');
 		res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-PAYMENT, Authorization');
+		res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-PAYMENT, Authorization, X-Admin-Token');
 		res.setHeader('Access-Control-Expose-Headers', 'PAYMENT-REQUIRED, X-PAYMENT-RESPONSE');
 		if (req.method === 'OPTIONS') return res.status(204).end();
 		return next();
 	});
 
-	// Wrap a mutating handler so it requires an x402 payment. When payTo is
-	// unset the endpoint still mounts but answers 503 — the server boots without
-	// payment config for local/dev rather than charging into a void.
+	// Wrap a mutating handler behind access control. Three paths, checked per request:
+	//   1. admin token present  → run the handler directly (operator bypass);
+	//   2. x402 configured       → require an x402 payment via paid();
+	//   3. neither               → 503 (server still boots for local/dev).
 	function gate(priceKey, handler) {
-		if (!x402Configured) {
-			return (req, res) => {
-				res.status(503).json({
-					error: 'x402 not configured: set payTo.solana or X402_PAY_TO_SOLANA',
-				});
-			};
-		}
-		return paid(
-			{
-				price: prices[priceKey],
-				asset: 'usdc',
-				payTo: lanes,
-				facilitator,
-				feePayer,
-				description: 'agent-sniper paid endpoint',
-				serviceName: 'agent-sniper',
-			},
-			// paid()'s node adapter invokes (req, res, payment); our handlers are
-			// async and own the response. Boundary errors are caught here and
-			// forwarded to the error handler via the captured `next`.
-			(req, res, payment) => Promise.resolve(handler(req, res, payment)).catch(req._onError),
-		);
+		const runDirect = (req, res) =>
+			Promise.resolve(handler(req, res, { admin: true })).catch(req._onError);
+
+		const paidPath = x402Configured
+			? paid(
+				{
+					price: prices[priceKey],
+					asset: 'usdc',
+					payTo: lanes,
+					facilitator,
+					feePayer,
+					description: 'agent-sniper paid endpoint',
+					serviceName: 'agent-sniper',
+				},
+				// paid()'s node adapter invokes (req, res, payment); our handlers are
+				// async and own the response. Boundary errors are caught here and
+				// forwarded to the error handler via the captured `next`.
+				(req, res, payment) => Promise.resolve(handler(req, res, payment)).catch(req._onError),
+			)
+			: (req, res) => res.status(503).json({
+				error: adminToken
+					? 'payment required: send the admin token (Authorization: Bearer / X-Admin-Token) or configure x402 (X402_PAY_TO_SOLANA).'
+					: 'x402 not configured: set payTo.solana or X402_PAY_TO_SOLANA (or SNIPER_ADMIN_TOKEN for an operator console).',
+			});
+
+		return (req, res, next) => {
+			if (isAdmin(req)) return runDirect(req, res);
+			return paidPath(req, res, next);
+		};
 	}
 
 	// Capture express's `next` for the paid handlers (paid()'s node adapter calls
@@ -156,7 +203,24 @@ export async function createSniperApiRouter(deps = {}) {
 		next();
 	});
 
+	// ── Web console ───────────────────────────────────────────────────────────────
+	// The operator dashboard, served from the same origin as the API it drives.
+	// GET / and GET /console both return it; every fetch it makes is same-origin.
+	const serveConsole = (req, res) => {
+		const html = consoleHtml();
+		if (!html) return res.status(404).json({ error: 'web console asset not found' });
+		res.setHeader('Content-Type', 'text/html; charset=utf-8');
+		res.setHeader('Cache-Control', 'no-cache');
+		return res.send(html);
+	};
+	router.get('/', serveConsole);
+	router.get('/console', serveConsole);
+
 	// ── Free reads ──────────────────────────────────────────────────────────────
+
+	// What the console needs to render the right controls: is there a paid lane,
+	// and is an operator token configured (so mutations are reachable at all).
+	const capabilities = () => ({ paid: x402Configured, adminAuth: Boolean(adminToken), prices });
 
 	// GET /health — liveness + a snapshot of network/mode/stats.
 	router.get('/health', (req, res) => {
@@ -165,12 +229,20 @@ export async function createSniperApiRouter(deps = {}) {
 			network: sniper.config.network,
 			mode: sniper.config.mode,
 			stats: sniper.stats(),
+			capabilities: capabilities(),
 		});
 	});
 
 	// GET /status — full stats plus the immutable runtime config.
 	router.get('/status', (req, res) => {
-		res.json({ stats: sniper.stats(), config: sniper.config });
+		res.json({ stats: sniper.stats(), config: sniper.config, capabilities: capabilities() });
+	});
+
+	// GET /activity?limit= — recent engine screen events (newest last) for the feed.
+	router.get('/activity', (req, res) => {
+		const limit = Math.max(1, Math.min(Number(req.query.limit) || 60, 250));
+		const events = typeof sniper.activity === 'function' ? sniper.activity(limit) : [];
+		res.json({ events });
 	});
 
 	// GET /strategies — the armed strategy set the engine is evaluating.
@@ -261,6 +333,24 @@ export async function createSniperApiRouter(deps = {}) {
 		return res.status(404).json({ error: 'strategy not found' });
 	}));
 
+	// POST /positions/:id/close — schedule an exit. Flips the position's kill switch;
+	// the next position sweep sells it through the normal exit path (same as the MCP
+	// close_position tool), so the response is { scheduled: true } — the sell lands shortly.
+	router.post('/positions/:id/close', gate('close', async (req, res) => {
+		if (typeof store.listPositions !== 'function' || typeof store.updatePosition !== 'function') {
+			return res.status(501).json({ error: 'store does not support closing positions' });
+		}
+		const id = req.params.id;
+		const all = await store.listPositions({ network: sniper.config.network });
+		const pos = all.find((p) => p.id === id);
+		if (!pos) return res.status(404).json({ error: 'position not found' });
+		if (pos.status === 'closed' || pos.status === 'failed') {
+			return res.status(200).json({ ok: true, scheduled: false, id, status: pos.status, note: 'position already terminal' });
+		}
+		await store.updatePosition(id, { kill_switch: true });
+		return res.status(202).json({ ok: true, scheduled: true, id });
+	}));
+
 	return router;
 }
 
@@ -320,7 +410,7 @@ export async function serve(deps = {}, { port = Number(process.env.PORT) || 8787
 	return await new Promise((resolve) => {
 		const server = app.listen(port, () => {
 			// eslint-disable-next-line no-console -- this is a server entry point.
-			console.log(`[agent-sniper] HTTP API listening on :${port} (${sniper.config.network}/${sniper.config.mode})`);
+			console.log(`[agent-sniper] HTTP API + console on http://localhost:${port}  (${sniper.config.network}/${sniper.config.mode})`);
 			resolve({ app, server, sniper });
 		});
 	});
