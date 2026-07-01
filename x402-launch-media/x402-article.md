@@ -1,6 +1,6 @@
 # Pay-per-call APIs, inside your editor
 
-> HTTP 402 sat unused for 25 years. We wired it into VS Code, so you can inspect, pay, and ship paid APIs in USDC without leaving the editor.
+> HTTP 402 sat unused for 25 years. We wired it into VS Code, so you can inspect, pay, and ship paid APIs in $THREE or USDC on Solana (and USDC on Base) without leaving the editor.
 
 For twenty-five years, one HTTP status code has been a placeholder. `402 Payment Required` shipped in the earliest HTTP specs, got marked "reserved for future use," and then nothing. Every other code found a job. 402 waited.
 
@@ -12,7 +12,7 @@ x402 is a payment protocol for developers and agents. The loop is simple:
 
 1. You request a resource.
 2. The server answers `402 Payment Required` with a machine-readable challenge: which networks it accepts, which asset, the price, and where to pay.
-3. Your client signs a USDC authorization and retries the same request with proof of payment.
+3. Your client signs a payment authorization in the requested token (USDC or $THREE) and retries the same request with proof of payment.
 4. The server does the work and returns the result plus an on-chain settlement receipt.
 
 No accounts. No API keys. No subscriptions. Just per-call settlement, on-chain. It's the missing payment layer for an internet of APIs and agents that need to pay each other in real time.
@@ -23,7 +23,7 @@ No accounts. No API keys. No subscriptions. Just per-call settlement, on-chain. 
 
 **Inspect any endpoint.** Paste a URL and decode its 402 challenge: every accepted network, asset, payment scheme, price (converted to USD), and payTo address, with the one requirement your wallet can satisfy flagged. Read-only. No wallet, no signing, no configuration.
 
-**Pay & call.** Make a real paid request from a panel. The exact USD amount is shown and confirmed before any key touches the request, and a per-call spending cap blocks anything above your limit. The response body and the on-chain receipt (status, amount paid, paying address, transaction hash) render inline.
+**Pay & call.** Make a real paid request from a panel. It routes each request to the right rail automatically: **$THREE or USDC on Solana**, or USDC on Base. The exact USD amount, token, and network are shown and confirmed before any key touches the request, and a per-call spending cap blocks anything above your limit. The response body and the on-chain receipt (status, amount paid, paying address, token, network, transaction signature) render inline.
 
 **Browse a bazaar.** Point it at a discovery host and the sidebar lists paid HTTP APIs and MCP tools. Filter by type, price, and tag; full-text search; click any service to open its panel and pay.
 
@@ -31,13 +31,16 @@ No accounts. No API keys. No subscriptions. Just per-call settlement, on-chain. 
 
 ## Under the hood
 
-The payment client is **vendored and zero-dependency**: the extension pulls in no payment SDK at runtime. It sends your request unpaid (free endpoints just work), parses the 402, selects the requirement matching your preferred network and a USDC asset your key can sign, signs a USDC-on-Base `transferWithAuthorization` (EIP-3009 / EIP-712), and retries with the `X-PAYMENT` header. The merchant settles on-chain and returns the work plus a receipt decoded from the `x-payment-response` header.
+The extension sends your request unpaid (free endpoints just work), parses the 402, and picks a payable requirement across both rails, honouring your preferred network and token.
 
-The whole secp256k1 / keccak256 / EIP-712 stack is pure JavaScript on top of Web Crypto. Nothing exotic: it's present in Node 18+ and every modern browser.
+- **Solana:** the real `@x402/svm` `exact` scheme signs an SPL transfer of the selected token (**USDC or $THREE**, mint `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`) from your key. This is the same buyer `@three-ws/x402-mcp` uses.
+- **Base and other EVM chains:** the vendored `@three-ws/x402-fetch` signs a USDC `transferWithAuthorization` (EIP-3009 / EIP-712).
+
+Either way it retries with the `X-PAYMENT` header, the merchant settles on-chain, and the receipt is decoded from the `x-payment-response` header and rendered inline with the token, network, and transaction signature.
 
 ## Security you can reason about
 
-Your EVM private key lives only in VS Code **SecretStorage**, the OS keychain (Keychain on macOS, Credential Manager on Windows, libsecret on Linux). Never in `settings.json`, never logged, never on disk in plaintext. A spending cap (default $0.10) is checked before signing, and per-payment confirmation shows the exact amount and paying address before any signature. The guidance is blunt: use a dedicated, low-balance wallet. Treat it like petty cash, not a vault.
+Your Solana and EVM keys live only in VS Code **SecretStorage**, the OS keychain (Keychain on macOS, Credential Manager on Windows, libsecret on Linux). Never in `settings.json`, never logged, never on disk in plaintext. A spending cap (default $0.10) is checked before signing, and per-payment confirmation shows the exact amount and paying address before any signature. The guidance is blunt: use a dedicated, low-balance wallet. Treat it like petty cash, not a vault.
 
 ## No lock-in
 
@@ -45,7 +48,7 @@ It has no dependency on any specific provider. Point it at any compliant x402 en
 
 ## Get it
 
-Open the Extensions view, search **x402**, and install `threews.vscode-x402`, or run `ext install nirholas.vscode-x402`. Requires VS Code 1.85+; a funded USDC-on-Base wallet only if you want to *pay* (inspecting and browsing are free).
+Open the Extensions view, search **x402**, and install `threews.vscode-x402`, or run `ext install nirholas.vscode-x402`. Requires VS Code 1.85+; a funded Solana wallet (holding $THREE or USDC), or a Base USDC wallet, only if you want to *pay* (inspecting and browsing are free).
 
 It's **free**, on the VS Code Marketplace now → https://marketplace.visualstudio.com/items?itemName=threews.vscode-x402
 
@@ -118,7 +121,7 @@ Stateless Vercel serverless functions, Neon Postgres, Cloudflare R2, Upstash Red
 
 > HTTP 402 "Payment Required" has sat unused in the spec for 25 years.
 >
-> We wired it into VS Code. Paste any endpoint, pay per call in USDC, get the on-chain receipt inline. No accounts, no API keys, no subscriptions.
+> We wired it into VS Code. Paste any endpoint, pay per call in $THREE or USDC on Solana, get the on-chain receipt inline. No accounts, no API keys, no subscriptions.
 >
 > Free → marketplace.visualstudio.com/items?itemName=threews.vscode-x402
 
@@ -127,13 +130,13 @@ Stateless Vercel serverless functions, Neon Postgres, Cloudflare R2, Upstash Red
 > Three ways to use it:
 >
 > ◆ Inspect any endpoint free: decode its 402, no wallet
-> ◆ Pay & call: USDC on Base, per-call spending cap, key in your OS keychain
+> ◆ Pay & call: $THREE or USDC on Solana (USDC on Base too), per-call spending cap, key in your OS keychain
 > ◆ Scaffold your own paid endpoint in one command
 >
 > No provider lock-in. Open x402 protocol, zero payment SDK at runtime.
 
 ### Alt text
 
-**Hero:** Dark promo graphic. Headline: "HTTP 402 sat unused for 25 years." Subtext: paste any endpoint, pay per call in USDC, get the on-chain receipt inline. No accounts, no API keys, no subscriptions. A floating VS Code panel shows a settlement receipt: $0.01 USDC paid on Base with a transaction hash. Free on the VS Code Marketplace.
+**Hero:** Dark promo graphic. Headline: "HTTP 402 sat unused for 25 years." Subtext: paste any endpoint, pay per call in $THREE or USDC on Solana, get the on-chain receipt inline. No accounts, no API keys, no subscriptions. A floating VS Code panel shows a settlement receipt: $0.01 in $THREE paid on Solana with a transaction signature. Free on the VS Code Marketplace.
 
-**Loop / money shot:** A VS Code panel titled "Pay & call endpoint." A cursor types an endpoint URL, which decodes into a 402 Payment Required challenge (Base network, USDC, $0.01, pay-to address) flagged "payable by this wallet." The cursor clicks "Pay & call," confirms a payment dialog, and a 200 OK JSON response plus a green settlement receipt appear inline, showing $0.01 USDC paid from 0x4E9a…1F08 with transaction hash 0x9c2d…4a7f.
+**Loop / money shot:** A VS Code panel titled "Pay & call endpoint." A cursor types an endpoint URL, which decodes into a 402 Payment Required challenge (Solana mainnet, $THREE, $0.01, pay-to address) flagged "payable by this wallet." The cursor clicks "Pay & call," confirms a payment dialog, and a 200 OK JSON response plus a green settlement receipt appear inline, showing $0.01 in $THREE paid from 5Age9r…9Ff8 with Solana signature 4Qs9x2…kPq2.
