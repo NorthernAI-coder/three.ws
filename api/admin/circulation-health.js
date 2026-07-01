@@ -133,7 +133,6 @@ export default wrap(async (req, res) => {
 			network: cfg.network,
 			pool_target: cfg.poolTarget,
 			actions_per_tick: cfg.actionsPerTick,
-			real_seller_demand: cfg.realSellerDemand,
 		},
 		pool_size: num(pool[0]?.n),
 		liveness: {
