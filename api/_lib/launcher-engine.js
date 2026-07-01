@@ -25,7 +25,7 @@
 // circuit breaker bound the blast radius. Never throws — every failure is contained
 // and recorded.
 
-import { sql } from './db.js';
+import { sql, isDbCapacityError, isDbUnavailableError } from './db.js';
 import { env } from './env.js';
 import { createSession } from './auth.js';
 import { pickSource } from './launcher-sources.js';
@@ -499,7 +499,12 @@ export async function runLauncherTick() {
 			if (e instanceof Skip) {
 				results.push({ ok: false, scope: cfg.scope, skipped: e.message });
 			} else {
-				console.error('[launcher] scope tick failed', cfg.scope, e?.message);
+				// A full/unavailable DB is infrastructure, not a launcher bug — the tick is
+				// already caught and the next one retries, so log it at warn (not error) so
+				// a storage-cap blip doesn't read as a code fault in the error stream.
+				const infra = isDbCapacityError(e) || isDbUnavailableError(e);
+				const log = infra ? console.warn : console.error;
+				log('[launcher] scope tick failed', cfg.scope, e?.message);
 				results.push({ ok: false, scope: cfg.scope, error: String(e?.message || e).slice(0, 300) });
 			}
 		}

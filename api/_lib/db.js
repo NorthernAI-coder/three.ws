@@ -247,6 +247,31 @@ export function isDbUnavailableError(err) {
 	return false;
 }
 
+// Returns true when the error is a storage-capacity failure: Postgres SQLSTATE
+// 53100 (disk_full), which Neon raises as "could not extend file because project
+// size limit (… MB) has been exceeded" once a branch reaches its storage cap.
+//
+// This is a distinct condition from isDbUnavailableError's connectivity failures:
+// the database is reachable and READS still succeed — only WRITES that need to
+// grow a relation fail (INSERT/UPDATE/index extension). It is not a code bug, and
+// it clears the moment retention frees space (see api/cron/db-retention.js). Left
+// unclassified it 500s every write path and, on the ~70 cron ticks/5-min, fires an
+// unhandled-5xx Sentry event + ops alert per request — the exact NeonDbError
+// storm seen in production. Classified, write paths degrade gracefully: wrapCron
+// skips the tick (200 + reason), API writes return a bounded 503 + Retry-After,
+// and a single deduped 'db:capacity' alert tells ops to reclaim space.
+//
+// Matched on BOTH the SQLSTATE code and the message text: the native driver sets
+// err.code = '53100', but the esbuild-minified production bundle can surface only
+// the wrapped message, so we also regex the message chain (message + sourceError +
+// cause) the same way isDbUnavailableError folds in nested transport errors.
+export function isDbCapacityError(err) {
+	if (!err) return false;
+	if (String(err.code) === '53100') return true;
+	const msg = `${err.message ?? ''} ${err.sourceError?.message ?? ''} ${err.cause?.message ?? ''}`;
+	return /could not extend file because|project size limit|max_cluster_size|throttle_or_fail_extension/i.test(msg);
+}
+
 export const sql = new Proxy(function () {}, {
 	apply(_t, _this, args) {
 		// Neon dispatches on the first argument: a string is the ordinary

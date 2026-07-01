@@ -111,6 +111,14 @@
 			<description>The Launch Studio got a full makeover and a big new power. New look: instant search across all 50 recipes, colour-themed category tabs, a Reward/Theme filter, savable favourites, a Surprise-me button, and keyboard shortcuts. Clicking a recipe now slides open a live preview drawer with real candidate coins — avatars, signal-strength bars, a dev-buy slider that flows into the launch, and a network toggle. The big addition is the reward planner: route a coin's creator fees to anyone, not just GitHub — a GitHub or X (Twitter) account, any Solana wallet or .sol name, back to holders as cashback, or into an auto buy-back-and-burn. The same generalisation reaches the post-launch fees panel, whose recipient box now accepts a GitHub @user, an X handle (x:@handle), a raw wallet, or an owner/repo to split contributors.</description>
 		</item>
 		<item>
+			<title>Live data keeps flowing — automatic database housekeeping</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-01:Live data keeps flowing — automatic database housekeeping</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>A handful of behind-the-scenes jobs — the smart-money radar, the coin-intel feeds, and usage metering — had started intermittently failing because the database had grown to its storage ceiling. We reclaimed the space, added a scheduled housekeeping job that trims the high-volume coin-intel history and stale avatar-generation payloads so the database self-manages its size, and made every write path degrade gracefully (a brief 'retry shortly' instead of a hard error) if storage ever runs tight again. The radar, feeds, and metering now keep updating reliably.</description>
+		</item>
+		<item>
 			<title>Long-running agent endpoints no longer time out mid-task</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-01:Long-running agent endpoints no longer time out mid-task</guid>
@@ -125,6 +133,14 @@
 			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling — the subtitle, network toggle, filter labels and live-feed rows — fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.</description>
+		</item>
+		<item>
+			<title>Pay-per-call APIs now settle reliably — no more dead payment rails</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-01:Pay-per-call APIs now settle reliably — no more dead payment rails</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Our x402 pay-per-call endpoints advertise which networks they accept before you pay. A secondary settlement network had been advertised even while its external verifier was offline, so a payment on that rail could be built and submitted only to fail at the last step. Endpoints now advertise a network only when it can actually settle — Solana (our in-house facilitator) always leads, and the secondary EVM rail appears only when a working verifier is configured. Buyers settle on the healthy rail instead of hitting a dead one. We also hardened the reputation-scoring job so a single slow wallet read can never stall the whole refresh.</description>
 		</item>
 		<item>
 			<title>Pricing your agent's skills is now one tap</title>
@@ -205,6 +221,14 @@
 			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
 			<category>sdk</category>
 			<description>The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.</description>
+		</item>
+		<item>
+			<title>three.ws 3D Forge is now a one-command Claude Code plugin</title>
+			<link>https://three.ws/forge</link>
+			<guid isPermaLink="false">2026-07-01:three.ws 3D Forge is now a one-command Claude Code plugin</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>You can add three.ws 3D generation straight into Claude Code as a one-line plugin. three.ws 3D Forge bundles four skills — a free text→3D draft lane plus the paid avatar, high-fidelity mesh, and auto-rig lanes — and wires the three.ws generation, scene, and avatar servers with no extra setup. Add it with `/plugin marketplace add nirholas/three.ws`, then `/plugin install three-ws-3d@three-ws`; every result hands back a downloadable GLB and a live viewer link. The plugin is now packaged to Anthropic's plugin spec — manifest, license, and changelog — and prepared for submission to the public Claude plugin directory.</description>
 		</item>
 		<item>
 			<title>three.ws now self-hosts its Solana payment settlement</title>

@@ -33,6 +33,16 @@ function dbDownError() {
 	return new Error('Missing required env var: DATABASE_URL');
 }
 
+function dbFullError() {
+	// The exact NeonDbError shape when the branch hits its project-size cap
+	// (SQLSTATE 53100). esbuild minifies the class name, so production matches on
+	// err.code / message — mirror both here.
+	const e = new Error('could not extend file because project size limit (512 MB) has been exceeded');
+	e.name = 'NeonDbError';
+	e.code = '53100';
+	return e;
+}
+
 let errSpy, warnSpy;
 beforeEach(() => {
 	errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -54,6 +64,20 @@ describe('wrap() under a DB outage', () => {
 		expect(JSON.parse(res.body).error).toBe('service_unavailable');
 
 		// No `[api] unhandled` error line — the outage is throttled to a warn instead.
+		const unhandled = errSpy.mock.calls.some((c) => String(c[0]).includes('[api] unhandled'));
+		expect(unhandled).toBe(false);
+	});
+
+	it('degrades a storage-cap failure (SQLSTATE 53100) to 503 + Retry-After, not a 500 storm', async () => {
+		const handler = wrap(async () => { throw dbFullError(); });
+		const res = fakeRes();
+		await handler({ method: 'GET', url: '/api/cron/smart-money-rollup', headers: {} }, res);
+
+		expect(res.statusCode).toBe(503);
+		expect(res.getHeader('retry-after')).toBe('30');
+		expect(JSON.parse(res.body).error).toBe('service_unavailable');
+
+		// No `[api] unhandled` error line / Sentry capture — throttled to a warn.
 		const unhandled = errSpy.mock.calls.some((c) => String(c[0]).includes('[api] unhandled'));
 		expect(unhandled).toBe(false);
 	});

@@ -755,6 +755,17 @@ export const env = {
 			),
 		);
 	},
+	// Explicit opt-in to advertise the Base (eip155:8453) payment rail WITHOUT CDP
+	// credentials. Off by default: a bare X402_FACILITATOR_URL_BASE being set is NOT
+	// proof the facilitator settles — prod had it pointed at decommissioned hosts
+	// (x402.sperax.io, facilitator.payai.network) that 404 every /verify, so every
+	// Base-preferring buyer paid, failed verification, and got a 502. Turn this on
+	// only after confirming your non-CDP Base facilitator actually verifies+settles.
+	// With CDP creds set, Base routes to CDP and this flag is unnecessary. Solana
+	// (self-hosted facilitator) is always-on regardless. See baseSettleable().
+	get X402_ADVERTISE_BASE() {
+		return opt('X402_ADVERTISE_BASE', 'false') === 'true';
+	},
 	get X402_FACILITATOR_TOKEN_SOLANA() {
 		return opt('X402_FACILITATOR_TOKEN_SOLANA', opt('X402_FACILITATOR_TOKEN'));
 	},

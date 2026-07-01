@@ -160,11 +160,11 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		// 402-failing only when NONE are payable. The asset is checked here too —
 		// without it the accept would be advertised and then rejected by the
 		// facilitator at settle, which is the same broken experience as a 500.
-		// Base also needs a WORKING facilitator to settle against — CDP creds or an
-		// explicit facilitator URL. Without one it routes to the decommissioned
-		// PayAI default that 404s every /verify, so advertising Base would hand
-		// buyers a first-choice accept that always fails at settle (a 502, not a
-		// clean 402). Drop Base instead; the Solana accept still settles in-house.
+		// Base also needs a WORKING facilitator to settle against — CDP creds or the
+		// X402_ADVERTISE_BASE opt-in. A bare facilitator URL is not enough: the prod
+		// host was decommissioned and 404s every /verify, so advertising Base would
+		// hand buyers an accept that always fails at settle (a 502, not a clean 402).
+		// Drop Base instead; the Solana accept still settles in-house.
 		if (
 			net === NETWORK_BASE_MAINNET &&
 			(!baseTo || !env.X402_ASSET_ADDRESS_BASE || !baseSettleable())

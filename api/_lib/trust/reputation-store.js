@@ -195,7 +195,10 @@ export async function listStaleAgents(limit = 40) {
  *   the next tick (they sort as stalest-first), so coverage is never lost.
  * @returns {Promise<{ scored: number, failed: number, remaining: number, timedOut: boolean }>}
  */
-export async function recomputeAgents(agentIds = [], { concurrency = 4, deadlineMs = Infinity } = {}) {
+export async function recomputeAgents(
+	agentIds = [],
+	{ concurrency = 4, deadlineMs = Infinity, perAgentTimeoutMs = 20_000 } = {},
+) {
 	let scored = 0;
 	let failed = 0;
 	let timedOut = false;
@@ -203,17 +206,50 @@ export async function recomputeAgents(agentIds = [], { concurrency = 4, deadline
 	const startedAt = Date.now();
 	let i = 0;
 	for (; i < ids.length; i += concurrency) {
-		if (Date.now() - startedAt > deadlineMs) { timedOut = true; break; }
+		const elapsed = Date.now() - startedAt;
+		// Cap each agent's compute so ONE hung upstream (a stalled Solana RPC, a slow
+		// DB read) can't block the whole chunk — and thus the cron — past Vercel's
+		// hard function timeout. Checking the deadline only BETWEEN chunks is not
+		// enough: an un-timed getAgentReputation() inside Promise.allSettled awaits
+		// forever, so the 250s deadline never gets a turn and the run 504s at 300s.
+		const remainingBudget = Number.isFinite(deadlineMs) ? deadlineMs - elapsed : Infinity;
+		if (remainingBudget <= 0) { timedOut = true; break; }
+		// The per-agent ceiling is the smaller of a fixed budget and the wall-clock
+		// remaining before the deadline, so even the final chunk can't overrun it.
+		// A tiny remaining sliver just means slow agents on the last chunk time out
+		// and roll over to the next tick — never lost, since they sort stalest-first.
+		const budget = Math.min(perAgentTimeoutMs, remainingBudget);
 		const chunk = ids.slice(i, i + concurrency);
-		const results = await Promise.allSettled(chunk.map((id) => getAgentReputation(id)));
+		const results = await Promise.allSettled(
+			chunk.map((id) => withTimeout(getAgentReputation(id), budget, id)),
+		);
 		for (const r of results) {
 			if (r.status === 'fulfilled' && r.value) {
 				const ok = await saveReputation(r.value);
 				ok ? scored++ : failed++;
 			} else {
+				// A timed-out or failed agent rolls over to the next tick — it sorts
+				// stalest-first — so bounding it here never loses coverage.
 				failed++;
 			}
 		}
 	}
 	return { scored, failed, remaining: Math.max(0, ids.length - i), timedOut };
+}
+
+// Race a per-agent recompute against a timeout. A hung upstream can leave the
+// original promise pending forever; Promise.race settles on the timeout, and the
+// loser's late rejection is swallowed so it never surfaces as an unhandled
+// rejection after the race resolved. The timer is always cleared so a fast agent
+// doesn't leave a dangling handle keeping the function warm.
+function withTimeout(promise, ms, id) {
+	promise.catch(() => {}); // swallow a late rejection from the losing promise
+	let timer;
+	const timeout = new Promise((_, reject) => {
+		timer = setTimeout(
+			() => reject(new Error(`reputation recompute timed out for ${id} after ${ms}ms`)),
+			ms,
+		);
+	});
+	return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }

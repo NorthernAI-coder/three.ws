@@ -14,13 +14,11 @@
 
 import { wrap, cors, error } from '../_lib/http.js';
 import {
-	NETWORK_BASE_MAINNET,
-	NETWORK_SOLANA_MAINNET,
 	send402,
 	verifyPayment,
 	settlePayment,
 	encodePaymentResponseHeader,
-	permit2VariantOf,
+	buildExactRequirements,
 	resolveResourceUrl,
 	buildBazaarSchema,
 } from '../_lib/x402-spec.js';
@@ -129,32 +127,8 @@ const ROUTE_BAZAAR = {
 };
 
 function buildRequirements(resourceUrl) {
-	const eip3009 = {
-		scheme: 'exact',
-		network: NETWORK_BASE_MAINNET,
-		amount: env.X402_MAX_AMOUNT_REQUIRED,
-		payTo: env.X402_PAY_TO_BASE,
-		asset: env.X402_ASSET_ADDRESS_BASE,
-		maxTimeoutSeconds: 60,
-		resource: resourceUrl,
-		extra: { name: 'USD Coin', version: '2', decimals: 6 },
-	};
-	const out = [eip3009];
-	const permit2 = permit2VariantOf(eip3009);
-	if (permit2) out.push(permit2);
-	if (env.X402_PAY_TO_SOLANA) {
-		out.push({
-			scheme: 'exact',
-			network: NETWORK_SOLANA_MAINNET,
-			amount: env.X402_MAX_AMOUNT_REQUIRED,
-			payTo: env.X402_PAY_TO_SOLANA,
-			asset: env.X402_ASSET_MINT_SOLANA,
-			maxTimeoutSeconds: 60,
-			resource: resourceUrl,
-			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
-		});
-	}
-	return out;
+	// Solana-first accepts, Base gated on baseSettleable() — see buildExactRequirements.
+	return buildExactRequirements(resourceUrl);
 }
 
 const SYSTEM_PROMPT =

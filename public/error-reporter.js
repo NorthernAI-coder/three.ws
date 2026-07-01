@@ -56,6 +56,15 @@
 	// ResizeObserver messages are spec-mandated, thrown by the browser itself,
 	// and not actionable — every error pipeline ignores them.
 	const IGNORED_SOURCES = /^(chrome|moz|safari|safari-web)-extension:/;
+	// Safari masks the URL of scripts it deems privacy-sensitive — content-blocker
+	// and browser-extension injected scripts, and some blob:/eval contexts — behind
+	// the synthetic `webkit-masked-url://hidden/` scheme. Our own same-origin modules
+	// are served from normal https URLs and are never masked, so an error whose only
+	// attributable frame is a masked URL comes from an injected third-party script,
+	// not three.ws (e.g. a cashback/shopping extension's `onResponse` handler throwing
+	// "undefined is not an object (evaluating 'response.cashbackReminder')"). Unfixable
+	// from our deploy and pure log noise — drop it. Matched on the stack in shouldIgnore.
+	const IGNORED_MASKED_URL = /webkit-masked-url:\/\//;
 	const IGNORED_MESSAGES = [
 		'ResizeObserver loop limit exceeded',
 		'ResizeObserver loop completed with undelivered notifications.',
@@ -312,6 +321,15 @@
 		if (!report.message && !report.source) return true;
 		if (report.source && IGNORED_SOURCES.test(report.source)) return true;
 		if (report.stack && /\b(chrome|moz|safari|safari-web)-extension:\/\//.test(report.stack)) {
+			return true;
+		}
+		// Safari-masked injected-script frames (extension/content-blocker/blob) — never
+		// our same-origin code. Check both stack and source (a masked URL can surface
+		// as either), so a cashback/shopping-extension throw stops flooding [client-error].
+		if (
+			IGNORED_MASKED_URL.test(report.stack || '') ||
+			IGNORED_MASKED_URL.test(report.source || '')
+		) {
 			return true;
 		}
 		if (report.message && IGNORED_MESSAGES.includes(report.message)) return true;

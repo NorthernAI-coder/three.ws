@@ -6,7 +6,7 @@ import { env } from './env.js';
 import { captureException } from './sentry.js';
 import { sendOpsAlert } from './alerts.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
-import { isDbUnavailableError } from './db.js';
+import { isDbUnavailableError, isDbCapacityError } from './db.js';
 
 // Secure-by-default caching: emit `no-store` UNLESS the handler already set a
 // Cache-Control header (e.g. `res.setHeader('cache-control', 'public, s-maxage=…')`
@@ -196,10 +196,13 @@ export function reportServerError(err, { code = 'internal_error', status = 500, 
 	// A DB outage is infrastructure, not a code fault: throttle the log, skip the
 	// Sentry capture, and collapse to the single shared `db:unavailable` alert so a
 	// missing DATABASE_URL degrades quietly instead of flooding error tracking.
-	if (isDbUnavailableError(err)) {
+	const dbFull = isDbCapacityError(err);
+	if (isDbUnavailableError(err) || dbFull) {
 		logDbUnavailableOnce(code, detail);
 		try {
-			sendOpsAlert('database unavailable', `${detail}\nref ${ref}`, { signature: 'db:unavailable' });
+			sendOpsAlert(dbFull ? 'database at storage cap — retention needed' : 'database unavailable', `${detail}\nref ${ref}`, {
+				signature: dbFull ? 'db:capacity' : 'db:unavailable',
+			});
 		} catch { /* alerts best-effort */ }
 		return ref;
 	}
@@ -222,10 +225,11 @@ export function reportServerError(err, { code = 'internal_error', status = 500, 
 // is logged + captured server-side under a correlation id the caller can quote
 // to support; the client only sees a generic description + the ref.
 export function serverError(res, status, code, err, extra = {}) {
-	// Coerce a DB outage to 503 + Retry-After regardless of the caller's status, so
-	// boundaries that catch internally (sitemap, deployments) advertise "retry
-	// shortly" to clients and CDNs exactly like wrap() does, instead of a hard 500.
-	if (isDbUnavailableError(err)) {
+	// Coerce a DB outage OR a storage-cap failure to 503 + Retry-After regardless of
+	// the caller's status, so boundaries that catch internally (sitemap, deployments)
+	// advertise "retry shortly" to clients and CDNs exactly like wrap() does, instead
+	// of a hard 500.
+	if (isDbUnavailableError(err) || isDbCapacityError(err)) {
 		const ref = reportServerError(err, { code, status: 503 });
 		if (typeof res.setHeader === 'function') res.setHeader('retry-after', '30');
 		return json(res, 503, {
@@ -421,18 +425,25 @@ export function wrap(handler) {
 			await handler(req, res, ...rest);
 		} catch (err) {
 			const dbDown = isDbUnavailableError(err);
-			const status = dbDown ? 503 : (err.status || 500);
+			// Storage-cap failures (SQLSTATE 53100) are, like a connectivity outage, an
+			// infrastructure condition rather than a code bug — reads still work, writes
+			// fail until retention frees space — so they take the same graceful, throttled,
+			// no-Sentry path, just with a distinct alert so ops knows to reclaim space
+			// (api/cron/db-retention.js) rather than chase a phantom bug.
+			const dbFull = !dbDown && isDbCapacityError(err);
+			const dbDegraded = dbDown || dbFull;
+			const status = dbDegraded ? 503 : (err.status || 500);
 			if (status >= 500) {
 				const ref = correlationId();
-				if (dbDown) {
-					// During a DB outage EVERY endpoint that doesn't catch internally lands
-					// here. A missing/rotated DATABASE_URL would otherwise emit one
-					// `[api] unhandled` error line + one Sentry event per request — thousands
+				if (dbDegraded) {
+					// During a DB outage/cap EVERY endpoint that doesn't catch internally lands
+					// here. A missing/rotated DATABASE_URL or a full branch would otherwise emit
+					// one `[api] unhandled` error line + one Sentry event per request — thousands
 					// in minutes. It's infrastructure, not a code bug: throttle the log, skip
 					// the Sentry capture, and fire only the single shared deduped alert.
 					logDbUnavailableOnce(`${req.method} ${redactUrl(req.url)}`, err?.message || String(err));
-					sendOpsAlert('database unavailable', `${err?.message || String(err)}\nref ${ref}`, {
-						signature: 'db:unavailable',
+					sendOpsAlert(dbFull ? 'database at storage cap — retention needed' : 'database unavailable', `${err?.message || String(err)}\nref ${ref}`, {
+						signature: dbFull ? 'db:capacity' : 'db:unavailable',
 					});
 				} else {
 					// Redact coordinates / device tokens so a 5xx on a geolocated read never
@@ -448,7 +459,7 @@ export function wrap(handler) {
 				// so err.message would leak HELIUS_API_KEY to the client. Hand back a
 				// sanitized envelope keyed to the same ref we just logged.
 				if (!res.headersSent && !res.writableEnded) {
-					if (dbDown) {
+					if (dbDegraded) {
 						// 503 with Retry-After so clients and CDNs know to back off.
 						res.setHeader('retry-after', '30');
 					}
@@ -459,8 +470,8 @@ export function wrap(handler) {
 						redirect(res, serverErrorPageLocation(ref, req), 303);
 					} else {
 						json(res, status, {
-							error: dbDown ? 'service_unavailable' : (err.code || 'internal_error'),
-							error_description: dbDown
+							error: dbDegraded ? 'service_unavailable' : (err.code || 'internal_error'),
+							error_description: dbDegraded
 								? 'database temporarily unavailable — retry shortly'
 								: `internal error — quote ref ${ref} to support`,
 							ref,
@@ -507,10 +518,11 @@ export function wrapCron(handler) {
 			import('./cache.js').then(({ cacheSet }) => {
 				cacheSet(`cron:heartbeat:${cronName}`, { ok: false, t: t0, ms: Date.now() - t0, err: err?.message?.slice(0, 200) }, 7 * 24 * 60 * 60).catch(() => {});
 			}).catch(() => {});
-			if (isDbUnavailableError(err)) {
-				console.warn('[cron] db unavailable — skipping tick:', err.message);
+			if (isDbUnavailableError(err) || isDbCapacityError(err)) {
+				const full = isDbCapacityError(err);
+				console.warn(`[cron] db ${full ? 'at storage cap' : 'unavailable'} — skipping tick:`, err.message);
 				if (!res.headersSent && !res.writableEnded) {
-					json(res, 200, { ok: false, reason: 'db_unavailable' });
+					json(res, 200, { ok: false, reason: full ? 'db_full' : 'db_unavailable' });
 				}
 				return;
 			}
