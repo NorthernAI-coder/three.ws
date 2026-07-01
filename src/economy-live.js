@@ -17,6 +17,7 @@
  */
 
 import { openHirePanel } from './shared/agent-hire.js';
+import { sanitizeUrl } from './shared/sanitize-url.js';
 
 const $ = (sel) => /** @type {HTMLElement} */ (document.querySelector(sel));
 
@@ -145,8 +146,13 @@ function serviceRow(t) {
 	const net = t.price?.network ? chainLabel(t.price.network) : '';
 	const method = t.method ? `<span class="ae-svc-method">${esc(t.method)}</span>` : '';
 	const tags = (t.tags || []).slice(0, 3).map((x) => `<span class="ae-tag">${esc(x)}</span>`).join('');
+	// t.resource is an x402 endpoint URL sourced from third-party facilitator
+	// discovery listings (PayAI / Coinbase CDP / etc.) — any operator can
+	// register one, so it's untrusted external input. esc() only guards
+	// attribute-breakout; sanitizeUrl() gates the scheme so a malicious
+	// `javascript:`/`data:` listing can't execute when clicked.
 	return `
-		<a class="ae-svc" href="${esc(t.resource || '#')}" rel="noopener" target="_blank">
+		<a class="ae-svc" href="${esc(sanitizeUrl(t.resource || '#'))}" rel="noopener" target="_blank">
 			<div class="ae-svc-main">
 				<span class="ae-svc-name">${method}${esc(t.serviceName || t.toolName || 'Service')}</span>
 				<span class="ae-svc-desc ae-muted">${esc((t.description || '').slice(0, 120))}</span>

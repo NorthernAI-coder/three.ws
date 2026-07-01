@@ -2,6 +2,8 @@
 // Calls POST /api/x402/fact-check. Handles 402 payment required, errors,
 // loading skeleton, result rendering with source cards and attestation.
 
+import { sanitizeUrl } from './shared/sanitize-url.js';
+
 const API_URL = '/api/x402/fact-check';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ function renderSources(sources) {
 					<div class="source-header">
 						${favicon ? `<img class="source-favicon" src="${favicon}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ''}
 						<div class="source-title">
-							<a href="${s.url}" target="_blank" rel="noopener noreferrer">${escHtml(s.title || shortUrl)}</a>
+							<a href="${escHtml(sanitizeUrl(s.url))}" target="_blank" rel="noopener noreferrer">${escHtml(s.title || shortUrl)}</a>
 						</div>
 					</div>
 					${s.excerpt ? `<div class="source-excerpt">${escHtml(s.excerpt)}</div>` : ''}

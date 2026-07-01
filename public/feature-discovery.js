@@ -259,6 +259,7 @@
 		if (!_card) return;
 		if (_escHandler) { document.removeEventListener('keydown', _escHandler); _escHandler = null; }
 		var c = _card;
+		if (c._fdKill) { clearTimeout(c._fdKill); c._fdKill = null; }
 		_card = null;
 		c.classList.remove('is-in');
 		var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -310,6 +311,26 @@
 		_card = card;
 		// Reveal on next frame so the CSS transition runs.
 		requestAnimationFrame(function () { requestAnimationFrame(function () { card.classList.add('is-in'); }); });
+
+		// Auto-retract: a passive suggestion shouldn't sit pinned over the page's
+		// content until manually closed (on mobile it's a full-width bottom bar).
+		// After a reveal window it gracefully dismisses itself — paused while the
+		// pointer is over it or keyboard focus is inside, so it never vanishes
+		// mid-read or mid-interaction. Contextual cards omit autoDismissMs and stay.
+		if (spec.autoDismissMs) {
+			var arm = function () {
+				clearTimeout(card._fdKill);
+				card._fdKill = setTimeout(function () { if (_card === card) dismissCard(); }, spec.autoDismissMs);
+			};
+			var disarm = function () { clearTimeout(card._fdKill); card._fdKill = null; };
+			card.addEventListener('pointerenter', disarm);
+			card.addEventListener('pointerleave', arm);
+			card.addEventListener('focusin', disarm);
+			card.addEventListener('focusout', function () {
+				setTimeout(function () { if (_card === card && !card.contains(document.activeElement)) arm(); }, 0);
+			});
+			arm();
+		}
 		return card;
 	}
 
@@ -351,6 +372,10 @@
 			desc: f.desc,
 			links: [{ href: route, label: 'Try it', primary: true }],
 			onDismiss: function () { markTriedDismissed(route); },
+			// Retract after a reveal window so it never lingers over content. A
+			// timeout is not a rejection, so it does NOT mark the feature tried —
+			// the session throttle already prevents re-prompting until next visit.
+			autoDismissMs: 13000,
 		});
 	}
 

@@ -1190,7 +1190,18 @@ function render(agent) {
 	// there is real descent to show.
 	renderLineage(agent);
 
-	countUpField($('ad-rewards'), agent.creatorRewards);
+	// Creator rewards: only surface the card once this agent has actually earned.
+	// A "Lifetime rewards 0 SOL" row is pure hollow for a non-earning agent — hide
+	// it (like the other reveal-when-data sections) so the page reads tight, and
+	// reveal it the moment there's a real number to show.
+	const _rewards = Number(agent.creatorRewards) || 0;
+	const _rewardsCard = document.getElementById('ad-rewards-card');
+	if (_rewards > 0) {
+		if (_rewardsCard) _rewardsCard.hidden = false;
+		countUpField($('ad-rewards'), _rewards);
+	} else if (_rewardsCard) {
+		_rewardsCard.hidden = true;
+	}
 
 	const mechs = $('ad-trust-mechs');
 	mechs.innerHTML = '';

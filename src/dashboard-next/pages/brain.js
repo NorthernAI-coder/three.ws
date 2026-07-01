@@ -91,7 +91,12 @@ function inlineMd(s) {
 	s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
 	s = s.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
 	s = s.replace(/`([^`\n]+)`/g, '<code class="brn-ic">$1</code>');
-	s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => `<a href="${sanitizeUrl(url)}" target="_blank" rel="noopener">${text}</a>`);
+	// sanitizeUrl() only gates the URL *scheme* (blocks javascript:/data:/vbscript:)
+	// — it returns the matched URL verbatim, so it must still be HTML-escaped
+	// before landing inside the href="" attribute, or a quote in the URL body
+	// (e.g. `[x](https://a/" onmouseover="...)`) breaks out and injects an
+	// arbitrary attribute/handler.
+	s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, url) => `<a href="${esc(sanitizeUrl(url))}" target="_blank" rel="noopener">${text}</a>`);
 	return s;
 }
 

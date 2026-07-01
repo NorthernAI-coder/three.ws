@@ -611,6 +611,11 @@ export function mountMirrorPanel({ mount, agent, isOwner = false }) {
 			const res = await apiFetch(`/api/agents/${agentId}/mirror/track-record`, { allowAnonymous: true });
 			if (!res.ok) { hide(); return; }
 			const d = (await res.json()).data;
+			// A copy-trading card for an agent that has never traded is hollow —
+			// no record to judge, nothing to mirror yet. Keep the section collapsed
+			// until there's a real track record (mirrors how actions/memory hide
+			// when empty). The moment it trades, the card appears with live stats.
+			if (!d?.record?.total) { hide(); return; }
 			show();
 			renderLeader(d, { name: agent.name });
 			// Re-render the CTA once the auth probe resolves (guest ↔ member).
