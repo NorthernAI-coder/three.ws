@@ -118,6 +118,9 @@ function extractExportUrl(result) {
 		const params = new URLSearchParams(location.search);
 		const bodyType = params.get('bodyType') || 'male';
 		const seed = params.get('seed') || String(hashSeed('fallback'));
+		// Photo-session avatars are a reconstructed person: keep that body/face and
+		// only vary outfit + colors. Catalog sessions swap to a random base body.
+		const keepBody = params.get('keepBody') === '1';
 		// Use an explicit session URL if one was supplied (authenticated path),
 		// otherwise drive the public demo editor — no API key needed.
 		const editorUrl = params.get('session') || defaultEditorUrl(bodyType);
@@ -150,7 +153,8 @@ function extractExportUrl(result) {
 		window.__avaturnLook = look;
 
 		step('apply-body');
-		if (look.bodyId) await quiet(sdk.setActiveBody(look.bodyId));
+		// keepBody: preserve the photo-reconstructed person; only catalog runs swap body.
+		if (!keepBody && look.bodyId) await quiet(sdk.setActiveBody(look.bodyId));
 
 		step('apply-assets');
 		for (const id of look.assetIds) await quiet(sdk.setActiveAsset(id));

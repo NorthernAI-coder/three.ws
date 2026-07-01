@@ -60,3 +60,4 @@ one-line description.
 | key | env fallback | controls |
 |---|---|---|
 | `avaturn_seed` | `AVATURN_SEED_ENABLED` | The per-minute headless [Avaturn seed cron](../../api/cron/avaturn-seed-cron.js) — forges a fully-rigged Avaturn avatar and publishes it public to the gallery. Off by default; arm it to start seeding. |
+| `avaturn_seed_photo` | _(none)_ | Diverse-humans lane. When on **and** `AVATURN_API_KEY` is set, each tick draws a person from a gender/age/ethnicity/build matrix, generates their face ([avaturn-photo.js](../../api/_lib/avaturn-photo.js) → text→image), and reconstructs it with Avaturn v2 into a distinct rigged human — so the gallery fills with genuinely different people, not one base face reskinned. Falls back to the catalog lane on any failure. Requires `avaturn_seed` to also be on. |

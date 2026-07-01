@@ -65,7 +65,12 @@ export async function createAvaturnSession({ photos, bodyType = 'male', external
 			'content-type': 'application/json',
 			accept: 'application/json',
 		},
-		body: JSON.stringify({ external_user_id: externalUserId, photos, body_type: bodyType, version: 'v2' }),
+		body: JSON.stringify({
+			external_user_id: externalUserId,
+			photos,
+			body_type: bodyType,
+			version: 'v2',
+		}),
 		signal: AbortSignal.timeout(SESSION_TIMEOUT_MS),
 	});
 	if (!r.ok) {

@@ -89,7 +89,9 @@ async function loadRecent() {
 			const joints = Number(meta.skeleton_joint_count) || null;
 			const p = meta.profile || null;
 			// "East Asian woman, senior" style label for photo-lane avatars.
-			const person = p ? [p.ethnicity, p.gender, p.age].filter(Boolean).join(' · ').replace(/-/g, ' ') : null;
+			const person = p
+				? [p.ethnicity, p.gender, p.age].filter(Boolean).join(' · ').replace(/-/g, ' ')
+				: null;
 			return {
 				id: a.id,
 				slug: a.slug,
