@@ -309,3 +309,6 @@ pump-launch-wallets*.zip
 .preview/
 launch-studio-catalog.png
 launch-studio-preview.png
+
+# x402 ring wallet secrets (never commit)
+.x402-ring-secrets.json

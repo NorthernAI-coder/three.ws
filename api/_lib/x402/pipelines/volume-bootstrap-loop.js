@@ -68,6 +68,12 @@ export const VOLUME_PER_RUN_CAP_ATOMIC = Math.max(
 // metrics ledger pick it up automatically. The volume loop itself is never listed
 // (it is not an HTTP endpoint; no self-recursion).
 export const VOLUME_ENDPOINTS = [
+	// Ring-settle is the price-configurable, INTERNAL settlement primitive — the
+	// fee-optimal way to move real volume (fewer, larger payments). By default
+	// ($0.10) it is skipped when the per-run cap is the stock $0.05; raise
+	// X402_PRICE_RING_SETTLE + the caps to make it the volume engine. See
+	// api/x402/ring-settle.js.
+	{ key: 'ring-settle',         name: 'Ring Settlement',      path: '/api/x402/ring-settle',         method: 'POST', body: { note: 'ring-cycle' } },
 	{ key: 'dance-tip',           name: 'Dance Tip',            path: '/api/x402/dance-tip',           method: 'POST', body: { dancer: '1', dance: 'hiphop' } },
 	{ key: 'crypto-intel',        name: 'Crypto Intel',         path: '/api/x402/crypto-intel',        method: 'POST', body: { topic: 'solana' } },
 	{ key: 'three-intel',         name: '$THREE Signal Feed',   path: '/api/x402/three-intel',         method: 'POST', body: {} },

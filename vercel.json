@@ -46,6 +46,9 @@
 		"api/pay/execute.js": {
 			"maxDuration": 60
 		},
+		"api/x402-facilitator/[action].js": {
+			"maxDuration": 60
+		},
 		"api/widgets/[id]/knowledge-process.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300

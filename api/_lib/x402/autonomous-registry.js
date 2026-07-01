@@ -44,6 +44,7 @@ import { run as reputationRefresh } from './pipelines/reputation-refresh.js';
 import { run as tokenIntelPreSnipeGate } from './pipelines/token-intel-gate.js';
 import { run as sniperIntelEnrich } from './pipelines/sniper-intel-enrich.js';
 import { run as volumeBootstrapLoop } from './pipelines/volume-bootstrap-loop.js';
+import { run as ringRebalance } from './pipelines/ring-rebalance.js';
 import { run as liveFeedSeeder } from './pipelines/live-feed-seeder.js';
 import { run as feeCalculationValidator } from './pipelines/fee-calculation-validator.js';
 import { run as crossChainCostComparison } from './pipelines/cross-chain-cost.js';
@@ -2655,6 +2656,28 @@ const SELF_ENDPOINTS = [
 		pipeline: 'volume',
 		enabled: true,
 		run: (ctx) => volumeBootstrapLoop(ctx),
+	},
+
+	// ── Ring Rebalancer ────────────────────────────────────────────────────────
+	// Recirculates the closed-loop float: sweeps USDC from the treasury
+	// (X402_PAY_TO_SOLANA) back to the ring payer so the same money cycles
+	// indefinitely instead of the payer draining and the loop halting. Between
+	// platform-controlled wallets only; the sponsor pays the SOL fee so burn
+	// stays on one wallet. Recirculation, not spend — returns amountAtomic:0, so
+	// it never consumes the daily spend cap. No-op until X402_TREASURY_SECRET_BASE58
+	// is set. Value sink: x402_ring_ledger (kind='sweep'). See
+	// pipelines/ring-rebalance.js.
+	{
+		id: 'ring-rebalance',
+		name: 'Ring Rebalancer',
+		path: '/api/x402/ring-settle',
+		method: 'POST',
+		body: null,
+		cooldown_s: 300,
+		priority: 20,
+		pipeline: 'volume',
+		enabled: true,
+		run: (ctx) => ringRebalance(ctx),
 	},
 
 	// ── Live Payment Feed Seeder (USE-025) ─────────────────────────────────────
