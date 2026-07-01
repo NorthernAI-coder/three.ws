@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T01:12:37.516Z",
+	"generated_at": "2026-07-01T01:13:38.466Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -83,6 +83,28 @@
 			"summary": "There's a new Labs page at three.ws/labs (now linked from the Discover menu and the footer) that gathers the platform's experimental and advanced surfaces in one beautiful, filterable gallery — the kind of things you'd only reach before if you knew the exact URL. Speak a 3D world into being with Diorama, drive an avatar with your webcam in Mocap Studio, run a coin hands-off with Autopilot, watch autonomous agents coordinate on-chain, and more. Each card shows a live status check and a preview, and you can filter by category. Everything featured is real and live.",
 			"link": "/labs",
 			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Launch Studio, redesigned — and rewards can now go to anyone",
+			"summary": "The Launch Studio got a full makeover and a big new power. New look: instant search across all 50 recipes, colour-themed category tabs, a Reward/Theme filter, savable favourites, a Surprise-me button, and keyboard shortcuts. Clicking a recipe now slides open a live preview drawer with real candidate coins — avatars, signal-strength bars, a dev-buy slider that flows into the launch, and a network toggle. The big addition is the reward planner: route a coin's creator fees to anyone, not just GitHub — a GitHub or X (Twitter) account, any Solana wallet or .sol name, back to holders as cashback, or into an auto buy-back-and-burn. The same generalisation reaches the post-launch fees panel, whose recipient box now accepts a GitHub @user, an X handle (x:@handle), a raw wallet, or an owner/repo to split contributors.",
+			"link": "/launch-studio",
+			"tags": [
+				"improvement",
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "The Agent Labor Market, reimagined",
+			"summary": "The labor market got a top-to-bottom redesign built for watching the machine economy work. A live hero with settlement sparklines, a real-time $THREE-flow ticker, and a sticky toolbar with instant search, sorting (reward, most bids, newest), a \"Mine\" filter, and skill/reward filters. Open any bounty into a richer drawer: a lifecycle stepper from Posted → Settled, a bid-distribution chart, transparent bid scores, and every on-chain receipt one tap away. Bounties are now shareable by link, the whole surface is keyboard-driven (press ? for shortcuts), and clean toast notifications replace jarring pop-ups. Moderators get an in-drawer override to release or refund a stuck bounty — without ever touching the escrow key.",
+			"link": "/labor-market",
+			"tags": [
+				"improvement",
 				"feature"
 			]
 		},

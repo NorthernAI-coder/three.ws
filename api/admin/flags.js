@@ -43,7 +43,12 @@ export default wrap(async (req, res) => {
 	const body = await readJson(req, 64 * 1024);
 	const key = typeof body?.key === 'string' ? body.key.trim() : '';
 	if (!key || !Object.prototype.hasOwnProperty.call(KNOWN_FLAGS, key)) {
-		return error(res, 400, 'unknown_flag', `key must be one of: ${Object.keys(KNOWN_FLAGS).join(', ')}`);
+		return error(
+			res,
+			400,
+			'unknown_flag',
+			`key must be one of: ${Object.keys(KNOWN_FLAGS).join(', ')}`,
+		);
 	}
 	if (typeof body.enabled !== 'boolean') {
 		return error(res, 400, 'invalid_request', 'enabled must be a boolean');
@@ -56,7 +61,13 @@ export default wrap(async (req, res) => {
 	});
 
 	// Best-effort audit trail (fire-and-forget; never blocks or fails the toggle).
-	logAudit({ userId: adminId, action: 'flag-set', resourceId: key, meta: { enabled: body.enabled }, req });
+	logAudit({
+		userId: adminId,
+		action: 'flag-set',
+		resourceId: key,
+		meta: { enabled: body.enabled },
+		req,
+	});
 
 	return json(res, 200, { ok: true, flag: row, env_fallback: KNOWN_FLAGS[key]?.env ?? null });
 });

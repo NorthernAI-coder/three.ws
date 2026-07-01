@@ -19,7 +19,10 @@ let busyArm = false;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
-	String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+	String(s == null ? '' : s).replace(
+		/[&<>"']/g,
+		(c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+	);
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(url, { method = 'GET', body } = {}) {
@@ -107,7 +110,8 @@ function render(d) {
 	if (d.circuit?.open) {
 		breaker.hidden = false;
 		const mins = Math.max(1, Math.ceil((d.circuit.open_until - Date.now()) / 60000));
-		$('sd-breaker-txt').innerHTML = `Circuit breaker tripped after <b>${d.circuit.failures}</b> failures — auto-retries in ~${mins}m. Exports are paused meanwhile.`;
+		$('sd-breaker-txt').innerHTML =
+			`Circuit breaker tripped after <b>${d.circuit.failures}</b> failures — auto-retries in ~${mins}m. Exports are paused meanwhile.`;
 	} else {
 		breaker.hidden = true;
 	}
@@ -120,9 +124,12 @@ function render(d) {
 	$('sd-s-total-sub').textContent = `${s.last_7d ?? 0} this week`;
 	const rig = $('sd-s-rig');
 	rig.textContent = `${s.rigged_pct ?? 0}%`;
-	rig.className = (s.rigged_pct >= 95 ? 'good' : s.rigged_pct >= 60 ? 'warn' : s.total ? 'bad' : '');
+	rig.className =
+		s.rigged_pct >= 95 ? 'good' : s.rigged_pct >= 60 ? 'warn' : s.total ? 'bad' : '';
 	$('sd-s-last').textContent = fmtAgo(s.last_at);
-	$('sd-s-last-sub').textContent = s.last_at ? new Date(s.last_at).toLocaleString() : 'no exports yet';
+	$('sd-s-last-sub').textContent = s.last_at
+		? new Date(s.last_at).toLocaleString()
+		: 'no exports yet';
 	renderNextTick();
 
 	renderGallery(d.recent || []);
@@ -136,7 +143,7 @@ function renderNextTick() {
 		$('sd-s-next-sub').textContent = state.circuit?.open ? 'paused' : 'disarmed';
 		return;
 	}
-	const secs = 60 - (new Date().getSeconds());
+	const secs = 60 - new Date().getSeconds();
 	el.textContent = `${secs}s`;
 	$('sd-s-next-sub').textContent = 'cadence 60s';
 }
@@ -258,11 +265,20 @@ $('sd-arm').addEventListener('click', () => {
 	openModal();
 });
 $('sd-modal-cancel').addEventListener('click', closeModal);
-$('sd-modal-go').addEventListener('click', () => { closeModal(); setEnabled(true); });
-$('sd-modal').addEventListener('click', (e) => { if (e.target === $('sd-modal')) closeModal(); });
+$('sd-modal-go').addEventListener('click', () => {
+	closeModal();
+	setEnabled(true);
+});
+$('sd-modal').addEventListener('click', (e) => {
+	if (e.target === $('sd-modal')) closeModal();
+});
 
-function openModal() { $('sd-modal').classList.add('show'); }
-function closeModal() { $('sd-modal').classList.remove('show'); }
+function openModal() {
+	$('sd-modal').classList.add('show');
+}
+function closeModal() {
+	$('sd-modal').classList.remove('show');
+}
 
 $('sd-run').addEventListener('click', async () => {
 	const btn = $('sd-run');
@@ -304,7 +320,10 @@ function stopRefresh() {
 }
 document.addEventListener('visibilitychange', () => {
 	if (document.hidden) stopRefresh();
-	else if (secret && !$('sd-panel').hidden) { refresh().catch(() => {}); startRefresh(); }
+	else if (secret && !$('sd-panel').hidden) {
+		refresh().catch(() => {});
+		startRefresh();
+	}
 });
 
 // ── Boot ───────────────────────────────────────────────────────────────────

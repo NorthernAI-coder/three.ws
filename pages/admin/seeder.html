@@ -1,7 +1,22 @@
 <!doctype html>
 <html lang="en">
 	<head>
-		<script>/* three.ws theme boot — no-flash */(function(){document.documentElement.classList.add('js');try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+		<script>
+			/* three.ws theme boot — no-flash */ (function () {
+				document.documentElement.classList.add('js');
+				try {
+					var m = localStorage.getItem('twx_theme');
+					var l =
+						m === 'auto'
+							? window.matchMedia &&
+								window.matchMedia('(prefers-color-scheme: light)').matches
+							: m === 'light';
+					document.documentElement.setAttribute('data-theme', l ? 'light' : 'dark');
+				} catch (e) {
+					document.documentElement.setAttribute('data-theme', 'dark');
+				}
+			})();
+		</script>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="robots" content="noindex, nofollow" />
@@ -10,7 +25,10 @@
 		<link rel="stylesheet" href="/nav.css" />
 		<link rel="stylesheet" href="/src/admin-seeder.css" />
 		<!-- model-viewer (Google, allow-listed in CSP) powers the live 3D gallery -->
-		<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+		<script
+			type="module"
+			src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"
+		></script>
 	</head>
 	<body>
 		<header><div id="nav-container"></div></header>
@@ -23,7 +41,14 @@
 				<h1>Avatar Seeder</h1>
 				<p>Operator control. Enter the secret to open the control room.</p>
 				<form id="sd-gate-form" autocomplete="off">
-					<input type="password" id="sd-secret" class="sd-input" placeholder="CRON_SECRET" aria-label="Operator secret" autocomplete="current-password" />
+					<input
+						type="password"
+						id="sd-secret"
+						class="sd-input"
+						placeholder="CRON_SECRET"
+						aria-label="Operator secret"
+						autocomplete="current-password"
+					/>
 					<button type="submit" class="sd-btn sd-btn-primary">Unlock</button>
 					<p class="sd-gate-err" id="sd-gate-err" role="alert" aria-live="assertive"></p>
 				</form>
@@ -34,13 +59,31 @@
 				<!-- Hero -->
 				<header class="sd-hero">
 					<div>
-						<p class="sd-kicker"><span class="sd-dot" id="sd-dot"></span> <span id="sd-state-word">Loading</span> · Avaturn lane</p>
+						<p class="sd-kicker">
+							<span class="sd-dot" id="sd-dot"></span>
+							<span id="sd-state-word">Loading</span> · Avaturn lane
+						</p>
 						<h1 class="sd-title">Avatar <em>Seeder</em></h1>
-						<p class="sd-sub" id="sd-sub">Every tick forges one fully-rigged Avaturn avatar and publishes it, ready to walk, to the public gallery.</p>
+						<p class="sd-sub" id="sd-sub">
+							Every tick forges one fully-rigged Avaturn avatar and publishes it,
+							ready to walk, to the public gallery.
+						</p>
 					</div>
 					<div class="sd-hero-r">
-						<button class="sd-btn sd-btn-ghost" id="sd-run" title="Force one export right now">◎ Run one now</button>
-						<button class="sd-arm" id="sd-arm" role="switch" aria-checked="false" aria-label="Arm the seeder">
+						<button
+							class="sd-btn sd-btn-ghost"
+							id="sd-run"
+							title="Force one export right now"
+						>
+							◎ Run one now
+						</button>
+						<button
+							class="sd-arm"
+							id="sd-arm"
+							role="switch"
+							aria-checked="false"
+							aria-label="Arm the seeder"
+						>
 							<span class="sd-arm-lbl" id="sd-arm-lbl">Disabled</span>
 							<span class="sd-arm-track"><span class="sd-arm-knob"></span></span>
 						</button>
@@ -55,11 +98,31 @@
 
 				<!-- Stats -->
 				<dl class="sd-stats" id="sd-stats">
-					<div class="sd-stat sd-stat--lead"><dt>Seeded · 24h</dt><dd id="sd-s-24h">—</dd><small id="sd-s-24h-sub">last day</small></div>
-					<div class="sd-stat"><dt>Total rigged avatars</dt><dd id="sd-s-total">—</dd><small id="sd-s-total-sub">all time</small></div>
-					<div class="sd-stat"><dt>Rig rate</dt><dd id="sd-s-rig">—</dd><small>skeleton-confirmed</small></div>
-					<div class="sd-stat"><dt>Next export</dt><dd id="sd-s-next">—</dd><small id="sd-s-next-sub">cadence 60s</small></div>
-					<div class="sd-stat"><dt>Last seeded</dt><dd id="sd-s-last" style="font-size:1.15rem">—</dd><small id="sd-s-last-sub"></small></div>
+					<div class="sd-stat sd-stat--lead">
+						<dt>Seeded · 24h</dt>
+						<dd id="sd-s-24h">—</dd>
+						<small id="sd-s-24h-sub">last day</small>
+					</div>
+					<div class="sd-stat">
+						<dt>Total rigged avatars</dt>
+						<dd id="sd-s-total">—</dd>
+						<small id="sd-s-total-sub">all time</small>
+					</div>
+					<div class="sd-stat">
+						<dt>Rig rate</dt>
+						<dd id="sd-s-rig">—</dd>
+						<small>skeleton-confirmed</small>
+					</div>
+					<div class="sd-stat">
+						<dt>Next export</dt>
+						<dd id="sd-s-next">—</dd>
+						<small id="sd-s-next-sub">cadence 60s</small>
+					</div>
+					<div class="sd-stat">
+						<dt>Last seeded</dt>
+						<dd id="sd-s-last" style="font-size: 1.15rem">—</dd>
+						<small id="sd-s-last-sub"></small>
+					</div>
 				</dl>
 
 				<!-- Live gallery -->
@@ -67,7 +130,10 @@
 					<div class="sd-section-h">
 						<div>
 							<h2>Freshly forged</h2>
-							<p>Real seeded avatars — drag to orbit. Every one is rigged and animation-ready.</p>
+							<p>
+								Real seeded avatars — drag to orbit. Every one is rigged and
+								animation-ready.
+							</p>
 						</div>
 						<span class="sd-section-meta" id="sd-gallery-meta">—</span>
 					</div>
@@ -81,7 +147,14 @@
 							<h2>Runtime flags</h2>
 							<p>DB-backed switches — flip instantly, no redeploy.</p>
 						</div>
-						<a class="sd-section-meta" href="/docs/ops/runtime-flags.md" target="_blank" rel="noopener" style="text-decoration:none">docs ↗</a>
+						<a
+							class="sd-section-meta"
+							href="/docs/ops/runtime-flags.md"
+							target="_blank"
+							rel="noopener"
+							style="text-decoration: none"
+							>docs ↗</a
+						>
 					</div>
 					<div class="sd-flags" id="sd-flags"></div>
 				</section>
@@ -89,10 +162,19 @@
 		</main>
 
 		<!-- Arm confirmation modal -->
-		<div class="sd-modal" id="sd-modal" role="dialog" aria-modal="true" aria-labelledby="sd-modal-title">
+		<div
+			class="sd-modal"
+			id="sd-modal"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="sd-modal-title"
+		>
 			<div class="sd-modal-card">
 				<h3 id="sd-modal-title">Arm the seeder?</h3>
-				<p id="sd-modal-body">The seeder will forge and publish a fully-rigged Avaturn avatar to the public gallery every minute, using headless Avaturn. You can disarm any time.</p>
+				<p id="sd-modal-body">
+					The seeder will forge and publish a fully-rigged Avaturn avatar to the public
+					gallery every minute, using headless Avaturn. You can disarm any time.
+				</p>
 				<div class="sd-modal-actions">
 					<button class="sd-btn sd-btn-ghost" id="sd-modal-cancel">Cancel</button>
 					<button class="sd-btn sd-btn-primary" id="sd-modal-go">Arm &amp; start</button>
