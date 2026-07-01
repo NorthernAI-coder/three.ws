@@ -53,6 +53,62 @@ Twenty-five years is long enough. Let's use the code.
 
 ---
 
+## Where x402 fits — the three.ws ecosystem
+
+This extension is one surface of **three.ws**: an open-source, browser-native platform for 3D AI agents that can *earn, pay, and coordinate*. The same team that wired 402 into your editor is building the whole loop around it — give an AI a body, a brain, an on-chain identity, and a wallet, then let agents transact with each other in real time. It all ships from a single npm-workspaces monorepo, published under the **`@three-ws`** scope. `$THREE` (Solana: `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`) is the native token.
+
+### What we're building
+
+Type a prompt and **Forge** turns text, an image, or a sketch into a textured, rig-ready 3D model — free draft tier, no account. Rig it, animate it, give it an LLM brain, embed it anywhere with `<agent-3d>`, register it on-chain (ERC-8004), and let it pay for tools and get paid for skills over x402. The extension you just installed is the *payments edge* of that platform, pulled out so any developer can use it standalone.
+
+### The x402 stack
+
+- **`@three-ws/x402-fetch`** — the zero-dependency payment client this extension vendors (send → 402 → sign USDC → retry).
+- **`@three-ws/x402-server`** — the merchant side: turn any endpoint paid. It advertises **both USDC and $THREE** in a single 402 challenge.
+- **`@three-ws/x402-mcp`** — a self-custodial x402 buyer as an MCP server: find, inspect, and pay any service in USDC from any AI client.
+- Native x402 endpoints on **Base, BSC, and Solana**, settled through the **Coinbase CDP facilitator** on Base. Pay-by-name resolves `@username`, `*.sol`, or `*.threews.sol` to a recipient before you sign.
+
+### 38 MCP servers
+
+Everything the platform can do is exposed over the Model Context Protocol — **6 hosted remote servers** (Streamable HTTP, nothing to install) and **32 install-and-run servers** on npm, all listed in the [official MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas). A sampling:
+
+- **3D & avatars:** `scene-mcp` (speak a diorama into being), `avatar-mcp`, `avatar-agent`, `mcp-server` (full 3D + agent toolkit, paid per call).
+- **Payments & economy:** `x402-mcp`, `three-token-mcp`, `mcp-bridge`, `autopilot-mcp` (scopes + spend caps + propose/execute/undo), `portfolio-mcp`, `provenance-mcp`.
+- **Market intel:** `intel-mcp`, `pumpfun-mcp`, `vanity-mcp`, `marketplace-mcp`, `signals-mcp`, `kol-mcp`.
+- **AI providers:** `ibm-watsonx-mcp`, `ibm-x402-mcp`, `alibaba-cloud-mcp` (Qwen / DashScope), `brain-mcp` (multi-provider router), `vision-mcp`, `audio-mcp`.
+
+### 20+ SDKs & packages (all `@three-ws`, all published)
+
+Zero-dependency, pure-ESM, typed, tested (216 green tests across the SDK suite). Each wraps live platform APIs into a single import:
+
+- **Create:** `forge`, `pose`, `mocap`, `voice`, `glb-tools`, `avatar`, `page-agent`, `walk`, `avatar-schema`.
+- **Earn / trade:** `x402-server`, `strategies`, `pumpfun-skills`, `agent-guards`, `skill-license`.
+- **Coordinate:** `agenc` (task marketplace), `agent-memory`, `reputation` (ERC-8004), `guardian` (content safety), `names`, `intel`, `vanity`, `irl`.
+- **Cross-chain:** `@three-ws/sdk`, `@three-ws/solana-agent`, `@three-ws/agent-protocol-sdk`, `@three-ws/agent-payments`.
+
+### In your editor
+
+- **VS Code** — *x402 — Pay-per-call APIs* (this extension).
+- **Claude Code plugin marketplace** — add `three-ws` once and install wallet, payments, pump.fun trading, agent scaffolding, and the 3D Forge as namespaced skills + MCP tools. Works across Claude Code, Claude Desktop, and Cursor over MCP.
+
+### Partners & platforms
+
+We build in the open, and we're precise about what's official:
+
+- **IBM** — three.ws is an IBM Business Partner; the agent runtime runs on **IBM Granite** models via **watsonx.ai**. *(The public `/ibm/*` demos are independent tools we built to explore Granite — not IBM products and not endorsed by IBM; the community-built connectors `@three-ws/ibm-watsonx-mcp` and `@three-ws/ibm-x402-mcp` are ours, not IBM's.)*
+- **AWS** — AWS Partner (APN Software Path); Marketplace SaaS listing in review; production runs on `us-east-1`.
+- **Alibaba Cloud** — live product listing on Alibaba Cloud Marketplace.
+- **Solana Mobile (Seeker)** — MWA wallet wired into the app + a dApp Store release pipeline.
+- **Built on / integrated with:** Anthropic Claude, Coinbase CDP (x402 facilitator on Base), pump.fun, ENS + SNS, Meshy & Tripo (bring-your-own-key 3D), FLUX → TRELLIS (the free text→3D lane). *(Google Cloud: not yet a partner — open to co-listing. Livepeer: early, experimental.)*
+
+### Under the hood
+
+Stateless Vercel serverless functions, Neon Postgres, Cloudflare R2, Upstash Redis, a full OAuth 2.1 authorization server, and an MCP endpoint. Payments span **15+ EVM chains and Solana** (Metaplex Core).
+
+**Explore it:** [three.ws](https://three.ws) · [MCP registry](https://registry.modelcontextprotocol.io/?q=io.github.nirholas) · [github.com/nirholas/three.ws](https://github.com/nirholas/three.ws) · `$THREE` on Solana `FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump`
+
+---
+
 ## Launch kit
 
 **Cover image:** `x402-hero.png` (3200×1800)
