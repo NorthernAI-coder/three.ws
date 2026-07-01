@@ -214,6 +214,11 @@ async function main() {
 	// work on deployments where the A2F lane is unconfigured — there it stays pure
 	// amplitude lipsync with zero added cost.
 	let a2fProbe = null;
+	// The GET probe only reports whether the lane is env-configured; a POST can
+	// still fail hard (invalid model/function id → 502, provider outage → 5xx).
+	// Latch that so we stop re-POSTing a lane that won't recover this session and
+	// stay on amplitude lipsync instead.
+	let a2fLaneBroken = false;
 	const a2fAvailable = () => {
 		if (!a2fProbe) {
 			a2fProbe = fetch('/api/a2f', { method: 'GET' })
@@ -418,7 +423,10 @@ async function main() {
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({ audio: btoa(bin), format: 'pcm', sampleRate: 16000 }),
 		});
-		if (!r.ok) return null;
+		if (!r.ok) {
+			if (r.status >= 500) a2fLaneBroken = true; // provider down/misconfigured — stop retrying
+			return null;
+		}
 		const data = await r.json();
 		return data?.animation?.frames?.length ? data.animation : null;
 	};
@@ -433,7 +441,7 @@ async function main() {
 		// starts immediately (zero latency); if a real blendshape track comes back
 		// before the clip ends and the rig can show it, we upgrade seamlessly.
 		let a2fUpgraded = false;
-		const a2fPromise = a2fEnabled
+		const a2fPromise = (a2fEnabled && !a2fLaneBroken)
 			? a2fAvailable()
 					.then((ok) => (ok ? fetchA2FTrack(url) : null))
 					.then((track) => {

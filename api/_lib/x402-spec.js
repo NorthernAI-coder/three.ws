@@ -277,6 +277,22 @@ function facilitatorFor(network) {
 	throw new X402Error('unsupported_network', `unsupported network: ${network}`, 400);
 }
 
+// Is Base (eip155:8453) actually settleable right now? Base routes to CDP when
+// CDP creds are set, otherwise to X402_FACILITATOR_URL_BASE. The historical bare
+// default for that URL — facilitator.payai.network — was decommissioned and now
+// answers every /verify with `404 Application not found`, so a Base accept that
+// falls through to it gets advertised (buyers pick it first), then fails at
+// verify with a 502. Treat Base as settleable ONLY when the operator has
+// committed to a working facilitator: CDP credentials, an explicit per-network
+// Base URL, or an explicit generic facilitator URL. A pure fall-through to the
+// hardcoded default is NOT a working Base facilitator. Self-heals: the moment
+// CDP keys or an explicit URL are configured, Base is advertised again. Solana
+// (self-hosted facilitator) is unaffected and stays the always-on settle path.
+export function baseSettleable() {
+	if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) return true;
+	return Boolean(process.env.X402_FACILITATOR_URL_BASE || process.env.X402_FACILITATOR_URL);
+}
+
 // Operations the CDP SDK pre-builds headers for; map our internal path to the SDK key.
 const CDP_OP_FOR_PATH = { '/verify': 'verify', '/settle': 'settle', '/supported': 'supported' };
 

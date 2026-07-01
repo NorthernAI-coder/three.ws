@@ -71,26 +71,35 @@
 }
 .lb-sub strong { color: var(--ink-bright); font-weight: var(--weight-semibold); }
 
+/* Six live stats read as one balanced bar (6-up → 3-up → 2-up) — never the
+   lopsided 4+2 the old 4-column grid produced with six cells. */
 .lb-summary {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: var(--space-sm);
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: var(--space-xs);
 	margin: var(--space-lg) auto 0;
-	max-width: 760px;
+	max-width: 1080px;
 }
 .lb-summary-cell {
 	border: 1px solid var(--stroke);
 	background: var(--surface-1);
 	border-radius: var(--radius-md);
-	padding: var(--space-sm);
+	padding: var(--space-sm) var(--space-xs);
 	text-align: center;
+	min-width: 0;
+	transition: border-color var(--duration-fast) var(--ease-standard),
+		background var(--duration-fast) var(--ease-standard);
 }
+.lb-summary-cell:hover { border-color: var(--stroke-strong); background: var(--surface-2); }
 .lb-summary-cell dt {
 	font-size: var(--text-2xs);
 	text-transform: uppercase;
-	letter-spacing: 0.06em;
+	letter-spacing: 0.05em;
 	color: var(--ink-faint);
 	margin-bottom: var(--space-3xs);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 .lb-summary-cell dd {
 	margin: 0;
@@ -98,6 +107,7 @@
 	font-size: var(--text-lg);
 	font-weight: var(--weight-semibold);
 	font-variant-numeric: tabular-nums;
+	line-height: 1.15;
 }
 
 /* ---- Controls ---- */
@@ -141,7 +151,12 @@
 .lb-seg-btn:hover { color: var(--ink-bright); }
 .lb-seg-btn.is-active {
 	background: var(--accent);
-	color: var(--btn-primary-fg);
+	/* This page loads tokens.css but not buttons.css/style.css, so --btn-primary-fg
+	   is undefined in dark mode; the #0a0a0a fallback keeps active-tab ink legible on
+	   the white accent. Light theme sets --btn-primary-fg:#fff (tokens.css) → white ink. */
+	color: var(--btn-primary-fg, #0a0a0a);
+	font-weight: var(--weight-semibold);
+	box-shadow: var(--shadow-1);
 }
 .lb-select-wrap { display: inline-flex; align-items: center; gap: var(--space-2xs); }
 .lb-select-label {
@@ -198,11 +213,10 @@
 /* ---- How-to disclosure ---- */
 .lb-howto {
 	appearance: none;
-	width: 100%;
-	display: flex;
+	display: inline-flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: var(--space-sm);
+	justify-content: flex-start;
+	gap: var(--space-2xs);
 	background: transparent;
 	border: 0;
 	color: var(--ink-faint);
@@ -211,8 +225,14 @@
 	padding: var(--space-2xs) 0;
 	cursor: pointer;
 	margin-bottom: var(--space-xs);
+	transition: color var(--duration-fast) var(--ease-standard);
 }
-.lb-howto:hover { color: var(--ink-dim); }
+.lb-howto:hover { color: var(--ink-bright); }
+.lb-howto:focus-visible {
+	outline: var(--focus-ring-width) solid var(--focus-ring-color);
+	outline-offset: var(--focus-ring-offset);
+	border-radius: var(--radius-sm);
+}
 .lb-howto-chev { transition: transform var(--duration-fast) var(--ease-standard); }
 .lb-howto[aria-expanded='true'] .lb-howto-chev { transform: rotate(180deg); }
 .lb-howto-body {
@@ -326,17 +346,21 @@
 	background: var(--surface-3);
 	flex-shrink: 0;
 }
-.lb-trader-meta { min-width: 0; }
+.lb-trader-meta { min-width: 0; display: block; }
 .lb-trader-name {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2xs);
+	min-width: 0;
 	font-weight: var(--weight-semibold);
 	font-size: var(--text-sm);
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+/* The name text truncates independently of the trailing verified badge (the badge
+   must never be pushed off — a flex text node alone can't ellipsis). */
+.lb-trader-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-verified {
 	display: inline-flex;
 	align-items: center;
@@ -345,6 +369,7 @@
 }
 .lb-verified svg { width: 14px; height: 14px; }
 .lb-trader-sub {
+	display: block;
 	font-family: var(--font-mono);
 	font-size: var(--text-2xs);
 	color: var(--ink-faint);
@@ -364,12 +389,22 @@
 	font-size: var(--text-lg);
 	font-variant-numeric: tabular-nums;
 }
-.lb-score-bar {
+/* Score meter: a full-width track under the number with a fill proportional to the
+   0–100 Trader Score, so the bar reads as a gauge instead of a stray underline. */
+.lb-score-track {
 	display: block;
 	height: 3px;
 	border-radius: var(--radius-pill);
-	margin-top: 3px;
+	margin-top: 4px;
+	background: var(--surface-3);
+	overflow: hidden;
+}
+.lb-score-bar {
+	display: block;
+	height: 100%;
+	border-radius: var(--radius-pill);
 	background: linear-gradient(90deg, var(--ink-faint), var(--accent));
+	transition: width var(--duration-base) var(--ease-emphasized);
 }
 
 .lb-num { font-variant-numeric: tabular-nums; text-align: right; font-size: var(--text-sm); }
@@ -471,7 +506,9 @@
 }
 .lb-btn:hover { transform: translateY(-1px); border-color: var(--stroke-strong); }
 .lb-btn:active { transform: translateY(0); }
-.lb-btn-primary { background: var(--accent); color: var(--btn-primary-fg); border-color: transparent; }
+/* Fallback ink for the white-fill primary CTA — see note on .lb-seg-btn.is-active. */
+.lb-btn-primary { background: var(--accent); color: var(--btn-primary-fg, #0a0a0a); border-color: transparent; }
+.lb-btn-primary:hover { border-color: transparent; }
 .lb-btn:focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring-color); outline-offset: var(--focus-ring-offset); }
 
 /* ---- Oracle Conviction Rankings ---- */
@@ -533,7 +570,7 @@
 }
 .lb-oracle-board-head {
 	display: grid;
-	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr 80px;
+	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr 104px;
 	align-items: center;
 	gap: var(--space-xs);
 	padding: var(--space-sm) var(--space-md);
@@ -547,7 +584,7 @@
 .lb-oracle-rows { display: flex; flex-direction: column; }
 .lb-oracle-row {
 	display: grid;
-	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr 80px;
+	grid-template-columns: 36px minmax(0, 2.4fr) 0.9fr 0.8fr 1.1fr 0.8fr 104px;
 	align-items: center;
 	gap: var(--space-xs);
 	padding: var(--space-sm) var(--space-md);
@@ -563,6 +600,11 @@
 .lb-oracle-row[data-rank='2'] .lb-rank { color: #d4d4d8; }
 .lb-oracle-row[data-rank='3'] .lb-rank { color: #d8a06a; }
 .lb-oracle-row .lb-col-num { text-align: right; font-variant-numeric: tabular-nums; font: 600 13.5px/1 var(--font-mono); }
+/* W/L record reads as a quiet secondary stat, not another bold number. */
+.lb-oracle-row .lb-oracle-record { font-weight: 500; font-size: var(--text-sm); color: var(--ink-dim); }
+/* Single primary action per row (the agent name already links to the profile). */
+.lb-oracle-act { text-align: right; }
+.lb-oracle-copy { font-size: var(--text-2xs); font-weight: var(--weight-semibold); padding: var(--space-2xs) var(--space-sm); white-space: nowrap; }
 .lb-oracle-empty {
 	padding: var(--space-xl) var(--space-md);
 	text-align: center;
@@ -580,30 +622,55 @@
 }
 
 /* ---- Responsive ---- */
+/* The action pill's word ("Track record" / "Account") collapses to a bare arrow on
+   narrow screens so it never clips inside the tight action column. */
+.lb-view-full { display: inline; }
+
 @media (max-width: 880px) {
 	.lb-hide-md { display: none !important; }
+	.lb-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 	.lb-board-head,
 	.lb-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 1.1fr 0.9fr 0.8fr 0.8fr 88px; }
 	.lb-board.is-live .lb-board-head,
 	.lb-board.is-live .lb-row { grid-template-columns: 30px minmax(0, 2.2fr) 1.1fr 0.9fr 0.8fr 88px; }
 	.lb-oracle-board-head,
-	.lb-oracle-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 0.8fr 1.1fr 0.8fr 72px; }
+	.lb-oracle-row { grid-template-columns: 30px minmax(0, 2.2fr) 0.9fr 0.8fr 1.1fr 0.8fr 100px; }
 }
 @media (max-width: 620px) {
 	.lb-shell { padding: var(--space-lg) var(--space-sm) var(--space-xl); }
 	.lb-title { font-size: var(--text-2xl); }
 	.lb-summary { grid-template-columns: repeat(2, 1fr); }
 	.lb-hide-sm, .lb-winrate { display: none !important; }
-	.lb-controls { justify-content: center; }
+
+	/* Controls stack: full-width time window on its own row, then rank-by (select
+	   grows to fill), then verified + network sharing the last row. No cramped wrap. */
+	.lb-controls { flex-direction: column; align-items: stretch; gap: var(--space-sm); }
+	#lb-window { width: 100%; }
+	#lb-window .lb-seg-btn { flex: 1 1 0; text-align: center; padding-left: var(--space-2xs); padding-right: var(--space-2xs); }
+	.lb-control-group { width: 100%; justify-content: space-between; row-gap: var(--space-sm); }
+	.lb-select-wrap { flex: 1 1 100%; justify-content: space-between; }
+	.lb-select { flex: 1 1 auto; min-width: 0; }
+
 	.lb-board-head,
-	.lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.8fr 1fr 70px; }
+	.lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.72fr 1fr 44px; }
 	/* Win-rate column is hidden below 620px, so the live grid drops to 5 columns. */
 	.lb-board.is-live .lb-board-head,
-	.lb-board.is-live .lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 1fr 0.8fr 70px; }
+	.lb-board.is-live .lb-row { grid-template-columns: 26px minmax(0, 1.7fr) 1fr 0.8fr 44px; }
+	.lb-board-head, .lb-row { padding-left: var(--space-sm); padding-right: var(--space-sm); }
 	.lb-avatar { width: 32px; height: 32px; }
+	.lb-score { font-size: var(--text-md); }
+	/* Collapse the action pill to an arrow-only chip so it fits the narrow column. */
+	.lb-view-full { display: none; }
+	.lb-view { padding: var(--space-3xs) var(--space-xs); gap: 0; }
+
 	.lb-oracle-board-head,
-	.lb-oracle-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.9fr 68px; }
+	.lb-oracle-row { grid-template-columns: 26px minmax(0, 1.7fr) 0.9fr 84px; }
 	.lb-oracle-head { flex-direction: column; align-items: flex-start; gap: var(--space-xs); padding-bottom: var(--space-xs); }
+
+	/* Full-width, stacked CTA buttons — larger, thumb-friendly tap targets. */
+	.lb-cta-inner { padding: var(--space-lg); }
+	.lb-cta-row { flex-direction: column; align-items: stretch; }
+	.lb-cta-row .lb-btn { width: 100%; justify-content: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {

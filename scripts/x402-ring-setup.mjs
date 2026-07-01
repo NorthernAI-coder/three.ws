@@ -83,17 +83,19 @@ console.log(
 		'X402_FACILITATOR_URL_SOLANA=https://three.ws/api/x402-facilitator',
 		'X402_EXTERNAL_ENABLED=false            # only OUR endpoints get paid',
 		'X402_CHARITY_AUDIT_BPS=0               # no charity split leaves the ring',
-		'X402_PRICE_RING_SETTLE=1000000         # $1.00/call → fewer txs, less SOL burned',
+		'X402_RING_SELF_PAY=true                # payer pays its own fee → 1 signature (5000 lamports), half the SOL',
+		'X402_PRICE_RING_SETTLE=1000000         # $1.00/call → few txs; raise to $10–$100 for near-zero SOL',
 		'X402_AUTONOMOUS_DAILY_CAP_ATOMIC=…     # set to your daily volume target',
 		'X402_VOLUME_PER_RUN_CAP_ATOMIC=…       # per-tick ceiling',
-		'X402_SPONSOR_SOL_FLOOR_LAMPORTS=20000000  # pause below 0.02 SOL',
+		'X402_SPONSOR_SOL_FLOOR_LAMPORTS=20000000  # pause the loop below 0.02 SOL',
 	].join('\n'),
 );
 
 console.log('\n=== Funding (manual — real money, do this yourself) ===\n');
-console.log('  payer    → USDC float that recirculates (e.g. $50). A little SOL not needed (sponsor pays fees).');
-console.log('  treasury → 0 to start; it fills from ring payments, rebalancer sweeps it back to payer.');
-console.log('  sponsor  → SOL for fees only (e.g. 0.1 SOL ≈ thousands of settlements). Watch /api/x402-ring.');
+console.log('  payer    → USDC float that recirculates (e.g. $50) + a little SOL for its OWN fees in self-pay mode');
+console.log('             (e.g. 0.1 SOL ≈ thousands of 1-signature settlements). Watch /api/x402-ring.');
+console.log('  treasury → 0 to start; it fills from ring payments, the rebalancer sweeps it back to payer.');
+console.log('  sponsor  → ONLY if you turn OFF self-pay (unset X402_RING_SELF_PAY): fund it with the fee SOL instead.');
 console.log('');
 
 if (flag('register')) {

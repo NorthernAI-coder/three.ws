@@ -267,6 +267,9 @@ Write the final answer now.`;
  * @param {number} [params.maxUsd]       - hard cap on total spend (clamped)
  * @param {Array}  [params.catalog]      - live hireable services for the lead to pick from
  * @param {(tree: object, ctx: object) => void} [params.emit] - called with each snapshot
+ * @param {number} [params.deadlineMs]   - absolute epoch-ms budget; once passed, no new
+ *                                         node or synthesis turn starts and the current
+ *                                         (partial) tree is returned. Defaults to no limit.
  * @param {object} [deps]                - injectable side effects (tests pass fakes)
  * @param {Function} deps.runDelegate    - ({toAgentId,message}) => Promise<{response}>
  * @param {Function} deps.runHire        - ({hirerAgentId,serviceSlug,input,maxUsd}) => Promise<{hire}>
@@ -274,7 +277,7 @@ Write the final answer now.`;
  * @returns {Promise<object>} the final task tree
  */
 export async function orchestrateGoal(
-	{ userId, leadAgentId, leadName = null, goal, maxUsd = DEFAULT_MAX_USD, catalog = [], emit = () => {} },
+	{ userId, leadAgentId, leadName = null, goal, maxUsd = DEFAULT_MAX_USD, catalog = [], emit = () => {}, deadlineMs = Infinity },
 	deps = {},
 ) {
 	const runDelegate = deps.runDelegate;
@@ -330,6 +333,21 @@ export async function orchestrateGoal(
 	const childNodes = tree.nodes.filter((n) => n.id !== 'lead');
 	const completed = [];
 	for (const child of childNodes) {
+		// Time budget: once the orchestration deadline passes, stop starting new
+		// nodes. Mark this node and every still-queued sibling as skipped so the
+		// tree returns a truthful partial result — a real, paid multi-agent run can
+		// legitimately outlast the serverless wall, and a clean partial beats a 504.
+		if (Date.now() >= deadlineMs) {
+			for (const rest of childNodes) {
+				const cur = tree.nodes.find((n) => n.id === rest.id);
+				if (cur && cur.status === 'queued') {
+					tree = applyTransition(tree, rest.id, { status: 'failed', error: 'skipped — team ran out of time' });
+					fire({ phase: 'node_settled', node: tree.nodes.find((n) => n.id === rest.id), narration: `Skipped ${truncate(rest.title, 50)} — ran out of time`, narrateAgentId: leadAgentId });
+				}
+			}
+			break;
+		}
+
 		// running
 		tree = applyTransition(tree, child.id, { status: 'running' });
 		const running = tree.nodes.find((n) => n.id === child.id);
@@ -373,7 +391,18 @@ export async function orchestrateGoal(
 	}
 
 	// Synthesis: the lead folds the sub-results into a final answer. If there were
-	// no sub-tasks the lead simply answers the goal itself.
+	// no sub-tasks the lead simply answers the goal itself. Skip this final turn if
+	// we've already hit the deadline — one more LLM round-trip could push the
+	// handler past its serverless limit; the completed sub-results still stand.
+	if (Date.now() >= deadlineMs) {
+		tree = applyTransition(tree, 'lead', {
+			status: 'done',
+			result: null,
+			error: 'partial result — the team ran out of time before the final summary',
+		});
+		fire({ phase: 'done', narration: 'Team task returned a partial result — ran out of time', narrateAgentId: leadAgentId });
+		return tree;
+	}
 	try {
 		const synthMsg = childNodes.length
 			? synthesisPrompt(goal, completed.map((c) => ({ title: c.title, result: c.result, error: c.error })))

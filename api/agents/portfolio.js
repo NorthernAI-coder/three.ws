@@ -19,7 +19,14 @@ import { cors, json, method, error, rateLimited, serverError } from '../_lib/htt
 import { limits } from '../_lib/rate-limit.js';
 import { getPortfolio } from '../_lib/portfolio.js';
 
-const MAX_DURATION_MS = 90_000;
+// The stream MUST close itself before the platform kills the function, or Vercel
+// emits a "Runtime Timeout Error" 504 mid-stream instead of our clean `bye` — the
+// client then sees an abrupt drop rather than the graceful close its EventSource
+// reconnects from. This handler is served by api/agents/[id].js, whose vercel.json
+// cap is 45s, so we self-terminate at 40s (5s margin for the final bye + flush) and
+// let the browser's EventSource auto-reconnect. Keep this strictly under that cap:
+// if api/agents/[id].js maxDuration changes in vercel.json, change this to match.
+const MAX_DURATION_MS = 40_000;
 const PING_INTERVAL_MS = 15_000;
 const SNAPSHOT_INTERVAL_MS = 20_000;
 

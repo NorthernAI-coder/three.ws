@@ -195,8 +195,11 @@ export function createNewsroomAnchor({ agentId, els, getAvatar }) {
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ text, voice }),
 				});
-				if (r.status === 503) {
-					a2fSupported = false; // not configured — don't keep trying this lane
+				if (r.status >= 500) {
+					// Provider down or misconfigured (503 unconfigured, 502 invalid
+					// model/function id, 504 timeout). The lane won't recover this
+					// session — stop re-hitting it and lip-sync from RMS instead.
+					a2fSupported = false;
 				} else if (r.ok) {
 					const j = await r.json();
 					if (myToken !== speakToken) return;

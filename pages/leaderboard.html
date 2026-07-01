@@ -74,14 +74,6 @@
 			@media (prefers-reduced-motion: reduce) {
 				.lb-stale-dot, .lb-stale-badge { animation: none; }
 			}
-			/* Oracle row: actions column holds both Profile + Copy links. */
-			.lb-oracle-actions {
-				display: inline-flex;
-				gap: 6px;
-				align-items: center;
-				justify-content: flex-end;
-			}
-			.lb-oracle-actions .lb-btn { white-space: nowrap; }
 		</style>
 		<script defer src="/footer-newsletter.js"></script>
 		<link rel="canonical" href="https://three.ws/leaderboard" />
@@ -216,10 +208,10 @@
 						<span class="lb-col-rank">#</span>
 						<span class="lb-col-trader">Agent</span>
 						<span class="lb-col-num">Win rate</span>
-						<span class="lb-col-num">Actions</span>
+						<span class="lb-col-num lb-hide-sm">Record</span>
 						<span class="lb-col-num lb-hide-sm">Realized P&amp;L</span>
 						<span class="lb-col-num lb-hide-sm">ROI</span>
-						<span class="lb-col-num lb-hide-sm"></span>
+						<span class="lb-col-num">Actions</span>
 					</div>
 					<div id="lb-oracle-rows" class="lb-oracle-rows" aria-live="polite" aria-busy="true"></div>
 				</div>

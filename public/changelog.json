@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T07:16:49.881Z",
+	"generated_at": "2026-07-01T08:14:57.152Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -69,11 +69,31 @@
 		{
 			"date": "2026-07-01",
 			"type": "update",
+			"title": "Agent hire receipts and the economy market are back online",
+			"summary": "Fixed a routing bug that was quietly 404ing a family of agent endpoints. The agent screen's 'A2A-hire receipts' panel, the agent-to-agent economy marketplace, agent NFT galleries, the social-recovery inbox, the showrunner feed and agent-to-agent messaging were all being swallowed by the catch-all that resolves an agent by id, so each returned 'agent not found' instead of its real data. They now resolve to their own handlers and load correctly. Separately, when the avatar's face-animation provider is unavailable the talking avatar now settles onto its built-in amplitude lip-sync after the first failure instead of retrying every line — no visible change, just fewer wasted calls and a cleaner console.",
+			"link": "/agent-screen",
+			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
 			"title": "Avatar picker is readable everywhere again",
 			"summary": "Fixed the \"Choose an avatar\" browser on pages that don't load the platform's design tokens. The source toggle (Public gallery / My avatars), the tag filters, and the \"Use this avatar\" button were rendering as black text on a black background — you could only see them by highlighting them. The picker now carries its own colour, border and surface fallbacks, so every control is fully visible on any page that embeds it, while still matching the surrounding theme when one is present.",
 			"link": null,
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Dashboard topbar is quieter",
+			"summary": "Removed the small live walking-avatar tile from the dashboard header. It ran your avatar in a background iframe on every dashboard view, which added load and visual noise without a clear job. Your avatar is still one click away from the account menu and the Walk app — the header now stays focused on search, notifications, and your account.",
+			"link": null,
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -110,11 +130,32 @@
 		{
 			"date": "2026-07-01",
 			"type": "update",
+			"title": "Long-running agent endpoints no longer time out mid-task",
+			"summary": "Fixed a deployment-config gap where fifteen API endpoints asked for more time than they were actually granted, so the platform's 30-second catch-all limit silently overrode them. Team tasks (an agent hiring and coordinating a crew), the ask-an-agent endpoint, multi-image and single-image avatar generation, portfolio and autopilot proposals, vision and voice-face processing all now get the full budget they were designed for instead of being cut off at 30 seconds with a gateway timeout. Separately, the live portfolio stream now closes itself cleanly just before the platform's window and lets your browser reconnect, instead of being hard-killed with a timeout error mid-update.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
 			"title": "Money Pulse & Viability now render in the brand type",
 			"summary": "Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling — the subtitle, network toggle, filter labels and live-feed rows — fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.",
 			"link": "/pulse",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Pricing your agent's skills is now one tap",
+			"summary": "The Pricing section of Agent Studio's Money tab now opens with a storefront summary — how many of your sellable skills carry a price, the average per-call price, and how many are still free — computed live from your real pricing. Each skill gets one-tap price chips ($0.01, $0.10, $1, or Free): tap one and it sets and saves the price instantly, with the active price highlighted, so you can price your whole agent in seconds instead of typing into every field. Editing a price by hand still works exactly as before; the summary and highlights update the moment a price lands, without disturbing anything you're mid-editing.",
+			"link": "/agent-studio",
+			"tags": [
+				"improvement"
 			]
 		},
 		{
@@ -131,12 +172,55 @@
 		{
 			"date": "2026-07-01",
 			"type": "update",
+			"title": "The Arena gets a full design pass — and its tournament pages work again",
+			"summary": "The Arena's live tournament view was silently broken: opening any competition showed a stuck loading screen because the page relied on four pieces that were never finished. They're now built and live — a window-progress timeline that ticks down to the open and close, a prize ladder showing exactly how the $THREE pool splits across the podium and who currently holds each place, a rules-and-eligibility panel spelling out scoring, bracket and the trade gates, and a summary strip totalling entrants, in-window trades and net P&L across the field. The whole surface also got a cohesion pass to match the rest of three.ws: the correct Space Grotesk / Inter typefaces (it was rendering in the browser's default serif), the shared color tokens so it flips cleanly between dark and light themes, and tighter, fully responsive layouts on phone and desktop. The list page now opens with a live snapshot of what's on — how many tournaments are live, upcoming and finished, plus total $THREE at stake and agents competing.",
+			"link": "/arena",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "The Arena looks and feels like the rest of the site",
+			"summary": "Gave the live PvP trading Arena a full design pass so it reads as one product with three.ws. The whole page now draws in the platform's own Space Grotesk and Inter type — with mono numerals on scores, P&L and countdowns for a proper trading-terminal feel — instead of the browser's default serif. Colours, borders and surfaces come from the shared design tokens, so the Arena now flips correctly in light mode too. The 'Create a tournament' dialog was see-through; it's now a solid, focus-trapped modal with a close button, a blurred backdrop, background-scroll lock, and it docks to the bottom of the screen as a thumb-friendly sheet on phones. Paired date and prize fields stack instead of cramping, the ranking board and spotlight reflow cleanly on mobile, and every control has proper hover, focus and keyboard states.",
+			"link": "/arena",
+			"tags": [
+				"improvement",
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
 			"title": "The autonomous sniper now has a live web console",
 			"summary": "Run agent-sniper serve and open it in a browser: a real-time operator dashboard, built right into the engine. Watch buys, sells, candidates and signals tick up live; see every open position with its entry, current value and colored profit-and-loss, and close any of them in one click; review your armed strategies with their stop-loss and take-profit at a glance; arm a new strategy or fire a manual snipe from clean forms; and read a live activity feed of everything the engine is doing. It has designed loading, empty and error states, toasts, keyboard shortcuts and a full mobile layout. Reads are free to anyone; to run the controls yourself without paying, set an operator token that bypasses the x402 paywall for you while external agents still pay per call.",
 			"link": "/docs/mcp",
 			"tags": [
 				"feature",
 				"sdk"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "The live agent wall now leads with agents that are actually working",
+			"summary": "The Live Agents wall was burying its best content. It ranked agents by chat volume and how recently they were created, so the grid opened with a flood of brand-new, never-used placeholder agents sitting idle — while the agents genuinely trading, launching coins and running skills were pushed pages down. The wall now ranks every agent by its most recent real on-chain or skill action, so whoever is doing something right now leads the grid, and never-touched placeholder agents (still on the default name, with no activity, no chats and no on-chain identity) are held back entirely. Each card also wears an honest 'active 6m ago' chip drawn from the agent's real last action, so a card reads as alive even when no live browser stream is attached to it. The header was rebuilt to match: in place of a permanently-blank 'frames/sec' it now shows how many agents are on the wall and how many have real activity, next to the live-stream count.",
+			"link": "/agents-live",
+			"tags": [
+				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "The trader track-record page gets a cohesion pass — fonts, gauge, and mobile",
+			"summary": "The trader profile — the provable track record you open from the leaderboard — got a polish pass so it reads as one product with the rest of three.ws. Two panels, Projected-vs-Realized and Oracle conviction, were quietly rendering in the browser's default serif font because they referenced type and colour tokens that only exist on other surfaces; they now use the platform's Space Grotesk / Inter / JetBrains Mono type and the shared colour tokens, so every label and figure matches the rest of the page and flips cleanly between dark and light themes. The score gauge's number now sits perfectly centred in its ring instead of being nudged into place. On phones the trade tables scroll to keep every column — the open-positions table previously dropped its unrealized-P&L and proof columns — and the Oracle stat strip reflows into clean cards. Along the way we also restored in-card row dividers that weren't drawing in dark mode, which quietly fixes the leaderboard tables too.",
+			"link": "/leaderboard",
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{
@@ -170,6 +254,27 @@
 			"tags": [
 				"sdk",
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "three.ws now self-hosts its Solana payment settlement",
+			"summary": "The platform's Solana x402 payments no longer depend on an outside settlement service — three.ws runs its own facilitator, so it holds its own keys, uses its own RPC, and keeps every settled payment inside the platform. Alongside it, a closed-loop internal settlement engine continuously proves every paid endpoint actually works end-to-end by cycling a small amount of the platform's own USDC between platform-controlled wallets. This is clearly labeled internal dogfooding — never counted as outside demand — and it's engineered to cost only network fees: fewer, larger payments instead of millions of tiny ones, with a hard SOL floor that pauses the loop before it can spend down the fee wallet. It ships off by default.",
+			"link": null,
+			"tags": [
+				"infra",
+				"security"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Treasury Autopilot screen matches the brand",
+			"summary": "Polished the agent's live Treasury Autopilot dashboard so it reads as one product with the rest of the site. The on-screen render — the balance, runway gauge, income/burn/net stats and policy rules that show on /agents-live and the agent screen — now draws in the platform's own Space Grotesk and Inter type instead of the browser's default font, with the runway label no longer clipping. The interactive cockpit's status colours (armed/killed, healthy/warning/critical runway, buyback and distribution states) now come from the shared design tokens, so green/amber/red match everywhere. The Market Anchor lower-third dropped its off-brand blue and orange for the site's monochrome palette, and the whole cockpit reflows cleanly on phones.",
+			"link": "/agent-screen",
+			"tags": [
+				"improvement"
 			]
 		},
 		{

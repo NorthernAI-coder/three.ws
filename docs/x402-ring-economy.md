@@ -16,20 +16,36 @@ control.
 > *not* to do. The public organic-revenue feed is a separate surface
 > ([/api/x402-revenue](../api/x402-revenue.js)).
 
-## The one number that matters: SOL fee scales with tx COUNT, not volume
+## Burning the least SOL — two levers
 
-Every Solana settlement costs a ~flat network fee (~$0.002), regardless of the
-payment size. So to move `$X` of gross volume for the least SOL, make **fewer,
-larger payments**:
+On-chain settlement has a **hard floor**: every Solana transaction costs a base
+fee, so there is no zero-SOL option. Two levers get you to the true minimum.
 
-| $10,000 gross via | per-call | # txs | SOL burned | fee cost |
+**Lever 1 — fewest transactions (the big one).** The fee is ~flat per tx,
+independent of payment size, so cost scales with tx **count**. Make **fewer,
+larger payments** via `X402_PRICE_RING_SETTLE`:
+
+| $10,000 gross via | per-call | # txs | SOL burned* | fee cost |
 |---|---|---|---|---|
-| tiny micro-payments | $0.001 | 10,000,000 | ~100 SOL | **~$20,000** |
-| moderate | $1.00 | 10,000 | ~0.1 SOL | **~$20** |
-| large | $10.00 | 1,000 | ~0.01 SOL | **~$2** |
+| tiny micro-payments | $0.001 | 10,000,000 | ~50 SOL | **~$10,000** |
+| moderate | $1.00 | 10,000 | ~0.05 SOL | **~$10** |
+| large | $10.00 | 1,000 | ~0.005 SOL | **~$1** |
+| very large | $100.00 | 100 | ~0.0005 SOL | **~$0.10** |
 
-Same volume, 1000× difference in cost. Tune per-call size with
-`X402_PRICE_RING_SETTLE`. Bigger calls, smaller burn.
+\* at the 1-signature self-pay floor of ~5,000 lamports/tx.
+
+**Lever 2 — one signature, not two (`X402_RING_SELF_PAY=true`).** By default a
+settlement is signed by the buyer *and* a sponsor fee payer = 2 signatures =
+10,000 lamports base. In **self-pay** the payer pays its own fee = **1 signature =
+5,000 lamports**, half the base fee, and the facilitator broadcasts without
+co-signing (no sponsor key needed at all). The payer just holds a little SOL for
+its own fees. This is the recommended mode; the `SPONSOR_SOL_FLOOR` guard then
+watches the payer wallet.
+
+Priority fee is already negligible (~5 µlamports) and ATA rent is one-time and
+reclaimable. So the practical minimum is: **self-pay + the biggest per-call size
+your float supports.** $100/call settles thousands of dollars of volume for a few
+cents of SOL.
 
 ## Architecture
 
@@ -54,6 +70,11 @@ The three roles are all platform-controlled:
 | **payer** | pays the ring | (derived) | `X402_SEED_SOLANA_SECRET_BASE58` | USDC float (recirculates) |
 | **treasury** | receives payments | `X402_PAY_TO_SOLANA` | `X402_TREASURY_SECRET_BASE58` | nothing (fills, gets swept back) |
 | **sponsor** | pays SOL fees | `X402_FEE_PAYER_SOLANA` | `X402_FEE_PAYER_SECRET_BASE58` | SOL for fees only |
+
+> In **self-pay** mode (`X402_RING_SELF_PAY=true`, recommended for lowest fees) the
+> **payer** pays its own 1-signature fee — fund the payer with the fee SOL and the
+> **sponsor** role becomes optional. Sponsor mode exists for buyers that hold no
+> SOL and want gas sponsored (2 signatures, ~2× the base fee).
 
 ## Components
 
@@ -126,13 +147,14 @@ the sponsor secret, the facilitator returns `503` and nothing settles.
 For a monthly gross target `V` at per-call size `p`:
 
 - transactions ≈ `V / p`
-- SOL fee ≈ `V / p × ~0.00001 SOL` (base + tiny priority)
+- SOL fee ≈ `V / p × ~0.000005 SOL` (self-pay 1-sig floor; ~0.00001 in sponsor mode)
 - one-time ATA rent ≈ 0.002 SOL per new wallet pair (reclaimable by closing ATAs)
 - charity/facilitator leak = **$0** when `X402_CHARITY_AUDIT_BPS=0` and the
   self-hosted facilitator is used
 - principal = recirculates; net USDC position stays ~flat (see `/api/x402-ring`)
 
-Example: $10k/mo at $1/call ≈ 10k txs ≈ 0.1 SOL ≈ ~$20 real cost.
+Example: $10k/mo at $1/call ≈ 10k txs ≈ 0.05 SOL ≈ ~$10 real cost. At $100/call it
+is ~$0.10.
 
 ## Related
 

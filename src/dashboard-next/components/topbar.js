@@ -40,13 +40,6 @@ export function renderTopbar(pathname) {
 			<button type="button" class="dn-topbar-btn" data-action="toggle-drawer" aria-label="Toggle activity drawer" aria-pressed="false">
 				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M3.2 12.8l1.4-1.4M11.4 4.6l1.4-1.4"/></svg>
 			</button>
-			<div class="dn-walk-avatar" data-component="walk-avatar" data-state="loading">
-				<button type="button" class="dn-walk-avatar-btn" data-action="toggle-walk-menu" aria-haspopup="menu" aria-expanded="false" aria-label="Your walking avatar">
-					<span class="dn-walk-avatar-stage" data-slot="walk-stage" aria-hidden="true">
-						<span class="dn-walk-avatar-skel"></span>
-					</span>
-				</button>
-			</div>
 			<button type="button" class="dn-topbar-user" data-action="toggle-user-menu" data-component="topbar-user" aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
 				<span class="dn-topbar-user-avatar" data-slot="initials" aria-hidden="true">··</span>
 				<span data-slot="label">Loading…</span>
@@ -85,11 +78,6 @@ export function mountTopbarBehavior(shellEl) {
 			toggleUserMenu(chip);
 			return;
 		}
-		if (e.target.closest?.('[data-action="toggle-walk-menu"]')) {
-			const btn = e.target.closest('[data-action="toggle-walk-menu"]');
-			toggleWalkMenu(btn);
-			return;
-		}
 	});
 
 	window.addEventListener('keydown', (e) => {
@@ -98,8 +86,6 @@ export function mountTopbarBehavior(shellEl) {
 			window.dispatchEvent(new CustomEvent('dn:palette:open'));
 		}
 	});
-
-	injectTopbarStyles();
 
 	// Fill the user chip and load notification count from /api/auth/me.
 	getMe().then((me) => {
@@ -113,9 +99,6 @@ export function mountTopbarBehavior(shellEl) {
 				const ret = encodeURIComponent(location.pathname + location.search);
 				location.href = `/login?return=${ret}`;
 			};
-			// No session → hide the walking avatar entirely; it's account-bound.
-			const walk = shellEl.querySelector('[data-component="walk-avatar"]');
-			if (walk) walk.style.display = 'none';
 			return;
 		}
 		chip.querySelector('[data-slot="initials"]').textContent = initialsOf(me);
@@ -146,14 +129,8 @@ export function mountTopbarBehavior(shellEl) {
 						badge.textContent = '';
 					}
 				}
-				// A fresh notification makes the topbar avatar wave so the user
-				// notices without watching the bell.
-				if (unread > 0) signalWalkAvatar(shellEl, 'wave');
 			})
 			.catch(() => { /* notifications unavailable */ });
-
-		// Bring the user's own avatar to life in the topbar.
-		mountWalkAvatar(shellEl);
 	}).catch(() => { /* network blip — chip stays "Loading…" */ });
 }
 
@@ -339,333 +316,6 @@ function closeUserMenu(menu, chip, onOutside, onKey) {
 	if (chip) chip.setAttribute('aria-expanded', 'false');
 	if (onOutside) document.removeEventListener('click', onOutside, true);
 	if (onKey) document.removeEventListener('keydown', onKey, true);
-}
-
-// ── Walking avatar (topbar live status) ────────────────────────────────────
-//
-// A compact (~64×80) live walking avatar driven by the signed-in user's own
-// avatar. We render it through the chrome-less /walk-embed route in an iframe
-// (controls=none, autoplay, transparent bg, no orbit). The iframe is only
-// created once the avatar scrolls/exists in the viewport (lazy) so it never
-// taxes a dashboard the user can't see. States: loading → walking | empty |
-// error. A fresh notification makes it wave.
-
-let _walkAvatar = null; // { id, name, handle } once resolved
-
-function mountWalkAvatar(shellEl) {
-	const host = shellEl.querySelector('[data-component="walk-avatar"]');
-	if (!host || host.dataset.mounted === '1') return;
-	host.dataset.mounted = '1';
-
-	// Real data: the caller's own avatars. The first (most recent) is their
-	// primary; the picker endpoint already returns them newest-first.
-	fetch('/api/avatars/mine?limit=1', { credentials: 'include' })
-		.then((r) => (r.ok ? r.json() : null))
-		.then((data) => {
-			const av = data?.avatars?.[0];
-			if (!av) {
-				renderWalkEmptyState(host);
-				return;
-			}
-			_walkAvatar = {
-				id: av.id,
-				name: av.name || 'Your avatar',
-				handle: av.slug || null,
-			};
-			renderWalkLiveState(host, _walkAvatar);
-		})
-		.catch(() => renderWalkErrorState(host));
-}
-
-// Empty: the user hasn't made an avatar yet. A subtle, inviting affordance that
-// links straight into the avatar creator — not a broken frame.
-function renderWalkEmptyState(host) {
-	host.dataset.state = 'empty';
-	const stage = host.querySelector('[data-slot="walk-stage"]');
-	if (stage) stage.innerHTML = '';
-	const btn = host.querySelector('[data-action="toggle-walk-menu"]');
-	if (!btn) return;
-	btn.dataset.action = 'create-avatar';
-	btn.setAttribute('aria-label', 'Create your avatar');
-	btn.setAttribute('title', 'Create your avatar');
-	btn.removeAttribute('aria-haspopup');
-	btn.removeAttribute('aria-expanded');
-	host.querySelector('[data-slot="walk-stage"]').innerHTML = `
-		<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-			<circle cx="12" cy="8" r="3.2"/>
-			<path d="M5.5 20a6.5 6.5 0 0113 0"/>
-			<path d="M19 4v4M21 6h-4"/>
-		</svg>`;
-	btn.onclick = () => { location.href = '/create'; };
-}
-
-// Error: avatar lookup failed (network). Offer a retry rather than a dead frame.
-function renderWalkErrorState(host) {
-	host.dataset.state = 'error';
-	const btn = host.querySelector('[data-action="toggle-walk-menu"]');
-	if (!btn) return;
-	btn.dataset.action = 'retry-walk';
-	btn.setAttribute('aria-label', 'Avatar failed to load — retry');
-	btn.setAttribute('title', 'Retry');
-	btn.removeAttribute('aria-haspopup');
-	btn.removeAttribute('aria-expanded');
-	host.querySelector('[data-slot="walk-stage"]').innerHTML = `
-		<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-			<path d="M20 11A8 8 0 105 5.5"/><path d="M4 4v4h4"/>
-		</svg>`;
-	btn.onclick = () => {
-		host.dataset.state = 'loading';
-		host.dataset.mounted = '0';
-		btn.onclick = null;
-		btn.dataset.action = 'toggle-walk-menu';
-		host.querySelector('[data-slot="walk-stage"]').innerHTML = '<span class="dn-walk-avatar-skel"></span>';
-		const shellEl = host.closest('.dn-shell') || document;
-		mountWalkAvatar(shellEl);
-	};
-}
-
-// Live: lazily mount the /walk-embed iframe of the user's avatar, walking.
-function renderWalkLiveState(host, avatar) {
-	host.dataset.state = 'live';
-	const btn = host.querySelector('[data-action="toggle-walk-menu"]');
-	if (btn) {
-		btn.setAttribute('aria-label', `${avatar.name} — open avatar menu`);
-		btn.setAttribute('title', avatar.name);
-		btn.setAttribute('aria-haspopup', 'menu');
-		btn.setAttribute('aria-expanded', 'false');
-	}
-
-	const mountFrame = () => {
-		if (host.dataset.framed === '1') return;
-		host.dataset.framed = '1';
-		const stage = host.querySelector('[data-slot="walk-stage"]');
-		if (!stage) return;
-		const qs = new URLSearchParams({
-			avatar: avatar.id,
-			controls: 'none',
-			autoplay: 'true',
-			bg: 'transparent',
-			orbit: 'false',
-			ground: 'false',
-		});
-		const frame = document.createElement('iframe');
-		frame.className = 'dn-walk-avatar-frame';
-		frame.title = `${avatar.name}, walking`;
-		frame.setAttribute('aria-hidden', 'true');
-		frame.setAttribute('tabindex', '-1');
-		frame.loading = 'lazy';
-		frame.allowTransparency = 'true';
-		frame.src = `/walk-embed?${qs.toString()}`;
-
-		// Reveal only once the embed reports the avatar is loaded AND animating.
-		// The iframe's DOM `load` event fires far earlier — the document is parsed
-		// before the GLB and walk clips resolve (those load async). Revealing on it
-		// exposed the bare frame mid-load: a white pre-paint flash, then the model
-		// frozen in its bind-pose T-pose, before the walk clip applied. We instead
-		// hold the dark skeleton until the embed posts `walk:ready` over the
-		// three-walk channel, which fires only after it crossfades into motion.
-		let revealed = false;
-		const reveal = () => {
-			if (revealed) return;
-			revealed = true;
-			host.dataset.ready = '1';
-			frame.classList.add('is-ready');
-			const skel = stage.querySelector('.dn-walk-avatar-skel');
-			if (skel) skel.remove();
-			window.removeEventListener('message', onReady);
-			clearTimeout(failsafe);
-		};
-		function onReady(e) {
-			if (e.source !== frame.contentWindow) return;
-			const d = e.data;
-			if (d && d.type === 'walk:ready') reveal();
-		}
-		window.addEventListener('message', onReady);
-		// `walk:ready` is a one-shot — a host that finishes wiring after the embed
-		// already loaded would miss it. Ping on DOM load so the embed re-emits it.
-		frame.addEventListener('load', () => {
-			try {
-				frame.contentWindow?.postMessage({ channel: 'three-walk', v: 1, type: 'walk:ping' }, '*');
-			} catch (_) {}
-		});
-		// Failsafe: never strand the skeleton if the ready signal is lost (embed
-		// error, blocked message). Reveal anyway after a generous window.
-		const failsafe = setTimeout(reveal, 8000);
-
-		stage.appendChild(frame);
-	};
-
-	// Lazy: only build the iframe when the topbar avatar is on-screen. The
-	// dashboard topbar is essentially always visible, but this keeps the
-	// embed off the critical path and respects reduced-data scenarios.
-	if ('IntersectionObserver' in window) {
-		const io = new IntersectionObserver((entries, obs) => {
-			if (entries.some((e) => e.isIntersecting)) {
-				obs.disconnect();
-				mountFrame();
-			}
-		}, { rootMargin: '120px' });
-		io.observe(host);
-	} else {
-		mountFrame();
-	}
-}
-
-// Tell the embedded avatar to play a one-shot gesture (e.g. wave on a fresh
-// notification). Waits for the iframe to exist; the embed ignores commands it
-// can't honor, so this is safe to fire optimistically.
-function signalWalkAvatar(shellEl, gesture) {
-	const host = shellEl.querySelector('[data-component="walk-avatar"]');
-	const frame = host?.querySelector('iframe.dn-walk-avatar-frame');
-	if (!frame?.contentWindow) {
-		// Frame not built yet — retry shortly, but give up after a few tries
-		// so we never leave a dangling timer.
-		let tries = 0;
-		const t = setInterval(() => {
-			tries += 1;
-			const f = shellEl.querySelector('iframe.dn-walk-avatar-frame');
-			if (f?.contentWindow) {
-				clearInterval(t);
-				f.contentWindow.postMessage({ type: 'walk:gesture', gesture }, '*');
-			} else if (tries >= 10) {
-				clearInterval(t);
-			}
-		}, 600);
-		return;
-	}
-	frame.contentWindow.postMessage({ type: 'walk:gesture', gesture }, '*');
-}
-
-// Dropdown: name + handle, Open Walk, Edit Avatar.
-function toggleWalkMenu(btn) {
-	const existing = document.querySelector('[data-topbar-walk-menu]');
-	if (existing) { closeWalkMenu(existing, btn); return; }
-	if (!_walkAvatar) return;
-
-	const rect = btn.getBoundingClientRect();
-	btn.setAttribute('aria-expanded', 'true');
-	const menu = document.createElement('div');
-	menu.setAttribute('data-topbar-walk-menu', '');
-	menu.setAttribute('role', 'menu');
-	menu.setAttribute('aria-label', 'Avatar menu');
-	menu.style.cssText = `
-		position:fixed;top:${rect.bottom + 8}px;right:${window.innerWidth - rect.right}px;
-		min-width:220px;
-		background:rgba(18,20,28,0.97);border:1px solid var(--nxt-stroke-strong);
-		border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,0.6);
-		backdrop-filter:blur(20px);z-index:2000;overflow:hidden;
-	`;
-	const handle = _walkAvatar.handle ? `@${_walkAvatar.handle}` : '';
-	menu.innerHTML = `
-		<div style="padding:14px 16px;border-bottom:1px solid var(--nxt-stroke)">
-			<div style="font-size:14px;font-weight:600;color:var(--nxt-ink)">${esc(_walkAvatar.name)}</div>
-			${handle ? `<div style="font-size:12px;color:var(--nxt-ink-dim);margin-top:2px">${esc(handle)}</div>` : ''}
-		</div>
-		<div style="padding:6px 0">
-			<a href="/walk/app?avatar=${encodeURIComponent(_walkAvatar.id)}" class="dn-user-menu-item" role="menuitem">Open Walk</a>
-			<a href="/avatars/${encodeURIComponent(_walkAvatar.id)}/edit" class="dn-user-menu-item" role="menuitem">Edit Avatar</a>
-		</div>
-	`;
-
-	injectMenuStyles();
-	document.body.appendChild(menu);
-	requestAnimationFrame(() => menu.querySelector('[role="menuitem"]')?.focus());
-
-	const closeOnOutside = (e) => {
-		if (!menu.contains(e.target) && !btn.contains(e.target)) {
-			closeWalkMenu(menu, btn, closeOnOutside, onKey);
-		}
-	};
-	const onKey = (e) => {
-		const items = [...menu.querySelectorAll('[role="menuitem"]')];
-		if (e.key === 'Escape') {
-			e.stopPropagation();
-			closeWalkMenu(menu, btn, closeOnOutside, onKey);
-			btn.focus();
-		} else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-			e.preventDefault();
-			const idx = items.indexOf(document.activeElement);
-			const next = e.key === 'ArrowDown'
-				? (idx + 1) % items.length
-				: (idx - 1 + items.length) % items.length;
-			items[next]?.focus();
-		}
-	};
-	setTimeout(() => {
-		document.addEventListener('click', closeOnOutside, true);
-		document.addEventListener('keydown', onKey, true);
-	}, 0);
-}
-
-function closeWalkMenu(menu, btn, onOutside, onKey) {
-	menu.remove();
-	if (btn) btn.setAttribute('aria-expanded', 'false');
-	if (onOutside) document.removeEventListener('click', onOutside, true);
-	if (onKey) document.removeEventListener('keydown', onKey, true);
-}
-
-let _topbarStylesInjected = false;
-function injectTopbarStyles() {
-	if (_topbarStylesInjected) return;
-	_topbarStylesInjected = true;
-	const style = document.createElement('style');
-	style.textContent = `
-		.dn-walk-avatar { display:flex; align-items:center; }
-		.dn-walk-avatar-btn {
-			display:inline-flex; align-items:center; justify-content:center;
-			width:64px; height:80px; padding:0; margin:0;
-			background:var(--nxt-surface-1, rgba(255,255,255,0.03));
-			border:1px solid var(--nxt-stroke); border-radius:14px;
-			color:var(--nxt-ink-dim); cursor:pointer;
-			overflow:hidden; position:relative;
-			transition:border-color 140ms ease, background 140ms ease, transform 120ms ease;
-		}
-		.dn-walk-avatar-btn:hover { border-color:var(--nxt-stroke-strong); background:rgba(255,255,255,0.05); color:var(--nxt-ink); }
-		.dn-walk-avatar-btn:active { transform:scale(0.97); }
-		.dn-walk-avatar-btn:focus-visible {
-			outline:2px solid var(--nxt-accent, #fff); outline-offset:2px;
-		}
-		.dn-walk-avatar-stage {
-			display:flex; align-items:center; justify-content:center;
-			width:100%; height:100%; position:relative;
-		}
-		.dn-walk-avatar-frame {
-			width:100%; height:100%; border:0; display:block;
-			background:transparent; pointer-events:none;
-			opacity:0; transition:opacity 240ms ease;
-		}
-		.dn-walk-avatar-frame.is-ready { opacity:1; }
-		.dn-walk-avatar-skel {
-			position:absolute; inset:8px; border-radius:10px;
-			background:linear-gradient(100deg,
-				rgba(255,255,255,0.04) 30%,
-				rgba(255,255,255,0.09) 50%,
-				rgba(255,255,255,0.04) 70%);
-			background-size:200% 100%;
-			animation:dn-walk-skel 1.3s ease-in-out infinite;
-		}
-		.dn-walk-avatar[data-state="empty"] .dn-walk-avatar-btn,
-		.dn-walk-avatar[data-state="error"] .dn-walk-avatar-btn {
-			border-style:dashed;
-		}
-		@keyframes dn-walk-skel {
-			0% { background-position:200% 0; }
-			100% { background-position:-200% 0; }
-		}
-		/* Narrow viewports: shrink, then hide before the topbar crowds. */
-		@media (max-width: 860px) {
-			.dn-walk-avatar-btn { width:52px; height:64px; }
-		}
-		@media (max-width: 640px) {
-			.dn-walk-avatar { display:none; }
-		}
-		@media (prefers-reduced-motion: reduce) {
-			.dn-walk-avatar-skel { animation:none; }
-			.dn-walk-avatar-frame { transition:none; }
-			.dn-walk-avatar-btn:active { transform:none; }
-		}
-	`;
-	document.head.appendChild(style);
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

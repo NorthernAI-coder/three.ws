@@ -157,6 +157,12 @@
 	--surface-3: rgba(255, 255, 255, 0.08);
 	--stroke: rgba(255, 255, 255, 0.08);
 	--stroke-strong: rgba(255, 255, 255, 0.14);
+	/* Hairline dividers — a touch softer than --stroke, for in-card row/cell
+	   separators (tables, stat strips). The light theme defines these below; the
+	   dark base was missing them, so bare var(--hairline) rows rendered borderless
+	   here. Translucent white keeps them on the surface/stroke scale. */
+	--hairline: rgba(255, 255, 255, 0.055);
+	--hairline-strong: rgba(255, 255, 255, 0.09);
 	--ink: #e8e8e8;
 	--ink-dim: #888888;
 	--radius-card:    var(--radius-lg); /* legacy alias → lg */

@@ -66,16 +66,24 @@
 .tp-copiers { color: var(--success); font-weight: var(--weight-semibold); }
 .tp-desc { margin-top: var(--space-sm); color: var(--ink-dim); font-size: var(--text-sm); line-height: var(--leading-normal); max-width: 60ch; }
 
-/* Score gauge */
-.tp-gauge { display: grid; place-items: center; text-align: center; }
-.tp-gauge svg { display: block; }
+/* Score gauge — the numeric score is absolutely centered inside the ring so it
+   stays put at any ring size, instead of being pulled over it with brittle
+   negative margins that broke as soon as the font or ring size changed. */
+.tp-gauge { display: grid; place-items: center; text-align: center; gap: var(--space-3xs); }
+.tp-gauge-ring { position: relative; display: grid; place-items: center; }
+.tp-gauge-ring svg { display: block; }
 .tp-gauge-val {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
 	font-family: var(--font-display);
 	font-size: var(--text-2xl);
 	font-weight: var(--weight-bold);
 	font-variant-numeric: tabular-nums;
+	line-height: 1;
 }
-.tp-gauge-label { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); margin-top: var(--space-3xs); }
+.tp-gauge-label { font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-faint); }
 
 /* ---- Window selector + actions ---- */
 .tp-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); margin-bottom: var(--space-md); }
@@ -235,74 +243,136 @@
 .tp-error h1, .tp-empty h1 { font-family: var(--font-display); font-size: var(--text-xl); margin-bottom: var(--space-2xs); }
 .tp-error p, .tp-empty p { color: var(--ink-dim); max-width: 44ch; margin: 0 auto var(--space-md); }
 
-/* Oracle conviction block */
+/* ---- Oracle conviction + Projected-vs-realized cards ----
+   Both read as titled analytic cards that share the vocabulary of .tp-curve-wrap
+   and .tp-metric — surface-1 fill, hairline-divided header, faint uppercase
+   eyebrow, tabular mono figures. Authored earlier against a stray token set
+   (--mono / --sans / --pos) that only exists on IBM surfaces, so on the default
+   dark theme they fell back to serif at the browser's default size. Everything
+   here now references the canonical primitives, so they match the rest of the
+   page in both themes. */
 .tp-oracle-block {
-	margin: 20px 0;
+	margin: 0 0 var(--space-md);
 	border: 1px solid var(--stroke);
 	border-radius: var(--radius-lg);
 	overflow: hidden;
-	background: color-mix(in srgb, var(--accent, #7c83ff) 4%, var(--bg-1));
+	background: var(--surface-1);
 }
 .tp-oracle-head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 12px 16px;
+	gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-md);
 	border-bottom: 1px solid var(--stroke);
 }
 .tp-oracle-label {
-	font: 700 11px/1 var(--mono);
+	font-family: var(--font-body);
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-semibold);
 	text-transform: uppercase;
-	letter-spacing: .08em;
-	color: var(--accent, #7c83ff);
+	letter-spacing: 0.06em;
+	color: var(--ink-faint);
 }
-.tp-oracle-link { font-size: 12px; color: var(--ink-dim); text-decoration: none; }
-.tp-oracle-link:hover { color: var(--ink); }
+.tp-oracle-actions { display: flex; align-items: center; gap: var(--space-sm); }
+.tp-oracle-link {
+	font-size: var(--text-xs);
+	color: var(--ink-dim);
+	text-decoration: none;
+	white-space: nowrap;
+	transition: color var(--duration-fast) var(--ease-standard);
+}
+.tp-oracle-link:hover { color: var(--ink-bright); }
+/* Small primary CTA sized for the card header (e.g. "Copy trades →"). */
+.tp-oracle-cta { padding: var(--space-3xs) var(--space-sm); font-size: var(--text-xs); border-radius: var(--radius-sm); }
+
+/* Stat strip — soft filled chips in an auto-fit grid. Chips (not a seamless
+   divided strip) so an odd KPI count that wraps never leaves a differently-tinted
+   empty cell in the last row; trailing space is just the card fill. Echoes the
+   surface scale of the .tp-metric grid above it. */
 .tp-oracle-kpis {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-	gap: 0;
+	grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+	gap: var(--space-3xs);
+	padding: var(--space-sm) var(--space-md) var(--space-md);
 }
 .tp-oracle-kpi {
-	padding: 12px 14px;
-	border-right: 1px solid var(--stroke);
-	border-bottom: 1px solid var(--stroke);
+	padding: var(--space-sm);
+	border-radius: var(--radius-md);
+	background: var(--surface-2);
 }
-.tp-oracle-kpi:nth-child(n + 999) { border-right: none; }
 .tp-oracle-kpi span {
-	font: 600 10px/1 var(--mono);
-	text-transform: uppercase;
-	letter-spacing: .05em;
-	color: var(--ink-faint);
 	display: block;
-	margin-bottom: 6px;
+	font-family: var(--font-body);
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-medium);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--ink-faint);
+	margin-bottom: var(--space-3xs);
 }
-.tp-oracle-kpi b { font: 700 15px/1 var(--mono); }
-.tp-oracle-note { font-size: 11.5px; color: var(--ink-faint); margin: 0; padding: 10px 16px; }
+.tp-oracle-kpi b {
+	font-family: var(--font-mono);
+	font-size: var(--text-md);
+	font-weight: var(--weight-semibold);
+	font-variant-numeric: tabular-nums;
+}
+.tp-oracle-note {
+	font-size: var(--text-2xs);
+	line-height: var(--leading-normal);
+	color: var(--ink-faint);
+	margin: 0;
+	padding: var(--space-sm) var(--space-md);
+	border-top: 1px solid var(--stroke);
+}
 
 /* Projected-vs-realized */
 .tp-proj-conf {
-	font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .05em;
-	padding: 4px 9px; border-radius: 999px; border: 1px solid currentColor;
+	font-family: var(--font-body);
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-semibold);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 3px var(--space-2xs);
+	border-radius: var(--radius-pill);
+	border: 1px solid currentColor;
+	white-space: nowrap;
 }
-.tp-proj-high { color: var(--pos, #4ade80); }
-.tp-proj-medium { color: var(--warn, #fbbf24); }
-.tp-proj-low { color: var(--ink-dim, #888); }
+.tp-proj-high { color: var(--success); }
+.tp-proj-medium { color: var(--warn); }
+.tp-proj-low { color: var(--ink-dim); }
 .tp-proj-grid { display: flex; flex-direction: column; }
 .tp-proj-row {
-	display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center;
-	gap: 8px; padding: 11px 16px; border-bottom: 1px solid var(--stroke);
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) 1fr 1fr;
+	align-items: center;
+	gap: var(--space-sm);
+	padding: var(--space-sm) var(--space-md);
+	border-bottom: 1px solid var(--hairline);
 }
 .tp-proj-row:last-child { border-bottom: none; }
-.tp-proj-head { padding-top: 10px; padding-bottom: 10px; }
-.tp-proj-head b { font: 600 10px/1 var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
-.tp-proj-k { font: 600 12px/1.2 var(--sans, inherit); color: var(--ink-dim); }
-.tp-proj-proj, .tp-proj-real { font: 700 14px/1 var(--mono); text-align: right; }
-.tp-proj-proj { color: var(--ink); opacity: .82; }
-.tp-proj-real { color: var(--ink); }
+.tp-proj-head b {
+	font-family: var(--font-body);
+	font-size: var(--text-2xs);
+	font-weight: var(--weight-medium);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--ink-faint);
+}
+.tp-proj-k { font-family: var(--font-body); font-size: var(--text-sm); color: var(--ink-dim); }
+.tp-proj-proj, .tp-proj-real {
+	font-family: var(--font-mono);
+	font-size: var(--text-sm);
+	font-weight: var(--weight-semibold);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+.tp-proj-proj { color: var(--ink-dim); }
+.tp-proj-real { color: var(--ink-bright); }
 @media (max-width: 520px) {
-	.tp-proj-k { font-size: 11px; }
-	.tp-proj-proj, .tp-proj-real { font-size: 12.5px; }
+	.tp-proj-row { gap: var(--space-2xs); padding: var(--space-sm); }
+	.tp-proj-k { font-size: var(--text-xs); }
+	.tp-proj-proj, .tp-proj-real { font-size: var(--text-xs); }
 }
 
 /* Toast for copy-link */
@@ -325,12 +395,15 @@
 .tp-toast.is-shown { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 760px) {
-	.tp-hero { grid-template-columns: auto 1fr; }
+	.tp-hero { grid-template-columns: auto 1fr; gap: var(--space-md); }
+	.tp-name { font-size: var(--text-xl); overflow-wrap: anywhere; }
 	.tp-gauge { grid-column: 1 / -1; justify-self: start; }
-	.tp-copy { grid-template-columns: 1fr; }
-	.tp-copy-actions { flex-direction: row; flex-wrap: wrap; }
-	.tp-table th:nth-child(4), .tp-table td:nth-child(4),
-	.tp-table th:nth-child(5), .tp-table td:nth-child(5) { display: none; }
+	/* Trade tables scroll horizontally instead of dropping columns. The old rule
+	   hid columns 4 & 5 for every .tp-table, which on the open-positions table
+	   (Coin · Entry · Now · Unrealized · Proof) erased Unrealized and Proof — the
+	   two fields that matter most. Scrolling keeps every column on every table. */
+	.tp-panel, .tp-curve-wrap { overflow-x: auto; }
+	.tp-table { min-width: 560px; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.tp-panel.is-active, .tp-sk { animation: none; }

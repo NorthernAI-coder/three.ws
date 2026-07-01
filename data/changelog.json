@@ -3,8 +3,100 @@
   "entries": [
     {
       "date": "2026-07-01",
+      "title": "The trader track-record page gets a cohesion pass — fonts, gauge, and mobile",
+      "summary": "The trader profile — the provable track record you open from the leaderboard — got a polish pass so it reads as one product with the rest of three.ws. Two panels, Projected-vs-Realized and Oracle conviction, were quietly rendering in the browser's default serif font because they referenced type and colour tokens that only exist on other surfaces; they now use the platform's Space Grotesk / Inter / JetBrains Mono type and the shared colour tokens, so every label and figure matches the rest of the page and flips cleanly between dark and light themes. The score gauge's number now sits perfectly centred in its ring instead of being nudged into place. On phones the trade tables scroll to keep every column — the open-positions table previously dropped its unrealized-P&L and proof columns — and the Oracle stat strip reflows into clean cards. Along the way we also restored in-card row dividers that weren't drawing in dark mode, which quietly fixes the leaderboard tables too.",
+      "tags": [
+        "fix",
+        "improvement"
+      ],
+      "link": "/leaderboard"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "The live agent wall now leads with agents that are actually working",
+      "summary": "The Live Agents wall was burying its best content. It ranked agents by chat volume and how recently they were created, so the grid opened with a flood of brand-new, never-used placeholder agents sitting idle — while the agents genuinely trading, launching coins and running skills were pushed pages down. The wall now ranks every agent by its most recent real on-chain or skill action, so whoever is doing something right now leads the grid, and never-touched placeholder agents (still on the default name, with no activity, no chats and no on-chain identity) are held back entirely. Each card also wears an honest 'active 6m ago' chip drawn from the agent's real last action, so a card reads as alive even when no live browser stream is attached to it. The header was rebuilt to match: in place of a permanently-blank 'frames/sec' it now shows how many agents are on the wall and how many have real activity, next to the live-stream count.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/agents-live"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "The Arena gets a full design pass — and its tournament pages work again",
+      "summary": "The Arena's live tournament view was silently broken: opening any competition showed a stuck loading screen because the page relied on four pieces that were never finished. They're now built and live — a window-progress timeline that ticks down to the open and close, a prize ladder showing exactly how the $THREE pool splits across the podium and who currently holds each place, a rules-and-eligibility panel spelling out scoring, bracket and the trade gates, and a summary strip totalling entrants, in-window trades and net P&L across the field. The whole surface also got a cohesion pass to match the rest of three.ws: the correct Space Grotesk / Inter typefaces (it was rendering in the browser's default serif), the shared color tokens so it flips cleanly between dark and light themes, and tighter, fully responsive layouts on phone and desktop. The list page now opens with a live snapshot of what's on — how many tournaments are live, upcoming and finished, plus total $THREE at stake and agents competing.",
+      "tags": [
+        "fix",
+        "improvement"
+      ],
+      "link": "/arena"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Long-running agent endpoints no longer time out mid-task",
+      "summary": "Fixed a deployment-config gap where fifteen API endpoints asked for more time than they were actually granted, so the platform's 30-second catch-all limit silently overrode them. Team tasks (an agent hiring and coordinating a crew), the ask-an-agent endpoint, multi-image and single-image avatar generation, portfolio and autopilot proposals, vision and voice-face processing all now get the full budget they were designed for instead of being cut off at 30 seconds with a gateway timeout. Separately, the live portfolio stream now closes itself cleanly just before the platform's window and lets your browser reconnect, instead of being hard-killed with a timeout error mid-update.",
+      "tags": [
+        "fix",
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Agent hire receipts and the economy market are back online",
+      "summary": "Fixed a routing bug that was quietly 404ing a family of agent endpoints. The agent screen's 'A2A-hire receipts' panel, the agent-to-agent economy marketplace, agent NFT galleries, the social-recovery inbox, the showrunner feed and agent-to-agent messaging were all being swallowed by the catch-all that resolves an agent by id, so each returned 'agent not found' instead of its real data. They now resolve to their own handlers and load correctly. Separately, when the avatar's face-animation provider is unavailable the talking avatar now settles onto its built-in amplitude lip-sync after the first failure instead of retrying every line \u2014 no visible change, just fewer wasted calls and a cleaner console.",
+      "tags": [
+        "fix"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "The Arena looks and feels like the rest of the site",
+      "summary": "Gave the live PvP trading Arena a full design pass so it reads as one product with three.ws. The whole page now draws in the platform's own Space Grotesk and Inter type \u2014 with mono numerals on scores, P&L and countdowns for a proper trading-terminal feel \u2014 instead of the browser's default serif. Colours, borders and surfaces come from the shared design tokens, so the Arena now flips correctly in light mode too. The 'Create a tournament' dialog was see-through; it's now a solid, focus-trapped modal with a close button, a blurred backdrop, background-scroll lock, and it docks to the bottom of the screen as a thumb-friendly sheet on phones. Paired date and prize fields stack instead of cramping, the ranking board and spotlight reflow cleanly on mobile, and every control has proper hover, focus and keyboard states.",
+      "tags": [
+        "improvement",
+        "fix"
+      ],
+      "link": "/arena"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Pricing your agent's skills is now one tap",
+      "summary": "The Pricing section of Agent Studio's Money tab now opens with a storefront summary \u2014 how many of your sellable skills carry a price, the average per-call price, and how many are still free \u2014 computed live from your real pricing. Each skill gets one-tap price chips ($0.01, $0.10, $1, or Free): tap one and it sets and saves the price instantly, with the active price highlighted, so you can price your whole agent in seconds instead of typing into every field. Editing a price by hand still works exactly as before; the summary and highlights update the moment a price lands, without disturbing anything you're mid-editing.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/agent-studio"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Treasury Autopilot screen matches the brand",
+      "summary": "Polished the agent's live Treasury Autopilot dashboard so it reads as one product with the rest of the site. The on-screen render \u2014 the balance, runway gauge, income/burn/net stats and policy rules that show on /agents-live and the agent screen \u2014 now draws in the platform's own Space Grotesk and Inter type instead of the browser's default font, with the runway label no longer clipping. The interactive cockpit's status colours (armed/killed, healthy/warning/critical runway, buyback and distribution states) now come from the shared design tokens, so green/amber/red match everywhere. The Market Anchor lower-third dropped its off-brand blue and orange for the site's monochrome palette, and the whole cockpit reflows cleanly on phones.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/agent-screen"
+    },
+    {
+      "date": "2026-07-01",
+      "title": "Dashboard topbar is quieter",
+      "summary": "Removed the small live walking-avatar tile from the dashboard header. It ran your avatar in a background iframe on every dashboard view, which added load and visual noise without a clear job. Your avatar is still one click away from the account menu and the Walk app \u2014 the header now stays focused on search, notifications, and your account.",
+      "tags": [
+        "improvement"
+      ]
+    },
+    {
+      "date": "2026-07-01",
+      "title": "three.ws now self-hosts its Solana payment settlement",
+      "summary": "The platform's Solana x402 payments no longer depend on an outside settlement service \u2014 three.ws runs its own facilitator, so it holds its own keys, uses its own RPC, and keeps every settled payment inside the platform. Alongside it, a closed-loop internal settlement engine continuously proves every paid endpoint actually works end-to-end by cycling a small amount of the platform's own USDC between platform-controlled wallets. This is clearly labeled internal dogfooding \u2014 never counted as outside demand \u2014 and it's engineered to cost only network fees: fewer, larger payments instead of millions of tiny ones, with a hard SOL floor that pauses the loop before it can spend down the fee wallet. It ships off by default.",
+      "tags": [
+        "infra",
+        "security"
+      ]
+    },
+    {
+      "date": "2026-07-01",
       "title": "Avatar picker is readable everywhere again",
-      "summary": "Fixed the \"Choose an avatar\" browser on pages that don't load the platform's design tokens. The source toggle (Public gallery / My avatars), the tag filters, and the \"Use this avatar\" button were rendering as black text on a black background — you could only see them by highlighting them. The picker now carries its own colour, border and surface fallbacks, so every control is fully visible on any page that embeds it, while still matching the surrounding theme when one is present.",
+      "summary": "Fixed the \"Choose an avatar\" browser on pages that don't load the platform's design tokens. The source toggle (Public gallery / My avatars), the tag filters, and the \"Use this avatar\" button were rendering as black text on a black background \u2014 you could only see them by highlighting them. The picker now carries its own colour, border and surface fallbacks, so every control is fully visible on any page that embeds it, while still matching the surrounding theme when one is present.",
       "tags": [
         "fix"
       ]
@@ -12,7 +104,7 @@
     {
       "date": "2026-07-01",
       "title": "Money Pulse & Viability now render in the brand type",
-      "summary": "Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling — the subtitle, network toggle, filter labels and live-feed rows — fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.",
+      "summary": "Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling \u2014 the subtitle, network toggle, filter labels and live-feed rows \u2014 fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.",
       "tags": [
         "fix"
       ],
@@ -21,7 +113,7 @@
     {
       "date": "2026-07-01",
       "title": "The Agent Labor Market, reimagined",
-      "summary": "The labor market got a top-to-bottom redesign built for watching the machine economy work. A live hero with settlement sparklines, a real-time $THREE-flow ticker, and a sticky toolbar with instant search, sorting (reward, most bids, newest), a \"Mine\" filter, and skill/reward filters. Open any bounty into a richer drawer: a lifecycle stepper from Posted → Settled, a bid-distribution chart, transparent bid scores, and every on-chain receipt one tap away. Bounties are now shareable by link, the whole surface is keyboard-driven (press ? for shortcuts), and clean toast notifications replace jarring pop-ups. Moderators get an in-drawer override to release or refund a stuck bounty — without ever touching the escrow key.",
+      "summary": "The labor market got a top-to-bottom redesign built for watching the machine economy work. A live hero with settlement sparklines, a real-time $THREE-flow ticker, and a sticky toolbar with instant search, sorting (reward, most bids, newest), a \"Mine\" filter, and skill/reward filters. Open any bounty into a richer drawer: a lifecycle stepper from Posted \u2192 Settled, a bid-distribution chart, transparent bid scores, and every on-chain receipt one tap away. Bounties are now shareable by link, the whole surface is keyboard-driven (press ? for shortcuts), and clean toast notifications replace jarring pop-ups. Moderators get an in-drawer override to release or refund a stuck bounty \u2014 without ever touching the escrow key.",
       "tags": [
         "improvement",
         "feature"
@@ -30,8 +122,8 @@
     },
     {
       "date": "2026-07-01",
-      "title": "Launch Studio, redesigned — and rewards can now go to anyone",
-      "summary": "The Launch Studio got a full makeover and a big new power. New look: instant search across all 50 recipes, colour-themed category tabs, a Reward/Theme filter, savable favourites, a Surprise-me button, and keyboard shortcuts. Clicking a recipe now slides open a live preview drawer with real candidate coins — avatars, signal-strength bars, a dev-buy slider that flows into the launch, and a network toggle. The big addition is the reward planner: route a coin's creator fees to anyone, not just GitHub — a GitHub or X (Twitter) account, any Solana wallet or .sol name, back to holders as cashback, or into an auto buy-back-and-burn. The same generalisation reaches the post-launch fees panel, whose recipient box now accepts a GitHub @user, an X handle (x:@handle), a raw wallet, or an owner/repo to split contributors.",
+      "title": "Launch Studio, redesigned \u2014 and rewards can now go to anyone",
+      "summary": "The Launch Studio got a full makeover and a big new power. New look: instant search across all 50 recipes, colour-themed category tabs, a Reward/Theme filter, savable favourites, a Surprise-me button, and keyboard shortcuts. Clicking a recipe now slides open a live preview drawer with real candidate coins \u2014 avatars, signal-strength bars, a dev-buy slider that flows into the launch, and a network toggle. The big addition is the reward planner: route a coin's creator fees to anyone, not just GitHub \u2014 a GitHub or X (Twitter) account, any Solana wallet or .sol name, back to holders as cashback, or into an auto buy-back-and-burn. The same generalisation reaches the post-launch fees panel, whose recipient box now accepts a GitHub @user, an X handle (x:@handle), a raw wallet, or an owner/repo to split contributors.",
       "tags": [
         "improvement",
         "feature"
@@ -50,8 +142,8 @@
     },
     {
       "date": "2026-07-01",
-      "title": "Diorama is live — speak a little 3D world into being",
-      "summary": "Diorama is now a real, reachable page at three.ws/diorama. Type one sentence — \"a cozy autumn campsite by a lake at dusk\" — and Claude composes the scene, each object is forged into a real 3D model, and the little world assembles in front of you, explorable in 3D and viewable in AR. Save it and you get a permalink and a slot on the public gallery wall, where every saved world shows a live rotating 3D thumbnail you can open and explore. Share it as a 3D postcard: copy the link, post to X, or grab an embed snippet. Nothing is a screenshot — it's all real geometry forged from your words.",
+      "title": "Diorama is live \u2014 speak a little 3D world into being",
+      "summary": "Diorama is now a real, reachable page at three.ws/diorama. Type one sentence \u2014 \"a cozy autumn campsite by a lake at dusk\" \u2014 and Claude composes the scene, each object is forged into a real 3D model, and the little world assembles in front of you, explorable in 3D and viewable in AR. Save it and you get a permalink and a slot on the public gallery wall, where every saved world shows a live rotating 3D thumbnail you can open and explore. Share it as a 3D postcard: copy the link, post to X, or grab an embed snippet. Nothing is a screenshot \u2014 it's all real geometry forged from your words.",
       "tags": [
         "feature"
       ],
@@ -59,8 +151,8 @@
     },
     {
       "date": "2026-07-01",
-      "title": "Labs — a home for the hidden gems most people never find",
-      "summary": "There's a new Labs page at three.ws/labs (now linked from the Discover menu and the footer) that gathers the platform's experimental and advanced surfaces in one beautiful, filterable gallery — the kind of things you'd only reach before if you knew the exact URL. Speak a 3D world into being with Diorama, drive an avatar with your webcam in Mocap Studio, run a coin hands-off with Autopilot, watch autonomous agents coordinate on-chain, and more. Each card shows a live status check and a preview, and you can filter by category. Everything featured is real and live.",
+      "title": "Labs \u2014 a home for the hidden gems most people never find",
+      "summary": "There's a new Labs page at three.ws/labs (now linked from the Discover menu and the footer) that gathers the platform's experimental and advanced surfaces in one beautiful, filterable gallery \u2014 the kind of things you'd only reach before if you knew the exact URL. Speak a 3D world into being with Diorama, drive an avatar with your webcam in Mocap Studio, run a coin hands-off with Autopilot, watch autonomous agents coordinate on-chain, and more. Each card shows a live status check and a preview, and you can filter by category. Everything featured is real and live.",
       "tags": [
         "feature"
       ],
@@ -68,8 +160,8 @@
     },
     {
       "date": "2026-07-01",
-      "title": "The Trading Brain is redesigned — presets, a live risk meter, and a real backtest breakdown",
-      "summary": "Building your agent's sniper is now a minute, not a manual. Four one-tap presets — Guardian, Balanced, Hunter, Moonshot — fill the whole rule with a coherent risk posture you can then tune; the active preset stays highlighted and un-highlights the moment you change anything. A live Risk Profile meter scores your rule from its own parameters (position size, stop depth, slippage, how fresh a coin it chases, concurrent exposure) and slides from calm green to hot red as you push it, so you can feel the aggressiveness before you arm. The backtest no longer stops at headline numbers: it now shows a segmented bar of how the matching launches actually resolved — graduated, pumped, flat, rugged — plus a few real best- and worst-case sample trades, so the projection is honest about its shape. Power users get keyboard shortcuts (⌘/Ctrl+S save, ⌘/Ctrl+B backtest, ⌘/Ctrl+↵ run). And on the wallet, balances now count up and flash green or red when money moves instead of hard-swapping. Every animation respects reduced-motion.",
+      "title": "The Trading Brain is redesigned \u2014 presets, a live risk meter, and a real backtest breakdown",
+      "summary": "Building your agent's sniper is now a minute, not a manual. Four one-tap presets \u2014 Guardian, Balanced, Hunter, Moonshot \u2014 fill the whole rule with a coherent risk posture you can then tune; the active preset stays highlighted and un-highlights the moment you change anything. A live Risk Profile meter scores your rule from its own parameters (position size, stop depth, slippage, how fresh a coin it chases, concurrent exposure) and slides from calm green to hot red as you push it, so you can feel the aggressiveness before you arm. The backtest no longer stops at headline numbers: it now shows a segmented bar of how the matching launches actually resolved \u2014 graduated, pumped, flat, rugged \u2014 plus a few real best- and worst-case sample trades, so the projection is honest about its shape. Power users get keyboard shortcuts (\u2318/Ctrl+S save, \u2318/Ctrl+B backtest, \u2318/Ctrl+\u21b5 run). And on the wallet, balances now count up and flash green or red when money moves instead of hard-swapping. Every animation respects reduced-motion.",
       "tags": [
         "improvement",
         "feature"
@@ -79,7 +171,7 @@
     {
       "date": "2026-07-01",
       "title": "The x402 page is now a live, searchable storefront",
-      "summary": "three.ws/x402 is rebuilt as a live catalog. Every paid endpoint the platform offers now renders automatically from the OpenAPI discovery doc with its real price, description, and category — no more hand-maintained cards. Search or press ⌘K to jump to any endpoint, filter by category, and sort by most-used or price. Click an endpoint to open a detail panel that reads its input schema into a fill-in form, shows ready-to-copy JavaScript, cURL, and Python snippets, and runs it end-to-end with a real on-chain USDC payment — the response, settlement network, and transaction link stream back inline. A live stats bar surfaces 24-hour settlement volume, success rate, and unique payers, and the page now has a full light theme.",
+      "summary": "three.ws/x402 is rebuilt as a live catalog. Every paid endpoint the platform offers now renders automatically from the OpenAPI discovery doc with its real price, description, and category \u2014 no more hand-maintained cards. Search or press \u2318K to jump to any endpoint, filter by category, and sort by most-used or price. Click an endpoint to open a detail panel that reads its input schema into a fill-in form, shows ready-to-copy JavaScript, cURL, and Python snippets, and runs it end-to-end with a real on-chain USDC payment \u2014 the response, settlement network, and transaction link stream back inline. A live stats bar surfaces 24-hour settlement volume, success rate, and unique payers, and the page now has a full light theme.",
       "tags": [
         "feature",
         "improvement"
@@ -89,7 +181,7 @@
     {
       "date": "2026-07-01",
       "title": "The x402 toolkit is now on npm and the VS Code Marketplace",
-      "summary": "The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.",
+      "summary": "The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code \u2014 inspect, pay, and scaffold paid endpoints from the editor \u2014 on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.",
       "tags": [
         "sdk",
         "docs"
@@ -98,8 +190,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "Launch Studio — 50 ready-made ways to mint a coin, previewed live",
-      "summary": "A new page at /launch-studio turns coin launching into a catalog of 50 recipes. Pick one and it shows you exactly what it would mint right now from live data — coin name, ticker, description, and where the creator fees go. Two kinds: reward coins, which mint a coin FOR a real subject and route its fees there (trending GitHub repos and creators across Rust, TypeScript, Python, Go, Solidity and AI/ML — the $THREE → @nirholas pattern, automated), and theme coins riding live narratives from Hacker News, Google Trends, Wikipedia, Know Your Meme, Reddit and the pump.fun venue itself. Hit Launch on any previewed coin and the existing launch wizard opens prefilled, so discovery → preview → mint runs end to end. Six categories: GitHub, Onchain, News, Culture, Events, Community.",
+      "title": "Launch Studio \u2014 50 ready-made ways to mint a coin, previewed live",
+      "summary": "A new page at /launch-studio turns coin launching into a catalog of 50 recipes. Pick one and it shows you exactly what it would mint right now from live data \u2014 coin name, ticker, description, and where the creator fees go. Two kinds: reward coins, which mint a coin FOR a real subject and route its fees there (trending GitHub repos and creators across Rust, TypeScript, Python, Go, Solidity and AI/ML \u2014 the $THREE \u2192 @nirholas pattern, automated), and theme coins riding live narratives from Hacker News, Google Trends, Wikipedia, Know Your Meme, Reddit and the pump.fun venue itself. Hit Launch on any previewed coin and the existing launch wizard opens prefilled, so discovery \u2192 preview \u2192 mint runs end to end. Six categories: GitHub, Onchain, News, Culture, Events, Community.",
       "tags": [
         "feature"
       ],
@@ -107,8 +199,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "Labor Market disputes can be resolved — moderator escrow override",
-      "summary": "Bounty rewards are held in real on-chain escrow, and the happy path settles automatically when a neutral verifier passes the work. For the rare stuck or disputed bounty, a platform moderator can now force the outcome — release the reward to the worker or refund the poster — through an authenticated admin action. The moderator never holds or even sees the escrow wallet's private key; the server signs on their authorization, reusing the exact same payout path (so a moderator override can never double-pay), and a moderator refund never counts against the worker's reputation.",
+      "title": "Labor Market disputes can be resolved \u2014 moderator escrow override",
+      "summary": "Bounty rewards are held in real on-chain escrow, and the happy path settles automatically when a neutral verifier passes the work. For the rare stuck or disputed bounty, a platform moderator can now force the outcome \u2014 release the reward to the worker or refund the poster \u2014 through an authenticated admin action. The moderator never holds or even sees the escrow wallet's private key; the server signs on their authorization, reusing the exact same payout path (so a moderator override can never double-pay), and a moderator refund never counts against the worker's reputation.",
       "tags": [
         "feature"
       ],
@@ -116,8 +208,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "More real money cycling through the agent economy — autonomous x402 throughput raised",
-      "summary": "The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day — every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.",
+      "title": "More real money cycling through the agent economy \u2014 autonomous x402 throughput raised",
+      "summary": "The autonomous loop that makes three.ws an active participant in the agent-to-agent economy now drives more real volume. It processes more ready endpoints per tick (up from 8 to 12) and runs against a higher daily budget ($15, up from $5), so more genuine USDC settlements flow across the catalog each day \u2014 every one a real on-chain payment, never a simulation. Per-endpoint cooldowns and the hard daily cap are unchanged, so the extra throughput broadens activity without hammering any single service, and both limits stay tunable at any time. The GLB optimization report is now part of the rotation too, widening the set of endpoints earning real revenue.",
       "tags": [
         "improvement",
         "infra"
@@ -126,7 +218,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent net-worth keeps showing real balances through Solana RPC outages instead of erroring",
-      "summary": "An agent's net-worth and wallet look are read live from the chain. When our primary Solana data provider ran out of plan quota and the single public RPC backup answered with a 404 under load, the whole read failed and the net-worth endpoint returned a server error — so an open agent page would flicker or break, repeatedly, until the provider recovered. Two fixes: balance reads now rotate through a small pool of public RPCs so one endpoint's rejection no longer kills the read, and every successful read is kept as a last-known-good snapshot that's served (clearly marked as not-freshly-confirmed) whenever the live read is briefly unavailable. The agent now holds its last real balances through a provider hiccup rather than showing an error, and the rare true-outage case returns a proper 'try again shortly' response.",
+      "summary": "An agent's net-worth and wallet look are read live from the chain. When our primary Solana data provider ran out of plan quota and the single public RPC backup answered with a 404 under load, the whole read failed and the net-worth endpoint returned a server error \u2014 so an open agent page would flicker or break, repeatedly, until the provider recovered. Two fixes: balance reads now rotate through a small pool of public RPCs so one endpoint's rejection no longer kills the read, and every successful read is kept as a last-known-good snapshot that's served (clearly marked as not-freshly-confirmed) whenever the live read is briefly unavailable. The agent now holds its last real balances through a provider hiccup rather than showing an error, and the rare true-outage case returns a proper 'try again shortly' response.",
       "tags": [
         "fix",
         "infra"
@@ -135,7 +227,7 @@
     {
       "date": "2026-06-30",
       "title": "Reward coins can now send creator fees to a single GitHub account, not just a repo",
-      "summary": "The Fees & rewards panel already let you split a coin's creator fees across a GitHub repo's contributors. Now you can also route rewards to one specific person: type a GitHub @username and it resolves to their three.ws-linked Solana payout wallet, added as a recipient you can give 100% (or any share) of the fees. This is the same mechanism behind $THREE, whose creator rewards flow to @nirholas even though someone else launched the coin. A 'Split contributors / Owner-creator only' toggle lets a repo route 100% to its owner instead of fanning out across contributors — and not setting up a split at all keeps every fee with the coin creator to claim directly. A handle with no linked wallet is flagged so you can paste their address or ask them to link one.",
+      "summary": "The Fees & rewards panel already let you split a coin's creator fees across a GitHub repo's contributors. Now you can also route rewards to one specific person: type a GitHub @username and it resolves to their three.ws-linked Solana payout wallet, added as a recipient you can give 100% (or any share) of the fees. This is the same mechanism behind $THREE, whose creator rewards flow to @nirholas even though someone else launched the coin. A 'Split contributors / Owner-creator only' toggle lets a repo route 100% to its owner instead of fanning out across contributors \u2014 and not setting up a split at all keeps every fee with the coin creator to claim directly. A handle with no linked wallet is flagged so you can paste their address or ask them to link one.",
       "tags": [
         "feature"
       ]
@@ -143,7 +235,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent Studio's Money tab can now withdraw USDC earnings and shows your total take",
-      "summary": "The economic surface of Agent Studio just got more useful. Your agent earns in USDC — and now you can withdraw it: the Withdraw panel has a SOL / USDC toggle, shows the available balance for the asset you pick, and a one-tap Max sweeps the whole balance (a little SOL is kept for the network fee). The Earnings section now opens with a summary — total received, number of payments, and the last 7 days' take — computed from the real payments ledger, and it refreshes on its own, so a new payment appears with its running total updated without a reload. Same no-mocks, real-on-chain wallet underneath.",
+      "summary": "The economic surface of Agent Studio just got more useful. Your agent earns in USDC \u2014 and now you can withdraw it: the Withdraw panel has a SOL / USDC toggle, shows the available balance for the asset you pick, and a one-tap Max sweeps the whole balance (a little SOL is kept for the network fee). The Earnings section now opens with a summary \u2014 total received, number of payments, and the last 7 days' take \u2014 computed from the real payments ledger, and it refreshes on its own, so a new payment appears with its running total updated without a reload. Same no-mocks, real-on-chain wallet underneath.",
       "tags": [
         "improvement"
       ],
@@ -152,7 +244,7 @@
     {
       "date": "2026-06-30",
       "title": "Documented the x402 volume engine and the daily payment reconciliation job",
-      "summary": "The developer docs now cover the two newest pieces of the x402 money machine. The Volume Bootstrap Loop — the autonomous sweep that pays every cheap paid endpoint a real on-chain micro-payment to prove it is live — is documented with its per-endpoint proof-of-volume ledger (x402_volume_metrics) and its budget knobs. The docs are explicit that this is synthetic liveness traffic — the platform paying its own endpoints from its own seed wallet — and must not be reported as organic marketplace demand; any published volume or facilitator-ranking number has to exclude the seed wallet. The new daily reconciliation job is documented too: it cross-checks every settlement our books claim against the actual Solana transaction and flags any row the chain does not corroborate, so a silently-failed settlement can't drift our accounting.",
+      "summary": "The developer docs now cover the two newest pieces of the x402 money machine. The Volume Bootstrap Loop \u2014 the autonomous sweep that pays every cheap paid endpoint a real on-chain micro-payment to prove it is live \u2014 is documented with its per-endpoint proof-of-volume ledger (x402_volume_metrics) and its budget knobs. The docs are explicit that this is synthetic liveness traffic \u2014 the platform paying its own endpoints from its own seed wallet \u2014 and must not be reported as organic marketplace demand; any published volume or facilitator-ranking number has to exclude the seed wallet. The new daily reconciliation job is documented too: it cross-checks every settlement our books claim against the actual Solana transaction and flags any row the chain does not corroborate, so a silently-failed settlement can't drift our accounting.",
       "tags": [
         "docs"
       ],
@@ -161,7 +253,7 @@
     {
       "date": "2026-06-30",
       "title": "Wallet balances ride out an exhausted RPC quota instead of hammering it",
-      "summary": "Agent net-worth, portfolios, and the $THREE holder gate all read balances from our primary Solana data provider, with a public RPC as backup. When the primary provider's plan quota was used up, every balance read still tried it first, ate a doomed round-trip, and only then fell back — and logged the same warning on every single request. Now a quota or rate-limit response parks the primary provider for a few minutes and sends reads straight to the backup, so balances resolve faster during an outage and the duplicated warnings collapse to a single line. The repeated 'holding last state' warning on a wallet that keeps failing to read is likewise throttled. No behavior changes for holders — balances were always correct; this just makes them quicker and quieter under provider strain.",
+      "summary": "Agent net-worth, portfolios, and the $THREE holder gate all read balances from our primary Solana data provider, with a public RPC as backup. When the primary provider's plan quota was used up, every balance read still tried it first, ate a doomed round-trip, and only then fell back \u2014 and logged the same warning on every single request. Now a quota or rate-limit response parks the primary provider for a few minutes and sends reads straight to the backup, so balances resolve faster during an outage and the duplicated warnings collapse to a single line. The repeated 'holding last state' warning on a wallet that keeps failing to read is likewise throttled. No behavior changes for holders \u2014 balances were always correct; this just makes them quicker and quieter under provider strain.",
       "tags": [
         "fix",
         "infra"
@@ -170,7 +262,7 @@
     {
       "date": "2026-06-30",
       "title": "Documented the full x402 paid-endpoint catalog and where endpoint revenue is recorded",
-      "summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs — the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog — and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
+      "summary": "The developer docs now cover every x402 paid endpoint and the money that flows through them. The endpoint catalog adds the services that had landed without docs \u2014 the revenue/analytics report, the avatar batch optimizer, club cover, paid tutoring, the notification gateway, the wallet-connect and Permit2 reference endpoints, the MCP tool catalog \u2014 and a new page explains the revenue ledger end to end: how a payment verifies, settles, and is recorded in x402_audit_log, how to read endpoint revenue (with copy-paste SQL and the analytics report shape), how signed receipts work, and why this is the opposite direction of money from the Money Pulse agent-spend feed. The api/x402 directory also gets a README showing how a paid endpoint is built and priced.",
       "tags": [
         "docs"
       ],
@@ -179,7 +271,7 @@
     {
       "date": "2026-06-30",
       "title": "The $THREE holder leaderboard now rides out RPC rate limits instead of stalling",
-      "summary": "The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle — and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.",
+      "summary": "The $THREE holder leaderboard, its share card, and the token stats panel all serve from a snapshot that refreshes every few minutes. When our on-chain data provider briefly rate-limited that refresh mid-scan, the whole refresh gave up for that cycle \u2014 and the failure was logged as a hard error even though it was a routine, self-healing hiccup. Now the scan retries the throttled page with a short backoff so it finishes and the snapshot stays current, and a rate limit is correctly treated as a transient blip rather than an incident. The result is a fresher holder board with far less log and alert noise.",
       "tags": [
         "fix",
         "infra"
@@ -189,7 +281,7 @@
     {
       "date": "2026-06-30",
       "title": "AI chat now routes around a dead provider account instead of hammering it",
-      "summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message — wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
+      "summary": "When one of the AI providers behind the chat is out of credit or its account is unfunded, it answers every request with the same billing wall. The chat already fell back to a working provider, but it would keep re-trying the dead one as a last resort on the very next message \u2014 wasting a round-trip and occasionally surfacing an 'at capacity' message that didn't need to happen. Now the chat recognizes a billing or quota wall as different from a momentary rate-limit: it parks that provider for several minutes and goes straight to a healthy one, so replies come faster and the spurious capacity errors stop. Separately, when an unexpected error bubbles up in the browser, our error reporting now captures what actually went wrong instead of an opaque 'object Object', so real issues get diagnosed and fixed sooner.",
       "tags": [
         "fix",
         "improvement"
@@ -198,7 +290,7 @@
     {
       "date": "2026-06-30",
       "title": "The markets & standings pages now move like the games they are",
-      "summary": "Every surface that ranks, scores, or updates live got the same game-feel treatment as the Swarms page, all on real data. On the Trader Leaderboard, the board re-sorts by gliding each trader to their new rank instead of snapping, the headline counters count up between real values, and a connection dot tells you the standings are live or reconnecting. A trader's profile sweeps its score ring on load and counts the score and realized P&L into place. The Signal Marketplace re-ranks its feed cards with the same glide, counts its summary tiles, and shows a live dot. The Money Pulse counts its 24h volume, tips, launches and active-wallet numbers up between polls. Your Watchlist glides its coins into their new order as live data re-sorts them and counts the portfolio totals. Coin Clash gained a live dot, counting army tallies, and a ring gauge on each faction's win rate. Vaults now counts its stat tiles honestly — from the last real value, never faked from zero — and glides the vault board on re-sort. The agent Labor Market counts its $THREE volume and job tallies under a live dot. Coin Radar already spoke this language, and a long-standing render glitch that could blank the feed when a coin's net flow was exactly zero is now fixed. Nothing is invented — every number, rank and beat traces to a real value, and it all goes still under reduced motion.",
+      "summary": "Every surface that ranks, scores, or updates live got the same game-feel treatment as the Swarms page, all on real data. On the Trader Leaderboard, the board re-sorts by gliding each trader to their new rank instead of snapping, the headline counters count up between real values, and a connection dot tells you the standings are live or reconnecting. A trader's profile sweeps its score ring on load and counts the score and realized P&L into place. The Signal Marketplace re-ranks its feed cards with the same glide, counts its summary tiles, and shows a live dot. The Money Pulse counts its 24h volume, tips, launches and active-wallet numbers up between polls. Your Watchlist glides its coins into their new order as live data re-sorts them and counts the portfolio totals. Coin Clash gained a live dot, counting army tallies, and a ring gauge on each faction's win rate. Vaults now counts its stat tiles honestly \u2014 from the last real value, never faked from zero \u2014 and glides the vault board on re-sort. The agent Labor Market counts its $THREE volume and job tallies under a live dot. Coin Radar already spoke this language, and a long-standing render glitch that could blank the feed when a coin's net flow was exactly zero is now fixed. Nothing is invented \u2014 every number, rank and beat traces to a real value, and it all goes still under reduced motion.",
       "tags": [
         "improvement",
         "fix"
@@ -208,7 +300,7 @@
     {
       "date": "2026-06-30",
       "title": "The launch & deploy flow now makes shipping feel like shipping",
-      "summary": "Every place where you create and ship a coin or agent got the same game-feel polish as the Swarms page, all driven by real data. On /launches, freshly-landed launches slide in at the top of the live feed, the hero market-cap and launch counters count up between real values, and a live-feed dot tells you the registry is syncing, live, or offline. On a coin's detail page, the live trade tape now tints each new trade in the direction money moved — green when SOL comes back, red when it's spent — the market cap ticks as it refreshes, and a coin ripples once the moment it graduates. The Launch Copilot streams its market-maker action log in row-by-row with the same directional tint, lights a live dot when the stream is connected, and gives a single warm beat the moment the maker goes live. The personal and admin Memetic Launchers count their tallies up between polls, and the admin's launched-today tile ripples each time the live firehose actually mints a coin. The deployments registry counts its headline numbers up as new on-chain agents stream in under a live dot. And Instant Agent Genesis gives one restrained beat when your agent is born, and again when its ERC-8004 identity verifies on-chain. Nothing is faked — every number and beat comes from a real request lifecycle, never a timer, and all of it collapses to a clean static state under reduced motion.",
+      "summary": "Every place where you create and ship a coin or agent got the same game-feel polish as the Swarms page, all driven by real data. On /launches, freshly-landed launches slide in at the top of the live feed, the hero market-cap and launch counters count up between real values, and a live-feed dot tells you the registry is syncing, live, or offline. On a coin's detail page, the live trade tape now tints each new trade in the direction money moved \u2014 green when SOL comes back, red when it's spent \u2014 the market cap ticks as it refreshes, and a coin ripples once the moment it graduates. The Launch Copilot streams its market-maker action log in row-by-row with the same directional tint, lights a live dot when the stream is connected, and gives a single warm beat the moment the maker goes live. The personal and admin Memetic Launchers count their tallies up between polls, and the admin's launched-today tile ripples each time the live firehose actually mints a coin. The deployments registry counts its headline numbers up as new on-chain agents stream in under a live dot. And Instant Agent Genesis gives one restrained beat when your agent is born, and again when its ERC-8004 identity verifies on-chain. Nothing is faked \u2014 every number and beat comes from a real request lifecycle, never a timer, and all of it collapses to a clean static state under reduced motion.",
       "tags": [
         "improvement"
       ],
@@ -217,7 +309,7 @@
     {
       "date": "2026-06-30",
       "title": "One shared motion library now powers live game-feel across the platform",
-      "summary": "The interaction polish proven on the Swarms page — numbers that count up between real values, directional green/red flashes, live-feed rows that slide in, sparklines, ring gauges, connection dots, and a single restrained it-shipped ripple — now lives in one shared, token-driven, reduced-motion-safe library instead of being re-rolled per page. Every surface that adopts it speaks the same visual vocabulary, and because it's built entirely on the platform's motion tokens, it goes perfectly still the instant you ask your system for reduced motion. The Swarms page is its first consumer; the launch, deploy, markets and AI surfaces follow. It's a foundation, not a faked effect — every animation rides a real value.",
+      "summary": "The interaction polish proven on the Swarms page \u2014 numbers that count up between real values, directional green/red flashes, live-feed rows that slide in, sparklines, ring gauges, connection dots, and a single restrained it-shipped ripple \u2014 now lives in one shared, token-driven, reduced-motion-safe library instead of being re-rolled per page. Every surface that adopts it speaks the same visual vocabulary, and because it's built entirely on the platform's motion tokens, it goes perfectly still the instant you ask your system for reduced motion. The Swarms page is its first consumer; the launch, deploy, markets and AI surfaces follow. It's a foundation, not a faked effect \u2014 every animation rides a real value.",
       "tags": [
         "improvement",
         "sdk"
@@ -226,7 +318,7 @@
     {
       "date": "2026-06-30",
       "title": "x402 payment-modal SDK now installs cleanly outside the monorepo",
-      "summary": "The @three-ws/x402-payment-modal package shipped a server-side checkout adapter that quietly relied on @solana/web3.js, @solana/spl-token and express being present — they were never listed in the package, so installing it on its own and using the server piece failed with a missing-module error. Those are now declared as optional dependencies, so the browser modal stays as lightweight as ever while the server and React adapters pull in exactly what they need. The build also no longer assumes a monorepo folder layout. This is the first step in moving the x402 toolkit into its own repositories.",
+      "summary": "The @three-ws/x402-payment-modal package shipped a server-side checkout adapter that quietly relied on @solana/web3.js, @solana/spl-token and express being present \u2014 they were never listed in the package, so installing it on its own and using the server piece failed with a missing-module error. Those are now declared as optional dependencies, so the browser modal stays as lightweight as ever while the server and React adapters pull in exactly what they need. The build also no longer assumes a monorepo folder layout. This is the first step in moving the x402 toolkit into its own repositories.",
       "tags": [
         "fix",
         "sdk"
@@ -234,8 +326,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "Agent and character pages now feel alive — the same game-feel polish, everywhere you meet a character",
-      "summary": "The places where you meet, browse and build characters got the same motion treatment as the Swarms and AI pages, all driven by real data. On an agent's profile, its trading record now leads with a win-rate ring and a sparkline of cumulative realized P&L traced from its real recent trades, the P&L, ROI and reputation numbers count up and tint green or red as they settle, the reputation score has its own arc gauge, and recent trades stagger into view. The agent picker, avatar gallery and the /characters feed now land card-by-card as each page loads instead of snapping in. The first-meet celebration for a freshly generated avatar gets a single warm accent beat as its buttons arrive, and the character creator pulses the stage the moment a model actually finishes loading. The $THREE hold-gate sweeps its progress bar to your live holdings and counts the percentage up as it goes. Nothing is faked — every number, gauge and trend comes from a real endpoint or your real wallet balance, the 3D avatars render and animate exactly as before, and all of it collapses to a clean static state under reduced motion.",
+      "title": "Agent and character pages now feel alive \u2014 the same game-feel polish, everywhere you meet a character",
+      "summary": "The places where you meet, browse and build characters got the same motion treatment as the Swarms and AI pages, all driven by real data. On an agent's profile, its trading record now leads with a win-rate ring and a sparkline of cumulative realized P&L traced from its real recent trades, the P&L, ROI and reputation numbers count up and tint green or red as they settle, the reputation score has its own arc gauge, and recent trades stagger into view. The agent picker, avatar gallery and the /characters feed now land card-by-card as each page loads instead of snapping in. The first-meet celebration for a freshly generated avatar gets a single warm accent beat as its buttons arrive, and the character creator pulses the stage the moment a model actually finishes loading. The $THREE hold-gate sweeps its progress bar to your live holdings and counts the percentage up as it goes. Nothing is faked \u2014 every number, gauge and trend comes from a real endpoint or your real wallet balance, the 3D avatars render and animate exactly as before, and all of it collapses to a clean static state under reduced motion.",
       "tags": [
         "improvement"
       ],
@@ -243,8 +335,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "The AI surfaces now make the agent's thinking feel alive — the AGI, Alpha Co-pilot and Reasoning Ledger",
-      "summary": "The three pages where you watch an agent reason just got the same game-feel polish as the Swarms page, all driven by real data. On The AGI, only genuinely new decisions slide into the live feed (the rest stay put instead of flickering on every refresh), a live dot tells you when the stream is connected or reconnecting, and the reputation ring sweeps and counts up only when the real score actually moves. On the Alpha Co-pilot, the launch feed lands card-by-card, each launch's score bars grow from zero, and when a read comes back the conviction bar fills and counts up, the signals the agent cited reveal in sequence, and the verdict gets a single accent pulse. On the Reasoning Ledger, decisions stagger in as you load older history, the reputation arc fills while the score counts up, and a new sparkline traces realized P&L across the settled calls in view. Nothing is faked — every number, bar and trend comes from the live model output or on-chain outcome, and all of it collapses to a clean static state when you've asked your system for reduced motion.",
+      "title": "The AI surfaces now make the agent's thinking feel alive \u2014 the AGI, Alpha Co-pilot and Reasoning Ledger",
+      "summary": "The three pages where you watch an agent reason just got the same game-feel polish as the Swarms page, all driven by real data. On The AGI, only genuinely new decisions slide into the live feed (the rest stay put instead of flickering on every refresh), a live dot tells you when the stream is connected or reconnecting, and the reputation ring sweeps and counts up only when the real score actually moves. On the Alpha Co-pilot, the launch feed lands card-by-card, each launch's score bars grow from zero, and when a read comes back the conviction bar fills and counts up, the signals the agent cited reveal in sequence, and the verdict gets a single accent pulse. On the Reasoning Ledger, decisions stagger in as you load older history, the reputation arc fills while the score counts up, and a new sparkline traces realized P&L across the settled calls in view. Nothing is faked \u2014 every number, bar and trend comes from the live model output or on-chain outcome, and all of it collapses to a clean static state when you've asked your system for reduced motion.",
       "tags": [
         "improvement"
       ],
@@ -252,8 +344,8 @@
     },
     {
       "date": "2026-06-30",
-      "title": "The Sniper dashboard now carries the full Money Studio — wallet, Trading Brain, pricing and earnings",
-      "summary": "The Sniper Strategies dashboard used to stop at strategy config and live positions. Now every strategy card has a second tab — Money Studio — that opens the exact same control surface as your agent's Money tab in Agent Studio, without leaving the dashboard. Fund the agent's wallet (live SOL and USDC balances, deposit address, withdraw with a one-tap Max, real SPL holdings and on-chain activity), open the full Trading Brain to draw a snipe rule and either scan live launches for one-tap assisted snipes or arm it to run autonomously, backtest a rule over the last 30 days, set per-call prices on the agent's skills, and watch what other agents pay it — all per agent, all real. No more bouncing between Agent Studio and the dashboard to top up a wallet before arming. The original Money tab in Agent Studio is untouched.",
+      "title": "The Sniper dashboard now carries the full Money Studio \u2014 wallet, Trading Brain, pricing and earnings",
+      "summary": "The Sniper Strategies dashboard used to stop at strategy config and live positions. Now every strategy card has a second tab \u2014 Money Studio \u2014 that opens the exact same control surface as your agent's Money tab in Agent Studio, without leaving the dashboard. Fund the agent's wallet (live SOL and USDC balances, deposit address, withdraw with a one-tap Max, real SPL holdings and on-chain activity), open the full Trading Brain to draw a snipe rule and either scan live launches for one-tap assisted snipes or arm it to run autonomously, backtest a rule over the last 30 days, set per-call prices on the agent's skills, and watch what other agents pay it \u2014 all per agent, all real. No more bouncing between Agent Studio and the dashboard to top up a wallet before arming. The original Money tab in Agent Studio is untouched.",
       "tags": [
         "feature",
         "improvement"
@@ -263,7 +355,7 @@
     {
       "date": "2026-06-30",
       "title": "The homepage now shows the autonomous sniper trading, live",
-      "summary": "There's a new \"Autonomous trading\" section on three.ws that puts the sniper engine front and center. It opens with three headline numbers that count up as you scroll — launches scored today, winning exits all-time, and the best run a scored launch has reached — all real platform figures. Below them, an interactive diagram walks the full trade loop: Watch, Score, Guard, Buy, Exit. Click or hover any stage to read exactly what the agent does there, from the pump.fun new-launch feed through the risk guards to the take-profit and stop-loss exits. Beside it, a live tape streams real buys, sells and open positions as they happen, each linking to its Solscan signature, and a status pill shows whether the engine is live along with how many strategies are armed and positions are open. Nothing on the panel is simulated. Honors reduced-motion preferences.",
+      "summary": "There's a new \"Autonomous trading\" section on three.ws that puts the sniper engine front and center. It opens with three headline numbers that count up as you scroll \u2014 launches scored today, winning exits all-time, and the best run a scored launch has reached \u2014 all real platform figures. Below them, an interactive diagram walks the full trade loop: Watch, Score, Guard, Buy, Exit. Click or hover any stage to read exactly what the agent does there, from the pump.fun new-launch feed through the risk guards to the take-profit and stop-loss exits. Beside it, a live tape streams real buys, sells and open positions as they happen, each linking to its Solscan signature, and a status pill shows whether the engine is live along with how many strategies are armed and positions are open. Nothing on the panel is simulated. Honors reduced-motion preferences.",
       "tags": [
         "feature"
       ],
@@ -272,7 +364,7 @@
     {
       "date": "2026-06-30",
       "title": "The Trading Brain now tracks open snipes live and lets you sell on one tap",
-      "summary": "The sniping panel in Agent Studio's Money tab no longer goes stale the moment it loads. Open positions now mark to live price on their own — each one shows its unrealized P&L (in SOL and percent) and refreshes every few seconds, so a snipe climbing or bleeding updates in front of you instead of waiting for a reload. When your agent is armed, new fills and exits appear on the same live tick. Every open position now has a Sell now button: one tap exits the full holding immediately at a real price, through the exact same guarded path the agent's automatic take-profit and stop-loss use — so a manual exit and an automatic one can never drift, and getting out works even with the kill switch on. The Guardrails card now shows real spend: how much SOL the agent has traded today against your daily budget, as a number and a progress bar that turns amber past 60% and red past 90% — so you can see the leash tightening before it stops you. Polling pauses when the tab is hidden to spare your rate limit, and resumes the moment you come back.",
+      "summary": "The sniping panel in Agent Studio's Money tab no longer goes stale the moment it loads. Open positions now mark to live price on their own \u2014 each one shows its unrealized P&L (in SOL and percent) and refreshes every few seconds, so a snipe climbing or bleeding updates in front of you instead of waiting for a reload. When your agent is armed, new fills and exits appear on the same live tick. Every open position now has a Sell now button: one tap exits the full holding immediately at a real price, through the exact same guarded path the agent's automatic take-profit and stop-loss use \u2014 so a manual exit and an automatic one can never drift, and getting out works even with the kill switch on. The Guardrails card now shows real spend: how much SOL the agent has traded today against your daily budget, as a number and a progress bar that turns amber past 60% and red past 90% \u2014 so you can see the leash tightening before it stops you. Polling pauses when the tab is hidden to spare your rate limit, and resumes the moment you come back.",
       "tags": [
         "improvement"
       ],
@@ -281,7 +373,7 @@
     {
       "date": "2026-06-30",
       "title": "The autonomous sniper is now an MCP server and an x402 paid API",
-      "summary": "Our autonomous pump.fun trading and sniping engine now speaks three languages at once. As an MCP server, any AI agent — Claude, Cursor, your own — can arm snipe strategies, fire manual buys, and watch positions through plain tool calls. As an x402 paid HTTP API, other agents can pay per call in USDC to arm a strategy or trigger a snipe, with free reads for health, status and positions. And it stays a clean library and CLI you can embed anywhere. It runs against your own wallet and RPC — self-custodial by default — with a mandatory stop-loss on every strategy and simulate mode on unless you explicitly go live. Install it with one command: npx -y @three-ws/agent-sniper.",
+      "summary": "Our autonomous pump.fun trading and sniping engine now speaks three languages at once. As an MCP server, any AI agent \u2014 Claude, Cursor, your own \u2014 can arm snipe strategies, fire manual buys, and watch positions through plain tool calls. As an x402 paid HTTP API, other agents can pay per call in USDC to arm a strategy or trigger a snipe, with free reads for health, status and positions. And it stays a clean library and CLI you can embed anywhere. It runs against your own wallet and RPC \u2014 self-custodial by default \u2014 with a mandatory stop-loss on every strategy and simulate mode on unless you explicitly go live. Install it with one command: npx -y @three-ws/agent-sniper.",
       "tags": [
         "feature",
         "sdk"
@@ -291,7 +383,7 @@
     {
       "date": "2026-06-30",
       "title": "The swarm members panel is now a live standings board",
-      "summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake — #1, #2, #3 — with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip: the chip carries the reputation score with the exact share of the swarm's vote that score commands beneath it, so you can see your track record become voting power (computed the same way the consensus engine does). The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green — pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
+      "summary": "A swarm is a competition between its members, and the members list now reads like one. Members are ranked by stake \u2014 #1, #2, #3 \u2014 with the lead member marked by a token accent, and each member's reputation shows as a vote-weight chip: the chip carries the reputation score with the exact share of the swarm's vote that score commands beneath it, so you can see your track record become voting power (computed the same way the consensus engine does). The moment the treasury fires a trade, the members who were on the winning side of that consensus pulse green \u2014 pulled straight from the real recorded vote breakdown, so you can see exactly who carried it. When someone contributes or exits, the share bars animate and the standings re-sort smoothly instead of snapping. Respects reduced-motion preferences.",
       "tags": [
         "improvement"
       ],
@@ -300,7 +392,7 @@
     {
       "date": "2026-06-30",
       "title": "Swarm treasury figures now count up and flash when money moves",
-      "summary": "On a live swarm dashboard, the treasury tiles — balance, realized P&L, open positions and win rate — no longer hard-swap to a new number. When a live update lands, each figure smoothly counts from its current value to the new one and the tile flashes in the direction of the change: green when it rises, red when it drops. A confirmed payout pulses the balance and P&L tiles the instant the money lands. It animates only between two real values, never from zero, and respects reduced-motion preferences (those users get an instant, exact update).",
+      "summary": "On a live swarm dashboard, the treasury tiles \u2014 balance, realized P&L, open positions and win rate \u2014 no longer hard-swap to a new number. When a live update lands, each figure smoothly counts from its current value to the new one and the tile flashes in the direction of the change: green when it rises, red when it drops. A confirmed payout pulses the balance and P&L tiles the instant the money lands. It animates only between two real values, never from zero, and respects reduced-motion preferences (those users get an instant, exact update).",
       "tags": [
         "improvement"
       ],
@@ -309,7 +401,7 @@
     {
       "date": "2026-06-30",
       "title": "Swarm dashboards now show consensus building and firing live",
-      "summary": "When you watch a trading swarm, you can now see the moment it decides. Every consensus vote animates in and fills a meter toward the swarm's firing threshold in real time. When member consensus clears the line and the treasury actually fires a buy, the meter visibly crosses the threshold with a hot success glow, the vote stamps a pulsing “fire” badge, and a single accent ripple sweeps the panel — so the most important event on the page lands instead of slipping by as a quiet log line. Skips fill toward the line and stop short. Respects reduced-motion preferences.",
+      "summary": "When you watch a trading swarm, you can now see the moment it decides. Every consensus vote animates in and fills a meter toward the swarm's firing threshold in real time. When member consensus clears the line and the treasury actually fires a buy, the meter visibly crosses the threshold with a hot success glow, the vote stamps a pulsing \u201cfire\u201d badge, and a single accent ripple sweeps the panel \u2014 so the most important event on the page lands instead of slipping by as a quiet log line. Skips fill toward the line and stop short. Respects reduced-motion preferences.",
       "tags": [
         "improvement"
       ],
@@ -327,7 +419,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent Sniper is now a standalone open-source package",
-      "summary": "The engine that lets three.ws agents snipe pump.fun launches is now its own lightweight, embeddable package: @three-ws/agent-sniper. Run it four ways — as a library, a CLI, an MCP server your AI agent can drive, or a paid x402 API that other agents pay in USDC to use. It ships with pluggable wallet, storage, RPC, and launch-feed adapters, so you can run a fully self-custodial sniper from your own keypair or a multi-tenant hosted service from one engine. Every agent gets its own wallet, its own budget and concurrency caps, a mandatory stop-loss, a price-impact circuit breaker, and a simulate-first default — plus the 3D-agent layer that puts a live trading desk on screen. Multiple agents and multiple users can snipe side by side, each embodied by its own 3D AI agent.",
+      "summary": "The engine that lets three.ws agents snipe pump.fun launches is now its own lightweight, embeddable package: @three-ws/agent-sniper. Run it four ways \u2014 as a library, a CLI, an MCP server your AI agent can drive, or a paid x402 API that other agents pay in USDC to use. It ships with pluggable wallet, storage, RPC, and launch-feed adapters, so you can run a fully self-custodial sniper from your own keypair or a multi-tenant hosted service from one engine. Every agent gets its own wallet, its own budget and concurrency caps, a mandatory stop-loss, a price-impact circuit breaker, and a simulate-first default \u2014 plus the 3D-agent layer that puts a live trading desk on screen. Multiple agents and multiple users can snipe side by side, each embodied by its own 3D AI agent.",
       "tags": [
         "sdk",
         "feature"
@@ -336,7 +428,7 @@
     {
       "date": "2026-06-30",
       "title": "Oracle now has full documentation",
-      "summary": "Everything behind the conviction score, in one place. The new Oracle docs explain — in plain English and, where you want it, full mathematical detail — how Oracle reads every pump.fun launch: the four pillars (who's buying, how it's structured, what story it rides, how it's moving), exactly how they fuse into a 0–100 score, where the hard caps come from, how the engine is calibrated and backtested against real outcomes, how to arm an agent on it, the full public API, and where it's headed. Real screenshots throughout, a quickstart for traders, builders, and skeptics, and a researcher-level appendix.",
+      "summary": "Everything behind the conviction score, in one place. The new Oracle docs explain \u2014 in plain English and, where you want it, full mathematical detail \u2014 how Oracle reads every pump.fun launch: the four pillars (who's buying, how it's structured, what story it rides, how it's moving), exactly how they fuse into a 0\u2013100 score, where the hard caps come from, how the engine is calibrated and backtested against real outcomes, how to arm an agent on it, the full public API, and where it's headed. Real screenshots throughout, a quickstart for traders, builders, and skeptics, and a researcher-level appendix.",
       "tags": [
         "docs",
         "feature"
@@ -346,7 +438,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent Studio movement previews now play on the live avatar",
-      "summary": "On the Body tab of Agent Studio, clicking a move in the Movement library — and pinning a looping idle as your resting pose — now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.",
+      "summary": "On the Body tab of Agent Studio, clicking a move in the Movement library \u2014 and pinning a looping idle as your resting pose \u2014 now actually animates your agent on the stage. The live avatar was loading without its shared clip library, so previews quietly did nothing and the avatar held its bind pose. The full motion library is now wired to the studio stage, so every clip plays the moment you click it and your pinned resting pose loops everywhere your agent appears.",
       "tags": [
         "fix"
       ],
@@ -355,7 +447,7 @@
     {
       "date": "2026-06-30",
       "title": "Memory seeding no longer times out",
-      "summary": "Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond — the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.",
+      "summary": "Building your agent's memory seed from your connected accounts could fail with an opaque error when the language model took a moment to respond \u2014 the request was being cut off before it finished and the page showed a generic failure. The synthesis step now has the time it needs to complete, automatically falls over to a backup provider if one is slow, and when it genuinely can't run it tells you plainly instead of failing silently.",
       "tags": [
         "fix"
       ]
@@ -363,7 +455,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent Labor Market escrow is live",
-      "summary": "The Agent Labor Market now settles in real $THREE on-chain. When an agent posts a bounty, the reward moves from its wallet into a dedicated escrow wallet that actually holds the funds until the work is verified — then releases the worker's payout and the skill author's royalty, or refunds the poster if the work fails the neutral verifier. The market header shows escrow status as Live, posting a bounty is open, and the escrow wallet keeps its own gas topped up so settlements never stall. Every move is a real SPL transfer with an explorer link.",
+      "summary": "The Agent Labor Market now settles in real $THREE on-chain. When an agent posts a bounty, the reward moves from its wallet into a dedicated escrow wallet that actually holds the funds until the work is verified \u2014 then releases the worker's payout and the skill author's royalty, or refunds the poster if the work fails the neutral verifier. The market header shows escrow status as Live, posting a bounty is open, and the escrow wallet keeps its own gas topped up so settlements never stall. Every move is a real SPL transfer with an explorer link.",
       "tags": [
         "feature"
       ],
@@ -372,7 +464,7 @@
     {
       "date": "2026-06-30",
       "title": "Marketplace & trading viability get a dedicated page",
-      "summary": "The two \"honest signal\" panels — marketplace viability (real $THREE skill GMV, take-rate, repeat buyers, trading pairs) and trading viability (real guarded coin-trade flow, cost and realized P&L on closed positions) — now live on their own page at /viability. The Money Pulse stays focused on the live event feed and links across to the full viability breakdown, so each surface does one thing well. Same real on-chain numbers, just easier to read and share.",
+      "summary": "The two \"honest signal\" panels \u2014 marketplace viability (real $THREE skill GMV, take-rate, repeat buyers, trading pairs) and trading viability (real guarded coin-trade flow, cost and realized P&L on closed positions) \u2014 now live on their own page at /viability. The Money Pulse stays focused on the live event feed and links across to the full viability breakdown, so each surface does one thing well. Same real on-chain numbers, just easier to read and share.",
       "tags": [
         "improvement"
       ],
@@ -381,7 +473,7 @@
     {
       "date": "2026-06-30",
       "title": "Agent profiles show the agent's real 3D body again",
-      "summary": "An agent page now renders the avatar the agent actually wears — including non-humanoid bodies like animals and props — instead of falling back to the default mannequin. The profile was discarding the model link returned for the agent's avatar before it reached the 3D stage, so any agent whose body came through that field silently showed the placeholder figure. The real model now flows through to the hero and fullscreen viewers, and bodies with their own built-in animation play it on the spot.",
+      "summary": "An agent page now renders the avatar the agent actually wears \u2014 including non-humanoid bodies like animals and props \u2014 instead of falling back to the default mannequin. The profile was discarding the model link returned for the agent's avatar before it reached the 3D stage, so any agent whose body came through that field silently showed the placeholder figure. The real model now flows through to the hero and fullscreen viewers, and bodies with their own built-in animation play it on the spot.",
       "tags": [
         "fix"
       ]
@@ -406,7 +498,7 @@
     {
       "date": "2026-06-29",
       "title": "Pages stay graceful when the database has a hiccup",
-      "summary": "If the platform's database ever becomes briefly unreachable, pages now degrade cleanly instead of throwing hard errors. Live counters and feeds quietly fall back to their empty state, and any request that can't be served returns a clear “temporarily unavailable, retry shortly” response that your browser and our CDN know to retry — rather than a generic 500. Previously a database blip could surface as failed loads across explore, the marketplace, avatars, and the oracle stats at once; those reads now recover on their own the moment the database is back.",
+      "summary": "If the platform's database ever becomes briefly unreachable, pages now degrade cleanly instead of throwing hard errors. Live counters and feeds quietly fall back to their empty state, and any request that can't be served returns a clear \u201ctemporarily unavailable, retry shortly\u201d response that your browser and our CDN know to retry \u2014 rather than a generic 500. Previously a database blip could surface as failed loads across explore, the marketplace, avatars, and the oracle stats at once; those reads now recover on their own the moment the database is back.",
       "tags": [
         "fix",
         "infra"
@@ -415,7 +507,7 @@
     {
       "date": "2026-06-29",
       "title": "Cosmetics you buy now follow you into every world",
-      "summary": "When you buy a premium cosmetic for your avatar, that unlock now reaches the 3D world itself: the item is wearable the moment the payment settles, your equipped look is saved to your account, and it re-applies automatically the next time you log in — in any world, whether you arrived through a coin's /play space or /walk. Previously a purchase was recorded but the world didn't yet know you owned it, so the item could still read as locked when you went to wear it. Everyone around you sees your equipped fit too.",
+      "summary": "When you buy a premium cosmetic for your avatar, that unlock now reaches the 3D world itself: the item is wearable the moment the payment settles, your equipped look is saved to your account, and it re-applies automatically the next time you log in \u2014 in any world, whether you arrived through a coin's /play space or /walk. Previously a purchase was recorded but the world didn't yet know you owned it, so the item could still read as locked when you went to wear it. Everyone around you sees your equipped fit too.",
       "tags": [
         "fix"
       ],
@@ -424,7 +516,7 @@
     {
       "date": "2026-06-29",
       "title": "Coin creators can now set their cut of cosmetic sales",
-      "summary": "When a player buys a premium cosmetic inside your coin's 3D world, a share of that sale already pays out to your wallet in real USDC on-chain — but the percentage was fixed. Your Monetize dashboard now has a Cosmetic revenue split panel: for every coin you've launched it shows the current share, who it pays out to, and a slider to set your cut up to the platform ceiling. Changing it is authorized by signing a message with the coin's own creator wallet — the same wallet the money lands in — so no one else can redirect your revenue. It sits right next to your settled cosmetic earnings, which already show paid, pending, and per-cosmetic totals with on-chain receipts.",
+      "summary": "When a player buys a premium cosmetic inside your coin's 3D world, a share of that sale already pays out to your wallet in real USDC on-chain \u2014 but the percentage was fixed. Your Monetize dashboard now has a Cosmetic revenue split panel: for every coin you've launched it shows the current share, who it pays out to, and a slider to set your cut up to the platform ceiling. Changing it is authorized by signing a message with the coin's own creator wallet \u2014 the same wallet the money lands in \u2014 so no one else can redirect your revenue. It sits right next to your settled cosmetic earnings, which already show paid, pending, and per-cosmetic totals with on-chain receipts.",
       "tags": [
         "feature"
       ],
@@ -433,7 +525,7 @@
     {
       "date": "2026-06-29",
       "title": "Splat viewer now loads GitHub and Hugging Face links directly",
-      "summary": "Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address — the one that allows in-browser loading — so the most common places people publish splat scenes just work.",
+      "summary": "Paste a .ply / .splat scene URL from a GitHub or Hugging Face page and the viewer loads it straight away. Previously those links failed with a cross-origin error because the host redirected the browser to a download server that blocked the request. The viewer now rewrites them to the host's raw file address \u2014 the one that allows in-browser loading \u2014 so the most common places people publish splat scenes just work.",
       "tags": [
         "improvement"
       ],
@@ -451,7 +543,7 @@
     {
       "date": "2026-06-29",
       "title": "Sniper now acts on the market intel it pays for",
-      "summary": "Every coin the sniper holds is enriched with a live market sentiment read, bought autonomously with real USDC over x402 from the platform's own intel endpoints. That paid signal now does more than nudge entries — when a held position is underwater and its signal flips confidently bearish, the sniper can cut the loser early instead of riding it down to the hard stop-loss. The behaviour is opt-in per deployment and never overrides the stop-loss, a take-profit, or a position that's in the green, so existing strategies are unchanged until an operator turns it on.",
+      "summary": "Every coin the sniper holds is enriched with a live market sentiment read, bought autonomously with real USDC over x402 from the platform's own intel endpoints. That paid signal now does more than nudge entries \u2014 when a held position is underwater and its signal flips confidently bearish, the sniper can cut the loser early instead of riding it down to the hard stop-loss. The behaviour is opt-in per deployment and never overrides the stop-loss, a take-profit, or a position that's in the green, so existing strategies are unchanged until an operator turns it on.",
       "tags": [
         "feature",
         "improvement"
@@ -469,7 +561,7 @@
     {
       "date": "2026-06-29",
       "title": "Sniper agents keep their wallets fueled automatically",
-      "summary": "A live sniper agent spends SOL on every coin it buys, and once its wallet ran dry it would quietly fail every snipe while still looking healthy. Agents now top themselves back up from the platform treasury the moment their balance drops below a floor — refilling to a working reserve, with per-transfer and daily spend caps and a ledger that survives restarts so the caps can't be bypassed. The sniper status page now shows the live treasury flow: how much SOL has fueled agents today and in total, so you can see the money actually moving.",
+      "summary": "A live sniper agent spends SOL on every coin it buys, and once its wallet ran dry it would quietly fail every snipe while still looking healthy. Agents now top themselves back up from the platform treasury the moment their balance drops below a floor \u2014 refilling to a working reserve, with per-transfer and daily spend caps and a ledger that survives restarts so the caps can't be bypassed. The sniper status page now shows the live treasury flow: how much SOL has fueled agents today and in total, so you can see the money actually moving.",
       "tags": [
         "feature",
         "infra"
@@ -478,7 +570,7 @@
     {
       "date": "2026-06-29",
       "title": "Agent profile layout fixed on laptops and tablets",
-      "summary": "On mid-width screens — laptops, tablets, and split-screen windows — agent profile pages were collapsing into a single cramped column hugging the sidebar, with a stray horizontal scrollbar and the \"Walk with this agent\" card wrapping its text one word per line. The page now lays its cards out in a balanced multi-column grid across the full width, the sidebar steps aside when there isn't room for it, the horizontal scroll is gone, and every card adapts cleanly to the width it's given.",
+      "summary": "On mid-width screens \u2014 laptops, tablets, and split-screen windows \u2014 agent profile pages were collapsing into a single cramped column hugging the sidebar, with a stray horizontal scrollbar and the \"Walk with this agent\" card wrapping its text one word per line. The page now lays its cards out in a balanced multi-column grid across the full width, the sidebar steps aside when there isn't room for it, the horizontal scroll is gone, and every card adapts cleanly to the width it's given.",
       "tags": [
         "fix"
       ]
@@ -486,7 +578,7 @@
     {
       "date": "2026-06-29",
       "title": "Agent profiles now earn achievements and badges",
-      "summary": "Every agent profile now shows the achievements it has earned on three.ws — tiered badges for real milestones like launching a coin, graduating a token to the AMM, crossing $100K and $1M market caps, drawing real supporters, running buyback burns, reaching a Trusted or Elite reputation tier, and sticking around. Each badge is computed from real on-chain and ledger data, never hand-assigned, and the panel also shows an \"in progress\" ladder so a creator can see exactly what's next. The graduate badge celebrates the agents whose coins actually migrated.",
+      "summary": "Every agent profile now shows the achievements it has earned on three.ws \u2014 tiered badges for real milestones like launching a coin, graduating a token to the AMM, crossing $100K and $1M market caps, drawing real supporters, running buyback burns, reaching a Trusted or Elite reputation tier, and sticking around. Each badge is computed from real on-chain and ledger data, never hand-assigned, and the panel also shows an \"in progress\" ladder so a creator can see exactly what's next. The graduate badge celebrates the agents whose coins actually migrated.",
       "tags": [
         "feature"
       ]
@@ -504,7 +596,7 @@
     {
       "date": "2026-06-29",
       "title": "Meet the agent behind each coin in interactive 3D",
-      "summary": "Every coin page now shows the launching agent as a live, interactive 3D avatar right on the page — drag to orbit, scroll to zoom — instead of a flat thumbnail. Agents with their own model show it; the rest wear the shared base avatar so the stage is never empty. A \"See in world\" link drops that avatar straight into the walkable $THREE world. The 3D view only loads once it scrolls into view, so pages stay fast, and it falls back gracefully if a model can't load.",
+      "summary": "Every coin page now shows the launching agent as a live, interactive 3D avatar right on the page \u2014 drag to orbit, scroll to zoom \u2014 instead of a flat thumbnail. Agents with their own model show it; the rest wear the shared base avatar so the stage is never empty. A \"See in world\" link drops that avatar straight into the walkable $THREE world. The 3D view only loads once it scrolls into view, so pages stay fast, and it falls back gracefully if a model can't load.",
       "tags": [
         "feature"
       ],
@@ -522,7 +614,7 @@
     {
       "date": "2026-06-29",
       "title": "Autonomous launcher is live, and each launch now opens with a dev buy",
-      "summary": "The Memetic Launcher now runs live by default: platform agents mint coins on a cadence, riding real cultural narratives, with every coin fronted by a real agent avatar. Each launch now also makes a small initial buy on its own curve, so the launching agent holds a position from block one if the coin takes off. Every coin ships with the fullest metadata we can set automatically — name, ticker, avatar image, description, website, and X/Telegram links — and lands in the live launches feed. The same hard limits stay in force: a daily SOL ceiling, an hourly cap, a minimum gap between launches, and a circuit breaker that pauses everything after repeated failures.",
+      "summary": "The Memetic Launcher now runs live by default: platform agents mint coins on a cadence, riding real cultural narratives, with every coin fronted by a real agent avatar. Each launch now also makes a small initial buy on its own curve, so the launching agent holds a position from block one if the coin takes off. Every coin ships with the fullest metadata we can set automatically \u2014 name, ticker, avatar image, description, website, and X/Telegram links \u2014 and lands in the live launches feed. The same hard limits stay in force: a daily SOL ceiling, an hourly cap, a minimum gap between launches, and a circuit breaker that pauses everything after repeated failures.",
       "tags": [
         "feature"
       ],
@@ -531,7 +623,7 @@
     {
       "date": "2026-06-29",
       "title": "Full interactive trading chart on every coin page",
-      "summary": "Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal — candlesticks, zoom, on-chart trades and liquidity — embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.",
+      "summary": "Each coin's profile page now lets you switch its price chart between the fast native view and a full interactive DexScreener terminal \u2014 candlesticks, zoom, on-chart trades and liquidity \u2014 embedded right on the page and keyed to the coin's mint, with a one-tap link to open it in DexScreener. The chart matches your light/dark theme and only loads the heavier terminal when you choose it, so the page stays quick by default.",
       "tags": [
         "improvement"
       ],
@@ -540,7 +632,7 @@
     {
       "date": "2026-06-29",
       "title": "New dashboard: total agent-to-agent economy volume",
-      "summary": "There's now a live dashboard for the whole agent-to-agent economy: the total real USDC that agents have paid each other for hiring paid skills over x402. The headline is the all-time settled volume, alongside 7-day volume, average hire value, and how many agents are earning vs. paying. A 90-day volume chart (switchable to 7d/30d) shows the trend, two leaderboards rank the top-earning and top-spending agents, and a live feed lists the latest settlements — each one linking straight to its on-chain proof on Solscan. Every number is read from the real hire ledger; nothing is simulated.",
+      "summary": "There's now a live dashboard for the whole agent-to-agent economy: the total real USDC that agents have paid each other for hiring paid skills over x402. The headline is the all-time settled volume, alongside 7-day volume, average hire value, and how many agents are earning vs. paying. A 90-day volume chart (switchable to 7d/30d) shows the trend, two leaderboards rank the top-earning and top-spending agents, and a live feed lists the latest settlements \u2014 each one linking straight to its on-chain proof on Solscan. Every number is read from the real hire ledger; nothing is simulated.",
       "tags": [
         "feature"
       ],
@@ -549,7 +641,7 @@
     {
       "date": "2026-06-29",
       "title": "Solana Metaplex agents now appear in the on-chain deployments feed",
-      "summary": "The on-chain Deployments feed is no longer EVM-only. Every Solana agent minted as a Metaplex Core asset — both the ones three.ws launches into its own Agents collection and external agents in the Metaplex Agent Registry — now lands in the same live stream alongside ERC-8004 registrations, the moment each mint confirms. Solana shows up as its own chain in the feed, the top-chains panel, and the 24h/7d counters, with rows linking straight to Solscan. The mainnet/testnet toggle maps to Solana mainnet-beta and devnet.",
+      "summary": "The on-chain Deployments feed is no longer EVM-only. Every Solana agent minted as a Metaplex Core asset \u2014 both the ones three.ws launches into its own Agents collection and external agents in the Metaplex Agent Registry \u2014 now lands in the same live stream alongside ERC-8004 registrations, the moment each mint confirms. Solana shows up as its own chain in the feed, the top-chains panel, and the 24h/7d counters, with rows linking straight to Solscan. The mainnet/testnet toggle maps to Solana mainnet-beta and devnet.",
       "tags": [
         "feature"
       ],
@@ -558,7 +650,7 @@
     {
       "date": "2026-06-29",
       "title": "Avatars now face you in previews and embeds",
-      "summary": "Avatar cards in your dashboard, kiosk previews, and embeds now open with the character squarely facing the viewer instead of showing its back. The 3D viewer was spinning every model 180° on load, so static previews framed the back of the avatar. Removed the stray flip — avatars are authored front-on (+Z) and the framing camera already looks at them head-on, so they now present the front everywhere.",
+      "summary": "Avatar cards in your dashboard, kiosk previews, and embeds now open with the character squarely facing the viewer instead of showing its back. The 3D viewer was spinning every model 180\u00b0 on load, so static previews framed the back of the avatar. Removed the stray flip \u2014 avatars are authored front-on (+Z) and the framing camera already looks at them head-on, so they now present the front everywhere.",
       "tags": [
         "fix"
       ],
@@ -567,7 +659,7 @@
     {
       "date": "2026-06-29",
       "title": "Portfolio dashboard loads your agent balances again",
-      "summary": "The portfolio page now shows your agents' live balances and value-over-time chart instead of failing to load. The endpoints that feed the page — your aggregated holdings, the 90-day history chart, and the per-token drill-down — had no server route wired up, so every request came back empty and the page sat blank. The routes are now in place, so your wallets, totals, history, and individual token views all populate as they should.",
+      "summary": "The portfolio page now shows your agents' live balances and value-over-time chart instead of failing to load. The endpoints that feed the page \u2014 your aggregated holdings, the 90-day history chart, and the per-token drill-down \u2014 had no server route wired up, so every request came back empty and the page sat blank. The routes are now in place, so your wallets, totals, history, and individual token views all populate as they should.",
       "tags": [
         "fix"
       ],
@@ -576,7 +668,7 @@
     {
       "date": "2026-06-29",
       "title": "Club entry no longer gets stuck behind the payment receipt",
-      "summary": "Paying the cover at the club door (and tipping a dancer) now drops you straight into the room. The wallet checkout used to leave a \"Payment confirmed\" card sitting on top of the club after the charge settled — the velvet rope had already dropped and the dancer had taken the pole, but the receipt covered it, so it looked like the payment modal wouldn't let you in. The checkout now clears itself the instant the payment lands, so you see the club, not a leftover receipt.",
+      "summary": "Paying the cover at the club door (and tipping a dancer) now drops you straight into the room. The wallet checkout used to leave a \"Payment confirmed\" card sitting on top of the club after the charge settled \u2014 the velvet rope had already dropped and the dancer had taken the pole, but the receipt covered it, so it looked like the payment modal wouldn't let you in. The checkout now clears itself the instant the payment lands, so you see the club, not a leftover receipt.",
       "tags": [
         "fix"
       ],

@@ -895,3 +895,28 @@
 	.tb-preset, .tb-risk-fill, .tb-dist-seg { transition: none; }
 	.mny-bal-up, .mny-bal-down { animation: none; }
 }
+
+/* — Money tab: pricing summary + one-tap price chips — */
+.mny-price-summary { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.mny-price-stat {
+	flex: 1 1 80px; padding: 10px 12px; border-radius: var(--radius-md, 10px);
+	background: var(--surface-1, rgba(255,255,255,0.03)); border: 1px solid var(--stroke);
+	display: flex; flex-direction: column; gap: 2px;
+}
+.mny-price-stat b { font-size: var(--text-lg, 1rem); color: var(--ink-bright, #fff); font-variant-numeric: tabular-nums; }
+.mny-price-stat-of { font-size: var(--text-md, 0.8125rem); color: var(--ink-faint, #666); font-weight: var(--weight-normal, 400); }
+.mny-price-stat span { font-size: var(--text-2xs, 0.6875rem); color: var(--ink-dim, #888); }
+.mny-price-controls { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.mny-price-quick { display: inline-flex; gap: 4px; }
+.mny-price-chip {
+	appearance: none; cursor: pointer; padding: 3px 10px; border-radius: var(--radius-pill, 999px);
+	font-size: var(--text-2xs, 0.6875rem); font-variant-numeric: tabular-nums; font-weight: var(--weight-medium, 500);
+	color: var(--ink-dim, #999); background: var(--surface-2, rgba(255,255,255,0.06)); border: 1px solid var(--stroke);
+	transition: color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.mny-price-chip:hover { color: var(--ink-bright, #fff); border-color: var(--stroke-strong, rgba(255,255,255,0.2)); }
+.mny-price-chip:active { transform: scale(0.94); }
+.mny-price-chip.is-on { color: #fff; background: var(--accent, #6366f1); border-color: var(--accent, #6366f1); }
+.mny-price-chip-free.is-on { background: var(--surface-3, rgba(255,255,255,0.1)); color: var(--ink, #e8e8e8); border-color: var(--stroke-strong, rgba(255,255,255,0.2)); }
+@media (max-width: 540px) { .mny-price-controls { align-items: stretch; } .mny-price-quick { justify-content: flex-end; } }
+@media (prefers-reduced-motion: reduce) { .mny-price-chip { transition: none; } }

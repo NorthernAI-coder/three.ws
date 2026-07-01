@@ -40,6 +40,7 @@ import {
 	NETWORK_BSC_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 	X402Error,
+	baseSettleable,
 	encodePaymentResponseHeader,
 	permit2VariantOf,
 	resolveResourceUrl,
@@ -159,7 +160,16 @@ function buildRequirements({ priceAtomics, networks, resourceUrl, payToOverride 
 		// 402-failing only when NONE are payable. The asset is checked here too —
 		// without it the accept would be advertised and then rejected by the
 		// facilitator at settle, which is the same broken experience as a 500.
-		if (net === NETWORK_BASE_MAINNET && (!baseTo || !env.X402_ASSET_ADDRESS_BASE)) continue;
+		// Base also needs a WORKING facilitator to settle against — CDP creds or an
+		// explicit facilitator URL. Without one it routes to the decommissioned
+		// PayAI default that 404s every /verify, so advertising Base would hand
+		// buyers a first-choice accept that always fails at settle (a 502, not a
+		// clean 402). Drop Base instead; the Solana accept still settles in-house.
+		if (
+			net === NETWORK_BASE_MAINNET &&
+			(!baseTo || !env.X402_ASSET_ADDRESS_BASE || !baseSettleable())
+		)
+			continue;
 		// Solana also needs a fee payer to be co-signable — skip the network
 		// rather than advertise an accept the facilitator will reject.
 		if (

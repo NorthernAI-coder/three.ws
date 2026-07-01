@@ -412,7 +412,7 @@ class MoneyStudio {
 				</div>
 				${
 					skills.length
-						? `<ul class="mny-price-list">${skills.map((id) => this._priceRow(id)).join('')}</ul>`
+						? `${this._pricingSummary(skills)}<ul class="mny-price-list">${skills.map((id) => this._priceRow(id)).join('')}</ul>`
 						: `<div class="mny-inline-empty">
 							<p>No sellable skills enabled yet.</p>
 							<button class="studio-btn studio-btn-ghost studio-action" data-action="go-skills">Add skills →</button>
@@ -421,11 +421,31 @@ class MoneyStudio {
 			</section>`;
 	}
 
+	// At-a-glance state of what this agent sells: how many skills carry a price, the
+	// average, and how many are still free — so the owner sees their storefront.
+	_pricingSummary(skills) {
+		const priced = skills.filter((id) => this.state.prices[id]);
+		const amounts = priced.map((id) => fmtUsdc(this.state.prices[id].amount));
+		const avg = amounts.length ? amounts.reduce((a, b) => a + b, 0) / amounts.length : 0;
+		return `
+			<div class="mny-price-summary">
+				<div class="mny-price-stat"><b>${priced.length}<span class="mny-price-stat-of">/${skills.length}</span></b><span>priced</span></div>
+				<div class="mny-price-stat"><b>${amounts.length ? '$' + avg.toFixed(2) : '—'}</b><span>avg / call</span></div>
+				<div class="mny-price-stat"><b>${skills.length - priced.length}</b><span>free</span></div>
+			</div>`;
+	}
+
 	_priceRow(id) {
 		const meta = skillMeta(id);
 		const p = this.state.prices[id];
 		const value = p ? fmtUsdc(p.amount) : '';
 		const active = !!p;
+		// Common price points so setting a fair per-call price is one tap, not a
+		// guess. The chip highlights when it matches the current saved price.
+		const quick = [0.01, 0.1, 1];
+		const chips = quick.map((amt) =>
+			`<button class="mny-price-chip ${active && Math.abs(fmtUsdc(p.amount) - amt) < 1e-9 ? 'is-on' : ''}" data-action="quick-price" data-skill="${esc(id)}" data-amt="${amt}" title="Set $${amt.toFixed(2)} per call">$${amt < 1 ? amt.toFixed(2) : amt.toFixed(0)}</button>`
+		).join('');
 		return `
 			<li class="mny-price-row ${active ? 'is-priced' : ''}" data-skill="${esc(id)}">
 				<div class="mny-price-meta">
@@ -435,14 +455,45 @@ class MoneyStudio {
 						<span class="mny-price-desc">${esc(meta.desc)}</span>
 					</div>
 				</div>
-				<div class="mny-price-input">
-					<span class="mny-price-cur">$</span>
-					<input type="number" inputmode="decimal" min="0" step="0.01" value="${value}"
-						placeholder="0.00" aria-label="Price for ${esc(meta.name)} in USDC" data-price-input />
-					<span class="mny-price-unit">/call</span>
-					<button class="studio-btn studio-btn-ghost studio-action mny-price-save" data-action="save-price" data-skill="${esc(id)}">Save</button>
+				<div class="mny-price-controls">
+					<div class="mny-price-quick" role="group" aria-label="Quick price for ${esc(meta.name)}">${chips}<button class="mny-price-chip mny-price-chip-free ${active ? '' : 'is-on'}" data-action="quick-price" data-skill="${esc(id)}" data-amt="0" title="Make this skill free">Free</button></div>
+					<div class="mny-price-input">
+						<span class="mny-price-cur">$</span>
+						<input type="number" inputmode="decimal" min="0" step="0.01" value="${value}"
+							placeholder="0.00" aria-label="Price for ${esc(meta.name)} in USDC" data-price-input />
+						<span class="mny-price-unit">/call</span>
+						<button class="studio-btn studio-btn-ghost studio-action mny-price-save" data-action="save-price" data-skill="${esc(id)}">Save</button>
+					</div>
 				</div>
 			</li>`;
+	}
+
+	// One-tap price: fill the row's input and persist immediately.
+	_quickPrice(skill, amt) {
+		const row = this.el.querySelector(`.mny-price-row[data-skill="${CSS.escape(skill)}"]`);
+		const input = row?.querySelector('[data-price-input]');
+		if (input) input.value = Number(amt) > 0 ? Number(amt).toFixed(2) : '0';
+		this._savePrice(skill);
+	}
+
+	// After a save, refresh only the summary counts and the saved row's quick-price
+	// chip highlights — never sibling rows' inputs, so an unsaved edit elsewhere
+	// survives.
+	_refreshPricingChrome(skill, usd) {
+		const skills = (this.studio.agent?.skills || []).filter(isSellable);
+		const summary = this.el.querySelector('.mny-price-summary');
+		if (summary) {
+			const tmp = document.createElement('div');
+			tmp.innerHTML = this._pricingSummary(skills).trim();
+			const next = tmp.firstElementChild;
+			if (next) summary.replaceWith(next);
+		}
+		const row = this.el.querySelector(`.mny-price-row[data-skill="${CSS.escape(skill)}"]`);
+		row?.querySelectorAll('.mny-price-chip').forEach((chip) => {
+			const amt = Number(chip.dataset.amt);
+			const on = amt === 0 ? !(usd > 0) : usd > 0 && Math.abs(usd - amt) < 1e-9;
+			chip.classList.toggle('is-on', on);
+		});
 	}
 
 	// ── Earnings ──────────────────────────────────────────────────────────────
@@ -536,6 +587,7 @@ class MoneyStudio {
 			if (a === 'refresh') return this._refreshWallet();
 			if (a === 'copy') return this._copy(btn.dataset.copy);
 			if (a === 'save-price') return this._savePrice(btn.dataset.skill);
+			if (a === 'quick-price') return this._quickPrice(btn.dataset.skill, btn.dataset.amt);
 			if (a === 'toggle-withdraw') { const w = this._q('[data-withdraw]'); if (w) w.hidden = !w.hidden; return; }
 			if (a === 'do-withdraw') return this._withdraw(false);
 			if (a === 'wd-max') return this._withdraw(true);
@@ -605,6 +657,7 @@ class MoneyStudio {
 			this.studio.patch({ meta: { studio: { money: { priced: Object.keys(this.state.prices) } } } });
 			this.studio.emit('money:change', { skill, amount: usd });
 			row?.classList.toggle('is-priced', usd > 0);
+			this._refreshPricingChrome(skill, usd);
 			this._toast(usd === 0 ? 'Skill is now free' : `Priced at $${usd.toFixed(2)}/call`);
 		} catch (err) {
 			this._toast(err.message || 'Save failed', true);
