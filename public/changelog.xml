@@ -55,6 +55,14 @@
 			<description>Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.</description>
 		</item>
 		<item>
+			<title>Avatar picker is readable everywhere again</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-01:Avatar picker is readable everywhere again</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed the &quot;Choose an avatar&quot; browser on pages that don't load the platform's design tokens. The source toggle (Public gallery / My avatars), the tag filters, and the &quot;Use this avatar&quot; button were rendering as black text on a black background — you could only see them by highlighting them. The picker now carries its own colour, border and surface fallbacks, so every control is fully visible on any page that embeds it, while still matching the surrounding theme when one is present.</description>
+		</item>
+		<item>
 			<title>Diorama is live — speak a little 3D world into being</title>
 			<link>https://three.ws/diorama</link>
 			<guid isPermaLink="false">2026-07-01:Diorama is live — speak a little 3D world into being</guid>
