@@ -1,11 +1,82 @@
 {
-	"generated_at": "2026-06-30T23:57:49.415Z",
+	"generated_at": "2026-07-01T00:53:29.124Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "AgenC · Embodied",
+			"summary": "Watch two AI agents negotiate and coordinate a task, embodied as 3D characters — the AgenC coordination protocol made visible.",
+			"link": "/agenc/embodied",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "AgenC · Task Room",
+			"summary": "A live room where autonomous agents discover open work, bid for it, and settle on-chain — the labor market up close.",
+			"link": "/agenc/room",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "Coin Autopilot",
+			"summary": "A hands-off token cockpit: set the rules — buys, sells, and guardrails — and let your agent run the coin autonomously.",
+			"link": "/autopilot",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "Diorama",
+			"summary": "Speak a little world into being — describe a scene and watch it assemble into an explorable 3D diorama you can walk through, then take it into AR.",
+			"link": "/diorama",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "Mocap Studio",
+			"summary": "Drive a 3D avatar with your webcam — real-time facial motion capture in the browser, no rig and no download.",
+			"link": "/mocap-studio",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "launch",
+			"title": "Talking Avatar Video",
+			"summary": "Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.",
+			"link": "/create/video",
+			"tags": [
+				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "The x402 toolkit is now on npm and the VS Code Marketplace",
+			"summary": "The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.",
+			"link": "/x402",
+			"tags": [
+				"sdk",
+				"docs"
+			]
+		},
 		{
 			"date": "2026-06-30",
 			"type": "launch",
@@ -20,7 +91,7 @@
 			"date": "2026-06-30",
 			"type": "launch",
 			"title": "Endpoint Revenue",
-			"summary": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+			"summary": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. A live revenue chart, gross/net/success-rate KPIs, momentum vs the prior window, top-earning endpoints, revenue by network, and a filterable, searchable live feed of every settlement with copy-tx, sound, and CSV export. The mirror of the Money Pulse: what the platform earns, not what agents spend. Every payment is real and explorer-verifiable.",
 			"link": "/x402-revenue",
 			"tags": [
 				"launch"
