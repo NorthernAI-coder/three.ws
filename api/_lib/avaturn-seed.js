@@ -61,7 +61,16 @@ export function pickOne(arr, rng) {
 // actually offers — missing slots are simply skipped, never faked. The Avaturn
 // catalog tags each asset with a category/type; we normalize a few common
 // spellings so grouping is stable across catalog revisions.
-export const WEARABLE_SLOTS = ['outfit', 'top', 'bottom', 'shoes', 'hair', 'headwear', 'glasses', 'outerwear'];
+export const WEARABLE_SLOTS = [
+	'outfit',
+	'top',
+	'bottom',
+	'shoes',
+	'hair',
+	'headwear',
+	'glasses',
+	'outerwear',
+];
 
 const SLOT_ALIASES = {
 	clothing: 'outfit',
@@ -83,7 +92,9 @@ const SLOT_ALIASES = {
  * @returns {string}
  */
 export function normalizeSlot(raw) {
-	const k = String(raw || '').trim().toLowerCase();
+	const k = String(raw || '')
+		.trim()
+		.toLowerCase();
 	return SLOT_ALIASES[k] || k;
 }
 
@@ -110,9 +121,21 @@ export function groupAssetsBySlot(assets) {
 // Natural hair shades — kept realistic so results stay on-model rather than
 // cartoonish. setHairColor takes a `#rrggbb` string.
 export const HAIR_COLORS = [
-	'#0b0b0b', '#1c1310', '#2a1a0f', '#3b2412', '#4a2f1a',
-	'#5c3a1e', '#6b4423', '#7a5230', '#8d6239', '#a87c4f',
-	'#c69a63', '#d9b380', '#e3c79a', '#9a9a9a', '#d8d8d8',
+	'#0b0b0b',
+	'#1c1310',
+	'#2a1a0f',
+	'#3b2412',
+	'#4a2f1a',
+	'#5c3a1e',
+	'#6b4423',
+	'#7a5230',
+	'#8d6239',
+	'#a87c4f',
+	'#c69a63',
+	'#d9b380',
+	'#e3c79a',
+	'#9a9a9a',
+	'#d8d8d8',
 ];
 
 // Avaturn eye colors are an enum keyed by name; these are the standard set.
@@ -140,9 +163,7 @@ export function pickRandomLook(seed, { bodies, assets, bodyType }) {
 	// fall back to the whole list so we always pick something real.
 	let bodyPool = Array.isArray(bodies) ? bodies.filter((b) => b && b.id) : [];
 	if (bodyType) {
-		const matched = bodyPool.filter(
-			(b) => normalizeSlot(b.gender ?? b.body_type) === bodyType,
-		);
+		const matched = bodyPool.filter((b) => normalizeSlot(b.gender ?? b.body_type) === bodyType);
 		if (matched.length) bodyPool = matched;
 	}
 	const body = pickOne(bodyPool, rng);
@@ -216,7 +237,11 @@ export const AGE_BANDS = [
 	{ key: 'young-adult', desc: 'in their early twenties', grayBias: 0 },
 	{ key: 'adult', desc: 'in their early thirties', grayBias: 0.05 },
 	{ key: 'middle-aged', desc: 'in their late forties, a few soft laugh lines', grayBias: 0.3 },
-	{ key: 'senior', desc: 'in their late sixties, natural wrinkles and gentle age lines', grayBias: 0.85 },
+	{
+		key: 'senior',
+		desc: 'in their late sixties, natural wrinkles and gentle age lines',
+		grayBias: 0.85,
+	},
 ];
 
 // A broad, respectful spread of appearances. `skin` is the gentle Avaturn

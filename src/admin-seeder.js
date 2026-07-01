@@ -164,7 +164,12 @@ function renderGallery(recent) {
 			if (!a.glb_url) return '';
 			const name = esc(a.name || 'Avatar');
 			const joints = a.joints ? `${a.joints} bones` : 'rigged';
-			const body = a.body_type ? `<span class="sd-chip body">${esc(a.body_type)}</span>` : '';
+			// Photo-lane avatars show the person they depict; catalog-lane show body type.
+			const tag = a.person || a.body_type;
+			const body = tag ? `<span class="sd-chip body">${esc(tag)}</span>` : '';
+			const sub = a.person
+				? `${esc(a.person)} · ${fmtAgo(a.created_at)}`
+				: fmtAgo(a.created_at);
 			const open = a.profile_url
 				? `<a class="sd-card-open" href="${esc(a.profile_url)}" target="_blank" rel="noopener" title="Open profile">↗</a>`
 				: `<a class="sd-card-open" href="${esc(a.glb_url)}" target="_blank" rel="noopener" title="Open model">↗</a>`;
@@ -184,7 +189,7 @@ function renderGallery(recent) {
 				<div class="sd-card-body">
 					<div style="min-width:0">
 						<div class="sd-card-name">${name}</div>
-						<div class="sd-card-sub">${fmtAgo(a.created_at)}</div>
+						<div class="sd-card-sub">${sub}</div>
 					</div>
 					${open}
 				</div>

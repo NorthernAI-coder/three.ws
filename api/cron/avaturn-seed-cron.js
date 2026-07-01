@@ -36,7 +36,11 @@ import { putObject } from '../_lib/r2.js';
 import { inspectGlb } from '../_lib/glb-inspect.js';
 import { isFlagEnabled } from '../_lib/flags.js';
 import { pickBodyType, pickDiversityProfile, describeProfile } from '../_lib/avaturn-seed.js';
-import { generateDiverseFace, createAvaturnSession, photoLaneConfigured } from '../_lib/avaturn-photo.js';
+import {
+	generateDiverseFace,
+	createAvaturnSession,
+	photoLaneConfigured,
+} from '../_lib/avaturn-photo.js';
 import { randomUUID } from 'node:crypto';
 
 const CIRCUIT_NAME = 'avaturn-seed';
@@ -89,12 +93,16 @@ async function runOnce() {
 	const circuit = await circuitState(CIRCUIT_NAME);
 	if (circuit.open) {
 		const minsLeft = Math.ceil((circuit.openUntil - Date.now()) / 60_000);
-		return { skipped: true, reason: `circuit open for ${minsLeft}m more (${circuit.failures} failures)` };
+		return {
+			skipped: true,
+			reason: `circuit open for ${minsLeft}m more (${circuit.failures} failures)`,
+		};
 	}
 
 	const baseWord = OG_USERNAMES[Math.floor(Math.random() * OG_USERNAMES.length)];
 	const username = await claimUsername(baseWord);
-	if (!username) return { skipped: true, reason: 'could not claim OG username — retry next tick' };
+	if (!username)
+		return { skipped: true, reason: 'could not claim OG username — retry next tick' };
 
 	const displayName = username.replace(/\d+$/, '').replace(/\b\w/g, (c) => c.toUpperCase());
 	const email = `${username}@avaturn.three.ws`;
@@ -119,7 +127,8 @@ async function runOnce() {
 	let sessionUrl;
 	let profile = null;
 	let faceModel = null;
-	const photoLane = photoLaneConfigured() && (await isFlagEnabled('avaturn_seed_photo', { fallback: false }));
+	const photoLane =
+		photoLaneConfigured() && (await isFlagEnabled('avaturn_seed_photo', { fallback: false }));
 	if (photoLane) {
 		try {
 			profile = pickDiversityProfile(seed);
@@ -130,14 +139,22 @@ async function runOnce() {
 		} catch (err) {
 			profile = null;
 			sessionUrl = undefined;
-			console.warn('[avaturn-seed] photo lane failed, using catalog lane:', err?.message || err);
+			console.warn(
+				'[avaturn-seed] photo lane failed, using catalog lane:',
+				err?.message || err,
+			);
 		}
 	}
 
 	try {
 		// Photo session (distinct human) when the photo lane armed one; otherwise
 		// the public demo editor randomizes from the catalog.
-		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({ seed, bodyType, sessionUrl });
+		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({
+			seed,
+			bodyType,
+			sessionUrl,
+			keepBody: !!sessionUrl,
+		});
 
 		const slug = toSlug(displayName);
 		const storageKey = `u/${user.id}/${slug}.glb`;
@@ -185,7 +202,9 @@ async function runOnce() {
 		const description = profile
 			? `Fully-rigged Avaturn avatar — ${describeProfile(profile)} — forged on three.ws`
 			: 'Fully-rigged Avaturn avatar — forged on three.ws';
-		const tags = profile ? ['avatar', 'avaturn', 'human', profile.gender] : ['avatar', 'avaturn'];
+		const tags = profile
+			? ['avatar', 'avaturn', 'human', profile.gender]
+			: ['avatar', 'avaturn'];
 
 		await sql`
 			insert into avatars
@@ -206,9 +225,20 @@ async function runOnce() {
 		`;
 
 		await circuitRecordSuccess(CIRCUIT_NAME);
-		return { ok: true, username, user_id: user.id, slug, size_bytes: glbBytes.length, body_type: bodyType, lane: profile ? 'photo' : 'catalog' };
+		return {
+			ok: true,
+			username,
+			user_id: user.id,
+			slug,
+			size_bytes: glbBytes.length,
+			body_type: bodyType,
+			lane: profile ? 'photo' : 'catalog',
+		};
 	} catch (err) {
-		await circuitRecordFailure(CIRCUIT_NAME, { threshold: CIRCUIT_THRESHOLD, baseMs: CIRCUIT_BASE_MS });
+		await circuitRecordFailure(CIRCUIT_NAME, {
+			threshold: CIRCUIT_THRESHOLD,
+			baseMs: CIRCUIT_BASE_MS,
+		});
 		// Roll back the synthetic account so the next tick starts clean.
 		await sql`delete from users where id = ${user.id}`.catch(() => {});
 		return { ok: false, reason: `${err?.code || 'error'}: ${err?.message || err}` };
@@ -234,7 +264,11 @@ export default wrapCron(async (req, res) => {
 	// Single headless export in flight at a time, fleet-wide.
 	const slot = await acquireBlockingSlot(CIRCUIT_NAME, { max: 1, ttlMs: SLOT_TTL_MS });
 	if (!slot.ok) {
-		return json(res, 200, { ok: true, skipped: 'in_flight', reason: 'a prior export is still running' });
+		return json(res, 200, {
+			ok: true,
+			skipped: 'in_flight',
+			reason: 'a prior export is still running',
+		});
 	}
 	try {
 		const result = await runOnce();

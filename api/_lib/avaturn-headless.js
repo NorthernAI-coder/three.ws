@@ -76,6 +76,7 @@ async function pullGlb(exportUrl, maxBytes) {
  *   seed: string,
  *   bodyType?: 'male'|'female',
  *   sessionUrl?: string,
+ *   keepBody?: boolean,
  *   timeoutMs?: number,
  *   maxBytes?: number,
  * }} opts
@@ -85,11 +86,15 @@ export async function exportRandomAvaturnAvatar({
 	seed,
 	bodyType = 'male',
 	sessionUrl,
+	keepBody = false,
 	timeoutMs = 110_000,
 	maxBytes = DEFAULT_MAX_GLB_BYTES,
 }) {
 	const harness = new URL('/internal/avaturn-forge.html', env.APP_ORIGIN);
 	if (sessionUrl) harness.searchParams.set('session', sessionUrl);
+	// Photo-session avatars are a reconstructed person — keep that body/face and
+	// only vary outfit + colors, never swap to a random catalog body.
+	if (keepBody) harness.searchParams.set('keepBody', '1');
 	harness.searchParams.set('seed', String(seed));
 	harness.searchParams.set('bodyType', bodyType);
 
@@ -97,18 +102,25 @@ export async function exportRandomAvaturnAvatar({
 	const page = await browser.newPage();
 	try {
 		await page.goto(harness.toString(), { waitUntil: 'domcontentloaded', timeout: 30_000 });
-		await page.waitForFunction('window.__avaturnDone === true', { timeout: timeoutMs, polling: 1000 });
+		await page.waitForFunction('window.__avaturnDone === true', {
+			timeout: timeoutMs,
+			polling: 1000,
+		});
 
 		const { error, result } = await page.evaluate(() => ({
 			error: window.__avaturnError,
 			result: window.__avaturnResult,
 		}));
 		if (error) {
-			throw Object.assign(new Error(`avaturn export failed: ${error}`), { code: 'export_failed' });
+			throw Object.assign(new Error(`avaturn export failed: ${error}`), {
+				code: 'export_failed',
+			});
 		}
 		const exportUrl = result?.url;
 		if (!exportUrl) {
-			throw Object.assign(new Error('avaturn export produced no url'), { code: 'export_failed' });
+			throw Object.assign(new Error('avaturn export produced no url'), {
+				code: 'export_failed',
+			});
 		}
 
 		const glbBytes = await pullGlb(exportUrl, maxBytes);
