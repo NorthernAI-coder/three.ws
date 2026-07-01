@@ -7,8 +7,7 @@
 					var m = localStorage.getItem('twx_theme');
 					var l =
 						m === 'auto'
-							? window.matchMedia &&
-								window.matchMedia('(prefers-color-scheme: light)').matches
+							? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
 							: m === 'light';
 					document.documentElement.setAttribute('data-theme', l ? 'light' : 'dark');
 				} catch (e) {
@@ -21,7 +20,7 @@
 		<title>Endpoint Revenue · three.ws</title>
 		<meta
 			name="description"
-			content="The live revenue layer — real-time USDC flowing into three.ws's own x402 paid endpoints. Every settlement is a real, explorer-verifiable on-chain payment."
+			content="The live revenue layer — real-time USDC flowing into three.ws's own x402 paid endpoints. Live chart, top-earning endpoints, network split, and every settlement the moment it lands on-chain. Every payment is real and explorer-verifiable."
 		/>
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="three.ws" />
@@ -29,7 +28,7 @@
 		<meta property="og:title" content="Endpoint Revenue · three.ws" />
 		<meta
 			property="og:description"
-			content="A live stream of real USDC paid into three.ws's x402 endpoints — gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain."
+			content="A live stream of real USDC paid into three.ws's x402 endpoints — gross revenue, a live chart, top-earning endpoints, and every settlement the moment it lands on-chain."
 		/>
 		<meta
 			property="og:image"
@@ -65,7 +64,7 @@
 				"@context": "https://schema.org",
 				"@type": "WebPage",
 				"name": "Endpoint Revenue",
-				"description": "A live stream of real USDC paid into three.ws's x402 paid endpoints — gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain.",
+				"description": "A live stream of real USDC paid into three.ws's x402 paid endpoints — gross revenue, a live chart, top-earning endpoints, and every settlement the moment it lands on-chain.",
 				"url": "https://three.ws/x402-revenue",
 				"isPartOf": { "@type": "WebSite", "name": "three.ws", "url": "https://three.ws" }
 			}
@@ -79,129 +78,147 @@
 		<script src="/nav.js"></script>
 
 		<main class="xr-shell">
+			<div class="xr-glow" aria-hidden="true"></div>
+
+			<!-- ── hero ─────────────────────────────────────────────────────── -->
 			<section class="xr-hero">
-				<p class="xr-kicker">
-					<span class="xr-live-dot" aria-hidden="true"></span> Live revenue layer
-				</p>
-				<h1 class="xr-title">Endpoint <em>Revenue</em></h1>
-				<p class="xr-sub">
-					Real USDC flowing <strong>into</strong> three.ws's own x402 paid endpoints — the
-					moment each settlement lands on-chain. This is the mirror of the
-					<a href="/pulse">Money Pulse</a>: that feed shows what agents <em>spend</em>;
-					this shows what the platform <em>earns</em>. Every row is a real,
-					explorer-verifiable payment.
-				</p>
-				<div class="xr-hero-row">
+				<div class="xr-hero-copy">
+					<p class="xr-kicker"><span class="xr-live-dot" aria-hidden="true"></span> Live revenue layer</p>
+					<h1 class="xr-title">Endpoint <em>Revenue</em></h1>
+					<p class="xr-sub">
+						Real USDC flowing <strong>into</strong> three.ws's own x402 paid endpoints — the moment each
+						settlement lands on-chain. The mirror of the <a href="/pulse">Money Pulse</a>: that feed shows
+						what agents <em>spend</em>; this shows what the platform <em>earns</em>. Every row is real and
+						explorer-verifiable.
+					</p>
+				</div>
+				<div class="xr-hero-controls">
 					<div class="xr-period" role="tablist" aria-label="Time window">
-						<button
-							type="button"
-							class="xr-period-btn active"
-							data-period="24h"
-							role="tab"
-							aria-selected="true"
-						>
-							24h
-						</button>
-						<button
-							type="button"
-							class="xr-period-btn"
-							data-period="7d"
-							role="tab"
-							aria-selected="false"
-						>
-							7d
-						</button>
-						<button
-							type="button"
-							class="xr-period-btn"
-							data-period="30d"
-							role="tab"
-							aria-selected="false"
-						>
-							30d
-						</button>
-						<button
-							type="button"
-							class="xr-period-btn"
-							data-period="all"
-							role="tab"
-							aria-selected="false"
-						>
-							All
-						</button>
+						<button type="button" class="xr-period-btn active" data-period="24h" role="tab" aria-selected="true">24h</button>
+						<button type="button" class="xr-period-btn" data-period="7d" role="tab" aria-selected="false">7d</button>
+						<button type="button" class="xr-period-btn" data-period="30d" role="tab" aria-selected="false">30d</button>
+						<button type="button" class="xr-period-btn" data-period="all" role="tab" aria-selected="false">All</button>
 					</div>
 					<span class="xr-updated" id="xr-updated" aria-live="polite"></span>
 				</div>
 			</section>
 
-			<dl class="xr-counters" id="xr-counters">
-				<div class="xr-counter xr-counter--lead">
-					<dt>Gross revenue</dt>
-					<dd id="xr-c-gross">—</dd>
-					<span class="xr-counter-sub" id="xr-c-gross-sub">settled USDC</span>
+			<!-- ── showpiece: big number + live chart ───────────────────────── -->
+			<section class="xr-showcase" aria-label="Revenue over time">
+				<div class="xr-showcase-head">
+					<div class="xr-big">
+						<span class="xr-big-label">Gross revenue · <span id="xr-window-label">24h</span></span>
+						<span class="xr-big-val" id="xr-c-gross">—</span>
+						<span class="xr-big-sub" id="xr-c-gross-sub">settled USDC</span>
+					</div>
+					<div class="xr-badges">
+						<span class="xr-momentum" id="xr-momentum" data-dir="flat" hidden></span>
+						<div class="xr-runrate">
+							<span class="xr-runrate-val" id="xr-runrate">—</span>
+							<span class="xr-runrate-label">run rate · /hr</span>
+						</div>
+					</div>
 				</div>
-				<div class="xr-counter">
+				<div class="xr-chart-wrap">
+					<div class="xr-chart" id="xr-chart" role="img" aria-label="Revenue over the selected window"></div>
+					<div class="xr-chart-tip" id="xr-chart-tip" hidden></div>
+					<div class="xr-chart-empty" id="xr-chart-empty" hidden>No revenue in this window yet.</div>
+				</div>
+			</section>
+
+			<!-- ── KPI cards ────────────────────────────────────────────────── -->
+			<dl class="xr-kpis" id="xr-kpis">
+				<div class="xr-kpi">
 					<dt>Settlements</dt>
 					<dd id="xr-c-count">—</dd>
-					<span class="xr-counter-sub">paid calls</span>
+					<span class="xr-kpi-sub">paid calls</span>
 				</div>
-				<div class="xr-counter">
+				<div class="xr-kpi">
 					<dt>Unique payers</dt>
 					<dd id="xr-c-payers">—</dd>
-					<span class="xr-counter-sub">distinct wallets</span>
+					<span class="xr-kpi-sub">distinct wallets</span>
 				</div>
-				<div class="xr-counter">
+				<div class="xr-kpi">
 					<dt>Net to platform</dt>
 					<dd id="xr-c-net">—</dd>
-					<span class="xr-counter-sub">after settlement fees</span>
+					<span class="xr-kpi-sub">after settlement fees</span>
 				</div>
-				<div class="xr-counter">
+				<div class="xr-kpi">
 					<dt>Success rate</dt>
 					<dd id="xr-c-success">—</dd>
-					<span class="xr-counter-sub" id="xr-c-success-sub">settled vs failed</span>
+					<span class="xr-kpi-sub" id="xr-c-success-sub">settled vs failed</span>
 				</div>
 			</dl>
 
+			<!-- ── main grid: feed + rail ───────────────────────────────────── -->
 			<div class="xr-grid">
 				<div class="xr-main">
-					<div class="xr-feed-header">
-						<h2 class="xr-section-h">Live settlements</h2>
-						<span class="xr-feed-state" id="xr-feed-state" data-state="loading"
-							>connecting…</span
-						>
+					<div class="xr-toolbar">
+						<div class="xr-toolbar-left">
+							<h2 class="xr-section-h">Live settlements</h2>
+							<span class="xr-feed-state" id="xr-feed-state" data-state="loading">connecting…</span>
+						</div>
+						<div class="xr-toolbar-right">
+							<div class="xr-search">
+								<span class="xr-search-ico" aria-hidden="true">⌕</span>
+								<input
+									type="search"
+									id="xr-search"
+									class="xr-search-input"
+									placeholder="Filter rows…  ( / )"
+									aria-label="Filter settlements by endpoint, payer, or transaction"
+									autocomplete="off"
+								/>
+							</div>
+							<button type="button" class="xr-icon-btn" id="xr-sound" aria-pressed="false" aria-label="Toggle chime on new settlements" title="Sound on new settlements (s)">
+								<span aria-hidden="true">♪</span>
+							</button>
+							<button type="button" class="xr-icon-btn" id="xr-pause" aria-pressed="false" aria-label="Pause the live feed" title="Pause / resume live feed (p)">
+								<span aria-hidden="true" class="xr-pause-ico">॥</span>
+							</button>
+							<button type="button" class="xr-icon-btn xr-icon-btn--text" id="xr-export" aria-label="Export settlements as CSV" title="Export CSV (e)">
+								<span aria-hidden="true">↓</span> CSV
+							</button>
+						</div>
 					</div>
-					<div
-						id="xr-feed"
-						class="xr-feed"
-						aria-live="polite"
-						aria-label="Live x402 endpoint settlements"
-					></div>
+
+					<div class="xr-chips" id="xr-chips" role="group" aria-label="Filter by endpoint or network"></div>
+
+					<div class="xr-feed" id="xr-feed" aria-live="polite" aria-label="Live x402 endpoint settlements"></div>
+					<button type="button" class="xr-more" id="xr-more" hidden>Load older settlements</button>
 				</div>
+
 				<aside class="xr-rail" aria-label="Revenue intelligence">
 					<section class="xr-card">
-						<div class="xr-card-h">
-							Top earning endpoints <small id="xr-top-window">24h</small>
-						</div>
+						<div class="xr-card-h">Top earning endpoints <small id="xr-top-window">24h</small></div>
 						<div id="xr-top"><p class="xr-empty">Loading…</p></div>
+					</section>
+					<section class="xr-card">
+						<div class="xr-card-h">Revenue by network <small id="xr-net-window">24h</small></div>
+						<div id="xr-networks"><p class="xr-empty">Loading…</p></div>
 					</section>
 					<section class="xr-card xr-card--quiet">
 						<div class="xr-card-h">How this works</div>
 						<p class="xr-note">
-							Each paid endpoint settles a small USDC payment per call. Every
-							settlement is recorded in the revenue ledger and surfaced here — never a
-							simulation. See
+							Each paid endpoint settles a small USDC payment per call. Every settlement is recorded in
+							the revenue ledger and surfaced here — never a simulation. See
 							<a href="/docs/x402-revenue">x402 revenue &amp; receipts</a> and the
 							<a href="/docs/x402-endpoints">endpoint catalog</a>.
 						</p>
+						<p class="xr-hint">
+							<kbd>/</kbd> search · <kbd>p</kbd> pause · <kbd>s</kbd> sound · <kbd>e</kbd> export ·
+							<kbd>1–4</kbd> window
+						</p>
 					</section>
 					<p class="xr-fineprint">
-						Operational fields (IP, user agent) are never exposed — only the
-						on-chain-public route, amount, payer, and transaction. Amounts shown in
-						USDC.
+						Operational fields (IP, user agent) are never exposed — only the on-chain-public route, amount,
+						payer, and transaction. Amounts in USDC.
 					</p>
 				</aside>
 			</div>
 		</main>
+
+		<div class="xr-toast" id="xr-toast" role="status" aria-live="polite" hidden></div>
 
 		<script type="module" src="/src/x402-revenue.js"></script>
 		<script src="/brand.js" defer></script>
