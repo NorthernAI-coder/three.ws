@@ -22,6 +22,7 @@ export const BASE_BODIES = /** @type {BaseBody[]} */ ([
 		label: 'Realistic female',
 	},
 	{ id: 'selfie-girl', file: 'selfie-girl.glb', gender: 'female', label: 'Selfie girl' },
+	{ id: 'michelle', file: 'michelle.glb', gender: 'female', label: 'Michelle' },
 	{ id: 'default', file: 'default.glb', gender: 'male', label: 'Default' },
 ]);
 
@@ -138,6 +139,7 @@ export function pickColorway(profile, seed) {
 const MATERIAL_CHANNEL = {
 	Wolf3D_Skin: 'skin',
 	Wolf3D_Body: 'skin',
+	Ch03_Body: 'skin',
 	Wolf3D_Hair: 'hair',
 	Wolf3D_Outfit_Top: 'top',
 	Wolf3D_Outfit_Bottom: 'bottom',
