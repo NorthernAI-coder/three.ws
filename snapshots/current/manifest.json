@@ -1,19 +1,24 @@
 {
-  "capturedAt": "2026-06-26T07:16:00.116Z",
-  "date": "2026-06-26",
+  "capturedAt": "2026-07-01T01:24:07.670Z",
+  "date": "2026-07-01",
   "baseUrl": "http://localhost:3000",
   "viewports": [
     "desktop"
   ],
   "pageCount": 1,
-  "capturedCount": 0,
+  "capturedCount": 1,
   "pages": [
     {
-      "path": "/agents",
-      "title": "/agents",
+      "path": "/pulse",
+      "title": "/pulse",
       "section": "Selected",
-      "slug": "agents",
-      "shots": {}
+      "slug": "pulse",
+      "shots": {
+        "desktop": {
+          "bytes": 387933,
+          "navStatus": 200
+        }
+      }
     }
   ]
 }
