@@ -47,7 +47,7 @@ async function loadStats() {
 				count(*) filter (where (source_meta->>'is_rigged') = 'true')       as n_rigged,
 				max(created_at)                                                    as last_at
 			from avatars
-			where source = 'avaturn' and visibility = 'public' and deleted_at is null
+			where source in ('avaturn','studio') and visibility = 'public' and deleted_at is null
 		`;
 		const total = Number(r?.n_total ?? 0);
 		const rigged = Number(r?.n_rigged ?? 0);
@@ -80,7 +80,7 @@ async function loadRecent() {
 		const rows = await sql`
 			select id, slug, name, storage_key, source_meta, created_at
 			from avatars
-			where source = 'avaturn' and visibility = 'public' and deleted_at is null
+			where source in ('avaturn','studio') and visibility = 'public' and deleted_at is null
 			order by created_at desc
 			limit ${RECENT_LIMIT}
 		`;

@@ -31,24 +31,22 @@ import {
 	circuitRecordSuccess,
 	acquireBlockingSlot,
 } from '../_lib/forge-scale.js';
-import { exportRandomAvaturnAvatar } from '../_lib/avaturn-headless.js';
 import { putObject } from '../_lib/r2.js';
 import { inspectGlb } from '../_lib/glb-inspect.js';
+import { fetchModel } from '../_lib/fetch-model.js';
 import { isFlagEnabled } from '../_lib/flags.js';
-import { pickBodyType, pickDiversityProfile, describeProfile } from '../_lib/avaturn-seed.js';
-import {
-	generateDiverseFace,
-	createAvaturnSession,
-	photoLaneConfigured,
-} from '../_lib/avaturn-photo.js';
+import { pickDiversityProfile, describeProfile } from '../_lib/avaturn-seed.js';
+import { pickBaseBody, pickColorway, recolorGlb } from '../_lib/studio-avatar.js';
 import { randomUUID } from 'node:crypto';
 
 const CIRCUIT_NAME = 'avaturn-seed';
 const CIRCUIT_THRESHOLD = 3;
 const CIRCUIT_BASE_MS = 10 * 60_000; // 10 min × consecutive failures
-// One headless export at a time across all instances. TTL is just under the
-// function's maxDuration (300 s) so a crashed run's lease self-heals next tick.
+// One recolor at a time across all instances (fast, but keeps the tick serial).
 const SLOT_TTL_MS = 280_000;
+
+// Origin the rigged base bodies are served from (/avatars/*.glb).
+const ORIGIN = () => env.APP_ORIGIN || 'https://three.ws';
 
 function requireCron(req, res) {
 	const secret = process.env.CRON_SECRET || env.CRON_SECRET;
@@ -116,45 +114,20 @@ async function runOnce() {
 	if (!user?.id) return { skipped: true, reason: 'user insert conflict — retry next tick' };
 
 	const seed = randomUUID();
-	let bodyType = pickBodyType(seed);
-
-	// Photo lane: draw a person from the diversity matrix, render their face, and
-	// reconstruct it with Avaturn v2 into a distinct rigged human — so the gallery
-	// fills with genuinely different people (every gender, age, complexion), not
-	// one base face reskinned. Gated by the `avaturn_seed_photo` flag AND an
-	// AVATURN_API_KEY; any failure falls back to the public-catalog lane so a bad
-	// face or a provider blip never stalls the tick.
-	let sessionUrl;
-	let profile = null;
-	let faceModel = null;
-	const photoLane =
-		photoLaneConfigured() && (await isFlagEnabled('avaturn_seed_photo', { fallback: false }));
-	if (photoLane) {
-		try {
-			profile = pickDiversityProfile(seed);
-			bodyType = profile.gender; // the generated face drives gender
-			const photos = await generateDiverseFace(profile);
-			faceModel = photos.model;
-			sessionUrl = await createAvaturnSession({ photos, bodyType, externalUserId: user.id });
-		} catch (err) {
-			profile = null;
-			sessionUrl = undefined;
-			console.warn(
-				'[avaturn-seed] photo lane failed, using catalog lane:',
-				err?.message || err,
-			);
-		}
-	}
+	// Draw a person from the diversity matrix, then recolor a matching rigged base
+	// body (skin / hair / outfit) into that person. Free, self-owned, no external
+	// service — Avaturn shut down their free public editor and their API is paid.
+	const profile = pickDiversityProfile(seed);
+	const base = pickBaseBody(profile, seed);
 
 	try {
-		// Photo session (distinct human) when the photo lane armed one; otherwise
-		// the public demo editor randomizes from the catalog.
-		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({
-			seed,
-			bodyType,
-			sessionUrl,
-			keepBody: !!sessionUrl,
-		});
+		// Fetch the rigged base body (served from /avatars), recolor it in memory,
+		// and store the variant. The skeleton + blendshapes are untouched, so the
+		// result is a genuinely rigged, walk-ready avatar.
+		const baseUrl = `${ORIGIN()}/avatars/${base.file}`;
+		const { bytes } = await fetchModel(baseUrl, { maxBytes: 40 * 1024 * 1024 });
+		const colorway = pickColorway(profile, seed);
+		const { buffer: glbBytes, recolored } = recolorGlb(Buffer.from(bytes), colorway);
 
 		const slug = toSlug(displayName);
 		const storageKey = `u/${user.id}/${slug}.glb`;
@@ -162,49 +135,33 @@ async function runOnce() {
 			key: storageKey,
 			body: glbBytes,
 			contentType: 'model/gltf-binary',
-			metadata: { source: 'avaturn-seed' },
+			metadata: { source: 'studio-seed' },
 		});
 
-		// Stamp the real skeleton signal so the marketplace/gallery "rigged"
-		// filter and the rig badge recognize these as rigged. Avaturn exports are
-		// always skinned, but the filter keys off source_meta.is_rigged /
-		// skeleton_joint_count (see searchPublicAvatars), not the `rig` label —
-		// without these, genuinely-rigged Avaturn avatars read as "needs rigging".
-		// Inspecting the in-memory bytes adds no I/O; fall back to is_rigged=true
-		// (Avaturn never exports a static mesh) if the parse ever returns null.
+		// Confirm the recolor preserved the rig, and stamp the signal the gallery /
+		// marketplace "rigged" filter keys off (source_meta.is_rigged /
+		// skeleton_joint_count in searchPublicAvatars).
 		const rigInfo = inspectGlb(glbBytes);
 		const sourceMeta = {
 			seed: true,
-			avaturn: true,
-			rig: 'avaturn',
-			body_type: bodyType,
+			studio: true,
+			rig: 'wolf3d',
+			base_body: base.id,
+			body_type: profile.gender,
 			is_rigged: rigInfo ? rigInfo.isRigged : true,
 			skeleton_joint_count: rigInfo?.skeletonJointCount ?? null,
 			skin_count: rigInfo?.skinCount ?? null,
-			// Which lane produced this one, and (photo lane) the person it depicts —
-			// powers diversity reporting and richer descriptions.
-			lane: profile ? 'photo' : 'catalog',
-			profile: profile
-				? {
-						gender: profile.gender,
-						age: profile.ageKey,
-						ethnicity: profile.ethnicityKey,
-						build: profile.build,
-					}
-				: null,
-			face_model: faceModel,
-			look,
-			export_url: exportUrl,
+			recolored,
+			profile: {
+				gender: profile.gender,
+				age: profile.ageKey,
+				ethnicity: profile.ethnicityKey,
+				build: profile.build,
+			},
 		};
 
-		// Photo-lane avatars describe the actual person; catalog-lane keep the
-		// generic line. Tag the lane so the gallery can filter distinct humans.
-		const description = profile
-			? `Fully-rigged Avaturn avatar — ${describeProfile(profile)} — forged on three.ws`
-			: 'Fully-rigged Avaturn avatar — forged on three.ws';
-		const tags = profile
-			? ['avatar', 'avaturn', 'human', profile.gender]
-			: ['avatar', 'avaturn'];
+		const description = `Rigged, walk-ready avatar — ${describeProfile(profile)} — forged on three.ws`;
+		const tags = ['avatar', 'studio', 'human', profile.gender];
 
 		await sql`
 			insert into avatars
@@ -215,7 +172,7 @@ async function runOnce() {
 				${user.id}, ${slug}, ${displayName},
 				${description},
 				${storageKey}, ${glbBytes.length}, 'model/gltf-binary',
-				'avaturn',
+				'studio',
 				${JSON.stringify(sourceMeta)}::jsonb,
 				'public',
 				${tags}::text[],
@@ -231,8 +188,8 @@ async function runOnce() {
 			user_id: user.id,
 			slug,
 			size_bytes: glbBytes.length,
-			body_type: bodyType,
-			lane: profile ? 'photo' : 'catalog',
+			body_type: profile.gender,
+			base_body: base.id,
 		};
 	} catch (err) {
 		await circuitRecordFailure(CIRCUIT_NAME, {
