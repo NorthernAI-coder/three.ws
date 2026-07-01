@@ -816,6 +816,14 @@
 			"dest": "/ui-juice.html"
 		},
 		{
+			"src": "/diorama/?",
+			"dest": "/diorama.html"
+		},
+		{
+			"src": "/labs/?",
+			"dest": "/labs.html"
+		},
+		{
 			"src": "/api/strategies/(.*)",
 			"dest": "/api/strategies"
 		},
