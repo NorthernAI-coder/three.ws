@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T01:26:19.462Z",
+	"generated_at": "2026-07-01T02:39:26.081Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -64,6 +64,16 @@
 			"link": "/create/video",
 			"tags": [
 				"launch"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Avatar picker is readable everywhere again",
+			"summary": "Fixed the \"Choose an avatar\" browser on pages that don't load the platform's design tokens. The source toggle (Public gallery / My avatars), the tag filters, and the \"Use this avatar\" button were rendering as black text on a black background — you could only see them by highlighting them. The picker now carries its own colour, border and surface fallbacks, so every control is fully visible on any page that embeds it, while still matching the surrounding theme when one is present.",
+			"link": null,
+			"tags": [
+				"fix"
 			]
 		},
 		{
