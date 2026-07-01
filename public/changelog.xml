@@ -7,6 +7,62 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>AgenC · Embodied</title>
+			<link>https://three.ws/agenc/embodied</link>
+			<guid isPermaLink="false">2026-07-01:AgenC · Embodied</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Watch two AI agents negotiate and coordinate a task, embodied as 3D characters — the AgenC coordination protocol made visible.</description>
+		</item>
+		<item>
+			<title>AgenC · Task Room</title>
+			<link>https://three.ws/agenc/room</link>
+			<guid isPermaLink="false">2026-07-01:AgenC · Task Room</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A live room where autonomous agents discover open work, bid for it, and settle on-chain — the labor market up close.</description>
+		</item>
+		<item>
+			<title>Coin Autopilot</title>
+			<link>https://three.ws/autopilot</link>
+			<guid isPermaLink="false">2026-07-01:Coin Autopilot</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>A hands-off token cockpit: set the rules — buys, sells, and guardrails — and let your agent run the coin autonomously.</description>
+		</item>
+		<item>
+			<title>Diorama</title>
+			<link>https://three.ws/diorama</link>
+			<guid isPermaLink="false">2026-07-01:Diorama</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Speak a little world into being — describe a scene and watch it assemble into an explorable 3D diorama you can walk through, then take it into AR.</description>
+		</item>
+		<item>
+			<title>Mocap Studio</title>
+			<link>https://three.ws/mocap-studio</link>
+			<guid isPermaLink="false">2026-07-01:Mocap Studio</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Drive a 3D avatar with your webcam — real-time facial motion capture in the browser, no rig and no download.</description>
+		</item>
+		<item>
+			<title>Talking Avatar Video</title>
+			<link>https://three.ws/create/video</link>
+			<guid isPermaLink="false">2026-07-01:Talking Avatar Video</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.</description>
+		</item>
+		<item>
+			<title>The x402 toolkit is now on npm and the VS Code Marketplace</title>
+			<link>https://three.ws/x402</link>
+			<guid isPermaLink="false">2026-07-01:The x402 toolkit is now on npm and the VS Code Marketplace</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>sdk</category>
+			<description>The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.</description>
+		</item>
+		<item>
 			<title>Docs · x402 Revenue &amp; Receipts</title>
 			<link>https://three.ws/docs/x402-revenue</link>
 			<guid isPermaLink="false">2026-06-30:Docs · x402 Revenue &amp; Receipts</guid>
@@ -20,7 +76,7 @@
 			<guid isPermaLink="false">2026-06-30:Endpoint Revenue</guid>
 			<pubDate>Tue, 30 Jun 2026 12:00:00 GMT</pubDate>
 			<category>launch</category>
-			<description>The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.</description>
+			<description>The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. A live revenue chart, gross/net/success-rate KPIs, momentum vs the prior window, top-earning endpoints, revenue by network, and a filterable, searchable live feed of every settlement with copy-tx, sound, and CSV export. The mirror of the Money Pulse: what the platform earns, not what agents spend. Every payment is real and explorer-verifiable.</description>
 		</item>
 		<item>
 			<title>Launch Studio — 50 ways to mint a coin</title>

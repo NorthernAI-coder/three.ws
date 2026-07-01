@@ -2,6 +2,16 @@
   "$comment": "Curated changelog entries for three.ws \u2014 the editorial layer of the public changelog. New PAGE launches are tracked automatically via the `added` field in data/pages.json; this file is for everything else holders care about: improvements, fixes, SDK releases, trading/payments capabilities, security work. scripts/build-page-index.mjs merges both sources into CHANGELOG.md, public/changelog.json, and public/changelog.xml. Newest first. Allowed tags: feature, improvement, fix, sdk, infra, docs, security. `link` is optional and must be a live three.ws path.",
   "entries": [
     {
+      "date": "2026-07-01",
+      "title": "The x402 toolkit is now on npm and the VS Code Marketplace",
+      "summary": "The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial.",
+      "tags": [
+        "sdk",
+        "docs"
+      ],
+      "link": "/x402"
+    },
+    {
       "date": "2026-06-30",
       "title": "Launch Studio — 50 ready-made ways to mint a coin, previewed live",
       "summary": "A new page at /launch-studio turns coin launching into a catalog of 50 recipes. Pick one and it shows you exactly what it would mint right now from live data — coin name, ticker, description, and where the creator fees go. Two kinds: reward coins, which mint a coin FOR a real subject and route its fees there (trending GitHub repos and creators across Rust, TypeScript, Python, Go, Solidity and AI/ML — the $THREE → @nirholas pattern, automated), and theme coins riding live narratives from Hacker News, Google Trends, Wikipedia, Know Your Meme, Reddit and the pump.fun venue itself. Hit Launch on any previewed coin and the existing launch wizard opens prefilled, so discovery → preview → mint runs end to end. Six categories: GitHub, Onchain, News, Culture, Events, Community.",

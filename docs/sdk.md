@@ -9,6 +9,14 @@ This document covers programmatic use of three.ws beyond simple embedding. There
 
 Both are Apache-2.0 licensed. Neither requires the other.
 
+> **Building payments?** The x402 buyer, seller, browser-modal, and MCP packages are
+> published to npm as standalone libraries — `@three-ws/x402-fetch`,
+> `@three-ws/x402-server`, `@three-ws/x402-modal`, `@three-ws/x402-payment-modal`,
+> `@three-ws/x402-mcp`, and `@three-ws/ibm-x402-mcp` — plus the
+> [x402 VS Code extension](https://marketplace.visualstudio.com/items?itemName=threews.vscode-x402).
+> Install commands, one-line summaries, and repo links are in
+> [x402 → Open-source packages](./x402.md#open-source-packages).
+
 ---
 
 ## Web component bundle

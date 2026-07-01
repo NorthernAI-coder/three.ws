@@ -228,6 +228,27 @@ You learned four ways to consume an x402 paid service:
 
 The throughline: discovery and payment are decoupled, the 402 challenge is the single source of truth for price and recipient, every payment settles on-chain in USDC, and one module ([`public/x402.js`](public/x402.js)) drives every surface.
 
+**Use it from your own project (npm)**
+
+Outside the browser — in a Node service, an agent runtime, or a CLI — install the
+standalone buyer package instead of the hosted module:
+
+```bash
+npm i @three-ws/x402-fetch
+```
+
+```js
+import { withX402, privateKeyToWallet } from '@three-ws/x402-fetch';
+
+// Wrap fetch once with a wallet; paid endpoints settle automatically in USDC.
+const pay = withX402(privateKeyToWallet(process.env.WALLET_PRIVATE_KEY), { maxPaymentUsd: 0.05 });
+const res = await pay('https://api.example.com/paid', { method: 'POST', body });
+```
+
+Full API, wallet/signer options, and examples are in the
+[`@three-ws/x402-fetch` README](https://github.com/nirholas/x402-fetch); the whole
+package family is listed under [x402 → Open-source packages](/x402#open-source-packages).
+
 **See also**
 
 - [paid-x402-endpoint](/tutorials/paid-x402-endpoint) — the build side: ship your own endpoint that takes these payments.

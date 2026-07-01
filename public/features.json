@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-06-30T23:57:49.394Z",
+	"generated_at": "2026-07-01T00:53:29.110Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json",
 	"site": {
 		"name": "three.ws",
@@ -50,6 +50,66 @@
 					"title": "Animation Gallery",
 					"description": "Browse and preview public animations authored by the three.ws community. Apply any clip to your avatar in the Animation Studio.",
 					"added": "2026-06-17",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/diorama",
+					"title": "Diorama",
+					"description": "Speak a little world into being — describe a scene and watch it assemble into an explorable 3D diorama you can walk through, then take it into AR.",
+					"added": "2026-07-01",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/mocap-studio",
+					"title": "Mocap Studio",
+					"description": "Drive a 3D avatar with your webcam — real-time facial motion capture in the browser, no rig and no download.",
+					"added": "2026-07-01",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/autopilot",
+					"title": "Coin Autopilot",
+					"description": "A hands-off token cockpit: set the rules — buys, sells, and guardrails — and let your agent run the coin autonomously.",
+					"added": "2026-07-01",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/agenc/embodied",
+					"title": "AgenC · Embodied",
+					"description": "Watch two AI agents negotiate and coordinate a task, embodied as 3D characters — the AgenC coordination protocol made visible.",
+					"added": "2026-07-01",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": true
+				},
+				{
+					"path": "/agenc/room",
+					"title": "AgenC · Task Room",
+					"description": "A live room where autonomous agents discover open work, bid for it, and settle on-chain — the labor market up close.",
+					"added": "2026-07-01",
+					"auth": null,
+					"indexable": true,
+					"tags": [],
+					"showcase": false
+				},
+				{
+					"path": "/create/video",
+					"title": "Talking Avatar Video",
+					"description": "Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.",
+					"added": "2026-07-01",
 					"auth": null,
 					"indexable": true,
 					"tags": [],
@@ -914,12 +974,12 @@
 					"auth": null,
 					"indexable": true,
 					"tags": [],
-					"showcase": false
+					"showcase": true
 				},
 				{
 					"path": "/x402-revenue",
 					"title": "Endpoint Revenue",
-					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.",
+					"description": "The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. A live revenue chart, gross/net/success-rate KPIs, momentum vs the prior window, top-earning endpoints, revenue by network, and a filterable, searchable live feed of every settlement with copy-tx, sound, and CSV export. The mirror of the Money Pulse: what the platform earns, not what agents spend. Every payment is real and explorer-verifiable.",
 					"added": "2026-06-30",
 					"auth": null,
 					"indexable": true,

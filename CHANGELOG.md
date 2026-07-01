@@ -4,10 +4,20 @@
 
 Public history for [three.ws](https://three.ws), newest first. New pages come from `added` dates in data/pages.json; everything else is curated in data/changelog.json. Also available as [JSON](https://three.ws/changelog.json) and [RSS](https://three.ws/changelog.xml), live at [three.ws/changelog](https://three.ws/changelog).
 
+## 2026-07-01
+
+- **AgenC · Embodied** (`/agenc/embodied`) — Watch two AI agents negotiate and coordinate a task, embodied as 3D characters — the AgenC coordination protocol made visible.
+- **AgenC · Task Room** (`/agenc/room`) — A live room where autonomous agents discover open work, bid for it, and settle on-chain — the labor market up close.
+- **Coin Autopilot** (`/autopilot`) — A hands-off token cockpit: set the rules — buys, sells, and guardrails — and let your agent run the coin autonomously.
+- **Diorama** (`/diorama`) — Speak a little world into being — describe a scene and watch it assemble into an explorable 3D diorama you can walk through, then take it into AR.
+- **Mocap Studio** (`/mocap-studio`) — Drive a 3D avatar with your webcam — real-time facial motion capture in the browser, no rig and no download.
+- **Talking Avatar Video** (`/create/video`) — Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.
+- **The x402 toolkit is now on npm and the VS Code Marketplace** — The x402 buyer, seller, browser-modal and MCP libraries are published as standalone, provider-neutral npm packages you can use in any project without a three.ws account: @three-ws/x402-fetch (drop-in fetch that auto-pays a 402 in USDC), @three-ws/x402-server (build paid endpoints), @three-ws/x402-modal and @three-ws/x402-payment-modal (drop-in browser checkout), and @three-ws/x402-mcp and @three-ws/ibm-x402-mcp (pay or sell from any MCP client). There's also a new x402 extension for VS Code — inspect, pay, and scaffold paid endpoints from the editor — on both the VS Code Marketplace and Open VSX. The docs now carry install commands, one-line summaries, repo links, and a Node code sample in the pay-for-a-service tutorial. (`/x402`) `[sdk, docs]`
+
 ## 2026-06-30
 
 - **Docs · x402 Revenue & Receipts** (`/docs/x402-revenue`) — Where settled x402 payments are recorded (x402_audit_log), how to read endpoint revenue, and how signed receipts work.
-- **Endpoint Revenue** (`/x402-revenue`) — The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. Gross revenue, top-earning endpoints, and every settlement the moment it lands on-chain. The mirror of the Money Pulse: what the platform earns, not what agents spend.
+- **Endpoint Revenue** (`/x402-revenue`) — The live revenue layer — real USDC flowing into three.ws's own x402 paid endpoints. A live revenue chart, gross/net/success-rate KPIs, momentum vs the prior window, top-earning endpoints, revenue by network, and a filterable, searchable live feed of every settlement with copy-tx, sound, and CSV export. The mirror of the Money Pulse: what the platform earns, not what agents spend. Every payment is real and explorer-verifiable.
 - **Launch Studio — 50 ways to mint a coin** (`/launch-studio`) — A catalog of 50 coin-launch use cases — reward coins for trending GitHub repos and creators, and coins riding live cultural, news, and onchain narratives. Preview what each would mint right now from live data, then launch on pump.fun in one click.
 - **Oracle Docs — the conviction engine, end to end** (`/oracle/docs`) — The complete Oracle reference: the thesis behind fused pump.fun conviction, the four-pillar scoring model and its exact math, the data pipeline and worker loops, the calibration and backtest evidence, the agent action loop, the full API, the data model, limitations, and where it scales next — written for everyone from first-time readers to researchers.
 - **Viability** (`/viability`) — The honest signal behind three.ws — real marketplace and trading viability. Live $THREE skill GMV, take-rate, repeat buyers and trading pairs, plus real guarded coin-trade flow, cost and realized P&L on closed positions. Real on-chain data only.
