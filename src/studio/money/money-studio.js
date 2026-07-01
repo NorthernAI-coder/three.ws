@@ -357,13 +357,47 @@ class MoneyStudio {
 		const sol = w.solana_balance == null ? '—' : Number(w.solana_balance).toFixed(4);
 		const usdc = w.usdc_balance == null ? '—' : Number(w.usdc_balance).toFixed(2);
 		return `
-			<div class="mny-bal"><b>$${esc(usdc)}</b><span>USDC</span></div>
-			<div class="mny-bal"><b>${esc(sol)}</b><span>SOL</span></div>`;
+			<div class="mny-bal"><b data-bal="usdc">$${esc(usdc)}</b><span>USDC</span></div>
+			<div class="mny-bal"><b data-bal="sol">${esc(sol)}</b><span>SOL</span></div>`;
 	}
 
 	_renderWalletBalances() {
 		const host = this._q('[data-balances]');
-		if (host) host.innerHTML = this._balancesHtml();
+		if (!host) return;
+		// First paint (or numbers unknown) → set directly. On a live refresh, count
+		// each figure from its previous value to the new one and flash the direction,
+		// so money moving in/out reads as motion instead of a hard swap.
+		const w = this.state.wallet || {};
+		const next = { usdc: w.usdc_balance == null ? null : Number(w.usdc_balance), sol: w.solana_balance == null ? null : Number(w.solana_balance) };
+		const prev = this._prevBal;
+		if (!host.querySelector('[data-bal]') || !prev) { host.innerHTML = this._balancesHtml(); this._prevBal = next; return; }
+		this._animateBal(host.querySelector('[data-bal="usdc"]'), prev.usdc, next.usdc, (n) => `$${n.toFixed(2)}`);
+		this._animateBal(host.querySelector('[data-bal="sol"]'), prev.sol, next.sol, (n) => n.toFixed(4));
+		this._prevBal = next;
+	}
+
+	// Count `el` from → to over ~600ms and flash green/red by direction. Honors
+	// prefers-reduced-motion (instant, exact) and never animates from/to unknown.
+	_animateBal(el, from, to, fmt) {
+		if (!el) return;
+		if (to == null) { el.textContent = fmt === undefined ? '—' : '—'; return; }
+		if (from == null || from === to || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+			el.textContent = fmt(to);
+			return;
+		}
+		el.classList.remove('mny-bal-up', 'mny-bal-down');
+		void el.offsetWidth; // restart the flash animation
+		el.classList.add(to >= from ? 'mny-bal-up' : 'mny-bal-down');
+		const start = performance.now();
+		const dur = 600;
+		const tick = (now) => {
+			const t = Math.min(1, (now - start) / dur);
+			const eased = 1 - Math.pow(1 - t, 3);
+			el.textContent = fmt(from + (to - from) * eased);
+			if (t < 1) requestAnimationFrame(tick);
+			else el.textContent = fmt(to);
+		};
+		requestAnimationFrame(tick);
 	}
 
 	// ── Pricing ───────────────────────────────────────────────────────────────

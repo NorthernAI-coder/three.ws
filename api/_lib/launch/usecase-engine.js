@@ -17,7 +17,7 @@
 //                 only, brand-safe, no external ticker is ever minted verbatim.
 
 import { normTerm, isSensitive } from '../launcher-trends.js';
-import { resolveGithubReward } from '../github-reward.js';
+import { resolveGithubReward, resolveSocialReward } from '../github-reward.js';
 import { sourceCandidates } from './candidate-sources.js';
 
 // ── identity helpers ──────────────────────────────────────────────────────────
@@ -93,16 +93,29 @@ export async function resolveReward(spec, { network, resolve = false }) {
 			note: 'Creator fees stay with the launching agent wallet — claim or delegate later from the fees panel.' };
 	}
 
-	if (spec.kind === 'github-owner') {
+	if (spec.kind === 'github-owner' || spec.kind === 'x-owner') {
+		const platform = spec.kind === 'x-owner' ? 'x' : 'github';
+		const handle = spec.username || spec.github_username || spec.x_username;
 		if (!resolve) {
-			return { kind: 'github-owner', github_username: spec.github_username || null, github_user_id: spec.github_user_id || null,
+			return { kind: spec.kind, platform, username: handle || null,
 				mode: 'pending', claimable_now: false, shareholders: [],
-				note: spec.github_username ? `Creator fees route to @${String(spec.github_username).replace(/^@/, '')} — resolved to their wallet (or a social-fee escrow) at launch.` : 'Creator fees route to the GitHub owner at launch.' };
+				note: handle ? `Creator fees route to @${String(handle).replace(/^@/, '')} on ${platform === 'x' ? 'X' : 'GitHub'} — resolved to their wallet (or a social-fee escrow) at launch.` : `Creator fees route to the ${platform === 'x' ? 'X' : 'GitHub'} account at launch.` };
 		}
-		const r = await resolveGithubReward({ githubUsername: spec.github_username, githubUserId: spec.github_user_id, network });
-		const shareholders = r.address ? [{ address: r.address, share_bps: 10_000, github_username: r.github_username, mode: r.mode }] : [];
-		return { kind: 'github-owner', github_username: r.github_username, github_user_id: r.github_user_id,
+		const r = await resolveSocialReward({ platform, username: handle, userId: spec.user_id || spec.github_user_id, network });
+		const shareholders = r.address ? [{ address: r.address, share_bps: 10_000, username: r.username, platform, mode: r.mode }] : [];
+		return { kind: spec.kind, platform, username: r.username, user_id: r.user_id,
 			mode: r.mode, claimable_now: r.claimable_now, shareholders, note: r.note };
+	}
+
+	// pump.fun launch-config reward structures — no recipient to resolve.
+	if (spec.kind === 'cashback') {
+		return { kind: 'cashback', shareholders: [], claimable_now: true,
+			note: 'Trading fees return to holders as cashback — no creator vault; traders claim their own from pump.fun.' };
+	}
+	if (spec.kind === 'buyback') {
+		const bps = Math.max(0, Math.min(10_000, Number(spec.buyback_bps) || 0));
+		return { kind: 'buyback', buyback_bps: bps, shareholders: [], claimable_now: true,
+			note: `${(bps / 100).toFixed(0)}% of creator fees auto-buy back and burn the coin — a rising floor instead of a payout.` };
 	}
 
 	if (spec.kind === 'split') {

@@ -4,12 +4,15 @@
 	<script>/* three.ws theme boot — no-flash; runtime in /theme-switcher.js */(function(){try{var m=localStorage.getItem('twx_theme');var l=m==='auto'?(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches):m==='light';document.documentElement.setAttribute('data-theme',l?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>x402 — payments, drop-in</title>
-<meta name="description" content="The simplest way to accept x402 stablecoin payments. One <script> tag, a clean modal, on-chain settlement on Base and Solana." />
+<title>x402 — the drop-in payment layer for agents · three.ws</title>
+<meta name="description" content="A live catalog of pay-per-call APIs, settled on-chain in USDC over the x402 protocol. Search, inspect the schema, and run any endpoint with one click — no keys, no signup." />
 <meta name="theme-color" content="#0b0b0b" />
-<meta property="og:title" content="x402 — payments, drop-in" />
-<meta property="og:description" content="One <script> tag. Clean modal. On-chain x402 settlement on Base and Solana." />
+<meta property="og:title" content="x402 — the drop-in payment layer for agents" />
+<meta property="og:description" content="A live, searchable catalog of pay-per-call APIs. Inspect the schema and run any endpoint with one click. On-chain USDC settlement on Base and Solana." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://three.ws/x402" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://three.ws/x402" />
 <style>
 	:root {
 		--bg: #0b0b0b;
@@ -24,266 +27,453 @@
 		--accent: #ffffff;
 		--accent-blue: #60a5fa;
 		--accent-green: #4ade80;
+		--accent-amber: #fbbf24;
+		--danger: #fca5a5;
+		--code-bg: #0f0f0f;
+		--overlay: rgba(0, 0, 0, 0.66);
+		--shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6);
 		--mono: ui-monospace, "JetBrains Mono", "Fira Code", Menlo, monospace;
+		--ease: cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	[data-theme="light"] {
+		--bg: #fbfbfd;
+		--bg-2: #f3f4f8;
+		--panel: #ffffff;
+		--panel-2: #f6f7fb;
+		--border: #e7e8ef;
+		--border-strong: #d3d5e0;
+		--text: #0b0d17;
+		--muted: #5b6178;
+		--muted-2: #8b91a8;
+		--accent: #0b0d17;
+		--accent-blue: #2563eb;
+		--accent-green: #16a34a;
+		--accent-amber: #b45309;
+		--danger: #dc2626;
+		--code-bg: #0f1117;
+		--overlay: rgba(20, 22, 33, 0.4);
+		--shadow: 0 24px 60px -12px rgba(20, 22, 40, 0.22);
 	}
 	* { box-sizing: border-box; }
+	html { scroll-behavior: smooth; }
 	html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); }
 	body {
 		font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 		font-feature-settings: 'cv11' 1, 'ss03' 1;
 		-webkit-font-smoothing: antialiased;
 		line-height: 1.5;
+		overflow-x: hidden;
 	}
 	a { color: var(--accent-blue); text-decoration: none; }
-	a:hover { color: #93c5fd; }
+	a:hover { color: var(--accent-blue); opacity: 0.82; }
+	:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; border-radius: 6px; }
+	code { font-family: var(--mono); }
 
-	.wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+	.wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
 	@media (max-width: 640px) { .wrap { padding: 0 18px; } }
 
+	/* Nav */
 	nav {
-		padding: 22px 0;
-		display: flex; align-items: center; justify-content: space-between;
+		position: sticky; top: 0; z-index: 40;
+		background: color-mix(in srgb, var(--bg) 82%, transparent);
+		backdrop-filter: saturate(1.4) blur(14px);
+		-webkit-backdrop-filter: saturate(1.4) blur(14px);
+		border-bottom: 1px solid transparent;
+		transition: border-color 0.2s;
 	}
-	nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+	nav.scrolled { border-bottom-color: var(--border); }
+	nav .navrow {
+		max-width: 1180px; margin: 0 auto; padding: 15px 28px;
+		display: flex; align-items: center; justify-content: space-between; gap: 16px;
+	}
+	@media (max-width: 640px) { nav .navrow { padding: 13px 18px; } }
+	nav .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; color: var(--text); }
 	nav .brand .dot {
 		width: 24px; height: 24px;
-		background: conic-gradient(from 200deg, #ffffff, #60a5fa, #ffffff);
+		background: conic-gradient(from 200deg, var(--text), var(--accent-blue), var(--text));
 		border-radius: 7px;
 	}
-	nav .links { display: flex; gap: 22px; font-size: 13px; color: var(--muted); }
-	nav .links a { color: var(--muted); }
-	nav .links a:hover { color: var(--text); }
-	@media (max-width: 540px) { nav .links { display: none; } }
+	nav .links { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+	nav .links a { color: var(--muted); padding: 7px 10px; border-radius: 8px; transition: color 0.12s, background 0.12s; }
+	nav .links a:hover { color: var(--text); background: var(--panel); opacity: 1; }
+	@media (max-width: 720px) { nav .links a.hide-sm { display: none; } }
+
+	.icon-btn {
+		display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+		height: 34px; padding: 0 11px;
+		background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
+		color: var(--muted); font-size: 12.5px; font-family: inherit; font-weight: 500;
+		cursor: pointer; transition: color 0.12s, border-color 0.12s, background 0.12s;
+	}
+	.icon-btn:hover { color: var(--text); border-color: var(--border-strong); }
+	.icon-btn kbd {
+		font-family: var(--mono); font-size: 10.5px; color: var(--muted-2);
+		background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+		padding: 1px 5px; line-height: 1.4;
+	}
+	.icon-btn svg { width: 15px; height: 15px; }
 
 	/* Hero */
-	.hero { padding: 80px 0 64px; }
+	.hero { padding: 72px 0 44px; position: relative; }
+	.hero::before {
+		content: ""; position: absolute; inset: -120px 0 auto 0; height: 380px; z-index: -1;
+		background: radial-gradient(600px 240px at 20% 0%, color-mix(in srgb, var(--accent-blue) 16%, transparent), transparent 70%),
+		            radial-gradient(500px 220px at 80% 10%, color-mix(in srgb, var(--accent-green) 12%, transparent), transparent 70%);
+		pointer-events: none;
+	}
+	.eyebrow {
+		display: inline-flex; align-items: center; gap: 8px;
+		font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted);
+		background: var(--panel); border: 1px solid var(--border); border-radius: 99px;
+		padding: 6px 13px; margin-bottom: 22px;
+	}
+	.eyebrow .led { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation: pulse 2.4s var(--ease) infinite; }
+	@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 	.hero h1 {
-		font-size: clamp(40px, 6vw, 64px); line-height: 1.04;
-		margin: 0 0 22px; font-weight: 800; letter-spacing: -0.03em;
-		max-width: 18ch;
+		font-size: clamp(40px, 6.2vw, 66px); line-height: 1.03;
+		margin: 0 0 22px; font-weight: 800; letter-spacing: -0.035em; max-width: 16ch;
 	}
 	.hero h1 .grad {
-		background: linear-gradient(120deg, #ffffff 30%, #60a5fa 60%, #4ade80 90%);
+		background: linear-gradient(120deg, var(--text) 20%, var(--accent-blue) 58%, var(--accent-green) 92%);
 		-webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 	}
-	.hero p.lede {
-		font-size: 19px; color: var(--muted); margin: 0 0 32px;
-		max-width: 60ch; line-height: 1.55;
-	}
+	.hero p.lede { font-size: 19px; color: var(--muted); margin: 0 0 30px; max-width: 62ch; line-height: 1.55; }
+	.hero p.lede code { background: var(--panel); padding: 2px 6px; border-radius: 5px; font-size: 0.88em; }
 	.hero .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
 	.btn {
-		display: inline-flex; align-items: center; gap: 8px;
-		padding: 13px 22px;
-		background: #ffffff; color: #0b0b0b;
-		border: none; border-radius: 11px;
-		font-size: 14px; font-weight: 600; font-family: inherit;
-		cursor: pointer; letter-spacing: -0.005em;
-		text-decoration: none;
-		transition: transform 0.06s, background 0.12s;
+		display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px;
+		background: var(--accent); color: var(--bg);
+		border: none; border-radius: 11px; font-size: 14px; font-weight: 600; font-family: inherit;
+		cursor: pointer; letter-spacing: -0.005em; text-decoration: none;
+		transition: transform 0.06s var(--ease), opacity 0.12s;
 	}
-	.btn:hover { background: #e7e9ee; color: #0b0b0b; }
+	.btn:hover { opacity: 0.88; color: var(--bg); }
 	.btn:active { transform: translateY(1px); }
-	.btn.ghost {
-		background: transparent; color: var(--text);
-		border: 1px solid var(--border-strong);
-	}
-	.btn.ghost:hover { background: var(--panel); color: var(--text); }
+	.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
+	.btn.ghost:hover { background: var(--panel); color: var(--text); opacity: 1; }
 
-	/* Network badges row */
-	.networks {
-		display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
-		margin-top: 40px;
-		padding-top: 24px; border-top: 1px solid var(--border);
-		font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em;
+	/* Stats strip */
+	.stats {
+		display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px;
+		background: var(--border); border: 1px solid var(--border); border-radius: 14px;
+		overflow: hidden; margin-top: 40px;
 	}
-	.networks .pill {
-		display: inline-flex; align-items: center; gap: 8px;
-		padding: 7px 13px; border-radius: 99px;
-		background: var(--panel); border: 1px solid var(--border);
-		font-family: var(--mono); font-size: 11px; color: var(--text);
-		text-transform: none; letter-spacing: 0;
+	@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+	.stat { background: var(--panel); padding: 16px 18px; }
+	.stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); margin-bottom: 7px; }
+	.stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+	.stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; }
+	.stat .v.skeleton, .sk { color: transparent; border-radius: 6px;
+		background: linear-gradient(90deg, var(--panel-2) 25%, var(--border) 50%, var(--panel-2) 75%);
+		background-size: 200% 100%; animation: shimmer 1.3s infinite;
 	}
-	.networks .pill .led {
-		width: 6px; height: 6px; border-radius: 50%;
-		background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green);
-	}
+	@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-	/* Section heading */
-	section { padding: 56px 0; }
+	/* Sections */
+	section { padding: 52px 0; scroll-margin-top: 70px; }
 	section.alt { background: linear-gradient(180deg, transparent, var(--bg-2)); }
-	section h2 {
-		font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
-		margin: 0 0 14px;
-	}
+	.sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
+	section h2 { font-size: 30px; font-weight: 700; letter-spacing: -0.025em; margin: 0 0 12px; }
 	section h2 .num { color: var(--muted-2); font-weight: 500; margin-right: 12px; font-variant-numeric: tabular-nums; }
-	section p.sub {
-		font-size: 16px; color: var(--muted); margin: 0 0 32px; max-width: 60ch;
-	}
+	section p.sub { font-size: 16px; color: var(--muted); margin: 0; max-width: 62ch; line-height: 1.55; }
+	section h2 + p.sub { margin-top: -2px; }
 
 	/* Snippet */
 	.snippet {
-		background: #0f0f0f; border: 1px solid var(--border); border-radius: 14px;
-		padding: 18px 22px;
-		font-family: var(--mono); font-size: 13px; line-height: 1.65;
-		color: #c8ccd4; white-space: pre;
-		overflow-x: auto;
-		position: relative;
+		background: var(--code-bg); border: 1px solid var(--border); border-radius: 14px;
+		padding: 18px 22px; font-family: var(--mono); font-size: 13px; line-height: 1.65;
+		color: #c8ccd4; white-space: pre; overflow-x: auto; position: relative;
 	}
-	.snippet .k { color: #ffffff; }
-	.snippet .s { color: #6ee7b7; }
-	.snippet .n { color: var(--muted); }
-	.snippet .a { color: #fbbf24; }
-	.snippet .c { color: var(--muted-2); }
-	.snippet .copy-btn {
+	.snippet .k { color: #e5e9f0; } .snippet .s { color: #6ee7b7; }
+	.snippet .n { color: #8a90a8; } .snippet .a { color: #fbbf24; } .snippet .c { color: #6b7088; }
+	.copy-btn {
 		position: absolute; top: 10px; right: 10px;
-		background: var(--panel-2); border: 1px solid var(--border);
-		color: var(--muted); font-size: 11px;
-		padding: 5px 10px; border-radius: 6px; cursor: pointer;
-		font-family: inherit;
+		background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+		color: #b9bfd0; font-size: 11px; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-family: inherit;
+		transition: color 0.12s, border-color 0.12s;
 	}
-	.snippet .copy-btn:hover { color: var(--text); border-color: var(--border-strong); }
-	.snippet .copy-btn.copied { color: var(--accent-green); border-color: var(--accent-green); }
+	.copy-btn:hover { color: #fff; border-color: var(--border-strong); }
+	.copy-btn.copied { color: var(--accent-green); border-color: var(--accent-green); }
 
-	/* SKU grid */
-	.sku-grid {
-		display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-		gap: 14px;
+	/* Catalog toolbar */
+	.toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+	.search {
+		flex: 1 1 260px; min-width: 200px; position: relative; display: flex; align-items: center;
 	}
-	.sku-card {
-		background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-		padding: 22px;
-		display: flex; flex-direction: column; gap: 12px;
-		transition: border-color 0.15s, transform 0.08s;
+	.search svg { position: absolute; left: 13px; width: 16px; height: 16px; color: var(--muted-2); pointer-events: none; }
+	.search input {
+		width: 100%; height: 42px; padding: 0 40px 0 38px;
+		background: var(--panel); border: 1px solid var(--border); border-radius: 11px;
+		color: var(--text); font-size: 14px; font-family: inherit; transition: border-color 0.12s;
 	}
-	.sku-card:hover { border-color: var(--border-strong); }
-	.sku-card .head {
-		display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+	.search input::placeholder { color: var(--muted-2); }
+	.search input:focus { outline: none; border-color: var(--accent-blue); }
+	.search .slash { position: absolute; right: 11px; font-family: var(--mono); font-size: 11px; color: var(--muted-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+	.select {
+		height: 42px; padding: 0 34px 0 13px;
+		background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a90a8' stroke-width='2.4'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;
+		border: 1px solid var(--border); border-radius: 11px; color: var(--text); font-size: 13.5px; font-family: inherit;
+		cursor: pointer; -webkit-appearance: none; appearance: none; transition: border-color 0.12s;
 	}
-	.sku-card .title { font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
-	.sku-card .price {
-		font-family: var(--mono); font-size: 13px;
-		background: var(--bg-2); border: 1px solid var(--border);
-		padding: 4px 10px; border-radius: 6px; color: var(--accent-green);
-		flex: 0 0 auto;
+	.select:hover { border-color: var(--border-strong); }
+	.select:focus { outline: none; border-color: var(--accent-blue); }
+	.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 22px; }
+	.chip {
+		padding: 7px 13px; border-radius: 99px; font-size: 12.5px; font-weight: 500; cursor: pointer;
+		background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+		transition: all 0.12s var(--ease); display: inline-flex; align-items: center; gap: 7px;
 	}
-	.sku-card .desc {
-		color: var(--muted); font-size: 13px; line-height: 1.55;
-		flex: 1; min-height: 56px;
-	}
-	.sku-card .net {
-		font-family: var(--mono); font-size: 11px; color: var(--muted-2);
-		display: flex; gap: 10px;
-	}
-	.sku-card .buy {
-		padding: 12px 16px;
-		background: #ffffff; color: #0b0b0b;
-		border: none; border-radius: 10px;
-		font-size: 14px; font-weight: 600; font-family: inherit;
-		cursor: pointer; letter-spacing: -0.005em;
-		transition: background 0.12s, transform 0.05s;
-	}
-	.sku-card .buy:hover { background: #e7e9ee; }
-	.sku-card .buy:active { transform: translateY(1px); }
+	.chip:hover { color: var(--text); border-color: var(--border-strong); }
+	.chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+	.chip .n { font-variant-numeric: tabular-nums; opacity: 0.6; }
+	.chip.active .n { opacity: 0.7; }
+	.count-line { font-size: 13px; color: var(--muted-2); margin-bottom: 16px; font-variant-numeric: tabular-nums; }
 
-	.result-panel {
-		margin-top: 12px;
-		display: none;
-		background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
-		padding: 12px 14px;
-		font-family: var(--mono); font-size: 12px; line-height: 1.55;
-		color: var(--text); max-height: 220px; overflow: auto;
-		white-space: pre-wrap; word-break: break-word;
+	/* Card grid */
+	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+	.card {
+		background: var(--panel); border: 1px solid var(--border); border-radius: 15px;
+		padding: 20px; display: flex; flex-direction: column; gap: 12px; cursor: pointer;
+		transition: border-color 0.15s var(--ease), transform 0.12s var(--ease), box-shadow 0.15s;
+		position: relative; text-align: left; font-family: inherit; color: inherit;
+		animation: rise 0.4s var(--ease) both;
 	}
-	.result-panel.show { display: block; }
-	.result-panel .ok { color: var(--accent-green); font-weight: 600; }
-	.result-panel .err { color: #fca5a5; font-weight: 600; }
+	@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+	.card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow); }
+	.card:focus-visible { border-color: var(--accent-blue); }
+	.card .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+	.card .cat { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-blue); }
+	.card .price {
+		font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent-green);
+		background: color-mix(in srgb, var(--accent-green) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent-green) 26%, transparent);
+		padding: 3px 9px; border-radius: 6px; flex: 0 0 auto; white-space: nowrap;
+	}
+	.card .price.free { color: var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 12%, transparent); border-color: color-mix(in srgb, var(--accent-blue) 26%, transparent); }
+	.card .title { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; line-height: 1.3; }
+	.card .desc { color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+	.card .meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 11px; color: var(--muted-2); }
+	.card .verb { border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+	.card .calls { color: var(--accent-green); }
+	.card .run { margin-top: 2px; display: flex; align-items: center; justify-content: space-between; }
+	.card .run .go { font-size: 13px; font-weight: 600; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+	.card .run .go svg { width: 14px; height: 14px; transition: transform 0.15s; }
+	.card:hover .run .go svg { transform: translateX(3px); }
+
+	.card.sk-card { pointer-events: none; }
+	.card.sk-card .l { height: 12px; border-radius: 5px; background: linear-gradient(90deg, var(--panel-2) 25%, var(--border) 50%, var(--panel-2) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+
+	/* Empty / error states */
+	.state { text-align: center; padding: 64px 24px; border: 1px dashed var(--border); border-radius: 16px; background: var(--panel); }
+	.state .ic { width: 44px; height: 44px; margin: 0 auto 16px; color: var(--muted-2); }
+	.state h3 { margin: 0 0 8px; font-size: 18px; letter-spacing: -0.01em; }
+	.state p { margin: 0 auto 18px; color: var(--muted); font-size: 14px; max-width: 42ch; }
 
 	/* Steps */
-	.steps {
-		display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
-	}
+	.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 	@media (max-width: 740px) { .steps { grid-template-columns: 1fr; } }
-	.step-card {
-		background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-		padding: 22px;
-	}
+	.step-card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
 	.step-card .num {
-		display: inline-flex; width: 28px; height: 28px;
-		align-items: center; justify-content: center;
-		background: linear-gradient(135deg, #ffffff, #60a5fa); color: #0b0b0b;
-		border-radius: 8px; font-weight: 700; font-size: 13px;
-		margin-bottom: 14px;
+		display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center;
+		background: linear-gradient(135deg, var(--text), var(--accent-blue)); color: var(--bg);
+		border-radius: 8px; font-weight: 700; font-size: 13px; margin-bottom: 14px;
 	}
 	.step-card h3 { margin: 0 0 6px; font-size: 16px; letter-spacing: -0.01em; }
 	.step-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 
 	/* Footer */
-	footer {
-		border-top: 1px solid var(--border);
-		padding: 32px 0 48px;
-		display: flex; align-items: center; justify-content: space-between;
-		font-size: 12px; color: var(--muted);
-	}
+	footer { border-top: 1px solid var(--border); padding: 32px 0 48px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 	footer .left { display: flex; align-items: center; gap: 10px; }
-	footer .dot {
-		width: 18px; height: 18px;
-		background: conic-gradient(from 200deg, #ffffff, #60a5fa, #ffffff);
-		border-radius: 5px;
-	}
+	footer .dot { width: 18px; height: 18px; background: conic-gradient(from 200deg, var(--text), var(--accent-blue), var(--text)); border-radius: 5px; }
 	footer .right { display: flex; gap: 18px; }
-	footer .right a { color: var(--muted); }
-	footer .right a:hover { color: var(--text); }
+	footer .right a { color: var(--muted); } footer .right a:hover { color: var(--text); }
 
+	/* Toast */
 	.toast {
-		position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-		background: var(--panel); border: 1px solid var(--border);
-		padding: 12px 18px; border-radius: 10px;
-		font-size: 13px;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-		display: none;
+		position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(12px);
+		background: var(--panel); border: 1px solid var(--border-strong); padding: 11px 18px; border-radius: 11px;
+		font-size: 13px; box-shadow: var(--shadow); opacity: 0; pointer-events: none;
+		transition: opacity 0.2s, transform 0.2s var(--ease); z-index: 90;
 	}
-	.toast.show { display: block; }
+	.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+	/* Command palette */
+	.overlay {
+		position: fixed; inset: 0; z-index: 80; background: var(--overlay);
+		backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+		opacity: 0; pointer-events: none; transition: opacity 0.16s;
+	}
+	.overlay.show { opacity: 1; pointer-events: auto; }
+	.palette {
+		position: fixed; top: 12vh; left: 50%; transform: translateX(-50%) scale(0.98); z-index: 81;
+		width: min(620px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--border-strong);
+		border-radius: 16px; box-shadow: var(--shadow); overflow: hidden;
+		opacity: 0; pointer-events: none; transition: opacity 0.16s, transform 0.16s var(--ease);
+	}
+	.palette.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
+	.palette .pi { display: flex; align-items: center; gap: 11px; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+	.palette .pi svg { width: 18px; height: 18px; color: var(--muted-2); }
+	.palette .pi input { flex: 1; background: none; border: none; color: var(--text); font-size: 16px; font-family: inherit; outline: none; }
+	.palette .pi input::placeholder { color: var(--muted-2); }
+	.palette .plist { max-height: 52vh; overflow-y: auto; padding: 8px; }
+	.palette .prow {
+		display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px; cursor: pointer;
+	}
+	.palette .prow[aria-selected="true"] { background: var(--panel-2); }
+	.palette .prow .pcat { width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px; background: var(--bg-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+	.palette .prow .pmain { flex: 1; min-width: 0; }
+	.palette .prow .pt { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.palette .prow .pd { font-size: 12px; color: var(--muted-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.palette .prow .pp { font-family: var(--mono); font-size: 11.5px; color: var(--accent-green); flex: 0 0 auto; }
+	.palette .pempty { padding: 32px; text-align: center; color: var(--muted-2); font-size: 14px; }
+	.palette .pfoot { display: flex; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted-2); }
+	.palette .pfoot kbd { font-family: var(--mono); background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-right: 4px; }
+
+	/* Detail drawer */
+	.drawer {
+		position: fixed; top: 0; right: 0; bottom: 0; z-index: 81;
+		width: min(560px, 100vw); background: var(--bg); border-left: 1px solid var(--border-strong);
+		box-shadow: var(--shadow); transform: translateX(100%); transition: transform 0.26s var(--ease);
+		display: flex; flex-direction: column; overflow: hidden;
+	}
+	.drawer.show { transform: none; }
+	.drawer .dh { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+	.drawer .dh .dmain { flex: 1; min-width: 0; }
+	.drawer .dh .dcat { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-blue); margin-bottom: 6px; }
+	.drawer .dh h3 { margin: 0 0 8px; font-size: 20px; letter-spacing: -0.02em; line-height: 1.2; }
+	.drawer .dh .dmeta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 11.5px; color: var(--muted-2); }
+	.drawer .dh .dmeta .price { color: var(--accent-green); font-weight: 600; }
+	.drawer .dh .dmeta .verb { border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+	.drawer .dh .dmeta .path { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+	.drawer .close { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; background: var(--panel); border: 1px solid var(--border); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color 0.12s, border-color 0.12s; }
+	.drawer .close:hover { color: var(--text); border-color: var(--border-strong); }
+	.drawer .db { flex: 1; overflow-y: auto; padding: 22px 24px; }
+	.drawer .ddesc { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 22px; }
+	.drawer .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); font-weight: 600; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+	.field { margin-bottom: 14px; }
+	.field label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+	.field label .req { color: var(--accent-amber); margin-left: 4px; }
+	.field label .ty { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); font-weight: 400; margin-left: 6px; }
+	.field .hint { font-size: 11.5px; color: var(--muted-2); margin: 5px 0 0; line-height: 1.45; }
+	.field input, .field select, .field textarea {
+		width: 100%; padding: 10px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 9px;
+		color: var(--text); font-size: 13.5px; font-family: inherit; transition: border-color 0.12s;
+	}
+	.field textarea { font-family: var(--mono); font-size: 12.5px; min-height: 76px; resize: vertical; line-height: 1.5; }
+	.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent-blue); }
+	.field .noparams { color: var(--muted-2); font-size: 13px; }
+
+	.tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+	.tabs button { background: none; border: none; color: var(--muted-2); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 8px 11px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.12s; }
+	.tabs button:hover { color: var(--text); }
+	.tabs button.active { color: var(--text); border-bottom-color: var(--accent-blue); }
+	.codeblock { background: var(--code-bg); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; font-family: var(--mono); font-size: 12px; line-height: 1.6; color: #c8ccd4; white-space: pre; overflow-x: auto; position: relative; }
+
+	.result { margin-top: 16px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px; padding: 14px 16px; font-size: 12.5px; display: none; }
+	.result.show { display: block; animation: rise 0.3s var(--ease); }
+	.result .rhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-family: var(--mono); font-size: 11.5px; }
+	.result .ok { color: var(--accent-green); font-weight: 700; }
+	.result .err { color: var(--danger); font-weight: 700; }
+	.result .info { color: var(--muted); font-weight: 700; }
+	.result .rmeta { color: var(--muted-2); }
+	.result pre { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; }
+
+	.drawer .df { padding: 16px 24px; border-top: 1px solid var(--border); background: var(--bg); }
+	.run-btn {
+		width: 100%; padding: 14px; background: var(--accent); color: var(--bg); border: none; border-radius: 11px;
+		font-size: 14.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+		display: flex; align-items: center; justify-content: center; gap: 8px;
+		transition: opacity 0.12s, transform 0.05s;
+	}
+	.run-btn:hover { opacity: 0.88; } .run-btn:active { transform: translateY(1px); }
+	.run-btn:disabled { opacity: 0.5; cursor: default; }
+	.run-btn .spin { width: 15px; height: 15px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: rot 0.7s linear infinite; }
+	@keyframes rot { to { transform: rotate(360deg); } }
+	.df .note { font-size: 11px; color: var(--muted-2); text-align: center; margin: 9px 0 0; }
+
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+	}
 </style>
 </head>
 <body>
 
-<div class="wrap">
-	<nav>
-		<a class="brand" href="/x402">
-			<div class="dot"></div>
-			<span>x402</span>
-		</a>
+<nav id="nav">
+	<div class="navrow">
+		<a class="brand" href="/x402"><div class="dot"></div><span>x402</span></a>
 		<div class="links">
-			<a href="#install">Install</a>
-			<a href="#demo">Demo</a>
-			<a href="/docs/x402" target="_blank" rel="noopener">Docs</a>
-			<a href="https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07" target="_blank" rel="noopener">Live activity ↗</a>
+			<a class="hide-sm" href="#catalog">Catalog</a>
+			<a class="hide-sm" href="#install">Install</a>
+			<a class="hide-sm" href="/docs/x402" target="_blank" rel="noopener">Docs</a>
+			<button class="icon-btn" id="paletteBtn" aria-label="Search endpoints">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+				<span>Search</span><kbd>⌘K</kbd>
+			</button>
+			<button class="icon-btn" id="themeBtn" aria-label="Toggle theme" style="padding:0 10px;">
+				<svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+			</button>
 		</div>
-	</nav>
+	</div>
+</nav>
 
+<div class="wrap">
 	<section class="hero">
-		<h1>x402 payments,<br /><span class="grad">drop-in.</span></h1>
+		<span class="eyebrow"><span class="led"></span><span id="eyebrowText">Live on Base &amp; Solana mainnet</span></span>
+		<h1>Pay-per-call APIs,<br /><span class="grad">one click away.</span></h1>
 		<p class="lede">
-			One <code style="background:var(--panel);padding:2px 6px;border-radius:4px;font-family:var(--mono);font-size:0.9em;">&lt;script&gt;</code> tag. A clean modal. Stablecoin payments on Base and Solana, settled on-chain in seconds. No keys, no signup, no SDK to learn. Built on the <a href="https://x402.org" target="_blank" rel="noopener">x402 protocol</a>.
+			A live catalog of endpoints an agent — or a human — can run and pay for on the spot, settled on-chain in USDC over the <a href="https://x402.org" target="_blank" rel="noopener">x402 protocol</a>. No keys, no signup, no SDK to learn. Inspect the schema, fill the inputs, click <code>Run</code>.
 		</p>
 		<div class="cta-row">
-			<a class="btn" href="#install">Get the snippet</a>
-			<a class="btn ghost" href="#demo">Try a live payment</a>
+			<a class="btn" href="#catalog">Browse the catalog</a>
+			<a class="btn ghost" href="#install">Drop it into your site</a>
 		</div>
-		<div class="networks">
-			<span>Settles on</span>
-			<span class="pill"><span class="led"></span>Base mainnet · USDC</span>
-			<span class="pill"><span class="led"></span>Solana mainnet · USDC</span>
+		<div class="stats" id="stats" aria-label="Live 24-hour activity">
+			<div class="stat"><div class="k">Endpoints</div><div class="v skeleton" data-stat="endpoints">—</div></div>
+			<div class="stat"><div class="k">24h settled</div><div class="v skeleton" data-stat="settled">—</div></div>
+			<div class="stat"><div class="k">24h volume</div><div class="v skeleton" data-stat="volume">—</div></div>
+			<div class="stat"><div class="k">Success rate</div><div class="v skeleton" data-stat="success">—</div></div>
+			<div class="stat"><div class="k">Unique payers</div><div class="v skeleton" data-stat="payers">—</div></div>
 		</div>
 	</section>
 
-	<section id="install">
-		<h2><span class="num">01</span>Install</h2>
-		<p class="sub">Paste one line into your <code style="font-family:var(--mono);">&lt;head&gt;</code>. Then add <code style="font-family:var(--mono);">data-x402-endpoint</code> to any button. That's it.</p>
+	<section id="catalog">
+		<div class="sec-head">
+			<div>
+				<h2><span class="num">01</span>The catalog</h2>
+				<p class="sub">Every endpoint below is live. Click one to inspect its schema and run it with a real on-chain payment.</p>
+			</div>
+			<button class="icon-btn" id="paletteBtn2" style="height:42px;padding:0 16px;">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+				<span>Quick search</span><kbd>⌘K</kbd>
+			</button>
+		</div>
+
+		<div class="toolbar">
+			<div class="search">
+				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+				<input id="searchInput" type="search" placeholder="Search endpoints…" aria-label="Search endpoints" autocomplete="off" />
+				<span class="slash">/</span>
+			</div>
+			<select class="select" id="sortSelect" aria-label="Sort endpoints">
+				<option value="popular">Most used</option>
+				<option value="price-asc">Price: low to high</option>
+				<option value="price-desc">Price: high to low</option>
+				<option value="name">Name A–Z</option>
+			</select>
+		</div>
+		<div class="chips" id="chips" role="tablist" aria-label="Filter by category"></div>
+		<div class="count-line" id="countLine" aria-live="polite"></div>
+		<div class="grid" id="grid"></div>
+	</section>
+
+	<section id="install" class="alt">
+		<div class="sec-head"><div>
+			<h2><span class="num">02</span>Install</h2>
+			<p class="sub">Paste one line into your <code>&lt;head&gt;</code>. Add <code>data-x402-endpoint</code> to any button. The modal handles the wallet, the 402 challenge, and settlement.</p>
+		</div></div>
 		<div class="snippet" id="installSnippet"><button class="copy-btn" data-copy="installSnippetCode">Copy</button><span id="installSnippetCode"><span class="c">&lt;!-- 1. Load once --&gt;</span>
 <span class="k">&lt;script</span> <span class="a">type</span>=<span class="s">"module"</span> <span class="a">src</span>=<span class="s">"https://three.ws/x402.js"</span><span class="k">&gt;&lt;/script&gt;</span>
 
-<span class="c">&lt;!-- 2. Add a button to any 402-paid endpoint --&gt;</span>
+<span class="c">&lt;!-- 2. Any button becomes a paid call --&gt;</span>
 <span class="k">&lt;button</span>
   <span class="a">data-x402-endpoint</span>=<span class="s">"https://three.ws/api/x402/symbol-availability?ticker=AGENT"</span>
   <span class="a">data-x402-merchant</span>=<span class="s">"three.ws"</span>
@@ -292,224 +482,518 @@
 <span class="k">&lt;/button&gt;</span></span></div>
 	</section>
 
-	<section id="how" class="alt">
-		<h2><span class="num">02</span>How it works</h2>
-		<p class="sub">x402 is HTTP 402 Payment Required, with a manifest. The drop-in handles the entire dance — you never see it.</p>
+	<section id="how">
+		<div class="sec-head"><div>
+			<h2><span class="num">03</span>How it works</h2>
+			<p class="sub">x402 is HTTP 402 Payment Required, with a manifest. The drop-in handles the entire dance — you never see it.</p>
+		</div></div>
 		<div class="steps">
-			<div class="step-card">
-				<div class="num">1</div>
-				<h3>Buyer clicks</h3>
-				<p>The modal opens. We probe your endpoint, parse the 402 challenge, and show the price + network.</p>
-			</div>
-			<div class="step-card">
-				<div class="num">2</div>
-				<h3>Wallet signs</h3>
-				<p>Phantom for Solana, MetaMask/Coinbase for Base. We build the SPL transfer or EIP-3009 authorization. One click.</p>
-			</div>
-			<div class="step-card">
-				<div class="num">3</div>
-				<h3>Facilitator settles</h3>
-				<p>PayAI or Coinbase CDP verifies and broadcasts the tx on-chain. Your endpoint runs and returns the result.</p>
-			</div>
+			<div class="step-card"><div class="num">1</div><h3>Buyer clicks</h3><p>The modal opens, probes your endpoint, parses the 402 challenge, and shows the exact price and network.</p></div>
+			<div class="step-card"><div class="num">2</div><h3>Wallet signs</h3><p>Phantom for Solana, MetaMask or Coinbase for Base. We build the SPL transfer or EIP-3009 authorization. One click.</p></div>
+			<div class="step-card"><div class="num">3</div><h3>Facilitator settles</h3><p>PayAI or Coinbase CDP verifies and broadcasts on-chain. Your endpoint runs and streams the result back.</p></div>
 		</div>
-	</section>
-
-	<section id="demo">
-		<h2><span class="num">03</span>Try it live</h2>
-		<p class="sub">These are real paid endpoints. Pay $0.001 USDC with Phantom or your browser wallet and see the response stream back.</p>
-		<div class="sku-grid">
-
-			<div class="sku-card">
-				<div class="head">
-					<div class="title">Symbol availability</div>
-					<div class="price">$0.001</div>
-				</div>
-				<div class="desc">Check if a token ticker is already trading across Solana and Base. Returns exact matches, fuzzy lookalikes, and a register/skip recommendation.</div>
-				<div class="net">Base · Solana</div>
-				<button class="buy"
-					data-x402-endpoint="/api/x402/symbol-availability?ticker=AGENT&amp;network=mainnet"
-					data-x402-merchant="three.ws"
-					data-x402-action="Check ticker · AGENT"
-					data-result-target="r-symbol">
-					Buy & run · check AGENT
-				</button>
-				<div class="result-panel" id="r-symbol"></div>
-			</div>
-
-			<div class="sku-card">
-				<div class="head">
-					<div class="title">Agent reputation</div>
-					<div class="price">$0.001</div>
-				</div>
-				<div class="desc">Pull a multi-source reputation report for any on-chain agent: posting cadence, follower deltas, on-chain activity, x402 settlement stats.</div>
-				<div class="net">Base · Solana</div>
-				<button class="buy"
-					data-x402-endpoint="/api/x402/agent-reputation?address=THREEsynthetic1111111111111111111111111PayTo&amp;chain=solana"
-					data-x402-merchant="three.ws"
-					data-x402-action="Reputation report"
-					data-result-target="r-rep">
-					Buy & run · THREEsyn…PayTo
-				</button>
-				<div class="result-panel" id="r-rep"></div>
-			</div>
-
-			<div class="sku-card">
-				<div class="head">
-					<div class="title">Pump.fun agent audit</div>
-					<div class="price">$0.001</div>
-				</div>
-				<div class="desc">Forensic on-chain audit of a Pump.fun launch — supply curves, holder concentration, dev-wallet history, and risk flags.</div>
-				<div class="net">Base · Solana</div>
-				<button class="buy"
-					data-x402-endpoint="/api/x402/pump-agent-audit?mint=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump"
-					data-x402-merchant="three.ws"
-					data-x402-action="Pump.fun audit · $THREE"
-					data-result-target="r-pump">
-					Buy & run · audit $THREE
-				</button>
-				<div class="result-panel" id="r-pump"></div>
-			</div>
-
-			<div class="sku-card">
-				<div class="head">
-					<div class="title">Onchain identity verify</div>
-					<div class="price">$0.001</div>
-				</div>
-				<div class="desc">Verify an address claim against ENS, SNS, ERC-8004 attestations, and Solana SAS credentials. Returns linked identities + provenance.</div>
-				<div class="net">Base · Solana</div>
-				<button class="buy"
-					data-x402-endpoint="/api/x402/onchain-identity-verify?address=vitalik.eth"
-					data-x402-merchant="three.ws"
-					data-x402-action="Verify identity · vitalik.eth"
-					data-result-target="r-id">
-					Buy & run · verify vitalik.eth
-				</button>
-				<div class="result-panel" id="r-id"></div>
-			</div>
-
-		</div>
-	</section>
-
-	<section id="siwx">
-		<h2><span class="num">04</span>Sign in with wallet (re-entry)</h2>
-		<p class="sub">
-			For re-downloadable content — GLBs, avatars, agent skills, lobby
-			characters — buyers shouldn't pay again every time they fetch the same
-			asset. When an endpoint opts into <a href="https://github.com/x402/x402/blob/main/typescript/site/CHANGELOG-v2.md" target="_blank" rel="noopener">SIWX (Sign-In-With-X, CAIP-122)</a>,
-			the modal grows a second option:
-		</p>
-		<pre style="background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-family:var(--mono);font-size:12px;color:var(--text);line-height:1.5;overflow:auto;"><code>┌──────────────────────────────────────────┐
-│  three.ws                              ✕ │
-│  Download pole-dancer-rumba.glb          │
-├──────────────────────────────────────────┤
-│  0.05 USDC          [Base · live ●]      │
-├──────────────────────────────────────────┤
-│  ┌────────────────────────────────────┐  │
-│  │       Sign in with wallet          │  │   ← primary
-│  └────────────────────────────────────┘  │
-│  ┌────────────────────────────────────┐  │
-│  │     Pay 0.05 USDC instead          │  │   ← secondary
-│  └────────────────────────────────────┘  │
-│  Already paid for this once? Sign in to  │
-│  re-enter without paying again.          │
-└──────────────────────────────────────────┘</code></pre>
-		<p class="sub" style="margin-top:18px;">
-			Click <strong>Sign in with wallet</strong> → wallet pops with a CAIP-122
-			message naming the resource, the connected address, and a fresh nonce →
-			modal posts the signed payload as a <code style="font-family:var(--mono);">SIGN-IN-WITH-X</code>
-			header → endpoint looks the wallet up in its payment ledger → returns
-			200 without charging. If the wallet hasn't actually paid for this
-			resource (or the signature is rejected), the modal falls back to the
-			normal pay flow with a one-line notice.
-		</p>
-		<p class="sub" style="margin-top:8px;">
-			Programmatic callers see the same flow: <code style="font-family:var(--mono);">await window.X402.pay(...)</code>
-			resolves with <code style="font-family:var(--mono);">{ result, siwx: { address, network } }</code>
-			(instead of <code style="font-family:var(--mono);">payment</code>) when SIWX was used. The element-bound API also
-			dispatches an <code style="font-family:var(--mono);">x402:siwx-signed</code> event right before
-			<code style="font-family:var(--mono);">x402:result</code> so analytics can distinguish a sign-in from a paid
-			call. A manual test surface lives at <a href="/siwx-test.html">/siwx-test.html</a>.
-		</p>
 	</section>
 
 	<section id="programmatic" class="alt">
-		<h2><span class="num">05</span>Or call it programmatically</h2>
-		<p class="sub">Same modal, called from JavaScript. The promise resolves with the API result and a settlement receipt.</p>
+		<div class="sec-head"><div>
+			<h2><span class="num">04</span>Or call it from code</h2>
+			<p class="sub">Same settlement, driven from JavaScript. The promise resolves with your endpoint's JSON and a settlement receipt.</p>
+		</div></div>
 		<div class="snippet" id="progSnippet"><button class="copy-btn" data-copy="progSnippetCode">Copy</button><span id="progSnippetCode"><span class="k">const</span> { result, payment } = <span class="k">await</span> window.X402.<span class="a">pay</span>({
   <span class="a">endpoint</span>: <span class="s">'/api/x402/symbol-availability'</span>,
+  <span class="a">method</span>: <span class="s">'GET'</span>,
   <span class="a">body</span>: { <span class="a">ticker</span>: <span class="s">'AGENT'</span> },
   <span class="a">merchant</span>: <span class="s">'Acme'</span>,
-  <span class="a">action</span>: <span class="s">'Check ticker'</span>,
 });
 
 <span class="c">// payment.transaction → on-chain tx hash</span>
 <span class="c">// payment.payer      → buyer wallet</span>
 <span class="c">// result             → your endpoint's JSON response</span></span></div>
+		<p class="sub" style="margin-top:18px;">
+			Agents pay autonomously with <a href="https://www.npmjs.com/package/@x402/fetch" target="_blank" rel="noopener">@x402/fetch</a> or the <a href="/docs/mcp" target="_blank" rel="noopener">MCP transport</a> — no wallet UI, no API key. Re-downloadable goods support <a href="/siwx-test.html">Sign-In-With-Wallet</a> re-entry so buyers never pay twice for the same asset.
+		</p>
 	</section>
 
 	<footer>
-		<div class="left">
-			<div class="dot"></div>
-			<span>x402 · operated by three.ws</span>
-		</div>
+		<div class="left"><div class="dot"></div><span>x402 · operated by three.ws</span></div>
 		<div class="right">
 			<a href="/docs/x402" target="_blank" rel="noopener">Docs</a>
+			<a href="/openapi.json" target="_blank" rel="noopener">OpenAPI</a>
 			<a href="https://x402.org" target="_blank" rel="noopener">Protocol ↗</a>
-			<a href="https://www.x402scan.com" target="_blank" rel="noopener">x402scan ↗</a>
+			<a href="https://www.x402scan.com/server/17cbd874-52ac-4920-a020-b22ff2489a07" target="_blank" rel="noopener">Live activity ↗</a>
 		</div>
 	</footer>
 </div>
 
+<!-- Command palette -->
+<div class="overlay" id="paletteOverlay"></div>
+<div class="palette" id="palette" role="dialog" aria-modal="true" aria-label="Search endpoints">
+	<div class="pi">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+		<input id="paletteInput" type="text" placeholder="Search endpoints by name, category, or path…" aria-label="Search endpoints" autocomplete="off" />
+	</div>
+	<div class="plist" id="paletteList" role="listbox"></div>
+	<div class="pfoot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span></div>
+</div>
+
+<!-- Detail drawer -->
+<div class="overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle"></aside>
+
 <div class="toast" id="toast">copied</div>
 
 <script type="module" src="/x402.js"></script>
-<script>
-	// Copy buttons
-	document.querySelectorAll('.copy-btn').forEach((btn) => {
-		btn.addEventListener('click', async () => {
-			const id = btn.dataset.copy;
-			const el = document.getElementById(id);
-			if (!el) return;
-			try {
-				await navigator.clipboard.writeText(el.textContent || '');
-				btn.classList.add('copied');
-				btn.textContent = '✓ Copied';
-				const toast = document.getElementById('toast');
-				toast.classList.add('show');
-				setTimeout(() => toast.classList.remove('show'), 1600);
-				setTimeout(() => {
-					btn.classList.remove('copied');
-					btn.textContent = 'Copy';
-				}, 1800);
-			} catch (e) {
-				btn.textContent = 'copy failed';
+<script type="module">
+(function () {
+	'use strict';
+	const $ = (s, r = document) => r.querySelector(s);
+	const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+	const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+	const fmtUsd = (n) => {
+		if (n == null) return 'Free';
+		if (n === 0) return 'Free';
+		if (n < 0.01) return '$' + n.toFixed(3).replace(/0+$/, '').replace(/\.$/, '');
+		if (n < 1) return '$' + n.toFixed(n * 100 % 1 === 0 ? 2 : 3);
+		return '$' + n.toFixed(2);
+	};
+	const fmtNum = (n) => n == null ? '—' : n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1) + 'k' : String(n);
+
+	// ── Category classification (derived from path + copy) ─────────────────
+	const CATS = [
+		{ key: 'Crypto', icon: '◎', test: /pump|token|mint|vanity|symbol|intel|crypto|cross-chain|three-intel|reputation|bouncer|identity|did/i },
+		{ key: '3D', icon: '◈', test: /mesh|forge|model|avatar|animation|cosmetic|club|dance|glb/i },
+		{ key: 'AI', icon: '✦', test: /fact-check|tutor|vision|insight|revenue-vision/i },
+		{ key: 'Discovery', icon: '⌘', test: /marketplace|bazaar|catalog|skill/i },
+	];
+	const categorize = (path, ...text) => {
+		const hay = (path + ' ' + text.join(' ')).toLowerCase();
+		for (const c of CATS) if (c.test.test(hay)) return c.key;
+		return 'Utility';
+	};
+	const catIcon = (key) => (CATS.find((c) => c.key === key) || {}).icon || '⚡';
+
+	// ── Schema field extraction ────────────────────────────────────────────
+	function schemaInfo(s) {
+		s = s || {};
+		return {
+			type: s.type || 'string',
+			enum: Array.isArray(s.enum) ? s.enum : null,
+			default: s.default != null ? s.default : null,
+			example: s.example != null ? s.example : null,
+			min: s.minLength != null ? s.minLength : (s.minimum != null ? s.minimum : null),
+			max: s.maxLength != null ? s.maxLength : (s.maximum != null ? s.maximum : null),
+			desc: s.description || '',
+			itemsType: s.items && s.items.type ? s.items.type : null,
+		};
+	}
+	const cleanTitle = (s, path) => (s || path || '')
+		.replace(/^paid:\s*/i, '')
+		.replace(/^x402[_\s-]*/i, '')
+		.replace(/\s*\(returns[^)]*\)/i, '')
+		.trim() || path;
+
+	let CATALOG = [];
+	let STATS = null;
+	const state = { q: '', cat: 'All', sort: 'popular' };
+
+	// ── Fetch catalog from the free OpenAPI discovery doc ──────────────────
+	async function loadCatalog() {
+		const doc = await fetch('/openapi.json', { headers: { accept: 'application/json' } }).then((r) => {
+			if (!r.ok) throw new Error('openapi ' + r.status);
+			return r.json();
+		});
+		const paths = doc.paths || {};
+		const items = [];
+		for (const [path, ops] of Object.entries(paths)) {
+			if (!/^\/api\/(x402|insights)\//.test(path)) continue;
+			for (const [verb, op] of Object.entries(ops)) {
+				if (!['get', 'post'].includes(verb) || !op || typeof op !== 'object') continue;
+				const pay = op['x-payment-info'];
+				const amt = pay && pay.price && pay.price.amount != null ? Number(pay.price.amount) : null;
+				const params = Array.isArray(op.parameters)
+					? op.parameters.filter((p) => p.in === 'query').map((p) => ({ name: p.name, required: !!p.required, ...schemaInfo(p.schema) }))
+					: [];
+				const bodySchema = op.requestBody && op.requestBody.content && op.requestBody.content['application/json'] && op.requestBody.content['application/json'].schema;
+				const req = new Set((bodySchema && bodySchema.required) || []);
+				const bodyProps = bodySchema && bodySchema.properties
+					? Object.entries(bodySchema.properties).map(([name, s]) => ({ name, required: req.has(name), ...schemaInfo(s) }))
+					: [];
+				const title = cleanTitle(op.summary, path);
+				const desc = op.description || op.summary || '';
+				items.push({
+					id: op.operationId || (path + ':' + verb),
+					path, method: verb.toUpperCase(), title, desc,
+					priceUsd: amt, params, bodyProps,
+					category: categorize(path, op.summary, op.description),
+				});
+			}
+		}
+		// de-dupe by path (prefer the paid/GET representation), keep stable
+		const seen = new Map();
+		for (const it of items) { if (!seen.has(it.path)) seen.set(it.path, it); }
+		return Array.from(seen.values());
+	}
+
+	async function loadStats() {
+		try {
+			const r = await fetch('/api/x402-revenue?view=stats&period=24h', { headers: { accept: 'application/json' } });
+			if (!r.ok) return null;
+			return await r.json();
+		} catch (e) { return null; }
+	}
+
+	function callsFor(path) {
+		if (!STATS || !Array.isArray(STATS.by_endpoint)) return 0;
+		const row = STATS.by_endpoint.find((e) => e.route === path);
+		return row ? row.count : 0;
+	}
+
+	// ── Stats bar ──────────────────────────────────────────────────────────
+	function renderStats() {
+		const set = (k, v) => { const el = $(`[data-stat="${k}"]`); if (el) { el.classList.remove('skeleton'); el.innerHTML = v; } };
+		set('endpoints', String(CATALOG.length));
+		if (STATS) {
+			set('settled', fmtNum(STATS.settled_count));
+			set('volume', '$' + Number(STATS.gross_usd || 0).toFixed(STATS.gross_usd < 100 ? 2 : 0));
+			set('success', STATS.success_rate != null ? Math.round(STATS.success_rate * 100) + '<small>%</small>' : '—');
+			set('payers', fmtNum(STATS.unique_payers));
+		} else {
+			['settled', 'volume', 'success', 'payers'].forEach((k) => set(k, '<small style="font-size:15px">—</small>'));
+			$('#eyebrowText').textContent = 'Live on Base & Solana mainnet';
+		}
+	}
+
+	// ── Category chips ───────────────────────────────────────────────────────
+	function renderChips() {
+		const counts = { All: CATALOG.length };
+		CATALOG.forEach((c) => { counts[c.category] = (counts[c.category] || 0) + 1; });
+		const cats = ['All', ...CATS.map((c) => c.key).filter((k) => counts[k]), ...(counts.Utility ? ['Utility'] : [])];
+		const uniq = [...new Set(cats)];
+		$('#chips').innerHTML = uniq.map((k) =>
+			`<button class="chip ${state.cat === k ? 'active' : ''}" role="tab" aria-selected="${state.cat === k}" data-cat="${esc(k)}">${k === 'All' ? 'All' : catIcon(k) + ' ' + esc(k)} <span class="n">${counts[k] || 0}</span></button>`
+		).join('');
+		$$('#chips .chip').forEach((el) => el.addEventListener('click', () => { state.cat = el.dataset.cat; renderChips(); renderGrid(); }));
+	}
+
+	// ── Filtering + sorting ──────────────────────────────────────────────────
+	function filtered() {
+		let list = CATALOG.slice();
+		if (state.cat !== 'All') list = list.filter((c) => c.category === state.cat);
+		if (state.q) {
+			const q = state.q.toLowerCase();
+			list = list.filter((c) => (c.title + ' ' + c.desc + ' ' + c.path + ' ' + c.category).toLowerCase().includes(q));
+		}
+		const price = (c) => c.priceUsd == null ? -1 : c.priceUsd;
+		if (state.sort === 'price-asc') list.sort((a, b) => price(a) - price(b));
+		else if (state.sort === 'price-desc') list.sort((a, b) => price(b) - price(a));
+		else if (state.sort === 'name') list.sort((a, b) => a.title.localeCompare(b.title));
+		else list.sort((a, b) => callsFor(b.path) - callsFor(a.path) || a.title.localeCompare(b.title));
+		return list;
+	}
+
+	// ── Card grid ────────────────────────────────────────────────────────────
+	function renderGrid() {
+		const grid = $('#grid');
+		const list = filtered();
+		$('#countLine').textContent = `${list.length} of ${CATALOG.length} endpoint${CATALOG.length === 1 ? '' : 's'}${state.cat !== 'All' ? ' · ' + state.cat : ''}${state.q ? ` · “${state.q}”` : ''}`;
+		if (!list.length) {
+			grid.style.display = 'block';
+			grid.innerHTML = `<div class="state"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><h3>No endpoints match</h3><p>Nothing lines up with your search or filter. Try a broader term.</p><button class="btn ghost" id="clearBtn">Clear filters</button></div>`;
+			const cb = $('#clearBtn'); if (cb) cb.addEventListener('click', () => { state.q = ''; state.cat = 'All'; $('#searchInput').value = ''; renderChips(); renderGrid(); });
+			return;
+		}
+		grid.style.display = 'grid';
+		grid.innerHTML = list.map((c, i) => {
+			const calls = callsFor(c.path);
+			return `<button class="card" data-id="${esc(c.id)}" style="animation-delay:${Math.min(i * 22, 300)}ms" aria-label="${esc(c.title)} — ${fmtUsd(c.priceUsd)}">
+				<div class="top"><span class="cat">${catIcon(c.category)} ${esc(c.category)}</span><span class="price ${c.priceUsd == null ? 'free' : ''}">${fmtUsd(c.priceUsd)}</span></div>
+				<div class="title">${esc(c.title)}</div>
+				<div class="desc">${esc(c.desc)}</div>
+				<div class="meta"><span class="verb">${c.method}</span><span>USDC · Base · Solana</span>${calls ? `<span class="calls">${fmtNum(calls)} calls/24h</span>` : ''}</div>
+				<div class="run"><span class="go">Inspect &amp; run <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+			</button>`;
+		}).join('');
+		$$('#grid .card').forEach((el) => el.addEventListener('click', () => openDrawer(el.dataset.id)));
+	}
+
+	function skeletonGrid() {
+		$('#grid').innerHTML = Array.from({ length: 8 }).map(() =>
+			`<div class="card sk-card"><div class="top"><div class="l" style="width:60px"></div><div class="l" style="width:44px"></div></div><div class="l" style="width:70%;height:16px"></div><div class="l" style="width:100%"></div><div class="l" style="width:90%"></div><div class="l" style="width:40%"></div></div>`
+		).join('');
+	}
+
+	function catalogError() {
+		$('#grid').style.display = 'block';
+		$('#grid').innerHTML = `<div class="state"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><h3>Couldn't load the catalog</h3><p>The discovery endpoint didn't respond. This works on the live site; check your connection and retry.</p><button class="btn" id="retryBtn">Retry</button></div>`;
+		$('#retryBtn').addEventListener('click', boot);
+	}
+
+	// ── Detail drawer ────────────────────────────────────────────────────────
+	let lastFocus = null;
+	let drawerTab = 'try';
+
+	function fieldHtml(f) {
+		const id = 'f_' + f.name;
+		const ty = `${f.type}${f.itemsType ? '[' + f.itemsType + ']' : ''}`;
+		const req = f.required ? '<span class="req" title="required">*</span>' : '';
+		const hint = f.desc || (f.enum ? 'one of: ' + f.enum.join(', ') : '') || (f.max ? `max ${f.max} chars` : '');
+		let control;
+		if (f.enum) {
+			control = `<select id="${id}" data-name="${esc(f.name)}" data-ty="${esc(f.type)}">${(!f.required ? '<option value="">—</option>' : '') + f.enum.map((o) => `<option value="${esc(o)}" ${String(f.default) === String(o) ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+		} else if (f.type === 'array') {
+			control = `<input id="${id}" data-name="${esc(f.name)}" data-ty="array" placeholder="comma-separated values" value="${esc(f.default || '')}" />`;
+		} else {
+			const val = f.default != null ? f.default : (f.example != null ? f.example : '');
+			control = `<input id="${id}" data-name="${esc(f.name)}" data-ty="${esc(f.type)}" placeholder="${esc(f.type === 'string' ? f.name : f.type)}" value="${esc(val)}" ${f.max ? `maxlength="${f.max}"` : ''} />`;
+		}
+		return `<div class="field"><label for="${id}">${esc(f.name)}${req}<span class="ty">${esc(ty)}</span></label>${control}${hint ? `<p class="hint">${esc(hint)}</p>` : ''}</div>`;
+	}
+
+	function codeFor(item, lang) {
+		const url = 'https://three.ws' + item.path;
+		const fields = item.method === 'GET' ? item.params : item.bodyProps;
+		const sample = {};
+		fields.forEach((f) => { if (f.required || f.default != null) sample[f.name] = f.default != null ? f.default : (f.example != null ? f.example : (f.enum ? f.enum[0] : (f.type === 'string' ? '…' : 0))); });
+		if (lang === 'js') {
+			return `// Loaded via &lt;script src="https://three.ws/x402.js"&gt;\nconst { result, payment } = await window.X402.pay({\n  endpoint: '${item.path}',\n  method: '${item.method}',${item.method === 'POST' ? `\n  body: ${JSON.stringify(sample, null, 2).split('\n').join('\n  ')},` : Object.keys(sample).length ? `\n  // query: ${esc(new URLSearchParams(sample).toString())}` : ''}\n});\nconsole.log(result, payment.transaction);`;
+		}
+		if (lang === 'curl') {
+			const q = item.method === 'GET' && Object.keys(sample).length ? '?' + new URLSearchParams(sample).toString() : '';
+			return `# Returns HTTP 402 with the payment challenge; pay with any x402 client.\ncurl -sS "${url}${q}"${item.method === 'POST' ? ` \\\n  -H 'content-type: application/json' \\\n  -d '${JSON.stringify(sample)}'` : ''}`;
+		}
+		// python
+		return `# pip install x402 httpx\nfrom x402.clients.httpx import x402_payment_hooks\nimport httpx, os\n\nclient = httpx.Client(event_hooks=x402_payment_hooks(private_key=os.environ["WALLET_KEY"]))\nr = client.${item.method.toLowerCase()}("${url}"${item.method === 'POST' ? `, json=${JSON.stringify(sample)}` : Object.keys(sample).length ? `, params=${JSON.stringify(sample)}` : ''})\nprint(r.json())`;
+	}
+
+	function renderCode(item) {
+		$('#codeOut').textContent = codeFor(item, drawerTab === 'try' ? 'js' : drawerTab);
+	}
+
+	function openDrawer(id) {
+		const item = CATALOG.find((c) => c.id === id);
+		if (!item) return;
+		lastFocus = document.activeElement;
+		drawerTab = 'try';
+		const fields = item.method === 'GET' ? item.params : item.bodyProps;
+		const d = $('#drawer');
+		d.innerHTML = `
+			<div class="dh">
+				<div class="dmain">
+					<div class="dcat">${catIcon(item.category)} ${esc(item.category)}</div>
+					<h3 id="drawerTitle">${esc(item.title)}</h3>
+					<div class="dmeta"><span class="price">${fmtUsd(item.priceUsd)}</span><span class="verb">${item.method}</span><span class="path">${esc(item.path)}</span></div>
+				</div>
+				<button class="close" id="drawerClose" aria-label="Close">
+					<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+				</button>
+			</div>
+			<div class="db">
+				<p class="ddesc">${esc(item.desc)}</p>
+				<p class="lbl">Request${fields.length ? '' : ' · no parameters'}</p>
+				<div id="formWrap">${fields.length ? fields.map(fieldHtml).join('') : '<p class="field noparams">This endpoint takes no input — just run it.</p>'}</div>
+				<p class="lbl" style="margin-top:22px;">Integrate</p>
+				<div class="tabs" id="codeTabs">
+					<button data-tab="try" class="active">JavaScript</button>
+					<button data-tab="curl">cURL</button>
+					<button data-tab="python">Python</button>
+				</div>
+				<div class="codeblock"><button class="copy-btn" id="codeCopy">Copy</button><span id="codeOut"></span></div>
+				<div class="result" id="drawerResult"></div>
+			</div>
+			<div class="df">
+				<button class="run-btn" id="runBtn"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 3l14 9-14 9V3z"/></svg> Pay ${fmtUsd(item.priceUsd)} &amp; run</button>
+				<p class="note">Real on-chain USDC · exact network shown at checkout · nothing charged until you approve</p>
+			</div>`;
+		renderCode(item);
+		$('#drawerClose').addEventListener('click', closeDrawer);
+		$$('#codeTabs button').forEach((b) => b.addEventListener('click', () => {
+			$$('#codeTabs button').forEach((x) => x.classList.remove('active'));
+			b.classList.add('active');
+			drawerTab = b.dataset.tab === 'try' ? 'try' : b.dataset.tab;
+			renderCode(item);
+		}));
+		$('#codeCopy').addEventListener('click', () => copyText($('#codeOut').textContent, $('#codeCopy')));
+		$('#runBtn').addEventListener('click', () => runEndpoint(item));
+		$('#drawerOverlay').classList.add('show');
+		d.classList.add('show');
+		document.body.style.overflow = 'hidden';
+		const first = d.querySelector('input, select, textarea, button.run-btn');
+		if (first) setTimeout(() => first.focus(), 260);
+		try { history.replaceState(null, '', '#run=' + encodeURIComponent(item.path)); } catch (e) {}
+	}
+
+	function closeDrawer() {
+		$('#drawer').classList.remove('show');
+		$('#drawerOverlay').classList.remove('show');
+		document.body.style.overflow = '';
+		if (lastFocus && lastFocus.focus) lastFocus.focus();
+		try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+	}
+
+	function collectValues(item) {
+		const fields = item.method === 'GET' ? item.params : item.bodyProps;
+		const values = {};
+		fields.forEach((f) => {
+			const el = $('#f_' + f.name); if (!el) return;
+			let v = el.value; if (v === '' || v == null) return;
+			if (f.type === 'array') v = String(v).split(',').map((x) => x.trim()).filter(Boolean);
+			else if (f.type === 'integer' || f.type === 'number') { const n = Number(v); if (!Number.isNaN(n)) v = n; }
+			else if (f.type === 'boolean') v = v === 'true' || v === true;
+			values[f.name] = v;
+		});
+		return values;
+	}
+
+	async function runEndpoint(item) {
+		if (!window.X402 || typeof window.X402.pay !== 'function') {
+			showResult('info', 'Payment layer still loading — try again in a moment.', null);
+			return;
+		}
+		const values = collectValues(item);
+		let endpoint = item.path, body;
+		if (item.method === 'GET') {
+			const qs = new URLSearchParams();
+			Object.entries(values).forEach(([k, v]) => qs.set(k, Array.isArray(v) ? v.join(',') : v));
+			const s = qs.toString(); if (s) endpoint += '?' + s;
+		} else if (Object.keys(values).length) { body = values; }
+		const btn = $('#runBtn'); const orig = btn.innerHTML;
+		btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Awaiting payment…';
+		const t0 = performance.now();
+		try {
+			const out = await window.X402.pay({ endpoint, method: item.method, body, merchant: 'three.ws', action: item.title });
+			const ms = Math.round(performance.now() - t0);
+			const p = out.payment || {};
+			const net = p.network || (out.siwx && out.siwx.network) || '?';
+			const tx = p.transaction;
+			const exp = tx ? (String(net).startsWith('solana') ? 'https://solscan.io/tx/' + tx : 'https://basescan.org/tx/' + tx) : null;
+			const head = out.siwx
+				? `<span class="ok">✓ Re-entered</span><span class="rmeta">signed in with wallet · ${esc(net)} · ${ms}ms</span>`
+				: `<span class="ok">✓ Paid &amp; ran</span><span class="rmeta">${esc(net)}${p.amount_usd != null ? ' · $' + p.amount_usd : ''} · ${ms}ms${exp ? ` · <a href="${exp}" target="_blank" rel="noopener">tx ↗</a>` : ''}</span>`;
+			showResultHtml(head, JSON.stringify(out.result, null, 2));
+		} catch (e) {
+			if (e && e.code === 'cancelled') showResult('info', 'Payment cancelled — no funds moved.', null);
+			else showResult('err', (e && e.message) || 'Something went wrong.', null);
+		} finally { btn.disabled = false; btn.innerHTML = orig; }
+	}
+
+	function showResult(kind, msg, body) {
+		const cls = kind === 'err' ? 'err' : kind === 'info' ? 'info' : 'ok';
+		const sym = kind === 'err' ? '✗' : kind === 'info' ? '•' : '✓';
+		showResultHtml(`<span class="${cls}">${sym} ${esc(msg)}</span>`, body);
+	}
+	function showResultHtml(headHtml, bodyText) {
+		const r = $('#drawerResult');
+		r.innerHTML = `<div class="rhead">${headHtml}</div>${bodyText ? `<pre>${esc(String(bodyText).slice(0, 4000))}</pre>` : ''}`;
+		r.classList.add('show');
+		r.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+	}
+
+	// ── Command palette ──────────────────────────────────────────────────────
+	let palIdx = 0, palResults = [];
+	function openPalette() {
+		$('#paletteOverlay').classList.add('show');
+		$('#palette').classList.add('show');
+		$('#paletteInput').value = '';
+		palPaint('');
+		setTimeout(() => $('#paletteInput').focus(), 60);
+	}
+	function closePalette() {
+		$('#paletteOverlay').classList.remove('show');
+		$('#palette').classList.remove('show');
+	}
+	function palPaint(q) {
+		q = q.toLowerCase();
+		palResults = (q ? CATALOG.filter((c) => (c.title + ' ' + c.desc + ' ' + c.path + ' ' + c.category).toLowerCase().includes(q)) : CATALOG.slice())
+			.sort((a, b) => callsFor(b.path) - callsFor(a.path)).slice(0, 40);
+		palIdx = 0;
+		const list = $('#paletteList');
+		if (!palResults.length) { list.innerHTML = '<div class="pempty">No endpoints found</div>'; return; }
+		list.innerHTML = palResults.map((c, i) =>
+			`<div class="prow" role="option" data-i="${i}" aria-selected="${i === 0}"><div class="pcat">${catIcon(c.category)}</div><div class="pmain"><div class="pt">${esc(c.title)}</div><div class="pd">${esc(c.path)}</div></div><div class="pp">${fmtUsd(c.priceUsd)}</div></div>`
+		).join('');
+		$$('#paletteList .prow').forEach((el) => {
+			el.addEventListener('click', () => { closePalette(); openDrawer(palResults[+el.dataset.i].id); });
+			el.addEventListener('mousemove', () => { palIdx = +el.dataset.i; palHi(); });
+		});
+	}
+	function palHi() {
+		$$('#paletteList .prow').forEach((el, i) => el.setAttribute('aria-selected', i === palIdx));
+		const cur = $(`#paletteList .prow[data-i="${palIdx}"]`);
+		if (cur) cur.scrollIntoView({ block: 'nearest' });
+	}
+
+	// ── Theme toggle ─────────────────────────────────────────────────────────
+	const SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+	const MOON = '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>';
+	function paintTheme() { $('#themeIcon').innerHTML = document.documentElement.getAttribute('data-theme') === 'light' ? MOON : SUN; }
+	function toggleTheme() {
+		const now = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+		document.documentElement.setAttribute('data-theme', now);
+		try { localStorage.setItem('twx_theme', now); } catch (e) {}
+		paintTheme();
+	}
+
+	// ── Copy + toast ─────────────────────────────────────────────────────────
+	async function copyText(text, btn) {
+		try {
+			await navigator.clipboard.writeText(text || '');
+			if (btn) { const o = btn.textContent; btn.textContent = '✓ Copied'; btn.classList.add('copied'); setTimeout(() => { btn.textContent = o; btn.classList.remove('copied'); }, 1600); }
+			toast('Copied to clipboard');
+		} catch (e) { if (btn) btn.textContent = 'copy failed'; }
+	}
+	let toastT;
+	function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1700); }
+
+	// ── Global wiring ────────────────────────────────────────────────────────
+	function wireGlobal() {
+		paintTheme();
+		$('#themeBtn').addEventListener('click', toggleTheme);
+		$('#paletteBtn').addEventListener('click', openPalette);
+		const p2 = $('#paletteBtn2'); if (p2) p2.addEventListener('click', openPalette);
+		$('#paletteOverlay').addEventListener('click', closePalette);
+		$('#drawerOverlay').addEventListener('click', closeDrawer);
+		$('#paletteInput').addEventListener('input', (e) => palPaint(e.target.value));
+		$('#searchInput').addEventListener('input', (e) => { state.q = e.target.value.trim(); renderGrid(); });
+		$('#sortSelect').addEventListener('change', (e) => { state.sort = e.target.value; renderGrid(); });
+		$$('.copy-btn[data-copy]').forEach((btn) => btn.addEventListener('click', () => copyText($('#' + btn.dataset.copy).textContent, btn)));
+		const nav = $('#nav'); const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8); onScroll(); window.addEventListener('scroll', onScroll, { passive: true });
+
+		document.addEventListener('keydown', (e) => {
+			const palOpen = $('#palette').classList.contains('show');
+			const drawerOpen = $('#drawer').classList.contains('show');
+			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palOpen ? closePalette() : openPalette(); return; }
+			if (e.key === '/' && !palOpen && !drawerOpen && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('#searchInput').focus(); return; }
+			if (e.key === 'Escape') { if (palOpen) closePalette(); else if (drawerOpen) closeDrawer(); return; }
+			if (palOpen) {
+				if (e.key === 'ArrowDown') { e.preventDefault(); palIdx = Math.min(palIdx + 1, palResults.length - 1); palHi(); }
+				else if (e.key === 'ArrowUp') { e.preventDefault(); palIdx = Math.max(palIdx - 1, 0); palHi(); }
+				else if (e.key === 'Enter') { e.preventDefault(); const r = palResults[palIdx]; if (r) { closePalette(); openDrawer(r.id); } }
 			}
 		});
-	});
-
-	// Wire result callbacks on every demo button
-	document.querySelectorAll('[data-result-target]').forEach((btn) => {
-		const targetId = btn.dataset.resultTarget;
-		const panel = document.getElementById(targetId);
-		btn.addEventListener('x402:result', (e) => {
-			const { result, payment } = e.detail;
-			const explorer = payment?.transaction
-				? (payment.network?.startsWith('solana') ? `https://solscan.io/tx/${payment.transaction}` : `https://basescan.org/tx/${payment.transaction}`)
-				: null;
-			panel.innerHTML = `<span class="ok">✓ Paid</span> · network=${payment?.network || '?'} · ${explorer ? `<a href="${explorer}" target="_blank" rel="noopener">tx ↗</a>` : ''}\n\n${escapeHtml(JSON.stringify(result, null, 2).slice(0, 2400))}`;
-			panel.classList.add('show');
-		});
-		btn.addEventListener('x402:error', (e) => {
-			panel.innerHTML = `<span class="err">✗ Error</span> · ${escapeHtml(e.detail?.error || 'unknown')}`;
-			panel.classList.add('show');
-		});
-	});
-
-	function escapeHtml(s) {
-		return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 	}
-</script>
 
-	<script src="/brand.js" defer></script>
+	function openFromHash() {
+		const m = /#run=([^&]+)/.exec(location.hash);
+		if (!m) return;
+		const path = decodeURIComponent(m[1]);
+		const item = CATALOG.find((c) => c.path === path);
+		if (item) openDrawer(item.id);
+	}
+
+	// ── Boot ─────────────────────────────────────────────────────────────────
+	async function boot() {
+		skeletonGrid();
+		const [cat, stats] = await Promise.allSettled([loadCatalog(), loadStats()]);
+		STATS = stats.status === 'fulfilled' ? stats.value : null;
+		if (cat.status !== 'fulfilled' || !cat.value.length) { renderStats(); catalogError(); return; }
+		CATALOG = cat.value;
+		renderStats(); renderChips(); renderGrid(); openFromHash();
+	}
+
+	wireGlobal();
+	boot();
+})();
+</script>
+<script src="/brand.js" defer></script>
 </body>
 </html>

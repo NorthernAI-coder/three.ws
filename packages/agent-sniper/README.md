@@ -147,7 +147,7 @@ npx agent-sniper run --network devnet --strategy ./strategy.json
 # Serve the engine over MCP (stdio) for Claude / Cursor / any MCP client.
 agent-sniper mcp
 
-# Serve the x402-gated HTTP API.
+# Serve the x402-gated HTTP API + web console (open http://localhost:8787).
 agent-sniper serve
 
 # Help.
@@ -243,6 +243,43 @@ await serve(
   { port: 8787 },
 );
 ```
+
+---
+
+## Web console
+
+`serve` also ships a **built-in operator dashboard** — a single, dependency-free
+HTML file served from the same origin as the API, at `/` and `/console`. Open
+`http://localhost:8787` and you get a live control room:
+
+- **Live stats** — buys, sells, candidates, armed strategies, in-flight queue and
+  signal count, animated as they change, with time-since-last-signal.
+- **Positions table** — every position with entry, current value, and colored
+  P&L (unrealized total in the header), plus a one-click **Close** that schedules
+  an exit through the normal sell path.
+- **Armed strategies** — each policy with its stop-loss / take-profit / trailing
+  tags, and a **Disarm** button.
+- **Arm a strategy** and **Manual snipe** forms with inline validation.
+- **Live activity feed** — the same engine screen events the CLI prints, streamed
+  in with relative timestamps.
+- Designed loading / empty / error states, toasts, keyboard shortcuts
+  (`s` snipe, `n` new strategy, `r` refresh, `,` settings, `?` help), a
+  disconnected banner, and full mobile responsiveness.
+
+Reads are free. The mutating controls (arm, snipe, disarm, close) are x402-paid
+for external callers — so to drive them from your own console without paying
+yourself, set an **operator token**:
+
+```bash
+export SNIPER_ADMIN_TOKEN="$(openssl rand -hex 24)"
+agent-sniper serve --port 8787
+```
+
+Open Settings (⚙ or `,`) in the console and paste the same token. It is sent as
+`X-Admin-Token` (or `Authorization: Bearer …`), stored only in your browser, and
+bypasses the x402 gate — while unauthenticated external agents still pay. Pass it
+programmatically as `deps.adminToken`. Without a token set, the console is a
+full-featured **read-only monitor** and mutations return `503` with guidance.
 
 ---
 

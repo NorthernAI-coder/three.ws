@@ -11,6 +11,11 @@ const CATEGORIES = {
 	'/brain':        { label: 'AI',       cat: 'ai',     color: '#60a5fa', bg: 'rgba(96,165,250,.12)'  },
 	'/unstoppable':  { label: 'AI',       cat: 'ai',     color: '#60a5fa', bg: 'rgba(96,165,250,.12)'  },
 	'/three-live':   { label: '3D Live',  cat: '3d',     color: '#34d399', bg: 'rgba(52,211,153,.12)'  },
+	'/diorama':      { label: '3D Live',  cat: '3d',     color: '#34d399', bg: 'rgba(52,211,153,.12)'  },
+	'/mocap-studio': { label: '3D Live',  cat: '3d',     color: '#34d399', bg: 'rgba(52,211,153,.12)'  },
+	'/agenc/embodied': { label: 'AI',     cat: 'ai',     color: '#60a5fa', bg: 'rgba(96,165,250,.12)'  },
+	'/autopilot':    { label: 'Crypto',   cat: 'crypto', color: '#f97316', bg: 'rgba(249,115,22,.12)'  },
+	'/pulse':        { label: 'Crypto',   cat: 'crypto', color: '#f97316', bg: 'rgba(249,115,22,.12)'  },
 	'/forever':      { label: 'Crypto',   cat: 'crypto', color: '#f97316', bg: 'rgba(249,115,22,.12)'  },
 };
 

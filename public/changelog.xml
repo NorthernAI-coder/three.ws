@@ -55,6 +55,46 @@
 			<description>Turn a three.ws avatar into a talking-head video: type a script, pick a voice, and export a lip-synced clip.</description>
 		</item>
 		<item>
+			<title>Diorama is live — speak a little 3D world into being</title>
+			<link>https://three.ws/diorama</link>
+			<guid isPermaLink="false">2026-07-01:Diorama is live — speak a little 3D world into being</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Diorama is now a real, reachable page at three.ws/diorama. Type one sentence — &quot;a cozy autumn campsite by a lake at dusk&quot; — and Claude composes the scene, each object is forged into a real 3D model, and the little world assembles in front of you, explorable in 3D and viewable in AR. Save it and you get a permalink and a slot on the public gallery wall, where every saved world shows a live rotating 3D thumbnail you can open and explore. Share it as a 3D postcard: copy the link, post to X, or grab an embed snippet. Nothing is a screenshot — it's all real geometry forged from your words.</description>
+		</item>
+		<item>
+			<title>Labs — a home for the hidden gems most people never find</title>
+			<link>https://three.ws/labs</link>
+			<guid isPermaLink="false">2026-07-01:Labs — a home for the hidden gems most people never find</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>There's a new Labs page at three.ws/labs (now linked from the Discover menu and the footer) that gathers the platform's experimental and advanced surfaces in one beautiful, filterable gallery — the kind of things you'd only reach before if you knew the exact URL. Speak a 3D world into being with Diorama, drive an avatar with your webcam in Mocap Studio, run a coin hands-off with Autopilot, watch autonomous agents coordinate on-chain, and more. Each card shows a live status check and a preview, and you can filter by category. Everything featured is real and live.</description>
+		</item>
+		<item>
+			<title>The autonomous sniper now has a live web console</title>
+			<link>https://three.ws/docs/mcp</link>
+			<guid isPermaLink="false">2026-07-01:The autonomous sniper now has a live web console</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Run agent-sniper serve and open it in a browser: a real-time operator dashboard, built right into the engine. Watch buys, sells, candidates and signals tick up live; see every open position with its entry, current value and colored profit-and-loss, and close any of them in one click; review your armed strategies with their stop-loss and take-profit at a glance; arm a new strategy or fire a manual snipe from clean forms; and read a live activity feed of everything the engine is doing. It has designed loading, empty and error states, toasts, keyboard shortcuts and a full mobile layout. Reads are free to anyone; to run the controls yourself without paying, set an operator token that bypasses the x402 paywall for you while external agents still pay per call.</description>
+		</item>
+		<item>
+			<title>The Trading Brain is redesigned — presets, a live risk meter, and a real backtest breakdown</title>
+			<link>https://three.ws/agent-studio</link>
+			<guid isPermaLink="false">2026-07-01:The Trading Brain is redesigned — presets, a live risk meter, and a real backtest breakdown</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Building your agent's sniper is now a minute, not a manual. Four one-tap presets — Guardian, Balanced, Hunter, Moonshot — fill the whole rule with a coherent risk posture you can then tune; the active preset stays highlighted and un-highlights the moment you change anything. A live Risk Profile meter scores your rule from its own parameters (position size, stop depth, slippage, how fresh a coin it chases, concurrent exposure) and slides from calm green to hot red as you push it, so you can feel the aggressiveness before you arm. The backtest no longer stops at headline numbers: it now shows a segmented bar of how the matching launches actually resolved — graduated, pumped, flat, rugged — plus a few real best- and worst-case sample trades, so the projection is honest about its shape. Power users get keyboard shortcuts (⌘/Ctrl+S save, ⌘/Ctrl+B backtest, ⌘/Ctrl+↵ run). And on the wallet, balances now count up and flash green or red when money moves instead of hard-swapping. Every animation respects reduced-motion.</description>
+		</item>
+		<item>
+			<title>The x402 page is now a live, searchable storefront</title>
+			<link>https://three.ws/x402</link>
+			<guid isPermaLink="false">2026-07-01:The x402 page is now a live, searchable storefront</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>three.ws/x402 is rebuilt as a live catalog. Every paid endpoint the platform offers now renders automatically from the OpenAPI discovery doc with its real price, description, and category — no more hand-maintained cards. Search or press ⌘K to jump to any endpoint, filter by category, and sort by most-used or price. Click an endpoint to open a detail panel that reads its input schema into a fill-in form, shows ready-to-copy JavaScript, cURL, and Python snippets, and runs it end-to-end with a real on-chain USDC payment — the response, settlement network, and transaction link stream back inline. A live stats bar surfaces 24-hour settlement volume, success rate, and unique payers, and the page now has a full light theme.</description>
+		</item>
+		<item>
 			<title>The x402 toolkit is now on npm and the VS Code Marketplace</title>
 			<link>https://three.ws/x402</link>
 			<guid isPermaLink="false">2026-07-01:The x402 toolkit is now on npm and the VS Code Marketplace</guid>

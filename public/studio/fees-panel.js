@@ -476,50 +476,69 @@ export function mountFeesPanel(container, opts = {}) {
 
 	// ── GitHub import ─────────────────────────────────────────────────────────────
 
-	// Dispatch the GitHub input. A bare "@login" always routes to that single
-	// account. An "owner/repo" honours the mode toggle: 'contributors' splits
-	// across the repo's contributors; 'owner' sends 100% to the repo owner/creator.
+	// Dispatch the recipient input — routes rewards to anyone, not just GitHub:
+	//   • a raw Solana wallet (base58)          → added directly
+	//   • an X handle ("x:@naval", x.com/naval)  → resolved via X (platform 1)
+	//   • an "owner/repo"                        → repo owner (owner mode) or split
+	//   • a bare "@login"                        → that GitHub account
 	async function importGithub() {
-		const repo = parseGithubRepo(s.githubRepo);
+		const raw = (s.githubRepo || '').trim();
+		// Raw Solana wallet → direct recipient, no resolution needed.
+		if (/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(raw)) return addWalletRecipient(raw);
+		// Explicit X (Twitter): "x:@handle", "x/handle", or an x.com / twitter.com URL.
+		const xm = raw.match(/^(?:x:|x\/|(?:https?:\/\/)?(?:www\.)?(?:x|twitter)\.com\/)@?([A-Za-z0-9_]{1,15})$/i);
+		if (xm) return addSocialAccount('x', xm[1]);
+		const repo = parseGithubRepo(raw);
 		if (repo) {
-			if (s.ghMode === 'owner') return addGithubAccount(repo.owner);
+			if (s.ghMode === 'owner') return addSocialAccount('github', repo.owner);
 			return importGithubRepo(repo);
 		}
-		const login = parseGithubAccount(s.githubRepo);
-		if (login) return addGithubAccount(login);
-		s.githubError = 'Enter a GitHub @username, or a repo as owner/name.';
+		const login = parseGithubAccount(raw);
+		if (login) return addSocialAccount('github', login);
+		s.githubError = 'Enter a GitHub @user, an X handle (x:@handle), an owner/repo, or a Solana wallet.';
 		render();
 	}
 
-	// Single GitHub account → one reward recipient. Resolves the handle to its
-	// three.ws-linked Solana payout wallet; if the user hasn't linked one, the
-	// row is added flagged so the creator can paste a wallet or ask them to link.
-	async function addGithubAccount(login) {
-		// Drop blank seed rows (the setup CTA leaves one empty 100% row) so adding
-		// an account doesn't strand a placeholder hogging the split.
+	// Add a raw Solana wallet (or SNS-resolved address) as a direct recipient.
+	function addWalletRecipient(address) {
 		s.rows = s.rows.filter((r) => r.address?.trim() || r.gh);
-		if (s.rows.some((r) => r.gh?.login?.toLowerCase() === login.toLowerCase())) {
+		if (s.rows.some((r) => r.address === address)) { s.githubError = 'That wallet is already a recipient.'; render(); return; }
+		if (s.rows.length >= 10) { s.githubError = 'Maximum 10 recipients.'; render(); return; }
+		s.rows.push({ address, bps: s.rows.length === 0 ? 10_000 : 0 });
+		s.githubRepo = ''; s.githubError = ''; s.editing = true; render();
+	}
+
+	// Single social account (GitHub or X) → one reward recipient. Resolves the
+	// handle to its three.ws-linked Solana payout wallet; if the user hasn't linked
+	// one, the row is flagged so the creator can paste a wallet or ask them to link.
+	async function addSocialAccount(platform, login) {
+		const isX = platform === 'x';
+		// Drop blank seed rows (the setup CTA leaves one empty 100% row).
+		s.rows = s.rows.filter((r) => r.address?.trim() || r.gh);
+		if (s.rows.some((r) => r.gh?.platform === platform && r.gh?.login?.toLowerCase() === login.toLowerCase())) {
 			s.githubError = `@${login} is already a recipient.`; render(); return;
 		}
 		if (s.rows.length >= 10) { s.githubError = 'Maximum 10 recipients.'; render(); return; }
 		s.githubBusy = true; s.githubError = '';
-		// Optimistic row — immediate feedback while we resolve the wallet. A lone
-		// recipient defaults to 100%; added alongside others it starts at 0% so
-		// the creator rebalances deliberately.
 		const row = {
 			address: '', bps: s.rows.length === 0 ? 10_000 : 0,
-			gh: { login, avatar: `https://github.com/${esc(login)}.png?size=40`, url: `https://github.com/${esc(login)}`, resolving: true },
+			gh: {
+				platform, login,
+				avatar: isX ? `https://unavatar.io/x/${esc(login)}` : `https://github.com/${esc(login)}.png?size=40`,
+				url: isX ? `https://x.com/${esc(login)}` : `https://github.com/${esc(login)}`,
+				resolving: true,
+			},
 		};
 		s.rows.push(row); s.editing = true; render();
 		try {
 			const r = await fetch('/api/pump/resolve-github-shareholder', {
 				method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ github_username: login, network }),
+				body: JSON.stringify({ platform, username: login, network }),
 			});
 			const d = await r.json();
 			if (r.ok && d.mode === 'wallet' && d.address) {
 				row.address = d.address; row.gh.linked = true;
-				s.githubRepo = ''; // clear so another can be added
+				s.githubRepo = '';
 			} else {
 				row.gh.unlinked = true;
 				s.githubError = d.note
@@ -726,10 +745,10 @@ export function mountFeesPanel(container, opts = {}) {
 			<div class="fp-share-row" data-i="${i}">
 				<div class="fp-sh-meta">
 					<input class="fp-share-addr" data-i="${i}" placeholder="Recipient Solana wallet" value="${esc(r.address)}" spellcheck="false" />
-					${r.gh ? `<span class="fp-share-gh"><img src="${esc(r.gh.avatar)}" alt="" />@${esc(r.gh.login)}${
+					${r.gh ? `<span class="fp-share-gh"><img src="${esc(r.gh.avatar)}" alt="" onerror="this.style.display='none'" />${r.gh.platform === 'x' ? '𝕏 ' : ''}@${esc(r.gh.login)}${
 						r.gh.resolving ? ` · <span style="color:rgba(255,255,255,.4)">resolving…</span>`
 						: r.gh.linked ? ` · <span style="color:#a4f0bc">linked ✓</span>`
-						: r.gh.unlinked ? ` · <span style="color:rgba(246,200,114,.9)" title="No three.ws-linked Solana wallet — paste theirs, or ask them to connect GitHub + link a wallet on three.ws">add wallet</span>`
+						: r.gh.unlinked ? ` · <span style="color:rgba(246,200,114,.9)" title="No three.ws-linked Solana wallet — paste theirs, or ask them to link a wallet on three.ws">add wallet</span>`
 						: ''
 					}</span>` : ''}
 				</div>
@@ -745,12 +764,12 @@ export function mountFeesPanel(container, opts = {}) {
 				<button class="fp-gh-mode${s.ghMode === 'owner' ? ' on' : ''}" data-mode="owner">Owner / creator only</button>
 			</div>
 			<div class="fp-gh">
-				<input id="fp-gh-input" placeholder="GitHub @username or owner/repo" value="${esc(s.githubRepo)}" spellcheck="false" />
+				<input id="fp-gh-input" placeholder="@github · x:@handle · owner/repo · or a Solana wallet" value="${esc(s.githubRepo)}" spellcheck="false" />
 				<button class="fp-btn violet${s.githubBusy ? ' busy' : ''}" id="fp-gh-go" ${s.githubBusy ? 'disabled' : ''}>${s.githubBusy ? 'Resolving…' : 'Add'}</button>
 			</div>
 			<div class="fp-gh-hint">${s.ghMode === 'owner'
-				? `An <b>owner/repo</b> (or <b>@username</b>) routes <b>100%</b> to that one account — no contributor split.`
-				: `A <b>@username</b> routes rewards to one account · an <b>owner/repo</b> splits across its contributors.`}</div>
+				? `An <b>owner/repo</b> (or <b>@user</b>) routes <b>100%</b> to that one account — no contributor split.`
+				: `Route to a <b>GitHub</b> or <b>X</b> account (<b>x:@handle</b>), a <b>wallet</b>, or split a repo's <b>contributors</b>.`}</div>
 			${s.githubError ? `<div class="fp-err">${esc(s.githubError)}</div>` : ''}
 			${s.rows.length ? rowsHtml : `<div class="fp-note">Add recipients below or import a GitHub repo's contributors.</div>`}
 			<button class="fp-add" id="fp-add" ${s.rows.length >= 10 ? 'disabled' : ''}>+ Add recipient</button>

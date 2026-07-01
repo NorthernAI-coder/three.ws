@@ -17,7 +17,7 @@
 
 import { cors, error, json, method, readJson, wrap } from '../_lib/http.js';
 import { requireCsrf } from '../_lib/csrf.js';
-import { requireAdmin } from '../_lib/admin.js';
+import { requireAdmin, isAdminRequest } from '../_lib/admin.js';
 import {
 	getBounty, getJobByBounty, getJob, markJobDelivered, setBountyStatus,
 	atomicsToThree, _toBig as toBig,
@@ -36,8 +36,15 @@ async function posterSolanaAddress(bounty) {
 }
 
 export default wrap(async (req, res) => {
-	if (cors(req, res, { methods: 'POST,OPTIONS', credentials: true })) return;
-	if (!method(req, res, ['POST'])) return;
+	if (cors(req, res, { methods: 'GET,POST,OPTIONS', credentials: true })) return;
+
+	// Read-only probe: does the caller have moderator (admin) rights? The UI uses
+	// this to decide whether to reveal the release/refund controls. Never mutates.
+	if (req.method === 'GET') {
+		return json(res, 200, { data: { moderator: await isAdminRequest(req) } });
+	}
+
+	if (!method(req, res, ['GET', 'POST'])) return;
 
 	// Moderator gate. requireAdmin writes the 401/403 itself; the escrow key is
 	// never returned to or touched by the caller.

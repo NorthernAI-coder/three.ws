@@ -7,6 +7,7 @@ Vercel env var and waiting for a build.
 - **Table:** `app_flags` (`key`, `enabled`, `value` jsonb, `updated_by`, `updated_at`) — migration `api/_lib/migrations/20260630120000_app_flags.sql`.
 - **Helper:** [api/_lib/flags.js](../../api/_lib/flags.js) — `getFlag`, `isFlagEnabled`, `setFlag`, `listFlags`.
 - **Admin API:** [api/admin/flags.js](../../api/admin/flags.js) — `GET`/`POST /api/admin/flags`.
+- **Control room:** **[/admin/seeder](../../pages/admin/seeder.html)** — a visual console to arm/disarm the Avatar Seeder, watch live throughput, preview freshly-forged rigged avatars in 3D, and flip every runtime flag with one click. No redeploy, no curl. Backend: [api/admin/seeder.js](../../api/admin/seeder.js).
 
 ## How it resolves
 

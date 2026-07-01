@@ -68,6 +68,46 @@ function cfgFor(params = {}) {
 	});
 }
 
+// ── cover-image proxy (cache + dedupe + avatar fallback) ─────────────────────
+// GitHub's OpenGraph endpoint 429s when 146 covers load at once. Fetch through
+// here so each (user,repo) resolves once, is cached, and falls back to the
+// user's avatar rather than a broken image.
+const coverCache = new Map();
+const coverInflight = new Map();
+async function coverImage(user, repo) {
+	const key = `${user}/${repo}`;
+	if (coverCache.has(key)) return coverCache.get(key);
+	if (coverInflight.has(key)) return coverInflight.get(key);
+	const job = (async () => {
+		for (const url of [
+			`https://opengraph.githubassets.com/1/${user}/${repo}`,
+			`https://avatars.githubusercontent.com/${user}?s=400`,
+		]) {
+			try {
+				const r = await fetch(url);
+				if (r.ok) {
+					const buf = Buffer.from(await r.arrayBuffer());
+					coverCache.set(key, buf);
+					return buf;
+				}
+			} catch {
+				/* next */
+			}
+		}
+		// 1x1 transparent PNG fallback so the <img> never shows a broken icon.
+		const fallback = Buffer.from(
+			'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+			'base64',
+		);
+		coverCache.set(key, fallback);
+		return fallback;
+	})();
+	coverInflight.set(key, job);
+	const out = await job;
+	coverInflight.delete(key);
+	return out;
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 function sendJson(res, code, data) {
 	const body = JSON.stringify(data);
@@ -135,6 +175,12 @@ async function handle(req, res) {
 				cost: estimateCost(cfg, count),
 				zipReady: existsSync(cfg.zipPath),
 			});
+		}
+
+		if (p === '/api/cover') {
+			const png = await coverImage(q.user || 'nirholas', q.repo || '');
+			res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public,max-age=86400' });
+			return res.end(png);
 		}
 
 		if (p === '/api/qr') {

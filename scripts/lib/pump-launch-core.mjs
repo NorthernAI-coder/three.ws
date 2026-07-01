@@ -332,9 +332,11 @@ export function generate(cfg, repos) {
 		const walletFile = join(cfg.walletDir, `repo-${repoName.replace(/[^a-zA-Z0-9._-]/g, '_')}.json`);
 		let kp;
 		let symbol;
-		if (prev && existsSync(walletFile)) {
+		// Reuse any key already on disk — generating a subset must never mint a new
+		// address over an existing wallet file (that would strand the old one).
+		if (existsSync(walletFile)) {
 			kp = keypairFromFile(walletFile);
-			symbol = prev.symbol;
+			symbol = prev?.symbol || r.symbol || makeSymbol(repoName, usedSymbols);
 			usedSymbols.add(symbol);
 		} else {
 			kp = Keypair.generate();

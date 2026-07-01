@@ -139,6 +139,11 @@ export const NAV_GROUPS = [
 						desc: 'A 3D guide walks you through every feature, live',
 					},
 					{
+						title: 'Labs',
+						href: '/labs',
+						desc: 'Hidden gems — experimental, advanced surfaces most people never find',
+					},
+					{
 						title: 'All pages',
 						href: '/sitemap',
 						desc: 'The full directory — every page on three.ws, filterable',
