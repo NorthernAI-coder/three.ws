@@ -48,23 +48,65 @@
 	<style>
 		:root {
 			color-scheme: dark;
-			--bg:        #050505;
-			--surface-0: #0b0b0b;
-			--surface-1: #111111;
-			--surface-2: #181818;
-			--surface-3: #1e1e1e;
-			--hairline:  #1c1c1c;
-			--hairline-strong: #2a2a2a;
+			/* Home-local names track the canonical /tokens.css vocabulary so this
+			   page reads as one product with the rest of the site AND flips cleanly
+			   between themes. --bg / --text / --text-2..4 / --hairline* are the
+			   shared "nav-source" tokens: declared here for the dark brand palette
+			   and remapped by [data-theme='light'] in tokens.css. --surface-1..3 and
+			   --accent are NOT re-forked here — they inherit their canonical values
+			   (which already flip). The three home-only tokens canonical can't reach
+			   (--surface-0 / --green / --accent-2) get their light values in the
+			   scoped [data-theme='light'] block just below. */
+			--bg:        var(--bg-0);          /* #0a0a0a — same near-black as the app shell */
+			--surface-0: #0e0e0f;              /* opaque card / panel fill; light value set below */
+			--hairline:  var(--stroke);
+			--hairline-strong: var(--stroke-strong);
 			--text:      #f6f6f6;
 			--text-2:    #a8a8a8;
 			--text-3:    #8a8a8a; /* AA: ≥4.5:1 on dark surfaces for secondary text */
 			--text-4:    #6e6e6e; /* AA: ≥3:1 (large/decorative only) */
-			--accent:    #ffffff;
-			--accent-2:  #ffffff;
-			--green:     #e8e8e8;
+			--accent-2:  var(--accent);
+			--green:     var(--ink);
 			--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
 			--font-body:    'Inter', system-ui, sans-serif;
 			--font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+		}
+
+		/* ── Light theme (home-local) ───────────────────────────────────────────
+		   Dark is the primary brand palette. tokens.css already flips the shared
+		   nav-source tokens under [data-theme='light']; these rules cover the
+		   home-only tokens and the handful of hardcoded surfaces canonical can't
+		   reach, so the page stays fully legible and on-brand in light mode. */
+		:root[data-theme='light'] {
+			--surface-0: var(--bg-1);   /* #f3f4f6 — light card/panel on the white page */
+		}
+		/* Selection-state chips hardcode white tints — re-map to ink tints on light
+		   so the active/selected control stays visible. */
+		[data-theme='light'] .pg-chip.active {
+			border-color: var(--stroke-strong); background: var(--surface-3); color: var(--ink);
+		}
+		[data-theme='light'] .hero-chip[data-active="true"] {
+			border-color: var(--stroke-strong); background: var(--surface-3); color: var(--ink);
+		}
+		/* Code-editor syntax spans hardcode light greys (legible only on a dark
+		   pane). On a light pane, re-map them to dark inks + the accent for strings. */
+		[data-theme='light'] .pg-editor pre .tag,
+		[data-theme='light'] .code-pane pre .tag { color: var(--ink); }
+		[data-theme='light'] .pg-editor pre .attr,
+		[data-theme='light'] .code-pane pre .attr { color: var(--ink-dim); }
+		[data-theme='light'] .pg-editor pre .str,
+		[data-theme='light'] .code-pane pre .str,
+		[data-theme='light'] .dev-code .str,
+		[data-theme='light'] .bento-code .str { color: var(--accent); }
+		[data-theme='light'] .dev-code .num { color: var(--ink-dim); }
+		/* Selection states that use pure-white tints (correct on dark) need ink
+		   equivalents on light so the active control stays visible. */
+		[data-theme='light'] .bento-pill-btn.active {
+			border-color: var(--stroke-strong); background: var(--surface-3); color: var(--ink);
+		}
+		[data-theme='light'] #home-sniper .snipe-stage.active .snipe-node,
+		[data-theme='light'] #home-sniper .snipe-stage.flow .snipe-node {
+			border-color: var(--accent); color: var(--accent);
 		}
 		* { box-sizing: border-box; }
 		html { scroll-behavior: smooth; }
@@ -970,7 +1012,7 @@
 			display: grid;
 			grid-template-columns: repeat(6, 1fr);
 			gap: 32px; margin-bottom: 44px;
-			padding-bottom: 40px; border-bottom: 1px solid rgba(255,255,255,.06);
+			padding-bottom: 40px; border-bottom: 1px solid var(--hairline);
 		}
 		.foot-col { display: flex; flex-direction: column; gap: 9px; }
 		.foot-col-h {
@@ -979,10 +1021,10 @@
 			color: var(--text-3); margin-bottom: 6px;
 		}
 		.foot-col a {
-			color: rgba(255,255,255,.32); font-size: 13px;
+			color: var(--text-3); font-size: 13px;
 			transition: color 0.14s;
 		}
-		.foot-col a:hover { color: rgba(255,255,255,.72); }
+		.foot-col a:hover, .foot-col a:focus-visible { color: var(--text); }
 		@media (max-width: 880px) {
 			.foot-cols { grid-template-columns: repeat(3, 1fr); gap: 28px 24px; }
 		}
@@ -992,19 +1034,19 @@
 		.foot-inner {
 			display: flex; justify-content: space-between; align-items: center;
 			gap: 20px; flex-wrap: wrap;
-			color: rgba(255,255,255,.22); font-size: 12px; font-family: var(--font-mono);
+			color: var(--text-3); font-size: 12px; font-family: var(--font-mono);
 			letter-spacing: 0.04em;
 		}
 		.foot-ca {
 			display: flex; align-items: center; gap: 8px;
-			background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.09);
+			background: var(--surface-1); border: 1px solid var(--stroke);
 			border-radius: 999px; padding: 5px 11px 5px 10px; cursor: pointer;
-			font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.35);
+			font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
 			transition: background .15s, border-color .15s, color .15s;
 		}
-		.foot-ca:hover {
-			background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.18);
-			color: rgba(255,255,255,.7);
+		.foot-ca:hover, .foot-ca:focus-visible {
+			background: var(--surface-2); border-color: var(--stroke-strong);
+			color: var(--text);
 		}
 		.foot-ca-label {
 			color: #7ec8f8; font-weight: 700; font-size: 10.5px;
@@ -2133,7 +2175,7 @@
 		.bento-action-btn:focus-visible{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
 		.bento-action-btn.sm{padding:5px 11px;font-size:10.5px}
 		.bento-action-btn.primary{background:var(--text);color:var(--bg);border-color:var(--text);font-weight:600}
-		.bento-action-btn.primary:hover{background:#fff;border-color:#fff}
+		.bento-action-btn.primary:hover{background:var(--ink-bright);border-color:var(--ink-bright)}
 		.bento-action-btn.ghost{background:transparent;color:var(--text-2)}
 		.studio-zone{display:flex;gap:8px;align-items:stretch}
 		.studio-drop{flex:1;width:100%;background:transparent;border:1px dashed var(--hairline-strong);border-radius:8px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:border-color .2s,background .2s;font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-align:center;min-height:80px}

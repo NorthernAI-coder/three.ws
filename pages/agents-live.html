@@ -651,6 +651,24 @@
 		.al-card-pnl.neg { color: #f9a8a8; background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); }
 		.al-card-pnl::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
+		/* submeta row: last-active recency chip + realized-PnL chip share one line */
+		.al-card-submeta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 3px; }
+		.al-card-submeta:empty { margin-top: 0; }
+		.al-card-submeta .al-card-pnl { margin-top: 0; }
+		/* "active 6m ago" recency chip — the honest, always-available liveness signal
+		   shown when no browser caster is streaming. Never faked; hidden when the
+		   agent has no recorded activity or is streaming live. */
+		.al-card-age {
+			display: inline-flex; align-items: center; gap: 4px;
+			font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+			color: var(--al-faint); padding: 1px 7px 1px 6px; border-radius: 999px;
+			border: 1px solid var(--al-border); white-space: nowrap;
+		}
+		.al-card-age[hidden] { display: none; }
+		.al-card-age::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.7; flex: none; }
+		.al-card-age.is-recent { color: var(--al-text); border-color: var(--al-border-hi); }
+		.al-card-age.is-recent::before { opacity: 1; box-shadow: 0 0 6px currentColor; }
+
 		/* 24h portfolio-change badge — screen corner of each card (the wall-scale scoreboard) */
 		.al-card-networth {
 			position: absolute; top: 10px; right: 10px;
@@ -940,8 +958,8 @@
 			</div>
 			<div class="al-stats-sep"></div>
 			<div class="al-stat">
-				<div class="al-stat-val" id="al-stat-fps">~</div>
-				<div class="al-stat-label">Frames/sec</div>
+				<div class="al-stat-val" id="al-stat-active">—</div>
+				<div class="al-stat-label">With activity</div>
 			</div>
 		</div>
 

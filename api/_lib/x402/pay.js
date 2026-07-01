@@ -68,10 +68,14 @@ export function parseSolanaAccept(challenge) {
 	) || null;
 }
 
-export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAtaExists, nonce = 0 }) {
+export function buildPaymentTx({ accept, buyer, blockhash, mintInfo, receiverAtaExists, nonce = 0, selfPay = false }) {
 	const mint = new PublicKey(accept.asset);
 	const payTo = new PublicKey(accept.payTo);
-	const feePayer = new PublicKey(accept.extra.feePayer);
+	// Self-pay: the buyer IS the fee payer → the transaction needs only ONE
+	// signature (5000 lamports base) instead of two (buyer + sponsor = 10000), and
+	// the facilitator broadcasts it without co-signing. Sponsor mode keeps the
+	// advertised fee payer so a buyer without SOL can still be sponsored.
+	const feePayer = selfPay ? buyer.publicKey : new PublicKey(accept.extra.feePayer);
 	const amount = BigInt(accept.amount);
 
 	const senderAta = getAssociatedTokenAddressSync(
@@ -140,6 +144,10 @@ export async function payX402({
 	remainingCap = Infinity,
 	userAgent = 'threews-x402-autonomous/1.0',
 	nonce = 0,
+	// Self-pay: buyer is its own fee payer → 1 signature (5000 lamports) instead
+	// of 2. Half the base fee, no sponsor co-sign. On by default via env for the
+	// closed ring. See buildPaymentTx.
+	selfPay = String(process.env.X402_RING_SELF_PAY || '').toLowerCase() === 'true',
 }) {
 	const reqInit = {
 		method,
@@ -166,7 +174,7 @@ export async function payX402({
 	if (!USDC_MINT || accept.asset !== USDC_MINT) {
 		return { success: false, paid: false, free: false, skipped: true, amountAtomic: 0, txSig: null, status: 402, responseBody: probe.body, errorMsg: `unexpected_asset:${accept.asset}` };
 	}
-	if (!accept.extra?.feePayer) {
+	if (!selfPay && !accept.extra?.feePayer) {
 		return { success: false, paid: false, free: false, skipped: true, amountAtomic: 0, txSig: null, status: 402, responseBody: probe.body, errorMsg: 'missing_fee_payer' };
 	}
 
@@ -186,7 +194,7 @@ export async function payX402({
 	const txBase64 = buildPaymentTx({
 		accept, buyer, blockhash, mintInfo,
 		receiverAtaExists: receiverAtaInfo !== null,
-		nonce,
+		nonce, selfPay,
 	});
 	const xPayment = Buffer.from(JSON.stringify({
 		x402Version: 2,

@@ -276,4 +276,42 @@ describe('orchestrateGoal — graph-delta sequencing', () => {
 		expect(tree.nodes[0].status).toBe('failed');
 		expect(tree.nodes[0].error).toMatch(/unavailable/);
 	});
+
+	it('returns a partial tree (not a hang) when the time budget runs out mid-run', async () => {
+		const plan = { subtasks: [
+			{ title: 'first', kind: 'delegate', instruction: 'do first' },
+			{ title: 'second', kind: 'delegate', instruction: 'do second' },
+			{ title: 'third', kind: 'delegate', instruction: 'do third' },
+		] };
+		const runDelegate = fakeDelegate(plan);
+		// A deadline already in the past forces the loop to skip every child and the
+		// final synthesis turn — the run must still resolve with a truthful tree.
+		const tree = await orchestrateGoal(
+			{ ...base, maxUsd: 1, deadlineMs: Date.now() - 1 },
+			{ runDelegate, runHire: vi.fn(), makeTaskId: () => 't' },
+		);
+		const children = tree.nodes.filter((n) => n.id !== 'lead');
+		expect(children).toHaveLength(3);
+		// No child ran (planning is the only delegate call), and each is marked
+		// skipped rather than left dangling in 'queued'.
+		expect(children.every((n) => n.status === 'failed')).toBe(true);
+		expect(children.every((n) => /ran out of time/.test(n.error))).toBe(true);
+		expect(runDelegate).toHaveBeenCalledOnce(); // planning only — no node/synthesis turns
+		// The lead resolves done-with-a-partial-note, so the handler returns 200.
+		expect(tree.nodes[0].status).toBe('done');
+		expect(tree.nodes[0].error).toMatch(/partial/);
+		expect(tree.status).toBe('completed_with_errors');
+	});
+
+	it('finishes normally when the deadline is never reached (default = no limit)', async () => {
+		const plan = { subtasks: [{ title: 'only', kind: 'delegate', instruction: 'do it' }] };
+		const runDelegate = fakeDelegate(plan);
+		const tree = await orchestrateGoal(
+			{ ...base, maxUsd: 1 },
+			{ runDelegate, runHire: vi.fn(), makeTaskId: () => 't' },
+		);
+		expect(tree.nodes.find((n) => n.id === 'n0').status).toBe('done');
+		expect(tree.nodes[0].status).toBe('done');
+		expect(tree.status).toBe('done');
+	});
 });

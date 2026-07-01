@@ -153,10 +153,18 @@ export default wrap(async (req, res) => {
 		}
 	};
 
+	// Return a truthful partial tree well before the 300s serverless wall (see
+	// maxDuration above) rather than letting a long, real multi-agent run get
+	// killed mid-flight with a 504. 230s leaves ample headroom for the final
+	// synthesis turn (only started when the node loop finishes under budget) plus
+	// response serialization. The live SSE screen keeps painting throughout.
+	const ORCHESTRATION_BUDGET_MS = 230_000;
+	const deadlineMs = Date.now() + ORCHESTRATION_BUDGET_MS;
+
 	let tree;
 	try {
 		tree = await orchestrateGoal(
-			{ userId, leadAgentId, leadName: lead.name || null, goal: goal.trim(), maxUsd, catalog: catalogForPlan, emit },
+			{ userId, leadAgentId, leadName: lead.name || null, goal: goal.trim(), maxUsd, catalog: catalogForPlan, emit, deadlineMs },
 			{ runDelegate: runAgentDelegation, runHire },
 		);
 	} catch (err) {

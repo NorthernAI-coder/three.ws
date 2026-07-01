@@ -148,14 +148,10 @@ export function validateRingTransaction({ txBase64, requirement, feePayerPubkey,
 	const keys = msg.staticAccountKeys;
 	if (!keys || keys.length === 0) return { ok: false, reason: 'no_account_keys' };
 
-	// Fee payer is always account index 0.
+	// Fee payer is always account index 0. Whether it must equal the configured
+	// sponsor (sponsor mode) or may be the buyer itself (self-pay, 1 signature) is
+	// decided AFTER we learn the transfer authority below.
 	const feePayer = keys[0];
-	if (feePayerPubkey && feePayer.toBase58() !== feePayerPubkey) {
-		return {
-			ok: false,
-			reason: `fee_payer_mismatch:${feePayer.toBase58()}!=${feePayerPubkey}`,
-		};
-	}
 
 	const mint = new PublicKey(requirement.asset);
 	const requiredAmount = BigInt(requirement.amount);
@@ -241,8 +237,6 @@ export function validateRingTransaction({ txBase64, requirement, feePayerPubkey,
 			if (!source.equals(expectedSource)) {
 				return { ok: false, reason: 'transfer_source_not_authority_ata' };
 			}
-			// authority must never be the sponsor — the sponsor pays fees, not USDC.
-			if (authority.equals(feePayer)) return { ok: false, reason: 'authority_is_fee_payer' };
 			// authority must be a required signer (index < numRequiredSignatures).
 			const authIndex = accts[3];
 			if (authIndex >= msg.header.numRequiredSignatures) {
@@ -260,6 +254,7 @@ export function validateRingTransaction({ txBase64, requirement, feePayerPubkey,
 	}
 
 	if (transferCount !== 1) return { ok: false, reason: 'no_usdc_transfer' };
+	if (payer == null) return { ok: false, reason: 'no_authority' };
 	if (transferAmount < requiredAmount) {
 		return {
 			ok: false,
@@ -267,7 +262,19 @@ export function validateRingTransaction({ txBase64, requirement, feePayerPubkey,
 		};
 	}
 
-	// Bound the sponsor's priority fee.
+	// Self-pay vs sponsor mode. Self-pay: the buyer pays its own SOL fee (fee payer
+	// == the USDC authority) → 1 signature, no sponsor, cheapest. Sponsor mode: the
+	// fee payer must be the configured sponsor. Either way the sponsor can never be
+	// coerced into spending USDC: in sponsor mode fee payer ≠ authority (this
+	// branch), and self-pay only lets the buyer spend its own funds.
+	const selfPay = feePayer.toBase58() === payer;
+	if (!selfPay) {
+		if (!feePayerPubkey || feePayer.toBase58() !== feePayerPubkey) {
+			return { ok: false, reason: `fee_payer_not_sponsor:${feePayer.toBase58()}` };
+		}
+	}
+
+	// Bound the priority fee the fee-paying wallet will pay.
 	if (cuLimit > MAX_CU_LIMIT) return { ok: false, reason: `cu_limit_too_high:${cuLimit}` };
 	if (cuPrice > BigInt(MAX_CU_PRICE_MICROLAMPORTS)) {
 		return { ok: false, reason: `cu_price_too_high:${cuPrice}` };
@@ -288,6 +295,8 @@ export function validateRingTransaction({ txBase64, requirement, feePayerPubkey,
 			payTo: payTo.toBase58(),
 			mint: mint.toBase58(),
 			amountAtomic: Number(transferAmount),
+			feePayer: feePayer.toBase58(),
+			selfPay,
 			estFeeLamports,
 			ataCreatePresent,
 		},
@@ -308,22 +317,23 @@ export function txBase64FromPayload(paymentPayload) {
 // not hit getBalance on every payment. The floor check is the hard stop that
 // keeps the loop from ever draining our SOL: below the floor, settle refuses and
 // the paying loop stalls until the sponsor is topped up.
-let _solCache = { lamports: null, at: 0 };
+const _solCache = new Map(); // pubkeyB58 → { lamports, at }
 const SOL_CACHE_MS = 20_000;
 
 export async function sponsorSolLamports(conn, feePayerPubkey, now = Date.now()) {
-	if (_solCache.lamports != null && now - _solCache.at < SOL_CACHE_MS) {
-		return _solCache.lamports;
-	}
+	const key = feePayerPubkey.toBase58();
+	const hit = _solCache.get(key);
+	if (hit && hit.lamports != null && now - hit.at < SOL_CACHE_MS) return hit.lamports;
 	const lamports = await conn.getBalance(feePayerPubkey, 'confirmed');
-	_solCache = { lamports, at: now };
+	_solCache.set(key, { lamports, at: now });
 	return lamports;
 }
 
-// Invalidate the cache right after a settle so the next check sees the debit
-// promptly as the balance approaches the floor.
-function bumpSolCache(deltaLamports) {
-	if (_solCache.lamports != null) _solCache.lamports = Math.max(0, _solCache.lamports - deltaLamports);
+// Debit the cache right after a settle so the next check sees the balance
+// approaching the floor without another RPC round-trip.
+function bumpSolCache(pubkeyB58, deltaLamports) {
+	const hit = _solCache.get(pubkeyB58);
+	if (hit && hit.lamports != null) hit.lamports = Math.max(0, hit.lamports - deltaLamports);
 }
 
 async function confirmSignature(conn, signature, timeoutMs = 30_000) {
@@ -349,36 +359,49 @@ async function confirmSignature(conn, signature, timeoutMs = 30_000) {
 export async function settleRingPayment({ paymentPayload, requirement, conn, feePayer }) {
 	const network = requirement.network;
 	const connection = conn || solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
-	const sponsor = feePayer || loadFeePayerKeypair();
 
 	const txBase64 = txBase64FromPayload(paymentPayload);
 	if (!txBase64) return { success: false, reason: 'missing_transaction' };
 
+	// The sponsor pubkey only authorizes SPONSOR-mode payments; a self-pay tx
+	// carries its own fee payer and needs no sponsor key at all.
+	const sponsorPubkey = feePayer?.publicKey?.toBase58() || env.X402_FEE_PAYER_SOLANA || null;
 	const validation = validateRingTransaction({
 		txBase64,
 		requirement,
-		feePayerPubkey: sponsor.publicKey.toBase58(),
+		feePayerPubkey: sponsorPubkey,
 		allowlist: payToAllowlist(),
 	});
 	if (!validation.ok) return { success: false, reason: validation.reason };
 	const decoded = validation.decoded;
-	const { tx, payer, estFeeLamports } = decoded;
+	const { tx, payer, estFeeLamports, selfPay } = decoded;
 
-	// Hard stop: never settle if the sponsor is below its SOL floor.
-	const solLamports = await sponsorSolLamports(connection, sponsor.publicKey);
+	// Hard stop: never settle if the fee-paying wallet is below its SOL floor.
+	// Self-pay → the payer pays its own fee; sponsor mode → the sponsor pays.
+	const feeWallet = new PublicKey(decoded.feePayer);
+	const solLamports = await sponsorSolLamports(connection, feeWallet);
 	if (solLamports < SPONSOR_SOL_FLOOR_LAMPORTS) {
 		return {
 			success: false,
-			reason: `sponsor_sol_below_floor:${solLamports}<${SPONSOR_SOL_FLOOR_LAMPORTS}`,
+			reason: `fee_wallet_below_floor:${solLamports}<${SPONSOR_SOL_FLOOR_LAMPORTS}`,
 			sponsorSolLamports: solLamports,
 		};
 	}
 
-	// Co-sign as the fee payer (buyer already signed) and broadcast.
-	try {
-		tx.sign([sponsor]);
-	} catch (err) {
-		return { success: false, reason: `cosign_failed:${err.message}` };
+	// Sponsor mode co-signs the fee payer (buyer already signed); a self-pay tx is
+	// already fully signed and just needs broadcasting.
+	if (!selfPay) {
+		let sponsor;
+		try {
+			sponsor = feePayer || loadFeePayerKeypair();
+		} catch (err) {
+			return { success: false, reason: `sponsor_key_unconfigured:${err.message}` };
+		}
+		try {
+			tx.sign([sponsor]);
+		} catch (err) {
+			return { success: false, reason: `cosign_failed:${err.message}` };
+		}
 	}
 
 	let signature;
@@ -412,7 +435,7 @@ export async function settleRingPayment({ paymentPayload, requirement, conn, fee
 		return { success: false, reason: `not_confirmed:${conf.err}`, transaction: signature };
 	}
 
-	bumpSolCache(estFeeLamports);
+	bumpSolCache(feeWallet.toBase58(), estFeeLamports);
 
 	// Best-effort: read the real network fee for accurate burn accounting.
 	let feeLamports = estFeeLamports;

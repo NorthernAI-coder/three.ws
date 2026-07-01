@@ -55,17 +55,22 @@ const grid       = document.getElementById('al-grid');
 const liveCount  = document.getElementById('al-live-count');
 const statsBar   = document.getElementById('al-stats');
 const statLive   = document.getElementById('al-stat-live');
-const statFps    = document.getElementById('al-stat-fps');
+const statFps    = document.getElementById('al-stat-fps');       // legacy tile (removed from header)
 const statTotal  = document.getElementById('al-stat-total');
+const statActive = document.getElementById('al-stat-active');
 
 // Per-agent runtime state. agentId → { es, card, entries, lastFrameAt, live }
 const _cards = new Map();
 const _fpsMap = new Map();   // agentId → frames since last tick
 
-// Roster pagination cursor (created_at of the last public agent loaded).
-let   _cursor = null;
+// Roster pagination. The wall uses the activity-ranked `live` sort, which is
+// offset-paginated (its order isn't a created_at keyset). `_rosterTotal` /
+// `_activeTotal` are the platform-wide header-stat counts the first page carries.
+let   _offset = 0;
 let   _hasMore = true;
 let   _loading = false;
+let   _rosterTotal = null;   // meaningful public agents (the wall's addressable size)
+let   _activeTotal = null;   // public agents with any real activity
 
 // Interval handles for the FPS ticker and idle repaint loops.
 let   _fpsInterval = null;
@@ -134,27 +139,34 @@ function esc(s) {
 
 // ── roster ──────────────────────────────────────────────────────────────────
 
-// Pull a page of agents from the public directory. When signed in we also merge
-// the caller's own agents (which may be private) so an owner always sees theirs.
+// Pull a page of agents from the public directory using the activity-ranked
+// `live` sort — agents that acted most recently lead the wall, and never-used
+// placeholder agents (onboarding default name, no activity, no chats, no on-chain
+// identity) are suppressed server-side, so the grid reads as alive instead of a
+// graveyard of empty test agents. When signed in we also merge the caller's own
+// agents (which may be private) so an owner always sees theirs.
 async function fetchRosterPage() {
-	const params = new URLSearchParams({ sort: 'popular', limit: '48' });
-	if (_cursor) params.set('before', _cursor);
+	const firstPage = _offset === 0;
+	const params = new URLSearchParams({ sort: 'live', limit: '48', offset: String(_offset) });
 	let agents = [];
 	let hasMore = false;
-	let cursor = null;
 	try {
 		const res = await fetch(`/api/agents/public?${params}`, { headers: { accept: 'application/json' } });
 		if (res.ok) {
 			const data = await res.json();
 			agents = data.agents || [];
 			hasMore = !!data.has_more;
-			cursor = data.next_cursor || null;
+			if (typeof data.next_offset === 'number') _offset = data.next_offset;
+			else _offset += agents.length;
+			// First page carries the platform-wide header-stat counts.
+			if (Number.isFinite(data.total)) _rosterTotal = data.total;
+			if (Number.isFinite(data.active_total)) _activeTotal = data.active_total;
 		}
 	} catch { /* network — handled by caller via empty page */ }
 
 	// First page only: merge the owner's own agents so a signed-in user always
 	// sees their roster even if some are private / not yet in the public index.
-	if (!_cursor) {
+	if (firstPage) {
 		try {
 			const res = await fetch('/api/agents', { credentials: 'include', headers: { accept: 'application/json' } });
 			if (res.ok) {
@@ -171,7 +183,7 @@ async function fetchRosterPage() {
 		} catch { /* anonymous — public list only */ }
 	}
 
-	return { agents, hasMore, cursor };
+	return { agents, hasMore };
 }
 
 // ── card ──────────────────────────────────────────────────────────────────────
@@ -216,7 +228,10 @@ function buildCard(agent) {
   <div class="al-card-meta">
     <div class="al-card-name">${esc(name)}</div>
     <div class="al-card-action" data-action>Connecting…</div>
-    <span class="al-card-pnl" data-pnl hidden></span>
+    <div class="al-card-submeta">
+      <span class="al-card-age" data-age hidden></span>
+      <span class="al-card-pnl" data-pnl hidden></span>
+    </div>
   </div>
   <a class="al-card-watch-btn" href="${esc(watchHref)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Watch</a>
 </div>`;
@@ -274,6 +289,36 @@ function updateHireFlash(state, meta, live) {
 function fmtAge(ts) {
 	const age = Math.max(0, Math.round((Date.now() - (ts || Date.now())) / 1000));
 	return age < 5 ? 'now' : age < 60 ? `${age}s` : age < 3600 ? `${Math.round(age / 60)}m` : `${Math.round(age / 3600)}h`;
+}
+
+// A coarser "last active" stamp for the card recency badge — spans up to weeks so
+// an agent that acted days ago still reads honestly. Returns null past ~5 weeks so
+// long-dormant agents don't wear a misleading "active" chip.
+function fmtAgo(ts) {
+	if (!ts) return null;
+	const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+	if (s < 45) return 'just now';
+	if (s < 3600) return `${Math.round(s / 60)}m ago`;
+	if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+	const d = Math.round(s / 86400);
+	if (d <= 34) return d === 1 ? 'yesterday' : `${d}d ago`;
+	return null;
+}
+
+// Paint the card's "last active" recency badge from the agent's most-recent real
+// action. Hidden while a live caster is streaming (the Live badge dominates) and
+// for agents with no recorded activity yet. This is what keeps every non-casting
+// card reading as alive — a truthful "active 6m ago", never a faked pulse.
+function renderAge(state) {
+	if (!state.age) return;
+	if (isLiveNow(state)) { state.age.hidden = true; return; }
+	const label = fmtAgo(state.lastActionAt);
+	if (!label) { state.age.hidden = true; return; }
+	state.age.hidden = false;
+	const recent = Date.now() - state.lastActionAt < 15 * 60 * 1000; // acted in last 15m
+	state.age.classList.toggle('is-recent', recent);
+	state.age.textContent = `active ${label}`;
+	state.age.title = `Last on-chain / skill action ${label}`;
 }
 
 // Render the agent's recent activity as a CINEMATIC live terminal onto the card
@@ -575,6 +620,10 @@ function attachStream(state) {
 			const { entries } = JSON.parse(e.data);
 			if (Array.isArray(entries)) {
 				state.entries = entries;
+				// Keep the recency badge honest: the newest entry's timestamp is the
+				// agent's real last action (live log or DB backfill both carry `ts`).
+				const newestTs = entries.reduce((m, en) => Math.max(m, Number(en?.ts) || 0), 0);
+				if (newestTs > state.lastActionAt) state.lastActionAt = newestTs;
 				// Fold any realized exits in the backfill into the running PnL chip.
 				entries.forEach((entry) => ingestCardPnl(state, entry));
 				// Draw the floor at the last known MM state (no flash — backfill, not live).
@@ -742,11 +791,14 @@ function mountAgent(agent) {
 	grid.querySelectorAll('.al-skeleton').forEach((s) => s.remove());
 	grid.querySelector('.al-empty')?.remove();
 	grid.appendChild(card);
+	const lastActionAt = Number(new Date(agent.last_action_at || 0).getTime()) || 0;
 	const state = {
 		agentId: id,
 		card,
 		name: agent.name || agent.agentName || 'Agent',
 		action: card.querySelector('[data-action]'),
+		age: card.querySelector('[data-age]'),
+		lastActionAt,
 		entries: [],
 		lastFrameAt: 0,
 		live: false,
@@ -776,6 +828,7 @@ function mountAgent(agent) {
 			subscribe: false,
 		});
 	}
+	renderAge(state);
 	attachStream(state);
 	// Intent + status polling are intersection-driven (getObserver), so the pool
 	// only spins up for cards actually on screen and frees the slot on scroll-away.
@@ -795,9 +848,8 @@ function renderEmpty() {
 async function loadMore() {
 	if (_loading || !_hasMore) return;
 	_loading = true;
-	const { agents, hasMore, cursor } = await fetchRosterPage();
+	const { agents, hasMore } = await fetchRosterPage();
 	_hasMore = hasMore;
-	_cursor = cursor;
 
 	if (!_cards.size && !agents.length) {
 		renderEmpty();
@@ -811,14 +863,24 @@ async function loadMore() {
 	_loading = false;
 }
 
+function fmtCount(n) {
+	return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString('en-US') : '—';
+}
+
 function updateStats() {
-	const total = _cards.size;
+	const mounted = _cards.size;
 	let live = 0;
 	for (const s of _cards.values()) if (isLiveNow(s)) live++;
 	if (liveCount) liveCount.textContent = live;
 	if (statLive) statLive.textContent = live;
-	if (statTotal) statTotal.textContent = total;
-	if (statsBar) statsBar.hidden = total === 0;
+	// "On the wall" is the platform-wide addressable roster (from the first page's
+	// meta), not just how many cards are mounted right now — falls back to the
+	// mounted count until the count lands. "With activity" is the honest number of
+	// agents that have ever acted, so the header carries real pulse even when no
+	// browser caster is streaming (Live now = 0).
+	if (statTotal) statTotal.textContent = fmtCount(_rosterTotal != null ? Math.max(_rosterTotal, mounted) : mounted);
+	if (statActive) statActive.textContent = fmtCount(_activeTotal);
+	if (statsBar) statsBar.hidden = mounted === 0;
 }
 
 // FPS + live-count ticker. Also surfaces per-card FPS in the live badge tooltip
@@ -856,7 +918,10 @@ function startIdleRepaint() {
 		for (const s of _cards.values()) {
 			if (!isLiveNow(s)) {
 				paintActivity(s);
+				renderAge(s);
 				if (s.live) s.setLive?.(false);
+			} else if (s.age && !s.age.hidden) {
+				s.age.hidden = true; // went live — Live badge takes over from the recency chip
 			}
 		}
 	}, 2500);

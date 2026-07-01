@@ -37,6 +37,33 @@ const POLL_MS = 15_000;     // live balance heartbeat (real RPC each tick)
 const COMPILE_DEBOUNCE = 600;
 const WALL_PUSH_MIN_GAP = 6_000;
 
+// ── wall-frame typography + palette ─────────────────────────────────────────
+// The offscreen cockpit render (drawCockpitCanvas) is the agent's on-screen
+// "dashboard" that /agents-live and the viewer show. Draw it in the SAME brand
+// families (Space Grotesk display, Inter body) and semantic colours as the rest
+// of the site — mirrors public/tokens.css so the frame reads as one product.
+// Fallbacks keep the first frame legible before the woff2 decodes; ensureWallFonts()
+// force-loads the exact weights so the next push is fully on-brand.
+const WALL_DISPLAY = "'Space Grotesk', 'Inter', system-ui, sans-serif";
+const WALL_BODY = "'Inter', system-ui, sans-serif";
+const WALL_INK = '#f4f4f5';
+const WALL_DIM = 'rgba(255,255,255,0.5)';
+const WALL_FAINT = 'rgba(255,255,255,0.38)';
+const WALL_SUCCESS = '#4ade80'; // --success
+const WALL_DANGER = '#f87171';  // --danger
+const WALL_WARN = '#fbbf24';    // --warn
+
+let wallFontsReady = false;
+function ensureWallFonts() {
+	if (wallFontsReady || typeof document === 'undefined' || !document.fonts?.load) return Promise.resolve();
+	return Promise.all([
+		document.fonts.load("800 92px 'Space Grotesk'"),
+		document.fonts.load("700 34px 'Space Grotesk'"),
+		document.fonts.load("600 22px 'Inter'"),
+		document.fonts.load("500 30px 'Inter'"),
+	]).then(() => { wallFontsReady = true; }).catch(() => {});
+}
+
 function esc(s) {
 	return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -575,87 +602,132 @@ export function createTreasuryCockpit({ agentId, bodyEl, toast, network = 'mainn
 	}
 
 	function drawCockpitCanvas(d) {
-		const W = 1280, H = 720;
+		const W = 1280, H = 720, PAD = 72;
 		const c = document.createElement('canvas');
 		c.width = W; c.height = H;
 		const x = c.getContext('2d');
 		const r = d.runway || {};
 		const p = d.policy || {};
-		// background
-		const bg = x.createLinearGradient(0, 0, 0, H);
-		bg.addColorStop(0, '#0c0c0f'); bg.addColorStop(1, '#060607');
+		const rounded = (rx, ry, w, h, rad) => {
+			if (typeof x.roundRect === 'function') { x.beginPath(); x.roundRect(rx, ry, w, h, rad); }
+			else { x.beginPath(); x.rect(rx, ry, w, h); }
+		};
+
+		// backdrop — the same near-black glass gradient the site uses everywhere
+		const bg = x.createLinearGradient(0, 0, W, H);
+		bg.addColorStop(0, '#0d0e14'); bg.addColorStop(1, '#060607');
 		x.fillStyle = bg; x.fillRect(0, 0, W, H);
-		x.fillStyle = 'rgba(255,255,255,0.04)'; x.fillRect(0, 0, W, 6);
+		// faint top-centre glow, mirroring .asc-stage's radial highlight
+		const glow = x.createRadialGradient(W / 2, -60, 40, W / 2, -60, W * 0.7);
+		glow.addColorStop(0, 'rgba(255,255,255,0.05)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+		x.fillStyle = glow; x.fillRect(0, 0, W, 320);
 
-		x.fillStyle = 'rgba(255,255,255,0.5)';
-		x.font = '600 26px system-ui, sans-serif';
-		x.fillText('TREASURY AUTOPILOT', 64, 90);
-		const armed = p.kill_switch ? 'KILL SWITCH' : p.armed ? 'ARMED' : 'DISARMED';
-		x.fillStyle = p.kill_switch ? '#fda4af' : p.armed ? '#ffffff' : 'rgba(255,255,255,0.4)';
-		x.font = '700 22px system-ui, sans-serif';
-		x.fillText(armed, 64, 124);
+		// ── header: eyebrow + status pill ──
+		x.textBaseline = 'alphabetic';
+		x.fillStyle = WALL_DIM;
+		x.font = `600 22px ${WALL_BODY}`;
+		if ('letterSpacing' in x) x.letterSpacing = '2px';
+		x.fillText('TREASURY AUTOPILOT', PAD, 96);
+		// measureText honours the active letterSpacing, so this width already
+		// includes the tracking — don't add it a second time.
+		const eyeW = x.measureText('TREASURY AUTOPILOT').width;
+		if ('letterSpacing' in x) x.letterSpacing = '0px';
+		const killed = p.kill_switch === true;
+		const armed = p.armed === true;
+		const pill = killed
+			? { label: 'KILL SWITCH', fg: WALL_DANGER, bg: 'rgba(248,113,113,0.14)' }
+			: armed
+				? { label: 'ARMED', fg: WALL_INK, bg: 'rgba(255,255,255,0.14)' }
+				: { label: 'DISARMED', fg: WALL_FAINT, bg: 'rgba(255,255,255,0.05)' };
+		x.font = `700 15px ${WALL_BODY}`;
+		if ('letterSpacing' in x) x.letterSpacing = '1px';
+		const pw = x.measureText(pill.label).width + 26;
+		const px = PAD + eyeW + 18, py = 80;
+		x.fillStyle = pill.bg; rounded(px, py, pw, 24, 12); x.fill();
+		x.fillStyle = pill.fg; x.fillText(pill.label, px + 13, py + 17);
+		if ('letterSpacing' in x) x.letterSpacing = '0px';
 
-		// balance
-		x.fillStyle = '#f4f4f5';
-		x.font = '800 96px system-ui, sans-serif';
-		x.fillText(fmtSol(r.balance_sol), 64, 240);
-		x.fillStyle = 'rgba(255,255,255,0.55)';
-		x.font = '500 34px system-ui, sans-serif';
-		const usd = r.balance_usd != null ? fmtUsd(r.balance_usd) : '';
-		x.fillText(`${usd}${usd ? '   ·   ' : ''}$THREE ${fmtCompact(r.three_accumulated)}`, 64, 292);
-
-		// runway gauge (top-right)
-		const gx = W - 200, gy = 200, rad = 96;
+		// ── runway gauge (top-right) ──
+		const gx = W - PAD - 96, gy = 176, rad = 88;
 		const g = runwayGauge(r);
-		x.lineWidth = 18; x.lineCap = 'round';
-		x.strokeStyle = 'rgba(255,255,255,0.10)';
+		const arcTone = g.tone === 'critical' ? WALL_DANGER : g.tone === 'warn' ? WALL_WARN : g.tone === 'unknown' ? 'rgba(255,255,255,0.22)' : WALL_INK;
+		x.lineWidth = 15; x.lineCap = 'round';
+		x.strokeStyle = 'rgba(255,255,255,0.09)';
 		x.beginPath(); x.arc(gx, gy, rad, 0, Math.PI * 2); x.stroke();
-		x.strokeStyle = g.tone === 'critical' ? '#fda4af' : g.tone === 'warn' ? '#fcd34d' : '#ffffff';
-		x.beginPath(); x.arc(gx, gy, rad, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * g.fraction); x.stroke();
-		x.fillStyle = '#f4f4f5'; x.textAlign = 'center';
-		x.font = '800 44px system-ui, sans-serif'; x.fillText(g.label, gx, gy + 8);
-		x.fillStyle = 'rgba(255,255,255,0.5)'; x.font = '500 20px system-ui, sans-serif';
-		x.fillText(g.sublabel, gx, gy + 44);
+		if (g.fraction > 0) {
+			x.strokeStyle = arcTone;
+			x.beginPath(); x.arc(gx, gy, rad, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * g.fraction); x.stroke();
+		}
+		x.textAlign = 'center';
+		x.fillStyle = arcTone;
+		x.font = `700 ${g.label.length > 2 ? 34 : 46}px ${WALL_DISPLAY}`;
+		x.fillText(g.label, gx, gy + (g.label.length > 2 ? 8 : 12));
+		x.fillStyle = WALL_DIM; x.font = `500 17px ${WALL_BODY}`;
+		x.fillText(g.sublabel, gx, gy + 40);
 		x.textAlign = 'left';
 
-		// stat strip
-		const stats = [
-			['Income 30d', fmtUsd(r.income_usd, { compact: true })],
-			['Burn 30d', fmtUsd(r.cost_usd, { compact: true })],
-			['Net', `${r.net_usd >= 0 ? '+' : ''}${fmtUsd(r.net_usd, { compact: true })}`],
-			['Buybacks', String(r.buyback_count || 0)],
-			['Swept', fmtSol(r.swept_sol || 0)],
-		];
-		let sx = 64;
-		const sy = 380, sw = 224;
-		for (const [k, v] of stats) {
-			x.fillStyle = 'rgba(255,255,255,0.4)'; x.font = '600 20px system-ui, sans-serif';
-			x.fillText(k.toUpperCase(), sx, sy);
-			x.fillStyle = '#f4f4f5'; x.font = '700 34px system-ui, sans-serif';
-			x.fillText(v, sx, sy + 40);
-			sx += sw;
-		}
+		// ── balance ──
+		x.fillStyle = WALL_INK;
+		x.font = `800 92px ${WALL_DISPLAY}`;
+		x.fillText(fmtSol(r.balance_sol), PAD, 268);
+		x.fillStyle = WALL_DIM;
+		x.font = `500 30px ${WALL_BODY}`;
+		const usd = r.balance_usd != null ? fmtUsd(r.balance_usd) : '';
+		x.fillText(`${usd}${usd ? '   ·   ' : ''}$THREE ${fmtCompact(r.three_accumulated)}`, PAD, 316);
 
-		// rules
-		x.fillStyle = 'rgba(255,255,255,0.4)'; x.font = '600 20px system-ui, sans-serif';
-		x.fillText('POLICY RULES', 64, 500);
-		const rules = (p.rules || []).slice(0, 4);
-		let ry = 540;
+		// ── divider ──
+		x.strokeStyle = 'rgba(255,255,255,0.08)'; x.lineWidth = 1;
+		x.beginPath(); x.moveTo(PAD, 364); x.lineTo(W - PAD, 364); x.stroke();
+
+		// ── stat strip (5 columns with hairline separators) ──
+		const stats = [
+			['Income 30d', fmtUsd(r.income_usd, { compact: true }), WALL_INK],
+			['Burn 30d', fmtUsd(r.cost_usd, { compact: true }), WALL_INK],
+			['Net', `${r.net_usd >= 0 ? '+' : ''}${fmtUsd(r.net_usd, { compact: true })}`, r.net_usd >= 0 ? WALL_SUCCESS : WALL_DANGER],
+			['Buybacks', String(r.buyback_count || 0), WALL_INK],
+			['Swept', fmtSol(r.swept_sol || 0), WALL_INK],
+		];
+		const colW = (W - 2 * PAD) / stats.length;
+		const sy = 420;
+		stats.forEach(([k, v, tone], i) => {
+			const cx = PAD + colW * i;
+			if (i > 0) {
+				x.strokeStyle = 'rgba(255,255,255,0.06)'; x.lineWidth = 1;
+				x.beginPath(); x.moveTo(cx - 18, sy - 22); x.lineTo(cx - 18, sy + 30); x.stroke();
+			}
+			x.fillStyle = WALL_FAINT; x.font = `600 17px ${WALL_BODY}`;
+			if ('letterSpacing' in x) x.letterSpacing = '0.5px';
+			x.fillText(k.toUpperCase(), cx, sy);
+			if ('letterSpacing' in x) x.letterSpacing = '0px';
+			x.fillStyle = tone; x.font = `700 34px ${WALL_DISPLAY}`;
+			x.fillText(v, cx, sy + 42);
+		});
+
+		// ── policy rules ──
+		x.fillStyle = WALL_FAINT; x.font = `600 17px ${WALL_BODY}`;
+		if ('letterSpacing' in x) x.letterSpacing = '0.5px';
+		x.fillText('POLICY RULES', PAD, 528);
+		if ('letterSpacing' in x) x.letterSpacing = '0px';
+		const rules = (p.rules || []).slice(0, 3);
+		let ry = 566;
 		for (const rule of rules) {
 			const l = policyLine(rule);
-			x.fillStyle = l.state === 'armed' ? '#ffffff' : 'rgba(255,255,255,0.4)';
-			x.font = '500 26px system-ui, sans-serif';
-			const text = l.text.length > 78 ? `${l.text.slice(0, 77)}…` : l.text;
-			x.fillText(`${l.glyph}  ${text}`, 64, ry);
-			ry += 42;
+			x.fillStyle = l.state === 'armed' ? 'rgba(255,255,255,0.9)' : WALL_FAINT;
+			x.font = `500 25px ${WALL_BODY}`;
+			const text = l.text.length > 74 ? `${l.text.slice(0, 73)}…` : l.text;
+			x.fillText(`${l.glyph}  ${text}`, PAD, ry);
+			ry += 40;
 		}
 		if (!rules.length) {
-			x.fillStyle = 'rgba(255,255,255,0.3)'; x.font = '400 24px system-ui, sans-serif';
-			x.fillText('No rules armed — idle treasury.', 64, ry);
+			x.fillStyle = 'rgba(255,255,255,0.3)'; x.font = `400 24px ${WALL_BODY}`;
+			x.fillText('No rules armed — idle treasury.', PAD, ry);
 		}
 
-		x.fillStyle = 'rgba(255,255,255,0.25)'; x.font = '500 20px system-ui, sans-serif';
-		x.fillText('three.ws · $THREE', 64, H - 40);
+		// ── footer wordmark ──
+		x.fillStyle = 'rgba(255,255,255,0.28)'; x.font = `600 19px ${WALL_BODY}`;
+		x.fillText('three.ws', PAD, H - 40);
+		x.fillStyle = 'rgba(255,255,255,0.16)';
+		x.fillText(' · $THREE', PAD + x.measureText('three.ws').width, H - 40);
 		return c;
 	}
 
@@ -674,6 +746,13 @@ export function createTreasuryCockpit({ agentId, bodyEl, toast, network = 'mainn
 	function start() {
 		render();              // skeleton
 		fetchAll();
+		// Once the brand fonts decode, re-push so the wall frame stops falling back
+		// to system-ui — bypass the min-gap once for an immediate on-brand frame.
+		ensureWallFonts().then(() => {
+			if (destroyed || !owner || !data?.runway) return;
+			lastPush = 0;
+			pushWallFrame();
+		});
 		pollTimer = setInterval(() => {
 			if (destroyed || document.hidden) return;
 			if (owner && (state === 'populated')) fetchAll({ soft: true });

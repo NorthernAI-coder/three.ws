@@ -178,6 +178,26 @@
 		"api/seed/synthesize.js": {
 			"maxDuration": 60
 		},
+		"{api/agent-vanity-grind,api/agent-collab}.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 300
+		},
+		"api/agent-ask.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 120
+		},
+		"api/input-multiview.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 90
+		},
+		"{api/input-photo,api/vision,api/a2f,api/autopilot/proposals,api/ibm/galaxy,api/ibm/vision,api/agent/reflect,api/walk/pilot,api/agent-trade/demo,api/inference/livepeer}.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
+		},
+		"api/portfolio/[action].js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
+		},
 		"api/**/*.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 30
@@ -3014,6 +3034,42 @@
 		{
 			"src": "/api/agents/([^/]+)/registration(/.*)?",
 			"dest": "/api/agents/[id]"
+		},
+		{
+			"src": "/api/agents/economy",
+			"dest": "/api/agents/economy"
+		},
+		{
+			"src": "/api/agents/talk",
+			"dest": "/api/agents/talk"
+		},
+		{
+			"src": "/api/agents/nfts",
+			"dest": "/api/agents/nfts"
+		},
+		{
+			"src": "/api/agents/a2a-hire",
+			"dest": "/api/agents/a2a-hire"
+		},
+		{
+			"src": "/api/agents/a2a-call",
+			"dest": "/api/agents/a2a-call"
+		},
+		{
+			"src": "/api/agents/a2a-cart-verify",
+			"dest": "/api/agents/a2a-cart-verify"
+		},
+		{
+			"src": "/api/agents/a2a-mandate",
+			"dest": "/api/agents/a2a-mandate"
+		},
+		{
+			"src": "/api/agents/recovery-inbox",
+			"dest": "/api/agents/recovery-inbox"
+		},
+		{
+			"src": "/api/agents/showrunner",
+			"dest": "/api/agents/showrunner"
 		},
 		{
 			"src": "/api/agents/([^/]+)(?:/.*)?",

@@ -133,7 +133,7 @@ function metricsGrid(m) {
 }
 
 // --- Oracle conviction block -------------------------------------------------
-function oracleBlock(oracle, agentId) {
+function oracleBlock(oracle) {
 	const pnlStr = oracle.realized_pnl_sol != null
 		? `<span class="${pnlClass(oracle.realized_pnl_sol)}">${fmtSol(oracle.realized_pnl_sol)}</span>`
 		: '—';
@@ -147,9 +147,9 @@ function oracleBlock(oracle, agentId) {
 		<div class="tp-oracle-block">
 			<div class="tp-oracle-head">
 				<span class="tp-oracle-label">Oracle conviction</span>
-				<div style="display:flex;gap:10px;align-items:center">
+				<div class="tp-oracle-actions">
 					<a class="tp-oracle-link" href="/oracle" target="_blank" rel="noopener">View live ↗</a>
-					<a class="lb-btn lb-btn-primary" href="#tp-copy-panel" style="font-size:11px;padding:4px 12px;border-radius:6px" onclick="document.getElementById('tp-copy-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return false">Copy trades →</a>
+					<a class="lb-btn lb-btn-primary tp-oracle-cta" href="#tp-copy-panel" onclick="document.getElementById('tp-copy-panel')?.scrollIntoView({behavior:'smooth',block:'start'});return false">Copy trades →</a>
 				</div>
 			</div>
 			<div class="tp-oracle-kpis">
@@ -292,9 +292,11 @@ function render(data) {
 				${a.description ? `<p class="tp-desc">${escapeHtml(a.description)}</p>` : ''}
 			</div>
 			<div class="tp-gauge">
-				${gauge(m.score)}
-				<div class="tp-gauge-val" style="margin-top:-58px">${m.score}</div>
-				<div class="tp-gauge-label" style="margin-top:34px">Trader Score</div>
+				<div class="tp-gauge-ring">
+					${gauge(m.score)}
+					<div class="tp-gauge-val">${m.score}</div>
+				</div>
+				<div class="tp-gauge-label">Trader Score</div>
 			</div>
 		</section>
 
@@ -310,7 +312,7 @@ function render(data) {
 
 		${data.projection ? projectionBlock(data.projection) : ''}
 
-		${data.oracle ? oracleBlock(data.oracle, a.id) : ''}
+		${data.oracle ? oracleBlock(data.oracle) : ''}
 
 		<div class="tp-curve-wrap">
 			<div class="tp-curve-head">
@@ -673,9 +675,11 @@ function renderWalletProfile(data) {
 				${a.blurb ? `<p class="tp-desc">${escapeHtml(a.blurb)}</p>` : ''}
 			</div>
 			<div class="tp-gauge">
-				${r ? gauge(r.score, color) : gauge(0)}
-				<div class="tp-gauge-val" style="margin-top:-58px;color:${color}">${r ? Math.round(r.score) : '—'}</div>
-				<div class="tp-gauge-label" style="margin-top:34px">Smart Score</div>
+				<div class="tp-gauge-ring">
+					${r ? gauge(r.score, color) : gauge(0)}
+					<div class="tp-gauge-val" style="color:${color}">${r ? Math.round(r.score) : '—'}</div>
+				</div>
+				<div class="tp-gauge-label">Smart Score</div>
 			</div>
 		</section>
 

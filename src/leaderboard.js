@@ -105,20 +105,20 @@ function rowMarkup(r) {
 			<span class="lb-trader">
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" onerror="this.src='${identicon(r.agent_id || r.wallet || '?')}'" />
 				<span class="lb-trader-meta">
-					<span class="lb-trader-name">${escapeHtml(r.agent_name || 'Unnamed agent')}${verifiedBadge(r.verified)}</span>
+					<span class="lb-trader-name"><span class="lb-trader-nm">${escapeHtml(r.agent_name || 'Unnamed agent')}</span>${verifiedBadge(r.verified)}</span>
 					<span class="lb-trader-sub">${r.wallet ? walletChipHTML(r, { isOwner: false, showPending: false, link: false }) : escapeHtml(shortAddr(r.wallet))} · ${r.unique_coins} coins${r.copiers ? ` · <span class="lb-copiers">${r.copiers} copying</span>` : ''}</span>
 				</span>
 			</span>
 			<span class="lb-num">
 				<span class="lb-score">${r.score}</span>
-				<span class="lb-score-bar" style="width:${scoreBar}%"></span>
+				<span class="lb-score-track"><span class="lb-score-bar" style="width:${scoreBar}%"></span></span>
 			</span>
 			<span class="lb-num">${pnlSol}${pnlUsd}</span>
 			<span class="lb-num lb-winrate">${fmtPct(r.win_rate * 100)}<span class="lb-sub-num">${r.wins}/${r.closed}</span></span>
 			<span class="lb-num lb-hide-sm"><span class="${pnlClass(r.roi_pct)}">${fmtPct(r.roi_pct, { sign: true })}</span></span>
 			<span class="lb-num lb-hide-sm">${dd}</span>
 			<span class="lb-num lb-hide-md">${r.closed}<span class="lb-sub-num">${holdTime(r.avg_hold_seconds)} avg</span></span>
-			<span class="lb-col-act"><span class="lb-view">Track record →</span></span>
+			<span class="lb-col-act"><span class="lb-view"><span class="lb-view-full">Track record</span> →</span></span>
 		</a>`;
 }
 
@@ -178,14 +178,14 @@ function liveRowMarkup(r) {
 			<span class="lb-trader">
 				<img class="lb-avatar" src="${escapeHtml(img)}" alt="" loading="lazy" />
 				<span class="lb-trader-meta">
-					<span class="lb-trader-name">${escapeHtml(shortAddr(r.wallet, 6, 6))}</span>
+					<span class="lb-trader-name"><span class="lb-trader-nm">${escapeHtml(shortAddr(r.wallet, 6, 6))}</span></span>
 					<span class="lb-trader-sub">Solana trader · on-chain account</span>
 				</span>
 			</span>
 			<span class="lb-num">${pnlSol}${pnlUsd}</span>
 			<span class="lb-num lb-winrate">${fmtPct(r.win_rate * 100)}</span>
 			<span class="lb-num">${r.trades}</span>
-			<span class="lb-col-act"><span class="lb-view">Account →</span></span>
+			<span class="lb-col-act"><span class="lb-view"><span class="lb-view-full">Account</span> →</span></span>
 		</a>`;
 }
 
@@ -501,9 +501,9 @@ async function loadOracleLeaderboard() {
 
 	container.innerHTML = '';
 	for (const a of agents) {
-		const img = a.image_url
-			? `<img class="lb-avatar" src="${escapeHtml(a.image_url)}" alt="" loading="lazy" onerror="this.remove()" />`
-			: `<span class="lb-avatar">${identicon(a.agent_id)}</span>`;
+		// identicon() returns a data-URI for an <img src> — it must never be dropped
+		// into element text (that renders the raw "data:image/svg+xml…" string).
+		const img = `<img class="lb-avatar" src="${escapeHtml(a.image_url || identicon(a.agent_id))}" alt="" loading="lazy" onerror="this.src='${identicon(a.agent_id)}'" />`;
 		const name = escapeHtml(a.name || a.agent_id.slice(0, 8) + '…');
 		const wr = a.win_rate != null
 			? `<span class="${a.win_rate >= 60 ? 'lb-pos' : a.win_rate >= 40 ? '' : 'lb-neg'}">${a.win_rate}%</span>`
@@ -526,12 +526,12 @@ async function loadOracleLeaderboard() {
 		row.setAttribute('aria-label', `Rank ${a.rank}: ${plainName}, ${wrText}`);
 		row.innerHTML = `
 			<span class="lb-rank">${a.rank}</span>
-			<a class="lb-trader lb-oracle-trader-link" href="${profileHref}">${img}<span class="lb-trader-meta"><span class="lb-trader-name">${name}</span></span></a>
+			<a class="lb-trader lb-oracle-trader-link" href="${profileHref}">${img}<span class="lb-trader-meta"><span class="lb-trader-name"><span class="lb-trader-nm">${name}</span></span></span></a>
 			<span class="lb-col-num">${wr}</span>
-			<span class="lb-col-num lb-neg" style="font-size:12px;color:var(--ink-dim)">${wl}</span>
+			<span class="lb-col-num lb-hide-sm lb-oracle-record">${wl}</span>
 			<span class="lb-col-num lb-hide-sm">${pnl}</span>
 			<span class="lb-col-num lb-hide-sm">${roi}</span>
-			<span class="lb-col-num"><span class="lb-oracle-actions"><a class="lb-btn" href="${profileHref}" style="font-size:11px;padding:4px 10px" aria-label="Open ${escapeHtml(plainName)} profile">Profile</a><a class="lb-btn lb-btn-primary" href="${traderHref}#tp-copy-panel" style="font-size:11px;padding:4px 11px" aria-label="Copy ${escapeHtml(plainName)}">Copy →</a></span></span>
+			<span class="lb-col-num lb-oracle-act"><a class="lb-btn lb-btn-primary lb-oracle-copy" href="${traderHref}#tp-copy-panel" aria-label="Copy ${escapeHtml(plainName)}">Copy →</a></span>
 		`;
 		container.appendChild(row);
 	}

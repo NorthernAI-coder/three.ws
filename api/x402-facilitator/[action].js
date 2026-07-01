@@ -28,7 +28,6 @@ import {
 	SELF_FACILITATOR_ENABLED,
 	verifyRingPayment,
 	settleRingPayment,
-	loadFeePayerKeypair,
 } from '../_lib/x402/self-facilitator.js';
 
 function actionFrom(req) {
@@ -136,14 +135,9 @@ export default wrap(async (req, res) => {
 	}
 
 	if (action === 'settle') {
-		let feePayer;
-		try {
-			feePayer = loadFeePayerKeypair();
-		} catch (err) {
-			logOp({ action: 'settle', network: requirement.network, ok: false, reason: `no_sponsor_key:${err.message}` });
-			return json(res, 200, { success: false, errorReason: 'sponsor_key_unconfigured' });
-		}
-		const result = await settleRingPayment({ paymentPayload, requirement, feePayer });
+		// No eager sponsor-key load: self-pay settles need no sponsor at all, and
+		// sponsor-mode settles load the key lazily inside settleRingPayment.
+		const result = await settleRingPayment({ paymentPayload, requirement });
 		logOp({
 			action: 'settle',
 			network: requirement.network,

@@ -101,6 +101,15 @@ function startCountdowns() {
 			const prefix = node.dataset.prefix || '';
 			node.textContent = future ? `${prefix}${label}` : node.dataset.doneLabel || 'ended';
 		});
+		// Advance any live window-progress bars in lockstep with the countdowns.
+		document.querySelectorAll('.wt-track[data-window-phase="live"]').forEach((track) => {
+			const start = Number(track.dataset.windowStart);
+			const end = Number(track.dataset.windowEnd);
+			const span = Math.max(1, end - start);
+			const frac = Math.min(1, Math.max(0, (Date.now() - start) / span));
+			const fill = track.querySelector('.wt-fill');
+			if (fill) fill.style.width = `${(frac * 100).toFixed(2)}%`;
+		});
 	};
 	tick();
 	countdownTimer = setInterval(tick, 1000);
@@ -149,6 +158,7 @@ async function renderList() {
 					'Time-boxed PvP trading tournaments where AI agents compete on real, verified pump.fun P&L. ',
 					'Ranked live, settled and attested on-chain, with $THREE prizes for the winners.',
 				),
+				h('div', { class: 'arena-hero-stats detail-stats', id: 'hero-stats', 'aria-hidden': 'true' }),
 			),
 			h(
 				'div',
@@ -195,6 +205,25 @@ async function renderList() {
 		upcoming: listCache.filter((t) => t.phase === 'upcoming'),
 		finished: listCache.filter((t) => t.phase === 'finished'),
 	};
+
+	// Hero context strip — real, live counts. Prize/competing only surface when > 0
+	// so an empty Arena never advertises a hollow "0 $THREE at stake".
+	const hs = document.getElementById('hero-stats');
+	if (hs) {
+		const open = listCache.filter((t) => t.phase !== 'finished');
+		const atStake = open.reduce((a, t) => a + Number(t.prize_pool_three || 0), 0);
+		const competing = open.reduce((a, t) => a + Number(t.entrant_count || 0), 0);
+		const cells = [
+			stat('Live', String(groups.live.length)),
+			stat('Upcoming', String(groups.upcoming.length)),
+			stat('Finished', String(groups.finished.length)),
+		];
+		if (atStake > 0) cells.push(stat('At stake', `${fmtThree(atStake)} $THREE`));
+		if (competing > 0) cells.push(stat('Competing', String(competing)));
+		hs.replaceChildren(...cells);
+		hs.setAttribute('aria-hidden', 'false');
+	}
+
 	// If the preferred tab is empty, fall back to the first non-empty one.
 	if (!groups[listState.tab].length) {
 		listState.tab = ['live', 'upcoming', 'finished'].find((k) => groups[k].length) || 'live';
@@ -475,7 +504,7 @@ function paintDetail(data) {
 			'div',
 			{ class: 'detail-main' },
 			phase === 'finished' ? resultsBanner(data) : null,
-			aggregateStrip(standings, t),
+			aggregateStrip(standings),
 			h(
 				'div',
 				{ class: 'board-head' },
@@ -516,7 +545,7 @@ function statCountdown(k, iso) {
 		'div',
 		{ class: 'stat' },
 		h('span', { class: 'k' }, k),
-		h('span', { class: 'v countdown', dataset: { countdown: iso }, doneLabel: 'now' }, '…'),
+		h('span', { class: 'v countdown', dataset: { countdown: iso, doneLabel: 'now' } }, '…'),
 	);
 }
 
@@ -717,6 +746,153 @@ function resultsBanner(data) {
 	return bits.length ? h('div', { class: 'results-banner' }, ...bits) : null;
 }
 
+// ── detail panels ────────────────────────────────────────────────────────────
+const fmtWhen = (v) => {
+	if (v == null) return '—';
+	const d = new Date(v);
+	if (Number.isNaN(d.getTime())) return '—';
+	return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+/** A summary strip over the board: entrants, in-window trades, net P&L, verified, leader. */
+function aggregateStrip(standings) {
+	const ranked = standings.filter((s) => s.rank != null);
+	if (!ranked.length) return null;
+	const trades = ranked.reduce((a, s) => a + (s.metrics?.closed_count ?? s.in_window_trades ?? 0), 0);
+	const netPnl = ranked.reduce((a, s) => a + (Number(s.metrics?.realized_pnl_sol) || 0), 0);
+	const verified = ranked.filter((s) => s.metrics?.verified).length;
+	const leader = ranked.find((s) => s.rank === 1);
+	const cells = [
+		aggCell('Entrants', String(standings.length)),
+		aggCell('In-window trades', trades.toLocaleString()),
+		aggCell('Net P&L', fmtSol(netPnl), netPnl > 0 ? 'pnl-pos' : netPnl < 0 ? 'pnl-neg' : ''),
+		aggCell('Verified', `${verified}/${ranked.length}`),
+	];
+	if (leader) cells.push(aggCell('Leading', leader.agent_name || 'Agent'));
+	return h('div', { class: 'agg-strip' }, ...cells);
+}
+function aggCell(k, v, cls) {
+	return h('div', { class: 'agg-cell' }, h('span', { class: 'agg-k' }, k), h('span', { class: `agg-v ${cls || ''}` }, v));
+}
+
+/** Progress bar from window open → close, with live countdown and a moving fill. */
+function windowTimeline(t, phase) {
+	const start = new Date(t.starts_at).getTime();
+	const end = new Date(t.ends_at).getTime();
+	const span = Math.max(1, end - start);
+	const frac = phase === 'upcoming' ? 0 : phase === 'finished' ? 1 : Math.min(1, Math.max(0, (Date.now() - start) / span));
+	const label =
+		phase === 'upcoming'
+			? h('span', {}, 'Opens in ', h('b', { dataset: { countdown: t.starts_at, doneLabel: 'now' } }, '…'))
+			: phase === 'live'
+				? h('span', {}, h('span', { class: 'wt-live' }, '● Live'), ' — closes in ', h('b', { dataset: { countdown: t.ends_at, doneLabel: 'now' } }, '…'))
+				: h('span', {}, 'Window closed — final standings frozen');
+	return h(
+		'div',
+		{ class: `window-timeline wt-${phase}` },
+		h('div', { class: 'wt-label' }, label),
+		h(
+			'div',
+			{
+				class: 'wt-track',
+				dataset: { windowStart: String(start), windowEnd: String(end), windowPhase: phase },
+				role: 'progressbar',
+				'aria-valuemin': '0',
+				'aria-valuemax': '100',
+				'aria-valuenow': String(Math.round(frac * 100)),
+				'aria-label': 'Tournament window progress',
+			},
+			h('div', { class: 'wt-fill', style: `width:${(frac * 100).toFixed(1)}%` }),
+			h('span', { class: 'wt-node wt-node-start' }),
+			h('span', { class: 'wt-node wt-node-end' }),
+		),
+		h('div', { class: 'wt-ends' }, h('span', {}, fmtWhen(t.starts_at)), h('span', {}, fmtWhen(t.ends_at))),
+	);
+}
+
+/** Prize pool split by place, showing who currently holds each payout. */
+function prizeLadder(data, phase) {
+	const t = data.tournament;
+	const pool = Number(data.prize_pool_three ?? t.prize_pool_three ?? 0);
+	if (!(pool > 0) || t.bracket === 'practice') {
+		return h(
+			'aside',
+			{ class: 'panel prize-ladder' },
+			h('h3', { class: 'panel-h' }, 'Stakes'),
+			h(
+				'p',
+				{ class: 'panel-note' },
+				t.bracket === 'practice'
+					? 'Practice bracket — paper trades, no prizes. Pure bragging rights and a verified spot on the board.'
+					: 'No prize pool on this one. Top the board for bragging rights and a permanent, on-chain-attested record.',
+			),
+		);
+	}
+	const splits = data.prize_splits && data.prize_splits.length ? data.prize_splits : [0.6, 0.3, 0.1];
+	const ranked = (data.standings || []).filter((s) => s.rank != null);
+	const medals = ['🥇', '🥈', '🥉'];
+	const rows = splits.map((frac, i) => {
+		const amount = pool * Number(frac);
+		const holder = ranked.find((s) => s.rank === i + 1);
+		return h(
+			'div',
+			{ class: `pl-row${holder ? ' pl-filled' : ''}` },
+			h('span', { class: 'pl-place' }, medals[i] || `#${i + 1}`),
+			h('span', { class: 'pl-who' }, holder ? holder.agent_name || 'Agent' : phase === 'finished' ? 'Unclaimed' : 'Up for grabs'),
+			h('span', { class: 'pl-amt' }, `${fmtThree(amount)} $THREE`),
+			h('span', { class: 'pl-pct' }, `${Math.round(Number(frac) * 100)}%`),
+		);
+	});
+	return h(
+		'aside',
+		{ class: 'panel prize-ladder' },
+		h('div', { class: 'panel-h-row' }, h('h3', { class: 'panel-h' }, 'Prize ladder'), h('span', { class: 'prize-chip' }, '🏆', `${fmtThree(pool)} $THREE`)),
+		h('div', { class: 'pl-rows' }, ...rows),
+		h(
+			'p',
+			{ class: 'panel-note' },
+			phase === 'finished'
+				? 'Final split — paid in $THREE to the winners’ agent wallets.'
+				: 'Live projection — the split locks when the window closes and standings attest on-chain.',
+		),
+	);
+}
+
+/** Scoring, bracket, window and the eligibility gates that decide who can win. */
+function rulesPanel(data) {
+	const t = data.tournament;
+	const g = data.gates || {};
+	const w = data.window || { start: t.starts_at, end: t.ends_at };
+	const rows = [
+		ruleRow('Scoring', scoringLabel[data.scoring || t.scoring] || esc(data.scoring || t.scoring)),
+		ruleRow('Bracket', t.bracket === 'practice' ? 'Practice · paper trades' : 'Prize · real trades only'),
+		ruleRow('Window', `${fmtWhen(w.start)} → ${fmtWhen(w.end)}`),
+		ruleRow('Network', esc(t.network || data.network || NETWORK)),
+	];
+	const gateBits = [];
+	if (g.min_closed != null) gateBits.push(`${g.min_closed}+ closed trades`);
+	if (g.min_unique_coins != null) gateBits.push(`${g.min_unique_coins}+ unique coins`);
+	if (g.max_churn_pct != null) gateBits.push(`≤ ${g.max_churn_pct}% churn`);
+	return h(
+		'aside',
+		{ class: 'panel rules-panel' },
+		h('h3', { class: 'panel-h' }, 'Rules & scoring'),
+		h('div', { class: 'rules-rows' }, ...rows),
+		gateBits.length
+			? h(
+					'div',
+					{ class: 'rules-gates' },
+					h('span', { class: 'rules-gates-h' }, 'Prize eligibility'),
+					h('div', { class: 'gate-pills' }, ...gateBits.map((b) => h('span', { class: 'gate-pill' }, b))),
+				)
+			: null,
+		h('p', { class: 'panel-note' }, 'Only trades opened inside the window count — existing history never carries in. Every ranked trade is verifiable on-chain.'),
+	);
+}
+function ruleRow(k, v) {
+	return h('div', { class: 'rule-row' }, h('span', { class: 'rule-k' }, k), h('span', { class: 'rule-v' }, v));
+}
+
 // ── live stream ────────────────────────────────────────────────────────────
 let currentStandings = null;
 let currentTournament = null;
@@ -802,28 +978,91 @@ function applyLiveStandings(id, data) {
 // ───────────────────────────────────────────────────────────────────────────
 // MODALS
 // ───────────────────────────────────────────────────────────────────────────
+/** Lock background scroll while a modal is open, compensating for the scrollbar
+ *  gutter so the page doesn't shift under the overlay. Reference-counted. */
+let scrollLocks = 0;
+function lockScroll() {
+	if (scrollLocks++ > 0) return;
+	const gutter = window.innerWidth - document.documentElement.clientWidth;
+	document.body.dataset.arenaPrevOverflow = document.body.style.overflow || '';
+	document.body.style.overflow = 'hidden';
+	if (gutter > 0) document.body.style.paddingRight = `${gutter}px`;
+}
+function unlockScroll() {
+	if (scrollLocks > 0) scrollLocks--;
+	if (scrollLocks > 0) return;
+	document.body.style.overflow = document.body.dataset.arenaPrevOverflow || '';
+	document.body.style.paddingRight = '';
+	delete document.body.dataset.arenaPrevOverflow;
+}
+
+const FOCUSABLE_SELECTOR =
+	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Open an accessible modal dialog. Adds a close (✕) control, traps Tab focus
+ * inside the sheet, closes on Escape / backdrop click, locks background scroll,
+ * and restores focus to the trigger on close. Returns the overlay with a
+ * `.close()` method callers use instead of removing it directly.
+ */
 function openModal(node) {
+	const lastFocused = document.activeElement;
+	const heading = node.querySelector('h2');
+	if (heading && !heading.id) heading.id = `arena-modal-title-${Math.random().toString(36).slice(2, 8)}`;
+
+	let closed = false;
+	const close = () => {
+		if (closed) return;
+		closed = true;
+		document.removeEventListener('keydown', onKey);
+		overlay.remove();
+		unlockScroll();
+		if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+	};
+
+	const onKey = (e) => {
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			close();
+			return;
+		}
+		if (e.key !== 'Tab') return;
+		const items = [...node.querySelectorAll(FOCUSABLE_SELECTOR)].filter(
+			(el) => el.offsetParent !== null || el === document.activeElement,
+		);
+		if (!items.length) return;
+		const first = items[0];
+		const last = items[items.length - 1];
+		if (e.shiftKey && document.activeElement === first) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && document.activeElement === last) {
+			e.preventDefault();
+			first.focus();
+		}
+	};
+
+	node.append(h('button', { class: 'modal-close', type: 'button', 'aria-label': 'Close', title: 'Close', onclick: close }, '✕'));
+
 	const overlay = h(
 		'div',
 		{
 			class: 'arena-modal',
 			role: 'dialog',
 			'aria-modal': 'true',
+			'aria-labelledby': heading?.id,
 			onclick: (e) => {
-				if (e.target === overlay) overlay.remove();
+				if (e.target === overlay) close();
 			},
 		},
 		node,
 	);
-	const onKey = (e) => {
-		if (e.key === 'Escape') {
-			overlay.remove();
-			document.removeEventListener('keydown', onKey);
-		}
-	};
+	overlay.close = close;
+
 	document.addEventListener('keydown', onKey);
+	lockScroll();
 	document.body.append(overlay);
-	const focusable = node.querySelector('input, select, button, textarea');
+	const focusable = node.querySelector('input, select, textarea, button:not(.modal-close)');
 	focusable?.focus();
 	return overlay;
 }
@@ -877,7 +1116,7 @@ function openCreateModal() {
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify(payload),
 					});
-					overlay.remove();
+					overlay.close();
 					toast('Tournament created');
 					location.hash = `#/t/${out.tournament.id}`;
 				} catch (ex) {
@@ -898,7 +1137,7 @@ function openCreateModal() {
 		h(
 			'div',
 			{ class: 'modal-actions' },
-			h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => overlay.remove() }, 'Cancel'),
+			h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => overlay.close() }, 'Cancel'),
 			submit,
 		),
 	);
@@ -927,7 +1166,7 @@ async function openJoinModal(t) {
 						headers: { 'content-type': 'application/json' },
 						body: JSON.stringify({ agent_id: selected }),
 					});
-					overlay.remove();
+					overlay.close();
 					toast('Entered the arena — good luck');
 					renderDetail(t.id);
 				} catch (ex) {
@@ -948,7 +1187,7 @@ async function openJoinModal(t) {
 		h(
 			'div',
 			{ class: 'modal-actions' },
-			h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => overlay.remove() }, 'Cancel'),
+			h('button', { class: 'btn btn-ghost', type: 'button', onclick: () => overlay.close() }, 'Cancel'),
 			submit,
 		),
 	);
