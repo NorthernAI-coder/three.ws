@@ -61,7 +61,16 @@ async function loadStats() {
 			last_at: r?.last_at ?? null,
 		};
 	} catch (err) {
-		return { total: 0, last_hour: 0, last_24h: 0, last_7d: 0, rigged: 0, rigged_pct: 0, last_at: null, error: err?.message?.slice(0, 140) };
+		return {
+			total: 0,
+			last_hour: 0,
+			last_24h: 0,
+			last_7d: 0,
+			rigged: 0,
+			rigged_pct: 0,
+			last_at: null,
+			error: err?.message?.slice(0, 140),
+		};
 	}
 }
 
@@ -139,13 +148,16 @@ async function triggerRunNow() {
 		});
 		const body = await r.json().catch(() => null);
 		// The cron early-returns a top-level `skipped` for disarmed / single-flight.
-		if (body?.skipped === 'disabled') return { triggered: false, reason: 'seeder is disarmed — arm it first' };
-		if (body?.skipped === 'in_flight') return { triggered: false, reason: 'an export is already running' };
+		if (body?.skipped === 'disabled')
+			return { triggered: false, reason: 'seeder is disarmed — arm it first' };
+		if (body?.skipped === 'in_flight')
+			return { triggered: false, reason: 'an export is already running' };
 		return { triggered: true };
 	} catch (err) {
 		// A timeout means the export is running past our short read window — that's
 		// success from the console's perspective: the run was accepted.
-		if (err?.name === 'TimeoutError' || err?.name === 'AbortError') return { triggered: true, running: true };
+		if (err?.name === 'TimeoutError' || err?.name === 'AbortError')
+			return { triggered: true, running: true };
 		return { triggered: false, reason: err?.message?.slice(0, 140) || 'trigger failed' };
 	}
 }
@@ -156,17 +168,32 @@ async function handlePost(req, res, adminId) {
 	if (body?.action === 'run_now') {
 		const result = await triggerRunNow();
 		logAudit({ userId: adminId, action: 'seeder-run-now', meta: result, req });
-		if (!result.triggered) return error(res, 409, 'run_now_failed', result.reason || 'could not start an export');
+		if (!result.triggered)
+			return error(res, 409, 'run_now_failed', result.reason || 'could not start an export');
 		return json(res, 200, { ok: true, ...result });
 	}
 
 	if (typeof body?.enabled !== 'boolean') {
-		return error(res, 400, 'invalid_request', 'body must be { enabled: boolean } or { action: "run_now" }');
+		return error(
+			res,
+			400,
+			'invalid_request',
+			'body must be { enabled: boolean } or { action: "run_now" }',
+		);
 	}
 
 	const row = await setFlag(FLAG_KEY, { enabled: body.enabled, updatedBy: adminId });
-	logAudit({ userId: adminId, action: 'seeder-toggle', resourceId: FLAG_KEY, meta: { enabled: body.enabled }, req });
-	return json(res, 200, { ok: true, flag: { key: FLAG_KEY, enabled: row.enabled === true, source: 'db' } });
+	logAudit({
+		userId: adminId,
+		action: 'seeder-toggle',
+		resourceId: FLAG_KEY,
+		meta: { enabled: body.enabled },
+		req,
+	});
+	return json(res, 200, {
+		ok: true,
+		flag: { key: FLAG_KEY, enabled: row.enabled === true, source: 'db' },
+	});
 }
 
 export default wrap(async (req, res) => {

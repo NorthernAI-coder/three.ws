@@ -46,7 +46,11 @@ export async function getFlag(key, { fallback = false } = {}) {
 	const now = Date.now();
 	const hit = _cache.get(key);
 	if (hit && hit.expires > now) {
-		return { enabled: hit.exists ? hit.enabled : fallback, value: hit.value, exists: hit.exists };
+		return {
+			enabled: hit.exists ? hit.enabled : fallback,
+			value: hit.value,
+			exists: hit.exists,
+		};
 	}
 
 	try {
