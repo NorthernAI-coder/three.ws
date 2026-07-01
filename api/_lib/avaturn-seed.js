@@ -201,3 +201,98 @@ export function defaultEditorUrl(bodyType = 'male') {
 	const link = AVATURN_DEFAULT_BODY[bodyType] || AVATURN_DEFAULT_BODY.male;
 	return `${AVATURN_DEFAULT_EDITOR}?avatar_link=${encodeURIComponent(link)}`;
 }
+
+// ── Diversity engine (photo-seeded lane) ────────────────────────────────────────
+// The public-catalog lane varies outfit/hair/skin-tone over a couple of base
+// faces, so its avatars read as similar people in different clothes. To get
+// genuinely different humans — girls and guys, young and old, every complexion —
+// we seed Avaturn from a generated *face photo*: a described person drawn from a
+// diversity matrix, rendered by the text→image lane, then reconstructed by
+// Avaturn into a distinct, fully-rigged avatar. These helpers are pure so the
+// matrix coverage and prompt wording are unit-testable.
+
+// Age bands carry a gray-hair bias so seniors trend silver without forcing it.
+export const AGE_BANDS = [
+	{ key: 'young-adult', desc: 'in their early twenties', grayBias: 0 },
+	{ key: 'adult', desc: 'in their early thirties', grayBias: 0.05 },
+	{ key: 'middle-aged', desc: 'in their late forties, a few soft laugh lines', grayBias: 0.3 },
+	{ key: 'senior', desc: 'in their late sixties, natural wrinkles and gentle age lines', grayBias: 0.85 },
+];
+
+// A broad, respectful spread of appearances. `skin` is the gentle Avaturn
+// skin-tone correction band (-50..50) applied on top of the photo, kept small
+// because the generated face already carries the complexion.
+export const ETHNICITIES = [
+	{ key: 'east-asian', desc: 'East Asian', skin: [-8, 6] },
+	{ key: 'southeast-asian', desc: 'Southeast Asian', skin: [-2, 12] },
+	{ key: 'south-asian', desc: 'South Asian', skin: [6, 20] },
+	{ key: 'black-african', desc: 'Black African', skin: [14, 28] },
+	{ key: 'black-caribbean', desc: 'Afro-Caribbean', skin: [10, 24] },
+	{ key: 'latino', desc: 'Latin American', skin: [2, 16] },
+	{ key: 'middle-eastern', desc: 'Middle Eastern', skin: [2, 16] },
+	{ key: 'white-european', desc: 'White European', skin: [-24, -4] },
+	{ key: 'nordic', desc: 'Nordic', skin: [-32, -12] },
+	{ key: 'pacific-islander', desc: 'Pacific Islander', skin: [4, 18] },
+];
+
+export const BUILDS = ['slim', 'average', 'athletic', 'curvy', 'stocky', 'lean'];
+
+/**
+ * Draw one described person from the diversity matrix. Deterministic in `seed`
+ * (a different sub-stream than body/look) so a given seed reproduces the same
+ * human — handy for reruns and tests.
+ * @param {string} seed
+ * @returns {{ gender:'male'|'female', ageKey:string, ageDesc:string, grayBias:number,
+ *   ethnicityKey:string, ethnicityDesc:string, build:string, skinToneCorrection:number }}
+ */
+export function pickDiversityProfile(seed) {
+	const rng = mulberry32(hashSeed(String(seed) + ':profile'));
+	const gender = rng() < 0.5 ? 'male' : 'female';
+	const age = pickOne(AGE_BANDS, rng) ?? AGE_BANDS[0];
+	const eth = pickOne(ETHNICITIES, rng) ?? ETHNICITIES[0];
+	const build = pickOne(BUILDS, rng) ?? BUILDS[0];
+	const [lo, hi] = eth.skin;
+	return {
+		gender,
+		ageKey: age.key,
+		ageDesc: age.desc,
+		grayBias: age.grayBias,
+		ethnicityKey: eth.key,
+		ethnicityDesc: eth.desc,
+		build,
+		skinToneCorrection: Math.round(lo + rng() * (hi - lo)),
+	};
+}
+
+/**
+ * Build the three ID-style face prompts (frontal + two three-quarter views) for
+ * a profile. Passport-style framing — neutral, evenly lit, unobstructed — is
+ * what Avaturn's reconstruction wants.
+ * @param {ReturnType<typeof pickDiversityProfile>} profile
+ * @returns {{ frontal:string, left:string, right:string }}
+ */
+export function faceGenPrompts(profile) {
+	const noun = profile.gender === 'male' ? 'man' : 'woman';
+	const who = `a ${profile.build} ${profile.ethnicityDesc} ${noun} ${profile.ageDesc}`;
+	const base =
+		`photorealistic studio ID portrait of ${who}, neutral relaxed expression, mouth closed, ` +
+		`looking at the camera, plain light-grey seamless background, soft even frontal lighting, ` +
+		`sharp focus, natural detailed skin texture, no glasses, no hat, no jewelry, hair kept clear of the face`;
+	return {
+		frontal: `${base}, head facing the camera straight on, symmetrical framing`,
+		left: `${base}, head turned about thirty degrees to their left, three-quarter view`,
+		right: `${base}, head turned about thirty degrees to their right, three-quarter view`,
+	};
+}
+
+/**
+ * A short, human-readable label for a profile — used in avatar descriptions and
+ * the seeder console (e.g. "East Asian woman, late sixties").
+ * @param {ReturnType<typeof pickDiversityProfile>} profile
+ * @returns {string}
+ */
+export function describeProfile(profile) {
+	const noun = profile.gender === 'male' ? 'man' : 'woman';
+	const age = profile.ageDesc.replace(/,.*$/, ''); // drop the wrinkle clause
+	return `${profile.ethnicityDesc} ${noun}, ${age}`;
+}

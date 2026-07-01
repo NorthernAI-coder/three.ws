@@ -31,6 +31,11 @@ export const KNOWN_FLAGS = {
 		description:
 			'Per-minute headless Avaturn seed cron — forges a fully-rigged Avaturn avatar and publishes it public to the gallery.',
 	},
+	avaturn_seed_photo: {
+		env: null,
+		description:
+			'Diverse-humans lane for the Avaturn seeder — generates a face across a gender/age/ethnicity matrix and reconstructs it with Avaturn v2, so seeded avatars are distinct people. Requires AVATURN_API_KEY; falls back to the catalog lane if unset or a face fails.',
+	},
 };
 
 /**

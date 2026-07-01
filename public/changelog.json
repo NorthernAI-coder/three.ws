@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T01:13:38.466Z",
+	"generated_at": "2026-07-01T01:26:19.462Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -95,6 +95,16 @@
 			"tags": [
 				"improvement",
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Money Pulse & Viability now render in the brand type",
+			"summary": "Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling — the subtitle, network toggle, filter labels and live-feed rows — fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.",
+			"link": "/pulse",
+			"tags": [
+				"fix"
 			]
 		},
 		{
