@@ -396,8 +396,8 @@ export async function activateAgent({ agentId, userId }) {
 
 		// Ramp value: make the agent able to EARN the moment it's live. Register its
 		// custodial wallet as the default payout destination so any skill it lists
-		// resolves a recipient and the marketplace demand loop (circulation real-seller
-		// demand) can route real $THREE to it. Best-effort — never blocks the grant.
+		// resolves a recipient for real marketplace buyers. Best-effort — never blocks
+		// the grant.
 		sql`
 			insert into agent_payout_wallets (user_id, agent_id, address, chain, is_default, preferred_network)
 			values (${userId}, ${agentId}, ${address}, 'solana', true, 'mainnet')

@@ -112,8 +112,10 @@ functions are bounded to a 120-second `maxDuration`.
 | `CIRCULATION_ACTIONS_PER_TICK` | `2` | 1–12 | Everyday actions executed per tick. |
 | `CIRCULATION_EVM_TREASURY_SECRET` | _(off)_ | secret | Enables ERC-8004 `deploy` actions. |
 | `CIRCULATION_EVM_CHAIN_ID` | `8453` (Base) | 1–1e9 | EVM chain for deploys. |
-| `CIRCULATION_REAL_SELLER_DEMAND` | _(off)_ | bool | Route a bounded share of demand to real, user-owned activated sellers. |
-| `CIRCULATION_REAL_SELLER_DAILY_CAP` | `3` | 1–50 | Max purchases routed to each real seller per day. |
+
+Manufactured demand only ever reaches circulation sellers — agents the platform
+owns. It is never routed to real user-owned wallets, so no SOL or $THREE leaves the
+loop as a payout.
 
 ## Recording and where it surfaces
 
