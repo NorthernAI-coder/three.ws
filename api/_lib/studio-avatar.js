@@ -132,25 +132,51 @@ export function pickColorway(profile, seed) {
 	};
 }
 
+// Wolf3D_Skin is the head; Wolf3D_Body is the body skin (hands, neck, feet). Both
+// take the complexion so the avatar is one consistent tone head-to-toe — tinting
+// only the face left the hands the base color, a visible mismatch on dark tones.
 const MATERIAL_CHANNEL = {
 	Wolf3D_Skin: 'skin',
+	Wolf3D_Body: 'skin',
 	Wolf3D_Hair: 'hair',
 	Wolf3D_Outfit_Top: 'top',
 	Wolf3D_Outfit_Bottom: 'bottom',
 	Wolf3D_Outfit_Footwear: 'footwear',
 };
 
+/**
+ * Pick a uniform size multiplier for a profile + seed. Morph targets on these
+ * bodies are ARKit expressions (no body shape), so height is the only real size
+ * axis — a uniform node scale gives believable tall / average / petite variety
+ * without distorting the rig. Women trend slightly shorter, seniors a touch more.
+ * @param {{ gender?:'male'|'female', ageKey?:string, build?:string }} profile
+ * @param {string} seed
+ * @returns {number} scale in ~[0.9, 1.1]
+ */
+export function pickScale(profile, seed) {
+	const rng = mulberry32(hashSeed(seed + ':scale'));
+	let s = 0.97 + rng() * 0.13; // 0.97–1.10 base spread
+	if (profile?.gender === 'female') s -= 0.05;
+	if (profile?.ageKey === 'senior') s -= 0.02;
+	if (profile?.build === 'petite' || profile?.build === 'slim') s -= 0.02;
+	if (profile?.build === 'stocky' || profile?.build === 'athletic') s += 0.02;
+	return Math.round(Math.max(0.88, Math.min(1.12, s)) * 1000) / 1000;
+}
+
 const GLB_MAGIC = 0x46546c67;
 const CHUNK_JSON = 0x4e4f534a;
 
 /**
- * Recolor a Wolf3D/RPM rigged GLB (JSON-chunk edit, binary untouched). Returns a
- * new Buffer plus the list of materials recolored.
+ * Restyle a Wolf3D/RPM rigged GLB: recolor the skin / hair / outfit materials and
+ * apply a uniform size scale to the scene roots (JSON-chunk edit, binary
+ * untouched). The skeleton, weights and blendshapes are preserved, so the result
+ * stays a valid, rigged, walk-ready avatar. Returns a new Buffer + what changed.
  * @param {Buffer} glb
  * @param {ReturnType<typeof pickColorway>} colorway
- * @returns {{ buffer: Buffer, recolored: string[] }}
+ * @param {number} [scale=1] - uniform size multiplier (see pickScale)
+ * @returns {{ buffer: Buffer, recolored: string[], scale: number }}
  */
-export function recolorGlb(glb, colorway) {
+export function recolorGlb(glb, colorway, scale = 1) {
 	if (!Buffer.isBuffer(glb) || glb.length < 20) throw new Error('recolorGlb: not a GLB buffer');
 	if (glb.readUInt32LE(0) !== GLB_MAGIC || glb.readUInt32LE(4) !== 2)
 		throw new Error('recolorGlb: bad GLB header');
@@ -170,6 +196,20 @@ export function recolorGlb(glb, colorway) {
 		recolored.push(mat.name);
 	}
 
+	// Uniform size: scale every root node of the default scene. Uniform scaling
+	// keeps the rig valid and the clip retarget re-normalizes hip height, so a
+	// taller/shorter avatar still walks correctly.
+	const s = Number(scale) || 1;
+	if (Math.abs(s - 1) > 1e-4 && Array.isArray(gltf.nodes)) {
+		const scene = gltf.scenes?.[gltf.scene ?? 0];
+		for (const idx of scene?.nodes || []) {
+			const node = gltf.nodes[idx];
+			if (!node || node.matrix) continue; // skip matrix-form nodes (rare here)
+			const cur = Array.isArray(node.scale) ? node.scale : [1, 1, 1];
+			node.scale = [cur[0] * s, cur[1] * s, cur[2] * s];
+		}
+	}
+
 	let jsonBuf = Buffer.from(JSON.stringify(gltf), 'utf8');
 	const pad = (4 - (jsonBuf.length % 4)) % 4;
 	if (pad) jsonBuf = Buffer.concat([jsonBuf, Buffer.alloc(pad, 0x20)]);
@@ -182,5 +222,5 @@ export function recolorGlb(glb, colorway) {
 	header.writeUInt32LE(jsonBuf.length, 12);
 	header.writeUInt32LE(CHUNK_JSON, 16);
 
-	return { buffer: Buffer.concat([header, jsonBuf, rest]), recolored };
+	return { buffer: Buffer.concat([header, jsonBuf, rest]), recolored, scale: s };
 }
