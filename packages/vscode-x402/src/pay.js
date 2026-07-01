@@ -101,9 +101,8 @@ export async function payAndCall(context, req) {
 				'Cancel',
 			);
 			if (set === `Set ${label} key`) {
-				if (needRail === 'solana') await setSolanaKey(context);
-				else await setKey(context);
-				return payAndCall(context, req); // retry now that a key exists
+				const added = needRail === 'solana' ? await setSolanaKey(context) : await setKey(context);
+				if (added) return payAndCall(context, req); // retry now that a key exists
 			}
 			return null;
 		}
