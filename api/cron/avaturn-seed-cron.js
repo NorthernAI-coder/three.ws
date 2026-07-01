@@ -36,7 +36,7 @@ import { inspectGlb } from '../_lib/glb-inspect.js';
 import { fetchModel } from '../_lib/fetch-model.js';
 import { isFlagEnabled } from '../_lib/flags.js';
 import { pickDiversityProfile, describeProfile } from '../_lib/avaturn-seed.js';
-import { pickBaseBody, pickColorway, recolorGlb } from '../_lib/studio-avatar.js';
+import { pickBaseBody, pickColorway, pickScale, recolorGlb } from '../_lib/studio-avatar.js';
 import { randomUUID } from 'node:crypto';
 
 const CIRCUIT_NAME = 'avaturn-seed';
@@ -127,7 +127,8 @@ async function runOnce() {
 		const baseUrl = `${ORIGIN()}/avatars/${base.file}`;
 		const { bytes } = await fetchModel(baseUrl, { maxBytes: 40 * 1024 * 1024 });
 		const colorway = pickColorway(profile, seed);
-		const { buffer: glbBytes, recolored } = recolorGlb(Buffer.from(bytes), colorway);
+		const scale = pickScale(profile, seed);
+		const { buffer: glbBytes, recolored } = recolorGlb(Buffer.from(bytes), colorway, scale);
 
 		const slug = toSlug(displayName);
 		const storageKey = `u/${user.id}/${slug}.glb`;
@@ -152,6 +153,7 @@ async function runOnce() {
 			skeleton_joint_count: rigInfo?.skeletonJointCount ?? null,
 			skin_count: rigInfo?.skinCount ?? null,
 			recolored,
+			scale,
 			profile: {
 				gender: profile.gender,
 				age: profile.ageKey,
