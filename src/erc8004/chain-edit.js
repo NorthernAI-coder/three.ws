@@ -28,13 +28,13 @@ const esc = (s) =>
 export async function mountChainEdit(rootEl, chainId, agentId) {
 	const chainMeta = CHAIN_META[chainId];
 	if (!chainMeta) {
-		rootEl.innerHTML = `<div class="ce-error">Chain ${chainId} is not supported.</div>`;
+		rootEl.innerHTML = `<div class="ce-error">Chain ${esc(chainId)} is not supported.</div>`;
 		return;
 	}
 
 	const deployment = REGISTRY_DEPLOYMENTS[chainId];
 	if (!deployment?.identityRegistry) {
-		rootEl.innerHTML = `<div class="ce-error">No registry on chain ${chainId}.</div>`;
+		rootEl.innerHTML = `<div class="ce-error">No registry on chain ${esc(chainId)}.</div>`;
 		return;
 	}
 
@@ -68,7 +68,7 @@ export async function mountChainEdit(rootEl, chainId, agentId) {
 			}
 		}
 	} catch (err) {
-		setStatus(statusEl, `Could not load agent: ${err.message}`, 'error');
+		setStatus(statusEl, `Could not load agent: ${esc(err.message)}`, 'error');
 		return;
 	}
 
@@ -136,7 +136,7 @@ export async function mountChainEdit(rootEl, chainId, agentId) {
 		} catch (err) {
 			connectBtn.disabled = false;
 			connectBtn.textContent = 'Connect Wallet';
-			setStatus(statusEl, err.message, 'error');
+			setStatus(statusEl, esc(err.message), 'error');
 		}
 	});
 
@@ -207,14 +207,14 @@ export async function mountChainEdit(rootEl, chainId, agentId) {
 			saveBtn.textContent = 'Saved ✓';
 
 			// Link to the agent page
-			const agentPageUrl = `/a/${chainId}/${agentId}`;
+			const agentPageUrl = `/a/${encodeURIComponent(chainId)}/${encodeURIComponent(agentId)}`;
 			setStatus(
 				statusEl,
-				`Agent updated. <a href="${agentPageUrl}" class="ce-link">View agent →</a>`,
+				`Agent updated. <a href="${esc(agentPageUrl)}" class="ce-link">View agent →</a>`,
 				'success',
 			);
 		} catch (err) {
-			setStatus(statusEl, err.message, 'error');
+			setStatus(statusEl, esc(err.message), 'error');
 			saveBtn.disabled = false;
 			saveBtn.textContent = 'Save Changes';
 		}
@@ -228,7 +228,7 @@ function setStatus(el, html, type = '') {
 
 function renderShell(chainId, agentId, chainMeta) {
 	return `
-		<h1 class="ce-title">Edit Agent <span class="ce-chain-label">${esc(chainMeta.shortName)} #${agentId}</span></h1>
+		<h1 class="ce-title">Edit Agent <span class="ce-chain-label">${esc(chainMeta.shortName)} #${esc(agentId)}</span></h1>
 
 		<model-viewer
 			id="ce-viewer"

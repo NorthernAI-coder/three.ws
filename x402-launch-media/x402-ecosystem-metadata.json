@@ -1,0 +1,7 @@
+{
+  "name": "three.ws",
+  "category": "Client-Side Integrations",
+  "logoUrl": "/logos/three-ws.svg",
+  "description": "x402 for VS Code (buyer + paid-endpoint scaffolder), plus @three-ws/x402-fetch (zero-dependency EVM client), @three-ws/x402-server (turn any endpoint paid; advertises USDC + $THREE in one 402), and @three-ws/x402-mcp (self-custodial Solana buyer over MCP). Pays in USDC or $THREE on Solana, and USDC on Base.",
+  "websiteUrl": "https://three.ws"
+}

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T08:14:57.152Z",
+	"generated_at": "2026-07-01T17:00:46.937Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -73,6 +73,17 @@
 			"summary": "Fixed a routing bug that was quietly 404ing a family of agent endpoints. The agent screen's 'A2A-hire receipts' panel, the agent-to-agent economy marketplace, agent NFT galleries, the social-recovery inbox, the showrunner feed and agent-to-agent messaging were all being swallowed by the catch-all that resolves an agent by id, so each returned 'agent not found' instead of its real data. They now resolve to their own handlers and load correctly. Separately, when the avatar's face-animation provider is unavailable the talking avatar now settles onto its built-in amplitude lip-sync after the first failure instead of retrying every line — no visible change, just fewer wasted calls and a cleaner console.",
 			"link": "/agent-screen",
 			"tags": [
+				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Agent profile pages read tighter and clearer",
+			"summary": "The agent profile got a polish pass so a quieter agent's page no longer looks abandoned and its numbers can't be misread. The live stats strip under the agent's name — agents live, win rate, oracle wins, scored today — are three.ws-wide totals, but sitting right beneath the name they read like the agent's own record; they're now clearly labelled 'Across three.ws' so there's no confusion. Sections that had nothing to show are no longer displayed as hollow shells: the Copy-Trading card stays hidden until an agent has a real on-chain track record to mirror, and Creator Rewards only appears once the agent has actually earned, instead of a permanent 'Lifetime rewards: 0 SOL' row. And the floating 'Have you tried…' suggestion now gently retracts on its own after a few seconds — pausing while you hover or read it — instead of sitting pinned over the page until you close it.",
+			"link": null,
+			"tags": [
+				"improvement",
 				"fix"
 			]
 		},

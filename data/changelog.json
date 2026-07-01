@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-07-01",
+      "title": "Agent profile pages read tighter and clearer",
+      "summary": "The agent profile got a polish pass so a quieter agent's page no longer looks abandoned and its numbers can't be misread. The live stats strip under the agent's name — agents live, win rate, oracle wins, scored today — are three.ws-wide totals, but sitting right beneath the name they read like the agent's own record; they're now clearly labelled 'Across three.ws' so there's no confusion. Sections that had nothing to show are no longer displayed as hollow shells: the Copy-Trading card stays hidden until an agent has a real on-chain track record to mirror, and Creator Rewards only appears once the agent has actually earned, instead of a permanent 'Lifetime rewards: 0 SOL' row. And the floating 'Have you tried…' suggestion now gently retracts on its own after a few seconds — pausing while you hover or read it — instead of sitting pinned over the page until you close it.",
+      "tags": [
+        "improvement",
+        "fix"
+      ]
+    },
+    {
+      "date": "2026-07-01",
       "title": "The trader track-record page gets a cohesion pass — fonts, gauge, and mobile",
       "summary": "The trader profile — the provable track record you open from the leaderboard — got a polish pass so it reads as one product with the rest of three.ws. Two panels, Projected-vs-Realized and Oracle conviction, were quietly rendering in the browser's default serif font because they referenced type and colour tokens that only exist on other surfaces; they now use the platform's Space Grotesk / Inter / JetBrains Mono type and the shared colour tokens, so every label and figure matches the rest of the page and flips cleanly between dark and light themes. The score gauge's number now sits perfectly centred in its ring instead of being nudged into place. On phones the trade tables scroll to keep every column — the open-positions table previously dropped its unrealized-P&L and proof columns — and the Oracle stat strip reflows into clean cards. Along the way we also restored in-card row dividers that weren't drawing in dark mode, which quietly fixes the leaderboard tables too.",
       "tags": [

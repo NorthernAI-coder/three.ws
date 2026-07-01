@@ -91,7 +91,10 @@ btnPublic.addEventListener('click', () => openStudio(PUBLIC_STUDIO));
 // ── Listen for export from CharacterStudio iframe ──────────────────────────
 
 window.addEventListener('message', async (event) => {
-	if (currentIframeOrigin && event.origin !== currentIframeOrigin) return;
+	// Default-deny: only trust messages once a studio iframe is actually open,
+	// and only from that iframe's own origin — never fall through to '*' just
+	// because no iframe has been opened yet.
+	if (!currentIframeOrigin || event.origin !== currentIframeOrigin) return;
 	const msg = event.data;
 	if (!msg || msg.source !== 'characterstudio' || msg.type !== 'export') return;
 	if (!(msg.glb instanceof ArrayBuffer)) {

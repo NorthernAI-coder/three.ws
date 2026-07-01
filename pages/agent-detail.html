@@ -280,6 +280,8 @@
 				.ad-walk-expand { align-self: stretch; justify-content: center; }
 			}
 			.ad-platform-bar { display:flex; align-items:center; gap:14px; margin-top:10px; padding:8px 0; border-top:1px solid rgba(255,255,255,.07); flex-wrap:wrap; }
+			.ad-platform-kicker { display:inline-flex; align-items:center; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.09em; color:var(--text-3,#777); padding-right:14px; border-right:1px solid rgba(255,255,255,.09); white-space:nowrap; }
+			@media (max-width:520px) { .ad-platform-kicker { flex-basis:100%; padding-right:0; border-right:0; margin-bottom:2px; } }
 			.ad-platform-stat { display:flex; flex-direction:column; gap:1px; }
 			.ad-platform-stat-val { font-size:13px; font-weight:700; color:var(--text,#f4f4f5); letter-spacing:-0.01em; }
 			.ad-platform-stat-val.positive { color:#34d399; }
@@ -419,7 +421,8 @@
 						></div>
 						<div class="ad-hero-trust" id="ad-trust-pills"></div>
 						<avatar-actions id="ad-avatar-actions" mode="fork" style="display:none;margin:10px 0"></avatar-actions>
-						<div class="ad-platform-bar" id="ad-platform-bar" hidden>
+						<div class="ad-platform-bar" id="ad-platform-bar" hidden aria-label="three.ws network activity across all agents">
+							<span class="ad-platform-kicker">Across three.ws</span>
 							<div class="ad-platform-stat">
 								<span class="ad-platform-stat-val" id="adp-agents">—</span>
 								<span class="ad-platform-stat-lbl"><span class="ad-platform-dot" aria-hidden="true"></span>Agents live</span>
@@ -779,7 +782,7 @@
 					<div id="ad-lineage-body" class="ad-muted"></div>
 				</section>
 
-				<section class="ad-card">
+				<section class="ad-card" id="ad-rewards-card" hidden>
 					<div class="ad-card-head">
 						<span class="ad-bullet ad-bullet-green"></span>
 						<h2>CREATOR REWARDS</h2>
