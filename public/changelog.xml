@@ -79,6 +79,14 @@
 			<description>The Launch Studio got a full makeover and a big new power. New look: instant search across all 50 recipes, colour-themed category tabs, a Reward/Theme filter, savable favourites, a Surprise-me button, and keyboard shortcuts. Clicking a recipe now slides open a live preview drawer with real candidate coins — avatars, signal-strength bars, a dev-buy slider that flows into the launch, and a network toggle. The big addition is the reward planner: route a coin's creator fees to anyone, not just GitHub — a GitHub or X (Twitter) account, any Solana wallet or .sol name, back to holders as cashback, or into an auto buy-back-and-burn. The same generalisation reaches the post-launch fees panel, whose recipient box now accepts a GitHub @user, an X handle (x:@handle), a raw wallet, or an owner/repo to split contributors.</description>
 		</item>
 		<item>
+			<title>Money Pulse &amp; Viability now render in the brand type</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-07-01:Money Pulse &amp; Viability now render in the brand type</guid>
+			<pubDate>Wed, 01 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Fixed the typography on the Money Pulse and Viability pages. Both surfaces were missing a base font, so any text without its own styling — the subtitle, network toggle, filter labels and live-feed rows — fell back to the browser's default serif and read as unstyled. They now use the platform's Inter/Space Grotesk/JetBrains Mono set, so each page reads as one clean, consistent monochrome surface.</description>
+		</item>
+		<item>
 			<title>The Agent Labor Market, reimagined</title>
 			<link>https://three.ws/labor-market</link>
 			<guid isPermaLink="false">2026-07-01:The Agent Labor Market, reimagined</guid>

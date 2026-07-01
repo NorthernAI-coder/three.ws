@@ -35,7 +35,8 @@ import { exportRandomAvaturnAvatar } from '../_lib/avaturn-headless.js';
 import { putObject } from '../_lib/r2.js';
 import { inspectGlb } from '../_lib/glb-inspect.js';
 import { isFlagEnabled } from '../_lib/flags.js';
-import { pickBodyType } from '../_lib/avaturn-seed.js';
+import { pickBodyType, pickDiversityProfile, describeProfile } from '../_lib/avaturn-seed.js';
+import { generateDiverseFace, createAvaturnSession, photoLaneConfigured } from '../_lib/avaturn-photo.js';
 import { randomUUID } from 'node:crypto';
 
 const CIRCUIT_NAME = 'avaturn-seed';
@@ -107,11 +108,36 @@ async function runOnce() {
 	if (!user?.id) return { skipped: true, reason: 'user insert conflict — retry next tick' };
 
 	const seed = randomUUID();
-	const bodyType = pickBodyType(seed);
+	let bodyType = pickBodyType(seed);
+
+	// Photo lane: draw a person from the diversity matrix, render their face, and
+	// reconstruct it with Avaturn v2 into a distinct rigged human — so the gallery
+	// fills with genuinely different people (every gender, age, complexion), not
+	// one base face reskinned. Gated by the `avaturn_seed_photo` flag AND an
+	// AVATURN_API_KEY; any failure falls back to the public-catalog lane so a bad
+	// face or a provider blip never stalls the tick.
+	let sessionUrl;
+	let profile = null;
+	let faceModel = null;
+	const photoLane = photoLaneConfigured() && (await isFlagEnabled('avaturn_seed_photo', { fallback: false }));
+	if (photoLane) {
+		try {
+			profile = pickDiversityProfile(seed);
+			bodyType = profile.gender; // the generated face drives gender
+			const photos = await generateDiverseFace(profile);
+			faceModel = photos.model;
+			sessionUrl = await createAvaturnSession({ photos, bodyType, externalUserId: user.id });
+		} catch (err) {
+			profile = null;
+			sessionUrl = undefined;
+			console.warn('[avaturn-seed] photo lane failed, using catalog lane:', err?.message || err);
+		}
+	}
 
 	try {
-		// Public demo editor — no API key, no per-account session.
-		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({ seed, bodyType });
+		// Photo session (distinct human) when the photo lane armed one; otherwise
+		// the public demo editor randomizes from the catalog.
+		const { glbBytes, exportUrl, look } = await exportRandomAvaturnAvatar({ seed, bodyType, sessionUrl });
 
 		const slug = toSlug(displayName);
 		const storageKey = `u/${user.id}/${slug}.glb`;
@@ -138,9 +164,28 @@ async function runOnce() {
 			is_rigged: rigInfo ? rigInfo.isRigged : true,
 			skeleton_joint_count: rigInfo?.skeletonJointCount ?? null,
 			skin_count: rigInfo?.skinCount ?? null,
+			// Which lane produced this one, and (photo lane) the person it depicts —
+			// powers diversity reporting and richer descriptions.
+			lane: profile ? 'photo' : 'catalog',
+			profile: profile
+				? {
+						gender: profile.gender,
+						age: profile.ageKey,
+						ethnicity: profile.ethnicityKey,
+						build: profile.build,
+					}
+				: null,
+			face_model: faceModel,
 			look,
 			export_url: exportUrl,
 		};
+
+		// Photo-lane avatars describe the actual person; catalog-lane keep the
+		// generic line. Tag the lane so the gallery can filter distinct humans.
+		const description = profile
+			? `Fully-rigged Avaturn avatar — ${describeProfile(profile)} — forged on three.ws`
+			: 'Fully-rigged Avaturn avatar — forged on three.ws';
+		const tags = profile ? ['avatar', 'avaturn', 'human', profile.gender] : ['avatar', 'avaturn'];
 
 		await sql`
 			insert into avatars
@@ -149,19 +194,19 @@ async function runOnce() {
 				 model_category, created_at, updated_at)
 			values (
 				${user.id}, ${slug}, ${displayName},
-				${'Fully-rigged Avaturn avatar — forged on three.ws'},
+				${description},
 				${storageKey}, ${glbBytes.length}, 'model/gltf-binary',
 				'avaturn',
 				${JSON.stringify(sourceMeta)}::jsonb,
 				'public',
-				array['avatar', 'avaturn']::text[],
+				${tags}::text[],
 				'avatar', now(), now()
 			)
 			on conflict do nothing
 		`;
 
 		await circuitRecordSuccess(CIRCUIT_NAME);
-		return { ok: true, username, user_id: user.id, slug, size_bytes: glbBytes.length, body_type: bodyType };
+		return { ok: true, username, user_id: user.id, slug, size_bytes: glbBytes.length, body_type: bodyType, lane: profile ? 'photo' : 'catalog' };
 	} catch (err) {
 		await circuitRecordFailure(CIRCUIT_NAME, { threshold: CIRCUIT_THRESHOLD, baseMs: CIRCUIT_BASE_MS });
 		// Roll back the synthetic account so the next tick starts clean.
