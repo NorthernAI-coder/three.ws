@@ -41,3 +41,38 @@ describe('isNonActionableNoise — injected wallet-provider RPC noise', () => {
 		expect(isNonActionableNoise(ev({ type: 'csp', message: 'Internal JSON-RPC error.' }))).toBe(false);
 	});
 });
+
+describe('isNonActionableNoise — Safari webkit-masked-url injected scripts', () => {
+	// The exact signature seen in production: a cashback/shopping browser extension's
+	// `onResponse` handler throws inside a Safari-masked injected script, surfacing as
+	// an unhandledrejection three.ws can never fix.
+	it('drops an extension error whose stack is a webkit-masked-url frame', () => {
+		expect(
+			isNonActionableNoise(
+				ev({
+					name: 'TypeError',
+					message: "undefined is not an object (evaluating 'response.cashbackReminder')",
+					stack: 'onResponse@webkit-masked-url://hidden/:99:15',
+				}),
+			),
+		).toBe(true);
+	});
+
+	it('drops it when the masked URL is only on the source field', () => {
+		expect(
+			isNonActionableNoise(ev({ type: 'error', message: 'boom', source: 'webkit-masked-url://hidden/' })),
+		).toBe(true);
+	});
+
+	it('keeps a genuine first-party fault with a normal same-origin stack', () => {
+		expect(
+			isNonActionableNoise(
+				ev({
+					name: 'TypeError',
+					message: "undefined is not an object (evaluating 'response.cashbackReminder')",
+					stack: 'onResponse@https://three.ws/assets/index-abc.js:99:15',
+				}),
+			),
+		).toBe(false);
+	});
+});

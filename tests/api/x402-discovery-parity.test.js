@@ -34,6 +34,14 @@ const EXCLUSIONS = new Map([
 			'concrete listing is cataloged dynamically from agent_paid_services by ' +
 			"handleX402Discovery's buildAgentServiceItems(), not as a static entry.",
 	],
+	[
+		'/api/x402/ring-settle',
+		'Internal closed-loop settlement primitive (discoverable:false in the ' +
+			'endpoint itself): platform-controlled ring wallets pay it to cycle the ' +
+			'agent economy. Deliberately NOT on the public bazaar/agentic.market ' +
+			'catalog — ring volume is dogfooding, not organic third-party demand, and ' +
+			'must not masquerade as such.',
+	],
 ]);
 
 function paidRoutesFromFiles() {

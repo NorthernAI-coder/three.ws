@@ -512,3 +512,99 @@ describe('send402 PAYMENT-REQUIRED header', () => {
 		expect(JSON.stringify(decoded)).toBe(JSON.stringify(body));
 	});
 });
+
+describe('baseSettleable', () => {
+	// Base is settleable ONLY via CDP or a deliberate operator opt-in. A bare
+	// facilitator URL being set is NOT enough — prod pointed it at decommissioned
+	// hosts (x402.sperax.io, facilitator.payai.network) that 404 every /verify, so a
+	// URL string is no proof the endpoint works. baseSettleable() is the gate that
+	// keeps an unsettleable Base accept out of both the live 402 (buildRequirements)
+	// and the discovery catalog (wk.js), so buyers never pick a Base rail that 502s.
+	beforeEach(() => {
+		delete process.env.CDP_API_KEY_ID;
+		delete process.env.CDP_API_KEY_SECRET;
+		delete process.env.X402_FACILITATOR_URL_BASE;
+		delete process.env.X402_FACILITATOR_URL;
+		delete process.env.X402_ADVERTISE_BASE;
+	});
+
+	it('is false with no CDP creds and no opt-in (default)', async () => {
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(false);
+	});
+
+	it('is FALSE even when a facilitator URL is set but not opted in (the dead-host trap)', async () => {
+		process.env.X402_FACILITATOR_URL_BASE = 'https://x402.sperax.io';
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(false);
+	});
+
+	it('is true when CDP credentials are configured (Base settles via CDP)', async () => {
+		process.env.CDP_API_KEY_ID = 'x';
+		process.env.CDP_API_KEY_SECRET = 'y';
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(true);
+	});
+
+	it('is true when the operator explicitly opts in via X402_ADVERTISE_BASE=true', async () => {
+		process.env.X402_ADVERTISE_BASE = 'true';
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(true);
+	});
+
+	it('treats any non-"true" opt-in value as off', async () => {
+		process.env.X402_ADVERTISE_BASE = '1';
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(false);
+	});
+
+	it('requires BOTH CDP keys — one alone is not enough', async () => {
+		process.env.CDP_API_KEY_ID = 'x';
+		const { baseSettleable } = await loadSpec();
+		expect(baseSettleable()).toBe(false);
+	});
+});
+
+describe('buildExactRequirements', () => {
+	// Shared accept builder for the hand-rolled endpoints (model-check, mint-to-mesh,
+	// vanity, vanity-verifiable, revenue-vision). Solana always leads; Base only rides
+	// along when settleable, so a dead Base facilitator is never advertised.
+	const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+	const BASE = 'eip155:8453';
+
+	beforeEach(() => {
+		delete process.env.CDP_API_KEY_ID;
+		delete process.env.CDP_API_KEY_SECRET;
+		delete process.env.X402_ADVERTISE_BASE;
+	});
+
+	it('is Solana-only when Base is not settleable (default)', async () => {
+		const { buildExactRequirements } = await loadSpec();
+		const reqs = buildExactRequirements('https://three.ws/api/x402/x');
+		expect(reqs.map((r) => r.network)).toEqual([SOLANA]);
+		expect(reqs[0].amount).toBe(process.env.X402_MAX_AMOUNT_REQUIRED);
+	});
+
+	it('lists Solana first, then Base, when opted in (no CDP → no Permit2 sibling)', async () => {
+		process.env.X402_ADVERTISE_BASE = 'true';
+		const { buildExactRequirements } = await loadSpec();
+		const reqs = buildExactRequirements('https://three.ws/api/x402/x');
+		expect(reqs.map((r) => r.network)).toEqual([SOLANA, BASE]);
+	});
+
+	it('appends the Permit2 sibling after Base when CDP is configured', async () => {
+		process.env.CDP_API_KEY_ID = 'x';
+		process.env.CDP_API_KEY_SECRET = 'y';
+		const { buildExactRequirements } = await loadSpec();
+		const reqs = buildExactRequirements('https://three.ws/api/x402/x');
+		expect(reqs.map((r) => r.network)).toEqual([SOLANA, BASE, BASE]);
+		expect(reqs[2].extra.assetTransferMethod).toBe('permit2');
+	});
+
+	it('honors an explicit amount override on every accept', async () => {
+		process.env.X402_ADVERTISE_BASE = 'true';
+		const { buildExactRequirements } = await loadSpec();
+		const reqs = buildExactRequirements('https://three.ws/api/x402/x', '250000');
+		expect(reqs.every((r) => r.amount === '250000')).toBe(true);
+	});
+});

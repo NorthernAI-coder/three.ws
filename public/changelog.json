@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-01T17:00:46.937Z",
+	"generated_at": "2026-07-01T18:36:51.450Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -141,6 +141,17 @@
 		{
 			"date": "2026-07-01",
 			"type": "update",
+			"title": "Live data keeps flowing — automatic database housekeeping",
+			"summary": "A handful of behind-the-scenes jobs — the smart-money radar, the coin-intel feeds, and usage metering — had started intermittently failing because the database had grown to its storage ceiling. We reclaimed the space, added a scheduled housekeeping job that trims the high-volume coin-intel history and stale avatar-generation payloads so the database self-manages its size, and made every write path degrade gracefully (a brief 'retry shortly' instead of a hard error) if storage ever runs tight again. The radar, feeds, and metering now keep updating reliably.",
+			"link": null,
+			"tags": [
+				"fix",
+				"infra"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
 			"title": "Long-running agent endpoints no longer time out mid-task",
 			"summary": "Fixed a deployment-config gap where fifteen API endpoints asked for more time than they were actually granted, so the platform's 30-second catch-all limit silently overrode them. Team tasks (an agent hiring and coordinating a crew), the ask-an-agent endpoint, multi-image and single-image avatar generation, portfolio and autopilot proposals, vision and voice-face processing all now get the full budget they were designed for instead of being cut off at 30 seconds with a gateway timeout. Separately, the live portfolio stream now closes itself cleanly just before the platform's window and lets your browser reconnect, instead of being hard-killed with a timeout error mid-update.",
 			"link": null,
@@ -157,6 +168,17 @@
 			"link": "/pulse",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "Pay-per-call APIs now settle reliably — no more dead payment rails",
+			"summary": "Our x402 pay-per-call endpoints advertise which networks they accept before you pay. A secondary settlement network had been advertised even while its external verifier was offline, so a payment on that rail could be built and submitted only to fail at the last step. Endpoints now advertise a network only when it can actually settle — Solana (our in-house facilitator) always leads, and the secondary EVM rail appears only when a working verifier is configured. Buyers settle on the healthy rail instead of hitting a dead one. We also hardened the reputation-scoring job so a single slow wallet read can never stall the whole refresh.",
+			"link": null,
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{
@@ -265,6 +287,17 @@
 			"tags": [
 				"sdk",
 				"docs"
+			]
+		},
+		{
+			"date": "2026-07-01",
+			"type": "update",
+			"title": "three.ws 3D Forge is now a one-command Claude Code plugin",
+			"summary": "You can add three.ws 3D generation straight into Claude Code as a one-line plugin. three.ws 3D Forge bundles four skills — a free text→3D draft lane plus the paid avatar, high-fidelity mesh, and auto-rig lanes — and wires the three.ws generation, scene, and avatar servers with no extra setup. Add it with `/plugin marketplace add nirholas/three.ws`, then `/plugin install three-ws-3d@three-ws`; every result hands back a downloadable GLB and a live viewer link. The plugin is now packaged to Anthropic's plugin spec — manifest, license, and changelog — and prepared for submission to the public Claude plugin directory.",
+			"link": "/forge",
+			"tags": [
+				"feature",
+				"sdk"
 			]
 		},
 		{

@@ -33,15 +33,27 @@ should tune them to real unit economics.
 ## Networks and settlement
 
 Endpoints advertise the networks they accept in the 402 challenge. The platform
-settles **USDC on Solana** (primary) and **USDC on Base** (EVM), via the
-configured facilitators. The relevant config (see [Configuration](configuration.md)):
+settles **USDC on Solana** (primary, always-on via the self-hosted facilitator)
+and, when configured, **USDC on Base** (EVM). The relevant config (see
+[Configuration](configuration.md)):
 
 | Key                                                  | Meaning                              |
 | ---------------------------------------------------- | ------------------------------------ |
 | `X402_PAY_TO_SOLANA` / `X402_PAY_TO_BASE`            | Receiving address per network.       |
 | `X402_ASSET_MINT_SOLANA` / `X402_ASSET_ADDRESS_BASE` | USDC mint / contract.                |
 | `X402_FACILITATOR_URL_SOLANA` / `_BASE`              | Facilitator that verifies + settles. |
+| `X402_ADVERTISE_BASE`                                | Opt-in to advertise Base without CDP (see below). |
 | `X402_RECEIPT_SIGNING_KEY`, `OFFER_RECEIPT_*`        | Signed receipt issuance.             |
+
+**Base is gated on a settleable facilitator.** Solana always leads the 402
+challenge. Base is advertised only when it can actually settle — either CDP
+credentials are set (`CDP_API_KEY_ID` + `CDP_API_KEY_SECRET`, routing Base to
+Coinbase) **or** the operator opts in with `X402_ADVERTISE_BASE=true`. A bare
+`X402_FACILITATOR_URL_BASE` being set is deliberately *not* enough: a
+decommissioned facilitator answers `/verify` with `404 Application not found`, so
+an ungated Base accept would let a buyer pay and then fail settlement with a 502.
+The gate (`baseSettleable()` in `x402-spec.js`) keeps such a rail out of both the
+live 402 and the discovery catalog until it is provably settleable.
 
 The shared handler in `x402-paid-endpoint.js` builds the challenge
 (`buildRequirements()`), verifies the submitted payment, settles it, runs the

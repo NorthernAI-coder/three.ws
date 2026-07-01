@@ -278,19 +278,71 @@ function facilitatorFor(network) {
 }
 
 // Is Base (eip155:8453) actually settleable right now? Base routes to CDP when
-// CDP creds are set, otherwise to X402_FACILITATOR_URL_BASE. The historical bare
-// default for that URL — facilitator.payai.network — was decommissioned and now
-// answers every /verify with `404 Application not found`, so a Base accept that
-// falls through to it gets advertised (buyers pick it first), then fails at
-// verify with a 502. Treat Base as settleable ONLY when the operator has
-// committed to a working facilitator: CDP credentials, an explicit per-network
-// Base URL, or an explicit generic facilitator URL. A pure fall-through to the
-// hardcoded default is NOT a working Base facilitator. Self-heals: the moment
-// CDP keys or an explicit URL are configured, Base is advertised again. Solana
+// CDP creds are set, otherwise to X402_FACILITATOR_URL_BASE. Treat Base as
+// settleable ONLY when we can trust it will verify+settle:
+//
+//   1. CDP credentials are configured — Base routes to Coinbase's facilitator, a
+//      known-good, platform-trusted path.
+//   2. The operator has EXPLICITLY opted in via X402_ADVERTISE_BASE=true.
+//
+// A bare X402_FACILITATOR_URL_BASE being SET is deliberately NOT enough. Prod had
+// it pointed at decommissioned hosts (x402.sperax.io, then facilitator.payai.network)
+// that answer every /verify with `404 Application not found` — so a Base accept was
+// advertised (buyers pick it first), the buyer paid, verification 404'd, and they got
+// a 502. A URL string is not proof the endpoint behind it works; only CDP or a
+// deliberate operator opt-in is. Self-heals the moment either is set. Solana
 // (self-hosted facilitator) is unaffected and stays the always-on settle path.
 export function baseSettleable() {
 	if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) return true;
-	return Boolean(process.env.X402_FACILITATOR_URL_BASE || process.env.X402_FACILITATOR_URL);
+	return env.X402_ADVERTISE_BASE === true;
+}
+
+// Shared exact-scheme requirements builder for the hand-rolled x402 endpoints that
+// call send402()/verifyPayment() directly instead of going through paidEndpoint().
+// Emits the platform-standard accept set for a USDC price:
+//
+//   1. Solana first — the always-on, self-hosted settle rail (first-accept clients
+//      and wallet modals settle here).
+//   2. Base second, but ONLY when baseSettleable() (CDP creds or explicit opt-in)
+//      AND the Base pay-to/asset are configured. A dead or unconfigured Base
+//      facilitator is never advertised as a rail that 402s the buyer and then 502s
+//      at /verify. With CDP set, permit2VariantOf appends the gasless Permit2
+//      sibling right after the Base accept.
+//
+// Replaces five byte-for-byte copies of this logic (model-check, mint-to-mesh,
+// vanity, vanity-verifiable, revenue-vision) and matches the Solana-first ordering
+// the discovery catalog (wk.js) already advertises, so live 402 and catalog agree.
+export function buildExactRequirements(resourceUrl, amount = env.X402_MAX_AMOUNT_REQUIRED) {
+	const amt = String(amount);
+	const out = [];
+	if (env.X402_PAY_TO_SOLANA && env.X402_ASSET_MINT_SOLANA && env.X402_FEE_PAYER_SOLANA) {
+		out.push({
+			scheme: 'exact',
+			network: NETWORK_SOLANA_MAINNET,
+			amount: amt,
+			payTo: env.X402_PAY_TO_SOLANA,
+			asset: env.X402_ASSET_MINT_SOLANA,
+			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
+			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
+		});
+	}
+	if (baseSettleable() && env.X402_PAY_TO_BASE && env.X402_ASSET_ADDRESS_BASE) {
+		const eip3009 = {
+			scheme: 'exact',
+			network: NETWORK_BASE_MAINNET,
+			amount: amt,
+			payTo: env.X402_PAY_TO_BASE,
+			asset: env.X402_ASSET_ADDRESS_BASE,
+			maxTimeoutSeconds: 60,
+			resource: resourceUrl,
+			extra: { name: 'USD Coin', version: '2', decimals: 6 },
+		};
+		out.push(eip3009);
+		const permit2 = permit2VariantOf(eip3009);
+		if (permit2) out.push(permit2);
+	}
+	return out;
 }
 
 // Operations the CDP SDK pre-builds headers for; map our internal path to the SDK key.

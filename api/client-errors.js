@@ -77,6 +77,18 @@ const PROP_ACCESS_TYPEERROR =
 export function isNonActionableNoise(event) {
 	if (event.type !== 'error' && event.type !== 'unhandledrejection') return false;
 	const msg = event.message || '';
+	// Safari-masked injected-script frames. Safari rewrites the URL of scripts it
+	// deems privacy-sensitive — content-blocker/extension-injected scripts, and some
+	// blob:/eval contexts — to the synthetic `webkit-masked-url://hidden/` scheme.
+	// Our own same-origin modules are served from normal https URLs and never masked,
+	// so an error whose only frame is a masked URL comes from an injected third-party
+	// script (e.g. a cashback/shopping extension's `onResponse` handler throwing
+	// "undefined is not an object (evaluating 'response.cashbackReminder')") — unfixable
+	// from our deploy. Mirrors public/error-reporter.js; catches clients still holding
+	// an older cached reporter that lacks the client-side filter.
+	if (/webkit-masked-url:\/\//.test(event.stack || '') || /webkit-masked-url:\/\//.test(event.source || '')) {
+		return true;
+	}
 	// Cross-origin "Script error." — the browser strips every detail (stack,
 	// file, line) from an exception thrown by a script served without CORS
 	// headers, leaving nothing to act on.

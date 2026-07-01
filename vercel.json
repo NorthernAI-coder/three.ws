@@ -99,6 +99,9 @@
 		"api/cron/{recompute-reputation,smart-money-graph}.js": {
 			"maxDuration": 300
 		},
+		"api/cron/db-retention.js": {
+			"maxDuration": 120
+		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
@@ -4710,6 +4713,10 @@
 		{
 			"path": "/api/cron/smart-money-rollup",
 			"schedule": "*/5 * * * *"
+		},
+		{
+			"path": "/api/cron/db-retention",
+			"schedule": "*/15 * * * *"
 		},
 		{
 			"path": "/api/cron/smart-money-graph",

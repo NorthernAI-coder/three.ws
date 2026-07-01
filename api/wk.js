@@ -12,6 +12,7 @@ import {
 	declareEip2612GasSponsoringExtension,
 	declareErc20ApprovalGasSponsoringExtension,
 	permit2VariantOf,
+	baseSettleable,
 	NETWORK_BASE_MAINNET,
 	NETWORK_SOLANA_MAINNET,
 } from './_lib/x402-spec.js';
@@ -311,7 +312,12 @@ function acceptsForPrice(amountAtomics, resourceUrl) {
 			extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 		});
 	}
-	if (env.X402_PAY_TO_BASE) {
+	// Base only when a WORKING facilitator will settle it (CDP creds or the
+	// X402_ADVERTISE_BASE opt-in). A bare facilitator URL is not enough — the prod
+	// host was decommissioned and 404s /verify, so an unsettleable Base accept would
+	// drift from the live 402 (which now drops Base) and hand buyers a catalog rail
+	// that 502s at verify. See baseSettleable().
+	if (env.X402_PAY_TO_BASE && baseSettleable()) {
 		pushAcceptWithPermit2Sibling(out, {
 			scheme: 'exact',
 			network: NETWORK_BASE_MAINNET,
@@ -418,7 +424,7 @@ async function buildAgentServiceItems(origin) {
 		const url = serviceResourceUrl(row.slug);
 		const price = RAW_AMOUNT_TO_USDC(row.price_atomics);
 		const accepts = [];
-		if (row.network === 'base' && row.payout_address && env.X402_ASSET_ADDRESS_BASE) {
+		if (row.network === 'base' && row.payout_address && env.X402_ASSET_ADDRESS_BASE && baseSettleable()) {
 			pushAcceptWithPermit2Sibling(accepts, {
 				scheme: 'exact',
 				network: NETWORK_BASE_MAINNET,
@@ -1273,7 +1279,9 @@ async function handleX402Discovery(req, res) {
 				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 			});
 		}
-		if (env.X402_PAY_TO_BASE) {
+		// Base only when settleable (CDP creds or the X402_ADVERTISE_BASE opt-in) —
+		// else the catalog would advertise a rail the live 402 now drops. See baseSettleable().
+		if (env.X402_PAY_TO_BASE && baseSettleable()) {
 			pushAcceptWithPermit2Sibling(out, {
 				scheme: 'exact',
 				network: NETWORK_BASE_MAINNET,
@@ -1317,7 +1325,11 @@ async function handleX402Discovery(req, res) {
 				extra: { name: 'USDC', decimals: 6, feePayer: env.X402_FEE_PAYER_SOLANA },
 			});
 		}
-		if (env.X402_PAY_TO_BASE) {
+		// Base + Arbitrum are CDP-settled EVM rails; advertise them only when a
+		// working facilitator is configured (CDP creds or the X402_ADVERTISE_BASE
+		// opt-in). Without one the live 402 drops Base, so an ungated catalog entry
+		// would drift and 502.
+		if (env.X402_PAY_TO_BASE && baseSettleable()) {
 			pushAcceptWithPermit2Sibling(out, {
 				scheme: 'exact',
 				network: NETWORK_BASE_MAINNET,
@@ -1332,7 +1344,7 @@ async function handleX402Discovery(req, res) {
 				extra: { name: 'USDC', version: '2', decimals: 6 },
 			});
 		}
-		if (env.X402_PAY_TO_BASE && ARB_USDC) {
+		if (env.X402_PAY_TO_BASE && ARB_USDC && baseSettleable()) {
 			pushAcceptWithPermit2Sibling(out, {
 				scheme: 'exact',
 				network: 'eip155:42161',
