@@ -2743,6 +2743,15 @@ The seeder autonomously mass-produces public, rigged 3D avatars into the `avatar
 | `@three-ws/loom-mcp` | 0.1.0 | 3 Loom tools |
 | `@three-ws/tutor-mcp` | 0.1.0 | 2 tutor tools |
 | `@three-ws/provenance-mcp` | 0.1.0 | 3 provenance tools |
+| `@three-ws/agentcore-payments-mcp` | 0.1.0 | 5 governed payment-session tools (`create_/pay_with_/check_/list_/cancel_payment_session`) |
+| `@three-ws/alibaba-cloud-mcp` | 0.1.0 | 3 Alibaba DashScope/Qwen tools (`qwen_chat/_embed/_list_models`) |
+
+External / vendored MCP (own repo, not a `@three-ws/*` workspace):
+
+| Package | Version | Tools |
+|---------|---------|-------|
+| `xactions` (+ `xactions-mcp`) | 3.1.0 | ~140 X/Twitter automation tools — see [XActions](#xactions--xtwitter-automation-toolkit-xactions) |
+| `@three-ws/agent-sniper` (`./mcp` face) | 0.1.0 | 7 sniper tools (`arm_/disarm_strategy`, `list_strategies`, `snipe_now`, `list_/close_position`, `sniper_status`) |
 
 ### Feature SDKs
 
@@ -2774,6 +2783,11 @@ The seeder autonomously mass-produces public, rigged 3D avatars into the `avatar
 | `@three-ws/viewer-presets` | 0.2.0 |
 | `@three-ws/avatar-cli` | 0.2.0 |
 | `@three-ws/vscode-x402` | 0.1.0 |
+| `@three-ws/agent-sniper` | 0.1.0 |
+| `@three-ws/agentcore-payments-mcp` | 0.1.0 |
+| `@three-ws/alibaba-cloud-mcp` | 0.1.0 |
+
+**Claude Code plugins:** `three-ws-core` (`.agents/.claude-plugin/`, v1.0.0) — natural-language wallet + x402 skills over the three.ws wallet API, installed via the plugin marketplace (`/plugin marketplace add nirholas/three.ws`); `xactions` (`xactions/.claude-plugin/`, v3.1.0). See [Claude Code Plugin Marketplace](#claude-code-plugin-marketplace).
 
 ### On-Chain Artifacts
 
@@ -2893,18 +2907,20 @@ CREATE2-deterministic, so `IdentityRegistry` + `ReputationRegistry` share one ad
 
 ## Scheduled Jobs (Cron Reference)
 
-**`vercel.json` declares 61 cron schedules** (the platform is heavily clock-driven). All hit `GET /api/cron/*` (or `/api/llm/health`) with `Authorization: Bearer $CRON_SECRET`. Full schedule:
+**`vercel.json` declares 72 cron schedules** (the platform is heavily clock-driven). All hit `GET /api/cron/*` (or `/api/llm/health`) with `Authorization: Bearer $CRON_SECRET`. Write-heavy crons opt into a **storage-pressure preflight** (`wrapCron(handler, { requireWriteCapacity: true })` in `api/_lib/http.js` → `isStoragePressured()` in `db.js`): at the Neon size cap they skip the tick with `200 {skipped:'db_at_storage_cap'}` and still write a healthy heartbeat, rather than flooding logs with 53100 write errors. Every `wrapCron` also writes `cron:heartbeat:<name>` (7-day TTL) surfaced by `/api/ops/health` + `/api/admin/all-systems`. Full schedule:
 
 | Domain | Crons (path → schedule) |
 |--------|--------------------------|
-| **Oracle / Intel** | `oracle-score` `*/2m` · `oracle-digest` `daily 08:00` · `intel-learn` `*/15m` · `reflect-sweep` `*/30m` · `pulse-tick` `*/2m` · `gmgn-seed` `daily 03:00` · `pumpfun-signals` `*/15m` · `reconcile-decisions` `*/10m` |
+| **Oracle / Intel** | `oracle-score` `*/2m` · `oracle-digest` `daily 08:00` · `intel-learn` `*/15m` · `reflect-sweep` `*/30m` · `pulse-tick` `*/2m` (circulation engine) · `coin-intel-observe` `*/2m` (PumpPortal firehose, write-preflight) · `gmgn-seed` `daily 03:00` · `pumpfun-signals` `*/15m` · `reconcile-decisions` `*/10m` |
+| **x402 economy** | `x402-autonomous-loop` `*/5m` (autonomous-registry: volume engine, ring-rebalance, daily revenue-reconciliation) · `x402-seed-cron` `*/1m` (60 real USDC micropayments/tick) · `payment-session-sweep` `*/5m` (expire + refund spend sessions) |
+| **Coin launcher** | `launcher-tick` `*/1m` (autonomous mint, SOL-capped, write-preflight) · `launcher-claimer` `*/5m` (creator-fee auto-claim) · `solana-autodeploy` `*/10m` (mint undeployed agents as Metaplex Core + Agent Registry) |
 | **Pump.fun** | `pumpfun-monitor` `*/3m` · `pumpfun-graduations-sync` `*/2m` · `pump-agent-stats` `*/10m` · `run-buyback` `hourly` · `run-distribute-payments` `:30 hourly` · `run-coin-cycle` `*/5m` · `run-coin-payouts` `*/5m` · `cosmetic-splits-sweep` `:15 hourly` |
 | **Smart money / radar** | `smart-money-rollup` `*/5m` · `smart-money-graph` `*/10m` · `radar-watchlist` `*/10m` · `recompute-reputation` `*/10m` |
 | **Trading fan-out** | `copy-fanout` `*/2m` · `mirror-fanout` `*/2m` · `signal-fanout` `*/2m` · `strategy-fanout` `*/2m` · `run-dca` `hourly` · `run-subscriptions` `hourly` |
 | **$THREE / treasury** | `three-holders-snapshot` `*/5m` · `treasury-autopilot` `:23 hourly` · `run-three-buyback` `daily 06:00` · `settle-royalties` `daily 03:00` |
 | **Wallet / custody** | `wallet-intents` `*/10m` · `index-delegations` `*/5m` · `process-withdrawals` `hourly` · `custody-attest` `:17 */6h` · `relayer-balance-check` `*/6h` · `dead-man-switch` `daily 05:00` |
 | **On-chain indexing** | `erc8004-crawl` `*/15m` · `solana-attestations-crawl` `*/10m` · `trader-score-attest` `daily 09:45` · `solana-attest-event-cleanup` `*/10m` |
-| **Avatars / Forge** | `avaturn-seed-cron` `*/1m` · `auto-rig-sweep` `*/5m` · `forge-seed-cron` `*/1m` · `forge-smoke` `daily 09:30` |
+| **Avatars / Forge** | `avaturn-seed-cron` `*/1m` · `auto-rig-sweep` `*/5m` · `forge-seed-cron` `*/1m` · `forge-smoke` `daily 09:30` · `avatar-thumbnail-render` `*/10m` (GLB→PNG regen) |
 | **Community / IRL** | `club-payouts` `*/5m` · `irl-drops-refund` `*/10m` · `irl-reap` `:17 hourly` · `unstoppable-tick` `*/5m` |
 | **X / social** | `run-x-scheduled-posts` `*/1m` · `run-x-triggers` `*/5m` · `fetch-x-metrics` `*/6h` |
 | **Billing / subscriptions** | `process-subscriptions` `*/6h` · `expire-pending-purchases` `*/5m` · `flush-usage-events` `*/1m` |

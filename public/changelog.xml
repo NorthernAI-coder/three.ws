@@ -63,6 +63,14 @@
 			<description>The Oracle's 3D conviction graph — every scored coin as a sphere you can orbit, with size showing the conviction score and brightness showing the tier — was rendering as a black void: the spheres were lit only by a near-black ambient light and carried no glow of their own, so nothing showed even though the data was loading fine. Each coin now self-illuminates in its tier color and feeds the bloom pass, with real key and rim lighting giving the spheres depth. Prime coins burn brightest, and the whole constellation reads clearly against the dark backdrop. Open it from the Oracle's &quot;3D graph&quot; tab.</description>
 		</item>
 		<item>
+			<title>Oracle coin pages now show full live market data</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-02:Oracle coin pages now show full live market data</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Open any coin in the Oracle and you now get its complete live market picture next to the conviction score — real-time price with 5-minute, 1-hour, 6-hour and 24-hour changes, market cap, fully-diluted value, liquidity, 24-hour volume, holder count and supply. Pre-graduation pump.fun coins show a bonding-curve progress bar; graduated coins show their all-time-high market cap. A security panel flags whether the mint and freeze authorities are revoked, whether metadata is locked, any transfer tax, and top-10 holder concentration. Listed coins add their CoinGecko rank plus all-time high and low, and every coin lists its live DEX markets and social links. It's fused in real time from DexScreener, pump.fun, GeckoTerminal, GoPlus, Birdeye and CoinGecko, with graceful fallback if any single source is down.</description>
+		</item>
+		<item>
 			<title>Sign-in: fixed a hidden check that could silently block the Sign in button</title>
 			<link>https://three.ws/login</link>
 			<guid isPermaLink="false">2026-07-02:Sign-in: fixed a hidden check that could silently block the Sign in button</guid>
