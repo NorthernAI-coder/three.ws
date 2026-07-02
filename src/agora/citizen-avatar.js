@@ -114,11 +114,12 @@ function buildLabelSprite(name, profession, accent) {
 	ctx.fill();
 	ctx.stroke();
 
-	// Name.
+	// Name (clamped — the canvas was sized for `shown`, so draw `shown` or a long
+	// name would hard-clip at the canvas edge with no ellipsis).
 	ctx.textBaseline = 'top';
 	ctx.fillStyle = '#ffffff';
 	ctx.font = font(nameSize, 700);
-	ctx.fillText(name, padX, 13);
+	ctx.fillText(shown, padX, 13);
 
 	// Profession chip: accent dot + label.
 	const py = 13 + nameSize + gap;

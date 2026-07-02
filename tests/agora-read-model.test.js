@@ -46,7 +46,11 @@ vi.mock('../api/_lib/db.js', () => {
 		else if (q.includes("'completed_task'") && q.includes('count(')) rows = H.completed;
 		else if (q.includes('earned_three_atomic > 0')) rows = H.topEarners;
 		else if (q.includes('from agora_activity') && q.includes('citizen_id =')) rows = H.activity;
-		else if (q.includes('from agora_activity') && (q.includes("'posted_task'") || q.includes('a.task_pda'))) rows = H.openTasks;
+		// The board's open lane filters on `a.kind in ('posted_task', 'hired')`, so the
+		// 'posted_task' literal identifies it precisely. Match that BEFORE the pulse
+		// `recent` query (which also selects a.task_pda + joins agora_citizens) so the
+		// two don't collide.
+		else if (q.includes('from agora_activity') && q.includes("'posted_task'")) rows = H.openTasks;
 		else if (q.includes('order by a.created_at desc') && q.includes('join agora_citizens')) rows = H.recent;
 		else if (q.includes('from agora_citizens where id')) rows = H.passportRow === undefined ? [] : [H.passportRow];
 		else if (q.includes('from agora_citizens where agenc_agent_pda')) rows = H.passportRow === undefined ? [] : [H.passportRow];
@@ -206,12 +210,17 @@ describe('pulse', () => {
 		H.completed = [{ n: 7 }];
 		H.flow = [{ three_atomic: '999', payouts: 2 }];
 		H.topEarners = [{ id: 'c1', display_name: 'Aria', profession: 'sculptor', reputation: 20, earned_three_atomic: 999, tasks_completed: 7 }];
+		H.recent = [{ id: 'a1', kind: 'completed_task', narrative: 'Aria sculpted a fox', reward_label: '999 $THREE', created_at: '2026-07-02T00:00:00Z', task_pda: 'T1', deliverable_url: 'https://cdn/x.glb', citizen_id: 'c1', actor: 'Aria', profession: 'sculptor' }];
 		const { body } = await call('pulse');
 		expect(body.empty).toBe(false);
 		expect(body.population.total).toBe(12);
 		expect(body.economy.tasksCompleted24h).toBe(7);
 		expect(body.economy.threeEarned24hAtomic).toBe('999');
 		expect(body.topEarners[0].displayName).toBe('Aria');
+		// recent narration is routed correctly (not stolen by the board branch)
+		expect(body.recent).toHaveLength(1);
+		expect(body.recent[0].narrative).toBe('Aria sculpted a fox');
+		expect(body.recent[0].actor).toBe('Aria');
 	});
 });
 

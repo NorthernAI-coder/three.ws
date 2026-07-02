@@ -310,7 +310,7 @@ async function handleBoard(req, res) {
 		// The board degrades gracefully — a bazaar outage drops lane 2, never 500s
 		// the whole board. AgenC tasks still render.
 		console.warn('[agora] bazaar lane failed:', redactSecrets(err?.message));
-		errors.push({ source: 'x402', error: err?.message || 'bazaar_unavailable' });
+		errors.push({ source: 'x402', error: redactSecrets(err?.message) || 'bazaar_unavailable' });
 	}
 
 	res.setHeader('cache-control', 'public, max-age=15, stale-while-revalidate=60');
