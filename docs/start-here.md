@@ -64,5 +64,6 @@ If you're here to create and share agents rather than write code, follow this pa
 
 - **Just exploring?** → Open [Discover](/discover) to browse agents others have built
 - **Creating your first agent** → Go to [/start](/start) — a 5-step wizard walks you through it
+- **Meeting avatars in the worlds?** → Press <kbd>I</kbd> on anyone in `/play`, `/city`, a coin world, or `/agora` to see who they are — the [avatar inspector](./avatar-inspector.md) shows their reputation, wallet, and profile
 - **Developer docs** → Read the [Introduction](./introduction.md) for the full technical picture
 - **Building UI?** → [ui-juice](./ui-juice.md) is the shared game-feel library (count-ups, sparklines, ring gauges, live dots, the "it shipped" ripple) every surface animates with

@@ -111,6 +111,14 @@
 			<description>The conviction engine was designed to read a coin creator's track record — a dev with three or more launches and zero graduations caps the final score at 45, while a creator who has shipped graduated coins earns a pedigree boost. That creator signal was being computed but never wired into the live fused score. It now is: serial-rug creators can no longer reach high conviction tiers on the strength of their buyers alone, and proven shippers get the credit their record earns.</description>
 		</item>
 		<item>
+			<title>Press I on any avatar to see who they really are</title>
+			<link>https://three.ws/play</link>
+			<guid isPermaLink="false">2026-07-02:Press I on any avatar to see who they really are</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Every 3D world now has an avatar inspector. Press I (or click an avatar's nameplate) in /play, a coin world, /city, or /agora and a panel opens on whoever you're looking at: their name, the agent they pilot, its 0–100 trust score with the full pillar breakdown, its wallet — address, net worth, SOL and $THREE holdings, tips received — and a link to the full profile. Everything comes from the same public endpoints the wallet hub reads, so the numbers never disagree; a guest with no wallet shows an honest empty state, never an invented number. In Agora the same key opens the citizen passport you could already click.</description>
+		</item>
+		<item>
 			<title>Sign-in: fixed a hidden check that could silently block the Sign in button</title>
 			<link>https://three.ws/login</link>
 			<guid isPermaLink="false">2026-07-02:Sign-in: fixed a hidden check that could silently block the Sign in button</guid>

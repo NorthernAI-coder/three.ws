@@ -746,11 +746,13 @@ function oracleTake(it) {
 		body = `${TAKE_PILLAR[strong.k].hi}`;
 		if (it.smart_wallet_count >= 3 && strong.k !== 'pedigree') body += `, with ${it.smart_wallet_count} smart-money wallets in`;
 		if ((it.badges || []).includes('structure-flag')) body += ` — but watch the structure flag`;
+		if ((it.badges || []).includes('pedigree-flag')) body += ` — but the creator has a rug history`;
 	} else if (tier === 'lean') {
 		body = `${TAKE_PILLAR[strong.k].hi}, but ${TAKE_PILLAR[weak.k].lo}`;
 	} else {
 		body = weak.v < 40 ? `${TAKE_PILLAR[weak.k].lo}` : `nothing here stands out yet`;
-		if ((it.badges || []).includes('structure-flag')) body = `the launch structure throws a flag`;
+		if ((it.badges || []).includes('pedigree-flag')) body = `the creator wallet has a rug history`;
+		else if ((it.badges || []).includes('structure-flag')) body = `the launch structure throws a flag`;
 	}
 	const cat = it.category && it.category !== 'unknown' ? ` Riding a ${esc(it.category)} narrative.` : '';
 	return `<div class="coin-take"><span class="ct-q">“</span><span><b>${lead}</b> — ${body}.${cat}</span></div>`;
@@ -758,10 +760,18 @@ function oracleTake(it) {
 
 function coinCard(it, watched = new Set()) {
 	const p = it.pillars || {};
+	const BADGE_META = {
+		'smart-money':    { cls: 'sm',   txt: 'smart-money',  title: '3+ proven wallets are already in' },
+		'structure-flag': { cls: 'flag', txt: 'structure ⚑', title: 'A structural red flag (bundle, concentration, dumping dev) caps the score' },
+		'pedigree-flag':  { cls: 'flag', txt: 'creator ⚑',   title: 'The creator wallet has a rug history — the score is ceilinged regardless of its buyers' },
+		'thin-data':      { cls: 'thin', txt: 'thin data',    title: 'Much of this read rests on defaulted inputs — treat as a lead to watch, not a sized call' },
+		'news':           { cls: 'news', txt: 'news',         title: 'Riding a live news story — fast but fragile' },
+		'momentum':       { cls: 'mom',  txt: 'momentum',     title: 'Strong buy-side momentum' },
+		'prime':          { cls: 'prime', txt: 'prime',       title: 'Top-tier conviction (86+)' },
+	};
 	const badges = (it.badges || []).map((b) => {
-		const cls = b === 'smart-money' ? 'sm' : b === 'structure-flag' ? 'flag' : b === 'news' ? 'news' : '';
-		const txt = b === 'structure-flag' ? 'structure ⚑' : b;
-		return `<span class="chip ${cls}">${esc(txt)}</span>`;
+		const m = BADGE_META[b] || { cls: '', txt: b, title: '' };
+		return `<span class="chip ${m.cls}"${m.title ? ` title="${esc(m.title)}"` : ''}>${esc(m.txt)}</span>`;
 	}).join('');
 
 	const btn = document.createElement('button');
@@ -1665,6 +1675,8 @@ function renderDrawer(d) {
 			<button class="dr-act" id="drCopyLink" type="button" title="Copy shareable link" data-link="${esc(coinShareUrl(c.mint))}">Copy link</button>
 			<a class="dr-act dr-share" href="${tweetConviction(c)}" target="_blank" rel="noopener" title="Share conviction on X">Share ↗</a>
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
+			${d.components?.pedigree_cap != null && d.components.pedigree_cap < 60 ? `<span class="note warn">creator cap ${d.components.pedigree_cap}</span>` : ''}
+			${d.components?.confidence != null ? `<span class="note ${d.components.confidence >= 70 ? 'ok' : d.components.confidence >= 45 ? '' : 'warn'}" title="How much of this read rests on real data vs. defaulted inputs">data confidence ${d.components.confidence}% · ${esc(d.components.confidence_label || '')}</span>` : ''}
 		</div>
 		<div id="scoreHistoryWrap" style="margin-top:12px"></div>
 		<div id="marketWrap" class="mkt-loading" aria-busy="true">

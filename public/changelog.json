@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-02T09:07:22.550Z",
+	"generated_at": "2026-07-02T09:17:15.787Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -140,6 +140,16 @@
 			"link": "/oracle/docs",
 			"tags": [
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Press I on any avatar to see who they really are",
+			"summary": "Every 3D world now has an avatar inspector. Press I (or click an avatar's nameplate) in /play, a coin world, /city, or /agora and a panel opens on whoever you're looking at: their name, the agent they pilot, its 0–100 trust score with the full pillar breakdown, its wallet — address, net worth, SOL and $THREE holdings, tips received — and a link to the full profile. Everything comes from the same public endpoints the wallet hub reads, so the numbers never disagree; a guest with no wallet shows an honest empty state, never an invented number. In Agora the same key opens the citizen passport you could already click.",
+			"link": "/play",
+			"tags": [
+				"feature"
 			]
 		},
 		{

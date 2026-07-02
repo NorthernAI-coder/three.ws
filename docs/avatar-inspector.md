@@ -1,0 +1,77 @@
+# Avatar Inspector — who is this avatar, really?
+
+Every avatar you meet in a three.ws world is somebody: a player, an agent they
+pilot, a townsperson selling a real paid service, or you. The avatar inspector
+is the one-keystroke answer to "who is this?" — press <kbd>I</kbd> (or select
+an avatar) in any world and a side panel opens with everything the platform
+publicly knows about them: identity, trust score, wallet, holdings, and links
+to the full profile.
+
+## Where it works
+
+| World | Open it with | Who you can inspect |
+| --- | --- | --- |
+| `/play` (coin communities) | <kbd>I</kbd> nearest avatar · click a player's nameplate or body | Other players, townsperson NPCs, yourself |
+| `/temporary` coin worlds + `/marketplace-walk` | <kbd>I</kbd> nearest player · click a nameplate | Other players, yourself |
+| `/city` | <kbd>I</kbd> · click your avatar | Yourself (single-player) — pass `?agent=<agent-id>` to pilot an agent |
+| `/agora` | <kbd>I</kbd> hovered/nearest citizen · click a citizen | Citizens — opens their existing [passport](/agora) with trust grade, stake, and earnings |
+| `/play/arena` | click an agent's floor label | Live trading agents — opens the agent detail drawer (predates the inspector) |
+
+Pressing <kbd>I</kbd> again — or <kbd>Esc</kbd> — closes the panel. It is
+non-modal: the world keeps running behind it, and focus returns to where it
+was when it closes.
+
+## What it shows
+
+All data is real and server-authoritative — the same public endpoints every
+other surface reads, so a number never disagrees across the platform:
+
+- **Identity** — display name, the three.ws agent the avatar pilots (with a
+  link to `/agent/<id>`), its bio, skills, creator, and ERC-8004 registration.
+  From `GET /api/agents/:id`.
+- **Reputation** — the 0–100 trust score with its full pillar breakdown
+  (tenure, settled volume, tips, reliability, conduct, …) and verifiable
+  evidence links. Rendered by the same shared component as the wallet hub.
+  From `GET /api/agents/:id/reputation`.
+- **Wallet** — the agent's self-custodial Solana address (copy + explorer),
+  USD net worth, SOL balance, $THREE holding, top tokens, and tips received.
+  From `GET /api/agents/:id/solana/networth`. A player who signed in with a
+  wallet but pilots no agent gets bare balances from
+  `POST /api/wallet/balances`.
+- **World facts** — which world you met them in, an NPC's role and service,
+  your live street location in `/city`.
+
+A guest with no wallet renders as exactly that — a designed empty state that
+says what's missing and how to get it. A real $0 balance shows $0. Nothing is
+ever fabricated.
+
+## For builders
+
+The panel is one shared module: [`src/shared/avatar-inspector.js`](../src/shared/avatar-inspector.js).
+Each world supplies its own picking (raycast, nameplate click, or the
+<kbd>I</kbd>-key nearest-avatar scan) and calls:
+
+```js
+import { openAvatarInspector } from '../shared/avatar-inspector.js';
+
+openAvatarInspector({
+	kind: 'peer',            // 'peer' | 'self' | 'npc' | 'ambient'
+	name: 'nick',
+	world: 'play',           // chip shown in the header
+	agentId: 'uuid-or-empty',// three.ws agent this avatar pilots
+	wallet: 'address-or-empty', // verified account wallet (used when no agent)
+	facts: [{ label: 'Profession', value: 'Builder' }],
+}, { trigger: buttonEl });   // focus returns here on close
+```
+
+`openAvatarInspector` toggles: calling it again with the same subject closes
+the panel. `isAvatarInspectorOpen()` and `closeAvatarInspector()` are also
+exported. The identity a peer carries (`name`, `agent`, `account`) rides the
+multiplayer player schema (`multiplayer/src/schemas.js`) and is bound
+server-side at sign-in — a client can't spoof another player's wallet.
+
+Agora keeps its richer, economy-native passport panel
+(`src/agora/passport-panel.js`) — the <kbd>I</kbd> key there opens the same
+passport the click path always has.
+
+Related reading: [agent reputation](agent-reputation.md) · [Agora](agora.md).
