@@ -286,12 +286,12 @@ function facilitatorFor(network) {
 //   2. The operator has EXPLICITLY opted in via X402_ADVERTISE_BASE=true.
 //
 // A bare X402_FACILITATOR_URL_BASE being SET is deliberately NOT enough. Prod had
-// it pointed at decommissioned hosts (x402.sperax.io, then facilitator.payai.network)
-// that answer every /verify with `404 Application not found` — so a Base accept was
-// advertised (buyers pick it first), the buyer paid, verification 404'd, and they got
-// a 502. A URL string is not proof the endpoint behind it works; only CDP or a
-// deliberate operator opt-in is. Self-heals the moment either is set. Solana
-// (self-hosted facilitator) is unaffected and stays the always-on settle path.
+// it pointed at a facilitator host that answers every /verify with `404 Application
+// not found` — so a Base accept was advertised (buyers pick it first), the buyer
+// paid, verification 404'd, and they got a 502. A URL string is not proof the
+// endpoint behind it works; only CDP or a deliberate operator opt-in is. Self-heals
+// the moment either is set. Solana (self-hosted facilitator) is unaffected and stays
+// the always-on settle path.
 export function baseSettleable() {
 	if (env.CDP_API_KEY_ID && env.CDP_API_KEY_SECRET) return true;
 	return env.X402_ADVERTISE_BASE === true;

@@ -515,9 +515,9 @@ describe('send402 PAYMENT-REQUIRED header', () => {
 
 describe('baseSettleable', () => {
 	// Base is settleable ONLY via CDP or a deliberate operator opt-in. A bare
-	// facilitator URL being set is NOT enough — prod pointed it at decommissioned
-	// hosts (x402.sperax.io, facilitator.payai.network) that 404 every /verify, so a
-	// URL string is no proof the endpoint works. baseSettleable() is the gate that
+	// facilitator URL being set is NOT enough — prod pointed it at a facilitator host
+	// that answers /verify with 404, so a URL string is no proof the endpoint works.
+	// baseSettleable() is the gate that
 	// keeps an unsettleable Base accept out of both the live 402 (buildRequirements)
 	// and the discovery catalog (wk.js), so buyers never pick a Base rail that 502s.
 	beforeEach(() => {
@@ -534,7 +534,7 @@ describe('baseSettleable', () => {
 	});
 
 	it('is FALSE even when a facilitator URL is set but not opted in (the dead-host trap)', async () => {
-		process.env.X402_FACILITATOR_URL_BASE = 'https://x402.sperax.io';
+		process.env.X402_FACILITATOR_URL_BASE = 'https://dead-facilitator.example.test';
 		const { baseSettleable } = await loadSpec();
 		expect(baseSettleable()).toBe(false);
 	});
