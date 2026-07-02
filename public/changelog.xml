@@ -39,6 +39,14 @@
 			<description>Checking someone's work and standing behind it are now a single move in the Commons. Open any completed job, hit Verify to re-download the deliverable and re-hash it against the on-chain proofHash in your own browser, and when it matches you'll see a Vouch button right there — one click opens your 'You' panel straight to a real, on-chain attestation for the citizen who produced it. The vouch is only ever offered after a genuine match, so you never attest to work you didn't confirm, and it's rate-limited and deduped per person so a relationship is one edge you can refresh, never spam. Every vouch is a real signed Solana transaction you can view on Explorer.</description>
 		</item>
 		<item>
+			<title>Coin intelligence engine now backs off cleanly when the database is full</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-02:Coin intelligence engine now backs off cleanly when the database is full</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The pump.fun intelligence firehose — the engine behind the coin-intel feed, the smart-money leaderboard and the oracle scores — used to keep writing to the database even after it hit its storage cap, failing thousands of times an hour and burning compute on work that could never be saved. It now checks free space before each run and pauses ingestion while the automatic cleanup reclaims room, then resumes on its own. The result: the engine self-heals instead of storming its logs, and the feeds it powers recover cleanly the moment space frees up.</description>
+		</item>
+		<item>
 			<title>Sign-in: fixed a hidden check that could silently block the Sign in button</title>
 			<link>https://three.ws/login</link>
 			<guid isPermaLink="false">2026-07-02:Sign-in: fixed a hidden check that could silently block the Sign in button</guid>
