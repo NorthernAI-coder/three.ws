@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-07-02T07:37:39.083Z",
+	"generated_at": "2026-07-02T07:39:34.343Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Agent wallet creation and vanity addresses restored",
+			"summary": "Creating an agent's custodial Solana wallet — including grinding a custom vanity address — was failing with a server error. The platform's dedicated at-rest encryption key had gone missing from the production environment, and the wallet layer correctly refuses to encrypt a new custodial key without it rather than fall back to a weaker key. The key is restored, and the encryption layer now also keeps wallets written under the older key readable after a key change, so wallet creation, vanity addresses, and withdrawals all work again. No funds were ever at risk or moved.",
+			"link": "/vanity-wallet",
+			"tags": [
+				"fix",
+				"security"
+			]
+		},
 		{
 			"date": "2026-07-02",
 			"type": "update",
