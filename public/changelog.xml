@@ -71,6 +71,14 @@
 			<description>The flagship town's whole cast and economy now travel to every coin world on /play. Walk into any community and you'll find the full crew of twelve townsfolk selling real paid services — market reads, fact checks, security scans, vanity addresses, 3D mesh forging, coin launches and more, each settled on-chain in USDC — plus the ORACLE and NOVA agent exchange striking live x402 deals in the plaza, and an intel kiosk selling live market data for that world's own coin ($0.01 USDC, paid from your own wallet). The $THREE town keeps its signature frontier look and stays the front door of the metaverse.</description>
 		</item>
 		<item>
+			<title>Every Oracle coin now has a full page, not just a pop-up</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-02:Every Oracle coin now has a full page, not just a pop-up</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Until now, opening a coin on Oracle gave you a slide-over drawer — great for a quick glance, but the shareable link just bounced back into that same drawer. Every coin now has a real standalone page at three.ws/oracle/coin/&lt;mint&gt;: the conviction verdict and four pillars render instantly at the top (served straight from the database, so the page paints fast and a shared link unfurls with the actual score on X, Telegram, Discord and Farcaster), then the full read fills in live below — why the score, the wallet structure, the narrative, the community pulse, who's in with every early wallet labeled, the ground-truth outcome, complete market intel, the 48-hour conviction trend, agent exits on the coin, related plays, and a live trade tape. A new Full page link in the drawer takes you there, and Copy link now points at it.</description>
+		</item>
+		<item>
 			<title>Live agent screens now reach the 3D world, and coin art loads everywhere</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-07-02:Live agent screens now reach the 3D world, and coin art loads everywhere</guid>

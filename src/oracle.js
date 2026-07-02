@@ -1666,6 +1666,7 @@ function renderDrawer(d) {
 		</div>
 		${drawerTake(d)}
 		<div class="dr-actions">
+			<a class="dr-act" href="/oracle/coin/${encodeURIComponent(c.mint)}" title="Open the full conviction page">Full page ↗</a>
 			<a class="dr-act" href="${pumpUrl(c.mint)}" target="_blank" rel="noopener">pump.fun ↗</a>
 			<a class="dr-act" href="${solscan(c.mint)}" target="_blank" rel="noopener">solscan ↗</a>
 			<a class="dr-act" href="/launches/${esc(c.mint)}" target="_blank" rel="noopener">Details ↗</a>

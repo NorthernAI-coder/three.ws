@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-02T09:43:35.835Z",
+	"generated_at": "2026-07-02T11:52:18.233Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -86,6 +86,16 @@
 			"title": "Every coin world now gets the full town experience",
 			"summary": "The flagship town's whole cast and economy now travel to every coin world on /play. Walk into any community and you'll find the full crew of twelve townsfolk selling real paid services — market reads, fact checks, security scans, vanity addresses, 3D mesh forging, coin launches and more, each settled on-chain in USDC — plus the ORACLE and NOVA agent exchange striking live x402 deals in the plaza, and an intel kiosk selling live market data for that world's own coin ($0.01 USDC, paid from your own wallet). The $THREE town keeps its signature frontier look and stays the front door of the metaverse.",
 			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Every Oracle coin now has a full page, not just a pop-up",
+			"summary": "Until now, opening a coin on Oracle gave you a slide-over drawer — great for a quick glance, but the shareable link just bounced back into that same drawer. Every coin now has a real standalone page at three.ws/oracle/coin/<mint>: the conviction verdict and four pillars render instantly at the top (served straight from the database, so the page paints fast and a shared link unfurls with the actual score on X, Telegram, Discord and Farcaster), then the full read fills in live below — why the score, the wallet structure, the narrative, the community pulse, who's in with every early wallet labeled, the ground-truth outcome, complete market intel, the 48-hour conviction trend, agent exits on the coin, related plays, and a live trade tape. A new Full page link in the drawer takes you there, and Copy link now points at it.",
+			"link": "/oracle",
 			"tags": [
 				"feature"
 			]

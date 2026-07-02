@@ -8,7 +8,7 @@ Creating one is not filling in a form. It is provisioning a participant in an ec
 
 ## Why we built it this way
 
-Three reasons, in order of importance.
+Three reasons.
 
 **First, embodiment changes how people use AI.** A face that reacts, a voice that answers, a body that waves when you arrive: these are not decoration. The Empathy Layer blends six emotional states continuously, every frame, and drives real morph targets on the avatar's face. People talk differently to something that looks back. The creation pipeline guarantees an agent is never bodiless: skip every avatar step and you still get a real rigged default body.
 
@@ -34,7 +34,7 @@ Everything communicates over a zero-dependency event bus, so the avatar, the mem
 
 **three.ws/create-agent** is the five-step wizard: Basics, Model, Skills, Personality, Review. Names cap at 100 characters, tags at 8. The Skills step shows the five core skills locked on plus five optional toggles (wave, dance, pump-fun, explain-gltf, web-search); Personality takes a category, a greeting, and a persona prompt up to 2000 characters. A magic generator calls `POST /api/agents/suggest-spec`, lets an LLM draft the whole spec, and drops you at Review. Submission is a single `POST /api/agents`.
 
-**three.ws/agent/new** opens the full agent editor directly, the same surface used to edit an existing agent's avatar, brain, skills, and on-chain identity.
+**three.ws/agent/new** opens the full agent editor directly, the same surface used to edit an existing agent's avatar, brain, skills, and identity.
 
 Whichever door you use, the server-side create path is the same. `POST /api/agents` runs an identity-integrity gate (an embedding-based look-alike and content screen; a blocked name returns a 409), mints both custodial wallets, inserts the row, and publishes an agent-deploy event to the live feed. If wallet minting fails at creation, the agent still lands and the wallet self-heals on first use. No dead states.
 
@@ -67,11 +67,11 @@ Economics keep pedigrees scarce: each parent has a six hour breeding cooldown, a
 
 ## Persona: a mind you can sculpt, version, and sign
 
-A persona here is not a text area. It is editable structure with provenance.
+A persona here is editable structure with provenance, not a text area.
 
 The deep path lives on the agent's Brain tab and the API under `/api/agents/:id/persona`. It starts with a five-question interview: your answers go to `POST /api/agents/:id/persona/extract` (five extractions per day), where an LLM distills a first-person base prompt, up to eight tone tags, and up to ten characteristic vocabulary phrases. That base then meets the trait model: seven continuous sliders (warmth, formality, verbosity, humor, proactivity, risk appetite, directness), each 0 to 1, mapping to one of three descriptive bands with thresholds at 0.34 and 0.66. A slider left at center deliberately reads as no strong opinion.
 
-The compiler is the interesting part. `compilePersona` in src/agents/persona-compile.js is a single deterministic function imported by both the browser editor and the server save endpoint, so the prompt you preview is byte-for-byte the prompt that gets stored. On save, the compiled prompt is hashed with SHA-256, signed with an HMAC, and written as a real version entry in `agent_versions`. You get full version history, diffs, and one-click restore of any prior mind.
+The compiler is the interesting part. `compilePersona` in src/agents/persona-compile.js is one deterministic function imported by both the browser editor and the server save endpoint, so the prompt you preview is byte-for-byte the prompt that gets stored. On save, the compiled prompt is hashed with SHA-256, signed with an HMAC, and written as a real version entry in `agent_versions`, with history, diffs, and one-click restore of any prior mind.
 
 Brain Studio makes this physical: every slider move re-runs a real chat against the candidate prompt and the avatar re-greets you in the new register, in its real voice. A/B compare runs genuine dual inference and promoting the winner writes the version. The one-tap path lives at three.ws/brain: pick a vibe (Sharp Analyst, Crypto Native, Casual Builder, and more) and it applies and saves instantly. The craft of the base prompt itself, refusal patterns that hold character, and trait-to-animation mapping is the tutorial at three.ws/docs/tutorials/agent-personality.
 
@@ -137,7 +137,7 @@ const hits = await memory.recall('what are my risk rules?');
 console.log(hits[0].content, hits[0].score); // real cosine score, or null on lexical fallback
 ```
 
-Preview a child before breeding, straight from the API:
+Preview a child before breeding:
 
 ```bash
 curl -X POST https://three.ws/api/genome/preview \
@@ -146,13 +146,13 @@ curl -X POST https://three.ws/api/genome/preview \
   -d '{"parentA":"<agent-id>","parentB":"<agent-id>"}'
 ```
 
-And verify any agent's claimed ancestry, no auth required to distrust:
+And verify any agent's claimed ancestry:
 
 ```
 GET https://three.ws/api/genome/lineage?agentId=<agent-id>&verify=1
 ```
 
-Give your own AI assistant the whole model router by adding `@three-ws/brain-mcp` as an MCP server (one npx entry in your client's MCP config), then ask it to `list_providers` and `chat`.
+Give your own AI assistant the whole model router by adding `@three-ws/brain-mcp` as an MCP server (one npx entry in your client's config), then ask it to `list_providers` and `chat`.
 
 ## Three tutorials in one place
 

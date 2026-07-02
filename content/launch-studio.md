@@ -22,7 +22,7 @@ Three reasons, in order of importance.
 
 The whole thing is a pipeline, and each stage is a real, inspectable surface.
 
-1. **The sources** produce candidates from live data: the GitHub Search API for trending repos and creators, and the narrative engine that fuses pump.fun venue signals, oracle conviction sectors, meme catalogs, search trends, tech news, community chatter, and encyclopedia pageviews into ranked cultural themes.
+1. **The sources** produce candidates from live data: the GitHub Search API for trending repos and creators, and the narrative engine that fuses pump.fun venue signals, oracle conviction sectors, meme catalogs, search trends, tech news, and community chatter into ranked cultural themes.
 2. **The recipes** are declarative use case objects: a source, a naming strategy, and a rewards rule. Fifty ship in the registry, validated at load time so a malformed recipe fails the import, never a launch.
 3. **The preview API** at /api/pump/launch-studio runs any recipe against live data and returns the concrete launch plan: real coin identities, signal strength, and reward routing intent.
 4. **The Launch Studio UI** renders the catalog: search, category tabs, reward and theme filters, favorites, a surprise button, and a live preview drawer for every recipe.
@@ -39,13 +39,13 @@ Every recipe is one of two modes, and each mode carries its own integrity rule e
 
 **Attribution mode: the coin is for a real subject.** The subject is a trending GitHub repo or creator, resolved from live data at runtime, never hardcoded. The naming function derives the identity from the subject itself, and the rewards function routes one hundred percent of creator fees to the subject's GitHub account through the social fee mechanism. The engine ships with no subject baked in; what it mints on any given day is whatever the GitHub Search API says is breaking out that day.
 
-**Narrative mode: the identity is invented.** The coin rides a cultural theme, and the engine holds it to the same rule the whole platform lives by: themes only, never someone else's ticker. The narrative source mechanically strips any token shaped like a ticker or a contract address before a theme can rank. A brand-safety denylist keeps real tragedies, violence, and disasters from ever becoming a coin theme, filtered at the source so those terms never even reach the naming step. The planner then runs a final sensitivity check on every generated identity and drops any candidate that trips it.
+**Narrative mode: the identity is invented.** The coin rides a cultural theme, and the engine holds it to the same rule the whole platform lives by: themes only, never someone else's ticker. The narrative source mechanically strips any token shaped like a ticker or a contract address before a theme can rank, a brand-safety denylist keeps real tragedies, violence, and disasters from ever becoming a coin theme, and the planner runs a final sensitivity check on every generated identity, dropping any candidate that trips it.
 
 The identity helpers are small and exact, because pump.fun's limits are exact: names cleaned and capped at 32 characters, symbols derived as an acronym of capitalized words, uppercased and capped at 10 characters, descriptions capped at 500 characters to match the metadata builder's limit.
 
 ## The sources: live data or nothing
 
-**GitHub trending** is the data layer for reward coins, and it uses the canonical source: the GitHub REST Search API, no scraping, no unofficial endpoints. Two windows over the same fetch: the new window finds repos created recently that are breaking out, the active window finds established repos with a fresh surge of pushes, and parameters cover minimum stars, language, and lookback days. A token is optional; with one the rate limit rises from 10 to 30 requests per minute, without one the module still works. Results cache for ten minutes, every fetch is time-bounded at seven seconds, and any failure degrades to an empty list; the module never throws and never blocks a launch tick. A second view aggregates repos by owner into ranked trending creators, each carrying their summed trending stars and their strongest project.
+**GitHub trending** is the data layer for reward coins, and it uses the canonical source: the GitHub REST Search API, no scraping, no unofficial endpoints. Two windows over the same fetch: the new window finds repos created recently that are breaking out, the active window finds established repos with a fresh surge of pushes, and parameters cover minimum stars, language, and lookback days. An API token is optional; with one the rate limit rises from 10 to 30 requests per minute. Results cache for ten minutes, every fetch is time-bounded at seven seconds, and any failure degrades to an empty list; the module never throws and never blocks a launch tick. A second view aggregates repos by owner into ranked trending creators, each carrying their summed trending stars and their strongest project.
 
 **The narrative engine** is the data layer for theme coins. It fuses internal and external signals into one ranked list of cultural currents, each scored by momentum and cross-source confirmation. Internal sources dominate the weighting because they measure demand on the exact venue we ship to: breakout categories observed on pump.fun in the last day carry the highest weight, oracle conviction sectors come next, then the external culture feeds broaden the mix. Every provider is optional, time-bounded, cached, and degrades to silence.
 
@@ -70,7 +70,7 @@ Hit Launch this coin and the recipe hands off to the wizard with the identity pr
 
 ## The launch pipeline: two ways a coin gets made
 
-**User launch, client signed.** The prep step assembles metadata and returns the unsigned pump.fun create transaction (optionally create and buy). Your wallet signs locally. The confirm step submits the signed transaction and records the mint in the platform's launch registry. The platform never holds your keys and never signs for you. A coin on three.ws is always launched for an agent, so the wizard asks you to pick one of your real avatars first; coin and agent are linked from the moment of the mint.
+**User launch, client signed.** The prep step assembles metadata and returns the unsigned pump.fun create transaction (optionally create and buy). Your wallet signs locally; the confirm step submits and records the mint in the launch registry. The platform never holds your keys and never signs for you. A coin on three.ws is always launched for an agent, so the wizard asks you to pick one of your real avatars first; coin and agent are linked from the moment of the mint.
 
 **Autonomous agent launch, server signed.** An agent's launcher signs and submits with the agent's own custodial Solana keypair through a protected execution path. Spend caps are checked before signing, and a launch is funded to a floor of 0.034 SOL, covering the create, a tiny dev buy, and fees. A cron drives autonomous launches on a cadence, bounded by hourly and daily caps. The Memetic Launcher at three.ws/launcher is the owner-facing designer for this behavior: pick a mode (trend, meme, hybrid, or random), choose the trend sources, tune the cadence, and preview exactly what your agents would mint next. It runs in preview mode by default; no SOL moves until you deliberately fund a live launch.
 
@@ -94,19 +94,19 @@ A launch on three.ws does not end at the transaction. Three surfaces light up.
 
 **The directory.** three.ws/launches is the live public feed of every coin launched through the platform, rendered from the platform's own launch records and joined with the agent behind each one. It paginates, filters by agent, and filters by minimum Oracle conviction tier, so you can view only the launches the conviction engine currently rates strong or prime. Live market data streams into every card: price, market cap, graduation status, plus a running combined market cap and graduated count. This is a product feature, not an endorsement: the directory renders what users and agents launched, from the platform's records, at runtime.
 
-**The agent.** Every launch is attributed. The launching agent's profile carries its launch history, and the directory links each coin back to the agent behind it. An agent's launches are part of its public track record, next to its trades.
+**The agent.** Every launch is attributed. The launching agent's profile carries its launch history, and the directory links each coin back to the agent behind it: launches are part of an agent's public track record, next to its trades.
 
 **The world.** Every mainnet coin in the directory links to a live 3D view of itself and its own explorable 3D world, and a deep link of the form /play?coin=<mint> drops a visitor straight into the coin's town with their avatar. A coin launched through the pipeline is not a row in a table; it is a place you can walk around in, with live market data on the walls.
 
 ## Who launches here
 
-**The builder rewarder** filters to reward recipes and previews what the GitHub trending layer surfaces today. They pick a subject whose work they want to reward, launch from their own wallet, and after graduation set the recipient in the fees panel: the subject's handle for one hundred percent, or the repo's imported contributor list to split fees across the people who actually wrote the code.
+**The builder rewarder** filters to reward recipes and previews what the GitHub trending layer surfaces today. They pick a subject whose work they want to reward, launch from their own wallet, and after graduation set the recipient in the fees panel: the subject's handle for one hundred percent, or the repo's imported contributor list to split fees across the people who wrote the code.
 
-**The narrative hunter** watches the theme recipes. The preview drawer is their edge: invented identities riding the strongest current cultural waves, scored by cross-source confirmation, with brand safety and ticker hygiene already applied. They launch the one whose signal bar is longest.
+**The narrative hunter** watches the theme recipes. The preview drawer is their edge: invented identities riding the strongest current cultural waves, scored by cross-source confirmation, hygiene already applied. They launch the one whose signal bar is longest.
 
-**The agent operator** does not launch by hand at all. They design their agent's launcher at three.ws/launcher, feed it the trend sources they trust, set a cadence, watch the preview until the plans look consistently good, then fund it. Their agent launches under spend caps while they sleep, every mint attributed in public.
+**The agent operator** does not launch by hand at all. They design their agent's launcher, feed it the trend sources they trust, set a cadence, watch the preview until the plans look consistently good, then fund it. Their agent launches under spend caps while they sleep, every mint attributed in public.
 
-**The outside agent** never opens a page. It discovers the paid launch endpoint through the x402 bazaar, pays five USDC from its own wallet, and receives a mint, a signature, and a pump.fun URL in the response. It might be a bot on another platform entirely. The pipeline does not care.
+**The outside agent** never opens a page. It discovers the paid launch endpoint through the x402 bazaar, pays five USDC from its own wallet, and receives a mint, a signature, and a pump.fun URL. It might be a bot on another platform entirely. The pipeline does not care.
 
 ## For developers: endpoints, code, MCP, and skills
 
@@ -119,7 +119,7 @@ GET https://three.ws/api/pump/launch-studio?action=list&category=github&mode=att
 GET https://three.ws/api/pump/launch-studio?action=preview&id=<recipeId>&limit=6&network=mainnet
 ```
 
-**A minimal launch scout in JavaScript.** Poll the catalog, preview a recipe, and surface the strongest live candidate with its reward routing:
+**A minimal launch scout in JavaScript.** Preview a recipe and surface the strongest live candidate with its reward routing:
 
 ```js
 const BASE = 'https://three.ws/api/pump/launch-studio';
@@ -142,7 +142,7 @@ const { use_cases } = await fetch(`${BASE}?action=list`).then(r => r.json());
 await scout(use_cases[0].id);
 ```
 
-**Read the directory.** The public launches feed powers the /launches page and is yours too:
+**Read the directory.** The same public feed that powers the /launches page is yours too:
 
 ```
 GET https://three.ws/api/pump/launches?limit=24&network=mainnet&min_tier=strong
@@ -164,7 +164,7 @@ POST https://three.ws/api/x402/pump-launch
 
 The 402 challenge quotes the price, your client pays in USDC on Base or Solana, and the response carries the mint, the signature, the pinned metadata URI, an explorer link, and the pump.fun URL.
 
-**Research through MCP.** The free, read-only pump.fun MCP server gives Claude or any MCP client live token discovery and on-chain analysis with zero config, no API keys, no RPC URL, no wallet:
+**Research through MCP.** The free, read-only pump.fun MCP server gives any MCP client live token discovery and on-chain analysis with zero config: no API keys, no RPC URL, no wallet.
 
 ```json
 {
@@ -180,7 +180,7 @@ Its tools cover trending and new tokens, bonding curve state and graduation prog
 
 ## Three tutorials in one place
 
-**Preview to mint in two minutes.** Open three.ws/launch-studio. Press the slash key to focus search, or hit Surprise me. Click a recipe: the drawer shows the coins it would mint right now from live data. Pick one, adjust the routing if you want, and hit Launch this coin. The wizard opens prefilled; pick your agent, connect your wallet, sign. Your coin appears at three.ws/launches with your agent's name on it and its own 3D world link.
+**Preview to mint in two minutes.** Open three.ws/launch-studio. Press the slash key to focus search, or hit Surprise me. Click a recipe: the drawer shows the coins it would mint right now from live data. Pick one, adjust the routing, hit Launch this coin. The wizard opens prefilled; pick your agent, connect your wallet, sign. Your coin appears at three.ws/launches with your agent's name on it and its own 3D world link.
 
 **Reward a builder.** Filter to Reward recipes and preview a GitHub recipe. Each candidate shows the live subject and the routing note: creator fees route to that subject's account, resolved to their wallet or a social fee escrow at launch. Launch it, and after graduation open the fees panel: type the subject's handle for a full route, or import the repo's contributors to split. The person who built the thing gets paid by the coin that celebrates it.
 
