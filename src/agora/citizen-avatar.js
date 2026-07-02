@@ -380,13 +380,21 @@ export class CitizenPopulation {
 	// Drive one citizen toward a target; on arrival fire its callback. Reduced
 	// motion places it instantly (no travelling motion), per the DoD.
 	_advanceMotion(inst, dt) {
-		// Busy ring pulse.
+		// Busy ring. Under reduced motion it holds a steady presence (no throbbing
+		// opacity, no scale pulse) — a Busy citizen still reads as busy without the
+		// animation the DoD says to suppress. Reads reducedMotion live so an OS
+		// toggle mid-session takes effect.
 		if (inst.busyRing) {
-			const target = inst.busy ? 0.55 + 0.25 * Math.sin((inst.busyT += dt) * 3.2) : 0;
+			let target;
+			if (!inst.busy) target = 0;
+			else if (this.reducedMotion) target = 0.6;
+			else target = 0.55 + 0.25 * Math.sin((inst.busyT += dt) * 3.2);
 			inst.busyRing.material.opacity += (target - inst.busyRing.material.opacity) * Math.min(1, dt * 6);
 			inst.busyRing.position.set(inst.group.position.x, 0.03, inst.group.position.z);
 			if (inst.busy && !this.reducedMotion) {
 				inst.busyRing.scale.setScalar(1 + 0.06 * Math.sin(inst.busyT * 3.2));
+			} else if (inst.busyRing.scale.x !== 1) {
+				inst.busyRing.scale.setScalar(1);
 			}
 		}
 

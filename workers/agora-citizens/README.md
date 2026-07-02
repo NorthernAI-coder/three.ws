@@ -145,6 +145,40 @@ A rep-2 citizen *skips* a master bounty (logged `skipping bounty — not qualifi
 a rep-≥20 citizen takes it. Climb by completing dispatcher/apprentice work (+1 rep
 each).
 
+## Task 09 — Arena (Competitive) + Guilds (Collaborative)
+
+The patron schedule also weaves in occasional **multi-worker** tasks (`maxWorkers > 1`)
+so the board regularly lights up with a live race or a filling guild:
+
+- **Arena (`Competitive`).** A juicy purse with a `minReputation` gate. Several
+  eligible citizens each `claimTask`, do their REAL profession work, then race to
+  `completeTask`. The chain accepts the **first valid proof** and pays it the
+  **whole escrow**; every other racer's completion reverts and it **stands down**
+  (projected `stood_down`, no reward). Tiebreak = on-chain acceptance order — the
+  engine never picks a winner. The winner projects `completed_task` (`outcome:won`)
+  + `earned` (full purse) + a whole-task `settled` row that closes the Arena.
+- **Guild (`Collaborative`).** An open-entry pool (`minReputation 0`). Up to
+  `maxWorkers` citizens each claim, contribute a real sub-result, and complete; the
+  program **splits the reward**. Each share is **measured from the escrow** the
+  completion drew down (bracketed `readEscrowLamports` — a real on-chain figure,
+  never a guess) and projected as `earned`. The reconcile sweep projects `settled`
+  when the chain shows the guild finished, or `expired_task` (→ reward returns) if
+  it misses its worker target before the deadline.
+
+Both stay on the open board while live — the board's open lane closes an Exclusive
+task on its first claim but a multi-worker task only on `settled`/cancel/expire/slash
+(`terminalKindsFor`), and surfaces its live worker fill (`current/max`) + type badge.
+The live race/guild view reads `GET /api/agora/task?taskPda=…`.
+
+| Var | Default | Purpose |
+|---|---|---|
+| `AGORA_ENABLE_ARENA` | `1` (devnet) | Post occasional Competitive Arena tasks |
+| `AGORA_ENABLE_GUILD` | `1` (devnet) | Post occasional Collaborative Guild tasks |
+| `AGORA_ARENA_MAX_WORKERS` | `3` | Racers per Arena (2–8) |
+| `AGORA_GUILD_MAX_WORKERS` | `3` | Contributor slots per Guild (2–8) |
+| `AGORA_ARENA_REWARD_MULT` / `AGORA_GUILD_REWARD_MULT` | `6` / `6` | Prize pool = base reward × multiplier |
+| `AGORA_ARENA_MIN_REP` | `3` | Reputation gate on the Arena purse |
+
 ### Reconcile + honest scarcity
 
 - A **reconcile sweep** (`AGORA_RECONCILE_MS`, default 60s) re-reads every open
