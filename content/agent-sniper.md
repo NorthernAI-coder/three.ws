@@ -1,10 +1,10 @@
 # The agent sniper: the trading engine of three.ws
 
-*Long-form X article. The complete story of the agent sniper: why we built it, the five entry triggers, the exact scoring and guard math from the shipped code, the Oracle gate, the one cent intel loop that makes the sniper a paying customer of its own platform, the self-custodial package with its CLI, MCP, and x402 faces, every surface that runs on it, tutorials, and the honest limits. $THREE is the only coin.*
+*Long-form X article. The complete story of the agent sniper: why we built it, the five entry triggers, the exact scoring and guard math from the shipped code, the Oracle gate, the one cent intel loop that makes the sniper a paying customer of its own platform, the self-custodial package with its CLI, MCP, and x402 faces, tutorials, and the honest limits. $THREE is the only coin.*
 
 A new pump.fun coin exists for milliseconds before the bots see it. Thousands of snipers watch the same feed, and most of them are the same script: buy everything, dump fast, no memory, no judgment, no brakes. Speed is commoditized; discipline is the actual edge. A bot that buys every launch is not a trader. It is a donation.
 
-The three.ws agent sniper is the other kind of machine. It is the autonomous trading engine behind the Sniper Arena, the hands of the Oracle conviction engine, and the platform's proof that a 3D agent with a wallet can run a real, risk-bounded trading operation in public. Every trade is signed by the agent's own wallet, verifiable on chain, streamed live, and graded against what actually happened. And in its most interesting loop, the sniper pays the platform's own paid intelligence API one cent of real USDC per read to tune its own decisions. The trading engine is a customer of the intelligence engine. That is the agent-to-agent economy running in production, not in a slide deck.
+The three.ws agent sniper is the other kind of machine: the autonomous trading engine behind the Sniper Arena, the hands of the Oracle conviction engine, and the platform's proof that a 3D agent with a wallet can run a real, risk-bounded trading operation in public. Every trade is signed by the agent's own wallet, verifiable on chain, streamed live, and graded against what actually happened. And in its most interesting loop, the sniper pays the platform's own paid intelligence API one cent of real USDC per read to tune its own decisions. The trading engine is a customer of the intelligence engine. That is the agent-to-agent economy running in production, not in a slide deck.
 
 This is everything about it.
 
@@ -21,12 +21,12 @@ This is everything about it.
 The production sniper is a long-lived Node worker, deliberately not a serverless cron, because an hourly tick cannot snipe a launch. Inside one process:
 
 1. **The feed loop** holds the PumpPortal new-mint stream open and scores every launch the instant it exists.
-2. **The intel watcher** observes each new coin's first seconds on a separate socket, classifies it, and drives the pickier strategies with a full picture: bundle likelihood, organic score, holder concentration, dev behavior.
+2. **The intel watcher** observes each new coin's first seconds on a separate socket and drives the pickier strategies with a full picture: bundle likelihood, organic score, holder concentration, dev behavior.
 3. **The first-claim poll** watches the on-chain pump.fun fee-claim stream for creators pulling rewards for the first time ever.
-4. **The pre-launch radar** watches the wallets of proven creators and smart money for the on-chain precursors of a launch, before it hits any public feed.
+4. **The pre-launch radar** watches proven creator and smart-money wallets for the on-chain precursors of a launch, before it hits any public feed.
 5. **The position sweep** re-quotes every open position on chain every five seconds and exits on a fixed priority order.
 6. **The swarm loop** pools member agents' verified track records into reputation-weighted consensus buys from a shared treasury.
-7. **The heartbeat** publishes liveness so /api/sniper/status can tell you, honestly, whether the engine and its feed are actually alive.
+7. **The heartbeat** publishes liveness so /api/sniper/status can tell you, honestly, whether the engine and its feed are alive.
 
 Every path converges on a single executor. There is exactly one function in the codebase that signs and broadcasts a buy, and every trigger, no matter how exotic, goes through its full guard stack.
 
@@ -40,7 +40,7 @@ A strategy declares its trigger, and the trigger decides which loop feeds it.
 
 **alpha_hunt** scores on the fully enriched intel record, including the live smart-money graph read of who reputable is already in the coin.
 
-**first_claim** is the patient one. It fires when a creator claims accrued rewards for the first time ever, filtered by a claim-size floor and ceiling in lamports, a freshness gate (claims older than five minutes are ignored by default), and an owner-set buy delay of up to ten minutes. A creator taking real fees is a creator with something to protect.
+**first_claim** is the patient one. It fires when a creator claims accrued rewards for the first time ever, filtered by a claim-size floor and ceiling in lamports, a freshness gate (claims older than five minutes are ignored by default), and an owner-set buy delay of up to ten minutes. A creator taking real fees has something to protect.
 
 **prelaunch_radar** is block-zero precognition. It watches an auto-curated list of proven creator and smart-money wallets and detects the public, on-chain precursors of a launch: a watched wallet submitting a pump.fun create instruction (confidence 0.9), a watched wallet funding a brand-new deploy wallet (0.5), and that fresh wallet then submitting the create (0.85, the correlated mint). It acts only on public chain data, never on intercepting anyone's pending transaction, and it anchors its cursor on first sight of a wallet so it never backfills a stale launch. When RPC fails repeatedly it backs off exponentially, capped at two minutes, reports itself paused, and the feed-based paths carry on. It never fabricates a precursor.
 
@@ -63,9 +63,9 @@ The order is fixed and every check short-circuits before any transaction is buil
 3. **Daily budget.** Per-agent spend is tracked in lamports per UTC day. A trade that would cross it is skipped; a strategy with no budget never trades at all.
 4. **The Oracle gate** (below).
 5. **Idempotency claim.** The engine atomically reserves the (agent, mint, network) slot before any transaction. A second event for the same coin, from any trigger, is skipped. One shot per coin per agent, ever.
-6. **Wallet and headroom.** The agent's keypair is resolved; a missing wallet fails cleanly, never auto-provisioned. The engine then requires roughly 0.012 SOL of headroom above the trade size, so a snipe can never drain the wallet below the cost of its own exit's fee.
-7. **Price impact circuit breaker.** A fresh on-chain quote is taken; if the impact exceeds the strategy's ceiling (10 percent in the reference strategy), the buy aborts.
-8. **The safety firewall.** An optional rug and honeypot assessment runs after the quote and before broadcast. A block verdict cancels the trade; a firewall crash degrades to warn rather than killing the loop.
+6. **Wallet and headroom.** The agent's keypair is resolved; a missing wallet fails cleanly, never auto-provisioned. The engine requires roughly 0.012 SOL of headroom above the trade size, so a snipe can never drain the wallet below the cost of its own exit's fee.
+7. **Price impact circuit breaker.** A fresh on-chain quote is taken; impact above the strategy's ceiling (10 percent in the reference strategy) aborts the buy.
+8. **The safety firewall.** An optional rug and honeypot assessment runs after the quote, before broadcast. A block verdict cancels the trade; a firewall crash degrades to warn rather than killing the loop.
 9. **The tip guard.** In live mode the executor routes through Jito bundles, and a tip is real SOL leaving the wallet, so it is checked against the same daily budget before it is appended. A tip that would cross the budget vetoes the trade.
 
 Above all of that sit three kill switches: the per-strategy kill switch (which also exits any held position at market on the next sweep), disarming (new buys stop, open positions still exit on their rules), and the global kill, one environment flag that halts every buy across every agent while position management continues.
@@ -84,7 +84,7 @@ A strategy can set a minimum Oracle conviction score. Before any snipe, the gate
 
 The macro adjustment reads the market-wide signals the autonomous x402 loop buys on three topics: SOL, the broader majors, and pump.fun activity, weighted 1.2, 0.8, and 1.5. A bearish read raises the bar by up to ten points per topic scaled by confidence; a bullish read lowers it by up to five. The total is clamped to plus or minus fifteen points. In a bearish tape the sniper demands more conviction; in a bullish one it loosens, modestly.
 
-The per-coin adjustment is the one to remember. On a cadence, the Sniper Intel Enrichment pipeline selects the coins the sniper is actively watching: its open positions first (a sentiment flip on a held coin is an exit signal), then the freshest Oracle candidates from the last twelve hours in the prime, strong, lean, and watch tiers. For each, up to eight per run, it pays POST /api/x402/crypto-intel one cent of real on-chain USDC through the platform's own x402 client and gets a live market read back. A bearish signal raises that specific coin's snipe bar by up to eight points scaled by confidence; a bullish one lowers it by up to four. The asymmetry is deliberate: conservative on weakness, modest on strength. The delta is clamped to plus or minus ten points, expires after thirty minutes, and fails open, so this layer can nudge a snipe but never dominate or hard-veto one.
+The per-coin adjustment is the one to remember. On a cadence, the Sniper Intel Enrichment pipeline selects the coins the sniper is actively watching: open positions first (a sentiment flip on a held coin is an exit signal), then the freshest Oracle candidates from the last twelve hours in the prime, strong, lean, and watch tiers. For each, up to eight per run, it pays POST /api/x402/crypto-intel one cent of real on-chain USDC through the platform's own x402 client and gets a live market read back. A bearish signal raises that coin's snipe bar by up to eight points scaled by confidence; a bullish one lowers it by up to four. Conservative on weakness, modest on strength, by design. The delta is clamped to plus or minus ten points, expires after thirty minutes, and fails open, so this layer can nudge a snipe but never dominate or hard-veto one.
 
 Two details make the loop honest. The endpoint resolves each ticker against a real market listing and throws 503 before settlement when none exists, so the wallet is never charged for a coin with no real market read, and no signal is ever invented. And every paid call lands in the autonomous log with its transaction signature, so the sniper's intel bill is itself auditable on chain.
 

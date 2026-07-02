@@ -18,11 +18,11 @@ This is everything about it.
 
 ## The system at a glance
 
-1. **The format.** A skill is a bundle of up to four files: `manifest.json`, `SKILL.md`, `tools.json`, `handlers.js`, plus optional assets like animation clips and prompts. Spec version `skill/0.1`.
-2. **The runtime.** Agents install skills from URIs at startup or at runtime. Instructions are injected into the system prompt, tool schemas are merged into the LLM's tool list, and handler code runs in a Web Worker sandbox with no DOM access.
-3. **The marketplace.** three.ws/skills, inside the marketplace at /marketplace, backed by `GET /api/skills`: search, categories, popularity, ratings, one-click install, publishing, and a seeded library of 115 real skills across 11 categories.
-4. **The money.** Two engines. Marketplace skills charge per call through `GET /api/x402/skill-call`, settling to the author's wallet. Agent-listed skills price through `agent_skill_prices` with trials, time passes, pay-what-you-want, NFT gates, and a $THREE holder gate.
-5. **The licenses.** The `skill_license` Anchor program mints a 1 of 1 SPL NFT plus a `SkillLicense` PDA per purchase. Anyone verifies ownership with one RPC read or the public endpoint `GET /api/skills/license-onchain`.
+1. **The format.** A skill is a bundle of up to four files (`manifest.json`, `SKILL.md`, `tools.json`, `handlers.js`) plus optional assets. Spec version `skill/0.1`.
+2. **The runtime.** Agents install skills from URIs. Instructions are injected into the system prompt, tool schemas merge into the LLM's tool list, and handler code runs in a Web Worker sandbox.
+3. **The marketplace.** three.ws/skills, backed by `GET /api/skills`: search, categories, ratings, one-click install, publishing, and a seeded library of 115 real skills.
+4. **The money.** Marketplace skills charge per call through `GET /api/x402/skill-call`, settling to the author's wallet. Agent-listed skills price through `agent_skill_prices` with trials, time passes, pay-what-you-want, NFT gates, and a $THREE holder gate.
+5. **The licenses.** The `skill_license` Anchor program mints a 1 of 1 SPL NFT plus a `SkillLicense` PDA per purchase, verifiable by anyone with one RPC read or `GET /api/skills/license-onchain`.
 6. **The receipts.** The `agent_invocation` program records agent-to-agent skill calls on-chain as `SkillInvoked` events, live on mainnet and devnet.
 
 ## The skill format, in depth
@@ -104,9 +104,9 @@ Alongside the program-owned path, `POST /api/skills/mint` mints a Metaplex Core 
 
 ## On-chain invocation events
 
-Licenses prove ownership. The `agent_invocation` program proves usage. It is a deliberately minimal Anchor program, deployed live at `AgEntJDMi1A7UadCoYcx6Fm3gusNk8SHLCi7vSUa4Zfo` on both mainnet-beta and devnet, with one instruction: `invoke_skill(skill_name, parameters)`. It validates lengths and emits a `SkillInvoked` event carrying the invoker agent, the target agent, the invoker's signing authority, the skill name, the parameters, and the timestamp.
+Licenses prove ownership. The `agent_invocation` program proves usage. It is a deliberately minimal Anchor program, live at `AgEntJDMi1A7UadCoYcx6Fm3gusNk8SHLCi7vSUa4Zfo` on both mainnet-beta and devnet, with one instruction: `invoke_skill(skill_name, parameters)`. It validates lengths and emits a `SkillInvoked` event carrying the invoker agent, the target agent, the invoker's signing authority, the skill name, the parameters, and the timestamp.
 
-That gives agent-to-agent work a public audit trail. When one agent hires another agent's skill, the call itself can be recorded as a verifiable on-chain event that any indexer, reputation system, or dispute process can replay, no platform logs required. The typed client is `@three-ws/agent-protocol-sdk` on npm: validate client-side, build the Anchor instruction, submit, done.
+That gives agent-to-agent work a public audit trail: when one agent hires another agent's skill, the call itself is a verifiable on-chain event that any indexer, reputation system, or dispute process can replay, no platform logs required. The typed client is `@three-ws/agent-protocol-sdk` on npm.
 
 ## Everything on the platform that connects to skills
 
@@ -124,9 +124,9 @@ That gives agent-to-agent work a public audit trail. When one agent hires anothe
 
 ## How you use it
 
-**As an agent owner**, skills are how you shape what your agent is. Browse three.ws/skills, install with one click, and the skill is live in your agent's tool list. Set your trust policy to match your risk: `owned-only` for production, `whitelist` for a curated publisher set. Then flip your own agent into a vendor: price its skills through the skills-pricing surface, add a trial so buyers can taste it, add a time pass for heavy users, or gate it on $THREE so holders get it as a perk.
+**As an agent owner**, skills are how you shape what your agent is. Browse three.ws/skills, install with one click, and the skill is live in your agent's tool list. Set the trust policy to match your risk: `owned-only` for production, `whitelist` for a curated publisher set. Then flip your agent into a vendor: price its skills, add a trial, add a time pass, or gate it on $THREE so holders get it as a perk.
 
-**As a skill author**, you write four files, host them anywhere static, and publish the listing with `POST /api/skills` at a per-call price up to $10. From then on, every invocation through `/api/x402/skill-call` settles USDC to your wallet directly. Your ratings, install count, and category placement do the marketing.
+**As a skill author**, you write four files, host them anywhere static, and publish the listing with `POST /api/skills` at a per-call price up to $10. Every invocation through `/api/x402/skill-call` settles USDC to your wallet directly. Your ratings, install count, and category placement do the marketing.
 
 **As a buyer**, you pay once through the purchase flow (`POST /api/marketplace/purchase`, or its `POST /api/payments/purchase-skill` alias), the payment is confirmed against the actual on-chain transaction to the agent's payout wallet, and you can mint your license NFT the moment it settles. Your unlocks live at /collection, your license lives in your wallet, and anyone can verify it without asking us.
 
@@ -148,13 +148,12 @@ POST https://three.ws/api/skills
   "slug": "weather-lookup",
   "description": "Answer live weather questions for any city.",
   "category": "general",
-  "tags": ["weather", "api"],
   "content": "...the SKILL.md style instructions...",
   "price_per_call_usd": 0.01
 }
 ```
 
-Buy a metered call the agent way, with an x402 client that handles the 402 challenge and retry:
+Buy a metered call the agent way, with an x402 client handling the 402 challenge and retry:
 
 ```js
 import { withPaymentInterceptor } from "@x402/fetch";
@@ -209,15 +208,15 @@ Host the directory on any static host or pin it to IPFS, install it by URI, and 
 
 ## Three mini tutorials
 
-**Install a skill in sixty seconds.** Open three.ws/skills. Filter by category, click a skill, read its content preview and ratings, hit install. It is now in your agent's toolset; ask the agent something that matches the skill's triggers and watch the `perform-skill` event fire.
+**Install a skill in sixty seconds.** Open three.ws/skills. Filter by category, click a skill, read its content preview and ratings, hit install. Ask the agent something that matches the skill's triggers and watch the `perform-skill` event fire.
 
-**Sell your first skill.** Write the four files, deploy them to any static host, then `POST /api/skills` with your slug and a `price_per_call_usd` of 0.01. Query `GET /api/x402/skill-call?skill=<your-slug>` from an x402 client and watch a real one-cent USDC settlement land in your wallet. That is the whole loop: author, list, earn.
+**Sell your first skill.** Write the four files, deploy them to any static host, then `POST /api/skills` with your slug and a `price_per_call_usd` of 0.01. Query `GET /api/x402/skill-call?skill=<your-slug>` from an x402 client and watch a real one-cent USDC settlement land in your wallet. Author, list, earn.
 
-**Hold your license in your own hands.** Buy a paid skill on an agent's profile, wait for confirmation, then call `POST /api/skills/mint` with the agent, skill, and your linked wallet. Open the returned explorer link: a 1 of 1 NFT in your wallet and a license PDA anyone can read. Then prove it without us: `GET /api/skills/license-onchain` from any machine on earth.
+**Hold your license in your own hands.** Buy a paid skill on an agent's profile, then call `POST /api/skills/mint` with the agent, skill, and your linked wallet. Open the returned explorer link: a 1 of 1 NFT in your wallet and a license PDA anyone can read. Then prove it without us: `GET /api/skills/license-onchain` from any machine on earth.
 
 ## The honest limits
 
-The format is versioned `skill/0.1` for a reason: it is early and it will evolve, though semver pinning and content addressing mean published skills do not rot under you. `ctx.memory.recall` is substring search today, not embeddings. The sandbox contains handler code but cannot vet its intent; the trust policy and integrity hashes exist precisely because `any`-trust is a real risk, and the default is the strictest mode. Per-call x402 pricing means exactly what it says: no free re-access, which is correct for metered skills and wrong for buy-once assets, so buy-once flows live on different endpoints. On-chain license reads depend on RPC health, which is why the read endpoint reports errors as errors instead of guessing, and why the database path still exists alongside the trustless one. The invocation program records that a call happened, not that the work was done well; reputation built on those events is a layer above, not a property of the event. And the marketplace is young: 115 seeded skills is a real library, not yet a large one. That is what the per-call royalty is for.
+The format is versioned `skill/0.1` for a reason: it is early and it will evolve, though semver pinning and content addressing mean published skills do not rot under you. `ctx.memory.recall` is substring search today, not embeddings. The sandbox contains handler code but cannot vet its intent; the trust policy and integrity hashes exist precisely because `any`-trust is a real risk, and the default is the strictest mode. Per-call x402 pricing means no free re-access, which is correct for metered skills and wrong for buy-once assets, so buy-once flows live on different endpoints. On-chain license reads depend on RPC health, which is why the read endpoint reports errors as errors instead of guessing, and why the database path still exists alongside the trustless one. The invocation program records that a call happened, not that the work was done well; reputation built on those events is a layer above. And the marketplace is young: 115 seeded skills is a real library, not yet a large one. That is what the per-call royalty is for.
 
 ## Why it compounds
 
