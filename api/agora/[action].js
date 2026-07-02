@@ -36,6 +36,18 @@ import { assembleTaskLive } from '../_lib/agora-task-live.js';
 // import the very same constants rather than re-declaring them here.
 import { EXCLUSIVE_TERMINAL_KINDS, MULTI_TERMINAL_KINDS, isArenaType, isGuildType } from '../../workers/agora-citizens/policy.js';
 
+// Redact URL credentials (Helius/RPC `?api-key=`, bearer tokens, secrets) from an
+// error message before it reaches a log sink. A Solana web3.js network error
+// embeds the keyed RPC URL, so logging its raw `.message` on a best-effort catch
+// would spill the RPC key (HELIUS_API_KEY) into Vercel logs. Keeps the rest of the
+// message for debugging; only the credential value is masked.
+function redactSecrets(text) {
+	return String(text ?? '').replace(
+		/([?&](?:api[-_]?key|access[-_]?token|token|secret|key|auth)=)[^&\s"'`]+/gi,
+		'$1REDACTED',
+	);
+}
+
 // The only coin Agora denominates in. Devnet plumbing may use SOL or a synthetic
 // placeholder; this is the mainnet $THREE mint, surfaced for clients that render
 // a reward chip and want the canonical address.
@@ -297,7 +309,7 @@ async function handleBoard(req, res) {
 	} catch (err) {
 		// The board degrades gracefully — a bazaar outage drops lane 2, never 500s
 		// the whole board. AgenC tasks still render.
-		console.warn('[agora] bazaar lane failed:', err?.message);
+		console.warn('[agora] bazaar lane failed:', redactSecrets(err?.message));
 		errors.push({ source: 'x402', error: err?.message || 'bazaar_unavailable' });
 	}
 
@@ -428,7 +440,7 @@ async function handlePassport(req, res) {
 				};
 			}
 		} catch (err) {
-			console.warn('[agora] passport on-chain read failed:', err?.message);
+			console.warn('[agora] passport on-chain read failed:', redactSecrets(err?.message));
 		}
 	}
 
@@ -525,7 +537,7 @@ async function handleTaskLive(req, res) {
 		client = createAgenCClient({ cluster, rpcUrl: pickRpc(cluster) });
 	} catch (err) {
 		// SDK dist unavailable — we can still serve the projection if a PDA was given.
-		console.warn('[agora] task-live: SDK client unavailable, projection-only:', err?.message);
+		console.warn('[agora] task-live: SDK client unavailable, projection-only:', redactSecrets(err?.message));
 	}
 	try {
 		if (q.taskPda) {
@@ -593,7 +605,7 @@ async function handleTaskLive(req, res) {
 				};
 			}
 		} catch (err) {
-			console.warn('[agora] task-live on-chain read failed:', err?.message);
+			console.warn('[agora] task-live on-chain read failed:', redactSecrets(err?.message));
 		}
 	}
 

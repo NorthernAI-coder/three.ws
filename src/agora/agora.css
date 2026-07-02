@@ -46,7 +46,7 @@ html, body {
 }
 .agora-loading-sub {
 	font-size: 12px;
-	color: rgba(255, 255, 255, 0.28);
+	color: rgba(255, 255, 255, 0.62);
 	letter-spacing: 0.06em;
 	min-height: 18px;
 }
@@ -82,7 +82,7 @@ html, body {
 #agora-hud-sub {
 	letter-spacing: 0.12em;
 	font-weight: 500;
-	color: rgba(255, 255, 255, 0.3);
+	color: rgba(255, 255, 255, 0.6);
 	text-transform: none;
 }
 
@@ -102,7 +102,7 @@ html, body {
 #agora-controls-hint {
 	position: absolute; top: 18px; right: 20px;
 	font-size: 10px;
-	color: rgba(255, 255, 255, 0.28);
+	color: rgba(255, 255, 255, 0.6);
 	letter-spacing: 0.05em;
 	user-select: none;
 	line-height: 1.6;

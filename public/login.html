@@ -642,9 +642,11 @@
 					<label><input type="checkbox" id="remember" /> Remember me</label>
 					<a href="/forgot-password" class="forgot">Forgot password?</a>
 				</div>
-				<!-- CAPTCHA slot — only revealed when the server rate-limits this IP -->
+				<!-- CAPTCHA slot — only revealed when the server rate-limits this IP.
+				     The <altcha-widget> is injected lazily by showCaptcha(); keeping its
+				     internal required checkbox out of the DOM during normal sign-in stops
+				     the browser from aborting form submission on a non-focusable control. -->
 				<div id="captcha-wrap" aria-live="polite">
-					<altcha-widget id="altcha-widget" challengeurl="/api/auth/captcha" hidefooter></altcha-widget>
 					<p class="captcha-hint">Prove you're human to continue signing in.</p>
 				</div>
 
@@ -982,11 +984,28 @@
 				// the user solves a short CPU puzzle, gets a signed bypass token, and the
 				// next login attempt uses that token to skip the normal rate-limit bucket.
 				const captchaWrap = document.getElementById('captcha-wrap');
-				const altchaWidget = document.getElementById('altcha-widget');
+				const captchaHint = captchaWrap.querySelector('.captcha-hint');
+				let altchaWidget = null;
 				let captchaToken = null;
 				let captchaPending = false;
 
+				// Create the Altcha widget on demand. It ships a hidden required
+				// checkbox; injecting it only when a captcha is actually needed keeps
+				// that control out of the form during normal sign-in, so the browser
+				// never aborts submission on a non-focusable required field.
+				function ensureCaptchaWidget() {
+					if (altchaWidget) return altchaWidget;
+					altchaWidget = document.createElement('altcha-widget');
+					altchaWidget.id = 'altcha-widget';
+					altchaWidget.setAttribute('challengeurl', '/api/auth/captcha');
+					altchaWidget.setAttribute('hidefooter', '');
+					altchaWidget.addEventListener('statechange', onCaptchaStateChange);
+					captchaWrap.insertBefore(altchaWidget, captchaHint);
+					return altchaWidget;
+				}
+
 				function showCaptcha() {
+					ensureCaptchaWidget();
 					captchaWrap.classList.add('show');
 					btn.disabled = true;
 					btn.textContent = 'Complete the check below…';
@@ -999,11 +1018,13 @@
 					captchaWrap.classList.remove('show');
 					captchaToken = null;
 					captchaPending = false;
+					// Reset the widget so a fresh challenge is fetched next time.
+					altchaWidget?.reset?.();
 				}
 
-				// Altcha fires a 'statechange' event when the widget completes.
+				// Altcha fires a 'statechange' event when the puzzle is solved.
 				// Payload is base64 JSON; we verify it server-side at /api/auth/captcha.
-				altchaWidget?.addEventListener('statechange', async (e) => {
+				async function onCaptchaStateChange(e) {
 					if (e.detail?.state !== 'verified' || !e.detail?.payload) return;
 					if (captchaPending) return;
 					captchaPending = true;
@@ -1038,7 +1059,7 @@
 						btn.textContent = 'Complete the check below…';
 						btn.disabled = true;
 					}
-				});
+				}
 
 				// ── Rate-limit cooldown (fallback when CAPTCHA is not available) ──
 				// When captcha_available is true the puzzle UI takes over instead.

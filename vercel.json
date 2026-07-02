@@ -106,7 +106,11 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 90
 		},
-		"{api/input-photo,api/vision,api/a2f,api/autopilot/proposals,api/ibm/galaxy,api/ibm/vision,api/agent/reflect,api/walk/pilot,api/agent-trade/demo,api/inference/livepeer,api/tts/speak,api/x402-pay,api/x402/vanity-verifiable,api/x402/pump-launch,api/zauth-reposcan,api/chat,api/oracle/trades,api/copy/settle-fee}.js": {
+		"{api/input-photo,api/vision,api/a2f,api/autopilot/proposals,api/ibm/galaxy,api/ibm/vision,api/agent/reflect,api/walk/pilot,api/agent-trade/demo}.js": {
+			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"maxDuration": 60
+		},
+		"{api/inference/livepeer,api/tts/speak,api/x402-pay,api/x402/vanity-verifiable,api/x402/pump-launch,api/zauth-reposcan,api/chat,api/oracle/trades,api/copy/settle-fee}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
