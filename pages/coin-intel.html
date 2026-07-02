@@ -789,7 +789,7 @@
 				const dlinks = drawerBody.querySelector('.d-links');
 				if (dlinks) {
 					const oracleA = document.createElement('a');
-					oracleA.href = `/oracle?mint=${encodeURIComponent(mint)}`;
+					oracleA.href = `/oracle/coin/${encodeURIComponent(mint)}`;
 					oracleA.target = '_blank';
 					oracleA.rel = 'noopener';
 					oracleA.textContent = 'Oracle ↗';
@@ -835,7 +835,7 @@
 						oracleSec.innerHTML = `<h4>Oracle conviction</h4>
 							<div class="ci-oracle-pill ci-oracle-${esc(tier)}">
 								<span>${esc(tierLabels[tier] || tier.toUpperCase())} · ${score}</span>
-								<a href="/oracle?mint=${encodeURIComponent(mint)}" style="color:inherit;opacity:.7;font-size:10px" target="_blank" rel="noopener">Full analysis ↗</a>
+								<a href="/oracle/coin/${encodeURIComponent(mint)}" style="color:inherit;opacity:.7;font-size:10px" target="_blank" rel="noopener">Full analysis ↗</a>
 							</div>
 							${pillarsHtml ? `<div class="ci-oracle-pillars">${pillarsHtml}</div>` : ''}`;
 
@@ -920,7 +920,8 @@
 					${walletRows || '<span class="sub" style="color:var(--ci-faint);font-size:12px">No wallet-level data captured for this coin yet.</span>'}
 				</div>
 				<div class="d-section"><div class="d-links">
-					<a class="primary" href="/coin3d?mint=${encodeURIComponent(c.mint)}">Open in 3D →</a>
+					<a class="primary" href="/oracle/coin/${encodeURIComponent(c.mint)}">Full coin page →</a>
+					<a href="/coin3d?mint=${encodeURIComponent(c.mint)}">Open in 3D →</a>
 					<a href="https://pump.fun/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener noreferrer">pump.fun ↗</a>
 					<a href="https://solscan.io/token/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener noreferrer">Solscan ↗</a>
 				</div></div>`;

@@ -625,7 +625,7 @@ async function enrichDrawerWithOracle(id) {
 			const peak = a.peak_multiple != null ? `${Number(a.peak_multiple).toFixed(1)}×` : '—';
 			const sym = esc((a.symbol || a.mint.slice(0, 6)).toUpperCase());
 			const peakCls = (a.peak_multiple ?? 0) >= 2 ? ' up' : '';
-			return `<a class="dw-oracle-action" href="/oracle?mint=${encodeURIComponent(a.mint)}" target="_blank" rel="noopener">
+			return `<a class="dw-oracle-action" href="/oracle/coin/${encodeURIComponent(a.mint)}" target="_blank" rel="noopener">
 				<span class="dw-oracle-dot ${outcome}"></span>
 				<span class="dw-oracle-sym">${sym}</span>
 				<span class="dw-oracle-tier">${tier}</span>

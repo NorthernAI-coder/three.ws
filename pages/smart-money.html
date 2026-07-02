@@ -875,7 +875,7 @@
 									${oraclePillarBar('Momentum', p.momentum, PILLAR_COLOR.momentum)}
 								</div>
 							</div>
-							<a href="/oracle?mint=${encodeURIComponent(mint)}" class="sm-oracle-link" target="_blank" rel="noopener">Full conviction breakdown →</a>`;
+							<a href="/oracle/coin/${encodeURIComponent(mint)}" class="sm-oracle-link" target="_blank" rel="noopener">Full coin page →</a>`;
 					});
 			} catch (e) {
 				$('drBody').innerHTML = `<div class="state"><b>Not scored yet.</b>This coin hasn't been picked up by the radar.</div>`;

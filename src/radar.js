@@ -1390,6 +1390,11 @@ function renderDrawerContent(panel, coin) {
 
 	// links + socials
 	const links = el('div', 'rd-section rd-links');
+	if (coin.network !== 'devnet') {
+		const page = el('a', 'radar-btn', 'Full coin page →');
+		page.href = `/oracle/coin/${coin.mint}`;
+		links.append(page);
+	}
 	const scan = el('a', 'radar-btn radar-btn--ghost', 'Solscan');
 	scan.href = solscanToken(coin.mint, coin.network); scan.target = '_blank'; scan.rel = 'noopener noreferrer';
 	links.append(scan);
@@ -1449,7 +1454,7 @@ function renderDrawerContent(panel, coin) {
 				}
 
 				const link = el('a', 'radar-btn radar-btn--ghost rd-oracle-link', 'Full conviction →');
-				link.href = `/oracle?mint=${encodeURIComponent(coin.mint)}`;
+				link.href = `/oracle/coin/${encodeURIComponent(coin.mint)}`;
 				link.target = '_blank';
 				link.rel = 'noopener noreferrer';
 				link.style.cssText = 'color:' + meta.color + ';border-color:' + meta.color + '40;margin-top:8px';

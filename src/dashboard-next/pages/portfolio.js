@@ -617,7 +617,7 @@ async function enrichHoldingsOracle(tbody) {
 		const badge = row.querySelector('.pf-oracle-badge');
 		if (!badge || badge.hasChildNodes()) continue;
 		const color = PF_TIER_COLOR[d.tier] || '#94a3b8';
-		badge.innerHTML = `<a class="pf-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} · ${d.tier}" onclick="event.stopPropagation()" style="color:${color}">◎ ${d.score}</a>`;
+		badge.innerHTML = `<a class="pf-ob" href="/oracle/coin/${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} · ${d.tier}" onclick="event.stopPropagation()" style="color:${color}">◎ ${d.score}</a>`;
 	}
 }
 
@@ -631,7 +631,7 @@ async function enrichPumpOracle(tbody) {
 		const d = results[mint];
 		if (!d || d.score == null) { cell.textContent = '—'; continue; }
 		const color = PF_TIER_COLOR[d.tier] || '#94a3b8';
-		cell.innerHTML = `<a class="pf-ob pf-ob-pump" href="/oracle?mint=${encodeURIComponent(mint)}" title="${d.score} · ${d.tier}" style="color:${color}">◎ ${d.score} <span style="font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.05em">${d.tier}</span></a>`;
+		cell.innerHTML = `<a class="pf-ob pf-ob-pump" href="/oracle/coin/${encodeURIComponent(mint)}" title="${d.score} · ${d.tier}" style="color:${color}">◎ ${d.score} <span style="font-size:9px;opacity:.8;text-transform:uppercase;letter-spacing:.05em">${d.tier}</span></a>`;
 	}
 }
 
@@ -662,7 +662,7 @@ async function enrichDrawerOracle(host, mint) {
 					<span class="pf-oracle-tier" style="color:${color}">${cv.tier || ''}</span>
 				</div>
 				${pillarHtml ? `<div class="pf-oracle-pillars">${pillarHtml}</div>` : ''}
-				<a class="pf-oracle-link" href="/oracle?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener">Full conviction breakdown ↗</a>
+				<a class="pf-oracle-link" href="/oracle/coin/${encodeURIComponent(mint)}" target="_blank" rel="noopener">Full conviction breakdown ↗</a>
 			</div>`;
 	} catch { /* non-fatal */ }
 }

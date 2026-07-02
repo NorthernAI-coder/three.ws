@@ -2212,7 +2212,7 @@ async function renderOracleTrackRecord(agentId) {
 				: '';
 			const row = document.createElement('a');
 			row.className = 'ad-trade-row';
-			row.href = a.oracle_url || `https://three.ws/oracle?mint=${a.mint}`;
+			row.href = a.oracle_url || `https://three.ws/oracle/coin/${a.mint}`;
 			row.target = '_blank';
 			row.rel = 'noopener noreferrer';
 			row.innerHTML = `<span class="ad-trade-outcome ${outcome}"></span><span class="ad-trade-symbol">$${escapeText((a.symbol || '?').toUpperCase())}</span><span class="ad-trade-tier">${tierE} ${escapeText(a.tier || '')}</span><span class="ad-trade-peak">${peak}</span><span class="ad-trade-pnl ${pnlVal != null && pnlVal >= 0 ? 'positive' : pnlVal != null ? 'negative' : ''}">${pnlText}</span>`;

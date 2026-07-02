@@ -200,6 +200,24 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tape-sol.buy { color: var(--up); } .tape-sol.sell { color: var(--down); }
 .tape-mc { color: var(--faint); font-size: 10px; white-space: nowrap; }
 
+/* price chart */
+.oc-chart { margin-top: 20px; }
+.oc-chart-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.oc-seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.oc-seg-btn { padding: 6px 14px; border-radius: 999px; border: none; background: none; color: var(--muted); font: 600 12px/1 var(--mono); transition: background .16s, color .16s; }
+.oc-seg-btn.on { background: color-mix(in srgb, var(--cyan) 20%, transparent); color: var(--ink); }
+.oc-seg-btn:hover:not(.on) { color: var(--ink); }
+.oc-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.oc-chart-canvas { border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: rgba(0,0,0,0.18); min-height: 300px; position: relative; }
+.oc-chart-frame { width: 100%; height: 440px; border: 0; display: block; opacity: 0; transition: opacity .3s; }
+.oc-chart-canvas.ready .oc-chart-frame { opacity: 1; }
+.oc-chart-skel { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(255,255,255,0.02) 30%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.02) 70%); background-size: 200% 100%; animation: mktShimmer 1.2s linear infinite; }
+.oc-chart-svg { display: block; width: 100%; height: 260px; padding: 10px 6px 4px; }
+.oc-chart-readout { display: flex; align-items: baseline; gap: 10px; padding: 12px 14px 0; font: 700 15px/1 var(--mono); }
+.oc-chart-readout .mkt-up, .oc-chart-readout .mkt-down, .oc-chart-readout .mkt-flat { font-size: 12px; }
+.oc-chart-price { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .oc-chart-skel { animation: none; } }
+
 /* states */
 .state { padding: 40px 22px; text-align: center; color: var(--muted); }
 .state b { display: block; color: var(--ink); font-size: 16px; margin-bottom: 8px; }

@@ -252,8 +252,8 @@ class HomeLiveToken {
 			}
 		}
 		if (this.el.link) {
-			this.el.link.href = `https://pump.fun/coin/${coin.mint}`;
-			this.el.link.title = `View $${sym} on pump.fun`;
+			this.el.link.href = `/oracle/coin/${coin.mint}`;
+			this.el.link.title = `View $${sym} — conviction, market & live trades`;
 		}
 		this._renderPrice();
 	}

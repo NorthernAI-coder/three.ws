@@ -617,6 +617,7 @@
 		if (!deep) return;
 		deep.innerHTML = `
 			<div id="ocTake"></div>
+			<div id="ocChart" class="oc-chart"></div>
 			<div id="ocHistory"></div>
 			<div class="oc-cols">
 				<div id="ocConviction">
@@ -633,6 +634,8 @@
 					<div id="ocRelated"></div>
 				</div>
 			</div>`;
+		const chartEl = $('#ocChart');
+		if (chartEl) mountChart(chartEl, mint);
 		loadMarket(mint);
 		loadHistory(mint);
 		loadProofTrades(mint); // renders into #ocProof once the conviction column exists

@@ -435,7 +435,7 @@ function paintOracleBadge(card, mint, data) {
 	const badge = card.querySelector('.lx-oracle-badge');
 	if (!badge || !data || data.score == null) return;
 	const color = ORACLE_TIER_COLOR[data.tier] || '#94a3b8';
-	badge.innerHTML = `<a class="lx-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${data.score} — ${data.tier || 'unscored'}" tabindex="-1" aria-hidden="true">
+	badge.innerHTML = `<a class="lx-ob-link" href="/oracle/coin/${encodeURIComponent(mint)}" title="Oracle conviction: ${data.score} — ${data.tier || 'unscored'}" tabindex="-1" aria-hidden="true">
 		<span class="lx-ob-score" style="color:${color}">${data.score}</span>
 		<span class="lx-ob-tier" style="color:${color}">${data.tier || ''}</span>
 	</a>`;

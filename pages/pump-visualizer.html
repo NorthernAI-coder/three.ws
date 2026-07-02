@@ -1857,7 +1857,7 @@
 					wBtn.setAttribute('aria-label', now ? 'Remove from watchlist' : 'Add to watchlist');
 				});
 				linksEl.appendChild(wBtn);
-				linksEl.appendChild(linkNode(`/oracle?mint=${encodeURIComponent(token.mint)}`, 'Oracle →', { internal: true }));
+				linksEl.appendChild(linkNode(`/oracle/coin/${encodeURIComponent(token.mint)}`, 'Oracle →', { internal: true }));
 			}
 
 			detailEl.classList.add('is-open');
@@ -1871,7 +1871,7 @@
 					if (!cv) { oracleSlot.innerHTML = ''; return; }
 					const TIER_COLOR = { prime: '#c084fc', strong: '#34d399', lean: '#fbbf24', watch: '#94a3b8', avoid: '#f87171' };
 					const color = TIER_COLOR[cv.tier] || '#94a3b8';
-					oracleSlot.innerHTML = `<a class="vz-oracle" href="/oracle?mint=${encodeURIComponent(token.mint)}" aria-label="Oracle conviction: ${cv.score} — ${cv.tier}">
+					oracleSlot.innerHTML = `<a class="vz-oracle" href="/oracle/coin/${encodeURIComponent(token.mint)}" aria-label="Oracle conviction: ${cv.score} — ${cv.tier}">
 						<div>
 							<div class="vz-oracle-label">Oracle conviction</div>
 							<div class="vz-oracle-score" style="color:${color}">${cv.score}</div>

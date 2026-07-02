@@ -219,7 +219,7 @@ function coinRowHTML(c) {
 	const thumb = c.agent?.avatar_thumbnail_url;
 	const monoInner = thumb ? `<img loading="lazy" alt="" src="${esc(thumb)}" />` : esc(monogram(sym));
 	return `
-		<a class="lp-coin" href="/launches/${esc(c.mint)}" title="${esc(c.name || sym)} — view coin">
+		<a class="lp-coin" href="/oracle/coin/${esc(c.mint)}" title="${esc(c.name || sym)} — view coin">
 			<span class="mono">${monoInner}</span>
 			<span class="meta">
 				<span class="nm">${esc(c.name || sym)}${c.symbol ? ` <span class="tk">$${esc(c.symbol)}</span>` : ''}</span>

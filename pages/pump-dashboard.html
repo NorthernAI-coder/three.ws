@@ -5246,7 +5246,7 @@
 					}).join('');
 					const sym = esc((c.symbol || '').toUpperCase() || (c.mint || '').slice(0, 6));
 					const name = esc(c.name || '');
-					return `<a class="pd-oracle-item" href="/oracle?mint=${encodeURIComponent(c.mint)}" target="_blank" rel="noopener">
+					return `<a class="pd-oracle-item" href="/oracle/coin/${encodeURIComponent(c.mint)}" target="_blank" rel="noopener">
 						<div class="pd-oracle-score-col" style="color:${meta.color}">
 							<span class="pd-oracle-score-num">${score}</span>
 							<span class="pd-oracle-score-label">score</span>

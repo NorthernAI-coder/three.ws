@@ -195,7 +195,7 @@ function renderLaunches(list) {
 				: `<span class="px-lb-av px-lb-av--mono" aria-hidden="true">${esc((c.symbol || c.coin_name || '?').charAt(0).toUpperCase())}</span>`;
 			const title = c.symbol ? `$${esc(c.symbol)}` : esc(c.coin_name || 'Coin');
 			return (
-				`<a class="px-lb-row" href="/launches/${esc(c.mint)}">` +
+				`<a class="px-lb-row" href="/oracle/coin/${esc(c.mint)}">` +
 				av +
 				`<span class="px-lb-name">${title}<small>by ${esc(a.name || 'agent')}</small></span>` +
 				`<span class="px-lb-metric">${esc(timeAgo(c.ts))}</span>` +

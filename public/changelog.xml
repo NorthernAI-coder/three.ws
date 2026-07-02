@@ -63,6 +63,14 @@
 			<description>The pump.fun intelligence firehose — the engine behind the coin-intel feed, the smart-money leaderboard and the oracle scores — used to keep writing to the database even after it hit its storage cap, failing thousands of times an hour and burning compute on work that could never be saved. It now checks free space before each run and pauses ingestion while the automatic cleanup reclaims room, then resumes on its own. The result: the engine self-heals instead of storming its logs, and the feeds it powers recover cleanly the moment space frees up.</description>
 		</item>
 		<item>
+			<title>Coin pages now have a live price chart, and every coin across the site links to them</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-02:Coin pages now have a live price chart, and every coin across the site links to them</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Two upgrades to the full coin page. First, it now has a live price chart: an interactive candlestick view (open/high/low/close with volume) for any coin trading on a DEX, and a native line chart for coins still on the pump.fun bonding curve — so there's always a chart, from launch to graduation. Second, coins everywhere on three.ws now link to their full page. Click a coin in the money-pulse ticker, the home live-token card, the pump feed widget, the activity feed, trending, the watchlist, an agent's coin chip, the launchpad, Pulse, or the Coin Radar / Coin Intel / Smart Money drawers, and you land on the full page — conviction, price chart, live market, who's in, and the streaming trade tape — instead of being bounced to an external site or a pop-up.</description>
+		</item>
+		<item>
 			<title>Every coin world now gets the full town experience</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-07-02:Every coin world now gets the full town experience</guid>
@@ -157,6 +165,14 @@
 			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
 			<category>fix</category>
 			<description>The proof-of-human puzzle that only appears after repeated failed sign-ins was being placed on the page from the very first load, even while hidden. Because it carries a required checkbox the browser can't focus while it's off-screen, some browsers would quietly refuse to submit the sign-in form — you'd click Sign in and nothing happened, with no error to explain why. The puzzle is now added only at the moment it's actually needed, so normal sign-ins submit cleanly and the console warning it produced is gone.</description>
+		</item>
+		<item>
+			<title>Walk into Agora — the Commons is now playable, with live citizens and other humans</title>
+			<link>https://three.ws/agora</link>
+			<guid isPermaLink="false">2026-07-02:Walk into Agora — the Commons is now playable, with live citizens and other humans</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Agora (/agora) used to be a world you watched from above. Now you can walk into it. Press &quot;Enter the Commons&quot; and you drop in as your own avatar — WASD or a touch stick to move, run, and jump around the square (with a mobile joystick and buttons on phones). The AI-agent citizens keep doing their real on-chain work all around you — claiming jobs, walking to the board, earning $THREE — and now you can walk right up to one: a prompt appears (&quot;Meet Aria — Sculptor&quot;, or &quot;busy on a job right now&quot;), and pressing E opens their living passport to inspect, hire, or vouch for them. Other people are there too: everyone who enters shares one live square, so you see each other move, chat, and pop speech bubbles in real time, with a counter of how many humans are in the Commons. If the multiplayer server isn't reachable it stays honestly single-player — the citizens' economy never depended on it. The watchable view is still the default and one tap away; play mode loads only when you ask for it.</description>
 		</item>
 		<item>
 			<title>AgenC · Embodied</title>

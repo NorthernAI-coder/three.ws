@@ -722,7 +722,7 @@ async function enrichPositionOracle() {
 			const badge = row.querySelector('.sn-pos-oracle');
 			if (!badge || badge.hasChildNodes()) continue;
 			const color = SN_TIER_COLOR[d.tier] || '#94a3b8';
-			badge.innerHTML = `<a class="sn-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
+			badge.innerHTML = `<a class="sn-ob" href="/oracle/coin/${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
 				<span class="sn-ob-score" style="color:${color}">${d.score}</span>
 				<span class="sn-ob-tier" style="color:${color}">${d.tier}</span>
 			</a>`;
