@@ -26,7 +26,7 @@
 //   • PER-RUN CAP    — one sweep spends at most ECONOMY_MASTER_RUN_CAP_SOL total
 //                      across all engines.
 
-import { decodeSecretKey } from './solana-signers.js';
+import { decodeSecretKey, SOLANA_SIGNERS, resolveSignerPubkey } from './solana-signers.js';
 import { getSolBalance, sendSol, LAMPORTS_PER_SOL } from './avatar-wallet.js';
 
 // The intended master. A pasted key whose pubkey does not match this is rejected
@@ -116,6 +116,59 @@ export function planTopUps(masterSol, targets) {
 }
 
 /**
+ * Defence-in-depth allowlist. Keep only targets whose pubkey is a resolved
+ * SOLANA_SIGNERS member and is NOT the master itself. The treasury-topup cron
+ * already builds its target list from the registry, so on the legitimate path
+ * this changes nothing — but it makes "SOL only ever moves to an owner-held
+ * registry wallet" a hard code invariant instead of a caller convention. A
+ * future caller (bug, bad merge, a compromised target list) that hands sweep an
+ * off-registry pubkey can never move SOL out of the owner-controlled set. Pure,
+ * so it is unit-tested without RPC.
+ *
+ * @param {Array<{name:string,pubkey:string,currentSol:number,refillToSol:number}>} targets
+ * @param {Set<string>|Iterable<string>} allowedPubkeys resolved registry pubkeys
+ * @param {string} masterPubkey the funding root — never a top-up TARGET of itself
+ * @returns {{ safe: typeof targets, rejected: Array<{name:string,pubkey:string,reason:string}> }}
+ */
+export function filterToRegistry(targets, allowedPubkeys, masterPubkey) {
+	const allowed = allowedPubkeys instanceof Set ? allowedPubkeys : new Set(allowedPubkeys);
+	const safe = [];
+	const rejected = [];
+	for (const t of targets) {
+		if (t.pubkey === masterPubkey) {
+			rejected.push({ name: t.name, pubkey: t.pubkey, reason: 'is_master' });
+			continue;
+		}
+		if (!allowed.has(t.pubkey)) {
+			rejected.push({ name: t.name, pubkey: t.pubkey, reason: 'not_in_registry' });
+			continue;
+		}
+		safe.push(t);
+	}
+	return { safe, rejected };
+}
+
+/**
+ * Resolve the base58 pubkey of every configured SOLANA_SIGNERS entry into a set.
+ * Secret-only (no RPC): each pubkey is derived from the signer's own key, so an
+ * unconfigured or undecodable signer simply isn't in the set (and thus can't be
+ * funded). This IS the allowlist the sweep enforces.
+ * @returns {Promise<Set<string>>}
+ */
+export async function resolveRegistryPubkeys() {
+	const set = new Set();
+	for (const spec of SOLANA_SIGNERS) {
+		try {
+			const { pubkey } = await resolveSignerPubkey(spec);
+			if (pubkey) set.add(pubkey);
+		} catch {
+			/* an unresolvable signer is simply not on the allowlist */
+		}
+	}
+	return set;
+}
+
+/**
  * Execute the guarded auto-refill sweep. Reads the master balance on-chain,
  * plans the top-ups, then transfers each. Returns a structured result for the
  * cron to log. Never throws for a business-rule stop (unconfigured / underfunded
@@ -130,10 +183,14 @@ export function planTopUps(masterSol, targets) {
 export async function sweepTopUps({ connection, targets, network = 'mainnet' }) {
 	const master = await loadEconomyMaster();
 	if (!master) {
-		return { configured: false, funded: [], failed: [], skipped: [], spentSol: 0 };
+		return { configured: false, funded: [], failed: [], skipped: [], rejected: [], spentSol: 0 };
 	}
+	// Hard allowlist: SOL only ever leaves the master toward a resolved registry
+	// signer, never the master itself, and never an off-registry address.
+	const allowed = await resolveRegistryPubkeys();
+	const { safe, rejected } = filterToRegistry(targets, allowed, master.publicKey.toBase58());
 	const { sol: masterSol } = await getSolBalance(connection, master.publicKey);
-	const { plan, skipped, spendableSol } = planTopUps(masterSol, targets);
+	const { plan, skipped, spendableSol } = planTopUps(masterSol, safe);
 
 	const funded = [];
 	const failed = [];
@@ -162,6 +219,7 @@ export async function sweepTopUps({ connection, targets, network = 'mainnet' }) 
 		funded,
 		failed,
 		skipped,
+		rejected,
 		spentSol: round(funded.reduce((s, f) => s + f.sol, 0)),
 	};
 }

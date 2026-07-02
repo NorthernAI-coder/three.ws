@@ -5,6 +5,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
 	planTopUps,
+	filterToRegistry,
 	RESERVE_SOL,
 	PER_TOPUP_MAX_SOL,
 	RUN_CAP_SOL,
@@ -62,4 +63,41 @@ test('neediest first: the most-drained engine wins a tight run cap', () => {
 		{ name: 'big', pubkey: 'B', currentSol: 0.0, refillToSol: 0.5 }, // deficit 0.5
 	]);
 	assert.equal(plan[0].name, 'big');
+});
+
+// filterToRegistry is the hard leak guard: SOL can only ever move to a resolved
+// registry signer, never off-registry and never the master itself.
+test('allowlist: an off-registry pubkey is rejected, never funded', () => {
+	const allowed = new Set(['ENGINE_A', 'ENGINE_B']);
+	const { safe, rejected } = filterToRegistry(
+		[
+			{ name: 'legit', pubkey: 'ENGINE_A', currentSol: 0, refillToSol: 0.5 },
+			{ name: 'attacker', pubkey: 'EVIL_ADDR', currentSol: 0, refillToSol: 0.5 },
+		],
+		allowed,
+		'MASTER',
+	);
+	assert.deepEqual(safe.map((t) => t.name), ['legit']);
+	assert.deepEqual(rejected, [{ name: 'attacker', pubkey: 'EVIL_ADDR', reason: 'not_in_registry' }]);
+});
+
+test('allowlist: the master is never a top-up target of itself', () => {
+	const allowed = new Set(['MASTER', 'ENGINE_A']);
+	const { safe, rejected } = filterToRegistry(
+		[{ name: 'economy-master', pubkey: 'MASTER', currentSol: 0, refillToSol: 999 }],
+		allowed,
+		'MASTER',
+	);
+	assert.equal(safe.length, 0);
+	assert.deepEqual(rejected, [{ name: 'economy-master', pubkey: 'MASTER', reason: 'is_master' }]);
+});
+
+test('allowlist: an empty registry funds nothing (safe default)', () => {
+	const { safe, rejected } = filterToRegistry(
+		[{ name: 'e', pubkey: 'ENGINE_A', currentSol: 0, refillToSol: 0.5 }],
+		new Set(),
+		'MASTER',
+	);
+	assert.equal(safe.length, 0);
+	assert.equal(rejected.length, 1);
 });

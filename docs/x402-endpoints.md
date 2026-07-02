@@ -59,6 +59,26 @@ The shared handler in `x402-paid-endpoint.js` builds the challenge
 (`buildRequirements()`), verifies the submitted payment, settles it, runs the
 endpoint logic, and issues a signed receipt.
 
+## Where payments land
+
+Most endpoints pay the **platform receiver** (`X402_PAY_TO_SOLANA` /
+`X402_PAY_TO_BASE`). Some deliberately override the receiver so the money reaches
+a third party instead — the platform is just the rail:
+
+| Endpoint | Receiver override | Who gets paid |
+| -------- | ----------------- | ------------- |
+| `/api/x402/skill-call` | per-skill `payTo` | the skill **author's** wallet ([skill-call.js:159](../api/x402/skill-call.js#L159)) |
+| `/api/x402/service` | `row.payout_address` | the **provider's** payout address for a listed service ([service.js:92](../api/x402/service.js#L92)) |
+| `/api/x402/cosmetic-purchase` | `creatorWallet` split | the cosmetic **creator** (platform keeps its cut) ([cosmetic-purchase.js:204](../api/x402/cosmetic-purchase.js#L204)) |
+| `/api/x402/dance-tip`, `/api/x402/club-cover` | platform receiver, then swept | performers, paid out by the `club-payouts` cron from `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` |
+
+`/api/x402/ring-settle` is an **internal** primitive (`discoverable:false`) — it is
+deliberately not advertised in the 402 challenge or the discovery catalog; it
+recirculates funds back to `X402_PAY_TO_SOLANA` to keep the closed loop balanced
+([ring-settle.js:18](../api/x402/ring-settle.js#L18)). The full wallet-by-wallet
+picture — every receiver, tip, split, and treasury — is in the
+[money map](money-map.md).
+
 ## Intel & oracle endpoints
 
 These return market/polling information and are the ones the autonomous loop pays
