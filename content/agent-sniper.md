@@ -70,7 +70,7 @@ The order is fixed and every check short-circuits before any transaction is buil
 
 Above all of that sit three kill switches: the per-strategy kill switch (which also exits any held position at market on the next sweep), disarming (new buys stop, open positions still exit on their rules), and the global kill, one environment flag that halts every buy across every agent while position management continues.
 
-And one honest default frames everything: **simulate mode**. In simulate, the full pipeline runs against real on-chain quotes, every guard fires, every decision is logged, and the broadcast is skipped with the signature recorded as SIMULATED. Nothing is mocked except the final send. Every face of the engine boots in simulate; live is an explicit flag.
+One honest default frames everything: **simulate mode**. The full pipeline runs against real on-chain quotes, every guard fires, every decision is logged, and the broadcast is skipped with the signature recorded as SIMULATED. Nothing is mocked except the final send. Every face of the engine boots in simulate; live is an explicit flag.
 
 ## The Oracle gate, and the sniper that pays for its own intel
 
@@ -115,7 +115,7 @@ One engine, four faces:
 
 ## Everything on the platform that runs on it
 
-**The Sniper Arena at three.ws/play/arena.** The leaderboard's agents stand as animated 3D avatars on a glowing arena floor in a single shared scene. Live trades arrive over server-sent events and become embodiment: a wave when an agent opens a position, a fist-pump on a profitable close, a slump on a loss, a backflip reserved for monster wins (at least 0.4 SOL or 100 percent). You pick an avatar and walk the floor as a spectator. The Elite Floor is reputation-gated, and the server decides who stands on it, never the client.
+**The Sniper Arena at three.ws/play/arena.** The leaderboard's agents stand as animated 3D avatars on a glowing arena floor. Live trades arrive over server-sent events and become embodiment: a wave on a new position, a fist-pump on a profitable close, a slump on a loss, a backflip reserved for monster wins (at least 0.4 SOL or 100 percent). You pick an avatar and walk the floor as a spectator. The Elite Floor is reputation-gated, and the server decides who stands on it, never the client.
 
 **The homepage console.** The autonomous trading section on three.ws renders the real engine: a worker-liveness pill fed by /api/sniper/status, an interactive five-stage decision-loop diagram (watch, score, guard, buy, exit), and a live trade tape driven by the same SSE stream. Nothing on it is simulated; when the feed is quiet the tape says so.
 
@@ -222,9 +222,9 @@ for (const kind of ['buy', 'sell']) {
 
 ## The honest limits
 
-The sniper publishes its constraints instead of hiding them. The hosted worker is a single-instance design: budget and concurrency races are prevented by an in-process per-agent lock, so running two workers against the same agent breaks the guarantee, and horizontal scaling requires a store whose position claim is a genuinely atomic database reservation. The package documents exactly that contract.
+The sniper publishes its constraints instead of hiding them. The hosted worker is a single-instance design: budget and concurrency races are prevented by an in-process per-agent lock, so running two workers against the same agent breaks the guarantee, and horizontal scaling requires a store whose position claim is a genuinely atomic database reservation. The package documents that contract.
 
-Simulate mode is honest but not identical to live: it runs real quotes and skips the broadcast, so it cannot model landing latency or the fill you lose to other bundles. Oracle lags brand-new mints by design, so the gate defers on an unscored coin rather than pretending to know; the rugpull veto and the guard stack still apply. The paid sentiment layer only exists for coins with a resolvable market listing, which excludes most seconds-old memecoins, and that is the point: no listing, no charge, no invented signal. The radar pauses honestly without an RPC endpoint and backs off under rate limits. And no guard stack changes what pump.fun is: most launches go to zero, the stop-loss is mandatory because it will be used, and simulate-first is the default because it should be.
+Simulate mode runs real quotes and skips the broadcast, so it cannot model landing latency or the fill you lose to other bundles. Oracle lags brand-new mints by design, so the gate defers on an unscored coin rather than pretending to know; the rugpull veto and the guard stack still apply. The paid sentiment layer only exists for coins with a resolvable market listing, which excludes most seconds-old memecoins, and that is the point: no listing, no charge, no invented signal. The radar pauses honestly without an RPC endpoint and backs off under rate limits. And no guard stack changes what pump.fun is: most launches go to zero, the stop-loss is mandatory because it will be used, and simulate-first is the default because it should be.
 
 ## Where to start
 
