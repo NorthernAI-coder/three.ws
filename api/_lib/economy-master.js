@@ -1,0 +1,171 @@
+// @ts-check
+// api/_lib/economy-master.js
+//
+// The economy funding root: ONE master wallet that auto-tops-up every other
+// engine signer in the SOLANA_SIGNERS registry when it drops below its floor.
+//
+// Funder-only by construction — it NEVER trades, launches, or settles. Its only
+// on-chain action is a System transfer of SOL to a pubkey that is already in the
+// registry (that registry IS the allowlist: sweepTopUps only ever pays targets
+// the caller derived from SOLANA_SIGNERS). This is the "masters fund engines,
+// engines do the work" model applied platform-wide.
+//
+// Address (mainnet vanity): wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW
+//
+// Inert until ECONOMY_MASTER_SECRET_BASE58 is set: loadEconomyMaster() returns
+// null when unconfigured, so shipping this changes nothing until the operator
+// funds the address and installs the key. When unset, the treasury-topup cron
+// falls back to alert-only (the existing relayer-balance-check behaviour).
+//
+// Guards — enforced on every sweep; the first two are on-chain reads, so they
+// hold even with no database:
+//   • RESERVE FLOOR  — never spend the master below ECONOMY_MASTER_RESERVE_SOL.
+//   • PER-ENGINE CAP — bring an engine up to its refillTo only, and never move
+//                      more than ECONOMY_MASTER_PER_TOPUP_MAX_SOL to one engine
+//                      in a single sweep.
+//   • PER-RUN CAP    — one sweep spends at most ECONOMY_MASTER_RUN_CAP_SOL total
+//                      across all engines.
+
+import { decodeSecretKey } from './solana-signers.js';
+import { getSolBalance, sendSol, LAMPORTS_PER_SOL } from './avatar-wallet.js';
+
+// The intended master. A pasted key whose pubkey does not match this is rejected
+// (a mis-paste must never silently drain a different wallet). Override with
+// ECONOMY_MASTER_ADDRESS if the master is ever rotated.
+export const ECONOMY_MASTER_ADDRESS =
+	process.env.ECONOMY_MASTER_ADDRESS || 'wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW';
+
+// Dust threshold: skip a top-up smaller than this to avoid fee churn on engines
+// that are only a hair under their target.
+const MIN_TOPUP_SOL = 0.005;
+
+function num(envName, dflt) {
+	const v = Number(process.env[envName]);
+	return Number.isFinite(v) && v >= 0 ? v : dflt;
+}
+
+/** Never spend the master below this — its own working reserve + rent + fees. */
+export const RESERVE_SOL = num('ECONOMY_MASTER_RESERVE_SOL', 1);
+/** Most SOL the master will move to any single engine in one sweep. */
+export const PER_TOPUP_MAX_SOL = num('ECONOMY_MASTER_PER_TOPUP_MAX_SOL', 0.5);
+/** Most SOL the master will move across all engines in one sweep. */
+export const RUN_CAP_SOL = num('ECONOMY_MASTER_RUN_CAP_SOL', 2);
+
+/**
+ * Load the funding-root keypair, or null when ECONOMY_MASTER_SECRET_BASE58 is
+ * unset. Throws (with a coded error) only on a configured-but-broken secret — a
+ * bad key is an outage the operator must see, not a silent skip.
+ * @returns {Promise<import('@solana/web3.js').Keypair|null>}
+ */
+export async function loadEconomyMaster() {
+	const secret = process.env.ECONOMY_MASTER_SECRET_BASE58;
+	if (!secret) return null;
+	const bytes = await decodeSecretKey(secret);
+	if (!bytes) {
+		throw Object.assign(new Error('ECONOMY_MASTER_SECRET_BASE58 did not decode'), {
+			code: 'bad_master',
+		});
+	}
+	const { Keypair } = await import('@solana/web3.js');
+	const kp = Keypair.fromSecretKey(bytes);
+	if (kp.publicKey.toBase58() !== ECONOMY_MASTER_ADDRESS) {
+		throw Object.assign(
+			new Error(
+				`economy-master key pubkey ${kp.publicKey.toBase58()} != expected ${ECONOMY_MASTER_ADDRESS}`,
+			),
+			{ code: 'master_mismatch' },
+		);
+	}
+	return kp;
+}
+
+/**
+ * Compute the guarded per-engine top-ups for a set of underfunded targets,
+ * applying the reserve floor, per-engine cap, and per-run cap. Pure — no
+ * on-chain writes — so the plan is unit-testable and the cron can log it.
+ *
+ * @param {number} masterSol            master's current SOL balance
+ * @param {Array<{name:string,pubkey:string,currentSol:number,refillToSol:number}>} targets
+ * @returns {{ plan: Array<{name:string,pubkey:string,sol:number}>, skipped: Array<{name:string,reason:string}>, totalSol:number, spendableSol:number }}
+ */
+export function planTopUps(masterSol, targets) {
+	const spendableSol = Math.max(0, round(masterSol - RESERVE_SOL));
+	const runCap = Math.min(RUN_CAP_SOL, spendableSol);
+	// Neediest first, so a tight run cap protects the most-drained engines.
+	const ordered = [...targets].sort(
+		(a, b) => b.refillToSol - b.currentSol - (a.refillToSol - a.currentSol),
+	);
+	const plan = [];
+	const skipped = [];
+	let total = 0;
+	for (const t of ordered) {
+		const deficit = round(t.refillToSol - t.currentSol);
+		if (deficit < MIN_TOPUP_SOL) {
+			skipped.push({ name: t.name, reason: 'below_dust_threshold' });
+			continue;
+		}
+		const want = Math.min(deficit, PER_TOPUP_MAX_SOL);
+		if (total + want > runCap + 1e-9) {
+			skipped.push({ name: t.name, reason: 'run_cap_reached' });
+			continue;
+		}
+		plan.push({ name: t.name, pubkey: t.pubkey, sol: want });
+		total = round(total + want);
+	}
+	return { plan, skipped, totalSol: total, spendableSol };
+}
+
+/**
+ * Execute the guarded auto-refill sweep. Reads the master balance on-chain,
+ * plans the top-ups, then transfers each. Returns a structured result for the
+ * cron to log. Never throws for a business-rule stop (unconfigured / underfunded
+ * master) — those come back as `configured:false` / `reason`.
+ *
+ * @param {object} args
+ * @param {import('@solana/web3.js').Connection} args.connection
+ * @param {Array<{name:string,pubkey:string,currentSol:number,refillToSol:number}>} args.targets
+ * @param {'mainnet'|'devnet'} [args.network]
+ * @returns {Promise<object>}
+ */
+export async function sweepTopUps({ connection, targets, network = 'mainnet' }) {
+	const master = await loadEconomyMaster();
+	if (!master) {
+		return { configured: false, funded: [], failed: [], skipped: [], spentSol: 0 };
+	}
+	const { sol: masterSol } = await getSolBalance(connection, master.publicKey);
+	const { plan, skipped, spendableSol } = planTopUps(masterSol, targets);
+
+	const funded = [];
+	const failed = [];
+	for (const step of plan) {
+		const lamports = Math.round(step.sol * LAMPORTS_PER_SOL);
+		try {
+			const signature = await sendSol({
+				connection,
+				fromKeypair: master,
+				to: step.pubkey,
+				lamports,
+				memo: `three.ws economy-master → ${step.name}`,
+				network,
+			});
+			funded.push({ name: step.name, pubkey: step.pubkey, sol: step.sol, signature });
+		} catch (e) {
+			failed.push({ name: step.name, pubkey: step.pubkey, sol: step.sol, reason: e?.message || 'send_failed' });
+		}
+	}
+	return {
+		configured: true,
+		master: master.publicKey.toBase58(),
+		masterSol: round(masterSol),
+		reserveSol: RESERVE_SOL,
+		spendableSol,
+		funded,
+		failed,
+		skipped,
+		spentSol: round(funded.reduce((s, f) => s + f.sol, 0)),
+	};
+}
+
+function round(n) {
+	return Math.round(n * 1e9) / 1e9;
+}

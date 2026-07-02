@@ -79,6 +79,14 @@
 			<description>The in-world agent desk monitor in /play now renders the same live browser feed as the 2D watch panel and the live wall — previously it could only show the activity fallback because it listened on a stream that was never deployed. Coin art in the world lobby is now served through the platform's own image proxy, so tokens whose images live on flaky or retired IPFS/Arweave gateways still show their art instead of a broken tile. The paid crypto-intel feed also gained a second live price source, so a rate-limited upstream no longer makes paid calls fail — and if both sources are down you are never charged. Assorted console warnings from multiplayer connections closing mid-session are gone.</description>
 		</item>
 		<item>
+			<title>One funding wallet now keeps every economy engine topped up</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-02:One funding wallet now keeps every economy engine topped up</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>infra</category>
+			<description>The platform's on-chain engines — the buyback relayer, coin-launch funder, treasury signers, subdomain minter and more — each hold their own small SOL balance to pay network fees. A new funding root now watches all of them and automatically tops up any that dip below their floor, from a single master wallet, every 30 minutes. It only ever sends to the platform's own registered engine wallets, never trades or launches, and is bounded by a reserve floor plus per-engine and per-sweep caps so it can't overspend. Until the master is funded it does nothing and the existing low-balance alerts keep running.</description>
+		</item>
+		<item>
 			<title>Oracle 3D graph is visible again</title>
 			<link>https://three.ws/oracle</link>
 			<guid isPermaLink="false">2026-07-02:Oracle 3D graph is visible again</guid>

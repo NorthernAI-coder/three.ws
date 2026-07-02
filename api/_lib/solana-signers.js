@@ -21,10 +21,26 @@
  * @property {number} minSol    alert/refill threshold in SOL (mainnet)
  * @property {string} purpose   what this keypair pays for
  * @property {'mainnet'|'devnet'|'both'} network where it spends real SOL
+ * @property {string} [fallbackEnv] secondary env var to try when `env` is unset
+ * @property {number} [refillTo] SOL to bring this signer up to when the economy
+ *   master auto-tops it up (defaults to minSol×3 in the treasury-topup cron)
+ * @property {boolean} [isMaster] the funding root itself — watched for a low
+ *   balance, but never a refill TARGET (it funds the others, not itself)
  */
 
 /** @type {SignerSpec[]} */
 export const SOLANA_SIGNERS = [
+	{
+		name: 'economy-master',
+		env: 'ECONOMY_MASTER_SECRET_BASE58',
+		// The funding root. Keeps a large reserve because it tops up every other
+		// engine — see ECONOMY_MASTER_RESERVE_SOL in api/_lib/economy-master.js.
+		minSol: 1,
+		isMaster: true,
+		purpose:
+			'economy funding root (wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW): auto-tops-up every other engine signer below its floor. Funder-only — never trades, launches, or settles.',
+		network: 'mainnet',
+	},
 	{
 		name: 'pump-cron-relayer',
 		env: 'PUMP_CRON_RELAYER_SECRET_KEY_B64',
