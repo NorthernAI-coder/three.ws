@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-02T05:56:28.244Z",
+	"generated_at": "2026-07-02T05:57:24.614Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -46,6 +46,16 @@
 			"tags": [
 				"feature",
 				"improvement"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Coin intelligence engine now backs off cleanly when the database is full",
+			"summary": "The pump.fun intelligence firehose — the engine behind the coin-intel feed, the smart-money leaderboard and the oracle scores — used to keep writing to the database even after it hit its storage cap, failing thousands of times an hour and burning compute on work that could never be saved. It now checks free space before each run and pauses ingestion while the automatic cleanup reclaims room, then resumes on its own. The result: the engine self-heals instead of storming its logs, and the feeds it powers recover cleanly the moment space frees up.",
+			"link": null,
+			"tags": [
+				"infra"
 			]
 		},
 		{
