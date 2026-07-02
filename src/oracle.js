@@ -43,6 +43,34 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const shortAddr = (a) => (a && a.length > 10 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
 const fmtSol = (n) => (n == null ? '—' : `${Number(n) < 0.01 && Number(n) > 0 ? Number(n).toFixed(4) : Number(n).toFixed(2)}◎`);
 const fmtPct = (n) => (n == null ? '—' : `${Math.round(Number(n))}%`);
+// Compact USD for market stats: $2.1M, $465K, $1.2B, $0.00.
+function fmtUsd(n) {
+	if (n == null || !Number.isFinite(Number(n))) return '—';
+	const v = Number(n);
+	const abs = Math.abs(v);
+	if (abs >= 1e9) return `$${(v / 1e9).toFixed(2)}B`;
+	if (abs >= 1e6) return `$${(v / 1e6).toFixed(2)}M`;
+	if (abs >= 1e3) return `$${(v / 1e3).toFixed(1)}K`;
+	return `$${v.toFixed(2)}`;
+}
+// Token price: keep 3–4 significant figures for sub-cent memecoins.
+function fmtPrice(n) {
+	if (n == null || !Number.isFinite(Number(n))) return '—';
+	const v = Number(n);
+	if (v === 0) return '$0';
+	if (v >= 1) return `$${v.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
+	const decimals = Math.min(12, Math.max(4, 3 - Math.floor(Math.log10(v))));
+	return `$${v.toFixed(decimals)}`;
+}
+const fmtInt = (n) => (n == null || !Number.isFinite(Number(n)) ? '—' : Math.round(Number(n)).toLocaleString());
+// Signed percent with an up/down class — for price-change chips.
+function changeStr(n) {
+	if (n == null || !Number.isFinite(Number(n))) return { txt: '—', cls: 'flat' };
+	const v = Number(n);
+	const cls = v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+	const txt = `${v > 0 ? '+' : ''}${v.toFixed(v <= -100 || v >= 100 ? 0 : 2)}%`;
+	return { txt, cls };
+}
 const tierClass = (t) => `t-${t || 'avoid'}`;
 const tierPill = (t) => `tp-${t || 'avoid'}`;
 function ago(ts) {
@@ -1639,6 +1667,10 @@ function renderDrawer(d) {
 			${c.structure_cap != null && c.structure_cap < 60 ? `<span class="note warn">structural cap ${c.structure_cap}</span>` : ''}
 		</div>
 		<div id="scoreHistoryWrap" style="margin-top:12px"></div>
+		<div id="marketWrap" class="mkt-loading" aria-busy="true">
+			<div class="dr-sec">Market <span style="color:var(--faint);font-weight:400;font-size:10px">live</span></div>
+			<div class="mkt-skel"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+		</div>
 		${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
 			<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
 		<div class="dr-sec">Why this score</div>${reasons}
@@ -1655,6 +1687,7 @@ function renderDrawer(d) {
 
 	// Fetch and render conviction score history sparkline + community sentiment.
 	loadScoreHistory(c.mint);
+	loadCoinMarket(c.mint);
 	loadSentimentPulse(c.mint);
 	loadProofTrades(c.mint);
 
@@ -1812,6 +1845,164 @@ async function loadScoreHistory(mint) {
 	const { ok, data } = await api(`/api/oracle/history?mint=${encodeURIComponent(mint)}&network=${NETWORK}&hours=48`);
 	if (!ok || !data?.points?.length || data.points.length < 2) { wrap.innerHTML = ''; return; }
 	wrap.innerHTML = renderSparkline(data.points, data.trend);
+}
+
+// Live market intel — the fully-populated market half of the coin page. Fused
+// server-side across DexScreener / pump.fun / GeckoTerminal / GoPlus / Birdeye /
+// CoinGecko (/api/oracle/market). Lazy so the conviction verdict paints first.
+async function loadCoinMarket(mint) {
+	const wrap = $('#marketWrap');
+	if (!wrap) return;
+	const { ok, status, data } = await api(`/api/oracle/market?mint=${encodeURIComponent(mint)}&network=${NETWORK}`, { timeout: 15000 });
+	if (!$('#marketWrap')) return; // drawer closed mid-fetch
+	wrap.classList.remove('mkt-loading');
+	wrap.removeAttribute('aria-busy');
+	if (!ok || !data || data.price?.usd == null) {
+		// 404 = no live market yet (brand-new mint); anything else = upstreams down.
+		wrap.innerHTML = status === 404
+			? `<div class="dr-sec">Market</div><div class="state" style="padding:14px 0">No live market yet — this mint hasn't started trading. Price, liquidity and holders appear the moment it does.</div>`
+			: `<div class="dr-sec">Market</div><div class="state" style="padding:14px 0">Live market data is momentarily unavailable. <button type="button" class="dr-act" id="mktRetry" data-mint="${esc(mint)}">Retry</button></div>`;
+		const retry = $('#mktRetry');
+		if (retry) retry.addEventListener('click', () => { wrap.classList.add('mkt-loading'); wrap.setAttribute('aria-busy', 'true'); loadCoinMarket(mint); });
+		return;
+	}
+	wrap.innerHTML = renderMarket(data);
+}
+
+function statTile(label, value, sub = '') {
+	return `<div class="mkt-tile"><span class="mkt-tile-lbl">${esc(label)}</span><span class="mkt-tile-val">${value}</span>${sub ? `<span class="mkt-tile-sub">${sub}</span>` : ''}</div>`;
+}
+function changeChip(label, n) {
+	const c = changeStr(n);
+	return `<span class="mkt-chg mkt-${c.cls}"><span class="mkt-chg-lbl">${esc(label)}</span><b>${c.txt}</b></span>`;
+}
+function secChip(ok, label, warnLabel = null) {
+	if (ok == null) return `<span class="chip" title="not measured">${esc(label)} <b>?</b></span>`;
+	return ok
+		? `<span class="chip sm" title="safe">✓ ${esc(label)}</span>`
+		: `<span class="chip flag" title="risk">⚠ ${esc(warnLabel || label)}</span>`;
+}
+
+function renderMarket(m) {
+	const p = m.price || {};
+	const ch = p.change || {};
+	const changeH24 = changeStr(ch.h24);
+
+	const tiles = [
+		statTile('Price', fmtPrice(p.usd), `<span class="mkt-${changeH24.cls}">${changeH24.txt} 24h</span>`),
+		statTile('Market cap', fmtUsd(m.market_cap_usd)),
+		m.fdv_usd != null && m.fdv_usd !== m.market_cap_usd ? statTile('FDV', fmtUsd(m.fdv_usd)) : '',
+		statTile('Liquidity', fmtUsd(m.liquidity_usd)),
+		statTile('24h volume', fmtUsd(m.volume?.h24)),
+		statTile('Holders', fmtInt(m.holders)),
+	].filter(Boolean).join('');
+
+	// Price-change chips across every window we have.
+	const changeWins = [['5m', ch.m5], ['1h', ch.h1], ['6h', ch.h6], ['24h', ch.h24], ['7d', ch.d7]]
+		.filter(([, v]) => v != null);
+	const changeRow = changeWins.length
+		? `<div class="mkt-chg-row">${changeWins.map(([l, v]) => changeChip(l, v)).join('')}</div>` : '';
+
+	// Bonding-curve progress (un-graduated pump coins) or a graduated badge.
+	const pf = m.pumpfun;
+	let curveHtml = '';
+	if (pf?.is_pump) {
+		if (pf.graduated || pf.complete) {
+			curveHtml = `<div class="mkt-row"><span class="chip sm">Graduated to DEX ✓</span>${pf.ath_market_cap_usd ? `<span class="chip">ATH mcap <b>${fmtUsd(pf.ath_market_cap_usd)}</b></span>` : ''}</div>`;
+		} else if (pf.bonding_curve_pct != null) {
+			const pct = Math.round(pf.bonding_curve_pct);
+			curveHtml = `<div class="mkt-curve">
+				<div class="mkt-curve-top"><span>Bonding curve</span><b>${pct}% to graduation</b></div>
+				<div class="mkt-curve-track"><div class="mkt-curve-fill" style="width:${Math.max(2, Math.min(100, pct))}%"></div></div>
+				${pf.real_sol_reserves != null ? `<div class="mkt-curve-sub">${pf.real_sol_reserves.toFixed(1)} ◎ in curve${pf.reply_count ? ` · ${fmtInt(pf.reply_count)} replies` : ''}${pf.is_live ? ' · <span class="mkt-up">live now</span>' : ''}</div>` : ''}
+			</div>`;
+		}
+	}
+
+	// 24h buy/sell activity split.
+	const act = m.activity;
+	let activityHtml = '';
+	if (act && act.txns_24h) {
+		const buyPct = Math.round((act.buy_ratio ?? 0.5) * 100);
+		activityHtml = `<div class="mkt-act">
+			<div class="mkt-act-top"><span>24h activity</span><span class="mkt-faint">${fmtInt(act.txns_24h)} txns</span></div>
+			<div class="mkt-act-track"><div class="mkt-act-buy" style="width:${buyPct}%"></div></div>
+			<div class="mkt-act-legend"><span class="mkt-up">${fmtInt(act.buys_24h)} buys</span><span class="mkt-down">${fmtInt(act.sells_24h)} sells</span></div>
+		</div>`;
+	}
+
+	// Supply.
+	const sup = m.supply || {};
+	const supplyChips = [
+		sup.total != null ? `<span class="chip">supply <b>${fmtInt(sup.total)}</b></span>` : '',
+		sup.circulating != null && Math.abs((sup.circulating || 0) - (sup.total || 0)) > (sup.total || 0) * 0.01
+			? `<span class="chip">circulating <b>${fmtInt(sup.circulating)}</b></span>` : '',
+		m.identity?.created_at ? `<span class="chip" title="First trade / launch">age <b>${ago(m.identity.created_at)}</b></span>` : '',
+	].filter(Boolean).join('');
+
+	// Security posture.
+	const sec = m.security;
+	const secHtml = sec
+		? `<div class="dr-sec">Security <span style="color:var(--faint);font-weight:400;font-size:10px">GoPlus</span></div>
+			<div class="coin-meta">
+				${secChip(sec.mint_authority_revoked, 'Mint revoked', 'Mint authority live')}
+				${secChip(sec.freeze_authority_revoked, 'Freeze revoked', 'Can freeze')}
+				${secChip(sec.metadata_mutable === false ? true : (sec.metadata_mutable === true ? false : null), 'Metadata locked', 'Mutable metadata')}
+				${sec.transfer_fee_pct != null ? (sec.transfer_fee_pct > 0 ? `<span class="chip flag" title="transfer tax">⚠ ${sec.transfer_fee_pct}% fee</span>` : `<span class="chip sm">No transfer fee</span>`) : ''}
+				${sec.top10_holder_pct != null ? `<span class="chip ${sec.top10_holder_pct > 50 ? 'flag' : ''}" title="Top 10 holder concentration">top 10 <b>${Math.round(sec.top10_holder_pct)}%</b></span>` : ''}
+				${sec.trusted_token ? '<span class="chip sm" title="GoPlus verified list">Trusted ✓</span>' : ''}
+			</div>` : '';
+
+	// Listing — only for coins CoinGecko tracks (rank / ATH / ATL / categories).
+	const lst = m.listing;
+	let listingHtml = '';
+	if (lst && (lst.market_cap_rank != null || lst.ath_usd != null || (lst.categories && lst.categories.length))) {
+		const athChg = changeStr(lst.ath_change_pct);
+		listingHtml = `<div class="dr-sec">Listed market <span style="color:var(--faint);font-weight:400;font-size:10px">CoinGecko</span></div>
+			<div class="coin-meta">
+				${lst.market_cap_rank != null ? `<span class="chip">rank <b>#${lst.market_cap_rank}</b></span>` : ''}
+				${lst.ath_usd != null ? `<span class="chip" title="All-time high (${lst.ath_date ? new Date(lst.ath_date).toLocaleDateString() : ''})">ATH <b>${fmtPrice(lst.ath_usd)}</b> <span class="mkt-${athChg.cls}">${athChg.txt}</span></span>` : ''}
+				${lst.atl_usd != null ? `<span class="chip" title="All-time low">ATL <b>${fmtPrice(lst.atl_usd)}</b></span>` : ''}
+			</div>
+			${lst.categories && lst.categories.length ? `<div class="coin-meta" style="margin-top:6px">${lst.categories.slice(0, 5).map((c) => `<span class="chip cat">${esc(c)}</span>`).join('')}</div>` : ''}`;
+	}
+
+	// DEX pairs.
+	const pairs = Array.isArray(m.pairs) ? m.pairs.filter((pr) => pr.url) : [];
+	const pairsHtml = pairs.length
+		? `<div class="dr-sec">Markets <span style="color:var(--faint);font-weight:400;font-size:10px">${pairs.length} pair${pairs.length > 1 ? 's' : ''}</span></div>
+			<div class="mkt-pairs">${pairs.slice(0, 5).map((pr) => `
+				<a class="mkt-pair" href="${esc(pr.url)}" target="_blank" rel="noopener">
+					<span class="mkt-pair-dex">${esc(pr.dex || 'dex')}${pr.quote_symbol ? ` <span class="mkt-faint">/${esc(pr.quote_symbol)}</span>` : ''}</span>
+					<span class="mkt-pair-liq">${fmtUsd(pr.liquidity_usd)} liq</span>
+					<span class="mkt-pair-arrow">↗</span>
+				</a>`).join('')}</div>` : '';
+
+	// Chart + explorer + social links.
+	const lk = m.links || {};
+	const linkBtns = [
+		lk.dexscreener ? `<a class="dr-act" href="${esc(lk.dexscreener)}" target="_blank" rel="noopener">DexScreener ↗</a>` : '',
+		lk.geckoterminal ? `<a class="dr-act" href="${esc(lk.geckoterminal)}" target="_blank" rel="noopener">GeckoTerminal ↗</a>` : '',
+		lk.birdeye ? `<a class="dr-act" href="${esc(lk.birdeye)}" target="_blank" rel="noopener">Birdeye ↗</a>` : '',
+		lk.website ? `<a class="dr-act" href="${esc(lk.website)}" target="_blank" rel="noopener">Website ↗</a>` : '',
+		lk.twitter ? `<a class="dr-act" href="${esc(lk.twitter)}" target="_blank" rel="noopener">X ↗</a>` : '',
+		lk.telegram ? `<a class="dr-act" href="${esc(lk.telegram)}" target="_blank" rel="noopener">Telegram ↗</a>` : '',
+	].filter(Boolean).join('');
+
+	const srcNote = Array.isArray(m.sources) && m.sources.length
+		? `<div class="mkt-src">Live · ${m.sources.map(esc).join(' · ')}</div>` : '';
+
+	return `<div class="dr-sec">Market <span style="color:var(--faint);font-weight:400;font-size:10px">live${p.native_sol ? ` · ${p.native_sol < 0.0001 ? p.native_sol.toExponential(2) : p.native_sol.toFixed(6)} ◎` : ''}</span></div>
+		<div class="mkt-stats">${tiles}</div>
+		${changeRow}
+		${curveHtml}
+		${activityHtml}
+		${supplyChips ? `<div class="coin-meta" style="margin-top:10px">${supplyChips}</div>` : ''}
+		${secHtml}
+		${listingHtml}
+		${pairsHtml}
+		${linkBtns ? `<div class="dr-actions" style="margin-top:12px">${linkBtns}</div>` : ''}
+		${srcNote}`;
 }
 
 async function loadSentimentPulse(mint) {

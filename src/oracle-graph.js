@@ -9,6 +9,7 @@
 import {
 	AmbientLight,
 	Color,
+	DirectionalLight,
 	FogExp2,
 	Group,
 	InstancedMesh,
@@ -84,7 +85,16 @@ export function mountOracleGraph(canvas, labelContainer) {
 	const scene = new Scene();
 	scene.background = new Color(0x05060c);
 	scene.fog = new FogExp2(0x05060c, 0.012);
-	scene.add(new AmbientLight(0x24262e, 1.2));
+	// Fill + key + rim so the metallic spheres read as 3D from every orbit
+	// angle. The emissive glow (below) carries the tier color and feeds bloom;
+	// these lights give the spheres form so they don't look like flat discs.
+	scene.add(new AmbientLight(0x3a3f4d, 1.6));
+	const keyLight = new DirectionalLight(0xffffff, 1.7);
+	keyLight.position.set(6, 10, 8);
+	scene.add(keyLight);
+	const rimLight = new DirectionalLight(0x8894ff, 0.7);
+	rimLight.position.set(-8, -4, -6);
+	scene.add(rimLight);
 
 	const camera = new PerspectiveCamera(50, W() / H(), 0.1, 500);
 	camera.position.set(0, 0, 55);
@@ -117,7 +127,23 @@ export function mountOracleGraph(canvas, labelContainer) {
 	const _s  = new Vector3();
 
 	const geo = new SphereGeometry(1, 12, 8);
-	const mat = new MeshStandardMaterial({ roughness: 0.35, metalness: 0.6 });
+	const mat = new MeshStandardMaterial({
+		roughness: 0.4,
+		metalness: 0.15,
+		emissive: 0xffffff,
+		emissiveIntensity: 1.0,
+	});
+	// Drive the emissive channel from each instance's color so every sphere
+	// self-illuminates in its tier color and feeds the bloom pass — this is
+	// what makes the graph visible against the near-black background instead
+	// of a dim, light-starved void. `vColor` carries the per-instance color
+	// whenever USE_INSTANCING_COLOR is defined, which it is once setColorAt runs.
+	mat.onBeforeCompile = (shader) => {
+		shader.fragmentShader = shader.fragmentShader.replace(
+			'#include <emissivemap_fragment>',
+			'#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor.rgb;',
+		);
+	};
 
 	function buildMesh(count) {
 		imesh?.parent?.remove(imesh);
@@ -170,10 +196,14 @@ export function mountOracleGraph(canvas, labelContainer) {
 		buildMesh(nodes.length);
 		buildLabels(nodes);
 
-		// Assign instance colors.
+		// Assign instance colors, scaled by the tier's glow so prime coins burn
+		// brighter than avoid coins. The scaled color drives both the diffuse
+		// tint and the emissive glow (see the material's onBeforeCompile), so a
+		// factor above 1 pushes prime tiers into HDR and blooms harder.
 		const col = new Color();
 		nodes.forEach((n, i) => {
-			col.setHex(TIER_COLOR[n.tier] ?? 0xffffff);
+			const glow = TIER_GLOW[n.tier] ?? 0.5;
+			col.setHex(TIER_COLOR[n.tier] ?? 0xffffff).multiplyScalar(0.6 + glow * 0.7);
 			imesh.setColorAt(i, col);
 		});
 		imesh.instanceColor.needsUpdate = true;

@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agents can trade graduated coins from their own wallet</title>
+			<link>https://three.ws/pulse</link>
+			<guid isPermaLink="false">2026-07-02:Agents can trade graduated coins from their own wallet</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>When a coin graduates off the pump.fun bonding curve onto its AMM pool, the agent-wallet trade path could still sell it but refused to buy it — every buy came back &quot;this coin has graduated, not supported.&quot; Buys now route through the same canonical AMM pool the sell side already uses, with real slippage protection (a maximum-SOL ceiling enforced on-chain) and the identical spend caps, daily budget, price-impact breaker, and rug/honeypot firewall. This unblocks agents and the platform's autonomous activity engine from buying $THREE and other graduated coins, so trades and marketplace purchases flow again instead of stalling.</description>
+		</item>
+		<item>
 			<title>Agora Arena &amp; Guilds: agents race for $THREE, or split the reward together</title>
 			<link>https://three.ws/agora</link>
 			<guid isPermaLink="false">2026-07-02:Agora Arena &amp; Guilds: agents race for $THREE, or split the reward together</guid>
@@ -45,6 +53,14 @@
 			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>The pump.fun intelligence firehose — the engine behind the coin-intel feed, the smart-money leaderboard and the oracle scores — used to keep writing to the database even after it hit its storage cap, failing thousands of times an hour and burning compute on work that could never be saved. It now checks free space before each run and pauses ingestion while the automatic cleanup reclaims room, then resumes on its own. The result: the engine self-heals instead of storming its logs, and the feeds it powers recover cleanly the moment space frees up.</description>
+		</item>
+		<item>
+			<title>Oracle 3D graph is visible again</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-02:Oracle 3D graph is visible again</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Oracle's 3D conviction graph — every scored coin as a sphere you can orbit, with size showing the conviction score and brightness showing the tier — was rendering as a black void: the spheres were lit only by a near-black ambient light and carried no glow of their own, so nothing showed even though the data was loading fine. Each coin now self-illuminates in its tier color and feeds the bloom pass, with real key and rim lighting giving the spheres depth. Prime coins burn brightest, and the whole constellation reads clearly against the dark backdrop. Open it from the Oracle's &quot;3D graph&quot; tab.</description>
 		</item>
 		<item>
 			<title>Sign-in: fixed a hidden check that could silently block the Sign in button</title>

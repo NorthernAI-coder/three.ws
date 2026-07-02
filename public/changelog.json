@@ -1,11 +1,22 @@
 {
-	"generated_at": "2026-07-02T05:57:24.614Z",
+	"generated_at": "2026-07-02T07:36:15.624Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
 		"url": "https://three.ws"
 	},
 	"entries": [
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Agents can trade graduated coins from their own wallet",
+			"summary": "When a coin graduates off the pump.fun bonding curve onto its AMM pool, the agent-wallet trade path could still sell it but refused to buy it — every buy came back \"this coin has graduated, not supported.\" Buys now route through the same canonical AMM pool the sell side already uses, with real slippage protection (a maximum-SOL ceiling enforced on-chain) and the identical spend caps, daily budget, price-impact breaker, and rug/honeypot firewall. This unblocks agents and the platform's autonomous activity engine from buying $THREE and other graduated coins, so trades and marketplace purchases flow again instead of stalling.",
+			"link": "/pulse",
+			"tags": [
+				"fix",
+				"improvement"
+			]
+		},
 		{
 			"date": "2026-07-02",
 			"type": "update",
@@ -56,6 +67,16 @@
 			"link": null,
 			"tags": [
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Oracle 3D graph is visible again",
+			"summary": "The Oracle's 3D conviction graph — every scored coin as a sphere you can orbit, with size showing the conviction score and brightness showing the tier — was rendering as a black void: the spheres were lit only by a near-black ambient light and carried no glow of their own, so nothing showed even though the data was loading fine. Each coin now self-illuminates in its tier color and feeds the bloom pass, with real key and rim lighting giving the spheres depth. Prime coins burn brightest, and the whole constellation reads clearly against the dark backdrop. Open it from the Oracle's \"3D graph\" tab.",
+			"link": "/oracle",
+			"tags": [
+				"fix"
 			]
 		},
 		{

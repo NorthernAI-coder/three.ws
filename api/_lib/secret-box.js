@@ -11,6 +11,12 @@
 // working; new writes always use v2. Set WALLET_ENCRYPTION_KEY in every
 // environment that holds custodial secrets; until it is set the code falls back
 // to JWT_SECRET (with a one-time warning) so deploys don't break.
+//
+// Decryption is intentionally tolerant: a v2 record is tried against the
+// dedicated key first, then against JWT_SECRET. That keeps v2 records written
+// under the JWT_SECRET fallback (before a dedicated key existed) readable after a
+// dedicated key is introduced. Encryption is NOT tolerant — it always uses the
+// dedicated key (fail-closed in prod) so new secrets never depend on JWT_SECRET.
 
 import { webcrypto } from 'node:crypto';
 import { env } from './env.js';
@@ -93,9 +99,29 @@ export async function decryptSecret(ciphertext) {
 		const salt = raw.subarray(0, 16);
 		const iv = raw.subarray(16, 28);
 		const ct = raw.subarray(28);
-		const key = await deriveKey(walletMasterSecret(), salt);
-		const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
-		return new TextDecoder().decode(plain);
+		// Try the configured master secret first (the dedicated WALLET_ENCRYPTION_KEY),
+		// then fall back to JWT_SECRET. v2 records written *before* a dedicated key
+		// existed used the JWT_SECRET fallback and are ONLY decryptable with it — once
+		// a dedicated key is introduced they'd otherwise become unreadable, stranding
+		// the custodial funds behind them. AES-GCM authenticates every attempt (a wrong
+		// key throws, it never returns wrong plaintext), so trying a second candidate is
+		// safe. This is a read-only migration affordance: encryptSecret still requires a
+		// real dedicated key in production, so NEW writes stay independent of JWT_SECRET.
+		// Retire the fallback after a re-encryption migration lifts every record to the
+		// dedicated key.
+		const candidates = [];
+		try { candidates.push(walletMasterSecret()); } catch { /* prod w/o dedicated key — JWT_SECRET below */ }
+		const jwt = env.JWT_SECRET;
+		if (jwt && !candidates.includes(jwt)) candidates.push(jwt);
+		let lastErr;
+		for (const secret of candidates) {
+			try {
+				const key = await deriveKey(secret, salt);
+				const plain = await subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+				return new TextDecoder().decode(plain);
+			} catch (e) { lastErr = e; }
+		}
+		throw lastErr || new Error('[secret-box] v2 decrypt failed: no candidate key available');
 	}
 	// Legacy v1: JWT_SECRET + constant salt, no version tag.
 	const raw = Buffer.from(ciphertext, 'base64');

@@ -767,6 +767,7 @@ CI = [centre − margin, centre + margin]</pre>
 					<tbody>
 						<tr><td><code>GET /api/oracle/feed</code></td><td>Live conviction feed — scored coins with pillars, badges, category, sparkline; plus a tier-level backtest summary. Filters: <code>tier, category, min_score, limit, network</code>.</td></tr>
 						<tr><td><code>GET /api/oracle/coin</code></td><td>Full intel for one mint — conviction, pillars, reasons, narrative, outcome, and the who's-in trader roster. Scores fresh (with LLM) on a cache miss.</td></tr>
+						<tr><td><code>GET /api/oracle/market</code></td><td>Live market half of the coin page for one mint — price + 5m/1h/6h/24h changes, market cap, FDV, liquidity, 24h volume, holders, supply, bonding-curve progress, security (mint/freeze authority, mutable metadata, transfer fee, top-10 concentration), DEX pairs, ATH/ATL for listed coins, and every social/explorer link. Fused live across DexScreener, pump.fun, GeckoTerminal, GoPlus, Birdeye and CoinGecko.</td></tr>
 						<tr><td><code>GET /api/oracle/signal</code></td><td><b>Machine-ready.</b> A buy/watch/skip recommendation with confidence and a size factor, per mint or as the top N plays — built for agent polling.</td></tr>
 						<tr><td><code>GET /api/oracle/batch</code></td><td>Conviction for up to 20 mints at once.</td></tr>
 						<tr><td><code>GET /api/oracle/backtest</code></td><td>Win rate by tier with Wilson CIs, calibration ladder, Brier, and the edge summary. Filters: <code>period, tier, network</code>.</td></tr>

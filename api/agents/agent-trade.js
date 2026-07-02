@@ -26,7 +26,7 @@ import { limits, clientIp } from '../_lib/rate-limit.js';
 import { requireCsrf } from '../_lib/csrf.js';
 import { ensureAgentWallet, recoverSolanaAgentKeypair } from '../_lib/agent-wallet.js';
 import { getPumpTradeClient } from '../_lib/pump.js';
-import { buildAmmSellInstructions, quoteAmmSell } from '../../workers/agent-sniper/amm-exit.js';
+import { buildAmmSellInstructions, quoteAmmSell, buildAmmBuyInstructions, quoteAmmBuy } from '../../workers/agent-sniper/amm-exit.js';
 import { logAudit } from '../_lib/audit.js';
 import { explorerTxUrl } from '../_lib/avatar-wallet.js';
 import { PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
@@ -140,7 +140,19 @@ async function quoteTrade({ ctx, side, mintPk, amount, isMax, slippagePct, netwo
 			q = await ctx.client.quoteForBuy({ mint: mintPk, quoteAmount: new ctx.BN(lamports.toString()), slippagePct });
 		} catch (err) {
 			if (isGraduatedErr(err)) {
-				throw boundary(409, 'graduated', 'This coin has graduated off the bonding curve. Buying it from the agent wallet via the AMM isn’t supported on this path yet.');
+				// Graduated → route the buy through the canonical AMM pool (mirrors the
+				// graduated sell path below). Exact-SOL-in: expected tokens out, with the
+				// SOL ceiling enforced on-chain via maxQuote inside the builder.
+				const a = await quoteAmmBuy({ network, mint: mintPk.toBase58(), quoteAmount: new ctx.BN(lamports.toString()), slippagePct });
+				const expectedBase = a.expectedBaseOut;
+				if (expectedBase <= 0n) throw boundary(422, 'zero_out', 'this amount buys zero tokens — raise it');
+				return {
+					venue: 'amm',
+					lamports, baseAmount: null, decimals: null,
+					expectedOutRaw: expectedBase, minOutRaw: a.minBaseOut,
+					priceImpactPct: Number(a.priceImpactPct ?? 0),
+					usdValue: null, slippageBps,
+				};
 			}
 			console.error('[agents/agent-trade] buy quote failed', err?.message);
 			throw boundary(502, 'quote_failed', 'could not price the buy — try again');
@@ -211,6 +223,10 @@ function requireSolQuote(ctx, quoteMint) {
 // Build the on-chain instructions for a prepared trade.
 async function buildTradeInstructions({ ctx, side, venue, mintPk, ownerPk, lamports, baseAmount, slippagePct, network }) {
 	if (side === 'buy') {
+		if (venue === 'amm') {
+			const built = await buildAmmBuyInstructions({ network, mint: mintPk.toBase58(), user: ownerPk, quoteAmount: new ctx.BN(lamports.toString()), slippagePct });
+			return { instructions: built.instructions, expectedOutRaw: built.expectedBaseOut };
+		}
 		const built = await ctx.client.buildBuyInstructions({
 			mint: mintPk, user: ownerPk, quoteAmount: new ctx.BN(lamports.toString()), slippagePct,
 		});

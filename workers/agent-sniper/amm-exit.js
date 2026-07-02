@@ -1,16 +1,20 @@
-// agent-sniper — post-graduation AMM exit.
+// agent-sniper — post-graduation AMM entry + exit.
 //
-// When a position's coin graduates off the pump.fun bonding curve onto the
-// canonical pump AMM pool, the bonding-curve sell path (PumpTradeClient
-// quoteForSell / buildSellInstructions) can no longer price or close it. This
-// module re-quotes and builds the sell against the AMM pool instead, so a
-// graduated position still exits on stop-loss / trailing / take-profit /
-// timeout with a real fill — never parked.
+// When a coin graduates off the pump.fun bonding curve onto the canonical pump
+// AMM pool, the bonding-curve trade path (PumpTradeClient quoteForBuy/quoteForSell
+// / build*Instructions) can no longer price or execute against it. This module
+// re-quotes and builds trades against the AMM pool instead:
 //
-// It reuses the SAME pool resolution + SDK calls the user-driven sell path uses
-// (api/pump/[action].js → getAmmPoolState + PumpAmmSdk.sellBaseInput), so there
-// is one source of truth for AMM pricing across the platform. All amounts are
-// quote atomics; the sniper trades SOL-quoted curves (require_sol_quote), so the
+//   · SELL (quoteAmmSell / buildAmmSellInstructions) — a graduated position still
+//     exits on stop-loss / trailing / take-profit / timeout with a real fill.
+//   · BUY  (quoteAmmBuy / buildAmmBuyInstructions)    — a graduated coin is still
+//     buyable from an agent's own wallet (the discretionary + circulation trade
+//     path), instead of hard-failing with "graduated, not supported".
+//
+// It reuses the SAME pool resolution + SDK calls the user-driven trade path uses
+// (api/pump/[action].js → getAmmPoolState + PumpAmmSdk.{buyQuoteInput,sellBaseInput}),
+// so there is one source of truth for AMM pricing across the platform. All amounts
+// are quote atomics; these paths trade SOL-quoted curves (require_sol_quote), so the
 // quote currency on the resolved pool is wSOL and atomics are lamports.
 
 import { getAmmPoolState, getConnection } from '../../api/_lib/pump.js';
@@ -125,6 +129,91 @@ export async function buildAmmSellInstructions({ network, mint, user, baseAmount
 	const online = new sdk.OnlinePumpAmmSdk(getConnection({ network }));
 	const swapState = await online.swapSolanaState(amm.poolKey, user);
 	const instructions = await offline.sellBaseInput(swapState, baseAmount, slippagePct);
+
+	return { instructions, poolKey: amm.poolKey.toString(), ...priced };
+}
+
+/**
+ * Re-quote a graduated coin's buy off the AMM pool. Mirrors quoteAmmSell but for
+ * an exact-SOL-in entry (buyQuoteInput): given `quoteAmount` lamports to spend,
+ * returns the expected token base units out, a base-unit min-out floor derived
+ * from slippage, the on-chain SOL ceiling (maxQuote), and a price-impact figure.
+ *
+ * @param {object} p
+ * @param {'mainnet'|'devnet'} p.network
+ * @param {string} p.mint
+ * @param {import('bn.js')} p.quoteAmount   lamports (SOL) to spend (BN)
+ * @param {number} p.slippagePct
+ * @returns {Promise<{ poolKey: string, expectedBaseOut: bigint, minBaseOut: bigint, maxQuoteIn: bigint, priceImpactPct: number }>}
+ * @throws {Error} { code: 'pool_not_found' } when the coin has not graduated.
+ */
+export async function quoteAmmBuy({ network, mint, quoteAmount, slippagePct }) {
+	const { amm, sdk } = await resolvePool(network, mint);
+	const priced = priceBuyFromPool(amm, sdk, quoteAmount, slippagePct);
+	return { poolKey: amm.poolKey.toString(), ...priced };
+}
+
+// Price a SOL-in buy against a resolved AMM pool. Mirrors priceSellFromPool: the
+// SDK's slippage protection for a quote-in buy is expressed on the INPUT side as
+// `maxQuote` (the most SOL you'll pay), so the base-unit floor is derived from the
+// slippage percentage for the ledger/guards while the on-chain bound stays maxQuote.
+function priceBuyFromPool(amm, sdk, quoteAmount, slippagePct) {
+	const { pool, baseReserve, quoteReserve, baseMintAccount, globalConfig, feeConfig } = amm;
+
+	const resolvedQuoteMint = pool.quoteMint?.toString?.() ?? WSOL_MINT;
+	if (resolvedQuoteMint !== WSOL_MINT) {
+		const e = new Error(`amm pool quote is ${resolvedQuoteMint}, expected wSOL`);
+		e.code = 'amm_quote_not_sol';
+		throw e;
+	}
+
+	const r = sdk.buyQuoteInput({
+		quote: quoteAmount,
+		slippage: slippagePct,
+		baseReserve,
+		quoteReserve,
+		globalConfig,
+		baseMintAccount,
+		baseMint: pool.baseMint,
+		coinCreator: pool.coinCreator,
+		creator: pool.creator,
+		feeConfig,
+	});
+	const expectedBaseOut = BigInt((r.base ?? 0).toString());
+	const maxQuoteIn = BigInt((r.maxQuote ?? quoteAmount).toString());
+	// Base-unit floor from the slippage tolerance (bps): expected × (1 − slippage).
+	const slippageBps = Math.max(0, Math.min(10000, Math.round(slippagePct * 100)));
+	const minBaseOut = (expectedBaseOut * BigInt(10000 - slippageBps)) / 10000n;
+
+	// SOL in, tokens out → input reserve is quote, output reserve is base.
+	const priceImpactPct = derivePriceImpact(quoteReserve, baseReserve, quoteAmount, expectedBaseOut);
+
+	return { expectedBaseOut, minBaseOut, maxQuoteIn, priceImpactPct };
+}
+
+/**
+ * Build the AMM buy instructions for a graduated coin. Mirrors
+ * buildAmmSellInstructions (swapSolanaState + offline buyQuoteInput, which embeds
+ * the slippage-derived maxQuote SOL ceiling on-chain). Returns the instructions
+ * plus the expected/min token out and the SOL ceiling.
+ *
+ * @param {object} p
+ * @param {'mainnet'|'devnet'} p.network
+ * @param {string} p.mint
+ * @param {import('@solana/web3.js').PublicKey} p.user
+ * @param {import('bn.js')} p.quoteAmount   lamports (SOL) to spend (BN)
+ * @param {number} p.slippagePct
+ * @returns {Promise<{ instructions: import('@solana/web3.js').TransactionInstruction[], poolKey: string, expectedBaseOut: bigint, minBaseOut: bigint, maxQuoteIn: bigint, priceImpactPct: number }>}
+ * @throws {Error} { code: 'pool_not_found' } when the coin has not graduated.
+ */
+export async function buildAmmBuyInstructions({ network, mint, user, quoteAmount, slippagePct }) {
+	const { amm, sdk } = await resolvePool(network, mint);
+	const priced = priceBuyFromPool(amm, sdk, quoteAmount, slippagePct);
+
+	const offline = new sdk.PumpAmmSdk();
+	const online = new sdk.OnlinePumpAmmSdk(getConnection({ network }));
+	const swapState = await online.swapSolanaState(amm.poolKey, user);
+	const instructions = await offline.buyQuoteInput(swapState, quoteAmount, slippagePct);
 
 	return { instructions, poolKey: amm.poolKey.toString(), ...priced };
 }
