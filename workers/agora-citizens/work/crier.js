@@ -7,6 +7,31 @@ import { buildWorkResult, storeDeliverable, httpBytes, jobPrompt } from './_skil
 
 const EXT_FOR = { mp3: 'mp3', wav: 'wav', opus: 'ogg', aac: 'aac', flac: 'flac', pcm: 'pcm' };
 
+// The free TTS lane serves WAV regardless of the requested format, so the stored
+// artifact's extension must follow the ACTUAL bytes (a .mp3 holding WAV is a lie),
+// not the request. Fall back to the requested format's ext if the content-type is
+// unknown/absent.
+const EXT_BY_CT = {
+	'audio/mpeg': 'mp3',
+	'audio/mp3': 'mp3',
+	'audio/wav': 'wav',
+	'audio/x-wav': 'wav',
+	'audio/wave': 'wav',
+	'audio/vnd.wave': 'wav',
+	'audio/ogg': 'ogg',
+	'audio/opus': 'ogg',
+	'audio/aac': 'aac',
+	'audio/flac': 'flac',
+	'audio/x-flac': 'flac',
+};
+function extFor(contentType, requestedFormat) {
+	const ct = String(contentType || '')
+		.split(';')[0]
+		.trim()
+		.toLowerCase();
+	return EXT_BY_CT[ct] || EXT_FOR[requestedFormat] || 'audio';
+}
+
 const DEFAULT_LINES = [
 	'Hear ye, hear ye — the Commons is open and the board is live.',
 	'A new bounty has hit the square. Qualified citizens, make your claim.',
@@ -38,9 +63,10 @@ export async function runCrier({ cfg, citizen, job } = {}) {
 	});
 	if (!bytes?.length) throw new Error('crier: tts returned 0 audio bytes');
 
+	const ext = extFor(contentType, format);
 	const deliverable = await storeDeliverable({
 		profession: 'crier',
-		ext: EXT_FOR[format] || 'audio',
+		ext,
 		contentType: contentType || 'audio/mpeg',
 		bytes,
 		optional: true,
@@ -51,8 +77,8 @@ export async function runCrier({ cfg, citizen, job } = {}) {
 		citizen,
 		deliverableUrl: deliverable.url,
 		deliverableBytes: bytes,
-		summary: `Voiced a ${bytes.length.toLocaleString()}-byte ${format} clip (${voice})`,
-		meta: { text, format, voice, stored: deliverable.stored },
+		summary: `Voiced a ${bytes.length.toLocaleString()}-byte ${ext.toUpperCase()} clip (${voice})`,
+		meta: { text, requestedFormat: format, format: ext, voice, contentType: contentType || null, stored: deliverable.stored },
 	});
 }
 

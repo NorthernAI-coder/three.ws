@@ -1,5 +1,24 @@
 import * as THREE from 'three';
 import { professionThreeColor, professionColor, professionLabelFor, rewardMagnitude, rewardMarkerScale, rewardChip } from './professions.js';
+import { isArena, isGuild, isMultiWorker, taskTypeBadge, ARENA_COLOR, GUILD_COLOR } from './task-types.js';
+
+// The board marker + roster tint an Arena red-hot and a Guild collaborative-green
+// (Task 09), overriding the profession accent, so a multi-worker task reads as a
+// distinct social structure at a glance. Exclusive bounties keep their profession
+// colour. One Three.Color per accent, memoised.
+const _accentCache = new Map();
+function taskAccentThree(task) {
+	const hex = isArena(task?.taskType) ? ARENA_COLOR : isGuild(task?.taskType) ? GUILD_COLOR : null;
+	if (!hex) return professionThreeColor(task?.profession);
+	let c = _accentCache.get(hex);
+	if (!c) { c = new THREE.Color(hex); _accentCache.set(hex, c); }
+	return c;
+}
+function taskAccentCss(task) {
+	if (isArena(task?.taskType)) return ARENA_COLOR;
+	if (isGuild(task?.taskType)) return GUILD_COLOR;
+	return professionColor(task?.profession);
+}
 
 // The job board — the structure in the square that makes open work legible at a
 // glance. A physical kiosk stands in the Commons; every open task from
@@ -208,7 +227,7 @@ export class JobBoard {
 	}
 
 	_createMarker(task) {
-		const color = professionThreeColor(task.profession);
+		const color = taskAccentThree(task);
 		const grp = new THREE.Group();
 
 		const coreGeo = new THREE.SphereGeometry(0.22, 18, 14);
@@ -291,13 +310,22 @@ export class JobBoard {
 			const btn = document.createElement('button');
 			btn.type = 'button';
 			btn.className = 'agora-econ-board-item';
-			btn.style.setProperty('--accent', professionColor(task.profession));
+			btn.style.setProperty('--accent', taskAccentCss(task));
 			const chip = rewardChip(task.reward);
+			const badge = taskTypeBadge(task.taskType);
+			// Arena/Guild badge + live worker fill (current/max). The badge doubles as
+			// the affordance that clicking opens the live race/guild view.
+			const badgeHtml = badge
+				? `<span class="agora-econ-board-badge is-${badge.kind}" title="${escapeHtml(badge.title)}">${badge.icon} ${escapeHtml(badge.label)}</span>`
+				: '';
+			const fillHtml = isMultiWorker(task.taskType) && task.workersLabel
+				? `<span class="agora-econ-board-fill" aria-label="${escapeHtml(task.workersLabel)} workers">${escapeHtml(task.workersLabel)}</span>`
+				: '';
 			btn.innerHTML = `
 				<span class="agora-econ-board-dot" aria-hidden="true"></span>
 				<span class="agora-econ-board-item-main">
-					<span class="agora-econ-board-item-title">${escapeHtml(task.title || 'Untitled task')}</span>
-					<span class="agora-econ-board-item-meta">${escapeHtml(professionLabelFor(task.profession))}${chip ? ' · ' + escapeHtml(chip) : ''}</span>
+					<span class="agora-econ-board-item-title">${badgeHtml}${escapeHtml(task.title || 'Untitled task')}</span>
+					<span class="agora-econ-board-item-meta">${escapeHtml(professionLabelFor(task.profession))}${chip ? ' · ' + escapeHtml(chip) : ''}${fillHtml ? ' · ' + fillHtml : ''}</span>
 				</span>`;
 			const onActivate = () => this.ctx.onSelectTask?.(task, key);
 			btn.addEventListener('click', onActivate);
@@ -334,12 +362,15 @@ export class JobBoard {
 		if (!marker) { this._tip.hidden = true; return; }
 		const task = marker.task;
 		const chip = rewardChip(task.reward);
+		const badge = taskTypeBadge(task.taskType);
+		const fill = isMultiWorker(task.taskType) && task.workersLabel ? task.workersLabel : null;
 		this._tip.innerHTML = `
-			<div class="agora-econ-tip-title">${escapeHtml(task.title || 'Untitled task')}</div>
+			<div class="agora-econ-tip-title">${badge ? `<span class="agora-econ-board-badge is-${badge.kind}">${badge.icon} ${escapeHtml(badge.label)}</span> ` : ''}${escapeHtml(task.title || 'Untitled task')}</div>
 			<div class="agora-econ-tip-row">
-				<span class="agora-econ-tip-prof" style="--accent:${professionColor(task.profession)}">${escapeHtml(professionLabelFor(task.profession))}</span>
+				<span class="agora-econ-tip-prof" style="--accent:${taskAccentCss(task)}">${escapeHtml(professionLabelFor(task.profession))}</span>
 				${chip ? `<span class="agora-econ-tip-reward">${escapeHtml(chip)}</span>` : ''}
 			</div>
+			${badge ? `<div class="agora-econ-tip-sub">${badge.kind === 'arena' ? 'Race — first valid proof wins' : 'Guild — contributors split the reward'}${fill ? ` · ${escapeHtml(fill)}` : ''} · click to watch live</div>` : ''}
 			${task.source === 'x402' ? '<div class="agora-econ-tip-sub">x402 service · pay-per-call</div>' : ''}`;
 		this._tip.hidden = false;
 	}

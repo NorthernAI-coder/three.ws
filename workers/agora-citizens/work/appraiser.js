@@ -18,7 +18,9 @@ export async function runAppraiser({ cfg, citizen, job } = {}) {
 	const mint = String(job?.mint || THREE_MINT).trim();
 
 	log?.(`appraiser: sentiment pulse for ${mint}`);
-	const res = await httpJson(apiBase, '/api/social/sentiment-pulse', { method: 'POST', body: { mint, limit: 100 } });
+	// The endpoint keys the subject as `token` (the base58 mint pubkey) and returns
+	// { ok, token, overall, breakdown, sources } with no `data` wrapper.
+	const res = await httpJson(apiBase, '/api/social/sentiment-pulse', { method: 'POST', body: { token: mint, limit: 100 } });
 	const data = res?.data || res || {};
 
 	const appraisal = {

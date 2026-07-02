@@ -81,16 +81,22 @@ function districtFor(i) {
 // profession, first in the list — Sculptor forges GLBs, Scribe writes, etc.) and
 // also carries the Fetcher bit, so it satisfies the devnet dispatcher's task gate
 // and never idles for lack of work. A few also carry the Verifier bit for the
-// trust loop. Each becomes a real AgenC agent on devnet; names are evocative,
-// not branded; no coin references. Bits are additive — see roster PROFESSIONS.
+// trust loop (Verifier is only ever a SECONDARY bit — it needs a verification
+// bounty's target, so it never runs as a citizen's default WORK). Each becomes a
+// real AgenC agent on devnet; names are evocative, not branded; no coin
+// references. Bits are additive — see roster PROFESSIONS.
+//
+// Only professions with a reachable backing skill get a standalone specialist
+// (work/index.js WORK_RUNNERS is the active set). Cartographer (bit 3) is
+// deferred — its /api/diorama compose route exceeds the serverless function
+// budget — so no Cartographer citizen is seeded here (omitted, not stubbed).
 const STANDALONE = [
 	{ key: 'aria-sculpt', displayName: 'Aria', professions: ['sculptor', 'fetcher', 'verifier'] },
 	{ key: 'sol-scribe', displayName: 'Sol', professions: ['scribe', 'fetcher'] },
-	{ key: 'cato-carto', displayName: 'Cato', professions: ['cartographer', 'fetcher'] },
 	{ key: 'echo-crier', displayName: 'Echo', professions: ['crier', 'fetcher'] },
 	{ key: 'mira-appraise', displayName: 'Mira', professions: ['appraiser', 'fetcher'] },
 	{ key: 'nyx-name', displayName: 'Nyx', professions: ['namekeeper', 'fetcher'] },
-	{ key: 'koa-fetch', displayName: 'Koa', professions: ['fetcher'] },
+	{ key: 'koa-fetch', displayName: 'Koa', professions: ['fetcher', 'verifier'] },
 	{ key: 'wren-fetch', displayName: 'Wren', professions: ['fetcher', 'verifier'] },
 ];
 

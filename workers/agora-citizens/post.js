@@ -17,7 +17,8 @@
 
 import { PublicKey } from '@solana/web3.js';
 import { createTask, generateTaskId } from './agenc.js';
-import { rewardLabel, postedTaskNarrative, hiredNarrative } from './narrative.js';
+import { isArenaType, isGuildType } from './policy.js';
+import { rewardLabel, postedTaskNarrative, postedArenaNarrative, postedGuildNarrative, hiredNarrative } from './narrative.js';
 
 // The one and only coin Agora denominates in on mainnet (CLAUDE.md). Devnet
 // escrow is native SOL; this mint is used only when AGORA_CLUSTER=mainnet.
@@ -26,7 +27,7 @@ export const THREE_MINT = 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump';
 // A short, human task description encoded into AgenC's 64-byte on-chain slot
 // (encodeAgenCDescription packs longer text as sha256+prefix). Real, readable
 // work — never a placeholder.
-function describeTask({ profession, tier, parentLabel }) {
+function describeTask({ profession, tier, parentLabel, taskType }) {
 	const verb = {
 		fetcher: 'Fetch and return a verified result from a live x402/HTTP service',
 		sculptor: 'Forge a rig-ready GLB from the supplied prompt',
@@ -38,6 +39,9 @@ function describeTask({ profession, tier, parentLabel }) {
 		namekeeper: 'Resolve a .threews.sol / ENS name',
 	}[profession] || `Complete a ${profession} job`;
 	if (parentLabel) return `${verb} (sub-task of "${parentLabel}")`.slice(0, 180);
+	// Arena / Guild descriptions read as the social structure, not just a tier.
+	if (isArenaType(taskType)) return `Arena race — ${verb}; first valid proof wins the escrow`.slice(0, 180);
+	if (isGuildType(taskType)) return `Guild — ${verb}; contributors split the reward`.slice(0, 180);
 	return tier ? `${verb} — ${tier} tier`.slice(0, 180) : verb.slice(0, 180);
 }
 
@@ -94,6 +98,7 @@ export async function postBounty({ cfg, store, client, poster, plan, hire = null
 		profession: plan.profession,
 		tier: plan.tier,
 		parentLabel: hire?.parentLabel,
+		taskType: plan.taskType,
 	});
 
 	const created = await createTask(
@@ -118,9 +123,17 @@ export async function postBounty({ cfg, store, client, poster, plan, hire = null
 	const taskIdHex = Buffer.from(created.taskId).toString('hex');
 	const label = rewardLabel({ amountAtomic: reward.rewardAmount, mint: reward.mintLabel, decimals: reward.decimals });
 
-	const narrative = hire
-		? hiredNarrative({ poster: poster.displayName, profession: plan.profession, reward: label, parentLabel: hire.parentLabel })
-		: postedTaskNarrative({ poster: poster.displayName, profession: plan.profession, reward: label, minReputation: plan.minReputation || 0 });
+	const maxWorkers = plan.maxWorkers || 1;
+	let narrative;
+	if (hire) {
+		narrative = hiredNarrative({ poster: poster.displayName, profession: plan.profession, reward: label, parentLabel: hire.parentLabel });
+	} else if (isArenaType(plan.taskType)) {
+		narrative = postedArenaNarrative({ poster: poster.displayName, reward: label, maxWorkers, minReputation: plan.minReputation || 0 });
+	} else if (isGuildType(plan.taskType)) {
+		narrative = postedGuildNarrative({ poster: poster.displayName, reward: label, maxWorkers });
+	} else {
+		narrative = postedTaskNarrative({ poster: poster.displayName, profession: plan.profession, reward: label, minReputation: plan.minReputation || 0 });
+	}
 
 	const activityId = await store.appendActivity({
 		citizenId: poster.id,
@@ -147,14 +160,23 @@ export async function postBounty({ cfg, store, client, poster, plan, hire = null
 	// Bump the poster's tasks_posted counter (real demand created).
 	await store.updateCitizen(poster.id, { tasksPostedDelta: 1 });
 
-	// Live ticker — a new bounty / hire just hit the board.
+	// Live ticker — a new bounty / hire / Arena / Guild just hit the board.
+	const feedType = hire
+		? 'agora-hired'
+		: isArenaType(plan.taskType)
+			? 'agora-arena-opened'
+			: isGuildType(plan.taskType)
+				? 'agora-guild-opened'
+				: 'agora-task-posted';
 	await store.publishFeed({
-		type: hire ? 'agora-hired' : 'agora-task-posted',
+		type: feedType,
 		actor: String(poster.displayName || 'citizen').slice(0, 32),
 		taskPda,
 		profession: plan.profession,
 		rewardLabel: label || undefined,
 		minReputation: plan.minReputation || 0,
+		taskType: plan.taskType || 'Exclusive',
+		maxWorkers,
 		cluster: cfg.cluster,
 	});
 

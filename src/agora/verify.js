@@ -136,8 +136,17 @@ function looksLikeGlb(url, contentType, bytes) {
 // click, and shows ✓/✗ with both hashes. For a verified GLB it renders the model
 // inline from the very bytes that were hashed — proof you can see and orbit.
 //
-//   mountVerifier(el, { deliverableUrl, proofHash, cluster })
-export function mountVerifier(container, { deliverableUrl, proofHash } = {}) {
+// When a `worker` context is supplied ({ agentPda, name?, taskPda? } — the
+// citizen who produced the deliverable, from the task's lifecycle), a matching
+// verdict surfaces a one-click **vouch** affordance: verifying is the honest
+// prerequisite to attesting, so the Verify → vouch loop (Task 08 DoD) lives right
+// here. It stays dependency-light — no auth/action imports — by dispatching the
+// decoupled `agora:vouch-prompt` window event that the human HUD (me-hud.js)
+// owns; the HUD carries the session + CSRF + spend policy and runs the real
+// on-chain attestation.
+//
+//   mountVerifier(el, { deliverableUrl, proofHash, worker })
+export function mountVerifier(container, { deliverableUrl, proofHash, worker = null } = {}) {
 	container.classList.add('agora-verify');
 	const hasUrl = !!deliverableUrl;
 	const hasProof = !!normalizeHex(proofHash);
@@ -201,7 +210,7 @@ export function mountVerifier(container, { deliverableUrl, proofHash } = {}) {
 				},
 			});
 			const cmp = compareHash(result.hashHex, proofHash);
-			renderResult(status, detail, { cmp, result, deliverableUrl });
+			renderResult(status, detail, { cmp, result, deliverableUrl, worker, proofHash });
 		} catch (err) {
 			renderFailure(status, detail, err, deliverableUrl);
 		} finally {
@@ -212,7 +221,7 @@ export function mountVerifier(container, { deliverableUrl, proofHash } = {}) {
 	});
 }
 
-function renderResult(status, detail, { cmp, result, deliverableUrl }) {
+function renderResult(status, detail, { cmp, result, deliverableUrl, worker = null, proofHash = null }) {
 	const ok = cmp.match;
 	status.replaceChildren(h('div', { class: `agora-verdict ${ok ? 'is-match' : 'is-mismatch'}`, role: ok ? 'status' : 'alert' }, [
 		h('span', { class: 'agora-verdict-icon', 'aria-hidden': 'true' }, [ok ? '✓' : '✗']),
@@ -225,6 +234,13 @@ function renderResult(status, detail, { cmp, result, deliverableUrl }) {
 			]),
 		]),
 	]));
+
+	// One-click vouch (Task 08): a match is the honest prerequisite to attesting.
+	// Only offered when we know who produced this deliverable; dispatches the
+	// decoupled prompt the human HUD turns into a real on-chain attestation.
+	if (ok && worker?.agentPda) {
+		status.appendChild(renderVouchCta(worker, { deliverableUrl, proofHash }));
+	}
 
 	const rows = [
 		hashCompareRow('computed (your browser)', cmp.computed, ok),
@@ -249,6 +265,37 @@ function renderResult(status, detail, { cmp, result, deliverableUrl }) {
 			viewer.replaceChildren(h('div', { class: 'agora-glb-fail' }, [`Could not render the model: ${err?.message || 'unknown error'}`]));
 		});
 	}
+}
+
+// The Verify → vouch bridge. Renders a small "vouch for this work" affordance
+// under a matching verdict. It never calls the vouch API itself (verify.js stays
+// pure of auth/actions) — it dispatches `agora:vouch-prompt`, which me-hud.js
+// resolves to the worker's citizen, opens the "You" drawer, and runs the real
+// on-chain attestation (signed-out visitors get routed to sign in there).
+function renderVouchCta(worker, { deliverableUrl, proofHash }) {
+	const who = worker.name ? `for ${worker.name}` : 'for this citizen';
+	const btn = h('button', { class: 'agora-btn agora-btn-primary agora-verify-vouch-btn', type: 'button' }, [
+		h('span', { class: 'agora-btn-icon', 'aria-hidden': 'true' }, ['✍']),
+		`Vouch ${who}`,
+	]);
+	btn.addEventListener('click', () => {
+		window.dispatchEvent(new CustomEvent('agora:vouch-prompt', {
+			detail: {
+				agentPda: worker.agentPda,
+				citizenId: worker.citizenId || null,
+				name: worker.name || null,
+				taskPda: worker.taskPda || null,
+				cluster: worker.cluster || null,
+				proofHash: proofHash || null,
+				deliverableUrl: deliverableUrl || null,
+				verified: true,
+			},
+		}));
+	});
+	return h('div', { class: 'agora-verify-vouch' }, [
+		h('span', { class: 'agora-verify-vouch-hint' }, ['Confirmed the work? Leave a real on-chain vouch.']),
+		btn,
+	]);
 }
 
 function hashCompareRow(label, hex, ok) {

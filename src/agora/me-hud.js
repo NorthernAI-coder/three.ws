@@ -10,6 +10,9 @@
 //   • reads context from window events the other layers already emit
 //       'agora:open-job'      {detail:{task}}      → the job you're looking at
 //       'agora:open-passport' {detail:{agentPda}}  → the citizen you're looking at
+//       'agora:vouch-prompt'  {detail:{agentPda,…}}→ verify.js confirmed a
+//           deliverable; open the drawer straight to a one-click vouch for the
+//           citizen who produced it (the Verify → vouch loop, Task 08 DoD).
 //   • re-emits 'agora:open-job' after a claim/complete so the open job panel
 //     refreshes itself.
 // Signed-out visitors keep the world fully watchable and get an honest
@@ -43,6 +46,8 @@ function boot() {
 
 	window.addEventListener('agora:open-job', onOpenJob);
 	window.addEventListener('agora:open-passport', onOpenPassport);
+	// The Verify → vouch bridge (verify.js dispatches this after a matching verdict).
+	window.addEventListener('agora:vouch-prompt', onVouchPrompt);
 
 	renderDock();
 	refreshMe(true);
@@ -273,7 +278,7 @@ function renderJobSection() {
 
 function renderVouchSection() {
 	const subj = state.subject;
-	const note = h('input', { class: 'agora-h-input', type: 'text', maxlength: '280', placeholder: `Why ${subj.name} earned your vouch (optional)` });
+	const note = h('input', { id: 'agora-vouch-note', class: 'agora-h-input', type: 'text', maxlength: '280', placeholder: `Why ${subj.name} earned your vouch (optional)` });
 	const status = h('div', { class: 'agora-h-status', role: 'status', 'aria-live': 'polite' });
 	const btn = h('button', { class: 'agora-btn agora-btn-primary', type: 'button' }, [`Vouch for ${subj.name}`]);
 	btn.addEventListener('click', async () => {
@@ -314,6 +319,59 @@ async function onOpenPassport(e) {
 		if (data?.citizen) state.subject = { id: data.citizen.id, name: data.citizen.displayName };
 	} catch { /* leave subject unchanged */ }
 	if (panel?.isOpen) renderYou();
+}
+
+// The Verify → vouch bridge. A matching verification (verify.js) dispatches this
+// with the worker who produced the deliverable. We resolve them to a Commons
+// citizen, join the viewer if needed, and open the drawer straight to the vouch
+// section — so confirming work and attesting to it is genuinely one flow. Every
+// dead end is an honest, designed state (not a citizen / yourself / signed out).
+async function onVouchPrompt(e) {
+	const d = e.detail || {};
+	let subject = null;
+	try {
+		const data = d.citizenId ? await fetchPassport({ id: d.citizenId })
+			: (d.agentPda ? await fetchPassport({ agentPda: d.agentPda }) : null);
+		if (data?.citizen) subject = { id: data.citizen.id, name: data.citizen.displayName };
+	} catch { /* resolution failed → honest message below */ }
+	if (!subject) {
+		toast('This worker isn’t a Commons citizen yet — nothing to vouch for.', 'error');
+		return;
+	}
+
+	// Vouching moves value (a real on-chain attestation) → it needs a signed-in,
+	// joined citizen. Surface the honest gate rather than silently doing nothing.
+	if (!state.user) { try { state.user = await getMe(); } catch { state.user = null; } }
+	if (!state.user) {
+		toast('Sign in to vouch for this work.', 'error');
+		renderDock();
+		return;
+	}
+	if (!state.me) await refreshMe(true);
+	if (!state.me) { toast('Could not join Agora to vouch — try again.', 'error'); return; }
+
+	if (subject.id === state.me.citizenId) {
+		toast('That’s your own work — you can’t vouch for yourself.', 'error');
+		return;
+	}
+
+	state.subject = subject;
+	if (d.taskPda) state.job = { taskPda: d.taskPda, cluster: d.cluster || state.me.cluster || 'devnet', title: state.job?.title || null };
+
+	panel.open(document.activeElement);
+	renderYou();
+	focusVouchSection();
+}
+
+// Bring the (freshly rendered) vouch note into view + focus it, so a click on the
+// verifier's "Vouch" button lands the viewer right on the attestation control.
+function focusVouchSection() {
+	setTimeout(() => {
+		const note = document.getElementById('agora-vouch-note');
+		if (!note) return;
+		try { note.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch { note.scrollIntoView(); }
+		note.focus({ preventScroll: true });
+	}, 60);
 }
 
 function openJobByPda(taskPda) {

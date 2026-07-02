@@ -63,6 +63,19 @@ export const ECON_LAYER_CSS = `
 	-webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .agora-econ-board-item-meta { font-size: 11.5px; color: var(--econ-dim); }
+/* Arena / Guild type badge (Task 09) — a small inline tag on a multi-worker task. */
+.agora-econ-board-badge {
+	display: inline-flex; align-items: center; gap: 3px;
+	font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+	padding: 1px 6px; border-radius: 6px; margin-right: 6px; vertical-align: middle;
+	border: 1px solid transparent;
+}
+.agora-econ-board-badge.is-arena { color: #ff6b57; background: rgba(255,107,87,0.14); border-color: rgba(255,107,87,0.4); }
+.agora-econ-board-badge.is-guild { color: #38d39f; background: rgba(56,211,159,0.14); border-color: rgba(56,211,159,0.4); }
+.agora-econ-board-fill {
+	font-variant-numeric: tabular-nums; font-weight: 700; color: var(--econ-text);
+	background: rgba(255,255,255,0.07); padding: 0 5px; border-radius: 5px;
+}
 .agora-econ-board-empty { text-align: center; padding: 22px 8px; color: var(--econ-dim); }
 .agora-econ-board-empty-glyph { font-size: 30px; opacity: 0.7; }
 .agora-econ-board-empty-title { margin: 8px 0 4px; font-size: 14px; font-weight: 700; color: var(--econ-text); }

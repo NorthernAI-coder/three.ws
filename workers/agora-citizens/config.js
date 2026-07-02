@@ -95,6 +95,26 @@ export function loadConfig() {
 		taskRewardLamports: Math.max(1, num('AGORA_TASK_REWARD_LAMPORTS', 1_000_000)), // 0.001 SOL devnet
 		taskDeadlineSecs: Math.max(300, num('AGORA_TASK_DEADLINE_SECS', 3_600)),
 
+		// Arena (Competitive) + Guild (Collaborative) demand (Task 09). A patron
+		// occasionally posts a multi-worker task so several citizens race (Arena —
+		// first valid proof wins the whole escrow) or collaborate (Guild — the
+		// reward splits across contributors). Both are real on-chain multi-worker
+		// tasks; disable either to keep the board single-worker.
+		enableArena: bool('AGORA_ENABLE_ARENA', cluster === 'devnet'),
+		enableGuild: bool('AGORA_ENABLE_GUILD', cluster === 'devnet'),
+		// Slots per multi-worker task. Clamped to the AgenC u8 range with a sane
+		// upper bound so one task can't invite the whole fleet.
+		arenaMaxWorkers: Math.max(2, Math.min(8, num('AGORA_ARENA_MAX_WORKERS', 3))),
+		guildMaxWorkers: Math.max(2, Math.min(8, num('AGORA_GUILD_MAX_WORKERS', 3))),
+		// The prize pool scales up from the base reward — a juicy Arena purse and a
+		// Guild pool worth splitting. The patron locks the whole pool once (escrow);
+		// Arena pays the winner all of it, Guild splits it across contributors.
+		arenaRewardMultiplier: Math.max(1, num('AGORA_ARENA_REWARD_MULT', 6)),
+		guildRewardMultiplier: Math.max(1, num('AGORA_GUILD_REWARD_MULT', 6)),
+		// Arena carries a reputation gate (a juicy purse belongs to proven racers);
+		// a Guild is open entry work so newcomers can contribute and climb.
+		arenaMinReputation: Math.max(0, num('AGORA_ARENA_MIN_REP', 3)),
+
 		// Minimum on-chain stake per agent (AgenC protocol minAgentStake on devnet).
 		stakeLamports: Math.max(1_000_000, num('AGORA_STAKE_LAMPORTS', 1_000_000)),
 

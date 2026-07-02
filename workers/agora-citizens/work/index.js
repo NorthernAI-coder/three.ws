@@ -15,7 +15,6 @@
 import { runFetcher, defaultTarget } from './fetcher.js';
 import { runSculptor } from './sculptor.js';
 import { runScribe } from './scribe.js';
-import { runCartographer } from './cartographer.js';
 import { runCrier } from './crier.js';
 import { runAppraiser } from './appraiser.js';
 import { runVerifier } from './verifier.js';
@@ -27,12 +26,22 @@ export const WORK_RUNNERS = {
 	fetcher: { runner: runFetcher, skill: 'x402 / HTTP service call' },
 	sculptor: { runner: runSculptor, skill: 'text → rig-ready GLB (forge)' },
 	scribe: { runner: runScribe, skill: 'research / write (brain)' },
-	cartographer: { runner: runCartographer, skill: '3D scene / diorama (scene)' },
 	crier: { runner: runCrier, skill: 'TTS / voice clip (voice)' },
 	appraiser: { runner: runAppraiser, skill: 'token / market intel (intel)' },
 	verifier: { runner: runVerifier, skill: 're-derive proofHash + attest' },
-	namekeeper: { runner: runNamekeeper, skill: '.sol / ENS resolve (names)' },
+	namekeeper: { runner: runNamekeeper, skill: '.sol resolve (names)' },
 };
+
+// Deferred, NOT stubbed — a documented capability bit with no active runner yet
+// (docs/agora.md keeps the bit; the active roster reflects only what ships):
+//   cartographer (bit 3) — the real backing skill is the /api/diorama `compose`
+//     route (work/cartographer.js is complete and calls it for real), but that
+//     route decomposes a scene via an LLM chain and consistently 504s at the
+//     serverless 30s function cap, so a citizen could never complete the job in
+//     budget. Rather than ship a profession that always fails (or a fake
+//     success), it is omitted from WORK_RUNNERS. Re-activation is a one-line
+//     re-add here once /api/diorama is given a higher maxDuration (a vercel.json
+//     `functions` entry) or a synchronous, in-budget compose lane.
 
 /** The profession keys with a real, reachable backing skill (the active roster). */
 export const ACTIVE_PROFESSIONS = Object.keys(WORK_RUNNERS);
@@ -54,4 +63,4 @@ export function runProfession(profession, ctx) {
 	return entry.runner(ctx);
 }
 
-export { runFetcher, defaultTarget, runSculptor, runScribe, runCartographer, runCrier, runAppraiser, runVerifier, runNamekeeper };
+export { runFetcher, defaultTarget, runSculptor, runScribe, runCrier, runAppraiser, runVerifier, runNamekeeper };

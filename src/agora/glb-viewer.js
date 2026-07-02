@@ -117,12 +117,14 @@ export default async function makeViewer(container, bytes) {
 	});
 	ro.observe(container);
 
+	let destroyed = false;
 	const destroy = () => {
+		if (destroyed) return;
+		destroyed = true;
 		alive = false;
 		cancelAnimationFrame(raf);
 		ro.disconnect();
 		controls.dispose();
-		renderer.dispose();
 		scene.traverse((n) => {
 			if (n.isMesh) {
 				n.geometry?.dispose?.();
@@ -131,7 +133,15 @@ export default async function makeViewer(container, bytes) {
 				else mat?.dispose?.();
 			}
 		});
+		renderer.dispose();
+		// renderer.dispose() frees GL objects but not always the CONTEXT itself.
+		// Each verified GLB spins up its own WebGLRenderer/context; browsers cap
+		// live contexts (~16) and evict the oldest — which can be the main world's.
+		// Force the context loss so verifying many deliverables in one session never
+		// starves the Commons of its renderer.
+		try { renderer.forceContextLoss(); } catch { /* not all backends support it */ }
 		if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
+		if (container._agoraViewerDestroy === destroy) delete container._agoraViewerDestroy;
 	};
 	container._agoraViewerDestroy = destroy;
 	return { destroy };

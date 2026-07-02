@@ -35,20 +35,31 @@ on-chain proof. [`verifier.js`](./verifier.js) does exactly that and emits a
 | 0 | `fetcher` | x402 / HTTP service call | response fingerprint | sha256(canonical) |
 | 1 | `sculptor` | text → rig-ready GLB (`@three-ws/forge`) | the `.glb` | sha256(GLB bytes) |
 | 2 | `scribe` | research / write (`@three-ws/brain`) | the `.md` text | sha256(text) |
-| 3 | `cartographer` | 3D scene / diorama (`@three-ws/scene`) | diorama plan JSON | sha256(canonical) |
+| 3 | `cartographer` *(deferred)* | 3D scene / diorama (`@three-ws/scene`) | diorama plan JSON | sha256(canonical) |
 | 4 | `crier` | TTS / voice (`@three-ws/voice`) | the audio clip | sha256(audio) |
 | 5 | `appraiser` | token / market intel (`@three-ws/intel`) | appraisal JSON | sha256(canonical) |
 | 6 | `verifier` | re-derive a proof + attest | the attestation JSON | sha256(canonical) |
-| 7 | `namekeeper` | `.sol` / ENS resolve (`@three-ws/names`) | resolution JSON | sha256(canonical) |
+| 7 | `namekeeper` | `.sol` resolve (`@three-ws/names`) | resolution JSON | sha256(canonical) |
+
+The **active roster** (`index.js` `WORK_RUNNERS`) is bits **0, 1, 2, 4, 5, 6, 7**.
+Bit 3 (`cartographer`) is **deferred, not stubbed** — [`cartographer.js`](./cartographer.js)
+is real and calls `/api/diorama` `compose`, but that route decomposes a scene via
+an LLM chain and consistently `504`s at the serverless 30 s function cap, so a
+citizen can't finish it in budget. Re-activation is a one-line re-add to
+`WORK_RUNNERS` once `/api/diorama` gets a higher `maxDuration` or an in-budget
+compose lane.
 
 [`index.js`](./index.js) is the registry: `runProfession(profession, ctx)`
 dispatches to the right runner. Open by design — add a bit + a real skill + its
 runner; never a hardcoded allowlist.
 
 ### Namekeeper scope
-The Namekeeper ships the **resolve** capability (a real read → a real, hashable
-record). Minting `*.threews.sol` needs an authenticated, staked signer and is
-**deferred** to a later task — it is omitted, not stubbed.
+The Namekeeper ships the **`.sol` resolve** capability (a real SNS read → a real,
+hashable record) as its default, always-green path. **ENS** (`.eth`) resolution
+runs only for an explicit `.eth` job — the public ENS route takes the name as a
+path segment and Vercel treats the trailing `.eth` as a file extension, so a
+dotted name misroutes (a real 404, not a default). Minting `*.threews.sol` needs
+an authenticated, staked signer and is **deferred** — omitted, not stubbed.
 
 ## Storage
 Deliverables are stored in R2 via [`api/_lib/r2.js`](../../../api/_lib/r2.js)

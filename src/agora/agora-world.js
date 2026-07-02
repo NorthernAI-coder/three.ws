@@ -88,13 +88,14 @@ async function main() {
 	let focusGoal = null; // when set, focus eases toward it (cleared on manual pan)
 	camera.position.set(0, 16, 30);
 
-	canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-	bindResize(renderer, camera);
+	const onContextMenu = (e) => e.preventDefault();
+	canvas.addEventListener('contextmenu', onContextMenu);
+	const offResize = bindResize(renderer, camera);
 
 	// ── Spectator panning input ───────────────────────────────────────────────
 	const keys = new Set();
 	const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
-	window.addEventListener('keydown', (e) => {
+	const onKeyDown = (e) => {
 		const k = e.key.toLowerCase();
 		if (!PAN_KEYS.has(k)) return;
 		// Don't hijack typing or scrolling: let form fields, editable content, and any
@@ -105,12 +106,21 @@ async function main() {
 		if (k.startsWith('arrow')) e.preventDefault();
 		keys.add(k);
 		focusGoal = null;
-	});
-	window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+	};
+	const onKeyUp = (e) => keys.delete(e.key.toLowerCase());
+	window.addEventListener('keydown', onKeyDown);
+	window.addEventListener('keyup', onKeyUp);
 
 	// ── Population ────────────────────────────────────────────────────────────
 	const population = new CitizenPopulation({ renderer, scene, reducedMotion: REDUCED_MOTION });
 	const passport = new PassportPanel();
+
+	// Honor a mid-session toggle of the OS "reduce motion" setting: the world reads
+	// population.reducedMotion live each frame, so pushing the new value stops (or
+	// resumes) idle/walk/celebrate motion without a reload. Captured for teardown.
+	const motionMql = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? null;
+	const onMotionChange = (e) => { population.reducedMotion = e.matches; economy?.setReducedMotion?.(e.matches); };
+	motionMql?.addEventListener?.('change', onMotionChange);
 	const raycaster = new THREE.Raycaster();
 	const pointer = new THREE.Vector2();
 	let hoverId = null;
@@ -179,18 +189,22 @@ async function main() {
 				return;
 			}
 
+			// The board renders the 200 most-recently-active citizens (the query +
+			// render cap). Hitting it means more citizens exist than are shown — say so
+			// honestly rather than silently dropping the tail.
+			const capped = citizens.length >= 200;
 			revealWorld();
-			updateCount(citizens.length);
-			buildRoster(citizens);
+			updateCount(citizens.length, null, capped);
+			buildRoster(citizens, capped);
 
 			// Progressive populate: each avatar fades in as its GLB resolves. Loads
 			// are pooled inside CitizenPopulation so the fleet streams in smoothly.
 			let placed = 0;
 			await Promise.all(citizens.map(async (citizen, i) => {
 				const inst = await population.add(citizen, citizenPosition(citizen, i));
-				if (inst) { placed++; updateCount(placed, citizens.length); }
+				if (inst) { placed++; updateCount(placed, citizens.length, capped); }
 			}));
-			updateCount(population.count);
+			updateCount(population.count, null, capped);
 		} catch (err) {
 			log.warn('[agora] citizens fetch failed', err?.message);
 			revealWorld();
@@ -204,8 +218,11 @@ async function main() {
 	// ── Accessible roster (keyboard + screen reader) ──────────────────────────
 	// One focusable button per citizen, visually hidden but reachable by Tab.
 	// Focus highlights the avatar; Enter/Space opens its passport.
-	function buildRoster(citizens) {
-		rosterEl.innerHTML = `<h2 class="agora-sr-only">Citizens of the Commons</h2>`;
+	function buildRoster(citizens, capped = false) {
+		const heading = capped
+			? 'Citizens of the Commons — showing the 200 most recently active'
+			: 'Citizens of the Commons';
+		rosterEl.innerHTML = `<h2 class="agora-sr-only">${heading}</h2>`;
 		const list = document.createElement('ul');
 		list.className = 'agora-roster-list';
 		for (const c of citizens) {
@@ -261,9 +278,18 @@ async function main() {
 		stateEl.querySelector('#agora-retry')?.addEventListener('click', loadCitizens);
 	}
 
-	function updateCount(n, total) {
+	function updateCount(n, total, capped = false) {
 		if (!countEl) return;
-		countEl.textContent = total && total !== n ? `${n} / ${total}` : String(n);
+		if (total && total !== n) {
+			countEl.textContent = `${n} / ${total}`;
+		} else if (capped) {
+			// Honest overflow: more citizens exist than the square renders.
+			countEl.textContent = `${n}+`;
+			countEl.title = `Showing the ${n} most recently active citizens`;
+		} else {
+			countEl.textContent = String(n);
+			countEl.removeAttribute('title');
+		}
 	}
 
 	function revealWorld() {
@@ -289,10 +315,7 @@ async function main() {
 		citizensRefresh = setTimeout(() => { loadCitizens(); }, 400);
 	}
 	window.addEventListener('agora:citizens-changed', onCitizensChanged);
-	window.addEventListener('pagehide', () => {
-		clearTimeout(citizensRefresh);
-		window.removeEventListener('agora:citizens-changed', onCitizensChanged);
-	}, { once: true });
+	// (cleanup of this listener + the debounce timer happens in disposeWorld below.)
 
 	// ── Economy layer (Task 06) ────────────────────────────────────────────────
 	// The job board, live ticker, and the completion moment (coin flow + rep tick
@@ -314,12 +337,17 @@ async function main() {
 		crowd,
 		openPassport: (id) => openPassport(id, null),
 	});
-	window.addEventListener('pagehide', () => economy.dispose(), { once: true });
-
 	// ── Render loop ───────────────────────────────────────────────────────────
 	const clock = new THREE.Timer();
+	let rafId = 0;
 	(function tick() {
-		requestAnimationFrame(tick);
+		rafId = requestAnimationFrame(tick);
+		// Pause all per-frame work while the tab is hidden: no camera easing, no
+		// mixer/economy updates, no GPU draw. Browsers already throttle/suspend rAF
+		// when hidden; this guard covers engines that keep firing it and stops the
+		// world burning CPU/GPU (and battery) in a background tab. On return the
+		// first delta is clamped below, so there's no motion jump.
+		if (document.hidden) return;
 		clock.update();
 		const dt = Math.min(clock.getDelta(), 0.05);
 
@@ -344,6 +372,32 @@ async function main() {
 		economy.update(dt);
 		renderer.render(scene, camera);
 	})();
+
+	// ── Teardown ────────────────────────────────────────────────────────────────
+	// /agora is a standalone page, so navigating away is a full unload the GC
+	// reclaims — but a long-lived session (hours in one tab) must not accumulate
+	// orphaned WebGL resources, mixers, or listeners. Dispose everything the world
+	// owns on pagehide: stop the loop, free the fleet + camera + renderer, and
+	// detach every global listener. Idempotent + best-effort (a throw here must not
+	// break unload). Runs once.
+	let disposed = false;
+	function disposeWorld() {
+		if (disposed) return;
+		disposed = true;
+		try { cancelAnimationFrame(rafId); } catch { /* ignore */ }
+		try { motionMql?.removeEventListener?.('change', onMotionChange); } catch { /* ignore */ }
+		try { window.removeEventListener('keydown', onKeyDown); } catch { /* ignore */ }
+		try { window.removeEventListener('keyup', onKeyUp); } catch { /* ignore */ }
+		try { canvas.removeEventListener('contextmenu', onContextMenu); } catch { /* ignore */ }
+		try { offResize?.(); } catch { /* ignore */ }
+		try { clearTimeout(citizensRefresh); } catch { /* ignore */ }
+		try { window.removeEventListener('agora:citizens-changed', onCitizensChanged); } catch { /* ignore */ }
+		try { economy.dispose(); } catch (err) { log.warn('[agora] economy dispose failed', err?.message); }
+		try { population.dispose?.(); } catch (err) { log.warn('[agora] population dispose failed', err?.message); }
+		try { cityCamera.dispose?.(); } catch { /* ignore */ }
+		try { renderer.dispose(); } catch { /* ignore */ }
+	}
+	window.addEventListener('pagehide', disposeWorld, { once: true });
 }
 
 function clampPan(v) { return Math.max(-PAN_BOUNDS, Math.min(PAN_BOUNDS, v)); }

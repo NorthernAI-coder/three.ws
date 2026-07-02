@@ -156,8 +156,29 @@ describe('reconcile state mapping', () => {
 		expect(reconcileTransition('Disputed').kind).toBe('slashed');
 	});
 
+	it('maps the REAL AgenC formatTaskState labels (spaced) that the chain emits', () => {
+		// @tetsuo-ai/sdk formatTaskState → "Open" | "In Progress" | "Pending Validation"
+		// | "Completed" | "Cancelled" | "Disputed". These are what reconcile actually
+		// receives; a claimed task is "In Progress", not "Claimed".
+		expect(reconcileTransition('In Progress').kind).toBe('claimed_task');
+		expect(reconcileTransition('Pending Validation').kind).toBe('claimed_task');
+		expect(reconcileTransition('Completed').kind).toBe('completed_task');
+		expect(reconcileTransition('Cancelled').kind).toBe('cancelled_task');
+		expect(reconcileTransition('Disputed').kind).toBe('slashed');
+	});
+
+	it('decodes the raw AgenC enum numbers in the correct order (SDK fallback path)', () => {
+		// TaskState: 0 Open, 1 InProgress, 2 PendingValidation, 3 Completed, 4 Cancelled, 5 Disputed.
+		expect(reconcileTransition(0)).toBe(null);
+		expect(reconcileTransition(1).kind).toBe('claimed_task');
+		expect(reconcileTransition(2).kind).toBe('claimed_task');
+		expect(reconcileTransition(3).kind).toBe('completed_task');
+		expect(reconcileTransition(4).kind).toBe('cancelled_task');
+		expect(reconcileTransition(5).kind).toBe('slashed');
+	});
+
 	it('every transition kind is in the board terminal set', () => {
-		for (const label of ['Claimed', 'Completed', 'Cancelled', 'Expired', 'Disputed']) {
+		for (const label of ['In Progress', 'Completed', 'Cancelled', 'Expired', 'Disputed']) {
 			expect(BOARD_TERMINAL_KINDS).toContain(reconcileTransition(label).kind);
 		}
 		expect(BOARD_TERMINAL_KINDS).toEqual(
