@@ -97,6 +97,34 @@ export default wrapCron(async (req, res) => {
 
 	const result = await sweepTopUps({ connection, targets, network: 'mainnet' });
 
+	// Record the sweep to the tamper-evident accounting ledger. Every transfer,
+	// block, and failure becomes a hash-chained row; the heartbeat row proves the
+	// monitor ran even on a no-op sweep. The write never fails the response — but
+	// if SOL moved and the record was dropped, that is a monitoring gap an operator
+	// must know about (the reconcile cron would flag the tx as unrecorded).
+	const runId = randomUUID();
+	let ledger = { written: 0 };
+	if (result.configured && result.master) {
+		try {
+			ledger = await recordSweep({
+				runId,
+				masterPubkey: result.master,
+				network: 'mainnet',
+				result,
+				caps: { reserveSol: RESERVE_SOL, runCapSol: RUN_CAP_SOL, perTopupMaxSol: PER_TOPUP_MAX_SOL },
+			});
+		} catch (e) {
+			ledger = { written: 0, skippedWrite: e?.message || 'record_failed' };
+		}
+		if (ledger.skippedWrite && result.funded.length > 0) {
+			await sendOpsAlert(
+				`🧾 Economy ledger did NOT record a real transfer`,
+				`sweep ${runId} moved ${result.spentSol} SOL across ${result.funded.length} transfer(s) but the ledger write failed (${ledger.skippedWrite}). The money moved; the book is behind. economy-reconcile will flag these as unrecorded — reconcile manually.`,
+				{ signature: `economy-ledger-miss:${runId}` },
+			);
+		}
+	}
+
 	// Alert when the master is configured but too drained to cover a real
 	// deficit — that is the one condition a human must act on (fund the root).
 	if (result.configured && targets.length > 0 && result.spentSol === 0 && result.funded.length === 0) {
@@ -137,5 +165,7 @@ export default wrapCron(async (req, res) => {
 		spent_sol: result.spentSol,
 		master_sol: result.masterSol ?? null,
 		read_errors: errors,
+		run_id: runId,
+		ledger,
 	});
 });
