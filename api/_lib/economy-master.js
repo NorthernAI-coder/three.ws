@@ -10,7 +10,7 @@
 // the caller derived from SOLANA_SIGNERS). This is the "masters fund engines,
 // engines do the work" model applied platform-wide.
 //
-// Address (mainnet vanity): wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW
+// Address (mainnet vanity): WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW
 //
 // Inert until ECONOMY_MASTER_SECRET_BASE58 is set: loadEconomyMaster() returns
 // null when unconfigured, so shipping this changes nothing until the operator
@@ -33,7 +33,7 @@ import { getSolBalance, sendSol, LAMPORTS_PER_SOL } from './avatar-wallet.js';
 // (a mis-paste must never silently drain a different wallet). Override with
 // ECONOMY_MASTER_ADDRESS if the master is ever rotated.
 export const ECONOMY_MASTER_ADDRESS =
-	process.env.ECONOMY_MASTER_ADDRESS || 'wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW';
+	process.env.ECONOMY_MASTER_ADDRESS || 'WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW';
 
 // Dust threshold: skip a top-up smaller than this to avoid fee churn on engines
 // that are only a hair under their target.

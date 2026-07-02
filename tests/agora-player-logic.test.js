@@ -10,6 +10,7 @@ import {
 	WALK_SPEED,
 	RUN_SPEED,
 	INTERACT_RADIUS,
+	PLAYER_RADIUS,
 	motionFor,
 	stepMovement,
 	easeYaw,
@@ -17,6 +18,8 @@ import {
 	nearestInteractable,
 	chooseAvatarSource,
 	guestName,
+	isOpenGround,
+	findOpenSpawn,
 } from '../src/agora/player-logic.js';
 
 describe('motion state (the wire vocabulary)', () => {
@@ -126,6 +129,45 @@ describe('interaction prompt', () => {
 		expect(nearestInteractable(0, 0, edge)).toBe(null);
 		const inside = [{ id: 'in', kind: 'citizen', x: INTERACT_RADIUS - 0.01, z: 0 }];
 		expect(nearestInteractable(0, 0, inside)?.id).toBe('in');
+	});
+});
+
+describe('open-ground spawn (walk-to-NPC reachability)', () => {
+	const town = [
+		{ minX: -2, maxX: 2, minZ: -2, maxZ: 2, h: 40 }, // a tower straddling the origin
+		{ minX: 5, maxX: 9, minZ: 5, maxZ: 9, h: 30 },
+	];
+
+	it('detects ground inside vs clear of buildings', () => {
+		expect(isOpenGround(0, 0, town)).toBe(false); // dead centre of the tower
+		expect(isOpenGround(1.9, 0, town)).toBe(false); // within the margin of a face
+		expect(isOpenGround(20, 20, town)).toBe(true); // open street
+		expect(isOpenGround(0, 0, [])).toBe(true); // no buildings → all open
+	});
+
+	it('nudges a walled spawn out to the nearest open point', () => {
+		const spawn = findOpenSpawn({ x: 0, z: 0 }, town);
+		expect(isOpenGround(spawn.x, spawn.z, town)).toBe(true);
+		// It stays near the desired spot, not flung across the map.
+		expect(Math.hypot(spawn.x, spawn.z)).toBeLessThan(12);
+	});
+
+	it('leaves an already-open spawn untouched', () => {
+		const spawn = findOpenSpawn({ x: 20, z: 20 }, town);
+		expect(spawn).toEqual({ x: 20, z: 20 });
+	});
+
+	it('degenerates gracefully to the desired point when nowhere is open', () => {
+		const walled = [{ minX: -1000, maxX: 1000, minZ: -1000, maxZ: 1000, h: 5 }];
+		const spawn = findOpenSpawn({ x: 3, z: 4 }, walled, { maxRadius: 20 });
+		expect(spawn).toEqual({ x: 3, z: 4 }); // never leaves the player unplaced
+	});
+
+	it('the open point clears collision push-out (player can actually stand there)', () => {
+		const spawn = findOpenSpawn({ x: 0, z: 0 }, town);
+		const resolved = resolveBuildingCollision(spawn.x, 0, spawn.z, town, PLAYER_RADIUS);
+		// A truly open point isn't pushed anywhere by the collision solver.
+		expect(Math.hypot(resolved.x - spawn.x, resolved.z - spawn.z)).toBeLessThan(1e-9);
 	});
 });
 

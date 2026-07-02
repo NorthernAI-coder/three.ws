@@ -33,7 +33,7 @@ import { CITY_HALF } from '../city/city-map.js';
 import {
 	JUMP_VEL, GRAVITY,
 	motionFor, stepMovement, easeYaw, resolveBuildingCollision,
-	nearestInteractable, chooseAvatarSource, guestName,
+	nearestInteractable, chooseAvatarSource, guestName, findOpenSpawn,
 } from './player-logic.js';
 import { injectPlayerCss } from './player-mode.css.js';
 import { log } from '../shared/log.js';
@@ -64,7 +64,7 @@ class AgoraPlayer {
 		this._keys = new Set();
 	}
 
-	async load(avatarInput) {
+	async load(avatarInput, spawn = SPAWN) {
 		await loadManifest();
 		const url = await resolveAvatarUrl(avatarInput || '');
 		this._anim = newAnim();
@@ -72,7 +72,7 @@ class AgoraPlayer {
 		// emote library (dozens of clip downloads) — emotes lazy-load on use.
 		const { height, fallback } = await buildAvatar(this.rig, url, this._anim, { clips: 'locomotion' });
 		this.height = height;
-		this.rig.position.set(SPAWN.x, 0, SPAWN.z);
+		this.rig.position.set(spawn.x, 0, spawn.z);
 		return { url, fallback };
 	}
 
@@ -355,7 +355,12 @@ export async function mountPlayerMode(ctx) {
 	setStored('agora:name', name);
 
 	const player = new AgoraPlayer(scene);
-	const { url: avatarUrl } = await player.load(avatarChoice.value);
+	// Spawn on OPEN ground: the OSM Manhattan substrate is dense, so the nominal
+	// spot beside the board can sit inside a building footprint (where the player
+	// would be walled in the moment it tries to move). findOpenSpawn spirals out to
+	// the nearest clear point so the visitor always starts able to walk to citizens.
+	const spawn = findOpenSpawn(SPAWN, buildingBoxes);
+	const { url: avatarUrl } = await player.load(avatarChoice.value, spawn);
 
 	// ── Multiplayer presence (dedicated Commons room; graceful solo) ───────────
 	const remotes = new RemotePlayers(scene, bubbles);

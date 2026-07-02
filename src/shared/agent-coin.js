@@ -54,6 +54,9 @@ export function getCoinStatus(agent) {
 			mint: status.address,
 			symbol: status.tokenSymbol || null,
 			cluster,
+			// The canonical rich coin page (conviction + live market + trades) on
+			// mainnet; devnet has no such page.
+			pageUrl: cluster === 'mainnet' ? oraclePageUrl(status.address) : null,
 			// Prefer the pump.fun coin page on mainnet — this is a launchpad, not a
 			// block explorer. Fall back to the explorer only when there's no better link.
 			url: status.pumpfunUrl || pumpfunUrl(status.address, cluster) || status.explorerUrl,
@@ -69,11 +72,17 @@ export function getCoinStatus(agent) {
 			mint,
 			symbol: token.symbol || token.name || null,
 			cluster,
+			pageUrl: cluster === 'mainnet' ? oraclePageUrl(mint) : null,
 			url: token.pumpfun_url || pumpfunUrl(mint, cluster),
 		};
 	}
 
 	return null;
+}
+
+// The canonical three.ws rich coin page for a mint.
+function oraclePageUrl(mint) {
+	return mint ? `/oracle/coin/${mint}` : null;
 }
 
 /** True when the agent already has a coin. */
@@ -238,10 +247,17 @@ export function coinChipHTML(agent, opts = {}) {
 	if (coin) {
 		ensureCoinStyles();
 		const sym = coin.symbol ? `$${esc(coin.symbol)}` : 'Coin';
-		const aria = `Trade ${coin.symbol ? coin.symbol + ' ' : ''}coin on pump.fun`;
 		const inner = `<span class="tws-coin-glyph" aria-hidden="true">◎</span><span class="tws-coin-label">${sym}</span>`;
-		if (link && coin.url) {
-			return `<a class="tws-coin tws-coin--live${sz}" href="${esc(coin.url)}" target="_blank" rel="noopener noreferrer" title="${esc(aria)}" aria-label="${esc(aria)}">${inner}</a>`;
+		// Prefer the internal rich coin page (conviction + market + live trades) —
+		// it links out to pump.fun to trade. Fall back to the external link (devnet).
+		const href = coin.pageUrl || coin.url;
+		const internal = Boolean(coin.pageUrl);
+		const aria = internal
+			? `View ${coin.symbol ? coin.symbol + ' ' : ''}coin — conviction, market & live trades`
+			: `Trade ${coin.symbol ? coin.symbol + ' ' : ''}coin on pump.fun`;
+		if (link && href) {
+			const tgt = internal ? '' : ' target="_blank" rel="noopener noreferrer"';
+			return `<a class="tws-coin tws-coin--live${sz}" href="${esc(href)}"${tgt} title="${esc(aria)}" aria-label="${esc(aria)}">${inner}</a>`;
 		}
 		return `<span class="tws-coin tws-coin--live${sz}" role="img" aria-label="${esc(aria)}">${inner}</span>`;
 	}
