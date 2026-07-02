@@ -54,9 +54,9 @@ const WALLETS = {
 		pubkey: 'wwwqvAbN4RjaRvfGsorxMuauq7SWVcV13Aa7GaqHGUn',
 		desc: 'SOL-burning autonomous engines (funded ~2.77 SOL)',
 	},
-	wwwu: {
-		pubkey: 'wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW',
-		desc: 'platform treasury + revenue/payouts face (FUND before use)',
+	Wwwu: {
+		pubkey: 'WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW',
+		desc: 'platform treasury + revenue/payouts face (funded ~10 SOL + USDC)',
 	},
 };
 
@@ -76,15 +76,15 @@ const ASSIGNMENTS = [
 	{ env: 'COIN_TREASURY_SECRET_KEY_B64', wallet: 'wwwqv', enc: 'base64', note: 'coin lottery/reflection payouts (strict base64)' },
 
 	// ── wwwu: the platform treasury + revenue/payout face (fund it) ──
-	{ env: 'PLATFORM_TREASURY_KEYPAIR', wallet: 'wwwu', enc: 'base64', note: 'shared platform treasury / withdrawal gas' },
-	{ env: 'MARKETPLACE_PAYER_KEYPAIR', wallet: 'wwwu', enc: 'base64', note: 'gasless checkout fee-payer' },
-	{ env: 'THREE_BUYBACK_SECRET_KEY_B64', wallet: 'wwwu', enc: 'base64', note: '$THREE buyback (holds USDC revenue)' },
-	{ env: 'CLUB_SOLANA_TREASURY_SECRET_KEY_B64', wallet: 'wwwu', enc: 'base64', note: 'club tip sweeps' },
-	{ env: 'VANITY_BOUNTY_PAYOUT_KEY', wallet: 'wwwu', enc: 'base58', note: 'vanity bounty payouts (strict base58)' },
-	{ env: 'REWARDS_DISTRIBUTOR_SECRET', wallet: 'wwwu', enc: 'base58', note: '$THREE holder rewards distributor' },
+	{ env: 'PLATFORM_TREASURY_KEYPAIR', wallet: 'Wwwu', enc: 'base64', note: 'shared platform treasury / withdrawal gas' },
+	{ env: 'MARKETPLACE_PAYER_KEYPAIR', wallet: 'Wwwu', enc: 'base64', note: 'gasless checkout fee-payer' },
+	{ env: 'THREE_BUYBACK_SECRET_KEY_B64', wallet: 'Wwwu', enc: 'base64', note: '$THREE buyback (holds USDC revenue)' },
+	{ env: 'CLUB_SOLANA_TREASURY_SECRET_KEY_B64', wallet: 'Wwwu', enc: 'base64', note: 'club tip sweeps' },
+	{ env: 'VANITY_BOUNTY_PAYOUT_KEY', wallet: 'Wwwu', enc: 'base58', note: 'vanity bounty payouts (strict base58)' },
+	{ env: 'REWARDS_DISTRIBUTOR_SECRET', wallet: 'Wwwu', enc: 'base58', note: '$THREE holder rewards distributor' },
 
 	// ── already LIVE — skipped unless --include-live (rerouting strands funds) ──
-	{ env: 'LABOR_ESCROW_SECRET_BASE58', wallet: 'wwwu', enc: 'base58', live: true, note: 'labor escrow — LIVE on its own wallet; migrate balances before rerouting' },
+	{ env: 'LABOR_ESCROW_SECRET_BASE58', wallet: 'Wwwu', enc: 'base58', live: true, note: 'labor escrow — LIVE on its own wallet; migrate balances before rerouting' },
 
 	// Intentionally EXCLUDED entirely: SOLANA_AGENT_COLLECTION_AUTHORITY_KEY
 	// (on-chain NFT-collection update authority — must stay its original wallet).

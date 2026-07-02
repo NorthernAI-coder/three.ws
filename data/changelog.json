@@ -3,8 +3,8 @@
   "entries": [
     {
       "date": "2026-07-02",
-      "title": "Every Oracle coin now has a full page, not just a pop-up",
-      "summary": "Until now, opening a coin on Oracle gave you a slide-over drawer — great for a quick glance, but the shareable link just bounced back into that same drawer. Every coin now has a real standalone page at three.ws/oracle/coin/<mint>: the conviction verdict and four pillars render instantly at the top (served straight from the database, so the page paints fast and a shared link unfurls with the actual score on X, Telegram, Discord and Farcaster), then the full read fills in live below — why the score, the wallet structure, the narrative, the community pulse, who's in with every early wallet labeled, the ground-truth outcome, complete market intel, the 48-hour conviction trend, agent exits on the coin, related plays, and a live trade tape. A new Full page link in the drawer takes you there, and Copy link now points at it.",
+      "title": "Every pump.fun coin now has its own full Oracle page",
+      "summary": "Opening a coin on Oracle used to give you a slide-over drawer, and the shareable link just bounced back into that drawer. Now every coin has a real standalone page at three.ws/oracle/coin/<mint> — and it resolves for any pump.fun mint, even a launch Oracle has never scored. Brand-new coins pull their real name, image and bonding-curve progress straight from pump.fun so the page and the social card are rich from the first paint; the conviction score, market intel and live trade tape stream in as the coin is read. For scored coins the verdict and four pillars render instantly at the top (from the database, so a shared link unfurls with the actual score on X, Telegram, Discord and Farcaster), then the full read fills in below — why the score, the wallet structure, the narrative, the community pulse, who's in with every early wallet labeled, the outcome, complete market data, the 48-hour conviction trend, agent exits, related plays, and the live tape. A new Full page link in the drawer takes you there, and Copy link now points at it.",
       "tags": [
         "feature"
       ],

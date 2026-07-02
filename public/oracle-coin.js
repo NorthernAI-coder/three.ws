@@ -20,6 +20,7 @@
 	const NETWORK = 'mainnet';
 	const MINT_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 	const WATCH_KEY = 'ld_watchlist'; // shared with the feed + drawer on /oracle
+	const BOOT = window.__OC_BOOT || {}; // server-embedded identity + pump snapshot
 
 	const $ = (sel, root = document) => root.querySelector(sel);
 	const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -305,6 +306,13 @@
 		wrap.classList.remove('mkt-loading');
 		wrap.removeAttribute('aria-busy');
 		if (!ok || !data || data.price?.usd == null) {
+			// No DEX/aggregator price yet — but a brand-new pump.fun launch still has
+			// a real bonding-curve state, which the server captured into __OC_BOOT.
+			// Render that so a curve-stage coin gets a live market card, not a void.
+			if (status === 404 && BOOT.pump) {
+				wrap.innerHTML = renderPumpMarket(BOOT.pump);
+				return;
+			}
 			wrap.innerHTML = status === 404
 				? `<div class="dr-sec">Market</div><div class="state" style="padding:20px 0">No live market yet — this mint hasn't started trading. Price, liquidity and holders appear the moment it does.</div>`
 				: `<div class="dr-sec">Market</div><div class="state" style="padding:20px 0">Live market data is momentarily unavailable. <button type="button" class="dr-act" id="ocMktRetry">Retry</button></div>`;
@@ -313,6 +321,33 @@
 			return;
 		}
 		wrap.innerHTML = renderMarket(data);
+	}
+
+	// Pre-graduation market card from the pump.fun bonding-curve snapshot the server
+	// embedded — used when no aggregator price exists yet (a coin still on the curve).
+	function renderPumpMarket(pf) {
+		const pct = pf.bonding_curve_pct;
+		const curve = pf.complete
+			? `<div class="mkt-row"><span class="chip sm">Graduated to DEX ✓</span></div>`
+			: (pct != null ? `<div class="mkt-curve">
+					<div class="mkt-curve-top"><span>Bonding curve</span><b>${Math.round(pct)}% to graduation</b></div>
+					<div class="mkt-curve-track"><div class="mkt-curve-fill" style="width:${Math.max(2, Math.min(100, pct))}%"></div></div>
+					${pf.real_sol_reserves != null ? `<div class="mkt-curve-sub">${pf.real_sol_reserves.toFixed(1)} ◎ in curve${pf.reply_count ? ` · ${fmtInt(pf.reply_count)} replies` : ''}${pf.is_live ? ' · <span class="mkt-up">live now</span>' : ''}</div>` : ''}
+				</div>` : '');
+		const tiles = [
+			pf.market_cap_usd != null ? statTile('Market cap', fmtUsd(pf.market_cap_usd)) : '',
+			pf.real_sol_reserves != null ? statTile('In curve', `${pf.real_sol_reserves.toFixed(1)} ◎`) : '',
+			pf.created_at ? statTile('Age', ago(pf.created_at)) : '',
+		].filter(Boolean).join('');
+		const chips = [
+			pf.reply_count != null ? `<span class="chip">replies <b>${fmtInt(pf.reply_count)}</b></span>` : '',
+			pf.creator ? `<span class="chip">creator <b>${esc(shortAddr(pf.creator))}</b></span>` : '',
+		].filter(Boolean).join('');
+		return `<div class="dr-sec">Market <span style="color:var(--faint);font-weight:400;font-size:10px">pump.fun · pre-DEX</span></div>
+			${tiles ? `<div class="mkt-stats">${tiles}</div>` : ''}
+			${curve}
+			${chips ? `<div class="coin-meta" style="margin-top:10px">${chips}</div>` : ''}
+			<div class="mkt-src">Live · pumpfun — full metrics populate once it lists on a DEX</div>`;
 	}
 
 	async function loadSentiment(mint) {
@@ -368,7 +403,7 @@
 		} catch { /* non-fatal */ }
 	}
 
-	async function loadRelated(mint, category, onOpen) {
+	async function loadRelated(mint, category) {
 		const wrap = $('#ocRelated');
 		if (!wrap || !category) return;
 		const { ok, data } = await api(`/api/oracle/feed?network=${NETWORK}&category=${encodeURIComponent(category)}&limit=6&min_score=60`);
@@ -394,12 +429,8 @@
 					</a>`;
 				}).join('')}
 			</div>`;
-		wrap.querySelectorAll('.dr-related').forEach((el) => el.addEventListener('click', (e) => {
-			// Same-page navigation without a reload for a snappier feel; falls back to href.
-			if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-			e.preventDefault();
-			onOpen(el.dataset.relatedMint);
-		}));
+		// Related coins are plain links to their own full pages — each gets its own
+		// server-rendered hero + social card on navigation.
 	}
 
 	// ── live trade tape (ported from src/oracle-tape.js) ───────────────────────
@@ -473,40 +504,38 @@
 		return q && MINT_RE.test(q) ? q : null;
 	}
 
-	async function render(mint) {
+	// Patch the server-rendered hero dial + pillars once a live verdict arrives.
+	// For a fresh launch the SSR hero shows a "reading" state; this fills it in the
+	// moment /api/oracle/coin returns a score, so the top of the page never lies.
+	function updateHero(c) {
+		const dial = $('#ocDial');
+		if (dial && c.score != null) {
+			dial.className = `dial t-${c.tier || 'watch'}`;
+			dial.innerHTML = `<b>${c.score}</b><div class="tierpill tp-${esc(c.tier || 'watch')}">${esc(c.tier || 'watch')} conviction</div>`;
+		}
+		const p = c.pillars || {};
+		const set = (kind, val) => {
+			const el = $(`#ocPillars .pil.${kind}`);
+			if (!el || val == null) return;
+			const b = el.querySelector('.lab b'); if (b) b.textContent = Math.round(val);
+			const fill = el.querySelector('.fill'); if (fill) fill.style.width = `${Math.max(0, Math.min(100, val))}%`;
+		};
+		set('ped', p.pedigree); set('str', p.structure); set('nar', p.narrative); set('mom', p.momentum);
+	}
+
+	// The conviction-independent scaffold: identity is already in the SSR hero, so
+	// market + live trades render immediately for ANY mint. The conviction column
+	// fills in (or shows an "observing" state) once /api/oracle/coin resolves.
+	function buildScaffold(mint) {
 		const deep = $('#ocDeep');
 		if (!deep) return;
-		deep.innerHTML = '<div class="oc-spinner" aria-label="Loading conviction"></div>';
-		const { ok, data } = await api(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=${NETWORK}`, { timeout: 20000 });
-		if (!ok || !data || !data.conviction) {
-			deep.innerHTML = `<div class="state"><b>This launch hasn't been scored yet</b>Oracle scores coins as they surface on pump.fun. If it's brand new, it'll appear here within moments. <button type="button" class="dr-act" id="ocRetry">Retry</button></div>`;
-			$('#ocRetry')?.addEventListener('click', () => render(mint));
-			return;
-		}
-		const c = data.conviction;
-		document.title = `${c.symbol ? `$${c.symbol}` : mint.slice(0, 8)} — ${c.score}/100 ${c.tier || ''} conviction · Oracle · three.ws`;
-
-		const reasons = (data.reasons || []).map((r) => `<div class="reason"><span class="rdot ${esc(r.pillar)}"></span><span>${esc(r.text)}</span></div>`).join('') || '<div class="state" style="padding:20px 0">No breakdown available.</div>';
-		const narr = data.narrative;
-		const whos = (data.whos_in || []).map(whoRow).join('') || '<div class="state" style="padding:20px 0">No wallet footprint recorded yet.</div>';
-		const out = data.outcome;
-		const comp = data.components || {};
-
 		deep.innerHTML = `
-			${drawerTake(data)}
+			<div id="ocTake"></div>
 			<div id="ocHistory"></div>
 			<div class="oc-cols">
-				<div>
-					<div class="dr-sec">Why this score</div>${reasons}
-					${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
-						<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
-					<div id="ocPulse"></div>
-					${structurePanel(comp.structure)}
-					${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
-						<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
-						${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
-					<div class="dr-sec">Who's in <span style="color:var(--faint)">(${(data.whos_in || []).length})</span></div>${whos}
-					<div id="ocProof"></div>
+				<div id="ocConviction">
+					<div class="dr-sec">Conviction</div>
+					<div class="oc-spinner" aria-label="Reading conviction"></div>
 				</div>
 				<div>
 					<div id="ocMarket" class="mkt-loading" aria-busy="true">
@@ -518,32 +547,68 @@
 					<div id="ocRelated"></div>
 				</div>
 			</div>`;
-
-		loadHistory(mint);
 		loadMarket(mint);
-		loadSentiment(mint);
-		loadProofTrades(mint);
-		loadRelated(mint, c.category, openMint);
-
+		loadHistory(mint);
+		loadProofTrades(mint); // renders into #ocProof once the conviction column exists
 		if (window.__ocTape) { try { window.__ocTape.destroy(); } catch {} }
 		const tapeEl = $('#ocTape');
 		if (tapeEl) window.__ocTape = mountTape(tapeEl, mint);
 	}
 
-	function openMint(mint) {
-		if (!mint || !MINT_RE.test(mint)) return;
-		history.pushState(null, '', `/oracle/coin/${mint}`);
-		wireHeroForSwap(mint);
-		render(mint);
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+	function fillConviction(data, mint) {
+		const col = $('#ocConviction');
+		if (!col) return;
+		const c = data.conviction;
+		document.title = `${c.symbol ? `$${c.symbol}` : mint.slice(0, 8)} — ${c.score}/100 ${c.tier || ''} conviction · Oracle · three.ws`;
+		updateHero(c);
+		const reasons = (data.reasons || []).map((r) => `<div class="reason"><span class="rdot ${esc(r.pillar)}"></span><span>${esc(r.text)}</span></div>`).join('') || '<div class="state" style="padding:20px 0">No breakdown available.</div>';
+		const narr = data.narrative;
+		const whos = (data.whos_in || []).map(whoRow).join('') || '<div class="state" style="padding:20px 0">No wallet footprint recorded yet.</div>';
+		const out = data.outcome;
+		const comp = data.components || {};
+		col.innerHTML = `
+			<div class="dr-sec">Why this score</div>${reasons}
+			${narr ? `<div class="dr-sec">Narrative</div><div style="font-size:13.5px;color:var(--ink)">${esc(narr.narrative || '')}</div>
+				<div class="coin-meta" style="margin-top:8px"><span class="chip cat">${esc(narr.category)}</span><span class="chip">virality <b>${narr.virality ?? '—'}</b></span><span class="chip">${esc(narr.source || '')}</span></div>` : ''}
+			<div id="ocPulse"></div>
+			${structurePanel(comp.structure)}
+			${out ? `<div class="dr-sec">Outcome</div><div class="coin-meta">
+				<span class="chip ${out.graduated ? 'sm' : out.rugged ? 'flag' : ''}">${out.graduated ? 'graduated ✓' : out.rugged ? 'rugged ✕' : 'live'}</span>
+				${out.ath_multiple ? `<span class="chip">ATH <b>${Number(out.ath_multiple).toFixed(1)}×</b></span>` : ''}</div>` : ''}
+			<div class="dr-sec">Who's in <span style="color:var(--faint)">(${(data.whos_in || []).length})</span></div>${whos}
+			<div id="ocProof"></div>`;
+		const take = $('#ocTake');
+		if (take) take.innerHTML = drawerTake(data);
+		loadHistory(mint);
+		loadSentiment(mint);
+		loadProofTrades(mint);
+		loadRelated(mint, c.category);
 	}
 
-	// When navigating between coins in-page, the SSR hero is stale — the deep
-	// section already re-renders with fresh data, so hide the now-mismatched hero
-	// and let the deep view lead. (Direct loads always get the correct SSR hero.)
-	function wireHeroForSwap(mint) {
-		const hero = $('#ocHeroDynamic');
-		if (hero) hero.style.display = 'none';
+	function renderObserving(mint, retry) {
+		const col = $('#ocConviction');
+		if (!col) return;
+		col.innerHTML = `<div class="dr-sec">Conviction</div>
+			<div class="state" style="padding:28px 20px">
+				<b>Oracle is reading this launch</b>
+				A conviction score fuses who's buying, how, what it is, and how it's moving — it appears here within moments of a coin surfacing on pump.fun. The live market and trade tape are already streaming.
+				<div style="margin-top:14px"><button type="button" class="dr-act" id="ocRetry">${retry >= 4 ? 'Check again' : 'Checking…'}</button></div>
+			</div>`;
+		$('#ocRetry')?.addEventListener('click', () => render(mint, { retry: 0 }));
+	}
+
+	async function render(mint, { retry = 0 } = {}) {
+		const deep = $('#ocDeep');
+		if (!deep) return;
+		if (deep.dataset.scaffold !== mint) { deep.dataset.scaffold = mint; buildScaffold(mint); }
+		const { ok, data } = await api(`/api/oracle/coin?mint=${encodeURIComponent(mint)}&network=${NETWORK}`, { timeout: 20000 });
+		if (ok && data && data.conviction) { fillConviction(data, mint); return; }
+		// Not scored yet — /api/oracle/coin lazy-scores on the first hit, so a short
+		// backoff usually fills it. Keep the streaming market + tape untouched.
+		renderObserving(mint, retry);
+		if (retry < 4 && deep.dataset.scaffold === mint) {
+			setTimeout(() => { if (deep.dataset.scaffold === mint) render(mint, { retry: retry + 1 }); }, 4000 + retry * 2000);
+		}
 	}
 
 	function boot() {
@@ -553,7 +618,7 @@
 		render(mint);
 		window.addEventListener('popstate', () => {
 			const m = mintFromPath();
-			if (m) { location.reload(); }
+			if (m && m !== $('#ocDeep')?.dataset.scaffold) location.reload();
 		});
 	}
 

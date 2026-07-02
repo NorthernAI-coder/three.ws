@@ -113,6 +113,16 @@ export default wrapCron(async (req, res) => {
 		);
 	}
 
+	// An off-registry target reaching the sweep means a bad caller/target list.
+	// No SOL moved (the allowlist blocked it), but a human should know why.
+	for (const r of result.rejected || []) {
+		await sendOpsAlert(
+			`🚫 Economy master blocked an off-registry target (${r.reason})`,
+			`refused to fund ${r.name} → ${r.pubkey}. Not a resolved SOLANA_SIGNERS wallet; the sweep skipped it. No SOL left the master.`,
+			{ signature: `economy-reject:${r.pubkey}:${r.reason}` },
+		);
+	}
+
 	return json(res, 200, {
 		ok: true,
 		rpc: rpcUrl,
@@ -121,6 +131,7 @@ export default wrapCron(async (req, res) => {
 		funded: result.funded,
 		failed: result.failed,
 		skipped: result.skipped,
+		rejected: result.rejected || [],
 		spent_sol: result.spentSol,
 		master_sol: result.masterSol ?? null,
 		read_errors: errors,
