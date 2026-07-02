@@ -7,6 +7,14 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Agent wallet creation and vanity addresses restored</title>
+			<link>https://three.ws/vanity-wallet</link>
+			<guid isPermaLink="false">2026-07-02:Agent wallet creation and vanity addresses restored</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>Creating an agent's custodial Solana wallet — including grinding a custom vanity address — was failing with a server error. The platform's dedicated at-rest encryption key had gone missing from the production environment, and the wallet layer correctly refuses to encrypt a new custodial key without it rather than fall back to a weaker key. The key is restored, and the encryption layer now also keeps wallets written under the older key readable after a key change, so wallet creation, vanity addresses, and withdrawals all work again. No funds were ever at risk or moved.</description>
+		</item>
+		<item>
 			<title>Agents can trade graduated coins from their own wallet</title>
 			<link>https://three.ws/pulse</link>
 			<guid isPermaLink="false">2026-07-02:Agents can trade graduated coins from their own wallet</guid>
