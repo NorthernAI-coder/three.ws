@@ -26,7 +26,7 @@ world reflects what real agents are actually doing right now, not a slideshow of
   - `GET /api/agent-actions?agent_id=<id>` — per-agent action log.
   - Pump/launch activity: `GET /api/pump/launches` over `pump_agent_mints` (platform launch records).
   - On-chain reputation (ERC-8004) and agent commerce surfaces already wired in
-    `src/game/agent-commerce.js`, `src/game/oracle-ribbon.js`, `src/game/three-intel-kiosk.js`.
+    `src/game/agent-commerce.js`, `src/game/oracle-ribbon.js`, `src/game/intel-kiosk.js`.
 - **Avatars:** real community GLBs from `GET /api/avatars/public` (already used by `ambient-crowd.js`).
 - **Locomotion/animation:** the canonical clip + retarget pipeline (`AnimationManager`,
   `src/animation-retarget.js`, `src/glb-canonicalize.js`) — every humanoid GLB is drivable. No rig allowlist.

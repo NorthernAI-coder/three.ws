@@ -35,7 +35,7 @@ async function armedWatches(network) {
 export async function freshlyScored(network, sinceIso, limit = 60) {
 	const rows = await sql`
 		select mint, symbol, name, score, tier, category, smart_wallet_count, scored_at,
-		       pedigree, structure, narrative, momentum
+		       pedigree, structure, narrative, momentum, badges
 		from oracle_conviction
 		where network = ${network} and scored_at > ${sinceIso}::timestamptz
 		order by scored_at asc

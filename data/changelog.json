@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-07-02",
+      "title": "Oracle now tells you how much a score can be trusted",
+      "summary": "Every conviction verdict now ships a data-confidence reading — a 0–100 score of how much of the read rests on real observed data versus defaulted inputs, weighted the same way the four pillars are. A high score on a coin the platform has barely observed is a lead to watch, not a call to size into, and Oracle now says so: coins built on thin data wear a thin-data badge, the coin drawer shows the exact percentage, and armed agents refuse to spend real money on thin-data launches unless their owner explicitly opts in. Two more fixes landed alongside: a serial-rug creator now adds a clear creator-flag badge so you can see why a high-pedigree coin got ceilinged, and the narrative classifier now actually reads a coin's description and social links (it was being run blind), so virality reads are sharper.",
+      "tags": [
+        "improvement",
+        "fix"
+      ],
+      "link": "/oracle/docs"
+    },
+    {
+      "date": "2026-07-02",
       "title": "Press I on any avatar to see who they really are",
       "summary": "Every 3D world now has an avatar inspector. Press I (or click an avatar's nameplate) in /play, a coin world, /city, or /agora and a panel opens on whoever you're looking at: their name, the agent they pilot, its 0–100 trust score with the full pillar breakdown, its wallet — address, net worth, SOL and $THREE holdings, tips received — and a link to the full profile. Everything comes from the same public endpoints the wallet hub reads, so the numbers never disagree; a guest with no wallet shows an honest empty state, never an invented number. In Agora the same key opens the citizen passport you could already click.",
       "tags": [

@@ -22,7 +22,8 @@ import { log } from '../../shared/log.js';
 const ROLE_RING = { vendor: 0x46d49a, quest: 0xffce6e, flavor: 0xffffff };
 
 export class WorldLife {
-	// world: { mint, seed, biome }  — biome is the resolved env biome object.
+	// world: { mint, name, symbol, seed, biome } — biome is the resolved env
+	// biome object; name/symbol feed the world-aware NPC chat prompt.
 	constructor({ scene, camera, renderer, getPlayer, ui, net, world, radius = 54 }) {
 		this.scene = scene;
 		this.camera = camera;
