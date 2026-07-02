@@ -36,28 +36,41 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 
 **Funding a wallet does not enable an engine.** Most engines also need their own flag (`CIRCULATION_ENABLED`, `THREE_BUYBACK_ENABLED`, `SOLANA_AUTODEPLOY_ENABLED`, …). EVM engines use separate keys (`EVM_TREASURY_PRIVATE_KEY`, `CIRCULATION_EVM_TREASURY_SECRET`).
 
-## Wiring one wallet as the master (approach A)
+## Wiring across the economy wallets
+
+[`scripts/wire-master-wallet.mjs`](../../scripts/wire-master-wallet.mjs) assigns each signer slot to one of the economy wallets and sets every var from the right wallet's key. Edit `WALLETS` / `ASSIGNMENTS` in that script to remap. Current default split:
+
+| Wallet | Role | Signer slots |
+|---|---|---|
+| `wwwww…ccrU` | x402 receiver + closed-loop spender (holds USDC) | `X402_SEED_SOLANA_SECRET_BASE58`, `PUMP_X402_LAUNCHER_SECRET_KEY_B64`, `A2A_PAYER_SOLANA_SECRET` |
+| `wwwqv…HGUn` | SOL-burning autonomous engines (funded ~2.77 SOL) | `LAUNCHER_MASTER_SECRET_KEY_B64`, `PUMP_CRON_RELAYER_SECRET_KEY_B64`, `CIRCULATION_TREASURY_SECRET`, `THREEWS_SOL_PARENT_SECRET_BASE58`, `COIN_TREASURY_SECRET_KEY_B64` |
+| `wwwu…WwW` | platform treasury + revenue/payouts (fund before use) | `PLATFORM_TREASURY_KEYPAIR`, `MARKETPLACE_PAYER_KEYPAIR`, `THREE_BUYBACK_SECRET_KEY_B64`, `CLUB_SOLANA_TREASURY_SECRET_KEY_B64`, `VANITY_BOUNTY_PAYOUT_KEY`, `REWARDS_DISTRIBUTOR_SECRET` |
+
+`LABOR_ESCROW_SECRET_BASE58` is already **live** on its own wallet — the tool skips it unless you pass `--include-live` (rerouting strands any escrowed funds; migrate balances first). `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` is never touched.
 
 ```bash
-# 1. Put the master wallet's secret in a local file (base58, base64, or JSON array).
-#    NEVER commit it. NEVER paste it into a chat.
-echo '<secret-key>' > master.key
+# 1. Put each wallet's secret in its own local file (base58 / base64 / JSON array).
+#    NEVER commit them. NEVER paste them into a chat.
+echo '<wwwqv-secret>' > wwwqv.key
+echo '<wwwu-secret>'  > wwwu.key
+echo '<wwwww-secret>' > wwwww.key
 
-# 2. Dry run — prints every var it would set, sets nothing:
-node scripts/wire-master-wallet.mjs --secret-file ./master.key
+# 2. Dry run — prints the full plan, sets nothing:
+node scripts/wire-master-wallet.mjs --key wwwqv=./wwwqv.key --key wwwu=./wwwu.key --key wwwww=./wwwww.key
 
-# 3. Apply to Vercel production (overwrite existing), then also preview if wanted:
-node scripts/wire-master-wallet.mjs --secret-file ./master.key --apply --overwrite
-node scripts/wire-master-wallet.mjs --secret-file ./master.key --apply --overwrite --preview
+# 3. Apply to Vercel production (overwrite existing), add --preview to also do preview:
+node scripts/wire-master-wallet.mjs \
+  --key wwwqv=./wwwqv.key --key wwwu=./wwwu.key --key wwwww=./wwwww.key \
+  --apply --overwrite
 
 # 4. Redeploy, then verify pubkeys + balances:
 node scripts/check-relayer-balances.mjs
 
-# 5. Shred the local key file.
-shred -u master.key
+# 5. Shred the local key files.
+shred -u wwwqv.key wwwu.key wwwww.key
 ```
 
-The script refuses to run unless the secret derives to the intended master pubkey (guard against wiring the wrong wallet); override with `--pubkey <derived>`. It sets every var `--sensitive`, so keep your own copy — Vercel Sensitive vars are unreadable after save.
+Each key is decoded locally and MUST derive to its wallet's expected pubkey or the run aborts (guards against wiring the wrong key). You can wire one wallet at a time — slots whose key you didn't provide are skipped. Every var is set `--sensitive`, so keep your own copy — Vercel Sensitive vars are unreadable after save.
 
 ## Checking balances
 
