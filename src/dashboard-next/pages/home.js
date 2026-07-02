@@ -491,7 +491,7 @@ async function loadTradingOverview(host) {
 				${strategies.length > 0 ? `<span class="${pnlClass}">${pnlStr}</span>` : ''}
 			</div>
 		</a>
-		<a class="dnx-tc" href="${oPrimePick ? `/oracle?mint=${encodeURIComponent(oPrimePick.mint)}` : '/oracle'}">
+		<a class="dnx-tc" href="${oPrimePick ? `/oracle/coin/${encodeURIComponent(oPrimePick.mint)}` : '/oracle'}">
 			<div class="dnx-tc-label">Oracle</div>
 			<div class="dnx-tc-value">${oValueText}</div>
 			<div class="dnx-tc-meta">${oMeta1}${oMeta2}${oMeta3 ? oMeta3 : ''}</div>

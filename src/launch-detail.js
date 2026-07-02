@@ -817,7 +817,7 @@ async function renderOracleConviction() {
 	const actions = el('div', { class: 'ld-oracle-actions' }, [
 		el('a', {
 			class: 'ld-btn ld-btn-ghost ld-btn-sm ld-btn-block',
-			href: `/oracle?mint=${encodeURIComponent(state.mint)}`,
+			href: `/oracle/coin/${encodeURIComponent(state.mint)}`,
 			target: '_blank',
 			rel: 'noopener',
 			text: 'Full conviction breakdown ↗',

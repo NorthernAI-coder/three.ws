@@ -147,7 +147,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		const explorer =
 			s.network === 'devnet'
 				? `https://pump.fun/coin/${s.mint}?cluster=devnet`
-				: `https://pump.fun/coin/${s.mint}`;
+				: `/oracle/coin/${s.mint}`;
 		const grad = s.graduated;
 		return `
 			<div class="pumpfun-card ${grad ? 'pumpfun-card--graduated' : ''}">
@@ -270,7 +270,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 		const network = state.network;
 		const explorer = network === 'devnet'
 			? `https://pump.fun/coin/${mint}?cluster=devnet`
-			: `https://pump.fun/coin/${mint}`;
+			: `/oracle/coin/${mint}`;
 		return `
 		<div class="pumpfun-stamp-success">
 			<div class="pumpfun-stamp-success-head">$${escapeHtml(symbol || 'TOKEN')} stamped &amp; live</div>
@@ -764,7 +764,7 @@ export function mountPumpFunCard({ panel, identity, skills, memory, protocol }) 
 			const url =
 				state.network === 'devnet'
 					? `https://pump.fun/coin/${state.mint}?cluster=devnet`
-					: `https://pump.fun/coin/${state.mint}`;
+					: `/oracle/coin/${state.mint}`;
 			window.open(url, '_blank', 'noopener');
 		}
 	};

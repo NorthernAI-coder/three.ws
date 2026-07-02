@@ -478,7 +478,7 @@
 				? `<span style="font-size:10.5px;color:var(--ac-up);font-family:var(--font-mono,monospace)">${Number(item.peak_multiple).toFixed(1)}×</span>` : '';
 
 			const av = item.agent_image || item.agent_avatar || '/favicon.ico';
-			const coinUrl = `https://pump.fun/coin/${encodeURIComponent(item.mint)}`;
+			const coinUrl = `/oracle/coin/${encodeURIComponent(item.mint)}`;
 			const verb = outcome === 'win' ? 'closed ↑' : outcome === 'loss' ? 'closed ↓' : outcome === 'flat' ? 'closed' : 'entered';
 
 			const outcomeWord = { win: 'won', loss: 'lost', flat: 'closed flat', open: 'open position' }[outcome] || outcome;
@@ -502,7 +502,7 @@
 				mc ? `<span class="dotsep">·</span><span title="Entry market cap">@ ${mc}</span>` : '',
 				hold ? `<span class="dotsep">·</span><span title="Time in position">held ${hold}</span>` : '',
 				item.tx_url ? `<span class="dotsep">·</span><a href="${esc(item.tx_url)}" target="_blank" rel="noopener" title="View transaction on Solscan">tx ↗</a>` : '',
-				`<span class="dotsep">·</span><a href="/oracle?mint=${encodeURIComponent(item.mint)}" target="_blank" rel="noopener">Oracle ↗</a>`,
+				`<span class="dotsep">·</span><a href="/oracle/coin/${encodeURIComponent(item.mint)}" target="_blank" rel="noopener">Oracle ↗</a>`,
 			].filter(Boolean).join('');
 
 			const reasonHtml = item.reason
@@ -516,7 +516,7 @@
 						<span class="ac-tier ${tier}">${TIER_EMOJI[tier] || ''} ${tier}</span>
 						<a class="ac-agent" href="/agents/${esc(item.agent_id)}">${esc(item.agent_name)}</a>
 						<span class="ac-verb">${verb}</span>
-						<a class="ac-coin" href="${esc(coinUrl)}" target="_blank" rel="noopener">$${esc(symLabel)}</a>
+						<a class="ac-coin" href="${esc(coinUrl)}" title="Open the full coin page">$${esc(symLabel)}</a>
 					</div>
 					<div class="ac-meta">${metaBits}</div>
 					${reasonHtml}
@@ -988,7 +988,7 @@
 					const sym = (m.symbol || m.mint.slice(0, 6)).toUpperCase();
 					const av = m.image_uri || '/favicon.ico';
 					const up = (m.delta || 0) >= 0;
-					return `<a class="ac-li" href="/oracle?mint=${encodeURIComponent(m.mint)}">
+					return `<a class="ac-li" href="/oracle/coin/${encodeURIComponent(m.mint)}">
 						<img class="ac-li-av" src="${esc(av)}" alt="" onerror="${imgErr}" loading="lazy" />
 						<span class="ac-li-main"><span class="ac-li-name">$${esc(sym)}${m.tier_changed ? ' <span style="color:var(--ac-up);font-size:9px">▲ tier</span>' : ''}</span><span class="ac-li-sub">${esc(m.tier || '')} · score ${m.score ?? '—'}</span></span>
 						<span class="ac-li-r"><span class="ac-delta ${up ? 'up' : 'dn'}">${up ? '+' : ''}${m.delta}</span><span class="small">${m.first_score}→${m.score}</span></span>
@@ -1039,7 +1039,7 @@
 			}
 			if (topMover) {
 				const sym = (topMover.symbol || topMover.mint.slice(0, 6)).toUpperCase();
-				cards.push(`<a class="ac-insight-card" href="/oracle?mint=${encodeURIComponent(topMover.mint)}">
+				cards.push(`<a class="ac-insight-card" href="/oracle/coin/${encodeURIComponent(topMover.mint)}">
 					<span class="ic">📈</span><span class="it"><span class="ik">Biggest 24h move</span>
 					<span class="iv up">$${esc(sym)}<span class="sub">+${topMover.delta} conviction</span></span></span></a>`);
 			}

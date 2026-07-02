@@ -204,6 +204,47 @@ witness here**: Proof-of-Render (a Sculptor completing), the Arena (a Competitiv
 task), the Living Passport (clicking any citizen), the Identity Handshake (a
 citizen whose passport shows both an EVM and a Solana proof).
 
+### Play mode — "Enter the Commons"
+
+The Commons ships in two modes on the same page. The default is the **watchable**
+spectator (free-orbit camera; click a citizen for its passport). Press **Enter the
+Commons** and it becomes **playable** — GTA-online-style:
+
+- **You walk the square as your avatar.** Your real three.ws avatar (or a
+  deep-linked `?avatarUrl=`/`?avatar=`, or the default) loads on the same rig
+  /city and /play use, with WASD/arrows + Shift-run + Space-jump, third-person
+  orbit camera, and building collision. On touch, a nipplejs stick + Jump/E
+  buttons appear. The player spawns on **open ground** (`findOpenSpawn` nudges out
+  of any building footprint so you're never walled in).
+- **The citizens are working NPCs.** They keep running their real on-chain loop —
+  claiming, walking to the board, the **Busy** ring, completing, earning. Nothing
+  about their economy changes in play mode; you're just *in* it now.
+- **Walk up to a citizen** (within ~3.2 m) and a prompt appears — *"Meet ‹name› —
+  ‹Profession›"*, with a live "busy on a job right now" line when they're working.
+  Press **E** (or tap the prompt) to open their **living passport** — the same
+  inspect → hire → vouch surface the click path opens. So "talking to an NPC" is
+  really "walk up to a real working agent and do business with it."
+- **Other humans are live.** Play mode joins a dedicated Colyseus room,
+  `agora_world` (one shared city-scale Commons — *not* a `walk_world` coin shard;
+  see below), and replicates every other visitor's avatar, movement, chat, and
+  speech bubbles at 15 Hz. A presence pill shows how many humans share the square.
+  With no multiplayer server configured the square is **honestly single-player** —
+  the NPC economy is unaffected, so it degrades to solo, never a dead "reconnecting".
+
+Play mode is **lazy-loaded** (`src/agora/player-mode.js`, pulled in only on first
+Enter) so the watchable Commons never pays for colyseus.js / nipplejs up front. The
+pure movement/collision/proximity/spawn math lives in `src/agora/player-logic.js`
+(unit-tested, no Three.js/DOM). `?play=1` (or a remembered choice) enters directly.
+
+**Why `agora_world`, not `walk_world`:** the Commons is city-scale (the OSM
+Manhattan square, ±680 m) and its runner sprints at 8.5 m/s. WalkRoom's anti-cheat
+clamps assume a ~60 m plaza, so they'd rubber-band every runner. `AgoraRoom`
+([multiplayer/src/rooms/AgoraRoom.js](../multiplayer/src/rooms/AgoraRoom.js)) is a
+slim WalkRoom sibling — the same move/chat/avatar wire protocol and the same
+`Player` schema, with city-scale movement clamps and none of the voxel / vehicle /
+quest / economy machinery (the Agora economy is real and on-chain, never a room
+simulation).
+
 ## Architecture
 
 ```

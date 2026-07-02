@@ -256,7 +256,7 @@ function renderTokenCard({ agent, mint, token, stats, coin }) {
 			<div class="tk-oracle-slot" data-oracle-mint="${esc(mint)}" style="margin-bottom:14px"></div>
 			<div style="display:flex;gap:8px;flex-wrap:wrap">
 				<button class="dn-btn primary" data-action="fees" style="font-size:12.5px">Fees &amp; rewards</button>
-				<a class="dn-btn" href="/oracle?mint=${encodeURIComponent(mint)}" rel="noopener" style="font-size:12.5px">Oracle ↗</a>
+				<a class="dn-btn" href="/oracle/coin/${encodeURIComponent(mint)}" rel="noopener" style="font-size:12.5px">Oracle ↗</a>
 				<a class="dn-btn" href="/pump-3d-agent?mint=${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">3D Agent view ↗</a>
 				<a class="dn-btn" href="https://solscan.io/token/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="font-size:12.5px">Solscan ↗</a>
 				${mint ? `<button class="dn-btn" data-action="copy-mint" data-mint="${esc(mint)}" style="font-size:12.5px">Copy CA</button>` : ''}

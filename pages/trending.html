@@ -441,8 +441,9 @@
 				const sym = (c.symbol || '?').slice(0, 5);
 				const symFull = c.symbol || 'coin';
 				const rankCls = c.rank <= 3 ? ` tr-rank-${c.rank}` : '';
-				const fallback = c.mint ? `/oracle?mint=${encodeURIComponent(c.mint)}` : null;
-				const href = safeHref(c.coin_url, fallback);
+				// Primary: our full coin page. Fall back to the server-provided link.
+				const internal = c.mint ? `/oracle/coin/${encodeURIComponent(c.mint)}` : null;
+				const href = internal || safeHref(c.coin_url, null);
 				const tag = href ? 'a' : 'div';
 				const label = `Rank ${c.rank}: $${symFull}, Oracle score ${c.score} of 100`;
 				const attrs = href

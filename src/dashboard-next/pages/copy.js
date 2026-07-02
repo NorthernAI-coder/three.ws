@@ -267,7 +267,7 @@ async function enrichIntentOracle(container) {
 			const badge = row.querySelector('.cp-oracle');
 			if (!badge || badge.hasChildNodes()) continue;
 			const color = CP_TIER_COLOR[d.tier] || '#94a3b8';
-			badge.innerHTML = `<a class="cp-ob" href="/oracle?mint=${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
+			badge.innerHTML = `<a class="cp-ob" href="/oracle/coin/${encodeURIComponent(mint)}" title="Oracle conviction: ${d.score} (${d.tier})">
 				<span class="cp-ob-score" style="color:${color}">${d.score}</span>
 				<span class="cp-ob-tier" style="color:${color}">${d.tier}</span>
 			</a>`;

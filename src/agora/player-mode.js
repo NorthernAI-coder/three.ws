@@ -464,8 +464,13 @@ export async function mountPlayerMode(ctx) {
 
 	// ── Touch stick (lazy nipplejs — only where touch is the medium) ──────────
 	let stickManager = null;
+	let disposed = false; // set by dispose(); guards the async nipplejs import below
 	if (window.matchMedia?.('(hover: none), (max-width: 640px)').matches) {
 		import('nipplejs').then(({ default: nipplejs }) => {
+			// Leaving play mode before this dynamic import resolved would otherwise
+			// create a stick (with live listeners writing to a disposed player) that
+			// dispose() already ran past — tear it down immediately instead.
+			if (disposed) return;
 			stickManager = nipplejs.create({
 				zone: stickZone,
 				mode: 'dynamic',
@@ -549,6 +554,7 @@ export async function mountPlayerMode(ctx) {
 	}
 
 	function dispose() {
+		disposed = true; // stop a still-pending nipplejs import from creating a stick
 		window.removeEventListener('keydown', onKeyDown);
 		window.removeEventListener('keyup', onKeyUp);
 		offStatus(); offAdd(); offChange(); offRemove(); offChat();

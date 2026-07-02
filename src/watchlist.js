@@ -247,7 +247,7 @@ function maybeFire(mint, newTier, oldTier) {
 		const n = new Notification(title, { body, icon: '/favicon-32x32.png', tag: mint });
 		// Navigate the watchlist tab itself rather than spawning an orphaned new
 		// tab — keeps the browser Back button as a reliable return path.
-		n.onclick = () => { window.focus(); location.href = `/oracle?mint=${encodeURIComponent(mint)}`; n.close(); };
+		n.onclick = () => { window.focus(); location.href = `/oracle/coin/${encodeURIComponent(mint)}`; n.close(); };
 	} catch { /* Notification blocked mid-flight */ }
 }
 
@@ -264,11 +264,11 @@ function teardown() {
 // ── cards ────────────────────────────────────────────────────────────────────
 
 function watchCard(mint, index) {
-	// Primary card link opens the Oracle conviction breakdown for this coin.
+	// Primary card link opens the coin's full page (conviction + market + trades).
 	const link = el('a', {
 		class: 'wl-card-link',
-		href: `/oracle?mint=${mint}`,
-		'aria-label': 'Open Oracle conviction breakdown',
+		href: `/oracle/coin/${mint}`,
+		'aria-label': 'Open the full coin page',
 	});
 	const market = el('div', { class: 'wl-market' });
 	const removeBtn = el('button', {
@@ -528,7 +528,7 @@ function paintOracleBadge(mint, data) {
 				`<span class="wl-ob-pbar" title="${k} ${Math.round(v)}"><span style="height:${Math.max(8, Math.min(100, v))}%;background:${color}"></span></span>`,
 			).join('')}</span>`
 		: '';
-	badge.innerHTML = `<a class="wl-ob-link" href="/oracle?mint=${encodeURIComponent(mint)}" aria-label="Oracle conviction: ${data.score} ${tier}">
+	badge.innerHTML = `<a class="wl-ob-link" href="/oracle/coin/${encodeURIComponent(mint)}" aria-label="Oracle conviction: ${data.score} ${tier}">
 		<span class="wl-ob-top">
 			<span class="wl-ob-score" style="color:${color}">${data.score}</span>
 			<span class="wl-ob-tier" style="color:${color}">${tier}</span>

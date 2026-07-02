@@ -1711,7 +1711,7 @@ function renderDrawer(d) {
 	setMeta('og:title',            ogTitle);
 	setMeta('og:description',      ogDesc);
 	setMeta('og:image',            ogImg);
-	setMeta('og:url',              `https://three.ws/oracle?mint=${encodeURIComponent(c.mint)}`);
+	setMeta('og:url',              `https://three.ws/oracle/coin/${encodeURIComponent(c.mint)}`);
 	setMeta('twitter:card',        'summary_large_image');
 	setMeta('twitter:title',       ogTitle);
 	setMeta('twitter:description', ogDesc);

@@ -341,6 +341,7 @@ function renderFirstGithubClaim(ev) {
 	}
 
 	const links = [];
+	if (mint) links.push(`<a href="/oracle/coin/${encodeURIComponent(mint)}" style="color:#6ce0c8">📈 coin page</a>`);
 	if (mint) links.push(`<a href="https://pump.fun/coin/${encodeURIComponent(mint)}" target="_blank" rel="noopener" style="color:#6ce0c8">📊 pump.fun</a>`);
 	if (ghTwitter) links.push(`<a href="https://x.com/${encodeURIComponent(ghTwitter)}" target="_blank" rel="noopener" style="color:#6ce0c8">𝕏 ${escapeHtml(ghTwitter)}</a>`);
 	if (repoFull) links.push(`<a href="https://github.com/${repoFull.split('/').map(encodeURIComponent).join('/')}" target="_blank" rel="noopener" style="color:#6ce0c8">🌐 github.com/${escapeHtml(repoFull)}</a>`);
@@ -499,6 +500,7 @@ function renderGraduation(ev) {
 		<div style="font-family:ui-monospace,monospace;font-size:10px;opacity:0.55;margin-top:4px;word-break:break-all">${escapeHtml(mint)}</div>
 		<div style="font-size:10px;opacity:0.55;margin-top:2px;display:flex;gap:8px;flex-wrap:wrap">
 			${sig ? `🔗 <a href="https://solscan.io/tx/${encodeURIComponent(sig)}" target="_blank" rel="noopener" style="color:#888888">TX</a>` : ''}
+			${mint ? `· <a href="/oracle/coin/${m}" style="color:#888888">coin page</a>` : ''}
 			${mint ? `· <a href="https://pump.fun/coin/${m}" target="_blank" rel="noopener" style="color:#888888">pump.fun</a>` : ''}
 			${tsStr ? `· 🕐 ${escapeHtml(tsStr)}` : ''}
 		</div>

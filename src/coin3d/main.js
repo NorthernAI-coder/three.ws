@@ -632,7 +632,7 @@ function renderOracleSlot(cv, mintAddr) {
 		return;
 	}
 	const color = TIER_COLORS[cv.tier] || '#97a0c4';
-	el.innerHTML = `<a class="c3d-oracle" href="/oracle?mint=${encodeURIComponent(mintAddr)}" aria-label="Oracle conviction: ${cv.score} ${cv.tier}">
+	el.innerHTML = `<a class="c3d-oracle" href="/oracle/coin/${encodeURIComponent(mintAddr)}" aria-label="Oracle conviction: ${cv.score} ${cv.tier}">
 		<span class="c3d-oracle-label">Oracle</span>
 		<span class="c3d-oracle-score" style="color:${color}">${cv.score}</span>
 		<span class="c3d-oracle-tier" style="color:${color}">${escapeHtml(cv.tier)}</span>

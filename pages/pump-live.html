@@ -969,7 +969,7 @@
         const color = TIER_COLOR[d.tier] || '#94a3b8';
         const a = document.createElement('a');
         a.className = 'pl-ob-link';
-        a.href = `/oracle?mint=${encodeURIComponent(mint)}`;
+        a.href = `/oracle/coin/${encodeURIComponent(mint)}`;
         a.title = `Oracle conviction: ${d.score} (${d.tier})`;
         a.setAttribute('aria-label', `Oracle ${d.tier} — score ${d.score}`);
         a.innerHTML = `<span class="pl-ob-score" style="color:${color}">${d.score}</span><span class="pl-ob-tier" style="color:${color}">${d.tier}</span>`;

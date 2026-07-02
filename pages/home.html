@@ -5232,7 +5232,7 @@
 
 			const a = document.createElement('a');
 			a.className = 'hoc-item';
-			a.href = `/oracle?mint=${encodeURIComponent(it.mint)}`;
+			a.href = `/oracle/coin/${encodeURIComponent(it.mint)}`;
 			a.setAttribute('aria-label', `$${sym} — ${score} conviction, ${tier} tier`);
 			a.innerHTML = `
 				<div class="hoc-score ${tc(tier)}">${score}</div>

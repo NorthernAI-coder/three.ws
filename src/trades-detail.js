@@ -488,7 +488,7 @@ function shell({ mint, network, sym, name, img, isThree }) {
 			</div>
 			<div class="dd-hero-actions">
 				<a href="https://pump.fun/${escapeHtml(mint)}" target="_blank" rel="noopener" class="dd-btn">pump.fun ↗</a>
-				<a href="/oracle?mint=${encodeURIComponent(mint)}" class="dd-btn dd-btn--oracle">Oracle ↗</a>
+				<a href="/oracle/coin/${encodeURIComponent(mint)}" class="dd-btn dd-btn--oracle">Oracle ↗</a>
 			</div>
 		</header>
 
