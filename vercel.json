@@ -6,13 +6,13 @@
 		"NODE_OPTIONS": "--no-deprecation"
 	},
 	"functions": {
-		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot,x402-autonomous-loop,pulse-tick,coin-intel-observe,launcher-tick,reflect-sweep,solana-autodeploy}.js": {
+		"api/cron/{copy-fanout,mirror-fanout,signal-fanout,three-holders-snapshot,x402-autonomous-loop,pulse-tick,coin-intel-observe,launcher-tick,reflect-sweep,solana-autodeploy,db-retention}.js": {
 			"maxDuration": 120
 		},
 		"api/cron/{strategy-fanout,gmgn-seed}.js": {
 			"maxDuration": 300
 		},
-		"api/strategies.js": {
+		"{api/strategies,api/cron/payment-session-sweep,api/cron/three-market-refresh}.js": {
 			"maxDuration": 30
 		},
 		"api/agents/[id].js": {
@@ -21,30 +21,16 @@
 		"api/tournaments/[id].js": {
 			"maxDuration": 120
 		},
-		"{api/agents/networth,api/avatars/from-forge}.js": {
+		"{api/agents/networth,api/avatars/from-forge,api/pay/execute,api/cron/launcher-claimer,api/seed/synthesize}.js": {
 			"maxDuration": 60
 		},
 		"{api/club/tips-stream,api/feed-stream,api/pump/trades-stream,api/oracle/stream,api/oracle/action-stream,api/sniper/stream,api/sniper/radar-stream,api/agent-screen-stream}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
-		"api/launch/mm.js": {
-			"maxDuration": 300
-		},
 		"api/avatars/[id].js": {
 			"includeFiles": "{node_modules/@img/sharp-libvips-linux-x64/**,node_modules/@img/sharp-linux-x64/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
-		},
-		"api/tts/speak.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/x402-pay.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/pay/execute.js": {
-			"maxDuration": 60
 		},
 		"api/x402-facilitator/[action].js": {
 			"maxDuration": 60
@@ -53,7 +39,7 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
-		"api/agents/pumpfun.js": {
+		"{api/agents/pumpfun,api/agents/gmgn,api/brain/chat,api/chat/proxy,api/agent-ask}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
 		},
@@ -61,11 +47,7 @@
 			"includeFiles": "data/pages.json",
 			"maxDuration": 30
 		},
-		"api/cron/{relayer-balance-check,flush-usage-events,oracle-digest}.js": {
-			"includeFiles": "data/pages.json",
-			"maxDuration": 60
-		},
-		"api/jobs/flush-usage-events.js": {
+		"{api/cron/relayer-balance-check,api/cron/flush-usage-events,api/cron/oracle-digest,api/jobs/flush-usage-events}.js": {
 			"includeFiles": "data/pages.json",
 			"maxDuration": 60
 		},
@@ -80,18 +62,6 @@
 			"maxDuration": 120,
 			"memory": 1024
 		},
-		"api/cron/launcher-claimer.js": {
-			"maxDuration": 60
-		},
-		"api/cron/avaturn-seed-cron.js": {
-			"maxDuration": 300
-		},
-		"api/cron/payment-session-sweep.js": {
-			"maxDuration": 30
-		},
-		"api/cron/three-market-refresh.js": {
-			"maxDuration": 30
-		},
 		"api/cron/oracle-score.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 120
@@ -99,101 +69,44 @@
 		"api/cron/{recompute-reputation,smart-money-graph}.js": {
 			"maxDuration": 300
 		},
-		"api/cron/db-retention.js": {
-			"maxDuration": 120
-		},
 		"api/cron/[name].js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
 		},
-		"api/agents/gmgn.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 120
-		},
 		"api/x402/vanity.js": {
 			"includeFiles": "{src/solana/vanity/wasm/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/x402/vanity-verifiable.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
 		"api/pump/[action].js": {
 			"includeFiles": "{src/solana/vanity/wasm/**,examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
-		"api/x402/pump-launch.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/zauth-reposcan.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/x402/forge.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+		"{api/mcp-studio,api/forge-nim,api/nim-forge,api/launch/mm,api/cron/avaturn-seed-cron,api/irl/interactions-stream}.js": {
 			"maxDuration": 300
-		},
-		"{api/mcp-studio,api/forge-nim,api/nim-forge}.js": {
-			"maxDuration": 300
-		},
-		"api/forge.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 300
-		},
-		"api/brain/chat.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 120
-		},
-		"api/chat.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
-		"api/chat/proxy.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 120
 		},
 		"api/pump/launch-og.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 15
 		},
-		"api/oracle/trades.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
 		"{api/oracle/follow,api/trades/feed,api/oracle/categories}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 10
 		},
-		"api/copy/settle-fee.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 60
-		},
 		"api/sniper/history.js": {
 			"maxDuration": 20
-		},
-		"api/irl/interactions-stream.js": {
-			"maxDuration": 300
 		},
 		"api/irl/*.js": {
 			"maxDuration": 20
 		},
-		"api/seed/synthesize.js": {
-			"maxDuration": 60
-		},
-		"{api/agent-vanity-grind,api/agent-collab}.js": {
+		"{api/agent-vanity-grind,api/agent-collab,api/x402/forge,api/forge}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 300
-		},
-		"api/agent-ask.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
-			"maxDuration": 120
 		},
 		"api/input-multiview.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 90
 		},
-		"{api/input-photo,api/vision,api/a2f,api/autopilot/proposals,api/ibm/galaxy,api/ibm/vision,api/agent/reflect,api/walk/pilot,api/agent-trade/demo,api/inference/livepeer}.js": {
+		"{api/input-photo,api/vision,api/a2f,api/autopilot/proposals,api/ibm/galaxy,api/ibm/vision,api/agent/reflect,api/walk/pilot,api/agent-trade/demo,api/inference/livepeer,api/tts/speak,api/x402-pay,api/x402/vanity-verifiable,api/x402/pump-launch,api/zauth-reposcan,api/chat,api/oracle/trades,api/copy/settle-fee}.js": {
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
