@@ -26,7 +26,7 @@
  * the I key on the nearest avatar):
  *   import { openAvatarInspector } from '../shared/avatar-inspector.js';
  *   openAvatarInspector({
- *     kind: 'peer',                      // 'peer'|'self'|'npc'|'ambient'
+ *     kind: 'peer',                      // 'peer'|'self'|'npc'
  *     name: 'nick',
  *     world: 'play',                     // chip: which world surfaced it
  *     agentId: 'uuid-or-empty',          // three.ws agent this avatar pilots
@@ -48,9 +48,6 @@ const KIND_LABEL = {
 	self: 'You',
 	peer: 'Player',
 	npc: 'Townsperson',
-	ambient: 'Local',
-	agent: 'Agent',
-	citizen: 'Citizen',
 };
 
 const esc = (s) =>
@@ -96,12 +93,12 @@ export function closeAvatarInspector() {
  * Open (or toggle) the inspector for a subject.
  *
  * @param {object} subject
- * @param {string}  [subject.kind]      'peer'|'self'|'npc'|'ambient'|'agent'|'citizen'
+ * @param {string}  [subject.kind]      'peer'|'self'|'npc'
  * @param {string}  [subject.name]      display name
  * @param {string}  [subject.world]     world chip ('play', 'city', …)
  * @param {string}  [subject.agentId]   three.ws agent UUID this avatar pilots
  * @param {string}  [subject.wallet]    verified Solana address (used when no agentId)
- * @param {string}  [subject.avatarUrl] GLB url (shown as a fact, not rendered)
+ * @param {string}  [subject.avatarUrl] GLB url — shown as an "Avatar model" fact row
  * @param {Array}   [subject.facts]     [{label, value, href?}] world-specific rows
  * @param {object} [opts]
  * @param {Element} [opts.trigger]      element to restore focus to on close
@@ -242,7 +239,13 @@ async function renderAbout(root, subject, { agentId }) {
 			)
 			.join('');
 
-	const baseFacts = Array.isArray(subject.facts) ? subject.facts : [];
+	const baseFacts = Array.isArray(subject.facts) ? [...subject.facts] : [];
+	// The GLB this avatar is wearing — a real, linkable fact of the encounter.
+	const avatarUrl = String(subject.avatarUrl || '');
+	if (/^(https?:\/\/|\/)[^\s]+\.(glb|gltf|vrm)(\?|$)/i.test(avatarUrl)) {
+		const file = avatarUrl.split('?')[0].split('/').pop();
+		baseFacts.push({ label: 'Avatar model', value: file, href: avatarUrl });
+	}
 	const load = async () => {
 		body.innerHTML = factRows(baseFacts) + (agentId ? skeleton(2) : '');
 		if (!agentId) {
@@ -359,7 +362,7 @@ async function renderWallet(root, { agentId, wallet, kind }) {
 								.join('')}</div>`
 						: `<p class="avi-note">No token holdings yet — a real $0 wallet shows $0.</p>`) +
 					(data.reputation?.tips?.count
-						? `<div class="avi-fact"><span class="avi-fact-l">Tips received</span><span class="avi-fact-v">${data.reputation.tips.count} (${esc(formatWalletUsd(data.reputation.tips.usd))})</span></div>`
+						? `<div class="avi-fact"><span class="avi-fact-l">Tips received</span><span class="avi-fact-v">${esc(data.reputation.tips.count)} (${esc(formatWalletUsd(data.reputation.tips.usd))})</span></div>`
 						: '');
 				wireCopy();
 			} catch (err) {
@@ -407,14 +410,12 @@ async function renderWallet(root, { agentId, wallet, kind }) {
 		}
 
 		body.innerHTML = emptyState(
-			kind === 'npc' || kind === 'ambient' ? 'No wallet' : 'No wallet linked',
+			kind === 'npc' ? 'No wallet' : 'No wallet linked',
 			kind === 'npc'
 				? 'Townspeople sell real paid services at their counters, but don’t carry a public wallet of their own.'
-				: kind === 'ambient'
-					? 'Ambient locals are part of the town’s background life — they aren’t players and hold no wallet.'
-					: kind === 'self'
-						? 'Sign in with your wallet — or pilot one of your agents — and your balances and reputation appear here.'
-						: 'This player is exploring as a guest — no verified wallet, no agent.',
+				: kind === 'self'
+					? 'Sign in with your wallet — or pilot one of your agents — and your balances and reputation appear here.'
+					: 'This player is exploring as a guest — no verified wallet, no agent.',
 			kind === 'self' ? [{ label: 'Get an agent wallet', href: '/agent-wallet' }] : [],
 		);
 	};
@@ -434,10 +435,8 @@ function renderReputation(root, { agentId, kind }) {
 		'No trust score',
 		kind === 'npc'
 			? 'Townspeople are part of the world itself — reputation applies to player-owned agents.'
-			: kind === 'ambient'
-				? 'Ambient locals aren’t players, so there’s nothing to score.'
-				: 'Reputation is earned by registered agents through real settled activity. This avatar isn’t piloting one.',
-		kind === 'npc' || kind === 'ambient' ? [] : [{ label: 'How trust is earned', href: '/reputation' }],
+			: 'Reputation is earned by registered agents through real settled activity. This avatar isn’t piloting one.',
+		kind === 'npc' ? [] : [{ label: 'How trust is earned', href: '/reputation' }],
 	);
 }
 

@@ -13,7 +13,7 @@ to the full profile.
 | --- | --- | --- |
 | `/play` (coin communities) | <kbd>I</kbd> nearest avatar · click a player's nameplate or body | Other players, townsperson NPCs, yourself |
 | `/temporary` coin worlds + `/marketplace-walk` | <kbd>I</kbd> nearest player · click a nameplate | Other players, yourself |
-| `/city` | <kbd>I</kbd> · click your avatar | Yourself (single-player) — pass `?agent=<agent-id>` to pilot an agent |
+| `/city` | <kbd>I</kbd> · click your avatar | Yourself (single-player) — add `?agent=<agent-id>` and the inspector shows that agent's reputation and wallet alongside your session |
 | `/agora` | <kbd>I</kbd> hovered/nearest citizen · click a citizen | Citizens — opens their existing [passport](/agora) with trust grade, stake, and earnings |
 | `/play/arena` | click an agent's floor label | Live trading agents — opens the agent detail drawer (predates the inspector) |
 
@@ -55,7 +55,7 @@ Each world supplies its own picking (raycast, nameplate click, or the
 import { openAvatarInspector } from '../shared/avatar-inspector.js';
 
 openAvatarInspector({
-	kind: 'peer',            // 'peer' | 'self' | 'npc' | 'ambient'
+	kind: 'peer',            // 'peer' | 'self' | 'npc'
 	name: 'nick',
 	world: 'play',           // chip shown in the header
 	agentId: 'uuid-or-empty',// three.ws agent this avatar pilots

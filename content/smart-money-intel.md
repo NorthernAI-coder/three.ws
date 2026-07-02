@@ -2,9 +2,9 @@
 
 *Long-form X article. The complete story of the market intelligence surfaces on three.ws: the wallet reputation graph behind the Smart Money Radar, the Coin Intelligence Engine that scores every launch in its first ninety seconds, the KOL analytics desk, the sentiment and narrative SDK, the intel MCP servers, examples, tutorials, and the honest limits. $THREE is the only coin.*
 
-Every pump.fun launch asks the same question: is the money flowing into this coin smart or dumb? Price cannot answer it. Volume cannot answer it. Only a memory of who these wallets are and what happened the last hundred times they bought something can. Nobody carries that memory in their head. So we built it as infrastructure.
+Every pump.fun launch asks the same question: is the money flowing in smart or dumb? Price cannot answer it. Volume cannot answer it. Only a memory of who these wallets are and what happened the last hundred times they bought something can. Nobody carries that memory in their head. So we built it as infrastructure.
 
-The intelligence layer of three.ws is a set of live, public, first-party surfaces that answer who is buying, how the launch is engineered, what people are saying, and which named traders are positioning, for every coin on pump.fun, continuously. This article is that layer: the raw surfaces you can read directly, the graphs that feed them, and the developer paths into all of it.
+The intelligence layer of three.ws is a set of live, public, first-party surfaces answering who is buying, how the launch is engineered, what people are saying, and which named traders are positioning, for every pump.fun coin, continuously. This article is that layer: the surfaces, the graphs feeding them, and the developer paths in.
 
 ## Why we built it
 
@@ -16,11 +16,11 @@ The intelligence layer of three.ws is a set of live, public, first-party surface
 
 ## The system at a glance
 
-Seven live surfaces, one shared brain.
+Seven surfaces, one brain.
 
 1. **The Smart Money Radar** (three.ws/smart-money): a wallet reputation graph built by crossing every coin's buyers with the coins that actually graduated.
-2. **Coin Intelligence** (three.ws/coin-intel) and the **Coin Radar** (three.ws/radar): every launch observed in its first ninety seconds, classified organic versus bundle, risk-flagged, and scored by a model that retrains on labeled outcomes.
-3. **The KOL desk**: named-trader analytics, a live leaderboard, per-wallet portfolio PnL, and per-mint trade scans across the tracked set.
+2. **Coin Intelligence** (three.ws/coin-intel) and the **Coin Radar** (three.ws/radar): every launch observed in its first ninety seconds, classified organic versus bundle, risk-flagged, and scored by a model that retrains on outcomes.
+3. **The KOL desk**: named-trader analytics, a live leaderboard, per-wallet portfolio PnL, and per-mint trade scans.
 4. **GMGN Smart Money** (three.ws/gmgn): a live cross-chain smart-money stream, narrated out loud by a 3D agent you pick.
 5. **The attention surfaces**: Trending, the Watchlist, the Pump Visualizer, and the live launch streams.
 6. **The reading SDK**: `@three-ws/intel`, one import for sentiment, narrative, momentum, and token snapshots.
@@ -28,7 +28,7 @@ Seven live surfaces, one shared brain.
 
 ## The Smart Money Radar: reputation the chain cannot fake
 
-The radar's engine is a rollup cron with three phases, and every rule in it is deliberate.
+The radar's engine is a rollup with three phases, every rule deliberate.
 
 **Phase one: judge and fold.** A coin must be at least 6 hours old before it is judged, because that is when "never graduated" starts meaning something. The verdict is binary and first-party: if the mint appears in our graduation records, it is a win; otherwise it is a dud. No external price oracle, no guesswork. The cron reaches back at most 14 days, judges at most 80 coins per run, folds at most the top 60 wallets per coin, and folds each coin exactly once, bounded so a 5-minute cadence can never run away.
 
@@ -44,7 +44,7 @@ All of it is public at `GET /api/pump/smart-money`: the live feed of coins ranke
 
 A separate recompute job maintains a deeper graph at `GET /api/intel/smart-money`, built from observed buys joined against richer outcomes (graduated, pumped, rugged, plus all-time-high multiples) and against funder clusters: groups of wallets sharing a SOL funding source. This surface answers the question bundles are designed to hide: are these fifty buyers actually one person?
 
-Ask it about a mint and you get the reputable wallets net-buying right now (bought more than they sold; a wallet that already dumped is not "in" the coin), a 0 to 100 smart-money score, every funder cluster in the book, and a **sybil flag** that trips when one cluster controls at least 50 percent of buy volume across 3 or more buyers. Ask it about a wallet and you get its realized reputation card and cluster membership. When the graph has no history for a coin or wallet, the response says `computed: false`, an honest "not enough data," never a fabricated number. The sniper's firewall and the Oracle pedigree pillar read this same graph.
+Ask it about a mint and you get the reputable wallets net-buying right now (a wallet that already dumped is not "in" the coin), a 0 to 100 smart-money score, every funder cluster in the book, and a **sybil flag** that trips when one cluster controls at least 50 percent of buy volume across 3 or more buyers. Ask it about a wallet and you get its realized reputation card and cluster membership. When the graph has no history, the response says `computed: false`, an honest "not enough data," never a fabricated number. The sniper's firewall and the Oracle pedigree pillar read this same graph.
 
 ## Coin Intelligence: the first ninety seconds
 
@@ -62,9 +62,9 @@ The radar feed lives at three.ws/radar, the full dashboard at three.ws/coin-inte
 
 The wallet graph tracks anonymous money. The KOL desk tracks the named kind.
 
-**The tracked set** has a hard admission rule: a wallet must have realized at least 10,000 dollars of cumulative profit on Solana meme-token trades. **Per-mint scans** at `GET /api/kol/trades?mint=<mint>` fan out one Helius call per tracked wallet and return every buy and sell those traders made on that token: side, SOL size, token amount, per-trade price, USD value, timestamp, newest first. **Per-wallet portfolio cards** at `GET /api/kol/wallets?addresses=<list>` proxy a Birdeye portfolio read with the key held server-side, normalized to realized PnL, unrealized PnL, win rate, total trades, and the wallet's highest-value holding, cached for 60 seconds, with failures negative-cached for only 15 seconds so an outage is never rendered as a fake zero-PnL wallet. **The leaderboard** at `GET /api/kol/leaderboard?window=7d` ranks top Solana traders by realized PnL over 24-hour, 7-day, or 30-day windows from a live parsed source, and when that source is unreachable it returns empty rather than stale or fabricated rows. An honest empty state beats a confident lie.
+**The tracked set** has a hard admission rule: a wallet must have realized at least 10,000 dollars of cumulative profit on Solana meme-token trades. **Per-mint scans** at `GET /api/kol/trades?mint=<mint>` fan out one Helius call per tracked wallet and return every buy and sell those traders made on that token: side, SOL size, token amount, per-trade price, USD value, timestamp, newest first. **Per-wallet portfolio cards** at `GET /api/kol/wallets?addresses=<list>` proxy a Birdeye portfolio read with the key held server-side, normalized to realized PnL, unrealized PnL, win rate, total trades, and the highest-value holding. Portfolio hits cache for 60 seconds; failures negative-cache for only 15, so an outage is never rendered as a fake zero-PnL wallet. **The leaderboard** at `GET /api/kol/leaderboard?window=7d` ranks top Solana traders by realized PnL over 24-hour, 7-day, or 30-day windows from a live parsed source, and when that source is unreachable it returns empty rather than stale or fabricated rows. An honest empty state beats a confident lie.
 
-Adjacent to it sits **the copy-trade Smart Money directory** at `GET /api/copy/smart-wallets`: a curated, deduplicated directory spanning Solana and BSC, categorized as smart money, launchpad, KOL, or sniper, sortable by profit, PnL, win rate, followers, or score, carrying wallet identity and 30-day performance only, never token mints. It is the browsing layer for copy trading, whose execution mechanics are the agent trading article's story.
+Adjacent to it sits **the copy-trade Smart Money directory** at `GET /api/copy/smart-wallets`: a curated, deduplicated directory spanning Solana and BSC, categorized as smart money, launchpad, KOL, or sniper, sortable by profit, PnL, win rate, followers, or score, carrying wallet identity and 30-day performance only, never token mints. It is the browsing layer for copy trading, whose execution mechanics are the agent trading article's territory.
 
 ## GMGN, Trending, and the attention surfaces
 
@@ -74,17 +74,17 @@ Adjacent to it sits **the copy-trade Smart Money directory** at `GET /api/copy/s
 
 **The Watchlist** (three.ws/watchlist) is deliberately account-free: the Watch button on any coin profile writes the mint into device-local storage (up to 200 coins, synced across tabs), and the page treats the list as a portfolio, aggregating market cap, volume, graduated count, average Oracle conviction, and the tier distribution, refreshing every 90 seconds. It sorts by conviction movers, fires a browser notification when a watched coin's tier upgrades, and a share link recreates the list on any device. The platform never learns what you watch.
 
-**The Pump Visualizer** (three.ws/pump-visualizer) renders the live trending set as an interactive 3D scene fed by the trending API, per-coin Oracle conviction, network stats, and recent graduations. **Pump.fun Stream** (three.ws/pumpfun) and **Pump Live** (three.ws/pump-live) are the raw firehose: the browser opens the same PumpPortal WebSocket the ingestion cron uses, so you watch every launch land in real time, batch-enriched with Oracle conviction, while a 3D agent reacts live.
+**The Pump Visualizer** (three.ws/pump-visualizer) renders the live trending set as an interactive 3D scene fed by the trending API, per-coin Oracle conviction, network stats, and recent graduations. **Pump.fun Stream** (three.ws/pumpfun) and **Pump Live** (three.ws/pump-live) are the raw firehose: the browser opens the same PumpPortal WebSocket the ingestion cron uses, so you watch every launch land live, enriched with Oracle conviction, while a 3D agent reacts.
 
 ## Oracle: where the reads become one number
 
-Everything above is deliberately unfused: each surface answers its own question with its own math. Oracle is the fusion engine on top, blending the pedigree graph, the launch-structure signals, a narrative classifier, and early momentum into a single calibrated 0 to 100 conviction score with tiers, badges, a public backtest, and an agent action loop under hard guards. That engine has its own long-form story; start at three.ws/oracle and the full reference at three.ws/oracle/docs. Here it is enough to say: when you read a conviction score anywhere on the platform, the surfaces in this article are what it is made of.
+Everything above is deliberately unfused: each surface answers its own question with its own math. Oracle is the fusion engine on top, blending the pedigree graph, the launch-structure signals, a narrative classifier, and early momentum into one calibrated 0 to 100 conviction score with tiers, badges, a public backtest, and an agent action loop under hard guards. That engine has its own long-form story; start at three.ws/oracle and the full reference at three.ws/oracle/docs. When you read a conviction score anywhere on the platform, the surfaces in this article are what it is made of.
 
 ## Reading the crowd: the @three-ws/intel SDK
 
 On-chain reads tell you what wallets do. `@three-ws/intel` tells you what people say, in one import with four reads.
 
-**`sentiment(mint)`** wraps the public, key-free `POST /api/social/sentiment-pulse`: it pulls up to 200 recent pump.fun comments for the token, optionally folds in up to 200 text snippets you collected yourself, and scores the combined stream with a deterministic lexicon scorer. Deterministic matters: the same comments always produce the same score, reproducible and auditable, not an opaque model's mood. You get an overall score from minus 1 to 1, positive and negative percentages, and a per-source breakdown.
+**`sentiment(mint)`** wraps the public, key-free `POST /api/social/sentiment-pulse`: it pulls up to 200 recent pump.fun comments for the token, optionally folds in up to 200 snippets you collected yourself, and scores the combined stream with a deterministic lexicon scorer. The same comments always produce the same score, reproducible and auditable, not an opaque model's mood. You get an overall score from minus 1 to 1, positive and negative percentages, and a per-source breakdown.
 
 **`intel(query)`** and **`projects()`** are the narrative and momentum lanes, bridging a partner narrative-intelligence feed with the API key held server-side: what stories are moving, and which projects are spiking on momentum-ranked scans. **`snapshot(mint)`** returns a real-time Solana token snapshot: price, volume, holders, metadata. Every field comes from a live source; an unreachable provider yields `null`, never an invented number.
 
@@ -96,21 +96,21 @@ There is also a paid lane. The premium intel feeds are x402 endpoints at one cen
 
 Everything above is reachable by any AI assistant through two published MCP servers, both read-only, both keyless.
 
-**`@three-ws/intel-mcp`** exposes six tools: `smart_money_coin` (score a coin by who is net-buying it, with reputable buyers, funder clusters, and the sybil flag), `wallet_intel` (one wallet's realized reputation card), `signal_feed` (a published signal feed's proven accuracy, hit rate, realized and follower ROI, and its recent emissions, each linked to the on-chain transaction that proves it), `kol_leaderboard` and `kol_trades` (the KOL desk), and `copy_smart_wallets` (the copy-trade directory).
+**`@three-ws/intel-mcp`** exposes six tools: `smart_money_coin` (score a coin by who is net-buying it, with reputable buyers, funder clusters, and the sybil flag), `wallet_intel` (one wallet's realized reputation card), `signal_feed` (a published signal feed's proven accuracy, with every recent emission linked to the on-chain transaction that proves it), `kol_leaderboard` and `kol_trades` (the KOL desk), and `copy_smart_wallets` (the directory of over a thousand ranked wallets).
 
 **`@three-ws/kol-mcp`** is the per-wallet deep dive: `get_wallet_portfolio` (one tracked trader's live PnL card) and `get_wallet_trades` (that trader's buys and sells on a specific mint, filtered out of the cross-wallet scan).
 
-Install is one npx: `npx -y @three-ws/intel-mcp` over stdio in any MCP client, with `THREE_WS_BASE` as the only knob for self-hosted deployments. Both servers surface honest zero-data states: `computed: false` means the graph has no history yet, `has_activity: false` means no recorded portfolio, and neither is an error. Docs live at three.ws/docs/mcp-intel.
+Install is one npx: `npx -y @three-ws/intel-mcp` over stdio in any MCP client, with `THREE_WS_BASE` as the only knob for self-hosted deployments. Both servers surface honest zero-data states: `computed: false` means no graph history yet, `has_activity: false` means no recorded portfolio, and neither is an error. Docs: three.ws/docs/mcp-intel.
 
 ## How people actually use it
 
-**The scanner** keeps the Coin Radar open, filters to Strong verdicts, and clicks into the bubble map when a coin's buyers look too coordinated. The danger flags do the first pass; the funding graph settles arguments.
+**The scanner** keeps the Coin Radar open, filters to Strong verdicts, and opens the bubble map when buyers look coordinated. The danger flags do the first pass; the funding graph settles arguments.
 
-**The follower** works the Smart Money Radar leaderboard, opens a wallet card, reads 30 recent coins with outcomes, checks the dump rate, and only then follows. The label did the screening; the receipts did the convincing.
+**The follower** works the radar leaderboard, opens a wallet card, reads 30 recent coins with outcomes, and only then follows. The label did the screening; the receipts did the convincing.
 
 **The desk trader** cross-references KOL trades on the mint, the sybil flag from the cluster graph, the sentiment pulse from the comments, and the Oracle verdict on top. Four independent reads, never averaged into mush.
 
-**The agent builder** never opens a page. Their assistant carries intel-mcp and kol-mcp, their code polls the coin-intel feed, and their execution path (guarded and capped, the agent trading article's territory) consumes the same tables.
+**The agent builder** never opens a page. Their assistant carries intel-mcp and kol-mcp, their code polls the coin-intel feed, and their guarded, capped execution path consumes the same tables.
 
 ## For developers
 
@@ -164,7 +164,7 @@ async function screenLaunch(mint) {
 
 ## Three tutorials in one place
 
-**Vet a wallet in two minutes.** Open three.ws/smart-money, switch to the leaderboard, filter to smart_money with a minimum of 8 judged coins, and open a card. Read the win rate, early win rate, and dump rate, then scan the recent coins for graduation marks. A long record with a low dump rate is worth watching. A rugger label just saved you.
+**Vet a wallet in two minutes.** Open three.ws/smart-money, switch to the leaderboard, filter to smart_money with a minimum of 8 judged coins, and open a card. Read the win rate and dump rate, then scan the recent coins for graduations. A long record with a low dump rate is worth watching. A rugger label just saved you.
 
 **Autopsy a launch.** Open three.ws/radar and click any coin flagged in red. The detail view shows the bundle score, the concentration ladder, and the trader labels, and the bubble map draws the funding graph so you can see the "different" wallets sharing one funder. Then check the mint on three.ws/smart-money to see whether any proven wallet touched it. Usually none did. That is the lesson.
 
@@ -172,7 +172,7 @@ async function screenLaunch(mint) {
 
 ## The honest limits
 
-The reputation graph only judges what it observed: a wallet's history before we started watching does not exist to us, and a fresh label means exactly that. Judgment takes 6 hours by design, so the radar is deliberately late on brand-new launches; the Coin Intelligence Engine covers the early window with structure instead of pedigree. Graduation is a strict win definition: a coin that ran 10x and died pre-graduation still counts as a dud in the radar's ledger (the deeper graph's pumped and ATH outcomes soften this, but the strictness is the point). The KOL desk depends on upstream providers, and when they fail you get empty or null, never invented rows. Sentiment is a lexicon over public comments: reproducible and gameable in equal measure, which is why nothing on the platform treats it as more than one read among several. And the sybil flag catches shared funding, not shared intent: a cluster funded from an exchange wallet can evade it. Every gap is stated where the data is served, because intelligence that hides its blind spots is marketing.
+The reputation graph only judges what it observed: a wallet's history before we started watching does not exist to us, and a fresh label means exactly that. Judgment takes 6 hours by design, so the radar is deliberately late on brand-new launches; the Coin Intelligence Engine covers the early window with structure instead of pedigree. Graduation is a strict win definition: a coin that ran 10x and died pre-graduation still counts as a dud in the radar's ledger (the deeper graph's pumped and ATH outcomes soften this, but strictness is the point). The KOL desk depends on upstream providers, and when they fail you get empty or null, never invented rows. Sentiment is a lexicon over public comments: reproducible and gameable in equal measure, which is why nothing on the platform treats it as more than one read among several. And the sybil flag catches shared funding, not shared intent: a cluster funded from an exchange wallet can evade it. Every gap is stated where the data is served, because intelligence that hides its blind spots is marketing.
 
 ## Why it compounds
 
@@ -180,6 +180,6 @@ Every judged coin extends every buyer's record. Every labeled outcome retrains t
 
 ## Where to start
 
-The wallet graph: three.ws/smart-money. The launch anatomy: three.ws/radar and three.ws/coin-intel. The named traders: the KOL tools in three.ws/docs/mcp-intel. The narrated stream: three.ws/gmgn. What is hot: three.ws/trending. Your own list: three.ws/watchlist. The fusion on top: three.ws/oracle.
+The wallet graph: three.ws/smart-money. The launch anatomy: three.ws/radar and three.ws/coin-intel. The named traders and MCP tools: three.ws/docs/mcp-intel. The narrated stream: three.ws/gmgn. What is hot: three.ws/trending. Your list: three.ws/watchlist. The fusion on top: three.ws/oracle.
 
 Judge the coin by who is buying it. The graph already knows. It is live now.
