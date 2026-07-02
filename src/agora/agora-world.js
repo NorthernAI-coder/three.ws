@@ -78,14 +78,22 @@ async function main() {
 	}
 
 	progress(56, 'Building the square…');
-	buildCity(scene, osmData);
+	// Keep the collision AABBs: the spectator never collides, but play mode
+	// (player-mode.js) walks the same buildings /city's player does.
+	const { buildingBoxes } = buildCity(scene, osmData);
 
 	// Free-orbit spectator camera over the square. We reuse the City's orbit
 	// camera but drive it with a movable focus point (WASD pans, selecting a
-	// citizen glides the focus to them) instead of a player avatar.
+	// citizen glides the focus to them) instead of a player avatar. Entering play
+	// mode retargets the SAME camera at the player's avatar — one rig, two modes.
 	const cityCamera = new CityCamera(camera, canvas);
 	const focus = new THREE.Vector3(0, 0, 0);
 	let focusGoal = null; // when set, focus eases toward it (cleared on manual pan)
+	// Play mode (Enter the Commons). null = spectator; otherwise the lazily-loaded
+	// player layer ({update, playerPosition, playerHeight, dispose}). Declared here
+	// (not at the mount site) so the key handlers below can consult it without a
+	// temporal-dead-zone window between listener attach and mount.
+	let playerMode = null;
 	camera.position.set(0, 16, 30);
 
 	const onContextMenu = (e) => e.preventDefault();
@@ -97,6 +105,9 @@ async function main() {
 	const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 	const onKeyDown = (e) => {
 		const k = e.key.toLowerCase();
+		// In play mode the avatar owns WASD/arrows/Space/E (player-mode.js binds its
+		// own listeners); only the I-inspect hotkey stays live on this handler.
+		if (playerMode && k !== 'i') return;
 		if (!PAN_KEYS.has(k) && k !== 'i') return;
 		// Don't hijack typing or scrolling: let form fields, editable content, and any
 		// open panel keep arrow/WASD keys. Only pan when the world itself has focus.
@@ -104,12 +115,12 @@ async function main() {
 		if (ae && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(ae.tagName) || ae.isContentEditable
 			|| (ae.closest && ae.closest('.agora-passport, .agora-panel, .agora-h-root, [role="dialog"]')))) return;
 		// I inspects a citizen without touching the mouse: the one under the
-		// pointer if any, else whoever is closest to the camera's focus point.
-		// Same passport the click path opens — reputation, stake, wallet, timeline.
+		// pointer if any, else whoever is closest to the camera's focus point (or
+		// to the player, when walking). Same passport the click path opens.
 		if (k === 'i') {
 			if (e.repeat) return;
 			e.preventDefault();
-			const id = hoverId || nearestCitizenTo(focus);
+			const id = hoverId || nearestCitizenTo(playerMode ? playerMode.playerPosition : focus);
 			if (id) openPassport(id, null);
 			return;
 		}
@@ -358,6 +369,76 @@ async function main() {
 		crowd,
 		openPassport: (id) => openPassport(id, null),
 	});
+
+	// ── Play mode — Enter the Commons ─────────────────────────────────────────
+	// The GTA layer: your avatar walks the square among the working citizens,
+	// other humans appear live over the shared 'agora_world' room, and proximity
+	// prompts open citizen passports. Lazily imported so the watchable Commons
+	// never pays for colyseus.js/nipplejs up front; the citizens' on-chain economy
+	// runs identically in both modes.
+	const enterBtn = document.getElementById('agora-enter');
+	const hintEl = document.getElementById('agora-controls-hint');
+	const SPECTATE_HINT = hintEl ? hintEl.innerHTML : '';
+	const PLAY_HINT = '<kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>E</kbd> interact &nbsp; <kbd>Drag</kbd> camera';
+	let playBusy = false; // guards double-click while the module/avatar loads
+
+	async function enterPlay() {
+		if (playerMode || playBusy) return;
+		playBusy = true;
+		if (enterBtn) { enterBtn.disabled = true; enterBtn.textContent = 'Entering…'; }
+		try {
+			const { mountPlayerMode } = await import('./player-mode.js');
+			playerMode = await mountPlayerMode({
+				scene, camera, population, buildingBoxes,
+				getCameraYaw: () => cityCamera.yaw,
+				openPassport: (id) => openPassport(id, null),
+			});
+			focusGoal = null;
+			if (enterBtn) {
+				enterBtn.disabled = false;
+				enterBtn.textContent = 'Leave the square';
+				enterBtn.setAttribute('aria-pressed', 'true');
+			}
+			if (hintEl) hintEl.innerHTML = PLAY_HINT;
+			canvas.setAttribute('aria-label',
+				'The Commons — you are walking the square. WASD to move, E to meet the nearest citizen; the citizen list also works.');
+			try { localStorage.setItem('agora:mode', 'play'); } catch { /* private mode */ }
+		} catch (err) {
+			// Honest failure: the world stays watchable, the button invites a retry.
+			log.error('[agora] play mode failed to mount', err);
+			if (enterBtn) {
+				enterBtn.disabled = false;
+				enterBtn.textContent = 'Enter failed — retry';
+			}
+		} finally {
+			playBusy = false;
+		}
+	}
+
+	function leavePlay() {
+		if (!playerMode) return;
+		try { playerMode.dispose(); } catch (err) { log.warn('[agora] play dispose failed', err?.message); }
+		playerMode = null;
+		if (enterBtn) {
+			enterBtn.textContent = 'Enter the Commons';
+			enterBtn.setAttribute('aria-pressed', 'false');
+		}
+		if (hintEl) hintEl.innerHTML = SPECTATE_HINT;
+		canvas.setAttribute('aria-label',
+			'The Commons — a 3D world of citizens. Use the citizen list to inspect individuals.');
+		try { localStorage.setItem('agora:mode', 'spectate'); } catch { /* private mode */ }
+	}
+
+	enterBtn?.addEventListener('click', () => { playerMode ? leavePlay() : enterPlay(); });
+	// Deep link / returning player: ?play=1 (or a remembered choice) walks in
+	// directly. Deferred until after boot so entering never delays first paint.
+	{
+		const params = new URLSearchParams(location.search);
+		let remembered = null;
+		try { remembered = localStorage.getItem('agora:mode'); } catch { /* private mode */ }
+		if (params.get('play') === '1' || remembered === 'play') setTimeout(enterPlay, 400);
+	}
+
 	// ── Render loop ───────────────────────────────────────────────────────────
 	const clock = new THREE.Timer();
 	let rafId = 0;
@@ -372,23 +453,29 @@ async function main() {
 		clock.update();
 		const dt = Math.min(clock.getDelta(), 0.05);
 
-		// Spectator panning (camera-relative), unless easing toward a selection.
-		let px = 0, pz = 0;
-		const yaw = cityCamera.yaw;
-		if (keys.has('w') || keys.has('arrowup'))    { px -= Math.sin(yaw); pz -= Math.cos(yaw); }
-		if (keys.has('s') || keys.has('arrowdown'))  { px += Math.sin(yaw); pz += Math.cos(yaw); }
-		if (keys.has('a') || keys.has('arrowleft'))  { px -= Math.cos(yaw); pz += Math.sin(yaw); }
-		if (keys.has('d') || keys.has('arrowright')) { px += Math.cos(yaw); pz -= Math.sin(yaw); }
-		if (px !== 0 || pz !== 0) {
-			const len = Math.hypot(px, pz);
-			focus.x = clampPan(focus.x + (px / len) * PAN_SPEED * dt);
-			focus.z = clampPan(focus.z + (pz / len) * PAN_SPEED * dt);
-		} else if (focusGoal) {
-			focus.lerp(focusGoal, Math.min(1, dt * 4));
-			if (focus.distanceTo(focusGoal) < 0.15) focusGoal = null;
+		if (playerMode) {
+			// Play mode: the avatar drives; the orbit camera follows the player the
+			// exact way /city's does (same rig, same substrate).
+			playerMode.update(dt);
+			cityCamera.update(playerMode.playerPosition, playerMode.playerHeight);
+		} else {
+			// Spectator panning (camera-relative), unless easing toward a selection.
+			let px = 0, pz = 0;
+			const yaw = cityCamera.yaw;
+			if (keys.has('w') || keys.has('arrowup'))    { px -= Math.sin(yaw); pz -= Math.cos(yaw); }
+			if (keys.has('s') || keys.has('arrowdown'))  { px += Math.sin(yaw); pz += Math.cos(yaw); }
+			if (keys.has('a') || keys.has('arrowleft'))  { px -= Math.cos(yaw); pz += Math.sin(yaw); }
+			if (keys.has('d') || keys.has('arrowright')) { px += Math.cos(yaw); pz -= Math.sin(yaw); }
+			if (px !== 0 || pz !== 0) {
+				const len = Math.hypot(px, pz);
+				focus.x = clampPan(focus.x + (px / len) * PAN_SPEED * dt);
+				focus.z = clampPan(focus.z + (pz / len) * PAN_SPEED * dt);
+			} else if (focusGoal) {
+				focus.lerp(focusGoal, Math.min(1, dt * 4));
+				if (focus.distanceTo(focusGoal) < 0.15) focusGoal = null;
+			}
+			cityCamera.update(focus, 1.7);
 		}
-
-		cityCamera.update(focus, 1.7);
 		population.update(dt);
 		economy.update(dt);
 		renderer.render(scene, camera);
@@ -415,6 +502,7 @@ async function main() {
 		try { if (offResize) window.removeEventListener('resize', offResize); } catch { /* ignore */ }
 		try { clearTimeout(citizensRefresh); } catch { /* ignore */ }
 		try { window.removeEventListener('agora:citizens-changed', onCitizensChanged); } catch { /* ignore */ }
+		try { playerMode?.dispose(); } catch (err) { log.warn('[agora] play dispose failed', err?.message); }
 		try { economy.dispose(); } catch (err) { log.warn('[agora] economy dispose failed', err?.message); }
 		try { population.dispose?.(); } catch (err) { log.warn('[agora] population dispose failed', err?.message); }
 		try { cityCamera.destroy?.(); } catch { /* ignore */ }

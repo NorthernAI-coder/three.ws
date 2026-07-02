@@ -20,6 +20,7 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { monitor } from '@colyseus/monitor';
 
 import { WalkRoom } from './rooms/WalkRoom.js';
+import { AgoraRoom } from './rooms/AgoraRoom.js';
 import { IrlRoom } from './rooms/IrlRoom.js';
 import { ClashRoom } from './rooms/ClashRoom.js';
 import { StageRoom } from './rooms/StageRoom.js';
@@ -231,6 +232,12 @@ const gameServer = new Server({ transport, ...(driver && { driver }), ...(presen
 // to the shared mainland world; a missing tier is the open General world (see
 // WalkRoom.onCreate / onAuth / schemas.js).
 gameServer.define('walk_world', WalkRoom).filterBy(['coin', 'tier']);
+// The playable Agora Commons (/agora): ONE shared city-scale square for human
+// presence only — the AI-citizen NPCs and their on-chain economy are driven by
+// the three.ws projection APIs, not this room. No filterBy: every visitor lands
+// in the same Commons. See rooms/AgoraRoom.js for why it isn't a walk_world
+// coin shard (city-scale movement clamps).
+gameServer.define('agora_world', AgoraRoom);
 // The IRL realtime world (D1): one room instance per precision-6 geocell, so
 // every viewer standing in the same ~1 km cell shares a live mirror of the pins
 // there. filterBy(['geocell']) makes joinOrCreate match only rooms for the same

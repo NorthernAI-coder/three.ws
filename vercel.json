@@ -12,6 +12,9 @@
 		"api/cron/{strategy-fanout,gmgn-seed}.js": {
 			"maxDuration": 300
 		},
+		"api/cron/treasury-topup.js": {
+			"maxDuration": 120
+		},
 		"{api/strategies,api/cron/payment-session-sweep,api/cron/three-market-refresh}.js": {
 			"maxDuration": 30
 		},
@@ -4901,6 +4904,10 @@
 		},
 		{
 			"path": "/api/cron/solana-agents-crawl",
+			"schedule": "*/30 * * * *"
+		},
+		{
+			"path": "/api/cron/treasury-topup",
 			"schedule": "*/30 * * * *"
 		}
 	]
