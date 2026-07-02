@@ -18,9 +18,9 @@ This is everything about it.
 
 ## The system at a glance
 
-1. **The lobby** pulls live coins from the pump.fun firehose through the platform's own proxies: trending fills the grid, and a debounced search reaches any coin on pump.fun by name, symbol, or mint. No listing process. If the mint exists, the world exists.
+1. **The lobby** pulls live coins from the pump.fun firehose through the platform's own proxies: trending fills the grid, and search reaches any coin on pump.fun by name, symbol, or mint. No listing process. If the mint exists, the world exists.
 2. **The seed** is an FNV-1a hash of the mint address. It picks the world's biome, jitters the palette so two coins in the same biome still read differently, and seeds every deterministic system downstream, so every client renders the identical world.
-3. **The room** is a Colyseus multiplayer room keyed to the mint. The server is authoritative for position, chat, avatars, builds, vehicles, and the entire gameplay economy; clients predict their own movement and interpolate everyone else at 15 updates a second, with anti-teleport and bounds clamps enforced server side.
+3. **The room** is a Colyseus multiplayer room keyed to the mint. The server is authoritative for position, chat, avatars, builds, and the entire gameplay economy; clients predict their own movement and interpolate everyone else at 15 updates a second, with anti-teleport and bounds clamps enforced server side.
 4. **The world systems** mount per coin: the totem, the jumbotron, the live chart, the market reactor, the NPC cast, the intel kiosk, the agent exchange, the build layer, the skill activities.
 5. **The money layer** runs on x402: every paid interaction inside a world is a real USDC settlement signed by the player's own wallet, on Solana or Base, with an explorer link.
 
@@ -28,9 +28,9 @@ This is everything about it.
 
 Seven biome archetypes ship today: Verdant Meadow, Dune Sea, Frostfields, Ashen Caldera, Neon Expanse, Lagoon Shore, and Dust Gulch, the frontier town. The seed selects one and then applies a per-coin hue and lightness jitter to the whole palette, so a thousand coins render a thousand recognisably different worlds. Each biome carries its own sky gradient, fog range, lighting rig, ground palette, and flora, from meadow conifers to emissive alien crystals to gulch sagebrush. An eighth biome, Midnight, is curated rather than seeded: a near-monochrome dark world reachable only by explicit request, built for embedding on dark host pages.
 
-Travel is by link, and that is deliberate. Entering a world rewrites the URL to /play?coin=&lt;mint&gt;, so every community is a shareable, refreshable address. Post the link, and anyone who clicks it lands in your coin's world.
+Travel is by link, and that is deliberate. Entering a world rewrites the URL to /play?coin=&lt;mint&gt;, so every community is a shareable, refreshable address.
 
-Every coin actually gets two worlds. The General room is open to anyone, no wallet required. The Holders room is gated: you prove you hold the coin (an eight dollar floor by default, or a token-count threshold the coin's creator sets in-world), sign a message, and receive a ten-minute play pass the server checks on join. Nothing moves on chain to prove it; you sign, the server verifies the balance, and the door opens.
+Every coin actually gets two worlds. The General room is open to anyone, no wallet required. The Holders room is gated: you prove you hold the coin (an eight dollar floor by default, or a token-count threshold the coin's creator sets in-world), sign a message, and receive a ten-minute play pass the server checks on join. Nothing moves on chain to prove it.
 
 ## The $THREE home town
 
@@ -42,17 +42,17 @@ Every world centers on a plaza, and the plaza is a live instrument panel for the
 
 The **coin totem** spins slowly at the center, a floating gold disc carrying the token's art on both faces. The **jumbotron**, a twenty-four meter LED wall, shows the coin's art, symbol, market cap, and a live count of who is in the world right now. The **chart screen** streams the coin's real swap tape: price, session chart, volume, buy and sell pressure, and a scrolling trade ticker fed by actual on-chain trades.
 
-Then the **market reactor** turns that tape into weather. Every buy sends a green ripple ring expanding across the plaza floor and flashes the world's boundary ring; every sell ripples red. Sustained volume accumulates heat that spins the totem faster. The rolling percent change drives the world's mood, easing fog and sunlight between storm and euphoria as a tide, not a strobe. And a whale trade of 750 dollars or more detonates the full spectacle: a light beam over the totem, a shockwave, and on a buy, a fountain of golden coins off the totem crown, with a toast naming the size.
+Then the **market reactor** turns that tape into weather. Every buy sends a green ripple ring across the plaza floor and flashes the world's boundary ring; every sell ripples red. Sustained volume accumulates heat that spins the totem faster. The rolling percent change drives the world's mood, easing fog and sunlight between storm and euphoria as a tide, not a strobe. And a whale trade of 750 dollars or more detonates the full spectacle: a light beam over the totem, a shockwave, and on a buy, a fountain of golden coins off the totem crown, with a toast naming the size.
 
-Beside all this floats the **forecast sculpture**: a glowing 3D ribbon rendering the live $THREE price history as a light tube, a white seam marking now, and an IBM Granite TimeSeries forecast sweeping forward from it, colored by direction, wrapped in an uncertainty band that widens across the horizon. It is a walk-around data sculpture fed by a real model, and it fails silent rather than fake if the feed is down.
+Beside all this floats the **forecast sculpture**: a glowing 3D ribbon rendering the live $THREE price history as a light tube, a white seam marking now, and an IBM Granite TimeSeries forecast sweeping forward from it, colored by direction and wrapped in an uncertainty band that widens across the horizon. It fails silent rather than fake if the feed is down.
 
 ## The city underneath: districts, zones, and the open world foundation
 
 Under the plaza sits the open world foundation, the data spine and geometry that turn a clearing into a city. The map is a 400 meter square. The plaza survives at its heart as **Downtown**, a 58 meter radius safe zone: no PvP, vendors, traffic, and every player spawn. East of it, **The Docks** run to the map edge, flagged for water and cargo, with a three-slot race grid lined up on the dock front. The ordinary block grid between zones is **The Streets**, neutral ground with background traffic. And everything past 138 meters from center is **The Wilds**: the lawless outskirts, flagged for PvP and loot. A single spawn registry places everything, from the four player drop-ins at the origin to the vehicle bays on the avenues, and the server mirrors the same bounds authoritatively, so the rendered world and the anti-cheat clamp always agree about where the edge is.
 
-The district itself is a deterministic city: an asphalt grid of 46 meter blocks and 12 meter roads ringing Downtown, each block a raised sidewalk slab carrying one to three building shells, taller toward the center so a real skyline forms, every facade a shared texture whose lit windows double as the emissive map, streetlights at every intersection. The whole city is a handful of instanced draw calls and a few thousand triangles, every building a physics collider, and identical on every client because it is generated from the coin's seed. A day and night system drives it: an authoritative world clock (eight real minutes to a world day by default) arcs the sun from a 0.25 sunrise through noon to a 0.75 sunset, grades the sky through dawn and dusk palettes into the biome's own daytime colors, closes the fog in after dark, and switches the city's windows and streetlamps on at dusk.
+The district itself is a deterministic city: an asphalt grid of 46 meter blocks and 12 meter roads ringing Downtown, each block a raised sidewalk slab carrying one to three building shells, taller toward the center so a real skyline forms, every facade a shared texture whose lit windows double as the emissive map, streetlights at every intersection. The whole city is a handful of instanced draw calls, every building a physics collider, identical on every client because it is generated from the coin's seed. A day and night system drives it: an authoritative world clock, eight real minutes to a world day by default, arcs the sun from sunrise through noon to sunset, grades the sky through dawn and dusk palettes into the biome's daytime colors, closes the fog in after dark, and switches the windows and streetlamps on at dusk.
 
-Vehicles complete the foundation. Four types share one spec table between client and server: a loose-tailed coupe topping out near 100 kilometers per hour, a balanced sedan, a planted 1,950 kilogram pickup, and a stiff little buggy. The server seeds a six-car fleet into every world, two of them parked at the plaza edge so a fresh player finds a ride within a few seconds' walk, and validates every driver's physics against a hard speed ceiling while everyone else sees an interpolated ghost.
+Vehicles complete the foundation. Four types share one spec table between client and server: a loose-tailed coupe topping out near 100 kilometers per hour, a balanced sedan, a planted 1,950 kilogram pickup, and a stiff little buggy. The server seeds a six-car fleet into every world, two of them parked at the plaza edge so a fresh player finds a ride within a few seconds' walk, and validates every driver against a hard speed ceiling while everyone else sees an interpolated ghost.
 
 Honesty requires a line here, expanded in the limits section: the plaza and everything on it is what you walk in a coin world today. The district renderer, the moving day, and the client-side driving manager are engineered code in the tree, and the multiplayer server already enforces the 400 meter bounds and seeds the fleet, but they are not yet mounted in the live coin client. We describe them because they are real and because they are the shape of where the worlds are headed, not because you can hail the coupe tonight.
 
@@ -82,11 +82,11 @@ And then there is the build layer: collaborative voxel building, server-authorit
 
 ## The cosmetics economy
 
-Avatars have five cosmetic slots: body dye, headwear, eyewear, earrings, and aura. The catalog spans free commons (beanies, ball caps, round frames, hoops) and premium pieces priced in $THREE: the Midas and Amethyst dyes at 250, the Stetson at 400, and the epic auras, golden halo and pulsing rings of light at your feet, at 600.
+Avatars have five cosmetic slots: body dye, headwear, eyewear, earrings, and aura. The catalog spans free commons (beanies, ball caps, round frames, hoops) and premium pieces priced in $THREE: the Midas and Amethyst dyes at 250, the Stetson at 400, and the epic auras, glowing rings of light at your feet, at 600.
 
-Purchases settle in USDC through x402, on Base or Solana, against a real endpoint that records ownership to a durable ledger before the item ever unlocks. There is no optimistic unlock and no client-side trust: the card flips to Owned only when the server confirms the settlement. Equipping is server-validated against ownership and persists across every world, and because cosmetics render identically for every peer, the flex is real.
+Purchases settle in USDC through x402, on Base or Solana, against a real endpoint that records ownership to a durable ledger before the item ever unlocks. No optimistic unlock, no client-side trust: the card flips to Owned only when the server confirms the settlement. Equipping is server-validated and persists across every world, and because cosmetics render identically for every peer, the flex is real.
 
-The flex even has a leaderboard. The Rarest Fits board ranks the scarcest premium cosmetics by owner count, the top collectors by a rarity-weighted score, and, notably, the top earning creators by real USDC, because when a cosmetic sells inside a coin's world, a configurable share of the settled USDC pays out to that coin's creator. Selling atmosphere is now a business.
+The flex even has a leaderboard. The Rarest Fits board ranks the scarcest premium cosmetics by owner count, the top collectors by a rarity-weighted score, and the top earning creators by real USDC, because when a cosmetic sells inside a coin's world, a configurable share of the settled USDC pays out to that coin's creator. Selling atmosphere is now a business.
 
 ## How money moves inside the world
 
@@ -96,11 +96,9 @@ Two assets, two jobs, everywhere in Play: $THREE is the coin. USDC is the settle
 
 **The agent exchange.** Two embodied AI agents, ORACLE and NOVA, stand in every plaza. Press E and NOVA pays ORACLE in USDC for a priced service call, streamed stage by stage: challenge, sign, verify, settle, confirm, on Solana mainnet, with a Solscan link on the receipt. One real payment per round, fired only on an explicit player interaction, never on a timer. Behind them, the x402 jumbotron watches the whole platform: a live feed of real micropayments landing across three.ws, each row a tool call, an amount, and a transaction hash.
 
-**The NPC counters.** The ten priced services above, from the tenth-of-a-cent symbol check to the five dollar coin launch, all settle the same way.
+**The NPC counters.** The ten priced services above, from the tenth-of-a-cent symbol check to the five dollar coin launch, settle the same way.
 
-**The trade panel.** Every Play world is a pump.fun coin, so the world sells its own coin properly: the server builds the unsigned transaction, handling both the bonding curve and the post-graduation AMM and detecting whether the pair quotes in SOL or USDC, your wallet signs, and it broadcasts, with slippage presets of one, three, and five percent and honest, human-readable failure messages.
-
-**The cosmetics.** Premium looks settle in USDC with the creator share described above.
+**The trade panel.** Every Play world is a pump.fun coin, so the world sells its own coin properly: the server builds the unsigned transaction, handling both the bonding curve and the post-graduation AMM and detecting whether the pair quotes in SOL or USDC, your wallet signs, and it broadcasts, with slippage presets of one, three, and five percent and human-readable failure messages. And the cosmetics above settle in USDC with the creator share attached.
 
 ## Everything on the platform that connects to it
 
@@ -118,15 +116,15 @@ For developers, the world is a client over public surfaces. The lobby reads the 
 
 ## Three tutorials in one place
 
-**Stand in your coin's world in sixty seconds.** Open three.ws/play. Tap the $THREE town, or type any coin's name or mint into the search. You drop onto the plaza as a walking avatar. Press Enter and say something; anyone in the world hears you, and anyone within a few meters can literally hear you if voice is on.
+**Stand in your coin's world in sixty seconds.** Open three.ws/play. Tap the $THREE town, or type any coin's name or mint into the search. You drop onto the plaza as a walking avatar. Press Enter and say something; anyone in the world sees it, and anyone within a few meters can literally hear you if voice is on.
 
 **Buy intel like an agent.** Find the kiosk by the plaza, the purple one with the antenna. Press E, approve one cent of USDC in your own wallet, and watch the screen light up with the town coin's live price, momentum, and signal, plus the settlement transaction. You just did what the platform's trading engine does on every pass: paid the machine economy for a real market read.
 
-**Leave something behind.** Press B to enter build mode, pick a block from the hotbar, and place. Stamp a doorway, raise a wall, cap it in neon. If the durability badge says saved for everyone, your structure will greet the next holder who walks in, tomorrow or next month, because builds persist per coin and rehydrate when the room restarts.
+**Leave something behind.** Press B, pick a block from the hotbar, and place. Stamp a doorway, raise a wall, cap it in neon. If the durability badge says saved for everyone, your structure will greet the next holder who walks in, tomorrow or next month, because builds persist per coin and rehydrate when the room restarts.
 
 ## The honest limits
 
-Play publishes its seams, so here they are. The live coin world today is plaza-scale: the district city grid, the moving day and night, and drivable vehicles are engineered in the codebase, and the server already enforces their bounds and seeds their fleet, but the client does not mount them yet, so what you walk tonight is the plaza and its ring, not the full 400 meter city. The online count includes the ambient fillers in quiet rooms, by design, and they vanish as real players arrive. Voice is a peer-to-peer mesh, which is exactly right for a plaza and wrong for a stadium; it is proximity-gated for that reason. Build persistence is honest about its own storage: without the durable store, the badge says so. A brand-new coin with no trades shows a quiet chart rather than an invented one, because the tape is real or it is nothing. Flappin UFO is a labeled demo whose prize is leaderboard placement, not a payout. And the whole multiplayer layer degrades honestly: no game server, no fake peers, just you and a clear message.
+Play publishes its seams, so here they are. The live coin world today is plaza-scale: the district city grid, the moving day and night, and drivable vehicles are engineered in the codebase, and the server already enforces their bounds and seeds their fleet, but the client does not mount them yet, so what you walk tonight is the plaza and its ring, not the full 400 meter city. The online count includes the ambient fillers in quiet rooms, by design, and they vanish as real players arrive. Voice is a peer-to-peer mesh, right for a plaza and wrong for a stadium; it is proximity-gated for that reason. Build persistence is honest about its own storage: without the durable store, the badge says so. A brand-new coin with no trades shows a quiet chart rather than an invented one, because the tape is real or it is nothing. Flappin UFO is a labeled demo whose prize is leaderboard placement, not a payout. And the multiplayer layer degrades honestly: no game server, no fake peers, just you and a clear message.
 
 ## Where to start
 
