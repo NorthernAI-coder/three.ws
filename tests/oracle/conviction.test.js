@@ -59,6 +59,28 @@ describe('pedigreeScore', () => {
 		});
 		expect(out.score).toBeGreaterThan(0);
 	});
+
+	it('a serial-rugger creator drags the score and caps at 45', () => {
+		const out = pedigreeScore({ score: 80, smartWalletCount: 3 }, { launches: 4, launchWins: 0 });
+		expect(out.cap).toBe(45);
+		expect(out.reasons.join(' ')).toMatch(/rug pattern/);
+	});
+
+	it('a proven shipper creator lifts pedigree', () => {
+		const sm = { score: 60, smartWalletCount: 1 };
+		const unproven = pedigreeScore(sm, {});
+		const shipper = pedigreeScore(sm, { launches: 4, launchWins: 3 });
+		expect(shipper.score).toBeGreaterThan(unproven.score);
+		expect(shipper.reasons.join(' ')).toMatch(/graduated launches/);
+	});
+
+	it('a dumping creator drags pedigree', () => {
+		const sm = { score: 60, smartWalletCount: 1 };
+		const clean = pedigreeScore(sm, { launches: 3, launchWins: 1, dumpRate: 0 });
+		const dumper = pedigreeScore(sm, { launches: 3, launchWins: 1, dumpRate: 0.7 });
+		expect(dumper.score).toBeLessThan(clean.score);
+		expect(dumper.reasons.join(' ')).toMatch(/dumps/);
+	});
 });
 
 describe('structureScore', () => {
@@ -139,6 +161,30 @@ describe('convict (fusion)', () => {
 		expect(v.score).toBeLessThan(50);
 		expect(v.tier === 'avoid' || v.tier === 'watch').toBe(true);
 		expect(v.badges).toContain('structure-flag');
+	});
+
+	it('a serial-rugger creator ceilings the FINAL score — never prime, no matter the buyers', () => {
+		const ruggerCreator = {
+			...primeIntel,
+			creator: { wallet: 'c', label: null, launches: 5, launchWins: 0 },
+		};
+		const clean = convict(primeIntel);
+		const rugged = convict(ruggerCreator);
+		expect(clean.score).toBeGreaterThanOrEqual(72); // sanity: same intel reads strong without the creator record
+		expect(rugged.score).toBeLessThanOrEqual(45);
+		expect(rugged.tier === 'watch' || rugged.tier === 'avoid').toBe(true);
+		expect(rugged.reasons.some((r) => r.pillar === 'pedigree' && /rug pattern/.test(r.text))).toBe(true);
+	});
+
+	it('a proven shipper creator lifts the fused score', () => {
+		// Moderate pedigree base — primeIntel's pedigree is already clamped at 100,
+		// which would mask the creator bonus.
+		const midIntel = { ...primeIntel, smartMoney: { score: 60, smartWalletCount: 1, notable: [] } };
+		const shipper = convict({
+			...midIntel,
+			creator: { wallet: 'c', label: null, launches: 4, launchWins: 3 },
+		});
+		expect(shipper.score).toBeGreaterThan(convict(midIntel).score);
 	});
 
 	it('flagged wallets pull a mediocre coin further down', () => {
