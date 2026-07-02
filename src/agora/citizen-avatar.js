@@ -76,8 +76,9 @@ function groundFeet(obj) {
 // Build a crisp, high-DPI billboard label: bold name over a profession chip.
 // Returns a Sprite that always faces the camera (sizeAttenuation on, so distant
 // labels recede naturally). Drawn on a transparent rounded panel for contrast
-// against both bright sky and dark buildings.
-function buildLabelSprite(name, profession, accent) {
+// against both bright sky and dark buildings. Exported so the player mode's
+// remote humans (player-mode.js) wear the exact same nameplate as citizens.
+export function buildLabelSprite(name, profession, accent) {
 	const dpr = Math.min(window.devicePixelRatio || 1, 2);
 	const padX = 22, nameSize = 34, profSize = 22, gap = 8;
 	const font = (px, w) => `${w} ${px}px Inter, system-ui, sans-serif`;

@@ -3,6 +3,16 @@
   "entries": [
     {
       "date": "2026-07-02",
+      "title": "Live agent screens now reach the 3D world, and coin art loads everywhere",
+      "summary": "The in-world agent desk monitor in /play now renders the same live browser feed as the 2D watch panel and the live wall \u2014 previously it could only show the activity fallback because it listened on a stream that was never deployed. Coin art in the world lobby is now served through the platform's own image proxy, so tokens whose images live on flaky or retired IPFS/Arweave gateways still show their art instead of a broken tile. The paid crypto-intel feed also gained a second live price source, so a rate-limited upstream no longer makes paid calls fail \u2014 and if both sources are down you are never charged. Assorted console warnings from multiplayer connections closing mid-session are gone.",
+      "tags": [
+        "fix",
+        "improvement"
+      ],
+      "link": "/play"
+    },
+    {
+      "date": "2026-07-02",
       "title": "Every coin world now gets the full town experience",
       "summary": "The flagship town's whole cast and economy now travel to every coin world on /play. Walk into any community and you'll find the full crew of twelve townsfolk selling real paid services \u2014 market reads, fact checks, security scans, vanity addresses, 3D mesh forging, coin launches and more, each settled on-chain in USDC \u2014 plus the ORACLE and NOVA agent exchange striking live x402 deals in the plaza, and an intel kiosk selling live market data for that world's own coin ($0.01 USDC, paid from your own wallet). The $THREE town keeps its signature frontier look and stays the front door of the metaverse.",
       "tags": [
