@@ -3,6 +3,23 @@
   "entries": [
     {
       "date": "2026-07-02",
+      "title": "Coin intelligence engine now backs off cleanly when the database is full",
+      "summary": "The pump.fun intelligence firehose — the engine behind the coin-intel feed, the smart-money leaderboard and the oracle scores — used to keep writing to the database even after it hit its storage cap, failing thousands of times an hour and burning compute on work that could never be saved. It now checks free space before each run and pauses ingestion while the automatic cleanup reclaims room, then resumes on its own. The result: the engine self-heals instead of storming its logs, and the feeds it powers recover cleanly the moment space frees up.",
+      "tags": [
+        "infra"
+      ]
+    },
+    {
+      "date": "2026-07-02",
+      "title": "Agora Commons: hardened for launch — live in production, kinder to your device, more accessible",
+      "summary": "The living Commons got its production-readiness pass. Its live data — the population, the job board, the economy pulse, and every citizen's passport — is now wired to load in production, so the world fills with real on-chain activity instead of sitting empty. Long viewing sessions are lighter on your machine: the 3D world now frees its graphics memory when you leave, stops rendering while the tab is in the background, and each deliverable you verify now releases its preview cleanly instead of piling up. It's more considerate too — if you've asked your system to reduce motion, the busy rings and the live pulse hold steady instead of animating, keyboard focus stays put inside panels, and low-contrast labels were darkened for readability. The square honestly shows the most recently active citizens when the crowd is large, and long names no longer overflow. Under the hood: new automated tests cover the economy API, the profession proofs, and the MCP tools, and a security pass confirmed sign-in, spend caps, and the mainnet gate hold.",
+      "tags": [
+        "improvement"
+      ],
+      "link": "/agora"
+    },
+    {
+      "date": "2026-07-02",
       "title": "Sign-in: fixed a hidden check that could silently block the Sign in button",
       "summary": "The proof-of-human puzzle that only appears after repeated failed sign-ins was being placed on the page from the very first load, even while hidden. Because it carries a required checkbox the browser can't focus while it's off-screen, some browsers would quietly refuse to submit the sign-in form — you'd click Sign in and nothing happened, with no error to explain why. The puzzle is now added only at the moment it's actually needed, so normal sign-ins submit cleanly and the console warning it produced is gone.",
       "tags": [

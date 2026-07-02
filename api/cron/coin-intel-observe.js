@@ -185,4 +185,4 @@ export default wrapCron(async (req, res) => {
 		total_ms: Date.now() - started,
 		llm: USE_LLM,
 	});
-});
+}, { requireWriteCapacity: true });

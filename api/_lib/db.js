@@ -272,6 +272,58 @@ export function isDbCapacityError(err) {
 	return /could not extend file because|project size limit|max_cluster_size|throttle_or_fail_extension/i.test(msg);
 }
 
+// ── Storage-pressure preflight ────────────────────────────────────────────────
+// A read-only probe of how close the branch is to its project-size cap, so
+// write-heavy background jobs can back off BEFORE attempting a whole tick's worth
+// of writes that would each fail with 53100 (see isDbCapacityError). At the cap,
+// READS still succeed — so this probe works even while every write is failing.
+//
+// Why it matters: the pump-intel firehose (coin-intel-observe every 2 min, plus
+// intel-learn / smart-money-rollup / recompute-reputation) kept ingesting and
+// upserting AT the cap, catching each 53100 per-row and logging a warning — a run
+// of coin-intel-observe alone produced ~800 warning lines while persisting nothing.
+// db-retention only runs every 15 min, so the firehose fired ~7 times between prunes,
+// hammering a full branch. Backing off closes that: ingest pauses at the same
+// high-water mark retention tightens its window on, retention deletes the oldest
+// rows, pg_database_size drops back under the mark, and ingest resumes — a stable
+// control loop that keeps the branch off the hard cap instead of storming the logs.
+//
+// The mark defaults to db-retention.js's DB_RETENTION_HIGH_WATER_MB (470 MB on the
+// 512 MB free tier) so both halves engage at exactly the same threshold. Cached for
+// STORAGE_PROBE_TTL_MS so repeated calls within one invocation add at most one cheap
+// read; a fresh (cold) invocation always re-probes.
+const STORAGE_PROBE_TTL_MS = 30_000;
+let _storageProbe = { at: 0, result: null };
+
+function storageHighWaterMb() {
+	const raw = Number.parseInt(String(process.env.DB_RETENTION_HIGH_WATER_MB ?? ''), 10);
+	if (Number.isFinite(raw) && raw >= 128 && raw <= 100_000) return raw;
+	return 470;
+}
+
+// Returns { pressured, sizeMb, highWaterMb }. Fails OPEN: if the DB is unconfigured
+// or the probe itself rejects (a transient connectivity blip), it reports
+// not-pressured so a probe fault never stalls a tick — the write path's own graceful
+// handling (wrap/wrapCron) still covers a real outage or cap when the write runs.
+export async function isStoragePressured() {
+	const now = Date.now();
+	if (_storageProbe.result && now - _storageProbe.at < STORAGE_PROBE_TTL_MS) {
+		return _storageProbe.result;
+	}
+	const highWaterMb = storageHighWaterMb();
+	const settle = (result) => { _storageProbe = { at: now, result }; return result; };
+
+	const { sql: client, err } = getSqlSafe();
+	if (err || !client) return settle({ pressured: false, sizeMb: null, highWaterMb });
+	try {
+		const rows = await client`SELECT (pg_database_size(current_database()) / 1048576.0)::int AS mb`;
+		const sizeMb = Number(rows?.[0]?.mb) || 0;
+		return settle({ pressured: sizeMb >= highWaterMb, sizeMb, highWaterMb });
+	} catch {
+		return settle({ pressured: false, sizeMb: null, highWaterMb });
+	}
+}
+
 export const sql = new Proxy(function () {}, {
 	apply(_t, _this, args) {
 		// Neon dispatches on the first argument: a string is the ordinary

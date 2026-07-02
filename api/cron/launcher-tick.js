@@ -34,4 +34,4 @@ export default wrapCron(async (req, res) => {
 
 	const out = await runLauncherTick();
 	return json(res, 200, out);
-});
+}, { requireWriteCapacity: true });

@@ -657,7 +657,7 @@ export default wrap(async (req, res) => {
 	try {
 		return await route.fn(req, res);
 	} catch (err) {
-		console.error('[agora] unexpected error', err?.message);
+		console.error('[agora] unexpected error', redactSecrets(err?.message));
 		return serverError(res, 500, 'agora_error', err);
 	}
 });

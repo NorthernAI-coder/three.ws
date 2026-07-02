@@ -6,7 +6,7 @@ import { env } from './env.js';
 import { captureException } from './sentry.js';
 import { sendOpsAlert } from './alerts.js';
 import { instrument as zauthInstrument, drain as zauthDrain } from './zauth.js';
-import { isDbUnavailableError, isDbCapacityError } from './db.js';
+import { isDbUnavailableError, isDbCapacityError, isStoragePressured } from './db.js';
 
 // Secure-by-default caching: emit `no-store` UNLESS the handler already set a
 // Cache-Control header (e.g. `res.setHeader('cache-control', 'public, s-maxage=…')`
@@ -503,11 +503,34 @@ export function wrap(handler) {
 // and returns 200 { ok: false, reason: 'db_unavailable' } so Vercel doesn't
 // count the cron as a hard failure. Non-DB errors re-throw to wrap() so genuine
 // bugs still surface through normal alerting.
-export function wrapCron(handler) {
+//
+// `requireWriteCapacity` opts a write-heavy cron into a storage-pressure preflight:
+// when the branch is at its project-size cap, running a full tick only fails per-row
+// (53100) and floods the logs, so the tick is skipped with 200 { ok: true, skipped }
+// and a single warn instead. The probe is a READ (works at the cap); db-retention
+// then reclaims space and the next tick resumes (see isStoragePressured). This is the
+// proactive complement to the reactive catch below — it stops crons that swallow
+// their own write errors (the pump-intel firehose) from storming the logs at the cap.
+export function wrapCron(handler, { requireWriteCapacity = false } = {}) {
 	return wrap(async (req, res, ...rest) => {
 		// Derive cron name from the request URL for heartbeat tracking.
 		const cronName = (req.url || '').replace(/^\/api\/cron\//, '').split('?')[0] || 'unknown';
 		const t0 = Date.now();
+		if (requireWriteCapacity) {
+			let pressure = null;
+			try { pressure = await isStoragePressured(); } catch { /* a probe fault must never stall a tick */ }
+			if (pressure?.pressured) {
+				console.warn(`[cron] ${cronName} skipped — db at storage cap (${pressure.sizeMb}MB ≥ ${pressure.highWaterMb}MB); retention will reclaim space`);
+				// Heartbeat a healthy skip so uptime monitoring reads it as up, not stalled.
+				import('./cache.js').then(({ cacheSet }) => {
+					cacheSet(`cron:heartbeat:${cronName}`, { ok: true, skipped: 'db_at_storage_cap', t: t0, ms: Date.now() - t0 }, 7 * 24 * 60 * 60).catch(() => {});
+				}).catch(() => {});
+				if (!res.headersSent && !res.writableEnded) {
+					json(res, 200, { ok: true, skipped: 'db_at_storage_cap', size_mb: pressure.sizeMb, high_water_mb: pressure.highWaterMb });
+				}
+				return;
+			}
+		}
 		try {
 			await handler(req, res, ...rest);
 			// Write heartbeat after success — fire-and-forget, never blocks.
