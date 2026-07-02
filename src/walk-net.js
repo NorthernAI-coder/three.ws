@@ -69,6 +69,9 @@ export class WalkNet {
 	 * @param {object} opts
 	 * @param {string} [opts.name] Display name (1–24 chars after server clean)
 	 * @param {string} [opts.url] Override server URL (otherwise resolved from meta)
+	 * @param {string} [opts.room] Room type to join (default 'walk_world'). The Agora
+	 *   Commons joins its dedicated 'agora_world' room through the same client —
+	 *   identical status model, throttle, and reconnect semantics.
 	 * @param {string} [opts.avatar] Loadable GLB URL for this player's avatar / 3D agent
 	 * @param {string} [opts.agent] three.ws agent id this player embodies (cross-links)
 	 * @param {string} [opts.coin] Coin mint — joins that coin's community world ('' = mainland)
@@ -79,6 +82,7 @@ export class WalkNet {
 	constructor(opts = {}) {
 		this.name = opts.name || 'guest';
 		this.url = opts.url || defaultServerUrl();
+		this.roomName = opts.room || ROOM_NAME;
 		this.avatar = opts.avatar || '';
 		this.agent = opts.agent || '';
 		// Coin community this client is entering. `coin` (the mint) doubles as the
@@ -176,7 +180,7 @@ export class WalkNet {
 			// holding the WS upgrade) would otherwise strand us in 'connecting'
 			// forever — joinOrCreate has no timeout. On timeout this throws and the
 			// catch below schedules a reconnect.
-			const room = await joinRoomWithTimeout(this.client, ROOM_NAME, {
+			const room = await joinRoomWithTimeout(this.client, this.roomName, {
 				name: this.name,
 				avatar: this.avatar,
 				agent: this.agent,

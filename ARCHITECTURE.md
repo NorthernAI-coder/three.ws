@@ -1643,11 +1643,11 @@ The only piece that keeps the live graduation WebSocket open. Holds a long-lived
 
 #### `services/agent-screen-caster` — self-hosted agent screen caster
 
-A reusable **Playwright caster library + CLI** (`AgentScreenCaster` class) an agent *owner* self-hosts to stream that agent's real browser work into three.ws. Authenticates with a per-agent bearer token/API key minted by `POST /api/agent/caster-config` (which returns a ready-to-paste `.env` + `docker run`). Ships task modules `pump-monitor` (watch a pump.fun coin via DOM MutationObserver) and `trade` (drive Jupiter/Raydium/pump.fun swap UIs). Pushes base64 JPEG frames to `POST /api/agent/screen-push` on a `FRAME_INTERVAL_MS` loop.
+A reusable **Playwright caster library + CLI** (`AgentScreenCaster` class) an agent *owner* self-hosts to stream that agent's real browser work into three.ws. Authenticates with a per-agent bearer token/API key minted by `POST /api/agent/caster-config` (which returns a ready-to-paste `.env` + `docker run`). Ships task modules `pump-monitor` (watch a pump.fun coin via DOM MutationObserver) and `trade` (drive Jupiter/Raydium/pump.fun swap UIs). Pushes JPEG data-URL frames to `POST /api/agent-screen-push` on a `FRAME_INTERVAL_MS` loop.
 
 - `caster.js` — the `AgentScreenCaster` Playwright wrapper (frame loop, push primitives).
 - `tasks/pump-monitor.js`, `tasks/trade.js` — bundled task modules.
-- **Env:** `AGENT_ID`*, `AGENT_BEARER_TOKEN`*, `PUSH_URL` (default `https://three.ws/api/agent/screen-push`), `FRAME_INTERVAL_MS` (400), `JPEG_QUALITY` (72), `HEADLESS`, `TASK`, `TASK_ARG`, `WALLET_STORAGE_STATE_PATH`.
+- **Env:** `AGENT_ID`*, `AGENT_BEARER_TOKEN`*, `PUSH_URL` (default `https://three.ws/api/agent-screen-push`), `FRAME_INTERVAL_MS` (400), `JPEG_QUALITY` (72), `HEADLESS`, `TASK`, `TASK_ARG`, `WALLET_STORAGE_STATE_PATH`.
 
 ---
 
@@ -2638,13 +2638,13 @@ The worker and `api/sniper/*` are separate processes that **communicate only thr
 
 "Agent screen casting" streams a live view of an agent working — a real Chromium screenshot feed plus a structured activity log — so a spectator can *watch an agent do real web work* in real time. Every agent gets a **zero-cost baseline screen 24/7** (the SSE stream synthesizes a feed from the agent's real `agent_actions` DB rows when no browser is running); on top of that, an *optional* real-browser pixel feed spins up only for agents people are actively watching and is torn down when the last viewer leaves. Consumers: the 2D viewer `/agent-screen`, the live wall `/agents-live`, and in-world 3D "agent desk" surfaces.
 
-**Transport:** plain HTTP POST of base64 JPEG/PNG frames + **Server-Sent Events** polling Redis (~250–500ms) — no WebRTC/WebSocket/HLS. Capture is headless Chromium via Playwright (Stagehand for the per-agent worker; optional Browserbase cloud). Two frame conventions coexist (both written by the pool so a watched agent goes live everywhere at once): **dashed** (wall + 2D viewer, `POST /api/agent-screen-push` → Redis `agent:screen:{id}:frame` TTL 90s → `GET /api/agent-screen-stream`) and **slashed** (3D desk, `POST /api/agent/screen-push` → `screen:frame:{id}` TTL 10s → `GET /api/agent/screen-stream`).
+**Transport:** plain HTTP POST of base64 JPEG/PNG frames + **Server-Sent Events** polling Redis (~250–500ms) — no WebRTC/WebSocket/HLS. Capture is headless Chromium via Playwright (Stagehand for the per-agent worker; optional Browserbase cloud). One frame convention serves every surface (wall, 2D viewer, and 3D desk): `POST /api/agent-screen-push` → Redis `agent:screen:{id}:frame` TTL 90s → `GET /api/agent-screen-stream`.
 
-**Producers:** `workers/agent-screen-worker` (per-agent, owner-run; Stagehand `act()`/`extract()` runs user-queued tasks, rests on the agent's home when idle), `workers/agent-screen-pool` (on-demand multi-agent caster; polls `GET /api/agent/watch-wanted`, keeps ≤`MAX_BROWSERS` pages, screenshots every `FRAME_MS`, runs a real multi-step web task or a "Coin World Tour", pushes to both conventions), and `services/agent-screen-caster` (self-hosted library+CLI, above).
+**Producers:** `workers/agent-screen-worker` (per-agent, owner-run; Stagehand `act()`/`extract()` runs user-queued tasks, rests on the agent's home when idle), `workers/agent-screen-pool` (on-demand multi-agent caster; polls `GET /api/agent/watch-wanted`, keeps ≤`MAX_BROWSERS` pages, screenshots every `FRAME_MS`, runs a real multi-step web task or a "Coin World Tour"), and `services/agent-screen-caster` (self-hosted library+CLI, above).
 
-**API:** `POST /api/agent-screen-push` / `GET /api/agent-screen-stream` / `GET /api/agent-screen-active` (dashed), `POST /api/agent/screen-push` / `GET /api/agent/screen-stream` (slashed), `POST /api/agent/watch-intent` (viewer "I'm watching" + emoji reaction → Redis `screen:wanted`), `GET /api/agent/watch-wanted` (pool reads the set; `SCREEN_WORKER_SECRET`), `GET /api/agent/watch-status` (casting/warming/queued#N/activity handoff), `POST /api/agent/caster-config` (mint scoped `api_keys` row + emit `.env`/docker for the caster). Helper: `api/_lib/agent-screen-frame.js` (`writeScreenFrame()`).
+**API:** `POST /api/agent-screen-push` / `GET /api/agent-screen-stream` / `GET /api/agent-screen-active`, `POST /api/agent/watch-intent` (viewer "I'm watching" + emoji reaction → Redis `screen:wanted`), `GET /api/agent/watch-wanted` (pool reads the set; `SCREEN_WORKER_SECRET`), `GET /api/agent/watch-status` (casting/warming/queued#N/activity handoff), `POST /api/agent/caster-config` (mint scoped `api_keys` row + emit `.env`/docker for the caster). Helper: `api/_lib/agent-screen-frame.js` (`writeScreenFrame()`).
 
-**Frontend:** `pages/agent-screen.html` → `src/agent-screen.js` → `src/shared/agent-screen-client.js` (EventSource wrapper w/ backoff); 3D desks `src/game/agent-desk.js`, `src/walk-agent-desk.js`; live wall `src/agents-live.js`. **Ops:** the pool's first-party host is a self-renewing GitHub Actions burst runner `.github/workflows/agent-screen-pool.yml` (`cron: 0 */5 * * *`, `timeout 320m`), or any Docker VM/Fly/Railway. **Env:** `SCREEN_WORKER_SECRET` (API + pool), `SCREEN_POOL_MAX` (queue math), plus per-producer `AGENT_ID`/`AGENT_JWT`/`AGENT_BEARER_TOKEN`, `PUSH_URL`(`_DESK`), `MAX_BROWSERS`, `FRAME_MS`, `BROWSERBASE_API_KEY`. Falls back to the `agent_actions` feed when no live caster is pushing.
+**Frontend:** `pages/agent-screen.html` → `src/agent-screen.js` → `src/shared/agent-screen-client.js` (EventSource wrapper w/ backoff); 3D desks `src/game/agent-desk.js`, `src/walk-agent-desk.js`; live wall `src/agents-live.js`. **Ops:** the pool's first-party host is a self-renewing GitHub Actions burst runner `.github/workflows/agent-screen-pool.yml` (`cron: 0 */5 * * *`, `timeout 320m`), or any Docker VM/Fly/Railway. **Env:** `SCREEN_WORKER_SECRET` (API + pool), `SCREEN_POOL_MAX` (queue math), plus per-producer `AGENT_ID`/`AGENT_JWT`/`AGENT_BEARER_TOKEN`, `PUSH_URL`, `MAX_BROWSERS`, `FRAME_MS`, `BROWSERBASE_API_KEY`. Falls back to the `agent_actions` feed when no live caster is pushing.
 
 ---
 
@@ -3139,7 +3139,7 @@ Two layers resolve paths: **`vercel.json`** (`routes` array, 932 entries — pro
 
 ### Complete API Directory Index
 
-All **150+ directories** under `api/` plus many top-level single-file endpoints. `_`-prefixed dirs are shared internals; `[bracket].js` are dynamic routes. New since the last revision: `x402-facilitator/`, `launcher/`, `pay/`, `ops/`, `diorama.js`, `scene-capture.js`/`scene-upload.js`, `deployments.js`, `billboard.js`, `pipeline.js`, `three-signal.js`, `agent-screen-*.js`, `agent-task.js`, `agent-ask.js`, `agent-collab.js`, `agent-vanity-grind.js`, `agent-economy/volume`, expanded `agent/` (session, caster-config, launcher, market-maker, screen-push/-stream, watch-intent/-status/-wanted, anchor-script).
+All **150+ directories** under `api/` plus many top-level single-file endpoints. `_`-prefixed dirs are shared internals; `[bracket].js` are dynamic routes. New since the last revision: `x402-facilitator/`, `launcher/`, `pay/`, `ops/`, `diorama.js`, `scene-capture.js`/`scene-upload.js`, `deployments.js`, `billboard.js`, `pipeline.js`, `three-signal.js`, `agent-screen-*.js`, `agent-task.js`, `agent-ask.js`, `agent-collab.js`, `agent-vanity-grind.js`, `agent-economy/volume`, expanded `agent/` (session, caster-config, launcher, market-maker, watch-intent/-status/-wanted, anchor-script).
 
 | Directory | Files | Purpose |
 |---|---|---|
@@ -3153,7 +3153,7 @@ All **150+ directories** under `api/` plus many top-level single-file endpoints.
 | `agent-3d/` | versions | 3D asset version listing. |
 | `agent-economy/` | status, transact | Two-agent demo economy. |
 | `agent-trade/` | demo (SSE), skill | Live A2A trade demo + tradeable skill. |
-| `agent/` | activity, dreams, reflect, send-sol, wallet, session, caster-config, launcher, market-maker, screen-push, screen-stream, watch-intent, watch-status, watch-wanted, anchor-script | Single-agent runtime + live-caster signaling + per-agent launcher/MM config. |
+| `agent/` | activity, dreams, reflect, send-sol, wallet, session, caster-config, launcher, market-maker, watch-intent, watch-status, watch-wanted, anchor-script | Single-agent runtime + live-caster signaling + per-agent launcher/MM config. |
 | `agents/` | ~60+ incl `[id]/`, a2a-* (call/cart-verify/hire/mandate/paid), solana*/onchain/, register/, sas/, ens/, pumpfun/, endpoint-shopper-run, networth, copilot, recovery | Central agent surface (identity, A2A, trading/strategy/mirror, ERC-8004 register, Solana ops, portfolio). |
 | `agi/` | state | AGI global state. |
 | `agora/` | [action], act | Agora citizen actions. |

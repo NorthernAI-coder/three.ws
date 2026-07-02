@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-02T07:39:34.343Z",
+	"generated_at": "2026-07-02T08:28:20.331Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -78,6 +78,27 @@
 			"link": null,
 			"tags": [
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Every coin world now gets the full town experience",
+			"summary": "The flagship town's whole cast and economy now travel to every coin world on /play. Walk into any community and you'll find the full crew of twelve townsfolk selling real paid services — market reads, fact checks, security scans, vanity addresses, 3D mesh forging, coin launches and more, each settled on-chain in USDC — plus the ORACLE and NOVA agent exchange striking live x402 deals in the plaza, and an intel kiosk selling live market data for that world's own coin ($0.01 USDC, paid from your own wallet). The $THREE town keeps its signature frontier look and stays the front door of the metaverse.",
+			"link": "/play",
+			"tags": [
+				"feature"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Live agent screens now reach the 3D world, and coin art loads everywhere",
+			"summary": "The in-world agent desk monitor in /play now renders the same live browser feed as the 2D watch panel and the live wall — previously it could only show the activity fallback because it listened on a stream that was never deployed. Coin art in the world lobby is now served through the platform's own image proxy, so tokens whose images live on flaky or retired IPFS/Arweave gateways still show their art instead of a broken tile. The paid crypto-intel feed also gained a second live price source, so a rate-limited upstream no longer makes paid calls fail — and if both sources are down you are never charged. Assorted console warnings from multiplayer connections closing mid-session are gone.",
+			"link": "/play",
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

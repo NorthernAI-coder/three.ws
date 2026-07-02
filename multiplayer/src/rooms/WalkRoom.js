@@ -407,7 +407,8 @@ export class WalkRoom extends Room {
 		this.coinCreator = '';
 		// Co-op heist instances live on the room, not on a profile: a SHARED run a
 		// crew advances together. Keyed by mission id (one live instance per heist per
-		// world). Each value: { missionId, members:Set<sessionId>, run, done:Set<zone> }.
+		// world). Each value: { missionId, members:Set<sessionId>, run } — the run
+		// carries its own per-stage seen-zone dedupe (quests.js applyEvent).
 		this.heists = new Map();
 		// Tag mini-game (R08): off-schema state. _tagImmunity tracks who is immune
 		// (sessionId → epoch ms immunity expires). _tagTime tracks cumulative time-as-it
@@ -1134,6 +1135,257 @@ export class WalkRoom extends Room {
 		if (id === profile._zone) return; // no transition
 		profile._zone = id;
 		if (id) this._questEvent(client, profile, { type: 'enter-zone', zone: id });
+	}
+
+	// --- Quests, jobs & heists (W05) -------------------------------------------
+	// The quest engine (quests.js) is pure data + state transitions; this section is
+	// the room's authority glue: it feeds REAL gameplay events into the engine, pays
+	// rewards through the same purse/XP idioms the activities use, and manages the
+	// co-op heist instances that live on the room (this.heists), not on a profile.
+
+	// Send the owning client its jobs board + active runs ({offers, active, day} —
+	// the shape community-net.js documents). Solo runs come straight from the
+	// engine's snapshot (which also rolls stale daily state over to today); a heist
+	// run is overlaid with the crew's SHARED instance so every member's tracker
+	// shows the same live progress, plus the current crew size.
+	_sendQuests(client) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		const snap = questSnapshot(profile.quests, utcDayKey());
+		for (let i = 0; i < snap.active.length; i++) {
+			const inst = this.heists.get(snap.active[i].id);
+			if (inst) {
+				snap.active[i] = { ...runView(inst.run, missionDef(inst.missionId)), crew: inst.members.size };
+			}
+		}
+		client.send('quests', snap);
+	}
+
+	// Accept a mission off the board. The engine owns the eligibility rules (already
+	// active, prereqs, daily/once repeats); a refusal is surfaced as a notice, never
+	// a silent no-op. Accepting a heist joins (or founds) this world's one shared
+	// instance — the crew advances a single run together and splits the pot at payout.
+	_handleQuestAccept(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'quest')) return;
+		const id = typeof payload?.id === 'string' ? payload.id.slice(0, 64) : '';
+		const mission = missionDef(id);
+		if (!mission) return;
+		const res = acceptMission(profile.quests, id, utcDayKey());
+		if (!res.ok) {
+			const text = res.reason === 'active' ? 'You already took that job.'
+				: res.reason === 'daily-done' ? 'That job is done for today — check back tomorrow.'
+				: res.reason === 'done' ? 'You’ve already completed that job.'
+				: 'That job isn’t available to you yet.';
+			client.send('notice', { kind: 'quest', text });
+			return;
+		}
+		if (isHeist(id)) {
+			let inst = this.heists.get(id);
+			if (!inst) {
+				// First accept founds the instance; the founder's fresh run IS the shared
+				// run every later member advances (it's never persisted — see quests.js).
+				inst = { missionId: id, members: new Set(), run: res.run };
+				this.heists.set(id, inst);
+			}
+			inst.members.add(client.sessionId);
+			// The crew grew — every member's tracker shows the new headcount.
+			this._sendQuestsToCrew(inst, client.sessionId);
+		}
+		this._persistEcon(client.sessionId);
+		client.send('notice', { kind: 'quest', text: `Accepted: ${mission.title}` });
+		this._sendQuests(client);
+	}
+
+	// Abandon an active mission. Solo progress is simply dropped (a daily can be
+	// re-accepted the same day); leaving a heist removes this member from the shared
+	// crew — the rest keep the run, and the instance dissolves with its last member.
+	_handleQuestAbandon(client, payload) {
+		const profile = this.econ.get(client.sessionId);
+		if (!profile) return;
+		if (!this._actionOk(client.sessionId, 'quest')) return;
+		const id = typeof payload?.id === 'string' ? payload.id.slice(0, 64) : '';
+		if (!abandonMission(profile.quests, id).ok) return;
+		if (isHeist(id)) this._leaveHeistCrew(id, client.sessionId);
+		this._persistEcon(client.sessionId);
+		this._sendQuests(client);
+	}
+
+	// Act at the quest object the player is standing at (courier pickup/dropoff, a
+	// heist terminal, the vault door). The zone comes from the SERVER's authoritative
+	// position — the client's prompt is a hint, never the authority — and the event
+	// carries the zone's action so objectiveMatches can tell a pickup from a dropoff.
+	_handleQuestInteract(client) {
+		const player = this.state.players.get(client.sessionId);
+		const profile = this.econ.get(client.sessionId);
+		if (!player || !profile) return;
+		if (!this._actionOk(client.sessionId, 'questInteract')) return;
+		const zone = interactZoneInRange(player.x, player.z);
+		if (!zone) {
+			client.send('notice', { kind: 'quest', text: 'There’s nothing to use here.' });
+			return;
+		}
+		this._questEvent(client, profile, { type: 'interact', zone: zone.id, action: zone.action });
+	}
+
+	// Feed one real gameplay event (a catch, a zone entry, an interact) into every
+	// run it could advance. Called from the move path, so it stays cheap: a player
+	// has a handful of active runs at most, and live heist instances are bounded by
+	// the mission registry. Solo runs live on the profile; heists advance the crew's
+	// shared run — any member's action moves everyone, and the finale gates on
+	// assembly (the whole crew at the door, judged from server positions).
+	_questEvent(client, profile, event) {
+		const dayKey = utcDayKey();
+		let changed = false;
+		for (const [id, run] of Object.entries(profile.quests.active)) {
+			const mission = missionDef(id);
+			if (!mission || mission.kind === 'heist') continue; // heists advance via the shared instance below
+			const res = applyEvent(run, mission, event);
+			if (!res.matched) continue;
+			changed = true;
+			if (res.missionComplete) this._completeMission(client, profile, mission, dayKey);
+		}
+		for (const inst of this.heists.values()) {
+			if (!inst.members.has(client.sessionId)) continue;
+			const mission = missionDef(inst.missionId);
+			if (!mission) continue;
+			// The finale only lands with the whole crew assembled at its zone — checked
+			// BEFORE applying, so a lone cracker gets a hint instead of a silent miss.
+			const obj = mission.objectives[inst.run.stage];
+			if (obj?.finale && objectiveMatches(obj, event) && !this._heistFinaleReady(client, inst, mission, obj)) continue;
+			const res = applyEvent(inst.run, mission, event);
+			if (!res.matched) continue;
+			if (res.missionComplete) {
+				this._completeHeist(client, inst, mission, dayKey);
+			} else {
+				// Shared progress: the whole crew's trackers move together. The actor's
+				// own re-send rides on the tail below.
+				this._sendQuestsToCrew(inst, client.sessionId);
+				changed = true;
+			}
+		}
+		if (changed) {
+			this._persistEcon(client.sessionId);
+			this._sendQuests(client);
+		}
+	}
+
+	// Pay out a finished solo mission: record it in the lifetime + daily log, grant
+	// the purse + XP through the standard idioms, toast the client, and echo the
+	// milestone to the site ticker. The quests re-send rides on the caller's tail.
+	_completeMission(client, profile, mission, dayKey) {
+		recordCompletion(profile.quests, mission, dayKey);
+		const reward = missionReward(mission);
+		if (reward.gold > 0) profile.gold += reward.gold;
+		if (reward.xp) this._grantXp(client, profile, reward.xp.skill, reward.xp.amount);
+		this._sendInv(client, profile);
+		client.send('questComplete', { id: mission.id, title: mission.title, reward, kind: mission.kind, coop: false });
+		this._publishMissionComplete(client, mission, reward.gold, false);
+	}
+
+	// Pay out a finished heist to the LIVE crew: the pot splits evenly (remainder to
+	// the first member — splitPot loses no gold to rounding), each member's own
+	// completion log records it, and each gets their share + XP through their own
+	// client. The instance is consumed — a crew founds a fresh one to run it again.
+	_completeHeist(client, inst, mission, dayKey) {
+		const members = [...inst.members];
+		const reward = missionReward(mission);
+		const shares = splitPot(reward.gold, members.length);
+		members.forEach((sid, i) => {
+			const memberProfile = this.econ.get(sid);
+			if (!memberProfile) return;
+			recordCompletion(memberProfile.quests, mission, dayKey);
+			if (shares[i] > 0) memberProfile.gold += shares[i];
+			const memberClient = this.clients.find((c) => c.sessionId === sid);
+			if (memberClient) {
+				try {
+					if (reward.xp) this._grantXp(memberClient, memberProfile, reward.xp.skill, reward.xp.amount);
+					this._sendInv(memberClient, memberProfile);
+					memberClient.send('questComplete', {
+						id: mission.id, title: mission.title,
+						reward: { ...reward, gold: shares[i] },
+						kind: mission.kind, coop: true, crew: members.length,
+					});
+					this._sendQuests(memberClient);
+				} catch { /* best-effort */ }
+			}
+			this._persistEcon(sid);
+		});
+		// One ticker line for the whole crew (the total pot), not one per member.
+		this._publishMissionComplete(client, mission, reward.gold, true);
+		this.heists.delete(inst.missionId);
+	}
+
+	// The finale gate: a heist only finishes with a big-enough crew ALL standing at
+	// the finale zone — server positions, never client claims. A failed gate tells
+	// the actor why, so "nothing happened" is never the answer at the vault door.
+	_heistFinaleReady(client, inst, mission, obj) {
+		const need = Math.max(1, mission.party | 0 || 1);
+		if (inst.members.size < need) {
+			client.send('notice', { kind: 'quest', text: `This job needs a crew of ${need} — recruit before the finale.` });
+			return false;
+		}
+		for (const sid of inst.members) {
+			const p = this.state.players.get(sid);
+			const zone = p ? zoneAt(p.x, p.z) : null;
+			if (!zone || zone.id !== obj.zone) {
+				client.send('notice', { kind: 'quest', text: 'Your whole crew must be at the door for this.' });
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// Re-send the quest snapshot to every member of a heist crew (optionally skipping
+	// one — the actor, whose re-send rides on the caller). Best-effort per client so
+	// a mid-send disconnect can't break the loop for the rest of the crew.
+	_sendQuestsToCrew(inst, exceptSessionId = null) {
+		for (const sid of inst.members) {
+			if (sid === exceptSessionId) continue;
+			const c = this.clients.find((cc) => cc.sessionId === sid);
+			if (!c) continue;
+			try { this._sendQuests(c); } catch { /* best-effort */ }
+		}
+	}
+
+	// Drop one member from one heist crew; dissolves the instance with its last
+	// member, otherwise tells the remainder their headcount changed.
+	_leaveHeistCrew(missionId, sessionId) {
+		const inst = this.heists.get(missionId);
+		if (!inst || !inst.members.delete(sessionId)) return;
+		if (inst.members.size === 0) {
+			this.heists.delete(missionId);
+			return;
+		}
+		this._sendQuestsToCrew(inst);
+	}
+
+	// Drop a departing session from EVERY heist crew (onLeave) so no shared run holds
+	// a phantom member. Never throws — it runs inside the leave teardown.
+	_leaveHeists(sessionId) {
+		for (const id of [...this.heists.keys()]) {
+			try { this._leaveHeistCrew(id, sessionId); } catch { /* best-effort */ }
+		}
+	}
+
+	// "Someone pulled off <mission>" on the site-wide ticker (the reader documents
+	// mission-complete as { mission, gold, coop, coin }). Throttled per
+	// player+mission so a repeatable grind can't spam the global feed.
+	_publishMissionComplete(client, mission, gold, coop) {
+		const player = this.state.players.get(client.sessionId);
+		publishFeedEvent(
+			{
+				type: 'mission-complete',
+				ts: Date.now(),
+				actor: player?.name || 'A player',
+				mission: mission.title,
+				gold,
+				coop,
+				coin: this.state.coin || '',
+			},
+			`${player?.account || client.sessionId}:${mission.id}`,
+		);
 	}
 
 	_handleRename(client, payload) {
