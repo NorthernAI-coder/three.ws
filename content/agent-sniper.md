@@ -48,11 +48,11 @@ A strategy declares its trigger, and the trigger decides which loop feeds it.
 
 Entry scoring is pure and explainable. Every skip logs its reason, because the skip log is what you stare at when tuning a strategy.
 
-For a fresh mint, hard filters short-circuit first: a non-SOL quote pair, a market cap outside the strategy's band, a creator with more launches than your ceiling or fewer graduations than your floor, missing socials when you require them. Then soft signals build the score: a point for socials, a point per coin the creator has graduated, a point for a dev initial buy of at least one SOL.
+For a fresh mint, hard filters short-circuit first: a non-SOL quote pair, a market cap outside the band, a creator with more launches than your ceiling or fewer graduations than your floor, missing socials when required. Then soft signals build the score: a point for socials, a point per coin the creator has graduated, a point for a dev initial buy of at least one SOL.
 
-For an intel-confirmed coin the score is a composition: the quality score normalized to a 0 to 1 baseline, plus half the organic score, minus half the bundle score, plus an optional learned model. That learned term is a dot product of the coin's numeric signals against trained weights, deliberately clamped to plus or minus 0.5 so a model can nudge the deterministic gates but never swamp them.
+For an intel-confirmed coin the score is a composition: the quality score normalized to a 0 to 1 baseline, plus half the organic score, minus half the bundle score, plus an optional learned model, a dot product of the coin's numeric signals against trained weights, deliberately clamped to plus or minus 0.5 so a model can nudge the deterministic gates but never swamp them.
 
-Every executed snipe also records a self-rated confidence between 0.05 and 0.95 into the decision ledger: a 0.6 base, a bonus if the safety firewall said allow, a penalty if it said warn, and a penalty scaled by how much of the price impact budget the entry consumed. The sniper predicts its own outcomes; the settle loop grades them.
+Every executed snipe records a self-rated confidence between 0.05 and 0.95 into the decision ledger: a 0.6 base, a bonus if the safety firewall said allow, a penalty if it said warn, and a penalty scaled by how much of the price impact budget the entry consumed. The sniper predicts its own outcomes; the settle loop grades them.
 
 ## The guard stack: everything that stops a buy
 
@@ -78,7 +78,7 @@ This is the platform's favorite subsystem, because it closes a loop most platfor
 
 A strategy can set a minimum Oracle conviction score. Before any snipe, the gate runs in layers.
 
-**The rugpull veto fires first and unconditionally.** If the paid token-intel pipeline has produced a fresh high or critical rug verdict for the mint within the last hour, the snipe is rejected no matter what the strategy says. The veto is fail-open on errors and expires with freshness, because new mints move fast and a stale rejection must not block forever. It can only ever make the sniper safer.
+**The rugpull veto fires first and unconditionally.** A fresh high or critical rug verdict from the paid token-intel pipeline, within the last hour, rejects the snipe no matter what the strategy says. The veto is fail-open on errors and expires with freshness, because new mints move fast and a stale rejection must not block forever. It can only ever make the sniper safer.
 
 **Then the conviction threshold, adjusted twice.** The effective bar is the strategy's minimum score plus a macro adjustment plus a per-coin adjustment.
 
@@ -109,9 +109,9 @@ Custody is yours. The self-custody wallet resolves keys locally, per agent, from
 One engine, four faces:
 
 - **The library.** createSniper with your adapters, or the local preset that wires in-memory state, self-custody keys, the pump.fun client, and the PumpPortal feed.
-- **The CLI.** An agent-sniper binary with run, mcp, serve, and status subcommands. Every one boots in simulate; live requires SNIPER_MODE=live and refuses to start on a public RPC, because a rate-limited endpoint silently dropping your trades is worse than not trading.
+- **The CLI.** An agent-sniper binary with run, mcp, serve, and status subcommands. Every one boots in simulate; live requires SNIPER_MODE=live and refuses to start on a public RPC, because an endpoint silently dropping your trades to rate limits is worse than not trading.
 - **The MCP server.** Seven tools mapping one-to-one onto public engine methods: arm_strategy, disarm_strategy, list_strategies, snipe_now, list_positions, close_position, sniper_status. Published in the MCP registry as io.github.nirholas/agent-sniper.
-- **The x402 paid HTTP API.** Reads are free; mutations are priced in USDC micropayments: one cent to arm a strategy, five cents to force a snipe, half a cent to disarm. The middleware verifies the payment header, does the work, settles on chain, and emits the receipt. Any paying agent on the open web can rent this engine. The same server ships a built-in operator console at /console: live stats, a positions table with one-click close, arm and snipe forms, an activity feed, keyboard shortcuts. Set an operator token and your own console bypasses the payment gate while external agents still pay.
+- **The x402 paid HTTP API.** Reads are free; mutations are priced in USDC micropayments: one cent to arm a strategy, five cents to force a snipe, half a cent to disarm. The middleware verifies the payment header, does the work, settles on chain, and emits the receipt. Any paying agent on the open web can rent this engine. The same server ships an operator console at /console with live stats, a positions table with one-click close, arm and snipe forms, and an activity feed; an operator token lets your own console bypass the payment gate while external agents still pay.
 
 ## Everything on the platform that runs on it
 
