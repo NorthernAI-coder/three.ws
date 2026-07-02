@@ -82,9 +82,16 @@ function buildLabelSprite(name, profession, accent) {
 	const padX = 22, nameSize = 34, profSize = 22, gap = 8;
 	const font = (px, w) => `${w} ${px}px Inter, system-ui, sans-serif`;
 
+	// Clamp a pathologically long display name so its billboard can't dominate the
+	// square (the 3D sprite has no CSS ellipsis to fall back on). Truncate to a
+	// sane width with an ellipsis; the full name still shows in the passport.
+	const MAX_NAME = 24;
+	const raw = String(name ?? 'Citizen');
+	const shown = raw.length > MAX_NAME ? `${raw.slice(0, MAX_NAME - 1)}…` : raw;
+
 	const measure = document.createElement('canvas').getContext('2d');
 	measure.font = font(nameSize, 700);
-	const nameW = measure.measureText(name).width;
+	const nameW = measure.measureText(shown).width;
 	const profText = (profession || 'Citizen').toUpperCase();
 	measure.font = font(profSize, 600);
 	const profW = measure.measureText(profText).width;

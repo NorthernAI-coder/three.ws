@@ -42,17 +42,20 @@ export function stateLabel(state, { arena = false } = {}) {
 	}
 }
 
-// Ordering for the leaderboard / roster HUD: furthest-along first, ties broken by
-// claim time (earlier claim ranks higher — it's been in the race longer). The API
-// already sorts by state precedence; this is the same order, re-derivable client-side
-// so the HUD can re-rank live without a round-trip.
+// Leaderboard rank by state: winners/contributors on top, then those still working,
+// and a stood-down racer sinks to the bottom (it's out of the race even though its
+// frozen track position sits mid-course). This is the same order the API's roster
+// uses, re-derivable client-side so the HUD can re-rank live without a round-trip.
+const STATE_RANK = { won: 6, contributed: 5, completed: 5, working: 3, engaged: 2, lost: 1 };
+
 export function rankRoster(roster) {
 	return [...(roster || [])].sort((a, b) => {
-		const pa = stateProgress(a.state);
-		const pb = stateProgress(b.state);
-		if (pb !== pa) return pb - pa;
-		// Won always outranks a same-progress non-winner.
+		const ra = STATE_RANK[a.state] ?? 0;
+		const rb = STATE_RANK[b.state] ?? 0;
+		if (rb !== ra) return rb - ra;
+		// Won always outranks a same-rank non-winner.
 		if (a.won !== b.won) return a.won ? -1 : 1;
+		// Ties broken by claim time — the earlier claim has been in it longer.
 		return String(a.claimedAt || '').localeCompare(String(b.claimedAt || ''));
 	});
 }

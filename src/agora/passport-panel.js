@@ -381,7 +381,9 @@ export class PassportPanel {
 	}
 
 	_trapTab(e) {
-		const items = [...this._el.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((n) => n.offsetParent !== null);
+		// getClientRects() is fixed-safe (offsetParent can be null for visible
+		// children inside a position:fixed panel in some engines).
+		const items = [...this._el.querySelectorAll('a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter((n) => n === document.activeElement || n.getClientRects().length > 0);
 		if (!items.length) return;
 		const first = items[0];
 		const last = items[items.length - 1];

@@ -15,10 +15,11 @@
 // and a Guild share is the escrow-measured figure the engine projected. Nothing is
 // fabricated: no roster entry, no winner, no split is invented here.
 
-// Per-worker state, highest precedence first. A worker that completed with the
-// `won` outcome is the Arena winner; `contributed` is a Guild part landed; a
-// `stood_down` row is a racer that lost; a bare claim is still working.
-export const WORKER_STATES = ['won', 'contributed', 'completed', 'lost', 'working', 'engaged'];
+// Per-worker state, highest precedence first (leaderboard order). A worker that
+// completed with the `won` outcome is the Arena winner; `contributed` is a Guild
+// part landed; a bare claim is still `working`; a `stood_down` racer `lost` and
+// sinks to the bottom — it's out of the race even though it did the work.
+export const WORKER_STATES = ['won', 'contributed', 'completed', 'working', 'engaged', 'lost'];
 
 /** Reduce one citizen's rows for a task into their live state. */
 export function deriveWorkerState(rows) {
