@@ -26,12 +26,14 @@
 //   ECONOMY_MASTER_SECRET_BASE58 — the funding-root key (unset ⇒ inert)
 //   ECONOMY_MASTER_RESERVE_SOL / _PER_TOPUP_MAX_SOL / _RUN_CAP_SOL — guard caps
 
+import { randomUUID } from 'node:crypto';
 import { error, json, method, wrapCron } from '../_lib/http.js';
 import { env } from '../_lib/env.js';
 import { constantTimeEquals } from '../_lib/crypto.js';
 import { sendOpsAlert } from '../_lib/alerts.js';
 import { SOLANA_SIGNERS, resolveSignerPubkey } from '../_lib/solana-signers.js';
-import { sweepTopUps } from '../_lib/economy-master.js';
+import { sweepTopUps, RESERVE_SOL, RUN_CAP_SOL, PER_TOPUP_MAX_SOL } from '../_lib/economy-master.js';
+import { recordSweep } from '../_lib/economy-ledger.js';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 // How high to lift an engine when it falls below its floor, unless the spec
