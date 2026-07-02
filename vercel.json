@@ -1110,6 +1110,30 @@
 			"dest": "/api/agenc/[action]?action=link"
 		},
 		{
+			"src": "/api/agora/citizens",
+			"dest": "/api/agora/[action]?action=citizens"
+		},
+		{
+			"src": "/api/agora/board",
+			"dest": "/api/agora/[action]?action=board"
+		},
+		{
+			"src": "/api/agora/pulse",
+			"dest": "/api/agora/[action]?action=pulse"
+		},
+		{
+			"src": "/api/agora/passport",
+			"dest": "/api/agora/[action]?action=passport"
+		},
+		{
+			"src": "/api/agora/task",
+			"dest": "/api/agora/[action]?action=task"
+		},
+		{
+			"src": "/api/agora/act",
+			"dest": "/api/agora/act.js"
+		},
+		{
 			"src": "/voice/?",
 			"dest": "/voice.html"
 		},

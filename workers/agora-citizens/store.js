@@ -46,8 +46,9 @@ export function makeStore(cfg) {
 		hasRedis: !!redis,
 
 		/**
-		 * Real platform agents to seed citizens from. Prefer public, non-deleted,
-		 * non-template agents with at least one identity proof or a usable name.
+		 * Real platform agents to seed citizens from. Prefer public, non-deleted
+		 * agents with a usable name (agent_identities has no is_template column;
+		 * is_public is the visibility gate).
 		 * Empty on a fresh DB — the roster then fills with standalone citizens.
 		 */
 		async listSeedAgents(limit) {
@@ -58,7 +59,6 @@ export function makeStore(cfg) {
 					from agent_identities
 					where deleted_at is null
 					  and is_public = true
-					  and coalesce(is_template, false) = false
 					  and length(coalesce(name, '')) > 0
 					order by created_at asc
 					limit ${Math.max(0, Number(limit) || 0)}
@@ -131,6 +131,43 @@ export function makeStore(cfg) {
 				limit 1
 			`;
 			return r.length > 0;
+		},
+
+		/**
+		 * Has this citizen already got a row of `kind` for this task PDA? Idempotency
+		 * for tx-less multi-worker projections (an Arena stand-down has no winning tx
+		 * to dedup on — the loss is the ABSENCE of a completion), so re-running the
+		 * loop never double-projects a citizen standing down from the same race.
+		 */
+		async taskActivityExists(citizenId, taskPda, kind) {
+			if (!sql) return false;
+			const r = await sql`
+				select 1 from agora_activity
+				where citizen_id = ${citizenId} and task_pda = ${taskPda} and kind = ${kind}
+				limit 1
+			`;
+			return r.length > 0;
+		},
+
+		/**
+		 * The display name of the citizen who WON an Arena (the accepted first proof)
+		 * for this task PDA, or null. Reads the `settled`/won `completed_task` row the
+		 * winner's own tick projected — an honest attribution, never a client guess.
+		 * `excludeCitizenId` skips the caller (the loser asking who beat it).
+		 */
+		async winnerNameForTask(taskPda, excludeCitizenId = null) {
+			if (!sql) return null;
+			const rows = await sql`
+				select c.display_name
+				from agora_activity a
+				join agora_citizens c on c.id = a.citizen_id
+				where a.task_pda = ${taskPda}
+				  and (a.kind = 'settled' or (a.kind = 'completed_task' and a.meta->>'outcome' = 'won'))
+				  and (${excludeCitizenId}::text is null or a.citizen_id <> ${excludeCitizenId})
+				order by a.created_at asc
+				limit 1
+			`;
+			return rows[0]?.display_name ?? null;
 		},
 
 		/**

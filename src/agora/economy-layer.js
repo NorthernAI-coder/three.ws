@@ -62,9 +62,13 @@ export function mountEconomyLayer(ctx) {
 		onSelectTask: (task) => {
 			// Selecting a task glides the camera to the board so the marker is framed…
 			focusOn(boardPosition.clone().setY(3.5));
-			// …and opens its lifecycle + deliverable verifier (Task 07's trust
-			// surface, mounted independently and listening for this event).
-			window.dispatchEvent(new CustomEvent('agora:open-job', { detail: { task } }));
+			// …then routes to the right live view (all self-mounted, decoupled). A
+			// Competitive task opens the Arena race, a Collaborative one the Guild fill
+			// (Task 09); everything else opens its lifecycle + deliverable verifier
+			// (Task 07's trust surface). Each listens for its own event.
+			const type = String(task?.taskType || '').toLowerCase();
+			const evt = type === 'competitive' ? 'agora:open-arena' : type === 'collaborative' ? 'agora:open-guild' : 'agora:open-job';
+			window.dispatchEvent(new CustomEvent(evt, { detail: { task } }));
 		},
 	});
 
@@ -154,7 +158,12 @@ export function mountEconomyLayer(ctx) {
 		raycaster.setFromCamera(ndc, camera);
 		const hits = raycaster.intersectObjects(jobBoard.pickables, false);
 		jobBoard.hoverByMesh(hits[0]?.object || null);
-		canvas.style.cursor = hits[0] ? 'pointer' : '';
+		// Only assert the marker "pointer" cursor when we actually hit a marker; the
+		// base cursor (spectator "grab", citizen "pointer") is owned by the scaffold's
+		// own pointermove handler (agora-world.js), which runs first each event. If we
+		// cleared it here on a miss we'd stomp that affordance, since this listener is
+		// registered later and wins the assignment.
+		if (hits[0]) canvas.style.cursor = 'pointer';
 	}
 	function onClick(e) {
 		ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;

@@ -22,6 +22,32 @@ const capabilityBitsFor = (keys) => professionBits(keys);
 const satisfiesCapabilities = (worker, required) => capabilitiesSatisfy(worker, required);
 const bitFor = (key) => professionBits([key]);
 
+// ── Task types (AgenC IDL discriminants) → social structures ──────────────────
+// Exclusive     — one worker (the founding labour market).
+// Competitive   — the Arena: N workers race; the FIRST valid proof wins the whole
+//                 escrow, everyone else gets nothing. Tiebreak = on-chain
+//                 acceptance order (whichever completeTask lands first).
+// Collaborative — a Guild: N workers each contribute a real sub-result and the
+//                 reward SPLITS across the contributors per the program's rules.
+export const TASK_TYPES = { EXCLUSIVE: 'Exclusive', COMPETITIVE: 'Competitive', COLLABORATIVE: 'Collaborative' };
+
+/** Normalize a free-form / lower-case task type to its canonical AgenC name. */
+export function normalizeTaskType(t) {
+	const s = String(t || '').trim().toLowerCase();
+	if (s === 'competitive') return TASK_TYPES.COMPETITIVE;
+	if (s === 'collaborative') return TASK_TYPES.COLLABORATIVE;
+	return TASK_TYPES.EXCLUSIVE;
+}
+
+/** A multi-worker task (Arena or Guild): several citizens engage the same PDA. */
+export function isMultiWorkerType(t) {
+	const n = normalizeTaskType(t);
+	return n === TASK_TYPES.COMPETITIVE || n === TASK_TYPES.COLLABORATIVE;
+}
+
+export function isArenaType(t) { return normalizeTaskType(t) === TASK_TYPES.COMPETITIVE; }
+export function isGuildType(t) { return normalizeTaskType(t) === TASK_TYPES.COLLABORATIVE; }
+
 // ── Reputation ladder ─────────────────────────────────────────────────────────
 // A visible career ladder: high-value work gates on reputation a new citizen
 // hasn't earned yet, so newcomers must grind low-value jobs to climb. Tiers are
@@ -169,38 +195,74 @@ export function decideHire({ neededProfession, balanceAtomic, subRewardAtomic, h
 }
 
 // ── Reconcile mapping ───────────────────────────────────────────────────────
-// On-chain task states (AgenC IDL): Open/Claimed/Completed/Cancelled/Disputed/
-// Expired. The board renders a posted_task as OPEN only while no later terminal
-// projection exists for its PDA. This maps the chain's truth to the projection
-// kind that closes it. Returning null means "still open — leave it on the board."
+// On-chain task states are the REAL AgenC TaskState enum (@tetsuo-ai/sdk):
+//   0 Open · 1 InProgress · 2 PendingValidation · 3 Completed · 4 Cancelled · 5 Disputed
+// `formatTaskState` emits the spaced labels "Open" / "In Progress" /
+// "Pending Validation" / "Completed" / "Cancelled" / "Disputed" — there is NO
+// on-chain "Expired" or "Claimed" state (expiry is deadline-driven; a claimed
+// task is InProgress). The board renders a posting as OPEN only while no later
+// terminal projection exists for its PDA; this maps the chain's truth to the
+// projection kind that closes it. Returning null means "still open — leave it on
+// the board." Keys are space-stripped + lowercased (see reconcileTransition), so
+// "In Progress" → 'inprogress'. Legacy aliases ('claimed'/'expired') are kept so
+// a caller passing the human word still resolves; 'expired' is what the reconcile
+// sweep hands us for a past-deadline Open task (there is no on-chain Expired).
 const STATE_TRANSITIONS = {
 	open: null,
-	claimed: { kind: 'claimed_task', verb: 'was claimed' },
+	inprogress: { kind: 'claimed_task', verb: 'was claimed' },
+	pendingvalidation: { kind: 'claimed_task', verb: 'is awaiting validation' },
 	completed: { kind: 'completed_task', verb: 'was fulfilled' },
 	cancelled: { kind: 'cancelled_task', verb: 'was cancelled' },
-	expired: { kind: 'expired_task', verb: 'expired' },
 	// AgenC slashes stake on dispute resolution; a disputed task is no longer
 	// claimable, so it drops off the open board under the slashed lane.
 	disputed: { kind: 'slashed', verb: 'is under dispute' },
+	// Aliases — not enum states, but honest transitions the sweep synthesizes:
+	claimed: { kind: 'claimed_task', verb: 'was claimed' },
+	expired: { kind: 'expired_task', verb: 'expired' }, // deadline passed while still Open
 };
 
-// The projection kinds that close a posted_task off the open board. The board
-// query (api/agora/[action].js) and the reconcile sweep MUST agree on this set.
-export const BOARD_TERMINAL_KINDS = ['claimed_task', 'completed_task', 'slashed', 'cancelled_task', 'expired_task'];
+// The projection kinds that close a posting off the open board. An EXCLUSIVE
+// posting is claimable by exactly one worker, so its first claim (or any later
+// terminal) closes it. A MULTI-WORKER posting (Arena / Guild) stays live through
+// its claims AND its per-contributor completions — it closes only when the whole
+// task settles (`settled`), is cancelled, expires, or is slashed. The board query
+// (api/agora/[action].js) and the reconcile sweep MUST agree on these sets.
+export const EXCLUSIVE_TERMINAL_KINDS = ['claimed_task', 'completed_task', 'slashed', 'cancelled_task', 'expired_task'];
+export const MULTI_TERMINAL_KINDS = ['settled', 'slashed', 'cancelled_task', 'expired_task'];
+// Back-compat: the original single set is the Exclusive one (existing tests + the
+// exclusive board lane import it by this name).
+export const BOARD_TERMINAL_KINDS = EXCLUSIVE_TERMINAL_KINDS;
+
+/** The board-closing projection kinds for a task of the given type. */
+export function terminalKindsFor(taskType) {
+	return isMultiWorkerType(taskType) ? MULTI_TERMINAL_KINDS : EXCLUSIVE_TERMINAL_KINDS;
+}
 
 /**
- * Map an on-chain task state label to the projection transition that reflects it.
- * Accepts the human label ('Open', 'Completed', …) or a raw enum number.
+ * Map an on-chain task state to the projection transition that reflects it.
+ * Accepts the human label ('Open', 'In Progress', …), the raw AgenC enum number
+ * (0–5), or a synthesized word ('cancelled'/'expired'). Labels are normalized by
+ * lowercasing and stripping spaces so "Pending Validation" → 'pendingvalidation'.
+ *
+ * `taskType` disambiguates a Completed chain state: for a multi-worker task the
+ * whole escrow has now settled (Arena winner took all / Guild split paid out), so
+ * we project the single authoritative `settled` terminal instead of a per-worker
+ * `completed_task` — the board keeps the Arena/Guild live through its individual
+ * completions and closes it only on this whole-task settle.
  */
-export function reconcileTransition(stateLabel) {
+export function reconcileTransition(stateLabel, taskType) {
 	if (stateLabel == null) return null;
 	let key;
 	if (typeof stateLabel === 'number') {
-		key = ['open', 'claimed', 'completed', 'cancelled', 'disputed', 'expired'][stateLabel];
+		key = ['open', 'inprogress', 'pendingvalidation', 'completed', 'cancelled', 'disputed'][stateLabel];
 	} else {
-		key = String(stateLabel).trim().toLowerCase();
+		key = String(stateLabel).trim().toLowerCase().replace(/\s+/g, '');
 	}
-	return STATE_TRANSITIONS[key] ?? null;
+	const t = STATE_TRANSITIONS[key] ?? null;
+	if (t && t.kind === 'completed_task' && isMultiWorkerType(taskType)) {
+		return { kind: 'settled', verb: t.verb };
+	}
+	return t;
 }
 
 function toBig(v) {

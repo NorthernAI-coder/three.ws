@@ -131,9 +131,24 @@ function buildJob({ opts, task, lifecycle, state, cluster }, ctx) {
 
 	const timeline = buildTimeline(lifecycle, cluster, ctx);
 
-	const verifySection = buildVerifySection(opts, state);
+	// The worker who produced the deliverable (for the Verify → vouch bridge):
+	// the actor on the completion event, falling back to the claim actor.
+	const worker = completerFromLifecycle(lifecycle, opts, cluster);
+	const verifySection = buildVerifySection(opts, state, worker);
 
 	return [meta, facts, timeline, verifySection];
+}
+
+// Pull the citizen who did the work from the on-chain lifecycle so a matching
+// verification can offer a one-click vouch for them. Prefer the completion
+// actor; fall back to the claim actor. Returns null when unknown (no vouch CTA).
+function completerFromLifecycle(lifecycle, opts, cluster) {
+	const events = lifecycle?.timeline || [];
+	const done = events.find((e) => /^(complete|prove|submit)/i.test(e.eventName || ''));
+	const claimed = events.find((e) => /^claim/i.test(e.eventName || ''));
+	const agentPda = done?.actor || claimed?.actor || null;
+	if (!agentPda) return null;
+	return { agentPda, cluster, taskPda: opts.taskPda || null };
 }
 
 function buildTimeline(lifecycle, cluster, ctx) {
@@ -176,7 +191,7 @@ function buildTimeline(lifecycle, cluster, ctx) {
 	return section;
 }
 
-function buildVerifySection(opts, state) {
+function buildVerifySection(opts, state, worker = null) {
 	const section = h('section', { class: 'agora-section' }, [
 		h('h3', { class: 'agora-section-title' }, [
 			'Verify deliverable',
@@ -192,7 +207,7 @@ function buildVerifySection(opts, state) {
 	}
 	const mount = h('div', { class: 'agora-verify-mount' });
 	section.appendChild(mount);
-	mountVerifier(mount, { deliverableUrl: opts.deliverableUrl, proofHash: opts.proofHash });
+	mountVerifier(mount, { deliverableUrl: opts.deliverableUrl, proofHash: opts.proofHash, worker });
 	return section;
 }
 

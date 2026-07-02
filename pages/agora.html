@@ -84,6 +84,12 @@
 		     Self-mounts; reads context from the same agora:open-job / open-passport
 		     events the other layers emit. Signed-out visitors keep a watchable world. -->
 		<script type="module" src="/src/agora/me-hud.js"></script>
+		<!-- Task 09 Arena + Guild: the live race / guild-fill views for multi-worker
+		     tasks. Self-mount via agora:open-arena / agora:open-guild (dispatched by
+		     the job board) + ?arena= / ?guild= deep-links; each renders a real 3D
+		     scene bound to live /api/agora/task state. Decoupled from the scaffold. -->
+		<script type="module" src="/src/agora/arena.js"></script>
+		<script type="module" src="/src/agora/guild.js"></script>
 		<script src="/brand.js" defer></script>
 	</body>
 </html>

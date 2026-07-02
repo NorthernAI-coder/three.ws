@@ -53,16 +53,50 @@ export function subtaskReward(cfg) {
  * The patron's tier schedule — the visible career ladder. Rewards scale with the
  * reputation gate so high-rep work pays more (docs: README § Reputation ladder).
  * Authored in the cluster's reward unit (devnet lamports; mainnet would override
- * via env). profession is Fetcher — the one working profession shipped (Task 02).
+ * via env). profession is Fetcher — the one profession every citizen carries, so
+ * an Arena/Guild always has a full field of eligible racers/contributors.
+ *
+ * The rotation is mostly single-worker Exclusive work with the occasional Arena
+ * (Competitive) and Guild (Collaborative) rung woven in (Task 09), so the board
+ * regularly lights up with a live race or a filling guild without drowning the
+ * everyday labour market. Each tier's taskType/maxWorkers flow straight through
+ * decidePatronPost → postBounty → createTask.
  */
 export function defaultPatronTiers(cfg) {
 	const base = BigInt(cfg.taskRewardLamports); // devnet: 0.001 SOL default
-	return [
+	const tiers = [
 		{ tier: 'apprentice', profession: 'fetcher', rewardAtomic: base, minReputation: 0 },
 		{ tier: 'apprentice', profession: 'fetcher', rewardAtomic: base, minReputation: 0 },
 		{ tier: 'journeyman', profession: 'fetcher', rewardAtomic: base * 2n, minReputation: 5 },
-		{ tier: 'master', profession: 'fetcher', rewardAtomic: base * 4n, minReputation: 20 },
 	];
+	// Arena — a Competitive purse several citizens race for; the first valid proof
+	// takes the WHOLE escrow. Gated on reputation so a juicy purse belongs to
+	// proven racers (the "single entrant" edge case is honest: if only one clears
+	// the gate, it's a one-runner race that still settles for real).
+	if (cfg.enableArena) {
+		tiers.push({
+			tier: 'arena',
+			profession: 'fetcher',
+			rewardAtomic: base * BigInt(cfg.arenaRewardMultiplier ?? 6),
+			minReputation: cfg.arenaMinReputation ?? 0,
+			taskType: 'Competitive',
+			maxWorkers: cfg.arenaMaxWorkers ?? 3,
+		});
+	}
+	tiers.push({ tier: 'master', profession: 'fetcher', rewardAtomic: base * 4n, minReputation: 20 });
+	// Guild — a Collaborative pool that SPLITS across contributors. Open entry work
+	// (minReputation 0) so newcomers can contribute a real part and climb.
+	if (cfg.enableGuild) {
+		tiers.push({
+			tier: 'guild',
+			profession: 'fetcher',
+			rewardAtomic: base * BigInt(cfg.guildRewardMultiplier ?? 6),
+			minReputation: 0,
+			taskType: 'Collaborative',
+			maxWorkers: cfg.guildMaxWorkers ?? 3,
+		});
+	}
+	return tiers;
 }
 
 /**

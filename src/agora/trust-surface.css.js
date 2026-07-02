@@ -149,6 +149,10 @@ export const TRUST_SURFACE_CSS = `
 .agora-verdict-text strong { font-size: 13px; color: #fff; }
 .agora-verdict-sub { font-size: 12px; line-height: 1.5; color: rgba(255, 255, 255, 0.6); }
 .agora-verify-hashes { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; }
+/* Verify → vouch bridge: the one-click attestation offered on a matching verdict. */
+.agora-verify-vouch { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: rgba(80, 220, 140, 0.06); border: 1px dashed rgba(80, 220, 140, 0.28); }
+.agora-verify-vouch-hint { font-size: 12px; color: rgba(255, 255, 255, 0.66); }
+.agora-verify-vouch-btn { flex: none; }
 .agora-glb-viewer { margin-top: 12px; width: 100%; height: 240px; border-radius: 12px; overflow: hidden; background: #0b0c10; border: 1px solid rgba(255, 255, 255, 0.08); }
 .agora-glb-viewer canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 .agora-glb-viewer canvas:active { cursor: grabbing; }

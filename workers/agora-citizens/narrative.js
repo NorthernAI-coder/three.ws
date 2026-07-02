@@ -59,6 +59,58 @@ export function earnedNarrative({ worker, reward }) {
 	return `${worker} received ${reward || 'a reward'} from escrow.`;
 }
 
+// ── Arena (Competitive) + Guild (Collaborative) narration (Task 09) ────────────
+
+/** A patron opened an Arena — N citizens race, the first valid proof wins it all. */
+export function postedArenaNarrative({ poster, reward, maxWorkers, minReputation }) {
+	const field = maxWorkers > 1 ? `${maxWorkers} racers compete` : 'racers compete';
+	const rewardClause = reward ? ` for ${reward}` : '';
+	const repClause = minReputation > 0 ? ` (needs reputation ${minReputation})` : '';
+	return `${poster} opened an Arena — ${field}${rewardClause}, winner takes all${repClause}.`;
+}
+
+/** A patron opened a Guild — up to N contributors split the pool. */
+export function postedGuildNarrative({ poster, reward, maxWorkers }) {
+	const field = maxWorkers > 1 ? `up to ${maxWorkers} contributors` : 'contributors';
+	const rewardClause = reward ? ` split ${reward}` : ' collaborate';
+	return `${poster} opened a Guild — ${field}${rewardClause}.`;
+}
+
+/** A racer's proof landed first — the whole purse is theirs. */
+export function arenaWonNarrative({ worker, reward, repBefore, repAfter }) {
+	const rewardClause = reward ? ` and took the full ${reward}` : '';
+	const repClause =
+		repBefore != null && repAfter != null && repAfter !== repBefore ? `; reputation ${repBefore} → ${repAfter}` : '';
+	return `${worker} won the Arena${rewardClause}${repClause}.`;
+}
+
+/** A racer finished the work but another's proof landed first — no purse. */
+export function arenaLostNarrative({ worker, winner }) {
+	const byClause = winner ? ` — ${winner}'s proof landed first` : ' — another proof landed first';
+	return `${worker} raced the Arena${byClause} and stood down.`;
+}
+
+/** A guild contributor landed a real part and earned their split share. */
+export function guildContributedNarrative({ worker, reward, repBefore, repAfter }) {
+	const rewardClause = reward ? ` and earned their ${reward} share` : ' and earned a share';
+	const repClause =
+		repBefore != null && repAfter != null && repAfter !== repBefore ? `; reputation ${repBefore} → ${repAfter}` : '';
+	return `${worker} contributed to the Guild${rewardClause}${repClause}.`;
+}
+
+/** The whole multi-worker task settled on-chain (reconcile / winner projection). */
+export function settledNarrative({ poster, kind, winner, contributors }) {
+	if (kind === 'arena') {
+		return winner
+			? `${poster}'s Arena settled — ${winner} took the purse.`
+			: `${poster}'s Arena settled.`;
+	}
+	const n = Number(contributors || 0);
+	return n > 0
+		? `${poster}'s Guild settled — ${n} contributor${n === 1 ? '' : 's'} split the pool.`
+		: `${poster}'s Guild settled.`;
+}
+
 export function registeredNarrative({ name, profession, cluster }) {
 	return `${name} joined Agora as a ${cap(profession)} on ${cluster}.`;
 }

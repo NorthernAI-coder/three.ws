@@ -22,6 +22,8 @@ import {
 	buildWorkResult,
 } from '../workers/agora-citizens/work/_skills.js';
 import { runVerifier } from '../workers/agora-citizens/work/verifier.js';
+import { ACTIVE_PROFESSIONS, hasRunner, runProfession } from '../workers/agora-citizens/work/index.js';
+import { buildRoster, primaryProfession } from '../workers/agora-citizens/roster.js';
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const dataUrl = (bytes, mime = 'application/octet-stream') =>
@@ -114,5 +116,41 @@ describe('runVerifier — re-derives a producer proof (the trust loop)', () => {
 		await expect(
 			runVerifier({ cfg, citizen, job: { target: { deliverableUrl: dataUrl(Buffer.from('x')), proofHash: 'nope' } } }),
 		).rejects.toThrow(/valid 32-byte/);
+	});
+});
+
+describe('active roster — ships only professions with a reachable runner', () => {
+	// The set that actually ships. Cartographer (bit 3) is deferred — its
+	// /api/diorama compose route exceeds the serverless function budget — so it is
+	// omitted from the active runners, not stubbed.
+	const EXPECTED_ACTIVE = ['fetcher', 'sculptor', 'scribe', 'crier', 'appraiser', 'verifier', 'namekeeper'];
+
+	it('the active set is exactly the shipped professions', () => {
+		expect([...ACTIVE_PROFESSIONS].sort()).toEqual([...EXPECTED_ACTIVE].sort());
+	});
+
+	it('cartographer is omitted (deferred, not stubbed)', () => {
+		expect(hasRunner('cartographer')).toBe(false);
+		expect(() => runProfession('cartographer', {})).toThrow(/no work runner/);
+	});
+
+	it('no seeded citizen defaults to a profession without an active runner', () => {
+		// A citizen's PRIMARY profession is its default WORK; every default fleet
+		// citizen must have a reachable runner (never idles on a runnerless craft).
+		const fleet = buildRoster([], { maxCitizens: 50 });
+		expect(fleet.length).toBeGreaterThan(0);
+		for (const c of fleet) {
+			expect(hasRunner(c.profession), `${c.displayName} primaries "${c.profession}"`).toBe(true);
+		}
+	});
+
+	it('verifier is never a citizen primary (it needs a verification target)', () => {
+		// runVerifier requires job.target; if a citizen primaried it, a normal task
+		// (no target) would always fail. Verifier is only ever a secondary bit.
+		const fleet = buildRoster([], { maxCitizens: 50 });
+		for (const c of fleet) {
+			expect(primaryProfession(c.professionBits)).not.toBe('verifier');
+			expect(c.profession).not.toBe('verifier');
+		}
 	});
 });

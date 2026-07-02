@@ -30,6 +30,19 @@ export function clear(node) {
 	while (node.firstChild) node.removeChild(node.firstChild);
 }
 
+// Tear down any embedded GLB orbit viewer (verify.js → glb-viewer.js) living in a
+// subtree before it's removed or hidden. glb-viewer stashes its teardown on the
+// container as `_agoraViewerDestroy`; each viewer owns a WebGLRenderer (its own GL
+// context + rAF loop), and browsers cap live contexts — so a viewer left running
+// after the panel body is replaced or the drawer closes would leak a context and,
+// after enough verifications, evict the main world's renderer. Idempotent.
+export function destroyViewers(node) {
+	if (!node) return;
+	const kill = (el) => { try { el._agoraViewerDestroy?.(); } catch { /* best-effort */ } };
+	if (node._agoraViewerDestroy) kill(node);
+	node.querySelectorAll?.('*').forEach((el) => { if (el._agoraViewerDestroy) kill(el); });
+}
+
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 // A copy-to-clipboard chip for a hash or address. Shows the truncated value and
@@ -143,6 +156,7 @@ export class Panel {
 
 	// Replace the body with a node (or array of nodes).
 	setBody(content) {
+		destroyViewers(this.bodyEl); // free any GLB viewer before dropping its DOM
 		clear(this.bodyEl);
 		const kids = Array.isArray(content) ? content : [content];
 		for (const c of kids) if (c) this.bodyEl.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
@@ -198,6 +212,9 @@ export class Panel {
 	close() {
 		if (!this._open) return;
 		this._open = false;
+		// Free any embedded GLB viewer so a closed drawer never leaves a WebGL
+		// context + rAF loop running in the background (reopening re-renders fresh).
+		destroyViewers(this.bodyEl);
 		this.root.classList.remove('is-open');
 		// Wait for the exit transition before hiding from the a11y tree.
 		const hide = () => { if (!this._open) this.root.hidden = true; };
@@ -214,7 +231,11 @@ export class Panel {
 	get isOpen() { return this._open; }
 
 	_trapTab(e) {
-		const items = [...this.root.querySelectorAll(FOCUSABLE)].filter((n) => n.offsetParent !== null || n === document.activeElement);
+		// A `position: fixed` panel can report offsetParent === null for visible
+		// children in some engines, which would empty this list and bounce focus to
+		// the container. getClientRects() is fixed-safe: it's non-empty for anything
+		// actually laid out + visible.
+		const items = [...this.root.querySelectorAll(FOCUSABLE)].filter((n) => n === document.activeElement || n.getClientRects().length > 0);
 		if (!items.length) { e.preventDefault(); this.root.focus(); return; }
 		const first = items[0];
 		const last = items[items.length - 1];

@@ -1,15 +1,25 @@
 // Namekeeper (capability bit 7) — resolves on-chain names. Backed by
-// @three-ws/names over the public /api/sns (Solana) and /api/agents/ens
-// (Ethereum) endpoints. The deliverable is the canonical resolution record; the
-// proof is sha256 of it. Same `run<Profession>` contract as work/fetcher.js.
+// @three-ws/names over the public /api/sns (Solana) endpoint, the platform's own
+// naming system (`*.threews.sol`). The deliverable is the canonical resolution
+// record; the proof is sha256 of it. Same `run<Profession>` contract as
+// work/fetcher.js.
 //
-// Scope: this module ships the RESOLVE capability (a real read producing a real,
-// hashable artifact). Minting `*.threews.sol` needs an authenticated, staked
-// signer and is deferred to a later task (noted in docs/agora.md) — not stubbed.
+// Scope: this module ships the SNS (.sol) RESOLVE capability (a real read
+// producing a real, hashable artifact) — the DEFAULT and always-green path.
+// ENS (.eth) resolution stays supported for an explicit `.eth` job, but is NOT a
+// default: the public ENS route (/api/agents/ens/<name>) takes the name as a
+// path segment, and Vercel treats the trailing `.eth` as a file extension, so a
+// dotted name misroutes to the catch-all (a real 404, honestly surfaced) rather
+// than the resolver. It re-activates as a default the moment that route accepts a
+// dotted name (or moves the name to a query param). Minting `*.threews.sol` needs
+// an authenticated, staked signer and is deferred to a later task (noted in
+// docs/agora.md) — not stubbed.
 
 import { buildWorkResult, storeDeliverable, httpJson, canonicalJsonBytes, jobPrompt } from './_skills.js';
 
-const DEFAULT_NAMES = ['three.sol', 'bonfida.sol', 'vitalik.eth'];
+// SNS (.sol) only — the platform's naming system and the always-reachable path.
+// ENS runs only when a job explicitly supplies a `.eth` name (see header).
+const DEFAULT_NAMES = ['three.sol', 'bonfida.sol', 'sns.sol'];
 
 function nameFor(citizen, job) {
 	const explicit = String(job?.name || jobPrompt(job)).trim();

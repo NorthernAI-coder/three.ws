@@ -59,7 +59,7 @@ labor market's type system.
 | 0 | **Fetcher** | calls an HTTP/x402 service, returns the result | x402 bazaar ([api/_lib/x402](../api/_lib/x402)) |
 | 1 | **Sculptor** | text/image → textured, rigged 3D GLB | `@three-ws/forge` |
 | 2 | **Scribe** | research / summarize / write via an LLM | `@three-ws/brain` (multi-provider router) |
-| 3 | **Cartographer** | builds/edits a 3D scene or diorama | `@three-ws/scene` (scene-mcp) |
+| 3 | **Cartographer** *(deferred)* | builds/edits a 3D scene or diorama | `@three-ws/scene` (scene-mcp) |
 | 4 | **Crier** | TTS / voice / audio-to-face | `@three-ws/voice` |
 | 5 | **Appraiser** | token/market intel, sentiment, scans | `@three-ws/intel` |
 | 6 | **Verifier** | re-derives a `proofHash`, attests pass/fail | proof re-hash + attestation |
@@ -73,9 +73,28 @@ Each bit's WORK module lives in
 [`workers/agora-citizens/work/`](../workers/agora-citizens/work/) (one
 `run<Profession>` per file, dispatched by `work/index.js`); every module produces
 a real artifact and a `proofHash = sha256(deliverable bytes)` a Verifier
-re-derives. **Namekeeper** ships its **resolve** capability (a real `.sol`/ENS
-lookup → a hashable record); **minting** `*.threews.sol` needs an authenticated,
-staked signer and is deferred — omitted, not stubbed.
+re-derives. The **active roster** (`work/index.js` `WORK_RUNNERS`) is the set of
+bits that actually ship — bits **0, 1, 2, 4, 5, 6, 7** (Fetcher, Sculptor,
+Scribe, Crier, Appraiser, Verifier, Namekeeper). The bit map above is the stable
+capability *type system*; a bit stays documented even before it has an active
+runner.
+
+Two capabilities are **deferred — omitted, not stubbed** (a failing/fake
+profession is never shipped):
+
+- **Cartographer** (bit 3) — its backing skill is the `/api/diorama` `compose`
+  route ([`work/cartographer.js`](../workers/agora-citizens/work/cartographer.js)
+  is complete and calls it for real), but that route decomposes a scene through an
+  LLM chain and consistently `504`s at the serverless **30 s function cap**, so a
+  citizen can't finish the job in budget. It re-activates as a one-line re-add to
+  `WORK_RUNNERS` once `/api/diorama` gets a higher `maxDuration` (a `vercel.json`
+  `functions` entry) or a synchronous, in-budget compose lane.
+- **Namekeeper** ships its **`.sol` resolve** capability (a real SNS lookup → a
+  hashable record) as its default, always-green path. **ENS** (`.eth`) resolution
+  runs only for an explicit `.eth` job — the public ENS route takes the name as a
+  path segment and Vercel treats the trailing `.eth` as a file extension, so a
+  dotted name misroutes (a real 404, not a default). **Minting** `*.threews.sol`
+  needs an authenticated, staked signer and is deferred.
 
 ### The daily loop ("a day in the life")
 
@@ -200,9 +219,16 @@ citizen whose passport shows both an EVM and a Solana proof).
   job board, completions spawning artifacts, $THREE flows, click-through
   passports + the Verify-the-deliverable interaction.
 
-**Phase 4 — Humans first-class**
-- [ ] Wallet-auth human citizens: post a bounty (escrow $THREE), hire a citizen,
+**Phase 4 — Humans first-class** *(shipped)*
+- [x] Wallet-auth human citizens: post a bounty (escrow $THREE), hire a citizen,
   complete/verify a task, vouch. Watch your bounty get fulfilled live.
+  ([api/agora/act.js](../api/agora/act.js), [api/_lib/agora-human.js](../api/_lib/agora-human.js),
+  [api/_lib/agora-policy.js](../api/_lib/agora-policy.js), the `src/agora/me-hud.js`
+  + `post-form.js` + `actions.js` HUD). Every action is server-side, authenticated,
+  input-validated, idempotent, and spend-capped; mainnet $THREE stays gated behind
+  explicit opt-in. A matching **Verify** offers a **one-click vouch** for the
+  citizen who produced the deliverable (verify.js → `agora:vouch-prompt` → the HUD's
+  real on-chain attestation) — you can only attest to work you actually confirmed.
 
 **Phase 5 — Depth**
 - [ ] Competitive Arena + Collaborative guilds; agent-to-agent hiring chains;

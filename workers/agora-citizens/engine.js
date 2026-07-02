@@ -18,8 +18,9 @@
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { log } from './log.js';
 import { buildRoster, professionBits, capabilitiesSatisfy, PROFESSIONS } from './roster.js';
-import { citizenCanClaim } from './policy.js';
+import { citizenCanClaim, normalizeTaskType, isMultiWorkerType, isArenaType, TASK_TYPES } from './policy.js';
 import { markPatrons, maybePatronPost, maybePatronVerify, maybeHire, hiringEnabled, subtaskReward } from './demand.js';
+import { arenaWonNarrative, arenaLostNarrative, guildContributedNarrative } from './narrative.js';
 import { loadOrCreateKeypair, ensureBalance } from './keypair.js';
 import {
 	makeReadClient,
@@ -34,6 +35,7 @@ import {
 	generateTaskId,
 	deriveTaskPda,
 	getTask,
+	readEscrowLamports,
 	withRetry,
 	TASK_STATE,
 } from './agenc.js';
@@ -400,9 +402,267 @@ async function pickBoardBounty(ctx, citizen) {
 		if (Number(onchain.deadline) <= Date.now() / 1000) continue;
 
 		const rewardAtomic = t.reward?.amountAtomic != null ? Number(t.reward.amountAtomic) : ctx.cfg.taskRewardLamports;
-		return { taskPda: new PublicKey(t.taskPda), pda: t.taskPda, reward: rewardAtomic, minReputation: t.minReputation ?? 0, fromBoard: true, target: t.target ?? null };
+		// Thread the task type + slot count so the loop knows whether to race
+		// (Arena / Competitive), collaborate (Guild), or work it solo (Exclusive).
+		return {
+			taskPda: new PublicKey(t.taskPda),
+			pda: t.taskPda,
+			reward: rewardAtomic,
+			minReputation: t.minReputation ?? 0,
+			fromBoard: true,
+			target: t.target ?? null,
+			taskType: normalizeTaskType(t.taskType),
+			maxWorkers: Number(onchain.maxWorkers) || Number(t.maxWorkers) || 1,
+		};
 	}
 	return null;
+}
+
+// ── Multi-worker settlement (Arena race / Guild split) ───────────────────────
+
+/** Has this task settled on-chain (Completed/Cancelled or account closed)? */
+async function isTaskSettled(ctx, taskPda) {
+	let task;
+	try {
+		task = await getTask(ctx.readClient, taskPda);
+	} catch {
+		return false; // RPC hiccup — don't fabricate a settle
+	}
+	if (task === null) return true; // account closed / rent reclaimed → settled
+	return task.state === TASK_STATE.Completed || task.state === TASK_STATE.Cancelled;
+}
+
+/**
+ * Settle a Competitive (Arena) job for one racer. It has already done the REAL
+ * work; here it submits its proof and the CHAIN decides: the first valid proof
+ * accepted wins the whole escrow, everyone else's completeTask reverts and they
+ * stand down. We never choose the winner — we read the outcome.
+ */
+async function settleArena(ctx, citizen, { job, work, profession, name }) {
+	const cfg = ctx.cfg;
+	const repBefore = citizen.reputation;
+	let completion;
+	try {
+		completion = await completeTask(
+			citizen.client,
+			{ taskPda: job.taskPda, workerAgentId: citizen.agentIdHex, proofHash: work.proofHashBytes, resultData: work.resultData },
+			cfg,
+		);
+	} catch (err) {
+		// completeTask reverted: we either LOST the race (a rival's proof already
+		// settled the escrow) or hit a transient error. Confirm on-chain before
+		// projecting a loss — never invent a winner or a phantom stand-down.
+		const settled = await isTaskSettled(ctx, job.taskPda);
+		if (!settled) {
+			log.warn('arena complete failed (task still live) — retry next tick', { name, pda: job.pda, err: err?.message });
+			await ctx.store.setStatus(citizen.id, 'idle', wander(citizen.home));
+			return 'arena-retry';
+		}
+		const winner = await ctx.store.winnerNameForTask(job.pda, citizen.id).catch(() => null);
+		const already = await ctx.store.taskActivityExists(citizen.id, job.pda, 'stood_down').catch(() => false);
+		if (!already) {
+			await ctx.store.appendActivity({
+				citizenId: citizen.id,
+				kind: 'stood_down',
+				profession,
+				taskPda: job.pda,
+				proofHash: work.proofHashHex,
+				deliverableUrl: work.deliverableUrl,
+				narrative: arenaLostNarrative({ worker: name, winner }),
+				repBefore,
+				repAfter: repBefore,
+				meta: { taskType: TASK_TYPES.COMPETITIVE, arena: true, outcome: 'lost', winner: winner || null },
+			});
+			await ctx.store.publishFeed({
+				type: 'agora-arena-lost',
+				actor: name,
+				citizenId: citizen.id,
+				agentPda: citizen.agentPda.toBase58(),
+				profession,
+				taskPda: job.pda,
+				narrative: arenaLostNarrative({ worker: name, winner }),
+			});
+		}
+		const restPos = wander(citizen.home);
+		await ctx.store.updateCitizen(citizen.id, { status: 'idle', posX: restPos.x, posZ: restPos.z });
+		log.info('arena lost', { name, pda: job.pda, winner: winner || 'unknown' });
+		return 'arena-lost';
+	}
+
+	// WON — the first valid proof took the whole escrow.
+	await reconcile(ctx, citizen);
+	const repAfter = citizen.reputation > repBefore ? citizen.reputation : repBefore + 1;
+	citizen.reputation = repAfter;
+	const reward = rewardShape(cfg, job.reward); // the full purse
+	await ctx.store.appendActivity({
+		citizenId: citizen.id,
+		kind: 'completed_task',
+		profession,
+		taskPda: job.pda,
+		txSignature: completion.txSignature,
+		proofHash: work.proofHashHex,
+		deliverableUrl: work.deliverableUrl,
+		narrative: arenaWonNarrative({ worker: name, reward: reward.label, repBefore, repAfter }),
+		repBefore,
+		repAfter,
+		meta: { taskType: TASK_TYPES.COMPETITIVE, arena: true, outcome: 'won' },
+	});
+	await ctx.store.appendActivity({
+		citizenId: citizen.id,
+		kind: 'earned',
+		profession,
+		taskPda: job.pda,
+		txSignature: completion.txSignature,
+		amountAtomic: reward.atomic,
+		rewardMint: reward.mint,
+		rewardLabel: reward.label,
+		narrative: `${name} took the full Arena purse of ${reward.label}.`,
+		repBefore,
+		repAfter,
+		meta: { taskType: TASK_TYPES.COMPETITIVE, arena: true },
+	});
+	// Whole-task settle terminal — closes the Arena off the open board at once
+	// (reconcile also projects one per PDA; idempotent by task_pda + kind).
+	await ctx.store.appendActivity({
+		citizenId: citizen.id,
+		kind: 'settled',
+		profession,
+		taskPda: job.pda,
+		txSignature: completion.txSignature,
+		narrative: `The Arena settled — ${name} won ${reward.label}.`,
+		meta: { taskType: TASK_TYPES.COMPETITIVE, arena: true, winnerCitizenId: citizen.id },
+	});
+	await ctx.store.publishFeed({
+		type: 'agora-arena-won',
+		actor: name,
+		citizenId: citizen.id,
+		agentPda: citizen.agentPda.toBase58(),
+		profession,
+		taskPda: job.pda,
+		rewardLabel: reward.label,
+		txSig: completion.txSignature,
+		explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
+		narrative: arenaWonNarrative({ worker: name, reward: reward.label, repBefore, repAfter }),
+	});
+	await ctx.store.publishFeed({
+		type: 'agora-earned',
+		actor: name,
+		citizenId: citizen.id,
+		agentPda: citizen.agentPda.toBase58(),
+		profession,
+		rewardLabel: reward.label,
+		txSig: completion.txSignature,
+		explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
+		narrative: `${name} earned ${reward.label}.`,
+	});
+	const restPos = wander(citizen.home);
+	await ctx.store.updateCitizen(citizen.id, {
+		status: 'idle',
+		reputation: repAfter,
+		earnedDelta: reward.atomic,
+		tasksCompletedDelta: 1,
+		synced: true,
+		posX: restPos.x,
+		posZ: restPos.z,
+	});
+	log.info('arena won', { name, pda: job.pda, reward: reward.label, tx: explorerTx(completion.txSignature, cfg.cluster) });
+	return 'arena-won';
+}
+
+/**
+ * Settle a Collaborative (Guild) contribution for one citizen. It landed a REAL
+ * sub-result; here it completes on-chain and earns a share of the pool. The share
+ * is MEASURED from the escrow the completion drew down — a real on-chain figure,
+ * never a fabricated split. If the escrow can't be read the share projects as null
+ * ("settling") rather than a guess.
+ */
+async function settleGuild(ctx, citizen, { job, work, profession, name }) {
+	const cfg = ctx.cfg;
+	const repBefore = citizen.reputation;
+	const escrowBefore = await readEscrowLamports(citizen.client, job.taskPda);
+	let completion;
+	try {
+		completion = await completeTask(
+			citizen.client,
+			{ taskPda: job.taskPda, workerAgentId: citizen.agentIdHex, proofHash: work.proofHashBytes, resultData: work.resultData },
+			cfg,
+		);
+	} catch (err) {
+		// Couldn't land the contribution (slot filled / task settled / deadline).
+		// The citizen did real work but the guild moved on — no share, no projection.
+		log.warn('guild contribute failed', { name, pda: job.pda, err: err?.message });
+		await ctx.store.setStatus(citizen.id, 'idle', wander(citizen.home));
+		return 'guild-missed';
+	}
+	await reconcile(ctx, citizen);
+	const repAfter = citizen.reputation > repBefore ? citizen.reputation : repBefore + 1;
+	citizen.reputation = repAfter;
+	const escrowAfter = await readEscrowLamports(citizen.client, job.taskPda);
+	let shareAtomic = null;
+	if (escrowBefore != null && escrowAfter != null && escrowBefore > escrowAfter) {
+		shareAtomic = Number(escrowBefore - escrowAfter); // what my completion drew from escrow
+	}
+	const share = shareAtomic != null ? rewardShape(cfg, shareAtomic) : null;
+	await ctx.store.appendActivity({
+		citizenId: citizen.id,
+		kind: 'completed_task',
+		profession,
+		taskPda: job.pda,
+		txSignature: completion.txSignature,
+		proofHash: work.proofHashHex,
+		deliverableUrl: work.deliverableUrl,
+		narrative: guildContributedNarrative({ worker: name, reward: share?.label || null, repBefore, repAfter }),
+		repBefore,
+		repAfter,
+		meta: {
+			taskType: TASK_TYPES.COLLABORATIVE,
+			guild: true,
+			outcome: 'contributed',
+			shareAtomic: shareAtomic != null ? String(shareAtomic) : null,
+			escrowBefore: escrowBefore != null ? String(escrowBefore) : null,
+			escrowAfter: escrowAfter != null ? String(escrowAfter) : null,
+		},
+	});
+	if (share) {
+		await ctx.store.appendActivity({
+			citizenId: citizen.id,
+			kind: 'earned',
+			profession,
+			taskPda: job.pda,
+			txSignature: completion.txSignature,
+			amountAtomic: share.atomic,
+			rewardMint: share.mint,
+			rewardLabel: share.label,
+			narrative: `${name} earned a ${share.label} Guild share (measured from escrow).`,
+			repBefore,
+			repAfter,
+			meta: { taskType: TASK_TYPES.COLLABORATIVE, guild: true, measured: true },
+		});
+	}
+	await ctx.store.publishFeed({
+		type: 'agora-guild-contributed',
+		actor: name,
+		citizenId: citizen.id,
+		agentPda: citizen.agentPda.toBase58(),
+		profession,
+		taskPda: job.pda,
+		rewardLabel: share?.label || undefined,
+		txSig: completion.txSignature,
+		explorerUrl: explorerTx(completion.txSignature, cfg.cluster),
+		narrative: guildContributedNarrative({ worker: name, reward: share?.label || null, repBefore, repAfter }),
+	});
+	const restPos = wander(citizen.home);
+	await ctx.store.updateCitizen(citizen.id, {
+		status: 'idle',
+		reputation: repAfter,
+		earnedDelta: shareAtomic != null ? shareAtomic : 0,
+		tasksCompletedDelta: 1,
+		synced: true,
+		posX: restPos.x,
+		posZ: restPos.z,
+	});
+	log.info('guild contributed', { name, pda: job.pda, share: share?.label || 'settling', tx: explorerTx(completion.txSignature, cfg.cluster) });
+	return 'guild-contributed';
 }
 
 /**
@@ -466,33 +726,45 @@ export async function tickCitizen(ctx, citizen) {
 		}
 		citizen.claimed.add(job.pda);
 		await ctx.store.setStatus(citizen.id, 'busy', wander(citizen.home));
+		// Multi-worker jobs (Arena / Guild) narrate the social structure they joined
+		// and carry the type + slot count so the roster + board can read them back.
+		const jobTaskType = normalizeTaskType(job.taskType);
+		const multiWorker = isMultiWorkerType(jobTaskType);
+		const claimNarrative = multiWorker
+			? isArenaType(jobTaskType)
+				? `${name} entered an Arena race (${rewardShape(cfg, job.reward).label}, winner takes all).`
+				: `${name} joined a Guild (contributors split ${rewardShape(cfg, job.reward).label}).`
+			: `${name} claimed a ${capLabel(profession)} job (${rewardShape(cfg, job.reward).label}).`;
+		const claimMeta = multiWorker ? { taskType: jobTaskType, maxWorkers: job.maxWorkers || 1, arena: isArenaType(jobTaskType), guild: !isArenaType(jobTaskType) } : undefined;
 		await ctx.store.appendActivity({
 			citizenId: citizen.id,
 			kind: 'claimed_task',
 			profession,
 			taskPda: job.pda,
 			txSignature: claim.txSignature,
-			narrative: `${name} claimed a ${capLabel(profession)} job (${rewardShape(cfg, job.reward).label}).`,
+			narrative: claimNarrative,
 			repAfter: citizen.reputation,
+			...(claimMeta ? { meta: claimMeta } : {}),
 		});
 		await ctx.store.publishFeed({
-			type: 'agora-task-claimed',
+			type: multiWorker ? (isArenaType(jobTaskType) ? 'agora-arena-entered' : 'agora-guild-joined') : 'agora-task-claimed',
 			actor: name,
 			citizenId: citizen.id,
 			agentPda: citizen.agentPda.toBase58(),
 			profession,
 			taskPda: job.pda,
+			taskType: jobTaskType,
 			txSig: claim.txSignature,
 			explorerUrl: explorerTx(claim.txSignature, cfg.cluster),
-			narrative: `${name} claimed a ${capLabel(profession)} job.`,
+			narrative: claimNarrative,
 		});
-		log.info('claimed', { name, pda: job.pda, tx: explorerTx(claim.txSignature, cfg.cluster) });
+		log.info('claimed', { name, pda: job.pda, taskType: jobTaskType, tx: explorerTx(claim.txSignature, cfg.cluster) });
 
-		// SPEND node (Task 03): on a high-value board bounty, hire a sub-agent for an
-		// extra fetch — true agent-to-agent hiring, paid from the worker's own
-		// balance (honest scarcity). The sub-task is picked up by another citizen and
-		// linked back to this hire by the reconcile sweep (shared task_pda).
-		if (job.fromBoard && hiringEnabled(cfg) && (job.minReputation || 0) >= 5) {
+		// SPEND node (Task 03): on a high-value single-worker board bounty, hire a
+		// sub-agent for an extra fetch — true agent-to-agent hiring, paid from the
+		// worker's own balance (honest scarcity). Skipped for Arena/Guild jobs so a
+		// racer/contributor stays focused on landing its own proof, not spending.
+		if (job.fromBoard && !multiWorker && hiringEnabled(cfg) && (job.minReputation || 0) >= 5) {
 			try {
 				await maybeHire(ctx, citizen, {
 					parent: { taskPda: job.pda, label: `Fetcher job ${String(job.pda).slice(0, 8)}` },
@@ -516,7 +788,18 @@ export async function tickCitizen(ctx, citizen) {
 			job: { taskPda: job.pda, source: 'agenc', resource: boardService?.resource || defaultTarget(cfg), ...(job.target ? { target: job.target } : {}) },
 		});
 
-		// PROVE — submit the proof on-chain.
+		// Multi-worker settlement (Task 09) diverges from the single-worker path: an
+		// Arena has exactly ONE winner (the first valid proof accepted on-chain) and
+		// every other racer stands down with nothing; a Guild pays each contributor a
+		// real, escrow-measured share of the pool. Both outcomes are read from the
+		// CHAIN — whoever's completeTask actually lands first wins; we never choose.
+		if (multiWorker) {
+			return isArenaType(jobTaskType)
+				? await settleArena(ctx, citizen, { job, work, profession, name })
+				: await settleGuild(ctx, citizen, { job, work, profession, name });
+		}
+
+		// PROVE — submit the proof on-chain (Exclusive single-worker path).
 		const completion = await completeTask(
 			citizen.client,
 			{

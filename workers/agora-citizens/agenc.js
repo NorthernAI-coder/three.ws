@@ -165,6 +165,30 @@ export async function completeTask(client, args, cfg) {
 	return withRetry(() => s.completeAgenCTask(client, args), cfg, 'completeTask');
 }
 
+/** Fetch a task's lifecycle summary (timeline + fill + settlement) for reconcile / arena reads. */
+export async function getTaskLifecycle(client, taskPda) {
+	const s = await sdk();
+	return s.getAgenCTaskLifecycle(client, taskPda instanceof PublicKey ? taskPda : new PublicKey(taskPda));
+}
+
+/**
+ * Read the task's escrow PDA lamport balance (native-SOL devnet plumbing). The
+ * escrow holds the locked reward until completion releases it; bracketing a
+ * completeTask with two reads measures exactly what a Guild contribution paid out
+ * — a REAL on-chain figure, never a fabricated split. Returns null when the
+ * escrow can't be read (RPC hiccup) so the caller degrades to "share settling".
+ */
+export async function readEscrowLamports(client, taskPda) {
+	try {
+		const t = await tetsuo();
+		const pda = taskPda instanceof PublicKey ? taskPda : new PublicKey(taskPda);
+		const escrowPda = t.deriveEscrowPda(pda, client.programId);
+		return BigInt(await client.connection.getBalance(escrowPda));
+	} catch {
+		return null;
+	}
+}
+
 export async function formatTaskState(state) {
 	const s = await sdk();
 	try {
