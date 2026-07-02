@@ -42,7 +42,7 @@ A strategy declares its trigger, and the trigger decides which loop feeds it.
 
 **first_claim** is the patient one. It fires when a creator claims accrued rewards for the first time ever, filtered by a claim-size floor and ceiling in lamports, a freshness gate (claims older than five minutes are ignored by default), and an owner-set buy delay of up to ten minutes. A creator taking real fees is a creator with something to protect.
 
-**prelaunch_radar** is block-zero precognition. It watches an auto-curated list of proven creator and smart-money wallets and detects the public, on-chain precursors of a launch: a watched wallet submitting a pump.fun create instruction (confidence 0.9), a watched wallet funding a brand-new deploy wallet (0.5), and that fresh wallet then submitting the create (0.85, the correlated mint). The radar acts only on public chain data, never on intercepting anyone's pending transaction. It anchors its cursor when it first sees a wallet and never backfills history, so it only fires on launches that happen after it started watching. When RPC fails repeatedly it backs off exponentially, capped at two minutes, reports itself paused, and the feed-based paths carry on. It never fabricates a precursor.
+**prelaunch_radar** is block-zero precognition. It watches an auto-curated list of proven creator and smart-money wallets and detects the public, on-chain precursors of a launch: a watched wallet submitting a pump.fun create instruction (confidence 0.9), a watched wallet funding a brand-new deploy wallet (0.5), and that fresh wallet then submitting the create (0.85, the correlated mint). It acts only on public chain data, never on intercepting anyone's pending transaction, and it anchors its cursor on first sight of a wallet so it never backfills a stale launch. When RPC fails repeatedly it backs off exponentially, capped at two minutes, reports itself paused, and the feed-based paths carry on. It never fabricates a precursor.
 
 ## The scoring, from the shipped code
 
@@ -88,9 +88,9 @@ The per-coin adjustment is the one to remember. On a cadence, the Sniper Intel E
 
 Two details make the loop honest. The endpoint resolves each ticker against a real market listing and throws 503 before settlement when none exists, so the wallet is never charged for a coin with no real market read, and no signal is ever invented. And every paid call lands in the autonomous log with its transaction signature, so the sniper's intel bill is itself auditable on chain.
 
-Sit with what that is: the trading engine spends its own money on the platform's paid API, per coin, per read, to change its own behavior, and the same purchased sentiment also powers an exit. When a held coin's paid read flips bearish with confidence of at least 0.7 while the position is underwater, the sweep closes it with the exit reason signal_flip. One purchase, two consumers. That is the agent-to-agent economy doing real work: a machine buying intelligence from a machine, settled in USDC, with receipts.
+Sit with what that is: the trading engine spends its own money on the platform's paid API, per coin, per read, to change its own behavior, and the same purchased sentiment also powers an exit. When a held coin's paid read flips bearish with confidence of at least 0.7 while the position is underwater, the sweep closes it with the exit reason signal_flip. One purchase, two consumers. A machine buying intelligence from a machine, settled in USDC, with receipts: the agent-to-agent economy doing real work.
 
-A gate result never hides its math. A rejection reads like oracle_below_min:58<64(base:60+macro:6+coin:-2), so you see exactly which layer moved the bar.
+A gate result never hides its math. A rejection reads like oracle_below_min:58<64(base:60+macro:6+coin:-2), so you see which layer moved the bar.
 
 ## Exits: a fixed priority order, on-chain prices only
 
@@ -104,7 +104,7 @@ Graduation is handled, not parked. When a held coin graduates off the bonding cu
 
 Everything above also ships as @three-ws/agent-sniper on npm, built around one idea: the engine is pure orchestration, and every external dependency is a pluggable adapter. Five seams: the Feed (launch stream), the Solana client (quote and build), the Wallet (resolve a keypair per agent), the Executor (the one place that signs and broadcasts), and the Store (strategies, positions, the daily spend ledger, the atomic position claim). Swap any one without touching the loop: a KMS-backed custodial wallet instead of local keys, a Postgres store instead of memory, a different venue, a different feed.
 
-Custody is yours. The self-custody wallet resolves keys locally, per agent, from a secrets map, a per-agent environment variable, a keystore directory, or a single default secret, and signing happens on your machine. For hosted deployments, the custodial adapter takes a single resolve function that decrypts from your own KMS on demand, with a short TTL cache. The engine is multi-tenant by construction: one wallet per agentId, per-agent budgets and caps, the idempotent claim preventing double-buys.
+Custody is yours. The self-custody wallet resolves keys locally, per agent, from a secrets map, a per-agent environment variable, a keystore directory, or a single default secret, and signing happens on your machine. For hosted deployments, the custodial adapter takes a single resolve function that decrypts from your own KMS on demand, with a short TTL cache. Multi-tenancy is by construction: one wallet per agentId, per-agent budgets and caps, the idempotent claim preventing double-buys.
 
 One engine, four faces:
 
@@ -121,9 +121,9 @@ One engine, four faces:
 
 **Oracle.** The gate wires the conviction engine into every snipe, and every settled sniper position becomes a graded outcome in Oracle's backtests, leaderboard, and wins gallery.
 
-**The smart-money wallet graph.** A recompute job joins observed coin wallets against resolved outcomes to give every wallet a realized track record, and clusters wallets by shared funder into sybil groups using union-find. The radar's watchlist, the intel scorer, the firewall, and the public API all read the same graph. It is derived only from real observed buys and real outcomes, never a curated list.
+**The smart-money wallet graph.** A recompute job joins observed coin wallets against resolved outcomes to give every wallet a realized track record, and clusters wallets by shared funder into sybil groups using union-find. The radar's watchlist, the intel scorer, the firewall, and the public API all read the same graph, derived only from real observed buys and real outcomes, never a curated list.
 
-**Swarms.** A swarm pools members' capital into a custodial treasury that buys only on reputation-weighted consensus, where each member's own open position is a real on-chain yes vote. Sizing scales with combined conviction, settlement distributes realized profit pro rata, and every swarm buy passes through the same executor and guards as a solo snipe.
+**Swarms.** A swarm pools members' capital into a custodial treasury that buys only on reputation-weighted consensus, where each member's own open position is a real on-chain yes vote. Sizing scales with combined conviction, settlement distributes realized profit pro rata, and every swarm buy passes through the same executor and guards.
 
 **The paid analytics layer.** The x402 analytics endpoint sells a sniper_trades report built from the sniper's real closed-position ledger, so other agents can buy the engine's track record as data.
 
@@ -193,7 +193,7 @@ Watch the skip reasons in the logs; they are the tuning surface: creator_too_man
 }
 ```
 
-Then ask it to arm a strategy (it converts SOL to lamports for you and refuses one without a stop-loss), check sniper_status, list positions, or schedule an exit with close_position, which flips the position's kill switch so the next sweep sells it through the normal path.
+Then ask it to arm a strategy (it converts SOL to lamports and refuses one without a stop-loss), check sniper_status, list positions, or schedule an exit with close_position, which flips the position's kill switch so the next sweep sells it through the normal path.
 
 **Tutorial three: the hosted engine over HTTP.** Everything is live now.
 
@@ -218,7 +218,7 @@ for (const kind of ['buy', 'sell']) {
 }
 ```
 
-**Tutorial four: rent the engine like an agent.** Run agent-sniper serve, point any x402 client at it, and the mutating routes price themselves: one cent to arm, five cents to snipe, half a cent to disarm, settled in USDC on Solana or Base. The platform's own x402 tooling, the same client the sniper uses to buy its intel, can pay it.
+**Tutorial four: rent the engine like an agent.** Run agent-sniper serve and point any x402 client at it: one cent to arm, five cents to snipe, half a cent to disarm, settled in USDC on Solana or Base. The platform's own x402 tooling, the same client the sniper uses to buy its intel, can pay it.
 
 ## The honest limits
 
@@ -230,4 +230,4 @@ Simulate mode is honest but not identical to live: it runs real quotes and skips
 
 Watch it live: three.ws/play/arena, or the autonomous trading console on the three.ws homepage. Check the engine's pulse: three.ws/api/sniper/status. Arm an agent you own: POST /api/sniper/compile with a sentence, then /api/sniper/strategy. Run it yourself, keys never leaving your machine: npm i @three-ws/agent-sniper, then npx agent-sniper mcp for your assistant or agent-sniper serve for the console. Read the conviction engine it listens to: three.ws/oracle.
 
-One engine signs every trade. Every trade is public. And somewhere in the loop right now, the sniper is spending a cent to change its own mind. That is what the agent-to-agent economy looks like when it ships.
+One executor signs every trade. Every trade is public. And somewhere in the loop right now, the sniper is spending a cent to change its own mind. That is what the agent-to-agent economy looks like when it ships.
