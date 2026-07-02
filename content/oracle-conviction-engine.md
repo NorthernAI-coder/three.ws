@@ -53,7 +53,13 @@ The weighted blend is then capped: the lowest triggered ceiling from structure o
 
 Only prime and strong are act signals. A conviction engine that likes everything is a hype engine.
 
-Every verdict also carries compact badges the UI renders as pills: smart-money (three or more proven wallets in), structure-flag (a ceiling triggered), news (riding a live story), momentum (subscore 72 plus), and prime. And every verdict ships its reasons in plain language, ordered by pillar contribution, so the most decisive fact shows first. You never get a bare number.
+Every verdict also carries compact badges the UI renders as pills: smart-money (three or more proven wallets in), structure-flag (a structural ceiling triggered), pedigree-flag (the creator wallet has a rug history that ceilinged the score), news (riding a live story), momentum (subscore 72 plus), thin-data (see below), and prime. And every verdict ships its reasons in plain language, ordered by pillar contribution, so the most decisive fact shows first. You never get a bare number.
+
+## Data confidence: how much the read rests on real data
+
+A conviction score is only as trustworthy as the data underneath it. A brand-new coin the brain has barely observed can still produce a high number if its few known inputs happen to look good — that is a lead, not a call to size real money into. So every verdict also reports a **data confidence** from 0 to 100: each pillar tracks how much of its input was actually present versus defaulted, and those coverages are fused with the same pillar weights, so a missing high-weight pillar (pedigree) costs more confidence than a missing light one (narrative). Confidence maps to a label — high (70+), medium (45–69), low (below 45) — and a low-confidence verdict earns the thin-data badge.
+
+This is not cosmetic. The agent action loop blocks sizing real money into a thin-data coin by default; an owner who wants those speculative entries must explicitly opt in, and can also set a numeric confidence floor. The coin drawer surfaces the exact percentage, and the agent-facing signal ships `data_confidence` alongside the score so autonomous agents can scale their own conviction by it.
 
 ## The agent action loop
 

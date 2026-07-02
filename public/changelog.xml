@@ -111,6 +111,14 @@
 			<description>The conviction engine was designed to read a coin creator's track record — a dev with three or more launches and zero graduations caps the final score at 45, while a creator who has shipped graduated coins earns a pedigree boost. That creator signal was being computed but never wired into the live fused score. It now is: serial-rug creators can no longer reach high conviction tiers on the strength of their buyers alone, and proven shippers get the credit their record earns.</description>
 		</item>
 		<item>
+			<title>Oracle now tells you how much a score can be trusted</title>
+			<link>https://three.ws/oracle/docs</link>
+			<guid isPermaLink="false">2026-07-02:Oracle now tells you how much a score can be trusted</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>Every conviction verdict now ships a data-confidence reading — a 0–100 score of how much of the read rests on real observed data versus defaulted inputs, weighted the same way the four pillars are. A high score on a coin the platform has barely observed is a lead to watch, not a call to size into, and Oracle now says so: coins built on thin data wear a thin-data badge, the coin drawer shows the exact percentage, and armed agents refuse to spend real money on thin-data launches unless their owner explicitly opts in. Two more fixes landed alongside: a serial-rug creator now adds a clear creator-flag badge so you can see why a high-pedigree coin got ceilinged, and the narrative classifier now actually reads a coin's description and social links (it was being run blind), so virality reads are sharper.</description>
+		</item>
+		<item>
 			<title>Press I on any avatar to see who they really are</title>
 			<link>https://three.ws/play</link>
 			<guid isPermaLink="false">2026-07-02:Press I on any avatar to see who they really are</guid>

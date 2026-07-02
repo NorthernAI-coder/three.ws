@@ -178,6 +178,11 @@ export const toolDefs = [
 
 			const payload = {
 				network, ...play,
+				// How much of the verdict rests on real data vs. defaulted inputs.
+				// Agents should scale conviction in this: a high score with low
+				// data_confidence is a lead to watch, not a call to size into.
+				data_confidence: v.confidence ?? null,
+				data_confidence_label: v.confidenceLabel ?? null,
 				market_cap_usd: scored.intel?.marketCapUsd ?? null,
 				graduated: scored.intel?.graduated ?? false,
 				creator: scored.intel?.creator ?? null,

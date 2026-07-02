@@ -2095,16 +2095,17 @@ export class CoinCommunities {
 					if (this.buildProp) this._rotateProp(); else this._rotateBuild();
 					return;
 				}
-				// E watches the Agent Exchange round when standing near the agents in
-				// the home town (no-op elsewhere). Not while building.
+				// E interacts with whatever the player stands near — a townsperson,
+				// the Intel Kiosk, or the Agent Exchange (all built in every world).
+				// Not while building.
 				if (k === 'e' && !this.buildHud.active) {
 					e.preventDefault();
 					// A conversation or counter is already open — let it own the moment
 					// instead of reopening on top of itself.
 					if (isChatPanelOpen() || isServicePanelOpen() || isAixbtPanelOpen() || isZauthPanelOpen()) return;
 					// Talk to the nearest townsperson (vendor/quest/flavor); if none is
-					// in range, try the $THREE Intel Kiosk, then fall through to the
-					// home town's Agent Exchange.
+					// in range, try the Intel Kiosk, then fall through to the Agent
+					// Exchange.
 					if (!this.worldLife?.interact() && !this.intelKiosk?.interact()) this.agentCommerce?.interact();
 					return;
 				}

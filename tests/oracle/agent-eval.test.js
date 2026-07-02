@@ -32,6 +32,21 @@ describe('evaluateWatch', () => {
 		expect(d.reason).toMatch(/tier/);
 	});
 
+	it('blocks a thin-data coin by default and honors the opt-in', () => {
+		const thin = { ...goodCoin, badges: ['smart-money', 'thin-data'] };
+		expect(evaluateWatch({ watch: baseWatch, coin: thin }).act).toBe(false);
+		expect(evaluateWatch({ watch: baseWatch, coin: thin }).reason).toMatch(/thin data/);
+		expect(evaluateWatch({ watch: { ...baseWatch, allow_thin_data: true }, coin: thin }).act).toBe(true);
+	});
+
+	it('honors an explicit numeric confidence floor', () => {
+		const w = { ...baseWatch, min_confidence: 60 };
+		expect(evaluateWatch({ watch: w, coin: { ...goodCoin, confidence: 40 } }).act).toBe(false);
+		expect(evaluateWatch({ watch: w, coin: { ...goodCoin, confidence: 80 } }).act).toBe(true);
+		// Absent confidence should not block (backward-compatible).
+		expect(evaluateWatch({ watch: w, coin: goodCoin }).act).toBe(true);
+	});
+
 	it('respects the narrative watchlist', () => {
 		const only = { ...baseWatch, categories: ['news', 'culture'] };
 		expect(evaluateWatch({ watch: only, coin: goodCoin }).act).toBe(false);

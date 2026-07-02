@@ -56,6 +56,19 @@ export function evaluateWatch({ watch, coin, openCount = 0, spentTodaySol = 0 })
 		return block('no proven wallet in yet');
 	}
 
+	// Data-confidence gate. A high score built on mostly-defaulted inputs is a lead
+	// to watch, not a call to size real money into. Block coins the engine flagged
+	// as thin-data unless the owner explicitly opts in (allow_thin_data). Also honor
+	// an explicit numeric floor when the coin carries a confidence value.
+	const badges = Array.isArray(coin.badges) ? coin.badges : [];
+	if (badges.includes('thin-data') && !watch.allow_thin_data) {
+		return block('thin data — score rests on defaulted inputs');
+	}
+	const minConf = Number(watch.min_confidence) || 0;
+	if (minConf > 0 && coin.confidence != null && Number(coin.confidence) < minConf) {
+		return block(`data confidence ${Number(coin.confidence)} below ${minConf}`);
+	}
+
 	// Concurrency + budget caps.
 	if (openCount >= (Number(watch.max_open) || 5)) {
 		return block(`at max open positions (${openCount})`);
