@@ -389,12 +389,14 @@ async function main() {
 		try { window.removeEventListener('keydown', onKeyDown); } catch { /* ignore */ }
 		try { window.removeEventListener('keyup', onKeyUp); } catch { /* ignore */ }
 		try { canvas.removeEventListener('contextmenu', onContextMenu); } catch { /* ignore */ }
-		try { offResize?.(); } catch { /* ignore */ }
+		// bindResize returns the resize HANDLER (not a remover), so detach it —
+		// calling it would fire a spurious resize instead of removing the listener.
+		try { if (offResize) window.removeEventListener('resize', offResize); } catch { /* ignore */ }
 		try { clearTimeout(citizensRefresh); } catch { /* ignore */ }
 		try { window.removeEventListener('agora:citizens-changed', onCitizensChanged); } catch { /* ignore */ }
 		try { economy.dispose(); } catch (err) { log.warn('[agora] economy dispose failed', err?.message); }
 		try { population.dispose?.(); } catch (err) { log.warn('[agora] population dispose failed', err?.message); }
-		try { cityCamera.dispose?.(); } catch { /* ignore */ }
+		try { cityCamera.destroy?.(); } catch { /* ignore */ }
 		try { renderer.dispose(); } catch { /* ignore */ }
 	}
 	window.addEventListener('pagehide', disposeWorld, { once: true });
