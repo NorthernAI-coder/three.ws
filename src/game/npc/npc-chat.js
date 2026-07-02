@@ -9,9 +9,13 @@
 // Each NPC carries a `persona` (its voice) and, for vendors, a `serviceId` that
 // links to the paid counter in npc-services.js. The chat knows about the counter
 // and surfaces a one-tap button to open it — the NPC talks you toward the sale,
-// the counter settles it on-chain. One coin only, ever: $three.
+// the counter settles it on-chain. The cast works every coin's town, so the
+// prompt is world-aware: the NPC knows which community's plaza it stands in and
+// may speak about the local coin factually — but $three stays the only coin it
+// ever recommends or promotes.
 
 import { SERVICES, openService, isServicePanelOpen } from './npc-services.js';
+import { isHomeTown } from '../home-town.js';
 import { log } from '../../shared/log.js';
 
 const THREE = '$three';
@@ -63,11 +67,19 @@ function preferredProvider(providers) {
 }
 
 // ── persona → system prompt ───────────────────────────────────────────────────
-// One coin, ever. The prompt hard-locks the NPC to $three and to its character,
-// and — for vendors — teaches it about its own counter so it can guide the sale.
-function buildSystemPrompt({ npc, svc, persona, greeting }) {
+// The prompt hard-locks the NPC to its character and to $three as the only
+// promoted coin, and — for vendors — teaches it about its own counter so it can
+// guide the sale. In another coin's town, the NPC knows whose plaza it works and
+// may discuss that coin factually; it still only ever recommends $three.
+function buildSystemPrompt({ npc, svc, persona, greeting, world }) {
+	const localCoin = world && world.mint && !isHomeTown(world.mint)
+		? (world.symbol ? '$' + String(world.symbol).toUpperCase() : (world.name || null))
+		: null;
+	const town = localCoin
+		? `the ${localCoin} community's town inside three.ws — a 3D world platform whose own coin is ${THREE}`
+		: `a frontier town inside three.ws — a 3D world platform built around ${THREE}, the one and only coin`;
 	const parts = [
-		`You are ${npc.name}, a character who lives and works in a frontier town inside three.ws — a 3D world platform built around ${THREE}, the one and only coin.`,
+		`You are ${npc.name}, a character who lives and works in ${town}.`,
 		persona,
 		`A visitor has just walked up to you in the town square and started talking. Speak out loud, in character, the way this person really talks — voice, mood, and all.`,
 		`Keep every reply short and natural: usually one to three sentences, like real spoken dialogue. No lists, no headings, no markdown, no stage directions. Stay curious — ask the visitor things back.`,
@@ -79,7 +91,9 @@ function buildSystemPrompt({ npc, svc, persona, greeting }) {
 	}
 	if (greeting) parts.push(`You already greeted them with: "${greeting}". Continue naturally from there — don't greet again.`);
 	parts.push(
-		`Rules you never break: stay fully in character; never say or imply you are an AI, a model, a bot, or a program; never mention, name, link, or recommend any coin or token other than ${THREE}. If asked about any other coin, brush it off and bring it back to ${THREE}.`,
+		localCoin
+			? `Rules you never break: stay fully in character; never say or imply you are an AI, a model, a bot, or a program. ${localCoin} is this town's own coin — you may speak about it factually as the local coin. ${THREE} is the platform's coin and the only coin you ever recommend or promote. Never mention, name, link, or recommend any other coin or token; if asked about one, brush it off.`
+			: `Rules you never break: stay fully in character; never say or imply you are an AI, a model, a bot, or a program; never mention, name, link, or recommend any coin or token other than ${THREE}. If asked about any other coin, brush it off and bring it back to ${THREE}.`,
 	);
 	return parts.filter(Boolean).join('\n\n');
 }
@@ -168,7 +182,7 @@ export function openChat(npc, { ui, serviceId, persona, greeting, world } = {}) 
 	// model context: real user/assistant turns only (the greeting is display-only,
 	// kept out of the payload so the history always opens on a user turn).
 	const history = [];
-	const system = buildSystemPrompt({ npc, svc, persona, greeting });
+	const system = buildSystemPrompt({ npc, svc, persona, greeting, world });
 	let provider = 'gpt-oss-120b';
 	let streaming = false;
 	const abort = new AbortController();

@@ -69,6 +69,7 @@ import { createWalkTrails3D, createTrailSetting, TRAIL_STYLE_LABELS } from './wa
 import { createWalkSession, showWelcomeBackToast } from './walk-session.js';
 import { createWalkNpcs } from './walk-npcs.js';
 import { createWalkWalletProximity } from './walk-wallet.js';
+import { openAvatarInspector, isAvatarInspectorOpen, closeAvatarInspector } from './shared/avatar-inspector.js';
 import { applyWorldNameplate } from './shared/living-avatar.js';
 import { createWalkCapture } from './walk-capture.js';
 import { createMarketplaceGallery } from './marketplace-gallery.js';
@@ -3061,6 +3062,10 @@ class RemotePlayer {
 		this._avatarUrl = initial?.avatar || '';
 		// The agent this peer is piloting (UUID) — drives the in-world wallet reveal.
 		this.agent = initial?.agent || null;
+		// Verified account wallet bound at sign-in (server-authoritative; empty for
+		// guests). Feeds the avatar inspector alongside the piloted agent.
+		this.account = initial?.account || '';
+		this.name = initial?.name || sessionId.slice(0, 6);
 		this._avatarLoadToken = 0;
 		this._heldTemplateUrl = null; // remote-template URL this player currently clones
 		this._root = root;
@@ -3098,6 +3103,13 @@ class RemotePlayer {
 		this.label = document.createElement('div');
 		this.label.className = 'walk-remote-label';
 		this.label.textContent = initial?.name ?? sessionId.slice(0, 6);
+		// The nameplate is also this peer's inspect target. The page CSS keeps
+		// .walk-remote-label pointer-events off (nameplates must never eat the
+		// orbit drag), so re-enable it just for this small pill.
+		this.label.style.pointerEvents = 'auto';
+		this.label.style.cursor = 'pointer';
+		this.label.title = 'Inspect this player (I)';
+		this.label.addEventListener('click', (e) => { e.stopPropagation(); inspectRemotePlayer(this); });
 		document.body.appendChild(this.label);
 
 		// Living-avatar legibility: enrich the nameplate with the piloted agent's
@@ -3132,6 +3144,10 @@ class RemotePlayer {
 		}
 		if (this.label.textContent !== player.name && player.name) {
 			this.label.textContent = player.name;
+			this.name = player.name;
+		}
+		if (player.account !== undefined && player.account !== this.account) {
+			this.account = player.account || '';
 		}
 		if (player.emote && player.emoteTs !== this._lastEmoteTs) {
 			this._lastEmoteTs = player.emoteTs;

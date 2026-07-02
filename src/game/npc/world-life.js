@@ -41,7 +41,7 @@ export class WorldLife {
 		this.mobs = new MobSystem({ scene, nav: this.nav });
 
 		// Interactive NPCs from the data-driven catalog.
-		this.npcs = npcCatalogFor(world).map((def) => {
+		this.npcs = npcCatalogFor().map((def) => {
 			const npc = new Npc(scene, def);
 			npc.marker = this._npcMarker(def);
 			return npc;

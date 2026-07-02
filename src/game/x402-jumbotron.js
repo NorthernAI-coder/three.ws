@@ -1,4 +1,4 @@
-// x402 Jumbotron — a second big in-world screen for the $THREE town, standing
+// x402 Jumbotron — a second big in-world screen for every coin town, standing
 // behind the Agent Exchange and dedicated to watching x402 micropayments land.
 //
 // Where the trading jumbotron (chart-screen.js) shows the coin's price tape, this

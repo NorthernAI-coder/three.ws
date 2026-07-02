@@ -81,6 +81,29 @@ export function resolveURI(uri, gatewayIndex = 0) {
 }
 
 /**
+ * Route an external image URL through the same-origin /api/img proxy.
+ *
+ * Third-party token-art hosts (per-launch CDNs, IPFS/Arweave gateways) fail in
+ * browsers for reasons we can't fix client-side: missing CORS headers, ORB
+ * blocking, retired hosts, and TLS interception on filtered networks. The
+ * proxy fetches server-side with multi-gateway IPFS retry and always answers
+ * with a valid image (deterministic placeholder on total failure), so the
+ * loader never errors. Same-origin, relative, data: and blob: URLs pass
+ * through untouched — the proxy only earns its keep cross-origin.
+ *
+ * @param {string} url          Image URL (https://, ipfs:// or ar:// accepted).
+ * @param {string} [seed]       Stable placeholder seed (e.g. the token mint).
+ * @returns {string}
+ */
+export function proxiedImageURL(url, seed = '') {
+	if (!url || !/^(https?|ipfs|ar):/i.test(url)) return url;
+	if (typeof location !== 'undefined' && url.startsWith(location.origin + '/')) return url;
+	const q = new URLSearchParams({ url: resolveURI(url) });
+	if (seed) q.set('seed', seed);
+	return `/api/img?${q.toString()}`;
+}
+
+/**
  * Try to fetch from the primary gateway; on failure, cycle through fallbacks.
  *
  * @param {string} ipfsURI  An ipfs:// URI.

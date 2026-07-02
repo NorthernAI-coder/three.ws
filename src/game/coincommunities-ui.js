@@ -1265,7 +1265,7 @@ export class CommunityUI {
 		]);
 
 		const hint = el('div', { id: 'cc-hint', html:
-			'<kbd>W A S D</kbd> / drag-joystick to move · <kbd>drag</kbd> to look · scroll zoom · <kbd>Enter</kbd> chat · <kbd>Q</kbd> emotes' });
+			'<kbd>W A S D</kbd> / drag-joystick to move · <kbd>drag</kbd> to look · scroll zoom · <kbd>Enter</kbd> chat · <kbd>Q</kbd> emotes · <kbd>I</kbd> inspect' });
 
 		this.joystick = el('div', { id: 'cc-joystick' });
 

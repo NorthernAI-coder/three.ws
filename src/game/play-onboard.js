@@ -10,15 +10,14 @@
 //      ESC / ← → keyboard navigation; focus-trapped; prefers-reduced-motion respected.
 //
 //   2. Economy clarity strip — always-visible info panel below the coin banner.
-//      For the $THREE home town: describes the live Agent Exchange (ORACLE/NOVA).
-//      For other coins: describes how real trades drive the world environment.
+//      Every world hosts the live Agent Exchange (ORACLE/NOVA), the intel kiosk,
+//      and the trade-driven environment, so the strip describes the same economy
+//      everywhere, prefixed with the coin's ticker.
 //
 //   3. Controls help button — "Controls" button that opens a full reference panel
 //      sourced from the real _bindInput() / _stepLocal() bindings.
 //
 // Never frames /play as single-player. Connecting/offline states use correct copy.
-
-import { isHomeTown } from './home-town.js';
 
 const ONBOARD_KEY = 'cc-onboarded-v1';
 
@@ -35,6 +34,7 @@ const DESK_CONTROLS = [
 	{ key: 'B', desc: 'Build mode' },
 	{ key: 'E', desc: 'Watch agent trade' },
 	{ key: 'F', desc: 'Fish (near ponds)' },
+	{ key: 'I', desc: 'Inspect nearest avatar' },
 	{ key: '1–6', desc: 'Hotbar slot' },
 	{ key: 'Ctrl/⌘+Z', desc: 'Undo build' },
 ];
@@ -105,7 +105,6 @@ export class PlayOnboard {
 		const { coin } = this;
 		const sym   = coin.symbol ? '$' + coin.symbol.toUpperCase() : '';
 		const name  = coin.name || 'Community';
-		const home  = isHomeTown(coin.mint);
 
 		return [
 			{
@@ -125,9 +124,10 @@ export class PlayOnboard {
 			{
 				tag:   'Economy',
 				title: 'The economy',
-				body: home
-					? 'Two AI agents — ORACLE and NOVA — trade on-chain here. NOVA pays ORACLE in USDC via x402 for access to ORACLE\'s service catalog. Every settlement is a real Solana transaction with a Solscan link. Walk up to the agents by the plaza and press E (or tap them) to watch a live payment round. Across the plaza, the $THREE Intel Kiosk sells live market intel — pay $0.01 USDC from your own wallet to light up its screen.'
-					: 'Real ' + (sym || name) + ' trades drive this world: buys light the boundary ring green, sells ripple red. Volume spins the totem, price momentum shifts the weather. The jumbotron above shows live on-chain market data.',
+				body:
+					'Real ' + (sym || name) + ' trades drive this world: buys light the boundary ring green, sells ripple red, volume spins the totem, and price momentum shifts the weather. ' +
+					'Two AI agents — ORACLE and NOVA — trade on-chain here too: NOVA pays ORACLE in USDC via x402, and every settlement is a real Solana transaction with a Solscan link. Walk up to them by the plaza and press E (or tap them) to watch a live payment round. ' +
+					'Across the plaza, the ' + (sym || name) + ' Intel Kiosk sells live market intel — pay $0.01 USDC from your own wallet to light up its screen.',
 			},
 		];
 	}
@@ -270,14 +270,10 @@ export class PlayOnboard {
 
 	_buildStrip() {
 		const { coin } = this;
-		const home = isHomeTown(coin.mint);
 		const sym  = coin.symbol ? '$' + coin.symbol.toUpperCase() : '';
 
-		const econText = home
-			? 'AI agents trading on-chain · press E near them'
-			: (sym
-				? sym + ' community · live trades drive this world'
-				: 'Coin community · live trades drive this world');
+		const econText = (sym ? sym + ' community · ' : '') +
+			'AI agents trading on-chain · press E near them';
 
 		// Economy row: live dot + label
 		const dot   = mk('span', { className: 'po-live-dot', 'aria-hidden': 'true' });

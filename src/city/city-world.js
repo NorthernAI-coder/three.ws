@@ -3,6 +3,7 @@ import { fetchOSMData, buildCity, buildMinimapStatic, CITY_HALF } from './city-m
 import { createCityScene, bindResize } from './city-scene.js';
 import { CityPlayer } from './city-player.js';
 import { CityCamera } from './city-camera.js';
+import { openAvatarInspector } from '../shared/avatar-inspector.js';
 import { log } from '../shared/log.js';
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
@@ -65,6 +66,52 @@ async function main() {
 	bindResize(renderer, camera);
 
 	canvas.focus();
+
+	// ── Avatar inspector ──────────────────────────────────────────────────────
+	// The city is single-player, so I (or clicking your avatar) inspects you:
+	// identity, reputation and wallet when you're piloting a registered agent
+	// (?agent=<id>), honest guidance when you're exploring as a guest.
+	const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	const agentParam = (new URLSearchParams(location.search).get('agent') || '').trim();
+	const inspectSelf = () => {
+		const R = 6_371_000;
+		const cosC = Math.cos(40.7580 * Math.PI / 180);
+		const lat = 40.7580 - (player.position.z / R) * (180 / Math.PI);
+		const lon = -73.9855 + (player.position.x / (R * cosC)) * (180 / Math.PI);
+		openAvatarInspector({
+			kind: 'self',
+			name: 'You',
+			world: 'city',
+			agentId: UUID_RE.test(agentParam) ? agentParam : '',
+			avatarUrl: avatarInput,
+			facts: [
+				{ label: 'Location', value: `${lat.toFixed(5)}°N ${Math.abs(lon).toFixed(5)}°W`, href: 'https://www.openstreetmap.org/#map=17/' + lat.toFixed(5) + '/' + lon.toFixed(5) },
+				{ label: 'District', value: 'Midtown Manhattan (live OSM data)' },
+			],
+		}, { trigger: canvas });
+	};
+	window.addEventListener('keydown', (e) => {
+		if (e.key.toLowerCase() !== 'i' || e.repeat) return;
+		const ae = document.activeElement;
+		if (ae && (/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) || ae.isContentEditable || ae.closest?.('[role="dialog"]'))) return;
+		e.preventDefault();
+		inspectSelf();
+	});
+	// A tap (not a look-drag) on your avatar opens the same panel.
+	const raycaster = new THREE.Raycaster();
+	const ndc = new THREE.Vector2();
+	let downAt = null;
+	canvas.addEventListener('pointerdown', (e) => { downAt = { x: e.clientX, y: e.clientY }; });
+	canvas.addEventListener('pointerup', (e) => {
+		if (!downAt) return;
+		const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+		downAt = null;
+		if (moved >= 6 || e.button === 2) return;
+		const rect = canvas.getBoundingClientRect();
+		ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+		raycaster.setFromCamera(ndc, camera);
+		if (raycaster.intersectObject(player.rig, true).length) inspectSelf();
+	});
 
 	progress(100, 'Ready');
 	await delay(150);

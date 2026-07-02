@@ -445,6 +445,19 @@ export class CommunityNet {
 		}, delay);
 	}
 
+	// Send a message only when the wire is actually open. `this.room` alone isn't
+	// enough: between the socket entering CLOSING and onLeave firing, the room
+	// reference is still live, and ws.send() on that socket logs a console
+	// warning per message ("WebSocket is already in CLOSING or CLOSED state").
+	// Returns true when the message reached an open socket; dropped messages are
+	// fine — every send here is a live-state signal the reconnect resyncs anyway.
+	_send(type, payload) {
+		const room = this.room;
+		if (!room || room.connection?.isOpen !== true) return false;
+		try { room.send(type, payload); } catch { return false; }
+		return true;
+	}
+
 	sendMove(state) {
 		if (!this.room) return;
 		const now = performance.now();
@@ -454,7 +467,7 @@ export class CommunityNet {
 			const turned = Math.abs(state.yaw - this._lastSent.yaw);
 			if (moved < POSITION_EPSILON && turned < YAW_EPSILON && state.motion === this._lastSent.motion) return;
 		}
-		this.room.send('move', { x: state.x, y: state.y, z: state.z, yaw: state.yaw, motion: state.motion });
+		if (!this._send('move', { x: state.x, y: state.y, z: state.z, yaw: state.yaw, motion: state.motion })) return;
 		this._lastSent = { ...state };
 		this._lastSentAt = now;
 		// Stamp this move for RTT measurement unless one is already awaiting its
@@ -462,72 +475,72 @@ export class CommunityNet {
 		if (!this._pingSentAt) this._pingSentAt = now;
 	}
 
-	sendEmote(name) { this.room?.send('emote', { name }); }
-	sendReaction(emoji) { this.room?.send('reaction', { emoji }); }
-	sendChat(text) { this.room?.send('chat', { text }); }
+	sendEmote(name) { this._send('emote', { name }); }
+	sendReaction(emoji) { this._send('reaction', { emoji }); }
+	sendChat(text) { this._send('chat', { text }); }
 	// Place/break a voxel at an integer grid cell. Server-authoritative: these only
 	// request the edit; the block is added/removed locally when the server patches
 	// state.blocks (see the onAdd/onRemove wiring above).
-	sendPlace(x, y, z, t) { this.room?.send('place', { x, y, z, t }); }
+	sendPlace(x, y, z, t) { this._send('place', { x, y, z, t }); }
 	// Place a composite piece in one atomic message: an array of {x,y,z,t} cells the
 	// server validates and applies all-or-nothing (see WalkRoom._handlePlaceBatch).
 	// Each placed block streams back through the same blockAdd path as single edits.
-	sendPlaceBatch(cells) { this.room?.send('place-batch', { cells }); }
-	sendRemove(x, y, z) { this.room?.send('remove', { x, y, z }); }
+	sendPlaceBatch(cells) { this._send('place-batch', { cells }); }
+	sendRemove(x, y, z) { this._send('remove', { x, y, z }); }
 	// Creator-only moderation (R19): clear a disc of blocks around a grid cell, or the
 	// whole world. The server validates the creator identity + bounds and streams each
 	// removal back through the usual blockRemove path.
-	sendClearArea(x, z, r) { this.room?.send('build-clear', { x, z, r }); }
-	sendClearAll() { this.room?.send('build-clear', { all: true }); }
-	sendInteract(to, action) { this.room?.send('interact', { to, action }); }
+	sendClearArea(x, z, r) { this._send('build-clear', { x, z, r }); }
+	sendClearAll() { this._send('build-clear', { all: true }); }
+	sendInteract(to, action) { this._send('interact', { to, action }); }
 	// Spatial voice: relay a WebRTC offer/answer/ICE candidate to one peer, and
 	// flag ourselves in/out of voice so peers know whether to connect to us.
-	sendVoiceSignal(to, data) { this.room?.send('voice-signal', { to, data }); }
-	setVoiceActive(on) { this.room?.send('voice-state', { on: !!on }); }
-	rename(name) { this.name = name; this.room?.send('rename', { name }); }
-	setAvatar(avatar, agent) { this.avatar = avatar; this.room?.send('avatar', { avatar, agent }); }
+	sendVoiceSignal(to, data) { this._send('voice-signal', { to, data }); }
+	setVoiceActive(on) { this._send('voice-state', { on: !!on }); }
+	rename(name) { this.name = name; this._send('rename', { name }); }
+	setAvatar(avatar, agent) { this.avatar = avatar; this._send('avatar', { avatar, agent }); }
 	// Equip a cosmetic into its slot (W03). Server-authoritative: it validates
 	// ownership, updates the player's schema `cosmetics` field (so peers re-render)
 	// and replies with a fresh profile. An unowned id is rejected with a 'notice'.
-	equipCosmetic(id) { this.room?.send('equip-cosmetic', { id }); }
+	equipCosmetic(id) { this._send('equip-cosmetic', { id }); }
 	// Broadcast a full loadout wire in one shot — mirrors how the avatar is sent.
 	// Server validates every id against the catalog and the account's owned set,
 	// drops anything invalid or unowned, and publishes the sanitized wire on the
 	// schema so all peers re-render the correct look.
-	setCosmetics(wire) { this.cosmetics = typeof wire === 'string' ? wire : ''; this.room?.send('set-cosmetics', { cosmetics: this.cosmetics }); }
+	setCosmetics(wire) { this.cosmetics = typeof wire === 'string' ? wire : ''; this._send('set-cosmetics', { cosmetics: this.cosmetics }); }
 	// Activities & economy. Server-authoritative: these only request the action; the
 	// result arrives via the profile/inv/xpgain/levelup/notice events above.
 	// R05 physics ball: send a kick intent with the impulse the server should apply.
 	// The server validates magnitude, direction, and rate before touching the ball.
-	sendBallKick(vx, vy, vz) { this.room?.send('ball:kick', { vx, vy, vz }); }
-	fish() { this.room?.send('fish'); }
-	chop() { this.room?.send('chop'); }
-	mine() { this.room?.send('mine'); }
-	cook() { this.room?.send('cook'); }
-	attack() { this.room?.send('attack'); }
-	equip(slot) { this.room?.send('equip', { slot }); }
-	consume(ref) { this.room?.send('consume', { slot: ref }); }
-	requestProfile() { this.room?.send('profileReq'); }
+	sendBallKick(vx, vy, vz) { this._send('ball:kick', { vx, vy, vz }); }
+	fish() { this._send('fish'); }
+	chop() { this._send('chop'); }
+	mine() { this._send('mine'); }
+	cook() { this._send('cook'); }
+	attack() { this._send('attack'); }
+	equip(slot) { this._send('equip', { slot }); }
+	consume(ref) { this._send('consume', { slot: ref }); }
+	requestProfile() { this._send('profileReq'); }
 	// Quests, jobs & heists (W05). Server-authoritative: accept/abandon a mission and
 	// interact at a quest object; the board + progress arrive via the 'quests' event
 	// and completions via 'questComplete'. questInteract acts on the zone the server
 	// finds the player standing in (pickup/dropoff/terminal/crack).
-	requestQuests() { this.room?.send('questReq'); }
-	questAccept(id) { this.room?.send('questAccept', { id }); }
-	questAbandon(id) { this.room?.send('questAbandon', { id }); }
-	questInteract() { this.room?.send('questInteract'); }
+	requestQuests() { this._send('questReq'); }
+	questAccept(id) { this._send('questAccept', { id }); }
+	questAbandon(id) { this._send('questAbandon', { id }); }
+	questInteract() { this._send('questInteract'); }
 	// Vehicles. enter/exit take + release the wheel (server-gated by proximity +
 	// occupancy, answered on the 'vehicle' event); vsync streams the driver's
 	// authoritative Rapier transform, which the server validates and relays. vsync
 	// is throttled to the move send rate; the driving loop calls it every frame.
-	sendVEnter(id) { this.room?.send('venter', { id }); }
-	sendVExit(state) { this.room?.send('vexit', state || {}); }
+	sendVEnter(id) { this._send('venter', { id }); }
+	sendVExit(state) { this._send('vexit', state || {}); }
 	sendVSync(state) {
 		if (!this.room) return;
 		const now = performance.now();
 		if (now - (this._lastVSyncAt || 0) < SEND_INTERVAL_MS) return;
 		this._lastVSyncAt = now;
-		this.room.send('vsync', state);
+		this._send('vsync', state);
 	}
 	// Generic world objects (R01/R02). These only *request* the change; the object
 	// appears/moves/disappears when the server echoes its authoritative `objects`
@@ -547,7 +560,7 @@ export class CommunityNet {
 		if (Number.isFinite(opts.vx)) msg.vx = opts.vx;
 		if (Number.isFinite(opts.vy)) msg.vy = opts.vy;
 		if (Number.isFinite(opts.vz)) msg.vz = opts.vz;
-		this.room.send('obj:spawn', msg);
+		this._send('obj:spawn', msg);
 	}
 	updateObject(id, transform = {}) {
 		if (!this.room || typeof id !== 'string') return;
@@ -555,11 +568,11 @@ export class CommunityNet {
 		for (const k of ['x', 'y', 'z', 'yaw', 'scale', 'vx', 'vy', 'vz']) {
 			if (Number.isFinite(transform[k])) msg[k] = transform[k];
 		}
-		this.room.send('obj:update', msg);
+		this._send('obj:update', msg);
 	}
 	removeObject(id) {
 		if (!this.room || typeof id !== 'string') return;
-		this.room.send('obj:remove', { id });
+		this._send('obj:remove', { id });
 	}
 	// Does an object's server-assigned ownerId belong to THIS client? The server keys
 	// ownership on the verified account when signed in, else the persisted economy id,
@@ -577,7 +590,7 @@ export class CommunityNet {
 	// sweep evicts a still-qualifying player at the original 10-min TTL (which
 	// stranded anyone in a long building session). The server re-verifies the pass
 	// against the gate before extending; a forged or below-floor pass is ignored.
-	updatePlayPass(pass) { this.playPass = pass || ''; if (pass) this.room?.send('play-pass', { playPass: pass }); }
+	updatePlayPass(pass) { this.playPass = pass || ''; if (pass) this._send('play-pass', { playPass: pass }); }
 
 	get state() { return this.room?.state ?? null; }
 
