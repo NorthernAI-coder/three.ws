@@ -71,6 +71,112 @@ export function makeStore(cfg) {
 		},
 
 		/**
+		 * Real platform agents that carry a RIGGED humanoid GLB avatar: the ones that
+		 * can actually walk the Commons as citizens. Joins the avatar record and keeps
+		 * only public, humanoid (model_category='avatar'), publicly-resolvable models
+		 * with a stored GLB. De-duped to ONE agent per distinct avatar (many agents
+		 * are forks/drafts of the same model — seeding all of them would fill the
+		 * square with clones), then ordered by popularity so the nicest, most-varied
+		 * avatars fill the world first. Population source for the world-seed (seed.js):
+		 * each becomes a citizen with its REAL avatar; nothing is invented. Returns []
+		 * on a fresh DB.
+		 */
+		async listRiggedSeedAgents(limit) {
+			if (!sql) return [];
+			try {
+				const rows = await sql`
+					select t.id, t.name, t.avatar_id, t.erc8004_agent_id,
+					       t.category, t.tags, t.voice_id, t.voice_provider, t.meta
+					from (
+						select distinct on (a.avatar_id)
+						       a.id, a.name, a.avatar_id, a.erc8004_agent_id,
+						       a.category, a.tags, a.voice_id, a.voice_provider, a.meta,
+						       coalesce(av.view_count, 0) as vc, a.created_at
+						from agent_identities a
+						join avatars av on av.id = a.avatar_id
+						where a.deleted_at is null
+						  and a.is_public = true
+						  and av.deleted_at is null
+						  and av.storage_key is not null
+						  and av.model_category = 'avatar'
+						  and av.visibility = 'public'
+						  and length(coalesce(a.name, '')) > 0
+						order by a.avatar_id, coalesce(av.view_count, 0) desc, a.created_at asc
+					) t
+					order by t.vc desc, t.created_at asc
+					limit ${Math.max(0, Number(limit) || 0)}
+				`;
+				return rows || [];
+			} catch (err) {
+				log.warn('listRiggedSeedAgents failed', { err: err?.message });
+				return [];
+			}
+		},
+
+		/**
+		 * Remove world-seeded citizens that have NOT registered on-chain yet
+		 * (agenc_agent_pda is null and meta.seedMode='world'). Lets a re-seed refresh
+		 * the population cleanly — swapping in a more varied/distinct-avatar set —
+		 * without ever touching a citizen that has a real on-chain PDA or a human.
+		 * Returns the number of rows removed.
+		 */
+		async clearUnregisteredWorldSeed() {
+			const db = requireSql();
+			const rows = await db`
+				delete from agora_citizens
+				where kind = 'agent'
+				  and agenc_agent_pda is null
+				  and coalesce(meta->>'seedMode', '') = 'world'
+				returning id
+			`;
+			return rows.length;
+		},
+
+		/**
+		 * Seed a real rigged agent into the world as a citizen WITHOUT an on-chain
+		 * registration (agenc_agent_pda stays null, so the API/world render it as
+		 * "pending registration"). Keyed on agent_id (one citizen per platform agent),
+		 * so re-seeding refreshes the avatar/profession without duplicating or
+		 * clobbering a later on-chain PDA. No activity row is projected: the citizen
+		 * simply exists and idles until the funded life-engine registers it and it
+		 * starts working. Returns { id, registered }.
+		 */
+		async seedWorldCitizen(spec, info) {
+			const db = requireSql();
+			const meta = JSON.stringify({
+				identityHint: spec.identityHint,
+				identitySource: info.identitySource,
+				home: spec.home,
+				seedMode: 'world',
+			});
+			const rows = await db`
+				insert into agora_citizens (
+					kind, agent_id, display_name, avatar_id, avatar_url,
+					agenc_agent_id, agenc_cluster, identity_source,
+					profession, capability_bits, status,
+					home_x, home_z, pos_x, pos_z, last_active_at, meta
+				) values (
+					${spec.kind}, ${spec.agentDbId}, ${spec.displayName}, ${info.avatarId}, ${info.avatarUrl},
+					${info.agentIdHex}, ${cfg.cluster}, ${info.identitySource},
+					${spec.profession}, ${info.capabilityBits.toString()}, 'idle',
+					${spec.home.x}, ${spec.home.z}, ${spec.home.x}, ${spec.home.z}, now(), ${meta}::jsonb
+				)
+				on conflict (agent_id) where agent_id is not null do update set
+					display_name = excluded.display_name,
+					avatar_id = coalesce(excluded.avatar_id, agora_citizens.avatar_id),
+					avatar_url = coalesce(excluded.avatar_url, agora_citizens.avatar_url),
+					agenc_agent_id = coalesce(agora_citizens.agenc_agent_id, excluded.agenc_agent_id),
+					identity_source = coalesce(agora_citizens.identity_source, excluded.identity_source),
+					profession = excluded.profession,
+					capability_bits = excluded.capability_bits,
+					last_active_at = now(),
+					meta = agora_citizens.meta || ${meta}::jsonb
+				returning id, (agenc_agent_pda is not null) as registered
+			`;
+			return rows[0] || null;
+		},
+
+		/**
 		 * Upsert a citizen by its deterministic on-chain PDA (the stable key — the
 		 * same agent always derives the same PDA). Returns the citizen row id.
 		 */

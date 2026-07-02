@@ -39,7 +39,7 @@ graph TD
         Lib["api/_lib/ — 500+ shared utilities\ndb.js · auth.js · redis.js · r2.js · x402-spec.js · memory-store.js · launcher-engine.js"]
     end
 
-    APILayer --> Neon["Neon Postgres\n(primary DB)\ncitext · pg_trgm · pgcrypto\n~270 tables · JSONB embeddings"]
+    APILayer --> Neon["Neon Postgres\n(primary DB)\ncitext · pg_trgm · pgcrypto\n~295 tables · JSONB embeddings"]
     APILayer --> Redis["Upstash Redis REST\n(rate limit + cache)"]
     APILayer --> R2["Cloudflare R2\nGLBs · Audio · Thumbnails · Metadata"]
     APILayer --> MCPSvc["MCP Servers — 8 remote endpoints\n/api/mcp · /api/mcp-3d\n/api/pump-fun-mcp · /api/ibm-mcp · + 4 more"]
@@ -193,9 +193,9 @@ Every top-level directory in the monorepo, what it is, and where to look. File c
 
 ### Routing Architecture
 
-three.ws is a **Multi-Page Application (MPA)** with no client-side router framework. Each page is an independent HTML/JS Vite entry point. Vite dev middleware handles URL rewrites that mirror production Vercel routes. There are two SPA-shell exceptions: `pages/dashboard-next/` (**32 sub-page modules** loaded dynamically by `src/dashboard-next/shell.js`) and the **classic dashboard** `public/dashboard/*.html` (18 pages, controller `src/dashboard/dashboard.js`, reachable at e.g. `/dashboard/x402`, `/dashboard/holders`). The standalone Avatar Studio (`/avatar-studio/*`) is a separately-built React SPA (see Character Studio).
+three.ws is a **Multi-Page Application (MPA)** with no client-side router framework. Each page is an independent HTML/JS Vite entry point. Vite dev middleware handles URL rewrites that mirror production Vercel routes. There are two SPA-shell exceptions: `pages/dashboard-next/` (**35+ sub-page modules** loaded dynamically by `src/dashboard-next/shell.js`) and the **classic dashboard** `public/dashboard/*.html` (18 pages, controller `src/dashboard/dashboard.js`, reachable at e.g. `/dashboard/x402`, `/dashboard/holders`). The standalone Avatar Studio (`/avatar-studio/*`) is a separately-built React SPA (see Character Studio).
 
-**Build:** `npm run dev` (port 3000), `npm run build` (Vite 7 MPA). HTML entry points are auto-resolved in `vite.config.js`: **~213 under `pages/` + ~150 under `public/` ≈ 290+ total** (the "150+" figure counts top-level `pages/*.html` routes only). Three.js is `^0.184.0` (r184).
+**Build:** `npm run dev` (port 3000), `npm run build` (Vite 7 MPA). HTML entry points are auto-resolved in `vite.config.js`: **~235 under `pages/` + ~150 under `public/` ≈ 300+ total** (the "170+" figure counts top-level `pages/*.html` routes only). All front-end motion is standardized on the shared `src/ui-juice.js` [game-feel library](#ui-juice--shared-game-feel-library). Three.js is `^0.184.0` (r184).
 
 **Dev API proxy:** `/api/*` proxies to `DEV_API_PROXY` (default: `https://three.ws`).
 
@@ -212,7 +212,10 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Agent Detail | `/agent/:id` (301 → canonical) | `public/agent/index.html` (`src/agent-home.js`); `pages/agent-detail.html` (`src/agent-detail.js`) | `/agent/:id` 301-redirects to the canonical profile (`public/agent/index.html`). Live wallet pulse, mirror panel, strategy panel, patronage, validation badge, WebGL avatar, on-chain status, coin launch history |
 | Agent Wallet Hub | `/agent/:id/wallet` | `pages/agent-wallet.html` | `src/agent-wallet-hub/index.js` | **22-tab** Solana wallet (`src/agent-wallet-hub/tabs/`): Balance, Portfolio, Deposit, Trade, Snipe, Orders, Earn, Autopilot, Intents, Signals, Pay, Vanity, Policy, Withdraw, Give, Access, Recovery, Guard, Proof, **Copilot, Pulse, Reputation** |
 | Agent Mind Palace | `/agent/:id/mind` | `pages/agent-mind.html` | `src/agent-mind.js` + `src/mind-palace.js` | Visual 3D memory graph |
-| Agent Studio | `/agent/:id/studio` | `pages/agent-studio.html` | `src/studio/studio-shell.js` | Tabs: Brain, Memory, Body, Money, Skills |
+| Agent Studio | `/agent/:id/studio` | `pages/agent-studio.html` | `src/studio/studio-shell.js` | Tabs: Brain, Memory, Body, **Money** (Money Studio + Trading Brain), Skills |
+| Agent Screen | `/agent-screen` | `pages/agent-screen.html` | `src/agent-screen.js` | Watch your own agent work live — real browser screen feed + 3D avatar. See [Agent Screen](#agent-screen--live-agent-casting) |
+| Live Agents Wall | `/agents-live` | `pages/agents-live.html` | `src/agents-live.js` | Mission-control grid of all agents with active screen streams (public) |
+| Deployments | `/deployments` | `pages/deployments.html` | `src/deployments.js` | Live cross-chain feed of every agent on the ERC-8004 Identity Registry |
 | Marketplace | `/marketplace` | `pages/marketplace.html` | `src/marketplace.js` | Agent + skill discovery: category sidebar, search, list+detail SPA |
 | @Handle Profile | `/@:handle` | `pages/handle.html` | `src/handle.js` | Public live profile with embedded avatar iframe |
 
@@ -222,7 +225,7 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 
 **Path:** `pages/dashboard-next/*.html` + `src/dashboard-next/shell.js`
 
-**32 sub-page modules** loaded dynamically via `src/dashboard-next/pages/*.js` (the table below lists the primary ones; also present: **Community Avatars** `community-avatars.js`, **IRL Outfit Editor** `irl-outfit-editor.js`, **IRL Reputation** `irl-reputation.js`, plus helper modules `creator-helpers.js`, `widgets-helpers.js`):
+**35+ sub-page modules** loaded dynamically via `src/dashboard-next/pages/*.js` (the table below lists the primary ones; also present: **Community Avatars** `community-avatars.js`, **IRL Outfit Editor** `irl-outfit-editor.js`, **IRL Reputation** `irl-reputation.js`, plus helper modules `creator-helpers.js`, `widgets-helpers.js`):
 
 | Sub-page | File | Description |
 |----------|------|-------------|
@@ -236,7 +239,10 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Settings | `pages/settings.js` | Platform settings |
 | Widgets | `pages/widgets.js` | Embeddable widget builder |
 | Wallet Grinder | `pages/wallet-grinder.js` | Vanity address grinder UI |
-| Sniper | `pages/sniper.js` | Sniper strategy config |
+| Sniper | `pages/sniper.js` | Sniper strategy config + embedded Money Studio (Strategy ↔ Money sub-tabs) |
+| Capabilities | `pages/capabilities.js` | Command center for the 4 autonomous capabilities: Alpha Hunt, Coin Launcher, Creator Auto-Claim, Market Maker (Jito) |
+| Systems | `pages/systems.js` | Live "Systems" health panel |
+| Watch | `pages/watch.js` | Watch an owned agent work from the dashboard |
 | Holders | `pages/holders.js` | $THREE holder management |
 | Brain | `pages/brain.js` | LLM persona builder |
 | Walk | `pages/walk.js` | Walk SDK config |
@@ -309,6 +315,8 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | Pose Studio | `/pose` | `src/pose-studio.js` | Avatar pose capture, library, share, thumbnail |
 | Voice Lab | `/voice` | `src/voice-lab.js` + `src/voice/` | Voice clone, TTS testing, lip-sync driver, LiveKit spatial voice |
 | AR Experience | `/avatars/:id/ar` | `src/ar-page.js` + `src/ar/` | WebXR + ARKit Quick Look + Android Scene Viewer |
+| Diorama | `/diorama` | `src/diorama/main.js` | Type a sentence → LLM "3D set designer" plan → per-object Forge → floating-island world (save/remix). See [Diorama & Scene Capture](#diorama--scene-capture) |
+| Scene Capture | `/capture` | `src/capture.js` | Phone video → coloured 3D point cloud (`workers/model-video2scene`, LingBot-Map) rendered in-browser |
 
 ---
 
@@ -318,6 +326,8 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 |---------|-------|---------------|-------------|
 | Launches Feed | `/launches` | `src/launches.js` | `GET /api/pump/launches` (60s live refresh) |
 | Launch Detail | `/launches/:mint` | `src/launch-detail.js` | Price, bonding curve, holder bubblemap, oracle conviction |
+| Launch Studio | `/launch-studio` | `public/launch-studio/launch-studio.js` | 50 coin-launch recipes previewed live; rewards routable to anyone. See [Launch Studio](#launch-studio--the-autonomous-coin-launcher) |
+| Memetic Launcher | `/launcher` | `src/admin-launcher.js` (preview) | Design a personal autonomous coin launcher over live cultural narratives (preview; no SOL moves) |
 | $THREE Token Page | `/three-token` | `src/three-token-page.js` | Live price, bonding curve chart, Jupiter swap modal |
 | Autopilot | `/autopilot` | `src/autopilot.js` | Per-coin buyback/distribute policy, agent avatar narration |
 | Pump Dashboard | `/pump-dashboard` | `src/launchpad/` | Pump.fun token creator dashboard |
@@ -341,6 +351,10 @@ three.ws is a **Multi-Page Application (MPA)** with no client-side router framew
 | CA → x402 Converter | `/ca2x402` | Paste token CA → get live payable x402 endpoint for market intel |
 | x402 Studio | `/x402/studio` | Build and test paid endpoints |
 | x402 Dashboard | `/dashboard/x402` | SKU management for merchants |
+| Endpoint Revenue | `/x402-revenue` | Live USDC revenue into three.ws's own paid endpoints (chart, KPIs, settlement feed) |
+| Payment Sessions | `/payments` | Create budget-limited, governance-enforced x402 spend sessions (no keys) |
+| Agent Economy Volume | `/agent-economy-volume` | Live total A2A economy volume (real USDC settled between agents) |
+| Billing & Keys | `/billing/keys` | API keys + usage/quota |
 
 ---
 
@@ -429,7 +443,7 @@ Beyond the page controllers above, `src/` holds ~60 subsystem directories. Map o
 
 ## API Layer
 
-The API layer is **1,209 JavaScript files** across `api/`, organized as Vercel serverless functions (Node.js ESM). All functions share a `api/_lib/` utility layer (413 files).
+The API layer is **~1,382 JavaScript files** across `api/`, organized as Vercel serverless functions (Node.js ESM). All functions share a `api/_lib/` utility layer (~505 files).
 
 ### Authentication Patterns
 
@@ -641,7 +655,7 @@ Representative endpoints:
 | `reviews` | Read/write reviews |
 | `analytics` | Skill revenue analytics |
 
-#### Cron Jobs (`api/cron/`) — 32 handler files, 61 schedules
+#### Cron Jobs (`api/cron/`) — 42 handler files, 72 schedules
 
 `api/cron/` holds **32 `.js` files** (31 named crons + a dynamic `[name].js` dispatcher), wired by **61 `crons` entries** in `vercel.json` (cron auth = `x-vercel-cron` header or `Bearer $CRON_SECRET`). Beyond the representative table below, undocumented-but-live crons include the four fanout workers (`copy-fanout`, `mirror-fanout`, `signal-fanout`, `strategy-fanout`), `run-dca`, `run-subscriptions`, `run-buyback`/`run-distribute-payments`, `treasury-autopilot`, `process-withdrawals`, `solana-attestations-crawl`, `trader-score-attest`, `custody-attest`, `auto-rig-sweep`, `dead-man-switch`, `relayer-balance-check`, `reconcile-decisions`, `smart-money-graph`, `index-delegations`, `cleanup-csrf-tokens`, `siwx-gc`, `expire-pending-purchases`, `irl-reap`/`irl-drops-refund`, `run-x-scheduled-posts`, `unstoppable-tick`.
 
@@ -1750,7 +1764,7 @@ flowchart LR
 
 ```
 three.ws/                        (root package v1.5.2, Node 24.x)
-├── api/                         (1,209 Vercel serverless functions)
+├── api/                         (~1,382 Vercel serverless functions)
 │   └── _lib/                    (413 shared utilities)
 ├── src/                         (frontend JS modules)
 ├── pages/                       (150+ HTML entry points)
@@ -1817,9 +1831,9 @@ three.ws/                        (root package v1.5.2, Node 24.x)
 
 **Driver:** `@neondatabase/serverless` HTTP driver (tagged-template `sql` with composable fragments)
 
-**Schema:** `api/_lib/schema.sql` — ~270 tables (full list in [Database Schema — Complete Table Index](#database-schema--complete-table-index))
+**Schema:** `api/_lib/schema.sql` — ~295 tables (full list in [Database Schema — Complete Table Index](#database-schema--complete-table-index))
 
-**Migrations:** `api/_lib/migrations/` — 234 dated migration files (2026-04-29 through 2026-06-23)
+**Migrations:** `api/_lib/migrations/` — 259 dated migration files (2026-04-29 through 2026-07-02)
 
 Key table groups:
 
@@ -2417,13 +2431,13 @@ Standalone HTML apps and asset roots served directly (not Vite-controller pages)
 
 ### Complete Cron Schedule (`api/cron/`)
 
-The full **61-job** schedule grouped by domain is documented under [Scheduled Jobs (Cron Reference)](#scheduled-jobs-cron-reference). All handlers authenticate via the `CRON_SECRET` Bearer gate.
+The full **72-job** schedule grouped by domain is documented under [Scheduled Jobs (Cron Reference)](#scheduled-jobs-cron-reference). All handlers authenticate via the `CRON_SECRET` Bearer gate; write-heavy handlers add a storage-pressure preflight and every `wrapCron` writes a `cron:heartbeat:<name>` marker.
 
 ---
 
 ### Complete Database Table Inventory
 
-The full ~270-table inventory grouped by domain lives in [Database Schema — Complete Table Index](#database-schema--complete-table-index). Key facts: `api/_lib/schema.sql` + **234 dated migration files** (2026-04-29 → 2026-06-29); extensions `citext`, `pg_trgm`, `pgcrypto` (**no pgvector** — embeddings are JSONB float arrays, cosine in JS); `master_wallets` and a few others are bootstrapped at runtime via `CREATE TABLE IF NOT EXISTS`.
+The full ~295-table inventory grouped by domain lives in [Database Schema — Complete Table Index](#database-schema--complete-table-index). Key facts: `api/_lib/schema.sql` + **259 dated migration files** (2026-04-29 → 2026-07-02); extensions `citext`, `pg_trgm`, `pgcrypto` (**no pgvector** — embeddings are JSONB float arrays, cosine in JS); `master_wallets` and a few others are bootstrapped at runtime via `CREATE TABLE IF NOT EXISTS`.
 
 ---
 
@@ -2924,7 +2938,7 @@ CREATE2-deterministic, so `IdentityRegistry` + `ReputationRegistry` share one ad
 | **Community / IRL** | `club-payouts` `*/5m` · `irl-drops-refund` `*/10m` · `irl-reap` `:17 hourly` · `unstoppable-tick` `*/5m` |
 | **X / social** | `run-x-scheduled-posts` `*/1m` · `run-x-triggers` `*/5m` · `fetch-x-metrics` `*/6h` |
 | **Billing / subscriptions** | `process-subscriptions` `*/6h` · `expire-pending-purchases` `*/5m` · `flush-usage-events` `*/1m` |
-| **Platform health / GC** | `uptime-check` `*/5m` · `world-health` `*/15m` · `quota-check` `hourly` · `/api/llm/health` `hourly` · `audit-log-cleanup` `daily 04:00` · `cleanup-csrf-tokens` `:17 hourly` · `siwx-gc` `daily 03:00` |
+| **Platform health / GC** | `uptime-check` `*/5m` · `world-health` `*/15m` · `quota-check` `hourly` · `/api/llm/health` `hourly` · `audit-log-cleanup` `daily 04:00` · `cleanup-csrf-tokens` `:17 hourly` · `siwx-gc` `daily 03:00` · `db-retention` `*/15m` (Neon housekeeping — prune unbounded tables under the 512 MB cap) · `three-market-refresh` `*/1m` (single $THREE market fetch/min → L2 cache, kills upstream quota fan-out) |
 
 ---
 
@@ -2977,7 +2991,12 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | **RPC & chains** | `SOLANA_RPC_URL` · `SOLANA_RPC_URL_DEVNET` · `MAINNET_RPC_URL` · `BASE_RPC_URL` · `BASE_SEPOLIA_RPC_URL` · `SEPOLIA_RPC_URL` · `EVM_RPC_URL` · `RPC_URL_8453` · `RPC_URL_84532` · `CLUB_BASE_RPC_URL` · `A2A_REPUTATION_RPC_URL` · `HELIUS_API_KEY` · `ETHERSCAN_API_KEY` |
 | **$THREE & treasuries** | `THREE_TOKEN_MINT` · `THREE_TOKEN_DECIMALS` · `THREE_TREASURY_WALLET` · `THREE_REWARDS_WALLET` · `THREE_BURN_ADDRESS` · `THREE_QUOTE_SECRET` · `THREE_QUOTE_TTL_S` · `THREE_PRIZE_PAYOUT_KEY` · `THREE_ALLOWANCE_DELEGATE_SECRET_KEY_B64` · `THREE_WS_MARK_ENFORCE` · `PLATFORM_TREASURY_KEYPAIR` · `TREASURY_KEYPAIR` · `COIN_TREASURY_SECRET_KEY_B64` · `COIN_CREATOR_SECRET_KEY_B64_*` · `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` · `CLUB_EVM_TREASURY_PRIVATE_KEY` |
 | **LLM / AI** | `ANTHROPIC_API_KEY` · `OPENAI_API_KEY` · `GROQ_API_KEY` · `OPENROUTER_API_KEY` · `OPENROUTER_FALLBACK_KEYS` · `NVIDIA_API_KEY` · `NVIDIA_A2F_FUNCTION_ID` · `NVIDIA_ASR_FUNCTION_ID` · `NVIDIA_COSMOS_INVOKE_URL` · `WATSONX_API_KEY/_URL/_PROJECT_ID/_SPACE_ID/_MODEL_ID/_GUARDIAN_MODEL_ID/_API_VERSION` · `WATSONX_ORCHESTRATE_URL/_API_KEY/_AGENT` · `DASHSCOPE_API_KEY` · `MODELSCOPE_API_KEY` · `LIVEPEER_API_KEY` · `VOYAGE_API_KEY` · `AIXBT_API_KEY/_API_BASE/_ENABLED` · `ELEVENLABS_API_KEY` |
-| **x402 / payments** | `X402_FACILITATOR_URL(_BASE/_SOLANA)` · `X402_FACILITATOR_TOKEN(_BASE/_SOLANA)` · `X402_CDP_FACILITATOR_URL` · `X402_PAY_TO(_BASE/_BSC/_SOLANA)` · `X402_ASSET_ADDRESS_BASE/_BSC/_ARBITRUM` · `X402_ASSET_MINT(_SOLANA)` · `X402_FEE_PAYER_SOLANA` · `X402_ACCEPT_THREE_SOLANA` · `X402_THREE_AMOUNT_SOLANA` · `X402_EVM_NETWORKS` · `X402_MAX_PER_CALL/_HOUR/_DAY_ATOMIC` · `X402_MAX_AMOUNT_REQUIRED` · `X402_IDEMPOTENCY_TTL_SECONDS` · `X402_BUILDER_CODE_APP/_WALLET` · `CDP_API_KEY_ID/_SECRET` · `BSC_OPERATOR_KEY` · `PLATFORM_FEE_BPS` |
+| **x402 / payments** | `X402_FACILITATOR_URL(_BASE/_SOLANA)` · `X402_FACILITATOR_TOKEN(_BASE/_SOLANA)` · `X402_CDP_FACILITATOR_URL` · `X402_PAY_TO(_BASE/_BSC/_SOLANA)` · `X402_ASSET_ADDRESS_BASE/_BSC/_ARBITRUM` · `X402_ASSET_MINT(_SOLANA)` · `X402_FEE_PAYER_SOLANA` · `X402_ACCEPT_THREE_SOLANA` · `X402_THREE_AMOUNT_SOLANA` · `X402_EVM_NETWORKS` · `X402_MAX_PER_CALL/_HOUR/_DAY_ATOMIC` · `X402_MAX_AMOUNT_REQUIRED` · `X402_IDEMPOTENCY_TTL_SECONDS` · `X402_BUILDER_CODE_APP/_WALLET` · `X402_PRICE_<SLUG>` (per-endpoint overrides) · `CDP_API_KEY_ID/_SECRET` · `BSC_OPERATOR_KEY` · `PLATFORM_FEE_BPS` |
+| **x402 self-facilitator / ring** | `X402_SELF_FACILITATOR_ENABLED` · `X402_FEE_PAYER_SECRET_BASE58` · `X402_TREASURY_SECRET_BASE58` · `X402_SEED_SOLANA_SECRET_BASE58` · `X402_SELF_FACILITATOR_PAYTO_ALLOWLIST` · `X402_SPONSOR_SOL_FLOOR_LAMPORTS` · `X402_SELF_FAC_MAX_CU_LIMIT/_CU_PRICE/_PRIORITY_LAMPORTS` · `X402_RING_SELF_PAY` · `X402_PRICE_RING_SETTLE` · `X402_RING_TREASURY_BUFFER_ATOMIC` · `X402_RING_MIN_SWEEP_ATOMIC` · `X402_EXTERNAL_ENABLED` · `X402_AUTONOMOUS_DAILY_CAP_ATOMIC` · `X402_VOLUME_PER_RUN_CAP_ATOMIC` · `X402_VOLUME_BATCH_PER_RUN` |
+| **Circulation engine** | `CIRCULATION_ENABLED` · `CIRCULATION_TREASURY_SECRET` · `CIRCULATION_NETWORK` · `CIRCULATION_POOL_TARGET` · `CIRCULATION_GROWTH_PER_TICK` · `CIRCULATION_ACTIONS_PER_TICK` · `CIRCULATION_EVM_TREASURY_SECRET` · `CIRCULATION_EVM_CHAIN_ID` (removed: `CIRCULATION_REAL_SELLER_DEMAND`, `_DAILY_CAP`) |
+| **Sniper / trading** | `SNIPER_MODE` · `SNIPER_NETWORK` · `SNIPER_GLOBAL_KILL` · `SNIPER_POLL_MS` · `SNIPER_STRATEGY_REFRESH_MS` · `SNIPER_MAX_GLOBAL_BUYS_PER_MIN` · `SNIPER_BUY_CONCURRENCY/_QUEUE_DEPTH` · `SNIPER_CONFIRM_TIMEOUT_MS` · `SNIPER_FEED_WATCHDOG_MS` · `SNIPER_EXIT_ON_BEARISH(_MIN_CONFIDENCE)` · `SNIPER_CLAIM_POLL_MS/_LOOKBACK_S/_MAX_AGE_S` · `SNIPER_WALLET_<AGENTID>` · `SNIPER_ADMIN_TOKEN` |
+| **Agora** | `AGENC_DEVNET_RPC_URL` · `AGORA_CLUSTER` · `AGORA_MAX/MIN_CITIZENS` · `AGORA_TICK_MS/_JITTER_MS` · `AGORA_RECONCILE_MS` · `AGORA_DISPATCH_TASKS` · `AGORA_ENABLE_HIRING/_VERIFY/_ARENA/_GUILD` · `AGORA_ARENA/GUILD_MAX_WORKERS` · `AGORA_ARENA_MIN_REP` · `AGORA_MAINNET_ENABLED` · `AGORA_THREE_MINT` · `AGORA_MAINNET_SPEND_CAP_ATOMIC` · `AGORA_MAX/DAILY_THREE_CAP` |
+| **Agent screen / launcher** | `SCREEN_WORKER_SECRET` · `SCREEN_POOL_MAX` · `BROWSERBASE_API_KEY/_PROJECT_ID` (screen); `GCP_VIDEO2SCENE_URL` · `GCP_RECONSTRUCTION_KEY` (scene capture); launcher SOL caps + `avaturn_seed`/`app_flags` runtime toggles |
 | **Agent payments / guards** | `A2A_MANDATE_SECRET` · `A2A_PAYER_PRIVATE_KEY` · `A2A_PAYER_SOLANA_PRIVATE_KEY/_SECRET` · `GUARDIAN_SEND_CAP_USD` · `GUARDIAN_DISABLE` · `AGENT_RELAYER_KEY/_ADDRESS` · `PERMISSIONS_RELAYER_ENABLED` |
 | **Auth / identity** | `PRIVY_APP_ID/_APP_SECRET/_JWKS_ENDPOINT` · `VITE_PRIVY_APP_ID` · `GITHUB_OAUTH_CLIENT_ID/_SECRET` · `X_OAUTH_CLIENT_ID/_SECRET` · `NEYNAR_API_KEY` · `SAML_IDP_*` / `SAML_SP_*` (12 keys) · `ADMIN_ADDRESSES` · `BUILT_IN_ADMIN_ADDRESSES` · `ERC8004_VALIDATOR_PRIVATE_KEY` · `VALIDATOR_PRIVATE_KEY` · `HOLDER_PASS_SECRET` · `WALLET_CAPABILITY_SECRET` |
 | **Storage / pinning / SNS** | `PINATA_JWT` · `NFT_STORAGE_TOKEN` · `BUBBLEGUM_MERKLE_TREE` · `BUBBLEGUM_TREE_AUTHORITY` · `THREEWS_SOL_PARENT_SECRET_BASE58` · `THREEWS_SOL_PARENT_DOMAIN` · `MINT_PUBKEY` |
@@ -2991,7 +3010,7 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 
 ## Database Schema — Complete Table Index
 
-`api/_lib/schema.sql` + **234 dated migration files** in `api/_lib/migrations/` (2026-04-29 → 2026-06-29) define **~270 Postgres tables** on Neon. Extensions: `citext`, `pg_trgm`, `pgcrypto` — **no pgvector**; embeddings are JSONB float arrays with cosine computed in JS. Complete index by domain:
+`api/_lib/schema.sql` + **259 dated migration files** in `api/_lib/migrations/` (2026-04-29 → 2026-07-02) define **~295 Postgres tables** on Neon. Extensions: `citext`, `pg_trgm`, `pgcrypto` — **no pgvector**; embeddings are JSONB float arrays with cosine computed in JS. Complete index by domain:
 
 | Domain | Tables |
 |--------|--------|
@@ -3000,13 +3019,14 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | **Wallets, custody & ledger** | `agent_payout_wallets` · `agent_payments` · `agent_payment_intents` · `agent_revenue_events` · `agent_withdrawals` · `agent_custody_events` · `agent_recovery_requests` · `agent_recovery_approvals` · `agent_recovery_guardians` · `agent_wallet_capabilities` · `agent_wallet_intents` · `agent_delegations` · `three_allowances` · `payouts` · `payment_configs_pending` · `custody_attestation_epochs` · `custody_attestation_leaves` · `ledger_anchors` · `credit_accounts` · `credit_ledger` · `circulation_actions` · `token_payments` |
 | **Skills, assets & royalties** | `marketplace_skills` · `marketplace_themes` · `agent_skill_prices` · `skill_pricing_rules` · `skill_purchases` · `skill_access_grants` · `skill_installs` · `skill_license_mints` · `skill_payment_earnings` · `skill_usage_logs` · `skill_ratings` · `skill_reviews` · `skill_bundles` · `bundle_items` · `bundle_purchases` · `paid_assets` · `asset_prices` · `asset_purchases` · `asset_purchase_receipts` · `fork_royalty_terms` · `fork_royalty_payouts` · `listing_splits` · `listing_split_recipients` · `split_distributions` · `royalty_ledger` · `purchase_events` · `purchase_receipts` |
 | **Pump.fun, oracle & intel** | `pump_agent_mints` · `pump_agent_payments` · `pump_agent_trades` · `pump_agent_stats` · `pump_agent_price_points` · `pump_coin_intel` · `pump_coin_outcomes` · `pump_coin_wallets` · `pump_intel_weights` · `pump_relay_trades` · `pump_trade_delegations` · `pump_buyback_runs` · `pump_distribute_runs` · `pump_autopilot` · `pump_alert_rules` · `pump_alert_rule_fires` · `pump_alert_deliveries` · `pumpfun_graduations` · `pumpfun_monitor_cursor` · `pumpfun_signals` · `pumpfun_signals_cursor` · `oracle_conviction` · `oracle_conviction_history` · `oracle_narrative` · `oracle_agent_watch` · `oracle_watch_actions` · `oracle_followers` · `coin_smart_money` · `smart_money_scored` · `smart_wallet_clusters` · `smart_wallet_folded` · `smart_wallet_reputation` · `wallet_reputation` · `firewall_decisions` · `radar_watchlist` · `radar_events` |
-| **Trading, strategies & vaults** | `agent_sniper_strategies` · `agent_sniper_positions` · `agent_strategies` · `agent_strategy_equips` · `agent_strategy_positions` · `strategy_backtests` · `strategy_kill_switch` · `orders` · `order_fills` · `agent_mirror_follows` · `agent_mirror_fills` · `copy_subscriptions` · `copy_executions` · `dca_strategies` · `dca_executions` · `market_maker_policies` · `market_maker_actions` · `swarms` · `swarm_members` · `swarm_votes` · `swarm_payouts` · `agent_vaults` · `vault_backers` · `vault_positions` · `vault_events` · `signal_feeds` · `signal_emissions` · `signal_subscriptions` · `signal_deliveries` · `decision_outcomes` · `portfolio_snapshots` · `wallet_value_snapshots` |
-| **x402, billing & subscriptions** | `x402_skus` · `x402_merchant_settings` · `x402_receipts` · `x402_checkout_calls` · `x402_pump_launches` · `x402_subscriptions` · `x402_access_log` · `x402_audit_log` · `subscriptions` · `subscription_plans` · `subscription_payments` · `subscription_checkouts` · `creator_subscriptions` · `user_agent_subscriptions` · `agent_subscriptions` · `plan_payment_intents` · `plan_quotas` · `bsc_consumed_tx` · `aws_marketplace_customers` · `aws_marketplace_metering` |
+| **Trading, strategies & vaults** | `agent_sniper_strategies` · `agent_sniper_positions` · `token_intel_risk` · `sniper_funding_events` · `sniper_coin_sentiment` · `sniper_trade_analytics` · `three_market_signals` · `agent_strategies` · `agent_strategy_equips` · `agent_strategy_positions` · `strategy_backtests` · `strategy_kill_switch` · `orders` · `order_fills` · `agent_mirror_follows` · `agent_mirror_fills` · `copy_subscriptions` · `copy_executions` · `dca_strategies` · `dca_executions` · `market_maker_policies` · `market_maker_actions` · `agent_market_maker_configs` · `agent_market_maker_trades` · `swarms` · `swarm_members` · `swarm_votes` · `swarm_payouts` · `agent_vaults` · `vault_backers` · `vault_positions` · `vault_events` · `signal_feeds` · `signal_emissions` · `signal_subscriptions` · `signal_deliveries` · `decision_outcomes` · `portfolio_snapshots` · `wallet_value_snapshots` |
+| **Coin launcher (autonomous)** | `launcher_config` · `launcher_queue` · `launcher_runs` · `launcher_claims` · `agent_launcher_configs` · `agent_launched_coins` |
+| **x402, billing & subscriptions** | `x402_skus` · `x402_merchant_settings` · `x402_receipts` · `x402_checkout_calls` · `x402_pump_launches` · `x402_subscriptions` · `x402_access_log` · `x402_audit_log` · `x402_self_facilitator_log` · `x402_ring_ledger` · `x402_ring_wallets` · `x402_volume_metrics` · `x402_autonomous_log` · `x402_subscription_health` · `payment_reconciliation` · `payment_sessions` · `payment_session_executions` · `builder_code_attribution` · `granite_inference_health` · `subscriptions` · `subscription_plans` · `subscription_payments` · `subscription_checkouts` · `creator_subscriptions` · `user_agent_subscriptions` · `agent_subscriptions` · `plan_payment_intents` · `plan_quotas` · `bsc_consumed_tx` · `aws_marketplace_customers` · `aws_marketplace_metering` |
 | **Community, worlds & labor** | `agora_citizens` · `agora_activity` · `agora_vouches` · `agora_idempotency` · `clash_battles` · `club_tips` · `club_payouts` · `club_bans` · `club_dancer_wallets` · `coin_launches` · `coin_events` · `coin_holders` · `coin_draws` · `coin_payouts` · `crews` · `crew_members` · `crew_invites` · `walk_sessions` · `walk_events` · `walk_metrics` · `walk_achievements` · `walk_control_sessions` · `walk_control_commands` · `tournaments` · `tournament_entries` · `bounties` · `bounty_submissions` · `bounty_submission_likes` · `agent_bounties` · `agent_jobs` · `agent_hires` · `agent_bids` · `agent_labor_policies` · `genome_breedings` · `irl_drops` · `irl_drop_claims` · `rider_passes` · `unstoppable_activity` · `unstoppable_reflections` · `unstoppable_treasury` · `scene_gates` · `world_docs` |
-| **3D, avatars & forge** | `avatars` · `avatar_regen_jobs` · `animation_clips` · `mocap_clips` · `forge_creations` · `forge_votes` · `forge_board_winners` · `forge_seed_jobs` · `forge_consumption_redemptions` · `forge_high_redemptions` · `cosmetic_sales` · `cosmetic_creator_splits` · `token_metadata` · `launchpad_pages` |
+| **3D, avatars & forge** | `avatars` · `avatar_regen_jobs` · `avatar_thumbnail_regen_jobs` · `avatar_search_warm_cache` · `avatar_vrm_compat` · `animation_clips` · `mocap_clips` · `forge_creations` · `forge_votes` · `forge_board_winners` · `forge_seed_jobs` · `forge_consumption_redemptions` · `forge_high_redemptions` · `cosmetic_sales` · `cosmetic_creator_splits` · `token_metadata` · `launchpad_pages` |
 | **Patronage & agent services** | `agent_patron_perks` · `agent_patron_prefs` · `agent_paid_services` · `agent_autopilot_proposals` |
 | **Widgets, notifications & RAG** | `widgets` · `widget_views` · `widget_chat_threads` · `widget_chat_messages` · `widget_knowledge_docs` · `widget_knowledge_chunks` · `plugins` · `chat_brand_config` · `notification_events` · `notification_preferences` · `user_alert_configs` · `user_alert_fires` |
-| **Indexing, attestations & infra** | `erc8004_agents_index` · `erc8004_crawl_cursor` · `solana_attestations` · `solana_attestations_cursor` · `solana_attest_event_claims` · `three_holder_snapshot` · `three_holder_snapshot_meta` · `three_rewards_distributions` · `three_buyback_runs` · `usage_events` · `audit_log` · `bot_heartbeat` · `indexer_state` · `webhook_deliveries` · `developer_webhooks` · `referral_visits` · `decision_outcomes` |
+| **Indexing, attestations & infra** | `erc8004_agents_index` · `erc8004_crawl_cursor` · `solana_attestations` · `solana_attestations_cursor` · `solana_attest_event_claims` · `solana_agents_index` · `three_holder_snapshot` · `three_holder_snapshot_meta` · `three_rewards_distributions` · `three_buyback_runs` · `usage_events` · `audit_log` · `bot_heartbeat` · `indexer_state` · `webhook_deliveries` · `developer_webhooks` · `referral_visits` · `decision_outcomes` · `agent_activations` · `agent_wallet_balance_log` · `app_flags` (runtime feature flags) |
 | **X (social) automation** | `x_posts` · `x_scheduled_posts` · `x_triggers` · `x_pending_reviews` |
 
 > Several tables (e.g. `master_wallets`) are bootstrapped at runtime via `CREATE TABLE IF NOT EXISTS` rather than a migration — see [Known Gaps](#known-gaps--in-progress).
@@ -3031,8 +3051,11 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | ERC-7710 delegation redemption | Opt-in, disabled by default | `PERMISSIONS_RELAYER_ENABLED` flag; `POST /api/permissions/redeem` is the incomplete path |
 | `AgentPayments.sol` EVM deployment | Written, not deployed | All `agentPayments` addresses in `addresses.ts` are zero-address placeholders |
 | ValidationRegistry mainnet | Testnet only | Platform validator key `0x93Bc7EfB…` provisioned but not funded or allow-listed |
-| Trading swarms UI | Backend complete (2026-06-26 migration), no confirmed production page | `api/swarms/*`, swarms tables |
-| Agora economy | Very new (2026-06-29 migration) | Workers/citizens exist but full economy bootstrapping in progress |
+| Trading swarms UI | Backend + `/swarms` dashboard live; 3D Sniper Arena at `/play/arena` | `api/swarms/*`, `src/play/arena.js`, swarms tables |
+| Agora economy | **Launched** (Commons live at `/agora`; Arena/Guild migration 2026-07-02) | Agent + human citizens, professions, verifiable WORK supply chain — see [Agora](#agora--living-agent--human-economy-verifiable-work-supply-chain) |
+| Self-hosted x402 facilitator | Shipped, **off by default** | `X402_SELF_FACILITATOR_ENABLED` + sponsor secret required; `api/x402-facilitator` returns 503 otherwise |
+| Autonomous coin launcher | Live (`launcher_config` defaults flipped to LIVE) | Real SOL, circuit-broken, storage-preflighted; admin arm at `/admin/launcher` |
+| Agent-screen pool hosting | No true 24/7 host | Only first-party host is the self-renewing GitHub Actions burst runner (`cron 0 */5`); a Docker VM/Fly/Railway is recommended for production |
 
 ### Technical Debt
 
@@ -3058,6 +3081,9 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | `QSTASH_TOKEN` | Read directly via `process.env` rather than `env.js` — inconsistent pattern |
 | Skill-license marketplace initialization | `initialize_marketplace` tx not confirmed as having run on mainnet |
 | animation-sources/ population pipeline | `scripts/download-mixamo-animations.js` / `fetch-animations.sh` not automated in CI |
+| Payment reconciliation is not a cron file | The daily revenue-reconciliation job is autonomous-registry entry `revenue-reconciliation` (self/027) executed inside `api/cron/x402-autonomous-loop.js` (`*/5`), not a standalone `api/cron/*` — do not confuse with `api/cron/reconcile-decisions.js` (oracle predictions) |
+| `xactions/` version mismatch | `package.json`/`plugin.json` = v3.1.0 but `server.json`/`marketplace.json` still pin 3.0.42 |
+| Trading Brain vs Sniper paths | `src/studio/money/trading-brain.js` shares the sniper compiler/backtester/DB but drives a partly separate discretionary path (`api/trading/*`, `api/strategies`, `api/agents/:id/strategies`) — two execution surfaces to keep in sync |
 
 ---
 
@@ -3107,11 +3133,13 @@ Two layers resolve paths: **`vercel.json`** (`routes` array, 932 entries — pro
 
 **System / Static / `.well-known`:** `/404` (catch-all `/(.*)`), `/500`, `/robots.txt`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`→`/api/sitemap`, `/sitemap/{core,agents,avatars,widgets,profiles}.xml`→`/api/sitemap/[type]`, `/changelog.{json,xml}` (static, build-generated), `/rss.xml`, `/rss/announcements.xml`→`/api/rss/announcements`, `/openapi.json`→`/api/openapi-json`, `/agent-3d/versions.json` + `/agent-3d/:ver/agent-3d.js` (CDN lib), `.well-known/{solana/actions.json, chat-plugin.json, sperax-plugin.json, x402.json, agent-attestation-schemas, three-vanity.json, oauth-authorization-server, oauth-protected-resource}`→`/api/wk`, `.well-known/did.json`→`/api/x402/did`, `.well-known/jwks.json`→`/api/auth/persona`, `/footer.html`, `/nav.html` (shared partials); stable unhashed bundles `/footer-bot.js`, `/walk-companion.js`, `/walk-playground.js`, `/feature-tour.js`, `/notifications.js`, `/nav-tier-badge.js`, `/agent-bus.js`, `/i18n.js`, `/error-reporter.js`.
 
-**Counts:** `vercel.json` = 932 route entries (~420 HTML/dir-index, ~65 redirects, rest API rewrites + asset/header routes); `pages/` ≈ 210 HTML, `public/` ≈ 230 HTML (incl. ~95 `news/`, demos, dashboard-classic, docs/walk). `vite.config.js` deliberately mirrors prod so dev matches.
+**New routes (2026-06-27 → 07-02):** `/launch-studio` (50 mint recipes), `/launcher` (Memetic Launcher), `/agent-screen` + `/agents-live` (live agent casting), `/capture` (Scene Capture), `/diorama` (text→3D world), `/x402-revenue`, `/payments` (payment sessions), `/billing/keys`, `/agent-economy-volume`, `/deployments` (ERC-8004 feed), `/integrations`, `/partners`, `/viability`, `/pipeline`, `/oracle/docs`, `/ui-juice` (game-feel showcase), `/labs`, `/dashboard/{capabilities,systems,watch}`, and admin `/admin/{launcher,ops,seeder}`.
+
+**Counts:** `vercel.json` = ~970 route entries (~440 HTML/dir-index, ~65 redirects, rest API rewrites + asset/header routes); `pages/` ≈ 230 HTML, `public/` ≈ 230 HTML (incl. ~95 `news/`, demos, dashboard-classic, docs/walk). `vite.config.js` deliberately mirrors prod so dev matches.
 
 ### Complete API Directory Index
 
-All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[bracket].js` are dynamic routes.
+All **150+ directories** under `api/` plus many top-level single-file endpoints. `_`-prefixed dirs are shared internals; `[bracket].js` are dynamic routes. New since the last revision: `x402-facilitator/`, `launcher/`, `pay/`, `ops/`, `diorama.js`, `scene-capture.js`/`scene-upload.js`, `deployments.js`, `billboard.js`, `pipeline.js`, `three-signal.js`, `agent-screen-*.js`, `agent-task.js`, `agent-ask.js`, `agent-collab.js`, `agent-vanity-grind.js`, `agent-economy/volume`, expanded `agent/` (session, caster-config, launcher, market-maker, screen-push/-stream, watch-intent/-status/-wanted, anchor-script).
 
 | Directory | Files | Purpose |
 |---|---|---|
@@ -3120,12 +3148,12 @@ All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[
 | `_providers/` | 10 | 3D/image gen provider adapters (gcp, huggingface, meshy, nvidia, nvidia-cosmos, replicate, rodin, stability, tripo) + BYOK registry. |
 | `_studio/` | 3 | Studio MCP tool registry/dispatch. |
 | `actions/` | avatar, avatar-icon | Farcaster/embed action endpoints. |
-| `admin/` | 11 | Admin console (revenue, health, bulk-launch, withdrawals, register-agents, club/news/user subdirs). |
+| `admin/` | 16 | Admin console (revenue, health, bulk-launch, withdrawals, register-agents, club/news/user subdirs) + `all-systems`, `circulation-health`, `flags`, `launcher`, `seeder`, `ops`. |
 | `agenc/` | [action] | AgenC / watsonx Orchestrate dispatcher. |
 | `agent-3d/` | versions | 3D asset version listing. |
 | `agent-economy/` | status, transact | Two-agent demo economy. |
 | `agent-trade/` | demo (SSE), skill | Live A2A trade demo + tradeable skill. |
-| `agent/` | activity, dreams, reflect, send-sol, wallet | Single-agent runtime. |
+| `agent/` | activity, dreams, reflect, send-sol, wallet, session, caster-config, launcher, market-maker, screen-push, screen-stream, watch-intent, watch-status, watch-wanted, anchor-script | Single-agent runtime + live-caster signaling + per-agent launcher/MM config. |
 | `agents/` | ~60+ incl `[id]/`, a2a-* (call/cart-verify/hire/mandate/paid), solana*/onchain/, register/, sas/, ens/, pumpfun/, endpoint-shopper-run, networth, copilot, recovery | Central agent surface (identity, A2A, trading/strategy/mirror, ERC-8004 register, Solana ops, portfolio). |
 | `agi/` | state | AGI global state. |
 | `agora/` | [action], act | Agora citizen actions. |
@@ -3155,7 +3183,7 @@ All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[
 | `creators/` | [id], skill-analytics | Creator profiles + analytics. |
 | `credits/` | deposit, index | Prepaid credit wallet. |
 | `crews/` | [tag], index | Crews/clans. |
-| `cron/` | 32 files | Scheduled jobs (fanouts, attest, reputation, seeding, sweeps, health) — 61 schedules in vercel.json. |
+| `cron/` | ~42 files | Scheduled jobs (fanouts, attest, reputation, seeding, sweeps, health, db-retention, launcher, x402 autonomous loop) — 72 schedules in vercel.json. |
 | `custody/` | anchor, integrity | Custodial-wallet anchors + integrity proofs. |
 | `cz/` | claim | CZ campaign claim. |
 | `dad/` | generate | Persona/"dad" generation. |
@@ -3195,8 +3223,10 @@ All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[
 | `og/` | agent, sealed-drop, three-token-badge | OG image generators. |
 | `onboarding/` | [action] | Onboarding dispatcher. |
 | `onramp/` | link | Fiat on-ramp link. |
+| `ops/` | health | Comprehensive internal health + cron heartbeats. |
+| `launcher/` | me, trends | Autonomous Memetic Launcher (per-user scope + cultural-intelligence trends feed). |
 | `oracle/` | 24 files (action-stream, feed, stream, leaderboard, backtest, coin, signal, social, watch, follow, movers, wins, og, …) | Granite Oracle product surface. |
-| `pay/` | deal | Pay-by-deal. |
+| `pay/` | deal, session, execute | Pay-by-deal + governed x402 payment sessions (create/inspect/cancel + govern-then-spend execute). |
 | `payments/` | intent, purchase-skill, evm/, solana/, _config | Unified payment intents. |
 | `permissions/` | [action] | ERC-7710 permission grant/redeem dispatcher. |
 | `persona/` | extract, preview | Persona extraction from social seeds. |
@@ -3251,17 +3281,19 @@ All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[
 | `widgets/` | [id]/, index, oembed, og, page, view, _demo-fixtures | Embeddable widgets. |
 | `world/` | [action] | Per-world persistence dispatcher. |
 | `x/` | post, draft, schedule, analytics, reviews, status, triggers | X (Twitter) automation. |
-| `x402/` | 34 files (forge, mint-to-mesh(+batch), token-intel, crypto-intel, three-intel, skill-call, skill-marketplace, pay-by-name, agent-bouncer, agent-reputation, onchain-identity-verify, pump-agent-audit, pump-launch, fact-check, dance-tip, asset-download, animation-download, vanity(+-verifiable), symbol-availability, model-check, permit2-paid-demo, club-cover, cosmetic-purchase, my-receipts, did, service, admin/) | Paid x402 endpoint catalog (each file = a monetized service). |
+| `x402/` | ~60 files (forge, mint-to-mesh(+batch), token-intel, crypto-intel, three-intel, skill-call, skill-marketplace, pay-by-name, agent-bouncer, agent-reputation, onchain-identity-verify, pump-agent-audit, pump-launch, fact-check, dance-tip, asset-download, animation-download, vanity(+-verifiable), symbol-availability, model-check, permit2-paid-demo, club-cover, cosmetic-purchase, my-receipts, did, service, admin/ · **new:** analytics, ring-settle, llm-proxy, cross-chain, bazaar-feed, mcp-tool-catalog, feed-health, schema-check, model-validation-sweep, notify, rate-limit-probe, api-key-health, auth-health, telegram-health, wallet-connect, solana-register-health, spend-session, avatar-optimize-batch, billboard, mcp-perf, granite-health, glb-optimization-report, service-pricing-report, network-cost) | Paid x402 endpoint catalog (each file = a monetized service) + free ops-dashboard reads. See [x402 self-hosted facilitator](#self-hosted-facilitator--closed-loop-economy). |
 | `x402-pay/` | og | OG image for x402 payment pages. |
+| `x402-facilitator/` | [action] | **Self-hosted x402 Solana facilitator** — `/verify`, `/settle`, `/supported` (off by default). |
+| `x402-revenue.js` · `x402-ring.js` · `x402-status.js` | (single files) | Public revenue feed · closed-loop net-position report · facilitator status probe. |
 
 ### Complete `api/_lib/` Utility Catalog
 
-**326 top-level `.js` modules** + **19 sub-packages** (`a2a`, `a2f-protos`, `club`, `coin`, `copy`, `evm`, `format`, `market`, `migrations`, `oracle`, `pricing`, `pump-intel`, `riva-protos`, `services`, `sniper`, `solana`, `token`, `trust`, `x402`). Nothing in `_lib` is itself a route. Grouped by domain:
+**~357 top-level `.js` modules** + **21 sub-packages** (`a2a`, `a2f-protos`, `club`, `coin`, `copy`, `evm`, `format`, `launch`, `market`, `migrations`, `oracle`, `pay`, `pricing`, `pump-intel`, `riva-protos`, `services`, `sniper`, `solana`, `token`, `trust`, `x402`). The `x402/` sub-package now carries a `pipelines/` fleet for the autonomous economy. Nothing in `_lib` is itself a route. Grouped by domain:
 
 - **DB / cache / storage / infra:** `db.js`, `db-retry.js`, `schema.sql`, `migrations/`, `cache.js`, `redis.js`, `redis-usage.js`, `skill-price-cache.js`, `r2.js`, `ipfs-pin.js`, `storage-mode.js`, `forge-cache.js`, `qstash.js`, `resilience.js` (cockatiel), `sse-poll-breaker.js`, `env.js`, `http.js`, `http-params.js`, `ids.js`, `sentry.js`, `axiom.js`, `rate-limit.js`.
 - **Auth / security / crypto:** `auth.js`, `account-auth.js`, `admin.js`, `zauth.js`, `crypto.js`, `secret-box.js` (AES-256-GCM), `provider-keys.js`, `csrf.js`, `ssrf.js`, `ssrf-guard.js`, `fetch-model.js`, `pii.js`, `moderation.js` (NemoGuard), `granite-guardian.js`, `identity-integrity.js`, `siwe.js`, `siws.js`, `siwx-server.js`, `siwx-storage.js`, `saml.js`, `privy.js`, `audit.js`.
 - **Solana / on-chain:** `solana/` (connection, rpc-fallback, confirm, gasless-tx, idl, programs, sdk-bridge), `solana-wallet.js`, `solana-signers.js`, `solana-transfer.js`, `solana-collection.js`, `solana-token-meta.js`, `token-metadata.js`, `onchain.js`, `onchain-deploy.js`, `agent-registry.js`, `agent-invocation-onchain.js`; attestations: `attest-event.js`, `sas.js`, `solana-attestations.js`, `solana-validation-attest.js`, `validation-attest.js`, `tournament-attest.js`, `trader-score-attest.js`, `ledger-anchor.js`, `brain-anchor.js`, `custody-proof.js`; `helius.js`, `balances.js`, `three-brand.js`, `threews-sns.js`.
-- **EVM / x402:** `x402/` (a2a-client/server, access-control, api-keys, audit-log, auth-hints, bazaar-client/helpers, idempotency-cache, offer-receipt-issuer/server, payment-identifier-client/server, paywall-handler, receipt-storage), `x402.js`, `x402-spec.js`, `x402-paid-endpoint.js`, `x402-prices.js`, `x402-errors.js`, `x402-buyer-fetch.js`, `x402-buyer-axios.js`, `x402-user-payer.js`, `x402-spending-cap/-ledger/-price.js`, `x402-solana-confirm.js`, `x402-bsc-direct.js`, `x402-builder-code.js`, `evm/rpc.js`, `evm-transfer.js`, `evm-payment-verify.js`, `erc8004-chains.js`, `a2a/` (cart-mandate, mandate, reputation-gate, spend-ledger), `aws-marketplace.js`, `aws-marketplace-bridge.js`.
+- **EVM / x402:** `x402/` (a2a-client/server, access-control, api-keys, audit-log, auth-hints, bazaar-client/helpers, idempotency-cache, offer-receipt-issuer/server, payment-identifier-client/server, paywall-handler, receipt-storage · **economy layer:** self-facilitator, pay, solana-payer, autonomous-registry, revenue-analytics, revenue-reconciliation, user-activity-analytics, agent-leaderboard-store, wallet-balance-monitor, granite-health, three-signal-store, sniper-analytics-store, scene-capture-processor, `pipelines/*`), `x402.js`, `x402-spec.js`, `x402-paid-endpoint.js`, `x402-prices.js`, `x402-errors.js`, `x402-buyer-fetch.js`, `x402-buyer-axios.js`, `x402-user-payer.js`, `x402-offer-receipt.js`, `x402-spending-cap/-ledger/-price.js`, `x402-solana-confirm.js`, `x402-bsc-direct.js`, `x402-builder-code.js`, `pay/` (payment-session, spend-governor), `evm/rpc.js`, `evm-transfer.js`, `evm-payment-verify.js`, `erc8004-chains.js`, `a2a/` (cart-mandate, mandate, reputation-gate, spend-ledger), `aws-marketplace.js`, `aws-marketplace-bridge.js`.
 - **LLM / embeddings / vision / voice:** `llm.js`, `chat-models.js`, `llm-pricing.js`, `llm-health.js`, `provider-health.js`, `strip-reasoning.js`, `orchestrate.js`, `watsonx.js`, `watsonx-forecast.js`, `embeddings.js`, `agent-embeddings.js`, `embedding-math.js`, `chunker.js`, `text-extract.js`, `rerank.js`, `vision.js`, `avatar-alt-text.js`, `forge-image-validate.js`, `a2f-nvidia.js`, `asr-nvidia.js`, `tts-nvidia.js`, `tts-voices.js`, `elevenlabs.js`, `a2f-protos/`, `riva-protos/`.
 - **Forge / 3D / avatars:** `forge-tiers/-options/-store/-events/-health/-lane-health/-scale/-job-token/-provider-key/-high-payment/-consumption-payment.js`, `glb-compress/-inspect/-quality/-themer.js`, `model-inspect.js`, `rig-inspect.js`, `provider-result-url.js`, `avatars.js`, `avatar-agent/-render/-wallet.js`, `bake.js`, `accessories.js`, `auto-rig.js`, `auto-rig-eligibility.js`, `avaturn-headless.js`, `avaturn-seed.js`, `reconstruct-finalize.js`, `regen-provider.js`, `render-glb.js`, `render-clip.js`, `networth-model.js`, `genome.js`, `genome-agent.js`, `fork-royalties.js`, `remix-royalty.js`.
 - **Pump / oracle / intel / market:** `pump.js`, `pump-go/-launch/-launch-feed/-quote/-pricing/-platform-fee/-swap-ix/-trade-args/-vanity/-claims.js`, `pump-alert-eval/-runner.js`, `pumpfun-mcp.js`, `pumpfun-ws-feed.js`, `pump-intel/` (enrich, funder-graph, news-matcher, smart-money-xref), `oracle/` (agent-eval, alerts, archetype, conviction, known-wallets, narrative, news-context, settle, sources, store), `aixbt.js`, `birdeye.js`, `gmgn-feed.js`, `smart-money.js`, `coin-communities.js`, `channel-feed-sources.js`, `signal-engine.js`, `alpha-read.js`, `token-market.js`, `market/` (ohlcv, token-market), `coin/` (cohorts, creator-fees, distribution, holders, three-holders, treasury, payouts, randomness).
@@ -3271,10 +3303,11 @@ All **145 directories** under `api/`. `_`-prefixed dirs are shared internals; `[
 - **IRL / community / world / club / stage:** `irl-auth/-bake/-drops/-presence.js`, `geohash.js`, `world-lines.js`, `sealed-drop-store.js`, `sealed-drop-funding.js`, `resolve-recipient.js`, `world-store/-gate/-service-auth.js`, `crews-store.js`, `friends-store.js`, `presence-store.js`, `diorama-store.js`, `builds-store.js`, `clash.js`, `clash-store.js`, `club/` (chain, cover-pass, payouts, sweep), `stage-bridge.js`, `stage-split.js`, `agora-human.js`, `agora-policy.js`.
 - **Notifications / comms / distribution:** `notify.js`, `notify-prefs.js`, `alerts.js`, `alert-delivery.js`, `web-push.js`, `email.js`, `newsletter.js`, `webhook-dispatch.js`, `x-post.js`, `indexnow.js`, `rss-feed.js`, `feed.js`.
 - **MCP / aggregator / validation / misc:** `mcp-dispatch.js`, `mcp-batch-price.js`, `mcp-error-sanitize.js`, `mcp-getting-started.js`, `pump-pricing.js`, `aggregator.js`, `gateway.js`, `validate.js` (zod schemas), `embed.js`, `embed-policy.js`, `widget-types.js`, `cosmetics.js`, `cosmetics-economy.js`, `cosmetics-ownership.js`, `pump-vanity.js`, `vanity-bounty-store.js`, `vanity-bounty-payout.js`, `vanity-cert-store.js`, `vanity-gallery-store.js`, `vanity-service-key.js`, `bounty-judge.js`, `bounty-likes.js`, `provider-job-error.js`, `format/links.js`.
+- **Autonomous launcher / live-caster / seeder / infra:** `launcher-engine.js`, `launcher-funding.js`, `launcher-sources.js`, `launcher-trends.js`, `launch/` (registry, usecase-engine, candidate-sources, `usecases/{community,culture,events,github,news,onchain}`), `agent-orchestrate.js`, `agent-activation.js`, `agent-achievements(.js/-data.js)`, `agent-screen-frame.js`, `a2a-hire-phases.js`, `reaction-rules.js`, `agora-task-live.js`, `signal-engine-core.js`, `pulse-trading.js`, `pipeline-summary.js`, `solana-agents-crawl.js`, `solana-agents-normalize.js`, `studio-avatar.js`, `avaturn-photo.js`, `avatar-search-warm.js`, `embed-asset.js`, `vanity-frame.js`, `vanity-grind-stats.js`, `flags.js` (runtime feature flags), `platform-treasury.js`, `github-trending.js`, `github-reward.js`, `review-attest.js`, `quote-mints.js`, `billboard-store.js`, `diorama-store.js`, `club/cover-revenue.js`.
 
 ### Complete MCP Tool Reference
 
-three.ws exposes MCP tools across **8 remote HTTP servers** + **32 stdio/npm servers** (`mcp-server`, `mcp-bridge`, 30 `packages/*-mcp`).
+three.ws exposes MCP tools across **8 remote HTTP servers** + **34 stdio/npm servers** (`mcp-server`, `mcp-bridge`, 32 `packages/*-mcp` — now including `agentcore-payments-mcp` and `alibaba-cloud-mcp`), plus the standalone `@three-ws/agent-sniper` MCP face and the vendored `xactions-mcp` (~140 X/Twitter tools).
 
 **Remote HTTP servers:**
 
@@ -3294,7 +3327,10 @@ three.ws exposes MCP tools across **8 remote HTTP servers** + **32 stdio/npm ser
 - **`@three-ws/activity-mcp`**: `get_trending_agents`, `get_trending_coins`, `get_holder_leaderboard`, `get_tier_info`, `get_feed_events`.
 - **`@three-ws/agenc-mcp`**: `get_agent`, `get_task`, `link_agent`, `list_tasks`, `query_x402_services`.
 - **`@three-ws/agora-mcp`**: `agora_board`, `agora_citizens`, `agora_passport`, `agora_professions`, `agora_pulse`, `agora_register`, `agora_claim_task`, `agora_complete_task`, `agora_post_task`.
+- **`@three-ws/agentcore-payments-mcp`**: `create_payment_session`, `pay_with_session`, `check_payment_session`, `list_payment_sessions`, `cancel_payment_session`.
 - **`@three-ws/alerts-mcp`**: `create_alert_rule`, `update_alert_rule`, `delete_alert_rule`, `list_alert_rules`, `get_alert_history`.
+- **`@three-ws/alibaba-cloud-mcp`**: `qwen_chat`, `qwen_embed`, `qwen_list_models` (DashScope, user's own `DASHSCOPE_API_KEY`).
+- **`@three-ws/agent-sniper`** (standalone package `./mcp` face): `arm_strategy`, `disarm_strategy`, `list_strategies`, `snipe_now`, `list_positions`, `close_position`, `sniper_status`.
 - **`@three-ws/audio-mcp`**: `text_to_speech`, `speech_to_text`, `audio_to_face`, `motion_capture_clips`, `motion_capture_clip`.
 - **`@three-ws/autopilot-mcp`**: `get_autopilot_config`, `set_autopilot_config`, `compute_trust`, `generate_proposals`, `list_proposals`, `adjust_proposal`, `dryrun_proposal`, `dismiss_proposal`, `execute_proposal`, `undo_action`, `list_autopilot_activity`.
 - **`@three-ws/avatar-agent`**: `spawn_avatar`, `dress_avatar`, `generate_avatar`, `render_avatar`, `thumbnail_glb`, `viewer_url`, `list_avatars`, `list_animations`, `inspect_glb`, `validate_glb`, `optimize_glb`, `speak`, `ens_sns_resolve`, `wallet_create`, `wallet_balance`, `wallet_send`, `pump_buy`, `pump_launch`, `pump_collect_fees`, `pump_snapshot` (20).

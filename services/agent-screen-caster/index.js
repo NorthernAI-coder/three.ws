@@ -16,7 +16,7 @@
  * Env vars (see .env.example for full list):
  *   AGENT_ID             UUID of the agent identity (required)
  *   AGENT_BEARER_TOKEN   JWT or API key (required)
- *   PUSH_URL             Override push endpoint (default: https://three.ws/api/agent/screen-push)
+ *   PUSH_URL             Override push endpoint (default: https://three.ws/api/agent-screen-push)
  *   FRAME_INTERVAL_MS    Milliseconds between frame captures (default: 400)
  *   JPEG_QUALITY         JPEG quality 1-100 (default: 72)
  *   HEADLESS             "true" (default) | "false" for visible browser window
@@ -44,7 +44,7 @@ if (envFlagIdx !== -1) {
 // ── Read config ────────────────────────────────────────────────────────────────
 const agentId     = required('AGENT_ID');
 const bearerToken = required('AGENT_BEARER_TOKEN');
-const pushUrl     = process.env.PUSH_URL           || 'https://three.ws/api/agent/screen-push';
+const pushUrl     = process.env.PUSH_URL           || 'https://three.ws/api/agent-screen-push';
 const frameMs     = Number(process.env.FRAME_INTERVAL_MS || 400);
 const jpegQuality = Number(process.env.JPEG_QUALITY      || 72);
 const headless    = process.env.HEADLESS !== 'false';

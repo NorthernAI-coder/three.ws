@@ -68,6 +68,18 @@ export function loadConfig() {
 		dryRun,
 		// Single tick per citizen then exit — for CI smoke tests and manual runs.
 		once: bool('AGORA_ONCE', false),
+		// World-seed mode: project real rigged agents into the Commons as citizens
+		// (real avatar, canonical AgenC id derived offline, profession from real
+		// signals) WITHOUT any on-chain registration, then exit. No SOL needed — the
+		// world fills instantly; the funded life-engine registers + works them later.
+		seedOnly: bool('AGORA_SEED_ONLY', false),
+		// How many rigged agents to project in a world-seed pass. The DB holds all of
+		// them; the 3D renderer shows a bounded, nearest subset.
+		seedLimit: Math.max(1, Math.min(2000, num('AGORA_SEED_LIMIT', 120))),
+		// Before a world-seed, clear the previous UNREGISTERED world-seed citizens so
+		// the population refreshes cleanly (never touches on-chain-registered citizens
+		// or humans). Default on — a seed pass is the authoritative pending population.
+		seedReset: bool('AGORA_SEED_RESET', true),
 		databaseUrl,
 
 		// Fleet size cap. The roster supplies the candidate citizens (seeded from

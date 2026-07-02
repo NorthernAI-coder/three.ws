@@ -171,3 +171,115 @@ export function buildRoster(seededAgents, cfg) {
 
 	return specs.slice(0, cfg.maxCitizens);
 }
+
+
+// ── World-seed: real rigged agents become citizens ───────────────────────────
+// The Commons fills from the platform's own 3D agents that carry a rigged
+// humanoid GLB (store.listRiggedSeedAgents). Each becomes a citizen with its REAL
+// avatar and a profession mapped from its real signals. Presence needs no on-chain
+// PDA (agenc_agent_pda stays null until the funded life-engine registers it), so
+// the world can be alive immediately without spending SOL.
+
+// Deterministic 32-bit FNV-1a over a string, stable across runs/processes so an
+// agent's default profession never flips between seeds.
+function hashStr(str) {
+	let h = 0x811c9dc5;
+	const s = String(str || '');
+	for (let i = 0; i < s.length; i++) {
+		h ^= s.charCodeAt(i);
+		h = Math.imul(h, 0x01000193);
+	}
+	return h >>> 0;
+}
+
+// Craft professions (everything but the universal Fetcher): the palette a
+// signal-less agent is spread across so the Commons reads as a varied labour
+// market. Every craft is backed by a real platform skill (work/*.js), so the
+// assignment is a JOB, never a fabricated capability.
+const CRAFTS = ['sculptor', 'scribe', 'cartographer', 'crier', 'appraiser', 'namekeeper', 'verifier'];
+
+// Real-signal to profession, checked before the deterministic spread so an agent
+// that actually carries a signal works the matching craft.
+const SIGNAL_PROFESSION = [
+	[/voice|audio|music|speech|sing|podcast|narrat|entertain/i, 'crier'],
+	[/design|3d|model|sculpt|render|\bart\b|avatar|blender|mesh/i, 'sculptor'],
+	[/scene|\bmap\b|world|diorama|architect|spatial|environment/i, 'cartographer'],
+	[/market|token|trad|finance|invest|intel|analy|\bdao\b|governance|defi|price/i, 'appraiser'],
+	[/name|\bens\b|domain|registr|resolver/i, 'namekeeper'],
+	[/verif|audit|proof|security|moderat|fact.?check/i, 'verifier'],
+	[/research|writ|summar|translat|academic|scribe|author|essay|\bdoc/i, 'scribe'],
+];
+
+/**
+ * Map a real agent to the Agora profession it works. Grounded in the agent's own
+ * signals (category/tags/name to a matching craft); a signal-less agent is spread
+ * deterministically across every profession by a stable hash of its id, so the
+ * world is colourful and balanced without inventing anything.
+ */
+export function professionForAgent(agent) {
+	// NB: voice is a platform default on every agent, so it is NOT a signal — a
+	// citizen only works Crier when its category/tags/name actually say audio/voice.
+	const hay = [agent.category, ...(Array.isArray(agent.tags) ? agent.tags : []), agent.name]
+		.filter(Boolean)
+		.join(' ');
+	for (const [re, prof] of SIGNAL_PROFESSION) if (re.test(hay)) return prof;
+	// Signal-less: even deterministic spread across ALL professions (including the
+	// universal Fetcher) so the Commons reads as a balanced labour market.
+	const all = PROFESSIONS.map((p) => p.key);
+	return all[hashStr(agent.id) % all.length];
+}
+
+// Fan citizens out around their home district (golden-angle scatter on growing
+// rings) so a full Commons reads as a crowd, not six stacks of avatars.
+function scatteredHome(i) {
+	const d = DISTRICTS[i % DISTRICTS.length];
+	const ring = Math.floor(i / DISTRICTS.length);
+	const ang = (i * 2.399963) % (Math.PI * 2);
+	const r = 2 + ring * 1.7;
+	const round = (n) => Math.round(n * 100) / 100;
+	return { name: d.name, x: round(d.x + Math.cos(ang) * r), z: round(d.z + Math.sin(ang) * r) };
+}
+
+/**
+ * Shape a real rigged agent (a row from store.listRiggedSeedAgents) into a world-
+ * seed citizen spec. Its canonical AgenC id is derived from a per-agent handle
+ * (name + short id, so same-named agents stay distinct on-chain); avatarUrl is the
+ * avatar UUID the client resolves to the real GLB via /api/avatars/:id. Profession
+ * is its mapped craft PLUS the universal Fetcher bit (so it can always take work).
+ */
+export function shapeRiggedSeed(agent, i) {
+	const home = scatteredHome(i);
+	const base = slug(agent.name) || `agent-${String(agent.id).slice(0, 8)}`;
+	const handle = `${base}-${String(agent.id).replace(/-/g, '').slice(0, 6)}`;
+	const ref = { handle };
+	if (agent.erc8004_agent_id != null) ref.erc8004AgentId = String(agent.erc8004_agent_id);
+	const prof = professionForAgent(agent);
+	const avatarId = agent.avatar_id ? String(agent.avatar_id) : null;
+	return {
+		key: `agent-${handle}`,
+		kind: 'agent',
+		displayName: agent.name,
+		profession: prof,
+		professionBits: professionBits([prof, 'fetcher']),
+		home,
+		agentDbId: agent.id,
+		avatarId,
+		avatarUrl: avatarId,
+		identityRef: ref,
+		identityHint: `rigged:${agent.id}`,
+	};
+}
+
+/** Shape a page of rigged agents into world-seed citizen specs (de-duped by key). */
+export function buildWorldSeedRoster(agents, cfg) {
+	const specs = [];
+	const seen = new Set();
+	const cap = cfg && cfg.seedLimit ? cfg.seedLimit : Infinity;
+	for (let i = 0; i < (agents || []).length && specs.length < cap; i++) {
+		const spec = shapeRiggedSeed(agents[i], specs.length);
+		if (!spec.agentDbId || seen.has(spec.key)) continue;
+		seen.add(spec.key);
+		specs.push(spec);
+	}
+	return specs;
+}

@@ -33,11 +33,10 @@ import {
 	PlaneGeometry, BoxGeometry, CylinderGeometry,
 	CanvasTexture, SRGBColorSpace, DoubleSide, Vector3,
 } from 'three';
+import { createAgentScreenClient } from '../shared/agent-screen-client.js';
 
 const ACTIVITY_URL = (id) =>
 	`/api/agent-actions?agent_id=${encodeURIComponent(id)}&limit=12`;
-const FRAME_SSE_URL = (id) =>
-	`/api/agent/screen-stream?agentId=${encodeURIComponent(id)}`;
 
 const NEAR_DIST   = 8;    // units — player proximity to activate
 const POLL_MS     = 4000; // activity poll interval (far)
@@ -308,29 +307,33 @@ export function createAgentDesk(scene, agent, opts = {}) {
 	let pollTimer  = null;
 	let acc        = 0;
 	let t          = 0;
-	let es         = null;
 
 	// Initial paint so the screen isn't blank before the first fetch.
 	paintDesk(ctx, tex, [], 'idle', agent.agentName || 'Agent', 0);
 
-	function connectSSE() {
-		if (es) { try { es.close(); } catch { /* */ } }
-		es = new EventSource(FRAME_SSE_URL(agent.agentId));
-		es.onmessage = (e) => {
-			let msg;
-			try { msg = JSON.parse(e.data); } catch { return; }
-			if (msg.type === 'frame') {
+	// Same stream the 2D watch panel and the live wall use. Frames arrive as
+	// `event: frame` with `data` holding a full data URL (or null for text-only
+	// beats); `event: log` backfills activity oldest-first; `event: dark` fires
+	// when the caster's frame TTL lapses. Reconnect/backoff lives in the client.
+	const screenClient = createAgentScreenClient(agent.agentId, {
+		onFrame(frame) {
+			status = 'live';
+			if (typeof frame?.data === 'string' && frame.data.startsWith('data:image/')) {
 				const img = new Image();
 				img.onload = () => { frameImg = img; };
-				img.src = 'data:image/png;base64,' + msg.frame;
-				status = 'live';
+				img.src = frame.data;
 			}
-			if (msg.type === 'activity') {
-				actions = msg.actions || [];
-			}
-		};
-		es.onerror = () => { status = 'idle'; };
-	}
+		},
+		onLog(entries) {
+			if (!entries?.length) return;
+			// paintDesk expects newest-first rows shaped like agent-actions.
+			actions = entries
+				.map((e) => ({ ts: e.ts, summary: e.activity, type: e.type }))
+				.reverse();
+		},
+		onDark() { status = 'idle'; frameImg = null; },
+		onError() { status = 'idle'; },
+	});
 
 	async function fetchActivity() {
 		if (destroyed) return;
@@ -365,7 +368,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 		} catch { /* */ }
 	}
 
-	connectSSE();
+	screenClient.connect();
 	fetchActivity();
 
 	// ── public API ────────────────────────────────────────────────────────────
@@ -415,7 +418,7 @@ export function createAgentDesk(scene, agent, opts = {}) {
 		dispose() {
 			destroyed = true;
 			clearTimeout(pollTimer);
-			try { es?.close(); } catch { /* */ }
+			screenClient.disconnect();
 			scene.remove(group);
 			group.traverse((n) => {
 				if (!n.isMesh) return;
