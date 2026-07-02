@@ -68,7 +68,9 @@ class AgoraPlayer {
 		await loadManifest();
 		const url = await resolveAvatarUrl(avatarInput || '');
 		this._anim = newAnim();
-		const { height, fallback } = await buildAvatar(this.rig, url, this._anim);
+		// Locomotion clips only: entering the square must never wait on the full
+		// emote library (dozens of clip downloads) — emotes lazy-load on use.
+		const { height, fallback } = await buildAvatar(this.rig, url, this._anim, { clips: 'locomotion' });
 		this.height = height;
 		this.rig.position.set(SPAWN.x, 0, SPAWN.z);
 		return { url, fallback };
@@ -198,7 +200,7 @@ class RemotePlayers {
 		// Async body load; the entry is live (and lerping) before the GLB lands.
 		(async () => {
 			const anim = newAnim();
-			const { height } = await buildAvatar(group, player.avatar || '', anim);
+			const { height } = await buildAvatar(group, player.avatar || '', anim, { clips: 'locomotion' });
 			if (entry.gone) { disposeObject(group); return; }
 			entry.anim = anim;
 			entry.height = height;

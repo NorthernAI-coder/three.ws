@@ -124,7 +124,13 @@ function headAnchorHeight(box) {
 // Returns { height, fallback }. On failure, drops in a capsule stand-in so the
 // player is never invisible, and flags `fallback: true` so callers can tell the
 // user their model didn't load instead of silently swapping it.
-export async function buildAvatar(rig, url, anim) {
+//
+// opts.clips: 'all' (default — locomotion + every emote, the /city and /play
+// behaviour) or 'locomotion' — idle + walk only. Crowd-scale scenes (the Agora
+// Commons loads a player AND every remote human this way) must not serialize
+// entry behind dozens of emote-clip downloads; emotes still lazy-load on first
+// use via playEmoteClip, which fetches a missing clip on demand.
+export async function buildAvatar(rig, url, anim, opts = {}) {
 	try {
 		await meshoptReady; // ensure meshopt-compressed GLBs (incl. the default) parse
 		const gltf = await _gltf.loadAsync(url);
@@ -139,7 +145,8 @@ export async function buildAvatar(rig, url, anim) {
 		// the idle crossfade can run with no defs and leave the avatar in its raw
 		// T-pose bind pose. loadManifest is idempotent + cached, so this is cheap.
 		if (!_animDefs) await loadManifest();
-		if (_animDefs?.length) { anim.setAnimationDefs(_animDefs); await anim.loadAll(); await anim.crossfadeTo(CLIP_IDLE, 0); }
+		const defs = opts.clips === 'locomotion' ? getLocomotionDefs() : _animDefs;
+		if (defs?.length) { anim.setAnimationDefs(defs); await anim.loadAll(); await anim.crossfadeTo(CLIP_IDLE, 0); }
 		return { height: headAnchorHeight(box), fallback: false };
 	} catch (err) {
 		log.warn('[avatar-rig] avatar load failed, using stand-in:', url, err?.message);

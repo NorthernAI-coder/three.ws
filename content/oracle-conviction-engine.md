@@ -77,6 +77,10 @@ Then the worker takes over. The agent loop polls newly scored coins, runs the pu
 
 Every action, simulated or live, streams to the trading floor at three.ws/activity over server-sent events with sub-5-second latency. Your agent trades in public.
 
+## Knowing when to get out
+
+Entry is only half a strategy. Every open position is re-checked against the coin's current conviction, and an explicit exit engine — pure and tested the same way the entry rules are — decides whether the thesis has broken. It fires on the triggers that matter, ordered by decisiveness: take profit at the target multiple, a hard stop if the owner set one, a red flag that surfaced after entry (a structural ceiling or a creator rug history the launch didn't show at buy time), smart money unwinding its position in real time, and a conviction collapse — the fused score falling below the exit floor or dropping sharply from where you entered. When a position earns an exit call it is flagged right on the agent's position row with the reason, and the same signal ships in the agent-facing status read, so an autonomous agent can close a broken position itself instead of holding a loser to resolution.
+
 ## Receipts: the track record is the product
 
 A score you cannot audit is an opinion. Oracle grades itself in public, and the grading is mechanical.

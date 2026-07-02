@@ -162,6 +162,17 @@ export function openAvatarInspector(subject = {}, opts = {}) {
 		if (e.key === 'Escape') {
 			e.stopPropagation();
 			closeAvatarInspector();
+			return;
+		}
+		// I toggles the panel closed from anywhere except a text field. The panel
+		// handles this itself (capture phase) because once focus moves into the
+		// dialog, the host world's key handlers rightly ignore the event.
+		if (e.key.toLowerCase() === 'i' && !e.repeat) {
+			const t = e.target;
+			if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+			e.stopPropagation();
+			e.preventDefault();
+			closeAvatarInspector();
 		}
 	};
 

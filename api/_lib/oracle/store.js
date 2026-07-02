@@ -9,6 +9,7 @@ import { assembleIntel, walletProfile, coinOutcome } from './sources.js';
 import { classifyNarrative } from './narrative.js';
 import { convict } from './conviction.js';
 import { summarizeActions } from './settle.js';
+import { evaluateExit } from './exit.js';
 import { knownWallet } from './known-wallets.js';
 import { QUOTE_MINT_LIST, isQuoteMint } from '../quote-mints.js';
 
@@ -386,11 +387,12 @@ export async function purgeQuoteMints(network = 'mainnet') {
 }
 
 export async function recentActions(agentId, network = 'mainnet', limit = 50) {
-	return sql`
+	const rows = await sql`
 		select a.mint, a.symbol, a.conviction, a.tier, a.mode, a.size_sol, a.status, a.reason,
 		       a.tx_signature, a.peak_multiple, a.realized_pnl_sol, a.outcome, a.acted_at,
 		       oc.score  as current_score,
-		       oc.tier   as current_tier
+		       oc.tier   as current_tier,
+		       oc.badges as current_badges
 		from oracle_watch_actions a
 		left join oracle_conviction oc
 		       on oc.mint = a.mint and oc.network = a.network
@@ -398,6 +400,24 @@ export async function recentActions(agentId, network = 'mainnet', limit = 50) {
 		where a.agent_id = ${agentId} and a.network = ${network}
 		order by a.acted_at desc limit ${Math.min(100, Math.max(1, limit))}
 	`.catch(() => []);
+
+	// Attach an exit signal to open positions whose thesis has since broken —
+	// completing the loop the entry-only agent leaves open. Uses the coin's current
+	// cached verdict (score, tier, badges); the live market multiple isn't joined
+	// here, so profit/stop triggers stay dormant and only the conviction/red-flag
+	// triggers fire from this read.
+	return rows.map((r) => {
+		const isOpen = !r.outcome || r.outcome === 'open';
+		let exit_signal = null;
+		if (isOpen && r.current_score != null) {
+			const sig = evaluateExit({
+				position: { entryConviction: r.conviction, entryTier: r.tier },
+				current: { score: r.current_score, tier: r.current_tier, badges: r.current_badges || [] },
+			});
+			if (sig.exit) exit_signal = { trigger: sig.trigger, reason: sig.reason, urgency: sig.urgency };
+		}
+		return { ...r, exit_signal };
+	});
 }
 
 /** Agent win-rate summary across all its actions. */

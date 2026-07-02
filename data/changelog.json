@@ -3,6 +3,15 @@
   "entries": [
     {
       "date": "2026-07-02",
+      "title": "Oracle now tells your agent when to get out, not just when to get in",
+      "summary": "Oracle's agent loop was entry-only — it decided what to buy, then held every position until the coin resolved, win or lose. It now manages the exit too. Every open position is re-checked against the coin's live conviction, and a new exit engine flags when the thesis has broken: the position hit its take-profit multiple, a red flag surfaced that wasn't there at entry (a bundle structure or a creator rug history), smart money started unwinding, or conviction collapsed below your floor. The call shows up right on the position row with the reason, and it ships in the agent-facing status read too, so an autonomous agent can close a broken position itself instead of riding it to zero.",
+      "tags": [
+        "feature"
+      ],
+      "link": "/oracle/docs"
+    },
+    {
+      "date": "2026-07-02",
       "title": "Oracle now tells you how much a score can be trusted",
       "summary": "Every conviction verdict now ships a data-confidence reading — a 0–100 score of how much of the read rests on real observed data versus defaulted inputs, weighted the same way the four pillars are. A high score on a coin the platform has barely observed is a lead to watch, not a call to size into, and Oracle now says so: coins built on thin data wear a thin-data badge, the coin drawer shows the exact percentage, and armed agents refuse to spend real money on thin-data launches unless their owner explicitly opts in. Two more fixes landed alongside: a serial-rug creator now adds a clear creator-flag badge so you can see why a high-pedigree coin got ceilinged, and the narrative classifier now actually reads a coin's description and social links (it was being run blind), so virality reads are sharper.",
       "tags": [
