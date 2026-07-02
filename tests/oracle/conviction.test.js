@@ -214,6 +214,28 @@ describe('convict (fusion)', () => {
 		expect(convict(primeIntel).score).toBe(convict(primeIntel).score);
 	});
 
+	it('reports high confidence on a fully-populated intel and low on an empty one', () => {
+		const full = convict(primeIntel);
+		expect(full.confidence).toBeGreaterThanOrEqual(70);
+		expect(full.confidenceLabel).toBe('high');
+		expect(full.badges).not.toContain('thin-data');
+
+		const empty = convict({});
+		expect(empty.confidence).toBeLessThan(45);
+		expect(empty.confidenceLabel).toBe('low');
+		expect(empty.badges).toContain('thin-data');
+	});
+
+	it('a serial-rugger creator adds a pedigree-flag badge (not structure-flag)', () => {
+		const v = convict({
+			...primeIntel,
+			creator: { wallet: 'c', label: null, launches: 5, launchWins: 0 },
+		});
+		expect(v.badges).toContain('pedigree-flag');
+		expect(v.pedigreeCap).toBeLessThanOrEqual(45);
+		expect(v.badges).not.toContain('structure-flag'); // clean structure — cap came from pedigree
+	});
+
 	it('an empty intel object does not throw and reads low', () => {
 		const v = convict({});
 		expect(v.score).toBeGreaterThanOrEqual(0);

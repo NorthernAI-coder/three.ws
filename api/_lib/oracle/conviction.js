@@ -129,7 +129,23 @@ export function pedigreeScore(sm = {}, creator = {}) {
 		score -= 8; reasons.push(`creator dumps ${Math.round(creatorDump * 100)}% of their launches`);
 	}
 
-	return { score: clamp(score), reasons, cap };
+	// Coverage: how much of this pillar's input was actually present vs. defaulted.
+	// A verdict built on empty pedigree data is a guess, not a read — the caller
+	// fuses these into an overall confidence so thin-data coins are flagged.
+	const coverage = fracPresent([
+		Number.isFinite(num(sm.score, NaN)),
+		notable.length > 0,
+		total > 0,
+		launches > 0 || !!creator?.label,
+	]);
+
+	return { score: clamp(score), reasons, cap, coverage };
+}
+
+/** Fraction of a boolean checklist that is true (0..1). */
+function fracPresent(checks) {
+	if (!checks.length) return 0;
+	return checks.filter(Boolean).length / checks.length;
 }
 
 /**
@@ -215,7 +231,15 @@ export function structureScore(st = {}) {
 
 	if (reasons.length === 0) reasons.push('clean, distributed launch structure');
 
-	return { score: clamp(score), reasons, cap };
+	const coverage = fracPresent([
+		Number.isFinite(organic),
+		Number.isFinite(bundleScore) || Number.isFinite(top10),
+		Number.isFinite(snipeRatio) || Number.isFinite(freshWalletRatio),
+		uniqueBuyers > 0,
+		topHolderPct > 0 || creatorHoldPct > 0 || funderClusterPct > 0,
+	]);
+
+	return { score: clamp(score), reasons, cap, coverage };
 }
 
 /**
@@ -254,7 +278,11 @@ export function narrativeScore(nv = {}) {
 	if (cat === 'news') reasons.push('riding a live news story — fast but fragile');
 	if (cat === 'unknown') reasons.push('narrative unclassified — treat with caution');
 
-	return { score: clamp(score), reasons };
+	// A real virality read is full coverage; a bare category prior is partial; an
+	// unknown category with no virality is essentially no narrative signal.
+	const coverage = Number.isFinite(virality) ? 1 : (cat !== 'unknown' ? 0.5 : 0.2);
+
+	return { score: clamp(score), reasons, coverage };
 }
 
 /**
@@ -290,7 +318,14 @@ export function momentumScore(bh = {}) {
 	}
 
 	if (reasons.length === 0) reasons.push('no clear momentum yet — too early');
-	return { score: clamp(score), reasons };
+
+	const coverage = fracPresent([
+		buys + sells > 0,
+		earlyBuyers > 0,
+		Number.isFinite(devBuy),
+	]);
+
+	return { score: clamp(score), reasons, coverage };
 }
 
 /**
@@ -303,7 +338,9 @@ export function momentumScore(bh = {}) {
  *   score:number, tier:string, tierLabel:string,
  *   pillars:{pedigree:number,structure:number,narrative:number,momentum:number},
  *   weights:typeof WEIGHTS,
- *   reasons:string[], badges:string[], structureCap:number
+ *   reasons:Array<{pillar:string,text:string}>, badges:string[],
+ *   structureCap:number, pedigreeCap:number,
+ *   confidence:number, confidenceLabel:'high'|'medium'|'low'
  * }}
  */
 export function convict(intel = {}) {
@@ -335,12 +372,30 @@ export function convict(intel = {}) {
 
 	const tier = TIERS.find((t) => score >= t.min) || TIERS[TIERS.length - 1];
 
+	// Confidence: how much of the verdict rests on real data vs. defaulted inputs.
+	// Weighted by the same pillar weights so a missing high-weight pillar (pedigree)
+	// costs more confidence than a missing light one (narrative). A high score built
+	// on thin data is a lead to watch, not a call to size into — this makes that
+	// explicit instead of letting a half-empty intel masquerade as a strong read.
+	const coverage =
+		ped.coverage * WEIGHTS.pedigree +
+		str.coverage * WEIGHTS.structure +
+		nar.coverage * WEIGHTS.narrative +
+		mom.coverage * WEIGHTS.momentum;
+	const confidence = clamp(Math.round(coverage * 100));
+	const confidenceLabel = confidence >= 70 ? 'high' : confidence >= 45 ? 'medium' : 'low';
+
 	// Badges: compact, high-signal flags for cards (the UI renders these as pills).
 	const badges = [];
 	if (num(intel.smartMoney?.smartWalletCount) >= 3) badges.push('smart-money');
 	if (str.cap < 50) badges.push('structure-flag');
+	// A serial-rugger creator ceilinged the score via pedigree, not structure — the
+	// old structure-flag badge missed this case, so the card gave no reason why a
+	// high-pedigree coin got capped. Surface it explicitly.
+	if (ped.cap < 50) badges.push('pedigree-flag');
 	if (String(intel.narrative?.category).toLowerCase() === 'news') badges.push('news');
 	if (pillars.momentum >= 72) badges.push('momentum');
+	if (confidence < 45) badges.push('thin-data');
 	if (score >= 86) badges.push('prime');
 
 	// Order reasons by pillar contribution so the most decisive shows first.
@@ -358,6 +413,9 @@ export function convict(intel = {}) {
 		pillars,
 		weights: WEIGHTS,
 		structureCap: str.cap,
+		pedigreeCap: ped.cap,
+		confidence,
+		confidenceLabel,
 		reasons,
 		badges,
 	};

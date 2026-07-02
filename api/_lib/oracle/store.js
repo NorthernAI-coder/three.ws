@@ -44,7 +44,7 @@ export async function upsertConviction({ mint, network, intel, verdict }) {
 			${verdict.score}, ${verdict.tier}, ${verdict.pillars.pedigree}, ${verdict.pillars.structure},
 			${verdict.pillars.narrative}, ${verdict.pillars.momentum}, ${verdict.structureCap},
 			${JSON.stringify(verdict.badges)}::jsonb, ${JSON.stringify(verdict.reasons)}::jsonb,
-			${JSON.stringify(componentSummary(intel))}::jsonb, ${intel.category || null},
+			${JSON.stringify(componentSummary(intel, verdict))}::jsonb, ${intel.category || null},
 			${intel.smartMoney?.smartWalletCount || 0}, ${intel.createdAt || null}, now()
 		)
 		on conflict (mint, network) do update set
@@ -73,8 +73,10 @@ export async function upsertConviction({ mint, network, intel, verdict }) {
 	}
 }
 
-// Compact audit trail of the normalized inputs that produced a verdict.
-function componentSummary(intel) {
+// Compact audit trail of the normalized inputs that produced a verdict, plus the
+// verdict's data-confidence so the coin view can show how much of the read rests
+// on real data vs. defaulted inputs (no dedicated column needed).
+function componentSummary(intel, verdict) {
 	return {
 		pedigree: intel.smartMoney,
 		structure: intel.structure,
@@ -82,6 +84,9 @@ function componentSummary(intel) {
 		behavior: intel.behavior,
 		quality: intel.qualityScore,
 		risk_flags: intel.riskFlags,
+		confidence: verdict?.confidence ?? null,
+		confidence_label: verdict?.confidenceLabel ?? null,
+		pedigree_cap: verdict?.pedigreeCap ?? null,
 	};
 }
 
@@ -104,7 +109,13 @@ export async function scoreCoin(mint, { network = 'mainnet', classify = true, pe
 	if (classify && (intel.narrative?.virality == null)) {
 		const narr = await classifyNarrative({
 			name: intel.name, symbol: intel.symbol,
-			description: intel.components?.description, // may be undefined; classifier tolerates
+			// The description lives on intel.social (set by toCoinIntel); the old
+			// intel.components path never existed, so the classifier was always run
+			// blind. Thread the real off-chain signal (description + links) through.
+			description: intel.social?.description,
+			twitter: intel.social?.twitter,
+			telegram: intel.social?.telegram,
+			website: intel.social?.website,
 		});
 		if (persist) { try { await upsertNarrative(mint, network, narr); } catch { /* non-fatal */ } }
 		intel = { ...intel, narrative: narr, category: narr.category };

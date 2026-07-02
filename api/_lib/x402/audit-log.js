@@ -19,6 +19,47 @@
 import { sql } from '../db.js';
 import { withDbRetry } from '../db-retry.js';
 
+// This is best-effort telemetry on a fire-and-forget path: the payment has
+// already been decided and the response sent by the time this runs. So a write
+// must FAIL FAST against a slow/saturated DB rather than burn the full default
+// 15s retry budget — a healthy single-row INSERT settles in well under a second,
+// so this window still absorbs a transient connection blip, but a genuinely
+// saturated Neon (the production failure mode) abandons the write in ~3s instead
+// of holding a Neon HTTP connection open for 15s. That distinction matters
+// because dance-tip traffic queues one of these per request: at 15s each they
+// pile up and worsen the exact saturation that's making them fail. Tunable via
+// X402_AUDIT_WRITE_TIMEOUT_MS for a deploy that wants more durability headroom.
+function auditWriteTimeoutMs() {
+	const raw = Number.parseInt(String(process.env.X402_AUDIT_WRITE_TIMEOUT_MS ?? ''), 10);
+	if (Number.isFinite(raw) && raw >= 500 && raw <= 15_000) return raw;
+	return 3_000;
+}
+
+// Throttle the failure log. A saturated DB fails EVERY write in the degraded
+// window, and on a hot route like /api/x402/dance-tip that emitted dozens of
+// identical error lines per minute — the flood seen in the production log export.
+// Collapse repeats to one line per window with a suppressed-count digest so a
+// sustained outage stays visible without drowning the error stream.
+const AUDIT_WARN_THROTTLE_MS = 60_000;
+let _auditWarn = { lastAt: 0, suppressed: 0 };
+
+function logAuditFailure(event, err) {
+	const now = Date.now();
+	if (now - _auditWarn.lastAt < AUDIT_WARN_THROTTLE_MS) {
+		_auditWarn.suppressed++;
+		return;
+	}
+	const tail = _auditWarn.suppressed > 0
+		? ` (+${_auditWarn.suppressed} more in last ${Math.round((now - _auditWarn.lastAt) / 1000)}s)`
+		: '';
+	console.error('[x402-audit] insert failed', {
+		eventType: event.eventType,
+		route: event.route,
+		error: err?.message,
+	}, tail);
+	_auditWarn = { lastAt: now, suppressed: 0 };
+}
+
 /**
  * Fire-and-forget audit log write. Swallows all errors.
  *
@@ -63,13 +104,9 @@ export function logPaymentEvent(event) {
 					 ${event.ipAddress ?? null},
 					 ${event.userAgent ?? null},
 					 ${event.metadata ? JSON.stringify(event.metadata) : null})
-			`);
+			`, { timeoutMs: auditWriteTimeoutMs() });
 		} catch (err) {
-			console.error('[x402-audit] insert failed', {
-				eventType: event.eventType,
-				route: event.route,
-				error: err?.message,
-			});
+			logAuditFailure(event, err);
 		}
 	});
 }
