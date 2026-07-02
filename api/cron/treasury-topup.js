@@ -10,7 +10,7 @@
 // Safe by construction:
 //   • Inert until ECONOMY_MASTER_SECRET_BASE58 is set — with no master it does
 //     nothing (relayer-balance-check keeps alerting), so shipping it is a no-op
-//     until the operator funds wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW.
+//     until the operator funds WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW.
 //   • Only ever pays pubkeys derived from SOLANA_SIGNERS (the registry is the
 //     allowlist). The master never trades, launches, or settles.
 //   • Reserve floor + per-engine cap + per-run cap (see economy-master.js) bound

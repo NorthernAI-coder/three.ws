@@ -115,6 +115,41 @@ export function resolveBuildingCollision(nx, ny, nz, boxes, radius = PLAYER_RADI
 }
 
 /**
+ * Is a point clear of every building (outside all AABBs by at least `margin`)?
+ * The OSM Manhattan substrate is dense, so a naive spawn can land inside a tower.
+ */
+export function isOpenGround(x, z, boxes, margin = PLAYER_RADIUS + 0.2) {
+	for (const b of boxes || []) {
+		if (x > b.minX - margin && x < b.maxX + margin && z > b.minZ - margin && z < b.maxZ + margin) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * Find an open standing point near a desired spawn: spiral outward (golden-angle,
+ * so samples never line up with a street grid and miss every gap) until a point
+ * clear of all buildings is found. Falls back to the desired point if the whole
+ * search is walled (a degenerate map) — the player is never left unplaced.
+ * Pure: no Three.js, so it's unit-tested with plain AABBs.
+ *
+ * @returns {{x:number, z:number}}
+ */
+export function findOpenSpawn(desired, boxes, { maxRadius = 60, step = 0.7 } = {}) {
+	if (isOpenGround(desired.x, desired.z, boxes)) return { x: desired.x, z: desired.z };
+	const GOLDEN = 2.399963229728653;
+	for (let i = 1; i * step < maxRadius; i++) {
+		const r = step * Math.sqrt(i);
+		const a = i * GOLDEN;
+		const x = desired.x + Math.cos(a) * r;
+		const z = desired.z + Math.sin(a) * r;
+		if (isOpenGround(x, z, boxes)) return { x, z };
+	}
+	return { x: desired.x, z: desired.z };
+}
+
+/**
  * The single nearest interactable within reach — drives the "press E" prompt.
  * Candidates carry {id, kind, x, z, ...} (kind: 'citizen' | 'board' | …);
  * the caller shapes the prompt from the winner's fields. Deterministic

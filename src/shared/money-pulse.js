@@ -243,7 +243,7 @@ function rowEl(ev) {
 	const k = KIND_META[ev.kind] || KIND_META.trade;
 	const a = document.createElement('a');
 	a.className = `mp-row ${k.cls}`;
-	a.href = ev.agent?.url || (ev.mint ? `/launches/${ev.mint}` : '#');
+	a.href = ev.agent?.url || (ev.mint ? `/oracle/coin/${ev.mint}` : '#');
 	a.dataset.id = ev.id;
 	a.setAttribute('aria-label', `${ev.agent?.name || 'Agent'} ${k.verb} — ${timeAgo(ev.ts)}`);
 
@@ -322,7 +322,7 @@ function tickEl(ev) {
 	const k = KIND_META[ev.kind] || KIND_META.trade;
 	const a = document.createElement('a');
 	a.className = `mp-tick ${k.cls}`;
-	a.href = ev.agent?.url || (ev.mint ? `/launches/${ev.mint}` : '/pulse');
+	a.href = ev.agent?.url || (ev.mint ? `/oracle/coin/${ev.mint}` : '/pulse');
 	const amt = fmtAmount(ev);
 	a.innerHTML =
 		`<span class="mp-glyph" aria-hidden="true">${k.glyph}</span>` +

@@ -38,7 +38,7 @@ export const SOLANA_SIGNERS = [
 		minSol: 1,
 		isMaster: true,
 		purpose:
-			'economy funding root (wwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW): auto-tops-up every other engine signer below its floor. Funder-only — never trades, launches, or settles.',
+			'economy funding root (WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW): auto-tops-up every other engine signer below its floor. Funder-only — never trades, launches, or settles.',
 		network: 'mainnet',
 	},
 	{

@@ -2,7 +2,9 @@
 
 Companion to [`api/_lib/solana-signers.js`](../../api/_lib/solana-signers.js) (the machine-readable registry) and the two operator scripts below. Keep this file in sync with that registry.
 
-three.ws has **no single "master wallet" env var**. Every autonomous engine loads its own Solana keypair from its own env var and pays fees / rent / spend from that wallet. If a wallet runs dry, its flow stops — often silently. This doc lists every signer, what it pays for, the encoding its env var expects, and how to fund or consolidate them.
+Every autonomous engine loads its own Solana keypair from its own env var and pays fees / rent / spend from that wallet. If a wallet runs dry, its flow stops — often silently. This doc lists every signer, what it pays for, the encoding its env var expects, and how to fund or consolidate them.
+
+There **is** a single funding root: the **economy master** (`ECONOMY_MASTER_SECRET_BASE58`, `WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW` — note the capital leading `W`). It is funder-only (never trades or settles), and the [`treasury-topup`](../../api/cron/treasury-topup.js) cron auto-tops-up every engine below its floor from it every 30 min, fee-minimized and allowlist-guarded so SOL can only reach a registry wallet. Full subsystem doc: [`docs/economy-master.md`](../../docs/economy-master.md). It is inert until its secret is set, so the per-engine funding below still applies.
 
 ## The signers
 
@@ -10,6 +12,7 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 
 | Env var | Engine / what it pays for | Enc | Min SOL | Network |
 |---|---|---|---|---|
+| `ECONOMY_MASTER_SECRET_BASE58` | **Funding root** (`WwwuGbq…T3WwW`) — auto-tops-up every other signer below its floor. Funder-only; never a top-up target of itself. See [`docs/economy-master.md`](../../docs/economy-master.md) | base58 | 1.0 | mainnet |
 | `LAUNCHER_MASTER_SECRET_KEY_B64` | Autonomous coin launcher — tops up the next agent's per-launch SOL (deploy + dev-buy) | base64 | 1.0 | mainnet |
 | `PUMP_X402_LAUNCHER_SECRET_KEY_B64` | Fronts the ~0.022 SOL deploy cost for x402 pay-per-call pump.fun launches | base64 | 0.1 | mainnet |
 | `PUMP_CRON_RELAYER_SECRET_KEY_B64` | Fees + swap gas for the buyback and distribute-payments crons | base64 | 0.1 | both |
@@ -32,7 +35,7 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 ## Two funding models
 
 - **A — one wallet is every signer.** Put the same secret into every var above. Fast; one balance and one hot key serve everything. Blast radius: if that key leaks, all engines drain; engines compete for one balance. Use [`scripts/wire-master-wallet.mjs`](../../scripts/wire-master-wallet.mjs).
-- **B — cold master funds per-engine hot wallets.** Keep the master as a treasury source and top up each engine's own small hot wallet below a floor (the pattern `LABOR_ESCROW` and the sniper auto-funder already use via `PLATFORM_TREASURY_KEYPAIR`). Safer, but there is no universal master→engine top-up cron yet.
+- **B — cold master funds per-engine hot wallets.** Keep the master as a treasury source and top up each engine's own small hot wallet below a floor. This is now automated: the **economy master** (`ECONOMY_MASTER_SECRET_BASE58`) + the [`treasury-topup`](../../api/cron/treasury-topup.js) cron are the universal master→engine top-up loop — reserve-floor, per-engine, and per-run guarded, and allowlisted to registry wallets only. Set that secret to enable it. `LABOR_ESCROW` and the sniper auto-funder also self-fund via `PLATFORM_TREASURY_KEYPAIR`.
 
 **Funding a wallet does not enable an engine.** Most engines also need their own flag (`CIRCULATION_ENABLED`, `THREE_BUYBACK_ENABLED`, `SOLANA_AUTODEPLOY_ENABLED`, …). EVM engines use separate keys (`EVM_TREASURY_PRIVATE_KEY`, `CIRCULATION_EVM_TREASURY_SECRET`).
 
@@ -47,6 +50,8 @@ Encodings: `base64` = base64 of the 64 raw secret-key bytes (`…_B64` vars); `b
 | `WwwuGbqHrwF5…T3WwW` (capital W) | platform treasury + revenue/payouts (funded ~10 SOL + USDC) | `PLATFORM_TREASURY_KEYPAIR`, `MARKETPLACE_PAYER_KEYPAIR`, `THREE_BUYBACK_SECRET_KEY_B64`, `CLUB_SOLANA_TREASURY_SECRET_KEY_B64`, `VANITY_BOUNTY_PAYOUT_KEY`, `REWARDS_DISTRIBUTOR_SECRET` |
 
 `LABOR_ESCROW_SECRET_BASE58` is already **live** on its own wallet — the tool skips it unless you pass `--include-live` (rerouting strands any escrowed funds; migrate balances first). `SOLANA_AGENT_COLLECTION_AUTHORITY_KEY` is never touched.
+
+> **`WwwuGbq…T3WwW` plays two roles.** It is both the **economy master** funding root (`ECONOMY_MASTER_SECRET_BASE58`, `isMaster` in the registry) and, in the consolidation split above, the wallet whose key backs several payout slots (`PLATFORM_TREASURY_KEYPAIR`, `THREE_BUYBACK…`, `CLUB_SOLANA_TREASURY…`, etc.). That is consistent — the master holds those payout funds directly — but note the consequence: because those slots resolve to the master's own pubkey, the `treasury-topup` sweep will never "top them up" (a wallet cannot fund itself; the allowlist rejects it as `is_master`). They spend from the master's balance directly. If you want any of those payout flows on a *separate* hot wallet that the master keeps topped up, give it its own key rather than reusing the master's.
 
 ```bash
 # 1. Put each wallet's secret in its own local file (base58 / base64 / JSON array).

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-02T23:29:56.799Z",
+	"generated_at": "2026-07-02T23:38:29.949Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -98,6 +98,18 @@
 			"link": "/oracle",
 			"tags": [
 				"feature"
+			]
+		},
+		{
+			"date": "2026-07-02",
+			"type": "update",
+			"title": "Hardened the economy's funding wallet so SOL can only reach platform wallets",
+			"summary": "The platform runs a single master wallet that keeps every autonomous engine — x402 agent-to-agent payments, tips, coin launches — topped up with just enough SOL to operate. We tightened it so it can never leak funds: the funding wallet now enforces, in code, that SOL only ever moves to a wallet the platform holds the key for, never to an outside address and never to itself. There is no charity or user-payout path on it. It also always sends at the lowest available network fee, keeps a protected reserve, and caps how much can move per engine and per run. We also corrected the wallet address it was pinned to (a single-character case difference had it pointing at an empty account) and documented the whole system.",
+			"link": null,
+			"tags": [
+				"security",
+				"infra",
+				"docs"
 			]
 		},
 		{

@@ -350,6 +350,92 @@
 			<div class="mkt-src">Live · pumpfun — full metrics populate once it lists on a DEX</div>`;
 	}
 
+	// ── price chart ────────────────────────────────────────────────────────────
+	// A TradingView-grade candlestick view via the DexScreener embed (keyed by the
+	// mint, resolves the most-liquid pair itself), plus a native SVG line chart from
+	// /api/pump/price-history for coins still on the bonding curve with no DEX pair.
+	const CHART_KEY = 'oc_chart_view';
+
+	function dexEmbedUrl(mint) {
+		const theme = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+		const p = new URLSearchParams({ embed: '1', loadChartSettings: '0', theme, chartTheme: theme, chartType: 'usd', interval: '15', info: '0' });
+		return `https://dexscreener.com/solana/${encodeURIComponent(mint)}?${p}`;
+	}
+
+	function areaChartSvg(points) {
+		const w = 720, h = 240, volH = 38, priceH = h - volH, pad = { t: 12, r: 8, b: 4, l: 8 };
+		const closes = points.map((p) => p.c), vols = points.map((p) => p.v || 0);
+		const min = Math.min(...closes), max = Math.max(...closes), span = (max - min) || max || 1, maxVol = Math.max(...vols) || 1;
+		const innerW = w - pad.l - pad.r, innerH = priceH - pad.t - pad.b;
+		const x = (i) => pad.l + (i / Math.max(1, points.length - 1)) * innerW;
+		const y = (v) => pad.t + innerH - ((v - min) / span) * innerH;
+		const up = points.length > 1 && closes[closes.length - 1] >= closes[0];
+		const col = up ? 'var(--up)' : 'var(--down)';
+		const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.c).toFixed(1)}`).join(' ');
+		const area = `${line} L${x(points.length - 1).toFixed(1)} ${(priceH - pad.b).toFixed(1)} L${x(0).toFixed(1)} ${(priceH - pad.b).toFixed(1)} Z`;
+		const barW = Math.max(1, (innerW / points.length) * 0.6);
+		const bars = points.map((p, i) => {
+			const bh = Math.max(1, (p.v / maxVol) * (volH - 6)), bx = x(i) - barW / 2, by = h - bh - 2;
+			return `<rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${p.c >= p.o ? 'var(--up)' : 'var(--down)'}" opacity="0.45"/>`;
+		}).join('');
+		return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" class="oc-chart-svg" role="img" aria-label="Price history chart" style="color:${col}">
+			<defs><linearGradient id="ocgrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="currentColor" stop-opacity="0.25"/><stop offset="100%" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs>
+			${bars}
+			<line x1="${pad.l}" y1="${priceH}" x2="${w - pad.r}" y2="${priceH}" stroke="var(--line)" stroke-width="1"/>
+			<path d="${area}" fill="url(#ocgrad)" stroke="none"/>
+			<path d="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+		</svg>`;
+	}
+
+	async function loadNativeChart(canvas, mint) {
+		canvas.innerHTML = '<div class="oc-chart-skel"></div>';
+		const to = Math.floor(Date.now() / 1000), from = to - 36 * 3600;
+		const { ok, data } = await api(`/api/pump/price-history?mint=${encodeURIComponent(mint)}&interval=15m&from=${from}&to=${to}`, { timeout: 12000 });
+		const pts = ((data && data.data) || []).filter((p) => Number.isFinite(p.c));
+		if (!ok || pts.length < 2) { canvas.innerHTML = '<div class="state" style="padding:34px 0">Chart appears once this coin has trade history.</div>'; return; }
+		const first = pts[0].c, last = pts[pts.length - 1].c;
+		const chg = changeStr(first ? ((last - first) / first) * 100 : 0);
+		canvas.innerHTML = `<div class="oc-chart-readout"><span class="oc-chart-price">${fmtPrice(last)}</span><span class="mkt-${chg.cls}">${chg.txt} · 36h</span></div>${areaChartSvg(pts)}`;
+	}
+
+	function mountChart(container, mint) {
+		let stored = null; try { stored = localStorage.getItem(CHART_KEY); } catch {}
+		const preCurve = BOOT.pump && !BOOT.pump.complete; // no DEX pair yet → native by default
+		const view = stored || (preCurve ? 'line' : 'candles');
+		container.innerHTML = `<div class="dr-sec" style="margin-top:0">Price <span style="color:var(--faint);font-weight:400;font-size:10px">live</span></div>
+			<div class="oc-chart-controls">
+				<div class="oc-seg">
+					<button type="button" class="oc-seg-btn${view === 'candles' ? ' on' : ''}" data-view="candles">Candles</button>
+					<button type="button" class="oc-seg-btn${view === 'line' ? ' on' : ''}" data-view="line">Line</button>
+				</div>
+				<a class="dr-act" href="https://dexscreener.com/solana/${encodeURIComponent(mint)}" target="_blank" rel="noopener">DexScreener ↗</a>
+			</div>
+			<div class="oc-chart-canvas" id="ocChartCanvas"></div>`;
+		const canvas = container.querySelector('#ocChartCanvas');
+		let watchdog = 0;
+		function renderCandles() {
+			canvas.classList.remove('ready');
+			canvas.innerHTML = '<div class="oc-chart-skel"></div>';
+			const frame = document.createElement('iframe');
+			frame.className = 'oc-chart-frame';
+			frame.title = 'DexScreener live chart';
+			frame.loading = 'lazy';
+			frame.src = dexEmbedUrl(mint);
+			frame.addEventListener('load', () => { clearTimeout(watchdog); canvas.classList.add('ready'); });
+			canvas.replaceChildren(frame);
+			// Embed blocked / offline → fall back to the native line chart.
+			watchdog = setTimeout(() => { if (!canvas.classList.contains('ready')) loadNativeChart(canvas, mint); }, 9000);
+		}
+		function apply(v) {
+			try { localStorage.setItem(CHART_KEY, v); } catch {}
+			container.querySelectorAll('.oc-seg-btn').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+			clearTimeout(watchdog);
+			if (v === 'candles') renderCandles(); else loadNativeChart(canvas, mint);
+		}
+		container.querySelectorAll('.oc-seg-btn').forEach((b) => b.addEventListener('click', () => apply(b.dataset.view)));
+		if (view === 'candles') renderCandles(); else loadNativeChart(canvas, mint);
+	}
+
 	async function loadSentiment(mint) {
 		const wrap = $('#ocPulse');
 		if (!wrap) return;

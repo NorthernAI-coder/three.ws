@@ -62,21 +62,34 @@ endpoint logic, and issues a signed receipt.
 ## Where payments land
 
 Most endpoints pay the **platform receiver** (`X402_PAY_TO_SOLANA` /
-`X402_PAY_TO_BASE`). Some deliberately override the receiver so the money reaches
-a third party instead — the platform is just the rail:
+`X402_PAY_TO_BASE` / `X402_PAY_TO_BSC`). Money reaches a third party by one of two
+distinct mechanisms — don't conflate them:
 
-| Endpoint | Receiver override | Who gets paid |
-| -------- | ----------------- | ------------- |
-| `/api/x402/skill-call` | per-skill `payTo` | the skill **author's** wallet ([skill-call.js:159](../api/x402/skill-call.js#L159)) |
-| `/api/x402/service` | `row.payout_address` | the **provider's** payout address for a listed service ([service.js:92](../api/x402/service.js#L92)) |
-| `/api/x402/cosmetic-purchase` | `creatorWallet` split | the cosmetic **creator** (platform keeps its cut) ([cosmetic-purchase.js:204](../api/x402/cosmetic-purchase.js#L204)) |
-| `/api/x402/dance-tip`, `/api/x402/club-cover` | platform receiver, then swept | performers, paid out by the `club-payouts` cron from `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` |
+**1. `payTo` override** — the 402 challenge names a different receiver, so the
+buyer's USDC settles **directly** to that wallet and the platform never holds it:
+
+| Endpoint | Receiver | Source |
+| -------- | -------- | ------ |
+| `/api/x402/skill-call` | skill **author** | `author_payto_*` ([skill-call.js:159](../api/x402/skill-call.js#L159)) |
+| `/api/x402/service` | service **provider** | `row.payout_address` ([service.js:92](../api/x402/service.js#L92)) |
+| `/api/x402/asset-download` | 3D-asset **creator** | `creator_payto_*` ([asset-download.js:121](../api/x402/asset-download.js#L121)) |
+| `/api/x402/animation-download` | clip **creator** | `creator_payto_*` ([animation-download.js:112](../api/x402/animation-download.js#L112)) |
+| `/api/x402/pay-by-name` | **buyer-named** wallet | resolved name/`.sol`/address, direct SPL transfer ([pay-by-name.js:256](../api/x402/pay-by-name.js#L256)) |
+
+**2. Post-settlement split** — the USDC lands in the **platform receiver**, then a
+*separate* treasury forwards a share out-of-band (these are NOT `payTo` overrides):
+
+| Endpoint | Lands in | Then forwarded to | By |
+| -------- | -------- | ----------------- | -- |
+| `/api/x402/cosmetic-purchase` | platform receiver | **creator** 50% (≤90% cap) | `COSMETIC_SPLIT_TREASURY_SECRET_KEY_B64` ([cosmetics-economy.js:31](../api/_lib/cosmetics-economy.js#L31)) |
+| `/api/x402/dance-tip` | platform receiver | **dancer** (full tip) | `club-payouts` cron from `CLUB_SOLANA_TREASURY_SECRET_KEY_B64` ([club/sweep.js:19](../api/_lib/club/sweep.js#L19)) |
+| `/api/x402/club-cover` | platform receiver (kept) | — (funds the club float; issues a door pass) | — |
 
 `/api/x402/ring-settle` is an **internal** primitive (`discoverable:false`) — it is
 deliberately not advertised in the 402 challenge or the discovery catalog; it
 recirculates funds back to `X402_PAY_TO_SOLANA` to keep the closed loop balanced
 ([ring-settle.js:18](../api/x402/ring-settle.js#L18)). The full wallet-by-wallet
-picture — every receiver, tip, split, and treasury — is in the
+picture — every receiver, tip, split, treasury, and fee rate — is in the
 [money map](money-map.md).
 
 ## Intel & oracle endpoints
