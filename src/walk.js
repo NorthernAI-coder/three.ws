@@ -1185,6 +1185,12 @@ window.addEventListener('keydown', (e) => {
 			e.preventDefault();
 			toggleMinimap();
 			break;
+		case 'KeyI':
+			// Inspect the nearest player (or yourself): identity, reputation,
+			// wallet. Press again to close.
+			e.preventDefault();
+			if (!e.repeat) inspectNearestPlayer();
+			break;
 		case 'KeyZ':
 			e.preventDefault();
 			toggleZen();
@@ -2912,6 +2918,56 @@ const REMOTE_YAW_LERP = 0.18;
 /** @type {Map<string, RemotePlayer>} */
 const remotePlayers = new Map();
 
+// ── Avatar inspector ──────────────────────────────────────────────────────
+// I (or clicking a nameplate) opens the shared inspector on a player: who they
+// are, the agent they pilot, their reputation and wallet — the same server
+// truth every other surface reads. See src/shared/avatar-inspector.js.
+function worldInspectFacts() {
+	if (COIN_PARAMS.coin) {
+		return [{
+			label: 'World',
+			value: COIN_PARAMS.symbol ? `$${COIN_PARAMS.symbol}` : COIN_PARAMS.name || 'Coin world',
+			href: `/temporary?coin=${encodeURIComponent(COIN_PARAMS.coin)}`,
+		}];
+	}
+	return [{ label: 'World', value: GALLERY_MODE ? 'Marketplace hall' : 'Mainland' }];
+}
+function inspectRemotePlayer(rp) {
+	if (!rp) return;
+	openAvatarInspector({
+		kind: 'peer',
+		name: rp.name,
+		world: COIN_PARAMS.coin ? 'coin world' : 'walk',
+		agentId: rp.agent || '',
+		wallet: rp.account || '',
+		avatarUrl: rp._avatarUrl,
+		facts: worldInspectFacts(),
+	}, { trigger: canvas });
+}
+function inspectSelfPlayer() {
+	openAvatarInspector({
+		kind: 'self',
+		name: nameInput?.value?.trim() || getStoredName() || 'You',
+		world: COIN_PARAMS.coin ? 'coin world' : 'walk',
+		agentId: COIN_PARAMS.agent || avatarMeta?.agent_id || '',
+		avatarUrl: resolvedAvatarUrl,
+		facts: worldInspectFacts(),
+	}, { trigger: canvas });
+}
+// Nearest player within reach of your avatar; yourself when alone — the I key
+// always answers.
+function inspectNearestPlayer() {
+	if (isAvatarInspectorOpen()) { closeAvatarInspector(); return; }
+	const MAX_M = 10;
+	let best = null;
+	for (const rp of remotePlayers.values()) {
+		const d = Math.hypot(rp.rig.position.x - avatarRig.position.x, rp.rig.position.z - avatarRig.position.z);
+		if (d <= MAX_M && (!best || d < best.d)) best = { d, rp };
+	}
+	if (best) inspectRemotePlayer(best.rp);
+	else inspectSelfPlayer();
+}
+
 // In-world wallet reveal: walk up to a player piloting an agent and its wallet
 // (vanity address, live value, tip) rises beside the nameplate. Frugal by design
 // — one card, throttled proximity scan, cached embed reads. See walk-wallet.js.
@@ -3437,6 +3493,7 @@ function startNet() {
 				color: player.color,
 				avatar: player.avatar,
 				agent: player.agent,
+				account: player.account,
 				cosmetics: player.cosmetics,
 			}),
 		);
