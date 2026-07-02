@@ -10,7 +10,7 @@
 // Response: { topic, headline, signal, price_usd?, change_24h?,
 //             rationale, confidence, ts }
 //
-// Data is live: CoinGecko public API first, Binance 24h ticker as fallback
+// Data is live: CoinGecko public API first, Coinbase 24h stats as fallback
 // (both keyless). CoinGecko's shared-IP quota rate-limits Vercel egress often;
 // the fallback keeps paid calls answering with real data. No mock path — if
 // both sources fail the call 503s before settlement and the buyer isn't charged.
@@ -114,22 +114,23 @@ async function fetchLivePrice(coinId) {
 // Reverse of ALIASES so a CoinGecko id resolves back to its exchange ticker.
 const TICKER_BY_ID = Object.fromEntries(Object.entries(ALIASES).map(([t, id]) => [id, t]));
 
-// Binance public 24h ticker — keyless with per-IP limits generous enough that
-// shared serverless egress doesn't trip them. USDT-quoted, so prices track USD.
-async function fetchBinance24h(topic, coinId) {
+// Coinbase Exchange public 24h stats — keyless and reachable from US egress
+// (Binance 451-blocks US IPs, where Vercel functions run). The 24h change is
+// derived from the trailing-window open→last, same signal CoinGecko reports.
+async function fetchCoinbase24h(topic, coinId) {
 	const ticker = ALIASES[topic] ? topic
 		: TICKER_BY_ID[coinId] || (/^[a-z0-9]{2,10}$/.test(topic) ? topic : null);
 	if (!ticker) return null;
 	const r = await fetch(
-		`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker.toUpperCase()}USDT`,
-		{ headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) },
+		`https://api.exchange.coinbase.com/products/${ticker.toUpperCase()}-USD/stats`,
+		{ headers: { Accept: 'application/json', 'User-Agent': 'three.ws' }, signal: AbortSignal.timeout(6000) },
 	);
 	if (!r.ok) return null;
 	const d = await r.json();
-	const price = Number(d.lastPrice);
-	const change = Number(d.priceChangePercent);
-	if (!Number.isFinite(price) || !Number.isFinite(change)) return null;
-	return { price_usd: price, change_24h: change };
+	const open = Number(d.open);
+	const last = Number(d.last);
+	if (!Number.isFinite(open) || !Number.isFinite(last) || open <= 0) return null;
+	return { price_usd: last, change_24h: ((last - open) / open) * 100 };
 }
 
 function buildSignal(topic, price, change) {
@@ -212,7 +213,7 @@ export default paidEndpoint({
 		let live = null;
 		try { live = await fetchLivePrice(coinId); } catch { /* try fallback source */ }
 		if (!live || live.change_24h == null) {
-			try { live = await fetchBinance24h(topic, coinId); } catch { /* refund below */ }
+			try { live = await fetchCoinbase24h(topic, coinId); } catch { /* refund below */ }
 		}
 
 		if (!live || live.change_24h == null) {

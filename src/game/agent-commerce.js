@@ -1,5 +1,5 @@
 // Agent Exchange — two NPC AI agents who pay each other on-chain, living inside
-// the $THREE town in /play.
+// every coin town in /play.
 //
 // This ports the /agent-exchange demo into the walkaround world: instead of two
 // iframed avatars on a flat page, two GLB-bodied agents stand in the plaza. Walk
@@ -11,10 +11,10 @@
 // (vertices, triangles, materials). Every settlement is real USDC on Solana
 // mainnet, with a Solscan link in the receipt.
 //
-// Scoped to the home town only (see isHomeTown) and built per-world by
-// coincommunities.js, so it never leaks into other coins' worlds. The payment
-// round only fires on an explicit player interaction (E / tap), so the agent
-// wallet is never drained on a timer.
+// Built per-world by coincommunities.js — every coin town hosts the exchange;
+// the paid call and the settlement rail are coin-agnostic, so the same two
+// agents work every plaza. The payment round only fires on an explicit player
+// interaction (E / tap), so the agent wallet is never drained on a timer.
 
 import {
 	Group, Mesh, MeshBasicMaterial, RingGeometry, PlaneGeometry,

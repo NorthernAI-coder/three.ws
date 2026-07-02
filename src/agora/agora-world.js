@@ -97,12 +97,22 @@ async function main() {
 	const PAN_KEYS = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright']);
 	const onKeyDown = (e) => {
 		const k = e.key.toLowerCase();
-		if (!PAN_KEYS.has(k)) return;
+		if (!PAN_KEYS.has(k) && k !== 'i') return;
 		// Don't hijack typing or scrolling: let form fields, editable content, and any
 		// open panel keep arrow/WASD keys. Only pan when the world itself has focus.
 		const ae = document.activeElement;
 		if (ae && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(ae.tagName) || ae.isContentEditable
 			|| (ae.closest && ae.closest('.agora-passport, .agora-panel, .agora-h-root, [role="dialog"]')))) return;
+		// I inspects a citizen without touching the mouse: the one under the
+		// pointer if any, else whoever is closest to the camera's focus point.
+		// Same passport the click path opens — reputation, stake, wallet, timeline.
+		if (k === 'i') {
+			if (e.repeat) return;
+			e.preventDefault();
+			const id = hoverId || nearestCitizenTo(focus);
+			if (id) openPassport(id, null);
+			return;
+		}
 		if (k.startsWith('arrow')) e.preventDefault();
 		keys.add(k);
 		focusGoal = null;
@@ -164,6 +174,17 @@ async function main() {
 		pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 		raycaster.setFromCamera(pointer, camera);
 		return population.pick(raycaster);
+	}
+
+	// The citizen nearest a world-space point (the camera's focus) — the keyboard
+	// counterpart to hover-picking, so I always has someone to inspect.
+	function nearestCitizenTo(point) {
+		let bestId = null, bestD = Infinity;
+		for (const inst of population.instances) {
+			const d = Math.hypot(inst.group.position.x - point.x, inst.group.position.z - point.z);
+			if (d < bestD) { bestD = d; bestId = inst.citizen?.id || null; }
+		}
+		return bestId;
 	}
 
 	// ── Fetch + populate (re-runnable for the error-state retry + live joins) ──

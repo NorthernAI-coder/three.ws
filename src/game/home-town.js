@@ -16,7 +16,10 @@ export const HOME_TOWN = {
 	mint: 'FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 	name: 'three.ws',
 	symbol: 'three',
-	image: 'https://ipfs.io/ipfs/bafybeihe22b5sxr3ihnxt7pregfieyteqvubqhik3j3y4bbx243xlqjw3q',
+	// Served through the same-origin /api/img proxy (multi-gateway IPFS retry +
+	// immutable edge cache) so the front-door art never depends on one gateway.
+	image: '/api/img?url=' + encodeURIComponent('https://ipfs.io/ipfs/bafybeihe22b5sxr3ihnxt7pregfieyteqvubqhik3j3y4bbx243xlqjw3q')
+		+ '&seed=FeMbDoX7R1Psc4GEcvJdsbNbZA3bfztcyDCatJVJpump',
 	// The signature look for the home town: Dust Gulch, an old-west frontier town —
 	// a packed-dirt square ringed by false-front storefronts (saloon, bank,
 	// sheriff…) under a low golden-hour sun, with a water tower on the skyline and

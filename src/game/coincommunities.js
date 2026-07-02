@@ -32,7 +32,7 @@ import {
 	COMPOSITE_PIECES, compositeCells,
 } from './build-voxels.js';
 import { WorldObjects, PropGhost, propDef } from './world-objects.js';
-import { normalizeGatewayURL } from '../ipfs.js';
+import { proxiedImageURL } from '../ipfs.js';
 import {
 	loadManifest, getEmoteDefs, getAllEmoteDefs, resolveAvatarUrl, buildAvatar, playEmoteClip,
 	CLIP_IDLE, CLIP_WALK,
@@ -58,6 +58,7 @@ import { clearStoredPass, refreshPlayPass, loadStoredPass, storePass } from './p
 import { PlaySystems } from './play-systems.js';
 import { PlayOnboard } from './play-onboard.js';
 import { log } from '../shared/log.js';
+import { openAvatarInspector, isAvatarInspectorOpen, closeAvatarInspector } from '../shared/avatar-inspector.js';
 import { createAgentDesk } from './agent-desk.js';
 
 // localStorage throws in private mode and in third-party iframe contexts where
@@ -108,7 +109,7 @@ function mapCoins(raw) {
 		mint: c.mint || c.address,
 		name: (c.name || '').trim() || 'Unnamed coin',
 		symbol: (c.symbol || '').trim(),
-		image: normalizeGatewayURL(c.image_uri || c.image || c.imageUri || c.logo || ''),
+		image: proxiedImageURL(c.image_uri || c.image || c.imageUri || c.logo || '', c.mint || c.address || ''),
 		marketCap: c.usd_market_cap || c.market_cap_usd || c.marketCap || 0,
 	})).filter((c) => c.mint);
 }
@@ -134,9 +135,25 @@ class RemotePlayer {
 		this.rig.position.set(player.x, player.y, player.z);
 		scene.add(this.rig);
 
+		// Public identity riding the server schema — who this peer is (name), the
+		// three.ws agent they pilot, and their verified account wallet. These feed
+		// the avatar inspector (I / click a nameplate), never invented client-side.
+		this.name = player.name || 'guest';
+		this.agent = player.agent || '';
+		this.account = player.account || '';
+		this.onInspect = null; // set by CoinCommunities right after construction
+
 		this.label = document.createElement('div');
 		this.label.className = 'cc-label';
 		this.label.textContent = player.name || 'guest';
+		// The nameplate doubles as the peer's click target: labels are cheap,
+		// always visible, and don't need a skinned-mesh raycast. pointer-events is
+		// off for .cc-label globally (bubbles must never block the look-drag), so
+		// re-enable it just for this element.
+		this.label.style.pointerEvents = 'auto';
+		this.label.style.cursor = 'pointer';
+		this.label.title = 'Inspect this player (I)';
+		this.label.addEventListener('click', (e) => { e.stopPropagation(); this.onInspect?.(); });
 		document.body.appendChild(this.label);
 
 		this.bubble = null;
@@ -225,7 +242,9 @@ class RemotePlayer {
 	}
 	apply(player) {
 		this.targetX = player.x; this.targetY = player.y; this.targetZ = player.z; this.targetYaw = player.yaw;
-		if (player.name) this.label.textContent = player.name;
+		if (player.name) { this.name = player.name; this.label.textContent = player.name; }
+		if (player.agent !== undefined) this.agent = player.agent || '';
+		if (player.account !== undefined) this.account = player.account || '';
 		if (player.voice !== undefined && !!player.voice !== this.voice) {
 			this.voice = !!player.voice;
 			this.label.classList.toggle('cc-invoice', this.voice);
@@ -413,7 +432,7 @@ export class CoinCommunities {
 		const mint = p.get('coin');
 		if (mint) {
 			const tier = p.get('tier') === 'holders' ? 'holders' : 'general';
-			this.enter({ mint, name: p.get('name') || '', symbol: p.get('symbol') || '', image: normalizeGatewayURL(p.get('image') || '') }, { tier });
+			this.enter({ mint, name: p.get('name') || '', symbol: p.get('symbol') || '', image: proxiedImageURL(p.get('image') || '', mint) }, { tier });
 		}
 	}
 
@@ -1306,6 +1325,7 @@ export class CoinCommunities {
 		this._previewPresetId = null; this._previewLayers = false; this._previewItem = null;
 		for (const [, r] of this.remotes) r.dispose();
 		this.remotes.clear();
+		closeAvatarInspector(); // whoever it showed just left the world with us
 		if (this._totem) { this.world.remove(this._totem); this._totem = null; this._coinSpin = null; }
 		if (this._screen) {
 			this.world.remove(this._screen);
@@ -1369,10 +1389,93 @@ export class CoinCommunities {
 		this._drawScreen(); // keep the jumbotron's LIVE count in sync
 	}
 
+	// ------------------------------------------------------------- avatar inspector
+	// I (or clicking a nameplate / avatar) opens the shared inspector on whoever
+	// you're looking at: identity, reputation, wallet — the same server truth every
+	// other surface reads. See src/shared/avatar-inspector.js.
+	_worldFacts() {
+		const coin = this.coin || {};
+		return coin.name || coin.symbol
+			? [{ label: 'World', value: coin.symbol ? `$${coin.symbol}` : coin.name, href: coin.mint ? `/play?coin=${encodeURIComponent(coin.mint)}` : undefined }]
+			: [];
+	}
+	_inspectRemote(id, trigger) {
+		const rp = this.remotes.get(id);
+		if (!rp) return;
+		openAvatarInspector({
+			kind: 'peer',
+			name: rp.name,
+			world: 'play',
+			agentId: rp.agent,
+			wallet: rp.account,
+			avatarUrl: rp._avatarUrl,
+			facts: [
+				...this._worldFacts(),
+				...(rp.voice ? [{ label: 'Voice', value: 'in voice chat' }] : []),
+			],
+		}, { trigger: trigger || this.canvas });
+	}
+	_inspectNpc(npc) {
+		openAvatarInspector({
+			kind: 'npc',
+			name: npc.name,
+			world: 'play',
+			facts: [
+				{ label: 'Role', value: npc.role === 'vendor' ? 'Vendor — real paid service' : npc.role === 'quest' ? 'Quest giver' : 'Townsperson' },
+				...(npc.def?.prompt ? [{ label: 'Offers', value: npc.def.prompt }] : []),
+				{ label: 'Talk', value: 'walk up and press E' },
+				...this._worldFacts(),
+			],
+		}, { trigger: this.canvas });
+	}
+	_inspectSelf() {
+		openAvatarInspector({
+			kind: 'self',
+			name: this.net?.name || lsGet('cc-name') || 'You',
+			world: 'play',
+			wallet: this.account || '',
+			avatarUrl: this.net?.avatar,
+			facts: this._worldFacts(),
+		}, { trigger: this.canvas });
+	}
+	// Nearest inspectable within reach: real players first beat scenery — an NPC
+	// only wins when it is strictly closer. Falls back to yourself so the key
+	// always answers.
+	_inspectNearest() {
+		if (isAvatarInspectorOpen()) { closeAvatarInspector(); return; }
+		const MAX_M = 10;
+		let best = null; // { d, open }
+		for (const [id, rp] of this.remotes) {
+			const d = Math.hypot(rp.rig.position.x - this.localPos.x, rp.rig.position.z - this.localPos.z);
+			if (d <= MAX_M && (!best || d < best.d)) best = { d, open: () => this._inspectRemote(id) };
+		}
+		for (const npc of this.worldLife?.npcs || []) {
+			const d = npc.distanceTo(this.localPos);
+			if (d <= MAX_M && (!best || d < best.d)) best = { d, open: () => this._inspectNpc(npc) };
+		}
+		if (best) best.open();
+		else this._inspectSelf();
+	}
+	// Raycast pick for taps directly on a peer's 3D body (labels are the fast
+	// path; this catches clicks on the avatar itself). Click-only — never run
+	// per-frame, skinned-mesh raycasts are too heavy for hover.
+	_remoteAt(clientX, clientY) {
+		if (!this.remotes.size) return null;
+		const ray = this._pointerRay(clientX, clientY);
+		let best = null;
+		for (const [id, rp] of this.remotes) {
+			const hits = ray.intersectObject(rp.rig, true);
+			if (hits.length && (!best || hits[0].distance < best.d)) best = { d: hits[0].distance, id };
+		}
+		return best?.id || null;
+	}
+
 	// ---------------------------------------------------------------- net events
 	_onAdd(player, id) {
 		if (id === this.net.sessionId) return; // that's us
-		this.remotes.set(id, new RemotePlayer(this.scene, player));
+		const rp = new RemotePlayer(this.scene, player);
+		rp.onInspect = () => this._inspectRemote(id, rp.label);
+		this.remotes.set(id, rp);
 		this._updateOnline();
 	}
 	_onChange(player, id) {
@@ -2012,6 +2115,13 @@ export class CoinCommunities {
 					this.playSystems?.castFish();
 					return;
 				}
+				// I inspects the nearest avatar — player, townsperson, or yourself:
+				// identity, reputation, wallet. Press again to close.
+				if (k === 'i' && !this.buildHud.active && !e.repeat) {
+					e.preventDefault();
+					this._inspectNearest();
+					return;
+				}
 				// Q — hold to open the emote wheel, release to play the selected clip.
 				// Ignore auto-repeat (held key fires many keydowns) and build mode.
 				if (k === 'q' && !this.buildHud.active && !e.repeat) {
@@ -2081,6 +2191,12 @@ export class CoinCommunities {
 						return;
 					}
 				}
+			}
+			// Tap another player's avatar → the inspector (their nameplate is the
+			// other click target; both land in the same panel).
+			if (this.phase === 'world') {
+				const peerId = this._remoteAt(e.clientX, e.clientY);
+				if (peerId) { this._inspectRemote(peerId); return; }
 			}
 			if (this._raycastScreen(e.clientX, e.clientY)) this._chartScreen.openExternal();
 		});
