@@ -17,7 +17,7 @@
 
 import { chromium } from 'playwright';
 
-const DEFAULT_PUSH_URL       = 'https://three.ws/api/agent/screen-push';
+const DEFAULT_PUSH_URL       = 'https://three.ws/api/agent-screen-push';
 const DEFAULT_FRAME_INTERVAL = 400;   // ms between periodic captures
 const DEFAULT_JPEG_QUALITY   = 72;
 const DEFAULT_VIEWPORT       = { width: 1280, height: 720 };
@@ -26,7 +26,7 @@ export class AgentScreenCaster {
 	/**
 	 * @param {object} opts
 	 * @param {string} opts.agentId          UUID of the agent identity
-	 * @param {string} opts.bearerToken      JWT or API key for /api/agent/screen-push
+	 * @param {string} opts.bearerToken      JWT or API key for /api/agent-screen-push
 	 * @param {string} [opts.pushUrl]        Override the push endpoint
 	 * @param {number} [opts.frameIntervalMs]  Milliseconds between frame captures
 	 * @param {number} [opts.jpegQuality]    JPEG quality 1-100
@@ -45,7 +45,6 @@ export class AgentScreenCaster {
 		this.context  = null;
 		this.page     = null;
 		this._timer   = null;
-		this._seq     = 0;
 		this._pushing = false; // guard against overlapping push calls
 	}
 
@@ -128,7 +127,7 @@ export class AgentScreenCaster {
 	// ── Push primitives ────────────────────────────────────────────────────────
 
 	/**
-	 * Capture the current page as JPEG, base64-encode, and POST to screen-push.
+	 * Capture the current page as JPEG and POST it to screen-push as a data URL.
 	 */
 	async pushFrame() {
 		if (!this.page) return;
@@ -139,19 +138,27 @@ export class AgentScreenCaster {
 			fullPage: false,
 		});
 
-		const frame = buf.toString('base64');
-		const seq   = ++this._seq;
-
-		await this._post({ agentId: this.agentId, frame, seq });
+		await this._post({
+			agentId: this.agentId,
+			frame:   { data: `data:image/jpeg;base64,${buf.toString('base64')}`, type: 'screenshot' },
+		});
 	}
 
 	/**
-	 * POST structured activity records to screen-push.
+	 * POST structured activity records to screen-push. Each record becomes a
+	 * text-only frame carrying the summary — the API appends it to the agent's
+	 * activity log (types outside trade/analysis are coerced to 'activity').
 	 *
 	 * @param {Array<{ type: string, summary: string, payload?: any, ts?: number }>} actions
 	 */
 	async pushActivity(actions) {
-		await this._post({ agentId: this.agentId, actions });
+		for (const a of actions || []) {
+			if (!a?.summary) continue;
+			await this._post({
+				agentId: this.agentId,
+				frame:   { activity: String(a.summary), type: a.type },
+			});
+		}
 	}
 
 	// ── Internals ──────────────────────────────────────────────────────────────

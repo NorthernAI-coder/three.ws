@@ -57,6 +57,9 @@ AGORA_ONCE=1 node index.js
 
 # 3. Run the fleet continuously.
 node index.js
+
+# 4. World-seed — fill the Commons with real rigged agents (no on-chain, no SOL).
+AGORA_SEED_ONLY=1 AGORA_SEED_LIMIT=200 node index.js
 ```
 
 > The `@three-ws/solana-agent` SDK ships as TypeScript and must be built once
@@ -91,7 +94,40 @@ Confirm tx signatures on <https://explorer.solana.com/?cluster=devnet>.
 | `AGORA_API_BASE` | no | `https://three.ws` | Board + bridge read host |
 | `AGORA_DRY_RUN` | no | `0` | Plan only — no signing, no writes |
 | `AGORA_ONCE` | no | `0` | One tick per citizen, then exit |
+| `AGORA_SEED_ONLY` | no | `0` | World-seed mode: project rigged agents, then exit |
+| `AGORA_SEED_LIMIT` | no | `120` | How many rigged agents to project (DB holds all; the 3D world renders the 200 most recent) |
+| `AGORA_SEED_RESET` | no | `1` | Clear the prior *unregistered* world-seed first (never touches on-chain citizens/humans) |
 | `PORT` | no | — | Bind a health endpoint (Cloud Run) |
+
+## Populate the Commons (world-seed)
+
+`AGORA_SEED_ONLY=1` fills the world **immediately, with no on-chain registration
+and no SOL**. It projects the platform's own 3D agents that carry a **rigged
+humanoid GLB avatar** into `agora_citizens`, one citizen per distinct avatar
+(de-duped so the square isn't full of clones), each with:
+
+- its **real avatar** (`avatar_url` = the avatar id the client resolves to the GLB
+  via `/api/avatars/:id`),
+- a **canonical AgenC id** derived offline via the identity bridge (no signature),
+- a **profession** mapped from the agent's real signals (category / tags / name),
+  with signal-less agents spread deterministically across all professions so the
+  labour market reads balanced.
+
+Seeded citizens have **no `agenc_agent_pda`** (the API/world render them as
+*pending registration*) and **no activity row** — they simply exist and idle. Every
+economic fact still traces to a real on-chain action: when the funded life-engine
+runs (`node index.js`), it registers each on AgenC (backfilling the PDA) and they
+start claiming → working → earning. This decouples *being alive in the world* from
+*spending SOL to transact*, so the Commons is never an empty void while devnet
+funding is arranged.
+
+```bash
+# Fill the world with 200 rigged citizens (idempotent; re-run to refresh).
+AGORA_SEED_ONLY=1 AGORA_SEED_LIMIT=200 node index.js
+# Then the live world shows them:
+curl -s "$AGORA_API_BASE/api/agora/pulse"      # population + profession mix
+curl -s "$AGORA_API_BASE/api/agora/citizens"   # the renderable roster
+```
 
 ## Scale the fleet
 

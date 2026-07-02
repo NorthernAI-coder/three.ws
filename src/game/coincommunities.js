@@ -45,7 +45,7 @@ import { CosmeticsShop } from './cosmetics-shop.js';
 import { CosmeticsWardrobe } from './cosmetics-wardrobe.js';
 import { HOME_TOWN, isHomeTown } from './home-town.js';
 import { AgentCommerce } from './agent-commerce.js';
-import { ThreeIntelKiosk } from './three-intel-kiosk.js';
+import { IntelKiosk } from './intel-kiosk.js';
 import { WorldLife } from './npc/world-life.js';
 import { isChatPanelOpen } from './npc/npc-chat.js';
 import { isServicePanelOpen } from './npc/npc-services.js';
@@ -1005,26 +1005,26 @@ export class CoinCommunities {
 		this.phase = 'world';
 		this._initJoystick();
 		this._onboardBuild();
-		// The flagship town hosts the live Agent Exchange: two NPC agents who pay
-		// each other on-chain via x402. Built only here, torn down in leave().
-		if (isHomeTown(coin.mint)) {
-			this.agentCommerce = new AgentCommerce({
-				scene: this.scene,
-				camera: this.camera,
-				renderer: this.renderer,
-				getPlayer: () => this.localPos,
-				ui: this.ui,
-			});
-			// …and the $THREE Intel Kiosk: the player pays a real x402 endpoint
-			// ($0.01 USDC) from their own wallet for live $THREE market intel.
-			this.intelKiosk = new ThreeIntelKiosk({
-				scene: this.scene,
-				camera: this.camera,
-				renderer: this.renderer,
-				getPlayer: () => this.localPos,
-				ui: this.ui,
-			});
-		}
+		// Every town hosts the live Agent Exchange: two NPC agents who pay each
+		// other on-chain via x402. Torn down in leave().
+		this.agentCommerce = new AgentCommerce({
+			scene: this.scene,
+			camera: this.camera,
+			renderer: this.renderer,
+			getPlayer: () => this.localPos,
+			ui: this.ui,
+		});
+		// …and the Intel Kiosk: the player pays a real x402 endpoint ($0.01 USDC)
+		// from their own wallet for live market intel on the town's own coin —
+		// the flagship $THREE oracle at home, the generic token oracle elsewhere.
+		this.intelKiosk = new IntelKiosk({
+			scene: this.scene,
+			camera: this.camera,
+			renderer: this.renderer,
+			getPlayer: () => this.localPos,
+			ui: this.ui,
+			coin,
+		});
 		// Agent desks — visible in every world. Fetches the world's top registered
 		// agents from /api/agents and seats them at working desks with live
 		// CanvasTexture monitors streaming their real activity. Players can walk up
@@ -1053,8 +1053,9 @@ export class CoinCommunities {
 		// Living world (W08): ambient pedestrians + traffic, interactive vendor /
 		// quest / flavor NPCs, and (gated behind W07) hostile mobs — all on a
 		// deterministic nav graph so every client sees the same crowd without
-		// syncing it. Built for every world; the Agent Exchange above stays the
-		// home town's special NPC. Torn down in leave().
+		// syncing it. Built for every world, same as the Agent Exchange and the
+		// Intel Kiosk above. Torn down in leave(). name/symbol ride along so the
+		// NPC chat can speak about the town it's actually standing in.
 		this.worldLife = new WorldLife({
 			scene: this.scene,
 			camera: this.camera,
@@ -1062,7 +1063,13 @@ export class CoinCommunities {
 			getPlayer: () => this.localPos,
 			ui: this.ui,
 			net: this.net,
-			world: { mint: coin.mint, seed: seedFromString(coin.mint) >>> 0, biome: this.env?.biome },
+			world: {
+				mint: coin.mint,
+				name: coin.name,
+				symbol: coin.symbol,
+				seed: seedFromString(coin.mint) >>> 0,
+				biome: this.env?.biome,
+			},
 			radius: WORLD_RADIUS - 4,
 		});
 		// Start the silent pass-refresh cycle. The play pass has a 10-min server

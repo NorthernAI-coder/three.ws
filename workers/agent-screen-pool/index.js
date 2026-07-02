@@ -33,12 +33,10 @@ import { generateNarration, runTaskSteps } from './task-runner.js';
 
 const BASE_URL   = (process.env.BASE_URL || 'https://three.ws').replace(/\/$/, '');
 const WANTED_URL = process.env.WANTED_URL || `${BASE_URL}/api/agent/watch-wanted`;
-// Two render surfaces consume two frame conventions: the live wall + 2D watch
-// panel read the "dashed" push; the in-world 3D desk reads the "slashed" push.
-// We publish to both so a watched agent goes live everywhere at once.
-const PUSH_URL      = process.env.PUSH_URL      || `${BASE_URL}/api/agent-screen-push`;  // wall + watch panel
-const PUSH_URL_DESK = process.env.PUSH_URL_DESK || `${BASE_URL}/api/agent/screen-push`;  // 3D desk
-const SECRET        = process.env.SCREEN_WORKER_SECRET || '';
+// Single frame convention: the live wall, 2D watch panel, AND the in-world 3D
+// desk all read /api/agent-screen-push frames via /api/agent-screen-stream.
+const PUSH_URL = process.env.PUSH_URL || `${BASE_URL}/api/agent-screen-push`;
+const SECRET   = process.env.SCREEN_WORKER_SECRET || '';
 
 // Hard cap on concurrent Chromium casters. The API's /api/agent/watch-status
 // reports queue position against SCREEN_POOL_MAX (same default, 6) — keep the two
@@ -150,32 +148,21 @@ async function pushFrame(entry) {
 	try {
 		const buf = await entry.page.screenshot({ type: 'jpeg', quality: JPEG_QUALITY, fullPage: false });
 		const b64 = buf.toString('base64');
-		const seq = ++entry.seq;
 		const headers = { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` };
-		// Publish to both render surfaces. Failures are independent — the wall
-		// shouldn't go dark because the desk endpoint hiccuped, and vice versa.
-		const [wall, desk] = await Promise.allSettled([
-			fetch(PUSH_URL, {
-				method: 'POST', headers,
-				body: JSON.stringify({
-					agentId: entry.agentId,
-					// On a Coin World Tour the frame is stamped with the current waypoint
-						// (entry.activityOverride, e.g. "Tour · Into the arena") so the wall +
-						// watch panel light up the TOUR badge; otherwise it's the live view.
-						frame: { data: `data:image/jpeg;base64,${b64}`, activity: entry.activityOverride || `Live view · ${entry.name}`, type: 'screenshot' },
-				}),
+		const res = await fetch(PUSH_URL, {
+			method: 'POST', headers,
+			body: JSON.stringify({
+				agentId: entry.agentId,
+				// On a Coin World Tour the frame is stamped with the current waypoint
+				// (entry.activityOverride, e.g. "Tour · Into the arena") so the wall +
+				// watch panel light up the TOUR badge; otherwise it's the live view.
+				frame: { data: `data:image/jpeg;base64,${b64}`, activity: entry.activityOverride || `Live view · ${entry.name}`, type: 'screenshot' },
 			}),
-			fetch(PUSH_URL_DESK, {
-				method: 'POST', headers,
-				body: JSON.stringify({ agentId: entry.agentId, frame: b64, seq }),
-			}),
-		]);
-		const wallBad = wall.status === 'fulfilled' && !wall.value.ok;
-		if (wallBad && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+		});
+		if (!res.ok && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
 			entry.lastErrorAt = Date.now();
-			log('wall push failed', entry.agentId, wall.value.status, (await wall.value.text().catch(() => '')).slice(0, 120));
+			log('push failed', entry.agentId, res.status, (await res.text().catch(() => '')).slice(0, 120));
 		}
-		void desk;
 	} catch (err) {
 		if (Date.now() - (entry.lastErrorAt || 0) > 30_000) {
 			entry.lastErrorAt = Date.now();
@@ -190,7 +177,7 @@ async function startCasting(agent) {
 	await ensureBrowser();
 	const agentId = agent.agentId;
 	const page = await context.newPage();
-	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0, seq: 0, controller: new AbortController() };
+	const entry = { agentId, page, name: agent.name || 'Agent', timer: null, pushing: false, lastErrorAt: 0, controller: new AbortController() };
 	pool.set(agentId, entry);
 	const url = resolveUrl(agent.homeUrl, agentId);
 	try {
@@ -278,21 +265,21 @@ async function pushTaskFrame(entry, { activity = '', type = 'screenshot', shoot 
 		} catch { /* page navigating — push the narration line without pixels */ }
 	}
 	const dataUrl = b64 ? `data:image/jpeg;base64,${b64}` : null;
-	const seq = ++entry.seq;
 	const headers = { 'content-type': 'application/json', authorization: `Bearer ${SECRET}` };
-	const [wall] = await Promise.allSettled([
-		fetch(PUSH_URL, {
+	try {
+		const res = await fetch(PUSH_URL, {
 			method: 'POST', headers,
 			body: JSON.stringify({ agentId: entry.agentId, frame: { data: dataUrl, activity, type } }),
-		}),
-		b64
-			? fetch(PUSH_URL_DESK, { method: 'POST', headers, body: JSON.stringify({ agentId: entry.agentId, frame: b64, seq }) })
-			: Promise.resolve(),
-	]);
-	const wallBad = wall.status === 'fulfilled' && !wall.value.ok;
-	if (wallBad && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
-		entry.lastErrorAt = Date.now();
-		log('task push failed', entry.agentId, wall.value.status, (await wall.value.text().catch(() => '')).slice(0, 120));
+		});
+		if (!res.ok && Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+			entry.lastErrorAt = Date.now();
+			log('task push failed', entry.agentId, res.status, (await res.text().catch(() => '')).slice(0, 120));
+		}
+	} catch (err) {
+		if (Date.now() - (entry.lastErrorAt || 0) > 30_000) {
+			entry.lastErrorAt = Date.now();
+			log('task push error', entry.agentId, err?.message || err);
+		}
 	}
 }
 

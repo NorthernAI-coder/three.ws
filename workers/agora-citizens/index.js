@@ -17,6 +17,7 @@ import http from 'node:http';
 import { loadConfig } from './config.js';
 import { makeStore } from './store.js';
 import { bootFleet, tickCitizen, replenishWork, planDryRun } from './engine.js';
+import { seedWorld } from './seed.js';
 import { reconcileOnce } from './reconcile.js';
 import { log } from './log.js';
 
@@ -151,6 +152,16 @@ async function main() {
 		log.info('dry-run plan', plan);
 		// Also print a human-readable plan to stdout for quick inspection.
 		console.log(JSON.stringify({ ok: true, dryRun: true, plan }, null, 2));
+		return;
+	}
+
+	// World-seed: fill the Commons with real rigged agents (no on-chain register,
+	// no SOL), then exit. Decoupled from the funded loop so the world can be alive
+	// immediately; on-chain registration + work happen when the fleet runs funded.
+	if (cfg.seedOnly) {
+		const summary = await seedWorld(cfg, store);
+		console.log(JSON.stringify({ ok: true, seed: summary }, null, 2));
+		setTimeout(() => process.exit(0), 500);
 		return;
 	}
 

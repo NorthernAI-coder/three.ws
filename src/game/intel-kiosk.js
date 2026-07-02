@@ -1,30 +1,33 @@
-// $THREE Intel Kiosk — a paid x402 oracle kiosk inside the $THREE town (/play).
+// Intel Kiosk — a paid x402 oracle kiosk inside every coin town (/play).
 //
 // This ports the /play/agent-wallet demo into the walkaround world: instead of
 // a flat page where your avatar walks to a kiosk, YOU are the avatar. Walk up
 // to the kiosk by the plaza and press E (or tap it) — window.X402.pay opens
 // the wallet modal, you pay $0.01 USDC (Phantom on Solana, or an EVM wallet on
-// Base) to /api/x402/three-intel, and the kiosk's 3D screen lights up with the
-// purchased intel: live $THREE price, 24 h change, market cap, and a
-// bullish/bearish/neutral signal. Every settlement is real USDC on-chain; the
-// payment modal shows the transaction with an explorer link.
+// Base) and the kiosk's 3D screen lights up with the purchased intel: live
+// price, 24 h change, market cap, and a bullish/bearish/neutral signal for the
+// town's own coin. Every settlement is real USDC on-chain; the payment modal
+// shows the transaction with an explorer link.
 //
-// Scoped to the home town only (built by coincommunities.js inside its
-// isHomeTown block) and torn down in leave(). Payment only fires on an
-// explicit player interaction, and the player signs with their OWN wallet —
-// no platform key is ever exposed to the page.
+// Built for every world by coincommunities.js and torn down in leave(). The
+// flagship $THREE town buys from its dedicated oracle (/api/x402/three-intel);
+// every other town buys from the generic token oracle
+// (/api/x402/token-intel?mint=…) with the world's mint supplied at runtime —
+// the same coin-agnostic plumbing the /ca2x402 resolver hands out. Payment
+// only fires on an explicit player interaction, and the player signs with
+// their OWN wallet — no platform key is ever exposed to the page.
 
 import {
 	Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, RingGeometry,
 	PlaneGeometry, BoxGeometry, CylinderGeometry, CanvasTexture, SRGBColorSpace,
 	DoubleSide, Vector3,
 } from 'three';
+import { isHomeTown } from './home-town.js';
 import { log } from '../shared/log.js';
 import { ensureX402 } from '../shared/x402-loader.js';
 
 const KIOSK_POS = new Vector3(-8, 0, -7);
 const INTERACT_RANGE = 5.5;
-const ENDPOINT = '/api/x402/three-intel';
 const ACCENT = '#9945ff';
 const ACCENT_LT = '#b88aff';
 
@@ -38,13 +41,34 @@ function fmtUsd(n) {
 	return `$${n >= 1 ? n.toFixed(2) : n.toFixed(6)}`;
 }
 
-export class ThreeIntelKiosk {
-	constructor({ scene, camera, renderer, getPlayer, ui }) {
+// Shrink a font until the text fits — long pump.fun tickers must not bleed off
+// the 512px sign/screen canvases.
+function fitFont(ctx, text, maxWidth, basePx, weight = 800) {
+	let px = basePx;
+	do {
+		ctx.font = `${weight} ${px}px Inter, system-ui, sans-serif`;
+		if (ctx.measureText(text).width <= maxWidth) break;
+		px -= 2;
+	} while (px > 18);
+	return px;
+}
+
+export class IntelKiosk {
+	constructor({ scene, camera, renderer, getPlayer, ui, coin }) {
 		this.scene = scene;
 		this.camera = camera;
 		this.renderer = renderer;
 		this.getPlayer = getPlayer;
 		this.ui = ui;
+
+		// The town's coin decides what the kiosk sells and where it buys from.
+		const home = isHomeTown(coin?.mint);
+		this.symLabel = home
+			? '$THREE'
+			: (coin?.symbol ? '$' + String(coin.symbol).toUpperCase() : (coin?.name || 'TOKEN'));
+		this.endpoint = home
+			? '/api/x402/three-intel'
+			: `/api/x402/token-intel?mint=${encodeURIComponent(coin?.mint || '')}`;
 
 		this.busy = false;
 		this.intel = null;      // last purchased intel payload
@@ -109,7 +133,7 @@ export class ThreeIntelKiosk {
 		this.group.add(this.ring);
 
 		// Floating sign, billboarded in tick().
-		this.sign = this._signMesh('$THREE INTEL', 'paid oracle · $0.01 USDC · x402');
+		this.sign = this._signMesh(`${this.symLabel} INTEL`, 'paid oracle · $0.01 USDC · x402');
 		this.sign.position.set(0, 3.5, 0);
 		this.group.add(this.sign);
 
@@ -121,7 +145,7 @@ export class ThreeIntelKiosk {
 		const x = c.getContext('2d');
 		x.textAlign = 'center';
 		x.fillStyle = ACCENT_LT;
-		x.font = '800 54px Inter, system-ui, sans-serif';
+		fitFont(x, title, 480, 54);
 		x.fillText(title, 256, 62);
 		x.fillStyle = 'rgba(255,255,255,0.62)';
 		x.font = '600 26px Inter, system-ui, sans-serif';
@@ -155,7 +179,10 @@ export class ThreeIntelKiosk {
 		}
 		this.prompt = document.createElement('div');
 		this.prompt.className = 'tik-prompt';
-		this.prompt.innerHTML = '<span class="tik-key">E</span> Buy $THREE intel — $0.01 USDC';
+		const key = document.createElement('span');
+		key.className = 'tik-key';
+		key.textContent = 'E';
+		this.prompt.append(key, ` Buy ${this.symLabel} intel — $0.01 USDC`);
 		document.body.appendChild(this.prompt);
 	}
 
@@ -171,8 +198,9 @@ export class ThreeIntelKiosk {
 		c.fillStyle = '#5a5a60';
 		c.font = '700 22px Inter, system-ui, sans-serif';
 		c.fillText('x402 PAID ORACLE', 28, 46);
-		c.fillStyle = ACCENT_LT; c.font = '800 44px Inter, system-ui, sans-serif';
-		c.fillText('$THREE INTEL', 28, 100);
+		c.fillStyle = ACCENT_LT;
+		fitFont(c, `${this.symLabel} INTEL`, W - 56, 44);
+		c.fillText(`${this.symLabel} INTEL`, 28, 100);
 
 		const i = this.intel;
 		if (this.busy) {
@@ -253,7 +281,7 @@ export class ThreeIntelKiosk {
 	// Player pressed E (or tapped the kiosk): open the real x402 payment modal.
 	interact() {
 		if (this.busy || !this._playerNear()) return false;
-		this._purchase().catch((err) => log.warn('[three-intel-kiosk] purchase failed:', err?.message));
+		this._purchase().catch((err) => log.warn('[intel-kiosk] purchase failed:', err?.message));
 		return true;
 	}
 
@@ -264,16 +292,16 @@ export class ThreeIntelKiosk {
 		try {
 			const X402 = await ensureX402();
 			const out = await X402.pay({
-				endpoint: ENDPOINT,
+				endpoint: this.endpoint,
 				method: 'GET',
-				merchant: '$THREE Town Oracle',
-				action: 'Live $THREE market intel — $0.01 USDC',
+				merchant: `${this.symLabel} Town Oracle`,
+				action: `Live ${this.symLabel} market intel — $0.01 USDC`,
 			});
 			const intel = out?.result;
 			if (!intel?.signal) throw new Error(intel?.error || 'purchase did not settle');
 			this.intel = intel;
 			this.paidTx = out?.payment?.transaction || null;
-			this.ui?.toast?.(`$THREE intel purchased — ${intel.signal.toUpperCase()}: ${intel.headline}`, 'success');
+			this.ui?.toast?.(`${this.symLabel} intel purchased — ${intel.signal.toUpperCase()}: ${intel.headline}`, 'success');
 		} catch (err) {
 			// A dismissed wallet modal is a normal exit, not an error state.
 			const cancelled = /cancel|dismiss|closed|denied/i.test(String(err?.message || ''));

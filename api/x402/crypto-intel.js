@@ -10,7 +10,10 @@
 // Response: { topic, headline, signal, price_usd?, change_24h?,
 //             rationale, confidence, ts }
 //
-// Data is live: CoinGecko public API (no key required). No mock path.
+// Data is live: CoinGecko public API first, Binance 24h ticker as fallback
+// (both keyless). CoinGecko's shared-IP quota rate-limits Vercel egress often;
+// the fallback keeps paid calls answering with real data. No mock path — if
+// both sources fail the call 503s before settlement and the buyer isn't charged.
 
 import { paidEndpoint } from '../_lib/x402-paid-endpoint.js';
 import { buildBazaarSchema } from '../_lib/x402-spec.js';
@@ -108,6 +111,27 @@ async function fetchLivePrice(coinId) {
 	return { price_usd: coin.usd ?? null, change_24h: coin.usd_24h_change ?? null };
 }
 
+// Reverse of ALIASES so a CoinGecko id resolves back to its exchange ticker.
+const TICKER_BY_ID = Object.fromEntries(Object.entries(ALIASES).map(([t, id]) => [id, t]));
+
+// Binance public 24h ticker — keyless with per-IP limits generous enough that
+// shared serverless egress doesn't trip them. USDT-quoted, so prices track USD.
+async function fetchBinance24h(topic, coinId) {
+	const ticker = ALIASES[topic] ? topic
+		: TICKER_BY_ID[coinId] || (/^[a-z0-9]{2,10}$/.test(topic) ? topic : null);
+	if (!ticker) return null;
+	const r = await fetch(
+		`https://api.binance.com/api/v3/ticker/24hr?symbol=${ticker.toUpperCase()}USDT`,
+		{ headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) },
+	);
+	if (!r.ok) return null;
+	const d = await r.json();
+	const price = Number(d.lastPrice);
+	const change = Number(d.priceChangePercent);
+	if (!Number.isFinite(price) || !Number.isFinite(change)) return null;
+	return { price_usd: price, change_24h: change };
+}
+
 function buildSignal(topic, price, change) {
 	const fmt = (n) => (n >= 100 ? n.toFixed(2) : n >= 1 ? n.toFixed(3) : n.toFixed(6));
 	const pStr = price != null ? `$${fmt(price)}` : '?';
@@ -186,7 +210,10 @@ export default paidEndpoint({
 
 		const coinId = ALIASES[topic] || topic;
 		let live = null;
-		try { live = await fetchLivePrice(coinId); } catch { /* offline fallback */ }
+		try { live = await fetchLivePrice(coinId); } catch { /* try fallback source */ }
+		if (!live || live.change_24h == null) {
+			try { live = await fetchBinance24h(topic, coinId); } catch { /* refund below */ }
+		}
 
 		if (!live || live.change_24h == null) {
 			// Paid endpoint — never charge for a fabricated signal. Throw so the
