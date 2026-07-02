@@ -259,6 +259,18 @@ export class WalkNet {
 	 *
 	 * @param {{ x:number, y:number, z:number, yaw:number, motion:string }} state
 	 */
+	// Send a message only when the wire is actually open. `this.room` alone isn't
+	// enough: between the socket entering CLOSING and onLeave firing, the room
+	// reference is still live, and ws.send() on that socket logs a console
+	// warning per message ("WebSocket is already in CLOSING or CLOSED state").
+	// Returns true when the message reached an open socket.
+	_send(type, payload) {
+		const room = this.room;
+		if (!room || room.connection?.isOpen !== true) return false;
+		try { room.send(type, payload); } catch { return false; }
+		return true;
+	}
+
 	sendState(state) {
 		if (!this.room) return;
 		const now = performance.now();
@@ -276,36 +288,36 @@ export class WalkNet {
 			if (positionStill && yawStill && motionSame) return;
 		}
 
-		this.room.send('move', {
+		if (!this._send('move', {
 			x: state.x,
 			y: state.y,
 			z: state.z,
 			yaw: state.yaw,
 			motion: state.motion,
-		});
+		})) return;
 		this._lastSent = { ...state };
 		this._lastSentAt = now;
 	}
 
 	rename(name) {
 		this.name = name;
-		this.room?.send('rename', { name });
+		this._send('rename', { name });
 	}
 
 	sendEmote(name) {
-		this.room?.send('emote', { name });
+		this._send('emote', { name });
 	}
 
 	sendChat(text) {
 		const t = String(text || '').trim().slice(0, 200);
-		if (t) this.room?.send('chat', { text: t });
+		if (t) this._send('chat', { text: t });
 	}
 
 	/** Swap this player's avatar mid-session (after picking a new one). */
 	sendAvatar(avatar, agent) {
 		this.avatar = avatar || this.avatar;
 		if (agent != null) this.agent = agent;
-		this.room?.send('avatar', { avatar: this.avatar, agent: this.agent });
+		this._send('avatar', { avatar: this.avatar, agent: this.agent });
 	}
 
 	/** Force a reconnect (e.g. after the user clicks the offline pill). */

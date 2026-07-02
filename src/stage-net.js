@@ -177,7 +177,12 @@ export class StageNet {
 			this._emit('host', snapshotHost(this.room.state.host));
 			this._emitLeaderboard();
 			this._queueAudience();
-			this._hb = setInterval(() => { try { this.room?.send('heartbeat'); } catch {} }, 15_000);
+			// connection.isOpen catches the CLOSING/CLOSED window before onLeave
+			// fires — ws.send() there logs a console warning instead of throwing.
+			this._hb = setInterval(() => {
+				if (this.room?.connection?.isOpen !== true) return;
+				try { this.room.send('heartbeat'); } catch {}
+			}, 15_000);
 
 			this._setStatus('online');
 		} catch (err) {
@@ -204,14 +209,14 @@ export class StageNet {
 	}
 
 	react(emoji) {
-		if (this.status !== 'online' || !this.room) return;
+		if (this.status !== 'online' || this.room?.connection?.isOpen !== true) return;
 		try { this.room.send('reaction', { emoji: String(emoji) }); } catch (e) {
 			log.warn('[stage-net] reaction send failed:', e?.message || e);
 		}
 	}
 
 	ask(text) {
-		if (this.status !== 'online' || !this.room) return false;
+		if (this.status !== 'online' || this.room?.connection?.isOpen !== true) return false;
 		try { this.room.send('question', { text: String(text) }); return true; } catch (e) {
 			log.warn('[stage-net] question send failed:', e?.message || e);
 			return false;

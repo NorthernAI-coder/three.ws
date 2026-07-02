@@ -265,7 +265,9 @@ export class IrlNet {
 	 * @returns {boolean} whether the emit was actually sent over a live socket
 	 */
 	interaction(payload) {
-		if (this.status !== 'online' || !this.room) return false;
+		// connection.isOpen catches the CLOSING/CLOSED window before onLeave flips
+		// status — ws.send() there logs a console warning instead of throwing.
+		if (this.status !== 'online' || !this.room || this.room.connection?.isOpen !== true) return false;
 		const type = payload?.type;
 		const pinId = payload?.pinId;
 		if (!type || !pinId) return false;
@@ -290,7 +292,7 @@ export class IrlNet {
 	 * @param {number} headingDeg compass bearing 0–359 the viewer is facing
 	 */
 	heartbeat(headingDeg) {
-		if (this.status !== 'online' || !this.room) return;
+		if (this.status !== 'online' || !this.room || this.room.connection?.isOpen !== true) return;
 		const heading = Number.isFinite(headingDeg) ? headingDeg : 0;
 		try { this.room.send('heartbeat', { heading }); } catch (e) {
 			log.warn('[irl-net] heartbeat send failed:', e?.message || e);
@@ -307,7 +309,7 @@ export class IrlNet {
 	setGhost(ghost, avatar) {
 		this.ghost = ghost === true;
 		if (avatar !== undefined) this.avatar = avatar || '';
-		if (this.status !== 'online' || !this.room) return;
+		if (this.status !== 'online' || !this.room || this.room.connection?.isOpen !== true) return;
 		try {
 			this.room.send('set_ghost', { ghost: this.ghost, avatar: this.ghost ? this.avatar : '' });
 		} catch (e) {
