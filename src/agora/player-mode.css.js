@@ -112,7 +112,7 @@ const PLAYER_CSS = `
 .agora-p-chat {
 	position: absolute;
 	left: 14px;
-	bottom: 14px;
+	bottom: 64px; /* clears the #agora-pop population pill (bottom-left, z-10) */
 	width: min(78vw, 340px);
 	display: flex;
 	flex-direction: column;

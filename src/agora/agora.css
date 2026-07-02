@@ -99,6 +99,24 @@ html, body {
 #agora-count { font-size: 18px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; }
 #agora-pop-label { font-size: 11px; letter-spacing: 0.08em; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; }
 
+/* Enter the Commons — the play-mode toggle (agora-world.js lazy-mounts
+   player-mode.js on first press). Bottom-centre so it reads as the world's
+   primary invitation without covering the citizen crowd. */
+#agora-enter {
+	position: absolute; bottom: 18px; left: 50%;
+	transform: translateX(-50%);
+	pointer-events: auto;
+	font-size: 13px;
+	padding: 10px 22px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+#agora-enter:disabled { opacity: 0.6; cursor: progress; }
+#agora-enter[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); }
+@media (max-width: 640px) {
+	/* Clear the touch stick + action cluster in play mode. */
+	#agora-enter { bottom: 14px; font-size: 12px; padding: 9px 16px; }
+}
+
 #agora-controls-hint {
 	position: absolute; top: 18px; right: 20px;
 	font-size: 10px;

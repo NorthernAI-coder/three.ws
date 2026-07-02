@@ -307,7 +307,7 @@ export function momentumScore(bh = {}) {
  * }}
  */
 export function convict(intel = {}) {
-	const ped = pedigreeScore(intel.smartMoney);
+	const ped = pedigreeScore(intel.smartMoney, intel.creator);
 	const str = structureScore(intel.structure);
 	const nar = narrativeScore(intel.narrative);
 	const mom = momentumScore(intel.behavior);
@@ -326,8 +326,11 @@ export function convict(intel = {}) {
 		mom.score * WEIGHTS.momentum;
 
 	// Structural red flags impose a hard ceiling — pedigree/narrative can't paper
-	// over a bundle or a dumping dev.
-	score = Math.min(score, str.cap);
+	// over a bundle or a dumping dev. Pedigree carries a ceiling too: a confirmed
+	// serial-rugger creator caps the final score the same way a bundle does.
+	// The lowest triggered cap wins.
+	const cap = Math.min(str.cap, ped.cap);
+	score = Math.min(score, cap);
 	score = clamp(Math.round(score));
 
 	const tier = TIERS.find((t) => score >= t.min) || TIERS[TIERS.length - 1];

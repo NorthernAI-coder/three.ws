@@ -1,7 +1,7 @@
 // Guard-logic tests for the economy funding root (api/_lib/economy-master.js).
 // planTopUps is pure, so we can assert the reserve floor, per-engine cap, per-run
 // cap, dust skip, and neediest-first ordering without any RPC or key.
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
 	planTopUps,

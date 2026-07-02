@@ -261,7 +261,7 @@ gameServer
 	.listen(PORT, HOST)
 	.then(() => {
 		console.log(`[multiplayer] listening on ws://${HOST}:${PORT}`);
-		console.log(`[multiplayer] rooms: walk_world, irl_world, clash_arena, stage_world`);
+		console.log(`[multiplayer] rooms: walk_world, agora_world, irl_world, clash_arena, stage_world`);
 		console.log(`[multiplayer] allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
 	})
 	.catch((err) => {
