@@ -10,8 +10,10 @@ import BN from 'bn.js';
 
 const mockGetAmmPoolState = vi.fn();
 const mockSellBaseInput = vi.fn();
+const mockBuyQuoteInput = vi.fn();
 const mockSwapSolanaState = vi.fn();
 const mockOfflineSellBaseInput = vi.fn();
+const mockOfflineBuyQuoteInput = vi.fn();
 const MOCK_POOL = '9WZDXbs5da3XuBTOBiGHqKkqFGC4j2HJvBQKzXAMsRg';
 
 vi.mock('../api/_lib/pump.js', () => ({
@@ -21,9 +23,13 @@ vi.mock('../api/_lib/pump.js', () => ({
 
 vi.mock('@pump-fun/pump-swap-sdk', () => ({
 	sellBaseInput: (...a) => mockSellBaseInput(...a),
+	buyQuoteInput: (...a) => mockBuyQuoteInput(...a),
 	PumpAmmSdk: class {
 		sellBaseInput(...a) {
 			return mockOfflineSellBaseInput(...a);
+		}
+		buyQuoteInput(...a) {
+			return mockOfflineBuyQuoteInput(...a);
 		}
 	},
 	OnlinePumpAmmSdk: class {
@@ -34,7 +40,7 @@ vi.mock('@pump-fun/pump-swap-sdk', () => ({
 }));
 
 // Import AFTER mocks are registered.
-const { isGraduated, quoteAmmSell, buildAmmSellInstructions } = await import(
+const { isGraduated, quoteAmmSell, buildAmmSellInstructions, quoteAmmBuy, buildAmmBuyInstructions } = await import(
 	'../workers/agent-sniper/amm-exit.js'
 );
 
@@ -204,6 +210,135 @@ describe('buildAmmSellInstructions — build the on-chain AMM exit', () => {
 				mint: MINT,
 				user: { toBase58: () => 'user' },
 				baseAmount: new BN(1),
+				slippagePct: 5,
+			}),
+		).rejects.toMatchObject({ code: 'pool_not_found' });
+	});
+});
+
+describe('quoteAmmBuy — re-quote a graduated coin buy off the AMM', () => {
+	beforeEach(() => {
+		mockGetAmmPoolState.mockReset();
+		mockBuyQuoteInput.mockReset();
+	});
+
+	it('returns expected + min token out, the SOL ceiling, and the pool key', async () => {
+		mockGetAmmPoolState.mockResolvedValueOnce(poolState());
+		// Spend 10_000 lamports; SDK prices 5_000 tokens out and a 10_300 lamport ceiling.
+		mockBuyQuoteInput.mockReturnValueOnce({ base: new BN(5_000), maxQuote: new BN(10_300) });
+
+		const r = await quoteAmmBuy({
+			network: 'mainnet',
+			mint: MINT,
+			quoteAmount: new BN(10_000),
+			slippagePct: 5,
+		});
+
+		expect(r.expectedBaseOut).toBe(5_000n);
+		// 5% slippage → floor = 5000 × (10000−500)/10000 = 4750.
+		expect(r.minBaseOut).toBe(4_750n);
+		expect(r.maxQuoteIn).toBe(10_300n);
+		expect(r.poolKey).toBe(MOCK_POOL);
+		expect(typeof r.priceImpactPct).toBe('number');
+		expect(r.priceImpactPct).toBeGreaterThanOrEqual(0);
+	});
+
+	it('forwards the quote amount, slippage, and live reserves to the SDK', async () => {
+		mockGetAmmPoolState.mockResolvedValueOnce(poolState());
+		mockBuyQuoteInput.mockReturnValueOnce({ base: new BN(50), maxQuote: new BN(105) });
+
+		await quoteAmmBuy({ network: 'mainnet', mint: MINT, quoteAmount: new BN(100), slippagePct: 5 });
+
+		expect(mockBuyQuoteInput).toHaveBeenCalledOnce();
+		const call = mockBuyQuoteInput.mock.calls[0][0];
+		expect(call.quote.toString()).toBe('100');
+		expect(call.slippage).toBe(5);
+		expect(call.baseReserve.toString()).toBe('1000000000');
+		expect(call.quoteReserve.toString()).toBe('1000000000');
+		expect(call.globalConfig).toEqual({ mock: true });
+	});
+
+	it('computes a non-trivial price impact for a buy that moves the pool', async () => {
+		// baseReserve=1e6, quoteReserve=1e6, spend 100_000 quote, get 90_000 base.
+		// spot value = 100_000 × (1e6/1e6) = 100_000; impact = (100k−90k)/100k = 10%.
+		mockGetAmmPoolState.mockResolvedValueOnce(
+			poolState({ baseReserve: 1_000_000, quoteReserve: 1_000_000 }),
+		);
+		mockBuyQuoteInput.mockReturnValueOnce({ base: new BN(90_000), maxQuote: new BN(105_000) });
+
+		const r = await quoteAmmBuy({
+			network: 'mainnet',
+			mint: MINT,
+			quoteAmount: new BN(100_000),
+			slippagePct: 5,
+		});
+		expect(r.priceImpactPct).toBeCloseTo(10, 5);
+	});
+
+	it('falls back to the spent amount as the ceiling when the SDK omits maxQuote', async () => {
+		mockGetAmmPoolState.mockResolvedValueOnce(poolState());
+		mockBuyQuoteInput.mockReturnValueOnce({ base: new BN(5_000) });
+		const r = await quoteAmmBuy({ network: 'mainnet', mint: MINT, quoteAmount: new BN(10_000), slippagePct: 5 });
+		expect(r.maxQuoteIn).toBe(10_000n);
+	});
+
+	it('propagates pool_not_found so callers know the coin is still on the curve', async () => {
+		mockGetAmmPoolState.mockRejectedValueOnce(poolNotFound());
+		await expect(
+			quoteAmmBuy({ network: 'mainnet', mint: MINT, quoteAmount: new BN(1), slippagePct: 5 }),
+		).rejects.toMatchObject({ code: 'pool_not_found' });
+	});
+
+	it('refuses a non-SOL-quoted pool (this path trades in lamports)', async () => {
+		mockGetAmmPoolState.mockResolvedValueOnce(poolState({ quoteMint: USDC }));
+		await expect(
+			quoteAmmBuy({ network: 'mainnet', mint: MINT, quoteAmount: new BN(1), slippagePct: 5 }),
+		).rejects.toMatchObject({ code: 'amm_quote_not_sol' });
+	});
+});
+
+describe('buildAmmBuyInstructions — build the on-chain AMM entry', () => {
+	beforeEach(() => {
+		mockGetAmmPoolState.mockReset();
+		mockBuyQuoteInput.mockReset();
+		mockSwapSolanaState.mockReset();
+		mockOfflineBuyQuoteInput.mockReset();
+	});
+
+	it('builds instructions via swapSolanaState + offline buyQuoteInput and surfaces the quote', async () => {
+		mockGetAmmPoolState.mockResolvedValue(poolState());
+		mockBuyQuoteInput.mockReturnValue({ base: new BN(5_000), maxQuote: new BN(10_300) });
+		mockSwapSolanaState.mockResolvedValueOnce({ pool: {} });
+		const fakeIxs = [{ programId: 'buy1' }, { programId: 'buy2' }];
+		mockOfflineBuyQuoteInput.mockResolvedValueOnce(fakeIxs);
+
+		const r = await buildAmmBuyInstructions({
+			network: 'mainnet',
+			mint: MINT,
+			user: { toBase58: () => 'user' },
+			quoteAmount: new BN(10_000),
+			slippagePct: 5,
+		});
+
+		expect(r.instructions).toBe(fakeIxs);
+		expect(r.expectedBaseOut).toBe(5_000n);
+		expect(r.minBaseOut).toBe(4_750n);
+		expect(r.maxQuoteIn).toBe(10_300n);
+		expect(r.poolKey).toBe(MOCK_POOL);
+		expect(mockOfflineBuyQuoteInput).toHaveBeenCalledOnce();
+		const offCall = mockOfflineBuyQuoteInput.mock.calls[0];
+		expect(offCall[1].toString()).toBe('10000');
+		expect(offCall[2]).toBe(5);
+	});
+
+	it('propagates pool_not_found (cannot build against a curve that has not graduated)', async () => {
+		mockGetAmmPoolState.mockRejectedValueOnce(poolNotFound());
+		await expect(
+			buildAmmBuyInstructions({
+				network: 'mainnet',
+				mint: MINT,
+				user: { toBase58: () => 'user' },
+				quoteAmount: new BN(1),
 				slippagePct: 5,
 			}),
 		).rejects.toMatchObject({ code: 'pool_not_found' });
