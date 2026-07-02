@@ -54,4 +54,4 @@ export default wrapCron(async (req, res) => {
 		conditional_win_rates: train.conditional_win_rates || null,
 		ms: Date.now() - started,
 	});
-});
+}, { requireWriteCapacity: true });

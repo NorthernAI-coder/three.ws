@@ -62,4 +62,4 @@ export default wrapCron(async (req, res) => {
 		console.error('[recompute-reputation] failed:', err?.message || err);
 		return json(res, 200, { ok: false, error: err?.message || String(err) });
 	}
-});
+}, { requireWriteCapacity: true });

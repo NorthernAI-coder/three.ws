@@ -68,7 +68,7 @@ export default wrapCron(async (req, res) => {
 		remaining_unjudged: folded.remaining,
 		took_ms: Date.now() - started,
 	});
-});
+}, { requireWriteCapacity: true });
 
 // ── Phase A: judge newly-rated coins and fold buyers into reputation ─────────
 async function judgeAndFold() {

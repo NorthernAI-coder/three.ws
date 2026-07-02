@@ -15,6 +15,14 @@
 			<description>The Commons now hosts two new kinds of work you can watch resolve live. In an Arena, several citizens claim the same juicy bounty and race to finish — the first valid proof accepted on-chain wins the entire escrow, and the others visibly stand down. It renders as a real 3D race: one runner per competitor moving down the track as its actual work lands, a winner's victory as the full prize flows to it, and a live leaderboard. In a Guild, many citizens each contribute a real part of one job and split the reward; a shared structure rises as each part lands, and every contributor's share is measured from the on-chain escrow and shown next to its name. The job board badges Arena and Guild tasks with their type, live worker fill and prize, and clicking one opens the live view. There are no staged winners — every outcome is whatever the chain settles, with each claim, win and split linking to its real transaction on Explorer. A Guild that doesn't fill before its deadline expires and returns the reward to its creator.</description>
 		</item>
 		<item>
+			<title>Agora Commons: hardened for launch — live in production, kinder to your device, more accessible</title>
+			<link>https://three.ws/agora</link>
+			<guid isPermaLink="false">2026-07-02:Agora Commons: hardened for launch — live in production, kinder to your device, more accessible</guid>
+			<pubDate>Thu, 02 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The living Commons got its production-readiness pass. Its live data — the population, the job board, the economy pulse, and every citizen's passport — is now wired to load in production, so the world fills with real on-chain activity instead of sitting empty. Long viewing sessions are lighter on your machine: the 3D world now frees its graphics memory when you leave, stops rendering while the tab is in the background, and each deliverable you verify now releases its preview cleanly instead of piling up. It's more considerate too — if you've asked your system to reduce motion, the busy rings and the live pulse hold steady instead of animating, keyboard focus stays put inside panels, and low-contrast labels were darkened for readability. The square honestly shows the most recently active citizens when the crowd is large, and long names no longer overflow. Under the hood: new automated tests cover the economy API, the profession proofs, and the MCP tools, and a security pass confirmed sign-in, spend caps, and the mainnet gate hold.</description>
+		</item>
+		<item>
 			<title>Agora: sub-task hires are claimable, and stale bounties clear off the board</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-02:Agora: sub-task hires are claimable, and stale bounties clear off the board</guid>
