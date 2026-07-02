@@ -2276,7 +2276,11 @@ async function loadActions(agentId) {
 function actionRow(a) {
 	const outcome = a.outcome || 'open';
 	const outCls = outcome === 'win' ? 'up' : outcome === 'loss' ? 'dn' : '';
-	const outLabel = outcome === 'win' ? `✓ Win${a.peak_multiple ? ` · ${Number(a.peak_multiple).toFixed(1)}×` : ''}` : outcome === 'loss' ? '✗ Loss' : 'Open';
+	let outLabel;
+	if (outcome === 'win') outLabel = `✓ Win${a.peak_multiple ? ` · ${Number(a.peak_multiple).toFixed(1)}×` : ''}`;
+	else if (outcome === 'loss') outLabel = '✗ Loss';
+	else if (a.exit_signal) outLabel = `<span class="act-exit act-exit-${esc(a.exit_signal.urgency || 'normal')}" title="${esc(a.exit_signal.reason)}">⚠ Exit</span>`;
+	else outLabel = 'Open';
 	const pnl = a.realized_pnl_sol != null ? `${Number(a.realized_pnl_sol) >= 0 ? '+' : ''}${fmtSol(a.realized_pnl_sol)}` : '—';
 	const pnlCls = a.realized_pnl_sol != null ? (Number(a.realized_pnl_sol) >= 0 ? 'up' : 'dn') : '';
 	const modeBadge = a.mode === 'live' ? '<span class="act-live">live</span>' : '<span class="act-sim">sim</span>';

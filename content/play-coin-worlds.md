@@ -58,7 +58,7 @@ Honesty requires a line here, expanded in the limits section: the plaza and ever
 
 Every town has a cast of named citizens, and they are not decoration. Each has a persona, a post, and in most cases a working paid service behind the counter.
 
-Talk to any of them and you get a real conversation: chat streams from the platform's multi-model brain endpoint over server-sent events, up to 512 tokens a reply, with a 24-turn memory. Each NPC is hard-locked to its persona, aware of which coin's town it is standing in, allowed to discuss the local coin factually, and permitted to promote exactly one coin ever: $THREE.
+Talk to any of them and you get a real conversation: chat streams from the platform's multi-model brain endpoint over server-sent events, with a 24-turn memory. Each NPC is hard-locked to its persona, aware of which coin's town it is standing in, allowed to discuss the local coin factually, and permitted to promote exactly one coin ever: $THREE.
 
 The vendors run real x402 counters, each a genuine paid endpoint settled in USDC from your own wallet: Marisol the trader sells a live market signal for one cent. Sheriff Boone runs fact checks for a dime. Old Pete grinds vanity Solana addresses from a penny. Wendell at the assay office checks ticker availability for a tenth of a cent; Mei at the foundry turns a mint into a 3D mesh for the same. Doc Halloran audits an agent's books for two cents. The Oracle reads a wallet's on-chain reputation and Miss Ada tutors, a penny each. The Saloon Kid takes dance floor tips. And Banker Cole will launch you a coin for five dollars. Every price is a real 402 challenge, every settlement a real transaction.
 
