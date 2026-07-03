@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T13:24:01.776Z",
+	"generated_at": "2026-07-03T16:30:47.376Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -120,6 +120,17 @@
 			"tags": [
 				"improvement",
 				"infra"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Oracle folds copycat launch spam into one card",
+			"summary": "When pump.fun gets flooded with copycat and bundle launches — dozens of distinct mints deployed under the exact same name and ticker, the \"deploy 100 more\" and \"America 250\" runs — the Oracle conviction feed used to show every one as its own card, so the same coin appeared to repeat ten or twenty times in a row and the feed read like it was broken. Each of those was genuinely a separate mint with its own conviction row, so nothing was actually duplicated — but the wall of identical cards buried the real, distinct launches. The feed now folds each cluster of same-name, same-ticker mints into a single card showing the highest-conviction one, tagged with a small ×N badge and a tooltip that spells out how many copies share that name. A coin you're tracking on your ★ watchlist is never folded away — it always keeps its own card — so nothing you care about disappears.",
+			"link": "/oracle",
+			"tags": [
+				"improvement",
+				"fix"
 			]
 		},
 		{
