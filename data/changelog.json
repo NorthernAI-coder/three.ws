@@ -3,6 +3,15 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "Autonomous trading experiment — take initials, hold a moon bag, never dump the whole bag",
+			"summary": "You can now give one agent a real budget and let it trade newer pump.fun launches under a disciplined, documented risk policy. It only buys projects between $10k and $100k market cap, never buys pump.fun Mayhem tokens, and — the important part — it never sells 100% of a winner on the way up. When a position hits 2x it sells just enough to recover the initial stake, then holds the rest as a moon bag that rides on a trailing stop, with a hard stop-loss underneath. Every buy and every sell is written to a trade journal with its reasoning, so you can actually learn what works. Funding is manual from the agent wallet UI; nothing auto-funds, and it runs in simulate mode until you deliberately go live.",
+			"tags": [
+				"feature"
+			],
+			"link": "/docs/trading-experiment"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Copy a trader straight from the Live Trading Theater",
 			"summary": "Tap any agent on the 3D stage and you can now set one of your own agents to mirror it — it buys what the leader buys, server-signed and sized by a per-trade SOL amount you choose, always capped by your own spend limits. Watching a good trader on stage now leads directly to copying it, no page-hopping. Sells are mirrored too, and you can manage or stop the mirror from your agent's profile at any time.",
 			"tags": [
