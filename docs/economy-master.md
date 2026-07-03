@@ -107,6 +107,10 @@ The JSON response reports `configured`, `master_sol`, `funded`, `failed`,
 `skipped`, `rejected`, and `spent_sol`. A non-empty `rejected` array means an
 off-registry target reached the sweep and was blocked — investigate the caller.
 
+If the cron never fires because Vercel's scheduler is down, the
+[economy heartbeat](economy-heartbeat.md) keeps it (and every other cron)
+ticking from GitHub Actions.
+
 ## Audit, accounting & breach monitoring
 
 This is real money, so every movement is recorded to a durable, tamper-evident
