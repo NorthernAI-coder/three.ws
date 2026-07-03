@@ -53,6 +53,40 @@ const PENALTY = Object.freeze({
 const BLOCK_SCORE = 45; // at/under this composite → block on warnings alone
 const WARN_SCORE = 70; // at/under this → warn
 
+// Reasons that are too dangerous to buy through on a `warn` verdict. The composite
+// score keeps these as `warn` (so a hiccup never halts a whole fleet), but for a
+// caller that opted into fail-closed enforcement they are hard blocks: we did NOT
+// prove the coin is safe. `criticalFirewallReason` lets such a caller (the sniper
+// at firewall_level='block') refuse the buy instead of proceeding on a warn — the
+// exact hole that was buying honeypots and infinite-mint rugs.
+//   simulation_unavailable → the buy→sell round-trip couldn't run: sellability unproven
+//   mint_authority_active  → dev can mint unlimited supply and dilute you to zero
+//   freeze_authority_active→ dev can freeze your token so you can never sell
+//   authority_read_failed  → couldn't read the mint's authorities at all
+//   mint_not_found         → the mint account isn't there to vet
+export const CRITICAL_FIREWALL_REASONS = Object.freeze(new Set([
+	'simulation_unavailable',
+	'mint_authority_active',
+	'freeze_authority_active',
+	'authority_read_failed',
+	'mint_not_found',
+]));
+
+/**
+ * First critical (unproven-safety) reason in an assessment, or null when none.
+ * Pure — safe to unit-test. Used by fail-closed callers to block a `warn` verdict
+ * whose warnings mean "couldn't verify", not "verified safe".
+ * @param {{ checks?: Array<{status?:string, reason?:string}> }} assessment
+ * @returns {string|null}
+ */
+export function criticalFirewallReason(assessment) {
+	if (!assessment) return null;
+	for (const c of assessment.checks || []) {
+		if (c && c.status !== 'pass' && CRITICAL_FIREWALL_REASONS.has(c.reason)) return c.reason;
+	}
+	return null;
+}
+
 function clampScore(n) {
 	return Math.max(0, Math.min(100, Math.round(n)));
 }

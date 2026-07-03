@@ -176,7 +176,7 @@ async function main() {
 								if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: rec.mint });
 								await executeBuy({
 									cfg, strat, throttle,
-									mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
+									mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, market_cap_usd: rec.market_cap_usd, entry_trigger: 'intel_confirmed', trigger_ref: rec.mint },
 								});
 							});
 						})
@@ -198,7 +198,7 @@ async function main() {
 							if (og.skipped) log.info('oracle unscored — proceeding', { agent: strat.agent_id, mint: rec.mint });
 							await executeBuy({
 								cfg, strat, throttle,
-								mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, entry_trigger: 'alpha_hunt', trigger_ref: rec.mint },
+								mint: { mint: rec.mint, symbol: rec.symbol, name: rec.name, market_cap_usd: rec.market_cap_usd, entry_trigger: 'alpha_hunt', trigger_ref: rec.mint },
 							});
 						});
 					}).catch((err) => log.error('alpha score failed', { mint: rec.mint, err: err?.message }));

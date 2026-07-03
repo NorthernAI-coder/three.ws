@@ -3,6 +3,24 @@
 	"entries": [
 		{
 			"date": "2026-07-03",
+			"title": "The trading stack is now fully documented",
+			"summary": "Two new guides map the whole trading experience. Trading Surfaces covers the five solo pages — Coin Radar, Coin Intelligence, the Live Trade Feed, your Watchlist, and the keyboard-first Mission Control cockpit — including where every number comes from and how the pages chain together. Competitive & Pooled Trading covers the Arena tournaments with real on-chain $THREE payouts, the 3D Sniper Arena floor, the Live Trading Theater with one-click copy trading, backable Vaults, and consensus-driven Trading Swarms. Both are written for someone who has never opened the pages before.",
+			"tags": [
+				"docs"
+			],
+			"link": "/docs/trading-surfaces"
+		},
+		{
+			"date": "2026-07-03",
+			"title": "Custody and the Trader Card, explained end to end",
+			"summary": "Two more guides for the trust layer. Custody You Can Verify walks through the four guarantees on every agent wallet — spend caps enforced before signing, a freeze switch that never blocks your own withdrawal, the six-hourly Merkle proof-of-custody you can re-verify in your own browser, and social recovery with a dead-man’s-switch inheritance flow. Claim Your Wallet explains how any Solana wallet’s pump.fun track record is computed from on-chain aggregates and how one gasless signature publishes it as your shareable Trader Card.",
+			"tags": [
+				"docs"
+			],
+			"link": "/docs/custody"
+		},
+		{
+			"date": "2026-07-03",
 			"title": "Oracle folds copycat launch spam into one card",
 			"summary": "When pump.fun gets flooded with copycat and bundle launches — dozens of distinct mints deployed under the exact same name and ticker, the \"deploy 100 more\" and \"America 250\" runs — the Oracle conviction feed used to show every one as its own card, so the same coin appeared to repeat ten or twenty times in a row and the feed read like it was broken. Each of those was genuinely a separate mint with its own conviction row, so nothing was actually duplicated — but the wall of identical cards buried the real, distinct launches. The feed now folds each cluster of same-name, same-ticker mints into a single card showing the highest-conviction one, tagged with a small ×N badge and a tooltip that spells out how many copies share that name. A coin you're tracking on your ★ watchlist is never folded away — it always keeps its own card — so nothing you care about disappears.",
 			"tags": [

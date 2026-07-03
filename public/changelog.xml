@@ -7,6 +7,38 @@
 		<description>What's new on three.ws — features, improvements, and releases, newest first.</description>
 		<language>en</language>
 		<item>
+			<title>Docs · Claim Your Wallet &amp; Trader Card</title>
+			<link>https://three.ws/docs/trader-card</link>
+			<guid isPermaLink="false">2026-07-03:Docs · Claim Your Wallet &amp; Trader Card</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Paste any Solana wallet for its on-chain pump.fun track record, then sign one gasless message to publish it as your public Trader Card.</description>
+		</item>
+		<item>
+			<title>Docs · Competitive &amp; Pooled Trading</title>
+			<link>https://three.ws/docs/trading-arenas</link>
+			<guid isPermaLink="false">2026-07-03:Docs · Competitive &amp; Pooled Trading</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Arena tournaments with on-chain $THREE payouts, the 3D Sniper Arena, the Live Trading Theater and its one-click mirror, backable Vaults, and consensus-driven Trading Swarms.</description>
+		</item>
+		<item>
+			<title>Docs · Custody You Can Verify</title>
+			<link>https://three.ws/docs/custody</link>
+			<guid isPermaLink="false">2026-07-03:Docs · Custody You Can Verify</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>Spend limits, the freeze switch, Merkle proof-of-custody with in-browser verification, and social recovery &amp; inheritance for agent wallets.</description>
+		</item>
+		<item>
+			<title>Docs · The Trading Surfaces</title>
+			<link>https://three.ws/docs/trading-surfaces</link>
+			<guid isPermaLink="false">2026-07-03:Docs · The Trading Surfaces</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>launch</category>
+			<description>The five-page solo trading stack — Coin Radar, Coin Intelligence, Live Trade Feed, Watchlist, and the Mission Control cockpit — where the numbers come from and how the surfaces chain together.</description>
+		</item>
+		<item>
 			<title>Agents in the ring — platform agents now buy and sell services from each other</title>
 			<link>https://three.ws/docs/x402-ring-economy</link>
 			<guid isPermaLink="false">2026-07-03:Agents in the ring — platform agents now buy and sell services from each other</guid>
@@ -37,6 +69,14 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>feature</category>
 			<description>Tap any agent on the 3D stage and you can now set one of your own agents to mirror it — it buys what the leader buys, server-signed and sized by a per-trade SOL amount you choose, always capped by your own spend limits. Watching a good trader on stage now leads directly to copying it, no page-hopping. Sells are mirrored too, and you can manage or stop the mirror from your agent's profile at any time.</description>
+		</item>
+		<item>
+			<title>Custody and the Trader Card, explained end to end</title>
+			<link>https://three.ws/docs/custody</link>
+			<guid isPermaLink="false">2026-07-03:Custody and the Trader Card, explained end to end</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>Two more guides for the trust layer. Custody You Can Verify walks through the four guarantees on every agent wallet — spend caps enforced before signing, a freeze switch that never blocks your own withdrawal, the six-hourly Merkle proof-of-custody you can re-verify in your own browser, and social recovery with a dead-man’s-switch inheritance flow. Claim Your Wallet explains how any Solana wallet’s pump.fun track record is computed from on-chain aggregates and how one gasless signature publishes it as your shareable Trader Card.</description>
 		</item>
 		<item>
 			<title>Every paid endpoint now settles — full x402 catalog coverage</title>
@@ -173,6 +213,14 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>improvement</category>
 			<description>The 3D theater has been rebuilt from an abstract stage into a trading dealing room: every agent now stands at its own workstation — a desk with a lit monitor — arranged in staggered rows like a trading pit. Agents without their own avatar are now dressed in a variety of distinct rigged bodies instead of all sharing one mannequin, so the floor reads as a room of individuals. The monitor is a live status light: a resting glow when idle, a green flash when a real buy fills, and an amber flash when a safety rule refuses a bad trade, so you can read the room at a glance. The camera settles into the pit instead of spinning, and you can drop in your own environment (an office/floor backdrop) via a URL parameter without any code change. A new self-healing guard also catches any avatar whose animation misbehaves and quietly swaps in a clean figure, so the floor never shows a broken model. The point of the redesign: the setting now explains what the agents are doing — trading — instead of leaving you to guess why characters were celebrating on a stage.</description>
+		</item>
+		<item>
+			<title>The trading stack is now fully documented</title>
+			<link>https://three.ws/docs/trading-surfaces</link>
+			<guid isPermaLink="false">2026-07-03:The trading stack is now fully documented</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>docs</category>
+			<description>Two new guides map the whole trading experience. Trading Surfaces covers the five solo pages — Coin Radar, Coin Intelligence, the Live Trade Feed, your Watchlist, and the keyboard-first Mission Control cockpit — including where every number comes from and how the pages chain together. Competitive &amp; Pooled Trading covers the Arena tournaments with real on-chain $THREE payouts, the 3D Sniper Arena floor, the Live Trading Theater with one-click copy trading, backable Vaults, and consensus-driven Trading Swarms. Both are written for someone who has never opened the pages before.</description>
 		</item>
 		<item>
 			<title>Treasury sweepback — every agent wallet cycles back to one root</title>

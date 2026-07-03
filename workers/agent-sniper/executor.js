@@ -9,6 +9,7 @@ import { sql } from '../../api/_lib/db.js';
 import { log } from './log.js';
 import { loadAgentKeypair } from './keys.js';
 import { mayhemGate } from './mayhem-gate.js';
+import { marketCapBandReason } from './scorer.js';
 import { recordJournal, journalEntry } from './journal.js';
 import { getTradeCtx, signAndSend, submitProtectedTrade } from './trade-client.js';
 import { countOpenPositions, getDailySpend } from './strategy-store.js';
@@ -21,7 +22,7 @@ import {
 	SOL_FEE_HEADROOM_LAMPORTS,
 } from '../../api/_lib/agent-trade-guards.js';
 import { buildAmmSellInstructions } from './amm-exit.js';
-import { assessTradeSafety, recordFirewallDecision } from '../../api/_lib/trade-firewall.js';
+import { assessTradeSafety, recordFirewallDecision, criticalFirewallReason } from '../../api/_lib/trade-firewall.js';
 import { recordDecision } from '../../api/_lib/reasoning-ledger.js';
 import { screenPush } from './screen-push.js';
 
@@ -243,6 +244,16 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 		const mayhem = await mayhemGate(mint.mint, cfg);
 		if (!mayhem.pass) return skip(tag, mayhem.reason);
 
+		// 0b. Market-cap band (owner rule: buy only $10k–$100k). Enforced HERE at the
+		//     shared chokepoint — not just in scoreMint/scoreIntel — so alpha_hunt,
+		//     first_claim, prelaunch_radar and swarm can't bypass the band the way
+		//     they did before. FAIL CLOSED: a strategy that declares a band never buys
+		//     a coin whose market cap we can't confirm is inside it. Paths that carry
+		//     no mcap (e.g. pre-launch triggers) are correctly skipped when a band is
+		//     set — you cannot buy "$10k–$100k" on a coin you can't price.
+		const bandReason = marketCapBandReason(mint.market_cap_usd, strat);
+		if (bandReason) return skip(tag, bandReason);
+
 		// 1. global throttle (platform-wide backstop)
 		if (!throttle.tryConsume()) return skip(tag, 'global_throttle');
 
@@ -337,8 +348,27 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 					log.warn?.('firewall_check_failed', { ...tag, message: err?.message });
 					return null;
 				});
-				if (assessment) {
-					const enforced = firewallLevel === 'block' && assessment.verdict === 'block';
+				// FAIL CLOSED. Two ways this used to buy an unvetted rug and no longer does:
+				//   1. assessment === null (the whole firewall threw) → a 'block'-level
+				//      strategy must NOT broadcast a coin it never vetted.
+				//   2. verdict === 'warn' but a CRITICAL check (round-trip sim couldn't
+				//      run, mint/freeze authority active, authority unreadable) → the
+				//      warning means "couldn't prove it's safe", not "safe". Block it.
+				if (!assessment) {
+					if (firewallLevel === 'block') {
+						await sql`
+							UPDATE agent_sniper_positions
+							SET status = 'failed', error = 'firewall_block: firewall_unavailable', closed_at = now()
+							WHERE id = ${posId}
+						`;
+						log.warn('buy blocked — firewall unavailable (fail-closed)', { ...tag });
+						screenPush(`$${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} blocked — safety check unavailable`, 'analysis');
+						return { status: 'failed', reason: 'firewall_unavailable' };
+					}
+					// warn/off levels keep the raw-speed escape hatch: proceed without a vet.
+				} else {
+					const critical = criticalFirewallReason(assessment);
+					const enforced = firewallLevel === 'block' && (assessment.verdict === 'block' || !!critical);
 					recordFirewallDecision({
 						mint: mint.mint, network: cfg.network, side: 'buy',
 						verdict: assessment.verdict, score: assessment.score, simulated: assessment.simulated,
@@ -347,13 +377,13 @@ export async function executeBuy({ cfg, strat, mint, throttle }) {
 						quoteLamports: perTrade, enforced,
 					}).catch(() => {});
 					if (enforced) {
-						const reason = assessment.reasons?.[0] || 'firewall_blocked';
+						const reason = critical || assessment.reasons?.[0] || 'firewall_blocked';
 						await sql`
 							UPDATE agent_sniper_positions
 							SET status = 'failed', error = ${`firewall_block: ${reason}`.slice(0, 280)}, closed_at = now()
 							WHERE id = ${posId}
 						`;
-						log.warn('buy blocked by firewall', { ...tag, score: assessment.score, reasons: assessment.reasons });
+						log.warn('buy blocked by firewall', { ...tag, score: assessment.score, critical: critical || null, reasons: assessment.reasons });
 						screenPush(`$${(mint.symbol || mint.mint.slice(0, 6)).toUpperCase()} blocked by firewall: ${reason}`, 'analysis');
 						return { status: 'failed', reason: 'firewall_block' };
 					}

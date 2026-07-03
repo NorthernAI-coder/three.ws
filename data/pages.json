@@ -1802,6 +1802,30 @@
 					"priority": 0.7,
 					"changefreq": "weekly",
 					"added": "2026-06-14"
+				},
+				{
+					"path": "/docs/trading-surfaces",
+					"title": "Docs · The Trading Surfaces",
+					"description": "The five-page solo trading stack — Coin Radar, Coin Intelligence, Live Trade Feed, Watchlist, and the Mission Control cockpit — where the numbers come from and how the surfaces chain together.",
+					"added": "2026-07-03"
+				},
+				{
+					"path": "/docs/trading-arenas",
+					"title": "Docs · Competitive & Pooled Trading",
+					"description": "Arena tournaments with on-chain $THREE payouts, the 3D Sniper Arena, the Live Trading Theater and its one-click mirror, backable Vaults, and consensus-driven Trading Swarms.",
+					"added": "2026-07-03"
+				},
+				{
+					"path": "/docs/custody",
+					"title": "Docs · Custody You Can Verify",
+					"description": "Spend limits, the freeze switch, Merkle proof-of-custody with in-browser verification, and social recovery & inheritance for agent wallets.",
+					"added": "2026-07-03"
+				},
+				{
+					"path": "/docs/trader-card",
+					"title": "Docs · Claim Your Wallet & Trader Card",
+					"description": "Paste any Solana wallet for its on-chain pump.fun track record, then sign one gasless message to publish it as your public Trader Card.",
+					"added": "2026-07-03"
 				}
 			]
 		},

@@ -61,8 +61,11 @@ export function scoreAlpha(rec, strat) {
 		}
 	}
 
-	// max market cap in USD
-	const maxMcapUsd = n(strat.alpha_max_mcap_usd);
+	// max market cap in USD. Prefer the standard `max_market_cap_usd` (the field the
+	// owner's $10k–$100k experiment actually sets); fall back to the alpha-only field
+	// for legacy alpha strategies. Reading only `alpha_max_mcap_usd` silently dropped
+	// the ceiling for every experiment strategy — that was a real out-of-band hole.
+	const maxMcapUsd = n(strat.max_market_cap_usd) ?? n(strat.alpha_max_mcap_usd);
 	if (maxMcapUsd != null) {
 		// mc_sol_first_seen is in SOL; strategy provides USD cap.
 		// We store/pass market_cap_usd on rec if available; else skip the check.

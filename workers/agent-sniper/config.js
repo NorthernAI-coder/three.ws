@@ -100,11 +100,14 @@ export function loadConfig() {
 		// ── Mayhem exclusion (owner rule) ────────────────────────────────────────
 		// NEVER buy pump.fun "Mayhem"-mode tokens — only regular launches. Reads the
 		// bonding curve's isMayhemMode once per mint (cached). On by default; set
-		// SNIPER_MAYHEM_FILTER=0 to disable. SNIPER_MAYHEM_STRICT=1 skips a buy when
-		// the curve can't be read (default allows-on-unknown so a flaky RPC read
-		// can't silently halt trading).
+		// SNIPER_MAYHEM_FILTER=0 to disable. FAIL CLOSED by default: when the curve
+		// can't be read we skip the buy, because we can't confirm it isn't Mayhem —
+		// and the owner rule is NEVER buy Mayhem, not "buy when unsure". A fresh
+		// mint's curve exists at creation, so an unreadable read is an RPC hiccup, not
+		// a missing account; the right response is to pass on that coin, not buy blind.
+		// Set SNIPER_MAYHEM_STRICT=0 to restore allow-on-unknown (raw speed).
 		mayhemFilter: bool('SNIPER_MAYHEM_FILTER', true),
-		mayhemStrict: bool('SNIPER_MAYHEM_STRICT', false),
+		mayhemStrict: bool('SNIPER_MAYHEM_STRICT', true),
 		// Global emergency stop — set SNIPER_GLOBAL_KILL=1 to halt all new buys
 		// while still letting the position loop manage/exit open positions.
 		globalKill: bool('SNIPER_GLOBAL_KILL', false),

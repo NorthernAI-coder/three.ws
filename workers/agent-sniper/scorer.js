@@ -47,6 +47,28 @@ function tightenMax(stratMax, ceil) {
 }
 
 /**
+ * Market-cap band gate — the single source of truth for the owner's "buy only
+ * $10k–$100k" rule. The effective band is the per-strategy bound tightened by the
+ * fleet-wide safety band (SNIPER_MIN_MC_FLOOR_USD / SNIPER_MAX_MC_CEIL_USD). It
+ * FAILS CLOSED: an unknown market cap fails the min gate, because we must never
+ * buy blind into a band we can't even price the coin into — that was the rug hole.
+ * Returns a skip reason string when out of band (or unknown while a min exists),
+ * or null when the coin is inside the band / no band is configured.
+ *
+ * Shared by scoreMint, scoreIntel, AND the executeBuy chokepoint so EVERY trigger
+ * path (new_mint / intel / alpha / first_claim / radar / swarm) enforces the same
+ * rule — not just the two scorers that happened to implement it.
+ */
+export function marketCapBandReason(mcUsdRaw, strat) {
+	const mcUsd = n(mcUsdRaw);
+	const minMc = tightenMin(n(strat.min_market_cap_usd), MC_FLOOR);
+	const maxMc = tightenMax(n(strat.max_market_cap_usd), MC_CEIL);
+	if (minMc != null && (mcUsd == null || mcUsd < minMc)) return `mc_below_min:${mcUsd ?? 'n/a'}<${minMc}`;
+	if (maxMc != null && mcUsd != null && mcUsd > maxMc) return `mc_above_max:${Math.round(mcUsd)}>${maxMc}`;
+	return null;
+}
+
+/**
  * @param {object} mint  enriched PumpPortal mint event
  * @param {object} strat agent_sniper_strategies row
  * @returns {{ pass: boolean, score: number, reasons: string[] }}
@@ -60,26 +82,19 @@ export function scoreMint(mint, strat) {
 		return { pass: false, score: 0, reasons: ['quote_not_sol'] };
 	}
 
-	const mcUsd = n(mint.market_cap_usd);
-	// Effective band = the per-strategy bound tightened by the fleet-wide safety
-	// band. An unknown market cap fails a min gate — we never buy blind into a
-	// coin we can't even price into the band (that was the rug hole).
-	const minMc = tightenMin(n(strat.min_market_cap_usd), MC_FLOOR);
-	const maxMc = tightenMax(n(strat.max_market_cap_usd), MC_CEIL);
-	if (minMc != null && (mcUsd == null || mcUsd < minMc)) {
-		return { pass: false, score: 0, reasons: [`mc_below_min:${mcUsd ?? 'n/a'}<${minMc}`] };
-	}
-	if (maxMc != null && mcUsd != null && mcUsd > maxMc) {
-		return { pass: false, score: 0, reasons: [`mc_above_max:${Math.round(mcUsd)}>${maxMc}`] };
-	}
+	const bandReason = marketCapBandReason(mint.market_cap_usd, strat);
+	if (bandReason) return { pass: false, score: 0, reasons: [bandReason] };
 
 	const launches = n(mint.creator_launches);
 	const graduated = n(mint.creator_graduated);
 	const maxLaunches = n(strat.max_creator_launches);
 	const minGrad = n(strat.min_creator_graduated);
-	// Serial-rugger guard: many launches, none graduated.
-	if (maxLaunches != null && launches != null && launches > maxLaunches) {
-		return { pass: false, score: 0, reasons: ['creator_too_many_launches'] };
+	// Serial-rugger guard, FAIL CLOSED: many launches → skip; and if a launch cap
+	// is set but the creator's history couldn't be read (enrich timeout), skip too
+	// rather than let a serial rugger slip through on a null. Matches the fail-closed
+	// launch gate in api/_lib/agent-strategy-runtime.js.
+	if (maxLaunches != null && (launches == null || launches > maxLaunches)) {
+		return { pass: false, score: 0, reasons: [launches == null ? 'creator_launches_unknown' : 'creator_too_many_launches'] };
 	}
 	if (minGrad != null && (graduated == null || graduated < minGrad)) {
 		return { pass: false, score: 0, reasons: ['creator_too_few_graduated'] };
@@ -121,15 +136,8 @@ export function scoreIntel(rec, strat, weights = null) {
 	// Market-cap band first — this is the trigger meant to buy INSIDE the band
 	// (a coin observed after it pumped into range), so the fleet band applies here
 	// too. Unknown mcap fails a min gate: never buy what we can't price into band.
-	const mcUsd = n(rec.market_cap_usd);
-	const minMc = tightenMin(n(strat.min_market_cap_usd), MC_FLOOR);
-	const maxMc = tightenMax(n(strat.max_market_cap_usd), MC_CEIL);
-	if (minMc != null && (mcUsd == null || mcUsd < minMc)) {
-		return { pass: false, score: 0, reasons: [`mc_below_min:${mcUsd ?? 'n/a'}<${minMc}`] };
-	}
-	if (maxMc != null && mcUsd != null && mcUsd > maxMc) {
-		return { pass: false, score: 0, reasons: [`mc_above_max:${Math.round(mcUsd)}>${maxMc}`] };
-	}
+	const bandReason = marketCapBandReason(rec.market_cap_usd, strat);
+	if (bandReason) return { pass: false, score: 0, reasons: [bandReason] };
 	const minQ = n(strat.min_quality_score);
 	if (minQ != null && (rec.quality_score == null || rec.quality_score < minQ)) {
 		return { pass: false, score: 0, reasons: [`quality_below_min:${rec.quality_score}`] };
