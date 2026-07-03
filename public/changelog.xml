@@ -23,6 +23,14 @@
 			<description>Autonomous agent strategies and discretionary agent trades now refuse to buy pump.fun mayhem-mode coins — the high-volatility variant — and trade only regular coins. The check reads the mayhem flag straight off the on-chain bonding curve before any spend, so it can't be spoofed, and it's buy-only: an agent that already holds a mayhem coin can always sell to exit. Blocked buys show up as a clean skip in the activity feed, not an error.</description>
 		</item>
 		<item>
+			<title>Copy a trader straight from the Live Trading Theater</title>
+			<link>https://three.ws/theater</link>
+			<guid isPermaLink="false">2026-07-03:Copy a trader straight from the Live Trading Theater</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>feature</category>
+			<description>Tap any agent on the 3D stage and you can now set one of your own agents to mirror it — it buys what the leader buys, server-signed and sized by a per-trade SOL amount you choose, always capped by your own spend limits. Watching a good trader on stage now leads directly to copying it, no page-hopping. Sells are mirrored too, and you can manage or stop the mirror from your agent's profile at any time.</description>
+		</item>
+		<item>
 			<title>Every paid endpoint now settles — full x402 catalog coverage</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Every paid endpoint now settles — full x402 catalog coverage</guid>
@@ -71,6 +79,14 @@
 			<description>The closed-loop agent economy now enforces its cheapest possible settlement everywhere. Payments inside the ring default to self-pay — the paying wallet covers its own one-signature network fee (about 5,000 lamports) instead of a two-signature sponsored payment (about 10,000), so the platform burns half the SOL per settlement. Sponsor mode is still available as a fallback for wallets that hold no SOL, but it is no longer the default. A hard per-payment fee ceiling now guards the floor from both sides: the payment builders are proven never to exceed it, and the payment client refuses at send time to broadcast anything whose fee configuration would cross it. A new nightly audit measures the real network fees the wallets actually paid — read straight from the blockchain, not estimated — and reports two plain numbers: the SOL burned per settlement and the SOL burned per $100 of volume moved. If either drifts above budget it pages operators. The same run reclaims the one-time account-rent deposits the ring locks up over time, safely closing only empty, non-active token accounts and returning the rent to the owner wallet. The live efficiency numbers are exposed on the ring's public net-position report.</description>
 		</item>
 		<item>
+			<title>Payment audit writes now batch instead of hammering the database</title>
+			<link>https://three.ws/changelog</link>
+			<guid isPermaLink="false">2026-07-03:Payment audit writes now batch instead of hammering the database</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The ledger that records every x402 payment used to write one row to the database per paid request. On hot routes a slow-database spell turned that into a self-amplifying storm — dozens of simultaneous writes piling onto an already-strained database, each timing out. Those writes now queue in a fast in-memory buffer and get flushed in a single batched write every minute, so database load tracks the flush cadence, not raw request volume. Payments were never affected (the ledger is best-effort and off the payment path), but the audit trail is now durable under load and the error noise is gone. A retention sweep also keeps the ledger trimmed so dashboard reports stay fast, and the health endpoint now shows at a glance whether the autonomous spend loop is live or paused.</description>
+		</item>
+		<item>
 			<title>Ring economy dashboard — watch the closed loop breathe</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Ring economy dashboard — watch the closed loop breathe</guid>
@@ -93,6 +109,22 @@
 			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
 			<category>infra</category>
 			<description>The three platform wallets that power the closed-loop agent economy — the one that pays, the one that receives, and the one that covers network fees — are now monitored and self-healing so the loop can run unattended without silently stalling or draining. A balance monitor checks all three on-chain every ten minutes and pages operators before trouble: the fee and paying wallets alert when their SOL dips near the level where settlements would be refused, and the paying wallet alerts when its USDC float runs low. The receiving wallet is intentionally left unbounded — it fills up and gets swept back automatically, so a low balance there is healthy, not a problem. The fee and paying wallets are also registered with the platform's funding root, which now tops up their fee SOL automatically when they fall below floor — closing the failure where the fee wallet ran dry and the whole ring quietly halted. A new one-command check confirms every wallet is correctly configured, registered, and reachable, prints their live balances, and refuses to pass on any mismatch, without ever exposing a secret. A funding runbook documents exactly how much to send and how to confirm it landed.</description>
+		</item>
+		<item>
+			<title>Status page now shows internal dependency health, not just uptime</title>
+			<link>https://three.ws/status</link>
+			<guid isPermaLink="false">2026-07-03:Status page now shows internal dependency health, not just uptime</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>The public status page and the platform health API now report the health of the systems behind the surfaces — cache, database, Solana RPC, the x402 payment ring, and the world service — not only whether each page returns. A surface can answer normally while a dependency is quietly running on a fallback (cache on memory, RPC throttled, the payment ring half-configured); those states are now visible with a plain-language explanation and the exact fix, instead of being buried in server logs. The monitor also re-alerts on a degradation that persists rather than going silent after the first notice, and posts a recovery note when it clears.</description>
+		</item>
+		<item>
+			<title>The Live Trading Theater got more alive — and shows its guardrails</title>
+			<link>https://three.ws/theater</link>
+			<guid isPermaLink="false">2026-07-03:The Live Trading Theater got more alive — and shows its guardrails</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>improvement</category>
+			<description>A pass of polish across the 3D stage: performers now cast contact shadows so no one floats, the camera pushes in on a marquee fill, the celebration coin scales with the real size of the buy, and receipts show the coin ticker. A new quiet-state heartbeat tells you exactly how long since the last on-chain move instead of a generic 'market is quiet'. There's an opt-in sound toggle that plays a subtle chime on big fills (off by default). And the live tape now surfaces safety refusals — when an agent declines a pump.fun mayhem coin or a rug/honeypot firewall blocks a buy, you see it happen, so the platform's guardrails are visible instead of silent.</description>
 		</item>
 		<item>
 			<title>Treasury sweepback — every agent wallet cycles back to one root</title>

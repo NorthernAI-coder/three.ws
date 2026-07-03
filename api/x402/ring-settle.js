@@ -33,8 +33,10 @@ const ROUTE = '/api/x402/ring-settle';
 
 // Default $1.00 — deliberately large so ring volume uses FEW transactions (fee
 // scales with tx count, not size). Raise X402_PRICE_RING_SETTLE to $10–$100 for
-// near-zero SOL burn; lower it only if you want more, smaller settlements.
-const DEFAULT_PRICE_ATOMICS = '1000000';
+// near-zero SOL burn; lower it only if you want more, smaller settlements. The
+// literal lives in ring-constants.js so the volume cap and the config validator
+// read the same source of truth.
+const DEFAULT_PRICE_ATOMICS = RING_SETTLE_DEFAULT_PRICE_ATOMICS;
 
 const DESCRIPTION =
 	'three.ws internal ring-settlement primitive. Platform-controlled agent ' +

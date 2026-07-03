@@ -132,8 +132,13 @@ function checkRing() {
 	try {
 		// An explicit operator pause is a chosen state, not a fault — report it as
 		// `paused` so it's visible without dragging the platform to "degraded".
-		if (process.env.X402_AUTONOMOUS_ENABLED === 'false') {
-			return { ...base, status: 'paused', detail: 'spend loop paused (X402_AUTONOMOUS_ENABLED=false)' };
+		// Two switches pause the loop: the long-standing X402_AUTONOMOUS_ENABLED=false
+		// (api/cron/x402-autonomous-loop.js) and the dedicated X402_RING_PAUSED=true
+		// tamper-quiet pause. Recognise either so the status word stays accurate
+		// whichever an operator reaches for.
+		if (process.env.X402_AUTONOMOUS_ENABLED === 'false' || process.env.X402_RING_PAUSED === 'true') {
+			const via = process.env.X402_RING_PAUSED === 'true' ? 'X402_RING_PAUSED=true' : 'X402_AUTONOMOUS_ENABLED=false';
+			return { ...base, status: 'paused', detail: `spend loop paused (${via})` };
 		}
 		const { ok, violations } = checkRingInvariants();
 		if (ok) {
