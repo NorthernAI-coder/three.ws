@@ -124,8 +124,36 @@
 			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
 			"maxDuration": 60
 		},
+		"{api/agents/solana-wallet,api/avatars/fork,api/creations,api/genome/breed,api/labor/bounty,api/labor/deliver,api/labor/release,api/x402/skill-call}.js": {
+			"includeFiles": "examples/skills/**",
+			"maxDuration": 30
+		},
+		"api/agents/onchain/[action].js": {
+			"includeFiles": "examples/skills/**",
+			"maxDuration": 30
+		},
+		"api/agents/x402/[action].js": {
+			"includeFiles": "examples/skills/**",
+			"maxDuration": 30
+		},
+		"api/chat-skills.js": {
+			"includeFiles": "{examples/skills/**,data/_generated/**}",
+			"maxDuration": 30
+		},
+		"api/skills-manifest.js": {
+			"includeFiles": "data/_generated/**",
+			"maxDuration": 30
+		},
+		"api/admin/news/[action].js": {
+			"includeFiles": "{data/archives/**,data/rss/**}",
+			"maxDuration": 30
+		},
+		"api/rss/announcements.js": {
+			"includeFiles": "{data/archives/**,data/rss/**}",
+			"maxDuration": 30
+		},
 		"api/**/*.js": {
-			"includeFiles": "{examples/skills/**,data/pages.json,data/archives/**,data/rss/**,data/_generated/**,sdk/src/sas-config.json}",
+			"includeFiles": "{data/pages.json,sdk/src/sas-config.json}",
 			"maxDuration": 30
 		}
 	},
