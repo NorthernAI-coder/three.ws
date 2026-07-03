@@ -70,6 +70,9 @@ export default wrapCron(async (req, res) => {
 	// never targets.
 	const targets = [];
 	const errors = [];
+	// Fallback env vars can resolve two registry entries to the SAME wallet
+	// (e.g. x402-ring-payer falling back to the agent key) — top it up once.
+	const seenPubkeys = new Set();
 	for (const spec of SOLANA_SIGNERS) {
 		if (spec.isMaster || spec.network === 'devnet') continue;
 		const resolved = await resolveSignerPubkey(spec);
@@ -78,6 +81,8 @@ export default wrapCron(async (req, res) => {
 			errors.push({ name: spec.name, reason: 'secret_decode_failed' });
 			continue;
 		}
+		if (seenPubkeys.has(resolved.pubkey)) continue;
+		seenPubkeys.add(resolved.pubkey);
 		let lamports;
 		try {
 			lamports = await connection.getBalance(new PublicKey(resolved.pubkey), 'confirmed');

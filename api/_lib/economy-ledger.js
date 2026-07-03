@@ -263,6 +263,159 @@ export function buildSweepRows({ masterPubkey, network = 'mainnet', result, caps
 	return rows;
 }
 
+/**
+ * Append one consolidation sweep's events (api/_lib/economy-sweepback.js) to the
+ * same hash chain: one `inflow` row per SOL return, one `inflow_token` row per
+ * token transfer, `inflow_failed` for what didn't land, and a `sweepback`
+ * summary. Inflows raise the running balance — the mirror image of recordSweep.
+ *
+ * @param {object} args
+ * @param {string} args.runId
+ * @param {string} args.masterPubkey
+ * @param {'mainnet'|'devnet'} [args.network]
+ * @param {object} args.result   the object returned by sweepBack()
+ * @param {number} [args.now]    epoch ms (injectable for tests)
+ * @returns {Promise<{written:number, seqFrom:number|null, seqTo:number|null, headHash:string|null, skippedWrite?:string}>}
+ */
+export async function recordSweepback({ runId, masterPubkey, network = 'mainnet', result, now = Date.now() }) {
+	await ensureSchema();
+	const solUsd = round6((await solPriceUsd(now)) || 0);
+	const rows = buildSweepbackRows({ masterPubkey, network, result, solUsd, now });
+	if (!rows.length) return { written: 0, seqFrom: null, seqTo: null, headHash: null };
+
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const head = await getHead(masterPubkey);
+		let seq = head ? head.seq : 0;
+		let prevHash = head ? head.entryHash : '';
+		const chained = rows.map((r, i) => {
+			const row = { ...r, seq: seq + i + 1, prev_hash: prevHash, run_id: runId };
+			row.entry_hash = hashEntry(prevHash, row);
+			prevHash = row.entry_hash;
+			return row;
+		});
+		try {
+			for (const row of chained) await insertRow(row);
+			return {
+				written: chained.length,
+				seqFrom: chained[0].seq,
+				seqTo: chained[chained.length - 1].seq,
+				headHash: prevHash,
+			};
+		} catch (err) {
+			const conflict = /duplicate key|unique/i.test(err?.message || '');
+			if (conflict && attempt === 0) continue; // re-read head and rebuild the chain
+			console.error('[economy-ledger] recordSweepback write failed', { runId, error: err?.message });
+			return { written: 0, seqFrom: null, seqTo: null, headHash: null, skippedWrite: err?.message || 'write_failed' };
+		}
+	}
+	return { written: 0, seqFrom: null, seqTo: null, headHash: null, skippedWrite: 'seq_conflict' };
+}
+
+/**
+ * Turn a sweepBack() result into ordered ledger rows with a rising running
+ * balance. Pure — no DB, no clock beyond the injected `now` — so it is
+ * unit-tested alongside buildSweepRows.
+ * @returns {Array<object>}
+ */
+export function buildSweepbackRows({ masterPubkey, network = 'mainnet', result, solUsd = 0, now = Date.now() }) {
+	const rows = [];
+	const before = result?.masterSolBefore == null ? null : round9(result.masterSolBefore);
+	let running = before ?? 0;
+	const baseTs = now;
+	let i = 0;
+	const ts = () => new Date(baseTs + i++).toISOString();
+
+	const common = {
+		master_pubkey: masterPubkey,
+		network,
+		reserve_sol: null,
+		run_cap_sol: null,
+		per_topup_max_sol: null,
+		master_sol_before: before,
+	};
+
+	for (const s of result?.sweptSol || []) {
+		const solAfter = round9(running + s.sol);
+		rows.push({
+			...common,
+			ts: ts(),
+			event: 'inflow',
+			target_name: s.name,
+			target_pubkey: s.pubkey,
+			lamports: Math.round(s.sol * 1e9),
+			sol: round9(s.sol),
+			sol_usd: solUsd || null,
+			usd_value: solUsd ? round6(s.sol * solUsd) : null,
+			tx_signature: s.signature,
+			reason: null,
+			master_sol_after: solAfter,
+			detail: null,
+		});
+		running = solAfter;
+	}
+	for (const t of result?.sweptTokens || []) {
+		rows.push({
+			...common,
+			ts: ts(),
+			event: 'inflow_token',
+			target_name: t.name,
+			target_pubkey: t.pubkey,
+			lamports: null,
+			sol: null,
+			sol_usd: solUsd || null,
+			usd_value: null,
+			tx_signature: t.signature,
+			reason: null,
+			master_sol_after: running,
+			detail: { mint: t.mint, amount: t.amount, decimals: t.decimals },
+		});
+	}
+	for (const f of result?.failed || []) {
+		rows.push({
+			...common,
+			ts: ts(),
+			event: 'inflow_failed',
+			target_name: f.name,
+			target_pubkey: f.pubkey,
+			lamports: f.sol != null ? Math.round(f.sol * 1e9) : null,
+			sol: f.sol != null ? round9(f.sol) : null,
+			sol_usd: solUsd || null,
+			usd_value: null,
+			tx_signature: null,
+			reason: f.reason || 'send_failed',
+			master_sol_after: running,
+			detail: null,
+		});
+	}
+	// Summary — always written, even on a no-op sweep, so the consolidation trail
+	// is as continuous as the funding trail.
+	rows.push({
+		...common,
+		ts: ts(),
+		event: 'sweepback',
+		target_name: null,
+		target_pubkey: null,
+		lamports: null,
+		sol: round9(result?.receivedSol ?? 0),
+		sol_usd: solUsd || null,
+		usd_value: solUsd ? round6((result?.receivedSol ?? 0) * solUsd) : null,
+		tx_signature: null,
+		reason: null,
+		master_sol_after: result?.masterSolAfter == null ? running : round9(result.masterSolAfter),
+		detail: {
+			mode: result?.mode || 'excess',
+			sol_transfers: (result?.sweptSol || []).length,
+			token_transfers: (result?.sweptTokens || []).length,
+			failed: (result?.failed || []).length,
+			skipped: result?.skipped || [],
+			received_sol: round9(result?.receivedSol ?? 0),
+			master_sol_before: before,
+			master_sol_after: result?.masterSolAfter == null ? null : round9(result.masterSolAfter),
+		},
+	});
+	return rows;
+}
+
 async function insertRow(r) {
 	await withDbRetry(() => sql`
 		INSERT INTO economy_master_ledger

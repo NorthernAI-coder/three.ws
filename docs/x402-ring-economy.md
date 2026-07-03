@@ -34,18 +34,63 @@ larger payments** via `X402_PRICE_RING_SETTLE`:
 
 \* at the 1-signature self-pay floor of ~5,000 lamports/tx.
 
-**Lever 2 — one signature, not two (`X402_RING_SELF_PAY=true`).** By default a
-settlement is signed by the buyer *and* a sponsor fee payer = 2 signatures =
-10,000 lamports base. In **self-pay** the payer pays its own fee = **1 signature =
-5,000 lamports**, half the base fee, and the facilitator broadcasts without
-co-signing (no sponsor key needed at all). The payer just holds a little SOL for
-its own fees. This is the recommended mode; the `SPONSOR_SOL_FLOOR` guard then
-watches the payer wallet.
+**Lever 2 — one signature, not two (self-pay, now the operative default).** A
+sponsored settlement is signed by the buyer *and* a sponsor fee payer = 2
+signatures = 10,000 lamports base. In **self-pay** the payer pays its own fee =
+**1 signature = 5,000 lamports**, half the base fee, and the facilitator
+broadcasts without co-signing (no sponsor key needed at all). The payer just
+holds a little SOL for its own fees.
+
+**Self-pay is the default now** — `ringSelfPayDefault()` (`pay.js`) returns true
+unless `X402_RING_SELF_PAY=false` is set explicitly. Sponsor mode is the
+fallback for gasless buyers that hold no SOL, and it still works (an explicit
+`false` selects it). In self-pay the settlement-time SOL floor guard
+(`settleRingPayment`, `self-facilitator.js`) watches the **payer** wallet
+(`feeWallet = decoded.feePayer = payer`), so the payer's balance is the hard
+stop that pauses the loop before it can drain.
 
 Priority fee is already negligible (~5 µlamports) and ATA rent is one-time and
 reclaimable. So the practical minimum is: **self-pay + the biggest per-call size
 your float supports.** $100/call settles thousands of dollars of volume for a few
 cents of SOL.
+
+### Fee floor, enforced — ceiling + continuous audit
+
+The floor is not just a default; it is guarded on both the write and the read
+side so it cannot silently regress.
+
+- **Per-tx fee ceiling.** `expectedFeeLamports({selfPay, priorityMicrolamports,
+  cuLimit})` (`pay.js`) is the pure worst-case fee for a payment's config. The
+  ring's builders keep every batch nonce under it (regression-tested), and
+  `payX402` re-checks it at runtime: a payment whose config would exceed
+  `X402_RING_MAX_FEE_PER_TX_LAMPORTS` (default 10,000) is a structured skip
+  (`fee_ceiling_exceeded:…`), never sent. Self-pay runs at ~5,000; the ceiling
+  admits sponsor mode's 10,000 and nothing above it. (The facilitator's own
+  guards — `MAX_CU_*`, `MAX_PRIORITY_LAMPORTS` — remain the adversarial bound and
+  are never raised.)
+- **Nightly fee audit** (`pipelines/fee-audit.js`, registered as `fee-audit`,
+  cooldown 86400). Sums the real chain-read fees for the day
+  (`x402_self_facilitator_log.fee_lamports`, from
+  `getParsedTransaction().meta.fee`) plus settlement/volume counts, derives
+  **lamports-per-settlement** and **SOL-per-$100-volume**, upserts one row into
+  `x402_fee_audit`, and `sendOpsAlert`s when per-settlement fee exceeds 1.5× the
+  1-sig floor (7,500 lamports) or the daily burn exceeds
+  `X402_RING_DAILY_FEE_BUDGET_LAMPORTS` (default 0.05 SOL).
+- **ATA rent reclaim** rides the same run: it enumerates the USDC token accounts
+  the ring's role wallets own and closes any **zero-balance, non-role** ATA
+  (owner-signed `closeAccount`, rent → owner, idempotent, capped 5/run). The
+  selection is a pure, unit-tested function that never returns a funded account
+  or one of the three active role ATAs (payer/treasury/sponsor).
+- **Exposed numbers.** `GET /api/x402-ring` reports
+  `fees.lamports_per_settlement` and `fees.sol_per_100_usd` live from the same
+  logs, for the dashboard and the acceptance run.
+
+**Measured (self-pay, `expectedFeeLamports` over the production builder →
+`validateRingTransaction`):** a self-paid settlement decodes to
+`estFeeLamports` of **5,000 lamports base + ≤ 60 priority = ≤ 5,060 lamports**
+across all 997 batch nonces — under the 5,100-lamport floor bar and well under
+the 10,000 ceiling. Sponsor mode measures 10,000 + ≤ 60. (On-chain live
+settlement figures land here after the task-11 activation run funds the wallets.)
 
 ## Architecture
 
@@ -140,8 +185,14 @@ then kept in a verified, watched, auto-fundable state:
   drains. Recirculation, not spend — never consumes the daily spend cap.
 - **Net-position report** — [api/x402-ring.js](../api/x402-ring.js). `GET
   /api/x402-ring?period=24h|7d|30d|all`. Gross volume, tx count, SOL burned (in
-  SOL + USD), sweep totals, live balances, and the honest bottom line: real cost
-  = fees only.
+  SOL + USD), sweep totals, live balances, the two fee-efficiency numbers
+  (`fees.lamports_per_settlement`, `fees.sol_per_100_usd`), and the honest bottom
+  line: real cost = fees only.
+- **Fee audit + ATA rent reclaim** —
+  [api/_lib/x402/pipelines/fee-audit.js](../api/_lib/x402/pipelines/fee-audit.js),
+  registered as `fee-audit` (nightly). Measures the real per-settlement and
+  per-$100 fee burn into `x402_fee_audit`, alerts on drift, and closes empty
+  non-role ATAs to reclaim their rent. Audit + reclaim only — never a spend.
 - **Volume engine** — the existing autonomous loop
   ([api/cron/x402-autonomous-loop.js](../api/cron/x402-autonomous-loop.js) →
   [volume-bootstrap-loop.js](../api/_lib/x402/pipelines/volume-bootstrap-loop.js))
@@ -149,6 +200,58 @@ then kept in a verified, watched, auto-fundable state:
 - **Setup script** — [scripts/x402-ring-setup.mjs](../scripts/x402-ring-setup.mjs).
   Generates the role wallets, writes secrets to a gitignored file, prints the env
   block. Never funds anything.
+
+## Reconciliation — proving every ring dollar on-chain
+
+The daily [revenue reconciler](../api/_lib/x402/revenue-reconciliation.js) proves
+`x402_autonomous_log` and `agent_payment_intents` against the chain, but it never
+reads the ring's own books. A settlement recorded only in
+`x402_self_facilitator_log` is a *claim*; a sweep in `x402_ring_ledger` is a
+*claim*. The [ring reconciler](../api/_lib/x402/ring-reconciliation.js)
+(`ring-reconciliation` in the autonomous registry, **every 30 min**, 72h rolling
+window, **read-only** on chain) turns each claim into a proven fact or a paged
+discrepancy — the same standard the [economy master](./financial-controls.md#2-reconciliation-coverage)
+already meets.
+
+Five checks, plus a silence alarm:
+
+| Check | What it proves | Verdict on failure | Severity |
+|---|---|---|---|
+| **Settle integrity** | every `x402_self_facilitator_log` settle (72h) exists + succeeded on-chain (batched `getSignatureStatuses`) | `x402_ring_settle_missing` / `x402_ring_settle_failed` | 🚨 CRITICAL |
+| **Amount fidelity** | a sampled subset of confirmed settles pays *exactly* `amount_atomic` of `mint` to `pay_to` (parsed from `pre/postTokenBalances`) | `x402_ring_amount_mismatch` | 🚨 CRITICAL |
+| **Sweep integrity** | every `x402_ring_ledger` `sweep` exists, succeeded, and moved the ledger amount **treasury→payer** (source must be the configured treasury) | `x402_ring_sweep_missing` / `x402_ring_sweep_failed` / `x402_ring_sweep_mismatch` | 🚨 CRITICAL |
+| **Cross-log coherence** | a ring tick lands in BOTH books (buyer side in `x402_autonomous_log`, settle side in `x402_self_facilitator_log`); joined on signature, orphans on either side are flagged | `x402_ring_log_orphan` | ⚠️ WARN (daily-throttled) |
+| **Fee coherence** | yesterday's summed `fee_lamports` vs the [fee-audit rollup](../tasks/x402-ring/05-fee-minimization.md) (`x402_fee_audit`); >20% apart means one book is wrong | `x402_ring_fee_divergence` | ⚠️ WARN (daily-throttled) |
+| **Zero-volume tripwire** | ring enabled (facilitator on + treasury set) but **zero settles in 30 min** → "enabled but silent" | `x402_ring_enabled_but_silent` | ⚠️ WARN |
+
+A **settlement with no buyer record** is the money-relevant case: value moved
+through our own facilitator with no spend we booked — the "leak through our own
+facilitator" signature. The **tripwire** is the alarm that was missing when the
+ring stopped working quietly: it fires when the loop is switched on but has gone
+silent, and its verdict flips back to reconciled the moment volume returns.
+
+**Bounds.** Read-only against the chain; `getSignatureStatuses` batched at 256;
+at most **50 `getParsedTransaction` calls per run**, with sweeps drawing from that
+budget *first* (each sweep moves the entire float). The reconciler **never mutates
+the logs it audits** — verdicts in `payment_reconciliation` and one summary row in
+`x402_autonomous_log` are its only writes.
+
+**Ops board.** Ring findings share the `payment_reconciliation` table with every
+other reconciler but carry distinct `source` values so they separate on the
+finance-integrity board:
+
+```sql
+-- the open ring findings, most recent first
+SELECT source, source_ref, chain_status, discrepancy, checked_at
+FROM payment_reconciliation
+WHERE source LIKE 'ring_%' AND reconciled = false
+ORDER BY checked_at DESC;
+```
+
+Sources: `ring_facilitator_settle`, `ring_ledger_sweep`, `ring_log_coherence`,
+`ring_fee_coherence`, `ring_tripwire`. CRITICAL findings
+(missing/failed/mismatch) page ops immediately; coherence and fee WARNs throttle
+to one alert per class per day.
 
 ## Turning it on
 
@@ -226,14 +329,20 @@ the sponsor secret, the facilitator returns `503` and nothing settles.
 For a monthly gross target `V` at per-call size `p`:
 
 - transactions ≈ `V / p`
-- SOL fee ≈ `V / p × ~0.000005 SOL` (self-pay 1-sig floor; ~0.00001 in sponsor mode)
-- one-time ATA rent ≈ 0.002 SOL per new wallet pair (reclaimable by closing ATAs)
+- SOL fee ≈ `V / p × ~0.000005 SOL` (self-pay 1-sig floor, the default; ~0.00001
+  in sponsor mode) — measured per-tx: **≤ 5,060 lamports self-pay**, capped by
+  `X402_RING_MAX_FEE_PER_TX_LAMPORTS` (default 10,000)
+- one-time ATA rent ≈ 0.002 SOL per new wallet pair — **reclaimed automatically**
+  by the nightly fee audit (closes empty non-role ATAs, rent → owner)
 - charity/facilitator leak = **$0** when `X402_CHARITY_AUDIT_BPS=0` and the
   self-hosted facilitator is used
 - principal = recirculates; net USDC position stays ~flat (see `/api/x402-ring`)
 
 Example: $10k/mo at $1/call ≈ 10k txs ≈ 0.05 SOL ≈ ~$10 real cost. At $100/call it
-is ~$0.10.
+is ~$0.10. The audit surfaces the *actual* numbers — `lamports_per_settlement`
+and `sol_per_100_usd` — from real chain-read fees, and alerts if they drift above
+the floor (>1.5× the 1-sig fee) or the daily budget
+(`X402_RING_DAILY_FEE_BUDGET_LAMPORTS`, default 0.05 SOL).
 
 ## Leak-proofing — the invariant, made active
 

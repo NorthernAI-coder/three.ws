@@ -26,6 +26,10 @@
  *   master auto-tops it up (defaults to minSol×3 in the treasury-topup cron)
  * @property {boolean} [isMaster] the funding root itself — watched for a low
  *   balance, but never a refill TARGET (it funds the others, not itself)
+ * @property {boolean} [holdsTokens] this wallet operationally HOLDS SPL token
+ *   balances (revenue, payout float, tip inventory). The sweepback module
+ *   (api/_lib/economy-sweepback.js) never takes its tokens in excess mode —
+ *   only an explicit drain consolidates them to the master.
  */
 
 /** @type {SignerSpec[]} */
@@ -77,6 +81,7 @@ export const SOLANA_SIGNERS = [
 		name: 'coin-treasury',
 		env: 'COIN_TREASURY_SECRET_KEY_B64',
 		minSol: 0.05,
+		holdsTokens: true,
 		purpose: 'signs lottery/reflection distribution txs for launched coins',
 		network: 'mainnet',
 	},
@@ -84,6 +89,7 @@ export const SOLANA_SIGNERS = [
 		name: 'three-buyback',
 		env: 'THREE_BUYBACK_SECRET_KEY_B64',
 		minSol: 0.05,
+		holdsTokens: true,
 		purpose: 'holds platform USDC revenue; pays gas for the run-three-buyback cron (market-buy $THREE → treasury)',
 		network: 'mainnet',
 	},
@@ -91,6 +97,7 @@ export const SOLANA_SIGNERS = [
 		name: 'club-treasury',
 		env: 'CLUB_SOLANA_TREASURY_SECRET_KEY_B64',
 		minSol: 0.05,
+		holdsTokens: true,
 		purpose: 'pays USDC tip-sweep transfers + recipient ATA rent (club-payouts cron)',
 		network: 'mainnet',
 	},
@@ -99,6 +106,7 @@ export const SOLANA_SIGNERS = [
 		env: 'PLATFORM_TREASURY_KEYPAIR',
 		fallbackEnv: 'TREASURY_KEYPAIR',
 		minSol: 0.05,
+		holdsTokens: true,
 		purpose: 'pays SPL withdrawal gas (process-withdrawals cron)',
 		network: 'mainnet',
 	},
@@ -139,7 +147,22 @@ export const SOLANA_SIGNERS = [
 		// Its USDC float is watched separately by the wallet-balance monitor; the
 		// economy master only ever tops up SOL, never USDC.
 		minSol: 0.03,
+		holdsTokens: true,
 		purpose: 'x402 ring payer (self-pay mode): signs + pays its own 1-sig fee on each ring settle; USDC float watched by the balance monitor',
+		network: 'mainnet',
+	},
+	{
+		name: 'circulation-treasury',
+		env: 'CIRCULATION_TREASURY_SECRET',
+		// Funds the circulation engine's whole agent pool (pulse-tick seeds every
+		// operated agent from this wallet), so it burns SOL faster than any
+		// single-flow relayer. Keep a real float and refill it generously — a dry
+		// circulation treasury is exactly the slow flatline the Money Pulse showed
+		// in late June.
+		minSol: 0.2,
+		refillTo: 0.5,
+		holdsTokens: true,
+		purpose: 'circulation engine treasury: seeds and tops up the operated agent pool each pulse-tick; dry ⇒ the live money feed goes quiet',
 		network: 'mainnet',
 	},
 	{
@@ -236,5 +259,29 @@ export async function resolveSignerPubkey(spec) {
 		return { configured: true, pubkey: kp.publicKey.toBase58(), decodeError: false };
 	} catch {
 		return { configured: true, pubkey: null, decodeError: true };
+	}
+}
+
+/**
+ * Resolve a SignerSpec to its full signing keypair (primary env var, then
+ * fallback). Same contract as resolveSignerPubkey, but for callers that need to
+ * SIGN as the wallet — e.g. the sweepback module returning a signer's balance
+ * to the economy master. Never throws: an unconfigured signer is
+ * `configured:false`, a corrupt secret is `decodeError:true`.
+ * @param {SignerSpec & { fallbackEnv?: string }} spec
+ * @returns {Promise<{ configured: boolean, keypair: import('@solana/web3.js').Keypair|null, decodeError: boolean }>}
+ */
+export async function loadSignerKeypair(spec) {
+	const secret = process.env[spec.env] || (spec.fallbackEnv ? process.env[spec.fallbackEnv] : '');
+	if (!secret) return { configured: false, keypair: null, decodeError: false };
+
+	const bytes = await decodeSecretKey(secret);
+	if (!bytes) return { configured: true, keypair: null, decodeError: true };
+
+	const { Keypair } = await import('@solana/web3.js');
+	try {
+		return { configured: true, keypair: Keypair.fromSecretKey(bytes), decodeError: false };
+	} catch {
+		return { configured: true, keypair: null, decodeError: true };
 	}
 }

@@ -271,6 +271,19 @@ const report = resolved.map((r) => {
 	};
 });
 
+// ── Roster agents (Task 09) ────────────────────────────────────────────────────
+// The custodial agent-buyer wallets (role='agent') are provisioned at runtime, not
+// declared in env, so they don't gate the exit code — but they ARE inside
+// ringAllowedAddresses() and every one of them must be a real controlled wallet.
+// List them for the operator, with live balances, so the roster is auditable next
+// to the three core roles.
+const rosterRows = (registry.rows || []).filter((w) => w.role === 'agent');
+const rosterBalances = await readBalances(rosterRows.map((w) => w.pubkey));
+const roster = rosterRows.map((w) => {
+	const bal = rosterBalances.get(w.pubkey) || { sol: null, usdc: null };
+	return { pubkey: w.pubkey, label: w.label, enabled: w.enabled, sol: bal.sol, usdc: bal.usdc };
+});
+
 if (JSON_OUT) {
 	console.log(JSON.stringify({
 		ok: !failed,
@@ -279,6 +292,7 @@ if (JSON_OUT) {
 		treasury_allowlisted: treasuryAllowlisted,
 		allowlist_size: allowlist.size,
 		wallets: report,
+		roster_agents: roster,
 	}, null, 2));
 } else {
 	console.log('\n=== three.ws x402 ring — wallet verification ===\n');
@@ -299,6 +313,12 @@ if (JSON_OUT) {
 	console.log('');
 	console.log(`  registry: ${registry.available ? (registry.fixed ? 'reconciled to env (--fix)' : 'read') : `UNREACHABLE (${registry.error})`}`);
 	console.log(`  treasury in payTo allowlist: ${treasuryAllowlisted ? '✓' : '✗'} (allowlist size ${allowlist.size})`);
+	if (registry.available) {
+		console.log(`\n  roster agents (role='agent', inside ringAllowedAddresses): ${roster.length}`);
+		for (const a of roster) {
+			console.log(`    ${a.enabled ? '✓' : '·'} ${a.label || 'agent'}  ${short(a.pubkey)}  SOL ${fmt(a.sol, 4)}  USDC ${fmt(a.usdc, 2)}`);
+		}
+	}
 	for (const w of report) {
 		for (const p of w.problems) console.log(`  ✗ ${w.role}: ${p}`);
 		if (!w.registry_ok) console.log(`  ✗ ${w.role}: registry — ${w.registry_note}`);
