@@ -2688,6 +2688,10 @@
 			"dest": "/api/sniper/history.js"
 		},
 		{
+			"src": "/api/sniper/journal",
+			"dest": "/api/sniper/journal.js"
+		},
+		{
 			"src": "/api/pump/build-metadata",
 			"dest": "/api/pump/[action]?action=build-metadata"
 		},
