@@ -44,6 +44,13 @@ export function learnedScore(signals, weights) {
  * @param {import('./types.js').Strategy} strat
  * @returns {{ pass: boolean, score: number, reasons: string[] }}
  */
+function mcEnv(k) {
+	const v = typeof process !== 'undefined' ? process.env?.[k] : null;
+	if (v == null || v === '') return null;
+	const x = Number(v);
+	return Number.isFinite(x) ? x : null;
+}
+
 export function scoreMint(mint, strat) {
 	const reasons = [];
 	let score = 0;
@@ -54,8 +61,15 @@ export function scoreMint(mint, strat) {
 	}
 
 	const mcUsd = n(mint.market_cap_usd);
-	const minMc = n(strat.min_market_cap_usd);
-	const maxMc = n(strat.max_market_cap_usd);
+	// Fleet-wide safety band (env), tightened further by any per-strategy bound —
+	// so a strategy armed with no market-cap bounds still can't buy $4k dust when
+	// the owner sets SNIPER_MIN_MC_FLOOR_USD / SNIPER_MAX_MC_CEIL_USD. Unset = off.
+	const floor = mcEnv('SNIPER_MIN_MC_FLOOR_USD');
+	const ceil = mcEnv('SNIPER_MAX_MC_CEIL_USD');
+	const sMin = n(strat.min_market_cap_usd);
+	const sMax = n(strat.max_market_cap_usd);
+	const minMc = sMin == null ? floor : floor == null ? sMin : Math.max(sMin, floor);
+	const maxMc = sMax == null ? ceil : ceil == null ? sMax : Math.min(sMax, ceil);
 	if (minMc != null && (mcUsd == null || mcUsd < minMc)) {
 		return { pass: false, score: 0, reasons: ['mc_below_min'] };
 	}

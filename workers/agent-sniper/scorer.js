@@ -13,6 +13,39 @@ function n(v) {
 	return Number.isFinite(x) ? x : null;
 }
 
+function envNum(k) {
+	const v = process.env[k];
+	if (v == null || v === '') return null;
+	const x = Number(v);
+	return Number.isFinite(x) ? x : null;
+}
+
+// Fleet-wide market-cap SAFETY BAND. Set these on the worker to enforce a band
+// across EVERY agent at once, without editing each stored strategy — the fix for a
+// fleet that was armed with no market-cap bounds and is buying $4k dust. A
+// per-strategy min/max only TIGHTENS this band, it can never loosen it. Unset =
+// no clamp (legacy behaviour). e.g. SNIPER_MIN_MC_FLOOR_USD=10000,
+// SNIPER_MAX_MC_CEIL_USD=100000 to enforce the 10k–100k rule everywhere.
+//
+// NOTE: on a blind `new_mint` snipe the create-event market cap is ~$4k, so a
+// 10k floor correctly rejects brand-new launches — to actually BUY inside the
+// band, the strategy must use the `intel_confirmed` trigger, which scores a coin
+// AFTER it has pumped into range. That is the intended, non-rug entry.
+const MC_FLOOR = envNum('SNIPER_MIN_MC_FLOOR_USD');
+const MC_CEIL = envNum('SNIPER_MAX_MC_CEIL_USD');
+
+// Combine a per-strategy bound with the fleet band: min tightens UP, max tightens DOWN.
+function tightenMin(stratMin, floor) {
+	if (stratMin == null) return floor;
+	if (floor == null) return stratMin;
+	return Math.max(stratMin, floor);
+}
+function tightenMax(stratMax, ceil) {
+	if (stratMax == null) return ceil;
+	if (ceil == null) return stratMax;
+	return Math.min(stratMax, ceil);
+}
+
 /**
  * @param {object} mint  enriched PumpPortal mint event
  * @param {object} strat agent_sniper_strategies row
@@ -28,13 +61,16 @@ export function scoreMint(mint, strat) {
 	}
 
 	const mcUsd = n(mint.market_cap_usd);
-	const minMc = n(strat.min_market_cap_usd);
-	const maxMc = n(strat.max_market_cap_usd);
+	// Effective band = the per-strategy bound tightened by the fleet-wide safety
+	// band. An unknown market cap fails a min gate — we never buy blind into a
+	// coin we can't even price into the band (that was the rug hole).
+	const minMc = tightenMin(n(strat.min_market_cap_usd), MC_FLOOR);
+	const maxMc = tightenMax(n(strat.max_market_cap_usd), MC_CEIL);
 	if (minMc != null && (mcUsd == null || mcUsd < minMc)) {
-		return { pass: false, score: 0, reasons: ['mc_below_min'] };
+		return { pass: false, score: 0, reasons: [`mc_below_min:${mcUsd ?? 'n/a'}<${minMc}`] };
 	}
 	if (maxMc != null && mcUsd != null && mcUsd > maxMc) {
-		return { pass: false, score: 0, reasons: ['mc_above_max'] };
+		return { pass: false, score: 0, reasons: [`mc_above_max:${Math.round(mcUsd)}>${maxMc}`] };
 	}
 
 	const launches = n(mint.creator_launches);
@@ -82,6 +118,18 @@ export function scoreIntel(rec, strat, weights = null) {
 	const s = rec?.signals || {};
 
 	// ── hard gates ───────────────────────────────────────────────────────────
+	// Market-cap band first — this is the trigger meant to buy INSIDE the band
+	// (a coin observed after it pumped into range), so the fleet band applies here
+	// too. Unknown mcap fails a min gate: never buy what we can't price into band.
+	const mcUsd = n(rec.market_cap_usd);
+	const minMc = tightenMin(n(strat.min_market_cap_usd), MC_FLOOR);
+	const maxMc = tightenMax(n(strat.max_market_cap_usd), MC_CEIL);
+	if (minMc != null && (mcUsd == null || mcUsd < minMc)) {
+		return { pass: false, score: 0, reasons: [`mc_below_min:${mcUsd ?? 'n/a'}<${minMc}`] };
+	}
+	if (maxMc != null && mcUsd != null && mcUsd > maxMc) {
+		return { pass: false, score: 0, reasons: [`mc_above_max:${Math.round(mcUsd)}>${maxMc}`] };
+	}
 	const minQ = n(strat.min_quality_score);
 	if (minQ != null && (rec.quality_score == null || rec.quality_score < minQ)) {
 		return { pass: false, score: 0, reasons: [`quality_below_min:${rec.quality_score}`] };
