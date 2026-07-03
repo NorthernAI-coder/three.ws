@@ -480,6 +480,7 @@ export async function scanWallet(conn, PublicKey, wallet, { allowed, usdcMint, r
 
 /** |observed - audited| / max(...). null when either side is unknown/zero. */
 export function feeDivergence(observed, audited) {
+	if (observed == null || audited == null) return null;
 	const a = Number(observed);
 	const b = Number(audited);
 	if (!Number.isFinite(a) || !Number.isFinite(b)) return null;

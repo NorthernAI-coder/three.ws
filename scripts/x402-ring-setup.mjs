@@ -20,10 +20,14 @@
 //   node scripts/x402-ring-setup.mjs --out=./secrets.json
 //   node scripts/x402-ring-setup.mjs --register      # also record pubkeys in DB
 //   node scripts/x402-ring-setup.mjs --print-secrets # echo secrets to stdout too
+//   node scripts/x402-ring-setup.mjs --force-regenerate  # bypass the overwrite guard (DANGER)
+//
+// A role that already has a key (in the secrets file or env) is NEVER
+// regenerated without --force-regenerate — an existing wallet may hold funds.
 
 import { Keypair } from '@solana/web3.js';
 import bs58 from 'bs58';
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -51,7 +55,24 @@ if (roles.length === 0) {
 const outFile = opt('out', '.x402-ring-secrets.json');
 const printSecrets = flag('print-secrets');
 
-const generated = {};
+// Overwrite guard: a role that already has a key — in the secrets file or in
+// env — may hold funds. Regenerating it would orphan that wallet. Refuse unless
+// the operator explicitly passes --force-regenerate for that run.
+const existing = existsSync(outFile) ? JSON.parse(readFileSync(outFile, 'utf8')) : {};
+const forceRegenerate = flag('force-regenerate');
+const blocked = roles.filter(
+	(role) => !forceRegenerate && (existing[role]?.secret || process.env[ROLE_ENV[role].secret]),
+);
+if (blocked.length > 0) {
+	console.error(
+		`Refusing to regenerate role(s) that already have a key: ${blocked.join(', ')}.\n` +
+			`An existing role wallet may hold funds — regenerating orphans it.\n` +
+			`Use --roles=<missing roles only>, or --force-regenerate if you are CERTAIN the old wallets are empty and retired.`,
+	);
+	process.exit(1);
+}
+
+const generated = { ...existing };
 const envLines = [];
 for (const role of roles) {
 	const kp = Keypair.generate();
@@ -64,7 +85,8 @@ for (const role of roles) {
 }
 
 // Persist secrets to a gitignored file so they are not lost and never echoed
-// into shell history / CI logs by default.
+// into shell history / CI logs by default. Roles not generated this run are
+// carried over from the existing file untouched.
 writeFileSync(outFile, JSON.stringify(generated, null, 2) + '\n', { mode: 0o600 });
 
 console.log('\n=== three.ws x402 ring — wallets generated ===\n');

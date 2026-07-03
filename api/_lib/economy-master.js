@@ -180,7 +180,7 @@ export async function resolveRegistryPubkeys() {
  * @param {'mainnet'|'devnet'} [args.network]
  * @returns {Promise<object>}
  */
-export async function sweepTopUps({ connection, targets, network = 'mainnet' }) {
+export async function sweepTopUps({ connection, targets, network = 'mainnet', dryRun = false }) {
 	const master = await loadEconomyMaster();
 	if (!master) {
 		return { configured: false, funded: [], failed: [], skipped: [], rejected: [], spentSol: 0 };
@@ -191,6 +191,23 @@ export async function sweepTopUps({ connection, targets, network = 'mainnet' }) 
 	const { safe, rejected } = filterToRegistry(targets, allowed, master.publicKey.toBase58());
 	const { sol: masterSol } = await getSolBalance(connection, master.publicKey);
 	const { plan, skipped, spendableSol } = planTopUps(masterSol, safe);
+
+	if (dryRun) {
+		return {
+			configured: true,
+			dryRun: true,
+			master: master.publicKey.toBase58(),
+			masterSol: round(masterSol),
+			reserveSol: RESERVE_SOL,
+			spendableSol,
+			plan,
+			funded: [],
+			failed: [],
+			skipped,
+			rejected,
+			spentSol: 0,
+		};
+	}
 
 	const funded = [];
 	const failed = [];
