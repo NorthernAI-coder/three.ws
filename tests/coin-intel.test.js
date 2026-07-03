@@ -247,6 +247,18 @@ describe('deriveOutcome', () => {
 		expect(o.outcome).toBe('rugged');
 		expect(o.rugged).toBe(true);
 	});
+	it('a pump that then collapsed keeps outcome pumped but IS flagged rugged', () => {
+		// ATH 5× (good entry for the learner's question) but now sub-$3k — win-rate
+		// metrics must see rugged=true so the spike doesn't count as a clean win.
+		const o = deriveOutcome({ usd_market_cap: 1000, market_cap: 5, ath_market_cap: 100000 }, 100);
+		expect(o.outcome).toBe('pumped');
+		expect(o.rugged).toBe(true);
+	});
+	it('a graduated coin is never flagged rugged off a stale bonding-curve mark', () => {
+		const o = deriveOutcome({ complete: true, usd_market_cap: 1000, market_cap: 5 }, 100);
+		expect(o.graduated).toBe(true);
+		expect(o.rugged).toBe(false);
+	});
 	it('returns unknown when the coin cannot be fetched', () => {
 		expect(deriveOutcome(null, 100).outcome).toBe('unknown');
 	});

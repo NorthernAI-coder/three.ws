@@ -68,11 +68,15 @@ async function query(days, tier, network) {
 	// calc so a stray cached USDC row can't poison the win-rate or top performers.
 	const quoteFilter = sql`and c.mint <> all(${QUOTE_MINT_LIST}::text[])`;
 
+	// Win = graduated OR (ath ≥ 2 AND not rugged). The "not rugged" clause is
+	// load-bearing: a bundle that spikes 2× and collapses is an exit-liquidity
+	// event, not a win — counting it would let pump-and-dumps inflate the very
+	// number that's supposed to expose them. Keep in sync with stats.js/wins.js.
 	const rows = await sql`
 		select
 			c.tier,
 			count(*)::int                                                                 as total,
-			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int              as wins,
+			count(*) filter (where o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)))::int as wins,
 			count(*) filter (where o.rugged or (o.ath_multiple is not null and o.ath_multiple < 1.2 and not o.graduated))::int as losses,
 			count(*) filter (where o.ath_multiple is not null)::int                       as with_ath,
 			round(avg(o.ath_multiple)::numeric, 2)                                        as avg_ath,
@@ -121,7 +125,7 @@ async function query(days, tier, network) {
 		select
 			least(width_bucket(c.score, 0, 100, 10), 10)                          as bucket,
 			count(*)::int                                                         as n,
-			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int       as wins,
+			count(*) filter (where o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)))::int as wins,
 			round(avg(c.score)::numeric, 1)                                       as avg_score
 		from oracle_conviction c
 		join pump_coin_outcomes o on o.mint = c.mint
@@ -155,8 +159,8 @@ async function query(days, tier, network) {
 	const baseRow = await sql`
 		select
 			count(*)::int                                                   as n,
-			count(*) filter (where o.graduated or o.ath_multiple >= 2)::int as wins,
-			round(avg(power((c.score / 100.0) - (case when o.graduated or o.ath_multiple >= 2 then 1 else 0 end), 2))::numeric, 4) as brier
+			count(*) filter (where o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)))::int as wins,
+			round(avg(power((c.score / 100.0) - (case when o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)) then 1 else 0 end), 2))::numeric, 4) as brier
 		from oracle_conviction c
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}

@@ -1,5 +1,5 @@
 {
-	"generated_at": "2026-07-03T18:24:38.567Z",
+	"generated_at": "2026-07-03T19:08:43.914Z",
 	"generated_by": "scripts/build-page-index.mjs from data/pages.json + data/changelog.json",
 	"site": {
 		"name": "three.ws",
@@ -253,6 +253,17 @@
 			"tags": [
 				"improvement",
 				"fix"
+			]
+		},
+		{
+			"date": "2026-07-03",
+			"type": "update",
+			"title": "Oracle win rate made honest — call win rate vs. market base rate, and rugs no longer count as wins",
+			"summary": "The Oracle dashboard used to show one “win rate” that was really the market's base rate: every scored launch counted, and a coin that spiked 2× and then rugged counted as a win. Both are fixed. A win now means graduated, or a ≥2× run on a coin that did not rug — exit-liquidity wicks no longer inflate the number. The headline stat is now the call win rate (only coins Oracle rated Lean, Strong, or Prime), shown as “no calls resolved yet” until real calls resolve, with the market base rate published separately as the baseline to beat. The proof gallery defaults to called coins only — no more crediting Oracle for moonshots it told you to avoid. Under the hood, the conviction engine also stopped punishing missing data: a launch with no pedigree observation now anchors at a neutral prior instead of zero (it used to pin every ordinary coin under a hard ceiling), while unknown pedigree still caps out below Strong — Strong and Prime must be earned with observed evidence.",
+			"link": "/oracle",
+			"tags": [
+				"fix",
+				"improvement"
 			]
 		},
 		{

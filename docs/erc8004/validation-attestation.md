@@ -56,9 +56,8 @@ The validator is a dedicated EVM key. It is **not** in the repo.
 2. **Store the secret**: set `VALIDATOR_PRIVATE_KEY` in Vercel (production +
    preview) and `.env.local` for local runs. Never commit it.
 3. **Fund** the address with gas on each ValidationRegistry chain.
-4. **Allow-list** it on each chain as the registry owner (coordinate with
-   [task 01](../../tasks/onchain-deployment/01-deploy-mainnet-validation-registry.md)
-   step 6):
+4. **Allow-list** it on each chain as the registry owner (run as the
+   ValidationRegistry deployer):
    ```
    cast send <ValidationRegistry> "addValidator(address)" \
      0x93Bc7EfB0059B784465619FC73C2db8D01b1CD04 --rpc-url <chain>

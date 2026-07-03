@@ -35,7 +35,6 @@ examples/skills/*
 !examples/skills/pump-fun-trade
 !examples/skills/pump-fun-compose
 !examples/skills/solana-wallet
-prompts
 contracts
 sdk
 chat-plugin

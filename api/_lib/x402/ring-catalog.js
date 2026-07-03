@@ -15,8 +15,8 @@
 //
 // Consumers:
 //   • api/_lib/x402/pipelines/volume-bootstrap-loop.js round-robins rotationPlan()
-//   • tasks/x402-ring/COVERAGE.md documents the one-time settle proof per entry
-//   • the ring tick (task 04) drives the same plan at its own cadence
+//   • scripts/x402-ring-coverage-sweep.js records the one-time settle proof per entry
+//   • the ring tick drives the same plan at its own cadence
 //
 // Field contract (see CatalogEntry typedef below):
 //   slug                — stable catalog id (usually the pricing slug; a `-…`

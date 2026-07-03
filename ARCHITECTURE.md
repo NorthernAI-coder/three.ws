@@ -56,10 +56,6 @@ graph TD
 
     APILayer --> Workers
 
-    subgraph Vendored["VENDORED STANDALONE"]
-        XActions["xactions/ — XActions X/Twitter toolkit\n(own package.json/deploy; not a workspace)\nMCP · CLI · extension · xspace-agents"]
-    end
-
     subgraph External["EXTERNAL SERVICES"]
         Blockchain["Blockchain: Solana · Base · Arbitrum · BSC · 12+ EVM chains"]
         AILLM["AI/LLM: Anthropic · OpenAI · NVIDIA NIM · IBM watsonx · Groq · DeepSeek"]
@@ -96,7 +92,7 @@ graph TD
 | Agent Sniper / Trading | `packages/agent-sniper/` · `workers/agent-sniper/` · `api/sniper/` | active/published | Autonomous pump.fun sniper (package + hosted worker), Money Studio, Trading Brain |
 | Agent Screen / Live | `workers/agent-screen-*` · `services/agent-screen-caster/` · `api/agent-screen*` | active | Watch agents work — headless-browser frame casting over SSE |
 | Pump.fun / Token Launch | `api/pump/` · `api/launcher/` · `workers/agent-sniper/` | active | Launch, trade, community, oracle, Launch Studio (50 recipes), autonomous Memetic Launcher |
-| X / Social automation | `xactions/` (vendored) | standalone | XActions X/Twitter toolkit — MCP, CLI, extension, dashboard, xspace-agents (not a workspace) |
+| X / Social automation | [nirholas/XActions](https://github.com/nirholas/XActions) | external | XActions X/Twitter toolkit — external repo, on npm as `xactions` (vendored copy removed 2026-07-03) |
 | Backend Compute | `workers/` · `services/` · `crates/` | active | ~25 workers (Node/Python/CF), stateful WS/caster services, Rust→WASM |
 | Infrastructure | `vercel.json` · `infra/` · `deploy/` | active | Vercel, GCP Cloud Run, AWS CDK; storage-pressure preflight, runtime feature flags |
 
@@ -165,27 +161,17 @@ Every top-level directory in the monorepo, what it is, and where to look. File c
 |-----------|-------|---------|
 | `scripts/` | ~416 | Build scripts (`build-animations.mjs`, `build-vercel.mjs`, `build-pages`), migrations, one-off tooling. |
 | `tests/` | ~617 | Test suites (`glb-canonicalize.test.js`, animation, x402, etc.). No CI runner wired (see Known Gaps). |
-| `docs/` | ~383 | ~80 `.md` guides + 24 subdirs (api, security, erc8004, agora, ux-flows, roadmap, audits, specs, onboarding, nvidia-inception, …). Source for `llms.txt`/`ALL.md` concatenations. |
+| `docs/` | ~383 | ~80 `.md` guides + 24 subdirs (api, security, erc8004, agora, ux-flows, roadmap, specs, onboarding, nvidia-inception, …). Source for `llms.txt`/`ALL.md` concatenations. |
 | `data/` | ~186 | `changelog.json`, `pages.json`, `skills/`, `rss/`, `erc8004-bsc-mint-ledger.json`, `_generated/`, `archives/`. Feeds the changelog/RSS/Telegram pipeline. |
-| `prompts/` | ~117 | Numbered agent operating playbooks (production-readiness audit, dead-paths, a11y, perf, e2e, etc.) — internal QA harness prompts. |
 | `specs/` | ~21 | Protocol specifications: `AGENT_MANIFEST.md`, `EMBED_HOST_PROTOCOL.md`, `MEMORY_SPEC.md`, `PERMISSIONS_SPEC.md`, `SKILL_SPEC.md`, `ENS_AGENT_CLAIM.md`, `x402-specification-v2.md`. |
-| `examples/` | ~52 | Runnable usage examples: `agenc-task-roundtrip`, `coach-leo`, `metamask-agent-wallet`, `pump-fun-agent`, `skills/` (pump-fun, solana-wallet, wave), bare-avatar/embed HTML demos. |
+| `examples/` | ~52 | Runnable usage examples: `agenc-task-roundtrip`, `coach-leo`, `metamask-agent-wallet`, `pump-fun-agent`, `skills/` (pump-fun, solana-wallet), bare-avatar/embed HTML demos. |
 | `agents/` | ~15 | Reference agent definitions (`endpoint-shopper`, `fact-checker`, `tutor`, `unstoppable`) each with `src/` + an index gallery. |
-| `my-agents/` | ~1 | Standalone `index.html` surface for a user's own agents (native + ERC-8004). |
 | `animation-sources/` | ~58 | Mixamo FBX source library (120+ clips) consumed by `scripts/build-animations.mjs`. |
-| `x402-buildout/` | ~42 | `PLAN.md` + `prompts/` — buildout plan wiring every x402 use case end-to-end. |
-| `content/` | ~17 | Outbound X/social schedule (`x-schedule.json/md`, `x-mcp-manifesto.md`, `whats-next/`). |
 | `snapshots/` | ~3 | Daily visual page-snapshot record (`current/`) for pre-redesign comparison. |
 | `infra/` | ~11 | AWS CDK (TypeScript) — Lambda Function URL (Forge), S3 avatar bucket, CloudWatch. |
 | `deploy/` | ~12 | Cloud Run + Docker configs (`deploy/world/cloudrun.yaml` — Hyperfy `world.three.ws`; `deploy/sniper/` — hosted sniper worker). |
-| `tasks/` | ~29 | Numbered build/hardening task specs (`tasks/test-fixes/*`) — internal engineering task briefs (e.g. `02-agora-humans.md`). |
 | `.agents/` | ~133 | `three-ws-core` Claude Code plugin + skills bundle (`.claude-plugin/plugin.json` v1.0.0) — natural-language wallet + x402 skills over the three.ws wallet API, plus bundled 3D and third-party (`okx-*`, `metamask-agent-*`) skills. Installed via the plugin marketplace. |
 
-### Vendored Standalone
-
-| Directory | Files | Purpose |
-|-----------|-------|---------|
-| `xactions/` | ~3,300 | **XActions** — vendored [nirholas/XActions](https://github.com/nirholas/XActions) (MIT, npm `xactions` v3.1.0). "The complete X/Twitter automation toolkit": DOM console scripts, Node library, CLI, a 140+-tool MCP server (`xactions-mcp`), Express/Prisma dashboard, MV3 browser extension, Python `xeepy` bindings, and the vendored `xspace-agents/` monorepo (AI voice agents for X Spaces). **Standalone** — own `package.json`/deploy (Docker/Fly/Coolify/Railway), NOT an npm workspace; coupled to three.ws only via `POST /api/oracle/social` (tweet-format ingest). See [XActions](#xactions--xtwitter-automation-toolkit-xactions). |
 
 ---
 
@@ -1403,7 +1389,7 @@ Every outbound agent payment passes a spend-control layer:
 
 ### x402 Protocol Subpackage (`api/_lib/x402/`)
 
-Modules implementing x402 v2 transports/extensions: `a2a-client`/`a2a-server`, `access-control`, `api-keys`, `audit-log`, `auth-hints`, `bazaar-client`/`bazaar-helpers`, `idempotency-cache`, `offer-receipt-issuer`/`offer-receipt-server`, `payment-identifier-client`/`payment-identifier-server`, `paywall-handler`, `receipt-storage` — **plus** the closed-loop economy layer: `self-facilitator.js`, `pay.js`/`solana-payer.js`, `autonomous-registry.js`, `revenue-analytics.js`, `revenue-reconciliation.js`, the `pipelines/` fleet, and value stores (see [Autonomous spend loop](#autonomous-spend-loop--revenue) above). (`x402-buildout/` = the top-level spec plan; the ~80 per-pipeline task specs live in `agents/x402-buildout/self/`.)
+Modules implementing x402 v2 transports/extensions: `a2a-client`/`a2a-server`, `access-control`, `api-keys`, `audit-log`, `auth-hints`, `bazaar-client`/`bazaar-helpers`, `idempotency-cache`, `offer-receipt-issuer`/`offer-receipt-server`, `payment-identifier-client`/`payment-identifier-server`, `paywall-handler`, `receipt-storage` — **plus** the closed-loop economy layer: `self-facilitator.js`, `pay.js`/`solana-payer.js`, `autonomous-registry.js`, `revenue-analytics.js`, `revenue-reconciliation.js`, the `pipelines/` fleet, and value stores (see [Autonomous spend loop](#autonomous-spend-loop--revenue) above). (The ~80 per-pipeline task specs live in `agents/x402-buildout/self/`.)
 
 **Two coexisting 402 protocols:** (1) CDP/PayAI x402 **v2 wire spec** in `api/_lib/x402-spec.js` (CAIP-2 networks, `X-PAYMENT`/`X-PAYMENT-RESPONSE` base64 envelopes, facilitator `/verify`+`/settle`, schemes `exact`/`direct`, Permit2/EIP-2612). (2) Pump **agent-skill 402** in `api/_lib/x402.js` (`version:"x402/0.1"`, `kind:"agent-skill"`, `x-payment-intent` retry header). Solana settles in **USDC or $THREE** (opt-in `X402_ACCEPT_THREE_SOLANA=true`).
 
@@ -1933,7 +1919,7 @@ The complete top-level directory map — every directory, its purpose, file coun
 
 ### Testing & QA
 
-Full test-suite layout (runners, per-directory counts, heaviest-tested subsystems) and the `prompts/` manual QA playbooks are documented under [Testing & Quality Assurance](#testing--quality-assurance) and [Build, Test & Release Pipeline](#build-test--release-pipeline).
+Full test-suite layout (runners, per-directory counts, heaviest-tested subsystems) is documented under [Testing & Quality Assurance](#testing--quality-assurance) and [Build, Test & Release Pipeline](#build-test--release-pipeline).
 
 ---
 
@@ -1946,7 +1932,7 @@ Full test-suite layout (runners, per-directory counts, heaviest-tested subsystem
 | Build | `build-animations.mjs`, `build-vercel.mjs`, `build-pages.mjs`, `build-cache.mjs`, `build-apps-sdk-viewer.mjs` | Asset/clip baking, Vercel function bundling, changelog/pages generation |
 | Schema & migration | `apply-migrations.mjs`, `apply-schema.mjs`, `apply-siwx-migration.mjs`, `apply-delegations-schema.js` | Apply `api/_lib/migrations/` to Neon |
 | Backfill | `backfill-agent-wallets.mjs`, `backfill-erc8004.mjs`, `backfill-avatar-thumbnails.mjs`, `backfill-rig-meta.mjs` | One-shot data repair / hydration |
-| Audit | `audit-links.mjs`, `audit-console.mjs`, `audit-deploy-artifacts.mjs`, `audit-mcp-manifests.mjs`, `audit-page-index.mjs` | Automated hygiene checks (back the `prompts/` playbooks) |
+| Audit | `audit-links.mjs`, `audit-console.mjs`, `audit-deploy-artifacts.mjs`, `audit-mcp-manifests.mjs`, `audit-page-index.mjs` | Automated hygiene checks |
 | Mint / on-chain | `batch-mint-agents.mjs`, `agent-invocation-smoke.mjs` | Bulk agent minting, program smoke tests |
 | Publish | `publish-packages.mjs` | Idempotent npm publish of `@three-ws/*` packages |
 | Asset baking | `build:club-{props,venue,hdri,audio,entrance-venue,assets}`, `build:walk-environments`, `bake:mannequin`, `build:wasm`, `build:canonical-rest`, `convert:fbx`, `extract:animations` | Club venue/prop/HDRI GLBs, walk environments, mannequin/rest-pose bake, WASM grinder build |
@@ -2683,28 +2669,6 @@ The seeder autonomously mass-produces public, rigged 3D avatars into the `avatar
 
 ---
 
-## XActions — X/Twitter Automation Toolkit (`xactions/`)
-
-`xactions/` is a large, self-contained **vendored fork of [nirholas/XActions](https://github.com/nirholas/XActions)** (MIT, npm `xactions` v3.1.0, homepage `xactions.app`) — "the complete X/Twitter automation toolkit." It automates X/Twitter with **no API keys**, using cookie-based auth + Puppeteer/stealth automation plus DevTools console scripts. One codebase ships five delivery surfaces plus supporting pieces:
-
-- **Node library** — `xactions/src/index.js` (~150 automation modules).
-- **Scrapers** — `xactions/src/scrapers/` (twitter, bluesky/AT-Proto, mastodon, threads; thread-unroller, exporters).
-- **MCP server** — `xactions/src/mcp/server.js` (bin `xactions-mcp`, ~140 tools; x402-gated variants in `x402-mcp.js`). Thin wrapper package `xactions/packages/xactions-mcp/`.
-- **CLI** — `xactions/src/cli/index.js` (bin `xactions`, `commander`).
-- **Browser-console tools** — `xactions/public/tools/` (the "Post Scraper" panel).
-- **Browser extension** — `xactions/extension/` (Manifest V3, Chrome/Firefox).
-- **Dashboard** — `xactions/dashboard/` (~50 static pages) served by `dashboard-server.js`.
-- **API backend** — `xactions/api/server.js` (Express, ~40 route modules incl. `a2a.js`, `x402-discovery.js`, `billing.js`; Prisma/PostgreSQL, Redis + Bull queue, Socket.IO).
-- **Python bindings** — `xactions/python/` (the `xeepy` package).
-- **`xactions/xspace-agents/`** — a *separately vendored* pnpm/turbo monorepo (`xspace-agent-monorepo` v0.1.0): AI agents that autonomously **join, listen, and speak in X/Twitter Spaces** (real-time transcription → LLM → voice), re-exported as `xactions/./spaces`.
-- Supporting: `xactions/skills/` (51 SKILL.md dirs), `docs/`, `integrations/n8n/`, `tests/` (vitest, incl. x402), `site/` (Remotion promo video), and its own Claude Code plugin (`.claude-plugin/plugin.json`).
-
-**Deployment:** its own container/PaaS pipeline — `Dockerfile`, `docker-compose(.coolify).yml`, `fly.toml`, `Procfile`, `render.yaml`, `railway.*`, `nixpacks.toml`, `wrangler.toml`, and a dedicated `xactions/vercel.json` (`scripts/deploy.sh` → `deploy:{railway,cloudflare,fly,docker}`). **Integration with three.ws:** standalone and loosely coupled — **not** an npm workspace of the root `package.json`, no submodule, and no reference in root `vercel.json`/`data/pages.json`. The only runtime touchpoint is data-format, not imports: `api/oracle/social.js` (`POST /api/oracle/social`) accepts "XActions-format" tweets to boost oracle virality scores. Also referenced as a knowledge-base skill (`data/skills/development/x-twitter-automation-guide/`). Already carried as a row in `STRUCTURE.md`.
-
-> Version note: `package.json`/`plugin.json`/`xactions-mcp` are v3.1.0 while `server.json`/`marketplace.json` still pin 3.0.42 — reconcile before quoting a single version.
-
----
-
 ## Published Artifacts
 
 ### Core Platform Packages
@@ -2764,7 +2728,7 @@ External / vendored MCP (own repo, not a `@three-ws/*` workspace):
 
 | Package | Version | Tools |
 |---------|---------|-------|
-| `xactions` (+ `xactions-mcp`) | 3.1.0 | ~140 X/Twitter automation tools — see [XActions](#xactions--xtwitter-automation-toolkit-xactions) |
+| `xactions` (+ `xactions-mcp`) | 3.1.0 | ~140 X/Twitter automation tools — source: [nirholas/XActions](https://github.com/nirholas/XActions) |
 | `@three-ws/agent-sniper` (`./mcp` face) | 0.1.0 | 7 sniper tools (`arm_/disarm_strategy`, `list_strategies`, `snipe_now`, `list_/close_position`, `sniper_status`) |
 
 ### Feature SDKs
@@ -2801,7 +2765,7 @@ External / vendored MCP (own repo, not a `@three-ws/*` workspace):
 | `@three-ws/agentcore-payments-mcp` | 0.1.0 |
 | `@three-ws/alibaba-cloud-mcp` | 0.1.0 |
 
-**Claude Code plugins:** `three-ws-core` (`.agents/.claude-plugin/`, v1.0.0) — natural-language wallet + x402 skills over the three.ws wallet API, installed via the plugin marketplace (`/plugin marketplace add nirholas/three.ws`); `xactions` (`xactions/.claude-plugin/`, v3.1.0). See [Claude Code Plugin Marketplace](#claude-code-plugin-marketplace).
+**Claude Code plugins:** `three-ws-core` (`.agents/.claude-plugin/`, v1.0.0) — natural-language wallet + x402 skills over the three.ws wallet API, installed via the plugin marketplace (`/plugin marketplace add nirholas/three.ws`). See [Claude Code Plugin Marketplace](#claude-code-plugin-marketplace).
 
 ### On-Chain Artifacts
 
@@ -3082,7 +3046,6 @@ The codebase references **~260 distinct `process.env.*` keys** across `api/`; `a
 | Skill-license marketplace initialization | `initialize_marketplace` tx not confirmed as having run on mainnet |
 | animation-sources/ population pipeline | `scripts/download-mixamo-animations.js` / `fetch-animations.sh` not automated in CI |
 | Payment reconciliation is not a cron file | The daily revenue-reconciliation job is autonomous-registry entry `revenue-reconciliation` (self/027) executed inside `api/cron/x402-autonomous-loop.js` (`*/5`), not a standalone `api/cron/*` — do not confuse with `api/cron/reconcile-decisions.js` (oracle predictions) |
-| `xactions/` version mismatch | `package.json`/`plugin.json` = v3.1.0 but `server.json`/`marketplace.json` still pin 3.0.42 |
 | Trading Brain vs Sniper paths | `src/studio/money/trading-brain.js` shares the sniper compiler/backtester/DB but drives a partly separate discretionary path (`api/trading/*`, `api/strategies`, `api/agents/:id/strategies`) — two execution surfaces to keep in sync |
 
 ---
@@ -3307,7 +3270,7 @@ All **150+ directories** under `api/` plus many top-level single-file endpoints.
 
 ### Complete MCP Tool Reference
 
-three.ws exposes MCP tools across **8 remote HTTP servers** + **34 stdio/npm servers** (`mcp-server`, `mcp-bridge`, 32 `packages/*-mcp` — now including `agentcore-payments-mcp` and `alibaba-cloud-mcp`), plus the standalone `@three-ws/agent-sniper` MCP face and the vendored `xactions-mcp` (~140 X/Twitter tools).
+three.ws exposes MCP tools across **8 remote HTTP servers** + **34 stdio/npm servers** (`mcp-server`, `mcp-bridge`, 32 `packages/*-mcp` — now including `agentcore-payments-mcp` and `alibaba-cloud-mcp`), plus the standalone `@three-ws/agent-sniper` MCP face and the external `xactions-mcp` (~140 X/Twitter tools, [nirholas/XActions](https://github.com/nirholas/XActions)).
 
 **Remote HTTP servers:**
 

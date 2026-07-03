@@ -9,8 +9,8 @@ that tops up an engine signer when that signer drops below its floor. This is th
 > Source: [`api/_lib/economy-master.js`](../api/_lib/economy-master.js) (the
 > guard logic + sweep), cron entry
 > [`api/cron/treasury-topup.js`](../api/cron/treasury-topup.js), registry
-> [`api/_lib/solana-signers.js`](../api/_lib/solana-signers.js). Operator runbook:
-> [`tasks/onchain-deployment/SOLANA-SIGNERS.md`](../tasks/onchain-deployment/SOLANA-SIGNERS.md).
+> [`api/_lib/solana-signers.js`](../api/_lib/solana-signers.js) — the registry is
+> the source of truth for every engine signer and its funding floor.
 
 **Address (mainnet vanity):** `WwwuGbqHrwF5RG89KhUbmRWEvjnRH9k5kVM5p7T3WwW`
 
@@ -259,7 +259,7 @@ The master is configured and funded, but the tree it feeds is only partly wired:
 
 ## Related
 
-- [`SOLANA-SIGNERS.md`](../tasks/onchain-deployment/SOLANA-SIGNERS.md) — every
+- [`api/_lib/solana-signers.js`](../api/_lib/solana-signers.js) — every
   engine signer, its encoding, and how to fund/consolidate the economy wallets.
 - [Circulation engine](circulation-engine.md) — the autonomous agent-to-agent
   activity loop the funded engines drive.

@@ -212,12 +212,18 @@ export function deriveOutcome(coin, mcSolFirstSeen) {
 	const ath_multiple = athSol != null && mcSolFirstSeen > 0 ? athSol / mcSolFirstSeen : null;
 	const lastMultiple = solMc != null && mcSolFirstSeen > 0 ? solMc / mcSolFirstSeen : null;
 
-	let rugged = false;
+	// The rugged flag is judged independently of the outcome label. A coin that
+	// pumped 3× and THEN collapsed is still outcome 'pumped' (the learner's
+	// "was buying at first sight good?" question), but it IS rugged — win-rate
+	// metrics downstream must not count a spike-then-collapse as a clean win.
+	const rugged = !graduated && (
+		(lastMultiple != null && lastMultiple <= 0.25) ||
+		(usdMc != null && usdMc < 3_000)
+	);
 	let outcome;
 	if (graduated) outcome = 'graduated';
 	else if (ath_multiple != null && ath_multiple >= 3) outcome = 'pumped';
-	else if (lastMultiple != null && lastMultiple <= 0.25) { outcome = 'rugged'; rugged = true; }
-	else if (usdMc != null && usdMc < 3_000) { outcome = 'rugged'; rugged = true; }
+	else if (rugged) outcome = 'rugged';
 	else outcome = 'flat';
 
 	return { outcome, graduated, rugged, ath_multiple, last_market_cap_usd: usdMc, ath_market_cap_usd: athUsd };

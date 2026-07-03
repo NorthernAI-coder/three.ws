@@ -45,7 +45,6 @@
     "three-ws",
     "vendor",
     "workers",
-    "x402-buildout",
     "xspace-agent"
   ]
 }

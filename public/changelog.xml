@@ -199,6 +199,14 @@
 			<description>When pump.fun gets flooded with copycat and bundle launches — dozens of distinct mints deployed under the exact same name and ticker, the &quot;deploy 100 more&quot; and &quot;America 250&quot; runs — the Oracle conviction feed used to show every one as its own card, so the same coin appeared to repeat ten or twenty times in a row and the feed read like it was broken. Each of those was genuinely a separate mint with its own conviction row, so nothing was actually duplicated — but the wall of identical cards buried the real, distinct launches. The feed now folds each cluster of same-name, same-ticker mints into a single card showing the highest-conviction one, tagged with a small ×N badge and a tooltip that spells out how many copies share that name. A coin you're tracking on your ★ watchlist is never folded away — it always keeps its own card — so nothing you care about disappears.</description>
 		</item>
 		<item>
+			<title>Oracle win rate made honest — call win rate vs. market base rate, and rugs no longer count as wins</title>
+			<link>https://three.ws/oracle</link>
+			<guid isPermaLink="false">2026-07-03:Oracle win rate made honest — call win rate vs. market base rate, and rugs no longer count as wins</guid>
+			<pubDate>Fri, 03 Jul 2026 12:00:00 GMT</pubDate>
+			<category>fix</category>
+			<description>The Oracle dashboard used to show one “win rate” that was really the market's base rate: every scored launch counted, and a coin that spiked 2× and then rugged counted as a win. Both are fixed. A win now means graduated, or a ≥2× run on a coin that did not rug — exit-liquidity wicks no longer inflate the number. The headline stat is now the call win rate (only coins Oracle rated Lean, Strong, or Prime), shown as “no calls resolved yet” until real calls resolve, with the market base rate published separately as the baseline to beat. The proof gallery defaults to called coins only — no more crediting Oracle for moonshots it told you to avoid. Under the hood, the conviction engine also stopped punishing missing data: a launch with no pedigree observation now anchors at a neutral prior instead of zero (it used to pin every ordinary coin under a hard ceiling), while unknown pedigree still caps out below Strong — Strong and Prime must be earned with observed evidence.</description>
+		</item>
+		<item>
 			<title>Paid endpoints never hand you a payment rail they can't complete</title>
 			<link>https://three.ws/changelog</link>
 			<guid isPermaLink="false">2026-07-03:Paid endpoints never hand you a payment rail they can't complete</guid>

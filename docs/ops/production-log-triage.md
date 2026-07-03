@@ -53,8 +53,8 @@ guard env violated:
    documented safe values from [.env.example](../../.env.example) §x402-ring —
    `X402_CHARITY_AUDIT_BPS=0`, `X402_SELF_FACILITATOR_ENABLED=true`, and either
    unset `X402_FACILITATOR_URL_SOLANA` or point it at
-   `https://three.ws/api/x402-facilitator`. Acceptance steps live in
-   [tasks/x402-ring/11-activation-acceptance.md](../../tasks/x402-ring/11-activation-acceptance.md).
+   `https://three.ws/api/x402-facilitator`. Acceptance criteria: the guard env
+   set is complete and the coverage sweep settles every catalog entry.
 
 ---
 
@@ -164,7 +164,7 @@ guard env violated:
 Everything red/yellow above, condensed to the actions only the owner can take:
 
 1. **Ring:** set `X402_AUTONOMOUS_ENABLED=false` to pause quietly, **or** finish
-   the guard env per [tasks/x402-ring/11-activation-acceptance.md](../../tasks/x402-ring/11-activation-acceptance.md) to go live.
+   the guard env (see [docs/x402-ring-economy.md](../x402-ring-economy.md)) to go live.
 2. **World:** set `ADMIN_CODE` on the world service + re-run `apply-hardening.sh`.
 3. **Replicate:** add billing credit (restores the paid forge lanes).
 4. **Neon:** add compute/pooler headroom so audit writes stop timing out.

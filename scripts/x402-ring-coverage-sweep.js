@@ -32,7 +32,7 @@
 // artifacts (pump-launch deploys a coin; cosmetic-purchase can pay a creator) —
 // only run --manual on devnet or with explicit owner sign-off.
 
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -227,6 +227,7 @@ function summarize(body) {
 }
 
 function writeReport(report) {
+	mkdirSync(OUT_DIR, { recursive: true });
 	writeFileSync(join(OUT_DIR, 'coverage-report.json'), JSON.stringify(report, null, '\t') + '\n');
 	writeFileSync(join(OUT_DIR, 'COVERAGE.md'), renderMarkdown(report));
 }

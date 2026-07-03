@@ -30,6 +30,17 @@ export const WEIGHTS = Object.freeze({
 	momentum: 0.18,
 });
 
+// Neutral prior for a pillar with NO observation at all. Most pump.fun
+// launches have no proven wallets and no creator record — that's the norm, not
+// a red flag. Scoring "unknown" as 0 used to sink every ordinary launch to a
+// hard ~55 ceiling (0.34 × 0 pedigree), which pinned the whole feed into
+// watch/avoid and made prime/strong unreachable in practice. Unknown anchors
+// low-but-neutral instead; the coverage → confidence machinery flags the
+// verdict as thin-data rather than silently punishing missing data. Observed
+// evidence (flagged wallets, a rugger creator, real smart money) still moves
+// the score from this anchor in both directions.
+export const PEDIGREE_UNKNOWN_PRIOR = 38;
+
 // Tier thresholds on the final 0–100 score. Names are chosen to be honest:
 // most launches are noise, so the bar for "prime" is deliberately high.
 const TIERS = [
@@ -39,6 +50,7 @@ const TIERS = [
 	{ min: 34, tier: 'watch', label: 'Watch' },
 	{ min: 0, tier: 'avoid', label: 'Avoid' },
 ];
+const STRONG_MIN = TIERS.find((t) => t.tier === 'strong').min;
 
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
@@ -52,7 +64,10 @@ const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
  *
  * Returns an optional `cap` (≤100): a confirmed serial-rugger creator ceilings the
  * FINAL score the same way a bundle structure does — pedigree among buyers can't
- * paper over the dev who shipped a graveyard of dead launches.
+ * paper over the dev who shipped a graveyard of dead launches. A fully
+ * unobserved pedigree (no buyer data, no creator record) anchors at
+ * PEDIGREE_UNKNOWN_PRIOR instead of 0 and ceilings the final score just below
+ * Strong: unknown is scoreable, but Strong/Prime must be earned with evidence.
  *
  * @param {object} sm smartMoney slice of CoinIntel
  * @param {object} creator creator slice of CoinIntel { label, launches, launchWins, dumpRate }
@@ -66,14 +81,17 @@ export function pedigreeScore(sm = {}, creator = {}) {
 	const flaggedWallets = notable.filter((w) => isFlagged(w.label));
 
 	// Base: prefer the brain's composite if we have one, else derive from the
-	// notable wallets' average reputation.
+	// notable wallets' average reputation, else fall back to the unknown prior —
+	// zero pedigree DATA is not the same as zero pedigree.
 	let base = num(sm.score, NaN);
+	let unknownPedigree = false;
 	if (!Number.isFinite(base)) {
 		if (provenWallets.length || notable.length) {
 			const avg = notable.reduce((s, w) => s + num(w.score), 0) / Math.max(1, notable.length);
 			base = avg;
 		} else {
-			base = 0;
+			base = PEDIGREE_UNKNOWN_PRIOR;
+			unknownPedigree = true;
 		}
 	}
 
@@ -127,6 +145,16 @@ export function pedigreeScore(sm = {}, creator = {}) {
 	const creatorDump = num(creator?.dumpRate); // 0..1
 	if (launches >= 2 && creatorDump >= 0.5) {
 		score -= 8; reasons.push(`creator dumps ${Math.round(creatorDump * 100)}% of their launches`);
+	}
+
+	// Unknown pedigree can be leaned on, not sized into. With zero buyer AND
+	// zero creator evidence, the neutral prior keeps the coin scoreable — but
+	// "we know nothing about who's in this" ceilings the final verdict just
+	// below Strong. Lean is the most conviction blindness can carry; Strong and
+	// Prime must be earned with observed pedigree.
+	if (unknownPedigree && launches === 0 && !creator?.label) {
+		cap = Math.min(cap, STRONG_MIN - 1);
+		reasons.push('pedigree unobserved — conviction capped below strong');
 	}
 
 	// Coverage: how much of this pillar's input was actually present vs. defaulted.

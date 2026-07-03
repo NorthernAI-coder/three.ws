@@ -4,7 +4,7 @@
  *   GET /api/oracle/wins
  *       ?network=mainnet     default: mainnet
  *       &period=7d|30d|90d|all  default: 30d
- *       &tier=prime|strong|lean|all  default: all
+ *       &tier=called|prime|strong|lean|watch|avoid|all  default: called
  *       &min_ath=1           minimum ATH multiple to include
  *       &limit=50            max 100
  *       &before=<iso>        pagination cursor (scored_at <)
@@ -14,7 +14,14 @@
  * "proof of edge" view — coins the oracle called and that subsequently
  * delivered measurable returns.
  *
- * Only includes entries with a positive outcome (graduated OR ath_multiple ≥ 2).
+ * Because it claims to be proof of edge, the default scope is `called` —
+ * only tiers the oracle tells people to act on (lean/strong/prime). A watch
+ * or avoid coin that mooned is not proof of anything except the market;
+ * pass tier=all explicitly to browse those.
+ *
+ * A win is graduation, or an ATH ≥ 2× on a coin that did NOT rug — a 2×
+ * wick on the way to zero is exit liquidity, not a deliverable return.
+ * (Definition shared with stats.js and backtest.js.)
  * Losses/duds are not shown here — that's the backtest endpoint.
  *
  * Public, IP rate-limited, 5-min CDN cache.
@@ -26,8 +33,11 @@ import { sql } from '../_lib/db.js';
 import { QUOTE_MINT_LIST } from '../_lib/quote-mints.js';
 
 const NETWORKS = new Set(['mainnet', 'devnet']);
-const TIERS    = new Set(['prime', 'strong', 'lean', 'watch', 'avoid', 'all']);
+const TIERS    = new Set(['called', 'prime', 'strong', 'lean', 'watch', 'avoid', 'all']);
 const PERIODS  = { '7d': 7, '30d': 30, '90d': 90, 'all': null };
+
+// The tiers the oracle actually tells people to act on.
+const CALLED_TIERS = ['lean', 'strong', 'prime'];
 
 function shapeRow(r) {
 	return {
@@ -67,12 +77,14 @@ export default wrap(async (req, res) => {
 	const network = NETWORKS.has(params.get('network')) ? params.get('network') : 'mainnet';
 	const periodKey = PERIODS.hasOwnProperty(params.get('period')) ? params.get('period') : '30d';
 	const days    = PERIODS[periodKey];
-	const tier    = TIERS.has(params.get('tier'))    ? params.get('tier')    : 'all';
+	const tier    = TIERS.has(params.get('tier'))    ? params.get('tier')    : 'called';
 	const minAth  = Math.max(1, Number(params.get('min_ath')) || 2);
 	const limit   = Math.max(1, Math.min(100, parseInt(params.get('limit'), 10) || 50));
 	const before  = params.get('before') || null;
 
-	const tierFilter   = tier !== 'all'  ? sql`and c.tier = ${tier}`           : sql``;
+	const tierFilter = tier === 'all' ? sql``
+		: tier === 'called' ? sql`and c.tier = any(${CALLED_TIERS}::text[])`
+		: sql`and c.tier = ${tier}`;
 	const periodFilter = days != null     ? sql`and c.scored_at >= now() - (${days} || ' days')::interval` : sql``;
 	const beforeFilter = before           ? sql`and c.scored_at < ${before}::timestamptz` : sql``;
 
@@ -85,7 +97,7 @@ export default wrap(async (req, res) => {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
-		  and (o.graduated or o.ath_multiple >= 2)
+		  and (o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)))
 		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		  ${tierFilter}
 		  ${periodFilter}
@@ -108,7 +120,7 @@ export default wrap(async (req, res) => {
 		join pump_coin_outcomes o on o.mint = c.mint
 		where c.network = ${network}
 		  and o.ath_multiple >= ${minAth}
-		  and (o.graduated or o.ath_multiple >= 2)
+		  and (o.graduated or (o.ath_multiple >= 2 and not coalesce(o.rugged, false)))
 		  and c.mint <> all(${QUOTE_MINT_LIST}::text[])
 		  ${tierFilter}
 		  ${periodFilter}

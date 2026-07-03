@@ -7,7 +7,7 @@ start here.
 
 Companion docs: [x402 endpoints](x402-endpoints.md) (the paid endpoint catalog),
 [x402 revenue & receipts](x402-revenue.md) (how settlements are recorded),
-[Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) (the
+[Solana signers runbook](../api/_lib/solana-signers.js) (the
 signer/funder wallets and how to fund them).
 
 ---
@@ -45,7 +45,7 @@ address ([env.js:701](../api/_lib/env.js#L701)).
 Every engine signs from its **own** keypair; a single **funding root** tops those
 signers up with SOL when they run low, and does nothing else. Documented in full —
 encodings, minimum balances, guards, funding tool — in the
-[Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) and the
+[Solana signers runbook](../api/_lib/solana-signers.js) and the
 [economy master](economy-master.md) subsystem doc.
 
 | Wallet | Role |
@@ -138,7 +138,7 @@ wallets, not the receivers — and each signer is kept funded by the
 [economy master](economy-master.md) via the `treasury-topup` cron (every 30 min,
 allowlist-guarded, reserve/per-engine/per-run caps). Which wallet funds which
 engine and minimum balances are in the
-[Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md). The
+[Solana signers runbook](../api/_lib/solana-signers.js). The
 recurring payout crons that forward the flows above:
 
 | Cron | Moves | From |
@@ -183,4 +183,4 @@ that set `auto_fund_enabled = true` (default off). See
 - [Coin-launch wallets](ux-flows/08-coin-launch-wallets.md) — launch-time wallet flow.
 - [Creator revenue splits](agent-briefs/R-3d-world-fun/phase-4/R25-creator-revenue-splits.md) — cosmetic split rationale.
 - [Agent wallet custody](internal/AGENT-WALLET-CUSTODY.md) — how custodial keys are held.
-- [Solana signers runbook](../tasks/onchain-deployment/SOLANA-SIGNERS.md) — signer/funder wallets + funding.
+- [Solana signers runbook](../api/_lib/solana-signers.js) — signer/funder wallets + funding.

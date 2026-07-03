@@ -37,9 +37,14 @@ export function gradeAction(action, outcome) {
 	const mark = entryMc && lastMc ? lastMc / entryMc : null;
 	const realized_pnl_sol = mark != null ? +(size * (mark - 1)).toFixed(6) : null;
 
+	// Loss conditions outrank a peak-based win: a coin that spiked 2× and then
+	// rugged (or is marked down >50% from entry) was not a winning call — nobody
+	// systematically exits at the wick. Graduation alone overrides, since a
+	// graduated coin has a real market regardless of the later pump.fun mark.
 	let label;
-	if (graduated || (peak != null && peak >= 2)) label = 'win';
+	if (graduated) label = 'win';
 	else if (rugged || (mark != null && mark < 0.5) || (peak != null && peak < 1.2)) label = 'loss';
+	else if (peak != null && peak >= 2) label = 'win';
 	else label = 'flat';
 
 	return { settled: true, outcome: label, peak_multiple: peak, realized_pnl_sol };
