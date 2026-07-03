@@ -36,6 +36,35 @@ const DEFAULT_WATCHDOG_MS = 180_000;
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
+// Live SOL price for market-cap enrichment. PumpPortal's firehose reports market
+// cap in SOL (`marketCapSol`); the owner's entry rule gates on USD ($10k–$100k),
+// so we MUST convert or the filter is blind and the fleet buys anything (rugs).
+// Cached + refreshed in the background; a fetch failure keeps the last good value
+// and, until we have ANY price, market_cap_usd stays unset so the scorer skips
+// the buy (mc_below_min) — the gate fails CLOSED, never silently open.
+let _solPriceUsd = 0;
+let _solPriceTimer = null;
+async function refreshSolPrice() {
+	try {
+		const r = await fetch(
+			'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+			{ signal: AbortSignal.timeout(5000) },
+		);
+		const j = await r.json();
+		const p = Number(j?.solana?.usd);
+		if (Number.isFinite(p) && p > 0) _solPriceUsd = p;
+	} catch { /* keep last good price — never zero out a working value */ }
+}
+function startSolPriceRefresh() {
+	if (_solPriceTimer) return;
+	refreshSolPrice();
+	_solPriceTimer = setInterval(refreshSolPrice, 60_000);
+	if (_solPriceTimer.unref) _solPriceTimer.unref();
+}
+function stopSolPriceRefresh() {
+	if (_solPriceTimer) { clearInterval(_solPriceTimer); _solPriceTimer = null; }
+}
+
 /**
  * Decide whether a launch is USDC-paired from whatever quote signal the event
  * carries. PumpPortal isn't fully consistent across coin versions, so we probe
@@ -71,12 +100,15 @@ function toCandidate(d) {
 	if (typeof d.symbol === 'string' && d.symbol.trim()) c.symbol = d.symbol.trim();
 	if (typeof d.name === 'string' && d.name.trim()) c.name = d.name.trim();
 
-	// PumpPortal reports market cap in SOL (`marketCapSol`); the Candidate field
-	// is USD. We have no SOL price on the firehose path here, so we omit
-	// market_cap_usd rather than ship an unconverted SOL figure as if it were
-	// dollars — a wrong unit is worse than an absent field for the scorer.
-	// (The three.ws build enriches with a price feed; the standalone package
-	// leaves USD conversion to a price-aware Solana adapter / hook.)
+	// PumpPortal reports market cap in SOL (`marketCapSol`); the owner's rule gates
+	// on USD ($10k–$100k). Convert with the live SOL price. If we have no price yet
+	// (startup / upstream blip), LEAVE market_cap_usd unset: the scorer treats an
+	// unknown mcap under a configured min as mc_below_min and SKIPS the buy — the
+	// gate fails closed rather than buying a coin whose size we can't verify.
+	const mcSol = Number(d.marketCapSol ?? d.market_cap_sol);
+	if (Number.isFinite(mcSol) && mcSol > 0 && _solPriceUsd > 0) {
+		c.market_cap_usd = mcSol * _solPriceUsd;
+	}
 
 	// The dev's opening buy, in SOL — present on most create events.
 	const initialBuy = d.initialBuy ?? d.solAmount;
@@ -112,6 +144,9 @@ export function createPumpPortalFeed(opts = {}) {
 		 * @returns {Promise<() => void>} stop function
 		 */
 		async start(onEvent) {
+			// Begin refreshing the SOL price so market_cap_usd enrichment (the owner's
+			// $10k–$100k gate) is populated as launches arrive.
+			startSolPriceRefresh();
 			// `active` gates every async continuation. Once stop() flips it false,
 			// late socket events and pending reconnect timers become no-ops, so the
 			// feed can't resurrect itself after teardown.
@@ -225,6 +260,7 @@ export function createPumpPortalFeed(opts = {}) {
 			return function stop() {
 				if (!active) return;
 				active = false;
+				stopSolPriceRefresh();
 				clearTimeout(reconnectTimer);
 				clearInterval(watchdogTimer);
 				const sock = ws;
