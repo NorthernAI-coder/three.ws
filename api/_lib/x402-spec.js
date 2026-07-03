@@ -335,6 +335,12 @@ export function baseSettleable() {
 export function solanaSettleable() {
 	const route = resolveSolanaFacilitator();
 	if (!route.self) return true; // external facilitator co-signs with its own key
+	// SELF-PAY (X402_RING_SELF_PAY): the buyer signs its own 1-signature fee and the
+	// self-facilitator only BROADCASTS the already-signed tx — no sponsor key is
+	// used (settleRingPayment's `if (!selfPay)` branch skips loadFeePayerKeypair).
+	// So self-routing is settleable when self-pay is on, even with no sponsor
+	// secret. Sponsor mode still requires the co-signing secret.
+	if (String(process.env.X402_RING_SELF_PAY || '').toLowerCase() === 'true') return true;
 	return !!String(process.env.X402_FEE_PAYER_SECRET_BASE58 || '').trim();
 }
 

@@ -136,13 +136,13 @@ export function validateRingConfig() {
 	// set, so surface it here as an error the health board and /api/x402-status show.
 	// Only meaningful when we route to our own facilitator; an external facilitator
 	// co-signs with its own key.
-	if (route.self && !String(process.env.X402_FEE_PAYER_SECRET_BASE58 || '').trim()) {
+	if (route.self && !ringSelfPayEnabled() && !String(process.env.X402_FEE_PAYER_SECRET_BASE58 || '').trim()) {
 		findings.push({
 			code: 'fee_payer_secret_missing',
 			severity: 'error',
 			message:
-				'X402_FEE_PAYER_SECRET_BASE58 is not set — the self-facilitator cannot co-sign sponsor-mode settlements, so the Solana accept is withheld and no Solana payment can settle in-house',
-			fix: 'set X402_FEE_PAYER_SECRET_BASE58 to the sponsor secret from scripts/x402-ring-setup.mjs (must match X402_FEE_PAYER_SOLANA)',
+				'X402_FEE_PAYER_SECRET_BASE58 is not set and self-pay is off — the self-facilitator cannot co-sign sponsor-mode settlements, so the Solana accept is withheld and no Solana payment can settle in-house',
+			fix: 'set X402_RING_SELF_PAY=true (buyer pays its own fee, no sponsor key needed) OR set X402_FEE_PAYER_SECRET_BASE58 to the sponsor secret (must match X402_FEE_PAYER_SOLANA)',
 		});
 	}
 	const priceAtomic = Number(priceFor('ring-settle', RING_SETTLE_DEFAULT_PRICE_ATOMICS));

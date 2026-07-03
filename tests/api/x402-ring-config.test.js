@@ -157,12 +157,19 @@ describe('validateRingConfig finding matrix', () => {
 		expect(f.severity).toBe('error');
 	});
 
-	it('flags fee_payer_secret_missing (error) when self-routing without the co-signing secret', () => {
+	it('flags fee_payer_secret_missing (error) when self-routing in SPONSOR mode without the co-signing secret', () => {
 		healthyRingEnv();
+		process.env.X402_RING_SELF_PAY = 'false'; // sponsor mode co-signs → needs the secret
 		delete process.env.X402_FEE_PAYER_SECRET_BASE58;
 		const f = validateRingConfig().find((x) => x.code === 'fee_payer_secret_missing');
 		expect(f).toBeTruthy();
 		expect(f.severity).toBe('error');
+	});
+
+	it('does NOT flag fee_payer_secret_missing in SELF-PAY mode (buyer pays its own 1-sig fee)', () => {
+		healthyRingEnv(); // self-pay is on
+		delete process.env.X402_FEE_PAYER_SECRET_BASE58;
+		expect(codes(validateRingConfig())).not.toContain('fee_payer_secret_missing');
 	});
 
 	it('does NOT flag fee_payer_secret_missing when settlement routes externally', () => {
