@@ -49,7 +49,7 @@
 		.content pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; }
 		.content pre code { background: none; border: none; padding: 0; color: #cdd6e4; }
 		.content blockquote { border-left: 3px solid #2a2a30; margin: 16px 0; padding: 2px 16px; color: var(--mut); }
-		.content table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; }
+		.content table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14px; display: block; overflow-x: auto; max-width: 100%; }
 		.content th, .content td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
 		.content th { background: #111114; }
 		.content img { max-width: 100%; border-radius: 8px; }
@@ -150,7 +150,7 @@
 				['deployment', 'Deployment', 'Shipping agents to production.'],
 			]],
 			['MCP servers', [
-				['mcp', 'Overview', 'All 20 three.ws MCP servers — hosted + npm.'],
+				['mcp', 'Overview', 'All 38 three.ws MCP servers — hosted + npm.'],
 				['mcp-scenes', 'Scenes', 'Speak a placed 3D diorama into being.'],
 				['mcp-x402', 'x402 Wallet', 'A self-custodial wallet that pays any x402 service.'],
 				['mcp-intel', 'Intel', 'Smart-money scores, wallet reputation, KOL data.'],

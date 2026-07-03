@@ -21,6 +21,8 @@ vi.mock('../api/_lib/db.js', () => {
 
 import { parseAgentIds } from '../workers/agent-sniper/config.js';
 import { mayhemVerdict, mayhemGate } from '../workers/agent-sniper/mayhem-gate.js';
+import { marketCapBandReason, scoreMint } from '../workers/agent-sniper/scorer.js';
+import { criticalFirewallReason } from '../api/_lib/trade-firewall.js';
 import { withinMasterDailyCap, masterDailyOutflowSol } from '../api/_lib/launcher-funding.js';
 
 describe('parseAgentIds (worker agent scoping)', () => {
@@ -57,6 +59,61 @@ describe('mayhemVerdict (owner rule: no pump.fun Mayhem tokens)', () => {
 describe('mayhemGate', () => {
 	it('is a no-op pass-through when the filter is disabled (no RPC)', async () => {
 		await expect(mayhemGate('AnyMint111', { mayhemFilter: false })).resolves.toEqual({ pass: true });
+	});
+});
+
+describe('marketCapBandReason (owner rule: buy only $10k–$100k, fail closed)', () => {
+	const band = { min_market_cap_usd: 10_000, max_market_cap_usd: 100_000 };
+	it('passes a coin inside the band', () => {
+		expect(marketCapBandReason(50_000, band)).toBeNull();
+	});
+	it('blocks below the floor (a sub-$10k rug)', () => {
+		expect(marketCapBandReason(4_500, band)).toMatch(/^mc_below_min:/);
+	});
+	it('blocks above the ceiling', () => {
+		expect(marketCapBandReason(250_000, band)).toMatch(/^mc_above_max:/);
+	});
+	it('FAILS CLOSED on unknown market cap when a floor exists — never buys blind', () => {
+		expect(marketCapBandReason(null, band)).toMatch(/^mc_below_min:n\/a</);
+		expect(marketCapBandReason(undefined, band)).toMatch(/^mc_below_min:n\/a</);
+	});
+	it('is a no-op when the strategy configures no band', () => {
+		expect(marketCapBandReason(null, {})).toBeNull();
+		expect(marketCapBandReason(3, {})).toBeNull();
+	});
+});
+
+describe('criticalFirewallReason (fail-closed: warnings that mean "unproven", not "safe")', () => {
+	it('returns null for no assessment / clean checks', () => {
+		expect(criticalFirewallReason(null)).toBeNull();
+		expect(criticalFirewallReason({ checks: [{ status: 'pass', reason: 'authorities_renounced' }] })).toBeNull();
+	});
+	it('flags an unproven round-trip (honeypot sim unavailable)', () => {
+		expect(criticalFirewallReason({ checks: [{ status: 'warn', reason: 'simulation_unavailable' }] }))
+			.toBe('simulation_unavailable');
+	});
+	it('flags active mint authority (infinite-supply rug)', () => {
+		expect(criticalFirewallReason({ checks: [{ status: 'warn', reason: 'mint_authority_active' }] }))
+			.toBe('mint_authority_active');
+	});
+	it('does NOT flag a non-critical warning (e.g. price impact)', () => {
+		expect(criticalFirewallReason({ checks: [{ status: 'warn', reason: 'price_impact' }] })).toBeNull();
+	});
+	it('ignores a critical code that actually passed', () => {
+		expect(criticalFirewallReason({ checks: [{ status: 'pass', reason: 'mint_authority_active' }] })).toBeNull();
+	});
+});
+
+describe('scoreMint creator-launch gate (fail closed)', () => {
+	it('skips a serial rugger over the launch cap', () => {
+		const r = scoreMint({ market_cap_usd: 50_000, creator_launches: 25 }, { max_creator_launches: 10 });
+		expect(r.pass).toBe(false);
+		expect(r.reasons).toContain('creator_too_many_launches');
+	});
+	it('FAILS CLOSED when creator history is unknown but a cap is set', () => {
+		const r = scoreMint({ market_cap_usd: 50_000, creator_launches: null }, { max_creator_launches: 10 });
+		expect(r.pass).toBe(false);
+		expect(r.reasons).toContain('creator_launches_unknown');
 	});
 });
 
