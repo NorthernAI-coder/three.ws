@@ -4,6 +4,11 @@ Each file here is a **self-contained prompt** you paste into a fresh Claude Code
 
 Read this file once; every prompt assumes it.
 
+**Strategy layer:** [fable-playbook.md](fable-playbook.md) is the operating strategy
+above these prompts — how to deploy Claude Fable 5 across them, the revenue ladder,
+OSS in/out motions, and standing routines. Read it to decide *what to run next*;
+read this file to run it safely.
+
 ---
 
 ## The prime safety doctrine (every prompt obeys this)

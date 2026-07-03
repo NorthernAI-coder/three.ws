@@ -136,6 +136,19 @@ Need a value no token expresses? Add the token to `public/tokens.css` (with a
 comment), then reference it — don't inline a one-off. Migrating existing
 hardcoded values to tokens is tracked under **B08**.
 
+### Enforcement: the token-drift ratchet (B13)
+
+`npm run audit:tokens` (part of `npm run gate`) runs
+[scripts/audit-token-drift.mjs](scripts/audit-token-drift.mjs): it counts
+hardcoded hexes that literally equal a canonical token value (`#4ade80` =
+`--success`, `#f87171` = `--danger`, `#fbbf24` = `--warn`) inside `<style>`
+blocks of `pages/` files that load the token vocabulary. The count may only go
+**down** — the baseline (`scripts/audit-token-drift.baseline.json`, currently
+**0**) fails the build if a new hardcoded status hex lands. Pages that
+deliberately re-theme a status token (they define their own `--success` etc.)
+are exempt for that token; JS/canvas literals are out of scope. When you
+eliminate drift, lock it in with `node scripts/audit-token-drift.mjs --update`.
+
 ## Brand themes
 
 A surface needing a distinct brand accent (e.g. IBM Carbon blue at `/ibm/*`)
