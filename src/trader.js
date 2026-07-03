@@ -10,7 +10,7 @@
 
 import {
 	escapeHtml, fmtSol, fmtUsd, fmtPct, pnlClass, shortAddr, holdTime, relTime,
-	identicon, verifiedBadge,
+	identicon, verifiedBadge, signatureCoin,
 } from './trader-format.js';
 import { mountCopyPanel } from './copy-panel.js';
 import { walletChipHTML, wireWalletChips } from './shared/agent-wallet-chip.js';

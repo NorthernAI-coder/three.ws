@@ -39,11 +39,6 @@ export const NAV_GROUPS = [
 				label: 'Start here',
 				items: [
 					{
-						title: 'Instant Agent Genesis',
-						href: '/genesis',
-						desc: 'Selfie or prompt → 3D agent + funded wallet + on-chain identity in 60s',
-					},
-					{
 						title: 'Create an avatar',
 						href: '/create-agent',
 						desc: 'Guided wizard: name, 3D body, skills, personality → ship it',

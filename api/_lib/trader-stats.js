@@ -160,6 +160,11 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 	const winPcts = [], lossPcts = [];
 	const holdSeconds = [];
 	const coins = new Set();
+	// Per-coin realized P&L aggregation — the "what they made it on" breakdown. A
+	// trader can round-trip the same mint several times, so we sum lamports per mint
+	// and pick the winner(s) after the loop. Provable: every lamport traces to a
+	// closed position's realized_pnl_lamports.
+	const coinAgg = new Map(); // mint -> { pnl, invested, trades, wins, symbol, name }
 	let churn = 0;
 	let bestPct = null, worstPct = null;
 	let firstActive = null, lastActive = null;
@@ -179,7 +184,17 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 		equityPnls.push(big(p.realized_pnl_lamports));
 		if (pnl > 0n) { wins += 1; grossProfit += pnl; } else if (pnl < 0n) { losses += 1; grossLoss += -pnl; }
 		invested += BigInt(p.entry_quote_lamports ?? 0);
-		if (p.mint) coins.add(p.mint);
+		if (p.mint) {
+			coins.add(p.mint);
+			let ca = coinAgg.get(p.mint);
+			if (!ca) { ca = { pnl: 0n, invested: 0n, trades: 0, wins: 0, symbol: p.symbol || null, name: p.name || null }; coinAgg.set(p.mint, ca); }
+			ca.pnl += pnl;
+			ca.invested += BigInt(p.entry_quote_lamports ?? 0);
+			ca.trades += 1;
+			if (pnl > 0n) ca.wins += 1;
+			if (!ca.symbol && p.symbol) ca.symbol = p.symbol;
+			if (!ca.name && p.name) ca.name = p.name;
+		}
 
 		const pct = p.realized_pnl_pct != null ? Number(p.realized_pnl_pct) : null;
 		if (pct != null && Number.isFinite(pct)) {
@@ -266,6 +281,28 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 
 	const usd = (sol) => (solUsd != null ? sol * solUsd : null);
 
+	// --- "What they made it on" — per-coin realized P&L, best first ---
+	// Ranked by realized SOL contribution. The trades a coin cost them count too
+	// (survivorship-honest), so a coin can rank with a negative total; the surfaces
+	// only badge `top_coin` as a signature win when it is net-positive.
+	const coinPnl = [...coinAgg.entries()]
+		.map(([mint, c]) => {
+			const pnlSol = big(c.pnl.toString()) / LAMPORTS_PER_SOL;
+			const investedSol = big(c.invested.toString()) / LAMPORTS_PER_SOL;
+			return {
+				mint,
+				symbol: c.symbol,
+				name: c.name,
+				pnl_sol: Number(pnlSol.toFixed(6)),
+				pnl_usd: usd(pnlSol) != null ? Number(usd(pnlSol).toFixed(2)) : null,
+				roi_pct: investedSol > 0 ? Number(((pnlSol / investedSol) * 100).toFixed(2)) : null,
+				trades: c.trades,
+				wins: c.wins,
+			};
+		})
+		.sort((a, b) => b.pnl_sol - a.pnl_sol);
+	const topCoin = coinPnl.length ? coinPnl[0] : null;
+
 	// Self-dealing summary (transparent, never folded into the credited numbers).
 	let selfDealClosed = 0;
 	let selfDealPnlLamports = 0n;
@@ -315,6 +352,12 @@ export function computeTraderMetrics(positions, { solUsd = null, selfDealMints =
 		median_hold_seconds: Math.round(median(holdSorted)),
 		unique_coins: coins.size,
 		churn_pct: Number(churnPct.toFixed(2)),
+
+		// What they made it on — the single top-earning coin plus a short breakdown,
+		// each number traceable to the closed positions above. `top_coin` is null
+		// only when the trader has no closed positions with a mint in this window.
+		top_coin: topCoin,
+		top_coins: coinPnl.slice(0, 3),
 
 		// Snipe hit-rate — win rate on entries inside SNIPE_WINDOW_MS of a coin's
 		// proven on-chain birth. null until at least one such launch is in the
@@ -845,6 +888,7 @@ export async function getLeaderboard({
 				avg_hold_seconds: m.avg_hold_seconds,
 				unique_coins: m.unique_coins,
 				churn_pct: m.churn_pct,
+				top_coin: m.top_coin,
 				snipe_hit_rate: m.snipe_hit_rate,
 				snipe_count: m.snipe_count,
 				self_dealing_count: m.self_dealing_count,

@@ -116,6 +116,20 @@ describe('computeTraderMetrics', () => {
 		expect(m.first_active_at).toBe('2026-01-01T00:00:00.000Z');
 		expect(m.last_active_at).toBe('2026-01-01T00:15:00.000Z'); // open E opened latest
 	});
+
+	it('surfaces the top-earning coin ("what they made it on")', () => {
+		// A made the most: +2 SOL on 1 SOL invested → +200% ROI, priced to USD.
+		expect(m.top_coin).toMatchObject({
+			mint: 'AAAA', symbol: 'A', pnl_sol: 2, roi_pct: 200, trades: 1, wins: 1,
+		});
+		expect(m.top_coin.pnl_usd).toBeCloseTo(400, 2); // 2 × 200
+	});
+
+	it('ranks the per-coin breakdown best-first, losers included', () => {
+		// Best→worst: A (+2), C (+0.5), D (+0.01) — B (−0.5) falls outside the top 3.
+		expect(m.top_coins.map((c) => c.symbol)).toEqual(['A', 'C', 'D']);
+		expect(m.top_coins[0].pnl_sol).toBe(2);
+	});
 });
 
 describe('computeTraderMetrics — degenerate inputs', () => {
@@ -128,6 +142,8 @@ describe('computeTraderMetrics — degenerate inputs', () => {
 		expect(m.realized_pnl_usd).toBe(0);
 		expect(m.verified).toBe(false);
 		expect(m.score).toBe(42); // confidence 0 → fully regressed to NEUTRAL_RAW
+		expect(m.top_coin).toBeNull(); // no closed positions → no coin to credit
+		expect(m.top_coins).toEqual([]);
 	});
 
 	it('omits USD fields when no SOL price is available', () => {
@@ -180,6 +196,13 @@ describe('computeTraderMetrics — self-dealing exclusion (anti-gaming)', () => 
 		expect(m.self_dealing_count).toBe(2);
 		expect(m.self_dealing_excluded_pnl_sol).toBeCloseTo(15, 6);
 		expect(m.self_dealing_excluded_pnl_usd).toBeCloseTo(3000, 2); // 15 × 200
+	});
+
+	it('excludes self-dealt coins from the top-coin breakdown', () => {
+		const m = computeTraderMetrics(BOOK, { solUsd: 200, selfDealMints });
+		// SELF1 (+10) would top the board if credited — the honest top coin is AAAA (+2).
+		expect(m.top_coin.mint).toBe('AAAA');
+		expect(m.top_coins.map((c) => c.mint)).toEqual(['AAAA', 'BBBB']);
 	});
 
 	it('accepts a plain object as well as a Set for selfDealMints', () => {
