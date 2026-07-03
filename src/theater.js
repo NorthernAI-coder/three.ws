@@ -390,7 +390,13 @@ export function initTheater(root) {
 			await pool(rows, 5, resolveBody);
 			state.roster = rows;
 			state.byId = new Map(rows.map((a) => [a.id, a]));
-			await stage.setRoster(rows);
+
+			// Reveal the stage as soon as we have the roster — the 3D bodies (heavy
+			// rigged avatars) stream in desk by desk rather than blocking the room
+			// behind a 30s "assembling" wait.
+			showState('stage');
+			maybeShowQuiet();
+			stage.setRoster(rows).catch((e) => log.warn('[theater] setRoster', e?.message));
 
 			// $THREE room: drop the coin centerpiece immediately as the room's anchor.
 			if (state.room.id === 'three') stage.spawnCenterpiece({ tint: 0x8b5cf6 });
@@ -400,9 +406,6 @@ export function initTheater(root) {
 
 			// Re-apply any watched highlight that belongs to this room.
 			for (const id of state.watch) if (state.byId.has(id)) stage.highlight(id);
-
-			showState('stage');
-			maybeShowQuiet();
 		} catch (err) {
 			log.warn('[theater] room load failed', err?.message);
 			showState('error');

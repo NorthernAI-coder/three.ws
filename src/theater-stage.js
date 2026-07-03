@@ -83,14 +83,12 @@ const ALL_REACTION_CLIPS = [...new Set(Object.values(REACTIONS).flat())];
 // never detonate. Ordered lightest first so the most-visible front desks paint
 // fast. cesium-man's odd 22-bone rig (the earlier "blob") is deliberately out.
 const FALLBACK_RIGS = [
-	'/avatars/cz.glb',               // ~0.6 MB, Avaturn
-	'/avatars/default.glb',          // ~0.7 MB, Avaturn (platform default)
-	'/avatars/xbot.glb',             // ~2.9 MB, Mixamo
-	'/avatars/michelle.glb',         // ~3.2 MB, Mixamo
-	'/avatars/realistic-female.glb', // ~5.7 MB, Avaturn
+	'/avatars/cz.glb',                // ~0.6 MB, Avaturn
+	'/avatars/default.glb',           // ~0.7 MB, Avaturn (platform default)
+	'/avatars/xbot.glb',              // ~2.9 MB, Mixamo
+	'/avatars/michelle.glb',          // ~3.2 MB, Mixamo
+	'/avatars/realistic-female.glb',  // ~5.7 MB, Avaturn
 	'/avatars/realistic-halfbody.glb',// ~5.9 MB, Avaturn (behind a desk = fine)
-	'/avatars/realistic-male.glb',   // ~9.7 MB, Avaturn
-	'/avatars/selfie-girl.glb',      // ~11 MB, Avaturn
 ];
 
 // A distinct, deterministic colour per desk index (golden-angle hue walk) so that
@@ -374,8 +372,12 @@ export function createStage({ canvas, overlay, onSelect, reducedMotion = false, 
 		// Everything else — an avatar-less agent, or a custom avatar that can't be
 		// rigged (a forge mesh, which is most of them) — becomes this desk's ASSIGNED
 		// fallback rig, tinted a unique colour, so no two desks ever look the same.
+		// Forge avatars are static text-to-3D meshes (no skeleton) — trying them is a
+		// wasted multi-MB download that always fails the rig gate, so skip straight to
+		// the assigned Avaturn rig. Only a genuinely riggable custom avatar is tried.
 		const realUrl = agentAvatarGlb(agent);
-		let body = realUrl !== MANNEQUIN_GLB ? await buildBody(realUrl, slot) : null;
+		const tryReal = realUrl !== MANNEQUIN_GLB && !/\/forge\//.test(realUrl);
+		let body = tryReal ? await buildBody(realUrl, slot) : null;
 		if (disposed || performers.has(agent.id)) { body?.anim?.dispose?.(); return; }
 		if (!body || !body.drivable) {
 			body?.anim?.dispose?.();
