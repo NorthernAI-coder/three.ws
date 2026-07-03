@@ -100,7 +100,7 @@ export default wrap(async (req, res) => {
 	const since = sinceFor(periodKey); // ISO string, or null = lifetime
 
 	let settlements = { count: 0, gross_usdc: 0, avg_call_usdc: null };
-	let fees = { tx_count: 0, sol_burned_lamports: 0, sol_burned: 0, per_tx_avg_lamports: null };
+	let fees = { tx_count: 0, sol_burned_lamports: 0, sol_burned: 0, per_tx_avg_lamports: null, lamports_per_settlement: null, sol_per_100_usd: null };
 	let sweeps = { count: 0, swept_usdc: 0 };
 	let recent = [];
 	let dbOk = true;
@@ -119,11 +119,19 @@ export default wrap(async (req, res) => {
 			gross_usdc: usdc(s.gross),
 			avg_call_usdc: s.n > 0 ? usdc(Number(s.gross) / s.n) : null,
 		};
+		// The two fee-efficiency numbers the "lowest fees always" rule is measured
+		// on. lamports_per_settlement is the real SOL burned per settled payment
+		// (~5,000 at the 1-signature self-pay floor); sol_per_100_usd normalizes
+		// the burn against gross volume — the headline "cost of moving a dollar".
+		const solBurned = sol(s.fee) || 0;
+		const grossUsd = usdc(s.gross) || 0;
 		fees = {
 			tx_count: s.n,
 			sol_burned_lamports: Number(s.fee),
 			sol_burned: sol(s.fee),
 			per_tx_avg_lamports: s.n > 0 ? Math.round(Number(s.fee) / s.n) : null,
+			lamports_per_settlement: s.n > 0 ? Math.round(Number(s.fee) / s.n) : null,
+			sol_per_100_usd: grossUsd > 0 ? Number(((solBurned / grossUsd) * 100).toFixed(9)) : null,
 		};
 
 		const [w] = await sql`

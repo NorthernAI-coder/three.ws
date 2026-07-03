@@ -608,3 +608,81 @@ describe('buildExactRequirements', () => {
 		expect(reqs.every((r) => r.amount === '250000')).toBe(true);
 	});
 });
+
+describe('facilitatorFor Solana resolution matrix', () => {
+	// The single seam every settle path routes through (task 02). Solana routing:
+	//   1. an explicit X402_FACILITATOR_URL_SOLANA (or legacy X402_FACILITATOR_URL)
+	//      ALWAYS wins — existing non-ring deploys never silently re-route;
+	//   2. else X402_SELF_FACILITATOR_ENABLED=true defaults to this deploy's own
+	//      /api/x402-facilitator;
+	//   3. else the external PayAI default.
+	const SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
+	const SELF_URL = 'https://three.ws/api/x402-facilitator';
+	const PAYAI = 'https://facilitator.payai.network';
+
+	beforeEach(() => {
+		delete process.env.X402_SELF_FACILITATOR_ENABLED;
+		delete process.env.X402_FACILITATOR_URL_SOLANA;
+		delete process.env.X402_FACILITATOR_URL;
+		// APP_ORIGIN default is https://three.ws, so the self URL resolves there.
+		delete process.env.PUBLIC_APP_ORIGIN;
+	});
+
+	it('flag OFF, no URL → external PayAI default (byte-identical to today)', async () => {
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe(PAYAI);
+		expect(cfg.self).toBe(false);
+	});
+
+	it('flag ON, no URL → routes to our own /api/x402-facilitator', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe(SELF_URL);
+		expect(cfg.self).toBe(true);
+	});
+
+	it('explicit external URL wins even when the flag is ON (no surprise re-route)', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FACILITATOR_URL_SOLANA = 'https://facilitator.example.test';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe('https://facilitator.example.test');
+		expect(cfg.self).toBe(false);
+	});
+
+	it('explicit self URL is recognized as self when the flag is ON', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FACILITATOR_URL_SOLANA = 'https://preview.three.ws/api/x402-facilitator';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe('https://preview.three.ws/api/x402-facilitator');
+		expect(cfg.self).toBe(true);
+	});
+
+	it('explicit URL wins with the flag OFF too', async () => {
+		process.env.X402_FACILITATOR_URL_SOLANA = 'https://facilitator.example.test';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe('https://facilitator.example.test');
+		expect(cfg.self).toBe(false);
+	});
+
+	it('legacy X402_FACILITATOR_URL is honored as an explicit URL', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = 'true';
+		process.env.X402_FACILITATOR_URL = 'https://legacy.example.test';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe('https://legacy.example.test');
+		expect(cfg.self).toBe(false);
+	});
+
+	it('a non-"true" flag value does not route to self', async () => {
+		process.env.X402_SELF_FACILITATOR_ENABLED = '1';
+		const { facilitatorFor } = await loadSpec();
+		const cfg = facilitatorFor(SOLANA);
+		expect(cfg.url).toBe(PAYAI);
+		expect(cfg.self).toBe(false);
+	});
+});

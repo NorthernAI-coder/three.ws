@@ -22,8 +22,15 @@ as an operator action. Read [00-overview.md](00-overview.md) for shared economic
    Otherwise you fund each agent address manually (step 3).
 
 ## Important platform constraints (verified)
-- **One agent-identity per user** — `agent_identities` has a unique constraint on
-  `user_id`. 33 platform agents therefore need **33 users**. The SQL below creates them.
+- **A user may own many agents.** The old one-agent-per-user unique index
+  (`agent_identities_user_unique`) was **dropped on 2026-05-13**
+  (`api/_lib/migrations/2026-05-13-drop-agent-identities-user-unique.sql`) so the
+  dashboard can create multiple agents per owner. 33 Scouts do **not** require 33
+  users — but the SQL below still creates one user per Scout for a clean 1:1
+  mapping and stable, email-keyed idempotency. Do **not** use
+  `on conflict (user_id)` on `agent_identities`; there is no matching constraint
+  and it errors with `no unique or exclusion constraint matching the ON CONFLICT
+  specification`.
 - **Appearing on `/play/arena` requires a `agent_sniper_positions` row**, not just an armed
   strategy. Let the live worker open positions, or the arena stays empty for these agents.
 - **Appearing on `/theater` requires `is_public = true`** and, for a real 3D body, an
@@ -44,14 +51,21 @@ AVATAR_ID=$(psql "$DATABASE_URL" -tAc "select id from avatars where model_url is
 echo "using avatar $AVATAR_ID"
 psql "$DATABASE_URL" <<SQL
 do \$\$
-declare uid uuid; i int;
+declare uid uuid; nm text; i int;
 begin
   for i in 1..33 loop
+    nm := 'Scout '||lpad(i::text,2,'0');
+    -- users.email is UNIQUE, so this is the real idempotency key across re-runs
     insert into users (email) values ('scout'||lpad(i::text,2,'0')||'@fleet.three.ws')
       on conflict (email) do update set email=excluded.email returning id into uid;
+    -- agent_identities.user_id is NOT unique (agent_identities_user_unique was
+    -- dropped 2026-05-13), so guard on (user_id, name) instead of ON CONFLICT.
     insert into agent_identities (user_id, name, description, is_public, avatar_id)
-      values (uid, 'Scout '||lpad(i::text,2,'0'), 'Throwaway sniper fleet agent', true, '${AVATAR_ID}')
-      on conflict (user_id) do update set name=excluded.name, is_public=true, avatar_id=excluded.avatar_id;
+      select uid, nm, 'Throwaway sniper fleet agent', true, '${AVATAR_ID}'
+      where not exists (select 1 from agent_identities where user_id = uid and name = nm);
+    -- re-assert the fields a re-run should refresh (idempotent)
+    update agent_identities set is_public = true, avatar_id = '${AVATAR_ID}'
+      where user_id = uid and name = nm;
   end loop;
 end \$\$;
 SQL

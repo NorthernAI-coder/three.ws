@@ -152,6 +152,162 @@ async function writeRedisState(redis, sample) {
 	}
 }
 
+// Read a wallet's live SOL balance (lamports) — null on any RPC failure so a
+// transient RPC hiccup never fabricates a false breach.
+async function readSol(conn, ownerB58) {
+	try {
+		return await conn.getBalance(new (await pk())(ownerB58), 'confirmed');
+	} catch {
+		return null;
+	}
+}
+
+// Read a wallet's live USDC balance (atomic) — null on RPC failure, 0 when the
+// ATA does not exist yet (a real "empty" state, not an error).
+async function readUsdc(conn, ownerB58) {
+	if (!USDC_MINT) return null;
+	try {
+		const spl = await import('@solana/spl-token');
+		const PublicKey = await pk();
+		const ata = spl.getAssociatedTokenAddressSync(
+			new PublicKey(USDC_MINT), new PublicKey(ownerB58), false,
+			spl.TOKEN_PROGRAM_ID, spl.ASSOCIATED_TOKEN_PROGRAM_ID,
+		);
+		try {
+			return Number((await spl.getAccount(conn, ata)).amount);
+		} catch {
+			return 0; // no ATA = zero USDC, a real balance
+		}
+	} catch {
+		return null; // spl-token unavailable — USDC unknown, don't fabricate a breach
+	}
+}
+
+let _PublicKey = null;
+async function pk() {
+	if (!_PublicKey) ({ PublicKey: _PublicKey } = await import('@solana/web3.js'));
+	return _PublicKey;
+}
+
+// Resolve the three ring wallet addresses from env, exactly as production does:
+// treasury = X402_PAY_TO_SOLANA, sponsor = X402_FEE_PAYER_SOLANA, payer = the
+// seed keypair's pubkey (loadSeedKeypair). Any role whose env is unset is
+// reported as unconfigured, never guessed.
+function resolveRingAddresses() {
+	let payer = null;
+	try {
+		payer = loadSeedKeypair().publicKey.toBase58();
+	} catch { /* payer key not configured in this env */ }
+	return {
+		payer,
+		treasury: env.X402_PAY_TO_SOLANA || null,
+		sponsor: env.X402_FEE_PAYER_SOLANA || null,
+	};
+}
+
+/**
+ * Check the three ring wallets against their role-appropriate floors and raise
+ * an ops alert on any breach. Reads balances live on-chain (no funds moved).
+ * Best-effort: an unresolved address or dead RPC is reported, never thrown.
+ *
+ * @param {object} ctx — { redis } optional, for the cheap-read snapshot.
+ * @returns {Promise<{ configured: boolean, wallets: object[], breaches: string[] }>}
+ */
+export async function checkRingWallets(ctx = {}) {
+	const redis = ctx.redis || null;
+	const addrs = resolveRingAddresses();
+	const anyConfigured = Boolean(addrs.payer || addrs.treasury || addrs.sponsor);
+	if (!anyConfigured) {
+		return { configured: false, wallets: [], breaches: [] };
+	}
+
+	let conn;
+	try {
+		conn = solanaConnection({ url: env.SOLANA_RPC_URL, commitment: 'confirmed' });
+	} catch (err) {
+		log.warn('ring_balance_conn_failed', { message: err?.message });
+		return { configured: true, wallets: [], breaches: [], error: 'rpc_unavailable' };
+	}
+
+	// Per-role floor spec. Treasury is intentionally floor-free (it fills + gets
+	// swept). SOL floors apply to sponsor always and to payer in self-pay mode.
+	const selfPay = String(process.env.X402_RING_SELF_PAY || env.X402_RING_SELF_PAY || '').toLowerCase() === 'true';
+	const specs = [
+		{ role: 'sponsor', address: addrs.sponsor, solFloor: RING_SOL_FLOOR_LAMPORTS, usdcFloor: null },
+		{ role: 'payer', address: addrs.payer, solFloor: selfPay ? RING_SOL_FLOOR_LAMPORTS : null, usdcFloor: RING_PAYER_USDC_FLOOR_ATOMIC },
+		{ role: 'treasury', address: addrs.treasury, solFloor: null, usdcFloor: null },
+	];
+
+	const wallets = [];
+	const breaches = [];
+	for (const spec of specs) {
+		if (!spec.address) {
+			wallets.push({ role: spec.role, address: null, configured: false });
+			continue;
+		}
+		const lamports = await readSol(conn, spec.address);
+		const usdcAtomic = spec.usdcFloor != null || spec.role === 'payer' || spec.role === 'treasury'
+			? await readUsdc(conn, spec.address)
+			: null;
+		const solLow = spec.solFloor != null && lamports != null && lamports < spec.solFloor;
+		const usdcLow = spec.usdcFloor != null && usdcAtomic != null && usdcAtomic < spec.usdcFloor;
+
+		const entry = {
+			role: spec.role,
+			address: spec.address,
+			configured: true,
+			sol: lamports != null ? lamports / LAMPORTS_PER_SOL : null,
+			usdc: usdcAtomic != null ? usdcAtomic / 1e6 : null,
+			sol_floor: spec.solFloor != null ? spec.solFloor / LAMPORTS_PER_SOL : null,
+			usdc_floor: spec.usdcFloor != null ? spec.usdcFloor / 1e6 : null,
+			sol_low: solLow,
+			usdc_low: usdcLow,
+		};
+		wallets.push(entry);
+
+		if (solLow) {
+			breaches.push(`${spec.role} SOL ${entry.sol.toFixed(4)} < floor ${entry.sol_floor.toFixed(4)}`);
+			await sendOpsAlert(
+				`⛽ x402 ring ${spec.role} low on SOL`,
+				`${spec.role} ${spec.address} holds ${entry.sol.toFixed(4)} SOL, below the ${entry.sol_floor.toFixed(4)} SOL floor. ` +
+					`Below the facilitator's ${(SPONSOR_SOL_FLOOR_LAMPORTS / LAMPORTS_PER_SOL).toFixed(4)} SOL hard floor settlement is refused and the ring halts. ` +
+					`The economy master's treasury-topup cron refills registry signers automatically; fund it or the ${spec.role} directly.`,
+				{ signature: `x402-ring-sol-low:${spec.address}` },
+			);
+		}
+		if (usdcLow) {
+			breaches.push(`${spec.role} USDC ${entry.usdc.toFixed(2)} < floor ${entry.usdc_floor.toFixed(2)}`);
+			await sendOpsAlert(
+				`💵 x402 ring ${spec.role} low on USDC float`,
+				`${spec.role} ${spec.address} holds $${entry.usdc.toFixed(2)} USDC, below the $${entry.usdc_floor.toFixed(2)} float floor. ` +
+					`The daily volume cap can no longer be fully funded — top up the payer's USDC float.`,
+				{ signature: `x402-ring-usdc-low:${spec.address}` },
+			);
+		}
+	}
+
+	// Cheap consumer snapshot (dashboard / health) — mirrors the seed-wallet key.
+	if (redis) {
+		try {
+			await redis.set(REDIS_RING_KEY, JSON.stringify({
+				ts: new Date().toISOString(), wallets, breaches,
+			}), { ex: ALERT_TTL_SECONDS });
+		} catch (err) {
+			log.warn('ring_balance_redis_write_failed', { message: err?.message });
+		}
+	}
+
+	if (breaches.length) {
+		log.warn('x402_ring_wallet_breach', { breaches });
+	} else {
+		log.info('x402_ring_wallets_ok', {
+			wallets: wallets.filter((w) => w.configured).map((w) => `${w.role}:${w.sol?.toFixed?.(3) ?? '?'}SOL/$${w.usdc?.toFixed?.(2) ?? '?'}`).join(' '),
+		});
+	}
+
+	return { configured: true, wallets, breaches };
+}
+
 /**
  * Run the wallet balance monitor. Conforms to the run()-style registry contract.
  *
@@ -249,6 +405,17 @@ export async function run(ctx = {}) {
 	};
 	await writeRedisState(redis, sample);
 
+	// ── Ring wallets (payer / treasury / sponsor) — role-floor breach alerts ──
+	// Independent of the seed-wallet reading above: these are the closed-loop
+	// ring's own wallets, watched on-chain against their role floors so the loop
+	// never halts on a drained sponsor or an empty payer float. Never throws.
+	let ring = { configured: false, wallets: [], breaches: [] };
+	try {
+		ring = await checkRingWallets({ redis });
+	} catch (err) {
+		log.warn('ring_balance_check_failed', { message: err?.message });
+	}
+
 	if (lowBalance) {
 		log.warn('agent_wallet_low_balance', {
 			run_id: runId, address, usdc, threshold: ALERT_THRESHOLD_USDC,
@@ -271,7 +438,12 @@ export async function run(ctx = {}) {
 		threshold_usdc: ALERT_THRESHOLD_USDC,
 		usdc_delta: usdcDelta,
 		spend_rate_usdc_hr: spendRateUsdcHr,
+		ring: ring.configured ? { wallets: ring.wallets, breaches: ring.breaches } : null,
 	};
+
+	const ringNote = ring.configured
+		? ` ring:${ring.breaches.length ? `BREACH(${ring.breaches.length})` : 'ok'}`
+		: '';
 
 	return {
 		// success = we obtained a live, usable reading from a configured wallet.
@@ -280,12 +452,12 @@ export async function run(ctx = {}) {
 		success: configured,
 		amountAtomic: 0,
 		txSig: null,
-		responseData: { configured, address, usdc, sol },
+		responseData: { configured, address, usdc, sol, ring },
 		signalData,
 		errorMsg: configured ? null : (body?.code || 'wallet_unconfigured'),
-		note: configured
+		note: (configured
 			? `usdc=${usdc?.toFixed?.(4) ?? usdc} sol=${sol?.toFixed?.(4) ?? sol}${lowBalance ? ' LOW_BALANCE' : ''}`
-			: 'wallet_unconfigured',
+			: 'wallet_unconfigured') + ringNote,
 	};
 }
 
@@ -294,4 +466,12 @@ export const WALLET_BALANCE = Object.freeze({
 	alertThresholdUsdc: ALERT_THRESHOLD_USDC,
 	redisLatestKey: REDIS_LATEST_KEY,
 	redisAlertKey: REDIS_ALERT_KEY,
+	// Ring-wallet floors (role-appropriate). Treasury is intentionally absent —
+	// it fills from payments and is swept back, so it has no floor.
+	ring: {
+		redisKey: REDIS_RING_KEY,
+		solFloorLamports: RING_SOL_FLOOR_LAMPORTS,
+		payerUsdcFloorAtomic: RING_PAYER_USDC_FLOOR_ATOMIC,
+		sponsorHardFloorLamports: SPONSOR_SOL_FLOOR_LAMPORTS,
+	},
 });

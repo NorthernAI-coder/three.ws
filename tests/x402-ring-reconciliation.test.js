@@ -182,34 +182,34 @@ describe('ring-reconciliation run() — settle integrity (check 1)', () => {
 		expect(v.values).toContain('ring_facilitator_settle');
 	});
 
-	it('settle missing on-chain → CRITICAL x402_ring_settle_missing', async () => {
+	it('settle whose tx is absent on-chain (null status) → CRITICAL x402_ring_settle_missing', async () => {
 		const settle = [{ id: 2, ts: iso(60_000), payer: PAYER, pay_to: TREASURY, mint: MINT, amount_atomic: 1_000_000, tx_sig: 'sigGONE' }];
 		const sql = mockSql({ settle });
-		const conn = mockConn({ statuses: { sigGONE: null } }); // present in map but null value → not found
-		// force "found:false" by returning null status. mockConn maps absent to null too;
-		// use explicit not-found:
+		// A null value from getSignatureStatuses = the RPC searched and did NOT find
+		// the signature → found:false → missing_onchain discrepancy.
+		const conn = mockConn();
 		conn.getSignatureStatuses = async (sigs) => ({ value: sigs.map(() => null) });
 		const ctx = baseCtx({ sql, conn });
 		const out = await run(ctx);
 
-		// A null status = RPC could not resolve → unknown, NOT a discrepancy.
-		expect(out.responseData.settles_unknown).toBe(1);
-		expect(out.responseData.settles_missing).toBe(0);
+		expect(out.responseData.settles_missing).toBe(1);
+		expect(out.responseData.discrepancies).toBe(1);
+		const v = sql.calls.find((c) => /INSERT INTO payment_reconciliation/i.test(c.text) && c.values.includes('x402_ring_settle_missing'));
+		expect(v).toBeTruthy();
 	});
 
-	it('settle with a definitively-absent tx → missing_onchain CRITICAL', async () => {
-		const settle = [{ id: 3, ts: iso(60_000), payer: PAYER, pay_to: TREASURY, mint: MINT, amount_atomic: 1_000_000, tx_sig: 'sigABSENT' }];
+	it('RPC batch failure → unknown, NOT a discrepancy (self-heals next run)', async () => {
+		const settle = [{ id: 3, ts: iso(60_000), payer: PAYER, pay_to: TREASURY, mint: MINT, amount_atomic: 1_000_000, tx_sig: 'sigRPCDOWN' }];
 		const sql = mockSql({ settle });
-		const conn = mockConn({ statuses: { sigABSENT: { found: false, err: null } } });
-		// mockConn only emits found via presence; craft explicit found:false:
-		conn.getSignatureStatuses = async () => ({ value: [null] }); // null → unknown
-		// Instead drive the classifier through the module's own found:false path:
-		conn.getSignatureStatuses = async () => ({ value: [{ /* present but empty */ }] });
-		// A present-but-no-err status object means found:true, err:null → confirmed.
+		const conn = mockConn();
+		conn.getSignatureStatuses = async () => { throw new Error('rpc_unreachable'); };
 		const ctx = baseCtx({ sql, conn });
-		await run(ctx);
-		// This case is covered more precisely by the failed-onchain test below; keep as smoke.
-		expect(true).toBe(true);
+		const out = await run(ctx);
+
+		expect(out.responseData.settles_unknown).toBe(1);
+		expect(out.responseData.settles_missing).toBe(0);
+		expect(out.responseData.discrepancies).toBe(0);
+		expect(ctx.alerts.length).toBe(0);
 	});
 
 	it('settle reverted on-chain → CRITICAL x402_ring_settle_failed + page', async () => {
