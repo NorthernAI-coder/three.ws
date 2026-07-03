@@ -299,7 +299,7 @@ export function ensureRiskAck({ context = 'real-funds' } = {}) {
 			acceptBtn.disabled = !checkbox.checked;
 		});
 		acceptBtn.addEventListener('click', () => {
-			if (!checkbox.checked) return;
+			if (settled || !checkbox.checked) return;
 			const record = {
 				version: RISK_ACK_VERSION,
 				acceptedAt: new Date().toISOString(),
@@ -315,6 +315,10 @@ export function ensureRiskAck({ context = 'real-funds' } = {}) {
 			finish(false);
 		});
 		dialog.addEventListener('click', (e) => {
+			// Only a click on the <dialog> element itself can be a ::backdrop click —
+			// clicks on inner content target the inner nodes. Checking coordinates
+			// alone misfires on keyboard/programmatic activations, which report (0,0).
+			if (e.target !== dialog) return;
 			const rect = dialog.getBoundingClientRect();
 			const outside =
 				e.clientX < rect.left || e.clientX > rect.right ||
